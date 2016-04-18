@@ -201,12 +201,6 @@ struct _E_Comp_Wl_Data
 
    struct
      {
-        struct wl_resource *shell;
-        struct wl_resource *xdg_shell;
-     } shell_interface;
-
-   struct
-     {
         struct wl_global *global;
         Eina_List *resources;
         Eina_List *device_list;

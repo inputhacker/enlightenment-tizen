@@ -1765,7 +1765,6 @@ _e_comp_wl_evas_cb_delete_request(void *data, Evas_Object *obj EINA_UNUSED, void
    E_Client *ec;
 
    if (!(ec = data)) return;
-   if (ec->netwm.ping) e_client_ping(ec);
 
    e_comp_ignore_win_del(E_PIXMAP_TYPE_WL, e_pixmap_window_get(ec->pixmap));
 
@@ -1783,7 +1782,6 @@ _e_comp_wl_evas_cb_kill_request(void *data, Evas_Object *obj EINA_UNUSED, void *
    E_Client *ec;
 
    if (!(ec = data)) return;
-   /* if (ec->netwm.ping) e_client_ping(ec); */
 
    e_comp_ignore_win_del(E_PIXMAP_TYPE_WL, e_pixmap_window_get(ec->pixmap));
    if (ec->comp_data)
