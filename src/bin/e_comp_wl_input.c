@@ -35,7 +35,6 @@ _e_comp_wl_input_pointer_map(struct wl_resource *resource)
    if (e_object_is_del(E_OBJECT(ec))) return;
 
    e_pointer_object_set(e_comp->pointer, ec->frame, ec->x, ec->y);
-   ec->comp_data->mapped = EINA_TRUE;
 }
 
 static void
@@ -92,8 +91,9 @@ _e_comp_wl_input_pointer_cb_cursor_set(struct wl_client *client, struct wl_resou
         ec->x = x;
         ec->y = y;
 
-        ec->lock_focus_out = ec->layer_block = ec->visible = ec->override = 1;
-        ec->icccm.title = eina_stringshare_add("noshadow");
+        ec->lock_focus_out = ec->layer_block = ec->visible = 1;
+        //ec->override = 1;
+        ec->icccm.title = eina_stringshare_add("Cursor");
         ec->icccm.window_role = eina_stringshare_add("wl_pointer-cursor");
         evas_object_pass_events_set(ec->frame, 1);
         e_client_focus_stack_set(eina_list_remove(e_client_focus_stack_get(), ec));
@@ -103,6 +103,8 @@ _e_comp_wl_input_pointer_cb_cursor_set(struct wl_client *client, struct wl_resou
         ec->comp_data->shell.surface = surface_resource;
         ec->comp_data->shell.configure = _e_comp_wl_input_pointer_configure;
         ec->comp_data->shell.map = _e_comp_wl_input_pointer_map;
+
+        evas_object_layer_set(ec->frame, E_LAYER_MAX - 1);
      }
 
    /* ignore cursor changes during resize/move I guess */

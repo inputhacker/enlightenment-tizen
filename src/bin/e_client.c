@@ -842,7 +842,6 @@ _e_client_del(E_Client *ec)
           ec->cur_mouse_action->func.end(E_OBJECT(ec), "");
      }
    if (action_client == ec) _e_client_action_finish();
-   e_pointer_type_pop(e_comp->pointer, ec, NULL);
 
    if (warp_client == ec)
      {
@@ -1083,7 +1082,6 @@ _e_client_move_end(E_Client *ec)
         //client_grabbed = 0;
      //}
    _e_client_action_input_win_del();
-   e_pointer_mode_pop(ec, E_POINTER_MOVE);
    ec->moving = 0;
    _e_client_hook_call(E_CLIENT_HOOK_MOVE_END, ec);
 
@@ -1303,7 +1301,6 @@ static int
 _e_client_resize_end(E_Client *ec)
 {
    _e_client_action_input_win_del();
-   e_pointer_mode_pop(ec, ec->resize_mode);
    ec->resize_mode = E_POINTER_RESIZE_NONE;
 
    /* If this border was maximized, we need to unset Maximized state or
@@ -1637,7 +1634,6 @@ _e_client_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
         E_FREE_FUNC(ec->cur_mouse_action, e_object_unref);
      }
    if (action_client == ec) _e_client_action_finish();
-   e_pointer_type_pop(e_comp->pointer, ec, NULL);
 
    if (!ec->hidden)
      {
@@ -5169,7 +5165,6 @@ e_client_act_move_begin(E_Client *ec, E_Binding_Event_Mouse_Button *ev)
 
    _e_client_action_init(ec);
    e_zone_edge_disable();
-   e_pointer_mode_push(ec, E_POINTER_MOVE);
 }
 
 E_API void
@@ -5251,7 +5246,6 @@ e_client_act_resize_begin(E_Client *ec, E_Binding_Event_Mouse_Button *ev)
    if (!e_client_resize_begin(ec))
      return;
    _e_client_action_init(ec);
-   e_pointer_mode_push(ec, ec->resize_mode);
 }
 
 E_API void
@@ -5331,114 +5325,13 @@ e_client_ping(E_Client *ec)
                                       _e_client_cb_ping_poller, ec);
 }
 
-static void
-_e_client_map_transform(int width, int height, uint32_t transform,
-                         int sx, int sy, int *dx, int *dy)
-{
-   switch (transform)
-     {
-      case WL_OUTPUT_TRANSFORM_NORMAL:
-      default:
-        *dx = sx, *dy = sy;
-        break;
-      case WL_OUTPUT_TRANSFORM_90:
-        *dx = height - sy, *dy = sx;
-        break;
-      case WL_OUTPUT_TRANSFORM_180:
-        *dx = width - sx, *dy = height - sy;
-        break;
-      case WL_OUTPUT_TRANSFORM_270:
-        *dx = sy, *dy = width - sx;
-        break;
-     }
-}
-
 ////////////////////////////////////////////
 E_API void
 e_client_cursor_map_apply(E_Client *ec, int rotation, int x, int y)
 {
-   Evas_Map *map;
-   int x1, y1, x2, y2, dx, dy;
-   int32_t width, height;
-   int cursor_w, cursor_h;
-   uint32_t transform;
-   int rot_x = x, rot_y = y;
-   int zone_w = ec->zone->w;
-   int zone_h = ec->zone->h;
-   double awh = ((double)zone_w / (double)zone_h);
-   double ahw = ((double)zone_h / (double)zone_w);
-
-   if ((rotation == 0) || (rotation % 90 != 0) || (rotation / 90 > 3))
-     {
-        evas_object_map_set(ec->frame, NULL);
-        evas_object_map_enable_set(ec->frame, EINA_FALSE);
-        evas_object_move(ec->frame, x, y);
-
-        return;
-     }
-
-   evas_object_geometry_get(ec->frame, NULL, NULL, &cursor_w, &cursor_h);
-   width = cursor_w;
-   height = cursor_h;
-
-   switch(rotation)
-     {
-      case 90:
-         rot_x = y * awh;
-         rot_y = ahw * (zone_w - x);
-         transform = WL_OUTPUT_TRANSFORM_90;
-         width = cursor_h;
-         height = cursor_w;
-         break;
-      case 180:
-         rot_x = zone_w - x;
-         rot_y = zone_h - y;
-         transform = WL_OUTPUT_TRANSFORM_180;
-         break;
-      case 270:
-         rot_x = awh * (zone_h - y);
-         rot_y = ahw * x;
-         transform = WL_OUTPUT_TRANSFORM_270;
-         width = cursor_h;
-         height = cursor_w;
-         break;
-      default:
-         transform = WL_OUTPUT_TRANSFORM_NORMAL;
-         break;
-     }
-   ec->client.x = rot_x, ec->client.y = rot_y;
-   ec->x = rot_x, ec->y = rot_y;
-
-   map = evas_map_new(4);
-   evas_map_util_points_populate_from_geometry(map,
-                                               ec->x, ec->y,
-                                               width, height, 0);
-
-   x1 = 0.0;
-   y1 = 0.0;
-   x2 = width;
-   y2 = height;
-
-   _e_client_map_transform(width, height, transform,
-                            x1, y1, &dx, &dy);
-   evas_map_point_image_uv_set(map, 0, dx, dy);
-
-   _e_client_map_transform(width, height, transform,
-                            x2, y1, &dx, &dy);
-   evas_map_point_image_uv_set(map, 1, dx, dy);
-
-   _e_client_map_transform(width, height, transform,
-                            x2, y2, &dx, &dy);
-   evas_map_point_image_uv_set(map, 2, dx, dy);
-
-   _e_client_map_transform(width, height, transform,
-                            x1, y2, &dx, &dy);
-   evas_map_point_image_uv_set(map, 3, dx, dy);
-
-   evas_object_map_set(ec->frame, map);
-   evas_object_map_enable_set(ec->frame, map ? EINA_TRUE : EINA_FALSE);
-
-   evas_map_free(map);
+   // TODO: repace the e_client_cursor_map_apply to e_pointer_rotation_set
+   //       remove(deprecate) the e_client_cursor_map_apply.
+   e_pointer_rotation_set(e_comp->pointer, rotation);
 }
 
 E_API void
@@ -5536,7 +5429,6 @@ e_client_signal_move_begin(E_Client *ec, const char *sig, const char *src EINA_U
    if (e_client_util_resizing_get(ec) || (ec->moving)) return;
    _e_client_moveinfo_gather(ec, sig);
    if (!_e_client_move_begin(ec)) return;
-   e_pointer_mode_push(ec, E_POINTER_MOVE);
    e_zone_edge_disable();
 }
 
@@ -5597,7 +5489,6 @@ e_client_signal_resize_begin(E_Client *ec, const char *dir, const char *sig, con
    _e_client_moveinfo_gather(ec, sig);
    if (!e_client_resize_begin(ec))
      return;
-   e_pointer_mode_push(ec, ec->resize_mode);
 }
 
 E_API void

@@ -1,459 +1,164 @@
 #include "e.h"
 
-typedef struct _E_Pointer_Stack E_Pointer_Stack;
-struct _E_Pointer_Stack
-{
-   void *obj;
-   const char *type;
-};
-
 /* local variables */
-static Eina_List *_hdlrs = NULL;
 static Eina_List *_ptrs = NULL;
 static Eina_Bool _initted = EINA_FALSE;
 
-static inline void
-_e_pointer_theme_buf(E_Pointer *ptr, char cursor[1024])
+static void
+_e_pointer_map_transform(int width, int height, uint32_t transform,
+                         int sx, int sy, int *dx, int *dy)
 {
-   if (ptr->color)
-     snprintf(cursor, 1024, "e/pointer/enlightenment/%s/color", ptr->type);
-   else
-     snprintf(cursor, 1024, "e/pointer/enlightenment/%s/mono", ptr->type);
-}
-
-static inline void 
-_e_pointer_hot_update(E_Pointer *ptr, int x, int y)
-{
-   if ((ptr->hot.x != x) || (ptr->hot.y != y))
+   switch (transform)
      {
-        ptr->hot.x = x;
-        ptr->hot.y = y;
-        ptr->hot.update = EINA_TRUE;
+      case WL_OUTPUT_TRANSFORM_NORMAL:
+      default:
+        *dx = sx, *dy = sy;
+        break;
+      case WL_OUTPUT_TRANSFORM_90:
+        *dx = height - sy, *dy = sx;
+        break;
+      case WL_OUTPUT_TRANSFORM_180:
+        *dx = width - sx, *dy = height - sy;
+        break;
+      case WL_OUTPUT_TRANSFORM_270:
+        *dx = sy, *dy = width - sx;
+        break;
      }
-}
-
-static void 
-_e_pointer_active(E_Pointer *ptr)
-{
-   if (!ptr->idle) return;
-   if (ptr->o_ptr)
-     edje_object_signal_emit(ptr->o_ptr, "e,state,mouse,active", "e");
-   ptr->idle = EINA_FALSE;
-}
-
-static void 
-_e_pointer_idle(E_Pointer *ptr)
-{
-   if (ptr->idle) return;
-   if (ptr->o_ptr)
-     edje_object_signal_emit(ptr->o_ptr, "e,state,mouse,idle", "e");
-   ptr->idle = EINA_TRUE;
-}
-
-static Eina_Bool 
-_e_pointer_cb_idle_poller(void *data)
-{
-   E_Pointer *ptr;
-   int x = 0, y = 0;
-
-   if (!(ptr = data)) return ECORE_CALLBACK_RENEW;
-
-   if (!e_config->idle_cursor)
-     {
-        ptr->idle_poll = NULL;
-        return ECORE_CALLBACK_CANCEL;
-     }
-
-   if (ptr->canvas)
-     ecore_evas_pointer_xy_get(ptr->ee, &x, &y);
-
-   if ((ptr->x != x) || (ptr->y != y))
-     {
-        ptr->x = x;
-        ptr->y = y;
-        if (ptr->idle) _e_pointer_active(ptr);
-        return ECORE_CALLBACK_RENEW;
-     }
-
-   if (!ptr->idle) _e_pointer_idle(ptr);
-
-   return ECORE_CALLBACK_RENEW;
-}
-
-static Eina_Bool 
-_e_pointer_cb_idle_wait(void *data)
-{
-   E_Pointer *ptr;
-
-   if (!(ptr = data)) return ECORE_CALLBACK_RENEW;
-   ptr->idle_tmr = NULL;
-   if (!e_config->idle_cursor)
-     {
-        E_FREE_FUNC(ptr->idle_poll, ecore_poller_del);
-        return ECORE_CALLBACK_CANCEL;
-     }
-
-   if (!ptr->idle_poll)
-     ptr->idle_poll = ecore_poller_add(ECORE_POLLER_CORE, 64, 
-                                       _e_pointer_cb_idle_poller, ptr);
-
-   return ECORE_CALLBACK_CANCEL;
-}
-
-static Eina_Bool 
-_e_pointer_cb_idle_pre(void *data)
-{
-   E_Pointer *ptr;
-
-   if (!(ptr = data)) return ECORE_CALLBACK_RENEW;
-
-   if (ptr->canvas)
-     ecore_evas_pointer_xy_get(ptr->ee, &ptr->x, &ptr->y);
-
-   ptr->idle_tmr = ecore_timer_loop_add(4.0, _e_pointer_cb_idle_wait, ptr);
-
-   return ECORE_CALLBACK_CANCEL;
-}
-
-static void 
-_e_pointer_active_handle(E_Pointer *ptr)
-{
-   _e_pointer_active(ptr);
-   if (ptr->idle_tmr)
-     ecore_timer_reset(ptr->idle_tmr);
-   else
-     {
-        E_FREE_FUNC(ptr->idle_poll, ecore_poller_del);
-        if (!e_config->idle_cursor) return;
-        ptr->idle_tmr = ecore_timer_loop_add(1.0, _e_pointer_cb_idle_pre, ptr);
-     }
-}
-
-static Eina_Bool 
-_e_pointer_cb_mouse_down(void *data EINA_UNUSED, int type EINA_UNUSED, void *event EINA_UNUSED)
-{
-   Eina_List *l;
-   E_Pointer *ptr;
-
-   EINA_LIST_FOREACH(_ptrs, l, ptr)
-     {
-        _e_pointer_active_handle(ptr);
-        if (ptr->o_ptr)
-          edje_object_signal_emit(ptr->o_ptr, "e,action,mouse,down", "e");
-     }
-
-   return ECORE_CALLBACK_PASS_ON;
-}
-
-static Eina_Bool 
-_e_pointer_cb_mouse_up(void *data EINA_UNUSED, int type EINA_UNUSED, void *event EINA_UNUSED)
-{
-   Eina_List *l;
-   E_Pointer *ptr;
-
-   EINA_LIST_FOREACH(_ptrs, l, ptr)
-     {
-        _e_pointer_active_handle(ptr);
-        if (ptr->o_ptr)
-          edje_object_signal_emit(ptr->o_ptr, "e,action,mouse,up", "e");
-     }
-
-   return ECORE_CALLBACK_PASS_ON;
-}
-
-static Eina_Bool 
-_e_pointer_cb_mouse_move(void *data EINA_UNUSED, int type EINA_UNUSED, void *event EINA_UNUSED)
-{
-   Eina_List *l;
-   E_Pointer *ptr;
-
-   EINA_LIST_FOREACH(_ptrs, l, ptr)
-     {
-        _e_pointer_active_handle(ptr);
-        if (ptr->o_ptr)
-          edje_object_signal_emit(ptr->o_ptr, "e,action,mouse,move", "e");
-     }
-
-   return ECORE_CALLBACK_PASS_ON;
-}
-
-static Eina_Bool 
-_e_pointer_cb_mouse_wheel(void *data EINA_UNUSED, int type EINA_UNUSED, void *event EINA_UNUSED)
-{
-   Eina_List *l;
-   E_Pointer *ptr;
-
-   EINA_LIST_FOREACH(_ptrs, l, ptr)
-     {
-        _e_pointer_active_handle(ptr);
-        if (ptr->o_ptr)
-          edje_object_signal_emit(ptr->o_ptr, "e,action,mouse,wheel", "e");
-     }
-
-   return ECORE_CALLBACK_PASS_ON;
-}
-
-static void 
-_e_pointer_cb_hot_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event EINA_UNUSED)
-{
-   E_Pointer *ptr = data;
-   int x = 0, y = 0;
-
-   if (!ptr->e_cursor) return;
-   if (!evas_object_visible_get(ptr->o_ptr)) return;
-   edje_object_part_geometry_get(ptr->o_ptr, "e.swallow.hotspot", 
-                                 &x, &y, NULL, NULL);
-   _e_pointer_hot_update(ptr, x, y);
-}
-
-static void 
-_e_pointer_cb_hot_show(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event EINA_UNUSED)
-{
-   E_Pointer *ptr = data;
-   int x = 0, y = 0;
-
-   if (!ptr->e_cursor) return;
-   edje_object_part_geometry_get(ptr->o_ptr, "e.swallow.hotspot", 
-                                 &x, &y, NULL, NULL);
-   _e_pointer_hot_update(ptr, x, y);
 }
 
 static void
-_e_pointer_pointer_canvas_init(E_Pointer *ptr, Evas *e, Evas_Object **o_ptr, Evas_Object **o_hot)
+_e_pointer_rotation_apply(E_Pointer *ptr)
 {
-   /* create pointer object */
-   *o_ptr = edje_object_add(e);
+   Evas_Map *map;
+   int x1, y1, x2, y2, dx, dy;
+   int32_t width, height;
+   int cursor_w, cursor_h;
+   uint32_t transform;
+   int rot_x, rot_y, x, y;
+   int zone_w, zone_h;
+   double awh, ahw;
+   E_Client *ec;
+   int rotation;
 
-   /* create hotspot object */
-   *o_hot = evas_object_rectangle_add(e);
-   evas_object_color_set(*o_hot, 0, 0, 0, 0);
+   EINA_SAFETY_ON_NULL_RETURN(ptr);
+   if (!ptr->o_ptr) return;
 
-   evas_object_event_callback_add(*o_hot, EVAS_CALLBACK_MOVE,
-                                  _e_pointer_cb_hot_move, ptr);
-   evas_object_event_callback_add(*o_hot, EVAS_CALLBACK_SHOW,
-                                  _e_pointer_cb_hot_show, ptr);
+   ec = e_comp_object_client_get(ptr->o_ptr);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   evas_object_move(*o_ptr, 0, 0);
-   evas_object_resize(*o_ptr, ptr->w, ptr->h);
-}
+   x = ptr->x;
+   y = ptr->y;
+   rotation = ptr->rotation;
 
-static void 
-_e_pointer_canvas_del(E_Pointer *ptr)
-{
-   E_FREE_FUNC(ptr->buffer_o_hot, evas_object_del);
-   E_FREE_FUNC(ptr->buffer_o_ptr, evas_object_del);
-   E_FREE_FUNC(ptr->buffer_evas, evas_free);
-   E_FREE(ptr->pixels);
-}
+   evas_object_geometry_get(ec->frame, NULL, NULL, &cursor_w, &cursor_h);
 
-static void 
-_e_pointer_canvas_add(E_Pointer *ptr)
-{
-   Evas_Engine_Info_Buffer *einfo;
-   int method = 0;
-
-   /* try to create new canvas */
-   if (!(ptr->buffer_evas = evas_new())) goto err;
-
-   method = evas_render_method_lookup("buffer");
-   evas_output_method_set(ptr->buffer_evas, method);
-   evas_output_size_set(ptr->buffer_evas, ptr->w, ptr->h);
-   evas_output_viewport_set(ptr->buffer_evas, 0, 0, ptr->w, ptr->h);
-
-   /* try to allocate space for pixels */
-   if (!(ptr->pixels = malloc(ptr->w * ptr->h * sizeof(int))))
-     goto err;
-
-   /* try to get the buffer engine info */
-   einfo = (Evas_Engine_Info_Buffer *)evas_engine_info_get(ptr->buffer_evas);
-   if (!einfo) goto err;
-
-   /* fill in buffer engine info */
-   einfo->info.depth_type = EVAS_ENGINE_BUFFER_DEPTH_ARGB32;
-   einfo->info.dest_buffer = ptr->pixels;
-   einfo->info.dest_buffer_row_bytes = (ptr->w * sizeof(int));
-   einfo->info.use_color_key = 0;
-   einfo->info.alpha_threshold = 0;
-   einfo->info.func.new_update_region = NULL;
-   einfo->info.func.free_update_region = NULL;
-
-   /* set buffer engine info */
-   evas_engine_info_set(ptr->buffer_evas, (Evas_Engine_Info *)einfo);
-
-   _e_pointer_pointer_canvas_init(ptr, ptr->buffer_evas, &ptr->buffer_o_ptr, &ptr->buffer_o_hot);
-   if (!ptr->evas)
+   if ((rotation == 0) || (rotation % 90 != 0) || (rotation / 90 > 3))
      {
-        ptr->evas = ptr->buffer_evas;
-        ptr->o_ptr = ptr->buffer_o_ptr;
-        ptr->o_hot = ptr->buffer_o_hot;
+        evas_object_map_set(ec->frame, NULL);
+        evas_object_map_enable_set(ec->frame, EINA_FALSE);
+        evas_object_move(ec->frame, x, y);
+        return;
      }
-   return;
 
-err:
-   _e_pointer_canvas_del(ptr);
+   zone_w = ec->zone->w;
+   zone_h = ec->zone->h;
+   awh = ((double)zone_w / (double)zone_h);
+   ahw = ((double)zone_h / (double)zone_w);
+
+   rot_x = x;
+   rot_y = y;
+   width = cursor_w;
+   height = cursor_h;
+
+   switch(rotation)
+     {
+      case 90:
+         rot_x = y * awh;
+         rot_y = ahw * (zone_w - x);
+         transform = WL_OUTPUT_TRANSFORM_90;
+         width = cursor_h;
+         height = cursor_w;
+         break;
+      case 180:
+         rot_x = zone_w - x;
+         rot_y = zone_h - y;
+         transform = WL_OUTPUT_TRANSFORM_180;
+         break;
+      case 270:
+         rot_x = awh * (zone_h - y);
+         rot_y = ahw * x;
+         transform = WL_OUTPUT_TRANSFORM_270;
+         width = cursor_h;
+         height = cursor_w;
+         break;
+      default:
+         transform = WL_OUTPUT_TRANSFORM_NORMAL;
+         break;
+     }
+
+   if (ptr->device == E_POINTER_MOUSE)
+     {
+        ec->client.x = rot_x, ec->client.y = rot_y;
+        ec->x = rot_x, ec->y = rot_y;
+        ptr->x = rot_x;
+        ptr->y = rot_y;
+     }
+
+   map = evas_map_new(4);
+   evas_map_util_points_populate_from_geometry(map,
+                                               ec->x, ec->y,
+                                               width, height, 0);
+
+   x1 = 0.0;
+   y1 = 0.0;
+   x2 = width;
+   y2 = height;
+
+   _e_pointer_map_transform(width, height, transform,
+                            x1, y1, &dx, &dy);
+   evas_map_point_image_uv_set(map, 0, dx, dy);
+
+   _e_pointer_map_transform(width, height, transform,
+                            x2, y1, &dx, &dy);
+   evas_map_point_image_uv_set(map, 1, dx, dy);
+
+   _e_pointer_map_transform(width, height, transform,
+                            x2, y2, &dx, &dy);
+   evas_map_point_image_uv_set(map, 2, dx, dy);
+
+   _e_pointer_map_transform(width, height, transform,
+                            x1, y2, &dx, &dy);
+   evas_map_point_image_uv_set(map, 3, dx, dy);
+
+   evas_object_map_set(ec->frame, map);
+   evas_object_map_enable_set(ec->frame, map ? EINA_TRUE : EINA_FALSE);
+
+   evas_map_free(map);
 }
 
-static void 
-_e_pointer_canvas_resize(E_Pointer *ptr, int w, int h)
-{
-   Evas_Engine_Info_Buffer *einfo;
-
-   if ((ptr->w == w) && (ptr->h == h)) return;
-   ptr->w = w;
-   ptr->h = h;
-   evas_output_size_set(ptr->buffer_evas, w, h);
-   evas_output_viewport_set(ptr->buffer_evas, 0, 0, w, h);
-
-   ptr->pixels = realloc(ptr->pixels, (ptr->w * ptr->h * sizeof(int)));
-
-   einfo = (Evas_Engine_Info_Buffer *)evas_engine_info_get(ptr->buffer_evas);
-   EINA_SAFETY_ON_NULL_RETURN(einfo);
-
-   einfo->info.dest_buffer = ptr->pixels;
-   einfo->info.dest_buffer_row_bytes = (ptr->w * sizeof(int));
-   evas_engine_info_set(ptr->buffer_evas, (Evas_Engine_Info *)einfo);
-
-   evas_object_move(ptr->buffer_o_ptr, 0, 0);
-   evas_object_resize(ptr->buffer_o_ptr, ptr->w, ptr->h);
-}
-
-static void 
-_e_pointer_stack_free(E_Pointer_Stack *stack)
-{
-   if (stack->type) eina_stringshare_del(stack->type);
-   free(stack);
-}
-
-static void 
+static void
 _e_pointer_cb_free(E_Pointer *ptr)
 {
    _ptrs = eina_list_remove(_ptrs, ptr);
 
-   E_FREE_LIST(ptr->stack, _e_pointer_stack_free);
-
-   eina_stringshare_del(ptr->type);
-
-   E_FREE_FUNC(ptr->idle_tmr, ecore_timer_del);
-   E_FREE_FUNC(ptr->idle_poll, ecore_poller_del);
-
-   if (ptr->buffer_evas) _e_pointer_canvas_del(ptr);
-
    free(ptr);
 }
 
-static void
-_e_pointer_x11_setup(E_Pointer *ptr, const char *cursor)
-{
-   if (ptr->e_cursor)
-     {
-        /* create a pointer canvas if we need to */
-        if ((!ptr->buffer_evas) && ptr->win) _e_pointer_canvas_add(ptr);
-        if (ptr->buffer_o_ptr && (ptr->buffer_o_ptr != ptr->o_ptr))
-          {
-             e_theme_edje_object_set(ptr->buffer_o_ptr, "base/theme/pointer", cursor);
-             edje_object_part_swallow(ptr->buffer_o_ptr, "e.swallow.hotspot", ptr->buffer_o_hot);
-          }
-        return;
-     }
-   if (ptr->buffer_evas) _e_pointer_canvas_del(ptr);
-}
-
-static void 
-_e_pointer_type_set(E_Pointer *ptr, const char *type)
-{
-   /* check if pointer type is already set */
-   if (!e_util_strcmp(ptr->type, type)) return;
-
-   eina_stringshare_replace(&ptr->type, type);
-
-   /* don't show cursor if in hidden mode */
-   if ((!e_config->show_cursor) || (!e_comp_wl->ptr.enabled))
-     {
-        e_pointer_hide(ptr);
-        return;
-     }
-
-   if (ptr->e_cursor)
-     {
-        char cursor[1024];
-        int x = 0, y = 0;
-
-        if ((!ptr->buffer_evas) && ptr->win) _e_pointer_canvas_add(ptr);
-        _e_pointer_theme_buf(ptr, cursor);
-
-        /* try to set the edje object theme */
-        if (!e_theme_edje_object_set(ptr->o_ptr, "base/theme/pointer", cursor))
-          cursor[0] = 0;
-        _e_pointer_x11_setup(ptr, cursor);
-        if (!cursor[0]) return;
-
-        edje_object_part_geometry_get(ptr->o_ptr, "e.swallow.hotspot", 
-                                      &x, &y, NULL, NULL);
-        _e_pointer_hot_update(ptr, x, y);
-
-        if (ptr->canvas)
-          e_pointer_object_set(ptr, NULL, 0, 0);
-        else
-          evas_object_show(ptr->o_ptr);
-
-     }
-   else
-     _e_pointer_x11_setup(ptr, NULL);
-}
-
-EINTERN int 
+EINTERN int
 e_pointer_init(void)
 {
-   E_LIST_HANDLER_APPEND(_hdlrs, ECORE_EVENT_MOUSE_BUTTON_DOWN, 
-                         _e_pointer_cb_mouse_down, NULL);
-   E_LIST_HANDLER_APPEND(_hdlrs, ECORE_EVENT_MOUSE_BUTTON_UP, 
-                         _e_pointer_cb_mouse_up, NULL);
-   E_LIST_HANDLER_APPEND(_hdlrs, ECORE_EVENT_MOUSE_MOVE, 
-                         _e_pointer_cb_mouse_move, NULL);
-   E_LIST_HANDLER_APPEND(_hdlrs, ECORE_EVENT_MOUSE_WHEEL, 
-                         _e_pointer_cb_mouse_wheel, NULL);
    _initted = EINA_TRUE;
    return 1;
 }
 
-EINTERN int 
+EINTERN int
 e_pointer_shutdown(void)
 {
    _initted = EINA_FALSE;
-   E_FREE_LIST(_hdlrs, ecore_event_handler_del);
    return 1;
 }
 
-E_API E_Pointer *
-e_pointer_window_new(Ecore_Window win, Eina_Bool filled)
-{
-   E_Pointer *ptr = NULL;
-
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(win, NULL);
-   if (!_initted) return NULL;
-
-   /* allocate space for new pointer */
-   if (!(ptr = E_OBJECT_ALLOC(E_Pointer, E_POINTER_TYPE, _e_pointer_cb_free)))
-     return NULL;
-
-   /* set default pointer properties */
-   ptr->w = ptr->h = e_config->cursor_size;
-   ptr->e_cursor = e_config->use_e_cursor;
-   ptr->win = win;
-   ptr->color = EINA_FALSE;
-   if (e_comp->pointer)
-     ptr->color = e_comp->pointer->color;
-
-   /* set pointer default type */
-   if (filled) e_pointer_type_push(ptr, ptr, "default");
-
-   /* append this pointer to the list */
-   _ptrs = eina_list_append(_ptrs, ptr);
-
-   return ptr;
-}
-
-E_API E_Pointer *
+EINTERN E_Pointer *
 e_pointer_canvas_new(Ecore_Evas *ee, Eina_Bool filled)
 {
    E_Pointer *ptr = NULL;
@@ -466,239 +171,22 @@ e_pointer_canvas_new(Ecore_Evas *ee, Eina_Bool filled)
      return NULL;
 
    /* set default pointer properties */
-   ptr->color = EINA_TRUE;
    ptr->canvas = EINA_TRUE;
    ptr->w = ptr->h = e_config->cursor_size;
    ptr->e_cursor = e_config->use_e_cursor;
 
    ptr->ee = ee;
    ptr->evas = ecore_evas_get(ee);
-   _e_pointer_pointer_canvas_init(ptr, ptr->evas, &ptr->o_ptr, &ptr->o_hot);
 
-   /* set pointer default type */
-   if (filled) e_pointer_type_push(ptr, ptr, "default");
-
-     /* append this pointer to the list */
+   /* append this pointer to the list */
    _ptrs = eina_list_append(_ptrs, ptr);
-
-   _e_pointer_active_handle(ptr);
 
    return ptr;
 }
 
-E_API void 
-e_pointers_size_set(int size)
-{
-   Eina_List *l;
-   E_Pointer *ptr;
-
-   if (!e_config->show_cursor) return;
-
-   EINA_LIST_FOREACH(_ptrs, l, ptr)
-     {
-        if ((ptr->w == size) && (ptr->h == size)) continue;
-        if (ptr->buffer_evas)
-          _e_pointer_canvas_resize(ptr, size, size);
-        if (ptr->canvas)
-          {
-             ptr->w = size;
-             ptr->h = size;
-             evas_object_resize(ptr->o_ptr, size, size);
-          }
-     }
-}
-
-E_API void 
-e_pointer_hide(E_Pointer *ptr)
-{
-   EINA_SAFETY_ON_NULL_RETURN(ptr);
-
-   if (ptr->buffer_evas)
-     _e_pointer_canvas_del(ptr);
-   if (ptr->canvas)
-     evas_object_hide(ptr->o_ptr);
-}
-
-E_API void 
-e_pointer_type_push(E_Pointer *ptr, void *obj, const char *type)
-{
-   E_Pointer_Stack *stack;
-
-   EINA_SAFETY_ON_NULL_RETURN(ptr);
-
-   _e_pointer_type_set(ptr, type);
-
-   if (!(stack = E_NEW(E_Pointer_Stack, 1))) return;
-   stack->type = eina_stringshare_ref(ptr->type);
-   stack->obj = obj;
-   ptr->stack = eina_list_prepend(ptr->stack, stack);
-}
-
-E_API void 
-e_pointer_type_pop(E_Pointer *ptr, void *obj, const char *type)
-{
-   Eina_List *l, *ll;
-   E_Pointer_Stack *stack;
-
-   EINA_SAFETY_ON_NULL_RETURN(ptr);
-
-   EINA_LIST_FOREACH_SAFE(ptr->stack, l, ll, stack)
-     {
-        if ((stack->obj == obj) && 
-            ((!type) || (!e_util_strcmp(stack->type, type))))
-          {
-             _e_pointer_stack_free(stack);
-             ptr->stack = eina_list_remove_list(ptr->stack, l);
-             if (type) break;
-          }
-     }
-
-   if (!ptr->stack)
-     {
-        e_pointer_hide(ptr);
-        eina_stringshare_replace(&ptr->type, NULL);
-        return;
-     }
-
-   if (!(stack = eina_list_data_get(ptr->stack))) return;
-
-   _e_pointer_type_set(ptr, stack->type);
-
-   eina_stringshare_refplace(&ptr->type, stack->type);
-}
-
-E_API void 
-e_pointer_mode_push(void *obj, E_Pointer_Mode mode)
-{
-   E_Client *ec;
-   Evas_Object *o;
-
-   EINA_SAFETY_ON_NULL_RETURN(e_comp->pointer);
-
-   ecore_evas_cursor_get(e_comp->pointer->ee, &o, NULL, NULL, NULL);
-   if ((o != e_comp->pointer->o_ptr) && (ec = e_comp_object_client_get(o)))
-     return;
-
-   switch (mode)
-     {
-      case E_POINTER_RESIZE_TL:
-        e_pointer_type_push(e_comp->pointer, obj, "resize_tl");
-        break;
-
-      case E_POINTER_RESIZE_T:
-        e_pointer_type_push(e_comp->pointer, obj, "resize_t");
-        break;
-
-      case E_POINTER_RESIZE_TR:
-        e_pointer_type_push(e_comp->pointer, obj, "resize_tr");
-        break;
-
-      case E_POINTER_RESIZE_R:
-        e_pointer_type_push(e_comp->pointer, obj, "resize_r");
-        break;
-
-      case E_POINTER_RESIZE_BR:
-        e_pointer_type_push(e_comp->pointer, obj, "resize_br");
-        break;
-
-      case E_POINTER_RESIZE_B:
-        e_pointer_type_push(e_comp->pointer, obj, "resize_b");
-        break;
-
-      case E_POINTER_RESIZE_BL:
-        e_pointer_type_push(e_comp->pointer, obj, "resize_bl");
-        break;
-
-      case E_POINTER_RESIZE_L:
-        e_pointer_type_push(e_comp->pointer, obj, "resize_l");
-        break;
-
-      case E_POINTER_MOVE:
-        e_pointer_type_push(e_comp->pointer, obj, "move");
-        break;
-
-      default: break;
-     }
-}
-
-E_API void 
-e_pointer_mode_pop(void *obj, E_Pointer_Mode mode)
-{
-   switch (mode)
-     {
-      case E_POINTER_RESIZE_TL:
-        e_pointer_type_pop(e_comp->pointer, obj, "resize_tl");
-        break;
-
-      case E_POINTER_RESIZE_T:
-        e_pointer_type_pop(e_comp->pointer, obj, "resize_t");
-        break;
-
-      case E_POINTER_RESIZE_TR:
-        e_pointer_type_pop(e_comp->pointer, obj, "resize_tr");
-        break;
-
-      case E_POINTER_RESIZE_R:
-        e_pointer_type_pop(e_comp->pointer, obj, "resize_r");
-        break;
-
-      case E_POINTER_RESIZE_BR:
-        e_pointer_type_pop(e_comp->pointer, obj, "resize_br");
-        break;
-
-      case E_POINTER_RESIZE_B:
-        e_pointer_type_pop(e_comp->pointer, obj, "resize_b");
-        break;
-
-      case E_POINTER_RESIZE_BL:
-        e_pointer_type_pop(e_comp->pointer, obj, "resize_bl");
-        break;
-
-      case E_POINTER_RESIZE_L:
-        e_pointer_type_pop(e_comp->pointer, obj, "resize_l");
-        break;
-
-      case E_POINTER_MOVE:
-        e_pointer_type_pop(e_comp->pointer, obj, "move");
-        break;
-
-      default: break;
-     }
-}
-
-E_API void 
-e_pointer_idler_before(void)
-{
-   Eina_List *l;
-   E_Pointer *ptr;
-
-   if ((!e_config->show_cursor) || (!e_comp_wl->ptr.enabled)) return;
-
-   EINA_LIST_FOREACH(_ptrs, l, ptr)
-     {
-        if ((!ptr->e_cursor) || (!ptr->buffer_evas)) continue;
-
-        if (ptr->hot.update)
-          _e_pointer_type_set(ptr, ptr->type);
- 
-        if (ptr->buffer_evas)
-          {
-             Eina_List *updates;
-
-             if ((updates = evas_render_updates(ptr->buffer_evas)))
-               {
-                  evas_render_updates_free(updates);
-               }
-          }
-
-        ptr->hot.update = EINA_FALSE;
-     }
-}
-
-E_API void
+EINTERN void
 e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
 {
-   Evas_Object *o;
    E_Client *ec;
 
    EINA_SAFETY_ON_NULL_RETURN(ptr);
@@ -706,80 +194,129 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
    /* don't show cursor if in hidden mode */
    if ((!e_config->show_cursor) || (!e_comp_wl->ptr.enabled))
      {
-        if (obj) evas_object_hide(obj);
+        e_pointer_hide(ptr);
         return;
      }
 
-   ecore_evas_cursor_get(ptr->ee, &o, NULL, NULL, NULL);
-   if (o)
+   /* hide and unset the existed ptr->o_ptr */
+   if (ptr->o_ptr)
      {
-        if (o == obj)
-          {
-             ecore_evas_object_cursor_set(ptr->ee, obj, E_LAYER_MAX - 1, x, y);
-             if (e_pointer_is_hidden(ptr))
-               {
-                 e_comp_hwc_end("re_cursor_set");
-               }
-             return;
-          }
-        ec = e_comp_object_client_get(o);
+        ec = e_comp_object_client_get(ptr->o_ptr);
         if (ec)
           {
              ec->hidden = 1;
              ec->visible = EINA_FALSE;
+             ec->comp_data->mapped = EINA_FALSE;
+             ec->override = 1; /* ignore the previous cursor_ec */
           }
-     }
-   ecore_evas_cursor_unset(ptr->ee);
 
+        /* hide cursor object */
+        evas_object_hide(ptr->o_ptr);
+        ptr->o_ptr = NULL;
+        ptr->device = E_POINTER_NONE;
+     }
+
+   /* if obj is not null, set the obj to ptr->o_ptr */
    if (obj)
      {
         ec = e_comp_object_client_get(obj);
         if (ec)
           {
-             ec->hidden = 1;
-             ec->visible = EINA_FALSE;
+             ec->hidden = 0;
+             ec->visible = EINA_TRUE;
+             ec->comp_data->mapped = EINA_TRUE;
+             ec->override = 0; /* do not ignore the cursor_ec to set the image object */
           }
-        ecore_evas_object_cursor_set(ptr->ee, obj, E_LAYER_MAX - 1, x, y);
-     }
-   else if (ptr->o_ptr)
-     ecore_evas_object_cursor_set(ptr->ee, ptr->o_ptr, E_LAYER_MAX - 1, ptr->hot.x, ptr->hot.y);
 
-   if (e_pointer_is_hidden(ptr))
-     {
-       e_comp_hwc_end("cursor_set");
+        /* apply the cursor obj rotation */
+        _e_pointer_rotation_apply(ptr);
+
+        /* move the pointer to the current position */
+        evas_object_move(obj, ptr->x, ptr->y);
+
+        /* show cursor object */
+        evas_object_show(obj);
+        ptr->o_ptr = obj;
      }
 }
 
-E_API void
-e_pointer_window_add(E_Pointer *ptr, Ecore_Window win)
+EINTERN void
+e_pointer_touch_move(E_Pointer *ptr, int x, int y)
 {
-   char buf[1024];
+   EINA_SAFETY_ON_NULL_RETURN(ptr);
 
-   ptr->win = win;
-   _e_pointer_theme_buf(ptr, buf);
-   _e_pointer_x11_setup(ptr, buf);
+   if (!e_config->show_cursor) return;
+   if (!ptr->o_ptr) return;
+   if (!evas_object_visible_get(ptr->o_ptr)) return;
+
+   /* save the current position */
+   ptr->x = x;
+   ptr->y = y;
+
+   if (ptr->device != E_POINTER_TOUCH) ptr->device = E_POINTER_TOUCH;
+
+   _e_pointer_rotation_apply(ptr);
+   evas_object_move(ptr->o_ptr, ptr->x, ptr->y);
+}
+
+EINTERN void
+e_pointer_mouse_move(E_Pointer *ptr, int x, int y)
+{
+   EINA_SAFETY_ON_NULL_RETURN(ptr);
+
+   if (!e_config->show_cursor) return;
+   if (!ptr->o_ptr) return;
+   if (!evas_object_visible_get(ptr->o_ptr)) return;
+
+   /* save the current position */
+   ptr->x = x;
+   ptr->y = y;
+
+   if (ptr->device != E_POINTER_MOUSE) ptr->device = E_POINTER_MOUSE;
+
+   _e_pointer_rotation_apply(ptr);
+   evas_object_move(ptr->o_ptr, ptr->x, ptr->y);
+}
+
+E_API void
+e_pointer_hide(E_Pointer *ptr)
+{
+   EINA_SAFETY_ON_NULL_RETURN(ptr);
+   if (ptr->o_ptr) return;
+
+   evas_object_hide(ptr->o_ptr);
 }
 
 E_API Eina_Bool
 e_pointer_is_hidden(E_Pointer *ptr)
 {
-   Evas_Object *o;
-
    EINA_SAFETY_ON_NULL_RETURN_VAL(ptr, EINA_TRUE);
 
-   if (!e_config->show_cursor)
-     return EINA_TRUE;
+   if (!e_config->show_cursor) return EINA_TRUE;
+   if (ptr->o_ptr && evas_object_visible_get(ptr->o_ptr)) return EINA_FALSE;
 
-   ecore_evas_cursor_get(ptr->ee, &o, NULL, NULL, NULL);
-   if (o)
-     {
-        if (evas_object_visible_get(o))
-          return EINA_FALSE;
-     }
-   else
-     {
-        if (ptr->o_ptr && (evas_object_visible_get(ptr->o_ptr)))
-          return EINA_FALSE;
-     }
    return EINA_TRUE;
 }
+
+E_API void
+e_pointer_rotation_set(E_Pointer *ptr, int rotation)
+{
+   ptr->rotation = rotation;
+
+   _e_pointer_rotation_apply(ptr);
+   evas_object_move(ptr->o_ptr, ptr->x, ptr->y);
+}
+
+E_API void
+e_pointer_position_get(E_Pointer *ptr, int *x, int *y)
+{
+   EINA_SAFETY_ON_NULL_RETURN(ptr);
+
+   if (!e_config->show_cursor) return;
+   if (!ptr->o_ptr) return;
+   if (!evas_object_visible_get(ptr->o_ptr)) return;
+
+   *x = ptr->x;
+   *y = ptr->y;
+}
+

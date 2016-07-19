@@ -2,7 +2,7 @@
 
 typedef struct _E_Pointer E_Pointer;
 
-typedef enum 
+typedef enum
 {
    /* These are compatible with netwm */
    E_POINTER_RESIZE_TL = 0,
@@ -17,6 +17,13 @@ typedef enum
    E_POINTER_RESIZE_NONE = 11
 } E_Pointer_Mode;
 
+typedef enum
+{
+   E_POINTER_NONE = 0,
+   E_POINTER_MOUSE = 1,
+   E_POINTER_TOUCH = 2
+} E_Pointer_Device;
+
 #else
 # ifndef E_POINTER_H
 #  define E_POINTER_H
@@ -29,50 +36,27 @@ struct _E_Pointer
 
    Evas *evas;
    Ecore_Evas *ee;
-   Evas *buffer_evas;
    Evas_Object *o_ptr;
-   Evas_Object *o_hot;
-   Evas_Object *buffer_o_ptr;
-   Evas_Object *buffer_o_hot;
 
-   Ecore_Window win;
-
-   int *pixels;
    int x, y, w, h;
-   const char *type;
+   int rotation;
 
-   struct 
-     {
-        int x, y;
-        Eina_Bool update : 1;
-     } hot;
-
-   Ecore_Timer *idle_tmr;
-   Ecore_Poller *idle_poll;
-
-   Eina_List *stack;
+   E_Pointer_Device device;
 
    Eina_Bool e_cursor : 1;
-   Eina_Bool color : 1;
-   Eina_Bool idle : 1;
    Eina_Bool canvas : 1;
 };
 
-EINTERN int e_pointer_init(void);
-EINTERN int e_pointer_shutdown(void);
+EINTERN int        e_pointer_init(void);
+EINTERN int        e_pointer_shutdown(void);
+EINTERN E_Pointer *e_pointer_canvas_new(Ecore_Evas *ee, Eina_Bool filled);
+EINTERN void       e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y);
+EINTERN void       e_pointer_touch_move(E_Pointer *ptr, int x, int y);
+EINTERN void       e_pointer_mouse_move(E_Pointer *ptr, int x, int y);
 
-E_API E_Pointer *e_pointer_window_new(Ecore_Window win, Eina_Bool filled);
-E_API E_Pointer *e_pointer_canvas_new(Ecore_Evas *ee, Eina_Bool filled);
-
-E_API void e_pointers_size_set(int size);
-E_API void e_pointer_hide(E_Pointer *ptr);
-E_API void e_pointer_type_push(E_Pointer *ptr, void *obj, const char *type);
-E_API void e_pointer_type_pop(E_Pointer *ptr, void *obj, const char *type);
-E_API void e_pointer_mode_push(void *obj, E_Pointer_Mode mode);
-E_API void e_pointer_mode_pop(void *obj, E_Pointer_Mode mode);
-E_API void e_pointer_idler_before(void);
-E_API void e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y);
-E_API void e_pointer_window_add(E_Pointer *ptr, Ecore_Window win);
-E_API Eina_Bool e_pointer_is_hidden(E_Pointer *ptr);
+E_API void         e_pointer_hide(E_Pointer *ptr);
+E_API Eina_Bool    e_pointer_is_hidden(E_Pointer *ptr);
+E_API void         e_pointer_rotation_set(E_Pointer *ptr, int rotation);
+E_API void         e_pointer_position_get(E_Pointer *ptr, int *x, int *y);
 # endif
 #endif

@@ -880,10 +880,7 @@ _e_comp_wl_cursor_timer(void *data)
    Eina_List *l;
    uint32_t serial;
 
-   ecore_evas_cursor_unset(e_comp->pointer->ee);
-
-   if (e_comp->pointer->o_ptr)
-     e_pointer_hide(e_comp->pointer);
+   e_pointer_hide(e_comp->pointer);
 
    e_comp_wl->ptr.hide_tmr = NULL;
    cursor_timer_ec = NULL;
@@ -1022,6 +1019,7 @@ _e_comp_wl_evas_cb_mouse_out(void *data, Evas *evas EINA_UNUSED, Evas_Object *ob
                           ec->client.x, ec->client.y, ec->client.w, ec->client.h);
    if (ec->cur_mouse_action && inside_check) return;
    if (e_object_is_del(E_OBJECT(e_comp))) return;
+
    /* FIXME? this is a hack to just reset the cursor whenever we mouse out. not sure if accurate */
    {
       Evas_Object *o;
@@ -1093,6 +1091,9 @@ _e_comp_wl_send_touch_move(E_Client *ec, int canvas_x, int canvas_y, uint32_t ti
         if (!e_comp_wl_input_touch_check(res)) continue;
         wl_touch_send_motion(res, timestamp, 0, x, y); //id 0 for the 1st finger
      }
+
+  /* e pointer move for touch coodination */
+  e_pointer_touch_move(e_comp->pointer, canvas_x, canvas_y);
 }
 
 static void
@@ -1111,6 +1112,9 @@ _e_comp_wl_send_mouse_move(E_Client *ec, int x, int y, unsigned int timestamp)
                                wl_fixed_from_int(x - ec->client.x),
                                wl_fixed_from_int(y - ec->client.y));
      }
+
+   /* e pointer move for touch coodination */
+   e_pointer_mouse_move(e_comp->pointer, x, y);
 }
 
 static void

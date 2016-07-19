@@ -927,12 +927,9 @@ e_comp_screen_init()
 
    evas_event_feed_mouse_in(e_comp->evas, 0, NULL);
 
-   /* comp->pointer =  */
-   /*   e_pointer_window_new(ecore_evas_window_get(comp->ee), 1); */
    e_main_ts("\tE_Pointer New");
    if ((comp->pointer = e_pointer_canvas_new(comp->ee, EINA_TRUE)))
      {
-        comp->pointer->color = EINA_TRUE;
         e_pointer_hide(comp->pointer);
      }
    e_main_ts("\tE_Pointer New Done");

@@ -1077,20 +1077,6 @@ _e_comp_intercept_move(void *data, Evas_Object *obj, int x, int y)
    E_Comp_Object *cw = data;
    int ix, iy, fx, fy;
 
-   if (!e_util_strcmp("wl_pointer-cursor", cw->ec->icccm.window_role))
-     {
-        if (cw->ec->zone->rot.curr != 0)
-          {
-             e_client_cursor_map_apply(cw->ec, cw->ec->zone->rot.curr, x, y);
-             return;
-          }
-
-        cw->ec->client.x = x, cw->ec->client.y = y;
-        cw->ec->x = x, cw->ec->y = y;
-        evas_object_move(obj, x, y);
-        return;
-     }
-
    if ((e_pixmap_type_get(cw->ec->pixmap) != E_PIXMAP_TYPE_EXT_OBJECT) &&
        (cw->external_content))
      {
@@ -1178,8 +1164,7 @@ _e_comp_intercept_resize(void *data, Evas_Object *obj, int w, int h)
    E_Comp_Object *cw = data;
    int pw = 0, ph = 0, fw, fh, iw, ih, prev_w, prev_h, x, y;
 
-   if ((!e_util_strcmp("wl_pointer-cursor", cw->ec->icccm.window_role)) ||
-       (!e_util_strcmp("input_panel_surface", cw->ec->icccm.window_role)))
+   if (!e_util_strcmp("input_panel_surface", cw->ec->icccm.window_role))
      {
         cw->ec->w = w, cw->ec->h = h;
         evas_object_resize(obj, w, h);

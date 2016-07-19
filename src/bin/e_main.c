@@ -1215,7 +1215,6 @@ static Eina_Bool
 _e_main_cb_idle_before(void *data EINA_UNUSED)
 {
    e_client_idler_before();
-   e_pointer_idler_before();
    edje_thaw();
    return ECORE_CALLBACK_RENEW;
 }

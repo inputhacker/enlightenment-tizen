@@ -126,11 +126,6 @@ _e_comp_fullscreen_check(void)
 {
    E_Client *ec;
 
-   if (!e_pointer_is_hidden(e_comp->pointer))
-     {
-        return NULL;
-     }
-
    E_CLIENT_REVERSE_FOREACH(ec)
      {
         E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
