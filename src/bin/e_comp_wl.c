@@ -1817,20 +1817,12 @@ _e_comp_wl_buffer_cb_destroy(struct wl_listener *listener, void *data EINA_UNUSE
                   if ((e_comp_object_is_animating(ec->frame)) ||
                       (evas_object_data_get(ec->frame, "effect_running")))
                     e_comp_object_effect_set(ec->frame, NULL);
-
-                  /* clear comp object immediately */
-                  e_comp_object_redirected_set(ec->frame, 0);
-                  evas_object_del(ec->frame);
-                  ec->frame = NULL;
                }
           }
         e_object_unref(E_OBJECT(ec));
 
         if (e_pixmap_resource_get(ec->pixmap) == buffer)
-          {
-             e_pixmap_resource_set(ec->pixmap, NULL);
-             e_comp_object_native_surface_set(ec->frame, 0);
-          }
+          e_pixmap_resource_set(ec->pixmap, NULL);
      }
 
    wl_signal_emit(&buffer->destroy_signal, buffer);

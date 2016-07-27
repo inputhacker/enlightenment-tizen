@@ -98,6 +98,8 @@ typedef struct _E_Comp_Object
 
    Evas_Native_Surface *ns; //for custom gl rendering
 
+   struct wl_listener   buffer_destroy_listener;
+
    unsigned int         update_count;  // how many updates have happened to this obj
 
    unsigned int         opacity;  // opacity set with _NET_WM_WINDOW_OPACITY
@@ -180,6 +182,8 @@ E_API int E_EVENT_COMP_OBJECT_ADD = -1;
 static void           _e_comp_object_dim_enable_set(E_Client *ec, Evas_Object *obj, Eina_Bool enable, Eina_Bool noeffect);
 static Eina_Bool      _e_comp_object_dim_enable_get(E_Client *ec, Evas_Object *obj);
 static void           _e_comp_object_dim_update(E_Comp_Object *cw);
+static void           _e_comp_object_native_surface_set(E_Comp_Object *cw, Evas_Native_Surface *ns, Eina_Bool with_mirror);
+
 static E_Client       *dim_client = NULL;
 
 #ifdef _F_E_COMP_OBJECT_INTERCEPT_HOOK_
@@ -2598,6 +2602,12 @@ _e_comp_smart_del(Evas_Object *obj)
 
    INTERNAL_ENTRY;
 
+   if (cw->buffer_destroy_listener.notify)
+     {
+        wl_list_remove(&cw->buffer_destroy_listener.link);
+        cw->buffer_destroy_listener.notify = NULL;
+     }
+
    e_comp_object_render_update_del(cw->smart_obj);
    E_FREE_FUNC(cw->updates, eina_tiler_free);
    E_FREE_FUNC(cw->pending_updates, eina_tiler_free);
@@ -3765,14 +3775,10 @@ e_comp_object_shape_apply(Evas_Object *obj)
    if ((w < 1) || (h < 1)) return;
 
    if (cw->ec->shaped)
-     evas_object_image_native_surface_set(cw->obj, NULL);
+     _e_comp_object_native_surface_set(cw, NULL, EINA_TRUE);
    _e_comp_object_alpha_set(cw);
    EINA_LIST_FOREACH(cw->obj_mirror, l, o)
-     {
-        if (cw->ec->shaped)
-          evas_object_image_native_surface_set(o, NULL);
-        evas_object_image_alpha_set(o, 1);
-     }
+      evas_object_image_alpha_set(o, 1);
 
    p = pix = evas_object_image_data_get(cw->obj, 1);
    if (!pix)
@@ -3853,15 +3859,13 @@ _e_comp_object_clear(E_Comp_Object *cw)
    if (cw->ec->pixmap)
      e_pixmap_clear(cw->ec->pixmap);
    if (cw->native)
-     evas_object_image_native_surface_set(cw->obj, NULL);
+     _e_comp_object_native_surface_set(cw, NULL, EINA_TRUE);
    evas_object_image_size_set(cw->obj, 1, 1);
    evas_object_image_data_set(cw->obj, NULL);
    EINA_LIST_FOREACH(cw->obj_mirror, l, o)
      {
         evas_object_image_size_set(o, 1, 1);
         evas_object_image_data_set(o, NULL);
-        if (cw->native)
-          evas_object_image_native_surface_set(o, NULL);
      }
    cw->native = 0;
    e_comp_object_render_update_del(cw->smart_obj);
@@ -3892,12 +3896,56 @@ e_comp_object_redirected_set(Evas_Object *obj, Eina_Bool set)
      }
 }
 
+static void
+_e_comp_object_cb_buffer_destroy(struct wl_listener *listener, void *data EINA_UNUSED)
+{
+   E_Comp_Object *cw;
+   cw = container_of(listener, E_Comp_Object, buffer_destroy_listener);
+   cw->buffer_destroy_listener.notify = NULL;
+
+   if (e_object_is_del(E_OBJECT(cw->ec)))
+     {
+        _e_comp_object_clear(cw);
+        evas_object_del(cw->smart_obj);
+        cw->ec->frame = NULL;
+     }
+   else
+     _e_comp_object_native_surface_set(cw, NULL, EINA_TRUE);
+}
+
+static void
+_e_comp_object_native_surface_set(E_Comp_Object *cw, Evas_Native_Surface *ns, Eina_Bool with_mirror)
+{
+   Eina_List *l;
+   Evas_Object *o;
+
+   if (cw->buffer_destroy_listener.notify)
+     {
+        wl_list_remove(&cw->buffer_destroy_listener.link);
+        cw->buffer_destroy_listener.notify = NULL;
+     }
+
+   if ((ns) && (ns->type == EVAS_NATIVE_SURFACE_WL))
+     {
+        cw->buffer_destroy_listener.notify = _e_comp_object_cb_buffer_destroy;
+        wl_resource_add_destroy_listener((struct wl_resource *)ns->data.wl.legacy_buffer, &cw->buffer_destroy_listener);
+     }
+
+   evas_object_image_native_surface_set(cw->obj, ns);
+   if (with_mirror)
+     {
+        EINA_LIST_FOREACH(cw->obj_mirror, l, o)
+          {
+             evas_object_image_alpha_set(o, !!cw->ns ? 1 : cw->ec->argb);
+             evas_object_image_native_surface_set(o, ns);
+          }
+     }
+}
+
 E_API void
 e_comp_object_native_surface_set(Evas_Object *obj, Eina_Bool set)
 {
    Evas_Native_Surface ns;
-   Eina_List *l;
-   Evas_Object *o;
 
    API_ENTRY;
    EINA_SAFETY_ON_NULL_RETURN(cw->ec);
@@ -3917,12 +3965,7 @@ e_comp_object_native_surface_set(Evas_Object *obj, Eina_Bool set)
      }
    cw->native = set;
 
-   evas_object_image_native_surface_set(cw->obj, set && (!cw->blanked) ? (cw->ns ? cw->ns : &ns) : NULL);
-   EINA_LIST_FOREACH(cw->obj_mirror, l, o)
-     {
-        evas_object_image_alpha_set(o, !!cw->ns ? 1 : cw->ec->argb);
-        evas_object_image_native_surface_set(o, set ? (cw->ns ?: &ns) : NULL);
-     }
+   _e_comp_object_native_surface_set(cw, set && (!cw->blanked) ? (cw->ns ? cw->ns : &ns) : NULL, EINA_TRUE);
 }
 
 E_API void
@@ -3951,7 +3994,7 @@ e_comp_object_blank(Evas_Object *obj, Eina_Bool set)
    _e_comp_object_alpha_set(cw);
    if (set)
      {
-        evas_object_image_native_surface_set(cw->obj, NULL);
+        _e_comp_object_native_surface_set(cw, NULL, EINA_FALSE);
         evas_object_image_data_set(cw->obj, NULL);
         return;
      }
