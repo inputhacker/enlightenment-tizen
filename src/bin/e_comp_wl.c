@@ -5068,6 +5068,10 @@ e_comp_wl_buffer_reference(E_Comp_Wl_Buffer_Ref *ref, E_Comp_Wl_Buffer *buffer)
                {
                   if (!wl_resource_get_client(ref->buffer->resource)) return;
                   wl_buffer_send_release(ref->buffer->resource);
+#ifdef HAVE_WAYLAND_TBM
+                  wayland_tbm_server_increase_buffer_sync_timeline(e_comp_wl->tbm.server,
+                                                                   ref->buffer->resource, 1);
+#endif
                }
           }
 
