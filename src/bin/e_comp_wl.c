@@ -51,7 +51,6 @@ typedef struct _E_Comp_Wl_Key_Data
    Ecore_Device *dev;
 } E_Comp_Wl_Key_Data;
 
-static Eina_Hash *clients_buffer_hash = NULL;
 static Eina_List *handlers = NULL;
 static E_Client *cursor_timer_ec = NULL;
 static Eina_Bool need_send_leave = EINA_TRUE;
@@ -1797,7 +1796,6 @@ static void
 _e_comp_wl_buffer_cb_destroy(struct wl_listener *listener, void *data EINA_UNUSED)
 {
    E_Comp_Wl_Buffer *buffer;
-   E_Client *ec;
 
    buffer = container_of(listener, E_Comp_Wl_Buffer, destroy_listener);
 
@@ -1806,24 +1804,6 @@ _e_comp_wl_buffer_cb_destroy(struct wl_listener *listener, void *data EINA_UNUSE
 
    /* remove debug info */
    eina_stringshare_del(buffer->debug_info.owner_name);
-
-   if ((ec = eina_hash_find(clients_buffer_hash, &buffer->resource)))
-     {
-        eina_hash_del_by_key(clients_buffer_hash, &buffer->resource);
-        if (e_object_is_del(E_OBJECT(ec)))
-          {
-             if (buffer->type != E_COMP_WL_BUFFER_TYPE_SHM)
-               {
-                  if ((e_comp_object_is_animating(ec->frame)) ||
-                      (evas_object_data_get(ec->frame, "effect_running")))
-                    e_comp_object_effect_set(ec->frame, NULL);
-               }
-          }
-        e_object_unref(E_OBJECT(ec));
-
-        if (e_pixmap_resource_get(ec->pixmap) == buffer)
-          e_pixmap_resource_set(ec->pixmap, NULL);
-     }
 
    wl_signal_emit(&buffer->destroy_signal, buffer);
    free(buffer);
@@ -2645,11 +2625,6 @@ _e_comp_wl_surface_cb_attach(struct wl_client *client EINA_UNUSED, struct wl_res
              wl_client_post_no_memory(client);
              return;
           }
-
-        /* ref only if it's first buffer of client */
-        if (!eina_hash_del_by_data(clients_buffer_hash, ec))
-          e_object_ref(E_OBJECT(ec));
-        eina_hash_add(clients_buffer_hash, &buffer_resource, ec);
      }
 
    _e_comp_wl_surface_state_buffer_set(&ec->comp_data->pending, buffer);
@@ -4731,9 +4706,6 @@ e_comp_wl_init(void)
         return EINA_FALSE;
      }
 
-   /* create hash to store client's buffer */
-   clients_buffer_hash = eina_hash_pointer_new(NULL);
-
 #ifdef HAVE_WAYLAND_TBM
    e_comp_wl_tbm_init();
 #endif
@@ -4785,9 +4757,6 @@ e_comp_wl_surface_create_signal_get(void)
 EINTERN void
 e_comp_wl_shutdown(void)
 {
-   /* free buffer hash */
-   E_FREE_FUNC(clients_buffer_hash, eina_hash_free);
-
    /* free handlers */
    E_FREE_LIST(handlers, ecore_event_handler_del);
 

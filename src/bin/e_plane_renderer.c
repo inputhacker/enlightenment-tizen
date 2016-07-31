@@ -156,12 +156,6 @@ _e_plane_renderer_client_backup_buffer_cb_destroy(struct wl_listener *listener, 
    ec = renderer_client->ec;
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   if (e_pixmap_resource_get(ec->pixmap) == (E_Comp_Wl_Buffer *)data)
-     {
-         e_pixmap_resource_set(ec->pixmap, NULL);
-         e_comp_object_native_surface_set(ec->frame, 0);
-     }
-
    renderer_client->buffer = NULL;
 }
 

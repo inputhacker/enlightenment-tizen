@@ -2648,6 +2648,7 @@ _e_comp_smart_del(Evas_Object *obj)
         UNREFD(cw->ec, 2);
         e_object_unref(E_OBJECT(cw->ec));
      }
+   cw->ec->frame = NULL;
    free(cw);
 }
 
@@ -3901,13 +3902,15 @@ _e_comp_object_cb_buffer_destroy(struct wl_listener *listener, void *data EINA_U
 {
    E_Comp_Object *cw;
    cw = container_of(listener, E_Comp_Object, buffer_destroy_listener);
-   cw->buffer_destroy_listener.notify = NULL;
 
+   cw->buffer_destroy_listener.notify = NULL;
    if (e_object_is_del(E_OBJECT(cw->ec)))
      {
+        if ((cw->native) &&
+            ((cw->animating) || (cw->effect_running)))
+          e_comp_object_effect_set(cw->smart_obj, NULL);
         _e_comp_object_clear(cw);
         evas_object_del(cw->smart_obj);
-        cw->ec->frame = NULL;
      }
    else
      _e_comp_object_native_surface_set(cw, NULL, EINA_TRUE);
@@ -3925,7 +3928,7 @@ _e_comp_object_native_surface_set(E_Comp_Object *cw, Evas_Native_Surface *ns, Ei
         cw->buffer_destroy_listener.notify = NULL;
      }
 
-   if ((ns) && (ns->type == EVAS_NATIVE_SURFACE_WL))
+   if ((ns) && (ns->type == EVAS_NATIVE_SURFACE_WL) && (ns->data.wl.legacy_buffer))
      {
         cw->buffer_destroy_listener.notify = _e_comp_object_cb_buffer_destroy;
         wl_resource_add_destroy_listener((struct wl_resource *)ns->data.wl.legacy_buffer, &cw->buffer_destroy_listener);
