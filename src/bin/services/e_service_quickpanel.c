@@ -1278,6 +1278,8 @@ _e_qp_client_ec_get(E_Client *ec)
    E_QP_Client *qp_client = NULL;
    Eina_List *l;
 
+   EINA_SAFETY_ON_NULL_RETURN_VAL(qp, qp_client);
+
    EINA_LIST_FOREACH(qp->clients, l, qp_client)
      {
         if (qp_client->ec == ec)

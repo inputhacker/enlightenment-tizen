@@ -2372,9 +2372,11 @@ _tzpol_iface_cb_background_state_set(struct wl_client *client EINA_UNUSED, struc
               "Register PID(%u) for BACKGROUND STATE psurf:%p tzpol:%p",
               NULL, NULL, pid, psurf, psurf->tzpol);
      }
-
-   psurf->is_background = EINA_TRUE;
-   _e_policy_wl_background_state_set(psurf, EINA_TRUE);
+   if (psurf)
+     {
+        psurf->is_background = EINA_TRUE;
+        _e_policy_wl_background_state_set(psurf, EINA_TRUE);
+     }
 }
 
 static void

@@ -664,7 +664,7 @@ _e_comp_hwc_prepare(void)
                 goto nextzone;
 
              // if video client could not draw it on video hw layer
-             if (cdata->sub.below_list || cdata->sub.below_list_pending)
+             if (cdata && (cdata->sub.below_list || cdata->sub.below_list_pending))
                {
                   if (!e_comp_wl_video_client_has(ec))
                      goto nextzone;
