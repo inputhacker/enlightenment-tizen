@@ -154,6 +154,7 @@ struct _E_Comp_Wl_Input_Device
    const char *name;
    const char *identifier;
    Ecore_Device_Class clas;
+   Ecore_Device_Subclass subclas;
 };
 
 struct _E_Comp_Wl_Data
