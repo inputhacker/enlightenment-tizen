@@ -640,7 +640,7 @@ _e_comp_wl_clipboard_selection_set(struct wl_listener *listener EINA_UNUSED, voi
      }
    else
      {
-        if (!clip_source->fd[1])
+        if (clip_source->fd[1] == -1)
           {
              ERR("clipboard fd is invalid");
              return;
@@ -832,6 +832,7 @@ e_comp_wl_clipboard_source_create(const char *mime_type, uint32_t serial, int *f
    source = E_NEW(E_Comp_Wl_Clipboard_Source, 1);
    if (!source) return NULL;
 
+   source->fd[0] = source->fd[1] = -1;
    source->data_source.resource = NULL;
    source->data_source.target = _e_comp_wl_clipboard_source_target_send;
    source->data_source.send = _e_comp_wl_clipboard_source_send_send;
@@ -850,7 +851,7 @@ e_comp_wl_clipboard_source_create(const char *mime_type, uint32_t serial, int *f
         eina_array_push(source->data_source.mime_types, eina_stringshare_add(mime_type));
      }
 
-   if ((fd[0] > 0) && (fd[1] > 0))
+   if ((fd[0] >= 0) && (fd[1] >= 0))
      {
         source->fd_handler =
            ecore_main_fd_handler_add(fd[0], ECORE_FD_READ,
