@@ -140,7 +140,7 @@ typedef struct _E_Policy_Wl_Tzlaunch_Img
 typedef struct _E_Policy_Wl_Tz_Indicator
 {
    struct wl_resource *res_tz_indicator;
-   E_Client           *ec;
+   Eina_List          *ec_list;
 } E_Policy_Wl_Tz_Indicator;
 
 typedef enum _E_Launch_Img_File_type
@@ -4485,10 +4485,8 @@ _e_policy_wl_tz_indicator_get_from_client(E_Client *ec)
 
    EINA_LIST_FOREACH(polwl->tz_indicators, l, tz_indicator)
      {
-        if (tz_indicator->ec == ec)
-          {
-             return tz_indicator;
-          }
+        if (eina_list_data_find(tz_indicator->ec_list, ec))
+          return tz_indicator;
      }
 
    return NULL;
@@ -4502,22 +4500,10 @@ _e_policy_wl_tz_indicator_set_client(struct wl_resource *res_tz_indicator, E_Cli
    tz_indicator = _e_policy_wl_tz_indicator_get(res_tz_indicator);
    EINA_SAFETY_ON_NULL_RETURN_VAL(tz_indicator, EINA_FALSE);
 
-   if (!tz_indicator->ec)
-     {
-        tz_indicator->ec = ec;
-        return EINA_TRUE;
-     }
-   else
-     {
-        if (tz_indicator->ec == ec)
-          {
-             return EINA_TRUE;
-          }
-        else
-          {
-             return EINA_FALSE;
-          }
-     }
+   if (!eina_list_data_find(tz_indicator->ec_list, ec))
+     tz_indicator->ec_list = eina_list_append(tz_indicator->ec_list, ec);
+
+   return EINA_TRUE;
 }
 
 static void
@@ -4530,8 +4516,8 @@ _e_policy_wl_tz_indicator_unset_client(E_Client *ec)
 
    EINA_LIST_FOREACH(polwl->tz_indicators, l, tz_indicator)
      {
-        if (tz_indicator->ec == ec)
-          tz_indicator->ec = NULL;
+        if (eina_list_data_find(tz_indicator->ec_list, ec))
+          tz_indicator->ec_list = eina_list_remove(tz_indicator->ec_list, ec);
      }
 }
 
@@ -4933,7 +4919,10 @@ e_policy_wl_shutdown(void)
      wl_resource_destroy(tzlaunch->res_tzlaunch);
 
    EINA_LIST_FREE(polwl->tz_indicators, tz_indicator)
-     wl_resource_destroy(tz_indicator->res_tz_indicator);
+     {
+        eina_list_free(tz_indicator->ec_list);
+        wl_resource_destroy(tz_indicator->res_tz_indicator);
+     }
 
    EINA_LIST_FREE(polwl->globals, global)
      wl_global_destroy(global);
