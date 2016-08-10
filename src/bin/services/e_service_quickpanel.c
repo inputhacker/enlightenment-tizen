@@ -695,7 +695,7 @@ _quickpanel_send_gesture_to_indicator(void)
                   return EINA_TRUE;
                }
           }
-        else if (focused->indicator.state == 1) // state: off
+        else // state: off, unknown
           {
              return EINA_TRUE;
           }
