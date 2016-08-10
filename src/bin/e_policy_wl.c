@@ -183,6 +183,7 @@ static E_Policy_Wl *polwl = NULL;
 
 static Eina_List *handlers = NULL;
 static Eina_List *hooks_cw = NULL;
+static Eina_List *hooks_co = NULL;
 static struct wl_resource *_scrsaver_mng_res = NULL; // TODO
 static struct wl_resource *_indicator_srv_res = NULL;
 
@@ -2272,15 +2273,11 @@ e_client_background_state_set(E_Client *ec, Eina_Bool state)
 
    if (state)
      {
-        ec->comp_data->mapped = EINA_TRUE;
         evas_object_hide(ec->frame);
         EC_CHANGED(ec);
      }
    else
      {
-        ec->comp_data->mapped = EINA_FALSE;
-         if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.map))
-               ec->comp_data->shell.map(ec->comp_data->shell.surface);
         evas_object_show(ec->frame);
         e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
      }
@@ -4421,6 +4418,33 @@ err:
 }
 
 static Eina_Bool
+_e_policy_wl_cb_hook_intercept_show_helper(void *data, E_Client *ec)
+{
+   E_Policy_Wl_Tzpol *tzpol;
+   E_Policy_Wl_Surface *psurf;
+   Eina_Iterator *it;
+
+   it = eina_hash_iterator_data_new(polwl->tzpols);
+   EINA_ITERATOR_FOREACH(it, tzpol)
+     {
+        psurf = _e_policy_wl_tzpol_surf_find(tzpol, ec);
+        if (psurf)
+          {
+             if (psurf->is_background)
+               {
+                  ELOGF("TZPOL",
+                        "BACKGROUND State is On, Deny Show",
+                        ec->pixmap, ec);
+                  return EINA_FALSE;
+               }
+          }
+     }
+   eina_iterator_free(it);
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
 _e_policy_wl_cb_scrsaver_on(void *data EINA_UNUSED, int type EINA_UNUSED, void *event EINA_UNUSED)
 {
    if (_scrsaver_mng_res)
@@ -4802,6 +4826,17 @@ err:
     }                                     \
   while (0)
 
+#undef E_COMP_OBJECT_INTERCEPT_HOOK_APPEND
+#define E_COMP_OBJECT_INTERCEPT_HOOK_APPEND(l, t, cb, d) \
+  do                                                     \
+    {                                                    \
+       E_Comp_Object_Intercept_Hook *_h;                 \
+       _h = e_comp_object_intercept_hook_add(t, cb, d);  \
+       assert(_h);                                       \
+       l = eina_list_append(l, _h);                      \
+    }                                                    \
+  while (0)
+
 Eina_Bool
 e_policy_wl_init(void)
 {
@@ -4853,6 +4888,8 @@ e_policy_wl_init(void)
      ERR("cynara_initialize failed.");
 #endif
 
+   E_COMP_OBJECT_INTERCEPT_HOOK_APPEND(hooks_co, E_COMP_OBJECT_INTERCEPT_HOOK_SHOW_HELPER, _e_policy_wl_cb_hook_intercept_show_helper, NULL);
+
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREENSAVER_ON,  _e_policy_wl_cb_scrsaver_on,  NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREENSAVER_OFF, _e_policy_wl_cb_scrsaver_off, NULL);
 
@@ -4889,6 +4926,7 @@ e_policy_wl_shutdown(void)
    EINA_SAFETY_ON_NULL_RETURN(polwl);
 
    E_FREE_LIST(hooks_cw, e_comp_wl_hook_del);
+   E_FREE_LIST(hooks_co, e_comp_object_intercept_hook_del);
    E_FREE_LIST(handlers, ecore_event_handler_del);
 
    polwl->pending_vis = eina_list_free(polwl->pending_vis);
