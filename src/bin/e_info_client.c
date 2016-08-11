@@ -1192,6 +1192,40 @@ _e_info_client_proc_fps_info(int argc, char **argv)
 }
 
 static void
+_e_info_client_proc_punch(int argc, char **argv)
+{
+   int onoff = 0, x = 0, y = 0, w = 0, h = 0;
+   int a = 0, r = 0, g = 0, b = 0;
+   char *arg;
+
+   EINA_SAFETY_ON_FALSE_RETURN(argc >= 3);
+   EINA_SAFETY_ON_NULL_RETURN(argv[2]);
+
+   arg = argv[2];
+   if (!strncmp(arg, "on", 2))
+     onoff = 1;
+
+   arg = argv[3];
+   if (arg && sscanf(arg, "%dx%d+%d+%d", &w, &h, &x, &y) < 0)
+     {
+        printf("wrong geometry arguments(<w>x<h>+<x>+<y>\n");
+        return;
+     }
+
+   if (argc == 5 && argv[4])
+     {
+        arg = argv[4];
+        if (sscanf(arg, "%d,%d,%d,%d", &a, &r, &g, &b) < 0)
+          {
+             printf("wrong color arguments(<a>,<r>,<g>,<b>)\n");
+             return;
+          }
+     }
+
+   _e_info_client_eldbus_message_with_args("punch", NULL, "iiiiiiiii", onoff, x, y, w, h, a, r, g, b);
+}
+
+static void
 _e_info_client_proc_transform_set(int argc, char **argv)
 {
    int32_t id_enable_xy_sxsy_angle[8];
@@ -1606,6 +1640,11 @@ static struct
       "fps", NULL,
       "Print FPS in every sec",
       _e_info_client_proc_fps_info
+   },
+   {
+      "punch", "[on/off] [<X>x<H>+<X>+<Y>] [<a>,<r>,<g>,<b>]",
+      "HWC should be disabled first with \"-hwc\" option. Punch a UI framebuffer [on/off]."
+      _e_info_client_proc_punch
    },
    {
       "transform",

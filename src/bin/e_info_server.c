@@ -1235,6 +1235,47 @@ _e_info_server_cb_fps_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED
 }
 
 static Eldbus_Message *
+_e_info_server_cb_punch(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   int onoff = 0, x = 0, y = 0, w = 0, h = 0;
+   int a = 0, r = 0, g = 0, b = 0;
+   static Evas_Object *punch_obj = NULL;
+
+   if (!eldbus_message_arguments_get(msg, "iiiiiiiii", &onoff, &x, &y, &w, &h, &a, &r, &g, &b))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+  if (!onoff)
+    {
+       if (punch_obj)
+         evas_object_del(punch_obj);
+       punch_obj = NULL;
+       return reply;
+    }
+
+  if (!punch_obj)
+    {
+       punch_obj = evas_object_rectangle_add(e_comp->evas);
+       evas_object_render_op_set(punch_obj, EVAS_RENDER_COPY);
+    }
+
+   evas_object_color_set(punch_obj, r, g, b, a);
+
+   if (w == 0 || h == 0)
+     evas_output_size_get(e_comp->evas, &w, &h);
+
+   evas_object_move(punch_obj, x, y);
+   evas_object_resize(punch_obj, w, h);
+   evas_object_layer_set(punch_obj, EVAS_LAYER_MAX);
+   evas_object_show(punch_obj);
+
+   return reply;
+}
+
+static Eldbus_Message *
 e_info_server_cb_transform_message(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
@@ -1635,6 +1676,7 @@ static const Eldbus_Method methods[] = {
    { "protocol_trace", ELDBUS_ARGS({"s", "protocol_trace"}), NULL, _e_info_server_cb_protocol_trace, 0},
    { "protocol_rule", ELDBUS_ARGS({"sss", "protocol_rule"}), ELDBUS_ARGS({"s", "rule request"}), _e_info_server_cb_protocol_rule, 0},
    { "get_fps_info", NULL, ELDBUS_ARGS({"s", "fps request"}), _e_info_server_cb_fps_info_get, 0},
+   { "punch", ELDBUS_ARGS({"iiiiiiiii", "punch_geometry"}), NULL, _e_info_server_cb_punch, 0},
    { "transform_message", ELDBUS_ARGS({"siiiiiiii", "transform_message"}), NULL, e_info_server_cb_transform_message, 0},
    { "dump_buffers", ELDBUS_ARGS({"iis", "start"}), NULL, _e_info_server_cb_buffer_dump, 0 },
 #ifdef HAVE_HWC
