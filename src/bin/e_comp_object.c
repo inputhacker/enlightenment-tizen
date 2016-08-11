@@ -4859,6 +4859,9 @@ e_comp_object_content_unset(Evas_Object *obj)
         cw->visible = 1;
      }
 
+   e_comp_object_damage(cw->smart_obj, 0, 0, cw->w, cw->h);
+   e_comp_object_dirty(cw->smart_obj);
+   e_comp_object_render(cw->smart_obj);
    e_comp_object_render_update_add(obj);
 
    return EINA_TRUE;
