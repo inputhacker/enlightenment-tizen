@@ -204,7 +204,8 @@ _e_policy_client_maximize_policy_apply(E_Policy_Client *pc)
    E_Client *ec;
 
    if (!pc) return EINA_FALSE;
-   if (pc->max_policy_state) return EINA_FALSE;
+
+   if (pc->max_policy_state) return EINA_TRUE;
    if (pc->allow_user_geom) return EINA_FALSE;
 
    ec = pc->ec;
