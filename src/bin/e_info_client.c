@@ -1643,7 +1643,7 @@ static struct
    },
    {
       "punch", "[on/off] [<X>x<H>+<X>+<Y>] [<a>,<r>,<g>,<b>]",
-      "HWC should be disabled first with \"-hwc\" option. Punch a UI framebuffer [on/off]."
+      "HWC should be disabled first with \"-hwc\" option. Punch a UI framebuffer [on/off].",
       _e_info_client_proc_punch
    },
    {
