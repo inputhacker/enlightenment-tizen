@@ -1658,6 +1658,12 @@ _e_comp_wl_evas_cb_focus_out(void *data, Evas *evas EINA_UNUSED, Evas_Object *ob
               wl_keyboard_send_key(res, serial, t,
                                    k->key, WL_KEYBOARD_KEY_STATE_RELEASED);
           }
+        wl_array_for_each(k, &e_comp_wl->kbd.routed_keys)
+          {
+             _e_comp_wl_send_event_device(wl_resource_get_client(res), t, k->dev, serial);
+              wl_keyboard_send_key(res, serial, t,
+                                   k->key, WL_KEYBOARD_KEY_STATE_RELEASED);
+          }
         wl_keyboard_send_leave(res, serial, ec->comp_data->surface);
         e_comp_wl->kbd.focused =
            eina_list_remove_list(e_comp_wl->kbd.focused, l);
@@ -5365,17 +5371,6 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
      }
 #endif
 
-   end = (E_Comp_Wl_Key_Data *)e_comp_wl->kbd.keys.data + (e_comp_wl->kbd.keys.size / sizeof(*k));
-
-   for (k = e_comp_wl->kbd.keys.data; k < end; k++)
-     {
-        /* ignore server-generated key repeats */
-        if (k->key == keycode && !ev->data)
-          {
-             return EINA_FALSE;
-          }
-     }
-
    ec = e_client_focused_get();
    wc = (ec ? ec->comp_data->surface ? wl_resource_get_client(ec->comp_data->surface) : NULL : NULL);
 
@@ -5388,6 +5383,16 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
         else
           {
              ec = NULL;
+             end = (E_Comp_Wl_Key_Data *)e_comp_wl->kbd.routed_keys.data + (e_comp_wl->kbd.routed_keys.size / sizeof(*k));
+
+             for (k = e_comp_wl->kbd.routed_keys.data; k < end; k++)
+               {
+                  /* ignore server-generated key repeats */
+                  if (k->key == keycode)
+                    {
+                       return EINA_FALSE;
+                    }
+               }
 
              if ((!e_client_action_get()) && (!e_comp->input_key_grabs))
                {
@@ -5395,6 +5400,16 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
                   if (ec && ec->comp_data->surface && e_comp_wl->kbd.focused)
                     {
                        _e_comp_wl_key_send(ev, WL_KEYBOARD_KEY_STATE_PRESSED, e_comp_wl->kbd.focused, EINA_TRUE);
+
+                       /* A key only sent to clients is added to the list */
+                       e_comp_wl->kbd.routed_keys.size = (const char *)end - (const char *)e_comp_wl->kbd.routed_keys.data;
+                       if (!(k = wl_array_add(&e_comp_wl->kbd.routed_keys, sizeof(*k))))
+                         {
+                            DBG("wl_array_add: Out of memory\n");
+                            return EINA_FALSE;
+                         }
+                       k->key = keycode;
+                       k->dev = ev->dev;
                     }
                }
 
@@ -5406,6 +5421,17 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
      }
 
    ec = NULL;
+
+   end = (E_Comp_Wl_Key_Data *)e_comp_wl->kbd.keys.data + (e_comp_wl->kbd.keys.size / sizeof(*k));
+
+   for (k = e_comp_wl->kbd.keys.data; k < end; k++)
+     {
+        /* ignore server-generated key repeats */
+        if (k->key == keycode)
+          {
+             return EINA_FALSE;
+          }
+     }
 
    if ((!e_client_action_get()) && (!e_comp->input_key_grabs))
      {
@@ -5459,6 +5485,18 @@ e_comp_wl_key_up(Ecore_Event_Key *ev)
 
    if (ev->data)
      {
+        end = (E_Comp_Wl_Key_Data *)e_comp_wl->kbd.routed_keys.data + (e_comp_wl->kbd.routed_keys.size / sizeof(*k));
+        for (k = e_comp_wl->kbd.routed_keys.data; k < end; k++)
+          {
+             if (k->key == keycode)
+               {
+                  *k = *--end;
+                  delivered_key = 1;
+               }
+          }
+        e_comp_wl->kbd.routed_keys.size =
+          (const char *)end - (const char *)e_comp_wl->kbd.routed_keys.data;
+
         if (wc != ev->data)
           {
              _e_comp_wl_key_send(ev, WL_KEYBOARD_KEY_STATE_RELEASED, e_comp_wl->kbd.resources, EINA_FALSE);
@@ -5467,9 +5505,11 @@ e_comp_wl_key_up(Ecore_Event_Key *ev)
           {
              ec = NULL;
 
-             if ((!e_client_action_get()) && (!e_comp->input_key_grabs))
+             if ((delivered_key) ||
+                 ((!e_client_action_get()) && (!e_comp->input_key_grabs)))
                {
                   ec = e_client_focused_get();
+
                   if (e_comp_wl->kbd.focused)
                     {
                        _e_comp_wl_key_send(ev, WL_KEYBOARD_KEY_STATE_RELEASED, e_comp_wl->kbd.focused, EINA_FALSE);

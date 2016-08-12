@@ -531,6 +531,7 @@ e_comp_wl_input_init(void)
      }
 
    wl_array_init(&e_comp_wl->kbd.keys);
+   wl_array_init(&e_comp_wl->kbd.routed_keys);
 
    E_EVENT_TEXT_INPUT_PANEL_VISIBILITY_CHANGE = ecore_event_type_new();
 
@@ -557,6 +558,7 @@ e_comp_wl_input_shutdown(void)
 
    /* destroy e_comp_wl->kbd.keys array */
    wl_array_release(&e_comp_wl->kbd.keys);
+   wl_array_release(&e_comp_wl->kbd.routed_keys);
 
    /* unmap any existing keyboard area */
    if (e_comp_wl->xkb.area)
