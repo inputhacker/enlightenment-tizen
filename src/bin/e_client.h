@@ -862,6 +862,8 @@ struct E_Client
       int opacity_mode;
       int visible_type;
    } indicator;
+
+   E_Plane_Renderer_Client *renderer_client;
 };
 
 #define e_client_focus_policy_click(ec) \

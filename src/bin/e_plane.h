@@ -1,12 +1,5 @@
 #ifdef E_TYPEDEFS
 
-typedef enum _E_Plane_Renderer_State
-{
-   E_PLANE_RENDERER_STATE_NONE,
-   E_PLANE_RENDERER_STATE_CANDIDATE,
-   E_PLANE_RENDERER_STATE_ACTIVATE,
-} E_Plane_Renderer_State;
-
 typedef enum _E_Plane_Type
 {
    E_PLANE_TYPE_INVALID,
@@ -23,7 +16,6 @@ typedef enum _E_Plane_Color
 } E_Plane_Color;
 
 typedef struct _E_Plane                      E_Plane;
-typedef struct _E_Plane_Renderer             E_Plane_Renderer;
 typedef struct _E_Plane_Commit_Data          E_Plane_Commit_Data;
 #else
 #ifndef E_PLANE_H
@@ -33,6 +25,7 @@ typedef struct _E_Plane_Commit_Data          E_Plane_Commit_Data;
 
 #include "e_comp_screen.h"
 #include "e_output.h"
+#include "e_plane_renderer.h"
 #include "e_comp_wl.h"
 
 struct _E_Plane
@@ -54,35 +47,11 @@ struct _E_Plane
    tdm_layer            *tlayer;
    tdm_info_layer        info;
    tbm_surface_h         tsurface;
-   tbm_surface_h         previous_tsurface;
-   tbm_surface_h         prepare_tsurface;
 
    E_Comp_Wl_Buffer_Ref  displaying_buffer_ref;
 
    E_Plane_Renderer     *renderer;
    E_Output             *output;
-
-   Ecore_Evas           *ee;
-   Evas                 *evas;
-   Eina_Bool             update_ee;
-   Eina_Bool             update_exist;
-   Eina_Bool             pending;
-};
-
-struct _E_Plane_Renderer {
-   tbm_surface_queue_h tqueue;
-   int tqueue_width;
-   int tqueue_height;
-
-   E_Client           *ec;
-   E_Plane_Renderer_State state;
-
-   struct gbm_surface *gsurface;
-   Eina_List          *disp_surfaces;
-   Eina_List          *sent_surfaces;
-   Eina_List          *exported_surfaces;
-
-   E_Plane            *plane;
 };
 
 struct _E_Plane_Commit_Data {
@@ -104,6 +73,7 @@ EINTERN void                 e_plane_commit_data_release(E_Plane_Commit_Data *da
 EINTERN Eina_Bool            e_plane_is_reserved(E_Plane *plane);
 EINTERN void                 e_plane_reserved_set(E_Plane *plane, Eina_Bool set);
 EINTERN void                 e_plane_hwc_trace_debug(Eina_Bool onoff);
+
 E_API Eina_Bool              e_plane_type_set(E_Plane *plane, E_Plane_Type type);
 E_API E_Plane_Type           e_plane_type_get(E_Plane *plane);
 E_API E_Client              *e_plane_ec_get(E_Plane *plane);
