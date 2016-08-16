@@ -683,6 +683,15 @@ main(int argc, char **argv)
         _e_main_shutdown_push(e_policy_shutdown);
      }
 
+   TS("E_Process Init");
+   if (!e_process_init())
+     {
+        e_error_message_show(_("Enlightenment cannot setup process managing system!\n"));
+        _e_main_shutdown(-1);
+     }
+   TS("E_Process Init Done");
+   _e_main_shutdown_push(e_process_shutdown);
+
    TS("Load Modules");
    _e_main_modules_load(safe_mode);
    TS("Load Modules Done");

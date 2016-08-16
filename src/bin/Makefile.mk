@@ -102,7 +102,8 @@ src/bin/e_policy.h \
 src/bin/e_policy_keyboard.h \
 src/bin/e_policy_private_data.h \
 src/bin/e_policy_wl.h \
-src/bin/e_policy_wl_display.h
+src/bin/e_policy_wl_display.h \
+src/bin/e_process.h
 
 enlightenment_src = \
 src/bin/e_actions.c \
@@ -189,7 +190,8 @@ src/bin/e_policy_softkey.c \
 src/bin/e_policy_stack.c  \
 src/bin/e_policy_visibility.c \
 src/bin/e_policy_wl.c \
-src/bin/e_policy_wl_display.c
+src/bin/e_policy_wl_display.c \
+src/bin/e_process.c
 
 src_bin_enlightenment_CPPFLAGS = $(E_CPPFLAGS) -DEFL_BETA_API_SUPPORT -DEFL_EO_API_SUPPORT -DE_LOGGING=1 @WAYLAND_CFLAGS@ $(TTRACE_CFLAGS) $(DLOG_CFLAGS) $(POLICY_CFLAGS)
 if HAVE_WAYLAND_TBM
