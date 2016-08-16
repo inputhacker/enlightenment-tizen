@@ -450,7 +450,7 @@ static Eina_Bool
 _drm_read_pixels(E_Comp_Wl_Output *output, void *pixels)
 {
    Ecore_Drm_Device *dev;
-   Ecore_Drm_Fb *fb;
+   Ecore_Drm_Fb *fb = NULL;
    const Eina_List *drm_devs, *l;
    int i = 0, bstride;
    unsigned char *s, *d = pixels;
