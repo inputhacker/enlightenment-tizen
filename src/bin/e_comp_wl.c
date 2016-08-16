@@ -378,6 +378,8 @@ _e_comp_wl_extern_parent_commit(E_Client *ec)
    E_Client *subc;
    Eina_List *l;
 
+   if (!ec->comp_data || e_object_is_del(E_OBJECT(ec))) return;
+
    EINA_LIST_FOREACH(ec->comp_data->sub.list, l, subc)
      _e_comp_wl_extern_parent_commit(subc);
 
@@ -2075,6 +2077,8 @@ _e_comp_wl_subsurface_restack(E_Client *ec)
    E_Client *subc, *temp;
    Eina_List *l;
 
+   if (!ec->comp_data || e_object_is_del(E_OBJECT(ec))) return;
+
    temp = ec;
    EINA_LIST_FOREACH(ec->comp_data->sub.list, l, subc)
      {
@@ -2121,8 +2125,12 @@ _e_comp_wl_subsurface_show(E_Client *ec)
    E_Client *subc;
    Eina_List *l;
 
+   if (!ec->comp_data || e_object_is_del(E_OBJECT(ec))) return;
+
    EINA_LIST_FOREACH(ec->comp_data->sub.list, l, subc)
      {
+        if (!subc->comp_data || e_object_is_del(E_OBJECT(subc))) continue;
+
         if (e_pixmap_resource_get(subc->pixmap) && !subc->comp_data->mapped)
           {
              subc->visible = EINA_TRUE;
@@ -2134,6 +2142,8 @@ _e_comp_wl_subsurface_show(E_Client *ec)
 
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
      {
+        if (!subc->comp_data || e_object_is_del(E_OBJECT(subc))) continue;
+
         if (e_pixmap_resource_get(subc->pixmap) && !subc->comp_data->mapped)
           {
              subc->visible = EINA_TRUE;
@@ -2152,6 +2162,8 @@ _e_comp_wl_subsurface_hide(E_Client *ec)
 
    EINA_LIST_FOREACH(ec->comp_data->sub.list, l, subc)
      {
+        if (!subc->comp_data || !subc->comp_data->sub.data) continue;
+
         if (!subc->comp_data->sub.data->stand_alone)
           {
              if (subc->comp_data->mapped)
@@ -2166,6 +2178,8 @@ _e_comp_wl_subsurface_hide(E_Client *ec)
 
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
      {
+        if (!subc->comp_data || !subc->comp_data->sub.data) continue;
+
         if (!subc->comp_data->sub.data->stand_alone)
           {
              if (subc->comp_data->mapped)
