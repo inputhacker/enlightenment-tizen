@@ -193,6 +193,18 @@ _output_type_to_str(tdm_output_type output_type)
    else return "Unknown";
 }
 
+static int
+_e_output_planes_sort_cb(const void *d1, const void *d2)
+{
+   E_Plane *plane1 = (E_Plane *)d1;
+   E_Plane *plane2 = (E_Plane *)d2;
+
+   if(!plane1) return(1);
+   if(!plane2) return(-1);
+
+   return(plane1->zpos > plane2->zpos);
+}
+
 EINTERN E_Output *
 e_output_new(E_Comp_Screen *e_comp_screen, int index)
 {
@@ -260,8 +272,9 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
         output->planes = eina_list_append(output->planes, plane);
      }
 
-   output->e_comp_screen = e_comp_screen;
+   output->planes = eina_list_sort(output->planes, eina_list_count(output->planes), _e_output_planes_sort_cb);
 
+   output->e_comp_screen = e_comp_screen;
 
    return output;
 
