@@ -41,6 +41,12 @@ struct _E_Pointer
    int x, y, w, h;
    int rotation;
 
+   struct
+     {
+        int x, y;
+        Eina_Bool update : 1;
+     } hot;
+
    E_Pointer_Device device;
 
    Eina_Bool e_cursor : 1;

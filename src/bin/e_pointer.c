@@ -4,6 +4,18 @@
 static Eina_List *_ptrs = NULL;
 static Eina_Bool _initted = EINA_FALSE;
 
+/* move the cursor image with the calcaultion of the hot spot */
+static void
+_e_pointer_move(E_Pointer *ptr, int x, int y)
+{
+   int nx, ny;
+
+   nx = ptr->x - ptr->hot.x;
+   ny = ptr->y - ptr->hot.y;
+
+   evas_object_move(ptr->o_ptr, nx, ny);
+}
+
 static void
 _e_pointer_map_transform(int width, int height, uint32_t transform,
                          int sx, int sy, int *dx, int *dy)
@@ -26,6 +38,7 @@ _e_pointer_map_transform(int width, int height, uint32_t transform,
      }
 }
 
+// TODO: transform the cursor position with hot spot...!!!!!!
 static void
 _e_pointer_rotation_apply(E_Pointer *ptr)
 {
@@ -56,7 +69,7 @@ _e_pointer_rotation_apply(E_Pointer *ptr)
      {
         evas_object_map_set(ec->frame, NULL);
         evas_object_map_enable_set(ec->frame, EINA_FALSE);
-        evas_object_move(ec->frame, x, y);
+        _e_pointer_move(ptr, x, y);
         return;
      }
 
@@ -216,6 +229,10 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
         ptr->device = E_POINTER_NONE;
      }
 
+   /* update the hot spot of the cursor */
+   ptr->hot.x = x;
+   ptr->hot.y = y;
+
    /* if obj is not null, set the obj to ptr->o_ptr */
    if (obj)
      {
@@ -232,7 +249,7 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
         _e_pointer_rotation_apply(ptr);
 
         /* move the pointer to the current position */
-        evas_object_move(obj, ptr->x, ptr->y);
+        _e_pointer_move(ptr, ptr->x, ptr->y);
 
         /* show cursor object */
         evas_object_show(obj);
@@ -256,7 +273,7 @@ e_pointer_touch_move(E_Pointer *ptr, int x, int y)
    if (ptr->device != E_POINTER_TOUCH) ptr->device = E_POINTER_TOUCH;
 
    _e_pointer_rotation_apply(ptr);
-   evas_object_move(ptr->o_ptr, ptr->x, ptr->y);
+   _e_pointer_move(ptr, ptr->x, ptr->y);
 }
 
 EINTERN void
@@ -275,7 +292,7 @@ e_pointer_mouse_move(E_Pointer *ptr, int x, int y)
    if (ptr->device != E_POINTER_MOUSE) ptr->device = E_POINTER_MOUSE;
 
    _e_pointer_rotation_apply(ptr);
-   evas_object_move(ptr->o_ptr, ptr->x, ptr->y);
+   _e_pointer_move(ptr, ptr->x, ptr->y);
 }
 
 E_API void
@@ -304,7 +321,7 @@ e_pointer_rotation_set(E_Pointer *ptr, int rotation)
    ptr->rotation = rotation;
 
    _e_pointer_rotation_apply(ptr);
-   evas_object_move(ptr->o_ptr, ptr->x, ptr->y);
+   _e_pointer_move(ptr, ptr->x, ptr->y);
 }
 
 E_API void
