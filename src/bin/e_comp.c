@@ -711,7 +711,7 @@ _e_comp_hwc_usable(void)
    // check whether to use hwc
    // core assignment policy
    ret = _e_comp_hwc_prepare();
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(ret, EINA_FALSE);
+   if (!ret) return EINA_FALSE;
 
    // extra policy can replace core policy
    _e_comp_hook_call(E_COMP_HOOK_PREPARE_PLANE, NULL);
