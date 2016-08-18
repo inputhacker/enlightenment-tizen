@@ -2,6 +2,7 @@
 #include "e_policy_keyboard.h"
 #include "e_policy_conformant.h"
 #include "e_policy_wl.h"
+#include "e_policy_visibility.h"
 
 E_Policy *e_policy = NULL;
 Eina_Hash *hash_policy_desks = NULL;
@@ -1699,6 +1700,7 @@ e_policy_init(void)
    _e_pol_idle_enterer = ecore_idle_enterer_add(_e_policy_cb_idle_enterer, NULL);
 
    e_policy_conformant_init();
+   e_policy_visibility_init();
 
    return EINA_TRUE;
 }
@@ -1725,6 +1727,7 @@ e_policy_shutdown(void)
    e_policy_wl_shutdown();
 
    e_policy_conformant_shutdown();
+   e_policy_visibility_shutdown();
 
    E_FREE(pol);
 

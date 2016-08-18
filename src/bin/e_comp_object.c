@@ -3906,6 +3906,9 @@ _e_comp_object_cb_buffer_destroy(struct wl_listener *listener, void *data EINA_U
    cw->buffer_destroy_listener.notify = NULL;
    if (e_object_is_del(E_OBJECT(cw->ec)))
      {
+        if (!e_object_delay_del_ref_get(E_OBJECT(cw->ec)))
+          return;
+
         if ((cw->native) &&
             ((cw->animating) || (cw->effect_running)))
           e_comp_object_effect_set(cw->smart_obj, NULL);

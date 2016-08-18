@@ -2655,7 +2655,6 @@ _e_comp_wl_frame_cb_destroy(struct wl_resource *resource)
    E_Client *ec;
 
    if (!(ec = wl_resource_get_user_data(resource))) return;
-   if (e_object_is_del(E_OBJECT(ec))) return;
 
    ec->comp_data->frames =
      eina_list_remove(ec->comp_data->frames, resource);
@@ -2883,6 +2882,8 @@ _e_comp_wl_surface_destroy(struct wl_resource *resource)
 
    if (!(ec = wl_resource_get_user_data(resource))) return;
 
+   ec->comp_data->surface = NULL;
+   ec->comp_data->wl_surface = NULL;
    e_pixmap_del(ec->pixmap);
 
    _e_comp_wl_surface_render_stop(ec);

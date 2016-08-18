@@ -7,6 +7,7 @@
 #include "services/e_service_cbhm.h"
 #include "e_policy_wl_display.h"
 #include "e_policy_conformant.h"
+#include "e_policy_visibility.h"
 
 #include <device/display.h>
 #include <wayland-server.h>
@@ -1260,9 +1261,12 @@ _tzpol_iface_cb_activate(struct wl_client *client EINA_UNUSED, struct wl_resourc
 
    if ((!starting) && (!ec->focused))
      {
-        if ((ec->iconic) && (!ec->exp_iconify.by_client))
-          e_policy_wl_iconify_state_change_send(ec, 0);
-        e_client_activate(ec, EINA_TRUE);
+        if (!e_policy_visibility_client_activate(ec))
+          {
+             if ((ec->iconic) && (!ec->exp_iconify.by_client))
+               e_policy_wl_iconify_state_change_send(ec, 0);
+             e_client_activate(ec, EINA_TRUE);
+          }
      }
    else
      evas_object_raise(ec->frame);
@@ -1344,6 +1348,9 @@ _tzpol_iface_cb_lower(struct wl_client *client EINA_UNUSED, struct wl_resource *
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
    ELOGF("TZPOL", "LOWER", ec->pixmap, ec);
+
+   if (e_policy_visibility_client_lower(ec))
+     return;
 
    below = ec;
    while ((below = e_client_below_get(below)))
@@ -2009,6 +2016,9 @@ _tzpol_iface_cb_uniconify(struct wl_client *client EINA_UNUSED, struct wl_resour
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
+
+   if (e_policy_visibility_client_uniconify(ec))
+     return;
 
    if ((ec->iconic) && (!ec->exp_iconify.by_client))
      e_policy_wl_iconify_state_change_send(ec, 0);

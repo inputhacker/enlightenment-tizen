@@ -96,6 +96,9 @@ _e_shell_surface_destroy(struct wl_resource *resource)
    /* get the client for this resource */
    if ((ec = wl_resource_get_user_data(resource)))
      {
+        if (ec->comp_data)
+          ec->comp_data->shell.surface = NULL;
+
         if (!e_object_unref(E_OBJECT(ec))) return;
         if (e_object_is_del(E_OBJECT(ec))) return;
 
@@ -113,7 +116,6 @@ _e_shell_surface_destroy(struct wl_resource *resource)
                     eina_list_remove(ec->parent->transients, ec);
                }
              /* wl_resource_destroy(ec->comp_data->shell.surface); */
-             ec->comp_data->shell.surface = NULL;
           }
      }
 }

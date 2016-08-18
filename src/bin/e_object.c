@@ -56,8 +56,11 @@ e_object_del(E_Object *obj)
         if (obj->ref_debug)
           INF("[%p] DELAY DEL (REF: %d)", obj, obj->references);
         obj->del_delay_func(obj);
-        if (!obj->delay_del_job)
-          obj->delay_del_job = ecore_job_add(_delay_del, obj);
+        if (!obj->delay_del_ref)
+          {
+             if (!obj->delay_del_job)
+               obj->delay_del_job = ecore_job_add(_delay_del, obj);
+          }
         obj->deleted = 1;
         return;
      }
@@ -67,6 +70,29 @@ e_object_del(E_Object *obj)
    if (obj->del_att_func) obj->del_att_func(obj);
    if (obj->del_func) obj->del_func(obj);
    e_object_unref(obj);
+}
+
+E_API int
+e_object_delay_del_ref_get(E_Object *obj)
+{
+   E_OBJECT_CHECK_RETURN(obj, 0);
+   return obj->delay_del_ref;
+}
+
+E_API int
+e_object_delay_del_ref(E_Object *obj)
+{
+   E_OBJECT_CHECK_RETURN(obj, 0);
+   return ++obj->delay_del_ref;
+}
+
+E_API void
+e_object_delay_del_unref(E_Object *obj)
+{
+   E_OBJECT_CHECK(obj);
+   obj->delay_del_ref--;
+   if (obj->delay_del_ref == 0)
+     _delay_del(obj);
 }
 
 E_API void

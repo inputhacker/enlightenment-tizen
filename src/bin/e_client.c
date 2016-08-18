@@ -813,7 +813,7 @@ _e_client_free(E_Client *ec)
         e_object_unref(E_OBJECT(ec->e.state.profile.wait_desk));
      }
    ec->e.state.profile.wait_desk = NULL;
-   evas_object_del(ec->frame);
+   E_FREE_FUNC(ec->frame, evas_object_del);
    E_OBJECT(ec)->references--;
    ELOG("CLIENT FREE", ec->pixmap, ec);
 
@@ -2659,6 +2659,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
    Eina_List *l = NULL;
    Eina_Bool effect_running = EINA_FALSE;
 
+   if (e_comp->animating) return;
    if (!zone) return;
 
    TRACE_DS_BEGIN(CLIENT:VISIBILITY CALCULATE);

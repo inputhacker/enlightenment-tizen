@@ -86,6 +86,7 @@ struct _E_Object
    Eina_Inlist             *del_fn_list;
    void                    *data;
    Ecore_Job               *delay_del_job;
+   int                      delay_del_ref;
    int                      walking_list;
    Eina_Bool                ref_debug : 1;
    Eina_Bool                deleted : 1;
@@ -121,6 +122,9 @@ E_API void            e_object_delfn_del (E_Object *obj, E_Object_Delfn *dfn);
 E_API void            e_object_delfn_clear(E_Object *obj);
 
 E_API void e_object_ref_debug_set(E_Object *obj, Eina_Bool set);
+E_API int  e_object_delay_del_ref_get(E_Object *obj);
+E_API int  e_object_delay_del_ref(E_Object *obj);
+E_API void e_object_delay_del_unref(E_Object *obj);
 
 #ifdef OBJECT_HASH_CHECK
 extern E_API Eina_Bool e_obj_hash_check;
