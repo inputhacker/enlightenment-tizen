@@ -51,6 +51,7 @@ static Eina_List *raise_stack = NULL;
 static Eina_Bool comp_grabbed = EINA_FALSE;
 
 static Eina_List *handlers = NULL;
+static Eina_List *hooks = NULL;
 //static Eina_Bool client_grabbed = EINA_FALSE;
 
 static Ecore_Event_Handler *action_handler_key = NULL;
@@ -3077,6 +3078,15 @@ _e_client_transform_core_sub_update(E_Client *ec, E_Util_Transform_Rect_Vertex *
       e_client_transform_core_update(subc);
 }
 
+static void
+_e_client_cb_hook_shell_surface_ready(void *data EINA_UNUSED, E_Client *ec)
+{
+   if (EINA_UNLIKELY(!ec))
+     return;
+
+   _e_client_aux_hint_eval(ec);
+}
+
 E_API void
 e_client_visibility_calculate(void)
 {
@@ -3240,6 +3250,8 @@ e_client_init(void)
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_CONFIG_MODE_CHANGED, _e_client_cb_config_mode, NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_DESK_WINDOW_PROFILE_CHANGE, _e_client_cb_desk_window_profile_change, NULL);
 
+   E_COMP_WL_HOOK_APPEND(hooks, E_COMP_WL_HOOK_SHELL_SURFACE_READY, _e_client_cb_hook_shell_surface_ready, NULL);
+
    E_EVENT_CLIENT_ADD = ecore_event_type_new();
    E_EVENT_CLIENT_REMOVE = ecore_event_type_new();
    E_EVENT_CLIENT_DESK_SET = ecore_event_type_new();
@@ -3274,6 +3286,7 @@ e_client_shutdown(void)
    for (pix_id = 0; pix_id < E_PIXMAP_TYPE_MAX; pix_id++)
      E_FREE_FUNC(clients_hash[pix_id], eina_hash_free);
 
+   E_FREE_LIST(hooks, e_comp_wl_hook_del);
    E_FREE_LIST(handlers, ecore_event_handler_del);
 
    E_FREE_FUNC(warp_timer, ecore_timer_del);
