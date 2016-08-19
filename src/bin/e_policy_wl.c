@@ -1207,6 +1207,8 @@ e_policy_wl_position_send(E_Client *ec)
    Eina_Iterator *it;
    Ecore_Window win;
 
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
    win = e_client_util_win_get(ec);
 
    it = eina_hash_iterator_data_new(polwl->tzpols);
