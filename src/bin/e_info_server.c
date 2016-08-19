@@ -607,6 +607,63 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
 }
 
 static Eldbus_Message *
+_e_info_server_cb_scrsaver(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   E_Info_Cmd_Scrsaver cmd;
+   double sec;
+   Eina_Bool res, enabled;
+   char result[1024];
+
+   res = eldbus_message_arguments_get(msg,
+                                      SIGNATURE_SCRSAVER_CLIENT,
+                                      &cmd,
+                                      &sec);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(res, reply);
+
+   switch (cmd)
+     {
+      case E_INFO_CMD_SCRSAVER_INFO:
+         sec = e_screensaver_timeout_get();
+         enabled = e_screensaver_enabled_get();
+         snprintf(result, sizeof(result),
+                  "[Server] screen saver\n" \
+                  "\tState: %s\n"           \
+                  "\tTimeout period: %lf\n",
+                  enabled ? "Enabled" : "Disabled",
+                  sec);
+         break;
+      case E_INFO_CMD_SCRSAVER_ENABLE:
+         e_screensaver_enable();
+         snprintf(result, sizeof(result),
+                  "[Server] Enabled the screen saver");
+         break;
+      case E_INFO_CMD_SCRSAVER_DISABLE:
+         e_screensaver_disable();
+         snprintf(result, sizeof(result),
+                  "[Server] Disabled the screen saver");
+         break;
+      case E_INFO_CMD_SCRSAVER_TIMEOUT:
+         e_screensaver_timeout_set(sec);
+         snprintf(result, sizeof(result),
+                  "[Server] Set timeout period of the screen saver: %lf",
+                  sec);
+         break;
+      default:
+         snprintf(result, sizeof(result),
+                  "[Server] Error Unknown cmd(%d) for the screen saver",
+                  cmd);
+         break;
+     }
+
+   eldbus_message_arguments_append(reply,
+                                   SIGNATURE_SCRSAVER_SERVER,
+                                   result);
+
+   return reply;
+}
+
+static Eldbus_Message *
 _e_info_server_cb_window_prop_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
@@ -1688,6 +1745,7 @@ static const Eldbus_Method methods[] = {
    { "get_module_info", ELDBUS_ARGS({"ss", "get_module_info"}), NULL, _e_info_server_cb_module_info_get, 0},
    { "hwc", ELDBUS_ARGS({"i", "hwc"}), NULL, e_info_server_cb_hwc, 0},
    { "aux_msg", ELDBUS_ARGS({"s","window id" }, {"s", "key"}, {"s", "value"}, {"as", "options"}), NULL, e_info_server_cb_aux_message, 0},
+   { "scrsaver", ELDBUS_ARGS({SIGNATURE_SCRSAVER_CLIENT, "scrsaver_params"}), ELDBUS_ARGS({SIGNATURE_SCRSAVER_SERVER, "scrsaver_result"}), _e_info_server_cb_scrsaver, 0},
    { NULL, NULL, NULL, NULL, 0 }
 };
 

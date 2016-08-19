@@ -180,3 +180,11 @@ e_screensaver_disable(void)
         _saver->idle_before = NULL;
      }
 }
+
+E_API Eina_Bool
+e_screensaver_enabled_get(void)
+{
+   if (!_saver) return EINA_FALSE;
+
+   return _saver->enable;
+}

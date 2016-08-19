@@ -1562,6 +1562,75 @@ _e_info_client_proc_aux_message(int argc, char **argv)
    ecore_main_loop_begin();
 }
 
+static void
+_e_info_client_cb_scrsaver(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   const char *result = NULL;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg,
+                                      SIGNATURE_SCRSAVER_SERVER,
+                                      &result);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   printf("%s\n", result);
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_scrsaver(int argc, char **argv)
+{
+   E_Info_Cmd_Scrsaver cmd = E_INFO_CMD_SCRSAVER_UNKNOWN;
+   Eina_Bool res;
+   double sec = 0.0;
+
+   if (eina_streq(argv[2], "info"))
+     {
+        if (argc != 3) goto arg_err;
+        cmd = E_INFO_CMD_SCRSAVER_INFO;
+     }
+   else if (eina_streq(argv[2], "enable"))
+     {
+        if (argc != 3) goto arg_err;
+        cmd = E_INFO_CMD_SCRSAVER_ENABLE;
+     }
+   else if (eina_streq(argv[2], "disable"))
+     {
+        if (argc != 3) goto arg_err;
+        cmd = E_INFO_CMD_SCRSAVER_DISABLE;
+     }
+   else if (eina_streq(argv[2], "timeout"))
+     {
+        if (argc != 4) goto arg_err;
+        sscanf(argv[3], "%lf", &sec);
+        cmd = E_INFO_CMD_SCRSAVER_TIMEOUT;
+
+        printf("sec: %lf\n", sec);
+     }
+   else
+     goto arg_err;
+
+   res = _e_info_client_eldbus_message_with_args("scrsaver",
+                                                 _e_info_client_cb_scrsaver,
+                                                 SIGNATURE_SCRSAVER_CLIENT,
+                                                 cmd, sec);
+   EINA_SAFETY_ON_FALSE_RETURN(res);
+   return;
+
+arg_err:
+   printf("Usage: enlightenment_info -scrsaver %s", USAGE_SCRSAVER);
+}
+
 static struct
 {
    const char *option;
@@ -1697,6 +1766,12 @@ static struct
       "[window] [key] [value] [options]",
       "send aux message to client",
       _e_info_client_proc_aux_message
+   },
+   {
+      "scrsaver",
+      USAGE_SCRSAVER,
+      "Set parameters of the screen saver",
+      _e_info_client_proc_scrsaver
    }
 };
 
