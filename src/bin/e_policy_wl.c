@@ -4,6 +4,7 @@
 #include "services/e_service_volume.h"
 #include "services/e_service_lockscreen.h"
 #include "services/e_service_indicator.h"
+#include "services/e_service_cbhm.h"
 #include "e_policy_wl_display.h"
 #include "e_policy_conformant.h"
 
@@ -35,6 +36,7 @@ typedef enum _Tzsh_Srv_Role
    TZSH_SRV_ROLE_TVSERVICE,
    TZSH_SRV_ROLE_SCREENSAVER_MNG,
    TZSH_SRV_ROLE_SCREENSAVER,
+   TZSH_SRV_ROLE_CBHM,
    TZSH_SRV_ROLE_MAX
 } Tzsh_Srv_Role;
 
@@ -79,6 +81,7 @@ typedef struct _E_Policy_Wl_Tzsh_Client
    E_Policy_Wl_Tzsh        *tzsh;
    struct wl_resource *res_tzsh_client;
    Eina_Bool           qp_client;
+   Eina_Bool           cbhm_client;
 } E_Policy_Wl_Tzsh_Client;
 
 typedef struct _E_Policy_Wl_Tzsh_Region
@@ -598,6 +601,7 @@ _e_policy_wl_tzsh_srv_role_get(const char *name)
    else if (!e_util_strcmp(name, "tvsrv"              )) role = TZSH_SRV_ROLE_TVSERVICE;
    else if (!e_util_strcmp(name, "screensaver_manager")) role = TZSH_SRV_ROLE_SCREENSAVER_MNG;
    else if (!e_util_strcmp(name, "screensaver"        )) role = TZSH_SRV_ROLE_SCREENSAVER;
+   else if (!e_util_strcmp(name, "cbhm"               )) role = TZSH_SRV_ROLE_CBHM;
 
    return role;
 }
@@ -763,10 +767,14 @@ _e_policy_wl_tzsh_client_del(E_Policy_Wl_Tzsh_Client *tzsh_client)
    polwl->tzsh_clients = eina_list_remove(polwl->tzsh_clients, tzsh_client);
    polwl->tvsrv_bind_list = eina_list_remove(polwl->tvsrv_bind_list, tzsh_client);
 
-   if ((tzsh_client->qp_client) &&
-       (tzsh_client->tzsh) &&
+   if ((tzsh_client->tzsh) &&
        (tzsh_client->tzsh->ec))
-     e_qp_client_del(tzsh_client->tzsh->ec);
+     {
+        if (tzsh_client->qp_client)
+          e_qp_client_del(tzsh_client->tzsh->ec);
+        else if (tzsh_client->cbhm_client)
+          e_cbhm_client_del(tzsh_client->tzsh->ec);
+     }
 
    memset(tzsh_client, 0x0, sizeof(E_Policy_Wl_Tzsh_Client));
    E_FREE(tzsh_client);
@@ -3185,6 +3193,68 @@ _tzsh_srv_iface_cb_scrsaver_mng_get(struct wl_client *client, struct wl_resource
    wl_resource_set_implementation(res, &_tzsh_srv_scrsaver_mng_iface, tzsh_srv, NULL);
 }
 
+static void
+_tzsh_srv_cbhm_cb_destroy(struct wl_client *client EINA_UNUSED, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
+static void
+_tzsh_srv_cbhm_cb_msg(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, uint32_t msg)
+{
+   E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+
+   tzsh_srv = wl_resource_get_user_data(resource);
+
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh);
+
+#define EC  tzsh_srv->tzsh->ec
+   EINA_SAFETY_ON_NULL_RETURN(EC);
+
+   switch (msg)
+     {
+      case TWS_SERVICE_CBHM_MSG_SHOW:
+         e_service_cbhm_show();
+         break;
+      case TWS_SERVICE_CBHM_MSG_HIDE:
+         e_service_cbhm_hide();
+         break;
+      default:
+         ERR("Unknown message!! msg %d", msg);
+         break;
+     }
+#undef EC
+}
+
+static const struct tws_service_cbhm_interface _tzsh_srv_cbhm_iface =
+{
+   _tzsh_srv_cbhm_cb_destroy,
+   _tzsh_srv_cbhm_cb_msg
+};
+
+static void
+_tzsh_srv_iface_cb_cbhm_get(struct wl_client *client, struct wl_resource *res_tzsh_srv, uint32_t id)
+{
+   E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+   struct wl_resource *res;
+
+   tzsh_srv = wl_resource_get_user_data(res_tzsh_srv);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv);
+
+   if (!eina_list_data_find(polwl->tzsh_srvs, tzsh_srv))
+     return;
+
+   res = wl_resource_create(client, &tws_service_cbhm_interface, 1, id);
+   if (!res)
+     {
+        wl_client_post_no_memory(client);
+        return;
+     }
+
+   wl_resource_set_implementation(res, &_tzsh_srv_cbhm_iface, tzsh_srv, NULL);
+}
+
 static const struct tws_service_interface _tzsh_srv_iface =
 {
    _tzsh_srv_iface_cb_destroy,
@@ -3192,7 +3262,8 @@ static const struct tws_service_interface _tzsh_srv_iface =
    _tzsh_srv_iface_cb_indicator_get,
    _tzsh_srv_iface_cb_quickpanel_get,
    _tzsh_srv_iface_cb_scrsaver_mng_get,
-   _tzsh_srv_iface_cb_scrsaver_get
+   _tzsh_srv_iface_cb_scrsaver_get,
+   _tzsh_srv_iface_cb_cbhm_get,
 };
 
 static void
@@ -3319,6 +3390,8 @@ _tzsh_iface_cb_srv_create(struct wl_client *client, struct wl_resource *res_tzsh
      e_service_lockscreen_client_set(tzsh->ec);
    else if (role == TZSH_SRV_ROLE_INDICATOR)
      e_mod_indicator_client_set(tzsh->ec);
+   else if (role == TZSH_SRV_ROLE_CBHM)
+     e_service_cbhm_client_set(tzsh->ec);
 }
 
 // --------------------------------------------------------
@@ -3979,6 +4052,144 @@ _tzsh_iface_cb_tvsrv_get(struct wl_client *client, struct wl_resource *res_tzsh,
 }
 
 // --------------------------------------------------------
+// tizen_ws_shell_interface::cbhm
+// --------------------------------------------------------
+static void
+_tzsh_cbhm_iface_cb_release(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzsh_cbhm)
+{
+   wl_resource_destroy(res_tzsh_cbhm);
+}
+
+static void
+_tzsh_cbhm_iface_cb_show(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzsh_cbhm)
+{
+   E_Policy_Wl_Tzsh_Client *tzsh_client;
+   E_Client *ec;
+
+   tzsh_client = wl_resource_get_user_data(res_tzsh_cbhm);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh->ec);
+
+   ec = tzsh_client->tzsh->ec;
+
+   if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
+     return;
+
+   e_cbhm_client_show(ec);
+}
+
+static void
+_tzsh_cbhm_iface_cb_hide(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzsh_cbhm)
+{
+   E_Policy_Wl_Tzsh_Client *tzsh_client;
+   E_Client *ec;
+
+   tzsh_client = wl_resource_get_user_data(res_tzsh_cbhm);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh->ec);
+
+   ec = tzsh_client->tzsh->ec;
+
+   if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
+     return;
+
+   e_cbhm_client_hide(ec);
+}
+
+static const struct tws_cbhm_interface _tzsh_cbhm_iface =
+{
+   _tzsh_cbhm_iface_cb_release,
+   _tzsh_cbhm_iface_cb_show,
+   _tzsh_cbhm_iface_cb_hide,
+};
+
+static void
+_tzsh_cb_cbhm_destroy(struct wl_resource *res_tzsh_cbhm)
+{
+   E_Policy_Wl_Tzsh_Client *tzsh_client;
+
+   tzsh_client = wl_resource_get_user_data(res_tzsh_cbhm);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
+
+   _e_policy_wl_tzsh_client_del(tzsh_client);
+}
+
+static void
+_tzsh_iface_cb_cbhm_get(struct wl_client *client, struct wl_resource *res_tzsh, uint32_t id, uint32_t surf_id)
+{
+   E_Policy_Wl_Tzsh *tzsh;
+   E_Policy_Wl_Tzsh_Client *tzsh_client;
+   struct wl_resource *res_tzsh_cbhm;
+   E_Pixmap *cp;
+   E_Client *ec;
+
+   tzsh = wl_resource_get_user_data(res_tzsh);
+   if (!tzsh)
+     {
+        wl_resource_post_error
+          (res_tzsh,
+           WL_DISPLAY_ERROR_INVALID_OBJECT,
+           "Invalid res_tzsh's user data");
+        return;
+     }
+
+   cp = _e_policy_wl_e_pixmap_get_from_id(client, surf_id);
+   if (!cp)
+     {
+        wl_resource_post_error
+          (res_tzsh,
+           WL_DISPLAY_ERROR_INVALID_OBJECT,
+           "Invalid surface id");
+        return;
+     }
+
+   ec = e_pixmap_client_get(cp);
+   if (ec)
+     {
+        if (!_e_policy_wl_e_client_is_valid(ec))
+          {
+             wl_resource_post_error
+               (res_tzsh,
+                WL_DISPLAY_ERROR_INVALID_OBJECT,
+                "Invalid surface id");
+             return;
+          }
+     }
+
+   res_tzsh_cbhm = wl_resource_create(client,
+                                      &tws_cbhm_interface,
+                                      wl_resource_get_version(res_tzsh),
+                                      id);
+   if (!res_tzsh_cbhm)
+     {
+        ERR("Could not create tws_cbhm resource: %m");
+        wl_client_post_no_memory(client);
+        return;
+     }
+
+   _e_policy_wl_tzsh_data_set(tzsh, TZSH_TYPE_CLIENT, cp, ec);
+
+   tzsh_client = _e_policy_wl_tzsh_client_add(tzsh, res_tzsh_cbhm);
+   if (!tzsh_client)
+     {
+        ERR("Could not create tzsh_client");
+        wl_client_post_no_memory(client);
+        wl_resource_destroy(res_tzsh_cbhm);
+        return;
+     }
+
+   tzsh_client->cbhm_client = EINA_TRUE;
+   e_cbhm_client_add(tzsh->ec);
+
+   wl_resource_set_implementation(res_tzsh_cbhm,
+                                  &_tzsh_cbhm_iface,
+                                  tzsh_client,
+                                  _tzsh_cb_cbhm_destroy);
+}
+
+// --------------------------------------------------------
 // tizen_ws_shell_interface
 // --------------------------------------------------------
 static void
@@ -3993,7 +4204,8 @@ static const struct tizen_ws_shell_interface _tzsh_iface =
    _tzsh_iface_cb_srv_create,
    _tzsh_iface_cb_reg_create,
    _tzsh_iface_cb_qp_get,
-   _tzsh_iface_cb_tvsrv_get
+   _tzsh_iface_cb_tvsrv_get,
+   _tzsh_iface_cb_cbhm_get,
 };
 
 static void

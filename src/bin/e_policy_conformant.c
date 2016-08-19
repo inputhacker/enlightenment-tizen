@@ -537,6 +537,18 @@ _conf_event_shutdown(Conformant *conf)
 }
 
 EINTERN void
+e_policy_conformant_part_add(E_Client *ec)
+{
+   Conformant_Type type = CONFORMANT_TYPE_MAX;
+
+   CONF_DATA_GET(conf);
+   type = _conf_client_type_get(ec);
+   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
+
+   _conf_part_register(conf, ec, type);
+}
+
+EINTERN void
 e_policy_conformant_client_add(E_Client *ec, struct wl_resource *res)
 {
    Conformant_Client *cfc;

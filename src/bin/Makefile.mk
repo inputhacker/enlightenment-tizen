@@ -98,6 +98,7 @@ src/bin/services/e_service_quickpanel.h \
 src/bin/services/e_service_region.h \
 src/bin/services/e_service_volume.h \
 src/bin/services/e_service_indicator.h \
+src/bin/services/e_service_cbhm.h \
 src/bin/e_policy.h \
 src/bin/e_policy_keyboard.h \
 src/bin/e_policy_private_data.h \
@@ -183,6 +184,7 @@ src/bin/services/e_service_quickpanel.c \
 src/bin/services/e_service_region.c \
 src/bin/services/e_service_volume.c \
 src/bin/services/e_service_indicator.c \
+src/bin/services/e_service_cbhm.c \
 src/bin/e_policy.c \
 src/bin/e_policy_conformant.c \
 src/bin/e_policy_keyboard.c \
