@@ -1291,6 +1291,18 @@ e_policy_client_is_cursor(E_Client *ec)
    return EINA_FALSE;
 }
 
+Eina_Bool
+e_policy_client_is_cbhm(E_Client *ec)
+{
+   E_OBJECT_CHECK_RETURN(ec, EINA_FALSE);
+   E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
+
+   if (!e_util_strcmp("cbhm", ec->icccm.window_role))
+     return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
 void
 e_policy_interceptors_clean(void)
 {

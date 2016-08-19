@@ -24,23 +24,34 @@
       return val;                               \
    }
 
+typedef enum
+{
+   CONFORMANT_TYPE_INDICATOR = 0,
+   CONFORMANT_TYPE_KEYBOARD,
+   CONFORMANT_TYPE_CLIPBOARD,
+   CONFORMANT_TYPE_MAX,
+} Conformant_Type;
+
 typedef struct
 {
-   E_Client *vkbd;
-   E_Client *owner;
+   struct
+     {
+        E_Client *ec;
+        E_Client *owner;
+        struct
+          {
+             Eina_Bool restore;
+             Eina_Bool visible;
+             int x, y, w, h;
+          } state;
+
+        Eina_Bool changed : 1;
+     } part[CONFORMANT_TYPE_MAX];
+
    Eina_Hash *client_hash;
    Eina_List *handlers;
    E_Client_Hook *client_del_hook;
    Ecore_Idle_Enterer *idle_enterer;
-
-   struct
-   {
-      Eina_Bool restore;
-      Eina_Bool visible;
-      int x, y, w, h;
-   } state;
-
-   Eina_Bool changed : 1;
 } Conformant;
 
 typedef struct
@@ -64,33 +75,76 @@ _conf_data_get()
    return _conf;
 }
 
+static const char*
+_conf_type_to_str(Conformant_Type type)
+{
+   switch (type)
+     {
+      case CONFORMANT_TYPE_INDICATOR:
+         return "indicator";
+      case CONFORMANT_TYPE_KEYBOARD:
+         return "keyboard";
+      case CONFORMANT_TYPE_CLIPBOARD:
+         return "clipboard";
+      default:
+         return "not supported";
+     }
+}
+
+static uint32_t
+_conf_type_map(Conformant_Type type)
+{
+   switch (type)
+     {
+      case CONFORMANT_TYPE_INDICATOR:
+         return TIZEN_POLICY_CONFORMANT_PART_INDICATOR;
+      case CONFORMANT_TYPE_KEYBOARD:
+         return TIZEN_POLICY_CONFORMANT_PART_KEYBOARD;
+      case CONFORMANT_TYPE_CLIPBOARD:
+         return TIZEN_POLICY_CONFORMANT_PART_CLIPBOARD;
+      default:
+         return TIZEN_POLICY_CONFORMANT_PART_CLIPBOARD + 1;
+     }
+
+   return TIZEN_POLICY_CONFORMANT_PART_CLIPBOARD + 1;
+}
+
 static void
-_conf_state_update(Conformant *conf, Eina_Bool visible, int x, int y, int w, int h)
+_conf_state_update(Conformant *conf, Conformant_Type type, Eina_Bool visible, int x, int y, int w, int h)
 {
    Conformant_Client *cfc;
    Conformant_Wl_Res *cres;
+   uint32_t conf_type;
    Eina_List *l;
 
-   if ((conf->state.visible == visible) &&
-       (conf->state.x == x) && (conf->state.x == y) &&
-       (conf->state.x == w) && (conf->state.x == h))
+   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
+
+   if ((conf->part[type].state.visible == visible) &&
+       (conf->part[type].state.x == x) && (conf->part[type].state.x == y) &&
+       (conf->part[type].state.x == w) && (conf->part[type].state.x == h))
      return;
 
-   CFDBG("Update Conformant State\n");
+   CFDBG("Update Conformant State for %d\n", type);
    CFDBG("\tprev: v %d geom %d %d %d %d\n",
-       conf->state.visible, conf->state.x, conf->state.y, conf->state.w, conf->state.h);
+       conf->part[type].state.visible,
+       conf->part[type].state.x,
+       conf->part[type].state.y,
+       conf->part[type].state.w,
+       conf->part[type].state.h);
    CFDBG("\tnew : v %d geom %d %d %d %d\n", visible, x, y, w, h);
 
-   conf->state.visible = visible;
-   conf->state.x = x;
-   conf->state.y = y;
-   conf->state.w = w;
-   conf->state.h = h;
+   conf->part[type].state.visible = visible;
+   conf->part[type].state.x = x;
+   conf->part[type].state.y = y;
+   conf->part[type].state.w = w;
+   conf->part[type].state.h = h;
 
-   if (!conf->owner)
+   if (!conf->part[type].owner)
      return;
 
-   cfc = eina_hash_find(conf->client_hash, &conf->owner);
+   conf_type = _conf_type_map(type);
+
+   cfc = eina_hash_find(conf->client_hash, &conf->part[type].owner);
    if (!cfc)
      return;
 
@@ -100,63 +154,23 @@ _conf_state_update(Conformant *conf, Eina_Bool visible, int x, int y, int w, int
         tizen_policy_send_conformant_area
            (cres->res,
             cfc->ec->comp_data->surface,
-            TIZEN_POLICY_CONFORMANT_PART_KEYBOARD,
+            conf_type,
             (unsigned int)visible, x, y, w, h);
      }
 }
 
-static void
-_conf_cb_vkbd_obj_del(void *data EINA_UNUSED, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+static Conformant_Type
+_conf_client_type_get(E_Client *ec)
 {
-   Conformant *conf;
+   Conformant_Type type = CONFORMANT_TYPE_MAX;
+   if (!ec) return type;
 
-   CFDBG("VKBD Deleted");
-   conf = data;
-   conf->vkbd = NULL;
-}
+   if (ec->vkbd.vkbd)
+     type = CONFORMANT_TYPE_KEYBOARD;
+   else if (e_policy_client_is_cbhm(ec))
+     type = CONFORMANT_TYPE_CLIPBOARD;
 
-static void
-_conf_cb_vkbd_obj_show(void *data EINA_UNUSED, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   Conformant *conf;
-
-   CFDBG("VKBD Show");
-   conf = data;
-   conf->owner = conf->vkbd->parent;
-   if (!conf->owner)
-     WRN("Not exist vkbd's parent even if it becomes visible");
-   conf->changed = 1;
-}
-
-static void
-_conf_cb_vkbd_obj_hide(void *data EINA_UNUSED, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   Conformant *conf;
-
-   CFDBG("VKBD Hide");
-   conf = data;
-   _conf_state_update(conf, EINA_FALSE, conf->state.x, conf->state.y, conf->state.w, conf->state.h);
-   conf->owner = NULL;
-}
-
-static void
-_conf_cb_vkbd_obj_move(void *data EINA_UNUSED, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   Conformant *conf;
-
-   CFDBG("VKBD Move");
-   conf = data;
-   conf->changed = 1;
-}
-
-static void
-_conf_cb_vkbd_obj_resize(void *data EINA_UNUSED, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   Conformant *conf;
-
-   CFDBG("VKBD Resize");
-   conf = data;
-   conf->changed = 1;
+   return type;
 }
 
 static void
@@ -236,50 +250,160 @@ _conf_client_add(Conformant *conf, E_Client *ec, struct wl_resource *res)
    return cfc;
 }
 
-static void
-_conf_vkbd_register(Conformant *conf, E_Client *ec)
+static E_Client *
+_conf_part_owner_find(E_Client *part, Conformant_Type type)
 {
-   CFINF("VKBD Registered");
-   if (conf->vkbd)
+   if (type == CONFORMANT_TYPE_KEYBOARD)
      {
-        CFERR("Something strange error, VKBD Already Registered.");
+        return part->parent;
+     }
+   else if (type == CONFORMANT_TYPE_CLIPBOARD)
+     {
+        Eina_List *l;
+        E_Client *ec = NULL;
+
+        EINA_LIST_FOREACH(e_client_focus_stack_get(), l, ec)
+           if (!ec->iconic)
+             {
+                if (ec == part) continue;
+                break;
+             }
+        return ec;
+     }
+
+   return NULL;
+}
+
+static void
+_conf_cb_part_obj_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Conformant_Type type = (Conformant_Type)data;
+
+   CONF_DATA_GET_OR_RETURN(conf);
+   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
+
+   CFDBG("PART %s ec(%p) Deleted", _conf_type_to_str(type), conf->part[type].ec);
+
+   conf->part[type].ec = NULL;
+}
+
+static void
+_conf_cb_part_obj_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Conformant_Type type = (Conformant_Type)data;
+   E_Client *owner = NULL;
+
+   CONF_DATA_GET_OR_RETURN(conf);
+   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
+
+   CFDBG("PART %s ec(%p) Show", _conf_type_to_str(type), conf->part[type].ec);
+
+   owner = _conf_part_owner_find(conf->part[type].ec, type);
+   conf->part[type].owner = owner;
+   if (!conf->part[type].owner)
+     WRN("Not exist %s part(ec(%p)'s parent even if it becomes visible",
+         _conf_type_to_str(type), conf->part[type].ec);
+   conf->part[type].changed = 1;
+}
+
+static void
+_conf_cb_part_obj_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Conformant_Type type = (Conformant_Type)data;
+
+   CONF_DATA_GET_OR_RETURN(conf);
+   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
+
+   CFDBG("PART %s ec(%p) Hide", _conf_type_to_str(type), conf->part[type].ec);
+   _conf_state_update(conf,
+                      type,
+                      EINA_FALSE,
+                      conf->part[type].state.x,
+                      conf->part[type].state.y,
+                      conf->part[type].state.w,
+                      conf->part[type].state.h);
+   conf->part[type].owner = NULL;
+}
+
+static void
+_conf_cb_part_obj_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Conformant_Type type = (Conformant_Type)data;
+
+   CONF_DATA_GET_OR_RETURN(conf);
+   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
+
+   CFDBG("PART %s ec(%p) Move", _conf_type_to_str(type), conf->part[type].ec);
+
+   conf->part[type].changed = 1;
+}
+
+static void
+_conf_cb_part_obj_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Conformant_Type type = (Conformant_Type)data;
+
+   CONF_DATA_GET_OR_RETURN(conf);
+   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
+
+   CFDBG("PART %s ec(%p) Resize", _conf_type_to_str(type), conf->part[type].ec);
+
+   conf->part[type].changed = 1;
+}
+
+static void
+_conf_part_register(Conformant *conf, E_Client *ec, Conformant_Type type)
+{
+   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
+
+   if (conf->part[type].ec)
+     {
+        CFERR("Can't register ec(%p) for %s. ec(%p) was already registered.",
+              ec, _conf_type_to_str(type), conf->part[type].ec);
         return;
      }
-   conf->vkbd = ec;
 
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_DEL,      _conf_cb_vkbd_obj_del,     conf);
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_SHOW,     _conf_cb_vkbd_obj_show,    conf);
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_HIDE,     _conf_cb_vkbd_obj_hide,    conf);
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_MOVE,     _conf_cb_vkbd_obj_move,    conf);
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_RESIZE,   _conf_cb_vkbd_obj_resize,  conf);
+   CFINF("%s Registered ec:%p", _conf_type_to_str(type), ec);
+
+   conf->part[type].ec = ec;
+
+   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_DEL,      _conf_cb_part_obj_del,     (void*)type);
+   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_SHOW,     _conf_cb_part_obj_show,    (void*)type);
+   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_HIDE,     _conf_cb_part_obj_hide,    (void*)type);
+   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_MOVE,     _conf_cb_part_obj_move,    (void*)type);
+   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_RESIZE,   _conf_cb_part_obj_resize,  (void*)type);
 }
 
 static Eina_Bool
-_conf_cb_client_add(void *data, int type EINA_UNUSED, void *event)
+_conf_cb_client_add(void *data, int evtype EINA_UNUSED, void *event)
 {
    Conformant *conf;
+   Conformant_Type type;
    E_Event_Client *ev;
 
    conf = data;
    ev = event;
 
-   if (ev->ec->vkbd.vkbd)
-     _conf_vkbd_register(conf, ev->ec);
+   type = _conf_client_type_get(ev->ec);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(type >= CONFORMANT_TYPE_MAX, ECORE_CALLBACK_PASS_ON);
+
+   _conf_part_register(conf, ev->ec, type);
 
    return ECORE_CALLBACK_PASS_ON;
 }
 
 static Eina_Bool
-_conf_cb_client_rot_change_begin(void *data, int type EINA_UNUSED, void *event)
+_conf_cb_client_rot_change_begin(void *data, int evtype EINA_UNUSED, void *event)
 {
    Conformant *conf;
    E_Event_Client *ev;
+   Conformant_Type type;
 
    ev = event;
    conf = data;
 
-   if (ev->ec != conf->vkbd)
-     goto end;
+   type = _conf_client_type_get(ev->ec);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(type >= CONFORMANT_TYPE_MAX, ECORE_CALLBACK_PASS_ON);
 
    /* set conformant area to non-visible state before starting rotation.
     * this is to prevent to apply wrong area of conformant area after rotation.
@@ -287,55 +411,65 @@ _conf_cb_client_rot_change_begin(void *data, int type EINA_UNUSED, void *event)
     * if there is no being called rot_change_cancel and nothing changes vkbd,
     * that is unexpected case.
     */
-   if (conf->state.visible)
+   if (conf->part[type].state.visible)
      {
-        CFDBG("Rotation Begin");
-        _conf_state_update(conf, EINA_FALSE, conf->state.x, conf->state.y, conf->state.w, conf->state.h);
-        conf->state.restore = EINA_TRUE;
+        _conf_state_update(conf,
+                           type,
+                           EINA_FALSE,
+                           conf->part[type].state.x,
+                           conf->part[type].state.y,
+                           conf->part[type].state.w,
+                           conf->part[type].state.h);
+        conf->part[type].state.restore = EINA_TRUE;
      }
 
-end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
 static Eina_Bool
-_conf_cb_client_rot_change_cancel(void *data, int type EINA_UNUSED, void *event)
+_conf_cb_client_rot_change_cancel(void *data, int evtype EINA_UNUSED, void *event)
 {
    Conformant *conf;
    E_Event_Client *ev;
+   Conformant_Type type;
 
    ev = event;
    conf = data;
 
-   if (ev->ec != conf->vkbd)
-     goto end;
+   type = _conf_client_type_get(ev->ec);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(type >= CONFORMANT_TYPE_MAX, ECORE_CALLBACK_PASS_ON);
 
-   if (conf->state.restore)
+   if (conf->part[type].state.restore)
      {
-        CFDBG("Rotation Cancel");
-        _conf_state_update(conf, EINA_FALSE, conf->state.x, conf->state.y, conf->state.w, conf->state.h);
-        conf->state.restore = EINA_TRUE;
+        CFDBG("Rotation Cancel %s ec(%p)", _conf_type_to_str(type), ev->ec);
+        _conf_state_update(conf,
+                           type,
+                           EINA_TRUE,
+                           conf->part[type].state.x,
+                           conf->part[type].state.y,
+                           conf->part[type].state.w,
+                           conf->part[type].state.h);
+        conf->part[type].state.restore = EINA_TRUE;
      }
 
-end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
 static Eina_Bool
-_conf_cb_client_rot_change_end(void *data, int type EINA_UNUSED, void *event)
+_conf_cb_client_rot_change_end(void *data, int evtype EINA_UNUSED, void *event)
 {
    Conformant *conf;
    E_Event_Client *ev;
+   Conformant_Type type;
 
    ev = event;
    conf = data;
 
-   if (ev->ec != conf->vkbd)
-     goto end;
+   type = _conf_client_type_get(ev->ec);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(type >= CONFORMANT_TYPE_MAX, ECORE_CALLBACK_PASS_ON);
 
-   conf->state.restore = EINA_FALSE;
+   conf->part[type].state.restore = EINA_FALSE;
 
-end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
@@ -363,22 +497,22 @@ _conf_idle_enter(void *data)
    Conformant *conf;
    Eina_Bool visible;
    int x, y, w, h;
+   Conformant_Type type;
 
    conf = data;
-   if (!conf->vkbd)
-     goto end;
 
-   if (conf->changed)
+   for (type = CONFORMANT_TYPE_INDICATOR; type < CONFORMANT_TYPE_MAX; type ++)
      {
-        visible = evas_object_visible_get(conf->vkbd->frame);
-        evas_object_geometry_get(conf->vkbd->frame, &x, &y, &w, &h);
+        if (conf->part[type].changed)
+          {
+             visible = evas_object_visible_get(conf->part[type].ec->frame);
+             evas_object_geometry_get(conf->part[type].ec->frame, &x, &y, &w, &h);
 
-        _conf_state_update(conf, visible, x, y, w, h);
-
-        conf->changed = EINA_FALSE;
+             _conf_state_update(conf, type, visible, x, y, w, h);
+             conf->part[type].changed = EINA_FALSE;
+          }
      }
 
-end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
