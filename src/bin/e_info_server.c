@@ -1593,7 +1593,7 @@ e_info_server_cb_hwc_trace_message(const Eldbus_Service_Interface *iface EINA_UN
      e_comp_hwc_trace_debug(onoff);
 #endif /* ENABLE_HWC_MULTI */
    if (onoff == 2)
-     e_comp_hwc_info_debug();
+     e_comp_screen_hwc_info_debug();
 
    return reply;
 }

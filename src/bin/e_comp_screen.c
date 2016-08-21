@@ -9,6 +9,24 @@ static Eina_Bool dont_use_xkb_cache = EINA_FALSE;
 
 E_API int              E_EVENT_SCREEN_CHANGE = 0;
 
+static char *
+_layer_cap_to_str(tdm_layer_capability caps, tdm_layer_capability cap)
+{
+   if (caps & cap)
+     {
+        if (cap == TDM_LAYER_CAPABILITY_CURSOR) return "cursor ";
+        else if (cap == TDM_LAYER_CAPABILITY_PRIMARY) return "primary ";
+        else if (cap == TDM_LAYER_CAPABILITY_OVERLAY) return "overlay ";
+        else if (cap == TDM_LAYER_CAPABILITY_GRAPHIC) return "graphics ";
+        else if (cap == TDM_LAYER_CAPABILITY_VIDEO) return "video ";
+        else if (cap == TDM_LAYER_CAPABILITY_TRANSFORM) return "transform ";
+        else if (cap == TDM_LAYER_CAPABILITY_RESEVED_MEMORY) return "reserved_memory ";
+        else if (cap == TDM_LAYER_CAPABILITY_NO_CROP) return "no_crop ";
+        else return "unkown";
+     }
+   return "";
+}
+
 static Eina_Bool
 _e_comp_screen_cb_activate(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
 {
@@ -1021,4 +1039,53 @@ e_comp_screen_hwc_setup(E_Comp_Screen *e_comp_screen)
      }
 
    return EINA_TRUE;
+}
+
+EINTERN void
+e_comp_screen_hwc_info_debug(void)
+{
+   EINA_SAFETY_ON_NULL_RETURN(e_comp);
+   EINA_SAFETY_ON_NULL_RETURN(e_comp->e_comp_screen);
+
+   E_Comp_Screen *e_comp_screen = e_comp->e_comp_screen;
+   E_Output *output = NULL;
+   E_Plane *plane = NULL;
+   Eina_List *l_o, *ll_o;
+   Eina_List *l_l, *ll_l;
+   tdm_output_conn_status conn_status;
+   int output_idx = 0;
+   tdm_layer_capability layer_capabilities;
+   char layer_cap[4096] = {0, };
+
+   INF("HWC: HWC Information ==========================================================");
+   EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l_o, ll_o, output)
+     {
+        if (!output) continue;
+        tdm_output_get_conn_status(output->toutput, &conn_status);
+        if (conn_status == TDM_OUTPUT_CONN_STATUS_DISCONNECTED) continue;
+
+        INF("HWC: HWC Output(%d):(x, y, w, h)=(%d, %d, %d, %d) Information.",
+            ++output_idx,
+            output->config.geom.x, output->config.geom.y, output->config.geom.w, output->config.geom.h);
+        INF("HWC:  num_layers=%d", output->plane_count);
+        EINA_LIST_FOREACH_SAFE(output->planes, l_l, ll_l, plane)
+          {
+              if (!plane) continue;
+              tdm_layer_get_capabilities(plane->tlayer, &layer_capabilities);
+              snprintf(layer_cap, sizeof(layer_cap), "%s%s%s%s%s%s%s%s",
+                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_CURSOR),
+                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_PRIMARY),
+                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_OVERLAY),
+                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_GRAPHIC),
+                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_VIDEO),
+                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_TRANSFORM),
+                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_RESEVED_MEMORY),
+                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_NO_CROP));
+              INF("HWC:  index=%d zpos=%d ec=%p %s",
+                  plane->index, plane->zpos,
+                  plane->ec?plane->ec:NULL,
+                  layer_cap);
+          }
+     }
+   INF("HWC: =========================================================================");
 }
