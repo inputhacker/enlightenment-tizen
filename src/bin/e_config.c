@@ -253,6 +253,11 @@ e_config_init(void)
 {
    E_EVENT_CONFIG_MODE_CHANGED = ecore_event_type_new();
 
+   /* TIZEN_ONLY: We don't save e.cfg file.
+    * Sometimes e.cfg file was broken after writing.
+    */
+   e_config_save_block_set(1);
+
    /* if environment var set - use this profile name */
    _e_config_profile = eina_stringshare_add(getenv("E_CONF_PROFILE"));
 
