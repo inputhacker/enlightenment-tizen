@@ -2006,6 +2006,8 @@ e_comp_vis_ec_list_get(E_Zone *zone)
    // TODO: check if eout is available to use hwc policy
    E_CLIENT_REVERSE_FOREACH(ec)
      {
+        int x, y, w, h;
+
         if (ec->zone != zone) continue;
 
         // check clients to skip composite
@@ -2015,12 +2017,21 @@ e_comp_vis_ec_list_get(E_Zone *zone)
         // check geometry if located out of screen such as quick panel
         if (!E_INTERSECTS(0, 0, e_comp->w, e_comp->h,
                           ec->client.x, ec->client.y, ec->client.w, ec->client.h))
-             continue;
+          continue;
 
         if (evas_object_data_get(ec->frame, "comp_skip"))
           continue;
 
         ec_list = eina_list_append(ec_list, ec);
+
+        // find full opaque win and excludes below wins from the visible list.
+        e_client_geometry_get(ec, &x, &y, &w, &h);
+        if (!E_CONTAINS(x, y, w, h,
+                        0, 0, e_comp->w, e_comp->h))
+           continue;
+
+        if (!ec->argb)
+          break;
      }
 
    return ec_list;
