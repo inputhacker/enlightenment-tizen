@@ -1482,6 +1482,19 @@ _tzpol_iface_cb_type_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
    switch (type)
      {
       /* TODO: support other types */
+      case TIZEN_POLICY_WIN_TYPE_TOPLEVEL:
+         win_type = E_WINDOW_TYPE_NORMAL;
+         if (ec->layer != E_LAYER_CLIENT_NORMAL)
+           {
+              ec->layer = E_LAYER_CLIENT_NORMAL;
+              if (ec->frame)
+                {
+                   if (ec->layer != evas_object_layer_get(ec->frame))
+                     evas_object_layer_set(ec->frame, ec->layer);
+                }
+           }
+         break;
+
       case TIZEN_POLICY_WIN_TYPE_NOTIFICATION:
          win_type = E_WINDOW_TYPE_NOTIFICATION;
          break;
