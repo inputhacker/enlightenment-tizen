@@ -3113,12 +3113,39 @@ _tzsh_srv_scrsaver_mng_cb_idle_time_set(struct wl_client *client EINA_UNUSED, st
    e_screensaver_timeout_set(timeout);
 }
 
+static void
+_tzsh_srv_scrsaver_mng_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, uint32_t type)
+{
+   E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+   uint32_t val = 0;
+   double timeout;
+
+   tzsh_srv = wl_resource_get_user_data(resource);
+
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh);
+
+   switch (type)
+     {
+      case TWS_SERVICE_SCREENSAVER_MANAGER_STATE_TYPE_IDLE_TIMEOUT:
+        /* convert time to milliseconds (unsigned int) from seconds (double) */
+        timeout = e_screensaver_timeout_get();
+        val = (uint32_t)(timeout * 1000);
+        break;
+      default:
+        break;
+     }
+
+   tws_service_screensaver_manager_send_state_get_done(resource, type, val, 0);
+}
+
 static const struct tws_service_screensaver_manager_interface _tzsh_srv_scrsaver_mng_iface =
 {
    _tzsh_srv_scrsaver_mng_cb_destroy,
    _tzsh_srv_scrsaver_mng_cb_enable,
    _tzsh_srv_scrsaver_mng_cb_disable,
-   _tzsh_srv_scrsaver_mng_cb_idle_time_set
+   _tzsh_srv_scrsaver_mng_cb_idle_time_set,
+   _tzsh_srv_scrsaver_mng_cb_state_get
 };
 
 static void
