@@ -70,7 +70,7 @@ static Eina_List *module_hook = NULL;
 #define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiibbbiis"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
-#define VALUE_TYPE_FOR_INPUTDEV "ssii"
+#define VALUE_TYPE_FOR_INPUTDEV "ssi"
 
 static E_Info_Transform *_e_info_transform_new(E_Client *ec, int id, int enable, int x, int y, int sx, int sy, int degree, int keep_ratio);
 static E_Info_Transform *_e_info_transform_find(E_Client *ec, int id);
@@ -192,7 +192,7 @@ _input_msg_clients_append(Eldbus_Message_Iter *iter)
 
         eldbus_message_iter_arguments_append
                      (struct_of_input, VALUE_TYPE_FOR_INPUTDEV,
-                      dev->name, dev->identifier, dev->clas, dev->subclas);
+                      dev->name, dev->identifier, dev->clas);
 
         eldbus_message_iter_container_close(array_of_input, struct_of_input);
      }

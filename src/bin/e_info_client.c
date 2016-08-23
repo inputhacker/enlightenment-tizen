@@ -43,7 +43,7 @@ typedef struct _E_Win_Info
 #define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiibbbiis"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
-#define VALUE_TYPE_FOR_INPUTDEV "ssii"
+#define VALUE_TYPE_FOR_INPUTDEV "ssi"
 
 static E_Info_Client e_info_client;
 
@@ -178,13 +178,11 @@ _cb_input_device_info_get(const Eldbus_Message *msg)
         char *dev_name;
         char *identifier;
         int clas;
-        int subclas;
         res = eldbus_message_iter_arguments_get(eldbus_msg,
                                                 VALUE_TYPE_FOR_INPUTDEV,
                                                 &dev_name,
                                                 &identifier,
-                                                &clas,
-                                                &subclas);
+                                                &clas);
         if (!res)
           {
              printf("Failed to get device info\n");
@@ -195,7 +193,6 @@ _cb_input_device_info_get(const Eldbus_Message *msg)
         dev->name = strdup(dev_name);
         dev->identifier = strdup(identifier);
         dev->clas = clas;
-        dev->subclas = subclas;
 
         e_info_client.input_dev = eina_list_append(e_info_client.input_dev, dev);
      }
@@ -464,44 +461,6 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
    E_FREE_LIST(e_info_client.win_list, _e_win_info_free);
 }
 
-static const char *
-_e_info_client_device_subclass_get(Ecore_Device_Subclass subclas)
-{
-   switch (subclas)
-     {
-        case ECORE_DEVICE_SUBCLASS_NONE:
-           return "None";
-        case ECORE_DEVICE_SUBCLASS_FINGER:
-           return "Finger";
-        case ECORE_DEVICE_SUBCLASS_FINGERNAIL:
-           return "Fingernail";
-        case ECORE_DEVICE_SUBCLASS_KNUCKLE:
-           return "Knuckle";
-        case ECORE_DEVICE_SUBCLASS_PALM:
-           return "Palm";
-        case ECORE_DEVICE_SUBCLASS_HAND_SIZE:
-           return "Hand Size";
-        case ECORE_DEVICE_SUBCLASS_HAND_FLAT:
-           return "Hand Flat";
-        case ECORE_DEVICE_SUBCLASS_PEN_TIP:
-           return "Pen Tip";
-        case ECORE_DEVICE_SUBCLASS_TRACKPAD:
-           return "Trackpad";
-        case ECORE_DEVICE_SUBCLASS_TRACKPOINT:
-           return "Trackpoint";
-        case ECORE_DEVICE_SUBCLASS_TRACKBALL:
-           return "Trackball";
-        case ECORE_DEVICE_SUBCLASS_BUILTIN:
-           return "Builtin Device";
-        case ECORE_DEVICE_SUBCLASS_SW_KEYBOARD:
-           return "Software Keyboard";
-        case ECORE_DEVICE_SUBCLASS_HW_KEYBOARD:
-           return "Hardware Keyboard";
-        default:
-           return "Unknown Subclass";
-     }
-}
-
 static void
 _e_info_client_proc_input_device_info(int argc, char **argv)
 {
@@ -513,7 +472,7 @@ _e_info_client_proc_input_device_info(int argc, char **argv)
      return;
 
    printf("--------------------------------------[ input devices ]----------------------------------------------------------\n");
-   printf(" No                     Name              identifier                Class                   Subclass\n");
+   printf(" No                               Name                        identifier            Cap\n");
    printf("-----------------------------------------------------------------------------------------------------------------\n");
 
    if (!e_info_client.input_dev)
@@ -525,12 +484,11 @@ _e_info_client_proc_input_device_info(int argc, char **argv)
    EINA_LIST_FOREACH(e_info_client.input_dev, l, dev)
      {
         i++;
-        printf("%3d %30s %20s         ", i, dev->name, dev->identifier);
-        if (dev->clas == ECORE_DEVICE_CLASS_MOUSE) printf("Mouse    | ");
+        printf("%3d %50s %20s         ", i, dev->name, dev->identifier);
+        if (dev->clas == ECORE_DEVICE_CLASS_MOUSE) printf("Mouse | ");
         else if (dev->clas == ECORE_DEVICE_CLASS_KEYBOARD) printf("Keyboard | ");
-        else if (dev->clas == ECORE_DEVICE_CLASS_TOUCH) printf("Touch    | ");
-        printf("(0x%x)          %s", dev->clas, _e_info_client_device_subclass_get(dev->subclas));
-        printf("\n");
+        else if (dev->clas == ECORE_DEVICE_CLASS_TOUCH) printf("Touch | ");
+        printf("(0x%x)\n", dev->clas);
      }
 
    E_FREE_LIST(e_info_client.input_dev, free);
