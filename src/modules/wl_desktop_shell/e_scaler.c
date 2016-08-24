@@ -8,6 +8,7 @@ _e_viewport_destroy(struct wl_resource *resource)
 {
    E_Client *ec = wl_resource_get_user_data(resource);
 
+   if (e_object_is_del(E_OBJECT(ec))) return;
    if (!ec->comp_data) return;
    if (!ec->comp_data->scaler.viewport) return;
 
@@ -34,6 +35,8 @@ _e_viewport_cb_set(struct wl_client *client EINA_UNUSED,
                    int32_t dst_height)
 {
    E_Client *ec = wl_resource_get_user_data(resource);
+
+   if (e_object_is_del(E_OBJECT(ec))) return;
 
    EINA_SAFETY_ON_NULL_RETURN(ec->comp_data);
    EINA_SAFETY_ON_NULL_RETURN(ec->comp_data->scaler.viewport);
@@ -76,6 +79,8 @@ _e_viewport_cb_set_source(struct wl_client *client EINA_UNUSED,
 {
    E_Client *ec = wl_resource_get_user_data(resource);
 
+   if (e_object_is_del(E_OBJECT(ec))) return;
+
    EINA_SAFETY_ON_NULL_RETURN(ec->comp_data);
    EINA_SAFETY_ON_NULL_RETURN(ec->comp_data->scaler.viewport);
 
@@ -111,6 +116,8 @@ _e_viewport_cb_set_destination(struct wl_client *client EINA_UNUSED,
                                int32_t dst_height)
 {
    E_Client *ec = wl_resource_get_user_data(resource);
+
+   if (e_object_is_del(E_OBJECT(ec))) return;
 
    EINA_SAFETY_ON_NULL_RETURN(ec->comp_data);
    EINA_SAFETY_ON_NULL_RETURN(ec->comp_data->scaler.viewport);
@@ -207,7 +214,7 @@ _e_rotator_cb_destroy(struct wl_client *client EINA_UNUSED, struct wl_resource *
 
    if ((ec = wl_resource_get_user_data(resource)))
      {
-        if (ec->comp_data)
+        if (!e_object_is_del(E_OBJECT(ec)) && ec->comp_data)
           ec->comp_data->transform.enabled = EINA_FALSE;
      }
 
@@ -220,6 +227,7 @@ _e_rotator_cb_set(struct wl_client *client EINA_UNUSED, struct wl_resource *reso
    E_Client *ec;
 
    if (!(ec = wl_resource_get_user_data(resource))) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
    if (!ec->comp_data) return;
 
    ec->comp_data->transform.enabled = EINA_TRUE;
@@ -233,6 +241,7 @@ _e_rotator_cb_unset(struct wl_client *client EINA_UNUSED, struct wl_resource *re
    E_Client *ec;
 
    if (!(ec = wl_resource_get_user_data(resource))) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
    if (!ec->comp_data) return;
 
    ec->comp_data->transform.enabled = EINA_FALSE;
