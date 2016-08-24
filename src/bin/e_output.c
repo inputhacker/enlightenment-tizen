@@ -310,7 +310,7 @@ e_output_del(E_Output *output)
 EINTERN Eina_Bool
 e_output_update(E_Output *output)
 {
-   Eina_List *m = NULL;
+   E_Output_Mode *m = NULL;
    Eina_List *modes = NULL;
    Eina_Bool connected = EINA_TRUE;
    tdm_error error;
@@ -549,8 +549,8 @@ e_output_best_mode_find(E_Output *output)
    Eina_List *l = NULL;
    E_Output_Mode *mode = NULL;
    E_Output_Mode *best_mode = NULL;
-   int best_size = 0;
    int size = 0;
+   int best_size = 0;
    double best_refresh = 0.0;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
@@ -565,8 +565,19 @@ e_output_best_mode_find(E_Output *output)
    EINA_LIST_FOREACH(output->info.modes, l, mode)
      {
         size = mode->w + mode->h;
-        if (size > best_size) best_mode = mode;
-        if (size == best_size && mode->refresh > best_refresh) best_mode = mode;
+
+        if (size > best_size)
+          {
+             best_mode = mode;
+             best_size = size;
+             best_refresh = mode->refresh;
+             continue;
+          }
+        if (size == best_size && mode->refresh > best_refresh)
+          {
+             best_mode = mode;
+             best_refresh = mode->refresh;
+          }
      }
 
    return best_mode;
