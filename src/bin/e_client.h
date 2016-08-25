@@ -221,6 +221,7 @@ typedef enum _E_Client_Hook_Point
    E_CLIENT_HOOK_ICONIFY,
    E_CLIENT_HOOK_UNICONIFY,
    E_CLIENT_HOOK_AUX_HINT_CHANGE,
+   E_CLIENT_HOOK_WINDOW_ROLE_CHANGE,
    E_CLIENT_HOOK_LAST,
 } E_Client_Hook_Point;
 
@@ -1016,6 +1017,7 @@ E_API int               e_client_transform_core_transform_count_get(E_Client *ec
 E_API E_Util_Transform *e_client_transform_core_transform_get(E_Client *ec, int index);
 
 E_API E_Pixmap *e_client_pixmap_change(E_Client *ec, E_Pixmap *newcp);
+E_API void e_client_window_role_set(E_Client *ec, const char *role);
 
 /**
  * Move window to coordinates that do not account client decorations yet.

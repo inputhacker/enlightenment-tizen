@@ -97,6 +97,7 @@ static Eina_Inlist *_e_client_hooks[] =
    [E_CLIENT_HOOK_ICONIFY] = NULL,
    [E_CLIENT_HOOK_UNICONIFY] = NULL,
    [E_CLIENT_HOOK_AUX_HINT_CHANGE] = NULL,
+   [E_CLIENT_HOOK_WINDOW_ROLE_CHANGE] = NULL,
 };
 
 ///////////////////////////////////////////
@@ -6075,4 +6076,13 @@ e_client_pixmap_change(E_Client *ec, E_Pixmap *newcp)
    eina_hash_add(clients_hash[newtype], &newcp, ec);
 
    return oldcp;
+}
+
+E_API void
+e_client_window_role_set(E_Client *ec, const char *role)
+{
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   if (eina_stringshare_replace(&ec->icccm.window_role, role))
+     _e_client_hook_call(E_CLIENT_HOOK_WINDOW_ROLE_CHANGE, ec);
 }

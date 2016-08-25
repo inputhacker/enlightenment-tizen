@@ -1397,7 +1397,7 @@ e_service_quickpanel_client_set(E_Client *ec)
         return;
      }
 
-   eina_stringshare_replace(&ec->icccm.window_role, "quickpanel");
+   e_client_window_role_set(ec, "quickpanel");
 
    // set quickpanel layer
    if (E_POLICY_QUICKPANEL_LAYER != evas_object_layer_get(ec->frame))

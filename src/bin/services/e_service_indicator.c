@@ -71,7 +71,7 @@ e_mod_indicator_client_set(E_Client *ec)
 
    ELOGF("TZ_IND", "Set indicator service", ec->pixmap, ec);
 
-   eina_stringshare_replace(&ec->icccm.window_role, "indicator");
+   e_client_window_role_set(ec, "indicator");
 
    E_LIST_HANDLER_APPEND(_ind_handlers, E_EVENT_CLIENT_ROTATION_CHANGE_END, _indicator_cb_rot_done, NULL);
    E_LIST_HOOK_APPEND(_ind_hooks, E_CLIENT_HOOK_DEL, _indicator_cb_client_del, NULL);

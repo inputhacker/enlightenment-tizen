@@ -232,7 +232,7 @@ e_service_cbhm_client_set(E_Client *ec)
    cbhm->show_block = EINA_TRUE;
 
    e_comp_wl->selection.cbhm = ec->comp_data->surface;
-   eina_stringshare_replace(&ec->icccm.window_role, "cbhm");
+   e_client_window_role_set(ec, "cbhm");
    e_policy_conformant_part_add(ec);
 
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_SHOW, _cbhm_cb_evas_show, cbhm);

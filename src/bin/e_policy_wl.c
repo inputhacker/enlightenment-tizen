@@ -1442,7 +1442,7 @@ _tzpol_iface_cb_role_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
-   eina_stringshare_replace(&ec->icccm.window_role, role);
+   e_client_window_role_set(ec, role);
 
    /* TODO: support multiple roles */
    if (!e_util_strcmp("notification-low", role))

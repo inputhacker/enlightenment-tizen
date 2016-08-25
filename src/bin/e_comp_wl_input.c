@@ -94,7 +94,7 @@ _e_comp_wl_input_pointer_cb_cursor_set(struct wl_client *client, struct wl_resou
         ec->lock_focus_out = ec->layer_block = ec->visible = 1;
         if (!e_config->show_cursor)  ec->override = 1;
         ec->icccm.title = eina_stringshare_add("Cursor");
-        ec->icccm.window_role = eina_stringshare_add("wl_pointer-cursor");
+        e_client_window_role_set(ec, "wl_pointer-cursor");
         evas_object_pass_events_set(ec->frame, 1);
         e_client_focus_stack_set(eina_list_remove(e_client_focus_stack_get(), ec));
         EC_CHANGED(ec);

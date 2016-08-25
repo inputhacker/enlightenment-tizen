@@ -9,7 +9,7 @@ e_service_lockscreen_client_set(E_Client *ec)
 
    ELOGF("LOCKSCREEN","Set Client", ec->pixmap, ec);
 
-   eina_stringshare_replace(&ec->icccm.window_role, "lockscreen");
+   e_client_window_role_set(ec, "lockscreen");
 
    // set lockscreen layer
    if (E_LAYER_CLIENT_NOTIFICATION_LOW > evas_object_layer_get(ec->frame))
