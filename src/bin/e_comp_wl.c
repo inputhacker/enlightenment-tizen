@@ -2083,11 +2083,12 @@ _e_comp_wl_subsurface_restack(E_Client *ec)
    E_Client *subc, *temp;
    Eina_List *l;
 
-   if (!ec->comp_data || e_object_is_del(E_OBJECT(ec))) return;
+   if (!ec || !ec->comp_data || e_object_is_del(E_OBJECT(ec))) return;
 
    temp = ec;
    EINA_LIST_FOREACH(ec->comp_data->sub.list, l, subc)
      {
+        if (!subc || !subc->comp_data || e_object_is_del(E_OBJECT(subc))) continue;
         subc->comp_data->sub.restacking = EINA_TRUE;
         evas_object_stack_above(subc->frame, temp->frame);
         subc->comp_data->sub.restacking = EINA_FALSE;
@@ -2097,6 +2098,7 @@ _e_comp_wl_subsurface_restack(E_Client *ec)
    temp = ec;
    EINA_LIST_REVERSE_FOREACH(ec->comp_data->sub.below_list, l, subc)
      {
+        if (!subc || !subc->comp_data || e_object_is_del(E_OBJECT(subc))) continue;
         subc->comp_data->sub.restacking = EINA_TRUE;
         evas_object_stack_below(subc->frame, temp->frame);
         subc->comp_data->sub.restacking = EINA_FALSE;
