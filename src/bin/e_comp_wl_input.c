@@ -34,7 +34,7 @@ _e_comp_wl_input_pointer_map(struct wl_resource *resource)
    if (!(ec = wl_resource_get_user_data(resource))) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
-   e_pointer_object_set(e_comp->pointer, ec->frame, ec->x, ec->y);
+   e_pointer_object_set(e_comp->pointer, ec->frame, 0, 0);
 }
 
 static void
@@ -86,10 +86,6 @@ _e_comp_wl_input_pointer_cb_cursor_set(struct wl_client *client, struct wl_resou
      {
         ec->re_manage = 1;
         ec->ignored = 0;
-
-        // TODO: this should be transformed to the local coordinate of pointer surface
-        ec->x = x;
-        ec->y = y;
 
         ec->lock_focus_out = ec->layer_block = ec->visible = 1;
         if (!e_config->show_cursor)  ec->override = 1;

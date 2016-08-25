@@ -6,7 +6,7 @@ static Eina_Bool _initted = EINA_FALSE;
 
 /* move the cursor image with the calcaultion of the hot spot */
 static void
-_e_pointer_move(E_Pointer *ptr, int x, int y)
+_e_pointer_position_update(E_Pointer *ptr)
 {
    int nx, ny;
 
@@ -69,7 +69,7 @@ _e_pointer_rotation_apply(E_Pointer *ptr)
      {
         evas_object_map_set(ec->frame, NULL);
         evas_object_map_enable_set(ec->frame, EINA_FALSE);
-        _e_pointer_move(ptr, x, y);
+        _e_pointer_position_update(ptr);
         return;
      }
 
@@ -245,15 +245,16 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
              ec->override = 0; /* do not ignore the cursor_ec to set the image object */
           }
 
+        ptr->o_ptr = obj;
+
         /* apply the cursor obj rotation */
         _e_pointer_rotation_apply(ptr);
 
         /* move the pointer to the current position */
-        _e_pointer_move(ptr, ptr->x, ptr->y);
+        _e_pointer_position_update(ptr);
 
         /* show cursor object */
         evas_object_show(obj);
-        ptr->o_ptr = obj;
      }
 }
 
@@ -273,7 +274,7 @@ e_pointer_touch_move(E_Pointer *ptr, int x, int y)
    if (ptr->device != E_POINTER_TOUCH) ptr->device = E_POINTER_TOUCH;
 
    _e_pointer_rotation_apply(ptr);
-   _e_pointer_move(ptr, ptr->x, ptr->y);
+   _e_pointer_position_update(ptr);
 }
 
 EINTERN void
@@ -292,7 +293,7 @@ e_pointer_mouse_move(E_Pointer *ptr, int x, int y)
    if (ptr->device != E_POINTER_MOUSE) ptr->device = E_POINTER_MOUSE;
 
    _e_pointer_rotation_apply(ptr);
-   _e_pointer_move(ptr, ptr->x, ptr->y);
+   _e_pointer_position_update(ptr);
 }
 
 E_API void
@@ -321,7 +322,7 @@ e_pointer_rotation_set(E_Pointer *ptr, int rotation)
    ptr->rotation = rotation;
 
    _e_pointer_rotation_apply(ptr);
-   _e_pointer_move(ptr, ptr->x, ptr->y);
+   _e_pointer_position_update(ptr);
 }
 
 E_API void
