@@ -4085,6 +4085,7 @@ _tzsh_cbhm_iface_cb_show(struct wl_client *client EINA_UNUSED, struct wl_resourc
    if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
      return;
 
+   e_cbhm_client_transient_for_set(ec, EINA_TRUE);
    e_cbhm_client_show(ec);
 }
 
@@ -4104,6 +4105,7 @@ _tzsh_cbhm_iface_cb_hide(struct wl_client *client EINA_UNUSED, struct wl_resourc
    if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
      return;
 
+   e_cbhm_client_transient_for_set(ec, EINA_FALSE);
    e_cbhm_client_hide(ec);
 }
 
@@ -4477,7 +4479,6 @@ _tzlaunchimg_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_reso
          (tzlaunchimg->ec? tzlaunchimg->ec->pixmap : NULL),
          tzlaunchimg->ec,
          wl_resource_get_id(res_tzlaunchimg), pid);
-
 
    tzlaunchimg->pid = pid;
    tzlaunchimg->ec->netwm.pid = pid;

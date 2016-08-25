@@ -303,12 +303,34 @@ e_cbhm_client_del(E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(cbhm);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
+   e_cbhm_client_transient_for_set(ec, EINA_FALSE);
+
    cbhm_client = _e_cbhm_client_ec_get(ec);
    EINA_SAFETY_ON_NULL_RETURN(cbhm_client);
 
    cbhm->clients = eina_list_remove(cbhm->clients, cbhm_client);
 
    E_FREE(cbhm_client);
+}
+
+EINTERN void
+e_cbhm_client_transient_for_set(E_Client *ec, Eina_Bool set)
+{
+   E_Policy_Cbhm *cbhm;
+
+   cbhm = _cbhm_get();
+   EINA_SAFETY_ON_NULL_RETURN(cbhm);
+   EINA_SAFETY_ON_NULL_RETURN(cbhm->ec);
+   EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(cbhm->ec)));
+
+   if (set)
+     {
+        e_policy_stack_transient_for_set(cbhm->ec, ec);
+     }
+   else if (cbhm->ec->parent == ec)
+     {
+        e_policy_stack_transient_for_set(cbhm->ec, NULL);
+     }
 }
 
 EINTERN void

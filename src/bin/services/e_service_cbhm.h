@@ -10,6 +10,7 @@ EINTERN void          e_service_cbhm_hide(void);
 
 EINTERN void         e_cbhm_client_add(E_Client *ec);
 EINTERN void         e_cbhm_client_del(E_Client *ec);
+EINTERN void         e_cbhm_client_transient_for_set(E_Client *ec, Eina_Bool set);
 EINTERN void         e_cbhm_client_show(E_Client *ec);
 EINTERN void         e_cbhm_client_hide(E_Client *ec);
 

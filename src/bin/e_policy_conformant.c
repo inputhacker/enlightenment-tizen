@@ -253,22 +253,10 @@ _conf_client_add(Conformant *conf, E_Client *ec, struct wl_resource *res)
 static E_Client *
 _conf_part_owner_find(E_Client *part, Conformant_Type type)
 {
-   if (type == CONFORMANT_TYPE_KEYBOARD)
+   if ((type == CONFORMANT_TYPE_KEYBOARD) ||
+       (type == CONFORMANT_TYPE_CLIPBOARD))
      {
         return part->parent;
-     }
-   else if (type == CONFORMANT_TYPE_CLIPBOARD)
-     {
-        Eina_List *l;
-        E_Client *ec = NULL;
-
-        EINA_LIST_FOREACH(e_client_focus_stack_get(), l, ec)
-           if (!ec->iconic)
-             {
-                if (ec == part) continue;
-                break;
-             }
-        return ec;
      }
 
    return NULL;
