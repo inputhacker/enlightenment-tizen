@@ -221,6 +221,7 @@ _mover_smart_del(Evas_Object *obj)
    md->qp->mover = NULL;
 
    e_zone_orientation_block_set(md->qp->ec->zone, "quickpanel-mover", EINA_FALSE);
+   e_comp_override_del();
 
    free(md);
 }
@@ -346,6 +347,7 @@ _mover_obj_new(E_Policy_Quickpanel *qp)
 
    /* Pause changing zone orientation during mover object is working. */
    e_zone_orientation_block_set(qp->ec->zone, "quickpanel-mover", EINA_TRUE);
+   e_comp_override_add();
 
    _mover_smart_init();
    mover = evas_object_smart_add(evas_object_evas_get(qp->ec->frame), _mover_smart);
