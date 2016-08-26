@@ -486,7 +486,7 @@ _hwc_plane_prepare(E_Output *eout, int n_vis, Eina_List *clist)
    else if ((n_ly < n_vis) || // e_comp->evas on fb target plane
             (n_ec < n_vis))
      {
-        int del = n_ly - n_ec;
+        int del = n_ly - n_ec + 1;
         EINA_LIST_REVERSE_FOREACH(hwc_l, l, ep)
           {
              ec = NULL;
