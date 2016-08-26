@@ -200,6 +200,7 @@ enum _E_Policy_Hint_Type
    E_POLICY_HINT_GESTURE_DISABLE = 5,
    E_POLICY_HINT_EFFECT_DISABLE = 6,
    E_POLICY_HINT_MSG_USE = 7,
+   E_COMP_HINT_ALWAYS_SELECTIVE,
 };
 
 static const char *hint_names[] =
@@ -212,6 +213,7 @@ static const char *hint_names[] =
    "wm.policy.win.gesture.disable",
    "wm.policy.win.effect.disable",
    "wm.policy.win.msg.use",
+   "wm.comp.win.always.selective.mode",
 };
 
 static void                _e_policy_wl_surf_del(E_Policy_Wl_Surface *psurf);
@@ -2171,6 +2173,13 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
                ec->comp_data->aux_hint.use_msg = EINA_FALSE;
              else if (!strcmp(hint->val, "1"))
                ec->comp_data->aux_hint.use_msg = EINA_TRUE;
+          }
+        else if (!strcmp(hint->hint, hint_names[E_COMP_HINT_ALWAYS_SELECTIVE]))
+          {
+             if ((hint->deleted) || (!strcmp(hint->val, "0")))
+               ec->comp_data->never_hwc = EINA_FALSE;
+             else if (!strcmp(hint->val, "1"))
+               ec->comp_data->never_hwc = EINA_TRUE;
           }
 
         if (send)
