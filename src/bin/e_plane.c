@@ -812,14 +812,17 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
           {
              if (!plane->is_primary)
                {
-                  tdm_err = tdm_layer_get_buffer_flags(plane->tlayer, &buffer_flags);
-                  EINA_SAFETY_ON_FALSE_RETURN_VAL(tdm_err == TDM_ERROR_NONE, EINA_FALSE);
+                  if (!renderer->tqueue)
+                    {
+                       tdm_err = tdm_layer_get_buffer_flags(plane->tlayer, &buffer_flags);
+                       EINA_SAFETY_ON_FALSE_RETURN_VAL(tdm_err == TDM_ERROR_NONE, EINA_FALSE);
 
-                  tqueue = e_plane_renderer_surface_queue_create(renderer, ec->w, ec->h, buffer_flags);
-                  if (!tqueue) return EINA_FALSE;
+                       tqueue = e_plane_renderer_surface_queue_create(renderer, ec->w, ec->h, buffer_flags);
+                       if (!tqueue) return EINA_FALSE;
 
-                  if (!e_plane_renderer_surface_queue_set(renderer, tqueue))
-                    return EINA_FALSE;
+                       if (!e_plane_renderer_surface_queue_set(renderer, tqueue))
+                         return EINA_FALSE;
+                    }
                }
 
              /* reserve the plane */
