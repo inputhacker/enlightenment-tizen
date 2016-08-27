@@ -4325,7 +4325,7 @@ e_client_focused_set(E_Client *ec)
 
    TRACE_DS_BEGIN(CLIENT:FOCUSED SET);
 
-   ELOG("CLIENT FOCUS_SET", NULL, ec);
+   ELOG("CLIENT FOCUS_SET", (ec ? ec->pixmap : NULL), ec);
    focused = ec;
    if ((ec) && (ec->zone))
      {
