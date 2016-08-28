@@ -52,6 +52,8 @@ struct _E_Plane
 
    E_Plane_Renderer     *renderer;
    E_Output             *output;
+
+   unsigned int          buffer_flags;
 };
 
 struct _E_Plane_Commit_Data {
