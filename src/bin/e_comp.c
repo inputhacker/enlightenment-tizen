@@ -407,8 +407,7 @@ _hwc_set(E_Output *eout)
                        e_client_redirected_set(ep->prepare_ec, 0);
                        ret |= EINA_TRUE;
                     }
-                  else
-                    return EINA_FALSE;
+                  break;
                }
           }
         else if (ep->prepare_ec)
