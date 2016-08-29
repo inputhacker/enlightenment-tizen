@@ -1278,6 +1278,7 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
              _e_comp_wl_device_send_event_device(focused, dev, ev->timestamp);
              _e_comp_wl_send_mouse_out(focused);
           }
+        e_focus_event_mouse_down(ec);
      }
    else
      need_send_leave = EINA_TRUE;
