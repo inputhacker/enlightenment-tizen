@@ -408,10 +408,7 @@ _hwc_set(E_Output *eout)
                        ret |= EINA_TRUE;
                     }
                   else
-                    {
-                       ret |= EINA_FALSE;
-                       break;
-                    }
+                    return EINA_FALSE;
                }
           }
         else if (ep->prepare_ec)
