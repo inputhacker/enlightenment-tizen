@@ -32,7 +32,7 @@ struct _E_Comp_Config
    unsigned char selcomp_use_timer;
    double        selcomp_begin_timeout;
    unsigned char hwc;
-   unsigned char hwc_use_single_plane;
+   unsigned char hwc_use_multi_plane;
    unsigned char smooth_windows;
    unsigned char nofade;
    double        first_draw_delay;

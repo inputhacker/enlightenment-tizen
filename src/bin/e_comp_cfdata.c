@@ -55,7 +55,7 @@ e_comp_cfdata_edd_init(E_Config_DD **conf_edd, E_Config_DD **match_edd)
    E_CONFIG_VAL(D, T, selcomp_use_timer, UCHAR);
    E_CONFIG_VAL(D, T, selcomp_begin_timeout, DOUBLE);
    E_CONFIG_VAL(D, T, hwc, UCHAR);
-   E_CONFIG_VAL(D, T, hwc_use_single_plane, UCHAR);
+   E_CONFIG_VAL(D, T, hwc_use_multi_plane, UCHAR);
    E_CONFIG_VAL(D, T, nofade, UCHAR);
    E_CONFIG_VAL(D, T, smooth_windows, UCHAR);
    E_CONFIG_VAL(D, T, first_draw_delay, DOUBLE);
@@ -117,7 +117,7 @@ e_comp_cfdata_config_new(void)
    cfg->selcomp_use_timer = 1;
    cfg->selcomp_begin_timeout = 2.0;
    cfg->hwc = 0;
-   cfg->hwc_use_single_plane = 0;
+   cfg->hwc_use_multi_plane = 0;
    cfg->nofade = 0;
    cfg->smooth_windows = 0; // 1 if gl, 0 if not
    cfg->first_draw_delay = 0.15;

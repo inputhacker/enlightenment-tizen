@@ -441,6 +441,7 @@ _hwc_plane_prepare(E_Output *eout, int n_vis, Eina_List *clist)
    EINA_SAFETY_ON_NULL_RETURN_VAL(clist, EINA_FALSE);
 
    // list up available_hw layers E_Client can be set
+   // if conf->hwc_use_multi_plane FALSE, than use only fb target plane
    ep_l = e_output_planes_get(eout);
    EINA_LIST_FOREACH(ep_l, l, ep)
      {
@@ -453,7 +454,7 @@ _hwc_plane_prepare(E_Output *eout, int n_vis, Eina_List *clist)
                }
              continue;
           }
-        if (conf->hwc_use_single_plane) continue;
+        if (!conf->hwc_use_multi_plane) continue;
         if (e_plane_is_cursor(ep)) continue;
         if (ep->zpos > ep_fb->zpos)
           hwc_l = eina_list_append(hwc_l, ep);
@@ -1472,7 +1473,6 @@ e_comp_init(void)
         else
           e_comp->hwc_fs = EINA_TRUE; // 1: active hwc policy
      }
-   conf->hwc_use_single_plane = 1; // TODO: 0 if multi plane is working.
 #endif
 
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREENSAVER_ON,  _e_comp_screensaver_on,  NULL);
