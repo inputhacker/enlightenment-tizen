@@ -851,6 +851,13 @@ struct E_Client
        } parent;
    } transform_core;
 
+   struct
+   {
+      unsigned char            resizable : 1;  // or scalable
+      unsigned char            splited : 1;
+      int                      s_id;           // split(slot) id
+   } layout;
+
    Ecore_Timer *map_timer;
    Eina_Bool pointer_enter_sent;
 

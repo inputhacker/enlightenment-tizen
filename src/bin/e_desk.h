@@ -32,7 +32,8 @@ struct _E_Desk
    int                  x, y;
    unsigned char        visible : 1;
    unsigned int         deskshow_toggle : 1;
-   Eina_List            *fullscreen_clients;
+   Eina_List           *fullscreen_clients;
+   Evas_Object         *layout;      /* Desk's splitlayout*/
 
    Evas_Object         *bg_object;
 

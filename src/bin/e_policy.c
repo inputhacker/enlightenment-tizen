@@ -34,6 +34,8 @@ static Eina_Bool   _e_policy_client_maximize_policy_apply(E_Policy_Client *pc);
 static void        _e_policy_client_maximize_policy_cancel(E_Policy_Client *pc);
 static void        _e_policy_client_floating_policy_apply(E_Policy_Client *pc);
 static void        _e_policy_client_floating_policy_cancel(E_Policy_Client *pc);
+static void        _e_policy_client_split_policy_apply(E_Policy_Client *pc);
+static void        _e_policy_client_split_policy_cancel(E_Policy_Client *pc);
 static void        _e_policy_client_launcher_set(E_Policy_Client *pc);
 
 static void        _e_policy_cb_hook_client_eval_pre_new_client(void *d EINA_UNUSED, E_Client *ec);
@@ -155,6 +157,14 @@ _e_policy_client_normal_check(E_Client *ec)
      }
    else if (e_policy_client_is_subsurface(ec))
      goto cancel_max;
+   else if (e_policy_client_is_splited(ec))
+     {
+        E_Policy_Client *pc;
+        pc = eina_hash_find(hash_policy_clients, &ec);
+        _e_policy_client_maximize_policy_cancel(pc);
+        _e_policy_client_split_policy_apply(pc);
+        return EINA_FALSE;
+     }
 
    if ((ec->netwm.type == E_WINDOW_TYPE_NORMAL) ||
        (ec->netwm.type == E_WINDOW_TYPE_UNKNOWN) ||
@@ -419,6 +429,124 @@ _e_policy_client_floating_policy_cancel(E_Policy_Client *pc)
      EC_CHANGED(pc->ec);
 }
 
+static void
+_e_policy_client_split_policy_apply(E_Policy_Client *pc)
+{
+   E_Client *ec;
+
+   if (!pc) return;
+   if (pc->split_policy_state) return;
+
+   pc->split_policy_state = EINA_TRUE;
+   ec = pc->ec;
+
+#undef _SET
+# define _SET(a) pc->orig.a = pc->ec->a
+   _SET(borderless);
+   _SET(fullscreen);
+   _SET(maximized);
+   _SET(lock_user_location);
+   _SET(lock_client_location);
+   _SET(lock_user_size);
+   _SET(lock_client_size);
+   _SET(lock_client_stacking);
+   _SET(lock_user_shade);
+   _SET(lock_client_shade);
+   _SET(lock_user_maximize);
+   _SET(lock_client_maximize);
+   _SET(lock_user_fullscreen);
+   _SET(lock_client_fullscreen);
+#undef _SET
+
+   if (ec->remember)
+     {
+        e_remember_del(ec->remember);
+        ec->remember = NULL;
+     }
+
+   /* skip hooks of e_remeber for eval_pre_post_fetch and eval_post_new_client */
+   ec->internal_no_remember = 1;
+
+   if (!ec->borderless)
+     {
+        ec->borderless = 1;
+        ec->border.changed = 1;
+        EC_CHANGED(pc->ec);
+     }
+
+   /* do not allow client to change these properties */
+   ec->lock_user_location = 1;
+   ec->lock_client_location = 1;
+   ec->lock_user_size = 1;
+   ec->lock_client_size = 1;
+   ec->lock_user_shade = 1;
+   ec->lock_client_shade = 1;
+   ec->lock_user_maximize = 1;
+   ec->lock_client_maximize = 1;
+   ec->lock_user_fullscreen = 1;
+   ec->lock_client_fullscreen = 1;
+   ec->skip_fullscreen = 1;
+}
+
+static void
+_e_policy_client_split_policy_cancel(E_Policy_Client *pc)
+{
+   E_Client *ec;
+   Eina_Bool changed = EINA_FALSE;
+
+   if (!pc) return;
+   if (!pc->split_policy_state) return;
+
+   pc->split_policy_state = EINA_FALSE;
+   ec = pc->ec;
+
+   if (pc->orig.borderless != ec->borderless)
+     {
+        ec->border.changed = 1;
+        changed = EINA_TRUE;
+     }
+
+   if ((pc->orig.fullscreen != ec->fullscreen) &&
+       (pc->orig.fullscreen))
+     {
+        ec->need_fullscreen = 1;
+        changed = EINA_TRUE;
+     }
+
+   if (pc->orig.maximized != ec->maximized)
+     {
+        if (pc->orig.maximized)
+          ec->changes.need_maximize = 1;
+        else
+          e_client_unmaximize(ec, ec->maximized);
+
+        changed = EINA_TRUE;
+     }
+#undef _SET
+# define _SET(a) ec->a = pc->orig.a
+   _SET(borderless);
+   _SET(fullscreen);
+   _SET(maximized);
+   _SET(lock_user_location);
+   _SET(lock_client_location);
+   _SET(lock_user_size);
+   _SET(lock_client_size);
+   _SET(lock_client_stacking);
+   _SET(lock_user_shade);
+   _SET(lock_client_shade);
+   _SET(lock_user_maximize);
+   _SET(lock_client_maximize);
+   _SET(lock_user_fullscreen);
+   _SET(lock_client_fullscreen);
+#undef _SET
+
+   ec->skip_fullscreen = 0;
+
+   /* only set it if the border is changed or fullscreen/maximize has changed */
+   if (changed)
+     EC_CHANGED(pc->ec);
+}
+
 E_Config_Policy_Desk *
 _e_policy_desk_get_by_num(unsigned int zone_num, int x, int y)
 {
@@ -567,6 +695,15 @@ _e_policy_cb_hook_client_eval_post_fetch(void *d EINA_UNUSED, E_Client *ec)
         return;
      }
 
+   if (e_policy_client_is_splited(ec))
+     {
+        E_Policy_Client *pc;
+        pc = eina_hash_find(hash_policy_clients, &ec);
+        _e_policy_client_maximize_policy_cancel(pc);
+        _e_policy_client_split_policy_apply(pc);
+        return;
+     }
+
    if (!_e_policy_client_normal_check(ec)) return;
 
    pd = eina_hash_find(hash_policy_desks, &ec->desk);
@@ -577,6 +714,9 @@ _e_policy_cb_hook_client_eval_post_fetch(void *d EINA_UNUSED, E_Client *ec)
 
    if (pc->flt_policy_state)
      _e_policy_client_floating_policy_cancel(pc);
+
+   if (pc->split_policy_state)
+     _e_policy_client_split_policy_cancel(pc);
 
    _e_policy_client_maximize_policy_apply(pc);
 }
@@ -1135,6 +1275,9 @@ e_policy_client_maximize(E_Client *ec)
 
    if (e_policy_client_is_subsurface(ec)) return EINA_FALSE;
 
+   if (e_policy_client_is_splited(ec))
+      return EINA_FALSE;
+
    if ((ec->netwm.type != E_WINDOW_TYPE_NORMAL) &&
        (ec->netwm.type != E_WINDOW_TYPE_UNKNOWN) &&
        (ec->netwm.type != E_WINDOW_TYPE_NOTIFICATION))
@@ -1298,6 +1441,18 @@ e_policy_client_is_cbhm(E_Client *ec)
    E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
 
    if (!e_util_strcmp("cbhm", ec->icccm.window_role))
+     return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+Eina_Bool
+e_policy_client_is_splited(E_Client *ec)
+{
+   E_OBJECT_CHECK_RETURN(ec, EINA_FALSE);
+   E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
+
+   if (ec->layout.splited)
      return EINA_TRUE;
 
    return EINA_FALSE;

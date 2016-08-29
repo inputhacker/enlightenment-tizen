@@ -71,6 +71,8 @@ src/bin/e_resist.h \
 src/bin/e_scale.h \
 src/bin/e_screensaver.h \
 src/bin/e_signals.h \
+src/bin/e_slot.h \
+src/bin/e_splitlayout.h \
 src/bin/e_test_helper.h \
 src/bin/e_theme.h \
 src/bin/e_user.h \
@@ -152,6 +154,8 @@ src/bin/e_resist.c \
 src/bin/e_scale.c \
 src/bin/e_screensaver.c \
 src/bin/e_signals.c \
+src/bin/e_slot.c \
+src/bin/e_splitlayout.c \
 src/bin/e_test_helper.c \
 src/bin/e_theme.c \
 src/bin/e_user.c \

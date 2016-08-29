@@ -56,6 +56,7 @@ struct _E_Policy_Client
    Eina_Bool max_policy_state;
    Eina_Bool flt_policy_state;
    Eina_Bool allow_user_geom;
+   Eina_Bool split_policy_state;
    int       user_geom_ref;
 };
 
@@ -119,6 +120,7 @@ EINTERN Eina_Bool        e_policy_client_is_floating(E_Client *ec);
 EINTERN Eina_Bool        e_policy_client_is_cursor(E_Client *ec);
 EINTERN Eina_Bool        e_policy_client_is_subsurface(E_Client *ec);
 EINTERN Eina_Bool        e_policy_client_is_cbhm(E_Client *ec);
+EINTERN Eina_Bool        e_policy_client_is_splited(E_Client *ec);
 
 EINTERN E_Policy_Softkey *e_policy_softkey_add(E_Zone *zone);
 EINTERN void              e_policy_softkey_del(E_Policy_Softkey *softkey);
