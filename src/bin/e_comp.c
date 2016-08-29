@@ -658,7 +658,7 @@ _e_comp_hwc_prepare(void)
              if ((ec->pixmap) && (e_pixmap_type_get(ec->pixmap) == E_PIXMAP_TYPE_EXT_OBJECT))
                 goto nextzone;
 
-             // if video client could not draw it on video hw layer
+             // if there is UI or video stream on subfrace, it means need to composite
              if (cdata && (cdata->sub.below_list || cdata->sub.below_list_pending))
                {
                   if (!e_comp_wl_video_client_has(ec))
@@ -753,7 +753,7 @@ _e_comp_hwc_begin(void)
    E_Zone *zone;
    Eina_Bool mode_set = EINA_FALSE;
 
-   E_FREE_FUNC(e_comp->selcomp_delay_timer, ecore_timer_del);
+   E_FREE_FUNC(e_comp->nocomp_delay_timer, ecore_timer_del);
 
    if (!e_comp->hwc) return;
    if (e_comp->hwc_override > 0) return;
@@ -777,7 +777,7 @@ _e_comp_hwc_begin(void)
 static Eina_Bool
 _e_comp_hwc_cb_begin_timeout(void *data EINA_UNUSED)
 {
-   e_comp->selcomp_delay_timer = NULL;
+   e_comp->nocomp_delay_timer = NULL;
 
    if (e_comp->hwc_override == 0 && _e_comp_hwc_usable())
      {
@@ -797,7 +797,7 @@ e_comp_hwc_end(const char *location)
    Eina_List *l;
 
    e_comp->selcomp_want = 0;
-   E_FREE_FUNC(e_comp->selcomp_delay_timer, ecore_timer_del);
+   E_FREE_FUNC(e_comp->nocomp_delay_timer, ecore_timer_del);
    _hwc_plane_reserved_clean();
 
    if (!e_comp->hwc) return;
@@ -935,11 +935,11 @@ setup_hwcompose:
         else
           {
              // switch mode
-             if (conf->selcomp_use_timer)
+             if (conf->nocomp_use_timer)
                {
-                  if (!e_comp->selcomp_delay_timer)
+                  if (!e_comp->nocomp_delay_timer)
                     {
-                       e_comp->selcomp_delay_timer = ecore_timer_add(conf->selcomp_begin_timeout,
+                       e_comp->nocomp_delay_timer = ecore_timer_add(conf->nocomp_begin_timeout,
                                                                      _e_comp_hwc_cb_begin_timeout,
                                                                      NULL);
                     }
@@ -1311,8 +1311,6 @@ _e_comp_free(E_Comp *c)
    if (c->screen_job) ecore_job_del(c->screen_job);
    if (c->nocomp_delay_timer) ecore_timer_del(c->nocomp_delay_timer);
    if (c->nocomp_override_timer) ecore_timer_del(c->nocomp_override_timer);
-   if (c->selcomp_delay_timer) ecore_timer_del(c->selcomp_delay_timer);
-   if (c->selcomp_override_timer) ecore_timer_del(c->selcomp_override_timer);
    ecore_job_del(c->shape_job);
 
    free(c);

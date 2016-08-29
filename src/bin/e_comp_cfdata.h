@@ -29,8 +29,6 @@ struct _E_Comp_Config
    unsigned char nocomp_fs;
    unsigned char nocomp_use_timer;
    double        nocomp_begin_timeout;
-   unsigned char selcomp_use_timer;
-   double        selcomp_begin_timeout;
    unsigned char hwc;
    unsigned char hwc_use_multi_plane;
    unsigned char smooth_windows;

@@ -52,8 +52,6 @@ e_comp_cfdata_edd_init(E_Config_DD **conf_edd, E_Config_DD **match_edd)
    E_CONFIG_VAL(D, T, nocomp_fs, UCHAR);
    E_CONFIG_VAL(D, T, nocomp_use_timer, UCHAR);
    E_CONFIG_VAL(D, T, nocomp_begin_timeout, DOUBLE);
-   E_CONFIG_VAL(D, T, selcomp_use_timer, UCHAR);
-   E_CONFIG_VAL(D, T, selcomp_begin_timeout, DOUBLE);
    E_CONFIG_VAL(D, T, hwc, UCHAR);
    E_CONFIG_VAL(D, T, hwc_use_multi_plane, UCHAR);
    E_CONFIG_VAL(D, T, nofade, UCHAR);
@@ -114,8 +112,6 @@ e_comp_cfdata_config_new(void)
    cfg->nocomp_fs = 1;
    cfg->nocomp_use_timer = 1;
    cfg->nocomp_begin_timeout = 2.0;
-   cfg->selcomp_use_timer = 1;
-   cfg->selcomp_begin_timeout = 2.0;
    cfg->hwc = 0;
    cfg->hwc_use_multi_plane = 0;
    cfg->nofade = 0;

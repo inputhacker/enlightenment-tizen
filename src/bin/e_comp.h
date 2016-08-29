@@ -124,8 +124,6 @@ struct _E_Comp
    Ecore_Job      *screen_job;
    Ecore_Timer    *nocomp_delay_timer;
    Ecore_Timer    *nocomp_override_timer;
-   Ecore_Timer    *selcomp_delay_timer;
-   Ecore_Timer    *selcomp_override_timer;
    int             animating;
    double          frametimes[122];
    int             frameskip;
