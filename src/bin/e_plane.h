@@ -54,6 +54,8 @@ struct _E_Plane
    E_Output             *output;
 
    unsigned int          buffer_flags;
+   E_Plane_Commit_Data  *pending_commit_data;
+   Eina_Bool             need_to_commit;
 };
 
 struct _E_Plane_Commit_Data {

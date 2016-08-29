@@ -64,13 +64,14 @@ _e_plane_surface_unset(E_Plane *plane)
      }
 
    plane->tsurface = NULL;
+   plane->need_to_commit = EINA_TRUE;
 
    if (plane->renderer)
      {
         /* set the displaying buffer to be null */
         e_plane_renderer_displaying_surface_set(plane->renderer, NULL);
         /* set the update_exist to be false */
-        e_plane_renderer_update_exist_set(plane->renderer, EINA_TRUE);
+        e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
 
         /* set the display_buffer_ref to be null */
         e_comp_wl_buffer_reference(&plane->displaying_buffer_ref, NULL);
@@ -552,6 +553,22 @@ e_plane_fetch(E_Plane *plane)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
+   if (!plane->renderer && plane->tsurface &&
+       !plane->pending_commit_data)
+     {
+        if (!_e_plane_surface_unset(plane))
+          {
+             ERR("failed to unset surface plane:%p", plane);
+             return EINA_FALSE;
+          }
+     }
+
+   if (plane->need_to_commit)
+     {
+        plane->need_to_commit = EINA_FALSE;
+        return EINA_TRUE;
+     }
+
    if (plane->is_fb && !plane->ec)
      {
         /* renderer */
@@ -648,6 +665,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
         e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
         /* set the pending to be true */
         e_plane_renderer_pending_set(plane->renderer, EINA_TRUE);
+        plane->pending_commit_data = data;
 
         e_plane_renderer_ee_update_ban(plane->renderer, EINA_TRUE);
         return data;
@@ -667,6 +685,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
              e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
              /* set the pending to be true */
              e_plane_renderer_pending_set(plane->renderer, EINA_TRUE);
+             plane->pending_commit_data = data;
 
              /* send frame event enlightenment dosen't send frame evnet in nocomp */
              e_pixmap_image_clear(plane->ec->pixmap, 1);
@@ -692,6 +711,18 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
    tsurface = data->tsurface;
    ec = data->ec;
    renderer = plane->renderer;
+
+   if (!renderer)
+     {
+        if (!_e_plane_surface_unset(plane))
+           ERR("failed to unset surface plane:%p", plane);
+
+        e_comp_wl_buffer_reference(&data->buffer_ref, NULL);
+        plane->pending_commit_data = NULL;
+        tbm_surface_internal_unref(tsurface);
+        free(data);
+        return;
+     }
 
    displaying_tsurface = e_plane_renderer_displaying_surface_get(renderer);
 
@@ -770,6 +801,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
 
    /* set the pending to be false */
    e_plane_renderer_pending_set(plane->renderer, EINA_FALSE);
+   plane->pending_commit_data = NULL;
 
    tbm_surface_internal_unref(tsurface);
    free(data);
@@ -892,9 +924,6 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
                   e_plane_renderer_del(plane->renderer);
                   plane->renderer = NULL;
                }
-
-             if (!_e_plane_surface_unset(plane))
-                 ERR("failed to unset surface plane:%p", plane);
           }
         else
           {
