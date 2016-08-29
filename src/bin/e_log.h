@@ -81,7 +81,7 @@
    do                                                      \
      {                                                     \
         if ((!cp) && (!ec))                                \
-          INF("EWL|%20.20s|             |             |",  \
+          INF("EWL|%20.20s|              |             |", \
               (t));                                        \
         else                                               \
           INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|",         \
@@ -95,7 +95,7 @@
    do                                                      \
      {                                                     \
         if ((!cp) && (!ec))                                \
-          INF("EWL|%20.20s|             |             |"f, \
+          INF("EWL|%20.20s|              |             |"f,\
               (t), ##x);                                   \
         else                                               \
           INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|"f,        \
