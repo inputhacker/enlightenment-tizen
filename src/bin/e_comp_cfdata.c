@@ -110,7 +110,7 @@ e_comp_cfdata_config_new(void)
    cfg->send_flush = 1; // implement
    cfg->send_dump = 1; // implement
    cfg->nocomp_fs = 1;
-   cfg->nocomp_use_timer = 1;
+   cfg->nocomp_use_timer = 0;
    cfg->nocomp_begin_timeout = 2.0;
    cfg->hwc = 0;
    cfg->hwc_use_multi_plane = 0;
