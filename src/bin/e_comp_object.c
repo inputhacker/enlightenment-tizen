@@ -1080,6 +1080,7 @@ _e_comp_intercept_move(void *data, Evas_Object *obj, int x, int y)
    int ix, iy, fx, fy;
 
    if ((e_pixmap_type_get(cw->ec->pixmap) != E_PIXMAP_TYPE_EXT_OBJECT) &&
+       (e_pixmap_usable_get(cw->ec->pixmap)) &&
        (cw->external_content))
      {
         /* delay to move until the external content is unset */
@@ -1259,7 +1260,8 @@ _e_comp_intercept_resize(void *data, Evas_Object *obj, int w, int h)
         if ((cw->ec->client.w < 0) || (cw->ec->client.h < 0)) CRI("WTF");
      }
    if ((!cw->ec->input_only) && (cw->redirected) &&
-       (e_pixmap_type_get(cw->ec->pixmap) != E_PIXMAP_TYPE_EXT_OBJECT) &&
+       (cw->content_type != E_COMP_OBJECT_CONTENT_TYPE_EXT_IMAGE) &&
+       (cw->content_type != E_COMP_OBJECT_CONTENT_TYPE_EXT_EDJE) &&
        (e_pixmap_dirty_get(cw->ec->pixmap) ||
        (!e_pixmap_size_get(cw->ec->pixmap, &pw, &ph))))
      {
@@ -1272,7 +1274,8 @@ _e_comp_intercept_resize(void *data, Evas_Object *obj, int w, int h)
         EC_CHANGED(cw->ec);
         return;
      }
-   if (e_pixmap_type_get(cw->ec->pixmap) == E_PIXMAP_TYPE_EXT_OBJECT)
+   if (cw->content_type == E_COMP_OBJECT_CONTENT_TYPE_EXT_IMAGE ||
+       cw->content_type == E_COMP_OBJECT_CONTENT_TYPE_EXT_EDJE)
      pw = w, ph = h;
    prev_w = cw->w, prev_h = cw->h;
    e_comp_object_frame_wh_adjust(obj, 0, 0, &fw, &fh);
@@ -1741,7 +1744,8 @@ _e_comp_intercept_show_helper(E_Comp_Object *cw)
           }
         return;
      }
-   if (e_pixmap_type_get(cw->ec->pixmap) == E_PIXMAP_TYPE_EXT_OBJECT)
+   if (cw->content_type == E_COMP_OBJECT_CONTENT_TYPE_EXT_IMAGE ||
+       cw->content_type == E_COMP_OBJECT_CONTENT_TYPE_EXT_EDJE)
      {
         evas_object_move(cw->smart_obj, cw->ec->x, cw->ec->y);
         evas_object_resize(cw->smart_obj, cw->ec->w, cw->ec->h);
@@ -4764,12 +4768,7 @@ e_comp_object_content_set(Evas_Object *obj,
         return EINA_FALSE;
      }
 
-   if (e_pixmap_type_get(cw->ec->pixmap) != E_PIXMAP_TYPE_EXT_OBJECT)
-     {
-        ERR("Invalid type %d of pixmap %p and client %p for external content.",
-            e_pixmap_type_get(cw->ec->pixmap), cw->ec->pixmap, cw->ec);
-        return EINA_FALSE;
-     }
+   if (e_pixmap_usable_get(cw->ec->pixmap)) return EINA_FALSE;
 
    if ((type != E_COMP_OBJECT_CONTENT_TYPE_EXT_IMAGE) &&
        (type != E_COMP_OBJECT_CONTENT_TYPE_EXT_EDJE))
@@ -4820,6 +4819,7 @@ e_comp_object_content_unset(Evas_Object *obj)
           edje_object_part_unswallow(cw->shobj, cw->obj);
 
         evas_object_del(cw->obj);
+        evas_object_hide(cw->obj);
         cw->obj = NULL;
      }
 
@@ -4850,6 +4850,14 @@ e_comp_object_content_unset(Evas_Object *obj)
    e_comp_object_render_update_add(obj);
 
    return EINA_TRUE;
+}
+
+E_API E_Comp_Object_Content_Type
+e_comp_object_content_type_get(Evas_Object *obj)
+{
+   API_ENTRY E_COMP_OBJECT_CONTENT_TYPE_NONE;
+
+   return cw->content_type;
 }
 
 E_API void

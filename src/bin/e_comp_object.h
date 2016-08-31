@@ -132,8 +132,9 @@ E_API void e_comp_object_transform_transp_vertices_set(Evas_Object *obj, E_Util_
 
 E_API void e_comp_object_layer_update(Evas_Object *obj, Evas_Object *above, Evas_Object *below);
 
-E_API Eina_Bool e_comp_object_content_set(Evas_Object* obj, Evas_Object *content, E_Comp_Object_Content_Type type);
-E_API Eina_Bool e_comp_object_content_unset(Evas_Object* obj);
+E_API Eina_Bool                  e_comp_object_content_set(Evas_Object* obj, Evas_Object *content, E_Comp_Object_Content_Type type);
+E_API Eina_Bool                  e_comp_object_content_unset(Evas_Object* obj);
+E_API E_Comp_Object_Content_Type e_comp_object_content_type_get(Evas_Object* obj);
 
 E_API void e_comp_object_dim_client_set(E_Client *ec);
 E_API E_Client *e_comp_object_dim_client_get(void);
