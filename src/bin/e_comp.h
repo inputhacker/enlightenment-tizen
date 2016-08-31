@@ -122,8 +122,6 @@ struct _E_Comp
    Evas_Object    *fps_bg;
    Evas_Object    *fps_fg;
    Ecore_Job      *screen_job;
-   Ecore_Timer    *nocomp_delay_timer;
-   Ecore_Timer    *nocomp_override_timer;
    int             animating;
    double          frametimes[122];
    int             frameskip;
@@ -135,8 +133,14 @@ struct _E_Comp
    Ecore_Window    cm_selection; //FIXME: move to comp_x ?
    E_Client       *nocomp_ec;
 
-   int             hwc_override; //number of times hwc override has been requested
+   Ecore_Timer    *nocomp_delay_timer;
+   Ecore_Timer    *nocomp_override_timer;
+   int             nocomp_override; //number of times hwc override has been requested
+   Eina_Bool       nocomp : 1;
+   Eina_Bool       nocomp_want : 1;
    Eina_Bool       hwc_mode;
+   Eina_Bool       hwc : 1;
+   Eina_Bool       hwc_fs : 1; // active hwc policy
 
    int depth;
    unsigned int    input_key_grabs;
@@ -148,14 +152,9 @@ struct _E_Comp
 
    Eina_Bool       gl : 1;
    Eina_Bool       grabbed : 1;
-   Eina_Bool       nocomp : 1;
-   Eina_Bool       nocomp_want : 1;
-   Eina_Bool       selcomp_want : 1;
    Eina_Bool       saver : 1;
    Eina_Bool       shape_queue_blocked : 1;
    Eina_Bool       calc_fps : 1;
-   Eina_Bool       hwc : 1;
-   Eina_Bool       hwc_fs : 1; // active hwc policy
 
    Eina_List      *connected_clients;
    Eina_List      *launchscrns; // list of dummy clients for launchscreen image.
@@ -217,7 +216,6 @@ E_API Eina_Bool e_comp_util_object_is_above_nocomp(Evas_Object *obj);
 E_API Eina_Bool e_comp_util_kbd_grabbed(void);
 E_API Eina_Bool e_comp_util_mouse_grabbed(void);
 
-E_API void e_comp_nocomp_end(const char *location);
 
 static inline Eina_Bool
 e_comp_util_client_is_fullscreen(const E_Client *ec)
@@ -237,8 +235,11 @@ E_API void e_comp_post_update_purge(E_Client *ec);
 E_API E_Comp_Hook *e_comp_hook_add(E_Comp_Hook_Point hookpoint, E_Comp_Hook_Cb func, const void *data);
 E_API void e_comp_hook_del(E_Comp_Hook *ph);
 EINTERN Eina_Bool e_comp_is_on_overlay(E_Client *ec);
-E_API void e_comp_hwc_end(const char *location);
 E_API Eina_List *e_comp_vis_ec_list_get(E_Zone *zone); // visible ec list sorted by z order
+
+#ifdef ENABLE_HWC_MULTI
+E_API void e_comp_hwc_end(const char *location);
+#endif
 
 #endif
 #endif

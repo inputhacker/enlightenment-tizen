@@ -283,8 +283,10 @@ _e_comp_object_cb_mirror_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj 
      evas_object_smart_callback_call(cw->smart_obj, "visibility_force", cw->ec);
    cw->force_visible++;
 
+#ifdef ENABLE_HWC_MULTI
    if (e_comp->hwc && !e_comp_is_on_overlay(cw->ec))
-     e_comp_nocomp_end(__FUNCTION__);
+     e_comp_hwc_end(__FUNCTION__);
+#endif
 }
 
 static void
@@ -1598,7 +1600,6 @@ _e_comp_intercept_lower(void *data, Evas_Object *obj)
    evas_object_lower(obj);
    evas_object_data_del(obj, "client_restack");
    if (!cw->visible) goto end;
-   if (e_comp->hwc && e_comp_is_on_overlay(cw->ec)) e_comp_nocomp_end(__FUNCTION__);
    e_comp_render_queue();
    e_comp_shape_queue();
    _e_comp_object_transform_obj_stack_update(obj);
@@ -1650,8 +1651,6 @@ _e_comp_intercept_raise(void *data, Evas_Object *obj)
           e_client_raise_latest_set(cw->ec); //modify raise list if necessary
      }
    if (!cw->visible) goto end;
-   if (e_comp->hwc && !e_comp_is_on_overlay(cw->ec))
-      e_comp_nocomp_end(__FUNCTION__);
    e_comp_render_queue();
    e_comp_shape_queue();
    _e_comp_object_transform_obj_stack_update(obj);
@@ -1715,7 +1714,6 @@ _e_comp_intercept_hide(void *data, Evas_Object *obj)
                e_comp_object_effect_set(obj, NULL);
           }
      }
-   if (e_comp->hwc && e_comp_is_on_overlay(cw->ec)) e_comp_nocomp_end(__FUNCTION__);
    if (cw->animating) return;
    /* if we have no animations running, go ahead and hide */
    cw->defer_hide = 0;
@@ -3996,21 +3994,8 @@ e_comp_object_dirty(Evas_Object *obj)
         return;
      }
 
-#ifdef HAVE_HWC
-#ifdef ENABLE_HWC_MULTI
    e_comp_object_native_surface_set(obj, 1);
-#else
-   if (e_comp->hwc)
-     {
-        if (!e_comp_hwc_native_surface_set(cw->ec))
-          e_comp_object_native_surface_set(obj, 1);
-     }
-   else
-     e_comp_object_native_surface_set(obj, 1);
-#endif
-#else
-   e_comp_object_native_surface_set(obj, 1);
-#endif
+
    it = eina_tiler_iterator_new(cw->updates);
    EINA_ITERATOR_FOREACH(it, rect)
      {

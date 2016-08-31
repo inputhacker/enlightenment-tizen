@@ -1,8 +1,5 @@
 #include "e.h"
 
-#ifdef HAVE_HWC
-# include "e_comp_hwc.h"
-#endif
 
 #define OVER_FLOW 1
 //#define SHAPE_DEBUG
@@ -85,103 +82,6 @@ E_API int E_EVENT_COMPOSITOR_FPS_UPDATE = -1;
 #define ERR(f, x ...)
 #define CRI(f, x ...)
 #endif
-
-#ifdef ENABLE_HWC_MULTI
-static void
-_e_comp_hooks_clean(void)
-{
-   Eina_Inlist *l;
-   E_Comp_Hook *ch;
-   unsigned int x;
-
-   for (x = 0; x < E_COMP_HOOK_LAST; x++)
-     EINA_INLIST_FOREACH_SAFE(_e_comp_hooks[x], l, ch)
-       {
-          if (!ch->delete_me) continue;
-          _e_comp_hooks[x] = eina_inlist_remove(_e_comp_hooks[x],
-                                                EINA_INLIST_GET(ch));
-          free(ch);
-       }
-}
-
-static void
-_e_comp_hook_call(E_Comp_Hook_Point hookpoint, void *data EINA_UNUSED)
-{
-   E_Comp_Hook *ch;
-
-   _e_comp_hooks_walking++;
-   EINA_INLIST_FOREACH(_e_comp_hooks[hookpoint], ch)
-     {
-        if (ch->delete_me) continue;
-        ch->func(ch->data, NULL);
-     }
-   _e_comp_hooks_walking--;
-   if ((_e_comp_hooks_walking == 0) && (_e_comp_hooks_delete > 0))
-     _e_comp_hooks_clean();
-}
-#endif  // end of ENABLE_HWC_MULTI
-
-static E_Client *
-_e_comp_fullscreen_check(void)
-{
-   E_Client *ec;
-
-   E_CLIENT_REVERSE_FOREACH(ec)
-     {
-        E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
-        int ow, oh, vw, vh;
-
-        // check clients to skip in nocomp condition
-        if (ec->ignored || ec->input_only || (!evas_object_visible_get(ec->frame)))
-          continue;
-
-        if (!E_INTERSECTS(0, 0, e_comp->w, e_comp->h,
-                          ec->client.x, ec->client.y, ec->client.w, ec->client.h))
-          {
-             continue;
-          }
-
-        if (evas_object_data_get(ec->frame, "comp_skip"))
-          continue;
-
-        if ((ec->pixmap) && (e_pixmap_type_get(ec->pixmap) == E_PIXMAP_TYPE_EXT_OBJECT))
-          break;
-
-        if ((!cdata) ||
-            (!cdata->buffer_ref.buffer) ||
-            (cdata->buffer_ref.buffer->type != E_COMP_WL_BUFFER_TYPE_NATIVE))
-          break;
-
-        if (cdata->sub.below_list || cdata->sub.below_list_pending)
-          {
-             if (!e_comp_wl_video_client_has(ec))
-                break;
-          }
-
-        ow = cdata->width_from_buffer;
-        oh = cdata->height_from_buffer;
-        vw = cdata->width_from_viewport;
-        vh = cdata->height_from_viewport;
-
-        if ((ec->client.x == 0) && (ec->client.y == 0) &&
-            ((ec->client.w) >= e_comp->w) &&
-            ((ec->client.h) >= e_comp->h) &&
-            (ow >= e_comp->w) &&
-            (oh >= e_comp->h) &&
-            (vw == ow) &&
-            (vh == oh) &&
-            (!ec->argb) &&
-            (!ec->shaped) &&
-            (!e_client_transform_core_enable_get(ec))
-            )
-          {
-             return ec;
-          }
-        else
-          break;
-     }
-   return NULL;
-}
 
 static void
 _e_comp_fps_update(void)
@@ -283,97 +183,40 @@ _e_comp_fps_update(void)
      }
 }
 
-static Eina_Bool
-_e_comp_hwc_is_on(void)
-{
-   if (e_comp->hwc_mode)
-      return EINA_TRUE;
-
-   return EINA_FALSE;
-}
-
-static void
-_e_comp_cb_nocomp_begin(void)
-{
-   E_Client *ec;
-   Eina_Bool mode_set = EINA_FALSE;
-   if (!e_comp->hwc) return;
-   if (e_comp->nocomp) return;
-   E_FREE_FUNC(e_comp->nocomp_delay_timer, ecore_timer_del);
-
-   ec = _e_comp_fullscreen_check();
-   if (!ec) return;
-
-#ifdef HAVE_HWC
-   mode_set = e_comp_hwc_mode_nocomp(ec);
-#endif
-   if (!mode_set) return;
-
-   if (e_comp->calc_fps) e_comp->frametimes[0] = 0;
-   e_comp->nocomp_ec = ec;
-   e_comp->nocomp = 1;
-
-   INF("JOB2...");
-   e_comp_render_queue();
-   e_comp_shape_queue_block(1);
-   ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
-}
-
-static void
-_e_comp_cb_nocomp_end(void)
-{
-   E_Client *ec;
-   Eina_Bool mode_set = EINA_FALSE;
-
-   if (!e_comp->nocomp) return;
-   if (!e_comp->hwc) return;
-
-#ifdef HAVE_HWC
-   mode_set = e_comp_hwc_mode_nocomp(NULL);
-#endif
-   if (!mode_set) return;
-
-   INF("COMP RESUME!");
-
-   e_comp->nocomp_ec = NULL;
-   e_comp->nocomp = 0;
-
-   E_CLIENT_FOREACH(ec)
-     {
-        if (ec->visible && (!ec->input_only))
-          e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
-
-     }
-
-   e_comp_render_queue();
-   e_comp_shape_queue_block(0);
-   ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
-}
-
-#ifndef ENABLE_HWC_MULTI
-static Eina_Bool
-_e_comp_cb_nocomp_begin_timeout(void *data EINA_UNUSED)
-{
-   e_comp->nocomp_delay_timer = NULL;
-
-   if (e_comp->hwc_override == 0)
-     {
-        if (_e_comp_fullscreen_check()) e_comp->nocomp_want = 1;
-        _e_comp_cb_nocomp_begin();
-     }
-   return EINA_FALSE;
-}
-#endif  // end of ENABLE_HWC_MULTI
-E_API void
-e_comp_nocomp_end(const char *location)
-{
-   e_comp->nocomp_want = 0;
-   E_FREE_FUNC(e_comp->nocomp_delay_timer, ecore_timer_del);
-   if (!e_comp->nocomp) return;
-   INF("HWC : NOCOMP_END at %s\n", location);
-   _e_comp_cb_nocomp_end();
-}
 #ifdef ENABLE_HWC_MULTI
+static void
+_e_comp_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Comp_Hook *ch;
+   unsigned int x;
+
+   for (x = 0; x < E_COMP_HOOK_LAST; x++)
+     EINA_INLIST_FOREACH_SAFE(_e_comp_hooks[x], l, ch)
+       {
+          if (!ch->delete_me) continue;
+          _e_comp_hooks[x] = eina_inlist_remove(_e_comp_hooks[x],
+                                                EINA_INLIST_GET(ch));
+          free(ch);
+       }
+}
+
+static void
+_e_comp_hook_call(E_Comp_Hook_Point hookpoint, void *data EINA_UNUSED)
+{
+   E_Comp_Hook *ch;
+
+   _e_comp_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_comp_hooks[hookpoint], ch)
+     {
+        if (ch->delete_me) continue;
+        ch->func(ch->data, NULL);
+     }
+   _e_comp_hooks_walking--;
+   if ((_e_comp_hooks_walking == 0) && (_e_comp_hooks_delete > 0))
+     _e_comp_hooks_clean();
+}
+
 static Eina_Bool
 _hwc_set(E_Output *eout)
 {
@@ -406,6 +249,9 @@ _hwc_set(E_Output *eout)
                        INF("HWC : ec(0x%08x, %s) is set on fb_target( %d)\n",(unsigned int)ep->prepare_ec, ep->prepare_ec->icccm.title, ep->zpos);
                        e_client_redirected_set(ep->prepare_ec, 0);
                        ret |= EINA_TRUE;
+
+                       // fb target is occupied by a client surface, means compositor disabled
+                       ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
                     }
                   break;
                }
@@ -462,11 +308,12 @@ _hwc_plane_prepare(E_Output *eout, int n_vis, Eina_List *clist)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_l, EINA_FALSE);
 
+   // finally, assign client on available_hw layers
    n_ly = eina_list_count(hwc_l);
    n_ec = eina_list_count(clist);
    clist2 = eina_list_clone(clist);
    if ((n_ec == n_vis) &&
-       (n_ec <= n_ly)) // full hwc including nocomp
+       (n_ec <= n_ly)) // fully hwc
      {
         int del = n_ly - n_ec;
         EINA_LIST_REVERSE_FOREACH(hwc_l, l, ep)
@@ -639,9 +486,9 @@ _e_comp_hwc_prepare(void)
         E_Client *ec;
         E_Output *output;
         int n_vis = 0, n_ec = 0;
-        Eina_List *clist = NULL, *vis_clist = NULL;
+        Eina_List *hwc_ok_clist = NULL, *vis_clist = NULL;
 
-        if (!zone || !zone->output_id) continue;
+        if (!zone || !zone->output_id) continue;  // no hw layer
 
         output = e_output_find(zone->output_id);
         if (!output) continue;
@@ -678,19 +525,19 @@ _e_comp_hwc_prepare(void)
                   break;
                }
 
-             // listup as many as possible from the top most order
+             // listup as many as possible from the top most visible order
              n_ec++;
-             clist = eina_list_append(clist, ec);
+             hwc_ok_clist = eina_list_append(hwc_ok_clist, ec);
           }
 
         n_vis = eina_list_count(vis_clist);
         if ((n_vis < 1) || (n_ec < 1))
           goto nextzone;
 
-        ret |= _hwc_plane_prepare(output, n_vis, clist);
+        ret |= _hwc_plane_prepare(output, n_vis, hwc_ok_clist);
 
         nextzone:
-        eina_list_free(clist);
+        eina_list_free(hwc_ok_clist);
         eina_list_free(vis_clist);
      }
 
@@ -756,7 +603,7 @@ _e_comp_hwc_begin(void)
    E_FREE_FUNC(e_comp->nocomp_delay_timer, ecore_timer_del);
 
    if (!e_comp->hwc) return;
-   if (e_comp->hwc_override > 0) return;
+   if (e_comp->nocomp_override > 0) return;
 
    EINA_LIST_FOREACH(e_comp->zones, l, zone)
      {
@@ -767,7 +614,7 @@ _e_comp_hwc_begin(void)
      }
 
    if (!mode_set) return;
-   if (!_e_comp_hwc_is_on()) return;
+   if (!e_comp->hwc_mode) return;
 
    if (e_comp->calc_fps) e_comp->frametimes[0] = 0;
 
@@ -779,29 +626,27 @@ _e_comp_hwc_cb_begin_timeout(void *data EINA_UNUSED)
 {
    e_comp->nocomp_delay_timer = NULL;
 
-   if (e_comp->hwc_override == 0 && _e_comp_hwc_usable())
+   if (e_comp->nocomp_override == 0 && _e_comp_hwc_usable())
      {
-        e_comp->selcomp_want = 1;
+        e_comp->nocomp_want = 1;
         _e_comp_hwc_begin();
      }
    return EINA_FALSE;
 }
-#endif  // end of ENABLE_HWC_MULTI
 
 E_API void
 e_comp_hwc_end(const char *location)
 {
-#ifdef ENABLE_HWC_MULTI
    Eina_Bool mode_set = EINA_FALSE;
    E_Zone *zone;
    Eina_List *l;
 
-   e_comp->selcomp_want = 0;
+   e_comp->nocomp_want = 0;
    E_FREE_FUNC(e_comp->nocomp_delay_timer, ecore_timer_del);
    _hwc_plane_reserved_clean();
 
    if (!e_comp->hwc) return;
-   if (!_e_comp_hwc_is_on()) return;
+   if (!e_comp->hwc_mode) return;
 
    EINA_LIST_FOREACH(e_comp->zones, l, zone)
      {
@@ -813,15 +658,10 @@ e_comp_hwc_end(const char *location)
 
    if (!mode_set) return;
 
+   ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
    INF("HWC : End...  at %s", location);
-#else
-   if (!e_comp->hwc) return;
-   if (!e_comp->nocomp) return;
-   if (!e_comp->nocomp_ec) return;
-
-   e_comp_nocomp_end(location);
-#endif // end of ENABLE_HWC_MULTI
 }
+#endif  // end of ENABLE_HWC_MULTI
 
 static void
 _e_comp_client_update(E_Client *ec)
@@ -877,8 +717,7 @@ _e_comp_cb_update(void)
      ecore_animator_freeze(e_comp->render_animator);
 
    DBG("UPDATE ALL");
-   if (e_comp->nocomp) goto setup_hwcompose;
-   if (_e_comp_hwc_is_on()) goto setup_hwcompose;
+   if (e_comp->hwc_mode) goto setup_hwcompose;
 
    if (conf->grab && (!e_comp->grabbed))
      {
@@ -904,7 +743,6 @@ _e_comp_cb_update(void)
    if (conf->lock_fps)
      {
         DBG("MANUAL RENDER...");
-        //        if (!e_comp->nocomp) ecore_evas_manual_render(e_comp->ee);
      }
 
    if (conf->grab && e_comp->grabbed)
@@ -916,16 +754,18 @@ _e_comp_cb_update(void)
      ecore_animator_thaw(e_comp->render_animator);
 
 setup_hwcompose:
-   // TO DO :
-   // query if selective HWC plane can be used
-   if (!e_comp_gl_get() || !e_comp->hwc || !e_comp->hwc_fs)
+#ifdef ENABLE_HWC_MULTI
+   // query if HWC can be used
+   if (!e_comp_gl_get() || // TODO: e_comp_gl_get can be removed out if evas sw backend is TBM
+       !e_comp->hwc ||
+       !e_comp->hwc_fs)
      {
         goto end;
      }
-#ifdef ENABLE_HWC_MULTI
+
    if(_e_comp_hwc_usable())
      {
-        if (_e_comp_hwc_is_on())
+        if (e_comp->hwc_mode)
           {
              // FIXME : will remove out this condition
              // new(ec at prepared list) and current(ec on e_plane)
@@ -946,7 +786,7 @@ setup_hwcompose:
                }
              else
                {
-                  e_comp->selcomp_want = 1;
+                  e_comp->nocomp_want = 1;
                   _e_comp_hwc_begin();
                }
           }
@@ -955,45 +795,9 @@ setup_hwcompose:
      {
         e_comp_hwc_end(__FUNCTION__);
      }
-#else
-   ec = _e_comp_fullscreen_check();
-   if (ec)
-     {
-        if (conf->nocomp_fs)
-          {
-             if (e_comp->nocomp && e_comp->nocomp_ec)
-               {
-                  if (!e_comp_is_on_overlay(ec))
-                    e_comp_nocomp_end("_e_comp_cb_update : nocomp_ec != ec");
-               }
-             else if ((!e_comp->nocomp) && (!e_comp->hwc_override))
-               {
-                  if (conf->nocomp_use_timer)
-                    {
-                       if (!e_comp->nocomp_delay_timer)
-                         {
-                            e_comp->nocomp_delay_timer = ecore_timer_add(conf->nocomp_begin_timeout,
-                                                                         _e_comp_cb_nocomp_begin_timeout,
-                                                                         NULL);
-                         }
-                    }
-                  else
-                    {
-                       e_comp->nocomp_want = 1;
-                       _e_comp_cb_nocomp_begin();
-                    }
-               }
-          }
-     }
-   else
-     {
-        if (e_comp->nocomp && e_comp->nocomp_ec)
-          e_comp_nocomp_end("_e_comp_cb_update : ec is not fullscreen");
-     }
-#endif  // end of ENABLE_HWC_MULTI
 
 end:
-
+#endif  // end of ENABLE_HWC_MULTI
    TRACE_DS_END();
 
    return ECORE_CALLBACK_RENEW;
@@ -1331,12 +1135,14 @@ static Eina_Bool
 _e_comp_override_expire(void *data EINA_UNUSED)
 {
    e_comp->nocomp_override_timer = NULL;
-   e_comp->hwc_override--;
+   e_comp->nocomp_override--;
 
-   if (e_comp->hwc_override <= 0)
+   if (e_comp->nocomp_override <= 0)
      {
-        e_comp->hwc_override = 0;
-        if (e_comp->nocomp_want) _e_comp_cb_nocomp_begin();
+        e_comp->nocomp_override = 0;
+#ifdef ENABLE_HWC_MULTI
+        if (e_comp->nocomp_want) _e_comp_hwc_begin();
+#endif
      }
    return EINA_FALSE;
 }
@@ -1393,6 +1199,24 @@ _e_comp_screensaver_off(void *data EINA_UNUSED, int type EINA_UNUSED, void *even
 #endif
 
    return ECORE_CALLBACK_PASS_ON;
+}
+
+static Eina_Bool
+_e_comp_hwc_init(void)
+{
+   if (!e_comp || !e_comp->e_comp_screen)
+     {
+        e_error_message_show(_("Enlightenment cannot has no e_comp at HWC(HardWare Composite)!\n"));
+        return EINA_FALSE;
+     }
+
+   if (!e_comp_screen_hwc_setup(e_comp->e_comp_screen))
+     {
+        ERR("fail to e_comp_screen_hwc_setup");
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1463,9 +1287,9 @@ e_comp_init(void)
 
 #ifdef HAVE_HWC
    if (conf->hwc &&
-       e_comp_gl_get()) // TODO: check hwc init condition
+       e_comp_gl_get()) // TODO: it can be removed out if evas sw backend is TBM
      {
-        e_comp->hwc = e_comp_hwc_init();
+        e_comp->hwc = _e_comp_hwc_init();
         if (!e_comp->hwc)
           WRN("fail to init hwc.");
         else
@@ -1516,11 +1340,6 @@ e_comp_shutdown(void)
         DELD(ec, 99999);
         e_object_del(E_OBJECT(ec));
      }
-
-#ifdef HAVE_HWC
-   if (e_comp->hwc)
-     e_comp_hwc_shutdown();
-#endif
 
    e_comp_wl_shutdown();
    e_comp_screen_shutdown();
@@ -1709,14 +1528,13 @@ e_comp_ignore_win_find(Ecore_Window win)
 E_API void
 e_comp_override_del()
 {
-   e_comp->hwc_override--;
-   if (e_comp->hwc_override <= 0)
+   e_comp->nocomp_override--;
+   if (e_comp->nocomp_override <= 0)
      {
-        e_comp->hwc_override = 0;
+        e_comp->nocomp_override = 0;
 #ifdef ENABLE_HWC_MULTI
-        if (e_comp->selcomp_want) _e_comp_hwc_begin();
-#else
-        if (e_comp->nocomp_want) _e_comp_cb_nocomp_begin();
+        if (e_comp->nocomp_want)
+          _e_comp_hwc_begin();
 #endif
      }
 }
@@ -1724,11 +1542,13 @@ e_comp_override_del()
 E_API void
 e_comp_override_add()
 {
-   e_comp->hwc_override++;
-   if (e_comp->hwc_override > 0)
+   e_comp->nocomp_override++;
+   if (e_comp->nocomp_override > 0)
      {
         // go full compositing
+#ifdef ENABLE_HWC_MULTI
         e_comp_hwc_end(__FUNCTION__);
+#endif
      }
 }
 
@@ -1742,9 +1562,9 @@ e_comp_find_by_window(Ecore_Window win)
 E_API void
 e_comp_override_timed_pop(void)
 {
-   if (e_comp->hwc_override <= 0) return;
+   if (e_comp->nocomp_override <= 0) return;
    if (e_comp->nocomp_override_timer)
-     e_comp->hwc_override--;
+     e_comp->nocomp_override--;
    else
      e_comp->nocomp_override_timer = ecore_timer_add(1.0, _e_comp_override_expire, NULL);
 }
@@ -1971,11 +1791,7 @@ EINTERN Eina_Bool
 e_comp_is_on_overlay(E_Client *ec)
 {
    if (!ec) return EINA_FALSE;
-   if (e_comp->nocomp)
-     {
-        return e_comp->nocomp_ec == ec;
-     }
-   else if (_e_comp_hwc_is_on())
+   if (e_comp->hwc_mode)
      {
         Eina_List *l, *ll;
         E_Output * eout;
@@ -2000,8 +1816,6 @@ e_comp_vis_ec_list_get(E_Zone *zone)
 
    E_OBJECT_CHECK_RETURN(zone, NULL);
    E_OBJECT_TYPE_CHECK_RETURN(zone, E_ZONE_TYPE, NULL);
-
-   if (!zone->output_id) return NULL; // no hw layer
 
    // TODO: check if eout is available to use hwc policy
    E_CLIENT_REVERSE_FOREACH(ec)

@@ -81,7 +81,6 @@ src/bin/e_win.h \
 src/bin/e_zoomap.h \
 src/bin/e_zone.h \
 src/bin/e_util_transform.h \
-src/bin/e_comp_hwc.h \
 src/bin/e_comp_screen.h \
 src/bin/e_info_protocol.h \
 src/bin/e_uuid_store.h \
@@ -164,7 +163,6 @@ src/bin/e_win.c \
 src/bin/e_zoomap.c \
 src/bin/e_zone.c \
 src/bin/e_util_transform.c \
-src/bin/e_comp_hwc.c \
 src/bin/e_output.c \
 src/bin/e_info_protocol.c \
 src/bin/e_uuid_store.c \

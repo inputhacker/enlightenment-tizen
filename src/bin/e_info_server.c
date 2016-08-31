@@ -118,9 +118,9 @@ _msg_clients_append(Eldbus_Message_Iter *iter)
                }
           }
 
+#ifdef ENABLE_HWC_MULTI
         if (e_comp->hwc && e_comp->hwc_fs)
           {
-#ifdef ENABLE_HWC_MULTI
              Eina_List *l, *ll;
              E_Output * eout;
              E_Plane *ep;
@@ -136,12 +136,9 @@ _msg_clients_append(Eldbus_Message_Iter *iter)
                        pl_zpos = ep->zpos;
                     }
                }
-#else
-             if (e_comp->nocomp_ec == ec) hwc = 1;
-             pl_zpos = 0;
-#endif
           }
         else
+#endif
            hwc = -1;
 
         eldbus_message_iter_arguments_append(array_of_ec, "("VALUE_TYPE_FOR_TOPVWINS")", &struct_of_ec);
@@ -1573,7 +1570,7 @@ _e_info_server_cb_buffer_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
    return reply;
 }
 
-#ifdef HAVE_HWC
+#ifdef ENABLE_HWC_MULTI
 static Eldbus_Message *
 e_info_server_cb_hwc_trace_message(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
@@ -1587,16 +1584,45 @@ e_info_server_cb_hwc_trace_message(const Eldbus_Service_Interface *iface EINA_UN
      }
 
    if (onoff == 0 || onoff == 1)
-#ifdef ENABLE_HWC_MULTI
      e_plane_hwc_trace_debug(onoff);
-#else
-     e_comp_hwc_trace_debug(onoff);
-#endif /* ENABLE_HWC_MULTI */
+
    if (onoff == 2)
      e_comp_screen_hwc_info_debug();
 
    return reply;
 }
+
+static Eldbus_Message *
+e_info_server_cb_hwc(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   uint32_t onoff;
+
+   if (!eldbus_message_arguments_get(msg, "i", &onoff))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+   if (!e_comp->hwc)
+     {
+        ERR("Error HWC is not initialized.");
+        return reply;
+     }
+
+   if (onoff == 1)
+     {
+        e_comp->hwc_fs = EINA_TRUE;
+     }
+   else if (onoff == 0)
+     {
+        e_comp_hwc_end("in runtime by e_info..");
+        e_comp->hwc_fs = EINA_FALSE;
+     }
+
+   return reply;
+}
+
 #endif
 
 static Eldbus_Message *
@@ -1628,37 +1654,6 @@ e_info_server_cb_effect_control(const Eldbus_Service_Interface *iface EINA_UNUSE
              e_module_disable(m);
              e_object_del(E_OBJECT(m));
           }
-     }
-
-   return reply;
-}
-
-static Eldbus_Message *
-e_info_server_cb_hwc(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
-{
-   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
-   uint32_t onoff;
-
-   if (!eldbus_message_arguments_get(msg, "i", &onoff))
-     {
-        ERR("Error getting arguments.");
-        return reply;
-     }
-
-   if (!e_comp->hwc)
-     {
-        ERR("Error HWC is not initialized.");
-        return reply;
-     }
-
-   if (onoff == 1)
-     {
-        e_comp->hwc_fs = EINA_TRUE;
-     }
-   else if (onoff == 0)
-     {
-        e_comp_hwc_end("in runtime by e_info..");
-        e_comp->hwc_fs = EINA_FALSE;
      }
 
    return reply;
@@ -1736,14 +1731,14 @@ static const Eldbus_Method methods[] = {
    { "punch", ELDBUS_ARGS({"iiiiiiiii", "punch_geometry"}), NULL, _e_info_server_cb_punch, 0},
    { "transform_message", ELDBUS_ARGS({"siiiiiiii", "transform_message"}), NULL, e_info_server_cb_transform_message, 0},
    { "dump_buffers", ELDBUS_ARGS({"iis", "start"}), NULL, _e_info_server_cb_buffer_dump, 0 },
-#ifdef HAVE_HWC
+#ifdef ENABLE_HWC_MULTI
    { "hwc_trace_message", ELDBUS_ARGS({"i", "hwc_trace_message"}), NULL, e_info_server_cb_hwc_trace_message, 0},
+   { "hwc", ELDBUS_ARGS({"i", "hwc"}), NULL, e_info_server_cb_hwc, 0},
 #endif
    { "get_keymap", NULL, ELDBUS_ARGS({"hi", "keymap fd"}), _e_info_server_cb_keymap_info_get, 0},
    { "effect_control", ELDBUS_ARGS({"i", "effect_control"}), NULL, e_info_server_cb_effect_control, 0},
    { "get_keygrab_status", ELDBUS_ARGS({"s", "get_keygrab_status"}), NULL, _e_info_server_cb_keygrab_status_get, 0},
    { "get_module_info", ELDBUS_ARGS({"ss", "get_module_info"}), NULL, _e_info_server_cb_module_info_get, 0},
-   { "hwc", ELDBUS_ARGS({"i", "hwc"}), NULL, e_info_server_cb_hwc, 0},
    { "aux_msg", ELDBUS_ARGS({"s","window id" }, {"s", "key"}, {"s", "value"}, {"as", "options"}), NULL, e_info_server_cb_aux_message, 0},
    { "scrsaver", ELDBUS_ARGS({SIGNATURE_SCRSAVER_CLIENT, "scrsaver_params"}), ELDBUS_ARGS({SIGNATURE_SCRSAVER_SERVER, "scrsaver_result"}), _e_info_server_cb_scrsaver, 0},
    { NULL, NULL, NULL, NULL, 0 }

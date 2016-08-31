@@ -1442,7 +1442,7 @@ return;
 
 }
 
-#ifdef HAVE_HWC
+#ifdef ENABLE_HWC_MULTI
 static void
 _e_info_client_proc_hwc_trace(int argc, char **argv)
 {
@@ -1466,32 +1466,6 @@ _e_info_client_proc_hwc_trace(int argc, char **argv)
      }
    else
      printf("Error Check Args: enlightenment_info -hwc_trace [0/1/2]\n");
-}
-#endif
-
-static void
-_e_info_client_proc_effect_control(int argc, char **argv)
-{
-   uint32_t onoff;
-
-   if (argc < 3)
-     {
-        printf("Error Check Args: enlightenment_info -effect [1: on, 0: off]\n");
-        return;
-     }
-
-   onoff = atoi(argv[2]);
-
-   if (onoff == 1 || onoff == 0)
-     {
-        if (!_e_info_client_eldbus_message_with_args("effect_control", NULL, "i", onoff))
-          {
-             printf("_e_info_client_eldbus_message_with_args error");
-             return;
-          }
-     }
-   else
-     printf("Error Check Args: enlightenment_info -effect [1: on, 0: off]\n");
 }
 
 static void
@@ -1518,6 +1492,32 @@ _e_info_client_proc_hwc(int argc, char **argv)
    else
      printf("Error Check Args: enlightenment_info -hwc [1: on, 0: off]\n");
 
+}
+#endif
+
+static void
+_e_info_client_proc_effect_control(int argc, char **argv)
+{
+   uint32_t onoff;
+
+   if (argc < 3)
+     {
+        printf("Error Check Args: enlightenment_info -effect [1: on, 0: off]\n");
+        return;
+     }
+
+   onoff = atoi(argv[2]);
+
+   if (onoff == 1 || onoff == 0)
+     {
+        if (!_e_info_client_eldbus_message_with_args("effect_control", NULL, "i", onoff))
+          {
+             printf("_e_info_client_eldbus_message_with_args error");
+             return;
+          }
+     }
+   else
+     printf("Error Check Args: enlightenment_info -effect [1: on, 0: off]\n");
 }
 
 static void
@@ -1726,12 +1726,18 @@ static struct
       "Dump attach buffers [on:1,off:0] (default path:/tmp/dump_xxx/)",
       _e_info_client_proc_buffer_shot
    },
-#ifdef HAVE_HWC
+#ifdef ENABLE_HWC_MULTI
    {
       "hwc_trace",
       "[off: 0, on: 1, info:2]",
       "Show the hwc trace log",
       _e_info_client_proc_hwc_trace
+   },
+   {
+      "hwc",
+      "[on: 1, off: 0]",
+      "On/Off the hw composite",
+      _e_info_client_proc_hwc
    },
 #endif
    {
@@ -1754,12 +1760,6 @@ static struct
       "module_info", NULL,
       "Print information maintained by extra modules",
       _e_info_client_proc_module_info
-   },
-   {
-      "hwc",
-      "[on: 1, off: 0]",
-      "On/Off the hw composite",
-      _e_info_client_proc_hwc
    },
    {
       "aux_msg",
