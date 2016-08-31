@@ -119,7 +119,7 @@ end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
-#ifdef ENABLE_HWC_MULTI
+#ifdef HAVE_HWC
 static Eina_Bool
 _e_comp_screen_commit_idle_cb(void *data EINA_UNUSED)
 {
@@ -989,7 +989,7 @@ e_comp_screen_init()
    E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_INPUT_DEVICE_ADD, _e_comp_screen_cb_input_device_add, comp);
    E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_INPUT_DEVICE_DEL, _e_comp_screen_cb_input_device_del, comp);
 
-#ifdef ENABLE_HWC_MULTI
+#ifdef HAVE_HWC
    ecore_idle_enterer_add(_e_comp_screen_commit_idle_cb, comp);
 #endif
 

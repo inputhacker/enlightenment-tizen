@@ -401,7 +401,7 @@ _e_plane_renderer_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
 EINTERN Eina_Bool
 e_plane_init(void)
 {
-#ifdef ENABLE_HWC_MULTI
+#ifdef HAVE_HWC
    if (client_hook_new) return EINA_TRUE;
    if (client_hook_del) return EINA_TRUE;
 
@@ -421,7 +421,7 @@ e_plane_init(void)
 EINTERN void
 e_plane_shutdown(void)
 {
-#ifdef ENABLE_HWC_MULTI
+#ifdef HAVE_HWC
    /* e_plane_renderer_shutdown */
    e_plane_renderer_shutdown();
 

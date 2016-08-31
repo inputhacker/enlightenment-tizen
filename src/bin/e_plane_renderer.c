@@ -445,7 +445,7 @@ _e_plane_renderer_client_ec_buffer_change_cb(void *data, int type, void *event)
 EINTERN Eina_Bool
 e_plane_renderer_init(void)
 {
-#ifdef ENABLE_HWC_MULTI
+#ifdef HAVE_HWC
    E_LIST_HANDLER_APPEND(plane_hdlrs, E_EVENT_CLIENT_BUFFER_CHANGE,
                          _e_plane_renderer_client_ec_buffer_change_cb, NULL);
 #endif
