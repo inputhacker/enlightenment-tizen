@@ -25,14 +25,15 @@ static Test_Helper_Data *th_data = NULL;
 
 static Eina_Bool _e_test_helper_cb_property_get(const Eldbus_Service_Interface *iface, const char *name, Eldbus_Message_Iter *iter, const Eldbus_Message *msg, Eldbus_Message **err);
 
-static Eldbus_Message* _e_test_helper_cb_register_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
-static Eldbus_Message* _e_test_helper_cb_deregister_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
-static Eldbus_Message* _e_test_helper_cb_change_stack(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
-static Eldbus_Message* _e_test_helper_cb_get_clients(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
-static Eldbus_Message* _e_test_helper_cb_dpms(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
-static Eldbus_Message* _e_test_helper_cb_ev_freeze(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
-static Eldbus_Message* _e_test_helper_cb_ev_mouse(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
-static Eldbus_Message* _e_test_helper_cb_ev_key(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_register_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_deregister_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_change_stack(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_get_clients(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_dpms(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_ev_freeze(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_ev_mouse(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_ev_key(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_hwc(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 
 enum
 {
@@ -104,6 +105,12 @@ static const Eldbus_Method methods[] ={
           ELDBUS_ARGS({"us", "type 0=down 1=up, key name"}),
           ELDBUS_ARGS({"b", "accept or not"}),
           _e_test_helper_cb_ev_key, 0
+       },
+       {
+          "HWC",
+          ELDBUS_ARGS({"u", "0=off or 1=on"}),
+          ELDBUS_ARGS({"b", "accept or not"}),
+          _e_test_helper_cb_hwc, 0
        },
        { }
 };
@@ -377,6 +384,31 @@ _e_test_helper_cb_ev_key(const Eldbus_Service_Interface *iface, const Eldbus_Mes
          break;
       default:
          break;
+     }
+
+   eldbus_message_arguments_append(reply, "b", accept);
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_test_helper_cb_hwc(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Eina_Bool r, accept = EINA_FALSE;
+   unsigned int on;
+
+   r = eldbus_message_arguments_get(msg, "u", &on);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(r, reply);
+
+   if (e_comp->hwc)
+     {
+        switch (type)
+          {
+           case 0: accept = EINA_TRUE; e_comp->hwc_fs = EINA_FALSE; break;
+           case 1: accept = EINA_TRUE; e_comp->hwc_fs = EINA_TRUE;  break;
+           default: break;
+          }
      }
 
    eldbus_message_arguments_append(reply, "b", accept);
