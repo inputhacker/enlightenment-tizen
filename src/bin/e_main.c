@@ -208,19 +208,6 @@ _e_main_subsystem_defer(void *data EINA_UNUSED)
 
    /* try to init delayed subsystems */
 
-   TRACE_DS_BEGIN(MAIN:DEFFERED EFL INIT);
-
-   TS("[DEFERRED] Edje Init");
-   if (!edje_init())
-     {
-        e_error_message_show(_("Enlightenment cannot initialize Edje!\n"));
-        TRACE_DS_END();
-        _e_main_shutdown(-1);
-     }
-   TS("[DEFERRED] Edje Init Done");
-   _e_main_shutdown_push(edje_shutdown);
-
-   TRACE_DS_END();
    TRACE_DS_BEGIN(MAIN:DEFERRED INTERNAL SUBSYSTEMS INIT);
 
    TS("[DEFERRED] Screens Init: win");
@@ -516,6 +503,14 @@ main(int argc, char **argv)
    /* e doesn't sync to compositor - it should be one */
    ecore_evas_app_comp_sync_set(0);
 
+   TS("Edje Init");
+   if (!edje_init())
+     {
+        e_error_message_show(_("Enlightenment cannot initialize Edje!\n"));
+        _e_main_shutdown(-1);
+     }
+   TS("Edje Init Done");
+   _e_main_shutdown_push(edje_shutdown);
 
    /*** Initialize E Subsystems We Need ***/
 
