@@ -1,6 +1,7 @@
 #include "e.h"
 
 static Eina_List *handlers;
+static Eina_Bool _ev_freeze = EINA_FALSE;
 
 static void
 _e_comp_canvas_cb_del()
@@ -242,13 +243,17 @@ e_comp_canvas_clear(void)
 E_API void
 e_comp_all_freeze(void)
 {
+   if (_ev_freeze) return;
    evas_event_freeze(e_comp->evas);
+   _ev_freeze = EINA_TRUE;
 }
 
 E_API void
 e_comp_all_thaw(void)
 {
+   if (!_ev_freeze) return;
    evas_event_thaw(e_comp->evas);
+   _ev_freeze = EINA_FALSE;
 }
 
 E_API E_Zone *

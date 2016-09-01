@@ -29,6 +29,10 @@ static Eldbus_Message* _e_test_helper_cb_register_window(const Eldbus_Service_In
 static Eldbus_Message* _e_test_helper_cb_deregister_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message* _e_test_helper_cb_change_stack(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message* _e_test_helper_cb_get_clients(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message* _e_test_helper_cb_dpms(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message* _e_test_helper_cb_ev_freeze(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message* _e_test_helper_cb_ev_mouse(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message* _e_test_helper_cb_ev_key(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 
 enum
 {
@@ -76,6 +80,30 @@ static const Eldbus_Method methods[] ={
           NULL,
           ELDBUS_ARGS({"ua(usiiiiibbbiibbbbb)", "array of ec"}),
           _e_test_helper_cb_get_clients, 0
+       },
+       {
+          "DPMS",
+          ELDBUS_ARGS({"u", "DPMS 0=off or 1=on"}),
+          ELDBUS_ARGS({"b", "accept or not"}),
+          _e_test_helper_cb_dpms, 0
+       },
+       {
+          "EventFreeze",
+          ELDBUS_ARGS({"u", "0=events will start to be processed or 1=freeze input events processing"}),
+          ELDBUS_ARGS({"b", "accept or not"}),
+          _e_test_helper_cb_ev_freeze, 0
+       },
+       {
+          "EventMouse",
+          ELDBUS_ARGS({"uii", "type 0=down 1=move 2=up, x position, y position"}),
+          ELDBUS_ARGS({"b", "accept or not"}),
+          _e_test_helper_cb_ev_mouse, 0
+       },
+       {
+          "EventKey",
+          ELDBUS_ARGS({"us", "type 0=down 1=up, key name"}),
+          ELDBUS_ARGS({"b", "accept or not"}),
+          _e_test_helper_cb_ev_key, 0
        },
        { }
 };
@@ -220,6 +248,138 @@ _e_test_helper_cb_register_window(const Eldbus_Service_Interface *iface EINA_UNU
 
    eldbus_message_arguments_append(reply, "b", !th_data->registrant.win);
    if (!th_data->registrant.win) th_data->registrant.win = id;
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_test_helper_cb_dpms(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Eina_Bool accept = EINA_FALSE;
+   unsigned int dpms;
+
+   if (!eldbus_message_arguments_get(msg, "u", &dpms))
+     {
+        ERR("Error on eldbus_message_arguments_get()\n");
+        return reply;
+     }
+
+   /* TODO */
+   switch (dpms)
+     {
+      case 0:
+         /* dpms off */
+         accept = EINA_TRUE;
+         break;
+      case 1:
+         /* dpms on */
+         accept = EINA_TRUE;
+         break;
+      default:
+         break;
+     }
+
+   eldbus_message_arguments_append(reply, "b", accept);
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_test_helper_cb_ev_freeze(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Eina_Bool accept = EINA_TRUE;
+   unsigned int freeze;
+
+   if (!eldbus_message_arguments_get(msg, "u", &freeze))
+     {
+        ERR("Error on eldbus_message_arguments_get()\n");
+        return reply;
+     }
+
+   switch (freeze)
+     {
+      case 0: e_comp_all_thaw(); break;
+      case 1: e_comp_all_freeze(); break;
+      default: accept = EINA_FALSE; break;
+     }
+
+   eldbus_message_arguments_append(reply, "b", accept);
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_test_helper_cb_ev_mouse(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Eina_Bool accept = EINA_TRUE;
+   Ecore_Event_Mouse_Button *ev = NULL;
+   unsigned int type;
+   int x, y;
+
+   if (!eldbus_message_arguments_get(msg, "uii", &type, &x, &y))
+     {
+        ERR("Error on eldbus_message_arguments_get()\n");
+        return reply;
+     }
+
+   ev = E_NEW(Ecore_Event_Mouse_Button, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ev, reply);
+
+   ev->timestamp = (unsigned int)(ecore_time_unix_get() * (double)1000);
+   ev->same_screen = 1;
+   ev->x = ev->root.x = x;
+   ev->y = ev->root.y = y;
+   ev->buttons = 1;
+
+   switch (type)
+     {
+      case 0: ecore_event_add(ECORE_EVENT_MOUSE_BUTTON_DOWN, ev, NULL, NULL); break;
+      case 1: ecore_event_add(ECORE_EVENT_MOUSE_MOVE, ev, NULL, NULL); break;
+      case 2: ecore_event_add(ECORE_EVENT_MOUSE_BUTTON_UP, ev, NULL, NULL); break;
+      default: accept = EINA_FALSE; break;
+     }
+
+   eldbus_message_arguments_append(reply, "b", accept);
+
+   if (!accept)
+     E_FREE(ev);
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_test_helper_cb_ev_key(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Eina_Bool accept = EINA_FALSE;
+   unsigned int type;
+   char *key;
+
+   if (!eldbus_message_arguments_get(msg, "us", &type, &key))
+     {
+        ERR("Error on eldbus_message_arguments_get()\n");
+        return reply;
+     }
+
+   /* TODO */
+   switch (type)
+     {
+      case 0:
+         /* key down */
+         accept = EINA_TRUE;
+         break;
+      case 1:
+         /* key up */
+         accept = EINA_TRUE;
+         break;
+      default:
+         break;
+     }
+
+   eldbus_message_arguments_append(reply, "b", accept);
 
    return reply;
 }
