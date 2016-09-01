@@ -440,6 +440,9 @@ e_slot_update(Evas_Object *obj)
              if (!ec->comp_data) continue;
 
              slot_client = eina_hash_find(_e_slot_g->hash_slot_clients, &ec);
+             if (!slot_client) continue;
+             if (e_object_is_del(E_OBJECT(slot_client->ec))) continue;
+
              e_client_geometry_get(slot_client->ec, &x, &y, &w, &h);
 
              if (slot_client->type == E_SLOT_CLIENT_TYPE_TRANSFORM)
@@ -656,6 +659,7 @@ _e_slot_client_new(Evas_Object *obj, E_Client* ec, E_Slot_Client_Type type)
 {
    E_Slot_Client *slot_client = NULL;
 
+   if (!ec) return NULL;
    slot_client = E_NEW(E_Slot_Client, 1);
    if (!slot_client) return NULL;
 
@@ -669,7 +673,8 @@ _e_slot_client_new(Evas_Object *obj, E_Client* ec, E_Slot_Client_Type type)
    if (slot_client->orig.x == 0 &&
        slot_client->orig.y == 0 &&
        slot_client->orig.w == 1 &&
-       slot_client->orig.h == 1)
+       slot_client->orig.h == 1 &&
+       ec->zone)
      {
         slot_client->orig.x = ec->zone->x;
         slot_client->orig.y = ec->zone->y;
