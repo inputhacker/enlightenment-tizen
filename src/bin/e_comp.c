@@ -501,8 +501,8 @@ _e_comp_hwc_prepare(void)
              E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
 
              // check clients not able to use hwc
-             // if pixmap is launch screen image
-             if ((ec->pixmap) && (e_pixmap_type_get(ec->pixmap) == E_PIXMAP_TYPE_EXT_OBJECT))
+             // if ec->frame is not for client buffer (e.g. launchscreen)
+             if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
                 goto nextzone;
 
              // if there is UI or video stream on subfrace, it means need to composite
