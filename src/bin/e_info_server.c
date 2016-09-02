@@ -118,28 +118,28 @@ _msg_clients_append(Eldbus_Message_Iter *iter)
                }
           }
 
+        hwc = -1;
 #ifdef ENABLE_HWC_MULTI
         if (e_comp->hwc && e_comp->hwc_fs)
           {
-             Eina_List *l, *ll;
-             E_Output * eout;
+             Eina_List *l;
              E_Plane *ep;
 
-             eout = e_output_find(ec->zone->output_id);
-             EINA_LIST_FOREACH_SAFE(eout->planes, l, ll, ep)
+             E_Output *eout = e_output_find(ec->zone->output_id);
+             EINA_LIST_FOREACH(eout->planes, l, ep)
                {
-                  E_Client *overlay_ec = ep->ec;
-                  if (e_plane_is_fb_target(ep)) pl_zpos = ep->zpos;
-                  if (overlay_ec == ec)
+                  if (e_plane_is_fb_target(ep))
+                    pl_zpos = ep->zpos;
+
+                  if (ep->ec == ec)
                     {
                        hwc = 1;
                        pl_zpos = ep->zpos;
+                       break;
                     }
                }
           }
-        else
 #endif
-           hwc = -1;
 
         eldbus_message_iter_arguments_append(array_of_ec, "("VALUE_TYPE_FOR_TOPVWINS")", &struct_of_ec);
 
