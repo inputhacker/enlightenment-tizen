@@ -17,6 +17,7 @@ typedef enum _E_Plane_Color
 
 typedef struct _E_Plane                      E_Plane;
 typedef struct _E_Plane_Commit_Data          E_Plane_Commit_Data;
+typedef struct _E_Event_Plane_Win_Change     E_Event_Plane_Win_Change;
 #else
 #ifndef E_PLANE_H
 #define E_PLANE_H
@@ -56,6 +57,11 @@ struct _E_Plane
    unsigned int          buffer_flags;
    E_Plane_Commit_Data  *pending_commit_data;
    Eina_Bool             need_to_commit;
+
+   /* true if plane's ec is set or unset.
+    * false when E_Event_Plane_Win_Change has been generated.
+    */
+   Eina_Bool             need_ev;
 };
 
 struct _E_Plane_Commit_Data {
@@ -64,6 +70,14 @@ struct _E_Plane_Commit_Data {
    E_Client      *ec;
    E_Comp_Wl_Buffer_Ref  buffer_ref;
 };
+
+struct _E_Event_Plane_Win_Change
+{
+   E_Plane *ep;
+   E_Client *ec;
+};
+
+E_API extern int E_EVENT_PLANE_WIN_CHANGE;
 
 EINTERN Eina_Bool            e_plane_init(void);
 EINTERN void                 e_plane_shutdown(void);

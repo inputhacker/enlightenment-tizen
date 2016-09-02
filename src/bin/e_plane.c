@@ -23,6 +23,8 @@ static E_Client_Hook *client_hook_del = NULL;
 static const char *_e_plane_ec_last_err = NULL;
 static Eina_Bool plane_trace_debug = 0;
 
+E_API int E_EVENT_PLANE_WIN_CHANGE = -1;
+
 static struct wl_resource *
 _get_wl_buffer(E_Client *ec)
 {
@@ -78,6 +80,34 @@ _e_plane_surface_unset(E_Plane *plane)
      }
 
    return EINA_TRUE;
+}
+
+static void
+_e_plane_ev_free(void *d EINA_UNUSED, E_Event_Plane_Win_Change *ev)
+{
+   if (ev->ec) e_object_unref(E_OBJECT(ev->ec));
+   E_FREE(ev);
+}
+
+static void
+_e_plane_ev(E_Plane *ep, int type)
+{
+   E_Event_Plane_Win_Change *ev;
+
+   if (!ep->need_ev) return;
+
+   ev = E_NEW(E_Event_Plane_Win_Change, 1);
+   EINA_SAFETY_ON_NULL_RETURN(ev);
+
+   ev->ep = ep;
+   ev->ec = ep->ec;
+
+   if ((ep->ec) && (!e_object_is_del(E_OBJECT(ep->ec))))
+     e_object_ref(E_OBJECT(ep->ec));
+
+   ecore_event_add(type, ev, (Ecore_End_Cb)_e_plane_ev_free, NULL);
+
+   ep->need_ev = EINA_FALSE;
 }
 
 static Eina_Bool
@@ -178,6 +208,8 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
         ERR("fail to tdm_layer_set_buffer");
         return EINA_FALSE;
      }
+
+   _e_plane_ev(plane, E_EVENT_PLANE_WIN_CHANGE);
 
    return EINA_TRUE;
 }
@@ -390,7 +422,10 @@ _e_plane_renderer_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
         e_plane_ec_set(plane, NULL);
 
         if (plane->ec == ec)
-          plane->ec = NULL;
+          {
+             plane->ec = NULL;
+             plane->need_ev = EINA_TRUE;
+          }
      }
 
    /* destroy the renderer_client */
@@ -415,6 +450,9 @@ e_plane_init(void)
         return EINA_FALSE;
      }
 #endif
+
+   E_EVENT_PLANE_WIN_CHANGE = ecore_event_type_new();
+
    return EINA_TRUE;
 }
 
@@ -939,6 +977,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
      }
 
    plane->ec = ec;
+   plane->need_ev = EINA_TRUE;
 
    if (plane_trace_debug)
       ELOGF("E_PLANE", "Plane(%p) ec Set", (ec ? ec->pixmap : NULL), ec, plane);
