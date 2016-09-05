@@ -104,11 +104,17 @@ void *alloca (size_t);
 #  undef TRACE_INPUT_END
 #  define TRACE_DS_BEGIN(NAME, ...) traceBegin(TTRACE_TAG_WINDOW_MANAGER, "DS:"#NAME, ##__VA_ARGS__)
 #  define TRACE_DS_END() traceEnd(TTRACE_TAG_WINDOW_MANAGER)
+#  define TRACE_DS_ASYNC_BEGIN(KEY, NAME, ...) traceAsyncBegin(TTRACE_TAG_WINDOW_MANAGER, KEY, "DS:"#NAME, ##__VA_ARGS__)
+#  define TRACE_DS_ASYNC_END(KEY, NAME, ...) traceAsyncEnd(TTRACE_TAG_WINDOW_MANAGER, KEY, "DS:"#NAME,  ##__VA_ARGS__)
+#  define TRACE_DS_MARK(NAME, ...) traceBegin(TTRACE_TAG_WINDOW_MANAGER, "DS:"#NAME, ##__VA_ARGS__)
 #  define TRACE_INPUT_BEGIN(NAME, ...) traceBegin(TTRACE_TAG_INPUT, "INPUT:SERVER:"#NAME, ##__VA_ARGS__)
 #  define TRACE_INPUT_END() traceEnd(TTRACE_TAG_INPUT)
 # else
 #  define TRACE_DS_BEGIN(NAME, ...)
 #  define TRACE_DS_END()
+#  define TRACE_DS_ASYNC_BEGIN(KEY, NAME, ...)
+#  define TRACE_DS_ASYNC_END(KEY, NAME, ...)
+#  define TRACE_DS_MARK(NAME, ...)
 #  define TRACE_INPUT_BEGIN(NAME, ...)
 #  define TRACE_INPUT_END()
 # endif
