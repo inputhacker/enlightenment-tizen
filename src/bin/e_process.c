@@ -459,6 +459,7 @@ _e_process_manager_del(E_Process_Manager *pm)
 
    EINA_INLIST_FREE(pm->process_list, pinfo)
      {
+        pm->process_list = eina_inlist_remove(pm->process_list, EINA_INLIST_GET(pinfo));
         eina_list_free(pinfo->ec_list);
         eina_hash_del_by_key(pm->pids_hash, &pinfo->pid);
         E_FREE(pinfo);
