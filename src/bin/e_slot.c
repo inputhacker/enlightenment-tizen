@@ -57,8 +57,6 @@ static int _e_slot_generate_id(void);
 static E_Slot_Client* _e_slot_client_new(Evas_Object *obj, E_Client* ec, E_Slot_Client_Type type);
 static void _e_slot_client_del(E_Slot_Client* slot_client);
 static void _e_slot_client_restore_all(Evas_Object *obj);
-static Eina_Bool _e_slot_client_type_reset(E_Slot_Client* slot_client, E_Slot_Client_Type type);
-static Eina_Bool _e_slot_client_obj_reset(E_Slot_Client* slot_client, Evas_Object *obj);
 static Eina_Bool _e_slot_client_type_restore(E_Slot_Client* slot_client);
 
 static void
@@ -495,7 +493,6 @@ e_slot_client_add(Evas_Object *obj, E_Client *ec, Eina_Bool resizable)
 {
    Slot_Smart_Data *sd;
    E_Slot_Client* slot_client = NULL;
-   int ret = EINA_FALSE;
    int type = resizable ? E_SLOT_CLIENT_TYPE_NORMAL : E_SLOT_CLIENT_TYPE_TRANSFORM;
 
    if (!obj) return EINA_FALSE;
@@ -507,22 +504,8 @@ e_slot_client_add(Evas_Object *obj, E_Client *ec, Eina_Bool resizable)
    slot_client = eina_hash_find(_e_slot_g->hash_slot_clients, &ec);
    if (slot_client)
      {
-        if ((slot_client->slot == obj) &&
-            (slot_client->type == type))
-          return EINA_FALSE;
-        else
-          {
-             /* if already allocated, replace ec from prev. slot */
-             if (slot_client->slot != obj)
-               ret |= _e_slot_client_obj_reset(slot_client, obj);
-
-             if (slot_client->type != type)
-               ret |= _e_slot_client_type_reset(slot_client, type);
-
-             if (ret) goto client_changed;
-             else
-               return EINA_FALSE;
-          }
+        ELOGF("SLOT", "%s | Remove already allocated in other slot", slot_client->ec->pixmap, slot_client->ec, __FUNCTION__);
+        e_slot_client_remove(slot_client->slot, ec);
      }
 
    slot_client = _e_slot_client_new(obj, ec, type);
@@ -531,14 +514,12 @@ e_slot_client_add(Evas_Object *obj, E_Client *ec, Eina_Bool resizable)
    sd->clist = eina_list_append(sd->clist, ec);
    eina_hash_add(_e_slot_g->hash_slot_clients, &ec, slot_client);
 
-   ELOGF("SLOT", "%s | Add - id:%d type:%d", ec->pixmap, ec, __FUNCTION__, sd->id, type);
-   ret = EINA_TRUE;
-
-client_changed:
    ec->layout.s_id = sd->id;
    ec->layout.splited = EINA_TRUE;
    sd->changed = EINA_TRUE;
-   return ret;
+   ELOGF("SLOT", "%s | Add - id:%d type:%d", ec->pixmap, ec, __FUNCTION__, sd->id, type);
+
+   return EINA_TRUE;
 }
 
 E_API Eina_Bool
@@ -701,66 +682,6 @@ _e_slot_client_del(E_Slot_Client* slot_client)
 {
    if (!slot_client) return;
    E_FREE(slot_client);
-}
-
-static Eina_Bool
-_e_slot_client_obj_reset(E_Slot_Client* slot_client, Evas_Object *obj)
-{
-   Slot_Smart_Data *sd_old;
-   Slot_Smart_Data *sd_new;
-
-   if (!slot_client) return EINA_FALSE;
-   if (slot_client->slot == obj) return EINA_FALSE;
-
-   sd_old = evas_object_smart_data_get(slot_client->slot);
-   sd_new = evas_object_smart_data_get(obj);
-
-   if (!sd_old || !sd_old) return EINA_FALSE;
-
-   sd_old->clist = eina_list_remove(sd_old->clist, slot_client->ec);
-   sd_new->clist = eina_list_append(sd_new->clist, slot_client->ec);
-
-   ELOGF("SLOT", "%s | Modify - id:from %d   to %d", slot_client->ec->pixmap, slot_client->ec,
-         __FUNCTION__, sd_old->id, sd_new->id);
-
-   return EINA_TRUE;
-}
-
-
-static Eina_Bool
-_e_slot_client_type_reset(E_Slot_Client* slot_client, E_Slot_Client_Type type)
-{
-   Eina_Bool ret = EINA_FALSE;
-
-   if (!slot_client) return EINA_FALSE;
-   if (slot_client->type == type) return EINA_FALSE;
-
-   switch (type)
-     {
-      case E_SLOT_CLIENT_TYPE_TRANSFORM:
-         if (!slot_client->transform)
-           {
-              slot_client->transform = e_util_transform_new();
-              e_client_transform_core_add(slot_client->ec, slot_client->transform);
-              ELOGF("SLOT", "Reset client |type %d ", slot_client->ec->pixmap, slot_client->ec, type);
-              ret = EINA_TRUE;
-           }
-         break;
-
-      default:
-      case E_SLOT_CLIENT_TYPE_NORMAL:
-         if (slot_client->transform)
-           {
-              e_client_transform_core_remove(slot_client->ec, slot_client->transform);
-              e_util_transform_del(slot_client->transform);
-              slot_client->transform = NULL;
-              ELOGF("SLOT", "Reset client |type %d ", slot_client->ec->pixmap, slot_client->ec, type);
-              ret = EINA_TRUE;
-           }
-         break;
-     }
-
-   return ret;
 }
 
 static Eina_Bool
