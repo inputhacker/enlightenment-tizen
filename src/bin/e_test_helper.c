@@ -403,7 +403,7 @@ _e_test_helper_cb_hwc(const Eldbus_Service_Interface *iface, const Eldbus_Messag
 
    if (e_comp->hwc)
      {
-        switch (type)
+        switch (on)
           {
            case 0: accept = EINA_TRUE; e_comp->hwc_fs = EINA_FALSE; break;
            case 1: accept = EINA_TRUE; e_comp->hwc_fs = EINA_TRUE;  break;
