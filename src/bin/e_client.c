@@ -6089,51 +6089,51 @@ e_client_window_role_set(E_Client *ec, const char *role)
 }
 
 E_API Eina_Bool
-e_client_key_send(E_Client *ec, int keycode, Eina_Bool pressed, Ecore_Device *dev)
+e_client_key_send(E_Client *ec, int keycode, Eina_Bool pressed, Ecore_Device *dev, unsigned int time)
 {
    Eina_Bool res;
 
-   res = e_comp_wl_key_send(ec, keycode, pressed, dev);
+   res = e_comp_wl_key_send(ec, keycode, pressed, dev, time);
 
    return res;
 }
 
 E_API Eina_Bool
-e_client_touch_send(E_Client *ec, int idx, int x, int y, Eina_Bool pressed, Ecore_Device *dev, double radius_x, double radius_y, double pressure, double angle)
+e_client_touch_send(E_Client *ec, int idx, int x, int y, Eina_Bool pressed, Ecore_Device *dev, double radius_x, double radius_y, double pressure, double angle, unsigned int time)
 {
    Eina_Bool res;
 
-   res = e_comp_wl_touch_send(ec, idx, x, y, pressed, dev, radius_x, radius_y, pressure, angle);
+   res = e_comp_wl_touch_send(ec, idx, x, y, pressed, dev, radius_x, radius_y, pressure, angle, time);
 
    return res;
 }
 
 E_API Eina_Bool
-e_client_touch_update_send(E_Client *ec, int idx, int x, int y, Ecore_Device *dev, double radius_x, double radius_y, double pressure, double angle)
+e_client_touch_update_send(E_Client *ec, int idx, int x, int y, Ecore_Device *dev, double radius_x, double radius_y, double pressure, double angle, unsigned int time)
 {
    Eina_Bool res;
 
-   res = e_comp_wl_touch_update_send(ec, idx, x, y, dev, radius_x, radius_y, pressure, angle);
+   res = e_comp_wl_touch_update_send(ec, idx, x, y, dev, radius_x, radius_y, pressure, angle, time);
 
    return res;
 }
 
 E_API Eina_Bool
-e_client_mouse_button_send(E_Client *ec, int buttons, Eina_Bool pressed, Ecore_Device *dev)
+e_client_mouse_button_send(E_Client *ec, int buttons, Eina_Bool pressed, Ecore_Device *dev, unsigned int time)
 {
    Eina_Bool res;
 
-   res = e_comp_wl_mouse_button_send(ec, buttons, pressed, dev);
+   res = e_comp_wl_mouse_button_send(ec, buttons, pressed, dev, time);
 
    return res;
 }
 
 E_API Eina_Bool
-e_client_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev)
+e_client_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, unsigned int time)
 {
    Eina_Bool res;
 
-   res = e_comp_wl_mouse_move_send(ec, x, y, dev);
+   res = e_comp_wl_mouse_move_send(ec, x, y, dev, time);
 
    return res;
 }
