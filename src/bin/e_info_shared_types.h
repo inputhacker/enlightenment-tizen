@@ -39,5 +39,41 @@ typedef enum _E_Info_Cmd_Scrsaver
                                         */
 #define SIGNATURE_SCRSAVER_SERVER "s" /* s: result string from server */
 
+#define USAGE_SLOT                                                                           \
+   "(start   | list     | create   | modify   | del \n"                                      \
+   "\t\t\t    raise   | lower    | add_ec_t | add_ec_r | del_ec | focus\n"                   \
+   "\n"                                                                                      \
+   "Commands:\n"                                                                             \
+   "\tstart    : Raise split layout                                [0:off, 1:on]\n"          \
+   "\tlist     : List up slot objects and clients belong to\n"                               \
+   "\tcreate   : Create slot object according to geometry          [x][y][w][h]\n"           \
+   "\tmodify   : Modify given id's slot geometry                   [slot_id][x][y][w][h]\n"  \
+   "\tdel      : Delete given id's slot object                     [slot_id]\n"              \
+   "\traise    : Raise Clients stack in the slot                   [slot_id]\n"              \
+   "\tlower    : Lower Clients stack in the slot                   [slot_id]\n"              \
+   "\tadd_ec_t : Add Client in the slot transforming               [slot_id] [win_id]\n"     \
+   "\tadd_ec_r : Add Client in the slot resizing                   [slot_id] [win_id]\n"     \
+   "\tdel_ec   : Delete Client in the slot                         [slot_id] [win_id]\n"     \
+   "\tfocus    : Set foucs on top most Client in the slot          [slot_id]\n"              \
+   "Example:\n"                                                                              \
+   "\tenlightenment_info -slot create 0 0 720 300\n"                                         \
+   "\tenlightenment_info -slot raise 1\n"                                                    \
+   "\tenlightenment_info -slot add_ec_r 1 0xb88ffaa0\n"
+
+typedef enum
+{
+   E_INFO_CMD_MESSAGE_LIST,
+   E_INFO_CMD_MESSAGE_CREATE,
+   E_INFO_CMD_MESSAGE_MODIFY,
+   E_INFO_CMD_MESSAGE_DEL,
+   E_INFO_CMD_MESSAGE_RAISE,
+   E_INFO_CMD_MESSAGE_LOWER,
+   E_INFO_CMD_MESSAGE_ADD_EC_TRANSFORM,
+   E_INFO_CMD_MESSAGE_ADD_EC_RESIZE,
+   E_INFO_CMD_MESSAGE_DEL_EC,
+   E_INFO_CMD_MESSAGE_FOCUS,
+   E_INFO_CMD_MESSAGE_START,
+} E_Info_Slot_Message;
+
 
 #endif /* end of _E_INFO_SHARED_TYPES_ */
