@@ -95,7 +95,7 @@ _msg_clients_append(Eldbus_Message_Iter *iter)
         uint32_t res_id = 0;
         pid_t pid = -1;
         char layer_name[32];
-        int hwc = 0, pl_zpos = -999;
+        int hwc = -1, pl_zpos = -999;
 
         ec = evas_object_data_get(o, "E_Client");
         if (!ec) continue;
@@ -118,12 +118,14 @@ _msg_clients_append(Eldbus_Message_Iter *iter)
                }
           }
 
-        hwc = -1;
+
 #ifdef ENABLE_HWC_MULTI
         if (e_comp->hwc && e_comp->hwc_fs)
           {
              Eina_List *l;
              E_Plane *ep;
+
+             hwc = 0;
 
              E_Output *eout = e_output_find(ec->zone->output_id);
              EINA_LIST_FOREACH(eout->planes, l, ep)
