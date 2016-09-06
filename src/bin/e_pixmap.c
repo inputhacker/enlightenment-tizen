@@ -1031,12 +1031,6 @@ e_pixmap_buffer_clear(E_Pixmap *cp)
    if (!e_config->use_buffer_flush)
      return;
 
-   /* release the helded buffer by e_client */
-   e_comp_wl_buffer_reference(&cp->client->comp_data->buffer_ref, NULL);
-
-   /* composite object clear */
-   e_comp_object_clear(cp->client->frame);
-
    DBG("PIXMAP: Buffer Flush(%s) '%s'(%p)", cp->shm_flusher ? "SHM" : "NATIVE",
        cp->client->icccm.name?:"", cp->client);
 
@@ -1065,4 +1059,10 @@ e_pixmap_buffer_clear(E_Pixmap *cp)
               break;
           }
      }
+
+   /* release the helded buffer by e_client */
+   e_comp_wl_buffer_reference(&cp->client->comp_data->buffer_ref, NULL);
+
+   /* composite object clear */
+   e_comp_object_clear(cp->client->frame);
 }
