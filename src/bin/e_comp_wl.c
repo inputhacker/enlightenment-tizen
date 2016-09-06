@@ -2655,6 +2655,7 @@ _e_comp_wl_frame_cb_destroy(struct wl_resource *resource)
    E_Client *ec;
 
    if (!(ec = wl_resource_get_user_data(resource))) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
 
    ec->comp_data->frames =
      eina_list_remove(ec->comp_data->frames, resource);
@@ -4013,6 +4014,9 @@ _e_comp_wl_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
    e_comp_wl_buffer_reference(&ec->comp_data->buffer_ref, NULL);
 
    EINA_LIST_FREE(ec->comp_data->frames, cb)
+     wl_resource_destroy(cb);
+
+   EINA_LIST_FREE(ec->comp_data->pending.frames, cb)
      wl_resource_destroy(cb);
 
    if (ec->comp_data->surface)
