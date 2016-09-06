@@ -215,7 +215,7 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
    if (ptr->o_ptr)
      {
         ec = e_comp_object_client_get(ptr->o_ptr);
-        if (ec)
+        if ((ec) && (!e_object_is_del(E_OBJECT(ec))))
           {
              ec->hidden = 1;
              ec->visible = EINA_FALSE;
