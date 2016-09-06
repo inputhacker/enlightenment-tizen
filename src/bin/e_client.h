@@ -1029,6 +1029,7 @@ E_API void e_client_window_role_set(E_Client *ec, const char *role);
 E_API Eina_Bool e_client_key_send(E_Client *ec, int keycode, Eina_Bool pressed, Ecore_Device *dev, unsigned int time);
 E_API Eina_Bool e_client_touch_send(E_Client *ec, int idx, int x, int y, Eina_Bool pressed, Ecore_Device *dev, double radius_x, double radius_y, double pressure, double angle, unsigned int time);
 E_API Eina_Bool e_client_touch_update_send(E_Client *ec, int idx, int x, int y, Ecore_Device *dev, double radius_x, double radius_y, double pressure, double angle, unsigned int time);
+E_API Eina_Bool e_client_touch_cancel_send(E_Client *ec);
 E_API Eina_Bool e_client_mouse_button_send(E_Client *ec, int buttons, Eina_Bool pressed, Ecore_Device *dev, unsigned int time);
 E_API Eina_Bool e_client_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, unsigned int time);
 

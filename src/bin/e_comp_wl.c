@@ -5681,6 +5681,18 @@ e_comp_wl_touch_update_send(E_Client *ec, int idx, int x, int y, Ecore_Device *d
 }
 
 EINTERN Eina_Bool
+e_comp_wl_touch_cancel_send(E_Client *ec)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
+
+   _e_comp_wl_send_touch_cancel(ec);
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
 e_comp_wl_mouse_button_send(E_Client *ec, int buttons, Eina_Bool pressed, Ecore_Device *dev, uint32_t time)
 {
    uint32_t serial;

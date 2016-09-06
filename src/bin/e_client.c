@@ -6119,6 +6119,16 @@ e_client_touch_update_send(E_Client *ec, int idx, int x, int y, Ecore_Device *de
 }
 
 E_API Eina_Bool
+e_client_touch_cancel_send(E_Client *ec)
+{
+   Eina_Bool res;
+
+   res = e_comp_wl_touch_cancel_send(ec);
+
+   return res;
+}
+
+E_API Eina_Bool
 e_client_mouse_button_send(E_Client *ec, int buttons, Eina_Bool pressed, Ecore_Device *dev, unsigned int time)
 {
    Eina_Bool res;
