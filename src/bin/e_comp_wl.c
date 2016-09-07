@@ -1626,12 +1626,6 @@ _e_comp_wl_evas_cb_focus_out(void *data, Evas *evas EINA_UNUSED, Evas_Object *ob
               wl_keyboard_send_key(res, serial, t,
                                    k->key, WL_KEYBOARD_KEY_STATE_RELEASED);
           }
-        wl_array_for_each(k, &e_comp_wl->kbd.routed_keys)
-          {
-             _e_comp_wl_send_event_device(wl_resource_get_client(res), t, k->dev, serial);
-              wl_keyboard_send_key(res, serial, t,
-                                   k->key, WL_KEYBOARD_KEY_STATE_RELEASED);
-          }
         wl_keyboard_send_leave(res, serial, ec->comp_data->surface);
         e_comp_wl->kbd.focused =
            eina_list_remove_list(e_comp_wl->kbd.focused, l);
