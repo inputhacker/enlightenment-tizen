@@ -710,6 +710,94 @@ _e_info_server_cb_topvwins_dump(const Eldbus_Service_Interface *iface EINA_UNUSE
    return reply;
 }
 
+/* Method Handlers */
+static Eldbus_Message *
+_e_info_server_cb_subsurface(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Eldbus_Message_Iter *iter = eldbus_message_iter_get(reply);
+   Eldbus_Message_Iter *array_of_ec;
+   E_Client *ec;
+   Evas_Object *o;
+
+   eldbus_message_iter_arguments_append(iter, "a("SIGNATURE_SUBSURFACE")", &array_of_ec);
+
+   // append clients.
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        Eldbus_Message_Iter* struct_of_ec;
+        Ecore_Window win = 0, parent = 0;
+        unsigned int buf_id = 0;
+        int x = 0, y = 0, w = 0, h = 0;
+        unsigned int transform = 0, visible = 0, alpha = 0, ignore = 0, maskobj = 0, video = 0;
+        Ecore_Window bgrect = 0;
+        const char *name = NULL;
+        E_Comp_Wl_Buffer *buffer;
+        const Evas_Map *map;
+
+        ec = evas_object_data_get(o, "E_Client");
+        if (!ec)
+          {
+             if (!evas_object_visible_get(o)) continue;
+
+             name = evas_object_name_get(o);
+             if (!name) continue;
+             if (strncmp(name, "below_bg_rectangle", 18)) continue;
+             win = (Ecore_Window)o;
+             evas_object_geometry_get(o, &x, &y, &w, &h);
+             visible = evas_object_visible_get(o);
+          }
+        else
+          {
+             if (e_object_is_del(E_OBJECT(ec)) || !ec->comp_data) continue;
+             if (!ec->comp_data->sub.data &&
+                 !ec->comp_data->sub.list && !ec->comp_data->sub.list_pending &&
+                 !ec->comp_data->sub.below_list && !ec->comp_data->sub.below_list_pending)
+               continue;
+             win = e_client_util_win_get(ec);
+             if (ec->comp_data->sub.data)
+               parent = e_client_util_win_get(ec->comp_data->sub.data->parent);
+             buffer = e_pixmap_resource_get(ec->pixmap);
+             if (buffer)
+               buf_id = (buffer->resource) ? wl_resource_get_id(buffer->resource) : (WAYLAND_SERVER_RESOURCE_ID_MASK & 99999);
+             map = evas_object_map_get(ec->frame);
+             if (map)
+               {
+                  Evas_Coord x1, x2, y1, y2;
+                  E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
+                  evas_map_point_coord_get(map, 0, &x1, &y1, NULL);
+                  evas_map_point_coord_get(map, 2, &x2, &y2, NULL);
+                  x = x1, y = y1, w = x2 - x1, h = y2 - y1;
+                  transform = vp->buffer.transform;
+               }
+             else
+               evas_object_geometry_get(ec->frame, &x, &y, &w, &h);
+             visible = evas_object_visible_get(o);
+             alpha = e_comp_object_alpha_get(ec->frame);
+             ignore = e_client_util_ignored_get(ec);
+             if (ec->comp_data->sub.below_obj)
+               bgrect = (Ecore_Window)ec->comp_data->sub.below_obj;
+             maskobj = e_comp_object_mask_has(ec->frame);
+             video = (ec->comp_data->video_client) ? 1 : 0;
+             name = e_client_util_name_get(ec);
+             if (!name)
+               name = "NO NAME";
+          }
+
+        eldbus_message_iter_arguments_append(array_of_ec, "("SIGNATURE_SUBSURFACE")", &struct_of_ec);
+
+        eldbus_message_iter_arguments_append
+           (struct_of_ec, SIGNATURE_SUBSURFACE,
+            win, parent, buf_id, x, y, w, h, transform, visible, alpha, ignore, maskobj, video, bgrect, name);
+
+        eldbus_message_iter_container_close(array_of_ec, struct_of_ec);
+     }
+
+   eldbus_message_iter_container_close(iter, array_of_ec);
+
+   return reply;
+}
+
 static Eldbus_Message *
 _e_info_server_cb_eina_log_levels(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
@@ -1952,6 +2040,7 @@ e_info_server_cb_aux_message(const Eldbus_Service_Interface *iface EINA_UNUSED, 
 
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
+   { "subsurface", NULL, ELDBUS_ARGS({"a("SIGNATURE_SUBSURFACE")", "array of ec"}), _e_info_server_cb_subsurface, 0 },
    { "dump_topvwins", ELDBUS_ARGS({"s", "directory"}), NULL, _e_info_server_cb_topvwins_dump, 0 },
    { "eina_log_levels", ELDBUS_ARGS({"s", "eina log levels"}), NULL, _e_info_server_cb_eina_log_levels, 0 },
    { "eina_log_path", ELDBUS_ARGS({"s", "eina log path"}), NULL, _e_info_server_cb_eina_log_path, 0 },

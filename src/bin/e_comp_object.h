@@ -123,7 +123,9 @@ E_API void e_comp_object_intercept_hook_del(E_Comp_Object_Intercept_Hook *ch);
 #endif
 E_API unsigned int e_comp_object_is_animating(Evas_Object *obj);
 E_API void e_comp_object_alpha_set(Evas_Object *obj, Eina_Bool alpha);
+E_API Eina_Bool e_comp_object_alpha_get(Evas_Object *obj);
 E_API void e_comp_object_mask_set(Evas_Object *obj, Eina_Bool set);
+E_API Eina_Bool e_comp_object_mask_has(Evas_Object *obj);
 E_API void e_comp_object_size_update(Evas_Object *obj, int w, int h);
 E_API void e_comp_object_transform_bg_set(Evas_Object *obj, Eina_Bool set);
 E_API void e_comp_object_transform_bg_vertices_set(Evas_Object *obj, E_Util_Transform_Rect_Vertex *vertices);

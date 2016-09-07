@@ -659,6 +659,79 @@ _e_info_client_proc_topvwins_shot(int argc, char **argv)
 }
 
 static void
+_cb_subsurface_info_get(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eldbus_Message_Iter *array, *ec;
+   Eina_Bool res;
+   int count = 0;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "a("SIGNATURE_SUBSURFACE")", &array);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   printf("--------------------------------------[ subsurfaces ]---------------------------------------------------\n");
+   printf(" No     Win_ID  Parent_ID  Buf_ID    w    h    x    y Rot(f) Visi Alph Igno Mask Video   BgRect   Title\n");
+   printf("--------------------------------------------------------------------------------------------------------\n");
+
+   while (eldbus_message_iter_get_and_next(array, 'r', &ec))
+     {
+        Ecore_Window win = 0, parent = 0, bgrect = 0;
+        unsigned int buf_id = 0;
+        int x = 0, y = 0, w = 0, h = 0;
+        unsigned int transform = 0, visible = 0, alpha = 0, ignore = 0, maskobj = 0, video = 0;
+        const char *name = NULL;
+        char temp[128] = {0,};
+
+        res = eldbus_message_iter_arguments_get(ec,
+                                                SIGNATURE_SUBSURFACE,
+                                                &win, &parent,
+                                                &buf_id, &x, &y, &w, &h, &transform,
+                                                &visible, &alpha, &ignore, &maskobj, &video, &bgrect, &name);
+        if (!res)
+          {
+             printf("Failed to get win info\n");
+             continue;
+          }
+
+        count++;
+
+        printf("%3d 0x%08x ", count, win);
+        temp[0] = '\0';
+        if (parent > 0) snprintf(temp, sizeof(temp), "0x%08x", parent);
+        printf("%10s", temp);
+        temp[0] = '\0';
+        if (buf_id != 0)
+          snprintf(temp, sizeof(temp), "%5u%c",
+                   buf_id & (~WAYLAND_SERVER_RESOURCE_ID_MASK),
+                   (buf_id & WAYLAND_SERVER_RESOURCE_ID_MASK) ? 's' : 'c');
+        printf("  %6s", temp);
+        printf(" %4d %4d %4d %4d %3d(%d) %4s %4s %4s %4s %4s  ",
+               w, h, x, y, (4 - (transform & 3)) * 90 % 360, (transform & 4) ? 1 : 0,
+               (visible)?"O":"", (alpha)?"O":"", (ignore)?"O":"", (maskobj)?"O":"", (video)?"O":"");
+        temp[0] = '\0';
+        if (bgrect > 0) snprintf(temp, sizeof(temp), "0x%08x", bgrect);
+        printf("%10s", temp);
+        printf(" %s\n", name);
+     }
+
+   if (!count)
+     printf("no subsurface\n");
+
+finish:
+   if ((name) || (text))
+     printf("errname:%s errmsg:%s\n", name, text);
+}
+
+static void
+_e_info_client_proc_subsurface(int argc, char **argv)
+{
+   _e_info_client_eldbus_message("subsurface", _cb_subsurface_info_get);
+}
+
+static void
 _e_info_client_proc_eina_log_levels(int argc, char **argv)
 {
    EINA_SAFETY_ON_FALSE_RETURN(argc == 3);
@@ -1776,6 +1849,11 @@ static struct
       "topvwins", NULL,
       "Print top visible windows",
       _e_info_client_proc_topvwins_info
+   },
+   {
+      "subsurface", NULL,
+      "Print subsurface information",
+      _e_info_client_proc_subsurface
    },
    {
       "dump_topvwins", "[directory_path]",

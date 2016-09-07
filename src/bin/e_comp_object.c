@@ -4592,6 +4592,14 @@ e_comp_object_alpha_set(Evas_Object *obj, Eina_Bool alpha)
      evas_object_image_data_set(cw->obj, NULL);
 }
 
+E_API Eina_Bool
+e_comp_object_alpha_get(Evas_Object *obj)
+{
+   API_ENTRY EINA_FALSE;
+
+   return evas_object_image_alpha_get(cw->obj);
+}
+
 E_API void
 e_comp_object_mask_set(Evas_Object *obj, Eina_Bool set)
 {
@@ -4630,6 +4638,14 @@ e_comp_object_mask_set(Evas_Object *obj, Eina_Bool set)
              E_FREE_FUNC(cw->mask_obj, evas_object_del);
           }
      }
+}
+
+E_API Eina_Bool
+e_comp_object_mask_has(Evas_Object *obj)
+{
+   API_ENTRY EINA_FALSE;
+
+   return (cw->mask_obj) ? EINA_TRUE : EINA_FALSE;
 }
 
 E_API void

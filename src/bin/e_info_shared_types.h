@@ -75,5 +75,10 @@ typedef enum
    E_INFO_CMD_MESSAGE_START,
 } E_Info_Slot_Message;
 
+/* -------------------------------------------------------------------------- */
+/* SUBSURFACE                                                                 */
+/* -------------------------------------------------------------------------- */
+#define SIGNATURE_SUBSURFACE "uuuiiiiuuuuuuus"
+#define WAYLAND_SERVER_RESOURCE_ID_MASK 0xff000000
 
 #endif /* end of _E_INFO_SHARED_TYPES_ */
