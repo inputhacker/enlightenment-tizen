@@ -519,7 +519,8 @@ _e_comp_hwc_prepare(void)
                  (cdata->width_from_buffer != cdata->width_from_viewport) ||
                  (cdata->height_from_buffer != cdata->height_from_viewport) ||
                  e_client_transform_core_enable_get(ec) ||
-                 cdata->never_hwc)
+                 cdata->never_hwc ||
+                 e_comp_wl_tbm_buffer_sync_timeline_used(cdata->buffer_ref.buffer))
                {
                   if (!n_ec) goto nextzone;
                   break;

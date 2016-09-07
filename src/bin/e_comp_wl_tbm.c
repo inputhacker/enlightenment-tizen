@@ -119,3 +119,14 @@ e_comp_wl_tbm_buffer_get(tbm_surface_h tsurface)
 
    return buffer;
 }
+
+E_API Eina_Bool
+e_comp_wl_tbm_buffer_sync_timeline_used(E_Comp_Wl_Buffer *buffer)
+{
+   if (!buffer) return EINA_FALSE;
+
+   if (!wayland_tbm_server_buffer_has_sync_timeline(NULL, buffer->resource))
+      return EINA_FALSE;
+
+   return EINA_TRUE;
+}
