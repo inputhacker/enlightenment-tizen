@@ -141,11 +141,6 @@ _gesture_obj_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj,
         gesture->active = _gesture_check(gesture, obj, x, y, timestamp);
         if (gesture->active)
           {
-             /* if gesture is activated, terminate main touch event processing
-              * in enlightenment */
-             if (gesture->type != POL_GESTURE_TYPE_NONE)
-               e_comp_wl_touch_cancel();
-
              if (gesture->cb.start)
                gesture->cb.start(gesture->cb.data, obj, x, y, timestamp);
           }

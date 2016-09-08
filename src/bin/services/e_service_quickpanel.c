@@ -693,6 +693,8 @@ _quickpanel_send_gesture_to_indicator(void)
           {
              if (focused->indicator.visible_type == 0) // visible: hidden
                {
+                  /* cancel touch events sended up to now */
+                  e_comp_wl_touch_cancel();
                   e_policy_wl_indicator_flick_send(focused);
                   return EINA_TRUE;
                }
@@ -723,6 +725,9 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
 
    if (_quickpanel_send_gesture_to_indicator())
      return;
+
+   /* cancel touch events sended up to now */
+   e_comp_wl_touch_cancel();
 
    if (qp->mover)
      {
