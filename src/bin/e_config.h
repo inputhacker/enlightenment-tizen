@@ -10,6 +10,7 @@ typedef struct _E_Config_Desktop_Background     E_Config_Desktop_Background;
 typedef struct _E_Config_Env_Var                E_Config_Env_Var;
 typedef struct _E_Config_Client_Type            E_Config_Client_Type;
 typedef struct _E_Config_Policy_Desk            E_Config_Policy_Desk;
+typedef struct _E_Config_Socket_Access          E_Config_Socket_Access;
 
 #else
 #ifndef E_CONFIG_H
@@ -145,33 +146,6 @@ struct _E_Config
    int cursor_timer_interval;
    Eina_List *client_types;
    const char *comp_shadow_file;
-   struct
-   {
-      unsigned char use;
-      const char   *owner;
-      const char   *group;
-      unsigned int  permissions;
-      struct
-      {
-         unsigned char use;
-         const char   *name;
-         const char   *value;
-         int           flags;
-      } smack;
-   } wl_sock_access;
-   struct
-   {
-      unsigned char use;
-      const char   *link_name;
-      const char   *owner;
-      const char   *group;
-      struct
-      {
-         const char   *name;
-         const char   *value;
-         int           flags;
-      } smack;
-   } wl_sock_symlink_access;
    int                       sleep_for_dri;
    int                       create_wm_ready;
    int                       create_wm_start;
@@ -182,6 +156,7 @@ struct _E_Config
    } comp_canvas_bg;
    int delayed_load_idle_count;
    Eina_Bool use_buffer_flush;
+   Eina_List *sock_accesses;
 };
 
 struct _E_Config_Desklock_Background
@@ -256,6 +231,38 @@ struct _E_Config_Policy_Desk
    unsigned int zone_num;
    int x, y;
    int enable;
+};
+
+struct _E_Config_Socket_Access
+{
+   struct
+   {
+      unsigned char use;
+      const char   *name;
+      const char   *owner;
+      const char   *group;
+      unsigned int  permissions;
+      struct
+      {
+         unsigned char use;
+         const char   *name;
+         const char   *value;
+         int           flags;
+      } smack;
+   } sock_access;
+   struct
+   {
+      unsigned char use;
+      const char   *link_name;
+      const char   *owner;
+      const char   *group;
+      struct
+      {
+         const char   *name;
+         const char   *value;
+         int           flags;
+      } smack;
+   } sock_symlink_access;
 };
 
 EINTERN int                   e_config_init(void);

@@ -1851,3 +1851,117 @@ e_comp_vis_ec_list_get(E_Zone *zone)
 
    return ec_list;
 }
+
+E_API Eina_Bool
+e_comp_socket_init(const char *name)
+{
+   const char *dir = NULL;
+   char socket_path[108];
+   struct passwd *u;
+   struct group *g;
+   uid_t uid;
+   gid_t gid;
+   int res;
+   E_Config_Socket_Access *sa = NULL;
+   Eina_List *l = NULL;
+
+   dir = getenv("XDG_RUNTIME_DIR");
+   if (!dir) return EINA_FALSE;
+   if (!name) return EINA_FALSE;
+
+   snprintf(socket_path, sizeof(socket_path), "%s/%s", dir, name);
+
+   EINA_LIST_FOREACH(e_config->sock_accesses, l, sa)
+     {
+        if (strcmp(sa->sock_access.name, name)) continue;
+        if (!sa->sock_access.use) break;
+
+        if ((sa->sock_access.owner) &&
+            (sa->sock_access.group))
+          {
+             u = getpwnam(sa->sock_access.owner);
+             uid = u ? u->pw_uid : 0;
+
+             g = getgrnam(sa->sock_access.group);
+             gid = g ? g->gr_gid : 0;
+
+             DBG("socket path: %s owner: %s (%d) group: %s (%d) permissions: %o",
+                 socket_path,
+                 sa->sock_access.owner, uid,
+                 sa->sock_access.group, gid,
+                 sa->sock_access.permissions);
+
+             res = chmod(socket_path, sa->sock_access.permissions);
+             if (res < 0)
+               {
+                  ERR("Could not change modes of socket file:%s (%s)",
+                      socket_path,
+                      strerror(errno));
+                  PRCTL("[Winsys] Could not chane modes of socket file: %s", socket_path);
+                  return EINA_FALSE;
+               }
+
+             res = chown(socket_path, uid, gid);
+             if (res < 0)
+               {
+                  ERR("Could not change owner of socket file:%s (%s)",
+                      socket_path,
+                      strerror(errno));
+                  PRCTL("[Winsys] Could not change owner of socket file: %s", socket_path);
+                  return EINA_FALSE;
+               }
+          }
+
+        if (sa->sock_access.smack.use)
+          {
+             res = setxattr(socket_path,
+                            sa->sock_access.smack.name,
+                            sa->sock_access.smack.value,
+                            strlen(sa->sock_access.smack.value),
+                            sa->sock_access.smack.flags);
+             if (res < 0)
+               {
+                  PRCTL("[Winsys] Could not change smack variable for socket file: %s", socket_path);
+                  return EINA_FALSE;
+               }
+          }
+
+        if (sa->sock_symlink_access.use)
+          {
+             res = symlink(socket_path,
+                           sa->sock_symlink_access.link_name);
+             if (res < 0)
+               {
+                  PRCTL("[Winsys] Could not make symbolic link: %s", sa->sock_symlink_access.link_name);
+                  break;
+               }
+
+             u = getpwnam(sa->sock_symlink_access.owner);
+             uid = u ? u->pw_uid : 0;
+
+             g = getgrnam(sa->sock_symlink_access.group);
+             gid = g ? g->gr_gid : 0;
+
+             res = lchown(sa->sock_symlink_access.link_name, uid, gid);
+             if (res < 0)
+               {
+                  PRCTL("[Winsys] chown -h owner:users %s failed!", sa->sock_symlink_access.link_name);
+                  break;
+               }
+
+             res = setxattr(sa->sock_symlink_access.link_name,
+                            sa->sock_symlink_access.smack.name,
+                            sa->sock_symlink_access.smack.value,
+                            strlen(sa->sock_symlink_access.smack.value),
+                            sa->sock_symlink_access.smack.flags);
+             if (res < 0)
+               {
+                  PRCTL("[Winsys] Chould not change smack variable for symbolic link: %s", sa->sock_symlink_access.link_name);
+                  break;
+               }
+          }
+        break;
+     }
+
+   return EINA_TRUE;
+}

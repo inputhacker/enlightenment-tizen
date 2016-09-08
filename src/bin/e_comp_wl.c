@@ -4433,112 +4433,6 @@ _e_comp_wl_gl_idle(void *data)
 }
 
 static Eina_Bool
-_e_comp_wl_socket_init(const char *name)
-{
-   const char *dir = NULL;
-   char socket_path[108];
-   struct passwd *u;
-   struct group *g;
-   uid_t uid;
-   gid_t gid;
-   int res;
-
-   dir = getenv("XDG_RUNTIME_DIR");
-   if (dir)
-     snprintf(socket_path, sizeof(socket_path), "%s/%s", dir, name);
-
-   if ((e_config->wl_sock_access.use) && (dir))
-     {
-        if ((e_config->wl_sock_access.owner) &&
-            (e_config->wl_sock_access.group))
-          {
-             u = getpwnam(e_config->wl_sock_access.owner);
-             uid = u ? u->pw_uid : 0;
-
-             g = getgrnam(e_config->wl_sock_access.group);
-             gid = g ? g->gr_gid : 0;
-
-             DBG("socket path: %s owner: %s (%d) group: %s (%d) permissions: %o",
-                 socket_path,
-                 e_config->wl_sock_access.owner, uid,
-                 e_config->wl_sock_access.group, gid,
-                 e_config->wl_sock_access.permissions);
-
-             res = chmod(socket_path, e_config->wl_sock_access.permissions);
-             if (res < 0)
-               {
-                  ERR("Could not change modes of socket file:%s (%s)",
-                      socket_path,
-                      strerror(errno));
-                  PRCTL("[Winsys] Could not chane modes of socket file: /run/wayland-0");
-                  return EINA_FALSE;
-               }
-
-             res = chown(socket_path, uid, gid);
-             if (res < 0)
-               {
-                  ERR("Could not change owner of socket file:%s (%s)",
-                      socket_path,
-                      strerror(errno));
-                  PRCTL("[Winsys] Could not change owner of socket file: /run/wayland-0");
-                  return EINA_FALSE;
-               }
-          }
-
-        if (e_config->wl_sock_access.smack.use)
-          {
-             res = setxattr(socket_path,
-                            e_config->wl_sock_access.smack.name,
-                            e_config->wl_sock_access.smack.value,
-                            strlen(e_config->wl_sock_access.smack.value),
-                            e_config->wl_sock_access.smack.flags);
-             if (res < 0)
-               {
-                  PRCTL("[Winsys] Could not change smack variable for socket file: /run/wayland-0");
-                  return EINA_FALSE;
-               }
-          }
-     }
-
-   if ((e_config->wl_sock_symlink_access.use) && (dir))
-     {
-        res = symlink(socket_path,
-                      e_config->wl_sock_symlink_access.link_name);
-        if (res < 0)
-          {
-             PRCTL("[Winsys] Could not make symbolic link: /run/user/5001/wayland-0");
-             return EINA_FALSE;
-          }
-
-        u = getpwnam(e_config->wl_sock_symlink_access.owner);
-        uid = u ? u->pw_uid : 0;
-
-        g = getgrnam(e_config->wl_sock_symlink_access.group);
-        gid = g ? g->gr_gid : 0;
-
-        res = lchown(e_config->wl_sock_symlink_access.link_name, uid, gid);
-        if (res < 0)
-          {
-             PRCTL("[Winsys] chown -h owner:users /run/user/5001/wayland-0 failed!");
-             return EINA_FALSE;
-          }
-
-        res = setxattr(e_config->wl_sock_symlink_access.link_name,
-                       e_config->wl_sock_symlink_access.smack.name,
-                       e_config->wl_sock_symlink_access.smack.value,
-                       strlen(e_config->wl_sock_symlink_access.smack.value),
-                       e_config->wl_sock_symlink_access.smack.flags);
-        if (res < 0)
-          {
-             PRCTL("[Winsys] Chould not change smack variable for symbolic link: /run/user/5001/wayland-0");
-             return EINA_FALSE;
-          }
-     }
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
 _e_comp_wl_compositor_create(void)
 {
    E_Comp_Wl_Data *cdata;
@@ -4572,9 +4466,9 @@ _e_comp_wl_compositor_create(void)
         goto sock_err;
      }
 
-   res = _e_comp_wl_socket_init(name);
+   res = e_comp_socket_init(name);
    EINA_SAFETY_ON_FALSE_GOTO(res, sock_err);
-   PRCTL("[Winsys] change permission and create sym link for wayland-0");
+   PRCTL("[Winsys] change permission and create sym link for %s", name);
 
    /* set wayland display environment variable */
    e_env_set("WAYLAND_DISPLAY", name);

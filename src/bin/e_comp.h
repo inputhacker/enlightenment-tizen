@@ -241,5 +241,7 @@ E_API Eina_List *e_comp_vis_ec_list_get(E_Zone *zone); // visible ec list sorted
 E_API void e_comp_hwc_end(const char *location);
 #endif
 
+E_API Eina_Bool e_comp_socket_init(const char *name);
+
 #endif
 #endif

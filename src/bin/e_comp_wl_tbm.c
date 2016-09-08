@@ -64,6 +64,9 @@ e_comp_wl_tbm_init(void)
 
    _e_comp_wl_tbm_bind_wl_display(tbm_server, e_comp->wl_comp_data->wl.disp);
 
+   if (e_comp_socket_init("tbm-drm-auth"))
+     PRCTL("[Winsys] change permission and create sym link for %s", "tbm-drm-auth");
+
    return EINA_TRUE;
 }
 

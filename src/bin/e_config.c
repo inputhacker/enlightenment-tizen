@@ -22,6 +22,7 @@ static E_Config_DD *_e_config_desktop_window_profile_edd = NULL;
 static E_Config_DD *_e_config_env_var_edd = NULL;
 static E_Config_DD *_e_config_client_type_edd = NULL;
 static E_Config_DD *_e_config_policy_desk_edd = NULL;
+static E_Config_DD *_e_config_socket_access_edd = NULL;
 
 E_API int E_EVENT_CONFIG_MODE_CHANGED = 0;
 
@@ -49,6 +50,7 @@ _e_config_edd_shutdown(void)
    E_CONFIG_DD_FREE(_e_config_env_var_edd);
    E_CONFIG_DD_FREE(_e_config_client_type_edd);
    E_CONFIG_DD_FREE(_e_config_policy_desk_edd);
+   E_CONFIG_DD_FREE(_e_config_socket_access_edd);
 }
 
 static void
@@ -122,6 +124,28 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, x, INT);
    E_CONFIG_VAL(D, T, y, INT);
    E_CONFIG_VAL(D, T, enable, INT);
+
+   _e_config_socket_access_edd = E_CONFIG_DD_NEW("E_Config_Socket_Access", E_Config_Socket_Access);
+#undef T
+#undef D
+#define T E_Config_Socket_Access
+#define D _e_config_socket_access_edd
+   E_CONFIG_VAL(D, T, sock_access.use, UCHAR);
+   E_CONFIG_VAL(D, T, sock_access.name, STR);
+   E_CONFIG_VAL(D, T, sock_access.owner, STR);
+   E_CONFIG_VAL(D, T, sock_access.group, STR);
+   E_CONFIG_VAL(D, T, sock_access.permissions, INT);
+   E_CONFIG_VAL(D, T, sock_access.smack.use, UCHAR);
+   E_CONFIG_VAL(D, T, sock_access.smack.name, STR);
+   E_CONFIG_VAL(D, T, sock_access.smack.value, STR);
+   E_CONFIG_VAL(D, T, sock_access.smack.flags, INT);
+   E_CONFIG_VAL(D, T, sock_symlink_access.use, UCHAR);
+   E_CONFIG_VAL(D, T, sock_symlink_access.link_name, STR);
+   E_CONFIG_VAL(D, T, sock_symlink_access.owner, STR);
+   E_CONFIG_VAL(D, T, sock_symlink_access.group, STR);
+   E_CONFIG_VAL(D, T, sock_symlink_access.smack.name, STR);
+   E_CONFIG_VAL(D, T, sock_symlink_access.smack.value, STR);
+   E_CONFIG_VAL(D, T, sock_symlink_access.smack.flags, INT);
 
    _e_config_edd = E_CONFIG_DD_NEW("E_Config", E_Config);
 #undef T
@@ -220,21 +244,6 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, cursor_timer_interval, INT);
    E_CONFIG_LIST(D, T, client_types, _e_config_client_type_edd);
    E_CONFIG_VAL(D, T, comp_shadow_file, STR);
-   E_CONFIG_VAL(D, T, wl_sock_access.use, UCHAR);
-   E_CONFIG_VAL(D, T, wl_sock_access.owner, STR);
-   E_CONFIG_VAL(D, T, wl_sock_access.group, STR);
-   E_CONFIG_VAL(D, T, wl_sock_access.permissions, INT);
-   E_CONFIG_VAL(D, T, wl_sock_access.smack.use, UCHAR);
-   E_CONFIG_VAL(D, T, wl_sock_access.smack.name, STR);
-   E_CONFIG_VAL(D, T, wl_sock_access.smack.value, STR);
-   E_CONFIG_VAL(D, T, wl_sock_access.smack.flags, INT);
-   E_CONFIG_VAL(D, T, wl_sock_symlink_access.use, UCHAR);
-   E_CONFIG_VAL(D, T, wl_sock_symlink_access.link_name, STR);
-   E_CONFIG_VAL(D, T, wl_sock_symlink_access.owner, STR);
-   E_CONFIG_VAL(D, T, wl_sock_symlink_access.group, STR);
-   E_CONFIG_VAL(D, T, wl_sock_symlink_access.smack.name, STR);
-   E_CONFIG_VAL(D, T, wl_sock_symlink_access.smack.value, STR);
-   E_CONFIG_VAL(D, T, wl_sock_symlink_access.smack.flags, INT);
    E_CONFIG_VAL(D, T, sleep_for_dri, INT);
    E_CONFIG_VAL(D, T, create_wm_ready, INT);
    E_CONFIG_VAL(D, T, create_wm_start, INT);
@@ -245,6 +254,7 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, comp_canvas_bg.opmode, INT);
    E_CONFIG_VAL(D, T, delayed_load_idle_count, INT);
    E_CONFIG_VAL(D, T, use_buffer_flush, UCHAR);
+   E_CONFIG_LIST(D, T, sock_accesses, _e_config_socket_access_edd);
 }
 
 /* externally accessible functions */
@@ -823,6 +833,7 @@ _e_config_free(E_Config *ecf)
    E_Config_Env_Var *evr;
    E_Config_Desktop_Window_Profile *wp;
    E_Config_Policy_Desk *pd;
+   E_Config_Socket_Access *sa;
 
    if (!ecf) return;
 
@@ -838,17 +849,6 @@ _e_config_free(E_Config *ecf)
    eina_stringshare_del(ecf->xkb.default_rmlvo.layout);
    eina_stringshare_del(ecf->xkb.default_rmlvo.variant);
    eina_stringshare_del(ecf->xkb.default_rmlvo.options);
-
-   eina_stringshare_del(ecf->wl_sock_access.owner);
-   eina_stringshare_del(ecf->wl_sock_access.group);
-   eina_stringshare_del(ecf->wl_sock_access.smack.name);
-   eina_stringshare_del(ecf->wl_sock_access.smack.value);
-
-   eina_stringshare_del(ecf->wl_sock_symlink_access.link_name);
-   eina_stringshare_del(ecf->wl_sock_symlink_access.owner);
-   eina_stringshare_del(ecf->wl_sock_symlink_access.group);
-   eina_stringshare_del(ecf->wl_sock_symlink_access.smack.name);
-   eina_stringshare_del(ecf->wl_sock_symlink_access.smack.value);
 
    EINA_LIST_FREE(ecf->modules, em)
      {
@@ -872,6 +872,21 @@ _e_config_free(E_Config *ecf)
 
    eina_stringshare_del(ecf->launcher.title);
    eina_stringshare_del(ecf->launcher.clas);
+
+   EINA_LIST_FREE(ecf->sock_accesses, sa)
+     {
+        eina_stringshare_del(sa->sock_access.name);
+        eina_stringshare_del(sa->sock_access.owner);
+        eina_stringshare_del(sa->sock_access.group);
+        eina_stringshare_del(sa->sock_access.smack.name);
+        eina_stringshare_del(sa->sock_access.smack.value);
+        eina_stringshare_del(sa->sock_symlink_access.link_name);
+        eina_stringshare_del(sa->sock_symlink_access.owner);
+        eina_stringshare_del(sa->sock_symlink_access.group);
+        eina_stringshare_del(sa->sock_symlink_access.smack.name);
+        eina_stringshare_del(sa->sock_symlink_access.smack.value);
+        E_FREE(sa);
+     }
 
    E_FREE(ecf);
 }

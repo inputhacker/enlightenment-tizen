@@ -251,6 +251,9 @@ _e_comp_screen_new(void)
              free(e_comp_screen);
              return NULL;
           }
+
+        if (e_comp_socket_init("tdm-socket"))
+          PRCTL("[Winsys] change permission and create sym link for %s", "tdm-socket");
      }
    else
      {
