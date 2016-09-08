@@ -3293,8 +3293,17 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
    Eina_Bool has_video_client;
    short layer;
 
+   if (!ec || e_object_is_del(E_OBJECT(ec)) || !ec->comp_data) return;
    if (ec->comp_data->sub.below_obj) return;
-   if (ec->comp_data->sub.data) return;
+   if (ec->comp_data->sub.data)
+     {
+         E_Client *topmost;
+         if (ec->comp_data->sub.below_list || ec->comp_data->sub.below_list_pending)
+           return;
+         topmost = _e_comp_wl_topmost_parent_get(ec);
+         _e_comp_wl_subsurface_check_below_bg_rectangle(topmost);
+         return;
+     }
    if (!ec->comp_data->sub.below_list && !ec->comp_data->sub.below_list_pending) return;
    if (ec->argb) return;
 
@@ -3323,6 +3332,9 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
 
    _e_comp_wl_subsurface_restack(ec);
    _e_comp_wl_subsurface_restack_bg_rectangle(ec);
+
+   if (evas_object_visible_get(ec->frame))
+     evas_object_show(ec->comp_data->sub.below_obj);
 }
 
 static void
