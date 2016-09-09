@@ -132,8 +132,8 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
             plane->info.src_config.pos.h != surf_info.height ||
             plane->info.dst_pos.x != ec->x ||
             plane->info.dst_pos.y != ec->y ||
-            plane->info.dst_pos.w != ec->w ||
-            plane->info.dst_pos.h != ec->h ||
+            plane->info.dst_pos.w != surf_info.width ||
+            plane->info.dst_pos.h != surf_info.height ||
             plane->info.transform != TDM_TRANSFORM_NORMAL)
           {
               plane->info.src_config.size.h = surf_info.planes[0].stride;
@@ -144,8 +144,8 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
               plane->info.src_config.pos.h = surf_info.height;
               plane->info.dst_pos.x = ec->x;
               plane->info.dst_pos.y = ec->y;
-              plane->info.dst_pos.w = ec->w;
-              plane->info.dst_pos.h = ec->h;
+              plane->info.dst_pos.w = surf_info.width;
+              plane->info.dst_pos.h = surf_info.height;
               plane->info.transform = TDM_TRANSFORM_NORMAL;
 
               error = tdm_layer_set_info(tlayer, &plane->info);
