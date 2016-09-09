@@ -4912,16 +4912,19 @@ e_comp_wl_subsurface_commit(E_Client *ec)
 {
    E_Comp_Wl_Subsurf_Data *sdata;
    E_Client *invisible_parent;
+   E_Client *topmost;
 
    /* check for valid subcompositor data */
    if (e_object_is_del(E_OBJECT(ec)) || !ec->comp_data) return EINA_FALSE;
    if (!(sdata = ec->comp_data->sub.data)) return EINA_FALSE;
 
    invisible_parent = _e_comp_wl_subsurface_invisible_parent_get(ec);
+   topmost = _e_comp_wl_topmost_parent_get(ec);
 
    if (_e_comp_wl_subsurface_synchronized_get(sdata))
      _e_comp_wl_subsurface_commit_to_cache(ec);
-   else if (invisible_parent)
+   /* if the topmost e_client is set redirected flag to false, make subsurface execute commit */
+   else if (invisible_parent && topmost->redirected)
      {
         _e_comp_wl_subsurface_commit_to_cache(ec);
         invisible_parent->comp_data->need_commit_extern_parent = 1;
