@@ -1053,7 +1053,7 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
 static Eina_Bool
 _e_vis_intercept_hide(void *data EINA_UNUSED, E_Client *ec)
 {
-   E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
+   E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_TRUE);
 
    VS_DBG(ec, "INTERCEPTOR HIDE");
 
