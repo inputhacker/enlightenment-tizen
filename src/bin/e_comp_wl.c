@@ -1172,17 +1172,21 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
         dev = ev->dev;
         dev_name = evas_device_description_get(dev);
 
-        _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
-
         if (dev && (evas_device_class_get(dev) == EVAS_DEVICE_CLASS_TOUCH))
           {
+             if (!(e_comp_wl->touch.pressed & (1 << 0))) return;
+
+             _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
              if (dev_name)
                _e_comp_wl_device_handle_axes(dev_name, evas_device_class_get(dev),
                                              ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
              _e_comp_wl_send_touch_move(ec, 0, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp, EINA_TRUE);
           }
         else
-          _e_comp_wl_send_mouse_move(ec, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp, EINA_TRUE);
+          {
+             _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
+             _e_comp_wl_send_mouse_move(ec, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp, EINA_TRUE);
+          }
 
         if (e_config->use_cursor_timer)
           {
@@ -1266,6 +1270,7 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
           _e_comp_wl_device_handle_axes(dev_name, evas_device_class_get(dev),
                                         ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
         _e_comp_wl_evas_handle_mouse_button_to_touch(ec, ev->timestamp, ev->canvas.x, ev->canvas.y, EINA_TRUE);
+        e_comp_wl->touch.pressed |= (1 << 0);
      }
    else
      e_comp_wl_evas_handle_mouse_button(ec, ev->timestamp, ev->button,
@@ -1319,6 +1324,7 @@ _e_comp_wl_evas_cb_mouse_up(void *data, Evas *evas, Evas_Object *obj EINA_UNUSED
           _e_comp_wl_device_handle_axes(dev_name, evas_device_class_get(dev),
                                         ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
         _e_comp_wl_evas_handle_mouse_button_to_touch(ec, ev->timestamp, ev->canvas.x, ev->canvas.y, EINA_FALSE);
+        e_comp_wl->touch.pressed &= ~(1 << 0);
      }
    else
      e_comp_wl_evas_handle_mouse_button(ec, ev->timestamp, ev->button,
@@ -1395,6 +1401,7 @@ _e_comp_wl_evas_cb_multi_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
      }
 
    _e_comp_wl_send_touch(ec, ev->device, ev->canvas.x, ev->canvas.y, ev->timestamp, EINA_TRUE);
+   e_comp_wl->touch.pressed |= (1 << ev->device);
 }
 
 static void
@@ -1422,6 +1429,7 @@ _e_comp_wl_evas_cb_multi_up(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj
      }
 
    _e_comp_wl_send_touch(ec, ev->device, 0, 0, ev->timestamp, EINA_FALSE);
+   e_comp_wl->touch.pressed &= ~(1 << ev->device);
 }
 
 static void
@@ -1439,6 +1447,8 @@ _e_comp_wl_evas_cb_multi_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
 
    /* Do not deliver emulated single touch events to client */
    if (ev->device == 0) return;
+
+   if (!(e_comp_wl->touch.pressed & (1 << ev->device))) return;
 
    dev = ev->dev;
    if (dev && (dev_name = evas_device_description_get(dev)))
