@@ -384,6 +384,7 @@ if test "x${have_wayland}" = "xyes"; then
   fi
 
   have_wayland_tbm=no
+  have_remote_surface=no
   AC_ARG_ENABLE([wayland-tbm],
     AS_HELP_STRING([--enable-wayland-tbm],[enable wayland-tbm @<:@default=enabled@:>@]),
     [e_cv_want_wayland_tbm=$enableval],
@@ -397,6 +398,14 @@ if test "x${have_wayland}" = "xyes"; then
         have_wayland_tbm=yes
         AC_DEFINE_UNQUOTED([HAVE_WAYLAND_TBM],[1],[enable wayland-tbm support])
       ])
+
+    if test "x${have_wayland_tbm}" = "xyes"; then
+    PKG_CHECK_MODULES([TIZEN_REMOTE_SURFACE], [tizen-remote-surface-server],
+      [
+        have_remote_surface=yes
+        AC_DEFINE_UNQUOTED([HAVE_REMOTE_SURFACE], [1], [enable tizen-retmoe-surface support])
+      ])
+    fi
 
     PKG_CHECK_MODULES([ECORE_DRM], [ecore-drm >= ${efl_version}])
   else
@@ -458,6 +467,7 @@ fi
 
 AM_CONDITIONAL([HAVE_WAYLAND], [test "x${have_wayland}" = "xyes"])
 AM_CONDITIONAL([HAVE_WAYLAND_TBM], [test "x${have_wayland_tbm}" = "xyes"])
+AM_CONDITIONAL([HAVE_REMOTE_SURFACE], [test "x${have_remote_surface}" = "xyes"])
 AM_CONDITIONAL([HAVE_HWC], [test "x${have_hwc}" = "xyes"])
 
 #capi-system-device

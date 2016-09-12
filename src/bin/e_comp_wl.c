@@ -2768,6 +2768,9 @@ _e_comp_wl_surface_cb_commit(struct wl_client *client EINA_UNUSED, struct wl_res
      }
 
    if (e_comp_wl_subsurface_commit(ec)) return;
+#ifdef HAVE_REMOTE_SURFACE
+   if (e_comp_wl_remote_surface_commit(ec)) return;
+#endif
 
    e_comp_wl_surface_commit(ec);
 
@@ -4719,6 +4722,9 @@ e_comp_wl_init(void)
 
 #ifdef HAVE_WAYLAND_TBM
    e_comp_wl_tbm_init();
+# ifdef HAVE_REMOTE_SURFACE
+   e_comp_wl_remote_surface_init();
+# endif
 #endif
 
    e_pixmap_init();
@@ -4775,6 +4781,9 @@ e_comp_wl_shutdown(void)
 
 #ifdef HAVE_WAYLAND_TBM
    e_comp_wl_tbm_shutdown();
+# ifdef HAVE_REMOTE_SURFACE
+   e_comp_wl_remote_surface_shutdown();
+# endif
 #endif
 
    e_pixmap_shutdown();

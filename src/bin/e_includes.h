@@ -57,6 +57,9 @@
 #include "e_uuid_store.h"
 #ifdef HAVE_WAYLAND_TBM
 # include "e_comp_wl_tbm.h"
+# ifdef HAVE_REMOTE_SURFACE
+#  include "e_comp_wl_rsm.h"
+# endif
 #endif
 #include "e_policy.h"
 #include "e_process.h"

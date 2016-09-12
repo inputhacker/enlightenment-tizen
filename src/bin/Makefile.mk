@@ -9,6 +9,7 @@ E_CPPFLAGS = \
 @EDJE_DEF@ \
 @WAYLAND_CFLAGS@ \
 @WAYLAND_TBM_CFLAGS@ \
+@TIZEN_REMOTE_SURFACE_CFLAGS@ \
 -DE_BINDIR=\"$(bindir)\" \
 -DPACKAGE_BIN_DIR=\"@PACKAGE_BIN_DIR@\" \
 -DPACKAGE_LIB_DIR=\"@PACKAGE_LIB_DIR@\" \
@@ -91,6 +92,10 @@ src/bin/e_comp_wl.h
 if HAVE_WAYLAND_TBM
 ENLIGHTENMENTHEADERS += \
 src/bin/e_comp_wl_tbm.h
+if HAVE_REMOTE_SURFACE
+ENLIGHTENMENTHEADERS += \
+ src/bin/e_comp_wl_rsm.h
+endif
 endif
 
 ENLIGHTENMENTHEADERS += \
@@ -179,6 +184,10 @@ $(ENLIGHTENMENTHEADERS)
 if HAVE_WAYLAND_TBM
 enlightenment_src += \
 src/bin/e_comp_wl_tbm.c
+if HAVE_REMOTE_SURFACE
+enlightenment_src += \
+src/bin/e_comp_wl_rsm.c
+endif
 endif
 
 enlightenment_src += \
@@ -202,6 +211,9 @@ src/bin/e_process.c
 src_bin_enlightenment_CPPFLAGS = $(E_CPPFLAGS) -DEFL_BETA_API_SUPPORT -DEFL_EO_API_SUPPORT -DE_LOGGING=1 @WAYLAND_CFLAGS@ $(TTRACE_CFLAGS) $(DLOG_CFLAGS) $(POLICY_CFLAGS)
 if HAVE_WAYLAND_TBM
 src_bin_enlightenment_CPPFLAGS += @WAYLAND_TBM_CFLAGS@ @ECORE_DRM_CFLAGS@
+if HAVE_REMOTE_SURFACE
+src_bin_enlightenment_CPPFLAGS += @TIZEN_REMOTE_SURFACE_CFLAGS@
+endif
 endif
 if HAVE_HWC
 src_bin_enlightenment_CPPFLAGS += @HWC_CFLAGS@
@@ -215,6 +227,9 @@ src_bin_enlightenment_LDFLAGS = -export-dynamic
 src_bin_enlightenment_LDADD = @e_libs@ @dlopen_libs@ @cf_libs@ @VALGRIND_LIBS@ @WAYLAND_LIBS@ -lm @SHM_OPEN_LIBS@ $(TTRACE_LIBS) $(DLOG_LIBS) $(POLICY_LIBS)
 if HAVE_WAYLAND_TBM
 src_bin_enlightenment_LDADD += @WAYLAND_TBM_LIBS@ @ECORE_DRM_LIBS@
+if HAVE_REMOTE_SURFACE
+src_bin_enlightenment_LDADD += @TIZEN_REMOTE_SURFACE_LIBS@
+endif
 endif
 if HAVE_HWC
 src_bin_enlightenment_LDADD += @HWC_LIBS@
