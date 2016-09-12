@@ -130,3 +130,25 @@ e_comp_wl_tbm_buffer_sync_timeline_used(E_Comp_Wl_Buffer *buffer)
 
    return EINA_TRUE;
 }
+
+EINTERN struct wl_resource *
+e_comp_wl_tbm_remote_buffer_get(struct wl_resource *wl_tbm, struct wl_resource *wl_buffer)
+{
+   struct wl_resource *remote_buffer;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(wl_tbm, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(wl_buffer,  NULL);
+
+   remote_buffer = wayland_tbm_server_get_remote_buffer(e_comp->wl_comp_data->tbm.server,
+                                                        wl_buffer, wl_tbm);
+   if (!remote_buffer) {
+        tbm_surface_h tbm_surface;
+
+        tbm_surface = wayland_tbm_server_get_surface(e_comp->wl_comp_data->tbm.server,
+                                                     wl_buffer);
+        remote_buffer = wayland_tbm_server_export_buffer(e_comp->wl_comp_data->tbm.server,
+                                                         wl_tbm, tbm_surface);
+   }
+
+   return remote_buffer;
+}
