@@ -877,7 +877,7 @@ _e_comp_wl_cursor_timer(void *data)
    Eina_List *l;
    uint32_t serial;
 
-   e_pointer_hide(e_comp->pointer);
+   e_pointer_object_set(e_comp->pointer, NULL, 0, 0);
 
    e_comp_wl->ptr.hide_tmr = NULL;
    cursor_timer_ec = NULL;
