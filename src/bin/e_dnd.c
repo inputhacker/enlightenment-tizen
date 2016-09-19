@@ -4,7 +4,7 @@
 
 static void           _e_drag_coords_update(const E_Drop_Handler *h, int *dx, int *dy);
 static Ecore_Window _e_drag_win_get(const E_Drop_Handler *h, int xdnd);
-static int            _e_drag_win_matches(E_Drop_Handler *h, Ecore_Window win, int xdnd);
+static int            _e_drag_win_matches(E_Drop_Handler *h, Ecore_Window win);
 static void           _e_drag_end(int x, int y);
 static void           _e_drag_free(E_Drag *drag);
 
@@ -34,15 +34,9 @@ static Ecore_Window _drag_win_root = 0;
 static Eina_List *_drag_list = NULL;
 static E_Drag *_drag_current = NULL;
 
-static Ecore_X_Atom _text_atom = 0;
-
 static Eina_Stringshare *_type_text_uri_list = NULL;
-static Eina_Stringshare *_type_xds = NULL;
-static Eina_Stringshare *_type_text_x_moz_url = NULL;
-static Eina_Stringshare *_type_enlightenment_x_file = NULL;
 
 static Eina_Hash *_drop_handlers_responsives;
-static Ecore_X_Atom _action;
 
 static void
 _e_drop_handler_active_check(E_Drop_Handler *h, const E_Drag *drag, Eina_Stringshare *type)
@@ -92,7 +86,6 @@ _e_drag_finalize(E_Drag *drag, E_Drag_Type type, int x, int y)
      {
         e_drag_object_set(drag, evas_object_rectangle_add(drag->evas));
         evas_object_color_set(drag->object, 0, 0, 0, 0);
-        //evas_object_color_set(drag->object, 255, 0, 0, 255);
      }
    evas_object_move(drag->comp_object, drag->x, drag->y);
    evas_object_resize(drag->comp_object, drag->w, drag->h);
@@ -133,9 +126,6 @@ e_dnd_init(void)
    if (!_event_handlers)
      {
         _type_text_uri_list = eina_stringshare_add("text/uri-list");
-        _type_xds = eina_stringshare_add("XdndDirectSave0");
-        _type_text_x_moz_url = eina_stringshare_add("text/x-moz-url");
-        _type_enlightenment_x_file = eina_stringshare_add("enlightenment/x-file");
 
         _drop_win_hash = eina_hash_int32_new(NULL);
         _drop_handlers_responsives = eina_hash_int32_new(NULL);
@@ -164,14 +154,7 @@ e_dnd_shutdown(void)
    eina_hash_free(_drop_handlers_responsives);
 
    eina_stringshare_del(_type_text_uri_list);
-   eina_stringshare_del(_type_xds);
-   eina_stringshare_del(_type_text_x_moz_url);
-   eina_stringshare_del(_type_enlightenment_x_file);
    _type_text_uri_list = NULL;
-   _type_xds = NULL;
-   _type_text_x_moz_url = NULL;
-   _type_enlightenment_x_file = NULL;
-   _text_atom = 0;
 
    return 1;
 }
@@ -276,12 +259,6 @@ E_API int
 e_drag_start(E_Drag *drag, int x, int y)
 {
    return _e_drag_finalize(drag, E_DRAG_INTERNAL, x, y);
-}
-
-E_API int
-e_drag_xdnd_start(E_Drag *drag, int x, int y)
-{
-   return _e_drag_finalize(drag, E_DRAG_XDND, x, y);
 }
 
 E_API void
@@ -395,18 +372,6 @@ e_drop_handler_responsive_get(const E_Drop_Handler *handler)
 }
 
 E_API void
-e_drop_handler_action_set(unsigned int action)
-{
-   _action = action;
-}
-
-E_API unsigned int
-e_drop_handler_action_get(void)
-{
-   return _action;
-}
-
-E_API void
 e_drag_key_down_cb_set(E_Drag *drag, void (*func)(E_Drag *drag, Ecore_Event_Key *e))
 {
    drag->cb.key_down = func;
@@ -506,8 +471,6 @@ _e_drag_win_get(const E_Drop_Handler *h, int xdnd)
 {
    Ecore_Window hwin = 0;
 
-   //if (h->win)
-   //  return elm_win_window_id_get(h->win);
    if (h->obj)
      {
         switch (h->obj->type)
@@ -527,9 +490,9 @@ _e_drag_win_get(const E_Drop_Handler *h, int xdnd)
 }
 
 static int
-_e_drag_win_matches(E_Drop_Handler *h, Ecore_Window win, int xdnd)
+_e_drag_win_matches(E_Drop_Handler *h, Ecore_Window win)
 {
-   Ecore_Window hwin = _e_drag_win_get(h, xdnd);
+   Ecore_Window hwin = _e_drag_win_get(h, 0);
 
    if (win == hwin) return 1;
    return 0;
@@ -557,17 +520,6 @@ _e_drag_end(int x, int y)
    if (e_comp->comp_type == E_PIXMAP_TYPE_X)
      e_grabinput_release(_drag_win, _drag_win);
 
-   while (_drag_current->type == E_DRAG_XDND)
-     {
-        if ((e_comp->comp_type == E_PIXMAP_TYPE_WL) && (win == e_comp->ee_win))
-          break;
-        if (_drag_current->cb.finished)
-          _drag_current->cb.finished(_drag_current, dropped);
-        _drag_current->cb.finished = NULL;
-        _drag_current->ended = 1;
-        return;
-     }
-
    dropped = 0;
    if (!_drag_current->data)
      {
@@ -594,7 +546,7 @@ _e_drag_end(int x, int y)
         _e_drag_coords_update(h, &dx, &dy);
         ev.x = x - dx;
         ev.y = y - dy;
-        if ((_e_drag_win_matches(h, win, 0)) &&
+        if ((_e_drag_win_matches(h, win)) &&
             ((h->cb.drop) && (E_INSIDE(ev.x, ev.y, h->x, h->y, h->w, h->h))))
           {
              Eina_Bool need_free = EINA_FALSE;

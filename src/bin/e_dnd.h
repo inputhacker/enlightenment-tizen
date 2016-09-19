@@ -130,7 +130,6 @@ E_API void            e_drag_key_up_cb_set(E_Drag *drag, void (*func)(E_Drag *dr
 
 /* x and y are the coords where the mouse is when dragging starts */
 E_API int             e_drag_start(E_Drag *drag, int x, int y);
-E_API int             e_drag_xdnd_start(E_Drag *drag, int x, int y);
 
 E_API void e_drop_handler_xds_set(E_Drop_Handler *handler, Eina_Bool (*cb)(void *data, const char *type));
 E_API E_Drop_Handler *e_drop_handler_add(E_Object *obj, Evas_Object *win,
@@ -146,8 +145,6 @@ E_API int          e_drop_inside(const E_Drop_Handler *handler, int x, int y);
 E_API void         e_drop_handler_del(E_Drop_Handler *handler);
 E_API void         e_drop_handler_responsive_set(E_Drop_Handler *handler);
 E_API int          e_drop_handler_responsive_get(const E_Drop_Handler *handler);
-E_API void         e_drop_handler_action_set(unsigned int action);
-E_API unsigned int e_drop_handler_action_get(void);
 E_API Eina_List *e_dnd_util_text_uri_list_convert(char *data, int size);
 
 
