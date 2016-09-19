@@ -433,38 +433,6 @@ _e_policy_wl_tzsh_get_from_client(E_Client *ec)
 }
 
 static E_Policy_Wl_Tzsh_Client *
-_e_policy_wl_tzsh_client_get_from_client(E_Client *ec)
-{
-   E_Policy_Wl_Tzsh_Client *tzsh_client = NULL;
-   Eina_List *l;
-
-   if (!ec) return NULL;
-   if (e_object_is_del(E_OBJECT(ec))) return NULL;
-
-   EINA_LIST_FOREACH(polwl->tzsh_clients, l, tzsh_client)
-     {
-        if (!tzsh_client->tzsh) continue;
-        if (!tzsh_client->tzsh->ec) continue;
-
-        if (tzsh_client->tzsh->cp == ec->pixmap)
-          {
-             if (tzsh_client->tzsh->ec != ec)
-               {
-                  ELOGF("TZSH",
-                        "CRI ERR!!|tzsh_cp:0x%08x|tzsh_ec:0x%08x|tzsh:0x%08x",
-                        ec->pixmap, ec,
-                        (unsigned int)tzsh_client->tzsh->cp,
-                        (unsigned int)tzsh_client->tzsh->ec,
-                        (unsigned int)tzsh_client->tzsh);
-               }
-             return tzsh_client;
-          }
-     }
-
-   return NULL;
-}
-
-static E_Policy_Wl_Tzsh_Client *
 _e_policy_wl_tzsh_client_get_from_tzsh(E_Policy_Wl_Tzsh *tzsh)
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
@@ -3654,70 +3622,132 @@ e_tzsh_indicator_srv_ower_win_update(E_Zone *zone)
 // --------------------------------------------------------
 // tizen_ws_shell_interface::quickpanel
 // --------------------------------------------------------
+static void
+_e_tzsh_qp_state_change_send(struct wl_resource *res_tzsh_client, int type, int value)
+{
+   struct wl_array states;
+   E_Tzsh_QP_Event *ev;
+
+   if (!res_tzsh_client) return;
+
+   wl_array_init(&states);
+   ev = wl_array_add(&states, sizeof(E_Tzsh_QP_Event));
+   if (!ev) return;
+
+   ev->type = type;
+   ev->val = value;
+
+   tws_quickpanel_send_state_changed(res_tzsh_client, &states);
+
+   wl_array_release(&states);
+}
+
 EINTERN void
 e_tzsh_qp_state_visible_update(E_Client *ec, Eina_Bool vis)
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
-   struct wl_array states;
-   E_Tzsh_QP_Event *ev;
+   Eina_List *l;
+   int val;
 
-   tzsh_client = _e_policy_wl_tzsh_client_get_from_client(ec);
-   if (!tzsh_client) return;
+   if (!ec) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
 
-   wl_array_init(&states);
+   EINA_LIST_FOREACH(polwl->tzsh_clients, l, tzsh_client)
+     {
+        if (!tzsh_client->tzsh) continue;
+        if (!tzsh_client->tzsh->ec) continue;
 
-   ev = wl_array_add(&states, sizeof(E_Tzsh_QP_Event));
+        if (tzsh_client->tzsh->cp == ec->pixmap)
+          {
+             if (tzsh_client->tzsh->ec != ec)
+               {
+                  ELOGF("TZSH",
+                        "CRI ERR!!|tzsh_cp:0x%08x|tzsh_ec:0x%08x|tzsh:0x%08x",
+                        ec->pixmap, ec,
+                        (unsigned int)tzsh_client->tzsh->cp,
+                        (unsigned int)tzsh_client->tzsh->ec,
+                        (unsigned int)tzsh_client->tzsh);
+                  continue;
+               }
 
-   ev->type = TWS_QUICKPANEL_STATE_TYPE_VISIBILITY;
-   ev->val = vis ? TWS_QUICKPANEL_STATE_VALUE_VISIBLE_SHOW : TWS_QUICKPANEL_STATE_VALUE_VISIBLE_HIDE;
-
-   tws_quickpanel_send_state_changed(tzsh_client->res_tzsh_client, &states);
-
-   wl_array_release(&states);
+             val = vis ? TWS_QUICKPANEL_STATE_VALUE_VISIBLE_SHOW : TWS_QUICKPANEL_STATE_VALUE_VISIBLE_HIDE;
+             _e_tzsh_qp_state_change_send(tzsh_client->res_tzsh_client,
+                                          TWS_QUICKPANEL_STATE_TYPE_VISIBILITY,
+                                          val);
+          }
+     }
 }
 
 EINTERN void
 e_tzsh_qp_state_scrollable_update(E_Client *ec, Eina_Bool scrollable)
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
-   struct wl_array states;
-   E_Tzsh_QP_Event *ev;
+   Eina_List *l;
+   int val;
 
-   tzsh_client = _e_policy_wl_tzsh_client_get_from_client(ec);
-   if (!tzsh_client) return;
+   if (!ec) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
 
-   wl_array_init(&states);
+   EINA_LIST_FOREACH(polwl->tzsh_clients, l, tzsh_client)
+     {
+        if (!tzsh_client->tzsh) continue;
+        if (!tzsh_client->tzsh->ec) continue;
 
-   ev = wl_array_add(&states, sizeof(E_Tzsh_QP_Event));
+        if (tzsh_client->tzsh->cp == ec->pixmap)
+          {
+             if (tzsh_client->tzsh->ec != ec)
+               {
+                  ELOGF("TZSH",
+                        "CRI ERR!!|tzsh_cp:0x%08x|tzsh_ec:0x%08x|tzsh:0x%08x",
+                        ec->pixmap, ec,
+                        (unsigned int)tzsh_client->tzsh->cp,
+                        (unsigned int)tzsh_client->tzsh->ec,
+                        (unsigned int)tzsh_client->tzsh);
+                  continue;
+               }
 
-   ev->type = TWS_QUICKPANEL_STATE_TYPE_SCROLLABLE;
-   ev->val = scrollable ? TWS_QUICKPANEL_STATE_VALUE_SCROLLABLE_SET : TWS_QUICKPANEL_STATE_VALUE_SCROLLABLE_UNSET;
-
-   tws_quickpanel_send_state_changed(tzsh_client->res_tzsh_client, &states);
-
-   wl_array_release(&states);
+             val = scrollable ? TWS_QUICKPANEL_STATE_VALUE_SCROLLABLE_SET : TWS_QUICKPANEL_STATE_VALUE_SCROLLABLE_UNSET;
+             _e_tzsh_qp_state_change_send(tzsh_client->res_tzsh_client,
+                                          TWS_QUICKPANEL_STATE_TYPE_SCROLLABLE,
+                                          val);
+          }
+     }
 }
 
 EINTERN void
 e_tzsh_qp_state_orientation_update(E_Client *ec, int ridx)
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
-   struct wl_array states;
-   E_Tzsh_QP_Event *ev;
+   Eina_List *l;
+   int val;
 
-   tzsh_client = _e_policy_wl_tzsh_client_get_from_client(ec);
-   if (!tzsh_client) return;
+   if (!ec) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
 
-   wl_array_init(&states);
+   EINA_LIST_FOREACH(polwl->tzsh_clients, l, tzsh_client)
+     {
+        if (!tzsh_client->tzsh) continue;
+        if (!tzsh_client->tzsh->ec) continue;
 
-   ev = wl_array_add(&states, sizeof(E_Tzsh_QP_Event));
+        if (tzsh_client->tzsh->cp == ec->pixmap)
+          {
+             if (tzsh_client->tzsh->ec != ec)
+               {
+                  ELOGF("TZSH",
+                        "CRI ERR!!|tzsh_cp:0x%08x|tzsh_ec:0x%08x|tzsh:0x%08x",
+                        ec->pixmap, ec,
+                        (unsigned int)tzsh_client->tzsh->cp,
+                        (unsigned int)tzsh_client->tzsh->ec,
+                        (unsigned int)tzsh_client->tzsh);
+                  continue;
+               }
 
-   ev->type = TWS_QUICKPANEL_STATE_TYPE_ORIENTATION;
-   ev->val = TWS_QUICKPANEL_STATE_VALUE_ORIENTATION_0 + ridx;
-
-   tws_quickpanel_send_state_changed(tzsh_client->res_tzsh_client, &states);
-
-   wl_array_release(&states);
+             val = TWS_QUICKPANEL_STATE_VALUE_ORIENTATION_0 + ridx;
+             _e_tzsh_qp_state_change_send(tzsh_client->res_tzsh_client,
+                                          TWS_QUICKPANEL_STATE_TYPE_ORIENTATION,
+                                          val);
+          }
+     }
 }
 
 static void
