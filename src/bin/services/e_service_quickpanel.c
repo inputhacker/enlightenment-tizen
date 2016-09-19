@@ -100,6 +100,7 @@ struct _Mover_Effect_Data
 struct _E_QP_Client
 {
    E_Client *ec;
+   int ref;
    struct
    {
       Eina_Bool vis;
@@ -1550,8 +1551,16 @@ e_qp_client_add(E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(ec)));
 
+   qp_client = _e_qp_client_ec_get(ec);
+   if (qp_client)
+     {
+        qp_client->ref++;
+        return;
+     }
+
    qp_client = E_NEW(E_QP_Client, 1);
    qp_client->ec = ec;
+   qp_client->ref = 1;
    qp_client->hint.vis = EINA_TRUE;
    qp_client->hint.scrollable = EINA_TRUE;
 
@@ -1570,6 +1579,9 @@ e_qp_client_del(E_Client *ec)
 
    qp_client = _e_qp_client_ec_get(ec);
    EINA_SAFETY_ON_NULL_RETURN(qp_client);
+
+   qp_client->ref--;
+   if (qp_client->ref != 0) return;
 
    qp->clients = eina_list_remove(qp->clients, qp_client);
 
