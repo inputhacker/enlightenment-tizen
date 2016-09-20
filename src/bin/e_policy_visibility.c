@@ -1324,6 +1324,7 @@ e_policy_visibility_shutdown(void)
 
    _e_vis_clist_clean(&pol_job_group_head, _e_vis_job_group_del);
 
+   E_FREE_FUNC(pol_vis->clients_hash, eina_hash_free);
    E_FREE_FUNC(pol_vis->idle_enter, ecore_idle_enterer_del);
    E_FREE_LIST(pol_vis->handlers, ecore_event_handler_del);
    E_FREE_LIST(pol_vis->interceptors, e_comp_hook_del);
