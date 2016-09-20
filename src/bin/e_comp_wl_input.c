@@ -236,7 +236,8 @@ _e_comp_wl_input_cb_keyboard_get(struct wl_client *client, struct wl_resource *r
 
    /* if the client owns the focused surface, we need to send an enter */
    focused = e_client_focused_get();
-   if (!focused) return;
+   if ((!focused) || (e_object_is_del(E_OBJECT(focused))) ||
+       (!focused->comp_data) || (!focused->comp_data->surface)) return;
 
    if (client != wl_resource_get_client(focused->comp_data->surface)) return;
    e_comp_wl->kbd.focused = eina_list_append(e_comp_wl->kbd.focused, res);

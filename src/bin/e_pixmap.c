@@ -1061,7 +1061,8 @@ e_pixmap_buffer_clear(E_Pixmap *cp)
      }
 
    /* release the helded buffer by e_client */
-   e_comp_wl_buffer_reference(&cp->client->comp_data->buffer_ref, NULL);
+   if (cp->client->comp_data)
+     e_comp_wl_buffer_reference(&cp->client->comp_data->buffer_ref, NULL);
 
    /* composite object clear */
    e_comp_object_clear(cp->client->frame);
