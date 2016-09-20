@@ -237,10 +237,11 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
    if (obj)
      {
         ec = e_comp_object_client_get(obj);
-        if (ec)
+        if (ec && e_pixmap_usable_get(ec->pixmap))
           {
              ec->hidden = 0;
              ec->visible = EINA_TRUE;
+             evas_object_geometry_set(ec->frame, ec->x, ec->y, ec->w, ec->h);
              ec->comp_data->mapped = EINA_TRUE;
              ec->override = 0; /* do not ignore the cursor_ec to set the image object */
           }

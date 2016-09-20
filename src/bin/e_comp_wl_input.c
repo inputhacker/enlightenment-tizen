@@ -30,11 +30,13 @@ static void
 _e_comp_wl_input_pointer_map(struct wl_resource *resource)
 {
    E_Client *ec;
+   E_Pointer *ptr;
 
    if (!(ec = wl_resource_get_user_data(resource))) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
-   e_pointer_object_set(e_comp->pointer, ec->frame, 0, 0);
+   if ((ptr = e_comp->pointer))
+     e_pointer_object_set(ptr, ec->frame, ptr->hot.x, ptr->hot.y);
 }
 
 static void
@@ -61,7 +63,6 @@ _e_comp_wl_input_pointer_cb_cursor_set(struct wl_client *client, struct wl_resou
 {
    E_Client *ec;
    Eina_Bool got_mouse = EINA_FALSE;
-   int cursor_w = 0, cursor_h = 0;
 
    E_CLIENT_FOREACH(ec)
      {
@@ -105,11 +106,6 @@ _e_comp_wl_input_pointer_cb_cursor_set(struct wl_client *client, struct wl_resou
 
    /* ignore cursor changes during resize/move I guess */
    if (e_client_action_get()) return;
-
-   evas_object_geometry_get(ec->frame, NULL, NULL, &cursor_w, &cursor_h);
-   if ((cursor_w == 0) || (cursor_h == 0))
-     return;
-
    e_pointer_object_set(e_comp->pointer, ec->frame, x, y);
 }
 
