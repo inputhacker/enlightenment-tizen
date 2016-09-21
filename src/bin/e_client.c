@@ -2259,43 +2259,25 @@ _e_client_eval(E_Client *ec)
    if ((ec->changes.shading))
      {
         /*  show at start of unshade (but don't hide until end of shade) */
-        //if (ec->shaded)
-          //ecore_x_window_raise(ec->win);
         ec->changes.shading = 0;
         send_event = 0;
      }
    if (ec->changes.shaded) send_event = 0;
    if ((ec->changes.shaded) && (ec->changes.pos) && (ec->changes.size))
      {
-        //if (ec->shaded)
-          //ecore_x_window_lower(ec->win);
-        //else
-          //ecore_x_window_raise(ec->win);
         ec->changes.shaded = 0;
      }
    else if ((ec->changes.shaded) && (ec->changes.pos))
      {
-        //if (ec->shaded)
-          //ecore_x_window_lower(ec->win);
-        //else
-          //ecore_x_window_raise(ec->win);
         ec->changes.size = 1;
         ec->changes.shaded = 0;
      }
    else if ((ec->changes.shaded) && (ec->changes.size))
      {
-        //if (ec->shaded)
-          //ecore_x_window_lower(ec->win);
-        //else
-          //ecore_x_window_raise(ec->win);
         ec->changes.shaded = 0;
      }
    else if (ec->changes.shaded)
      {
-        //if (ec->shaded)
-          //ecore_x_window_lower(ec->win);
-        //else
-          //ecore_x_window_raise(ec->win);
         ec->changes.shaded = 0;
      }
 

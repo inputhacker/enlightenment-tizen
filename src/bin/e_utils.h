@@ -41,7 +41,6 @@ E_API Evas_Object *e_util_icon_add(const char *path, Evas *evas);
 E_API Evas_Object *e_util_icon_theme_icon_add(const char *icon_name, unsigned int size, Evas *evas);
 E_API int          e_util_dir_check(const char *dir);
 E_API void         e_util_defer_object_del(E_Object *obj);
-E_API const char  *e_util_winid_str_get(Ecore_X_Window win);
 E_API void         e_util_win_auto_resize_fill(Evas_Object *win);
 /* check if loaded config version matches the current version, show a
    dialog warning if loaded version is older or newer than current */
