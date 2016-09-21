@@ -39,7 +39,12 @@ e_focus_event_mouse_down(E_Client *ec)
 {
    if (e_client_focus_policy_click(ec) ||
        e_config->always_click_to_focus)
-     evas_object_focus_set(ec->frame, 1);
+     {
+        evas_object_focus_set(ec->frame, 1);
+
+        if (ec->floating)
+          evas_object_raise(ec->frame);
+     }
    if (e_config->always_click_to_raise)
      {
         if (!ec->lock_user_stacking)
