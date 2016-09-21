@@ -52,7 +52,6 @@ static Eina_Bool comp_grabbed = EINA_FALSE;
 
 static Eina_List *handlers = NULL;
 static Eina_List *hooks = NULL;
-//static Eina_Bool client_grabbed = EINA_FALSE;
 
 static Ecore_Event_Handler *action_handler_key = NULL;
 static Ecore_Event_Handler *action_handler_mouse = NULL;
@@ -1042,13 +1041,6 @@ _e_client_move_begin(E_Client *ec)
    if ((ec->fullscreen) || (ec->lock_user_location))
      return 0;
 
-/*
-   if (client_grabbed && !e_grabinput_get(e_client_util_pwin_get(ec), 0, e_client_util_pwin_get(ec)))
-     {
-        client_grabbed = 0;
-        return 0;
-     }
-*/
    if (!_e_client_action_input_win_new()) return 0;
    ec->moving = 1;
    ecmove = ec;
@@ -1070,11 +1062,6 @@ _e_client_move_begin(E_Client *ec)
 static int
 _e_client_move_end(E_Client *ec)
 {
-   //if (client_grabbed)
-     //{
-        //e_grabinput_release(e_client_util_pwin_get(ec), e_client_util_pwin_get(ec));
-        //client_grabbed = 0;
-     //}
    _e_client_action_input_win_del();
    ec->moving = 0;
    _e_client_hook_call(E_CLIENT_HOOK_MOVE_END, ec);
