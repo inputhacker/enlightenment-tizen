@@ -66,7 +66,6 @@ src/bin/e_place.h \
 src/bin/e_plane.h \
 src/bin/e_pointer.h \
 src/bin/e_prefix.h \
-src/bin/e_remember.h \
 src/bin/e_plane_renderer.h \
 src/bin/e_resist.h \
 src/bin/e_scale.h \
@@ -152,7 +151,6 @@ src/bin/e_place.c \
 src/bin/e_plane.c \
 src/bin/e_pointer.c \
 src/bin/e_prefix.c \
-src/bin/e_remember.c \
 src/bin/e_plane_renderer.c \
 src/bin/e_resist.c \
 src/bin/e_scale.c \

@@ -735,7 +735,7 @@ struct E_Client
    unsigned int       stolen : 1;
 
    unsigned int       internal : 1;
-   unsigned int       internal_no_remember : 1;
+   unsigned int       internal_no_remember : 1; /* TODO: should be removed */
    unsigned int       internal_no_reopen : 1;
    Eina_Bool          dead : 1;
 
@@ -765,7 +765,7 @@ struct E_Client
    } drag;
 
    E_Client_Move_Intercept_Cb move_intercept_cb;
-   E_Remember                *remember;
+   void                      *remember; /* TODO: should be removed */
 
    unsigned char              comp_hidden   : 1;
 
@@ -1032,6 +1032,8 @@ E_API Eina_Bool e_client_touch_update_send(E_Client *ec, int idx, int x, int y, 
 E_API Eina_Bool e_client_touch_cancel_send(E_Client *ec);
 E_API Eina_Bool e_client_mouse_button_send(E_Client *ec, int buttons, Eina_Bool pressed, Ecore_Device *dev, unsigned int time);
 E_API Eina_Bool e_client_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, unsigned int time);
+
+E_API void e_remember_del(void *rem); /* TODO: should be removed */
 
 /**
  * Move window to coordinates that do not account client decorations yet.

@@ -244,15 +244,6 @@ _e_policy_client_maximize_policy_apply(E_Policy_Client *pc)
 
    _e_policy_client_launcher_set(pc);
 
-   if (ec->remember)
-     {
-        e_remember_del(ec->remember);
-        ec->remember = NULL;
-     }
-
-   /* skip hooks of e_remeber for eval_pre_post_fetch and eval_post_new_client */
-   ec->internal_no_remember = 1;
-
    if (!ec->borderless)
      {
         ec->borderless = 1;
@@ -458,15 +449,6 @@ _e_policy_client_split_policy_apply(E_Policy_Client *pc)
    _SET(lock_user_fullscreen);
    _SET(lock_client_fullscreen);
 #undef _SET
-
-   if (ec->remember)
-     {
-        e_remember_del(ec->remember);
-        ec->remember = NULL;
-     }
-
-   /* skip hooks of e_remeber for eval_pre_post_fetch and eval_post_new_client */
-   ec->internal_no_remember = 1;
 
    if (!ec->borderless)
      {

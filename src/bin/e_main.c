@@ -641,15 +641,6 @@ main(int argc, char **argv)
    TS("E_Module Init Done");
    _e_main_shutdown_push(e_module_shutdown);
 
-   TS("E_Remember Init");
-   if (!e_remember_init())
-     {
-        e_error_message_show(_("Enlightenment cannot setup remember settings.\n"));
-        _e_main_shutdown(-1);
-     }
-   TS("E_Remember Init Done");
-   _e_main_shutdown_push(e_remember_shutdown);
-
    TS("E_Mouse Init");
    if (!e_mouse_update())
      {
@@ -718,7 +709,6 @@ main(int argc, char **argv)
    stopping = EINA_TRUE;
 
    _e_main_desk_save();
-   e_remember_internal_save();
    e_comp_internal_save();
 
    _e_main_shutdown(0);

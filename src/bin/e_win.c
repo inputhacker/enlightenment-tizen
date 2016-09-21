@@ -11,7 +11,6 @@ typedef struct _Elm_Win_Trap_Ctx
    E_Pointer     *pointer;
    Eina_Bool      centered : 1;
    Eina_Bool      placed : 1;
-   Eina_Bool      internal_no_remember : 1;
    Eina_Bool      internal_no_reopen : 1;
    Eina_Bool      visible : 1;
    Eina_Bool      override : 1;
@@ -134,7 +133,6 @@ _e_elm_win_trap_show(void *data, Evas_Object *o)
              eina_stringshare_replace(&ctx->client->icccm.title, title);
           }
         ctx->client->placed = ctx->placed | ctx->centered;
-        ctx->client->internal_no_remember = ctx->internal_no_remember;
         ctx->client->internal_no_reopen = ctx->internal_no_reopen;
         ctx->client->internal_elm_win = o;
         elm_win_autodel_set(o, 1);
@@ -455,9 +453,6 @@ e_win_no_remember_set(Evas_Object *obj, Eina_Bool no_rem)
    Elm_Win_Trap_Ctx *ctx = elm_win_trap_data_get(obj);
 
    EINA_SAFETY_ON_NULL_RETURN(obj);
-   ctx->internal_no_remember = !!no_rem;
-   if (ctx->client)
-     ctx->client->internal_no_remember = !!no_rem;
 }
 
 E_API void

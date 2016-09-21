@@ -762,14 +762,6 @@ _e_client_free(E_Client *ec)
 
    E_FREE_FUNC(ec->map_timer, ecore_timer_del);
 
-   if (ec->remember)
-     {
-        E_Remember *rem;
-
-        rem = ec->remember;
-        ec->remember = NULL;
-        e_remember_unuse(rem);
-     }
    ec->group = eina_list_free(ec->group);
    ec->transients = eina_list_free(ec->transients);
    ec->stick_desks = eina_list_free(ec->stick_desks);
@@ -1704,7 +1696,6 @@ _e_client_cb_evas_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
      _e_client_transform_geometry_save(ec,
                                        (Evas_Map *)evas_object_map_get(ec->frame));
 
-   e_remember_update(ec);
    ec->pre_cb.x = x; ec->pre_cb.y = y;
 
    e_client_visibility_calculate();
@@ -1748,7 +1739,6 @@ _e_client_cb_evas_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_
 
    if (e_client_util_resizing_get(ec) || (ecresize == ec))
      _e_client_hook_call(E_CLIENT_HOOK_RESIZE_UPDATE, ec);
-   e_remember_update(ec);
    ec->pre_cb.w = w; ec->pre_cb.h = h;
 
    e_client_transform_core_update(ec);
@@ -1804,7 +1794,6 @@ _e_client_cb_evas_restack(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA
           }
      }
    if (ec->unredirected_single) return;
-   e_remember_update(ec);
    _e_client_event_simple(ec, E_EVENT_CLIENT_STACK);
 
    e_client_visibility_calculate();
@@ -2015,7 +2004,6 @@ _e_client_aux_hint_eval(E_Client *ec)
 static void
 _e_client_eval(E_Client *ec)
 {
-   int rem_change = 0;
    int send_event = 1;
    unsigned int prop = 0;
 
@@ -2195,9 +2183,7 @@ _e_client_eval(E_Client *ec)
         /* Recreate state */
         if (!ec->override)
           e_hints_window_init(ec);
-        if ((ec->e.state.centered) &&
-            ((!ec->remember) ||
-             ((ec->remember) && (!(ec->remember->apply & E_REMEMBER_APPLY_POS)))))
+        if (ec->e.state.centered)
           {
              ec->x = zx + (zw - ec->w) / 2;
              ec->y = zy + (zh - ec->h) / 2;
@@ -2277,7 +2263,6 @@ _e_client_eval(E_Client *ec)
           //ecore_x_window_raise(ec->win);
         ec->changes.shading = 0;
         send_event = 0;
-        rem_change = 1;
      }
    if (ec->changes.shaded) send_event = 0;
    if ((ec->changes.shaded) && (ec->changes.pos) && (ec->changes.size))
@@ -2287,7 +2272,6 @@ _e_client_eval(E_Client *ec)
         //else
           //ecore_x_window_raise(ec->win);
         ec->changes.shaded = 0;
-        rem_change = 1;
      }
    else if ((ec->changes.shaded) && (ec->changes.pos))
      {
@@ -2297,7 +2281,6 @@ _e_client_eval(E_Client *ec)
           //ecore_x_window_raise(ec->win);
         ec->changes.size = 1;
         ec->changes.shaded = 0;
-        rem_change = 1;
      }
    else if ((ec->changes.shaded) && (ec->changes.size))
      {
@@ -2306,7 +2289,6 @@ _e_client_eval(E_Client *ec)
         //else
           //ecore_x_window_raise(ec->win);
         ec->changes.shaded = 0;
-        rem_change = 1;
      }
    else if (ec->changes.shaded)
      {
@@ -2315,7 +2297,6 @@ _e_client_eval(E_Client *ec)
         //else
           //ecore_x_window_raise(ec->win);
         ec->changes.shaded = 0;
-        rem_change = 1;
      }
 
    if (ec->changes.size)
@@ -2324,21 +2305,18 @@ _e_client_eval(E_Client *ec)
         if ((!ec->shaded) && (!ec->shading))
           evas_object_resize(ec->frame, ec->w, ec->h);
 
-        rem_change = 1;
         prop |= E_CLIENT_PROPERTY_SIZE;
      }
    if (ec->changes.pos)
      {
         ec->changes.pos = 0;
         evas_object_move(ec->frame, ec->x, ec->y);
-        rem_change = 1;
         prop |= E_CLIENT_PROPERTY_POS;
      }
 
    if (ec->changes.reset_gravity)
      {
         ec->changes.reset_gravity = 0;
-        rem_change = 1;
         prop |= E_CLIENT_PROPERTY_GRAVITY;
      }
 
@@ -2395,7 +2373,6 @@ _e_client_eval(E_Client *ec)
                   evas_object_focus_set(ec->frame, 1);
                }
              ec->changes.visible = 0;
-             rem_change = 1;
              _e_client_event_simple(ec, E_EVENT_CLIENT_SHOW);
           }
      }
@@ -2483,10 +2460,7 @@ _e_client_eval(E_Client *ec)
         ec->need_fullscreen = 0;
      }
 
-   if (rem_change)
-     e_remember_update(ec);
-
-   if (send_event && rem_change && prop)
+   if (send_event && prop)
      {
         _e_client_event_property(ec, prop);
      }
@@ -3600,7 +3574,6 @@ e_client_desk_set(E_Client *ec, E_Desk *desk)
           e_client_desk_set(child, ec->desk);
      }
 
-   e_remember_update(ec);
    _e_client_hook_call(E_CLIENT_HOOK_DESK_SET, ec);
    evas_object_smart_callback_call(ec->frame, "desk_change", ec);
 }
@@ -4012,7 +3985,6 @@ e_client_zone_set(E_Client *ec, E_Zone *zone)
 
    ecore_event_add(E_EVENT_CLIENT_ZONE_SET, ev, (Ecore_End_Cb)_e_client_event_zone_set_free, NULL);
 
-   e_remember_update(ec);
    e_client_res_change_geometry_save(ec);
    e_client_res_change_geometry_restore(ec);
    ec->pre_res_change.valid = 0;
@@ -4525,8 +4497,6 @@ e_client_shade(E_Client *ec, E_Direction dir)
    ec->shade_dir = dir;
 
    evas_object_smart_callback_call(ec->frame, "shaded", (uintptr_t*)dir);
-
-   e_remember_update(ec);
 }
 
 E_API void
@@ -4543,8 +4513,6 @@ e_client_unshade(E_Client *ec, E_Direction dir)
    ec->shade_dir = 0;
 
    evas_object_smart_callback_call(ec->frame, "unshaded", (uintptr_t*)dir);
-
-   e_remember_update(ec);
 }
 
 ///////////////////////////////////////
@@ -4607,7 +4575,6 @@ e_client_maximize(E_Client *ec, E_Maximize max)
    else
      e_hints_window_maximized_set(ec, ec->maximized & E_MAXIMIZE_HORIZONTAL,
                                   ec->maximized & E_MAXIMIZE_VERTICAL);
-   e_remember_update(ec);
    evas_object_smart_callback_call(ec->frame, "maximize_done", NULL);
 }
 
@@ -4719,7 +4686,6 @@ e_client_unmaximize(E_Client *ec, E_Maximize max)
         e_hints_window_maximized_set(ec, ec->maximized & E_MAXIMIZE_HORIZONTAL,
                                      ec->maximized & E_MAXIMIZE_VERTICAL);
      }
-   e_remember_update(ec);
    evas_object_smart_callback_call(ec->frame, "unmaximize_done", NULL);
    ec->changes.need_unmaximize = 0;
 }
@@ -4799,8 +4765,6 @@ e_client_fullscreen(E_Client *ec, E_Fullscreen policy)
    evas_object_smart_callback_call(ec->frame, "fullscreen", NULL);
 
    _e_client_event_simple(ec, E_EVENT_CLIENT_FULLSCREEN);
-
-   e_remember_update(ec);
 }
 
 E_API void
@@ -4836,7 +4800,6 @@ e_client_unfullscreen(E_Client *ec)
    e_hints_window_fullscreen_set(ec, 0);
    _e_client_event_simple(ec, E_EVENT_CLIENT_UNFULLSCREEN);
 
-   e_remember_update(ec);
    if (!ec->desk->fullscreen_clients)
      e_comp_render_queue();
 }
@@ -4885,8 +4848,6 @@ e_client_iconify(E_Client *ec)
      }
 
    _e_client_hook_call(E_CLIENT_HOOK_ICONIFY, ec);
-
-   e_remember_update(ec);
 
    if (e_config->use_buffer_flush)
      e_pixmap_buffer_clear(ec->pixmap);
@@ -4947,7 +4908,6 @@ e_client_uniconify(E_Client *ec)
 
    ec->exp_iconify.not_raise = 0;
    ec->exp_iconify.by_client = 0;
-   e_remember_update(ec);
 
    TRACE_DS_END();
 }
@@ -5010,7 +4970,6 @@ e_client_stick(E_Client *ec)
      }
 
    _e_client_event_property(ec, E_CLIENT_PROPERTY_STICKY);
-   e_remember_update(ec);
 }
 
 E_API void
@@ -5045,7 +5004,6 @@ e_client_unstick(E_Client *ec)
    _e_client_event_property(ec, E_CLIENT_PROPERTY_STICKY);
 
    e_client_desk_set(ec, e_desk_current_get(ec->zone));
-   e_remember_update(ec);
 }
 
 E_API void
@@ -6146,4 +6104,12 @@ e_client_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, unsigned
    res = e_comp_wl_mouse_move_send(ec, x, y, dev, time);
 
    return res;
+}
+
+/* TODO: should be removed */
+E_API void
+e_remember_del(void *rem)
+{
+   /* do nothing */
+   return;
 }

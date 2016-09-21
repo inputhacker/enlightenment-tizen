@@ -29,7 +29,6 @@
 #include "e_maximize.h"
 #include "e_grabinput.h"
 #include "e_bg.h"
-#include "e_remember.h"
 #include "e_win.h"
 #include "e_zoomap.h"
 #include "e_dialog.h"
