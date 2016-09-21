@@ -505,12 +505,9 @@ _e_comp_hwc_prepare(void)
              if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
                 goto nextzone;
 
-             // if there is UI or video stream on subfrace, it means need to composite
-             if (cdata && (cdata->sub.below_list || cdata->sub.below_list_pending))
-               {
-                  if (!e_comp_wl_video_client_has(ec))
-                     goto nextzone;
-               }
+             // if there is UI subfrace, it means need to composite
+             if (e_client_normal_client_has(ec))
+                goto nextzone;
 
              // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
              if ((!cdata) ||

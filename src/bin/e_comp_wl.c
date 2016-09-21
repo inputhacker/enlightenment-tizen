@@ -344,24 +344,51 @@ _e_comp_wl_topmost_parent_get(E_Client *ec)
    return ec;
 }
 
-E_API Eina_Bool
-e_comp_wl_video_client_has(E_Client *ec)
+EINTERN Eina_Bool
+e_comp_wl_video_subsurface_has(E_Client *ec)
 {
    E_Client *subc;
    Eina_List *l;
 
    if (!ec) return EINA_FALSE;
+   if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
    if (!ec->comp_data) return EINA_FALSE;
 
    if (ec->comp_data->video_client)
      return EINA_TRUE;
 
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
-     if (e_comp_wl_video_client_has(subc))
+     if (e_comp_wl_video_subsurface_has(subc))
         return EINA_TRUE;
 
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
-     if (e_comp_wl_video_client_has(subc))
+     if (e_comp_wl_video_subsurface_has(subc))
+        return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+EINTERN Eina_Bool
+e_comp_wl_normal_subsurface_has(E_Client *ec)
+{
+   E_Client *subc;
+   Eina_List *l;
+
+   if (!ec) return EINA_FALSE;
+   if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
+   if (!ec->comp_data) return EINA_FALSE;
+
+   /* if a leaf client is not video cliet */
+   if (ec->comp_data->sub.data && !ec->comp_data->sub.below_list &&
+       !ec->comp_data->sub.below_list_pending && !ec->comp_data->video_client)
+     return EINA_TRUE;
+
+   EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
+     if (e_comp_wl_normal_subsurface_has(subc))
+        return EINA_TRUE;
+
+   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
+     if (e_comp_wl_normal_subsurface_has(subc))
         return EINA_TRUE;
 
    return EINA_FALSE;
@@ -3275,9 +3302,33 @@ _e_comp_wl_subsurface_bg_evas_cb_resize(void *data, Evas *evas EINA_UNUSED, Evas
 }
 
 static void
+_e_comp_wl_subsurface_mask_set(E_Client *ec)
+{
+   E_Client *subc;
+   Eina_List *l;
+
+   if (!ec) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (!ec->comp_data) return;
+
+   /* if a leaf client is not video cliet */
+   if (!ec->comp_data->sub.below_list && !ec->comp_data->sub.below_list_pending && ec->comp_data->video_client)
+     if (ec->comp_data->video_client && !e_comp_object_mask_has(ec->frame))
+       {
+          e_comp_object_mask_set(ec->frame, EINA_TRUE);
+          return;
+       }
+
+   EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
+     _e_comp_wl_subsurface_mask_set(subc);
+
+   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
+     _e_comp_wl_subsurface_mask_set(subc);
+}
+
+static void
 _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
 {
-   Eina_Bool has_video_client;
    short layer;
 
    if (!ec || e_object_is_del(E_OBJECT(ec)) || !ec->comp_data) return;
@@ -3293,11 +3344,9 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
      }
    if (!ec->comp_data->sub.below_list && !ec->comp_data->sub.below_list_pending) return;
    if (ec->argb) return;
+   if (!e_comp_wl_normal_subsurface_has(ec)) return;
 
-   has_video_client = e_comp_wl_video_client_has(ec);
-   if (has_video_client) return;
-
-   ELOGF("COMP", "         |bg_rectangle|video_client:%d", NULL, ec, has_video_client);
+   ELOGF("COMP", "         |bg_rectangle", NULL, ec);
 
    /* create a bg rectangle if topmost window is 24 depth window */
    ec->comp_data->sub.below_obj = evas_object_rectangle_add(e_comp->evas);
@@ -3322,6 +3371,8 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
 
    if (evas_object_visible_get(ec->frame))
      evas_object_show(ec->comp_data->sub.below_obj);
+
+   _e_comp_wl_subsurface_mask_set(ec);
 }
 
 static void

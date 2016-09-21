@@ -6075,6 +6075,18 @@ e_client_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, unsigned
    return res;
 }
 
+E_API Eina_Bool
+e_client_video_client_has(E_Client *ec)
+{
+   return e_comp_wl_video_subsurface_has(ec);
+}
+
+E_API Eina_Bool
+e_client_normal_client_has(E_Client *ec)
+{
+   return e_comp_wl_normal_subsurface_has(ec);
+}
+
 /* TODO: should be removed */
 E_API void
 e_remember_del(void *rem)

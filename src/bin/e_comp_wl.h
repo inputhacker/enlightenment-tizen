@@ -521,7 +521,9 @@ E_API void e_comp_wl_hook_del(E_Comp_Wl_Hook *ch);
 
 E_API void e_comp_wl_shell_surface_ready(E_Client *ec);
 
-E_API Eina_Bool e_comp_wl_video_client_has(E_Client *ec);
+EINTERN Eina_Bool e_comp_wl_video_subsurface_has(E_Client *ec);
+EINTERN Eina_Bool e_comp_wl_normal_subsurface_has(E_Client *ec);
+
 E_API void e_comp_wl_map_size_cal_from_buffer(E_Client *ec);
 E_API void e_comp_wl_map_size_cal_from_viewport(E_Client *ec);
 E_API void e_comp_wl_map_apply(E_Client *ec);
