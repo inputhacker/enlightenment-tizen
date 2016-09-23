@@ -1175,7 +1175,8 @@ _quickpanel_cb_client_stack(void *data, int type, void *event)
    DBG("Stacking Client '%s'(%p)",
        ev->ec->icccm.name ? ev->ec->icccm.name : "", ev->ec);
 
-   _quickpanel_below_change_eval(data, event);
+   if (evas_object_visible_get(ev->ec->frame))
+     _quickpanel_below_change_eval(data, event);
 end:
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -1183,7 +1184,23 @@ end:
 static Eina_Bool
 _quickpanel_cb_client_remove(void *data, int type, void *event)
 {
+   E_Policy_Quickpanel *qp;
+   E_Event_Client *ev;
+
+   qp = data;
+   EINA_SAFETY_ON_NULL_GOTO(qp, end);
+
+   ev = event;
+   EINA_SAFETY_ON_NULL_GOTO(ev, end);
+
+   if (qp->stacking == ev->ec)
+     qp->stacking = NULL;
+
+   if (qp->below == ev->ec)
+     qp->below = NULL;
+
    _quickpanel_below_change_eval(data, event);
+end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
@@ -1250,7 +1267,6 @@ _quickpanel_idle_enter(void *data)
              _e_qp_client_scrollable_update();
           }
 
-        qp->stacking = NULL;
         qp->changes.below = EINA_FALSE;
      }
 
