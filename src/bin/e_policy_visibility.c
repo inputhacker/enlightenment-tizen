@@ -969,6 +969,12 @@ _e_vis_ec_below_uniconify(E_Client *ec)
 {
    E_Vis_Client *below;
 
+   if (ec && ec->zone)
+     {
+        if (ec->zone->display_state == E_ZONE_DISPLAY_STATE_OFF)
+          return EINA_FALSE;
+     }
+
    /* find below activity client */
    below = _e_vis_ec_below_activity_client_get(ec);
 
