@@ -46,4 +46,8 @@ EINTERN void e_tzsh_indicator_srv_ower_win_update(E_Zone *zone);
 /* indicator */
 void         e_policy_wl_indicator_flick_send(E_Client *ec);
 
+/* cbhm */
+EINTERN void e_policy_wl_clipboard_data_selected_send(E_Client *ec);
+
+
 #endif /* E_MOD_WL_H */

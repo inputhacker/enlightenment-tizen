@@ -4,7 +4,6 @@
 #include "e_policy_conformant.h"
 
 typedef struct _E_Policy_Cbhm E_Policy_Cbhm;
-typedef struct _E_CBHM_Client E_CBHM_Client;
 
 struct _E_Policy_Cbhm
 {
@@ -13,16 +12,9 @@ struct _E_Policy_Cbhm
    Eina_Bool show_block;
    Eina_List *hooks;
    Eina_List *intercept_hooks;
-   Eina_List *clients; /* list of E_CBHM_Client */
-};
-
-struct _E_CBHM_Client
-{
-   E_Client *ec;
 };
 
 static E_Policy_Cbhm *_pol_cbhm = NULL;
-static E_CBHM_Client * _e_cbhm_client_ec_get(E_Client *ec);
 
 static E_Policy_Cbhm *
 _cbhm_get()
@@ -33,7 +25,6 @@ _cbhm_get()
 static void
 _cbhm_free(E_Policy_Cbhm *cbhm)
 {
-   E_FREE_LIST(cbhm->clients, free);
    E_FREE_LIST(cbhm->hooks, e_client_hook_del);
    E_FREE_LIST(cbhm->intercept_hooks, e_client_hook_del);
    E_FREE(_pol_cbhm);
@@ -153,24 +144,6 @@ _e_cbhm_vis_change(E_Policy_Cbhm *cbhm, Eina_Bool vis)
    EC_CHANGED(ec);
 }
 
-static E_CBHM_Client *
-_e_cbhm_client_ec_get(E_Client *ec)
-{
-   E_Policy_Cbhm *cbhm = _cbhm_get();
-   E_CBHM_Client *cbhm_client = NULL;
-   Eina_List *l;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(cbhm, cbhm_client);
-
-   EINA_LIST_FOREACH(cbhm->clients, l, cbhm_client)
-     {
-        if (cbhm_client->ec == ec)
-          return cbhm_client;
-     }
-
-   return cbhm_client;
-}
-
 #undef E_CLIENT_HOOK_APPEND
 #define E_CLIENT_HOOK_APPEND(l, t, cb, d) \
   do                                      \
@@ -275,46 +248,7 @@ e_service_cbhm_hide(void)
 }
 
 EINTERN void
-e_cbhm_client_add(E_Client *ec)
-{
-   E_Policy_Cbhm *cbhm;
-   E_CBHM_Client *cbhm_client;
-
-   cbhm = _cbhm_get();
-   EINA_SAFETY_ON_NULL_RETURN(cbhm);
-   EINA_SAFETY_ON_NULL_RETURN(cbhm->ec);
-   EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(cbhm->ec)));
-   EINA_SAFETY_ON_NULL_RETURN(ec);
-   EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(ec)));
-
-   cbhm_client = E_NEW(E_CBHM_Client, 1);
-   cbhm_client->ec = ec;
-
-   cbhm->clients = eina_list_append(cbhm->clients, cbhm_client);
-}
-
-EINTERN void
-e_cbhm_client_del(E_Client *ec)
-{
-   E_Policy_Cbhm *cbhm;
-   E_CBHM_Client *cbhm_client;
-
-   cbhm = _cbhm_get();
-   EINA_SAFETY_ON_NULL_RETURN(cbhm);
-   EINA_SAFETY_ON_NULL_RETURN(ec);
-
-   e_cbhm_client_transient_for_set(ec, EINA_FALSE);
-
-   cbhm_client = _e_cbhm_client_ec_get(ec);
-   EINA_SAFETY_ON_NULL_RETURN(cbhm_client);
-
-   cbhm->clients = eina_list_remove(cbhm->clients, cbhm_client);
-
-   E_FREE(cbhm_client);
-}
-
-EINTERN void
-e_cbhm_client_transient_for_set(E_Client *ec, Eina_Bool set)
+e_service_cbhm_data_selected(void)
 {
    E_Policy_Cbhm *cbhm;
 
@@ -322,48 +256,28 @@ e_cbhm_client_transient_for_set(E_Client *ec, Eina_Bool set)
    EINA_SAFETY_ON_NULL_RETURN(cbhm);
    EINA_SAFETY_ON_NULL_RETURN(cbhm->ec);
    EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(cbhm->ec)));
+
+   if (cbhm->ec->parent)
+     e_policy_wl_clipboard_data_selected_send(cbhm->ec->parent);
+}
+
+EINTERN void
+e_service_cbhm_parent_set(E_Client *parent, Eina_Bool set)
+{
+   E_Policy_Cbhm *cbhm;
+
+   cbhm = _cbhm_get();
+   EINA_SAFETY_ON_NULL_RETURN(cbhm);
+   EINA_SAFETY_ON_NULL_RETURN(cbhm->ec);
+   EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(cbhm->ec)));
+   EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(parent)));
 
    if (set)
      {
-        e_policy_stack_transient_for_set(cbhm->ec, ec);
+        e_policy_stack_transient_for_set(cbhm->ec, parent);
      }
-   else if (cbhm->ec->parent == ec)
+   else if (cbhm->ec->parent == parent)
      {
         e_policy_stack_transient_for_set(cbhm->ec, NULL);
      }
 }
-
-EINTERN void
-e_cbhm_client_show(E_Client *ec)
-{
-   E_Policy_Cbhm *cbhm;
-   E_CBHM_Client *cbhm_client;
-
-   cbhm = _cbhm_get();
-   EINA_SAFETY_ON_NULL_RETURN(cbhm);
-   EINA_SAFETY_ON_NULL_RETURN(cbhm->ec);
-   EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(cbhm->ec)));
-
-   cbhm_client = _e_cbhm_client_ec_get(ec);
-   EINA_SAFETY_ON_NULL_RETURN(cbhm_client);
-
-   _e_cbhm_vis_change(cbhm, EINA_TRUE);
-}
-
-EINTERN void
-e_cbhm_client_hide(E_Client *ec)
-{
-   E_Policy_Cbhm *cbhm;
-   E_CBHM_Client *cbhm_client;
-
-   cbhm = _cbhm_get();
-   EINA_SAFETY_ON_NULL_RETURN(cbhm);
-   EINA_SAFETY_ON_NULL_RETURN(cbhm->ec);
-   EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(cbhm->ec)));
-
-   cbhm_client = _e_cbhm_client_ec_get(ec);
-   EINA_SAFETY_ON_NULL_RETURN(cbhm_client);
-
-   _e_cbhm_vis_change(cbhm, EINA_FALSE);
-}
-

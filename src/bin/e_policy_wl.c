@@ -82,7 +82,6 @@ typedef struct _E_Policy_Wl_Tzsh_Client
    E_Policy_Wl_Tzsh        *tzsh;
    struct wl_resource *res_tzsh_client;
    Eina_Bool           qp_client;
-   Eina_Bool           cbhm_client;
 } E_Policy_Wl_Tzsh_Client;
 
 typedef struct _E_Policy_Wl_Tzsh_Region
@@ -148,6 +147,12 @@ typedef struct _E_Policy_Wl_Tz_Indicator
    Eina_List          *ec_list;
 } E_Policy_Wl_Tz_Indicator;
 
+typedef struct _E_Policy_Wl_Tz_Clipboard
+{
+   struct wl_resource *res_tz_clipboard;
+   Eina_List *ec_list;
+} E_Policy_Wl_Tz_Clipboard;
+
 typedef enum _E_Launch_Img_File_type
 {
    E_LAUNCH_FILE_TYPE_ERROR = -1,
@@ -170,6 +175,7 @@ typedef struct _E_Policy_Wl
    E_Policy_Wl_Tzsh_Srv *srvs[TZSH_SRV_ROLE_MAX]; /* list of registered E_Policy_Wl_Tzsh_Srv */
    Eina_List       *tvsrv_bind_list;         /* list of activated E_Policy_Wl_Tzsh_Client */
    Eina_List       *tz_indicators;
+   Eina_List       *tz_clipboards;           /* list of E_Policy_Wl_Tz_Clipboard */
 
    /* tizen_launchscreen_interface */
    Eina_List       *tzlaunchs;                   /* list of E_Policy_Wl_Tzlaunch */
@@ -744,8 +750,6 @@ _e_policy_wl_tzsh_client_del(E_Policy_Wl_Tzsh_Client *tzsh_client)
      {
         if (tzsh_client->qp_client)
           e_qp_client_del(tzsh_client->tzsh->ec);
-        else if (tzsh_client->cbhm_client)
-          e_cbhm_client_del(tzsh_client->tzsh->ec);
      }
 
    memset(tzsh_client, 0x0, sizeof(E_Policy_Wl_Tzsh_Client));
@@ -3209,6 +3213,9 @@ _tzsh_srv_cbhm_cb_msg(struct wl_client *client EINA_UNUSED, struct wl_resource *
       case TWS_SERVICE_CBHM_MSG_HIDE:
          e_service_cbhm_hide();
          break;
+      case TWS_SERVICE_CBHM_MSG_DATA_SELECTED:
+         e_service_cbhm_data_selected();
+         break;
       default:
          ERR("Unknown message!! msg %d", msg);
          break;
@@ -4103,146 +4110,6 @@ _tzsh_iface_cb_tvsrv_get(struct wl_client *client, struct wl_resource *res_tzsh,
 }
 
 // --------------------------------------------------------
-// tizen_ws_shell_interface::cbhm
-// --------------------------------------------------------
-static void
-_tzsh_cbhm_iface_cb_release(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzsh_cbhm)
-{
-   wl_resource_destroy(res_tzsh_cbhm);
-}
-
-static void
-_tzsh_cbhm_iface_cb_show(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzsh_cbhm)
-{
-   E_Policy_Wl_Tzsh_Client *tzsh_client;
-   E_Client *ec;
-
-   tzsh_client = wl_resource_get_user_data(res_tzsh_cbhm);
-   EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
-   EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh);
-   EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh->ec);
-
-   ec = tzsh_client->tzsh->ec;
-
-   if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
-     return;
-
-   e_cbhm_client_transient_for_set(ec, EINA_TRUE);
-   e_cbhm_client_show(ec);
-}
-
-static void
-_tzsh_cbhm_iface_cb_hide(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzsh_cbhm)
-{
-   E_Policy_Wl_Tzsh_Client *tzsh_client;
-   E_Client *ec;
-
-   tzsh_client = wl_resource_get_user_data(res_tzsh_cbhm);
-   EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
-   EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh);
-   EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh->ec);
-
-   ec = tzsh_client->tzsh->ec;
-
-   if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
-     return;
-
-   e_cbhm_client_transient_for_set(ec, EINA_FALSE);
-   e_cbhm_client_hide(ec);
-}
-
-static const struct tws_cbhm_interface _tzsh_cbhm_iface =
-{
-   _tzsh_cbhm_iface_cb_release,
-   _tzsh_cbhm_iface_cb_show,
-   _tzsh_cbhm_iface_cb_hide,
-};
-
-static void
-_tzsh_cb_cbhm_destroy(struct wl_resource *res_tzsh_cbhm)
-{
-   E_Policy_Wl_Tzsh_Client *tzsh_client;
-
-   tzsh_client = wl_resource_get_user_data(res_tzsh_cbhm);
-   EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
-
-   _e_policy_wl_tzsh_client_del(tzsh_client);
-}
-
-static void
-_tzsh_iface_cb_cbhm_get(struct wl_client *client, struct wl_resource *res_tzsh, uint32_t id, uint32_t surf_id)
-{
-   E_Policy_Wl_Tzsh *tzsh;
-   E_Policy_Wl_Tzsh_Client *tzsh_client;
-   struct wl_resource *res_tzsh_cbhm;
-   E_Pixmap *cp;
-   E_Client *ec;
-
-   tzsh = wl_resource_get_user_data(res_tzsh);
-   if (!tzsh)
-     {
-        wl_resource_post_error
-          (res_tzsh,
-           WL_DISPLAY_ERROR_INVALID_OBJECT,
-           "Invalid res_tzsh's user data");
-        return;
-     }
-
-   cp = _e_policy_wl_e_pixmap_get_from_id(client, surf_id);
-   if (!cp)
-     {
-        wl_resource_post_error
-          (res_tzsh,
-           WL_DISPLAY_ERROR_INVALID_OBJECT,
-           "Invalid surface id");
-        return;
-     }
-
-   ec = e_pixmap_client_get(cp);
-   if (ec)
-     {
-        if (!_e_policy_wl_e_client_is_valid(ec))
-          {
-             wl_resource_post_error
-               (res_tzsh,
-                WL_DISPLAY_ERROR_INVALID_OBJECT,
-                "Invalid surface id");
-             return;
-          }
-     }
-
-   res_tzsh_cbhm = wl_resource_create(client,
-                                      &tws_cbhm_interface,
-                                      wl_resource_get_version(res_tzsh),
-                                      id);
-   if (!res_tzsh_cbhm)
-     {
-        ERR("Could not create tws_cbhm resource: %m");
-        wl_client_post_no_memory(client);
-        return;
-     }
-
-   _e_policy_wl_tzsh_data_set(tzsh, TZSH_TYPE_CLIENT, cp, ec);
-
-   tzsh_client = _e_policy_wl_tzsh_client_add(tzsh, res_tzsh_cbhm);
-   if (!tzsh_client)
-     {
-        ERR("Could not create tzsh_client");
-        wl_client_post_no_memory(client);
-        wl_resource_destroy(res_tzsh_cbhm);
-        return;
-     }
-
-   tzsh_client->cbhm_client = EINA_TRUE;
-   e_cbhm_client_add(tzsh->ec);
-
-   wl_resource_set_implementation(res_tzsh_cbhm,
-                                  &_tzsh_cbhm_iface,
-                                  tzsh_client,
-                                  _tzsh_cb_cbhm_destroy);
-}
-
-// --------------------------------------------------------
 // tizen_ws_shell_interface
 // --------------------------------------------------------
 static void
@@ -4258,7 +4125,6 @@ static const struct tizen_ws_shell_interface _tzsh_iface =
    _tzsh_iface_cb_reg_create,
    _tzsh_iface_cb_qp_get,
    _tzsh_iface_cb_tvsrv_get,
-   _tzsh_iface_cb_cbhm_get,
 };
 
 static void
@@ -5045,6 +4911,176 @@ e_policy_wl_indicator_flick_send(E_Client *ec)
    tizen_indicator_send_flick(tz_indicator->res_tz_indicator, surf, 0);
 }
 
+
+// --------------------------------------------------------
+// E_Policy_Wl_Tz_Clipboard
+// --------------------------------------------------------
+static E_Policy_Wl_Tz_Clipboard *
+_e_policy_wl_tz_clipboard_add(struct wl_resource *res_tz_clipboard)
+{
+   E_Policy_Wl_Tz_Clipboard *tz_clipboard;
+
+   tz_clipboard = E_NEW(E_Policy_Wl_Tz_Clipboard, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tz_clipboard, NULL);
+
+   tz_clipboard->res_tz_clipboard = res_tz_clipboard;
+   polwl->tz_clipboards = eina_list_append(polwl->tz_clipboards, tz_clipboard);
+
+   return tz_clipboard;
+}
+
+static void
+_e_policy_wl_tz_clipboard_del(E_Policy_Wl_Tz_Clipboard *tz_clipboard)
+{
+   EINA_SAFETY_ON_NULL_RETURN(tz_clipboard);
+
+   polwl->tz_clipboards = eina_list_remove(polwl->tz_clipboards, tz_clipboard);
+   E_FREE(tz_clipboard);
+}
+
+static E_Policy_Wl_Tz_Clipboard *
+_e_policy_wl_tz_clipboard_get_from_client(E_Client *ec)
+{
+   Eina_List *l;
+   E_Policy_Wl_Tz_Clipboard *tz_clipboard;
+
+   EINA_LIST_FOREACH(polwl->tz_clipboards, l, tz_clipboard)
+     {
+        if (eina_list_data_find(tz_clipboard->ec_list, ec))
+          return tz_clipboard;
+     }
+
+   return NULL;
+}
+
+static Eina_Bool
+_e_policy_wl_tz_clipboard_set_client(struct wl_resource *res_tz_clipboard, E_Client *ec)
+{
+   E_Policy_Wl_Tz_Clipboard *tz_clipboard = NULL;
+
+   tz_clipboard = wl_resource_get_user_data(res_tz_clipboard);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tz_clipboard, EINA_FALSE);
+
+   if (!eina_list_data_find(tz_clipboard->ec_list, ec))
+     {
+        tz_clipboard->ec_list = eina_list_append(tz_clipboard->ec_list, ec);
+     }
+   return EINA_TRUE;
+}
+
+static void
+_e_policy_wl_tz_clipboard_unset_client(E_Client *ec)
+{
+   Eina_List *l;
+   E_Policy_Wl_Tz_Clipboard *tz_clipboard = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   EINA_LIST_FOREACH(polwl->tz_clipboards, l, tz_clipboard)
+     {
+        if (eina_list_data_find(tz_clipboard->ec_list, ec))
+          {
+             tz_clipboard->ec_list = eina_list_remove(tz_clipboard->ec_list, ec);
+          }
+     }
+}
+
+// --------------------------------------------------------
+// tizen_clipboard_interface
+// --------------------------------------------------------
+static void
+_tz_clipboard_cb_destroy(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tz_clipboard)
+{
+   wl_resource_destroy(res_tz_clipboard);
+}
+
+static void
+_tz_clipboard_cb_show(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tz_clipboard, struct wl_resource *surf)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(surf);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+   EINA_SAFETY_ON_NULL_RETURN(ec->frame);
+
+   _e_policy_wl_tz_clipboard_set_client(res_tz_clipboard, ec);
+   e_service_cbhm_parent_set(ec, EINA_TRUE);
+   e_service_cbhm_show();
+}
+
+static void
+_tz_clipboard_cb_hide(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tz_clipboard, struct wl_resource *surf)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(surf);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+   EINA_SAFETY_ON_NULL_RETURN(ec->frame);
+
+   e_service_cbhm_parent_set(ec, EINA_FALSE);
+   e_service_cbhm_hide();
+}
+
+static const struct tizen_clipboard_interface _tz_clipboard_iface =
+{
+   _tz_clipboard_cb_destroy,
+   _tz_clipboard_cb_show,
+   _tz_clipboard_cb_hide,
+};
+
+static void
+_tz_clipboard_cb_unbind(struct wl_resource *res_tz_clipboard)
+{
+   E_Policy_Wl_Tz_Clipboard *tz_clipboard;
+
+   tz_clipboard = wl_resource_get_user_data(res_tz_clipboard);
+   EINA_SAFETY_ON_NULL_RETURN(tz_clipboard);
+
+   _e_policy_wl_tz_clipboard_del(tz_clipboard);
+}
+
+static void
+_tz_clipboard_cb_bind(struct wl_client *client, void *data EINA_UNUSED, uint32_t ver, uint32_t id)
+{
+   E_Policy_Wl_Tz_Clipboard *tz_clipboard_pol;
+   struct wl_resource *res_tz_clipboard;
+
+   EINA_SAFETY_ON_NULL_GOTO(polwl, err);
+
+   res_tz_clipboard = wl_resource_create(client,
+                                         &tizen_clipboard_interface,
+                                         ver,
+                                         id);
+   EINA_SAFETY_ON_NULL_GOTO(res_tz_clipboard, err);
+
+   tz_clipboard_pol = _e_policy_wl_tz_clipboard_add(res_tz_clipboard);
+   EINA_SAFETY_ON_NULL_GOTO(tz_clipboard_pol, err);
+
+   wl_resource_set_implementation(res_tz_clipboard,
+                                  &_tz_clipboard_iface,
+                                  tz_clipboard_pol,
+                                  _tz_clipboard_cb_unbind);
+   return;
+
+err:
+   ERR("Could not create tizen_clipboard_interface res: %m");
+   wl_client_post_no_memory(client);
+}
+
+EINTERN void
+e_policy_wl_clipboard_data_selected_send(E_Client *ec)
+{
+   E_Policy_Wl_Tz_Clipboard *tz_clipboard;
+
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   tz_clipboard = _e_policy_wl_tz_clipboard_get_from_client(ec);
+   EINA_SAFETY_ON_NULL_RETURN(tz_clipboard);
+
+   tizen_clipboard_send_data_selected(tz_clipboard->res_tz_clipboard,
+                                      ec->comp_data? ec->comp_data->surface : NULL);
+}
+
 static void
 _e_policy_wl_cb_hook_shell_surface_ready(void *d, E_Client *ec)
 {
@@ -5091,6 +5127,7 @@ e_policy_wl_client_del(E_Client *ec)
    _e_policy_wl_tzsh_client_unset(ec);
    _e_policy_wl_dpy_surf_del(ec);
    _e_policy_wl_tz_indicator_unset_client(ec);
+   _e_policy_wl_tz_clipboard_unset_client(ec);
 
    polwl->pending_vis = eina_list_remove(polwl->pending_vis, ec);
 }
@@ -5257,6 +5294,14 @@ e_policy_wl_init(void)
                              1,
                              NULL,
                              _tz_indicator_cb_bind);
+   EINA_SAFETY_ON_NULL_GOTO(global, err);
+   polwl->globals = eina_list_append(polwl->globals, global);
+
+   global = wl_global_create(e_comp_wl->wl.disp,
+                             &tizen_clipboard_interface,
+                             1,
+                             NULL,
+                             _tz_clipboard_cb_bind);
    EINA_SAFETY_ON_NULL_GOTO(global, err);
    polwl->globals = eina_list_append(polwl->globals, global);
 

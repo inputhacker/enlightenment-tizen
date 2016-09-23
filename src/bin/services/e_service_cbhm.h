@@ -7,11 +7,6 @@ EINTERN void          e_service_cbhm_client_set(E_Client *ec);
 EINTERN E_Client     *e_service_cbhm_client_get(void);
 EINTERN void          e_service_cbhm_show(void);
 EINTERN void          e_service_cbhm_hide(void);
-
-EINTERN void         e_cbhm_client_add(E_Client *ec);
-EINTERN void         e_cbhm_client_del(E_Client *ec);
-EINTERN void         e_cbhm_client_transient_for_set(E_Client *ec, Eina_Bool set);
-EINTERN void         e_cbhm_client_show(E_Client *ec);
-EINTERN void         e_cbhm_client_hide(E_Client *ec);
-
+EINTERN void          e_service_cbhm_data_selected(void);
+EINTERN void          e_service_cbhm_parent_set(E_Client *parent, Eina_Bool set);
 #endif
