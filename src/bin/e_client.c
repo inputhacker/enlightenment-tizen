@@ -5277,15 +5277,6 @@ e_client_ping(E_Client *ec)
                                       _e_client_cb_ping_poller, ec);
 }
 
-////////////////////////////////////////////
-E_API void
-e_client_cursor_map_apply(E_Client *ec, int rotation, int x, int y)
-{
-   // TODO: repace the e_client_cursor_map_apply to e_pointer_rotation_set
-   //       remove(deprecate) the e_client_cursor_map_apply.
-   e_pointer_rotation_set(e_comp->pointer, rotation);
-}
-
 E_API void
 e_client_move_cancel(void)
 {

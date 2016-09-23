@@ -1,4 +1,5 @@
 #include "e.h"
+#include <Ecore_Drm.h>
 
 /* local variables */
 static Eina_List *_ptrs = NULL;
@@ -47,9 +48,6 @@ _e_pointer_rotation_apply(E_Pointer *ptr)
    int32_t width, height;
    int cursor_w, cursor_h;
    uint32_t transform;
-   int rot_x, rot_y, x, y;
-   int zone_w, zone_h;
-   double awh, ahw;
    E_Client *ec;
    int rotation;
 
@@ -59,8 +57,6 @@ _e_pointer_rotation_apply(E_Pointer *ptr)
    ec = e_comp_object_client_get(ptr->o_ptr);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   x = ptr->x;
-   y = ptr->y;
    rotation = ptr->rotation;
 
    evas_object_geometry_get(ec->frame, NULL, NULL, &cursor_w, &cursor_h);
@@ -69,37 +65,23 @@ _e_pointer_rotation_apply(E_Pointer *ptr)
      {
         evas_object_map_set(ec->frame, NULL);
         evas_object_map_enable_set(ec->frame, EINA_FALSE);
-        _e_pointer_position_update(ptr);
         return;
      }
 
-   zone_w = ec->zone->w;
-   zone_h = ec->zone->h;
-   awh = ((double)zone_w / (double)zone_h);
-   ahw = ((double)zone_h / (double)zone_w);
-
-   rot_x = x;
-   rot_y = y;
    width = cursor_w;
    height = cursor_h;
 
    switch(rotation)
      {
       case 90:
-         rot_x = y * awh;
-         rot_y = ahw * (zone_w - x);
          transform = WL_OUTPUT_TRANSFORM_90;
          width = cursor_h;
          height = cursor_w;
          break;
       case 180:
-         rot_x = zone_w - x;
-         rot_y = zone_h - y;
          transform = WL_OUTPUT_TRANSFORM_180;
          break;
       case 270:
-         rot_x = awh * (zone_h - y);
-         rot_y = ahw * x;
          transform = WL_OUTPUT_TRANSFORM_270;
          width = cursor_h;
          height = cursor_w;
@@ -107,14 +89,6 @@ _e_pointer_rotation_apply(E_Pointer *ptr)
       default:
          transform = WL_OUTPUT_TRANSFORM_NORMAL;
          break;
-     }
-
-   if (ptr->device == E_POINTER_MOUSE)
-     {
-        ec->client.x = rot_x, ec->client.y = rot_y;
-        ec->x = rot_x, ec->y = rot_y;
-        ptr->x = rot_x;
-        ptr->y = rot_y;
      }
 
    map = evas_map_new(4);
@@ -320,10 +294,16 @@ e_pointer_is_hidden(E_Pointer *ptr)
 E_API void
 e_pointer_rotation_set(E_Pointer *ptr, int rotation)
 {
+   const Eina_List *l;
+   Ecore_Drm_Device *dev;
+
    ptr->rotation = rotation;
 
    _e_pointer_rotation_apply(ptr);
    _e_pointer_position_update(ptr);
+
+   EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
+     ecore_drm_device_pointer_rotation_set(dev, rotation);
 }
 
 E_API void

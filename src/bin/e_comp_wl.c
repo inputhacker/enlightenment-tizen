@@ -1606,6 +1606,9 @@ _e_comp_wl_evas_cb_focus_in(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj
    ec->comp_data->on_focus_timer =
       ecore_timer_add(((e_config->xkb.delay_held_key_input_to_focus)/1000.0),
                       (Ecore_Task_Cb)_e_comp_wl_evas_cb_focus_in_timer, ec);
+   int rotation = ec->e.state.rot.ang.curr;
+   if (e_comp->pointer->rotation != rotation)
+     e_pointer_rotation_set(e_comp->pointer, rotation);
 }
 
 static void
@@ -2034,6 +2037,22 @@ _e_comp_wl_cb_zone_display_state_change(void *d EINA_UNUSED, int t EINA_UNUSED, 
 
     return ECORE_CALLBACK_PASS_ON;
  }
+
+static Eina_Bool
+_e_comp_wl_cb_client_rot_change_end(void *d EINA_UNUSED, int t EINA_UNUSED, E_Event_Client_Rotation_Change_End *ev EINA_UNUSED)
+{
+   E_Client *focused_ec;
+   int rotation;
+
+   focused_ec = e_client_focused_get();
+   if (!focused_ec) return ECORE_CALLBACK_PASS_ON;
+
+   rotation = focused_ec->e.state.rot.ang.curr;
+   if (e_comp->pointer->rotation != rotation)
+     e_pointer_rotation_set(e_comp->pointer, rotation);
+
+   return ECORE_CALLBACK_PASS_ON;
+}
 
 static void
 _e_comp_wl_subsurface_restack(E_Client *ec)
@@ -4703,6 +4722,7 @@ e_comp_wl_init(void)
    E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_MOUSE_MOVE,          _e_comp_wl_cb_mouse_move,          NULL);
    E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_MOUSE_BUTTON_CANCEL, _e_comp_wl_cb_mouse_button_cancel, NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_ZONE_DISPLAY_STATE_CHANGE, _e_comp_wl_cb_zone_display_state_change, NULL);
+   E_LIST_HANDLER_APPEND(handlers, E_EVENT_CLIENT_ROTATION_CHANGE_END, _e_comp_wl_cb_client_rot_change_end, NULL);
 
    /* add hooks to catch e_client events */
    e_client_hook_add(E_CLIENT_HOOK_NEW_CLIENT,   _e_comp_wl_client_cb_new,          NULL);
