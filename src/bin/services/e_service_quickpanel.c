@@ -724,7 +724,8 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
    if (e_object_is_del(E_OBJECT(qp->ec)))
      return;
 
-   if (_quickpanel_send_gesture_to_indicator())
+   if ((handler == qp->indi_obj) &&
+       (_quickpanel_send_gesture_to_indicator()))
      return;
 
    /* cancel touch events sended up to now */
