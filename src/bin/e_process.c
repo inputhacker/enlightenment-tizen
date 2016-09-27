@@ -329,7 +329,7 @@ _e_process_freeze_condition_check(pid_t pid)
 
    EINA_LIST_FOREACH(pinfo->ec_list, l, ec)
      {
-        if (!ec->iconic)
+        if (ec->visible && !ec->iconic)
           {
              freeze = EINA_FALSE;
              break;
