@@ -97,6 +97,7 @@ _e_plane_renderer_client_copied_surface_create(E_Client *ec, Eina_Bool refresh)
    E_Comp_Wl_Buffer *buffer = NULL;
    tbm_surface_info_s src_info, dst_info;
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
+   int ret = TBM_SURFACE_ERROR_NONE;
 
    pixmap = ec->pixmap;
 
@@ -109,14 +110,26 @@ _e_plane_renderer_client_copied_surface_create(E_Client *ec, Eina_Bool refresh)
    tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
    EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, NULL);
 
-   tbm_surface_map(tsurface, TBM_SURF_OPTION_READ, &src_info);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(src_info.planes[0].ptr, NULL);
+   ret = tbm_surface_map(tsurface, TBM_SURF_OPTION_READ, &src_info);
+   if (ret != TBM_SURFACE_ERROR_NONE)
+     {
+        ERR("fail to map the tsurface.");
+        return NULL;
+     }
 
    new_tsurface = tbm_surface_create(src_info.width, src_info.height, src_info.format);
-
-   tbm_surface_map(new_tsurface, TBM_SURF_OPTION_WRITE, &dst_info);
-   if (!dst_info.planes[0].ptr)
+   if (!new_tsurface)
      {
+        ERR("fail to allocate the new_tsurface.");
+        tbm_surface_unmap(tsurface);
+        return NULL;
+     }
+
+   ret = tbm_surface_map(new_tsurface, TBM_SURF_OPTION_WRITE, &dst_info);
+   if (ret != TBM_SURFACE_ERROR_NONE)
+     {
+        ERR("fail to map the new_tsurface.");
+        tbm_surface_destroy(new_surface);
         tbm_surface_unmap(tsurface);
         return NULL;
      }
