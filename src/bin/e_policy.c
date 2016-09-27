@@ -1059,6 +1059,58 @@ _e_policy_cb_client_resize(void *data EINA_UNUSED, int type EINA_UNUSED, void *e
    return ECORE_CALLBACK_PASS_ON;
 }
 
+static void
+_e_policy_client_stack_change_send(E_Client *ec)
+{
+   E_Client *above = NULL;
+   E_Client *below = NULL;
+   int above_pid = -1;
+   int below_pid = -1;
+   char above_pid_s[4096] = {0,};
+   char below_pid_s[4096] = {0,};
+
+   above = e_client_above_get(ec);
+   while (above)
+     {
+        if ((!e_object_is_del(E_OBJECT(above))) &&
+            (!e_client_util_ignored_get(above)) &&
+            (above->visible) &&
+            (above->frame))
+          break;
+
+        above = e_client_above_get(above);
+     }
+
+   below = e_client_below_get(ec);
+   while (below)
+     {
+        if ((!e_object_is_del(E_OBJECT(below))) &&
+            (!e_client_util_ignored_get(below)) &&
+            (below->visible) &&
+            (below->frame))
+          break;
+
+        below = e_client_below_get(below);
+     }
+
+   if (above) above_pid = above->netwm.pid;
+   if (below) below_pid = below->netwm.pid;
+
+   eina_convert_itoa(above_pid, above_pid_s);
+   eina_convert_itoa(below_pid, below_pid_s);
+   ELOGF("TZPOL", "Send stack change.  above(win:%x, pid:%s), below(win:%x, pid:%s)",
+         ec->pixmap, ec, e_client_util_win_get(above), above_pid_s, e_client_util_win_get(below), below_pid_s);
+
+   Eina_List *options = NULL;
+
+   options = eina_list_append(options, above_pid_s);
+   options = eina_list_append(options, below_pid_s);
+
+   e_policy_aux_message_send(ec, "stack_changed", "pid", options);
+
+   eina_list_free(options);
+}
+
 static Eina_Bool
 _e_policy_cb_client_stack(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
 {
@@ -1068,6 +1120,9 @@ _e_policy_cb_client_stack(void *data EINA_UNUSED, int type EINA_UNUSED, void *ev
    if (!ev) return ECORE_CALLBACK_PASS_ON;
    /* calculate e_client visibility */
    e_client_visibility_calculate();
+
+   // send stack change event
+   _e_policy_client_stack_change_send(ev->ec);
 
    return ECORE_CALLBACK_PASS_ON;
 }
