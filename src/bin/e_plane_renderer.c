@@ -129,7 +129,7 @@ _e_plane_renderer_client_copied_surface_create(E_Client *ec, Eina_Bool refresh)
    if (ret != TBM_SURFACE_ERROR_NONE)
      {
         ERR("fail to map the new_tsurface.");
-        tbm_surface_destroy(new_surface);
+        tbm_surface_destroy(new_tsurface);
         tbm_surface_unmap(tsurface);
         return NULL;
      }
