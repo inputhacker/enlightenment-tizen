@@ -5166,6 +5166,7 @@ e_policy_wl_aux_message_send(E_Client *ec,
    int len;
    char *p;
 
+   if (!ec->comp_data) return;
    if (!ec->comp_data->aux_hint.use_msg) return;
 
    wl_array_init(&opt_array);
