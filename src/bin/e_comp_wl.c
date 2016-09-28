@@ -6,7 +6,6 @@
 /* handle include for printing uint64_t */
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
-#include <sys/xattr.h>
 
 #define COMPOSITOR_VERSION 4
 

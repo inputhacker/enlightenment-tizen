@@ -1,5 +1,5 @@
 #include "e.h"
-
+#include <sys/xattr.h>
 
 #define OVER_FLOW 1
 //#define SHAPE_DEBUG
