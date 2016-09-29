@@ -36,6 +36,9 @@ struct _E_Desk
    Evas_Object         *layout;      /* Desk's splitlayout*/
 
    Evas_Object         *bg_object;
+   Evas_Object         *smart_obj;
+
+   Eina_Rectangle       geom;
 
    unsigned int animate_count;
 };
@@ -95,6 +98,10 @@ E_API void         e_desk_flip_cb_set(E_Desk_Flip_Cb cb, const void *data);
 E_API void         e_desk_flip_end(E_Desk *desk);
 
 E_API unsigned int e_desks_count(void);
+
+E_API void         e_desk_geometry_set(E_Desk *desk, int x, int y, int w, int h);
+E_API void         e_desk_client_add(E_Desk *desk, E_Client *ec);
+E_API void         e_desk_client_del(E_Desk *desk, E_Client *ec);
 
 extern E_API int E_EVENT_DESK_SHOW;
 extern E_API int E_EVENT_DESK_BEFORE_SHOW;

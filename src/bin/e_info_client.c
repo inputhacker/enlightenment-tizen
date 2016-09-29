@@ -1512,6 +1512,35 @@ _e_info_client_proc_slot_set(int argc, char **argv)
 }
 
 static void
+_e_info_client_proc_desktop_geometry_set(int argc, char **argv)
+{
+   int x, y, w, h;
+
+   if (argc != 6)
+     {
+        printf("Error Check Args: enlightenment_info -desktop_geometry_set [X] [Y] [W] [H]\n");
+        return;
+     }
+
+   x = atoi(argv[2]);
+   y = atoi(argv[3]);
+   w = atoi(argv[4]);
+   h = atoi(argv[5]);
+
+   if ((w < 0) || (h < 0))
+     {
+        printf("Error Check Args: Width(%d) and Height(%d) must not be less than 1.\n", w, h);
+        return;
+     }
+
+   if (!_e_info_client_eldbus_message_with_args("desktop_geometry_set", NULL, "iiii", x, y, w, h))
+     {
+        printf("_e_info_client_eldbus_message_with_args error");
+        return;
+     }
+}
+
+static void
 _e_info_client_proc_buffer_shot(int argc, char **argv)
 {
    int dumprun = 0;
@@ -1978,6 +2007,12 @@ static struct
       USAGE_SLOT,
       "Set slot in runtime",
       _e_info_client_proc_slot_set
+   },
+   {
+      "desktop_geometry_set",
+      "[X Y W H]",
+      "Set geometry of current desktop",
+      _e_info_client_proc_desktop_geometry_set
    }
 };
 

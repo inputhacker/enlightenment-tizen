@@ -914,6 +914,8 @@ _e_client_del(E_Client *ec)
    ec->transform_core.result.enable = EINA_FALSE;
 
    e_client_visibility_calculate();
+
+   e_desk_client_del(ec->desk, ec);
 }
 
 ///////////////////////////////////////////
@@ -1808,15 +1810,15 @@ _e_client_maximize(E_Client *ec, E_Maximize max)
         break;
 
       case E_MAXIMIZE_FULLSCREEN:
-        w = ec->zone->w;
-        h = ec->zone->h;
+        w = ec->desk->geom.w;
+        h = ec->desk->geom.h;
 
         evas_object_smart_callback_call(ec->frame, "fullscreen", NULL);
         e_client_resize_limit(ec, &w, &h);
         /* center x-direction */
-        x1 = ec->zone->x + (ec->zone->w - w) / 2;
+        x1 = ec->desk->geom.x + (ec->desk->geom.w - w) / 2;
         /* center y-direction */
-        yy1 = ec->zone->y + (ec->zone->h - h) / 2;
+        yy1 = ec->desk->geom.y + (ec->desk->geom.h - h) / 2;
 
         switch (max & E_MAXIMIZE_DIRECTION)
           {
@@ -1833,11 +1835,11 @@ _e_client_maximize(E_Client *ec, E_Maximize max)
              break;
 
            case E_MAXIMIZE_LEFT:
-             evas_object_geometry_set(ec->frame, ec->zone->x, ec->zone->y, w / 2, h);
+             evas_object_geometry_set(ec->frame, ec->desk->geom.x, ec->desk->geom.y, w / 2, h);
              break;
 
            case E_MAXIMIZE_RIGHT:
-             evas_object_geometry_set(ec->frame, x1, ec->zone->y, w / 2, h);
+             evas_object_geometry_set(ec->frame, x1, ec->desk->geom.y, w / 2, h);
              break;
           }
         break;
@@ -1845,13 +1847,18 @@ _e_client_maximize(E_Client *ec, E_Maximize max)
       case E_MAXIMIZE_SMART:
       case E_MAXIMIZE_EXPAND:
         if (ec->desk->visible)
-          e_zone_useful_geometry_get(ec->zone, &zx, &zy, &zw, &zh);
+          {
+             zx = ec->desk->geom.x;
+             zy = ec->desk->geom.y;
+             zw = ec->desk->geom.w;
+             zh = ec->desk->geom.h;
+          }
         else
           {
-             x1 = ec->zone->x;
-             yy1 = ec->zone->y;
-             x2 = ec->zone->x + ec->zone->w;
-             y2 = ec->zone->y + ec->zone->h;
+             x1 = ec->desk->geom.x;
+             yy1 = ec->desk->geom.y;
+             x2 = ec->desk->geom.x + ec->desk->geom.w;
+             y2 = ec->desk->geom.y + ec->desk->geom.h;
              e_maximize_client_shelf_fill(ec, &x1, &yy1, &x2, &y2, max);
              zx = x1, zy = yy1;
              zw = x2 - x1;
@@ -1909,10 +1916,10 @@ _e_client_maximize(E_Client *ec, E_Maximize max)
         break;
 
       case E_MAXIMIZE_FILL:
-        x1 = ec->zone->x;
-        yy1 = ec->zone->y;
-        x2 = ec->zone->x + ec->zone->w;
-        y2 = ec->zone->y + ec->zone->h;
+        x1 = ec->desk->geom.x;
+        yy1 = ec->desk->geom.y;
+        x2 = ec->desk->geom.x + ec->desk->geom.w;
+        y2 = ec->desk->geom.y + ec->desk->geom.h;
 
         /* walk through all shelves */
         e_maximize_client_shelf_fill(ec, &x1, &yy1, &x2, &y2, max);
@@ -1945,11 +1952,11 @@ _e_client_maximize(E_Client *ec, E_Maximize max)
              break;
 
            case E_MAXIMIZE_LEFT:
-             evas_object_geometry_set(ec->frame, ec->zone->x, ec->zone->y, w / 2, h);
+             evas_object_geometry_set(ec->frame, ec->desk->geom.x, ec->desk->geom.y, w / 2, h);
              break;
 
            case E_MAXIMIZE_RIGHT:
-             evas_object_geometry_set(ec->frame, x1, ec->zone->y, w / 2, h);
+             evas_object_geometry_set(ec->frame, x1, ec->desk->geom.y, w / 2, h);
              break;
           }
         break;
@@ -3495,7 +3502,10 @@ e_client_desk_set(E_Client *ec, E_Desk *desk)
         desk->fullscreen_clients = eina_list_append(desk->fullscreen_clients, ec);
      }
    old_desk = ec->desk;
+   if (old_desk)
+     e_desk_client_del(old_desk, ec);
    ec->desk = desk;
+   e_desk_client_add(desk, ec);
    e_comp_object_effect_unclip(ec->frame);
    e_comp_object_effect_set(ec->frame, NULL);
    if (desk->visible || ec->sticky)
@@ -4515,13 +4525,13 @@ e_client_maximize(E_Client *ec, E_Maximize max)
    if (!(ec->maximized & E_MAXIMIZE_HORIZONTAL))
      {
         /* Horizontal hasn't been set */
-        ec->saved.x = ec->client.x - ec->zone->x;
+        ec->saved.x = ec->client.x - ec->desk->geom.x;
         ec->saved.w = ec->client.w;
      }
    if (!(ec->maximized & E_MAXIMIZE_VERTICAL))
      {
         /* Vertical hasn't been set */
-        ec->saved.y = ec->client.y - ec->zone->y;
+        ec->saved.y = ec->client.y - ec->desk->geom.y;
         ec->saved.h = ec->client.h;
      }
 

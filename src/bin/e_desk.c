@@ -5,6 +5,24 @@
  * number of desktops.
  */
 
+#define E_DESK_SMART_OBJ_TYPE "E_Desk_Smart_Object"
+
+#define E_DESK_SMART_DATA_GET(obj, ptr)                        \
+   E_Desk_Smart_Data *ptr = evas_object_smart_data_get(obj);
+
+#define E_DESK_SMART_DATA_GET_OR_RETURN(obj, ptr)              \
+   E_DESK_SMART_DATA_GET(obj, ptr);                            \
+   if (!ptr) return
+
+typedef struct _E_Desk_Smart_Data E_Desk_Smart_Data;
+
+struct _E_Desk_Smart_Data
+{
+   Evas_Object_Smart_Clipped_Data base;
+
+   Eina_List   *clients;
+};
+
 static void      _e_desk_free(E_Desk *desk);
 static void      _e_desk_event_desk_show_free(void *data, void *ev);
 static void      _e_desk_event_desk_before_show_free(void *data, void *ev);
@@ -14,6 +32,15 @@ static void      _e_desk_event_desk_name_change_free(void *data, void *ev);
 static void      _e_desk_show_begin(E_Desk *desk, int dx, int dy);
 static void      _e_desk_hide_begin(E_Desk *desk, int dx, int dy);
 static void      _e_desk_event_desk_window_profile_change_free(void *data, void *ev);
+
+static void      _e_desk_smart_add(Evas_Object *obj);
+static void      _e_desk_smart_del(Evas_Object *obj);
+static void      _e_desk_smart_client_add(Evas_Object *obj, E_Client *ec);
+static void      _e_desk_smart_client_del(Evas_Object *obj, E_Client *ec);
+
+EVAS_SMART_SUBCLASS_NEW(E_DESK_SMART_OBJ_TYPE, _e_desk,
+                        Evas_Smart_Class, Evas_Smart_Class,
+                        evas_object_smart_clipped_class_get, NULL)
 
 static E_Desk_Flip_Cb _e_desk_flip_cb = NULL;
 static void *_e_desk_flip_data = NULL;
@@ -58,6 +85,9 @@ e_desk_new(E_Zone *zone, int x, int y)
 
    desk = E_OBJECT_ALLOC(E_Desk, E_DESK_TYPE, _e_desk_free);
    if (!desk) return NULL;
+
+   desk->smart_obj = evas_object_smart_add(e_comp->evas, _e_desk_smart_class_new());
+   e_desk_geometry_set(desk, zone->x, zone->y, zone->w, zone->h);
 
    desk->zone = zone;
    desk->x = x;
@@ -237,6 +267,7 @@ e_desk_show(E_Desk *desk)
              dy = desk->y - desk2->y;
           }
         _e_desk_hide_begin(desk2, dx, dy);
+        evas_object_hide(desk2->smart_obj);
      }
 
    desk->zone->desk_x_prev = desk->zone->desk_x_current;
@@ -260,6 +291,7 @@ e_desk_show(E_Desk *desk)
    if (desk->zone->bg_object) was_zone = 1;
 #endif
    _e_desk_show_begin(desk, dx, dy);
+   evas_object_show(desk->smart_obj);
 
 #ifndef ENABLE_QUICK_INIT
    if (was_zone)
@@ -678,9 +710,73 @@ e_desks_count(void)
    return count;
 }
 
+E_API void
+e_desk_client_add(E_Desk *desk, E_Client *ec)
+{
+   E_OBJECT_CHECK(desk);
+   E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
+
+   E_OBJECT_CHECK(ec);
+   E_OBJECT_TYPE_CHECK(ec, E_CLIENT_TYPE);
+
+   _e_desk_smart_client_add(desk->smart_obj, ec);
+}
+
+E_API void
+e_desk_client_del(E_Desk *desk, E_Client *ec)
+{
+   E_OBJECT_CHECK(desk);
+   E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
+
+   E_OBJECT_CHECK(ec);
+   E_OBJECT_TYPE_CHECK(ec, E_CLIENT_TYPE);
+
+   _e_desk_smart_client_del(desk->smart_obj, ec);
+}
+
+E_API void
+e_desk_geometry_set(E_Desk *desk, int x, int y, int w, int h)
+{
+   E_Client *ec;
+   E_Maximize max;
+   Eina_List *l;
+   int cx, cy, dx, dy;
+
+   E_OBJECT_CHECK(desk);
+   E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
+
+   E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
+
+   if ((desk->geom.x == x) && (desk->geom.y == y) &&
+       (desk->geom.w == w) && (desk->geom.h == h))
+     return;
+
+   dx = x - desk->geom.x;
+   dy = y - desk->geom.y;
+   EINA_RECTANGLE_SET(&desk->geom, x, y, w, h);
+
+   EINA_LIST_FOREACH(sd->clients, l, ec)
+     {
+        if (ec->maximized)
+          {
+             max = ec->maximized;
+             ec->maximized = E_MAXIMIZE_NONE;
+             e_client_maximize(ec, max);
+          }
+        else
+          {
+             e_client_geometry_get(ec, &cx, &cy, NULL, NULL);
+             e_client_util_move_without_frame(ec, cx + dx, cy + dy);
+          }
+     }
+
+   evas_object_geometry_set(desk->smart_obj, x, y, w, h);
+}
+
 static void
 _e_desk_free(E_Desk *desk)
 {
+   evas_object_del(desk->smart_obj);
    eina_stringshare_del(desk->name);
    desk->name = NULL;
    free(desk);
@@ -841,4 +937,52 @@ _e_desk_hide_begin(E_Desk *desk, int dx, int dy)
           }
         e_client_comp_hidden_set(ec, EINA_TRUE);
      }
+}
+
+static void
+_e_desk_smart_add(Evas_Object *obj)
+{
+   EVAS_SMART_DATA_ALLOC(obj, E_Desk_Smart_Data);
+
+   _e_desk_parent_sc->add(obj);
+}
+
+static void
+_e_desk_smart_del(Evas_Object *obj)
+{
+   _e_desk_parent_sc->del(obj);
+
+   E_DESK_SMART_DATA_GET_OR_RETURN(obj, sd);
+
+   eina_list_free(sd->clients);
+   free(sd);
+
+   evas_object_smart_data_set(obj, NULL);
+}
+
+static void
+_e_desk_smart_set_user(Evas_Smart_Class *sc)
+{
+   sc->add = _e_desk_smart_add;
+   sc->del = _e_desk_smart_del;
+}
+
+static void
+_e_desk_smart_client_add(Evas_Object *obj, E_Client *ec)
+{
+   E_DESK_SMART_DATA_GET_OR_RETURN(obj, sd);
+
+   sd->clients = eina_list_append(sd->clients, ec);
+   evas_object_smart_member_add(ec->frame, obj);
+   evas_object_smart_changed(obj);
+}
+
+static void
+_e_desk_smart_client_del(Evas_Object *obj, E_Client *ec)
+{
+   E_DESK_SMART_DATA_GET_OR_RETURN(obj, sd);
+
+   sd->clients = eina_list_remove(sd->clients, ec);
+   evas_object_smart_member_del(ec->frame);
+   evas_object_smart_changed(obj);
 }

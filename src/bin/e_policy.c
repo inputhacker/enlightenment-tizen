@@ -253,6 +253,16 @@ _e_policy_client_maximize_policy_apply(E_Policy_Client *pc)
 
    if (!ec->maximized)
      {
+        /* This is added to support e_desk_geometry_set().
+         * The geometry of client is calculated based on E_Desk by
+         * e_client_maximize() from now.
+         * But, if we don't set ec->placed, geometry of new client will be
+         * calculated again based on E_Zone by _e_client_eval().
+         * FIXME: we can delete it if calculation of placement is based on
+         * E_Desk.
+         */
+        ec->placed = 1;
+
         e_client_maximize(ec, E_MAXIMIZE_EXPAND | E_MAXIMIZE_BOTH);
 
         if (ec->changes.need_maximize)

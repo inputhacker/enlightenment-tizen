@@ -898,7 +898,7 @@ _e_vis_ec_activity_check(E_Client *ec)
    if (_e_vis_ec_special_check(ec)) return EINA_FALSE;
    /* check if full screen */
    e_client_geometry_get(ec, &x, &y, &w, &h);
-   if (!E_CONTAINS(x, y, w, h, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
+   if (!E_CONTAINS(x, y, w, h, ec->desk->geom.x, ec->desk->geom.y, ec->desk->geom.w, ec->desk->geom.h))
      return EINA_FALSE;
    return EINA_TRUE;
 }
