@@ -38,10 +38,6 @@ struct _E_Plane_Renderer_Client
 static Eina_List *plane_hdlrs = NULL;
 static Eina_Bool renderer_trace_debug = 0;
 
-#if HAVE_MEMCPY_SWC
-extern void *memcpy_swc(void *dest, const void *src, size_t n);
-#endif
-
 static struct wl_resource *
 _get_wl_buffer(E_Client *ec)
 {
@@ -135,11 +131,7 @@ _e_plane_renderer_client_copied_surface_create(E_Client *ec, Eina_Bool refresh)
      }
 
    /* copy from src to dst */
-#if HAVE_MEMCPY_SWC
-   memcpy_swc(dst_info.planes[0].ptr, src_info.planes[0].ptr, src_info.planes[0].size);
-#else
    memcpy(dst_info.planes[0].ptr, src_info.planes[0].ptr, src_info.planes[0].size);
-#endif
 
    tbm_surface_unmap(new_tsurface);
    tbm_surface_unmap(tsurface);

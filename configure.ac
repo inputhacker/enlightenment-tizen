@@ -431,23 +431,6 @@ if test "x${have_wayland}" = "xyes"; then
   fi
 fi
 
-memcpy_swc=no
-AC_ARG_ENABLE([memcpy_swc],
-  AS_HELP_STRING([--enable-memcpy_swc], [enable memcpy_swc  @<:@default=enabled@:>@]),
-  [memcpy_swc=$enableval],
-  [memcpy_swc=no])
-AC_MSG_CHECKING([whether memcpy_swc is enabled])
-AC_MSG_RESULT([${memcpy_swc}])
-
-if test "x$memcpy_swc" != "xno";then
-    AC_DEFINE([HAVE_MEMCPY_SWC], [1], [Enable memcpy_swc])
-    have_memcpy_swc=yes
-else
-    AC_DEFINE([HAVE_MEMCPY_SWC], [0], [Disable memcpy_swc])
-    have_memcpy_swc=no
-fi
-AM_CONDITIONAL([HAVE_MEMCPY_SWC], [test "x${have_memcpy_swc}" = "xyes"])
-
 # Check for ttrace header files
 PKG_CHECK_MODULES(TTRACE,
 		[ttrace],

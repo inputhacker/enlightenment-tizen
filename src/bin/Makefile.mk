@@ -232,9 +232,6 @@ endif
 if HAVE_HWC
 src_bin_enlightenment_LDADD += @HWC_LIBS@
 endif
-if HAVE_MEMCPY_SWC
-src_bin_enlightenment_LDADD += -L$(top_srcdir)/src/bin -lmemcpy_swc
-endif
 
 src_bin_enlightenment_info_SOURCES = \
 src/bin/e.h \

@@ -53,16 +53,6 @@ Requires:       pkgconfig(tizen-extension-server)
 %description devel
 Development files for enlightenment
 
-#use memcpy_swc only in arm 32bit mobile/wearable
-%ifarch %{arm}
-%if "%{?profile}" == "wearable"
-%define MEMCPY_SWC use
-%endif
-%if "%{?profile}" == "mobile"
-%define MEMCPY_SWC use
-%endif
-%endif
-
 %prep
 %setup -q -n %{name}-%{version}
 cp %{SOURCE1001} .
@@ -75,9 +65,6 @@ export LDFLAGS+=" -pie "
 %autogen \
       --enable-function-trace \
       --enable-wayland \
-%if "%{MEMCPY_SWC}" == "use"
-      --enable-memcpy_swc \
-%endif
       --enable-quick-init \
       --enable-hwc-multi
 
@@ -85,18 +72,12 @@ make %{?_smp_mflags}
 
 %install
 %make_install
-%if "%{MEMCPY_SWC}" == "use"
-cp -af %{_builddir}/%{buildsubdir}/src/bin/libmemcpy_swc.so* %{buildroot}/%{_libdir}/
-%endif
 
 %files
 %manifest %{name}.manifest
 %defattr(-,root,root,-)
 %license COPYING
 %attr(750,root,root) %{_bindir}/enlightenment*
-%if "%{MEMCPY_SWC}" == "use"
-%{_libdir}/libmemcpy_swc.so*
-%endif
 %{_libdir}/enlightenment/*
 %{_datadir}/enlightenment/*
 %{_sysconfdir}/dbus-1/system.d/org.enlightenment.wm.conf
