@@ -228,17 +228,6 @@ _e_main_subsystem_defer(void *data EINA_UNUSED)
    TS("[DEFERRED] E_Dnd Init Done");
    _e_main_shutdown_push(e_dnd_shutdown);
 
-   TS("[DEFERRED] E_Pointer Init");
-   if (!e_pointer_init())
-     {
-        e_error_message_show(_("Enlightenment cannot set up its pointer system.\n"));
-        TRACE_DS_END();
-        _e_main_shutdown(-1);
-     }
-
-   TS("[DEFERRED] E_Pointer Init Done");
-   _e_main_shutdown_push(e_pointer_shutdown);
-
    TS("[DEFERRED] E_Scale Init");
    if (!e_scale_init())
      {
@@ -595,6 +584,15 @@ main(int argc, char **argv)
           }
      }
    TRACE_DS_END();
+
+   TS("E_Pointer Init");
+   if (!e_pointer_init())
+     {
+        e_error_message_show(_("Enlightenment cannot set up its pointer system.\n"));
+        _e_main_shutdown(-1);
+     }
+   TS("E_Pointer Init Done");
+   _e_main_shutdown_push(e_pointer_shutdown);
 
    TRACE_DS_BEGIN(MAIN:SCREEN INIT);
    TS("Screens Init");

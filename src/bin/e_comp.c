@@ -1375,15 +1375,6 @@ e_comp_deferred_job(void)
      e_bg_zone_update(e_zone_current_get(), E_BG_TRANSITION_START);
    e_main_ts("\tE_BG_Zone Update Done");
 
-   /* Pointer setting */
-   e_main_ts("\tE_Pointer New");
-   if (!e_comp->pointer)
-     {
-        e_comp->pointer = e_pointer_canvas_new(e_comp->ee, EINA_TRUE);
-        e_pointer_hide(e_comp->pointer);
-     }
-   e_main_ts("\tE_Pointer New Done");
-
    e_main_ts("\tE_Comp_Wl_Deferred");
    e_comp_wl_deferred_job();
    e_main_ts("\tE_Comp_Wl_Deferred Done");
