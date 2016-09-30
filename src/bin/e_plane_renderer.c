@@ -7,6 +7,7 @@
 # include <tbm_surface_internal.h>
 # include <wayland-tbm-server.h>
 # include <Evas_Engine_GL_Drm.h>
+# include <sys/eventfd.h>
 
 # define E_PLANE_RENDERER_CLIENT_SURFACE_FLAGS_RESERVED 7777
 
@@ -238,6 +239,29 @@ _e_plane_renderer_surface_find_disp_surface(E_Plane_Renderer *renderer, tbm_surf
 }
 
 static void
+_e_plane_renderer_cb_acquirable(tbm_surface_queue_h surface_queue, void *data)
+{
+    E_Plane_Renderer *renderer = (E_Plane_Renderer *)data;
+    int ret;
+    uint64_t value = 1;
+
+    EINA_SAFETY_ON_NULL_RETURN(renderer);
+
+    pthread_mutex_lock(&renderer->event_lock);
+
+    if (!renderer->ee) goto end;
+    if (renderer->event_fd < 0) goto end;
+    if (!renderer->event_hdlr) goto end;
+
+    ret = write(renderer->event_fd, &value, sizeof(value));
+    if (ret == -1)
+       ERR("failed to send acquirable event:%m");
+
+end:
+    pthread_mutex_unlock(&renderer->event_lock);
+}
+
+static void
 _e_plane_renderer_exported_surface_release(E_Plane_Renderer *renderer, tbm_surface_h tsurface)
 {
    tbm_surface_h tmp_tsurface = NULL;
@@ -383,17 +407,6 @@ _e_plane_renderer_surface_exported_surface_destroy_cb(tbm_surface_h tsurface, vo
 }
 
 static void
-_e_plane_renderer_ee_post_render_cb(void *data, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   E_Plane_Renderer *renderer = data;
-
-   if (!renderer) return;
-
-   /* mark when the post_render is called */
-   renderer->update_ee = EINA_TRUE;
-}
-
-static void
 _e_plane_renderer_surface_release_all_disp_surfaces(E_Plane_Renderer *renderer)
 {
    Eina_List *l_s;
@@ -457,6 +470,33 @@ e_plane_renderer_shutdown(void)
   ;
 }
 
+static Eina_Bool
+_e_plane_renderer_cb_queue_acquirable_event(void *data, Ecore_Fd_Handler *fd_handler)
+{
+   E_Plane *plane = (E_Plane *)data;
+   E_Plane_Renderer *renderer = NULL;
+   char buffer[64];
+   int len;
+
+   if (!plane) return ECORE_CALLBACK_RENEW;
+
+   renderer = plane->renderer;
+
+   if (!renderer) return ECORE_CALLBACK_RENEW;
+   if (renderer->event_fd < 0) return ECORE_CALLBACK_RENEW;
+   if (plane->ec) return ECORE_CALLBACK_RENEW;
+
+   pthread_mutex_lock(&renderer->event_lock);
+
+   len = read(renderer->event_fd, buffer, sizeof(buffer));
+   if (len == -1)
+      ERR("failed to read queue acquire event fd:%m");
+
+   pthread_mutex_unlock(&renderer->event_lock);
+
+   return ECORE_CALLBACK_RENEW;
+}
+
 EINTERN E_Plane_Renderer *
 e_plane_renderer_new(E_Plane *plane)
 {
@@ -468,13 +508,16 @@ e_plane_renderer_new(E_Plane *plane)
    renderer = E_NEW(E_Plane_Renderer, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, NULL);
    renderer->plane = plane;
+   renderer->event_fd = -1;
 
    if (plane->is_fb)
      {
         renderer->ee = e_comp->ee;
         renderer->evas = ecore_evas_get(renderer->ee);
-        evas_event_callback_add(renderer->evas, EVAS_CALLBACK_RENDER_POST, _e_plane_renderer_ee_post_render_cb, renderer);
         ecore_evas_manual_render_set(renderer->ee, 1);
+        renderer->event_fd = eventfd(0, EFD_NONBLOCK);
+        renderer->event_hdlr = ecore_main_fd_handler_add(renderer->event_fd, ECORE_FD_READ,
+                               _e_plane_renderer_cb_queue_acquirable_event, plane, NULL, NULL);
      }
 
    return renderer;
@@ -588,7 +631,22 @@ e_plane_renderer_del(E_Plane_Renderer *renderer)
    EINA_SAFETY_ON_NULL_RETURN(plane);
 
    if (renderer->ee)
-      WRN("Delete renderer for canvas");
+     {
+        WRN("Delete renderer for canvas");
+
+        pthread_mutex_lock(&renderer->event_lock);
+
+        if (renderer->event_hdlr)
+           ecore_main_fd_handler_del(renderer->event_hdlr);
+
+        if (renderer->event_fd)
+          {
+             close(renderer->event_fd);
+             renderer->event_fd = -1;
+          }
+
+        pthread_mutex_unlock(&renderer->event_lock);
+     }
 
    if (plane->reserved_memory)
      {
@@ -597,14 +655,12 @@ e_plane_renderer_del(E_Plane_Renderer *renderer)
      }
 
    free(renderer);
+   plane->renderer = NULL;
 }
 
 EINTERN Eina_Bool
 e_plane_renderer_render(E_Plane_Renderer *renderer, Eina_Bool is_fb)
 {
-   Evas_Engine_Info_GL_Drm *einfo = NULL;
-   E_Comp_Wl_Buffer *buffer = NULL;
-
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
 
    if (is_fb)
@@ -614,61 +670,17 @@ e_plane_renderer_render(E_Plane_Renderer *renderer, Eina_Bool is_fb)
              if (renderer_trace_debug)
                ELOGF("E_PLANE_RENDERER", "Canvas norender is set. No Display.", NULL, NULL);
 
-             return EINA_FALSE;
+             return EINA_TRUE;
           }
 
         /* render the ecore_evas and
            update_ee is to be true at post_render_cb when the render is successful. */
-        ecore_evas_manual_render(renderer->ee);
+        TRACE_DS_BEGIN("MANUAL RENDER");
 
-        /* check the post_render is called */
-        if (!renderer->update_ee)
-        {
-          if (renderer_trace_debug)
-             ELOGF("E_PLANE_RENDERER", "Post Render callback was not called. Nothing Display.", NULL, NULL);
-          return EINA_FALSE;
-        }
+        if (e_plane_renderer_surface_queue_can_dequeue(renderer) || !renderer->tqueue)
+           ecore_evas_manual_render(renderer->ee);
 
-        /* make the update_ee to be true (reset) */
-        renderer->update_ee = EINA_FALSE;
-
-        einfo = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(e_comp->evas);
-        if (!einfo) return EINA_FALSE;
-
-        /* check outbuf flushed or not */
-        if (!einfo->info.outbuf_flushed)
-          {
-             if (renderer_trace_debug)
-                ELOGF("E_PLANE_RENDERER", "Post Render done, But No EGLSwapBuffers!. Nothing Display.", NULL, NULL);
-
-             return EINA_FALSE;
-          }
-
-        /* uncheck the outbuf_flushed flag */
-        einfo->info.outbuf_flushed = EINA_FALSE;
-     }
-   else
-     {
-        if (!renderer->ec) return EINA_FALSE;
-
-        if (!e_comp_object_hwc_update_exists(renderer->ec->frame)) return EINA_FALSE;
-
-        if (renderer->pending)
-          {
-             if (renderer_trace_debug)
-               ELOGF("E_PLANE_RENDERER", "HWC update exist but plane is pending.", NULL, NULL);
-
-             return EINA_FALSE;
-          }
-
-        e_comp_object_hwc_update_set(renderer->ec->frame, EINA_FALSE);
-
-        buffer = e_pixmap_resource_get(renderer->ec->pixmap);
-        if (!buffer)
-          {
-             ERR("buffer is null.");
-             return EINA_FALSE;
-          }
+        TRACE_DS_END();
      }
 
    return EINA_TRUE;
@@ -695,12 +707,26 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
      {
         if (renderer->state == E_PLANE_RENDERER_STATE_NONE)
            {
+              /* check dequeuable */
+              if (!e_plane_renderer_surface_queue_can_dequeue(renderer))
+                {
+                  INF("There is any dequeuable surface.");
+                  return EINA_FALSE;
+                }
+
               wayland_tbm_server_client_queue_activate(cqueue, 0);
            }
         else if ((renderer->state == E_PLANE_RENDERER_STATE_CANDIDATE) && (renderer->ec != ec))
            {
               /* deactive the candidate_ec */
               e_plane_renderer_deactivate(renderer);
+
+              /* check dequeuable */
+              if (!e_plane_renderer_surface_queue_can_dequeue(renderer))
+                {
+                  INF("There is any dequeuable surface.");
+                  return EINA_FALSE;
+                }
 
               /* activate the client queue */
               wayland_tbm_server_client_queue_activate(cqueue, 0);
@@ -715,13 +741,6 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
               ERR("NEVER HERE.");
               return EINA_FALSE;
            }
-
-        /* check dequeuable */
-        if (!e_plane_renderer_surface_queue_can_dequeue(renderer))
-          {
-             INF("There is any dequeuable surface.");
-             return EINA_FALSE;
-          }
 
         /* dequeue */
         tsurface = e_plane_renderer_surface_queue_dequeue(renderer);
@@ -742,9 +761,6 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
 
         renderer_client->state = E_PLANE_RENDERER_CLIENT_STATE_CANDIDATED;
         renderer_client->renderer = renderer;
-
-        if (!e_plane_renderer_surface_queue_can_dequeue(renderer))
-           e_plane_renderer_ee_update_ban(renderer, EINA_TRUE);
 
         INF("ec does not have the scanout surface.");
 
@@ -828,22 +844,6 @@ e_plane_renderer_state_get(E_Plane_Renderer *renderer)
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, E_PLANE_RENDERER_STATE_NONE);
 
    return renderer->state;
-}
-
-EINTERN void
-e_plane_renderer_ee_update_ban(E_Plane_Renderer *renderer, Eina_Bool set)
-{
-   Evas_Engine_Info_GL_Drm *einfo = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN(renderer);
-
-   einfo = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(e_comp->evas);
-   EINA_SAFETY_ON_NULL_RETURN(einfo);
-
-   einfo->info.wait_for_showup = set;
-
-   if (renderer_trace_debug)
-      ELOGF("E_PLANE_RENDERER", "Ban the ee update : %s", NULL, NULL, set?"TRUE":"FALSE");
 }
 
 EINTERN void
@@ -1023,6 +1023,7 @@ EINTERN Eina_Bool
 e_plane_renderer_surface_queue_set(E_Plane_Renderer *renderer, tbm_surface_queue_h tqueue)
 {
    tbm_surface_h tsurface = NULL;
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
@@ -1052,6 +1053,16 @@ e_plane_renderer_surface_queue_set(E_Plane_Renderer *renderer, tbm_surface_queue
       }
 
    _e_plane_renderer_surface_release_all_disp_surfaces(renderer);
+
+   if (renderer->ee)
+     {
+        tsq_err = tbm_surface_queue_add_acquirable_cb(renderer->tqueue, _e_plane_renderer_cb_acquirable, (void *)renderer);
+        if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+          {
+             ERR("fail to add dequeuable cb");
+             return EINA_FALSE;
+          }
+     }
 
    return EINA_TRUE;
 }
@@ -1084,7 +1095,7 @@ e_plane_renderer_surface_queue_acquire(E_Plane_Renderer *renderer)
    tqueue = renderer->tqueue;
    EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, NULL);
 
-   if (tbm_surface_queue_can_acquire(tqueue, 1))
+   if (tbm_surface_queue_can_acquire(tqueue, 0))
      {
         tsq_err = tbm_surface_queue_acquire(tqueue, &tsurface);
         if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
@@ -1092,6 +1103,10 @@ e_plane_renderer_surface_queue_acquire(E_Plane_Renderer *renderer)
              ERR("Failed to acquire tbm_surface from tbm_surface_queue(%p): tsq_err = %d", tqueue, tsq_err);
              return NULL;
           }
+     }
+   else
+     {
+        return NULL;
      }
 
    /* if not exist, add the surface to the renderer */
@@ -1226,6 +1241,31 @@ e_plane_renderer_surface_queue_dequeue(E_Plane_Renderer *renderer)
    return tsurface;
 }
 
+EINTERN Eina_Bool
+e_plane_renderer_surface_queue_clear(E_Plane_Renderer *renderer)
+{
+   tbm_surface_queue_h tqueue = NULL;
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+   tbm_surface_h tsurface = NULL;
+
+   tqueue = renderer->tqueue;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
+
+   while (tbm_surface_queue_can_acquire(tqueue, 0))
+     {
+        tsq_err = tbm_surface_queue_acquire(tqueue, &tsurface);
+        if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+          {
+             ERR("Failed to acquire tbm_surface from tbm_surface_queue(%p): tsq_err = %d", tqueue, tsq_err);
+             return EINA_FALSE;
+          }
+
+        e_plane_renderer_surface_queue_release(renderer, tsurface);
+     }
+
+  return EINA_TRUE;
+}
+
 EINTERN void
 e_plane_renderer_surface_send(E_Plane_Renderer *renderer, E_Client *ec, tbm_surface_h tsurface)
 {
@@ -1259,11 +1299,6 @@ e_plane_renderer_surface_send(E_Plane_Renderer *renderer, E_Client *ec, tbm_surf
            ELOGF("E_PLANE_RENDERER", "Export  Renderer(%p)  wl_buffer(%p) tsurface(%p) tqueue(%p)",
                  ec->pixmap, ec, renderer, wl_buffer, tsurface, renderer->tqueue);
      }
-
-   /* debug */
-   if (renderer_trace_debug)
-     ELOGF("E_PLANE_RENDERER", "Send    Renderer(%p)  wl_buffer(%p) tsurface(%p) tqueue(%p) wl_buffer_ref(%p)",
-           ec->pixmap, ec, renderer, _get_wl_buffer(ec), tsurface, renderer->tqueue, _get_wl_buffer_ref(ec));
 
    /* add a sent surface to the sent list in renderer if it is not in the list */
    if (!_e_plane_renderer_surface_find_sent_surface(renderer, tsurface))

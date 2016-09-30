@@ -91,6 +91,7 @@ EINTERN void                 e_plane_commit_data_release(E_Plane_Commit_Data *da
 EINTERN Eina_Bool            e_plane_is_reserved(E_Plane *plane);
 EINTERN void                 e_plane_reserved_set(E_Plane *plane, Eina_Bool set);
 EINTERN void                 e_plane_hwc_trace_debug(Eina_Bool onoff);
+EINTERN Eina_Bool            e_plane_render(E_Plane *plane);
 
 E_API Eina_Bool              e_plane_type_set(E_Plane *plane, E_Plane_Type type);
 E_API E_Plane_Type           e_plane_type_get(E_Plane *plane);

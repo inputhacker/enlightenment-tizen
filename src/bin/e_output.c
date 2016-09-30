@@ -78,6 +78,8 @@ _e_output_commit_hanler(tdm_output *output, unsigned int sequence,
 
    _e_output_update_fps();
 
+   TRACE_DS_ASYNC_END((unsigned int)output, "[OUTPUT:COMMIT~HANDLER]");
+
    EINA_LIST_FOREACH_SAFE(data_list, l, ll, data)
      {
         data_list = eina_list_remove_list(data_list, l);
@@ -102,10 +104,13 @@ _e_output_commit(E_Output *output)
         data_list = eina_list_append(data_list, data);
      }
 
+   TRACE_DS_ASYNC_BEGIN((unsigned int)output->toutput, "[OUTPUT:COMMIT~HANDLER]");
+
    error = tdm_output_commit(output->toutput, 0, _e_output_commit_hanler, data_list);
    if (error != TDM_ERROR_NONE)
      {
         ERR("fail to tdm_output_commit");
+        TRACE_DS_ASYNC_END((unsigned int)output->toutput, "[OUTPUT:COMMIT~HANDLER]");
         EINA_LIST_FOREACH_SAFE(data_list, l, ll, data)
           {
              data_list = eina_list_remove_list(data_list, l);
@@ -763,6 +768,26 @@ e_output_drm_update(E_Output *eout)
      }
 
    return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_output_render(E_Output *output)
+{
+   E_Plane *plane = NULL;
+   Eina_List *l;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   EINA_LIST_REVERSE_FOREACH(output->planes, l, plane)
+     {
+        if (!e_plane_render(plane))
+         {
+            ERR("fail to e_plane_render.");
+            return EINA_FALSE;
+         }
+     }
+
+  return EINA_TRUE;
 }
 
 EINTERN Eina_Bool

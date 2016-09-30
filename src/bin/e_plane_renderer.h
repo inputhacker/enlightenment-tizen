@@ -40,6 +40,10 @@ struct _E_Plane_Renderer {
    Eina_Bool           pending;
 
    E_Plane            *plane;
+
+   Ecore_Fd_Handler   *event_hdlr;
+   int                 event_fd;
+   pthread_mutex_t     event_lock;
 };
 
 EINTERN Eina_Bool                  e_plane_renderer_init(void);
@@ -50,7 +54,6 @@ EINTERN Eina_Bool                  e_plane_renderer_render(E_Plane_Renderer *ren
 EINTERN Eina_Bool                  e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec);
 EINTERN Eina_Bool                  e_plane_renderer_deactivate(E_Plane_Renderer *renderer);
 EINTERN E_Plane_Renderer_State     e_plane_renderer_state_get(E_Plane_Renderer *renderer);
-EINTERN void                       e_plane_renderer_ee_update_ban(E_Plane_Renderer *renderer, Eina_Bool set);
 EINTERN void                       e_plane_renderer_update_exist_set(E_Plane_Renderer *renderer, Eina_Bool update_exit);
 EINTERN Eina_Bool                  e_plane_renderer_update_exist_check(E_Plane_Renderer *renderer);
 EINTERN void                       e_plane_renderer_pending_set(E_Plane_Renderer *renderer, Eina_Bool pending);
@@ -74,6 +77,7 @@ EINTERN void                       e_plane_renderer_surface_queue_release(E_Plan
 EINTERN Eina_Bool                  e_plane_renderer_surface_queue_enqueue(E_Plane_Renderer *renderer, tbm_surface_h tsurface);
 EINTERN Eina_Bool                  e_plane_renderer_surface_queue_can_dequeue(E_Plane_Renderer *renderer);
 EINTERN tbm_surface_h              e_plane_renderer_surface_queue_dequeue(E_Plane_Renderer *renderer);
+EINTERN Eina_Bool                  e_plane_renderer_surface_queue_clear(E_Plane_Renderer *renderer);
 EINTERN void                       e_plane_renderer_surface_send(E_Plane_Renderer *renderer, E_Client *ec, tbm_surface_h tsurface);
 EINTERN Eina_Bool                  e_plane_renderer_ec_set(E_Plane_Renderer *renderer, E_Client *ec);
 EINTERN Eina_Bool                  e_plane_renderer_ecore_evas_use(E_Plane_Renderer *renderer);
