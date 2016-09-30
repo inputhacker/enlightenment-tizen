@@ -2164,7 +2164,7 @@ _e_comp_wl_subsurface_invisible_parent_get(E_Client *ec)
    while (parent)
      {
         /* in case of topmost */
-        if (!parent->comp_data) return NULL;
+        if (e_object_is_del(E_OBJECT(parent)) || !parent->comp_data) return NULL;
 
         if (!parent->comp_data->sub.data)
           return (!parent->comp_data->mapped) ? parent : NULL;
@@ -2181,6 +2181,27 @@ _e_comp_wl_subsurface_invisible_parent_get(E_Client *ec)
      }
 
    return NULL;
+}
+
+static Eina_Bool
+_e_comp_wl_subsurface_can_show(E_Client *ec)
+{
+   E_Comp_Wl_Subsurf_Data *sdata = ec->comp_data->sub.data;
+   E_Client *invisible_parent;
+   E_Client *topmost;
+
+   /* if it's not subsurface */
+   if (!sdata)
+     return EINA_FALSE;
+
+   invisible_parent = _e_comp_wl_subsurface_invisible_parent_get(ec);
+   topmost = _e_comp_wl_topmost_parent_get(ec);
+
+   /* if topmost is composited by compositor && if there is a invisible parent */
+   if (topmost->redirected && invisible_parent)
+     return EINA_FALSE;
+
+   return EINA_TRUE;
 }
 
 static Eina_Bool
@@ -2333,7 +2354,6 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
    Eina_Bool placed = EINA_TRUE;
    int x = 0, y = 0;
    E_Comp_Wl_Buffer *buffer;
-   E_Comp_Wl_Subsurf_Data *sdata;
    struct wl_resource *cb;
    Eina_List *l, *ll;
 
@@ -2383,15 +2403,13 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
           }
      }
 
-   sdata = ec->comp_data->sub.data;
    if (!e_pixmap_usable_get(ec->pixmap))
      {
         if (ec->comp_data->mapped)
           {
              if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.unmap))
                ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
-             else if (e_client_has_xwindow(ec) || ec->internal ||
-                      (sdata && sdata->parent && sdata->parent->comp_data && sdata->parent->comp_data->mapped) ||
+             else if (e_client_has_xwindow(ec) || ec->internal || ec->comp_data->sub.data ||
                       (ec == e_comp_wl->drag_client))
                {
                   ec->visible = EINA_FALSE;
@@ -2409,8 +2427,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
           {
              if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.map))
                ec->comp_data->shell.map(ec->comp_data->shell.surface);
-             else if (e_client_has_xwindow(ec) || ec->internal ||
-                      (sdata && sdata->parent && sdata->parent->comp_data && sdata->parent->comp_data->mapped) ||
+             else if (e_client_has_xwindow(ec) || ec->internal || _e_comp_wl_subsurface_can_show(ec) ||
                       (ec == e_comp_wl->drag_client))
                {
                   ec->visible = EINA_TRUE;
@@ -4805,7 +4822,6 @@ e_comp_wl_surface_attach(E_Client *ec, E_Comp_Wl_Buffer *buffer)
 E_API Eina_Bool
 e_comp_wl_surface_commit(E_Client *ec)
 {
-   E_Comp_Wl_Subsurf_Data *sdata;
    Eina_Bool ignored;
 
    _e_comp_wl_surface_state_commit(ec, &ec->comp_data->pending);
@@ -4821,15 +4837,13 @@ e_comp_wl_surface_commit(E_Client *ec)
         _e_comp_wl_subsurface_restack_bg_rectangle(topmost);
      }
 
-   sdata = ec->comp_data->sub.data;
    if (!e_pixmap_usable_get(ec->pixmap))
      {
         if (ec->comp_data->mapped)
           {
              if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.unmap))
                ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
-             else if (e_client_has_xwindow(ec) || ec->internal ||
-                      (sdata && sdata->parent && sdata->parent->comp_data && sdata->parent->comp_data->mapped) ||
+             else if (e_client_has_xwindow(ec) || ec->internal || ec->comp_data->sub.data ||
                       (ec == e_comp_wl->drag_client))
                {
                   ec->visible = EINA_FALSE;
@@ -4847,8 +4861,7 @@ e_comp_wl_surface_commit(E_Client *ec)
           {
              if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.map))
                ec->comp_data->shell.map(ec->comp_data->shell.surface);
-             else if (e_client_has_xwindow(ec) || ec->internal ||
-                      (sdata && sdata->parent && sdata->parent->comp_data && sdata->parent->comp_data->mapped) ||
+             else if (e_client_has_xwindow(ec) || ec->internal || _e_comp_wl_subsurface_can_show(ec) ||
                       (ec == e_comp_wl->drag_client))
                {
                   ec->visible = EINA_TRUE;
@@ -4870,24 +4883,13 @@ EINTERN Eina_Bool
 e_comp_wl_subsurface_commit(E_Client *ec)
 {
    E_Comp_Wl_Subsurf_Data *sdata;
-   E_Client *invisible_parent;
-   E_Client *topmost;
 
    /* check for valid subcompositor data */
    if (e_object_is_del(E_OBJECT(ec)) || !ec->comp_data) return EINA_FALSE;
    if (!(sdata = ec->comp_data->sub.data)) return EINA_FALSE;
 
-   invisible_parent = _e_comp_wl_subsurface_invisible_parent_get(ec);
-   topmost = _e_comp_wl_topmost_parent_get(ec);
-
    if (_e_comp_wl_subsurface_synchronized_get(sdata))
      _e_comp_wl_subsurface_commit_to_cache(ec);
-   /* if the topmost e_client is set redirected flag to false, make subsurface execute commit */
-   else if (invisible_parent && topmost->redirected)
-     {
-        _e_comp_wl_subsurface_commit_to_cache(ec);
-        invisible_parent->comp_data->need_commit_extern_parent = 1;
-     }
    else
      {
         E_Client *subc;
