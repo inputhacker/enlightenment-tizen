@@ -1032,6 +1032,7 @@ E_API Eina_Bool e_client_touch_update_send(E_Client *ec, int idx, int x, int y, 
 E_API Eina_Bool e_client_touch_cancel_send(E_Client *ec);
 E_API Eina_Bool e_client_mouse_button_send(E_Client *ec, int buttons, Eina_Bool pressed, Ecore_Device *dev, unsigned int time);
 E_API Eina_Bool e_client_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, unsigned int time);
+E_API Eina_Bool e_client_mouse_wheel_send(E_Client *ec, int x, int y, Ecore_Device *dev, unsigned int time);
 
 E_API Eina_Bool e_client_video_client_has(E_Client *ec);
 E_API Eina_Bool e_client_normal_client_has(E_Client *ec);

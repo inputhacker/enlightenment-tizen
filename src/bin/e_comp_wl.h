@@ -536,6 +536,7 @@ EINTERN Eina_Bool e_comp_wl_touch_update_send(E_Client *ec, int idx, int x, int 
 EINTERN Eina_Bool e_comp_wl_touch_cancel_send(E_Client *ec);
 EINTERN Eina_Bool e_comp_wl_mouse_button_send(E_Client *ec, int buttons, Eina_Bool pressed, Ecore_Device *dev, uint32_t time);
 EINTERN Eina_Bool e_comp_wl_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_t time);
+EINTERN Eina_Bool e_comp_wl_mouse_wheel_send(E_Client *ec, int direction, int z, Ecore_Device *dev, uint32_t time);
 
 E_API extern int E_EVENT_WAYLAND_GLOBAL_ADD;
 

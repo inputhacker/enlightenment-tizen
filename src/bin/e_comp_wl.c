@@ -852,8 +852,8 @@ _e_comp_wl_send_event_device(struct wl_client *wc, uint32_t timestamp, Ecore_Dev
 
    EINA_LIST_FOREACH(e_comp_wl->input_device_manager.device_list, l, input_dev)
      {
-        if (!eina_streq(input_dev->identifier, dev_name) || (input_dev->clas != ECORE_DEVICE_CLASS_KEYBOARD)) continue;
-        _e_comp_wl_device_last_device_set(ECORE_DEVICE_CLASS_KEYBOARD, input_dev);
+        if (!eina_streq(input_dev->identifier, dev_name)) continue;
+        _e_comp_wl_device_last_device_set(ecore_device_class_get(dev), input_dev);
 
         EINA_LIST_FOREACH(input_dev->resources, ll, dev_res)
           {
@@ -1355,30 +1355,43 @@ finish:
 }
 
 static void
-_e_comp_wl_evas_cb_mouse_wheel(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event)
+_e_comp_wl_mouse_wheel_send(E_Client *ec, int direction, int z, int timestamp)
 {
-   E_Client *ec;
-   Evas_Event_Mouse_Wheel *ev;
    struct wl_resource *res;
    struct wl_client *wc;
    Eina_List *l;
    uint32_t axis, dir;
+
+   if (direction == 0)
+     axis = WL_POINTER_AXIS_VERTICAL_SCROLL;
+   else
+     axis = WL_POINTER_AXIS_HORIZONTAL_SCROLL;
+
+   if (z < 0)
+     dir = -wl_fixed_from_int(abs(z));
+   else
+     dir = wl_fixed_from_int(z);
+
+   wc = wl_resource_get_client(ec->comp_data->surface);
+   EINA_LIST_FOREACH(e_comp_wl->ptr.resources, l, res)
+     {
+        if (!e_comp_wl_input_pointer_check(res)) continue;
+        if (wl_resource_get_client(res) != wc) continue;
+        wl_pointer_send_axis(res, timestamp, axis, dir);
+     }
+}
+
+static void
+_e_comp_wl_evas_cb_mouse_wheel(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event)
+{
+   E_Client *ec;
+   Evas_Event_Mouse_Wheel *ev;
 
    ev = event;
    if (!(ec = data)) return;
    if (ec->cur_mouse_action) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (ec->ignored) return;
-
-   if (ev->direction == 0)
-     axis = WL_POINTER_AXIS_VERTICAL_SCROLL;
-   else
-     axis = WL_POINTER_AXIS_HORIZONTAL_SCROLL;
-
-   if (ev->z < 0)
-     dir = -wl_fixed_from_int(abs(ev->z));
-   else
-     dir = wl_fixed_from_int(ev->z);
 
    if (!ec->comp_data->surface) return;
 
@@ -1387,13 +1400,7 @@ _e_comp_wl_evas_cb_mouse_wheel(void *data, Evas *evas EINA_UNUSED, Evas_Object *
 
    _e_comp_wl_device_send_event_device(ec, ev->dev, ev->timestamp);
 
-   wc = wl_resource_get_client(ec->comp_data->surface);
-   EINA_LIST_FOREACH(e_comp_wl->ptr.resources, l, res)
-     {
-        if (!e_comp_wl_input_pointer_check(res)) continue;
-        if (wl_resource_get_client(res) != wc) continue;
-        wl_pointer_send_axis(res, ev->timestamp, axis, dir);
-     }
+  _e_comp_wl_mouse_wheel_send(ec, ev->direction, ev->z, ev->timestamp);
 }
 
 static void
@@ -5701,6 +5708,28 @@ e_comp_wl_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_
    else _e_comp_wl_device_send_last_event_device(ec, ECORE_DEVICE_CLASS_MOUSE, time);
 
    _e_comp_wl_send_mouse_move(ec, x, y, time, EINA_FALSE);
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_comp_wl_mouse_wheel_send(E_Client *ec, int direction, int z, Ecore_Device *dev, uint32_t time)
+{
+   uint32_t serial;
+   struct wl_client *wc;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
+
+   wc = wl_resource_get_client(ec->comp_data->surface);
+   if (!time) time = (uint32_t)(ecore_time_get() * 1000);
+   serial = wl_display_next_serial(e_comp_wl->wl.disp);
+
+   if (dev) _e_comp_wl_send_event_device(wc, time, dev, serial);
+   else _e_comp_wl_device_send_last_event_device(ec, ECORE_DEVICE_CLASS_MOUSE, time);
+
+   _e_comp_wl_mouse_wheel_send(ec, direction, z, time);
 
    return EINA_TRUE;
 }
