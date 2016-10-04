@@ -1127,7 +1127,7 @@ _e_comp_wl_send_touch(E_Client *ec, int idx, int canvas_x, int canvas_y, uint32_
 }
 
 static void
-_e_comp_wl_send_touch_move(E_Client *ec, int idx, int canvas_x, int canvas_y, uint32_t timestamp, Eina_Bool cursor_control)
+_e_comp_wl_send_touch_move(E_Client *ec, int idx, int canvas_x, int canvas_y, uint32_t timestamp)
 {
    Eina_List *l;
    struct wl_client *wc;
@@ -1145,9 +1145,6 @@ _e_comp_wl_send_touch_move(E_Client *ec, int idx, int canvas_x, int canvas_y, ui
         if (!e_comp_wl_input_touch_check(res)) continue;
         wl_touch_send_motion(res, timestamp, idx, x, y);
      }
-
-  /* e pointer move for 1st finger touch coodination */
-  if (cursor_control && (idx == 0)) e_pointer_touch_move(e_comp->pointer, canvas_x, canvas_y);
 }
 
 static void
@@ -1169,6 +1166,35 @@ _e_comp_wl_send_mouse_move(E_Client *ec, int x, int y, unsigned int timestamp, E
 
    /* e pointer move for touch coodination */
    if (cursor_control) e_pointer_mouse_move(e_comp->pointer, x, y);
+}
+
+static void
+_e_comp_wl_cursor_move_timer_control(E_Client *ec)
+{
+   if (!e_config->use_cursor_timer) return;
+
+   if (e_pointer_is_hidden(e_comp->pointer))
+     _e_comp_wl_cursor_reload(ec);
+
+   if (e_comp_wl->ptr.hide_tmr)
+     {
+        if (cursor_timer_ec == ec)
+          {
+             ecore_timer_interval_set(e_comp_wl->ptr.hide_tmr, e_config->cursor_timer_interval);
+             ecore_timer_reset(e_comp_wl->ptr.hide_tmr);
+          }
+        else
+          {
+             ecore_timer_del(e_comp_wl->ptr.hide_tmr);
+             cursor_timer_ec = ec;
+             e_comp_wl->ptr.hide_tmr = ecore_timer_add(e_config->cursor_timer_interval, _e_comp_wl_cursor_timer, ec);
+          }
+     }
+   else
+     {
+        cursor_timer_ec = ec;
+        e_comp_wl->ptr.hide_tmr = ecore_timer_add(e_config->cursor_timer_interval, _e_comp_wl_cursor_timer, ec);
+     }
 }
 
 static void
@@ -1198,43 +1224,26 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
         dev = ev->dev;
         dev_name = evas_device_description_get(dev);
 
-        _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
-
         if (dev && (evas_device_class_get(dev) == EVAS_DEVICE_CLASS_TOUCH))
           {
-             if (dev_name)
-               _e_comp_wl_device_handle_axes(dev_name, evas_device_class_get(dev),
-                                             ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
-             _e_comp_wl_send_touch_move(ec, 0, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp, EINA_TRUE);
+             if (e_comp_wl->touch.pressed & (1 << 0))
+               {
+                  _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
+                  if (dev_name)
+                    _e_comp_wl_device_handle_axes(dev_name, evas_device_class_get(dev),
+                                                  ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
+                  _e_comp_wl_send_touch_move(ec, 0, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp);
+               }
+             /* e pointer move for 1st finger touch coodination */
+             e_pointer_touch_move(e_comp->pointer, ev->cur.canvas.x, ev->cur.canvas.y);
           }
         else
-          _e_comp_wl_send_mouse_move(ec, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp, EINA_TRUE);
-
-        if (e_config->use_cursor_timer)
           {
-             if (e_pointer_is_hidden(e_comp->pointer))
-               _e_comp_wl_cursor_reload(ec);
-
-             if (e_comp_wl->ptr.hide_tmr)
-               {
-                  if (cursor_timer_ec == ec)
-                    {
-                       ecore_timer_interval_set(e_comp_wl->ptr.hide_tmr, e_config->cursor_timer_interval);
-                       ecore_timer_reset(e_comp_wl->ptr.hide_tmr);
-                    }
-                  else
-                    {
-                       ecore_timer_del(e_comp_wl->ptr.hide_tmr);
-                       cursor_timer_ec = ec;
-                       e_comp_wl->ptr.hide_tmr = ecore_timer_add(e_config->cursor_timer_interval, _e_comp_wl_cursor_timer, ec);
-                    }
-               }
-             else
-               {
-                  cursor_timer_ec = ec;
-                  e_comp_wl->ptr.hide_tmr = ecore_timer_add(e_config->cursor_timer_interval, _e_comp_wl_cursor_timer, ec);
-               }
+             _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
+             _e_comp_wl_send_mouse_move(ec, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp, EINA_TRUE);
           }
+
+        _e_comp_wl_cursor_move_timer_control(ec);
      }
 }
 
@@ -1292,6 +1301,7 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
           _e_comp_wl_device_handle_axes(dev_name, evas_device_class_get(dev),
                                         ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
         _e_comp_wl_evas_handle_mouse_button_to_touch(ec, ev->timestamp, ev->canvas.x, ev->canvas.y, EINA_TRUE);
+        e_comp_wl->touch.pressed |= (1 << 0);
      }
    else
      e_comp_wl_evas_handle_mouse_button(ec, ev->timestamp, ev->button,
@@ -1345,6 +1355,7 @@ _e_comp_wl_evas_cb_mouse_up(void *data, Evas *evas, Evas_Object *obj EINA_UNUSED
           _e_comp_wl_device_handle_axes(dev_name, evas_device_class_get(dev),
                                         ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
         _e_comp_wl_evas_handle_mouse_button_to_touch(ec, ev->timestamp, ev->canvas.x, ev->canvas.y, EINA_FALSE);
+        e_comp_wl->touch.pressed &= ~(1 << 0);
      }
    else
      e_comp_wl_evas_handle_mouse_button(ec, ev->timestamp, ev->button,
@@ -1428,6 +1439,7 @@ _e_comp_wl_evas_cb_multi_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
      }
 
    _e_comp_wl_send_touch(ec, ev->device, ev->canvas.x, ev->canvas.y, ev->timestamp, EINA_TRUE);
+   e_comp_wl->touch.pressed |= (1 << ev->device);
 }
 
 static void
@@ -1455,6 +1467,7 @@ _e_comp_wl_evas_cb_multi_up(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj
      }
 
    _e_comp_wl_send_touch(ec, ev->device, 0, 0, ev->timestamp, EINA_FALSE);
+   e_comp_wl->touch.pressed &= ~(1 << ev->device);
 }
 
 static void
@@ -1473,15 +1486,18 @@ _e_comp_wl_evas_cb_multi_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
    /* Do not deliver emulated single touch events to client */
    if (ev->device == 0) return;
 
-   dev = ev->dev;
-   if (dev && (dev_name = evas_device_description_get(dev)))
+   if (e_comp_wl->touch.pressed & (1 << ev->device))
      {
-        dev_class = evas_device_class_get(dev);
-        _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
-        _e_comp_wl_device_handle_axes(dev_name, dev_class, ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
+        dev = ev->dev;
+        if (dev && (dev_name = evas_device_description_get(dev)))
+          {
+             dev_class = evas_device_class_get(dev);
+             _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
+             _e_comp_wl_device_handle_axes(dev_name, dev_class, ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
+          }
+     
+        _e_comp_wl_send_touch_move(ec, ev->device, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp);
      }
-
-   _e_comp_wl_send_touch_move(ec, ev->device, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp, EINA_TRUE);
 }
 
 static void
@@ -1986,31 +2002,7 @@ _e_comp_wl_cb_mouse_move(void *d EINA_UNUSED, int t EINA_UNUSED, Ecore_Event_Mou
      {
         _e_comp_wl_send_mouse_move(e_comp_wl->drag_client, ev->x, ev->y, ev->timestamp, EINA_TRUE);
 
-        if (e_config->use_cursor_timer)
-          {
-             if (e_pointer_is_hidden(e_comp->pointer))
-               _e_comp_wl_cursor_reload(NULL);
-
-             if (e_comp_wl->ptr.hide_tmr)
-               {
-                  if (!cursor_timer_ec)
-                    {
-                       ecore_timer_interval_set(e_comp_wl->ptr.hide_tmr, e_config->cursor_timer_interval);
-                       ecore_timer_reset(e_comp_wl->ptr.hide_tmr);
-                    }
-                  else
-                    {
-                      ecore_timer_del(e_comp_wl->ptr.hide_tmr);
-                      cursor_timer_ec = NULL;
-                      e_comp_wl->ptr.hide_tmr = ecore_timer_add(e_config->cursor_timer_interval, _e_comp_wl_cursor_timer, NULL);
-                    }
-               }
-             else
-               {
-                  cursor_timer_ec = NULL;
-                  e_comp_wl->ptr.hide_tmr = ecore_timer_add(e_config->cursor_timer_interval, _e_comp_wl_cursor_timer, NULL);
-               }
-          }
+        _e_comp_wl_cursor_move_timer_control(NULL);
      }
 
    return ECORE_CALLBACK_RENEW;
@@ -5666,7 +5658,7 @@ e_comp_wl_touch_update_send(E_Client *ec, int idx, int x, int y, Ecore_Device *d
         _e_comp_wl_device_handle_axes(device->identifier, device->clas, ec, radius_x, radius_y, pressure, angle);
      }
 
-   _e_comp_wl_send_touch_move(ec, idx, x, y, time, EINA_FALSE);
+   _e_comp_wl_send_touch_move(ec, idx, x, y, time);
 
    return EINA_TRUE;
 }
