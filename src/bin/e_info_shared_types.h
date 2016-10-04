@@ -39,6 +39,41 @@ typedef enum _E_Info_Cmd_Scrsaver
                                         */
 #define SIGNATURE_SCRSAVER_SERVER "s" /* s: result string from server */
 
+/* ------------------------------------------------------------------------- */
+/* OUTPUT_MODE                                                               */
+/* ------------------------------------------------------------------------- */
+#define USAGE_OUTPUT_MODE \
+   "enlightenment_info -output_mode\n"
+
+typedef enum _E_Info_Cmd_Output_Mode
+{
+   E_INFO_CMD_OUTPUT_MODE_UNKNOWN,
+   E_INFO_CMD_OUTPUT_MODE_GET
+} E_Info_Cmd_Output_Mode;
+
+#define SIGNATURE_OUTPUT_MODE_CLIENT "ii" /* i: E_Info_Cmd_Output_Mode
+                                           * i: mode number
+                                           */
+#define SIGNATURE_OUTPUT_MODE_SERVER "uuuuuuuuuuuusiiii" /* u: h value of outputmode
+                                                          * u: hsync_start value of outputmode
+                                                          * u: hsync_end value of outputmode
+                                                          * u: htotal value of outputmode
+                                                          * u: v value of outputmode
+                                                          * u: vsync_start value of outputmode
+                                                          * u: vsync_end value of outputmode
+                                                          * u: vtotal value of outputmode
+                                                          * u: refresh value of outputmode
+                                                          * u: vscan value of outputmode
+                                                          * u: clock value of outputmode
+                                                          * u: flag value of outputmode
+                                                          * s: name(resolution) of outputmode
+                                                          * i: check flag for current set mode
+                                                          * i: output id
+                                                          * i: check flag for output connection
+                                                          * i: check flag for gl support
+                                                          */
+
+
 #define USAGE_SLOT                                                                           \
    "(start   | list     | create   | modify   | del \n"                                      \
    "\t\t\t    raise   | lower    | add_ec_t | add_ec_r | del_ec | focus\n"                   \

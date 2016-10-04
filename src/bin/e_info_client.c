@@ -18,6 +18,10 @@ typedef struct _E_Info_Client
    Eina_List         *win_list;
 
    Eina_List         *input_dev;
+
+   /* output mode */
+   Eina_List         *mode_list;
+   int               gl;
 } E_Info_Client;
 
 typedef struct _E_Win_Info
@@ -39,6 +43,16 @@ typedef struct _E_Win_Info
    int          pl_zpos;
    const char  *layer_name; // layer name
 } E_Win_Info;
+
+typedef struct output_mode_info
+{
+   unsigned int hdisplay, hsync_start, hsync_end, htotal;
+   unsigned int vdisplay, vsync_start, vsync_end, vtotal;
+   unsigned int refresh, vscan, clock;
+   unsigned int flags;
+   int current, output, connect;
+   const char *name;
+} E_Info_Output_Mode;
 
 #define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiibbbiis"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
@@ -1663,7 +1677,174 @@ _e_info_client_proc_buffer_shot(int argc, char **argv)
 err:
    printf("Error Check Args\n%s\n", DUMP_BUFFERS_USAGE);
 return;
+}
 
+static E_Info_Output_Mode *
+_e_output_mode_info_new(uint32_t h, uint32_t hsync_start, uint32_t hsync_end, uint32_t htotal,
+                        uint32_t v, uint32_t vsync_start, uint32_t vsync_end, uint32_t vtotal,
+                        uint32_t refresh, uint32_t vscan, uint32_t clock, uint32_t flags,
+                        int current, int output, int connect, const char *name)
+{
+   E_Info_Output_Mode *mode = NULL;
+
+   mode = E_NEW(E_Info_Output_Mode, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(mode, NULL);
+
+   mode->hdisplay = h;
+   mode->hsync_start = hsync_start;
+   mode->hsync_end = hsync_end;
+   mode->htotal = htotal;
+   mode->vdisplay = v;
+   mode->vsync_start = vsync_start;
+   mode->vsync_end = vsync_end;
+   mode->vtotal = vtotal;
+   mode->refresh = refresh;
+   mode->vscan = vscan;
+   mode->clock = clock;
+   mode->flags = flags;
+   mode->current = current;
+   mode->output = output;
+   mode->connect = connect;
+   mode->name = eina_stringshare_add(name);
+
+   return mode;
+}
+
+static void
+_e_output_mode_info_free(E_Info_Output_Mode *mode)
+{
+   EINA_SAFETY_ON_NULL_RETURN(mode);
+
+   if (mode->name)
+     eina_stringshare_del(mode->name);
+
+   E_FREE(mode);
+}
+
+static void
+_cb_output_mode_info(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eldbus_Message_Iter *array, *ec;
+   Eina_Bool res;
+   int gl = 0;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "a("SIGNATURE_OUTPUT_MODE_SERVER")", &array);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   while (eldbus_message_iter_get_and_next(array, 'r', &ec))
+     {
+        uint32_t h, hsync_start, hsync_end, htotal;
+        uint32_t v, vsync_start, vsync_end, vtotal;
+        uint32_t refresh, vscan, clock, flag;
+        int current, output, connect;
+        const char *name;
+        E_Info_Output_Mode *mode = NULL;
+        res = eldbus_message_iter_arguments_get(ec,
+                                                SIGNATURE_OUTPUT_MODE_SERVER,
+                                                &h, &hsync_start, &hsync_end, &htotal,
+                                                &v, &vsync_start, &vsync_end, &vtotal,
+                                                &refresh, &vscan, &clock, &flag, &name,
+                                                &current, &output, &connect, &gl);
+        if (!res)
+          {
+             printf("Failed to get output mode info\n");
+             continue;
+          }
+
+        mode = _e_output_mode_info_new(h, hsync_start, hsync_end, htotal,
+                                       v, vsync_start, vsync_end, vtotal,
+                                       refresh, vscan, clock, flag,
+                                       current, output, connect, name);
+        e_info_client.mode_list = eina_list_append(e_info_client.mode_list, mode);
+     }
+   e_info_client.gl = gl;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_output_mode(int argc, char **argv)
+{
+   E_Info_Output_Mode *mode = NULL;
+   Eina_List *l;
+   int output = 0;
+   int idx = 0;
+   char curr;
+
+   if (!_e_info_client_eldbus_message_with_args("output_mode", _cb_output_mode_info,
+                                                SIGNATURE_OUTPUT_MODE_CLIENT, E_INFO_CMD_OUTPUT_MODE_GET, 0))
+     {
+        printf("_e_info_client_proc_output_mode fail (%d)\n", 1);
+        return;
+     }
+
+   if (!e_info_client.mode_list)
+     {
+        printf("no list\n");
+        return;
+     }
+
+   if (e_info_client.gl == 0)
+     {
+        E_FREE_LIST(e_info_client.mode_list, _e_output_mode_info_free);
+
+        printf("not support output_mode.\n");
+        return;
+     }
+
+   printf("--------------------------------------[ output mode ]---------------------------------------------\n");
+   printf(" idx   modename     h  hss  hse  htot  v  vss  vse  vtot  refresh  clk  vscan  preferred  current\n");
+   printf("--------------------------------------------------------------------------------------------------\n");
+
+   EINA_LIST_FOREACH(e_info_client.mode_list, l, mode)
+     {
+        if (!mode) return;
+
+        if (output == mode->output)
+          {
+             printf("output %u : ", mode->output);
+             output++;
+             idx = 0;
+
+             if (mode->connect == 1)
+               printf("%s\n", "connected");
+             else
+               {
+                  printf("%s\n", "disconnected");
+                  continue;
+               }
+          }
+
+        if (mode->current == 1)
+          curr = 'O';
+        else
+          curr = ' ';
+
+        printf("%3d%13s %5u%5u%5u%5u%5u%5u%5u%5u  %3u %8u  %2u        ",
+               idx++, mode->name,
+               mode->hdisplay, mode->hsync_start, mode->hsync_end, mode->htotal,
+               mode->vdisplay, mode->vsync_start, mode->vsync_end, mode->vtotal,
+               mode->refresh, mode->clock, mode->vscan);
+
+        if (mode->flags == 1)
+          printf("O         %c\n", curr);
+        else
+          printf("          %c\n", curr);
+     }
+
+   E_FREE_LIST(e_info_client.mode_list, _e_output_mode_info_free);
+
+   printf("\n");
+
+   return;
 }
 
 #ifdef ENABLE_HWC_MULTI
@@ -1954,6 +2135,11 @@ static struct
       "dump_buffers", DUMP_BUFFERS_USAGE,
       "Dump attach buffers [on:1,off:0] (default path:/tmp/dump_xxx/)",
       _e_info_client_proc_buffer_shot
+   },
+   {
+      "output_mode", NULL,
+      "Get output mode info",
+      _e_info_client_proc_output_mode
    },
 #ifdef ENABLE_HWC_MULTI
    {

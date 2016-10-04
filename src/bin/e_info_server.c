@@ -1938,6 +1938,121 @@ _e_info_server_cb_buffer_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
    return reply;
 }
 
+static void
+_output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp_screen, int gl)
+{
+   Eldbus_Message_Iter *array_of_mode;
+   Eldbus_Message_Iter *struct_of_mode;
+   tdm_display *tdpy;
+   tdm_output *output = NULL;
+   tdm_output_conn_status status;
+   const tdm_output_mode *mode = NULL;
+   const tdm_output_mode *modes = NULL;
+   tdm_error ret = TDM_ERROR_NONE;
+   int i, j, count, mode_count, current;
+   unsigned int preferred;
+
+   eldbus_message_iter_arguments_append(iter, "a("SIGNATURE_OUTPUT_MODE_SERVER")",
+                                        &array_of_mode);
+
+   if (gl == 0)
+     {
+        eldbus_message_iter_arguments_append(array_of_mode, "("SIGNATURE_OUTPUT_MODE_SERVER")",
+                                             &struct_of_mode);
+        eldbus_message_iter_arguments_append(struct_of_mode, SIGNATURE_OUTPUT_MODE_SERVER,
+                                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "none",
+                                             0, 0, 0, 0);
+        eldbus_message_iter_container_close(array_of_mode, struct_of_mode);
+
+        eldbus_message_iter_container_close(iter, array_of_mode);
+
+        return;
+     }
+
+   count = e_comp_screen->num_outputs;
+   tdpy = e_comp_screen->tdisplay;
+
+   for (i = 0; i < count; i++)
+     {
+        output = tdm_display_get_output(tdpy, i, &ret);
+        if (ret != TDM_ERROR_NONE || output == NULL)
+          continue;
+
+        ret = tdm_output_get_conn_status(output, &status);
+        if (ret != TDM_ERROR_NONE)
+          continue;
+
+        if (status == TDM_OUTPUT_CONN_STATUS_DISCONNECTED)
+          {
+             eldbus_message_iter_arguments_append(array_of_mode, "("SIGNATURE_OUTPUT_MODE_SERVER")",
+                                                  &struct_of_mode);
+             eldbus_message_iter_arguments_append(struct_of_mode, SIGNATURE_OUTPUT_MODE_SERVER,
+                                                  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "none",
+                                                  0, i, 0, 1);
+             eldbus_message_iter_container_close(array_of_mode, struct_of_mode);
+
+             continue;
+          }
+
+        ret = tdm_output_get_mode(output, &mode);
+        if (ret != TDM_ERROR_NONE)
+          continue;
+
+        ret = tdm_output_get_available_modes(output, &modes, &mode_count);
+        if (ret != TDM_ERROR_NONE)
+          continue;
+
+        for (j = 0; j < mode_count; j++)
+          {
+             eldbus_message_iter_arguments_append(array_of_mode, "("SIGNATURE_OUTPUT_MODE_SERVER")",
+                                                  &struct_of_mode);
+             current = 0;
+             if (mode == modes + j) current = 1;
+
+             preferred = 0;
+             if (modes[j].type & TDM_OUTPUT_MODE_TYPE_PREFERRED) preferred = 1;
+
+             eldbus_message_iter_arguments_append(struct_of_mode, SIGNATURE_OUTPUT_MODE_SERVER,
+                                                  modes[j].hdisplay, modes[j].hsync_start, modes[j].hsync_end, modes[j].htotal,
+                                                  modes[j].vdisplay, modes[j].vsync_start, modes[j].vsync_end, modes[j].vtotal,
+                                                  modes[j].vrefresh, modes[j].vscan, modes[j].clock, preferred, modes[j].name,
+                                                  current, i, 1, 1);
+             eldbus_message_iter_container_close(array_of_mode, struct_of_mode);
+          }
+     }
+
+   eldbus_message_iter_container_close(iter, array_of_mode);
+}
+
+static Eldbus_Message *
+_e_info_server_cb_output_mode(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   E_Comp_Screen *e_comp_screen = NULL;
+   tdm_display *tdpy = NULL;
+   int mode = 0;
+   int count = 0;
+
+   if (!eldbus_message_arguments_get(msg, SIGNATURE_OUTPUT_MODE_CLIENT, &mode, &count))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+   if (mode == E_INFO_CMD_OUTPUT_MODE_GET)
+     {
+        e_comp_screen = e_comp->e_comp_screen;
+        tdpy = e_comp_screen->tdisplay;
+
+        if (tdpy != NULL)
+          _output_mode_msg_clients_append(eldbus_message_iter_get(reply), e_comp_screen, 1);
+        else
+          _output_mode_msg_clients_append(eldbus_message_iter_get(reply), e_comp_screen, 0);
+     }
+
+   return reply;
+}
+
 #ifdef ENABLE_HWC_MULTI
 static Eldbus_Message *
 e_info_server_cb_hwc_trace_message(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
@@ -2100,6 +2215,7 @@ static const Eldbus_Method methods[] = {
    { "punch", ELDBUS_ARGS({"iiiiiiiii", "punch_geometry"}), NULL, _e_info_server_cb_punch, 0},
    { "transform_message", ELDBUS_ARGS({"siiiiiiii", "transform_message"}), NULL, e_info_server_cb_transform_message, 0},
    { "dump_buffers", ELDBUS_ARGS({"iis", "start"}), NULL, _e_info_server_cb_buffer_dump, 0 },
+   { "output_mode", ELDBUS_ARGS({SIGNATURE_OUTPUT_MODE_CLIENT, "output mode"}), ELDBUS_ARGS({"a("SIGNATURE_OUTPUT_MODE_SERVER")", "array of ec"}), _e_info_server_cb_output_mode, 0 },
 #ifdef ENABLE_HWC_MULTI
    { "hwc_trace_message", ELDBUS_ARGS({"i", "hwc_trace_message"}), NULL, e_info_server_cb_hwc_trace_message, 0},
    { "hwc", ELDBUS_ARGS({"i", "hwc"}), NULL, e_info_server_cb_hwc, 0},
