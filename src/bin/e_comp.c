@@ -1840,13 +1840,108 @@ e_comp_vis_ec_list_get(E_Zone *zone)
    return ec_list;
 }
 
+static int
+e_getpwnam_r(const char *name)
+{
+   struct passwd *u;
+   struct passwd *u_res;
+   char* buf;
+   size_t buflen;
+   int ret;
+#undef BUFLEN
+#define BUFLEN 2048
+
+   buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+   if (buflen == -1)          /* Value was indeterminate */
+     buflen = BUFLEN;        /* Should be more than enough */
+#undef BUFLEN
+
+   buf = malloc(buflen);
+   if (buf == NULL)
+     {
+        ERR("failed to create buffer");
+        return 0;
+     }
+
+   u = malloc(sizeof(struct passwd));
+   if (!u)
+     {
+        ERR("failed to create password struct");
+        free(buf);
+        return 0;
+     }
+
+   ret = getpwnam_r(name, u, buf, buflen, &u_res);
+   if (u_res == NULL)
+     {
+        if (ret == 0)
+          ERR("password not found");
+        else
+          ERR("errno returned by getpwnam_r is %d", ret);
+        free(buf);
+        free(u);
+        return 0;
+     }
+   ret = u->pw_uid;
+   free(buf);
+   free(u);
+   return ret;
+}
+
+static int
+e_getgrnam_r(const char *name)
+{
+   struct group *g;
+   struct group *grp_res;
+   char* buf;
+   size_t buflen;
+   int ret;
+#undef BUFLEN
+#define BUFLEN 2048
+   buflen = sysconf(_SC_GETGR_R_SIZE_MAX);
+   if (buflen == -1)          /* Value was indeterminate */
+     buflen = BUFLEN;        /* Should be more than enough */
+#undef BUFLEN
+
+   buf = malloc(buflen);
+   if (buf == NULL)
+     {
+        ERR("failed to create buffer");
+        return 0;
+     }
+
+   g = malloc(sizeof(struct group));
+   if (!g)
+     {
+        ERR("failed to create group struct");
+        free(buf);
+        return 0;
+     }
+
+   ret = getgrnam_r(name, g, buf, buflen, &grp_res);
+   if (grp_res == NULL)
+     {
+        if (ret == 0)
+          ERR("Group not found");
+        else
+          ERR("errno returned by getpwnam_r is %d", ret);
+
+        free(buf);
+        free(g);
+        return 0;
+     }
+
+   ret = g->gr_gid;
+   free(buf);
+   free(g);
+   return ret;
+}
+
 E_API Eina_Bool
 e_comp_socket_init(const char *name)
 {
    const char *dir = NULL;
    char socket_path[108];
-   struct passwd *u;
-   struct group *g;
    uid_t uid;
    gid_t gid;
    int res;
@@ -1867,11 +1962,9 @@ e_comp_socket_init(const char *name)
         if ((sa->sock_access.owner) &&
             (sa->sock_access.group))
           {
-             u = getpwnam(sa->sock_access.owner);
-             uid = u ? u->pw_uid : 0;
+             uid = e_getpwnam_r(sa->sock_access.owner);
 
-             g = getgrnam(sa->sock_access.group);
-             gid = g ? g->gr_gid : 0;
+             gid = e_getgrnam_r(sa->sock_access.group);
 
              DBG("socket path: %s owner: %s (%d) group: %s (%d) permissions: %o",
                  socket_path,
@@ -1924,11 +2017,9 @@ e_comp_socket_init(const char *name)
                   break;
                }
 
-             u = getpwnam(sa->sock_symlink_access.owner);
-             uid = u ? u->pw_uid : 0;
+             uid = e_getpwnam_r(sa->sock_symlink_access.owner);
 
-             g = getgrnam(sa->sock_symlink_access.group);
-             gid = g ? g->gr_gid : 0;
+             gid = e_getgrnam_r(sa->sock_symlink_access.group);
 
              res = lchown(sa->sock_symlink_access.link_name, uid, gid);
              if (res < 0)
