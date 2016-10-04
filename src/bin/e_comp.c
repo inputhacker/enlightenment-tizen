@@ -1975,9 +1975,14 @@ e_comp_socket_init(const char *name)
              res = chmod(socket_path, sa->sock_access.permissions);
              if (res < 0)
                {
+#undef STRERR_BUFSIZE
+#define STRERR_BUFSIZE 128
+                  char buf[STRERR_BUFSIZE];
+
                   ERR("Could not change modes of socket file:%s (%s)",
                       socket_path,
-                      strerror(errno));
+                      strerror_r(errno, buf, STRERR_BUFSIZE));
+#undef STRERR_BUFSIZE
                   PRCTL("[Winsys] Could not chane modes of socket file: %s", socket_path);
                   return EINA_FALSE;
                }
