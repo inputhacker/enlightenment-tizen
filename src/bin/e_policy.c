@@ -799,11 +799,17 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
                        if (above_ec->exp_iconify.by_client) continue;
                        if (above_ec->exp_iconify.skip_iconify) continue;
 
-                       if (!above_ec->iconic)
+                       if (above_ec->argb)
                          {
-                            if (above_ec->argb && (above_ec->visibility.opaque > 0))
-                              obscured_by_alpha_opaque = EINA_TRUE;
+                            if (above_ec->visibility.opaque <= 0)
+                              continue;
+                            else
+                              {
+                                 if (!above_ec->iconic)
+                                   obscured_by_alpha_opaque = EINA_TRUE;
+                              }
                          }
+
                        find_above = EINA_TRUE;
                        break;
                     }
