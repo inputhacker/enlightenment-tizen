@@ -118,9 +118,33 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
    tdm_layer *tlayer = plane->tlayer;
    E_Output *output = plane->output;
    E_Client *ec = plane->ec;
+   int aligned_width;
 
    /* set layer when the layer infomation is different from the previous one */
    tbm_surface_get_info(tsurface, &surf_info);
+
+   switch (surf_info.format)
+     {
+      case TBM_FORMAT_YUV420:
+      case TBM_FORMAT_YVU420:
+      case TBM_FORMAT_YUV422:
+      case TBM_FORMAT_YVU422:
+      case TBM_FORMAT_NV12:
+      case TBM_FORMAT_NV21:
+        aligned_width = surf_info.planes[0].stride;
+        break;
+      case TBM_FORMAT_YUYV:
+      case TBM_FORMAT_UYVY:
+        aligned_width = surf_info.planes[0].stride >> 1;
+        break;
+      case TBM_FORMAT_ARGB8888:
+      case TBM_FORMAT_XRGB8888:
+        aligned_width = surf_info.planes[0].stride >> 2;
+        break;
+      default:
+        ERR("not supported format: %x", surf_info.format);
+        return EINA_FALSE;
+     }
 
    if (ec)
      {
@@ -136,7 +160,7 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
             plane->info.dst_pos.h != surf_info.height ||
             plane->info.transform != TDM_TRANSFORM_NORMAL)
           {
-              plane->info.src_config.size.h = surf_info.planes[0].stride;
+              plane->info.src_config.size.h = aligned_width;
               plane->info.src_config.size.v = surf_info.height;
               plane->info.src_config.pos.x = 0;
               plane->info.src_config.pos.y = 0;
@@ -170,7 +194,7 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
             plane->info.dst_pos.h != output->config.geom.h ||
             plane->info.transform != TDM_TRANSFORM_NORMAL)
           {
-              plane->info.src_config.size.h = surf_info.planes[0].stride;
+              plane->info.src_config.size.h = aligned_width;
               plane->info.src_config.size.v = surf_info.height;
               plane->info.src_config.pos.x = 0;
               plane->info.src_config.pos.y = 0;
