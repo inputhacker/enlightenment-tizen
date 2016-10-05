@@ -895,13 +895,11 @@ e_plane_reserved_set(E_Plane *plane, Eina_Bool set)
              if (plane->is_fb)
                {
                   e_plane_renderer_ecore_evas_use(plane->renderer);
-                  plane->ec = NULL;
                }
              else
                {
                   e_plane_renderer_del(renderer);
                   plane->renderer = NULL;
-                  plane->ec = NULL;
                }
           }
      }
