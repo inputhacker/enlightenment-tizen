@@ -303,7 +303,6 @@ _e_plane_surface_from_client_acquire(E_Plane *plane)
    E_Comp_Wl_Buffer *buffer = e_pixmap_resource_get(pixmap);
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
    tbm_surface_h tsurface = NULL;
-   E_Plane_Renderer *renderer = plane->renderer;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, NULL);
 
