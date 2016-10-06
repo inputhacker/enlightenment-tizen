@@ -59,6 +59,8 @@ static Eina_Bool need_send_motion = EINA_TRUE;
 static int _e_comp_wl_hooks_delete = 0;
 static int _e_comp_wl_hooks_walking = 0;
 
+static Eina_Hash *_last_keydev_hash = NULL;
+
 static Eina_Inlist *_e_comp_wl_hooks[] =
 {
    [E_COMP_WL_HOOK_SHELL_SURFACE_READY] = NULL,
@@ -4713,6 +4715,49 @@ _e_comp_wl_gl_shutdown(void)
    e_comp_wl->wl.gl = NULL;
 }
 
+static void
+_e_comp_wl_client_cb_destroy(struct wl_listener *l, void *data)
+{
+   struct wl_client *client = (struct wl_client *)data;
+
+   eina_hash_del_by_key(_last_keydev_hash, client);
+
+   wl_list_remove(&l->link);
+   E_FREE(l);
+}
+
+static void
+_e_comp_wl_client_destroy_listener_add(struct wl_client *client)
+{
+   struct wl_listener *destroy_listener;
+
+   EINA_SAFETY_ON_NULL_RETURN(client);
+   destroy_listener = wl_client_get_destroy_listener(client, _e_comp_wl_client_cb_destroy);
+   if (destroy_listener) return;
+
+   destroy_listener = E_NEW(struct wl_listener, 1);
+   EINA_SAFETY_ON_NULL_RETURN(destroy_listener);
+
+   destroy_listener->notify = _e_comp_wl_client_cb_destroy;
+   wl_client_add_destroy_listener(client, destroy_listener);
+}
+
+static Eina_Bool
+_e_comp_wl_keydev_hash_free(const Eina_Hash *hash, const void *key, void *data, void *fdata)
+{
+   struct wl_listener *destroy_listener;
+   struct wl_client *wc;
+
+   wc = (struct wl_client *)key;
+
+   destroy_listener = wl_client_get_destroy_listener(wc, _e_comp_wl_client_cb_destroy);
+
+   wl_list_remove(&destroy_listener->link);
+   E_FREE(destroy_listener);
+
+   return EINA_TRUE;
+}
+
 /* public functions */
 
 /**
@@ -4762,6 +4807,7 @@ e_comp_wl_init(void)
    e_client_hook_add(E_CLIENT_HOOK_UNICONIFY,    _e_comp_wl_client_cb_uniconify,    NULL);
 
    E_EVENT_WAYLAND_GLOBAL_ADD = ecore_event_type_new();
+   _last_keydev_hash = eina_hash_pointer_new(NULL);
 
    TRACE_DS_END();
    return EINA_TRUE;
@@ -4797,6 +4843,9 @@ e_comp_wl_shutdown(void)
    e_comp_wl_tbm_shutdown();
 #endif
    e_comp_wl_remote_surface_shutdown();
+
+   eina_hash_foreach(_last_keydev_hash, _e_comp_wl_keydev_hash_free, NULL);
+   eina_hash_free(_last_keydev_hash);
 
    e_pixmap_shutdown();
 
@@ -5250,6 +5299,8 @@ _e_comp_wl_key_send(Ecore_Event_Key *ev, enum wl_keyboard_key_state state, Eina_
    struct wl_resource *res;
    Eina_List *l;
    uint32_t serial, keycode;
+   struct wl_client *wc;
+   Ecore_Device *last_dev;
 
    keycode = (ev->keycode - 8);
 
@@ -5257,9 +5308,22 @@ _e_comp_wl_key_send(Ecore_Event_Key *ev, enum wl_keyboard_key_state state, Eina_
 
    EINA_LIST_FOREACH(key_list, l, res)
      {
-        if (!focused && wl_resource_get_client(res) != ev->data) continue;
+        wc = wl_resource_get_client(res);
+        if (!focused && wc != ev->data) continue;
         TRACE_INPUT_BEGIN(_e_comp_wl_key_send);
-        _e_comp_wl_send_event_device(ev->data, ev->timestamp, ev->dev, serial);
+        last_dev = eina_hash_find(_last_keydev_hash, wc);
+        if (!last_dev)
+          {
+             _e_comp_wl_client_destroy_listener_add(wc);
+             eina_hash_direct_add(_last_keydev_hash, wc, ev->dev);
+             _e_comp_wl_send_event_device(ev->data, ev->timestamp, ev->dev, serial);
+          }
+        else if (last_dev != ev->dev)
+          {
+             eina_hash_modify(_last_keydev_hash, wc, ev->dev);
+             _e_comp_wl_send_event_device(ev->data, ev->timestamp, ev->dev, serial);
+          }
+
         wl_keyboard_send_key(res, serial, ev->timestamp,
                              keycode, state);
         TRACE_INPUT_END();
