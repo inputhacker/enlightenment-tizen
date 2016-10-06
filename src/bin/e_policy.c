@@ -839,6 +839,26 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
 }
 
 static void
+_e_policy_cb_hook_client_uniconify(void *d EINA_UNUSED, E_Client *ec)
+{
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (!e_policy_wl_iconify_state_supported_get(ec))
+     {
+        ELOGF("TZPOL", "Force Update the client not supporting iconify state",
+              ec->pixmap, ec);
+
+        /* force render for an iconifed e_client having shm buffer not used yet*/
+        if ((e_pixmap_image_data_get(ec->pixmap)) &&
+            (!e_pixmap_dirty_get(ec->pixmap)))
+          {
+             e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+             e_comp_object_dirty(ec->frame);
+             e_comp_object_render(ec->frame);
+          }
+     }
+}
+
+static void
 _e_policy_cb_hook_pixmap_del(void *data EINA_UNUSED, E_Pixmap *cp)
 {
    e_policy_wl_pixmap_del(cp);
@@ -1746,6 +1766,7 @@ e_policy_init(void)
    E_CLIENT_HOOK_APPEND(hooks_ec,  E_CLIENT_HOOK_DESK_SET,            _e_policy_cb_hook_client_desk_set,            NULL);
    E_CLIENT_HOOK_APPEND(hooks_ec,  E_CLIENT_HOOK_FULLSCREEN_PRE,      _e_policy_cb_hook_client_fullscreen_pre,      NULL);
    E_CLIENT_HOOK_APPEND(hooks_ec,  E_CLIENT_HOOK_EVAL_VISIBILITY,     _e_policy_cb_hook_client_visibility,          NULL);
+   E_CLIENT_HOOK_APPEND(hooks_ec,  E_CLIENT_HOOK_UNICONIFY,           _e_policy_cb_hook_client_uniconify,           NULL);
 
    E_PIXMAP_HOOK_APPEND(hooks_cp,  E_PIXMAP_HOOK_DEL,                 _e_policy_cb_hook_pixmap_del,                 NULL);
    E_PIXMAP_HOOK_APPEND(hooks_cp,  E_PIXMAP_HOOK_UNUSABLE,            _e_policy_cb_hook_pixmap_unusable,            NULL);

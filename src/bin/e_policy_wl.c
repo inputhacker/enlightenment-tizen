@@ -1045,6 +1045,32 @@ e_policy_wl_visibility_send(E_Client *ec, int vis)
      polwl->pending_vis = eina_list_append(polwl->pending_vis, ec);
 }
 
+Eina_Bool
+e_policy_wl_iconify_state_supported_get(E_Client *ec)
+{
+   E_Policy_Wl_Tzpol *tzpol;
+   E_Policy_Wl_Surface *psurf;
+   E_Client *ec2;
+   Eina_List *l;
+   Eina_Iterator *it;
+   Eina_Bool found = EINA_FALSE;
+
+   it = eina_hash_iterator_data_new(polwl->tzpols);
+   EINA_ITERATOR_FOREACH(it, tzpol)
+      EINA_LIST_FOREACH(tzpol->psurfs, l, psurf)
+        {
+           ec2 = e_pixmap_client_get(psurf->cp);
+           if (ec2 == ec)
+             {
+                found = EINA_TRUE;
+                break;
+             }
+        }
+   eina_iterator_free(it);
+
+   return found;
+}
+
 void
 e_policy_wl_iconify_state_change_send(E_Client *ec, int iconic)
 {

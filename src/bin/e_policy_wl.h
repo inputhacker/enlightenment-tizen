@@ -15,6 +15,7 @@ void      e_policy_wl_pixmap_del(E_Pixmap *cp);
 void      e_policy_wl_visibility_send(E_Client *ec, int vis);
 
 /* iconify */
+Eina_Bool e_policy_wl_iconify_state_supported_get(E_Client *ec);
 void      e_policy_wl_iconify_state_change_send(E_Client *ec, int iconic);
 
 /* position */
