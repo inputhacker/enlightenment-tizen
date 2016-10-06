@@ -145,6 +145,7 @@ struct _E_Vis_Client
       Eina_List   *grab_list;
    } job;
    Eina_Bool prepare_emitted;
+   Eina_Bool disable_uniconify_render;
 };
 
 struct _E_Vis_Job_Group

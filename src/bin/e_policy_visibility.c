@@ -850,6 +850,9 @@ _e_vis_client_uniconify(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool raise)
 
    ec = vc->ec;
 
+   if (vc->disable_uniconify_render)
+     return EINA_FALSE;
+
    if (_e_vis_client_is_uniconic(vc))
      return EINA_FALSE;
 
@@ -1287,6 +1290,14 @@ e_policy_visibility_client_activate(E_Client *ec)
    /* TODO find topmost activity client and emit signal */
 
    return ret;
+}
+
+E_API void
+e_policy_visibility_uniconify_render_disable_set(E_Client *ec, Eina_Bool disable)
+{
+   E_VIS_CLIENT_GET_OR_RETURN(vc, ec);
+   VS_DBG(ec, "API ENTRY | Disable uniconify render");
+   vc->disable_uniconify_render = !!disable;
 }
 
 E_API Eina_Bool

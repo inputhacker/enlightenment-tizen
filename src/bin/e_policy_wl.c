@@ -2094,7 +2094,14 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
           }
         else if (!strcmp(hint->hint, hint_names[E_POLICY_HINT_DEICONIFY_APPROVE_DISABLE]))
           {
-             /* TODO: would implement after deiconify approve protocol provided */
+             Eina_Bool disable;
+
+             if (!strcmp(hint->val, "1"))
+               disable = EINA_TRUE;
+             else
+               disable = EINA_FALSE;
+
+             e_policy_visibility_uniconify_render_disable_set(ec, disable);
           }
         else if (!strcmp(hint->hint, hint_names[E_POLICY_HINT_GESTURE_DISABLE]))
           {
