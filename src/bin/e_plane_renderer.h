@@ -43,7 +43,6 @@ struct _E_Plane_Renderer {
 
    Ecore_Fd_Handler   *event_hdlr;
    int                 event_fd;
-   pthread_mutex_t     event_lock;
 };
 
 EINTERN Eina_Bool                  e_plane_renderer_init(void);

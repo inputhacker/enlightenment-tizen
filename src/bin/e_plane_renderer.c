@@ -241,24 +241,13 @@ _e_plane_renderer_surface_find_disp_surface(E_Plane_Renderer *renderer, tbm_surf
 static void
 _e_plane_renderer_cb_acquirable(tbm_surface_queue_h surface_queue, void *data)
 {
-    E_Plane_Renderer *renderer = (E_Plane_Renderer *)data;
-    int ret;
+    int fd = (int)data;
     uint64_t value = 1;
+    int ret;
 
-    EINA_SAFETY_ON_NULL_RETURN(renderer);
-
-    pthread_mutex_lock(&renderer->event_lock);
-
-    if (!renderer->ee) goto end;
-    if (renderer->event_fd < 0) goto end;
-    if (!renderer->event_hdlr) goto end;
-
-    ret = write(renderer->event_fd, &value, sizeof(value));
+    ret = write(fd, &value, sizeof(value));
     if (ret == -1)
        ERR("failed to send acquirable event:%m");
-
-end:
-    pthread_mutex_unlock(&renderer->event_lock);
 }
 
 static void
@@ -473,26 +462,14 @@ e_plane_renderer_shutdown(void)
 static Eina_Bool
 _e_plane_renderer_cb_queue_acquirable_event(void *data, Ecore_Fd_Handler *fd_handler)
 {
-   E_Plane *plane = (E_Plane *)data;
-   E_Plane_Renderer *renderer = NULL;
-   char buffer[64];
    int len;
+   int fd;
+   char buffer[64];
 
-   if (!plane) return ECORE_CALLBACK_RENEW;
-
-   renderer = plane->renderer;
-
-   if (!renderer) return ECORE_CALLBACK_RENEW;
-   if (renderer->event_fd < 0) return ECORE_CALLBACK_RENEW;
-   if (plane->ec) return ECORE_CALLBACK_RENEW;
-
-   pthread_mutex_lock(&renderer->event_lock);
-
-   len = read(renderer->event_fd, buffer, sizeof(buffer));
+   fd = ecore_main_fd_handler_fd_get(fd_handler);
+   len = read(fd, buffer, sizeof(buffer));
    if (len == -1)
       ERR("failed to read queue acquire event fd:%m");
-
-   pthread_mutex_unlock(&renderer->event_lock);
 
    return ECORE_CALLBACK_RENEW;
 }
@@ -517,7 +494,7 @@ e_plane_renderer_new(E_Plane *plane)
         ecore_evas_manual_render_set(renderer->ee, 1);
         renderer->event_fd = eventfd(0, EFD_NONBLOCK);
         renderer->event_hdlr = ecore_main_fd_handler_add(renderer->event_fd, ECORE_FD_READ,
-                               _e_plane_renderer_cb_queue_acquirable_event, plane, NULL, NULL);
+                               _e_plane_renderer_cb_queue_acquirable_event, NULL, NULL, NULL);
      }
 
    return renderer;
@@ -634,18 +611,17 @@ e_plane_renderer_del(E_Plane_Renderer *renderer)
      {
         WRN("Delete renderer for canvas");
 
-        pthread_mutex_lock(&renderer->event_lock);
-
         if (renderer->event_hdlr)
-           ecore_main_fd_handler_del(renderer->event_hdlr);
+          {
+             ecore_main_fd_handler_del(renderer->event_hdlr);
+             renderer->event_hdlr = NULL;
+          }
 
         if (renderer->event_fd)
           {
              close(renderer->event_fd);
              renderer->event_fd = -1;
           }
-
-        pthread_mutex_unlock(&renderer->event_lock);
      }
 
    if (plane->reserved_memory)
@@ -1056,7 +1032,7 @@ e_plane_renderer_surface_queue_set(E_Plane_Renderer *renderer, tbm_surface_queue
 
    if (renderer->ee)
      {
-        tsq_err = tbm_surface_queue_add_acquirable_cb(renderer->tqueue, _e_plane_renderer_cb_acquirable, (void *)renderer);
+        tsq_err = tbm_surface_queue_add_acquirable_cb(renderer->tqueue, _e_plane_renderer_cb_acquirable, (void *)renderer->event_fd);
         if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
           {
              ERR("fail to add dequeuable cb");

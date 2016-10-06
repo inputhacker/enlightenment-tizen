@@ -242,43 +242,31 @@ _e_plane_surface_from_client_acquire_reserved(E_Plane *plane)
    renderer_client = e_plane_renderer_client_get(ec);
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_client, NULL);
 
-   if (!e_comp_object_hwc_update_exists(ec->frame)) return NULL;
-
-   e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
-
-   if (plane_trace_debug)
-     ELOGF("E_PLANE", "Plane:%p Display Client", ec->pixmap, ec, plane);
-
-   if (!e_plane_renderer_surface_queue_clear(renderer))
+   if (e_comp_object_hwc_update_exists(ec->frame))
      {
-        ERR("fail to e_plane_renderer_surface_queue_clear");
-        return NULL;
-     }
+        e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
-    /* acquire the surface from the client_queue */
-   tsurface = e_plane_renderer_client_surface_recieve(renderer_client);
-   if (!tsurface)
-     {
-        ERR("fail to e_plane_renderer_client_surface_recieve");
-        return NULL;
-     }
+        if (plane_trace_debug)
+           ELOGF("E_PLANE", "Plane:%p Display Client", ec->pixmap, ec, plane);
 
-   /* enqueue the surface to the layer_queue */
-   if (!e_plane_renderer_surface_queue_enqueue(plane->renderer, tsurface))
-     {
-        e_plane_renderer_surface_send(renderer, ec, tsurface);
-        ERR("fail to e_plane_renderer_surface_queue_enqueue");
-        return NULL;
+        if (!e_plane_renderer_surface_queue_clear(renderer))
+           ERR("fail to e_plane_renderer_surface_queue_clear");
+
+        /* acquire the surface from the client_queue */
+        tsurface = e_plane_renderer_client_surface_recieve(renderer_client);
+        if (!tsurface)
+           ERR("fail to e_plane_renderer_client_surface_recieve");
+
+        /* enqueue the surface to the layer_queue */
+        if (!e_plane_renderer_surface_queue_enqueue(plane->renderer, tsurface))
+          {
+              e_plane_renderer_surface_send(renderer, ec, tsurface);
+              ERR("fail to e_plane_renderer_surface_queue_enqueue");
+          }
      }
 
    /* aquire */
    tsurface = e_plane_renderer_surface_queue_acquire(plane->renderer);
-   if (!tsurface)
-     {
-        e_plane_renderer_surface_send(renderer, ec, tsurface);
-        ERR("fail e_plane_renderer_surface_queue_acquire");
-        return NULL;
-     }
 
    return tsurface;
 }
