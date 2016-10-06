@@ -558,3 +558,18 @@ e_process_hook_del(E_Process_Hook *ph)
    else
      _e_process_hooks_delete++;
 }
+
+E_API E_Process_State
+e_process_state_get(pid_t pid)
+{
+   E_Process *pinfo = NULL;
+
+   if (!_e_process_manager) return E_PROCESS_STATE_UNKNOWN;
+   if (pid <= 0) return E_PROCESS_STATE_UNKNOWN;
+
+   pinfo = _e_process_find(_e_process_manager, pid);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(pinfo, E_PROCESS_STATE_UNKNOWN);
+
+   ELOGF("PROCESS", "GET STATE. PID:%d, state:%d", NULL, NULL, pid, pinfo->state);
+   return pinfo->state;
+}

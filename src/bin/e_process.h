@@ -68,7 +68,7 @@ E_API int        e_process_shutdown(void);
 E_API E_Process_Hook *e_process_hook_add(E_Process_Hook_Point hookpoint, E_Process_Hook_Cb func, const void *data);
 E_API void            e_process_hook_del(E_Process_Hook *ph);
 
-
+E_API E_Process_State e_process_state_get(pid_t pid);
 #endif
 #endif
 
