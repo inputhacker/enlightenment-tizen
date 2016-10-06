@@ -118,6 +118,7 @@ struct _E_Vis
    E_Client             *activity;
    Eina_Hash            *clients_hash;
    Eina_List            *fg_clients;
+   Eina_List            *hooks;
    Eina_List            *handlers;
    Eina_List            *interceptors;
    Ecore_Idle_Enterer   *idle_enter;

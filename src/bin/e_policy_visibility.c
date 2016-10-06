@@ -1030,11 +1030,10 @@ _e_vis_ec_reset(E_Client *ec)
    evas_object_event_callback_del(ec->frame, EVAS_CALLBACK_RESTACK,  _e_vis_client_cb_evas_restack);
 }
 
-static Eina_Bool
-_e_vis_cb_client_add(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
+static void
+_e_vis_hook_new_client_post(void *data EINA_UNUSED, E_Client *ec)
 {
-   _e_vis_client_add(((E_Event_Client *)event)->ec);
-   return ECORE_CALLBACK_PASS_ON;
+   _e_vis_client_add(ec);
 }
 
 static Eina_Bool
@@ -1100,7 +1099,7 @@ _e_vis_idle_enter(void *data)
 static void
 _e_vis_event_init(void)
 {
-   E_LIST_HANDLER_APPEND(pol_vis->handlers, E_EVENT_CLIENT_ADD,      _e_vis_cb_client_add, NULL);
+   E_LIST_HOOK_APPEND(pol_vis->hooks, E_CLIENT_HOOK_NEW_CLIENT_POST, _e_vis_hook_new_client_post, NULL);
    E_LIST_HANDLER_APPEND(pol_vis->handlers, E_EVENT_CLIENT_REMOVE,   _e_vis_cb_client_remove, NULL);
 
    E_COMP_OBJECT_INTERCEPT_HOOK_APPEND(pol_vis->interceptors, E_COMP_OBJECT_INTERCEPT_HOOK_SHOW_HELPER,  _e_vis_intercept_show, NULL);
@@ -1342,6 +1341,7 @@ e_policy_visibility_shutdown(void)
 
    E_FREE_FUNC(pol_vis->clients_hash, eina_hash_free);
    E_FREE_FUNC(pol_vis->idle_enter, ecore_idle_enterer_del);
+   E_FREE_LIST(pol_vis->hooks, e_client_hook_del);
    E_FREE_LIST(pol_vis->handlers, ecore_event_handler_del);
    E_FREE_LIST(pol_vis->interceptors, e_comp_hook_del);
    E_FREE(pol_vis);
