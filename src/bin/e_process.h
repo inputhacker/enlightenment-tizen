@@ -13,9 +13,9 @@ typedef enum _E_Process_Action
 
 typedef enum _E_Process_State
 {
-   E_PROCESS_STATE_UNKNOWN,
-   E_PROCESS_STATE_BACKGROUND,
-   E_PROCESS_STATE_FOREGROUND,
+   E_PROCESS_STATE_UNKNOWN = -1,
+   E_PROCESS_STATE_FOREGROUND = 3, // same as E_PROCESS_ACT_FOREGROUND
+   E_PROCESS_STATE_BACKGROUND = 4, // same as E_PROCESS_ACT_BACKGROUND
 } E_Process_State;
 
 typedef enum _E_Process_Hook_Point
