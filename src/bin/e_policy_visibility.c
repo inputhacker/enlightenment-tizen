@@ -577,7 +577,7 @@ _e_vis_client_is_uniconic(E_Vis_Client *vc)
 }
 
 static inline Eina_Bool
-_e_vis_client_is_running_uniconify(E_Vis_Client *vc)
+_e_vis_client_is_uniconify_render_running(E_Vis_Client *vc)
 {
    return (vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY);
 }
@@ -596,7 +596,7 @@ _e_vis_client_cb_buffer_attach(void *data, int type EINA_UNUSED, void *event)
 
    ec = vc->ec;
 
-   VS_DBG(ec, "Buffer Attached");
+   VS_DBG(ec, "FINISH Uniconify render");
 
    /* force update */
    e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
@@ -844,22 +844,36 @@ _e_vis_client_prepare_foreground_signal_emit(E_Vis_Client *vc)
 }
 
 static Eina_Bool
-_e_vis_client_uniconify(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool raise)
+_e_vis_client_is_uniconify_render_necessary(E_Vis_Client *vc)
+{
+   if (vc->disable_uniconify_render)
+     {
+        VS_INF(vc->ec, "Disabled deiconify rendering");
+        return EINA_FALSE;
+     }
+   if (_e_vis_client_is_uniconic(vc))
+     {
+        VS_INF(vc->ec, "Already uniconic state");
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_vis_client_uniconify_render(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool raise)
 {
    E_Client *ec;
 
    ec = vc->ec;
 
-   if (vc->disable_uniconify_render)
-     return EINA_FALSE;
+   if (!_e_vis_client_is_uniconify_render_necessary(vc))
+       return EINA_FALSE;
 
-   if (_e_vis_client_is_uniconic(vc))
-     return EINA_FALSE;
-
-   if (_e_vis_client_is_running_uniconify(vc))
+   if (_e_vis_client_is_uniconify_render_running(vc))
      return EINA_TRUE;
 
-   VS_DBG(ec, "Send event for uniconify: raise %d\n", raise);
+   VS_DBG(ec, "BEGIN Uniconify render: raise %d\n", raise);
 
    _e_vis_client_prepare_foreground_signal_emit(vc);
    vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY;
@@ -985,27 +999,13 @@ _e_vis_ec_below_uniconify(E_Client *ec)
 
    /* find below activity client */
    below = _e_vis_ec_below_activity_client_get(ec);
-
-   /* if there is no below client or below client is already uniconified */
    if (!below)
      {
         VS_INF(ec, "There is NO below activity");
         return EINA_FALSE;
      }
-   else if (_e_vis_client_is_uniconic(below))
-     {
-        VS_INF(ec, "Don't need to uniconify: below '%s'(%p) iconify state %s",
-               below ? NAME(below->ec) : "", below->ec, STATE_STR(below));
-        return EINA_FALSE;
-     }
-   else if (_e_vis_client_is_running_uniconify(below))
-     {
-        VS_DBG(ec, "Below client is under uniconify job '%s'(%p)",
-               NAME(below->ec), below->ec);
-        return EINA_TRUE;
-     }
 
-   return _e_vis_client_uniconify(below, E_VIS_JOB_TYPE_UNICONIFY, 0);
+   return _e_vis_client_uniconify_render(below, E_VIS_JOB_TYPE_UNICONIFY, 0);
 }
 
 static void
@@ -1167,7 +1167,7 @@ e_policy_visibility_client_raise(E_Client *ec)
    if (ec->exp_iconify.by_client)
      return EINA_FALSE;
 
-   ret = _e_vis_client_uniconify(vc, E_VIS_JOB_TYPE_UNICONIFY, 1);
+   ret = _e_vis_client_uniconify_render(vc, E_VIS_JOB_TYPE_UNICONIFY, 1);
 
    /* uniconify its transients recursively */
    if (e_config->transient.raise)
@@ -1243,7 +1243,7 @@ e_policy_visibility_client_uniconify(E_Client *ec)
    /* TODO search clients to be really foreground and uniconify it.
     * suppose that transients will be above on the parent. */
 
-   ret = _e_vis_client_uniconify(vc, E_VIS_JOB_TYPE_UNICONIFY, 1);
+   ret = _e_vis_client_uniconify_render(vc, E_VIS_JOB_TYPE_UNICONIFY, 1);
 
    /* uniconify its transients recursively */
    if (e_config->transient.iconify)
@@ -1272,7 +1272,7 @@ e_policy_visibility_client_activate(E_Client *ec)
 
    VS_DBG(ec, "API ENTRY | ACTIVATE");
 
-   ret = _e_vis_client_uniconify(vc, E_VIS_JOB_TYPE_ACTIVATE, 1);
+   ret = _e_vis_client_uniconify_render(vc, E_VIS_JOB_TYPE_ACTIVATE, 1);
 
    /* TODO search clients to be foreground
     * suppose that transients will be above on the parent. */
