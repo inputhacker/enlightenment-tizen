@@ -713,10 +713,6 @@ E_API void
 e_comp_canvas_norender_push(void)
 {
    e_comp->norender++;
-#ifdef ENABLE_HWC_MULTI
-   if (e_comp->norender == 1)
-     ecore_evas_manual_render_set(e_comp->ee, EINA_TRUE);
-#endif
 }
 
 E_API void
@@ -726,11 +722,6 @@ e_comp_canvas_norender_pop(void)
      return;
 
    e_comp->norender--;
-
-#ifdef ENABLE_HWC_MULTI
-   if (e_comp->norender == 0)
-     ecore_evas_manual_render_set(e_comp->ee, EINA_FALSE);
-#endif
 }
 
 E_API int
