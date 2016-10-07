@@ -16,11 +16,13 @@ typedef struct {
 
      Eina_Bool visible;
      int vis_ref;
+
+     Eina_Bool is_offscreen;
 } E_Comp_Wl_Remote_Provider;
 
 typedef struct {
      E_Comp_Wl_Remote_Provider *provider;
-     E_Client *ec;
+     E_Client *bind_ec;
 
      struct wl_resource *resource;
      struct wl_resource *wl_tbm;
@@ -30,6 +32,8 @@ typedef struct {
 } E_Comp_Wl_Remote_Surface;
 
 static E_Comp_Wl_Remote_Manager *_rsm = NULL;
+
+static void _e_comp_wl_remote_surface_state_buffer_set(E_Comp_Wl_Surface_State *state, E_Comp_Wl_Buffer *buffer);
 
 static Ecore_Device *
 _device_get_by_identifier(const char *identifier)
@@ -61,9 +65,11 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
 
    if (set)
      {
+        provider->is_offscreen = set;
         ec->ignored = EINA_TRUE;
 
         //TODO: consider what happens if it's not normal client such as subsurface client
+        //TODO: save original values
         if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.unmap))
           ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
         else
@@ -75,6 +81,13 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
 
         ec->icccm.accepts_focus = ec->icccm.take_focus = ec->want_focus = EINA_FALSE;
         ec->placed = EINA_TRUE;
+     }
+   else
+     {
+        provider->is_offscreen = set;
+        ec->icccm.accepts_focus = ec->icccm.take_focus = ec->want_focus = EINA_TRUE;
+        ec->placed = EINA_FALSE;
+        e_comp_wl_surface_commit(ec);
      }
 }
 
@@ -118,6 +131,56 @@ _remote_provider_find(E_Client *ec)
 }
 
 static void
+_remote_surface_visible_set(E_Comp_Wl_Remote_Surface *rsurf, Eina_Bool set)
+{
+   E_Comp_Wl_Remote_Provider *provider;
+
+   if (rsurf->visible == set) return;
+
+   rsurf->visible = set;
+
+   provider = rsurf->provider;
+   if (!provider) return;
+
+   _remote_provider_visible_set(provider, set);
+}
+
+static void
+_remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *ec)
+{
+   if (!remote_surface) return;
+   if ((ec) && (remote_surface->bind_ec == ec)) return;
+
+   /* clear previous binding */
+   if (remote_surface->bind_ec)
+     {
+        /* do NULL buffer commit for binded ec */
+        _e_comp_wl_remote_surface_state_buffer_set(&remote_surface->bind_ec->comp_data->pending, NULL);
+
+        remote_surface->bind_ec->comp_data->pending.sx = 0;
+        remote_surface->bind_ec->comp_data->pending.sy = 0;
+        remote_surface->bind_ec->comp_data->pending.new_attach = EINA_TRUE;
+
+        e_comp_wl_surface_commit(remote_surface->bind_ec);
+
+        remote_surface->bind_ec = NULL;
+     }
+
+   if (ec)
+     {
+        if (e_object_is_del(E_OBJECT(ec)))
+          {
+             ERR("Trying to bind with deleted EC(%p)", ec);
+             return;
+          }
+
+        /* TODO: enable user geometry? */
+        e_policy_allow_user_geometry_set(ec, EINA_TRUE);
+
+        remote_surface->bind_ec = ec;
+     }
+}
+static void
 _remote_provider_cb_resource_destroy(struct wl_resource *resource)
 {
    E_Comp_Wl_Remote_Provider *provider;
@@ -133,12 +196,16 @@ _remote_provider_cb_resource_destroy(struct wl_resource *resource)
      {
         if (remote_surface->provider == provider)
           {
+             /* unset remote buffer from provider */
+             if (remote_surface->bind_ec)
+               _remote_surface_bind_client(remote_surface, NULL);
+
              remote_surface->provider = NULL;
              //notify of this ejection to remote surface_resource
              tizen_remote_surface_send_missing(remote_surface->resource);
           }
      }
-
+   _remote_provider_offscreen_set(provider, EINA_FALSE);
    E_FREE(provider);
 }
 
@@ -148,25 +215,23 @@ _remote_provider_cb_destroy(struct wl_client *client EINA_UNUSED, struct wl_reso
    wl_resource_destroy(resource);
 }
 
-static const struct tizen_remote_surface_provider_interface _remote_provider_interface =
-{
-   _remote_provider_cb_destroy,
-};
-
 static void
-_remote_surface_visible_set(E_Comp_Wl_Remote_Surface *rsurf, Eina_Bool set)
+_remote_provider_cb_offscreen_set(struct wl_client *client EINA_UNUSED, struct wl_resource *provider_resource, uint32_t offscreen)
 {
    E_Comp_Wl_Remote_Provider *provider;
 
-   if (rsurf->visible == set) return;
-
-   rsurf->visible = set;
-
-   provider = rsurf->provider;
+   provider = wl_resource_get_user_data(provider_resource);
    if (!provider) return;
 
-   _remote_provider_visible_set(provider, set);
+   if (provider->is_offscreen == offscreen) return;
+   _remote_provider_offscreen_set(provider, EINA_FALSE);
 }
+
+static const struct tizen_remote_surface_provider_interface _remote_provider_interface =
+{
+   _remote_provider_cb_destroy,
+   _remote_provider_cb_offscreen_set,
+};
 
 static void
 _remote_surface_cb_resource_destroy(struct wl_resource *resource)
@@ -186,12 +251,8 @@ _remote_surface_cb_resource_destroy(struct wl_resource *resource)
         remote_surface->provider = NULL;
      }
 
-   if (remote_surface->ec)
-     {
-        if (_rsm)
-          eina_hash_del(_rsm->surface_hash, &remote_surface->ec, remote_surface);
-        remote_surface->ec = NULL;
-     }
+   if (remote_surface->bind_ec)
+     _remote_surface_bind_client(remote_surface, NULL);
 
    E_FREE(remote_surface);
 }
@@ -240,14 +301,14 @@ _remote_surface_cb_unredirect(struct wl_client *client, struct wl_resource *reso
 }
 
 static void
-_remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_resource *resource, uint32_t event_type, int32_t device, int32_t button, int32_t x, int32_t y, wl_fixed_t radius_x, wl_fixed_t radius_y, wl_fixed_t pressure, wl_fixed_t angle, uint32_t class, uint32_t subclass EINA_UNUSED, const char *identifier, uint32_t time)
+_remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_resource *resource, uint32_t event_type, int32_t device, int32_t button, int32_t x, int32_t y, wl_fixed_t radius_x, wl_fixed_t radius_y, wl_fixed_t pressure, wl_fixed_t angle, uint32_t clas, uint32_t subclas EINA_UNUSED, const char *identifier, uint32_t time)
 {
    E_Comp_Wl_Remote_Provider *provider;
    E_Comp_Wl_Remote_Surface *remote_surface;
    E_Client *ec;
 
    Ecore_Device *edev = NULL;
-   Ecore_Device_Class eclass;
+   Ecore_Device_Class eclas = ECORE_DEVICE_CLASS_NONE;
    double eradx, erady, epressure, eangle;
 
    remote_surface = wl_resource_get_user_data(resource);
@@ -261,22 +322,21 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
    if (e_object_is_del(E_OBJECT(ec))) return;
 
    /* identify class */
-   if (class == TIZEN_INPUT_DEVICE_CLAS_MOUSE)
-     eclass = ECORE_DEVICE_CLASS_MOUSE;
-   else if (class == TIZEN_INPUT_DEVICE_CLAS_TOUCHSCREEN)
-     eclass = ECORE_DEVICE_CLASS_TOUCH;
+   if (clas == TIZEN_INPUT_DEVICE_CLAS_MOUSE)
+     eclas = ECORE_DEVICE_CLASS_MOUSE;
+   else if (clas == TIZEN_INPUT_DEVICE_CLAS_TOUCHSCREEN)
+     eclas = ECORE_DEVICE_CLASS_TOUCH;
    else
      {
-        ERR("Not supported device class(%d) subclass(%d identifier(%s)",
-            class, subclass, identifier);
-        return;
+        ERR("Not supported device clas(%d) subclas(%d) identifier(%s)",
+            clas, subclas, identifier);
      }
 
    /* find ecore device*/
    edev = _device_get_by_identifier(identifier);
    if (edev)
      {
-        eclass = ecore_device_class_get(edev);
+        eclas = ecore_device_class_get(edev);
      }
 
    /* fixed to */
@@ -285,9 +345,9 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
    epressure = wl_fixed_to_double(pressure);
    eangle = wl_fixed_to_double(angle);
 
-   if ((remote_surface) && (remote_surface->visible))
+   if (remote_surface->visible)
      {
-        if (eclass == ECORE_DEVICE_CLASS_MOUSE)
+        if (eclas == ECORE_DEVICE_CLASS_MOUSE)
           {
              switch (event_type)
                {
@@ -316,7 +376,7 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
                    break;
                }
           }
-        else if (eclass == ECORE_DEVICE_CLASS_TOUCH)
+        else if (eclas == ECORE_DEVICE_CLASS_TOUCH)
           {
              switch (event_type)
                {
@@ -362,20 +422,40 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
 }
 
 static void
-_remote_surface_cb_mouse_wheel_transfer(struct wl_client *client, struct wl_resource *resource, uint32_t direction, int32_t z, uint32_t class, uint32_t subclass, const char *identifier, uint32_t time)
-{
-   //TODO
-}
-
-static void
-_remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_resource *resource, uint32_t event_type, int32_t device, int32_t button, int32_t x, int32_t y, wl_fixed_t radius_x, wl_fixed_t radius_y, wl_fixed_t pressure, wl_fixed_t angle, uint32_t class, uint32_t subclass, const char *identifier, uint32_t time)
+_remote_surface_cb_mouse_wheel_transfer(struct wl_client *client, struct wl_resource *resource, uint32_t direction, int32_t z, uint32_t clas, uint32_t subclas, const char *identifier, uint32_t time)
 {
    E_Comp_Wl_Remote_Provider *provider;
    E_Comp_Wl_Remote_Surface *remote_surface;
    E_Client *ec;
 
    Ecore_Device *edev = NULL;
-   Ecore_Device_Class eclass;
+
+   remote_surface = wl_resource_get_user_data(resource);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->ec);
+
+   provider = remote_surface->provider;
+   ec = provider->ec;
+
+   if (e_object_is_del(E_OBJECT(ec))) return;
+
+   /* identify class */
+   edev = _device_get_by_identifier(identifier);
+
+   if (remote_surface->visible)
+     e_client_mouse_wheel_send(ec, direction, z, edev, time);
+}
+
+static void
+_remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_resource *resource, uint32_t event_type, int32_t device, int32_t button, int32_t x, int32_t y, wl_fixed_t radius_x, wl_fixed_t radius_y, wl_fixed_t pressure, wl_fixed_t angle, uint32_t clas, uint32_t subclas, const char *identifier, uint32_t time)
+{
+   E_Comp_Wl_Remote_Provider *provider;
+   E_Comp_Wl_Remote_Surface *remote_surface;
+   E_Client *ec;
+
+   Ecore_Device *edev = NULL;
+   Ecore_Device_Class eclas;
    double eradx, erady, epressure, eangle;
 
    remote_surface = wl_resource_get_user_data(resource);
@@ -389,12 +469,12 @@ _remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_reso
    if (e_object_is_del(E_OBJECT(ec))) return;
 
    /* identify class */
-   if (class == TIZEN_INPUT_DEVICE_CLAS_TOUCHSCREEN)
-     eclass = ECORE_DEVICE_CLASS_TOUCH;
+   if (clas == TIZEN_INPUT_DEVICE_CLAS_TOUCHSCREEN)
+     eclas = ECORE_DEVICE_CLASS_TOUCH;
    else
      {
-        ERR("Not supported device class(%d) subclass(%d identifier(%s)",
-            class, subclass, identifier);
+        ERR("Not supported device clas(%d) subclas(%d identifier(%s)",
+            clas, subclas, identifier);
         return;
      }
 
@@ -402,7 +482,7 @@ _remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_reso
    edev = _device_get_by_identifier(identifier);
    if (edev)
      {
-        eclass = ecore_device_class_get(edev);
+        eclas = ecore_device_class_get(edev);
      }
 
    /* fixed to */
@@ -411,9 +491,9 @@ _remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_reso
    epressure = wl_fixed_to_double(pressure);
    eangle = wl_fixed_to_double(angle);
 
-   if ((remote_surface) && (remote_surface->visible))
+   if (remote_surface->visible)
      {
-        if (eclass == ECORE_DEVICE_CLASS_TOUCH)
+        if (eclas == ECORE_DEVICE_CLASS_TOUCH)
           {
              switch (event_type)
                {
@@ -460,19 +540,31 @@ _remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_reso
 static void
 _remote_surface_cb_touch_cancel_transfer(struct wl_client *client, struct wl_resource *resource)
 {
-   //TODO
+   E_Comp_Wl_Remote_Provider *provider;
+   E_Comp_Wl_Remote_Surface *remote_surface;
+   E_Client *ec;
+
+   remote_surface = wl_resource_get_user_data(resource);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->ec);
+
+   provider = remote_surface->provider;
+   ec = provider->ec;
+
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   e_client_touch_cancel_send(ec);
 }
 
-
 static void
-_remote_surface_cb_key_event_transfer(struct wl_client *client, struct wl_resource *resource, uint32_t event_type, int32_t keycode, uint32_t class, uint32_t subclass, const char *identifier, uint32_t time)
+_remote_surface_cb_key_event_transfer(struct wl_client *client, struct wl_resource *resource, uint32_t event_type, int32_t keycode, uint32_t clas, uint32_t subclas, const char *identifier, uint32_t time)
 {
    E_Comp_Wl_Remote_Provider *provider;
    E_Comp_Wl_Remote_Surface *remote_surface;
    E_Client *ec;
 
    Ecore_Device *edev = NULL;
-   Ecore_Device_Class eclass;
+   Ecore_Device_Class eclas;
 
    remote_surface = wl_resource_get_user_data(resource);
    EINA_SAFETY_ON_NULL_RETURN(remote_surface);
@@ -485,12 +577,12 @@ _remote_surface_cb_key_event_transfer(struct wl_client *client, struct wl_resour
    if (e_object_is_del(E_OBJECT(ec))) return;
 
    /* identify class */
-   if (class == TIZEN_INPUT_DEVICE_CLAS_KEYBOARD)
-     eclass = ECORE_DEVICE_CLASS_KEYBOARD;
+   if (clas == TIZEN_INPUT_DEVICE_CLAS_KEYBOARD)
+     eclas = ECORE_DEVICE_CLASS_KEYBOARD;
    else
      {
         ERR("Not supported device class(%d) subclass(%d identifier(%s)",
-            class, subclass, identifier);
+            clas, subclas, identifier);
         return;
      }
 
@@ -498,12 +590,12 @@ _remote_surface_cb_key_event_transfer(struct wl_client *client, struct wl_resour
    edev = _device_get_by_identifier(identifier);
    if (edev)
      {
-        eclass = ecore_device_class_get(edev);
+        eclas = ecore_device_class_get(edev);
      }
 
-   if ((remote_surface) && (remote_surface->visible))
+   if (remote_surface->visible)
      {
-        if (eclass == ECORE_DEVICE_CLASS_KEYBOARD)
+        if (eclas == ECORE_DEVICE_CLASS_KEYBOARD)
           {
              switch (event_type)
                {
@@ -655,22 +747,19 @@ static void
 _remote_manager_cb_surface_bind(struct wl_client *client, struct wl_resource *resource, struct wl_resource *surface_resource, struct wl_resource *remote_surface_resource)
 {
    E_Comp_Wl_Remote_Surface *remote_surface;
-   E_Client *ec;
+   E_Comp_Wl_Remote_Provider *provider;
+   E_Client *ec = NULL;
 
    remote_surface = wl_resource_get_user_data(remote_surface_resource);
    if (!remote_surface) return;
 
-   ec = wl_resource_get_user_data(surface_resource);
-   if (!ec) return;
+   provider = remote_surface->provider;
+   if (!provider) return;
 
-   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (surface_resource)
+     ec = wl_resource_get_user_data(surface_resource);
 
-   /* clear previous binding */
-   eina_hash_del_by_key(_rsm->surface_hash, &ec);
-   eina_hash_del_by_data(_rsm->surface_hash, &remote_surface);
-
-   remote_surface->ec = ec;
-   eina_hash_add(_rsm->surface_hash, &ec, remote_surface);
+   _remote_surface_bind_client(remote_surface, ec);
 }
 
 static const struct tizen_remote_surface_manager_interface _remote_manager_interface =
@@ -713,7 +802,6 @@ _e_comp_wl_remote_cb_visibility_change(void *data, int type, void *event)
 {
    E_Event_Client *ev = event;
    E_Client *ec;
-   E_Comp_Wl_Remote_Surface *remote_surface;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(_rsm, ECORE_CALLBACK_PASS_ON);
 
@@ -722,21 +810,7 @@ _e_comp_wl_remote_cb_visibility_change(void *data, int type, void *event)
 
    if (e_object_is_del(E_OBJECT(ec))) return ECORE_CALLBACK_PASS_ON;
 
-   remote_surface = eina_hash_find(_rsm->surface_hash, &ec);
-   if (!remote_surface) return ECORE_CALLBACK_PASS_ON;
-
-   if (ec->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)
-     {
-        //invisible
-        if (remote_surface->visible)
-          _remote_surface_visible_set(remote_surface, EINA_FALSE);
-     }
-   else
-     {
-        //visible
-        if (!remote_surface->visible)
-          _remote_surface_visible_set(remote_surface, EINA_TRUE);
-     }
+   /* TODO: visibility calculation after owner set enablead */
 
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -761,7 +835,7 @@ _e_comp_wl_remote_surface_state_commit(E_Comp_Wl_Remote_Provider *provider, E_Co
    struct wl_resource *remote_buffer;
    struct wl_resource *cb;
    Eina_Rectangle *dmg;
-   int x = 0, y = 0;
+   int x = 0, y = 0, sx = 0, sy = 0;
    E_Comp_Wl_Buffer *buffer;
    Eina_List *l, *ll;
 
@@ -785,6 +859,8 @@ _e_comp_wl_remote_surface_state_commit(E_Comp_Wl_Remote_Provider *provider, E_Co
                                          x, y, ec->w, ec->h);
      }
 
+   sx = state->sx;
+   sy = state->sy;
    state->sx = 0;
    state->sy = 0;
    state->new_attach = EINA_FALSE;
@@ -818,9 +894,24 @@ _e_comp_wl_remote_surface_state_commit(E_Comp_Wl_Remote_Provider *provider, E_Co
              remote_buffer = e_comp_wl_tbm_remote_buffer_get(surface->wl_tbm, buffer->resource);
              if (!remote_buffer) continue;
              if (!surface->redirect) continue;
-             tizen_remote_surface_send_update_buffer(surface->resource,
-                                                     remote_buffer,
-                                                     ecore_time_get());
+             if (surface->bind_ec)
+               {
+                 E_Comp_Wl_Buffer *buffer;
+
+                 buffer = e_comp_wl_buffer_get(remote_buffer, surface->bind_ec);
+                 _e_comp_wl_remote_surface_state_buffer_set(&surface->bind_ec->comp_data->pending, buffer);
+                 surface->bind_ec->comp_data->pending.sx = sx;
+                 surface->bind_ec->comp_data->pending.sy = sy;
+                 surface->bind_ec->comp_data->pending.new_attach = EINA_TRUE;
+
+                 e_comp_wl_surface_commit(surface->bind_ec);
+               }
+             else
+               {
+                  tizen_remote_surface_send_update_buffer(surface->resource,
+                                                          remote_buffer,
+                                                          ecore_time_get());
+               }
           }
 
         /* send frame done */
@@ -866,7 +957,6 @@ e_comp_wl_remote_surface_init(void)
                          _e_comp_wl_remote_cb_visibility_change, rs_manager);
 
    rs_manager->provider_hash = eina_hash_pointer_new(NULL);
-   rs_manager->surface_hash = eina_hash_pointer_new(NULL);
 
    _rsm = rs_manager;
 }
