@@ -1276,6 +1276,58 @@ _tzpol_iface_cb_activate(struct wl_client *client EINA_UNUSED, struct wl_resourc
 }
 
 static void
+_e_policy_wl_stack_changed_send(E_Client *ec)
+{
+   E_Client *above = NULL;
+   E_Client *below = NULL;
+   int above_pid = -1;
+   int below_pid = -1;
+   char above_pid_s[4096] = {0,};
+   char below_pid_s[4096] = {0,};
+   Eina_List *options = NULL;
+
+   above = e_client_above_get(ec);
+   while (above)
+     {
+        if ((!e_object_is_del(E_OBJECT(above))) &&
+            (!e_client_util_ignored_get(above)) &&
+            (above->visible) &&
+            (above->frame))
+          break;
+
+        above = e_client_above_get(above);
+     }
+
+   below = e_client_below_get(ec);
+   while (below)
+     {
+        if ((!e_object_is_del(E_OBJECT(below))) &&
+            (!e_client_util_ignored_get(below)) &&
+            (below->visible) &&
+            (below->frame))
+          break;
+
+        below = e_client_below_get(below);
+     }
+
+   if (above) above_pid = above->netwm.pid;
+   if (below) below_pid = below->netwm.pid;
+
+   eina_convert_itoa(above_pid, above_pid_s);
+   eina_convert_itoa(below_pid, below_pid_s);
+
+   ELOGF("TZPOL", "Send stack_changed by activate_below. above(win:%x, pid:%d), below(win:%x, pid:%d)",
+         ec->pixmap, ec, e_client_util_win_get(above), above_pid, e_client_util_win_get(below), below_pid);
+
+   options = eina_list_append(options, above_pid_s);
+   options = eina_list_append(options, below_pid_s);
+
+   e_policy_aux_message_send(ec, "stack_changed", "activate_below", options);
+
+   eina_list_free(options);
+}
+
+static void
 _tzpol_iface_cb_activate_below_by_res_id(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol,  uint32_t res_id, uint32_t below_res_id)
 {
    E_Client *ec = NULL;
@@ -1317,6 +1369,8 @@ _tzpol_iface_cb_activate_below_by_res_id(struct wl_client *client EINA_UNUSED, s
 
    if (!e_client_first_mapped_get(ec))
      e_client_post_raise_lower_set(ec, EINA_FALSE, EINA_FALSE);
+
+   _e_policy_wl_stack_changed_send(ec);
 }
 
 static void
