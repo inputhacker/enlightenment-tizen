@@ -78,7 +78,7 @@ _e_output_commit_hanler(tdm_output *output, unsigned int sequence,
 
    _e_output_update_fps();
 
-   TRACE_DS_ASYNC_END((unsigned int)output, "[OUTPUT:COMMIT~HANDLER]");
+   TRACE_DS_ASYNC_END((unsigned int)output, [OUTPUT:COMMIT~HANDLER]);
 
    EINA_LIST_FOREACH_SAFE(data_list, l, ll, data)
      {
@@ -104,13 +104,13 @@ _e_output_commit(E_Output *output)
         data_list = eina_list_append(data_list, data);
      }
 
-   TRACE_DS_ASYNC_BEGIN((unsigned int)output->toutput, "[OUTPUT:COMMIT~HANDLER]");
+   TRACE_DS_ASYNC_BEGIN((unsigned int)output->toutput, [OUTPUT:COMMIT~HANDLER]);
 
    error = tdm_output_commit(output->toutput, 0, _e_output_commit_hanler, data_list);
    if (error != TDM_ERROR_NONE)
      {
         ERR("fail to tdm_output_commit");
-        TRACE_DS_ASYNC_END((unsigned int)output->toutput, "[OUTPUT:COMMIT~HANDLER]");
+        TRACE_DS_ASYNC_END((unsigned int)output->toutput, [OUTPUT:COMMIT~HANDLER]);
         EINA_LIST_FOREACH_SAFE(data_list, l, ll, data)
           {
              data_list = eina_list_remove_list(data_list, l);

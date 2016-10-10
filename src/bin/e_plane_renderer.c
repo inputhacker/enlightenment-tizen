@@ -651,7 +651,7 @@ e_plane_renderer_render(E_Plane_Renderer *renderer, Eina_Bool is_fb)
 
         /* render the ecore_evas and
            update_ee is to be true at post_render_cb when the render is successful. */
-        TRACE_DS_BEGIN("MANUAL RENDER");
+        TRACE_DS_BEGIN(MANUAL RENDER);
 
         if (e_plane_renderer_surface_queue_can_dequeue(renderer) || !renderer->tqueue)
            ecore_evas_manual_render(renderer->ee);

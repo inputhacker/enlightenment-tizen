@@ -271,7 +271,7 @@ e_module_all_load(void)
              e_init_status_set(buf);
 
              PRCTL("[Winsys] start of Loading Module: %s", em->name);
-             TRACE_DS_BEGIN("MODULE:LOAD MODULE %s", em->name);
+             TRACE_DS_BEGIN(MODULE:LOAD MODULE %s, em->name);
              m = e_module_new(em->name);
              if (m)
                {
