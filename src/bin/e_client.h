@@ -1012,6 +1012,7 @@ E_API Eina_Bool e_client_first_mapped_get(E_Client *ec);
 E_API void e_client_transform_update(E_Client *ec);
 E_API void e_client_transform_apply(E_Client *ec, double degree, double zoom, int cx, int cy);
 E_API void e_client_transform_clear(E_Client *ec);
+E_API void e_client_cursor_map_apply(E_Client *ec, int rotation, int x, int y);
 
 YOLO E_API void e_client_focus_stack_set(Eina_List *l);
 
