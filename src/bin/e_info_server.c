@@ -1021,7 +1021,7 @@ _e_info_server_protocol_debug_func(struct wl_closure *closure, struct wl_resourc
    if (!log_fp_ptrace) return;
    if (wc) wl_client_get_credentials(wc, &client_pid, NULL, NULL);
 
-   clock_gettime(CLOCK_REALTIME, &tp);
+   clock_gettime(CLOCK_MONOTONIC, &tp);
    time = (tp.tv_sec * 1000000L) + (tp.tv_nsec / 1000);
 
    E_Info_Protocol_Log elog = {0,};
