@@ -6084,11 +6084,11 @@ e_client_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, unsigned
 }
 
 E_API Eina_Bool
-e_client_mouse_wheel_send(E_Client *ec, int x, int y, Ecore_Device *dev, unsigned int time)
+e_client_mouse_wheel_send(E_Client *ec, int direction, int z, Ecore_Device *dev, unsigned int time)
 {
    Eina_Bool res;
 
-   res = e_comp_wl_mouse_wheel_send(ec, x, y, dev, time);
+   res = e_comp_wl_mouse_wheel_send(ec, direction, z, dev, time);
 
    return res;
 }
