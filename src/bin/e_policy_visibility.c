@@ -913,7 +913,7 @@ _e_vis_ec_activity_check(E_Client *ec)
    /* check if ignored */
    if (e_client_util_ignored_get(ec)) return EINA_FALSE;
    /* check transparent */
-   if ((ec->argb) && (ec->visibility.opaque == 0)) return EINA_FALSE;
+   if ((ec->argb) && (ec->visibility.opaque <= 0)) return EINA_FALSE;
    /* check deleted client */
    if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
    /* check special client */
