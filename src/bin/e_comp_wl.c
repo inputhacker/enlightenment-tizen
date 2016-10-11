@@ -2938,8 +2938,18 @@ static void
 _e_comp_wl_surface_destroy(struct wl_resource *resource)
 {
    E_Client *ec;
+   struct wl_resource *res;
+   Eina_List *l, *ll;
 
    if (!(ec = wl_resource_get_user_data(resource))) return;
+
+   EINA_LIST_FOREACH_SAFE(e_comp_wl->kbd.focused, l, ll, res)
+     {
+        if (wl_resource_get_client(res) ==
+            wl_resource_get_client(ec->comp_data->surface))
+          e_comp_wl->kbd.focused =
+             eina_list_remove_list(e_comp_wl->kbd.focused, l);
+     }
 
    ec->comp_data->surface = NULL;
    ec->comp_data->wl_surface = NULL;
