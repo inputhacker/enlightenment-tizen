@@ -4319,6 +4319,12 @@ _e_comp_wl_client_usable_get(pid_t pid, E_Pixmap *ep)
           {
              E_Pixmap *oldep = NULL;
 
+             if (ec->comp_data)
+               {
+                  /* do NOT replace with the client having comp data */
+                  return NULL;
+               }
+
              e_comp->launchscrns = eina_list_remove(e_comp->launchscrns, ec);
 
              oldep = e_client_pixmap_change(ec, ep);
