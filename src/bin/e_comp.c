@@ -236,6 +236,10 @@ _hwc_set(E_Output *eout)
 
    EINA_LIST_FOREACH(eout->planes, l, ep)
      {
+        if (!conf->hwc_use_multi_plane &&
+           !e_plane_is_fb_target(ep))
+           continue;
+
         if (ep->ec) e_client_redirected_set(ep->ec, 1);
      }
 
@@ -368,20 +372,26 @@ _hwc_cancel(E_Output *eout)
 {
    Eina_List *l ;
    E_Plane *ep;
+   Eina_Bool ret = EINA_TRUE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(eout->planes, EINA_FALSE);
 
-   e_comp->hwc_mode = 0;
-
    EINA_LIST_FOREACH(eout->planes, l, ep)
      {
+        if (!conf->hwc_use_multi_plane &&
+            !e_plane_is_fb_target(ep))
+          {
+             if (ep->ec) ret = EINA_FALSE; // core cannot end HWC
+             continue;
+          }
+
         if (ep->ec) e_client_redirected_set(ep->ec, 1);
         e_plane_ec_prepare_set(ep, NULL);
         e_plane_ec_set(ep, NULL);
      }
 
-   return EINA_TRUE;
+   return ret;
 }
 
 static Eina_Bool
@@ -398,6 +408,10 @@ _hwc_plane_reserved_clean()
         eout = e_output_find(zone->output_id);
         EINA_LIST_FOREACH(eout->planes, ll, ep)
           {
+             if (!conf->hwc_use_multi_plane &&
+                 !e_plane_is_fb_target(ep))
+               continue;
+
              if (e_plane_is_reserved(ep))
                 e_plane_reserved_set(ep, 0);
           }
@@ -662,6 +676,8 @@ e_comp_hwc_end(const char *location)
      }
 
    if (!mode_set) return;
+
+   e_comp->hwc_mode = E_HWC_MODE_NO;
 
    ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
    INF("HWC : End...  at %s", location);
