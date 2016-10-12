@@ -1317,8 +1317,6 @@ e_comp_init(void)
           WRN("fail to init hwc.");
         else
           e_comp->hwc_fs = EINA_TRUE; // 1: active hwc policy
-
-        conf->nocomp_use_timer = 0; // will remove out once e-tizen-data is applied on all profiles
      }
 #endif
 
