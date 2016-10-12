@@ -138,7 +138,7 @@ struct _E_Comp
    int             nocomp_override; //number of times hwc override has been requested
    Eina_Bool       nocomp : 1;
    Eina_Bool       nocomp_want : 1;
-   Eina_Bool       hwc_mode;
+   int             hwc_mode;
    Eina_Bool       hwc : 1;
    Eina_Bool       hwc_fs : 1; // active hwc policy
 

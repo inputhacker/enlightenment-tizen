@@ -43,6 +43,13 @@ static Eina_Inlist *_e_comp_hooks[] =
    [E_COMP_HOOK_PREPARE_PLANE] = NULL,
 };
 
+typedef enum _E_Comp_HWC_Mode
+{
+   E_HWC_MODE_NO = 0,
+   E_HWC_MODE_HYBRID,
+   E_HWC_MODE_FULL
+} E_Comp_HWC_Mode;
+
 E_API int E_EVENT_COMPOSITOR_RESIZE = -1;
 E_API int E_EVENT_COMPOSITOR_DISABLE = -1;
 E_API int E_EVENT_COMPOSITOR_ENABLE = -1;
@@ -217,12 +224,12 @@ _e_comp_hook_call(E_Comp_Hook_Point hookpoint, void *data EINA_UNUSED)
      _e_comp_hooks_clean();
 }
 
-static Eina_Bool
+static int
 _hwc_set(E_Output *eout)
 {
    const Eina_List *ep_l = NULL, *l;
    E_Plane *ep = NULL;
-   Eina_Bool ret = EINA_FALSE;
+   E_Comp_HWC_Mode mode = E_HWC_MODE_NO;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(eout->planes, EINA_FALSE);
@@ -248,7 +255,7 @@ _hwc_set(E_Output *eout)
                     {
                        INF("HWC : ec(0x%08x, %s) is set on fb_target( %d)\n",(unsigned int)ep->prepare_ec, ep->prepare_ec->icccm.title, ep->zpos);
                        e_client_redirected_set(ep->prepare_ec, 0);
-                       ret |= EINA_TRUE;
+                       mode = E_HWC_MODE_FULL;
 
                        // fb target is occupied by a client surface, means compositor disabled
                        ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
@@ -263,14 +270,14 @@ _hwc_set(E_Output *eout)
                {
                   INF("HWC : ec(0x%08x, %s) is set on %d\n", (unsigned int)ep->prepare_ec, ep->prepare_ec->icccm.title, ep->zpos);
                   e_client_redirected_set(ep->prepare_ec, 0);
-                  ret |= EINA_TRUE;
+                  mode |= E_HWC_MODE_HYBRID;
                }
              else
                break;
           }
      }
 
-   return ret;
+   return mode;
 }
 
 static Eina_Bool
@@ -404,7 +411,7 @@ _e_comp_hwc_apply(E_Output * eout)
 {
    const Eina_List *ep_l = NULL, *l;
    E_Plane *ep = NULL, *ep_fb = NULL;
-   Eina_Bool ret = EINA_FALSE;
+   int mode = 0;
 
    ep_l = e_output_planes_get(eout);
    EINA_LIST_FOREACH(ep_l, l, ep)
@@ -426,13 +433,13 @@ _e_comp_hwc_apply(E_Output * eout)
    goto compose;
 
 hwcompose:
-   ret = _hwc_set(eout);
-   if (!ret) INF("HWC : it is failed to assign surface on plane\n");
+   mode = _hwc_set(eout);
+   if (mode == E_HWC_MODE_NO) INF("HWC : it is failed to assign surface on plane\n");
 
 compose:
-   if (ret) e_comp->hwc_mode = 1;
+   if (mode != E_HWC_MODE_NO) e_comp->hwc_mode = mode;
 
-   return ret;
+   return !!mode;
 }
 
 static Eina_Bool
@@ -669,6 +676,8 @@ _e_comp_client_update(E_Client *ec)
    DBG("UPDATE [%p] pm = %p", ec, ec->pixmap);
    if (e_object_is_del(E_OBJECT(ec))) return;
 
+   if (e_comp->hwc && e_comp_is_on_overlay(ec)) return;
+
    e_pixmap_size_get(ec->pixmap, &pw, &ph);
 
    if (e_pixmap_dirty_get(ec->pixmap) && (!e_comp->nocomp))
@@ -715,7 +724,7 @@ _e_comp_cb_update(void)
      ecore_animator_freeze(e_comp->render_animator);
 
    DBG("UPDATE ALL");
-   if (e_comp->hwc_mode) goto setup_hwcompose;
+   if (e_comp->hwc_mode == E_HWC_MODE_FULL) goto setup_hwcompose;
 
    if (conf->grab && (!e_comp->grabbed))
      {
