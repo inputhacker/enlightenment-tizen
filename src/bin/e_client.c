@@ -1796,6 +1796,8 @@ _e_client_cb_evas_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
 
         EINA_LIST_FREE(list, child)
           {
+             if (child->vkbd.vkbd) continue;
+
              evas_object_move(child->frame,
                               child->x + x - ec->pre_cb.x,
                               child->y + y - ec->pre_cb.y);
