@@ -3,6 +3,9 @@
 static int _e_client_hooks_delete = 0;
 static int _e_client_hooks_walking = 0;
 
+static int _e_client_intercept_hooks_delete = 0;
+static int _e_client_intercept_hooks_walking = 0;
+
 E_API int E_EVENT_CLIENT_ADD = -1;
 E_API int E_EVENT_CLIENT_REMOVE = -1;
 E_API int E_EVENT_CLIENT_ZONE_SET = -1;
@@ -98,6 +101,11 @@ static Eina_Inlist *_e_client_hooks[] =
    [E_CLIENT_HOOK_UNICONIFY] = NULL,
    [E_CLIENT_HOOK_AUX_HINT_CHANGE] = NULL,
    [E_CLIENT_HOOK_WINDOW_ROLE_CHANGE] = NULL,
+};
+
+static Eina_Inlist *_e_client_intercept_hooks[] =
+{
+   [E_CLIENT_INTERCEPT_HOOK_FOCUS_REVERT] = NULL,
 };
 
 ///////////////////////////////////////////
@@ -291,6 +299,51 @@ _e_client_hook_call(E_Client_Hook_Point hookpoint, E_Client *ec)
 }
 
 ///////////////////////////////////////////
+
+static void
+_e_client_intercept_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Client_Intercept_Hook *ch;
+   unsigned int x;
+
+   for (x = 0; x < E_CLIENT_INTERCEPT_HOOK_LAST; x++)
+     EINA_INLIST_FOREACH_SAFE(_e_client_intercept_hooks[x], l, ch)
+       {
+          if (!ch->delete_me) continue;
+          _e_client_intercept_hooks[x] =
+             eina_inlist_remove(_e_client_intercept_hooks[x], EINA_INLIST_GET(ch));
+          free(ch);
+       }
+}
+
+static Eina_Bool
+_e_client_intercept_hook_call(E_Client_Intercept_Hook_Point hookpoint, E_Client *ec)
+{
+   E_Client_Intercept_Hook *ch;
+   Eina_Bool ret = EINA_TRUE;
+
+   if (e_object_is_del(E_OBJECT(ec))) return ret;
+
+   e_object_ref(E_OBJECT(ec));
+   _e_client_intercept_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_client_intercept_hooks[hookpoint], ch)
+     {
+        if (ch->delete_me) continue;
+        if (!(ch->func(ch->data, ec)))
+          {
+             ret = EINA_FALSE;
+             break;
+          }
+     }
+   _e_client_intercept_hooks_walking--;
+   if ((_e_client_intercept_hooks_walking == 0) &&
+       (_e_client_intercept_hooks_delete > 0))
+     _e_client_intercept_hooks_clean();
+
+   e_object_unref(E_OBJECT(ec));
+   return ret;
+}
 
 static void
 _e_client_event_simple_free(void *d EINA_UNUSED, E_Event_Client *ev)
@@ -728,7 +781,8 @@ _e_client_find_next_focus(E_Client *ec)
 
    if (!ec) return;
 
-   // TODO:  consider the user defined focus policy
+   if (!_e_client_intercept_hook_call(E_CLIENT_INTERCEPT_HOOK_FOCUS_REVERT, ec))
+     return;
 
    next_focus = _e_client_find_focus_same_layer(ec);
    if (next_focus)
@@ -4267,6 +4321,37 @@ e_client_hook_del(E_Client_Hook *ch)
 }
 
 ///////////////////////////////////////
+
+E_API E_Client_Intercept_Hook *
+e_client_intercept_hook_add(E_Client_Intercept_Hook_Point hookpoint, E_Client_Intercept_Hook_Cb func, const void *data)
+{
+   E_Client_Intercept_Hook *ch;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_CLIENT_INTERCEPT_HOOK_LAST, NULL);
+   ch = E_NEW(E_Client_Intercept_Hook, 1);
+   if (!ch) return NULL;
+   ch->hookpoint = hookpoint;
+   ch->func = func;
+   ch->data = (void*)data;
+   _e_client_intercept_hooks[hookpoint] = eina_inlist_append(_e_client_intercept_hooks[hookpoint], EINA_INLIST_GET(ch));
+   return ch;
+}
+
+E_API void
+e_client_intercept_hook_del(E_Client_Intercept_Hook *ch)
+{
+   if (!ch) return;
+
+   ch->delete_me = 1;
+   if (_e_client_intercept_hooks_walking == 0)
+     {
+        _e_client_intercept_hooks[ch->hookpoint] =
+           eina_inlist_remove(_e_client_intercept_hooks[ch->hookpoint], EINA_INLIST_GET(ch));
+        free(ch);
+     }
+   else
+     _e_client_intercept_hooks_delete++;
+}
 
 E_API void
 e_client_focus_latest_set(E_Client *ec)

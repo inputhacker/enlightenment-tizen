@@ -183,6 +183,8 @@ typedef struct _E_Client_Pending_Resize E_Client_Pending_Resize;
 typedef struct E_Event_Client_Zone_Set E_Event_Client_Zone_Set;
 typedef struct E_Event_Client_Desk_Set E_Event_Client_Desk_Set;
 typedef struct _E_Client_Hook E_Client_Hook;
+typedef struct _E_Client_Intercept_Hook E_Client_Intercept_Hook;
+
 #ifdef _F_ZONE_WINDOW_ROTATION_
 typedef struct E_Event_Client E_Event_Client_Rotation_Change_Begin;
 typedef struct E_Event_Client E_Event_Client_Rotation_Change_Cancel;
@@ -225,8 +227,15 @@ typedef enum _E_Client_Hook_Point
    E_CLIENT_HOOK_LAST,
 } E_Client_Hook_Point;
 
+typedef enum _E_Client_Intercept_Hook_Point
+{
+   E_CLIENT_INTERCEPT_HOOK_FOCUS_REVERT,
+   E_CLIENT_INTERCEPT_HOOK_LAST,
+} E_Client_Intercept_Hook_Point;
+
 typedef void (*E_Client_Move_Intercept_Cb)(E_Client *, int x, int y);
 typedef void (*E_Client_Hook_Cb)(void *data, E_Client *ec);
+typedef Eina_Bool (*E_Client_Intercept_Hook_Cb)(void *data, E_Client *ec);
 typedef void (*E_Client_Layout_Cb)(void);
 #else
 
@@ -260,6 +269,15 @@ struct _E_Client_Hook
    EINA_INLIST;
    E_Client_Hook_Point hookpoint;
    E_Client_Hook_Cb func;
+   void               *data;
+   unsigned char       delete_me : 1;
+};
+
+struct _E_Client_Intercept_Hook
+{
+   EINA_INLIST;
+   E_Client_Intercept_Hook_Point hookpoint;
+   E_Client_Intercept_Hook_Cb func;
    void               *data;
    unsigned char       delete_me : 1;
 };
@@ -949,6 +967,8 @@ E_API unsigned int e_clients_count(void);
 E_API void e_client_move_intercept_cb_set(E_Client *ec, E_Client_Move_Intercept_Cb cb);
 E_API E_Client_Hook *e_client_hook_add(E_Client_Hook_Point hookpoint, E_Client_Hook_Cb func, const void *data);
 E_API void e_client_hook_del(E_Client_Hook *ch);
+E_API E_Client_Intercept_Hook *e_client_intercept_hook_add(E_Client_Intercept_Hook_Point hookpoint, E_Client_Intercept_Hook_Cb func, const void *data);
+E_API void e_client_intercept_hook_del(E_Client_Intercept_Hook *ch);
 E_API void e_client_focus_latest_set(E_Client *ec);
 E_API void e_client_raise_latest_set(E_Client *ec);
 E_API void e_client_focus_defer_set(E_Client *ec);
