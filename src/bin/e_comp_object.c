@@ -1654,6 +1654,7 @@ _e_comp_intercept_raise(void *data, Evas_Object *obj)
                break;
           }
         evas_object_stack_below(obj, op);
+        e_client_focus_defer_set(cw->ec);
         if (e_client_focus_track_enabled())
           e_client_raise_latest_set(cw->ec); //modify raise list if necessary
      }
@@ -1725,6 +1726,8 @@ _e_comp_intercept_hide(void *data, Evas_Object *obj)
    /* if we have no animations running, go ahead and hide */
    cw->defer_hide = 0;
    evas_object_hide(obj);
+   if (cw->ec->zone->display_state != E_ZONE_DISPLAY_STATE_OFF)
+     e_client_focus_defer_unset(cw->ec);
 }
 
 static void
@@ -1834,6 +1837,8 @@ _e_comp_intercept_show_helper(E_Comp_Object *cw)
           e_comp_object_damage(cw->smart_obj, 0, 0, cw->w, cw->h);
 
         evas_object_show(cw->smart_obj);
+        if (!cw->ec->iconic)
+          e_client_focus_defer_set(cw->ec);
      }
 }
 

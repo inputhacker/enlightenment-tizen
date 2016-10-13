@@ -951,6 +951,8 @@ E_API E_Client_Hook *e_client_hook_add(E_Client_Hook_Point hookpoint, E_Client_H
 E_API void e_client_hook_del(E_Client_Hook *ch);
 E_API void e_client_focus_latest_set(E_Client *ec);
 E_API void e_client_raise_latest_set(E_Client *ec);
+E_API void e_client_focus_defer_set(E_Client *ec);
+E_API void e_client_focus_defer_unset(E_Client *ec);
 E_API Eina_Bool e_client_focus_track_enabled(void);
 E_API void e_client_focus_track_freeze(void);
 E_API void e_client_focus_track_thaw(void);
