@@ -3341,7 +3341,8 @@ e_client_idler_before(void)
           }
      }
 
-   if (_e_calc_visibility)
+   if (_e_calc_visibility &&
+      (e_comp_canvas_norender_get() <= 0))
      {
         E_Zone *zone;
         Eina_List *zl;
