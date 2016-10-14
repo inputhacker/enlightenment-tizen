@@ -1089,7 +1089,7 @@ _e_vis_intercept_hide(void *data EINA_UNUSED, E_Client *ec)
    return EINA_FALSE;
 }
 
-Eina_Bool
+static Eina_Bool
 _e_vis_idle_enter(void *data)
 {
    _e_vis_job_queue_update();
