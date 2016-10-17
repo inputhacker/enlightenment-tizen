@@ -745,6 +745,7 @@ _e_client_find_focus_same_layer(E_Client *ec)
    zone_h = zone->h;
 
    id = e_comp_canvas_layer_map(ec->layer);
+   if (id >= E_LAYER_COUNT) return NULL;
    if (!e_comp->layers[id].clients) return NULL;
 
    EINA_INLIST_REVERSE_FOREACH(e_comp->layers[id].clients, temp_ec)
