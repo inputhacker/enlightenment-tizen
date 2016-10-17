@@ -26,6 +26,7 @@ E_API int                     e_slot_client_count_get(Evas_Object *obj);
 E_API int                     e_slot_client_slot_id_get(E_Client* ec);
 E_API int                     e_slot_client_type_get(E_Client* ec);
 E_API void                    e_slot_client_update(E_Client *ec);
+E_API E_Client               *e_slot_client_top_find(Evas_Object *obj);
 
 
 E_API void                    e_slot_raise(Evas_Object *obj);

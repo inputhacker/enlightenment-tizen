@@ -507,6 +507,29 @@ e_slot_find_by_id(int slot_id)
    return obj;
 }
 
+E_API E_Client *
+e_slot_client_top_find(Evas_Object *obj)
+{
+   Slot_Smart_Data *sd;
+   Evas_Object *o = NULL;
+   E_Client *ec = NULL;
+   sd = evas_object_smart_data_get(obj);
+   if (!sd) return NULL;
+
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        ec = evas_object_data_get(o, "E_Client");
+        if (!ec) continue;
+        if (e_object_is_del(E_OBJECT(ec))) continue;
+        if (e_client_util_ignored_get(ec)) continue;
+        if (ec->layout.s_id != sd->id) continue;
+        if ((!ec->visible) || (ec->hidden) || (!evas_object_visible_get(ec->frame))) continue;
+        return ec;
+     }
+
+   return NULL;
+}
+
 E_API Eina_Bool
 e_slot_client_add(Evas_Object *obj, E_Client *ec, Eina_Bool resizable)
 {
