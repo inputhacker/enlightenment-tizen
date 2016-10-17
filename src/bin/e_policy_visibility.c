@@ -1175,7 +1175,7 @@ e_policy_visibility_client_raise(E_Client *ec)
         l = eina_list_clone(ec->transients);
 
         EINA_LIST_FREE(l, child)
-           ret = e_policy_visibility_client_raise(child);
+           ret |= e_policy_visibility_client_raise(child);
      }
 
    /* TODO find topmost activity client and emit signal */
@@ -1251,7 +1251,7 @@ e_policy_visibility_client_uniconify(E_Client *ec)
         l = eina_list_clone(ec->transients);
 
         EINA_LIST_FREE(l, child)
-           ret = e_policy_visibility_client_uniconify(child);
+           ret |= e_policy_visibility_client_uniconify(child);
      }
 
    /* TODO find topmost activity client and emit signal */
@@ -1283,7 +1283,7 @@ e_policy_visibility_client_activate(E_Client *ec)
         l = eina_list_clone(ec->transients);
 
         EINA_LIST_FREE(l, child)
-           ret = e_policy_visibility_client_activate(child);
+           ret |= e_policy_visibility_client_activate(child);
      }
 
    /* TODO find topmost activity client and emit signal */
