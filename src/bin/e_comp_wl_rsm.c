@@ -225,11 +225,13 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
 
         ec->icccm.accepts_focus = ec->icccm.take_focus = ec->want_focus = EINA_FALSE;
         ec->placed = EINA_TRUE;
+        e_client_visibility_skip_set(ec, EINA_TRUE);
 
         _remote_provider_onscreen_parent_calculate(provider);
      }
    else
      {
+        e_client_visibility_skip_set(ec, EINA_FALSE);
         provider->is_offscreen = set;
         ec->icccm.accepts_focus = ec->icccm.take_focus = ec->want_focus = EINA_TRUE;
         ec->placed = EINA_FALSE;
@@ -250,6 +252,9 @@ _remote_provider_visible_set(E_Comp_Wl_Remote_Provider *provider, Eina_Bool set)
         provider->vis_ref ++;
         if (provider->vis_ref == 1)
           {
+             provider->ec->visibility.obscured = E_VISIBILITY_UNOBSCURED;
+             e_policy_client_visibility_send(provider->ec);
+
              tizen_remote_surface_provider_send_visibility
                 (provider->resource,
                  TIZEN_REMOTE_SURFACE_PROVIDER_VISIBILITY_TYPE_VISIBLE);
@@ -260,6 +265,9 @@ _remote_provider_visible_set(E_Comp_Wl_Remote_Provider *provider, Eina_Bool set)
         provider->vis_ref --;
         if (provider->vis_ref == 0)
           {
+             provider->ec->visibility.obscured = E_VISIBILITY_FULLY_OBSCURED;
+             e_policy_client_visibility_send(provider->ec);
+
              tizen_remote_surface_provider_send_visibility
                 (provider->resource,
                  TIZEN_REMOTE_SURFACE_PROVIDER_VISIBILITY_TYPE_INVISIBLE);
