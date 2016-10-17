@@ -713,6 +713,11 @@ E_API void
 e_comp_canvas_norender_push(void)
 {
    e_comp->norender++;
+
+   // e_plane_render is not working when e_comp->hwc is not initialized
+   if ((!e_comp->hwc) &&
+       (e_comp->norender == 1))
+     ecore_evas_manual_render_set(e_comp->ee, EINA_TRUE);
 }
 
 E_API void
@@ -722,6 +727,11 @@ e_comp_canvas_norender_pop(void)
      return;
 
    e_comp->norender--;
+
+   // e_plane_render is not working when e_comp->hwc is not initialized
+   if ((!e_comp->hwc) &&
+       (e_comp->norender == 0))
+     ecore_evas_manual_render_set(e_comp->ee, EINA_FALSE);
 }
 
 E_API int
