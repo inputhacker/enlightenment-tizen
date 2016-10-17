@@ -1,6 +1,38 @@
 #include "e.h"
 #include <tizen-remote-surface-server-protocol.h>
 
+#define RSMINF(f, cp, ec, obj, ptr, x...)                            \
+   do                                                                \
+     {                                                               \
+        if ((!cp) && (!ec))                                          \
+          INF("EWL|%20.20s|              |             |%10.10s|%p|"f,\
+              "RSM", (obj), (ptr), ##x);                             \
+        else                                                         \
+          INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|%10.10s|%p|"f,       \
+              "RSM",                                                 \
+              (unsigned int)(cp ? e_pixmap_window_get(cp) : 0),      \
+              (unsigned int)(ec),                                    \
+              (obj), (ptr),                                          \
+              ##x);                                                  \
+     }                                                               \
+   while (0)
+
+#define RSMDBG(f, cp, ec, obj, ptr, x...)                            \
+   do                                                                \
+     {                                                               \
+        if ((!cp) && (!ec))                                          \
+          DBG("EWL|%20.20s|              |             |%10.10s|%p|"f,\
+              "RSM", (obj), (ptr), ##x);                             \
+        else                                                         \
+          DBG("EWL|%20.20s|win:0x%08x|ec:0x%08x|%10.10s|%p|"f,       \
+              "RSM",                                                 \
+              (unsigned int)(cp ? e_pixmap_window_get(cp) : 0),      \
+              (unsigned int)(ec),                                    \
+              (obj), (ptr),                                          \
+              ##x);                                                  \
+     }                                                               \
+   while (0)
+
 typedef struct _E_Comp_Wl_Remote_Manager E_Comp_Wl_Remote_Manager;
 typedef struct _E_Comp_Wl_Remote_Provider E_Comp_Wl_Remote_Provider;
 typedef struct _E_Comp_Wl_Remote_Surface E_Comp_Wl_Remote_Surface;
@@ -130,6 +162,11 @@ _remote_provider_onscreen_parent_set(E_Comp_Wl_Remote_Provider *provider, E_Comp
    provider->onscreen_parent = parent;
    provider->ec->comp_data->remote_surface.onscreen_parent = NULL;
 
+   RSMDBG("set onscreen_parent %p(ec:%p)",
+          provider->ec->pixmap, provider->ec,
+          "PROVIDER", provider,
+          parent, parent? parent->owner:NULL);
+
    if (parent)
      {
         EINA_LIST_FOREACH(provider->onscreen_parent->regions, l, region)
@@ -240,6 +277,10 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
 
         e_comp_wl_surface_commit(ec);
      }
+
+   RSMINF("%s offscreen",
+          ec->pixmap, ec,
+          "PROVIDER", provider, set? "Set":"Unset");
 }
 
 static void
@@ -250,6 +291,10 @@ _remote_provider_visible_set(E_Comp_Wl_Remote_Provider *provider, Eina_Bool set)
    if (set)
      {
         provider->vis_ref ++;
+        RSMDBG("Count up vis_ref:%d",
+               provider->ec->pixmap, provider->ec,
+               "PROVIDER", provider, provider->vis_ref);
+
         if (provider->vis_ref == 1)
           {
              provider->ec->visibility.obscured = E_VISIBILITY_UNOBSCURED;
@@ -263,6 +308,10 @@ _remote_provider_visible_set(E_Comp_Wl_Remote_Provider *provider, Eina_Bool set)
    else
      {
         provider->vis_ref --;
+        RSMDBG("Count down vis_ref:%d",
+               provider->ec->pixmap, provider->ec,
+               "PROVIDER", provider, provider->vis_ref);
+
         if (provider->vis_ref == 0)
           {
              provider->ec->visibility.obscured = E_VISIBILITY_FULLY_OBSCURED;
@@ -290,15 +339,19 @@ _remote_provider_find(E_Client *ec)
 }
 
 static void
-_remote_surface_visible_set(E_Comp_Wl_Remote_Surface *rsurf, Eina_Bool set)
+_remote_surface_visible_set(E_Comp_Wl_Remote_Surface *remote_surface, Eina_Bool set)
 {
    E_Comp_Wl_Remote_Provider *provider;
 
-   if (rsurf->visible == set) return;
+   if (remote_surface->visible == set) return;
 
-   rsurf->visible = set;
+   remote_surface->visible = set;
 
-   provider = rsurf->provider;
+   RSMDBG("Switch visible:%d",
+          NULL, NULL,
+          "SURFACE", remote_surface, remote_surface->visible);
+
+   provider = remote_surface->provider;
    if (!provider) return;
 
    _remote_provider_visible_set(provider, set);
@@ -313,6 +366,10 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
    /* clear previous binding */
    if (remote_surface->bind_ec)
      {
+        RSMINF("Clear previous bind_ec:%p",
+               NULL, NULL,
+               "SURFACE", remote_surface, remote_surface->bind_ec);
+
         /* do NULL buffer commit for binded ec */
         _e_comp_wl_remote_surface_state_buffer_set(&remote_surface->bind_ec->comp_data->pending, NULL);
 
@@ -333,9 +390,12 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
              return;
           }
 
+        RSMINF("Set bind_ec:%p",
+               NULL, NULL,
+               "SURFACE", remote_surface, ec);
+
         /* TODO: enable user geometry? */
         e_policy_allow_user_geometry_set(ec, EINA_TRUE);
-
         remote_surface->bind_ec = ec;
      }
 }
@@ -380,6 +440,10 @@ _remote_region_cb_geometry_set(struct wl_client *client EINA_UNUSED, struct wl_r
    region->geometry.y = y;
    region->geometry.w = w;
    region->geometry.h = h;
+
+   RSMDBG("Region %p geometry set (%d, %d) %dx%d",
+          NULL, NULL,
+          "SURFACE", region->remote_surface, region, x, y, w, h);
 }
 
 static const struct tizen_remote_surface_region_interface _remote_region_interface =
@@ -495,6 +559,11 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
    EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider);
    EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->ec);
 
+   RSMINF("Redirect surface provider:%p(ec:%p)",
+          NULL, NULL,
+          "SURFACE", remote_surface,
+          remote_surface->provider, remote_surface->provider->ec);
+
    remote_surface->redirect = EINA_TRUE;
 
    buffer = e_pixmap_resource_get(remote_surface->provider->ec->pixmap);
@@ -518,6 +587,11 @@ _remote_surface_cb_unredirect(struct wl_client *client, struct wl_resource *reso
 
    remote_surface->redirect = EINA_FALSE;
 //   _remote_surface_visible_set(remote_surface, EINA_FALSE);
+
+   RSMINF("Unredirect surface provider:%p(ec:%p)",
+          NULL, NULL,
+          "SURFACE", remote_surface,
+          remote_surface->provider, remote_surface->provider? remote_surface->provider->ec: NULL);
 }
 
 static void
@@ -976,6 +1050,10 @@ _remote_manager_cb_provider_create(struct wl_client *client, struct wl_resource 
 
    eina_hash_add(_rsm->provider_hash, &ec, provider);
 
+   RSMINF("Created resource(%p)",
+          ec->pixmap, ec,
+          "PROVIDER", provider, resource);
+
    _remote_provider_offscreen_set(provider, EINA_TRUE);
 
    /* send resource id */
@@ -1027,6 +1105,10 @@ _remote_manager_cb_surface_create(struct wl_client *client, struct wl_resource *
                                   &_remote_surface_interface,
                                   remote_surface,
                                   _remote_surface_cb_resource_destroy);
+
+   RSMINF("Created resource(%p) provider(%p)",
+          NULL, NULL,
+          "SURFACE", remote_surface, resource, provider);
 }
 
 
@@ -1082,6 +1164,43 @@ _remote_manager_cb_bind(struct wl_client *client, void *data EINA_UNUSED, uint32
 err:
    ERR("Could not create tizen_remote_surface_manager_interface res: %m");
    wl_client_post_no_memory(client);
+}
+
+static void
+_e_comp_wl_remote_cb_client_del(void *data, E_Client *ec)
+{
+   E_Comp_Wl_Remote_Provider *provider;
+   E_Comp_Wl_Remote_Surface *remote_surface;
+
+   if ((provider = eina_hash_find(_rsm->provider_hash, &ec)))
+     {
+        eina_hash_del(_rsm->provider_hash, &ec, provider);
+        EINA_LIST_FREE(provider->surfaces, remote_surface)
+          {
+             if (remote_surface->provider == provider)
+               {
+                  /* unset remote buffer from provider */
+                  if (remote_surface->bind_ec)
+                    _remote_surface_bind_client(remote_surface, NULL);
+
+                  remote_surface->provider = NULL;
+                  //notify of this ejection to remote surface_resource
+                  tizen_remote_surface_send_missing(remote_surface->resource);
+               }
+          }
+        _remote_provider_offscreen_set(provider, EINA_FALSE);
+        wl_resource_set_user_data(provider->resource, NULL);
+        E_FREE(provider);
+     }
+
+   if ((remote_surface = eina_hash_find(_rsm->surface_hash, &ec)))
+     {
+        eina_hash_del(_rsm->surface_hash, &ec, remote_surface);
+        if (remote_surface->owner == ec)
+          remote_surface->owner = NULL;
+        if (remote_surface->provider)
+          _remote_provider_onscreen_parent_calculate(remote_surface->provider);
+     }
 }
 
 static Eina_Bool
@@ -1243,6 +1362,10 @@ e_comp_wl_remote_surface_init(void)
                                          NULL,
                                          _remote_manager_cb_bind);
 
+   /* client hook */
+   e_client_hook_add(E_CLIENT_HOOK_DEL, _e_comp_wl_remote_cb_client_del, NULL);
+
+   /* client event */
    E_LIST_HANDLER_APPEND(rs_manager->event_hdlrs,
                          E_EVENT_CLIENT_VISIBILITY_CHANGE,
                          _e_comp_wl_remote_cb_visibility_change, rs_manager);
