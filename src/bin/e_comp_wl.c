@@ -994,12 +994,17 @@ _e_comp_wl_evas_cb_mouse_in(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj
 
    if (e_config->use_cursor_timer)
      {
-        if (e_pointer_is_hidden(e_comp->pointer))
-          return;
         if (e_comp_wl->ptr.hide_tmr)
-          ecore_timer_del(e_comp_wl->ptr.hide_tmr);
-        cursor_timer_ec = ec;
-        e_comp_wl->ptr.hide_tmr = ecore_timer_add(e_config->cursor_timer_interval, _e_comp_wl_cursor_timer, ec);
+          {
+             ecore_timer_del(e_comp_wl->ptr.hide_tmr);
+             cursor_timer_ec = ec;
+             e_comp_wl->ptr.hide_tmr = ecore_timer_add(e_config->cursor_timer_interval, _e_comp_wl_cursor_timer, ec);
+          }
+        else
+          {
+             if (e_pointer_is_hidden(e_comp->pointer))
+               return;
+          }
      }
 
    if (!eina_list_count(e_comp_wl->ptr.resources)) return;
@@ -1062,15 +1067,10 @@ _e_comp_wl_evas_cb_mouse_out(void *data, Evas *evas EINA_UNUSED, Evas_Object *ob
         return;
      }
 
-   if (e_config->use_cursor_timer)
+   if (e_config->use_cursor_timer && !e_comp_wl->ptr.hide_tmr)
      {
         if (e_pointer_is_hidden(e_comp->pointer))
           return;
-        if (cursor_timer_ec == ec)
-          {
-             E_FREE_FUNC(e_comp_wl->ptr.hide_tmr, ecore_timer_del);
-             cursor_timer_ec = NULL;
-          }
      }
 
    if (!eina_list_count(e_comp_wl->ptr.resources)) return;
