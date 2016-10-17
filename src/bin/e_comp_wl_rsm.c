@@ -1,35 +1,54 @@
 #include "e.h"
 #include <tizen-remote-surface-server-protocol.h>
 
-typedef struct {
+typedef struct _E_Comp_Wl_Remote_Manager E_Comp_Wl_Remote_Manager;
+typedef struct _E_Comp_Wl_Remote_Provider E_Comp_Wl_Remote_Provider;
+typedef struct _E_Comp_Wl_Remote_Surface E_Comp_Wl_Remote_Surface;
+typedef struct _E_Comp_Wl_Remote_Region E_Comp_Wl_Remote_Region;
+
+struct _E_Comp_Wl_Remote_Manager{
    struct wl_global *global;
+
    Eina_Hash *provider_hash;
    Eina_Hash *surface_hash;
    Eina_List *event_hdlrs;
-} E_Comp_Wl_Remote_Manager;
+};
 
-typedef struct {
+struct _E_Comp_Wl_Remote_Provider
+{
      struct wl_resource *resource;
 
      E_Client *ec;
+
      Eina_List *surfaces;
+     E_Comp_Wl_Remote_Surface *onscreen_parent;
 
      Eina_Bool visible;
      int vis_ref;
 
      Eina_Bool is_offscreen;
-} E_Comp_Wl_Remote_Provider;
+};
 
-typedef struct {
-     E_Comp_Wl_Remote_Provider *provider;
-     E_Client *bind_ec;
-
+struct _E_Comp_Wl_Remote_Surface{
      struct wl_resource *resource;
      struct wl_resource *wl_tbm;
 
+     E_Comp_Wl_Remote_Provider *provider;
+     E_Client *bind_ec;
+
+     E_Client *owner;
+     Eina_List *regions;
+
      Eina_Bool redirect;
      Eina_Bool visible;
-} E_Comp_Wl_Remote_Surface;
+};
+
+struct _E_Comp_Wl_Remote_Region {
+     struct wl_resource *resource;
+
+     E_Comp_Wl_Remote_Surface *remote_surface;
+     Eina_Rectangle geometry;
+};
 
 static E_Comp_Wl_Remote_Manager *_rsm = NULL;
 
@@ -49,6 +68,131 @@ _device_get_by_identifier(const char *identifier)
      }
 
    return NULL;
+}
+
+void
+_remote_provider_rect_add(E_Comp_Wl_Remote_Provider *provider, Eina_Rectangle *rect)
+{
+   E_Client *ec;
+
+   ec = provider->ec;
+   if (!ec) return;
+   if (!ec->comp_data) return;
+
+   ec->comp_data->remote_surface.regions =
+      eina_list_remove(ec->comp_data->remote_surface.regions,
+                       rect);
+   ec->comp_data->remote_surface.regions =
+      eina_list_append(ec->comp_data->remote_surface.regions,
+                       rect);
+}
+
+void
+_remote_provider_rect_del(E_Comp_Wl_Remote_Provider *provider, Eina_Rectangle *rect)
+{
+   E_Client *ec;
+
+   ec = provider->ec;
+   if (!ec) return;
+   if (!ec->comp_data) return;
+
+   ec->comp_data->remote_surface.regions =
+      eina_list_remove(ec->comp_data->remote_surface.regions,
+                       rect);
+}
+
+void
+_remote_provider_rect_clear(E_Comp_Wl_Remote_Provider *provider)
+{
+   E_Client *ec;
+
+   ec = provider->ec;
+   if (!ec) return;
+   if (!ec->comp_data) return;
+
+   ec->comp_data->remote_surface.regions =
+      eina_list_remove_list(ec->comp_data->remote_surface.regions,
+                            ec->comp_data->remote_surface.regions);
+}
+
+void
+_remote_provider_onscreen_parent_set(E_Comp_Wl_Remote_Provider *provider, E_Comp_Wl_Remote_Surface *parent)
+{
+   E_Comp_Wl_Remote_Region *region;
+   Eina_List *l;
+
+   if (!provider) return;
+   if ((parent) && !(parent->owner)) return;
+   if (provider->onscreen_parent == parent) return;
+
+   _remote_provider_rect_clear(provider);
+
+   provider->onscreen_parent = parent;
+   provider->ec->comp_data->remote_surface.onscreen_parent = NULL;
+
+   if (parent)
+     {
+        EINA_LIST_FOREACH(provider->onscreen_parent->regions, l, region)
+          {
+             _remote_provider_rect_add(provider, &region->geometry);
+          }
+
+        provider->ec->comp_data->remote_surface.onscreen_parent = parent->owner;
+     }
+}
+
+void
+_remote_provider_onscreen_parent_calculate(E_Comp_Wl_Remote_Provider *provider)
+{
+   Evas_Object *o;
+   E_Client *ec, *_ec, *parent = NULL;
+   E_Comp_Wl_Remote_Surface *surface;
+   E_Comp_Wl_Client_Data *cdata;
+
+   ec = provider->ec;
+   if (!ec) return;
+   if (!ec->comp_data) return;
+   if (!provider->surfaces) return;
+
+   o = evas_object_top_get(e_comp->evas);
+   for (; o; o = evas_object_below_get(o))
+     {
+        _ec = evas_object_data_get(o, "E_Client");
+        if (!_ec) continue;
+        if (_ec == ec) continue;
+
+        if ((surface = eina_hash_find(_rsm->surface_hash, &_ec)))
+          {
+             if (surface->provider != provider) continue;
+             if (!surface->visible) continue;
+
+             if (e_object_is_del(E_OBJECT(_ec))) continue;
+             if (e_client_util_ignored_get(_ec)) continue;
+             if (_ec->zone != ec->zone) continue;
+             if (!_ec->frame) continue;
+             if (!_ec->visible) continue;
+             if (_ec->visibility.skip) continue;
+             if ((_ec->visibility.obscured != E_VISIBILITY_UNOBSCURED) &&
+                 (_ec->visibility.obscured != E_VISIBILITY_PARTIALLY_OBSCURED))
+               continue;
+
+             /* if _ec is subsurface, skip this */
+             cdata = (E_Comp_Wl_Client_Data *)_ec->comp_data;
+             if (cdata && cdata->sub.data) continue;
+
+             if (!E_INTERSECTS(_ec->x, _ec->y, _ec->w, _ec->h, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
+               continue;
+
+             parent = _ec;
+             break;
+          }
+     }
+
+   surface = NULL;
+   if (parent)
+     surface = eina_hash_find(_rsm->surface_hash, &parent);
+
+   _remote_provider_onscreen_parent_set(provider, surface);
 }
 
 static void
@@ -81,12 +225,17 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
 
         ec->icccm.accepts_focus = ec->icccm.take_focus = ec->want_focus = EINA_FALSE;
         ec->placed = EINA_TRUE;
+
+        _remote_provider_onscreen_parent_calculate(provider);
      }
    else
      {
         provider->is_offscreen = set;
         ec->icccm.accepts_focus = ec->icccm.take_focus = ec->want_focus = EINA_TRUE;
         ec->placed = EINA_FALSE;
+
+        _remote_provider_onscreen_parent_set(provider, NULL);
+
         e_comp_wl_surface_commit(ec);
      }
 }
@@ -116,6 +265,8 @@ _remote_provider_visible_set(E_Comp_Wl_Remote_Provider *provider, Eina_Bool set)
                  TIZEN_REMOTE_SURFACE_PROVIDER_VISIBILITY_TYPE_INVISIBLE);
           }
      }
+
+   _remote_provider_onscreen_parent_calculate(provider);
 }
 
 static E_Comp_Wl_Remote_Provider *
@@ -180,6 +331,55 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
         remote_surface->bind_ec = ec;
      }
 }
+
+static void
+_remote_region_cb_resource_destroy(struct wl_resource *resource)
+{
+   E_Comp_Wl_Remote_Region *region;
+
+   region = wl_resource_get_user_data(resource);
+   if (!region) return;
+
+   if (region->remote_surface)
+     {
+        if (region->remote_surface->provider)
+          {
+             _remote_provider_rect_del(region->remote_surface->provider,
+                                       &region->geometry);
+          }
+        region->remote_surface->regions = eina_list_remove(region->remote_surface->regions,
+                                                           region);
+     }
+
+   E_FREE(region);
+}
+
+static void
+_remote_region_cb_destroy(struct wl_client *client EINA_UNUSED, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
+static void
+_remote_region_cb_geometry_set(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, int32_t x, int32_t y, int32_t w, int32_t h)
+{
+   E_Comp_Wl_Remote_Region *region;
+
+   region = wl_resource_get_user_data(resource);
+   if (!region) return;
+
+   region->geometry.x = x;
+   region->geometry.y = y;
+   region->geometry.w = w;
+   region->geometry.h = h;
+}
+
+static const struct tizen_remote_surface_region_interface _remote_region_interface =
+{
+   _remote_region_cb_destroy,
+   _remote_region_cb_geometry_set,
+};
+
 static void
 _remote_provider_cb_resource_destroy(struct wl_resource *resource)
 {
@@ -224,7 +424,7 @@ _remote_provider_cb_offscreen_set(struct wl_client *client EINA_UNUSED, struct w
    if (!provider) return;
 
    if (provider->is_offscreen == offscreen) return;
-   _remote_provider_offscreen_set(provider, EINA_FALSE);
+   _remote_provider_offscreen_set(provider, offscreen);
 }
 
 static const struct tizen_remote_surface_provider_interface _remote_provider_interface =
@@ -238,6 +438,7 @@ _remote_surface_cb_resource_destroy(struct wl_resource *resource)
 {
    E_Comp_Wl_Remote_Surface *remote_surface;
    E_Comp_Wl_Remote_Provider *provider;
+   E_Comp_Wl_Remote_Region *region;
 
    remote_surface = wl_resource_get_user_data(resource);
    if (!remote_surface) return;
@@ -246,13 +447,24 @@ _remote_surface_cb_resource_destroy(struct wl_resource *resource)
    if (provider)
      {
         _remote_surface_visible_set(remote_surface, EINA_FALSE);
+        if (provider->onscreen_parent == remote_surface)
+          _remote_provider_onscreen_parent_set(provider, NULL);
+
         provider->surfaces = eina_list_remove(provider->surfaces,
                                               remote_surface);
         remote_surface->provider = NULL;
      }
 
+   EINA_LIST_FREE(remote_surface->regions, region)
+     {
+        region->remote_surface = NULL;
+        wl_resource_destroy(region->resource);
+     }
+
    if (remote_surface->bind_ec)
      _remote_surface_bind_client(remote_surface, NULL);
+   if (remote_surface->owner)
+     eina_hash_del_by_key(_rsm->surface_hash, &remote_surface->owner);
 
    E_FREE(remote_surface);
 }
@@ -639,6 +851,71 @@ _remote_surface_cb_visibility_transfer(struct wl_client *client, struct wl_resou
      }
 }
 
+static void
+_remote_surface_cb_owner_set(struct wl_client *client, struct wl_resource *resource, struct wl_resource *surface_resource)
+{
+   E_Comp_Wl_Remote_Surface *remote_surface;
+   E_Client *owner = NULL;
+
+   remote_surface = wl_resource_get_user_data(resource);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+
+   if (surface_resource)
+     owner = wl_resource_get_user_data(surface_resource);
+
+   remote_surface->owner = owner;
+   eina_hash_del_by_data(_rsm->surface_hash, remote_surface);
+
+   if (owner)
+     eina_hash_add(_rsm->surface_hash, &owner, remote_surface);
+
+   if (remote_surface->provider)
+     _remote_provider_onscreen_parent_calculate(remote_surface->provider);
+}
+
+static void
+_remote_surface_cb_region_create(struct wl_client *client, struct wl_resource *remote_surface_resource, uint32_t id)
+{
+   struct wl_resource *resource;
+   E_Comp_Wl_Remote_Surface *remote_surface;
+   E_Comp_Wl_Remote_Region *region;
+   E_Comp_Wl_Remote_Provider *provider;
+
+   remote_surface = wl_resource_get_user_data(remote_surface_resource);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+
+   resource = wl_resource_create(client,
+                                 &tizen_remote_surface_region_interface,
+                                 1, id);
+
+   if (!resource)
+     {
+        ERR("Could not create tizen remote region resource: %m");
+        wl_client_post_no_memory(client);
+        return;
+     }
+
+   region = E_NEW(E_Comp_Wl_Remote_Region, 1);
+   region->remote_surface = remote_surface;
+   region->resource = resource;
+   region->geometry.x = -1;
+   region->geometry.y = -1;
+   region->geometry.w = -1;
+   region->geometry.h = -1;
+   remote_surface->regions = eina_list_append(remote_surface->regions, region);
+
+   wl_resource_set_implementation(resource,
+                                  &_remote_region_interface,
+                                  region,
+                                  _remote_region_cb_resource_destroy);
+
+   //update provider's region rect list
+   provider = remote_surface->provider;
+   if ((provider) && (provider->onscreen_parent == remote_surface))
+     {
+        _remote_provider_rect_add(provider, &region->geometry);
+     }
+}
 
 static const struct tizen_remote_surface_interface _remote_surface_interface =
 {
@@ -651,6 +928,8 @@ static const struct tizen_remote_surface_interface _remote_surface_interface =
    _remote_surface_cb_touch_cancel_transfer,
    _remote_surface_cb_key_event_transfer,
    _remote_surface_cb_visibility_transfer,
+   _remote_surface_cb_owner_set,
+   _remote_surface_cb_region_create,
 };
 
 static void
@@ -802,6 +1081,7 @@ _e_comp_wl_remote_cb_visibility_change(void *data, int type, void *event)
 {
    E_Event_Client *ev = event;
    E_Client *ec;
+   E_Comp_Wl_Remote_Surface *remote_surface;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(_rsm, ECORE_CALLBACK_PASS_ON);
 
@@ -810,7 +1090,10 @@ _e_comp_wl_remote_cb_visibility_change(void *data, int type, void *event)
 
    if (e_object_is_del(E_OBJECT(ec))) return ECORE_CALLBACK_PASS_ON;
 
-   /* TODO: visibility calculation after owner set enablead */
+   if ((remote_surface = eina_hash_find(_rsm->surface_hash, &ec)))
+     {
+        _remote_provider_onscreen_parent_calculate(remote_surface->provider);
+     }
 
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -957,6 +1240,7 @@ e_comp_wl_remote_surface_init(void)
                          _e_comp_wl_remote_cb_visibility_change, rs_manager);
 
    rs_manager->provider_hash = eina_hash_pointer_new(NULL);
+   rs_manager->surface_hash = eina_hash_pointer_new(NULL);
 
    _rsm = rs_manager;
 }
@@ -976,12 +1260,14 @@ e_comp_wl_remote_surface_shutdown(void)
 
    it = eina_hash_iterator_data_new(rsm->provider_hash);
    EINA_ITERATOR_FOREACH(it, provider)
-      wl_resource_destroy(provider->resource);
-   eina_iterator_free(it);
-
-   it = eina_hash_iterator_data_new(rsm->surface_hash);
-   EINA_ITERATOR_FOREACH(it, remote_surface)
-      wl_resource_destroy(remote_surface->resource);
+     {
+        EINA_LIST_FREE(provider->surfaces, remote_surface)
+          {
+             remote_surface->provider = NULL;
+             wl_resource_destroy(remote_surface->resource);
+          }
+        wl_resource_destroy(provider->resource);
+     }
    eina_iterator_free(it);
 
    E_FREE_FUNC(rsm->provider_hash, eina_hash_free);
