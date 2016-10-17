@@ -32,6 +32,7 @@ struct _E_Plane_Renderer {
    Eina_List          *disp_surfaces;
    Eina_List          *sent_surfaces;
    Eina_List          *exported_surfaces;
+   Eina_List          *released_surfaces;
 
    Ecore_Evas         *ee;
    Evas               *evas;

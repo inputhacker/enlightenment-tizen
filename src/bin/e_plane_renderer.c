@@ -238,6 +238,21 @@ _e_plane_renderer_surface_find_disp_surface(E_Plane_Renderer *renderer, tbm_surf
    return EINA_FALSE;
 }
 
+static Eina_Bool
+_e_plane_renderer_surface_find_released_surface(E_Plane_Renderer *renderer, tbm_surface_h tsurface)
+{
+   Eina_List *l_s;
+   tbm_surface_h tmp_tsurface = NULL;
+
+   EINA_LIST_FOREACH(renderer->released_surfaces, l_s, tmp_tsurface)
+     {
+        if (!tmp_tsurface) continue;
+        if (tmp_tsurface == tsurface) return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
 static void
 _e_plane_renderer_cb_acquirable(tbm_surface_queue_h surface_queue, void *data)
 {
@@ -264,8 +279,7 @@ _e_plane_renderer_exported_surface_release(E_Plane_Renderer *renderer, tbm_surfa
 
         if (tmp_tsurface == tsurface)
           {
-             if (renderer->displaying_tsurface != tsurface)
-                e_plane_renderer_surface_queue_release(renderer, tsurface);
+             e_plane_renderer_surface_queue_release(renderer, tsurface);
 
              renderer->exported_surfaces = eina_list_remove_list(renderer->exported_surfaces, l_s);
           }
@@ -1085,6 +1099,9 @@ e_plane_renderer_surface_queue_acquire(E_Plane_Renderer *renderer)
         return NULL;
      }
 
+   if (_e_plane_renderer_surface_find_released_surface(renderer, tsurface))
+      renderer->released_surfaces = eina_list_remove(renderer->released_surfaces, tsurface);
+
    /* if not exist, add the surface to the renderer */
    if (!_e_plane_renderer_surface_find_disp_surface(renderer, tsurface))
       renderer->disp_surfaces = eina_list_append(renderer->disp_surfaces, tsurface);
@@ -1116,6 +1133,8 @@ e_plane_renderer_surface_queue_release(E_Plane_Renderer *renderer, tbm_surface_h
    tqueue = renderer->tqueue;
    EINA_SAFETY_ON_NULL_RETURN(tqueue);
 
+   if (_e_plane_renderer_surface_find_released_surface(renderer, tsurface)) return;
+
    /* debug */
    if (renderer_trace_debug)
      {
@@ -1134,6 +1153,8 @@ e_plane_renderer_surface_queue_release(E_Plane_Renderer *renderer, tbm_surface_h
         ERR("Failed to release tbm_surface(%p) from tbm_surface_queue(%p): tsq_err = %d", tsurface, tqueue, tsq_err);
         return;
      }
+
+   renderer->released_surfaces = eina_list_append(renderer->released_surfaces, tsurface);
 }
 
 EINTERN Eina_Bool
@@ -1203,6 +1224,9 @@ e_plane_renderer_surface_queue_dequeue(E_Plane_Renderer *renderer)
         return NULL;
      }
 
+   if (_e_plane_renderer_surface_find_released_surface(renderer, tsurface))
+      renderer->released_surfaces = eina_list_remove(renderer->released_surfaces, tsurface);
+
    /* debug */
    if (renderer_trace_debug)
      {
@@ -1227,17 +1251,8 @@ e_plane_renderer_surface_queue_clear(E_Plane_Renderer *renderer)
    tqueue = renderer->tqueue;
    EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
 
-   while (tbm_surface_queue_can_acquire(tqueue, 0))
-     {
-        tsq_err = tbm_surface_queue_acquire(tqueue, &tsurface);
-        if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
-          {
-             ERR("Failed to acquire tbm_surface from tbm_surface_queue(%p): tsq_err = %d", tqueue, tsq_err);
-             return EINA_FALSE;
-          }
-
-        e_plane_renderer_surface_queue_release(renderer, tsurface);
-     }
+   while (tsurface = e_plane_renderer_surface_queue_acquire(renderer))
+      e_plane_renderer_surface_queue_release(renderer, tsurface);
 
   return EINA_TRUE;
 }
