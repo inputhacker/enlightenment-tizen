@@ -1060,6 +1060,8 @@ E_API Eina_Bool e_client_mouse_wheel_send(E_Client *ec, int direction, int z, Ec
 E_API Eina_Bool e_client_video_client_has(E_Client *ec);
 E_API Eina_Bool e_client_normal_client_has(E_Client *ec);
 
+E_API Eina_Bool e_client_cursor_hide(E_Client *ec);
+
 E_API void e_remember_del(void *rem); /* TODO: should be removed */
 
 /**

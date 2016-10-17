@@ -6331,6 +6331,12 @@ e_client_normal_client_has(E_Client *ec)
    return e_comp_wl_normal_subsurface_has(ec);
 }
 
+E_API Eina_Bool
+e_client_cursor_hide(E_Client *ec)
+{
+   return e_comp_wl_cursor_hide(ec);
+}
+
 /* TODO: should be removed */
 E_API void
 e_remember_del(void *rem)

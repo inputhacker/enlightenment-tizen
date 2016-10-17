@@ -915,30 +915,8 @@ static Eina_Bool
 _e_comp_wl_cursor_timer(void *data)
 {
    E_Client *ec = data;
-   struct wl_resource *res;
-   struct wl_client *wc;
-   Eina_List *l;
-   uint32_t serial;
 
-   e_pointer_object_set(e_comp->pointer, NULL, 0, 0);
-
-   e_comp_wl->ptr.hide_tmr = NULL;
-   cursor_timer_ec = NULL;
-
-   if (!ec) return EINA_FALSE;
-   if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
-
-   if (!ec->comp_data->surface) return EINA_FALSE;
-   wc = wl_resource_get_client(ec->comp_data->surface);
-   serial = wl_display_next_serial(e_comp_wl->wl.disp);
-   EINA_LIST_FOREACH(e_comp_wl->ptr.resources, l, res)
-     {
-        if (!e_comp_wl_input_pointer_check(res)) continue;
-        if (wl_resource_get_client(res) != wc) continue;
-        if (ec->pointer_enter_sent == EINA_FALSE) continue;
-        wl_pointer_send_leave(res, serial, ec->comp_data->surface);
-        ec->pointer_enter_sent = EINA_FALSE;
-     }
+   e_comp_wl_cursor_hide(ec);
 
    return ECORE_CALLBACK_CANCEL;
 }
@@ -5796,6 +5774,41 @@ e_comp_wl_mouse_wheel_send(E_Client *ec, int direction, int z, Ecore_Device *dev
    else _e_comp_wl_device_send_last_event_device(ec, ECORE_DEVICE_CLASS_MOUSE, time);
 
    _e_comp_wl_mouse_wheel_send(ec, direction, z, time);
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_comp_wl_cursor_hide(E_Client *ec)
+{
+   struct wl_resource *res;
+   struct wl_client *wc;
+   Eina_List *l;
+   uint32_t serial;
+
+   e_pointer_object_set(e_comp->pointer, NULL, 0, 0);
+
+   if (e_comp_wl->ptr.hide_tmr)
+     {
+        ecore_timer_del(e_comp_wl->ptr.hide_tmr);
+        e_comp_wl->ptr.hide_tmr = NULL;
+     }
+   cursor_timer_ec = NULL;
+
+   if (!ec) return EINA_FALSE;
+   if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
+
+   if (!ec->comp_data->surface) return EINA_FALSE;
+   wc = wl_resource_get_client(ec->comp_data->surface);
+   serial = wl_display_next_serial(e_comp_wl->wl.disp);
+   EINA_LIST_FOREACH(e_comp_wl->ptr.resources, l, res)
+     {
+        if (!e_comp_wl_input_pointer_check(res)) continue;
+        if (wl_resource_get_client(res) != wc) continue;
+        if (ec->pointer_enter_sent == EINA_FALSE) continue;
+        wl_pointer_send_leave(res, serial, ec->comp_data->surface);
+        ec->pointer_enter_sent = EINA_FALSE;
+     }
 
    return EINA_TRUE;
 }
