@@ -146,6 +146,11 @@ struct _E_Comp_Wl_Subsurf_Data
 
    Eina_Bool synchronized;
    Eina_Bool stand_alone;
+
+   struct
+     {
+        E_Client *offscreen_parent;
+     } remote_surface;
 };
 
 struct _E_Comp_Wl_Input_Device

@@ -3701,6 +3701,7 @@ e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_
    struct wl_client *client;
    struct wl_resource *res;
    E_Comp_Wl_Subsurf_Data *sdata;
+   E_Client *offscreen_parent = NULL;
 
    /* try to get the wayland client from the surface resource */
    if (!(client = wl_resource_get_client(surface_resource)))
@@ -3708,6 +3709,13 @@ e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_
         ERR("Could not get client from resource %d",
             wl_resource_get_id(surface_resource));
         return EINA_FALSE;
+     }
+
+   // reparent remote surface provider's subsurfaces
+   if (epc->comp_data->remote_surface.onscreen_parent)
+     {
+        offscreen_parent = epc;
+        epc = epc->comp_data->remote_surface.onscreen_parent;
      }
 
    // check parent relationship is a cycle
@@ -3758,6 +3766,7 @@ e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_
    sdata->resource = res;
    sdata->synchronized = EINA_TRUE;
    sdata->parent = epc;
+   sdata->remote_surface.offscreen_parent = offscreen_parent;
 
    /* set subsurface client properties */
    ec->borderless = EINA_TRUE;
@@ -4108,6 +4117,7 @@ _e_comp_wl_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
      evas_object_del(ec->comp_data->sub.below_obj);
 
    /* remove sub list */
+   /* TODO: if parent is set by onscreen_parent of remote surface? */
    EINA_LIST_FREE(ec->comp_data->sub.list, subc)
      if (subc->comp_data && subc->comp_data->sub.data) subc->comp_data->sub.data->parent = NULL;
    EINA_LIST_FREE(ec->comp_data->sub.list_pending, subc)
