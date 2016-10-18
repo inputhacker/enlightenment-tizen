@@ -1294,13 +1294,12 @@ EINTERN Eina_Bool
 e_plane_renderer_surface_queue_clear(E_Plane_Renderer *renderer)
 {
    tbm_surface_queue_h tqueue = NULL;
-   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
    tbm_surface_h tsurface = NULL;
 
    tqueue = renderer->tqueue;
    EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
 
-   while (tsurface = e_plane_renderer_surface_queue_acquire(renderer))
+   while ((tsurface = e_plane_renderer_surface_queue_acquire(renderer)))
       e_plane_renderer_surface_queue_release(renderer, tsurface);
 
   return EINA_TRUE;
