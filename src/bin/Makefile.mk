@@ -207,6 +207,9 @@ src/bin/e_policy_wl_display.c \
 src/bin/e_process.c
 
 src_bin_enlightenment_CPPFLAGS = $(E_CPPFLAGS) -DEFL_BETA_API_SUPPORT -DEFL_EO_API_SUPPORT -DE_LOGGING=1 @WAYLAND_CFLAGS@ $(TTRACE_CFLAGS) $(DLOG_CFLAGS) $(POLICY_CFLAGS)
+if HAVE_LIBGOMP
+src_bin_enlightenment_CPPFLAGS += -fopenmp
+endif
 if HAVE_WAYLAND_TBM
 src_bin_enlightenment_CPPFLAGS += @WAYLAND_TBM_CFLAGS@ @ECORE_DRM_CFLAGS@
 if HAVE_REMOTE_SURFACE
@@ -222,6 +225,9 @@ src/bin/e_main.c \
 $(enlightenment_src)
 
 src_bin_enlightenment_LDFLAGS = -export-dynamic
+if HAVE_LIBGOMP
+src_bin_enlightenment_LDFLAGS += -fopenmp
+endif
 src_bin_enlightenment_LDADD = @e_libs@ @dlopen_libs@ @cf_libs@ @VALGRIND_LIBS@ @WAYLAND_LIBS@ -lm @SHM_OPEN_LIBS@ $(TTRACE_LIBS) $(DLOG_LIBS) $(POLICY_LIBS)
 if HAVE_WAYLAND_TBM
 src_bin_enlightenment_LDADD += @WAYLAND_TBM_LIBS@ @ECORE_DRM_LIBS@

@@ -431,6 +431,24 @@ if test "x${have_wayland}" = "xyes"; then
   fi
 fi
 
+# Check for libgomp
+libgomp=no
+AC_ARG_ENABLE([libgomp],
+  AS_HELP_STRING([--enable-libgomp], [enable libgomp @<:@default=disabled@:>@]),
+  [libgomp=$enableval],
+  [libgomp=no])
+AC_MSG_CHECKING([whether libgomp is enabled])
+AC_MSG_RESULT([${libgomp}])
+
+if test "x$libgomp" != "xno"; then
+    AC_DEFINE([HAVE_LIBGOMP], [1], [Enable libgomp])
+    have_libgomp=yes
+else
+    AC_DEFINE([HAVE_LIBGOMP], [0], [Disable libgomp])
+    have_libgomp=no
+fi
+AM_CONDITIONAL([HAVE_LIBGOMP], [test "x${have_libgomp}" = "xyes"])
+
 # Check for ttrace header files
 PKG_CHECK_MODULES(TTRACE,
 		[ttrace],

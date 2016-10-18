@@ -8,6 +8,9 @@
 # include <wayland-tbm-server.h>
 # include <Evas_Engine_GL_Drm.h>
 # include <sys/eventfd.h>
+# if HAVE_LIBGOMP
+# include <omp.h>
+# endif
 
 # define E_PLANE_RENDERER_CLIENT_SURFACE_FLAGS_RESERVED 7777
 
@@ -132,7 +135,53 @@ _e_plane_renderer_client_copied_surface_create(E_Client *ec, Eina_Bool refresh)
      }
 
    /* copy from src to dst */
+#if HAVE_LIBGOMP
+# define LIBGOMP_COPY_THREAD_NUM 4
+   if (src_info.planes[0].size > LIBGOMP_COPY_THREAD_NUM)
+     {
+        size_t step[2];
+        step[0] = src_info.planes[0].size / LIBGOMP_COPY_THREAD_NUM;
+        step[1] = src_info.planes[0].size - (step[0] * (LIBGOMP_COPY_THREAD_NUM - 1));
+
+        omp_set_num_threads(LIBGOMP_COPY_THREAD_NUM);
+        #pragma omp parallel
+        #pragma omp sections
+          {
+             #pragma omp section
+               {
+                  memcpy(dst_info.planes[0].ptr,
+                         src_info.planes[0].ptr,
+                         step[0]);
+               }
+             #pragma omp section
+               {
+                  memcpy(dst_info.planes[0].ptr + step[0],
+                         src_info.planes[0].ptr + step[0],
+                         step[0]);
+               }
+             #pragma omp section
+               {
+                  memcpy(dst_info.planes[0].ptr + (step[0] * 2),
+                         src_info.planes[0].ptr + (step[0] * 2),
+                         step[0]);
+               }
+             #pragma omp section
+               {
+                  memcpy(dst_info.planes[0].ptr + (step[0] * 3),
+                         src_info.planes[0].ptr + (step[0] * 3),
+                         step[1]);
+               }
+          }
+     }
+   else
+     {
+        memcpy(dst_info.planes[0].ptr,
+               src_info.planes[0].ptr,
+               src_info.planes[0].size);
+     }
+#else /* HAVE_LIBGOMP */
    memcpy(dst_info.planes[0].ptr, src_info.planes[0].ptr, src_info.planes[0].size);
+#endif /* end of HAVE_LIBGOMP */
 
    tbm_surface_unmap(new_tsurface);
    tbm_surface_unmap(tsurface);

@@ -8,6 +8,13 @@ Group:          Graphics/EFL
 Source0:        enlightenment-%{version}.tar.bz2
 Source1001:     enlightenment.manifest
 
+# use libgomp only in arm 32bit mobile
+%ifarch %{arm}
+%if "%{?profile}" == "mobile"
+%define LIBGOMP use
+%endif
+%endif
+
 BuildRequires:  eet-tools
 BuildRequires:  pkgconfig(dbus-1)
 BuildRequires:  pkgconfig(dlog)
@@ -40,6 +47,9 @@ BuildRequires:  pkgconfig(tzsh-server)
 BuildRequires:  pkgconfig(cynara-client)
 BuildRequires:  pkgconfig(cynara-creds-socket)
 Requires:       libwayland-extension-server
+%if "%{LIBGOMP}" == "use"
+Requires:       libgomp
+%endif
 
 %description
 Enlightenment is a window manager.
@@ -66,6 +76,9 @@ export LDFLAGS+=" -pie "
       --enable-function-trace \
       --enable-wayland \
       --enable-quick-init \
+%if "%{LIBGOMP}" == "use"
+      --enable-libgomp \
+%endif
       --enable-hwc-multi
 
 make %{?_smp_mflags}
