@@ -706,8 +706,11 @@ _e_vis_client_cb_evas_show(void *data EINA_UNUSED, Evas *e EINA_UNUSED, Evas_Obj
    VS_DBG(ec, "CALLBACK 'SHOW'...");
    _e_vis_update_foreground_job_queue();
    E_VIS_CLIENT_GET_OR_RETURN(vc, ec);
-   vc->state = E_VIS_ICONIFY_STATE_UNICONIC;
-   VS_DBG(ec, "\tUPDATE ICONIC STATE: %s", "UNICONIC");
+   if (vc->state != E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY)
+     {
+        vc->state = E_VIS_ICONIFY_STATE_UNICONIC;
+        VS_DBG(ec, "\tUPDATE ICONIC STATE: %s", "UNICONIC");
+     }
 }
 
 static void
