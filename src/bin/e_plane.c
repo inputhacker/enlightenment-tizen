@@ -314,6 +314,7 @@ _e_plane_surface_from_client_acquire(E_Plane *plane)
    E_Pixmap *pixmap = ec->pixmap;
    E_Comp_Wl_Buffer *buffer = e_pixmap_resource_get(pixmap);
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
+   E_Plane_Renderer *renderer = plane->renderer;
    tbm_surface_h tsurface = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, NULL);
@@ -324,6 +325,12 @@ _e_plane_surface_from_client_acquire(E_Plane *plane)
      ELOGF("E_PLANE", "Display Client Plane(%p)", pixmap, ec, plane);
 
    e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
+
+   if (plane->is_fb)
+     {
+        if (!e_plane_renderer_surface_queue_clear(renderer))
+            ERR("fail to e_plane_renderer_surface_queue_clear");
+     }
 
    tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
    if (!tsurface)

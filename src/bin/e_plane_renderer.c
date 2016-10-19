@@ -1296,6 +1296,8 @@ e_plane_renderer_surface_queue_clear(E_Plane_Renderer *renderer)
    tbm_surface_queue_h tqueue = NULL;
    tbm_surface_h tsurface = NULL;
 
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
+
    tqueue = renderer->tqueue;
    EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
 
