@@ -1,5 +1,7 @@
 #include "e.h"
-#include <tizen-remote-surface-server-protocol.h>
+#ifdef HAVE_REMOTE_SURFACE
+ #include <tizen-remote-surface-server-protocol.h>
+#endif /* HAVE_REMOTE_SURFACE */
 
 #define RSMINF(f, cp, ec, obj, ptr, x...)                            \
    do                                                                \
@@ -33,6 +35,9 @@
      }                                                               \
    while (0)
 
+E_API int E_EVENT_REMOTE_SURFACE_PROVIDER_VISIBILITY_CHANGE = -1;
+
+#ifdef HAVE_REMOTE_SURFACE
 typedef struct _E_Comp_Wl_Remote_Manager E_Comp_Wl_Remote_Manager;
 typedef struct _E_Comp_Wl_Remote_Provider E_Comp_Wl_Remote_Provider;
 typedef struct _E_Comp_Wl_Remote_Surface E_Comp_Wl_Remote_Surface;
@@ -284,6 +289,28 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
 }
 
 static void
+_remote_provider_visible_event_free(void *data EINA_UNUSED, E_Event_Remote_Surface_Provider *ev)
+{
+   e_object_unref(E_OBJECT(ev->ec));
+   free(ev);
+}
+
+static void
+_remote_provider_visible_event_send(E_Comp_Wl_Remote_Provider *provider)
+{
+   E_Event_Remote_Surface_Provider *ev;
+
+   if (e_object_is_del(E_OBJECT(provider->ec))) return;
+
+   ev = E_NEW(E_Event_Remote_Surface_Provider, 1);
+   if (!ev) return;
+
+   ev->ec = provider->ec;
+   e_object_ref(E_OBJECT(provider->ec));
+   ecore_event_add(E_EVENT_REMOTE_SURFACE_PROVIDER_VISIBILITY_CHANGE, ev, (Ecore_End_Cb)_remote_provider_visible_event_free, NULL);
+}
+
+static void
 _remote_provider_visible_set(E_Comp_Wl_Remote_Provider *provider, Eina_Bool set)
 {
    EINA_SAFETY_ON_NULL_RETURN(provider);
@@ -298,6 +325,8 @@ _remote_provider_visible_set(E_Comp_Wl_Remote_Provider *provider, Eina_Bool set)
         if (provider->vis_ref == 1)
           {
              provider->ec->visibility.obscured = E_VISIBILITY_UNOBSCURED;
+
+             _remote_provider_visible_event_send(provider);
              e_policy_client_visibility_send(provider->ec);
 
              tizen_remote_surface_provider_send_visibility
@@ -315,6 +344,8 @@ _remote_provider_visible_set(E_Comp_Wl_Remote_Provider *provider, Eina_Bool set)
         if (provider->vis_ref == 0)
           {
              provider->ec->visibility.obscured = E_VISIBILITY_FULLY_OBSCURED;
+
+             _remote_provider_visible_event_send(provider);
              e_policy_client_visibility_send(provider->ec);
 
              tizen_remote_surface_provider_send_visibility
@@ -1328,10 +1359,12 @@ _e_comp_wl_remote_surface_state_commit(E_Comp_Wl_Remote_Provider *provider, E_Co
         e_pixmap_image_clear(ec->pixmap, 1);
      }
 }
+#endif /* HAVE_REMOTE_SURFACE */
 
 EINTERN Eina_Bool
 e_comp_wl_remote_surface_commit(E_Client *ec)
 {
+#ifdef HAVE_REMOTE_SURFACE
    E_Comp_Wl_Remote_Provider *provider;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
@@ -1342,11 +1375,15 @@ e_comp_wl_remote_surface_commit(E_Client *ec)
    _e_comp_wl_remote_surface_state_commit(provider, &ec->comp_data->pending);
 
    return EINA_TRUE;
+#else
+   return EINA_FALSE;
+#endif /* HAVE_REMOTE_SURFACE */
 }
 
 EINTERN void
 e_comp_wl_remote_surface_init(void)
 {
+#ifdef HAVE_REMOTE_SURFACE
    E_Comp_Wl_Remote_Manager *rs_manager = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(e_comp_wl);
@@ -1374,11 +1411,15 @@ e_comp_wl_remote_surface_init(void)
    rs_manager->surface_hash = eina_hash_pointer_new(NULL);
 
    _rsm = rs_manager;
+
+   E_EVENT_REMOTE_SURFACE_PROVIDER_VISIBILITY_CHANGE = ecore_event_type_new();
+#endif /* HAVE_REMOTE_SURFACE */
 }
 
 EINTERN void
 e_comp_wl_remote_surface_shutdown(void)
 {
+#ifdef HAVE_REMOTE_SURFACE
    E_Comp_Wl_Remote_Manager *rsm;
    E_Comp_Wl_Remote_Provider *provider;
    E_Comp_Wl_Remote_Surface *remote_surface;
@@ -1407,4 +1448,5 @@ e_comp_wl_remote_surface_shutdown(void)
    E_FREE_LIST(rsm->event_hdlrs, ecore_event_handler_del);
    wl_global_destroy(rsm->global);
    E_FREE(rsm);
+#endif /* HAVE_REMOTE_SURFACE */
 }
