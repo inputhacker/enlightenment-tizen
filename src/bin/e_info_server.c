@@ -483,6 +483,20 @@ _msg_window_prop_client_append(Eldbus_Message_Iter *iter, E_Client *target_ec)
    __WINDOW_PROP_ARG_APPEND("Maximize_override", target_ec->maximize_override ? char_True : char_False);
    __WINDOW_PROP_ARG_APPEND("Transformed", target_ec->transformed ? char_True : char_False);
    __WINDOW_PROP_ARG_APPEND_TYPE("Ignore_first_unmap", "%c", target_ec->ignore_first_unmap);
+
+   if (target_ec->comp_data)
+     {
+        E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)target_ec->comp_data;
+        Eina_List *l;
+        E_Comp_Wl_Aux_Hint *hint;
+        int count = 0;
+
+        EINA_LIST_FOREACH(cdata->aux_hint.hints, l, hint)
+          {
+             __WINDOW_PROP_ARG_APPEND_TYPE("Aux_Hint", "[%d][%s][%s]", hint->id, hint->hint, hint->val);
+          }
+     }
+
    __WINDOW_PROP_ARG_APPEND_TYPE("Transform_count", "%d", e_client_transform_core_transform_count_get(target_ec));
    if (e_client_transform_core_transform_count_get(target_ec) > 0)
      {
