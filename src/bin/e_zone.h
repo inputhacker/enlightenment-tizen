@@ -34,6 +34,9 @@ typedef struct _E_Event_Zone_Generic        E_Event_Zone_Unstow;
 typedef struct _E_Event_Zone_Rotation_Change_Begin  E_Event_Zone_Rotation_Change_Begin;
 typedef struct _E_Event_Zone_Rotation_Change_Cancel E_Event_Zone_Rotation_Change_Cancel;
 typedef struct _E_Event_Zone_Rotation_Change_End    E_Event_Zone_Rotation_Change_End;
+typedef struct _E_Event_Zone_Generic                E_Event_Zone_Rotation_Effect_Ready;
+typedef struct _E_Event_Zone_Generic                E_Event_Zone_Rotation_Effect_Cancel;
+typedef struct _E_Event_Zone_Generic                E_Event_Zone_Rotation_Effect_Done;
 #endif
 typedef struct _E_Event_Zone_Display_State_Change   E_Event_Zone_Display_State_Change;
 
@@ -227,6 +230,9 @@ extern E_API int E_EVENT_ZONE_UNSTOW;
 extern E_API int E_EVENT_ZONE_ROTATION_CHANGE_BEGIN;
 extern E_API int E_EVENT_ZONE_ROTATION_CHANGE_CANCEL;
 extern E_API int E_EVENT_ZONE_ROTATION_CHANGE_END;
+extern E_API int E_EVENT_ZONE_ROTATION_EFFECT_READY;
+extern E_API int E_EVENT_ZONE_ROTATION_EFFECT_CANCEL;
+extern E_API int E_EVENT_ZONE_ROTATION_EFFECT_DONE;
 #endif
 
 extern E_API int E_EVENT_ZONE_DISPLAY_STATE_CHANGE;
