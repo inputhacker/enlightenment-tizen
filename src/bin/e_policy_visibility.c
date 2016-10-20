@@ -416,6 +416,10 @@ _e_vis_job_add(E_Vis_Client *vc, E_Vis_Job_Type type, Ecore_Task_Cb timeout_func
    job->type = type;
    job->timer = ecore_timer_add(E_VIS_TIMEOUT, timeout_func, job);
 
+   if ((job->type == E_VIS_JOB_TYPE_LOWER) ||
+       (job->type == E_VIS_JOB_TYPE_HIDE))
+     e_comp_canvas_norender_push();
+
    return EINA_TRUE;
 }
 
@@ -426,6 +430,9 @@ _e_vis_job_del(Eina_Clist *elem)
 
    _e_vis_clist_unlink(elem);
    job = EINA_CLIST_ENTRY(elem, E_Vis_Job, entry);
+   if ((job->type == E_VIS_JOB_TYPE_LOWER) ||
+       (job->type == E_VIS_JOB_TYPE_HIDE))
+     e_comp_canvas_norender_pop();
    E_FREE_FUNC(job->timer, ecore_timer_del);
    free(job);
 }
@@ -942,9 +949,11 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
          e_client_uniconify(ec);
          break;
       case E_VIS_JOB_TYPE_LOWER:
+         e_comp_canvas_norender_pop();
          evas_object_lower(ec->frame);
          break;
       case E_VIS_JOB_TYPE_HIDE:
+         e_comp_canvas_norender_pop();
          evas_object_hide(ec->frame);
          break;
       default:
