@@ -3410,6 +3410,15 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
    /* set alpha only if SW path */
    e_comp_object_alpha_set(ec->frame, EINA_TRUE);
 
+   /* force update for changing alpha value. If the native surface has been already
+    * set before, changing alpha value can't be applied to egl image.
+    */
+   e_comp_object_native_surface_set(ec->frame, EINA_FALSE);
+   e_pixmap_image_refresh(ec->pixmap);
+   e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+   e_comp_object_dirty(ec->frame);
+   e_comp_object_render(ec->frame);
+
    _e_comp_wl_subsurface_restack(ec);
    _e_comp_wl_subsurface_restack_bg_rectangle(ec);
 
