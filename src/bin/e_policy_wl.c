@@ -2252,6 +2252,8 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
                ec->comp_data->never_hwc = EINA_FALSE;
              else if (!strcmp(hint->val, "1"))
                ec->comp_data->never_hwc = EINA_TRUE;
+
+             e_comp_render_queue();
           }
 
         if (send)
