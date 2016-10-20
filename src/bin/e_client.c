@@ -2562,6 +2562,16 @@ _e_client_eval(E_Client *ec)
         ec->need_fullscreen = 0;
      }
 
+   if (ec->changes.accepts_focus)
+     {
+        if ((!ec->icccm.accepts_focus) && (!ec->icccm.take_focus))
+          {
+             if (ec->focused)
+               _e_client_revert_focus(ec);
+          }
+        ec->changes.accepts_focus = 0;
+     }
+
    if (send_event && prop)
      {
         _e_client_event_property(ec, prop);

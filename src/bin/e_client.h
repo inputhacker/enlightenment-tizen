@@ -667,6 +667,7 @@ struct E_Client
 #ifdef _F_ZONE_WINDOW_ROTATION_
       Eina_Bool rotation : 1;
 #endif
+      Eina_Bool accepts_focus : 1;
    } changes;
 
    struct

@@ -1473,6 +1473,7 @@ _tzpol_iface_cb_focus_skip_set(struct wl_client *client EINA_UNUSED, struct wl_r
    if (ec->icccm.accepts_focus)
      {
         ec->icccm.accepts_focus = ec->icccm.take_focus = 0;
+        ec->changes.accepts_focus = 1;
         EC_CHANGED(ec);
      }
 }
@@ -1488,6 +1489,7 @@ _tzpol_iface_cb_focus_skip_unset(struct wl_client *client EINA_UNUSED, struct wl
    if (!ec->icccm.accepts_focus)
      {
         ec->icccm.accepts_focus = ec->icccm.take_focus = 1;
+        ec->changes.accepts_focus = 1;
         EC_CHANGED(ec);
      }
 }
