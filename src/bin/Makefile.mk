@@ -106,6 +106,7 @@ src/bin/services/e_service_volume.h \
 src/bin/services/e_service_indicator.h \
 src/bin/services/e_service_cbhm.h \
 src/bin/e_policy.h \
+src/bin/e_policy_visibility.h \
 src/bin/e_policy_keyboard.h \
 src/bin/e_policy_private_data.h \
 src/bin/e_policy_wl.h \

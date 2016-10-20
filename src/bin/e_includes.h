@@ -61,6 +61,7 @@
 # endif
 #endif
 #include "e_policy.h"
+#include "e_policy_visibility.h"
 #include "e_process.h"
 #include "e_splitlayout.h"
 #include "e_slot.h"
