@@ -488,7 +488,7 @@ e_pixmap_refresh(E_Pixmap *cp)
      {
       case WL_SHM_FORMAT_ARGB8888:
       case EGL_TEXTURE_RGBA:
-      case TBM_FORMAT_ABGR8888:
+      case TBM_FORMAT_ARGB8888:
          cp->image_argb = EINA_TRUE;
          break;
       default:
