@@ -511,7 +511,6 @@ EINTERN void e_comp_wl_shutdown(void);
 
 E_API void e_comp_wl_deferred_job(void);
 
-EINTERN struct wl_resource *e_comp_wl_surface_create(struct wl_client *client, int version, uint32_t id);
 EINTERN void e_comp_wl_surface_destroy(struct wl_resource *resource);
 EINTERN void e_comp_wl_surface_attach(E_Client *ec, E_Comp_Wl_Buffer *buffer);
 E_API Eina_Bool e_comp_wl_surface_commit(E_Client *ec);

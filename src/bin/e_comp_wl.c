@@ -4828,17 +4828,6 @@ e_comp_wl_shutdown(void)
 #endif
 }
 
-EINTERN struct wl_resource *
-e_comp_wl_surface_create(struct wl_client *client, int version, uint32_t id)
-{
-   struct wl_resource *ret = NULL;
-
-   if ((ret = wl_resource_create(client, &wl_surface_interface, version, id)))
-     DBG("Created Surface: %d", wl_resource_get_id(ret));
-
-   return ret;
-}
-
 static void
 e_comp_wl_surface_event_simple_free(void *d EINA_UNUSED, E_Event_Client *ev)
 {
