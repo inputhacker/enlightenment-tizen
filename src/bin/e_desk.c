@@ -771,6 +771,7 @@ e_desk_geometry_set(E_Desk *desk, int x, int y, int w, int h)
      }
 
    evas_object_geometry_set(desk->smart_obj, x, y, w, h);
+   e_comp_render_queue();
 }
 
 static void
