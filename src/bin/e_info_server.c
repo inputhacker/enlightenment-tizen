@@ -2256,6 +2256,28 @@ e_info_server_protocol_rule_path_init(char *rule_path)
     return EINA_TRUE;
 }
 
+Eina_Bool
+e_info_server_protocol_trace_path_init(char *trace_path)
+{
+   if (!trace_path || strlen(trace_path) <= 0)
+     return EINA_FALSE;
+
+   INF("%s: trace_path : %s\n", __func__, trace_path);
+
+   log_fp_ptrace = fopen(trace_path, "a");
+
+   if (!log_fp_ptrace)
+     {
+        ERR("failed: open file(%s)\n", trace_path);
+        return EINA_FALSE;
+     }
+
+   setvbuf(log_fp_ptrace, NULL, _IOLBF, 512);
+   wl_debug_server_debug_func_set((wl_server_debug_func_ptr)_e_info_server_protocol_debug_func);
+
+    return EINA_TRUE;
+}
+
 static Eina_Bool
 _e_info_server_dbus_init(void *data EINA_UNUSED)
 {
@@ -2279,6 +2301,7 @@ _e_info_server_dbus_init(void *data EINA_UNUSED)
 
    e_info_protocol_init();
    e_info_server_protocol_rule_path_init(getenv("E_INFO_RULE_FILE"));
+   e_info_server_protocol_trace_path_init(getenv("E_INFO_TRACE_FILE"));
 
    return ECORE_CALLBACK_CANCEL;
 
