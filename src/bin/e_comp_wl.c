@@ -425,15 +425,31 @@ e_comp_wl_map_apply(E_Client *ec)
    sdata = ec->comp_data->sub.data;
    if (sdata)
      {
+        dx = sdata->position.x;
+        dy = sdata->position.y;
+
         if (sdata->parent)
           {
-             dx = sdata->parent->x + sdata->position.x;
-             dy = sdata->parent->y + sdata->position.y;
+             dx += sdata->parent->x;
+             dy += sdata->parent->y;
           }
-        else
+
+        if (sdata->remote_surface.offscreen_parent)
           {
-             dx = sdata->position.x;
-             dy = sdata->position.y;
+             E_Client *offscreen_parent = sdata->remote_surface.offscreen_parent;
+             Eina_Rectangle *rect;
+             Eina_List *l;
+
+             EINA_LIST_FOREACH(offscreen_parent->comp_data->remote_surface.regions, l, rect)
+               {
+                  /* TODO: If there are one more regions, it means that provider's offscreen
+                   * is displayed by one more remote_surfaces. Have to consider it later. At
+                   * this time, just consider only one remote_surface.
+                   */
+                  dx += rect->x;
+                  dy += rect->y;
+                  break;
+               }
           }
      }
    else
@@ -3777,6 +3793,8 @@ e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_
    ec->border_size = 0;
 
    ELOGF("COMP", "         |subsurface_parent:%p", NULL, ec, epc);
+   if (offscreen_parent)
+     ELOGF("COMP", "         |offscreen_parent:%p", NULL, ec, offscreen_parent);
 
    if (epc)
      {
