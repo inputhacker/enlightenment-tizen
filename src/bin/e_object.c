@@ -56,13 +56,11 @@ e_object_del(E_Object *obj)
         if (obj->ref_debug)
           INF("[%p] DELAY DEL (REF: %d)", obj, obj->references);
         obj->del_delay_func(obj);
-        if (!obj->delay_del_ref)
+        if (obj->delay_del_ref)
           {
-             if (!obj->delay_del_job)
-               obj->delay_del_job = ecore_job_add(_delay_del, obj);
+             obj->deleted = 1;
+             return;
           }
-        obj->deleted = 1;
-        return;
      }
    if (obj->ref_debug)
      INF("[%p] DEL (REF: %d)", obj, obj->references);
