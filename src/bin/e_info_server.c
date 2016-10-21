@@ -489,7 +489,6 @@ _msg_window_prop_client_append(Eldbus_Message_Iter *iter, E_Client *target_ec)
         E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)target_ec->comp_data;
         Eina_List *l;
         E_Comp_Wl_Aux_Hint *hint;
-        int count = 0;
 
         EINA_LIST_FOREACH(cdata->aux_hint.hints, l, hint)
           {
