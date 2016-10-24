@@ -672,6 +672,7 @@ e_comp_hwc_end(const char *location)
    Eina_Bool mode_set = EINA_FALSE;
    E_Zone *zone;
    Eina_List *l;
+   Eina_Bool fully_hwc = (e_comp->hwc_mode == E_HWC_MODE_FULL) ? EINA_TRUE : EINA_FALSE;
 
    e_comp->nocomp_want = 0;
    E_FREE_FUNC(e_comp->nocomp_delay_timer, ecore_timer_del);
@@ -692,7 +693,9 @@ e_comp_hwc_end(const char *location)
 
    e_comp->hwc_mode = E_HWC_MODE_NO;
 
-   ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+   if (fully_hwc)
+     ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+
    INF("HWC : End...  at %s", location);
 }
 #endif  // end of ENABLE_HWC_MULTI
