@@ -2072,7 +2072,7 @@ _tzpol_iface_cb_uniconify(struct wl_client *client EINA_UNUSED, struct wl_resour
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
-   if (e_policy_visibility_client_uniconify(ec))
+   if (e_policy_visibility_client_uniconify(ec, 1))
      return;
 
    if ((ec->iconic) && (!ec->exp_iconify.by_client))

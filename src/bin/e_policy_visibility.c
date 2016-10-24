@@ -190,6 +190,7 @@ _e_policy_client_ancestor_uniconify(E_Client *ec)
    E_Client *parent = NULL;
    int transient_iconify = 0;
    int count = 0;
+   Eina_Bool ret = EINA_FALSE;
 
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
@@ -233,9 +234,13 @@ _e_policy_client_ancestor_uniconify(E_Client *ec)
    EINA_LIST_FOREACH(list, l, parent)
      {
         ELOGF("UNICONIFY_BY_WM", "parent_win:0x%08x", parent->pixmap, parent, e_client_util_win_get(parent));
-        parent->exp_iconify.not_raise = 1;
-        e_client_uniconify(parent);
-        e_policy_wl_iconify_state_change_send(parent, 0);
+        ret = e_policy_visibility_client_uniconify(parent, 0);
+        if (!ret)
+          {
+             parent->exp_iconify.not_raise = 1;
+             e_client_uniconify(parent);
+             e_policy_wl_iconify_state_change_send(parent, 0);
+          }
      }
    eina_list_free(list);
 
@@ -269,6 +274,8 @@ _e_policy_client_below_uniconify(E_Client *ec)
 static void
 _e_policy_client_uniconify_by_visibility(E_Client *ec)
 {
+   Eina_Bool ret = EINA_FALSE;
+
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (!ec->iconic) return;
@@ -281,9 +288,13 @@ _e_policy_client_uniconify_by_visibility(E_Client *ec)
    _e_policy_client_ancestor_uniconify(ec);
 
    ELOGF("UNICONIFY_BY_WM", "win:0x%08x", ec->pixmap, ec, e_client_util_win_get(ec));
-   ec->exp_iconify.not_raise = 1;
-   e_client_uniconify(ec);
-   e_policy_wl_iconify_state_change_send(ec, 0);
+   ret = e_policy_visibility_client_uniconify(ec, 0);
+   if (!ret)
+     {
+        ec->exp_iconify.not_raise = 1;
+        e_client_uniconify(ec);
+        e_policy_wl_iconify_state_change_send(ec, 0);
+     }
 
    if ((ec->visibility.opaque > 0) && (ec->argb))
      {
@@ -1238,7 +1249,7 @@ e_policy_visibility_client_lower(E_Client *ec)
 }
 
 E_API Eina_Bool
-e_policy_visibility_client_uniconify(E_Client *ec)
+e_policy_visibility_client_uniconify(E_Client *ec, Eina_Bool raise)
 {
    E_Client *child;
    Eina_List *l;
@@ -1255,7 +1266,7 @@ e_policy_visibility_client_uniconify(E_Client *ec)
    /* TODO search clients to be really foreground and uniconify it.
     * suppose that transients will be above on the parent. */
 
-   ret = _e_vis_client_uniconify_render(vc, E_VIS_JOB_TYPE_UNICONIFY, 1);
+   ret = _e_vis_client_uniconify_render(vc, E_VIS_JOB_TYPE_UNICONIFY, raise);
 
    /* uniconify its transients recursively */
    if (e_config->transient.iconify)
@@ -1263,7 +1274,7 @@ e_policy_visibility_client_uniconify(E_Client *ec)
         l = eina_list_clone(ec->transients);
 
         EINA_LIST_FREE(l, child)
-           ret |= e_policy_visibility_client_uniconify(child);
+           ret |= e_policy_visibility_client_uniconify(child, raise);
      }
 
    /* TODO find topmost activity client and emit signal */
