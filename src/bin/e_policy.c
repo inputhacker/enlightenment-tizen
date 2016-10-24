@@ -795,6 +795,7 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
                        above_ec = evas_object_data_get(o, "E_Client");
                        if (!above_ec) continue;
                        if (e_client_util_ignored_get(above_ec)) continue;
+                       if (!above_ec->visible) continue;
 
                        if (above_ec->exp_iconify.by_client) continue;
                        if (above_ec->exp_iconify.skip_iconify) continue;
