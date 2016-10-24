@@ -4293,9 +4293,11 @@ _e_comp_wl_client_cb_iconify(void *data EINA_UNUSED, E_Client *ec)
    if (e_pixmap_type_get(ec->pixmap) != E_PIXMAP_TYPE_WL) return;
 
    EINA_LIST_FOREACH(ec->comp_data->sub.list, l, subc)
-     e_client_iconify(subc);
+     if (!subc->comp_data->sub.data->stand_alone)
+       e_client_iconify(subc);
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
-     e_client_iconify(subc);
+     if (!subc->comp_data->sub.data->stand_alone)
+       e_client_iconify(subc);
 }
 
 static void
