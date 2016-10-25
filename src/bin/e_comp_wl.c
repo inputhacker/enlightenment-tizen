@@ -62,6 +62,7 @@ static int _e_comp_wl_hooks_walking = 0;
 static Eina_Inlist *_e_comp_wl_hooks[] =
 {
    [E_COMP_WL_HOOK_SHELL_SURFACE_READY] = NULL,
+   [E_COMP_WL_HOOK_SUBSURFACE_CREATE] = NULL,
 };
 
 /* local functions */
@@ -3835,6 +3836,7 @@ e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_
    e_comp->new_clients++;
    e_client_unignore(ec);
 
+   _e_comp_wl_hook_call(E_COMP_WL_HOOK_SUBSURFACE_CREATE, ec);
    return EINA_TRUE;
 
 res_err:

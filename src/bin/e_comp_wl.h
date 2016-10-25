@@ -58,6 +58,7 @@ typedef enum _E_Comp_Wl_Buffer_Type
 typedef enum _E_Comp_Wl_Hook_Point
 {
    E_COMP_WL_HOOK_SHELL_SURFACE_READY,
+   E_COMP_WL_HOOK_SUBSURFACE_CREATE,
    E_COMP_WL_HOOK_LAST,
 } E_Comp_Wl_Hook_Point;
 
