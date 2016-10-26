@@ -1983,6 +1983,9 @@ e_comp_socket_init(const char *name)
    int res;
    E_Config_Socket_Access *sa = NULL;
    Eina_List *l = NULL;
+#undef STRERR_BUFSIZE
+#define STRERR_BUFSIZE 128
+   char buf[STRERR_BUFSIZE];
 
    dir = getenv("XDG_RUNTIME_DIR");
    if (!dir) return EINA_FALSE;
@@ -2011,14 +2014,10 @@ e_comp_socket_init(const char *name)
              res = chmod(socket_path, sa->sock_access.permissions);
              if (res < 0)
                {
-#undef STRERR_BUFSIZE
-#define STRERR_BUFSIZE 128
-                  char buf[STRERR_BUFSIZE];
-
                   ERR("Could not change modes of socket file:%s (%s)",
                       socket_path,
                       strerror_r(errno, buf, STRERR_BUFSIZE));
-#undef STRERR_BUFSIZE
+
                   PRCTL("[Winsys] Could not chane modes of socket file: %s", socket_path);
                   return EINA_FALSE;
                }
@@ -2028,7 +2027,8 @@ e_comp_socket_init(const char *name)
                {
                   ERR("Could not change owner of socket file:%s (%s)",
                       socket_path,
-                      strerror(errno));
+                      strerror_r(errno, buf, STRERR_BUFSIZE));
+
                   PRCTL("[Winsys] Could not change owner of socket file: %s", socket_path);
                   return EINA_FALSE;
                }
@@ -2043,8 +2043,11 @@ e_comp_socket_init(const char *name)
                             sa->sock_access.smack.flags);
              if (res < 0)
                {
-                  ERR("Could not change smack variable for socket file: %s (%s)", socket_path, strerror(errno));
-                  PRCTL("[Winsys] Could not change smack variable for socket file: %s (%s)", socket_path, strerror(errno));
+                  ERR("Could not change smack variable for socket file: %s (%s)",
+                      socket_path,
+                      strerror_r(errno, buf, STRERR_BUFSIZE));
+
+                  PRCTL("[Winsys] Could not change smack variable for socket file: %s", socket_path);
                   return EINA_FALSE;
                }
           }
@@ -2055,8 +2058,11 @@ e_comp_socket_init(const char *name)
                            sa->sock_symlink_access.link_name);
              if (res < 0)
                {
-                  ERR("Could not make symbolic link: %s (%s)", sa->sock_symlink_access.link_name, strerror(errno));
-                  PRCTL("[Winsys] Could not make symbolic link: %s (%s)", sa->sock_symlink_access.link_name, strerror(errno));
+                  ERR("Could not make symbolic link: %s (%s)",
+                      sa->sock_symlink_access.link_name,
+                      strerror_r(errno, buf, STRERR_BUFSIZE));
+
+                  PRCTL("[Winsys] Could not make symbolic link: %s", sa->sock_symlink_access.link_name);
                   if (errno != EEXIST)
                     return EINA_FALSE;
                }
@@ -2068,8 +2074,10 @@ e_comp_socket_init(const char *name)
              res = lchown(sa->sock_symlink_access.link_name, uid, gid);
              if (res < 0)
                {
-                  ERR("chown -h owner:users %s failed! (%s)", sa->sock_symlink_access.link_name, strerror(errno));
-                  PRCTL("[Winsys] chown -h owner:users %s failed! (%s)", sa->sock_symlink_access.link_name, strerror(errno));
+                  ERR("chown -h owner:users %s failed! (%s)", sa->sock_symlink_access.link_name,
+                      strerror_r(errno, buf, STRERR_BUFSIZE));
+
+                  PRCTL("[Winsys] chown -h owner:users %s failed!", sa->sock_symlink_access.link_name);
                   return EINA_FALSE;
                }
 
@@ -2080,8 +2088,10 @@ e_comp_socket_init(const char *name)
                             sa->sock_symlink_access.smack.flags);
              if (res < 0)
                {
-                  ERR("Chould not change smack variable for symbolic link: %s (%s)", sa->sock_symlink_access.link_name, strerror(errno));
-                  PRCTL("[Winsys] Chould not change smack variable for symbolic link: %s (%s)", sa->sock_symlink_access.link_name, strerror(errno));
+                  ERR("Chould not change smack variable for symbolic link: %s (%s)", sa->sock_symlink_access.link_name,
+                      strerror_r(errno, buf, STRERR_BUFSIZE));
+
+                  PRCTL("[Winsys] Chould not change smack variable for symbolic link: %s", sa->sock_symlink_access.link_name);
                   return EINA_FALSE;
                }
           }
