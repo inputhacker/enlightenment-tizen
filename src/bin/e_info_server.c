@@ -120,7 +120,7 @@ _msg_clients_append(Eldbus_Message_Iter *iter)
 
 
 #ifdef ENABLE_HWC_MULTI
-        if (e_comp->hwc && e_comp->hwc_fs)
+        if ((e_comp->hwc) && (!e_comp->hwc_deactive))
           {
              Eina_List *l;
              E_Plane *ep;
@@ -2096,12 +2096,12 @@ e_info_server_cb_hwc(const Eldbus_Service_Interface *iface EINA_UNUSED, const El
 
    if (onoff == 1)
      {
-        e_comp->hwc_fs = EINA_TRUE;
+        e_comp->hwc_deactive = EINA_FALSE;
      }
    else if (onoff == 0)
      {
         e_comp_hwc_end("in runtime by e_info..");
-        e_comp->hwc_fs = EINA_FALSE;
+        e_comp->hwc_deactive = EINA_TRUE;
      }
 
    return reply;

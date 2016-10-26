@@ -794,7 +794,7 @@ setup_hwcompose:
    // query if HWC can be used
    if (!e_comp_gl_get() || // TODO: e_comp_gl_get can be removed out if evas sw backend is TBM
        !e_comp->hwc ||
-       !e_comp->hwc_fs)
+       e_comp->hwc_deactive)
      {
         goto end;
      }
@@ -1321,15 +1321,18 @@ e_comp_init(void)
 
    e_comp_canvas_fake_layers_init();
 
+   if (conf->hwc_deactive) e_comp->hwc_deactive = EINA_TRUE; // deactive hwc policy
+
 #ifdef HAVE_HWC
    if (conf->hwc &&
        e_comp_gl_get()) // TODO: it can be removed out if evas sw backend is TBM
      {
         e_comp->hwc = _e_comp_hwc_init();
         if (!e_comp->hwc)
-          WRN("fail to init hwc.");
-        else
-          e_comp->hwc_fs = EINA_TRUE; // 1: active hwc policy
+          {
+             WRN("fail to init hwc.");
+             e_comp->hwc_deactive = EINA_TRUE;
+          }
      }
 #endif
 

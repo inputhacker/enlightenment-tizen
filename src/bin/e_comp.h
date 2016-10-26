@@ -140,7 +140,7 @@ struct _E_Comp
    Eina_Bool       nocomp_want : 1;
    int             hwc_mode;
    Eina_Bool       hwc : 1;
-   Eina_Bool       hwc_fs : 1; // active hwc policy
+   Eina_Bool       hwc_deactive : 1; // deactive hwc policy
 
    int depth;
    unsigned int    input_key_grabs;

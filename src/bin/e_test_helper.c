@@ -453,8 +453,8 @@ _e_test_helper_cb_hwc(const Eldbus_Service_Interface *iface, const Eldbus_Messag
      {
         switch (on)
           {
-           case 0: accept = EINA_TRUE; e_comp->hwc_fs = EINA_FALSE; break;
-           case 1: accept = EINA_TRUE; e_comp->hwc_fs = EINA_TRUE;  break;
+           case 0: accept = EINA_TRUE; e_comp->hwc_deactive = EINA_TRUE; break;
+           case 1: accept = EINA_TRUE; e_comp->hwc_deactive = EINA_FALSE;  break;
            default: break;
           }
      }

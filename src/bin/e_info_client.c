@@ -455,7 +455,7 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
              else
                snprintf(tmp, sizeof(tmp), " - ");
           }
-        else // hwc is not initialized or hwc_fs deactivated
+        else // hwc is not initialized or hwc_deactive 1
           {
              hwc_off = 1;
              snprintf(tmp, sizeof(tmp), " - ");
