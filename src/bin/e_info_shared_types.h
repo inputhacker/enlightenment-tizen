@@ -113,7 +113,7 @@ typedef enum
 /* -------------------------------------------------------------------------- */
 /* SUBSURFACE                                                                 */
 /* -------------------------------------------------------------------------- */
-#define SIGNATURE_SUBSURFACE "uuuiiiiuuuuuuus"
+#define SIGNATURE_SUBSURFACE "uuuiiiiuuuuuuuus"
 #define WAYLAND_SERVER_RESOURCE_ID_MASK 0xff000000
 
 #endif /* end of _E_INFO_SHARED_TYPES_ */

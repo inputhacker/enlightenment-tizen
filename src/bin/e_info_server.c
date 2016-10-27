@@ -742,7 +742,7 @@ _e_info_server_cb_subsurface(const Eldbus_Service_Interface *iface EINA_UNUSED, 
         Ecore_Window win = 0, parent = 0;
         unsigned int buf_id = 0;
         int x = 0, y = 0, w = 0, h = 0;
-        unsigned int transform = 0, visible = 0, alpha = 0, ignore = 0, maskobj = 0, video = 0;
+        unsigned int transform = 0, visible = 0, alpha = 0, ignore = 0, maskobj = 0, video = 0, stand = 0;
         Ecore_Window bgrect = 0;
         const char *name = NULL;
         E_Comp_Wl_Buffer *buffer;
@@ -792,6 +792,8 @@ _e_info_server_cb_subsurface(const Eldbus_Service_Interface *iface EINA_UNUSED, 
                bgrect = (Ecore_Window)ec->comp_data->sub.below_obj;
              maskobj = e_comp_object_mask_has(ec->frame);
              video = (ec->comp_data->video_client) ? 1 : 0;
+             if (ec->comp_data->sub.data)
+               stand = ec->comp_data->sub.data->stand_alone;
              name = e_client_util_name_get(ec);
              if (!name)
                name = "NO NAME";
@@ -801,7 +803,7 @@ _e_info_server_cb_subsurface(const Eldbus_Service_Interface *iface EINA_UNUSED, 
 
         eldbus_message_iter_arguments_append
            (struct_of_ec, SIGNATURE_SUBSURFACE,
-            win, parent, buf_id, x, y, w, h, transform, visible, alpha, ignore, maskobj, video, bgrect, name);
+            win, parent, buf_id, x, y, w, h, transform, visible, alpha, ignore, maskobj, video, stand, bgrect, name);
 
         eldbus_message_iter_container_close(array_of_ec, struct_of_ec);
      }

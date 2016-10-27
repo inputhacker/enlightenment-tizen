@@ -686,16 +686,16 @@ _cb_subsurface_info_get(const Eldbus_Message *msg)
    res = eldbus_message_arguments_get(msg, "a("SIGNATURE_SUBSURFACE")", &array);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
 
-   printf("--------------------------------------[ subsurfaces ]---------------------------------------------------\n");
-   printf(" No     Win_ID  Parent_ID  Buf_ID    w    h    x    y Rot(f) Visi Alph Igno Mask Video   BgRect   Title\n");
-   printf("--------------------------------------------------------------------------------------------------------\n");
+   printf("--------------------------------------[ subsurfaces ]---------------------------------------------------------\n");
+   printf(" No     Win_ID  Parent_ID  Buf_ID    w    h    x    y Rot(f) Visi Alph Igno Mask Video Stand    BgRect   Title\n");
+   printf("--------------------------------------------------------------------------------------------------------------\n");
 
    while (eldbus_message_iter_get_and_next(array, 'r', &ec))
      {
         Ecore_Window win = 0, parent = 0, bgrect = 0;
         unsigned int buf_id = 0;
         int x = 0, y = 0, w = 0, h = 0;
-        unsigned int transform = 0, visible = 0, alpha = 0, ignore = 0, maskobj = 0, video = 0;
+        unsigned int transform = 0, visible = 0, alpha = 0, ignore = 0, maskobj = 0, video = 0, stand = 0;
         const char *name = NULL;
         char temp[128] = {0,};
 
@@ -703,7 +703,7 @@ _cb_subsurface_info_get(const Eldbus_Message *msg)
                                                 SIGNATURE_SUBSURFACE,
                                                 &win, &parent,
                                                 &buf_id, &x, &y, &w, &h, &transform,
-                                                &visible, &alpha, &ignore, &maskobj, &video, &bgrect, &name);
+                                                &visible, &alpha, &ignore, &maskobj, &video, &stand, &bgrect, &name);
         if (!res)
           {
              printf("Failed to get win info\n");
@@ -722,9 +722,9 @@ _cb_subsurface_info_get(const Eldbus_Message *msg)
                    buf_id & (~WAYLAND_SERVER_RESOURCE_ID_MASK),
                    (buf_id & WAYLAND_SERVER_RESOURCE_ID_MASK) ? 's' : 'c');
         printf("  %6s", temp);
-        printf(" %4d %4d %4d %4d %3d(%d) %4s %4s %4s %4s %4s  ",
+        printf(" %4d %4d %4d %4d %3d(%d) %4s %4s %4s %4s %4s %4s   ",
                w, h, x, y, (4 - (transform & 3)) * 90 % 360, (transform & 4) ? 1 : 0,
-               (visible)?"O":"", (alpha)?"O":"", (ignore)?"O":"", (maskobj)?"O":"", (video)?"O":"");
+               (visible)?"O":"", (alpha)?"O":"", (ignore)?"O":"", (maskobj)?"O":"", (video)?"O":"", (stand)?"O":"");
         temp[0] = '\0';
         if (bgrect > 0) snprintf(temp, sizeof(temp), "0x%08x", bgrect);
         printf("%10s", temp);
