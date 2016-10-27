@@ -2844,8 +2844,8 @@ _e_comp_wl_surface_cb_commit(struct wl_client *client EINA_UNUSED, struct wl_res
         _e_comp_wl_extern_parent_commit(ec);
      }
 
-   if (e_comp_wl_subsurface_commit(ec)) return;
    if (e_comp_wl_remote_surface_commit(ec)) return;
+   if (e_comp_wl_subsurface_commit(ec)) return;
 
    e_comp_wl_surface_commit(ec);
 

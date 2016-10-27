@@ -35,6 +35,12 @@
      }                                                               \
    while (0)
 
+#define container_of(ptr, type, member) \
+   ({ \
+    const __typeof__( ((type *)0)->member ) *__mptr = (ptr); \
+    (type *)( (char *)__mptr - offsetof(type,member) ); \
+    })
+
 E_API int E_EVENT_REMOTE_SURFACE_PROVIDER_VISIBILITY_CHANGE = -1;
 
 #ifdef HAVE_REMOTE_SURFACE
@@ -85,11 +91,13 @@ struct _E_Comp_Wl_Remote_Region {
 
      E_Comp_Wl_Remote_Surface *remote_surface;
      Eina_Rectangle geometry;
+     Evas_Object *mirror;
 };
 
 static E_Comp_Wl_Remote_Manager *_rsm = NULL;
 
 static void _e_comp_wl_remote_surface_state_buffer_set(E_Comp_Wl_Surface_State *state, E_Comp_Wl_Buffer *buffer);
+static void _remote_surface_region_clear(E_Comp_Wl_Remote_Surface *remote_surface);
 
 static Ecore_Device *
 _device_get_by_identifier(const char *identifier)
@@ -107,7 +115,16 @@ _device_get_by_identifier(const char *identifier)
    return NULL;
 }
 
-void
+static void
+_remote_region_mirror_clear(E_Comp_Wl_Remote_Region *region)
+{
+   if (!region) return;
+   if (!region->mirror) return;
+
+   evas_object_del(region->mirror);
+}
+
+static void
 _remote_provider_rect_add(E_Comp_Wl_Remote_Provider *provider, Eina_Rectangle *rect)
 {
    E_Client *ec;
@@ -124,7 +141,7 @@ _remote_provider_rect_add(E_Comp_Wl_Remote_Provider *provider, Eina_Rectangle *r
                        rect);
 }
 
-void
+static void
 _remote_provider_rect_del(E_Comp_Wl_Remote_Provider *provider, Eina_Rectangle *rect)
 {
    E_Client *ec;
@@ -138,7 +155,7 @@ _remote_provider_rect_del(E_Comp_Wl_Remote_Provider *provider, Eina_Rectangle *r
                        rect);
 }
 
-void
+static void
 _remote_provider_rect_clear(E_Comp_Wl_Remote_Provider *provider)
 {
    E_Client *ec;
@@ -147,12 +164,15 @@ _remote_provider_rect_clear(E_Comp_Wl_Remote_Provider *provider)
    if (!ec) return;
    if (!ec->comp_data) return;
 
+   /* TODO : remove it from here after supporting multiple onscreen surface */
+   _remote_surface_region_clear(provider->onscreen_parent);
+
    ec->comp_data->remote_surface.regions =
       eina_list_remove_list(ec->comp_data->remote_surface.regions,
                             ec->comp_data->remote_surface.regions);
 }
 
-void
+static void
 _remote_provider_onscreen_parent_set(E_Comp_Wl_Remote_Provider *provider, E_Comp_Wl_Remote_Surface *parent)
 {
    E_Comp_Wl_Remote_Region *region;
@@ -183,7 +203,7 @@ _remote_provider_onscreen_parent_set(E_Comp_Wl_Remote_Provider *provider, E_Comp
      }
 }
 
-void
+static void
 _remote_provider_onscreen_parent_calculate(E_Comp_Wl_Remote_Provider *provider)
 {
    Evas_Object *o;
@@ -432,6 +452,28 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
 }
 
 static void
+_remote_surface_region_clear(E_Comp_Wl_Remote_Surface *remote_surface)
+{
+   Eina_List *l;
+   E_Comp_Wl_Remote_Region *region;
+   if (!remote_surface) return;
+
+   EINA_LIST_FOREACH(remote_surface->regions, l, region)
+     {
+        _remote_region_mirror_clear(region);
+     }
+}
+
+static void
+_remote_region_cb_mirror_del(void *data, Evas *e, Evas_Object *obj, void *event_info)
+{
+   E_Comp_Wl_Remote_Region *region = data;
+   if (!region->mirror) return;
+
+   region->mirror = NULL;
+}
+
+static void
 _remote_region_cb_resource_destroy(struct wl_resource *resource)
 {
    E_Comp_Wl_Remote_Region *region;
@@ -448,6 +490,12 @@ _remote_region_cb_resource_destroy(struct wl_resource *resource)
           }
         region->remote_surface->regions = eina_list_remove(region->remote_surface->regions,
                                                            region);
+     }
+
+   if (region->mirror)
+     {
+        evas_object_event_callback_del_full(region->mirror, EVAS_CALLBACK_DEL, _remote_region_cb_mirror_del, region);
+        evas_object_del(region->mirror);
      }
 
    E_FREE(region);
@@ -1359,6 +1407,80 @@ _e_comp_wl_remote_surface_state_commit(E_Comp_Wl_Remote_Provider *provider, E_Co
         e_pixmap_image_clear(ec->pixmap, 1);
      }
 }
+
+static Eina_Bool
+_e_comp_wl_remote_surface_subsurface_commit(E_Comp_Wl_Remote_Provider *parent_provider,
+                                            E_Client *ec)
+{
+   E_Comp_Wl_Subsurf_Data *sdata;
+   E_Comp_Wl_Remote_Surface *onscreen_parent;
+   Eina_List *l;
+   Eina_Rectangle *rect;
+   int fx, fy, fw, fh;
+   int x, y, w, h;
+   Eina_Bool first_skip = EINA_TRUE, fvis;
+   E_Comp_Wl_Buffer *buffer;
+
+   if (!e_comp_wl_subsurface_commit(ec)) return EINA_FALSE;
+
+   buffer = e_pixmap_resource_get(ec->pixmap);
+   if (!buffer) return EINA_TRUE;
+
+   if (buffer->type != E_COMP_WL_BUFFER_TYPE_SHM) return EINA_TRUE;
+
+   /* TODO : store and use multiple onscreen_parent for geometry calculation */
+   onscreen_parent = parent_provider->onscreen_parent;
+   if (!onscreen_parent) return EINA_TRUE;
+
+   if (!evas_object_visible_get(ec->frame)) return EINA_TRUE;
+
+   sdata = ec->comp_data->sub.data;
+   evas_object_geometry_get(ec->frame, &fx, &fy, &fw, &fh);
+
+   EINA_LIST_FOREACH(parent_provider->ec->comp_data->remote_surface.regions, l, rect)
+     {
+        E_Comp_Wl_Remote_Region *region;
+
+        region = container_of(rect, E_Comp_Wl_Remote_Region, geometry);
+
+        x = sdata->position.x + rect->x;
+        y = sdata->position.y + rect->y;
+        if (onscreen_parent->owner)
+          {
+             x += onscreen_parent->owner->x;
+             y += onscreen_parent->owner->y;
+          }
+
+        if ((fx == x) && (fy == y) && (first_skip))
+          {
+             first_skip = EINA_FALSE;
+             continue;
+          }
+
+        w = ec->comp_data->width_from_viewport;
+        h = ec->comp_data->height_from_viewport;
+
+        /* consider scale?
+         * w = (int) (w * ((double)rect->w / parent_provider->ec->w));
+         * h = (int) (h * ((double)rect->h / parent_provider->ec->h));
+         */
+
+        if (!region->mirror)
+          {
+             region->mirror = e_comp_object_util_mirror_add(ec->frame);
+             evas_object_layer_set(region->mirror, ec->layer);
+             evas_object_stack_below(region->mirror, ec->frame);
+             evas_object_show(region->mirror);
+             evas_object_event_callback_add(region->mirror, EVAS_CALLBACK_DEL, _remote_region_cb_mirror_del, region);
+          }
+        if (!region->mirror) continue;
+
+        evas_object_move(region->mirror, x, y);
+        evas_object_resize(region->mirror, w, h);
+     }
+
+   return EINA_TRUE;
+}
 #endif /* HAVE_REMOTE_SURFACE */
 
 EINTERN Eina_Bool
@@ -1366,8 +1488,34 @@ e_comp_wl_remote_surface_commit(E_Client *ec)
 {
 #ifdef HAVE_REMOTE_SURFACE
    E_Comp_Wl_Remote_Provider *provider;
+   E_Comp_Wl_Subsurf_Data *sdata, *ssdata;
+   E_Client *offscreen_parent;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   if (e_object_is_del(E_OBJECT(ec)) || !ec->comp_data) return EINA_FALSE;
+
+   /* subsurface case */
+   if ((sdata = ec->comp_data->sub.data))
+     {
+        /* check for valid subcompositor data */
+        if (!sdata->parent)
+          return EINA_FALSE;
+
+        if (!(ssdata = sdata->parent->comp_data->sub.data))
+          return EINA_FALSE;
+
+        if (!ssdata->remote_surface.offscreen_parent)
+          return EINA_FALSE;
+
+        offscreen_parent = ssdata->remote_surface.offscreen_parent;
+
+        provider = _remote_provider_find(offscreen_parent);
+        if (!provider) return EINA_FALSE;
+
+        if (!_e_comp_wl_remote_surface_subsurface_commit(provider, ec))
+          return EINA_FALSE;
+        return EINA_TRUE;
+     }
 
    if (!(provider = _remote_provider_find(ec)))
      return EINA_FALSE;
