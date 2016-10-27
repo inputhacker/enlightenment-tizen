@@ -19,6 +19,7 @@ static int _e_policy_interceptors_delete = 0;
 E_Policy_Interceptor *_e_policy_interceptors[] =
 {
    [E_POLICY_INTERCEPT_LAUNCHSCREEN_OBJECT_SETUP] = NULL,
+   [E_POLICY_INTERCEPT_STACK_TRANSIENT_FOR] = NULL,
 };
 
 static Eina_List *handlers = NULL;

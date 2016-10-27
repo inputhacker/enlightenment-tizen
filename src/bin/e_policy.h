@@ -12,6 +12,7 @@ typedef struct _E_Policy_Interceptor E_Policy_Interceptor;
 typedef enum _E_Policy_Intercept_Point
 {
    E_POLICY_INTERCEPT_LAUNCHSCREEN_OBJECT_SETUP,
+   E_POLICY_INTERCEPT_STACK_TRANSIENT_FOR,
    E_POLICY_INTERCEPT_LAST,
 } E_Policy_Intercept_Point;
 

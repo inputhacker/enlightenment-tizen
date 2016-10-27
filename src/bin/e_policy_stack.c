@@ -55,6 +55,17 @@ _e_policy_stack_transient_for_apply(E_Client *ec)
    int raise;
    E_Client *child, *top;
    Eina_List *l;
+   Eina_Bool intercepted = EINA_FALSE;
+
+   intercepted = e_policy_interceptor_call(E_POLICY_INTERCEPT_STACK_TRANSIENT_FOR,
+                                           ec);
+   if (intercepted)
+     {
+        ELOGF("TZPOL",
+              "Fetch for statck transient_for was successfully intercepted",
+              ec->pixmap, ec);
+        return;
+     }
 
    if (ec->parent->layer != ec->layer)
      {
