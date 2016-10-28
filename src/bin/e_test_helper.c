@@ -4,6 +4,8 @@
 #define PATH "/org/enlightenment/wm"
 #define IFACE "org.enlightenment.wm.Test"
 
+#define E_TH_SIGN_WIN_INFO  "usiiiiibbbiibbbbbi"
+
 typedef struct _Test_Helper_Data
 {
    Eldbus_Connection *conn;
@@ -28,17 +30,21 @@ static Eina_Bool _e_test_helper_cb_property_get(const Eldbus_Service_Interface *
 static Eldbus_Message *_e_test_helper_cb_register_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_deregister_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_change_stack(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_get_client_info(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_clients(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_dpms(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_ev_freeze(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_ev_mouse(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_ev_key(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_hwc(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_zone_rot_change(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_zone_rot_get(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 
 enum
 {
    E_TEST_HELPER_SIGNAL_CHANGE_VISIBILITY = 0,
    E_TEST_HELPER_SIGNAL_RESTACK,
+   E_TEST_HELPER_SIGNAL_WINDOW_ROTATION_CHANGED,
 };
 
 static const Eldbus_Signal signals[] = {
@@ -52,6 +58,12 @@ static const Eldbus_Signal signals[] = {
        {
           "StackChanged",
           ELDBUS_ARGS({"u", "window id was restacked"}),
+          0
+       },
+     [E_TEST_HELPER_SIGNAL_WINDOW_ROTATION_CHANGED] =
+       {
+          "WinRotationChanged",
+          ELDBUS_ARGS({"ui", "a window id was rotated to given angle"}),
           0
        },
        { }
@@ -77,9 +89,15 @@ static const Eldbus_Method methods[] ={
           _e_test_helper_cb_change_stack, 0
        },
        {
-          "GetWindowInfo",
+          "GetWinInfo",
+          ELDBUS_ARGS({"u", "window id"}),
+          ELDBUS_ARGS({E_TH_SIGN_WIN_INFO, "information of ec"}),
+          _e_test_helper_cb_get_client_info, 0
+       },
+       {
+          "GetWinsInfo",
           NULL,
-          ELDBUS_ARGS({"ua(usiiiiibbbiibbbbb)", "array of ec"}),
+          ELDBUS_ARGS({"ua("E_TH_SIGN_WIN_INFO")", "array of ec"}),
           _e_test_helper_cb_get_clients, 0
        },
        {
@@ -112,6 +130,18 @@ static const Eldbus_Method methods[] ={
           ELDBUS_ARGS({"b", "accept or not"}),
           _e_test_helper_cb_hwc, 0
        },
+       {
+          "GetCurrentZoneRotation",
+          NULL,
+          ELDBUS_ARGS({"i", "a angle of current zone"}),
+          _e_test_helper_cb_zone_rot_get, 0,
+       },
+       {
+          "ChangeZoneRotation",
+          ELDBUS_ARGS({"i", "(0, 90, 180, 270) = specific angle, -1 = unknown state"}),
+          ELDBUS_ARGS({"b", "accept or not"}),
+          _e_test_helper_cb_zone_rot_change, 0,
+       },
        { }
 };
 
@@ -136,6 +166,54 @@ _e_test_helper_registrant_clear(void)
 }
 
 static void
+_e_test_helper_message_append_client(Eldbus_Message_Iter *iter, E_Client *ec)
+{
+   eldbus_message_iter_arguments_append
+      (iter, E_TH_SIGN_WIN_INFO,
+       e_pixmap_res_id_get(ec->pixmap),
+       e_client_util_name_get(ec) ?: "NO NAME",
+
+       /* geometry */
+       ec->x, ec->y, ec->w, ec->h,
+
+       /* layer */
+       evas_object_layer_get(ec->frame),
+
+       /* effect */
+       evas_object_data_get(ec->frame, "effect_running"),
+
+       /* visibility & iconify */
+       ec->visible,
+       evas_object_visible_get(ec->frame),
+       ec->visibility.opaque,
+       ec->visibility.obscured,
+       ec->visibility.skip,
+       ec->iconic,
+
+       /* color depth */
+       ec->argb,
+
+       /* focus */
+       ec->focused,
+       evas_object_focus_get(ec->frame),
+
+       /* rotation */
+       ec->e.state.rot.ang.curr);
+}
+
+static void
+_e_test_helper_message_append_client_info_by_window_id(Eldbus_Message_Iter *iter, Ecore_Window win)
+{
+   E_Client *ec;
+
+   ec = e_pixmap_find_client_by_res_id(win);
+   if (!ec)
+     return;
+
+   _e_test_helper_message_append_client(iter, ec);
+}
+
+static void
 _e_test_helper_message_append_clients(Eldbus_Message_Iter *iter)
 {
    Eldbus_Message_Iter *array_of_ec;
@@ -147,49 +225,19 @@ _e_test_helper_message_append_clients(Eldbus_Message_Iter *iter)
 
    if (!(comp = e_comp)) return;
 
-   eldbus_message_iter_arguments_append(iter, "ua(usiiiiibbbiibbbbb)", th_data->registrant.win, &array_of_ec);
+   eldbus_message_iter_arguments_append(iter, "ua("E_TH_SIGN_WIN_INFO")", th_data->registrant.win, &array_of_ec);
 
    // append clients.
    for (o = evas_object_top_get(comp->evas); o; o = evas_object_below_get(o))
      {
         Eldbus_Message_Iter* struct_of_ec;
-        Ecore_Window win;
 
         ec = evas_object_data_get(o, "E_Client");
         if (!ec) continue;
         if (e_client_util_ignored_get(ec)) continue;
 
-        win = e_pixmap_res_id_get(ec->pixmap);
-
-        eldbus_message_iter_arguments_append(array_of_ec, "(usiiiiibbbiibbbbb)", &struct_of_ec);
-        eldbus_message_iter_arguments_append
-           (struct_of_ec, "usiiiiibbbiibbbbb",
-            win,
-            e_client_util_name_get(ec) ?: "NO NAME",
-
-            /* geometry */
-            ec->x, ec->y, ec->w, ec->h,
-
-            /* layer */
-            evas_object_layer_get(o),
-
-            /* effect */
-            evas_object_data_get(o, "effect_running"),
-
-            /* visibility & iconify */
-            ec->visible,
-            evas_object_visible_get(o),
-            ec->visibility.opaque,
-            ec->visibility.obscured,
-            ec->visibility.skip,
-            ec->iconic,
-
-            /* color depth */
-            ec->argb,
-
-            /* focus */
-            ec->focused,
-            evas_object_focus_get(o));
+        eldbus_message_iter_arguments_append(array_of_ec, "("E_TH_SIGN_WIN_INFO")", &struct_of_ec);
+        _e_test_helper_message_append_client(struct_of_ec, ec);
         eldbus_message_iter_container_close(array_of_ec, struct_of_ec);
      }
 
@@ -416,6 +464,79 @@ _e_test_helper_cb_hwc(const Eldbus_Service_Interface *iface, const Eldbus_Messag
    return reply;
 }
 
+static void
+_e_test_helper_event_zone_rot_change_free(void *data EINA_UNUSED, void *event)
+{
+   E_Event_Info_Rotation_Message *ev = event;
+
+   e_object_unref(E_OBJECT(ev->zone));
+   free(ev);
+}
+
+
+static Eldbus_Message *
+_e_test_helper_cb_zone_rot_change(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   E_Event_Info_Rotation_Message *ev;
+   E_Zone *zone;
+   Eina_Bool r, accept = EINA_FALSE;
+   int rot;
+
+   r = eldbus_message_arguments_get(msg, "i", &rot);
+   EINA_SAFETY_ON_FALSE_GOTO(r, end);
+
+   if ((rot < 0) || (rot > 270) || ((rot % 90) != 0))
+     goto end;
+
+   zone = e_zone_current_get();
+   if (!zone)
+     goto end;
+
+   ev = E_NEW(E_Event_Info_Rotation_Message, 1);
+   if (EINA_UNLIKELY(!ev))
+     {
+        ERR("Failed to allocate 'E_Event_Info_Rotation_Message'");
+        goto end;
+     }
+
+   e_object_ref(E_OBJECT(zone));
+   ev->zone = zone;
+   ev->message = E_INFO_ROTATION_MESSAGE_SET;
+   ev->rotation = rot;
+   ecore_event_add(E_EVENT_INFO_ROTATION_MESSAGE, ev, _e_test_helper_event_zone_rot_change_free, NULL);
+
+   accept = EINA_TRUE;
+
+end:
+   eldbus_message_arguments_append(reply, "b", accept);
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_test_helper_cb_zone_rot_get(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
+{
+   E_Zone *zone;
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Eina_Bool r;
+   int rot = -1;
+
+   r = eldbus_message_arguments_get(msg, "i", &rot);
+   EINA_SAFETY_ON_FALSE_GOTO(r, end);
+
+   if ((rot < 0) || (rot > 270) || ((rot % 90) != 0))
+     goto end;
+
+   zone = e_zone_current_get();
+   if (!zone)
+     goto end;
+
+   eldbus_message_arguments_append(reply, "b", zone->rot.curr);
+end:
+   return reply;
+}
+
 static Eldbus_Message *
 _e_test_helper_cb_deregister_window(const Eldbus_Service_Interface *iface EINA_UNUSED,
                                     const Eldbus_Message *msg)
@@ -459,6 +580,27 @@ _e_test_helper_cb_change_stack(const Eldbus_Service_Interface *iface EINA_UNUSED
 
    if ((win) && (above != -1))
      _e_test_helper_restack(win, target, above);
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_test_helper_cb_get_client_info(const Eldbus_Service_Interface *iface EINA_UNUSED,
+                                  const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply;
+   Ecore_Window win;
+
+   reply = eldbus_message_method_return_new(msg);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, reply);
+
+   if (!eldbus_message_arguments_get(msg, "u", &win))
+     {
+        ERR("error getting window ID");
+        return reply;
+     }
+
+   _e_test_helper_message_append_client_info_by_window_id(eldbus_message_iter_get(reply), win);
 
    return reply;
 }
@@ -551,6 +693,33 @@ _e_test_helper_cb_client_restack(void *data EINA_UNUSED, int type EINA_UNUSED, v
 }
 
 static Eina_Bool
+_e_test_helper_cb_client_rotation_end(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
+{
+   E_Event_Client *ev = event;
+   E_Client *ec;
+   Eldbus_Message *sig;
+   Ecore_Window win;
+   int rot;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_PASS_ON);
+
+   if(!th_data->registrant.ec) return ECORE_CALLBACK_PASS_ON;
+
+   ec = ev->ec;
+
+   win = e_pixmap_res_id_get(ec->pixmap);
+   rot = ec->e.state.rot.ang.curr;
+
+   if (win)
+     {
+        sig = eldbus_service_signal_new(th_data->iface, E_TEST_HELPER_SIGNAL_WINDOW_ROTATION_CHANGED);
+        eldbus_message_arguments_append(sig, "ui", win, rot);
+        eldbus_service_signal_send(th_data->iface, sig);
+     }
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+static Eina_Bool
 _e_test_helper_cb_property_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const char *name, Eldbus_Message_Iter *iter, const Eldbus_Message *msg EINA_UNUSED, Eldbus_Message **err EINA_UNUSED)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, EINA_FALSE);
@@ -584,6 +753,8 @@ e_test_helper_init(void)
                          _e_test_helper_cb_client_remove, NULL);
    E_LIST_HANDLER_APPEND(th_data->hdlrs, E_EVENT_CLIENT_STACK,
                         _e_test_helper_cb_client_restack, NULL);
+   E_LIST_HANDLER_APPEND(th_data->hdlrs, E_EVENT_CLIENT_ROTATION_CHANGE_END,
+                         _e_test_helper_cb_client_rotation_end, NULL);
 
    th_data->registrant.vis = -1;
 
