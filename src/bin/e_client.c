@@ -1885,6 +1885,9 @@ _e_client_cb_evas_restack(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA
 
         E_LIST_REVERSE_FREE(list, child)
           {
+             /* Don't stack vkbd if parent is splitted */
+             if (child->vkbd.vkbd && ec->layout.splited) continue;
+
              /* Don't stack iconic transients. If the user wants these shown,
               * that's another option.
               */
