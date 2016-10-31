@@ -28,6 +28,20 @@ _layer_cap_to_str(tdm_layer_capability caps, tdm_layer_capability cap)
 }
 
 static Eina_Bool
+_e_comp_screen_can_hwc(E_Comp *comp)
+{
+   const char *name;
+   name = ecore_evas_engine_name_get(comp->ee);
+
+   if(!strcmp(name, "gl_drm"))
+      return EINA_TRUE;
+   else if(!strcmp(name, "drm_tbm"))
+      return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
 _e_comp_screen_cb_activate(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
 {
    Ecore_Drm_Event_Activate *e;
@@ -234,7 +248,7 @@ _e_comp_screen_mode_screen_find(E_Output *output, Ecore_Drm_Output *drm_output)
 }
 
 static E_Comp_Screen *
-_e_comp_screen_new(void)
+_e_comp_screen_new(E_Comp *comp)
 {
    E_Comp_Screen *e_comp_screen = NULL;
    tdm_error error = TDM_ERROR_NONE;
@@ -242,7 +256,7 @@ _e_comp_screen_new(void)
    e_comp_screen = E_NEW(E_Comp_Screen, 1);
    if (!e_comp_screen) return NULL;
 
-   if (e_comp_gl_get())
+   if (_e_comp_screen_can_hwc(comp))
      {
         /* tdm display init */
         e_comp_screen->tdisplay = tdm_display_init(&error);
@@ -787,6 +801,9 @@ e_comp_screen_init()
         EINA_SAFETY_ON_NULL_RETURN_VAL(comp, EINA_FALSE);
      }
 
+   /* set env for use tbm_surface_queue*/
+   setenv("USE_EVAS_SOFTWARE_TBM_ENGINE", "1", 1);
+
    /* set gl available if we have ecore_evas support */
    if (ecore_evas_engine_type_supported_get(ECORE_EVAS_ENGINE_OPENGL_DRM))
      e_comp_gl_set(EINA_TRUE);
@@ -872,7 +889,7 @@ e_comp_screen_init()
    ecore_evas_callback_resize_set(e_comp->ee, _e_comp_screen_cb_ee_resize);
 
    /* e_comp_screen new */
-   e_comp_screen = _e_comp_screen_new();
+   e_comp_screen = _e_comp_screen_new(e_comp);
    if (!e_comp_screen)
      {
         TRACE_DS_END();
@@ -881,7 +898,7 @@ e_comp_screen_init()
    e_comp->e_comp_screen = e_comp_screen;
 
    e_main_ts("\tE_Outputs Init");
-   if (e_comp_gl_get())
+   if (_e_comp_screen_can_hwc(e_comp))
      {
         if (!_e_comp_screen_init_outputs(e_comp_screen))
           {
@@ -987,7 +1004,8 @@ e_comp_screen_init()
    e_main_ts("\tE_Comp_WL Keymap Init Done");
 
    /* if gl_drm evas engine is used, we do not look at the drm_output */
-   if (!e_comp_gl_get()) E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_OUTPUT,           _e_comp_screen_cb_output_drm,       comp);
+   if (!_e_comp_screen_can_hwc(e_comp))
+      E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_OUTPUT,        _e_comp_screen_cb_output_drm,       comp);
 
    E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_ACTIVATE,         _e_comp_screen_cb_activate,         comp);
    E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_INPUT_DEVICE_ADD, _e_comp_screen_cb_input_device_add, comp);

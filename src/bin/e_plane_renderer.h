@@ -29,7 +29,6 @@ struct _E_Plane_Renderer {
    tbm_surface_h       displaying_tsurface; /* current tsurface displaying */
    tbm_surface_h       previous_tsurface;   /* previous tsurface displayed */
 
-   struct gbm_surface *gsurface;
    Eina_List          *disp_surfaces;
    Eina_List          *sent_surfaces;
    Eina_List          *exported_surfaces;

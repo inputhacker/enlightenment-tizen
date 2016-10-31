@@ -7,6 +7,7 @@
 # include <tbm_surface_internal.h>
 # include <wayland-tbm-server.h>
 # include <Evas_Engine_GL_Drm.h>
+# include <Evas_Engine_Software_Tbm.h>
 # include <sys/eventfd.h>
 # if HAVE_LIBGOMP
 # include <omp.h>
@@ -64,6 +65,30 @@ _get_wl_buffer_ref(E_Client *ec)
    if (!buffer_ref->buffer) return NULL;
 
    return buffer_ref->buffer->resource;
+}
+
+static tbm_surface_queue_h
+_get_tbm_surface_queue(Ecore_Evas *ee)
+{
+   const char* name;
+   tbm_surface_queue_h tbm_queue = NULL;
+
+   name = ecore_evas_engine_name_get(ee);
+   if (!strcmp(name, "gl_drm"))
+     {
+        Evas_Engine_Info_GL_Drm *info;
+        info = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(ecore_evas_get(ee));
+        if (info->info.surface)
+           tbm_queue = gbm_tbm_get_surface_queue(info->info.surface);
+     }
+   else if(!strcmp(name, "drm_tbm"))
+     {
+        Evas_Engine_Info_Software_Tbm *info;
+        info = (Evas_Engine_Info_Software_Tbm *)evas_engine_info_get(ecore_evas_get(ee));
+        tbm_queue = (tbm_surface_queue_h)info->info.tbm_queue;
+     }
+
+   return tbm_queue;
 }
 
 struct wayland_tbm_client_queue *
@@ -561,6 +586,7 @@ e_plane_renderer_new(E_Plane *plane)
      {
         renderer->ee = e_comp->ee;
         renderer->evas = ecore_evas_get(renderer->ee);
+        renderer->tqueue = _get_tbm_surface_queue(renderer->ee);
         ecore_evas_manual_render_set(renderer->ee, 1);
         renderer->event_fd = eventfd(0, EFD_NONBLOCK);
         renderer->event_hdlr = ecore_main_fd_handler_add(renderer->event_fd, ECORE_FD_READ,
@@ -1145,6 +1171,7 @@ e_plane_renderer_surface_queue_acquire(E_Plane_Renderer *renderer)
    if (tbm_surface_queue_can_acquire(tqueue, 0))
      {
         tsq_err = tbm_surface_queue_acquire(tqueue, &tsurface);
+
         if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
           {
              ERR("Failed to acquire tbm_surface from tbm_surface_queue(%p): tsq_err = %d", tqueue, tsq_err);

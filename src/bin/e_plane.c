@@ -7,6 +7,7 @@
 # include <tbm_surface_internal.h>
 # include <wayland-tbm-server.h>
 # include <Evas_Engine_GL_Drm.h>
+# include <Evas_Engine_Software_Tbm.h>
 
 # ifndef CLEAR
 # define CLEAR(x) memset(&(x), 0, sizeof (x))
@@ -47,6 +48,30 @@ _get_wl_buffer_ref(E_Client *ec)
    if (!buffer_ref->buffer) return NULL;
 
    return buffer_ref->buffer->resource;
+}
+
+static tbm_surface_queue_h
+_get_tbm_surface_queue(E_Comp *e_comp)
+{
+   const char* name;
+   tbm_surface_queue_h tbm_queue = NULL;
+
+   name = ecore_evas_engine_name_get(e_comp->ee);
+   if (!strcmp(name, "gl_drm"))
+     {
+        Evas_Engine_Info_GL_Drm *info;
+        info = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(e_comp->evas);
+        if (info->info.surface)
+           tbm_queue = gbm_tbm_get_surface_queue(info->info.surface);
+     }
+   else if(!strcmp(name, "drm_tbm"))
+     {
+        Evas_Engine_Info_Software_Tbm *info;
+        info = (Evas_Engine_Info_Software_Tbm *)evas_engine_info_get(e_comp->evas);
+        tbm_queue = (tbm_surface_queue_h)info->info.tbm_queue;
+     }
+
+   return tbm_queue;
 }
 
 static Eina_Bool
@@ -352,25 +377,18 @@ _e_plane_surface_on_ecore_evas_release(E_Plane *plane, tbm_surface_h tsurface)
 static tbm_surface_h
 _e_plane_surface_from_ecore_evas_acquire(E_Plane *plane)
 {
-   Evas_Engine_Info_GL_Drm *einfo = NULL;
    E_Plane_Renderer *renderer = NULL;
    tbm_surface_h tsurface = NULL;
+   tbm_surface_queue_h tqueue = NULL;
    E_Output *output = plane->output;
-
-   einfo = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(e_comp->evas);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(einfo, NULL);
 
    renderer = plane->renderer;
 
-   if (renderer->gsurface != einfo->info.surface)
+   if (!renderer->tqueue)
      {
-        tbm_surface_queue_h tqueue = NULL;
-
-        renderer->gsurface = einfo->info.surface;
-        tqueue = gbm_tbm_get_surface_queue(renderer->gsurface);
-        if (!tqueue)
+        if(!(tqueue = _get_tbm_surface_queue(e_comp)))
           {
-             ERR("no renderer->tqueue");
+             ERR("fail to _get_tbm_surface_queue");
              return NULL;
           }
 
@@ -598,21 +616,30 @@ e_plane_free(E_Plane *plane)
 EINTERN Eina_Bool
 e_plane_hwc_setup(E_Plane *plane)
 {
-   Evas_Engine_Info_GL_Drm *einfo = NULL;
-
+   const char *name;
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
    /* we assume that the primary plane gets a ecore_evas */
    if (!plane->is_fb) return EINA_FALSE;
 
-   /* get the evas_engine_gl_drm information */
-   einfo = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(e_comp->evas);
-   if (!einfo) return EINA_FALSE;
-   /* enable hwc to evas engine gl_drm */
-   einfo->info.hwc_enable = EINA_TRUE;
+   name = ecore_evas_engine_name_get(e_comp->ee);
+   if (!strcmp("gl_drm", name))
+     {
+        Evas_Engine_Info_GL_Drm *einfo = NULL;
+        /* get the evas_engine_gl_drm information */
+        einfo = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(e_comp->evas);
+        if (!einfo) return EINA_FALSE;
+        /* enable hwc to evas engine gl_drm */
+        einfo->info.hwc_enable = EINA_TRUE;
+        return EINA_TRUE;
+     }
+   else if(!strcmp("drm_tbm", name))
+     {
+        return EINA_TRUE;
+     }
 
-   return EINA_TRUE;
+   return EINA_FALSE;
 }
 
 EINTERN Eina_Bool
