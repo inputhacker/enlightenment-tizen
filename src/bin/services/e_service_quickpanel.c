@@ -9,30 +9,37 @@
    Mover_Data *md;                        \
    md = evas_object_smart_data_get(obj)
 
-#define QP_SHOW(EC)              \
-do                               \
-{                                \
-   EC->visible = EINA_TRUE;      \
-   evas_object_show(EC->frame);  \
+#define QP_SHOW(qp)                       \
+do                                        \
+{                                         \
+   if (qp->ec && !qp->ec->visible)        \
+     {                                    \
+        qp->show_block = EINA_FALSE;      \
+        qp->ec->visible = EINA_TRUE;      \
+        evas_object_show(qp->ec->frame);  \
+     }                                    \
 } while (0)
 
-#define QP_HIDE(EC)              \
-do                               \
-{                                \
-   EC->visible = EINA_FALSE;     \
-   evas_object_hide(EC->frame);  \
+#define QP_HIDE(qp)                       \
+do                                        \
+{                                         \
+   if (qp->ec && qp->ec->visible)         \
+     {                                    \
+        qp->show_block = EINA_TRUE;       \
+        qp->ec->visible = EINA_FALSE;     \
+        evas_object_hide(qp->ec->frame);  \
+     }                                    \
 } while (0)
 
-#define QP_VISIBLE_SET(EC, VIS)  \
+#define QP_VISIBLE_SET(qp, vis)  \
 do                               \
 {                                \
-   if (VIS) QP_SHOW(EC);         \
-   else     QP_HIDE(EC);         \
+   if (vis) QP_SHOW(qp);         \
+   else     QP_HIDE(qp);         \
 } while(0)
 
 typedef struct _E_Policy_Quickpanel E_Policy_Quickpanel;
 typedef struct _Mover_Data Mover_Data;
-typedef struct _Mover_Effect_Data Mover_Effect_Data;
 
 typedef struct _E_QP_Client E_QP_Client;
 
@@ -53,10 +60,27 @@ struct _E_Policy_Quickpanel
 
    struct
    {
+      int x, y;
+      unsigned int timestamp;
+      float accel;
+   } mouse_info;
+
+   struct
+   {
+      Ecore_Animator *animator;
+      int x, y, from, to;
+      E_Service_Quickpanel_Effect_Type type;
+      Eina_Bool final_visible_state;
+      Eina_Bool active;
+   } effect;
+
+   struct
+   {
       Eina_Bool below;
    } changes;
 
    E_Policy_Angle_Map rotation;
+   E_Maximize saved_maximize;
 
    Eina_Bool show_block;
 
@@ -75,26 +99,6 @@ struct _Mover_Data
    Evas_Object *handler_clip; // clipper for quickpanel handler object
 
    Eina_Rectangle handler_rect;
-   E_Policy_Angle_Map rotation;
-
-   struct
-   {
-      Ecore_Animator *animator;
-      Mover_Effect_Data *data;
-      int x, y;
-      unsigned int timestamp;
-      float accel;
-      Eina_Bool visible;
-   } effect_info;
-};
-
-struct _Mover_Effect_Data
-{
-   Ecore_Animator *animator;
-   Evas_Object *mover;
-   int from;
-   int to;
-   Eina_Bool visible : 1;
 };
 
 struct _E_QP_Client
@@ -112,8 +116,27 @@ static E_Policy_Quickpanel *_pol_quickpanel = NULL;
 static Evas_Smart *_mover_smart = NULL;
 static Eina_Bool _changed = EINA_FALSE;
 
+static void          _e_qp_srv_effect_update(E_Policy_Quickpanel *qp, int x, int y);
 static E_QP_Client * _e_qp_client_ec_get(E_Client *ec);
 static Eina_Bool     _e_qp_client_scrollable_update(void);
+
+inline static Eina_Bool
+_e_qp_srv_is_effect_finish_job_started(E_Policy_Quickpanel *qp)
+{
+   return !!qp->effect.animator;
+}
+
+inline static Eina_Bool
+_e_qp_srv_effect_final_visible_state_get(E_Policy_Quickpanel *qp)
+{
+   return !!qp->effect.final_visible_state;
+}
+
+inline static Eina_Bool
+_e_qp_srv_is_effect_running(E_Policy_Quickpanel *qp)
+{
+   return !!qp->effect.active;
+}
 
 static E_Policy_Quickpanel *
 _quickpanel_get()
@@ -129,10 +152,8 @@ _mover_intercept_show(void *data, Evas_Object *obj)
    Evas *e;
 
    md = data;
-   md->qp->show_block = EINA_FALSE;
 
    ec = md->ec;
-   QP_SHOW(ec);
 
    /* force update */
    e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
@@ -196,7 +217,7 @@ _mover_smart_del(Evas_Object *obj)
 
    INTERNAL_ENTRY;
 
-   ec = md->qp->ec;
+   ec = md->ec;
    if (md->base_clip)
      {
         evas_object_clip_unset(md->base_clip);
@@ -219,9 +240,6 @@ _mover_smart_del(Evas_Object *obj)
 
    evas_object_color_set(ec->frame, ec->netwm.opacity, ec->netwm.opacity, ec->netwm.opacity, ec->netwm.opacity);
 
-   md->qp->mover = NULL;
-
-   e_zone_orientation_block_set(md->qp->ec->zone, "quickpanel-mover", EINA_FALSE);
    e_comp_override_del();
 
    free(md);
@@ -291,63 +309,13 @@ _mover_smart_init(void)
    }
 }
 
-static Eina_Bool
-_mover_obj_handler_move(Mover_Data *md, int x, int y)
-{
-   E_Zone *zone;
-   E_Client *ec;
-
-   ec = md->ec;
-   zone = ec->zone;
-   switch (md->rotation)
-     {
-      case E_POLICY_ANGLE_MAP_90:
-         if ((x + md->handler_rect.w) > zone->w) return EINA_FALSE;
-
-         md->handler_rect.x = x;
-         e_layout_child_resize(md->base_clip, md->handler_rect.x, ec->h);
-         e_layout_child_move(md->handler_mirror_obj, md->handler_rect.x - ec->w + md->handler_rect.w, md->handler_rect.y);
-         e_layout_child_move(md->handler_clip, md->handler_rect.x, md->handler_rect.y);
-         break;
-      case E_POLICY_ANGLE_MAP_180:
-         if ((y - md->handler_rect.h) < 0) return EINA_FALSE;
-
-         md->handler_rect.y = y;
-         e_layout_child_move(md->base_clip, md->handler_rect.x, md->handler_rect.y);
-         e_layout_child_resize(md->base_clip, ec->w, ec->h - md->handler_rect.y);
-         e_layout_child_move(md->handler_mirror_obj, md->handler_rect.x, md->handler_rect.y - md->handler_rect.h);
-         e_layout_child_move(md->handler_clip, md->handler_rect.x, md->handler_rect.y - md->handler_rect.h);
-         break;
-      case E_POLICY_ANGLE_MAP_270:
-         if ((x - md->handler_rect.w) < 0) return EINA_FALSE;
-
-         md->handler_rect.x = x;
-         e_layout_child_move(md->base_clip, md->handler_rect.x, md->handler_rect.y);
-         e_layout_child_resize(md->base_clip, ec->w - md->handler_rect.x, ec->h);
-         e_layout_child_move(md->handler_mirror_obj, md->handler_rect.x - md->handler_rect.w, md->handler_rect.y);
-         e_layout_child_move(md->handler_clip, md->handler_rect.x - md->handler_rect.w, md->handler_rect.y);
-         break;
-      default:
-        if ((y + md->handler_rect.h) > zone->h) return EINA_FALSE;
-
-        md->handler_rect.y = y;
-        e_layout_child_resize(md->base_clip, ec->w, md->handler_rect.y);
-        e_layout_child_move(md->handler_mirror_obj, md->handler_rect.x, md->handler_rect.y - ec->h + md->handler_rect.h);
-        e_layout_child_move(md->handler_clip, md->handler_rect.x, md->handler_rect.y);
-     }
-
-   return EINA_TRUE;
-}
-
 static Evas_Object *
-_mover_obj_new(E_Policy_Quickpanel *qp)
+_e_qp_srv_mover_new(E_Policy_Quickpanel *qp)
 {
    Evas_Object *mover;
    Mover_Data *md;
    int x, y, w, h;
 
-   /* Pause changing zone orientation during mover object is working. */
-   e_zone_orientation_block_set(qp->ec->zone, "quickpanel-mover", EINA_TRUE);
    e_comp_override_add();
 
    _mover_smart_init();
@@ -355,9 +323,7 @@ _mover_obj_new(E_Policy_Quickpanel *qp)
 
    /* Should setup 'md' before call evas_object_show() */
    md = evas_object_smart_data_get(mover);
-   md->qp = qp;
    md->ec = qp->ec;
-   md->rotation = qp->rotation;
 
    e_service_region_rectangle_get(qp->handler_obj, qp->rotation, &x, &y, &w, &h);
    EINA_RECTANGLE_SET(&md->handler_rect, x, y, w, h);
@@ -367,192 +333,114 @@ _mover_obj_new(E_Policy_Quickpanel *qp)
    evas_object_show(mover);
 
    qp->mover = mover;
-   qp->show_block = EINA_FALSE;
 
    return mover;
-}
-
-static Evas_Object *
-_mover_obj_new_with_move(E_Policy_Quickpanel *qp, int x, int y, unsigned int timestamp)
-{
-   Evas_Object *mover;
-   Mover_Data *md;
-
-   mover = _mover_obj_new(qp);
-   if (!mover)
-     return NULL;
-
-   md = evas_object_smart_data_get(mover);
-   md->effect_info.x = x;
-   md->effect_info.y = y;
-   md->effect_info.timestamp = timestamp;
-
-   _mover_obj_handler_move(md, x, y);
-
-   return mover;
-}
-
-static void
-_mover_obj_visible_set(Evas_Object *mover, Eina_Bool visible)
-{
-   Mover_Data *md;
-   E_Client *ec;
-   int x = 0, y = 0;
-
-   md = evas_object_smart_data_get(mover);
-   ec = md->ec;
-
-   switch (md->rotation)
-     {
-      case E_POLICY_ANGLE_MAP_90:
-         x = visible ? ec->zone->w : 0;
-         break;
-      case E_POLICY_ANGLE_MAP_180:
-         y = visible ? 0 : ec->zone->h;
-         break;
-      case E_POLICY_ANGLE_MAP_270:
-         x = visible ? 0 : ec->zone->w;
-         break;
-      default:
-         y = visible ? ec->zone->h : 0;
-         break;
-     }
-
-   _mover_obj_handler_move(md, x, y);
 }
 
 static Eina_Bool
-_mover_obj_move(Evas_Object *mover, int x, int y, unsigned int timestamp)
+_e_qp_srv_mover_object_relocate(E_Policy_Quickpanel *qp, int x, int y)
 {
+   E_Zone *zone;
+   E_Client *ec;
    Mover_Data *md;
-   int dp;
-   unsigned int dt;
 
-   if (!mover) return EINA_FALSE;
-
-   md = evas_object_smart_data_get(mover);
-   if (!_mover_obj_handler_move(md, x, y)) return EINA_FALSE;
-
-   /* Calculate the acceleration of movement,
-    * determine the visibility of quickpanel based on the result. */
-   dt = timestamp - md->effect_info.timestamp;
-   switch (md->rotation)
+   ec = qp->ec;
+   zone = ec->zone;
+   md = evas_object_smart_data_get(qp->mover);
+   switch (qp->rotation)
      {
       case E_POLICY_ANGLE_MAP_90:
-         dp = x - md->effect_info.x;
+         if ((x + md->handler_rect.w) > zone->w) return EINA_FALSE;
+
+         e_layout_child_resize(md->base_clip, x, ec->h);
+         e_layout_child_move(md->handler_mirror_obj, x - ec->w + md->handler_rect.w, 0);
+         e_layout_child_move(md->handler_clip, x, 0);
          break;
       case E_POLICY_ANGLE_MAP_180:
-         dp = md->effect_info.y - y;
+         if ((y - md->handler_rect.h) < 0) return EINA_FALSE;
+
+         e_layout_child_move(md->base_clip, 0, y);
+         e_layout_child_resize(md->base_clip, ec->w, ec->h - y);
+         e_layout_child_move(md->handler_mirror_obj, 0, y - md->handler_rect.h);
+         e_layout_child_move(md->handler_clip, 0, y - md->handler_rect.h);
          break;
       case E_POLICY_ANGLE_MAP_270:
-         dp = md->effect_info.x - x;
+         if ((x - md->handler_rect.w) < 0) return EINA_FALSE;
+
+         e_layout_child_move(md->base_clip, x, 0);
+         e_layout_child_resize(md->base_clip, ec->w - x, ec->h);
+         e_layout_child_move(md->handler_mirror_obj, x - md->handler_rect.w, 0);
+         e_layout_child_move(md->handler_clip, x - md->handler_rect.w, 0);
          break;
       default:
-         dp = y - md->effect_info.y;
-         break;
-     }
-   if (dt) md->effect_info.accel = (float)dp / (float)dt;
+        if ((y + md->handler_rect.h) > zone->h) return EINA_FALSE;
 
-   /* Store current information to next calculation */
-   md->effect_info.x = x;
-   md->effect_info.y = y;
-   md->effect_info.timestamp = timestamp;
+        e_layout_child_resize(md->base_clip, ec->w, y);
+        e_layout_child_move(md->handler_mirror_obj, 0, y - ec->h + md->handler_rect.h);
+        e_layout_child_move(md->handler_clip, 0, y);
+     }
 
    return EINA_TRUE;
 }
 
-static Mover_Effect_Data *
-_mover_obj_effect_data_new(Evas_Object *mover, int from, int to, Eina_Bool visible)
-{
-   Mover_Effect_Data *ed;
-
-   ed = E_NEW(Mover_Effect_Data, 1);
-   if (!ed) return NULL;
-
-   ed->mover = mover;
-   ed->visible = visible;
-   ed->from = from;
-   ed->to = to;
-
-   return ed;
-}
-
 static void
-_mover_obj_effect_cb_mover_obj_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   Mover_Effect_Data *ed = data;
-   Mover_Data *md;
-
-   ed = data;
-   md = evas_object_smart_data_get(ed->mover);
-   QP_VISIBLE_SET(md->qp->ec, ed->visible);
-
-   /* make sure NULL before calling ecore_animator_del() */
-   ed->mover = NULL;
-
-   ecore_animator_del(ed->animator);
-   ed->animator = NULL;
-}
-
-static void
-_mover_obj_effect_data_free(Mover_Effect_Data *ed)
+_e_qp_srv_mover_cb_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    E_Policy_Quickpanel *qp;
-   Mover_Data *md;
+
+   qp = data;
+   QP_VISIBLE_SET(qp, qp->effect.final_visible_state);
+   E_FREE_FUNC(qp->effect.animator, ecore_animator_del);
+}
+
+static void
+_e_qp_srv_effect_finish_job_end(E_Policy_Quickpanel *qp)
+{
    E_QP_Client *qp_client;
    Eina_List *l;
 
-   if (ed->mover)
+   if (qp->mover)
      {
-        md = evas_object_smart_data_get(ed->mover);
-        QP_VISIBLE_SET(md->qp->ec, ed->visible);
-
-        evas_object_event_callback_del(ed->mover, EVAS_CALLBACK_DEL, _mover_obj_effect_cb_mover_obj_del);
-        evas_object_del(ed->mover);
+        evas_object_event_callback_del(qp->mover, EVAS_CALLBACK_DEL, _e_qp_srv_mover_cb_del);
+        E_FREE_FUNC(qp->mover, evas_object_del);
      }
 
-   qp = _quickpanel_get();
-   if (qp)
-     {
-        EINA_LIST_FOREACH(qp->clients, l, qp_client)
-          e_tzsh_qp_state_visible_update(qp_client->ec,
-                                         ed->visible);
-     }
+   QP_VISIBLE_SET(qp, qp->effect.final_visible_state);
 
-   free(ed);
+   e_zone_orientation_block_set(qp->ec->zone, "quickpanel-mover", EINA_FALSE);
+
+   EINA_LIST_FOREACH(qp->clients, l, qp_client)
+      e_tzsh_qp_state_visible_update(qp_client->ec,
+                                     qp->effect.final_visible_state);
 }
 
 static Eina_Bool
-_mover_obj_effect_update(void *data, double pos)
+_e_qp_srv_effect_finish_job_op(void *data, double pos)
 {
-   Mover_Effect_Data *ed = data;
-   Mover_Data *md;
+   E_Policy_Quickpanel *qp;
    int new_x = 0, new_y = 0;
    double progress = 0;
 
+   qp = data;
    progress = ecore_animator_pos_map(pos, ECORE_POS_MAP_DECELERATE, 0, 0);
-
-   md = evas_object_smart_data_get(ed->mover);
-
-   switch (md->rotation)
+   switch (qp->rotation)
      {
       case E_POLICY_ANGLE_MAP_90:
       case E_POLICY_ANGLE_MAP_270:
-         new_x = ed->from + (ed->to * progress);
+         new_x = qp->effect.from + (qp->effect.to * progress);
          break;
       default:
       case E_POLICY_ANGLE_MAP_180:
-         new_y = ed->from + (ed->to * progress);
+         new_y = qp->effect.from + (qp->effect.to * progress);
          break;
      }
-   _mover_obj_handler_move(md, new_x, new_y);
+   _e_qp_srv_effect_update(qp, new_x, new_y);
 
    if (pos == 1.0)
      {
-        ecore_animator_del(ed->animator);
-        ed->animator = NULL;
+        E_FREE_FUNC(qp->effect.animator, ecore_animator_del);
 
-        _mover_obj_effect_data_free(ed);
+        _e_qp_srv_effect_finish_job_end(qp);
 
         return ECORE_CALLBACK_CANCEL;
      }
@@ -561,124 +449,59 @@ _mover_obj_effect_update(void *data, double pos)
 }
 
 static void
-_mover_obj_effect_start(Evas_Object *mover, Eina_Bool visible)
+_e_qp_srv_effect_finish_job_start(E_Policy_Quickpanel *qp, Eina_Bool visible)
 {
-   Mover_Data *md;
    E_Client *ec;
-   Mover_Effect_Data *ed;
    int from;
    int to;
    double duration;
    const double ref = 0.1;
 
-   md = evas_object_smart_data_get(mover);
-   ec = md->qp->ec;
+   ec = qp->ec;
 
-   switch (md->rotation)
+   switch (qp->rotation)
      {
       case E_POLICY_ANGLE_MAP_90:
-         from = md->handler_rect.x;
+         from = qp->effect.x;
          to = (visible) ? (ec->zone->w - from) : (-from);
          duration = ((double)abs(to) / (ec->zone->w / 2)) * ref;
          break;
       case E_POLICY_ANGLE_MAP_180:
-         from = md->handler_rect.y;
+         from = qp->effect.y;
          to = (visible) ? (-from) : (ec->zone->h - from);
          duration = ((double)abs(to) / (ec->zone->h / 2)) * ref;
          break;
       case E_POLICY_ANGLE_MAP_270:
-         from = md->handler_rect.x;
+         from = qp->effect.x;
          to = (visible) ? (-from) : (ec->zone->w - from);
          duration = ((double)abs(to) / (ec->zone->w / 2)) * ref;
          break;
       default:
-         from = md->handler_rect.y;
+         from = qp->effect.y;
          to = (visible) ? (ec->zone->h - from) : (-from);
          duration = ((double)abs(to) / (ec->zone->h / 2)) * ref;
          break;
      }
 
-   /* create effect data */
-   ed = _mover_obj_effect_data_new(mover, from, to, visible);
-
    /* start move effect */
-   ed->animator = ecore_animator_timeline_add(duration,
-                                              _mover_obj_effect_update,
-                                              ed);
+   qp->effect.from = from;
+   qp->effect.to = to;
+   qp->effect.final_visible_state = visible;
+   qp->effect.animator =
+      ecore_animator_timeline_add(duration, _e_qp_srv_effect_finish_job_op, qp);
 
-   evas_object_event_callback_add(mover, EVAS_CALLBACK_DEL, _mover_obj_effect_cb_mover_obj_del, ed);
-
-   md->effect_info.animator = ed->animator;
-   md->effect_info.visible = visible;
-   md->effect_info.data = ed;
+   if (qp->mover)
+     evas_object_event_callback_add(qp->mover, EVAS_CALLBACK_DEL, _e_qp_srv_mover_cb_del, qp);
 }
 
 static void
-_mover_obj_effect_stop(Evas_Object *mover)
+_e_qp_srv_effect_finish_job_stop(E_Policy_Quickpanel *qp)
 {
-   Mover_Data *md;
-
-   md = evas_object_smart_data_get(mover);
-   md->effect_info.data->mover = NULL;
-
-   evas_object_event_callback_del(mover, EVAS_CALLBACK_DEL, _mover_obj_effect_cb_mover_obj_del);
-
-   E_FREE_FUNC(md->effect_info.animator, ecore_animator_del);
+   if (qp->mover)
+     evas_object_event_callback_del(qp->mover, EVAS_CALLBACK_DEL, _e_qp_srv_mover_cb_del);
+   E_FREE_FUNC(qp->effect.animator, ecore_animator_del);
 }
 
-static Eina_Bool
-_mover_obj_visibility_eval(Evas_Object *mover)
-{
-   E_Client *ec;
-   Mover_Data *md;
-   Eina_Bool threshold;
-   const float sensitivity = 1.5; /* hard coded. (arbitrary) */
-
-   md = evas_object_smart_data_get(mover);
-   ec = md->ec;
-
-   switch (md->rotation)
-     {
-        case E_POLICY_ANGLE_MAP_90:
-           threshold = (md->handler_rect.x > (ec->zone->w / 2));
-           break;
-        case E_POLICY_ANGLE_MAP_180:
-           threshold = (md->handler_rect.y < (ec->zone->h / 2));
-           break;
-        case E_POLICY_ANGLE_MAP_270:
-           threshold = (md->handler_rect.x < (ec->zone->w / 2));
-           break;
-        default:
-           threshold = (md->handler_rect.y > (ec->zone->h / 2));
-           break;
-     }
-
-   if ((md->effect_info.accel > sensitivity) ||
-       ((md->effect_info.accel > -sensitivity) && threshold))
-     return EINA_TRUE;
-
-   return EINA_FALSE;
-}
-
-static Eina_Bool
-_mover_obj_is_animating(Evas_Object *mover)
-{
-   Mover_Data *md;
-
-   md = evas_object_smart_data_get(mover);
-
-   return !!md->effect_info.animator;
-}
-
-static Eina_Bool
-_mover_obj_effect_visible_get(Evas_Object *mover)
-{
-   Mover_Data *md;
-
-   md = evas_object_smart_data_get(mover);
-
-   return md->effect_info.visible;
-}
 
 static Eina_Bool
 _quickpanel_send_gesture_to_indicator(void)
@@ -709,6 +532,148 @@ _quickpanel_send_gesture_to_indicator(void)
    return EINA_FALSE;
 }
 
+static Eina_Bool
+_e_qp_srv_visibility_eval_by_mouse_info(E_Policy_Quickpanel *qp)
+{
+   E_Client *ec;
+   Eina_Bool is_half;
+   const float sensitivity = 1.5; /* hard coded. (arbitary) */
+
+   ec = qp->ec;
+   switch (qp->rotation)
+     {
+      case E_POLICY_ANGLE_MAP_90:
+         is_half = (qp->mouse_info.x > (ec->zone->w / 2));
+         break;
+      case E_POLICY_ANGLE_MAP_180:
+         is_half = (qp->mouse_info.y < (ec->zone->h / 2));
+         break;
+      case E_POLICY_ANGLE_MAP_270:
+         is_half = (qp->mouse_info.x < (ec->zone->w / 2));
+         break;
+      case E_POLICY_ANGLE_MAP_0:
+      default:
+         is_half = (qp->mouse_info.y > (ec->zone->h / 2));
+         break;
+     }
+
+   if ((qp->mouse_info.accel > sensitivity) ||
+       ((qp->mouse_info.accel > -sensitivity) && is_half))
+     return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+static void
+_e_qp_srv_mouse_info_update(E_Policy_Quickpanel *qp, int x, int y, unsigned int timestamp)
+{
+   int dp;
+   unsigned int dt;
+
+   /* Calculate the acceleration of movement,
+    * determine the visibility of quickpanel based on the result. */
+   dt = timestamp - qp->mouse_info.timestamp;
+   if (dt)
+     {
+        switch (qp->rotation)
+          {
+           case E_POLICY_ANGLE_MAP_90:
+              dp = x - qp->mouse_info.x;
+              break;
+           case E_POLICY_ANGLE_MAP_180:
+              dp = qp->mouse_info.y - y;
+              break;
+           case E_POLICY_ANGLE_MAP_270:
+              dp = qp->mouse_info.x - x;
+              break;
+           default:
+              dp = y - qp->mouse_info.y;
+              break;
+          }
+        qp->mouse_info.accel = (float)dp / (float)dt;
+     }
+
+   qp->mouse_info.x = x;
+   qp->mouse_info.y = y;
+   qp->mouse_info.timestamp = timestamp;
+}
+
+static void
+_e_qp_srv_effect_start(E_Policy_Quickpanel *qp)
+{
+   /* Pause changing zone orientation during mover object is working. */
+   e_zone_orientation_block_set(qp->ec->zone, "quickpanel-mover", EINA_TRUE);
+
+   qp->effect.active = EINA_TRUE;
+   QP_SHOW(qp);
+   if (qp->effect.type == E_SERVICE_QUICKPANEL_EFFECT_TYPE_SWIPE)
+     _e_qp_srv_mover_new(qp);
+}
+
+static void
+_e_qp_srv_effect_update(E_Policy_Quickpanel *qp, int x, int y)
+{
+   E_Client *ec;
+   int new_x = 0, new_y = 0;
+
+   qp->effect.x = x;
+   qp->effect.y = y;
+
+   switch (qp->effect.type)
+     {
+      case E_SERVICE_QUICKPANEL_EFFECT_TYPE_SWIPE:
+         _e_qp_srv_mover_object_relocate(qp, x, y);
+         break;
+      case E_SERVICE_QUICKPANEL_EFFECT_TYPE_MOVE:
+         ec = qp->ec;
+         switch (qp->rotation)
+           {
+            case E_POLICY_ANGLE_MAP_90:
+               new_x = x - ec->w;
+               break;
+            case E_POLICY_ANGLE_MAP_180:
+               new_y = y;
+               break;
+            case E_POLICY_ANGLE_MAP_270:
+               new_x = x;
+               break;
+            default:
+               new_y = y - ec->h;
+           }
+         e_client_util_move_without_frame(ec, new_x, new_y);
+         break;
+      case E_SERVICE_QUICKPANEL_EFFECT_TYPE_APP_CUSTOM:
+         ERR("Undefine behavior for APP_CUSTOM type");
+         break;
+      default:
+         ERR("Unknown effect type");
+         break;
+     }
+}
+
+static void
+_e_qp_srv_effect_finish(E_Policy_Quickpanel *qp, Eina_Bool final_visible_state)
+{
+   Eina_Bool vis;
+   Eina_Bool res;
+
+   if (!qp->effect.active)
+     return;
+
+   qp->effect.active = EINA_FALSE;
+
+   res = _e_qp_srv_is_effect_finish_job_started(qp);
+   if (res)
+     {
+        vis = _e_qp_srv_effect_final_visible_state_get(qp);
+        if (vis == final_visible_state)
+          return;
+
+        _e_qp_srv_effect_finish_job_stop(qp);
+     }
+   _e_qp_srv_effect_finish_job_start(qp, final_visible_state);
+}
+
 static void
 _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, unsigned int timestamp)
 {
@@ -728,54 +693,48 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
        (_quickpanel_send_gesture_to_indicator()))
      return;
 
+   if (qp->effect.active)
+     {
+        INF("Already animated");
+        return;
+     }
+
    /* cancel touch events sended up to now */
    e_comp_wl_touch_cancel();
 
-   if (qp->mover)
-     {
-        if (_mover_obj_is_animating(qp->mover))
-          return;
-
-        DBG("Mover object already existed");
-        evas_object_del(qp->mover);
-     }
-
-   _mover_obj_new_with_move(qp, x, y, timestamp);
+   _e_qp_srv_mouse_info_update(qp, x, y, timestamp);
+   _e_qp_srv_effect_start(qp);
+   _e_qp_srv_effect_update(qp, x, y);
 }
 
 static void
 _region_obj_cb_gesture_move(void *data, Evas_Object *handler, int x, int y, unsigned int timestamp)
 {
    E_Policy_Quickpanel *qp;
+   Eina_Bool res;
 
    qp = data;
-   if (!qp->mover)
+   res = _e_qp_srv_is_effect_running(qp);
+   if (!res)
      return;
 
-   if (_mover_obj_is_animating(qp->mover))
-     return;
-
-   _mover_obj_move(qp->mover, x, y, timestamp);
+   _e_qp_srv_mouse_info_update(qp, x, y, timestamp);
+   _e_qp_srv_effect_update(qp, x, y);
 }
 
 static void
 _region_obj_cb_gesture_end(void *data EINA_UNUSED, Evas_Object *handler, int x, int y, unsigned int timestamp)
 {
    E_Policy_Quickpanel *qp;
-   Eina_Bool v;
+   Eina_Bool res, v;
 
    qp = data;
-   if (!qp->mover)
-     {
-        DBG("Could not find quickpanel mover object");
-        return;
-     }
-
-   if (_mover_obj_is_animating(qp->mover))
+   res = _e_qp_srv_is_effect_running(qp);
+   if (!res)
      return;
 
-   v = _mover_obj_visibility_eval(qp->mover);
-   _mover_obj_effect_start(qp->mover, v);
+   v = _e_qp_srv_visibility_eval_by_mouse_info(qp);
+   _e_qp_srv_effect_finish(qp, v);
 }
 
 static void
@@ -785,6 +744,7 @@ _quickpanel_free(E_Policy_Quickpanel *qp)
    E_FREE_FUNC(qp->mover, evas_object_del);
    E_FREE_FUNC(qp->indi_obj, evas_object_del);
    E_FREE_FUNC(qp->handler_obj, evas_object_del);
+   E_FREE_FUNC(qp->effect.animator, ecore_animator_del);
    E_FREE_FUNC(qp->idle_enterer, ecore_idle_enterer_del);
    E_FREE_LIST(qp->events, ecore_event_handler_del);
    E_FREE_LIST(qp->hooks, e_client_hook_del);
@@ -952,58 +912,21 @@ _quickpanel_handler_region_set(E_Policy_Quickpanel *qp, E_Policy_Angle_Map ridx,
 }
 
 static void
-_e_qp_vis_change(E_Policy_Quickpanel *qp, Eina_Bool vis, Eina_Bool with_effect)
+_e_qp_srv_visible_set(E_Policy_Quickpanel *qp, Eina_Bool vis)
 {
-   E_Client *ec;
-   Evas_Object *mover;
-   Eina_Bool res, cur_vis = EINA_FALSE;
-   int x, y, w, h;
+   Eina_Bool res;
 
    res = _e_qp_client_scrollable_update();
    if (!res) return;
 
-   ec = qp->ec;
-
-   evas_object_geometry_get(ec->frame, &x, &y, &w, &h);
-
-   if (E_INTERSECTS(x, y, w, h, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
-     cur_vis = evas_object_visible_get(ec->frame);
-
-   if (cur_vis == vis)
-     return;
-
-   mover = qp->mover;
-
-   if (with_effect)
+   res = _e_qp_srv_is_effect_running(qp);
+   if (res)
+     _e_qp_srv_effect_finish(qp, vis);
+   else if ((qp->ec) && ((qp->ec->visible) || (vis)))
      {
-        if (mover)
-          {
-             if (_mover_obj_is_animating(mover))
-               {
-                  if (_mover_obj_effect_visible_get(mover) == vis)
-                    return;
-
-                  _mover_obj_effect_stop(mover);
-               }
-          }
-        else
-          {
-             mover = _mover_obj_new(qp);
-             _mover_obj_visible_set(mover, !vis);
-          }
-
-        _mover_obj_effect_start(mover, vis);
-     }
-   else
-     {
-        if (mover)
-          {
-             if (_mover_obj_is_animating(mover))
-               _mover_obj_effect_stop(mover);
-             evas_object_del(mover);
-          }
-
-        QP_VISIBLE_SET(ec, vis);
+        _e_qp_srv_effect_start(qp);
+        _e_qp_srv_effect_update(qp, qp->effect.x, qp->effect.y);
+        _e_qp_srv_effect_finish(qp, vis);
      }
 }
 
@@ -1069,6 +992,7 @@ _quickpanel_cb_rotation_done(void *data, int type, void *event)
    E_Client *ec;
    E_QP_Client *qp_client;
    Eina_List *l;
+   Eina_Bool vis;
 
    qp = data;
    if (EINA_UNLIKELY(!qp))
@@ -1083,7 +1007,24 @@ _quickpanel_cb_rotation_done(void *data, int type, void *event)
 
    qp->rotation = e_policy_angle_map(ec->e.state.rot.ang.curr);
 
-   if (evas_object_visible_get(ec->frame))
+   vis = evas_object_visible_get(ec->frame);
+   switch (qp->rotation)
+     {
+      case E_POLICY_ANGLE_MAP_90:
+         qp->effect.x = vis ? ec->zone->w : 0;
+         break;
+      case E_POLICY_ANGLE_MAP_180:
+         qp->effect.y = vis ? 0 : ec->zone->h;
+         break;
+      case E_POLICY_ANGLE_MAP_270:
+         qp->effect.x = vis ? 0 : ec->zone->w;
+         break;
+      default:
+         qp->effect.y = vis ? ec->zone->h : 0;
+         break;
+     }
+
+   if (vis)
      evas_object_show(qp->handler_obj);
    else
      evas_object_show(qp->indi_obj);
@@ -1414,6 +1355,8 @@ e_service_quickpanel_client_set(E_Client *ec)
 
    qp->ec = ec;
    qp->show_block = EINA_TRUE;
+   /* default effect type */
+   qp->effect.type = E_SERVICE_QUICKPANEL_EFFECT_TYPE_SWIPE;
    qp->below = _quickpanel_below_visible_client_get(qp);
    qp->indi_obj = _quickpanel_indicator_object_new(qp);
    if (!qp->indi_obj)
@@ -1438,7 +1381,7 @@ e_service_quickpanel_client_set(E_Client *ec)
    /* add quickpanel to force update list of zone */
    e_zone_orientation_force_update_add(ec->zone, ec);
 
-   QP_HIDE(ec);
+   QP_HIDE(qp);
 
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_SHOW, _quickpanel_client_evas_cb_show, qp);
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_HIDE, _quickpanel_client_evas_cb_hide, qp);
@@ -1458,6 +1401,51 @@ e_service_quickpanel_client_set(E_Client *ec)
 
 
    qp->idle_enterer = ecore_idle_enterer_add(_quickpanel_idle_enter, qp);
+}
+
+EINTERN void
+e_service_quickpanel_effect_type_set(E_Client *ec, E_Service_Quickpanel_Effect_Type type)
+{
+   E_Policy_Quickpanel *qp;
+
+   qp = _quickpanel_get();
+   if (!qp)
+     return;
+
+   if ((qp->ec != ec))
+     return;
+
+   if (qp->effect.type == type)
+     return;
+
+   qp->effect.type = type;
+   switch (type)
+     {
+      case E_SERVICE_QUICKPANEL_EFFECT_TYPE_SWIPE:
+         ec->lock_client_location = 1;
+         e_policy_allow_user_geometry_set(ec, EINA_FALSE);
+         if ((ec->maximized == E_MAXIMIZE_NONE) &&
+             (qp->saved_maximize != E_MAXIMIZE_NONE))
+           e_client_maximize(ec, qp->saved_maximize);
+         break;
+      case E_SERVICE_QUICKPANEL_EFFECT_TYPE_MOVE:
+         ec->lock_client_location = 0;
+         e_policy_allow_user_geometry_set(ec, EINA_TRUE);
+         if (ec->maximized != E_MAXIMIZE_NONE)
+           {
+              qp->saved_maximize = ec->maximized;
+              e_client_unmaximize(ec, ec->maximized);
+           }
+         e_client_util_move_resize_without_frame(ec, 0, 0, ec->zone->w, ec->zone->h);
+         break;
+      case E_SERVICE_QUICKPANEL_EFFECT_TYPE_APP_CUSTOM:
+         WRN("APP_CUSTOM effect type is not supported yet");
+         /* TODO */
+         break;
+      default:
+         ERR("Unkown effect type");
+         break;
+     }
 }
 
 EINTERN E_Client *
@@ -1504,7 +1492,7 @@ e_service_quickpanel_show(void)
    EINA_SAFETY_ON_NULL_RETURN(qp->ec);
    EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(qp->ec)));
 
-   _e_qp_vis_change(qp, EINA_TRUE, EINA_TRUE);
+   _e_qp_srv_visible_set(qp, EINA_TRUE);
 }
 
 EINTERN void
@@ -1517,7 +1505,7 @@ e_service_quickpanel_hide(void)
    EINA_SAFETY_ON_NULL_RETURN(qp->ec);
    EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(qp->ec)));
 
-   _e_qp_vis_change(qp, EINA_FALSE, EINA_TRUE);
+   _e_qp_srv_visible_set(qp, EINA_FALSE);
 }
 
 EINTERN Eina_Bool
@@ -1620,7 +1608,7 @@ e_qp_client_show(E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(qp_client);
    EINA_SAFETY_ON_FALSE_RETURN(qp_client->hint.scrollable);
 
-   _e_qp_vis_change(qp, EINA_TRUE, EINA_TRUE);
+   _e_qp_srv_visible_set(qp, EINA_TRUE);
 }
 
 EINTERN void
@@ -1638,7 +1626,7 @@ e_qp_client_hide(E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(qp_client);
    EINA_SAFETY_ON_FALSE_RETURN(qp_client->hint.scrollable);
 
-   _e_qp_vis_change(qp, EINA_FALSE, EINA_TRUE);
+   _e_qp_srv_visible_set(qp, EINA_FALSE);
 }
 
 EINTERN Eina_Bool

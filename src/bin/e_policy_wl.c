@@ -3169,10 +3169,28 @@ _tzsh_srv_qp_cb_msg(struct wl_client *client EINA_UNUSED, struct wl_resource *re
 #undef EC
 }
 
+static void
+_tzsh_srv_qp_cb_effect_type_set(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, uint32_t type)
+{
+   E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+
+   tzsh_srv = wl_resource_get_user_data(resource);
+
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh);
+
+#define EC  tzsh_srv->tzsh->ec
+   EINA_SAFETY_ON_NULL_RETURN(EC);
+   e_service_quickpanel_effect_type_set(EC, type);
+#undef EC
+}
+
+
 static const struct tws_service_quickpanel_interface _tzsh_srv_qp_iface =
 {
    _tzsh_srv_qp_cb_destroy,
-   _tzsh_srv_qp_cb_msg
+   _tzsh_srv_qp_cb_msg,
+   _tzsh_srv_qp_cb_effect_type_set
 };
 
 static void
