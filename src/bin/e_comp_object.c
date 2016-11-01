@@ -135,6 +135,8 @@ typedef struct _E_Comp_Object
    Eina_Bool            blanked : 1; //window is rendering blank content (externally composited)
    Eina_Bool            external_content : 1; // e.swallow.content(obj) is set by external evas object
    Eina_Bool            dim_enable : 1;
+   Eina_Bool            user_alpha_set : 1;
+   Eina_Bool            user_alpha : 1;
 } E_Comp_Object;
 
 typedef struct _E_Input_Rect_Data
@@ -459,6 +461,7 @@ _e_comp_object_alpha_set(E_Comp_Object *cw)
      }
 
    if (cw->blanked || cw->ns || cw->ec->shaped) alpha = EINA_TRUE;
+   if (cw->user_alpha_set) alpha = cw->user_alpha;
 
    evas_object_image_alpha_set(cw->obj, alpha);
 }
@@ -4588,6 +4591,9 @@ e_comp_object_alpha_set(Evas_Object *obj, Eina_Bool alpha)
             cw->content_type, cw->ec);
         return;
      }
+
+   cw->user_alpha_set = EINA_TRUE;
+   cw->user_alpha = alpha;
 
    if (alpha == evas_object_image_alpha_get(cw->obj)) return;
 
