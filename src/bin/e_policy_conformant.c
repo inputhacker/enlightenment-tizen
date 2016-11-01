@@ -253,9 +253,19 @@ _conf_client_add(Conformant *conf, E_Client *ec, struct wl_resource *res)
 static E_Client *
 _conf_part_owner_find(E_Client *part, Conformant_Type type)
 {
-   if ((type == CONFORMANT_TYPE_KEYBOARD) ||
-       (type == CONFORMANT_TYPE_CLIPBOARD))
+   if (type == CONFORMANT_TYPE_KEYBOARD)
      {
+        return part->parent;
+     }
+   else if(type == CONFORMANT_TYPE_CLIPBOARD)
+     {
+        /* FIXME : This transient-for setting procees is for current eldbus based clipboard.
+         * It should be removed after clipboard supports tzsh.
+         */
+        E_Client *focused;
+
+        focused = e_client_focused_get();
+        e_policy_stack_transient_for_set(part, focused);
         return part->parent;
      }
 
