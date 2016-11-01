@@ -483,6 +483,7 @@ _msg_window_prop_client_append(Eldbus_Message_Iter *iter, E_Client *target_ec)
    __WINDOW_PROP_ARG_APPEND("Maximize_override", target_ec->maximize_override ? char_True : char_False);
    __WINDOW_PROP_ARG_APPEND("Transformed", target_ec->transformed ? char_True : char_False);
    __WINDOW_PROP_ARG_APPEND_TYPE("Ignore_first_unmap", "%c", target_ec->ignore_first_unmap);
+   __WINDOW_PROP_ARG_APPEND_TYPE("Video Client", "%d",target_ec->comp_data ? target_ec->comp_data->video_client : 0);
 
    if (target_ec->comp_data)
      {
@@ -493,6 +494,41 @@ _msg_window_prop_client_append(Eldbus_Message_Iter *iter, E_Client *target_ec)
         EINA_LIST_FOREACH(cdata->aux_hint.hints, l, hint)
           {
              __WINDOW_PROP_ARG_APPEND_TYPE("Aux_Hint", "[%d][%s][%s]", hint->id, hint->hint, hint->val);
+          }
+     }
+
+   if (target_ec->comp_data)
+     {
+        int i;
+        E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)target_ec->comp_data;
+
+        if (cdata->sub.data)
+          {
+             __WINDOW_PROP_ARG_APPEND_TYPE("Subsurface Parent", "0x%x", e_client_util_win_get(cdata->sub.data->parent));
+          }
+        else
+          {
+             __WINDOW_PROP_ARG_APPEND_TYPE("Subsurface Parent", "0x%x", 0);
+          }
+
+        for ( i = 0 ; i < 2 ; ++i)
+          {
+             Eina_List *list;
+             Eina_List *l;
+             E_Client *child;
+             char buffer[256] = {0,};
+
+             if (i == 0) list = cdata->sub.list;
+             else        list = cdata->sub.below_list;
+
+
+             EINA_LIST_FOREACH(list, l, child)
+               {
+                  snprintf(buffer + strlen(buffer), sizeof(buffer) - strlen(buffer) - 1, "0x%x, ", e_client_util_win_get(child));
+               }
+
+             if (i == 0) __WINDOW_PROP_ARG_APPEND("Subsurface Child List", buffer);
+             else        __WINDOW_PROP_ARG_APPEND("Subsurface Below Child List", buffer);
           }
      }
 
