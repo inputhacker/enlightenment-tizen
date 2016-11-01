@@ -1363,7 +1363,7 @@ _tzpol_iface_cb_activate_below_by_res_id(struct wl_client *client EINA_UNUSED, s
         if ((ec->iconic) && (!ec->exp_iconify.by_client))
           e_policy_wl_iconify_state_change_send(ec, 0);
 
-        e_client_activate(ec, EINA_TRUE);
+        e_client_uniconify(ec);
      }
 
    e_policy_stack_below(ec, below_ec);
