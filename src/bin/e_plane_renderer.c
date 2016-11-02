@@ -115,7 +115,7 @@ _e_plane_renderer_wayland_tbm_client_queue_get(E_Client *ec)
 }
 
 static tbm_surface_h
-_e_plane_renderer_client_copied_surface_create(E_Client *ec, Eina_Bool refresh)
+_e_plane_renderer_client_copied_surface_create(E_Plane_Renderer_Client *renderer_client, Eina_Bool refresh)
 {
    tbm_surface_h tsurface = NULL;
    tbm_surface_h new_tsurface = NULL;
@@ -124,6 +124,8 @@ _e_plane_renderer_client_copied_surface_create(E_Client *ec, Eina_Bool refresh)
    tbm_surface_info_s src_info, dst_info;
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
    int ret = TBM_SURFACE_ERROR_NONE;
+   E_Client *ec = renderer_client->ec;
+   E_Plane_Renderer *renderer = renderer_client->renderer;
 
    pixmap = ec->pixmap;
 
@@ -131,10 +133,16 @@ _e_plane_renderer_client_copied_surface_create(E_Client *ec, Eina_Bool refresh)
      e_pixmap_image_refresh(ec->pixmap);
 
    buffer = e_pixmap_resource_get(pixmap);
-   if (!buffer) return NULL;
-
-   tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, NULL);
+   if (buffer)
+     {
+        tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, NULL);
+     }
+   else
+     {
+        tsurface = renderer->displaying_tsurface;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, NULL);
+     }
 
    ret = tbm_surface_map(tsurface, TBM_SURF_OPTION_READ, &src_info);
    if (ret != TBM_SURFACE_ERROR_NONE)
@@ -254,7 +262,7 @@ _e_plane_renderer_client_backup_buffer_set(E_Plane_Renderer_Client *renderer_cli
    ec = renderer_client->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
 
-   copied_tsurface = _e_plane_renderer_client_copied_surface_create(ec, 1);
+   copied_tsurface = _e_plane_renderer_client_copied_surface_create(renderer_client, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(copied_tsurface, EINA_FALSE);
 
    backup_buffer = e_comp_wl_tbm_buffer_get(copied_tsurface);
@@ -1059,28 +1067,30 @@ e_plane_renderer_deactivate(E_Plane_Renderer *renderer)
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_client, EINA_FALSE);
 
    cqueue = _e_plane_renderer_wayland_tbm_client_queue_get(ec);
-   EINA_SAFETY_ON_NULL_GOTO(cqueue, done);
 
    if (renderer_trace_debug)
      ELOGF("E_PLANE_RENDERER", "Deactivate Renderer(%p)", ec->pixmap, ec, renderer);
 
-   /* deactive */
-   wayland_tbm_server_client_queue_deactivate(cqueue);
-
-   if (_e_plane_renderer_client_surface_flags_get(renderer_client) == E_PLANE_RENDERER_CLIENT_SURFACE_FLAGS_RESERVED)
+   if (cqueue)
      {
-        if (renderer_trace_debug)
-            ELOGF("E_PLANE_RENDERER", "Set Backup Buffer     wl_buffer(%p):Deactivate", ec->pixmap, ec, _get_wl_buffer(ec));
+        /* deactive */
+        wayland_tbm_server_client_queue_deactivate(cqueue);
 
-        if (!_e_plane_renderer_client_backup_buffer_set(renderer_client))
-           ERR("fail to _e_comp_hwc_set_backup_buffer");
-
-        /* force update */
-        e_pixmap_image_refresh(ec->pixmap);
-        e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
-        e_comp_object_dirty(ec->frame);
-        e_comp_object_render(ec->frame);
+        if (_e_plane_renderer_client_surface_flags_get(renderer_client) != E_PLANE_RENDERER_CLIENT_SURFACE_FLAGS_RESERVED)
+          goto done;
      }
+
+   if (renderer_trace_debug)
+       ELOGF("E_PLANE_RENDERER", "Set Backup Buffer     wl_buffer(%p):Deactivate", ec->pixmap, ec, _get_wl_buffer(ec));
+
+   if (!_e_plane_renderer_client_backup_buffer_set(renderer_client))
+       ERR("fail to _e_comp_hwc_set_backup_buffer");
+
+   /* force update */
+   e_pixmap_image_refresh(ec->pixmap);
+   e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+   e_comp_object_dirty(ec->frame);
+   e_comp_object_render(ec->frame);
 
 done:
    _e_plane_renderer_client_exported_surfaces_release(renderer_client, renderer);
