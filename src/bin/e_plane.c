@@ -173,7 +173,7 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
 
    if (ec)
      {
-        if (plane->info.src_config.size.h != surf_info.planes[0].stride ||
+        if (plane->info.src_config.size.h != aligned_width ||
             plane->info.src_config.size.v != surf_info.height ||
             plane->info.src_config.pos.x != 0 ||
             plane->info.src_config.pos.y != 0 ||
@@ -207,7 +207,7 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
      }
    else
      {
-        if (plane->info.src_config.size.h != surf_info.planes[0].stride ||
+        if (plane->info.src_config.size.h != aligned_width ||
             plane->info.src_config.size.v != surf_info.height ||
             plane->info.src_config.pos.x != 0 ||
             plane->info.src_config.pos.y != 0 ||
