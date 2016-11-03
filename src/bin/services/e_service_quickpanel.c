@@ -68,8 +68,9 @@ struct _E_Policy_Quickpanel
    struct
    {
       Ecore_Animator *animator;
-      int x, y, from, to;
       E_Service_Quickpanel_Effect_Type type;
+      int x, y, from, to;
+      int disable_ref;
       Eina_Bool final_visible_state;
       Eina_Bool active;
    } effect;
@@ -406,6 +407,7 @@ _e_qp_srv_effect_finish_job_end(E_Policy_Quickpanel *qp)
      }
 
    QP_VISIBLE_SET(qp, qp->effect.final_visible_state);
+   qp->effect.active = EINA_FALSE;
 
    e_zone_orientation_block_set(qp->ec->zone, "quickpanel-mover", EINA_FALSE);
 
@@ -601,6 +603,9 @@ _e_qp_srv_mouse_info_update(E_Policy_Quickpanel *qp, int x, int y, unsigned int 
 static void
 _e_qp_srv_effect_start(E_Policy_Quickpanel *qp)
 {
+   if (qp->effect.disable_ref)
+     return;
+
    /* Pause changing zone orientation during mover object is working. */
    e_zone_orientation_block_set(qp->ec->zone, "quickpanel-mover", EINA_TRUE);
 
@@ -615,6 +620,11 @@ _e_qp_srv_effect_update(E_Policy_Quickpanel *qp, int x, int y)
 {
    E_Client *ec;
    int new_x = 0, new_y = 0;
+   Eina_Bool res;
+
+   res = _e_qp_srv_is_effect_running(qp);
+   if (!res)
+     return;
 
    qp->effect.x = x;
    qp->effect.y = y;
@@ -657,10 +667,9 @@ _e_qp_srv_effect_finish(E_Policy_Quickpanel *qp, Eina_Bool final_visible_state)
    Eina_Bool vis;
    Eina_Bool res;
 
-   if (!qp->effect.active)
+   res = _e_qp_srv_is_effect_running(qp);
+   if (!res)
      return;
-
-   qp->effect.active = EINA_FALSE;
 
    res = _e_qp_srv_is_effect_finish_job_started(qp);
    if (res)
@@ -675,9 +684,47 @@ _e_qp_srv_effect_finish(E_Policy_Quickpanel *qp, Eina_Bool final_visible_state)
 }
 
 static void
+_e_qp_srv_effect_stop(E_Policy_Quickpanel *qp)
+{
+   Eina_Bool res;
+
+   res = _e_qp_srv_is_effect_running(qp);
+   if (!res)
+     return;
+
+   qp->effect.active = EINA_FALSE;
+
+   res = _e_qp_srv_is_effect_finish_job_started(qp);
+   if (res)
+     _e_qp_srv_effect_finish_job_end(qp);
+   else
+     {
+        e_zone_orientation_block_set(qp->ec->zone, "quickpanel-mover", EINA_FALSE);
+        QP_VISIBLE_SET(qp, EINA_FALSE);
+        E_FREE_FUNC(qp->mover, evas_object_del);
+     }
+}
+
+inline static void
+_e_qp_srv_effect_disable_unref(E_Policy_Quickpanel *qp)
+{
+   if (qp->effect.disable_ref > 0)
+     qp->effect.disable_ref--;
+}
+
+static void
+_e_qp_srv_effect_disable_ref(E_Policy_Quickpanel *qp)
+{
+   qp->effect.disable_ref++;
+   if (qp->effect.disable_ref == 1)
+     _e_qp_srv_effect_stop(qp);
+}
+
+static void
 _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, unsigned int timestamp)
 {
    E_Policy_Quickpanel *qp;
+   Eina_Bool res;
 
    qp = data;
    if (EINA_UNLIKELY(!qp))
@@ -693,7 +740,8 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
        (_quickpanel_send_gesture_to_indicator()))
      return;
 
-   if (qp->effect.active)
+   res = _e_qp_srv_is_effect_running(qp);
+   if (res)
      {
         INF("Already animated");
         return;
@@ -919,6 +967,12 @@ _e_qp_srv_visible_set(E_Policy_Quickpanel *qp, Eina_Bool vis)
    res = _e_qp_client_scrollable_update();
    if (!res) return;
 
+   if (qp->effect.disable_ref)
+     {
+        QP_VISIBLE_SET(qp, vis);
+        return;
+     }
+
    res = _e_qp_srv_is_effect_running(qp);
    if (res)
      _e_qp_srv_effect_finish(qp, vis);
@@ -950,8 +1004,7 @@ _quickpanel_cb_rotation_begin(void *data, int type, void *event)
 
    E_FREE_FUNC(qp->mover, evas_object_del);
 
-   evas_object_hide(qp->indi_obj);
-   evas_object_hide(qp->handler_obj);
+   _e_qp_srv_effect_disable_ref(qp);
 
 end:
    return ECORE_CALLBACK_PASS_ON;
@@ -975,10 +1028,7 @@ _quickpanel_cb_rotation_cancel(void *data, int type, void *event)
    if (qp->ec != ec)
      goto end;
 
-   if (evas_object_visible_get(ec->frame))
-     evas_object_show(qp->handler_obj);
-   else
-     evas_object_show(qp->indi_obj);
+   _e_qp_srv_effect_disable_unref(qp);
 
 end:
    return ECORE_CALLBACK_PASS_ON;
@@ -1024,10 +1074,7 @@ _quickpanel_cb_rotation_done(void *data, int type, void *event)
          break;
      }
 
-   if (vis)
-     evas_object_show(qp->handler_obj);
-   else
-     evas_object_show(qp->indi_obj);
+   _e_qp_srv_effect_disable_unref(qp);
 
    EINA_LIST_FOREACH(qp->clients, l, qp_client)
      e_tzsh_qp_state_orientation_update(qp_client->ec,
