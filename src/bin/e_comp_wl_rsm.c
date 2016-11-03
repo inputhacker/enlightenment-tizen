@@ -1418,7 +1418,7 @@ _e_comp_wl_remote_surface_subsurface_commit(E_Comp_Wl_Remote_Provider *parent_pr
    Eina_Rectangle *rect;
    int fx, fy, fw, fh;
    int x, y, w, h;
-   Eina_Bool first_skip = EINA_TRUE, fvis;
+   Eina_Bool first_skip = EINA_TRUE;
    E_Comp_Wl_Buffer *buffer;
 
    if (!e_comp_wl_subsurface_commit(ec)) return EINA_FALSE;
