@@ -275,6 +275,28 @@ e_policy_stack_below(E_Client *ec, E_Client *below_ec)
      }
 }
 
+void
+e_policy_stack_above(E_Client *ec, E_Client *above_ec)
+{
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+   EINA_SAFETY_ON_NULL_RETURN(ec->frame);
+
+   EINA_SAFETY_ON_NULL_RETURN(above_ec);
+   EINA_SAFETY_ON_NULL_RETURN(above_ec->frame);
+
+   evas_object_stack_above(ec->frame, above_ec->frame);
+   if (e_config->transient.iconify)
+     {
+        E_Client *child;
+        Eina_List *list = eina_list_clone(ec->transients);
+
+        EINA_LIST_FREE(list, child)
+          {
+             e_policy_stack_above(child, ec);
+          }
+     }
+}
+
 static E_Client *
 _e_policy_stack_find_top_lockscreen(E_Client *ec_lock, E_Client *ec_except)
 {

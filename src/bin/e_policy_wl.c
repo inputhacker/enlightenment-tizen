@@ -1375,6 +1375,51 @@ _tzpol_iface_cb_activate_below_by_res_id(struct wl_client *client EINA_UNUSED, s
 }
 
 static void
+_tzpol_iface_cb_activate_above_by_res_id(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol,  uint32_t res_id, uint32_t above_res_id)
+{
+   E_Client *ec = NULL;
+   E_Client *above_ec = NULL;
+   E_Client *parent_ec = NULL;
+   Eina_Bool check_ancestor = EINA_FALSE;
+
+   ec = e_pixmap_find_client_by_res_id(res_id);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+   EINA_SAFETY_ON_NULL_RETURN(ec->frame);
+
+   above_ec = e_pixmap_find_client_by_res_id(above_res_id);
+   EINA_SAFETY_ON_NULL_RETURN(above_ec);
+   EINA_SAFETY_ON_NULL_RETURN(above_ec->frame);
+
+   if (ec->layer < above_ec->layer) return;
+
+   /* check child */
+   parent_ec = above_ec->parent;
+   while (parent_ec)
+     {
+        if (parent_ec == ec)
+          {
+             check_ancestor = EINA_TRUE;
+             break;
+          }
+        parent_ec = parent_ec->parent;
+     }
+   if (check_ancestor) return;
+
+   if (!starting)
+     {
+        if ((ec->iconic) && (!ec->exp_iconify.by_client))
+          e_policy_wl_iconify_state_change_send(ec, 0);
+
+        e_client_uniconify(ec);
+     }
+
+   e_policy_stack_above(ec, above_ec);
+
+   if (!e_client_first_mapped_get(ec))
+     e_client_post_raise_lower_set(ec, EINA_FALSE, EINA_FALSE);
+}
+
+static void
 _tzpol_iface_cb_raise(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol EINA_UNUSED, struct wl_resource *surf)
 {
    E_Client *ec;
@@ -2890,6 +2935,7 @@ static const struct tizen_policy_interface _tzpol_iface =
    _tzpol_iface_cb_pos_get,
    _tzpol_iface_cb_activate,
    _tzpol_iface_cb_activate_below_by_res_id,
+   _tzpol_iface_cb_activate_above_by_res_id,
    _tzpol_iface_cb_raise,
    _tzpol_iface_cb_lower,
    _tzpol_iface_cb_lower_by_res_id,

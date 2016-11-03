@@ -146,6 +146,7 @@ EINTERN void             e_policy_stack_hook_pre_fetch(E_Client *ec);
 EINTERN void             e_policy_stack_hook_pre_post_fetch(E_Client *ec);
 
 EINTERN void             e_policy_stack_below(E_Client *ec, E_Client *below_ec);
+EINTERN void             e_policy_stack_above(E_Client *ec, E_Client *above_ec);
 
 EINTERN void             e_policy_stack_clients_restack_above_lockscreen(E_Client *ec_lock, Eina_Bool show);
 EINTERN Eina_Bool        e_policy_stack_check_above_lockscreen(E_Client *ec, E_Layer layer, E_Layer *new_layer, Eina_Bool set_layer);
