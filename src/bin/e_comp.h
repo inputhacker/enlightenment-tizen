@@ -3,6 +3,7 @@ typedef struct _E_Comp                       E_Comp;
 typedef struct _E_Comp_Wl_Client_Data        E_Comp_Client_Data;
 typedef struct _E_Comp_Wl_Data               E_Comp_Wl_Data;
 typedef struct _E_Comp_Connected_Client_Info E_Comp_Connected_Client_Info;
+typedef struct _E_Comp_Wl_Seat               E_Comp_Wl_Seat;
 
 # define E_COMP_TYPE (int) 0xE0b01003
 
@@ -83,7 +84,6 @@ struct _E_Comp
    Evas           *evas;
    Evas_Object    *bg_blank_object;
    Eina_List      *zones;
-   E_Pointer      *pointer;
    Eina_List *clients;
    unsigned int new_clients;
 

@@ -146,11 +146,28 @@ _e_shell_surface_cb_pong(struct wl_client *client EINA_UNUSED, struct wl_resourc
      }
 }
 
+static E_Comp_Wl_Seat *
+_e_util_seat_get(struct wl_resource *seat_res)
+{
+   E_Comp_Wl_Seat *seat = NULL;
+   struct wl_resource *res;
+   Eina_List *l, *ll;
+
+   EINA_LIST_FOREACH(e_comp_wl->seats, l, seat)
+     {
+        EINA_LIST_FOREACH(seat->resources, ll, res)
+          if (res == seat_res) return seat;
+     }
+
+   return seat;
+}
+
 static void
-_e_shell_surface_cb_move(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, struct wl_resource *seat_resource EINA_UNUSED, uint32_t serial EINA_UNUSED)
+_e_shell_surface_cb_move(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial EINA_UNUSED)
 {
    E_Client *ec;
    E_Binding_Event_Mouse_Button ev;
+   E_Comp_Wl_Seat *seat;
 
    /* get the client for this resource */
    if (!(ec = wl_resource_get_user_data(resource)))
@@ -163,7 +180,8 @@ _e_shell_surface_cb_move(struct wl_client *client EINA_UNUSED, struct wl_resourc
 
    if ((ec->maximized) || (ec->fullscreen)) return;
 
-   switch (e_comp_wl->ptr.button)
+   seat = _e_util_seat_get(seat_resource);
+   switch (seat->ptr.button)
      {
       case BTN_LEFT:
         ev.button = 1;
@@ -175,23 +193,24 @@ _e_shell_surface_cb_move(struct wl_client *client EINA_UNUSED, struct wl_resourc
         ev.button = 3;
         break;
       default:
-        ev.button = e_comp_wl->ptr.button;
+        ev.button = seat->ptr.button;
         break;
      }
 
    e_comp_object_frame_xy_unadjust(ec->frame,
-                                   wl_fixed_to_int(e_comp_wl->ptr.x),
-                                   wl_fixed_to_int(e_comp_wl->ptr.y),
+                                   wl_fixed_to_int(seat->ptr.x),
+                                   wl_fixed_to_int(seat->ptr.y),
                                    &ev.canvas.x, &ev.canvas.y);
 
    _e_shell_surface_mouse_down_helper(ec, &ev, EINA_TRUE);
 }
 
 static void
-_e_shell_surface_cb_resize(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, struct wl_resource *seat_resource EINA_UNUSED, uint32_t serial EINA_UNUSED, uint32_t edges)
+_e_shell_surface_cb_resize(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial EINA_UNUSED, uint32_t edges)
 {
    E_Client *ec;
    E_Binding_Event_Mouse_Button ev;
+   E_Comp_Wl_Seat *seat;
 
    /* get the client for this resource */
    if (!(ec = wl_resource_get_user_data(resource)))
@@ -207,12 +226,13 @@ _e_shell_surface_cb_resize(struct wl_client *client EINA_UNUSED, struct wl_resou
 
    if ((ec->maximized) || (ec->fullscreen)) return;
 
+   seat = _e_util_seat_get(seat_resource);
    e_comp_wl->resize.resource = resource;
    e_comp_wl->resize.edges = edges;
-   e_comp_wl->ptr.grab_x = e_comp_wl->ptr.x - wl_fixed_from_int(ec->client.x);
-   e_comp_wl->ptr.grab_y = e_comp_wl->ptr.y - wl_fixed_from_int(ec->client.y);
+   seat->ptr.grab_x = seat->ptr.x - wl_fixed_from_int(ec->client.x);
+   seat->ptr.grab_y = seat->ptr.y - wl_fixed_from_int(ec->client.y);
 
-   switch (e_comp_wl->ptr.button)
+   switch (seat->ptr.button)
      {
       case BTN_LEFT:
         ev.button = 1;
@@ -224,13 +244,13 @@ _e_shell_surface_cb_resize(struct wl_client *client EINA_UNUSED, struct wl_resou
         ev.button = 3;
         break;
       default:
-        ev.button = e_comp_wl->ptr.button;
+        ev.button = seat->ptr.button;
         break;
      }
 
    e_comp_object_frame_xy_unadjust(ec->frame,
-                                   wl_fixed_to_int(e_comp_wl->ptr.x),
-                                   wl_fixed_to_int(e_comp_wl->ptr.y),
+                                   wl_fixed_to_int(seat->ptr.x),
+                                   wl_fixed_to_int(seat->ptr.y),
                                    &ev.canvas.x, &ev.canvas.y);
 
    _e_shell_surface_mouse_down_helper(ec, &ev, EINA_FALSE);
@@ -776,10 +796,11 @@ _e_xdg_shell_surface_cb_window_menu_show(struct wl_client *client EINA_UNUSED, s
 }
 
 static void
-_e_xdg_shell_surface_cb_move(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, struct wl_resource *seat_resource EINA_UNUSED, uint32_t serial EINA_UNUSED)
+_e_xdg_shell_surface_cb_move(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, struct wl_resource *seat_resource, uint32_t serial EINA_UNUSED)
 {
    E_Client *ec;
    E_Binding_Event_Mouse_Button ev;
+   E_Comp_Wl_Seat *seat;
 
    /* get the client for this resource */
    if (!(ec = wl_resource_get_user_data(resource)))
@@ -792,19 +813,21 @@ _e_xdg_shell_surface_cb_move(struct wl_client *client EINA_UNUSED, struct wl_res
 
    if ((ec->maximized) || (ec->fullscreen)) return;
 
+   seat = _e_util_seat_get(seat_resource);
+
    TRACE_DS_BEGIN(SHELL:SURFACE MOVE REQUEST CB);
 
-   switch (e_comp_wl->ptr.button)
+   switch (seat->ptr.button)
      {
       case BTN_LEFT:   ev.button = 1; break;
       case BTN_MIDDLE: ev.button = 2; break;
       case BTN_RIGHT:  ev.button = 3; break;
-      default:         ev.button = e_comp_wl->ptr.button; break;
+      default:         ev.button = seat->ptr.button; break;
      }
 
    e_comp_object_frame_xy_unadjust(ec->frame,
-                                   wl_fixed_to_int(e_comp_wl->ptr.x),
-                                   wl_fixed_to_int(e_comp_wl->ptr.y),
+                                   wl_fixed_to_int(seat->ptr.x),
+                                   wl_fixed_to_int(seat->ptr.y),
                                    &ev.canvas.x,
                                    &ev.canvas.y);
 
@@ -818,6 +841,7 @@ _e_xdg_shell_surface_cb_resize(struct wl_client *client EINA_UNUSED, struct wl_r
 {
    E_Client *ec;
    E_Binding_Event_Mouse_Button ev;
+   E_Comp_Wl_Seat *seat;
 
    /* get the client for this resource */
    if (!(ec = wl_resource_get_user_data(resource)))
@@ -833,24 +857,26 @@ _e_xdg_shell_surface_cb_resize(struct wl_client *client EINA_UNUSED, struct wl_r
 
    if ((ec->maximized) || (ec->fullscreen)) return;
 
+   seat = _e_util_seat_get(seat_resource);
+
    TRACE_DS_BEGIN(SHELL:SURFACE RESIZE REQUEST CB);
 
    e_comp_wl->resize.resource = resource;
    e_comp_wl->resize.edges = edges;
-   e_comp_wl->ptr.grab_x = e_comp_wl->ptr.x - wl_fixed_from_int(ec->client.x);
-   e_comp_wl->ptr.grab_y = e_comp_wl->ptr.y - wl_fixed_from_int(ec->client.y);
+   seat->ptr.grab_x = seat->ptr.x - wl_fixed_from_int(ec->client.x);
+   seat->ptr.grab_y = seat->ptr.y - wl_fixed_from_int(ec->client.y);
 
-   switch (e_comp_wl->ptr.button)
+   switch (seat->ptr.button)
      {
       case BTN_LEFT:   ev.button = 1; break;
       case BTN_MIDDLE: ev.button = 2; break;
       case BTN_RIGHT:  ev.button = 3; break;
-      default:         ev.button = e_comp_wl->ptr.button; break;
+      default:         ev.button = seat->ptr.button; break;
      }
 
    e_comp_object_frame_xy_unadjust(ec->frame,
-                                   wl_fixed_to_int(e_comp_wl->ptr.x),
-                                   wl_fixed_to_int(e_comp_wl->ptr.y),
+                                   wl_fixed_to_int(seat->ptr.x),
+                                   wl_fixed_to_int(seat->ptr.y),
                                    &ev.canvas.x,
                                    &ev.canvas.y);
 

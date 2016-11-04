@@ -403,9 +403,14 @@ _volume_wl_touch_resource_get(void)
    struct wl_resource *res;
 
    if (_volume_wl_touch) goto end;
+   if (!_volume_ec->seat)
+     {
+        _volume_ec->seat = e_comp_wl_input_seat_get(NULL);
+        if (!_volume_ec->seat) goto end;
+     }
 
    wc = wl_resource_get_client(_volume_ec->comp_data->surface);
-   EINA_LIST_FOREACH(e_comp_wl->touch.resources, l, res)
+   EINA_LIST_FOREACH(_volume_ec->seat->touch.resources, l, res)
      {
         if (wl_resource_get_client(res) != wc) continue;
 

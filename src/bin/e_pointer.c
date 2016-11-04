@@ -210,7 +210,7 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
    EINA_SAFETY_ON_NULL_RETURN(ptr);
 
    /* don't show cursor if in hidden mode */
-   if ((!e_config->show_cursor) || (!e_comp_wl->ptr.enabled))
+   if (!e_config->show_cursor)
      {
         e_pointer_hide(ptr);
         return;

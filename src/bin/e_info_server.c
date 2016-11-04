@@ -81,7 +81,7 @@ static Eina_List *module_hook = NULL;
 #define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiibbbiis"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
-#define VALUE_TYPE_FOR_INPUTDEV "ssi"
+#define VALUE_TYPE_FOR_INPUTDEV "sssi"
 
 static E_Info_Transform *_e_info_transform_new(E_Client *ec, int id, int enable, int x, int y, int sx, int sy, int degree, int background);
 static E_Info_Transform *_e_info_transform_find(E_Client *ec, int id);
@@ -356,24 +356,26 @@ static void
 _input_msg_clients_append(Eldbus_Message_Iter *iter)
 {
    Eldbus_Message_Iter *array_of_input;
-   Eina_List *l;
-   E_Comp_Wl_Data *cdata;
+   Eina_List *l, *ll;
    E_Comp_Wl_Input_Device *dev;
+   E_Comp_Wl_Seat *seat;
 
    eldbus_message_iter_arguments_append(iter, "a("VALUE_TYPE_FOR_INPUTDEV")", &array_of_input);
 
-   cdata = e_comp->wl_comp_data;
-   EINA_LIST_FOREACH(cdata->input_device_manager.device_list, l, dev)
+   EINA_LIST_FOREACH(e_comp_wl->seats, l, seat)
      {
-        Eldbus_Message_Iter *struct_of_input;
+        EINA_LIST_FOREACH(seat->device_list, ll, dev)
+          {
+             Eldbus_Message_Iter *struct_of_input;
 
-        eldbus_message_iter_arguments_append(array_of_input, "("VALUE_TYPE_FOR_INPUTDEV")", &struct_of_input);
+             eldbus_message_iter_arguments_append(array_of_input, "("VALUE_TYPE_FOR_INPUTDEV")", &struct_of_input);
 
-        eldbus_message_iter_arguments_append
-                     (struct_of_input, VALUE_TYPE_FOR_INPUTDEV,
-                      dev->name, dev->identifier, dev->clas);
+             eldbus_message_iter_arguments_append
+                          (struct_of_input, VALUE_TYPE_FOR_INPUTDEV,
+                           dev->name, dev->identifier, dev->seatname, dev->clas);
 
-        eldbus_message_iter_container_close(array_of_input, struct_of_input);
+             eldbus_message_iter_container_close(array_of_input, struct_of_input);
+          }
      }
    eldbus_message_iter_container_close(iter, array_of_input);
 }

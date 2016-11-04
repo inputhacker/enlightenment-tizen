@@ -152,6 +152,7 @@ _e_comp_wl_data_device_destroy_selection_data_source(struct wl_listener *listene
 {
    E_Comp_Wl_Data_Source *source;
    struct wl_resource *data_device_res = NULL, *focus = NULL;
+   E_Comp_Wl_Seat *seat;
 
    DBG("Data Device Destroy Selection Source");
    if (!(source = (E_Comp_Wl_Data_Source*)data))
@@ -159,8 +160,9 @@ _e_comp_wl_data_device_destroy_selection_data_source(struct wl_listener *listene
 
    e_comp_wl->selection.data_source = NULL;
 
-   if (e_comp_wl->kbd.enabled)
-     focus = e_comp_wl->kbd.focus;
+   seat = e_comp_wl_input_seat_get(NULL);
+   if (seat->kbd.enabled)
+     focus = seat->kbd.focus;
 
    if (focus)
      {
@@ -257,8 +259,9 @@ _e_comp_wl_data_device_selection_set(void *data EINA_UNUSED, E_Comp_Wl_Data_Sour
    e_comp_wl->clipboard.xwl_owner = NULL;
    e_comp_wl->selection.serial = serial;
 
-   if (e_comp_wl->kbd.enabled)
-     focus = e_comp_wl->kbd.focus;
+   E_Comp_Wl_Seat *seat = e_comp_wl_input_seat_get(NULL);
+   if (seat->kbd.enabled)
+     focus = seat->kbd.focus;
 
    //if source is from cbhm_client do not crate data offer for cbhm
    if ((cbhm_client) && (source_client != cbhm_client))
@@ -341,7 +344,9 @@ _e_comp_wl_data_device_cb_drag_start(struct wl_client *client, struct wl_resourc
 
    DBG("Data Device Drag Start");
 
-   if ((e_comp_wl->kbd.focus) && (e_comp_wl->kbd.focus != origin_resource)) return;
+   E_Comp_Wl_Seat *seat = e_comp_wl_input_seat_get(NULL);
+   if (!seat) return;
+   if ((seat->kbd.focus) && (seat->kbd.focus != origin_resource)) return;
 
    if (!(source = wl_resource_get_user_data(source_resource))) return;
    e_comp_wl->drag_source = source;
@@ -366,11 +371,11 @@ _e_comp_wl_data_device_cb_drag_start(struct wl_client *client, struct wl_resourc
           }
      }
 
-   EINA_LIST_FOREACH(e_comp_wl->ptr.resources, l, res)
+   EINA_LIST_FOREACH(seat->ptr.resources, l, res)
      {
         if (!e_comp_wl_input_pointer_check(res)) continue;
         if (wl_resource_get_client(res) != client) continue;
-        wl_pointer_send_leave(res, serial, e_comp_wl->kbd.focus);
+        wl_pointer_send_leave(res, serial, seat->kbd.focus);
      }
 
    evas_pointer_canvas_xy_get(e_comp->evas, &x, &y);
@@ -380,8 +385,8 @@ _e_comp_wl_data_device_cb_drag_start(struct wl_client *client, struct wl_resourc
    if (ec)
      e_drag_object_set(e_comp_wl->drag, ec->frame);
    e_drag_start(e_comp_wl->drag, x, y);
-   if (e_comp_wl->ptr.ec)
-     e_comp_wl_data_device_send_enter(e_comp_wl->ptr.ec);
+   if (seat->ptr.ec)
+     e_comp_wl_data_device_send_enter(seat->ptr.ec);
    e_comp_canvas_feed_mouse_up(0);
 }
 
@@ -686,8 +691,9 @@ e_comp_wl_data_device_send_enter(E_Client *ec)
    e_comp_wl->selection.target = ec;
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_DEL, _e_comp_wl_data_device_target_del, ec);
 
-   x = wl_fixed_to_int(e_comp_wl->ptr.x) - e_comp_wl->selection.target->client.x;
-   y = wl_fixed_to_int(e_comp_wl->ptr.y) - e_comp_wl->selection.target->client.y;
+   if (!ec->seat) return;
+   x = wl_fixed_to_int(ec->seat->ptr.x) - e_comp_wl->selection.target->client.x;
+   y = wl_fixed_to_int(ec->seat->ptr.y) - e_comp_wl->selection.target->client.y;
    serial = wl_display_next_serial(e_comp_wl->wl.disp);
    wl_data_device_send_enter(data_device_res, serial, ec->comp_data->surface,
                              wl_fixed_from_int(x), wl_fixed_from_int(y), offer_res);
@@ -723,18 +729,18 @@ e_comp_wl_data_device_send_offer(E_Client *ec)
 }
 
 E_API void
-e_comp_wl_data_device_keyboard_focus_set(void)
+e_comp_wl_data_device_keyboard_focus_set(E_Comp_Wl_Seat *seat)
 {
    struct wl_resource *data_device_res, *offer_res = NULL, *focus;
    E_Comp_Wl_Data_Source *source;
 
-   if (!e_comp_wl->kbd.enabled)
+   if (!seat->kbd.enabled)
      {
         ERR("Keyboard not enabled");
         return;
      }
 
-   if (!(focus = e_comp_wl->kbd.focus))
+   if (!(focus = seat->kbd.focus))
      {
         ERR("No focused resource");
         return;
