@@ -99,22 +99,6 @@ static E_Comp_Wl_Remote_Manager *_rsm = NULL;
 static void _e_comp_wl_remote_surface_state_buffer_set(E_Comp_Wl_Surface_State *state, E_Comp_Wl_Buffer *buffer);
 static void _remote_surface_region_clear(E_Comp_Wl_Remote_Surface *remote_surface);
 
-static Ecore_Device *
-_device_get_by_identifier(const char *identifier)
-{
-   Ecore_Device *dev = NULL;
-   const Eina_List *devices, *l;
-
-   devices = ecore_device_list();
-   EINA_LIST_FOREACH(devices, l, dev)
-     {
-        if (!e_util_strcmp(identifier, ecore_device_identifier_get(dev)))
-          return dev;
-     }
-
-   return NULL;
-}
-
 static void
 _remote_region_mirror_clear(E_Comp_Wl_Remote_Region *region)
 {
@@ -706,7 +690,7 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
      }
 
    /* find ecore device*/
-   edev = _device_get_by_identifier(identifier);
+   edev = ecore_device_find(identifier, eclas);
    if (edev)
      {
         eclas = ecore_device_class_get(edev);
@@ -814,7 +798,6 @@ _remote_surface_cb_mouse_wheel_transfer(struct wl_client *client, struct wl_reso
    if (e_object_is_del(E_OBJECT(ec))) return;
 
    /* identify class */
-   edev = _device_get_by_identifier(identifier);
 
    if (remote_surface->visible)
      e_client_mouse_wheel_send(ec, direction, z, edev, time);
@@ -852,7 +835,7 @@ _remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_reso
      }
 
    /* find ecore device*/
-   edev = _device_get_by_identifier(identifier);
+   edev = ecore_device_find(identifier, eclas);
    if (edev)
      {
         eclas = ecore_device_class_get(edev);
@@ -960,7 +943,7 @@ _remote_surface_cb_key_event_transfer(struct wl_client *client, struct wl_resour
      }
 
    /* find ecore device*/
-   edev = _device_get_by_identifier(identifier);
+   edev = ecore_device_find(identifier, eclas);
    if (edev)
      {
         eclas = ecore_device_class_get(edev);

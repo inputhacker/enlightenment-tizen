@@ -891,6 +891,10 @@ struct E_Client
    } indicator;
 
    E_Plane_Renderer_Client *renderer_client;
+
+#ifdef HAVE_WAYLAND_ONLY
+   E_Comp_Wl_Seat *seat;
+#endif
 };
 
 #define e_client_focus_policy_click(ec) \

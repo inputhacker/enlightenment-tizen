@@ -166,29 +166,39 @@ end:
 static Eina_Bool
 _e_comp_screen_cb_input_device_add(void *data, int type, void *event)
 {
-   Ecore_Drm_Event_Input_Device_Add *e;
-   E_Comp *comp = data;
+   Ecore_Event_Device_Info *e;
+   E_Comp_Wl_Seat *seat;
 
    if (!(e = event)) goto end;
 
-   if (e->caps & EVDEV_SEAT_POINTER)
+   if (e->clas == ECORE_DEVICE_CLASS_SEAT)
      {
-        if (comp->wl_comp_data->ptr.num_devices == 0)
+        if (!(seat = e_comp_wl_input_seat_get(e->seatname)))
+          e_comp_wl_input_add(e->seatname);
+        return ECORE_CALLBACK_PASS_ON;
+     }
+
+   seat = e_comp_wl_input_seat_get(e->seatname);
+   if (!seat) goto end;
+
+   if (e->clas == ECORE_DEVICE_CLASS_MOUSE)
+     {
+        if (seat->ptr.num_devices == 0)
           {
-             e_pointer_object_set(comp->pointer, NULL, 0, 0);
-             e_comp_wl_input_pointer_enabled_set(EINA_TRUE);
+             e_pointer_object_set(seat->pointer, NULL, 0, 0);
+             e_comp_wl_input_pointer_enabled_set(seat, EINA_TRUE);
           }
-        comp->wl_comp_data->ptr.num_devices++;
+        seat->ptr.num_devices++;
      }
-   if (e->caps & EVDEV_SEAT_KEYBOARD)
+   if (e->clas == ECORE_DEVICE_CLASS_KEYBOARD)
      {
-        comp->wl_comp_data->kbd.num_devices++;
-        e_comp_wl_input_keyboard_enabled_set(EINA_TRUE);
+        seat->kbd.num_devices++;
+        e_comp_wl_input_keyboard_enabled_set(seat, EINA_TRUE);
      }
-   if (e->caps & EVDEV_SEAT_TOUCH)
+   if (e->clas == ECORE_DEVICE_CLASS_TOUCH)
      {
-        e_comp_wl_input_touch_enabled_set(EINA_TRUE);
-        comp->wl_comp_data->touch.num_devices++;
+        e_comp_wl_input_touch_enabled_set(seat, EINA_TRUE);
+        seat->touch.num_devices++;
      }
 
 end:
@@ -198,19 +208,22 @@ end:
 static Eina_Bool
 _e_comp_screen_cb_input_device_del(void *data, int type, void *event)
 {
-   Ecore_Drm_Event_Input_Device_Del *e;
-   E_Comp *comp = data;
+   Ecore_Event_Device_Info *e;
+   E_Comp_Wl_Seat *seat;
 
    if (!(e = event)) goto end;
 
-   if (e->caps & EVDEV_SEAT_POINTER)
+   seat = e_comp_wl_input_seat_get(e->seatname);
+   if (!seat) goto end;
+
+   if (e->clas == ECORE_DEVICE_CLASS_MOUSE)
      {
-        comp->wl_comp_data->ptr.num_devices--;
-        if (comp->wl_comp_data->ptr.num_devices == 0)
+        seat->ptr.num_devices--;
+        if (seat->ptr.num_devices == 0)
           {
-             e_comp_wl_input_pointer_enabled_set(EINA_FALSE);
-             e_pointer_object_set(comp->pointer, NULL, 0, 0);
-             e_pointer_hide(e_comp->pointer);
+             e_comp_wl_input_pointer_enabled_set(seat, EINA_FALSE);
+             e_pointer_object_set(seat->pointer, NULL, 0, 0);
+             e_pointer_hide(seat->pointer);
           }
      }
 
@@ -959,17 +972,20 @@ e_comp_screen_init()
 
    e_comp_wl->screenshooter.read_pixels = _drm_read_pixels;
 
+   E_Comp_Wl_Seat *seat = e_comp_wl_input_seat_get("default");
+   if (seat)
+     {
    /* pointer */
    ecore_evas_pointer_xy_get(e_comp->ee,
-                             &e_comp_wl->ptr.x,
-                             &e_comp_wl->ptr.y);
-
+                             &seat->ptr.x,
+                             &seat->ptr.y);
+     }
    evas_event_feed_mouse_in(e_comp->evas, 0, NULL);
 
    e_main_ts("\tE_Pointer New");
-   if ((comp->pointer = e_pointer_canvas_new(comp->ee, EINA_TRUE)))
+   if (seat && (seat->pointer = e_pointer_canvas_new(comp->ee, EINA_TRUE)))
      {
-        e_pointer_hide(comp->pointer);
+        e_pointer_hide(seat->pointer);
      }
    e_main_ts("\tE_Pointer New Done");
 
@@ -1008,8 +1024,8 @@ e_comp_screen_init()
       E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_OUTPUT,        _e_comp_screen_cb_output_drm,       comp);
 
    E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_ACTIVATE,         _e_comp_screen_cb_activate,         comp);
-   E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_INPUT_DEVICE_ADD, _e_comp_screen_cb_input_device_add, comp);
-   E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_INPUT_DEVICE_DEL, _e_comp_screen_cb_input_device_del, comp);
+   E_LIST_HANDLER_APPEND(event_handlers, ECORE_EVENT_DEVICE_ADD, _e_comp_screen_cb_input_device_add, comp);
+   E_LIST_HANDLER_APPEND(event_handlers, ECORE_EVENT_DEVICE_DEL, _e_comp_screen_cb_input_device_del, comp);
 
 #ifdef HAVE_HWC
    ecore_idle_enterer_add(_e_comp_screen_commit_idle_cb, comp);

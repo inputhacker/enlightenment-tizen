@@ -569,11 +569,13 @@ _e_comp_hwc_usable(void)
    Eina_List *l;
    E_Zone *zone;
    Eina_Bool ret = EINA_FALSE;
+   E_Comp_Wl_Seat *seat;
 
    if (!e_comp->hwc) return EINA_FALSE;
 
    // will be removed once hwc cursor is supported
-   if (!e_pointer_is_hidden(e_comp->pointer)) return EINA_FALSE;
+   EINA_LIST_FOREACH(e_comp_wl->seats, l, seat)
+     if (!e_pointer_is_hidden(seat->pointer)) return EINA_FALSE;
 
    // check whether to use hwc
    // core assignment policy

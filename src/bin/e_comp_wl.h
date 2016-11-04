@@ -45,6 +45,8 @@ typedef struct _E_Comp_Wl_Data E_Comp_Wl_Data;
 typedef struct _E_Comp_Wl_Output E_Comp_Wl_Output;
 typedef struct _E_Comp_Wl_Input_Device E_Comp_Wl_Input_Device;
 typedef struct _E_Comp_Wl_Hook E_Comp_Wl_Hook;
+typedef struct _E_Comp_Wl_Seat E_Comp_Wl_Seat;
+typedef struct _e_devicemgr_input_device_user_data e_devicemgr_input_device_user_data;
 
 typedef enum _E_Comp_Wl_Buffer_Type
 {
@@ -154,12 +156,69 @@ struct _E_Comp_Wl_Subsurf_Data
      } remote_surface;
 };
 
+struct _e_devicemgr_input_device_user_data
+{
+   E_Comp_Wl_Input_Device *dev;
+   struct wl_resource *dev_mgr_res;
+   struct wl_resource *seat_res;
+};
+
 struct _E_Comp_Wl_Input_Device
 {
    Eina_List *resources;
    const char *name;
    const char *identifier;
+   const char *seatname;
    Ecore_Device_Class clas;
+};
+
+struct _E_Comp_Wl_Seat
+{
+   struct wl_global *global;
+   Eina_List *resources;
+   uint32_t version;
+   char *name;
+   Eina_List *device_list;
+   E_Pointer *pointer;
+
+   struct
+     {
+        Eina_List *resources;
+        Eina_Bool enabled : 1;
+        Eina_List *focused;
+        xkb_mod_index_t mod_shift, mod_caps;
+        xkb_mod_index_t mod_ctrl, mod_alt;
+        xkb_mod_index_t mod_super;
+        xkb_mod_mask_t mod_depressed, mod_latched, mod_locked;
+        xkb_layout_index_t mod_group;
+        struct wl_array keys;
+        struct wl_array routed_keys;
+        struct wl_resource *focus;
+        int mod_changed;
+        int repeat_delay;
+        int repeat_rate;
+        unsigned int num_devices;
+     } kbd;
+
+   struct
+     {
+        Eina_List *resources;
+        Eina_Bool enabled : 1;
+        wl_fixed_t x, y;
+        wl_fixed_t grab_x, grab_y;
+        uint32_t button;
+        Ecore_Timer *hide_tmr;
+        E_Client *ec;
+        unsigned int num_devices;
+     } ptr;
+
+   struct
+     {
+        Eina_List *resources;
+        Eina_Bool enabled : 1;
+        unsigned int pressed;
+        unsigned int num_devices;
+     } touch;
 };
 
 struct _E_Comp_Wl_Data
@@ -209,7 +268,6 @@ struct _E_Comp_Wl_Data
      {
         struct wl_global *global;
         Eina_List *resources;
-        Eina_List *device_list;
         E_Comp_Wl_Input_Device *last_device_ptr;
         E_Comp_Wl_Input_Device *last_device_touch;
         E_Comp_Wl_Input_Device *last_device_kbd;
@@ -222,7 +280,7 @@ struct _E_Comp_Wl_Data
           } multi;
      } input_device_manager;
 
-   struct
+   /*struct
      {
         Eina_List *resources;
         Eina_List *focused;
@@ -260,7 +318,7 @@ struct _E_Comp_Wl_Data
         unsigned int num_devices;
         unsigned int pressed;
      } touch;
-
+*/
    struct
      {
         struct wl_global *global;
@@ -347,6 +405,7 @@ struct _E_Comp_Wl_Data
      } screenshooter;
 
    Eina_List *outputs;
+   Eina_List *seats;
 
    Ecore_Fd_Handler *fd_hdlr;
    Ecore_Idler *idler;
