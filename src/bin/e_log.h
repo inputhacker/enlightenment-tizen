@@ -112,6 +112,7 @@ extern E_API int e_log_dom;
 #ifdef HAVE_DLOG
 EINTERN void e_log_dlog_enable(Eina_Bool enable);
 #endif
+EINTERN Eina_Bool e_log_path_set(const char *path);
 
 EINTERN int e_log_init(void);
 EINTERN int e_log_shutdown(void);

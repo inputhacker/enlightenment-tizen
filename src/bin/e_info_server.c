@@ -899,9 +899,6 @@ _e_info_server_cb_eina_log_path(const Eldbus_Service_Interface *iface EINA_UNUSE
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    const char *path = NULL;
-   static int old_stderr = -1;
-   int  log_fd = -1;
-   FILE *log_fl;
 
    if (!eldbus_message_arguments_get(msg, "s", &path) || !path)
      {
@@ -909,24 +906,7 @@ _e_info_server_cb_eina_log_path(const Eldbus_Service_Interface *iface EINA_UNUSE
         return reply;
      }
 
-   if (old_stderr == -1)
-     old_stderr = dup(STDOUT_FILENO);
-
-   log_fl = fopen(path, "a");
-   if (!log_fl)
-     {
-        ERR("failed: open file(%s)\n", path);
-        return reply;
-     }
-
-   fflush(stderr);
-   close(STDOUT_FILENO);
-
-   setvbuf(log_fl, NULL, _IOLBF, 512);
-   log_fd = fileno(log_fl);
-
-   dup2(log_fd, STDOUT_FILENO);
-   fclose(log_fl);
+   e_log_path_set(path);
 
    return reply;
 }

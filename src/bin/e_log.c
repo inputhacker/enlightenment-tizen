@@ -102,9 +102,47 @@ e_log_dlog_enable(Eina_Bool enable)
 }
 #endif
 
+EINTERN Eina_Bool
+e_log_path_set(const char *path)
+{
+   int  log_fd = -1;
+   FILE *log_fl;
+
+   if (!path)
+     {
+        ERR("no eina-log-path");
+        return EINA_FALSE;
+     }
+
+   log_fl = fopen(path, "a");
+   if (!log_fl)
+     {
+        ERR("failed: open file(%s)\n", path);
+        return EINA_FALSE;
+     }
+
+   fflush(stdout);
+   close(STDOUT_FILENO);
+
+   fflush(stderr);
+   close(STDERR_FILENO);
+
+   setvbuf(log_fl, NULL, _IOLBF, 512);
+   log_fd = fileno(log_fl);
+
+   dup2(log_fd, STDOUT_FILENO);
+   dup2(log_fd, STDERR_FILENO);
+
+   fclose(log_fl);
+
+   return EINA_TRUE;
+}
+
 EINTERN int
 e_log_init(void)
 {
+   const char *s;
+
    e_log_dom = eina_log_domain_register("e", EINA_COLOR_WHITE);
    eina_log_print_cb_set(_e_log_cb, NULL);
    eina_log_domain_level_set("e", 3);
@@ -113,6 +151,15 @@ e_log_init(void)
    if (getenv("E_LOG_DLOG_ENABLE"))
      e_log_dlog_enable(EINA_TRUE);
 #endif
+
+   s = getenv("E_LOG_FILE_PATH");
+   if (s)
+     {
+#ifdef HAVE_DLOG
+        e_log_dlog_enable(EINA_FALSE);
+#endif
+        e_log_path_set(s);
+     }
 
    return 1;
 }
