@@ -53,6 +53,7 @@ src/bin/e_info_server.h \
 src/bin/e_init.h \
 src/bin/e_layout.h \
 src/bin/e_log.h \
+src/bin/e_main.h \
 src/bin/e_maximize.h \
 src/bin/e_module.h \
 src/bin/e_mouse.h \

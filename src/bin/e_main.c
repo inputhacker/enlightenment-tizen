@@ -84,6 +84,8 @@ static void      _e_main_modules_load(Eina_Bool safe_mode);
 static Eina_Bool _e_main_cb_idle_before(void *data EINA_UNUSED);
 static Eina_Bool _e_main_cb_idle_after(void *data EINA_UNUSED);
 static void      _e_main_create_wm_ready(void);
+static void      _e_main_hooks_clean(void);
+static void      _e_main_hook_call(E_Main_Hook_Point hookpoint, void *data EINA_UNUSED);
 
 /* local variables */
 static Eina_Bool really_know = EINA_FALSE;
@@ -97,6 +99,17 @@ static Ecore_Idle_Enterer *_idle_before = NULL;
 static Ecore_Idle_Enterer *_idle_after = NULL;
 
 static Ecore_Event_Handler *mod_init_end = NULL;
+
+static Eina_List *hooks = NULL;
+
+static int _e_main_hooks_delete = 0;
+static int _e_main_hooks_walking = 0;
+
+static Eina_Inlist *_e_main_hooks[] =
+{
+   [E_MAIN_HOOK_MODULE_LOAD_DONE] = NULL,
+   [E_MAIN_HOOK_E_INFO_READY] = NULL
+};
 
 /* external variables */
 E_API Eina_Bool e_precache_end = EINA_FALSE;
@@ -745,6 +758,8 @@ _e_main_shutdown(int errcode)
 
    printf("E: Begin Shutdown Procedure!\n");
 
+   E_FREE_LIST(hooks, e_main_hook_del);
+
    if (_idle_before) ecore_idle_enterer_del(_idle_before);
    _idle_before = NULL;
    if (_idle_after) ecore_idle_enterer_del(_idle_after);
@@ -1273,4 +1288,75 @@ _e_main_create_wm_ready(void)
         TS("[WM] WINDOW MANAGER is READY. BUT, failed to create .wm_ready file.");
         PRCTL("[Winsys] WINDOW MANAGER is READY. BUT, failed to create .wm_ready file.");
      }
+}
+
+static void
+_e_main_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Main_Hook *mh;
+   unsigned int x;
+
+   for (x = 0; x < E_MAIN_HOOK_LAST; x++)
+     EINA_INLIST_FOREACH_SAFE(_e_main_hooks[x], l, mh)
+       {
+          if (!mh->delete_me) continue;
+          _e_main_hooks[x] = eina_inlist_remove(_e_main_hooks[x],
+                                                EINA_INLIST_GET(mh));
+          free(mh);
+       }
+}
+
+static void
+_e_main_hook_call(E_Main_Hook_Point hookpoint, void *data EINA_UNUSED)
+{
+   E_Main_Hook *mh;
+
+   _e_main_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_main_hooks[hookpoint], mh)
+     {
+        if (mh->delete_me) continue;
+        mh->func(mh->data);
+     }
+   _e_main_hooks_walking--;
+   if ((_e_main_hooks_walking == 0) && (_e_main_hooks_delete > 0))
+     _e_main_hooks_clean();
+}
+
+E_API E_Main_Hook *
+e_main_hook_add(E_Main_Hook_Point hookpoint, E_Main_Hook_Cb func, const void *data)
+{
+   E_Main_Hook *mh;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_MAIN_HOOK_LAST, NULL);
+   mh = E_NEW(E_Main_Hook, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(mh, NULL);
+   mh->hookpoint = hookpoint;
+   mh->func = func;
+   mh->data = (void*)data;
+   _e_main_hooks[hookpoint] = eina_inlist_append(_e_main_hooks[hookpoint],
+                                                 EINA_INLIST_GET(mh));
+   return mh;
+}
+
+E_API void
+e_main_hook_del(E_Main_Hook *mh)
+{
+   mh->delete_me = 1;
+   if (_e_main_hooks_walking == 0)
+     {
+        _e_main_hooks[mh->hookpoint] = eina_inlist_remove(_e_main_hooks[mh->hookpoint],
+                                                          EINA_INLIST_GET(mh));
+        free(mh);
+     }
+   else
+     _e_main_hooks_delete++;
+}
+
+E_API void
+e_main_hook_call(E_Main_Hook_Point hookpoint)
+{
+   if ((hookpoint < 0) || (hookpoint >= E_MAIN_HOOK_LAST)) return;
+
+   _e_main_hook_call(hookpoint, NULL);
 }

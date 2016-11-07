@@ -63,3 +63,4 @@
 #include "e_process.h"
 #include "e_splitlayout.h"
 #include "e_slot.h"
+#include "e_main.h"

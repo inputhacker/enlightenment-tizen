@@ -298,6 +298,8 @@ e_module_all_load(void)
         _e_modules_initting = EINA_FALSE;
      }
 
+   e_main_hook_call(E_MAIN_HOOK_MODULE_LOAD_DONE);
+
    unsetenv("E_MODULE_LOAD");
 
    TRACE_DS_END();

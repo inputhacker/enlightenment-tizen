@@ -2340,6 +2340,7 @@ _e_info_server_dbus_init(void *data EINA_UNUSED)
    e_info_protocol_init();
    e_info_server_protocol_rule_path_init(getenv("E_INFO_RULE_FILE"));
    e_info_server_protocol_trace_path_init(getenv("E_INFO_TRACE_FILE"));
+   e_main_hook_call(E_MAIN_HOOK_E_INFO_READY);
 
    return ECORE_CALLBACK_CANCEL;
 
