@@ -287,7 +287,7 @@ _hwc_set(E_Output *eout)
 }
 
 static Eina_Bool
-_hwc_plane_prepare(E_Output *eout, int n_vis, Eina_List *clist)
+_hwc_prepare(E_Output *eout, int n_vis, Eina_List *clist)
 {
    const Eina_List *ep_l = NULL, *l ;
    Eina_List *hwc_l = NULL, *clist2;
@@ -399,7 +399,7 @@ _hwc_cancel(E_Output *eout)
 }
 
 static Eina_Bool
-_hwc_plane_reserved_clean()
+_hwc_reserved_clean()
 {
    Eina_List *l, *ll;
    E_Zone *zone;
@@ -651,7 +651,7 @@ _e_comp_hwc_prepare(void)
         if ((n_vis < 1) || (n_ec < 1))
           goto nextzone;
 
-        ret |= _hwc_plane_prepare(output, n_vis, hwc_ok_clist);
+        ret |= _hwc_prepare(output, n_vis, hwc_ok_clist);
 
         nextzone:
         eina_list_free(hwc_ok_clist);
@@ -774,7 +774,7 @@ e_comp_hwc_end(const char *location)
 
    e_comp->nocomp_want = 0;
    E_FREE_FUNC(e_comp->nocomp_delay_timer, ecore_timer_del);
-   _hwc_plane_reserved_clean();
+   _hwc_reserved_clean();
 
    if (!e_comp->hwc) return;
    if (!e_comp->hwc_mode) return;
