@@ -314,6 +314,7 @@ _e_comp_wl_data_device_drag_finished(E_Drag *drag, int dropped)
    if (e_comp_wl->drag != drag) return;
    e_comp_wl->drag = NULL;
    e_comp_wl->drag_client = NULL;
+   e_comp_override_del();
    if (e_comp_wl->selection.target && (!dropped))
      {
         struct wl_resource *res;
@@ -361,6 +362,7 @@ _e_comp_wl_data_device_cb_drag_start(struct wl_client *client, struct wl_resourc
              e_client_focus_stack_set(eina_list_remove(e_client_focus_stack_get(), ec));
              EC_CHANGED(ec);
              e_comp_wl->drag_client = ec;
+             e_comp_override_add();
           }
      }
 
