@@ -8,6 +8,14 @@ typedef enum _E_Plane_Type
    E_PLANE_TYPE_CURSOR
 } E_Plane_Type;
 
+typedef enum _E_Plane_Role
+{
+   E_PLANE_ROLE_NONE,
+   E_PLANE_ROLE_VIDEO,
+   E_PLANE_ROLE_OVERLAY,
+   E_PLANE_ROLE_CURSOR
+} E_Plane_Role;
+
 typedef enum _E_Plane_Color
 {
    E_PLANE_COLOR_INVALID,
@@ -62,6 +70,8 @@ struct _E_Plane
     * false when E_Event_Plane_Win_Change has been generated.
     */
    Eina_Bool             need_ev;
+
+   E_Plane_Role          role;
 };
 
 struct _E_Plane_Commit_Data {
@@ -95,6 +105,8 @@ EINTERN Eina_Bool            e_plane_render(E_Plane *plane);
 
 E_API Eina_Bool              e_plane_type_set(E_Plane *plane, E_Plane_Type type);
 E_API E_Plane_Type           e_plane_type_get(E_Plane *plane);
+E_API Eina_Bool              e_plane_role_set(E_Plane *plane, E_Plane_Role role);
+E_API E_Plane_Role           e_plane_role_get(E_Plane *plane);
 E_API E_Client              *e_plane_ec_get(E_Plane *plane);
 E_API Eina_Bool              e_plane_ec_set(E_Plane *plane, E_Client *ec);
 E_API E_Client              *e_plane_ec_prepare_get(E_Plane *plane);

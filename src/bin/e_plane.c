@@ -983,6 +983,24 @@ e_plane_type_set(E_Plane *plane, E_Plane_Type type)
    return EINA_TRUE;
 }
 
+E_API Eina_Bool
+e_plane_role_set(E_Plane *plane, E_Plane_Role role)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   plane->role = role;
+
+   return EINA_TRUE;
+}
+
+E_API E_Plane_Role
+e_plane_role_get(E_Plane *plane)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, E_PLANE_ROLE_NONE);
+
+   return plane->role;
+}
+
 E_API E_Plane_Type
 e_plane_type_get(E_Plane *plane)
 {
