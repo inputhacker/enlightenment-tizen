@@ -383,6 +383,7 @@ _e_plane_surface_from_ecore_evas_acquire(E_Plane *plane)
    E_Output *output = plane->output;
 
    renderer = plane->renderer;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, NULL);
 
    if (!renderer->tqueue)
      {
