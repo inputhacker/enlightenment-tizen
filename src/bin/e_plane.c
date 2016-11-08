@@ -568,9 +568,6 @@ e_plane_new(E_Output *output, int index)
    if (layer_capabilities & TDM_LAYER_CAPABILITY_RESEVED_MEMORY)
        plane->reserved_memory = EINA_TRUE;
 
-   /* ????? */
-   plane->type = E_PLANE_TYPE_INVALID;
-
    tdm_layer_get_zpos(tlayer, &zpos);
    plane->zpos = zpos;
    plane->output = output;
@@ -595,6 +592,15 @@ e_plane_new(E_Output *output, int index)
 
         plane->renderer = renderer;
      }
+
+   if (layer_capabilities & TDM_LAYER_CAPABILITY_VIDEO)
+      plane->type = E_PLANE_TYPE_VIDEO;
+   else if (layer_capabilities & TDM_LAYER_CAPABILITY_CURSOR)
+      plane->type = E_PLANE_TYPE_CURSOR;
+   else if (layer_capabilities & TDM_LAYER_CAPABILITY_GRAPHIC)
+      plane->type = E_PLANE_TYPE_GRAPHIC;
+   else
+      plane->type = E_PLANE_TYPE_INVALID;
 
    INF("E_PLANE: (%d) plane:%p name:%s zpos:%d capa:%s %s",
        index, plane, plane->name, plane->zpos,plane->is_primary?"primary":"", plane->reserved_memory?"reserved_memory":"");
@@ -972,12 +978,8 @@ e_plane_type_set(E_Plane *plane, E_Plane_Type type)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
-   if ((type == E_PLANE_TYPE_VIDEO) ||
-       (type == E_PLANE_TYPE_CURSOR))
-     {
-        if (plane->ec || plane->prepare_ec) return EINA_FALSE;
-     }
    plane->type = type;
+
    return EINA_TRUE;
 }
 

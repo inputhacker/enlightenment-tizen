@@ -250,8 +250,6 @@ _hwc_set(E_Output *eout)
      {
         Eina_Bool set = EINA_FALSE;
 
-        //if (e_plane_type_get(ep) != E_PLANE_TYPE_OVERLAY) continue;
-
         if (e_plane_is_fb_target(ep))
           {
              if (ep->prepare_ec)

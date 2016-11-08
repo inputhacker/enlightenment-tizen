@@ -4,7 +4,7 @@ typedef enum _E_Plane_Type
 {
    E_PLANE_TYPE_INVALID,
    E_PLANE_TYPE_VIDEO,
-   E_PLANE_TYPE_OVERLAY,
+   E_PLANE_TYPE_GRAPHIC,
    E_PLANE_TYPE_CURSOR
 } E_Plane_Type;
 
