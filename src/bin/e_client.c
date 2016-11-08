@@ -1878,6 +1878,7 @@ _e_client_cb_evas_restack(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA
 
    if (e_object_is_del(data)) return;
    if (ec->layer_block) return;
+   if (ec->layer_pending) return;
    if (e_config->transient.raise && ec->transients)
      {
         Eina_List *list = eina_list_clone(ec->transients);

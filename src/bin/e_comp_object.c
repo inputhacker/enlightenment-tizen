@@ -1360,7 +1360,7 @@ _e_comp_intercept_layer_set(void *data, Evas_Object *obj, int layer)
    unsigned int l = e_comp_canvas_layer_map(layer);
    int oldraise;
 
-   if (cw->ec->layer_block)
+   if ((cw->ec->layer_block) || (cw->ec->layer_pending))
      {
         /* doing a compositor effect, follow directions */
         evas_object_layer_set(obj, layer);
@@ -1465,8 +1465,13 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
    Evas_Object *o = stack;
    Eina_Bool raising = stack_cb == evas_object_stack_above;
 
-   if (cw->ec->layer_block)
+   if ((cw->ec->layer_block) || (cw->ec->layer_pending))
      {
+        if (cw->ec->layer_pending)
+          e_comp_object_layer_update(cw->smart_obj,
+                                     raising? stack : NULL,
+                                     raising? NULL : stack);
+
         /* obey compositor effects! */
         if (cw->ec->layer == evas_object_layer_get(cw->smart_obj))
           evas_object_data_set(cw->smart_obj, "client_restack", (void*)1);
@@ -1475,9 +1480,14 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
           evas_object_data_del(cw->smart_obj, "client_restack");
         return;
      }
+
+   cw2 = evas_object_data_get(o, "comp_obj");
+
    /* assume someone knew what they were doing during client init */
    if (cw->ec->new_client)
      layer = cw->ec->layer;
+   else if ((cw2) && (cw2->ec->layer_pending))
+     layer = cw2->ec->layer;
    else
      layer = evas_object_layer_get(stack);
    ecstack = e_client_below_get(cw->ec);
@@ -1491,7 +1501,6 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
      }
 
    /* check if we're stacking below another client */
-   cw2 = evas_object_data_get(o, "comp_obj");
    while (!cw2)
      {
         /* check for non-client layer object */
@@ -1544,6 +1553,44 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
      }
    else
      _e_comp_object_layers_add(cw, NULL, NULL, 0);
+
+   /* find new object for stacking if cw2 is on state of layer_pending */
+   if ((cw2) && (cw2->ec->layer_pending))
+     {
+        E_Client *new_stack = NULL;
+        if (raising)
+          {
+             while ((new_stack = e_client_below_get(cw2->ec)))
+               {
+                  if (new_stack == cw->ec) continue;
+                  if (new_stack->layer != cw2->ec->layer) break;
+                  if (!new_stack->layer_pending) break;
+               }
+             if ((new_stack) && (new_stack->layer == cw2->ec->layer))
+               stack = new_stack->frame;
+             else
+               {
+                  /* stack it above layer object */
+                  int below_layer;
+                  below_layer = (cw2->layer <= 0)? 0 : cw2->layer - 1 ;
+                  stack = e_comp->layers[below_layer].obj;
+               }
+          }
+        else
+          {
+             while ((new_stack = e_client_above_get(cw2->ec)))
+               {
+                  if (new_stack == cw->ec) continue;
+                  if (new_stack->layer != cw2->ec->layer) break;
+                  if (!new_stack->layer_pending) break;
+               }
+             if ((new_stack) && (new_stack->layer == cw2->ec->layer))
+               stack = new_stack->frame;
+             else
+               stack = e_comp->layers[cw2->layer].obj;
+          }
+     }
+
    /* set restack if stacking has changed */
    if (cw->ec->new_client || (!ecstack) || (ecstack->frame != o))
      evas_object_data_set(cw->smart_obj, "client_restack", (void*)1);
@@ -1594,8 +1641,11 @@ _e_comp_intercept_lower(void *data, Evas_Object *obj)
 
    TRACE_DS_BEGIN(COMP:INTERCEPT LOWER);
 
-   if (cw->ec->layer_block)
+   if ((cw->ec->layer_block) || (cw->ec->layer_pending))
      {
+        if (cw->ec->layer_pending)
+          e_comp_object_layer_update(obj, NULL, obj);
+
         evas_object_lower(obj);
         goto end;
      }
@@ -1626,8 +1676,11 @@ _e_comp_intercept_raise(void *data, Evas_Object *obj)
 
    TRACE_DS_BEGIN(COMP:INTERCEPT RAISE);
 
-   if (cw->ec->layer_block)
+   if ((cw->ec->layer_block) || (cw->ec->layer_pending))
      {
+        if (cw->ec->layer_pending)
+          e_comp_object_layer_update(obj, NULL, NULL);
+
         evas_object_raise(obj);
         goto end;
      }
