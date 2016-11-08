@@ -1344,6 +1344,10 @@ _tzpol_iface_cb_activate_below_by_res_id(struct wl_client *client EINA_UNUSED, s
    EINA_SAFETY_ON_NULL_RETURN(below_ec);
    EINA_SAFETY_ON_NULL_RETURN(below_ec->frame);
 
+   ELOGF("TZPOL",
+         "ACTIVATE_BELOW|win:0x%08x(res_id:%d)|below_win:0x%08x(res_id:%d)",
+         NULL, NULL, e_client_util_win_get(ec), res_id, e_client_util_win_get(below_ec), below_res_id);
+
    if (ec->layer > below_ec->layer) return;
 
    parent_ec = ec->parent;
@@ -1389,6 +1393,10 @@ _tzpol_iface_cb_activate_above_by_res_id(struct wl_client *client EINA_UNUSED, s
    above_ec = e_pixmap_find_client_by_res_id(above_res_id);
    EINA_SAFETY_ON_NULL_RETURN(above_ec);
    EINA_SAFETY_ON_NULL_RETURN(above_ec->frame);
+
+   ELOGF("TZPOL",
+         "ACTIVATE_ABOVE|win:0x%08x(res_id:%d)|above_win:0x%08x(res_id:%d)",
+         NULL, NULL, e_client_util_win_get(ec), res_id, e_client_util_win_get(above_ec), above_res_id);
 
    if (ec->layer < above_ec->layer) return;
 
@@ -1517,6 +1525,7 @@ _tzpol_iface_cb_focus_skip_set(struct wl_client *client EINA_UNUSED, struct wl_r
 
    if (ec->icccm.accepts_focus)
      {
+        ELOGF("TZPOL", "FOCUS|SKIP SET", ec->pixmap, ec);
         ec->icccm.accepts_focus = ec->icccm.take_focus = 0;
         ec->changes.accepts_focus = 1;
         EC_CHANGED(ec);
@@ -1533,6 +1542,7 @@ _tzpol_iface_cb_focus_skip_unset(struct wl_client *client EINA_UNUSED, struct wl
 
    if (!ec->icccm.accepts_focus)
      {
+        ELOGF("TZPOL", "FOCUS|SKIP UNSET", ec->pixmap, ec);
         ec->icccm.accepts_focus = ec->icccm.take_focus = 1;
         ec->changes.accepts_focus = 1;
         EC_CHANGED(ec);
@@ -2005,6 +2015,7 @@ _tzpol_iface_cb_subsurf_place_below_parent(struct wl_client *client EINA_UNUSED,
    /* check if a subsurface has already placed below a parent */
    if (eina_list_data_find(epc->comp_data->sub.below_list, ec)) return;
 
+   ELOGF("TZPOL", "SUBSURF|BELOW_PARENT", ec->pixmap, ec);
    epc->comp_data->sub.list = eina_list_remove(epc->comp_data->sub.list, ec);
    epc->comp_data->sub.list_pending = eina_list_remove(epc->comp_data->sub.list_pending, ec);
    epc->comp_data->sub.below_list = eina_list_append(epc->comp_data->sub.below_list, ec);
@@ -2024,6 +2035,7 @@ _tzpol_iface_cb_subsurf_stand_alone_set(struct wl_client *client EINA_UNUSED, st
    sdata = ec->comp_data->sub.data;
    EINA_SAFETY_ON_NULL_RETURN(sdata);
 
+   ELOGF("TZPOL", "SUBSURF|STAND_ALONE", ec->pixmap, ec);
    sdata->stand_alone = EINA_TRUE;
 }
 
