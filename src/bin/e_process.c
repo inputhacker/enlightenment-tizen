@@ -9,12 +9,16 @@ static void       _e_process_client_info_del(E_Client *ec);
 
 static Eina_Bool  _e_process_cb_client_add(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 static Eina_Bool  _e_process_cb_client_remove(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
+static Eina_Bool  _e_process_cb_client_hide(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 static Eina_Bool  _e_process_cb_client_iconify(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 static Eina_Bool  _e_process_cb_client_uniconify(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 static Eina_Bool  _e_process_cb_client_visibility_change(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 static Eina_Bool  _e_process_cb_client_focus_in(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 
 static void       _e_process_cb_hook_visibility(void *d EINA_UNUSED, E_Client *ec);
+
+static Eina_Bool  _e_process_windows_visible_get(pid_t pid, Eina_Bool *visible);
+static void       _e_process_windows_act_no_visible_update(pid_t pid);
 
 static Eina_Bool  _e_process_freeze_condition_check(pid_t pid);
 static Eina_Bool  _e_process_freeze(pid_t pid);
@@ -180,6 +184,31 @@ _e_process_cb_client_remove(void *data EINA_UNUSED, int type EINA_UNUSED, void *
 }
 
 static Eina_Bool
+_e_process_cb_client_hide(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
+{
+   E_Event_Client *ev;
+   E_Client *ec;
+   Eina_Bool visible;
+   pid_t pid;
+
+   ev = event;
+   if (!ev) return ECORE_CALLBACK_PASS_ON;
+
+   ec = ev->ec;
+   if (!ec) return ECORE_CALLBACK_PASS_ON;
+
+   pid = ec->netwm.pid;
+
+   if (_e_process_windows_visible_get(pid, &visible))
+     {
+        if (!visible)
+          _e_process_windows_act_no_visible_update(pid);
+     }
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
+static Eina_Bool
 _e_process_cb_client_iconify(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
 {
    E_Event_Client *ev;
@@ -312,6 +341,49 @@ _e_process_cb_hook_visibility(void *d EINA_UNUSED, E_Client *ec)
 }
 
 static Eina_Bool
+_e_process_windows_visible_get(pid_t pid, Eina_Bool *visible)
+{
+   E_Process *pinfo = NULL;
+   E_Client *ec = NULL;
+   Eina_Bool exist_visible = EINA_FALSE;
+   Eina_List *l;
+
+   if (pid <= 0) return EINA_FALSE;
+   if (!visible) return EINA_FALSE;
+
+   pinfo = _e_process_find(_e_process_manager, pid);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(pinfo, EINA_FALSE);
+
+   if (!pinfo->ec_list) return EINA_FALSE;
+
+   EINA_LIST_FOREACH(pinfo->ec_list, l, ec)
+     {
+        if (ec->visible && !ec->iconic)
+          {
+             exist_visible = EINA_TRUE;
+             break;
+          }
+     }
+
+   *visible = exist_visible;
+   return EINA_TRUE;
+}
+
+static void
+_e_process_windows_act_no_visible_update(pid_t pid)
+{
+   E_Process *pinfo = NULL;
+
+   if (pid <= 0) return;
+
+   pinfo = _e_process_find(_e_process_manager, pid);
+   EINA_SAFETY_ON_NULL_RETURN(pinfo);
+
+   ELOGF("PROCESS", "ACTION WINDOWS_HIDDEN. PID:%d", NULL, NULL, pinfo->pid);
+   _e_process_action_change(pinfo, E_PROCESS_ACT_NO_VISIBLE_WINDOWS);
+}
+
+static Eina_Bool
 _e_process_freeze_condition_check(pid_t pid)
 {
    E_Process *pinfo  = NULL;
@@ -402,6 +474,8 @@ _e_process_state_change(E_Process *epro, E_Process_State state)
           }
         else if (state == E_PROCESS_STATE_BACKGROUND)
           {
+             ELOGF("PROCESS", "ACTION WINDOWS_HIDDEN. PID:%d", NULL, NULL, epro->pid);
+             _e_process_action_change(epro, E_PROCESS_ACT_NO_VISIBLE_WINDOWS);
              ELOGF("PROCESS", "ACTION BACKGROUND. PID:%d", NULL, NULL, epro->pid);
              _e_process_action_change(epro, E_PROCESS_ACT_BACKGROUND);
           }
@@ -498,6 +572,7 @@ e_process_init(void)
 
    E_LIST_HANDLER_APPEND(_e_process_ec_handlers, E_EVENT_CLIENT_ADD, _e_process_cb_client_add, NULL);
    E_LIST_HANDLER_APPEND(_e_process_ec_handlers, E_EVENT_CLIENT_REMOVE, _e_process_cb_client_remove, NULL);
+   E_LIST_HANDLER_APPEND(_e_process_ec_handlers, E_EVENT_CLIENT_HIDE, _e_process_cb_client_hide, NULL);
    E_LIST_HANDLER_APPEND(_e_process_ec_handlers, E_EVENT_CLIENT_ICONIFY, _e_process_cb_client_iconify, NULL);
    E_LIST_HANDLER_APPEND(_e_process_ec_handlers, E_EVENT_CLIENT_UNICONIFY, _e_process_cb_client_uniconify, NULL);
    E_LIST_HANDLER_APPEND(_e_process_ec_handlers, E_EVENT_CLIENT_VISIBILITY_CHANGE, _e_process_cb_client_visibility_change, NULL);

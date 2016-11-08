@@ -9,6 +9,7 @@ typedef enum _E_Process_Action
    E_PROCESS_ACT_BACKGROUND = 4,
    E_PROCESS_ACT_ACTIVATE = 5,
    E_PROCESS_ACT_DEACTIVATE = 6,
+   E_PROCESS_ACT_NO_VISIBLE_WINDOWS = 7,
 } E_Process_Action;
 
 typedef enum _E_Process_State
