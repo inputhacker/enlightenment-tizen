@@ -2098,7 +2098,11 @@ _tzpol_iface_cb_opaque_state_set(struct wl_client *client, struct wl_resource *r
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
    ELOGF("TZPOL", "OPAQUE   |opaque_state:%d", ec->pixmap, ec, state);
+   if(ec->visibility.opaque == state)
+     return;
    ec->visibility.opaque = state;
+
+   EC_CHANGED(ec);
 }
 
 // --------------------------------------------------------
