@@ -892,7 +892,7 @@ _e_vis_client_uniconify_render(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool 
        return EINA_FALSE;
 
    if (_e_vis_client_is_uniconify_render_running(vc))
-     return EINA_TRUE;
+     goto end;
 
    VS_DBG(ec, "BEGIN Uniconify render: raise %d\n", raise);
 
@@ -901,9 +901,10 @@ _e_vis_client_uniconify_render(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool 
    vc->grab = _e_vis_client_grab_get(vc, __func__);
    _e_vis_client_buffer_attach_handler_add(vc);
 
-   ec->exp_iconify.not_raise = !raise;
    e_policy_wl_iconify_state_change_send(ec, 0);
 
+end:
+   ec->exp_iconify.not_raise = !raise;
    _e_vis_client_job_add(vc, type);
 
   return EINA_TRUE;
