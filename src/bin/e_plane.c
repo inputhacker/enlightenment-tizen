@@ -639,10 +639,12 @@ e_plane_hwc_setup(E_Plane *plane)
         if (!einfo) return EINA_FALSE;
         /* enable hwc to evas engine gl_drm */
         einfo->info.hwc_enable = EINA_TRUE;
+        ecore_evas_manual_render_set(e_comp->ee, 1);
         return EINA_TRUE;
      }
    else if(!strcmp("drm_tbm", name))
      {
+        ecore_evas_manual_render_set(e_comp->ee, 1);
         return EINA_TRUE;
      }
 

@@ -142,6 +142,7 @@ _e_comp_screen_commit_idle_cb(void *data EINA_UNUSED)
    E_Output *output = NULL;
 
    if (!e_comp->e_comp_screen) goto end;
+   if (!e_comp->hwc) goto end;
 
    e_comp_screen = e_comp->e_comp_screen;
 

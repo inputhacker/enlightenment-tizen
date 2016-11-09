@@ -589,7 +589,6 @@ e_plane_renderer_new(E_Plane *plane)
         renderer->ee = e_comp->ee;
         renderer->evas = ecore_evas_get(renderer->ee);
         renderer->tqueue = _get_tbm_surface_queue(renderer->ee);
-        ecore_evas_manual_render_set(renderer->ee, 1);
         renderer->event_fd = eventfd(0, EFD_NONBLOCK);
         renderer->event_hdlr = ecore_main_fd_handler_add(renderer->event_fd, ECORE_FD_READ,
                                _e_plane_renderer_cb_queue_acquirable_event, NULL, NULL, NULL);
