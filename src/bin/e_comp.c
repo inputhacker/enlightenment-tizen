@@ -368,6 +368,7 @@ _hwc_prepare(E_Output *eout, int n_vis, Eina_List *clist)
      }
 
    eina_list_free(hwc_l);
+   eina_list_free(clist2);
    return ret;
 }
 
