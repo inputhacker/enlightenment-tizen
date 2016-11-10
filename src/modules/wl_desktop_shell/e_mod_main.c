@@ -5,8 +5,16 @@
 
 #define XDG_SERVER_VERSION 5
 
-static Eina_Hash *shell_resources = NULL;
-static Eina_Hash *xdg_shell_resources = NULL;
+typedef struct _E_Xdg_Shell E_Xdg_Shell;
+
+struct _E_Xdg_Shell
+{
+   struct wl_client   *wc;
+   struct wl_resource *res;      /* xdg_shell resource */
+   Eina_List          *ping_ecs; /* list of all ec which are waiting for pong response */
+};
+
+static Eina_Hash *xdg_sh_hash = NULL;
 
 static void
 _e_shell_surface_parent_set(E_Client *ec, struct wl_resource *parent_resource)
@@ -1040,7 +1048,7 @@ _e_xdg_shell_surface_ping(struct wl_resource *resource)
    E_Client *ec;
    uint32_t serial;
    struct wl_client *client;
-   struct wl_resource *xdg_shell;
+   E_Xdg_Shell *esh;
 
    if (!resource)
      return;
@@ -1055,10 +1063,16 @@ _e_xdg_shell_surface_ping(struct wl_resource *resource)
      }
 
    client = wl_resource_get_client(resource);
-   xdg_shell = eina_hash_find(xdg_shell_resources, &client);
-   if (!xdg_shell) return;
+
+   esh = eina_hash_find(xdg_sh_hash, &client);
+   EINA_SAFETY_ON_NULL_RETURN(esh);
+   EINA_SAFETY_ON_NULL_RETURN(esh->res);
+
+   if (!eina_list_data_find(esh->ping_ecs, ec))
+     esh->ping_ecs = eina_list_append(esh->ping_ecs, ec);
+
    serial = wl_display_next_serial(e_comp_wl->wl.disp);
-   xdg_shell_send_ping(xdg_shell, serial);
+   xdg_shell_send_ping(esh->res, serial);
 }
 
 static Eina_Bool
@@ -1414,12 +1428,20 @@ _e_xdg_shell_cb_popup_get(struct wl_client *client, struct wl_resource *resource
 }
 
 static void
-_e_xdg_shell_cb_pong(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, uint32_t serial EINA_UNUSED)
+_e_xdg_shell_cb_pong(struct wl_client *client, struct wl_resource *resource, uint32_t serial EINA_UNUSED)
 {
    E_Client *ec;
+   E_Xdg_Shell *esh;
 
-   if ((ec = wl_resource_get_user_data(resource)))
+   esh = eina_hash_find(xdg_sh_hash, &client);
+   EINA_SAFETY_ON_NULL_RETURN(esh);
+   EINA_SAFETY_ON_NULL_RETURN(esh->res);
+   EINA_SAFETY_ON_FALSE_RETURN(esh->res == resource);
+
+   EINA_LIST_FREE(esh->ping_ecs, ec)
      {
+        if (e_object_is_del(E_OBJECT(ec))) continue;
+
         ec->ping_ok = EINA_TRUE;
         ec->hung = EINA_FALSE;
      }
@@ -1453,8 +1475,26 @@ static const struct xdg_shell_interface _e_xdg_shell_interface =
 static void
 _e_xdg_shell_cb_unbind(struct wl_resource *resource)
 {
-   struct wl_client *client = wl_resource_get_client(resource);
-   eina_hash_set(xdg_shell_resources, &client, NULL);
+   E_Xdg_Shell *esh;
+   E_Client *ec;
+   struct wl_client *client;
+
+   client = wl_resource_get_client(resource);
+   EINA_SAFETY_ON_NULL_RETURN(client);
+
+   esh = eina_hash_find(xdg_sh_hash, &client);
+   EINA_SAFETY_ON_NULL_RETURN(esh);
+
+   EINA_LIST_FREE(esh->ping_ecs, ec)
+     {
+        if (e_object_is_del(E_OBJECT(ec))) continue;
+        ec->ping_ok = EINA_TRUE;
+        ec->hung = EINA_FALSE;
+     }
+
+   eina_hash_del_by_key(xdg_sh_hash, &client);
+
+   E_FREE(esh);
 }
 
 static int
@@ -1489,10 +1529,9 @@ _e_xdg_shell_cb_dispatch(const void *implementation EINA_UNUSED, void *target, u
 }
 
 static void
-_e_shell_cb_unbind(struct wl_resource *resource)
+_e_shell_cb_unbind(struct wl_resource *resource EINA_UNUSED)
 {
-   struct wl_client *client = wl_resource_get_client(resource);
-   eina_hash_set(shell_resources, &client, NULL);
+   /* no op */
 }
 
 static void
@@ -1506,7 +1545,6 @@ _e_shell_cb_bind(struct wl_client *client, void *data EINA_UNUSED, uint32_t vers
         return;
      }
 
-   eina_hash_set(shell_resources, &client, res);
    wl_resource_set_implementation(res,
                                   &_e_shell_interface,
                                   e_comp->wl_comp_data,
@@ -1516,20 +1554,29 @@ _e_shell_cb_bind(struct wl_client *client, void *data EINA_UNUSED, uint32_t vers
 static void
 _e_xdg_shell_cb_bind(struct wl_client *client, void *data EINA_UNUSED, uint32_t version, uint32_t id)
 {
+   E_Xdg_Shell *esh;
    struct wl_resource *res;
 
-   if (!(res = wl_resource_create(client, &xdg_shell_interface, version, id)))
-     {
-        wl_client_post_no_memory(client);
-        return;
-     }
+   res = wl_resource_create(client, &xdg_shell_interface, version, id);
+   EINA_SAFETY_ON_NULL_GOTO(res, err);
 
-   eina_hash_set(xdg_shell_resources, &client, res);
+   esh = E_NEW(E_Xdg_Shell, 1);
+   EINA_SAFETY_ON_NULL_GOTO(esh, err);
+
+   esh->wc = client;
+   esh->res = res;
+   eina_hash_add(xdg_sh_hash, &client, esh);
+
    wl_resource_set_dispatcher(res,
                               _e_xdg_shell_cb_dispatch,
                               NULL,
                               e_comp->wl_comp_data,
                               NULL);
+
+   return;
+
+err:
+   wl_client_post_no_memory(client);
 }
 
 static void
@@ -1648,8 +1695,7 @@ e_modapi_init(E_Module *m)
      }
 #endif
 
-   shell_resources = eina_hash_pointer_new(NULL);
-   xdg_shell_resources = eina_hash_pointer_new(NULL);
+   xdg_sh_hash = eina_hash_pointer_new(NULL);
 
    return m;
 }
@@ -1660,8 +1706,7 @@ e_modapi_shutdown(E_Module *m EINA_UNUSED)
 #ifdef HAVE_WL_TEXT_INPUT
    e_input_panel_shutdown();
 #endif
-   eina_hash_free(shell_resources);
-   eina_hash_free(xdg_shell_resources);
+   eina_hash_free(xdg_sh_hash);
 
    return 1;
 }
