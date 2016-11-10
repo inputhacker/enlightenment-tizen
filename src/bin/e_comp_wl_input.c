@@ -31,9 +31,14 @@ _e_comp_wl_input_pointer_map(struct wl_resource *resource)
 {
    E_Client *ec;
    E_Pointer *ptr;
+   struct wl_client *wc;
 
    if (!(ec = wl_resource_get_user_data(resource))) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
+
+   if (!e_comp_wl->ptr.ec || !e_comp_wl->ptr.ec->comp_data || !e_comp_wl->ptr.ec->comp_data->surface) return;
+   wc = wl_resource_get_client(resource);
+   if (wc != wl_resource_get_client(e_comp_wl->ptr.ec->comp_data->surface)) return;
 
    if ((ptr = e_comp->pointer))
      e_pointer_object_set(ptr, ec->frame, ptr->hot.x, ptr->hot.y);
