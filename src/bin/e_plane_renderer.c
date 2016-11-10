@@ -162,10 +162,12 @@ _e_plane_renderer_client_copied_surface_create(E_Client *ec, Eina_Bool refresh)
    /* copy from src to dst */
 #if HAVE_LIBGOMP
 # define LIBGOMP_COPY_THREAD_NUM 4
-   if (src_info.planes[0].size > LIBGOMP_COPY_THREAD_NUM)
+# define LIBGOMP_COPY_PAGE_SIZE getpagesize()
+# define PAGE_ALIGN(addr) ((addr)&(~((LIBGOMP_COPY_PAGE_SIZE)-1)))
+   if (src_info.planes[0].size > (LIBGOMP_COPY_THREAD_NUM * LIBGOMP_COPY_PAGE_SIZE))
      {
         size_t step[2];
-        step[0] = src_info.planes[0].size / LIBGOMP_COPY_THREAD_NUM;
+        step[0] = PAGE_ALIGN(src_info.planes[0].size / LIBGOMP_COPY_THREAD_NUM);
         step[1] = src_info.planes[0].size - (step[0] * (LIBGOMP_COPY_THREAD_NUM - 1));
 
         omp_set_num_threads(LIBGOMP_COPY_THREAD_NUM);
