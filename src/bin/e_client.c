@@ -1065,6 +1065,12 @@ _e_client_cb_ping_poller(void *data)
    E_Client *ec;
 
    ec = data;
+   if (e_object_is_del(E_OBJECT(ec)))
+     {
+        ec->ping_poller = NULL;
+        return ECORE_CALLBACK_CANCEL;
+     }
+
    if (ec->ping_ok)
      {
         if (ec->hung)
@@ -5494,7 +5500,11 @@ e_client_ping(E_Client *ec)
 {
    E_OBJECT_CHECK(ec);
    E_OBJECT_TYPE_CHECK(ec, E_CLIENT_TYPE);
+
    if (!e_config->ping_clients) return;
+
+   EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(ec)));
+
    ec->ping_ok = 0;
    evas_object_smart_callback_call(ec->frame, "ping", NULL);
    ec->ping = ecore_loop_time_get();
