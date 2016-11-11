@@ -5120,18 +5120,8 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
      {
         if ((ec) && (ec->comp_data->video_client))
           {
-             E_Client *topmost = _e_comp_wl_topmost_parent_get(ec);
-             tbm_surf = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, resource);
              buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
-             if (topmost->argb)
-               {
-                  buffer->w = tbm_surface_get_width(tbm_surf);
-                  buffer->h = tbm_surface_get_height(tbm_surf);
-               }
-             else
-               {
-                  buffer->w = buffer->h = 1;
-               }
+             buffer->w = buffer->h = 1;
           }
         else if (e_comp->gl)
           {
