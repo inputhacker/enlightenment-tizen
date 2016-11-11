@@ -207,7 +207,7 @@ _mover_smart_add(Evas_Object *obj)
    evas_object_smart_data_set(obj, md);
 
    evas_object_move(obj, -1 , -1);
-   evas_object_layer_set(obj, EVAS_LAYER_MAX - 1); // EVAS_LAYER_MAX :L cursor layer
+   evas_object_layer_set(obj, E_POLICY_QUICKPANEL_LAYER);
    evas_object_intercept_show_callback_add(obj, _mover_intercept_show, md);
 }
 
