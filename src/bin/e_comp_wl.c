@@ -636,7 +636,7 @@ _e_comp_wl_send_touch_cancel(E_Client *ec)
 
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
-   if (!ec->comp_data->surface) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
    if (ec->ignored) return;
 
    wc = wl_resource_get_client(ec->comp_data->surface);
@@ -806,7 +806,7 @@ _e_comp_wl_device_send_event_device(E_Client *ec, Evas_Device *dev, uint32_t tim
      return;
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (ec->ignored) return;
-   if (!ec->comp_data->surface) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
 
    dev_class = (Ecore_Device_Class)evas_device_class_get(dev);
    dev_name = evas_device_description_get(dev);
@@ -841,7 +841,7 @@ _e_comp_wl_device_send_last_event_device(E_Client *ec, Ecore_Device_Class dev_cl
    uint32_t serial;
    Eina_List *l;
 
-   if (!ec->comp_data->surface) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
 
    last_device = _e_comp_wl_device_last_device_get(dev_class);
    if (!last_device) return;
@@ -896,7 +896,7 @@ _e_comp_wl_cursor_reload(E_Client *ec)
 
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
-   if (!ec->comp_data->surface) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
 
    cx = wl_fixed_to_int(e_comp_wl->ptr.x) - ec->client.x;
    cy = wl_fixed_to_int(e_comp_wl->ptr.y) - ec->client.y;
@@ -985,7 +985,7 @@ _e_comp_wl_evas_cb_mouse_in(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj
    if (!(ec = data)) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
-   if (!ec->comp_data->surface) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
 
    e_comp_wl->ptr.ec = ec;
    if (e_comp_wl->drag)
@@ -1061,7 +1061,7 @@ _e_comp_wl_evas_cb_mouse_out(void *data, Evas *evas EINA_UNUSED, Evas_Object *ob
      e_comp_wl->ptr.ec = NULL;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
-   if (!ec->comp_data->surface) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
 
    if (e_comp_wl->drag)
      {
@@ -1211,7 +1211,7 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
    if (ec->cur_mouse_action) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (ec->ignored) return;
-   if (!ec->comp_data->surface) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
 
    if ((!need_send_motion) && (!need_send_released) && (ec->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)) return;
 
@@ -1249,7 +1249,7 @@ _e_comp_wl_evas_handle_mouse_button_to_touch(E_Client *ec, uint32_t timestamp, i
 {
    if (ec->cur_mouse_action || e_comp_wl->drag) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
-   if (!ec->comp_data->surface) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
    if (ec->ignored) return;
 
    e_comp_wl->ptr.button = BTN_LEFT;
@@ -1401,7 +1401,7 @@ _e_comp_wl_evas_cb_mouse_wheel(void *data, Evas *evas EINA_UNUSED, Evas_Object *
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (ec->ignored) return;
 
-   if (!ec->comp_data->surface) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
 
    if (!eina_list_count(e_comp_wl->ptr.resources))
      return;
@@ -1422,7 +1422,7 @@ _e_comp_wl_evas_cb_multi_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
 
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
-   if (!ec->comp_data->surface) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
 
    /* Do not deliver emulated single touch events to client */
    if (ev->device == 0) return;
@@ -1450,7 +1450,7 @@ _e_comp_wl_evas_cb_multi_up(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj
 
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
-   if (!ec->comp_data->surface) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
 
    /* Do not deliver emulated single touch events to client */
    if (ev->device == 0) return;
@@ -1478,7 +1478,7 @@ _e_comp_wl_evas_cb_multi_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
 
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
-   if (!ec->comp_data->surface) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
 
    /* Do not deliver emulated single touch events to client */
    if (ev->device == 0) return;
@@ -5565,7 +5565,7 @@ e_comp_wl_evas_handle_mouse_button(E_Client *ec, uint32_t timestamp, uint32_t bu
 
    e_comp_wl->ptr.button = btn;
 
-   if (!ec->comp_data->surface) return EINA_FALSE;
+   if (!ec->comp_data || !ec->comp_data->surface) return EINA_FALSE;
 
    if (!eina_list_count(e_comp_wl->ptr.resources))
      return EINA_TRUE;
@@ -5849,7 +5849,7 @@ e_comp_wl_cursor_hide(E_Client *ec)
    if (!ec) return EINA_FALSE;
    if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
 
-   if (!ec->comp_data->surface) return EINA_FALSE;
+   if (!ec->comp_data || !ec->comp_data->surface) return EINA_FALSE;
    wc = wl_resource_get_client(ec->comp_data->surface);
    serial = wl_display_next_serial(e_comp_wl->wl.disp);
    EINA_LIST_FOREACH(e_comp_wl->ptr.resources, l, res)
