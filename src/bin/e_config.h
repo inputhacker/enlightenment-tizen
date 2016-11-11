@@ -11,6 +11,7 @@ typedef struct _E_Config_Env_Var                E_Config_Env_Var;
 typedef struct _E_Config_Client_Type            E_Config_Client_Type;
 typedef struct _E_Config_Policy_Desk            E_Config_Policy_Desk;
 typedef struct _E_Config_Socket_Access          E_Config_Socket_Access;
+typedef struct _E_Config_Aux_Hint_Supported     E_Config_Aux_Hint_Supported;
 
 #else
 #ifndef E_CONFIG_H
@@ -157,6 +158,7 @@ struct _E_Config
    int delayed_load_idle_count;
    Eina_Bool use_buffer_flush;
    Eina_List *sock_accesses;
+   Eina_List *aux_hint_supported;
 };
 
 struct _E_Config_Desklock_Background
@@ -263,6 +265,11 @@ struct _E_Config_Socket_Access
          int           flags;
       } smack;
    } sock_symlink_access;
+};
+
+struct _E_Config_Aux_Hint_Supported
+{
+   const char *name;
 };
 
 EINTERN int                   e_config_init(void);

@@ -23,6 +23,7 @@ static E_Config_DD *_e_config_env_var_edd = NULL;
 static E_Config_DD *_e_config_client_type_edd = NULL;
 static E_Config_DD *_e_config_policy_desk_edd = NULL;
 static E_Config_DD *_e_config_socket_access_edd = NULL;
+static E_Config_DD *_e_config_aux_hint_supported_edd = NULL;
 
 E_API int E_EVENT_CONFIG_MODE_CHANGED = 0;
 
@@ -51,6 +52,7 @@ _e_config_edd_shutdown(void)
    E_CONFIG_DD_FREE(_e_config_client_type_edd);
    E_CONFIG_DD_FREE(_e_config_policy_desk_edd);
    E_CONFIG_DD_FREE(_e_config_socket_access_edd);
+   E_CONFIG_DD_FREE(_e_config_aux_hint_supported_edd);
 }
 
 static void
@@ -146,6 +148,13 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, sock_symlink_access.smack.name, STR);
    E_CONFIG_VAL(D, T, sock_symlink_access.smack.value, STR);
    E_CONFIG_VAL(D, T, sock_symlink_access.smack.flags, INT);
+
+   _e_config_aux_hint_supported_edd = E_CONFIG_DD_NEW("E_Config_Aux_Hint_Supported", E_Config_Aux_Hint_Supported);
+#undef T
+#undef D
+#define T E_Config_Aux_Hint_Supported
+#define D _e_config_aux_hint_supported_edd
+   E_CONFIG_VAL(D, T, name, STR);
 
    _e_config_edd = E_CONFIG_DD_NEW("E_Config", E_Config);
 #undef T
@@ -255,6 +264,7 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, delayed_load_idle_count, INT);
    E_CONFIG_VAL(D, T, use_buffer_flush, UCHAR);
    E_CONFIG_LIST(D, T, sock_accesses, _e_config_socket_access_edd);
+   E_CONFIG_LIST(D, T, aux_hint_supported, _e_config_aux_hint_supported_edd);
 }
 
 /* externally accessible functions */
@@ -834,6 +844,7 @@ _e_config_free(E_Config *ecf)
    E_Config_Desktop_Window_Profile *wp;
    E_Config_Policy_Desk *pd;
    E_Config_Socket_Access *sa;
+   E_Config_Aux_Hint_Supported *auxhint;
 
    if (!ecf) return;
 
@@ -886,6 +897,12 @@ _e_config_free(E_Config *ecf)
         eina_stringshare_del(sa->sock_symlink_access.smack.name);
         eina_stringshare_del(sa->sock_symlink_access.smack.value);
         E_FREE(sa);
+     }
+
+   EINA_LIST_FREE(ecf->aux_hint_supported, auxhint)
+     {
+        eina_stringshare_del(auxhint->name);
+        E_FREE(auxhint);
      }
 
    E_FREE(ecf);

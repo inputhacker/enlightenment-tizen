@@ -5397,12 +5397,22 @@ void
 e_policy_wl_aux_hint_init(void)
 {
    int i, n;
+   E_Config_Aux_Hint_Supported *auxhint;
+   Eina_List *l;
+
    n = (sizeof(hint_names) / sizeof(char *));
 
    for (i = 0; i < n; i++)
      {
         e_hints_aux_hint_supported_add(hint_names[i]);
      }
+
+   EINA_LIST_FOREACH(e_config->aux_hint_supported, l, auxhint)
+     {
+        if (!auxhint->name) continue;
+        e_hints_aux_hint_supported_add(auxhint->name);
+     }
+
    return;
 }
 
