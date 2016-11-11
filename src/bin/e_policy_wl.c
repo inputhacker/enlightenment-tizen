@@ -2952,7 +2952,6 @@ static const struct tizen_policy_interface _tzpol_iface =
    _tzpol_iface_cb_pos_get,
    _tzpol_iface_cb_activate,
    _tzpol_iface_cb_activate_below_by_res_id,
-   _tzpol_iface_cb_activate_above_by_res_id,
    _tzpol_iface_cb_raise,
    _tzpol_iface_cb_lower,
    _tzpol_iface_cb_lower_by_res_id,
@@ -2982,6 +2981,7 @@ static const struct tizen_policy_interface _tzpol_iface =
    _tzpol_iface_cb_floating_mode_set,
    _tzpol_iface_cb_floating_mode_unset,
    _tzpol_iface_cb_stack_mode_set,
+   _tzpol_iface_cb_activate_above_by_res_id,
 };
 
 static void
