@@ -5,6 +5,7 @@
 #include "services/e_service_lockscreen.h"
 #include "services/e_service_indicator.h"
 #include "services/e_service_cbhm.h"
+#include "services/e_service_scrsaver.h"
 #include "e_policy_wl_display.h"
 #include "e_policy_conformant.h"
 #include "e_policy_visibility.h"
@@ -3535,9 +3536,9 @@ _tzsh_iface_cb_srv_create(struct wl_client *client, struct wl_resource *res_tzsh
    else if (role == TZSH_SRV_ROLE_LOCKSCREEN)
      e_service_lockscreen_client_set(tzsh->ec);
    else if (role == TZSH_SRV_ROLE_SCREENSAVER_MNG)
-     e_service_lockscreen_client_set(tzsh->ec);
+     e_service_scrsaver_client_set(tzsh->ec);
    else if (role == TZSH_SRV_ROLE_SCREENSAVER)
-     e_service_lockscreen_client_set(tzsh->ec);
+     e_service_scrsaver_client_set(tzsh->ec);
    else if (role == TZSH_SRV_ROLE_INDICATOR)
      e_mod_indicator_client_set(tzsh->ec);
    else if (role == TZSH_SRV_ROLE_CBHM)
