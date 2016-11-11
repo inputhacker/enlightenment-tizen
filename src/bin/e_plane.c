@@ -703,6 +703,10 @@ e_plane_fetch(E_Plane *plane)
           tsurface = _e_plane_surface_from_client_acquire_reserved(plane);
         else
           tsurface = _e_plane_surface_from_client_acquire(plane);
+
+        /* For send frame::done to client */
+        if (!tsurface)
+          e_pixmap_image_clear(plane->ec->pixmap, 1);
      }
 
    if (!tsurface) return EINA_FALSE;
