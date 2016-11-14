@@ -501,11 +501,27 @@ _conf_idle_enter(void *data)
 
    for (type = CONFORMANT_TYPE_INDICATOR; type < CONFORMANT_TYPE_MAX; type ++)
      {
+        visible = EINA_FALSE;
+        x = y = w = h = 0;
+
         if (conf->part[type].changed)
           {
-             visible = evas_object_visible_get(conf->part[type].ec->frame);
-             evas_object_geometry_get(conf->part[type].ec->frame, &x, &y, &w, &h);
+             if (conf->part[type].ec)
+               {
+                  E_Client *ec = conf->part[type].ec;
 
+                  //wait for end of animation
+                  if ((e_comp_object_is_animating(ec->frame)) ||
+                      (evas_object_data_get(ec->frame, "effect_running")))
+                    {
+                       CFDBG("Animation is running, skip and try next ec(%p)", ec);
+                       continue;
+                    }
+
+                  visible = evas_object_visible_get(conf->part[type].ec->frame);
+                  evas_object_geometry_get(conf->part[type].ec->frame, &x, &y, &w, &h);
+
+               }
              _conf_state_update(conf, type, visible, x, y, w, h);
              conf->part[type].changed = EINA_FALSE;
           }
