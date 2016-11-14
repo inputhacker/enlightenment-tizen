@@ -216,6 +216,21 @@ e_service_gesture_del(E_Policy_Gesture *gesture)
 }
 
 EINTERN void
+e_service_gesture_type_set(E_Policy_Gesture *gesture, E_Policy_Gesture_Type type)
+{
+   EINA_SAFETY_ON_NULL_RETURN(gesture);
+
+   if (gesture->type == type)
+     return;
+
+   gesture->type = type;
+   if (type == POL_GESTURE_TYPE_NONE)
+     evas_object_repeat_events_set(gesture->obj, EINA_FALSE);
+   else
+     evas_object_repeat_events_set(gesture->obj, EINA_TRUE);
+}
+
+EINTERN void
 e_service_gesture_cb_set(E_Policy_Gesture *gesture, E_Policy_Gesture_Start_Cb cb_start, E_Policy_Gesture_Move_Cb cb_move, E_Policy_Gesture_End_Cb cb_end, void *data)
 {
    EINA_SAFETY_ON_NULL_RETURN(gesture);

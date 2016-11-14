@@ -910,10 +910,11 @@ _quickpanel_handler_rect_add(E_Policy_Quickpanel *qp, E_Policy_Angle_Map ridx, i
    if (!obj)
      return;
 
-   e_service_region_cb_set(obj,
-                       _region_obj_cb_gesture_start,
-                       _region_obj_cb_gesture_move,
-                       _region_obj_cb_gesture_end, qp);
+   e_service_region_gesture_set(obj,
+                                POL_GESTURE_TYPE_NONE,
+                                _region_obj_cb_gesture_start,
+                                _region_obj_cb_gesture_move,
+                                _region_obj_cb_gesture_end, qp);
 
    /* Add handler object to smart member to follow the client's stack */
    evas_object_smart_member_add(obj, ec->frame);
@@ -1206,10 +1207,11 @@ _quickpanel_indicator_object_new(E_Policy_Quickpanel *qp)
    /* FIXME: make me move to explicit layer something like POL_LAYER */
    evas_object_layer_set(indi_obj, EVAS_LAYER_MAX - 1);
 
-   e_service_region_cb_set(indi_obj,
-                       _region_obj_cb_gesture_start,
-                       _region_obj_cb_gesture_move,
-                       _region_obj_cb_gesture_end, qp);
+   e_service_region_gesture_set(indi_obj,
+                                POL_GESTURE_TYPE_LINE,
+                                _region_obj_cb_gesture_start,
+                                _region_obj_cb_gesture_move,
+                                _region_obj_cb_gesture_end, qp);
 
    evas_object_show(indi_obj);
 

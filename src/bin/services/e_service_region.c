@@ -152,7 +152,7 @@ err_event:
 }
 
 EINTERN Eina_Bool
-e_service_region_cb_set(Evas_Object *ro, E_Policy_Gesture_Start_Cb cb_start, E_Policy_Gesture_Move_Cb cb_move, E_Policy_Gesture_End_Cb cb_end, void *data)
+e_service_region_gesture_set(Evas_Object *ro, E_Policy_Gesture_Type type, E_Policy_Gesture_Start_Cb cb_start, E_Policy_Gesture_Move_Cb cb_move, E_Policy_Gesture_End_Cb cb_end, void *data)
 {
    E_Policy_Gesture *gesture;
 
@@ -161,12 +161,14 @@ e_service_region_cb_set(Evas_Object *ro, E_Policy_Gesture_Start_Cb cb_start, E_P
    INF("Set Callback function");
    if (!region->gesture)
      {
-        gesture = e_service_gesture_add(ro, POL_GESTURE_TYPE_LINE);
+        gesture = e_service_gesture_add(ro, type);
         if (!gesture)
           return EINA_FALSE;
 
         region->gesture = gesture;
      }
+   else
+     e_service_gesture_type_set(region->gesture, type);
 
    e_service_gesture_cb_set(region->gesture, cb_start, cb_move, cb_end, data);
 
