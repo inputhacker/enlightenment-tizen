@@ -932,6 +932,10 @@ _e_comp_wl_device_send_axis(const char *dev_name, Evas_Device_Class dev_class, E
    Eina_List *l, *ll;
    wl_fixed_t f_value;
 
+   if (!ec) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
+
    f_value = wl_fixed_from_double(value);
    wc = wl_resource_get_client(ec->comp_data->surface);
 
@@ -1101,6 +1105,10 @@ _e_comp_wl_send_touch(E_Client *ec, int idx, int canvas_x, int canvas_y, uint32_
    wl_fixed_t x, y;
    uint32_t serial;
 
+   if (!ec) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
+
    wc = wl_resource_get_client(ec->comp_data->surface);
    serial = wl_display_next_serial(e_comp_wl->wl.disp);
 
@@ -1131,6 +1139,10 @@ _e_comp_wl_send_touch_move(E_Client *ec, int idx, int canvas_x, int canvas_y, ui
    struct wl_resource *res;
    wl_fixed_t x, y;
 
+   if (!ec) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
+
    wc = wl_resource_get_client(ec->comp_data->surface);
 
    x = wl_fixed_from_int(canvas_x - ec->client.x);
@@ -1150,6 +1162,10 @@ _e_comp_wl_send_mouse_move(E_Client *ec, int x, int y, unsigned int timestamp, E
    struct wl_resource *res;
    struct wl_client *wc;
    Eina_List *l;
+
+   if (!ec) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
 
    wc = wl_resource_get_client(ec->comp_data->surface);
    EINA_LIST_FOREACH(e_comp_wl->ptr.resources, l, res)
@@ -1265,6 +1281,10 @@ _e_comp_wl_send_mouse_out(E_Client *ec)
    uint32_t serial;
    Eina_List *l;
 
+   if (!ec) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
+
    wc = wl_resource_get_client(ec->comp_data->surface);
    serial = wl_display_next_serial(e_comp_wl->wl.disp);
    EINA_LIST_FOREACH(e_comp_wl->ptr.resources, l, res)
@@ -1379,6 +1399,10 @@ _e_comp_wl_mouse_wheel_send(E_Client *ec, int direction, int z, int timestamp)
      dir = -wl_fixed_from_int(abs(z));
    else
      dir = wl_fixed_from_int(z);
+
+   if (!ec) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (!ec->comp_data || !ec->comp_data->surface) return;
 
    wc = wl_resource_get_client(ec->comp_data->surface);
    EINA_LIST_FOREACH(e_comp_wl->ptr.resources, l, res)
@@ -5358,7 +5382,8 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
 #endif
 
    ec = e_client_focused_get();
-   wc = (ec ? ec->comp_data->surface ? wl_resource_get_client(ec->comp_data->surface) : NULL : NULL);
+   if (ec && ec->comp_data && ec->comp_data->surface)
+     wc = wl_resource_get_client(ec->comp_data->surface);
 
    if (ev->data)
      {
@@ -5383,7 +5408,7 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
              if ((!e_client_action_get()) && (!e_comp->input_key_grabs))
                {
                   ec = e_client_focused_get();
-                  if (ec && ec->comp_data->surface && e_comp_wl->kbd.focused)
+                  if (ec && ec->comp_data && ec->comp_data->surface && e_comp_wl->kbd.focused)
                     {
                        _e_comp_wl_key_send(ev, WL_KEYBOARD_KEY_STATE_PRESSED, e_comp_wl->kbd.focused, EINA_TRUE);
 
@@ -5422,7 +5447,7 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
    if ((!e_client_action_get()) && (!e_comp->input_key_grabs))
      {
         ec = e_client_focused_get();
-        if (ec && ec->comp_data->surface && e_comp_wl->kbd.focused)
+        if (ec && ec->comp_data && ec->comp_data->surface && e_comp_wl->kbd.focused)
           {
              ev->data = wc;
              _e_comp_wl_key_send(ev, WL_KEYBOARD_KEY_STATE_PRESSED, e_comp_wl->kbd.focused, EINA_TRUE);
@@ -5467,7 +5492,9 @@ e_comp_wl_key_up(Ecore_Event_Key *ev)
      }
 
    ec = e_client_focused_get();
-   wc = (ec ? ec->comp_data->surface ? wl_resource_get_client(ec->comp_data->surface) : NULL : NULL);
+
+   if (ec && ec->comp_data && ec->comp_data->surface)
+     wc = wl_resource_get_client(ec->comp_data->surface);
 
    if (ev->data)
      {
