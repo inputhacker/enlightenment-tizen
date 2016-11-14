@@ -244,7 +244,8 @@ _e_process_cb_client_uniconify(void *data EINA_UNUSED, int type EINA_UNUSED, voi
    if (!ec) return ECORE_CALLBACK_PASS_ON;
 
    pid = ec->netwm.pid;
-   _e_process_thaw(pid);
+   if (ec->visible)
+     _e_process_thaw(pid);
 
    return ECORE_CALLBACK_PASS_ON;
 }
