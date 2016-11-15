@@ -840,7 +840,7 @@ struct E_Client
  struct
    {
        Eina_List *transform_list;
-       Eina_Bool  keep_ratio;
+       Eina_Bool  background;
        Eina_Bool  changed;
 
        struct

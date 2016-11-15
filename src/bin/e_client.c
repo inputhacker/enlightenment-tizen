@@ -6094,7 +6094,7 @@ e_client_transform_core_update(E_Client *ec)
         E_Util_Transform_Rect source_rect;
         E_Util_Transform_Matrix matrix, boundary_matrix;
         Eina_List *l;
-        Eina_Bool keep_ratio = EINA_FALSE;
+        Eina_Bool background;
         E_Util_Transform *temp_trans;
 
         // 1. init state
@@ -6116,21 +6116,23 @@ e_client_transform_core_update(E_Client *ec)
              e_util_transform_rect_init(&source_rect, vx, vy, vw, vh);
           }
 
-        // 3. covert to matrix and apply keep_ratio
-        boundary_matrix = e_util_transform_convert_to_matrix(&ec->transform_core.result.transform, &source_rect);
-        keep_ratio = e_util_transform_keep_ratio_get(&ec->transform_core.result.transform);
+        // 3. apply background transform
+        matrix = e_util_transform_convert_to_matrix(&ec->transform_core.result.transform, &source_rect);
 
-        if (keep_ratio)
+        if (e_util_transform_bg_transform_flag_get(&ec->transform_core.result.transform))
           {
-             ec->transform_core.result.transform = e_util_transform_keep_ratio_apply(&ec->transform_core.result.transform, ec->w, ec->h);
-             matrix = e_util_transform_convert_to_matrix(&ec->transform_core.result.transform, &source_rect);
+             boundary_matrix = e_util_transform_bg_convert_to_matrix(&ec->transform_core.result.transform, &source_rect);
+             background = EINA_TRUE;
           }
         else
-           matrix = boundary_matrix;
-
-        if (keep_ratio != ec->transform_core.keep_ratio)
           {
-             if (keep_ratio)
+             background = EINA_FALSE;
+             boundary_matrix = matrix;
+          }
+
+        if (background != ec->transform_core.background)
+          {
+             if (background)
                {
                   e_comp_object_transform_bg_set(ec->frame, EINA_TRUE);
                }
@@ -6139,7 +6141,7 @@ e_client_transform_core_update(E_Client *ec)
                   e_comp_object_transform_bg_set(ec->frame, EINA_FALSE);
                }
 
-             ec->transform_core.keep_ratio = keep_ratio;
+             ec->transform_core.background = background;
           }
 
         // 3.1 if 24bit window then set transp rect

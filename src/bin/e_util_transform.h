@@ -1,21 +1,17 @@
 #ifdef E_TYPEDEFS
 
-typedef struct _E_Util_Transform_Value       E_Util_Transform_Value;
-typedef struct _E_Util_Transform_Texcoord    E_Util_Transform_Texcoord;
-typedef struct _E_Util_Transform             E_Util_Transform;
-typedef struct _E_Util_Transform_Rect        E_Util_Transform_Rect;
-typedef struct _E_Util_Transform_Vertex      E_Util_Transform_Vertex;
-typedef struct _E_Util_Transform_Rect_Vertex E_Util_Transform_Rect_Vertex;
-typedef struct _E_Util_Transform_Matrix      E_Util_Transform_Matrix;
+typedef struct _E_Util_Transform_Value              E_Util_Transform_Value;
+typedef struct _E_Util_Transform_Texcoord           E_Util_Transform_Texcoord;
+typedef struct _E_Util_Transform                    E_Util_Transform;
+typedef struct _E_Util_Transform_Rect               E_Util_Transform_Rect;
+typedef struct _E_Util_Transform_Vertex             E_Util_Transform_Vertex;
+typedef struct _E_Util_Transform_Rect_Vertex        E_Util_Transform_Rect_Vertex;
+typedef struct _E_Util_Transform_Matrix             E_Util_Transform_Matrix;
+
 
 #else
 #ifndef E_UTIL_TRANSFORM_H_
 #define E_UTIL_TRANSFORM_H_
-
-struct _E_Util_Transform_Value
-{
-   double value[3];
-};
 
 struct _E_Util_Transform_Texcoord
 {
@@ -30,18 +26,24 @@ struct _E_Util_Transform_Rect
    int h;
 };
 
+struct _E_Util_Transform_Value
+{
+   double move[3];
+   double scale[3];
+   double rotation[3];
+};
+
 struct _E_Util_Transform
 {
-   E_Util_Transform_Value    scale;
-   E_Util_Transform_Value    move;
-   E_Util_Transform_Value    rotation;
+   E_Util_Transform_Value    transform;
+   E_Util_Transform_Value    bg_transform;
    E_Util_Transform_Texcoord texcoord;
    E_Util_Transform_Rect     viewport;
    int                       ref_count;
-   Eina_Bool                 keep_ratio;
    Eina_Bool                 changed;
    Eina_Bool                 use_texcoord;
    Eina_Bool                 use_viewport;
+   Eina_Bool                 use_bg_transform;
 };
 
 struct _E_Util_Transform_Vertex
@@ -61,6 +63,7 @@ struct _E_Util_Transform_Matrix
 
 E_API E_Util_Transform            *e_util_transform_new(void);
 E_API void                         e_util_transform_del(E_Util_Transform *transform);
+E_API void                         e_util_transform_copy(E_Util_Transform *dest, E_Util_Transform *source);
 E_API void                         e_util_transform_ref(E_Util_Transform *transform);
 E_API void                         e_util_transform_unref(E_Util_Transform *transform);
 E_API int                          e_util_transform_ref_count_get(E_Util_Transform *transform);
@@ -68,26 +71,30 @@ E_API void                         e_util_transform_init(E_Util_Transform *trans
 E_API void                         e_util_transform_move(E_Util_Transform *transform, double x, double y, double z);
 E_API void                         e_util_transform_scale(E_Util_Transform *transform, double sx, double sy, double sz);
 E_API void                         e_util_transform_rotation(E_Util_Transform *transform, double rx, double ry, double rz);
+E_API void                         e_util_transform_bg_move(E_Util_Transform *transform, double x, double y, double z);
+E_API void                         e_util_transform_bg_scale(E_Util_Transform *transform, double sx, double sy, double sz);
+E_API void                         e_util_transform_bg_rotation(E_Util_Transform *transform, double rx, double ry, double rz);
 E_API void                         e_util_transform_texcoord_set(E_Util_Transform *transform, int index, double tu, double tv);
 E_API void                         e_util_transform_viewport_set(E_Util_Transform *transform, int x, int y, int w, int h);
-E_API void                         e_util_transform_source_to_target(E_Util_Transform *transform,
-                                                                     E_Util_Transform_Rect *dest,
-                                                                     E_Util_Transform_Rect *source);
+
 E_API void                         e_util_transform_merge(E_Util_Transform *in_out, E_Util_Transform *input);
 E_API E_Util_Transform_Matrix      e_util_transform_convert_to_matrix(E_Util_Transform *transform, E_Util_Transform_Rect *source_rect);
+E_API E_Util_Transform_Matrix      e_util_transform_bg_convert_to_matrix(E_Util_Transform *transform, E_Util_Transform_Rect *source_rect);
 E_API Eina_Bool                    e_util_transform_change_get(E_Util_Transform *transform);
 E_API void                         e_util_transform_change_unset(E_Util_Transform *transform);
-E_API void                         e_util_transform_keep_ratio_set(E_Util_Transform *transform, Eina_Bool enable);
-E_API Eina_Bool                    e_util_transform_keep_ratio_get(E_Util_Transform *transform);
-E_API E_Util_Transform             e_util_transform_keep_ratio_apply(E_Util_Transform *transform, int origin_w, int origin_h);
+
 E_API void                         e_util_transform_move_get(E_Util_Transform *transform, double *x, double *y, double *z);
 E_API void                         e_util_transform_scale_get(E_Util_Transform *transform, double *x, double *y, double *z);
 E_API void                         e_util_transform_rotation_get(E_Util_Transform *transform, double *x, double *y, double *z);
+E_API void                         e_util_transform_bg_move_get(E_Util_Transform *transform, double *x, double *y, double *z);
+E_API void                         e_util_transform_bg_scale_get(E_Util_Transform *transform, double *x, double *y, double *z);
+E_API void                         e_util_transform_bg_rotation_get(E_Util_Transform *transform, double *x, double *y, double *z);
+
 E_API void                         e_util_transform_texcoord_get(E_Util_Transform *transform, int index, double *tu, double *tv);
 E_API void                         e_util_transform_viewport_get(E_Util_Transform *transform, int *x, int *y, int *w, int *h);
 E_API Eina_Bool                    e_util_transform_texcoord_flag_get(E_Util_Transform *transform);
 E_API Eina_Bool                    e_util_transform_viewport_flag_get(E_Util_Transform *transform);
-E_API void                         e_util_transform_log(E_Util_Transform *transform, const char *str);
+E_API Eina_Bool                    e_util_transform_bg_transform_flag_get(E_Util_Transform *transform);
 
 E_API void                         e_util_transform_rect_init(E_Util_Transform_Rect *rect, int x, int y, int w, int h);
 E_API void                         e_util_transform_rect_client_rect_get(E_Util_Transform_Rect *rect, E_Client *ec);
@@ -115,5 +122,14 @@ E_API E_Util_Transform_Rect_Vertex e_util_transform_matrix_multiply_rect_vertex(
                                                                                 E_Util_Transform_Rect_Vertex *vertices);
 E_API Eina_Bool                    e_util_transform_matrix_equal_check(E_Util_Transform_Matrix *matrix,
                                                                        E_Util_Transform_Matrix *matrix2);
+
+// will delete function
+E_API void                         e_util_transform_source_to_target(E_Util_Transform *transform,
+                                                                     E_Util_Transform_Rect *dest,
+                                                                     E_Util_Transform_Rect *source);
+E_API void                         e_util_transform_keep_ratio_set(E_Util_Transform *transform, Eina_Bool enable);
+E_API Eina_Bool                    e_util_transform_keep_ratio_get(E_Util_Transform *transform);
+E_API E_Util_Transform             e_util_transform_keep_ratio_apply(E_Util_Transform *transform, int origin_w, int origin_h);
+E_API void                         e_util_transform_log(E_Util_Transform *transform, const char *str);
 #endif
 #endif

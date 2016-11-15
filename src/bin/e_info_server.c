@@ -50,6 +50,7 @@ typedef struct _E_Info_Transform
    E_Util_Transform *transform;
    int               id;
    int               enable;
+   int               background;
 } E_Info_Transform;
 
 static E_Info_Server e_info_server;
@@ -82,9 +83,9 @@ static Eina_List *module_hook = NULL;
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
 
-static E_Info_Transform *_e_info_transform_new(E_Client *ec, int id, int enable, int x, int y, int sx, int sy, int degree, int keep_ratio);
+static E_Info_Transform *_e_info_transform_new(E_Client *ec, int id, int enable, int x, int y, int sx, int sy, int degree, int background);
 static E_Info_Transform *_e_info_transform_find(E_Client *ec, int id);
-static void              _e_info_transform_set(E_Info_Transform *transform, int enable, int x, int y, int sx, int sy, int degree, int keep_ratio);
+static void              _e_info_transform_set(E_Info_Transform *transform, int enable, int x, int y, int sx, int sy, int degree);
 static void              _e_info_transform_del(E_Info_Transform *transform);
 static void              _e_info_transform_del_with_id(E_Client *ec, int id);
 
@@ -555,17 +556,17 @@ _msg_window_prop_client_append(Eldbus_Message_Iter *iter, E_Client *target_ec)
           {
              double dx, dy, dsx, dsy, drz;
              int x, y, rz;
-             int keep_ratio;
              int view_port;
              int vx, vy, vw, vh;
+             E_Util_Transform *transform = NULL;
+             char label[32];
 
-             E_Util_Transform *transform = e_client_transform_core_transform_get(target_ec, i);
+             transform = e_client_transform_core_transform_get(target_ec, i);
              if (!transform) continue;
 
              e_util_transform_move_get(transform, &dx, &dy, NULL);
              e_util_transform_scale_get(transform, &dsx, &dsy, NULL);
              e_util_transform_rotation_get(transform, NULL, NULL, &drz);
-             keep_ratio = e_util_transform_keep_ratio_get(transform);
              view_port = e_util_transform_viewport_flag_get(transform);
 
              x = (int)(dx + 0.5);
@@ -584,8 +585,22 @@ _msg_window_prop_client_append(Eldbus_Message_Iter *iter, E_Client *target_ec)
                   vh = 0;
                }
 
-             __WINDOW_PROP_ARG_APPEND_TYPE("Transform", "[%d] [%d, %d] [%2.1f, %2.1f] [%d] [%d] [%d :%d, %d, %d, %d]",
-                                           i, x, y, dsx, dsy, rz, keep_ratio, view_port, vx, vy, vw, vh);
+             __WINDOW_PROP_ARG_APPEND_TYPE("Transform", "[%d] [%d, %d] [%2.1f, %2.1f] [%d] [%d :%d, %d, %d, %d]",
+                                           i, x, y, dsx, dsy, rz, view_port, vx, vy, vw, vh);
+
+             if (e_util_transform_bg_transform_flag_get(transform))
+               {
+                  e_util_transform_bg_move_get(transform, &dx, &dy, NULL);
+                  e_util_transform_bg_scale_get(transform, &dsx, &dsy, NULL);
+                  e_util_transform_bg_rotation_get(transform, NULL, NULL, &drz);
+
+                  x = (int)(dx + 0.5);
+                  y = (int)(dy + 0.5);
+                  rz = (int)(drz + 0.5);
+
+                  __WINDOW_PROP_ARG_APPEND_TYPE("Transform_BG", "--------- [%d] [%d, %d] [%2.1f, %2.1f] [%d]",
+                                                i, x, y, dsx, dsy, rz);
+               }
           }
      }
 #undef __WINDOW_PROP_ARG_APPEND
@@ -1679,13 +1694,13 @@ e_info_server_cb_transform_message(const Eldbus_Service_Interface *iface EINA_UN
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    uint32_t enable, transform_id;
    uint32_t x, y, sx, sy, degree;
-   uint32_t keep_ratio;
+   uint32_t background;
    const char *value = NULL;
    int32_t value_number;
    Evas_Object *o;
    E_Client *ec;
 
-   if (!eldbus_message_arguments_get(msg, "siiiiiiii", &value, &transform_id, &enable, &x, &y, &sx, &sy, &degree, &keep_ratio))
+   if (!eldbus_message_arguments_get(msg, "siiiiiiii", &value, &transform_id, &enable, &x, &y, &sx, &sy, &degree, &background))
      {
         ERR("Error getting arguments.");
         return reply;
@@ -1711,7 +1726,7 @@ e_info_server_cb_transform_message(const Eldbus_Service_Interface *iface EINA_UN
 
         if (transform_info)
           {
-             _e_info_transform_set(transform_info, enable, x, y, sx, sy, degree, keep_ratio);
+             _e_info_transform_set(transform_info, enable, x, y, sx, sy, degree);
 
              if (!enable)
                 _e_info_transform_del_with_id(ec, transform_id);
@@ -1720,7 +1735,7 @@ e_info_server_cb_transform_message(const Eldbus_Service_Interface *iface EINA_UN
           {
              if (enable)
                {
-                  _e_info_transform_new(ec, transform_id, enable, x, y, sx, sy, degree, keep_ratio);
+                  _e_info_transform_new(ec, transform_id, enable, x, y, sx, sy, degree, background);
                }
           }
 
@@ -2723,7 +2738,7 @@ err:
 
 
 static E_Info_Transform*
-_e_info_transform_new(E_Client *ec, int id, int enable, int x, int y, int sx, int sy, int degree, int keep_ratio)
+_e_info_transform_new(E_Client *ec, int id, int enable, int x, int y, int sx, int sy, int degree, int background)
 {
    E_Info_Transform *result = NULL;
    result = _e_info_transform_find(ec, id);
@@ -2735,9 +2750,10 @@ _e_info_transform_new(E_Client *ec, int id, int enable, int x, int y, int sx, in
         result->id = id;
         result->ec = ec;
         result->transform = e_util_transform_new();
-        _e_info_transform_set(result, enable, x, y, sx, sy, degree, keep_ratio);
+        result->background = background;
+        result->enable = 0;
+        _e_info_transform_set(result, enable, x, y, sx, sy, degree);
         e_info_transform_list = eina_list_append(e_info_transform_list, result);
-
      }
 
    return result;
@@ -2763,20 +2779,33 @@ _e_info_transform_find(E_Client *ec, int id)
 }
 
 static void
-_e_info_transform_set(E_Info_Transform *transform, int enable, int x, int y, int sx, int sy, int degree, int keep_ratio)
+_e_info_transform_set(E_Info_Transform *transform, int enable, int x, int y, int sx, int sy, int degree)
 {
    if (!transform) return;
    if (!transform->transform) return;
 
-   e_util_transform_move(transform->transform, (double)x, (double)y, 0.0);
-   e_util_transform_scale(transform->transform, (double)sx / 100.0, (double)sy / 100.0, 1.0);
-   e_util_transform_rotation(transform->transform, 0.0, 0.0, degree);
-   e_util_transform_keep_ratio_set(transform->transform, keep_ratio);
-
-   if (enable)
-      e_client_transform_core_add(transform->ec, transform->transform);
+   if (transform->background)
+     {
+        e_util_transform_bg_move(transform->transform, (double)x, (double)y, 0.0);
+        e_util_transform_bg_scale(transform->transform, (double)sx / 100.0, (double)sy / 100.0, 1.0);
+        e_util_transform_bg_rotation(transform->transform, 0.0, 0.0, degree);
+     }
    else
-      e_client_transform_core_remove(transform->ec, transform->transform);
+     {
+        e_util_transform_move(transform->transform, (double)x, (double)y, 0.0);
+        e_util_transform_scale(transform->transform, (double)sx / 100.0, (double)sy / 100.0, 1.0);
+        e_util_transform_rotation(transform->transform, 0.0, 0.0, degree);
+     }
+
+   if (enable != transform->enable)
+     {
+        if (enable)
+          e_client_transform_core_add(transform->ec, transform->transform);
+        else
+          e_client_transform_core_remove(transform->ec, transform->transform);
+
+        transform->enable = enable;
+     }
 
    e_client_transform_core_update(transform->ec);
 }
@@ -2787,7 +2816,12 @@ _e_info_transform_del(E_Info_Transform *transform)
    if (!transform) return;
 
    e_info_transform_list = eina_list_remove(e_info_transform_list, transform);
-   e_client_transform_core_remove(transform->ec, transform->transform);
+
+   if (transform->enable)
+     {
+        e_client_transform_core_remove(transform->ec, transform->transform);
+     }
+
    e_util_transform_del(transform->transform);
    free(transform);
 }

@@ -1,6 +1,11 @@
 #include "e.h"
 #define E_UTIL_TRANSFORM_IS_ZERO(p) ((p) > -1e-21 && (p) < 1e-21)
 
+static void _e_util_transform_value_merge(E_Util_Transform_Value *inout, E_Util_Transform_Value *input);
+static void _e_util_transform_value_convert_to_matrix(E_Util_Transform_Matrix *out,
+                                                      E_Util_Transform_Value *value,
+                                                      E_Util_Transform_Rect *source_rect);
+
 E_API E_Util_Transform*
 e_util_transform_new(void)
 {
@@ -22,6 +27,17 @@ e_util_transform_del(E_Util_Transform *transform)
 }
 
 E_API void
+e_util_transform_copy(E_Util_Transform *dest, E_Util_Transform *source)
+{
+   if ((!dest) || (!source)) return;
+
+   int back_ref_count = dest->ref_count;
+   memcpy(dest, source, sizeof(E_Util_Transform));
+   dest->ref_count = back_ref_count;
+   dest->changed = EINA_TRUE;
+}
+
+E_API void
 e_util_transform_init(E_Util_Transform *transform)
 {
    int back_ref_count = 0;
@@ -29,9 +45,12 @@ e_util_transform_init(E_Util_Transform *transform)
 
    back_ref_count = transform->ref_count;
    memset(transform, 0, sizeof(E_Util_Transform));
-   transform->scale.value[0] = 1.0;
-   transform->scale.value[1] = 1.0;
-   transform->scale.value[2] = 1.0;
+   transform->transform.scale[0] = 1.0;
+   transform->transform.scale[1] = 1.0;
+   transform->transform.scale[2] = 1.0;
+   transform->bg_transform.scale[0] = 1.0;
+   transform->bg_transform.scale[1] = 1.0;
+   transform->bg_transform.scale[2] = 1.0;
    transform->changed = EINA_TRUE;
    transform->ref_count = back_ref_count;
 }
@@ -49,7 +68,7 @@ e_util_transform_unref(E_Util_Transform *transform)
    if (!transform) return;
    transform->ref_count -= 1;
    if (transform->ref_count <= 0)
-      free(transform);
+     free(transform);
 }
 
 E_API int
@@ -64,9 +83,9 @@ e_util_transform_move(E_Util_Transform *transform, double x, double y, double z)
 {
    if (!transform) return;
 
-   transform->move.value[0] = x;
-   transform->move.value[1] = y;
-   transform->move.value[2] = z;
+   transform->transform.move[0] = x;
+   transform->transform.move[1] = y;
+   transform->transform.move[2] = z;
    transform->changed = EINA_TRUE;
 }
 
@@ -75,9 +94,9 @@ e_util_transform_scale(E_Util_Transform *transform, double sx, double sy, double
 {
    if (!transform) return;
 
-   transform->scale.value[0] = sx;
-   transform->scale.value[1] = sy;
-   transform->scale.value[2] = sz;
+   transform->transform.scale[0] = sx;
+   transform->transform.scale[1] = sy;
+   transform->transform.scale[2] = sz;
    transform->changed = EINA_TRUE;
 }
 
@@ -86,9 +105,45 @@ e_util_transform_rotation(E_Util_Transform *transform, double rx, double ry, dou
 {
    if (!transform) return;
 
-   transform->rotation.value[0] = rx;
-   transform->rotation.value[1] = ry;
-   transform->rotation.value[2] = rz;
+   transform->transform.rotation[0] = rx;
+   transform->transform.rotation[1] = ry;
+   transform->transform.rotation[2] = rz;
+   transform->changed = EINA_TRUE;
+}
+
+E_API void
+e_util_transform_bg_move(E_Util_Transform *transform, double x, double y, double z)
+{
+   if (!transform) return;
+
+   transform->bg_transform.move[0] = x;
+   transform->bg_transform.move[1] = y;
+   transform->bg_transform.move[2] = z;
+   transform->use_bg_transform = EINA_TRUE;
+   transform->changed = EINA_TRUE;
+}
+
+E_API void
+e_util_transform_bg_scale(E_Util_Transform *transform, double sx, double sy, double sz)
+{
+   if (!transform) return;
+
+   transform->bg_transform.scale[0] = sx;
+   transform->bg_transform.scale[1] = sy;
+   transform->bg_transform.scale[2] = sz;
+   transform->use_bg_transform = EINA_TRUE;
+   transform->changed = EINA_TRUE;
+}
+
+E_API void
+e_util_transform_bg_rotation(E_Util_Transform *transform, double rx, double ry, double rz)
+{
+   if (!transform) return;
+
+   transform->bg_transform.rotation[0] = rx;
+   transform->bg_transform.rotation[1] = ry;
+   transform->bg_transform.rotation[2] = rz;
+   transform->use_bg_transform = EINA_TRUE;
    transform->changed = EINA_TRUE;
 }
 
@@ -118,31 +173,6 @@ e_util_transform_viewport_set(E_Util_Transform *transform, int x, int y, int w, 
 }
 
 E_API void
-e_util_transform_source_to_target(E_Util_Transform *transform,
-                                  E_Util_Transform_Rect *dest,
-                                  E_Util_Transform_Rect *source)
-{
-   if (!transform) return;
-   if (!dest || !source) return;
-
-   e_util_transform_init(transform);
-
-   if ((dest->x != source->x) || (dest->y != source->y))
-      e_util_transform_move(transform, dest->x - source->x, dest->y - source->y, 0.0);
-
-   if ((dest->w != source->w) || (dest->w != source->w))
-     {
-        if (!E_UTIL_TRANSFORM_IS_ZERO(source->w) &&
-            !E_UTIL_TRANSFORM_IS_ZERO(source->h))
-          {
-             e_util_transform_scale(transform, dest->w / source->w, dest->h / source->h, 1.0);
-          }
-     }
-
-   transform->changed = EINA_TRUE;
-}
-
-E_API void
 e_util_transform_merge(E_Util_Transform *in_out, E_Util_Transform *input)
 {
    int i;
@@ -150,12 +180,18 @@ e_util_transform_merge(E_Util_Transform *in_out, E_Util_Transform *input)
    if (!in_out) return;
    if (!input) return;
 
-   for (i = 0 ; i < 3 ; ++i)
+   if ((in_out->use_bg_transform) || (input->use_bg_transform))
      {
-        in_out->move.value[i] += input->move.value[i];
-        in_out->scale.value[i] *= input->scale.value[i];
-        in_out->rotation.value[i] += input->rotation.value[i];
+        if (!in_out->use_bg_transform)
+          memcpy(&in_out->bg_transform, &in_out->transform, sizeof(E_Util_Transform_Value));
+
+        if (input->use_bg_transform)
+          _e_util_transform_value_merge(&in_out->bg_transform, &input->bg_transform);
+        else
+          _e_util_transform_value_merge(&in_out->bg_transform, &input->transform);
      }
+
+   _e_util_transform_value_merge(&in_out->transform, &input->transform);
 
    // texcoord and viewport just one setting.
    if (input->use_texcoord)
@@ -163,9 +199,9 @@ e_util_transform_merge(E_Util_Transform *in_out, E_Util_Transform *input)
    if (input->use_viewport)
      memcpy(&in_out->viewport, &input->viewport, sizeof(input->viewport));
 
-   in_out->keep_ratio |= input->keep_ratio;
    in_out->use_texcoord |= input->use_texcoord;
    in_out->use_viewport |= input->use_viewport;
+   in_out->use_bg_transform |= input->use_bg_transform;
 
    in_out->changed = EINA_TRUE;
 }
@@ -174,26 +210,24 @@ E_API E_Util_Transform_Matrix
 e_util_transform_convert_to_matrix(E_Util_Transform *transform, E_Util_Transform_Rect *source_rect)
 {
    E_Util_Transform_Matrix result;
-   e_util_transform_matrix_load_identity(&result);
 
    if (!transform) return result;
    if (!source_rect) return result;
 
-   double dest_w = source_rect->w * transform->scale.value[0];
-   double dest_h = source_rect->h * transform->scale.value[1];
+   _e_util_transform_value_convert_to_matrix(&result, &transform->transform, source_rect);
 
-   e_util_transform_matrix_translate(&result, -source_rect->x - source_rect->w / 2.0, -source_rect->y - source_rect->h / 2.0, 0.0);
-   e_util_transform_matrix_scale(&result, transform->scale.value[0], transform->scale.value[1], transform->scale.value[2]);
+   return result;
+}
 
-   if (!E_UTIL_TRANSFORM_IS_ZERO(transform->rotation.value[0]))
-      e_util_transform_matrix_rotation_x(&result, transform->rotation.value[0]);
-   if (!E_UTIL_TRANSFORM_IS_ZERO(transform->rotation.value[1]))
-      e_util_transform_matrix_rotation_y(&result, transform->rotation.value[1]);
-   if (!E_UTIL_TRANSFORM_IS_ZERO(transform->rotation.value[2]))
-      e_util_transform_matrix_rotation_z(&result, transform->rotation.value[2]);
+E_API E_Util_Transform_Matrix
+e_util_transform_bg_convert_to_matrix(E_Util_Transform *transform, E_Util_Transform_Rect *source_rect)
+{
+   E_Util_Transform_Matrix result;
 
-   e_util_transform_matrix_translate(&result, source_rect->x + transform->move.value[0] + (dest_w / 2.0),
-                                     source_rect->y + transform->move.value[1] + (dest_h / 2.0), 0.0);
+   if (!transform) return result;
+   if (!source_rect) return result;
+
+   _e_util_transform_value_convert_to_matrix(&result, &transform->bg_transform, source_rect);
 
    return result;
 }
@@ -213,75 +247,57 @@ e_util_transform_change_unset(E_Util_Transform *transform)
 }
 
 E_API void
-e_util_transform_keep_ratio_set(E_Util_Transform *transform, Eina_Bool enable)
-{
-   if (!transform) return;
-   if (transform->keep_ratio == enable) return;
-   transform->keep_ratio = enable;
-   transform->changed = EINA_TRUE;
-}
-
-E_API Eina_Bool
-e_util_transform_keep_ratio_get(E_Util_Transform *transform)
-{
-   if (!transform) return EINA_FALSE;
-   return transform->keep_ratio;
-}
-
-E_API E_Util_Transform
-e_util_transform_keep_ratio_apply(E_Util_Transform *transform, int origin_w, int origin_h)
-{
-   int i;
-   E_Util_Transform result;
-   E_Util_Transform_Vertex move_ver;
-   E_Util_Transform_Matrix matrix;
-
-   e_util_transform_vertex_init(&move_ver, 0.0, 0.0, 0.0, 1.0);
-   e_util_transform_matrix_load_identity(&matrix);
-
-   if (!transform) return result;
-
-   memcpy(&result, transform, sizeof(E_Util_Transform));
-
-   if (transform->scale.value[0] > transform->scale.value[1])
-      result.scale.value[0] = result.scale.value[1] = transform->scale.value[1];
-   else
-      result.scale.value[0] = result.scale.value[1] = transform->scale.value[0];
-
-   move_ver.vertex[0] += (transform->scale.value[0] - result.scale.value[0]) * origin_w * 0.5;
-   move_ver.vertex[1] += (transform->scale.value[1] - result.scale.value[1]) * origin_h * 0.5;
-
-   for(i = 0 ; i < 3 ; ++i)
-      result.move.value[i] += move_ver.vertex[i];
-
-   return result;
-}
-
-E_API void
 e_util_transform_move_get(E_Util_Transform *transform, double *x, double *y, double *z)
 {
    if (!transform) return;
-   if (x) *x = transform->move.value[0];
-   if (y) *y = transform->move.value[1];
-   if (z) *z = transform->move.value[2];
+   if (x) *x = transform->transform.move[0];
+   if (y) *y = transform->transform.move[1];
+   if (z) *z = transform->transform.move[2];
 }
 
 E_API void
 e_util_transform_scale_get(E_Util_Transform *transform, double *x, double *y, double *z)
 {
    if (!transform) return;
-   if (x) *x = transform->scale.value[0];
-   if (y) *y = transform->scale.value[1];
-   if (z) *z = transform->scale.value[2];
+   if (x) *x = transform->transform.scale[0];
+   if (y) *y = transform->transform.scale[1];
+   if (z) *z = transform->transform.scale[2];
 }
 
 E_API void
 e_util_transform_rotation_get(E_Util_Transform *transform, double *x, double *y, double *z)
 {
    if (!transform) return;
-   if (x) *x = transform->rotation.value[0];
-   if (y) *y = transform->rotation.value[1];
-   if (z) *z = transform->rotation.value[2];
+   if (x) *x = transform->transform.rotation[0];
+   if (y) *y = transform->transform.rotation[1];
+   if (z) *z = transform->transform.rotation[2];
+}
+
+E_API void
+e_util_transform_bg_move_get(E_Util_Transform *transform, double *x, double *y, double *z)
+{
+   if (!transform) return;
+   if (x) *x = transform->bg_transform.move[0];
+   if (y) *y = transform->bg_transform.move[1];
+   if (z) *z = transform->bg_transform.move[2];
+}
+
+E_API void
+e_util_transform_bg_scale_get(E_Util_Transform *transform, double *x, double *y, double *z)
+{
+   if (!transform) return;
+   if (x) *x = transform->bg_transform.scale[0];
+   if (y) *y = transform->bg_transform.scale[1];
+   if (z) *z = transform->bg_transform.scale[2];
+}
+
+E_API void
+e_util_transform_bg_rotation_get(E_Util_Transform *transform, double *x, double *y, double *z)
+{
+   if (!transform) return;
+   if (x) *x = transform->bg_transform.rotation[0];
+   if (y) *y = transform->bg_transform.rotation[1];
+   if (z) *z = transform->bg_transform.rotation[2];
 }
 
 E_API void
@@ -319,17 +335,11 @@ e_util_transform_viewport_flag_get(E_Util_Transform *transform)
    return transform->use_viewport;
 }
 
-E_API void
-e_util_transform_log(E_Util_Transform *transform, const char *str)
+E_API Eina_Bool
+e_util_transform_bg_transform_flag_get(E_Util_Transform *transform)
 {
-   if (!transform) return;
-   if (!str) return;
-
-   printf("[e_util_transform_log : %s\n", str);
-   printf("[move     : %2.1f, %2.1f, %2.1f]\n", transform->move.value[0], transform->move.value[1], transform->move.value[2]);
-   printf("[scale    : %2.1f, %2.1f, %2.1f]\n", transform->scale.value[0], transform->scale.value[1], transform->scale.value[2]);
-   printf("[rotation : %2.1f, %2.1f, %2.1f]\n", transform->rotation.value[0], transform->rotation.value[1], transform->rotation.value[2]);
-
+   if (!transform) return EINA_FALSE;
+   return transform->use_bg_transform;
 }
 
 E_API void
@@ -412,7 +422,7 @@ e_util_transform_vertices_init(E_Util_Transform_Rect_Vertex *vertices)
    if (!vertices) return;
 
    for (i = 0 ; i < 4 ; ++i)
-      e_util_transform_vertex_init(&vertices->vertices[i], 0.0, 0.0, 0.0, 1.0);
+     e_util_transform_vertex_init(&vertices->vertices[i], 0.0, 0.0, 0.0, 1.0);
 }
 
 E_API E_Util_Transform_Rect
@@ -679,7 +689,7 @@ e_util_transform_matrix_multiply_rect_vertex(E_Util_Transform_Matrix *matrix,
    if (!vertices) return result;
 
    for (i = 0 ; i < 4 ; ++i)
-      result.vertices[i] = e_util_transform_matrix_multiply_vertex(matrix, &vertices->vertices[i]);
+     result.vertices[i] = e_util_transform_matrix_multiply_vertex(matrix, &vertices->vertices[i]);
 
    return result;
 }
@@ -704,5 +714,79 @@ e_util_transform_matrix_equal_check(E_Util_Transform_Matrix *matrix,
           }
      }
 
+   return result;
+}
+
+static void
+_e_util_transform_value_merge(E_Util_Transform_Value *inout, E_Util_Transform_Value *input)
+{
+   int i;
+
+   if ((!inout) || (!input)) return;
+
+   for (i = 0 ; i < 3 ; ++i)
+     {
+        inout->move[i] *= input->scale[i];
+        inout->move[i] += input->move[i];
+        inout->scale[i] *= input->scale[i];
+        inout->rotation[i] += input->rotation[i];
+     }
+}
+
+static void
+_e_util_transform_value_convert_to_matrix(E_Util_Transform_Matrix *out, E_Util_Transform_Value *value, E_Util_Transform_Rect *source_rect)
+{
+   if (!out) return;
+   if (!value) return;
+   if (!source_rect) return;
+
+   e_util_transform_matrix_load_identity(out);
+
+   double dest_w = source_rect->w * value->scale[0];
+   double dest_h = source_rect->h * value->scale[1];
+
+   e_util_transform_matrix_translate(out, -source_rect->x - source_rect->w / 2.0, -source_rect->y - source_rect->h / 2.0, 0.0);
+   e_util_transform_matrix_scale(out, value->scale[0], value->scale[1], value->scale[2]);
+
+   if (!E_UTIL_TRANSFORM_IS_ZERO(value->rotation[0]))
+     e_util_transform_matrix_rotation_x(out, value->rotation[0]);
+   if (!E_UTIL_TRANSFORM_IS_ZERO(value->rotation[1]))
+     e_util_transform_matrix_rotation_y(out, value->rotation[1]);
+   if (!E_UTIL_TRANSFORM_IS_ZERO(value->rotation[2]))
+     e_util_transform_matrix_rotation_z(out, value->rotation[2]);
+
+   e_util_transform_matrix_translate(out, source_rect->x + value->move[0] + (dest_w / 2.0),
+                                     source_rect->y + value->move[1] + (dest_h / 2.0), 0.0);
+}
+
+
+// will delete function
+E_API void
+e_util_transform_source_to_target(E_Util_Transform *transform,
+                                  E_Util_Transform_Rect *dest,
+                                  E_Util_Transform_Rect *source)
+{
+}
+
+E_API void
+e_util_transform_log(E_Util_Transform *transform, const char *str)
+{
+}
+
+E_API void
+e_util_transform_keep_ratio_set(E_Util_Transform *transform, Eina_Bool enable)
+{
+}
+
+E_API Eina_Bool
+e_util_transform_keep_ratio_get(E_Util_Transform *transform)
+{
+   return EINA_FALSE;
+}
+
+E_API E_Util_Transform
+e_util_transform_keep_ratio_apply(E_Util_Transform *transform, int origin_w, int origin_h)
+{
+   E_Util_Transform result;
    return result;
 }

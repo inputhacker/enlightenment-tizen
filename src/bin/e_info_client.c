@@ -2127,7 +2127,7 @@ static struct
    },
    {
       "transform",
-      "[id enable x y w h angle keep_ratio]",
+      "[id enable x y w h angle is_bg]",
       "Set transform in runtime",
       _e_info_client_proc_transform_set
    },
