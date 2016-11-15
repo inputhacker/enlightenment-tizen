@@ -2954,7 +2954,8 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
 
         if (canvas_vis)
           {
-             if (calc_region || skip_rot_pending_show)
+             if ((calc_region || skip_rot_pending_show) &&
+                 (!ec->visibility.force_obscured))
                {
                   it = eina_tiler_iterator_new(t);
                   EINA_ITERATOR_FOREACH(it, _r)
@@ -3017,7 +3018,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
              /* It prevents unwanted iconification of the top visible window
               * while showing an window with rotation mode.
               */
-             if (!skip_rot_pending_show)
+             if ((!skip_rot_pending_show) || (ec->visibility.force_obscured))
                {
                   /* obscured case */
                   if (ec->visibility.obscured != E_VISIBILITY_FULLY_OBSCURED)
@@ -6433,4 +6434,15 @@ e_remember_del(void *rem)
 {
    /* do nothing */
    return;
+}
+
+E_API void
+e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set)
+{
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   ELOGF("TZVIS", "VIS_FORCE_OBSCURED :%d", ec->pixmap, ec, set);
+
+   ec->visibility.force_obscured = set;
+   e_client_visibility_calculate();
 }

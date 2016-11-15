@@ -676,6 +676,7 @@ struct E_Client
       int obscured;
       unsigned char changed : 1;
       Eina_Bool skip : 1;
+      Eina_Bool force_obscured : 1;
    } visibility;
 
    struct
@@ -1064,6 +1065,8 @@ E_API Eina_Bool e_client_normal_client_has(E_Client *ec);
 E_API Eina_Bool e_client_cursor_hide(E_Client *ec);
 
 E_API void e_remember_del(void *rem); /* TODO: should be removed */
+
+E_API void e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set);
 
 /**
  * Move window to coordinates that do not account client decorations yet.

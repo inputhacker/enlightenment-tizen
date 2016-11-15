@@ -1261,7 +1261,7 @@ _tzpol_iface_cb_activate(struct wl_client *client EINA_UNUSED, struct wl_resourc
 
    ELOGF("TZPOL", "ACTIVATE", ec->pixmap, ec);
 
-   if ((!starting) && (!ec->focused))
+   if ((!starting) && (!ec->focused) && (!ec->visibility.force_obscured))
      {
         if (!e_policy_visibility_client_activate(ec))
           {
@@ -2123,6 +2123,12 @@ _tzpol_iface_cb_uniconify(struct wl_client *client EINA_UNUSED, struct wl_resour
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
+
+   if (ec->visibility.force_obscured)
+     {
+        ec->exp_iconify.by_client = 0;
+        return;
+     }
 
    if (e_policy_visibility_client_uniconify(ec, 1))
      return;
