@@ -557,7 +557,7 @@ _e_policy_wl_tzsh_srv_del(E_Policy_Wl_Tzsh_Srv *tzsh_srv)
 
         if (ec && ec->internal)
           {
-             e_pixmap_del(tzsh_srv->tzsh->cp);
+             e_pixmap_win_id_del(tzsh_srv->tzsh->cp);
              e_object_del(E_OBJECT(ec));
           }
 
@@ -4430,7 +4430,7 @@ _launchscreen_img_off(E_Policy_Wl_Tzlaunch_Img *tzlaunch_img)
              ec->ignored = EINA_TRUE;
           }
 
-        e_pixmap_del(tzlaunch_img->ep);
+        e_pixmap_win_id_del(tzlaunch_img->ep);
         e_object_del(E_OBJECT(ec));
      }
    else if (!e_pixmap_resource_get(ec->pixmap))
@@ -4641,7 +4641,7 @@ _tzlaunch_img_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_res
                    old_ec, new_ec, tzlaunch_img->obj);
 
              /* delete ec was created for launchscreen */
-             e_pixmap_del(tzlaunch_img->ep);
+             e_pixmap_win_id_del(tzlaunch_img->ep);
              e_object_del(E_OBJECT(old_ec));
              tzlaunch_img->ep = NULL;
              if (old_ec->visible)
@@ -4711,7 +4711,7 @@ error:
      {
         ERR("Could not initialize launchscreen client");
         if (tzlaunch_img->ep)
-          e_pixmap_del(tzlaunch_img->ep);
+          e_pixmap_win_id_del(tzlaunch_img->ep);
         if (tzlaunch_img->ec)
           e_object_del(E_OBJECT(tzlaunch_img->ec));
         E_FREE(tzlaunch_img);

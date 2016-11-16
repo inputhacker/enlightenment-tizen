@@ -2977,7 +2977,7 @@ _e_comp_wl_surface_destroy(struct wl_resource *resource)
 
    ec->comp_data->surface = NULL;
    ec->comp_data->wl_surface = NULL;
-   e_pixmap_del(ec->pixmap);
+   e_pixmap_win_id_del(ec->pixmap);
 
    _e_comp_wl_surface_render_stop(ec);
    e_object_del(E_OBJECT(ec));
@@ -3024,7 +3024,7 @@ _e_comp_wl_compositor_cb_surface_create(struct wl_client *client, struct wl_reso
         if ((ep = e_pixmap_find(E_PIXMAP_TYPE_WL, (uintptr_t)res)))
           {
              ERR("There is e_pixmap already, Delete old e_pixmap %p", ep);
-             e_pixmap_del(ep);
+             e_pixmap_win_id_del(ep);
              ep = NULL;
           }
      }
@@ -4378,7 +4378,7 @@ _e_comp_wl_client_usable_get(pid_t pid, E_Pixmap *ep)
              oldep = e_client_pixmap_change(ec, ep);
              if (oldep)
                {
-                  e_pixmap_del(oldep);
+                  e_pixmap_win_id_del(oldep);
                   e_pixmap_free(oldep);
                }
 

@@ -113,7 +113,7 @@ _e_elm_win_trap_show(void *data, Evas_Object *o)
                   if ((cp = e_pixmap_find(type, wl_win_id)))
                     {
                        ERR("There is e_pixmap already, Delete old e_pixmap %p", cp);
-                       e_pixmap_del(cp);
+                       e_pixmap_win_id_del(cp);
                        cp = NULL;
                     }
                   /* first creation of pixmap for internal window */
