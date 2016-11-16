@@ -2557,6 +2557,16 @@ _e_comp_smart_hide(Evas_Object *obj)
         TRACE_DS_END();
         return;
      }
+
+   /* unset native surface if current displaying buffer was destroied */
+   if (!cw->buffer_destroy_listener.notify)
+     {
+        Evas_Native_Surface *ns;
+        ns = evas_object_image_native_surface_get(cw->obj);
+        if ((ns) && (ns->type == EVAS_NATIVE_SURFACE_WL) && (ns->data.wl.legacy_buffer))
+          _e_comp_object_native_surface_set(cw, NULL, EINA_TRUE);
+     }
+
    if (!cw->ec->input_only)
      {
         edje_object_freeze(cw->effect_obj);
@@ -3961,15 +3971,13 @@ _e_comp_object_cb_buffer_destroy(struct wl_listener *listener, void *data EINA_U
      {
         if (!e_object_delay_del_ref_get(E_OBJECT(cw->ec)))
           return;
-
-        if ((cw->native) &&
-            ((cw->animating) || (cw->effect_running)))
-          e_comp_object_effect_set(cw->smart_obj, NULL);
-        _e_comp_object_clear(cw);
-        evas_object_del(cw->smart_obj);
      }
    else
-     _e_comp_object_native_surface_set(cw, NULL, EINA_TRUE);
+     {
+        /* if it's current displaying buffer, do not remove its content */
+        if (!evas_object_visible_get(cw->ec->frame))
+          _e_comp_object_native_surface_set(cw, NULL, EINA_TRUE);
+     }
 }
 
 static void
