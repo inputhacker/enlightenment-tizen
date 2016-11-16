@@ -9,7 +9,6 @@ static void       _e_process_client_info_del(E_Client *ec);
 
 static Eina_Bool  _e_process_cb_client_add(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 static Eina_Bool  _e_process_cb_client_remove(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
-static Eina_Bool  _e_process_cb_client_hide(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 static Eina_Bool  _e_process_cb_client_iconify(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 static Eina_Bool  _e_process_cb_client_uniconify(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 static Eina_Bool  _e_process_cb_client_visibility_change(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
@@ -184,31 +183,6 @@ _e_process_cb_client_remove(void *data EINA_UNUSED, int type EINA_UNUSED, void *
 }
 
 static Eina_Bool
-_e_process_cb_client_hide(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
-{
-   E_Event_Client *ev;
-   E_Client *ec;
-   Eina_Bool visible;
-   pid_t pid;
-
-   ev = event;
-   if (!ev) return ECORE_CALLBACK_PASS_ON;
-
-   ec = ev->ec;
-   if (!ec) return ECORE_CALLBACK_PASS_ON;
-
-   pid = ec->netwm.pid;
-
-   if (_e_process_windows_visible_get(pid, &visible))
-     {
-        if (!visible)
-          _e_process_windows_act_no_visible_update(pid);
-     }
-
-   return ECORE_CALLBACK_PASS_ON;
-}
-
-static Eina_Bool
 _e_process_cb_client_iconify(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
 {
    E_Event_Client *ev;
@@ -256,6 +230,7 @@ _e_process_cb_client_visibility_change(void *data EINA_UNUSED, int type EINA_UNU
    E_Event_Client *ev;
    E_Client *ec;
    pid_t pid;
+   Eina_Bool visible;
 
    ev = event;
    if (!ev) return ECORE_CALLBACK_PASS_ON;
@@ -266,6 +241,17 @@ _e_process_cb_client_visibility_change(void *data EINA_UNUSED, int type EINA_UNU
    pid = ec->netwm.pid;
    if (ec->visibility.obscured == E_VISIBILITY_UNOBSCURED)
      _e_process_thaw(pid);
+   else if (ec->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)
+     {
+        if (!ec->visible)
+          {
+             if (_e_process_windows_visible_get(pid, &visible))
+               {
+                  if (!visible)
+                    _e_process_windows_act_no_visible_update(pid);
+               }
+          }
+     }
 
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -573,7 +559,6 @@ e_process_init(void)
 
    E_LIST_HANDLER_APPEND(_e_process_ec_handlers, E_EVENT_CLIENT_ADD, _e_process_cb_client_add, NULL);
    E_LIST_HANDLER_APPEND(_e_process_ec_handlers, E_EVENT_CLIENT_REMOVE, _e_process_cb_client_remove, NULL);
-   E_LIST_HANDLER_APPEND(_e_process_ec_handlers, E_EVENT_CLIENT_HIDE, _e_process_cb_client_hide, NULL);
    E_LIST_HANDLER_APPEND(_e_process_ec_handlers, E_EVENT_CLIENT_ICONIFY, _e_process_cb_client_iconify, NULL);
    E_LIST_HANDLER_APPEND(_e_process_ec_handlers, E_EVENT_CLIENT_UNICONIFY, _e_process_cb_client_uniconify, NULL);
    E_LIST_HANDLER_APPEND(_e_process_ec_handlers, E_EVENT_CLIENT_VISIBILITY_CHANGE, _e_process_cb_client_visibility_change, NULL);
