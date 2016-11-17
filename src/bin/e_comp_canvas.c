@@ -601,7 +601,9 @@ e_comp_canvas_layer_map(E_Layer layer)
       case E_LAYER_MAX: return 25;
       default: break;
      }
-   return 9999;
+
+   /* prevents to access the e_comp->layers list out of bounds. */
+   return 0;
 }
 
 E_API unsigned int
