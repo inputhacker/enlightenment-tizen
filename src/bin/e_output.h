@@ -60,6 +60,12 @@ struct _E_Output
 
    E_Comp_Screen        *e_comp_screen;
    E_OUTPUT_DPMS        dpms;
+
+   struct {
+       int min_w, min_h;
+       int max_w, max_h;
+       int preferred_align;
+   } cursor_available;
 };
 
 EINTERN Eina_Bool         e_output_init(void);

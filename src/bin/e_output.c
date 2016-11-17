@@ -223,6 +223,7 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
    int i;
    int size = 0;
    tdm_output_type output_type;
+   int min_w, min_h, max_w, max_h, preferred_align;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, NULL);
 
@@ -240,6 +241,24 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
 
    error = tdm_output_get_output_type(toutput, &output_type);
    if (error != TDM_ERROR_NONE) goto fail;
+
+   error = tdm_output_get_cursor_available_size(toutput, &min_w, &min_h, &max_w, &max_h, &preferred_align);
+   if (error == TDM_ERROR_NONE)
+     {
+        output->cursor_available.min_w = min_w;
+        output->cursor_available.min_h = min_h;
+        output->cursor_available.max_w = min_w;
+        output->cursor_available.max_h = min_h;
+        output->cursor_available.preferred_align = preferred_align;
+     }
+   else
+     {
+        output->cursor_available.min_w = -1;
+        output->cursor_available.min_h = -1;
+        output->cursor_available.max_w = -1;
+        output->cursor_available.max_h = -1;
+        output->cursor_available.preferred_align = -1;
+     }
 
    name = _output_type_to_str(output_type);
    size = strlen(name) + 4;
