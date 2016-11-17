@@ -1505,10 +1505,6 @@ e_comp_shutdown(void)
 E_API void
 e_comp_deferred_job(void)
 {
-   /* Add elm fake win */
-   //e_comp->elm = elm_win_fake_add(e_comp->ee);
-   //evas_object_show(e_comp->elm);
-
    /* Bg update */
    e_main_ts("\tE_BG_Zone Update");
    if (e_zone_current_get()->bg_object)
