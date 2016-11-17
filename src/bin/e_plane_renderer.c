@@ -599,6 +599,158 @@ e_plane_renderer_new(E_Plane *plane)
 }
 
 EINTERN Eina_Bool
+e_plane_renderer_cursor_surface_refresh(E_Plane_Renderer *renderer, E_Client *ec)
+{
+   E_Plane *plane = NULL;
+   E_Output *output = NULL;
+   int i = 0;
+   int stride, height, w, h;
+   int tsurface_w, tsurface_h;
+   void *src_ptr = NULL;
+   void *dst_ptr = NULL;
+   tbm_surface_h tsurface = NULL;
+   E_Comp_Wl_Buffer *buffer = NULL;
+   tbm_surface_error_e ret = TBM_SURFACE_ERROR_NONE;
+   tbm_surface_info_s tsurface_info;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   plane = renderer->plane;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   output = plane->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   buffer = ec->comp_data->buffer_ref.buffer;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, EINA_FALSE);
+
+   /* TODO: TBM TYPE, NATIVE_WL */
+   if (buffer->type == E_COMP_WL_BUFFER_TYPE_SHM)
+     {
+        src_ptr = wl_shm_buffer_get_data(buffer->shm_buffer);
+        if (!src_ptr)
+          {
+             ERR("Failed get data shm buffer");
+             return EINA_FALSE;
+          }
+     }
+   else
+     {
+        ERR("unkown buffer type:%d", ec->comp_data->buffer_ref.buffer->type);
+        return EINA_FALSE;
+     }
+
+   w = (output->cursor_available.min_w > ec->w) ? output->cursor_available.min_w : ec->w;
+   h = (output->cursor_available.min_h > ec->h) ? output->cursor_available.min_h : ec->h;
+
+   if (e_comp->hwc_reuse_cursor_buffer)
+     {
+        if (renderer->cursor_tsurface)
+          {
+             tsurface_w = tbm_surface_get_width(renderer->cursor_tsurface);
+             tsurface_h = tbm_surface_get_height(renderer->cursor_tsurface);
+
+             if (w != tsurface_w || h != tsurface_h)
+               {
+                  tbm_surface_destroy(renderer->cursor_tsurface);
+                  renderer->cursor_tsurface = NULL;
+               }
+          }
+     }
+   else
+     {
+        if (renderer->cursor_tsurface)
+          {
+             tbm_surface_destroy(renderer->cursor_tsurface);
+             renderer->cursor_tsurface = NULL;
+          }
+     }
+
+   if (!renderer->cursor_tsurface)
+     {
+        tsurface = tbm_surface_internal_create_with_flags(w, h, TBM_FORMAT_ARGB8888, plane->buffer_flags);
+        if (!tsurface) return EINA_FALSE;
+     }
+   else
+     {
+        tsurface = renderer->cursor_tsurface;
+     }
+
+   ret = tbm_surface_map(tsurface, TBM_SURF_OPTION_WRITE, &tsurface_info);
+   if (ret != TBM_SURFACE_ERROR_NONE)
+     {
+        ERR("Failed to map tsurface");
+        tbm_surface_destroy(tsurface);
+        return EINA_FALSE;
+     }
+
+   memset(tsurface_info.planes[0].ptr, 0, tsurface_info.planes[0].stride * tsurface_info.height);
+
+   stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
+   height = wl_shm_buffer_get_height(buffer->shm_buffer);
+   dst_ptr = tsurface_info.planes[0].ptr;
+
+   for (i = 0 ; i < height ; i++)
+     {
+        memcpy(dst_ptr, src_ptr, stride);
+        dst_ptr += tsurface_info.planes[0].stride;
+        src_ptr += stride;
+     }
+
+   tbm_surface_unmap(tsurface);
+
+   renderer->cursor_tsurface = tsurface;
+
+   return EINA_TRUE;
+}
+
+EINTERN tbm_surface_h
+e_plane_renderer_cursor_surface_get(E_Plane_Renderer *renderer)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, NULL);
+
+   return renderer->cursor_tsurface;
+}
+
+EINTERN Eina_Bool
+e_plane_renderer_cursor_ec_set(E_Plane_Renderer *renderer, E_Client *ec)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   E_Plane_Renderer_Client *renderer_client = NULL;
+   E_Pointer *pointer = NULL;
+
+   if (renderer->ec && renderer->ec != ec)
+     {
+        pointer = e_pointer_get(renderer->ec);
+        if (pointer)
+           e_pointer_hwc_set(pointer, EINA_FALSE);
+
+        renderer_client = e_plane_renderer_client_get(renderer->ec);
+        if (renderer_client)
+           renderer_client->renderer = NULL;
+
+        pointer = NULL;
+        renderer_client = NULL;
+     }
+
+   pointer = e_pointer_get(ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(pointer, EINA_FALSE);
+
+   renderer_client = e_plane_renderer_client_get(ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_client, EINA_FALSE);
+
+   renderer->ec = ec;
+   renderer_client->renderer = renderer;
+
+   e_pointer_hwc_set(pointer, EINA_TRUE);
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
 e_plane_renderer_ec_set(E_Plane_Renderer *renderer, E_Client *ec)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
@@ -699,11 +851,17 @@ EINTERN void
 e_plane_renderer_del(E_Plane_Renderer *renderer)
 {
    E_Plane *plane = NULL;
+   E_Plane_Role role;
+   E_Client *ec = NULL;
+   E_Pointer *pointer = NULL;
+   E_Plane_Renderer_Client *renderer_client = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(renderer);
 
    plane = renderer->plane;
    EINA_SAFETY_ON_NULL_RETURN(plane);
+
+   ec = renderer->ec;
 
    if (renderer->ee)
      {
@@ -722,10 +880,34 @@ e_plane_renderer_del(E_Plane_Renderer *renderer)
           }
      }
 
-   if (plane->reserved_memory)
+   role = e_plane_role_get(plane);
+
+   if (role == E_PLANE_ROLE_OVERLAY)
      {
-        e_plane_renderer_deactivate(renderer);
-        e_plane_renderer_surface_queue_destroy(renderer);
+       if (plane->reserved_memory)
+         {
+            e_plane_renderer_deactivate(renderer);
+            e_plane_renderer_surface_queue_destroy(renderer);
+         }
+     }
+   else if (role == E_PLANE_ROLE_CURSOR)
+     {
+        if (ec)
+          {
+             pointer = e_pointer_get(ec);
+
+             if (pointer)
+                e_pointer_hwc_set(pointer, EINA_FALSE);
+          }
+
+        tbm_surface_destroy(renderer->cursor_tsurface);
+     }
+
+   if (ec)
+     {
+        renderer_client = e_plane_renderer_client_get(ec);
+        if (renderer_client)
+           renderer_client->renderer = NULL;
      }
 
    free(renderer);

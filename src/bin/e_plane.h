@@ -58,13 +58,14 @@ struct _E_Plane
    tbm_surface_h         tsurface;
 
    E_Comp_Wl_Buffer_Ref  displaying_buffer_ref;
+   tbm_surface_h         displaying_buffer_tsurface;
 
    E_Plane_Renderer     *renderer;
    E_Output             *output;
 
    unsigned int          buffer_flags;
    E_Plane_Commit_Data  *pending_commit_data;
-   Eina_Bool             need_to_commit;
+   Eina_Bool             need_to_unset_commit;
 
    /* true if plane's ec is set or unset.
     * false when E_Event_Plane_Win_Change has been generated.

@@ -92,7 +92,7 @@ _e_plane_surface_unset(E_Plane *plane)
      }
 
    plane->tsurface = NULL;
-   plane->need_to_commit = EINA_TRUE;
+   plane->need_to_unset_commit = EINA_TRUE;
 
    if (plane->renderer)
      {
@@ -100,9 +100,6 @@ _e_plane_surface_unset(E_Plane *plane)
         e_plane_renderer_displaying_surface_set(plane->renderer, NULL);
         /* set the update_exist to be false */
         e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
-
-        /* set the display_buffer_ref to be null */
-        e_comp_wl_buffer_reference(&plane->displaying_buffer_ref, NULL);
      }
 
    return EINA_TRUE;
@@ -145,6 +142,7 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
    E_Output *output = plane->output;
    E_Client *ec = plane->ec;
    int aligned_width;
+   int dst_pos_x, dst_pos_y;
 
    /* set layer when the layer infomation is different from the previous one */
    tbm_surface_get_info(tsurface, &surf_info);
@@ -174,14 +172,33 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
 
    if (ec)
      {
+        if (plane->role == E_PLANE_ROLE_CURSOR)
+          {
+             E_Pointer *pointer = e_pointer_get(ec);
+             if (!pointer)
+               {
+                  ERR("ec doesn't have E_Pointer");
+                  return EINA_FALSE;
+               }
+
+             dst_pos_x = pointer->x - pointer->hot.x;
+             dst_pos_y = pointer->y - pointer->hot.y;
+          }
+        else
+          {
+             dst_pos_x = ec->x;
+             dst_pos_y = ec->y;
+          }
+
+
         if (plane->info.src_config.size.h != aligned_width ||
             plane->info.src_config.size.v != surf_info.height ||
             plane->info.src_config.pos.x != 0 ||
             plane->info.src_config.pos.y != 0 ||
             plane->info.src_config.pos.w != surf_info.width ||
             plane->info.src_config.pos.h != surf_info.height ||
-            plane->info.dst_pos.x != ec->x ||
-            plane->info.dst_pos.y != ec->y ||
+            plane->info.dst_pos.x != dst_pos_x ||
+            plane->info.dst_pos.y != dst_pos_y ||
             plane->info.dst_pos.w != surf_info.width ||
             plane->info.dst_pos.h != surf_info.height ||
             plane->info.transform != TDM_TRANSFORM_NORMAL)
@@ -192,8 +209,8 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
               plane->info.src_config.pos.y = 0;
               plane->info.src_config.pos.w = surf_info.width;
               plane->info.src_config.pos.h = surf_info.height;
-              plane->info.dst_pos.x = ec->x;
-              plane->info.dst_pos.y = ec->y;
+              plane->info.dst_pos.x = dst_pos_x;
+              plane->info.dst_pos.y = dst_pos_y;
               plane->info.dst_pos.w = surf_info.width;
               plane->info.dst_pos.h = surf_info.height;
               plane->info.transform = TDM_TRANSFORM_NORMAL;
@@ -364,6 +381,38 @@ _e_plane_surface_from_client_acquire(E_Plane *plane)
         ERR("fail to wayland_tbm_server_get_surface");
         return NULL;
      }
+
+   return tsurface;
+}
+
+static tbm_surface_h
+_e_plane_cursor_surface_acquire(E_Plane *plane)
+{
+   tbm_surface_h tsurface = NULL;
+   E_Plane_Renderer *renderer = plane->renderer;
+   E_Client *ec = plane->ec;
+   E_Comp_Wl_Buffer *buffer = NULL;
+
+   buffer = ec->comp_data->buffer_ref.buffer;
+   if (!buffer) return NULL;
+
+   if (!e_comp_object_hwc_update_exists(ec->frame)) return NULL;
+
+   if (plane_trace_debug)
+     ELOGF("E_PLANE", "Display Cursor Client Plane(%p)", NULL, ec, plane);
+
+   e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
+
+   if (plane->displaying_buffer_ref.buffer != buffer)
+     {
+        if (!e_plane_renderer_cursor_surface_refresh(renderer, ec))
+          {
+             ERR("Failed to e_plane_renderer_cursor_surface_refresh");
+             return NULL;
+          }
+     }
+
+   tsurface = e_plane_renderer_cursor_surface_get(renderer);
 
    return tsurface;
 }
@@ -679,24 +728,11 @@ e_plane_fetch(E_Plane *plane)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
-   if (!plane->renderer && plane->tsurface &&
-       !plane->pending_commit_data)
-     {
-        if (!_e_plane_surface_unset(plane))
-          {
-             ERR("failed to unset surface plane:%p", plane);
-             return EINA_FALSE;
-          }
-     }
-
-   if (plane->need_to_commit)
-     {
-        plane->need_to_commit = EINA_FALSE;
-        return EINA_TRUE;
-     }
-
    if (plane->pending_commit_data)
       return EINA_FALSE;
+
+   if (plane->need_to_unset_commit)
+      return EINA_TRUE;
 
    if (plane->is_fb && !plane->ec)
      {
@@ -707,11 +743,23 @@ e_plane_fetch(E_Plane *plane)
      {
         if (!plane->ec) return EINA_FALSE;
 
-        /* acquire the surface */
-        if (plane->reserved_memory)
-          tsurface = _e_plane_surface_from_client_acquire_reserved(plane);
+        if (plane->role == E_PLANE_ROLE_OVERLAY)
+          {
+             /* acquire the surface */
+             if (plane->reserved_memory)
+                tsurface = _e_plane_surface_from_client_acquire_reserved(plane);
+             else
+                tsurface = _e_plane_surface_from_client_acquire(plane);
+          }
+        else if (plane->role == E_PLANE_ROLE_CURSOR)
+          {
+             tsurface = _e_plane_cursor_surface_acquire(plane);
+          }
         else
-          tsurface = _e_plane_surface_from_client_acquire(plane);
+          {
+             ERR("not supported plane:%p role:%d", plane, plane->role);
+             return EINA_FALSE;
+          }
 
         /* For send frame::done to client */
         if (!tsurface)
@@ -775,6 +823,18 @@ e_plane_commit_data_aquire(E_Plane *plane)
    E_Plane_Commit_Data *data = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
+
+   if (plane->need_to_unset_commit)
+     {
+        data = E_NEW(E_Plane_Commit_Data, 1);
+        data->plane = plane;
+        data->tsurface = NULL;
+        data->ec = NULL;
+        plane->pending_commit_data = data;
+        plane->need_to_unset_commit = EINA_FALSE;
+
+        return data;
+     }
 
    if (!plane->renderer) return NULL;
 
@@ -840,14 +900,16 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
    ec = data->ec;
    renderer = plane->renderer;
 
-   if (!renderer)
+   if (!tsurface)
      {
-        if (!_e_plane_surface_unset(plane))
-           ERR("failed to unset surface plane:%p", plane);
-
-        e_comp_wl_buffer_reference(&data->buffer_ref, NULL);
         plane->pending_commit_data = NULL;
-        tbm_surface_internal_unref(tsurface);
+        e_comp_wl_buffer_reference(&plane->displaying_buffer_ref, NULL);
+        if (plane->displaying_buffer_tsurface)
+          {
+             tbm_surface_internal_unref(plane->displaying_buffer_tsurface);
+             plane->displaying_buffer_tsurface = NULL;
+          }
+
         free(data);
         return;
      }
@@ -882,6 +944,12 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
           }
 
         e_comp_wl_buffer_reference(&plane->displaying_buffer_ref, NULL);
+        if (plane->displaying_buffer_tsurface)
+          {
+             tbm_surface_internal_unref(plane->displaying_buffer_tsurface);
+             plane->displaying_buffer_tsurface = NULL;
+          }
+
         e_plane_renderer_displaying_surface_set(renderer, tsurface);
      }
    else
@@ -892,33 +960,45 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
            ELOGF("E_PLANE", "Done    Plane(%p)     wl_buffer(%p) tsurface(%p) tqueue(%p) data(%p) wl_buffer_ref(%p) ::Client",
              ec->pixmap, ec, plane, _get_wl_buffer(ec), tsurface, renderer->tqueue, data, _get_wl_buffer_ref(ec));
 
-        if (plane->reserved_memory)
+        if (plane->role == E_PLANE_ROLE_OVERLAY)
           {
-             /* release */
-             if (displaying_tsurface)
+             if (plane->reserved_memory)
                {
-                  e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
+                 /* release */
+                 if (displaying_tsurface)
+                   {
+                      e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
 
-                  if (plane->ec)
-                    {
-                       _e_plane_surface_on_client_reserved_release(plane, displaying_tsurface);
-                       _e_plane_surface_send_dequeuable_surfaces(plane);
-                    }
+                      if (plane->ec)
+                        {
+                           _e_plane_surface_on_client_reserved_release(plane, displaying_tsurface);
+                           _e_plane_surface_send_dequeuable_surfaces(plane);
+                        }
+                   }
                }
-          }
-        else
-          {
-             /* release */
-             if (displaying_tsurface)
+             else
                {
-                  _e_plane_surface_on_client_release(plane, displaying_tsurface);
+                 /* release */
+                 if (displaying_tsurface)
+                   {
+                      _e_plane_surface_on_client_release(plane, displaying_tsurface);
 
-                  if (!plane->displaying_buffer_ref.buffer)
-                     e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
-               }
+                      if (!plane->displaying_buffer_ref.buffer)
+                         e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
+                   }
+              }
           }
 
         e_comp_wl_buffer_reference(&plane->displaying_buffer_ref, data->buffer_ref.buffer);
+
+        if (plane->displaying_buffer_tsurface)
+          {
+             tbm_surface_internal_unref(plane->displaying_buffer_tsurface);
+             plane->displaying_buffer_tsurface = NULL;
+          }
+        tbm_surface_internal_ref(tsurface);
+        plane->displaying_buffer_tsurface = tsurface;
+
         e_plane_renderer_displaying_surface_set(renderer, tsurface);
 
         e_comp_wl_buffer_reference(&data->buffer_ref, NULL);
@@ -960,6 +1040,7 @@ e_plane_reserved_set(E_Plane *plane, Eina_Bool set)
                {
                   e_plane_renderer_del(renderer);
                   plane->renderer = NULL;
+                  e_plane_role_set(plane, E_PLANE_ROLE_NONE);
                }
           }
      }
@@ -1035,19 +1116,54 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
         if (plane->reserved_memory)
            e_plane_reserved_set(plane, EINA_TRUE);
 
-        if (!plane->is_fb)
+        if (e_policy_client_is_cursor(ec))
           {
+             if ((plane->renderer) && (plane->role != E_PLANE_ROLE_CURSOR))
+               {
+                  e_plane_renderer_del(plane->renderer);
+                  plane->renderer = NULL;
+               }
+
              if (!plane->renderer)
                 plane->renderer = e_plane_renderer_new(plane);
+
+             EINA_SAFETY_ON_NULL_RETURN_VAL(plane->renderer, EINA_FALSE);
+
+             e_plane_role_set(plane, E_PLANE_ROLE_CURSOR);
+
+             if (!e_plane_renderer_cursor_ec_set(plane->renderer, ec))
+               {
+                  plane->ec = NULL;
+                  return EINA_FALSE;
+               }
           }
+        else
+          {
+             if (!plane->is_fb)
+               {
+                  if ((plane->renderer) && (plane->role != E_PLANE_ROLE_OVERLAY))
+                    {
+                       e_plane_renderer_del(plane->renderer);
+                       plane->renderer = NULL;
+                    }
 
-        EINA_SAFETY_ON_NULL_RETURN_VAL(plane->renderer, EINA_FALSE);
+                  if (!plane->renderer)
+                      plane->renderer = e_plane_renderer_new(plane);
+               }
 
-        if (!e_plane_renderer_ec_set(plane->renderer, ec))
-           return EINA_FALSE;
+             EINA_SAFETY_ON_NULL_RETURN_VAL(plane->renderer, EINA_FALSE);
 
-        if (plane->reserved_memory)
-           _e_plane_surface_send_dequeuable_surfaces(plane);
+             e_plane_role_set(plane, E_PLANE_ROLE_OVERLAY);
+
+             if (!e_plane_renderer_ec_set(plane->renderer, ec))
+               {
+                  plane->ec = NULL;
+                  return EINA_FALSE;
+               }
+
+             if (plane->reserved_memory)
+                _e_plane_surface_send_dequeuable_surfaces(plane);
+          }
 
         e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
      }
@@ -1055,10 +1171,17 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
      {
         if (!plane->is_fb)
           {
+             if (plane->tsurface && !_e_plane_surface_unset(plane))
+               {
+                  ERR("failed to unset surface plane:%p", plane);
+                  return EINA_FALSE;
+               }
+
              if (plane->renderer)
                {
                   e_plane_renderer_del(plane->renderer);
                   plane->renderer = NULL;
+                  e_plane_role_set(plane, E_PLANE_ROLE_NONE);
                }
           }
         else
@@ -1091,7 +1214,26 @@ e_plane_ec_prepare_get(E_Plane *plane)
 E_API Eina_Bool
 e_plane_ec_prepare_set(E_Plane *plane, E_Client *ec)
 {
+   E_Plane_Type type;
+
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   type = plane->type;
+
+   if (ec)
+   {
+      // check surface is set on capable layer
+      if (e_policy_client_is_cursor(ec))
+        {
+           if (type != E_PLANE_TYPE_CURSOR && type != E_PLANE_TYPE_GRAPHIC)
+              return EINA_FALSE;
+        }
+      else
+        {
+           if (type != E_PLANE_TYPE_GRAPHIC)
+              return EINA_FALSE;
+        }
+   }
 
    plane->prepare_ec = ec;
 

@@ -1426,6 +1426,7 @@ e_comp_init(void)
    e_comp_canvas_fake_layers_init();
 
    if (conf->hwc_deactive) e_comp->hwc_deactive = EINA_TRUE; // deactive hwc policy
+   if (conf->hwc_reuse_cursor_buffer) e_comp->hwc_reuse_cursor_buffer = EINA_TRUE;
 
 #ifdef HAVE_HWC
    if (conf->hwc)

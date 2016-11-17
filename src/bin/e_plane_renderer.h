@@ -23,6 +23,8 @@ struct _E_Plane_Renderer {
    int tqueue_height;
    int tqueue_size;
 
+   tbm_surface_h cursor_tsurface;
+
    E_Client           *ec;
    E_Plane_Renderer_State    state;
 
@@ -80,6 +82,9 @@ EINTERN tbm_surface_h              e_plane_renderer_surface_queue_dequeue(E_Plan
 EINTERN Eina_Bool                  e_plane_renderer_surface_queue_clear(E_Plane_Renderer *renderer);
 EINTERN void                       e_plane_renderer_surface_send(E_Plane_Renderer *renderer, E_Client *ec, tbm_surface_h tsurface);
 EINTERN Eina_Bool                  e_plane_renderer_ec_set(E_Plane_Renderer *renderer, E_Client *ec);
+EINTERN Eina_Bool                  e_plane_renderer_cursor_ec_set(E_Plane_Renderer *renderer, E_Client *ec);
+EINTERN tbm_surface_h              e_plane_renderer_cursor_surface_get(E_Plane_Renderer *renderer);
+EINTERN Eina_Bool                  e_plane_renderer_cursor_surface_refresh(E_Plane_Renderer *renderer, E_Client *ec);
 EINTERN Eina_Bool                  e_plane_renderer_ecore_evas_use(E_Plane_Renderer *renderer);
 
 EINTERN void                       e_plane_renderer_hwc_trace_debug(Eina_Bool onoff);
