@@ -257,7 +257,7 @@ _hwc_set(E_Output *eout)
                   set = e_plane_ec_set(ep, ep->prepare_ec);
                   if (set)
                     {
-                       INF("HWC : ec(0x%08x, %s) is set on fb_target( %d)\n",(unsigned int)ep->prepare_ec, ep->prepare_ec->icccm.title, ep->zpos);
+                       INF("HWC : ec(0x%08x, %s) is set on fb_target( %d)\n",(unsigned int)e_client_util_win_get(ep->prepare_ec), ep->prepare_ec->icccm.title, ep->zpos);
                        e_client_redirected_set(ep->prepare_ec, 0);
                        mode = E_HWC_MODE_FULL;
 
@@ -272,7 +272,7 @@ _hwc_set(E_Output *eout)
              set = e_plane_ec_set(ep, ep->prepare_ec);
              if (set)
                {
-                  INF("HWC : ec(0x%08x, %s) is set on %d\n", (unsigned int)ep->prepare_ec, ep->prepare_ec->icccm.title, ep->zpos);
+                  INF("HWC : ec(0x%08x, %s) is set on %d\n", (unsigned int)e_client_util_win_get(ep->prepare_ec), ep->prepare_ec->icccm.title, ep->zpos);
                   e_client_redirected_set(ep->prepare_ec, 0);
                   mode |= E_HWC_MODE_HYBRID;
                }
@@ -285,88 +285,123 @@ _hwc_set(E_Output *eout)
 }
 
 static Eina_Bool
-_hwc_prepare(E_Output *eout, int n_vis, Eina_List *clist)
+_hwc_available_get(E_Client *ec)
+{
+   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+
+   if ((!cdata) ||
+       (!cdata->buffer_ref.buffer) ||
+       (cdata->width_from_buffer != cdata->width_from_viewport) ||
+       (cdata->height_from_buffer != cdata->height_from_viewport) ||
+       cdata->never_hwc)
+     {
+        return EINA_FALSE;
+     }
+
+   if (e_client_transform_core_enable_get(ec)) return EINA_FALSE;
+
+   if (e_comp_wl_tbm_buffer_sync_timeline_used(cdata->buffer_ref.buffer))
+     return EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
+static void
+_hwc_prepare_init(E_Output *eout)
 {
    const Eina_List *ep_l = NULL, *l ;
-   Eina_List *hwc_l = NULL, *clist2;
+   E_Plane *ep = NULL;
+
+   ep_l = e_output_planes_get(eout);
+   EINA_LIST_FOREACH(ep_l, l, ep)
+     {
+        if (!conf->hwc_use_multi_plane &&
+            !e_plane_is_cursor(ep) &&
+            !e_plane_is_fb_target(ep))
+          continue;
+
+        e_plane_ec_prepare_set(ep, NULL);
+     }
+}
+
+static Eina_Bool
+_hwc_prepare(E_Output *eout, int n_vis, Eina_List *hwc_clist)
+{
+   const Eina_List *ep_l = NULL, *l ;
+   Eina_List *hwc_ly = NULL;
    E_Plane *ep = NULL, *ep_fb = NULL;
    int n_ly = 0, n_ec = 0;
    E_Client *ec = NULL;
    Eina_Bool ret = EINA_FALSE;
+   int nouse = 0;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(clist, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_clist, EINA_FALSE);
+
+   n_ec = eina_list_count(hwc_clist);
+   if (n_ec <= 0) return EINA_FALSE;
 
    // list up available_hw layers E_Client can be set
    // if conf->hwc_use_multi_plane FALSE, than use only fb target plane
    ep_l = e_output_planes_get(eout);
    EINA_LIST_FOREACH(ep_l, l, ep)
      {
-        e_plane_ec_prepare_set(ep, NULL);
-
         if (!ep_fb)
           {
              if (e_plane_is_fb_target(ep))
                {
                   ep_fb = ep;
-                  hwc_l = eina_list_append(hwc_l, ep);
+                  hwc_ly = eina_list_append(hwc_ly, ep);
                }
              continue;
           }
         if (!conf->hwc_use_multi_plane) continue;
         if (e_plane_is_cursor(ep)) continue;
         if (ep->zpos > ep_fb->zpos)
-          hwc_l = eina_list_append(hwc_l, ep);
+          hwc_ly = eina_list_append(hwc_ly, ep);
      }
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_l, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_ly, EINA_FALSE);
 
    // finally, assign client on available_hw layers
-   n_ly = eina_list_count(hwc_l);
-   n_ec = eina_list_count(clist);
-   clist2 = eina_list_clone(clist);
+   n_ly = eina_list_count(hwc_ly);
    if ((n_ec == n_vis) &&
        (n_ec <= n_ly)) // fully hwc
      {
-        int del = n_ly - n_ec;
-        EINA_LIST_REVERSE_FOREACH(hwc_l, l, ep)
-          {
-             ec = NULL;
-             if (del > 0)
-               {
-                  e_plane_ec_prepare_set(ep, NULL);
-                  del--;
-                  continue;
-               }
-             if (clist) ec = eina_list_data_get(clist);
-             if (ec) e_plane_ec_prepare_set(ep, ec);
-             clist = eina_list_next(clist);
-          }
-        ret = EINA_TRUE;
+        nouse = n_ly - n_ec;
      }
    else if ((n_ly < n_vis) || // e_comp->evas on fb target plane
             (n_ec < n_vis))
      {
-        int del = n_ly - n_ec + 1;
-        EINA_LIST_REVERSE_FOREACH(hwc_l, l, ep)
-          {
-             ec = NULL;
-             if (del > 0)
-               {
-                  e_plane_ec_prepare_set(ep, NULL);
-                  del--;
-                  continue;
-               }
-             if (clist2) ec = eina_list_data_get(clist2);
-             if (ec) e_plane_ec_prepare_set(ep, ec);
-             if (e_plane_is_fb_target(ep)) e_plane_ec_prepare_set(ep, NULL);
-             clist2 = eina_list_next(clist2);
-          }
-        ret = EINA_TRUE;
+        if (n_ec <= n_ly) nouse = n_ly - n_ec - 1;
+        else nouse = 0;
      }
 
-   eina_list_free(hwc_l);
-   eina_list_free(clist2);
+   EINA_LIST_REVERSE_FOREACH(hwc_ly, l, ep)
+     {
+        ec = NULL;
+        if (nouse > 0)
+          {
+             nouse--;
+             continue;
+          }
+        if (hwc_clist) ec = eina_list_data_get(hwc_clist);
+        if (ec && e_plane_ec_prepare_set(ep, ec))
+          {
+             ret = EINA_TRUE;
+
+             hwc_clist = eina_list_next(hwc_clist);
+             n_ec--; n_vis--;
+          }
+        if (e_plane_is_fb_target(ep))
+          {
+             if (n_ec > 0 || n_vis > 0) e_plane_ec_prepare_set(ep, NULL);
+             break;
+          }
+     }
+
+   eina_list_free(hwc_ly);
+
    return ret;
 }
 
@@ -447,14 +482,16 @@ _hwc_plane_change_ec(E_Plane *ep, E_Client *old_ec, E_Client *new_ec)
           e_plane_reserved_set(ep, 0);
      }
 
+   if (ep->ec) e_client_redirected_set(ep->ec, 1);
+   e_plane_ec_prepare_set(ep, NULL);
+
    if (e_plane_ec_set(ep, new_ec))
      {
-        if (old_ec) e_client_redirected_set(old_ec, 1);
         if (new_ec)
           {
+             INF("HWC : new_ec(0x%08x, %s) is set on %d\n"
+                 , (unsigned int)e_client_util_win_get(new_ec), e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
              e_client_redirected_set(new_ec, 0);
-             e_plane_ec_prepare_set(ep, NULL);
-             INF("HWC : ec(0x%08x, %s) is set on ( %d)\n", (unsigned int)ep->prepare_ec, ep->prepare_ec->icccm.title, ep->zpos);
           }
         else
           {
@@ -464,8 +501,8 @@ _hwc_plane_change_ec(E_Plane *ep, E_Client *old_ec, E_Client *new_ec)
      }
    else
      {
-        _hwc_plane_unset(ep);
-        INF("HWC : due to new_ec(%p) failed to set on %d\n", new_ec, ep->zpos);
+        INF("HWC : failed to set new_ec(0x%08x, %s) on %d\n"
+            , (unsigned int)e_client_util_win_get(new_ec), e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
      }
 
    return ret;
@@ -616,8 +653,6 @@ _e_comp_hwc_prepare(void)
 
         EINA_LIST_FOREACH(vis_clist, vl, ec)
           {
-             E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
-
              // check clients not able to use hwc
              // if ec->frame is not for client buffer (e.g. launchscreen)
              if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
@@ -628,14 +663,7 @@ _e_comp_hwc_prepare(void)
                 goto nextzone;
 
              // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
-             if ((!cdata) ||
-                 (!cdata->buffer_ref.buffer) ||
-                 (cdata->buffer_ref.buffer->type != E_COMP_WL_BUFFER_TYPE_NATIVE) ||
-                 (cdata->width_from_buffer != cdata->width_from_viewport) ||
-                 (cdata->height_from_buffer != cdata->height_from_viewport) ||
-                 e_client_transform_core_enable_get(ec) ||
-                 cdata->never_hwc ||
-                 e_comp_wl_tbm_buffer_sync_timeline_used(cdata->buffer_ref.buffer))
+             if (!_hwc_available_get(ec))
                {
                   if (!n_ec) goto nextzone;
                   break;
@@ -649,6 +677,8 @@ _e_comp_hwc_prepare(void)
         n_vis = eina_list_count(vis_clist);
         if ((n_vis < 1) || (n_ec < 1))
           goto nextzone;
+
+        _hwc_prepare_init(output);
 
         ret |= _hwc_prepare(output, n_vis, hwc_ok_clist);
 
