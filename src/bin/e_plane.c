@@ -68,6 +68,7 @@ _get_tbm_surface_queue(E_Comp *e_comp)
      {
         Evas_Engine_Info_Software_Tbm *info;
         info = (Evas_Engine_Info_Software_Tbm *)evas_engine_info_get(e_comp->evas);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(info, NULL);
         tbm_queue = (tbm_surface_queue_h)info->info.tbm_queue;
      }
 
