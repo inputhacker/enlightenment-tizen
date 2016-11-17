@@ -51,6 +51,7 @@ struct _E_Pointer
 
    Eina_Bool e_cursor : 1;
    Eina_Bool canvas : 1;
+   Eina_Bool hwc;
 };
 
 EINTERN int        e_pointer_init(void);
@@ -59,7 +60,9 @@ EINTERN E_Pointer *e_pointer_canvas_new(Ecore_Evas *ee, Eina_Bool filled);
 EINTERN void       e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y);
 EINTERN void       e_pointer_touch_move(E_Pointer *ptr, int x, int y);
 EINTERN void       e_pointer_mouse_move(E_Pointer *ptr, int x, int y);
+EINTERN Eina_Bool  e_pointer_hwc_set(E_Pointer *ptr, Eina_Bool set);
 
+E_API E_Pointer   *e_pointer_get(E_Client *ec);
 E_API void         e_pointer_hide(E_Pointer *ptr);
 E_API Eina_Bool    e_pointer_is_hidden(E_Pointer *ptr);
 E_API void         e_pointer_rotation_set(E_Pointer *ptr, int rotation);

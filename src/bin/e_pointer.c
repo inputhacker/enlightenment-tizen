@@ -5,6 +5,9 @@
 static Eina_List *_ptrs = NULL;
 static Eina_Bool _initted = EINA_FALSE;
 
+/* temp variable */
+static Eina_Bool override = EINA_FALSE;
+
 /* move the cursor image with the calcaultion of the hot spot */
 static void
 _e_pointer_position_update(E_Pointer *ptr)
@@ -14,7 +17,10 @@ _e_pointer_position_update(E_Pointer *ptr)
    nx = ptr->x - ptr->hot.x;
    ny = ptr->y - ptr->hot.y;
 
-   evas_object_move(ptr->o_ptr, nx, ny);
+   if (ptr->hwc)
+      e_comp_object_hwc_update_set(ptr->o_ptr, EINA_TRUE);
+   else
+      evas_object_move(ptr->o_ptr, nx, ny);
 }
 
 static void
@@ -41,7 +47,7 @@ _e_pointer_map_transform(int width, int height, uint32_t transform,
 
 // TODO: transform the cursor position with hot spot...!!!!!!
 static void
-_e_pointer_rotation_apply(E_Pointer *ptr)
+_e_pointer_object_rotation(E_Pointer *ptr)
 {
    Evas_Map *map;
    int x1, y1, x2, y2, dx, dy;
@@ -124,6 +130,31 @@ _e_pointer_rotation_apply(E_Pointer *ptr)
 }
 
 static void
+_e_pointer_hwc_rotation(E_Pointer *ptr)
+{
+   E_Client *ec;
+
+   if (!ptr->o_ptr) return;
+
+   ec = e_comp_object_client_get(ptr->o_ptr);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   // TODO: roatation cursor buffer with pixman
+}
+
+// TODO: transform the cursor position with hot spot...!!!!!!
+static void
+_e_pointer_rotation_apply(E_Pointer *ptr)
+{
+   EINA_SAFETY_ON_NULL_RETURN(ptr);
+
+   if (ptr->hwc)
+      _e_pointer_hwc_rotation(ptr);
+   else
+      _e_pointer_object_rotation(ptr);
+}
+
+static void
 _e_pointer_cb_free(E_Pointer *ptr)
 {
    _ptrs = eina_list_remove(_ptrs, ptr);
@@ -197,10 +228,21 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
              ec->override = 1; /* ignore the previous cursor_ec */
           }
 
+        if (ptr->o_ptr != obj)
+           ptr->hwc = 0;
+
         /* hide cursor object */
         evas_object_hide(ptr->o_ptr);
         ptr->o_ptr = NULL;
         ptr->device = E_POINTER_NONE;
+
+        /* Current if e_pointer set rotation, it can't' use hwc.
+            if it can use hwc, comp override will be removed. */
+        if (ptr->rotation !=0 && override)
+          {
+             e_comp_override_del();
+             override = EINA_FALSE;
+          }
      }
 
    /* update the hot spot of the cursor */
@@ -227,6 +269,21 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
 
         /* move the pointer to the current position */
         _e_pointer_position_update(ptr);
+
+        /* Current if e_pointer set rotation, it can't' use hwc.
+           if it can use hwc, comp override will be removed. */
+        switch(ptr->rotation)
+          {
+            case 90:
+            case 180:
+            case 270:
+              if (!override)
+                {
+                   e_comp_override_add();
+                   override = EINA_TRUE;
+                }
+               break;
+          }
 
         /* show cursor object */
         evas_object_show(obj);
@@ -275,9 +332,18 @@ E_API void
 e_pointer_hide(E_Pointer *ptr)
 {
    EINA_SAFETY_ON_NULL_RETURN(ptr);
-   if (ptr->o_ptr) return;
+   if (!ptr->o_ptr) return;
+   if (!evas_object_visible_get(ptr->o_ptr)) return;
 
    evas_object_hide(ptr->o_ptr);
+
+   /* Current if e_pointer set rotation, it can't' use hwc.
+      if it can use hwc, comp override will be removed. */
+   if (ptr->rotation !=0 && override)
+     {
+        e_comp_override_del();
+        override = EINA_FALSE;
+     }
 }
 
 E_API Eina_Bool
@@ -297,6 +363,8 @@ e_pointer_rotation_set(E_Pointer *ptr, int rotation)
    const Eina_List *l;
    Ecore_Drm_Device *dev;
 
+   if (ptr->rotation == rotation) return;
+
    ptr->rotation = rotation;
 
    _e_pointer_rotation_apply(ptr);
@@ -304,6 +372,30 @@ e_pointer_rotation_set(E_Pointer *ptr, int rotation)
 
    EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
      ecore_drm_device_pointer_rotation_set(dev, rotation);
+
+   /* Current if e_pointer set rotation, it can't' use hwc.
+      if it can use hwc, comp override will be removed. */
+   if (ptr->o_ptr && !evas_object_visible_get(ptr->o_ptr)) return;
+
+   switch(rotation)
+     {
+       case 0:
+          if (override)
+            {
+               e_comp_override_del();
+               override = EINA_FALSE;
+            }
+          break;
+       case 90:
+       case 180:
+       case 270:
+          if (!override)
+            {
+               e_comp_override_add();
+               override = EINA_TRUE;
+            }
+          break;
+     }
 }
 
 E_API void
@@ -319,3 +411,47 @@ e_pointer_position_get(E_Pointer *ptr, int *x, int *y)
    *y = ptr->y;
 }
 
+EINTERN Eina_Bool
+e_pointer_hwc_set(E_Pointer *ptr, Eina_Bool set)
+{
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(ptr, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(ptr->o_ptr, EINA_FALSE);
+
+   if (ptr->hwc == set) return EINA_TRUE;
+
+   ptr->hwc = set;
+
+   if (set)
+    {
+       e_comp_object_hwc_update_set(ptr->o_ptr, EINA_TRUE);
+    }
+   else
+    {
+       _e_pointer_rotation_apply(ptr);
+       _e_pointer_position_update(ptr);
+    }
+
+   return EINA_TRUE;
+}
+
+E_API E_Pointer *
+e_pointer_get(E_Client *ec)
+{
+   const Eina_List *l;
+   E_Pointer *ptr;
+   E_Client *ptr_ec = NULL;
+
+   if ((!ec) || (e_object_is_del(E_OBJECT(ec)))) return NULL;
+
+   EINA_LIST_FOREACH(_ptrs, l, ptr)
+     {
+        if (ptr->o_ptr)
+          {
+             ptr_ec = e_comp_object_client_get(ptr->o_ptr);
+             if (ptr_ec == ec)
+                return ptr;
+          }
+     }
+
+  return NULL;
+}
