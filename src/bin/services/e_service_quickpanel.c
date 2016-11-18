@@ -485,6 +485,12 @@ _e_qp_srv_effect_finish_job_start(E_Policy_Quickpanel *qp, Eina_Bool visible)
          break;
      }
 
+   if (duration == 0.0)
+     {
+        _e_qp_srv_effect_finish_job_end(qp);
+        return;
+     }
+
    /* start move effect */
    qp->effect.from = from;
    qp->effect.to = to;
