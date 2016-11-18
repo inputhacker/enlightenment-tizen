@@ -2772,6 +2772,76 @@ _e_client_latest_stacked_focus_set(void)
      evas_object_focus_set(focus_ec->frame, 1);
 }
 
+static void
+_e_client_transient_for_group_make(E_Client *ec, Eina_List **list)
+{
+   E_Client *child;
+   Eina_List *l;
+
+   if (!ec) return;
+
+   if (e_config->transient.raise)
+     {
+        EINA_LIST_FOREACH(ec->transients, l, child)
+          {
+             if (!child) continue;
+             if (!child->iconic)
+               {
+                  *list = eina_list_prepend(*list, child);
+                  _e_client_transient_for_group_make(child, list);
+               }
+          }
+     }
+}
+
+static E_Client *
+_e_client_transient_child_top_get(E_Client *ec, Eina_Bool consider_focus)
+{
+   E_Client *top_ec = NULL;
+   Eina_List *transient_list = NULL;
+
+   _e_client_transient_for_group_make(ec, &transient_list);
+
+   if (transient_list)
+     {
+        Eina_List *l = NULL;
+        E_Client *temp_ec = NULL;
+        E_Client *temp_ec2 = NULL;
+
+        E_CLIENT_REVERSE_FOREACH(temp_ec)
+          {
+             if (top_ec) break;
+             if (temp_ec == ec)
+               {
+                  top_ec = ec;
+                  break;
+               }
+
+             EINA_LIST_FOREACH(transient_list, l, temp_ec2)
+               {
+                  if (temp_ec == temp_ec2)
+                    {
+                       if (consider_focus)
+                         {
+                            if ((temp_ec2->icccm.accepts_focus) ||
+                                (temp_ec2->icccm.take_focus))
+                              {
+                                 top_ec = temp_ec2;
+                              }
+                         }
+                       else
+                         {
+                            top_ec = temp_ec2;
+                         }
+                       break;
+                    }
+               }
+          }
+        eina_list_free(transient_list);
+     }
+   return top_ec;
+}
+
 #ifdef EC_IS_NOT_VISIBLE
 # undef EC_IS_NOT_VISIBLE
 #endif
@@ -4633,7 +4703,14 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
         if (ec->shaded || ec->shading)
           e_client_unshade(ec, ec->shade_dir);
         if (!ec->lock_focus_out)
-          evas_object_focus_set(ec->frame, 1);
+          {
+             E_Client *focus_ec = ec;
+
+             if (ec->transients)
+               focus_ec = _e_client_transient_child_top_get(ec, EINA_TRUE);
+
+             evas_object_focus_set(focus_ec->frame, 1);
+          }
      }
 
    TRACE_DS_END();
