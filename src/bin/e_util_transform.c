@@ -175,8 +175,6 @@ e_util_transform_viewport_set(E_Util_Transform *transform, int x, int y, int w, 
 E_API void
 e_util_transform_merge(E_Util_Transform *in_out, E_Util_Transform *input)
 {
-   int i;
-
    if (!in_out) return;
    if (!input) return;
 

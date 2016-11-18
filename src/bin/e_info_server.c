@@ -559,7 +559,6 @@ _msg_window_prop_client_append(Eldbus_Message_Iter *iter, E_Client *target_ec)
              int view_port;
              int vx, vy, vw, vh;
              E_Util_Transform *transform = NULL;
-             char label[32];
 
              transform = e_client_transform_core_transform_get(target_ec, i);
              if (!transform) continue;
