@@ -3103,6 +3103,13 @@ _tzsh_srv_iface_cb_region_set(struct wl_client *client, struct wl_resource *res_
 }
 
 static void
+_tzsh_srv_indicator_cb_resource_destroy(struct wl_resource *resource)
+{
+   if (_indicator_srv_res == resource)
+     _indicator_srv_res = NULL;
+}
+
+static void
 _tzsh_srv_indicator_cb_destroy(struct wl_client *client EINA_UNUSED, struct wl_resource *resource)
 {
    _indicator_srv_res = NULL;
@@ -3134,7 +3141,8 @@ _tzsh_srv_iface_cb_indicator_get(struct wl_client *client, struct wl_resource *r
      }
    _indicator_srv_res = res;
 
-   wl_resource_set_implementation(res, &_tzsh_srv_indicator_iface, tzsh_srv, NULL);
+   wl_resource_set_implementation(res, &_tzsh_srv_indicator_iface, tzsh_srv,
+                                  _tzsh_srv_indicator_cb_resource_destroy);
 }
 
 static void
@@ -3252,6 +3260,16 @@ _tzsh_srv_iface_cb_scrsaver_get(struct wl_client *client, struct wl_resource *re
 }
 
 static void
+_tzsh_srv_scrsaver_mng_cb_resource_destroy(struct wl_resource *resource)
+{
+   if (_scrsaver_mng_res == resource)
+     {
+        _scrsaver_mng_res = NULL;
+        e_screensaver_disable();
+     }
+}
+
+static void
 _tzsh_srv_scrsaver_mng_cb_destroy(struct wl_client *client EINA_UNUSED, struct wl_resource *resource)
 {
    _scrsaver_mng_res = NULL;
@@ -3358,7 +3376,8 @@ _tzsh_srv_iface_cb_scrsaver_mng_get(struct wl_client *client, struct wl_resource
 
    _scrsaver_mng_res = res;
 
-   wl_resource_set_implementation(res, &_tzsh_srv_scrsaver_mng_iface, tzsh_srv, NULL);
+   wl_resource_set_implementation(res, &_tzsh_srv_scrsaver_mng_iface, tzsh_srv,
+                                  _tzsh_srv_scrsaver_mng_cb_resource_destroy);
 }
 
 static void
