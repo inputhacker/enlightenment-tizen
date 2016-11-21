@@ -94,6 +94,7 @@ _e_process_client_info_add(E_Client *ec)
    pid_t pid;
 
    if (!ec) return EINA_FALSE;
+   if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
 
    pid = ec->netwm.pid;
    if (pid <= 0) return EINA_FALSE;
@@ -187,6 +188,7 @@ _e_process_cb_client_iconify(void *data EINA_UNUSED, int type EINA_UNUSED, void 
 {
    E_Event_Client *ev;
    E_Client *ec;
+   E_Process *pinfo;
    pid_t pid;
 
    ev = event;
@@ -196,6 +198,14 @@ _e_process_cb_client_iconify(void *data EINA_UNUSED, int type EINA_UNUSED, void 
    if (!ec) return ECORE_CALLBACK_PASS_ON;
 
    pid = ec->netwm.pid;
+   pinfo = _e_process_find(_e_process_manager, pid);
+   if (!pinfo)
+     {
+        Eina_Bool ret = EINA_FALSE;
+        ret = _e_process_client_info_add(ec);
+        if (!ret)
+          return ECORE_CALLBACK_PASS_ON;
+     }
 
    // check all ECs of its pid, if yes, freeze
    if (_e_process_freeze_condition_check(pid))
@@ -209,6 +219,7 @@ _e_process_cb_client_uniconify(void *data EINA_UNUSED, int type EINA_UNUSED, voi
 {
    E_Event_Client *ev;
    E_Client *ec;
+   E_Process *pinfo;
    pid_t pid;
 
    ev = event;
@@ -218,6 +229,15 @@ _e_process_cb_client_uniconify(void *data EINA_UNUSED, int type EINA_UNUSED, voi
    if (!ec) return ECORE_CALLBACK_PASS_ON;
 
    pid = ec->netwm.pid;
+   pinfo = _e_process_find(_e_process_manager, pid);
+   if (!pinfo)
+     {
+        Eina_Bool ret = EINA_FALSE;
+        ret = _e_process_client_info_add(ec);
+        if (!ret)
+          return ECORE_CALLBACK_PASS_ON;
+     }
+
    if (ec->visible)
      _e_process_thaw(pid);
 
@@ -229,6 +249,7 @@ _e_process_cb_client_visibility_change(void *data EINA_UNUSED, int type EINA_UNU
 {
    E_Event_Client *ev;
    E_Client *ec;
+   E_Process *pinfo;
    pid_t pid;
    Eina_Bool visible;
 
@@ -239,6 +260,15 @@ _e_process_cb_client_visibility_change(void *data EINA_UNUSED, int type EINA_UNU
    if (!ec) return ECORE_CALLBACK_PASS_ON;
 
    pid = ec->netwm.pid;
+   pinfo = _e_process_find(_e_process_manager, pid);
+   if (!pinfo)
+     {
+        Eina_Bool ret = EINA_FALSE;
+        ret = _e_process_client_info_add(ec);
+        if (!ret)
+          return ECORE_CALLBACK_PASS_ON;
+     }
+
    if (ec->visibility.obscured == E_VISIBILITY_UNOBSCURED)
      _e_process_thaw(pid);
    else if (ec->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)
@@ -275,10 +305,16 @@ _e_process_cb_client_focus_in(void *data EINA_UNUSED, int type EINA_UNUSED, void
    if (!ec) return ECORE_CALLBACK_PASS_ON;
 
    pid = ec->netwm.pid;
-   if (pid <= 0) return EINA_FALSE;
+   if (pid <= 0) return ECORE_CALLBACK_PASS_ON;
 
    pinfo = _e_process_find(_e_process_manager, pid);
-   if (!pinfo) return EINA_FALSE;
+   if (!pinfo)
+     {
+        Eina_Bool ret = EINA_FALSE;
+        ret = _e_process_client_info_add(ec);
+        if (!ret)
+          return ECORE_CALLBACK_PASS_ON;
+     }
 
    ec_deactive = _e_process_manager->active_win;
    _e_process_manager->active_win = ec;
