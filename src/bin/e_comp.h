@@ -6,7 +6,7 @@ typedef struct _E_Comp_Connected_Client_Info E_Comp_Connected_Client_Info;
 
 # define E_COMP_TYPE (int) 0xE0b01003
 
-# define E_LAYER_COUNT 25
+# define E_LAYER_COUNT 26
 # define E_CLIENT_LAYER_COUNT 17
 
 typedef enum _E_Layer
