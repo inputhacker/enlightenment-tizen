@@ -4868,12 +4868,19 @@ e_comp_object_layer_update(Evas_Object *obj,
    _e_comp_object_layers_remove(cw);
    if (cw2)
      {
-        if (above)
-          _e_comp_object_layers_add(cw, cw2, NULL, 0);
-        else if (o == obj)
-          _e_comp_object_layers_add(cw, NULL, NULL, above? 0 : 1);
-        else if (below)
-          _e_comp_object_layers_add(cw, NULL, cw2, 0);
+        if (cw2->layer > cw->layer)
+          _e_comp_object_layers_add(cw, NULL, NULL, 0);
+        else if (cw2->layer == cw->layer)
+          {
+             if (above)
+               _e_comp_object_layers_add(cw, cw2, NULL, 0);
+             else if (o == obj)
+               _e_comp_object_layers_add(cw, NULL, NULL, above? 0 : 1);
+             else if (below)
+               _e_comp_object_layers_add(cw, NULL, cw2, 0);
+          }
+        else
+          _e_comp_object_layers_add(cw, NULL, NULL, 1);
      }
    else
      _e_comp_object_layers_add(cw, NULL, NULL, 0);
