@@ -96,8 +96,6 @@ _conf_state_update(Conformant_Type type, Eina_Bool visible, int x, int y, int w,
    uint32_t conf_type;
    Eina_List *l;
 
-   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
-
    if ((g_conf->part[type].state.visible == visible) &&
        (g_conf->part[type].state.x == x) && (g_conf->part[type].state.x == y) &&
        (g_conf->part[type].state.x == w) && (g_conf->part[type].state.x == h))
@@ -273,8 +271,6 @@ _conf_cb_part_obj_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
 {
    Conformant_Type type = (Conformant_Type)data;
 
-   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
-
    CFDBG("PART %s ec(%p) Deleted", _conf_type_to_str(type), g_conf->part[type].ec);
 
    g_conf->part[type].ec = NULL;
@@ -285,8 +281,6 @@ _conf_cb_part_obj_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
 {
    Conformant_Type type = (Conformant_Type)data;
    E_Client *owner = NULL;
-
-   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
 
    CFDBG("PART %s ec(%p) Show", _conf_type_to_str(type), g_conf->part[type].ec);
 
@@ -303,8 +297,6 @@ _conf_cb_part_obj_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
 {
    Conformant_Type type = (Conformant_Type)data;
 
-   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
-
    CFDBG("PART %s ec(%p) Hide", _conf_type_to_str(type), g_conf->part[type].ec);
    _conf_state_update(type,
                       EINA_FALSE,
@@ -320,8 +312,6 @@ _conf_cb_part_obj_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
 {
    Conformant_Type type = (Conformant_Type)data;
 
-   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
-
    CFDBG("PART %s ec(%p) Move", _conf_type_to_str(type), g_conf->part[type].ec);
 
    g_conf->part[type].changed = 1;
@@ -332,8 +322,6 @@ _conf_cb_part_obj_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_
 {
    Conformant_Type type = (Conformant_Type)data;
 
-   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
-
    CFDBG("PART %s ec(%p) Resize", _conf_type_to_str(type), g_conf->part[type].ec);
 
    g_conf->part[type].changed = 1;
@@ -342,8 +330,6 @@ _conf_cb_part_obj_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_
 static void
 _conf_part_register(E_Client *ec, Conformant_Type type)
 {
-   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
-
    if (g_conf->part[type].ec)
      {
         CFERR("Can't register ec(%p) for %s. ec(%p) was already registered.",
@@ -372,10 +358,10 @@ _conf_cb_client_add(void *data, int evtype EINA_UNUSED, void *event)
 
    type = _conf_client_type_get(ev->ec);
    if (type >= CONFORMANT_TYPE_MAX)
-     return ECORE_CALLBACK_PASS_ON;
+     goto end;
 
    _conf_part_register(ev->ec, type);
-
+end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
@@ -389,7 +375,7 @@ _conf_cb_client_rot_change_begin(void *data, int evtype EINA_UNUSED, void *event
 
    type = _conf_client_type_get(ev->ec);
    if (type >= CONFORMANT_TYPE_MAX)
-     return ECORE_CALLBACK_PASS_ON;
+     goto end;
 
    /* set conformant area to non-visible state before starting rotation.
     * this is to prevent to apply wrong area of conformant area after rotation.
@@ -407,7 +393,7 @@ _conf_cb_client_rot_change_begin(void *data, int evtype EINA_UNUSED, void *event
                            g_conf->part[type].state.h);
         g_conf->part[type].state.restore = EINA_TRUE;
      }
-
+end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
@@ -421,7 +407,7 @@ _conf_cb_client_rot_change_cancel(void *data, int evtype EINA_UNUSED, void *even
 
    type = _conf_client_type_get(ev->ec);
    if (type >= CONFORMANT_TYPE_MAX)
-     return ECORE_CALLBACK_PASS_ON;
+     goto end;
 
    if (g_conf->part[type].state.restore)
      {
@@ -434,7 +420,7 @@ _conf_cb_client_rot_change_cancel(void *data, int evtype EINA_UNUSED, void *even
                            g_conf->part[type].state.h);
         g_conf->part[type].state.restore = EINA_TRUE;
      }
-
+end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
@@ -448,10 +434,10 @@ _conf_cb_client_rot_change_end(void *data, int evtype EINA_UNUSED, void *event)
 
    type = _conf_client_type_get(ev->ec);
    if (type >= CONFORMANT_TYPE_MAX)
-     return ECORE_CALLBACK_PASS_ON;
+     goto end;
 
    g_conf->part[type].state.restore = EINA_FALSE;
-
+end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
@@ -626,8 +612,7 @@ e_policy_conformant_shutdown(void)
    Conformant_Client *cfc;
    Eina_Iterator *itr;
 
-   if (!g_conf)
-     return;
+   EINA_SAFETY_ON_NULL_RETURN(g_conf);
 
    CFINF("Conformant Module Shutdown");
 
