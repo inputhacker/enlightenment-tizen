@@ -3,6 +3,7 @@
 #include "e_policy_conformant.h"
 #include "e_policy_wl.h"
 #include "e_policy_visibility.h"
+#include "e_policy_private_data.h"
 
 E_Policy *e_policy = NULL;
 Eina_Hash *hash_policy_desks = NULL;
@@ -624,6 +625,16 @@ _e_policy_cb_hook_client_eval_pre_new_client(void *d EINA_UNUSED, E_Client *ec)
              if (ec->layer != E_LAYER_CLIENT_ABOVE)
                evas_object_layer_set(ec->frame, E_LAYER_CLIENT_ABOVE);
           }
+     }
+
+   if (e_policy_client_is_toast_popup(ec))
+     {
+        if (ec->frame)
+          {
+             if (ec->layer != E_POLICY_TOAST_POPUP_LAYER)
+               evas_object_layer_set(ec->frame, E_POLICY_TOAST_POPUP_LAYER);
+          }
+        ec->layer = E_POLICY_TOAST_POPUP_LAYER;
      }
 }
 
@@ -1579,6 +1590,21 @@ e_policy_client_is_cbhm(E_Client *ec)
    E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
 
    if (!e_util_strcmp("cbhm", ec->icccm.window_role))
+     return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+Eina_Bool
+e_policy_client_is_toast_popup(E_Client *ec)
+{
+   E_OBJECT_CHECK_RETURN(ec, EINA_FALSE);
+   E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
+
+   if (!e_util_strcmp("TOAST_POPUP", ec->icccm.class))
+     return EINA_TRUE;
+
+   if (!e_util_strcmp("toast_popup", ec->icccm.window_role))
      return EINA_TRUE;
 
    return EINA_FALSE;
