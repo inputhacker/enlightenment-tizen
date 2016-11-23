@@ -1097,6 +1097,89 @@ _e_policy_cb_client_resize(void *data EINA_UNUSED, int type EINA_UNUSED, void *e
    return ECORE_CALLBACK_PASS_ON;
 }
 
+static E_Client *
+_e_policy_client_find_above(const E_Client *ec)
+{
+   unsigned int x;
+   E_Client *ec2;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+   if (EINA_INLIST_GET(ec)->next) //check current layer
+     {
+        EINA_INLIST_FOREACH(EINA_INLIST_GET(ec)->next, ec2)
+          {
+             if ((!e_object_is_del(E_OBJECT(ec2))) &&
+                 (!e_client_util_ignored_get(ec2)) &&
+                 (ec2->visible) &&
+                 (ec2->frame))
+               return ec2;
+          }
+     }
+   if (ec->layer == E_LAYER_CLIENT_ALERT) return NULL;
+   if (e_comp_canvas_client_layer_map(ec->layer) == 9999) return NULL;
+
+   /* go up the layers until we find one */
+   for (x = e_comp_canvas_layer_map(ec->layer) + 1; x <= e_comp_canvas_layer_map(E_LAYER_CLIENT_ALERT); x++)
+     {
+        if (!e_comp->layers[x].clients) continue;
+        EINA_INLIST_FOREACH(e_comp->layers[x].clients, ec2)
+          {
+             if (ec2 == ec) continue;
+             if ((!e_object_is_del(E_OBJECT(ec2))) &&
+                 (!e_client_util_ignored_get(ec2)) &&
+                 (ec2->visible) &&
+                 (ec2->frame))
+               return ec2;
+          }
+     }
+   return NULL;
+}
+
+static E_Client *
+_e_policy_client_find_below(const E_Client *ec)
+{
+   unsigned int x;
+   E_Client *ec2;
+   Eina_Inlist *l;
+
+   E_OBJECT_CHECK_RETURN(ec, NULL);
+   E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, NULL);
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+   if (EINA_INLIST_GET(ec)->prev) //check current layer
+     {
+        for (l = EINA_INLIST_GET(ec)->prev; l; l = l->prev)
+          {
+             ec2 = EINA_INLIST_CONTAINER_GET(l, E_Client);
+             if ((!e_object_is_del(E_OBJECT(ec2))) &&
+                 (!e_client_util_ignored_get(ec2)) &&
+                 (ec2->visible) &&
+                 (ec2->frame))
+               return ec2;
+          }
+     }
+
+   /* go down the layers until we find one */
+   if (e_comp_canvas_layer_map(ec->layer) > e_comp_canvas_layer_map(E_LAYER_MAX)) return NULL;
+   x = e_comp_canvas_layer_map(ec->layer);
+   if (x > 0) x--;
+
+   for (; x >= e_comp_canvas_layer_map(E_LAYER_CLIENT_DESKTOP); x--)
+     {
+        if (!e_comp->layers[x].clients) continue;
+        EINA_INLIST_REVERSE_FOREACH(e_comp->layers[x].clients, ec2)
+          {
+             if (ec2 == ec) continue;
+             if ((!e_object_is_del(E_OBJECT(ec2))) &&
+                 (!e_client_util_ignored_get(ec2)) &&
+                 (ec2->visible) &&
+                 (ec2->frame))
+               return ec2;
+          }
+     }
+   return NULL;
+}
+
 static void
 _e_policy_client_stack_change_send(E_Client *ec)
 {
@@ -1107,29 +1190,8 @@ _e_policy_client_stack_change_send(E_Client *ec)
    char above_pid_s[4096] = {0,};
    char below_pid_s[4096] = {0,};
 
-   above = e_client_above_get(ec);
-   while (above)
-     {
-        if ((!e_object_is_del(E_OBJECT(above))) &&
-            (!e_client_util_ignored_get(above)) &&
-            (above->visible) &&
-            (above->frame))
-          break;
-
-        above = e_client_above_get(above);
-     }
-
-   below = e_client_below_get(ec);
-   while (below)
-     {
-        if ((!e_object_is_del(E_OBJECT(below))) &&
-            (!e_client_util_ignored_get(below)) &&
-            (below->visible) &&
-            (below->frame))
-          break;
-
-        below = e_client_below_get(below);
-     }
+   above = _e_policy_client_find_above(ec);
+   below = _e_policy_client_find_below(ec);
 
    if (above) above_pid = above->netwm.pid;
    if (below) below_pid = below->netwm.pid;
