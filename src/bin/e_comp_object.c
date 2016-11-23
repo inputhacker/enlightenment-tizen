@@ -4229,7 +4229,7 @@ e_comp_object_util_mirror_add(Evas_Object *obj)
    evas_object_event_callback_add(o, EVAS_CALLBACK_DEL, _e_comp_object_cb_mirror_del, cw);
    evas_object_event_callback_add(o, EVAS_CALLBACK_SHOW, _e_comp_object_cb_mirror_show, cw);
    evas_object_event_callback_add(o, EVAS_CALLBACK_HIDE, _e_comp_object_cb_mirror_hide, cw);
-   evas_object_data_set(o, "E_Client", cw->ec);
+   evas_object_data_set(o, "E_Client_Mirror", cw->ec);
    evas_object_data_set(o, "comp_mirror", cw);
 
    evas_object_image_alpha_set(o, evas_object_image_alpha_get(cw->obj));
