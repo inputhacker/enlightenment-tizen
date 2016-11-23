@@ -938,6 +938,10 @@ _e_vis_ec_activity_check(E_Client *ec)
    if ((ec->argb) && (ec->visibility.opaque <= 0)) return EINA_FALSE;
    /* check deleted client */
    if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
+   /* check unmapped client */
+   if (ec->comp_data && !ec->comp_data->mapped) return EINA_FALSE;
+   /* check iconify window by client */
+   if ((ec->iconic) && (ec->exp_iconify.by_client)) return EINA_FALSE;
    /* check special client */
    if (_e_vis_ec_special_check(ec)) return EINA_FALSE;
    /* check if full screen */
