@@ -1199,6 +1199,32 @@ end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
+static Eina_Bool
+_quickpanel_cb_client_focus_in(void *data, int type, void *event)
+{
+   E_Policy_Quickpanel *qp;
+   E_Event_Client *ev;
+   E_Client *ec;
+
+   qp = data;
+   EINA_SAFETY_ON_NULL_GOTO(qp, end);
+
+   ev = event;
+   EINA_SAFETY_ON_NULL_GOTO(ev, end);
+
+   ec = ev->ec;
+   EINA_SAFETY_ON_NULL_GOTO(ec, end);
+
+   if (ec->visible)
+     {
+        DBG("Focus changed to '%s'(%x), Hide QP",
+            ec->icccm.name ? ec->icccm.name : "", e_client_util_win_get(ec));
+        e_service_quickpanel_hide();
+     }
+end:
+   return ECORE_CALLBACK_PASS_ON;
+}
+
 static Evas_Object *
 _quickpanel_indicator_object_new(E_Policy_Quickpanel *qp)
 {
@@ -1451,6 +1477,7 @@ e_service_quickpanel_client_set(E_Client *ec)
    E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_STACK,                    _quickpanel_cb_client_stack,     qp);
    E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_REMOVE,                   _quickpanel_cb_client_remove,    qp);
    E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_BUFFER_CHANGE,            _quickpanel_cb_buffer_change,    qp);
+   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_FOCUS_IN,                 _quickpanel_cb_client_focus_in,  qp);
 
    E_COMP_OBJECT_INTERCEPT_HOOK_APPEND(qp->intercept_hooks, E_COMP_OBJECT_INTERCEPT_HOOK_SHOW_HELPER, _quickpanel_intercept_hook_show, qp);
 
