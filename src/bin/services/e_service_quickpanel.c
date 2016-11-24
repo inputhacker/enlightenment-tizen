@@ -84,6 +84,7 @@ struct _E_Policy_Quickpanel
    E_Maximize saved_maximize;
 
    Eina_Bool show_block;
+   Eina_Bool need_scroll_update;
 
    Eina_List *clients; /* list of E_QP_Client */
 };
@@ -880,6 +881,9 @@ _quickpanel_client_evas_cb_hide(void *data, Evas *evas, Evas_Object *obj, void *
 
    evas_object_hide(qp->handler_obj);
    evas_object_show(qp->indi_obj);
+
+   if (qp->need_scroll_update)
+     _e_qp_client_scrollable_update();
 }
 
 static void
@@ -1110,8 +1114,6 @@ _quickpanel_below_visible_client_get(E_Policy_Quickpanel *qp)
    for (ec = e_client_below_get(qp->ec); ec; ec = e_client_below_get(ec))
      {
         if (!ec->visible) continue;
-        if (!ec->icccm.accepts_focus) continue;
-
         return ec;
      }
 
@@ -1282,9 +1284,12 @@ _quickpanel_idle_enter(void *data)
               * hide the quickpanel, if below client is the stacking client.
               * it means to find out whether or not it was launched.
               */
-             if ((qp->stacking == below) &&
-                 (qp->ec->visible))
-               e_service_quickpanel_hide();
+             if (qp->below->icccm.accepts_focus)
+               {
+                  if ((qp->stacking == below) &&
+                      (qp->ec->visible))
+                    e_service_quickpanel_hide();
+               }
 
              _e_qp_client_scrollable_update();
           }
@@ -1351,6 +1356,13 @@ _e_qp_client_scrollable_update(void)
    EINA_SAFETY_ON_NULL_RETURN_VAL(qp, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(qp->ec, EINA_FALSE);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(qp->ec)), EINA_FALSE);
+
+   if (qp->ec->visible)
+     {
+        qp->need_scroll_update = EINA_TRUE;
+        return EINA_TRUE;
+     }
+   qp->need_scroll_update = EINA_FALSE;
 
    if (!qp->below)
      {
