@@ -383,7 +383,9 @@ _conf_cb_client_add(void *data, int evtype EINA_UNUSED, void *event)
    ev = event;
 
    type = _conf_client_type_get(ev->ec);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(type >= CONFORMANT_TYPE_MAX, ECORE_CALLBACK_PASS_ON);
+
+   if (type >= CONFORMANT_TYPE_MAX)
+     return ECORE_CALLBACK_PASS_ON;
 
    _conf_part_register(conf, ev->ec, type);
 

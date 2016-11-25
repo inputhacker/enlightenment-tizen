@@ -124,7 +124,7 @@ _e_process_client_info_del(E_Client *ec)
    if (pid <=0) return;
 
    pinfo = _e_process_find(_e_process_manager, pid);
-   EINA_SAFETY_ON_NULL_RETURN(pinfo);
+   if (!pinfo) return;
 
    if (_e_process_manager->active_win == ec)
      {
