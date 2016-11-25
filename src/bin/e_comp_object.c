@@ -1266,7 +1266,17 @@ _e_comp_intercept_resize(void *data, Evas_Object *obj, int w, int h)
         cw->ec->client.h = ih;
         if ((cw->ec->client.w < 0) || (cw->ec->client.h < 0)) CRI("WTF");
      }
-   if ((!cw->ec->input_only) && (cw->redirected) &&
+
+   /* The size of non-compositing window can be changed, so there is a
+    * need to check that cw is H/W composited if cw is not redirected.
+    * And of course we have to change size of evas object of H/W composited cw,
+    * otherwise cw can't receive input events even if it is shown on the screen.
+    */
+   Eina_Bool redirected = cw->redirected;
+   if (!redirected)
+     redirected = e_comp_is_on_overlay(cw->ec);
+
+   if ((!cw->ec->input_only) && (redirected) &&
        (cw->content_type != E_COMP_OBJECT_CONTENT_TYPE_EXT_IMAGE) &&
        (cw->content_type != E_COMP_OBJECT_CONTENT_TYPE_EXT_EDJE) &&
        (e_pixmap_dirty_get(cw->ec->pixmap) ||
