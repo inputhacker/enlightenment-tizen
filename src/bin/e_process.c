@@ -24,7 +24,7 @@ static Eina_Bool  _e_process_freeze(pid_t pid);
 static Eina_Bool  _e_process_thaw(pid_t pid);
 
 static void       _e_process_action_change(E_Process *epro, E_Process_Action act);
-static void       _e_process_state_change(E_Process *epro, E_Process_State state);
+static void       _e_process_state_change(E_Process *epro, E_Process_State state, Eina_Bool send_event);
 
 
 static void       _e_process_hooks_clean(void);
@@ -402,6 +402,8 @@ _e_process_windows_act_no_visible_update(pid_t pid)
    pinfo = _e_process_find(_e_process_manager, pid);
    EINA_SAFETY_ON_NULL_RETURN(pinfo);
 
+   _e_process_state_change(pinfo, E_PROCESS_STATE_BACKGROUND, EINA_FALSE);
+
    ELOGF("PROCESS", "ACTION WINDOWS_HIDDEN. PID:%d", NULL, NULL, pinfo->pid);
    _e_process_action_change(pinfo, E_PROCESS_ACT_NO_VISIBLE_WINDOWS);
 }
@@ -447,7 +449,7 @@ _e_process_freeze(pid_t pid)
    if (pinfo->state != E_PROCESS_STATE_BACKGROUND)
      {
         ELOGF("PROCESS", "STATE  BACKGROUND. PID:%d", NULL, NULL, pid);
-        _e_process_state_change(pinfo, E_PROCESS_STATE_BACKGROUND);
+        _e_process_state_change(pinfo, E_PROCESS_STATE_BACKGROUND, EINA_TRUE);
      }
 
    return EINA_TRUE;
@@ -466,7 +468,7 @@ _e_process_thaw(pid_t pid)
    if (pinfo->state != E_PROCESS_STATE_FOREGROUND)
      {
         ELOGF("PROCESS", "STATE  FOREGROUND. PID:%d", NULL, NULL, pid);
-        _e_process_state_change(pinfo, E_PROCESS_STATE_FOREGROUND);
+        _e_process_state_change(pinfo, E_PROCESS_STATE_FOREGROUND, EINA_TRUE);
      }
 
    return EINA_TRUE;
@@ -481,7 +483,7 @@ _e_process_action_change(E_Process *epro, E_Process_Action act)
 }
 
 static void
-_e_process_state_change(E_Process *epro, E_Process_State state)
+_e_process_state_change(E_Process *epro, E_Process_State state, Eina_Bool send_event)
 {
    EINA_SAFETY_ON_NULL_RETURN(epro);
 
@@ -489,6 +491,9 @@ _e_process_state_change(E_Process *epro, E_Process_State state)
      {
         epro->state = state;
         _e_process_hook_call(E_PROCESS_HOOK_STATE_CHANGE, epro, NULL);
+
+        if (!send_event)
+          return;
 
         if (state == E_PROCESS_STATE_FOREGROUND)
           {
