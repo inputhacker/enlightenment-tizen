@@ -9,6 +9,28 @@ typedef enum
 } E_Info_Rotation_Message;
 
 /* -------------------------------------------------------------------------- */
+/* COMPOSITE OBJECTS                                                          */
+/* -------------------------------------------------------------------------- */
+#define SIGNATURE_COMPOBJS_CLIENT "uissisiiiiiiiibbbbb"
+
+typedef struct _E_Info_Comp_Obj
+{
+   unsigned int obj;           // u
+   int          depth;         // i
+   const char  *type;          // s
+   const char  *name;          // s
+   int          ly;            // i
+   const char  *opmode;        // s
+   int          x, y, w, h;    // i i i i
+   int          r, g, b, a;    // i i i i
+   Eina_Bool    alpha;         // b
+   Eina_Bool    pass_events;   // b
+   Eina_Bool    freeze_events; // b
+   Eina_Bool    focus;         // b
+   Eina_Bool    vis;           // b
+} E_Info_Comp_Obj;
+
+/* -------------------------------------------------------------------------- */
 /* SCREENSAVER                                                                */
 /* -------------------------------------------------------------------------- */
 #define USAGE_SCRSAVER                                                \

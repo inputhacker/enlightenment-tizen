@@ -174,6 +174,76 @@ finish:
 }
 
 static void
+_e_info_client_cb_compobjs(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eldbus_Message_Iter *array, *obj;
+   Eina_Bool res;
+   E_Info_Comp_Obj cobj;
+   int i;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg,
+                                      "a("SIGNATURE_COMPOBJS_CLIENT")",
+                                      &array);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   while (eldbus_message_iter_get_and_next(array, 'r', &obj))
+     {
+        memset(&cobj, 0, sizeof(E_Info_Comp_Obj));
+
+        res = eldbus_message_iter_arguments_get(obj,
+                                                SIGNATURE_COMPOBJS_CLIENT,
+                                                &cobj.obj,
+                                                &cobj.depth,
+                                                &cobj.type,
+                                                &cobj.name,
+                                                &cobj.ly,
+                                                &cobj.opmode,
+                                                &cobj.x, &cobj.y, &cobj.w, &cobj.h,
+                                                &cobj.r, &cobj.g, &cobj.b, &cobj.a,
+                                                &cobj.alpha,
+                                                &cobj.pass_events,
+                                                &cobj.freeze_events,
+                                                &cobj.focus,
+                                                &cobj.vis);
+        if (!res)
+          {
+             printf("Failed to get composite obj info\n");
+             continue;
+          }
+
+        printf("%4d ", cobj.ly);
+        for (i = 0; i < cobj.depth; i++) printf(" ");
+        printf("%08x ", cobj.obj);
+        for (i = 4; i > cobj.depth; i--) printf(" ");
+
+        printf("%7.7s "
+               "|%5.5s"
+               "|%4d,%4d %4dx%4d|%3d %3d %3d %3d|%s|%s %s %s|%s|%s"
+               "\n",
+               cobj.type,
+               cobj.opmode,
+               cobj.x, cobj.y, cobj.w, cobj.h,
+               cobj.r, cobj.g, cobj.b, cobj.a,
+               cobj.alpha == 1 ? "A" : " ",
+               cobj.pass_events == 1 ? "p" : " ",
+               cobj.freeze_events == 1 ? "z" : " ",
+               cobj.focus == 1 ? "F" : " ",
+               cobj.vis == 1 ? "V" : " ",
+               cobj.name);
+     }
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
 _cb_input_device_info_get(const Eldbus_Message *msg)
 {
    const char *name = NULL, *text = NULL;
@@ -473,6 +543,16 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
      printf("\nHWC is disabled\n\n");
 
    E_FREE_LIST(e_info_client.win_list, _e_win_info_free);
+}
+
+static void
+_e_info_client_proc_compobjs_info(int argc, char **argv)
+{
+   Eina_Bool res;
+
+   res = _e_info_client_eldbus_message("compobjs",
+                                       _e_info_client_cb_compobjs);
+   EINA_SAFETY_ON_FALSE_RETURN(res);
 }
 
 static void
@@ -2059,6 +2139,11 @@ static struct
       "topvwins", NULL,
       "Print top visible windows",
       _e_info_client_proc_topvwins_info
+   },
+   {
+      "compobjs", NULL,
+      "Display detailed information of all composite objects",
+      _e_info_client_proc_compobjs_info
    },
    {
       "subsurface", NULL,

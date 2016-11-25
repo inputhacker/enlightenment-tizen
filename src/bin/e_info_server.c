@@ -183,6 +183,175 @@ _e_info_server_cb_window_info_get(const Eldbus_Service_Interface *iface EINA_UNU
    return reply;
 }
 
+typedef struct _Obj_Info
+{
+   Evas_Object *o;
+   int          depth;
+} Obj_Info;
+
+static Obj_Info *
+_obj_info_get(Evas_Object *o, int depth)
+{
+   Obj_Info *info = E_NEW(Obj_Info, 1);
+   info->o = o;
+   info->depth = depth;
+   return info;
+}
+
+static E_Info_Comp_Obj *
+_compobj_info_get(Evas_Object *o, int depth)
+{
+   E_Info_Comp_Obj *cobj;
+   const char *type;
+
+   cobj = E_NEW(E_Info_Comp_Obj, 1);
+
+   cobj->obj = (unsigned int)o;
+   cobj->depth = depth;
+   cobj->name = evas_object_name_get(o);
+   if (!cobj->name) cobj->name = eina_stringshare_add("no");
+   evas_object_geometry_get(o, &cobj->x, &cobj->y, &cobj->w, &cobj->h);
+   evas_object_color_get(o, &cobj->r, &cobj->g, &cobj->b, &cobj->a);
+   cobj->alpha = evas_object_image_alpha_get(o);
+   cobj->pass_events = evas_object_pass_events_get(o);
+   cobj->freeze_events = evas_object_freeze_events_get(o);
+   cobj->focus = evas_object_focus_get(o);
+   cobj->vis = evas_object_visible_get(o);
+   cobj->ly = evas_object_layer_get(o);
+
+#define _CLAMP(x) if ((x >= 0) && (x > 9999)) x = 9999; else if (x < -999) x = -999;
+   _CLAMP(cobj->ly);
+   _CLAMP(cobj->x);
+   _CLAMP(cobj->y);
+   _CLAMP(cobj->w);
+   _CLAMP(cobj->h);
+#undef _CLAMP
+
+   type = evas_object_type_get(o);
+   if      (!e_util_strcmp(type, "rectangle"    )) cobj->type = eina_stringshare_add("R");
+   else if (!e_util_strcmp(type, "edje"         )) cobj->type = eina_stringshare_add("EDJE");
+   else if (!e_util_strcmp(type, "image"        )) cobj->type = eina_stringshare_add("IMG");
+   else if (!e_util_strcmp(type, "e_comp_object")) cobj->type = eina_stringshare_add("COBJ");
+   else                                            cobj->type = eina_stringshare_add(type);
+
+   switch (evas_object_render_op_get(o))
+     {
+      case EVAS_RENDER_BLEND:    cobj->opmode = eina_stringshare_add("BLEND"); break;
+      case EVAS_RENDER_COPY:     cobj->opmode = eina_stringshare_add("COPY");  break;
+      case EVAS_RENDER_COPY_REL: cobj->opmode = eina_stringshare_add("COPYR"); break;
+      case EVAS_RENDER_ADD:      cobj->opmode = eina_stringshare_add("ADD");   break;
+      case EVAS_RENDER_ADD_REL:  cobj->opmode = eina_stringshare_add("ADDR");  break;
+      case EVAS_RENDER_SUB:      cobj->opmode = eina_stringshare_add("SUB");   break;
+      case EVAS_RENDER_SUB_REL:  cobj->opmode = eina_stringshare_add("SUBR");  break;
+      case EVAS_RENDER_TINT:     cobj->opmode = eina_stringshare_add("TINT");  break;
+      case EVAS_RENDER_TINT_REL: cobj->opmode = eina_stringshare_add("TINTR"); break;
+      case EVAS_RENDER_MASK:     cobj->opmode = eina_stringshare_add("MASK");  break;
+      case EVAS_RENDER_MUL:      cobj->opmode = eina_stringshare_add("MUL");   break;
+      default:                   cobj->opmode = eina_stringshare_add("NO");    break;
+     }
+
+   return cobj;
+}
+
+static Eldbus_Message *
+_e_info_server_cb_compobjs(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Eldbus_Message_Iter *iter = eldbus_message_iter_get(reply);
+   Eldbus_Message_Iter *cobjs;
+   Evas_Object *o, *c;
+   Obj_Info *info, *info2;
+   E_Info_Comp_Obj *cobj;
+   Eina_List *l = NULL, *ll = NULL;
+   Eina_List *res = NULL;
+
+   eldbus_message_iter_arguments_append(iter,
+                                        "a("SIGNATURE_COMPOBJS_CLIENT")",
+                                        &cobjs);
+
+   /* 1. push */
+   o = evas_object_top_get(e_comp->evas);
+   EINA_SAFETY_ON_NULL_GOTO(o, end);
+   info = _obj_info_get(o, 0);
+   l = eina_list_append(l, info);
+
+   /* store data */
+   cobj = _compobj_info_get(info->o, info->depth);
+   res = eina_list_append(res, cobj);
+
+   while (1)
+     {
+        /* 2. pop */
+        info = eina_list_last_data_get(l);
+        if (!info) break;
+
+        /* 3. push */
+        /* 3-1. sibling object at the below stack */
+        o = evas_object_below_get(info->o);
+        if (o)
+          {
+             info2 = _obj_info_get(o, info->depth);
+             l = eina_list_append(l, info2);
+
+             /* store data */
+             cobj = _compobj_info_get(info2->o, info2->depth);
+             res = eina_list_append(res, cobj);
+          }
+
+        /* 3-2. children */
+        if (evas_object_smart_data_get(o))
+          {
+             EINA_LIST_FOREACH(evas_object_smart_members_get(o), ll, c)
+               {
+                  info2 = _obj_info_get(c, info->depth + 1);
+                  l = eina_list_append(l, info2);
+
+                  /* store data */
+                  cobj = _compobj_info_get(info2->o, info2->depth);
+                  res = eina_list_append(res, cobj);
+               }
+          }
+
+        l = eina_list_remove(l, info);
+        E_FREE(info);
+     }
+
+   EINA_LIST_FREE(res, cobj)
+     {
+        Eldbus_Message_Iter *struct_of_cobj;
+        eldbus_message_iter_arguments_append(cobjs,
+                                             "("SIGNATURE_COMPOBJS_CLIENT")",
+                                             &struct_of_cobj);
+
+        eldbus_message_iter_arguments_append(struct_of_cobj,
+                                             SIGNATURE_COMPOBJS_CLIENT,
+                                             cobj->obj,
+                                             cobj->depth,
+                                             cobj->type,
+                                             cobj->name,
+                                             cobj->ly,
+                                             cobj->opmode,
+                                             cobj->x, cobj->y, cobj->w, cobj->h,
+                                             cobj->r, cobj->g, cobj->b, cobj->a,
+                                             cobj->alpha,
+                                             cobj->pass_events,
+                                             cobj->freeze_events,
+                                             cobj->focus,
+                                             cobj->vis);
+
+        eldbus_message_iter_container_close(cobjs, struct_of_cobj);
+
+        eina_stringshare_del(cobj->type);
+        eina_stringshare_del(cobj->name);
+        eina_stringshare_del(cobj->opmode);
+        E_FREE(cobj);
+     }
+
+end:
+   eldbus_message_iter_container_close(iter, cobjs);
+   return reply;
+}
+
 static void
 _input_msg_clients_append(Eldbus_Message_Iter *iter)
 {
@@ -2450,6 +2619,7 @@ e_info_server_cb_aux_message(const Eldbus_Service_Interface *iface EINA_UNUSED, 
 
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
+   { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
    { "subsurface", NULL, ELDBUS_ARGS({"a("SIGNATURE_SUBSURFACE")", "array of ec"}), _e_info_server_cb_subsurface, 0 },
    { "dump_topvwins", ELDBUS_ARGS({"s", "directory"}), NULL, _e_info_server_cb_topvwins_dump, 0 },
    { "eina_log_levels", ELDBUS_ARGS({"s", "eina log levels"}), NULL, _e_info_server_cb_eina_log_levels, 0 },
