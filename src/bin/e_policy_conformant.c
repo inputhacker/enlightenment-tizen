@@ -383,7 +383,6 @@ _conf_cb_client_add(void *data, int evtype EINA_UNUSED, void *event)
    ev = event;
 
    type = _conf_client_type_get(ev->ec);
-
    if (type >= CONFORMANT_TYPE_MAX)
      return ECORE_CALLBACK_PASS_ON;
 
@@ -403,7 +402,8 @@ _conf_cb_client_rot_change_begin(void *data, int evtype EINA_UNUSED, void *event
    conf = data;
 
    type = _conf_client_type_get(ev->ec);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(type >= CONFORMANT_TYPE_MAX, ECORE_CALLBACK_PASS_ON);
+   if (type >= CONFORMANT_TYPE_MAX)
+     return ECORE_CALLBACK_PASS_ON;
 
    /* set conformant area to non-visible state before starting rotation.
     * this is to prevent to apply wrong area of conformant area after rotation.
@@ -437,7 +437,8 @@ _conf_cb_client_rot_change_cancel(void *data, int evtype EINA_UNUSED, void *even
    conf = data;
 
    type = _conf_client_type_get(ev->ec);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(type >= CONFORMANT_TYPE_MAX, ECORE_CALLBACK_PASS_ON);
+   if (type >= CONFORMANT_TYPE_MAX)
+     return ECORE_CALLBACK_PASS_ON;
 
    if (conf->part[type].state.restore)
      {
@@ -466,7 +467,8 @@ _conf_cb_client_rot_change_end(void *data, int evtype EINA_UNUSED, void *event)
    conf = data;
 
    type = _conf_client_type_get(ev->ec);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(type >= CONFORMANT_TYPE_MAX, ECORE_CALLBACK_PASS_ON);
+   if (type >= CONFORMANT_TYPE_MAX)
+     return ECORE_CALLBACK_PASS_ON;
 
    conf->part[type].state.restore = EINA_FALSE;
 
