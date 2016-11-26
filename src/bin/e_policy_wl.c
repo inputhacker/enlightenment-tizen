@@ -1569,19 +1569,7 @@ _tzpol_iface_cb_role_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
    e_client_window_role_set(ec, role);
 
    /* TODO: support multiple roles */
-   if (!e_util_strcmp("notification-low", role))
-     {
-        evas_object_layer_set(ec->frame, E_LAYER_CLIENT_NOTIFICATION_LOW);
-     }
-   else if (!e_util_strcmp("notification-normal", role))
-     {
-        evas_object_layer_set(ec->frame, E_LAYER_CLIENT_NOTIFICATION_NORMAL);
-     }
-   else if (!e_util_strcmp("notification-high", role))
-     {
-        evas_object_layer_set(ec->frame, E_LAYER_CLIENT_NOTIFICATION_HIGH);
-     }
-   else if (!e_util_strcmp("alert", role))
+   if (!e_util_strcmp("alert", role))
      {
         evas_object_layer_set(ec->frame, E_LAYER_CLIENT_ALERT);
      }
