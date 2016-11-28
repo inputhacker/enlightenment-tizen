@@ -1217,6 +1217,9 @@ _quickpanel_cb_client_focus_in(void *data, int type, void *event)
    ec = ev->ec;
    EINA_SAFETY_ON_NULL_GOTO(ec, end);
 
+   if (ec == qp->ec)
+     goto end;
+
    if (ec->visible)
      {
         DBG("Focus changed to '%s'(%x), Hide QP",
