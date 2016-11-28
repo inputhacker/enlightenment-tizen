@@ -2322,6 +2322,32 @@ _e_info_server_cb_desktop_geometry_set(const Eldbus_Service_Interface *iface EIN
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_desk_zoom(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   E_Zone *zone;
+   E_Desk *desk;
+   double zx, zy;
+   int cx, cy;
+
+   if (!eldbus_message_arguments_get(msg, "ddii", &zx, &zy, &cx, &cy))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+   zone = e_zone_current_get();
+   desk = e_desk_current_get(zone);
+
+   if ((zx != 1.0) || (zy != 1.0))
+     e_desk_zoom_set(desk, zx, zy, cx, cy);
+   else
+     e_desk_zoom_unset(desk);
+
+   return reply;
+}
+
 static Eina_Bool
 _e_info_server_cb_buffer_change(void *data, int type, void *event)
 {
@@ -2797,6 +2823,7 @@ static const Eldbus_Method methods[] = {
    { "scrsaver", ELDBUS_ARGS({SIGNATURE_SCRSAVER_CLIENT, "scrsaver_params"}), ELDBUS_ARGS({SIGNATURE_SCRSAVER_SERVER, "scrsaver_result"}), _e_info_server_cb_scrsaver, 0},
    { "slot_message", ELDBUS_ARGS({"iiiiii", "slot_message"}), ELDBUS_ARGS({"a(ss)", "array of ec"}), e_info_server_cb_slot_message, 0},
    { "desktop_geometry_set", ELDBUS_ARGS({"iiii", "Geometry"}), NULL, _e_info_server_cb_desktop_geometry_set, 0},
+   { "desk_zoom", ELDBUS_ARGS({"ddii", "Zoom"}), NULL, _e_info_server_cb_desk_zoom, 0},
    { NULL, NULL, NULL, NULL, 0 }
 };
 
