@@ -517,7 +517,7 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
 
         if (win->hwc >= 0)
           {
-             if (win->frame_visible)
+             if ((!win->iconic) && (!win->visibility) && (win->frame_visible))
                {
                   if (win->hwc) snprintf(tmp, sizeof(tmp), "hwc@%i", win->pl_zpos);
                   else snprintf(tmp, sizeof(tmp), "comp@%i", win->pl_zpos);
