@@ -4312,33 +4312,20 @@ _e_comp_wl_client_cb_move_end(void *data EINA_UNUSED, E_Client *ec)
 static void
 _e_comp_wl_client_cb_iconify(void *data EINA_UNUSED, E_Client *ec)
 {
-   E_Client *subc;
-   Eina_List *l;
-
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (e_pixmap_type_get(ec->pixmap) != E_PIXMAP_TYPE_WL) return;
 
-   EINA_LIST_FOREACH(ec->comp_data->sub.list, l, subc)
-     if (!subc->comp_data->sub.data->stand_alone)
-       e_client_iconify(subc);
-   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
-     if (!subc->comp_data->sub.data->stand_alone)
-       e_client_iconify(subc);
+   /* DON'T iconify subsurface. When iconfied, buffer will be released. */
+   _e_comp_wl_subsurface_hide(ec);
 }
 
 static void
 _e_comp_wl_client_cb_uniconify(void *data EINA_UNUSED, E_Client *ec)
 {
-   E_Client *subc;
-   Eina_List *l;
-
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (e_pixmap_type_get(ec->pixmap) != E_PIXMAP_TYPE_WL) return;
 
-   EINA_LIST_FOREACH(ec->comp_data->sub.list, l, subc)
-     e_client_uniconify(subc);
-   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
-     e_client_uniconify(subc);
+   _e_comp_wl_subsurface_show(ec);
 }
 
 static E_Client *
