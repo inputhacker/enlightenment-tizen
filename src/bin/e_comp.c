@@ -237,8 +237,9 @@ _hwc_set(E_Output *eout)
    EINA_LIST_FOREACH(eout->planes, l, ep)
      {
         if (!conf->hwc_use_multi_plane &&
-           !e_plane_is_fb_target(ep))
-           continue;
+            !e_plane_is_cursor(ep) &&
+            !e_plane_is_fb_target(ep))
+          continue;
 
         if (ep->ec) e_client_redirected_set(ep->ec, 1);
      }
@@ -298,6 +299,19 @@ _hwc_available_get(E_Client *ec)
 
    if (e_client_transform_core_enable_get(ec)) return EINA_FALSE;
 
+   switch (cdata->buffer_ref.buffer->type)
+     {
+      case E_COMP_WL_BUFFER_TYPE_NATIVE:
+         break;
+      case E_COMP_WL_BUFFER_TYPE_SHM:
+      case E_COMP_WL_BUFFER_TYPE_TBM:
+         if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
+           break;
+
+      default:
+         return EINA_FALSE;
+     }
+
    if (e_comp_wl_tbm_buffer_sync_timeline_used(cdata->buffer_ref.buffer))
      return EINA_FALSE;
 
@@ -322,8 +336,63 @@ _hwc_prepare_init(E_Output *eout)
      }
 }
 
+static int
+_hwc_prepare_cursor(E_Output *eout, int n_cur, Eina_List *hwc_clist)
+{
+   // policy for cursor layer
+   const Eina_List *ep_l = NULL, *l ;
+   Eina_List *cur_ly = NULL;
+   E_Plane *ep = NULL;
+   int n_skip = 0;
+   int n_curly = 0;
+   int nouse = 0;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_clist, EINA_FALSE);
+
+   // list up cursor only layers
+   ep_l = e_output_planes_get(eout);
+   EINA_LIST_FOREACH(ep_l, l, ep)
+     {
+        if (e_plane_is_cursor(ep))
+          {
+             cur_ly = eina_list_append(cur_ly, ep);
+             continue;
+          }
+     }
+
+   if (!cur_ly) return 0;
+   n_curly = eina_list_count(cur_ly);
+
+   if (n_cur > 0 && n_curly > 0)
+     {
+        if (n_cur >= n_curly) nouse = 0;
+        else nouse = n_curly - n_cur;
+
+        //assign cursor on cursor only layers
+        EINA_LIST_REVERSE_FOREACH(cur_ly, l, ep)
+          {
+             E_Client *ec = NULL;
+             if (nouse > 0)
+               {
+                  nouse--;
+                  continue;
+               }
+             if (hwc_clist) ec = eina_list_data_get(hwc_clist);
+             if (ec && e_plane_ec_prepare_set(ep, ec))
+               {
+                  n_skip += 1;
+                  hwc_clist = eina_list_next(hwc_clist);
+               }
+          }
+     }
+
+   eina_list_free(cur_ly);
+
+   return n_skip;
+}
+
 static Eina_Bool
-_hwc_prepare(E_Output *eout, int n_vis, Eina_List *hwc_clist)
+_hwc_prepare(E_Output *eout, int n_vis, int n_skip, Eina_List *hwc_clist)
 {
    const Eina_List *ep_l = NULL, *l ;
    Eina_List *hwc_ly = NULL;
@@ -337,6 +406,16 @@ _hwc_prepare(E_Output *eout, int n_vis, Eina_List *hwc_clist)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_clist, EINA_FALSE);
 
    n_ec = eina_list_count(hwc_clist);
+   if (n_skip > 0)
+     {
+        int i;
+        for (i = 0; i < n_skip; i++)
+          hwc_clist = eina_list_next(hwc_clist);
+
+        n_ec -= n_skip;
+        n_vis -= n_skip;
+     }
+
    if (n_ec <= 0) return EINA_FALSE;
 
    // list up available_hw layers E_Client can be set
@@ -416,6 +495,7 @@ _hwc_cancel(E_Output *eout)
    EINA_LIST_FOREACH(eout->planes, l, ep)
      {
         if (!conf->hwc_use_multi_plane &&
+            !e_plane_is_cursor(ep) &&
             !e_plane_is_fb_target(ep))
           {
              if (ep->ec) ret = EINA_FALSE; // core cannot end HWC
@@ -445,6 +525,7 @@ _hwc_reserved_clean()
         EINA_LIST_FOREACH(eout->planes, ll, ep)
           {
              if (!conf->hwc_use_multi_plane &&
+                 !e_plane_is_cursor(ep) &&
                  !e_plane_is_fb_target(ep))
                continue;
 
@@ -528,7 +609,6 @@ _e_comp_hwc_apply(E_Output * eout)
                }
              continue;
           }
-        if (e_plane_is_cursor(ep)) continue;
         if (ep->zpos > ep_fb->zpos)
           if (ep->prepare_ec != NULL) goto hwcompose;
      }
@@ -625,7 +705,7 @@ _e_comp_hwc_prepare(void)
      {
         E_Client *ec;
         E_Output *output;
-        int n_vis = 0, n_ec = 0;
+        int n_vis = 0, n_ec = 0, n_cur = 0, n_skip = 0;
         Eina_List *hwc_ok_clist = NULL, *vis_clist = NULL;
 
         if (!zone || !zone->output_id) continue;  // no hw layer
@@ -656,6 +736,7 @@ _e_comp_hwc_prepare(void)
 
              // listup as many as possible from the top most visible order
              n_ec++;
+             if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role)) n_cur++;
              hwc_ok_clist = eina_list_append(hwc_ok_clist, ec);
           }
 
@@ -665,7 +746,12 @@ _e_comp_hwc_prepare(void)
 
         _hwc_prepare_init(output);
 
-        ret |= _hwc_prepare(output, n_vis, hwc_ok_clist);
+        if (n_cur >= 1)
+          n_skip = _hwc_prepare_cursor(output, n_cur, hwc_ok_clist);
+
+        if (n_skip > 0) ret = EINA_TRUE;
+
+        ret |= _hwc_prepare(output, n_vis, n_skip, hwc_ok_clist);
 
         nextzone:
         eina_list_free(hwc_ok_clist);
@@ -683,9 +769,6 @@ _e_comp_hwc_usable(void)
    Eina_Bool ret = EINA_FALSE;
 
    if (!e_comp->hwc) return EINA_FALSE;
-
-   // will be removed once hwc cursor is supported
-   if (!e_pointer_is_hidden(e_comp->pointer)) return EINA_FALSE;
 
    // check whether to use hwc
    // core assignment policy
@@ -705,6 +788,14 @@ _e_comp_hwc_usable(void)
 
         eout = e_output_find(zone->output_id);
         ep_l = e_output_planes_get(eout);
+
+        if ((eout->cursor_available.max_w == -1) ||
+            (eout->cursor_available.max_h == -1))
+          {
+             // hw cursor is not supported by libtdm, than let's composite
+             if (!e_pointer_is_hidden(e_comp->pointer)) return EINA_FALSE;
+          }
+
         EINA_LIST_FOREACH(ep_l, p_l, ep)
           {
              if (!ep_fb)
@@ -729,7 +820,6 @@ _e_comp_hwc_usable(void)
                     }
                   continue;
                }
-             if (e_plane_is_cursor(ep)) continue;
              if (ep->zpos > ep_fb->zpos)
                if (ep->prepare_ec != NULL) return EINA_TRUE;
           }
@@ -1955,14 +2045,19 @@ e_comp_vis_ec_list_get(E_Zone *zone)
 {
    Eina_List *ec_list = NULL;
    E_Client  *ec;
+   Evas_Object *o;
 
    E_OBJECT_CHECK_RETURN(zone, NULL);
    E_OBJECT_TYPE_CHECK_RETURN(zone, E_ZONE_TYPE, NULL);
 
    // TODO: check if eout is available to use hwc policy
-   E_CLIENT_REVERSE_FOREACH(ec)
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
         int x, y, w, h;
+
+        ec = evas_object_data_get(o, "E_Client");
+        if (!ec) continue;
+        if (e_object_is_del(E_OBJECT(ec))) continue;
 
         if (ec->zone != zone) continue;
 
