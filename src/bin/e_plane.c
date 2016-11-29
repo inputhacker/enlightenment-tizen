@@ -852,8 +852,6 @@ e_plane_commit_data_aquire(E_Plane *plane)
 
         /* set the update_exist to be false */
         e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
-        /* set the pending to be true */
-        e_plane_renderer_pending_set(plane->renderer, EINA_TRUE);
         plane->pending_commit_data = data;
 
         return data;
@@ -871,8 +869,6 @@ e_plane_commit_data_aquire(E_Plane *plane)
 
              /* set the update_exist to be false */
              e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
-             /* set the pending to be true */
-             e_plane_renderer_pending_set(plane->renderer, EINA_TRUE);
              plane->pending_commit_data = data;
 
              /* send frame event enlightenment dosen't send frame evnet in nocomp */
@@ -914,7 +910,11 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
         return;
      }
 
-   displaying_tsurface = e_plane_renderer_displaying_surface_get(renderer);
+   if (renderer)
+     {
+        displaying_tsurface = e_plane_renderer_displaying_surface_get(renderer);
+        e_plane_renderer_displaying_surface_set(renderer, tsurface);
+     }
 
    if (plane->is_fb && !ec)
      {
@@ -949,8 +949,6 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
              tbm_surface_internal_unref(plane->displaying_buffer_tsurface);
              plane->displaying_buffer_tsurface = NULL;
           }
-
-        e_plane_renderer_displaying_surface_set(renderer, tsurface);
      }
    else
      {
@@ -999,15 +997,10 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
         tbm_surface_internal_ref(tsurface);
         plane->displaying_buffer_tsurface = tsurface;
 
-        e_plane_renderer_displaying_surface_set(renderer, tsurface);
-
         e_comp_wl_buffer_reference(&data->buffer_ref, NULL);
      }
 
-   /* set the pending to be false */
-   e_plane_renderer_pending_set(plane->renderer, EINA_FALSE);
    plane->pending_commit_data = NULL;
-
    tbm_surface_internal_unref(tsurface);
    free(data);
 }

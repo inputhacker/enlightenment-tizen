@@ -1129,23 +1129,6 @@ e_plane_renderer_update_exist_check(E_Plane_Renderer *renderer)
    return renderer->update_exist;
 }
 
-EINTERN void
-e_plane_renderer_pending_set(E_Plane_Renderer *renderer, Eina_Bool pending)
-{
-   EINA_SAFETY_ON_NULL_RETURN(renderer);
-
-   if (renderer->pending != pending)
-     renderer->pending = pending;
-}
-
-EINTERN Eina_Bool
-e_plane_renderer_pending_check(E_Plane_Renderer *renderer)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
-
-   return renderer->pending;
-}
-
 EINTERN E_Plane *
 e_plane_renderer_plane_get(E_Plane_Renderer *renderer)
 {

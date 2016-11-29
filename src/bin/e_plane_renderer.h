@@ -40,7 +40,6 @@ struct _E_Plane_Renderer {
    Evas               *evas;
    Eina_Bool           update_ee;
    Eina_Bool           update_exist;
-   Eina_Bool           pending;
 
    E_Plane            *plane;
 
@@ -58,8 +57,6 @@ EINTERN Eina_Bool                  e_plane_renderer_deactivate(E_Plane_Renderer 
 EINTERN E_Plane_Renderer_State     e_plane_renderer_state_get(E_Plane_Renderer *renderer);
 EINTERN void                       e_plane_renderer_update_exist_set(E_Plane_Renderer *renderer, Eina_Bool update_exit);
 EINTERN Eina_Bool                  e_plane_renderer_update_exist_check(E_Plane_Renderer *renderer);
-EINTERN void                       e_plane_renderer_pending_set(E_Plane_Renderer *renderer, Eina_Bool pending);
-EINTERN Eina_Bool                  e_plane_renderer_pending_check(E_Plane_Renderer *renderer);
 EINTERN E_Plane                   *e_plane_renderer_plane_get(E_Plane_Renderer *renderer);
 EINTERN void                       e_plane_renderer_displaying_surface_set(E_Plane_Renderer *renderer, tbm_surface_h tsurface);
 EINTERN tbm_surface_h              e_plane_renderer_displaying_surface_get(E_Plane_Renderer *renderer);
