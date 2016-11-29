@@ -159,6 +159,10 @@ struct _E_Config
    Eina_Bool use_buffer_flush;
    Eina_List *sock_accesses;
    Eina_List *aux_hint_supported;
+   struct
+   {
+      Eina_Bool qp; /* quickpanel */
+   } use_module_srv;
 };
 
 struct _E_Config_Desklock_Background

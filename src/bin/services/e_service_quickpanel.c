@@ -117,6 +117,7 @@ struct _E_QP_Client
 static E_Policy_Quickpanel *_pol_quickpanel = NULL;
 static Evas_Smart *_mover_smart = NULL;
 static Eina_Bool _changed = EINA_FALSE;
+static E_QP_Mgr_Funcs *qp_mgr_funcs = NULL;
 
 static void          _e_qp_srv_effect_update(E_Policy_Quickpanel *qp, int x, int y);
 static E_QP_Client * _e_qp_client_ec_get(E_Client *ec);
@@ -1422,6 +1423,12 @@ _e_qp_client_scrollable_update(void)
 EINTERN void
 e_service_quickpanel_client_set(E_Client *ec)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_client_set)
+     {
+        qp_mgr_funcs->quickpanel_client_set(ec);
+        return;
+     }
+
    E_Policy_Quickpanel *qp;
 
    if (EINA_UNLIKELY(!ec))
@@ -1502,6 +1509,12 @@ e_service_quickpanel_client_set(E_Client *ec)
 EINTERN void
 e_service_quickpanel_effect_type_set(E_Client *ec, E_Service_Quickpanel_Effect_Type type)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_effect_type_set)
+     {
+        qp_mgr_funcs->quickpanel_effect_type_set(ec, type);
+        return;
+     }
+
    E_Policy_Quickpanel *qp;
 
    qp = _quickpanel_get();
@@ -1547,6 +1560,9 @@ e_service_quickpanel_effect_type_set(E_Client *ec, E_Service_Quickpanel_Effect_T
 EINTERN E_Client *
 e_service_quickpanel_client_get(void)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_client_get)
+      return qp_mgr_funcs->quickpanel_client_get();
+
    EINA_SAFETY_ON_NULL_RETURN_VAL(_pol_quickpanel, NULL);
 
    return _pol_quickpanel->ec;
@@ -1555,6 +1571,9 @@ e_service_quickpanel_client_get(void)
 EINTERN Eina_Bool
 e_service_quickpanel_region_set(int type, int angle, Eina_Tiler *tiler)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_region_set)
+      return qp_mgr_funcs->quickpanel_region_set(type, angle, tiler);
+
    E_Policy_Quickpanel *qp;
    E_Policy_Angle_Map ridx;
 
@@ -1581,6 +1600,12 @@ e_service_quickpanel_region_set(int type, int angle, Eina_Tiler *tiler)
 EINTERN void
 e_service_quickpanel_show(void)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_show)
+     {
+        qp_mgr_funcs->quickpanel_show();
+        return;
+     }
+
    E_Policy_Quickpanel *qp;
 
    qp = _quickpanel_get();
@@ -1594,6 +1619,12 @@ e_service_quickpanel_show(void)
 EINTERN void
 e_service_quickpanel_hide(void)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_hide)
+     {
+        qp_mgr_funcs->quickpanel_hide();
+        return;
+     }
+
    E_Policy_Quickpanel *qp;
 
    qp = _quickpanel_get();
@@ -1607,6 +1638,9 @@ e_service_quickpanel_hide(void)
 EINTERN Eina_Bool
 e_qp_visible_get(void)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->qp_visible_get)
+      return qp_mgr_funcs->qp_visible_get();
+
    E_Policy_Quickpanel *qp;
    E_Client *ec;
    Eina_Bool vis = EINA_FALSE;
@@ -1629,6 +1663,9 @@ e_qp_visible_get(void)
 EINTERN int
 e_qp_orientation_get(void)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->qp_orientation_get)
+      return qp_mgr_funcs->qp_orientation_get();
+
    E_Policy_Quickpanel *qp;
 
    qp = _quickpanel_get();
@@ -1642,6 +1679,12 @@ e_qp_orientation_get(void)
 EINTERN void
 e_qp_client_add(E_Client *ec)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->qp_client_add)
+     {
+        qp_mgr_funcs->qp_client_add(ec);
+        return;
+     }
+
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
@@ -1671,6 +1714,12 @@ e_qp_client_add(E_Client *ec)
 EINTERN void
 e_qp_client_del(E_Client *ec)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->qp_client_del)
+     {
+        qp_mgr_funcs->qp_client_del(ec);
+        return;
+     }
+
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
@@ -1692,6 +1741,12 @@ e_qp_client_del(E_Client *ec)
 EINTERN void
 e_qp_client_show(E_Client *ec)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->qp_client_show)
+     {
+        qp_mgr_funcs->qp_client_show(ec);
+        return;
+     }
+
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
@@ -1710,6 +1765,12 @@ e_qp_client_show(E_Client *ec)
 EINTERN void
 e_qp_client_hide(E_Client *ec)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->qp_client_hide)
+     {
+        qp_mgr_funcs->qp_client_hide(ec);
+        return;
+     }
+
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
@@ -1728,6 +1789,9 @@ e_qp_client_hide(E_Client *ec)
 EINTERN Eina_Bool
 e_qp_client_scrollable_set(E_Client *ec, Eina_Bool set)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->qp_client_scrollable_set)
+      return qp_mgr_funcs->qp_client_scrollable_set(ec, set);
+
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
@@ -1750,6 +1814,9 @@ e_qp_client_scrollable_set(E_Client *ec, Eina_Bool set)
 EINTERN Eina_Bool
 e_qp_client_scrollable_get(E_Client *ec)
 {
+   if (qp_mgr_funcs && qp_mgr_funcs->qp_client_scrollable_get)
+      return qp_mgr_funcs->qp_client_scrollable_get(ec);
+
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
@@ -1763,3 +1830,51 @@ e_qp_client_scrollable_get(E_Client *ec)
 
    return qp_client->hint.scrollable;
 }
+
+E_API Eina_Bool
+e_service_quickpanel_module_func_set(void *qp_fp)
+{
+   E_QP_Mgr_Funcs* qp_mgr_fp = qp_fp;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(!e_config->use_module_srv.qp, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(!qp_mgr_funcs, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(qp_mgr_fp, EINA_FALSE);
+
+   qp_mgr_funcs = E_NEW(E_QP_Mgr_Funcs, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(qp_mgr_funcs, EINA_FALSE);
+
+   qp_mgr_funcs->quickpanel_client_set = qp_mgr_fp->quickpanel_client_set;
+   qp_mgr_funcs->quickpanel_client_get = qp_mgr_fp->quickpanel_client_get;
+   qp_mgr_funcs->quickpanel_show = qp_mgr_fp->quickpanel_show;
+   qp_mgr_funcs->quickpanel_hide = qp_mgr_fp->quickpanel_hide;
+   qp_mgr_funcs->quickpanel_region_set = qp_mgr_fp->quickpanel_region_set;
+   qp_mgr_funcs->quickpanel_handler_object_add = qp_mgr_fp->quickpanel_handler_object_add;
+   qp_mgr_funcs->quickpanel_handler_object_del = qp_mgr_fp->quickpanel_handler_object_del;
+   qp_mgr_funcs->quickpanel_effect_type_set = qp_mgr_fp->quickpanel_effect_type_set;
+
+   qp_mgr_funcs->qp_visible_get = qp_mgr_fp->qp_visible_get;
+   qp_mgr_funcs->qp_orientation_get = qp_mgr_fp->qp_orientation_get;
+
+   qp_mgr_funcs->qp_client_add = qp_mgr_fp->qp_client_add;
+   qp_mgr_funcs->qp_client_del = qp_mgr_fp->qp_client_del;
+   qp_mgr_funcs->qp_client_show = qp_mgr_fp->qp_client_show;
+   qp_mgr_funcs->qp_client_hide = qp_mgr_fp->qp_client_hide;
+   qp_mgr_funcs->qp_client_scrollable_set = qp_mgr_fp->qp_client_scrollable_set;
+   qp_mgr_funcs->qp_client_scrollable_get = qp_mgr_fp->qp_client_scrollable_get;
+
+   return EINA_TRUE;
+}
+
+E_API Eina_Bool
+e_service_quickpanel_module_func_unset(void *qp_fp)
+{
+   E_QP_Mgr_Funcs* qp_mgr_fp = qp_fp;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(!e_config->use_module_srv.qp, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(!qp_mgr_fp, EINA_FALSE);
+
+   if (qp_mgr_fp != qp_mgr_funcs) return EINA_FALSE;
+   free (qp_mgr_funcs);
+   qp_mgr_funcs = NULL;
+}
+

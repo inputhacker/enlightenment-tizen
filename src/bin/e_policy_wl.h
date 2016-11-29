@@ -36,9 +36,9 @@ void      e_policy_wl_eval_pre_post_fetch(E_Client *ec);
 Eina_Bool e_policy_wl_win_brightness_apply(E_Client *ec);
 
 /* tzsh quickpanel */
-EINTERN void e_tzsh_qp_state_visible_update(E_Client *ec, Eina_Bool vis);
-EINTERN void e_tzsh_qp_state_orientation_update(E_Client *ec, int ridx);
-EINTERN void e_tzsh_qp_state_scrollable_update(E_Client *ec, Eina_Bool scrollable);
+E_API void e_tzsh_qp_state_visible_update(E_Client *ec, Eina_Bool vis);
+E_API void e_tzsh_qp_state_orientation_update(E_Client *ec, int ridx);
+E_API void e_tzsh_qp_state_scrollable_update(E_Client *ec, Eina_Bool scrollable);
 
 /* tzsh indicator */
 EINTERN void e_tzsh_indicator_srv_property_update(E_Client *ec);

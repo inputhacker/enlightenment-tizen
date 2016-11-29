@@ -3837,7 +3837,7 @@ _e_tzsh_qp_state_change_send(struct wl_resource *res_tzsh_client, int type, int 
    wl_array_release(&states);
 }
 
-EINTERN void
+E_API void
 e_tzsh_qp_state_visible_update(E_Client *ec, Eina_Bool vis)
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
@@ -3873,7 +3873,7 @@ e_tzsh_qp_state_visible_update(E_Client *ec, Eina_Bool vis)
      }
 }
 
-EINTERN void
+E_API void
 e_tzsh_qp_state_scrollable_update(E_Client *ec, Eina_Bool scrollable)
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
@@ -3909,7 +3909,7 @@ e_tzsh_qp_state_scrollable_update(E_Client *ec, Eina_Bool scrollable)
      }
 }
 
-EINTERN void
+E_API void
 e_tzsh_qp_state_orientation_update(E_Client *ec, int ridx)
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
