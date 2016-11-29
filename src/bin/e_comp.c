@@ -38,8 +38,6 @@ static int _e_comp_log_dom = -1;
 static int _e_comp_hooks_delete = 0;
 static int _e_comp_hooks_walking = 0;
 
-static int _plane_support_surf_to_surf = 0;
-
 static Eina_Inlist *_e_comp_hooks[] =
 {
    [E_COMP_HOOK_PREPARE_PLANE] = NULL,
@@ -257,7 +255,7 @@ _hwc_set(E_Output *eout)
                   set = e_plane_ec_set(ep, ep->prepare_ec);
                   if (set)
                     {
-                       INF("HWC : ec(0x%08x, %s) is set on fb_target( %d)\n",(unsigned int)e_client_util_win_get(ep->prepare_ec), ep->prepare_ec->icccm.title, ep->zpos);
+                       ELOGF("HWC", "is set on fb_target( %d)", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
                        e_client_redirected_set(ep->prepare_ec, 0);
                        mode = E_HWC_MODE_FULL;
 
@@ -272,7 +270,7 @@ _hwc_set(E_Output *eout)
              set = e_plane_ec_set(ep, ep->prepare_ec);
              if (set)
                {
-                  INF("HWC : ec(0x%08x, %s) is set on %d\n", (unsigned int)e_client_util_win_get(ep->prepare_ec), ep->prepare_ec->icccm.title, ep->zpos);
+                  ELOGF("HWC", "is set on %d", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
                   e_client_redirected_set(ep->prepare_ec, 0);
                   mode |= E_HWC_MODE_HYBRID;
                }
@@ -468,7 +466,7 @@ _hwc_plane_unset(E_Plane *ep)
    e_plane_ec_prepare_set(ep, NULL);
    e_plane_ec_set(ep, NULL);
 
-   INF("HWC : unset plane %d to NULL\n", ep->zpos);
+   ELOGF("HWC", "unset plane %d to NULL", NULL, NULL, ep->zpos);
 }
 
 static Eina_Bool
@@ -489,20 +487,23 @@ _hwc_plane_change_ec(E_Plane *ep, E_Client *old_ec, E_Client *new_ec)
      {
         if (new_ec)
           {
-             INF("HWC : new_ec(0x%08x, %s) is set on %d\n"
-                 , (unsigned int)e_client_util_win_get(new_ec), e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
+             ELOGF("HWC", "new_ec(%s) is set on %d",
+                   new_ec->pixmap, new_ec,
+                   e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
+
              e_client_redirected_set(new_ec, 0);
           }
         else
           {
-             INF("HWC : NULL is set on %d\n", ep->zpos);
+             ELOGF("HWC", "NULL is set on %d", NULL, NULL, ep->zpos);
           }
         ret = EINA_TRUE;
      }
    else
      {
-        INF("HWC : failed to set new_ec(0x%08x, %s) on %d\n"
-            , (unsigned int)e_client_util_win_get(new_ec), e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
+        ELOGF("HWC", "failed to set new_ec(%s) on %d",
+              NULL, new_ec,
+              e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
      }
 
    return ret;
@@ -536,7 +537,7 @@ _e_comp_hwc_apply(E_Output * eout)
 
 hwcompose:
    mode = _hwc_set(eout);
-   if (mode == E_HWC_MODE_NO) INF("HWC : it is failed to assign surface on plane\n");
+   if (mode == E_HWC_MODE_NO) ELOGF("HWC", "it is failed to assign surface on plane", NULL, NULL);
 
 compose:
    if (mode != E_HWC_MODE_NO) e_comp->hwc_mode = mode;
@@ -551,76 +552,60 @@ _e_comp_hwc_changed(void)
    E_Zone *zone;
    Eina_Bool ret = EINA_FALSE;
 
-   if (_plane_support_surf_to_surf)
+   EINA_LIST_FOREACH(e_comp->zones, l, zone)
      {
-        EINA_LIST_FOREACH(e_comp->zones, l, zone)
+        E_Output *eout = NULL;
+        E_Plane *ep = NULL;
+        const Eina_List *ep_l = NULL, *p_l;
+        Eina_Bool assign_success = EINA_TRUE;
+        int mode = E_HWC_MODE_NO;
+
+        if (!zone || !zone->output_id) continue;
+
+        eout = e_output_find(zone->output_id);
+        ep_l = e_output_planes_get(eout);
+        EINA_LIST_REVERSE_FOREACH(ep_l, p_l, ep)
           {
-             E_Output *eout = NULL;
-             E_Plane *ep = NULL;
-             const Eina_List *ep_l = NULL, *p_l;
-             Eina_Bool assign_success = EINA_TRUE;
-
-             if (!zone || !zone->output_id) continue;
-
-             eout = e_output_find(zone->output_id);
-             ep_l = e_output_planes_get(eout);
-             EINA_LIST_REVERSE_FOREACH(ep_l, p_l, ep)
+             if (!assign_success)
                {
-                  if (!assign_success)
-                    {
-                       //unset planes from 'assign_success' became EINA_FALSE to the fb target
-                       _hwc_plane_unset(ep);
+                  //unset planes from 'assign_success' became EINA_FALSE to the fb target
+                  _hwc_plane_unset(ep);
+                  continue;
+               }
 
-                       if (e_plane_is_fb_target(ep))
-                         {
-                            // fb target is occupied by a client surface, means compositor disabled
-                            ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
-                            break;
-                         }
-                       continue;
-                    }
+             if (ep->ec != ep->prepare_ec)
+               {
+                  assign_success = _hwc_plane_change_ec(ep, ep->ec, ep->prepare_ec);
+                  ret = EINA_TRUE;
+               }
 
-                  if (ep->ec != ep->prepare_ec)
-                    {
-                       assign_success = _hwc_plane_change_ec(ep, ep->ec, ep->prepare_ec);
-                       ret |= assign_success;
-                    }
+             if (ep->ec) mode = E_HWC_MODE_HYBRID;
 
-                  if (e_plane_is_fb_target(ep)) break;
+             if (e_plane_is_fb_target(ep))
+               {
+                  if (ep->ec) mode = E_HWC_MODE_FULL;
+                  break;
                }
           }
 
-     }
-   else
-     {
-        // TODO: will remove out this once e_plane is
-        // able to support a surface to a different surface assignment
-        EINA_LIST_FOREACH(e_comp->zones, l, zone)
+        if (e_comp->hwc_mode != mode)
           {
-             E_Output *eout = NULL;
-             E_Plane *ep = NULL, *ep_fb = NULL;
-             const Eina_List *ep_l = NULL, *p_l ;
+             ELOGF("HWC", "mode changed (from %d to %d) due to surface changes",
+                   NULL, NULL,
+                   e_comp->hwc_mode, mode);
 
-             if (!zone || !zone->output_id) continue;
-
-             eout = e_output_find(zone->output_id);
-             ep_l = e_output_planes_get(eout);
-             EINA_LIST_FOREACH(ep_l, p_l, ep)
+             if (mode == E_HWC_MODE_FULL)
                {
-                  if (!ep_fb)
-                    {
-                       if (e_plane_is_fb_target(ep))
-                         {
-                            ep_fb = ep;
-                            if (ep->ec != ep->prepare_ec) return EINA_TRUE;
-                         }
-                       continue;
-                    }
-                  if (e_plane_is_cursor(ep)) continue;
-                  if ((ep->zpos > ep_fb->zpos) &&
-                      (ep->ec != ep->prepare_ec))
-                    return EINA_TRUE;
+                  // fb target is occupied by a client surface, means compositor disabled
+                  ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
                }
+             else if (e_comp->hwc_mode == E_HWC_MODE_FULL)
+               {
+                  // fb target is occupied by a client surface, means compositor disabled
+                  ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+               }
+
+             e_comp->hwc_mode = mode;
           }
      }
 
@@ -777,7 +762,7 @@ _e_comp_hwc_begin(void)
 
    if (e_comp->calc_fps) e_comp->frametimes[0] = 0;
 
-   INF("HWC : Begin ...");
+   ELOGF("HWC", " Begin ...", NULL, NULL);
 }
 
 static Eina_Bool
@@ -823,7 +808,7 @@ e_comp_hwc_end(const char *location)
    if (fully_hwc)
      ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
 
-   INF("HWC : End...  at %s", location);
+   ELOGF("HWC", " End...  at %s.", NULL, NULL, location);
 }
 #endif  // end of ENABLE_HWC_MULTI
 
@@ -934,12 +919,10 @@ setup_hwcompose:
           {
              if (_e_comp_hwc_changed())
                {
-                  INF("HWC : overlay surface changed");
-
-                  // TODO: will remove out this once e_plane is
-                  // able to support a surface to a different surface assignment
-                  if (!_plane_support_surf_to_surf)
-                    e_comp_hwc_end("overlay surface changed");
+                  if (e_comp->hwc_mode == E_HWC_MODE_NO)
+                    ELOGF("HWC", " End...  due to surface changes", NULL, NULL);
+                  else
+                    ELOGF("HWC", " hwc surface changed", NULL, NULL);
                }
           }
         else
