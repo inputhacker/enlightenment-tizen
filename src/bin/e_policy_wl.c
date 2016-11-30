@@ -1143,15 +1143,6 @@ _tzpos_iface_cb_set(struct wl_client *client EINA_UNUSED, struct wl_resource *re
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
-   if(!E_INTERSECTS(ec->zone->x, ec->zone->y,
-                    ec->zone->w, ec->zone->h,
-                    x, y,
-                    ec->w, ec->h))
-     {
-        e_policy_wl_position_send(ec);
-        return;
-     }
-
    if (!ec->lock_client_location)
      {
         ec->x = ec->client.x = ec->desk->geom.x + x;
