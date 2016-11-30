@@ -176,7 +176,7 @@ finish:
 static void
 _e_info_client_cb_compobjs(const Eldbus_Message *msg)
 {
-   const char *name = NULL, *text = NULL;
+   const char *name = NULL, *text = NULL, *obj_name;
    Eldbus_Message_Iter *array, *obj;
    Eina_Bool res;
    E_Info_Comp_Obj cobj;
@@ -189,6 +189,28 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
                                       "a("SIGNATURE_COMPOBJS_CLIENT")",
                                       &array);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   printf(
+      "======================================================================================================================\n"
+      "                        /-- Object Type                            /-- Alpha                                          \n"
+      "                        |    r  : Rectangle Object                 |                                                  \n"
+      "                        |    EDJ: Edje Object                      | /-- Pass Events                                  \n"
+      "                        |    IMG: Image Object                     | |/-- Freeze Events                               \n"
+      "                        |    EC : ec->frame Object                 | ||/-- Focused                                    \n"
+      "                        |                                          | |||                                              \n"
+      "                        |    /-- Render Operation                  | ||| /-- Visibility                               \n"
+      "                        |    |    BL: EVAS_RENDER_BLEND            | ||| |                                            \n"
+      "                        |    |    CP: EVAS_RENDER_COPY             | ||| |                                            \n"
+      "                        |    |                                     | ||| |                           [Additional Info]\n"
+      "                        |    |                                     | ||| |                          EDJ: group, file |\n"
+      "                        |    |                                     | ||| |                   EDJ member: part, value |\n"
+      "                        |    |                                     | ||| |   Image: Type, Size, Load Size, Fill Size |\n"
+      "                        |    |                                     | ||| |                                           |\n"
+      "                        |    |                                     | ||| |                                           |\n"
+      "======================================================================================================================\n"
+      "Layer  ObjectID         |    |    X    Y    W    H  Color(RGBA)    | ||| |     ObjectName                            |\n"
+      "======================================================================================================================\n"
+      );
 
    while (eldbus_message_iter_get_and_next(array, 'r', &obj))
      {
@@ -208,22 +230,42 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
                                                 &cobj.pass_events,
                                                 &cobj.freeze_events,
                                                 &cobj.focus,
-                                                &cobj.vis);
+                                                &cobj.vis,
+                                                &cobj.edje.file,
+                                                &cobj.edje.group,
+                                                &cobj.edje.part,
+                                                &cobj.edje.val,
+                                                &cobj.img.native,
+                                                &cobj.img.native_type,
+                                                &cobj.img.file,
+                                                &cobj.img.key,
+                                                &cobj.img.data,
+                                                &cobj.img.w, &cobj.img.h,
+                                                &cobj.img.lw, &cobj.img.lh,
+                                                &cobj.img.fx, &cobj.img.fy, &cobj.img.fw, &cobj.img.fh,
+                                                &cobj.img.alpha,
+                                                &cobj.img.dirty);
         if (!res)
           {
              printf("Failed to get composite obj info\n");
              continue;
           }
 
-        printf("%4d ", cobj.ly);
+        if (cobj.depth == 0)
+          {
+             printf(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -- - - - - - - - -|\n");
+             printf("%4d ", cobj.ly);
+          }
+        else
+          printf("     ");
+
         for (i = 0; i < cobj.depth; i++) printf(" ");
         printf("%08x ", cobj.obj);
-        for (i = 4; i > cobj.depth; i--) printf(" ");
+        for (i = 6; i > cobj.depth; i--) printf(" ");
 
-        printf("%7.7s "
-               "|%5.5s"
-               "|%4d,%4d %4dx%4d|%3d %3d %3d %3d|%s|%s %s %s|%s|%s"
-               "\n",
+        printf("%5.5s "
+               "|%3.3s"
+               "|%4d,%4d %4dx%4d|%3d %3d %3d %3d|%s|%s%s%s|%s|",
                cobj.type,
                cobj.opmode,
                cobj.x, cobj.y, cobj.w, cobj.h,
@@ -232,9 +274,44 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
                cobj.pass_events == 1 ? "p" : " ",
                cobj.freeze_events == 1 ? "z" : " ",
                cobj.focus == 1 ? "F" : " ",
-               cobj.vis == 1 ? "V" : " ",
-               cobj.name);
+               cobj.vis == 1 ? "V" : " ");
+
+        obj_name = cobj.name;
+        if (!strncmp(obj_name, "no_use", 6)) obj_name = "";
+        printf("%-32.32s|", obj_name);
+
+        if (!strncmp(cobj.type, "EDJ", 3))
+          {
+             if (strncmp(cobj.edje.group, "no_use", 6)) printf("%s ", cobj.edje.group);
+             if (strncmp(cobj.edje.file,  "no_use", 6)) printf("%s ", cobj.edje.file);
+          }
+
+        if (strncmp(cobj.edje.part,  "no_use", 6)) printf("%s %1.1f", cobj.edje.part, cobj.edje.val);
+
+        if (!strncmp(cobj.type, "IMG", 3))
+          {
+             if (cobj.img.native)
+               {
+                  if (strncmp(cobj.img.native_type, "no_use", 6)) printf("%s ", cobj.img.native_type);
+               }
+             else
+               {
+                  if (strncmp(cobj.img.file, "no_use", 6)) printf("%s ", cobj.img.file);
+                  if (strncmp(cobj.img.key, "no_use", 6)) printf("%s ", cobj.img.key);
+
+               }
+
+             printf("d:%x %dx%d %dx%d (%d,%d %dx%d)",
+                    cobj.img.data,
+                    cobj.img.w, cobj.img.h,
+                    cobj.img.lw, cobj.img.lh,
+                    cobj.img.fx, cobj.img.fy, cobj.img.fw, cobj.img.fh);
+          }
+
+        printf("\n");
      }
+
+   printf("======================================================================================================================\n");
 
 finish:
    if ((name) || (text))

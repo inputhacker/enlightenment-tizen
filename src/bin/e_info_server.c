@@ -8,6 +8,9 @@
 #include "e_comp_wl.h"
 #include "e_info_protocol.h"
 
+#define EDJE_EDIT_IS_UNSTABLE_AND_I_KNOW_ABOUT_IT
+#include <Edje_Edit.h>
+
 #define USE_WAYLAND_LOG_TRACE
 #define USE_WAYLAND_LOGGER ((WAYLAND_VERSION_MAJOR == 1) && (WAYLAND_VERSION_MINOR > 11))
 
@@ -185,31 +188,54 @@ _e_info_server_cb_window_info_get(const Eldbus_Service_Interface *iface EINA_UNU
 
 typedef struct _Obj_Info
 {
+   Evas_Object *po; /* parent object */
    Evas_Object *o;
    int          depth;
 } Obj_Info;
 
 static Obj_Info *
-_obj_info_get(Evas_Object *o, int depth)
+_obj_info_get(Evas_Object *po, Evas_Object *o, int depth)
 {
    Obj_Info *info = E_NEW(Obj_Info, 1);
+   info->po = po;
    info->o = o;
    info->depth = depth;
    return info;
 }
 
 static E_Info_Comp_Obj *
-_compobj_info_get(Evas_Object *o, int depth)
+_compobj_info_get(Evas_Object *po, Evas_Object *o, int depth)
 {
    E_Info_Comp_Obj *cobj;
-   const char *type;
+   const char *name = NULL, *type = NULL;
+   const char *file = NULL, *group = NULL, *part = NULL, *key = NULL;
+   E_Client *ec;
+   char buf[PATH_MAX];
+   double val = 0.0f;
+   Evas_Object *edit_obj = NULL, *c = NULL;
+   Eina_List *parts = NULL, *ll;
+   Evas_Native_Surface *ns;
 
    cobj = E_NEW(E_Info_Comp_Obj, 1);
 
    cobj->obj = (unsigned int)o;
    cobj->depth = depth;
-   cobj->name = evas_object_name_get(o);
-   if (!cobj->name) cobj->name = eina_stringshare_add("no");
+
+   type = evas_object_type_get(o);
+   if      (!e_util_strcmp(type, "rectangle"    )) cobj->type = eina_stringshare_add("r");
+   else if (!e_util_strcmp(type, "edje"         )) cobj->type = eina_stringshare_add("EDJ");
+   else if (!e_util_strcmp(type, "image"        )) cobj->type = eina_stringshare_add("IMG");
+   else if (!e_util_strcmp(type, "e_comp_object")) cobj->type = eina_stringshare_add("EC");
+   else                                            cobj->type = eina_stringshare_add(type);
+
+   cobj->name = eina_stringshare_add("no_use");
+   name = evas_object_name_get(o);
+   if (name)
+     {
+        eina_stringshare_del(cobj->name);
+        cobj->name = eina_stringshare_add(name);
+     }
+
    evas_object_geometry_get(o, &cobj->x, &cobj->y, &cobj->w, &cobj->h);
    evas_object_color_get(o, &cobj->r, &cobj->g, &cobj->b, &cobj->a);
    cobj->alpha = evas_object_image_alpha_get(o);
@@ -227,27 +253,143 @@ _compobj_info_get(Evas_Object *o, int depth)
    _CLAMP(cobj->h);
 #undef _CLAMP
 
-   type = evas_object_type_get(o);
-   if      (!e_util_strcmp(type, "rectangle"    )) cobj->type = eina_stringshare_add("R");
-   else if (!e_util_strcmp(type, "edje"         )) cobj->type = eina_stringshare_add("EDJE");
-   else if (!e_util_strcmp(type, "image"        )) cobj->type = eina_stringshare_add("IMG");
-   else if (!e_util_strcmp(type, "e_comp_object")) cobj->type = eina_stringshare_add("COBJ");
-   else                                            cobj->type = eina_stringshare_add(type);
-
    switch (evas_object_render_op_get(o))
      {
-      case EVAS_RENDER_BLEND:    cobj->opmode = eina_stringshare_add("BLEND"); break;
-      case EVAS_RENDER_COPY:     cobj->opmode = eina_stringshare_add("COPY");  break;
-      case EVAS_RENDER_COPY_REL: cobj->opmode = eina_stringshare_add("COPYR"); break;
-      case EVAS_RENDER_ADD:      cobj->opmode = eina_stringshare_add("ADD");   break;
-      case EVAS_RENDER_ADD_REL:  cobj->opmode = eina_stringshare_add("ADDR");  break;
-      case EVAS_RENDER_SUB:      cobj->opmode = eina_stringshare_add("SUB");   break;
-      case EVAS_RENDER_SUB_REL:  cobj->opmode = eina_stringshare_add("SUBR");  break;
-      case EVAS_RENDER_TINT:     cobj->opmode = eina_stringshare_add("TINT");  break;
-      case EVAS_RENDER_TINT_REL: cobj->opmode = eina_stringshare_add("TINTR"); break;
-      case EVAS_RENDER_MASK:     cobj->opmode = eina_stringshare_add("MASK");  break;
-      case EVAS_RENDER_MUL:      cobj->opmode = eina_stringshare_add("MUL");   break;
-      default:                   cobj->opmode = eina_stringshare_add("NO");    break;
+      case EVAS_RENDER_BLEND:    cobj->opmode = eina_stringshare_add("BL" ); break;
+      case EVAS_RENDER_COPY:     cobj->opmode = eina_stringshare_add("CP" ); break;
+      case EVAS_RENDER_COPY_REL: cobj->opmode = eina_stringshare_add("CPR"); break;
+      case EVAS_RENDER_ADD:      cobj->opmode = eina_stringshare_add("AD" ); break;
+      case EVAS_RENDER_ADD_REL:  cobj->opmode = eina_stringshare_add("ADR"); break;
+      case EVAS_RENDER_SUB:      cobj->opmode = eina_stringshare_add("SB" ); break;
+      case EVAS_RENDER_SUB_REL:  cobj->opmode = eina_stringshare_add("SBR"); break;
+      case EVAS_RENDER_TINT:     cobj->opmode = eina_stringshare_add("TT" ); break;
+      case EVAS_RENDER_TINT_REL: cobj->opmode = eina_stringshare_add("TTR"); break;
+      case EVAS_RENDER_MASK:     cobj->opmode = eina_stringshare_add("MSK"); break;
+      case EVAS_RENDER_MUL:      cobj->opmode = eina_stringshare_add("MUL"); break;
+      default:                   cobj->opmode = eina_stringshare_add("NO" ); break;
+     }
+
+   if ((!e_util_strcmp(cobj->name, "no_use")) &&
+       (!e_util_strcmp(cobj->type, "EC")))
+     {
+        ec = evas_object_data_get(o, "E_Client");
+        if (ec)
+          {
+             /* append window id, client pid and window title */
+             eina_stringshare_del(cobj->name);
+
+             snprintf(buf, sizeof(buf), "%x %d %s",
+                      e_client_util_win_get(ec),
+                      ec->netwm.pid,
+                      e_client_util_name_get(ec));
+
+             cobj->name = eina_stringshare_add(buf);
+          }
+     }
+
+   /* get edje file path and group name if it is a edje object */
+   cobj->edje.file = eina_stringshare_add("no_use");
+   cobj->edje.group = eina_stringshare_add("no_use");
+   if (!e_util_strcmp(cobj->type, "EDJ"))
+     {
+        edje_object_file_get(o, &file, &group);
+
+        if (file)
+          {
+             eina_stringshare_del(cobj->edje.file);
+             cobj->edje.file = eina_stringshare_add(file);
+          }
+
+        if (group)
+          {
+             eina_stringshare_del(cobj->edje.group);
+             cobj->edje.group = eina_stringshare_add(group);
+          }
+     }
+
+   /* get part name and part value if it is a member of parent edje object */
+   cobj->edje.part = eina_stringshare_add("no_use");
+   if (po)
+     {
+        type = evas_object_type_get(po);
+        if (!e_util_strcmp(type, "edje"))
+          {
+             edje_object_file_get(po, &file, &group);
+             edit_obj = edje_edit_object_add(e_comp->evas);
+             if (edje_object_file_set(edit_obj, file, group))
+               {
+                  parts = edje_edit_parts_list_get(edit_obj);
+                  EINA_LIST_FOREACH(parts, ll, part)
+                    {
+                       c = (Evas_Object *)edje_object_part_object_get(po, part);
+                       if (c == o)
+                         {
+                            edje_object_part_state_get(po, part, &val);
+
+                            eina_stringshare_del(cobj->edje.part);
+                            cobj->edje.part = eina_stringshare_add(part);
+                            cobj->edje.val = val;
+                            break;
+                         }
+                    }
+                  edje_edit_string_list_free(parts);
+               }
+             evas_object_del(edit_obj);
+          }
+     }
+
+   /* get image object information */
+   cobj->img.native_type = eina_stringshare_add("no_use");
+   cobj->img.file = eina_stringshare_add("no_use");
+   cobj->img.key = eina_stringshare_add("no_use");
+
+   if (!e_util_strcmp(cobj->type, "IMG"))
+     {
+        ns = evas_object_image_native_surface_get(o);
+        if (ns)
+          {
+             cobj->img.native = EINA_TRUE;
+             eina_stringshare_del(cobj->img.native_type);
+             switch (ns->type)
+               {
+                case EVAS_NATIVE_SURFACE_WL:
+                   cobj->img.native_type = eina_stringshare_add("WL");
+                   cobj->img.data = (unsigned int)ns->data.wl.legacy_buffer;
+                   break;
+                case EVAS_NATIVE_SURFACE_TBM:
+                   cobj->img.native_type = eina_stringshare_add("TBM");
+                   cobj->img.data = (unsigned int)ns->data.tbm.buffer;
+                   break;
+                default:
+                   cobj->img.native_type = eina_stringshare_add("?");
+                   cobj->img.data = 0;
+                   break;
+               }
+          }
+        else
+          {
+             evas_object_image_file_get(o, &file, &key);
+
+             if (file)
+               {
+                  eina_stringshare_del(cobj->img.file);
+                  cobj->img.file = eina_stringshare_add(file);
+               }
+
+             if (key)
+               {
+                  eina_stringshare_del(cobj->img.key);
+                  cobj->img.key = eina_stringshare_add(key);
+               }
+
+             cobj->img.data = (unsigned int)evas_object_image_data_get(o, 0);
+          }
+
+        evas_object_image_size_get(o, &cobj->img.w, &cobj->img.h);
+        evas_object_image_load_size_get(o, &cobj->img.lw, &cobj->img.lh);
+        evas_object_image_fill_get(o, &cobj->img.fx, &cobj->img.fy, &cobj->img.fw, &cobj->img.fh);
+        cobj->img.alpha = evas_object_image_alpha_get(o);
+        cobj->img.dirty = evas_object_image_pixels_dirty_get(o);
      }
 
    return cobj;
@@ -262,61 +404,47 @@ _e_info_server_cb_compobjs(const Eldbus_Service_Interface *iface EINA_UNUSED, co
    Evas_Object *o, *c;
    Obj_Info *info, *info2;
    E_Info_Comp_Obj *cobj;
-   Eina_List *l = NULL, *ll = NULL;
-   Eina_List *res = NULL;
+   Eina_List *stack = NULL; /* stack for DFS */
+   Eina_List *queue = NULL; /* result queue */
+   Eina_List *ll = NULL;
 
    eldbus_message_iter_arguments_append(iter,
                                         "a("SIGNATURE_COMPOBJS_CLIENT")",
                                         &cobjs);
 
-   /* 1. push */
-   o = evas_object_top_get(e_comp->evas);
-   EINA_SAFETY_ON_NULL_GOTO(o, end);
-   info = _obj_info_get(o, 0);
-   l = eina_list_append(l, info);
-
-   /* store data */
-   cobj = _compobj_info_get(info->o, info->depth);
-   res = eina_list_append(res, cobj);
+   /* 1. push: top-level evas objects */
+   for (o = evas_object_bottom_get(e_comp->evas); o; o = evas_object_above_get(o))
+     {
+        info = _obj_info_get(NULL, o, 0);
+        stack = eina_list_append(stack, info);
+     }
 
    while (1)
      {
         /* 2. pop */
-        info = eina_list_last_data_get(l);
+        info = eina_list_last_data_get(stack);
         if (!info) break;
 
-        /* 3. push */
-        /* 3-1. sibling object at the below stack */
-        o = evas_object_below_get(info->o);
-        if (o)
-          {
-             info2 = _obj_info_get(o, info->depth);
-             l = eina_list_append(l, info2);
+        /* store data */
+        cobj = _compobj_info_get(info->po, info->o, info->depth);
+        queue = eina_list_append(queue, cobj);
 
-             /* store data */
-             cobj = _compobj_info_get(info2->o, info2->depth);
-             res = eina_list_append(res, cobj);
-          }
-
-        /* 3-2. children */
-        if (evas_object_smart_data_get(o))
+        /* 3. push : child objects */
+        if (evas_object_smart_data_get(info->o))
           {
-             EINA_LIST_FOREACH(evas_object_smart_members_get(o), ll, c)
+             EINA_LIST_REVERSE_FOREACH(evas_object_smart_members_get(info->o), ll, c)
                {
-                  info2 = _obj_info_get(c, info->depth + 1);
-                  l = eina_list_append(l, info2);
-
-                  /* store data */
-                  cobj = _compobj_info_get(info2->o, info2->depth);
-                  res = eina_list_append(res, cobj);
+                  info2 = _obj_info_get(info->o, c, info->depth + 1);
+                  stack = eina_list_append(stack, info2);
                }
           }
 
-        l = eina_list_remove(l, info);
+        stack = eina_list_remove(stack, info);
         E_FREE(info);
      }
 
-   EINA_LIST_FREE(res, cobj)
+   /* send result */
+   EINA_LIST_FREE(queue, cobj)
      {
         Eldbus_Message_Iter *struct_of_cobj;
         eldbus_message_iter_arguments_append(cobjs,
@@ -337,17 +465,36 @@ _e_info_server_cb_compobjs(const Eldbus_Service_Interface *iface EINA_UNUSED, co
                                              cobj->pass_events,
                                              cobj->freeze_events,
                                              cobj->focus,
-                                             cobj->vis);
+                                             cobj->vis,
+                                             cobj->edje.file,
+                                             cobj->edje.group,
+                                             cobj->edje.part,
+                                             cobj->edje.val,
+                                             cobj->img.native,
+                                             cobj->img.native_type,
+                                             cobj->img.file,
+                                             cobj->img.key,
+                                             cobj->img.data,
+                                             cobj->img.w, cobj->img.h,
+                                             cobj->img.lw, cobj->img.lh,
+                                             cobj->img.fx, cobj->img.fy, cobj->img.fw, cobj->img.fh,
+                                             cobj->img.alpha,
+                                             cobj->img.dirty);
 
         eldbus_message_iter_container_close(cobjs, struct_of_cobj);
 
         eina_stringshare_del(cobj->type);
         eina_stringshare_del(cobj->name);
         eina_stringshare_del(cobj->opmode);
+        eina_stringshare_del(cobj->edje.file);
+        eina_stringshare_del(cobj->edje.group);
+        eina_stringshare_del(cobj->edje.part);
+        eina_stringshare_del(cobj->img.native_type);
+        eina_stringshare_del(cobj->img.file);
+        eina_stringshare_del(cobj->img.key);
         E_FREE(cobj);
      }
 
-end:
    eldbus_message_iter_container_close(iter, cobjs);
    return reply;
 }

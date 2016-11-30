@@ -11,23 +11,47 @@ typedef enum
 /* -------------------------------------------------------------------------- */
 /* COMPOSITE OBJECTS                                                          */
 /* -------------------------------------------------------------------------- */
-#define SIGNATURE_COMPOBJS_CLIENT "uissisiiiiiiiibbbbb"
+#define SIGNATURE_COMPOBJS_CLIENT "uissisiiiiiiiibbbbbsssdbsssuiiiiiiiibb"
 
 typedef struct _E_Info_Comp_Obj
 {
-   unsigned int obj;           // u
-   int          depth;         // i
-   const char  *type;          // s
-   const char  *name;          // s
-   int          ly;            // i
-   const char  *opmode;        // s
-   int          x, y, w, h;    // i i i i
-   int          r, g, b, a;    // i i i i
-   Eina_Bool    alpha;         // b
-   Eina_Bool    pass_events;   // b
-   Eina_Bool    freeze_events; // b
-   Eina_Bool    focus;         // b
-   Eina_Bool    vis;           // b
+   unsigned int    obj;            // u
+   int             depth;          // i
+   const char     *type;           // s
+   const char     *name;           // s
+   int             ly;             // i
+   const char     *opmode;         // s
+   int             x, y, w, h;     // i i i i
+   int             r, g, b, a;     // i i i i
+
+   Eina_Bool       alpha;          // b
+   Eina_Bool       pass_events;    // b
+   Eina_Bool       freeze_events;  // b
+   Eina_Bool       focus;          // b
+   Eina_Bool       vis;            // b
+
+   struct
+   {
+      const char  *file;           // s
+      const char  *group;          // s
+      const char  *part;           // s
+      double       val;            // d
+   } edje;
+
+   struct
+   {
+      Eina_Bool    native;         // b
+      const char  *native_type;    // s
+      const char  *file;           // s
+      const char  *key;            // s
+      unsigned int data;           // u
+      int          w, h;           // i i
+      int          lw, lh;         // i i
+      int          fx, fy, fw, fh; // i i i i
+      Eina_Bool    alpha;          // b
+      Eina_Bool    dirty;          // b
+   } img;
+
 } E_Info_Comp_Obj;
 
 /* -------------------------------------------------------------------------- */
