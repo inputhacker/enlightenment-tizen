@@ -41,9 +41,9 @@ _e_comp_wl_input_pointer_map(struct wl_resource *resource)
    if (!ec->seat) return;
    if (!ec->seat->ptr.enabled) return;
 
-   if (!e_comp_wl->ptr.ec || !e_comp_wl->ptr.ec->comp_data || !e_comp_wl->ptr.ec->comp_data->surface) return;
+   if (!ec->seat->ptr.ec || !ec->seat->ptr.ec->comp_data || !ec->seat->ptr.ec->comp_data->surface) return;
    wc = wl_resource_get_client(resource);
-   if (wc != wl_resource_get_client(e_comp_wl->ptr.ec->comp_data->surface)) return;
+   if (wc != wl_resource_get_client(ec->seat->ptr.ec->comp_data->surface)) return;
 
    if ((ptr = ec->seat->pointer))
      e_pointer_object_set(ptr, ec->frame, ptr->hot.x, ptr->hot.y);

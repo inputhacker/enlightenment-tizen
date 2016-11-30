@@ -771,10 +771,6 @@ _e_comp_hwc_usable(void)
 
    if (!e_comp->hwc) return EINA_FALSE;
 
-   // will be removed once hwc cursor is supported
-   EINA_LIST_FOREACH(e_comp_wl->seats, l, seat)
-     if (!e_pointer_is_hidden(seat->pointer)) return EINA_FALSE;
-
    // check whether to use hwc
    // core assignment policy
    ret = _e_comp_hwc_prepare();
@@ -798,7 +794,8 @@ _e_comp_hwc_usable(void)
             (eout->cursor_available.max_h == -1))
           {
              // hw cursor is not supported by libtdm, than let's composite
-             if (!e_pointer_is_hidden(e_comp->pointer)) return EINA_FALSE;
+             EINA_LIST_FOREACH(e_comp_wl->seats, l, seat)
+               if (!e_pointer_is_hidden(seat->pointer)) return EINA_FALSE;
           }
 
         EINA_LIST_FOREACH(ep_l, p_l, ep)
