@@ -963,6 +963,11 @@ e_info_protocol_rule_set(const int argc, const char **argv, char *reply, int *le
                {
                   _e_info_rulechecker_destroy(rc);
                   rc = _e_info_rulechecker_init();
+                  if (!rc)
+                    {
+                       REPLY("Error : rules not removed\n");
+                       return EINA_FALSE;
+                    }
                   REPLY("Every rules were successfully removed.\n");
                }
              else

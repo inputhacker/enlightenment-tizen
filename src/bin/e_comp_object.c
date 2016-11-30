@@ -4626,7 +4626,7 @@ e_comp_object_util_autoclose(Evas_Object *obj, E_Comp_Object_Autoclose_Cb del_cb
 E_API unsigned int
 e_comp_object_is_animating(Evas_Object *obj)
 {
-   SOFT_ENTRY(0);
+   API_ENTRY 0;
 
    return cw->animating;
 }
@@ -4634,7 +4634,7 @@ e_comp_object_is_animating(Evas_Object *obj)
 E_API void
 e_comp_object_alpha_set(Evas_Object *obj, Eina_Bool alpha)
 {
-   SOFT_ENTRY();
+   API_ENTRY;
 
    if ((cw->external_content) &&
        (cw->content_type != E_COMP_OBJECT_CONTENT_TYPE_EXT_IMAGE))

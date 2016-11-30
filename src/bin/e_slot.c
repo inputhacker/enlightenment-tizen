@@ -347,10 +347,13 @@ e_slot_raise(Evas_Object *obj)
         if (e_client_util_ignored_get(ec)) continue;
         if (ec->layout.s_id != sd->id) continue;
         ELOGF("SLOT", "|raise ec[list add] - id:%d [cnt:%d]pid:%d", ec->pixmap, ec, sd->id, cnt++, ec->netwm.pid);
-        if (!top_ec) top_ec = below_ec = ec;
+        if (!top_ec) top_ec = ec;
         l = eina_list_append(l, ec);
      }
 
+   if (!top_ec) return;
+
+   below_ec = top_ec;
    cnt = 0;
    EINA_LIST_FREE(l, ec2)
      {

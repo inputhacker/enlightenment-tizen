@@ -989,10 +989,6 @@ e_zone_edge_free(E_Zone_Edge edge)
           zone->flip.switching = E_ZONE_EDGE_NONE;
         switch (edge)
           {
-           case E_ZONE_EDGE_NONE:
-             /* noop */
-             break;
-
            case E_ZONE_EDGE_LEFT:
              E_FREE_FUNC(zone->edge.left, evas_object_del);
              break;
@@ -1027,6 +1023,9 @@ e_zone_edge_free(E_Zone_Edge edge)
            case E_ZONE_EDGE_BOTTOM_LEFT:
              E_FREE_FUNC(zone->corner.bottom_left, evas_object_del);
              E_FREE_FUNC(zone->corner.left_bottom, evas_object_del);
+             break;
+
+           default:
              break;
           }
      }

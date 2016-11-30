@@ -750,7 +750,6 @@ _e_client_find_focus_same_layer(E_Client *ec)
 
    EINA_INLIST_REVERSE_FOREACH(e_comp->layers[id].clients, temp_ec)
      {
-        if (!temp_ec) continue;
         if (temp_ec == ec) continue;
         if (e_object_is_del(E_OBJECT(temp_ec))) continue;
         if (e_client_util_ignored_get(temp_ec)) continue;

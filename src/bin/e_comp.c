@@ -584,7 +584,8 @@ _hwc_plane_change_ec(E_Plane *ep, E_Client *old_ec, E_Client *new_ec)
      {
         ELOGF("HWC", "failed to set new_ec(%s) on %d",
               NULL, new_ec,
-              e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
+              new_ec ? (new_ec->icccm.name ? new_ec->icccm.name : "no name") : "NULL",
+              ep->zpos);
      }
 
    return ret;
