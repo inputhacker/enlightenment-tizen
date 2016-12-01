@@ -665,6 +665,14 @@ _e_comp_hwc_changed(void)
              if (e_plane_is_fb_target(ep))
                {
                   if (ep->ec) mode = E_HWC_MODE_FULL;
+                  if (!assign_success)
+                    {
+                       // clean reserved mem and assign NULL to end hwc
+                       if (e_plane_is_reserved(ep))
+                         e_plane_reserved_set(ep, 0);
+
+                       e_plane_ec_set(ep, NULL);
+                    }
                   break;
                }
           }
