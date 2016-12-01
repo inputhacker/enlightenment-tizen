@@ -2945,7 +2945,7 @@ _e_comp_wl_surface_render_stop(E_Client *ec)
 {
    /* FIXME: this may be fine after e_pixmap can create textures for wl clients? */
    //if ((!ec->internal) && (!e_comp_gl_get()))
-     ec->dead = 1;
+     ec->dead = ec->hidden = 1;
 
    /* check if internal animation is running */
    if (e_comp_object_is_animating(ec->frame)) return;
