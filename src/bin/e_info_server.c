@@ -238,7 +238,6 @@ _compobj_info_get(Evas_Object *po, Evas_Object *o, int depth)
 
    evas_object_geometry_get(o, &cobj->x, &cobj->y, &cobj->w, &cobj->h);
    evas_object_color_get(o, &cobj->r, &cobj->g, &cobj->b, &cobj->a);
-   cobj->alpha = evas_object_image_alpha_get(o);
    cobj->pass_events = evas_object_pass_events_get(o);
    cobj->freeze_events = evas_object_freeze_events_get(o);
    cobj->focus = evas_object_focus_get(o);
@@ -461,7 +460,6 @@ _e_info_server_cb_compobjs(const Eldbus_Service_Interface *iface EINA_UNUSED, co
                                              cobj->opmode,
                                              cobj->x, cobj->y, cobj->w, cobj->h,
                                              cobj->r, cobj->g, cobj->b, cobj->a,
-                                             cobj->alpha,
                                              cobj->pass_events,
                                              cobj->freeze_events,
                                              cobj->focus,
