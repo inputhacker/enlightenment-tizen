@@ -35,8 +35,8 @@ struct _E_QP_Mgr_Funcs
    Eina_Bool    (*qp_client_scrollable_get)(E_Client *ec);
 };
 
-E_API Eina_Bool       e_service_quickpanel_module_func_set(void *qp_fp);
-E_API Eina_Bool       e_service_quickpanel_module_func_unset(void *qp_fp);
+E_API Eina_Bool       e_service_quickpanel_module_func_set(E_QP_Mgr_Funcs *fp);
+E_API Eina_Bool       e_service_quickpanel_module_func_unset(void);
 
 EINTERN void          e_service_quickpanel_client_set(E_Client *ec);
 EINTERN E_Client     *e_service_quickpanel_client_get(void);
