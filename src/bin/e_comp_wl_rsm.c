@@ -718,78 +718,75 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
    epressure = wl_fixed_to_double(pressure);
    eangle = wl_fixed_to_double(angle);
 
-   if (remote_surface->visible)
+   if (eclas == ECORE_DEVICE_CLASS_MOUSE)
      {
-        if (eclas == ECORE_DEVICE_CLASS_MOUSE)
+        switch (event_type)
           {
-             switch (event_type)
-               {
-                case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_DOWN:
-                   e_client_mouse_button_send(ec,
-                                              button,
-                                              EINA_TRUE,
-                                              edev,
-                                              time);
-                   break;
-                case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_UP:
-                   e_client_mouse_button_send(ec,
-                                              button,
-                                              EINA_FALSE,
-                                              edev,
-                                              time);
-                   break;
-                case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_MOVE:
-                   e_client_mouse_move_send(ec,
-                                            x, y,
-                                            edev,
-                                            time);
-                   break;
-                default:
-                   ERR("Not supported event_type(%d)", event_type);
-                   break;
-               }
+           case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_DOWN:
+              e_client_mouse_button_send(ec,
+                                         button,
+                                         EINA_TRUE,
+                                         edev,
+                                         time);
+              break;
+           case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_UP:
+              e_client_mouse_button_send(ec,
+                                         button,
+                                         EINA_FALSE,
+                                         edev,
+                                         time);
+              break;
+           case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_MOVE:
+              e_client_mouse_move_send(ec,
+                                       x, y,
+                                       edev,
+                                       time);
+              break;
+           default:
+              ERR("Not supported event_type(%d)", event_type);
+              break;
           }
-        else if (eclas == ECORE_DEVICE_CLASS_TOUCH)
+     }
+   else if (eclas == ECORE_DEVICE_CLASS_TOUCH)
+     {
+        switch (event_type)
           {
-             switch (event_type)
-               {
-                case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_DOWN:
-                   /* FIXME: temporary fix for first touch down w/o move event */
-                   e_client_touch_update_send(ec,
-                                              device,
-                                              x, y,
-                                              edev,
-                                              eradx, erady, epressure, eangle,
-                                              time);
-                   e_client_touch_send(ec,
-                                       device,
-                                       x, y,
-                                       EINA_TRUE,
-                                       edev,
-                                       eradx, erady, epressure, eangle,
-                                       time);
-                   break;
-                case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_UP:
-                   e_client_touch_send(ec,
-                                       device,
-                                       x, y,
-                                       EINA_FALSE,
-                                       edev,
-                                       eradx, erady, epressure, eangle,
-                                       time);
-                   break;
-                case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_MOVE:
-                   e_client_touch_update_send(ec,
-                                              device,
-                                              x, y,
-                                              edev,
-                                              eradx, erady, epressure, eangle,
-                                              time);
-                   break;
-                default:
-                   ERR("Not supported event_type(%d)", event_type);
-                   break;
-               }
+           case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_DOWN:
+              /* FIXME: temporary fix for first touch down w/o move event */
+              e_client_touch_update_send(ec,
+                                         device,
+                                         x, y,
+                                         edev,
+                                         eradx, erady, epressure, eangle,
+                                         time);
+              e_client_touch_send(ec,
+                                  device,
+                                  x, y,
+                                  EINA_TRUE,
+                                  edev,
+                                  eradx, erady, epressure, eangle,
+                                  time);
+              break;
+           case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_UP:
+              e_client_touch_send(ec,
+                                  device,
+                                  x, y,
+                                  EINA_FALSE,
+                                  edev,
+                                  eradx, erady, epressure, eangle,
+                                  time);
+              break;
+           case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_MOVE:
+              e_client_touch_update_send(ec,
+                                         device,
+                                         x, y,
+                                         edev,
+                                         eradx, erady, epressure, eangle,
+                                         time);
+              break;
+           default:
+              ERR("Not supported event_type(%d)", event_type);
+              break;
           }
      }
 }
@@ -816,8 +813,7 @@ _remote_surface_cb_mouse_wheel_transfer(struct wl_client *client, struct wl_reso
    /* identify class */
    edev = _device_get_by_identifier(identifier);
 
-   if (remote_surface->visible)
-     e_client_mouse_wheel_send(ec, direction, z, edev, time);
+   e_client_mouse_wheel_send(ec, direction, z, edev, time);
 }
 
 static void
@@ -864,48 +860,45 @@ _remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_reso
    epressure = wl_fixed_to_double(pressure);
    eangle = wl_fixed_to_double(angle);
 
-   if (remote_surface->visible)
+   if (eclas == ECORE_DEVICE_CLASS_TOUCH)
      {
-        if (eclas == ECORE_DEVICE_CLASS_TOUCH)
+        switch (event_type)
           {
-             switch (event_type)
-               {
-                case TIZEN_REMOTE_SURFACE_EVENT_TYPE_TOUCH_DOWN:
-                   e_client_touch_update_send(ec,
-                                              device,
-                                              x, y,
-                                              edev,
-                                              eradx, erady, epressure, eangle,
-                                              time);
-                   e_client_touch_send(ec,
-                                       device,
-                                       x, y,
-                                       EINA_TRUE,
-                                       edev,
-                                       eradx, erady, epressure, eangle,
-                                       time);
-                   break;
-                case TIZEN_REMOTE_SURFACE_EVENT_TYPE_TOUCH_UP:
-                   e_client_touch_send(ec,
-                                       device,
-                                       x, y,
-                                       EINA_FALSE,
-                                       edev,
-                                       eradx, erady, epressure, eangle,
-                                       time);
-                   break;
-                case TIZEN_REMOTE_SURFACE_EVENT_TYPE_TOUCH_MOVE:
-                   e_client_touch_update_send(ec,
-                                              device,
-                                              x, y,
-                                              edev,
-                                              eradx, erady, epressure, eangle,
-                                              time);
-                   break;
-                default:
-                   ERR("Not supported event_type(%d)", event_type);
-                   break;
-               }
+           case TIZEN_REMOTE_SURFACE_EVENT_TYPE_TOUCH_DOWN:
+              e_client_touch_update_send(ec,
+                                         device,
+                                         x, y,
+                                         edev,
+                                         eradx, erady, epressure, eangle,
+                                         time);
+              e_client_touch_send(ec,
+                                  device,
+                                  x, y,
+                                  EINA_TRUE,
+                                  edev,
+                                  eradx, erady, epressure, eangle,
+                                  time);
+              break;
+           case TIZEN_REMOTE_SURFACE_EVENT_TYPE_TOUCH_UP:
+              e_client_touch_send(ec,
+                                  device,
+                                  x, y,
+                                  EINA_FALSE,
+                                  edev,
+                                  eradx, erady, epressure, eangle,
+                                  time);
+              break;
+           case TIZEN_REMOTE_SURFACE_EVENT_TYPE_TOUCH_MOVE:
+              e_client_touch_update_send(ec,
+                                         device,
+                                         x, y,
+                                         edev,
+                                         eradx, erady, epressure, eangle,
+                                         time);
+              break;
+           default:
+              ERR("Not supported event_type(%d)", event_type);
+              break;
           }
      }
 }
@@ -966,30 +959,27 @@ _remote_surface_cb_key_event_transfer(struct wl_client *client, struct wl_resour
         eclas = ecore_device_class_get(edev);
      }
 
-   if (remote_surface->visible)
+   if (eclas == ECORE_DEVICE_CLASS_KEYBOARD)
      {
-        if (eclas == ECORE_DEVICE_CLASS_KEYBOARD)
+        switch (event_type)
           {
-             switch (event_type)
-               {
-                case TIZEN_REMOTE_SURFACE_EVENT_TYPE_KEY_DOWN:
-                   e_client_key_send(ec,
-                                     keycode,
-                                     EINA_TRUE,
-                                     edev,
-                                     time);
-                   break;
-                case TIZEN_REMOTE_SURFACE_EVENT_TYPE_KEY_UP:
-                   e_client_key_send(ec,
-                                     keycode,
-                                     EINA_FALSE,
-                                     edev,
-                                     time);
-                   break;
-                default:
-                   ERR("Not supported event_type(%d)", event_type);
-                   break;
-               }
+           case TIZEN_REMOTE_SURFACE_EVENT_TYPE_KEY_DOWN:
+              e_client_key_send(ec,
+                                keycode,
+                                EINA_TRUE,
+                                edev,
+                                time);
+              break;
+           case TIZEN_REMOTE_SURFACE_EVENT_TYPE_KEY_UP:
+              e_client_key_send(ec,
+                                keycode,
+                                EINA_FALSE,
+                                edev,
+                                time);
+              break;
+           default:
+              ERR("Not supported event_type(%d)", event_type);
+              break;
           }
      }
 }
