@@ -8,6 +8,7 @@ _e_viewport_destroy(struct wl_resource *resource)
 {
    E_Client *ec = wl_resource_get_user_data(resource);
 
+   if (!e_object_unref(E_OBJECT(ec))) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (!ec->comp_data) return;
    if (!ec->comp_data->scaler.viewport) return;
@@ -184,6 +185,7 @@ _e_scaler_cb_get_viewport(struct wl_client *client EINA_UNUSED, struct wl_resour
 
    ec->comp_data->scaler.viewport = res;
    wl_resource_set_implementation(res, &_e_viewport_interface, ec, _e_viewport_destroy);
+   e_object_ref(E_OBJECT(ec));
 }
 
 static const struct wl_scaler_interface _e_scaler_interface =
