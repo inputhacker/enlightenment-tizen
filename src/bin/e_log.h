@@ -80,7 +80,7 @@
 #define ELOG(t, cp, ec)                                    \
    do                                                      \
      {                                                     \
-        if ((!cp) && (!ec))                                \
+        if ((!ec) && (!cp))                                \
           INF("EWL|%20.20s|              |             |", \
               (t));                                        \
         else                                               \
@@ -94,7 +94,7 @@
 #define ELOGF(t, f, cp, ec, x...)                          \
    do                                                      \
      {                                                     \
-        if ((!cp) && (!ec))                                \
+        if ((!ec) && (!cp))                                \
           INF("EWL|%20.20s|              |             |"f,\
               (t), ##x);                                   \
         else                                               \
