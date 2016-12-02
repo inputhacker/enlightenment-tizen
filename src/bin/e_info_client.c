@@ -1726,62 +1726,32 @@ _e_info_client_proc_slot_set(int argc, char **argv)
 }
 
 static void
-_e_info_client_proc_desk(int argc, char **argv)
+_e_info_client_proc_desktop_geometry_set(int argc, char **argv)
 {
-   const int offset = 2, cmd_len = 1;
-   Eina_Bool res = EINA_FALSE;
+   int x, y, w, h;
 
-   if (argc < offset + cmd_len)
-     goto arg_err;
-
-   if (eina_streq(argv[offset], "geometry"))
+   if (argc != 6)
      {
-        const int narg = 4;
-        int geom[narg];
-        int i;
-
-        if (argc < offset + cmd_len + narg)
-          goto arg_err;
-
-        for (i = 0; i < narg; i++)
-          geom[i] = atoi(argv[offset + cmd_len + i]);
-
-        if ((geom[2] < 0) || (geom[3] < 0))
-          {
-             printf("Error Check Args: Width(%d) and Height(%d) must not be less than 1.\n", geom[2], geom[3]);
-             return;
-          }
-
-        res = _e_info_client_eldbus_message_with_args("desktop_geometry_set", NULL, "iiii",
-                                                      geom[0], geom[1], geom[2], geom[3]);
-     }
-   else if (eina_streq(argv[offset], "zoom"))
-     {
-        const int narg = 4;
-        double zx, zy;
-        int cx, cy;
-
-        if (argc < offset + cmd_len + narg)
-          goto arg_err;
-
-        zx = atof(argv[offset + cmd_len]);
-        zy = atof(argv[offset + cmd_len + 1]);
-        cx = atoi(argv[offset + cmd_len + 2]);
-        cy = atoi(argv[offset + cmd_len + 3]);
-
-        res = _e_info_client_eldbus_message_with_args("desk_zoom", NULL, "ddii",
-                                                      zx, zy, cx, cy);
+        printf("Error Check Args: enlightenment_info -desktop_geometry_set [X] [Y] [W] [H]\n");
+        return;
      }
 
-   if (!res)
+   x = atoi(argv[2]);
+   y = atoi(argv[3]);
+   w = atoi(argv[4]);
+   h = atoi(argv[5]);
+
+   if ((w < 0) || (h < 0))
+     {
+        printf("Error Check Args: Width(%d) and Height(%d) must not be less than 1.\n", w, h);
+        return;
+     }
+
+   if (!_e_info_client_eldbus_message_with_args("desktop_geometry_set", NULL, "iiii", x, y, w, h))
      {
         printf("_e_info_client_eldbus_message_with_args error");
         return;
      }
-
-   return;
-arg_err:
-   printf("Usage: enlightenment_info -desk\n");
 }
 
 static void
@@ -2430,10 +2400,10 @@ static struct
       _e_info_client_proc_slot_set
    },
    {
-      "desk",
-      NULL,
-      "current desktop",
-      _e_info_client_proc_desk
+      "desktop_geometry_set",
+      "[X Y W H]",
+      "Set geometry of current desktop",
+      _e_info_client_proc_desktop_geometry_set
    }
 };
 

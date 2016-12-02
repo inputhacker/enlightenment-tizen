@@ -5,6 +5,8 @@
  * number of desktops.
  */
 
+#define E_DESK_SMART_OBJ_TYPE "E_Desk_Smart_Object"
+
 #define E_DESK_SMART_DATA_GET(obj, ptr)                        \
    E_Desk_Smart_Data *ptr = evas_object_smart_data_get(obj);
 
@@ -17,15 +19,8 @@ typedef struct _E_Desk_Smart_Data E_Desk_Smart_Data;
 struct _E_Desk_Smart_Data
 {
    Evas_Object_Smart_Clipped_Data base;
-   Eina_List      *clients;
-   Eina_List      *handlers;
 
-   struct
-   {
-      double       ratio_x, ratio_y;
-      int          center_x, center_y;
-      Eina_Bool    enabled;
-   } zoom;
+   Eina_List   *clients;
 };
 
 static void      _e_desk_free(E_Desk *desk);
@@ -42,9 +37,6 @@ static void      _e_desk_smart_add(Evas_Object *obj);
 static void      _e_desk_smart_del(Evas_Object *obj);
 static void      _e_desk_smart_client_add(Evas_Object *obj, E_Client *ec);
 static void      _e_desk_smart_client_del(Evas_Object *obj, E_Client *ec);
-static void      _e_desk_object_zoom(Evas_Object *obj, double zoomx, double zoomy, Evas_Coord cx, Evas_Coord cy);
-static void      _e_desk_client_zoom(E_Client *ec, double zoomx, double zoomy, Evas_Coord cx, Evas_Coord cy);
-static void      _e_desk_util_comp_hwc_disable_set(Eina_Bool enable);
 
 EVAS_SMART_SUBCLASS_NEW(E_DESK_SMART_OBJ_TYPE, _e_desk,
                         Evas_Smart_Class, Evas_Smart_Class,
@@ -96,10 +88,6 @@ e_desk_new(E_Zone *zone, int x, int y)
 
    desk->smart_obj = evas_object_smart_add(e_comp->evas, _e_desk_smart_class_new());
    e_desk_geometry_set(desk, zone->x, zone->y, zone->w, zone->h);
-
-   /* FIXME indicator object won't be work, if remove this code.
-    * I have no idea why this code is necessary, so I just let it be. */
-   e_desk_zoom_set(desk, 1.0, 1.0, 0, 0);
 
    desk->zone = zone;
    desk->x = x;
@@ -786,90 +774,6 @@ e_desk_geometry_set(E_Desk *desk, int x, int y, int w, int h)
    e_comp_render_queue();
 }
 
-E_API void
-e_desk_zoom_set(E_Desk *desk, double zoomx, double zoomy, int cx, int cy)
-{
-   E_Client *ec;
-   Eina_List *l;
-
-   E_OBJECT_CHECK(desk);
-   E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
-
-   E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
-
-   if ((sd->zoom.ratio_x != zoomx) || (sd->zoom.ratio_y != zoomy) ||
-       (sd->zoom.center_x != cx) || (sd->zoom.center_y != cy))
-     {
-        sd->zoom.ratio_x = zoomx;
-        sd->zoom.ratio_y = zoomy;
-        sd->zoom.center_x = cx;
-        sd->zoom.center_y = cy;
-
-        _e_desk_object_zoom(desk->smart_obj, zoomx, zoomy, cx, cy);
-        EINA_LIST_FOREACH(sd->clients, l, ec)
-           _e_desk_client_zoom(ec, zoomx, zoomy, cx, cy);
-     }
-
-   if (!sd->zoom.enabled)
-     {
-        sd->zoom.enabled = EINA_TRUE;
-
-        evas_object_map_enable_set(desk->smart_obj, EINA_TRUE);
-        EINA_LIST_FOREACH(sd->clients, l, ec)
-           evas_object_map_enable_set(ec->frame, EINA_TRUE);
-
-        /* FIXME TEMP disable hwc */
-        _e_desk_util_comp_hwc_disable_set(EINA_TRUE);
-     }
-}
-
-E_API void
-e_desk_zoom_unset(E_Desk *desk)
-{
-   E_Client *ec;
-   Eina_List *l;
-
-   E_OBJECT_CHECK(desk);
-   E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
-
-   E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
-
-   if (!sd->zoom.enabled)
-     return;
-
-   sd->zoom.ratio_x = 1.0;
-   sd->zoom.ratio_y = 1.0;
-   sd->zoom.enabled = EINA_FALSE;
-
-   evas_object_map_enable_set(desk->smart_obj, EINA_FALSE);
-   EINA_LIST_FOREACH(sd->clients, l, ec)
-     {
-        /* NOTE Is it really necessary?
-         * Why isn't it enough to just call evas_object_map_enable_set(false)? */
-        _e_desk_client_zoom(ec, sd->zoom.ratio_x, sd->zoom.ratio_y,
-                            sd->zoom.center_x, sd->zoom.center_y);
-        evas_object_map_enable_set(ec->frame, EINA_FALSE);
-     }
-
-   /* FIXME TEMP enable hwc */
-   _e_desk_util_comp_hwc_disable_set(EINA_FALSE);
-}
-
-E_API void
-e_desk_smart_member_add(E_Desk *desk, Evas_Object *obj)
-{
-   E_OBJECT_CHECK(desk);
-   E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
-
-   evas_object_smart_member_add(obj, desk->smart_obj);
-}
-
-E_API void
-e_desk_smart_member_del(Evas_Object *obj)
-{
-   evas_object_smart_member_del(obj);
-}
-
 static void
 _e_desk_free(E_Desk *desk)
 {
@@ -1036,34 +940,10 @@ _e_desk_hide_begin(E_Desk *desk, int dx, int dy)
      }
 }
 
-static Eina_Bool
-_e_desk_smart_client_cb_resize(void *data, int type, void *event)
-{
-   E_Event_Client *ev;
-   E_Desk_Smart_Data *sd;
-
-   ev = event;
-   sd = data;
-   if (!eina_list_data_find(sd->clients, ev->ec))
-     goto end;
-
-   _e_desk_client_zoom(ev->ec,
-                       sd->zoom.ratio_x, sd->zoom.ratio_y,
-                       sd->zoom.center_x, sd->zoom.center_y);
-end:
-   return ECORE_CALLBACK_PASS_ON;
-}
-
 static void
 _e_desk_smart_add(Evas_Object *obj)
 {
    EVAS_SMART_DATA_ALLOC(obj, E_Desk_Smart_Data);
-
-   /* to apply zoom transformation whenever the client's size is changed. */
-   E_LIST_HANDLER_APPEND(priv->handlers, E_EVENT_CLIENT_RESIZE, _e_desk_smart_client_cb_resize, priv);
-
-   /* FIXME hard coded, it will be laid upper than unpacked clients */
-   evas_object_layer_set(obj, EVAS_LAYER_MAX - 2);
 
    _e_desk_parent_sc->add(obj);
 }
@@ -1075,7 +955,6 @@ _e_desk_smart_del(Evas_Object *obj)
 
    E_DESK_SMART_DATA_GET_OR_RETURN(obj, sd);
 
-   E_FREE_LIST(sd->handlers, ecore_event_handler_del);
    eina_list_free(sd->clients);
    free(sd);
 
@@ -1094,13 +973,8 @@ _e_desk_smart_client_add(Evas_Object *obj, E_Client *ec)
 {
    E_DESK_SMART_DATA_GET_OR_RETURN(obj, sd);
 
-   if (eina_list_data_find(sd->clients, ec))
-     return;
-
-   _e_desk_client_zoom(ec,
-                       sd->zoom.ratio_x, sd->zoom.ratio_y,
-                       sd->zoom.center_x, sd->zoom.center_y);
    sd->clients = eina_list_append(sd->clients, ec);
+   evas_object_smart_member_add(ec->frame, obj);
    evas_object_smart_changed(obj);
 }
 
@@ -1109,40 +983,7 @@ _e_desk_smart_client_del(Evas_Object *obj, E_Client *ec)
 {
    E_DESK_SMART_DATA_GET_OR_RETURN(obj, sd);
 
-   if (!eina_list_data_find(sd->clients, ec))
-     return;
-
-   evas_object_map_enable_set(ec->frame, EINA_FALSE);
    sd->clients = eina_list_remove(sd->clients, ec);
+   evas_object_smart_member_del(ec->frame);
    evas_object_smart_changed(obj);
-}
-
-static void
-_e_desk_util_comp_hwc_disable_set(Eina_Bool disable)
-{
-   if (disable)
-     e_comp_hwc_end("in runtime by e_desk");
-   e_comp->hwc_deactive = disable;
-}
-
-static void
-_e_desk_object_zoom(Evas_Object *obj, double zoomx, double zoomy, Evas_Coord cx, Evas_Coord cy)
-{
-   Evas_Map *map;
-   Eina_Bool enabled;
-
-   map = evas_map_new(4);
-   evas_map_util_object_move_sync_set(map, EINA_TRUE);
-   evas_map_util_points_populate_from_object(map, obj);
-   evas_map_util_zoom(map, zoomx, zoomy, cx, cy);
-   evas_object_map_set(obj, map);
-   enabled = ((zoomx != 1.0) || (zoomy != 1.0));
-   evas_object_map_enable_set(obj, enabled);
-   evas_map_free(map);
-}
-
-static void
-_e_desk_client_zoom(E_Client *ec, double zoomx, double zoomy, Evas_Coord cx, Evas_Coord cy)
-{
-   _e_desk_object_zoom(ec->frame, zoomx, zoomy, cx, cy);
 }

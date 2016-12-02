@@ -932,8 +932,6 @@ _e_client_free(E_Client *ec)
 
    e_uuid_store_entry_del(ec->uuid);
 
-   e_desk_client_del(ec->desk, ec);
-
    free(ec);
 }
 
@@ -1039,6 +1037,8 @@ _e_client_del(E_Client *ec)
    ec->transform_core.result.enable = EINA_FALSE;
 
    e_client_visibility_calculate();
+
+   e_desk_client_del(ec->desk, ec);
 }
 
 ///////////////////////////////////////////
@@ -2852,6 +2852,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
    E_Client *ec;
    E_Client *focus_ec = NULL;
    E_Client *new_focused_ec = NULL;
+   Evas_Object *o;
    Eina_Tiler *t;
    Eina_Rectangle r, *_r;
    Eina_Iterator *it;
@@ -2882,8 +2883,13 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
         eina_tiler_rect_add(t, &r);
      }
 
-   E_CLIENT_REVERSE_FOREACH(ec)
+   o = evas_object_top_get(e_comp->evas);
+   for (; o; o = evas_object_below_get(o))
      {
+        ec = evas_object_data_get(o, "E_Client");
+
+        /* check e_client and skip e_clients not intersects with zone */
+        if (!ec) continue;
         if (e_object_is_del(E_OBJECT(ec))) continue;
         if (e_client_util_ignored_get(ec)) continue;
         if (ec->zone != zone) continue;
