@@ -39,6 +39,7 @@ _e_comp_wl_input_pointer_map(struct wl_resource *resource)
    if (!e_comp_wl->ptr.ec || !e_comp_wl->ptr.ec->comp_data || !e_comp_wl->ptr.ec->comp_data->surface) return;
    wc = wl_resource_get_client(resource);
    if (wc != wl_resource_get_client(e_comp_wl->ptr.ec->comp_data->surface)) return;
+   if (!e_comp_wl->ptr.ec->pointer_enter_sent) return;
 
    if ((ptr = e_comp->pointer))
      e_pointer_object_set(ptr, ec->frame, ptr->hot.x, ptr->hot.y);
@@ -75,7 +76,7 @@ _e_comp_wl_input_pointer_cb_cursor_set(struct wl_client *client, struct wl_resou
        if (e_pixmap_type_get(ec->pixmap) != E_PIXMAP_TYPE_WL) continue;
        if (!ec->comp_data->surface) continue;
        if (client != wl_resource_get_client(ec->comp_data->surface)) continue;
-       if (ec->mouse.in)
+       if (ec->mouse.in && ec->pointer_enter_sent)
          {
             got_mouse = EINA_TRUE;
             break;
