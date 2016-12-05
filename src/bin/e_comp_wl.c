@@ -1351,6 +1351,7 @@ _e_comp_wl_evas_cb_mouse_up(void *data, Evas *evas, Evas_Object *obj EINA_UNUSED
    Evas_Event_Flags flags;
 
    if (!ec) return;
+   if (ec->cur_mouse_action) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
    if (!need_send_released)
