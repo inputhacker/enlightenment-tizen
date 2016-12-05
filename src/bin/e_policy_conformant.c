@@ -3,10 +3,6 @@
 #include <wayland-server.h>
 #include <tizen-extension-server-protocol.h>
 
-#define CFDBG(f, x...)  DBG("Conformant|"f, ##x)
-#define CFINF(f, x...)  INF("Conformant|"f, ##x)
-#define CFERR(f, x...)  ERR("Conformant|"f, ##x)
-
 typedef enum
 {
    CONFORMANT_TYPE_INDICATOR = 0,
@@ -101,14 +97,14 @@ _conf_state_update(Conformant_Type type, Eina_Bool visible, int x, int y, int w,
        (g_conf->part[type].state.x == w) && (g_conf->part[type].state.x == h))
      return;
 
-   CFDBG("Update Conformant State for %d\n", type);
-   CFDBG("\tprev: v %d geom %d %d %d %d\n",
+   DBG("Update Conformant State for %d\n", type);
+   DBG("\tprev: v %d geom %d %d %d %d\n",
        g_conf->part[type].state.visible,
        g_conf->part[type].state.x,
        g_conf->part[type].state.y,
        g_conf->part[type].state.w,
        g_conf->part[type].state.h);
-   CFDBG("\tnew : v %d geom %d %d %d %d\n", visible, x, y, w, h);
+   DBG("\tnew : v %d geom %d %d %d %d\n", visible, x, y, w, h);
 
    g_conf->part[type].state.visible = visible;
    g_conf->part[type].state.x = x;
@@ -142,7 +138,7 @@ _conf_state_update(Conformant_Type type, Eina_Bool visible, int x, int y, int w,
    if (!cfc)
      return;
 
-   CFDBG("\t=> '%s'(%p)", cfc->ec ? (cfc->ec->icccm.name ?:"") : "", cfc->ec);
+   DBG("\t=> '%s'(%p)", cfc->ec ? (cfc->ec->icccm.name ?:"") : "", cfc->ec);
    EINA_LIST_FOREACH(cfc->res_list, l, cres)
      {
         tizen_policy_send_conformant_area
@@ -190,7 +186,7 @@ _conf_client_resource_destroy(struct wl_listener *listener, void *data)
    if (!cres)
      return;
 
-   CFDBG("Destroy Wl Resource res %p owner %s(%p)",
+   DBG("Destroy Wl Resource res %p owner %s(%p)",
          cres->res, cres->cfc->ec->icccm.name ? cres->cfc->ec->icccm.name : "", cres->cfc->ec);
 
    cres->cfc->res_list = eina_list_remove(cres->cfc->res_list, cres);
@@ -210,7 +206,7 @@ _conf_client_resource_add(Conformant_Client *cfc, struct wl_resource *res)
           {
              if (cres->res == res)
                {
-                  CFERR("Already Added Resource, Nothing to do. res: %p", res);
+                  ERR("Already Added Resource, Nothing to do. res: %p", res);
                   return;
                }
           }
@@ -271,7 +267,7 @@ _conf_cb_part_obj_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
 {
    Conformant_Type type = (Conformant_Type)data;
 
-   CFDBG("PART %s ec(%p) Deleted", _conf_type_to_str(type), g_conf->part[type].ec);
+   DBG("PART %s ec(%p) Deleted", _conf_type_to_str(type), g_conf->part[type].ec);
 
    g_conf->part[type].ec = NULL;
 }
@@ -282,7 +278,7 @@ _conf_cb_part_obj_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
    Conformant_Type type = (Conformant_Type)data;
    E_Client *owner = NULL;
 
-   CFDBG("PART %s ec(%p) Show", _conf_type_to_str(type), g_conf->part[type].ec);
+   DBG("PART %s ec(%p) Show", _conf_type_to_str(type), g_conf->part[type].ec);
 
    owner = _conf_part_owner_find(g_conf->part[type].ec, type);
    g_conf->part[type].owner = owner;
@@ -297,7 +293,7 @@ _conf_cb_part_obj_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
 {
    Conformant_Type type = (Conformant_Type)data;
 
-   CFDBG("PART %s ec(%p) Hide", _conf_type_to_str(type), g_conf->part[type].ec);
+   DBG("PART %s ec(%p) Hide", _conf_type_to_str(type), g_conf->part[type].ec);
    _conf_state_update(type,
                       EINA_FALSE,
                       g_conf->part[type].state.x,
@@ -312,7 +308,7 @@ _conf_cb_part_obj_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
 {
    Conformant_Type type = (Conformant_Type)data;
 
-   CFDBG("PART %s ec(%p) Move", _conf_type_to_str(type), g_conf->part[type].ec);
+   DBG("PART %s ec(%p) Move", _conf_type_to_str(type), g_conf->part[type].ec);
 
    g_conf->part[type].changed = 1;
 }
@@ -322,7 +318,7 @@ _conf_cb_part_obj_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_
 {
    Conformant_Type type = (Conformant_Type)data;
 
-   CFDBG("PART %s ec(%p) Resize", _conf_type_to_str(type), g_conf->part[type].ec);
+   DBG("PART %s ec(%p) Resize", _conf_type_to_str(type), g_conf->part[type].ec);
 
    g_conf->part[type].changed = 1;
 }
@@ -332,12 +328,12 @@ _conf_part_register(E_Client *ec, Conformant_Type type)
 {
    if (g_conf->part[type].ec)
      {
-        CFERR("Can't register ec(%p) for %s. ec(%p) was already registered.",
+        ERR("Can't register ec(%p) for %s. ec(%p) was already registered.",
               ec, _conf_type_to_str(type), g_conf->part[type].ec);
         return;
      }
 
-   CFINF("%s Registered ec:%p", _conf_type_to_str(type), ec);
+   INF("%s Registered ec:%p", _conf_type_to_str(type), ec);
 
    g_conf->part[type].ec = ec;
 
@@ -411,7 +407,7 @@ _conf_cb_client_rot_change_cancel(void *data, int evtype EINA_UNUSED, void *even
 
    if (g_conf->part[type].state.restore)
      {
-        CFDBG("Rotation Cancel %s ec(%p)", _conf_type_to_str(type), ev->ec);
+        DBG("Rotation Cancel %s ec(%p)", _conf_type_to_str(type), ev->ec);
         _conf_state_update(type,
                            EINA_TRUE,
                            g_conf->part[type].state.x,
@@ -479,7 +475,7 @@ _conf_idle_enter(void *data)
                   if ((e_comp_object_is_animating(ec->frame)) ||
                       (evas_object_data_get(ec->frame, "effect_running")))
                     {
-                       CFDBG("Animation is running, skip and try next ec(%p)", ec);
+                       DBG("Animation is running, skip and try next ec(%p)", ec);
                        continue;
                     }
 
@@ -536,14 +532,14 @@ e_policy_conformant_client_add(E_Client *ec, struct wl_resource *res)
    EINA_SAFETY_ON_NULL_RETURN(g_conf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   CFDBG("Client Add '%s'(%p)", ec->icccm.name ? ec->icccm.name : "", ec);
+   DBG("Client Add '%s'(%p)", ec->icccm.name ? ec->icccm.name : "", ec);
 
    if (g_conf->client_hash)
      {
         cfc = eina_hash_find(g_conf->client_hash, &ec);
         if (cfc)
           {
-             CFDBG("Already Added Client, Just Add Resource");
+             DBG("Already Added Client, Just Add Resource");
              _conf_client_resource_add(cfc, res);
              return;
           }
@@ -567,7 +563,7 @@ e_policy_conformant_client_del(E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(g_conf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   CFDBG("Client Del '%s'(%p)", ec->icccm.name ? ec->icccm.name : "", ec);
+   DBG("Client Del '%s'(%p)", ec->icccm.name ? ec->icccm.name : "", ec);
 
    cfc = eina_hash_find(g_conf->client_hash, &ec);
    if (cfc)
@@ -595,7 +591,7 @@ e_policy_conformant_init(void)
    if (g_conf)
      return EINA_TRUE;
 
-   CFINF("Conformant Module Init");
+   INF("Conformant Module Init");
 
    g_conf = E_NEW(Conformant, 1);
    if (!g_conf)
@@ -614,7 +610,7 @@ e_policy_conformant_shutdown(void)
 
    EINA_SAFETY_ON_NULL_RETURN(g_conf);
 
-   CFINF("Conformant Module Shutdown");
+   INF("Conformant Module Shutdown");
 
    _conf_event_shutdown();
 
