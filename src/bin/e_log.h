@@ -77,33 +77,25 @@
 # define DLOG_BACKTRACE
 #endif
 
-#define ELOG(t, cp, ec)                                    \
-   do                                                      \
-     {                                                     \
-        if ((!ec) && (!cp))                                \
-          INF("EWL|%20.20s|              |             |", \
-              (t));                                        \
-        else                                               \
-          INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|",         \
-              (t),                                         \
-              (unsigned int)(cp ? e_pixmap_window_get(cp) : 0), \
-              (unsigned int)(ec));                         \
-     }                                                     \
+#define ELOG(t, cp, ec)                                \
+   do                                                  \
+     {                                                 \
+        INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|",       \
+            (t),                                       \
+            (unsigned int)(e_client_util_win_get(ec)), \
+            (unsigned int)(ec));                       \
+     }                                                 \
    while (0)
 
-#define ELOGF(t, f, cp, ec, x...)                          \
-   do                                                      \
-     {                                                     \
-        if ((!ec) && (!cp))                                \
-          INF("EWL|%20.20s|              |             |"f,\
-              (t), ##x);                                   \
-        else                                               \
-          INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|"f,        \
-              (t),                                         \
-              (unsigned int)(cp ? e_pixmap_window_get(cp) : 0), \
-              (unsigned int)(ec),                          \
-              ##x);                                        \
-     }                                                     \
+#define ELOGF(t, f, cp, ec, x...)                      \
+   do                                                  \
+     {                                                 \
+        INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|"f,      \
+            (t),                                       \
+            (unsigned int)(e_client_util_win_get(ec)), \
+            (unsigned int)(ec),                        \
+            ##x);                                      \
+     }                                                 \
    while (0)
 
 
