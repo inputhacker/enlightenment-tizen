@@ -455,7 +455,7 @@ e_config_load(void)
    E_CONFIG_LIMIT(e_config->delayed_load_idle_count, 0, 100);
    E_CONFIG_LIMIT(e_config->use_buffer_flush, 0, 1);
    E_CONFIG_LIMIT(e_config->use_module_srv.qp, 0, 1);
-   E_CONFIG_LIMIT(e_config->launchscreen_timeout, 4.0, 100.0);
+   E_CONFIG_LIMIT(e_config->launchscreen_timeout, 7.0, 100.0);
 }
 
 E_API int
