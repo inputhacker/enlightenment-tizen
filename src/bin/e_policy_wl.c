@@ -4566,7 +4566,7 @@ _tzlaunch_img_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl_re
 
    if (tzlaunch_img->timeout)
      ecore_timer_del(tzlaunch_img->timeout);
-   tzlaunch_img->timeout = ecore_timer_add(4.0f, _launchscreen_timeout, tzlaunch_img);
+   tzlaunch_img->timeout = ecore_timer_add(e_config->launchscreen_timeout, _launchscreen_timeout, tzlaunch_img);
 
    return;
 error:
