@@ -803,18 +803,26 @@ _e_comp_hwc_usable(void)
                {
                   if (e_plane_is_fb_target(ep))
                     {
+                       E_Comp_Wl_Buffer *buffer = NULL;
+
                        ep_fb = ep;
 
-                       // TODO: query if the hw layer don't support smaller buffer assignment
-                       if (ep->prepare_ec &&
-                           ((ep->prepare_ec->x != zone->x) || (ep->prepare_ec->y != zone->y) ||
-                            (ep->prepare_ec->w != zone->w) || (ep->prepare_ec->h != zone->h)))
+                       if (ep_fb->prepare_ec)
+                        buffer = e_pixmap_resource_get(ep_fb->prepare_ec->pixmap);
+
+                       if (ep_fb->prepare_ec &&
+                           ep_fb->reserved_memory &&
+                           buffer &&
+                           ((buffer->w != zone->w) || (buffer->h != zone->h) ||
+                            (ep_fb->prepare_ec->x != zone->x) || (ep_fb->prepare_ec->y != zone->y) ||
+                            (ep_fb->prepare_ec->w != zone->w) || (ep_fb->prepare_ec->h != zone->h)))
                          {
-                            // if client geometry is not 1 on 1 match with zone's,
-                            // in this case output(esp. fb target) may not support hwc, than let's composite
+                            // if client and zone's geometry is not match with, or
+                            // if plane with reserved_memory(esp. fb target) has assigned smaller buffer,
+                            // won't support hwc properly, than let's composite
                             return EINA_FALSE;
                          }
-                       else if (ep->prepare_ec != NULL)
+                       else if (ep_fb->prepare_ec != NULL)
                          {
                             return EINA_TRUE;
                          }
