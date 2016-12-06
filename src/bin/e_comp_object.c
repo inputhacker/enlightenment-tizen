@@ -1567,14 +1567,16 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
    /* find new object for stacking if cw2 is on state of layer_pending */
    if ((cw2) && (cw2->ec->layer_pending))
      {
-        E_Client *new_stack = NULL;
+        E_Client *new_stack = NULL, *current_ec = NULL;
+        current_ec = cw2->ec;
         if (raising)
           {
-             while ((new_stack = e_client_below_get(cw2->ec)))
+             while ((new_stack = e_client_below_get(current_ec)))
                {
                   if (new_stack == cw->ec) continue;
                   if (new_stack->layer != cw2->ec->layer) break;
                   if (!new_stack->layer_pending) break;
+                  current_ec = new_stack;
                }
              if ((new_stack) && (new_stack->layer == cw2->ec->layer))
                stack = new_stack->frame;
@@ -1588,11 +1590,12 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
           }
         else
           {
-             while ((new_stack = e_client_above_get(cw2->ec)))
+             while ((new_stack = e_client_above_get(current_ec)))
                {
                   if (new_stack == cw->ec) continue;
                   if (new_stack->layer != cw2->ec->layer) break;
                   if (!new_stack->layer_pending) break;
+                  current_ec = new_stack;
                }
              if ((new_stack) && (new_stack->layer == cw2->ec->layer))
                stack = new_stack->frame;
