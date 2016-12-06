@@ -2793,8 +2793,8 @@ _e_client_transient_for_group_make(E_Client *ec, Eina_List **list)
      }
 }
 
-static E_Client *
-_e_client_transient_child_top_get(E_Client *ec, Eina_Bool consider_focus)
+E_API E_Client *
+e_client_transient_child_top_get(E_Client *ec, Eina_Bool consider_focus)
 {
    E_Client *top_ec = NULL;
    Eina_List *transient_list = NULL;
@@ -4707,7 +4707,7 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
              E_Client *focus_ec = ec;
 
              if (ec->transients)
-               focus_ec = _e_client_transient_child_top_get(ec, EINA_TRUE);
+               focus_ec = e_client_transient_child_top_get(ec, EINA_TRUE);
 
              evas_object_focus_set(focus_ec->frame, 1);
           }

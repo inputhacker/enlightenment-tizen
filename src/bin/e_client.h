@@ -1029,6 +1029,7 @@ E_API Eina_Bool e_client_has_xwindow(const E_Client *ec);
 E_API Eina_Bool e_client_desk_window_profile_available_check(E_Client *ec, const char *profile);
 E_API void      e_client_desk_window_profile_wait_desk_set(E_Client *ec, E_Desk *desk);
 E_API void      e_client_layout_cb_set(E_Client_Layout_Cb cb);
+E_API E_Client *e_client_transient_child_top_get(E_Client *ec, Eina_Bool consider_focus);
 E_API void      e_client_visibility_calculate(void);
 E_API void      e_client_visibility_skip_set(E_Client *ec, Eina_Bool skip);
 E_API void      e_client_post_raise_lower_set(E_Client *ec, Eina_Bool raise_set, Eina_Bool lower_set);

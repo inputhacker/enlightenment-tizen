@@ -134,6 +134,7 @@ _e_policy_stack_transient_for_tree_check(E_Client *child, E_Client *parent)
 void
 e_policy_stack_hook_pre_post_fetch(E_Client *ec)
 {
+   E_Client *new_focus = NULL;
    E_Policy_Stack *ps;
    ps = eina_hash_find(hash_pol_stack, &ec);
 
@@ -146,6 +147,16 @@ e_policy_stack_hook_pre_post_fetch(E_Client *ec)
                _e_policy_stack_transient_for_apply(ec);
              else
                ps->transient.win = ec->icccm.transient_for;
+
+             if (ec->parent)
+               {
+                  if (ec->parent == e_client_focused_get())
+                    {
+                       new_focus = e_client_transient_child_top_get(ec->parent, EINA_TRUE);
+                       if (new_focus)
+                         evas_object_focus_set(new_focus->frame, 1);
+                    }
+               }
 
              ps->transient.fetched = 0;
           }
