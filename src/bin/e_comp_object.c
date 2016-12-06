@@ -1573,10 +1573,10 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
           {
              while ((new_stack = e_client_below_get(current_ec)))
                {
+                  current_ec = new_stack;
                   if (new_stack == cw->ec) continue;
                   if (new_stack->layer != cw2->ec->layer) break;
                   if (!new_stack->layer_pending) break;
-                  current_ec = new_stack;
                }
              if ((new_stack) && (new_stack->layer == cw2->ec->layer))
                stack = new_stack->frame;
@@ -1592,10 +1592,10 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
           {
              while ((new_stack = e_client_above_get(current_ec)))
                {
+                  current_ec = new_stack;
                   if (new_stack == cw->ec) continue;
                   if (new_stack->layer != cw2->ec->layer) break;
                   if (!new_stack->layer_pending) break;
-                  current_ec = new_stack;
                }
              if ((new_stack) && (new_stack->layer == cw2->ec->layer))
                stack = new_stack->frame;
