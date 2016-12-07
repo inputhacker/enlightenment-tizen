@@ -4635,9 +4635,6 @@ _tzlaunch_img_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_res
                    old_ec, new_ec, tzlaunch_img->obj);
 
              /* delete ec was created for launchscreen */
-             e_pixmap_win_id_del(tzlaunch_img->ep);
-             e_object_del(E_OBJECT(old_ec));
-             tzlaunch_img->ep = NULL;
              if (old_ec->visible)
                {
                   old_ec->visible = EINA_FALSE;
@@ -4645,6 +4642,10 @@ _tzlaunch_img_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_res
                   old_ec->ignored = EINA_TRUE;
                }
              e_comp->launchscrns = eina_list_remove(e_comp->launchscrns, old_ec);
+
+             e_pixmap_win_id_del(tzlaunch_img->ep);
+             e_object_del(E_OBJECT(old_ec));
+             tzlaunch_img->ep = NULL;
 
              e_client_visibility_calculate();
           }
