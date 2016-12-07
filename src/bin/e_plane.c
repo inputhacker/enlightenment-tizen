@@ -731,9 +731,6 @@ e_plane_fetch(E_Plane *plane)
    if (plane->pending_commit_data)
       return EINA_FALSE;
 
-   if (plane->need_to_unset_commit)
-      return EINA_TRUE;
-
    if (plane->is_fb && !plane->ec)
      {
         /* acquire the surface */
@@ -767,6 +764,9 @@ e_plane_fetch(E_Plane *plane)
      }
 
    if (!tsurface) return EINA_FALSE;
+
+   if (plane->need_to_unset_commit)
+      plane->need_to_unset_commit = EINA_FALSE;
 
    e_plane_renderer_previous_surface_set(plane->renderer, plane->tsurface);
    plane->tsurface = tsurface;
