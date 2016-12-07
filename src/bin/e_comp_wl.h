@@ -545,6 +545,8 @@ EINTERN Eina_Bool e_comp_wl_mouse_move_send(E_Client *ec, int x, int y, Ecore_De
 EINTERN Eina_Bool e_comp_wl_mouse_wheel_send(E_Client *ec, int direction, int z, Ecore_Device *dev, uint32_t time);
 EINTERN Eina_Bool e_comp_wl_cursor_hide(E_Client *ec);
 
+EINTERN void	  e_comp_wl_feed_focus_in(E_Client *ec);
+
 E_API extern int E_EVENT_WAYLAND_GLOBAL_ADD;
 
 # endif

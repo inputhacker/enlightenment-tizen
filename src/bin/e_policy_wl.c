@@ -139,6 +139,7 @@ typedef struct _E_Policy_Wl_Tzlaunch_Img
    Ecore_Timer               *timeout;          /* launch screen image hide timer */
 
    Eina_Bool                  valid;            /* validation check */
+   Eina_Bool                  replaced;
    E_Comp_Object_Content_Type content_type;     /* type of content */
 } E_Policy_Wl_Tzlaunch_Img;
 
@@ -4434,6 +4435,12 @@ _launchscreen_img_off(E_Policy_Wl_Tzlaunch_Img *tzlaunch_img)
         evas_object_hide(ec->frame);
      }
 
+   if (!tzlaunch_img->replaced)
+     {
+        if (ec->focused)
+          e_comp_wl_feed_focus_in(ec);
+     }
+
    e_comp->launchscrns = eina_list_remove(e_comp->launchscrns, ec);
 
    if (obj)
@@ -4444,6 +4451,7 @@ _launchscreen_img_off(E_Policy_Wl_Tzlaunch_Img *tzlaunch_img)
    if (tzlaunch_img->timeout) ecore_timer_del(tzlaunch_img->timeout);
    tzlaunch_img->timeout = NULL;
    tzlaunch_img->valid = EINA_FALSE;
+   tzlaunch_img->replaced = EINA_FALSE;
 }
 
 static Eina_Bool
@@ -4628,6 +4636,7 @@ _tzlaunch_img_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_res
              EC_CHANGED(new_ec);
 
              tzlaunch_img->ec = new_ec;
+             tzlaunch_img->replaced = EINA_TRUE;
 
              ELOGF("TZPOL",
                    "Launchscreen client changed | old(%p) new(%p) using obj(%p)",
@@ -4689,6 +4698,7 @@ _tzlaunch_img_add(struct wl_resource *res_tzlaunch, struct wl_resource *res_tzla
    tzlaunch_img->tzlaunch  = tzlaunch;
    tzlaunch_img->res_tzlaunch_img = res_tzlaunch_img;
 
+   tzlaunch_img->replaced = EINA_FALSE;
    tzlaunch_img->ep = e_pixmap_new(E_PIXMAP_TYPE_EXT_OBJECT, 0);
    EINA_SAFETY_ON_NULL_GOTO(tzlaunch_img->ep, error);
    tzlaunch_img->ec = e_client_new(tzlaunch_img->ep, 0, 1);

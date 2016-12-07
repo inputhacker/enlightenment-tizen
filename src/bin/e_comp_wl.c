@@ -1619,15 +1619,19 @@ _e_comp_wl_evas_cb_focus_in_timer(E_Client *ec)
    return EINA_FALSE;
 }
 
-static void
-_e_comp_wl_evas_cb_focus_in(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event EINA_UNUSED)
+/* It is called in the following cases:
+ *  When a normal ec->frame has focus.
+ *  Or launching image ec is replaced to the real ec.
+ */
+EINTERN void
+e_comp_wl_feed_focus_in(E_Client *ec)
 {
-   E_Client *ec, *focused;
+   E_Client *focused;
    struct wl_resource *res;
    struct wl_client *wc;
    Eina_List *l;
 
-   if (!(ec = data)) return;
+   if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (ec->iconic) return;
 
@@ -1651,6 +1655,14 @@ _e_comp_wl_evas_cb_focus_in(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj
    int rotation = ec->e.state.rot.ang.curr;
    if (e_comp->pointer->rotation != rotation)
      e_pointer_rotation_set(e_comp->pointer, rotation);
+}
+
+static void
+_e_comp_wl_evas_cb_focus_in(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event EINA_UNUSED)
+{
+   E_Client *ec;
+   if (!(ec = data)) return;
+   e_comp_wl_feed_focus_in(ec);
 }
 
 static void
