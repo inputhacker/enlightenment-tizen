@@ -516,7 +516,7 @@ e_comp_wl_input_init(void)
    /* check for valid repeat_delay and repeat_rate value */
    /* if invalid, set the default value of repeat delay and rate value */
    if (e_comp_wl->kbd.repeat_delay < 0) e_comp_wl->kbd.repeat_delay = 400;
-   if (e_comp_wl->kbd.repeat_delay < 0) e_comp_wl->kbd.repeat_rate = 25;
+   if (e_comp_wl->kbd.repeat_rate < 0) e_comp_wl->kbd.repeat_rate = 25;
 
    /* create the global resource for input seat */
    e_comp_wl->seat.global =
