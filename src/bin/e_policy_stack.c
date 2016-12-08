@@ -189,11 +189,11 @@ e_policy_stack_hook_pre_fetch(E_Client *ec)
              if (transient_each_other)
                {
                   ec->icccm.transient_for = transient_for_win;
-                  ec->icccm.fetch.transient_for = 0;
                   ps->transient.fetched = 0;
                   parent = NULL;
                }
           }
+        ec->icccm.fetch.transient_for = 0;
      }
 }
 
