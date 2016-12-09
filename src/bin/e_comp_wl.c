@@ -637,7 +637,7 @@ _e_comp_wl_send_touch_cancel(E_Client *ec)
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (!ec->comp_data || !ec->comp_data->surface) return;
-   if (ec->ignored) return;
+   if ((ec->ignored) && (!ec->remote_surface.provider)) return;
 
    wc = wl_resource_get_client(ec->comp_data->surface);
 
