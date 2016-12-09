@@ -245,6 +245,14 @@ _mover_smart_del(Evas_Object *obj)
 
    e_comp_override_del();
 
+   /* force update
+    * we need to force update 'E_Client' here even if update only evas_object,
+    * because our render loop would not be started by chaning evas object,
+    * we need to make a change on the 'E_Client'. */
+   e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+   e_comp_object_dirty(ec->frame);
+   e_comp_object_render(ec->frame);
+
    free(md);
 }
 
