@@ -549,6 +549,48 @@ _e_plane_renderer_client_ec_buffer_change_cb(void *data, int type, void *event)
    return ECORE_CALLBACK_PASS_ON;
 }
 
+static void
+_e_plane_renderer_recover_ec(E_Plane_Renderer *renderer)
+{
+   E_Client *ec = renderer->ec;
+   E_Comp_Wl_Client_Data *cdata = NULL;
+   E_Comp_Wl_Buffer *buffer = NULL;
+   tbm_surface_h tsurface =NULL;
+
+   if (!ec) return;
+
+   cdata = ec->comp_data;
+   if (!cdata) return;
+
+   buffer = cdata->buffer_ref.buffer;
+
+   if (!buffer)
+     {
+        tsurface = e_plane_renderer_displaying_surface_get(renderer);
+        if (!tsurface) return;
+
+        tbm_surface_internal_ref(tsurface);
+        buffer = e_comp_wl_tbm_buffer_get(tsurface);
+        if (!buffer)
+          {
+             tbm_surface_internal_unref(tsurface);
+             return;
+          }
+     }
+
+   /* force update */
+   e_pixmap_resource_set(ec->pixmap, buffer);
+   e_pixmap_dirty(ec->pixmap);
+   e_pixmap_refresh(ec->pixmap);
+   e_pixmap_image_refresh(ec->pixmap);
+
+   e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+   e_comp_object_dirty(ec->frame);
+   e_comp_object_render(ec->frame);
+
+   return;
+}
+
 EINTERN Eina_Bool
 e_plane_renderer_init(void)
 {
@@ -851,6 +893,10 @@ e_plane_renderer_ecore_evas_use(E_Plane_Renderer *renderer)
              return EINA_FALSE;
           }
      }
+   else
+     {
+        _e_plane_renderer_recover_ec(renderer);
+     }
 
    return EINA_TRUE;
 }
@@ -897,6 +943,10 @@ e_plane_renderer_del(E_Plane_Renderer *renderer)
             e_plane_renderer_deactivate(renderer);
             e_plane_renderer_surface_queue_destroy(renderer);
          }
+       else
+         {
+            _e_plane_renderer_recover_ec(renderer);
+         }
      }
    else if (role == E_PLANE_ROLE_CURSOR)
      {
@@ -908,6 +958,7 @@ e_plane_renderer_del(E_Plane_Renderer *renderer)
                 e_pointer_hwc_set(pointer, EINA_FALSE);
           }
 
+        _e_plane_renderer_recover_ec(renderer);
         tbm_surface_destroy(renderer->cursor_tsurface);
      }
 

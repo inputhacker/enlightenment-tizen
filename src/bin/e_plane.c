@@ -96,8 +96,6 @@ _e_plane_surface_unset(E_Plane *plane)
 
    if (plane->renderer)
      {
-        /* set the displaying buffer to be null */
-        e_plane_renderer_displaying_surface_set(plane->renderer, NULL);
         /* set the update_exist to be false */
         e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
      }
