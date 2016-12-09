@@ -163,6 +163,9 @@ _mover_intercept_show(void *data, Evas_Object *obj)
    e_comp_object_dirty(ec->frame);
    e_comp_object_render(ec->frame);
 
+   e_desk_client_del(ec->desk, ec);
+   e_layout_pack(md->qp_layout_obj, ec->frame);
+
   // create base_clip
    e = evas_object_evas_get(obj);
    md->base_clip = evas_object_rectangle_add(e);
@@ -190,6 +193,7 @@ _mover_intercept_show(void *data, Evas_Object *obj)
    evas_object_clip_set(md->handler_mirror_obj, md->handler_clip);
 
    evas_object_show(obj);
+   e_desk_smart_member_add(ec->desk, obj);
 }
 
 static void
@@ -253,7 +257,19 @@ _mover_smart_del(Evas_Object *obj)
    e_comp_object_dirty(ec->frame);
    e_comp_object_render(ec->frame);
 
+   /* workaround:
+    * if remove this evas_object_map_enable_set() passing false and true,
+    * we can see the afterimage of move object.
+    * to avoid this probelm, we need it. */
+   evas_object_map_enable_set(ec->desk->smart_obj, EINA_FALSE);
+   evas_object_map_enable_set(ec->desk->smart_obj, EINA_TRUE);
+
+   e_layout_unpack(ec->frame);
+   e_desk_client_add(ec->desk, ec);
+
    free(md);
+   evas_object_hide(obj);
+   e_desk_smart_member_del(obj);
 }
 
 static void
@@ -1260,6 +1276,7 @@ _quickpanel_indicator_object_new(E_Policy_Quickpanel *qp)
                                 _region_obj_cb_gesture_end, qp);
 
    evas_object_show(indi_obj);
+   e_desk_smart_member_add(qp->ec->desk, indi_obj);
 
    return indi_obj;
 }
