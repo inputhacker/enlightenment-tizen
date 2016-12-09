@@ -1018,6 +1018,9 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
    renderer_client = e_plane_renderer_client_get(ec);
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_client, EINA_FALSE);
 
+   if ((renderer->state == E_PLANE_RENDERER_STATE_ACTIVATE) && (renderer->ec != ec))
+      e_plane_renderer_deactivate(renderer);
+
    if (_e_plane_renderer_client_surface_flags_get(renderer_client) != E_PLANE_RENDERER_CLIENT_SURFACE_FLAGS_RESERVED)
      {
         if (renderer->state == E_PLANE_RENDERER_STATE_NONE)
