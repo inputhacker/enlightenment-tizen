@@ -899,6 +899,8 @@ struct E_Client
         Eina_Bool provider : 1;
         Eina_Bool consumer : 1;
      } remote_surface;
+
+   Eina_Bool is_cursor : 1; // The client is a cursor client
 };
 
 #define e_client_focus_policy_click(ec) \
