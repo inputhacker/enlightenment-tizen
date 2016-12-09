@@ -1288,7 +1288,8 @@ _quickpanel_idle_enter(void *data)
               * hide the quickpanel, if below client is the stacking client.
               * it means to find out whether or not it was launched.
               */
-             if (qp->below->icccm.accepts_focus)
+             if ((qp->below) &&
+                 (qp->below->icccm.accepts_focus))
                {
                   if ((qp->stacking == below) &&
                       (qp->ec->visible))
