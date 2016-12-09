@@ -893,6 +893,12 @@ struct E_Client
    } indicator;
 
    E_Plane_Renderer_Client *renderer_client;
+
+   struct
+     {
+        Eina_Bool provider : 1;
+        Eina_Bool consumer : 1;
+     } remote_surface;
 };
 
 #define e_client_focus_policy_click(ec) \

@@ -377,6 +377,15 @@ _remote_provider_visible_set(E_Comp_Wl_Remote_Provider *provider, Eina_Bool set)
    _remote_provider_onscreen_parent_calculate(provider);
 }
 
+static void
+_remote_provider_client_set(E_Client *ec, Eina_Bool set)
+{
+   if (!ec) return;
+   if ((e_object_is_del(E_OBJECT(ec)))) return;
+
+   ec->remote_surface.provider = set;
+}
+
 static E_Comp_Wl_Remote_Provider *
 _remote_provider_find(E_Client *ec)
 {
@@ -462,6 +471,15 @@ _remote_surface_region_clear(E_Comp_Wl_Remote_Surface *remote_surface)
      {
         _remote_region_mirror_clear(region);
      }
+}
+
+static void
+_remote_surface_client_set(E_Client *ec, Eina_Bool set)
+{
+   if (!ec) return;
+   if ((e_object_is_del(E_OBJECT(ec)))) return;
+
+   ec->remote_surface.consumer = set;
 }
 
 static void
@@ -556,6 +574,8 @@ _remote_provider_cb_resource_destroy(struct wl_resource *resource)
              tizen_remote_surface_send_missing(remote_surface->resource);
           }
      }
+
+   _remote_provider_client_set(provider->ec, EINA_FALSE);
    _remote_provider_offscreen_set(provider, EINA_FALSE);
    E_FREE(provider);
 }
@@ -615,7 +635,10 @@ _remote_surface_cb_resource_destroy(struct wl_resource *resource)
    if (remote_surface->bind_ec)
      _remote_surface_bind_client(remote_surface, NULL);
    if (remote_surface->owner)
-     eina_hash_del_by_key(_rsm->surface_hash, &remote_surface->owner);
+     {
+        eina_hash_del_by_key(_rsm->surface_hash, &remote_surface->owner);
+        _remote_surface_client_set(remote_surface->owner, EINA_FALSE);
+     }
 
    E_FREE(remote_surface);
 }
@@ -1014,11 +1037,17 @@ _remote_surface_cb_owner_set(struct wl_client *client, struct wl_resource *resou
    if (surface_resource)
      owner = wl_resource_get_user_data(surface_resource);
 
+   if (remote_surface->owner)
+     _remote_surface_client_set(remote_surface->owner, EINA_FALSE);
+
    remote_surface->owner = owner;
    eina_hash_del_by_data(_rsm->surface_hash, remote_surface);
 
    if (owner)
-     eina_hash_add(_rsm->surface_hash, &owner, remote_surface);
+     {
+        eina_hash_add(_rsm->surface_hash, &owner, remote_surface);
+        _remote_surface_client_set(remote_surface->owner, EINA_TRUE);
+     }
 
    if (remote_surface->provider)
      _remote_provider_onscreen_parent_calculate(remote_surface->provider);
@@ -1123,6 +1152,7 @@ _remote_manager_cb_provider_create(struct wl_client *client, struct wl_resource 
           ec->pixmap, ec,
           "PROVIDER", provider, resource);
 
+   _remote_provider_client_set(ec, EINA_TRUE);
    _remote_provider_offscreen_set(provider, EINA_TRUE);
 
    /* send resource id */
