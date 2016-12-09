@@ -375,7 +375,7 @@ e_pointer_rotation_set(E_Pointer *ptr, int rotation)
 
    /* Current if e_pointer set rotation, it can't' use hwc.
       if it can use hwc, comp override will be removed. */
-   if (ptr->o_ptr && !evas_object_visible_get(ptr->o_ptr)) return;
+   if ((!ptr->o_ptr) || (ptr->o_ptr && !evas_object_visible_get(ptr->o_ptr))) return;
 
    switch(rotation)
      {
