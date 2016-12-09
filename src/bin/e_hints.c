@@ -399,7 +399,7 @@ e_hints_aux_hint_value_get_with_pixmap(E_Pixmap *cp, const char *name)
    cdata = (E_Comp_Wl_Client_Data*)e_pixmap_cdata_get(cp);
    if (!cdata) return NULL;
 
-   EINA_LIST_FOREACH(cdata->aux_hint.hints, l, hint)
+   EINA_LIST_REVERSE_FOREACH(cdata->aux_hint.hints, l, hint)
      {
         if ((!hint->deleted) &&
             (!strcmp(hint->hint, name)))
