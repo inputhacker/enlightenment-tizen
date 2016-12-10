@@ -69,6 +69,8 @@ typedef struct
 
 Conformant *_conf = NULL;
 
+static E_Client   *_conf_part_owner_find(E_Client *part, Conformant_Type type);
+
 static Conformant *
 _conf_data_get()
 {
@@ -140,7 +142,24 @@ _conf_state_update(Conformant *conf, Conformant_Type type, Eina_Bool visible, in
    conf->part[type].state.h = h;
 
    if (!conf->part[type].owner)
-     return;
+     {
+        /* WORKAROUND
+         * since vkbd's parent can be NULL at the time of vkbd's object is shown,
+         * call '_conf_part_owner_find' again.
+         * the better way I think is exporting related API so that clipboard and
+         * vkbd modules can set its owner directly, or we can use event
+         * mechanism, or checking fetch flag every time we enter the idle
+         * (but fetch flag can be false, careful), and calling
+         * '_conf_state_update' at that time.
+         * we need to consider using like this.
+         */
+        conf->part[type].owner = _conf_part_owner_find(conf->part[type].ec, type);
+        if (!conf->part[type].owner)
+          {
+             CFINF("NO Client to send change the conformant area");
+             return;
+          }
+     }
 
    conf_type = _conf_type_map(type);
 
