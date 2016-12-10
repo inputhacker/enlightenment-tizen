@@ -12,10 +12,10 @@ extern "C" {
 struct wl_client;
 struct wl_resource;
 
-struct bq_mgr;
-struct bq_consumer;
-struct bq_provider;
 struct bq_buffer;
+struct bq_consumer;
+struct bq_mgr;
+struct bq_provider;
 
 extern const struct wl_interface bq_mgr_interface;
 extern const struct wl_interface bq_consumer_interface;
@@ -67,6 +67,14 @@ struct bq_consumer_interface {
 	void (*release_buffer)(struct wl_client *client,
 			       struct wl_resource *resource,
 			       struct wl_resource *buffer);
+	/**
+	 * destroy - destroy the bq_consumer object
+	 *
+	 * 
+	 * @since: 2
+	 */
+	void (*destroy)(struct wl_client *client,
+			struct wl_resource *resource);
 };
 
 #define BQ_CONSUMER_CONNECTED	0
@@ -211,6 +219,14 @@ struct bq_provider_interface {
 			       struct wl_resource *resource,
 			       struct wl_resource *buffer,
 			       uint32_t serial);
+	/**
+	 * destroy - release the bq_provider object
+	 *
+	 * 
+	 * @since: 2
+	 */
+	void (*destroy)(struct wl_client *client,
+			struct wl_resource *resource);
 };
 
 #define BQ_PROVIDER_CONNECTED	0
@@ -238,6 +254,15 @@ bq_provider_send_add_buffer(struct wl_resource *resource_, struct wl_resource *b
 {
 	wl_resource_post_event(resource_, BQ_PROVIDER_ADD_BUFFER, buffer, serial);
 }
+
+struct bq_buffer_interface {
+	/**
+	 * destroy - (none)
+	 * @since: 2
+	 */
+	void (*destroy)(struct wl_client *client,
+			struct wl_resource *resource);
+};
 
 
 #ifdef  __cplusplus

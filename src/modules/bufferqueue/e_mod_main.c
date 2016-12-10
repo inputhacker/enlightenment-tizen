@@ -248,22 +248,10 @@ _e_bq_mgr_bq_free(E_Bq_Queue *bq)
 
    DBG("destroy buffer queue : %s\n", bq->name);
 
-   if (bq->consumer)
-     {
-        wl_resource_destroy(e_object_data_get(E_OBJECT(bq->consumer)));
-        bq->consumer = NULL;
-     }
-
-   if (bq->provider)
-     {
-        wl_resource_destroy(e_object_data_get(E_OBJECT(bq->provider)));
-        bq->provider = NULL;
-     }
-
    while (bq->buffers)
      {
         bq_buf = EINA_INLIST_CONTAINER_GET(bq->buffers, E_Bq_Buffer);
-        bq->buffers = eina_inlist_remove(bq->buffers, bq->buffers);
+        bq->buffers = eina_inlist_remove(bq->buffers, EINA_INLIST_GET(bq_buf));
 
         if (bq_buf->consumer)
           {
@@ -344,8 +332,15 @@ _e_bq_mgr_buffer_consumer_release_buffer(struct wl_client *client, struct wl_res
      }
 }
 
+static void
+_e_bq_mgr_consumer_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
 static const struct bq_consumer_interface _bq_consumer_interface = {
-     _e_bq_mgr_buffer_consumer_release_buffer
+     _e_bq_mgr_buffer_consumer_release_buffer,
+     _e_bq_mgr_consumer_cb_destroy
 };
 
 static void
@@ -373,23 +368,8 @@ _e_bq_mgr_buffer_consumer_destroy(struct wl_resource *resource)
    while (bq->buffers)
      {
         bq_buf = EINA_INLIST_CONTAINER_GET(bq->buffers, E_Bq_Buffer);
-        bq->buffers = eina_inlist_remove(bq->buffers, bq->buffers);
-
+        bq->buffers = eina_inlist_remove(bq->buffers, EINA_INLIST_GET(bq_buf));
         DBG("destroy BUFFER : %d\n", bq_buf->type);
-
-        if (bq_buf->consumer)
-          {
-             wl_resource_destroy(bq_buf->consumer);
-             bq_buf->consumer = NULL;
-             e_object_unref(E_OBJECT(bq_buf));
-          }
-
-        if (bq_buf->provider)
-          {
-             wl_resource_destroy(bq_buf->provider);
-             bq_buf->provider = NULL;
-             e_object_del(E_OBJECT(bq_buf));
-          }
      }
 
    e_object_unref(E_OBJECT(bq));
@@ -400,52 +380,6 @@ static void
 _e_bq_mgr_buffer_consumer_free(E_Bq_Consumer *consumer)
 {
    free(consumer);
-}
-
-static void
-_e_bq_mgr_buffer_destroy(struct wl_resource *resource)
-{
-   E_Bq_Buffer *bq_buf = wl_resource_get_user_data(resource);
-
-   if (!bq_buf)
-     return;
-
-   if (bq_buf->consumer == resource)
-     {
-        DBG("destroy buffer : consumer");
-     }
-   else if (bq_buf->provider == resource)
-     {
-        DBG("destroy buffer : provider");
-     }
-}
-
-static void
-_e_bq_mgr_consumer_side_buffer_create(E_Bq_Consumer *consumer, E_Bq_Buffer *buffer)
-{
-   struct wl_resource *resource;
-
-   if (!consumer)
-     return;
-
-   resource = e_object_data_get(E_OBJECT(consumer));
-   if (!resource)
-     return;
-
-   buffer->consumer = wl_resource_create(wl_resource_get_client(resource),
-                                        &bq_buffer_interface, 1, 0);
-   EINA_SAFETY_ON_NULL_RETURN(buffer->consumer);
-
-   wl_resource_set_implementation(buffer->consumer, NULL, buffer, _e_bq_mgr_buffer_destroy);
-   e_object_ref(E_OBJECT(buffer));
-
-   bq_consumer_send_buffer_attached(resource,
-                                    buffer->consumer,
-                                    buffer->engine,
-                                    buffer->width,
-                                    buffer->height,
-                                    buffer->format,
-                                    buffer->flags);
 }
 
 static void
@@ -492,6 +426,61 @@ _e_bq_mgr_consumer_side_buffer_set(E_Bq_Consumer *consumer, E_Bq_Buffer *buffer)
 }
 
 static void
+_e_bq_mgr_buffer_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   E_Bq_Buffer *bq_buf;
+
+   bq_buf = wl_resource_get_user_data(resource);
+   if (!bq_buf)
+     return;
+
+   if (bq_buf->consumer == resource)
+     {
+        e_object_unref(E_OBJECT(bq_buf));
+        bq_buf->consumer = NULL;
+     }
+   if (bq_buf->provider == resource)
+     {
+        e_object_del(E_OBJECT(bq_buf));
+        bq_buf->provider = NULL;
+     }
+
+   wl_resource_destroy(resource);
+}
+
+static const struct bq_buffer_interface _bq_buffer_interface = {
+   _e_bq_mgr_buffer_cb_destroy
+};
+
+static void
+_e_bq_mgr_consumer_side_buffer_create(E_Bq_Consumer *consumer, E_Bq_Buffer *buffer)
+{
+   struct wl_resource *resource;
+
+   if (!consumer)
+     return;
+
+   resource = e_object_data_get(E_OBJECT(consumer));
+   buffer->consumer = wl_resource_create(wl_resource_get_client(resource),
+                                         &bq_buffer_interface, 2, 0);
+
+   if(!buffer->consumer)
+     return;
+
+   wl_resource_set_implementation(buffer->consumer, &_bq_buffer_interface,
+                                  buffer, NULL);
+   e_object_ref(E_OBJECT(buffer));
+
+   bq_consumer_send_buffer_attached(resource,
+                                    buffer->consumer,
+                                    buffer->engine,
+                                    buffer->width,
+                                    buffer->height,
+                                    buffer->format,
+                                    buffer->flags);
+}
+
+static void
 _e_bq_mgr_bq_create_consumer(struct wl_client *client, struct wl_resource *resource, uint32_t id, const char *name, int32_t queue_size, int32_t width, int32_t height)
 {
    E_Bq_Mgr *bq_mgr = wl_resource_get_user_data(resource);
@@ -523,7 +512,7 @@ _e_bq_mgr_bq_create_consumer(struct wl_client *client, struct wl_resource *resou
 
    new_resource = wl_resource_create(client,
                                      &bq_consumer_interface,
-                                     1, id);
+                                     2, id);
    if (!new_resource)
      {
         free(consumer);
@@ -583,7 +572,7 @@ _e_bq_mgr_provider_buffer_attach(struct wl_client *client, struct wl_resource *r
    if (!bq_buf)
      return;
 
-   bq_buf->provider = wl_resource_create(client, &bq_buffer_interface, 1, buffer);
+   bq_buf->provider = wl_resource_create(client, &bq_buffer_interface, 2, buffer);
    if (!bq_buf->provider)
      {
         free(bq_buf);
@@ -591,7 +580,7 @@ _e_bq_mgr_provider_buffer_attach(struct wl_client *client, struct wl_resource *r
         return;
      }
 
-   wl_resource_set_implementation(bq_buf->provider, NULL, bq_buf, _e_bq_mgr_buffer_destroy);
+   wl_resource_set_implementation(bq_buf->provider, &_bq_buffer_interface, bq_buf, NULL);
 
    bq_buf->engine = strdup(engine);
    bq_buf->width = width;
@@ -678,16 +667,10 @@ _e_bq_mgr_provider_buffer_detach(struct wl_client *client, struct wl_resource *r
    bq_buf= wl_resource_get_user_data(buffer);
 
    if (consumer)
-     {
-        bq_consumer_send_buffer_detached(e_object_data_get(E_OBJECT(consumer)),
-                                         bq_buf->consumer);
-        wl_resource_destroy(bq_buf->consumer);
-        e_object_unref(E_OBJECT(bq_buf));
-     }
+     bq_consumer_send_buffer_detached(e_object_data_get(E_OBJECT(consumer)),
+                                       bq_buf->consumer);
 
-   wl_resource_destroy(bq_buf->provider);
    bq->buffers = eina_inlist_remove(bq->buffers, EINA_INLIST_GET(bq_buf));
-   e_object_del(E_OBJECT(bq_buf));
 }
 
 static void
@@ -718,12 +701,19 @@ _e_bq_mgr_provider_buffer_enqueue(struct wl_client *client, struct wl_resource *
                                bq_buf->serial);
 }
 
+static void
+_e_bq_mgr_provider_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
 static const struct bq_provider_interface _bq_provider_interface = {
    _e_bq_mgr_provider_buffer_attach,
    _e_bq_mgr_provider_buffer_id_set,
    _e_bq_mgr_provider_buffer_fd_set,
    _e_bq_mgr_provider_buffer_detach,
-   _e_bq_mgr_provider_buffer_enqueue
+   _e_bq_mgr_provider_buffer_enqueue,
+   _e_bq_mgr_provider_cb_destroy
 };
 
 static void
@@ -749,23 +739,11 @@ _e_bq_mgr_provider_destroy(struct wl_resource *resource)
    while (bq->buffers)
      {
         bq_buf = EINA_INLIST_CONTAINER_GET(bq->buffers, E_Bq_Buffer);
-        bq->buffers = eina_inlist_remove(bq->buffers, bq->buffers);
+        bq->buffers = eina_inlist_remove(bq->buffers, EINA_INLIST_GET(bq_buf));
 
         if (bq_buf->consumer)
-          {
-             bq_consumer_send_buffer_detached(e_object_data_get(E_OBJECT(consumer)),
-                                              bq_buf->consumer);
-             wl_resource_destroy(bq_buf->consumer);
-             bq_buf->consumer = NULL;
-             e_object_unref(E_OBJECT(bq_buf));
-          }
-
-        if (bq_buf->provider)
-          {
-             wl_resource_destroy(bq_buf->provider);
-             bq_buf->provider = NULL;
-             e_object_del(E_OBJECT(bq_buf));
-          }
+          bq_consumer_send_buffer_detached(e_object_data_get(E_OBJECT(consumer)),
+                                           bq_buf->consumer);
      }
 
    if (consumer)
@@ -816,7 +794,7 @@ _e_bq_mgr_provider_create(struct wl_client *client, struct wl_resource *resource
 
    new_resource = wl_resource_create(client,
                                      &bq_provider_interface,
-                                     1, id);
+                                     2, id);
    if (!new_resource)
      goto on_error;
 

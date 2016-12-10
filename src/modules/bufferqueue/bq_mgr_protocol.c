@@ -85,6 +85,7 @@ WL_EXPORT const struct wl_interface bq_mgr_interface = {
 
 static const struct wl_message bq_consumer_requests[] = {
 	{ "release_buffer", "o", types + 10 },
+	{ "destroy", "2", types + 0 },
 };
 
 static const struct wl_message bq_consumer_events[] = {
@@ -98,8 +99,8 @@ static const struct wl_message bq_consumer_events[] = {
 };
 
 WL_EXPORT const struct wl_interface bq_consumer_interface = {
-	"bq_consumer", 1,
-	1, bq_consumer_requests,
+	"bq_consumer", 2,
+	2, bq_consumer_requests,
 	7, bq_consumer_events,
 };
 
@@ -109,6 +110,7 @@ static const struct wl_message bq_provider_requests[] = {
 	{ "set_buffer_fd", "ohiiiiii", types + 50 },
 	{ "detach_buffer", "o", types + 58 },
 	{ "enqueue_buffer", "ou", types + 59 },
+	{ "destroy", "2", types + 0 },
 };
 
 static const struct wl_message bq_provider_events[] = {
@@ -118,14 +120,18 @@ static const struct wl_message bq_provider_events[] = {
 };
 
 WL_EXPORT const struct wl_interface bq_provider_interface = {
-	"bq_provider", 1,
-	5, bq_provider_requests,
+	"bq_provider", 2,
+	6, bq_provider_requests,
 	3, bq_provider_events,
 };
 
+static const struct wl_message bq_buffer_requests[] = {
+	{ "destroy", "2", types + 0 },
+};
+
 WL_EXPORT const struct wl_interface bq_buffer_interface = {
-	"bq_buffer", 1,
-	0, NULL,
+	"bq_buffer", 2,
+	1, bq_buffer_requests,
 	0, NULL,
 };
 

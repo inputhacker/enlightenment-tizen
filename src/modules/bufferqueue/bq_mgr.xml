@@ -19,7 +19,7 @@
     </request>
   </interface>
 
-  <interface name="bq_consumer" version="1">
+  <interface name="bq_consumer" version="2">
     <request name="release_buffer">
       <arg name="buffer" type="object" interface="bq_buffer"/>
     </request>
@@ -61,9 +61,14 @@
       <arg name="buffer" type="object" interface="bq_buffer"/>
       <arg name="serial" type="uint"/>
     </event>
+
+    <!-- Version 2 additions -->
+    <request name="destroy" type="destructor" since="2">
+      <description summary="destroy the bq_consumer object"/>
+    </request>
   </interface>
 
-  <interface name="bq_provider" version="1">
+  <interface name="bq_provider" version="2">
     <enum name="error">
       <entry name="overflow_queue_size" value="0"/>
       <entry name="connection" value="1"/>
@@ -115,9 +120,15 @@
       <arg name="buffer" type="object" interface="bq_buffer"/>
       <arg name="serial" type="uint"/>
     </event>
+
+    <!-- Version 2 additions -->
+    <request name="destroy" type="destructor" since="2">
+      <description summary="release the bq_provider object"/>
+    </request>
   </interface>
 
-  <interface name="bq_buffer" version="1">
+  <interface name="bq_buffer" version="2">
+    <request name="destroy" type="destructor" since="2"/>
   </interface>
 </protocol>
 
