@@ -863,6 +863,14 @@ e_plane_renderer_ec_set(E_Plane_Renderer *renderer, E_Client *ec)
      }
    else
      {
+        renderer_client->renderer = renderer;
+        if (renderer->ec && renderer->ec != ec)
+          {
+             renderer_client = e_plane_renderer_client_get(renderer->ec);
+             if (renderer_client)
+                renderer_client->renderer = NULL;
+          }
+
         renderer->ec = ec;
      }
 
