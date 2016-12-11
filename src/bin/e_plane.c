@@ -954,7 +954,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
         /* debug */
         if (plane_trace_debug)
            ELOGF("E_PLANE", "Done    Plane(%p)     wl_buffer(%p) tsurface(%p) tqueue(%p) data(%p) wl_buffer_ref(%p) ::Client",
-             ec->pixmap, ec, plane, _get_wl_buffer(ec), tsurface, renderer->tqueue, data, _get_wl_buffer_ref(ec));
+             ec->pixmap, ec, plane, _get_wl_buffer(ec), tsurface, (renderer ? renderer->tqueue : NULL), data, _get_wl_buffer_ref(ec));
 
         if (plane->role == E_PLANE_ROLE_OVERLAY)
           {
