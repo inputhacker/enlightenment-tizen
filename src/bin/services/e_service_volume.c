@@ -355,7 +355,6 @@ _region_objs_tile_set(E_Policy_Angle_Map angle_map, Eina_Tiler *tiler)
           {
              obj = _volume_content_region_obj_new();
              _volume_region_objs[angle_map] = eina_list_append(_volume_region_objs[angle_map], obj);
-             e_desk_smart_member_add(_volume_ec->desk, obj);
           }
 
         INF("\t@@@@@ Region Set: %d %d %d %d", r->x, r->y, r->w, r->h);
