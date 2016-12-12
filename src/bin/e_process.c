@@ -426,6 +426,11 @@ _e_process_freeze_condition_check(pid_t pid)
 
    EINA_LIST_FOREACH(pinfo->ec_list, l, ec)
      {
+        if (ec->comp_data &&
+            ec->comp_data->sub.data &&
+            ec->comp_data->sub.data->parent)
+          continue;
+
         if (ec->visible && !ec->iconic)
           {
              freeze = EINA_FALSE;
