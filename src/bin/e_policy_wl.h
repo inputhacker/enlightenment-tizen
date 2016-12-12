@@ -50,5 +50,7 @@ void         e_policy_wl_indicator_flick_send(E_Client *ec);
 /* cbhm */
 EINTERN void e_policy_wl_clipboard_data_selected_send(E_Client *ec);
 
+/* aux_message */
+E_API void e_policy_wl_stack_changed_send(E_Client *ec);
 
 #endif /* E_MOD_WL_H */

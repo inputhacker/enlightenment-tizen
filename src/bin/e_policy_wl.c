@@ -1273,8 +1273,8 @@ _tzpol_iface_cb_activate(struct wl_client *client EINA_UNUSED, struct wl_resourc
      e_policy_stack_check_above_lockscreen(ec, ec->layer, NULL, EINA_TRUE);
 }
 
-static void
-_e_policy_wl_stack_changed_send(E_Client *ec)
+E_API void
+e_policy_wl_stack_changed_send(E_Client *ec)
 {
    E_Client *above = NULL;
    E_Client *below = NULL;
@@ -1372,7 +1372,7 @@ _tzpol_iface_cb_activate_below_by_res_id(struct wl_client *client EINA_UNUSED, s
    if (!e_client_first_mapped_get(ec))
      e_client_post_raise_lower_set(ec, EINA_FALSE, EINA_FALSE);
 
-   _e_policy_wl_stack_changed_send(ec);
+   e_policy_wl_stack_changed_send(ec);
 }
 
 static void
