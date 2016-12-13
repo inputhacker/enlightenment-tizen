@@ -124,10 +124,10 @@ _conf_state_update(Conformant_Type type, Eina_Bool visible, int x, int y, int w,
          * '_conf_state_update' at that time.
          * we need to consider using like this.
          */
-        g_conf->part[type].owner = _conf_part_owner_find(conf->part[type].ec, type);
+        g_conf->part[type].owner = _conf_part_owner_find(g_conf->part[type].ec, type);
         if (!g_conf->part[type].owner)
           {
-             CFINF("NO Client to send change the conformant area");
+             DBG("NO Client to send change the conformant area");
              return;
           }
      }
