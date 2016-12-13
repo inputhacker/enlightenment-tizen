@@ -263,6 +263,7 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, comp_canvas_bg.opmode, INT);
    E_CONFIG_VAL(D, T, delayed_load_idle_count, INT);
    E_CONFIG_VAL(D, T, use_buffer_flush, UCHAR);
+   E_CONFIG_VAL(D, T, use_desk_smart_obj, UCHAR);
    E_CONFIG_LIST(D, T, sock_accesses, _e_config_socket_access_edd);
    E_CONFIG_LIST(D, T, aux_hint_supported, _e_config_aux_hint_supported_edd);
    E_CONFIG_VAL(D, T, use_module_srv.qp, UCHAR);
@@ -454,6 +455,7 @@ e_config_load(void)
    E_CONFIG_LIMIT(e_config->comp_canvas_bg.opmode, 0, 11);
    E_CONFIG_LIMIT(e_config->delayed_load_idle_count, 0, 100);
    E_CONFIG_LIMIT(e_config->use_buffer_flush, 0, 1);
+   E_CONFIG_LIMIT(e_config->use_desk_smart_obj, 0, 1);
    E_CONFIG_LIMIT(e_config->use_module_srv.qp, 0, 1);
    E_CONFIG_LIMIT(e_config->launchscreen_timeout, 7.0, 100.0);
 }

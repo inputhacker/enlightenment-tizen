@@ -157,6 +157,7 @@ struct _E_Config
    } comp_canvas_bg;
    int delayed_load_idle_count;
    Eina_Bool use_buffer_flush;
+   Eina_Bool use_desk_smart_obj;
    Eina_List *sock_accesses;
    Eina_List *aux_hint_supported;
    struct

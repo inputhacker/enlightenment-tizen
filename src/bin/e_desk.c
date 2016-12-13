@@ -38,6 +38,7 @@ static void      _e_desk_show_begin(E_Desk *desk, int dx, int dy);
 static void      _e_desk_hide_begin(E_Desk *desk, int dx, int dy);
 static void      _e_desk_event_desk_window_profile_change_free(void *data, void *ev);
 
+static void      _e_desk_smart_init(E_Desk *desk);
 static void      _e_desk_smart_add(Evas_Object *obj);
 static void      _e_desk_smart_del(Evas_Object *obj);
 static void      _e_desk_smart_client_add(Evas_Object *obj, E_Client *ec);
@@ -94,16 +95,24 @@ e_desk_new(E_Zone *zone, int x, int y)
    desk = E_OBJECT_ALLOC(E_Desk, E_DESK_TYPE, _e_desk_free);
    if (!desk) return NULL;
 
-   desk->smart_obj = evas_object_smart_add(e_comp->evas, _e_desk_smart_class_new());
-   e_desk_geometry_set(desk, zone->x, zone->y, zone->w, zone->h);
-
-   /* FIXME indicator object won't be work, if remove this code.
-    * I have no idea why this code is necessary, so I just let it be. */
-   e_desk_zoom_set(desk, 1.0, 1.0, 0, 0);
-
    desk->zone = zone;
    desk->x = x;
    desk->y = y;
+
+   if (!e_config->use_desk_smart_obj)
+     {
+        /* need to set geometry of desk even if disable the smart object,
+         * because 'E_Client' can be reconfigured base on desk.geom as a member
+         * of desk. the reason why this is necessary is all of 'E_Client' is not
+         * members of the smart object so far.
+         */
+        EINA_RECTANGLE_SET(&desk->geom, zone->x, zone->y, zone->w, zone->h);
+     }
+   else
+     {
+        /* init smart object */
+        _e_desk_smart_init(desk);
+     }
 
    /* Get current desktop's name */
    EINA_LIST_FOREACH(e_config->desktop_names, l, cfname)
@@ -279,7 +288,8 @@ e_desk_show(E_Desk *desk)
              dy = desk->y - desk2->y;
           }
         _e_desk_hide_begin(desk2, dx, dy);
-        evas_object_hide(desk2->smart_obj);
+        if (desk2->smart_obj)
+          evas_object_hide(desk2->smart_obj);
      }
 
    desk->zone->desk_x_prev = desk->zone->desk_x_current;
@@ -303,7 +313,8 @@ e_desk_show(E_Desk *desk)
    if (desk->zone->bg_object) was_zone = 1;
 #endif
    _e_desk_show_begin(desk, dx, dy);
-   evas_object_show(desk->smart_obj);
+   if (desk->smart_obj)
+     evas_object_show(desk->smart_obj);
 
 #ifndef ENABLE_QUICK_INIT
    if (was_zone)
@@ -725,6 +736,9 @@ e_desks_count(void)
 E_API void
 e_desk_client_add(E_Desk *desk, E_Client *ec)
 {
+   if (!e_config->use_desk_smart_obj)
+     return;
+
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
 
@@ -737,6 +751,9 @@ e_desk_client_add(E_Desk *desk, E_Client *ec)
 E_API void
 e_desk_client_del(E_Desk *desk, E_Client *ec)
 {
+   if (!e_config->use_desk_smart_obj)
+     return;
+
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
 
@@ -753,6 +770,12 @@ e_desk_geometry_set(E_Desk *desk, int x, int y, int w, int h)
    E_Maximize max;
    Eina_List *l;
    int cx, cy, dx, dy;
+
+   if (!e_config->use_desk_smart_obj)
+     {
+        DBG("Do nothing, Desk Smart Object is disabled");
+        return;
+     }
 
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
@@ -792,6 +815,12 @@ e_desk_zoom_set(E_Desk *desk, double zoomx, double zoomy, int cx, int cy)
    E_Client *ec;
    Eina_List *l;
 
+   if (!e_config->use_desk_smart_obj)
+     {
+        DBG("Do nothing, Desk Smart Object is disabled");
+        return;
+     }
+
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
 
@@ -829,6 +858,12 @@ e_desk_zoom_unset(E_Desk *desk)
    E_Client *ec;
    Eina_List *l;
 
+   if (!e_config->use_desk_smart_obj)
+     {
+        DBG("Do nothing, Desk Smart Object is disabled");
+        return;
+     }
+
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
 
@@ -858,6 +893,9 @@ e_desk_zoom_unset(E_Desk *desk)
 E_API void
 e_desk_smart_member_add(E_Desk *desk, Evas_Object *obj)
 {
+   if (!e_config->use_desk_smart_obj)
+     return;
+
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
 
@@ -867,13 +905,16 @@ e_desk_smart_member_add(E_Desk *desk, Evas_Object *obj)
 E_API void
 e_desk_smart_member_del(Evas_Object *obj)
 {
+   if (!e_config->use_desk_smart_obj)
+     return;
+
    evas_object_smart_member_del(obj);
 }
 
 static void
 _e_desk_free(E_Desk *desk)
 {
-   evas_object_del(desk->smart_obj);
+   E_FREE_FUNC(desk->smart_obj, evas_object_del);
    eina_stringshare_del(desk->name);
    desk->name = NULL;
    free(desk);
@@ -1036,6 +1077,24 @@ _e_desk_hide_begin(E_Desk *desk, int dx, int dy)
      }
 }
 
+static void
+_e_desk_smart_init(E_Desk *desk)
+{
+   E_Zone *zone;
+
+   zone = desk->zone;
+
+   if (!e_config->use_desk_smart_obj)
+     return;
+
+   desk->smart_obj = evas_object_smart_add(e_comp->evas, _e_desk_smart_class_new());
+   e_desk_geometry_set(desk, zone->x, zone->y, zone->w, zone->h);
+
+   /* FIXME indicator object won't be work, if remove this code.
+    * I have no idea why this code is necessary, so I just let it be. */
+   e_desk_zoom_set(desk, 1.0, 1.0, 0, 0);
+}
+
 static Eina_Bool
 _e_desk_smart_client_cb_resize(void *data, int type, void *event)
 {
@@ -1083,10 +1142,36 @@ _e_desk_smart_del(Evas_Object *obj)
 }
 
 static void
+_e_desk_smart_member_add(Evas_Object *obj, Evas_Object *child)
+{
+   E_Client *ec;
+
+   _e_desk_parent_sc->member_add(obj, child);
+
+   ec = evas_object_data_get(child, "E_Client");
+   if (ec)
+     _e_desk_smart_client_add(obj, ec);
+}
+
+static void
+_e_desk_smart_member_del(Evas_Object *obj, Evas_Object *child)
+{
+   E_Client *ec;
+
+   _e_desk_parent_sc->member_del(obj, child);
+
+   ec = evas_object_data_get(child, "E_Client");
+   if (ec)
+     _e_desk_smart_client_del(obj, ec);
+}
+
+static void
 _e_desk_smart_set_user(Evas_Smart_Class *sc)
 {
    sc->add = _e_desk_smart_add;
    sc->del = _e_desk_smart_del;
+   sc->member_add = _e_desk_smart_member_add;
+   sc->member_del = _e_desk_smart_member_del;
 }
 
 static void
@@ -1112,7 +1197,7 @@ _e_desk_smart_client_del(Evas_Object *obj, E_Client *ec)
    if (!eina_list_data_find(sd->clients, ec))
      return;
 
-   evas_object_map_enable_set(ec->frame, EINA_FALSE);
+   _e_desk_client_zoom(ec, 1.0, 1.0, 0, 0);
    sd->clients = eina_list_remove(sd->clients, ec);
    evas_object_smart_changed(obj);
 }

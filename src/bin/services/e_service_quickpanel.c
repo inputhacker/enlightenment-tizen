@@ -163,7 +163,6 @@ _mover_intercept_show(void *data, Evas_Object *obj)
    e_comp_object_dirty(ec->frame);
    e_comp_object_render(ec->frame);
 
-   e_desk_client_del(ec->desk, ec);
    e_layout_pack(md->qp_layout_obj, ec->frame);
 
   // create base_clip
@@ -193,6 +192,7 @@ _mover_intercept_show(void *data, Evas_Object *obj)
    evas_object_clip_set(md->handler_mirror_obj, md->handler_clip);
 
    evas_object_show(obj);
+
    e_desk_smart_member_add(ec->desk, obj);
 }
 
@@ -261,11 +261,14 @@ _mover_smart_del(Evas_Object *obj)
     * if remove this evas_object_map_enable_set() passing false and true,
     * we can see the afterimage of move object.
     * to avoid this probelm, we need it. */
-   evas_object_map_enable_set(ec->desk->smart_obj, EINA_FALSE);
-   evas_object_map_enable_set(ec->desk->smart_obj, EINA_TRUE);
+   if (ec->desk->smart_obj)
+     {
+        evas_object_map_enable_set(ec->desk->smart_obj, EINA_FALSE);
+        evas_object_map_enable_set(ec->desk->smart_obj, EINA_TRUE);
+     }
 
    e_layout_unpack(ec->frame);
-   e_desk_client_add(ec->desk, ec);
+   e_desk_smart_member_add(ec->desk, ec->frame);
 
    free(md);
    evas_object_hide(obj);
