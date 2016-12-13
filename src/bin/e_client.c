@@ -2868,7 +2868,11 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
    Eina_List *l = NULL;
    Eina_Bool effect_running = EINA_FALSE;
 
-   if (e_comp->animating) return;
+   if (!e_config->calc_vis_without_effect)
+     {
+        if (e_comp->animating) return;
+     }
+
    if (!zone) return;
 
    TRACE_DS_BEGIN(CLIENT:VISIBILITY CALCULATE);
@@ -2896,13 +2900,16 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
         /* TODO: need to check whether window intersects with entire screen, not zone. */
         /* if (!E_INTERSECTS(ec->x, ec->y, ec->w, ec->h, zone->x, zone->y, zone->w, zone->h)) continue; */
 
-        if ((e_comp_object_is_animating(ec->frame)) ||
-            (evas_object_data_get(ec->frame, "effect_running")))
+        if (!e_config->calc_vis_without_effect)
           {
-             effect_running = EINA_TRUE;
-             if (ec->launching)
-               is_launching_effect = EINA_TRUE;
-             continue;
+             if ((e_comp_object_is_animating(ec->frame)) ||
+                 (evas_object_data_get(ec->frame, "effect_running")))
+               {
+                  effect_running = EINA_TRUE;
+                  if (ec->launching)
+                    is_launching_effect = EINA_TRUE;
+                  continue;
+               }
           }
 
         e_client_geometry_get(ec, &x, &y, &w, &h);

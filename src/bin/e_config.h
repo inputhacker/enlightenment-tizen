@@ -165,6 +165,7 @@ struct _E_Config
       Eina_Bool qp; /* quickpanel */
    } use_module_srv;
    double launchscreen_timeout;
+   Eina_Bool calc_vis_without_effect;
 };
 
 struct _E_Config_Desklock_Background
