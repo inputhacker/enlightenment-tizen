@@ -14,6 +14,7 @@ typedef void (*E_Desk_Flip_Cb)(void *data, E_Desk *desk, int dx, int dy, Eina_Bo
 #define E_DESK_H
 
 #define E_DESK_TYPE 0xE0b01005
+#define E_DESK_SMART_OBJ_TYPE "E_Desk_Smart_Object"
 
 typedef enum
 {
@@ -100,6 +101,11 @@ E_API void         e_desk_flip_end(E_Desk *desk);
 E_API unsigned int e_desks_count(void);
 
 E_API void         e_desk_geometry_set(E_Desk *desk, int x, int y, int w, int h);
+E_API void         e_desk_zoom_set(E_Desk *desk, double zoomx, double zoomy, int cx, int cy);
+E_API void         e_desk_zoom_unset(E_Desk *desk);
+
+E_API void         e_desk_smart_member_add(E_Desk *desk, Evas_Object *obj);
+E_API void         e_desk_smart_member_del(Evas_Object *obj);
 E_API void         e_desk_client_add(E_Desk *desk, E_Client *ec);
 E_API void         e_desk_client_del(E_Desk *desk, E_Client *ec);
 
