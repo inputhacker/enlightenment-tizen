@@ -1136,10 +1136,17 @@ static E_Client *
 _quickpanel_below_visible_client_get(E_Policy_Quickpanel *qp)
 {
    E_Client *ec;
+   int zx, zy, zw, zh;
+
+   zx = qp->ec->zone->x;
+   zy = qp->ec->zone->y;
+   zw = qp->ec->zone->w;
+   zh = qp->ec->zone->h;
 
    for (ec = e_client_below_get(qp->ec); ec; ec = e_client_below_get(ec))
      {
         if (!ec->visible) continue;
+        if (!E_INTERSECTS(ec->x, ec->y, ec->w, ec->h, zx, zy, zw, zh)) continue;
         return ec;
      }
 
