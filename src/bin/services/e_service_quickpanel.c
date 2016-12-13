@@ -271,8 +271,6 @@ _mover_smart_del(Evas_Object *obj)
    e_desk_smart_member_add(ec->desk, ec->frame);
 
    free(md);
-   evas_object_hide(obj);
-   e_desk_smart_member_del(obj);
 }
 
 static void
