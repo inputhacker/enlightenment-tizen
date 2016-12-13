@@ -94,6 +94,9 @@ _e_comp_wl_data_source_cb_offer(struct wl_client *client EINA_UNUSED, struct wl_
 
    if (!source->mime_types)
      source->mime_types = eina_array_new(1);
+
+   EINA_SAFETY_ON_NULL_RETURN(source->mime_types);
+
    eina_array_push(source->mime_types, eina_stringshare_add(mime_type));
 }
 
@@ -579,7 +582,7 @@ _e_comp_wl_clipboard_source_send_send(E_Comp_Wl_Data_Source *source, const char 
    if (!clip_source) return;
 
    t = eina_array_data_get(source->mime_types, 0);
-   if (!strcmp(mime_type, t))
+   if ((t) && (!strcmp(mime_type, t)))
      _e_comp_wl_clipboard_offer_create(clip_source, fd);
    else
      close(fd);
@@ -850,6 +853,9 @@ e_comp_wl_clipboard_source_create(const char *mime_type, uint32_t serial, int *f
      {
         if (!source->data_source.mime_types)
           source->data_source.mime_types = eina_array_new(1);
+
+        EINA_SAFETY_ON_NULL_RETURN_VAL(source->data_source.mime_types, NULL);
+
         eina_array_push(source->data_source.mime_types, eina_stringshare_add(mime_type));
      }
 
