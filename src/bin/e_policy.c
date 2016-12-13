@@ -774,14 +774,14 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
 {
    if (ec->visibility.changed)
      {
-        e_policy_client_visibility_send(ec);
-
         if (ec->visibility.obscured == E_VISIBILITY_UNOBSCURED)
           {
              e_policy_client_uniconify_by_visibility(ec);
+             e_policy_client_visibility_send(ec);
           }
         else
           {
+             e_policy_client_visibility_send(ec);
              e_policy_client_iconify_by_visibility(ec);
           }
 
