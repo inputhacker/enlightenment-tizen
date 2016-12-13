@@ -920,7 +920,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
         /* debug */
         if (plane_trace_debug)
           ELOGF("E_PLANE", "Done    Plane(%p)  tsurface(%p) tqueue(%p) data(%p)::Canvas",
-               NULL, NULL, plane, tsurface, renderer->tqueue, data);
+               NULL, NULL, plane, tsurface, renderer ? renderer->tqueue : NULL, data);
         if (plane->reserved_memory)
           {
              if (displaying_tsurface)
