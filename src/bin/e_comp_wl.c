@@ -2028,7 +2028,7 @@ _e_comp_wl_cb_mouse_move(void *d EINA_UNUSED, int t EINA_UNUSED, Ecore_Event_Mou
         y = ev->y - e_comp_wl->selection.target->client.y;
 
         if (e_comp_wl->drag_client)
-          evas_object_move(e_comp_wl->drag_client->frame, x, y);
+          evas_object_move(e_comp_wl->drag_client->frame, ev->x, ev->y);
 
         wl_data_device_send_motion(res, ev->timestamp, wl_fixed_from_int(x), wl_fixed_from_int(y));
      }
