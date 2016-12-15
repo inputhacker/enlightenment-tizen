@@ -43,6 +43,17 @@ struct _E_Plane_Renderer_Client
 static Eina_List *plane_hdlrs = NULL;
 static Eina_Bool renderer_trace_debug = 0;
 
+static E_Comp_Wl_Buffer *
+_get_comp_wl_buffer(E_Client *ec)
+{
+   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+   if (!cdata) return NULL;
+
+   E_Comp_Wl_Buffer_Ref *buffer_ref = &cdata ->buffer_ref;
+
+   return buffer_ref->buffer;
+}
+
 static struct wl_resource *
 _get_wl_buffer(E_Client *ec)
 {
@@ -119,7 +130,6 @@ _e_plane_renderer_client_copied_surface_create(E_Plane_Renderer_Client *renderer
 {
    tbm_surface_h tsurface = NULL;
    tbm_surface_h new_tsurface = NULL;
-   E_Pixmap *pixmap = NULL;
    E_Comp_Wl_Buffer *buffer = NULL;
    tbm_surface_info_s src_info, dst_info;
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
@@ -127,12 +137,10 @@ _e_plane_renderer_client_copied_surface_create(E_Plane_Renderer_Client *renderer
    E_Client *ec = renderer_client->ec;
    E_Plane_Renderer *renderer = renderer_client->renderer;
 
-   pixmap = ec->pixmap;
-
    if (refresh)
      e_pixmap_image_refresh(ec->pixmap);
 
-   buffer = e_pixmap_resource_get(pixmap);
+   buffer = _get_comp_wl_buffer(ec);
    if (buffer)
      {
         tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
@@ -430,11 +438,10 @@ _e_plane_renderer_client_surface_flags_get(E_Plane_Renderer_Client *renderer_cli
    tbm_surface_h tsurface = NULL;
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
    E_Client *ec = renderer_client->ec;
-   E_Pixmap *pixmap = ec->pixmap;
    uint32_t flags = 0;
    E_Comp_Wl_Buffer *buffer = NULL;
 
-   buffer = e_pixmap_resource_get(pixmap);
+   buffer = _get_comp_wl_buffer(ec);
    if (!buffer) return 0;
 
    switch (buffer->type)
@@ -1269,7 +1276,6 @@ e_plane_renderer_client_surface_recieve(E_Plane_Renderer_Client *renderer_client
    tbm_surface_h tsurface = NULL;
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
    E_Client *ec = NULL;
-   E_Pixmap *pixmap = NULL;
    uint32_t flags = 0;
    E_Comp_Wl_Buffer *buffer = NULL;
    E_Plane_Renderer *renderer = NULL;
@@ -1280,9 +1286,8 @@ e_plane_renderer_client_surface_recieve(E_Plane_Renderer_Client *renderer_client
 
    ec = renderer_client->ec;
    renderer = renderer_client->renderer;
-   pixmap = ec->pixmap;
 
-   buffer = e_pixmap_resource_get(pixmap);
+   buffer = _get_comp_wl_buffer(ec);
    EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, NULL);
 
    tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);

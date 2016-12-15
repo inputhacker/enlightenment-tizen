@@ -26,6 +26,17 @@ static Eina_Bool plane_trace_debug = 0;
 
 E_API int E_EVENT_PLANE_WIN_CHANGE = -1;
 
+static E_Comp_Wl_Buffer *
+_get_comp_wl_buffer(E_Client *ec)
+{
+   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+   if (!cdata) return NULL;
+
+   E_Comp_Wl_Buffer_Ref *buffer_ref = &cdata ->buffer_ref;
+
+   return buffer_ref->buffer;
+}
+
 static struct wl_resource *
 _get_wl_buffer(E_Client *ec)
 {
@@ -352,8 +363,7 @@ static tbm_surface_h
 _e_plane_surface_from_client_acquire(E_Plane *plane)
 {
    E_Client *ec = plane->ec;
-   E_Pixmap *pixmap = ec->pixmap;
-   E_Comp_Wl_Buffer *buffer = e_pixmap_resource_get(pixmap);
+   E_Comp_Wl_Buffer *buffer = _get_comp_wl_buffer(ec);
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
    E_Plane_Renderer *renderer = plane->renderer;
    tbm_surface_h tsurface = NULL;
@@ -863,7 +873,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
              data->tsurface = plane->tsurface;
              tbm_surface_internal_ref(data->tsurface);
              data->ec = plane->ec;
-             e_comp_wl_buffer_reference(&data->buffer_ref, e_pixmap_resource_get(plane->ec->pixmap));
+             e_comp_wl_buffer_reference(&data->buffer_ref, _get_comp_wl_buffer(plane->ec));
 
              /* set the update_exist to be false */
              e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
