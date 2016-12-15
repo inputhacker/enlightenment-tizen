@@ -2407,6 +2407,8 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
    Eina_Rectangle *dmg;
    Eina_Bool placed = EINA_TRUE;
    int x = 0, y = 0;
+   int w, h;
+
    E_Comp_Wl_Buffer *buffer;
    struct wl_resource *cb;
    Eina_List *l, *ll;
@@ -2450,9 +2452,18 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
                x = ec->x, y = ec->y;
              else
                {
+                  w = ec->w;
+                  h = ec->h;
+
                   ec->client.w = state->bw;
                   ec->client.h = state->bh;
                   e_comp_object_frame_wh_adjust(ec->frame, ec->client.w, ec->client.h, &ec->w, &ec->h);
+
+                  if ((w != ec->w) || (h != ec->h))
+                    {
+                       ec->changes.size = 1;
+                       EC_CHANGED(ec);
+                    }
                }
           }
      }
