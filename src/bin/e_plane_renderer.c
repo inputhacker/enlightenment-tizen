@@ -904,6 +904,7 @@ e_plane_renderer_ecore_evas_use(E_Plane_Renderer *renderer)
    else
      {
         _e_plane_renderer_recover_ec(renderer);
+        renderer->ec = NULL;
      }
 
    return EINA_TRUE;
