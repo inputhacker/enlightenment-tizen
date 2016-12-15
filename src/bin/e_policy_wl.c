@@ -1617,6 +1617,10 @@ _tzpol_iface_cb_type_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
          win_type = E_WINDOW_TYPE_UTILITY;
          break;
 
+      case TIZEN_POLICY_WIN_TYPE_DIALOG:
+         win_type = E_WINDOW_TYPE_DIALOG;
+         break;
+
       default: return;
      }
 

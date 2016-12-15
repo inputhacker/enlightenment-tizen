@@ -123,6 +123,7 @@ EINTERN Eina_Bool        e_policy_client_is_subsurface(E_Client *ec);
 EINTERN Eina_Bool        e_policy_client_is_cbhm(E_Client *ec);
 EINTERN Eina_Bool        e_policy_client_is_splited(E_Client *ec);
 EINTERN Eina_Bool        e_policy_client_is_toast_popup(E_Client *ec);
+EINTERN Eina_Bool        e_policy_client_is_dialog(E_Client *ec);
 
 EINTERN E_Policy_Softkey *e_policy_softkey_add(E_Zone *zone);
 EINTERN void              e_policy_softkey_del(E_Policy_Softkey *softkey);

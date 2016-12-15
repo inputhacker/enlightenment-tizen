@@ -354,6 +354,37 @@ _e_policy_client_maximize_policy_cancel(E_Policy_Client *pc)
 }
 
 static void
+_e_policy_client_dialog_policy_apply(E_Policy_Client *pc)
+{
+   E_Client *ec;
+   int x, y, w, h;
+   int zx, zy, zw, zh;
+
+   if (!pc) return;
+   ec = pc->ec;
+
+   ec->skip_fullscreen = 1;
+   ec->lock_client_stacking = 1;
+   ec->lock_user_shade = 1;
+   ec->lock_client_shade = 1;
+   ec->lock_user_maximize = 1;
+   ec->lock_client_maximize = 1;
+   ec->lock_user_fullscreen = 1;
+   ec->lock_client_fullscreen = 1;
+
+   w = ec->w;
+   h = ec->h;
+
+   e_zone_useful_geometry_get(ec->zone, &zx, &zy, &zw, &zh);
+
+   x = zx + ((zw - w) / 2);
+   y = zy + ((zh - h) / 2);
+
+   if ((x != ec->x) || (y != ec->y))
+     evas_object_move(ec->frame, x, y);
+}
+
+static void
 _e_policy_client_floating_policy_apply(E_Policy_Client *pc)
 {
    E_Client *ec;
@@ -706,6 +737,15 @@ _e_policy_cb_hook_client_eval_post_fetch(void *d EINA_UNUSED, E_Client *ec)
         pc = eina_hash_find(hash_policy_clients, &ec);
         _e_policy_client_maximize_policy_cancel(pc);
         _e_policy_client_split_policy_apply(pc);
+        return;
+     }
+
+   if (e_policy_client_is_dialog(ec))
+     {
+        E_Policy_Client *pc;
+        pc = eina_hash_find(hash_policy_clients, &ec);
+        _e_policy_client_maximize_policy_cancel(pc);
+        _e_policy_client_dialog_policy_apply(pc);
         return;
      }
 
@@ -1605,6 +1645,18 @@ e_policy_client_is_toast_popup(E_Client *ec)
      return EINA_TRUE;
 
    if (!e_util_strcmp("toast_popup", ec->icccm.window_role))
+     return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+Eina_Bool
+e_policy_client_is_dialog(E_Client *ec)
+{
+   E_OBJECT_CHECK_RETURN(ec, EINA_FALSE);
+   E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
+
+   if (ec->netwm.type == E_WINDOW_TYPE_DIALOG)
      return EINA_TRUE;
 
    return EINA_FALSE;
