@@ -48,6 +48,7 @@ typedef struct _E_Comp_Wl_Remote_Manager E_Comp_Wl_Remote_Manager;
 typedef struct _E_Comp_Wl_Remote_Provider E_Comp_Wl_Remote_Provider;
 typedef struct _E_Comp_Wl_Remote_Surface E_Comp_Wl_Remote_Surface;
 typedef struct _E_Comp_Wl_Remote_Region E_Comp_Wl_Remote_Region;
+typedef struct _E_Comp_Wl_Remote_Buffer E_Comp_Wl_Remote_Buffer;
 
 struct _E_Comp_Wl_Remote_Manager{
    struct wl_global *global;
@@ -84,6 +85,8 @@ struct _E_Comp_Wl_Remote_Surface{
 
      Eina_Bool redirect;
      Eina_Bool visible;
+
+     int version;
 };
 
 struct _E_Comp_Wl_Remote_Region {
@@ -94,9 +97,17 @@ struct _E_Comp_Wl_Remote_Region {
      Evas_Object *mirror;
 };
 
+struct _E_Comp_Wl_Remote_Buffer {
+     E_Comp_Wl_Buffer_Ref ref;
+     struct wl_resource *resource;
+     struct wl_listener destroy_listener;
+};
+
 static E_Comp_Wl_Remote_Manager *_rsm = NULL;
 
 static void _e_comp_wl_remote_surface_state_buffer_set(E_Comp_Wl_Surface_State *state, E_Comp_Wl_Buffer *buffer);
+static void _e_comp_wl_remote_buffer_cb_destroy(struct wl_listener *listener, void *data);
+static E_Comp_Wl_Remote_Buffer *_e_comp_wl_remote_buffer_get(struct wl_resource *remote_buffer_resource);
 static void _remote_surface_region_clear(E_Comp_Wl_Remote_Surface *remote_surface);
 
 static Ecore_Device *
@@ -654,7 +665,8 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
 {
    E_Comp_Wl_Buffer *buffer;
    E_Comp_Wl_Remote_Surface *remote_surface;
-   struct wl_resource *remote_buffer;
+   E_Comp_Wl_Remote_Buffer *remote_buffer;
+   struct wl_resource *remote_buffer_resource;
 
    remote_surface = wl_resource_get_user_data(resource);
    EINA_SAFETY_ON_NULL_RETURN(remote_surface);
@@ -671,11 +683,17 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
    buffer = e_pixmap_resource_get(remote_surface->provider->ec->pixmap);
    EINA_SAFETY_ON_NULL_RETURN(buffer);
 
-   remote_buffer = e_comp_wl_tbm_remote_buffer_get(remote_surface->wl_tbm, buffer->resource);
+   remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(remote_surface->wl_tbm, buffer->resource);
+   EINA_SAFETY_ON_NULL_RETURN(remote_buffer_resource);
+
+   remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
    EINA_SAFETY_ON_NULL_RETURN(remote_buffer);
 
+   if (remote_surface->version >= 2)
+     e_comp_wl_buffer_reference(&remote_buffer->ref, buffer);
+
    tizen_remote_surface_send_update_buffer(resource,
-                                           remote_buffer,
+                                           remote_buffer->resource,
                                            ecore_time_get());
 }
 
@@ -1097,6 +1115,22 @@ _remote_surface_cb_region_create(struct wl_client *client, struct wl_resource *r
      }
 }
 
+static void
+_remote_surface_cb_release(struct wl_client *client, struct wl_resource *resource, struct wl_resource *remote_buffer_resource)
+{
+   E_Comp_Wl_Remote_Surface *remote_surface;
+   E_Comp_Wl_Remote_Buffer *remote_buffer;
+
+   remote_surface = wl_resource_get_user_data(resource);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+
+   remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
+   EINA_SAFETY_ON_NULL_RETURN(remote_buffer);
+
+   if (remote_surface->version >= 2)
+     e_comp_wl_buffer_reference(&remote_buffer->ref, NULL);
+}
+
 static const struct tizen_remote_surface_interface _remote_surface_interface =
 {
    _remote_surface_cb_destroy,
@@ -1110,6 +1144,7 @@ static const struct tizen_remote_surface_interface _remote_surface_interface =
    _remote_surface_cb_visibility_transfer,
    _remote_surface_cb_owner_set,
    _remote_surface_cb_region_create,
+   _remote_surface_cb_release,
 };
 
 static void
@@ -1185,7 +1220,7 @@ _remote_manager_cb_surface_create(struct wl_client *client, struct wl_resource *
 
    resource = wl_resource_create(client,
                                  &tizen_remote_surface_interface,
-                                 1, id);
+                                 wl_resource_get_version(res_remote_manager), id);
    if (!resource)
      {
         ERR("Could not create tizen remote surface resource: %m");
@@ -1195,6 +1230,7 @@ _remote_manager_cb_surface_create(struct wl_client *client, struct wl_resource *
 
    remote_surface = E_NEW(E_Comp_Wl_Remote_Surface, 1);
    remote_surface->resource = resource;
+   remote_surface->version = wl_resource_get_version(remote_surface->resource);
    remote_surface->wl_tbm = wl_tbm;
    remote_surface->provider = provider;
    remote_surface->redirect = EINA_FALSE;
@@ -1205,9 +1241,9 @@ _remote_manager_cb_surface_create(struct wl_client *client, struct wl_resource *
                                   remote_surface,
                                   _remote_surface_cb_resource_destroy);
 
-   RSMINF("Created resource(%p) provider(%p)",
+   RSMINF("Created resource(%p) provider(%p) version(%d)",
           NULL, NULL,
-          "SURFACE", remote_surface, resource, provider);
+          "SURFACE", remote_surface, resource, provider, remote_surface->version);
 }
 
 
@@ -1325,6 +1361,37 @@ _e_comp_wl_remote_cb_visibility_change(void *data, int type, void *event)
 }
 
 static void
+_e_comp_wl_remote_buffer_cb_destroy(struct wl_listener *listener, void *data)
+{
+   E_Comp_Wl_Remote_Buffer *remote_buffer;
+
+   remote_buffer = container_of(listener, E_Comp_Wl_Remote_Buffer, destroy_listener);
+   if (!remote_buffer) return;
+
+   e_comp_wl_buffer_reference(&remote_buffer->ref, NULL);
+   free(remote_buffer);
+}
+
+static E_Comp_Wl_Remote_Buffer *
+_e_comp_wl_remote_buffer_get(struct wl_resource *remote_buffer_resource)
+{
+   E_Comp_Wl_Remote_Buffer *remote_buffer = NULL;
+   struct wl_listener *listener;
+
+   listener = wl_resource_get_destroy_listener(remote_buffer_resource, _e_comp_wl_remote_buffer_cb_destroy);
+   if (listener)
+     return container_of(listener, E_Comp_Wl_Remote_Buffer, destroy_listener);
+
+   if (!(remote_buffer = E_NEW(E_Comp_Wl_Remote_Buffer, 1))) return NULL;
+
+   remote_buffer->resource = remote_buffer_resource;
+   remote_buffer->destroy_listener.notify = _e_comp_wl_remote_buffer_cb_destroy;
+   wl_resource_add_destroy_listener(remote_buffer->resource, &remote_buffer->destroy_listener);
+
+   return remote_buffer;
+}
+
+static void
 _e_comp_wl_remote_surface_state_buffer_set(E_Comp_Wl_Surface_State *state, E_Comp_Wl_Buffer *buffer)
 {
    if (state->buffer == buffer) return;
@@ -1341,11 +1408,12 @@ _e_comp_wl_remote_surface_state_commit(E_Comp_Wl_Remote_Provider *provider, E_Co
 {
    E_Comp_Wl_Remote_Surface *surface;
    E_Client *ec;
-   struct wl_resource *remote_buffer;
    struct wl_resource *cb;
    Eina_Rectangle *dmg;
    int x = 0, y = 0, sx = 0, sy = 0;
    E_Comp_Wl_Buffer *buffer;
+   E_Comp_Wl_Remote_Buffer *remote_buffer;
+   struct wl_resource *remote_buffer_resource;
    Eina_List *l, *ll;
 
    ec = provider->ec;
@@ -1400,25 +1468,31 @@ _e_comp_wl_remote_surface_state_commit(E_Comp_Wl_Remote_Provider *provider, E_Co
      {
         EINA_LIST_FOREACH(provider->surfaces, l, surface)
           {
-             remote_buffer = e_comp_wl_tbm_remote_buffer_get(surface->wl_tbm, buffer->resource);
+             remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(surface->wl_tbm, buffer->resource);
+             if (!remote_buffer_resource) continue;
+
+             remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
              if (!remote_buffer) continue;
+
              if (!surface->redirect) continue;
              if (surface->bind_ec)
                {
-                 E_Comp_Wl_Buffer *buffer;
+                  E_Comp_Wl_Buffer *buffer;
 
-                 buffer = e_comp_wl_buffer_get(remote_buffer, surface->bind_ec);
-                 _e_comp_wl_remote_surface_state_buffer_set(&surface->bind_ec->comp_data->pending, buffer);
-                 surface->bind_ec->comp_data->pending.sx = sx;
-                 surface->bind_ec->comp_data->pending.sy = sy;
-                 surface->bind_ec->comp_data->pending.new_attach = EINA_TRUE;
+                  buffer = e_comp_wl_buffer_get(remote_buffer->resource, surface->bind_ec);
+                  _e_comp_wl_remote_surface_state_buffer_set(&surface->bind_ec->comp_data->pending, buffer);
+                  surface->bind_ec->comp_data->pending.sx = sx;
+                  surface->bind_ec->comp_data->pending.sy = sy;
+                  surface->bind_ec->comp_data->pending.new_attach = EINA_TRUE;
 
-                 e_comp_wl_surface_commit(surface->bind_ec);
+                  e_comp_wl_surface_commit(surface->bind_ec);
                }
              else
                {
+                  if (surface->version >= 2)
+                    e_comp_wl_buffer_reference(&remote_buffer->ref, buffer);
                   tizen_remote_surface_send_update_buffer(surface->resource,
-                                                          remote_buffer,
+                                                          remote_buffer->resource,
                                                           ecore_time_get());
                }
           }
@@ -1563,7 +1637,7 @@ e_comp_wl_remote_surface_init(void)
 
    rs_manager->global = wl_global_create(e_comp_wl->wl.disp,
                                          &tizen_remote_surface_manager_interface,
-                                         1,
+                                         2,
                                          NULL,
                                          _remote_manager_cb_bind);
 
