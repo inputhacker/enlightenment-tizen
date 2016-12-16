@@ -769,11 +769,21 @@ _e_policy_cb_hook_client_eval_post_fetch(void *d EINA_UNUSED, E_Client *ec)
 static void
 _e_policy_cb_hook_client_eval_post_new_client(void *d EINA_UNUSED, E_Client *ec)
 {
+   int zx, zy, zh, zw;
+
    if (e_object_is_del(E_OBJECT(ec))) return;
    if ((ec->new_client) && (!e_pixmap_usable_get(ec->pixmap))) return;
 
    if (e_policy_client_is_lockscreen(ec))
-     e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
+     {
+        zx = ec->zone->x;
+        zy = ec->zone->y;
+        zw = ec->zone->w;
+        zh = ec->zone->h;
+
+        if (E_CONTAINS(zx, zy, zw, zh, ec->x, ec->y, ec->w, ec->h))
+          e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
+     }
 }
 
 static void
@@ -1109,12 +1119,30 @@ static Eina_Bool
 _e_policy_cb_client_move(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
 {
    E_Event_Client *ev;
+   E_Client *ec;
+   int zx, zy, zw, zh;
 
    ev = event;
    if (!ev) goto end;
 
-   e_policy_wl_position_send(ev->ec);
+   ec = ev->ec;
+   if (!ec) goto end;
+
+   e_policy_wl_position_send(ec);
    e_client_visibility_calculate();
+
+   if (e_policy_client_is_lockscreen(ec))
+     {
+        zx = ec->zone->x;
+        zy = ec->zone->y;
+        zw = ec->zone->w;
+        zh = ec->zone->h;
+
+        if (E_CONTAINS(zx, zy, zw, zh, ec->x, ec->y, ec->w, ec->h))
+          e_policy_stack_clients_restack_above_lockscreen(ev->ec, EINA_TRUE);
+        else
+          e_policy_stack_clients_restack_above_lockscreen(ev->ec, EINA_FALSE);
+     }
 
 end:
    return ECORE_CALLBACK_PASS_ON;
