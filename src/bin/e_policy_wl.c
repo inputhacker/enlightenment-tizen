@@ -1444,7 +1444,7 @@ _tzpol_iface_cb_raise(struct wl_client *client EINA_UNUSED, struct wl_resource *
 static void
 _tzpol_iface_cb_lower(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol EINA_UNUSED, struct wl_resource *surf)
 {
-   E_Client *ec, *below = NULL;
+   E_Client *ec = NULL;
 
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
@@ -1455,30 +1455,16 @@ _tzpol_iface_cb_lower(struct wl_client *client EINA_UNUSED, struct wl_resource *
    if (e_policy_visibility_client_lower(ec))
      return;
 
-   below = ec;
-   while ((below = e_client_below_get(below)))
-     {
-        if ((e_client_util_ignored_get(below)) ||
-            (below->iconic))
-          continue;
-
-        break;
-     }
-
    evas_object_lower(ec->frame);
 
    if (!e_client_first_mapped_get(ec))
      e_client_post_raise_lower_set(ec, EINA_FALSE, EINA_TRUE);
-
-   if ((!below) || (!ec->focused)) return;
-
-   evas_object_focus_set(below->frame, 1);
 }
 
 static void
 _tzpol_iface_cb_lower_by_res_id(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol,  uint32_t res_id)
 {
-   E_Client *ec, *below = NULL;
+   E_Client *ec = NULL;
 
    ELOGF("TZPOL",
          "LOWER_RES|res_tzpol:0x%08x|res_id:%d",
@@ -1488,25 +1474,10 @@ _tzpol_iface_cb_lower_by_res_id(struct wl_client *client EINA_UNUSED, struct wl_
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
-   below = ec;
-   while ((below = e_client_below_get(below)))
-     {
-        if ((e_client_util_ignored_get(below)) ||
-            (below->iconic))
-          continue;
-
-        break;
-     }
-
    evas_object_lower(ec->frame);
 
    if (!e_client_first_mapped_get(ec))
      e_client_post_raise_lower_set(ec, EINA_FALSE, EINA_TRUE);
-
-   if ((!below) || (!ec->focused)) return;
-
-   if ((below->icccm.accepts_focus) ||(below->icccm.take_focus))
-     evas_object_focus_set(below->frame, 1);
 }
 
 // --------------------------------------------------------

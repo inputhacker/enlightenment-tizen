@@ -774,6 +774,42 @@ _e_client_find_focus_same_layer(E_Client *ec)
    return NULL;
 }
 
+static Eina_Bool
+_e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
+{
+   E_Client *above = NULL;
+   Eina_Bool fully_contain = EINA_FALSE;
+
+   if (!ec) return EINA_FALSE;
+
+   above = e_client_above_get(ec);
+   while (above)
+     {
+        if ((check_layer) &&
+            (above->layer <= ec->layer))
+          {
+             above = e_client_above_get(above);
+             continue;
+          }
+
+        if ((!e_object_is_del(E_OBJECT(above))) &&
+            (!e_client_util_ignored_get(above)) &&
+            (above->visible) &&
+            (above->frame) &&
+            (above->icccm.accepts_focus || above->icccm.take_focus))
+          {
+             if (E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h))
+               {
+                  fully_contain = EINA_TRUE;
+                  break;
+               }
+          }
+        above = e_client_above_get(above);
+     }
+
+   return fully_contain;
+}
+
 static void
 _e_client_find_next_focus(E_Client *ec)
 {
@@ -782,6 +818,9 @@ _e_client_find_next_focus(E_Client *ec)
    if (!ec) return;
 
    if (!_e_client_intercept_hook_call(E_CLIENT_INTERCEPT_HOOK_FOCUS_REVERT, ec))
+     return;
+
+   if (_e_client_check_fully_contain_by_above(ec, EINA_TRUE))
      return;
 
    next_focus = _e_client_find_focus_same_layer(ec);
@@ -3054,8 +3093,13 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
                          {
                             if (!focus_ec)
                               {
-                                 focus_ec = ec;
-                                 evas_object_focus_set(ec->frame, 1);
+                                 Eina_Bool obscured = EINA_FALSE;
+                                 obscured = _e_client_check_fully_contain_by_above(ec, EINA_FALSE);
+                                 if (!obscured)
+                                   {
+                                      focus_ec = ec;
+                                      evas_object_focus_set(ec->frame, 1);
+                                   }
                               }
                          }
                        e_client_focus_defer_unset(ec);
@@ -4706,11 +4750,16 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
         if (!ec->lock_focus_out)
           {
              E_Client *focus_ec = ec;
+             Eina_Bool obscured = EINA_FALSE;
 
              if (ec->transients)
                focus_ec = e_client_transient_child_top_get(ec, EINA_TRUE);
 
-             evas_object_focus_set(focus_ec->frame, 1);
+             obscured = _e_client_check_fully_contain_by_above(focus_ec, EINA_FALSE);
+             if (!obscured)
+               evas_object_focus_set(focus_ec->frame, 1);
+             else
+               e_client_focus_defer_set(focus_ec);
           }
      }
 
