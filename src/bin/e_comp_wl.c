@@ -1894,6 +1894,7 @@ _e_comp_wl_buffer_cb_destroy(struct wl_listener *listener, void *data EINA_UNUSE
 static void
 _e_comp_wl_client_evas_init(E_Client *ec)
 {
+   if (!ec || !ec->comp_data) return;
    if (ec->comp_data->evas_init) return;
 
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_SHOW,        _e_comp_wl_evas_cb_show,        ec);
@@ -2759,11 +2760,17 @@ _e_comp_wl_frame_cb_destroy(struct wl_resource *resource)
    if (!(ec = wl_resource_get_user_data(resource))) return;
    if (!ec->comp_data) return;
 
-   ec->comp_data->frames =
-     eina_list_remove(ec->comp_data->frames, resource);
+   if (ec->comp_data->frames)
+     {
+        ec->comp_data->frames =
+          eina_list_remove(ec->comp_data->frames, resource);
+     }
 
-   ec->comp_data->pending.frames =
-     eina_list_remove(ec->comp_data->pending.frames, resource);
+   if (ec->comp_data->pending.frames)
+     {
+        ec->comp_data->pending.frames =
+          eina_list_remove(ec->comp_data->pending.frames, resource);
+     }
 }
 
 static void
@@ -4398,6 +4405,7 @@ _e_comp_wl_client_usable_get(pid_t pid, E_Pixmap *ep)
 
              /* to set-up comp data */
              _e_comp_wl_client_cb_new(NULL, ec);
+             if (!ec->comp_data) return NULL;
              _e_comp_wl_client_evas_init(ec);
           }
      }
