@@ -2022,8 +2022,7 @@ _tzpol_iface_cb_subsurface_get(struct wl_client *client, struct wl_resource *res
    epc = e_pixmap_find_client_by_res_id(parent_id);
    if (!epc)
      {
-        wl_resource_post_error(resource, WL_DISPLAY_ERROR_INVALID_OBJECT,
-                               "tizen_policy failed: wrong parent_id(%d)", parent_id);
+        ERR("tizen_policy failed: wrong parent_id(%d)", parent_id);
         return;
      }
 
