@@ -2876,6 +2876,9 @@ _e_comp_wl_surface_cb_commit(struct wl_client *client EINA_UNUSED, struct wl_res
    if (!(ec = wl_resource_get_user_data(resource))) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
+   if (e_plane_renderer_is_candidate(ec))
+      ERR("commit candidate ec:%p(%s)", ec, e_client_util_name_get(ec) ? ec->icccm.name : "no name");
+
    if (ec->comp_data->need_commit_extern_parent)
      {
         ec->comp_data->need_commit_extern_parent = 0;
