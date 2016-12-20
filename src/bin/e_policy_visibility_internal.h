@@ -2,6 +2,7 @@
 #define _E_POLICY_VISIBILITY_INTERNAL_H_
 
 #define E_VIS_TIMEOUT   2.0
+#define E_CLEAR_GRAB_TIMEOUT   0.01
 
 #define NAME(ec)        ec->icccm.name ? ec->icccm.name : ""
 #define STATE_STR(vc)                                                         \

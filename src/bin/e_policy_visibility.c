@@ -780,6 +780,16 @@ _e_vis_client_cb_evas_restack(void *data EINA_UNUSED, Evas *e EINA_UNUSED, Evas_
    if (visible) _e_vis_update_foreground_job_queue();
 }
 
+static Eina_Bool
+_e_vis_client_grab_clear_cb(void *data)
+{
+   E_Vis_Grab *grab = data;
+   VS_INF(grab->vc->ec, "FORCE CLEAR! Grab %s", grab->name);
+   grab->deleted = 1;
+   _e_vis_client_grab_remove(grab->vc, grab);
+   return ECORE_CALLBACK_DONE;
+}
+
 void
 _e_vis_client_delay_del(E_Object *obj)
 {
@@ -792,6 +802,11 @@ _e_vis_client_delay_del(E_Object *obj)
         VS_DBG(ec, "REF Delay Del");
         e_pixmap_ref(ec->pixmap);
         e_object_delay_del_ref(obj);
+        if (vc->grab)
+          {
+             E_FREE_FUNC(vc->grab->timer, ecore_timer_del);
+             vc->grab->timer = ecore_timer_add(E_CLEAR_GRAB_TIMEOUT, _e_vis_client_grab_clear_cb, vc->grab);
+          }
      }
 }
 
@@ -894,7 +909,7 @@ _e_vis_client_uniconify_render(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool 
    if (_e_vis_client_is_uniconify_render_running(vc))
      goto end;
 
-   VS_DBG(ec, "BEGIN Uniconify render: raise %d\n", raise);
+   VS_DBG(ec, "BEGIN Uniconify render: raise %d", raise);
 
    _e_vis_client_prepare_foreground_signal_emit(vc);
    vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY;
