@@ -5751,6 +5751,9 @@ e_comp_wl_touch_send(E_Client *ec, int idx, int x, int y, Eina_Bool pressed, Eco
         _e_comp_wl_device_handle_axes(device->identifier, device->clas, ec, radius_x, radius_y, pressure, angle);
      }
 
+   x = x + ec->client.x;
+   y = y + ec->client.y;
+
    _e_comp_wl_send_touch(ec, idx, x, y, time, pressed);
 
    return EINA_TRUE;
@@ -5783,6 +5786,9 @@ e_comp_wl_touch_update_send(E_Client *ec, int idx, int x, int y, Ecore_Device *d
         _e_comp_wl_device_send_last_event_device(ec, ECORE_DEVICE_CLASS_TOUCH, time);
         _e_comp_wl_device_handle_axes(device->identifier, device->clas, ec, radius_x, radius_y, pressure, angle);
      }
+
+   x = x + ec->client.x;
+   y = y + ec->client.y;
 
    _e_comp_wl_send_touch_move(ec, idx, x, y, time);
 
@@ -5844,6 +5850,9 @@ e_comp_wl_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_
 
    if (dev) _e_comp_wl_send_event_device(wc, time, dev, serial);
    else _e_comp_wl_device_send_last_event_device(ec, ECORE_DEVICE_CLASS_MOUSE, time);
+
+   x = x + ec->client.x;
+   y = y + ec->client.y;
 
    _e_comp_wl_send_mouse_move(ec, x, y, time, EINA_FALSE);
 
