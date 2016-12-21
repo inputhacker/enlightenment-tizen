@@ -3803,10 +3803,6 @@ e_comp_object_render_update_add(Evas_Object *obj)
 {
    API_ENTRY;
 
-   if (e_plane_renderer_is_candidate(cw->ec))
-      ERR("update add ec:%p(%s) updates:%p redirected:%d", cw->ec, e_client_util_name_get(cw->ec) ? cw->ec->icccm.name : "no name",
-          cw->updates, cw->redirected);
-
    if (cw->ec->input_only || (!cw->updates) || (!cw->redirected)) return;
    if (e_object_is_del(E_OBJECT(cw->ec)))
      CRI("CAN'T RENDER A DELETED CLIENT!");

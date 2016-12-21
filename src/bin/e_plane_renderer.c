@@ -1090,8 +1090,6 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
         if (renderer_trace_debug)
            ELOGF("E_PLANE_RENDERER", "Candidate Renderer(%p)", ec->pixmap, ec, renderer);
 
-        ERR("Candidate Renderer(%p) ec:%p(%s)", renderer, ec, e_client_util_name_get(ec) ? ec->icccm.name : "no name");
-
         renderer->state = E_PLANE_RENDERER_STATE_CANDIDATE;
         renderer->ec = ec;
 
@@ -1626,30 +1624,6 @@ e_plane_renderer_surface_send(E_Plane_Renderer *renderer, E_Client *ec, tbm_surf
    /* add a sent surface to the sent list in renderer if it is not in the list */
    if (!_e_plane_renderer_surface_find_sent_surface(renderer, tsurface))
      renderer->sent_surfaces = eina_list_append(renderer->sent_surfaces, tsurface);
-}
-
-EINTERN Eina_Bool
-e_plane_renderer_is_candidate(E_Client *ec)
-{
-   if (!ec) return EINA_FALSE;
-
-   Eina_List *l, *ll;
-   E_Output * eout;
-   E_Plane *plane;
-   E_Plane_Renderer *renderer;
-
-   if (!ec->zone || !ec->zone->output_id) return EINA_FALSE;
-   eout = e_output_find(ec->zone->output_id);
-   EINA_LIST_FOREACH_SAFE(eout->planes, l, ll, plane)
-     {
-         renderer = plane->renderer;
-         if (!renderer) continue;
-         if (renderer->state == E_PLANE_RENDERER_STATE_CANDIDATE &&
-            renderer->ec == ec)
-            return EINA_TRUE;
-     }
-
-   return EINA_FALSE;
 }
 
 EINTERN void
