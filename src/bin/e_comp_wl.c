@@ -2212,7 +2212,7 @@ _e_comp_wl_subsurface_invisible_parent_get(E_Client *ec)
 {
    E_Client *parent = NULL;
 
-   if (!ec->comp_data || !ec->comp_data->sub.data)
+   if (!ec->comp_data || e_object_is_del(E_OBJECT(ec)) || !ec->comp_data->sub.data)
       return NULL;
 
    parent = ec->comp_data->sub.data->parent;
@@ -2222,9 +2222,9 @@ _e_comp_wl_subsurface_invisible_parent_get(E_Client *ec)
         if (e_object_is_del(E_OBJECT(parent)) || !parent->comp_data) return NULL;
 
         if (!parent->comp_data->sub.data)
-          return (!parent->comp_data->mapped) ? parent : NULL;
+          return (!evas_object_visible_get(parent->frame)) ? parent : NULL;
 
-        if (!parent->comp_data->mapped){
+        if (!evas_object_visible_get(parent->frame)){
           if (e_pixmap_resource_get(parent->pixmap))
             return parent;
 
