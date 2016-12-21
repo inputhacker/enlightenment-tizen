@@ -659,6 +659,14 @@ _e_comp_hwc_changed(void)
                   assign_success = _hwc_plane_change_ec(ep, ep->ec, ep->prepare_ec);
                   ret = EINA_TRUE;
                }
+             else if (!ep->prepare_ec)
+               {
+                  if (e_plane_is_reserved(ep))
+                    {
+                       e_plane_reserved_set(ep, 0);
+                       ELOGF("HWC", "unset reserved mem on %d", NULL, NULL, ep->zpos);
+                    }
+               }
 
              if (ep->ec) mode = E_HWC_MODE_HYBRID;
 
