@@ -946,6 +946,8 @@ static Eina_Bool
 _e_vis_ec_activity_check(E_Client *ec)
 {
    int x, y, w, h;
+   E_Comp_Object_Content_Type type = E_COMP_OBJECT_CONTENT_TYPE_NONE;
+   int check_mapped = 1;
 
    /* check if ignored */
    if (e_client_util_ignored_get(ec)) return EINA_FALSE;
@@ -953,8 +955,13 @@ _e_vis_ec_activity_check(E_Client *ec)
    if ((ec->argb) && (ec->visibility.opaque <= 0)) return EINA_FALSE;
    /* check deleted client */
    if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
+   /* check launchscreen */
+   if (ec->frame) type = e_comp_object_content_type_get(ec->frame);
+   if ((type == E_COMP_OBJECT_CONTENT_TYPE_EXT_IMAGE) ||
+       (type == E_COMP_OBJECT_CONTENT_TYPE_EXT_EDJE))
+     check_mapped = 0;
    /* check unmapped client */
-   if (ec->comp_data && !ec->comp_data->mapped) return EINA_FALSE;
+   if (check_mapped && ec->comp_data && !ec->comp_data->mapped) return EINA_FALSE;
    /* check iconify window by client */
    if ((ec->iconic) && (ec->exp_iconify.by_client)) return EINA_FALSE;
    /* check special client */
