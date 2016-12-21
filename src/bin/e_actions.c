@@ -150,7 +150,7 @@ ACT_FN_GO(window_resize, EINA_UNUSED)
    if (!obj) return;
    if (obj->type != E_CLIENT_TYPE) return;
    if (!((E_Client *)obj)->lock_user_size)
-     e_client_act_resize_begin((E_Client *)obj, NULL);
+     e_client_act_resize_begin((E_Client *)obj, NULL, E_POINTER_RESIZE_NONE);
 }
 
 ACT_FN_GO_MOUSE(window_resize, EINA_UNUSED)
@@ -159,7 +159,7 @@ ACT_FN_GO_MOUSE(window_resize, EINA_UNUSED)
    if (!obj) return;
    if (obj->type != E_CLIENT_TYPE) return;
    if (!((E_Client *)obj)->lock_user_size)
-     e_client_act_resize_begin((E_Client *)obj, ev);
+     e_client_act_resize_begin((E_Client *)obj, ev, E_POINTER_RESIZE_NONE);
 }
 
 ACT_FN_GO_SIGNAL(window_resize, )

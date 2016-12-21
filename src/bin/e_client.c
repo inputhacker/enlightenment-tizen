@@ -5493,7 +5493,7 @@ e_client_act_move_end(E_Client *ec, E_Binding_Event_Mouse_Button *ev EINA_UNUSED
 }
 
 E_API void
-e_client_act_resize_begin(E_Client *ec, E_Binding_Event_Mouse_Button *ev)
+e_client_act_resize_begin(E_Client *ec, E_Binding_Event_Mouse_Button *ev, E_Pointer_Mode resize_mode)
 {
    E_OBJECT_CHECK(ec);
    E_OBJECT_TYPE_CHECK(ec, E_CLIENT_TYPE);
@@ -5503,55 +5503,40 @@ e_client_act_resize_begin(E_Client *ec, E_Binding_Event_Mouse_Button *ev)
    if (ev)
      {
         char source[256];
-
         snprintf(source, sizeof(source) - 1, "mouse,down,%i", ev->button);
         _e_client_moveinfo_gather(ec, source);
 
-        /* Use canvas.x, canvas.y of event.
-         * Transformed coordinates has to be considered for accurate resize_mode
-         * rather than absolute coordinates. */
-        if ((ev->canvas.x > (ec->x + ec->w / 5)) &&
-            (ev->canvas.x < (ec->x + ec->w * 4 / 5)))
+        if ((ec->floating) &&
+            (resize_mode != E_POINTER_RESIZE_NONE))
           {
-             if (ev->canvas.y < (ec->y + ec->h / 2))
-               {
-                  ec->resize_mode = E_POINTER_RESIZE_T;
-               }
-             else
-               {
-                  ec->resize_mode = E_POINTER_RESIZE_B;
-               }
-          }
-        else if (ev->canvas.x < (ec->x + ec->w / 2))
-          {
-             if ((ev->canvas.y > (ec->y + ec->h / 5)) &&
-                 (ev->canvas.y < (ec->y + ec->h * 4 / 5)))
-               {
-                  ec->resize_mode = E_POINTER_RESIZE_L;
-               }
-             else if (ev->canvas.y < (ec->y + ec->h / 2))
-               {
-                  ec->resize_mode = E_POINTER_RESIZE_TL;
-               }
-             else
-               {
-                  ec->resize_mode = E_POINTER_RESIZE_BL;
-               }
+             /* set resizing direction only for floating mode window */
+             ec->resize_mode = resize_mode;
           }
         else
           {
-             if ((ev->canvas.y > (ec->y + ec->h / 5)) &&
-                 (ev->canvas.y < (ec->y + ec->h * 4 / 5)))
+             /* setting resize mothod of open-source style according to mouse position,
+              * but we don't know how it exactly does. */
+
+             /* Use canvas.x, canvas.y of event.
+              * Transformed coordinates has to be considered for accurate resize_mode
+              * rather than absolute coordinates. */
+             if ((ev->canvas.x > (ec->x + ec->w / 5)) &&
+                 (ev->canvas.x < (ec->x + ec->w * 4 / 5)))
                {
-                  ec->resize_mode = E_POINTER_RESIZE_R;
+                  if (ev->canvas.y < (ec->y + ec->h / 2)) ec->resize_mode = E_POINTER_RESIZE_T;
+                  else ec->resize_mode = E_POINTER_RESIZE_B;
                }
-             else if (ev->canvas.y < (ec->y + ec->h / 2))
+             else if (ev->canvas.x < (ec->x + ec->w / 2))
                {
-                  ec->resize_mode = E_POINTER_RESIZE_TR;
+                  if ((ev->canvas.y > (ec->y + ec->h / 5)) && (ev->canvas.y < (ec->y + ec->h * 4 / 5))) ec->resize_mode = E_POINTER_RESIZE_L;
+                  else if (ev->canvas.y < (ec->y + ec->h / 2)) ec->resize_mode = E_POINTER_RESIZE_TL;
+                  else ec->resize_mode = E_POINTER_RESIZE_BL;
                }
              else
                {
-                  ec->resize_mode = E_POINTER_RESIZE_BR;
+                  if ((ev->canvas.y > (ec->y + ec->h / 5)) && (ev->canvas.y < (ec->y + ec->h * 4 / 5))) ec->resize_mode = E_POINTER_RESIZE_R;
+                  else if (ev->canvas.y < (ec->y + ec->h / 2)) ec->resize_mode = E_POINTER_RESIZE_TR;
+                  else ec->resize_mode = E_POINTER_RESIZE_BR;
                }
           }
      }

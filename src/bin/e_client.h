@@ -1012,7 +1012,7 @@ E_API void e_client_act_move_keyboard(E_Client *ec);
 E_API void e_client_act_resize_keyboard(E_Client *ec);
 E_API void e_client_act_move_begin(E_Client *ec, E_Binding_Event_Mouse_Button *ev);
 E_API void e_client_act_move_end(E_Client *ec, E_Binding_Event_Mouse_Button *ev EINA_UNUSED);
-E_API void e_client_act_resize_begin(E_Client *ec, E_Binding_Event_Mouse_Button *ev);
+E_API void e_client_act_resize_begin(E_Client *ec, E_Binding_Event_Mouse_Button *ev, E_Pointer_Mode resize_mode);
 E_API void e_client_act_resize_end(E_Client *ec, E_Binding_Event_Mouse_Button *ev EINA_UNUSED);
 E_API void e_client_act_menu_begin(E_Client *ec, E_Binding_Event_Mouse_Button *ev, int key);
 E_API void e_client_act_close_begin(E_Client *ec);

@@ -71,8 +71,10 @@ _e_shell_surface_parent_set(E_Client *ec, struct wl_resource *parent_resource)
 }
 
 static void
-_e_shell_surface_mouse_down_helper(E_Client *ec, E_Binding_Event_Mouse_Button *ev, Eina_Bool move)
+_e_shell_surface_mouse_down_helper(E_Client *ec, E_Binding_Event_Mouse_Button *ev, Eina_Bool move, int resize_edges)
 {
+   E_Pointer_Mode resize_mode = E_POINTER_RESIZE_NONE;
+
    if (move)
      {
         /* tell E to start moving the client */
@@ -86,8 +88,22 @@ _e_shell_surface_mouse_down_helper(E_Client *ec, E_Binding_Event_Mouse_Button *e
      }
    else
      {
+        /* convert value to E's pointer mode from wayland resize edge */
+        switch (resize_edges)
+          {
+           case  1: resize_mode = E_POINTER_RESIZE_T;  break;
+           case  2: resize_mode = E_POINTER_RESIZE_B;  break;
+           case  4: resize_mode = E_POINTER_RESIZE_L;  break;
+           case  5: resize_mode = E_POINTER_RESIZE_TL; break;
+           case  6: resize_mode = E_POINTER_RESIZE_BL; break;
+           case  8: resize_mode = E_POINTER_RESIZE_R;  break;
+           case  9: resize_mode = E_POINTER_RESIZE_TR; break;
+           case 10: resize_mode = E_POINTER_RESIZE_BR; break;
+           default: resize_mode = E_POINTER_RESIZE_NONE; break;
+          }
+
         /* tell E to start resizing the client */
-        e_client_act_resize_begin(ec, ev);
+        e_client_act_resize_begin(ec, ev, resize_mode);
 
         /* we have to get a reference to the window_resize action here,
          * or else when e_client stops the resize we will never get notified */
@@ -165,18 +181,10 @@ _e_shell_surface_cb_move(struct wl_client *client EINA_UNUSED, struct wl_resourc
 
    switch (e_comp_wl->ptr.button)
      {
-      case BTN_LEFT:
-        ev.button = 1;
-        break;
-      case BTN_MIDDLE:
-        ev.button = 2;
-        break;
-      case BTN_RIGHT:
-        ev.button = 3;
-        break;
-      default:
-        ev.button = e_comp_wl->ptr.button;
-        break;
+      case BTN_LEFT:   ev.button = 1; break;
+      case BTN_MIDDLE: ev.button = 2; break;
+      case BTN_RIGHT:  ev.button = 3; break;
+      default: ev.button = e_comp_wl->ptr.button; break;
      }
 
    e_comp_object_frame_xy_unadjust(ec->frame,
@@ -184,7 +192,7 @@ _e_shell_surface_cb_move(struct wl_client *client EINA_UNUSED, struct wl_resourc
                                    wl_fixed_to_int(e_comp_wl->ptr.y),
                                    &ev.canvas.x, &ev.canvas.y);
 
-   _e_shell_surface_mouse_down_helper(ec, &ev, EINA_TRUE);
+   _e_shell_surface_mouse_down_helper(ec, &ev, EINA_TRUE, 0);
 }
 
 static void
@@ -214,18 +222,10 @@ _e_shell_surface_cb_resize(struct wl_client *client EINA_UNUSED, struct wl_resou
 
    switch (e_comp_wl->ptr.button)
      {
-      case BTN_LEFT:
-        ev.button = 1;
-        break;
-      case BTN_MIDDLE:
-        ev.button = 2;
-        break;
-      case BTN_RIGHT:
-        ev.button = 3;
-        break;
-      default:
-        ev.button = e_comp_wl->ptr.button;
-        break;
+      case BTN_LEFT:   ev.button = 1; break;
+      case BTN_MIDDLE: ev.button = 2; break;
+      case BTN_RIGHT:  ev.button = 3; break;
+      default: ev.button = e_comp_wl->ptr.button; break;
      }
 
    e_comp_object_frame_xy_unadjust(ec->frame,
@@ -233,7 +233,7 @@ _e_shell_surface_cb_resize(struct wl_client *client EINA_UNUSED, struct wl_resou
                                    wl_fixed_to_int(e_comp_wl->ptr.y),
                                    &ev.canvas.x, &ev.canvas.y);
 
-   _e_shell_surface_mouse_down_helper(ec, &ev, EINA_FALSE);
+   _e_shell_surface_mouse_down_helper(ec, &ev, EINA_FALSE, edges);
 }
 
 static void
@@ -808,7 +808,7 @@ _e_xdg_shell_surface_cb_move(struct wl_client *client EINA_UNUSED, struct wl_res
                                    &ev.canvas.x,
                                    &ev.canvas.y);
 
-   _e_shell_surface_mouse_down_helper(ec, &ev, EINA_TRUE);
+   _e_shell_surface_mouse_down_helper(ec, &ev, EINA_TRUE, 0);
 
    TRACE_DS_END();
 }
@@ -828,8 +828,11 @@ _e_xdg_shell_surface_cb_resize(struct wl_client *client EINA_UNUSED, struct wl_r
         return;
      }
 
-   if ((edges == 0) || (edges > 15) ||
-       ((edges & 3) == 3) || ((edges & 12) == 12)) return;
+   if ((edges == 0) ||
+       (edges > 15) ||
+       ((edges & 3) == 3) ||
+       ((edges & 12) == 12))
+     return;
 
    if ((ec->maximized) || (ec->fullscreen)) return;
 
@@ -854,7 +857,7 @@ _e_xdg_shell_surface_cb_resize(struct wl_client *client EINA_UNUSED, struct wl_r
                                    &ev.canvas.x,
                                    &ev.canvas.y);
 
-   _e_shell_surface_mouse_down_helper(ec, &ev, EINA_FALSE);
+   _e_shell_surface_mouse_down_helper(ec, &ev, EINA_FALSE, edges);
 
    TRACE_DS_END();
 }
