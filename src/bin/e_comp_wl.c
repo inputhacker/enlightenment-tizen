@@ -2299,32 +2299,17 @@ static void
 _e_comp_wl_surface_state_size_update(E_Client *ec, E_Comp_Wl_Surface_State *state)
 {
    Eina_Rectangle *window;
-   /* double scale = 0.0; */
-
-   /* scale = e_comp_wl->output.scale; */
-   /* switch (e_comp_wl->output.transform) */
-   /*   { */
-   /*    case WL_OUTPUT_TRANSFORM_90: */
-   /*    case WL_OUTPUT_TRANSFORM_270: */
-   /*    case WL_OUTPUT_TRANSFORM_FLIPPED_90: */
-   /*    case WL_OUTPUT_TRANSFORM_FLIPPED_270: */
-   /*      w = ec->comp_data->buffer_ref.buffer->h / scale; */
-   /*      h = ec->comp_data->buffer_ref.buffer->w / scale; */
-   /*      break; */
-   /*    default: */
-   /*      w = ec->comp_data->buffer_ref.buffer->w / scale; */
-   /*      h = ec->comp_data->buffer_ref.buffer->h / scale; */
-   /*      break; */
-   /*   } */
 
    if (!e_pixmap_size_get(ec->pixmap, &state->bw, &state->bh)) return;
-   if (e_client_has_xwindow(ec) || e_comp_object_frame_exists(ec->frame)) return;
+   if (e_comp_object_frame_exists(ec->frame)) return;
    window = &ec->comp_data->shell.window;
    if ((!ec->borderless) && /* FIXME temporarily added this check code
                              * to prevent updating E_Client's size by frame */
        (window->x || window->y || window->w || window->h))
      {
-        e_comp_object_frame_geometry_set(ec->frame, -window->x, (window->x + window->w) - state->bw,
+        e_comp_object_frame_geometry_set(ec->frame,
+                                         -window->x,
+                                         (window->x + window->w) - state->bw,
                                          -window->y,
                                          (window->y + window->h) - state->bh);
      }
@@ -2404,19 +2389,16 @@ _e_comp_wl_surface_state_buffer_set(E_Comp_Wl_Surface_State *state, E_Comp_Wl_Bu
 static void
 _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
 {
-   Eina_Bool first = EINA_FALSE;
    Eina_Rectangle *dmg;
    Eina_Bool placed = EINA_TRUE;
    int x = 0, y = 0;
    int w, h;
-
    E_Comp_Wl_Buffer *buffer;
    struct wl_resource *cb;
    Eina_List *l, *ll;
 
-   first = !e_pixmap_usable_get(ec->pixmap);
-
-   if (ec->ignored && (ec->comp_data->shell.surface || ec->internal))
+   if ((ec->ignored) &&
+       (ec->comp_data->shell.surface || ec->internal))
      {
         EC_CHANGED(ec);
         ec->new_client = 1;
@@ -2430,52 +2412,64 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
      e_comp_wl_surface_attach(ec, state->buffer);
 
    /* emit a apply_viewport signal when the information of viewport and buffer is ready */
-   wl_signal_emit(&ec->comp_data->apply_viewport_signal, &ec->comp_data->surface);
+   wl_signal_emit(&ec->comp_data->apply_viewport_signal,
+                  &ec->comp_data->surface);
 
    _e_comp_wl_surface_state_buffer_set(state, NULL);
 
-   if (state->new_attach || state->buffer_viewport.changed)
+   if ((state->new_attach) ||
+       (state->buffer_viewport.changed))
      {
         _e_comp_wl_surface_state_size_update(ec, state);
         e_comp_wl_map_size_cal_from_viewport(ec);
 
         if (ec->changes.pos)
-          e_comp_object_frame_xy_unadjust(ec->frame, ec->x, ec->y, &x, &y);
+          {
+             e_comp_object_frame_xy_unadjust(ec->frame,
+                                             ec->x, ec->y,
+                                             &x, &y);
+          }
         else
-          x = ec->client.x, y = ec->client.y;
+          {
+             x = ec->client.x;
+             y = ec->client.y;
+          }
 
         if (ec->new_client) placed = ec->placed;
 
         if (!ec->lock_client_size)
           {
-             if (first && e_client_has_xwindow(ec))
-               /* use client geometry to avoid race condition from x11 configure request */
-               x = ec->x, y = ec->y;
-             else
+             w = ec->w;
+             h = ec->h;
+
+             ec->client.w = state->bw;
+             ec->client.h = state->bh;
+
+             e_comp_object_frame_wh_adjust(ec->frame,
+                                           ec->client.w, ec->client.h,
+                                           &ec->w, &ec->h);
+
+             if ((w != ec->w) || (h != ec->h))
                {
-                  w = ec->w;
-                  h = ec->h;
-
-                  ec->client.w = state->bw;
-                  ec->client.h = state->bh;
-                  e_comp_object_frame_wh_adjust(ec->frame, ec->client.w, ec->client.h, &ec->w, &ec->h);
-
-                  if ((w != ec->w) || (h != ec->h))
-                    {
-                       ec->changes.size = 1;
-                       EC_CHANGED(ec);
-                    }
+                  ec->changes.size = 1;
+                  EC_CHANGED(ec);
                }
           }
      }
 
+   /* map or unmap ec */
    if (!e_pixmap_usable_get(ec->pixmap))
      {
+        /* unmap ec */
         if (ec->comp_data->mapped)
           {
-             if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.unmap))
-               ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
-             else if (e_client_has_xwindow(ec) || ec->internal || ec->comp_data->sub.data ||
+             if ((ec->comp_data->shell.surface) &&
+                 (ec->comp_data->shell.unmap))
+               {
+                  ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
+               }
+             else if ((ec->internal) ||
+                      (ec->comp_data->sub.data) ||
                       (ec == e_comp_wl->drag_client))
                {
                   ec->visible = EINA_FALSE;
@@ -2484,16 +2478,24 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
                }
           }
 
-        if (ec->comp_data->sub.below_obj && evas_object_visible_get(ec->comp_data->sub.below_obj))
-          evas_object_hide(ec->comp_data->sub.below_obj);
+        if ((ec->comp_data->sub.below_obj) &&
+            (evas_object_visible_get(ec->comp_data->sub.below_obj)))
+          {
+             evas_object_hide(ec->comp_data->sub.below_obj);
+          }
      }
    else
      {
+        /* map ec */
         if (!ec->comp_data->mapped)
           {
-             if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.map))
-               ec->comp_data->shell.map(ec->comp_data->shell.surface);
-             else if (e_client_has_xwindow(ec) || ec->internal || _e_comp_wl_subsurface_can_show(ec) ||
+             if ((ec->comp_data->shell.surface) &&
+                 (ec->comp_data->shell.map))
+               {
+                  ec->comp_data->shell.map(ec->comp_data->shell.surface);
+               }
+             else if ((ec->internal) ||
+                      (_e_comp_wl_subsurface_can_show(ec)) ||
                       (ec == e_comp_wl->drag_client))
                {
                   ec->visible = EINA_TRUE;
@@ -2503,55 +2505,44 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
                }
           }
 
-        if (ec->comp_data->sub.below_obj && !evas_object_visible_get(ec->comp_data->sub.below_obj)
-            && evas_object_visible_get(ec->frame))
-          evas_object_show(ec->comp_data->sub.below_obj);
+        if ((ec->comp_data->sub.below_obj) &&
+            (!evas_object_visible_get(ec->comp_data->sub.below_obj)) &&
+            (evas_object_visible_get(ec->frame)))
+          {
+             evas_object_show(ec->comp_data->sub.below_obj);
+          }
      }
 
-   if (state->new_attach || state->buffer_viewport.changed)
+   if ((state->new_attach) ||
+       (state->buffer_viewport.changed))
      {
-        if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.configure))
-          ec->comp_data->shell.configure(ec->comp_data->shell.surface,
-                                         x, y, ec->w, ec->h);
+        if ((ec->comp_data->shell.surface) &&
+            (ec->comp_data->shell.configure))
+          {
+             ec->comp_data->shell.configure(ec->comp_data->shell.surface,
+                                            x, y,
+                                            ec->w, ec->h);
+          }
         else
           {
-             if (ec->netwm.sync.wait)
-               {
-                  E_Client_Pending_Resize *pnd = NULL;
-
-                  ec->netwm.sync.wait--;
-
-                  /* skip pending for which we didn't get a reply */
-                  while (ec->pending_resize)
-                    {
-                       pnd = eina_list_data_get(ec->pending_resize);
-                       ec->pending_resize = eina_list_remove(ec->pending_resize, pnd);
-
-                       if ((state->bw == pnd->w) && (state->bh == pnd->h))
-                         break;
-
-                       E_FREE(pnd);
-                    }
-
-                  if (pnd)
-                    {
-                       e_comp_object_frame_wh_adjust(ec->frame, pnd->w, pnd->h, &ec->w, &ec->h);
-                       E_FREE(pnd);
-                    }
-                  ecore_evas_pointer_xy_get(e_comp->ee, &ec->mouse.current.mx, &ec->mouse.current.my);
-                  ec->netwm.sync.send_time = ecore_loop_time_get();
-               }
-             if (e_comp_wl->drag && e_comp_wl->drag_client &&
+             if ((e_comp_wl->drag) &&
+                 (e_comp_wl->drag_client) &&
                  (e_comp_wl->drag_client == ec))
                {
                   e_comp_wl->drag->dx -= state->sx;
                   e_comp_wl->drag->dy -= state->sy;
+
                   e_drag_move(e_comp_wl->drag,
-                    e_comp_wl->drag->x + state->sx, e_comp_wl->drag->y + state->sy);
-                  e_drag_resize(e_comp_wl->drag, state->bw, state->bh);
+                              e_comp_wl->drag->x + state->sx,
+                              e_comp_wl->drag->y + state->sy);
+
+                  e_drag_resize(e_comp_wl->drag,
+                                state->bw, state->bh);
                }
              else
-               e_client_util_move_resize_without_frame(ec, x, y, ec->w, ec->h);
+               {
+                  e_client_util_move_resize_without_frame(ec, x, y, ec->w, ec->h);
+               }
           }
 
         if (ec->new_client)
@@ -2574,8 +2565,8 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
 
    EINA_LIST_FOREACH_SAFE(ec->comp_data->frames, l, ll, cb)
      {
-         wl_callback_send_done(cb, ecore_time_unix_get() * 1000);
-         wl_resource_destroy(cb);
+        wl_callback_send_done(cb, ecore_time_unix_get() * 1000);
+        wl_resource_destroy(cb);
      }
 
    /* insert state frame callbacks into comp_data->frames
@@ -2678,8 +2669,11 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
              e_comp_object_input_objs_del(ec->frame);
              itr = eina_tiler_iterator_new(src);
              EINA_ITERATOR_FOREACH(itr, rect)
-               e_comp_object_input_area_set(ec->frame, rect->x, rect->y,
-                                            rect->w, rect->h);
+               {
+                  e_comp_object_input_area_set(ec->frame,
+                                               rect->x, rect->y,
+                                               rect->w, rect->h);
+               }
 
              eina_iterator_free(itr);
              eina_tiler_free(src);
@@ -2695,13 +2689,14 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
 
    _e_comp_wl_subsurface_check_below_bg_rectangle(ec);
 
-   if ((buffer && buffer->type == E_COMP_WL_BUFFER_TYPE_VIDEO) &&
-       e_comp->wl_comp_data->available_hw_accel.underlay)
-     e_pixmap_image_clear(ec->pixmap, 1);
+   if (((buffer) &&
+        (buffer->type == E_COMP_WL_BUFFER_TYPE_VIDEO)) &&
+       (e_comp->wl_comp_data->available_hw_accel.underlay))
+     {
+        e_pixmap_image_clear(ec->pixmap, 1);
+     }
 
    state->buffer_viewport.changed = 0;
-
-   return;
 }
 
 static void
@@ -4280,38 +4275,10 @@ static void
 _e_comp_wl_client_cb_resize_begin(void *data EINA_UNUSED, E_Client *ec)
 {
    if (e_pixmap_type_get(ec->pixmap) != E_PIXMAP_TYPE_WL) return;
-
-   e_comp_wl->resize.edges = 0;
    if (ec->keyboard_resizing) return;
-   switch (ec->resize_mode)
-     {
-      case E_POINTER_RESIZE_T: // 1
-        e_comp_wl->resize.edges = 1;
-        break;
-      case E_POINTER_RESIZE_B: // 2
-        e_comp_wl->resize.edges = 2;
-        break;
-      case E_POINTER_RESIZE_L: // 4
-        e_comp_wl->resize.edges = 4;
-        break;
-      case E_POINTER_RESIZE_R: // 8
-        e_comp_wl->resize.edges = 8;
-        break;
-      case E_POINTER_RESIZE_TL: // 5
-        e_comp_wl->resize.edges = 5;
-        break;
-      case E_POINTER_RESIZE_TR: // 9
-        e_comp_wl->resize.edges = 9;
-        break;
-      case E_POINTER_RESIZE_BL: // 6
-        e_comp_wl->resize.edges = 6;
-        break;
-      case E_POINTER_RESIZE_BR: // 10
-        e_comp_wl->resize.edges = 10;
-        break;
-      default:
-        break;
-     }
+
+   /* do nothing currently */
+   ;
 }
 
 static void
