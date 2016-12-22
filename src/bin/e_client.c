@@ -323,7 +323,13 @@ _e_client_intercept_hook_call(E_Client_Intercept_Hook_Point hookpoint, E_Client 
    E_Client_Intercept_Hook *ch;
    Eina_Bool ret = EINA_TRUE;
 
-   if (e_object_is_del(E_OBJECT(ec))) return ret;
+   if (e_object_is_del(E_OBJECT(ec)))
+     {
+        if (hookpoint != E_CLIENT_INTERCEPT_HOOK_FOCUS_REVERT)
+          {
+             return ret;
+          }
+     }
 
    e_object_ref(E_OBJECT(ec));
    _e_client_intercept_hooks_walking++;
