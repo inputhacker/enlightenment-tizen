@@ -789,6 +789,7 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
 
    if (!(ec = source->ec)) return;
    if (!(buffer = e_pixmap_resource_get(ec->pixmap))) return;
+   if (!e_config->save_win_buffer) return;
 
    td = E_NEW(Thread_Data, 1);
    if (!td) return;
@@ -2202,7 +2203,8 @@ e_comp_wl_remote_surface_init(void)
 
    /* client hook */
    E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_DEL, _e_comp_wl_remote_cb_client_del, NULL);
-   E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_ICONIFY, _e_comp_wl_remote_cb_client_iconify, NULL);
+   if (e_config->save_win_buffer)
+     E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_ICONIFY, _e_comp_wl_remote_cb_client_iconify, NULL);
 
    /* client event */
    E_LIST_HANDLER_APPEND(rs_manager->event_hdlrs,
