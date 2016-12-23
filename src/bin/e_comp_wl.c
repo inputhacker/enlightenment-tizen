@@ -1643,9 +1643,16 @@ e_comp_wl_feed_focus_in(E_Client *ec)
    _e_comp_wl_client_priority_raise(ec);
 
    wc = wl_resource_get_client(ec->comp_data->surface);
+
    EINA_LIST_FOREACH(e_comp_wl->kbd.resources, l, res)
-      if (wl_resource_get_client(res) == wc)
-        e_comp_wl->kbd.focused = eina_list_append(e_comp_wl->kbd.focused, res);
+     {
+        if (wl_resource_get_client(res) == wc)
+          {
+             if (!eina_list_data_find(e_comp_wl->kbd.focused, res))
+               e_comp_wl->kbd.focused = eina_list_append(e_comp_wl->kbd.focused, res);
+          }
+     }
+
    if (!e_comp_wl->kbd.focused) return;
    e_comp_wl_input_keyboard_enter_send(ec);
    e_comp_wl_data_device_keyboard_focus_set();
