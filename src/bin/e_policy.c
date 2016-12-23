@@ -1836,6 +1836,8 @@ e_policy_allow_user_geometry_set(E_Client *ec, Eina_Bool set)
 
         ec->lock_client_size = EINA_FALSE;
         ec->placed = 1;
+
+        _e_policy_client_maximize_policy_cancel(pc);
         EC_CHANGED(ec);
      }
    else if (pc->user_geom_ref == 0 && pc->allow_user_geom)
