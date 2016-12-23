@@ -3765,6 +3765,24 @@ e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_
         return EINA_FALSE;
      }
 
+   if (!ec || e_object_is_del(E_OBJECT(ec)) || !ec->comp_data) return EINA_FALSE;
+
+   if (!epc || e_object_is_del(E_OBJECT(epc)))
+     {
+        if (ec->comp_data->sub.watcher)
+          tizen_subsurface_watcher_send_message(ec->comp_data->sub.watcher, TIZEN_SUBSURFACE_WATCHER_MSG_PARENT_ID_INVALID);
+
+        /* We have to create a subsurface resource here even though it's error case
+         * because server will send the fatal error when a client destroy a subsurface object.
+         * Otherwise, server will kill a client by the fatal error.
+         */
+        res = wl_resource_create(client, &wl_subsurface_interface, 1, id);
+        wl_resource_set_implementation(res, &_e_subsurface_interface, NULL, NULL);
+
+        ERR("tizen_policy failed: invalid parent");
+        return EINA_FALSE;
+     }
+
    // reparent remote surface provider's subsurfaces
    if (epc->comp_data->remote_surface.onscreen_parent)
      {
@@ -3882,6 +3900,22 @@ res_err:
    free(sdata);
 dat_err:
    return EINA_FALSE;
+}
+
+static void
+_e_comp_wl_surface_sub_list_free(Eina_List *sub_list)
+{
+   E_Client *subc;
+
+   EINA_LIST_FREE(sub_list, subc)
+     {
+        if (!subc->comp_data || !subc->comp_data->sub.data) continue;
+
+        subc->comp_data->sub.data->parent = NULL;
+
+        if (subc->comp_data->sub.watcher)
+          tizen_subsurface_watcher_send_message(subc->comp_data->sub.watcher, TIZEN_SUBSURFACE_WATCHER_MSG_PARENT_ID_DESTROYED);
+     }
 }
 
 static void
@@ -4150,7 +4184,6 @@ _e_comp_wl_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
 {
    /* Eina_Rectangle *dmg; */
    struct wl_resource *cb;
-   E_Client *subc;
 
    /* make sure this is a wayland client */
    if (e_pixmap_type_get(ec->pixmap) != E_PIXMAP_TYPE_WL) return;
@@ -4175,14 +4208,13 @@ _e_comp_wl_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
 
    /* remove sub list */
    /* TODO: if parent is set by onscreen_parent of remote surface? */
-   EINA_LIST_FREE(ec->comp_data->sub.list, subc)
-     if (subc->comp_data && subc->comp_data->sub.data) subc->comp_data->sub.data->parent = NULL;
-   EINA_LIST_FREE(ec->comp_data->sub.list_pending, subc)
-     if (subc->comp_data && subc->comp_data->sub.data) subc->comp_data->sub.data->parent = NULL;
-   EINA_LIST_FREE(ec->comp_data->sub.below_list, subc)
-     if (subc->comp_data && subc->comp_data->sub.data) subc->comp_data->sub.data->parent = NULL;
-   EINA_LIST_FREE(ec->comp_data->sub.below_list_pending, subc)
-     if (subc->comp_data && subc->comp_data->sub.data) subc->comp_data->sub.data->parent = NULL;
+   _e_comp_wl_surface_sub_list_free(ec->comp_data->sub.list);
+   _e_comp_wl_surface_sub_list_free(ec->comp_data->sub.list_pending);
+   _e_comp_wl_surface_sub_list_free(ec->comp_data->sub.below_list);
+   _e_comp_wl_surface_sub_list_free(ec->comp_data->sub.below_list_pending);
+
+   if (ec->comp_data->sub.watcher)
+     wl_resource_destroy(ec->comp_data->sub.watcher);
 
    if ((ec->parent) && (ec->parent->modal == ec))
      {

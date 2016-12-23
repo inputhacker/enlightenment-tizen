@@ -372,6 +372,8 @@ struct _E_Comp_Wl_Client_Data
         Evas_Object *below_obj;
 
         Eina_Bool restacking : 1;
+
+        struct wl_resource *watcher;
      } sub;
 
    /* regular surface resource (wl_compositor_create_surface) */

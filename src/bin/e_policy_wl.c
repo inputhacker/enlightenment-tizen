@@ -2019,15 +2019,6 @@ _tzpol_iface_cb_subsurface_get(struct wl_client *client, struct wl_resource *res
 
    if (e_object_is_del(E_OBJECT(ec))) return;
 
-   epc = e_pixmap_find_client_by_res_id(parent_id);
-   if (!epc)
-     {
-        ERR("tizen_policy failed: wrong parent_id(%d)", parent_id);
-        return;
-     }
-
-   if (e_object_is_del(E_OBJECT(epc))) return;
-
    /* check if this surface is already a sub-surface */
    if ((ec->comp_data) && (ec->comp_data->sub.data))
      {
@@ -2038,10 +2029,14 @@ _tzpol_iface_cb_subsurface_get(struct wl_client *client, struct wl_resource *res
         return;
      }
 
+   epc = e_pixmap_find_client_by_res_id(parent_id);
+
    /* try to create a new subsurface */
    if (!e_comp_wl_subsurface_create(ec, epc, id, surface))
-     ERR("Failed to create subsurface for surface@%d",
-         wl_resource_get_id(surface));
+     {
+        ERR("Failed to create subsurface for surface@%d", wl_resource_get_id(surface));
+        return;
+     }
 
    /* ec's parent comes from another process */
    if (ec->comp_data)
@@ -2914,6 +2909,37 @@ _tz_dpy_pol_iface_cb_brightness_set(struct wl_client *client, struct wl_resource
       (res_tz_dpy_pol, surf, brightness, TIZEN_DISPLAY_POLICY_ERROR_STATE_NONE);
 }
 
+static void
+_tzpol_iface_cb_subsurf_watcher_destroy(struct wl_resource *resource)
+{
+   E_Client *ec;
+
+   if (!(ec = wl_resource_get_user_data(resource))) return;
+   if (e_object_is_del(E_OBJECT(ec)) || !ec->comp_data) return;
+
+   ec->comp_data->sub.watcher = NULL;
+}
+
+static void
+_tzpol_iface_cb_subsurf_watcher_get(struct wl_client *client, struct wl_resource *res_tzpol, uint32_t id, struct wl_resource *surface)
+{
+   E_Client *ec;
+   struct wl_resource *res;
+
+   if (!(ec = wl_resource_get_user_data(surface))) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+
+   if (!(res = wl_resource_create(client, &tizen_subsurface_watcher_interface, 1, id)))
+     {
+        wl_resource_post_no_memory(res_tzpol);
+        return;
+     }
+
+   ec->comp_data->sub.watcher = res;
+
+   wl_resource_set_implementation(res, NULL, ec, _tzpol_iface_cb_subsurf_watcher_destroy);
+}
+
 // --------------------------------------------------------
 // tizen_policy_interface
 // --------------------------------------------------------
@@ -2953,6 +2979,7 @@ static const struct tizen_policy_interface _tzpol_iface =
    _tzpol_iface_cb_floating_mode_unset,
    _tzpol_iface_cb_stack_mode_set,
    _tzpol_iface_cb_activate_above_by_res_id,
+   _tzpol_iface_cb_subsurf_watcher_get,
 };
 
 static void
@@ -5458,7 +5485,7 @@ e_policy_wl_init(void)
    /* create globals */
    global = wl_global_create(e_comp_wl->wl.disp,
                              &tizen_policy_interface,
-                             1,
+                             2,
                              NULL,
                              _tzpol_cb_bind);
    EINA_SAFETY_ON_NULL_GOTO(global, err);
