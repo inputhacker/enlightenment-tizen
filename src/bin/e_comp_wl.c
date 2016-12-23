@@ -2760,6 +2760,7 @@ _e_comp_wl_frame_cb_destroy(struct wl_resource *resource)
    E_Client *ec;
 
    if (!(ec = wl_resource_get_user_data(resource))) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
    if (!ec->comp_data) return;
 
    if (ec->comp_data->frames)
