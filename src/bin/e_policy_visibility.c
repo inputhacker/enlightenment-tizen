@@ -33,7 +33,7 @@ static void      _e_policy_client_uniconify_by_visibility(E_Client *ec);
 static inline Eina_Bool  _e_vis_client_is_grabbed(E_Vis_Client *vc);
 static void              _e_vis_client_grab_remove(E_Vis_Client *vc, E_Vis_Grab *grab);
 static void              _e_vis_client_job_exec(E_Vis_Client *vc, E_Vis_Job_Type type);
-static Eina_Bool         _e_vis_ec_activity_check(E_Client *ec);
+static Eina_Bool         _e_vis_ec_activity_check(E_Client *ec, Eina_Bool check_alpha);
 static void              _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type);
 static void              _e_vis_ec_setup(E_Client *ec);
 static void              _e_vis_ec_reset(E_Client *ec);
@@ -358,7 +358,7 @@ _e_vis_update_forground_list(void)
         if (!evas_object_visible_get(ec->frame)) continue;
 
         pol_vis->fg_clients = eina_list_append(pol_vis->fg_clients, ec);
-        if (_e_vis_ec_activity_check(ec))
+        if (_e_vis_ec_activity_check(ec, EINA_TRUE))
           {
              fg_activity = ec;
              break;
@@ -943,7 +943,7 @@ _e_vis_ec_size_is_full(E_Client *ec)
 }
 
 static Eina_Bool
-_e_vis_ec_activity_check(E_Client *ec)
+_e_vis_ec_activity_check(E_Client *ec, Eina_Bool check_alpha)
 {
    int x, y, w, h;
    E_Comp_Object_Content_Type type = E_COMP_OBJECT_CONTENT_TYPE_NONE;
@@ -952,7 +952,7 @@ _e_vis_ec_activity_check(E_Client *ec)
    /* check if ignored */
    if (e_client_util_ignored_get(ec)) return EINA_FALSE;
    /* check transparent */
-   if ((ec->argb) && (ec->visibility.opaque <= 0)) return EINA_FALSE;
+   if (check_alpha && ((ec->argb) && (ec->visibility.opaque <= 0))) return EINA_FALSE;
    /* check deleted client */
    if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
    /* check launchscreen */
@@ -1020,25 +1020,32 @@ _e_vis_ec_foreground_check(E_Client *ec, Eina_Bool with_transients)
    return EINA_FALSE;
 }
 
-static E_Vis_Client *
-_e_vis_ec_below_activity_client_get(E_Client *ec)
+static void
+_e_vis_ec_below_activity_clients_get(E_Client *ec, Eina_List **below_list)
 {
    E_Client *below;
 
    for (below = e_client_below_get(ec); below; below = e_client_below_get(below))
      {
-        if (!_e_vis_ec_activity_check(below)) continue;
+        if (!_e_vis_ec_activity_check(below, EINA_FALSE)) continue;
 
         E_VIS_CLIENT_GET(vc, below);
         if (!vc) continue;
-        return vc;
+
+        *below_list = eina_list_prepend(*below_list, vc);
+        if ((below->argb) && (below->visibility.opaque <= 0))
+          continue;
+        else
+          break;
      }
-   return NULL;
 }
 
 static Eina_Bool
 _e_vis_ec_below_uniconify(E_Client *ec)
 {
+   Eina_List *below_list = NULL;
+   Eina_List *l = NULL;
+   Eina_Bool ret = EINA_FALSE;
    E_Vis_Client *below;
 
    if (ec && ec->zone)
@@ -1047,15 +1054,22 @@ _e_vis_ec_below_uniconify(E_Client *ec)
           return EINA_FALSE;
      }
 
-   /* find below activity client */
-   below = _e_vis_ec_below_activity_client_get(ec);
-   if (!below)
+   /* find below activity clients */
+   _e_vis_ec_below_activity_clients_get(ec, &below_list);
+   if (!below_list)
      {
         VS_INF(ec, "There is NO below activity");
         return EINA_FALSE;
      }
+   else
+     {
+        EINA_LIST_FOREACH(below_list, l, below)
+          {
+             ret |= _e_vis_client_uniconify_render(below, E_VIS_JOB_TYPE_UNICONIFY, 0);
+          }
+     }
 
-   return _e_vis_client_uniconify_render(below, E_VIS_JOB_TYPE_UNICONIFY, 0);
+   return ret;
 }
 
 static void
@@ -1176,7 +1190,7 @@ E_API Eina_Bool
 e_policy_visibility_client_is_activity(E_Client *ec)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
-   return _e_vis_ec_activity_check(ec);
+   return _e_vis_ec_activity_check(ec, EINA_TRUE);
 }
 
 E_API E_Vis_Grab *
