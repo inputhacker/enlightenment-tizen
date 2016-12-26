@@ -1,4 +1,5 @@
 #include "e.h"
+#include "e_policy_keyboard.h"
 
 /* E_Desk is a child object of E_Zone. A desk is essentially a background
  * and an associated set of client windows. Each zone can have an arbitrary
@@ -792,7 +793,14 @@ e_desk_geometry_set(E_Desk *desk, int x, int y, int w, int h)
 
    EINA_LIST_FOREACH(sd->clients, l, ec)
      {
-        if (ec->maximized)
+        /* even if the desktop geometry is chagned, the system partial windows such as virtual
+         * keyboard and clipboard should be placed at the bottom of the desktop. */
+        /* QUICK FIX */
+        if (e_policy_client_is_keyboard(ec))
+          {
+             continue;
+          }
+        else if (ec->maximized)
           {
              max = ec->maximized;
              ec->maximized = E_MAXIMIZE_NONE;
