@@ -106,10 +106,14 @@ _e_output_commit(E_Output *output)
 
    TRACE_DS_ASYNC_BEGIN((unsigned int)output->toutput, [OUTPUT:COMMIT~HANDLER]);
 
-   error = tdm_output_commit(output->toutput, 0, _e_output_commit_hanler, data_list);
+   int primary_index;
+   tdm_output_get_primary_index(output->toutput, &primary_index);
+   tdm_layer *layer = tdm_output_get_layer(output->toutput, primary_index, NULL);
+
+   error = tdm_layer_commit(layer, _e_output_commit_hanler, data_list);
    if (error != TDM_ERROR_NONE)
      {
-        ERR("fail to tdm_output_commit");
+        ERR("fail to tdm_layer_commit");
         TRACE_DS_ASYNC_END((unsigned int)output->toutput, [OUTPUT:COMMIT~HANDLER]);
         EINA_LIST_FOREACH_SAFE(data_list, l, ll, data)
           {
