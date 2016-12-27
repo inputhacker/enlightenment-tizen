@@ -603,7 +603,8 @@ e_comp_canvas_layer_map(E_Layer layer)
      }
 
    /* prevents to access the e_comp->layers list out of bounds. */
-   return 0;
+   ELOGF("WARNING", "Used not defined layer:%d", NULL, NULL, layer);
+   return E_LAYER_MAX;
 }
 
 E_API unsigned int
