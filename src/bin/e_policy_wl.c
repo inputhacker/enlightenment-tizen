@@ -1244,16 +1244,14 @@ e_policy_wl_position_send(E_Client *ec)
 // --------------------------------------------------------
 // stack: activate, raise, lower
 // --------------------------------------------------------
-static void
-_tzpol_iface_cb_activate(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol EINA_UNUSED, struct wl_resource *surf)
-{
-   E_Client *ec;
 
-   ec = wl_resource_get_user_data(surf);
+E_API void
+e_policy_wl_activate(E_Client *ec)
+{
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
-   ELOGF("TZPOL", "ACTIVATE", ec->pixmap, ec);
+   ELOGF("TZPOL", "REAL ACTIVATE", ec->pixmap, ec);
 
    if ((!starting) && (!ec->focused) && (!ec->visibility.force_obscured))
      {
@@ -1271,6 +1269,19 @@ _tzpol_iface_cb_activate(struct wl_client *client EINA_UNUSED, struct wl_resourc
      e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
    else
      e_policy_stack_check_above_lockscreen(ec, ec->layer, NULL, EINA_TRUE);
+}
+
+static void
+_tzpol_iface_cb_activate(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol EINA_UNUSED, struct wl_resource *surf)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(surf);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+   EINA_SAFETY_ON_NULL_RETURN(ec->frame);
+
+   ELOGF("TZPOL", "ACTIVATE", ec->pixmap, ec);
+   e_policy_wl_activate(ec);
 }
 
 E_API void
