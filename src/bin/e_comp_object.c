@@ -5009,6 +5009,22 @@ e_comp_object_content_unset(Evas_Object *obj)
    return EINA_TRUE;
 }
 
+E_API Evas_Object *
+e_comp_object_content_get(Evas_Object *obj)
+{
+   API_ENTRY NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cw->ec, NULL);
+
+   if (cw->content_type == E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
+     {
+        INF("%p has been set to internal image object. couldn't return internal image object", cw->ec);
+        return NULL;
+     }
+
+   return cw->obj;
+}
+
 E_API E_Comp_Object_Content_Type
 e_comp_object_content_type_get(Evas_Object *obj)
 {

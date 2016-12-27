@@ -4510,9 +4510,11 @@ _tzlaunch_img_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl_re
                                            angle, indicator, options);
    if (intercepted)
      {
+        tzlaunch_img->obj = e_comp_object_content_get(ec->frame);
+
         ELOGF("TZPOL",
-              "Launchscreen object setup was successfully intercepted",
-              ec->pixmap, ec);
+              "Launchscreen object setup was successfully intercepted content(%p)",
+              ec->pixmap, ec, tzlaunch_img->obj);
      }
    else
      {
@@ -4548,7 +4550,10 @@ _tzlaunch_img_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl_re
              ERR("Setting comp object content for %p failed!", ec);
              goto error;
           }
+     }
 
+   if (tzlaunch_img->obj)
+     {
         evas_object_ref(tzlaunch_img->obj);
 
         evas_object_event_callback_add(tzlaunch_img->obj,
