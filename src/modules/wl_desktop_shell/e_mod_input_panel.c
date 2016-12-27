@@ -66,6 +66,8 @@ _e_input_panel_surface_resource_destroy(struct wl_resource *resource)
           {
              ec->parent->transients =
                 eina_list_remove(ec->parent->transients, ec);
+             if (ec->parent->modal == ec) ec->parent->modal = NULL;
+             ec->parent = NULL;
           }
         ec->comp_data->shell.surface = NULL;
      }
