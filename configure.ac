@@ -285,6 +285,7 @@ e_requires="\
   eio >= $efl_version \
   eo >= $efl_version \
   libtbm \
+  gfxperf \
   libtdm >= "1.0.0" \
   "
 

@@ -1,7 +1,7 @@
 #include "e.h"
 
 #include <Evas_Engine_GL_Drm.h>
-
+#include <gfxperf.h>
 static void
 _e_output_cb_output_change(tdm_output *toutput,
                                   tdm_output_change_type type,
@@ -856,6 +856,8 @@ e_output_commit(E_Output *output)
 
              return EINA_FALSE;
           }
+
+   GFX_PERF("UiCommit");
      }
 
    return EINA_TRUE;
