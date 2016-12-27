@@ -4210,9 +4210,13 @@ _e_comp_wl_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
    /* remove sub list */
    /* TODO: if parent is set by onscreen_parent of remote surface? */
    _e_comp_wl_surface_sub_list_free(ec->comp_data->sub.list);
+   ec->comp_data->sub.list = NULL;
    _e_comp_wl_surface_sub_list_free(ec->comp_data->sub.list_pending);
+   ec->comp_data->sub.list_pending = NULL;
    _e_comp_wl_surface_sub_list_free(ec->comp_data->sub.below_list);
+   ec->comp_data->sub.below_list = NULL;
    _e_comp_wl_surface_sub_list_free(ec->comp_data->sub.below_list_pending);
+   ec->comp_data->sub.below_list_pending = NULL;
 
    if (ec->comp_data->sub.watcher)
      wl_resource_destroy(ec->comp_data->sub.watcher);
