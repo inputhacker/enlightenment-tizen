@@ -72,7 +72,6 @@ _e_policy_stack_transient_for_apply(E_Client *ec)
         raise = e_config->transient.raise;
 
         ec->saved.layer = ec->layer;
-        ec->layer = ec->parent->layer;
         if (e_config->transient.layer)
           {
              e_config->transient.raise = 1;
@@ -80,10 +79,10 @@ _e_policy_stack_transient_for_apply(E_Client *ec)
                {
                   if (!child) continue;
                   child->saved.layer = child->layer;
-                  child->layer = ec->parent->layer;
                }
           }
 
+        evas_object_layer_set(ec->frame, ec->parent->layer);
         e_config->transient.raise = raise;
      }
 
