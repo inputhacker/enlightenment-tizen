@@ -1389,91 +1389,6 @@ _e_info_server_protocol_debug_func(struct wl_closure *closure, struct wl_resourc
    pid_t client_pid = -1;
    E_Comp_Connected_Client_Info *cinfo;
    Eina_List *l;
-
-   if (!log_fp_ptrace) return;
-   if (wc) wl_client_get_credentials(wc, &client_pid, NULL, NULL);
-
-   clock_gettime(CLOCK_MONOTONIC, &tp);
-   time = (tp.tv_sec * 1000000L) + (tp.tv_nsec / 1000);
-
-   E_Info_Protocol_Log elog = {0,};
-   elog.type = send;
-   elog.client_pid = client_pid;
-   elog.target_id = target->id;
-   snprintf(elog.name, PATH_MAX, "%s:%s", target->interface->name, closure->message->name);
-   EINA_LIST_FOREACH(e_comp->connected_clients, l, cinfo)
-     {
-        if (cinfo->pid == client_pid)
-          snprintf(elog.cmd, PATH_MAX, "%s", cinfo->name);
-     }
-
-   if (!e_info_protocol_rule_validate(&elog)) return;
-   fprintf(log_fp_ptrace, "[%10.3f] %s%d%s%s@%u.%s(",
-              time / 1000.0,
-              send ? "Server -> Client [PID:" : "Server <- Client [PID:",
-              client_pid, "] ",
-              target->interface->name, target->id,
-              closure->message->name);
-
-   for (i = 0; i < closure->count; i++)
-     {
-        signature = get_next_argument(signature, &arg);
-        if (i > 0) fprintf(log_fp_ptrace, ", ");
-
-        switch (arg.type)
-          {
-           case 'u':
-             fprintf(log_fp_ptrace, "%u", closure->args[i].u);
-             break;
-           case 'i':
-             fprintf(log_fp_ptrace, "%d", closure->args[i].i);
-             break;
-           case 'f':
-             fprintf(log_fp_ptrace, "%f",
-             wl_fixed_to_double(closure->args[i].f));
-             break;
-           case 's':
-             fprintf(log_fp_ptrace, "\"%s\"", closure->args[i].s);
-             break;
-           case 'o':
-             if (closure->args[i].o)
-               fprintf(log_fp_ptrace, "%s@%u", closure->args[i].o->interface->name, closure->args[i].o->id);
-             else
-               fprintf(log_fp_ptrace, "nil");
-             break;
-           case 'n':
-             fprintf(log_fp_ptrace, "new id %s@", (closure->message->types[i]) ? closure->message->types[i]->name : "[unknown]");
-             if (closure->args[i].n != 0)
-               fprintf(log_fp_ptrace, "%u", closure->args[i].n);
-             else
-               fprintf(log_fp_ptrace, "nil");
-             break;
-           case 'a':
-             fprintf(log_fp_ptrace, "array");
-             break;
-           case 'h':
-             fprintf(log_fp_ptrace, "fd %d", closure->args[i].h);
-             break;
-          }
-     }
-
-   fprintf(log_fp_ptrace, "), cmd: %s\n", elog.cmd? : "cmd is NULL");
-}
-
-
-static void
-_e_info_server_protocol_debug_func_elog(struct wl_closure *closure, struct wl_resource *resource, int send)
-{
-   int i;
-   struct argument_details arg;
-   struct wl_object *target = &resource->object;
-   struct wl_client *wc = resource->client;
-   const char *signature = closure->message->signature;
-   struct timespec tp;
-   unsigned int time;
-   pid_t client_pid = -1;
-   E_Comp_Connected_Client_Info *cinfo;
-   Eina_List *l;
    char strbuf[512], *str_buff = strbuf;
    int str_r, str_l;
 
@@ -1482,7 +1397,7 @@ _e_info_server_protocol_debug_func_elog(struct wl_closure *closure, struct wl_re
 
    if (wc) wl_client_get_credentials(wc, &client_pid, NULL, NULL);
 
-   clock_gettime(CLOCK_REALTIME, &tp);
+   clock_gettime(CLOCK_MONOTONIC, &tp);
    time = (tp.tv_sec * 1000000L) + (tp.tv_nsec / 1000);
 
    E_Info_Protocol_Log elog = {0,};
@@ -1547,99 +1462,17 @@ _e_info_server_protocol_debug_func_elog(struct wl_closure *closure, struct wl_re
      }
 
    BUF_SNPRINTF("), cmd: %s", elog.cmd ? elog.cmd : "cmd is NULL");
-   INF("%s", strbuf);
+
+   if (log_fp_ptrace)
+     fprintf(log_fp_ptrace, "%s\n", strbuf);
+   else
+     INF("%s", strbuf);
 }
 
 #else
 
 static void
 _e_info_server_protocol_debug_func2(void *user_data, enum wl_protocol_logger_type direction, const struct wl_protocol_logger_message *message)
-{
-   int i;
-   struct argument_details arg;
-   struct wl_client *wc = wl_resource_get_client(message->resource);
-   const char *signature = message->message->signature;
-   struct timespec tp;
-   unsigned int time;
-   pid_t client_pid = -1;
-   E_Comp_Connected_Client_Info *cinfo;
-   Eina_List *l;
-
-   if (!log_fp_ptrace) return;
-   if (wc) wl_client_get_credentials(wc, &client_pid, NULL, NULL);
-
-   clock_gettime(CLOCK_MONOTONIC, &tp);
-   time = (tp.tv_sec * 1000000L) + (tp.tv_nsec / 1000);
-
-   E_Info_Protocol_Log elog = {0,};
-   elog.type = (direction == WL_PROTOCOL_LOGGER_EVENT)?1:0;
-   elog.client_pid = client_pid;
-   elog.target_id = wl_resource_get_id(message->resource);
-   snprintf(elog.name, PATH_MAX, "%s:%s", wl_resource_get_name(message->resource), message->message->name);
-   EINA_LIST_FOREACH(e_comp->connected_clients, l, cinfo)
-     {
-        if (cinfo->pid == client_pid)
-          snprintf(elog.cmd, PATH_MAX, "%s", cinfo->name);
-     }
-
-   if (!e_info_protocol_rule_validate(&elog)) return;
-   fprintf(log_fp_ptrace, "[%10.3f] %s%d%s%s@%u.%s(",
-              time / 1000.0,
-              elog.type ? "Server -> Client [PID:" : "Server <- Client [PID:",
-              client_pid, "] ",
-              wl_resource_get_name(message->resource),
-              wl_resource_get_id(message->resource),
-              message->message->name);
-
-   for (i = 0; i < message->arguments_count; i++)
-     {
-        signature = get_next_argument(signature, &arg);
-        if (i > 0) fprintf(log_fp_ptrace, ", ");
-
-        switch (arg.type)
-          {
-           case 'u':
-             fprintf(log_fp_ptrace, "%u", message->arguments[i].u);
-             break;
-           case 'i':
-             fprintf(log_fp_ptrace, "%d", message->arguments[i].i);
-             break;
-           case 'f':
-             fprintf(log_fp_ptrace, "%f",
-             wl_fixed_to_double(message->arguments[i].f));
-             break;
-           case 's':
-             fprintf(log_fp_ptrace, "\"%s\"", message->arguments[i].s);
-             break;
-           case 'o':
-             if (message->arguments[i].o)
-               fprintf(log_fp_ptrace, "%s@%u",
-                           wl_resource_get_name((struct wl_resource*)message->arguments[i].o),
-                           wl_resource_get_id((struct wl_resource*)message->arguments[i].o));
-             else
-               fprintf(log_fp_ptrace, "nil");
-             break;
-           case 'n':
-             fprintf(log_fp_ptrace, "new id %s@", (message->message->types[i]) ? message->message->types[i]->name : "[unknown]");
-             if (message->arguments[i].n != 0)
-               fprintf(log_fp_ptrace, "%u", message->arguments[i].n);
-             else
-               fprintf(log_fp_ptrace, "nil");
-             break;
-           case 'a':
-             fprintf(log_fp_ptrace, "array");
-             break;
-           case 'h':
-             fprintf(log_fp_ptrace, "fd %d", message->arguments[i].h);
-             break;
-          }
-     }
-
-   fprintf(log_fp_ptrace, "), cmd: %s\n", elog.cmd? : "cmd is NULL");
-}
-
-static void
-_e_info_server_protocol_debug_func_elog2(void *user_data, enum wl_protocol_logger_type direction, const struct wl_protocol_logger_message *message)
 {
    int i;
    struct argument_details arg;
@@ -1658,7 +1491,7 @@ _e_info_server_protocol_debug_func_elog2(void *user_data, enum wl_protocol_logge
 
    if (wc) wl_client_get_credentials(wc, &client_pid, NULL, NULL);
 
-   clock_gettime(CLOCK_REALTIME, &tp);
+   clock_gettime(CLOCK_MONOTONIC, &tp);
    time = (tp.tv_sec * 1000000L) + (tp.tv_nsec / 1000);
 
    E_Info_Protocol_Log elog = {0,};
@@ -1726,9 +1559,12 @@ _e_info_server_protocol_debug_func_elog2(void *user_data, enum wl_protocol_logge
      }
 
    BUF_SNPRINTF("), cmd: %s", elog.cmd ? elog.cmd : "cmd is NULL");
-   INF("%s", strbuf);
-}
 
+   if (log_fp_ptrace)
+     fprintf(log_fp_ptrace, "%s\n", strbuf);
+   else
+     INF("%s", strbuf);
+}
 #endif
 
 static Eldbus_Message *
@@ -1763,31 +1599,17 @@ _e_info_server_cb_protocol_trace(const Eldbus_Service_Interface *iface EINA_UNUS
         return reply;
      }
 
-   if (!strncmp(path, "elog", 4))
+   /* if path's not elog, we open the new log file. Otherwise, the log will be printed via eina_log */
+   if (strncmp(path, "elog", 4))
      {
-#if !USE_WAYLAND_LOGGER
-        wl_debug_server_debug_func_set((wl_server_debug_func_ptr)_e_info_server_protocol_debug_func_elog);
-#else
-        if (e_info_protocol_logger)
+        log_fp_ptrace = fopen(path, "a");
+        if (!log_fp_ptrace)
           {
-             wl_protocol_logger_destroy(e_info_protocol_logger);
-             e_info_protocol_logger = NULL;
+             ERR("failed: open file(%s)\n", path);
+             return reply;
           }
-
-        e_info_protocol_logger = wl_display_add_protocol_logger(e_comp->wl_comp_data->wl.disp, _e_info_server_protocol_debug_func_elog2, NULL);
-#endif
-        return reply;
+        setvbuf(log_fp_ptrace, NULL, _IOLBF, 512);
      }
-
-   log_fp_ptrace = fopen(path, "a");
-
-   if (!log_fp_ptrace)
-     {
-        ERR("failed: open file(%s)\n", path);
-        return reply;
-     }
-
-   setvbuf(log_fp_ptrace, NULL, _IOLBF, 512);
 
 #if !USE_WAYLAND_LOGGER
    wl_debug_server_debug_func_set((wl_server_debug_func_ptr)_e_info_server_protocol_debug_func);
