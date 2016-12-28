@@ -4331,8 +4331,15 @@ e_client_above_get(const E_Client *ec)
    if (EINA_INLIST_GET(ec)->next) //check current layer
      {
         EINA_INLIST_FOREACH(EINA_INLIST_GET(ec)->next, ec2)
-          if (!e_object_is_del(E_OBJECT(ec2)))
-            return ec2;
+          {
+             if (ec == ec2)
+               {
+                  ELOGF("FATAL", "CHECK the ec inlist next", ec->pixmap, ec);
+                  continue;
+               }
+             if (!e_object_is_del(E_OBJECT(ec2)))
+               return ec2;
+          }
      }
    if (ec->layer == E_LAYER_CLIENT_ALERT) return NULL;
    if (e_comp_canvas_client_layer_map(ec->layer) == 9999) return NULL;
@@ -4342,8 +4349,16 @@ e_client_above_get(const E_Client *ec)
      {
         if (!e_comp->layers[x].clients) continue;
         EINA_INLIST_FOREACH(e_comp->layers[x].clients, ec2)
-          if (!e_object_is_del(E_OBJECT(ec2)))
-            return ec2;
+          {
+             if (ec == ec2)
+               {
+                  ELOGF("FATAL", "EC exist above layer. ec layer_map:%d, cur layer_map:%d",
+                        ec->pixmap, ec, e_comp_canvas_layer_map(ec->layer), x);
+                  continue;
+               }
+             if (!e_object_is_del(E_OBJECT(ec2)))
+               return ec2;
+          }
      }
    return NULL;
 }
@@ -4363,7 +4378,12 @@ e_client_below_get(const E_Client *ec)
      {
         for (l = EINA_INLIST_GET(ec)->prev; l; l = l->prev)
           {
-             ec2 = EINA_INLIST_CONTAINER_GET(l, E_Client);;
+             ec2 = EINA_INLIST_CONTAINER_GET(l, E_Client);
+             if (ec == ec2)
+               {
+                  ELOGF("FATAL", "CHECK the ec inlist prev", ec->pixmap, ec);
+                  continue;
+               }
              if (!e_object_is_del(E_OBJECT(ec2)))
                return ec2;
           }
@@ -4380,8 +4400,16 @@ e_client_below_get(const E_Client *ec)
      {
         if (!e_comp->layers[x].clients) continue;
         EINA_INLIST_REVERSE_FOREACH(e_comp->layers[x].clients, ec2)
-          if (!e_object_is_del(E_OBJECT(ec2)))
-            return ec2;
+          {
+             if (ec == ec2)
+               {
+                  ELOGF("FATAL", "EC exist below layer. ec layer_map:%d, cur layer_map:%d",
+                        ec->pixmap, ec, e_comp_canvas_layer_map(ec->layer), x);
+                  continue;
+               }
+             if (!e_object_is_del(E_OBJECT(ec2)))
+               return ec2;
+          }
      }
    return NULL;
 }
