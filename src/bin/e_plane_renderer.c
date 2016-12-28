@@ -888,6 +888,7 @@ EINTERN Eina_Bool
 e_plane_renderer_ecore_evas_use(E_Plane_Renderer *renderer)
 {
    E_Plane *plane = NULL;
+   E_Plane_Renderer_Client *renderer_client = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
 
@@ -911,7 +912,14 @@ e_plane_renderer_ecore_evas_use(E_Plane_Renderer *renderer)
    else
      {
         _e_plane_renderer_recover_ec(renderer);
-        renderer->ec = NULL;
+        if (renderer->ec)
+          {
+             renderer_client = e_plane_renderer_client_get(renderer->ec);
+             if (renderer_client)
+               renderer_client->renderer = NULL;
+
+             renderer->ec = NULL;
+          }
      }
 
    return EINA_TRUE;
