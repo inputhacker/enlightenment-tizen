@@ -243,6 +243,8 @@ _conf_client_add(E_Client *ec, struct wl_resource *res)
 static E_Client *
 _conf_part_owner_find(E_Client *part, Conformant_Type type)
 {
+   EINA_SAFETY_ON_NULL_RETURN_VAL(part, NULL);
+
    if (type == CONFORMANT_TYPE_KEYBOARD)
      {
         return part->parent;
