@@ -306,6 +306,20 @@ _conf_cb_part_obj_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
 }
 
 static void
+_conf_cb_part_obj_hiding(void *data, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   Conformant_Type type = (Conformant_Type)data;
+
+   DBG("PART %s ec(%p) Hiding", _conf_type_to_str(type), g_conf->part[type].ec);
+   _conf_state_update(type,
+                      EINA_FALSE,
+                      g_conf->part[type].state.x,
+                      g_conf->part[type].state.y,
+                      g_conf->part[type].state.w,
+                      g_conf->part[type].state.h);
+   g_conf->part[type].owner = NULL;
+}
+static void
 _conf_cb_part_obj_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    Conformant_Type type = (Conformant_Type)data;
@@ -344,6 +358,8 @@ _conf_part_register(E_Client *ec, Conformant_Type type)
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_HIDE,     _conf_cb_part_obj_hide,    (void*)type);
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_MOVE,     _conf_cb_part_obj_move,    (void*)type);
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_RESIZE,   _conf_cb_part_obj_resize,  (void*)type);
+
+   evas_object_smart_callback_add(ec->frame, "hiding", _conf_cb_part_obj_hiding, (void*)type);
 }
 
 static Eina_Bool
