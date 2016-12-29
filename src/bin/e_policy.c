@@ -66,6 +66,7 @@ static Eina_Bool   _e_policy_cb_client_resize(void *data EINA_UNUSED, int type, 
 static Eina_Bool   _e_policy_cb_client_stack(void *data EINA_UNUSED, int type, void *event);
 static Eina_Bool   _e_policy_cb_client_property(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 static Eina_Bool   _e_policy_cb_client_vis_change(void *data EINA_UNUSED, int type EINA_UNUSED, void *event EINA_UNUSED);
+static Eina_Bool   _e_policy_cb_client_show(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 static Eina_Bool   _e_policy_cb_client_hide(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 
 static Eina_Bool   _e_policy_cb_idle_enterer(void *data EINA_UNUSED);
@@ -1338,6 +1339,21 @@ _e_policy_cb_client_vis_change(void *data EINA_UNUSED, int type EINA_UNUSED, voi
 }
 
 static Eina_Bool
+_e_policy_cb_client_show(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
+{
+   E_Event_Client *ev;
+   E_Client *ec;
+
+   ev = event;
+   if (!ev) return ECORE_CALLBACK_PASS_ON;
+
+   ec = ev->ec;
+   e_policy_stack_check_above_lockscreen(ec, ec->layer, NULL, EINA_TRUE);
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
+static Eina_Bool
 _e_policy_cb_client_hide(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
 {
    E_Event_Client *ev;
@@ -1929,6 +1945,7 @@ e_policy_init(void)
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_CLIENT_STACK,              _e_policy_cb_client_stack,                    NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_CLIENT_PROPERTY,           _e_policy_cb_client_property,                 NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_CLIENT_VISIBILITY_CHANGE,  _e_policy_cb_client_vis_change,               NULL);
+   E_LIST_HANDLER_APPEND(handlers, E_EVENT_CLIENT_SHOW,               _e_policy_cb_client_show,                     NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_CLIENT_HIDE,               _e_policy_cb_client_hide,                     NULL);
 
    E_CLIENT_HOOK_APPEND(hooks_ec,  E_CLIENT_HOOK_NEW_CLIENT,          _e_policy_cb_hook_client_new,                 NULL);
