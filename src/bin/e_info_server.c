@@ -1348,6 +1348,63 @@ _e_info_server_cb_rotation_message(const Eldbus_Service_Interface *iface EINA_UN
    return reply;
 }
 
+static void
+protocol_cb_client_destroy(struct wl_listener *listener, void *data)
+{
+   struct wl_client *wc = (struct wl_client *)data;
+   struct timespec tp;
+   unsigned int time;
+   pid_t client_pid = -1;
+   const char *client_name = NULL;
+   E_Comp_Connected_Client_Info *cinfo;
+   Eina_List *l;
+   char strbuf[512], *str_buff = strbuf;
+   int str_r, str_l;
+
+   str_buff[0] = '\0';
+   str_r = sizeof(strbuf);
+
+   wl_client_get_credentials(wc, &client_pid, NULL, NULL);
+
+   clock_gettime(CLOCK_MONOTONIC, &tp);
+   time = (tp.tv_sec * 1000000L) + (tp.tv_nsec / 1000);
+
+   EINA_LIST_FOREACH(e_comp->connected_clients, l, cinfo)
+     {
+        if (cinfo->pid == client_pid)
+          {
+              client_name = cinfo->name;
+              break;
+          }
+     }
+
+   BUF_SNPRINTF("[%10.3f] Server           [PID:%d] client destroying", time / 1000.0, client_pid);
+   BUF_SNPRINTF(", cmd: %s", client_name ? client_name : "cmd is NULL");
+
+   if (log_fp_ptrace)
+     fprintf(log_fp_ptrace, "%s\n", strbuf);
+   else
+     INF("%s", strbuf);
+
+   wl_list_remove(&listener->link);
+   E_FREE(listener);
+}
+
+static void
+protocol_client_destroy_listener_reg(struct wl_client *client)
+{
+   struct wl_listener *destroy_listener;
+
+   destroy_listener = wl_client_get_destroy_listener(client, protocol_cb_client_destroy);
+   if (destroy_listener) return;
+
+   destroy_listener = E_NEW(struct wl_listener, 1);
+   EINA_SAFETY_ON_NULL_RETURN(destroy_listener);
+
+   destroy_listener->notify = protocol_cb_client_destroy;
+   wl_client_add_destroy_listener(client, destroy_listener);
+}
+
 /* wayland private function */
 const char *
 get_next_argument(const char *signature, struct argument_details *details)
@@ -1395,7 +1452,11 @@ _e_info_server_protocol_debug_func(struct wl_closure *closure, struct wl_resourc
    str_buff[0] = '\0';
    str_r = sizeof(strbuf);
 
-   if (wc) wl_client_get_credentials(wc, &client_pid, NULL, NULL);
+   if (wc)
+     {
+        protocol_client_destroy_listener_reg(wc);
+        wl_client_get_credentials(wc, &client_pid, NULL, NULL);
+     }
 
    clock_gettime(CLOCK_MONOTONIC, &tp);
    time = (tp.tv_sec * 1000000L) + (tp.tv_nsec / 1000);
@@ -1489,7 +1550,11 @@ _e_info_server_protocol_debug_func2(void *user_data, enum wl_protocol_logger_typ
    str_buff[0] = '\0';
    str_r = sizeof(strbuf);
 
-   if (wc) wl_client_get_credentials(wc, &client_pid, NULL, NULL);
+   if (wc)
+     {
+        protocol_client_destroy_listener_reg(wc);
+        wl_client_get_credentials(wc, &client_pid, NULL, NULL);
+     }
 
    clock_gettime(CLOCK_MONOTONIC, &tp);
    time = (tp.tv_sec * 1000000L) + (tp.tv_nsec / 1000);
