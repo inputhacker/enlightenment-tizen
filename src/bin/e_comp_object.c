@@ -4530,6 +4530,14 @@ e_comp_object_effect_mover_del(E_Comp_Object_Mover *prov)
    _e_comp_object_movers = eina_inlist_remove(_e_comp_object_movers, EINA_INLIST_GET(prov));
    free(prov);
 }
+
+E_API Evas_Object *
+e_comp_object_effect_object_get(Evas_Object *obj)
+{
+   API_ENTRY NULL;
+
+   return cw->effect_obj;
+}
 ////////////////////////////////////
 
 static void

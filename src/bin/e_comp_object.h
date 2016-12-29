@@ -116,6 +116,7 @@ E_API Eina_Bool e_comp_object_effect_start(Evas_Object *obj, Edje_Signal_Cb end_
 E_API Eina_Bool e_comp_object_effect_stop(Evas_Object *obj, Edje_Signal_Cb end_cb);
 E_API E_Comp_Object_Mover *e_comp_object_effect_mover_add(int pri, const char *sig, E_Comp_Object_Mover_Cb provider, const void *data);
 E_API void e_comp_object_effect_mover_del(E_Comp_Object_Mover *prov);
+E_API Evas_Object *e_comp_object_effect_object_get(Evas_Object *obj);
 
 #ifdef _F_E_COMP_OBJECT_INTERCEPT_HOOK_
 E_API E_Comp_Object_Intercept_Hook *e_comp_object_intercept_hook_add(E_Comp_Object_Intercept_Hook_Point hookpoint, E_Comp_Object_Intercept_Hook_Cb func, const void *data);
