@@ -297,7 +297,6 @@ e_pointer_touch_move(E_Pointer *ptr, int x, int y)
 
    if (!e_config->show_cursor) return;
    if (!ptr->o_ptr) return;
-   if (!evas_object_visible_get(ptr->o_ptr)) return;
 
    /* save the current position */
    ptr->x = x;
@@ -316,7 +315,6 @@ e_pointer_mouse_move(E_Pointer *ptr, int x, int y)
 
    if (!e_config->show_cursor) return;
    if (!ptr->o_ptr) return;
-   if (!evas_object_visible_get(ptr->o_ptr)) return;
 
    /* save the current position */
    ptr->x = x;
