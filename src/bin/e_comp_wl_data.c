@@ -28,15 +28,15 @@ _e_comp_wl_data_offer_cb_receive(struct wl_client *client EINA_UNUSED, struct wl
 {
    E_Comp_Wl_Data_Offer *offer;
 
-   DBG("Data Offer Receive");
+   DBG("Data Offer Receive FD:%d", fd);
 
    if (!(offer = wl_resource_get_user_data(resource)))
      return;
 
    if (offer->source)
      offer->source->send(offer->source, mime_type, fd);
-   else
-     close(fd);
+
+   close(fd);
 }
 
 /* called by wl_data_offer_destroy */
