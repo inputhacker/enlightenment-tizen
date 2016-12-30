@@ -760,6 +760,7 @@ _e_client_find_focus_same_layer(E_Client *ec)
         if (e_object_is_del(E_OBJECT(temp_ec))) continue;
         if (e_client_util_ignored_get(temp_ec)) continue;
         if (!temp_ec->frame) continue;
+        if (!temp_ec->first_mapped) continue;
 
         e_client_geometry_get(temp_ec, &x, &y, &w, &h);
         if ((x >= zone_w) || (y >= zone_h)) continue;
