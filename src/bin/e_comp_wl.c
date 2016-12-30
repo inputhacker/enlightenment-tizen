@@ -3777,7 +3777,13 @@ e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_
          * because server will send the fatal error when a client destroy a subsurface object.
          * Otherwise, server will kill a client by the fatal error.
          */
-        res = wl_resource_create(client, &wl_subsurface_interface, 1, id);
+        if (!(res = wl_resource_create(client, &wl_subsurface_interface, 1, id)))
+          {
+             ERR("Failed to create subsurface resource");
+             wl_resource_post_no_memory(surface_resource);
+             return EINA_FALSE;
+          }
+
         wl_resource_set_implementation(res, &_e_subsurface_interface, NULL, NULL);
 
         ERR("tizen_policy failed: invalid parent");
