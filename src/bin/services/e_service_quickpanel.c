@@ -1593,7 +1593,7 @@ e_service_quickpanel_effect_type_set(E_Client *ec, E_Service_Quickpanel_Effect_T
      }
 }
 
-EINTERN E_Client *
+E_API E_Client *
 e_service_quickpanel_client_get(void)
 {
    if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_client_get)

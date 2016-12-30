@@ -39,7 +39,7 @@ E_API Eina_Bool       e_service_quickpanel_module_func_set(E_QP_Mgr_Funcs *fp);
 E_API Eina_Bool       e_service_quickpanel_module_func_unset(void);
 
 EINTERN void          e_service_quickpanel_client_set(E_Client *ec);
-EINTERN E_Client     *e_service_quickpanel_client_get(void);
+E_API E_Client       *e_service_quickpanel_client_get(void);
 EINTERN void          e_service_quickpanel_show(void);
 EINTERN void          e_service_quickpanel_hide(void);
 EINTERN Eina_Bool     e_service_quickpanel_region_set(int type, int angle, Eina_Tiler *tiler);
