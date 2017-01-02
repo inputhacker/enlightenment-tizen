@@ -4797,7 +4797,10 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
              if (!obscured)
                evas_object_focus_set(focus_ec->frame, 1);
              else
-               e_client_focus_defer_set(focus_ec);
+               {
+                  e_client_focus_defer_set(focus_ec);
+                  e_client_focus_latest_set(focus_ec);
+               }
           }
      }
 
