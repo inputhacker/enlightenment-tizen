@@ -2939,6 +2939,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
         if (ec->zone != zone) continue;
         if (!ec->frame) continue;
         if (ec->visibility.skip) continue;
+        if (ec->is_cursor) continue;
         /* if ec is subsurface, skip this */
         cdata = (E_Comp_Wl_Client_Data *)ec->comp_data;
         if (cdata && cdata->sub.data) continue;
