@@ -3108,6 +3108,8 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
                                       focus_ec = ec;
                                       evas_object_focus_set(ec->frame, 1);
                                    }
+                                 else
+                                   e_client_focus_latest_set(ec);
                               }
                          }
                        e_client_focus_defer_unset(ec);
