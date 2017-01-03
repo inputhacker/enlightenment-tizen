@@ -571,6 +571,14 @@ _e_comp_wl_evas_cb_hide(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EIN
    if (!(ec = data)) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
+   /* Uncommonly some clients's final buffer can be skipped if the client
+    * requests unmap of its surface right after wl_surface@commit.
+    * So if this client evas object is hidden state and client is already
+    * unmmapped, we can consider to clear pixmap image here mandatorily.
+    */
+   if (!ec->comp_data->mapped)
+     e_pixmap_image_clear(ec->pixmap, 1);
+
    EINA_LIST_FOREACH(ec->e.state.video_child, l, tmp)
      evas_object_hide(tmp->frame);
 
