@@ -13,11 +13,42 @@ static void
 _e_pointer_position_update(E_Pointer *ptr)
 {
    int nx, ny;
+   int rotation;
+   int cursor_w, cursor_h;
+   E_Client *ec;
 
    if (!ptr->o_ptr) return;
 
-   nx = ptr->x - ptr->hot.x;
-   ny = ptr->y - ptr->hot.y;
+   ec = e_comp_object_client_get(ptr->o_ptr);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   rotation = ptr->rotation;
+
+   evas_object_geometry_get(ec->frame, NULL, NULL, &cursor_w, &cursor_h);
+
+   switch (rotation)
+     {
+      case 0:
+        nx = ptr->x - ptr->hot.x;
+        ny = ptr->y - ptr->hot.y;
+        break;
+      case 90:
+        nx = ptr->x - ptr->hot.y;
+        ny = ptr->y + ptr->hot.x - cursor_w;
+        break;
+      case 180:
+        nx = ptr->x + ptr->hot.x - cursor_w;
+        ny = ptr->y + ptr->hot.y - cursor_h;
+        break;
+      case 270:
+        nx = ptr->x + ptr->hot.y - cursor_h;
+        ny = ptr->y - ptr->hot.x;
+        break;
+      default:
+        nx = ptr->x - ptr->hot.x;
+        ny = ptr->y - ptr->hot.y;
+        break;
+     }
 
    if (ptr->hwc)
       e_comp_object_hwc_update_set(ptr->o_ptr, EINA_TRUE);
