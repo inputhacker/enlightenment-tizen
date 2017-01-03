@@ -4171,6 +4171,9 @@ e_comp_object_render(Evas_Object *obj)
    if (cw->ec->input_only) return EINA_TRUE;
    if (cw->external_content) return EINA_TRUE;
    if (cw->native) return EINA_FALSE;
+   /* if comp object is not redirected state, comp object should not be set by newly committed data
+      because image size of comp object is 1x1 and it should not be shown on canvas */
+   if (!cw->redirected) return EINA_TRUE;
    e_comp_object_render_update_del(obj);
    if (!e_pixmap_size_get(cw->ec->pixmap, &pw, &ph)) return EINA_FALSE;
 
