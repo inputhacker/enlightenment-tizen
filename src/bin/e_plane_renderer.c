@@ -1533,7 +1533,11 @@ e_plane_renderer_surface_queue_can_dequeue(E_Plane_Renderer *renderer)
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
 
    tqueue = renderer->tqueue;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
+   if (!tqueue)
+     {
+        WRN("tbm_surface_queue is NULL");
+        return EINA_FALSE;
+     }
 
    num_free = tbm_surface_queue_can_dequeue(tqueue, 0);
 

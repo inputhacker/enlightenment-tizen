@@ -447,7 +447,7 @@ _e_plane_surface_from_ecore_evas_acquire(E_Plane *plane)
      {
         if(!(tqueue = _get_tbm_surface_queue(e_comp)))
           {
-             ERR("fail to _get_tbm_surface_queue");
+             WRN("fail to _get_tbm_surface_queue");
              return NULL;
           }
 
