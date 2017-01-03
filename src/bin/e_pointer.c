@@ -14,6 +14,8 @@ _e_pointer_position_update(E_Pointer *ptr)
 {
    int nx, ny;
 
+   if (!ptr->o_ptr) return;
+
    nx = ptr->x - ptr->hot.x;
    ny = ptr->y - ptr->hot.y;
 
@@ -296,7 +298,6 @@ e_pointer_touch_move(E_Pointer *ptr, int x, int y)
    EINA_SAFETY_ON_NULL_RETURN(ptr);
 
    if (!e_config->show_cursor) return;
-   if (!ptr->o_ptr) return;
 
    /* save the current position */
    ptr->x = x;
@@ -314,7 +315,6 @@ e_pointer_mouse_move(E_Pointer *ptr, int x, int y)
    EINA_SAFETY_ON_NULL_RETURN(ptr);
 
    if (!e_config->show_cursor) return;
-   if (!ptr->o_ptr) return;
 
    /* save the current position */
    ptr->x = x;
