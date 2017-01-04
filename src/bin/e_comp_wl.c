@@ -3465,7 +3465,11 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
    layer = evas_object_layer_get(ec->frame);
    evas_object_layer_set(ec->comp_data->sub.below_obj, layer);
    evas_object_render_op_set(ec->comp_data->sub.below_obj, EVAS_RENDER_COPY);
-   evas_object_color_set(ec->comp_data->sub.below_obj, 0x00, 0x00, 0x00, 0xff);
+
+   /* It's more reasonable to use the transparent color instead of black because
+    * we can show the alpha value of the 24 depth topmost window.
+    */
+   evas_object_color_set(ec->comp_data->sub.below_obj, 0x00, 0x00, 0x00, 0x00);
    evas_object_move(ec->comp_data->sub.below_obj, ec->x, ec->y);
    evas_object_resize(ec->comp_data->sub.below_obj, ec->w, ec->h);
    evas_object_name_set(ec->comp_data->sub.below_obj, "below_bg_rectangle");
