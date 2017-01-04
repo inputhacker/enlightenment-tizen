@@ -47,7 +47,7 @@ _e_policy_display_dbus_init(void)
    if (eldbus_init() == 0) return EINA_FALSE;
 
    _e_display_dbus_info.conn = eldbus_connection_get(ELDBUS_CONNECTION_TYPE_SYSTEM);
-   EINA_SAFETY_ON_NULL_GOTO(_e_display_dbus_info.conn, failed);
+   if (!_e_display_dbus_info.conn) goto failed;
 
    eldbus_name_request(_e_display_dbus_info.conn,
                        BUS_NAME,

@@ -675,7 +675,7 @@ e_process_state_get(pid_t pid)
    if (pid <= 0) return E_PROCESS_STATE_UNKNOWN;
 
    pinfo = _e_process_find(_e_process_manager, pid);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(pinfo, E_PROCESS_STATE_UNKNOWN);
+   if (!pinfo) return E_PROCESS_STATE_UNKNOWN;
 
    ELOGF("PROCESS", "GET STATE. PID:%d, state:%d", NULL, NULL, pid, pinfo->state);
    return pinfo->state;
