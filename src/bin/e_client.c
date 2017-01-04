@@ -6516,7 +6516,7 @@ e_remember_del(void *rem)
 E_API void
 e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set)
 {
-   EINA_SAFETY_ON_NULL_RETURN(ec);
+   if (!ec) return;
 
    ELOGF("TZVIS", "VIS_FORCE_OBSCURED :%d", ec->pixmap, ec, set);
 
