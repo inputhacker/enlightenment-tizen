@@ -257,6 +257,12 @@ _conf_part_owner_find(E_Client *part, Conformant_Type type)
         E_Client *focused;
 
         focused = e_client_focused_get();
+        /* e_client_focused_get can return the client of deleted state
+         * so it's reasonable to check is_del in here.
+         */
+        if ((focused) && (e_object_is_del(E_OBJECT(focused))))
+          focused = NULL;
+
         e_policy_stack_transient_for_set(part, focused);
         return part->parent;
      }
