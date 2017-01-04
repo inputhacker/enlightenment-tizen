@@ -85,8 +85,6 @@ struct _E_Policy_Quickpanel
 
    Eina_Bool show_block;
    Eina_Bool need_scroll_update;
-
-   Eina_List *clients; /* list of E_QP_Client */
 };
 
 struct _Mover_Data
@@ -118,6 +116,8 @@ static E_Policy_Quickpanel *_pol_quickpanel = NULL;
 static Evas_Smart *_mover_smart = NULL;
 static Eina_Bool _changed = EINA_FALSE;
 static E_QP_Mgr_Funcs *qp_mgr_funcs = NULL;
+
+Eina_List *qp_clients; /* list of E_QP_Client */
 
 static void          _e_qp_srv_effect_update(E_Policy_Quickpanel *qp, int x, int y);
 static E_QP_Client * _e_qp_client_ec_get(E_Client *ec);
@@ -438,7 +438,7 @@ _e_qp_srv_effect_finish_job_end(E_Policy_Quickpanel *qp)
 
    e_zone_orientation_block_set(qp->ec->zone, "quickpanel-mover", EINA_FALSE);
 
-   EINA_LIST_FOREACH(qp->clients, l, qp_client)
+   EINA_LIST_FOREACH(qp_clients, l, qp_client)
       e_tzsh_qp_state_visible_update(qp_client->ec,
                                      qp->effect.final_visible_state);
 }
@@ -821,7 +821,7 @@ _region_obj_cb_gesture_end(void *data EINA_UNUSED, Evas_Object *handler, int x, 
 static void
 _quickpanel_free(E_Policy_Quickpanel *qp)
 {
-   E_FREE_LIST(qp->clients, free);
+   E_FREE_LIST(qp_clients, free);
    E_FREE_FUNC(qp->mover, evas_object_del);
    E_FREE_FUNC(qp->indi_obj, evas_object_del);
    E_FREE_FUNC(qp->handler_obj, evas_object_del);
@@ -1113,7 +1113,7 @@ _quickpanel_cb_rotation_done(void *data, int type, void *event)
 
    _e_qp_srv_effect_disable_unref(qp);
 
-   EINA_LIST_FOREACH(qp->clients, l, qp_client)
+   EINA_LIST_FOREACH(qp_clients, l, qp_client)
      e_tzsh_qp_state_orientation_update(qp_client->ec,
                                         qp->rotation);
 
@@ -1146,6 +1146,7 @@ _quickpanel_below_visible_client_get(E_Policy_Quickpanel *qp)
    for (ec = e_client_below_get(qp->ec); ec; ec = e_client_below_get(ec))
      {
         if (!ec->visible) continue;
+        if (e_policy_client_is_keyboard(ec)) continue;
         if (!E_INTERSECTS(ec->x, ec->y, ec->w, ec->h, zx, zy, zw, zh)) continue;
         return ec;
      }
@@ -1370,7 +1371,7 @@ _e_qp_client_ec_get(E_Client *ec)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(qp, qp_client);
 
-   EINA_LIST_FOREACH(qp->clients, l, qp_client)
+   EINA_LIST_FOREACH(qp_clients, l, qp_client)
      {
         if (qp_client->ec == ec)
           return qp_client;
@@ -1719,13 +1720,8 @@ e_qp_client_add(E_Client *ec)
         return;
      }
 
-   E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
-   qp = _quickpanel_get();
-   EINA_SAFETY_ON_NULL_RETURN(qp);
-   EINA_SAFETY_ON_NULL_RETURN(qp->ec);
-   EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(qp->ec)));
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(ec)));
 
@@ -1742,7 +1738,7 @@ e_qp_client_add(E_Client *ec)
    qp_client->hint.vis = EINA_TRUE;
    qp_client->hint.scrollable = EINA_TRUE;
 
-   qp->clients = eina_list_append(qp->clients, qp_client);
+   qp_clients = eina_list_append(qp_clients, qp_client);
 }
 
 EINTERN void
@@ -1767,7 +1763,7 @@ e_qp_client_del(E_Client *ec)
    qp_client->ref--;
    if (qp_client->ref != 0) return;
 
-   qp->clients = eina_list_remove(qp->clients, qp_client);
+   qp_clients = eina_list_remove(qp_clients, qp_client);
 
    E_FREE(qp_client);
 }
