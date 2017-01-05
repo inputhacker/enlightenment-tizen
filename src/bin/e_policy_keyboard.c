@@ -1,6 +1,6 @@
 #include "e_policy_keyboard.h"
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_policy_client_is_keyboard(E_Client *ec)
 {
    E_OBJECT_CHECK_RETURN(ec, EINA_FALSE);
@@ -11,7 +11,7 @@ e_policy_client_is_keyboard(E_Client *ec)
    return EINA_FALSE;
 }
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_policy_client_is_keyboard_sub(E_Client *ec)
 {
    E_OBJECT_CHECK_RETURN(ec, EINA_FALSE);
