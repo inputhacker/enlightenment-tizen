@@ -4456,6 +4456,8 @@ _launchscreen_img_off(E_Policy_Wl_Tzlaunch_Img *tzlaunch_img)
      {
         if (ec->focused)
           e_comp_wl_feed_focus_in(ec);
+        /* to send launch,done event to launchscreen client */
+        e_comp_object_signal_emit(ec->frame, "e,action,launch,done", "e");
      }
 
    e_comp->launchscrns = eina_list_remove(e_comp->launchscrns, ec);
