@@ -3,6 +3,7 @@
 #include "services/e_service_gesture.h"
 #include "services/e_service_region.h"
 #include "e_policy_wl.h"
+#include "e_policy_keyboard.h"
 
 #define SMART_NAME            "quickpanel_object"
 #define INTERNAL_ENTRY                    \
