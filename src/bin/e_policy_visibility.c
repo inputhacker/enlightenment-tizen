@@ -428,7 +428,8 @@ _e_vis_job_add(E_Vis_Client *vc, E_Vis_Job_Type type, Ecore_Task_Cb timeout_func
    job->timer = ecore_timer_add(E_VIS_TIMEOUT, timeout_func, job);
 
    if ((job->type == E_VIS_JOB_TYPE_LOWER) ||
-       (job->type == E_VIS_JOB_TYPE_HIDE))
+       (job->type == E_VIS_JOB_TYPE_HIDE) ||
+       (job->type == E_VIS_JOB_TYPE_LAYER_LOWER))
      e_comp_canvas_norender_push();
 
    return EINA_TRUE;
@@ -442,7 +443,8 @@ _e_vis_job_del(Eina_Clist *elem)
    _e_vis_clist_unlink(elem);
    job = EINA_CLIST_ENTRY(elem, E_Vis_Job, entry);
    if ((job->type == E_VIS_JOB_TYPE_LOWER) ||
-       (job->type == E_VIS_JOB_TYPE_HIDE))
+       (job->type == E_VIS_JOB_TYPE_HIDE) ||
+       (job->type == E_VIS_JOB_TYPE_LAYER_LOWER))
      e_comp_canvas_norender_pop();
    E_FREE_FUNC(job->timer, ecore_timer_del);
    free(job);
@@ -994,6 +996,12 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
          e_comp_canvas_norender_pop();
          evas_object_hide(ec->frame);
          break;
+      case E_VIS_JOB_TYPE_LAYER_LOWER:
+         e_comp_canvas_norender_pop();
+         E_VIS_CLIENT_GET(vc, ec);
+         if (vc)
+           evas_object_layer_set(ec->frame, vc->layer);
+         break;
       default:
          VS_ERR(ec, "Unkown job type: %d", type);
          break;
@@ -1353,6 +1361,35 @@ e_policy_visibility_client_activate(E_Client *ec)
    /* TODO find topmost activity client and emit signal */
 
    return ret;
+}
+
+E_API Eina_Bool
+e_policy_visibility_client_layer_lower(E_Client *ec, E_Layer layer)
+{
+   if (!e_config->use_buffer_flush) return EINA_FALSE;
+
+   E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
+
+   VS_DBG(ec, "API ENTRY | LAYER LOWER (layer:%d)", layer);
+
+   /* find activity client among the clients to be lower */
+   if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.lower))
+     {
+        VS_INF(ec, "NO activity clients");
+        return EINA_FALSE;
+     }
+
+   if (!_e_vis_ec_below_uniconify(ec))
+     {
+        VS_DBG(ec, "Failed to uniconify below client");
+        return EINA_FALSE;
+     }
+
+   /* add lower lower job, it will be executed after below activity client finishs updating */
+   vc->layer = layer;
+   _e_vis_client_job_add(vc, E_VIS_JOB_TYPE_LAYER_LOWER);
+
+   return EINA_TRUE;
 }
 
 E_API void

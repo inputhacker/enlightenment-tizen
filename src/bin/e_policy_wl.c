@@ -2241,8 +2241,13 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
                        // restore original layer
                        if (original_layer != evas_object_layer_get(ec->frame))
                          {
-                            evas_object_layer_set(ec->frame, original_layer);
-                            ec->layer = original_layer;
+                            Eina_Bool pend = EINA_FALSE;
+                            pend = e_policy_visibility_client_layer_lower(ec, original_layer);
+                            if (!pend)
+                              {
+                                 evas_object_layer_set(ec->frame, original_layer);
+                                 ec->layer = original_layer;
+                              }
                          }
                     }
                   ec->changable_layer[E_CHANGABLE_LAYER_TYPE_ABOVE_NOTIFICATION].set = 0;

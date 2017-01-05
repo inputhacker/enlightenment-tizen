@@ -102,6 +102,7 @@ typedef enum
    E_VIS_JOB_TYPE_LOWER,
    E_VIS_JOB_TYPE_ACTIVATE,
    E_VIS_JOB_TYPE_UNICONIFY,
+   E_VIS_JOB_TYPE_LAYER_LOWER,
 } E_Vis_Job_Type;
 
 /* external data structure */
@@ -148,6 +149,7 @@ struct _E_Vis_Client
    } job;
    Eina_Bool prepare_emitted;
    Eina_Bool disable_uniconify_render;
+   E_Layer layer;
 };
 
 struct _E_Vis_Job_Group
