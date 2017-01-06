@@ -241,6 +241,7 @@ static void                _e_policy_wl_tzsh_client_del(E_Policy_Wl_Tzsh_Client 
 static void                _e_policy_wl_background_state_set(E_Policy_Wl_Surface *psurf, Eina_Bool state);
 
 static void                _launchscreen_hide(uint32_t pid);
+static void                _launchscreen_client_del(E_Client *ec);
 static void                _launchscreen_img_off(E_Policy_Wl_Tzlaunch_Img *tzlaunch_img);
 
 // --------------------------------------------------------
@@ -4397,6 +4398,23 @@ _launchscreen_hide(uint32_t pid)
 }
 
 static void
+_launchscreen_client_del(E_Client *ec)
+{
+   Eina_List *l, *ll;
+   E_Policy_Wl_Tzlaunch *tzlaunch;
+   E_Policy_Wl_Tzlaunch_Img *tzlaunch_img;
+
+   EINA_LIST_FOREACH(polwl->tzlaunchs, l, tzlaunch)
+     {
+        EINA_LIST_FOREACH(tzlaunch->imglist, ll, tzlaunch_img)
+           if (tzlaunch_img->ec == ec)
+             {
+                _launchscreen_img_off(tzlaunch_img);
+             }
+     }
+}
+
+static void
 _launchscreen_img_cb_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *event_info EINA_UNUSED)
 {
    E_Policy_Wl_Tzlaunch_Img *tzlaunch_img = data;
@@ -4424,9 +4442,13 @@ _launchscreen_img_off(E_Policy_Wl_Tzlaunch_Img *tzlaunch_img)
    if (!tzlaunch_img->ec) return;
 
    ec = tzlaunch_img->ec;
-
    obj = tzlaunch_img->obj;
+
    tzlaunch_img->obj = NULL;
+   tzlaunch_img->ec = NULL;
+   tzlaunch_img->valid = EINA_FALSE;
+   if (tzlaunch_img->timeout) ecore_timer_del(tzlaunch_img->timeout);
+   tzlaunch_img->timeout = NULL;
 
    ELOGF("TZPOL",
          "Launchscreen hide | pid %d",
@@ -4435,6 +4457,9 @@ _launchscreen_img_off(E_Policy_Wl_Tzlaunch_Img *tzlaunch_img)
    if ((ec->pixmap) &&
        (ec->pixmap == tzlaunch_img->ep))
      {
+        /* case 1: Surface for this pid is not created until timeout or
+         * launchscreen resource is destroied.
+         */
         if (ec->visible)
           {
              ec->visible = EINA_FALSE;
@@ -4442,34 +4467,39 @@ _launchscreen_img_off(E_Policy_Wl_Tzlaunch_Img *tzlaunch_img)
              ec->ignored = EINA_TRUE;
           }
 
+        e_comp->launchscrns = eina_list_remove(e_comp->launchscrns, ec);
+
         e_pixmap_win_id_del(tzlaunch_img->ep);
         e_object_del(E_OBJECT(ec));
+        ec = NULL;
      }
    else if (!e_pixmap_resource_get(ec->pixmap))
      {
+        /* case 2: Surface is created but there's no buffer */
         ec->visible = EINA_FALSE;
         ec->ignored = EINA_TRUE;
         evas_object_hide(ec->frame);
      }
 
-   if (!tzlaunch_img->replaced)
+   if (ec)
      {
-        if (ec->focused)
-          e_comp_wl_feed_focus_in(ec);
-        /* to send launch,done event to launchscreen client */
-        e_comp_object_signal_emit(ec->frame, "e,action,launch,done", "e");
-     }
+        if (!tzlaunch_img->replaced)
+          {
+             if (ec->focused)
+               e_comp_wl_feed_focus_in(ec);
 
-   e_comp->launchscrns = eina_list_remove(e_comp->launchscrns, ec);
+             /* to send launch,done event to launchscreen client */
+             if (!e_object_is_del(E_OBJECT(ec)))
+               e_comp_object_signal_emit(ec->frame, "e,action,launch,done", "e");
+          }
+
+        e_comp->launchscrns = eina_list_remove(e_comp->launchscrns, ec);
+     }
 
    if (obj)
      evas_object_unref(obj);
 
    tzlaunch_img->ep = NULL;
-   tzlaunch_img->ec = NULL;
-   if (tzlaunch_img->timeout) ecore_timer_del(tzlaunch_img->timeout);
-   tzlaunch_img->timeout = NULL;
-   tzlaunch_img->valid = EINA_FALSE;
    tzlaunch_img->replaced = EINA_FALSE;
 }
 
@@ -5358,6 +5388,7 @@ e_policy_wl_client_del(E_Client *ec)
    _e_policy_wl_dpy_surf_del(ec);
    _e_policy_wl_tz_indicator_unset_client(ec);
    _e_policy_wl_tz_clipboard_unset_client(ec);
+   _launchscreen_client_del(ec);
 
    polwl->pending_vis = eina_list_remove(polwl->pending_vis, ec);
 }
