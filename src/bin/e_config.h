@@ -167,6 +167,7 @@ struct _E_Config
    double launchscreen_timeout;
    Eina_Bool calc_vis_without_effect;
    Eina_Bool save_win_buffer;
+   const char *indicator_plug_name;
 };
 
 struct _E_Config_Desklock_Background

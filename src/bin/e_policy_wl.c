@@ -137,6 +137,7 @@ typedef struct _E_Policy_Wl_Tzlaunch_Img
    E_Pixmap                  *ep;               /* pixmap for launch screen client */
    E_Client                  *ec;               /* client for launch screen image */
    Ecore_Timer               *timeout;          /* launch screen image hide timer */
+   Evas_Object               *indicator_obj;    /* plug object of indicator */
 
    Eina_Bool                  valid;            /* validation check */
    Eina_Bool                  replaced;
@@ -3759,10 +3760,12 @@ _e_tzsh_indicator_find_topvisible_client(E_Zone *zone)
         if (e_client_util_ignored_get(ec)) continue;
         if (ec->zone != zone) continue;
         if (!ec->frame) continue;
+
         if (!ec->visible) continue;
         if (ec->visibility.skip) continue;
         if ((ec->visibility.obscured != E_VISIBILITY_UNOBSCURED) &&
-            (ec->visibility.obscured != E_VISIBILITY_PARTIALLY_OBSCURED))
+            (ec->visibility.obscured != E_VISIBILITY_PARTIALLY_OBSCURED) &&
+            (!eina_list_data_find(e_comp->launchscrns, ec)))
           continue;
 
         /* if ec is subsurface, skip this */
@@ -4415,6 +4418,20 @@ _launchscreen_client_del(E_Client *ec)
 }
 
 static void
+_launchscreen_img_cb_indicator_resized(Ecore_Evas *ee)
+{
+   Evas_Coord_Size size = {0, 0};
+   Evas_Object *indicator = ecore_evas_data_get(ee, "indicator");
+
+   if (!indicator) return;
+
+   ecore_evas_geometry_get(ee, NULL, NULL, &(size.w), &(size.h));
+
+   evas_object_move(indicator, 0, 0);
+   evas_object_resize(indicator, size.w, size.h);
+}
+
+static void
 _launchscreen_img_cb_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *event_info EINA_UNUSED)
 {
    E_Policy_Wl_Tzlaunch_Img *tzlaunch_img = data;
@@ -4453,6 +4470,12 @@ _launchscreen_img_off(E_Policy_Wl_Tzlaunch_Img *tzlaunch_img)
    ELOGF("TZPOL",
          "Launchscreen hide | pid %d",
          ec->pixmap, ec, tzlaunch_img->pid);
+
+   if (tzlaunch_img->indicator_obj)
+     {
+        evas_object_del(tzlaunch_img->indicator_obj);
+        tzlaunch_img->indicator_obj = NULL;
+     }
 
    if ((ec->pixmap) &&
        (ec->pixmap == tzlaunch_img->ep))
@@ -4552,6 +4575,14 @@ _tzlaunch_img_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl_re
    tzlaunch_img->indicator = indicator;
    tzlaunch_img->angle = angle;
 
+   if (indicator)
+     {
+        /* To configure indicator options */
+        ec->indicator.state = TIZEN_INDICATOR_STATE_ON;
+        ec->indicator.visible_type = TIZEN_INDICATOR_VISIBLE_TYPE_SHOWN;
+        ec->indicator.opacity_mode = TIZEN_INDICATOR_OPACITY_MODE_BG_TRANSPARENT;
+     }
+
    intercepted = e_policy_interceptor_call(E_POLICY_INTERCEPT_LAUNCHSCREEN_OBJECT_SETUP,
                                            ec,
                                            pfname, ftype, depth,
@@ -4598,6 +4629,61 @@ _tzlaunch_img_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl_re
              ERR("Setting comp object content for %p failed!", ec);
              goto error;
           }
+
+     }
+
+   if (indicator)
+     {
+        Evas_Object *indicator_obj = NULL;
+        Eina_Bool ret = EINA_FALSE;
+
+        e_mod_indicator_owner_set(ec);
+        e_tzsh_indicator_srv_property_update(ec);
+
+        indicator_obj = ecore_evas_extn_plug_new(e_comp->ee);
+        if (!indicator_obj)
+          {
+             ELOGF("TZPOL",
+                   "Launchscreen launch | Faild to create ecore_evas_plug for indicator",
+                   ec->pixmap, ec);
+          }
+        else
+          {
+             if (e_config->indicator_plug_name)
+               {
+                  ret = ecore_evas_extn_plug_connect(indicator_obj, e_config->indicator_plug_name, 0, EINA_FALSE);
+                  if (ret)
+                    {
+                       Ecore_Evas *ee;
+
+                       ee = ecore_evas_object_ecore_evas_get(indicator_obj);
+                       ecore_evas_data_set(ee, "indicator", indicator_obj);
+                       ecore_evas_callback_resize_set(ee,
+                                                      _launchscreen_img_cb_indicator_resized);
+
+                       evas_object_layer_set(indicator_obj, ec->layer);
+                       evas_object_stack_above(indicator_obj, ec->frame);
+                       evas_object_show(indicator_obj);
+                       ELOGF("TZPOL",
+                             "Launchscreen launch | Succeeded to add indicator object plug_name(%s) indicator_obj(%p)",
+                             ec->pixmap, ec, e_config->indicator_plug_name, indicator_obj);
+                    }
+                  else
+                    {
+                       evas_object_del(indicator_obj);
+                       indicator_obj = NULL;
+                    }
+               }
+
+             if (!indicator_obj)
+               {
+                  ELOGF("TZPOL",
+                        "Launchscreen launch | Failed to add indicator object plug_name(%s)",
+                        ec->pixmap, ec, e_config->indicator_plug_name?:"NO PLUG NAME");
+               }
+          }
+
+        tzlaunch_img->indicator_obj = indicator_obj;
      }
 
    if (tzlaunch_img->obj)
@@ -4709,6 +4795,13 @@ _tzlaunch_img_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_res
              e_pixmap_win_id_del(tzlaunch_img->ep);
              e_object_del(E_OBJECT(old_ec));
              tzlaunch_img->ep = NULL;
+
+             if (tzlaunch_img->indicator_obj)
+               {
+                  e_mod_indicator_owner_set(new_ec);
+                  e_tzsh_indicator_srv_property_update(new_ec);
+                  evas_object_stack_above(tzlaunch_img->indicator_obj, new_ec->frame);
+               }
 
              e_client_visibility_calculate();
           }

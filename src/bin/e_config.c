@@ -270,6 +270,7 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, launchscreen_timeout, DOUBLE);
    E_CONFIG_VAL(D, T, calc_vis_without_effect, UCHAR);
    E_CONFIG_VAL(D, T, save_win_buffer, UCHAR);
+   E_CONFIG_VAL(D, T, indicator_plug_name, STR);
 }
 
 /* externally accessible functions */
