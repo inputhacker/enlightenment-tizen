@@ -95,6 +95,7 @@ struct _E_Comp_Wl_Remote_Source {
 struct _E_Comp_Wl_Remote_Surface {
      struct wl_resource *resource;
      struct wl_resource *wl_tbm;
+     struct wl_listener tbm_destroy_listener;
 
      E_Comp_Wl_Remote_Provider *provider;
      E_Comp_Wl_Remote_Source *source;
@@ -982,6 +983,17 @@ static const struct tizen_remote_surface_provider_interface _remote_provider_int
 };
 
 static void
+_remote_surface_cb_tbm_destroy(struct wl_listener *listener, void *data)
+{
+   E_Comp_Wl_Remote_Surface *remote_surface;
+
+   remote_surface = container_of(listener, E_Comp_Wl_Remote_Surface, tbm_destroy_listener);
+   if (!remote_surface) return;
+
+   remote_surface->wl_tbm = NULL;
+}
+
+static void
 _remote_surface_cb_resource_destroy(struct wl_resource *resource)
 {
    E_Comp_Wl_Remote_Surface *remote_surface;
@@ -1028,6 +1040,9 @@ _remote_surface_cb_resource_destroy(struct wl_resource *resource)
         eina_hash_del_by_key(_rsm->surface_hash, &remote_surface->owner);
         _remote_surface_client_set(remote_surface->owner, EINA_FALSE);
      }
+
+   if (remote_surface->wl_tbm)
+     wl_list_remove(&remote_surface->tbm_destroy_listener.link);
 
    E_FREE(remote_surface);
 }
@@ -1698,6 +1713,7 @@ _remote_manager_cb_surface_create(struct wl_client *client, struct wl_resource *
         return;
      }
 
+
    remote_surface = E_NEW(E_Comp_Wl_Remote_Surface, 1);
    remote_surface->resource = resource;
    remote_surface->version = wl_resource_get_version(remote_surface->resource);
@@ -1705,6 +1721,11 @@ _remote_manager_cb_surface_create(struct wl_client *client, struct wl_resource *
    remote_surface->redirect = EINA_FALSE;
    remote_surface->provider = provider;
    remote_surface->source = source;
+
+   /* Add destroy listener for wl_tbm resource */
+   remote_surface->tbm_destroy_listener.notify = _remote_surface_cb_tbm_destroy;
+   wl_resource_add_destroy_listener((struct wl_resource *)wl_tbm, &remote_surface->tbm_destroy_listener);
+
    if (provider)
      provider->surfaces = eina_list_append(provider->surfaces, remote_surface);
    else if (source)
