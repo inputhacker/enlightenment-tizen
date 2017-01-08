@@ -107,8 +107,16 @@ struct _E_Zone
    struct
    {
       int       prev, curr, next, sub;
-      int       block_count;
-
+      int       block_count; /* deprecated. use rot.block.mod_count instead */
+      struct
+      {
+         Eina_Bool app_hint; /* true: rotation is NOT blocked for the specific app which set special hint */
+      } unblock;
+      struct
+      {
+         Eina_Bool sys_auto_rot; /* true: system auto rotation is disabled */
+         int       mod_count;    /* 1 or higher: temporary block count for the E sub-modules */
+      } block;
       Eina_Bool wait_for_done : 1;
       Eina_Bool pending : 1;
       Eina_Bool unknown_state : 1;
