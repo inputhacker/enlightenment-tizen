@@ -426,6 +426,7 @@ static void
 _e_qp_srv_effect_finish_job_end(E_Policy_Quickpanel *qp)
 {
    E_QP_Client *qp_client;
+   E_Client *focused;
    Eina_List *l;
 
    if (qp->mover)
@@ -442,6 +443,25 @@ _e_qp_srv_effect_finish_job_end(E_Policy_Quickpanel *qp)
    EINA_LIST_FOREACH(qp_clients, l, qp_client)
       e_tzsh_qp_state_visible_update(qp_client->ec,
                                      qp->effect.final_visible_state);
+
+   focused = e_client_focused_get();
+   if (focused)
+     {
+        if (qp->effect.final_visible_state)
+          e_policy_aux_message_send(focused, "quickpanel_state", "shown", NULL);
+        else
+          e_policy_aux_message_send(focused, "quickpanel_state", "hidden", NULL);
+     }
+
+   if ((qp->below) &&
+       (qp->below != focused))
+     {
+        if (qp->effect.final_visible_state)
+          e_policy_aux_message_send(qp->below, "quickpanel_state", "shown", NULL);
+        else
+          e_policy_aux_message_send(qp->below, "quickpanel_state", "hidden", NULL);
+     }
+
 }
 
 static Eina_Bool
@@ -758,6 +778,7 @@ static void
 _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, unsigned int timestamp)
 {
    E_Policy_Quickpanel *qp;
+   E_Client *focused;
    Eina_Bool res;
 
    qp = data;
@@ -780,6 +801,14 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
         INF("Already animated");
         return;
      }
+
+   focused = e_client_focused_get();
+   if (focused)
+     e_policy_aux_message_send(focused, "quickpanel_state", "moving", NULL);
+
+   if ((qp->below) &&
+       (qp->below != focused))
+     e_policy_aux_message_send(qp->below, "quickpanel_state", "moving", NULL);
 
    /* cancel touch events sended up to now */
    e_comp_wl_touch_cancel();
