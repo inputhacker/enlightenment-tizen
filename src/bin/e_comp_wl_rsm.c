@@ -77,6 +77,7 @@ struct _E_Comp_Wl_Remote_Provider
 
      Eina_Bool visible;
      int vis_ref;
+     uint32_t input_event_filter;
 
      Eina_Bool is_offscreen;
 };
@@ -976,10 +977,35 @@ _remote_provider_cb_offscreen_set(struct wl_client *client EINA_UNUSED, struct w
    _remote_provider_offscreen_set(provider, offscreen);
 }
 
+static void
+_remote_provider_cb_input_event_filter_set(struct wl_client *client EINA_UNUSED, struct wl_resource *provider_resource, uint32_t event_filter)
+{
+   E_Comp_Wl_Remote_Provider *provider;
+   E_Comp_Wl_Remote_Surface *remote_surface;
+   Eina_List *l;
+
+   provider = wl_resource_get_user_data(provider_resource);
+   if (!provider) return;
+
+   provider->input_event_filter = event_filter;
+   RSMDBG("set input event filter 0x%08x",
+          provider->ec->pixmap, provider->ec,
+          "PROVIDER", provider, event_filter);
+
+   if (!event_filter) return;
+
+   EINA_LIST_FOREACH(provider->surfaces, l, remote_surface)
+     {
+        if (remote_surface->version >= TIZEN_REMOTE_SURFACE_INPUT_EVENT_FILTER_SINCE_VERSION)
+          tizen_remote_surface_send_input_event_filter(remote_surface->resource, event_filter);
+     }
+}
+
 static const struct tizen_remote_surface_provider_interface _remote_provider_interface =
 {
    _remote_provider_cb_destroy,
    _remote_provider_cb_offscreen_set,
+   _remote_provider_cb_input_event_filter_set,
 };
 
 static void
@@ -1076,6 +1102,12 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
                remote_surface->provider, remote_surface->provider->ec);
 
         remote_surface->redirect = EINA_TRUE;
+
+        /* Send input event filter of provider */
+        if ((remote_surface->provider->input_event_filter) &&
+            (remote_surface->version >= TIZEN_REMOTE_SURFACE_INPUT_EVENT_FILTER_SINCE_VERSION))
+          tizen_remote_surface_send_input_event_filter(resource,
+                                                       remote_surface->provider->input_event_filter);
 
         buffer = e_pixmap_resource_get(remote_surface->provider->ec->pixmap);
         EINA_SAFETY_ON_NULL_RETURN(buffer);
@@ -1594,6 +1626,7 @@ _remote_manager_cb_provider_create(struct wl_client *client, struct wl_resource 
    E_Comp_Wl_Remote_Provider *provider;
    E_Client *ec;
    uint32_t res_id;
+   int version;
 
    EINA_SAFETY_ON_NULL_RETURN(_rsm);
 
@@ -1602,9 +1635,10 @@ _remote_manager_cb_provider_create(struct wl_client *client, struct wl_resource 
 
    if (e_object_is_del(E_OBJECT(ec))) return;
 
+   version = wl_resource_get_version(res_remote_manager);
    resource = wl_resource_create(client,
                                  &tizen_remote_surface_provider_interface,
-                                 1, id);
+                                 version, id);
    if (!resource)
      {
         ERR("Could not create tizen remote surface provider resource: %m");
@@ -2218,7 +2252,7 @@ e_comp_wl_remote_surface_init(void)
 
    rs_manager->global = wl_global_create(e_comp_wl->wl.disp,
                                          &tizen_remote_surface_manager_interface,
-                                         3,
+                                         4,
                                          NULL,
                                          _remote_manager_cb_bind);
 
