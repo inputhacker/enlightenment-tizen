@@ -373,7 +373,7 @@ _e_plane_surface_from_client_acquire(E_Plane *plane)
    if (!e_comp_object_hwc_update_exists(ec->frame)) return NULL;
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "Display Client Plane(%p)", pixmap, ec, plane);
+     ELOGF("E_PLANE", "Display Client Plane(%p)", ec->pixmap, ec, plane);
 
    e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
