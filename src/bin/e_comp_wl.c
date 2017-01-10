@@ -2835,6 +2835,7 @@ _e_comp_wl_surface_cb_opaque_region_set(struct wl_client *client EINA_UNUSED, st
              if (ec->argb)
                {
                   ec->argb = EINA_FALSE;
+                  EC_CHANGED(ec);
                   e_comp_object_alpha_set(ec->frame, EINA_FALSE);
                }
           }
@@ -2844,6 +2845,7 @@ _e_comp_wl_surface_cb_opaque_region_set(struct wl_client *client EINA_UNUSED, st
         if (!ec->argb)
           {
              ec->argb = EINA_TRUE;
+             EC_CHANGED(ec);
              e_comp_object_alpha_set(ec->frame, EINA_TRUE);
           }
      }
