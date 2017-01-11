@@ -126,6 +126,7 @@ E_API Eina_Bool        e_policy_client_is_toast_popup(E_Client *ec);
 E_API Eina_Bool        e_policy_client_is_dialog(E_Client *ec);
 E_API Eina_Bool        e_policy_client_is_keyboard(E_Client *ec);
 E_API Eina_Bool        e_policy_client_is_keyboard_sub(E_Client *ec);
+E_API Eina_Bool        e_policy_client_is_keyboard_magnifier(E_Client *ec);
 
 EINTERN E_Policy_Softkey *e_policy_softkey_add(E_Zone *zone);
 EINTERN void              e_policy_softkey_del(E_Policy_Softkey *softkey);

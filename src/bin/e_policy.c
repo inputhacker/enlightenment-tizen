@@ -1817,6 +1817,20 @@ e_policy_client_is_keyboard_sub(E_Client *ec)
    return EINA_FALSE;
 }
 
+Eina_Bool
+e_policy_client_is_keyboard_magnifier(E_Client *ec)
+{
+   E_OBJECT_CHECK_RETURN(ec, EINA_FALSE);
+   E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
+
+   if (ec->vkbd.vkbd) return EINA_FALSE;
+
+   if ((ec->icccm.title) && (!strcmp(ec->icccm.title, "ISF Magnifier")))
+     return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
 void
 e_policy_interceptors_clean(void)
 {
