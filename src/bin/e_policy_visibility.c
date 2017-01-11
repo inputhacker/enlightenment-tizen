@@ -7,7 +7,6 @@
 #include "e.h"
 #include "e_comp_wl.h"
 #include "e_policy_wl.h"
-#include "e_policy_keyboard.h"
 #include "e_policy_visibility.h"
 #include "e_policy_visibility_internal.h"
 

@@ -1,5 +1,4 @@
 #include "e.h"
-#include "e_policy_keyboard.h"
 
 /* E_Desk is a child object of E_Zone. A desk is essentially a background
  * and an associated set of client windows. Each zone can have an arbitrary
