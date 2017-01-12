@@ -1194,9 +1194,6 @@ _e_comp_wl_cursor_move_timer_control(E_Client *ec)
 {
    if (!e_config->use_cursor_timer) return;
 
-   if (e_pointer_is_hidden(e_comp->pointer))
-     _e_comp_wl_cursor_reload(ec);
-
    if (e_comp_wl->ptr.hide_tmr)
      {
         if (cursor_timer_ec == ec)
@@ -1262,8 +1259,13 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
           {
              _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
              _e_comp_wl_send_mouse_move(ec, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp, EINA_TRUE);
-          }
 
+             if (e_config->use_cursor_timer)
+               {
+                 if (e_pointer_is_hidden(e_comp->pointer))
+                   _e_comp_wl_cursor_reload(ec);
+               }
+          }
         _e_comp_wl_cursor_move_timer_control(ec);
      }
 }
@@ -2054,6 +2056,11 @@ _e_comp_wl_cb_mouse_move(void *d EINA_UNUSED, int t EINA_UNUSED, Ecore_Event_Mou
      {
         _e_comp_wl_send_mouse_move(e_comp_wl->drag_client, ev->x, ev->y, ev->timestamp, EINA_TRUE);
 
+        if (!e_config->use_cursor_timer)
+          {
+             if (e_pointer_is_hidden(e_comp->pointer))
+               _e_comp_wl_cursor_reload(e_comp_wl->ptr.ec);
+          }
         _e_comp_wl_cursor_move_timer_control(NULL);
      }
 
