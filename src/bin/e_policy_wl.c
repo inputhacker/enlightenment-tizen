@@ -5153,31 +5153,63 @@ static void
 _tz_indicator_cb_state_set(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tz_indicator, struct wl_resource *surf, int32_t state)
 {
    E_Client *ec;
+   E_Indicator_State ind_state;
 
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
-   ELOGF("TZ_IND", "STATE:%d", ec->pixmap, ec, state);
+   if (state == TIZEN_INDICATOR_STATE_ON)
+     ind_state = E_INDICATOR_STATE_ON;
+   else if (state == TIZEN_INDICATOR_STATE_OFF)
+     ind_state = E_INDICATOR_STATE_OFF;
+   else
+     ind_state = E_INDICATOR_STATE_UNKNOWN;
+
+   ELOGF("TZ_IND", "TZ_STATE:%d, E_STATE:%d", ec->pixmap, ec, state, ind_state);
    _e_policy_wl_tz_indicator_set_client(res_tz_indicator, ec);
-   ec->indicator.state = state;
+   ec->indicator.state = ind_state;
 }
 
 static void
 _tz_indicator_cb_opacity_mode_set(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tz_indicator, struct wl_resource *surf, int32_t mode)
 {
    E_Client *ec;
+   E_Indicator_Opacity_Mode op_mode;
 
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
-   ELOGF("TZ_IND", "OPACITY_MODE:%d", ec->pixmap, ec, mode);
+   switch (mode)
+     {
+      case TIZEN_INDICATOR_OPACITY_MODE_OPAQUE:
+        op_mode = E_INDICATOR_OPACITY_MODE_OPAQUE;
+        break;
+
+      case TIZEN_INDICATOR_OPACITY_MODE_TRANSLUCENT:
+        op_mode = E_INDICATOR_OPACITY_MODE_TRANSLUCENT;
+        break;
+
+      case TIZEN_INDICATOR_OPACITY_MODE_TRANSPARENT:
+        op_mode = E_INDICATOR_OPACITY_MODE_TRANSPARENT;
+        break;
+
+      case TIZEN_INDICATOR_OPACITY_MODE_BG_TRANSPARENT:
+        op_mode = E_INDICATOR_OPACITY_MODE_BG_TRANSPARENT;
+        break;
+
+      default:
+        op_mode = E_INDICATOR_OPACITY_MODE_OPAQUE;
+        break;
+     }
+
+   ELOGF("TZ_IND", "TZ_OP_MODE:%d, E_OP_MODE:%d", ec->pixmap, ec, mode, op_mode);
    _e_policy_wl_tz_indicator_set_client(res_tz_indicator, ec);
 
-   if (ec->indicator.opacity_mode == mode) return;
+   if (ec->indicator.opacity_mode == op_mode) return;
 
-   ec->indicator.opacity_mode = mode;
+   ec->indicator.opacity_mode = op_mode;
    if (ec == e_mod_indicator_owner_get())
      _e_tzsh_indicator_srv_property_change_send(ec);
 }
@@ -5186,14 +5218,20 @@ static void
 _tz_indicator_cb_visible_type_set(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tz_indicator, struct wl_resource *surf, int32_t vtype)
 {
    E_Client *ec;
+   E_Indicator_Visible_Type vis_type;
 
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
-   ELOGF("TZ_IND", "VIS_TYPE:%d", ec->pixmap, ec, vtype);
+   if (vtype == TIZEN_INDICATOR_VISIBLE_TYPE_SHOWN)
+     vis_type = E_INDICATOR_VISIBLE_TYPE_SHOWN;
+   else
+     vis_type = E_INDICATOR_VISIBLE_TYPE_HIDDEN;
+
+   ELOGF("TZ_IND", "TZ_VIS_TYPE:%d, E_VIS_TYPE:%d", ec->pixmap, ec, vtype, vis_type);
    _e_policy_wl_tz_indicator_set_client(res_tz_indicator, ec);
-   ec->indicator.visible_type = vtype;
+   ec->indicator.visible_type = vis_type;
 }
 
 // --------------------------------------------------------

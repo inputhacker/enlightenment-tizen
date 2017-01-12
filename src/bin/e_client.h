@@ -175,6 +175,28 @@ typedef enum _E_Changable_Layer_Type
    E_CHANGABLE_LAYER_TYPE_MAX
 } E_Changable_Layer_Type;
 
+typedef enum _E_Indicator_Visible_Type
+{
+   E_INDICATOR_VISIBLE_TYPE_HIDDEN = 0,
+   E_INDICATOR_VISIBLE_TYPE_SHOWN,
+} E_Indicator_Visible_Type;
+
+typedef enum _E_Indicator_State
+{
+   E_INDICATOR_STATE_UNKNOWN = 0,
+   E_INDICATOR_STATE_OFF,
+   E_INDICATOR_STATE_ON
+} E_Indicator_State;
+
+typedef enum _E_Indicator_Opacity_Mode
+{
+   E_INDICATOR_OPACITY_MODE_UNKNOWN = 0,
+   E_INDICATOR_OPACITY_MODE_OPAQUE,
+   E_INDICATOR_OPACITY_MODE_TRANSLUCENT,
+   E_INDICATOR_OPACITY_MODE_TRANSPARENT,
+   E_INDICATOR_OPACITY_MODE_BG_TRANSPARENT,
+} E_Indicator_Opacity_Mode;
+
 typedef struct E_Client E_Client;
 
 typedef struct E_Event_Client E_Event_Client;
@@ -887,9 +909,9 @@ struct E_Client
 
    struct
    {
-      int state;
-      int opacity_mode;
-      int visible_type;
+      E_Indicator_State        state;
+      E_Indicator_Opacity_Mode opacity_mode;
+      E_Indicator_Visible_Type visible_type;
    } indicator;
 
    E_Plane_Renderer_Client *renderer_client;
