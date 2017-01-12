@@ -104,6 +104,10 @@ struct _E_Policy_Interceptor
 extern E_Policy *e_policy;
 extern E_Policy_System_Info e_policy_system_info;
 
+E_API extern int E_EVENT_POLICY_INDICATOR_STATE_CHANGE;
+E_API extern int E_EVENT_POLICY_INDICATOR_OPACITY_MODE_CHANGE;
+E_API extern int E_EVENT_POLICY_INDICATOR_VISIBLE_STATE_CHANGE;
+
 EINTERN E_Policy_Config_Desk *e_policy_conf_desk_get_by_nums(E_Policy_Config *conf, unsigned int zone_num, int x, int y);
 EINTERN E_Policy_Client      *e_policy_client_get(E_Client *ec);
 EINTERN void                  e_policy_desk_add(E_Desk *desk);
@@ -160,6 +164,9 @@ EINTERN Eina_Bool        e_policy_stack_check_above_lockscreen(E_Client *ec, E_L
 
 EINTERN void             e_policy_interceptors_clean(void);
 EINTERN Eina_Bool        e_policy_interceptor_call(E_Policy_Intercept_Point ipoint, E_Client *ec, ...);
+
+EINTERN void             e_policy_event_simple(E_Client *ec, int type);
+
 
 E_API Eina_Bool e_policy_aux_message_use_get(E_Client *ec);
 E_API void      e_policy_aux_message_send(E_Client *ec, const char *key, const char *val, Eina_List *options);

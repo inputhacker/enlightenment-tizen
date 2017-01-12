@@ -201,6 +201,10 @@ static Eina_List *hooks_co = NULL;
 static struct wl_resource *_scrsaver_mng_res = NULL; // TODO
 static struct wl_resource *_indicator_srv_res = NULL;
 
+E_API int E_EVENT_POLICY_INDICATOR_STATE_CHANGE = -1;
+E_API int E_EVENT_POLICY_INDICATOR_OPACITY_MODE_CHANGE = -1;
+E_API int E_EVENT_POLICY_INDICATOR_VISIBLE_STATE_CHANGE = -1;
+
 enum _E_Policy_Hint_Type
 {
    E_POLICY_HINT_USER_GEOMETRY = 0,
@@ -5169,6 +5173,8 @@ _tz_indicator_cb_state_set(struct wl_client *client EINA_UNUSED, struct wl_resou
    ELOGF("TZ_IND", "TZ_STATE:%d, E_STATE:%d", ec->pixmap, ec, state, ind_state);
    _e_policy_wl_tz_indicator_set_client(res_tz_indicator, ec);
    ec->indicator.state = ind_state;
+
+   e_policy_event_simple(ec, E_EVENT_POLICY_INDICATOR_STATE_CHANGE);
 }
 
 static void
@@ -5212,6 +5218,8 @@ _tz_indicator_cb_opacity_mode_set(struct wl_client *client EINA_UNUSED, struct w
    ec->indicator.opacity_mode = op_mode;
    if (ec == e_mod_indicator_owner_get())
      _e_tzsh_indicator_srv_property_change_send(ec);
+
+   e_policy_event_simple(ec, E_EVENT_POLICY_INDICATOR_OPACITY_MODE_CHANGE);
 }
 
 static void
@@ -5232,6 +5240,8 @@ _tz_indicator_cb_visible_type_set(struct wl_client *client EINA_UNUSED, struct w
    ELOGF("TZ_IND", "TZ_VIS_TYPE:%d, E_VIS_TYPE:%d", ec->pixmap, ec, vtype, vis_type);
    _e_policy_wl_tz_indicator_set_client(res_tz_indicator, ec);
    ec->indicator.visible_type = vis_type;
+
+   e_policy_event_simple(ec, E_EVENT_POLICY_INDICATOR_VISIBLE_STATE_CHANGE);
 }
 
 // --------------------------------------------------------
@@ -5721,6 +5731,10 @@ e_policy_wl_init(void)
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREENSAVER_OFF, _e_policy_wl_cb_scrsaver_off, NULL);
 
    E_COMP_WL_HOOK_APPEND(hooks_cw, E_COMP_WL_HOOK_SHELL_SURFACE_READY, _e_policy_wl_cb_hook_shell_surface_ready, NULL);
+
+   E_EVENT_POLICY_INDICATOR_STATE_CHANGE = ecore_event_type_new();
+   E_EVENT_POLICY_INDICATOR_OPACITY_MODE_CHANGE = ecore_event_type_new();
+   E_EVENT_POLICY_INDICATOR_VISIBLE_STATE_CHANGE = ecore_event_type_new();
 
    e_policy_display_init();
 

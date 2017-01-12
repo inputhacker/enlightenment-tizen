@@ -1882,6 +1882,26 @@ e_policy_interceptor_call(E_Policy_Intercept_Point ipoint, E_Client *ec, ...)
    return ret;
 }
 
+static void
+_e_policy_event_simple_free(void *d EINA_UNUSED, E_Event_Client *ev)
+{
+   e_object_unref(E_OBJECT(ev->ec));
+   free(ev);
+}
+
+void
+e_policy_event_simple(E_Client *ec, int type)
+{
+   E_Event_Client *ev;
+
+   ev = E_NEW(E_Event_Client, 1);
+   if (!ev) return;
+
+   ev->ec = ec;
+   e_object_ref(E_OBJECT(ec));
+   ecore_event_add(type, ev, (Ecore_End_Cb)_e_policy_event_simple_free, NULL);
+}
+
 E_API Eina_Bool
 e_policy_aux_message_use_get(E_Client *ec)
 {
