@@ -1001,6 +1001,13 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
          if (vc)
            evas_object_layer_set(ec->frame, vc->layer);
          break;
+      case E_VIS_JOB_TYPE_SHOW:
+         /* checks for dectecting hide request after show request */
+         if ((!e_object_is_del(E_OBJECT(ec))) &&
+             (ec->visible) && (!ec->hidden) &&
+             (!ec->iconic) && (!ec->ignored))
+           evas_object_show(ec->frame);
+         break;
       default:
          VS_ERR(ec, "Unkown job type: %d", type);
          break;
@@ -1124,6 +1131,20 @@ _e_vis_cb_client_remove(void *data EINA_UNUSED, int type EINA_UNUSED, void *even
    return ECORE_CALLBACK_PASS_ON;
 }
 
+static void
+_e_vis_cb_child_launch_done(void *data, Evas_Object *obj, const char *signal, const char *source)
+{
+   E_Vis_Client *vc;
+   Evas_Object *comp_obj;
+
+   vc = data;
+   comp_obj = evas_object_data_get(obj, "comp_smart_obj");
+
+   E_FREE_FUNC(vc->grab, _e_vis_grab_release);
+   if (comp_obj)
+     e_comp_object_signal_callback_del_full(comp_obj, "e,action,launch,done", "e", _e_vis_cb_child_launch_done, vc);
+}
+
 static Eina_Bool
 _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
 {
@@ -1131,6 +1152,43 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
           ec->new_client, ec->w, ec->h);
 
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_TRUE);
+
+   if (vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD)
+     return EINA_FALSE;
+
+   if (ec->transients)
+     {
+        E_Client *topmost;
+
+        topmost = eina_list_data_get(ec->transients);
+
+        /* allow show if topmost child is alpha window or not fully cover region of ec */
+        if ((topmost->argb) || !(E_CONTAINS(topmost->x, topmost->y, topmost->w, topmost->h, ec->x, ec->y, ec->w, ec->h)))
+          return EINA_TRUE;
+
+        /* do not show until child is shown */
+        if (e_config->transient.iconify)
+          {
+             /* wait for child's uniconify */
+             if (ec->iconic && topmost->iconic)
+               {
+                  if (topmost->pixmap && e_pixmap_usable_get(topmost->pixmap))
+                    {
+
+                       vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD;
+                       vc->grab = _e_vis_client_grab_get(vc, __func__);
+                       e_comp_object_signal_callback_add(topmost->frame,
+                                                         "e,action,launch,done",
+                                                         "e",
+                                                         _e_vis_cb_child_launch_done,
+                                                         vc);
+                       _e_vis_client_job_add(vc, E_VIS_JOB_TYPE_SHOW);
+                       return EINA_FALSE;
+                    }
+               }
+          }
+
+     }
    return EINA_TRUE;
 }
 
