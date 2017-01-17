@@ -2168,6 +2168,36 @@ _e_comp_wl_remote_surface_source_update(E_Comp_Wl_Remote_Source *source, E_Comp_
                                                  NULL);
      }
 }
+
+static int
+_e_comp_wl_remote_surface_dummy_fd_get(void)
+{
+   int fd = 0, blen = 0, len = 0;
+   const char *path;
+   char tmp[PATH_MAX];
+
+   blen = sizeof(tmp) - 1;
+
+   if (!(path = getenv("XDG_RUNTIME_DIR")))
+     return -1;
+
+   len = strlen(path);
+   if (len < blen)
+     {
+        strncpy(tmp, path, len + 1);
+        strncat(tmp, "/enlightenment_rsm_dummy_fdXXXXXX", 34);
+     }
+   else
+     return -1;
+
+   if ((fd = mkstemp(tmp)) < 0)
+     return -1;
+
+   unlink(tmp);
+
+   return fd;
+}
+
 #endif /* HAVE_REMOTE_SURFACE */
 
 EINTERN Eina_Bool
@@ -2241,7 +2271,6 @@ e_comp_wl_remote_surface_init(void)
 {
 #ifdef HAVE_REMOTE_SURFACE
    E_Comp_Wl_Remote_Manager *rs_manager = NULL;
-   char template[] = "/tmp/enlightenment_rsm_dummy_fdXXXXXX";
 
    EINA_SAFETY_ON_NULL_RETURN(e_comp_wl);
    EINA_SAFETY_ON_NULL_RETURN(e_comp_wl->wl.disp);
@@ -2269,7 +2298,7 @@ e_comp_wl_remote_surface_init(void)
    rs_manager->provider_hash = eina_hash_pointer_new(NULL);
    rs_manager->surface_hash = eina_hash_pointer_new(NULL);
    rs_manager->source_hash = eina_hash_pointer_new(NULL);
-   rs_manager->dummy_fd = mkstemp(template);
+   rs_manager->dummy_fd = _e_comp_wl_remote_surface_dummy_fd_get();
 
    if (rs_manager->dummy_fd == -1)
      {
@@ -2278,8 +2307,8 @@ e_comp_wl_remote_surface_init(void)
         e_comp_wl_remote_surface_shutdown();
         return;
      }
-   else
-     unlink(template);
+
+   RSMINF("dummy_fd created %d", NULL, NULL, "MANAGER", rs_manager, rs_manager->dummy_fd);
 
    _rsm = rs_manager;
 
