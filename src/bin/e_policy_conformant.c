@@ -309,6 +309,9 @@ _conf_cb_part_obj_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
                       g_conf->part[type].state.w,
                       g_conf->part[type].state.h);
    g_conf->part[type].owner = NULL;
+
+   if (type == CONFORMANT_TYPE_CLIPBOARD)
+     e_policy_stack_transient_for_set(g_conf->part[type].ec, NULL);
 }
 
 static void
