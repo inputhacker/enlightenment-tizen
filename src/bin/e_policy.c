@@ -326,6 +326,16 @@ _e_policy_client_maximize_policy_cancel(E_Policy_Client *pc)
         changed = EINA_TRUE;
      }
 
+   /* floating mode ec which was launched with fake image is not borderless value.
+    * thus, we should set borderless value to 1 for this ec to prevent choppy
+    * movement of the window when moving the window.
+    */
+   if (ec->floating)
+     {
+        pc->orig.borderless = 1;
+        changed = EINA_TRUE;
+     }
+
 #undef _SET
 # define _SET(a) ec->a = pc->orig.a
    _SET(borderless);
