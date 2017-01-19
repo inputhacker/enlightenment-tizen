@@ -659,6 +659,16 @@ _e_policy_cb_hook_client_eval_pre_new_client(void *d EINA_UNUSED, E_Client *ec)
                evas_object_layer_set(ec->frame, ec->layer);
           }
      }
+
+   if (e_policy_client_is_dialog(ec))
+     {
+        if (ec->frame && !ec->parent)
+          {
+             if (ec->layer != E_POLICY_DIALOG_LAYER)
+               evas_object_layer_set(ec->frame, E_POLICY_DIALOG_LAYER);
+          }
+     }
+
    if (e_policy_client_is_floating(ec))
      {
         if (ec->frame)

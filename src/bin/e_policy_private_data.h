@@ -51,7 +51,10 @@ e_policy_angle_get(E_Policy_Angle_Map map)
 # define E_POLICY_FLOATING_LAYER E_LAYER_CLIENT_PRIO
 
 /* layer level - E_LAYER_CLIENT_FULLSCREEN (350) */
+
 /* layer level - E_LAYER_CLIENT_ABOVE (250) */
+# define E_POLICY_DIALOG_LAYER   E_LAYER_CLIENT_ABOVE
+
 /* layer level - E_LAYER_CLIENT_NORMAL (200) */
 /* layer level - E_LAYER_CLIENT_BELOW (150) */
 
