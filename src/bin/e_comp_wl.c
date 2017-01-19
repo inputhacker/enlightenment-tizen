@@ -1666,6 +1666,7 @@ e_comp_wl_feed_focus_in(E_Client *ec)
      }
 
    if (!e_comp_wl->kbd.focused) return;
+   e_comp_wl->kbd.focus = ec->comp_data->surface;
    e_comp_wl_input_keyboard_enter_send(ec);
    e_comp_wl_data_device_keyboard_focus_set();
    ec->comp_data->on_focus_timer =
