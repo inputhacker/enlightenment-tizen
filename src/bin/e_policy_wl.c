@@ -2079,12 +2079,10 @@ _tzpol_iface_cb_opaque_state_set(struct wl_client *client, struct wl_resource *r
 // --------------------------------------------------------
 // iconify
 // --------------------------------------------------------
-static void
-_tzpol_iface_cb_iconify(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol EINA_UNUSED, struct wl_resource *surf)
-{
-   E_Client *ec;
 
-   ec = wl_resource_get_user_data(surf);
+E_API void
+e_policy_wl_iconify(E_Client *ec)
+{
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
@@ -2095,12 +2093,9 @@ _tzpol_iface_cb_iconify(struct wl_client *client EINA_UNUSED, struct wl_resource
    EC_CHANGED(ec);
 }
 
-static void
-_tzpol_iface_cb_uniconify(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol EINA_UNUSED, struct wl_resource *surf)
+E_API void
+e_policy_wl_uniconify(E_Client *ec)
 {
-   E_Client *ec;
-
-   ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
@@ -2121,6 +2116,24 @@ _tzpol_iface_cb_uniconify(struct wl_client *client EINA_UNUSED, struct wl_resour
    e_client_uniconify(ec);
 
    EC_CHANGED(ec);
+}
+
+static void
+_tzpol_iface_cb_iconify(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol EINA_UNUSED, struct wl_resource *surf)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(surf);
+   e_policy_wl_iconify(ec);
+}
+
+static void
+_tzpol_iface_cb_uniconify(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol EINA_UNUSED, struct wl_resource *surf)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(surf);
+   e_policy_wl_uniconify(ec);
 }
 
 static void
