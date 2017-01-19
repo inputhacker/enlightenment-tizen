@@ -199,6 +199,8 @@ e_comp_wl_map_size_cal_from_viewport(E_Client *ec)
    width = ec->comp_data->width_from_buffer;
    height = ec->comp_data->height_from_buffer;
 
+   if (width == 0 && height == 0) return;
+
    if (width != 0 && vp->surface.width != -1)
      {
         ec->comp_data->width_from_viewport = vp->surface.width;
