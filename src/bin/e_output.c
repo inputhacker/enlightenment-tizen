@@ -815,6 +815,7 @@ e_output_commit(E_Output *output)
    E_Plane *plane = NULL;
    Eina_List *l;
    Eina_Bool commitable = EINA_FALSE;
+   Eina_Bool fb_hwc_on = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
@@ -822,6 +823,17 @@ e_output_commit(E_Output *output)
      {
         WRN("E_Output disconnected");
         return EINA_FALSE;
+     }
+
+   EINA_LIST_FOREACH(output->planes, l, plane)
+     {
+        if (e_plane_is_fb_target(plane))
+          {
+             if (plane->ec)
+                fb_hwc_on = EINA_TRUE;
+
+             break;
+          }
      }
 
    /* set planes */
@@ -837,6 +849,9 @@ e_output_commit(E_Output *output)
 
             if (!commitable) commitable = EINA_TRUE;
          }
+
+       if (fb_hwc_on && plane->need_to_unset_commit && !commitable)
+          commitable = EINA_TRUE;
      }
 
    /* commit output */
