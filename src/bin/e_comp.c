@@ -975,7 +975,6 @@ _e_comp_cb_update(void)
      ecore_animator_freeze(e_comp->render_animator);
 
    DBG("UPDATE ALL");
-   if (e_comp->hwc_mode == E_HWC_MODE_FULL) goto setup_hwcompose;
 
    if (conf->grab && (!e_comp->grabbed))
      {
@@ -990,6 +989,8 @@ _e_comp_cb_update(void)
         e_comp_object_render_update_del(ec->frame);
         _e_comp_client_update(ec);
      }
+
+   if (e_comp->hwc_mode == E_HWC_MODE_FULL) goto setup_hwcompose;
 
 #ifndef ENABLE_HWC_MULTI
    if (conf->fps_show || e_comp->calc_fps)
