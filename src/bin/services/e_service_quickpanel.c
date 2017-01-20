@@ -1157,6 +1157,7 @@ end:
  * the quickpanel to turn on the WiFi.
  * @see  _quickpanel_cb_client_show(),
  *       _quickpanel_cb_client_hide()
+ *       _quickpanel_cb_client_move()
  *       _quickpanel_cb_client_stack()
  *       _quickpanel_cb_client_remove()
  *       _quickpanel_idle_enter()
@@ -1213,6 +1214,13 @@ _quickpanel_cb_client_show(void *data, int type, void *event)
 
 static Eina_Bool
 _quickpanel_cb_client_hide(void *data, int type, void *event)
+{
+   _quickpanel_below_change_eval(data, event);
+   return ECORE_CALLBACK_PASS_ON;
+}
+
+static Eina_Bool
+_quickpanel_cb_client_move(void *data, int type, void *event)
 {
    _quickpanel_below_change_eval(data, event);
    return ECORE_CALLBACK_PASS_ON;
@@ -1559,6 +1567,7 @@ e_service_quickpanel_client_set(E_Client *ec)
    E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_ROTATION_CHANGE_END,      _quickpanel_cb_rotation_done,    qp);
    E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_SHOW,                     _quickpanel_cb_client_show,      qp);
    E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_HIDE,                     _quickpanel_cb_client_hide,      qp);
+   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_MOVE,                     _quickpanel_cb_client_move, qp);
    E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_STACK,                    _quickpanel_cb_client_stack,     qp);
    E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_REMOVE,                   _quickpanel_cb_client_remove,    qp);
    E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_BUFFER_CHANGE,            _quickpanel_cb_buffer_change,    qp);
