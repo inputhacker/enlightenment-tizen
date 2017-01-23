@@ -873,7 +873,10 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
              if (ec->zone->display_state == E_ZONE_DISPLAY_STATE_ON)
                {
                   if (!E_CONTAINS(ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h, ec->x, ec->y, ec->w, ec->h))
-                    e_policy_client_iconify_by_visibility(ec);
+                    {
+                       e_policy_client_iconify_by_visibility(ec);
+                       return;
+                    }
 
                   for (o = evas_object_above_get(ec->frame); o; o = evas_object_above_get(o))
                     {
