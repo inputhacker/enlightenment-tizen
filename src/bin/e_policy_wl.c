@@ -2962,6 +2962,47 @@ _tzpol_iface_cb_subsurf_watcher_get(struct wl_client *client, struct wl_resource
    wl_resource_set_implementation(res, NULL, ec, _tzpol_iface_cb_subsurf_watcher_destroy);
 }
 
+static void
+_tzpol_iface_cb_parent_set(struct wl_client *client, struct wl_resource *res_tzpol, struct wl_resource *child, struct wl_resource *parent)
+{
+   E_Client *ec, *pc;
+   struct wl_resource *parent_surf;
+
+   ELOGF("TZPOL",
+         "PARENT_SET   |res_tzpol:0x%08x|parent:0x%08x|child:0x%08x",
+         NULL, NULL, (unsigned int)res_tzpol, (unsigned int)parent, (unsigned int)child);
+
+   ec = wl_resource_get_user_data(child);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   pc = wl_resource_get_user_data(parent);
+   if (!pc)
+     {
+        _e_policy_wl_parent_surf_set(ec, NULL);
+     }
+   else
+     {
+        EINA_SAFETY_ON_NULL_RETURN(pc->comp_data);
+
+        parent_surf = pc->comp_data->surface;
+        _e_policy_wl_parent_surf_set(ec, parent_surf);
+
+        ELOGF("TZPOL",
+              "         |win:0x%08x|parent|s:0x%08x",
+              pc->pixmap, pc,
+              (unsigned int)e_client_util_win_get(pc),
+              (unsigned int)parent_surf);
+
+        ELOGF("TZPOL",
+              "         |win:0x%08x|child |s:0x%08x",
+              ec->pixmap, ec,
+              (unsigned int)e_client_util_win_get(ec),
+              (unsigned int)(ec->comp_data ? ec->comp_data->surface : NULL));
+     }
+
+   EC_CHANGED(ec);
+}
+
 // --------------------------------------------------------
 // tizen_policy_interface
 // --------------------------------------------------------
@@ -3002,6 +3043,7 @@ static const struct tizen_policy_interface _tzpol_iface =
    _tzpol_iface_cb_stack_mode_set,
    _tzpol_iface_cb_activate_above_by_res_id,
    _tzpol_iface_cb_subsurf_watcher_get,
+   _tzpol_iface_cb_parent_set,
 };
 
 static void
@@ -5680,7 +5722,7 @@ e_policy_wl_init(void)
    /* create globals */
    global = wl_global_create(e_comp_wl->wl.disp,
                              &tizen_policy_interface,
-                             2,
+                             3,
                              NULL,
                              _tzpol_cb_bind);
    EINA_SAFETY_ON_NULL_GOTO(global, err);
