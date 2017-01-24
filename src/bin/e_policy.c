@@ -646,7 +646,7 @@ _e_policy_cb_hook_client_eval_pre_new_client(void *d EINA_UNUSED, E_Client *ec)
         ec->exp_iconify.skip_iconify = EINA_TRUE;
 
         EINA_SAFETY_ON_NULL_RETURN(ec->frame);
-        if (ec->layer != E_LAYER_CLIENT_ABOVE)
+        if (ec->layer < E_LAYER_CLIENT_ABOVE)
           evas_object_layer_set(ec->frame, E_LAYER_CLIENT_ABOVE);
      }
    if (e_policy_client_is_noti(ec))
