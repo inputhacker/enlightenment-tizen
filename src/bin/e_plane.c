@@ -942,10 +942,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
                        _e_plane_surface_on_client_reserved_release(plane, displaying_tsurface);
                        _e_plane_surface_send_dequeuable_surfaces(plane);
                     }
-                  else
-                    {
-                       e_plane_renderer_sent_surface_recevie(plane->renderer, displaying_tsurface);
-                    }
+
                }
           }
         else
@@ -982,10 +979,6 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
                         {
                            _e_plane_surface_on_client_reserved_release(plane, displaying_tsurface);
                            _e_plane_surface_send_dequeuable_surfaces(plane);
-                        }
-                      else
-                        {
-                           e_plane_renderer_sent_surface_recevie(plane->renderer, displaying_tsurface);
                         }
                    }
                }
