@@ -2112,8 +2112,8 @@ e_policy_wl_uniconify(E_Client *ec)
      e_policy_wl_iconify_state_change_send(ec, 0);
 
    ELOG("Un-Set ICONIFY BY CLIENT", ec->pixmap, ec);
-   ec->exp_iconify.by_client = 0;
    e_client_uniconify(ec);
+   ec->exp_iconify.by_client = 0;
 
    EC_CHANGED(ec);
 }
