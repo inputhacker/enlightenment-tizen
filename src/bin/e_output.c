@@ -67,62 +67,6 @@ _e_output_update_fps()
      }
 }
 
-static void
-_e_output_commit_hanler(tdm_output *output, unsigned int sequence,
-                                  unsigned int tv_sec, unsigned int tv_usec,
-                                  void *user_data)
-{
-   Eina_List *data_list = user_data;
-   E_Plane_Commit_Data *data = NULL;
-   Eina_List *l, *ll;
-
-   _e_output_update_fps();
-
-   TRACE_DS_ASYNC_END((unsigned int)output, [OUTPUT:COMMIT~HANDLER]);
-
-   EINA_LIST_FOREACH_SAFE(data_list, l, ll, data)
-     {
-        data_list = eina_list_remove_list(data_list, l);
-        e_plane_commit_data_release(data);
-        data = NULL;
-     }
-}
-
-static Eina_Bool
-_e_output_commit(E_Output *output)
-{
-   Eina_List *data_list = NULL;
-   E_Plane_Commit_Data *data = NULL;
-   E_Plane *plane = NULL;
-   Eina_List *l, *ll;
-   tdm_error error;
-
-   EINA_LIST_REVERSE_FOREACH(output->planes, l, plane)
-     {
-        data = e_plane_commit_data_aquire(plane);
-        if (!data) continue;
-        data_list = eina_list_append(data_list, data);
-     }
-
-   TRACE_DS_ASYNC_BEGIN((unsigned int)output->toutput, [OUTPUT:COMMIT~HANDLER]);
-
-   error = tdm_output_commit(output->toutput, 0, _e_output_commit_hanler, data_list);
-   if (error != TDM_ERROR_NONE)
-     {
-        ERR("fail to tdm_output_commit");
-        TRACE_DS_ASYNC_END((unsigned int)output->toutput, [OUTPUT:COMMIT~HANDLER]);
-        EINA_LIST_FOREACH_SAFE(data_list, l, ll, data)
-          {
-             data_list = eina_list_remove_list(data_list, l);
-             e_plane_commit_data_release(data);
-             data = NULL;
-          }
-        return EINA_FALSE;
-     }
-
-   return EINA_TRUE;
-}
-
 EINTERN Eina_Bool
 e_output_init(void)
 {
@@ -814,7 +758,7 @@ e_output_commit(E_Output *output)
 {
    E_Plane *plane = NULL;
    Eina_List *l;
-   Eina_Bool commitable = EINA_FALSE;
+   Eina_Bool fb_commit = EINA_FALSE;
    Eina_Bool fb_hwc_on = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
@@ -825,53 +769,40 @@ e_output_commit(E_Output *output)
         return EINA_FALSE;
      }
 
+   /* set planes */
    EINA_LIST_FOREACH(output->planes, l, plane)
      {
+        if (e_plane_is_fb_target(plane) && plane->ec)
+           fb_hwc_on = EINA_TRUE;
+
+        if (!e_plane_fetch(plane)) continue;
+
+        if (output->dpms == E_OUTPUT_DPMS_OFF)
+          {
+              e_plane_unfetch(plane);
+              continue;
+          }
+
         if (e_plane_is_fb_target(plane))
           {
-             if (plane->ec)
-                fb_hwc_on = EINA_TRUE;
-
-             break;
+              _e_output_update_fps();
+              fb_commit = EINA_TRUE;
           }
-     }
-
-   /* set planes */
-   EINA_LIST_REVERSE_FOREACH(output->planes, l, plane)
-     {
-        if (e_plane_fetch(plane))
-         {
-            if (output->dpms == E_OUTPUT_DPMS_OFF)
-              {
-                 e_plane_unfetch(plane);
-                 continue;
-              }
-
-            if (!commitable) commitable = EINA_TRUE;
-         }
-
-       if (fb_hwc_on && plane->need_to_unset_commit && !commitable)
-          commitable = EINA_TRUE;
-     }
-
-   /* commit output */
-   if (commitable)
-     {
-        if (!_e_output_commit(output))
+        else
           {
-             ERR("fail to _e_output_commit.");
-
-             /* unset planes */
-             EINA_LIST_REVERSE_FOREACH(output->planes, l, plane)
-               e_plane_unfetch(plane);
-
-             return EINA_FALSE;
+              if (plane->need_to_unset_commit)
+                {
+                  if (!fb_hwc_on && !fb_commit)
+                      continue;
+                }
           }
+
+        if (!e_plane_commit(plane))
+          ERR("fail to e_plane_commit");
      }
 
    return EINA_TRUE;
 }
-
 
 E_API E_Output *
 e_output_find(const char *id)

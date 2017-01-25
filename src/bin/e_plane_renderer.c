@@ -1471,7 +1471,7 @@ e_plane_renderer_surface_queue_release(E_Plane_Renderer *renderer, tbm_surface_h
      {
         E_Client *ec = renderer->ec;
         if (ec)
-          ELOGF("E_PLANE_RENDERER", "Release Renderer(%p)     wl_buffer(%p) tsurface(%p) tqueue(%p) wl_buffer_ref(%p)",
+          ELOGF("E_PLANE_RENDERER", "Release Renderer(%p)  wl_buffer(%p) tsurface(%p) tqueue(%p) wl_buffer_ref(%p)",
                 ec->pixmap, ec, renderer, _get_wl_buffer(ec), tsurface, renderer->tqueue, _get_wl_buffer_ref(ec));
         else
           ELOGF("E_PLANE_RENDERER", "Release Renderer(%p)  tsurface(%p) tqueue(%p)",

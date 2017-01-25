@@ -93,7 +93,7 @@ _e_plane_surface_unset(E_Plane *plane)
    tdm_error error;
 
    if (plane_trace_debug)
-       ELOGF("E_PLANE", "Unset  Plane(%p)", NULL, NULL, plane);
+       ELOGF("E_PLANE", "Unset   Plane(%p)", NULL, NULL, plane);
 
    error = tdm_layer_unset_buffer(tlayer);
    if (error != TDM_ERROR_NONE)
@@ -269,7 +269,7 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
 
    if (plane_trace_debug)
      {
-        ELOGF("E_PLANE", "Set  Plane(%p)  tsurface(%p) (%dx%d,[%d,%d,%d,%d]=>[%d,%d,%d,%d])",
+        ELOGF("E_PLANE", "Set     Plane(%p)     tsurface(%p) (%dx%d,[%d,%d,%d,%d]=>[%d,%d,%d,%d])",
               NULL, NULL, plane, tsurface,
               plane->info.src_config.size.h, plane->info.src_config.size.h,
               plane->info.src_config.pos.x, plane->info.src_config.pos.y,
@@ -736,7 +736,7 @@ e_plane_fetch(E_Plane *plane)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
-   if (plane->pending_commit_data)
+   if (plane->pending_commit)
       return EINA_FALSE;
 
    if (plane->is_fb && !plane->ec)
@@ -825,6 +825,68 @@ e_plane_unfetch(E_Plane *plane)
      }
 }
 
+static void
+_e_plane_vblank_handler(tdm_output *output, unsigned int sequence,
+                                  unsigned int tv_sec, unsigned int tv_usec,
+                                  void *user_data)
+{
+   E_Plane *plane = (E_Plane *)user_data;
+
+   EINA_SAFETY_ON_NULL_RETURN(plane);
+
+   plane->pending_commit = EINA_FALSE;
+}
+
+static void
+_e_plane_commit_hanler(tdm_layer *layer, unsigned int sequence,
+                                  unsigned int tv_sec, unsigned int tv_usec,
+                                  void *user_data)
+{
+   E_Plane_Commit_Data *data = (E_Plane_Commit_Data *)user_data;
+
+   EINA_SAFETY_ON_NULL_RETURN(data);
+
+   TRACE_DS_ASYNC_END((unsigned int)layer, [PLANE:COMMIT~HANDLER]);
+
+   e_plane_commit_data_release(data);
+}
+
+EINTERN Eina_Bool
+e_plane_commit(E_Plane *plane)
+{
+   E_Plane_Commit_Data *data = NULL;
+   tdm_error error = TDM_ERROR_NONE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   data = e_plane_commit_data_aquire(plane);
+
+   if (!data) return EINA_TRUE;
+
+   TRACE_DS_ASYNC_BEGIN((unsigned int)plane->tlayer, [PLANE:COMMIT~HANDLER]);
+
+   if (plane_trace_debug)
+     ELOGF("E_PLANE", "Commit  Plane(%p)     tsurface(%p) tqueue(%p) data(%p)",
+           NULL, NULL, plane, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL, data);
+
+   error = tdm_layer_commit(plane->tlayer, _e_plane_commit_hanler, data);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("fail to tdm_layer_commit plane:%p, zpos:%d", plane, plane->zpos);
+        e_plane_commit_data_release(data);
+        return EINA_FALSE;
+     }
+
+   error = tdm_output_wait_vblank(plane->output->toutput, 1, 0, _e_plane_vblank_handler, (void *)plane);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("fail to tdm_output_wait_vblank plane:%p, zpos:%d", plane, plane->zpos);
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
 EINTERN E_Plane_Commit_Data *
 e_plane_commit_data_aquire(E_Plane *plane)
 {
@@ -838,7 +900,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
         data->plane = plane;
         data->tsurface = NULL;
         data->ec = NULL;
-        plane->pending_commit_data = data;
+        plane->pending_commit = EINA_TRUE;
         plane->need_to_unset_commit = EINA_FALSE;
 
         return data;
@@ -860,7 +922,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
 
         /* set the update_exist to be false */
         e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
-        plane->pending_commit_data = data;
+        plane->pending_commit = EINA_TRUE;
 
         return data;
      }
@@ -877,7 +939,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
 
              /* set the update_exist to be false */
              e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
-             plane->pending_commit_data = data;
+             plane->pending_commit = EINA_TRUE;
 
              /* send frame event enlightenment dosen't send frame evnet in nocomp */
              e_pixmap_image_clear(plane->ec->pixmap, 1);
@@ -906,7 +968,6 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
 
    if (!tsurface)
      {
-        plane->pending_commit_data = NULL;
         e_comp_wl_buffer_reference(&plane->displaying_buffer_ref, NULL);
         if (plane->displaying_buffer_tsurface)
           {
@@ -1015,7 +1076,6 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
         e_comp_wl_buffer_reference(&data->buffer_ref, NULL);
      }
 
-   plane->pending_commit_data = NULL;
    tbm_surface_internal_unref(tsurface);
    free(data);
 }
