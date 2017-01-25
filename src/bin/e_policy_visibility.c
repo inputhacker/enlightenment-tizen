@@ -646,6 +646,7 @@ _e_vis_client_job_exec(E_Vis_Client *vc, E_Vis_Job_Type type)
      {
       case E_VIS_JOB_TYPE_ACTIVATE:
       case E_VIS_JOB_TYPE_UNICONIFY:
+      case E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY:
          vc->state = E_VIS_ICONIFY_STATE_UNICONIC;
          break;
       default:
@@ -987,6 +988,9 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
       case E_VIS_JOB_TYPE_UNICONIFY:
          e_client_uniconify(ec);
          break;
+      case E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY:
+         _e_policy_client_uniconify_by_visibility(ec);
+         break;
       case E_VIS_JOB_TYPE_LOWER:
          e_comp_canvas_norender_pop();
          evas_object_lower(ec->frame);
@@ -1079,7 +1083,7 @@ _e_vis_ec_below_uniconify(E_Client *ec)
      {
         EINA_LIST_FOREACH(below_list, l, below)
           {
-             ret |= _e_vis_client_uniconify_render(below, E_VIS_JOB_TYPE_UNICONIFY, 0);
+             ret |= _e_vis_client_uniconify_render(below, E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY, 0);
           }
      }
 
@@ -1372,7 +1376,10 @@ e_policy_visibility_client_uniconify(E_Client *ec, Eina_Bool raise)
    /* TODO search clients to be really foreground and uniconify it.
     * suppose that transients will be above on the parent. */
 
-   ret = _e_vis_client_uniconify_render(vc, E_VIS_JOB_TYPE_UNICONIFY, raise);
+   if (raise)
+     ret = _e_vis_client_uniconify_render(vc, E_VIS_JOB_TYPE_UNICONIFY, raise);
+   else
+     ret = _e_vis_client_uniconify_render(vc, E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY, raise);
 
    /* uniconify its transients recursively */
    if (e_config->transient.iconify)
