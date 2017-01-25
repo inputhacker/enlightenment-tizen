@@ -4450,6 +4450,7 @@ _e_comp_wl_client_usable_get(pid_t pid, E_Pixmap *ep)
 
              /* to set-up comp data */
              _e_comp_wl_client_cb_new(NULL, ec);
+             ec->ignored = 0;
              if (!ec->comp_data) return NULL;
              _e_comp_wl_client_evas_init(ec);
           }
