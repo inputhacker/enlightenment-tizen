@@ -664,7 +664,7 @@ _remote_source_save(void *data, Ecore_Thread *th)
    Thread_Data *td;
    E_Client *ec;
    char name[1024];
-   const char *dest_path, *dupname;
+   const char *dest_path, *dupname, *dest_dir;
 
    if (!(td = data)) return;
 
@@ -672,9 +672,12 @@ _remote_source_save(void *data, Ecore_Thread *th)
    if (!ec) return;
    if (ecore_thread_check(th)) return;
 
+   if (!(dest_dir = getenv("XDG_RUNTIME_DIR")))
+     return;
+
    snprintf(name, sizeof(name), "image_0x%08x", (unsigned int)ec);
    dupname = strdup(name);
-   dest_path = _remote_source_image_data_save(td, e_prefix_data_get(), dupname);
+   dest_path = _remote_source_image_data_save(td, dest_dir, dupname);
    if (dest_path)
      {
         td->image_path = eina_stringshare_add(dest_path);
@@ -817,8 +820,14 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
          break;
       case E_COMP_WL_BUFFER_TYPE_NATIVE:
       case E_COMP_WL_BUFFER_TYPE_VIDEO:
-      case E_COMP_WL_BUFFER_TYPE_TBM:
          tbm_surface = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, buffer->resource);
+         if (!tbm_surface) goto end;
+
+         tbm_surface_internal_ref(tbm_surface);
+         td->tbm_surface = tbm_surface;
+         break;
+      case E_COMP_WL_BUFFER_TYPE_TBM:
+         tbm_surface = buffer->tbm_surface;
          if (!tbm_surface) goto end;
 
          tbm_surface_internal_ref(tbm_surface);
