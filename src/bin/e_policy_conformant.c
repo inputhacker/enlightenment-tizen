@@ -3,6 +3,17 @@
 #include <wayland-server.h>
 #include <tizen-extension-server-protocol.h>
 
+#undef E_COMP_OBJECT_INTERCEPT_HOOK_APPEND
+#define E_COMP_OBJECT_INTERCEPT_HOOK_APPEND(l, t, cb, d) \
+  do                                                     \
+    {                                                    \
+       E_Comp_Object_Intercept_Hook *_h;                 \
+       _h = e_comp_object_intercept_hook_add(t, cb, d);  \
+       assert(_h);                                       \
+       l = eina_list_append(l, _h);                      \
+    }                                                    \
+  while (0)
+
 typedef enum
 {
    CONFORMANT_TYPE_INDICATOR = 0,
@@ -10,6 +21,21 @@ typedef enum
    CONFORMANT_TYPE_CLIPBOARD,
    CONFORMANT_TYPE_MAX,
 } Conformant_Type;
+
+typedef enum
+{
+   DEFER_JOB_HIDE = 0,
+   DEFER_JOB_RESIZE,
+} Defer_Job_Type;
+
+typedef struct
+{
+   Defer_Job_Type type;
+   Conformant_Type conf_type;
+   uint32_t serial;
+   E_Client *owner;
+   E_Client_Hook *owner_del_hook;
+} Defer_Job;
 
 typedef struct
 {
@@ -22,13 +48,17 @@ typedef struct
              Eina_Bool restore;
              Eina_Bool visible;
              int x, y, w, h;
+             Eina_Bool will_hide;
           } state;
 
         Eina_Bool changed : 1;
+        Eina_List *defer_jobs;
+        uint32_t last_serial;
      } part[CONFORMANT_TYPE_MAX];
 
    Eina_Hash *client_hash;
    Eina_List *handlers;
+   Eina_List *interceptors;
    E_Client_Hook *client_del_hook;
    Ecore_Idle_Enterer *idle_enterer;
 } Conformant;
@@ -37,6 +67,9 @@ typedef struct
 {
    E_Client *ec;
    Eina_List *res_list;
+
+   Ecore_Timer *timer;
+   Eina_Bool wait_ack;
 } Conformant_Client;
 
 typedef struct
@@ -44,11 +77,17 @@ typedef struct
    Conformant_Client *cfc;
    struct wl_resource *res;
    struct wl_listener destroy_listener;
+
+   uint32_t serial;
+   Eina_Bool use_ack;
+   Eina_Bool ack_done;
 } Conformant_Wl_Res;
 
 static Conformant *g_conf = NULL;
 
 static E_Client   *_conf_part_owner_find(E_Client *part, Conformant_Type type);
+static void        _conf_client_defer_job_do(Conformant_Client *cfc, uint32_t serial);
+static Eina_Bool   _conf_client_ack_timeout(void *data);
 
 static const char*
 _conf_type_to_str(Conformant_Type type)
@@ -91,6 +130,7 @@ _conf_state_update(Conformant_Type type, Eina_Bool visible, int x, int y, int w,
    Conformant_Wl_Res *cres;
    uint32_t conf_type;
    Eina_List *l;
+   Eina_Bool wait_ack = EINA_FALSE;
 
    if ((g_conf->part[type].state.visible == visible) &&
        (g_conf->part[type].state.x == x) && (g_conf->part[type].state.x == y) &&
@@ -141,11 +181,168 @@ _conf_state_update(Conformant_Type type, Eina_Bool visible, int x, int y, int w,
    DBG("\t=> '%s'(%p)", cfc->ec ? (cfc->ec->icccm.name ?:"") : "", cfc->ec);
    EINA_LIST_FOREACH(cfc->res_list, l, cres)
      {
-        tizen_policy_send_conformant_area
-           (cres->res,
-            cfc->ec->comp_data->surface,
-            conf_type,
-            (unsigned int)visible, x, y, w, h);
+        cres->ack_done = EINA_FALSE;
+        if (!cres->use_ack)
+          {
+             cres->ack_done = EINA_TRUE;
+             tizen_policy_send_conformant_area
+                (cres->res,
+                 cfc->ec->comp_data->surface,
+                 conf_type,
+                 (unsigned int)visible, x, y, w, h);
+          }
+        else
+          {
+             uint32_t serial;
+             serial = wl_display_next_serial(e_comp_wl->wl.disp);
+
+             tizen_policy_send_conformant_region
+                (cres->res,
+                 cfc->ec->comp_data->surface,
+                 conf_type,
+                 (unsigned int)visible, x, y, w, h, serial);
+
+             wait_ack = EINA_TRUE;
+             cres->serial = serial;
+             g_conf->part[type].last_serial = serial;
+          }
+     }
+
+   if (wait_ack)
+     {
+        if (cfc->timer)
+          ecore_timer_del(cfc->timer);
+
+        /* renew timer */
+        cfc->timer = ecore_timer_add(e_config->conformant_ack_timeout,
+                                     _conf_client_ack_timeout,
+                                     cfc);
+        cfc->wait_ack = EINA_TRUE;
+     }
+}
+
+static Eina_Bool
+_conf_client_ack_timeout(void *data)
+{
+   Conformant_Client *cfc = (Conformant_Client *)data;
+
+   if (!cfc) return ECORE_CALLBACK_CANCEL;
+
+   cfc->wait_ack = EINA_FALSE;
+   _conf_client_defer_job_do(cfc, 0);
+
+   return ECORE_CALLBACK_DONE;
+}
+
+static Eina_Bool
+_conf_client_ack_check(Conformant_Client *cfc)
+{
+   Eina_List *l;
+   Conformant_Wl_Res *cres;
+
+   EINA_LIST_FOREACH(cfc->res_list, l, cres)
+     {
+        if (cres->use_ack && !cres->ack_done)
+          return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
+static void
+_conf_defer_job_cb_owner_del(void *data, E_Client *ec)
+{
+   Defer_Job *job;
+
+   job = (Defer_Job *)data;
+   if (job->owner == ec)
+     {
+        if (job->type == DEFER_JOB_HIDE)
+          {
+             if (g_conf->part[job->conf_type].owner == ec)
+               {
+                  /* checks for dectecting visible state changes */
+                  if ((!ec->visible) || (ec->iconic) || (ec->hidden))
+                    evas_object_hide(g_conf->part[job->conf_type].ec->frame);
+
+                  g_conf->part[job->conf_type].owner = NULL;
+                  g_conf->part[job->conf_type].state.will_hide = EINA_FALSE;
+               }
+
+          }
+        else if (job->type == DEFER_JOB_RESIZE)
+          {
+             /* TODO */
+          }
+
+        g_conf->part[job->conf_type].defer_jobs =
+           eina_list_remove(g_conf->part[job->conf_type].defer_jobs, job);
+        free(job);
+     }
+}
+
+static Defer_Job *
+_conf_client_defer_job_create(Defer_Job_Type job_type, Conformant_Type conf_type, uint32_t serial, E_Client *owner)
+{
+   Defer_Job *job;
+
+   job = E_NEW(Defer_Job, 1);
+
+   job->type = job_type;
+   job->conf_type = conf_type;
+   job->serial = serial;
+   job->owner = owner;
+   job->owner_del_hook = e_client_hook_add(E_CLIENT_HOOK_DEL,
+                                           _conf_defer_job_cb_owner_del,
+                                           (void*)job);
+
+   return job;
+}
+
+static void
+_conf_client_defer_job_do(Conformant_Client *cfc, uint32_t serial)
+{
+   E_Client *ec;
+   Conformant_Type type;
+   Eina_List *l, *ll;
+   Defer_Job *job;
+
+   ec = cfc->ec;
+
+   for (type = 0; type < CONFORMANT_TYPE_MAX; type++)
+     {
+        EINA_LIST_FOREACH_SAFE(g_conf->part[type].defer_jobs, l, ll, job)
+          {
+             /* if serial is lower than job->serial,
+              * next commit will not include changes for this job
+              */
+             if ((serial) && (job->serial > serial)) continue;
+
+             /* it's not from job owner */
+             if (job->owner != ec) continue;
+
+             if (job->type == DEFER_JOB_HIDE)
+               {
+                  if (g_conf->part[type].owner == ec)
+                    {
+                       /* checks for dectecting visible state changes */
+                       if ((!ec->visible) || (ec->iconic) || (ec->hidden))
+                         evas_object_hide(g_conf->part[type].ec->frame);
+
+                       g_conf->part[type].owner = NULL;
+                       g_conf->part[type].state.will_hide = EINA_FALSE;
+                    }
+               }
+             else if (job->type == DEFER_JOB_RESIZE)
+               {
+                  /* TODO */
+               }
+
+             e_client_hook_del(job->owner_del_hook);
+             free(job);
+             g_conf->part[type].defer_jobs =
+                eina_list_remove_list(g_conf->part[type].defer_jobs, l);
+          }
      }
 }
 
@@ -168,11 +365,16 @@ _conf_client_del(Conformant_Client *cfc)
 {
    Conformant_Wl_Res *cres;
 
+   if (cfc->timer)
+     ecore_timer_del(cfc->timer);
+
    EINA_LIST_FREE(cfc->res_list, cres)
      {
         wl_list_remove(&cres->destroy_listener.link);
         free(cres);
      }
+
+   _conf_client_defer_job_do(cfc, 0);
 
    free(cfc);
 }
@@ -190,6 +392,15 @@ _conf_client_resource_destroy(struct wl_listener *listener, void *data)
          cres->res, cres->cfc->ec->icccm.name ? cres->cfc->ec->icccm.name : "", cres->cfc->ec);
 
    cres->cfc->res_list = eina_list_remove(cres->cfc->res_list, cres);
+
+   /* if we can't expect ack from client anymore, do deferred job now */
+   if (!cres->cfc->res_list)
+     {
+        cres->cfc->wait_ack = EINA_FALSE;
+        if (cres->cfc->timer) ecore_timer_del(cres->cfc->timer);
+        cres->cfc->timer = NULL;
+        _conf_client_defer_job_do(cres->cfc, 0);
+     }
 
    free(cres);
 }
@@ -218,6 +429,7 @@ _conf_client_resource_add(Conformant_Client *cfc, struct wl_resource *res)
 
    cres->cfc = cfc;
    cres->res = res;
+   cres->use_ack = (wl_resource_get_version(res) >= TIZEN_POLICY_CONFORMANT_REGION_SINCE_VERSION);
    cres->destroy_listener.notify = _conf_client_resource_destroy;
    wl_resource_add_destroy_listener(res, &cres->destroy_listener);
 
@@ -274,10 +486,18 @@ static void
 _conf_cb_part_obj_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    Conformant_Type type = (Conformant_Type)data;
+   Defer_Job *job;
 
    DBG("PART %s ec(%p) Deleted", _conf_type_to_str(type), g_conf->part[type].ec);
 
    g_conf->part[type].ec = NULL;
+   g_conf->part[type].state.will_hide = EINA_FALSE;
+   g_conf->part[type].last_serial = 0;
+   EINA_LIST_FREE(g_conf->part[type].defer_jobs, job)
+     {
+        e_client_hook_del(job->owner_del_hook);
+        free(job);
+     }
 }
 
 static void
@@ -290,6 +510,7 @@ _conf_cb_part_obj_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
 
    owner = _conf_part_owner_find(g_conf->part[type].ec, type);
    g_conf->part[type].owner = owner;
+   g_conf->part[type].state.will_hide = EINA_FALSE;
    if (!g_conf->part[type].owner)
      WRN("Not exist %s part(ec(%p)'s parent even if it becomes visible",
          _conf_type_to_str(type), g_conf->part[type].ec);
@@ -309,6 +530,7 @@ _conf_cb_part_obj_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
                       g_conf->part[type].state.w,
                       g_conf->part[type].state.h);
    g_conf->part[type].owner = NULL;
+   g_conf->part[type].state.will_hide = EINA_FALSE;
 
    if (type == CONFORMANT_TYPE_CLIPBOARD)
      e_policy_stack_transient_for_set(g_conf->part[type].ec, NULL);
@@ -464,6 +686,57 @@ end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
+static Eina_Bool
+_conf_cb_intercept_hook_hide(void *data EINA_UNUSED, E_Client *ec)
+{
+   Conformant_Type type;
+   Defer_Job *job;
+   uint32_t pre_serial, post_serial;
+
+   type = _conf_client_type_get(ec);
+   if (type >= CONFORMANT_TYPE_MAX)
+     return EINA_TRUE;
+
+   /* already have deferred job */
+   if (g_conf->part[type].state.will_hide)
+     return EINA_FALSE;
+
+   /* already invisible state was sent in any ways */
+   if (!g_conf->part[type].state.visible)
+     return EINA_TRUE;
+
+   pre_serial = wl_display_next_serial(e_comp_wl->wl.disp);
+
+   DBG("PART %s ec(%p) Intercept Hide", _conf_type_to_str(type), g_conf->part[type].ec);
+   _conf_state_update(type,
+                      EINA_FALSE,
+                      g_conf->part[type].state.x,
+                      g_conf->part[type].state.y,
+                      g_conf->part[type].state.w,
+                      g_conf->part[type].state.h);
+
+   post_serial = g_conf->part[type].last_serial;
+
+   /* no owner no ack */
+   if (!g_conf->part[type].owner) return EINA_TRUE;
+
+   /* if there is no diff it means conformant_region was not sent */
+   if ((!post_serial) || (pre_serial == post_serial)) return EINA_TRUE;
+
+   /* do we have to wait for ack from deleted client? */
+   if (e_object_is_del(E_OBJECT(g_conf->part[type].owner))) return EINA_TRUE;
+
+   /* we will do job when we receivd ack from first tizen_policy resource */
+   job = _conf_client_defer_job_create(DEFER_JOB_HIDE,
+                                       type,
+                                       pre_serial + 1,
+                                       g_conf->part[type].owner);
+
+   g_conf->part[type].defer_jobs = eina_list_append(g_conf->part[type].defer_jobs, job);
+   g_conf->part[type].state.will_hide = EINA_TRUE;
+   return EINA_FALSE;
+}
+
 static void
 _conf_cb_client_del(void *data, E_Client *ec)
 {
@@ -526,6 +799,8 @@ _conf_event_init()
    E_LIST_HANDLER_APPEND(g_conf->handlers, E_EVENT_CLIENT_ROTATION_CHANGE_CANCEL,  _conf_cb_client_rot_change_cancel,   NULL);
    E_LIST_HANDLER_APPEND(g_conf->handlers, E_EVENT_CLIENT_ROTATION_CHANGE_END,     _conf_cb_client_rot_change_end,      NULL);
 
+   E_COMP_OBJECT_INTERCEPT_HOOK_APPEND(g_conf->interceptors, E_COMP_OBJECT_INTERCEPT_HOOK_HIDE, _conf_cb_intercept_hook_hide, NULL);
+
    g_conf->client_del_hook = e_client_hook_add(E_CLIENT_HOOK_DEL, _conf_cb_client_del, g_conf);
    g_conf->idle_enterer = ecore_idle_enterer_add(_conf_idle_enter, NULL);
 }
@@ -534,6 +809,7 @@ static void
 _conf_event_shutdown(void)
 {
    E_FREE_LIST(g_conf->handlers, ecore_event_handler_del);
+   E_FREE_LIST(g_conf->interceptors, e_comp_object_intercept_hook_del);
    E_FREE_FUNC(g_conf->client_del_hook, e_client_hook_del);
    E_FREE_FUNC(g_conf->idle_enterer, ecore_idle_enterer_del);
 }
@@ -610,6 +886,44 @@ e_policy_conformant_client_check(E_Client *ec)
      return EINA_FALSE;
 
    return !!eina_hash_find(g_conf->client_hash, &ec);
+}
+
+EINTERN void
+e_policy_conformant_client_ack(E_Client *ec, struct wl_resource *res, uint32_t serial)
+{
+   Conformant_Client *cfc;
+   Conformant_Wl_Res *cres;
+   Eina_List *l;
+
+   /* ec is already deleted */
+   cfc = eina_hash_find(g_conf->client_hash, &ec);
+   if (!cfc)
+     return;
+
+   if (!cfc->wait_ack) return;
+
+   EINA_LIST_FOREACH(cfc->res_list, l, cres)
+     {
+        if (cres->res == res)
+          {
+             if (serial == cres->serial)
+               {
+                  DBG("Ack conformant region ec(%p) res(%p) serial(%u)", ec, res, serial);
+                  cres->ack_done = EINA_TRUE;
+               }
+             break;
+          }
+     }
+
+   cfc->wait_ack = !_conf_client_ack_check(cfc);
+
+   if ((!cfc->wait_ack) && (cfc->timer))
+     {
+        ecore_timer_del(cfc->timer);
+        cfc->timer = NULL;
+     }
+
+   _conf_client_defer_job_do(cfc, serial);
 }
 
 EINTERN Eina_Bool

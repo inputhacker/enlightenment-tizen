@@ -165,6 +165,7 @@ struct _E_Config
       Eina_Bool qp; /* quickpanel */
    } use_module_srv;
    double launchscreen_timeout;
+   double conformant_ack_timeout;
    Eina_Bool calc_vis_without_effect;
    Eina_Bool save_win_buffer;
    const char *indicator_plug_name;
