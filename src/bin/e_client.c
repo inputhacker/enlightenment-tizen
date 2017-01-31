@@ -5261,6 +5261,12 @@ e_client_uniconify(E_Client *ec)
    if (!not_raise)
      evas_object_raise(ec->frame);
 
+   if (ec->internal)
+     {
+        ELOGF("TZVIS", "UNICONIFY|internal object force show", ec->pixmap, ec);
+        evas_object_show(ec->frame);
+     }
+
    if (ec->pixmap && e_pixmap_usable_get(ec->pixmap))
       evas_object_show(ec->frame);
 
