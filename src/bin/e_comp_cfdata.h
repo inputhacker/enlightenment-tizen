@@ -63,6 +63,7 @@ struct _E_Comp_Config
 
    unsigned char dim_rect_enable;
    unsigned char dim_rect_effect;
+   Eina_Bool input_log_enable;
 };
 
 struct _E_Comp_Match

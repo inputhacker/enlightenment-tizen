@@ -1114,6 +1114,7 @@ _e_comp_wl_send_touch(E_Client *ec, int idx, int canvas_x, int canvas_y, uint32_
    struct wl_resource *res;
    wl_fixed_t x, y;
    uint32_t serial;
+   E_Comp_Config *comp_conf = NULL;
 
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
@@ -1128,15 +1129,27 @@ _e_comp_wl_send_touch(E_Client *ec, int idx, int canvas_x, int canvas_y, uint32_
         y = wl_fixed_from_int(canvas_y - ec->client.y);
      }
 
+   comp_conf = e_comp_config_get();
+
    EINA_LIST_FOREACH(e_comp_wl->touch.resources, l, res)
      {
         if (wl_resource_get_client(res) != wc) continue;
         if (!e_comp_wl_input_touch_check(res)) continue;
         TRACE_INPUT_BEGIN(_e_comp_wl_send_touch);
         if (pressed)
-          wl_touch_send_down(res, serial, timestamp, ec->comp_data->surface, idx, x, y); //id 0 for the 1st finger
+          {
+             if (comp_conf && comp_conf->input_log_enable)
+               INF("[Server] Touch Down (id: %d, time: %d)\n", idx, timestamp);
+
+             wl_touch_send_down(res, serial, timestamp, ec->comp_data->surface, idx, x, y); //id 0 for the 1st finger
+          }
         else
-          wl_touch_send_up(res, serial, timestamp, idx);
+          {
+             if (comp_conf && comp_conf->input_log_enable)
+               INF("[Server] Touch Up (id: %d, time: %d)\n", idx, timestamp);
+
+             wl_touch_send_up(res, serial, timestamp, idx);
+          }
         TRACE_INPUT_END();
      }
 }
@@ -5382,10 +5395,13 @@ _e_comp_wl_key_send(Ecore_Event_Key *ev, enum wl_keyboard_key_state state, Eina_
    uint32_t serial, keycode;
    struct wl_client *wc;
    Ecore_Device *last_dev;
+   E_Comp_Config *comp_conf = NULL;
 
    keycode = (ev->keycode - 8);
 
    serial = wl_display_next_serial(e_comp_wl->wl.disp);
+
+   comp_conf = e_comp_config_get();
 
    EINA_LIST_FOREACH(key_list, l, res)
      {
@@ -5404,6 +5420,9 @@ _e_comp_wl_key_send(Ecore_Event_Key *ev, enum wl_keyboard_key_state state, Eina_
              eina_hash_modify(_last_keydev_hash, wc, ev->dev);
              _e_comp_wl_send_event_device(ev->data, ev->timestamp, ev->dev, serial);
           }
+
+        if (comp_conf && comp_conf->input_log_enable)
+          INF("[Server] Key %s (time: %d)\n", (state ? "Down" : "Up"), ev->timestamp);
 
         wl_keyboard_send_key(res, serial, ev->timestamp,
                              keycode, state);
@@ -5635,6 +5654,7 @@ e_comp_wl_evas_handle_mouse_button(E_Client *ec, uint32_t timestamp, uint32_t bu
    struct wl_client *wc;
    uint32_t serial, btn;
    struct wl_resource *res;
+   E_Comp_Config *comp_conf = NULL;
 
    if (ec->cur_mouse_action || e_comp_wl->drag)
      return EINA_FALSE;
@@ -5659,11 +5679,17 @@ e_comp_wl_evas_handle_mouse_button(E_Client *ec, uint32_t timestamp, uint32_t bu
    wc = wl_resource_get_client(ec->comp_data->surface);
    serial = wl_display_next_serial(e_comp_wl->wl.disp);
 
+   comp_conf = e_comp_config_get();
+
    EINA_LIST_FOREACH(e_comp_wl->ptr.resources, l, res)
      {
         if (wl_resource_get_client(res) != wc) continue;
         if (!e_comp_wl_input_pointer_check(res)) continue;
         TRACE_INPUT_BEGIN(e_comp_wl_evas_handle_mouse_button);
+
+        if (comp_conf && comp_conf->input_log_enable)
+          INF("[Server] Mouse Button %s (btn: %d, time: %d)\n", (state ? "Down" : "Up"), btn, timestamp);
+
         wl_pointer_send_button(res, serial, timestamp, btn, state);
         TRACE_INPUT_END();
      }
@@ -5740,6 +5766,7 @@ e_comp_wl_key_send(E_Client *ec, int keycode, Eina_Bool pressed, Ecore_Device *d
    Eina_List *l;
    uint32_t serial, wl_keycode;
    enum wl_keyboard_key_state state;
+   E_Comp_Config *comp_conf = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
@@ -5754,11 +5781,17 @@ e_comp_wl_key_send(E_Client *ec, int keycode, Eina_Bool pressed, Ecore_Device *d
    if (pressed) state = WL_KEYBOARD_KEY_STATE_PRESSED;
    else state = WL_KEYBOARD_KEY_STATE_RELEASED;
 
+   comp_conf = e_comp_config_get();
+
    EINA_LIST_FOREACH(e_comp_wl->kbd.resources, l, res)
      {
         if (wl_resource_get_client(res) != wc) continue;
         if (dev) _e_comp_wl_send_event_device(wc, time, dev, serial);
         else _e_comp_wl_device_send_last_event_device(ec, ECORE_DEVICE_CLASS_KEYBOARD, time);
+
+        if (comp_conf && comp_conf->input_log_enable)
+          INF("[Server] Key %s (time: %d)\n", (state ? "Down" : "Up"), time);
+
         wl_keyboard_send_key(res, serial, time,
                              wl_keycode, state);
      }
