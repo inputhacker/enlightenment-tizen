@@ -2897,7 +2897,10 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
 {
    E_Client *ec;
    E_Client *focus_ec = NULL;
-   E_Client *new_focused_ec = NULL;
+   E_Client *cur_focused_ec = NULL;
+   E_Client *top_vis_full_ec = NULL;
+   Eina_Bool find_top_vis_ec = EINA_FALSE;
+
    Eina_Tiler *t;
    Eina_Rectangle r, *_r;
    Eina_Iterator *it;
@@ -3059,6 +3062,20 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
                          canvas_vis = EINA_FALSE;
                     }
                }
+
+             if (ec->visibility.obscured == E_VISIBILITY_UNOBSCURED)
+               {
+                  if (!find_top_vis_ec)
+                    {
+                       find_top_vis_ec = EINA_TRUE;
+                       if ((!ec->iconic) &&
+                           (ec->icccm.accepts_focus || ec->icccm.take_focus))
+                         {
+                            if (E_CONTAINS(x, y, w, h, zone->x, zone->y, zone->w, zone->h))
+                              top_vis_full_ec = ec;
+                         }
+                    }
+               }
           }
         else
           {
@@ -3122,11 +3139,22 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
 
    eina_tiler_free(t);
 
-   new_focused_ec = e_client_focused_get();
-   if (!new_focused_ec && !focus_ec)
+   if (zone->display_state != E_ZONE_DISPLAY_STATE_OFF)
      {
-        if (zone->display_state != E_ZONE_DISPLAY_STATE_OFF)
-          _e_client_latest_stacked_focus_set();
+        if (!focus_ec)
+          {
+             cur_focused_ec = e_client_focused_get();
+             if (top_vis_full_ec)
+               {
+                  if (top_vis_full_ec != cur_focused_ec)
+                    evas_object_focus_set(top_vis_full_ec->frame, 1);
+               }
+             else
+               {
+                  if (!cur_focused_ec)
+                    _e_client_latest_stacked_focus_set();
+               }
+          }
      }
 
    TRACE_DS_END();
