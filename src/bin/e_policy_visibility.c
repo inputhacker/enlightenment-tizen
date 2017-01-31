@@ -647,6 +647,7 @@ _e_vis_client_job_exec(E_Vis_Client *vc, E_Vis_Job_Type type)
       case E_VIS_JOB_TYPE_ACTIVATE:
       case E_VIS_JOB_TYPE_UNICONIFY:
       case E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY:
+      case E_VIS_JOB_TYPE_SHOW:
          vc->state = E_VIS_ICONIFY_STATE_UNICONIC;
          break;
       default:
