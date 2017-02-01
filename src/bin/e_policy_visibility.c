@@ -122,7 +122,8 @@ _e_policy_check_above_alpha_opaque(E_Client *ec)
                     {
                        if (!above_ec->iconic)
                          {
-                            alpha_opaque = EINA_TRUE;
+                            if (above_ec->comp_data && above_ec->comp_data->mapped)
+                              alpha_opaque = EINA_TRUE;
                          }
                     }
                }
