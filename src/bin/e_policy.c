@@ -963,9 +963,7 @@ _e_policy_cb_hook_pixmap_unusable(void *data EINA_UNUSED, E_Pixmap *cp)
    if (ec->exp_iconify.by_client) return;
    if (ec->exp_iconify.skip_iconify) return;
 
-   ec->exp_iconify.not_raise = 1;
-   e_client_uniconify(ec);
-   e_policy_wl_iconify_state_change_send(ec, 0);
+   e_policy_client_unmap(ec);
 }
 
 static void
@@ -1508,6 +1506,30 @@ e_policy_client_launcher_get(E_Zone *zone)
           return pc;
      }
    return NULL;
+}
+
+void
+e_policy_client_unmap(E_Client *ec)
+{
+   Eina_Bool send_event = EINA_FALSE;
+
+   if (!ec) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+
+   ELOG("Reset ec information by unmap", ec->pixmap, ec);
+
+   if (ec->iconic)
+     send_event = EINA_TRUE;
+
+   ec->deskshow = 0;
+   ec->iconic = 0;
+
+   ec->exp_iconify.by_client = 0;
+   ec->exp_iconify.not_raise = 0;
+   ec->exp_iconify.skip_iconify = 0;
+
+   if (send_event)
+     e_policy_wl_iconify_state_change_send(ec, 0);
 }
 
 Eina_Bool

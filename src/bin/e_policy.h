@@ -143,6 +143,7 @@ EINTERN void             e_policy_client_visibility_send(E_Client *ec);
 EINTERN void             e_policy_client_iconify_by_visibility(E_Client *ec);
 EINTERN void             e_policy_client_uniconify_by_visibility(E_Client *ec);
 
+E_API   void             e_policy_client_unmap(E_Client *ec);
 EINTERN Eina_Bool        e_policy_client_maximize(E_Client *ec);
 EINTERN void             e_policy_keyboard_layout_apply(E_Client *ec);
 

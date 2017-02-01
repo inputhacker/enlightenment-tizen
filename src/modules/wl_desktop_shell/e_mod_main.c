@@ -144,6 +144,8 @@ _e_shell_surface_destroy(struct wl_resource *resource)
         if (ec->comp_data)
           ec->comp_data->shell.surface = NULL;
      }
+
+   e_policy_client_unmap(ec);
 }
 
 static void
