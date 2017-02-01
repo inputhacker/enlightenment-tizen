@@ -3406,10 +3406,10 @@ _e_comp_wl_subsurface_destroy_sdata(E_Client *ec)
 static void
 _e_comp_wl_subsurface_destroy(struct wl_resource *resource)
 {
-   E_Client *ec;
+   E_Client *ec = wl_resource_get_user_data(resource);
 
-   /* try to get the client from resource data */
-   if (!(ec = wl_resource_get_user_data(resource))) return;
+   if (!e_object_unref(E_OBJECT(ec))) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
 
    _e_comp_wl_subsurface_destroy_sdata(ec);
 }
@@ -3878,6 +3878,7 @@ e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_
    /* set resource implementation */
    wl_resource_set_implementation(res, &_e_subsurface_interface, ec,
                                   _e_comp_wl_subsurface_destroy);
+   e_object_ref(E_OBJECT(ec));
 
    _e_comp_wl_surface_state_init(&sdata->cached, ec->w, ec->h);
 
