@@ -4835,7 +4835,7 @@ _tzlaunch_img_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_res
           {
              old_ec = tzlaunch_img->ec;
 
-             new_ec->ignored = EINA_FALSE;
+             e_client_unignore(new_ec);
              new_ec->visible = EINA_TRUE;
              new_ec->new_client = EINA_FALSE;
 
