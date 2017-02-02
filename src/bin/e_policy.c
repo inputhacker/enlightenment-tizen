@@ -1290,8 +1290,6 @@ _e_policy_client_stack_change_send(E_Client *ec)
    E_Client *below = NULL;
    int above_pid = -1;
    int below_pid = -1;
-   char above_pid_s[4096] = {0,};
-   char below_pid_s[4096] = {0,};
 
    above = _e_policy_client_find_above(ec);
    below = _e_policy_client_find_below(ec);
@@ -1299,19 +1297,10 @@ _e_policy_client_stack_change_send(E_Client *ec)
    if (above) above_pid = above->netwm.pid;
    if (below) below_pid = below->netwm.pid;
 
-   eina_convert_itoa(above_pid, above_pid_s);
-   eina_convert_itoa(below_pid, below_pid_s);
-   ELOGF("TZPOL", "Send stack change.  above(win:%x, pid:%s), below(win:%x, pid:%s)",
-         ec->pixmap, ec, e_client_util_win_get(above), above_pid_s, e_client_util_win_get(below), below_pid_s);
+   ELOGF("TZPOL", "Send stack change.  above(win:%x, pid:%d), below(win:%x, pid:%d)",
+         ec->pixmap, ec, e_client_util_win_get(above), above_pid, e_client_util_win_get(below), below_pid);
 
-   Eina_List *options = NULL;
-
-   options = eina_list_append(options, above_pid_s);
-   options = eina_list_append(options, below_pid_s);
-
-   e_policy_aux_message_send(ec, "stack_changed", "pid", options);
-
-   eina_list_free(options);
+   e_policy_aux_message_send_from_int(ec, "stack_changed", "pid", 2, above_pid, below_pid);
 }
 
 static Eina_Bool
@@ -1960,6 +1949,33 @@ e_policy_aux_message_use_get(E_Client *ec)
      }
 
    return EINA_FALSE;
+}
+
+E_API void
+e_policy_aux_message_send_from_int(E_Client *ec, const char *key, const char *val, int count, ...)
+{
+   char option[4096];
+   char *str_itor;
+   Eina_List *options_list = NULL;
+   va_list opt_args;
+   int opt;
+   int itor;
+
+   va_start(opt_args, count);
+   for(itor = 0; itor < count; itor ++)
+    {
+       opt = va_arg(opt_args, int);
+       eina_convert_itoa(opt, option);
+       options_list = eina_list_append(options_list, eina_stringshare_add(option));
+    }
+   va_end(opt_args);
+
+   e_policy_aux_message_send(ec, key, val, options_list);
+
+   EINA_LIST_FREE(options_list, str_itor)
+    {
+       eina_stringshare_del(str_itor);
+    }
 }
 
 E_API void

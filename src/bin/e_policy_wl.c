@@ -1297,9 +1297,6 @@ e_policy_wl_stack_changed_send(E_Client *ec)
    E_Client *below = NULL;
    int above_pid = -1;
    int below_pid = -1;
-   char above_pid_s[4096] = {0,};
-   char below_pid_s[4096] = {0,};
-   Eina_List *options = NULL;
 
    above = e_client_above_get(ec);
    while (above)
@@ -1328,18 +1325,12 @@ e_policy_wl_stack_changed_send(E_Client *ec)
    if (above) above_pid = above->netwm.pid;
    if (below) below_pid = below->netwm.pid;
 
-   eina_convert_itoa(above_pid, above_pid_s);
-   eina_convert_itoa(below_pid, below_pid_s);
-
    ELOGF("TZPOL", "Send stack_changed by activate_below. above(win:%x, pid:%d), below(win:%x, pid:%d)",
          ec->pixmap, ec, e_client_util_win_get(above), above_pid, e_client_util_win_get(below), below_pid);
 
-   options = eina_list_append(options, above_pid_s);
-   options = eina_list_append(options, below_pid_s);
 
-   e_policy_aux_message_send(ec, "stack_changed", "activate_below", options);
+   e_policy_aux_message_send_from_int(ec, "stack_changed", "activate_below", 2, above_pid, below_pid);
 
-   eina_list_free(options);
 }
 
 static void

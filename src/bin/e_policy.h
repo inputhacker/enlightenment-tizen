@@ -171,6 +171,7 @@ EINTERN void             e_policy_event_simple(E_Client *ec, int type);
 
 E_API Eina_Bool e_policy_aux_message_use_get(E_Client *ec);
 E_API void      e_policy_aux_message_send(E_Client *ec, const char *key, const char *val, Eina_List *options);
+E_API void      e_policy_aux_message_send_from_int(E_Client *ec, const char *key, const char *val, int count, ...);
 
 E_API E_Policy_Interceptor *e_policy_interceptor_add(E_Policy_Intercept_Point ipoint, E_Policy_Intercept_Cb func, const void *data);
 E_API void                  e_policy_interceptor_del(E_Policy_Interceptor *pi);
