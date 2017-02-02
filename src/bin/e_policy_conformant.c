@@ -70,6 +70,8 @@ typedef struct
 
    Ecore_Timer *timer;
    Eina_Bool wait_ack;
+   uint32_t last_ack;
+   unsigned int wait_update;
 } Conformant_Client;
 
 typedef struct
@@ -230,6 +232,7 @@ _conf_client_ack_timeout(void *data)
 
    cfc->wait_ack = EINA_FALSE;
    _conf_client_defer_job_do(cfc, 0);
+   cfc->wait_update = 0;
 
    return ECORE_CALLBACK_DONE;
 }
@@ -261,14 +264,15 @@ _conf_defer_job_cb_owner_del(void *data, E_Client *ec)
           {
              if (g_conf->part[job->conf_type].owner == ec)
                {
-                  /* checks for dectecting visible state changes */
-                  if ((!ec->visible) || (ec->iconic) || (ec->hidden))
-                    evas_object_hide(g_conf->part[job->conf_type].ec->frame);
+                  E_Client *part_ec = g_conf->part[job->conf_type].ec;
 
                   g_conf->part[job->conf_type].owner = NULL;
                   g_conf->part[job->conf_type].state.will_hide = EINA_FALSE;
-               }
 
+                  /* checks for dectecting visible state changes */
+                  if ((!part_ec->visible) || (part_ec->iconic) || (part_ec->hidden))
+                    evas_object_hide(part_ec->frame);
+               }
           }
         else if (job->type == DEFER_JOB_RESIZE)
           {
@@ -325,12 +329,14 @@ _conf_client_defer_job_do(Conformant_Client *cfc, uint32_t serial)
                {
                   if (g_conf->part[type].owner == ec)
                     {
-                       /* checks for dectecting visible state changes */
-                       if ((!ec->visible) || (ec->iconic) || (ec->hidden))
-                         evas_object_hide(g_conf->part[type].ec->frame);
+                       E_Client *part_ec = g_conf->part[type].ec;
 
                        g_conf->part[type].owner = NULL;
                        g_conf->part[type].state.will_hide = EINA_FALSE;
+
+                       /* checks for dectecting visible state changes */
+                       if ((!part_ec->visible) || (part_ec->iconic) || (part_ec->hidden))
+                         evas_object_hide(part_ec->frame);
                     }
                }
              else if (job->type == DEFER_JOB_RESIZE)
@@ -737,6 +743,34 @@ _conf_cb_intercept_hook_hide(void *data EINA_UNUSED, E_Client *ec)
    return EINA_FALSE;
 }
 
+static Eina_Bool
+_conf_cb_client_buffer_change(void *data, int type, void *event)
+{
+   E_Event_Client *ev;
+   Conformant_Client *cfc;
+   E_Client *ec;
+
+   ev = event;
+   ec = ev->ec;
+   if (!ec) return ECORE_CALLBACK_PASS_ON;
+
+   cfc = eina_hash_find(g_conf->client_hash, &ec);
+   if (!cfc) return ECORE_CALLBACK_PASS_ON;
+   if (!cfc->wait_update) return ECORE_CALLBACK_PASS_ON;
+
+   cfc->wait_update--;
+   if (cfc->wait_update) return ECORE_CALLBACK_PASS_ON;
+
+   _conf_client_defer_job_do(cfc, cfc->last_ack);
+   cfc->wait_update = 0;
+
+   if (cfc->timer)
+     ecore_timer_del(cfc->timer);
+   cfc->timer = NULL;
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
 static void
 _conf_cb_client_del(void *data, E_Client *ec)
 {
@@ -798,6 +832,7 @@ _conf_event_init()
    E_LIST_HANDLER_APPEND(g_conf->handlers, E_EVENT_CLIENT_ROTATION_CHANGE_BEGIN,   _conf_cb_client_rot_change_begin,    NULL);
    E_LIST_HANDLER_APPEND(g_conf->handlers, E_EVENT_CLIENT_ROTATION_CHANGE_CANCEL,  _conf_cb_client_rot_change_cancel,   NULL);
    E_LIST_HANDLER_APPEND(g_conf->handlers, E_EVENT_CLIENT_ROTATION_CHANGE_END,     _conf_cb_client_rot_change_end,      NULL);
+   E_LIST_HANDLER_APPEND(g_conf->handlers, E_EVENT_CLIENT_BUFFER_CHANGE,           _conf_cb_client_buffer_change,       NULL);
 
    E_COMP_OBJECT_INTERCEPT_HOOK_APPEND(g_conf->interceptors, E_COMP_OBJECT_INTERCEPT_HOOK_HIDE, _conf_cb_intercept_hook_hide, NULL);
 
@@ -917,13 +952,8 @@ e_policy_conformant_client_ack(E_Client *ec, struct wl_resource *res, uint32_t s
 
    cfc->wait_ack = !_conf_client_ack_check(cfc);
 
-   if ((!cfc->wait_ack) && (cfc->timer))
-     {
-        ecore_timer_del(cfc->timer);
-        cfc->timer = NULL;
-     }
-
-   _conf_client_defer_job_do(cfc, serial);
+   cfc->last_ack = serial;
+   cfc->wait_update ++;
 }
 
 EINTERN Eina_Bool
