@@ -964,7 +964,6 @@ _remote_provider_cb_resource_destroy(struct wl_resource *resource)
      }
 
    _remote_provider_client_set(provider->ec, EINA_FALSE);
-   _remote_provider_offscreen_set(provider, EINA_FALSE);
    E_FREE(provider);
 }
 
