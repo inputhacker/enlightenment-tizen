@@ -775,7 +775,11 @@ e_output_commit(E_Output *output)
         if (e_plane_is_fb_target(plane) && plane->ec)
            fb_hwc_on = EINA_TRUE;
 
-        if (!e_plane_fetch(plane)) continue;
+        if (!e_plane_fetch(plane))
+          {
+             if (!plane->need_to_unset_commit) continue;
+             if (!fb_hwc_on && !fb_commit) continue;
+          }
 
         if (output->dpms == E_OUTPUT_DPMS_OFF)
           {
@@ -787,14 +791,6 @@ e_output_commit(E_Output *output)
           {
               _e_output_update_fps();
               fb_commit = EINA_TRUE;
-          }
-        else
-          {
-              if (plane->need_to_unset_commit)
-                {
-                  if (!fb_hwc_on && !fb_commit)
-                      continue;
-                }
           }
 
         if (!e_plane_commit(plane))
