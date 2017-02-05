@@ -242,6 +242,8 @@ e_policy_stack_transient_for_set(E_Client *child, E_Client *parent)
 
    child->icccm.fetch.transient_for = EINA_TRUE;
    child->icccm.transient_for = pwin;
+
+   EC_CHANGED(child);
 }
 
 void
