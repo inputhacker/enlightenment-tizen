@@ -3893,7 +3893,8 @@ e_tzsh_indicator_srv_ower_win_update(E_Zone *zone)
               ec ? ec->indicator.state:-1, ec ? ec->indicator.opacity_mode:-1, ec ? ec->indicator.visible_type:-1);
         e_mod_indicator_owner_set(ec);
 
-        e_tzsh_indicator_srv_property_update(ec);
+        if (ec && !ec->e.state.rot.pending_show)
+          e_tzsh_indicator_srv_property_update(ec);
      }
 }
 
