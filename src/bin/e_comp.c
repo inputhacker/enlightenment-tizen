@@ -112,7 +112,7 @@ _e_comp_fps_update(void)
         rlapse = tim;
         flapse = frames;
      }
-   else if ((tim - rlapse) >= 1.0)
+   else if ((tim - rlapse) >= 0.5)
      {
         e_comp->fps = (frames - flapse) / (tim - rlapse);
         rlapse = tim;

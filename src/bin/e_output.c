@@ -57,7 +57,7 @@ _e_output_update_fps()
              lapse = tim;
              flapse = cframes;
           }
-        else if ((tim - lapse) >= 1.0)
+        else if ((tim - lapse) >= 0.5)
           {
              e_comp->fps = (cframes - flapse) / (tim - lapse);
              lapse = tim;

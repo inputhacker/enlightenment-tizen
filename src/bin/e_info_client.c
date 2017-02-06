@@ -1494,7 +1494,7 @@ _e_info_client_proc_fps_info(int argc, char **argv)
      {
         if (!_e_info_client_eldbus_message("get_fps_info", _cb_fps_info_get))
           return;
-        sleep(1);
+        usleep(500000);
      }
    while (keepRunning);
 }
