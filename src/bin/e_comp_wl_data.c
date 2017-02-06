@@ -235,6 +235,7 @@ _e_comp_wl_data_device_selection_set(void *data EINA_UNUSED, E_Comp_Wl_Data_Sour
 
    if ((sel_source) &&
        (sel_client == source_client) &&
+       (sel_client != cbhm_client) &&
        (e_comp_wl->selection.serial - serial < UINT32_MAX / 2))
      {
         /* TODO: elm_entry is sending too many request on now,
