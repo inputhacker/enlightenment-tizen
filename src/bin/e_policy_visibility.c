@@ -36,6 +36,7 @@ static Eina_Bool         _e_vis_ec_activity_check(E_Client *ec, Eina_Bool check_
 static void              _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type);
 static void              _e_vis_ec_setup(E_Client *ec);
 static void              _e_vis_ec_reset(E_Client *ec);
+static Eina_Bool         _e_vis_ec_below_uniconify(E_Client *ec);
 
 static E_Vis            *pol_vis = NULL;
 /* the list for E_Vis_Job */
@@ -788,7 +789,11 @@ static Eina_Bool
 _e_vis_client_grab_clear_cb(void *data)
 {
    E_Vis_Grab *grab = data;
-   VS_INF(grab->vc->ec, "FORCE CLEAR! Grab %s", grab->name);
+   VS_INF(grab->vc->ec, "FORCE CLEAR! Grab %s, cur state:%d", grab->name, grab->vc->state);
+
+   if (grab->vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY)
+     _e_vis_ec_below_uniconify(grab->vc->ec);
+
    grab->deleted = 1;
    _e_vis_client_grab_remove(grab->vc, grab);
    return ECORE_CALLBACK_DONE;
