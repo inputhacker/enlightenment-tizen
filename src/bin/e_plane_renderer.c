@@ -388,8 +388,10 @@ _e_plane_renderer_client_exported_surfaces_release(E_Plane_Renderer_Client *rend
 {
    Eina_List *l_s, *ll_s;
    tbm_surface_h tsurface = NULL;
+   E_Plane *plane = renderer->plane;
 
    EINA_SAFETY_ON_NULL_RETURN(renderer_client);
+   EINA_SAFETY_ON_NULL_RETURN(plane);
 
    if (renderer->state == E_PLANE_RENDERER_STATE_CANDIDATE)
      {
@@ -406,10 +408,12 @@ _e_plane_renderer_client_exported_surfaces_release(E_Plane_Renderer_Client *rend
           {
              if (!tsurface) continue;
 
+             renderer_client->exported_surfaces = eina_list_remove_list(renderer_client->exported_surfaces, l_s);
+
+             if (plane->pending_commit) continue;
+
              if (tsurface == renderer->previous_tsurface)
                 _e_plane_renderer_exported_surface_release(renderer, tsurface);
-
-             renderer_client->exported_surfaces = eina_list_remove_list(renderer_client->exported_surfaces, l_s);
           }
      }
 }
@@ -1608,16 +1612,12 @@ e_plane_renderer_sent_surface_recevie(E_Plane_Renderer *renderer, tbm_surface_h 
      {
         if (!tmp_tsurface) continue;
 
-        if (tmp_tsurface == tsurface)
-           renderer->exported_surfaces = eina_list_remove_list(renderer->exported_surfaces, l_s);
-     }
+        renderer->exported_surfaces = eina_list_remove_list(renderer->exported_surfaces, l_s);
 
-   EINA_LIST_FOREACH_SAFE(renderer->exported_surfaces, l_s, ll_s, tmp_tsurface)
-     {
-        if (!tmp_tsurface) continue;
+        if (tmp_tsurface == tsurface) continue;
+        if (tmp_tsurface == renderer->displaying_tsurface) continue;
 
         e_plane_renderer_surface_queue_release(renderer, tmp_tsurface);
-        renderer->exported_surfaces = eina_list_remove_list(renderer->exported_surfaces, l_s);
      }
 }
 

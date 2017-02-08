@@ -776,7 +776,6 @@ e_plane_fetch(E_Plane *plane)
    if (plane->need_to_unset_commit)
       plane->need_to_unset_commit = EINA_FALSE;
 
-   e_plane_renderer_previous_surface_set(plane->renderer, plane->tsurface);
    plane->tsurface = tsurface;
 
    /* set plane info and set tsurface to the plane */
@@ -983,6 +982,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
      {
         displaying_tsurface = e_plane_renderer_displaying_surface_get(renderer);
         e_plane_renderer_displaying_surface_set(renderer, tsurface);
+        e_plane_renderer_previous_surface_set(plane->renderer, displaying_tsurface);
      }
 
    if (plane->is_fb && !ec)
