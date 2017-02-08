@@ -355,14 +355,10 @@ _e_comp_object_transform_obj_map_set(Evas_Object *obj, E_Util_Transform_Rect_Ver
 
              for (i = 0 ; i < 4 ; ++i)
                {
-                  double dx, dy;
-                  int x, y;
+                  int x = 0;
+                  int y = 0;
 
-                  e_util_transform_vertices_pos_get(vertices, i, &dx, &dy, 0, 0);
-
-                  x = (int)(dx + 0.5);
-                  y = (int)(dy + 0.5);
-
+                  e_util_transform_vertices_pos_round_get(vertices, i, &x, &y, 0, 0);
                   evas_map_point_coord_set(map, i, x, y, 1.0);
                }
 

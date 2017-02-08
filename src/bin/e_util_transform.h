@@ -84,11 +84,18 @@ E_API Eina_Bool                    e_util_transform_change_get(E_Util_Transform 
 E_API void                         e_util_transform_change_unset(E_Util_Transform *transform);
 
 E_API void                         e_util_transform_move_get(E_Util_Transform *transform, double *x, double *y, double *z);
+E_API void                         e_util_transform_move_round_get(E_Util_Transform *transform, int *x, int *y, int *z);
 E_API void                         e_util_transform_scale_get(E_Util_Transform *transform, double *x, double *y, double *z);
+E_API void                         e_util_transform_scale_round_get(E_Util_Transform *transform, int *x, int *y, int *z);
 E_API void                         e_util_transform_rotation_get(E_Util_Transform *transform, double *x, double *y, double *z);
+E_API void                         e_util_transform_rotation_round_get(E_Util_Transform *transform, int *x, int *y, int *z);
 E_API void                         e_util_transform_bg_move_get(E_Util_Transform *transform, double *x, double *y, double *z);
+E_API void                         e_util_transform_bg_move_round_get(E_Util_Transform *transform, int *x, int *y, int *z);
 E_API void                         e_util_transform_bg_scale_get(E_Util_Transform *transform, double *x, double *y, double *z);
+E_API void                         e_util_transform_bg_scale_round_get(E_Util_Transform *transform, int *x, int *y, int *z);
 E_API void                         e_util_transform_bg_rotation_get(E_Util_Transform *transform, double *x, double *y, double *z);
+E_API void                         e_util_transform_bg_rotation_round_get(E_Util_Transform *transform, int *x, int *y, int *z);
+
 
 E_API void                         e_util_transform_texcoord_get(E_Util_Transform *transform, int index, double *tu, double *tv);
 E_API void                         e_util_transform_viewport_get(E_Util_Transform *transform, int *x, int *y, int *w, int *h);
@@ -102,11 +109,14 @@ E_API E_Util_Transform_Rect_Vertex e_util_transform_rect_to_vertices(E_Util_Tran
 
 E_API void                         e_util_transform_vertex_init(E_Util_Transform_Vertex *vertex, double x, double y, double z, double w);
 E_API void                         e_util_transform_vertex_pos_get(E_Util_Transform_Vertex *vertex, double *x, double *y, double *z, double *w);
+E_API void                         e_util_transform_vertex_pos_round_get(E_Util_Transform_Vertex *vertex, int *x, int *y, int *z, int *w);
 
 E_API void                         e_util_transform_vertices_init(E_Util_Transform_Rect_Vertex *vertices);
 E_API E_Util_Transform_Rect        e_util_transform_vertices_to_rect(E_Util_Transform_Rect_Vertex *vertex);
 E_API void                         e_util_transform_vertices_pos_get(E_Util_Transform_Rect_Vertex *vertices, int index,
                                                                      double *x, double *y, double *z, double *w);
+E_API void                         e_util_transform_vertices_pos_round_get(E_Util_Transform_Rect_Vertex *vertices, int index,
+		                                                                   int *x, int *y, int *z, int *w);
 
 E_API void                         e_util_transform_matrix_load_identity(E_Util_Transform_Matrix *matrix);
 E_API void                         e_util_transform_matrix_translate(E_Util_Transform_Matrix *matrix, double x, double y, double z);

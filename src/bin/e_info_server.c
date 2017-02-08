@@ -868,34 +868,23 @@ _msg_window_prop_client_append(Eldbus_Message_Iter *iter, E_Client *target_ec)
         __WINDOW_PROP_ARG_APPEND(" ", "[id] [move] [scale] [rotation] [keep_ratio] [viewport]");
         for (i = 0 ; i < count ; ++i)
           {
-             double dx, dy, dsx, dsy, drz;
-             int x, y, rz;
-             int view_port;
-             int vx, vy, vw, vh;
+             double dsx, dsy;
+             int x = 0, y = 0, rz = 0;
+             int view_port = 0;
+             int vx = 0, vy = 0, vw = 0, vh = 0;
              E_Util_Transform *transform = NULL;
 
              transform = e_client_transform_core_transform_get(target_ec, i);
              if (!transform) continue;
 
-             e_util_transform_move_get(transform, &dx, &dy, NULL);
+             e_util_transform_move_round_get(transform, &x, &y, NULL);
              e_util_transform_scale_get(transform, &dsx, &dsy, NULL);
-             e_util_transform_rotation_get(transform, NULL, NULL, &drz);
+             e_util_transform_rotation_round_get(transform, NULL, NULL, &rz);
              view_port = e_util_transform_viewport_flag_get(transform);
-
-             x = (int)(dx + 0.5);
-             y = (int)(dy + 0.5);
-             rz = (int)(drz + 0.5);
 
              if (view_port)
                {
                   e_util_transform_viewport_get(transform, &vx, &vy, &vw, &vh);
-               }
-             else
-               {
-                  vx = 0;
-                  vy = 0;
-                  vw = 0;
-                  vh = 0;
                }
 
              __WINDOW_PROP_ARG_APPEND_TYPE("Transform", "[%d] [%d, %d] [%2.1f, %2.1f] [%d] [%d :%d, %d, %d, %d]",
@@ -903,13 +892,9 @@ _msg_window_prop_client_append(Eldbus_Message_Iter *iter, E_Client *target_ec)
 
              if (e_util_transform_bg_transform_flag_get(transform))
                {
-                  e_util_transform_bg_move_get(transform, &dx, &dy, NULL);
+                  e_util_transform_bg_move_round_get(transform, &x, &y, NULL);
                   e_util_transform_bg_scale_get(transform, &dsx, &dsy, NULL);
-                  e_util_transform_bg_rotation_get(transform, NULL, NULL, &drz);
-
-                  x = (int)(dx + 0.5);
-                  y = (int)(dy + 0.5);
-                  rz = (int)(drz + 0.5);
+                  e_util_transform_bg_rotation_round_get(transform, NULL, NULL, &rz);
 
                   __WINDOW_PROP_ARG_APPEND_TYPE("Transform_BG", "--------- [%d] [%d, %d] [%2.1f, %2.1f] [%d]",
                                                 i, x, y, dsx, dsy, rz);

@@ -1,5 +1,6 @@
 #include "e.h"
 #define E_UTIL_TRANSFORM_IS_ZERO(p) ((p) > -1e-21 && (p) < 1e-21)
+#define E_UTIL_TRANSFORM_ROUND(x)   ((x) >= 0 ? (int)((x) + 0.5) : (int)((x) - 0.5))
 
 static void _e_util_transform_value_merge(E_Util_Transform_Value *inout, E_Util_Transform_Value *input);
 static void _e_util_transform_value_convert_to_matrix(E_Util_Transform_Matrix *out,
@@ -254,12 +255,30 @@ e_util_transform_move_get(E_Util_Transform *transform, double *x, double *y, dou
 }
 
 E_API void
+e_util_transform_move_round_get(E_Util_Transform *transform, int *x, int *y, int *z)
+{
+   if (!transform) return;
+   if (x) *x = E_UTIL_TRANSFORM_ROUND(transform->transform.move[0]);
+   if (y) *y = E_UTIL_TRANSFORM_ROUND(transform->transform.move[1]);
+   if (z) *z = E_UTIL_TRANSFORM_ROUND(transform->transform.move[2]);
+}
+
+E_API void
 e_util_transform_scale_get(E_Util_Transform *transform, double *x, double *y, double *z)
 {
    if (!transform) return;
    if (x) *x = transform->transform.scale[0];
    if (y) *y = transform->transform.scale[1];
    if (z) *z = transform->transform.scale[2];
+}
+
+E_API void
+e_util_transform_scale_round_get(E_Util_Transform *transform, int *x, int *y, int *z)
+{
+   if (!transform) return;
+   if (x) *x = E_UTIL_TRANSFORM_ROUND(transform->transform.scale[0]);
+   if (y) *y = E_UTIL_TRANSFORM_ROUND(transform->transform.scale[1]);
+   if (z) *z = E_UTIL_TRANSFORM_ROUND(transform->transform.scale[2]);
 }
 
 E_API void
@@ -272,12 +291,30 @@ e_util_transform_rotation_get(E_Util_Transform *transform, double *x, double *y,
 }
 
 E_API void
+e_util_transform_rotation_round_get(E_Util_Transform *transform, int *x, int *y, int *z)
+{
+   if (!transform) return;
+   if (x) *x = E_UTIL_TRANSFORM_ROUND(transform->transform.rotation[0]);
+   if (y) *y = E_UTIL_TRANSFORM_ROUND(transform->transform.rotation[1]);
+   if (z) *z = E_UTIL_TRANSFORM_ROUND(transform->transform.rotation[2]);
+}
+
+E_API void
 e_util_transform_bg_move_get(E_Util_Transform *transform, double *x, double *y, double *z)
 {
    if (!transform) return;
    if (x) *x = transform->bg_transform.move[0];
    if (y) *y = transform->bg_transform.move[1];
    if (z) *z = transform->bg_transform.move[2];
+}
+
+E_API void
+e_util_transform_bg_move_round_get(E_Util_Transform *transform, int *x, int *y, int *z)
+{
+   if (!transform) return;
+   if (x) *x = E_UTIL_TRANSFORM_ROUND(transform->bg_transform.move[0]);
+   if (y) *y = E_UTIL_TRANSFORM_ROUND(transform->bg_transform.move[1]);
+   if (z) *z = E_UTIL_TRANSFORM_ROUND(transform->bg_transform.move[2]);
 }
 
 E_API void
@@ -290,12 +327,30 @@ e_util_transform_bg_scale_get(E_Util_Transform *transform, double *x, double *y,
 }
 
 E_API void
+e_util_transform_bg_scale_round_get(E_Util_Transform *transform, int *x, int *y, int *z)
+{
+   if (!transform) return;
+   if (x) *x = E_UTIL_TRANSFORM_ROUND(transform->bg_transform.scale[0]);
+   if (y) *y = E_UTIL_TRANSFORM_ROUND(transform->bg_transform.scale[1]);
+   if (z) *z = E_UTIL_TRANSFORM_ROUND(transform->bg_transform.scale[2]);
+}
+
+E_API void
 e_util_transform_bg_rotation_get(E_Util_Transform *transform, double *x, double *y, double *z)
 {
    if (!transform) return;
    if (x) *x = transform->bg_transform.rotation[0];
    if (y) *y = transform->bg_transform.rotation[1];
    if (z) *z = transform->bg_transform.rotation[2];
+}
+
+E_API void
+e_util_transform_bg_rotation_round_get(E_Util_Transform *transform, int *x, int *y, int *z)
+{
+   if (!transform) return;
+   if (x) *x = E_UTIL_TRANSFORM_ROUND(transform->bg_transform.rotation[0]);
+   if (y) *y = E_UTIL_TRANSFORM_ROUND(transform->bg_transform.rotation[1]);
+   if (z) *z = E_UTIL_TRANSFORM_ROUND(transform->bg_transform.rotation[2]);
 }
 
 E_API void
@@ -414,6 +469,17 @@ e_util_transform_vertex_pos_get(E_Util_Transform_Vertex *vertex, double *x, doub
 }
 
 E_API void
+e_util_transform_vertex_pos_round_get(E_Util_Transform_Vertex *vertex, int *x, int *y, int *z, int *w)
+{
+   if (!vertex) return;
+
+   if (x) *x = E_UTIL_TRANSFORM_ROUND(vertex->vertex[0]);
+   if (y) *y = E_UTIL_TRANSFORM_ROUND(vertex->vertex[1]);
+   if (z) *z = E_UTIL_TRANSFORM_ROUND(vertex->vertex[2]);
+   if (w) *w = E_UTIL_TRANSFORM_ROUND(vertex->vertex[3]);
+}
+
+E_API void
 e_util_transform_vertices_init(E_Util_Transform_Rect_Vertex *vertices)
 {
    int i;
@@ -431,10 +497,10 @@ e_util_transform_vertices_to_rect(E_Util_Transform_Rect_Vertex *vertices)
 
    if (vertices)
      {
-        result.x = (int)(vertices->vertices[0].vertex[0] + 0.5);
-        result.y = (int)(vertices->vertices[0].vertex[1] + 0.5);
-        result.w = (int)(vertices->vertices[2].vertex[0] - vertices->vertices[0].vertex[0] + 0.5);
-        result.h = (int)(vertices->vertices[2].vertex[1] - vertices->vertices[0].vertex[1] + 0.5);
+        result.x = E_UTIL_TRANSFORM_ROUND(vertices->vertices[0].vertex[0]);
+        result.y = E_UTIL_TRANSFORM_ROUND(vertices->vertices[0].vertex[1]);
+        result.w = E_UTIL_TRANSFORM_ROUND(vertices->vertices[2].vertex[0] - vertices->vertices[0].vertex[0]);
+        result.h = E_UTIL_TRANSFORM_ROUND(vertices->vertices[2].vertex[1] - vertices->vertices[0].vertex[1]);
      }
 
    return result;
@@ -448,6 +514,16 @@ e_util_transform_vertices_pos_get(E_Util_Transform_Rect_Vertex *vertices, int in
    if (index < 0 || index >= 4) return;
 
    e_util_transform_vertex_pos_get(&vertices->vertices[index], x, y, z, w);
+}
+
+E_API void
+e_util_transform_vertices_pos_round_get(E_Util_Transform_Rect_Vertex *vertices, int index,
+                                        int *x, int *y, int *z, int *w)
+{
+   if (!vertices) return;
+   if (index < 0 || index >= 4) return;
+
+   e_util_transform_vertex_pos_round_get(&vertices->vertices[index], x, y, z, w);
 }
 
 E_API void

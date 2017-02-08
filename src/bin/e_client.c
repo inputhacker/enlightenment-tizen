@@ -3265,9 +3265,9 @@ _e_client_transform_core_check_change(E_Client *ec)
 static void
 _e_client_transform_core_boundary_update(E_Client *ec, E_Util_Transform_Rect_Vertex *vertices)
 {
-   double minx = 99999, miny = 99999;
-   double maxx = -99999, maxy = -99999;
-   double x, y;
+   int minx = 99999, miny = 99999;
+   int maxx = -99999, maxy = -99999;
+   int x, y;
    int i;
 
    if (!ec) return;
@@ -3277,9 +3277,10 @@ _e_client_transform_core_boundary_update(E_Client *ec, E_Util_Transform_Rect_Ver
 
    for (i = 0; i < 4; ++i)
      {
-        x = 0.0;
-        y = 0.0;
-        e_util_transform_vertices_pos_get(vertices, i, &x, &y, 0, 0);
+        x = 0;
+        y = 0;
+
+        e_util_transform_vertices_pos_round_get(vertices, i, &x, &y, 0, 0);
 
         if (x < minx) minx = x;
         if (y < miny) miny = y;
@@ -3287,10 +3288,10 @@ _e_client_transform_core_boundary_update(E_Client *ec, E_Util_Transform_Rect_Ver
         if (y > maxy) maxy = y;
      }
 
-   ec->transform_core.result.boundary.x = (int)(minx + 0.5);
-   ec->transform_core.result.boundary.y = (int)(miny + 0.5);
-   ec->transform_core.result.boundary.w = (int)(maxx - minx + 0.5);
-   ec->transform_core.result.boundary.h = (int)(maxy - miny + 0.5);
+   ec->transform_core.result.boundary.x = minx;
+   ec->transform_core.result.boundary.y = miny;
+   ec->transform_core.result.boundary.w = maxx - minx;
+   ec->transform_core.result.boundary.h = maxy - miny;
 
    ELOGF("COMP", "[Transform][boundary][%d %d %d %d]",
          ec->pixmap, ec,
@@ -3307,8 +3308,7 @@ _e_client_transform_core_vertices_apply(E_Client *ec EINA_UNUSED,
                                         E_Util_Transform *transform)
 {
    Evas_Map *map = NULL;
-   int i, x, y;
-   double dx, dy;
+   int i;
 
    if (!obj) return;
 
@@ -3322,18 +3322,17 @@ _e_client_transform_core_vertices_apply(E_Client *ec EINA_UNUSED,
 
         for (i = 0 ; i < 4 ; ++i)
           {
-             dx = 0.0; dy = 0.0;
+             int x = 0;
+             int y = 0;
 
-             e_util_transform_vertices_pos_get(vertices, i, &dx, &dy, 0, 0);
-
-             x = (int)(dx + 0.5);
-             y = (int)(dy + 0.5);
-
+             e_util_transform_vertices_pos_round_get(vertices, i, &x, &y, 0, 0);
              evas_map_point_coord_set(map, i, x, y, 1.0);
 
              if (transform && e_util_transform_texcoord_flag_get(transform))
                {
-                  double u = 0.0; double v = 0.0;
+                  double u = 0.0;
+                  double v = 0.0;
+
                   e_util_transform_texcoord_get(transform, i, &u, &v);
                   evas_map_point_image_uv_set(map, i, u, v);
                }
@@ -6338,10 +6337,8 @@ e_client_transform_core_update(E_Client *ec)
         if (!ec->argb)
           {
              int angle = 0;
-             double dangle = 0.0;
-             e_util_transform_rotation_get(&ec->transform_core.result.transform, 0, 0, &dangle);
 
-             angle = (int)(dangle + 0.5);
+             e_util_transform_rotation_round_get(&ec->transform_core.result.transform, 0, 0, &angle);
              angle %= 90;
 
              if (angle == 0) // when transform angle is 0, 90, 180, 270, 360. then set transp rect
