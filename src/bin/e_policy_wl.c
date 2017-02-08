@@ -1803,6 +1803,8 @@ _tzpol_iface_cb_notilv_set(struct wl_client *client, struct wl_resource *res_tzp
 
    if (e_policy_client_is_lockscreen(ec))
      e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
+   else
+     e_policy_stack_check_above_lockscreen(ec, ec->layer, NULL, EINA_TRUE);
 }
 
 void
