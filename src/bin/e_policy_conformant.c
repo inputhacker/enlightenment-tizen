@@ -628,22 +628,6 @@ _conf_cb_client_rot_change_begin(void *data, int evtype EINA_UNUSED, void *event
    if (type >= CONFORMANT_TYPE_MAX)
      goto end;
 
-   /* set conformant area to non-visible state before starting rotation.
-    * this is to prevent to apply wrong area of conformant area after rotation.
-    * Suppose conformant area will be set later according to changes of vkbd such as resize or move.
-    * if there is no being called rot_change_cancel and nothing changes vkbd,
-    * that is unexpected case.
-    */
-   if (g_conf->part[type].state.visible)
-     {
-        _conf_state_update(type,
-                           EINA_FALSE,
-                           g_conf->part[type].state.x,
-                           g_conf->part[type].state.y,
-                           g_conf->part[type].state.w,
-                           g_conf->part[type].state.h);
-        g_conf->part[type].state.restore = EINA_TRUE;
-     }
 end:
    return ECORE_CALLBACK_PASS_ON;
 }
