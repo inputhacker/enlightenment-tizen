@@ -117,7 +117,7 @@ static Evas_Smart *_mover_smart = NULL;
 static Eina_Bool _changed = EINA_FALSE;
 static E_QP_Mgr_Funcs *qp_mgr_funcs = NULL;
 
-Eina_List *qp_clients; /* list of E_QP_Client */
+Eina_List *qp_clients = NULL; /* list of E_QP_Client */
 
 static void          _e_qp_srv_effect_update(E_Policy_Quickpanel *qp, int x, int y);
 static E_QP_Client * _e_qp_client_ec_get(E_Client *ec);
@@ -1863,11 +1863,6 @@ e_qp_client_scrollable_set(E_Client *ec, Eina_Bool set)
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
-   qp = _quickpanel_get();
-   EINA_SAFETY_ON_NULL_RETURN_VAL(qp, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(qp->ec, EINA_FALSE);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(qp->ec)), EINA_FALSE);
-
    qp_client = _e_qp_client_ec_get(ec);
    EINA_SAFETY_ON_NULL_RETURN_VAL(qp_client, EINA_FALSE);
 
@@ -1887,11 +1882,6 @@ e_qp_client_scrollable_get(E_Client *ec)
 
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
-
-   qp = _quickpanel_get();
-   EINA_SAFETY_ON_NULL_RETURN_VAL(qp, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(qp->ec, EINA_FALSE);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(qp->ec)), EINA_FALSE);
 
    qp_client = _e_qp_client_ec_get(ec);
    EINA_SAFETY_ON_NULL_RETURN_VAL(qp_client, EINA_FALSE);
