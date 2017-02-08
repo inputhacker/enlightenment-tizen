@@ -13,6 +13,7 @@
 #include <device/display.h>
 #include <wayland-server.h>
 #include <tizen-extension-server-protocol.h>
+#include <tizen-launch-server-protocol.h>
 #include <tzsh_server.h>
 
 #ifdef HAVE_CYNARA
@@ -48,6 +49,12 @@ typedef enum _Tzsh_Type
    TZSH_TYPE_SRV,
    TZSH_TYPE_CLIENT
 } Tzsh_Type;
+
+typedef enum _Tzlaunch_Effect_Type
+{
+   TZLAUNCH_EFFECT_TYPE_LAUNCH = 0,
+   TZLAUNCH_EFFECT_TYPE_DEPTH_IN
+} Tzlaunch_Effect_Type;
 
 typedef struct _E_Policy_Wl_Tzpol
 {
@@ -144,6 +151,40 @@ typedef struct _E_Policy_Wl_Tzlaunch_Img
    E_Comp_Object_Content_Type content_type;     /* type of content */
 } E_Policy_Wl_Tzlaunch_Img;
 
+typedef struct _E_Policy_Wl_Tzlaunch_Effect
+{
+   struct wl_resource *res_tzlaunch_effect;  /* tizen_launch_effect */
+   Eina_List          *splash_list;            /* list of E_Policy_Wl_Tzlaunch_Img */
+} E_Policy_Wl_Tzlaunch_Effect;
+
+typedef struct _E_Policy_Wl_Tzlaunch_Splash
+{
+   struct wl_resource        *res_tzlaunch_splash; /* tizen_launch_image */
+   E_Policy_Wl_Tzlaunch_Effect *tzlaunch_effect;         /* launcher */
+
+   const char                *path;             /* image resource path */
+   uint32_t                   type;             /* 0: image, 1: edc */
+   uint32_t                   indicator;        /* 0: off, 1: on */
+   uint32_t                   angle;            /* 0, 90, 180, 270 : rotation angle */
+   uint32_t                   pid;
+
+   Evas_Object               *obj;              /* launch screen image */
+   E_Pixmap                  *ep;               /* pixmap for launch screen client */
+   E_Client                  *ec;               /* client for launch screen image */
+   Ecore_Timer               *timeout;          /* launch screen image hide timer */
+   Evas_Object               *indicator_obj;    /* plug object of indicator */
+
+   Eina_Bool                  valid;            /* validation check */
+   Eina_Bool                  replaced;
+   E_Comp_Object_Content_Type content_type;     /* type of content */
+} E_Policy_Wl_Tzlaunch_Splash;
+
+typedef struct _E_Policy_Wl_Tzlaunch_Effect_Info
+{
+   uint32_t                   pid;              /* pid */
+   int                        effect_type;       /* effect_type */
+} E_Policy_Wl_Tzlaunch_Effect_Info;
+
 typedef enum _Launch_Img_File_type
 {
    LAUNCH_IMG_FILE_TYPE_ERROR = -1,
@@ -182,6 +223,10 @@ typedef struct _E_Policy_Wl
 
    /* tizen_launchscreen_interface */
    Eina_List       *tzlaunchs;               /* list of E_Policy_Wl_Tzlaunch */
+
+   /* tizen_launch_effect_interface */
+   Eina_List       *tzlaunch_effect;        /* list of E_Policy_Wl_Tzlaunch_Effect */
+   Eina_List       *tzlaunch_effect_info;  /* list of E_Policy_Wl_Tzlaunch_Effect_Info */
 #ifdef HAVE_CYNARA
    cynara          *p_cynara;
 #endif
@@ -247,9 +292,17 @@ static E_Policy_Wl_Tzsh_Client *_e_policy_wl_tzsh_client_add(E_Policy_Wl_Tzsh *t
 static void                _e_policy_wl_tzsh_client_del(E_Policy_Wl_Tzsh_Client *tzsh_client);
 static void                _e_policy_wl_background_state_set(E_Policy_Wl_Surface *psurf, Eina_Bool state);
 
+static void                _e_policy_wl_tzlaunch_effect_type_sync(E_Client *ec);
+static int                 _e_policy_wl_tzlaunch_effect_type_get(const char* effect_type);
+static void                _e_policy_wl_tzlaunch_effect_type_unset(uint32_t pid);
+
 static void                _launchscreen_hide(uint32_t pid);
 static void                _launchscreen_client_del(E_Client *ec);
 static void                _launchscreen_img_off(E_Policy_Wl_Tzlaunch_Img *tzlaunch_img);
+
+static void                _launch_effect_hide(uint32_t pid);
+static void                _launch_effect_client_del(E_Client *ec);
+static void                _launch_splash_off(E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash);
 
 // --------------------------------------------------------
 // E_Policy_Wl_Tzpol
@@ -1046,7 +1099,10 @@ e_policy_wl_visibility_send(E_Client *ec, int vis)
                      vis);
                sent = EINA_TRUE;
                if (ec->comp_data->mapped)
-                 _launchscreen_hide(ec->netwm.pid);
+                 {
+                    _launchscreen_hide(ec->netwm.pid);
+                    _launch_effect_hide(ec->netwm.pid);
+                 }
             }
        }
    eina_iterator_free(it);
@@ -2492,6 +2548,60 @@ _e_policy_wl_background_state_set(E_Policy_Wl_Surface *psurf, Eina_Bool state)
              if (eina_list_data_find(psurf->tzpol->pending_bg, psurf))
                psurf->tzpol->pending_bg =
                   eina_list_remove(psurf->tzpol->pending_bg, psurf);
+          }
+     }
+}
+
+static void
+_e_policy_wl_tzlaunch_effect_type_sync(E_Client *ec)
+{
+   Eina_List *l;
+   E_Policy_Wl_Tzlaunch_Effect_Info *effect_info;
+
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   EINA_LIST_FOREACH(polwl->tzlaunch_effect_info, l, effect_info)
+     {
+        if (effect_info->pid == ec->netwm.pid)
+          {
+             ELOGF("TZPOL",
+                    "Launchscreen effect type sync | pid (%d) effect_type (%d)",
+                    ec->pixmap, ec, ec->netwm.pid, effect_info->effect_type);
+             ec->effect_type = effect_info->effect_type;
+             _e_policy_wl_tzlaunch_effect_type_unset(ec->netwm.pid);
+             break;
+          }
+     }
+}
+
+static int
+_e_policy_wl_tzlaunch_effect_type_get(const char * effect_type)
+{
+   Tzlaunch_Effect_Type type = TZLAUNCH_EFFECT_TYPE_LAUNCH;
+
+   if      (!e_util_strcmp(effect_type, "launch"    )) type = TZLAUNCH_EFFECT_TYPE_LAUNCH;
+   else if (!e_util_strcmp(effect_type, "depth-in" )) type = TZLAUNCH_EFFECT_TYPE_DEPTH_IN;
+
+   return type;
+}
+
+static void
+_e_policy_wl_tzlaunch_effect_type_unset(uint32_t pid)
+{
+   Eina_List *l;
+   E_Policy_Wl_Tzlaunch_Effect_Info *effect_info;
+
+   EINA_LIST_FOREACH(polwl->tzlaunch_effect_info, l, effect_info)
+     {
+        if (effect_info->pid == pid)
+          {
+             ELOGF("TZPOL",
+                    "Launchscreen effect type unset | pid (%d)",
+                    NULL, NULL, pid);
+             polwl->tzlaunch_effect_info = eina_list_remove(polwl->tzlaunch_effect_info, effect_info);
+             memset(effect_info, 0x0, sizeof(E_Policy_Wl_Tzlaunch_Effect_Info));
+             E_FREE(effect_info);
+             break;
           }
      }
 }
@@ -4479,6 +4589,25 @@ _launchscreen_hide(uint32_t pid)
 }
 
 static void
+_launch_effect_hide(uint32_t pid)
+{
+   Eina_List *l, *ll;
+   E_Policy_Wl_Tzlaunch_Effect *tzlaunch_effect;
+   E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash;
+
+   if(pid <= 0) return;
+
+   EINA_LIST_FOREACH(polwl->tzlaunch_effect, l, tzlaunch_effect)
+     {
+        EINA_LIST_FOREACH(tzlaunch_effect->splash_list, ll, tzlaunch_splash)
+           if (tzlaunch_splash->pid == pid)
+             {
+                _launch_splash_off(tzlaunch_splash);
+             }
+     }
+}
+
+static void
 _launchscreen_client_del(E_Client *ec)
 {
    Eina_List *l, *ll;
@@ -4491,6 +4620,23 @@ _launchscreen_client_del(E_Client *ec)
            if (tzlaunch_img->ec == ec)
              {
                 _launchscreen_img_off(tzlaunch_img);
+             }
+     }
+}
+
+static void
+_launch_effect_client_del(E_Client *ec)
+{
+   Eina_List *l, *ll;
+   E_Policy_Wl_Tzlaunch_Effect *tzlaunch_effect;
+   E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash;
+
+   EINA_LIST_FOREACH(polwl->tzlaunch_effect, l, tzlaunch_effect)
+     {
+        EINA_LIST_FOREACH(tzlaunch_effect->splash_list, ll, tzlaunch_splash)
+           if (tzlaunch_splash->ec == ec)
+             {
+                _launch_splash_off(tzlaunch_splash);
              }
      }
 }
@@ -4517,6 +4663,28 @@ _launchscreen_img_cb_indicator_resized(Ecore_Evas *ee)
 }
 
 static void
+_launchscreen_splash_cb_indicator_resized(Ecore_Evas *ee)
+{
+   Evas_Coord_Size size = {0, 0};
+   Evas_Object *indicator_obj;
+   E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash;
+
+   tzlaunch_splash = ecore_evas_data_get(ee, "tzlaunch_splash");
+   if (!tzlaunch_splash) return;
+
+   indicator_obj = tzlaunch_splash->indicator_obj;
+
+   ecore_evas_geometry_get(ee, NULL, NULL, &(size.w), &(size.h));
+   ELOGF("TZPOL", "Launchscreen indicator_obj resized(%d x %d)",
+         NULL, NULL,
+         size.w, size.h);
+   evas_object_size_hint_min_set(indicator_obj, size.w, size.h);
+   evas_object_size_hint_max_set(indicator_obj, size.w, size.h);
+   e_comp_object_indicator_size_set(tzlaunch_splash->ec->frame, size.w, size.h);
+}
+
+
+static void
 _launchscreen_img_cb_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *event_info EINA_UNUSED)
 {
    E_Policy_Wl_Tzlaunch_Img *tzlaunch_img = data;
@@ -4526,12 +4694,30 @@ _launchscreen_img_cb_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void
 }
 
 static void
+_launchscreen_splash_cb_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *event_info EINA_UNUSED)
+{
+   E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash = data;
+
+   if ((tzlaunch_splash) && (tzlaunch_splash->obj == obj))
+     tzlaunch_splash->obj = NULL;
+}
+
+static void
 _launchscreen_img_cb_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *event_info EINA_UNUSED)
 {
    E_Policy_Wl_Tzlaunch_Img *tzlaunch_img = data;
 
    if ((tzlaunch_img) && (tzlaunch_img->obj == obj))
      _launchscreen_img_off(tzlaunch_img);
+}
+
+static void
+_launchscreen_splash_cb_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *event_info EINA_UNUSED)
+{
+   E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash = data;
+
+   if ((tzlaunch_splash) && (tzlaunch_splash->obj == obj))
+     _launch_splash_off(tzlaunch_splash);
 }
 
 static void
@@ -4613,6 +4799,85 @@ _launchscreen_img_off(E_Policy_Wl_Tzlaunch_Img *tzlaunch_img)
    tzlaunch_img->replaced = EINA_FALSE;
 }
 
+static void
+_launch_splash_off(E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash)
+{
+   E_Client *ec = NULL;
+   Evas_Object *obj = NULL;
+
+   if (!tzlaunch_splash->valid) return;
+   if (!tzlaunch_splash->ec) return;
+
+   ec = tzlaunch_splash->ec;
+   obj = tzlaunch_splash->obj;
+
+   tzlaunch_splash->obj = NULL;
+   tzlaunch_splash->ec = NULL;
+   tzlaunch_splash->valid = EINA_FALSE;
+   if (tzlaunch_splash->timeout) ecore_timer_del(tzlaunch_splash->timeout);
+   tzlaunch_splash->timeout = NULL;
+
+   ELOGF("TZPOL",
+         "Launchscreen hide | pid %d",
+         ec->pixmap, ec, tzlaunch_splash->pid);
+
+   if (tzlaunch_splash->indicator_obj)
+     {
+        e_comp_object_indicator_unswallow(ec->frame, tzlaunch_splash->indicator_obj);
+        evas_object_del(tzlaunch_splash->indicator_obj);
+        evas_object_unref(tzlaunch_splash->indicator_obj);
+        tzlaunch_splash->indicator_obj = NULL;
+     }
+
+   if ((ec->pixmap) &&
+       (ec->pixmap == tzlaunch_splash->ep))
+     {
+        /* case 1: Surface for this pid is not created until timeout or
+         * launchscreen resource is destroied.
+         */
+        if (ec->visible)
+          {
+             ec->visible = EINA_FALSE;
+             evas_object_hide(ec->frame);
+             ec->ignored = EINA_TRUE;
+          }
+
+        e_comp->launchscrns = eina_list_remove(e_comp->launchscrns, ec);
+
+        e_pixmap_win_id_del(tzlaunch_splash->ep);
+        e_object_del(E_OBJECT(ec));
+        ec = NULL;
+     }
+   else if (!e_pixmap_resource_get(ec->pixmap))
+     {
+        /* case 2: Surface is created but there's no buffer */
+        ec->visible = EINA_FALSE;
+        ec->ignored = EINA_TRUE;
+        evas_object_hide(ec->frame);
+     }
+
+   if (ec)
+     {
+        if (!tzlaunch_splash->replaced)
+          {
+             if (ec->focused)
+               e_comp_wl_feed_focus_in(ec);
+
+             /* to send launch,done event to launchscreen client */
+             if (!e_object_is_del(E_OBJECT(ec)))
+               e_comp_object_signal_emit(ec->frame, "e,action,launch,done", "e");
+          }
+
+        e_comp->launchscrns = eina_list_remove(e_comp->launchscrns, ec);
+     }
+
+   if (obj)
+     evas_object_unref(obj);
+
+   tzlaunch_splash->ep = NULL;
+   tzlaunch_splash->replaced = EINA_FALSE;
+}
+
 static Eina_Bool
 _launchscreen_timeout(void *data)
 {
@@ -4626,11 +4891,31 @@ _launchscreen_timeout(void *data)
    return ECORE_CALLBACK_CANCEL;
 }
 
+static Eina_Bool
+_launchscreen_splash_timeout(void *data)
+{
+   E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash;
+   tzlaunch_splash = (E_Policy_Wl_Tzlaunch_Splash *)data;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tzlaunch_splash, 0);
+
+   _launch_splash_off(tzlaunch_splash);
+
+   return ECORE_CALLBACK_CANCEL;
+}
+
 static void
 _tzlaunch_img_iface_cb_destroy(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzlaunch_img)
 {
    wl_resource_destroy(res_tzlaunch_img);
 }
+
+static void
+_tzlaunch_splash_iface_cb_destroy(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzlaunch_splash)
+{
+   wl_resource_destroy(res_tzlaunch_splash);
+}
+
 
 static void
 _tzlaunch_img_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzlaunch_img,
@@ -4809,6 +5094,187 @@ error:
 }
 
 static void
+_tzlaunch_splash_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzlaunch_splash,
+                             const char *pfname, uint32_t ftype,
+                             uint32_t depth, uint32_t angle,
+                             uint32_t indicator, const char *effect_type,
+                             const char *theme_type, struct wl_array *options)
+{
+   E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash;
+   Evas_Load_Error err;
+   E_Client *ec = NULL;
+   E_Comp_Object_Content_Type content_type = 0;
+   Eina_Bool intercepted = EINA_FALSE;
+   int tzlaunch_effect_type;
+
+   tzlaunch_splash = wl_resource_get_user_data(res_tzlaunch_splash);
+   EINA_SAFETY_ON_NULL_RETURN(tzlaunch_splash);
+   EINA_SAFETY_ON_NULL_RETURN(tzlaunch_splash->ec);
+   EINA_SAFETY_ON_NULL_RETURN(tzlaunch_splash->ec->frame);
+
+   tzlaunch_effect_type = _e_policy_wl_tzlaunch_effect_type_get(effect_type);
+
+   ec = tzlaunch_splash->ec;
+   ec->effect_type = tzlaunch_effect_type;
+
+   // TO DO
+   // invaid parameter handle
+   ELOGF("TZPOL",
+         "Launchscreen launch | path %s(%d), indicator(%d), angle(%d), effect_type(%s), theme_type(%s)",
+         ec->pixmap, ec, pfname, ftype, indicator, angle, effect_type, theme_type);
+
+   tzlaunch_splash->path = pfname;
+   tzlaunch_splash->type = ftype;
+   tzlaunch_splash->indicator = indicator;
+   tzlaunch_splash->angle = angle;
+
+   if (indicator)
+     {
+        /* To configure indicator options */
+        ec->indicator.state = TIZEN_INDICATOR_STATE_ON;
+        ec->indicator.visible_type = TIZEN_INDICATOR_VISIBLE_TYPE_SHOWN;
+        ec->indicator.opacity_mode = TIZEN_INDICATOR_OPACITY_MODE_BG_TRANSPARENT;
+     }
+
+   intercepted = e_policy_interceptor_call(E_POLICY_INTERCEPT_LAUNCHSCREEN_OBJECT_SETUP,
+                                           ec,
+                                           pfname, ftype, depth,
+                                           angle, indicator, options);
+   if (intercepted)
+     {
+        tzlaunch_splash->obj = e_comp_object_content_get(ec->frame);
+
+        ELOGF("TZPOL",
+              "Launchscreen object setup was successfully intercepted content(%p)",
+              ec->pixmap, ec, tzlaunch_splash->obj);
+     }
+   else
+     {
+        if (tzlaunch_splash->type == LAUNCH_IMG_FILE_TYPE_IMAGE)
+          {
+             content_type = E_COMP_OBJECT_CONTENT_TYPE_EXT_IMAGE;
+             tzlaunch_splash->obj = evas_object_image_add(e_comp->evas);
+             EINA_SAFETY_ON_NULL_GOTO(tzlaunch_splash->obj, error);
+             evas_object_image_file_set(tzlaunch_splash->obj, tzlaunch_splash->path, NULL);
+
+             err = evas_object_image_load_error_get(tzlaunch_splash->obj);
+             EINA_SAFETY_ON_FALSE_GOTO(err == EVAS_LOAD_ERROR_NONE, error);
+
+             evas_object_image_fill_set(tzlaunch_splash->obj, 0, 0,  e_comp->w, e_comp->h);
+             evas_object_image_filled_set(tzlaunch_splash->obj, EINA_TRUE);
+          }
+        else
+          {
+             content_type = E_COMP_OBJECT_CONTENT_TYPE_EXT_EDJE;
+             tzlaunch_splash->obj = edje_object_add(e_comp->evas);
+             EINA_SAFETY_ON_NULL_GOTO(tzlaunch_splash->obj, error);
+             edje_object_file_set (tzlaunch_splash->obj, tzlaunch_splash->path, APP_DEFINE_GROUP_NAME);
+
+             evas_object_move(tzlaunch_splash->obj, 0, 0);
+             evas_object_resize(tzlaunch_splash->obj, e_comp->w, e_comp->h);
+          }
+
+        if (depth == 32) ec->argb = EINA_TRUE;
+        else ec->argb = EINA_FALSE;
+
+        if (!e_comp_object_content_set(ec->frame, tzlaunch_splash->obj, content_type))
+          {
+             ERR("Setting comp object content for %p failed!", ec);
+             goto error;
+          }
+
+     }
+
+   if (indicator)
+     {
+        Evas_Object *indicator_obj = NULL;
+        Eina_Bool ret = EINA_FALSE;
+
+        e_mod_indicator_owner_set(ec);
+        e_tzsh_indicator_srv_property_update(ec);
+
+        indicator_obj = ecore_evas_extn_plug_new(e_comp->ee);
+        if (!indicator_obj)
+          {
+             ELOGF("TZPOL",
+                   "Launchscreen launch | Faild to create ecore_evas_plug for indicator",
+                   ec->pixmap, ec);
+          }
+        else
+          {
+             if (e_config->indicator_plug_name)
+               {
+                  ret = ecore_evas_extn_plug_connect(indicator_obj, e_config->indicator_plug_name, 0, EINA_FALSE);
+                  if (ret)
+                    {
+                       Ecore_Evas *ee;
+
+                       ee = ecore_evas_object_ecore_evas_get(indicator_obj);
+                       ecore_evas_data_set(ee, "tzlaunch_splash", tzlaunch_splash);
+                       ecore_evas_callback_resize_set(ee,
+                                                      _launchscreen_splash_cb_indicator_resized);
+                       e_comp_object_indicator_swallow(ec->frame, indicator_obj);
+                       evas_object_ref(indicator_obj);
+                       ELOGF("TZPOL",
+                             "Launchscreen launch | Succeeded to add indicator object plug_name(%s) indicator_obj(%p)",
+                             ec->pixmap, ec, e_config->indicator_plug_name, indicator_obj);
+                    }
+                  else
+                    {
+                       evas_object_del(indicator_obj);
+                       indicator_obj = NULL;
+                    }
+               }
+
+             if (!indicator_obj)
+               {
+                  ELOGF("TZPOL",
+                        "Launchscreen launch | Failed to add indicator object plug_name(%s)",
+                        ec->pixmap, ec, e_config->indicator_plug_name?:"NO PLUG NAME");
+               }
+          }
+
+        tzlaunch_splash->indicator_obj = indicator_obj;
+     }
+
+   if (tzlaunch_splash->obj)
+     {
+        evas_object_ref(tzlaunch_splash->obj);
+
+        evas_object_event_callback_add(tzlaunch_splash->obj,
+                                       EVAS_CALLBACK_DEL,
+                                       _launchscreen_splash_cb_del, tzlaunch_splash);
+        evas_object_event_callback_add(tzlaunch_splash->obj,
+                                       EVAS_CALLBACK_HIDE,
+                                       _launchscreen_splash_cb_hide, tzlaunch_splash);
+     }
+
+   tzlaunch_splash->valid = EINA_TRUE;
+   tzlaunch_splash->content_type = e_comp_object_content_type_get(ec->frame);
+
+   ec->ignored = EINA_FALSE;
+   ec->visible = EINA_TRUE;
+   ec->new_client = EINA_FALSE;
+   ec->icccm.accepts_focus = EINA_TRUE;
+
+   evas_object_show(ec->frame);
+   evas_object_raise(ec->frame);
+   EC_CHANGED(ec);
+
+   e_client_visibility_calculate();
+
+   if (tzlaunch_splash->timeout)
+     ecore_timer_del(tzlaunch_splash->timeout);
+   tzlaunch_splash->timeout = ecore_timer_add(e_config->launchscreen_timeout, _launchscreen_splash_timeout, tzlaunch_splash);
+
+   return;
+error:
+   ERR("Could not complete %s", __FUNCTION__);
+   if (tzlaunch_splash->obj)
+     evas_object_del(tzlaunch_splash->obj);
+}
+
+static void
 _tzlaunch_img_iface_cb_show(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzlaunch_img)
 {
    /* TODO: request launch img show */
@@ -4904,6 +5370,90 @@ _tzlaunch_img_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_res
    tzlaunch_img->ec->netwm.pid = pid;
 }
 
+static void
+_tzlaunch_splash_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzlaunch_splash, uint32_t pid)
+{
+   E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash;
+   E_Client *pre_ec = NULL, *new_ec = NULL, *old_ec;
+   Eina_List *clients, *l;
+
+   tzlaunch_splash = wl_resource_get_user_data(res_tzlaunch_splash);
+   EINA_SAFETY_ON_NULL_RETURN(tzlaunch_splash);
+
+   /* use ec was already created */
+   clients = _e_policy_wl_e_clients_find_by_pid(pid);
+   EINA_LIST_FOREACH(clients, l, pre_ec)
+     {
+        if (pre_ec == tzlaunch_splash->ec) continue;
+        if (!pre_ec->ignored) continue;
+        new_ec = pre_ec;
+        break;
+     }
+   eina_list_free(clients);
+
+   if (new_ec)
+     {
+        if (e_comp_object_content_set(new_ec->frame,
+                                      tzlaunch_splash->obj,
+                                      tzlaunch_splash->content_type))
+          {
+             old_ec = tzlaunch_splash->ec;
+
+             new_ec->ignored = EINA_FALSE;
+             new_ec->visible = EINA_TRUE;
+             new_ec->new_client = EINA_FALSE;
+
+             new_ec->effect_type = old_ec->effect_type;
+
+             e_comp->launchscrns = eina_list_append(e_comp->launchscrns, new_ec);
+
+             evas_object_show(new_ec->frame);
+             evas_object_stack_above(new_ec->frame, old_ec->frame);
+             EC_CHANGED(new_ec);
+
+             tzlaunch_splash->ec = new_ec;
+             tzlaunch_splash->replaced = EINA_TRUE;
+
+             ELOGF("TZPOL",
+                   "Launchscreen client changed | old(%p) new(%p) using obj(%p)",
+                   new_ec->pixmap, new_ec,
+                   old_ec, new_ec, tzlaunch_splash->obj);
+
+             if (tzlaunch_splash->indicator_obj)
+               {
+                  e_mod_indicator_owner_set(new_ec);
+                  e_tzsh_indicator_srv_property_update(new_ec);
+                  e_comp_object_indicator_unswallow(old_ec->frame, tzlaunch_splash->indicator_obj);
+                  e_comp_object_indicator_swallow(new_ec->frame, tzlaunch_splash->indicator_obj);
+               }
+
+             /* delete ec was created for launchscreen */
+             if (old_ec->visible)
+               {
+                  old_ec->visible = EINA_FALSE;
+                  evas_object_hide(old_ec->frame);
+                  old_ec->ignored = EINA_TRUE;
+               }
+             e_comp->launchscrns = eina_list_remove(e_comp->launchscrns, old_ec);
+
+             e_pixmap_win_id_del(tzlaunch_splash->ep);
+             e_object_del(E_OBJECT(old_ec));
+             tzlaunch_splash->ep = NULL;
+
+             e_client_visibility_calculate();
+          }
+        else
+          ERR("Can't set external content for new_ec(%p)", new_ec);
+     }
+
+   ELOGF("TZPOL", "Launchscreen img(%d) set owner pid: %d",
+         (tzlaunch_splash->ec? tzlaunch_splash->ec->pixmap : NULL),
+         tzlaunch_splash->ec,
+         wl_resource_get_id(res_tzlaunch_splash), pid);
+
+   tzlaunch_splash->pid = pid;
+   tzlaunch_splash->ec->netwm.pid = pid;
+}
 
 static const struct tizen_launch_image_interface _tzlaunch_img_iface =
 {
@@ -4912,6 +5462,13 @@ static const struct tizen_launch_image_interface _tzlaunch_img_iface =
    _tzlaunch_img_iface_cb_owner,
    _tzlaunch_img_iface_cb_show,
    _tzlaunch_img_iface_cb_hide
+};
+
+static const struct tizen_launch_splash_interface _tzlaunch_splash_iface =
+{
+   _tzlaunch_splash_iface_cb_destroy,
+   _tzlaunch_splash_iface_cb_launch,
+   _tzlaunch_splash_iface_cb_owner
 };
 
 static E_Policy_Wl_Tzlaunch_Img *
@@ -4957,6 +5514,50 @@ error:
    return NULL;
 }
 
+static E_Policy_Wl_Tzlaunch_Splash *
+_tzlaunch_splash_add(struct wl_resource *res_tzlaunch_effect, struct wl_resource *res_tzlaunch_splash)
+{
+   E_Policy_Wl_Tzlaunch_Effect *tzlaunch_effect;
+   E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash;
+
+   tzlaunch_splash = E_NEW(E_Policy_Wl_Tzlaunch_Splash, 1);
+   EINA_SAFETY_ON_NULL_GOTO(tzlaunch_splash, error);
+
+   tzlaunch_effect = wl_resource_get_user_data(res_tzlaunch_effect);
+   EINA_SAFETY_ON_NULL_GOTO(tzlaunch_effect, error);
+
+   tzlaunch_effect->splash_list = eina_list_append(tzlaunch_effect->splash_list, tzlaunch_splash);
+
+   tzlaunch_splash->tzlaunch_effect  = tzlaunch_effect;
+   tzlaunch_splash->res_tzlaunch_splash = res_tzlaunch_splash;
+
+   tzlaunch_splash->replaced = EINA_FALSE;
+   tzlaunch_splash->ep = e_pixmap_new(E_PIXMAP_TYPE_EXT_OBJECT, 0);
+   EINA_SAFETY_ON_NULL_GOTO(tzlaunch_splash->ep, error);
+   tzlaunch_splash->ec = e_client_new(tzlaunch_splash->ep, 0, 1);
+   EINA_SAFETY_ON_NULL_GOTO(tzlaunch_splash->ec, error);
+
+   tzlaunch_splash->ec->icccm.title = eina_stringshare_add("Launchscreen");
+   tzlaunch_splash->ec->icccm.name = eina_stringshare_add("Launchscreen");
+   tzlaunch_splash->ec->ignored = EINA_TRUE;
+
+   e_comp->launchscrns = eina_list_append(e_comp->launchscrns, tzlaunch_splash->ec);
+
+   return tzlaunch_splash;
+error:
+   if (tzlaunch_splash)
+     {
+        ERR("Could not initialize launchscreen client");
+        if (tzlaunch_splash->ep)
+          e_pixmap_win_id_del(tzlaunch_splash->ep);
+        if (tzlaunch_splash->ec)
+          e_object_del(E_OBJECT(tzlaunch_splash->ec));
+        E_FREE(tzlaunch_splash);
+     }
+   return NULL;
+}
+
+
 static void
 _tzlaunch_img_destroy(struct wl_resource *res_tzlaunch_img)
 {
@@ -4979,6 +5580,30 @@ _tzlaunch_img_destroy(struct wl_resource *res_tzlaunch_img)
    memset(tzlaunch_img, 0x0, sizeof(E_Policy_Wl_Tzlaunch_Img));
    E_FREE(tzlaunch_img);
 }
+
+static void
+_tzlaunch_splash_destroy(struct wl_resource *res_tzlaunch_splash)
+{
+   E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash;
+   E_Policy_Wl_Tzlaunch_Effect *tzlaunch_effect;
+
+   EINA_SAFETY_ON_NULL_RETURN(res_tzlaunch_splash);
+
+   tzlaunch_splash = wl_resource_get_user_data(res_tzlaunch_splash);
+   EINA_SAFETY_ON_NULL_RETURN(tzlaunch_splash);
+
+   if (tzlaunch_splash->obj)
+     evas_object_event_callback_del_full(tzlaunch_splash->obj, EVAS_CALLBACK_DEL, _launchscreen_splash_cb_del, tzlaunch_splash);
+
+   _launch_splash_off(tzlaunch_splash);
+
+   tzlaunch_effect = tzlaunch_splash->tzlaunch_effect;
+   tzlaunch_effect->splash_list = eina_list_remove(tzlaunch_effect->splash_list, tzlaunch_splash);
+
+   memset(tzlaunch_splash, 0x0, sizeof(E_Policy_Wl_Tzlaunch_Splash));
+   E_FREE(tzlaunch_splash);
+}
+
 
 static void
 _tzlaunch_iface_cb_create_img(struct wl_client *client, struct wl_resource *res_tzlaunch, uint32_t id)
@@ -5015,10 +5640,98 @@ err:
    wl_client_post_no_memory(client);
 }
 
+static void
+_tzlaunch_effect_iface_cb_create_splash_img(struct wl_client *client, struct wl_resource *res_tzlaunch_effect, uint32_t id)
+{
+
+   E_Policy_Wl_Tzlaunch_Splash *plaunch_splash;
+   struct wl_resource *res_tzlaunch_splash;
+
+   res_tzlaunch_splash = wl_resource_create(client,
+                                         &tizen_launch_splash_interface,
+                                         wl_resource_get_version(res_tzlaunch_effect),
+                                         id);
+   if (!res_tzlaunch_splash)
+     {
+        wl_resource_post_error
+           (res_tzlaunch_effect,
+            WL_DISPLAY_ERROR_INVALID_OBJECT,
+            "Invalid res_tzlaunch effect's user data");
+        return;
+     }
+
+   plaunch_splash = _tzlaunch_splash_add(res_tzlaunch_effect, res_tzlaunch_splash);
+   EINA_SAFETY_ON_NULL_GOTO(plaunch_splash, err);
+
+   wl_resource_set_implementation(res_tzlaunch_splash,
+                                  &_tzlaunch_splash_iface,
+                                  plaunch_splash,
+                                  _tzlaunch_splash_destroy);
+
+   return;
+
+err:
+   ERR("Could not create tizen_launch_splash_interface res: %m");
+   wl_client_post_no_memory(client);
+}
+
+static void
+_tzlaunch_effect_iface_cb_type_set(struct wl_client *client, struct wl_resource *res_tzlaunch_effect,
+                                               const char *effect_type, uint32_t pid, struct wl_array *options)
+{
+   Eina_List *clients, *l;
+   E_Client *_ec = NULL;
+   int effect_set = 0;
+   int tzlaunch_effect_type = _e_policy_wl_tzlaunch_effect_type_get(effect_type);
+
+   clients = _e_policy_wl_e_clients_find_by_pid(pid);
+   EINA_LIST_FOREACH(clients, l, _ec)
+     {
+        if (_ec)
+          {
+             _ec->effect_type = tzlaunch_effect_type;
+             effect_set = 1;
+             ELOGF("TZPOL",
+                    "Launchscreen effect type set | exist ec | effect (%d) pid (%d)",
+                    _ec->pixmap, _ec, tzlaunch_effect_type, pid);
+          }
+     }
+   eina_list_free(clients);
+
+   if (effect_set)
+     _e_policy_wl_tzlaunch_effect_type_unset(pid);
+   else
+     {
+        E_Policy_Wl_Tzlaunch_Effect_Info *tzlaunch_effect_info;
+
+        tzlaunch_effect_info = E_NEW(E_Policy_Wl_Tzlaunch_Effect_Info, 1);
+        EINA_SAFETY_ON_NULL_RETURN(tzlaunch_effect_info);
+        tzlaunch_effect_info->pid = pid;
+        tzlaunch_effect_info->effect_type = tzlaunch_effect_type;
+        polwl->tzlaunch_effect_info = eina_list_append(polwl->tzlaunch_effect_info, tzlaunch_effect_info);
+
+        ELOGF("TZPOL",
+               "Launchscreen effect type set | no match ec | effect (%d) pid (%d)", NULL, NULL, tzlaunch_effect_type, pid);
+     }
+}
+
+static void
+_tzlaunch_effect_iface_cb_type_unset(struct wl_client *client, struct wl_resource *res_tzlaunch_effect,
+                                                 uint32_t pid)
+{
+   _e_policy_wl_tzlaunch_effect_type_unset(pid);
+}
 
 static const struct tizen_launchscreen_interface _tzlaunch_iface =
 {
    _tzlaunch_iface_cb_create_img
+};
+
+static const struct tizen_launch_effect_interface _tzlaunch_effect_iface =
+{
+   _tzlaunch_effect_iface_cb_create_splash_img,
+   _tzlaunch_effect_iface_cb_type_set,
+   _tzlaunch_effect_iface_cb_type_unset
 };
 
 static void
@@ -5043,6 +5756,29 @@ _tzlaunch_del(E_Policy_Wl_Tzlaunch *tzlaunch)
    E_FREE(tzlaunch);
 }
 
+static void
+_tzlaunch_effect_del(E_Policy_Wl_Tzlaunch_Effect *tzlaunch_effect)
+{
+   E_Policy_Wl_Tzlaunch_Splash *plaunch_splash;
+   Eina_List *l, *ll;
+
+   EINA_SAFETY_ON_NULL_RETURN(tzlaunch_effect);
+
+   // remove tzlaunch created splash list
+   EINA_LIST_FOREACH_SAFE(tzlaunch_effect->splash_list, l, ll, plaunch_splash)
+     {
+        if (plaunch_splash->tzlaunch_effect != tzlaunch_effect) continue;
+        wl_resource_destroy(plaunch_splash->res_tzlaunch_splash);
+        break;
+     }
+
+   polwl->tzlaunch_effect = eina_list_remove(polwl->tzlaunch_effect, tzlaunch_effect);
+
+   memset(tzlaunch_effect, 0x0, sizeof(E_Policy_Wl_Tzlaunch_Effect));
+   E_FREE(tzlaunch_effect);
+}
+
+
 static E_Policy_Wl_Tzlaunch *
 _tzlaunch_add(struct wl_resource *res_tzlaunch)
 {
@@ -5058,6 +5794,21 @@ _tzlaunch_add(struct wl_resource *res_tzlaunch)
    return tzlaunch;
 }
 
+static E_Policy_Wl_Tzlaunch_Effect *
+_tzlaunch_effect_add(struct wl_resource *res_tzlaunch_effect)
+{
+   E_Policy_Wl_Tzlaunch_Effect *tzlaunch_effect;
+
+   tzlaunch_effect = E_NEW(E_Policy_Wl_Tzlaunch_Effect, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tzlaunch_effect, NULL);
+
+   tzlaunch_effect->res_tzlaunch_effect = res_tzlaunch_effect;
+
+   polwl->tzlaunch_effect = eina_list_append(polwl->tzlaunch_effect, tzlaunch_effect);
+
+   return tzlaunch_effect;
+}
+
 static void
 _tzlaunch_cb_unbind(struct wl_resource *res_tzlaunch)
 {
@@ -5068,6 +5819,20 @@ _tzlaunch_cb_unbind(struct wl_resource *res_tzlaunch)
      {
         if (tzlaunch->res_tzlaunch != res_tzlaunch) continue;
         _tzlaunch_del(tzlaunch);
+        break;
+     }
+}
+
+static void
+_tzlaunch_effect_cb_unbind(struct wl_resource *res_tzlaunch_effect)
+{
+   E_Policy_Wl_Tzlaunch_Effect *tzlaunch_effect = NULL;
+   Eina_List *l, *ll;
+
+   EINA_LIST_FOREACH_SAFE(polwl->tzlaunch_effect, l, ll, tzlaunch_effect)
+     {
+        if (tzlaunch_effect->res_tzlaunch_effect != res_tzlaunch_effect) continue;
+        _tzlaunch_effect_del(tzlaunch_effect);
         break;
      }
 }
@@ -5093,6 +5858,35 @@ _tzlaunch_cb_bind(struct wl_client *client, void *data EINA_UNUSED, uint32_t ver
                                   &_tzlaunch_iface,
                                   tzlaunch,
                                   _tzlaunch_cb_unbind);
+
+   return;
+
+err:
+   ERR("Could not create tizen_launchscreen_interface res: %m");
+   wl_client_post_no_memory(client);
+}
+
+static void
+_tzlaunch_effect_cb_bind(struct wl_client *client, void *data EINA_UNUSED, uint32_t ver, uint32_t id)
+{
+   E_Policy_Wl_Tzlaunch_Effect *tzlaunch_effect = NULL;
+   struct wl_resource *res_tzlaunch_effect;
+
+   EINA_SAFETY_ON_NULL_GOTO(polwl, err);
+
+   res_tzlaunch_effect = wl_resource_create(client,
+                                     &tizen_launch_effect_interface,
+                                     ver,
+                                     id);
+   EINA_SAFETY_ON_NULL_GOTO(res_tzlaunch_effect, err);
+
+   tzlaunch_effect = _tzlaunch_effect_add(res_tzlaunch_effect);
+   EINA_SAFETY_ON_NULL_GOTO(tzlaunch_effect, err);
+
+   wl_resource_set_implementation(res_tzlaunch_effect,
+                                  &_tzlaunch_effect_iface,
+                                  tzlaunch_effect,
+                                  _tzlaunch_effect_cb_unbind);
 
    return;
 
@@ -5598,6 +6392,7 @@ e_policy_wl_client_add(E_Client *ec)
    _e_policy_wl_surf_client_set(ec);
    _e_policy_wl_tzsh_client_set(ec);
    _e_policy_wl_pending_bg_client_set(ec);
+   _e_policy_wl_tzlaunch_effect_type_sync(ec);
 }
 
 void
@@ -5612,6 +6407,7 @@ e_policy_wl_client_del(E_Client *ec)
    _e_policy_wl_tz_indicator_unset_client(ec);
    _e_policy_wl_tz_clipboard_unset_client(ec);
    _launchscreen_client_del(ec);
+   _launch_effect_client_del(ec);
 
    polwl->pending_vis = eina_list_remove(polwl->pending_vis, ec);
 }
@@ -5716,6 +6512,15 @@ e_policy_wl_defer_job(void)
                              1,
                              NULL,
                              _tzlaunch_cb_bind);
+   EINA_SAFETY_ON_NULL_GOTO(global, err);
+
+   polwl->globals = eina_list_append(polwl->globals, global);
+
+   global = wl_global_create(e_comp_wl->wl.disp,
+                             &tizen_launch_effect_interface,
+                             1,
+                             NULL,
+                             _tzlaunch_effect_cb_bind);
    EINA_SAFETY_ON_NULL_GOTO(global, err);
 
    polwl->globals = eina_list_append(polwl->globals, global);

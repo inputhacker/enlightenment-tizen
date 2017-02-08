@@ -368,7 +368,7 @@ AC_MSG_RESULT([${have_shm_open}])
 AC_SUBST(SHM_OPEN_LIBS)
                            
 if test "x${e_cv_want_wayland_only}" != "xno" || test "x${e_cv_want_wayland_clients}" != "xno";then
-  PKG_CHECK_MODULES([WAYLAND], [wayland-server >= 1.8.0 xkbcommon uuid xdg-shell-server scaler-server transform-server screenshooter-server tizen-extension-server],
+  PKG_CHECK_MODULES([WAYLAND], [wayland-server >= 1.8.0 xkbcommon uuid xdg-shell-server scaler-server transform-server screenshooter-server tizen-extension-server tizen-launch-server],
     [
       have_wayland=yes
       AC_DEFINE_UNQUOTED([HAVE_WAYLAND],[1],[enable wayland support])

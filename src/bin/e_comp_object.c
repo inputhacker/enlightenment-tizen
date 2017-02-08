@@ -4362,6 +4362,7 @@ e_comp_object_effect_set(Evas_Object *obj, const char *effect)
         if (!e_comp_object_effect_stop(obj, evas_object_data_get(cw->effect_obj, "_e_comp.end_cb")))
           return EINA_FALSE;
      }
+   INF("[EFFECT Set] ec[%p] GROUP[%s]\n",cw->ec, buf);
    edje_object_part_swallow(cw->effect_obj, "e.swallow.content", cw->shobj);
    if (cw->effect_clip)
      {
