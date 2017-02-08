@@ -4817,11 +4817,14 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
           e_client_unshade(ec, ec->shade_dir);
         if (!ec->lock_focus_out)
           {
-             E_Client *focus_ec = ec;
+             E_Client *focus_ec = NULL;
              Eina_Bool obscured = EINA_FALSE;
 
              if (ec->transients)
                focus_ec = e_client_transient_child_top_get(ec, EINA_TRUE);
+
+             if (!focus_ec)
+               focus_ec = ec;
 
              obscured = _e_client_check_fully_contain_by_above(focus_ec, EINA_FALSE);
              if (!obscured)
