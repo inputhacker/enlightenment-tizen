@@ -1343,6 +1343,7 @@ _quickpanel_idle_enter(void *data)
    if (qp->changes.below)
      {
         E_Client *below;
+        E_Client *below_old;
 
         below = _quickpanel_below_visible_client_get(qp);
         if (qp->below != below)
@@ -1353,6 +1354,7 @@ _quickpanel_idle_enter(void *data)
                  below ? (below->icccm.name ? below->icccm.name : "") : "",
                  below);
 
+             below_old = qp->below;
              qp->below = below;
 
              /* QUICKFIX
@@ -1364,7 +1366,12 @@ _quickpanel_idle_enter(void *data)
                {
                   if ((qp->stacking == below) &&
                       (qp->ec->visible))
-                    e_service_quickpanel_hide();
+                    {
+                       if (below_old)
+                         e_policy_aux_message_send(below_old, "quickpanel_state", "hidden", NULL);
+
+                       e_service_quickpanel_hide();
+                    }
                }
 
              _e_qp_client_scrollable_update();
