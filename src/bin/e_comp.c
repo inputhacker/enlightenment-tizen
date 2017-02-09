@@ -919,51 +919,13 @@ e_comp_hwc_end(const char *location)
 }
 #endif  // end of ENABLE_HWC_MULTI
 
-static void
-_e_comp_client_update(E_Client *ec)
-{
-   int pw, ph;
-
-   DBG("UPDATE [%p] pm = %p", ec, ec->pixmap);
-   if (e_object_is_del(E_OBJECT(ec))) return;
-
-   if (e_comp->hwc && e_comp_is_on_overlay(ec)) return;
-
-   e_pixmap_size_get(ec->pixmap, &pw, &ph);
-
-   if (e_pixmap_dirty_get(ec->pixmap) && (!e_comp->nocomp))
-     {
-        int w, h;
-
-        if (e_pixmap_refresh(ec->pixmap) &&
-            e_pixmap_size_get(ec->pixmap, &w, &h) &&
-            e_pixmap_size_changed(ec->pixmap, pw, ph))
-          {
-             e_pixmap_image_clear(ec->pixmap, 0);
-             e_comp_object_render_update_del(ec->frame); //clear update
-          }
-        else if (!e_pixmap_size_get(ec->pixmap, NULL, NULL))
-          {
-             WRN("FAIL %p", ec);
-             e_comp_object_redirected_set(ec->frame, 0);
-             if (e_pixmap_failures_get(ec->pixmap) < 3)
-               e_comp_object_render_update_add(ec->frame);
-          }
-     }
-   if ((!e_comp->saver) && e_pixmap_size_get(ec->pixmap, &pw, &ph))
-     {
-        e_pixmap_image_refresh(ec->pixmap);
-        e_comp_object_dirty(ec->frame);
-        if (e_pixmap_is_x(ec->pixmap) && (!ec->override))
-          evas_object_resize(ec->frame, ec->w, ec->h);
-     }
-}
-
 static Eina_Bool
 _e_comp_cb_update(void)
 {
    E_Client *ec;
    Eina_List *l;
+   int pw, ph;
+   Eina_Bool res;
 
    if (!e_comp) return EINA_FALSE;
 
@@ -987,7 +949,17 @@ _e_comp_cb_update(void)
      {
         /* clear update flag */
         e_comp_object_render_update_del(ec->frame);
-        _e_comp_client_update(ec);
+
+        if (e_comp->saver) continue;
+        if (e_object_is_del(E_OBJECT(ec))) continue;
+        if (e_comp->hwc && e_comp_is_on_overlay(ec)) continue;
+
+        /* update client */
+        res = e_pixmap_size_get(ec->pixmap, &pw, &ph);
+        if (!res) continue;
+
+        e_pixmap_image_refresh(ec->pixmap);
+        e_comp_object_dirty(ec->frame);
      }
 
    if (e_comp->hwc_mode == E_HWC_MODE_FULL) goto setup_hwcompose;
@@ -1386,9 +1358,6 @@ _e_comp_free(E_Comp *c)
 static Eina_Bool
 _e_comp_object_add(void *d EINA_UNUSED, int t EINA_UNUSED, E_Event_Comp_Object *ev)
 {
-   //if ((!e_comp->nocomp) || (!e_comp->nocomp_ec)) return ECORE_CALLBACK_RENEW;
-   //if (evas_object_layer_get(ev->comp_object) > MAX(e_comp->nocomp_ec->saved.layer, E_LAYER_CLIENT_NORMAL))
-   //  e_comp_nocomp_end();
    return ECORE_CALLBACK_RENEW;
 }
 
@@ -1413,52 +1382,12 @@ _e_comp_override_expire(void *data EINA_UNUSED)
 static Eina_Bool
 _e_comp_screensaver_on(void *data EINA_UNUSED, int type EINA_UNUSED, void *event EINA_UNUSED)
 {
-#if 0
-   Eina_List *l;
-   E_Zone *zone;
-
-   ecore_frametime = ecore_animator_frametime_get();
-   if (e_comp->saver) return ECORE_CALLBACK_RENEW;
-   e_comp_override_add();
-   e_comp->saver = EINA_TRUE;
-   if (e_comp->render_animator)
-     ecore_animator_freeze(e_comp->render_animator);
-   EINA_LIST_FOREACH(e_comp->zones, l, zone)
-     {
-        e_zone_fade_handle(zone, 1, 3.0);
-        edje_object_signal_emit(zone->base, "e,state,screensaver,on", "e");
-        edje_object_signal_emit(zone->over, "e,state,screensaver,on", "e");
-     }
-#endif
-
    return ECORE_CALLBACK_PASS_ON;
 }
 
 static Eina_Bool
 _e_comp_screensaver_off(void *data EINA_UNUSED, int type EINA_UNUSED, void *event EINA_UNUSED)
 {
-#if 0
-   Eina_List *l;
-   E_Zone *zone;
-   E_Client *ec;
-
-   ecore_animator_frametime_set(ecore_frametime);
-   if (!e_comp->saver) return ECORE_CALLBACK_RENEW;
-   e_comp_override_del();
-   e_comp->saver = EINA_FALSE;
-   if (!e_comp->nocomp)
-     ecore_evas_manual_render_set(e_comp->ee, EINA_FALSE);
-   EINA_LIST_FOREACH(e_comp->zones, l, zone)
-     {
-        edje_object_signal_emit(zone->base, "e,state,screensaver,off", "e");
-        edje_object_signal_emit(zone->over, "e,state,screensaver,off", "e");
-        e_zone_fade_handle(zone, 0, 0.5);
-     }
-   E_CLIENT_FOREACH(ec)
-     if (e_comp_object_damage_exists(ec->frame))
-       e_comp_object_render_update_add(ec->frame);
-#endif
-
    return ECORE_CALLBACK_PASS_ON;
 }
 

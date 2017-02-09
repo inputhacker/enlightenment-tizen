@@ -3704,11 +3704,6 @@ e_comp_object_damage(Evas_Object *obj, int x, int y, int w, int h)
    rect.x = x, rect.y = y;
    rect.w = w, rect.h = h;
    evas_object_smart_callback_call(obj, "damage", &rect);
-   if (e_comp->nocomp)
-     {
-        cw->hwc_need_update = EINA_TRUE;
-        return;
-     }
 
    if (e_comp_is_on_overlay(cw->ec))
      {

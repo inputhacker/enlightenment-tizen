@@ -2617,7 +2617,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
    buffer = e_pixmap_resource_get(ec->pixmap);
 
    /* put state damages into surface */
-   if ((!e_comp->nocomp) && (ec->frame))
+   if (ec->frame)
      {
         /* FIXME: workaround for bad wayland egl driver which doesn't send damage request */
         if (!eina_list_count(state->damages) && !eina_list_count(state->buffer_damages))

@@ -1817,10 +1817,7 @@ _e_info_server_cb_fps_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED
      }
    else if (e_comp->fps > 0.0)
      {
-        if(e_comp->nocomp && e_comp->nocomp_ec)
-          snprintf(buf, sizeof(buf), "... FPS %3.1f(by 0x%x : %s)", e_comp->fps, e_client_util_win_get(e_comp->nocomp_ec), e_client_util_name_get(e_comp->nocomp_ec) ?: " ");
-        else
-          snprintf(buf, sizeof(buf), "... FPS %3.1f", e_comp->fps);
+        snprintf(buf, sizeof(buf), "... FPS %3.1f", e_comp->fps);
         old_fps = e_comp->fps;
      }
    else
