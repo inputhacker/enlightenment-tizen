@@ -217,6 +217,7 @@ enum _E_Policy_Hint_Type
    E_POLICY_HINT_MSG_USE = 7,
    E_COMP_HINT_ALWAYS_SELECTIVE = 8,
    E_POLICY_HINT_DEPENDENT_ROTATION = 9,
+   E_POLICY_HINT_ROT_RENDER_NOPENDING = 10,
 };
 
 static const char *hint_names[] =
@@ -231,6 +232,7 @@ static const char *hint_names[] =
    "wm.policy.win.msg.use",
    "wm.comp.win.always.selective.mode",
    "wm.policy.win.rot.dependent",
+   "wm.policy.win.rot.render.nopending",
 };
 
 static void                _e_policy_wl_surf_del(E_Policy_Wl_Surface *psurf);
@@ -2312,6 +2314,19 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
                ec->e.state.rot.type = E_CLIENT_ROTATION_TYPE_NORMAL;
              else if (!strcmp(hint->val, "1"))
                ec->e.state.rot.type = E_CLIENT_ROTATION_TYPE_DEPENDENT;
+          }
+        else if (!strcmp(hint->hint, hint_names[E_POLICY_HINT_ROT_RENDER_NOPENDING]))
+          {
+             if ((hint->deleted) || (!strcmp(hint->val, "0")))
+               {
+                  ELOGF("ROTATION", "nopending render:0", ec->pixmap, ec);
+                  ec->e.state.rot.nopending_render = 0;
+               }
+             else if (!strcmp(hint->val, "1"))
+               {
+                  ELOGF("ROTATION", "nopending render:1", ec->pixmap, ec);
+                  ec->e.state.rot.nopending_render = 1;
+               }
           }
 
         if (send)

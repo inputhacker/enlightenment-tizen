@@ -618,6 +618,8 @@ struct E_Client
             int           preferred_rot;  // app specified rotation
             int          *available_rots; // app specified available rotations
             unsigned int  count;          // number of elements of available rotations
+            unsigned int  nopending_render : 1; // app wants to show rendering jobs before sending rotation_done
+                                                // it is set by 'wm.policy.win.rot.render.nopending' aux hint
          } rot;
 #endif
       } state;
