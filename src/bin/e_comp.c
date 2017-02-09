@@ -924,7 +924,7 @@ _e_comp_cb_update(void)
 {
    E_Client *ec;
    Eina_List *l;
-   int pw, ph;
+   int pw, ph, w, h;
    Eina_Bool res;
 
    if (!e_comp) return EINA_FALSE;
@@ -950,11 +950,31 @@ _e_comp_cb_update(void)
         /* clear update flag */
         e_comp_object_render_update_del(ec->frame);
 
-        if (e_comp->saver) continue;
         if (e_object_is_del(E_OBJECT(ec))) continue;
         if (e_comp->hwc && e_comp_is_on_overlay(ec)) continue;
 
         /* update client */
+        e_pixmap_size_get(ec->pixmap, &pw, &ph);
+
+        if (e_pixmap_dirty_get(ec->pixmap))
+          {
+             if (e_pixmap_refresh(ec->pixmap) &&
+                 e_pixmap_size_get(ec->pixmap, &w, &h) &&
+                 e_pixmap_size_changed(ec->pixmap, pw, ph))
+               {
+                  e_pixmap_image_clear(ec->pixmap, 0);
+               }
+             else if (!e_pixmap_size_get(ec->pixmap, NULL, NULL))
+               {
+                  WRN("FAIL %p", ec);
+                  e_comp_object_redirected_set(ec->frame, 0);
+                  if (e_pixmap_failures_get(ec->pixmap) < 3)
+                    e_comp_object_render_update_add(ec->frame);
+               }
+          }
+
+        if (e_comp->saver) continue;
+
         res = e_pixmap_size_get(ec->pixmap, &pw, &ph);
         if (!res) continue;
 
