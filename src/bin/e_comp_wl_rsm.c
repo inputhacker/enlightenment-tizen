@@ -669,7 +669,8 @@ _remote_source_save(void *data, Ecore_Thread *th)
    Thread_Data *td;
    E_Client *ec;
    char name[1024];
-   const char *dest_path, *dupname, *dest_dir;
+   char dest_dir[1024];
+   const char *dest_path, *run_dir, *dupname, *dupdir;
 
    if (!(td = data)) return;
 
@@ -677,18 +678,25 @@ _remote_source_save(void *data, Ecore_Thread *th)
    if (!ec) return;
    if (ecore_thread_check(th)) return;
 
-   if (!(dest_dir = getenv("XDG_RUNTIME_DIR")))
+   if (!(run_dir = getenv("XDG_RUNTIME_DIR")))
      return;
 
-   snprintf(name, sizeof(name), "image_0x%08x", (unsigned int)ec);
+   snprintf(dest_dir, sizeof(dest_dir), "%s/.enlightenment", run_dir);
+   if (!ecore_file_exists(dest_dir))
+     ecore_file_mkdir(dest_dir);
+   dupdir = strdup(dest_dir);
+
+   snprintf(name, sizeof(name), "e-window-image_0x%08x", (unsigned int)ec);
    dupname = strdup(name);
-   dest_path = _remote_source_image_data_save(td, dest_dir, dupname);
+
+   dest_path = _remote_source_image_data_save(td, dupdir, dupname);
    if (dest_path)
      {
         td->image_path = eina_stringshare_add(dest_path);
         free((void*)dest_path);
      }
    free((void*)dupname);
+   free((void*)dupdir);
 }
 
 static void
@@ -789,7 +797,6 @@ end:
 static void
 _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
 {
-   /* TODO : use thread */
    E_Client *ec;
    E_Comp_Wl_Buffer *buffer = NULL;
    Thread_Data *td;
@@ -1096,10 +1103,6 @@ _remote_surface_cb_resource_destroy(struct wl_resource *resource)
    if (source)
      {
         source->surfaces = eina_list_remove(source->surfaces, remote_surface);
-        if (!source->surfaces)
-          {
-             _remote_source_destroy(source);
-          }
         remote_surface->source = NULL;
      }
 
@@ -1197,25 +1200,30 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
 
         remote_surface->redirect = EINA_TRUE;
 
-        buffer = e_pixmap_resource_get(remote_surface->source->ec->pixmap);
-        EINA_SAFETY_ON_NULL_RETURN(buffer);
+        if ((buffer = e_pixmap_resource_get(remote_surface->source->ec->pixmap)))
+          {
 
-        remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(remote_surface->wl_tbm, buffer->resource);
-        EINA_SAFETY_ON_NULL_RETURN(remote_buffer_resource);
+             remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(remote_surface->wl_tbm, buffer->resource);
+             EINA_SAFETY_ON_NULL_RETURN(remote_buffer_resource);
 
-        remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
-        EINA_SAFETY_ON_NULL_RETURN(remote_buffer);
+             remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
+             EINA_SAFETY_ON_NULL_RETURN(remote_buffer);
 
-        if (remote_surface->version >= 2)
-          e_comp_wl_buffer_reference(&remote_buffer->ref, buffer);
+             if (remote_surface->version >= 2)
+               e_comp_wl_buffer_reference(&remote_buffer->ref, buffer);
 
-        tizen_remote_surface_send_changed_buffer(remote_surface->resource,
-                                                 TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
-                                                 remote_buffer->resource,
-                                                 _rsm->dummy_fd,
-                                                 0,
-                                                 ecore_time_get() * 1000,
-                                                 NULL);
+             tizen_remote_surface_send_changed_buffer(remote_surface->resource,
+                                                      TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
+                                                      remote_buffer->resource,
+                                                      _rsm->dummy_fd,
+                                                      0,
+                                                      ecore_time_get() * 1000,
+                                                      NULL);
+          }
+        else
+          {
+             _remote_source_send_image_update(remote_surface->source);
+          }
      }
 }
 
@@ -1657,7 +1665,6 @@ static void
 _remote_surface_cb_remote_render_set(struct wl_client *client, struct wl_resource *resource, uint32_t set)
 {
    E_Comp_Wl_Remote_Surface *remote_surface;
-   E_Comp_Wl_Remote_Provider *provider = NULL;
    E_Comp_Wl_Remote_Source *source = NULL;
 
    remote_surface = wl_resource_get_user_data(resource);
@@ -1906,8 +1913,25 @@ _e_comp_wl_remote_cb_client_iconify(void *data, E_Client *ec)
 {
    E_Comp_Wl_Remote_Source *source;
 
-   if ((source = _remote_source_find(ec)))
-     _remote_source_save_start(source);
+   if (!(source = _remote_source_find(ec)))
+     {
+        if (ec->ignored) return;
+        if (ec->parent) return;
+        if ((e_policy_client_is_home_screen(ec)) ||
+            (e_policy_client_is_lockscreen(ec)) ||
+            (e_policy_client_is_volume(ec)) ||
+            (e_policy_client_is_volume_tv(ec)) ||
+            (e_policy_client_is_cbhm(ec)))
+          return;
+
+        source = E_NEW(E_Comp_Wl_Remote_Source, 1);
+        if (!source) return;
+
+        source->ec = ec;
+        eina_hash_add(_rsm->source_hash, &ec, source);
+     }
+
+   _remote_source_save_start(source);
 }
 
 static void
@@ -2004,6 +2028,74 @@ _e_comp_wl_remote_buffer_get(struct wl_resource *remote_buffer_resource)
    wl_resource_add_destroy_listener(remote_buffer->resource, &remote_buffer->destroy_listener);
 
    return remote_buffer;
+}
+
+static void
+_e_comp_wl_remote_surface_source_update(E_Comp_Wl_Remote_Source *source, E_Comp_Wl_Buffer *buffer)
+{
+   E_Comp_Wl_Remote_Surface *remote_surface;
+   E_Comp_Wl_Remote_Buffer *remote_buffer;
+   struct wl_resource *remote_buffer_resource;
+   Eina_List *l;
+
+   if ((!source) || (!buffer)) return;
+
+   if (source->th)
+     ecore_thread_cancel(source->th);
+
+   EINA_LIST_FOREACH(source->surfaces, l, remote_surface)
+     {
+        if (remote_surface->version < TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
+          continue;
+
+        remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(remote_surface->wl_tbm, buffer->resource);
+        if (!remote_buffer_resource) continue;
+
+        remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
+        if (!remote_buffer) continue;
+
+        if (!remote_surface->redirect) continue;
+
+        if (remote_surface->version >= 2)
+          e_comp_wl_buffer_reference(&remote_buffer->ref, buffer);
+
+        tizen_remote_surface_send_changed_buffer(remote_surface->resource,
+                                                 TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
+                                                 remote_buffer->resource,
+                                                 _rsm->dummy_fd,
+                                                 0,
+                                                 ecore_time_get() * 1000,
+                                                 NULL);
+     }
+}
+
+static int
+_e_comp_wl_remote_surface_dummy_fd_get(void)
+{
+   int fd = 0, blen = 0, len = 0;
+   const char *path;
+   char tmp[PATH_MAX];
+
+   blen = sizeof(tmp) - 1;
+
+   if (!(path = getenv("XDG_RUNTIME_DIR")))
+     return -1;
+
+   len = strlen(path);
+   if (len < blen)
+     {
+        strncpy(tmp, path, len + 1);
+        strncat(tmp, "/enlightenment_rsm_dummy_fdXXXXXX", 34);
+     }
+   else
+     return -1;
+
+   if ((fd = mkstemp(tmp)) < 0)
+     return -1;
+
+   unlink(tmp);
+
+   return fd;
 }
 
 static void
@@ -2207,75 +2299,6 @@ _e_comp_wl_remote_surface_subsurface_commit(E_Comp_Wl_Remote_Provider *parent_pr
 
    return EINA_TRUE;
 }
-
-void
-_e_comp_wl_remote_surface_source_update(E_Comp_Wl_Remote_Source *source, E_Comp_Wl_Buffer *buffer)
-{
-   E_Comp_Wl_Remote_Surface *remote_surface;
-   E_Comp_Wl_Remote_Buffer *remote_buffer;
-   struct wl_resource *remote_buffer_resource;
-   Eina_List *l;
-
-   if ((!source) || (!buffer)) return;
-
-   if (source->th)
-     ecore_thread_cancel(source->th);
-
-   EINA_LIST_FOREACH(source->surfaces, l, remote_surface)
-     {
-        if (remote_surface->version < TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
-          continue;
-
-        remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(remote_surface->wl_tbm, buffer->resource);
-        if (!remote_buffer_resource) continue;
-
-        remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
-        if (!remote_buffer) continue;
-
-        if (!remote_surface->redirect) continue;
-
-        if (remote_surface->version >= 2)
-          e_comp_wl_buffer_reference(&remote_buffer->ref, buffer);
-
-        tizen_remote_surface_send_changed_buffer(remote_surface->resource,
-                                                 TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
-                                                 remote_buffer->resource,
-                                                 _rsm->dummy_fd,
-                                                 0,
-                                                 ecore_time_get() * 1000,
-                                                 NULL);
-     }
-}
-
-static int
-_e_comp_wl_remote_surface_dummy_fd_get(void)
-{
-   int fd = 0, blen = 0, len = 0;
-   const char *path;
-   char tmp[PATH_MAX];
-
-   blen = sizeof(tmp) - 1;
-
-   if (!(path = getenv("XDG_RUNTIME_DIR")))
-     return -1;
-
-   len = strlen(path);
-   if (len < blen)
-     {
-        strncpy(tmp, path, len + 1);
-        strncat(tmp, "/enlightenment_rsm_dummy_fdXXXXXX", 34);
-     }
-   else
-     return -1;
-
-   if ((fd = mkstemp(tmp)) < 0)
-     return -1;
-
-   unlink(tmp);
-
-   return fd;
-}
-
 #endif /* HAVE_REMOTE_SURFACE */
 
 EINTERN Eina_Bool
