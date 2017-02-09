@@ -318,15 +318,15 @@ _e_plane_surface_from_client_acquire_reserved(E_Plane *plane)
    renderer_client = e_plane_renderer_client_get(ec);
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_client, NULL);
 
+   if (!e_plane_renderer_surface_queue_clear(renderer))
+      ERR("fail to e_plane_renderer_surface_queue_clear");
+
    if (e_comp_object_hwc_update_exists(ec->frame))
      {
         e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
         if (plane_trace_debug)
            ELOGF("E_PLANE", "Plane:%p Display Client", ec->pixmap, ec, plane);
-
-        if (!e_plane_renderer_surface_queue_clear(renderer))
-           ERR("fail to e_plane_renderer_surface_queue_clear");
 
         /* acquire the surface from the client_queue */
         tsurface = e_plane_renderer_client_surface_recieve(renderer_client);
@@ -996,16 +996,16 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
           {
              if (displaying_tsurface)
                {
-                  e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
-
                   if (plane->ec)
                     {
+                       e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
                        _e_plane_surface_on_client_reserved_release(plane, displaying_tsurface);
                        _e_plane_surface_send_dequeuable_surfaces(plane);
                     }
                   else
                     {
                        e_plane_renderer_sent_surface_recevie(plane->renderer, displaying_tsurface);
+                       e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
                     }
                }
           }
@@ -1037,16 +1037,16 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
                  /* release */
                  if (displaying_tsurface)
                    {
-                      e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
-
                       if (plane->ec)
                         {
+                           e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
                            _e_plane_surface_on_client_reserved_release(plane, displaying_tsurface);
                            _e_plane_surface_send_dequeuable_surfaces(plane);
                         }
                       else
                         {
                            e_plane_renderer_sent_surface_recevie(plane->renderer, displaying_tsurface);
+                           e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
                         }
                    }
                }

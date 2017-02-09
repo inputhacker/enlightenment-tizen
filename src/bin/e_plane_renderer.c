@@ -395,25 +395,27 @@ _e_plane_renderer_client_exported_surfaces_release(E_Plane_Renderer_Client *rend
 
    if (renderer->state == E_PLANE_RENDERER_STATE_CANDIDATE)
      {
-        EINA_LIST_FOREACH_SAFE(renderer_client->exported_surfaces, l_s, ll_s, tsurface)
-          {
-             if (!tsurface) continue;
-
-             renderer_client->exported_surfaces = eina_list_remove_list(renderer_client->exported_surfaces, l_s);
-          }
+        renderer_client->exported_surfaces = eina_list_free(renderer_client->exported_surfaces);
      }
    else
      {
-        EINA_LIST_FOREACH_SAFE(renderer_client->exported_surfaces, l_s, ll_s, tsurface)
+        if (eina_list_count(renderer_client->exported_surfaces) < 3)
           {
-             if (!tsurface) continue;
+             renderer_client->exported_surfaces = eina_list_free(renderer_client->exported_surfaces);
+          }
+        else
+          {
+             EINA_LIST_FOREACH_SAFE(renderer_client->exported_surfaces, l_s, ll_s, tsurface)
+               {
+                  if (!tsurface) continue;
 
-             renderer_client->exported_surfaces = eina_list_remove_list(renderer_client->exported_surfaces, l_s);
+                  renderer_client->exported_surfaces = eina_list_remove_list(renderer_client->exported_surfaces, l_s);
 
-             if (plane->pending_commit) continue;
+                  if (plane->pending_commit) continue;
 
-             if (tsurface == renderer->previous_tsurface)
-                _e_plane_renderer_exported_surface_release(renderer, tsurface);
+                  if (tsurface == renderer->previous_tsurface)
+                     _e_plane_renderer_exported_surface_release(renderer, tsurface);
+               }
           }
      }
 }
@@ -1173,6 +1175,7 @@ done:
 
    renderer->state = E_PLANE_RENDERER_STATE_NONE;
    renderer->ec = NULL;
+   renderer->mode_change_age = 0;
 
    renderer_client->state = E_PLANE_RENDERER_CLIENT_STATE_NONE;
    renderer_client->renderer = NULL;
@@ -1607,6 +1610,14 @@ e_plane_renderer_sent_surface_recevie(E_Plane_Renderer *renderer, tbm_surface_h 
    EINA_SAFETY_ON_NULL_RETURN(tsurface);
 
    if (renderer->state != E_PLANE_RENDERER_STATE_NONE) return;
+
+   if (renderer->mode_change_age < 2)
+      renderer->mode_change_age++;
+
+   if (_e_plane_renderer_surface_find_exported_surface(renderer, tsurface))
+      renderer->exported_surfaces = eina_list_remove(renderer->exported_surfaces, tsurface);
+
+   if (renderer->mode_change_age < 2) return;
 
    EINA_LIST_FOREACH_SAFE(renderer->exported_surfaces, l_s, ll_s, tmp_tsurface)
      {

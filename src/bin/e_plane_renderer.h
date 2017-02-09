@@ -45,6 +45,7 @@ struct _E_Plane_Renderer {
 
    Ecore_Fd_Handler   *event_hdlr;
    int                 event_fd;
+   int                 mode_change_age;
 };
 
 EINTERN Eina_Bool                  e_plane_renderer_init(void);
