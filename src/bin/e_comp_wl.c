@@ -65,6 +65,7 @@ static Eina_Inlist *_e_comp_wl_hooks[] =
 {
    [E_COMP_WL_HOOK_SHELL_SURFACE_READY] = NULL,
    [E_COMP_WL_HOOK_SUBSURFACE_CREATE] = NULL,
+   [E_COMP_WL_HOOK_BUFFER_CHANGE] = NULL,
 };
 
 /* local functions */
@@ -5006,6 +5007,9 @@ e_comp_wl_surface_attach(E_Client *ec, E_Comp_Wl_Buffer *buffer)
 
    _e_comp_wl_surface_state_size_update(ec, &ec->comp_data->pending);
    e_comp_wl_map_size_cal_from_buffer(ec);
+
+   /* wm-policy module uses it */
+   _e_comp_wl_hook_call(E_COMP_WL_HOOK_BUFFER_CHANGE, ec);
 
    ev->ec = ec;
    e_object_ref(E_OBJECT(ec));

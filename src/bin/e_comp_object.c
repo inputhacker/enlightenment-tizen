@@ -3712,7 +3712,15 @@ e_comp_object_damage(Evas_Object *obj, int x, int y, int w, int h)
 
    if (e_comp_is_on_overlay(cw->ec))
      {
-        cw->hwc_need_update = EINA_TRUE;
+        if (cw->ec)
+          {
+             /* It will not set hwc_need_update value if E modules already cleanup pixmap
+              * resource on the E_COMP_WL_HOOK_BUFFER_CHANGE hook function. It means that
+              * E module attempts to block screen update due to the particular policy.
+              */
+             if (e_pixmap_resource_get(cw->ec->pixmap))
+               cw->hwc_need_update = EINA_TRUE;
+          }
      }
 
    /* ignore overdraw */
