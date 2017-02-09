@@ -62,7 +62,8 @@ _e_policy_check_transient_child_visible(E_Client *ancestor_ec, E_Client *ec)
      {
         if (visible == EINA_TRUE) continue;
 
-        if (child_ec->exp_iconify.skip_iconify == EINA_TRUE)
+        if ((child_ec->exp_iconify.skip_iconify == EINA_TRUE) ||
+            (child_ec->exp_iconify.skip_by_remote == EINA_TRUE))
           {
              if (child_ec->visibility.obscured == E_VISIBILITY_UNOBSCURED)
                {
@@ -144,6 +145,7 @@ _e_policy_client_iconify_by_visibility(E_Client *ec)
    if (ec->iconic) return;
    if (ec->exp_iconify.by_client) return;
    if (ec->exp_iconify.skip_iconify) return;
+   if (ec->exp_iconify.skip_by_remote) return;
 
    E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data *)ec->comp_data;
    if (cdata && !cdata->mapped) return;
@@ -198,6 +200,7 @@ _e_policy_client_ancestor_uniconify(E_Client *ec)
    if (!ec->iconic) return;
    if (ec->exp_iconify.by_client) return;
    if (ec->exp_iconify.skip_iconify) return;
+   if (ec->exp_iconify.skip_by_remote) return;
 
    parent = ec->parent;
    while (parent)
@@ -213,6 +216,7 @@ _e_policy_client_ancestor_uniconify(E_Client *ec)
         if (!parent->iconic) break;
         if (parent->exp_iconify.by_client) break;
         if (parent->exp_iconify.skip_iconify) break;
+        if (parent->exp_iconify.skip_by_remote) break;
 
         if (eina_list_data_find(list, parent))
           {
@@ -282,6 +286,7 @@ _e_policy_client_uniconify_by_visibility(E_Client *ec)
    if (!ec->iconic) return;
    if (ec->exp_iconify.by_client) return;
    if (ec->exp_iconify.skip_iconify) return;
+   if (ec->exp_iconify.skip_by_remote) return;
 
    E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data *)ec->comp_data;
    if (cdata && !cdata->mapped) return;

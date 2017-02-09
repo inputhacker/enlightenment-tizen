@@ -887,6 +887,7 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
 
                        if (above_ec->exp_iconify.by_client) continue;
                        if (above_ec->exp_iconify.skip_iconify) continue;
+                       if (above_ec->exp_iconify.skip_by_remote) continue;
 
                        if (above_ec->argb)
                          {
@@ -918,6 +919,7 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
                   if (e_client_util_ignored_get(ec)) return;
                   if (ec->exp_iconify.by_client) return;
                   if (ec->exp_iconify.skip_iconify) return;
+                  if (ec->exp_iconify.skip_by_remote) return;
                   if (!ec->iconic)
                     {
                        e_policy_client_iconify_by_visibility(ec);
@@ -962,6 +964,7 @@ _e_policy_cb_hook_pixmap_unusable(void *data EINA_UNUSED, E_Pixmap *cp)
    if (!ec->iconic) return;
    if (ec->exp_iconify.by_client) return;
    if (ec->exp_iconify.skip_iconify) return;
+   if (ec->exp_iconify.skip_by_remote) return;
 
    e_policy_client_unmap(ec);
 }

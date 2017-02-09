@@ -3650,6 +3650,7 @@ e_client_new(E_Pixmap *cp, int first_map, int internal)
    ec->exp_iconify.by_client = 0;
    ec->exp_iconify.not_raise = 0;
    ec->exp_iconify.skip_iconify = 0;
+   ec->exp_iconify.skip_by_remote = 0;
 
    if (!_e_client_hook_call(E_CLIENT_HOOK_NEW_CLIENT, ec)) 
      {
@@ -5233,6 +5234,7 @@ e_client_iconify(E_Client *ec)
    if (!ec->zone) return;
    if (ec->shading || ec->iconic) return;
    if (ec->exp_iconify.skip_iconify && !ec->exp_iconify.by_client) return;
+   if (ec->exp_iconify.skip_by_remote) return;
 
    TRACE_DS_BEGIN(CLIENT:ICONIFY);
 

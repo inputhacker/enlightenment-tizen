@@ -1095,6 +1095,7 @@ e_policy_wl_iconify_state_change_send(E_Client *ec, int iconic)
    Ecore_Window win;
 
    if (ec->exp_iconify.skip_iconify) return;
+   if (ec->exp_iconify.skip_by_remote) return;
 
    if (e_config->transient.iconify)
      {
