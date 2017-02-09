@@ -1860,7 +1860,6 @@ e_qp_client_scrollable_set(E_Client *ec, Eina_Bool set)
    if (qp_mgr_funcs && qp_mgr_funcs->qp_client_scrollable_set)
       return qp_mgr_funcs->qp_client_scrollable_set(ec, set);
 
-   E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
    qp_client = _e_qp_client_ec_get(ec);
@@ -1880,7 +1879,6 @@ e_qp_client_scrollable_get(E_Client *ec)
    if (qp_mgr_funcs && qp_mgr_funcs->qp_client_scrollable_get)
       return qp_mgr_funcs->qp_client_scrollable_get(ec);
 
-   E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
    qp_client = _e_qp_client_ec_get(ec);
