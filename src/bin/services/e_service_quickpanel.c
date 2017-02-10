@@ -777,6 +777,7 @@ static void
 _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, unsigned int timestamp)
 {
    E_Policy_Quickpanel *qp;
+   E_QP_Client *qp_client;
    E_Client *focused;
    Eina_Bool res;
 
@@ -792,6 +793,14 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
 
    if ((handler == qp->indi_obj) &&
        (_quickpanel_send_gesture_to_indicator()))
+     return;
+
+   /* Do not show and scroll the quickpanel window if the qp_client winodw
+    * which is placed at the below of the quickpanel window doesn't want
+    * to show and scroll the quickpanel window.
+    */
+   qp_client = _e_qp_client_ec_get(qp->below);
+   if ((qp_client) && (!qp_client->hint.scrollable))
      return;
 
    res = _e_qp_srv_is_effect_running(qp);
@@ -1432,7 +1441,6 @@ static Eina_Bool
 _e_qp_client_scrollable_update(void)
 {
    E_Policy_Quickpanel *qp;
-   E_QP_Client *qp_client;
    Eina_Bool res = EINA_TRUE;
 
    qp = _quickpanel_get();
@@ -1452,24 +1460,6 @@ _e_qp_client_scrollable_update(void)
         evas_object_pass_events_set(qp->handler_obj, EINA_FALSE);
         evas_object_pass_events_set(qp->indi_obj, EINA_FALSE);
         return EINA_TRUE;
-     }
-
-   /* Do not show and scroll the quickpanel window if the qp_client winodw
-    * which is placed at the below of the quickpanel window doesn't want
-    * to show and scroll the quickpanel window.
-    */
-   qp_client = _e_qp_client_ec_get(qp->below);
-   if ((qp_client) && (!qp_client->hint.scrollable))
-     {
-        evas_object_pass_events_set(qp->handler_obj, EINA_TRUE);
-        evas_object_pass_events_set(qp->indi_obj, EINA_TRUE);
-        res = EINA_FALSE;
-     }
-   else
-     {
-        evas_object_pass_events_set(qp->handler_obj, EINA_FALSE);
-        evas_object_pass_events_set(qp->indi_obj, EINA_FALSE);
-        res = EINA_TRUE;
      }
 
    return res;
