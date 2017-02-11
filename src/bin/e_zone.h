@@ -106,7 +106,7 @@ struct _E_Zone
 #ifdef _F_ZONE_WINDOW_ROTATION_
    struct
    {
-      int       prev, curr, next, sub;
+      int       prev, curr, next, sub, act;
       int       block_count; /* deprecated. use rot.block.mod_count instead */
       struct
       {
