@@ -1712,6 +1712,46 @@ _e_client_stay_within_canvas(E_Client *ec, int x, int y, int *new_x, int *new_y)
 }
 
 static void
+_e_client_stay_within_canvas_margin(E_Client *ec, int x, int y, int *new_x, int *new_y)
+{
+   int new_x_max, new_y_max, new_x_min, new_y_min;
+   int margin_w, margin_h;
+   int zw, zh;
+   int cw, ch;
+
+   if (!ec->zone)
+     {
+        if (new_x) *new_x = x;
+        if (new_y) *new_y = y;
+        return;
+     }
+
+   cw = ec->w;
+   ch = ec->h;
+
+   _e_client_zones_layout_calc(ec, NULL, NULL, &zw, &zh);
+
+   margin_w = zw/3;
+   margin_h = zh/10;
+
+   new_x_min = (margin_w > cw) ? 0 : -(cw - margin_w);
+   new_x_max = (margin_w > cw) ? (zw - cw) : (zw - margin_w);
+   new_y_min = (margin_h > ch) ? 0 : -(ch - margin_h);
+   new_y_max = (margin_h > ch) ? (zh - ch) : (zh - margin_h);
+
+   if (x >= new_x_max)
+     *new_x = new_x_max;
+   else if (x <= new_x_min)
+     *new_x = new_x_min;
+
+   if (y >= new_y_max)
+     *new_y = new_y_max;
+   else if (y <= new_y_min)
+     *new_y = new_y_min;
+
+}
+
+static void
 _e_client_reset_lost_window(E_Client *ec)
 {
    E_OBJECT_CHECK(ec);
@@ -4095,6 +4135,9 @@ e_client_mouse_move(E_Client *ec, Evas_Point *output)
 
         if (e_config->screen_limits == E_CLIENT_OFFSCREEN_LIMIT_ALLOW_NONE)
           _e_client_stay_within_canvas(ec, x, y, &new_x, &new_y);
+
+        if (ec->floating)
+          _e_client_stay_within_canvas_margin(ec, x, y, &new_x, &new_y);
 
         ec->shelf_fix.x = 0;
         ec->shelf_fix.y = 0;
