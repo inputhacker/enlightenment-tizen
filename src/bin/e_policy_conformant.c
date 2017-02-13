@@ -621,12 +621,33 @@ _conf_cb_client_rot_change_begin(void *data, int evtype EINA_UNUSED, void *event
 {
    E_Event_Client *ev;
    Conformant_Type type;
+   E_Client *ec;
+   int i = -1;
+   int angle;
 
    ev = event;
+   ec = ev->ec;
 
    type = _conf_client_type_get(ev->ec);
    if (type >= CONFORMANT_TYPE_MAX)
      goto end;
+   if (!ec)
+     goto end;
+
+   if (g_conf->part[type].state.visible && type == CONFORMANT_TYPE_KEYBOARD)
+     {
+        angle = ec->e.state.rot.ang.next;
+        if ((angle % 90 != 0) || (angle / 90 > 3) || (angle < 0))
+          goto end;
+
+        i = angle / 90;
+        _conf_state_update(type,
+                           EINA_TRUE,
+                           ec->e.state.rot.geom[i].x,
+                           ec->e.state.rot.geom[i].y,
+                           ec->e.state.rot.geom[i].w,
+                           ec->e.state.rot.geom[i].h);
+     }
 
 end:
    return ECORE_CALLBACK_PASS_ON;
