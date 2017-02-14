@@ -137,6 +137,12 @@ typedef struct _E_Comp_Object
    Eina_Bool            dim_enable : 1;
    Eina_Bool            user_alpha_set : 1;
    Eina_Bool            user_alpha : 1;
+
+   struct
+     {
+        Evas_Object         *obj;
+        int                  w, h;
+     } indicator; //indicator object for internal client
 } E_Comp_Object;
 
 typedef struct _E_Input_Rect_Data
@@ -841,6 +847,18 @@ _e_comp_object_shadow_setup(E_Comp_Object *cw)
                }
           }
      }
+   if (cw->indicator.obj)
+     {
+        Evas_Object *indicator;
+        indicator = edje_object_part_swallow_get(cw->shobj, "e.swallow.indicator");
+        if (indicator != cw->indicator.obj)
+          {
+             edje_object_part_unswallow(cw->shobj, indicator);
+             edje_object_part_swallow(cw->shobj, "e.swallow.indicator", cw->indicator.obj);
+             e_comp_object_indicator_size_set(cw->smart_obj, cw->indicator.w, cw->indicator.h);
+          }
+     }
+
    evas_object_pass_events_set(cw->obj, pass_event_flag);
 #ifdef BORDER_ZOOMAPS
    e_zoomap_child_edje_solid_setup(cw->zoomobj);
@@ -5147,4 +5165,44 @@ e_comp_object_effect_object_part_swallow(Evas_Object *obj, const char *part_name
 {
    API_ENTRY;
    edje_object_part_swallow(cw->effect_obj, part_name, swallow_obj);
+}
+
+E_API void
+e_comp_object_indicator_swallow(Evas_Object *obj, Evas_Object *indicator)
+{
+   API_ENTRY;
+   if (cw->indicator.obj != indicator)
+     edje_object_part_unswallow(cw->shobj, cw->indicator.obj);
+   cw->indicator.obj = indicator;
+   edje_object_part_swallow(cw->shobj, "e.swallow.indicator", indicator);
+}
+
+E_API void
+e_comp_object_indicator_unswallow(Evas_Object *obj, Evas_Object *indicator)
+{
+   API_ENTRY;
+   if (cw->indicator.obj != indicator) return;
+   cw->indicator.obj = NULL;
+   edje_object_part_unswallow(cw->shobj, indicator);
+}
+
+E_API void
+e_comp_object_indicator_size_set(Evas_Object *obj, int w, int h)
+{
+   API_ENTRY;
+   Edje_Message_Int_Set *msg;
+
+   if (!cw->indicator.obj) return;
+
+   cw->indicator.w = w;
+   cw->indicator.h = h;
+
+   if (!cw->shobj) return;
+
+   msg = alloca(sizeof(Edje_Message_Int_Set) + (sizeof(int)));
+   msg->count = 2;
+   msg->val[0] = w;
+   msg->val[1] = h;
+   edje_object_message_send(cw->shobj, EDJE_MESSAGE_INT_SET, 0, msg);
+   edje_object_message_signal_process(cw->shobj);
 }
