@@ -113,6 +113,8 @@ struct _E_Comp_Wl_Remote_Surface {
 
      Eina_Bool remote_render;
 
+     Eina_Bool valid;
+
      int version;
 };
 
@@ -1143,7 +1145,8 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
    EINA_SAFETY_ON_NULL_RETURN(_rsm);
 
    remote_surface = wl_resource_get_user_data(resource);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   if (!remote_surface) return;
+   if (!remote_surface->valid) return;
 
    if (remote_surface->provider)
      {
@@ -1233,7 +1236,8 @@ _remote_surface_cb_unredirect(struct wl_client *client, struct wl_resource *reso
    E_Comp_Wl_Remote_Surface *remote_surface;
 
    remote_surface = wl_resource_get_user_data(resource);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   if (!remote_surface) return;
+   if (!remote_surface->valid) return;
 
    remote_surface->redirect = EINA_FALSE;
 //   _remote_surface_visible_set(remote_surface, EINA_FALSE);
@@ -1256,9 +1260,10 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
    double eradx, erady, epressure, eangle;
 
    remote_surface = wl_resource_get_user_data(resource);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->ec);
+   if (!remote_surface) return;
+   if (!remote_surface->provider) return;
+   if (!remote_surface->provider->ec) return;
+   if (!remote_surface->valid) return;
 
    provider = remote_surface->provider;
    ec = provider->ec;
@@ -1372,9 +1377,10 @@ _remote_surface_cb_mouse_wheel_transfer(struct wl_client *client, struct wl_reso
    Ecore_Device *edev = NULL;
 
    remote_surface = wl_resource_get_user_data(resource);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->ec);
+   if (!remote_surface) return;
+   if (!remote_surface->provider) return;
+   if (!remote_surface->provider->ec) return;
+   if (!remote_surface->valid) return;
 
    provider = remote_surface->provider;
    ec = provider->ec;
@@ -1399,9 +1405,10 @@ _remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_reso
    double eradx, erady, epressure, eangle;
 
    remote_surface = wl_resource_get_user_data(resource);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->ec);
+   if (!remote_surface) return;
+   if (!remote_surface->provider) return;
+   if (!remote_surface->provider->ec) return;
+   if (!remote_surface->valid) return;
 
    provider = remote_surface->provider;
    ec = provider->ec;
@@ -1482,9 +1489,10 @@ _remote_surface_cb_touch_cancel_transfer(struct wl_client *client, struct wl_res
    E_Client *ec;
 
    remote_surface = wl_resource_get_user_data(resource);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->ec);
+   if (!remote_surface) return;
+   if (!remote_surface->provider) return;
+   if (!remote_surface->provider->ec) return;
+   if (!remote_surface->valid) return;
 
    provider = remote_surface->provider;
    ec = provider->ec;
@@ -1504,9 +1512,10 @@ _remote_surface_cb_key_event_transfer(struct wl_client *client, struct wl_resour
    Ecore_Device_Class eclas;
 
    remote_surface = wl_resource_get_user_data(resource);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->ec);
+   if (!remote_surface) return;
+   if (!remote_surface->provider) return;
+   if (!remote_surface->provider->ec) return;
+   if (!remote_surface->valid) return;
 
    provider = remote_surface->provider;
    ec = provider->ec;
@@ -1561,7 +1570,8 @@ _remote_surface_cb_visibility_transfer(struct wl_client *client, struct wl_resou
    E_Comp_Wl_Remote_Surface *remote_surface;
 
    remote_surface = wl_resource_get_user_data(resource);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   if (!remote_surface) return;
+   if (!remote_surface->valid) return;
 
    if (visibility_type == TIZEN_REMOTE_SURFACE_VISIBILITY_TYPE_INVISIBLE)
      {
@@ -1580,7 +1590,8 @@ _remote_surface_cb_owner_set(struct wl_client *client, struct wl_resource *resou
    E_Client *owner = NULL;
 
    remote_surface = wl_resource_get_user_data(resource);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   if (!remote_surface) return;
+   if (!remote_surface->valid) return;
 
    if (surface_resource)
      owner = wl_resource_get_user_data(surface_resource);
@@ -1610,7 +1621,8 @@ _remote_surface_cb_region_create(struct wl_client *client, struct wl_resource *r
    E_Comp_Wl_Remote_Provider *provider;
 
    remote_surface = wl_resource_get_user_data(remote_surface_resource);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   if (!remote_surface) return;
+   if (!remote_surface->valid) return;
 
    resource = wl_resource_create(client,
                                  &tizen_remote_surface_region_interface,
@@ -1652,7 +1664,8 @@ _remote_surface_cb_release(struct wl_client *client, struct wl_resource *resourc
    E_Comp_Wl_Remote_Buffer *remote_buffer;
 
    remote_surface = wl_resource_get_user_data(resource);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   if (!remote_surface) return;
+   if (!remote_surface->valid) return;
 
    remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
    EINA_SAFETY_ON_NULL_RETURN(remote_buffer);
@@ -1668,7 +1681,8 @@ _remote_surface_cb_remote_render_set(struct wl_client *client, struct wl_resourc
    E_Comp_Wl_Remote_Source *source = NULL;
 
    remote_surface = wl_resource_get_user_data(resource);
-   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   if (!remote_surface) return;
+   if (!remote_surface->valid) return;
 
    source = remote_surface->source;
    if (!source) return;
@@ -1755,61 +1769,12 @@ _remote_manager_cb_surface_create(struct wl_client *client, struct wl_resource *
    E_Comp_Wl_Remote_Provider *provider = NULL;
    E_Comp_Wl_Remote_Source *source = NULL;
    E_Client *ec;
-   Eina_Bool new_source = EINA_FALSE;
    int version;
    pid_t pid;
 
    EINA_SAFETY_ON_NULL_RETURN(_rsm);
 
-   ec = e_pixmap_find_client_by_res_id(res_id);
-   if (!ec)
-     {
-        ERR("Could not find client by res_id(%u)", res_id);
-        return;
-     }
-
-   if (!wl_tbm)
-     {
-        ERR("wayland_tbm resource is NULL");
-        return;
-     }
-
-   wl_client_get_credentials(client, &pid, NULL, NULL);
    version = wl_resource_get_version(res_remote_manager);
-
-   provider = _remote_provider_find(ec);
-   if (!provider)
-     {
-        if (version >= TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
-          {
-             /* TODO: privilege check */
-
-             if (ec->comp_data->sub.data)
-               {
-                  ERR("Subsurface could not be source client");
-                  return;
-               }
-
-             /* if passed */
-             source = _remote_source_find(ec);
-             if (!source)
-               {
-                  source = E_NEW(E_Comp_Wl_Remote_Source, 1);
-                  if (!source) return;
-
-                  source->ec = ec;
-                  eina_hash_add(_rsm->source_hash, &ec, source);
-               }
-
-             new_source = EINA_TRUE;
-          }
-        else
-          {
-             ERR("Could not support tizen_remote_surface to client :%d", pid);
-             return;
-          }
-     }
-
    resource = wl_resource_create(client,
                                  &tizen_remote_surface_interface,
                                  version, id);
@@ -1817,22 +1782,67 @@ _remote_manager_cb_surface_create(struct wl_client *client, struct wl_resource *
      {
         ERR("Could not create tizen remote surface resource: %m");
         wl_client_post_no_memory(client);
-        if (new_source)
-          {
-             eina_hash_del(_rsm->source_hash, &ec, source);
-             E_FREE(source);
-          }
         return;
      }
 
-
    remote_surface = E_NEW(E_Comp_Wl_Remote_Surface, 1);
    remote_surface->resource = resource;
-   remote_surface->version = wl_resource_get_version(remote_surface->resource);
-   remote_surface->wl_tbm = wl_tbm;
+   remote_surface->version = wl_resource_get_version(resource);
    remote_surface->redirect = EINA_FALSE;
+   remote_surface->valid = EINA_FALSE;
+
+   wl_resource_set_implementation(resource,
+                                  &_remote_surface_interface,
+                                  remote_surface,
+                                  _remote_surface_cb_resource_destroy);
+
+   ec = e_pixmap_find_client_by_res_id(res_id);
+   if (!ec)
+     {
+        ERR("Could not find client by res_id(%u)", res_id);
+        goto fail;
+     }
+
+   if (!wl_tbm)
+     {
+        ERR("wayland_tbm resource is NULL");
+        goto fail;
+     }
+
+   wl_client_get_credentials(client, &pid, NULL, NULL);
+   provider = _remote_provider_find(ec);
+   if (!provider)
+     {
+        if (version >= TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
+          {
+             /* TODO: privilege check */
+             if (ec->comp_data->sub.data)
+               {
+                  ERR("Subsurface could not be source client");
+                  goto fail;
+               }
+
+             /* if passed */
+             source = _remote_source_find(ec);
+             if (!source)
+               {
+                  source = E_NEW(E_Comp_Wl_Remote_Source, 1);
+                  if (!source) goto fail;
+
+                  source->ec = ec;
+                  eina_hash_add(_rsm->source_hash, &ec, source);
+               }
+          }
+        else
+          {
+             ERR("Could not support tizen_remote_surface to client :%d", pid);
+             goto fail;
+          }
+     }
+
    remote_surface->provider = provider;
    remote_surface->source = source;
+   remote_surface->wl_tbm = wl_tbm;
 
    /* Add destroy listener for wl_tbm resource */
    remote_surface->tbm_destroy_listener.notify = _remote_surface_cb_tbm_destroy;
@@ -1843,14 +1853,15 @@ _remote_manager_cb_surface_create(struct wl_client *client, struct wl_resource *
    else if (source)
      source->surfaces = eina_list_append(source->surfaces, remote_surface);
 
-   wl_resource_set_implementation(resource,
-                                  &_remote_surface_interface,
-                                  remote_surface,
-                                  _remote_surface_cb_resource_destroy);
-
    RSMINF("Created resource(%p) ec(%p) provider(%p) source(%p) version(%d)",
           NULL, NULL,
           "SURFACE", remote_surface, resource, ec, provider, source, remote_surface->version);
+
+   remote_surface->valid = EINA_TRUE;
+   return;
+
+fail:
+   tizen_remote_surface_send_missing(resource);
 }
 
 
@@ -1863,6 +1874,7 @@ _remote_manager_cb_surface_bind(struct wl_client *client, struct wl_resource *re
 
    remote_surface = wl_resource_get_user_data(remote_surface_resource);
    if (!remote_surface) return;
+   if (!remote_surface->valid) return;
 
    provider = remote_surface->provider;
    if (!provider) return;
