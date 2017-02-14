@@ -1868,9 +1868,11 @@ _e_info_client_proc_buffer_shot(int argc, char **argv)
              if (!_e_info_client_eldbus_message_with_args("dump_buffers", NULL, "iis", dumprun, count, tmp_path))
                {
                   printf("_e_info_client_proc_buffer_shot fail (%d)\n", dumprun);
+                  free(tmp_path);
                   return;
                }
              printf("_e_info_client_proc_buffer_shot %s\n", (dumprun == 1 ? "start" : "stop"));
+             free(tmp_path);
           }
         else if (eina_streq(argv[3], "-p"))
           {

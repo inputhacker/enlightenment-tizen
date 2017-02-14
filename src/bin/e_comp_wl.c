@@ -68,6 +68,8 @@ static Eina_Inlist *_e_comp_wl_hooks[] =
    [E_COMP_WL_HOOK_BUFFER_CHANGE] = NULL,
 };
 
+static Eina_List *hooks = NULL;
+
 /* local functions */
 static void
 _e_comp_wl_hooks_clean(void)
@@ -4902,15 +4904,15 @@ e_comp_wl_init(void)
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_CLIENT_ROTATION_CHANGE_END, _e_comp_wl_cb_client_rot_change_end, NULL);
 
    /* add hooks to catch e_client events */
-   e_client_hook_add(E_CLIENT_HOOK_NEW_CLIENT,   _e_comp_wl_client_cb_new,          NULL);
-   e_client_hook_add(E_CLIENT_HOOK_DEL,          _e_comp_wl_client_cb_del,          NULL);
-   e_client_hook_add(E_CLIENT_HOOK_FOCUS_SET,    _e_comp_wl_client_cb_focus_set,    NULL);
-   e_client_hook_add(E_CLIENT_HOOK_FOCUS_UNSET,  _e_comp_wl_client_cb_focus_unset,  NULL);
-   e_client_hook_add(E_CLIENT_HOOK_RESIZE_BEGIN, _e_comp_wl_client_cb_resize_begin, NULL);
-   e_client_hook_add(E_CLIENT_HOOK_RESIZE_END,   _e_comp_wl_client_cb_resize_end,   NULL);
-   e_client_hook_add(E_CLIENT_HOOK_MOVE_END,     _e_comp_wl_client_cb_move_end,     NULL);
-   e_client_hook_add(E_CLIENT_HOOK_ICONIFY,      _e_comp_wl_client_cb_iconify,      NULL);
-   e_client_hook_add(E_CLIENT_HOOK_UNICONIFY,    _e_comp_wl_client_cb_uniconify,    NULL);
+   E_LIST_HOOK_APPEND(hooks, E_CLIENT_HOOK_NEW_CLIENT,   _e_comp_wl_client_cb_new,          NULL);
+   E_LIST_HOOK_APPEND(hooks, E_CLIENT_HOOK_DEL,          _e_comp_wl_client_cb_del,          NULL);
+   E_LIST_HOOK_APPEND(hooks, E_CLIENT_HOOK_FOCUS_SET,    _e_comp_wl_client_cb_focus_set,    NULL);
+   E_LIST_HOOK_APPEND(hooks, E_CLIENT_HOOK_FOCUS_UNSET,  _e_comp_wl_client_cb_focus_unset,  NULL);
+   E_LIST_HOOK_APPEND(hooks, E_CLIENT_HOOK_RESIZE_BEGIN, _e_comp_wl_client_cb_resize_begin, NULL);
+   E_LIST_HOOK_APPEND(hooks, E_CLIENT_HOOK_RESIZE_END,   _e_comp_wl_client_cb_resize_end,   NULL);
+   E_LIST_HOOK_APPEND(hooks, E_CLIENT_HOOK_MOVE_END,     _e_comp_wl_client_cb_move_end,     NULL);
+   E_LIST_HOOK_APPEND(hooks, E_CLIENT_HOOK_ICONIFY,      _e_comp_wl_client_cb_iconify,      NULL);
+   E_LIST_HOOK_APPEND(hooks, E_CLIENT_HOOK_UNICONIFY,    _e_comp_wl_client_cb_uniconify,    NULL);
 
    E_EVENT_WAYLAND_GLOBAL_ADD = ecore_event_type_new();
    _last_keydev_hash = eina_hash_pointer_new(NULL);
@@ -4942,7 +4944,7 @@ e_comp_wl_shutdown(void)
 {
    /* free handlers */
    E_FREE_LIST(handlers, ecore_event_handler_del);
-
+   E_FREE_LIST(hooks, e_client_hook_del);
    _e_comp_wl_gl_shutdown();
 
 #ifdef HAVE_WAYLAND_TBM
