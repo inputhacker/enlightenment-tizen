@@ -555,6 +555,8 @@ static void
 _e_info_client_proc_protocol_rule(int argc, char **argv)
 {
    char *new_argv[3];
+   char *new_s1 = NULL;
+   char *new_s2 = NULL;
    int new_argc;
    int i;
 
@@ -570,14 +572,16 @@ _e_info_client_proc_protocol_rule(int argc, char **argv)
      new_argv[i] = argv[i + 2];
    if (new_argc < 2)
      {
-        new_argv[1] = (char *)calloc (1, PATH_MAX);
-        snprintf(new_argv[1], PATH_MAX, "%s", "no_data");
+        new_s1 = (char *)calloc (1, PATH_MAX);
+        snprintf(new_s1, PATH_MAX, "%s", "no_data");
+        new_argv[1] = new_s1;
         new_argc++;
      }
    if (new_argc < 3)
      {
-        new_argv[2] = (char *)calloc (1, PATH_MAX);
-        snprintf(new_argv[2], PATH_MAX, "%s", "no_data");
+        new_s2 = (char *)calloc (1, PATH_MAX);
+        snprintf(new_s2, PATH_MAX, "%s", "no_data");
+        new_argv[2] = new_s2;
         new_argc++;
      }
    if (new_argc != 3)
@@ -586,8 +590,10 @@ _e_info_client_proc_protocol_rule(int argc, char **argv)
         return;
      }
 
-   if (!_e_info_client_eldbus_message_with_args("protocol_rule", _cb_protocol_rule, "sss", new_argv[0], new_argv[1], new_argv[2]))
-     return;
+   _e_info_client_eldbus_message_with_args("protocol_rule", _cb_protocol_rule, "sss", new_argv[0], new_argv[1], new_argv[2]);
+
+   if (new_s1) free(new_s1);
+   if (new_s2) free(new_s2);
 }
 
 static void
