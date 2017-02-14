@@ -855,7 +855,11 @@ e_comp_wl_clipboard_source_create(const char *mime_type, uint32_t serial, int *f
         if (!source->data_source.mime_types)
           source->data_source.mime_types = eina_array_new(1);
 
-        EINA_SAFETY_ON_NULL_RETURN_VAL(source->data_source.mime_types, NULL);
+        if (source->data_source.mime_types == NULL)
+          {
+             E_FREE(source);
+             return NULL;
+          }
 
         eina_array_push(source->data_source.mime_types, eina_stringshare_add(mime_type));
      }
