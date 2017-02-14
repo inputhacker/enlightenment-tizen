@@ -503,8 +503,6 @@ _e_policy_wl_tzsh_client_unset(E_Client *ec)
    tzsh = _e_policy_wl_tzsh_get_from_client(ec);
    if (!tzsh) return;
 
-   tzsh->ec = NULL;
-
    if (tzsh->type == TZSH_TYPE_SRV)
      {
         tzsh_srv = polwl->srvs[TZSH_SRV_ROLE_TVSERVICE];
