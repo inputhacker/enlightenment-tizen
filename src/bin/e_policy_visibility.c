@@ -1562,7 +1562,7 @@ e_policy_visibility_uniconify_render_disable_set(E_Client *ec, Eina_Bool disable
    vc->disable_uniconify_render = !!disable;
 }
 
-E_API void
+EINTERN void
 e_policy_visibility_client_defer_move(E_Client *ec, int x, int y)
 {
    E_VIS_CLIENT_GET_OR_RETURN(vc, ec);
