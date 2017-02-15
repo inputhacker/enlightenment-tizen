@@ -939,6 +939,22 @@ end:
   return EINA_TRUE;
 }
 
+static Eina_Bool
+_e_vis_client_defer_move(E_Vis_Client *vc, E_Vis_Job_Type type, int x, int y)
+{
+   if (!vc) return EINA_FALSE;
+
+   vc->state = E_VIS_ICONIFY_STATE_GEOMETRY_CHANGE;
+   vc->grab = _e_vis_client_grab_get(vc, __func__);
+   vc->defer.x = x;
+   vc->defer.y = y;
+   _e_vis_client_buffer_attach_handler_add(vc);
+
+   _e_vis_client_job_add(vc, type);
+
+   return EINA_TRUE;
+}
+
 static inline Eina_Bool
 _e_vis_ec_special_check(E_Client *ec)
 {
@@ -992,6 +1008,13 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
 {
    VS_DBG(ec, "Job Run: type %d", type);
 
+   E_Vis_Client *vc = NULL;
+   if (ec) {
+        if (EINA_LIKELY(pol_vis != NULL)) {
+             vc = eina_hash_find(pol_vis->clients_hash, &ec);
+        }
+   }
+
    switch (type)
      {
       case E_VIS_JOB_TYPE_ACTIVATE:
@@ -1013,9 +1036,7 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
          break;
       case E_VIS_JOB_TYPE_LAYER_LOWER:
          e_comp_canvas_norender_pop();
-         E_VIS_CLIENT_GET(vc, ec);
-         if (vc)
-           evas_object_layer_set(ec->frame, vc->layer);
+         if (vc) evas_object_layer_set(ec->frame, vc->layer);
          break;
       case E_VIS_JOB_TYPE_SHOW:
          /* checks for dectecting hide request after show request */
@@ -1024,6 +1045,14 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
              (!ec->iconic) && (!ec->ignored))
            evas_object_show(ec->frame);
          break;
+      case E_VIS_JOB_TYPE_DEFER_MOVE:
+         /* handle defered job regarding move */
+         if (vc &&(!e_object_is_del(E_OBJECT(ec))) &&
+             (ec->visible) && (!ec->hidden) &&
+             (!ec->iconic) && (!ec->ignored))
+           evas_object_move(ec->frame, vc->defer.x, vc->defer.y);
+         break;
+
       default:
          VS_ERR(ec, "Unkown job type: %d", type);
          break;
@@ -1474,6 +1503,15 @@ e_policy_visibility_uniconify_render_disable_set(E_Client *ec, Eina_Bool disable
    E_VIS_CLIENT_GET_OR_RETURN(vc, ec);
    VS_DBG(ec, "API ENTRY | Disable uniconify render");
    vc->disable_uniconify_render = !!disable;
+}
+
+E_API void
+e_policy_visibility_client_defer_move(E_Client *ec, int x, int y)
+{
+   E_VIS_CLIENT_GET_OR_RETURN(vc, ec);
+   VS_DBG(ec, "API ENTRY | Defered Move");
+
+   _e_vis_client_defer_move(vc, E_VIS_JOB_TYPE_DEFER_MOVE, x, y);
 }
 
 E_API Eina_Bool

@@ -93,6 +93,7 @@ typedef enum
    E_VIS_ICONIFY_STATE_ICONIC,
    E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY,
    E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD,
+   E_VIS_ICONIFY_STATE_GEOMETRY_CHANGE,
 } E_Vis_Iconify_State;
 
 typedef enum
@@ -105,6 +106,7 @@ typedef enum
    E_VIS_JOB_TYPE_UNICONIFY,
    E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY,
    E_VIS_JOB_TYPE_LAYER_LOWER,
+   E_VIS_JOB_TYPE_DEFER_MOVE,
 } E_Vis_Job_Type;
 
 /* external data structure */
@@ -152,6 +154,11 @@ struct _E_Vis_Client
    Eina_Bool prepare_emitted;
    Eina_Bool disable_uniconify_render;
    E_Layer layer;
+
+   struct
+   {
+      int          x, y, w, h;
+   } defer;
 };
 
 struct _E_Vis_Job_Group

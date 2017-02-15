@@ -17,4 +17,6 @@ E_API E_Vis_Grab                 *e_policy_visibility_client_grab_get(E_Client *
 E_API void                        e_policy_visibility_client_grab_release(E_Vis_Grab *grab);
 E_API void                        e_policy_visibility_uniconify_render_disable_set(E_Client *ec, Eina_Bool disable);
 
+EINTERN void                      e_policy_visibility_client_defer_move(E_Client *ec, int x, int y);
+
 #endif

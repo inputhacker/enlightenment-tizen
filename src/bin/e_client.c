@@ -5125,14 +5125,14 @@ e_client_unmaximize(E_Client *ec, E_Maximize max)
                   _e_client_frame_update(ec);
                   evas_object_smart_callback_call(ec->frame, "unmaximize", NULL);
                   e_client_resize_limit(ec, &w, &h);
-                  e_client_util_move_resize_without_frame(ec, x, y, w, h);
+                  e_policy_visibility_client_defer_move(ec, x, y);
                   e_hints_window_size_unset(ec);
                }
              else
                {
                   evas_object_smart_callback_call(ec->frame, "unmaximize", NULL);
                   e_client_resize_limit(ec, &w, &h);
-                  e_client_util_move_resize_without_frame(ec, x, y, w, h);
+                  e_policy_visibility_client_defer_move(ec, x, y);
                   e_hints_window_size_set(ec);
                }
              if (vert)
