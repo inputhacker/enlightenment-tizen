@@ -1,3 +1,16 @@
+#ifdef E_TYPEDEFS
+
+typedef struct _E_Pol_Vis_Hook E_Pol_Vis_Hook;
+
+typedef enum _E_Pol_Vis_Hook_Type
+{
+   E_POL_VIS_HOOK_TYPE_FG_SET,
+   E_POL_VIS_HOOK_TYPE_LAST,
+} E_Pol_Vis_Hook_Type;
+
+typedef Eina_Bool (*E_Pol_Vis_Hook_Cb)(void *data, E_Client *ec);
+
+#else
 #ifndef _E_POLICY_VISIBILITY_H_
 #define _E_POLICY_VISIBILITY_H_
 
@@ -16,7 +29,10 @@ E_API Eina_Bool                   e_policy_visibility_client_layer_lower(E_Clien
 E_API E_Vis_Grab                 *e_policy_visibility_client_grab_get(E_Client *ec, const char *name);
 E_API void                        e_policy_visibility_client_grab_release(E_Vis_Grab *grab);
 E_API void                        e_policy_visibility_uniconify_render_disable_set(E_Client *ec, Eina_Bool disable);
+E_API E_Pol_Vis_Hook             *e_policy_visibility_hook_add(E_Pol_Vis_Hook_Type type, E_Pol_Vis_Hook_Cb cb, const void *data);
+E_API void                        e_policy_visibility_hook_del(E_Pol_Vis_Hook *h);
 
 EINTERN void                      e_policy_visibility_client_defer_move(E_Client *ec, int x, int y);
 
+#endif
 #endif

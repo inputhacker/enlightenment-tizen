@@ -22,6 +22,15 @@
 # define TRACE_DS_END()
 #endif
 
+struct _E_Pol_Vis_Hook
+{
+   EINA_INLIST;
+   E_Pol_Vis_Hook_Type type;
+   E_Pol_Vis_Hook_Cb   cb;
+   void               *data;
+   Eina_Bool           delete_me;
+};
+
 static Eina_Bool _e_policy_check_transient_child_visible(E_Client *ancestor_ec, E_Client *ec);
 static Eina_Bool _e_policy_check_above_alpha_opaque(E_Client *ec);
 static void      _e_policy_client_iconify_by_visibility(E_Client *ec);
@@ -43,6 +52,53 @@ static E_Vis            *pol_vis = NULL;
 static E_Vis_Job_Group  *pol_job_group = NULL;
 /* the head of list for E_Vis_Job_Group */
 static Eina_Clist        pol_job_group_head = EINA_CLIST_INIT(pol_job_group_head);
+
+static Eina_Inlist *_e_pol_vis_hooks[] =
+{
+   [E_POL_VIS_HOOK_TYPE_FG_SET] = NULL,
+};
+
+static int _e_pol_vis_hooks_delete = 0;
+static int _e_pol_vis_hooks_walking = 0;
+
+static void
+_e_pol_vis_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Pol_Vis_Hook *h;
+   unsigned int x;
+
+   for (x = 0; x < E_POL_VIS_HOOK_TYPE_LAST; x++)
+     EINA_INLIST_FOREACH_SAFE(_e_pol_vis_hooks[x], l, h)
+       {
+          if (!h->delete_me) continue;
+          _e_pol_vis_hooks[x] = eina_inlist_remove(_e_pol_vis_hooks[x],
+                                                   EINA_INLIST_GET(h));
+          E_FREE(h);
+       }
+}
+
+static Eina_Bool
+_e_pol_vis_hook_call(E_Pol_Vis_Hook_Type type, E_Client *ec)
+{
+   E_Pol_Vis_Hook *h;
+
+   e_object_ref(E_OBJECT(ec));
+
+   _e_pol_vis_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_pol_vis_hooks[type], h)
+     {
+        if (h->delete_me) continue;
+        h->cb(h->data, ec);
+     }
+   _e_pol_vis_hooks_walking--;
+
+   if ((_e_pol_vis_hooks_walking == 0) &&
+       (_e_pol_vis_hooks_delete > 0))
+     _e_pol_vis_hooks_clean();
+
+   return !!e_object_unref(E_OBJECT(ec));
+}
 
 static Eina_Bool
 _e_policy_check_transient_child_visible(E_Client *ancestor_ec, E_Client *ec)
@@ -377,6 +433,7 @@ _e_vis_update_forground_list(void)
         DBG("VISIBILITY | \tNew : %s(%p)", fg_activity ? NAME(fg_activity) : "", fg_activity);
         pol_vis->activity = fg_activity;
         /* TODO do we need to raise event like E_EVENT_VISIBILITY_ACTIVITY_CHANGE? */
+        _e_pol_vis_hook_call(E_POL_VIS_HOOK_TYPE_FG_SET, fg_activity);
      }
 }
 
@@ -1512,6 +1569,40 @@ e_policy_visibility_client_defer_move(E_Client *ec, int x, int y)
    VS_DBG(ec, "API ENTRY | Defered Move");
 
    _e_vis_client_defer_move(vc, E_VIS_JOB_TYPE_DEFER_MOVE, x, y);
+}
+
+E_API E_Pol_Vis_Hook *
+e_policy_visibility_hook_add(E_Pol_Vis_Hook_Type type, E_Pol_Vis_Hook_Cb cb, const void *data)
+{
+   E_Pol_Vis_Hook *h;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(type >= E_POL_VIS_HOOK_TYPE_LAST, NULL);
+
+   h = E_NEW(E_Pol_Vis_Hook, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(h, NULL);
+
+   h->type = type;
+   h->cb = cb;
+   h->data = (void *)data;
+
+   _e_pol_vis_hooks[type] = eina_inlist_append(_e_pol_vis_hooks[type],
+                                               EINA_INLIST_GET(h));
+
+   return h;
+}
+
+E_API void
+e_policy_visibility_hook_del(E_Pol_Vis_Hook *h)
+{
+   h->delete_me = EINA_TRUE;
+   if (_e_pol_vis_hooks_walking == 0)
+     {
+        _e_pol_vis_hooks[h->type] = eina_inlist_remove(_e_pol_vis_hooks[h->type],
+                                                       EINA_INLIST_GET(h));
+        E_FREE(h);
+     }
+   else
+     _e_pol_vis_hooks_delete++;
 }
 
 E_API Eina_Bool
