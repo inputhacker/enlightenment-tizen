@@ -101,6 +101,7 @@ static Eina_Inlist *_e_client_hooks[] =
    [E_CLIENT_HOOK_UNICONIFY] = NULL,
    [E_CLIENT_HOOK_AUX_HINT_CHANGE] = NULL,
    [E_CLIENT_HOOK_WINDOW_ROLE_CHANGE] = NULL,
+   [E_CLIENT_HOOK_CAL_VISIBILITY_DISPLAY_OFF] = NULL,
 };
 
 static Eina_Inlist *_e_client_intercept_hooks[] =
@@ -2973,6 +2974,10 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
      {
         EINA_RECTANGLE_SET(&r, zone->x, zone->y, zone->w, zone->h);
         eina_tiler_rect_add(t, &r);
+     }
+   else
+     {
+        _e_client_hook_call(E_CLIENT_HOOK_CAL_VISIBILITY_DISPLAY_OFF, NULL);
      }
 
    E_CLIENT_REVERSE_FOREACH(ec)
