@@ -5083,8 +5083,12 @@ _tzlaunch_img_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl_re
    e_client_visibility_calculate();
 
    if (tzlaunch_img->timeout)
-     ecore_timer_del(tzlaunch_img->timeout);
-   tzlaunch_img->timeout = ecore_timer_add(e_config->launchscreen_timeout, _launchscreen_timeout, tzlaunch_img);
+     {
+        ecore_timer_del(tzlaunch_img->timeout);
+        tzlaunch_img->timeout = NULL;
+     }
+   if (!e_config->launchscreen_without_timer)
+     tzlaunch_img->timeout = ecore_timer_add(e_config->launchscreen_timeout, _launchscreen_timeout, tzlaunch_img);
 
    return;
 error:
@@ -5264,8 +5268,12 @@ _tzlaunch_splash_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl
    e_client_visibility_calculate();
 
    if (tzlaunch_splash->timeout)
-     ecore_timer_del(tzlaunch_splash->timeout);
-   tzlaunch_splash->timeout = ecore_timer_add(e_config->launchscreen_timeout, _launchscreen_splash_timeout, tzlaunch_splash);
+     {
+        ecore_timer_del(tzlaunch_splash->timeout);
+        tzlaunch_splash->timeout = NULL;
+     }
+   if (!e_config->launchscreen_without_timer)
+     tzlaunch_splash->timeout = ecore_timer_add(e_config->launchscreen_timeout, _launchscreen_splash_timeout, tzlaunch_splash);
 
    return;
 error:
