@@ -85,6 +85,7 @@ EINTERN tbm_surface_h              e_plane_renderer_cursor_surface_get(E_Plane_R
 EINTERN Eina_Bool                  e_plane_renderer_cursor_surface_refresh(E_Plane_Renderer *renderer, E_Client *ec);
 EINTERN Eina_Bool                  e_plane_renderer_ecore_evas_use(E_Plane_Renderer *renderer);
 EINTERN void                       e_plane_renderer_sent_surface_recevie(E_Plane_Renderer *renderer, tbm_surface_h tsurface);
+EINTERN Eina_Bool                  e_plane_renderer_ec_valid_check(E_Plane_Renderer *renderer, E_Client *ec);
 
 EINTERN void                       e_plane_renderer_hwc_trace_debug(Eina_Bool onoff);
 

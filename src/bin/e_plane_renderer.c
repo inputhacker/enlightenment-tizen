@@ -986,6 +986,20 @@ e_plane_renderer_del(E_Plane_Renderer *renderer)
 }
 
 EINTERN Eina_Bool
+e_plane_renderer_ec_valid_check(E_Plane_Renderer *renderer, E_Client *ec)
+{
+   struct wayland_tbm_client_queue * cqueue = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   cqueue = _e_plane_renderer_wayland_tbm_client_queue_get(ec);
+   if (!cqueue) return EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
 e_plane_renderer_render(E_Plane_Renderer *renderer, Eina_Bool is_fb)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);

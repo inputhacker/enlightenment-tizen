@@ -480,6 +480,8 @@ _e_plane_surface_send_dequeuable_surfaces(E_Plane *plane)
    tbm_surface_h tsurface = NULL;
    E_Plane_Renderer *renderer = plane->renderer;
 
+   if (!e_plane_renderer_ec_valid_check(renderer, renderer->ec)) return;
+
    /* export dequeuable surface */
    while(e_plane_renderer_surface_queue_can_dequeue(renderer))
      {
