@@ -510,6 +510,12 @@ _e_shell_surface_map(struct wl_resource *resource)
    /* map this surface if needed */
    if ((!ec->comp_data->mapped) && (e_pixmap_usable_get(ec->pixmap)))
      {
+        ELOGF("SHELL",
+              "Map window  |win:0x%08x|ec_size:%d,%d",
+              ec->pixmap, ec,
+              (unsigned int)e_client_util_win_get(ec),
+              ec->w, ec->h);
+
         /* unset previous content */
         e_comp_object_content_unset(ec->frame);
 
@@ -555,6 +561,12 @@ _e_shell_surface_unmap(struct wl_resource *resource)
         ec->visible = EINA_FALSE;
         evas_object_hide(ec->frame);
         ec->comp_data->mapped = EINA_FALSE;
+
+        ELOGF("SHELL",
+              "Unmap window  |win:0x%08x|ec_size:%d,%d",
+              ec->pixmap, ec,
+              (unsigned int)e_client_util_win_get(ec),
+              ec->w, ec->h);
      }
 }
 
@@ -1254,6 +1266,12 @@ _e_xdg_shell_surface_unmap(struct wl_resource *resource)
         ec->visible = EINA_FALSE;
         evas_object_hide(ec->frame);
         ec->comp_data->mapped = EINA_FALSE;
+
+        ELOGF("SHELL",
+              "Unmap window  |win:0x%08x|ec_size:%d,%d",
+              ec->pixmap, ec,
+              (unsigned int)e_client_util_win_get(ec),
+              ec->w, ec->h);
      }
 
    TRACE_DS_END();
