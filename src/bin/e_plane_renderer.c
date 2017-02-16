@@ -1033,6 +1033,7 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
    struct wayland_tbm_client_queue * cqueue = NULL;
    tbm_surface_h tsurface = NULL;
    E_Plane_Renderer_Client *renderer_client = NULL;
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
@@ -1109,6 +1110,10 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
         /* export */
         e_plane_renderer_surface_send(renderer, ec, tsurface);
 
+        tsq_err = tbm_surface_queue_notify_reset(renderer->tqueue);
+        if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+            ERR("fail to tbm_surface_queue_notify_reset");
+
         if (renderer_trace_debug)
            ELOGF("E_PLANE_RENDERER", "Candidate Renderer(%p)", ec->pixmap, ec, renderer);
 
@@ -1149,6 +1154,7 @@ e_plane_renderer_deactivate(E_Plane_Renderer *renderer)
    struct wayland_tbm_client_queue * cqueue = NULL;
    E_Client *ec = NULL;
    E_Plane_Renderer_Client *renderer_client = NULL;
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
 
@@ -1186,6 +1192,10 @@ e_plane_renderer_deactivate(E_Plane_Renderer *renderer)
 
 done:
    _e_plane_renderer_client_exported_surfaces_release(renderer_client, renderer);
+
+   tsq_err = tbm_surface_queue_notify_reset(renderer->tqueue);
+   if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+      ERR("fail to tbm_surface_queue_notify_reset");
 
    renderer->state = E_PLANE_RENDERER_STATE_NONE;
    renderer->ec = NULL;
