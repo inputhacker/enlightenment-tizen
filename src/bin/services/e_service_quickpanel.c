@@ -85,6 +85,7 @@ struct _E_Policy_Quickpanel
 
    Eina_Bool show_block;
    Eina_Bool need_scroll_update;
+   Eina_Bool scroll_lock;
 };
 
 struct _Mover_Data
@@ -793,6 +794,10 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
 
    if ((handler == qp->indi_obj) &&
        (_quickpanel_send_gesture_to_indicator()))
+     return;
+
+   // check quickpanel service window's scroll lock state
+   if (qp->scroll_lock)
      return;
 
    /* Do not show and scroll the quickpanel window if the qp_client winodw
@@ -1627,6 +1632,28 @@ e_service_quickpanel_effect_type_set(E_Client *ec, E_Service_Quickpanel_Effect_T
      }
 }
 
+EINTERN void
+e_service_quickpanel_scroll_lock_set(E_Client *ec, Eina_Bool lock)
+{
+   E_Policy_Quickpanel *qp;
+
+   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_scroll_lock_set)
+     {
+        qp_mgr_funcs->quickpanel_scroll_lock_set(ec, lock);
+        return;
+     }
+
+   qp = _quickpanel_get();
+   if (!qp) return;
+   if ((qp->ec != ec)) return;
+
+   if (qp->scroll_lock == lock)
+     return;
+
+   ELOGF("QUICKPANEL", "Scroll lock is set to %d", NULL, NULL, lock);
+   qp->scroll_lock = lock;
+}
+
 E_API E_Client *
 e_service_quickpanel_client_get(void)
 {
@@ -1902,6 +1929,7 @@ e_service_quickpanel_module_func_set(E_QP_Mgr_Funcs *fp)
    qp_mgr_funcs->quickpanel_handler_object_add = fp->quickpanel_handler_object_add;
    qp_mgr_funcs->quickpanel_handler_object_del = fp->quickpanel_handler_object_del;
    qp_mgr_funcs->quickpanel_effect_type_set = fp->quickpanel_effect_type_set;
+   qp_mgr_funcs->quickpanel_scroll_lock_set = fp->quickpanel_scroll_lock_set;
 
    qp_mgr_funcs->qp_visible_get = fp->qp_visible_get;
    qp_mgr_funcs->qp_orientation_get = fp->qp_orientation_get;

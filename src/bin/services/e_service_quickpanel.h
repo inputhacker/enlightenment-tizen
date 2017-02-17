@@ -23,6 +23,7 @@ struct _E_QP_Mgr_Funcs
    Evas_Object*  (*quickpanel_handler_object_add)(E_Client *ec, int x, int y, int w, int h);
    void          (*quickpanel_handler_object_del)(Evas_Object *handler);
    void          (*quickpanel_effect_type_set)(E_Client *ec, E_Service_Quickpanel_Effect_Type type);
+   void          (*quickpanel_scroll_lock_set)(E_Client *ec, Eina_Bool lock);
 
    Eina_Bool    (*qp_visible_get)(void);
    int          (*qp_orientation_get)(void);
@@ -46,6 +47,7 @@ EINTERN Eina_Bool     e_service_quickpanel_region_set(int type, int angle, Eina_
 EINTERN Evas_Object  *e_service_quickpanel_handler_object_add(E_Client *ec, int x, int y, int w, int h);
 EINTERN void          e_service_quickpanel_handler_object_del(Evas_Object *handler);
 EINTERN void          e_service_quickpanel_effect_type_set(E_Client *ec, E_Service_Quickpanel_Effect_Type type);
+EINTERN void          e_service_quickpanel_scroll_lock_set(E_Client *ec, Eina_Bool lock);
 
 EINTERN Eina_Bool    e_qp_visible_get(void);
 EINTERN int          e_qp_orientation_get(void);

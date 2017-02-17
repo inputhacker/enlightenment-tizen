@@ -3396,12 +3396,28 @@ _tzsh_srv_qp_cb_effect_type_set(struct wl_client *client EINA_UNUSED, struct wl_
 #undef EC
 }
 
+static void
+_tzsh_srv_qp_cb_scroll_lock_set(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, uint32_t lock)
+{
+   E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+
+   tzsh_srv = wl_resource_get_user_data(resource);
+
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh);
+
+#define EC  tzsh_srv->tzsh->ec
+   EINA_SAFETY_ON_NULL_RETURN(EC);
+   e_service_quickpanel_scroll_lock_set(EC, lock);
+#undef EC
+}
 
 static const struct tws_service_quickpanel_interface _tzsh_srv_qp_iface =
 {
    _tzsh_srv_qp_cb_destroy,
    _tzsh_srv_qp_cb_msg,
-   _tzsh_srv_qp_cb_effect_type_set
+   _tzsh_srv_qp_cb_effect_type_set,
+   _tzsh_srv_qp_cb_scroll_lock_set,
 };
 
 static void
