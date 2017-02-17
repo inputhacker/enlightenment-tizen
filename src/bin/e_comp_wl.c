@@ -688,7 +688,8 @@ _e_comp_wl_evas_cb_restack(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EIN
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (ec->comp_data->sub.restacking) return;
 
-   _e_comp_wl_touch_cancel();
+   if (ec->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)
+     _e_comp_wl_touch_cancel();
 
    /* return if ec isn't both a parent of a subsurface and a subsurface itself */
    if (!ec->comp_data->sub.list && !ec->comp_data->sub.below_list && !ec->comp_data->sub.data)
