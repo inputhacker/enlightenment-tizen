@@ -2991,7 +2991,8 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
         /* if ec is subsurface, skip this */
         cdata = (E_Comp_Wl_Client_Data *)ec->comp_data;
         if (cdata && cdata->sub.data) continue;
-        if (!ec->first_mapped) continue;
+        if ((!ec->first_mapped) &&
+            (e_comp_object_content_type_get(ec->frame) == E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)) continue;
 
         /* TODO: need to check whether window intersects with entire screen, not zone. */
         /* if (!E_INTERSECTS(ec->x, ec->y, ec->w, ec->h, zone->x, zone->y, zone->w, zone->h)) continue; */
