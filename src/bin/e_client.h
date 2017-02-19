@@ -1057,6 +1057,7 @@ E_API void e_client_signal_resize_begin(E_Client *ec, const char *dir, const cha
 E_API void e_client_signal_resize_end(E_Client *ec, const char *dir EINA_UNUSED, const char *sig EINA_UNUSED, const char *src EINA_UNUSED);
 E_API void e_client_resize_limit(E_Client *ec, int *w, int *h);
 E_API E_Client *e_client_under_pointer_get(E_Desk *desk, E_Client *exclude);
+E_API E_Client *e_client_under_position_get(E_Desk *desk, int x, int y, E_Client *exclude);
 E_API int e_client_pointer_warp_to_center_now(E_Client *ec);
 E_API int e_client_pointer_warp_to_center(E_Client *ec);
 E_API void e_client_redirected_set(E_Client *ec, Eina_Bool set);

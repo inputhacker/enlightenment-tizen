@@ -6062,6 +6062,13 @@ e_client_under_pointer_get(E_Desk *desk, E_Client *exclude)
    return desk ? _e_client_under_pointer_helper(desk, exclude, x, y) : NULL;
 }
 
+E_API E_Client *e_client_under_position_get(E_Desk *desk, int x, int y, E_Client *exclude)
+{
+   if (!desk) return NULL;
+
+   return _e_client_under_pointer_helper(desk, exclude, x, y);
+}
+
 ////////////////////////////////////////////
 
 E_API int
