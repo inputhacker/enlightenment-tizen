@@ -780,6 +780,10 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
    E_Client *focused;
+   E_Client *pos_ec = NULL;
+   E_Desk *desk = NULL;
+   int indi_x, indi_y, indi_w, indi_h;
+   const int sensitivity = 50;
    Eina_Bool res;
 
    qp = data;
@@ -792,9 +796,62 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
    if (e_object_is_del(E_OBJECT(qp->ec)))
      return;
 
-   if ((handler == qp->indi_obj) &&
-       (_quickpanel_send_gesture_to_indicator()))
-     return;
+   desk = e_desk_current_get(qp->ec->zone);
+   if (desk)
+     pos_ec = e_client_under_position_get(desk, x, y, NULL);
+
+   if (!pos_ec)
+     {
+        ELOGF("QUICKPANEL", "NO visible client under pos(%d,%d)", NULL, NULL, x, y);
+        return;
+     }
+
+   if (handler == qp->indi_obj)
+     {
+        int ix, iy, iw, ih;
+
+        e_service_region_rectangle_get(qp->indi_obj, qp->rotation, &indi_x, &indi_y, &indi_w, &indi_h);
+        switch (qp->rotation)
+          {
+           case E_POLICY_ANGLE_MAP_90:
+              ix = pos_ec->x;
+              iy = pos_ec->y;
+              iw = indi_w + sensitivity;
+              ih = pos_ec->h;
+              break;
+           case E_POLICY_ANGLE_MAP_180:
+              ix = pos_ec->x;
+              iy = pos_ec->y + pos_ec->h - (indi_h + sensitivity);
+              iw = pos_ec->w;
+              ih = indi_h + sensitivity;
+              break;
+           case E_POLICY_ANGLE_MAP_270:
+              ix = pos_ec->x + pos_ec->w - (indi_w + sensitivity);
+              iy = pos_ec->y;
+              iw = indi_w + sensitivity;
+              ih = pos_ec->h;
+              break;
+           case E_POLICY_ANGLE_MAP_0:
+           default:
+              ix = pos_ec->x;
+              iy = pos_ec->y;
+              iw = pos_ec->w;
+              ih = indi_h + sensitivity;
+              break;
+          }
+
+        if (!E_INSIDE(x, y, ix, iy, iw, ih))
+          {
+             ELOGF("QUICKPANEL", "NOT in indicator area", NULL, NULL);
+             return;
+          }
+
+        if (_quickpanel_send_gesture_to_indicator())
+          {
+             ELOGF("QUICKPANEL", "SEND to change indicator state", NULL, NULL);
+             return;
+          }
+     }
 
    // check quickpanel service window's scroll lock state
    if (qp->scroll_lock)
