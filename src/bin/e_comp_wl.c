@@ -5752,11 +5752,7 @@ e_comp_wl_input_cursor_timer_enable_set(Eina_Bool enabled)
 {
    e_config->use_cursor_timer = !!enabled;
 
-   if (e_config->use_cursor_timer == EINA_FALSE && e_pointer_is_hidden(e_comp->pointer))
-     {
-        _e_comp_wl_cursor_reload(e_comp_wl->ptr.ec);
-     }
-   else if (e_config->use_cursor_timer == EINA_FALSE && !e_pointer_is_hidden(e_comp->pointer))
+   if (e_config->use_cursor_timer == EINA_FALSE)
      {
         if (e_comp_wl->ptr.hide_tmr)
           {
@@ -5764,6 +5760,11 @@ e_comp_wl_input_cursor_timer_enable_set(Eina_Bool enabled)
              e_comp_wl->ptr.hide_tmr = NULL;
           }
         cursor_timer_ec = NULL;
+
+        if (e_pointer_is_hidden(e_comp->pointer))
+          {
+             _e_comp_wl_cursor_reload(e_comp_wl->ptr.ec);
+          }
      }
 }
 
