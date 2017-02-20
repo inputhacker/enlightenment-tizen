@@ -1143,14 +1143,14 @@ _e_comp_wl_send_touch(E_Client *ec, int idx, int canvas_x, int canvas_y, uint32_
         if (pressed)
           {
              if (comp_conf && comp_conf->input_log_enable)
-               INF("[Server] Touch Down (id: %d, time: %d)\n", idx, timestamp);
+               INF("[Server] Touch Down (id: %d, time: %d, x:%d, y:%d)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y);
 
              wl_touch_send_down(res, serial, timestamp, ec->comp_data->surface, idx, x, y); //id 0 for the 1st finger
           }
         else
           {
              if (comp_conf && comp_conf->input_log_enable)
-               INF("[Server] Touch Up (id: %d, time: %d)\n", idx, timestamp);
+               INF("[Server] Touch Up (id: %d, time: %d, x:%d, y:%d)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y);
 
              wl_touch_send_up(res, serial, timestamp, idx);
           }
@@ -1184,7 +1184,7 @@ _e_comp_wl_send_touch_move(E_Client *ec, int idx, int canvas_x, int canvas_y, ui
 }
 
 static void
-_e_comp_wl_send_mouse_move(E_Client *ec, int x, int y, unsigned int timestamp, Eina_Bool cursor_control)
+_e_comp_wl_send_mouse_move(E_Client *ec, int x, int y, unsigned int timestamp)
 {
    struct wl_resource *res;
    struct wl_client *wc;
@@ -1203,9 +1203,6 @@ _e_comp_wl_send_mouse_move(E_Client *ec, int x, int y, unsigned int timestamp, E
                                wl_fixed_from_int(x - ec->client.x),
                                wl_fixed_from_int(y - ec->client.y));
      }
-
-   /* e pointer move for touch coodination */
-   if (cursor_control) e_pointer_mouse_move(e_comp->pointer, x, y);
 }
 
 static void
@@ -1271,13 +1268,13 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
                                                   ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
                   _e_comp_wl_send_touch_move(ec, 0, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp);
                }
-             /* e pointer move for 1st finger touch coodination */
-             e_pointer_touch_move(e_comp->pointer, ev->cur.canvas.x, ev->cur.canvas.y);
+             e_pointer_touch_move(e_comp->pointer, ev->cur.output.x, ev->cur.output.y);
           }
         else
           {
              _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
-             _e_comp_wl_send_mouse_move(ec, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp, EINA_TRUE);
+             _e_comp_wl_send_mouse_move(ec, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp);
+             e_pointer_mouse_move(e_comp->pointer, ev->cur.output.x, ev->cur.output.y);
 
              if (e_config->use_cursor_timer)
                {
@@ -1347,11 +1344,15 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
           _e_comp_wl_device_handle_axes(dev_name, evas_device_class_get(dev),
                                         ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
         _e_comp_wl_evas_handle_mouse_button_to_touch(ec, ev->timestamp, ev->canvas.x, ev->canvas.y, EINA_TRUE);
+        e_pointer_touch_move(e_comp->pointer, ev->output.x, ev->output.y);
         e_comp_wl->touch.pressed |= (1 << 0);
      }
    else
-     e_comp_wl_evas_handle_mouse_button(ec, ev->timestamp, ev->button,
-                                        WL_POINTER_BUTTON_STATE_PRESSED);
+     {
+        e_comp_wl_evas_handle_mouse_button(ec, ev->timestamp, ev->button,
+                                           WL_POINTER_BUTTON_STATE_PRESSED);
+        e_pointer_mouse_move(e_comp->pointer, ev->output.x, ev->output.y);
+     }
 
    need_send_released = EINA_TRUE;
 
@@ -2074,8 +2075,8 @@ _e_comp_wl_cb_mouse_move(void *d EINA_UNUSED, int t EINA_UNUSED, Ecore_Event_Mou
        e_comp_wl->drag_client &&
        e_client_has_xwindow(e_comp_wl->drag_client))
      {
-        _e_comp_wl_send_mouse_move(e_comp_wl->drag_client, ev->x, ev->y, ev->timestamp, EINA_TRUE);
-
+        _e_comp_wl_send_mouse_move(e_comp_wl->drag_client, ev->x, ev->y, ev->timestamp);
+        e_pointer_mouse_move(e_comp->pointer, ev->x, ev->y);
         if (!e_config->use_cursor_timer)
           {
              if (e_pointer_is_hidden(e_comp->pointer))
@@ -5938,7 +5939,7 @@ e_comp_wl_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_
    x = x + ec->client.x;
    y = y + ec->client.y;
 
-   _e_comp_wl_send_mouse_move(ec, x, y, time, EINA_FALSE);
+   _e_comp_wl_send_mouse_move(ec, x, y, time);
 
    return EINA_TRUE;
 }
