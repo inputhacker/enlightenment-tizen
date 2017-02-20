@@ -1,5 +1,5 @@
 #include "e.h"
-#define E_UTIL_TRANSFORM_IS_ZERO(p) ((p) > -1e-21 && (p) < 1e-21)
+#define E_UTIL_TRANSFORM_IS_ZERO(p) ((p) > -1e-6 && (p) < 1e-6)
 #define E_UTIL_TRANSFORM_ROUND(x)   ((x) >= 0 ? (int)((x) + 0.5) : (int)((x) - 0.5))
 
 static void _e_util_transform_value_merge(E_Util_Transform_Value *inout, E_Util_Transform_Value *input);
@@ -780,11 +780,159 @@ e_util_transform_matrix_equal_check(E_Util_Transform_Matrix *matrix,
      {
         for (col = 0 ; col < 4 ; ++col)
           {
-             if (matrix->mat[row][col] != matrix2->mat[row][col])
+             if (!E_UTIL_TRANSFORM_IS_ZERO(matrix->mat[row][col] - matrix2->mat[row][col]))
                {
                   result = EINA_FALSE;
                   break;
                }
+          }
+     }
+
+   return result;
+}
+
+E_API E_Util_Transform_Matrix
+e_util_transform_matrix_inverse_get(E_Util_Transform_Matrix *matrix)
+{
+   E_Util_Transform_Matrix result;
+   float det = 0.0f, inv_det = 0.0f;
+   int i, j;
+
+   e_util_transform_matrix_load_identity(&result);
+
+   if (!matrix) return result;
+
+
+   result.mat[0][0]  =    matrix->mat[1][1] * matrix->mat[2][2] * matrix->mat[3][3]
+      + matrix->mat[1][2] * matrix->mat[2][3] * matrix->mat[3][1]
+      + matrix->mat[1][3] * matrix->mat[2][1] * matrix->mat[3][2]
+      - matrix->mat[1][1] * matrix->mat[2][3] * matrix->mat[3][2]
+      - matrix->mat[1][2] * matrix->mat[2][1] * matrix->mat[3][3]
+      - matrix->mat[1][3] * matrix->mat[2][2] * matrix->mat[3][1];
+
+   result.mat[0][1]  =    matrix->mat[0][1] * matrix->mat[2][3] * matrix->mat[3][2]
+      + matrix->mat[0][2] * matrix->mat[2][1] * matrix->mat[3][3]
+      + matrix->mat[0][3] * matrix->mat[2][2] * matrix->mat[3][1]
+      - matrix->mat[0][1] * matrix->mat[2][2] * matrix->mat[3][3]
+      - matrix->mat[0][2] * matrix->mat[2][3] * matrix->mat[3][1]
+      - matrix->mat[0][3] * matrix->mat[2][1] * matrix->mat[3][2];
+
+   result.mat[0][2]  =    matrix->mat[0][1] * matrix->mat[1][2] * matrix->mat[3][3]
+      + matrix->mat[0][2] * matrix->mat[1][3] * matrix->mat[3][1]
+      + matrix->mat[0][3] * matrix->mat[1][1] * matrix->mat[3][2]
+      - matrix->mat[0][1] * matrix->mat[1][3] * matrix->mat[3][2]
+      - matrix->mat[0][2] * matrix->mat[1][1] * matrix->mat[3][3]
+      - matrix->mat[0][3] * matrix->mat[1][2] * matrix->mat[3][1];
+
+   result.mat[0][3]  =    matrix->mat[0][1] * matrix->mat[1][3] * matrix->mat[2][2]
+      + matrix->mat[0][2] * matrix->mat[1][1] * matrix->mat[2][3]
+      + matrix->mat[0][3] * matrix->mat[1][2] * matrix->mat[2][1]
+      - matrix->mat[0][1] * matrix->mat[1][2] * matrix->mat[2][3]
+      - matrix->mat[0][2] * matrix->mat[1][3] * matrix->mat[2][1]
+      - matrix->mat[0][3] * matrix->mat[1][1] * matrix->mat[2][2];
+
+   result.mat[1][0]  =    matrix->mat[1][0] * matrix->mat[2][3] * matrix->mat[3][2]
+      + matrix->mat[1][2] * matrix->mat[2][0] * matrix->mat[3][3]
+      + matrix->mat[1][3] * matrix->mat[2][2] * matrix->mat[3][0]
+      - matrix->mat[1][0] * matrix->mat[2][2] * matrix->mat[3][3]
+      - matrix->mat[1][2] * matrix->mat[2][3] * matrix->mat[3][0]
+      - matrix->mat[1][3] * matrix->mat[2][0] * matrix->mat[3][2];
+
+   result.mat[1][1]  =    matrix->mat[0][0] * matrix->mat[2][2] * matrix->mat[3][3]
+      + matrix->mat[0][2] * matrix->mat[2][3] * matrix->mat[3][0]
+      + matrix->mat[0][3] * matrix->mat[2][0] * matrix->mat[3][2]
+      - matrix->mat[0][0] * matrix->mat[2][3] * matrix->mat[3][2]
+      - matrix->mat[0][2] * matrix->mat[2][0] * matrix->mat[3][3]
+      - matrix->mat[0][3] * matrix->mat[2][2] * matrix->mat[3][0];
+
+   result.mat[1][2]  =    matrix->mat[0][0] * matrix->mat[1][3] * matrix->mat[3][2]
+      + matrix->mat[0][2] * matrix->mat[1][0] * matrix->mat[3][3]
+      + matrix->mat[0][3] * matrix->mat[1][2] * matrix->mat[3][0]
+      - matrix->mat[0][0] * matrix->mat[1][2] * matrix->mat[3][3]
+      - matrix->mat[0][2] * matrix->mat[1][3] * matrix->mat[3][0]
+      - matrix->mat[0][3] * matrix->mat[1][0] * matrix->mat[3][2];
+
+   result.mat[1][3]  =    matrix->mat[0][0] * matrix->mat[1][2] * matrix->mat[2][3]
+      + matrix->mat[0][2] * matrix->mat[1][3] * matrix->mat[2][0]
+      + matrix->mat[0][3] * matrix->mat[1][0] * matrix->mat[2][2]
+      - matrix->mat[0][0] * matrix->mat[1][3] * matrix->mat[2][2]
+      - matrix->mat[0][2] * matrix->mat[1][0] * matrix->mat[2][3]
+      - matrix->mat[0][3] * matrix->mat[1][2] * matrix->mat[2][0];
+
+   result.mat[2][0]  =    matrix->mat[1][0] * matrix->mat[2][1] * matrix->mat[3][3]
+      + matrix->mat[1][1] * matrix->mat[2][3] * matrix->mat[3][0]
+      + matrix->mat[1][3] * matrix->mat[2][0] * matrix->mat[3][1]
+      - matrix->mat[1][0] * matrix->mat[2][3] * matrix->mat[3][1]
+      - matrix->mat[1][1] * matrix->mat[2][0] * matrix->mat[3][3]
+      - matrix->mat[1][3] * matrix->mat[2][1] * matrix->mat[3][0];
+
+   result.mat[2][1]  =    matrix->mat[0][0] * matrix->mat[2][3] * matrix->mat[3][1]
+      + matrix->mat[0][1] * matrix->mat[2][0] * matrix->mat[3][3]
+      + matrix->mat[0][3] * matrix->mat[2][1] * matrix->mat[3][0]
+      - matrix->mat[0][0] * matrix->mat[2][1] * matrix->mat[3][3]
+      - matrix->mat[0][1] * matrix->mat[2][3] * matrix->mat[3][0]
+      - matrix->mat[0][3] * matrix->mat[2][0] * matrix->mat[3][1];
+
+   result.mat[2][2]  =    matrix->mat[0][0] * matrix->mat[1][1] * matrix->mat[3][3]
+      + matrix->mat[0][1] * matrix->mat[1][3] * matrix->mat[3][0]
+      + matrix->mat[0][3] * matrix->mat[1][0] * matrix->mat[3][1]
+      - matrix->mat[0][0] * matrix->mat[1][3] * matrix->mat[3][1]
+      - matrix->mat[0][1] * matrix->mat[1][0] * matrix->mat[3][3]
+      - matrix->mat[0][3] * matrix->mat[1][1] * matrix->mat[3][0];
+
+   result.mat[2][3]  =    matrix->mat[0][0] * matrix->mat[1][3] * matrix->mat[2][1]
+      + matrix->mat[0][1] * matrix->mat[1][0] * matrix->mat[2][3]
+      + matrix->mat[0][3] * matrix->mat[1][1] * matrix->mat[2][0]
+      - matrix->mat[0][0] * matrix->mat[1][1] * matrix->mat[2][3]
+      - matrix->mat[0][1] * matrix->mat[1][3] * matrix->mat[2][0]
+      - matrix->mat[0][3] * matrix->mat[1][0] * matrix->mat[2][1];
+
+   result.mat[3][0]  =    matrix->mat[1][0] * matrix->mat[2][2] * matrix->mat[3][1]
+      + matrix->mat[1][1] * matrix->mat[2][0] * matrix->mat[3][2]
+      + matrix->mat[1][2] * matrix->mat[2][1] * matrix->mat[3][0]
+      - matrix->mat[1][0] * matrix->mat[2][1] * matrix->mat[3][2]
+      - matrix->mat[1][1] * matrix->mat[2][2] * matrix->mat[3][0]
+      - matrix->mat[1][2] * matrix->mat[2][0] * matrix->mat[3][1];
+
+   result.mat[3][1]  =    matrix->mat[0][0] * matrix->mat[2][1] * matrix->mat[3][2]
+      + matrix->mat[0][1] * matrix->mat[2][2] * matrix->mat[3][0]
+      + matrix->mat[0][2] * matrix->mat[2][0] * matrix->mat[3][1]
+      - matrix->mat[0][0] * matrix->mat[2][2] * matrix->mat[3][1]
+      - matrix->mat[0][1] * matrix->mat[2][0] * matrix->mat[3][2]
+      - matrix->mat[0][2] * matrix->mat[2][1] * matrix->mat[3][0];
+
+   result.mat[3][2]  =    matrix->mat[0][0] * matrix->mat[1][2] * matrix->mat[3][1]
+      + matrix->mat[0][1] * matrix->mat[1][0] * matrix->mat[3][2]
+      + matrix->mat[0][2] * matrix->mat[1][1] * matrix->mat[3][0]
+      - matrix->mat[0][0] * matrix->mat[1][1] * matrix->mat[3][2]
+      - matrix->mat[0][1] * matrix->mat[1][2] * matrix->mat[3][0]
+      - matrix->mat[0][2] * matrix->mat[1][0] * matrix->mat[3][1];
+
+   result.mat[3][3]  =    matrix->mat[0][0] * matrix->mat[1][1] * matrix->mat[2][2]
+      + matrix->mat[0][1] * matrix->mat[1][2] * matrix->mat[2][0]
+      + matrix->mat[0][2] * matrix->mat[1][0] * matrix->mat[2][1]
+      - matrix->mat[0][0] * matrix->mat[1][2] * matrix->mat[2][1]
+      - matrix->mat[0][1] * matrix->mat[1][0] * matrix->mat[2][2]
+      - matrix->mat[0][2] * matrix->mat[1][1] * matrix->mat[2][0];
+
+   det = matrix->mat[0][0] * result.mat[0][0] +
+      matrix->mat[0][1] * result.mat[1][0] +
+      matrix->mat[0][2] * result.mat[2][0] +
+      matrix->mat[0][3] * result.mat[3][0];
+
+
+   if (E_UTIL_TRANSFORM_IS_ZERO(det))
+     {
+        e_util_transform_matrix_load_identity(&result);
+     }
+   else
+     {
+        inv_det = 1.0f / det;
+
+        for (i = 0 ; i < 4 ; ++i)
+          {
+             for (j = 0 ; j < 4 ; ++j)
+               result.mat[i][j] *= inv_det;
           }
      }
 

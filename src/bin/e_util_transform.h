@@ -132,6 +132,7 @@ E_API E_Util_Transform_Rect_Vertex e_util_transform_matrix_multiply_rect_vertex(
                                                                                 E_Util_Transform_Rect_Vertex *vertices);
 E_API Eina_Bool                    e_util_transform_matrix_equal_check(E_Util_Transform_Matrix *matrix,
                                                                        E_Util_Transform_Matrix *matrix2);
+E_API E_Util_Transform_Matrix      e_util_transform_matrix_inverse_get(E_Util_Transform_Matrix *matrix);
 
 // will delete function
 E_API void                         e_util_transform_source_to_target(E_Util_Transform *transform,

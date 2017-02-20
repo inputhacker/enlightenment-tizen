@@ -6421,6 +6421,7 @@ e_client_transform_core_update(E_Client *ec)
 
         // 4. apply matrix to vertices
         ec->transform_core.result.matrix = matrix;
+        ec->transform_core.result.inv_matrix = e_util_transform_matrix_inverse_get(&matrix);
         ec->transform_core.result.vertices = e_util_transform_rect_to_vertices(&source_rect);
         ec->transform_core.result.boundary.vertices = e_util_transform_rect_to_vertices(&source_rect);
         ec->transform_core.result.vertices = e_util_transform_matrix_multiply_rect_vertex(&matrix,
@@ -6469,6 +6470,34 @@ e_client_transform_core_transform_get(E_Client *ec, int index)
       return NULL;
 
    return (E_Util_Transform*)eina_list_nth(ec->transform_core.transform_list, index);
+}
+
+E_API void
+e_client_transform_core_input_transform(E_Client *ec, int x, int y, int *out_x, int *out_y)
+{
+   E_Util_Transform_Vertex vertex, result_vertex;
+
+   if (!ec) return;
+   if (!e_client_transform_core_enable_get(ec)) return;
+
+   e_util_transform_vertex_init(&vertex, x, y, 0.0, 1.0);
+
+   result_vertex = e_util_transform_matrix_multiply_vertex(&ec->transform_core.result.inv_matrix, &vertex);
+   e_util_transform_vertex_pos_round_get(&result_vertex, out_x, out_y, NULL, NULL);
+}
+
+E_API void
+e_client_transform_core_input_inv_transform(E_Client *ec, int x, int y, int *out_x, int *out_y)
+{
+   E_Util_Transform_Vertex vertex, result_vertex;
+
+   if (!ec) return;
+   if (!e_client_transform_core_enable_get(ec)) return;
+
+   e_util_transform_vertex_init(&vertex, x, y, 0.0, 1.0);
+
+   result_vertex = e_util_transform_matrix_multiply_vertex(&ec->transform_core.result.matrix, &vertex);
+   e_util_transform_vertex_pos_round_get(&result_vertex, out_x, out_y, NULL, NULL);
 }
 
 E_API E_Pixmap *

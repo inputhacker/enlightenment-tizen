@@ -880,6 +880,7 @@ struct E_Client
        {
            Eina_Bool                    enable;
            E_Util_Transform_Matrix      matrix;
+           E_Util_Transform_Matrix      inv_matrix;
            E_Util_Transform_Rect_Vertex vertices;
            E_Util_Transform             transform;
 
@@ -1085,6 +1086,8 @@ E_API void              e_client_transform_core_remove(E_Client *ec, E_Util_Tran
 E_API void              e_client_transform_core_update(E_Client *ec);
 E_API int               e_client_transform_core_transform_count_get(E_Client *ec);
 E_API E_Util_Transform *e_client_transform_core_transform_get(E_Client *ec, int index);
+E_API void              e_client_transform_core_input_transform(E_Client *ec, int x, int y, int *out_x, int *out_y);
+E_API void              e_client_transform_core_input_inv_transform(E_Client *ec, int x, int y, int *out_x, int *out_y);
 
 E_API E_Pixmap *e_client_pixmap_change(E_Client *ec, E_Pixmap *newcp);
 E_API void e_client_window_role_set(E_Client *ec, const char *role);
