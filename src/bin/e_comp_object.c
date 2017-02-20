@@ -170,6 +170,15 @@ static Eina_Inlist *_e_comp_object_movers = NULL;
 static Evas_Smart *_e_comp_smart = NULL;
 static Evas_Smart *_e_comp_input_obj_smart = NULL;
 
+static int _e_comp_object_hooks_delete = 0;
+static int _e_comp_object_hooks_walking = 0;
+
+static Eina_Inlist *_e_comp_object_hooks[] =
+{
+   [E_COMP_OBJECT_HOOK_EFFECT_START] = NULL,
+   [E_COMP_OBJECT_HOOK_EFFECT_END] = NULL,
+};
+
 #ifdef _F_E_COMP_OBJECT_INTERCEPT_HOOK_
 static int _e_comp_object_intercept_hooks_delete = 0;
 static int _e_comp_object_intercept_hooks_walking = 0;
@@ -193,6 +202,56 @@ static void           _e_comp_object_dim_update(E_Comp_Object *cw);
 static void           _e_comp_object_native_surface_set(E_Comp_Object *cw, Evas_Native_Surface *ns, Eina_Bool with_mirror);
 
 static E_Client       *dim_client = NULL;
+
+static void
+_e_comp_object_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Comp_Object_Hook *ch;
+   unsigned int x;
+
+   for (x = 0; x < E_COMP_OBJECT_HOOK_LAST; x++)
+     EINA_INLIST_FOREACH_SAFE(_e_comp_object_hooks[x], l, ch)
+       {
+          if (!ch->delete_me) continue;
+          _e_comp_object_hooks[x] = eina_inlist_remove(_e_comp_object_hooks[x], EINA_INLIST_GET(ch));
+          free(ch);
+       }
+}
+
+static Eina_Bool
+_e_comp_object_hook_call(E_Comp_Object_Hook_Point hookpoint, E_Client *ec)
+{
+   E_Comp_Object_Hook *ch;
+   Eina_Bool ret = EINA_TRUE;
+
+   if (e_object_is_del(E_OBJECT(ec)))
+     {
+        if ((hookpoint != E_COMP_OBJECT_HOOK_EFFECT_START) &&
+            (hookpoint != E_COMP_OBJECT_HOOK_EFFECT_END))
+          {
+             return ret;
+          }
+     }
+   e_object_ref(E_OBJECT(ec));
+   _e_comp_object_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_comp_object_hooks[hookpoint], ch)
+     {
+        if (ch->delete_me) continue;
+        if (!(ch->func(ch->data, ec)))
+          {
+             ret = EINA_FALSE;
+             break;
+          }
+     }
+   _e_comp_object_hooks_walking--;
+   if ((_e_comp_object_hooks_walking == 0) && (_e_comp_object_hooks_delete > 0))
+     _e_comp_object_hooks_clean();
+
+   e_object_unref(E_OBJECT(ec));
+
+   return ret;
+}
 
 #ifdef _F_E_COMP_OBJECT_INTERCEPT_HOOK_
 static void
@@ -2993,6 +3052,34 @@ _e_comp_object_util_moveresize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj
      e_comp_shape_queue();
 }
 
+E_API E_Comp_Object_Hook *
+e_comp_object_hook_add(E_Comp_Object_Hook_Point hookpoint, E_Comp_Object_Hook_Cb func, const void *data)
+{
+   E_Comp_Object_Hook *ch;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_COMP_OBJECT_HOOK_LAST, NULL);
+   ch = E_NEW(E_Comp_Object_Hook, 1);
+   if (!ch) return NULL;
+   ch->hookpoint = hookpoint;
+   ch->func = func;
+   ch->data = (void*)data;
+   _e_comp_object_hooks[hookpoint] = eina_inlist_append(_e_comp_object_hooks[hookpoint], EINA_INLIST_GET(ch));
+   return ch;
+}
+
+E_API void
+e_comp_object_hook_del(E_Comp_Object_Hook *ch)
+{
+   ch->delete_me = 1;
+   if (_e_comp_object_hooks_walking == 0)
+     {
+        _e_comp_object_hooks[ch->hookpoint] = eina_inlist_remove(_e_comp_object_hooks[ch->hookpoint], EINA_INLIST_GET(ch));
+        free(ch);
+     }
+   else
+     _e_comp_object_hooks_delete++;
+}
+
 #ifdef _F_E_COMP_OBJECT_INTERCEPT_HOOK_
 E_API E_Comp_Object_Intercept_Hook *
 e_comp_object_intercept_hook_add(E_Comp_Object_Intercept_Hook_Point hookpoint, E_Comp_Object_Intercept_Hook_Cb func, const void *data)
@@ -4411,6 +4498,7 @@ _e_comp_object_effect_end_cb(void *data, Evas_Object *obj, const char *emission,
    end_cb = evas_object_data_get(obj, "_e_comp.end_cb");
    if (!end_cb) return;
    end_data = evas_object_data_get(obj, "_e_comp.end_data");
+   _e_comp_object_hook_call(E_COMP_OBJECT_HOOK_EFFECT_END, cw->ec);
    end_cb(end_data, cw->smart_obj, emission, source);
 }
 
@@ -4457,6 +4545,8 @@ e_comp_object_effect_start(Evas_Object *obj, Edje_Signal_Cb end_cb, const void *
    evas_object_data_set(cw->effect_obj, "_e_comp.end_data", end_data);
    evas_object_data_set(cw->smart_obj, "effect_running", (void*)1);
 
+   _e_comp_object_hook_call(E_COMP_OBJECT_HOOK_EFFECT_START, cw->ec);
+
    edje_object_signal_emit(cw->effect_obj, "e,action,go", "e");
    _e_comp_object_animating_begin(cw);
    cw->effect_running = 1;
@@ -4495,7 +4585,10 @@ e_comp_object_effect_stop(Evas_Object *obj, Edje_Signal_Cb end_cb)
    ret = _e_comp_object_animating_end(cw);
 
    if ((ret) && (end_cb_before))
-      end_cb_before(end_data_before, cw->smart_obj, "e,action,done", "e");
+     {
+        _e_comp_object_hook_call(E_COMP_OBJECT_HOOK_EFFECT_END, cw->ec);
+        end_cb_before(end_data_before, cw->smart_obj, "e,action,done", "e");
+     }
 
    return ret;
 }
