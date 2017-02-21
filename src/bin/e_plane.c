@@ -738,6 +738,14 @@ e_plane_fetch(E_Plane *plane)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
+   if (e_comp_canvas_norender_get() > 0)
+     {
+        if (plane_trace_debug)
+          ELOGF("E_PLANE_RENDERER", "Canvas norender is set. No Display.", NULL, NULL);
+
+        return EINA_FALSE;
+     }
+
    if (plane->pending_commit)
       return EINA_FALSE;
 
