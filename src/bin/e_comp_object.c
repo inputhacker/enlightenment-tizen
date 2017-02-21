@@ -2702,8 +2702,11 @@ _e_comp_smart_show(Evas_Object *obj)
      }
    if (cw->ec->iconic && (!cw->ec->new_client))
      {
-        ELOG("Set launching flag..", cw->ec->pixmap, cw->ec);
-        cw->ec->launching = EINA_TRUE;
+        if (cw->ec->exp_iconify.by_client)
+          {
+             ELOG("Set launching flag..", cw->ec->pixmap, cw->ec);
+             cw->ec->launching = EINA_TRUE;
+          }
 
         e_comp_object_signal_emit(cw->smart_obj, "e,action,uniconify", "e");
      }
