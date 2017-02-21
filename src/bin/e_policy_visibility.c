@@ -1085,11 +1085,11 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
          break;
       case E_VIS_JOB_TYPE_LOWER:
          e_comp_canvas_norender_pop();
-         evas_object_lower(ec->frame);
+         if (ec) evas_object_lower(ec->frame);
          break;
       case E_VIS_JOB_TYPE_HIDE:
          e_comp_canvas_norender_pop();
-         evas_object_hide(ec->frame);
+         if (ec) evas_object_hide(ec->frame);
          break;
       case E_VIS_JOB_TYPE_LAYER_LOWER:
          e_comp_canvas_norender_pop();
@@ -1097,7 +1097,7 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
          break;
       case E_VIS_JOB_TYPE_SHOW:
          /* checks for dectecting hide request after show request */
-         if ((!e_object_is_del(E_OBJECT(ec))) &&
+         if ((ec) && (!e_object_is_del(E_OBJECT(ec))) &&
              (ec->visible) && (!ec->hidden) &&
              (!ec->iconic) && (!ec->ignored))
            evas_object_show(ec->frame);
