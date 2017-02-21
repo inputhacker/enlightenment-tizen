@@ -5352,6 +5352,7 @@ _tzlaunch_img_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_res
              e_client_unignore(new_ec);
              new_ec->visible = EINA_TRUE;
              new_ec->new_client = EINA_FALSE;
+             new_ec->argb = old_ec->argb;
 
              e_comp->launchscrns = eina_list_append(e_comp->launchscrns, new_ec);
 
@@ -5435,7 +5436,7 @@ _tzlaunch_splash_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_
              new_ec->ignored = EINA_FALSE;
              new_ec->visible = EINA_TRUE;
              new_ec->new_client = EINA_FALSE;
-
+             new_ec->argb = old_ec->argb;
              new_ec->effect_type = old_ec->effect_type;
 
              e_comp->launchscrns = eina_list_append(e_comp->launchscrns, new_ec);
