@@ -46,6 +46,7 @@ static void              _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type);
 static void              _e_vis_ec_setup(E_Client *ec);
 static void              _e_vis_ec_reset(E_Client *ec);
 static Eina_Bool         _e_vis_ec_below_uniconify(E_Client *ec);
+static void              _e_vis_cb_child_launch_done(void *data, Evas_Object *obj, const char *signal, const char *source);
 
 static E_Vis            *pol_vis = NULL;
 /* the list for E_Vis_Job */
@@ -669,6 +670,7 @@ static Eina_Bool
 _e_vis_client_cb_buffer_attach(void *data, int type EINA_UNUSED, void *event)
 {
    E_Vis_Client *vc;
+   E_Vis_Grab *grab;
    E_Client *ec;
    E_Event_Client *ev;
 
@@ -678,15 +680,20 @@ _e_vis_client_cb_buffer_attach(void *data, int type EINA_UNUSED, void *event)
      goto renew;
 
    ec = vc->ec;
+   grab = vc->grab;
 
    VS_DBG(ec, "FINISH Uniconify render");
 
-   /* force update */
+   /* force update
+    * NOTE: this update can invoke some functions related to visibility grab */
    e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
    e_comp_object_dirty(ec->frame);
    e_comp_object_render(ec->frame);
 
-   E_FREE_FUNC(vc->grab, _e_vis_grab_release);
+   if (vc->grab == grab)
+     vc->grab = NULL;
+
+   E_FREE_FUNC(grab, _e_vis_grab_release);
    E_FREE_FUNC(vc->buf_attach, ecore_event_handler_del);
 renew:
    return ECORE_CALLBACK_PASS_ON;
@@ -711,6 +718,10 @@ _e_vis_client_job_exec(E_Vis_Client *vc, E_Vis_Job_Type type)
       case E_VIS_JOB_TYPE_ACTIVATE:
       case E_VIS_JOB_TYPE_UNICONIFY:
       case E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY:
+         /* check previous state first */
+         if (vc->state != E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD)
+           vc->state = E_VIS_ICONIFY_STATE_UNICONIC;
+         break;
       case E_VIS_JOB_TYPE_SHOW:
          vc->state = E_VIS_ICONIFY_STATE_UNICONIC;
          break;
@@ -1101,6 +1112,16 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
              (ec->visible) && (!ec->hidden) &&
              (!ec->iconic) && (!ec->ignored))
            evas_object_show(ec->frame);
+
+         if ((vc) && (vc->wait_for_child))
+           {
+              e_comp_object_signal_callback_del_full(vc->wait_for_child->frame,
+                                                     "e,action,launch,done", "e",
+                                                     _e_vis_cb_child_launch_done, vc);
+              e_pixmap_free(vc->wait_for_child->pixmap);
+              e_object_delay_del_unref(E_OBJECT(vc->wait_for_child));
+              vc->wait_for_child = NULL;
+           }
          break;
       case E_VIS_JOB_TYPE_DEFER_MOVE:
          /* handle defered job regarding move */
@@ -1181,6 +1202,19 @@ _e_vis_ec_below_uniconify(E_Client *ec)
      {
         EINA_LIST_FOREACH(below_list, l, below)
           {
+             if (below->ec == ec->parent)
+               {
+                  /* Check if its parent is waiting for a child's uniconify.
+                   * if so cancel the waiting now.
+                   */
+                  if (below->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD)
+                    {
+                       E_FREE_FUNC(below->grab, _e_vis_grab_release);
+                       ret |= EINA_FALSE;
+                       continue;
+                    }
+               }
+
              ret |= _e_vis_client_uniconify_render(below, E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY, 0);
           }
      }
@@ -1284,6 +1318,11 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
                                                          "e",
                                                          _e_vis_cb_child_launch_done,
                                                          vc);
+
+                       /* do not allow child's removal */
+                       vc->wait_for_child = topmost;
+                       e_pixmap_ref(topmost->pixmap);
+                       e_object_delay_del_ref(E_OBJECT(topmost));
                        _e_vis_client_job_add(vc, E_VIS_JOB_TYPE_SHOW);
                        return EINA_FALSE;
                     }

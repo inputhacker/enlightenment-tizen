@@ -5,8 +5,9 @@
 #define E_CLEAR_GRAB_TIMEOUT   0.01
 
 #define NAME(ec)        ec->icccm.name ? ec->icccm.name : ""
-#define STATE_STR(vc)                                                         \
-   (vc->state == E_VIS_ICONIFY_STATE_UNICONIC ? "UNICONIC" :                  \
+#define STATE_STR(vc)                                                                            \
+   (vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD ? "WAITING_FOR_CHILD" : \
+    vc->state == E_VIS_ICONIFY_STATE_UNICONIC ? "UNICONIC" :                                     \
     vc->state == E_VIS_ICONIFY_STATE_ICONIC ? "ICONIC" : "RUNNING UNICONIFY")
 
 #define VS_DBG(ec, f, x...) \
@@ -143,6 +144,7 @@ struct _E_Vis_Client
    E_Vis_Iconify_State   state;
 
    E_Client             *ec;
+   E_Client             *wait_for_child; //who ec is waiting for its launching
 
    Ecore_Event_Handler  *buf_attach;
 
