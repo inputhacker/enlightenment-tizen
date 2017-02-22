@@ -89,7 +89,7 @@ e_object_delay_del_unref(E_Object *obj)
 {
    E_OBJECT_CHECK(obj);
    obj->delay_del_ref--;
-   if (obj->delay_del_ref == 0)
+   if ((obj->delay_del_ref == 0) && (obj->deleted))
      _delay_del(obj);
 }
 
