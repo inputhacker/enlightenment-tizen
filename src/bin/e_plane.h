@@ -65,6 +65,7 @@ struct _E_Plane
 
    unsigned int          buffer_flags;
    Eina_Bool             pending_commit;
+   Eina_List             *pending_commit_data_list;
    Eina_Bool             need_to_unset_commit;
 
    /* true if plane's ec is set or unset.
@@ -104,6 +105,7 @@ EINTERN void                 e_plane_reserved_set(E_Plane *plane, Eina_Bool set)
 EINTERN void                 e_plane_hwc_trace_debug(Eina_Bool onoff);
 EINTERN Eina_Bool            e_plane_render(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_commit(E_Plane *plane);
+EINTERN void                 e_plane_show_state(E_Plane *plane);
 
 E_API Eina_Bool              e_plane_type_set(E_Plane *plane, E_Plane_Type type);
 E_API E_Plane_Type           e_plane_type_get(E_Plane *plane);

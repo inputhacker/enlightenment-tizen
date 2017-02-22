@@ -88,6 +88,7 @@ EINTERN void                       e_plane_renderer_sent_surface_recevie(E_Plane
 EINTERN Eina_Bool                  e_plane_renderer_ec_valid_check(E_Plane_Renderer *renderer, E_Client *ec);
 
 EINTERN void                       e_plane_renderer_hwc_trace_debug(Eina_Bool onoff);
+EINTERN void                       e_plane_renderer_show_state(E_Plane_Renderer *renderer);
 
 #endif
 #endif

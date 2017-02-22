@@ -1702,3 +1702,53 @@ e_plane_renderer_hwc_trace_debug(Eina_Bool onoff)
    renderer_trace_debug = onoff;
    INF("Renderer: hwc trace_debug is %s", onoff?"ON":"OFF");
 }
+
+EINTERN void
+e_plane_renderer_show_state(E_Plane_Renderer *renderer)
+{
+   tbm_surface_h tmp_tsurface = NULL;
+   Eina_List *l = NULL;
+   E_Plane_Renderer_Client *renderer_client = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(renderer);
+
+   ELOGF("E_PLANE_RENDERER", "Renderer(%p) Plane(%p) ec(%p) state(%d) mode_chage_age(%d)",
+         NULL, NULL, renderer, renderer->plane, renderer->ec, renderer->state, renderer->mode_change_age);
+
+   EINA_LIST_FOREACH(renderer->disp_surfaces, l, tmp_tsurface)
+     {
+        if (!tmp_tsurface) continue;
+
+        ELOGF("E_PLANE_RENDERER", "Dispay Surfaces tsurface(%p)", NULL, NULL, tmp_tsurface);
+     }
+
+   ELOGF("E_PLANE_RENDERER", "Displaying tsurface(%p)", NULL, NULL, renderer->displaying_tsurface);
+   ELOGF("E_PLANE_RENDERER", "Previous  tsurface(%p)", NULL, NULL, renderer->previous_tsurface);
+
+   EINA_LIST_FOREACH(renderer->exported_surfaces, l, tmp_tsurface)
+     {
+        if (!tmp_tsurface) continue;
+
+        ELOGF("E_PLANE_RENDERER", "Exported tsurface(%p)", NULL, NULL, tmp_tsurface);
+     }
+
+   EINA_LIST_FOREACH(renderer->released_surfaces, l, tmp_tsurface)
+     {
+        if (!tmp_tsurface) continue;
+
+        ELOGF("E_PLANE_RENDERER", "Released tsurface(%p)", NULL, NULL, tmp_tsurface);
+     }
+
+   if (renderer->ec)
+     {
+        renderer_client = e_plane_renderer_client_get(renderer->ec);
+        EINA_SAFETY_ON_NULL_RETURN(renderer_client);
+
+        EINA_LIST_FOREACH(renderer_client->exported_surfaces, l, tmp_tsurface)
+          {
+              if (!tmp_tsurface) continue;
+
+              ELOGF("E_PLANE_RENDERER", "Client ec(%p) exported tsurface(%p)", NULL, NULL, renderer->ec, tmp_tsurface);
+          }
+     }
+}

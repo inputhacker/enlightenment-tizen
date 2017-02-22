@@ -85,6 +85,7 @@ static Eina_List *module_hook = NULL;
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
+#define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
 
 static E_Info_Transform *_e_info_transform_new(E_Client *ec, int id, int enable, int x, int y, int sx, int sy, int degree, int background);
 static E_Info_Transform *_e_info_transform_find(E_Client *ec, int id);
@@ -2569,6 +2570,86 @@ e_info_server_cb_hwc(const Eldbus_Service_Interface *iface EINA_UNUSED, const El
    return reply;
 }
 
+static Eldbus_Message *
+e_info_server_cb_show_plane_state(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eina_List *output_l, *plane_l;
+   E_Comp_Screen *e_comp_screen = NULL;
+   E_Output *output = NULL;
+   E_Plane *plane = NULL;
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+
+   e_comp_screen = e_comp->e_comp_screen;
+
+   EINA_LIST_FOREACH(e_comp_screen->outputs, output_l, output)
+     {
+        if (!output) continue;
+
+        EINA_LIST_FOREACH(output->planes, plane_l, plane)
+          {
+             if (!plane) continue;
+
+             e_plane_show_state(plane);
+          }
+     }
+
+   return reply;
+}
+
+static void
+_msg_show_pending_commit_append(Eldbus_Message_Iter *iter)
+{
+   Eina_List *output_l, *plane_l, *data_l;
+   Eldbus_Message_Iter *array_of_pending_commit;
+   E_Comp_Screen *e_comp_screen = NULL;
+   E_Output *output = NULL;
+   E_Plane *plane = NULL;
+   E_Plane_Commit_Data *data = NULL;
+
+   eldbus_message_iter_arguments_append(iter, "a("VALUE_TYPE_FOR_PENDING_COMMIT")", &array_of_pending_commit);
+
+   e_comp_screen = e_comp->e_comp_screen;
+
+   EINA_LIST_FOREACH(e_comp_screen->outputs, output_l, output)
+     {
+        if (!output) continue;
+
+        EINA_LIST_FOREACH(output->planes, plane_l, plane)
+          {
+             if (!plane) continue;
+
+             EINA_LIST_FOREACH(plane->pending_commit_data_list, data_l, data)
+               {
+                  Eldbus_Message_Iter* struct_of_pending_commit;
+
+                  if (!data) continue;
+
+                  eldbus_message_iter_arguments_append(array_of_pending_commit, "("VALUE_TYPE_FOR_PENDING_COMMIT")", &struct_of_pending_commit);
+
+                  eldbus_message_iter_arguments_append
+                    (struct_of_pending_commit, VALUE_TYPE_FOR_PENDING_COMMIT,
+                      (unsigned int)plane,
+                      plane->zpos,
+                      (unsigned int)data,
+                      (unsigned int)data->tsurface);
+
+                  eldbus_message_iter_container_close(array_of_pending_commit, struct_of_pending_commit);
+               }
+          }
+     }
+
+   eldbus_message_iter_container_close(iter, array_of_pending_commit);
+}
+
+static Eldbus_Message *
+e_info_server_cb_show_pending_commit(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+
+   _msg_show_pending_commit_append(eldbus_message_iter_get(reply));
+
+   return reply;
+}
 #endif
 
 static Eldbus_Message *
@@ -2683,6 +2764,8 @@ static const Eldbus_Method methods[] = {
 #ifdef ENABLE_HWC_MULTI
    { "hwc_trace_message", ELDBUS_ARGS({"i", "hwc_trace_message"}), NULL, e_info_server_cb_hwc_trace_message, 0},
    { "hwc", ELDBUS_ARGS({"i", "hwc"}), NULL, e_info_server_cb_hwc, 0},
+   { "show_plane_state", NULL, NULL, e_info_server_cb_show_plane_state, 0},
+   { "show_pending_commit", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_PENDING_COMMIT")", "array of pending commit"}), e_info_server_cb_show_pending_commit, 0},
 #endif
    { "get_keymap", NULL, ELDBUS_ARGS({"hi", "keymap fd"}), _e_info_server_cb_keymap_info_get, 0},
    { "effect_control", ELDBUS_ARGS({"i", "effect_control"}), NULL, e_info_server_cb_effect_control, 0},

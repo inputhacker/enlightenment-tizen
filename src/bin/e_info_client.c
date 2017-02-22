@@ -22,6 +22,9 @@ typedef struct _E_Info_Client
    /* output mode */
    Eina_List         *mode_list;
    int               gl;
+
+   /* pending_commit */
+   Eina_List         *pending_commit_list;
 } E_Info_Client;
 
 typedef struct _E_Win_Info
@@ -54,10 +57,19 @@ typedef struct output_mode_info
    const char *name;
 } E_Info_Output_Mode;
 
+typedef struct _E_Pending_Commit_Info
+{
+   unsigned int plane;
+   int zpos;
+   unsigned int data;
+   unsigned int tsurface;
+} E_Pending_Commit_Info;
+
 #define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiibbbiis"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
+#define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
 
 static E_Info_Client e_info_client;
 
@@ -2136,6 +2148,114 @@ _e_info_client_proc_hwc(int argc, char **argv)
      printf("Error Check Args: enlightenment_info -hwc [1: on, 0: off]\n");
 
 }
+
+static void
+_e_info_client_proc_show_plane_state(int argc, char **argv)
+{
+   if (!_e_info_client_eldbus_message("show_plane_state", NULL))
+     return;
+
+   printf("e20 print planes state with eina_log\n");
+}
+
+static E_Pending_Commit_Info *
+_e_pending_commit_info_new(unsigned int plane, int zpos, unsigned int data, unsigned int tsurface)
+{
+   E_Pending_Commit_Info *pending_commit = NULL;
+
+   pending_commit = E_NEW(E_Pending_Commit_Info, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(pending_commit, NULL);
+
+   pending_commit->plane = plane;
+   pending_commit->zpos = zpos;
+   pending_commit->data = data;
+   pending_commit->tsurface = tsurface;
+
+   return pending_commit;
+}
+
+static void
+_e_pending_commit_info_free(E_Pending_Commit_Info *pending_commit)
+{
+   E_FREE(pending_commit);
+}
+
+static void
+_cb_pending_commit_info_get(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eldbus_Message_Iter *array, *eldbus_msg;
+   Eina_Bool res;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "a("VALUE_TYPE_FOR_PENDING_COMMIT")", &array);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   while (eldbus_message_iter_get_and_next(array, 'r', &eldbus_msg))
+     {
+        E_Pending_Commit_Info *pending_commit = NULL;
+        unsigned int plane, tsurface, data;
+        int zpos;
+        res = eldbus_message_iter_arguments_get(eldbus_msg,
+                                                VALUE_TYPE_FOR_PENDING_COMMIT,
+                                                &plane,
+                                                &zpos,
+                                                &data,
+                                                &tsurface);
+        if (!res)
+          {
+             printf("Failed to get pending_commit info\n");
+             continue;
+          }
+
+        pending_commit = _e_pending_commit_info_new(plane, zpos, data, tsurface);
+        if (!pending_commit) continue;
+
+        e_info_client.pending_commit_list = eina_list_append(e_info_client.pending_commit_list, pending_commit);
+     }
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_show_pending_commit(int argc, char **argv)
+{
+   Eina_List *l;
+   int i = 0;
+   E_Pending_Commit_Info *pending_commit;
+
+   if (!_e_info_client_eldbus_message("show_pending_commit", _cb_pending_commit_info_get))
+     return;
+
+   printf("----------------------------[ pending commit ]-----------------------------------\n");
+   printf(" No          Plane          Zpos          Data          tsurface\n");
+   printf("---------------------------------------------------------------------------------\n");
+
+   if (!e_info_client.pending_commit_list)
+     {
+        printf("no peding commit\n");
+        return;
+     }
+
+   EINA_LIST_FOREACH(e_info_client.pending_commit_list, l, pending_commit)
+     {
+        i++;
+        printf("%3d        %12p   %5d         %12p  %12p\n",
+               i,
+               (void *)pending_commit->plane,
+               pending_commit->zpos,
+               (void *)pending_commit->data,
+               (void *)pending_commit->tsurface);
+     }
+
+   E_FREE_LIST(e_info_client.pending_commit_list, _e_pending_commit_info_free);
+}
 #endif
 
 static void
@@ -2396,6 +2516,18 @@ static struct
       "[on: 1, off: 0]",
       "On/Off the hw composite",
       _e_info_client_proc_hwc
+   },
+   {
+      "show_plane_state",
+      NULL,
+      "show state of plane",
+      _e_info_client_proc_show_plane_state
+   },
+   {
+      "show_pending_commit",
+      NULL,
+      "show state of pending commit",
+      _e_info_client_proc_show_pending_commit
    },
 #endif
    {

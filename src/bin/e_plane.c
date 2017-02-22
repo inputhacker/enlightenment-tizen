@@ -878,6 +878,8 @@ e_plane_commit(E_Plane *plane)
      ELOGF("E_PLANE", "Commit  Plane(%p)     tsurface(%p) tqueue(%p) data(%p)",
            NULL, NULL, plane, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL, data);
 
+   plane->pending_commit_data_list = eina_list_append(plane->pending_commit_data_list, data);
+
    error = tdm_layer_commit(plane->tlayer, _e_plane_commit_hanler, data);
    if (error != TDM_ERROR_NONE)
      {
@@ -984,6 +986,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
              plane->displaying_buffer_tsurface = NULL;
           }
 
+        plane->pending_commit_data_list = eina_list_remove(plane->pending_commit_data_list, data);
         free(data);
         return;
      }
@@ -1087,6 +1090,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
      }
 
    tbm_surface_internal_unref(tsurface);
+   plane->pending_commit_data_list = eina_list_remove(plane->pending_commit_data_list, data);
    free(data);
 }
 
@@ -1362,4 +1366,16 @@ e_plane_is_fb_target(E_Plane *plane)
    if (plane->is_fb) return EINA_TRUE;
 
    return EINA_FALSE;
+}
+
+EINTERN void
+e_plane_show_state(E_Plane *plane)
+{
+   EINA_SAFETY_ON_NULL_RETURN(plane);
+
+   ELOGF("E_PLANE", "Plane(%p) zpos(%d) ec(%p) display tsurface(%p)",
+             NULL, NULL, plane, plane->zpos, plane->ec, plane->displaying_buffer_tsurface);
+
+   if (plane->renderer)
+      e_plane_renderer_show_state(plane->renderer);
 }
