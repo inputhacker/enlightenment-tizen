@@ -1090,6 +1090,15 @@ e_policy_wl_visibility_send(E_Client *ec, int vis)
 
           EINA_LIST_FOREACH(psurf->vislist, ll, res_tzvis)
             {
+               // below code is workaround for checking visibility by display off or not
+               if (ec->zone)
+                 {
+                    if (ec->zone->display_state == E_ZONE_DISPLAY_STATE_ON)
+                      e_policy_aux_message_send(ec, "dpms_wm", "on", NULL);
+                    else
+                      e_policy_aux_message_send(ec, "dpms_wm", "off", NULL);
+                 }
+
                tizen_visibility_send_notify(res_tzvis, vis);
                ELOGF("TZVIS",
                      "SEND     |win:0x%08x|res_tzvis:0x%08x|v:%d",
