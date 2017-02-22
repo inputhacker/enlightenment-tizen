@@ -807,20 +807,26 @@ _e_comp_hwc_usable(void)
 
         EINA_LIST_FOREACH(ep_l, p_l, ep)
           {
+             E_Comp_Wl_Buffer *buffer = NULL;
+
+             if (ep->prepare_ec)
+               buffer = e_pixmap_resource_get(ep_fb->prepare_ec->pixmap);
+
+             if (!buffer)
+               {
+                  // if attached buffer is not valid than hwc is not usable
+                  DBG("Cannot use HWC due to invalid pixmap");
+                  return EINA_FALSE;
+               }
+
              if (!ep_fb)
                {
                   if (e_plane_is_fb_target(ep))
                     {
-                       E_Comp_Wl_Buffer *buffer = NULL;
-
                        ep_fb = ep;
-
-                       if (ep_fb->prepare_ec)
-                        buffer = e_pixmap_resource_get(ep_fb->prepare_ec->pixmap);
 
                        if (ep_fb->prepare_ec &&
                            ep_fb->reserved_memory &&
-                           buffer &&
                            ((buffer->w != zone->w) || (buffer->h != zone->h) ||
                             (ep_fb->prepare_ec->x != zone->x) || (ep_fb->prepare_ec->y != zone->y) ||
                             (ep_fb->prepare_ec->w != zone->w) || (ep_fb->prepare_ec->h != zone->h)))
@@ -828,6 +834,7 @@ _e_comp_hwc_usable(void)
                             // if client and zone's geometry is not match with, or
                             // if plane with reserved_memory(esp. fb target) has assigned smaller buffer,
                             // won't support hwc properly, than let's composite
+                            DBG("Cannot use HWC if geometry is not 1 on 1 match with reserved_memory");
                             return EINA_FALSE;
                          }
                        else if (ep_fb->prepare_ec != NULL)
