@@ -417,6 +417,20 @@ _e_plane_renderer_client_exported_surfaces_release(E_Plane_Renderer_Client *rend
                      _e_plane_renderer_exported_surface_release(renderer, tsurface);
                }
           }
+
+        if (!plane->pending_commit && !tbm_surface_queue_can_dequeue(renderer->tqueue, 0))
+          {
+             EINA_LIST_FOREACH_SAFE(renderer->disp_surfaces, l_s, ll_s, tsurface)
+               {
+                  if (!tsurface) continue;
+
+                  if (tsurface != renderer->displaying_tsurface)
+                    {
+                       _e_plane_renderer_exported_surface_release(renderer, tsurface);
+                       ERR("Force release plane:%p tsurface:%p to queue:%p\n", plane, tsurface, renderer->tqueue);
+                    }
+               }
+          }
      }
 }
 
