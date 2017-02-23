@@ -102,15 +102,6 @@ _e_plane_surface_unset(E_Plane *plane)
          return EINA_FALSE;
      }
 
-   plane->tsurface = NULL;
-   plane->need_to_unset_commit = EINA_TRUE;
-
-   if (plane->renderer)
-     {
-        /* set the update_exist to be false */
-        e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
-     }
-
    return EINA_TRUE;
 }
 
@@ -756,48 +747,75 @@ e_plane_fetch(E_Plane *plane)
      }
    else
      {
-        if (!plane->ec) return EINA_FALSE;
-
-        if (plane->role == E_PLANE_ROLE_OVERLAY)
+        if (plane->ec)
           {
-             /* acquire the surface */
-             if (plane->reserved_memory)
-                tsurface = _e_plane_surface_from_client_acquire_reserved(plane);
+             if (plane->role == E_PLANE_ROLE_OVERLAY)
+               {
+                 /* acquire the surface */
+                 if (plane->reserved_memory)
+                    tsurface = _e_plane_surface_from_client_acquire_reserved(plane);
+                 else
+                    tsurface = _e_plane_surface_from_client_acquire(plane);
+               }
+             else if (plane->role == E_PLANE_ROLE_CURSOR)
+               {
+                  tsurface = _e_plane_cursor_surface_acquire(plane);
+               }
              else
-                tsurface = _e_plane_surface_from_client_acquire(plane);
+               {
+                  ERR("not supported plane:%p role:%d", plane, plane->role);
+                  return EINA_FALSE;
+               }
+
+             /* For send frame::done to client */
+             if (!tsurface)
+                e_pixmap_image_clear(plane->ec->pixmap, 1);
           }
-        else if (plane->role == E_PLANE_ROLE_CURSOR)
+     }
+
+   /* exist tsurface for update plane */
+   if (tsurface)
+     {
+        if (plane->need_unset)
+            plane->need_unset = EINA_FALSE;
+
+        if (plane->need_unset_commit)
+            plane->need_unset_commit = EINA_FALSE;
+
+        plane->tsurface = tsurface;
+
+        /* set plane info and set tsurface to the plane */
+        if (!_e_plane_surface_set(plane, tsurface))
           {
-             tsurface = _e_plane_cursor_surface_acquire(plane);
+              ERR("fail: _e_plane_set_info.");
+              e_plane_unfetch(plane);
+              return EINA_FALSE;
+          }
+
+        /* set the update_exist to be true */
+        e_plane_renderer_update_exist_set(plane->renderer, EINA_TRUE);
+     }
+   else
+     {
+        if (plane->need_unset)
+          {
+              plane->tsurface = NULL;
+
+              /* set plane info and set tsurface to the plane */
+              if (!_e_plane_surface_unset(plane))
+                {
+                  ERR("failed to unset surface plane:%p", plane);
+                  return EINA_FALSE;
+                }
+
+              plane->need_unset = EINA_FALSE;
+              plane->need_unset_commit = EINA_TRUE;
           }
         else
           {
-             ERR("not supported plane:%p role:%d", plane, plane->role);
-             return EINA_FALSE;
+             if (!plane->need_unset_commit) return EINA_FALSE;
           }
-
-        /* For send frame::done to client */
-        if (!tsurface)
-          e_pixmap_image_clear(plane->ec->pixmap, 1);
      }
-
-   if (!tsurface) return EINA_FALSE;
-
-   if (plane->need_to_unset_commit)
-      plane->need_to_unset_commit = EINA_FALSE;
-
-   plane->tsurface = tsurface;
-
-   /* set plane info and set tsurface to the plane */
-   if (!_e_plane_surface_set(plane, tsurface))
-     {
-        ERR("fail: _e_plane_set_info.");
-        e_plane_unfetch(plane);
-        return EINA_FALSE;
-     }
-
-   /* set the update_exist to be true */
-   e_plane_renderer_update_exist_set(plane->renderer, EINA_TRUE);
 
    return EINA_TRUE;
 }
@@ -905,14 +923,14 @@ e_plane_commit_data_aquire(E_Plane *plane)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
 
-   if (plane->need_to_unset_commit)
+   if (plane->need_unset_commit)
      {
         data = E_NEW(E_Plane_Commit_Data, 1);
         data->plane = plane;
         data->tsurface = NULL;
         data->ec = NULL;
         plane->pending_commit = EINA_TRUE;
-        plane->need_to_unset_commit = EINA_FALSE;
+        plane->need_unset_commit = EINA_FALSE;
 
         return data;
      }
@@ -979,6 +997,9 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
 
    if (!tsurface)
      {
+        if (plane_trace_debug)
+           ELOGF("E_PLANE", "Done    Plane(%p)  data(%p)  ::Unset", NULL, NULL, plane, data);
+
         e_comp_wl_buffer_reference(&plane->displaying_buffer_ref, NULL);
         if (plane->displaying_buffer_tsurface)
           {
@@ -1253,11 +1274,8 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
      {
         if (!plane->is_fb)
           {
-             if (plane->tsurface && !_e_plane_surface_unset(plane))
-               {
-                  ERR("failed to unset surface plane:%p", plane);
-                  return EINA_FALSE;
-               }
+             if (plane->tsurface)
+                plane->need_unset = EINA_TRUE;
 
              if (plane->renderer)
                {

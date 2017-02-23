@@ -66,7 +66,8 @@ struct _E_Plane
    unsigned int          buffer_flags;
    Eina_Bool             pending_commit;
    Eina_List             *pending_commit_data_list;
-   Eina_Bool             need_to_unset_commit;
+   Eina_Bool             need_unset;
+   Eina_Bool             need_unset_commit;
 
    /* true if plane's ec is set or unset.
     * false when E_Event_Plane_Win_Change has been generated.
