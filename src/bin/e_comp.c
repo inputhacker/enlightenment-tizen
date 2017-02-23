@@ -810,13 +810,15 @@ _e_comp_hwc_usable(void)
              E_Comp_Wl_Buffer *buffer = NULL;
 
              if (ep->prepare_ec)
-               buffer = e_pixmap_resource_get(ep_fb->prepare_ec->pixmap);
-
-             if (!buffer)
                {
-                  // if attached buffer is not valid than hwc is not usable
-                  DBG("Cannot use HWC due to invalid pixmap");
-                  return EINA_FALSE;
+                  buffer = e_pixmap_resource_get(ep->prepare_ec->pixmap);
+
+                  if (!buffer)
+                    {
+                       // if attached buffer is not valid than hwc is not usable
+                       DBG("Cannot use HWC due to invalid pixmap");
+                       return EINA_FALSE;
+                    }
                }
 
              if (!ep_fb)
