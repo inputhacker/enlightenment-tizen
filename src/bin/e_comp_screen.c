@@ -127,7 +127,13 @@ _e_comp_screen_cb_output_drm(void *data EINA_UNUSED, int type EINA_UNUSED, void 
     * there were no sufficient information to calculate dpi.
     * so it's considerable to re-calculate e_scale with output geometry.
     */
-   e_scale_manual_update(((e->w * 254 / e->phys_width) + 5) / 10);
+   double target_inch;
+   int dpi;
+
+   target_inch = (round((sqrt(e->phys_width * e->phys_width + e->phys_height * e->phys_height) / 25.4) * 10) / 10);
+   dpi = (round((sqrt(e->w * e->w + e->h * e->h) / target_inch) * 10) / 10);
+
+   e_scale_manual_update(dpi);
 
 end:
    return ECORE_CALLBACK_PASS_ON;
@@ -340,6 +346,7 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
    tdm_display *tdisplay = e_comp_screen->tdisplay;
    int num_outputs;
    int i;
+   Eina_Bool scale_updated = EINA_FALSE;
 
    /* init e_output */
    if (!e_output_init())
@@ -391,6 +398,19 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
           {
              ERR("fail to e_output_dpms.");
              goto fail;
+          }
+
+        /* update e_scale with first available output size */
+        if ((e_config->scale.for_tdm) && (!scale_updated))
+          {
+             double target_inch;
+             int dpi;
+
+             target_inch = (round((sqrt(output->info.size.w * output->info.size.w + output->info.size.h * output->info.size.h) / 25.4) * 10) / 10);
+             dpi = (round((sqrt(mode->w * mode->w + mode->h * mode->h) / target_inch) * 10) / 10);
+
+             e_scale_manual_update(dpi);
+             scale_updated = EINA_TRUE;
           }
      }
 

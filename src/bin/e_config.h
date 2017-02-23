@@ -111,9 +111,13 @@ struct _E_Config
       double        min;
       double        max;
       double        factor;
+      double        profile_factor;
+      double        inch_correction;
+      double        inch_correction_bound;
       int           base_dpi;
       unsigned char use_dpi;
       unsigned char use_custom;
+      unsigned char for_tdm;
    } scale;
    unsigned char show_cursor;
    unsigned char idle_cursor;

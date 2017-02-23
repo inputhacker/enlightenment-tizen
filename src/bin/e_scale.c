@@ -32,8 +32,26 @@ e_scale_update(void)
 
    if (e_config->scale.use_dpi)
      {
+        double profile_factor = 1.0;
+        double inch = 0.0;
+
+        if (e_config->scale.profile_factor > 0.0)
+          {
+             if (e_config->scale.inch_correction > 0.0)
+               {
+                  inch = floor(sqrt((e_comp->w * e_comp->w) + (e_comp->h * e_comp->h)) / BASE_DPI * 10 + 0.5) / 10;
+
+                  if (inch <= e_config->scale.inch_correction_bound)
+                    profile_factor = e_config->scale.profile_factor;
+                  else
+                    profile_factor = e_config->scale.profile_factor + e_config->scale.inch_correction;
+               }
+             else
+               profile_factor = e_config->scale.profile_factor;
+          }
+
         if (e_comp->comp_type == E_PIXMAP_TYPE_WL)
-          e_scale = (double)BASE_DPI / (double)e_config->scale.base_dpi;
+          e_scale = floor((double)BASE_DPI * profile_factor / (double)e_config->scale.base_dpi * 10 + 0.5) / 10;
 
         if (e_scale > e_config->scale.max) e_scale = e_config->scale.max;
         else if (e_scale < e_config->scale.min)
@@ -58,6 +76,8 @@ E_API void
 e_scale_manual_update(int dpi)
 {
    char buf[128];
+   double profile_factor = 1.0;
+   double inch = 0.0;
 
    if (!_initted)
      {
@@ -65,7 +85,22 @@ e_scale_manual_update(int dpi)
         return;
      }
 
-   e_scale = (double)dpi / (double)e_config->scale.base_dpi;
+   if (e_config->scale.profile_factor > 0.0)
+     {
+        if (e_config->scale.inch_correction > 0.0)
+          {
+             inch = floor(sqrt((e_comp->w * e_comp->w) + (e_comp->h * e_comp->h)) / dpi * 10 + 0.5) / 10;
+
+             if (inch <= e_config->scale.inch_correction_bound)
+               profile_factor = e_config->scale.profile_factor;
+             else
+               profile_factor = e_config->scale.profile_factor + e_config->scale.inch_correction;
+          }
+        else
+          profile_factor = e_config->scale.profile_factor;
+     }
+
+   e_scale = floor((double)dpi * profile_factor / (double)e_config->scale.base_dpi * 10 + 0.5) / 10;
 
    if (e_scale > e_config->scale.max) e_scale = e_config->scale.max;
    else if (e_scale < e_config->scale.min)

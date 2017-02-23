@@ -227,9 +227,13 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, scale.min, DOUBLE);
    E_CONFIG_VAL(D, T, scale.max, DOUBLE);
    E_CONFIG_VAL(D, T, scale.factor, DOUBLE);
+   E_CONFIG_VAL(D, T, scale.profile_factor, DOUBLE);
+   E_CONFIG_VAL(D, T, scale.inch_correction, DOUBLE);
+   E_CONFIG_VAL(D, T, scale.inch_correction_bound, DOUBLE);
    E_CONFIG_VAL(D, T, scale.base_dpi, INT);
    E_CONFIG_VAL(D, T, scale.use_dpi, UCHAR);
    E_CONFIG_VAL(D, T, scale.use_custom, UCHAR);
+   E_CONFIG_VAL(D, T, scale.for_tdm, UCHAR);
    E_CONFIG_VAL(D, T, show_cursor, UCHAR);
    E_CONFIG_VAL(D, T, idle_cursor, UCHAR);
    E_CONFIG_LIST(D, T, env_vars, _e_config_env_var_edd);
