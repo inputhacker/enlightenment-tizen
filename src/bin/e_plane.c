@@ -799,6 +799,9 @@ e_plane_fetch(E_Plane *plane)
      {
         if (plane->need_unset)
           {
+              if (eina_list_count(plane->pending_commit_data_list))
+                 return EINA_FALSE;
+
               plane->tsurface = NULL;
 
               /* set plane info and set tsurface to the plane */
