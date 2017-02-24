@@ -876,8 +876,19 @@ _remote_source_offscreen_set(E_Comp_Wl_Remote_Source *source, Eina_Bool set)
         if (source->offscreen_ref == 1)
           {
              source->is_offscreen = EINA_TRUE;
-             e_policy_wl_uniconify(source->ec);
+
+             source->ec->exp_iconify.not_raise = 1;
+             if (!source->ec->exp_iconify.by_client)
+               e_policy_wl_iconify_state_change_send(source->ec, 0);
+
+             RSMINF("Un-Set ICONIFY BY Remote_Surface", source->ec->pixmap, source->ec,
+                    "SOURCE", source);
+             e_client_uniconify(source->ec);
+
+             source->ec->exp_iconify.by_client = 0;
              source->ec->exp_iconify.skip_by_remote = 1;
+
+             EC_CHANGED(source->ec);
           }
      }
    else
