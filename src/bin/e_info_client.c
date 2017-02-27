@@ -44,6 +44,7 @@ typedef struct _E_Win_Info
    int          focused;
    int          hwc;
    int          pl_zpos;
+   Ecore_Window parent_id;
    const char  *layer_name; // layer name
 } E_Win_Info;
 
@@ -65,7 +66,7 @@ typedef struct _E_Pending_Commit_Info
    unsigned int tsurface;
 } E_Pending_Commit_Info;
 
-#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiibbbiis"
+#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiibbbiius"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
@@ -82,7 +83,7 @@ static Eina_Bool _e_info_client_eldbus_message_with_args(const char *method, E_I
 static void _e_info_client_eldbus_message_cb(void *data, const Eldbus_Message *msg, Eldbus_Pending *p);
 
 static E_Win_Info *
-_e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int opaque, const char *name, int x, int y, int w, int h, int layer, int visible, int visibility, int iconic, int frame_visible, int focused, int hwc, int pl_zpos, const char *layer_name)
+_e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int opaque, const char *name, int x, int y, int w, int h, int layer, int visible, int visibility, int iconic, int frame_visible, int focused, int hwc, int pl_zpos, Ecore_Window parent_id, const char *layer_name)
 {
    E_Win_Info *win = NULL;
 
@@ -107,6 +108,7 @@ _e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int 
    win->focused = focused;
    win->hwc = hwc;
    win->pl_zpos = pl_zpos;
+   win->parent_id = parent_id;
    win->layer_name = eina_stringshare_add(layer_name);
 
    return win;
@@ -145,7 +147,7 @@ _cb_window_info_get(const Eldbus_Message *msg)
         const char *layer_name;
         int x, y, w, h, layer, visibility, opaque, hwc, pl_zpos;
         Eina_Bool visible, alpha, iconic, focused, frame_visible;
-        Ecore_Window id;
+        Ecore_Window id, parent_id;
         uint32_t res_id;
         int pid;
         E_Win_Info *win = NULL;
@@ -169,6 +171,7 @@ _cb_window_info_get(const Eldbus_Message *msg)
                                                 &focused,
                                                 &hwc,
                                                 &pl_zpos,
+                                                &parent_id,
                                                 &layer_name);
         if (!res)
           {
@@ -176,7 +179,7 @@ _cb_window_info_get(const Eldbus_Message *msg)
              continue;
           }
 
-        win = _e_win_info_new(id, res_id, pid, alpha, opaque, win_name, x, y, w, h, layer, visible, visibility, iconic, frame_visible, focused, hwc, pl_zpos, layer_name);
+        win = _e_win_info_new(id, res_id, pid, alpha, opaque, win_name, x, y, w, h, layer, visible, visibility, iconic, frame_visible, focused, hwc, pl_zpos, parent_id, layer_name);
         e_info_client.win_list = eina_list_append(e_info_client.win_list, win);
      }
 
@@ -623,9 +626,9 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
      return;
 
    printf("%d Top level windows\n", eina_list_count(e_info_client.win_list));
-   printf("--------------------------------------[ topvwins ]-----------------------------------------------------------------\n");
-   printf(" No   Win_ID    RcsID    PID     w     h     x    y  Focus Depth Opaq Visi Icon  Map_State   Frame  PL@ZPos  Title   \n");
-   printf("-------------------------------------------------------------------------------------------------------------------\n");
+   printf("--------------------------------------[ topvwins ]----------------------------------------------------------------------------\n");
+   printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc Dep Opaq Visi Icon  Map  Frame  PL@ZPos  Parent     Title\n");
+   printf("------------------------------------------------------------------------------------------------------------------------------\n");
 
    if (!e_info_client.win_list)
      {
@@ -641,7 +644,7 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
         if (win->layer != prev_layer)
           {
              if (prev_layer != -1)
-                printf("--------------------------------------------------------------------------------------------------------------[%s]\n",
+                printf("---------------------------------------------------------------------------------------------------------------------[%s]\n",
                        prev_layer_name ? prev_layer_name : " ");
              prev_layer = win->layer;
              prev_layer_name = win->layer_name;
@@ -663,12 +666,12 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
              snprintf(tmp, sizeof(tmp), " - ");
           }
 
-        printf("%3d 0x%08x  %5d  %5d  %5d %5d %4d %4d   %c  %5d    %d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->alpha? 32:24, win->opaque);
-        printf("%2d    %d   %-11s %3d    %-8s %s\n", win->visibility, win->iconic, win->vis? "Viewable":"NotViewable", win->frame_visible, tmp, win->name?:"No Name");
+        printf("%3d 0x%08x  %5d  %5d  %5d %5d %6d %6d   %c  %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->alpha? 32:24, win->opaque);
+        printf("%2d    %d    %s   %3d    %-8s %-8x   %s\n", win->visibility, win->iconic, win->vis? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
      }
 
    if (prev_layer_name)
-      printf("--------------------------------------------------------------------------------------------------------------[%s]\n",
+      printf("---------------------------------------------------------------------------------------------------------------------[%s]\n",
              prev_layer_name ? prev_layer_name : " ");
 
    if(hwc_off)
