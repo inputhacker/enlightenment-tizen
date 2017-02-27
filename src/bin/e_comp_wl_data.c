@@ -175,6 +175,15 @@ _e_comp_wl_data_device_destroy_selection_data_source(struct wl_listener *listene
           wl_data_device_send_selection(data_device_res, NULL);
      }
 
+   if (e_comp_wl->selection.data_only_list)
+     {
+        struct wl_resource *data_only;
+        Eina_List *l;
+
+        EINA_LIST_FOREACH(e_comp_wl->selection.data_only_list, l, data_only)
+           wl_data_device_send_selection(data_only, NULL);
+     }
+
    wl_signal_emit(&e_comp_wl->selection.signal, e_comp->wl_comp_data);
 }
 
@@ -277,19 +286,45 @@ _e_comp_wl_data_device_selection_set(void *data EINA_UNUSED, E_Comp_Wl_Data_Sour
              wl_data_device_send_selection(data_device_res, offer_res);
           }
      }
-   else if (focus)
+   else
      {
-        data_device_res =  e_comp_wl_data_find_for_client(wl_resource_get_client(focus));
-        if ((data_device_res) && (source))
+        /* send wl_data_device@selection to focused client */
+        if (focus)
           {
-             offer_res =
-                _e_comp_wl_data_device_data_offer_create(source,
-                                                         data_device_res);
-             wl_data_device_send_selection(data_device_res, offer_res);
+             data_device_res =  e_comp_wl_data_find_for_client(wl_resource_get_client(focus));
+             if ((data_device_res) && (source))
+               {
+                  offer_res =
+                     _e_comp_wl_data_device_data_offer_create(source,
+                                                              data_device_res);
+                  wl_data_device_send_selection(data_device_res, offer_res);
 
+               }
+             else if (data_device_res)
+               wl_data_device_send_selection(data_device_res, NULL);
           }
-        else if (data_device_res)
-          wl_data_device_send_selection(data_device_res, NULL);
+
+        /* send wl_data_device@selection to data only clients
+         * because they won't be focused at all
+         */
+        if (e_comp_wl->selection.data_only_list)
+          {
+             struct wl_resource *data_only;
+             Eina_List *l;
+
+             EINA_LIST_FOREACH(e_comp_wl->selection.data_only_list, l, data_only)
+               {
+                  if (source)
+                    {
+                       offer_res =
+                          _e_comp_wl_data_device_data_offer_create(source,
+                                                                   data_only);
+                       wl_data_device_send_selection(data_only, offer_res);
+                    }
+                  else
+                    wl_data_device_send_selection(data_only, NULL);
+               }
+          }
      }
 
    wl_signal_emit(&e_comp_wl->selection.signal, e_comp->wl_comp_data);
@@ -419,6 +454,9 @@ static void
 _e_comp_wl_data_device_cb_unbind(struct wl_resource *resource)
 {
    struct wl_client *wc = wl_resource_get_client(resource);
+   e_comp_wl->selection.data_only_list =
+      eina_list_remove(e_comp_wl->selection.data_only_list,
+                       resource);
    eina_hash_del_by_key(e_comp_wl->mgr.data_resources, &wc);
 }
 
@@ -749,6 +787,11 @@ e_comp_wl_data_device_keyboard_focus_set(void)
       e_comp_wl_data_find_for_client(wl_resource_get_client(focus));
    if (!data_device_res) return;
 
+   /* to remove from data_only_list if it is on the list */
+   e_comp_wl->selection.data_only_list =
+      eina_list_remove(e_comp_wl->selection.data_only_list,
+                       data_device_res);
+
    if (source)
      {
         offer_res =
@@ -917,5 +960,43 @@ e_comp_wl_clipboard_source_unref(E_Comp_Wl_Clipboard_Source *source)
    free(source);
 
    return 0;
+}
+
+E_API void
+e_comp_wl_data_device_only_set(struct wl_resource *data_device_res, Eina_Bool set)
+{
+   struct wl_resource *offer_res = NULL, *focus;
+   E_Comp_Wl_Data_Source *source;
+
+   EINA_SAFETY_ON_NULL_RETURN(data_device_res);
+
+   if (set)
+     {
+        if (eina_list_data_find(e_comp_wl->selection.data_only_list, data_device_res))
+          return;
+
+        e_comp_wl->selection.data_only_list =
+           eina_list_append(e_comp_wl->selection.data_only_list, data_device_res);
+
+        source = (E_Comp_Wl_Data_Source *)e_comp_wl->selection.data_source;
+        if (source)
+          {
+             offer_res =
+                _e_comp_wl_data_device_data_offer_create(source, data_device_res);
+          }
+        wl_data_device_send_selection(data_device_res, offer_res);
+     }
+   else
+     {
+        e_comp_wl->selection.data_only_list =
+           eina_list_remove(e_comp_wl->selection.data_only_list, data_device_res);
+
+        focus = e_comp_wl->kbd.focus;
+        if ((!focus) ||
+            (wl_resource_get_client(focus) != wl_resource_get_client(data_device_res)))
+          {
+             wl_data_device_send_selection(data_device_res, NULL);
+          }
+     }
 }
 

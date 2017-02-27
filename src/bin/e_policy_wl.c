@@ -25,6 +25,7 @@
 #define PRIVILEGE_NOTIFICATION_LEVEL_SET "http://tizen.org/privilege/window.priority.set"
 #define PRIVILEGE_SCREEN_MODE_SET "http://tizen.org/privilege/display"
 #define PRIVILEGE_BRIGHTNESS_SET "http://tizen.org/privilege/display"
+#define PRIVILEGE_DATA_ONLY_SET "http://tizen.org/privilege/force.selection"
 
 #define APP_DEFINE_GROUP_NAME "effect"
 
@@ -6338,11 +6339,89 @@ _tz_clipboard_cb_hide(struct wl_client *client EINA_UNUSED, struct wl_resource *
    e_service_cbhm_hide();
 }
 
+static void
+_tz_clipboard_cb_data_only_set(struct wl_client *wc, struct wl_resource *res_tz_clipboard, uint32_t set)
+{
+   E_Policy_Wl_Tz_Clipboard *tz_clipboard = NULL;
+   struct wl_client *_wc;
+   struct wl_resource *data_res;
+   pid_t pid = 0;
+   Eina_List *clients;
+   E_Client *ec, *found = NULL;
+   int fd;
+
+   tz_clipboard = wl_resource_get_user_data(res_tz_clipboard);
+   EINA_SAFETY_ON_NULL_RETURN(tz_clipboard);
+
+   if (tz_clipboard->ec_list)
+     {
+        ELOGF("TZPOL",
+              "Unable to set data only mode for wl_client(%p) : "
+              "ec_list exists",
+              NULL, NULL, wc);
+        goto send_deny;
+     }
+
+   if (!(data_res = e_comp_wl_data_find_for_client(wc)))
+     {
+        ELOGF("TZPOL",
+              "Unable to set data only mode for wl_client(%p) : "
+              "no wl_data_device resource",
+              NULL, NULL, wc);
+        goto send_deny;
+     }
+
+   clients = _e_policy_wl_e_clients_find_by_pid(pid);
+   if (clients)
+     {
+        EINA_LIST_FREE(clients, ec)
+          {
+             if (found) continue;
+             if (ec->comp_data && ec->comp_data->surface)
+               {
+                  _wc = wl_resource_get_client(ec->comp_data->surface);
+                  if (_wc== wc)
+                    found = ec;
+               }
+          }
+     }
+
+   if (found)
+     {
+        ELOGF("TZPOL",
+              "Unable to set data only mode for wl_client(%p) : "
+              "have ec(%p)",
+              NULL, NULL, wc, ec);
+        goto send_deny;
+     }
+
+   /* Privilege Check */
+   fd = wl_client_get_fd(wc);
+   if (!_e_policy_wl_privilege_check(fd, PRIVILEGE_DATA_ONLY_SET))
+     {
+        ELOGF("TZPOL",
+              "Privilege Check Failed! DENY data_only_set",
+              NULL, NULL);
+        goto send_deny;
+     }
+
+   ELOGF("TZPOL",
+         "Set data only mode :%d for wl_client(%p)",
+         NULL, NULL, set, wc);
+   e_comp_wl_data_device_only_set(data_res, !(set == 0));
+   tizen_clipboard_send_allowed_data_only(res_tz_clipboard, (uint32_t)1);
+   return;
+
+send_deny:
+   tizen_clipboard_send_allowed_data_only(res_tz_clipboard, (uint32_t)0);
+}
+
 static const struct tizen_clipboard_interface _tz_clipboard_iface =
 {
    _tz_clipboard_cb_destroy,
    _tz_clipboard_cb_show,
    _tz_clipboard_cb_hide,
+   _tz_clipboard_cb_data_only_set,
 };
 
 static void
@@ -6639,7 +6718,7 @@ e_policy_wl_init(void)
 
    global = wl_global_create(e_comp_wl->wl.disp,
                              &tizen_clipboard_interface,
-                             1,
+                             2,
                              NULL,
                              _tz_clipboard_cb_bind);
    EINA_SAFETY_ON_NULL_GOTO(global, err);

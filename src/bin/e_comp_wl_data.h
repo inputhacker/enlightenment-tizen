@@ -65,5 +65,6 @@ E_API E_Comp_Wl_Data_Source *e_comp_wl_data_manager_source_create(struct wl_clie
 E_API int e_comp_wl_clipboard_source_ref(E_Comp_Wl_Clipboard_Source *source);
 E_API int e_comp_wl_clipboard_source_unref(E_Comp_Wl_Clipboard_Source *source);
 E_API E_Comp_Wl_Clipboard_Source *e_comp_wl_clipboard_source_create(const char *mime_type, uint32_t serial, int *fd);
+E_API void e_comp_wl_data_device_only_set(struct wl_resource *data_device_res, Eina_Bool set);
 # endif
 #endif

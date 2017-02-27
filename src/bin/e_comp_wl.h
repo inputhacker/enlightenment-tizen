@@ -286,6 +286,7 @@ struct _E_Comp_Wl_Data
         E_Client *target;
 
         struct wl_resource *cbhm;
+        Eina_List *data_only_list;
      } selection;
 
    struct
