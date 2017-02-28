@@ -998,6 +998,10 @@ e_pixmap_shutdown(void)
 E_API void
 e_pixmap_buffer_clear(E_Pixmap *cp)
 {
+   E_Comp_Wl_Client_Data *cdata;
+   struct wl_resource *cb;
+   Eina_List *l, *ll;
+
    EINA_SAFETY_ON_NULL_RETURN(cp);
 
    /* disabled this feature */
@@ -1039,4 +1043,14 @@ e_pixmap_buffer_clear(E_Pixmap *cp)
 
    /* composite object clear */
    e_comp_object_clear(cp->client->frame);
+
+   /* pending frame event callback*/
+   if ((!cp->client) || (!cp->client->comp_data)) return;
+   cdata = (E_Comp_Wl_Client_Data *)cp->client->comp_data;
+   EINA_LIST_FOREACH_SAFE(cdata->frames, l, ll, cb)
+     {
+        wl_callback_send_done(cb, ecore_time_unix_get() * 1000);
+        wl_resource_destroy(cb);
+     }
+
 }
