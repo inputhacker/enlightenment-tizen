@@ -1185,7 +1185,9 @@ _e_vis_ec_below_uniconify(E_Client *ec)
    Eina_Bool ret = EINA_FALSE;
    E_Vis_Client *below;
 
-   if (ec && ec->zone)
+   if (!ec) return EINA_FALSE;
+
+   if (ec->zone)
      {
         if (ec->zone->display_state == E_ZONE_DISPLAY_STATE_OFF)
           return EINA_FALSE;
