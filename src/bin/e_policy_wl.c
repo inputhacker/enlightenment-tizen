@@ -4018,10 +4018,9 @@ _e_tzsh_indicator_find_topvisible_client(E_Zone *zone)
    return NULL;
 }
 
-static void
-_e_tzsh_indicator_srv_property_change_send(E_Client *ec)
+EINTERN void
+e_tzsh_indicator_srv_property_change_send(E_Client *ec, int angle)
 {
-   int angle;
    int opacity;
 
    if (!ec) return;
@@ -4031,7 +4030,6 @@ _e_tzsh_indicator_srv_property_change_send(E_Client *ec)
         return;
      }
 
-   angle = ec->e.state.rot.ang.curr;
    opacity = ec->indicator.opacity_mode;
 
    ELOGF("TZ_IND", "SEND indicator info. angle:%d, opacity:%d", ec->pixmap, ec, angle, opacity);
@@ -4047,7 +4045,10 @@ e_tzsh_indicator_srv_property_update(E_Client *ec)
    ec_ind_owner = e_mod_indicator_owner_get();
    if (ec != ec_ind_owner) return;
 
-   _e_tzsh_indicator_srv_property_change_send(ec);
+   if (ec->e.state.rot.ang.next != -1)
+     e_tzsh_indicator_srv_property_change_send(ec, ec->e.state.rot.ang.next);
+   else
+     e_tzsh_indicator_srv_property_change_send(ec, ec->e.state.rot.ang.curr);
 }
 
 EINTERN void
@@ -4069,7 +4070,11 @@ e_tzsh_indicator_srv_ower_win_update(E_Zone *zone)
         e_mod_indicator_owner_set(ec);
 
         if (ec && !ec->e.state.rot.pending_show)
-          e_tzsh_indicator_srv_property_update(ec);
+          {
+             ELOGF("TZ_IND", "Property Update. name:%s curr:%d, next:%d", NULL, NULL, ec->icccm.name?:"NULL",
+                   ec->e.state.rot.ang.curr, ec->e.state.rot.ang.next);
+             e_tzsh_indicator_srv_property_update(ec);
+          }
      }
 }
 
@@ -6144,8 +6149,7 @@ _tz_indicator_cb_opacity_mode_set(struct wl_client *client EINA_UNUSED, struct w
    if (ec->indicator.opacity_mode == op_mode) return;
 
    ec->indicator.opacity_mode = op_mode;
-   if (ec == e_mod_indicator_owner_get())
-     _e_tzsh_indicator_srv_property_change_send(ec);
+   e_tzsh_indicator_srv_property_change_send(ec, ec->e.state.rot.ang.curr);
 
    e_policy_event_simple(ec, E_EVENT_POLICY_INDICATOR_OPACITY_MODE_CHANGE);
 }

@@ -43,6 +43,7 @@ E_API void e_tzsh_qp_state_orientation_update(E_Client *ec, int ridx);
 E_API void e_tzsh_qp_state_scrollable_update(E_Client *ec, Eina_Bool scrollable);
 
 /* tzsh indicator */
+EINTERN void e_tzsh_indicator_srv_property_change_send(E_Client *ec, int angle);
 EINTERN void e_tzsh_indicator_srv_property_update(E_Client *ec);
 EINTERN void e_tzsh_indicator_srv_ower_win_update(E_Zone *zone);
 
