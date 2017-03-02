@@ -1697,7 +1697,12 @@ static void
 _e_comp_intercept_stack_above(void *data, Evas_Object *obj, Evas_Object *above)
 {
    EINA_SAFETY_ON_TRUE_RETURN(obj == above);
-   if (evas_object_below_get(obj) == above) return;
+
+   if (evas_object_below_get(obj) == above)
+     {
+        e_comp_object_layer_update(obj, above, NULL);
+        return;
+     }
 
    TRACE_DS_BEGIN(COMP:INTERCEPT STACK ABOVE);
    _e_comp_intercept_stack_helper(data, above, evas_object_stack_above);
@@ -1710,7 +1715,11 @@ static void
 _e_comp_intercept_stack_below(void *data, Evas_Object *obj, Evas_Object *below)
 {
    EINA_SAFETY_ON_TRUE_RETURN(obj == below);
-   if (evas_object_above_get(obj) == below) return;
+   if (evas_object_above_get(obj) == below)
+     {
+        e_comp_object_layer_update(obj, NULL, below);
+        return;
+     }
 
    TRACE_DS_BEGIN(COMP:INTERCEPT STACK BELOW);
    _e_comp_intercept_stack_helper(data, below, evas_object_stack_below);
@@ -1765,7 +1774,11 @@ _e_comp_intercept_raise(void *data, Evas_Object *obj)
    if ((cw->ec->layer_block) || (cw->ec->layer_pending))
      {
         if (cw->ec->layer_pending)
-          e_comp_object_layer_update(obj, NULL, NULL);
+          {
+             int obj_layer = evas_object_layer_get(obj);
+             if (cw->ec->layer != obj_layer)
+               e_comp_object_layer_update(obj, NULL, NULL);
+          }
 
         evas_object_raise(obj);
         goto end;
