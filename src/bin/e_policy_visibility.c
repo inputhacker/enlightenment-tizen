@@ -995,6 +995,7 @@ _e_vis_client_uniconify_render(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool 
 
    _e_vis_client_prepare_foreground_signal_emit(vc);
    vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY;
+   VS_DBG(vc->ec, "\tUPDATE ICONIC STATE: %s", STATE_STR(vc));
    vc->grab = _e_vis_client_grab_get(vc, __func__);
    _e_vis_client_buffer_attach_handler_add(vc);
 
@@ -1013,6 +1014,7 @@ _e_vis_client_defer_move(E_Vis_Client *vc, E_Vis_Job_Type type, int x, int y)
    if (!vc) return EINA_FALSE;
 
    vc->state = E_VIS_ICONIFY_STATE_GEOMETRY_CHANGE;
+   VS_DBG(vc->ec, "\tUPDATE ICONIC STATE: %s", STATE_STR(vc));
    vc->grab = _e_vis_client_grab_get(vc, __func__);
    vc->defer.x = x;
    vc->defer.y = y;
@@ -1157,10 +1159,36 @@ _e_vis_ec_foreground_check(E_Client *ec, Eina_Bool with_transients)
    return EINA_FALSE;
 }
 
+static Eina_Bool
+_e_vis_ec_above_is_non_alpha_visible(E_Client *ec)
+{
+   E_Client *above;
+   Eina_Bool is_non_alpha_visible = EINA_FALSE;
+
+   for (above = e_client_above_get(ec); above; above = e_client_above_get(above))
+     {
+        if (e_client_util_ignored_get(above)) continue;
+        if (!E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h)) continue;
+
+        if (above->visibility.obscured == E_VISIBILITY_UNOBSCURED)
+          {
+             if (!above->argb)
+               is_non_alpha_visible = EINA_TRUE;
+
+             break;
+          }
+     }
+
+   return is_non_alpha_visible;
+}
+
 static void
 _e_vis_ec_below_activity_clients_get(E_Client *ec, Eina_List **below_list)
 {
    E_Client *below;
+
+   if (_e_vis_ec_above_is_non_alpha_visible(ec))
+     return;
 
    for (below = e_client_below_get(ec); below; below = e_client_below_get(below))
      {
@@ -1314,6 +1342,7 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
                     {
 
                        vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD;
+                       VS_DBG(vc->ec, "\tUPDATE ICONIC STATE: %s", STATE_STR(vc));
                        vc->grab = _e_vis_client_grab_get(vc, __func__);
                        e_comp_object_signal_callback_add(topmost->frame,
                                                          "e,action,launch,done",
