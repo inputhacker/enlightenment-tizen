@@ -155,6 +155,7 @@ _e_comp_wl_data_device_destroy_selection_data_source(struct wl_listener *listene
 {
    E_Comp_Wl_Data_Source *source;
    struct wl_resource *data_device_res = NULL, *focus = NULL;
+   struct wl_client *source_client, *cbhm_client = NULL;
 
    DBG("Data Device Destroy Selection Source");
    if (!(source = (E_Comp_Wl_Data_Source*)data))
@@ -162,14 +163,28 @@ _e_comp_wl_data_device_destroy_selection_data_source(struct wl_listener *listene
 
    e_comp_wl->selection.data_source = NULL;
 
+   source_client = wl_resource_get_client(source->resource);
+   if (e_comp_wl->selection.cbhm)
+     cbhm_client =  wl_resource_get_client(e_comp_wl->selection.cbhm);
+
+   if (source_client != cbhm_client)
+     {
+        data_device_res =
+           e_comp_wl_data_find_for_client(wl_resource_get_client(e_comp_wl->selection.cbhm));
+
+        if (data_device_res)
+          wl_data_device_send_selection(data_device_res, NULL);
+
+        return;
+     }
+
    if (e_comp_wl->kbd.enabled)
      focus = e_comp_wl->kbd.focus;
 
    if (focus)
      {
-        if (source->resource)
-          data_device_res =
-             e_comp_wl_data_find_for_client(wl_resource_get_client(source->resource));
+        data_device_res =
+           e_comp_wl_data_find_for_client(wl_resource_get_client(focus));
 
         if (data_device_res)
           wl_data_device_send_selection(data_device_res, NULL);
