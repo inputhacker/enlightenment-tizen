@@ -1506,6 +1506,7 @@ e_comp_init(void)
 
    if (conf->hwc_deactive) e_comp->hwc_deactive = EINA_TRUE; // deactive hwc policy
    if (conf->hwc_reuse_cursor_buffer) e_comp->hwc_reuse_cursor_buffer = EINA_TRUE;
+   if (conf->hwc_sync_mode_change) e_comp->hwc_sync_mode_change = EINA_TRUE;
 
 #ifdef HAVE_HWC
    if (conf->hwc)

@@ -143,6 +143,7 @@ struct _E_Comp
    Eina_Bool       hwc : 1;
    Eina_Bool       hwc_deactive : 1; // deactive hwc policy
    Eina_Bool       hwc_reuse_cursor_buffer;
+   Eina_Bool       hwc_sync_mode_change;
 
    int depth;
    unsigned int    input_key_grabs;

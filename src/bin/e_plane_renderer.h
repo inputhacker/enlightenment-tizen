@@ -5,10 +5,12 @@ typedef enum _E_Plane_Renderer_State
    E_PLANE_RENDERER_STATE_NONE,
    E_PLANE_RENDERER_STATE_CANDIDATE,
    E_PLANE_RENDERER_STATE_ACTIVATE,
+   E_PLANE_RENDERER_STATE_PENDING_DEACTIVATE,
 } E_Plane_Renderer_State;
 
 typedef struct _E_Plane_Renderer             E_Plane_Renderer;
 typedef struct _E_Plane_Renderer_Client      E_Plane_Renderer_Client;
+typedef struct _E_Plane_Renderer_Buffer      E_Plane_Renderer_Buffer;
 #else
 #ifndef E_PLANE_RENDERER_H
 #define E_PLANE_RENDERER_H
@@ -32,7 +34,6 @@ struct _E_Plane_Renderer {
    tbm_surface_h       previous_tsurface;   /* previous tsurface displayed */
 
    Eina_List          *disp_surfaces;
-   Eina_List          *sent_surfaces;
    Eina_List          *exported_surfaces;
    Eina_List          *released_surfaces;
 
@@ -46,6 +47,9 @@ struct _E_Plane_Renderer {
    Ecore_Fd_Handler   *event_hdlr;
    int                 event_fd;
    int                 mode_change_age;
+
+   Eina_List          *renderer_buffers;
+   Eina_Bool           pending_deactivate;
 };
 
 EINTERN Eina_Bool                  e_plane_renderer_init(void);

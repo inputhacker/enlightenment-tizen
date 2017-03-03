@@ -34,6 +34,7 @@ struct _E_Comp_Config
    unsigned char hwc_use_multi_plane;
    unsigned char hwc_deactive;
    unsigned char hwc_reuse_cursor_buffer;
+   unsigned char hwc_sync_mode_change;
    unsigned char smooth_windows;
    unsigned char nofade;
    double        first_draw_delay;
