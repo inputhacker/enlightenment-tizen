@@ -1109,6 +1109,8 @@ E_API void e_remember_del(void *rem); /* TODO: should be removed */
 
 E_API void e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set);
 
+E_API void e_client_stay_within_canvas_margin(E_Client *ec);
+
 /**
  * Move window to coordinates that do not account client decorations yet.
  *
@@ -1155,6 +1157,7 @@ e_client_util_resize_without_frame(E_Client *ec, int w, int h)
    if (!ec) return;
    e_comp_object_frame_wh_adjust(ec->frame, w, h, &w, &h);
    evas_object_resize(ec->frame, w, h);
+   e_client_stay_within_canvas_margin(ec);
 }
 
 /**

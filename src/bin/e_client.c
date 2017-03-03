@@ -4103,6 +4103,21 @@ e_client_mouse_up(E_Client *ec, int button, Evas_Point *output, E_Binding_Event_
 }
 
 E_API void
+e_client_stay_within_canvas_margin(E_Client *ec)
+{
+   int new_x = ec->x;
+   int new_y = ec->y;
+
+   if (ec->floating)
+     {
+        _e_client_stay_within_canvas_margin(ec, ec->x, ec->y, &new_x, &new_y);
+
+        if ((ec->x != new_x) || (ec->y != new_y))
+          evas_object_move(ec->frame, new_x, new_y);
+     }
+}
+
+E_API void
 e_client_mouse_move(E_Client *ec, Evas_Point *output)
 {
    EINA_SAFETY_ON_NULL_RETURN(ec);
