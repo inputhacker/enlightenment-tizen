@@ -5604,7 +5604,10 @@ _tzlaunch_img_destroy(struct wl_resource *res_tzlaunch_img)
    EINA_SAFETY_ON_NULL_RETURN(tzlaunch_img);
 
    if (tzlaunch_img->obj)
-     evas_object_event_callback_del_full(tzlaunch_img->obj, EVAS_CALLBACK_DEL, _launchscreen_img_cb_del, tzlaunch_img);
+     {
+        evas_object_event_callback_del_full(tzlaunch_img->obj, EVAS_CALLBACK_DEL, _launchscreen_img_cb_del, tzlaunch_img);
+        evas_object_event_callback_del_full(tzlaunch_img->obj, EVAS_CALLBACK_HIDE, _launchscreen_img_cb_hide, tzlaunch_img);
+     }
 
    _launchscreen_img_off(tzlaunch_img);
 
@@ -5627,7 +5630,10 @@ _tzlaunch_splash_destroy(struct wl_resource *res_tzlaunch_splash)
    EINA_SAFETY_ON_NULL_RETURN(tzlaunch_splash);
 
    if (tzlaunch_splash->obj)
-     evas_object_event_callback_del_full(tzlaunch_splash->obj, EVAS_CALLBACK_DEL, _launchscreen_splash_cb_del, tzlaunch_splash);
+     {
+        evas_object_event_callback_del_full(tzlaunch_splash->obj, EVAS_CALLBACK_DEL, _launchscreen_splash_cb_del, tzlaunch_splash);
+        evas_object_event_callback_del_full(tzlaunch_splash->obj, EVAS_CALLBACK_HIDE, _launchscreen_splash_cb_hide, tzlaunch_splash);
+     }
 
    _launch_splash_off(tzlaunch_splash);
 
