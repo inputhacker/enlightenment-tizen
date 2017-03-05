@@ -204,6 +204,9 @@ e_service_cbhm_client_set(E_Client *ec)
    cbhm->ec = ec;
    cbhm->show_block = EINA_TRUE;
 
+   // set skip iconify
+   ec->exp_iconify.skip_iconify = 1;
+
    e_comp_wl->selection.cbhm = ec->comp_data->surface;
    e_client_window_role_set(ec, "cbhm");
    e_policy_conformant_part_add(ec);

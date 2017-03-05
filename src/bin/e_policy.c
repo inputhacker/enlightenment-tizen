@@ -687,6 +687,10 @@ _e_policy_cb_hook_client_eval_pre_new_client(void *d EINA_UNUSED, E_Client *ec)
           }
         ec->layer = E_POLICY_TOAST_POPUP_LAYER;
      }
+   if (e_policy_client_is_cbhm(ec))
+     {
+        ec->exp_iconify.skip_iconify = EINA_TRUE;
+     }
 }
 
 static void
