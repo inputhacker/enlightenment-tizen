@@ -1045,7 +1045,7 @@ e_pixmap_buffer_clear(E_Pixmap *cp)
    e_comp_object_clear(cp->client->frame);
 
    /* pending frame event callback*/
-   if ((!cp->client) || (!cp->client->comp_data)) return;
+   if (!cp->client->comp_data) return;
    cdata = (E_Comp_Wl_Client_Data *)cp->client->comp_data;
    EINA_LIST_FOREACH_SAFE(cdata->frames, l, ll, cb)
      {
