@@ -530,7 +530,6 @@ _e_plane_renderer_buffer_release_timeout(void *data)
 {
    E_Plane_Renderer_Buffer *renderer_buffer = data;
    E_Plane_Renderer *renderer = NULL;
-   E_Plane_Renderer_Client *renderer_client = NULL;
 
    renderer = renderer_buffer->renderer;
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
@@ -1291,7 +1290,6 @@ EINTERN Eina_Bool
 e_plane_renderer_render(E_Plane_Renderer *renderer, Eina_Bool is_fb)
 {
    E_Client *ec = NULL;
-   E_Plane_Renderer_Client *renderer_client = NULL;
    struct wayland_tbm_client_queue *cqueue = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
