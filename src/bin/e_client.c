@@ -2951,6 +2951,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
    Eina_Bool skip_rot_pending_show = EINA_FALSE;
    Eina_Bool is_above_rot_pending = EINA_FALSE;
    Eina_Bool is_launching_effect = EINA_FALSE;
+   Eina_Bool is_vis_on_skip = EINA_FALSE;
 
    int x = 0, y = 0, w = 0, h = 0;
    const int edge = 1;
@@ -3011,7 +3012,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
           }
 
         e_client_geometry_get(ec, &x, &y, &w, &h);
-        ec_vis = ec_opaque = skip_rot_pending_show = EINA_FALSE;
+        ec_vis = ec_opaque = skip_rot_pending_show = is_vis_on_skip = EINA_FALSE;
         calc_region = EINA_TRUE;
 
         if (!ec->visible)
@@ -3085,12 +3086,13 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
                     }
                   else
                     {
+                       is_vis_on_skip = EINA_TRUE;
                        ELOG("CLIENT VIS ON-SKIP", ec->pixmap, ec);
                     }
                }
 
              /* subtract window region from canvas region */
-             if (canvas_vis && !skip_rot_pending_show)
+             if (canvas_vis && !skip_rot_pending_show && !is_vis_on_skip)
                {
                   /* check alpha window is opaque or not. */
                   if ((ec->visibility.opaque > 0) && (ec->argb))
@@ -3143,7 +3145,8 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
                }
           }
 
-        changed_list = eina_list_append(changed_list, ec);
+        if (!is_vis_on_skip)
+          changed_list = eina_list_append(changed_list, ec);
         is_above_rot_pending = skip_rot_pending_show;
      }
 
