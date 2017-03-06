@@ -4795,13 +4795,6 @@ _launchscreen_img_off(E_Policy_Wl_Tzlaunch_Img *tzlaunch_img)
         e_object_del(E_OBJECT(ec));
         ec = NULL;
      }
-   else if (!e_pixmap_resource_get(ec->pixmap))
-     {
-        /* case 2: Surface is created but there's no buffer */
-        ec->visible = EINA_FALSE;
-        ec->ignored = EINA_TRUE;
-        evas_object_hide(ec->frame);
-     }
 
    if (ec)
      {
@@ -4873,13 +4866,6 @@ _launch_splash_off(E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash)
         e_pixmap_win_id_del(tzlaunch_splash->ep);
         e_object_del(E_OBJECT(ec));
         ec = NULL;
-     }
-   else if (!e_pixmap_resource_get(ec->pixmap))
-     {
-        /* case 2: Surface is created but there's no buffer */
-        ec->visible = EINA_FALSE;
-        ec->ignored = EINA_TRUE;
-        evas_object_hide(ec->frame);
      }
 
    if (ec)
