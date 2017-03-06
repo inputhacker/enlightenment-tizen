@@ -134,6 +134,9 @@ _conf_state_update(Conformant_Type type, Eina_Bool visible, int x, int y, int w,
    Eina_List *l;
    Eina_Bool wait_ack = EINA_FALSE;
 
+   if (!g_conf)
+     return;
+
    if ((g_conf->part[type].state.visible == visible) &&
        (g_conf->part[type].state.x == x) && (g_conf->part[type].state.x == y) &&
        (g_conf->part[type].state.x == w) && (g_conf->part[type].state.x == h))
@@ -257,6 +260,9 @@ _conf_defer_job_cb_owner_del(void *data, E_Client *ec)
 {
    Defer_Job *job;
 
+   if (!g_conf)
+     return;
+
    job = (Defer_Job *)data;
    if (job->owner == ec)
      {
@@ -310,6 +316,9 @@ _conf_client_defer_job_do(Conformant_Client *cfc, uint32_t serial)
    Conformant_Type type;
    Eina_List *l, *ll;
    Defer_Job *job;
+
+   if (!g_conf)
+     return;
 
    ec = cfc->ec;
 
@@ -494,6 +503,9 @@ _conf_cb_part_obj_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
    Conformant_Type type = (Conformant_Type)data;
    Defer_Job *job;
 
+   if (!g_conf)
+     return;
+
    DBG("PART %s ec(%p) Deleted", _conf_type_to_str(type), g_conf->part[type].ec);
 
    g_conf->part[type].ec = NULL;
@@ -512,6 +524,9 @@ _conf_cb_part_obj_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
    Conformant_Type type = (Conformant_Type)data;
    E_Client *owner = NULL;
 
+   if (!g_conf)
+     return;
+
    DBG("PART %s ec(%p) Show", _conf_type_to_str(type), g_conf->part[type].ec);
 
    owner = _conf_part_owner_find(g_conf->part[type].ec, type);
@@ -527,6 +542,9 @@ static void
 _conf_cb_part_obj_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    Conformant_Type type = (Conformant_Type)data;
+
+   if (!g_conf)
+     return;
 
    DBG("PART %s ec(%p) Hide", _conf_type_to_str(type), g_conf->part[type].ec);
    _conf_state_update(type,
@@ -547,6 +565,9 @@ _conf_cb_part_obj_hiding(void *data, Evas_Object *obj EINA_UNUSED, void *event_i
 {
    Conformant_Type type = (Conformant_Type)data;
 
+   if (!g_conf)
+     return;
+
    DBG("PART %s ec(%p) Hiding", _conf_type_to_str(type), g_conf->part[type].ec);
    _conf_state_update(type,
                       EINA_FALSE,
@@ -561,6 +582,9 @@ _conf_cb_part_obj_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
 {
    Conformant_Type type = (Conformant_Type)data;
 
+   if (!g_conf)
+     return;
+
    DBG("PART %s ec(%p) Move", _conf_type_to_str(type), g_conf->part[type].ec);
 
    g_conf->part[type].changed = 1;
@@ -571,6 +595,9 @@ _conf_cb_part_obj_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_
 {
    Conformant_Type type = (Conformant_Type)data;
 
+   if (!g_conf)
+     return;
+
    DBG("PART %s ec(%p) Resize", _conf_type_to_str(type), g_conf->part[type].ec);
 
    g_conf->part[type].changed = 1;
@@ -579,6 +606,9 @@ _conf_cb_part_obj_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_
 static void
 _conf_part_register(E_Client *ec, Conformant_Type type)
 {
+   if (!g_conf)
+     return;
+
    if (g_conf->part[type].ec)
      {
         ERR("Can't register ec(%p) for %s. ec(%p) was already registered.",
@@ -625,6 +655,9 @@ _conf_cb_client_rot_change_begin(void *data, int evtype EINA_UNUSED, void *event
    int i = -1;
    int angle;
 
+   if (!g_conf)
+     goto end;
+
    ev = event;
    ec = ev->ec;
 
@@ -659,6 +692,9 @@ _conf_cb_client_rot_change_cancel(void *data, int evtype EINA_UNUSED, void *even
    E_Event_Client *ev;
    Conformant_Type type;
 
+   if (!g_conf)
+     goto end;
+
    ev = event;
 
    type = _conf_client_type_get(ev->ec);
@@ -686,6 +722,9 @@ _conf_cb_client_rot_change_end(void *data, int evtype EINA_UNUSED, void *event)
    E_Event_Client *ev;
    Conformant_Type type;
 
+   if (!g_conf)
+     goto end;
+
    ev = event;
 
    type = _conf_client_type_get(ev->ec);
@@ -703,6 +742,9 @@ _conf_cb_intercept_hook_hide(void *data EINA_UNUSED, E_Client *ec)
    Conformant_Type type;
    Defer_Job *job;
    uint32_t pre_serial, post_serial;
+
+   if (!g_conf)
+     return EINA_TRUE;//need to check
 
    type = _conf_client_type_get(ec);
    if (type >= CONFORMANT_TYPE_MAX)
@@ -755,6 +797,9 @@ _conf_cb_client_buffer_change(void *data, int type, void *event)
    Conformant_Client *cfc;
    E_Client *ec;
 
+   if (!g_conf)
+     return ECORE_CALLBACK_PASS_ON;
+
    ev = event;
    ec = ev->ec;
    if (!ec) return ECORE_CALLBACK_PASS_ON;
@@ -781,7 +826,7 @@ _conf_cb_client_del(void *data, E_Client *ec)
 {
    Conformant_Client *cfc;
 
-   if (!g_conf->client_hash)
+   if (!g_conf || !g_conf->client_hash)
      return;
 
    cfc = eina_hash_find(g_conf->client_hash, &ec);
@@ -798,6 +843,9 @@ _conf_idle_enter(void *data)
    Eina_Bool visible;
    int x, y, w, h;
    Conformant_Type type;
+
+   if (!g_conf)
+     return ECORE_CALLBACK_PASS_ON;
 
    for (type = CONFORMANT_TYPE_INDICATOR; type < CONFORMANT_TYPE_MAX; type ++)
      {
