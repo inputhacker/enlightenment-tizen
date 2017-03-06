@@ -6783,7 +6783,6 @@ e_policy_wl_shutdown(void)
              E_FREE(dpy_surf);
           }
         wl_resource_destroy(tz_dpy_pol->res_tz_dpy_pol);
-        E_FREE(tz_dpy_pol);
      }
 
    EINA_LIST_FREE(polwl->tzlaunchs, tzlaunch)
