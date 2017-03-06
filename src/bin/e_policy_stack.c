@@ -67,6 +67,21 @@ _e_policy_stack_transient_for_apply(E_Client *ec)
         return;
      }
 
+   ELOGF("TZPOL", "Fetch for stack transient_for. ec_layer:%d, parent(win:%x, ec:%x, layer:%d)",
+         ec->pixmap, ec, ec->layer, e_client_util_win_get(ec->parent), (unsigned int)ec->parent, ec->parent ? ec->parent->layer:-1);
+
+   if (ec->parent == NULL)
+     {
+        // restore original layer
+        if (ec->layer == ec->saved.layer)
+          return;
+
+        ELOGF("TZPOL", "Fetch(restore) for stack transient_for. Restore layer(%d->%d)", ec->pixmap, ec, ec->layer, ec->saved.layer);
+        evas_object_layer_set(ec->frame, ec->saved.layer);
+
+        return;
+     }
+
    if (ec->parent->layer != ec->layer)
      {
         raise = e_config->transient.raise;
@@ -139,24 +154,29 @@ e_policy_stack_hook_pre_post_fetch(E_Client *ec)
 
    if (ps)
      {
-        if ((ps->transient.win) && (ps->transient.fetched))
+        if (ps->transient.fetched)
           {
-             if ((ec->icccm.transient_for == ps->transient.win) &&
-                 (ec->parent))
-               _e_policy_stack_transient_for_apply(ec);
-             else
-               ps->transient.win = ec->icccm.transient_for;
-
-             if (ec->parent)
+             if (ps->transient.win)
                {
-                  if (ec->parent == e_client_focused_get())
+                  if (ec->icccm.transient_for == ps->transient.win)
+                    _e_policy_stack_transient_for_apply(ec);
+                  else
+                    ps->transient.win = ec->icccm.transient_for;
+
+                  if (ec->parent)
                     {
-                       new_focus = e_client_transient_child_top_get(ec->parent, EINA_TRUE);
-                       if (new_focus)
-                         evas_object_focus_set(new_focus->frame, 1);
+                       if (ec->parent == e_client_focused_get())
+                         {
+                            new_focus = e_client_transient_child_top_get(ec->parent, EINA_TRUE);
+                            if (new_focus)
+                              evas_object_focus_set(new_focus->frame, 1);
+                         }
                     }
                }
-
+             else
+               {
+                  _e_policy_stack_transient_for_apply(ec);
+               }
              ps->transient.fetched = 0;
           }
      }
@@ -165,21 +185,20 @@ e_policy_stack_hook_pre_post_fetch(E_Client *ec)
 void
 e_policy_stack_hook_pre_fetch(E_Client *ec)
 {
-   E_Policy_Stack *ps;
-   ps = eina_hash_find(hash_pol_stack, &ec);
-
    if (ec->icccm.fetch.transient_for)
      {
+        E_Policy_Stack *ps;
         Ecore_Window transient_for_win = 0;
         E_Client *parent = NULL;
         Eina_Bool transient_each_other = EINA_FALSE;
+
+        ps = _e_policy_stack_data_add(ec);
+        EINA_SAFETY_ON_NULL_RETURN(ps);
 
         parent = e_pixmap_find_client(E_PIXMAP_TYPE_WL, ec->icccm.transient_for);
 
         if (parent)
           {
-             if (!ps) ps = _e_policy_stack_data_add(ec);
-
              ps->transient.win = e_client_util_win_get(parent);
              ps->transient.fetched = 1;
 
@@ -192,63 +211,88 @@ e_policy_stack_hook_pre_fetch(E_Client *ec)
                   parent = NULL;
                }
           }
+        else
+          {
+             ps->transient.win = 0;
+             ps->transient.fetched = 1;
+          }
+
         ec->icccm.fetch.transient_for = 0;
      }
 }
 
 void
-e_policy_stack_transient_for_set(E_Client *child, E_Client *parent)
+e_policy_stack_transient_for_set(E_Client *ec, E_Client *parent)
 {
+   E_Policy_Stack *ps;
    Ecore_Window pwin = 0;
 
-   EINA_SAFETY_ON_NULL_RETURN(child);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
 
    if (!parent)
      {
-        child->icccm.fetch.transient_for = EINA_FALSE;
-        child->icccm.transient_for = 0;
-        if (child->parent)
+        ec->icccm.fetch.transient_for = EINA_TRUE;
+        ec->icccm.transient_for = 0;
+        if (ec->parent)
           {
-             child->parent->transients =
-                eina_list_remove(child->parent->transients, child);
-             if (child->parent->modal == child) child->parent->modal = NULL;
-             child->parent = NULL;
+             ec->parent->transients =
+                eina_list_remove(ec->parent->transients, ec);
+             if (ec->parent->modal == ec) ec->parent->modal = NULL;
+             ec->parent = NULL;
           }
         return;
      }
 
+   ps = _e_policy_stack_data_add(ec);
+   EINA_SAFETY_ON_NULL_RETURN(ps);
+
    pwin = e_client_util_win_get(parent);
 
    /* If we already have a parent, remove it */
-   if (child->parent)
+   if (ec->parent)
      {
-        if (parent != child->parent)
+        if (parent != ec->parent)
           {
-             child->parent->transients =
-                eina_list_remove(child->parent->transients, child);
-             if (child->parent->modal == child) child->parent->modal = NULL;
-             child->parent = NULL;
+             ec->parent->transients =
+                eina_list_remove(ec->parent->transients, ec);
+             if (ec->parent->modal == ec) ec->parent->modal = NULL;
+             ec->parent = NULL;
           }
         else
           parent = NULL;
      }
 
-   if ((parent) && (parent != child) &&
-       (eina_list_data_find(parent->transients, child) != child))
+   if ((parent) && (parent != ec) &&
+       (eina_list_data_find(parent->transients, ec) != ec))
      {
-        parent->transients = eina_list_append(parent->transients, child);
-        child->parent = parent;
+        parent->transients = eina_list_append(parent->transients, ec);
+        ec->parent = parent;
      }
 
-   child->icccm.fetch.transient_for = EINA_TRUE;
-   child->icccm.transient_for = pwin;
+   ec->icccm.fetch.transient_for = EINA_TRUE;
+   ec->icccm.transient_for = pwin;
 
-   EC_CHANGED(child);
+   if (!ps->transient.win)
+     ec->saved.layer = ec->layer;
+
+   EC_CHANGED(ec);
 }
 
 void
 e_policy_stack_cb_client_remove(E_Client *ec)
 {
+   Eina_List *l;
+   E_Client *child = NULL;
+
+   EINA_LIST_FOREACH(ec->transients, l, child)
+     {
+        if (!child) continue;
+        if (e_object_is_del(E_OBJECT(child))) continue;
+        // for restore child's original layer
+        child->icccm.fetch.transient_for = EINA_TRUE;
+        EC_CHANGED(child);
+     }
+
    _e_policy_stack_data_del(ec);
 }
 
