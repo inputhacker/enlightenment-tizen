@@ -369,8 +369,8 @@ _e_policy_stack_find_top_lockscreen(E_Client *ec_lock, E_Client *ec_except)
             (e_policy_client_is_lockscreen(ec)))
           {
              e_client_geometry_get(ec, &x, &y, &w, &h);
-             if (E_CONTAINS(ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h,
-                            x, y, w, h))
+             if (E_CONTAINS(x, y, w, h,
+                            ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
                {
                   ec_top_lock = ec;
                   break;

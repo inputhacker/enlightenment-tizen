@@ -805,7 +805,7 @@ _e_policy_cb_hook_client_eval_post_new_client(void *d EINA_UNUSED, E_Client *ec)
         zw = ec->zone->w;
         zh = ec->zone->h;
 
-        if (E_CONTAINS(zx, zy, zw, zh, ec->x, ec->y, ec->w, ec->h))
+        if (E_CONTAINS(ec->x, ec->y, ec->w, ec->h, zx, zy, zw, zh))
           e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
      }
 }
@@ -1169,7 +1169,7 @@ _e_policy_cb_client_move(void *data EINA_UNUSED, int type EINA_UNUSED, void *eve
         zw = ec->zone->w;
         zh = ec->zone->h;
 
-        if (E_CONTAINS(zx, zy, zw, zh, ec->x, ec->y, ec->w, ec->h))
+        if (E_CONTAINS(ec->x, ec->y, ec->w, ec->h, zx, zy, zw, zh))
           e_policy_stack_clients_restack_above_lockscreen(ev->ec, EINA_TRUE);
         else
           e_policy_stack_clients_restack_above_lockscreen(ev->ec, EINA_FALSE);
