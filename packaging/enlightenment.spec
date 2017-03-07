@@ -8,10 +8,12 @@ Group:          Graphics/EFL
 Source0:        enlightenment-%{version}.tar.bz2
 Source1001:     enlightenment.manifest
 
+%if 0%{?tizen_version_major} <= 3
 # use libgomp only in arm 32bit mobile
 %ifarch %{arm}
 %if "%{?profile}" == "mobile"
 %define LIBGOMP use
+%endif
 %endif
 %endif
 
