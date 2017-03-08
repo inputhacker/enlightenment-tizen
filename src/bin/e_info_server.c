@@ -905,6 +905,59 @@ _msg_window_prop_client_append(Eldbus_Message_Iter *iter, E_Client *target_ec)
                }
           }
      }
+
+   /* Rotation info */
+   __WINDOW_PROP_ARG_APPEND_TYPE("Rotation", "Support(%d) Type(%s)",
+                                 target_ec->e.state.rot.support,
+                                 target_ec->e.state.rot.type == E_CLIENT_ROTATION_TYPE_NORMAL ? "normal" : "dependent");
+
+   if ((target_ec->e.state.rot.available_rots) &&
+       (target_ec->e.state.rot.count))
+     {
+        int i = 0;
+        char availables[256] = { 0, };
+
+        for (i = 0; i < target_ec->e.state.rot.count; i++)
+          {
+             char tmp[16];
+             snprintf(tmp, sizeof(tmp), "%d ", target_ec->e.state.rot.available_rots[i]);
+             strncat(availables, tmp, sizeof(availables) - strlen(availables));
+          }
+
+        __WINDOW_PROP_ARG_APPEND_TYPE(" ", "Availables[%d] %s", target_ec->e.state.rot.count, availables);
+     }
+   else
+     {
+        __WINDOW_PROP_ARG_APPEND_TYPE(" ", "Availables[%d] N/A", target_ec->e.state.rot.count);
+     }
+
+
+   __WINDOW_PROP_ARG_APPEND_TYPE(" ", "Angle prev(%d) curr(%d) next(%d) reserve(%d) preferred(%d)",
+                                 target_ec->e.state.rot.ang.prev,
+                                 target_ec->e.state.rot.ang.curr,
+                                 target_ec->e.state.rot.ang.next,
+                                 target_ec->e.state.rot.ang.reserve,
+                                 target_ec->e.state.rot.preferred_rot);
+
+   __WINDOW_PROP_ARG_APPEND_TYPE(" ", "pending_change_request(%d) pending_show(%d) nopending_render(%d) wait_for_done(%d)",
+                                 target_ec->e.state.rot.pending_change_request,
+                                 target_ec->e.state.rot.pending_show,
+                                 target_ec->e.state.rot.nopending_render,
+                                 target_ec->e.state.rot.wait_for_done);
+
+   if (target_ec->e.state.rot.geom_hint)
+     {
+        int i = 0;
+        for (i = 0; i < 4; i++)
+          {
+             __WINDOW_PROP_ARG_APPEND_TYPE(" ", "Geometry hint[%d] %d,%d   %dx%d",
+                                           i,
+                                           target_ec->e.state.rot.geom[i].x,
+                                           target_ec->e.state.rot.geom[i].y,
+                                           target_ec->e.state.rot.geom[i].w,
+                                           target_ec->e.state.rot.geom[i].h);
+          }
+     }
 #undef __WINDOW_PROP_ARG_APPEND
 #undef __WINDOW_PROP_ARG_APPEND_TYPE
 }
