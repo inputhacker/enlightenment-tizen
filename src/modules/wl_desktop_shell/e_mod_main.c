@@ -532,6 +532,9 @@ _e_shell_surface_map(struct wl_resource *resource)
                      evas_object_lower(ec->frame);
                   else if (ec->post_raise)
                      evas_object_raise(ec->frame);
+
+                  ec->post_lower = EINA_FALSE;
+                  ec->post_raise = EINA_FALSE;
                }
           }
 
@@ -1138,6 +1141,9 @@ _e_xdg_shell_surface_map_cb_timer(void *data)
                      evas_object_lower(ec->frame);
                   else if (ec->post_raise)
                      evas_object_raise(ec->frame);
+
+                  ec->post_lower = EINA_FALSE;
+                  ec->post_raise = EINA_FALSE;
                }
           }
 
@@ -1230,6 +1236,9 @@ _e_xdg_shell_surface_map(struct wl_resource *resource)
                      evas_object_lower(ec->frame);
                   else if (ec->post_raise)
                      evas_object_raise(ec->frame);
+
+                  ec->post_lower = EINA_FALSE;
+                  ec->post_raise = EINA_FALSE;
                }
           }
 

@@ -1354,6 +1354,8 @@ _tzpol_iface_cb_activate(struct wl_client *client EINA_UNUSED, struct wl_resourc
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
    ELOGF("TZPOL", "ACTIVATE", ec->pixmap, ec);
+   ec->post_lower = EINA_FALSE;
+   ec->post_raise = EINA_FALSE;
    e_policy_wl_activate(ec);
 }
 
