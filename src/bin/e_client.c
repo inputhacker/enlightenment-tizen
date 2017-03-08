@@ -102,6 +102,7 @@ static Eina_Inlist *_e_client_hooks[] =
    [E_CLIENT_HOOK_AUX_HINT_CHANGE] = NULL,
    [E_CLIENT_HOOK_WINDOW_ROLE_CHANGE] = NULL,
    [E_CLIENT_HOOK_CAL_VISIBILITY_DISPLAY_OFF] = NULL,
+   [E_CLIENT_HOOK_TRANSFORM_CHANGE] = NULL,
 };
 
 static Eina_Inlist *_e_client_intercept_hooks[] =
@@ -6458,6 +6459,8 @@ e_client_transform_core_update(E_Client *ec)
 
         // 6. subsurface update'
         _e_client_transform_core_sub_update(ec, &ec->transform_core.result.vertices);
+
+        _e_client_hook_call(E_CLIENT_HOOK_TRANSFORM_CHANGE, ec);
      }
    else
      {
@@ -6468,6 +6471,8 @@ e_client_transform_core_update(E_Client *ec)
              e_comp_object_transform_bg_set(ec->frame, EINA_FALSE);
              e_comp_object_transform_transp_set(ec->frame, EINA_FALSE);
              _e_client_transform_core_sub_update(ec, NULL);
+
+             _e_client_hook_call(E_CLIENT_HOOK_TRANSFORM_CHANGE, ec);
           }
      }
 
