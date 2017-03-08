@@ -167,7 +167,7 @@ _e_comp_wl_data_device_destroy_selection_data_source(struct wl_listener *listene
    if (e_comp_wl->selection.cbhm)
      cbhm_client =  wl_resource_get_client(e_comp_wl->selection.cbhm);
 
-   if (source_client != cbhm_client)
+   if ((cbhm_client) && (source_client != cbhm_client))
      {
         data_device_res =
            e_comp_wl_data_find_for_client(wl_resource_get_client(e_comp_wl->selection.cbhm));
