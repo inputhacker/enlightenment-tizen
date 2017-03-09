@@ -6464,7 +6464,8 @@ e_client_transform_core_update(E_Client *ec)
         // 6. subsurface update'
         _e_client_transform_core_sub_update(ec, &ec->transform_core.result.vertices);
 
-        _e_client_hook_call(E_CLIENT_HOOK_TRANSFORM_CHANGE, ec);
+        if (!e_object_is_del(E_OBJECT(ec)))
+          _e_client_hook_call(E_CLIENT_HOOK_TRANSFORM_CHANGE, ec);
      }
    else
      {
@@ -6476,7 +6477,8 @@ e_client_transform_core_update(E_Client *ec)
              e_comp_object_transform_transp_set(ec->frame, EINA_FALSE);
              _e_client_transform_core_sub_update(ec, NULL);
 
-             _e_client_hook_call(E_CLIENT_HOOK_TRANSFORM_CHANGE, ec);
+             if (!e_object_is_del(E_OBJECT(ec)))
+               _e_client_hook_call(E_CLIENT_HOOK_TRANSFORM_CHANGE, ec);
           }
      }
 
