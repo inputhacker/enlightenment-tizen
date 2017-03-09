@@ -174,6 +174,7 @@ struct _E_Config
    Eina_Bool save_win_buffer;
    const char *indicator_plug_name;
    Eina_Bool launchscreen_without_timer;
+   int log_type;
 };
 
 struct _E_Config_Desklock_Background

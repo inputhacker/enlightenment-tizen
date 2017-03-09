@@ -58,10 +58,30 @@ _e_log_cb(const Eina_Log_Domain *d, Eina_Log_Level level, const char *file, cons
 
         vsnprintf((char *)buf, sizeof(buf), fmt, args);
 
-        dlog_print(log_level, LOG_TAG,
-                  "%s<%s> %30.30s:%04d %s",
-                  _names[level > EINA_LOG_LEVEL_DBG ? EINA_LOG_LEVEL_DBG : level],
-                  d->domain_str,file, line, buf);
+        if (e_config)
+          {
+             if (e_config->log_type == E_LOG_TYPE_SYSTEM)
+               {
+                  print_system_log(log_level, LOG_TAG,
+                                   "%s<%s> %30.30s:%04d %s",
+                                   _names[level > EINA_LOG_LEVEL_DBG ? EINA_LOG_LEVEL_DBG : level],
+                                   d->domain_str,file, line, buf);
+               }
+             else
+               {
+                  dlog_print(log_level, LOG_TAG,
+                             "%s<%s> %30.30s:%04d %s",
+                             _names[level > EINA_LOG_LEVEL_DBG ? EINA_LOG_LEVEL_DBG : level],
+                             d->domain_str,file, line, buf);
+               }
+          }
+        else
+          {
+             dlog_print(log_level, LOG_TAG,
+                        "%s<%s> %30.30s:%04d %s",
+                        _names[level > EINA_LOG_LEVEL_DBG ? EINA_LOG_LEVEL_DBG : level],
+                        d->domain_str,file, line, buf);
+          }
         return;
      }
 #endif
@@ -79,7 +99,15 @@ _e_log_cb(const Eina_Log_Domain *d, Eina_Log_Level level, const char *file, cons
 static void
 _e_log_wayland_dlog(const char *format, va_list args)
 {
-   dlog_vprint(DLOG_INFO, LOG_TAG, format, args);
+   if (e_config)
+     {
+        if (e_config->log_type == E_LOG_TYPE_SYSTEM)
+          vprint_system_log(DLOG_INFO, LOG_TAG, format, args);
+        else
+          dlog_vprint(DLOG_INFO, LOG_TAG, format, args);
+     }
+   else
+     dlog_vprint(DLOG_INFO, LOG_TAG, format, args);
 }
 
 static void

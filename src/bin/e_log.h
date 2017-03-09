@@ -98,6 +98,11 @@
      }                                                 \
    while (0)
 
+typedef enum _E_Log_Type
+{
+   E_LOG_TYPE_DEFAULT = 0,
+   E_LOG_TYPE_SYSTEM  = 1,
+} E_Log_Type;
 
 extern E_API int e_log_dom;
 
