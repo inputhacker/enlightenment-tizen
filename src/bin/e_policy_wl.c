@@ -5422,7 +5422,7 @@ _tzlaunch_splash_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_
           {
              old_ec = tzlaunch_splash->ec;
 
-             new_ec->ignored = EINA_FALSE;
+             e_client_unignore(new_ec);
              new_ec->visible = EINA_TRUE;
              new_ec->new_client = EINA_FALSE;
              new_ec->argb = old_ec->argb;
