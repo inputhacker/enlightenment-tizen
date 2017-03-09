@@ -31,7 +31,7 @@ _e_log_cb(const Eina_Log_Domain *d, Eina_Log_Level level, const char *file, cons
         switch (level)
           {
            case EINA_LOG_LEVEL_CRITICAL:
-              log_level = DLOG_FATAL;
+              log_level = DLOG_ERROR;
               strncpy(tmp_log_level, "FATAL", len);
               break;
            case EINA_LOG_LEVEL_ERR:
