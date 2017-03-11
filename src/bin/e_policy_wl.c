@@ -1611,11 +1611,7 @@ _tzpol_iface_cb_role_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
    e_client_window_role_set(ec, role);
 
    /* TODO: support multiple roles */
-   if (!e_util_strcmp("alert", role))
-     {
-        evas_object_layer_set(ec->frame, E_LAYER_CLIENT_ALERT);
-     }
-   else if (!e_util_strcmp("tv-volume-popup", role))
+   if (!e_util_strcmp("tv-volume-popup", role))
      {
         evas_object_layer_set(ec->frame, E_LAYER_CLIENT_NOTIFICATION_LOW);
         ec->lock_client_location = 1;
