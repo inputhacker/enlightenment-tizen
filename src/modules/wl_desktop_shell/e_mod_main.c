@@ -1113,6 +1113,12 @@ _e_xdg_shell_surface_map_cb_timer(void *data)
               (unsigned int)e_client_util_win_get(ec),
               ec->w, ec->h);
 
+        if (ec->use_splash)
+          {
+             ELOGF("LAUNCH", "SHOW real win after splash effect by map_timer", ec->pixmap, ec);
+             e_comp_object_signal_emit(ec->frame, "e,action,launch_real,done", "e");
+          }
+
         /* unset previous content */
         e_comp_object_content_unset(ec->frame);
 
@@ -1206,7 +1212,6 @@ _e_xdg_shell_surface_map(struct wl_resource *resource)
                   return;
                }
           }
-
         E_FREE_FUNC(ec->map_timer, ecore_timer_del);
 
         ELOGF("SHELL",
@@ -1214,6 +1219,12 @@ _e_xdg_shell_surface_map(struct wl_resource *resource)
               ec->pixmap, ec,
               (unsigned int)e_client_util_win_get(ec),
               ec->w, ec->h);
+
+        if (ec->use_splash)
+          {
+             ELOGF("LAUNCH", "SHOW real win after splash effect", ec->pixmap, ec);
+             e_comp_object_signal_emit(ec->frame, "e,action,launch_real,done", "e");
+          }
 
         /* unset previous content */
         e_comp_object_content_unset(ec->frame);
