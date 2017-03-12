@@ -931,6 +931,7 @@ struct E_Client
    Eina_Bool is_cursor : 1; // The client is a cursor client
 
    int effect_type;
+   Eina_Bool use_splash : 1;
 };
 
 #define e_client_focus_policy_click(ec) \
