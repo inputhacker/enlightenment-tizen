@@ -274,10 +274,10 @@ _e_comp_wl_data_device_selection_set(void *data EINA_UNUSED, E_Comp_Wl_Data_Sour
 
    if (sel_source)
      {
-        if (sel_source->cancelled)
-          sel_source->cancelled(sel_source);
         if (!e_comp_wl->clipboard.xwl_owner)
           wl_list_remove(&e_comp_wl->selection.data_source_listener.link);
+        if (sel_source->cancelled)
+          sel_source->cancelled(sel_source);
         e_comp_wl->selection.data_source = NULL;
      }
 
@@ -807,7 +807,7 @@ e_comp_wl_data_device_keyboard_focus_set(void)
       eina_list_remove(e_comp_wl->selection.data_only_list,
                        data_device_res);
 
-   if (source)
+   if (source && !source->is_manual)
      {
         offer_res =
            _e_comp_wl_data_device_data_offer_create(source, data_device_res);
@@ -994,7 +994,7 @@ e_comp_wl_data_device_only_set(struct wl_resource *data_device_res, Eina_Bool se
            eina_list_append(e_comp_wl->selection.data_only_list, data_device_res);
 
         source = (E_Comp_Wl_Data_Source *)e_comp_wl->selection.data_source;
-        if (source)
+        if (source && !source->is_manual)
           {
              offer_res =
                 _e_comp_wl_data_device_data_offer_create(source, data_device_res);
@@ -1013,5 +1013,195 @@ e_comp_wl_data_device_only_set(struct wl_resource *data_device_res, Eina_Bool se
              wl_data_device_send_selection(data_device_res, NULL);
           }
      }
+}
+
+static void
+_e_comp_wl_data_device_destroy_manual_source(struct wl_listener *listener EINA_UNUSED, void *data EINA_UNUSED)
+{
+  struct wl_resource *data_device_res = NULL;
+  struct wl_client *cbhm_client = NULL;
+
+  e_comp_wl->selection.data_source = NULL;
+
+  if (e_comp_wl->selection.cbhm)
+     cbhm_client =  wl_resource_get_client(e_comp_wl->selection.cbhm);
+
+   if (cbhm_client)
+     {
+        data_device_res =
+           e_comp_wl_data_find_for_client(cbhm_client);
+
+        if (data_device_res)
+          wl_data_device_send_selection(data_device_res, NULL);
+     }
+}
+
+static int
+_e_comp_wl_manual_source_ref(E_Comp_Wl_Manual_Data_Source *source)
+{
+   source->ref ++;
+   return source->ref;
+}
+
+static int
+_e_comp_wl_manual_source_unref(E_Comp_Wl_Manual_Data_Source *source)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(source, 0);
+   source->ref --;
+   if (source->ref > 0)
+     return source->ref;
+
+   _mime_types_free(&source->data_source);
+
+   wl_signal_emit(&source->data_source.destroy_signal, &source->data_source);
+   wl_array_release(&source->contents);
+   free(source);
+
+   return 0;
+}
+
+static void
+_e_comp_wl_manual_offer_load(E_Comp_Wl_Manual_Data_Source *source, int fd)
+{
+   char *p;
+   size_t size;
+   int len;
+   int offset = 0;
+
+   size = source->contents.size;
+   p = (char *)source->contents.data;
+   len = write(fd, p, size);
+   if (len > 0) offset += len;
+   else if (len == -1)
+     ERR("could not write for fd(%d) :%m", fd);
+
+   if ((offset == size) || (len <= 0))
+     {
+        _e_comp_wl_manual_source_unref(source);
+     }
+}
+
+static void
+_e_comp_wl_manual_source_target_send(E_Comp_Wl_Data_Source *source EINA_UNUSED, uint32_t serial EINA_UNUSED, const char *mime_type EINA_UNUSED)
+{
+}
+
+static void
+_e_comp_wl_manual_source_send_send(E_Comp_Wl_Data_Source *source, const char *mime_type, int fd)
+{
+   E_Comp_Wl_Manual_Data_Source *man_source;
+
+   man_source = container_of(source, E_Comp_Wl_Manual_Data_Source, data_source);
+   if (!man_source) return;
+
+   _e_comp_wl_manual_offer_load(man_source, fd);
+   close(fd);
+}
+
+static void
+_e_comp_wl_manual_source_cancelled_send(E_Comp_Wl_Data_Source *source EINA_UNUSED)
+{
+   E_Comp_Wl_Manual_Data_Source *man_source;
+
+   man_source = container_of(source, E_Comp_Wl_Manual_Data_Source, data_source);
+   if (!man_source) return;
+
+   _e_comp_wl_manual_source_unref(man_source);
+}
+
+static void
+_e_comp_wl_data_device_manual_selection_set(E_Comp_Wl_Data_Source *source, uint32_t serial)
+{
+   E_Comp_Wl_Data_Source *sel_source;
+   struct wl_resource *offer_res, *data_device_res;
+   struct wl_client *cbhm_client = NULL;
+
+   sel_source = (E_Comp_Wl_Data_Source*)e_comp_wl->selection.data_source;
+
+   if (e_comp_wl->selection.cbhm)
+     cbhm_client = wl_resource_get_client(e_comp_wl->selection.cbhm);
+
+   if (sel_source)
+     {
+        if (!e_comp_wl->clipboard.xwl_owner)
+          wl_list_remove(&e_comp_wl->selection.data_source_listener.link);
+        if (sel_source->cancelled)
+          sel_source->cancelled(sel_source);
+        e_comp_wl->selection.data_source = NULL;
+     }
+
+   e_comp_wl->selection.data_source = sel_source = source;
+   e_comp_wl->clipboard.xwl_owner = NULL;
+   e_comp_wl->selection.serial = serial;
+
+   if (cbhm_client)
+     {
+        data_device_res =
+           e_comp_wl_data_find_for_client(cbhm_client);
+        if ((data_device_res) && (source))
+          {
+             offer_res =
+                _e_comp_wl_data_device_data_offer_create(source,
+                                                         data_device_res);
+             wl_data_device_send_selection(data_device_res, offer_res);
+          }
+     }
+
+   //do not notify to internal clipboard
+   //wl_signal_emit(&e_comp_wl->selection.signal, e_comp->wl_comp_data);
+
+   if (source)
+     {
+        e_comp_wl->selection.data_source_listener.notify =
+           _e_comp_wl_data_device_destroy_manual_source;
+        wl_signal_add(&source->destroy_signal,
+                      &e_comp_wl->selection.data_source_listener);
+     }
+}
+
+E_API Eina_Bool
+e_comp_wl_data_device_manual_selection_set(void *data, size_t size, Eina_List *mime_list)
+{
+   E_Comp_Wl_Manual_Data_Source *man_source;
+   Eina_List *l;
+   const char *t;
+
+   if ((size <= 0) || (!data) || (!mime_list)) return EINA_FALSE;
+
+   man_source = E_NEW(E_Comp_Wl_Manual_Data_Source, 1);
+   if (!man_source) return EINA_FALSE;
+
+   man_source->data_source.resource = NULL;
+   man_source->data_source.target = _e_comp_wl_manual_source_target_send;
+   man_source->data_source.send = _e_comp_wl_manual_source_send_send;
+   man_source->data_source.cancelled = _e_comp_wl_manual_source_cancelled_send;
+   man_source->data_source.is_manual = EINA_TRUE;
+
+   wl_array_init(&man_source->contents);
+   wl_signal_init(&man_source->data_source.destroy_signal);
+
+   man_source->serial = e_comp_wl->selection.serial;
+
+   if (!man_source->data_source.mime_types)
+     man_source->data_source.mime_types = eina_array_new(64);
+
+   if (man_source->data_source.mime_types == NULL)
+     {
+        wl_array_release(&man_source->contents);
+        E_FREE(man_source);
+        return EINA_FALSE;
+     }
+
+   EINA_LIST_FOREACH(mime_list, l, t)
+      eina_array_push(man_source->data_source.mime_types, eina_stringshare_add(t));
+
+   if (man_source->contents.alloc < size)
+     wl_array_add(&man_source->contents, size);
+   man_source->contents.size += size;
+   memcpy(man_source->contents.data, data, size);
+
+   _e_comp_wl_manual_source_ref(man_source);
+   _e_comp_wl_data_device_manual_selection_set(&man_source->data_source, man_source->serial);
+   return EINA_TRUE;
 }
 

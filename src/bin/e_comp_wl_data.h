@@ -15,6 +15,8 @@ typedef struct _E_Comp_Wl_Data_Source E_Comp_Wl_Data_Source;
 typedef struct _E_Comp_Wl_Data_Offer E_Comp_Wl_Data_Offer;
 typedef struct _E_Comp_Wl_Clipboard_Source E_Comp_Wl_Clipboard_Source;
 typedef struct _E_Comp_Wl_Clipboard_Offer E_Comp_Wl_Clipboard_Offer;
+typedef struct _E_Comp_Wl_Manual_Data_Source E_Comp_Wl_Manual_Data_Source;
+typedef struct _E_Comp_Wl_Manual_Data_Offer E_Comp_Wl_Manual_Data_Offer;
 
 struct _E_Comp_Wl_Data_Source
 {
@@ -26,6 +28,8 @@ struct _E_Comp_Wl_Data_Source
    void (*target) (E_Comp_Wl_Data_Source *source, uint32_t serial, const char* mime_type);
    void (*send) (E_Comp_Wl_Data_Source *source, const char* mime_type, int32_t fd);
    void (*cancelled) (E_Comp_Wl_Data_Source *source);
+
+   Eina_Bool is_manual;
 };
 
 struct _E_Comp_Wl_Data_Offer
@@ -54,6 +58,22 @@ struct _E_Comp_Wl_Clipboard_Offer
    size_t offset;
 };
 
+struct _E_Comp_Wl_Manual_Data_Source
+{
+    E_Comp_Wl_Data_Source data_source;
+    uint32_t serial;
+
+    struct wl_array contents;
+    int ref;
+};
+
+struct _E_Comp_Wl_Manual_Data_Offer
+{
+    E_Comp_Wl_Manual_Data_Source *source;
+    Ecore_Fd_Handler *fd_handler;
+    size_t offset;
+};
+
 E_API void e_comp_wl_data_device_send_enter(E_Client *ec);
 E_API void e_comp_wl_data_device_send_leave(E_Client *ec);
 EINTERN void *e_comp_wl_data_device_send_offer(E_Client *ec);
@@ -66,5 +86,6 @@ E_API int e_comp_wl_clipboard_source_ref(E_Comp_Wl_Clipboard_Source *source);
 E_API int e_comp_wl_clipboard_source_unref(E_Comp_Wl_Clipboard_Source *source);
 E_API E_Comp_Wl_Clipboard_Source *e_comp_wl_clipboard_source_create(const char *mime_type, uint32_t serial, int *fd);
 E_API void e_comp_wl_data_device_only_set(struct wl_resource *data_device_res, Eina_Bool set);
+E_API Eina_Bool e_comp_wl_data_device_manual_selection_set(void *data, size_t size, Eina_List *mime_list);
 # endif
 #endif
