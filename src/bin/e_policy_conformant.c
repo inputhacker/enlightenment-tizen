@@ -825,9 +825,12 @@ static void
 _conf_cb_client_del(void *data, E_Client *ec)
 {
    Conformant_Client *cfc;
+   Conformant_Type type;
 
    if (!g_conf || !g_conf->client_hash)
      return;
+
+   DBG("Client Del '%s'(%p)", ec->icccm.name ? ec->icccm.name : "", ec);
 
    cfc = eina_hash_find(g_conf->client_hash, &ec);
    if (!cfc)
@@ -835,6 +838,15 @@ _conf_cb_client_del(void *data, E_Client *ec)
 
    eina_hash_del(g_conf->client_hash, &ec, cfc);
    _conf_client_del(cfc);
+
+   for (type = 0; type < CONFORMANT_TYPE_MAX; type++)
+     {
+        if (g_conf->part[type].owner == ec)
+          {
+             g_conf->part[type].owner = NULL;
+             g_conf->part[type].state.will_hide = EINA_FALSE;
+          }
+     }
 }
 
 static Eina_Bool
