@@ -840,11 +840,13 @@ _e_policy_wl_surf_add(E_Client *ec, struct wl_resource *res_tzpol)
    psurf = E_NEW(E_Policy_Wl_Surface, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(psurf, NULL);
 
-   psurf->surf = ec->comp_data->surface;
    psurf->tzpol = tzpol;
    psurf->cp = ec->pixmap;
    psurf->ec = ec;
    psurf->pid = ec->netwm.pid;
+
+   if (wl_resource_get_client(ec->comp_data->surface) == wl_resource_get_client(res_tzpol))
+       psurf->surf = ec->comp_data->surface;
 
    tzpol->psurfs = eina_list_append(tzpol->psurfs, psurf);
 
@@ -1183,6 +1185,7 @@ e_policy_wl_iconify_state_change_send(E_Client *ec, int iconic)
        {
           ec2 = e_pixmap_client_get(psurf->cp);
           if (ec2 != ec) continue;
+          if (!psurf->surf) continue;
 
           tizen_policy_send_iconify_state_changed(tzpol->res_tzpol, psurf->surf, iconic, 1);
           ELOGF("ICONIFY",
@@ -2207,6 +2210,8 @@ _e_policy_wl_allowed_aux_hint_send(E_Client *ec, int id)
      EINA_LIST_FOREACH(tzpol->psurfs, l, psurf)
        {
           if (e_pixmap_client_get(psurf->cp) != ec) continue;
+          if (!psurf->surf) continue;
+
           tizen_policy_send_allowed_aux_hint
             (tzpol->res_tzpol,
              psurf->surf,
@@ -6570,6 +6575,8 @@ e_policy_wl_aux_message_send(E_Client *ec,
       EINA_LIST_FOREACH(tzpol->psurfs, l, psurf)
         {
            if (e_pixmap_client_get(psurf->cp) != ec) continue;
+           if (!psurf->surf) continue;
+
            tizen_policy_send_aux_message(tzpol->res_tzpol,
                                          psurf->surf,
                                          key, val, &opt_array);
