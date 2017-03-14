@@ -916,6 +916,8 @@ e_plane_commit(E_Plane *plane)
         return EINA_FALSE;
      }
 
+   plane->pending_commit = EINA_TRUE;
+
    return EINA_TRUE;
 }
 
@@ -932,7 +934,6 @@ e_plane_commit_data_aquire(E_Plane *plane)
         data->plane = plane;
         data->tsurface = NULL;
         data->ec = NULL;
-        plane->pending_commit = EINA_TRUE;
         plane->need_unset_commit = EINA_FALSE;
 
         return data;
@@ -954,7 +955,6 @@ e_plane_commit_data_aquire(E_Plane *plane)
 
         /* set the update_exist to be false */
         e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
-        plane->pending_commit = EINA_TRUE;
 
         return data;
      }
@@ -971,7 +971,6 @@ e_plane_commit_data_aquire(E_Plane *plane)
 
              /* set the update_exist to be false */
              e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
-             plane->pending_commit = EINA_TRUE;
 
              /* send frame event enlightenment dosen't send frame evnet in nocomp */
              e_pixmap_image_clear(plane->ec->pixmap, 1);
