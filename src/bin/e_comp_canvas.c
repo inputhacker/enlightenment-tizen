@@ -141,6 +141,19 @@ _e_comp_canvas_prerender(Ecore_Evas *ee EINA_UNUSED)
      cb();
 }
 
+static Eina_Bool
+_e_comp_cb_compositor_enabled()
+{
+   // canvas is not updated if there were no window or no obj changes on canvas by evas calc.
+   // it happens sometimes after hwc end, than force canvas render
+   DBG("Compositor Enabled");
+
+   if (e_comp->evas)
+     evas_damage_rectangle_add(e_comp->evas, 0, 0, e_comp->w, e_comp->h);
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
 E_API Eina_Bool
 e_comp_canvas_init(int w, int h)
 {
@@ -215,6 +228,7 @@ e_comp_canvas_init(int w, int h)
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_ZONE_MOVE_RESIZE, _e_comp_cb_zone_change, NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_ZONE_ADD, _e_comp_cb_zone_change, NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_ZONE_DEL, _e_comp_cb_zone_change, NULL);
+   E_LIST_HANDLER_APPEND(handlers, E_EVENT_COMPOSITOR_ENABLE,    _e_comp_cb_compositor_enabled, NULL);
    E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_KEY_DOWN, _e_comp_cb_key_down, NULL);
    E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_KEY_UP, _e_comp_cb_key_up, NULL);
 
