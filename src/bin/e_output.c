@@ -352,13 +352,15 @@ e_output_update(E_Output *output)
                {
                   E_Output_Mode *rmode;
 
-                  rmode = malloc(sizeof(E_Output_Mode));
+                  rmode = E_NEW(E_Output_Mode, 1);
                   if (!rmode) continue;
+
+                  if (tmodes[i].type & TDM_OUTPUT_MODE_TYPE_PREFERRED)
+                     rmode->preferred = EINA_TRUE;
 
                   rmode->w = tmodes[i].hdisplay;
                   rmode->h = tmodes[i].vdisplay;
                   rmode->refresh = tmodes[i].vrefresh;
-                  rmode->preferred = (tmodes[i].flags & TDM_OUTPUT_MODE_TYPE_PREFERRED);
                   rmode->tmode = &tmodes[i];
 
                   modes = eina_list_append(modes, rmode);
@@ -534,6 +536,14 @@ e_output_best_mode_find(E_Output *output)
      {
         size = mode->w + mode->h;
 
+        if (mode->preferred)
+          {
+             best_mode = mode;
+             best_size = size;
+             best_refresh = mode->refresh;
+             break;
+          }
+
         if (size > best_size)
           {
              best_mode = mode;
@@ -650,13 +660,15 @@ e_output_drm_update(E_Output *eout)
                {
                   E_Output_Mode *rmode;
 
-                  rmode = malloc(sizeof(E_Output_Mode));
+                  rmode = E_NEW(E_Output_Mode, 1);
                   if (!rmode) continue;
+
+                  if (omode->flags & DRM_MODE_TYPE_PREFERRED)
+                    rmode->preferred = EINA_TRUE;
 
                   rmode->w = omode->width;
                   rmode->h = omode->height;
                   rmode->refresh = omode->refresh;
-                  rmode->preferred = (omode->flags & DRM_MODE_TYPE_PREFERRED);
 
                   modes = eina_list_append(modes, rmode);
                }
