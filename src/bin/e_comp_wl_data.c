@@ -1075,7 +1075,7 @@ _e_comp_wl_manual_offer_load(E_Comp_Wl_Manual_Data_Source *source, int fd)
    else if (len == -1)
      ERR("could not write for fd(%d) :%m", fd);
 
-   if ((offset == size) || (len <= 0))
+   if (len <= 0)
      {
         _e_comp_wl_manual_source_unref(source);
      }
@@ -1197,7 +1197,7 @@ e_comp_wl_data_device_manual_selection_set(void *data, size_t size, Eina_List *m
 
    if (man_source->contents.alloc < size)
      wl_array_add(&man_source->contents, size);
-   man_source->contents.size += size;
+   man_source->contents.size = size;
    memcpy(man_source->contents.data, data, size);
 
    _e_comp_wl_manual_source_ref(man_source);
