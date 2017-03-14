@@ -1079,15 +1079,18 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
    VS_DBG(ec, "Job Run: type %d", type);
 
    E_Vis_Client *vc = NULL;
-   if (ec) {
-        if (EINA_LIKELY(pol_vis != NULL)) {
+   if (ec)
+     {
+        if (EINA_LIKELY(pol_vis != NULL))
+          {
              vc = eina_hash_find(pol_vis->clients_hash, &ec);
-        }
-   }
+          }
+     }
 
    switch (type)
      {
       case E_VIS_JOB_TYPE_ACTIVATE:
+         if (!ec) break;
          e_client_activate(ec, 1);
          if (e_policy_client_is_lockscreen(ec))
            e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
