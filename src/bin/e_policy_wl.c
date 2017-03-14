@@ -2521,12 +2521,18 @@ e_client_background_state_set(E_Client *ec, Eina_Bool state)
    if (state)
      {
         evas_object_hide(ec->frame);
+        e_pixmap_image_clear(ec->pixmap, 1);
         EC_CHANGED(ec);
      }
    else
      {
-        evas_object_show(ec->frame);
-        e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+        if (ec->iconic)
+          e_policy_wl_uniconify(ec);
+        else
+          {
+             evas_object_show(ec->frame);
+             e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+          }
      }
 }
 
@@ -2636,6 +2642,7 @@ _tzpol_iface_cb_background_state_set(struct wl_client *client EINA_UNUSED, struc
           {
              if (psurf->is_background) continue;
 
+             psurf->is_background = EINA_TRUE;
              _e_policy_wl_background_state_set(psurf, EINA_TRUE);
           }
 
@@ -2653,7 +2660,12 @@ _tzpol_iface_cb_background_state_set(struct wl_client *client EINA_UNUSED, struc
              ELOGF("TZPOL",
                    "Register PID(%u) for BACKGROUND STATE psurf:%p tzpol:%p",
                    ec->pixmap, ec, pid, psurf, psurf ? psurf->tzpol : NULL);
+
+             psurf->is_background = EINA_TRUE;
+             _e_policy_wl_background_state_set(psurf, EINA_TRUE);
           }
+
+        return;
      }
    else
      {
