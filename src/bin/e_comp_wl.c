@@ -4195,7 +4195,7 @@ _e_comp_wl_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    _e_comp_wl_surface_state_init(&ec->comp_data->pending, ec->w, ec->h);
 
    /* set initial client properties */
-   ec->argb = EINA_TRUE;
+   ec->argb = EINA_FALSE;
    ec->no_shape_cut = EINA_TRUE;
    ec->redirected = ec->ignored = 1;
    ec->border_size = 0;
