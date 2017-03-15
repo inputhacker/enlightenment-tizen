@@ -2794,6 +2794,62 @@ e_info_server_cb_aux_message(const Eldbus_Service_Interface *iface EINA_UNUSED, 
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_force_render(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   E_Info_Cmd_Force_Render cmd;
+   Eina_Bool res;
+   char result[1024];
+   E_Client *ec = NULL;
+
+   res = eldbus_message_arguments_get(msg,
+                                      "i",
+                                      &cmd);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(res, reply);
+
+   switch (cmd)
+     {
+      case E_INFO_CMD_FRENDER_ALL:
+         E_CLIENT_FOREACH(ec)
+           {
+              if (ec->visible && (!ec->input_only))
+                e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+           }
+         evas_damage_rectangle_add(e_comp->evas, 0, 0, e_comp->w, e_comp->h);
+         e_comp_render_queue();
+         snprintf(result, sizeof(result),
+                  "[Server] force rendered all clients and canvas\n");
+         break;
+      case E_INFO_CMD_FRENDER_CLS:
+         E_CLIENT_FOREACH(ec)
+           {
+              if (ec->visible && (!ec->input_only))
+                e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+           }
+         e_comp_render_queue();
+         snprintf(result, sizeof(result),
+                  "[Server] updated clients' surface");
+         break;
+      case E_INFO_CMD_FRENDER_CANVAS:
+         evas_damage_rectangle_add(e_comp->evas, 0, 0, e_comp->w, e_comp->h);
+         snprintf(result, sizeof(result),
+                  "[Server] updated canvas");
+         break;
+      default:
+         snprintf(result, sizeof(result),
+                  "[Server] Error Unknown cmd(%d) for the render force",
+                  cmd);
+         break;
+     }
+
+   eldbus_message_arguments_append(reply,
+                                   "s",
+                                   result);
+
+   return reply;
+}
+
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
@@ -2832,6 +2888,7 @@ static const Eldbus_Method methods[] = {
    { "slot_message", ELDBUS_ARGS({"iiiiii", "slot_message"}), ELDBUS_ARGS({"a(ss)", "array of ec"}), e_info_server_cb_slot_message, 0},
    { "desktop_geometry_set", ELDBUS_ARGS({"iiii", "Geometry"}), NULL, _e_info_server_cb_desktop_geometry_set, 0},
    { "desk_zoom", ELDBUS_ARGS({"ddii", "Zoom"}), NULL, _e_info_server_cb_desk_zoom, 0},
+   { "frender", ELDBUS_ARGS({"i", "frender"}), ELDBUS_ARGS({"s", "force_render_result"}), _e_info_server_cb_force_render, 0},
    { NULL, NULL, NULL, NULL, 0 }
 };
 

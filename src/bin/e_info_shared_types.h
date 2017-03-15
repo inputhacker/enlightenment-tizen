@@ -155,6 +155,25 @@ typedef enum
    E_INFO_CMD_MESSAGE_START,
 } E_Info_Slot_Message;
 
+#define USAGE_FORCE_RENDER                                            \
+   "(all | cls | canvas)\n"                                           \
+   "Commands:\n"                                                      \
+   "\tall      : updates client's surface and canvas \n"              \
+   "\tcls      : updates client's surface only\n"                     \
+   "\tcanvas   : updates canvas adding damage in fullscreen size\n"   \
+   "Example:\n"                                                       \
+   "\tenlightenment_info -frender all\n"                              \
+   "\tenlightenment_info -frender cls\n"                              \
+   "\tenlightenment_info -frender canvas\n"
+
+typedef enum
+{
+   E_INFO_CMD_FRENDER_NONE,
+   E_INFO_CMD_FRENDER_ALL,
+   E_INFO_CMD_FRENDER_CLS,
+   E_INFO_CMD_FRENDER_CANVAS,
+} E_Info_Cmd_Force_Render;
+
 /* -------------------------------------------------------------------------- */
 /* SUBSURFACE                                                                 */
 /* -------------------------------------------------------------------------- */

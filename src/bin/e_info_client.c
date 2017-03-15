@@ -2397,6 +2397,42 @@ arg_err:
    printf("Usage: enlightenment_info -scrsaver %s", USAGE_SCRSAVER);
 }
 
+static void
+_e_info_client_proc_force_render(int argc, char **argv)
+{
+   E_Info_Cmd_Force_Render cmd = E_INFO_CMD_FRENDER_NONE;
+   Eina_Bool res;
+
+   if (eina_streq(argv[2], "all"))
+     {
+        if (argc != 3) goto arg_err;
+        cmd = E_INFO_CMD_FRENDER_ALL;
+     }
+   else if (eina_streq(argv[2], "cls"))
+     {
+        if (argc != 3) goto arg_err;
+        cmd = E_INFO_CMD_FRENDER_CLS;
+     }
+   else if (eina_streq(argv[2], "canvas"))
+     {
+        if (argc != 3) goto arg_err;
+        cmd = E_INFO_CMD_FRENDER_CANVAS;
+     }
+   else
+     goto arg_err;
+
+   res = _e_info_client_eldbus_message_with_args("frender",
+                                                 NULL,
+                                                 "i",
+                                                 cmd);
+   EINA_SAFETY_ON_FALSE_RETURN(res);
+   return;
+
+arg_err:
+   printf("Usage: enlightenment_info -frender %s", USAGE_FORCE_RENDER);
+
+}
+
 static struct
 {
    const char *option;
@@ -2577,6 +2613,12 @@ static struct
       NULL,
       "current desktop",
       _e_info_client_proc_desk
+   },
+   {
+      "frender",
+      USAGE_FORCE_RENDER,
+      "force render according to parameters",
+      _e_info_client_proc_force_render
    }
 };
 
