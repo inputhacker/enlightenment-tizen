@@ -100,6 +100,9 @@ _e_comp_wl_input_pointer_cb_cursor_set(struct wl_client *client, struct wl_resou
         e_client_window_role_set(ec, "wl_pointer-cursor");
         evas_object_pass_events_set(ec->frame, 1);
         e_client_focus_stack_set(eina_list_remove(e_client_focus_stack_get(), ec));
+        /* wl_pointer-cursor surface is always alpha window */
+        ec->argb = EINA_TRUE;
+        e_comp_object_alpha_set(ec->frame, EINA_TRUE);
         EC_CHANGED(ec);
 
         /* Set fuctions to prevent unwanted handling by shell */
