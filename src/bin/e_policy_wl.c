@@ -1226,6 +1226,7 @@ _tzpos_iface_cb_set(struct wl_client *client EINA_UNUSED, struct wl_resource *re
         ec->y = ec->client.y = ec->desk->geom.y + y;
         ec->placed = 1;
         ec->changes.pos = 1;
+        ec->changes.tz_position = 1;
         EC_CHANGED(ec);
      }
 }

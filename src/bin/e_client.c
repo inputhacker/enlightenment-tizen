@@ -2391,10 +2391,14 @@ _e_client_eval(E_Client *ec)
           }
         else if (!E_INSIDE(ec->x, ec->y, zx, zy, zw, zh))
           {
-             /* If an ec is placed out of bound, fix it! */
-             ec->x = zx + ((zw - ec->w) / 2);
-             ec->y = zy + ((zh - ec->h) / 2);
-             ec->changes.pos = 1;
+             /* workaround: some client such as lockscreen doesn't want to be placed in the zone */
+             if (!ec->changes.tz_position)
+               {
+                  /* If an ec is placed out of bound, fix it! */
+                  ec->x = zx + ((zw - ec->w) / 2);
+                  ec->y = zy + ((zh - ec->h) / 2);
+                  ec->changes.pos = 1;
+               }
           }
 
         /* Recreate state */
@@ -2508,6 +2512,7 @@ _e_client_eval(E_Client *ec)
      }
    if (ec->changes.pos)
      {
+        ec->changes.tz_position = 0;
         ec->changes.pos = 0;
         evas_object_move(ec->frame, ec->x, ec->y);
         prop |= E_CLIENT_PROPERTY_POS;
