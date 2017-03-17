@@ -47,6 +47,7 @@ static void              _e_vis_ec_setup(E_Client *ec);
 static void              _e_vis_ec_reset(E_Client *ec);
 static Eina_Bool         _e_vis_ec_below_uniconify(E_Client *ec);
 static void              _e_vis_cb_child_launch_done(void *data, Evas_Object *obj, const char *signal, const char *source);
+static void              _e_vis_update_foreground_job_queue(void);
 
 static E_Vis            *pol_vis = NULL;
 /* the list for E_Vis_Job */
@@ -227,6 +228,7 @@ _e_policy_client_iconify_by_visibility(E_Client *ec)
    if (!do_iconify)
      {
         ELOGF("SKIP.. ICONIFY_BY_WM", "win:0x%08x", ec->pixmap, ec, e_client_util_win_get(ec));
+        _e_vis_update_foreground_job_queue();
         return;
      }
 
