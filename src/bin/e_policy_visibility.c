@@ -988,6 +988,8 @@ _e_vis_client_uniconify_render(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool 
    if (!_e_vis_client_is_uniconify_render_necessary(vc))
        return EINA_FALSE;
 
+   ec->exp_iconify.not_raise = !raise;
+
    if (_e_vis_client_is_uniconify_render_running(vc))
      goto end;
 
@@ -1002,7 +1004,6 @@ _e_vis_client_uniconify_render(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool 
    e_policy_wl_iconify_state_change_send(ec, 0);
 
 end:
-   ec->exp_iconify.not_raise = !raise;
    _e_vis_client_job_add(vc, type);
 
   return EINA_TRUE;
