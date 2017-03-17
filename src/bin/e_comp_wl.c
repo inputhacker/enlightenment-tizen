@@ -5474,7 +5474,7 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
 
    if (ev->data)
      {
-        if (wc != ev->data)
+        if ((wc != ev->data) && (ev->data != 0x1))
           {
              _e_comp_wl_key_send(ev, WL_KEYBOARD_KEY_STATE_PRESSED, e_comp_wl->kbd.resources, EINA_FALSE);
           }
@@ -5491,6 +5491,8 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
                        return EINA_FALSE;
                     }
                }
+
+             if (ev->data == (void *)0x1) return EINA_FALSE;
 
              if ((!e_client_action_get()) && (!e_comp->input_key_grabs))
                {
