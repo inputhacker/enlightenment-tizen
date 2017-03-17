@@ -1882,6 +1882,7 @@ _e_comp_wl_evas_cb_ping(void *data, Evas_Object *obj EINA_UNUSED, void *event EI
    E_Client *ec;
 
    if (!(ec = data)) return;
+   if (!(ec->comp_data)) return;
    if (!(ec->comp_data->shell.ping)) return;
    if (!(ec->comp_data->shell.surface)) return;
 
