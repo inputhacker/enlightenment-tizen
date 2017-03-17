@@ -57,36 +57,10 @@ _e_pointer_position_update(E_Pointer *ptr)
 }
 
 static void
-_e_pointer_map_transform(int width, int height, uint32_t transform,
-                         int sx, int sy, int *dx, int *dy)
-{
-   switch (transform)
-     {
-      case WL_OUTPUT_TRANSFORM_NORMAL:
-      default:
-        *dx = sx, *dy = sy;
-        break;
-      case WL_OUTPUT_TRANSFORM_90:
-        *dx = height - sy, *dy = sx;
-        break;
-      case WL_OUTPUT_TRANSFORM_180:
-        *dx = width - sx, *dy = height - sy;
-        break;
-      case WL_OUTPUT_TRANSFORM_270:
-        *dx = sy, *dy = width - sx;
-        break;
-     }
-}
-
-// TODO: transform the cursor position with hot spot...!!!!!!
-static void
 _e_pointer_object_rotation(E_Pointer *ptr)
 {
    Evas_Map *map;
-   int x1, y1, x2, y2, dx, dy;
-   int32_t width, height;
-   int cursor_w, cursor_h;
-   uint32_t transform;
+   int x, y, w, h;
    E_Client *ec;
    int rotation;
 
@@ -98,7 +72,7 @@ _e_pointer_object_rotation(E_Pointer *ptr)
 
    rotation = ptr->rotation;
 
-   evas_object_geometry_get(ec->frame, NULL, NULL, &cursor_w, &cursor_h);
+   evas_object_geometry_get(ec->frame, &x, &y, &w, &h);
 
    if ((rotation == 0) || (rotation % 90 != 0) || (rotation / 90 > 3))
      {
@@ -107,54 +81,16 @@ _e_pointer_object_rotation(E_Pointer *ptr)
         return;
      }
 
-   width = cursor_w;
-   height = cursor_h;
-
-   switch(rotation)
-     {
-      case 90:
-         transform = WL_OUTPUT_TRANSFORM_90;
-         width = cursor_h;
-         height = cursor_w;
-         break;
-      case 180:
-         transform = WL_OUTPUT_TRANSFORM_180;
-         break;
-      case 270:
-         transform = WL_OUTPUT_TRANSFORM_270;
-         width = cursor_h;
-         height = cursor_w;
-         break;
-      default:
-         transform = WL_OUTPUT_TRANSFORM_NORMAL;
-         break;
-     }
-
    map = evas_map_new(4);
-   evas_map_util_points_populate_from_geometry(map,
-                                               ec->x, ec->y,
-                                               width, height, 0);
+   evas_map_util_points_populate_from_object_full(map, ec->frame, 0);
+   evas_map_util_points_color_set(map, 255, 255, 255, 255);
 
-   x1 = 0.0;
-   y1 = 0.0;
-   x2 = width;
-   y2 = height;
-
-   _e_pointer_map_transform(width, height, transform,
-                            x1, y1, &dx, &dy);
-   evas_map_point_image_uv_set(map, 0, dx, dy);
-
-   _e_pointer_map_transform(width, height, transform,
-                            x2, y1, &dx, &dy);
-   evas_map_point_image_uv_set(map, 1, dx, dy);
-
-   _e_pointer_map_transform(width, height, transform,
-                            x2, y2, &dx, &dy);
-   evas_map_point_image_uv_set(map, 2, dx, dy);
-
-   _e_pointer_map_transform(width, height, transform,
-                            x1, y2, &dx, &dy);
-   evas_map_point_image_uv_set(map, 3, dx, dy);
+   if (rotation == 90)
+     rotation = 270;
+   else if (rotation == 270)
+     rotation = 90;
+   evas_map_util_rotate(map, rotation, x + (w/2), y + (h/2));
+   evas_map_util_object_move_sync_set(map, EINA_TRUE);
 
    evas_object_map_set(ec->frame, map);
    evas_object_map_enable_set(ec->frame, map ? EINA_TRUE : EINA_FALSE);
@@ -297,11 +233,11 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
 
         ptr->o_ptr = obj;
 
-        /* apply the cursor obj rotation */
-        _e_pointer_rotation_apply(ptr);
-
         /* move the pointer to the current position */
         _e_pointer_position_update(ptr);
+
+        /* apply the cursor obj rotation */
+        _e_pointer_rotation_apply(ptr);
 
         /* Current if e_pointer set rotation, it can't' use hwc.
            if it can use hwc, comp override will be removed. */
@@ -336,7 +272,6 @@ e_pointer_touch_move(E_Pointer *ptr, int x, int y)
 
    if (ptr->device != E_POINTER_TOUCH) ptr->device = E_POINTER_TOUCH;
 
-   _e_pointer_rotation_apply(ptr);
    _e_pointer_position_update(ptr);
 }
 
@@ -353,7 +288,6 @@ e_pointer_mouse_move(E_Pointer *ptr, int x, int y)
 
    if (ptr->device != E_POINTER_MOUSE) ptr->device = E_POINTER_MOUSE;
 
-   _e_pointer_rotation_apply(ptr);
    _e_pointer_position_update(ptr);
 }
 
@@ -396,8 +330,8 @@ e_pointer_rotation_set(E_Pointer *ptr, int rotation)
 
    ptr->rotation = rotation;
 
-   _e_pointer_rotation_apply(ptr);
    _e_pointer_position_update(ptr);
+   _e_pointer_rotation_apply(ptr);
 
    EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
      ecore_drm_device_pointer_rotation_set(dev, rotation);
@@ -456,8 +390,8 @@ e_pointer_hwc_set(E_Pointer *ptr, Eina_Bool set)
     }
    else
     {
-       _e_pointer_rotation_apply(ptr);
        _e_pointer_position_update(ptr);
+       _e_pointer_rotation_apply(ptr);
     }
 
    return EINA_TRUE;
