@@ -5266,11 +5266,11 @@ e_comp_object_hwc_update_set(Evas_Object *obj, Eina_Bool set)
    cw->hwc_need_update = set;
 }
 
-E_API void
+E_API Eina_Bool
 e_comp_object_effect_object_part_swallow(Evas_Object *obj, const char *part_name, Evas_Object *swallow_obj)
 {
-   API_ENTRY;
-   edje_object_part_swallow(cw->effect_obj, part_name, swallow_obj);
+   API_ENTRY EINA_FALSE;
+   return edje_object_part_swallow(cw->effect_obj, part_name, swallow_obj);
 }
 
 E_API void
