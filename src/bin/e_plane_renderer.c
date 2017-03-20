@@ -706,14 +706,18 @@ _e_plane_renderer_surface_find_exported_surface(E_Plane_Renderer *renderer, tbm_
 static void
 _e_plane_renderer_exported_surface_dequeue_cb(struct wayland_tbm_client_queue *cqueue, tbm_surface_h tsurface, void *data)
 {
+   E_Plane *plane = NULL;
    E_Plane_Renderer *renderer = NULL;
    E_Plane_Renderer_Buffer *renderer_buffer = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(tsurface);
    EINA_SAFETY_ON_NULL_RETURN(data);
 
-   renderer = (E_Plane_Renderer *)data;
-   EINA_SAFETY_ON_NULL_RETURN(renderer);
+   plane = (E_Plane *)data;
+   EINA_SAFETY_ON_NULL_RETURN(plane);
+
+   renderer = plane->renderer;
+   if (!renderer) return;
 
    renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
    EINA_SAFETY_ON_NULL_RETURN(renderer_buffer);
@@ -728,6 +732,7 @@ _e_plane_renderer_exported_surface_dequeue_cb(struct wayland_tbm_client_queue *c
 static void
 _e_plane_renderer_surface_exported_surface_destroy_cb(tbm_surface_h tsurface, void *data)
 {
+   E_Plane *plane = NULL;
    E_Plane_Renderer *renderer = NULL;
    E_Plane_Renderer_Buffer *renderer_buffer = NULL;
 
@@ -736,8 +741,11 @@ _e_plane_renderer_surface_exported_surface_destroy_cb(tbm_surface_h tsurface, vo
    EINA_SAFETY_ON_NULL_RETURN(tsurface);
    EINA_SAFETY_ON_NULL_RETURN(data);
 
-   renderer = (E_Plane_Renderer *)data;
-   EINA_SAFETY_ON_NULL_RETURN(renderer);
+   plane = (E_Plane *)data;
+   EINA_SAFETY_ON_NULL_RETURN(plane);
+
+   renderer = plane->renderer;
+   if (!renderer) return;
 
    renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
    EINA_SAFETY_ON_NULL_RETURN(renderer_buffer);
@@ -1310,7 +1318,9 @@ e_plane_renderer_render(E_Plane_Renderer *renderer, Eina_Bool is_fb)
              if (cqueue)
                {
                   _e_plane_renderer_exported_surfaces_release(renderer, EINA_TRUE);
-                  wayland_tbm_server_client_queue_set_dequeue_cb(cqueue, NULL, NULL);
+
+                  if (e_comp->hwc_sync_mode_change)
+                    wayland_tbm_server_client_queue_set_dequeue_cb(cqueue, NULL, NULL);
                }
              else
                {
@@ -1349,9 +1359,13 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
    tbm_surface_h tsurface = NULL;
    E_Plane_Renderer_Client *renderer_client = NULL;
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+   E_Plane *plane = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   plane = renderer->plane;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
    cqueue = _e_plane_renderer_wayland_tbm_client_queue_get(ec);
    EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, EINA_FALSE);
@@ -1381,7 +1395,9 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
                 }
 
               wayland_tbm_server_client_queue_activate(cqueue, 0, renderer->tqueue_size, 1);
-              wayland_tbm_server_client_queue_set_dequeue_cb(cqueue, _e_plane_renderer_exported_surface_dequeue_cb, renderer);
+
+              if (e_comp->hwc_sync_mode_change)
+                wayland_tbm_server_client_queue_set_dequeue_cb(cqueue, _e_plane_renderer_exported_surface_dequeue_cb, plane);
            }
         else if ((renderer->state == E_PLANE_RENDERER_STATE_CANDIDATE) && (renderer->ec != ec))
            {
@@ -1403,7 +1419,9 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
 
               /* activate the client queue */
               wayland_tbm_server_client_queue_activate(cqueue, 0, renderer->tqueue_size, 1);
-              wayland_tbm_server_client_queue_set_dequeue_cb(cqueue, _e_plane_renderer_exported_surface_dequeue_cb, renderer);
+
+              if (e_comp->hwc_sync_mode_change)
+                wayland_tbm_server_client_queue_set_dequeue_cb(cqueue, _e_plane_renderer_exported_surface_dequeue_cb, renderer);
            }
         else if ((renderer->state == E_PLANE_RENDERER_STATE_CANDIDATE) && (renderer->ec == ec))
            {
@@ -2011,10 +2029,14 @@ e_plane_renderer_surface_send(E_Plane_Renderer *renderer, E_Client *ec, tbm_surf
    struct wl_resource *wl_buffer = NULL;
    E_Plane_Renderer_Client *renderer_client = NULL;
    E_Plane_Renderer_Buffer *renderer_buffer = NULL;
+   E_Plane *plane = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(renderer);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(tsurface);
+
+   plane = renderer->plane;
+   EINA_SAFETY_ON_NULL_RETURN(plane);
 
    renderer_client = e_plane_renderer_client_get(ec);
    EINA_SAFETY_ON_NULL_RETURN(renderer_client);
@@ -2027,7 +2049,7 @@ e_plane_renderer_surface_send(E_Plane_Renderer *renderer, E_Client *ec, tbm_surf
         /* export the tbm_surface(wl_buffer) to the client_queue */
         wl_buffer = wayland_tbm_server_client_queue_export_buffer(cqueue, tsurface,
                 E_PLANE_RENDERER_CLIENT_SURFACE_FLAGS_RESERVED, _e_plane_renderer_surface_exported_surface_destroy_cb,
-                (void *)renderer);
+                (void *)plane);
 
         renderer->exported_surfaces = eina_list_append(renderer->exported_surfaces, tsurface);
 
