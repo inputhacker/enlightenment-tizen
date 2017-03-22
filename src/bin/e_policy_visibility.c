@@ -228,7 +228,8 @@ _e_policy_client_iconify_by_visibility(E_Client *ec)
    if (!do_iconify)
      {
         ELOGF("SKIP.. ICONIFY_BY_WM", "win:0x%08x", ec->pixmap, ec, e_client_util_win_get(ec));
-        _e_vis_update_foreground_job_queue();
+        if (pol_vis)
+          _e_vis_update_foreground_job_queue();
         return;
      }
 
