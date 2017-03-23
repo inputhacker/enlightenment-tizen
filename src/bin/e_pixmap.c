@@ -465,6 +465,8 @@ e_pixmap_refresh(E_Pixmap *cp)
                                                    &format);
    else if (buffer->tbm_surface)
       format = tbm_surface_get_format(buffer->tbm_surface);
+   else if (buffer->type == E_COMP_WL_BUFFER_TYPE_VIDEO)
+      format = 0;
    else
       return EINA_FALSE;
 
