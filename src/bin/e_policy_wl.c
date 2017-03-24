@@ -1343,7 +1343,10 @@ e_policy_wl_activate(E_Client *ec)
      evas_object_raise(ec->frame);
 
    if (e_policy_client_is_lockscreen(ec))
-     e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
+     {
+       if (E_CONTAINS(ec->x, ec->y, ec->w, ec->h, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
+         e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
+     }
    else
      e_policy_stack_check_above_lockscreen(ec, ec->layer, NULL, EINA_TRUE);
 }
@@ -1871,7 +1874,10 @@ _tzpol_iface_cb_notilv_set(struct wl_client *client, struct wl_resource *res_tzp
      (res_tzpol, surf, lv, TIZEN_POLICY_ERROR_STATE_NONE);
 
    if (e_policy_client_is_lockscreen(ec))
-     e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
+     {
+       if (E_CONTAINS(ec->x, ec->y, ec->w, ec->h, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
+         e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
+     }
    else
      e_policy_stack_check_above_lockscreen(ec, ec->layer, NULL, EINA_TRUE);
 }
@@ -1908,7 +1914,8 @@ e_policy_wl_notification_level_fetch(E_Client *ec)
    if (changed_stack &&
        e_policy_client_is_lockscreen(ec))
      {
-        e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
+        if (E_CONTAINS(ec->x, ec->y, ec->w, ec->h, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
+          e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
      }
 }
 

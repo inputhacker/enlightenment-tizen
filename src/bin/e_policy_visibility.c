@@ -1098,7 +1098,10 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
          if (!ec) break;
          e_client_activate(ec, 1);
          if (e_policy_client_is_lockscreen(ec))
-           e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
+           {
+              if (E_CONTAINS(ec->x, ec->y, ec->w, ec->h, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
+                e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
+           }
          else
            e_policy_stack_check_above_lockscreen(ec, ec->layer, NULL, EINA_TRUE);
          break;
