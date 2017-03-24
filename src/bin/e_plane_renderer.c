@@ -1153,15 +1153,11 @@ e_plane_renderer_ec_set(E_Plane_Renderer *renderer, E_Client *ec)
      }
    else
      {
-        renderer_client->renderer = renderer;
-        if (renderer->ec && renderer->ec != ec)
+        if (!e_plane_renderer_activate(renderer, ec))
           {
-             renderer_client = e_plane_renderer_client_get(renderer->ec);
-             if (renderer_client)
-                renderer_client->renderer = NULL;
+              INF("can't activate ec:%p.", ec);
+              return EINA_FALSE;
           }
-
-        renderer->ec = ec;
      }
 
    return EINA_TRUE;
@@ -1171,7 +1167,6 @@ EINTERN Eina_Bool
 e_plane_renderer_ecore_evas_use(E_Plane_Renderer *renderer)
 {
    E_Plane *plane = NULL;
-   E_Plane_Renderer_Client *renderer_client = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
 
@@ -1194,14 +1189,10 @@ e_plane_renderer_ecore_evas_use(E_Plane_Renderer *renderer)
      }
    else
      {
-        _e_plane_renderer_recover_ec(renderer);
-        if (renderer->ec)
+        if (!e_plane_renderer_deactivate(renderer))
           {
-             renderer_client = e_plane_renderer_client_get(renderer->ec);
-             if (renderer_client)
-               renderer_client->renderer = NULL;
-
-             renderer->ec = NULL;
+            ERR("fail to e_plane_renderer_deactivate.");
+            return EINA_FALSE;
           }
      }
 
@@ -1252,7 +1243,7 @@ e_plane_renderer_del(E_Plane_Renderer *renderer)
          }
        else
          {
-            _e_plane_renderer_recover_ec(renderer);
+            e_plane_renderer_deactivate(renderer);
          }
      }
    else if (role == E_PLANE_ROLE_CURSOR)
@@ -1348,6 +1339,77 @@ e_plane_renderer_render(E_Plane_Renderer *renderer, Eina_Bool is_fb)
 
         TRACE_DS_END();
      }
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
+{
+   struct wayland_tbm_client_queue * cqueue = NULL;
+   E_Plane_Renderer_Client *renderer_client = NULL;
+   E_Plane *plane = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   plane = renderer->plane;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   cqueue = _e_plane_renderer_wayland_tbm_client_queue_get(ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, EINA_FALSE);
+
+   /* register the plane client */
+   renderer_client = e_plane_renderer_client_get(ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_client, EINA_FALSE);
+
+   if ((renderer->state == E_PLANE_RENDERER_STATE_ACTIVATE) && (renderer->ec != ec))
+      e_plane_renderer_deactivate(renderer);
+
+   wayland_tbm_server_client_queue_activate(cqueue, 0, 0, 0);
+
+   if (renderer_trace_debug)
+     ELOGF("E_PLANE_RENDERER", "Activate Renderer(%p)", ec->pixmap, ec, renderer);
+
+   renderer->ec = ec;
+   renderer->state = E_PLANE_RENDERER_STATE_ACTIVATE;
+
+   renderer_client->renderer = renderer;
+   renderer_client->state = E_PLANE_RENDERER_CLIENT_STATE_ACTIVATED;
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_plane_renderer_deactivate(E_Plane_Renderer *renderer)
+{
+   struct wayland_tbm_client_queue * cqueue = NULL;
+   E_Client *ec = NULL;
+   E_Plane_Renderer_Client *renderer_client = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
+
+   ec = renderer->ec;
+   if (!ec) return EINA_TRUE;
+
+   renderer_client = e_plane_renderer_client_get(ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_client, EINA_FALSE);
+
+   cqueue = _e_plane_renderer_wayland_tbm_client_queue_get(ec);
+
+   if (renderer_trace_debug)
+     ELOGF("E_PLANE_RENDERER", "Deactivate Renderer(%p)", ec->pixmap, ec, renderer);
+
+   if (cqueue)
+     wayland_tbm_server_client_queue_deactivate(cqueue);
+
+   _e_plane_renderer_recover_ec(renderer);
+
+   renderer->state = E_PLANE_RENDERER_STATE_NONE;
+   renderer->ec = NULL;
+
+   renderer_client->state = E_PLANE_RENDERER_CLIENT_STATE_NONE;
+   renderer_client->renderer = NULL;
 
    return EINA_TRUE;
 }
