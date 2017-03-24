@@ -1143,9 +1143,9 @@ e_plane_renderer_ec_set(E_Plane_Renderer *renderer, E_Client *ec)
           }
 
         if (renderer_client->renderer && renderer_client->renderer != renderer)
-           e_plane_renderer_deactivate(renderer_client->renderer);
+           e_plane_renderer_reserved_deactivate(renderer_client->renderer);
 
-        if (!e_plane_renderer_activate(renderer, ec))
+        if (!e_plane_renderer_reserved_activate(renderer, ec))
           {
              INF("can't activate ec:%p.", ec);
              return EINA_FALSE;
@@ -1186,9 +1186,9 @@ e_plane_renderer_ecore_evas_use(E_Plane_Renderer *renderer)
 
    if (plane->reserved_memory)
      {
-        if (!e_plane_renderer_deactivate(renderer))
+        if (!e_plane_renderer_reserved_deactivate(renderer))
           {
-             ERR("fail to e_plane_renderer_deactivate.");
+             ERR("fail to e_plane_renderer_reserved_deactivate.");
              return EINA_FALSE;
           }
      }
@@ -1247,7 +1247,7 @@ e_plane_renderer_del(E_Plane_Renderer *renderer)
      {
        if (plane->reserved_memory)
          {
-            e_plane_renderer_deactivate(renderer);
+            e_plane_renderer_reserved_deactivate(renderer);
             e_plane_renderer_surface_queue_destroy(renderer);
          }
        else
@@ -1353,7 +1353,7 @@ e_plane_renderer_render(E_Plane_Renderer *renderer, Eina_Bool is_fb)
 }
 
 EINTERN Eina_Bool
-e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
+e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
 {
    struct wayland_tbm_client_queue * cqueue = NULL;
    tbm_surface_h tsurface = NULL;
@@ -1375,7 +1375,7 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_client, EINA_FALSE);
 
    if ((renderer->state == E_PLANE_RENDERER_STATE_ACTIVATE) && (renderer->ec != ec))
-      e_plane_renderer_deactivate(renderer);
+      e_plane_renderer_reserved_deactivate(renderer);
 
    if (_e_plane_renderer_client_surface_flags_get(renderer_client) != E_PLANE_RENDERER_CLIENT_SURFACE_FLAGS_RESERVED)
      {
@@ -1402,7 +1402,7 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
         else if ((renderer->state == E_PLANE_RENDERER_STATE_CANDIDATE) && (renderer->ec != ec))
            {
               /* deactive the candidate_ec */
-              e_plane_renderer_deactivate(renderer);
+              e_plane_renderer_reserved_deactivate(renderer);
 
               if (eina_list_count(renderer->exported_surfaces))
                 {
@@ -1489,7 +1489,7 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
 }
 
 EINTERN Eina_Bool
-e_plane_renderer_deactivate(E_Plane_Renderer *renderer)
+e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
 {
    struct wayland_tbm_client_queue * cqueue = NULL;
    E_Client *ec = NULL;
