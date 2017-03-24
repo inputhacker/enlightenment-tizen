@@ -48,6 +48,7 @@ static void              _e_vis_ec_reset(E_Client *ec);
 static Eina_Bool         _e_vis_ec_below_uniconify(E_Client *ec);
 static void              _e_vis_cb_child_launch_done(void *data, Evas_Object *obj, const char *signal, const char *source);
 static void              _e_vis_update_foreground_job_queue(void);
+static void              _e_vis_update_forground_list(void);
 
 static E_Vis            *pol_vis = NULL;
 /* the list for E_Vis_Job */
@@ -197,7 +198,7 @@ _e_policy_check_above_alpha_opaque(E_Client *ec)
 static void
 _e_policy_client_iconify_by_visibility(E_Client *ec)
 {
-   Eina_Bool do_iconify = EINA_TRUE;
+   int skip_iconify = 0;
 
    if (!ec) return;
    if (ec->iconic) return;
@@ -212,7 +213,7 @@ _e_policy_client_iconify_by_visibility(E_Client *ec)
      {
         if (_e_policy_check_transient_child_visible(ec, ec))
           {
-             do_iconify = EINA_FALSE;
+             skip_iconify |= 1;
           }
      }
 
@@ -221,15 +222,15 @@ _e_policy_client_iconify_by_visibility(E_Client *ec)
         // check above window is alpha opaque or not
         if (_e_policy_check_above_alpha_opaque(ec))
           {
-             do_iconify = EINA_FALSE;
+             skip_iconify |= 2;
           }
      }
 
-   if (!do_iconify)
+   if (skip_iconify)
      {
-        ELOGF("SKIP.. ICONIFY_BY_WM", "win:0x%08x", ec->pixmap, ec, e_client_util_win_get(ec));
+        ELOGF("SKIP.. ICONIFY_BY_WM", "win:0x%08x cause_type:%d", ec->pixmap, ec, e_client_util_win_get(ec), skip_iconify);
         if (pol_vis)
-          _e_vis_update_foreground_job_queue();
+          _e_vis_update_forground_list();
         return;
      }
 
