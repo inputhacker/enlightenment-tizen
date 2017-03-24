@@ -5475,7 +5475,7 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
 
    if (ev->data)
      {
-        if ((wc != ev->data) && (ev->data != 0x1))
+        if ((wc != ev->data) && (ev->data != (void *)0x1))
           {
              _e_comp_wl_key_send(ev, WL_KEYBOARD_KEY_STATE_PRESSED, e_comp_wl->kbd.resources, EINA_FALSE);
           }
