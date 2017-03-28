@@ -121,6 +121,9 @@ _e_policy_check_transient_child_visible(E_Client *ancestor_ec, E_Client *ec)
      {
         if (visible == EINA_TRUE) continue;
 
+        if (!child_ec->comp_data) continue;
+        if (!child_ec->comp_data->mapped) continue;
+
         if ((child_ec->exp_iconify.skip_iconify == EINA_TRUE) ||
             (child_ec->exp_iconify.skip_by_remote == EINA_TRUE))
           {
