@@ -3114,7 +3114,8 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
                     ec_opaque = EINA_TRUE;
 
                   /* if e_client is not alpha or opaque then delete intersect rect */
-                  if ((!ec->argb) || (ec_opaque))
+                  if (((!ec->argb) || (ec_opaque)) &&
+                      (!ec->floating))
                     {
                        EINA_RECTANGLE_SET(&r,
                                           x,
