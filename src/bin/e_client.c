@@ -1235,6 +1235,10 @@ _e_client_move_begin(E_Client *ec)
         if (e_config->border_raise_on_mouse_action)
           evas_object_raise(ec->frame);
      }
+
+   if (e_comp->hwc)
+     e_comp_override_add();
+
    return 1;
 }
 
@@ -1247,6 +1251,9 @@ _e_client_move_end(E_Client *ec)
 
    if (ec->transformed)
      _e_client_transform_move_end(ec);
+
+   if (e_comp->hwc)
+     e_comp_override_del();
 
    ecmove = NULL;
    return 1;
@@ -1473,6 +1480,9 @@ _e_client_resize_end(E_Client *ec)
 
    if (ec->transformed)
      _e_client_transform_resize_end(ec);
+
+   if (e_comp->hwc)
+     e_comp_override_del();
 
    ecresize = NULL;
 
@@ -5861,6 +5871,10 @@ e_client_resize_begin(E_Client *ec)
         if (e_config->border_raise_on_mouse_action)
           evas_object_raise(ec->frame);
      }
+
+   if (e_comp->hwc)
+     e_comp_override_add();
+
    return EINA_TRUE;
 error:
    ec->resize_mode = E_POINTER_RESIZE_NONE;
