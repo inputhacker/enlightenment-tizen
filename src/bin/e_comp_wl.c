@@ -681,53 +681,16 @@ _e_comp_wl_touch_cancel(void)
 static void
 _e_comp_wl_evas_cb_restack(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
-   E_Client *ec;
-   E_Client *topmost;
+   E_Client *ec = (E_Client *)data;
 
-   if (!(ec = data) || !ec->comp_data) return;
+   if ((!ec) || (!ec->comp_data)) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (ec->comp_data->sub.restacking) return;
 
    if (ec->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)
      _e_comp_wl_touch_cancel();
 
-   /* return if ec isn't both a parent of a subsurface and a subsurface itself */
-   if (!ec->comp_data->sub.list && !ec->comp_data->sub.below_list && !ec->comp_data->sub.data)
-     {
-        if (ec->comp_data->sub.below_obj)
-          _e_comp_wl_subsurface_restack_bg_rectangle(ec);
-        return;
-     }
-
-   topmost = _e_comp_wl_topmost_parent_get(ec);
-
-   _e_comp_wl_subsurface_restack(topmost);
-   _e_comp_wl_subsurface_restack_bg_rectangle(topmost);
-
-   //To update client stack list
-   if ((ec->comp_data->sub.data) &&
-       (ec->comp_data->sub.data->parent))
-     {
-        E_Client *parent;
-        Evas_Object *o;
-
-        parent = ec->comp_data->sub.data->parent;
-
-        if ((parent->comp_data->sub.list) &&
-            (eina_list_data_find(parent->comp_data->sub.list, ec)))
-          {
-             //stack above done
-             o = evas_object_below_get(ec->frame);
-             e_comp_object_layer_update(ec->frame, o, NULL);
-          }
-        else if ((parent->comp_data->sub.below_list) &&
-                 (eina_list_data_find(parent->comp_data->sub.below_list, ec)))
-          {
-             //stack below done
-             o = evas_object_above_get(ec->frame);
-             e_comp_object_layer_update(ec->frame, NULL, o);
-          }
-     }
+   e_comp_wl_subsurface_stack_update(ec);
 }
 
 static E_Comp_Wl_Input_Device *
@@ -1693,6 +1656,54 @@ e_comp_wl_feed_focus_in(E_Client *ec)
    int rotation = ec->e.state.rot.ang.curr;
    if (e_comp->pointer->rotation != rotation)
      e_pointer_rotation_set(e_comp->pointer, rotation);
+}
+
+E_API void
+e_comp_wl_subsurface_stack_update(E_Client *ec)
+{
+   E_Client *topmost;
+
+   if (!(ec) || !ec->comp_data) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (ec->comp_data->sub.restacking) return;
+
+   /* return if ec isn't both a parent of a subsurface and a subsurface itself */
+   if (!ec->comp_data->sub.list && !ec->comp_data->sub.below_list && !ec->comp_data->sub.data)
+     {
+        if (ec->comp_data->sub.below_obj)
+          _e_comp_wl_subsurface_restack_bg_rectangle(ec);
+        return;
+     }
+
+   topmost = _e_comp_wl_topmost_parent_get(ec);
+
+   _e_comp_wl_subsurface_restack(topmost);
+   _e_comp_wl_subsurface_restack_bg_rectangle(topmost);
+
+   //To update client stack list
+   if ((ec->comp_data->sub.data) &&
+       (ec->comp_data->sub.data->parent))
+     {
+        E_Client *parent;
+        Evas_Object *o;
+
+        parent = ec->comp_data->sub.data->parent;
+
+        if ((parent->comp_data->sub.list) &&
+            (eina_list_data_find(parent->comp_data->sub.list, ec)))
+          {
+             //stack above done
+             o = evas_object_below_get(ec->frame);
+             e_comp_object_layer_update(ec->frame, o, NULL);
+          }
+        else if ((parent->comp_data->sub.below_list) &&
+                 (eina_list_data_find(parent->comp_data->sub.below_list, ec)))
+          {
+             //stack below done
+             o = evas_object_above_get(ec->frame);
+             e_comp_object_layer_update(ec->frame, NULL, o);
+          }
+     }
 }
 
 static void

@@ -554,6 +554,8 @@ EINTERN Eina_Bool e_comp_wl_cursor_hide(E_Client *ec);
 
 EINTERN void	  e_comp_wl_feed_focus_in(E_Client *ec);
 
+E_API void e_comp_wl_subsurface_stack_update(E_Client *ec);
+
 E_API extern int E_EVENT_WAYLAND_GLOBAL_ADD;
 
 # endif
