@@ -3101,7 +3101,8 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
                     }
                   else
                     {
-                       is_vis_on_skip = EINA_TRUE;
+                       if (!is_above_rot_pending)
+                         is_vis_on_skip = EINA_TRUE;
                        ELOG("CLIENT VIS ON-SKIP", ec->pixmap, ec);
                     }
                }
