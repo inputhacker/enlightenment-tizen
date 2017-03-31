@@ -319,6 +319,7 @@ e_policy_stack_below(E_Client *ec, E_Client *below_ec)
    EINA_SAFETY_ON_NULL_RETURN(below_ec->frame);
 
    evas_object_stack_below(ec->frame, below_ec->frame);
+   e_comp_wl_subsurface_stack_update(below_ec);
    if (e_config->transient.iconify)
      {
         E_Client *child;
@@ -341,6 +342,7 @@ e_policy_stack_above(E_Client *ec, E_Client *above_ec)
    EINA_SAFETY_ON_NULL_RETURN(above_ec->frame);
 
    evas_object_stack_above(ec->frame, above_ec->frame);
+   e_comp_wl_subsurface_stack_update(above_ec);
    if (e_config->transient.iconify)
      {
         E_Client *child;
