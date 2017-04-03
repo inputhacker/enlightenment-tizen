@@ -6663,6 +6663,26 @@ e_client_mouse_wheel_send(E_Client *ec, int direction, int z, Ecore_Device *dev,
 }
 
 E_API Eina_Bool
+e_client_mouse_in_send(E_Client *ec, int x, int y, Ecore_Device *dev, unsigned int time)
+{
+   Eina_Bool res;
+
+   res = e_comp_wl_mouse_in_send(ec, x, y, dev, time);
+
+   return res;
+}
+
+E_API Eina_Bool
+e_client_mouse_out_send(E_Client *ec, Ecore_Device *dev, unsigned int time)
+{
+   Eina_Bool res;
+
+   res = e_comp_wl_mouse_out_send(ec, dev, time);
+
+   return res;
+}
+
+E_API Eina_Bool
 e_client_video_client_has(E_Client *ec)
 {
    return e_comp_wl_video_subsurface_has(ec);

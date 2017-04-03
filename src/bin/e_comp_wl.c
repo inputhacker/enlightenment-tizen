@@ -5971,6 +5971,69 @@ e_comp_wl_mouse_wheel_send(E_Client *ec, int direction, int z, Ecore_Device *dev
 }
 
 EINTERN Eina_Bool
+e_comp_wl_mouse_in_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_t time)
+{
+   uint32_t serial;
+   struct wl_client *wc;
+   struct wl_resource *res;
+   Eina_List *l;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(ec)), EINA_FALSE);
+
+   if (!eina_list_count(e_comp_wl->ptr.resources)) return EINA_FALSE;
+   wc = wl_resource_get_client(ec->comp_data->surface);
+   serial = wl_display_next_serial(e_comp_wl->wl.disp);
+   EINA_LIST_FOREACH(e_comp_wl->ptr.resources, l, res)
+     {
+        if (!e_comp_wl_input_pointer_check(res)) continue;
+        if (wl_resource_get_client(res) != wc) continue;
+
+        if (dev) _e_comp_wl_send_event_device(wc, time, dev, serial);
+        else _e_comp_wl_device_send_last_event_device(ec, ECORE_DEVICE_CLASS_MOUSE, time);
+
+        wl_pointer_send_enter(res, serial, ec->comp_data->surface,
+                              wl_fixed_from_int(x),
+                              wl_fixed_from_int(y));
+     }
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_comp_wl_mouse_out_send(E_Client *ec, Ecore_Device *dev, uint32_t time)
+{
+   uint32_t serial;
+   struct wl_client *wc;
+   struct wl_resource *res;
+   Eina_List *l;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(ec)), EINA_FALSE);
+
+   if (!eina_list_count(e_comp_wl->ptr.resources)) return EINA_FALSE;
+   wc = wl_resource_get_client(ec->comp_data->surface);
+   serial = wl_display_next_serial(e_comp_wl->wl.disp);
+   EINA_LIST_FOREACH(e_comp_wl->ptr.resources, l, res)
+     {
+        if (!e_comp_wl_input_pointer_check(res)) continue;
+        if (wl_resource_get_client(res) != wc) continue;
+
+        if (dev) _e_comp_wl_send_event_device(wc, time, dev, serial);
+        else _e_comp_wl_device_send_last_event_device(ec, ECORE_DEVICE_CLASS_MOUSE, time);
+
+        wl_pointer_send_leave(res, serial, ec->comp_data->surface);
+     }
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
 e_comp_wl_cursor_hide(E_Client *ec)
 {
    struct wl_resource *res;

@@ -547,6 +547,9 @@ EINTERN Eina_Bool e_comp_wl_touch_cancel_send(E_Client *ec);
 EINTERN Eina_Bool e_comp_wl_mouse_button_send(E_Client *ec, int buttons, Eina_Bool pressed, Ecore_Device *dev, uint32_t time);
 EINTERN Eina_Bool e_comp_wl_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_t time);
 EINTERN Eina_Bool e_comp_wl_mouse_wheel_send(E_Client *ec, int direction, int z, Ecore_Device *dev, uint32_t time);
+EINTERN Eina_Bool e_comp_wl_mouse_in_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_t time);
+EINTERN Eina_Bool e_comp_wl_mouse_out_send(E_Client *ec, Ecore_Device *dev, uint32_t time);
+
 EINTERN Eina_Bool e_comp_wl_cursor_hide(E_Client *ec);
 
 EINTERN void	  e_comp_wl_feed_focus_in(E_Client *ec);
