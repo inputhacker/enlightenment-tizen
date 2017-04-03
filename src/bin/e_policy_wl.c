@@ -101,6 +101,12 @@ typedef struct _E_Policy_Wl_Tzsh_Region
    struct wl_listener  destroy_listener;
 } E_Policy_Wl_Tzsh_Region;
 
+typedef struct _E_Policy_Wl_Tzsh_Extension
+{
+   char                    *name;
+   E_Policy_Wl_Tzsh_Ext_Hook_Cb cb;
+} E_Policy_Wl_Tzsh_Extension;
+
 typedef struct _E_Policy_Wl_Surface
 {
    struct wl_resource *surf;
@@ -231,6 +237,9 @@ typedef struct _E_Policy_Wl
 #ifdef HAVE_CYNARA
    cynara          *p_cynara;
 #endif
+
+   /* tizen_ws_shell_interface ver_2 */
+   Eina_List       *tzsh_extensions;           /* list of E_Policy_Wl_Tzsh_Extension */
 } E_Policy_Wl;
 
 typedef struct _E_Tzsh_QP_Event
@@ -820,6 +829,23 @@ _e_policy_wl_tzsh_client_del(E_Policy_Wl_Tzsh_Client *tzsh_client)
    memset(tzsh_client, 0x0, sizeof(E_Policy_Wl_Tzsh_Client));
    E_FREE(tzsh_client);
 }
+
+static E_Policy_Wl_Tzsh_Extension*
+_e_policy_wl_tzsh_extension_get(const char *name)
+{
+   E_Policy_Wl_Tzsh_Extension *tzsh_ext;
+   Eina_List *l;
+
+   EINA_LIST_FOREACH(polwl->tzsh_extensions, l, tzsh_ext)
+     {
+        if (strcmp(tzsh_ext->name, name)) continue;
+
+        return tzsh_ext;
+     }
+
+   return NULL;
+}
+
 
 // --------------------------------------------------------
 // E_Policy_Wl_Surface
@@ -3857,6 +3883,57 @@ _tzsh_iface_cb_srv_create(struct wl_client *client, struct wl_resource *res_tzsh
 }
 
 // --------------------------------------------------------
+// tizen_ws_shell common
+// --------------------------------------------------------
+E_API Eina_Bool
+e_tzsh_extension_add(const char *name, E_Policy_Wl_Tzsh_Ext_Hook_Cb cb)
+{
+   E_Policy_Wl_Tzsh_Extension *tzsh_ext;
+
+   if (_e_policy_wl_tzsh_extension_get(name))
+     {
+        ERR("Already exists the %s extension\n", name);
+        return EINA_FALSE;
+     }
+
+   tzsh_ext = E_NEW(E_Policy_Wl_Tzsh_Extension, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tzsh_ext, EINA_FALSE);
+
+   tzsh_ext->name = strndup(name, 512);
+   tzsh_ext->cb = cb;
+
+   polwl->tzsh_extensions = eina_list_append(polwl->tzsh_extensions, tzsh_ext);
+   ELOGF("TZSH",
+         "EXTENSION_ADD | name:%s | cb:%p",
+         NULL, NULL,
+         name, cb);
+
+   return EINA_TRUE;
+}
+
+E_API void
+e_tzsh_extension_del(const char *name)
+{
+   E_Policy_Wl_Tzsh_Extension *tzsh_ext;
+
+   tzsh_ext = _e_policy_wl_tzsh_extension_get(name);
+   if (!tzsh_ext)
+     {
+        ERR("Cannot find the %s extension\n", name);
+        return;
+     }
+
+   polwl->tzsh_extensions = eina_list_remove(polwl->tzsh_extensions, tzsh_ext);
+   memset(tzsh_ext, 0x0, sizeof(E_Policy_Wl_Tzsh_Extension));
+   E_FREE(tzsh_ext);
+
+   ELOGF("TZSH",
+         "EXTENSION_DEL | name:%s",
+         NULL, NULL,
+         name);
+}
+
+// --------------------------------------------------------
 // tizen_ws_shell_interface::region
 // --------------------------------------------------------
 static void
@@ -4583,6 +4660,45 @@ _tzsh_iface_cb_tvsrv_get(struct wl_client *client, struct wl_resource *res_tzsh,
                                   _tzsh_cb_tvsrv_destroy);
 }
 
+static void _tzsh_iface_cb_extension_get(struct wl_client *client, struct wl_resource *res_tzsh, uint32_t id, const char *name)
+{
+   E_Policy_Wl_Tzsh *tzsh;
+   E_Policy_Wl_Tzsh_Extension *tzsh_ext;
+   struct wl_resource *res_ext;
+
+   tzsh = wl_resource_get_user_data(res_tzsh);
+   if (!tzsh)
+     {
+        wl_resource_post_error
+          (res_tzsh,
+           WL_DISPLAY_ERROR_INVALID_OBJECT,
+           "Invalid res_tzsh's user data");
+        return;
+     }
+
+   tzsh_ext = _e_policy_wl_tzsh_extension_get(name);
+   if (!tzsh_ext)
+      {
+         ERR("Could not find tzsh_extension(%s)", name);
+         wl_resource_post_error
+           (res_tzsh,
+            WL_DISPLAY_ERROR_INVALID_OBJECT,
+            "unregistered ext:%s", name);
+      }
+   else
+      {
+         res_ext = tzsh_ext->cb(client, res_tzsh, id);
+         if (!res_ext)
+            {
+               ERR("Could not create extension(%s) resource", name);
+               wl_resource_post_error
+                 (res_tzsh,
+                  WL_DISPLAY_ERROR_INVALID_OBJECT,
+                  "Unknown error:%s", name);
+            }
+      }
+}
+
 // --------------------------------------------------------
 // tizen_ws_shell_interface
 // --------------------------------------------------------
@@ -4599,6 +4715,7 @@ static const struct tizen_ws_shell_interface _tzsh_iface =
    _tzsh_iface_cb_reg_create,
    _tzsh_iface_cb_qp_get,
    _tzsh_iface_cb_tvsrv_get,
+   _tzsh_iface_cb_extension_get,
 };
 
 static void
@@ -6801,6 +6918,7 @@ e_policy_wl_shutdown(void)
 {
    E_Policy_Wl_Tzsh *tzsh;
    E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+   E_Policy_Wl_Tzsh_Extension *tzsh_extension;
    E_Policy_Wl_Tzlaunch *tzlaunch;
    E_Policy_Wl_Tz_Dpy_Pol *tz_dpy_pol;
    E_Policy_Wl_Tz_Indicator *tz_indicator;
@@ -6845,6 +6963,11 @@ e_policy_wl_shutdown(void)
      {
         eina_list_free(tz_indicator->ec_list);
         wl_resource_destroy(tz_indicator->res_tz_indicator);
+     }
+
+   EINA_LIST_FREE(polwl->tzsh_extensions, tzsh_extension)
+     {
+        free(tzsh_extension->name);
      }
 
    EINA_LIST_FREE(polwl->globals, global)

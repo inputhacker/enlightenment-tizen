@@ -37,6 +37,12 @@ void      e_policy_wl_eval_pre_post_fetch(E_Client *ec);
 /* window brightness */
 Eina_Bool e_policy_wl_win_brightness_apply(E_Client *ec);
 
+/* tzsh common */
+typedef struct wl_resource* (*E_Policy_Wl_Tzsh_Ext_Hook_Cb)(struct wl_client* client, struct wl_resource* res, uint32_t id);
+E_API Eina_Bool e_tzsh_extension_add(const char* name, E_Policy_Wl_Tzsh_Ext_Hook_Cb cb);
+E_API void      e_tzsh_extension_del(const char* name);
+
+
 /* tzsh quickpanel */
 E_API void e_tzsh_qp_state_visible_update(E_Client *ec, Eina_Bool vis);
 E_API void e_tzsh_qp_state_orientation_update(E_Client *ec, int ridx);
