@@ -794,7 +794,9 @@ e_output_commit(E_Output *output)
 
         if (output->dpms == E_OUTPUT_DPMS_OFF)
           {
-              e_plane_unfetch(plane);
+              if (!plane->need_unset_commit)
+                e_plane_unfetch(plane);
+
               continue;
           }
 
