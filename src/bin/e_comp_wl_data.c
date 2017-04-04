@@ -735,11 +735,14 @@ e_comp_wl_data_device_send_enter(E_Client *ec)
    if (!e_client_has_xwindow(ec))
      {
         data_device_res =
-              e_comp_wl_data_find_for_client(wl_resource_get_client(ec->comp_data->surface));
+           e_comp_wl_data_find_for_client(wl_resource_get_client(ec->comp_data->surface));
         if (!data_device_res) return;
         offer_res = e_comp_wl_data_device_send_offer(ec);
         if (e_comp_wl->drag_source && (!offer_res)) return;
      }
+   else
+     return;
+
    e_comp_wl->selection.target = ec;
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_DEL, _e_comp_wl_data_device_target_del, ec);
 
