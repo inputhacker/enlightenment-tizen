@@ -1329,6 +1329,17 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
                                        edev,
                                        time);
               break;
+           case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_IN:
+              e_client_mouse_in_send(ec,
+                                     x, y,
+                                     edev,
+                                     time);
+              break;
+           case TIZEN_REMOTE_SURFACE_EVENT_TYPE_MOUSE_OUT:
+              e_client_mouse_out_send(ec,
+                                      edev,
+                                      time);
+              break;
            default:
               ERR("Not supported event_type(%d)", event_type);
               break;
