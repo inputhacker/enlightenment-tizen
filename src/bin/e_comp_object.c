@@ -1913,6 +1913,10 @@ _e_comp_intercept_show_helper(E_Comp_Object *cw)
         e_comp_object_frame_theme_set(cw->smart_obj, E_COMP_OBJECT_FRAME_RESHADOW);
         cw->real_hid = 0;
         evas_object_show(cw->smart_obj);
+
+        if (!cw->ec->iconic)
+          e_client_focus_defer_set(cw->ec);
+
         return;
      }
    if ((!cw->updates) && (!cw->ec->input_only) && (!cw->ec->ignored))
