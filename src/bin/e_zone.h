@@ -48,6 +48,25 @@ typedef Eina_Bool (*E_Zone_Cb_Orientation_Block_Set)(E_Zone *zone, const char* n
 typedef void      (*E_Zone_Cb_Orientation_Force_Update_Add)(E_Zone *zone, E_Client *client);
 typedef void      (*E_Zone_Cb_Orientation_Force_Update_Del)(E_Zone *zone, E_Client *client);
 
+typedef struct _E_Zone_Hook E_Zone_Hook;
+
+typedef enum _E_Zone_Hook_Point
+{
+   E_ZONE_HOOK_DISPLAY_STATE_CHANGE,
+   E_ZONE_HOOK_LAST
+} E_Zone_Hook_Point;
+
+typedef void (*E_Zone_Hook_Cb)(void *data, E_Zone *zone);
+
+struct _E_Zone_Hook
+{
+   EINA_INLIST;
+   E_Zone_Hook_Point hookpoint;
+   E_Zone_Hook_Cb    func;
+   void             *data;
+   unsigned char     delete_me : 1;
+};
+
 #define E_ZONE_TYPE (int)0xE0b0100d
 
 struct _E_Zone
@@ -222,6 +241,9 @@ E_API void      e_zone_orientation_callback_set(E_Zone *zone, E_Zone_Cb_Orientat
 E_API Eina_Bool e_zone_orientation_block_set(E_Zone *zone, const char *name_hint, Eina_Bool set);
 E_API void      e_zone_orientation_force_update_add(E_Zone *zone, E_Client *client);
 E_API void      e_zone_orientation_force_update_del(E_Zone *zone, E_Client *client);
+
+E_API E_Zone_Hook *e_zone_hook_add(E_Zone_Hook_Point hookpoint, E_Zone_Hook_Cb func, const void *data);
+E_API void e_zone_hook_del(E_Zone_Hook *zh);
 
 extern E_API int E_EVENT_ZONE_DESK_COUNT_SET;
 extern E_API int E_EVENT_ZONE_MOVE_RESIZE;

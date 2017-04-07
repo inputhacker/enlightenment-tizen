@@ -17,6 +17,8 @@ static void        _e_zone_event_generic_free(void *data, void *ev);
 static void        _e_zone_object_del_attach(void *o);
 static E_Zone_Edge _e_zone_detect_edge(E_Zone *zone, Evas_Object *obj);
 static void        _e_zone_edge_move_resize(E_Zone *zone);
+static void        _e_zone_hooks_clean(void);
+static Eina_Bool   _e_zone_hook_call(E_Zone_Hook_Point hookpoint, E_Zone *zone);
 
 E_API int E_EVENT_ZONE_DESK_COUNT_SET = 0;
 E_API int E_EVENT_POINTER_WARP = 0;
@@ -44,6 +46,15 @@ E_API int E_EVENT_ZONE_DISPLAY_STATE_CHANGE = 0;
 #define E_ZONE_FLIP_DOWN(zone)  (((((zone)->desk_y_count > 1)) || (((zone)->desk_y_current + 1) < (zone)->desk_y_count)) && (zone)->edge.bottom)
 
 #define E_ZONE_CORNER_RATIO 0.025;
+
+static int _e_zone_hooks_delete = 0;
+static int _e_zone_hooks_walking = 0;
+
+static Eina_Inlist *_e_zone_hooks[] =
+{
+   [E_ZONE_HOOK_DISPLAY_STATE_CHANGE] = NULL,
+};
+
 
 EINTERN int
 e_zone_init(void)
@@ -1143,6 +1154,8 @@ e_zone_display_state_set(E_Zone *zone, E_Zone_Display_State state)
 
    zone->display_state = state;
 
+   _e_zone_hook_call(E_ZONE_HOOK_DISPLAY_STATE_CHANGE, zone);
+
    ev = E_NEW(E_Event_Zone_Display_State_Change, 1);
    if (!ev) return;
    ev->zone = zone;
@@ -1410,4 +1423,67 @@ _e_zone_edge_move_resize(E_Zone *zone)
              zone->x + 1 + cw, zone->y + zone->h - 1, zone->w - 2 - 2 * cw, 1);
    evas_object_geometry_set(zone->corner.bottom_left,
              zone->x + zone->w - cw - 2, zone->y + zone->h - 1, cw, 1);
+}
+
+static void
+_e_zone_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Zone_Hook *zh;
+   unsigned int x;
+
+   for (x = 0; x < E_ZONE_HOOK_LAST; x++)
+     EINA_INLIST_FOREACH_SAFE(_e_zone_hooks[x], l, zh)
+       {
+          if (!zh->delete_me) continue;
+          _e_zone_hooks[x] = eina_inlist_remove(_e_zone_hooks[x], EINA_INLIST_GET(zh));
+          free(zh);
+       }
+}
+
+static Eina_Bool
+_e_zone_hook_call(E_Zone_Hook_Point hookpoint, E_Zone *zone)
+{
+   E_Zone_Hook *zh;
+
+   e_object_ref(E_OBJECT(zone));
+   _e_zone_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_zone_hooks[hookpoint], zh)
+     {
+        if (zh->delete_me) continue;
+        zh->func(zh->data, zone);
+     }
+   _e_zone_hooks_walking--;
+   if ((_e_zone_hooks_walking == 0) && (_e_zone_hooks_delete > 0))
+     _e_zone_hooks_clean();
+
+   return !!e_object_unref(E_OBJECT(zone));
+}
+
+E_API E_Zone_Hook *
+e_zone_hook_add(E_Zone_Hook_Point hookpoint, E_Zone_Hook_Cb func, const void *data)
+{
+   E_Zone_Hook *zh;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_ZONE_HOOK_LAST, NULL);
+   zh = E_NEW(E_Zone_Hook, 1);
+   if (!zh) return NULL;
+   zh->hookpoint = hookpoint;
+   zh->func = func;
+   zh->data = (void*)data;
+   _e_zone_hooks[hookpoint] = eina_inlist_append(_e_zone_hooks[hookpoint], EINA_INLIST_GET(zh));
+   return zh;
+}
+
+E_API void
+e_zone_hook_del(E_Zone_Hook *zh)
+{
+   zh->delete_me = 1;
+   if (_e_zone_hooks_walking == 0)
+     {
+        _e_zone_hooks[zh->hookpoint] = eina_inlist_remove(_e_zone_hooks[zh->hookpoint], EINA_INLIST_GET(zh));
+        free(zh);
+     }
+   else
+     _e_zone_hooks_delete++;
 }
