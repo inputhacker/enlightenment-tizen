@@ -807,6 +807,10 @@ _e_plane_renderer_client_ec_buffer_change_cb(void *data, int type, void *event)
    if (!renderer_buffer)
      {
         ERR("fail to get renderer buffer");
+
+        if (!_e_plane_renderer_client_backup_buffer_set(renderer_client))
+           ERR("fail to _e_comp_hwc_set_backup_buffer");
+
         return ECORE_CALLBACK_PASS_ON;
      }
 
