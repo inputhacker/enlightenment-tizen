@@ -13,6 +13,7 @@ struct _E_Comp_Config
    const char   *effect_file;
    const char   *effect_style;
    const char   *depth_in_style;
+   const char   *bg_effect_style;
    int           engine;
    int           max_unmapped_time;
    int           min_unmapped_time;

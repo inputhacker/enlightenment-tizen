@@ -37,6 +37,7 @@ e_comp_cfdata_edd_init(E_Config_DD **conf_edd, E_Config_DD **match_edd)
    E_CONFIG_VAL(D, T, effect_file, STR);
    E_CONFIG_VAL(D, T, effect_style, STR);
    E_CONFIG_VAL(D, T, depth_in_style, STR);
+   E_CONFIG_VAL(D, T, bg_effect_style, STR);
    E_CONFIG_VAL(D, T, max_unmapped_time, INT);
    E_CONFIG_VAL(D, T, min_unmapped_time, INT);
    E_CONFIG_VAL(D, T, fps_average_range, INT);
@@ -97,6 +98,7 @@ e_comp_cfdata_config_new(void)
    cfg->effect_file = NULL;
    cfg->effect_style = "none";
    cfg->depth_in_style = "none";
+   cfg->bg_effect_style = NULL;
    cfg->engine = E_COMP_ENGINE_SW;
    cfg->max_unmapped_time = 10 * 3600; // implement
    cfg->min_unmapped_time = 5 * 60; // implement
@@ -244,6 +246,7 @@ e_comp_cfdata_config_free(E_Comp_Config *cfg)
    if (!cfg) return;
    eina_stringshare_del(cfg->effect_style);
    eina_stringshare_del(cfg->depth_in_style);
+   eina_stringshare_del(cfg->bg_effect_style);
    eina_stringshare_del(cfg->effect_file);
    eina_stringshare_del(cfg->shadow_style);
    eina_stringshare_del(cfg->launch_file);
