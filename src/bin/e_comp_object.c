@@ -954,6 +954,12 @@ _e_comp_object_animating_end(E_Comp_Object *cw)
                        if (!cw->ec->extra_animating)
                          {
                             cw->ec->launching = EINA_FALSE;
+                            if (cw->ec->first_mapped)
+                              {
+                                 ELOGF("LAUNCH", "SHOW real win", cw->ec->pixmap, cw->ec);
+                                 e_comp_object_signal_emit(cw->ec->frame, "e,action,launch_real,done", "e");
+                              }
+
                             e_comp_object_signal_emit(cw->ec->frame, "e,action,launch,done", "e");
                          }
                     }
