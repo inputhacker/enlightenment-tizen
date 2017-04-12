@@ -87,6 +87,11 @@ static Eina_List *module_hook = NULL;
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
 
+enum
+{
+   E_INFO_SERVER_SIGNAL_WIN_UNDER_TOUCH = 0
+};
+
 static E_Info_Transform *_e_info_transform_new(E_Client *ec, int id, int enable, int x, int y, int sx, int sy, int degree, int background);
 static E_Info_Transform *_e_info_transform_find(E_Client *ec, int id);
 static void              _e_info_transform_set(E_Info_Transform *transform, int enable, int x, int y, int sx, int sy, int degree);
@@ -2969,6 +2974,136 @@ _e_info_server_cb_screen_rotation(const Eldbus_Service_Interface *iface EINA_UNU
    return reply;
 }
 
+static Ecore_Window
+_e_info_server_top_win_at_xy_get(int x, int y)
+{
+   Evas_Object *o;
+   E_Client *ec;
+
+   o = evas_object_top_at_xy_get(e_comp->evas, x, y, EINA_FALSE, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(o, 0);
+
+   ec = evas_object_data_get(o, "E_Client");
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, 0);
+
+   return e_client_util_win_get(ec);
+}
+
+static Eina_Bool
+_e_info_server_cb_ecore_event_filter(void *data, void *loop_data EINA_UNUSED, int type, void *event)
+{
+   Ecore_Event_Mouse_Button *e;
+   Ecore_Window win;
+   Ecore_Event_Filter **event_filter;
+
+   if (type != ECORE_EVENT_MOUSE_BUTTON_DOWN && type != ECORE_EVENT_MOUSE_BUTTON_UP
+       && type != ECORE_EVENT_MOUSE_MOVE && type != ECORE_EVENT_MOUSE_WHEEL
+       && type != ECORE_EVENT_MOUSE_IN && type != ECORE_EVENT_MOUSE_OUT)
+     return EINA_TRUE;
+
+   if (type == ECORE_EVENT_MOUSE_BUTTON_DOWN)
+     {
+        e = event;
+        event_filter = data;
+
+        win = _e_info_server_top_win_at_xy_get(e->x, e->y);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(win, EINA_FALSE);
+
+        ecore_event_filter_del(*event_filter);
+        free(event_filter);
+
+        eldbus_service_signal_emit(e_info_server.iface, E_INFO_SERVER_SIGNAL_WIN_UNDER_TOUCH, (uint64_t)win);
+     }
+
+   return EINA_FALSE;
+}
+
+static Eldbus_Message *
+_e_info_server_cb_get_win_under_touch(const Eldbus_Service_Interface *iface EINA_UNUSED,
+                                      const Eldbus_Message *msg)
+{
+   int result = 0;
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Ecore_Event_Filter **event_filter;;
+
+   event_filter = calloc(1, sizeof(Ecore_Event_Filter *));
+   EINA_SAFETY_ON_NULL_GOTO(event_filter, fail);
+
+   *event_filter = ecore_event_filter_add(NULL, _e_info_server_cb_ecore_event_filter,
+                                          NULL, event_filter);
+   EINA_SAFETY_ON_NULL_GOTO(*event_filter, fail);
+
+   goto finish;
+
+fail:
+   result = -1;
+   if (event_filter)
+     free(event_filter);
+
+finish:
+   eldbus_message_arguments_append(reply, "i", result);
+
+   return reply;
+}
+
+static E_Client *
+_e_info_server_ec_find_by_win(Ecore_Window win)
+{
+   E_Client *ec;
+   Evas_Object *o;
+
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        Ecore_Window w;
+
+        ec = evas_object_data_get(o, "E_Client");
+        if (!ec) continue;
+        if (e_client_util_ignored_get(ec)) continue;
+
+        w = e_client_util_win_get(ec);
+        if (w == win)
+          return ec;
+     }
+
+   return NULL;
+}
+
+static Eldbus_Message *
+_e_info_server_cb_kill_client(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Eina_Bool res;
+   char result[1024];
+   E_Client *ec;
+   uint64_t win;
+
+   res = eldbus_message_arguments_get(msg, "t", &win);
+   if (res != EINA_TRUE)
+     {
+        snprintf(result, sizeof(result),
+                "[Server] Error: cannot get the arguments from an Eldbus_Message");
+        goto finish;
+     }
+
+   ec = _e_info_server_ec_find_by_win((Ecore_Window)win);
+   if (!ec)
+     {
+        snprintf(result, sizeof(result),
+                "[Server] Error: cannot find the E_Client.");
+        goto finish;
+     }
+
+   e_client_act_kill_begin(ec);
+
+   snprintf(result, sizeof(result),
+           "[Server] killing creator(%s) of resource 0x%lx", e_client_util_name_get(ec) ?: "NO NAME", (unsigned long)win);
+
+finish:
+   eldbus_message_arguments_append(reply, "s", result);
+
+   return reply;
+}
+
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
@@ -3009,11 +3144,18 @@ static const Eldbus_Method methods[] = {
    { "desk_zoom", ELDBUS_ARGS({"ddii", "Zoom"}), NULL, _e_info_server_cb_desk_zoom, 0},
    { "frender", ELDBUS_ARGS({"i", "frender"}), ELDBUS_ARGS({"s", "force_render_result"}), _e_info_server_cb_force_render, 0},
    { "screen_rotation", ELDBUS_ARGS({"i", "value"}), NULL, _e_info_server_cb_screen_rotation, 0},
+   { "get_win_under_touch", NULL, ELDBUS_ARGS({"i", "result"}), _e_info_server_cb_get_win_under_touch, 0 },
+   { "kill_client", ELDBUS_ARGS({"t", "window"}), ELDBUS_ARGS({"s", "kill result"}), _e_info_server_cb_kill_client, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 
+static const Eldbus_Signal signals[] = {
+   [E_INFO_SERVER_SIGNAL_WIN_UNDER_TOUCH] = {"win_under_touch", ELDBUS_ARGS({ "t", "win_under_touch" }), 0},
+   { }
+};
+
 static const Eldbus_Service_Interface_Desc iface_desc = {
-     IFACE, methods, NULL, NULL, NULL, NULL
+     IFACE, methods, signals, NULL, NULL, NULL
 };
 
 Eina_Bool

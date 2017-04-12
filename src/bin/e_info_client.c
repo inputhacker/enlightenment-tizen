@@ -76,7 +76,6 @@ static E_Info_Client e_info_client;
 
 static Eina_Bool compobjs_simple = EINA_FALSE;
 
-static int keepRunning = 1;
 static void end_program(int sig);
 static Eina_Bool _e_info_client_eldbus_message(const char *method, E_Info_Message_Cb cb);
 static Eina_Bool _e_info_client_eldbus_message_with_args(const char *method, E_Info_Message_Cb cb, const char *signature, ...);
@@ -149,6 +148,75 @@ _util_string_to_double(const char *str, double *num)
    *num = sd;
 
    return EINA_TRUE;
+}
+
+static void
+_e_signal_get_window_under_touch(void *data, const Eldbus_Message *msg)
+{
+   Eina_Bool res;
+   uint64_t w;
+   Ecore_Window *win = data;
+
+   res = eldbus_message_arguments_get(msg, "t", &w);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   *win = (Ecore_Window)w;
+
+finish:
+   ecore_main_loop_quit();
+}
+
+static void
+_e_message_get_window_under_touch(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   int result = 0;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "i", &result);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+   EINA_SAFETY_ON_TRUE_GOTO(result, finish);
+
+   return;
+
+finish:
+  if ((name) || (text))
+    {
+       printf("errname:%s errmsg:%s\n", name, text);
+    }
+
+   ecore_main_loop_quit();
+}
+
+static int
+_e_get_window_under_touch(Ecore_Window *win)
+{
+   Eina_Bool res;
+   Eldbus_Signal_Handler *signal_handler = NULL;
+
+   *win = 0;
+
+   signal_handler = eldbus_proxy_signal_handler_add(e_info_client.proxy, "win_under_touch", _e_signal_get_window_under_touch, win);
+   EINA_SAFETY_ON_NULL_GOTO(signal_handler, fail);
+
+   res = _e_info_client_eldbus_message("get_win_under_touch",
+                                       _e_message_get_window_under_touch);
+   EINA_SAFETY_ON_FALSE_GOTO(res, fail);
+
+   ecore_main_loop_begin();
+
+   eldbus_signal_handler_del(signal_handler);
+
+   return 0;
+
+fail:
+   if (signal_handler)
+     eldbus_signal_handler_del(signal_handler);
+
+   return -1;
 }
 
 static E_Win_Info *
@@ -1557,15 +1625,13 @@ finish:
 static void
 _e_info_client_proc_fps_info(int argc, char **argv)
 {
-   keepRunning = 1;
-
    do
      {
         if (!_e_info_client_eldbus_message("get_fps_info", _cb_fps_info_get))
           return;
         usleep(500000);
      }
-   while (keepRunning);
+   while (1);
 }
 
 static Eina_Bool
@@ -2561,6 +2627,50 @@ _e_info_client_proc_screen_rotation(int argc, char **argv)
      printf("_e_info_client_eldbus_message_with_args error");
 }
 
+static void
+_e_info_client_cb_kill_client(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   const char *result = NULL;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "s", &result);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   printf("%s\n", result);
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_kill_client(int argc, char **argv)
+{
+   Eina_Bool res;
+   Ecore_Window win;
+
+   printf("Select the window whose client you wish to kill\n");
+   if (_e_get_window_under_touch(&win))
+     {
+        printf("Error: cannot get window under touch\n");
+        return;
+     }
+
+   res = _e_info_client_eldbus_message_with_args("kill_client",
+                                                 _e_info_client_cb_kill_client,
+                                                 "t", (uint64_t)win);
+   EINA_SAFETY_ON_FALSE_RETURN(res);
+
+   return;
+}
+
 static struct
 {
    const char *option;
@@ -2754,6 +2864,13 @@ static struct
       "to rotate screen",
       _e_info_client_proc_screen_rotation
    },
+   {
+
+      "kill",
+       NULL,
+      "kill a client",
+      _e_info_client_proc_kill_client
+   }
 };
 
 static void
@@ -2901,7 +3018,10 @@ _e_info_client_print_usage(const char *exec)
 static void
 end_program(int sig)
 {
-   keepRunning = 0;
+   ecore_main_loop_quit();
+   /* disconnecting dbus */
+   _e_info_client_eldbus_disconnect();
+   exit(EXIT_FAILURE);
 }
 
 int
