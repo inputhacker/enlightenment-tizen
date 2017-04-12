@@ -920,6 +920,7 @@ EINTERN E_Plane_Renderer *
 e_plane_renderer_new(E_Plane *plane)
 {
    E_Plane_Renderer *renderer = NULL;
+   tbm_surface_queue_h tqueue = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
 
@@ -933,10 +934,13 @@ e_plane_renderer_new(E_Plane *plane)
      {
         renderer->ee = e_comp->ee;
         renderer->evas = ecore_evas_get(renderer->ee);
-        renderer->tqueue = _get_tbm_surface_queue(renderer->ee);
         renderer->event_fd = eventfd(0, EFD_NONBLOCK);
         renderer->event_hdlr = ecore_main_fd_handler_add(renderer->event_fd, ECORE_FD_READ,
                                _e_plane_renderer_cb_queue_acquirable_event, NULL, NULL, NULL);
+
+        tqueue = _get_tbm_surface_queue(renderer->ee);
+        if (tqueue && !e_plane_renderer_surface_queue_set(renderer, tqueue))
+           ERR("fail to e_plane_renderer_queue_set");
      }
 
    return renderer;
