@@ -58,6 +58,7 @@ E_API Eina_Bool e_util_string_to_uint(const char *str, unsigned int *num, int ba
 E_API Eina_Bool e_util_string_to_int(const char *str, int *num, int base);
 E_API Eina_Bool e_util_string_to_int_token(const char *str, char **next, int *num, int base);
 E_API Eina_Bool e_util_string_to_double(const char *str, double *num);
+E_API Eina_Bool e_util_string_to_ulong(const char *str, unsigned long *num, int base);
 
 E_API void e_util_evas_objects_above_print(Evas_Object *o);
 E_API void e_util_evas_objects_above_print_smart(Evas_Object *o);
