@@ -71,12 +71,13 @@ typedef struct _E_Pending_Commit_Info
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
+#define VALUE_TYPE_REQUEST_FOR_KILL "uts"
+#define VALUE_TYPE_REPLY_KILL "s"
 
 static E_Info_Client e_info_client;
 
 static Eina_Bool compobjs_simple = EINA_FALSE;
 
-static int keepRunning = 1;
 static void end_program(int sig);
 static Eina_Bool _e_info_client_eldbus_message(const char *method, E_Info_Message_Cb cb);
 static Eina_Bool _e_info_client_eldbus_message_with_args(const char *method, E_Info_Message_Cb cb, const char *signature, ...);
@@ -149,6 +150,96 @@ _util_string_to_double(const char *str, double *num)
    *num = sd;
 
    return EINA_TRUE;
+}
+
+static Eina_Bool
+_util_string_to_ulong(const char *str, unsigned long *num, int base)
+{
+   char *end;
+   int errsv;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(str, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(num, EINA_FALSE);
+
+   const long sul = strtoul(str, &end, base);
+   errsv = errno;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((end == str), EINA_FALSE); /* given string is not a decimal number */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(('\0' != *end), EINA_FALSE); /* given string has extra characters */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(((ULONG_MAX == sul) && (ERANGE == errsv)), EINA_FALSE); /* out of range of type unsigned long */
+
+   *num = (int)sul;
+
+   return EINA_TRUE;
+}
+
+static void
+_e_signal_get_window_under_touch(void *data, const Eldbus_Message *msg)
+{
+   Eina_Bool res;
+   uint64_t w;
+   Ecore_Window *win = data;
+
+   res = eldbus_message_arguments_get(msg, "t", &w);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   *win = (Ecore_Window)w;
+
+finish:
+   ecore_main_loop_quit();
+}
+
+static void
+_e_message_get_window_under_touch(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   int result = 0;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "i", &result);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+   EINA_SAFETY_ON_TRUE_GOTO(result, finish);
+
+   return;
+
+finish:
+  if ((name) || (text))
+    {
+       printf("errname:%s errmsg:%s\n", name, text);
+    }
+
+   ecore_main_loop_quit();
+}
+
+static int
+_e_get_window_under_touch(Ecore_Window *win)
+{
+   Eina_Bool res;
+   Eldbus_Signal_Handler *signal_handler = NULL;
+
+   *win = 0;
+
+   signal_handler = eldbus_proxy_signal_handler_add(e_info_client.proxy, "win_under_touch", _e_signal_get_window_under_touch, win);
+   EINA_SAFETY_ON_NULL_GOTO(signal_handler, fail);
+
+   res = _e_info_client_eldbus_message("get_win_under_touch",
+                                       _e_message_get_window_under_touch);
+   EINA_SAFETY_ON_FALSE_GOTO(res, fail);
+
+   ecore_main_loop_begin();
+
+   eldbus_signal_handler_del(signal_handler);
+
+   return 0;
+
+fail:
+   if (signal_handler)
+     eldbus_signal_handler_del(signal_handler);
+
+   return -1;
 }
 
 static E_Win_Info *
@@ -1557,15 +1648,13 @@ finish:
 static void
 _e_info_client_proc_fps_info(int argc, char **argv)
 {
-   keepRunning = 1;
-
    do
      {
         if (!_e_info_client_eldbus_message("get_fps_info", _cb_fps_info_get))
           return;
         usleep(500000);
      }
-   while (keepRunning);
+   while (1);
 }
 
 static Eina_Bool
@@ -2539,6 +2628,22 @@ arg_err:
 
 }
 
+#define KILL_USAGE \
+  "[COMMAND] [ARG]...\n" \
+  "\t-id    : the identifier for the resource whose creator is to be killed.\n" \
+  "\t-name  : the name for the resource whose creator is to be killed.\n" \
+  "\t-pid   : the pid for the resource whose creator is to be killed.\n" \
+  "\t-all   : kill all clients with top level windows\n" \
+  "\t-help\n" \
+  "Example:\n" \
+  "\tenlightenment_info -kill\n" \
+  "\tenlightenment_info -kill [win_id]\n" \
+  "\tenlightenment_info -kill -id [win_id]\n" \
+  "\tenlightenment_info -kill -name [win_name]\n" \
+  "\tenlightenment_info -kill -pid [pid]\n" \
+  "\tenlightenment_info -kill -all\n" \
+  "\tenlightenment_info -kill -help\n" \
+
 static void
 _e_info_client_proc_screen_rotation(int argc, char **argv)
 {
@@ -2579,6 +2684,35 @@ _e_info_client_cb_remote_surface(const Eldbus_Message *msg)
      printf("%s\n", result);
 
    return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_cb_kill_client(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   const char *result = NULL;
+   Eldbus_Message_Iter *array_of_string;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "a"VALUE_TYPE_REPLY_KILL, &array_of_string);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   while (eldbus_message_iter_get_and_next(array_of_string, 's', &result))
+     {
+        printf("%s\n", result);
+     }
+
+   return;
+
 finish:
    if ((name) || (text))
      {
@@ -2622,6 +2756,89 @@ _e_info_client_proc_remote_surface(int argc, char **argv)
    return;
 arg_err:
    printf("%s\n", USAGE_REMOTE_SURFACE);
+}
+
+static void
+_e_info_client_proc_kill_client(int argc, char **argv)
+{
+   const static int KILL_ID_MODE = 1;
+   const static int KILL_NAME_MODE = 2;
+   const static int KILL_PID_MODE = 3;
+   const static int KILL_ALL_MODE = 4;
+   Eina_Bool res;
+   uint64_t uint64_value;
+   const char *str_value = "";
+   uint32_t mode;
+
+   if (argc == 2)
+     {
+        mode = KILL_ID_MODE;
+        printf("Select the window whose client you wish to kill\n");
+        if (_e_get_window_under_touch((Ecore_Window *)&uint64_value))
+          {
+             printf("Error: cannot get window under touch\n");
+             return;
+          }
+     }
+   else if (argc == 3)
+     {
+        if (eina_streq(argv[2], "-all"))
+          mode = KILL_ALL_MODE;
+        else if (eina_streq(argv[2], "-help"))
+          goto usage;
+        else
+          {
+             mode = KILL_ID_MODE;
+             if (strlen(argv[2]) >= 2 && argv[2][0] == '0' && argv[2][1] == 'x')
+               res = _util_string_to_ulong(argv[2], (unsigned long *)&uint64_value, 16);
+             else
+               res = _util_string_to_ulong(argv[2], (unsigned long *)&uint64_value, 10);
+
+             EINA_SAFETY_ON_FALSE_GOTO(res, usage);
+          }
+     }
+   else if (argc == 4)
+     {
+        if (eina_streq(argv[2], "-id"))
+          {
+             mode = KILL_ID_MODE;
+             if (strlen(argv[3]) >= 2 && argv[3][0] == '0' && argv[3][1] == 'x')
+               res = _util_string_to_ulong(argv[3], (unsigned long *)&uint64_value, 16);
+             else
+               res = _util_string_to_ulong(argv[3], (unsigned long *)&uint64_value, 10);
+
+             EINA_SAFETY_ON_FALSE_GOTO(res, usage);
+          }
+        else if (eina_streq(argv[2], "-name"))
+          {
+             mode = KILL_NAME_MODE;
+             str_value = argv[3];
+          }
+        else if (eina_streq(argv[2], "-pid"))
+          {
+             mode = KILL_PID_MODE;
+             if (strlen(argv[3]) >= 2 && argv[3][0] == '0' && argv[3][1] == 'x')
+               res = _util_string_to_ulong(argv[3], (unsigned long *)&uint64_value, 16);
+             else
+               res = _util_string_to_ulong(argv[3], (unsigned long *)&uint64_value, 10);
+
+             EINA_SAFETY_ON_FALSE_GOTO(res, usage);
+          }
+        else
+          goto usage;
+     }
+   else
+     goto usage;
+
+   res = _e_info_client_eldbus_message_with_args("kill_client",
+                                                 _e_info_client_cb_kill_client,
+                                                 VALUE_TYPE_REQUEST_FOR_KILL,
+                                                 mode, uint64_value, str_value);
+   EINA_SAFETY_ON_FALSE_RETURN(res);
+
+   return;
+usage:
+   printf("Usage: enlightenment_info %s", KILL_USAGE);
 }
 
 static struct
@@ -2822,6 +3039,12 @@ static struct
       USAGE_REMOTE_SURFACE,
       "for remote surface debugging",
       _e_info_client_proc_remote_surface
+   },
+   {
+      "kill",
+      KILL_USAGE,
+      "kill a client",
+      _e_info_client_proc_kill_client
    }
 };
 
@@ -2970,7 +3193,10 @@ _e_info_client_print_usage(const char *exec)
 static void
 end_program(int sig)
 {
-   keepRunning = 0;
+   ecore_main_loop_quit();
+   /* disconnecting dbus */
+   _e_info_client_eldbus_disconnect();
+   exit(EXIT_FAILURE);
 }
 
 int
