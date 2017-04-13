@@ -272,6 +272,7 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_LIST(D, T, aux_hint_supported, _e_config_aux_hint_supported_edd);
    E_CONFIG_VAL(D, T, use_module_srv.qp, UCHAR);
    E_CONFIG_VAL(D, T, launchscreen_timeout, DOUBLE);
+   E_CONFIG_VAL(D, T, enable_conformant_ack, UCHAR);
    E_CONFIG_VAL(D, T, conformant_ack_timeout, DOUBLE);
    E_CONFIG_VAL(D, T, calc_vis_without_effect, UCHAR);
    E_CONFIG_VAL(D, T, save_win_buffer, UCHAR);
@@ -468,6 +469,7 @@ e_config_load(void)
    E_CONFIG_LIMIT(e_config->use_desk_smart_obj, 0, 1);
    E_CONFIG_LIMIT(e_config->use_module_srv.qp, 0, 1);
    E_CONFIG_LIMIT(e_config->launchscreen_timeout, 7.0, 100.0);
+   E_CONFIG_LIMIT(e_config->enable_conformant_ack, 0, 1);
    E_CONFIG_LIMIT(e_config->conformant_ack_timeout, 3.0, 100.0);
    E_CONFIG_LIMIT(e_config->calc_vis_without_effect, 0, 1);
    E_CONFIG_LIMIT(e_config->save_win_buffer, 0, 1);

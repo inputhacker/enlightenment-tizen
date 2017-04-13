@@ -444,7 +444,8 @@ _conf_client_resource_add(Conformant_Client *cfc, struct wl_resource *res)
 
    cres->cfc = cfc;
    cres->res = res;
-   cres->use_ack = (wl_resource_get_version(res) >= TIZEN_POLICY_CONFORMANT_REGION_SINCE_VERSION);
+   cres->use_ack = ((e_config->enable_conformant_ack) &&
+                    ((wl_resource_get_version(res) >= TIZEN_POLICY_CONFORMANT_REGION_SINCE_VERSION)));
    cres->destroy_listener.notify = _conf_client_resource_destroy;
    wl_resource_add_destroy_listener(res, &cres->destroy_listener);
 
