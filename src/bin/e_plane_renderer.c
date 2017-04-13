@@ -458,6 +458,23 @@ _e_plane_renderer_cb_acquirable(tbm_surface_queue_h surface_queue, void *data)
 }
 
 static void
+_e_plane_renderer_cb_surface_queue_destroy(tbm_surface_queue_h surface_queue, void *data)
+{
+   E_Plane_Renderer *renderer = NULL;
+   tbm_surface_h tsurface = NULL;
+
+   renderer = (E_Plane_Renderer *)data;
+   EINA_SAFETY_ON_NULL_RETURN(renderer);
+
+   renderer->tqueue = NULL;
+   renderer->tqueue_width = 0;
+   renderer->tqueue_height = 0;
+
+   EINA_LIST_FREE(renderer->disp_surfaces, tsurface)
+     _e_plane_renderer_buffer_remove(renderer, tsurface);
+}
+
+static void
 _e_plane_renderer_exported_surface_release(E_Plane_Renderer *renderer, tbm_surface_h tsurface)
 {
    tbm_surface_h tmp_tsurface = NULL;
@@ -1240,6 +1257,10 @@ e_plane_renderer_del(E_Plane_Renderer *renderer)
           }
      }
 
+
+   if (renderer->tqueue)
+     tbm_surface_queue_remove_destroy_cb(renderer->tqueue, _e_plane_renderer_cb_surface_queue_destroy, (void *)renderer);
+
    role = e_plane_role_get(plane);
 
    if (role == E_PLANE_ROLE_OVERLAY)
@@ -1804,6 +1825,28 @@ e_plane_renderer_surface_queue_set(E_Plane_Renderer *renderer, tbm_surface_queue
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
 
+   tsq_err = tbm_surface_queue_add_destroy_cb(tqueue, _e_plane_renderer_cb_surface_queue_destroy, (void *)renderer);
+   if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+     {
+        ERR("fail to add destroy cb");
+        return EINA_FALSE;
+     }
+
+   if (renderer->ee)
+     {
+        tsq_err = tbm_surface_queue_add_acquirable_cb(tqueue, _e_plane_renderer_cb_acquirable, (void *)renderer->event_fd);
+        if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+          {
+             ERR("fail to add acquirable cb");
+
+             tsq_err = tbm_surface_queue_remove_destroy_cb(tqueue, _e_plane_renderer_cb_surface_queue_destroy, (void *)renderer);
+             if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+               ERR("fail to remove destroy cb");
+
+             return EINA_FALSE;
+          }
+     }
+
    renderer->tqueue = tqueue;
    renderer->tqueue_width = tbm_surface_queue_get_width(tqueue);
    renderer->tqueue_height = tbm_surface_queue_get_height(tqueue);
@@ -1833,16 +1876,6 @@ e_plane_renderer_surface_queue_set(E_Plane_Renderer *renderer, tbm_surface_queue
       }
 
    _e_plane_renderer_surface_release_all_disp_surfaces(renderer);
-
-   if (renderer->ee)
-     {
-        tsq_err = tbm_surface_queue_add_acquirable_cb(renderer->tqueue, _e_plane_renderer_cb_acquirable, (void *)renderer->event_fd);
-        if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
-          {
-             ERR("fail to add dequeuable cb");
-             return EINA_FALSE;
-          }
-     }
 
    return EINA_TRUE;
 }
