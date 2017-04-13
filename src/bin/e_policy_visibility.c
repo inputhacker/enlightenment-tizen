@@ -1002,6 +1002,8 @@ _e_vis_client_uniconify_render(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool 
 
    VS_DBG(ec, "BEGIN Uniconify render: raise %d", raise);
 
+   e_policy_wl_visibility_send(ec, E_VISIBILITY_PRE_UNOBSCURED);
+
    _e_vis_client_prepare_foreground_signal_emit(vc);
    vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY;
    VS_DBG(vc->ec, "\tUPDATE ICONIC STATE: %s", STATE_STR(vc));
