@@ -1081,6 +1081,10 @@ e_policy_wl_visibility_send(E_Client *ec, int vis)
    E_Client *ec2;
    Ecore_Window win;
    Eina_Bool sent = EINA_FALSE;
+   int ver = 1;
+   int sent_vis = E_VISIBILITY_UNKNOWN;
+
+   EINA_SAFETY_ON_TRUE_RETURN(vis == E_VISIBILITY_UNKNOWN);
 
    win = e_client_util_win_get(ec);
 
@@ -1102,13 +1106,31 @@ e_policy_wl_visibility_send(E_Client *ec, int vis)
                       e_policy_aux_message_send(ec, "dpms_wm", "off", NULL);
                  }
 
-               tizen_visibility_send_notify(res_tzvis, vis);
+               ver = wl_resource_get_version(res_tzvis);
+               sent_vis = vis;
+
+               if (vis == E_VISIBILITY_PRE_UNOBSCURED)
+                 {
+                    if (ver >= 5)
+                      tizen_visibility_send_changed(res_tzvis, vis, 0);
+                    else
+                      sent_vis = -2;
+                 }
+               else
+                 {
+                    if ((vis >= E_VISIBILITY_UNOBSCURED) && (vis <= E_VISIBILITY_FULLY_OBSCURED))
+                      tizen_visibility_send_notify(res_tzvis, vis);
+                    else
+                      sent_vis = -3;
+                 }
+
                ELOGF("TZVIS",
-                     "SEND     |win:0x%08x|res_tzvis:0x%08x|v:%d",
+                     "SEND     |win:0x%08x|res_tzvis:0x%08x|ver:%d|sent_vis:%d",
                      ec->pixmap, ec,
                      (unsigned int)win,
                      (unsigned int)res_tzvis,
-                     vis);
+                     ver,
+                     sent_vis);
                sent = EINA_TRUE;
                if (ec->comp_data->mapped)
                  {
@@ -6703,7 +6725,7 @@ e_policy_wl_init(void)
    /* create globals */
    global = wl_global_create(e_comp_wl->wl.disp,
                              &tizen_policy_interface,
-                             4,
+                             5,
                              NULL,
                              _tzpol_cb_bind);
    EINA_SAFETY_ON_NULL_GOTO(global, err);
