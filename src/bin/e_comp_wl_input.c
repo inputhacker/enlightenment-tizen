@@ -36,6 +36,9 @@ _e_comp_wl_input_pointer_map(struct wl_resource *resource)
    if (!(ec = wl_resource_get_user_data(resource))) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
+   //if cursor ec have external content
+   e_comp_object_content_unset(ec->frame);
+
    if (!e_comp_wl->ptr.ec || !e_comp_wl->ptr.ec->comp_data || !e_comp_wl->ptr.ec->comp_data->surface) return;
    wc = wl_resource_get_client(resource);
    if (wc != wl_resource_get_client(e_comp_wl->ptr.ec->comp_data->surface)) return;
