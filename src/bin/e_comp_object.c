@@ -5107,6 +5107,17 @@ e_comp_object_content_unset(Evas_Object *obj)
      }
 
    cw->external_content = EINA_FALSE;
+   if (cw->ec->is_cursor)
+     {
+        int pw, ph;
+        DBG("%p is cursor surface..", cw->ec);
+        if (!e_pixmap_size_get(cw->ec->pixmap, &pw, &ph))
+          pw = ph = 1;
+        evas_object_resize(cw->ec->frame, pw, ph);
+        evas_object_hide(cw->ec->frame);
+        return EINA_TRUE;
+     }
+
 
    cw->content_type = E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE;
    cw->obj = evas_object_image_filled_add(e_comp->evas);
