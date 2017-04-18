@@ -2233,3 +2233,35 @@ e_plane_renderer_show_state(E_Plane_Renderer *renderer)
           }
      }
 }
+
+
+EINTERN int
+e_plane_renderer_render_count_get(E_Plane_Renderer *renderer)
+{
+   int dequeue_num = 0;
+   int enqueue_num = 0;
+   int count = 0;
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, 0);
+
+   if (!renderer->tqueue) return 0;
+
+   tsq_err = tbm_surface_queue_get_trace_surface_num(renderer->tqueue, TBM_SURFACE_QUEUE_TRACE_DEQUEUE, &dequeue_num);
+   if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+     {
+        ERR("fail to tbm_surface_queue_get_trace_surface_num");
+        return 0;
+     }
+
+   tsq_err = tbm_surface_queue_get_trace_surface_num(renderer->tqueue, TBM_SURFACE_QUEUE_TRACE_ENQUEUE, &enqueue_num);
+   if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+     {
+        ERR("fail to tbm_surface_queue_get_trace_surface_num");
+        return 0;
+     }
+
+   count = dequeue_num + enqueue_num;
+
+   return count;
+}
