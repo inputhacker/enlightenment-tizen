@@ -1132,27 +1132,7 @@ _e_main_desk_save(void)
 static void
 _e_main_desk_restore(void)
 {
-   const Eina_List *l;
-   E_Zone *zone;
    E_Client *ec;
-   char *env;
-   char name[1024];
-
-   EINA_LIST_FOREACH(e_comp->zones, l, zone)
-     {
-        E_Desk *desk;
-        int desk_x, desk_y;
-        char buf_e[64];
-
-        snprintf(name, sizeof(name), "DESK_%d_%d", 0, zone->num);
-        env = getenv(name);
-        if (!env) continue;
-        snprintf(buf_e, sizeof(buf_e), "%s", env);
-        if (!sscanf(buf_e, "%d,%d", &desk_x, &desk_y)) continue;
-        desk = e_desk_at_xy_get(zone, desk_x, desk_y);
-        if (!desk) continue;
-        e_desk_show(desk);
-     }
 
    E_CLIENT_REVERSE_FOREACH(ec)
      if ((!e_client_util_ignored_get(ec)) && e_client_util_desk_visible(ec, e_desk_current_get(ec->zone)))
