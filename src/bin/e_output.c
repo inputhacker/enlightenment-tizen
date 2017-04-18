@@ -829,7 +829,6 @@ e_output_commit(E_Output *output)
    E_Plane *plane = NULL;
    Eina_List *l;
    Eina_Bool fb_commit = EINA_FALSE;
-   Eina_Bool fb_hwc_on = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
@@ -842,26 +841,33 @@ e_output_commit(E_Output *output)
    /* set planes */
    EINA_LIST_FOREACH(output->planes, l, plane)
      {
-        if (e_plane_is_fb_target(plane) && plane->ec)
-          fb_hwc_on = EINA_TRUE;
+        if (plane->need_unset && plane->sync_unset_count)
+          {
+             if (fb_commit)
+               {
+                  plane->sync_unset_count--;
+                  if (plane->sync_unset_count)
+                    continue;
+               }
+          }
 
         if (!e_plane_fetch(plane)) continue;
+
+        if (e_plane_is_fb_target(plane))
+          fb_commit = EINA_TRUE;
 
         if (output->dpms == E_OUTPUT_DPMS_OFF)
           {
              if (!plane->need_unset_commit)
                e_plane_unfetch(plane);
           }
-
-        if (e_plane_is_fb_target(plane))
-          fb_commit = EINA_TRUE;
      }
 
    if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
 
    EINA_LIST_FOREACH(output->planes, l, plane)
      {
-        if (plane->need_unset_commit && !fb_hwc_on && !fb_commit)
+        if (plane->need_unset_commit && plane->sync_unset_count)
           continue;
 
         if (e_plane_is_fb_target(plane) && fb_commit)

@@ -68,6 +68,7 @@ struct _E_Plane
    Eina_List             *pending_commit_data_list;
    Eina_Bool             need_unset;
    Eina_Bool             need_unset_commit;
+   int                   sync_unset_count;
 
    /* true if plane's ec is set or unset.
     * false when E_Event_Plane_Win_Change has been generated.

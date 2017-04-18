@@ -935,6 +935,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
         data->tsurface = NULL;
         data->ec = NULL;
         plane->need_unset_commit = EINA_FALSE;
+        plane->sync_unset_count = 0;
 
         return data;
      }
@@ -1210,6 +1211,8 @@ e_plane_ec_get(E_Plane *plane)
 E_API Eina_Bool
 e_plane_ec_set(E_Plane *plane, E_Client *ec)
 {
+   E_Plane *fb_target = NULL;
+
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
    if (plane_trace_debug)
@@ -1278,7 +1281,18 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
         if (!plane->is_fb)
           {
              if (plane->tsurface)
-               plane->need_unset = EINA_TRUE;
+               {
+                  fb_target = e_output_fb_target_get(plane->output);
+                  if (fb_target)
+                    {
+                       if(fb_target->ec)
+                         plane->sync_unset_count = 0;
+                       else
+                         plane->sync_unset_count = e_plane_renderer_render_count_get(fb_target->renderer) + 1;
+                    }
+
+                  plane->need_unset = EINA_TRUE;
+               }
 
              if (plane->renderer)
                {
