@@ -975,6 +975,76 @@ e_util_string_append_quoted(char *str, size_t *size, size_t *len, const char *sr
    return str;
 }
 
+E_API Eina_Bool
+e_util_string_to_int(const char *str, int *num, int base)
+{
+   char *end;
+   int errsv;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(str, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(num, EINA_FALSE);
+
+   const long sl = strtol(str, &end, base);
+   errsv = errno;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((end == str), EINA_FALSE); /* given string is not a decimal number */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(('\0' != *end), EINA_FALSE); /* given string has extra characters */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(((LONG_MIN == sl || LONG_MAX == sl) && (ERANGE == errsv)), EINA_FALSE); /* out of range of type long */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((sl > INT_MAX), EINA_FALSE); /* greater than INT_MAX */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((sl < INT_MIN), EINA_FALSE); /* less than INT_MIN */
+
+   *num = (int)sl;
+
+   return EINA_TRUE;
+}
+
+/* str : string to be parsed
+ * next: return values it contains the address of the first invalid character
+ * num : return value it contains integer value according to the given base
+ */
+E_API Eina_Bool
+e_util_string_to_int_token(const char *str, char **next, int *num, int base)
+{
+   int errsv;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(str, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(next, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(num, EINA_FALSE);
+
+   const long sl = strtol(str, next, base);
+   errsv = errno;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((*next == str), EINA_FALSE); /* given string is not a decimal number */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(((LONG_MIN == sl || LONG_MAX == sl) && (ERANGE == errsv)), EINA_FALSE); /* out of range of type long */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((sl > INT_MAX), EINA_FALSE); /* greater than INT_MAX */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((sl < INT_MIN), EINA_FALSE); /* less than INT_MIN */
+
+   *num = (int)sl;
+
+   return EINA_TRUE;
+}
+
+E_API Eina_Bool
+e_util_string_to_double(const char *str, double *num)
+{
+   char *end;
+   int errsv;
+
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(str, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(num, EINA_FALSE);
+
+   const double sd = strtod(str, &end);
+   errsv = errno;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((end == str), EINA_FALSE); /* given string is not a floating point number */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(('\0' != *end), EINA_FALSE); /* given string has extra characters */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(((DBL_MIN == sd || DBL_MAX == sd) && (ERANGE == errsv)), EINA_FALSE); /* out of range of type double */
+
+   *num = sd;
+
+   return EINA_TRUE;
+}
+
 E_API void
 e_util_evas_objects_above_print(Evas_Object *o)
 {

@@ -54,6 +54,9 @@ E_API void e_util_size_debug_set(Evas_Object *obj, Eina_Bool enable);
 
 E_API char *e_util_string_append_char(char *str, size_t *size, size_t *len, char c);
 E_API char *e_util_string_append_quoted(char *str, size_t *size, size_t *len, const char *src);
+E_API Eina_Bool e_util_string_to_int(const char *str, int *num, int base);
+E_API Eina_Bool e_util_string_to_int_token(const char *str, char **next, int *num, int base);
+E_API Eina_Bool e_util_string_to_double(const char *str, double *num);
 
 E_API void e_util_evas_objects_above_print(Evas_Object *o);
 E_API void e_util_evas_objects_above_print_smart(Evas_Object *o);

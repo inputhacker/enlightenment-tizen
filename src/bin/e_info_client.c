@@ -82,6 +82,76 @@ static Eina_Bool _e_info_client_eldbus_message(const char *method, E_Info_Messag
 static Eina_Bool _e_info_client_eldbus_message_with_args(const char *method, E_Info_Message_Cb cb, const char *signature, ...);
 static void _e_info_client_eldbus_message_cb(void *data, const Eldbus_Message *msg, Eldbus_Pending *p);
 
+static Eina_Bool
+_util_string_to_int(const char *str, int *num, int base)
+{
+   char *end;
+   int errsv;
+
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(str, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(num, EINA_FALSE);
+
+   const long sl = strtol(str, &end, base);
+   errsv = errno;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((end == str), EINA_FALSE); /* given string is not a decimal number */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(('\0' != *end), EINA_FALSE); /* given string has extra characters */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(((LONG_MIN == sl || LONG_MAX == sl) && (ERANGE == errsv)), EINA_FALSE); /* out of range of type long */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((sl > INT_MAX), EINA_FALSE); /* greater than INT_MAX */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((sl < INT_MIN), EINA_FALSE); /* less than INT_MIN */
+
+   *num = (int)sl;
+
+   return EINA_TRUE;
+}
+
+/* buff: string to be parsed
+ * next: return values it contains the address of the first invalid character
+ * num: return value it contains integer value according to the given base
+ */
+static Eina_Bool
+_util_string_to_int_token(const char *str, char **next, int *num, int base)
+{
+   int errsv;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(str, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(next, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(num, EINA_FALSE);
+
+   const long sl = strtol(str, next, base);
+   errsv = errno;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((*next == str), EINA_FALSE); /* given string is not a decimal number */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(((LONG_MIN == sl || LONG_MAX == sl) && (ERANGE == errsv)), EINA_FALSE); /* out of range of type long */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((sl > INT_MAX), EINA_FALSE); /* greater than INT_MAX */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((sl < INT_MIN), EINA_FALSE); /* less than INT_MIN */
+
+   *num = (int)sl;
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_util_string_to_double(const char *str, double *num)
+{
+   char *end;
+   int errsv;
+
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(str, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(num, EINA_FALSE);
+
+   const double sd = strtod(str, &end);
+   errsv = errno;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((end == str), EINA_FALSE); /* given string is not a floating point number */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(('\0' != *end), EINA_FALSE); /* given string has extra characters */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(((DBL_MIN == sd || DBL_MAX == sd) && (ERANGE == errsv)), EINA_FALSE); /* out of range of type double */
+
+   *num = sd;
+
+   return EINA_TRUE;
+}
+
 static E_Win_Info *
 _e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int opaque, const char *name, int x, int y, int w, int h, int layer, int visible, int visibility, int iconic, int frame_visible, int focused, int hwc, int pl_zpos, Ecore_Window parent_id, const char *layer_name)
 {
@@ -1499,38 +1569,70 @@ _e_info_client_proc_fps_info(int argc, char **argv)
    while (keepRunning);
 }
 
+static Eina_Bool
+_opt_parse(char *opt, char *delims, int *vals, int n_vals)
+{
+   Eina_Bool res;
+   int n, i;
+
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(n_vals > 0, EINA_FALSE);
+
+   for (i = 0; i < n_vals; i++)
+     {
+        res = _util_string_to_int_token(opt, &opt, &n, 10);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(
+           (!((strlen(opt) == 0) && (i == (n_vals - 1))) &&
+            (strlen(opt) < 2)),
+           EINA_FALSE);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL((*opt != delims[i]), EINA_FALSE);
+
+        opt = opt + 1;
+        vals[i] = n;
+     }
+
+   return EINA_TRUE;
+}
+
 static void
 _e_info_client_proc_punch(int argc, char **argv)
 {
    int onoff = 0, x = 0, y = 0, w = 0, h = 0;
    int a = 0, r = 0, g = 0, b = 0;
-   char *arg;
+   char delims_geom[] = { 'x', '+', '+', '\0' };
+   int vals_geom[] = { 0, 0, 0, 0 };
+   char delims_col[] = { ',', ',', ',', '\0' };
+   int vals_col[] = { 0, 0, 0, 0 };
+   Eina_Bool res;
 
-   EINA_SAFETY_ON_FALSE_RETURN(argc >= 3);
-   EINA_SAFETY_ON_NULL_RETURN(argv[2]);
+   EINA_SAFETY_ON_FALSE_GOTO(argc >= 3, wrong_args);
+   EINA_SAFETY_ON_NULL_GOTO(argv[2], wrong_args);
+   EINA_SAFETY_ON_NULL_GOTO(argv[3], wrong_args);
 
-   arg = argv[2];
-   if (!strncmp(arg, "on", 2))
-     onoff = 1;
+   if (!strncmp(argv[2], "on", 2)) onoff = 1;
 
-   arg = argv[3];
-   if (arg && sscanf(arg, "%dx%d+%d+%d", &w, &h, &x, &y) < 0)
+   res = _opt_parse(argv[3], delims_geom, vals_geom, (sizeof(vals_geom) / sizeof(int)));
+   EINA_SAFETY_ON_FALSE_GOTO(res, wrong_args);
+
+   w = vals_geom[0]; h = vals_geom[1];
+   x = vals_geom[2]; y = vals_geom[3];
+
+   if (argc == 5)
      {
-        printf("wrong geometry arguments(<w>x<h>+<x>+<y>\n");
-        return;
-     }
+        EINA_SAFETY_ON_NULL_GOTO(argv[4], wrong_args);
 
-   if (argc == 5 && argv[4])
-     {
-        arg = argv[4];
-        if (sscanf(arg, "%d,%d,%d,%d", &a, &r, &g, &b) < 0)
-          {
-             printf("wrong color arguments(<a>,<r>,<g>,<b>)\n");
-             return;
-          }
+        res = _opt_parse(argv[4], delims_col, vals_col, (sizeof(vals_col) / sizeof(int)));
+        EINA_SAFETY_ON_FALSE_GOTO(res, wrong_args);
+
+        a = vals_col[0]; r = vals_col[1]; g = vals_col[2]; b = vals_col[3];
      }
 
    _e_info_client_eldbus_message_with_args("punch", NULL, "iiiiiiiii", onoff, x, y, w, h, a, r, g, b);
+   return;
+
+wrong_args:
+   printf("wrong geometry arguments(<w>x<h>+<x>+<y>\n");
+   printf("wrong color arguments(<a>,<r>,<g>,<b>)\n");
 }
 
 static void
@@ -1683,6 +1785,7 @@ _e_info_client_proc_slot_set(int argc, char **argv)
    int i;
    int mode = 0;
    const char *value = NULL;
+   Eina_Bool res = EINA_FALSE;
 
    if (argc < 3)
      {
@@ -1730,9 +1833,11 @@ _e_info_client_proc_slot_set(int argc, char **argv)
         value = argv[4];
         int32_t value_number;
         if (strlen(value) >= 2 && value[0] == '0' && value[1] == 'x')
-          sscanf(value, "%x", &value_number);
+          res = _util_string_to_int(value, &value_number, 16);
         else
-          sscanf(value, "%d", &value_number);
+          res = _util_string_to_int(value, &value_number, 10);
+
+        EINA_SAFETY_ON_FALSE_RETURN(res);
 
         param[1] = value_number;
      }
@@ -2378,9 +2483,11 @@ _e_info_client_proc_scrsaver(int argc, char **argv)
    else if (eina_streq(argv[2], "timeout"))
      {
         if (argc != 4) goto arg_err;
-        sscanf(argv[3], "%lf", &sec);
-        cmd = E_INFO_CMD_SCRSAVER_TIMEOUT;
 
+        res = _util_string_to_double(argv[3], &sec);
+        EINA_SAFETY_ON_FALSE_GOTO(res, arg_err);
+
+        cmd = E_INFO_CMD_SCRSAVER_TIMEOUT;
         printf("sec: %lf\n", sec);
      }
    else

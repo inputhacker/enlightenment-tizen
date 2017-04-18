@@ -1642,24 +1642,6 @@ _delayed_action_free(Delayed_Action *da)
    free(da);
 }
 
-static Eina_Bool
-_delayed_action_cb_timer(void *data)
-{
-   Delayed_Action *da;
-   E_Action *act;
-
-   da = data;
-   da->timer = NULL;
-   act = e_action_find(da->delayed.action);
-   if (act)
-     {
-        if (act->func.go) act->func.go(da->obj, da->delayed.params);
-     }
-   _delayed_actions = eina_list_remove(_delayed_actions, da);
-   _delayed_action_free(da);
-   return ECORE_CALLBACK_CANCEL;
-}
-
 static void
 _delayed_action_do(Delayed_Action *da)
 {
@@ -1673,75 +1655,7 @@ _delayed_action_do(Delayed_Action *da)
 }
 
 static void
-_delayed_action_list_parse_action(const char *str, double *delay, const char **action, const char **params)
-{
-   char fbuf[16];
-   char buf[1024];
-   const char *p;
-
-   buf[0] = 0;
-   sscanf(str, "%10s %1000s", fbuf, buf);
-   *action = eina_stringshare_add(buf);
-   *delay = atof(fbuf);
-   p = strchr(str, ' ');
-   if (p)
-     {
-        p++;
-        p = strchr(p, ' ');
-        if (p)
-          {
-             p++;
-             *params = eina_stringshare_add(p);
-          }
-     }
-}
-
-static void
-_delayed_action_list_parse(Delayed_Action *da, const char *params)
-{
-   double delay = 2.0;
-   const char *p, *a1start = NULL, *a1stop = NULL;
-   const char *a2start = NULL, *a2stop = NULL;
-
-   // FORMAT: "[0.0 default_action param1 param2] [x.x action2 param1 param2]"
-   p = params;
-   while (*p)
-     {
-        if ((*p == '[') && ((p == params) || ((p > params) && (p[-1] != '\\')))) {a1start = p + 1; break; }
-        p++;
-     }
-   while (*p)
-     {
-        if ((*p == ']') && ((p == params) || ((p > params) && (p[-1] != '\\')))) {a1stop = p; break; }
-        p++;
-     }
-   while (*p)
-     {
-        if ((*p == '[') && ((p == params) || ((p > params) && (p[-1] != '\\')))) {a2start = p + 1; break; }
-        p++;
-     }
-   while (*p)
-     {
-        if ((*p == ']') && ((p == params) || ((p > params) && (p[-1] != '\\')))) {a2stop = p; break; }
-        p++;
-     }
-   if ((a1start) && (a2start) && (a1stop) && (a2stop))
-     {
-        char *a1, *a2;
-
-        a1 = alloca(a1stop - a1start + 1);
-        eina_strlcpy(a1, a1start, a1stop - a1start + 1);
-        _delayed_action_list_parse_action(a1, &delay, &da->def.action, &da->def.params);
-
-        a2 = alloca(a1stop - a1start + 1);
-        eina_strlcpy(a2, a2start, a2stop - a2start + 1);
-        _delayed_action_list_parse_action(a2, &delay, &da->delayed.action, &da->delayed.params);
-     }
-   da->timer = ecore_timer_add(delay, _delayed_action_cb_timer, da);
-}
-
-static void
-_delayed_action_key_add(E_Object *obj, const char *params, Ecore_Event_Key *ev)
+_delayed_action_key_add(E_Object *obj, const char *params EINA_UNUSED, Ecore_Event_Key *ev)
 {
    Delayed_Action *da;
 
@@ -1754,7 +1668,6 @@ _delayed_action_key_add(E_Object *obj, const char *params, Ecore_Event_Key *ev)
      }
    da->mouse = 0;
    da->key = eina_stringshare_add(ev->key);
-   if (params) _delayed_action_list_parse(da, params);
    _delayed_actions = eina_list_append(_delayed_actions, da);
 }
 
@@ -1778,7 +1691,7 @@ _delayed_action_key_del(E_Object *obj, const char *params EINA_UNUSED, Ecore_Eve
 }
 
 static void
-_delayed_action_mouse_add(E_Object *obj, const char *params, E_Binding_Event_Mouse_Button *ev)
+_delayed_action_mouse_add(E_Object *obj, const char *params EINA_UNUSED, E_Binding_Event_Mouse_Button *ev)
 {
    Delayed_Action *da;
 
@@ -1791,7 +1704,6 @@ _delayed_action_mouse_add(E_Object *obj, const char *params, E_Binding_Event_Mou
      }
    da->mouse = 1;
    da->button = ev->button;
-   if (params) _delayed_action_list_parse(da, params);
    _delayed_actions = eina_list_append(_delayed_actions, da);
 }
 

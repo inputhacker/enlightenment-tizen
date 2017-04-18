@@ -973,6 +973,7 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
    E_Client *ec;
    Evas_Object *o;
    int32_t value_number = 0;
+   Eina_Bool res = EINA_FALSE;
 
    eldbus_message_iter_arguments_append(iter, "a(ss)", &array_of_ec);
 
@@ -982,9 +983,11 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
         else
           {
              if (strlen(value) >= 2 && value[0] == '0' && value[1] == 'x')
-                sscanf(value, "%x", &value_number);
+               res = e_util_string_to_int(value, &value_number, 16);
              else
-                sscanf(value, "%d", &value_number);
+               res = e_util_string_to_int(value, &value_number, 10);
+
+             EINA_SAFETY_ON_FALSE_RETURN(res);
           }
      }
 
@@ -1938,6 +1941,7 @@ e_info_server_cb_transform_message(const Eldbus_Service_Interface *iface EINA_UN
    int32_t value_number;
    Evas_Object *o;
    E_Client *ec;
+   Eina_Bool res = EINA_FALSE;
 
    if (!eldbus_message_arguments_get(msg, "siiiiiiii", &value, &transform_id, &enable, &x, &y, &sx, &sy, &degree, &background))
      {
@@ -1946,9 +1950,11 @@ e_info_server_cb_transform_message(const Eldbus_Service_Interface *iface EINA_UN
      }
 
    if (strlen(value) >= 2 && value[0] == '0' && value[1] == 'x')
-      sscanf(value, "%x", &value_number);
+     res = e_util_string_to_int(value, &value_number, 16);
    else
-      sscanf(value, "%d", &value_number);
+     res = e_util_string_to_int(value, &value_number, 10);
+
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(res, reply);
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
@@ -2752,6 +2758,7 @@ e_info_server_cb_aux_message(const Eldbus_Service_Interface *iface EINA_UNUSED, 
    int32_t win_id = 0;
    E_Client *ec;
    Evas_Object *o;
+   Eina_Bool res = EINA_FALSE;
 
    if (!e_policy)
      {
@@ -2773,7 +2780,9 @@ e_info_server_cb_aux_message(const Eldbus_Service_Interface *iface EINA_UNUSED, 
         options = eina_list_append(options, str);
      }
 
-   sscanf(win_str, "%x", &win_id);
+   res = e_util_string_to_int(win_str, &win_id, 16);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(res, reply);
+
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
         ec = evas_object_data_get(o, "E_Client");
