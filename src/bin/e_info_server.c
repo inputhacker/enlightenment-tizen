@@ -987,7 +987,7 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
              else
                res = e_util_string_to_int(value, &value_number, 10);
 
-             EINA_SAFETY_ON_FALSE_RETURN(res);
+             EINA_SAFETY_ON_FALSE_GOTO(res, finish);
           }
      }
 
@@ -1036,6 +1036,7 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
           }
      }
 
+finish:
    eldbus_message_iter_container_close(iter, array_of_ec);
 }
 
