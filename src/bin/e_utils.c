@@ -976,6 +976,28 @@ e_util_string_append_quoted(char *str, size_t *size, size_t *len, const char *sr
 }
 
 E_API Eina_Bool
+e_util_string_to_uint(const char *str, unsigned int *num, int base)
+{
+   char *end;
+   int errsv;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(str, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(num, EINA_FALSE);
+
+   const unsigned long int ul = strtol(str, &end, base);
+   errsv = errno;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((end == str), EINA_FALSE); /* given string is not a decimal number */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(('\0' != *end), EINA_FALSE); /* given string has extra characters */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(((ULONG_MAX == ul) && (ERANGE == errsv)), EINA_FALSE); /* out of range of type unsigned long int */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((ul > UINT_MAX), EINA_FALSE); /* greater than UINT_MAX */
+
+   *num = (unsigned int)ul;
+
+   return EINA_TRUE;
+}
+
+E_API Eina_Bool
 e_util_string_to_int(const char *str, int *num, int base)
 {
    char *end;
@@ -984,7 +1006,7 @@ e_util_string_to_int(const char *str, int *num, int base)
    EINA_SAFETY_ON_NULL_RETURN_VAL(str, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(num, EINA_FALSE);
 
-   const long sl = strtol(str, &end, base);
+   const long int sl = strtol(str, &end, base);
    errsv = errno;
 
    EINA_SAFETY_ON_TRUE_RETURN_VAL((end == str), EINA_FALSE); /* given string is not a decimal number */
@@ -1011,7 +1033,7 @@ e_util_string_to_int_token(const char *str, char **next, int *num, int base)
    EINA_SAFETY_ON_NULL_RETURN_VAL(next, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(num, EINA_FALSE);
 
-   const long sl = strtol(str, next, base);
+   const long int sl = strtol(str, next, base);
    errsv = errno;
 
    EINA_SAFETY_ON_TRUE_RETURN_VAL((*next == str), EINA_FALSE); /* given string is not a decimal number */
