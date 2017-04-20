@@ -984,7 +984,7 @@ e_util_string_to_uint(const char *str, unsigned int *num, int base)
    EINA_SAFETY_ON_NULL_RETURN_VAL(str, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(num, EINA_FALSE);
 
-   const unsigned long int ul = strtol(str, &end, base);
+   const unsigned long int ul = strtoul(str, &end, base);
    errsv = errno;
 
    EINA_SAFETY_ON_TRUE_RETURN_VAL((end == str), EINA_FALSE); /* given string is not a decimal number */
