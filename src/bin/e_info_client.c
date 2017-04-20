@@ -83,24 +83,23 @@ static Eina_Bool _e_info_client_eldbus_message_with_args(const char *method, E_I
 static void _e_info_client_eldbus_message_cb(void *data, const Eldbus_Message *msg, Eldbus_Pending *p);
 
 static Eina_Bool
-_util_string_to_int(const char *str, int *num, int base)
+_util_string_to_uint(const char *str, unsigned int *num, int base)
 {
    char *end;
    int errsv;
 
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(str, EINA_FALSE);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(num, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(str, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(num, EINA_FALSE);
 
-   const long sl = strtol(str, &end, base);
+   const unsigned long int ul = strtol(str, &end, base);
    errsv = errno;
 
    EINA_SAFETY_ON_TRUE_RETURN_VAL((end == str), EINA_FALSE); /* given string is not a decimal number */
    EINA_SAFETY_ON_TRUE_RETURN_VAL(('\0' != *end), EINA_FALSE); /* given string has extra characters */
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(((LONG_MIN == sl || LONG_MAX == sl) && (ERANGE == errsv)), EINA_FALSE); /* out of range of type long */
-   EINA_SAFETY_ON_TRUE_RETURN_VAL((sl > INT_MAX), EINA_FALSE); /* greater than INT_MAX */
-   EINA_SAFETY_ON_TRUE_RETURN_VAL((sl < INT_MIN), EINA_FALSE); /* less than INT_MIN */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(((ULONG_MAX == ul) && (ERANGE == errsv)), EINA_FALSE); /* out of range of type unsigned long int */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((ul > UINT_MAX), EINA_FALSE); /* greater than UINT_MAX */
 
-   *num = (int)sl;
+   *num = (unsigned int)ul;
 
    return EINA_TRUE;
 }
@@ -118,7 +117,7 @@ _util_string_to_int_token(const char *str, char **next, int *num, int base)
    EINA_SAFETY_ON_NULL_RETURN_VAL(next, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(num, EINA_FALSE);
 
-   const long sl = strtol(str, next, base);
+   const long int sl = strtol(str, next, base);
    errsv = errno;
 
    EINA_SAFETY_ON_TRUE_RETURN_VAL((*next == str), EINA_FALSE); /* given string is not a decimal number */
@@ -1831,15 +1830,15 @@ _e_info_client_proc_slot_set(int argc, char **argv)
        mode == E_INFO_CMD_MESSAGE_DEL_EC)
      {
         value = argv[4];
-        int32_t value_number;
+        uint32_t value_number;
         if (strlen(value) >= 2 && value[0] == '0' && value[1] == 'x')
-          res = _util_string_to_int(value, &value_number, 16);
+          res = _util_string_to_uint(value, &value_number, 16);
         else
-          res = _util_string_to_int(value, &value_number, 10);
+          res = _util_string_to_uint(value, &value_number, 10);
 
         EINA_SAFETY_ON_FALSE_RETURN(res);
 
-        param[1] = value_number;
+        param[1] = (int32_t)value_number;
      }
 
    if (!_e_info_client_eldbus_message_with_args("slot_message", _cb_window_proc_slot_get, "iiiiii",
