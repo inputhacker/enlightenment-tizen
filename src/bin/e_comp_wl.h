@@ -559,6 +559,11 @@ EINTERN Eina_Bool e_comp_wl_mouse_out_send(E_Client *ec, Ecore_Device *dev, uint
 
 EINTERN Eina_Bool e_comp_wl_cursor_hide(E_Client *ec);
 
+E_API void e_comp_wl_pos_convert(int width, int height, int transform, int scale, int sx, int sy, int *bx, int *by);
+E_API void e_comp_wl_pos_convert_inverse(int width, int height, int transform, int scale, int bx, int by, int *sx, int *sy);
+E_API void e_comp_wl_rect_convert(int width, int height, int transform, int scale, int sx, int sy, int sw, int sh, int *bx, int *by, int *bw, int *bh);
+E_API void e_comp_wl_rect_convert_inverse(int width, int height, int transform, int scale, int bx, int by, int bw, int bh, int *sx, int *sy, int *sw, int *sh);
+
 EINTERN void	  e_comp_wl_feed_focus_in(E_Client *ec);
 
 E_API void e_comp_wl_subsurface_stack_update(E_Client *ec);
