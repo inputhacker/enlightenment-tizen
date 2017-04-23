@@ -276,6 +276,56 @@ e_output_del(E_Output *output)
 }
 
 EINTERN Eina_Bool
+e_output_rotate(E_Output *output, int rotate)
+{
+   unsigned int transform = WL_OUTPUT_TRANSFORM_NORMAL;
+   int rot_dif;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   /* FIXME: currently the screen size can't be changed in runtime. To make it
+    * possible, the output mode should be changeable first.
+    */
+   rot_dif = output->config.rotation - rotate;
+   if (rot_dif < 0) rot_dif = -rot_dif;
+
+   if ((rot_dif % 180) && (output->config.geom.w != output->config.geom.h))
+     {
+        ERR("output size(%dx%d) should be squre.",
+            output->config.geom.w, output->config.geom.h);
+        return EINA_FALSE;
+     }
+
+   switch (rotate)
+     {
+      case 90:
+        transform = WL_OUTPUT_TRANSFORM_90;
+        break;
+      case 180:
+        transform = WL_OUTPUT_TRANSFORM_180;
+        break;
+      case 270:
+        transform = WL_OUTPUT_TRANSFORM_270;
+        break;
+      case 0:
+      default:
+        transform = WL_OUTPUT_TRANSFORM_NORMAL;
+        break;
+     }
+
+   output->config.rotation = rotate;
+
+   e_comp_wl_output_init(output->id, output->info.name,
+                         output->info.screen,
+                         output->config.geom.x, output->config.geom.y,
+                         output->config.geom.w, output->config.geom.h,
+                         output->info.size.w, output->info.size.h,
+                         output->config.mode.refresh, 0, transform);
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
 e_output_update(E_Output *output)
 {
    E_Output_Mode *m = NULL;
