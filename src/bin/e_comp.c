@@ -825,11 +825,16 @@ _e_comp_hwc_usable(void)
                {
                   if (e_plane_is_fb_target(ep))
                     {
+                       int bw = 0, bh = 0;
+
                        ep_fb = ep;
+
+                       if (ep_fb->prepare_ec)
+                         e_pixmap_size_get(ep->prepare_ec->pixmap, &bw, &bh);
 
                        if (ep_fb->prepare_ec &&
                            ep_fb->reserved_memory &&
-                           ((buffer->w != zone->w) || (buffer->h != zone->h) ||
+                           ((bw != zone->w) || (bh != zone->h) ||
                             (ep_fb->prepare_ec->x != zone->x) || (ep_fb->prepare_ec->y != zone->y) ||
                             (ep_fb->prepare_ec->w != zone->w) || (ep_fb->prepare_ec->h != zone->h)))
                          {
