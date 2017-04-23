@@ -693,6 +693,7 @@ e_pixmap_image_refresh(E_Pixmap *cp)
 {
    E_Comp_Wl_Buffer *buffer = NULL;
    struct wl_shm_buffer *shm_buffer = NULL;
+   int bw, bh;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(cp, EINA_FALSE);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(cp->dirty, EINA_FALSE);
@@ -756,9 +757,8 @@ e_pixmap_image_refresh(E_Pixmap *cp)
          * never rendered. New attached buffer resources should be
          * managed and be pending if previous buffer is not rendered yet. */
         /* set size of image object to new buffer size */
-        e_comp_object_size_update(cp->client->frame,
-                                  buffer->w,
-                                  buffer->h);
+        e_pixmap_size_get(cp, &bw, &bh);
+        e_comp_object_size_update(cp->client->frame, bw, bh);
      }
    else if (buffer->type == E_COMP_WL_BUFFER_TYPE_TBM)
      {
@@ -774,9 +774,8 @@ e_pixmap_image_refresh(E_Pixmap *cp)
          * never rendered. New attached buffer resources should be
          * managed and be pending if previous buffer is not rendered yet. */
         /* set size of image object to new buffer size */
-        e_comp_object_size_update(cp->client->frame,
-                                  buffer->w,
-                                  buffer->h);
+        e_pixmap_size_get(cp, &bw, &bh);
+        e_comp_object_size_update(cp->client->frame, bw, bh);
 
         /* buffer has no client resources */
         return EINA_TRUE;
