@@ -1599,6 +1599,8 @@ e_service_quickpanel_client_set(E_Client *ec)
         return;
      }
 
+   e_comp_screen_rotation_ignore_output_transform_send(qp->ec, EINA_TRUE);
+
    e_client_window_role_set(ec, "quickpanel");
 
    // set quickpanel layer
