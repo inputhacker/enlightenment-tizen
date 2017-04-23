@@ -658,6 +658,46 @@ e_util_transform_matrix_rotation_z(E_Util_Transform_Matrix *matrix, double degre
 }
 
 E_API void
+e_util_transform_matrix_flip_x(E_Util_Transform_Matrix *matrix)
+{
+   E_Util_Transform_Matrix source;
+
+   if (!matrix) return;
+
+   source = *matrix;
+
+   //   | -1 0 0 0 |     |m00 m01 m02 m03|
+   //   |  0 1 0 0 |     |m10 m11 m12 m13|
+   //   |  0 0 1 0 |  *  |m20 m21 m22 m23|
+   //   |  0 0 0 1 |     |m30 m31 m32 m33|
+
+   matrix->mat[0][0] = -source.mat[0][0];
+   matrix->mat[0][1] = -source.mat[0][1];
+   matrix->mat[0][2] = -source.mat[0][2];
+   matrix->mat[0][3] = -source.mat[0][3];
+}
+
+E_API void
+e_util_transform_matrix_flip_y(E_Util_Transform_Matrix *matrix)
+{
+   E_Util_Transform_Matrix source;
+
+   if (!matrix) return;
+
+   source = *matrix;
+
+   //   | 0  0 0 0 |     |m00 m01 m02 m03|
+   //   | 0 -1 0 0 |     |m10 m11 m12 m13|
+   //   | 0  0 1 0 |  *  |m20 m21 m22 m23|
+   //   | 0  0 0 1 |     |m30 m31 m32 m33|
+
+   matrix->mat[1][0] = -source.mat[1][0];
+   matrix->mat[1][1] = -source.mat[1][1];
+   matrix->mat[1][2] = -source.mat[1][2];
+   matrix->mat[1][3] = -source.mat[1][3];
+}
+
+E_API void
 e_util_transform_matrix_scale(E_Util_Transform_Matrix *matrix, double sx, double sy, double sz)
 {
    E_Util_Transform_Matrix source;
