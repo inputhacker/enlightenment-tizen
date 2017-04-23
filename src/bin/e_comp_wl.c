@@ -5023,8 +5023,8 @@ e_comp_wl_surface_attach(E_Client *ec, E_Comp_Wl_Buffer *buffer)
    e_pixmap_dirty(ec->pixmap);
    e_pixmap_refresh(ec->pixmap);
 
-   _e_comp_wl_surface_state_size_update(ec, &ec->comp_data->pending);
    e_comp_wl_map_size_cal_from_buffer(ec);
+   _e_comp_wl_surface_state_size_update(ec, &ec->comp_data->pending);
 
    /* wm-policy module uses it */
    _e_comp_wl_hook_call(E_COMP_WL_HOOK_BUFFER_CHANGE, ec);
