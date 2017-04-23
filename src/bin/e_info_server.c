@@ -1132,12 +1132,15 @@ _e_info_server_cb_topvwins_dump(const Eldbus_Service_Interface *iface EINA_UNUSE
         E_Client *ec = evas_object_data_get(o, "E_Client");
         char fname[PATH_MAX];
         Ecore_Window win;
+        int rotation = 0;
 
         if (!ec) continue;
         if (e_client_util_ignored_get(ec)) continue;
 
         win = e_client_util_win_get(ec);
-        snprintf(fname, sizeof(fname), "%s/0x%08x.png", dir, win);
+        if (ec->comp_data)
+          rotation = ec->comp_data->scaler.buffer_viewport.buffer.transform * 90;
+        snprintf(fname, sizeof(fname), "%s/0x%08x_%d.png", dir, win, rotation);
 
         e_info_server_dump_client(ec, fname);
      }
@@ -2292,9 +2295,7 @@ _e_info_server_cb_buffer_change(void *data, int type, void *event)
    tbm_surface_h tbm_surface;
    struct wl_shm_buffer *shmbuffer = NULL;
    void *ptr;
-   int stride;
-   int w;
-   int h;
+   int stride, w, h, rotation;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ev, ECORE_CALLBACK_PASS_ON);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ev->ec, ECORE_CALLBACK_PASS_ON);
@@ -2314,23 +2315,25 @@ _e_info_server_cb_buffer_change(void *data, int type, void *event)
    buffer = e_pixmap_resource_get(ec->pixmap);
    if (!buffer) return ECORE_CALLBACK_PASS_ON;
 
+   rotation = ec->comp_data->scaler.buffer_viewport.buffer.transform * 90;
+
    event_win = e_client_util_win_get(ec);
    switch (buffer->type)
      {
       case E_COMP_WL_BUFFER_TYPE_SHM:
-        snprintf(fname, sizeof(fname), "buffer_commit_shm_0x%08x", event_win);
+        snprintf(fname, sizeof(fname), "buffer_commit_shm_0x%08x_%d", event_win, rotation);
         break;
       case E_COMP_WL_BUFFER_TYPE_NATIVE:
-        snprintf(fname, sizeof(fname), "buffer_commit_native_0x%08x", event_win);
+        snprintf(fname, sizeof(fname), "buffer_commit_native_0x%08x_%d", event_win, rotation);
         break;
       case E_COMP_WL_BUFFER_TYPE_VIDEO:
-        snprintf(fname, sizeof(fname), "buffer_commit_video_0x%08x", event_win);
+        snprintf(fname, sizeof(fname), "buffer_commit_video_0x%08x_%d", event_win, rotation);
         break;
       case E_COMP_WL_BUFFER_TYPE_TBM:
-        snprintf(fname, sizeof(fname), "buffer_commit_tbm_0x%08x", event_win);
+        snprintf(fname, sizeof(fname), "buffer_commit_tbm_0x%08x_%d", event_win, rotation);
         break;
       default:
-        snprintf(fname, sizeof(fname), "buffer_commit_none_0x%08x", event_win);
+        snprintf(fname, sizeof(fname), "buffer_commit_none_0x%08x_%d", event_win, rotation);
         break;
      }
 
