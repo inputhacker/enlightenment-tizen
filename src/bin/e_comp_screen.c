@@ -9,6 +9,96 @@ static Eina_Bool dont_use_xkb_cache = EINA_FALSE;
 
 E_API int              E_EVENT_SCREEN_CHANGE = 0;
 
+typedef struct _E_Comp_Screen_Tzsr
+{
+   struct wl_resource *resource; /* tizen_screen_rotation */
+   E_Client           *ec;
+} E_Comp_Screen_Tzsr;
+
+static Eina_List *tzsr_list;
+static E_Client_Hook *tzsr_client_hook_del;
+
+static E_Comp_Screen_Tzsr*
+_tz_surface_rotation_find(E_Client *ec)
+{
+   E_Comp_Screen_Tzsr *tzsr;
+   Eina_List *l;
+
+   EINA_LIST_FOREACH(tzsr_list, l, tzsr)
+     {
+   ELOGF("COMP", "|tzsr->ec(%p)", NULL, ec, tzsr->ec);
+
+        if (tzsr->ec == ec)
+          return tzsr;
+     }
+   ELOGF("COMP", "|not found", NULL, ec);
+
+   return NULL;
+}
+
+static void
+_tz_surface_rotation_free(E_Comp_Screen_Tzsr *tzsr)
+{
+   ELOGF("COMP", "|tzsr(%p)", NULL, tzsr->ec, tzsr);
+   tzsr_list = eina_list_remove(tzsr_list, tzsr);
+   free(tzsr);
+}
+
+static void
+_tz_screen_rotation_cb_client_del(void *data, E_Client *ec)
+{
+   E_Comp_Screen_Tzsr *tzsr = _tz_surface_rotation_find(ec);
+   if (!tzsr) return;
+   _tz_surface_rotation_free(tzsr);
+}
+
+static void
+_tz_screen_rotation_get_ignore_output_transform(struct wl_client *client, struct wl_resource *resource, struct wl_resource *surface)
+{
+   E_Comp_Screen_Tzsr *tzsr;
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(surface);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   tzsr = _tz_surface_rotation_find(ec);
+   if (tzsr) return;
+
+   tzsr = E_NEW(E_Comp_Screen_Tzsr, 1);
+   if (!tzsr)
+     {
+        wl_client_post_no_memory(client);
+        return;
+     }
+
+   tzsr->resource = resource;
+   tzsr->ec = ec;
+
+   ELOGF("COMP", "|tzsr(%p)", NULL, ec, tzsr);
+
+   tzsr_list = eina_list_append(tzsr_list, tzsr);
+}
+
+static const struct tizen_screen_rotation_interface _tz_screen_rotation_interface =
+{
+   _tz_screen_rotation_get_ignore_output_transform,
+};
+
+static void
+_tz_screen_rotation_cb_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
+{
+   struct wl_resource *res;
+
+   if (!(res = wl_resource_create(client, &tizen_screen_rotation_interface, version, id)))
+     {
+        ERR("Could not create tizen_screen_rotation resource: %m");
+        wl_client_post_no_memory(client);
+        return;
+     }
+
+   wl_resource_set_implementation(res, &_tz_screen_rotation_interface, NULL, NULL);
+}
+
 static char *
 _layer_cap_to_str(tdm_layer_capability caps, tdm_layer_capability cap)
 {
@@ -1064,6 +1154,16 @@ e_comp_screen_init()
                               ctx, map);
    e_main_ts("\tE_Comp_WL Keymap Init Done");
 
+   /* try to add tizen_video to wayland globals */
+   if (!wl_global_create(e_comp_wl->wl.disp, &tizen_screen_rotation_interface, 1,
+                         NULL, _tz_screen_rotation_cb_bind))
+     {
+        ERR("Could not add tizen_screen_rotation to wayland globals");
+        return EINA_FALSE;
+     }
+
+   tzsr_client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _tz_screen_rotation_cb_client_del, NULL);
+
    /* if gl_drm evas engine is used, we do not look at the drm_output */
    if (!_e_comp_screen_can_hwc(e_comp))
       E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_OUTPUT,        _e_comp_screen_cb_output_drm,       comp);
@@ -1091,6 +1191,9 @@ e_comp_screen_shutdown()
    /* ecore_drm_shutdown(); */
 
    _e_comp_screen_deinit_outputs(e_comp->e_comp_screen);
+
+   e_client_hook_del(tzsr_client_hook_del);
+   tzsr_client_hook_del = NULL;
 
    dont_set_ecore_drm_keymap = EINA_FALSE;
    dont_use_xkb_cache = EINA_FALSE;
@@ -1178,6 +1281,20 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
    INF("EE Rotated and Resized: %d, %dx%d", e_comp_screen->rotation, w, h);
 
    return EINA_TRUE;
+}
+
+EINTERN void
+e_comp_screen_rotation_ignore_output_transform_send(E_Client *ec, Eina_Bool ignore)
+{
+   E_Comp_Screen_Tzsr *tzsr = _tz_surface_rotation_find(ec);
+
+   ELOGF("COMP", "|tzsr(%p) ignore(%d)", NULL, ec, tzsr, ignore);
+
+   if (!tzsr) return;
+
+   ELOGF("COMP", "|tzsr(%p) ignore(%d)", NULL, ec, tzsr, ignore);
+
+   tizen_screen_rotation_send_ignore_output_transform(tzsr->resource, ec->comp_data->surface, ignore);
 }
 
 EINTERN void
