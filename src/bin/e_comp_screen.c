@@ -762,8 +762,18 @@ e_comp_screen_e_screens_setup(E_Comp_Screen *e_comp_screen, int rw, int rh)
         screen->escreen = screen->screen = i;
         screen->x = output->config.geom.x;
         screen->y = output->config.geom.y;
-        screen->w = output->config.geom.w;
-        screen->h = output->config.geom.h;
+
+        if (output->config.rotation % 180)
+          {
+             screen->w = output->config.geom.h;
+             screen->h = output->config.geom.w;
+          }
+        else
+          {
+             screen->w = output->config.geom.w;
+             screen->h = output->config.geom.h;
+          }
+
         if (output->id) screen->id = strdup(output->id);
 
         e_screens = eina_list_append(e_screens, screen);
@@ -790,7 +800,12 @@ out:
         if ((rw > 0) && (rh > 0))
           screen->w = rw, screen->h = rh;
         else
-          ecore_evas_screen_geometry_get(e_comp->ee, NULL, NULL, &screen->w, &screen->h);
+          {
+             if (e_comp_screen->rotation % 180)
+               ecore_evas_screen_geometry_get(e_comp->ee, NULL, NULL, &screen->h, &screen->w);
+             else
+               ecore_evas_screen_geometry_get(e_comp->ee, NULL, NULL, &screen->w, &screen->h);
+          }
         e_screens = eina_list_append(e_screens, screen);
      }
    _e_comp_screen_e_screens_set(e_comp_screen, e_screens);
@@ -814,6 +829,7 @@ e_comp_screen_init()
    struct xkb_context *ctx = NULL;
    struct xkb_keymap *map = NULL;
    char buf[1024];
+   int screen_rotation;
 
    TRACE_DS_BEGIN(E_COMP_SCREEN:INIT);
    if (!(comp = e_comp))
@@ -909,6 +925,21 @@ e_comp_screen_init()
 
    ecore_evas_callback_resize_set(e_comp->ee, _e_comp_screen_cb_ee_resize);
 
+   screen_rotation = (e_config->screen_rotation_pre + e_config->screen_rotation_setting) % 360;
+
+   INF("E_COMP_SCREEN: screen_rotation_pre %d and screen_rotation_setting %d",
+       e_config->screen_rotation_pre, e_config->screen_rotation_setting);
+
+   if (screen_rotation)
+     {
+        /* SHOULD called with resize option after ecore_evas_resize */
+        ecore_evas_rotation_with_resize_set(comp->ee, screen_rotation);
+        ecore_evas_geometry_get(comp->ee, NULL, NULL, &w, &h);
+
+        snprintf(buf, sizeof(buf), "\tEE Rotate and Resize %d, %dx%d", screen_rotation, w, h);
+        e_main_ts(buf);
+     }
+
    /* e_comp_screen new */
    e_comp_screen = _e_comp_screen_new(e_comp);
    if (!e_comp_screen)
@@ -917,6 +948,7 @@ e_comp_screen_init()
         EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
      }
    e_comp->e_comp_screen = e_comp_screen;
+   e_comp_screen->rotation = screen_rotation;
 
    e_main_ts("\tE_Outputs Init");
    if (_e_comp_screen_can_hwc(e_comp))

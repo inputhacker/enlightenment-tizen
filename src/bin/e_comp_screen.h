@@ -23,6 +23,9 @@ struct _E_Comp_Screen
 
    /* for sw compositing */
    const Eina_List *devices;
+
+   /* for screen_rotation */
+   int rotation;
 };
 
 
