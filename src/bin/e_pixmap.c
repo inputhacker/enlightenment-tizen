@@ -497,20 +497,26 @@ e_pixmap_refresh(E_Pixmap *cp)
 E_API Eina_Bool
 e_pixmap_size_changed(E_Pixmap *cp, int w, int h)
 {
+   E_Client *ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(cp, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cp->client, EINA_FALSE);
    if (cp->dirty) return EINA_TRUE;
-   return (w != cp->w) || (h != cp->h);
+   ec = cp->client;
+   return (w != ec->comp_data->width_from_buffer) || (h != ec->comp_data->height_from_buffer);
 }
 
 E_API Eina_Bool
 e_pixmap_size_get(E_Pixmap *cp, int *w, int *h)
 {
+   E_Client *ec;
    if (w) *w = 0;
    if (h) *h = 0;
    EINA_SAFETY_ON_NULL_RETURN_VAL(cp, EINA_FALSE);
-   if (w) *w = cp->w;
-   if (h) *h = cp->h;
-   return (cp->w > 0) && (cp->h > 0);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cp->client, EINA_FALSE);
+   ec = cp->client;
+   if (w) *w = ec->comp_data->width_from_buffer;
+   if (h) *h = ec->comp_data->height_from_buffer;
+   return (ec->comp_data->width_from_buffer > 0) && (ec->comp_data->height_from_buffer > 0);
 }
 
 E_API unsigned int
