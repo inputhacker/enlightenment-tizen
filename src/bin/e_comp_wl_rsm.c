@@ -313,6 +313,7 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
 
    if (set)
      {
+        e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_TRUE);
         provider->is_offscreen = set;
         ec->ignored = EINA_TRUE;
 
@@ -335,6 +336,7 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
      }
    else
      {
+        e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
         e_client_visibility_skip_set(ec, EINA_FALSE);
         provider->is_offscreen = set;
         ec->icccm.accepts_focus = ec->icccm.take_focus = ec->want_focus = EINA_TRUE;
