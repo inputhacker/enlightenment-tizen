@@ -1124,6 +1124,62 @@ e_comp_screen_hwc_setup(E_Comp_Screen *e_comp_screen)
    return EINA_TRUE;
 }
 
+E_API Eina_Bool
+e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
+{
+   E_Output *output = NULL, *o;
+   Eina_List *l;
+   const Eina_List *ll;
+   int w, h;
+   int screen_rotation;
+   Ecore_Drm_Device *dev;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation % 90, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation < 0, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation > 270, EINA_FALSE);
+
+   if (e_config->screen_rotation_setting == rotation) return EINA_TRUE;
+
+   EINA_LIST_FOREACH(e_comp_screen->outputs, l, o)
+     {
+        unsigned int pipe = 0;
+        tdm_error error;
+
+        error = tdm_output_get_pipe(o->toutput, &pipe);
+        if (error != TDM_ERROR_NONE || pipe != 0)
+          continue;
+
+        output = o;
+        break;
+     }
+
+   if (!output)
+     {
+        ERR("couldn't find the primary output");
+        return EINA_FALSE;
+     }
+
+   screen_rotation = (e_config->screen_rotation_pre + rotation) % 360;
+
+   if (!e_output_rotate(output, screen_rotation))
+     return EINA_FALSE;
+
+   /* TODO: need to save e_config->screen_rotation_setting to e_config data file */
+   e_config->screen_rotation_setting = rotation;
+   e_comp_screen->rotation = screen_rotation;
+
+   ecore_evas_rotation_with_resize_set(e_comp->ee, e_comp_screen->rotation);
+   ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
+
+   EINA_LIST_FOREACH(ecore_drm_devices_get(), ll, dev)
+     ecore_drm_device_pointer_rotation_set(dev, e_comp_screen->rotation);
+
+   INF("EE Rotated and Resized: %d, %dx%d", e_comp_screen->rotation, w, h);
+
+   return EINA_TRUE;
+}
+
 EINTERN void
 e_comp_screen_hwc_info_debug(void)
 {
