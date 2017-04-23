@@ -123,6 +123,8 @@ E_API void                         e_util_transform_matrix_translate(E_Util_Tran
 E_API void                         e_util_transform_matrix_rotation_x(E_Util_Transform_Matrix *matrix, double degree);
 E_API void                         e_util_transform_matrix_rotation_y(E_Util_Transform_Matrix *matrix, double degree);
 E_API void                         e_util_transform_matrix_rotation_z(E_Util_Transform_Matrix *matrix, double degree);
+E_API void                         e_util_transform_matrix_flip_x(E_Util_Transform_Matrix *matrix);
+E_API void                         e_util_transform_matrix_flip_y(E_Util_Transform_Matrix *matrix);
 E_API void                         e_util_transform_matrix_scale(E_Util_Transform_Matrix *matrix, double sx, double sy, double sz);
 E_API E_Util_Transform_Matrix      e_util_transform_matrix_multiply(E_Util_Transform_Matrix *matrix1,
                                                                     E_Util_Transform_Matrix *matrix2);
