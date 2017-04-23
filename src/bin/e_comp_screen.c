@@ -991,6 +991,14 @@ e_comp_screen_init()
    if ((comp->pointer = e_pointer_canvas_new(comp->ee, EINA_TRUE)))
      {
         e_pointer_hide(comp->pointer);
+
+        if (e_comp_screen->rotation)
+          {
+             const Eina_List *l;
+             Ecore_Drm_Device *dev;
+             EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
+               ecore_drm_device_pointer_rotation_set(dev, e_comp_screen->rotation);
+          }
      }
    e_main_ts("\tE_Pointer New Done");
 

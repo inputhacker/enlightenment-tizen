@@ -333,6 +333,10 @@ e_pointer_rotation_set(E_Pointer *ptr, int rotation)
    _e_pointer_position_update(ptr);
    _e_pointer_rotation_apply(ptr);
 
+   /* ptr->rotation shouldn't include the screen rotation value */
+   if (e_comp->e_comp_screen->rotation > 0)
+      rotation = (e_comp->e_comp_screen->rotation + rotation) % 360;
+
    EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
      ecore_drm_device_pointer_rotation_set(dev, rotation);
 
