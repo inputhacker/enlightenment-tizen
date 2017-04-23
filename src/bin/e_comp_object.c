@@ -91,6 +91,7 @@ typedef struct _E_Comp_Object
    Evas_Object         *mask_obj; // mask object: transparent parts of this comp object allow to copy the alpha to current H/W plane.
    Evas_Object         *transform_bg_obj;   // transform backgroung with keep_ratio option
    Evas_Object         *transform_tranp_obj;// transform transp rect obj
+   Evas_Object         *map_input_obj; // input object to avoid the event transform by evas map
    unsigned int         layer; //e_comp_canvas_layer_map(cw->ec->layer)
    Eina_List           *obj_mirror;  // extra mirror objects
    Eina_Tiler          *updates; //render update regions
@@ -539,6 +540,68 @@ _e_comp_object_shadow(E_Comp_Object *cw)
    evas_object_smart_callback_call(cw->smart_obj, "shadow_change", cw->ec);
 }
 
+/* convert from the surface coordinates to the buffer coordinates */
+static void
+_e_comp_object_map_transform_pos(E_Client *ec, int sx, int sy, int *dx, int *dy)
+{
+   E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
+   int transform = vp->buffer.transform;
+   int bw, bh, tx, ty;
+
+   e_pixmap_size_get(ec->pixmap, &bw, &bh);
+
+   /* for subsurface, it should be swap 90 and 270 */
+   if (ec->comp_data->sub.data)
+     switch (transform)
+       {
+        case WL_OUTPUT_TRANSFORM_90:          transform = WL_OUTPUT_TRANSFORM_270;         break;
+        case WL_OUTPUT_TRANSFORM_270:         transform = WL_OUTPUT_TRANSFORM_90;          break;
+        case WL_OUTPUT_TRANSFORM_FLIPPED_90:  transform = WL_OUTPUT_TRANSFORM_FLIPPED_270; break;
+        case WL_OUTPUT_TRANSFORM_FLIPPED_270: transform = WL_OUTPUT_TRANSFORM_FLIPPED_90;  break;
+        default: break;
+       }
+
+   switch (transform)
+     {
+      case WL_OUTPUT_TRANSFORM_NORMAL:
+      default:                              tx = sx,      ty = sy;      break;
+      case WL_OUTPUT_TRANSFORM_90:          tx = sy,      ty = bw - sx; break;
+      case WL_OUTPUT_TRANSFORM_180:         tx = bw - sx, ty = bh - sy; break;
+      case WL_OUTPUT_TRANSFORM_270:         tx = bh - sy, ty = sx;      break;
+      case WL_OUTPUT_TRANSFORM_FLIPPED:     tx = bw - sx, ty = sy;      break;
+      case WL_OUTPUT_TRANSFORM_FLIPPED_90:  tx = sy,      ty = sx;      break;
+      case WL_OUTPUT_TRANSFORM_FLIPPED_180: tx = sx,      ty = bh - sy; break;
+      case WL_OUTPUT_TRANSFORM_FLIPPED_270: tx = bh - sy, ty = bw - sx; break;
+     }
+
+   tx *= vp->buffer.scale;
+   ty *= vp->buffer.scale;
+
+   *dx = tx;
+   *dy = ty;
+}
+
+static void
+_e_comp_object_map_transform_rect(E_Client *ec, int sx, int sy, int sw, int sh, int *dx, int *dy, int *dw, int *dh)
+{
+   int x1 = sx;
+   int y1 = sy;
+   int x2 = sx + sw;
+   int y2 = sy + sh;
+   int mx, my;
+
+   _e_comp_object_map_transform_pos(ec, x1, y1, &x1, &y1);
+   _e_comp_object_map_transform_pos(ec, x2, y2, &x2, &y2);
+
+   mx = MIN(x1, x2);
+   my = MIN(y1, y2);
+
+   if (dx) *dx = mx;
+   if (dy) *dy = my;
+   if (dw) *dw = MAX(x1, x2) - mx;
+   if (dh) *dh = MAX(y1, y2) - my;
+}
+
 /////////////////////////////////////
 
 /* handle evas mouse-in events on client object */
@@ -918,6 +981,7 @@ _e_comp_object_shadow_setup(E_Comp_Object *cw)
           }
      }
 
+   evas_object_pass_events_set(cw->map_input_obj, pass_event_flag);
    evas_object_pass_events_set(cw->obj, pass_event_flag);
 #ifdef BORDER_ZOOMAPS
    e_zoomap_child_edje_solid_setup(cw->zoomobj);
@@ -1074,6 +1138,13 @@ _e_comp_object_setup(E_Comp_Object *cw)
         evas_object_event_callback_add(cw->smart_obj, EVAS_CALLBACK_MOUSE_MOVE, _e_comp_object_cb_mouse_move, cw);
         evas_object_event_callback_add(cw->smart_obj, EVAS_CALLBACK_MOUSE_WHEEL, _e_comp_object_cb_mouse_wheel, cw);
      }
+
+   cw->map_input_obj = evas_object_rectangle_add(e_comp->evas);
+   evas_object_name_set(cw->map_input_obj, "cw->map_input_obj");
+   evas_object_move(cw->map_input_obj, cw->x, cw->y);
+   evas_object_resize(cw->map_input_obj, cw->w, cw->h);
+   evas_object_color_set(cw->map_input_obj, 0, 0, 0, 0);
+   evas_object_smart_member_add(cw->map_input_obj, cw->smart_obj);
 }
 
 /////////////////////////////////////////////
@@ -2014,6 +2085,7 @@ _e_comp_intercept_show(void *data, Evas_Object *obj EINA_UNUSED)
    Eina_List *l;
    E_Input_Rect_Data *input_rect_data;
    E_Input_Rect_Smart_Data *input_rect_sd;
+   int tw, th;
 
    if (ec->ignored) return;
 
@@ -2060,7 +2132,8 @@ _e_comp_intercept_show(void *data, Evas_Object *obj EINA_UNUSED)
         evas_object_color_set(cw->clip, ec->netwm.opacity, ec->netwm.opacity, ec->netwm.opacity, ec->netwm.opacity);
      }
 
-   evas_object_geometry_set(cw->effect_obj, cw->x, cw->y, cw->w, cw->h);
+   _e_comp_object_map_transform_rect(cw->ec, 0, 0, cw->w, cw->h, NULL, NULL, &tw, &th);
+   evas_object_geometry_set(cw->effect_obj, cw->x, cw->y, tw, th);
    if (cw->input_obj)
      {
         input_rect_sd = evas_object_smart_data_get(cw->input_obj);
@@ -2216,6 +2289,7 @@ _e_comp_object_frame_recalc(E_Comp_Object *cw)
                     }
                }
           }
+        evas_object_pass_events_set(cw->map_input_obj, pass_event_flag);
         evas_object_pass_events_set(cw->obj, pass_event_flag);
      }
    else
@@ -2648,6 +2722,7 @@ _e_comp_smart_hide(Evas_Object *obj)
    evas_object_hide(cw->clip);
    if (cw->input_obj) evas_object_hide(cw->input_obj);
    evas_object_hide(cw->effect_obj);
+   evas_object_hide(cw->map_input_obj);
    if (cw->transform_bg_obj) evas_object_hide(cw->transform_bg_obj);
    if (cw->transform_tranp_obj) evas_object_hide(cw->transform_tranp_obj);
    if (stopping)
@@ -2696,6 +2771,8 @@ _e_comp_smart_show(Evas_Object *obj)
 
    TRACE_DS_BEGIN(COMP:SMART SHOW);
 
+   e_comp_object_map_update(obj);
+
    EINA_LIST_FOREACH(cw->ec->e.state.video_child, l, tmp)
      evas_object_show(tmp->frame);
 
@@ -2715,6 +2792,7 @@ _e_comp_smart_show(Evas_Object *obj)
    if (cw->mask_obj) evas_object_show(cw->mask_obj);
    if (cw->transform_bg_obj) evas_object_show(cw->transform_bg_obj);
    if (cw->transform_tranp_obj) evas_object_show(cw->transform_tranp_obj);
+   if (evas_object_map_enable_get(cw->effect_obj)) evas_object_show(cw->map_input_obj);
    e_comp_render_queue();
    if (cw->ec->input_only)
      {
@@ -2802,6 +2880,7 @@ _e_comp_smart_del(Evas_Object *obj)
    evas_object_del(cw->mask_obj);
    evas_object_del(cw->transform_bg_obj);
    evas_object_del(cw->transform_tranp_obj);
+   evas_object_del(cw->map_input_obj);
    e_comp_shape_queue();
    eina_stringshare_del(cw->frame_theme);
    eina_stringshare_del(cw->frame_name);
@@ -2824,7 +2903,10 @@ _e_comp_smart_move(Evas_Object *obj, int x, int y)
    cw->x = x, cw->y = y;
    evas_object_move(cw->clip, 0, 0);
    evas_object_move(cw->effect_obj, x, y);
+   evas_object_move(cw->map_input_obj, x, y);
    if (cw->input_obj) evas_object_move(cw->input_obj, x, y);
+
+   e_comp_object_map_update(obj);
 
    /* this gets called once during setup to init coords offscreen and guarantee first move */
    if (e_comp && cw->visible)
@@ -2835,12 +2917,18 @@ static void
 _e_comp_smart_resize(Evas_Object *obj, int w, int h)
 {
    Eina_Bool first = EINA_FALSE;
+   int tw, th;
 
    INTERNAL_ENTRY;
 
    if (!cw->effect_obj) CRI("ACK!");
 
    TRACE_DS_BEGIN(COMP:SMART RESIZE);
+
+   _e_comp_object_map_transform_rect(cw->ec, 0, 0, w, h, NULL, NULL, &tw, &th);
+
+   if (cw->w != w || cw->h != h)
+     e_comp_object_map_update(obj);
 
    first = ((cw->w < 1) || (cw->h < 1));
    cw->w = w, cw->h = h;
@@ -2858,7 +2946,8 @@ _e_comp_smart_resize(Evas_Object *obj, int w, int h)
              if ((ww != pw) || (hh != ph))
                CRI("CW RSZ: %dx%d || PX: %dx%d", ww, hh, pw, ph);
           }
-        evas_object_resize(cw->effect_obj, w, h);
+        evas_object_resize(cw->effect_obj, tw, th);
+        evas_object_resize(cw->map_input_obj, w, h);
         if (cw->zoomobj) e_zoomap_child_resize(cw->zoomobj, pw, ph);
         if (cw->input_obj)
           evas_object_resize(cw->input_obj, w, h);
@@ -2879,7 +2968,8 @@ _e_comp_smart_resize(Evas_Object *obj, int w, int h)
      }
    else
      {
-        evas_object_resize(cw->effect_obj, w, h);
+        evas_object_resize(cw->effect_obj, tw, th);
+        evas_object_resize(cw->map_input_obj, w, h);
      }
    if (!cw->visible)
      {
@@ -3547,6 +3637,7 @@ e_comp_object_input_area_set(Evas_Object *obj, int x, int y, int w, int h)
         evas_object_geometry_set(input_rect_data->obj,
           MAX(cw->ec->client.x + (!!cw->frame_object * cw->client_inset.l), 0) + x,
           MAX(cw->ec->client.y + (!!cw->frame_object * cw->client_inset.t), 0) + y, w, h);
+        evas_object_pass_events_set(cw->map_input_obj, 1);
         evas_object_pass_events_set(cw->obj, 1);
         if (cw->visible)
           {
@@ -3558,6 +3649,7 @@ e_comp_object_input_area_set(Evas_Object *obj, int x, int y, int w, int h)
      {
         evas_object_smart_member_del(cw->input_obj);
         E_FREE_FUNC(cw->input_obj, evas_object_del);
+        evas_object_pass_events_set(cw->map_input_obj, 0);
         evas_object_pass_events_set(cw->obj, 0);
      }
 }
@@ -4207,7 +4299,7 @@ e_comp_object_dirty(Evas_Object *obj)
    Eina_Rectangle *rect;
    Eina_List *ll;
    Evas_Object *o;
-   int w, h;
+   int w, h, tw, th;
    Eina_Bool dirty, visible;
 
    API_ENTRY;
@@ -4219,7 +4311,8 @@ e_comp_object_dirty(Evas_Object *obj)
    evas_object_image_pixels_dirty_set(cw->obj, cw->blanked ? 0 : dirty);
    if (!dirty)
      evas_object_image_data_set(cw->obj, NULL);
-   evas_object_image_size_set(cw->obj, w, h);
+   _e_comp_object_map_transform_rect(cw->ec, 0, 0, w, h, NULL, NULL, &tw, &th);
+   evas_object_image_size_set(cw->obj, tw, th);
    if (cw->mask_obj) evas_object_resize(cw->mask_obj, w, h);
    if (cw->pending_updates)
      eina_tiler_area_size_set(cw->pending_updates, w, h);
@@ -4228,7 +4321,7 @@ e_comp_object_dirty(Evas_Object *obj)
         evas_object_image_pixels_dirty_set(o, dirty);
         if (!dirty)
           evas_object_image_data_set(o, NULL);
-        evas_object_image_size_set(o, w, h);
+        evas_object_image_size_set(o, tw, th);
         visible |= evas_object_visible_get(o);
      }
    if (!dirty)
@@ -4242,6 +4335,7 @@ e_comp_object_dirty(Evas_Object *obj)
    it = eina_tiler_iterator_new(cw->updates);
    EINA_ITERATOR_FOREACH(it, rect)
      {
+        _e_comp_object_map_transform_rect(cw->ec, rect->x, rect->y, rect->w, rect->h, &rect->x, &rect->y, &rect->w, &rect->h);
         evas_object_image_data_update_add(cw->obj, rect->x, rect->y, rect->w, rect->h);
         EINA_LIST_FOREACH(cw->obj_mirror, ll, o)
           evas_object_image_data_update_add(o, rect->x, rect->y, rect->w, rect->h);
@@ -4331,7 +4425,7 @@ E_API Evas_Object *
 e_comp_object_util_mirror_add(Evas_Object *obj)
 {
    Evas_Object *o;
-   int w, h;
+   int w, h, tw, th;
    unsigned int *pix = NULL;
    Eina_Bool argb = EINA_FALSE;
 
@@ -4365,7 +4459,9 @@ e_comp_object_util_mirror_add(Evas_Object *obj)
    evas_object_data_set(o, "comp_mirror", cw);
 
    evas_object_image_alpha_set(o, evas_object_image_alpha_get(cw->obj));
-   evas_object_image_size_set(o, w, h);
+   _e_comp_object_map_transform_rect(cw->ec, 0, 0, w, h, NULL, NULL, &tw, &th);
+
+   evas_object_image_size_set(o, tw, th);
 
    if (cw->ec->shaped)
      pix = evas_object_image_data_get(cw->obj, 0);
@@ -4403,7 +4499,7 @@ e_comp_object_util_mirror_add(Evas_Object *obj)
       evas_object_image_data_set(o, pix);
       evas_object_image_data_set(cw->obj, pix);
       if (dirty)
-        evas_object_image_data_update_add(o, 0, 0, w, h);
+        evas_object_image_data_update_add(o, 0, 0, tw, th);
    }
    return o;
 }
@@ -4862,6 +4958,7 @@ e_comp_object_mask_has(Evas_Object *obj)
 E_API void
 e_comp_object_size_update(Evas_Object *obj, int w, int h)
 {
+   int tw, th;
    API_ENTRY;
 
    if ((cw->external_content) &&
@@ -4873,7 +4970,9 @@ e_comp_object_size_update(Evas_Object *obj, int w, int h)
         return;
      }
 
-   evas_object_image_size_set(cw->obj, w, h);
+   _e_comp_object_map_transform_rect(cw->ec, 0, 0, w, h, NULL, NULL, &tw, &th);
+
+   evas_object_image_size_set(cw->obj, tw, th);
 }
 
 E_API void
@@ -5332,4 +5431,72 @@ e_comp_object_indicator_size_set(Evas_Object *obj, int w, int h)
    msg->val[1] = h;
    edje_object_message_send(cw->shobj, EDJE_MESSAGE_INT_SET, 0, msg);
    edje_object_message_signal_process(cw->shobj);
+}
+
+/* buffer transform and scale are applied to e_comp_object and e_pixmap internaly */
+void
+e_comp_object_map_update(Evas_Object *obj)
+{
+   API_ENTRY;
+   E_Client *ec = cw->ec;
+   Evas_Map *map;
+   int x1, y1, x2, y2, x, y, bw, bh;
+   char buffer[128];
+   char *p = buffer;
+   int l, remain = sizeof buffer;
+
+   if (!ec || !ec->comp_data || e_object_is_del(E_OBJECT(ec))) return;
+
+   if (!ec->comp_data->scaler.buffer_viewport.buffer.transform &&
+       ec->comp_data->scaler.buffer_viewport.buffer.scale == 1)
+     {
+        if (evas_object_map_enable_get(cw->effect_obj))
+          {
+             ELOGF("COMP", "transform map: disable", cw->ec->pixmap, cw->ec);
+             evas_object_map_enable_set(cw->effect_obj, EINA_FALSE);
+             evas_object_hide(cw->map_input_obj);
+          }
+        return;
+     }
+
+   map = evas_map_new(4);
+   EINA_SAFETY_ON_NULL_RETURN(map);
+
+   e_pixmap_size_get(ec->pixmap, &bw, &bh);
+
+   x1 = y1 = 0;
+   x2 = bw;
+   y2 = bh;
+
+   evas_map_util_points_populate_from_geometry(map, ec->x, ec->y, bw, bh, 0);
+
+   _e_comp_object_map_transform_pos(ec, x1, y1, &x, &y);
+   evas_map_point_image_uv_set(map, 0, x, y);
+   l = snprintf(p, remain, " %d,%d", x, y);
+   p += l, remain -= l;
+
+   _e_comp_object_map_transform_pos(ec, x2, y1, &x, &y);
+   evas_map_point_image_uv_set(map, 1, x, y);
+   l = snprintf(p, remain, " %d,%d", x, y);
+   p += l, remain -= l;
+
+   _e_comp_object_map_transform_pos(ec, x2, y2, &x, &y);
+   evas_map_point_image_uv_set(map, 2, x, y);
+   l = snprintf(p, remain, " %d,%d", x, y);
+   p += l, remain -= l;
+
+   _e_comp_object_map_transform_pos(ec, x1, y2, &x, &y);
+   evas_map_point_image_uv_set(map, 3, x, y);
+   l = snprintf(p, remain, " %d,%d", x, y);
+   p += l, remain -= l;
+
+//   ELOGF("COMP", "obj(%p) transform map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d =>%s)",
+//         cw->ec->pixmap, cw->ec, obj, ec->x, ec->y, bw, bh, x1, y1, x2, y1, x2, y2, x1, y2, buffer);
+
+   evas_object_map_set(cw->effect_obj, map);
+   evas_object_map_enable_set(cw->effect_obj, EINA_TRUE);
+
+   evas_map_free(map);
+
+   evas_object_show(cw->map_input_obj);
 }

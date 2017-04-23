@@ -175,6 +175,8 @@ E_API void e_comp_object_indicator_swallow(Evas_Object *obj, Evas_Object *indica
 E_API void e_comp_object_indicator_unswallow(Evas_Object *obj, Evas_Object *indicator);
 E_API void e_comp_object_indicator_size_set(Evas_Object *obj, int w, int h);
 
+E_API void e_comp_object_map_update(Evas_Object *obj);
+
 #endif
 #endif
 
