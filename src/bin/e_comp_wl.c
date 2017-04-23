@@ -6060,3 +6060,149 @@ e_comp_wl_cursor_hide(E_Client *ec)
 
    return EINA_TRUE;
 }
+
+/* surface to buffer
+ *   - width    : surface width
+ *   - height   : surface height
+ *   - transform: buffer transform
+ *   - scale    : buffer scale
+ * screen to output
+ *   - width    : screen width
+ *   - height   : screen height
+ *   - transform: output transform
+ *   - scale    : output scale
+ */
+static E_Util_Transform_Matrix
+_e_comp_wl_buffer_coord_get(int width, int height, int transform, int scale)
+{
+   E_Util_Transform_Matrix m;
+
+   e_util_transform_matrix_load_identity(&m);
+
+   if (transform & 0x4)
+     {
+        e_util_transform_matrix_translate(&m, -(width / 2), 0, 0);
+        e_util_transform_matrix_flip_x(&m);
+        e_util_transform_matrix_translate(&m, width / 2, 0, 0);
+     }
+
+   switch (transform & 0x3)
+     {
+      case WL_OUTPUT_TRANSFORM_90:
+        e_util_transform_matrix_translate(&m, -width, 0, 0);
+        e_util_transform_matrix_rotation_z(&m, 270);
+        break;
+      case WL_OUTPUT_TRANSFORM_180:
+        e_util_transform_matrix_translate(&m, -width, -height, 0);
+        e_util_transform_matrix_rotation_z(&m, 180);
+        break;
+      case WL_OUTPUT_TRANSFORM_270:
+        e_util_transform_matrix_translate(&m, 0, -height, 0);
+        e_util_transform_matrix_rotation_z(&m, 90);
+        break;
+      default:
+        break;
+     }
+
+   e_util_transform_matrix_scale(&m, scale, scale, 1);
+
+   return m;
+}
+
+/* surface to buffer
+ *   - surface width, surface height, buffer transform, buffer scale
+ * screen to output
+ *   - screen width, screen height, output transform, output scale
+ */
+E_API void
+e_comp_wl_pos_convert(int width, int height, int transform, int scale, int sx, int sy, int *bx, int *by)
+{
+   E_Util_Transform_Matrix m;
+   E_Util_Transform_Vertex v;
+
+   m = _e_comp_wl_buffer_coord_get(width, height, transform, scale);
+
+   e_util_transform_vertex_init(&v, sx, sy, 0.0, 1.0);
+   v = e_util_transform_matrix_multiply_vertex(&m, &v);
+   e_util_transform_vertex_pos_round_get(&v, bx, by, NULL, NULL);
+}
+
+/* buffer to screen
+ *   - buffer width, buffer height, buffer transform, buffer scale
+ */
+E_API void
+e_comp_wl_pos_convert_inverse(int width, int height, int transform, int scale, int bx, int by, int *sx, int *sy)
+{
+   E_Util_Transform_Matrix m;
+   E_Util_Transform_Vertex v;
+   int tw, th;
+
+   if (transform != 0 || scale > 1)
+     {
+        tw = ((transform % 2) ? height : width) / scale;
+        th = ((transform % 2) ? width : height) / scale;
+     }
+
+   m = _e_comp_wl_buffer_coord_get(tw, th, transform, scale);
+   m = e_util_transform_matrix_inverse_get(&m);
+
+   e_util_transform_vertex_init(&v, bx, by, 0.0, 1.0);
+   v = e_util_transform_matrix_multiply_vertex(&m, &v);
+   e_util_transform_vertex_pos_round_get(&v, sx, sy, NULL, NULL);
+}
+
+/* surface to buffer
+ *   - surface width, surface height, buffer transform, buffer scale
+ * screen to output
+ *   - screen width, screen height, output transform, output scale
+ */
+E_API void
+e_comp_wl_rect_convert(int width, int height, int transform, int scale,
+                       int sx, int sy, int sw, int sh, int *bx, int *by, int *bw, int *bh)
+{
+   E_Util_Transform_Matrix m;
+   E_Util_Transform_Rect sr = {sx, sy, sw, sh};
+   E_Util_Transform_Rect_Vertex sv;
+
+   m = _e_comp_wl_buffer_coord_get(width, height, transform, scale);
+
+   sv = e_util_transform_rect_to_vertices(&sr);
+   sv = e_util_transform_matrix_multiply_rect_vertex(&m, &sv);
+   sr = e_util_transform_vertices_to_rect(&sv);
+
+   if (bx) *bx = sr.x;
+   if (by) *by = sr.y;
+   if (bw) *bw = sr.w;
+   if (bh) *bh = sr.h;
+}
+
+/* buffer to screen
+ *   - buffer width, buffer height, buffer transform, buffer scale
+ */
+E_API void
+e_comp_wl_rect_convert_inverse(int width, int height, int transform, int scale,
+                               int bx, int by, int bw, int bh, int *sx, int *sy, int *sw, int *sh)
+{
+   E_Util_Transform_Matrix m;
+   E_Util_Transform_Rect br = {bx, by, bw, bh};
+   E_Util_Transform_Rect_Vertex bv;
+   int tw, th;
+
+   if (transform != 0 || scale > 1)
+     {
+        tw = ((transform % 2) ? height : width) / scale;
+        th = ((transform % 2) ? width : height) / scale;
+     }
+
+   m = _e_comp_wl_buffer_coord_get(tw, th, transform, scale);
+   m = e_util_transform_matrix_inverse_get(&m);
+
+   bv = e_util_transform_rect_to_vertices(&br);
+   bv = e_util_transform_matrix_multiply_rect_vertex(&m, &bv);
+   br = e_util_transform_vertices_to_rect(&bv);
+
+   if (sx) *sx = br.x;
+   if (sy) *sy = br.y;
+   if (sw) *sw = br.w;
+   if (sh) *sh = br.h;
+}
