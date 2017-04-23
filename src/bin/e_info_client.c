@@ -2539,6 +2539,28 @@ arg_err:
 
 }
 
+static void
+_e_info_client_proc_screen_rotation(int argc, char **argv)
+{
+   int rotation;
+
+   if (argc < 3)
+     {
+        printf("Error Check Args: enlightenment_info -screen_rotation [0|90|180|270]\n");
+        return;
+     }
+
+   rotation = atoi(argv[2]);
+   if (rotation < 0 || rotation > 360 || rotation % 90)
+     {
+        printf("Error Check Args: enlightenment_info -screen_rotation [0|90|180|270]\n");
+        return;
+     }
+
+   if (!_e_info_client_eldbus_message_with_args("screen_rotation", NULL, "i", rotation))
+     printf("_e_info_client_eldbus_message_with_args error");
+}
+
 static struct
 {
    const char *option;
@@ -2725,7 +2747,13 @@ static struct
       USAGE_FORCE_RENDER,
       "force render according to parameters",
       _e_info_client_proc_force_render
-   }
+   },
+   {
+      "screen_rotation",
+      "[0|90|180|270]",
+      "to rotate screen",
+      _e_info_client_proc_screen_rotation
+   },
 };
 
 static void
