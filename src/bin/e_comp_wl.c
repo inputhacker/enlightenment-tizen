@@ -427,7 +427,12 @@ e_comp_wl_map_apply(E_Client *ec)
    int x1, y1, x2, y2, x, y;
    int dx, dy;
 
-   if (!ec || !ec->comp_data) return;
+   if (!ec || !ec->comp_data || e_object_is_del(E_OBJECT(ec))) return;
+
+   e_comp_object_map_update(ec->frame);
+
+   vp = &ec->comp_data->scaler.buffer_viewport;
+   if (vp->buffer.src_width == wl_fixed_from_int(-1)) return;
 
    cdata = ec->comp_data;
    sdata = ec->comp_data->sub.data;
@@ -480,42 +485,19 @@ e_comp_wl_map_apply(E_Client *ec)
                                  ec->comp_data->width_from_viewport,
                                  ec->comp_data->height_from_viewport);
 
-   vp = &ec->comp_data->scaler.buffer_viewport;
+   x1 = wl_fixed_to_int(vp->buffer.src_x);
+   y1 = wl_fixed_to_int(vp->buffer.src_y);
+   x2 = wl_fixed_to_int(vp->buffer.src_x + vp->buffer.src_width);
+   y2 = wl_fixed_to_int(vp->buffer.src_y + vp->buffer.src_height);
 
-   if (vp->buffer.src_width == wl_fixed_from_int(-1))
-     {
-        x1 = 0.0;
-        y1 = 0.0;
-        x2 = ec->comp_data->width_from_buffer;
-        y2 = ec->comp_data->height_from_buffer;
-     }
-   else
-     {
-        x1 = wl_fixed_to_int(vp->buffer.src_x);
-        y1 = wl_fixed_to_int(vp->buffer.src_y);
-        x2 = wl_fixed_to_int(vp->buffer.src_x + vp->buffer.src_width);
-        y2 = wl_fixed_to_int(vp->buffer.src_y + vp->buffer.src_height);
-     }
+   e_util_transform_texcoord_set(cdata->viewport_transform, 0, x1, y1);
+   e_util_transform_texcoord_set(cdata->viewport_transform, 1, x2, y1);
+   e_util_transform_texcoord_set(cdata->viewport_transform, 2, x2, y2);
+   e_util_transform_texcoord_set(cdata->viewport_transform, 3, x1, y2);
 
-   _e_comp_wl_map_transform(ec->comp_data->width_from_buffer, ec->comp_data->height_from_buffer,
-                            vp->buffer.transform, vp->buffer.scale,
-                            x1, y1, &x, &y);
-   e_util_transform_texcoord_set(cdata->viewport_transform, 0, x, y);
-
-   _e_comp_wl_map_transform(ec->comp_data->width_from_buffer, ec->comp_data->height_from_buffer,
-                            vp->buffer.transform, vp->buffer.scale,
-                            x2, y1, &x, &y);
-   e_util_transform_texcoord_set(cdata->viewport_transform, 1, x, y);
-
-   _e_comp_wl_map_transform(ec->comp_data->width_from_buffer, ec->comp_data->height_from_buffer,
-                            vp->buffer.transform, vp->buffer.scale,
-                            x2, y2, &x, &y);
-   e_util_transform_texcoord_set(cdata->viewport_transform, 2, x, y);
-
-   _e_comp_wl_map_transform(ec->comp_data->width_from_buffer, ec->comp_data->height_from_buffer,
-                            vp->buffer.transform, vp->buffer.scale,
-                            x1, y2, &x, &y);
-   e_util_transform_texcoord_set(cdata->viewport_transform, 3, x, y);
+//   ELOGF("COMP", "viewport map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d)",
+//         ec->pixmap, ec, ec->x, ec->y, ec->comp_data->width_from_viewport,
+//         ec->comp_data->height_from_viewport, x1, y1, x2, y1, x2, y2, x1, y2);
 
    e_client_transform_core_update(ec);
 }
