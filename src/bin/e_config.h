@@ -147,6 +147,8 @@ struct _E_Config
 #ifdef _F_ZONE_WINDOW_ROTATION_
    unsigned char wm_win_rotation;
 #endif
+   unsigned int screen_rotation_pre;
+   unsigned int screen_rotation_setting;
    int use_cursor_timer;
    int cursor_timer_interval;
    Eina_List *client_types;
