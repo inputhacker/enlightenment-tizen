@@ -307,6 +307,7 @@ e_output_update(E_Output *output)
              unsigned int phy_w, phy_h;
              const tdm_output_mode *tmodes = NULL;
              int num_tmodes = 0;
+             unsigned int pipe = 0;
              int size = 0;
 
              error = tdm_output_get_model_info(output->toutput, &maker, &screen, NULL);
@@ -315,6 +316,11 @@ e_output_update(E_Output *output)
                   ERR("fail to get model info.");
                   return EINA_FALSE;
                }
+
+             /* we apply the screen rotation only for the primary output */
+             error = tdm_output_get_pipe(output->toutput, &pipe);
+             if (error == TDM_ERROR_NONE && pipe == 0)
+               output->config.rotation = e_comp->e_comp_screen->rotation;
 
              if (maker)
                {
@@ -488,6 +494,8 @@ e_output_mode_apply(E_Output *output, E_Output_Mode *mode)
    INF("E_OUTPUT: '%s' %i %i %ix%i", output->info.name,
        output->config.geom.x, output->config.geom.y,
        output->config.geom.w, output->config.geom.h);
+
+   INF("E_OUTPUT: rotation = %d", output->config.rotation);
 
    return EINA_TRUE;
 }
