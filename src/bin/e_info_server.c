@@ -2860,6 +2860,29 @@ _e_info_server_cb_force_render(const Eldbus_Service_Interface *iface EINA_UNUSED
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_screen_rotation(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   int rotation;
+
+   if (!eldbus_message_arguments_get(msg, "i", &rotation))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+   if (!e_comp || !e_comp->e_comp_screen)
+     {
+        ERR("Error no screen.");
+        return reply;
+     }
+
+   e_comp_screen_rotation_setting_set(e_comp->e_comp_screen, rotation);
+
+   return reply;
+}
+
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
@@ -2899,6 +2922,7 @@ static const Eldbus_Method methods[] = {
    { "desktop_geometry_set", ELDBUS_ARGS({"iiii", "Geometry"}), NULL, _e_info_server_cb_desktop_geometry_set, 0},
    { "desk_zoom", ELDBUS_ARGS({"ddii", "Zoom"}), NULL, _e_info_server_cb_desk_zoom, 0},
    { "frender", ELDBUS_ARGS({"i", "frender"}), ELDBUS_ARGS({"s", "force_render_result"}), _e_info_server_cb_force_render, 0},
+   { "screen_rotation", ELDBUS_ARGS({"i", "value"}), NULL, _e_info_server_cb_screen_rotation, 0},
    { NULL, NULL, NULL, NULL, 0 }
 };
 
