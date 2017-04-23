@@ -497,10 +497,15 @@ e_util_transform_vertices_to_rect(E_Util_Transform_Rect_Vertex *vertices)
 
    if (vertices)
      {
-        result.x = E_UTIL_TRANSFORM_ROUND(vertices->vertices[0].vertex[0]);
-        result.y = E_UTIL_TRANSFORM_ROUND(vertices->vertices[0].vertex[1]);
-        result.w = E_UTIL_TRANSFORM_ROUND(vertices->vertices[2].vertex[0] - vertices->vertices[0].vertex[0]);
-        result.h = E_UTIL_TRANSFORM_ROUND(vertices->vertices[2].vertex[1] - vertices->vertices[0].vertex[1]);
+        int x1 = E_UTIL_TRANSFORM_ROUND(vertices->vertices[0].vertex[0]);
+        int y1 = E_UTIL_TRANSFORM_ROUND(vertices->vertices[0].vertex[1]);
+        int x2 = E_UTIL_TRANSFORM_ROUND(vertices->vertices[2].vertex[0]);
+        int y2 = E_UTIL_TRANSFORM_ROUND(vertices->vertices[2].vertex[1]);
+
+        result.x = MIN(x1, x2);
+        result.y = MIN(y1, y2);
+        result.w = MAX(x1, x2) - result.x;
+        result.h = MAX(y1, y2) - result.y;
      }
 
    return result;
