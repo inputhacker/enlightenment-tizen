@@ -1067,6 +1067,27 @@ e_util_string_to_double(const char *str, double *num)
    return EINA_TRUE;
 }
 
+E_API Eina_Bool
+e_util_string_to_ulong(const char *str, unsigned long *num, int base)
+{
+   char *end;
+   int errsv;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(str, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(num, EINA_FALSE);
+
+   const long sul = strtoul(str, &end, base);
+   errsv = errno;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((end == str), EINA_FALSE); /* given string is not a decimal number */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(('\0' != *end), EINA_FALSE); /* given string has extra characters */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(((ULONG_MAX == sul) && (ERANGE == errsv)), EINA_FALSE); /* out of range of type unsigned long */
+
+   *num = (int)sul;
+
+   return EINA_TRUE;
+}
+
 E_API void
 e_util_evas_objects_above_print(Evas_Object *o)
 {

@@ -1057,7 +1057,7 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
    Eldbus_Message_Iter *array_of_ec;
    E_Client *ec;
    Evas_Object *o;
-   uint32_t value_number = 0;
+   uint64_t value_number = 0;
    Eina_Bool res = EINA_FALSE;
 
    eldbus_message_iter_arguments_append(iter, "a(ss)", &array_of_ec);
@@ -1068,9 +1068,9 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
         else
           {
              if (strlen(value) >= 2 && value[0] == '0' && value[1] == 'x')
-               res = e_util_string_to_uint(value, &value_number, 16);
+               res = e_util_string_to_ulong(value, (unsigned long *)&value_number, 16);
              else
-               res = e_util_string_to_uint(value, &value_number, 10);
+               res = e_util_string_to_ulong(value, (unsigned long *)&value_number, 10);
 
              EINA_SAFETY_ON_FALSE_GOTO(res, finish);
           }
@@ -2028,7 +2028,7 @@ e_info_server_cb_transform_message(const Eldbus_Service_Interface *iface EINA_UN
    uint32_t x, y, sx, sy, degree;
    uint32_t background;
    const char *value = NULL;
-   uint32_t value_number;
+   uint64_t value_number;
    Evas_Object *o;
    E_Client *ec;
    Eina_Bool res = EINA_FALSE;
@@ -2040,9 +2040,9 @@ e_info_server_cb_transform_message(const Eldbus_Service_Interface *iface EINA_UN
      }
 
    if (strlen(value) >= 2 && value[0] == '0' && value[1] == 'x')
-     res = e_util_string_to_uint(value, &value_number, 16);
+     res = e_util_string_to_ulong(value, (unsigned long *)&value_number, 16);
    else
-     res = e_util_string_to_uint(value, &value_number, 10);
+     res = e_util_string_to_ulong(value, (unsigned long *)&value_number, 10);
 
    EINA_SAFETY_ON_FALSE_RETURN_VAL(res, reply);
 
@@ -2847,7 +2847,7 @@ e_info_server_cb_aux_message(const Eldbus_Service_Interface *iface EINA_UNUSED, 
    Eldbus_Message_Iter *opt_iter;
    const char *win_str, *key, *val, *opt;
    Eina_List *options = NULL;
-   uint32_t win_id = 0;
+   uint64_t win_id = 0;
    E_Client *ec;
    Evas_Object *o;
    Eina_Bool res = EINA_FALSE;
@@ -2872,7 +2872,7 @@ e_info_server_cb_aux_message(const Eldbus_Service_Interface *iface EINA_UNUSED, 
         options = eina_list_append(options, str);
      }
 
-   res = e_util_string_to_uint(win_str, &win_id, 16);
+   res = e_util_string_to_ulong(win_str, (unsigned long *)&win_id, 16);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(res, reply);
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
