@@ -43,6 +43,9 @@ void wl_map_for_each(struct wl_map *map, void *func, void *data);
 #define INVALID_ARGS         ERR_BASE"InvalidArguments"
 #define GET_CALL_MSG_ARG_ERR ERR_BASE"GetCallMsgArgFailed"
 #define WIN_NOT_EXIST        ERR_BASE"WindowNotExist"
+#define INVALID_PROPERTY_NAME        ERR_BASE"InvalidPropertyName"
+#define FAIL_TO_SET_PROPERTY         ERR_BASE"FailedToSetProperty"
+#define FAIL_TO_GET_PROPERTY         ERR_BASE"FailedToGetProperty"
 
 E_API int E_EVENT_INFO_ROTATION_MESSAGE = -1;
 
@@ -802,289 +805,1355 @@ _e_info_server_cb_res_lists_get(const Eldbus_Service_Interface *iface EINA_UNUSE
    return reply;
 }
 
+/*
+ * behaves like strcat but also dynamically extends buffer when it's needed
+ *
+ * dst - the pointer to result string (dynamically allocated) will be stored to memory 'dst' points to
+ *       '*dst' MUST either point nothing (nullptr) or point a !_dynamically allocated_! null-terminated string
+ *       (e.g. returned by the previous call)
+ * src - null-terminated string to concatenate (can be either statically or dynamically allocated string)
+ *
+ * *dst got to be freed by free() when it's no longer needed
+ *
+ * return -1 in case of an error, 0 otherwise
+ */
+static int
+_astrcat(char **dst, const char *src)
+{
+   int new_size;
+   char *res;
+
+   if (!dst || !src)
+     return -1;
+
+   if (*dst)
+     new_size = strlen(*dst) + strlen(src) + 1; /* + '/0' */
+   else
+     new_size = strlen(src) + 1; /* + '/0' */
+
+   /* if *dst is nullptr realloc behaves like malloc */
+   res = realloc(*dst, new_size);
+   if (!res)
+     return -1;
+
+   /* if we were asked to concatenate to null string */
+   if (!*dst)
+     res[0] = '\0'; /* strncat looks for null-terminated string */
+
+   *dst = res;
+   strncat(*dst, src, new_size - strlen(*dst) - 1);
+
+   return 0;
+}
+
+#define astrcat_(str, mod, x...) ({                                  \
+                                  char *temp = NULL;                 \
+                                  if (asprintf(&temp, mod, ##x) < 0) \
+                                    goto fail;                      \
+                                  if (_astrcat(str, temp) < 0)       \
+                                    {                                \
+                                       free(temp);                   \
+                                       goto fail;                    \
+                                    }                                \
+                                  free(temp); })
+
+static const char*
+_get_win_prop_Rotation(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   int i, count;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+   count = ec->e.state.rot.count;
+
+   astrcat_(&str, "Support(%d) Type(%s)\n", ec->e.state.rot.support,
+           ec->e.state.rot.type == E_CLIENT_ROTATION_TYPE_NORMAL ? "normal" : "dependent");
+
+   if (ec->e.state.rot.available_rots && count)
+     {
+        astrcat_(&str, "Availables[%d] ", count);
+
+        for (i = 0; i < count; i++)
+          astrcat_(&str, "%d ", ec->e.state.rot.available_rots[i]);
+     }
+   else
+     astrcat_(&str, "Availables[%d] N/A", count);
+
+
+   astrcat_(&str, "\nAngle prev(%d) curr(%d) next(%d) reserve(%d) preferred(%d)\n",
+           ec->e.state.rot.ang.prev,
+           ec->e.state.rot.ang.curr,
+           ec->e.state.rot.ang.next,
+           ec->e.state.rot.ang.reserve,
+           ec->e.state.rot.preferred_rot);
+
+   astrcat_(&str, "pending_change_request(%d) pending_show(%d) nopending_render(%d) wait_for_done(%d)\n",
+           ec->e.state.rot.pending_change_request,
+           ec->e.state.rot.pending_show,
+           ec->e.state.rot.nopending_render,
+           ec->e.state.rot.wait_for_done);
+
+   if (ec->e.state.rot.geom_hint)
+     for (i = 0; i < 4; i++)
+       astrcat_(&str, "Geometry hint[%d] %d,%d   %dx%d\n",
+               i,
+               ec->e.state.rot.geom[i].x,
+               ec->e.state.rot.geom[i].y,
+               ec->e.state.rot.geom[i].w,
+               ec->e.state.rot.geom[i].h);
+
+   return str;
+
+fail:
+   free(str);
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Transform(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   int i, count;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+   count = e_client_transform_core_transform_count_get((E_Client *)ec);
+
+   astrcat_(&str, "transform count: %d\n", count);
+
+   if (count <= 0)
+     return str;
+
+   astrcat_(&str, "[id] [move] [scale] [rotation] [keep_ratio] [viewport]\n");
+
+   for (i = 0; i < count; ++i)
+     {
+        double dsx, dsy;
+        int x = 0, y = 0, rz = 0;
+        int view_port = 0;
+        int vx = 0, vy = 0, vw = 0, vh = 0;
+        E_Util_Transform *transform = NULL;
+
+        transform = e_client_transform_core_transform_get((E_Client *)ec, i);
+        if (!transform) continue;
+
+        e_util_transform_move_round_get(transform, &x, &y, NULL);
+        e_util_transform_scale_get(transform, &dsx, &dsy, NULL);
+        e_util_transform_rotation_round_get(transform, NULL, NULL, &rz);
+        view_port = e_util_transform_viewport_flag_get(transform);
+
+        if (view_port)
+          e_util_transform_viewport_get(transform, &vx, &vy, &vw, &vh);
+
+        astrcat_(&str, "transform : [%d] [%d, %d] [%2.1f, %2.1f] [%d] [%d :%d, %d, %d, %d]\n",
+                i, x, y, dsx, dsy, rz, view_port, vx, vy, vw, vh);
+
+        if (e_util_transform_bg_transform_flag_get(transform))
+          {
+             e_util_transform_bg_move_round_get(transform, &x, &y, NULL);
+             e_util_transform_bg_scale_get(transform, &dsx, &dsy, NULL);
+             e_util_transform_bg_rotation_round_get(transform, NULL, NULL, &rz);
+
+             astrcat_(&str, "transform_bg : --------- [%d] [%d, %d] [%2.1f, %2.1f] [%d]",
+                     i, x, y, dsx, dsy, rz);
+          }
+     }
+
+   return str;
+
+fail:
+   free(str);
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Subsurface_Below_Child_List(const Evas_Object *evas_obj)
+{
+   const E_Comp_Wl_Client_Data *cdata;
+   const E_Client *ec;
+   char *str = NULL;
+
+   const Eina_List *list;
+   const Eina_List *l;
+   const E_Client *child;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (!ec->comp_data)
+     return strdup("None");
+
+   cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+   list = cdata->sub.below_list;
+
+   if (!list)
+     return strdup("None");
+
+   EINA_LIST_FOREACH(list, l, child)
+     astrcat_(&str, "0x%x, ", e_client_util_win_get(child));
+
+   return str;
+
+fail:
+   free(str);
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Subsurface_Child_List(const Evas_Object *evas_obj)
+{
+   const E_Comp_Wl_Client_Data *cdata;
+   const E_Client *ec;
+   char *str = NULL;
+
+   const Eina_List *list;
+   const Eina_List *l;
+   const E_Client *child;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (!ec->comp_data)
+     return strdup("None");
+
+   cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+   list = cdata->sub.list;
+
+   if (!list)
+     return strdup("None");
+
+   EINA_LIST_FOREACH(list, l, child)
+     astrcat_(&str, "0x%x, ", e_client_util_win_get(child));
+
+   return str;
+
+fail:
+   free(str);
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Subsurface_Parent(const Evas_Object *evas_obj)
+{
+   const E_Comp_Wl_Client_Data *cdata;
+   const E_Client *ec;
+   char *str = NULL;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (!ec->comp_data)
+     return strdup("None");
+
+   cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+
+   if (asprintf(&str, "0x%x", cdata->sub.data ? e_client_util_win_get(cdata->sub.data->parent) : 0) < 0)
+     return NULL;
+
+   return str;
+}
+
+static const char*
+_get_win_prop_Aux_Hint(const Evas_Object *evas_obj)
+{
+   const E_Comp_Wl_Client_Data *cdata;
+   const E_Comp_Wl_Aux_Hint *hint;
+   const Eina_List *l;
+
+   const E_Client *ec;
+   char *str = NULL;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (!ec->comp_data)
+     return strdup("None");
+
+   cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+
+   if (!cdata->aux_hint.hints)
+     return strdup("None");
+
+   EINA_LIST_FOREACH(cdata->aux_hint.hints, l, hint)
+     astrcat_(&str, "[%d][%s][%s]\n", hint->id, hint->hint, hint->val);
+
+   return str;
+
+fail:
+   free(str);
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Video_Client(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (asprintf(&str, "%d", ec->comp_data ? ec->comp_data->video_client : 0) < 0)
+     return NULL;
+
+   return str;
+}
+
+static const char*
+_get_win_prop_Ignore_first_unmap(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (asprintf(&str, "%c", ec->ignore_first_unmap) < 0)
+     return NULL;
+
+   return str;
+}
+
+static const char*
+_get_win_prop_Transformed(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->transformed ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_Maximize_override(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->maximize_override ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_No_shape_cut(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->no_shape_cut ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_set_win_prop_Ignored(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     ec->ignored = 1; /* TODO: is't right? */
+   else if(strstr(prop_value, "FALSE"))
+     e_client_unignore(ec);
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Ignored(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->ignored ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_Layer_block(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->layer_block ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_Shape_changed(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->shape_changed ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_Unredirected_single(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->unredirected_single ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_set_win_prop_Redirected(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     e_client_redirected_set(ec, EINA_TRUE);
+   else if(strstr(prop_value, "FALSE"))
+     e_client_redirected_set(ec, EINA_FALSE);
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Redirected(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->redirected ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_Tooltip(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->tooltip ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_Dialog(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->dialog ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_Input_only(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->input_only ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_Override(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->override ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_E_Transient_Policy(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (asprintf(&str, "%d", ec->transient_policy) < 0)
+     return NULL;
+
+   return str;
+}
+
+static const char*
+_get_win_prop_E_FullScreen_Policy(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (asprintf(&str, "%d", ec->fullscreen_policy) < 0)
+     return NULL;
+
+   return str;
+}
+
+static const char*
+_get_win_prop_E_Maximize_Policy(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (asprintf(&str, "0x%x", ec->maximized) < 0)
+     return NULL;
+
+   return str;
+}
+
+static const char*
+_get_win_prop_Want_focus(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->want_focus ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_Take_focus(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->take_focus ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_Re_manage(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->re_manage ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_set_win_prop_Fullscreen(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     e_client_fullscreen(ec, E_FULLSCREEN_RESIZE); /* TODO: what a policy to use? */
+   else if(strstr(prop_value, "FALSE"))
+     e_client_unfullscreen(ec);
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Fullscreen(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->fullscreen ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_set_win_prop_Urgent(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     e_client_urgent_set(ec, EINA_TRUE);
+   else if(strstr(prop_value, "FALSE"))
+     e_client_urgent_set(ec, EINA_FALSE);
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Urgent(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->urgent ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_set_win_prop_Sticky(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     e_client_stick(ec);
+   else if(strstr(prop_value, "FALSE"))
+     e_client_unstick(ec);
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Sticky(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->sticky ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_set_win_prop_Iconic(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     e_client_iconify(ec);
+   else if(strstr(prop_value, "FALSE"))
+     e_client_uniconify(ec);
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Iconic(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->iconic ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_set_win_prop_Focused(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     ec->focused = 1;
+   else if(strstr(prop_value, "FALSE"))
+     ec->focused = 0;
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Focused(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->focused ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_Moving(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->moving ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_set_win_prop_Hidden(Evas_Object *evas_obj, const char *prop_value)
+{
+   if(strstr(prop_value, "TRUE"))
+     evas_object_hide(evas_obj);
+   else if(strstr(prop_value, "FALSE"))
+     evas_object_show(evas_obj);
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Hidden(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->hidden ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_get_win_prop_32bit(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->argb ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_set_win_prop_Visible(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     ec->visible = 1;
+   else if(strstr(prop_value, "FALSE"))
+     ec->visible = 0;
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Visible(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->visible ? strdup("TRUE") : strdup("FALSE");
+}
+
+/* this code looks awful but to make it sane some global changes are required,
+ * but I'm not sure I'm allowed to do such changes which relate ONLY to e_info app */
+static inline int
+_check_layer_idx(const char *layer_name, int layer_idx)
+{
+   char tmp[64] = {0, };
+
+   e_comp_layer_name_get(layer_idx, tmp, sizeof(tmp));
+
+   return strncmp(tmp, layer_name, strlen(tmp));
+}
+
+static int
+_e_comp_layer_idx_get(const char *layer_name)
+{
+   if (!layer_name) return E_LAYER_MAX + 1;
+
+   if (!_check_layer_idx(layer_name, E_LAYER_BOTTOM))                     return E_LAYER_BOTTOM;
+   if (!_check_layer_idx(layer_name, E_LAYER_BG))                         return E_LAYER_BG;
+   if (!_check_layer_idx(layer_name, E_LAYER_DESKTOP))                    return E_LAYER_DESKTOP;
+   if (!_check_layer_idx(layer_name, E_LAYER_DESKTOP_TOP))                return E_LAYER_DESKTOP_TOP;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_DESKTOP))             return E_LAYER_CLIENT_DESKTOP;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_BELOW))               return E_LAYER_CLIENT_BELOW;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_NORMAL))              return E_LAYER_CLIENT_NORMAL;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_ABOVE))               return E_LAYER_CLIENT_ABOVE;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_EDGE))                return E_LAYER_CLIENT_EDGE;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_FULLSCREEN))          return E_LAYER_CLIENT_FULLSCREEN;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_EDGE_FULLSCREEN))     return E_LAYER_CLIENT_EDGE_FULLSCREEN;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_POPUP))               return E_LAYER_CLIENT_POPUP;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_TOP))                 return E_LAYER_CLIENT_TOP;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_DRAG))                return E_LAYER_CLIENT_DRAG;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_PRIO))                return E_LAYER_CLIENT_PRIO;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_NOTIFICATION_LOW))    return E_LAYER_CLIENT_NOTIFICATION_LOW;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_NOTIFICATION_NORMAL)) return E_LAYER_CLIENT_NOTIFICATION_NORMAL;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_NOTIFICATION_HIGH))   return E_LAYER_CLIENT_NOTIFICATION_HIGH;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_NOTIFICATION_TOP))    return E_LAYER_CLIENT_NOTIFICATION_TOP;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_ALERT_LOW))           return E_LAYER_CLIENT_ALERT_LOW;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_ALERT))               return E_LAYER_CLIENT_ALERT;
+   if (!_check_layer_idx(layer_name, E_LAYER_POPUP))                      return E_LAYER_POPUP;
+   if (!_check_layer_idx(layer_name, E_LAYER_EFFECT))                     return E_LAYER_EFFECT;
+   if (!_check_layer_idx(layer_name, E_LAYER_MENU))                       return E_LAYER_MENU;
+   if (!_check_layer_idx(layer_name, E_LAYER_DESKLOCK))                   return E_LAYER_DESKLOCK;
+   if (!_check_layer_idx(layer_name, E_LAYER_MAX))                        return E_LAYER_MAX;
+
+   return E_LAYER_MAX + 1;
+}
+
+static const char*
+_set_win_prop_Layer(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+   int layer_idx;
+
+   layer_idx = _e_comp_layer_idx_get(prop_value);
+   if (layer_idx == (E_LAYER_MAX + 1))
+     return strdup("invalid property value");
+
+   ec->layer = layer_idx;
+
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Layer(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   char layer_name[48] = {0,};
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+   e_comp_layer_name_get(ec->layer, layer_name, sizeof(layer_name));
+
+   if (asprintf(&str, "[%d, %s]", ec->layer, layer_name) < 0)
+     return NULL;
+
+   return str;
+}
+
+static const char*
+_get_win_prop_Shape_input(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+   int i = 0;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (!ec->shape_input_rects || ec->shape_input_rects_num <= 0)
+     return strdup("None");
+
+   for (i = 0 ; i < ec->shape_input_rects_num ; ++i)
+     astrcat_(&str, "[%d,%d,%d,%d]\n", ec->shape_input_rects[i].x, ec->shape_input_rects[i].y,
+             ec->shape_input_rects[i].w, ec->shape_input_rects[i].h);
+
+   return str;
+
+fail:
+   free(str);
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Shape_rects(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+   int i = 0;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (!ec->shape_rects || ec->shape_rects_num <= 0)
+     return strdup("None");
+
+   for (i = 0 ; i < ec->shape_rects_num ; ++i)
+     astrcat_(&str, "[%d,%d,%d,%d]\n", ec->shape_rects[i].x, ec->shape_rects[i].y,
+             ec->shape_rects[i].w, ec->shape_rects[i].h);
+
+   return str;
+
+fail:
+   free(str);
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Transients(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   const E_Client *child;
+   const Eina_List *l;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (!ec->transients)
+     return strdup("None");
+
+   EINA_LIST_FOREACH(ec->transients, l, child)
+     astrcat_(&str, "0x%x, ", e_client_util_win_get(child));
+
+   return str;
+
+fail:
+   free(str);
+   return NULL;
+}
+
+static const char*
+_get_win_prop_ParentWindowID(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (!ec->parent)
+     return strdup("None");
+
+   if (asprintf(&str, "0x%x", e_client_util_win_get(ec->parent)) < 0)
+     return NULL;
+
+   return str;
+}
+
+static const char*
+_set_win_prop_Geometry(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+   int x = -1, y = -1, w = -1, h = -1;
+
+   sscanf(prop_value, "%d, %d %dx%d", &x, &y, &w, &h);
+   if (x < 0 || y < 0 || w <= 0 || h <= 0)
+     return strdup("invalid property value");
+
+   /* TODO: I have no enough knowledges to say that it's a proper way
+    *       to change e_client geometry */
+   ec->x = x; ec->y = y; ec->w = w; ec->h = h;
+
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Geometry(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (asprintf(&str, "[%d, %d %dx%d]", ec->x, ec->y, ec->w, ec->h) < 0)
+     return NULL;
+
+   return str;
+}
+
+static const char*
+_set_win_prop_Role(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   e_client_window_role_set(ec, prop_value);
+
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Role(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (asprintf(&str, "%s", ec->icccm.window_role ?: "NO ROLE") < 0)
+     return NULL;
+
+   return str;
+}
+
+static const char*
+_set_win_prop_Window_Name(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   /* TODO: I ain't sure it's a proper order */
+   if (ec->netwm.name)
+     eina_stringshare_replace(&ec->netwm.name, prop_value);
+   else if (ec->icccm.title)
+     eina_stringshare_replace(&ec->icccm.title, prop_value);
+   else
+     eina_stringshare_replace(&ec->netwm.name, prop_value);
+
+   return NULL;
+}
+
+static const char*
+_get_win_prop_Window_Name(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (asprintf(&str, "%s", e_client_util_name_get(ec) ?: "NO NAME") < 0)
+     return NULL;
+
+   return str;
+}
+
+static const char*
+_get_win_prop_ResourceID(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (!ec->pixmap)
+     return strdup("None");
+
+   if (asprintf(&str, "%d", e_pixmap_res_id_get(ec->pixmap)) < 0)
+     return NULL;
+
+   return str;
+}
+
+static const char*
+_get_win_prop_PID(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+   pid_t pid = -1;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (ec->comp_data)
+     {
+        const E_Comp_Wl_Client_Data *cdata = (const E_Comp_Wl_Client_Data*)ec->comp_data;
+        if (cdata->surface)
+          wl_client_get_credentials(wl_resource_get_client(cdata->surface), &pid, NULL, NULL);
+     }
+
+   if (asprintf(&str, "%d", pid) < 0)
+     return NULL;
+
+   return str;
+}
+
+static const char*
+_get_win_prop_Window_ID(const Evas_Object *evas_obj)
+{
+   const E_Client *ec;
+   char *str = NULL;
+
+   ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if (asprintf(&str, "0x%x", e_client_util_win_get(ec)) < 0)
+     return NULL;
+
+   return str;
+}
+
+#undef astrcat_
+
+typedef const char* (*get_prop_t)(const Evas_Object *evas_obj);
+typedef const char* (*set_prop_t)(Evas_Object *evas_obj, const char *prop_value);
+
+static struct property_manager
+{
+    const char* prop_name;
+
+    /*
+     * get one property
+     *
+     * evas_obj - an evas_obj (which is e_client) a property value has to be got for
+     * return nullptr in case of an error, property value string otherwise
+     *
+     * property value string should be freed with free() when it's no longer needed
+     *
+     * can be nullptr if this property isn't getable */
+    get_prop_t get_prop;
+
+    /*
+     * set one property
+     *
+     * evas_obj - an evas_obj (which is e_client) a property value has to be set for
+     * prop_value - a value of property to set
+     * return pointer to an error string in case of an error, nullptr otherwise
+     *
+     * error string should be freed with free() when it's no longer needed
+     * it's this function responsibility to check property_value sanity
+     *
+     * can be nullptr if this property isn't setable */
+    set_prop_t set_prop;
+} win_properties[] =
+{
+    {
+        "Window_ID",
+        _get_win_prop_Window_ID,
+        NULL
+    },
+    {
+        "PID",
+        _get_win_prop_PID,
+        NULL
+    },
+    {
+        "ResourceID",
+        _get_win_prop_ResourceID,
+        NULL
+    },
+    {
+        "Window_Name",
+        _get_win_prop_Window_Name,
+        _set_win_prop_Window_Name
+    },
+    {
+        "Role",
+        _get_win_prop_Role,
+        _set_win_prop_Role
+    },
+    {
+        "Geometry",
+        _get_win_prop_Geometry,
+        _set_win_prop_Geometry
+    },
+    {
+        "ParentWindowID",
+        _get_win_prop_ParentWindowID,
+        NULL
+    },
+    {
+        "Transients",
+        _get_win_prop_Transients,
+        NULL
+    },
+    {
+        "Shape_rects",
+        _get_win_prop_Shape_rects,
+        NULL
+    },
+    {
+        "Shape_input",
+        _get_win_prop_Shape_input,
+        NULL
+    },
+    {
+        "Layer",
+        _get_win_prop_Layer,
+        _set_win_prop_Layer
+    },
+    {
+        "Visible",
+        _get_win_prop_Visible,
+        _set_win_prop_Visible
+    },
+    {
+        "32bit",
+        _get_win_prop_32bit,
+        NULL
+    },
+    {
+        "Hidden",
+        _get_win_prop_Hidden,
+        _set_win_prop_Hidden
+    },
+    {
+        "Moving",
+        _get_win_prop_Moving,
+        NULL
+    },
+    {
+        "Focused",
+        _get_win_prop_Focused,
+        _set_win_prop_Focused
+    },
+    {
+        "Iconic",
+        _get_win_prop_Iconic,
+        _set_win_prop_Iconic
+    },
+    {
+        "Sticky",
+        _get_win_prop_Sticky,
+        _set_win_prop_Sticky
+    },
+    {
+        "Urgent",
+        _get_win_prop_Urgent,
+        _set_win_prop_Urgent
+    },
+    {
+        "Fullscreen",
+        _get_win_prop_Fullscreen,
+        _set_win_prop_Fullscreen
+    },
+    {
+        "Re_manage",
+        _get_win_prop_Re_manage,
+        NULL
+    },
+    {
+        "Take_focus",
+        _get_win_prop_Take_focus,
+        NULL
+    },
+    {
+        "Want_focus",
+        _get_win_prop_Want_focus,
+        NULL
+    },
+    {
+        "E_Maximize_Policy",
+        _get_win_prop_E_Maximize_Policy,
+        NULL
+    },
+    {
+        "E_FullScreen_Policy",
+        _get_win_prop_E_FullScreen_Policy,
+        NULL
+    },
+    {
+        "E_Transient_Policy",
+        _get_win_prop_E_Transient_Policy,
+        NULL
+    },
+    {
+        "Override",
+        _get_win_prop_Override,
+        NULL
+    },
+    {
+        "Input_only",
+        _get_win_prop_Input_only,
+        NULL
+    },
+    {
+        "Dialog",
+        _get_win_prop_Dialog,
+        NULL
+    },
+    {
+        "Tooltip",
+        _get_win_prop_Tooltip,
+        NULL
+    },
+    {
+        "Redirected",
+        _get_win_prop_Redirected,
+        _set_win_prop_Redirected
+    },
+    {
+        "Unredirected_single",
+        _get_win_prop_Unredirected_single,
+        NULL
+    },
+    {
+        "Shape_changed",
+        _get_win_prop_Shape_changed,
+        NULL
+    },
+    {
+        "Layer_block",
+        _get_win_prop_Layer_block,
+        NULL
+    },
+    {
+        "Ignored",
+        _get_win_prop_Ignored,
+        _set_win_prop_Ignored
+    },
+    {
+        "No_shape_cut",
+        _get_win_prop_No_shape_cut,
+        NULL
+    },
+    {
+        "Maximize_override",
+        _get_win_prop_Maximize_override,
+        NULL
+    },
+    {
+        "Transformed",
+        _get_win_prop_Transformed,
+        NULL
+    },
+    {
+        "Ignore_first_unmap",
+        _get_win_prop_Ignore_first_unmap,
+        NULL
+    },
+    {
+        "Video Client",
+        _get_win_prop_Video_Client,
+        NULL
+    },
+    {
+        "Aux_Hint Client",
+        _get_win_prop_Aux_Hint,
+        NULL
+    },
+    {
+        "Subsurface Parent",
+        _get_win_prop_Subsurface_Parent,
+        NULL
+    },
+    {
+        "Subsurface Child List",
+        _get_win_prop_Subsurface_Child_List,
+        NULL
+    },
+    {
+        "Subsurface Below Child List",
+        _get_win_prop_Subsurface_Below_Child_List,
+        NULL
+    },
+    {
+        "Transform",
+        _get_win_prop_Transform,
+        NULL
+    },
+    {
+        "Rotation",
+        _get_win_prop_Rotation,
+        NULL
+    }
+};
+
 #define __WINDOW_PROP_ARG_APPEND(title, value) ({                                    \
                                                 eldbus_message_iter_arguments_append(iter, "(ss)", &struct_of_ec);    \
                                                 eldbus_message_iter_arguments_append(struct_of_ec, "ss", (title), (value));  \
                                                 eldbus_message_iter_container_close(iter, struct_of_ec);})
 
-#define __WINDOW_PROP_ARG_APPEND_TYPE(title, str, x...) ({                           \
-                                                         char __temp[128] = {0,};                                                     \
-                                                         snprintf(__temp, sizeof(__temp), str, ##x);                                  \
-                                                         eldbus_message_iter_arguments_append(iter, "(ss)", &struct_of_ec);    \
-                                                         eldbus_message_iter_arguments_append(struct_of_ec, "ss", (title), (__temp)); \
-                                                         eldbus_message_iter_container_close(iter, struct_of_ec);})
-
-static void
-_msg_window_prop_client_append(Eldbus_Message_Iter *iter, E_Client *target_ec)
+static Eldbus_Message*
+_msg_fill_out_window_props(const Eldbus_Message *msg, Eldbus_Message_Iter *iter, Evas_Object *evas_obj,
+        const char *property_name, const char *property_value)
 {
+   const int win_property_size = sizeof(win_properties)/sizeof(struct property_manager);
    Eldbus_Message_Iter* struct_of_ec;
-   pid_t pid = -1;
-   char win_resid[16] = {0,};
-   char char_True[] = "TRUE";
-   char char_False[] = "FALSE";
-   char layer_name[48] = {0,};
-   char layer[64] = {0,};
-   char transients[128] = {0,};
-   char shape_rects[128] = {0,};
-   char shape_input[128] = {0,};
+   int idx;
 
-   if (!target_ec) return;
-
-   if (target_ec->pixmap)
-      snprintf(win_resid, sizeof(win_resid), "%d", e_pixmap_res_id_get(target_ec->pixmap));
-
-   e_comp_layer_name_get(target_ec->layer, layer_name, sizeof(layer_name));
-   snprintf(layer, sizeof(layer), "[%d, %s]",  target_ec->layer, layer_name);
-
-   if (target_ec->transients)
+   /* accordingly to -prop option rules (if user's provided some property name) */
+   if (strlen(property_name))
      {
-        E_Client *child;
-        const Eina_List *l;
+        /* check the property_name sanity */
+        for (idx = 0; idx < win_property_size; ++idx)
+          if (!strncmp(win_properties[idx].prop_name, property_name, sizeof(win_properties[idx])))
+            break;
 
-        EINA_LIST_FOREACH(target_ec->transients, l, child)
+        if (idx == win_property_size)
+          return eldbus_message_error_new(msg, INVALID_PROPERTY_NAME,
+                  "get_window_prop: invalid property name");
+
+        /* accordingly to -prop option rules (if user wanna set property) */
+        if (strlen(property_value))
           {
-             char temp[16];
-             snprintf(temp, sizeof(temp), "0x%x", e_client_util_win_get(child));
-             strncat(transients, temp, sizeof(transients) - strlen(transients));
-          }
-     }
-
-   if (target_ec->shape_rects && target_ec->shape_rects_num > 0)
-     {
-        int i = 0;
-        for (i = 0 ; i < target_ec->shape_rects_num ; ++i)
-          {
-             char temp[32];
-             snprintf(temp, sizeof(temp), "[%d,%d,%d,%d] ", target_ec->shape_rects[i].x, target_ec->shape_rects[i].y,
-                      target_ec->shape_rects[i].w, target_ec->shape_rects[i].h);
-             strncat(shape_rects, temp, sizeof(shape_rects) - strlen(shape_rects));
-          }
-     }
-
-   if (target_ec->shape_input_rects && target_ec->shape_input_rects_num > 0)
-     {
-        int i = 0;
-        for (i = 0 ; i < target_ec->shape_input_rects_num ; ++i)
-          {
-             char temp[32];
-             snprintf(temp, sizeof(temp), "[%d,%d,%d,%d] ", target_ec->shape_input_rects[i].x, target_ec->shape_input_rects[i].y,
-                      target_ec->shape_input_rects[i].w, target_ec->shape_input_rects[i].h);
-             strncat(shape_input, temp, sizeof(shape_input) - strlen(shape_input));
-          }
-     }
-
-   if (target_ec->comp_data)
-     {
-
-        E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)target_ec->comp_data;
-        if (cdata->surface)
-          {
-             wl_client_get_credentials(wl_resource_get_client(cdata->surface), &pid, NULL, NULL);
-          }
-     }
-
-   __WINDOW_PROP_ARG_APPEND("[WINDOW PROP]", "[WINDOW PROP]");
-   __WINDOW_PROP_ARG_APPEND_TYPE("Window_ID", "0x%x", e_client_util_win_get(target_ec));
-   __WINDOW_PROP_ARG_APPEND_TYPE("PID", "%d", pid);
-   __WINDOW_PROP_ARG_APPEND("ResourceID", win_resid);
-   __WINDOW_PROP_ARG_APPEND("Window_Name", e_client_util_name_get(target_ec) ?: "NO NAME");
-   __WINDOW_PROP_ARG_APPEND("Role", target_ec->icccm.window_role ?: "NO ROLE");
-   __WINDOW_PROP_ARG_APPEND_TYPE("Geometry", "[%d, %d, %d, %d]", target_ec->x, target_ec->y, target_ec->w, target_ec->h);
-   __WINDOW_PROP_ARG_APPEND_TYPE("ParentWindowID", "0x%x", target_ec->parent ? e_client_util_win_get(target_ec->parent) : 0);
-   __WINDOW_PROP_ARG_APPEND("Transients", transients);
-   __WINDOW_PROP_ARG_APPEND("Shape_rects", shape_rects);
-   __WINDOW_PROP_ARG_APPEND("Shape_input", shape_input);
-   __WINDOW_PROP_ARG_APPEND("Layer", layer);
-   __WINDOW_PROP_ARG_APPEND("Visible",  target_ec->visible ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("32bit",  target_ec->argb ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Hidden", target_ec->hidden ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Moving", target_ec->moving ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Focused", target_ec->focused ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Iconic", target_ec->iconic ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Sticky", target_ec->sticky ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Urgent", target_ec->urgent ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Fullscreen", target_ec->fullscreen ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Re_manage", target_ec->re_manage ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Take_focus", target_ec->take_focus ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Want_focus", target_ec->want_focus ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND_TYPE("E_Maximize_Policy", "0x%x", target_ec->maximized);
-   __WINDOW_PROP_ARG_APPEND_TYPE("E_FullScreen_Policy", "%d", target_ec->fullscreen_policy);
-   __WINDOW_PROP_ARG_APPEND_TYPE("E_Transient_Policy", "%d", target_ec->transient_policy);
-   __WINDOW_PROP_ARG_APPEND("Override", target_ec->override ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Input_only", target_ec->input_only ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Dialog", target_ec->dialog ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Tooltip", target_ec->tooltip ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Redirected", target_ec->redirected ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Unredirected_single", target_ec->unredirected_single ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Shape_changed", target_ec->shape_changed ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Layer_block", target_ec->layer_block ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Ignored", target_ec->ignored ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("No_shape_cut", target_ec->no_shape_cut ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Maximize_override", target_ec->maximize_override ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND("Transformed", target_ec->transformed ? char_True : char_False);
-   __WINDOW_PROP_ARG_APPEND_TYPE("Ignore_first_unmap", "%c", target_ec->ignore_first_unmap);
-   __WINDOW_PROP_ARG_APPEND_TYPE("Video Client", "%d",target_ec->comp_data ? target_ec->comp_data->video_client : 0);
-
-   if (target_ec->comp_data)
-     {
-        E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)target_ec->comp_data;
-        Eina_List *l;
-        E_Comp_Wl_Aux_Hint *hint;
-
-        EINA_LIST_FOREACH(cdata->aux_hint.hints, l, hint)
-          {
-             __WINDOW_PROP_ARG_APPEND_TYPE("Aux_Hint", "[%d][%s][%s]", hint->id, hint->hint, hint->val);
-          }
-     }
-
-   if (target_ec->comp_data)
-     {
-        int i;
-        E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)target_ec->comp_data;
-
-        if (cdata->sub.data)
-          {
-             __WINDOW_PROP_ARG_APPEND_TYPE("Subsurface Parent", "0x%x", e_client_util_win_get(cdata->sub.data->parent));
-          }
-        else
-          {
-             __WINDOW_PROP_ARG_APPEND_TYPE("Subsurface Parent", "0x%x", 0);
-          }
-
-        for ( i = 0 ; i < 2 ; ++i)
-          {
-             Eina_List *list;
-             Eina_List *l;
-             E_Client *child;
-             char buffer[256] = {0,};
-
-             if (i == 0) list = cdata->sub.list;
-             else        list = cdata->sub.below_list;
-
-
-             EINA_LIST_FOREACH(list, l, child)
+             if (win_properties[idx].set_prop)
                {
-                  snprintf(buffer + strlen(buffer), sizeof(buffer) - strlen(buffer) - 1, "0x%x, ", e_client_util_win_get(child));
+                  /* in case of a success we just return an empty reply message */
+                  const char* error_str = win_properties[idx].set_prop(evas_obj, property_value);
+                  if (error_str)
+                    {
+                       Eldbus_Message* err_msg = eldbus_message_error_new(msg,
+                               FAIL_TO_SET_PROPERTY, error_str);
+                       free((void*)error_str);
+
+                       return err_msg;
+                    }
                }
-
-             if (i == 0) __WINDOW_PROP_ARG_APPEND("Subsurface Child List", buffer);
-             else        __WINDOW_PROP_ARG_APPEND("Subsurface Below Child List", buffer);
+             else
+               return eldbus_message_error_new(msg, FAIL_TO_SET_PROPERTY,
+                       "get_window_prop: this property isn't setable");
+          }
+        else /* if wanna get property */
+          {
+             if (win_properties[idx].get_prop)
+               {
+                  const char* res_str = win_properties[idx].get_prop(evas_obj);
+                  if (res_str)
+                    {
+                       __WINDOW_PROP_ARG_APPEND(win_properties[idx].prop_name, res_str);
+                       free((void*)res_str);
+                    }
+                  else
+                    return eldbus_message_error_new(msg, FAIL_TO_GET_PROPERTY, "");
+               }
+             else
+               return eldbus_message_error_new(msg, FAIL_TO_GET_PROPERTY,
+                       "get_window_prop: this property isn't getable");
           }
      }
-
-   __WINDOW_PROP_ARG_APPEND_TYPE("Transform_count", "%d", e_client_transform_core_transform_count_get(target_ec));
-   if (e_client_transform_core_transform_count_get(target_ec) > 0)
+   else /* if user wanna get all properties */
      {
-        int i;
-        int count = e_client_transform_core_transform_count_get(target_ec);
+       /* to improve readability, if user wanna get properties for several windows, some
+        * delimiter being used */
+        __WINDOW_PROP_ARG_APPEND("delimiter", "");
 
-        __WINDOW_PROP_ARG_APPEND(" ", "[id] [move] [scale] [rotation] [keep_ratio] [viewport]");
-        for (i = 0 ; i < count ; ++i)
+        for (idx = 0; idx < win_property_size; ++idx)
           {
-             double dsx, dsy;
-             int x = 0, y = 0, rz = 0;
-             int view_port = 0;
-             int vx = 0, vy = 0, vw = 0, vh = 0;
-             E_Util_Transform *transform = NULL;
-
-             transform = e_client_transform_core_transform_get(target_ec, i);
-             if (!transform) continue;
-
-             e_util_transform_move_round_get(transform, &x, &y, NULL);
-             e_util_transform_scale_get(transform, &dsx, &dsy, NULL);
-             e_util_transform_rotation_round_get(transform, NULL, NULL, &rz);
-             view_port = e_util_transform_viewport_flag_get(transform);
-
-             if (view_port)
+             if (win_properties[idx].get_prop)
                {
-                  e_util_transform_viewport_get(transform, &vx, &vy, &vw, &vh);
-               }
-
-             __WINDOW_PROP_ARG_APPEND_TYPE("Transform", "[%d] [%d, %d] [%2.1f, %2.1f] [%d] [%d :%d, %d, %d, %d]",
-                                           i, x, y, dsx, dsy, rz, view_port, vx, vy, vw, vh);
-
-             if (e_util_transform_bg_transform_flag_get(transform))
-               {
-                  e_util_transform_bg_move_round_get(transform, &x, &y, NULL);
-                  e_util_transform_bg_scale_get(transform, &dsx, &dsy, NULL);
-                  e_util_transform_bg_rotation_round_get(transform, NULL, NULL, &rz);
-
-                  __WINDOW_PROP_ARG_APPEND_TYPE("Transform_BG", "--------- [%d] [%d, %d] [%2.1f, %2.1f] [%d]",
-                                                i, x, y, dsx, dsy, rz);
+                  const char* res_str = win_properties[idx].get_prop(evas_obj);
+                  if (res_str)
+                    {
+                       __WINDOW_PROP_ARG_APPEND(win_properties[idx].prop_name, res_str);
+                       free((void*)res_str);
+                    }
+                  else
+                    return eldbus_message_error_new(msg, FAIL_TO_GET_PROPERTY, "");
                }
           }
      }
 
-   /* Rotation info */
-   __WINDOW_PROP_ARG_APPEND_TYPE("Rotation", "Support(%d) Type(%s)",
-                                 target_ec->e.state.rot.support,
-                                 target_ec->e.state.rot.type == E_CLIENT_ROTATION_TYPE_NORMAL ? "normal" : "dependent");
+   return NULL;
 
-   if ((target_ec->e.state.rot.available_rots) &&
-       (target_ec->e.state.rot.count))
-     {
-        int i = 0;
-        char availables[256] = { 0, };
-
-        for (i = 0; i < target_ec->e.state.rot.count; i++)
-          {
-             char tmp[16];
-             snprintf(tmp, sizeof(tmp), "%d ", target_ec->e.state.rot.available_rots[i]);
-             strncat(availables, tmp, sizeof(availables) - strlen(availables));
-          }
-
-        __WINDOW_PROP_ARG_APPEND_TYPE(" ", "Availables[%d] %s", target_ec->e.state.rot.count, availables);
-     }
-   else
-     {
-        __WINDOW_PROP_ARG_APPEND_TYPE(" ", "Availables[%d] N/A", target_ec->e.state.rot.count);
-     }
-
-
-   __WINDOW_PROP_ARG_APPEND_TYPE(" ", "Angle prev(%d) curr(%d) next(%d) reserve(%d) preferred(%d)",
-                                 target_ec->e.state.rot.ang.prev,
-                                 target_ec->e.state.rot.ang.curr,
-                                 target_ec->e.state.rot.ang.next,
-                                 target_ec->e.state.rot.ang.reserve,
-                                 target_ec->e.state.rot.preferred_rot);
-
-   __WINDOW_PROP_ARG_APPEND_TYPE(" ", "pending_change_request(%d) pending_show(%d) nopending_render(%d) wait_for_done(%d)",
-                                 target_ec->e.state.rot.pending_change_request,
-                                 target_ec->e.state.rot.pending_show,
-                                 target_ec->e.state.rot.nopending_render,
-                                 target_ec->e.state.rot.wait_for_done);
-
-   if (target_ec->e.state.rot.geom_hint)
-     {
-        int i = 0;
-        for (i = 0; i < 4; i++)
-          {
-             __WINDOW_PROP_ARG_APPEND_TYPE(" ", "Geometry hint[%d] %d,%d   %dx%d",
-                                           i,
-                                           target_ec->e.state.rot.geom[i].x,
-                                           target_ec->e.state.rot.geom[i].y,
-                                           target_ec->e.state.rot.geom[i].w,
-                                           target_ec->e.state.rot.geom[i].h);
-          }
-     }
 #undef __WINDOW_PROP_ARG_APPEND
-#undef __WINDOW_PROP_ARG_APPEND_TYPE
 }
 
-static void
-_msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *value)
+/* create the reply message and look for window(s) an user wanna get/set property(ies) for */
+static Eldbus_Message *
+_msg_window_prop_append(const Eldbus_Message *msg, uint32_t mode, const char *value,
+        const char *property_name, const char *property_value)
 {
    const static int WINDOW_ID_MODE = 0;
    const static int WINDOW_PID_MODE = 1;
    const static int WINDOW_NAME_MODE = 2;
 
-   Eldbus_Message_Iter *array_of_ec;
+   Eldbus_Message_Iter *iter, *array_of_ec;
+   Eldbus_Message *reply_msg, *error_msg = NULL;
    E_Client *ec;
    Evas_Object *o;
    uint64_t value_number = 0;
    Eina_Bool res = EINA_FALSE;
-
-   eldbus_message_iter_arguments_append(iter, "a(ss)", &array_of_ec);
+   Eina_Bool window_exists = EINA_FALSE;
 
    if (mode == WINDOW_ID_MODE || mode == WINDOW_PID_MODE)
      {
@@ -1096,14 +2165,27 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
              else
                res = e_util_string_to_ulong(value, (unsigned long *)&value_number, 10);
 
-             EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+             if (res == EINA_FALSE)
+               {
+                  ERR("get_window_prop: invalid input arguments");
+
+                  return eldbus_message_error_new(msg, INVALID_ARGS,
+                          "get_window_prop: invalid input arguments");
+               }
           }
      }
+
+   /* msg - is a method call message */
+   reply_msg = eldbus_message_method_return_new(msg);
+   iter = eldbus_message_iter_get(reply_msg);
+   eldbus_message_iter_arguments_append(iter, "a(ss)", &array_of_ec);
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
         ec = evas_object_data_get(o, "E_Client");
         if (!ec) continue;
+
+        /* here we're dealing with evas objects which are e_client */
 
         if (mode == WINDOW_ID_MODE)
           {
@@ -1111,7 +2193,8 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
 
              if (win == value_number)
                {
-                  _msg_window_prop_client_append(array_of_ec, ec);
+                  window_exists = EINA_TRUE;
+                  error_msg = _msg_fill_out_window_props(msg, array_of_ec, o, property_name, property_value);
                   break;
                }
           }
@@ -1128,7 +2211,10 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
                }
              if (pid == value_number)
                {
-                  _msg_window_prop_client_append(array_of_ec, ec);
+                  window_exists = EINA_TRUE;
+                  error_msg = _msg_fill_out_window_props(msg, array_of_ec, o, property_name, property_value);
+                  if (error_msg)
+                    break;
                }
           }
         else if (mode == WINDOW_NAME_MODE)
@@ -1140,13 +2226,30 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
                   const char *find = strstr(name, value);
 
                   if (find)
-                     _msg_window_prop_client_append(array_of_ec, ec);
+                    {
+                       window_exists = EINA_TRUE;
+                       error_msg = _msg_fill_out_window_props(msg, array_of_ec, o, property_name, property_value);
+                       if (error_msg)
+                         break;
+                    }
                }
           }
      }
 
-finish:
    eldbus_message_iter_container_close(iter, array_of_ec);
+
+   if (window_exists == EINA_TRUE && !error_msg)
+     return reply_msg;
+
+   /* TODO: I'm not sure we gotta do it. But, who's responsible for message freeing if we've not it
+    *       returned to caller(eldbus)? */
+   eldbus_message_unref(reply_msg);
+
+   /* some error while filling out the reply message */
+   if (error_msg)
+     return error_msg;
+
+   return eldbus_message_error_new(msg, WIN_NOT_EXIST, "get_window_prop: specified window(s) doesn't exist");
 }
 
 static Eldbus_Message *
@@ -1209,18 +2312,21 @@ _e_info_server_cb_scrsaver(const Eldbus_Service_Interface *iface EINA_UNUSED, co
 static Eldbus_Message *
 _e_info_server_cb_window_prop_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
-   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    uint32_t mode = 0;
    const char *value = NULL;
+   const char *property_name = NULL, *property_value = NULL;
 
-   if (!eldbus_message_arguments_get(msg, "us", &mode, &value))
+   if (!eldbus_message_arguments_get(msg, "usss", &mode, &value, &property_name, &property_value))
      {
         ERR("Error getting arguments.");
-        return reply;
+
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                "get_window_prop: an attempt to get arguments from method call message failed");
      }
 
-   _msg_window_prop_append(eldbus_message_iter_get(reply), mode, value);
-   return reply;
+   /* TODO: it's guaranteed, by client logic, that 'value', 'property_name' and 'property_value'
+    *       can be ONLY either empty string or string. Should I check this? <if( !property_name )> */
+   return _msg_window_prop_append(msg, mode, value, property_name, property_value);
 }
 
 static Eldbus_Message *
@@ -3647,7 +4753,7 @@ static const Eldbus_Method methods[] = {
 #ifdef HAVE_DLOG
    { "dlog", ELDBUS_ARGS({"i", "using dlog"}), NULL, _e_info_server_cb_dlog_switch, 0},
 #endif
-   { "get_window_prop", ELDBUS_ARGS({"us", "query_mode_value"}), ELDBUS_ARGS({"a(ss)", "array_of_ec"}), _e_info_server_cb_window_prop_get, 0},
+   { "get_window_prop", ELDBUS_ARGS({"usss", "prop_manage_request"}), ELDBUS_ARGS({"a(ss)", "array_of_ec"}), _e_info_server_cb_window_prop_get, 0},
    { "get_connected_clients", NULL, ELDBUS_ARGS({"a(ss)", "array of ec"}), _e_info_server_cb_connected_clients_get, 0 },
    { "rotation_query", ELDBUS_ARGS({"i", "query_rotation"}), NULL, _e_info_server_cb_rotation_query, 0},
    { "rotation_message", ELDBUS_ARGS({"iii", "rotation_message"}), NULL, _e_info_server_cb_rotation_message, 0},
