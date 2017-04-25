@@ -1307,12 +1307,62 @@ _e_info_client_proc_dlog_switch(int argc, char **argv)
 }
 #endif
 
+#define PROP_USAGE \
+   "0x<win_id> | -id win_id | -pid pid | -name \"win_name\" [property_name [property_value]]\n" \
+   "Example:\n" \
+   "\tenlightenment_info -prop                        : Get all properties for a window specified via a touch\n" \
+   "\tenlightenment_info -prop Hidden                 : Get the \"Hidden\" property for a window specified via a touch\n" \
+   "\tenlightenment_info -prop 0xb88ffaa0 Layer       : Get the \"Layer\" property for specified window\n" \
+   "\tenlightenment_info -prop 0xb88ffaa0 Hidden TRUE : Set the \"Hidden\" property for specified window\n" \
+   "\tenlightenment_info -prop -pid 2502 Hidden FALSE : Set the \"Hidden\" property for all windows belonged to a process\n" \
+   "\tenlightenment_info -prop -name err              : Get all properties for windows whose names contain an \"err\" substring\n" \
+   "\tenlightenment_info -prop -name \"\"               : Get all properties for all windows\n" \
+   "\tenlightenment_info -prop -name \"\" Hidden TRUE   : Set the \"Hidden\" property for all windows\n"
+
+/* property value can consist of several lines separated by '\n', which we got to print nicely */
+static void
+_parse_property(const char *prop_name, const char *prop_value)
+{
+   char *begin, *end;	/* current line */
+
+   /* process a single line property value */
+   if (!strchr(prop_value, '\n'))
+     {
+        printf("%27s : %s\n", prop_name, prop_value);
+        return;
+     }
+
+   char *const tmp = strdup(prop_value);
+   if (!tmp)
+     return;
+
+   begin = tmp;
+
+   while (*begin != '\0')
+     {
+       end = strchr(begin, '\n');
+       if (end)
+         *end = '\0';
+
+       printf("%27s : %s\n", begin == tmp ? prop_name : "", begin);
+
+       /* it's the last line */
+       if (!end)
+         break;
+
+       begin = end + 1;
+     }
+
+   free(tmp);
+}
+
 static void
 _cb_window_prop_get(const Eldbus_Message *msg)
 {
    const char *name = NULL, *text = NULL;
    Eldbus_Message_Iter *array, *ec;
    Eina_Bool res;
+   int first_delimiter = 1;
 
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
@@ -1320,11 +1370,11 @@ _cb_window_prop_get(const Eldbus_Message *msg)
    res = eldbus_message_arguments_get(msg, "a(ss)", &array);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
 
-   printf("--------------------------------------[ window prop ]-----------------------------------------------------\n");
    while (eldbus_message_iter_get_and_next(array, 'r', &ec))
      {
-        const char *title;
-        const char *value;
+        const char *title = NULL;
+        const char *value = NULL;
+
         res = eldbus_message_iter_arguments_get(ec,
                                                 "ss",
                                                 &title,
@@ -1335,17 +1385,25 @@ _cb_window_prop_get(const Eldbus_Message *msg)
              continue;
           }
 
-        if (!strcmp(title, "[WINDOW PROP]"))
-           printf("---------------------------------------------------------------------------------------------------------\n");
+        if (title && !strncmp(title, "delimiter", sizeof("delimiter")))
+          {
+             if (first_delimiter)
+               first_delimiter = 0;
+             else
+               printf("---------------------------------------------------------------------------------------------------------\n");
+          }
         else
-           printf("%20s : %s\n", title, value);
+          _parse_property(title, value);
      }
-   printf("----------------------------------------------------------------------------------------------------------\n");
+
+   return;
 
 finish:
+   printf("error:\n");
+
    if ((name) || (text))
      {
-        printf("errname:%s errmsg:%s\n", name, text);
+        printf(" %s :: (%s)\n", name, text);
      }
 }
 
@@ -1356,35 +1414,79 @@ _e_info_client_prop_prop_info(int argc, char **argv)
    const static int WINDOW_PID_MODE = 1;
    const static int WINDOW_NAME_MODE = 2;
    const char *value;
+   const char *property_name = "", *property_value = "";
    uint32_t mode = 0;
+   int simple_mode = 1;
 
-   if (argc < 3 || argv[2] == NULL)
-     {
-        printf("Error Check Args: enlightenment_info -prop [windowID]\n"
-               "                  enlightenment_info -prop -id [windowID]\n"
-               "                  enlightenment_info -prop -pid [PID]\n"
-               "                  enlightenment_info -prop -name [name]\n");
-        return;
-     }
+   Ecore_Window win;
+   char win_id[64] = {0, };
 
-   if (strlen(argv[2]) > 2 && argv[2][0] == '-')
+   /* for a window specified via a touch */
+   /* TODO: what's about a property with "0x" as a substring? (e.g. kyky0xkyky) */
+   if (argc < 3 || (argv[2][0] != '-' && !strstr(argv[2], "0x")))
      {
-        if (!strcmp(argv[2], "-id")) mode = WINDOW_ID_MODE;
-        if (!strcmp(argv[2], "-pid")) mode = WINDOW_PID_MODE;
-        if (!strcmp(argv[2], "-name")) mode = WINDOW_NAME_MODE;
-        value = (argc >= 4 ? argv[3] : NULL);
+        printf("Select the window whose property(ies) you wish to get/set\n");
+        if (_e_get_window_under_touch(&win))
+          {
+             printf("Error: cannot get window under touch\n");
+             return;
+          }
+
+        snprintf(win_id, sizeof(win_id), "%lu", (unsigned long int)win);
+
+        mode = WINDOW_ID_MODE;
+        value = win_id;
+
+        if (argc > 2) property_name  = argv[2];
+        if (argc > 3) property_value = argv[3];
      }
    else
      {
-        mode = WINDOW_ID_MODE;
-        value = argv[2];
+        if (argv[2][0] == '-' && argc < 4) goto error;
+
+        if (argv[2][0] == '-')
+          {
+             if (!strcmp(argv[2], "-id")) mode = WINDOW_ID_MODE;
+             else if (!strcmp(argv[2], "-pid")) mode = WINDOW_PID_MODE;
+             else if (!strcmp(argv[2], "-name")) mode = WINDOW_NAME_MODE;
+             else goto error;
+
+             value = argv[3];
+
+             simple_mode = 0;
+          }
+        else
+          {
+             mode = WINDOW_ID_MODE;
+             value = argv[2];
+          }
+
+        if (simple_mode)
+          {
+             if (argc > 3) property_name  = argv[3];
+             if (argc > 4) property_value = argv[4];
+          }
+        else
+          {
+             if (argc > 4) property_name  = argv[4];
+             if (argc > 5) property_value = argv[5];
+          }
      }
 
-   if (!_e_info_client_eldbus_message_with_args("get_window_prop", _cb_window_prop_get, "us", mode, value))
-     {
-        printf("_e_info_client_eldbus_message_with_args error");
-        return;
-     }
+   /* all checks about win_id/pid/win_name, property_name, property_value sanity are performed on server side,
+    * in case of an error an error message contained error description will be returned */
+   if (!_e_info_client_eldbus_message_with_args("get_window_prop", _cb_window_prop_get, "usss",
+           mode, value, property_name, property_value))
+     printf("_e_info_client_eldbus_message_with_args error");
+
+   return;
+
+error:
+   printf("Error Check Args: enlightenment_info -prop [property_name [property_value]]\n"
+          "                  enlightenment_info -prop 0x<win_id> [property_name [property_value]]\n"
+          "                  enlightenment_info -prop -id win_id [property_name [property_value]]\n"
+          "                  enlightenment_info -prop -pid pid [property_name [property_value]]\n"
+          "                  enlightenment_info -prop -name win_name [property_name [property_value]]\n");
 }
 
 static void
@@ -3514,8 +3616,9 @@ static struct
    },
 #endif
    {
-      "prop", "[id]",
-      "Print window infomation",
+      "prop",
+      PROP_USAGE,
+      "Get/set window(s) property(ies)",
       _e_info_client_prop_prop_info
    },
    {
