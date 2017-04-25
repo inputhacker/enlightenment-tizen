@@ -1,6 +1,8 @@
 #define EXECUTIVE_MODE_ENABLED
 #include "e.h"
 
+static void _e_comp_wl_data_source_cancelled_send(E_Comp_Wl_Data_Source *source);
+
 static void
 _mime_types_free(E_Comp_Wl_Data_Source *source)
 {
@@ -57,7 +59,14 @@ _e_comp_wl_data_offer_cb_resource_destroy(struct wl_resource *resource)
      return;
 
    if (offer->source)
-     wl_list_remove(&offer->source_destroy_listener.link);
+     {
+        wl_list_remove(&offer->source_destroy_listener.link);
+        if (offer->dropped && offer->source != e_comp_wl->drag_source)
+          _e_comp_wl_data_source_cancelled_send(offer->source);
+     }
+
+   if (offer == e_comp_wl->drag_offer)
+     e_comp_wl->drag_offer = NULL;
 
    free(offer);
 }
@@ -381,6 +390,9 @@ _e_comp_wl_data_device_drag_finished(E_Drag *drag, int dropped)
           }
         e_comp_wl->selection.target = NULL;
         e_comp_wl->drag_source = NULL;
+
+        if (e_comp_wl->drag_offer)
+          ((E_Comp_Wl_Data_Offer*)e_comp_wl->drag_offer)->dropped = EINA_TRUE;
      }
 }
 
@@ -738,7 +750,19 @@ e_comp_wl_data_device_send_enter(E_Client *ec)
            e_comp_wl_data_find_for_client(wl_resource_get_client(ec->comp_data->surface));
         if (!data_device_res) return;
         offer_res = e_comp_wl_data_device_send_offer(ec);
-        if (e_comp_wl->drag_source && (!offer_res)) return;
+        if (e_comp_wl->drag_source)
+          {
+             E_Comp_Wl_Data_Offer *offer;
+
+             if (!offer_res) return;
+
+             if ((e_comp_wl->drag_offer) &&
+                 (e_comp_wl->drag_offer->source == e_comp_wl->drag_source))
+               e_comp_wl->drag_offer->dropped = EINA_FALSE;
+
+             offer = wl_resource_get_user_data(offer_res);
+             e_comp_wl->drag_offer = offer;
+          }
      }
    else
      return;
