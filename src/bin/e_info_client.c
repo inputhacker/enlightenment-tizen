@@ -1307,12 +1307,23 @@ _e_info_client_proc_dlog_switch(int argc, char **argv)
 }
 #endif
 
+#define PROP_USAGE \
+   "win_id | -id win_id | -pid pid | -name \"win_name\" [property_name [property_value]]\n\n" \
+   "Example:\n" \
+   "\tenlightenment_info -prop 0xb88ffaa0          : Get all properties for specified window\n" \
+   "\tenlightenment_info -prop 0xb88ffaa0 Layer    : Get the \"Layer\" property for specified window\n" \
+   "\tenlightenment_info -prop 0xb88ffaa0 Hidden 1 : Set the \"Hidden\" property for specified window\n" \
+   "\tenlightenment_info -prop -pid 2502 Hidden 0  : Set the \"Hidden\" property for all windows belonged to a process\n" \
+   "\tenlightenment_info -prop -name err           : Get all properties for windows whose names contain an \"err\" substring\n"
+
 static void
 _cb_window_prop_get(const Eldbus_Message *msg)
 {
    const char *name = NULL, *text = NULL;
    Eldbus_Message_Iter *array, *ec;
    Eina_Bool res;
+   const char *title = NULL;
+   const char *value = NULL;
 
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
@@ -1320,11 +1331,24 @@ _cb_window_prop_get(const Eldbus_Message *msg)
    res = eldbus_message_arguments_get(msg, "a(ss)", &array);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
 
+   res = eldbus_message_iter_arguments_get(array, "(ss)", &ec);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   res = eldbus_message_iter_arguments_get(ec, "ss", &title, &value);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   /* iterators will be destroyed during the message destroying */
+
+   /* to handle no-dbus errors */
+   if (title && !strncmp(title, "error", sizeof("error")))
+     {
+       printf(" Error: %s\n", value);
+       return;
+     }
+
    printf("--------------------------------------[ window prop ]-----------------------------------------------------\n");
    while (eldbus_message_iter_get_and_next(array, 'r', &ec))
      {
-        const char *title;
-        const char *value;
         res = eldbus_message_iter_arguments_get(ec,
                                                 "ss",
                                                 &title,
@@ -1335,18 +1359,23 @@ _cb_window_prop_get(const Eldbus_Message *msg)
              continue;
           }
 
-        if (!strcmp(title, "[WINDOW PROP]"))
+        if (title && !strncmp(title, "[WINDOW PROP]", sizeof("[WINDOW PROP]")))
            printf("---------------------------------------------------------------------------------------------------------\n");
         else
            printf("%20s : %s\n", title, value);
      }
    printf("----------------------------------------------------------------------------------------------------------\n");
 
+   return;
+
 finish:
+   printf("dbus error");
+
    if ((name) || (text))
      {
-        printf("errname:%s errmsg:%s\n", name, text);
+        printf(":\n errname:%s errmsg:%s", name, text);
      }
+   printf("\n");
 }
 
 static void
@@ -1356,23 +1385,22 @@ _e_info_client_prop_prop_info(int argc, char **argv)
    const static int WINDOW_PID_MODE = 1;
    const static int WINDOW_NAME_MODE = 2;
    const char *value;
+   const char *property_name = "", *property_value = "";
    uint32_t mode = 0;
+   int simple_mode = 1;
 
-   if (argc < 3 || argv[2] == NULL)
-     {
-        printf("Error Check Args: enlightenment_info -prop [windowID]\n"
-               "                  enlightenment_info -prop -id [windowID]\n"
-               "                  enlightenment_info -prop -pid [PID]\n"
-               "                  enlightenment_info -prop -name [name]\n");
-        return;
-     }
+   if (argc < 3 || (argv[2][0] == '-' && argc < 4)) goto error;
 
-   if (strlen(argv[2]) > 2 && argv[2][0] == '-')
+   if (argv[2][0] == '-')
      {
         if (!strcmp(argv[2], "-id")) mode = WINDOW_ID_MODE;
-        if (!strcmp(argv[2], "-pid")) mode = WINDOW_PID_MODE;
-        if (!strcmp(argv[2], "-name")) mode = WINDOW_NAME_MODE;
-        value = (argc >= 4 ? argv[3] : NULL);
+        else if (!strcmp(argv[2], "-pid")) mode = WINDOW_PID_MODE;
+        else if (!strcmp(argv[2], "-name")) mode = WINDOW_NAME_MODE;
+        else goto error;
+
+        value = argv[3];
+
+        simple_mode = 0;
      }
    else
      {
@@ -1380,11 +1408,36 @@ _e_info_client_prop_prop_info(int argc, char **argv)
         value = argv[2];
      }
 
-   if (!_e_info_client_eldbus_message_with_args("get_window_prop", _cb_window_prop_get, "us", mode, value))
+   if (simple_mode)
      {
-        printf("_e_info_client_eldbus_message_with_args error");
-        return;
+       if (argc >= 4)
+         {
+           if (argc > 4) property_value = argv[4];
+           property_name = argv[3];
+         }
      }
+   else
+     {
+       if (argc >= 5)
+         {
+           if (argc > 5) property_value = argv[5];
+           property_name = argv[4];
+         }
+     }
+
+   /* all checks about win_id/pid/win_name, property_name, property_value sanity are performed on server side,
+    * in case of an error a reply message contains error description (ss) */
+   if (!_e_info_client_eldbus_message_with_args("get_window_prop", _cb_window_prop_get, "usss",
+           mode, value, property_name, property_value))
+     printf("_e_info_client_eldbus_message_with_args error");
+
+   return;
+
+error:
+   printf("Error Check Args: enlightenment_info -prop win_id [property_name [property_value]]\n"
+          "                  enlightenment_info -prop -id win_id [property_name [property_value]]\n"
+          "                  enlightenment_info -prop -pid pid [property_name [property_value]]\n"
+          "                  enlightenment_info -prop -name win_name [property_name [property_value]]\n");
 }
 
 static void
@@ -3450,8 +3503,9 @@ static struct
    },
 #endif
    {
-      "prop", "[id]",
-      "Print window infomation",
+      "prop",
+      PROP_USAGE,
+      "Get/set window property(ies)",
       _e_info_client_prop_prop_info
    },
    {

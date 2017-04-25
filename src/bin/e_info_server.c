@@ -1211,12 +1211,15 @@ _e_info_server_cb_window_prop_get(const Eldbus_Service_Interface *iface EINA_UNU
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    uint32_t mode = 0;
    const char *value = NULL;
+   const char *property_name = NULL, *property_value = NULL;
 
-   if (!eldbus_message_arguments_get(msg, "us", &mode, &value))
+   if (!eldbus_message_arguments_get(msg, "usss", &mode, &value, &property_name, &property_value))
      {
         ERR("Error getting arguments.");
         return reply;
      }
+
+   INF("property_name: %s, property_value: %s", property_name, property_value);
 
    _msg_window_prop_append(eldbus_message_iter_get(reply), mode, value);
    return reply;
@@ -3634,7 +3637,7 @@ static const Eldbus_Method methods[] = {
 #ifdef HAVE_DLOG
    { "dlog", ELDBUS_ARGS({"i", "using dlog"}), NULL, _e_info_server_cb_dlog_switch, 0},
 #endif
-   { "get_window_prop", ELDBUS_ARGS({"us", "query_mode_value"}), ELDBUS_ARGS({"a(ss)", "array_of_ec"}), _e_info_server_cb_window_prop_get, 0},
+   { "get_window_prop", ELDBUS_ARGS({"usss", "query_mode_value"}), ELDBUS_ARGS({"a(ss)", "array_of_ec"}), _e_info_server_cb_window_prop_get, 0},
    { "get_connected_clients", NULL, ELDBUS_ARGS({"a(ss)", "array of ec"}), _e_info_server_cb_connected_clients_get, 0 },
    { "rotation_query", ELDBUS_ARGS({"i", "query_rotation"}), NULL, _e_info_server_cb_rotation_query, 0},
    { "rotation_message", ELDBUS_ARGS({"iii", "rotation_message"}), NULL, _e_info_server_cb_rotation_message, 0},
