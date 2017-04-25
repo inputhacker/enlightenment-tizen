@@ -353,6 +353,7 @@ struct _E_Comp_Wl_Data
    E_Drag *drag;
    E_Client *drag_client;
    void *drag_source;
+   void *drag_offer;
 };
 
 struct _E_Comp_Wl_Client_Data

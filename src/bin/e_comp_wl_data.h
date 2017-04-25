@@ -36,6 +36,8 @@ struct _E_Comp_Wl_Data_Offer
 {
    struct wl_resource *resource; //resource of wl_data_offer
 
+   Eina_Bool dropped; //if 1, its data source is already dropped
+
    E_Comp_Wl_Data_Source *source; //indicates source client data
    struct wl_listener source_destroy_listener; //listener for destroy of source
 };
