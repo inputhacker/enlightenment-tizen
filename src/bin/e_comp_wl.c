@@ -6098,3 +6098,23 @@ e_comp_wl_rect_convert_inverse(int width, int height, int transform, int scale,
    if (sw) *sw = br.w;
    if (sh) *sh = br.h;
 }
+
+E_API E_Comp_Wl_Output*
+e_comp_wl_output_find(E_Client *ec)
+{
+   Eina_List *l;
+   E_Comp_Wl_Output *output;
+
+   if (!ec || !ec->comp_data || e_object_is_del(E_OBJECT(ec))) return NULL;
+
+   EINA_LIST_FOREACH(e_comp_wl->outputs, l, output)
+     {
+        if (ec->x < output->x || ec->x >= (output->x + output->w) ||
+            ec->y < output->y || ec->y >= (output->y + output->h))
+          continue;
+
+        return output;
+     }
+
+   return NULL;
+}

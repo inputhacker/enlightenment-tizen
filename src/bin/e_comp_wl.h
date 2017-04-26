@@ -563,6 +563,7 @@ E_API void e_comp_wl_pos_convert(int width, int height, int transform, int scale
 E_API void e_comp_wl_pos_convert_inverse(int width, int height, int transform, int scale, int bx, int by, int *sx, int *sy);
 E_API void e_comp_wl_rect_convert(int width, int height, int transform, int scale, int sx, int sy, int sw, int sh, int *bx, int *by, int *bw, int *bh);
 E_API void e_comp_wl_rect_convert_inverse(int width, int height, int transform, int scale, int bx, int by, int bw, int bh, int *sx, int *sy, int *sw, int *sh);
+E_API E_Comp_Wl_Output* e_comp_wl_output_find(E_Client *ec);
 
 EINTERN void	  e_comp_wl_feed_focus_in(E_Client *ec);
 
