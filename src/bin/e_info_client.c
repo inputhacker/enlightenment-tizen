@@ -1314,7 +1314,8 @@ _e_info_client_proc_dlog_switch(int argc, char **argv)
    "\tenlightenment_info -prop 0xb88ffaa0 Layer    : Get the \"Layer\" property for specified window\n" \
    "\tenlightenment_info -prop 0xb88ffaa0 Hidden 1 : Set the \"Hidden\" property for specified window\n" \
    "\tenlightenment_info -prop -pid 2502 Hidden 0  : Set the \"Hidden\" property for all windows belonged to a process\n" \
-   "\tenlightenment_info -prop -name err           : Get all properties for windows whose names contain an \"err\" substring\n"
+   "\tenlightenment_info -prop -name err           : Get all properties for windows whose names contain an \"err\" substring\n" \
+   "\tenlightenment_info -prop -name \"\"          : Get all properties for all windows\n"
 
 static void
 _cb_window_prop_get(const Eldbus_Message *msg)
@@ -1322,8 +1323,6 @@ _cb_window_prop_get(const Eldbus_Message *msg)
    const char *name = NULL, *text = NULL;
    Eldbus_Message_Iter *array, *ec;
    Eina_Bool res;
-   const char *title = NULL;
-   const char *value = NULL;
 
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
@@ -1331,24 +1330,12 @@ _cb_window_prop_get(const Eldbus_Message *msg)
    res = eldbus_message_arguments_get(msg, "a(ss)", &array);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
 
-   res = eldbus_message_iter_arguments_get(array, "(ss)", &ec);
-   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
-
-   res = eldbus_message_iter_arguments_get(ec, "ss", &title, &value);
-   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
-
-   /* iterators will be destroyed during the message destroying */
-
-   /* to handle no-dbus errors */
-   if (title && !strncmp(title, "error", sizeof("error")))
-     {
-       printf(" Error: %s\n", value);
-       return;
-     }
-
    printf("--------------------------------------[ window prop ]-----------------------------------------------------\n");
    while (eldbus_message_iter_get_and_next(array, 'r', &ec))
      {
+        const char *title = NULL;
+        const char *value = NULL;
+
         res = eldbus_message_iter_arguments_get(ec,
                                                 "ss",
                                                 &title,
@@ -1369,13 +1356,12 @@ _cb_window_prop_get(const Eldbus_Message *msg)
    return;
 
 finish:
-   printf("dbus error");
+   printf("error:\n");
 
    if ((name) || (text))
      {
-        printf(":\n errname:%s errmsg:%s", name, text);
+        printf(" %s :: (%s)\n", name, text);
      }
-   printf("\n");
 }
 
 static void
@@ -1426,7 +1412,7 @@ _e_info_client_prop_prop_info(int argc, char **argv)
      }
 
    /* all checks about win_id/pid/win_name, property_name, property_value sanity are performed on server side,
-    * in case of an error a reply message contains error description (ss) */
+    * in case of an error an error message contained error description will be returned */
    if (!_e_info_client_eldbus_message_with_args("get_window_prop", _cb_window_prop_get, "usss",
            mode, value, property_name, property_value))
      printf("_e_info_client_eldbus_message_with_args error");

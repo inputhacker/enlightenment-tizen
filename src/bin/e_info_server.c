@@ -1070,20 +1070,20 @@ _msg_window_prop_client_append(Eldbus_Message_Iter *iter, E_Client *target_ec)
 #undef __WINDOW_PROP_ARG_APPEND_TYPE
 }
 
-static void
-_msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *value)
+static Eldbus_Message *
+_msg_window_prop_append(const Eldbus_Message *msg, uint32_t mode, const char *value)
 {
    const static int WINDOW_ID_MODE = 0;
    const static int WINDOW_PID_MODE = 1;
    const static int WINDOW_NAME_MODE = 2;
 
-   Eldbus_Message_Iter *array_of_ec;
+   Eldbus_Message_Iter *iter, *array_of_ec;
+   Eldbus_Message *reply;
    E_Client *ec;
    Evas_Object *o;
    uint64_t value_number = 0;
    Eina_Bool res = EINA_FALSE;
-
-   eldbus_message_iter_arguments_append(iter, "a(ss)", &array_of_ec);
+   Eina_Bool window_exists = EINA_FALSE;
 
    if (mode == WINDOW_ID_MODE || mode == WINDOW_PID_MODE)
      {
@@ -1095,9 +1095,20 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
              else
                res = e_util_string_to_ulong(value, (unsigned long *)&value_number, 10);
 
-             EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+             if (res == EINA_FALSE)
+               {
+                  ERR("get_window_prop: invalid input arguments");
+
+                  return eldbus_message_error_new(msg, INVALID_ARGS,
+                          "get_window_prop: invalid input arguments");
+               }
           }
      }
+
+   /* msg - is a method call message */
+   reply = eldbus_message_method_return_new(msg);
+   iter = eldbus_message_iter_get(reply);
+   eldbus_message_iter_arguments_append(iter, "a(ss)", &array_of_ec);
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
@@ -1110,6 +1121,7 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
 
              if (win == value_number)
                {
+                  window_exists = EINA_TRUE;
                   _msg_window_prop_client_append(array_of_ec, ec);
                   break;
                }
@@ -1127,6 +1139,7 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
                }
              if (pid == value_number)
                {
+                  window_exists = EINA_TRUE;
                   _msg_window_prop_client_append(array_of_ec, ec);
                }
           }
@@ -1139,13 +1152,25 @@ _msg_window_prop_append(Eldbus_Message_Iter *iter, uint32_t mode, const char *va
                   const char *find = strstr(name, value);
 
                   if (find)
-                     _msg_window_prop_client_append(array_of_ec, ec);
+                    {
+                       window_exists = EINA_TRUE;
+                       _msg_window_prop_client_append(array_of_ec, ec);
+                    }
                }
           }
      }
 
 finish:
    eldbus_message_iter_container_close(iter, array_of_ec);
+
+   if (window_exists == EINA_TRUE)
+     return reply;
+
+   /* TODO: I'm not sure we gotta do it. But, who's responsible for message freeing if we've not it
+    *       returned to caller(eldbus)? */
+   eldbus_message_unref(reply);
+
+   return eldbus_message_error_new(msg, WIN_NOT_EXIST, "get_window_prop: specified window(s) doesn't exist");
 }
 
 static Eldbus_Message *
@@ -1208,7 +1233,6 @@ _e_info_server_cb_scrsaver(const Eldbus_Service_Interface *iface EINA_UNUSED, co
 static Eldbus_Message *
 _e_info_server_cb_window_prop_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
-   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    uint32_t mode = 0;
    const char *value = NULL;
    const char *property_name = NULL, *property_value = NULL;
@@ -1216,13 +1240,14 @@ _e_info_server_cb_window_prop_get(const Eldbus_Service_Interface *iface EINA_UNU
    if (!eldbus_message_arguments_get(msg, "usss", &mode, &value, &property_name, &property_value))
      {
         ERR("Error getting arguments.");
-        return reply;
+
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                "get_window_prop: an attempt to get arguments from method call message failed");
      }
 
    INF("property_name: %s, property_value: %s", property_name, property_value);
 
-   _msg_window_prop_append(eldbus_message_iter_get(reply), mode, value);
-   return reply;
+   return _msg_window_prop_append(msg, mode, value);
 }
 
 static Eldbus_Message *
@@ -3637,7 +3662,7 @@ static const Eldbus_Method methods[] = {
 #ifdef HAVE_DLOG
    { "dlog", ELDBUS_ARGS({"i", "using dlog"}), NULL, _e_info_server_cb_dlog_switch, 0},
 #endif
-   { "get_window_prop", ELDBUS_ARGS({"usss", "query_mode_value"}), ELDBUS_ARGS({"a(ss)", "array_of_ec"}), _e_info_server_cb_window_prop_get, 0},
+   { "get_window_prop", ELDBUS_ARGS({"usss", "prop_manage_request"}), ELDBUS_ARGS({"a(ss)", "array_of_ec"}), _e_info_server_cb_window_prop_get, 0},
    { "get_connected_clients", NULL, ELDBUS_ARGS({"a(ss)", "array of ec"}), _e_info_server_cb_connected_clients_get, 0 },
    { "rotation_query", ELDBUS_ARGS({"i", "query_rotation"}), NULL, _e_info_server_cb_rotation_query, 0},
    { "rotation_message", ELDBUS_ARGS({"iii", "rotation_message"}), NULL, _e_info_server_cb_rotation_message, 0},
