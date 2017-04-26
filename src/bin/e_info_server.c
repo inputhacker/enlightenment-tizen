@@ -86,7 +86,7 @@ static Eina_List *module_hook = NULL;
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
-#define VALUE_TYPE_REQUEST_FOR_KILL "t"
+#define VALUE_TYPE_REQUEST_FOR_KILL "uts"
 #define VALUE_TYPE_REPLY_KILL "s"
 
 enum
@@ -3070,16 +3070,58 @@ _e_info_server_ec_find_by_win(Ecore_Window win)
    return NULL;
 }
 
+static int
+_e_info_server_ec_kill_by_name(const char *name, Eldbus_Message_Iter *array_of_string)
+{
+   E_Client *ec;
+   Evas_Object *o;
+   int count = 0;
+   char result[1024];
+
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        const char *ec_name, *find;
+
+        ec = evas_object_data_get(o, "E_Client");
+        if (!ec) continue;
+        if (e_client_util_ignored_get(ec)) continue;
+
+        ec_name = e_client_util_name_get(ec) ?: "NO NAME";
+
+        find = strstr(ec_name, name);
+
+        if (find)
+          {
+             count++;
+             e_client_act_kill_begin(ec);
+             snprintf(result, sizeof(result),
+                       "[Server] killing creator(%s) of resource 0x%lx",
+                       ec_name, (unsigned long)e_client_util_win_get(ec));
+             eldbus_message_iter_arguments_append(array_of_string, VALUE_TYPE_REPLY_KILL, result);
+          }
+     }
+
+   return count;
+}
+
 static Eldbus_Message *
 _e_info_server_cb_kill_client(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
+   const static int KILL_ID_MODE = 1;
+   const static int KILL_NAME_MODE = 2;
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Eldbus_Message_Iter *iter = eldbus_message_iter_get(reply);
    Eina_Bool res;
    char result[1024];
    E_Client *ec;
-   uint64_t win;
+   uint64_t uint64_value;
+   uint32_t mode;
+   const char *str_value;
+   int count;
+   Eldbus_Message_Iter *array_of_string;
 
-   res = eldbus_message_arguments_get(msg, VALUE_TYPE_REQUEST_FOR_KILL, &win);
+   res = eldbus_message_arguments_get(msg, VALUE_TYPE_REQUEST_FOR_KILL,
+                                      &mode, &uint64_value, &str_value);
    if (res != EINA_TRUE)
      {
         snprintf(result, sizeof(result),
@@ -3087,21 +3129,41 @@ _e_info_server_cb_kill_client(const Eldbus_Service_Interface *iface EINA_UNUSED,
         goto finish;
      }
 
-   ec = _e_info_server_ec_find_by_win((Ecore_Window)win);
-   if (!ec)
+   eldbus_message_iter_arguments_append(iter, "a"VALUE_TYPE_REPLY_KILL, &array_of_string);
+
+   if (mode == KILL_ID_MODE)
+     {
+        Ecore_Window win = uint64_value;
+
+        ec = _e_info_server_ec_find_by_win(win);
+        if (!ec)
+          {
+             snprintf(result, sizeof(result),
+                     "[Server] Error: cannot find the E_Client.");
+             goto finish;
+          }
+
+        e_client_act_kill_begin(ec);
+
+        snprintf(result, sizeof(result),
+                "[Server] killing creator(%s) of resource 0x%lx",
+                e_client_util_name_get(ec) ?: "NO NAME", (unsigned long)win);
+     }
+   else if (mode == KILL_NAME_MODE)
+     {
+        count = _e_info_server_ec_kill_by_name(str_value, array_of_string);
+        snprintf(result, sizeof(result),
+                  "\n[Server] killed %d client(s)", count);
+     }
+   else
      {
         snprintf(result, sizeof(result),
-                "[Server] Error: cannot find the E_Client.");
-        goto finish;
+                 "[Server] Error: wrong mode.");
      }
 
-   e_client_act_kill_begin(ec);
-
-   snprintf(result, sizeof(result),
-           "[Server] killing creator(%s) of resource 0x%lx", e_client_util_name_get(ec) ?: "NO NAME", (unsigned long)win);
-
 finish:
-   eldbus_message_arguments_append(reply, VALUE_TYPE_REPLY_KILL, result);
+   eldbus_message_iter_arguments_append(array_of_string, VALUE_TYPE_REPLY_KILL, result);
+   eldbus_message_iter_container_close(iter, array_of_string);
 
    return reply;
 }
@@ -3147,7 +3209,7 @@ static const Eldbus_Method methods[] = {
    { "frender", ELDBUS_ARGS({"i", "frender"}), ELDBUS_ARGS({"s", "force_render_result"}), _e_info_server_cb_force_render, 0},
    { "screen_rotation", ELDBUS_ARGS({"i", "value"}), NULL, _e_info_server_cb_screen_rotation, 0},
    { "get_win_under_touch", NULL, ELDBUS_ARGS({"i", "result"}), _e_info_server_cb_get_win_under_touch, 0 },
-   { "kill_client", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_KILL, "window"}), ELDBUS_ARGS({VALUE_TYPE_REPLY_KILL, "kill result"}), _e_info_server_cb_kill_client, 0 },
+   { "kill_client", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_KILL, "window"}), ELDBUS_ARGS({"a"VALUE_TYPE_REPLY_KILL, "kill result"}), _e_info_server_cb_kill_client, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 

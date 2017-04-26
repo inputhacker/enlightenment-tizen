@@ -71,7 +71,7 @@ typedef struct _E_Pending_Commit_Info
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
-#define VALUE_TYPE_REQUEST_FOR_KILL "t"
+#define VALUE_TYPE_REQUEST_FOR_KILL "uts"
 #define VALUE_TYPE_REPLY_KILL "s"
 
 static E_Info_Client e_info_client;
@@ -2631,7 +2631,7 @@ arg_err:
 #define KILL_USAGE \
   "[COMMAND] [ARG]...\n" \
   "\t-id                  : the identifier for the resource whose creator is to be killed. (Usage: enlightenment_info -kill -id [id])\n" \
-  "\t-name(no implement)  : the name for the resource whose creator is to be killed. (Usage: enlightenment_info -kill -name [name])\n" \
+  "\t-name                : the name for the resource whose creator is to be killed. (Usage: enlightenment_info -kill -name [name])\n" \
   "\t-pid(no implement)   : the pid for the resource whose creator is to be killed. (Usage: enlightenment_info -kill -pid [pid])\n" \
   "\t-all(no implement)   : kill all clients with top level windows\n" \
   "\t-help\n" \
@@ -2664,14 +2664,19 @@ _e_info_client_cb_kill_client(const Eldbus_Message *msg)
    const char *name = NULL, *text = NULL;
    Eina_Bool res;
    const char *result = NULL;
+   Eldbus_Message_Iter *array_of_string;
 
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
 
-   res = eldbus_message_arguments_get(msg, VALUE_TYPE_REPLY_KILL, &result);
+   res = eldbus_message_arguments_get(msg, "a"VALUE_TYPE_REPLY_KILL, &array_of_string);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
 
-   printf("%s\n", result);
+   while (eldbus_message_iter_get_and_next(array_of_string, 's', &result))
+     {
+        printf("%s\n", result);
+     }
+
    return;
 
 finish:
@@ -2684,13 +2689,18 @@ finish:
 static void
 _e_info_client_proc_kill_client(int argc, char **argv)
 {
+   const static int KILL_ID_MODE = 1;
+   const static int KILL_NAME_MODE = 2;
    Eina_Bool res;
-   uint64_t win;
+   uint64_t uint64_value;
+   const char *str_value = "";
+   uint32_t mode;
 
    if (argc == 2)
      {
+        mode = KILL_ID_MODE;
         printf("Select the window whose client you wish to kill\n");
-        if (_e_get_window_under_touch((Ecore_Window)&win))
+        if (_e_get_window_under_touch((Ecore_Window *)&uint64_value))
           {
              printf("Error: cannot get window under touch\n");
              return;
@@ -2700,12 +2710,18 @@ _e_info_client_proc_kill_client(int argc, char **argv)
      {
         if (eina_streq(argv[2], "-id"))
           {
+             mode = KILL_ID_MODE;
              if (strlen(argv[3]) >= 2 && argv[3][0] == '0' && argv[3][1] == 'x')
-               res = _util_string_to_ulong(argv[3], (unsigned long *)&win, 16);
+               res = _util_string_to_ulong(argv[3], (unsigned long *)&uint64_value, 16);
              else
-               res = _util_string_to_ulong(argv[3], (unsigned long *)&win, 10);
+               res = _util_string_to_ulong(argv[3], (unsigned long *)&uint64_value, 10);
 
              EINA_SAFETY_ON_FALSE_RETURN(res);
+          }
+        else if (eina_streq(argv[2], "-name"))
+          {
+             mode = KILL_NAME_MODE;
+             str_value = argv[3];
           }
         else
           goto arg_err;
@@ -2716,7 +2732,7 @@ _e_info_client_proc_kill_client(int argc, char **argv)
    res = _e_info_client_eldbus_message_with_args("kill_client",
                                                  _e_info_client_cb_kill_client,
                                                  VALUE_TYPE_REQUEST_FOR_KILL,
-                                                 win);
+                                                 mode, uint64_value, str_value);
    EINA_SAFETY_ON_FALSE_RETURN(res);
 
    return;
