@@ -71,6 +71,8 @@ typedef struct _E_Pending_Commit_Info
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
+#define VALUE_TYPE_REQUEST_FOR_KILL "t"
+#define VALUE_TYPE_REPLY_KILL "s"
 
 static E_Info_Client e_info_client;
 
@@ -146,6 +148,27 @@ _util_string_to_double(const char *str, double *num)
    EINA_SAFETY_ON_TRUE_RETURN_VAL(((DBL_MIN == sd || DBL_MAX == sd) && (ERANGE == errsv)), EINA_FALSE); /* out of range of type double */
 
    *num = sd;
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_util_string_to_ulong(const char *str, unsigned long *num, int base)
+{
+   char *end;
+   int errsv;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(str, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(num, EINA_FALSE);
+
+   const long sul = strtoul(str, &end, base);
+   errsv = errno;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL((end == str), EINA_FALSE); /* given string is not a decimal number */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(('\0' != *end), EINA_FALSE); /* given string has extra characters */
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(((ULONG_MAX == sul) && (ERANGE == errsv)), EINA_FALSE); /* out of range of type unsigned long */
+
+   *num = (int)sul;
 
    return EINA_TRUE;
 }
@@ -2605,6 +2628,14 @@ arg_err:
 
 }
 
+#define KILL_USAGE \
+  "[COMMAND] [ARG]...\n" \
+  "\t-id                  : the identifier for the resource whose creator is to be killed. (Usage: enlightenment_info -kill -id [id])\n" \
+  "\t-name(no implement)  : the name for the resource whose creator is to be killed. (Usage: enlightenment_info -kill -name [name])\n" \
+  "\t-pid(no implement)   : the pid for the resource whose creator is to be killed. (Usage: enlightenment_info -kill -pid [pid])\n" \
+  "\t-all(no implement)   : kill all clients with top level windows\n" \
+  "\t-help\n" \
+
 static void
 _e_info_client_proc_screen_rotation(int argc, char **argv)
 {
@@ -2637,7 +2668,7 @@ _e_info_client_cb_kill_client(const Eldbus_Message *msg)
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
 
-   res = eldbus_message_arguments_get(msg, "s", &result);
+   res = eldbus_message_arguments_get(msg, VALUE_TYPE_REPLY_KILL, &result);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
 
    printf("%s\n", result);
@@ -2654,21 +2685,43 @@ static void
 _e_info_client_proc_kill_client(int argc, char **argv)
 {
    Eina_Bool res;
-   Ecore_Window win;
+   uint64_t win;
 
-   printf("Select the window whose client you wish to kill\n");
-   if (_e_get_window_under_touch(&win))
+   if (argc == 2)
      {
-        printf("Error: cannot get window under touch\n");
-        return;
+        printf("Select the window whose client you wish to kill\n");
+        if (_e_get_window_under_touch((Ecore_Window)&win))
+          {
+             printf("Error: cannot get window under touch\n");
+             return;
+          }
      }
+   else if (argc == 4)
+     {
+        if (eina_streq(argv[2], "-id"))
+          {
+             if (strlen(argv[3]) >= 2 && argv[3][0] == '0' && argv[3][1] == 'x')
+               res = _util_string_to_ulong(argv[3], (unsigned long *)&win, 16);
+             else
+               res = _util_string_to_ulong(argv[3], (unsigned long *)&win, 10);
+
+             EINA_SAFETY_ON_FALSE_RETURN(res);
+          }
+        else
+          goto arg_err;
+     }
+   else
+     goto arg_err;
 
    res = _e_info_client_eldbus_message_with_args("kill_client",
                                                  _e_info_client_cb_kill_client,
-                                                 "t", (uint64_t)win);
+                                                 VALUE_TYPE_REQUEST_FOR_KILL,
+                                                 win);
    EINA_SAFETY_ON_FALSE_RETURN(res);
 
    return;
+arg_err:
+   printf("Usage: enlightenment_info %s", KILL_USAGE);
 }
 
 static struct
@@ -2867,7 +2920,7 @@ static struct
    {
 
       "kill",
-       NULL,
+      KILL_USAGE,
       "kill a client",
       _e_info_client_proc_kill_client
    }

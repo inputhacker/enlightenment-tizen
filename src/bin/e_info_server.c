@@ -86,6 +86,8 @@ static Eina_List *module_hook = NULL;
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
+#define VALUE_TYPE_REQUEST_FOR_KILL "t"
+#define VALUE_TYPE_REPLY_KILL "s"
 
 enum
 {
@@ -3077,7 +3079,7 @@ _e_info_server_cb_kill_client(const Eldbus_Service_Interface *iface EINA_UNUSED,
    E_Client *ec;
    uint64_t win;
 
-   res = eldbus_message_arguments_get(msg, "t", &win);
+   res = eldbus_message_arguments_get(msg, VALUE_TYPE_REQUEST_FOR_KILL, &win);
    if (res != EINA_TRUE)
      {
         snprintf(result, sizeof(result),
@@ -3099,7 +3101,7 @@ _e_info_server_cb_kill_client(const Eldbus_Service_Interface *iface EINA_UNUSED,
            "[Server] killing creator(%s) of resource 0x%lx", e_client_util_name_get(ec) ?: "NO NAME", (unsigned long)win);
 
 finish:
-   eldbus_message_arguments_append(reply, "s", result);
+   eldbus_message_arguments_append(reply, VALUE_TYPE_REPLY_KILL, result);
 
    return reply;
 }
@@ -3145,7 +3147,7 @@ static const Eldbus_Method methods[] = {
    { "frender", ELDBUS_ARGS({"i", "frender"}), ELDBUS_ARGS({"s", "force_render_result"}), _e_info_server_cb_force_render, 0},
    { "screen_rotation", ELDBUS_ARGS({"i", "value"}), NULL, _e_info_server_cb_screen_rotation, 0},
    { "get_win_under_touch", NULL, ELDBUS_ARGS({"i", "result"}), _e_info_server_cb_get_win_under_touch, 0 },
-   { "kill_client", ELDBUS_ARGS({"t", "window"}), ELDBUS_ARGS({"s", "kill result"}), _e_info_server_cb_kill_client, 0 },
+   { "kill_client", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_KILL, "window"}), ELDBUS_ARGS({VALUE_TYPE_REPLY_KILL, "kill result"}), _e_info_server_cb_kill_client, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 
