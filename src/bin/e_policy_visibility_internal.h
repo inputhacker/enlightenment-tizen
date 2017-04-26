@@ -8,7 +8,8 @@
 #define STATE_STR(vc)                                                                            \
    (vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD ? "WAITING_FOR_CHILD" : \
     vc->state == E_VIS_ICONIFY_STATE_UNICONIC ? "UNICONIC" :                                     \
-    vc->state == E_VIS_ICONIFY_STATE_ICONIC ? "ICONIC" : "RUNNING UNICONIFY")
+    vc->state == E_VIS_ICONIFY_STATE_ICONIC ? "ICONIC" :                                         \
+    vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY ? "RUNNING UNICONIFY" : "OTHERS")
 
 #define VS_DBG(ec, f, x...) \
       DBG("VISIBILITY | "f" | '%s'(%p) RscID %d", ##x, ec ? NAME(ec) : "", ec, ec ? e_pixmap_res_id_get(ec->pixmap) : 0)
@@ -90,6 +91,7 @@ typedef struct _E_Vis_Job        E_Vis_Job;
 
 typedef enum
 {
+   E_VIS_ICONIFY_STATE_UNKNOWN,
    E_VIS_ICONIFY_STATE_UNICONIC,
    E_VIS_ICONIFY_STATE_ICONIC,
    E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY,
