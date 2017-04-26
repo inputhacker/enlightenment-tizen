@@ -757,8 +757,8 @@ e_comp_wl_data_device_send_enter(E_Client *ec)
              if (!offer_res) return;
 
              if ((e_comp_wl->drag_offer) &&
-                 (e_comp_wl->drag_offer->source == e_comp_wl->drag_source))
-               e_comp_wl->drag_offer->dropped = EINA_FALSE;
+                 (((E_Comp_Wl_Data_Offer*)e_comp_wl->drag_offer)->source == e_comp_wl->drag_source))
+               ((E_Comp_Wl_Data_Offer*)e_comp_wl->drag_offer)->dropped = EINA_FALSE;
 
              offer = wl_resource_get_user_data(offer_res);
              e_comp_wl->drag_offer = offer;
