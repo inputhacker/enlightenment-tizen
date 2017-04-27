@@ -2630,11 +2630,19 @@ arg_err:
 
 #define KILL_USAGE \
   "[COMMAND] [ARG]...\n" \
-  "\t-id                  : the identifier for the resource whose creator is to be killed. (Usage: enlightenment_info -kill -id [id])\n" \
-  "\t-name                : the name for the resource whose creator is to be killed. (Usage: enlightenment_info -kill -name [name])\n" \
-  "\t-pid(no implement)   : the pid for the resource whose creator is to be killed. (Usage: enlightenment_info -kill -pid [pid])\n" \
-  "\t-all(no implement)   : kill all clients with top level windows\n" \
+  "\t-id    : the identifier for the resource whose creator is to be killed.\n" \
+  "\t-name  : the name for the resource whose creator is to be killed.\n" \
+  "\t-pid   : the pid for the resource whose creator is to be killed.\n" \
+  "\t-all   : kill all clients with top level windows\n" \
   "\t-help\n" \
+  "Example:\n" \
+  "\tenlightenment_info -kill\n" \
+  "\tenlightenment_info -kill [win_id]\n" \
+  "\tenlightenment_info -kill -id [win_id]\n" \
+  "\tenlightenment_info -kill -name [win_name]\n" \
+  "\tenlightenment_info -kill -pid [pid]\n" \
+  "\tenlightenment_info -kill -all\n" \
+  "\tenlightenment_info -kill -help\n" \
 
 static void
 _e_info_client_proc_screen_rotation(int argc, char **argv)
@@ -2691,6 +2699,8 @@ _e_info_client_proc_kill_client(int argc, char **argv)
 {
    const static int KILL_ID_MODE = 1;
    const static int KILL_NAME_MODE = 2;
+   const static int KILL_PID_MODE = 3;
+   const static int KILL_ALL_MODE = 4;
    Eina_Bool res;
    uint64_t uint64_value;
    const char *str_value = "";
@@ -2706,6 +2716,23 @@ _e_info_client_proc_kill_client(int argc, char **argv)
              return;
           }
      }
+   else if (argc == 3)
+     {
+        if (eina_streq(argv[2], "-all"))
+          mode = KILL_ALL_MODE;
+        else if (eina_streq(argv[2], "-help"))
+          goto usage;
+        else
+          {
+             mode = KILL_ID_MODE;
+             if (strlen(argv[2]) >= 2 && argv[2][0] == '0' && argv[2][1] == 'x')
+               res = _util_string_to_ulong(argv[2], (unsigned long *)&uint64_value, 16);
+             else
+               res = _util_string_to_ulong(argv[2], (unsigned long *)&uint64_value, 10);
+
+             EINA_SAFETY_ON_FALSE_GOTO(res, usage);
+          }
+     }
    else if (argc == 4)
      {
         if (eina_streq(argv[2], "-id"))
@@ -2716,18 +2743,28 @@ _e_info_client_proc_kill_client(int argc, char **argv)
              else
                res = _util_string_to_ulong(argv[3], (unsigned long *)&uint64_value, 10);
 
-             EINA_SAFETY_ON_FALSE_RETURN(res);
+             EINA_SAFETY_ON_FALSE_GOTO(res, usage);
           }
         else if (eina_streq(argv[2], "-name"))
           {
              mode = KILL_NAME_MODE;
              str_value = argv[3];
           }
+        else if (eina_streq(argv[2], "-pid"))
+          {
+             mode = KILL_PID_MODE;
+             if (strlen(argv[3]) >= 2 && argv[3][0] == '0' && argv[3][1] == 'x')
+               res = _util_string_to_ulong(argv[3], (unsigned long *)&uint64_value, 16);
+             else
+               res = _util_string_to_ulong(argv[3], (unsigned long *)&uint64_value, 10);
+
+             EINA_SAFETY_ON_FALSE_GOTO(res, usage);
+          }
         else
-          goto arg_err;
+          goto usage;
      }
    else
-     goto arg_err;
+     goto usage;
 
    res = _e_info_client_eldbus_message_with_args("kill_client",
                                                  _e_info_client_cb_kill_client,
@@ -2736,7 +2773,7 @@ _e_info_client_proc_kill_client(int argc, char **argv)
    EINA_SAFETY_ON_FALSE_RETURN(res);
 
    return;
-arg_err:
+usage:
    printf("Usage: enlightenment_info %s", KILL_USAGE);
 }
 

@@ -3070,8 +3070,13 @@ _e_info_server_ec_find_by_win(Ecore_Window win)
    return NULL;
 }
 
+const static int KILL_ID_MODE = 1;
+const static int KILL_NAME_MODE = 2;
+const static int KILL_PID_MODE = 3;
+const static int KILL_ALL_MODE = 4;
+
 static int
-_e_info_server_ec_kill_by_name(const char *name, Eldbus_Message_Iter *array_of_string)
+_e_info_server_ec_kill(uint32_t mode, void *value, Eldbus_Message_Iter *array_of_string)
 {
    E_Client *ec;
    Evas_Object *o;
@@ -3088,17 +3093,37 @@ _e_info_server_ec_kill_by_name(const char *name, Eldbus_Message_Iter *array_of_s
 
         ec_name = e_client_util_name_get(ec) ?: "NO NAME";
 
-        find = strstr(ec_name, name);
-
-        if (find)
+        if (mode == KILL_NAME_MODE)
           {
-             count++;
-             e_client_act_kill_begin(ec);
-             snprintf(result, sizeof(result),
-                       "[Server] killing creator(%s) of resource 0x%lx",
-                       ec_name, (unsigned long)e_client_util_win_get(ec));
-             eldbus_message_iter_arguments_append(array_of_string, VALUE_TYPE_REPLY_KILL, result);
+             find = strstr(ec_name, (const char *)value);
+
+             if (!find)
+               continue;
           }
+        else if (mode == KILL_PID_MODE)
+          {
+             pid_t pid = -1;
+             pid = ec->netwm.pid;
+             if (pid <= 0)
+               {
+                  if (ec->comp_data)
+                    {
+                       E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+                       if (cdata->surface)
+                       wl_client_get_credentials(wl_resource_get_client(cdata->surface), &pid, NULL, NULL);
+                    }
+               }
+             if (pid != *(pid_t *)value)
+               continue;
+          }
+
+        count++;
+        e_client_act_kill_begin(ec);
+
+        snprintf(result, sizeof(result),
+                 "[Server] killing creator(%s) of resource 0x%lx",
+                 ec_name, (unsigned long)e_client_util_win_get(ec));
+        eldbus_message_iter_arguments_append(array_of_string, VALUE_TYPE_REPLY_KILL, result);
      }
 
    return count;
@@ -3107,8 +3132,6 @@ _e_info_server_ec_kill_by_name(const char *name, Eldbus_Message_Iter *array_of_s
 static Eldbus_Message *
 _e_info_server_cb_kill_client(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
-   const static int KILL_ID_MODE = 1;
-   const static int KILL_NAME_MODE = 2;
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    Eldbus_Message_Iter *iter = eldbus_message_iter_get(reply);
    Eina_Bool res;
@@ -3149,16 +3172,19 @@ _e_info_server_cb_kill_client(const Eldbus_Service_Interface *iface EINA_UNUSED,
                 "[Server] killing creator(%s) of resource 0x%lx",
                 e_client_util_name_get(ec) ?: "NO NAME", (unsigned long)win);
      }
-   else if (mode == KILL_NAME_MODE)
+   else if (mode >= KILL_NAME_MODE && mode <= KILL_ALL_MODE)
      {
-        count = _e_info_server_ec_kill_by_name(str_value, array_of_string);
+        if (mode == KILL_NAME_MODE)
+          count = _e_info_server_ec_kill(mode, (void *)str_value, array_of_string);
+        else
+          count = _e_info_server_ec_kill(mode, (void *)&uint64_value, array_of_string);
+
         snprintf(result, sizeof(result),
-                  "\n[Server] killed %d client(s)", count);
+                 "\n[Server] killed %d client(s)", count);
      }
    else
      {
-        snprintf(result, sizeof(result),
-                 "[Server] Error: wrong mode.");
+        snprintf(result, sizeof(result), "[Server] Error: wrong mode.");
      }
 
 finish:
