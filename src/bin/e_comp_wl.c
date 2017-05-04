@@ -6032,6 +6032,11 @@ e_comp_wl_pos_convert_inverse(int width, int height, int transform, int scale, i
         tw = ((transform % 2) ? height : width) / scale;
         th = ((transform % 2) ? width : height) / scale;
      }
+   else
+     {
+        tw = width;
+        th = height;
+     }
 
    m = _e_comp_wl_buffer_coord_get(tw, th, transform, scale);
    m = e_util_transform_matrix_inverse_get(&m);
@@ -6082,6 +6087,11 @@ e_comp_wl_rect_convert_inverse(int width, int height, int transform, int scale,
      {
         tw = ((transform % 2) ? height : width) / scale;
         th = ((transform % 2) ? width : height) / scale;
+     }
+   else
+     {
+        tw = width;
+        th = height;
      }
 
    m = _e_comp_wl_buffer_coord_get(tw, th, transform, scale);
