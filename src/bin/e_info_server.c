@@ -39,6 +39,11 @@ void wl_map_for_each(struct wl_map *map, void *func, void *data);
 #define PATH "/org/enlightenment/wm"
 #define IFACE "org.enlightenment.wm.info"
 
+#define ERR_BASE "org.enlightenment.wm.Error."
+#define INVALID_ARGS         ERR_BASE"InvalidArguments"
+#define GET_CALL_MSG_ARG_ERR ERR_BASE"GetCallMsgArgFailed"
+#define WIN_NOT_EXIST        ERR_BASE"WindowNotExist"
+
 E_API int E_EVENT_INFO_ROTATION_MESSAGE = -1;
 
 typedef struct _E_Info_Server
@@ -88,6 +93,8 @@ static Eina_List *module_hook = NULL;
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
 #define VALUE_TYPE_REQUEST_FOR_KILL "uts"
 #define VALUE_TYPE_REPLY_KILL "s"
+#define VALUE_TYPE_REQUEST_FOR_WININFO "t"
+#define VALUE_TYPE_REPLY_WININFO "tuisiiiiibbiibbbiitsiiib"
 
 enum
 {
@@ -180,6 +187,38 @@ e_info_server_hook_call(E_Info_Server_Hook_Point hookpoint)
    _e_info_server_hook_call(hookpoint, NULL);
 }
 
+#ifdef ENABLE_HWC_MULTI
+static void
+_e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
+{
+   Eina_List *l;
+   E_Output *eout;
+   E_Plane *ep;
+
+   *hwc = -1;
+   *pl_zpos = -999;
+
+   if ((!e_comp->hwc) || (e_comp->hwc_deactive))
+     return;
+
+   *hwc = 0;
+
+   eout = e_output_find(ec->zone->output_id);
+   EINA_LIST_FOREACH(eout->planes, l, ep)
+     {
+        if (e_plane_is_fb_target(ep))
+          *pl_zpos = ep->zpos;
+
+        if (ep->ec == ec)
+          {
+             *hwc = 1;
+             *pl_zpos = ep->zpos;
+             break;
+          }
+     }
+}
+#endif
+
 static void
 _msg_clients_append(Eldbus_Message_Iter *iter)
 {
@@ -225,27 +264,7 @@ _msg_clients_append(Eldbus_Message_Iter *iter)
 
 
 #ifdef ENABLE_HWC_MULTI
-        if ((e_comp->hwc) && (!e_comp->hwc_deactive))
-          {
-             Eina_List *l;
-             E_Plane *ep;
-
-             hwc = 0;
-
-             E_Output *eout = e_output_find(ec->zone->output_id);
-             EINA_LIST_FOREACH(eout->planes, l, ep)
-               {
-                  if (e_plane_is_fb_target(ep))
-                    pl_zpos = ep->zpos;
-
-                  if (ep->ec == ec)
-                    {
-                       hwc = 1;
-                       pl_zpos = ep->zpos;
-                       break;
-                    }
-               }
-          }
+        _e_info_server_ec_hwc_info_get(ec, &hwc, &pl_zpos);
 #endif
 
         eldbus_message_iter_arguments_append(array_of_ec, "("VALUE_TYPE_FOR_TOPVWINS")", &struct_of_ec);
@@ -3194,6 +3213,74 @@ finish:
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_wininfo(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply;
+   Eina_Bool res;
+   E_Client *ec;
+   uint64_t win;
+   Ecore_Window pwin;
+   uint32_t res_id = 0;
+   pid_t pid = -1;
+   char layer_name[32];
+   int hwc = -1, pl_zpos = -999, dw, dh, xright, ybelow;;
+
+   res = eldbus_message_arguments_get(msg, VALUE_TYPE_REQUEST_FOR_WININFO,
+                                      &win);
+   if (res != EINA_TRUE)
+     {
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                      "wininfo: an attempt to get arguments from method call message failed");
+     }
+
+   ec = _e_info_server_ec_find_by_win(win);
+   if (!ec)
+     {
+        return eldbus_message_error_new(msg, WIN_NOT_EXIST, "wininfo: specified window(s) doesn't exist");
+     }
+
+   e_comp_layer_name_get(ec->layer, layer_name, sizeof(layer_name));
+
+   pwin = e_client_util_win_get(ec->parent);
+
+   if (ec->pixmap)
+     res_id = e_pixmap_res_id_get(ec->pixmap);
+
+   pid = ec->netwm.pid;
+   if (pid <= 0)
+     {
+        if (ec->comp_data)
+          {
+             E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+             if (cdata->surface)
+               wl_client_get_credentials(wl_resource_get_client(cdata->surface), &pid, NULL, NULL);
+          }
+     }
+
+#ifdef ENABLE_HWC_MULTI
+   _e_info_server_ec_hwc_info_get(ec, &hwc, &pl_zpos);
+#endif
+
+   ecore_evas_screen_geometry_get(e_comp->ee, NULL, NULL, &dw, &dh);
+
+   xright = dw - ec->x - ec->border_size * 2 - ec->w;
+   ybelow = dh - ec->y - ec->border_size * 2 - ec->h;
+
+   reply = eldbus_message_method_return_new(msg);
+
+   eldbus_message_arguments_append(reply, VALUE_TYPE_REPLY_WININFO, (uint64_t)win, res_id,
+                                   pid, e_client_util_name_get(ec) ?: "NO NAME",
+                                   ec->x, ec->y, ec->w, ec->h, ec->layer, ec->visible,
+                                   ec->argb, ec->visibility.opaque, ec->visibility.obscured,
+                                   ec->iconic, evas_object_visible_get(ec->frame),
+                                   ec->focused, hwc, pl_zpos, (uint64_t)pwin,
+                                   layer_name, xright, ybelow, ec->border_size,
+                                   ec->redirected);
+
+   return reply;
+}
+
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
@@ -3236,6 +3323,7 @@ static const Eldbus_Method methods[] = {
    { "screen_rotation", ELDBUS_ARGS({"i", "value"}), NULL, _e_info_server_cb_screen_rotation, 0},
    { "get_win_under_touch", NULL, ELDBUS_ARGS({"i", "result"}), _e_info_server_cb_get_win_under_touch, 0 },
    { "kill_client", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_KILL, "window"}), ELDBUS_ARGS({"a"VALUE_TYPE_REPLY_KILL, "kill result"}), _e_info_server_cb_kill_client, 0 },
+   { "wininfo", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_WININFO, "window"}), ELDBUS_ARGS({VALUE_TYPE_REPLY_WININFO, "window info"}), _e_info_server_cb_wininfo, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 

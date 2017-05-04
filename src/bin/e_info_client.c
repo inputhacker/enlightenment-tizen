@@ -73,6 +73,8 @@ typedef struct _E_Pending_Commit_Info
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
 #define VALUE_TYPE_REQUEST_FOR_KILL "uts"
 #define VALUE_TYPE_REPLY_KILL "s"
+#define VALUE_TYPE_REQUEST_FOR_WININFO "t"
+#define VALUE_TYPE_REPLY_WININFO "tuisiiiiibbiibbbiitsiiib"
 
 static E_Info_Client e_info_client;
 
@@ -2777,6 +2779,121 @@ usage:
    printf("Usage: enlightenment_info %s", KILL_USAGE);
 }
 
+static void
+_e_info_client_cb_wininfo(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   const char *win_name;
+   const char *layer_name;
+   int x, y, w, h, layer, obscured, opaque, hwc, pl_zpos;
+   Eina_Bool visible, alpha, iconic, focused, frame_visible, redirected;
+   uint64_t id, parent_id;
+   uint32_t res_id;
+   int pid, xright, ybelow, border_size;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg,
+                                      VALUE_TYPE_REPLY_WININFO,
+                                      &id,
+                                      &res_id,
+                                      &pid,
+                                      &win_name,
+                                      &x,
+                                      &y,
+                                      &w,
+                                      &h,
+                                      &layer,
+                                      &visible,
+                                      &alpha,
+                                      &opaque,
+                                      &obscured,
+                                      &iconic,
+                                      &frame_visible,
+                                      &focused,
+                                      &hwc,
+                                      &pl_zpos,
+                                      &parent_id,
+                                      &layer_name,
+                                      &xright,
+                                      &ybelow,
+                                      &border_size,
+                                      &redirected);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   printf("\nwininfo: Window id: 0x%lx \"%s\"\n\n", (unsigned long)id, win_name);
+
+   printf("\tParent id: 0x%lx\n"
+          "\tResource id: %u\n"
+          "\tPID: %d\n"
+          "\tX: %d\n"
+          "\tY: %d\n"
+          "\tWidth: %d\n"
+          "\tHeight: %d\n"
+          "\tBorder size: %d\n"
+          "\tDepth: %d\n"
+          "\tFocused: %d\n"
+          "\tOpaque: %d\n"
+          "\tObscured: %d\n"
+          "\tIconic: %d\n"
+          "\tMap State: %s\n"
+          "\tFrame visible: %d\n"
+          "\tRedirect State: %s\n"
+          "\tLayer name: %s\n",
+          (unsigned long)parent_id, res_id, pid, x, y, w, h, border_size, alpha ? 32 : 24,
+          focused, opaque, obscured, iconic, visible ? "Visible" : "Not visible",
+          frame_visible, redirected ? "yes" : "no", layer_name);
+   printf("\tPL@ZPos:");
+   if (hwc >= 0)
+     {
+        if ((!iconic) && (!obscured) && (frame_visible))
+          {
+             if (hwc) printf(" hwc@%i\n", pl_zpos);
+             else printf(" comp@%i\n", pl_zpos);
+          }
+        else
+          printf(" - \n");
+     }
+   else
+     {
+        printf(" - \n");
+     }
+   printf ("\tCorners:  +%d+%d  -%d+%d  -%d-%d  +%d-%d\n",
+           x, y, xright, y, xright, ybelow, x, ybelow);
+
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_wininfo(int argc, char **argv)
+{
+   Eina_Bool res;
+   uint64_t win;
+
+   printf("Please select the window about which you\n"
+          "would like information by clicking the\n"
+          "mouse in that window.\n");
+   if (_e_get_window_under_touch((Ecore_Window *)&win))
+     {
+        printf("Error: cannot get window under touch\n");
+        return;
+     }
+
+   res = _e_info_client_eldbus_message_with_args("wininfo",
+                                                 _e_info_client_cb_wininfo,
+                                                 VALUE_TYPE_REQUEST_FOR_WININFO,
+                                                 win);
+   EINA_SAFETY_ON_FALSE_RETURN(res);
+}
+
 static struct
 {
    const char *option;
@@ -2976,6 +3093,12 @@ static struct
       KILL_USAGE,
       "kill a client",
       _e_info_client_proc_kill_client
+   },
+   {
+      "wininfo",
+      NULL,
+      "displaying information about windows",
+      _e_info_client_proc_wininfo
    }
 };
 
