@@ -73,6 +73,10 @@ typedef struct _E_Pending_Commit_Info
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
 #define VALUE_TYPE_REQUEST_FOR_KILL "uts"
 #define VALUE_TYPE_REPLY_KILL "s"
+#define VALUE_TYPE_REQUEST_FOR_WININFO "t"
+#define VALUE_TYPE_REPLY_WININFO "uiiiiiibbiibbbiitsiiib"
+#define VALUE_TYPE_REQUEST_FOR_WININFO_TREE "ti"
+#define VALUE_TYPE_REPLY_WININFO_TREE "tsia(tsiiiiiiii)"
 
 static E_Info_Client e_info_client;
 
@@ -240,6 +244,105 @@ fail:
      eldbus_signal_handler_del(signal_handler);
 
    return -1;
+}
+
+static void
+_e_message_get_window_name(void *data, const Eldbus_Message *msg, Eldbus_Pending *p EINA_UNUSED)
+{
+   char **win = data;
+
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   const char *w;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "s", &w);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+   EINA_SAFETY_ON_NULL_GOTO(w, finish);
+
+   *win = strdup(w);
+
+   ecore_main_loop_quit();
+
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+
+   ecore_main_loop_quit();
+}
+
+static char *
+_e_get_window_name(uint64_t win)
+{
+   Eldbus_Pending *p;
+   char *win_name = NULL;
+
+   p = eldbus_proxy_call(e_info_client.proxy, "get_window_name",
+                         _e_message_get_window_name,
+                         &win_name, -1, "t", win);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(p, NULL);
+
+   ecore_main_loop_begin();
+
+   return win_name;
+}
+
+static void
+_e_message_get_windows(void *data, const Eldbus_Message *msg, Eldbus_Pending *p EINA_UNUSED)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   Eldbus_Message_Iter *array_of_windows;
+   uint64_t win;
+   Eina_List **win_list = data;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "at", &array_of_windows);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   while (eldbus_message_iter_get_and_next(array_of_windows, 't', &win))
+     {
+        *win_list = eina_list_append(*win_list, (void *)((Ecore_Window)win));
+     }
+
+   ecore_main_loop_quit();
+
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+
+   ecore_main_loop_quit();
+}
+
+const static int _E_GET_WINDOWS_NAME_MODE = 1;
+const static int _E_GET_WINDOWS_PID_MODE = 2;
+
+static Eina_List *
+_e_get_windows(int mode, char *value)
+{
+   Eldbus_Pending *p;
+   Eina_List *win_list = NULL;
+
+   p = eldbus_proxy_call(e_info_client.proxy, "get_windows",
+                         _e_message_get_windows,
+                         &win_list, -1, "is", mode, value);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(p, NULL);
+
+   ecore_main_loop_begin();
+
+   return win_list;
 }
 
 static E_Win_Info *
@@ -2819,6 +2922,518 @@ usage:
    printf("Usage: enlightenment_info %s", KILL_USAGE);
 }
 
+static int window_id_format_dec;
+
+static void
+_e_info_client_cb_wininfo(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   const char *layer_name;
+   int x, y, w, h, layer, obscured, opaque, hwc, pl_zpos;
+   Eina_Bool visible, alpha, iconic, focused, frame_visible, redirected;
+   uint64_t parent_id;
+   uint32_t res_id;
+   int pid, xright, ybelow, border_size;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg,
+                                      VALUE_TYPE_REPLY_WININFO,
+                                      &res_id,
+                                      &pid,
+                                      &x,
+                                      &y,
+                                      &w,
+                                      &h,
+                                      &layer,
+                                      &visible,
+                                      &alpha,
+                                      &opaque,
+                                      &obscured,
+                                      &iconic,
+                                      &frame_visible,
+                                      &focused,
+                                      &hwc,
+                                      &pl_zpos,
+                                      &parent_id,
+                                      &layer_name,
+                                      &xright,
+                                      &ybelow,
+                                      &border_size,
+                                      &redirected);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   if (window_id_format_dec)
+     printf("\n   Parent id: %lu\n", (unsigned long)parent_id);
+   else
+     printf("\n   Parent id: 0x%lx\n", (unsigned long)parent_id);
+
+   printf("   Resource id: %u\n"
+          "   PID: %d\n"
+          "   X: %d\n"
+          "   Y: %d\n"
+          "   Width: %d\n"
+          "   Height: %d\n"
+          "   Border size: %d\n"
+          "   Depth: %d\n"
+          "   Focused: %d\n"
+          "   Opaque: %d\n"
+          "   Obscured: %d\n"
+          "   Iconic: %d\n"
+          "   Map State: %s\n"
+          "   Frame visible: %d\n"
+          "   Redirect State: %s\n"
+          "   Layer name: %s\n",
+          res_id, pid, x, y, w, h, border_size, alpha ? 32 : 24,
+          focused, opaque, obscured, iconic, visible ? "Visible" : "Not visible",
+          frame_visible, redirected ? "yes" : "no", layer_name);
+   printf("   PL@ZPos:");
+   if (hwc >= 0)
+     {
+        if ((!iconic) && (!obscured) && (frame_visible))
+          {
+             if (hwc) printf(" hwc@%i\n", pl_zpos);
+             else printf(" comp@%i\n", pl_zpos);
+          }
+        else
+          printf(" - \n");
+     }
+   else
+     {
+        printf(" - \n");
+     }
+   printf ("   Corners:  +%d+%d  -%d+%d  -%d-%d  +%d-%d\n",
+           x, y, xright, y, xright, ybelow, x, ybelow);
+
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_cb_wininfo_tree(const Eldbus_Message *msg)
+{
+   const char *error_name = NULL, *error_text = NULL;
+   Eina_Bool res;
+   const char *pname;
+   uint64_t pwin;
+   Eldbus_Message_Iter *array_of_children, *child;
+   int num_children;
+
+   res = eldbus_message_error_get(msg, &error_name, &error_text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, VALUE_TYPE_REPLY_WININFO_TREE,
+                                      &pwin, &pname, &num_children, &array_of_children);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   if (window_id_format_dec)
+     printf("\n   Parent window id: %lu \"%s\"\n", (unsigned long)pwin, pname);
+   else
+     printf("\n   Parent window id: 0x%lx \"%s\"\n", (unsigned long)pwin, pname);
+
+   printf ("      %d child%s%s\n", num_children, num_children == 1 ? "" : "ren",
+      num_children ? ":" : ".");
+
+   while (eldbus_message_iter_get_and_next(array_of_children, 'r', &child))
+     {
+        uint64_t child_win;
+        const char *child_name;
+        int x, y, w, h, hwc, pl_zpos, level, j;
+
+        res = eldbus_message_iter_arguments_get(child,
+                                                "tsiiiiiiii",
+                                                &child_win,
+                                                &child_name,
+                                                &num_children, &level,
+                                                &x, &y, &w, &h, &hwc, &pl_zpos);
+        EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+        for (j = 0; j <= level; j++) printf ("   ");
+        if (window_id_format_dec)
+          printf("%lu \"%s\":", (unsigned long)child_win, child_name);
+        else
+          printf("0x%lx \"%s\":", (unsigned long)child_win, child_name);
+        printf (" %dx%d+%d+%d", w, h, x, y);
+        if (hwc > 0) printf(" hwc@%i", pl_zpos);
+        else if (!hwc) printf(" comp@%i", pl_zpos);
+        printf("\n");
+        if (num_children > 0)
+          {
+             for (j = 0; j <= level + 1; j++) printf ("   ");
+             printf ("%d child%s:\n", num_children, num_children == 1 ? "" : "ren");
+          }
+     }
+
+
+   return;
+
+finish:
+   if ((error_name) || (error_text))
+     {
+        printf("errname:%s errmsg:%s\n", error_name, error_text);
+     }
+}
+
+static void
+_e_info_client_cb_wininfo_print_hints(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   Eldbus_Message_Iter *array_of_hints;
+   int count = 0;
+   char *hint;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "as", &array_of_hints);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   while (eldbus_message_iter_get_and_next(array_of_hints, 's', &hint))
+     {
+        printf("   %s\n", hint);
+        count++;
+     }
+
+   if (!count)
+     printf("   No window hints\n");
+
+   ecore_main_loop_quit();
+
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+
+   ecore_main_loop_quit();
+}
+
+static void
+_e_info_client_cb_wininfo_print_shape(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   Eldbus_Message_Iter *array_of_shape, *array_of_shape_input;
+   Eldbus_Message_Iter *struct_of_shape;
+   int count = 0;
+   int shape_rects_num, shape_input_rects_num;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "ia(iiii)ia(iiii)",
+                                      &shape_rects_num, &array_of_shape,
+                                      &shape_input_rects_num, &array_of_shape_input);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   printf("   Number of shape rectangles: %d\n", shape_rects_num);
+   if (shape_rects_num)
+     {
+        while (eldbus_message_iter_get_and_next(array_of_shape, 'r', &struct_of_shape))
+          {
+             int x, y, w, h;
+             res = eldbus_message_iter_arguments_get(struct_of_shape,
+                                                     "iiii",
+                                                     &x, &y, &w, &h);
+             EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+             count++;
+             printf("      %d) x(%d), y(%d), w(%d), h(%d)\n", count, x, y, w, h);
+
+          }
+     }
+
+   count = 0;
+   printf("   Number of shape input rectangles: %d\n", shape_input_rects_num);
+   if (shape_input_rects_num)
+     {
+        while (eldbus_message_iter_get_and_next(array_of_shape_input, 'r', &struct_of_shape))
+          {
+             int x, y, w, h;
+             res = eldbus_message_iter_arguments_get(struct_of_shape,
+                                                     "iiii",
+                                                     &x, &y, &w, &h);
+             EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+             count++;
+             printf("      %d) x(%d), y(%d), w(%d), h(%d)\n", count, x, y, w, h);
+
+          }
+     }
+
+   ecore_main_loop_quit();
+
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+
+   ecore_main_loop_quit();
+}
+
+static Eina_Bool
+_e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats,
+                               int wm, int size, int shape)
+{
+   Eina_Bool res;
+   char *win_name;
+
+   win_name = _e_get_window_name(win);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(win_name, EINA_FALSE);
+
+   if (window_id_format_dec)
+     printf("\nwininfo: Window id: %lu \"%s\"\n", (unsigned long)win, win_name);
+   else
+     printf("\nwininfo: Window id: 0x%lx \"%s\"\n", (unsigned long)win, win_name);
+
+   free(win_name);
+
+   if (!children && !tree && !wm && !size && !shape)
+     stats = 1;
+
+   if ((children || tree))
+     {
+        res = _e_info_client_eldbus_message_with_args("wininfo_tree",
+                                                      _e_info_client_cb_wininfo_tree,
+                                                      VALUE_TYPE_REQUEST_FOR_WININFO_TREE,
+                                                      win, tree);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
+     }
+
+   if (stats)
+     {
+        res = _e_info_client_eldbus_message_with_args("wininfo",
+                                                      _e_info_client_cb_wininfo,
+                                                      VALUE_TYPE_REQUEST_FOR_WININFO,
+                                                      win);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
+     }
+
+   if (wm)
+     {
+        printf("\nAux_Hint:\n");
+        res = _e_info_client_eldbus_message_with_args("wininfo_hints",
+                                                      _e_info_client_cb_wininfo_print_hints,
+                                                      "it",
+                                                      1, win);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
+     }
+
+   if (size)
+     {
+        printf("\nSize hints:\n");
+        res = _e_info_client_eldbus_message_with_args("wininfo_hints",
+                                                      _e_info_client_cb_wininfo_print_hints,
+                                                      "it",
+                                                      0, win);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
+     }
+
+   if (shape)
+     {
+        res = _e_info_client_eldbus_message_with_args("wininfo_shape",
+                                                      _e_info_client_cb_wininfo_print_shape,
+                                                      "t",
+                                                      win);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
+     }
+
+   return EINA_TRUE;
+}
+
+#define WININFO_USAGE \
+  "[-options ...]\n\n" \
+  "where options include:\n" \
+  "\t-help             : print this message.\n" \
+  "\t-children         : print parent and child identifiers.\n" \
+  "\t-tree             : print children identifiers recursively.\n" \
+  "\t-stats            : print window geometry [DEFAULT]\n" \
+  "\t-id windowid      : use the window with the specified id\n" \
+  "\t-name windowname  : use the window with the specified name\n" \
+  "\t-pid windowpid    : use the window with the specified id\n" \
+  "\t-int              : print window id in decimal\n" \
+  "\t-size             : print size hints\n" \
+  "\t-wm               : print window manager hints\n" \
+  "\t-shape            : print shape rectangles\n" \
+  "\t-all              : -tree, -stats, -wm, -size, -shape\n" \
+  "Example:\n" \
+  "\tenlightenment_info -wininfo\n" \
+  "\tenlightenment_info -wininfo -id [win_id] -all\n" \
+  "\tenlightenment_info -wininfo -children -stats -size\n" \
+  "\tenlightenment_info -wininfo -name [win_name] -tree -wm\n" \
+  "\tenlightenment_info -wininfo -pid [win_pid] -size -shape -int\n" \
+
+static void
+_e_info_client_proc_wininfo(int argc, char **argv)
+{
+   Eina_Bool res;
+   uint64_t win = 0;
+   int i, children = 0, tree = 0, stats = 0, wm = 0, size = 0, shape = 0;
+   char *name = NULL, *pid = NULL;
+   Eina_List *win_list = NULL, *l;
+
+   /* Handle our command line arguments */
+   for (i = 2; i < argc; i++)
+     {
+        if (eina_streq(argv[i], "-help"))
+          goto usage;
+
+        if (eina_streq (argv[i], "-children"))
+          {
+             children = 1;
+             continue;
+          }
+
+        if (eina_streq(argv[i], "-tree"))
+          {
+             tree = 1;
+             continue;
+          }
+
+        if (eina_streq(argv[i], "-stats"))
+          {
+             stats = 1;
+             continue;
+          }
+
+        if (eina_streq(argv[i], "-id"))
+          {
+             if (++i >= argc || (argv[i][0] < '0' || argv[i][0] > '9'))
+               {
+                  printf("Error: -id requires argument\n");
+                  goto usage;
+               }
+
+             if (strlen(argv[i]) >= 2 && argv[i][0] == '0' && argv[i][1] == 'x')
+               res = _util_string_to_ulong(argv[i], (unsigned long *)&win, 16);
+             else
+               res = _util_string_to_ulong(argv[i], (unsigned long *)&win, 10);
+
+             EINA_SAFETY_ON_FALSE_GOTO(res, usage);
+
+             continue;
+          }
+
+        if (eina_streq(argv[i], "-name"))
+          {
+             if (++i >= argc)
+               {
+                  printf("Error: -name requires argument\n");
+                  goto usage;
+               }
+
+             name = argv[i];
+             continue;
+          }
+
+        if (eina_streq(argv[i], "-pid"))
+          {
+             if (++i >= argc || (argv[i][0] < '0' || argv[i][0] > '9'))
+               {
+                  printf("Error: -name requires argument\n");
+                  goto usage;
+               }
+
+             pid = argv[i];
+             continue;
+          }
+        if (eina_streq (argv[i], "-int"))
+          {
+             window_id_format_dec = 1;
+             continue;
+          }
+        if (eina_streq (argv[i], "-wm"))
+          {
+             wm = 1;
+             continue;
+          }
+        if (eina_streq (argv[i], "-size"))
+          {
+             size = 1;
+             continue;
+          }
+        if (eina_streq (argv[i], "-shape"))
+          {
+             shape = 1;
+             continue;
+          }
+        if (eina_streq (argv[i], "-all"))
+          {
+             tree = 1;
+             stats = 1;
+             wm = 1;
+             size = 1;
+             shape = 1;
+             continue;
+          }
+
+        goto usage;
+     }
+
+   if (!win && (name || pid))
+     {
+        if (name)
+          win_list = _e_get_windows(_E_GET_WINDOWS_NAME_MODE, name);
+        else
+          win_list = _e_get_windows(_E_GET_WINDOWS_PID_MODE, pid);
+
+        if (!win_list)
+          {
+             printf("Error: cannot get windows\n");
+             return;
+          }
+     }
+
+   if (!win && !win_list)
+     {
+        printf("Please select the window about which you\n"
+               "would like information by clicking the\n"
+               "mouse in that window.\n");
+        if (_e_get_window_under_touch((Ecore_Window *)&win))
+          {
+             printf("Error: cannot get window under touch\n");
+             return;
+          }
+     }
+
+   if (win)
+     {
+        res = _e_info_client_display_wininfo(win, children, tree, stats, wm, size, shape);
+        EINA_SAFETY_ON_FALSE_RETURN(res);
+     }
+   else
+     {
+        for(l = win_list; l; l = eina_list_next(l))
+          {
+             uint64_t win;
+
+             win = (uint64_t)((Ecore_Window)eina_list_data_get(l));
+             res = _e_info_client_display_wininfo(win, children, tree, stats, wm, size, shape);
+             EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+          }
+     }
+
+finish:
+   if (win_list)
+     eina_list_free(win_list);
+
+   return;
+
+usage:
+   printf("Usage: enlightenment_info -wininfo %s", WININFO_USAGE);
+}
+
 static struct
 {
    const char *option;
@@ -3016,6 +3631,12 @@ static struct
       KILL_USAGE,
       "kill a client",
       _e_info_client_proc_kill_client
+   },
+   {
+      "wininfo",
+      WININFO_USAGE,
+      "displaying information about windows",
+      _e_info_client_proc_wininfo
    }
 };
 
