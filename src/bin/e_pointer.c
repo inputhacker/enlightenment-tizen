@@ -198,7 +198,7 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
           }
 
         if (ptr->o_ptr != obj)
-           ptr->hwc = 0;
+           ptr->hwc = EINA_FALSE;
 
         /* hide cursor object */
         evas_object_hide(ptr->o_ptr);
@@ -229,6 +229,9 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
              evas_object_geometry_set(ec->frame, ec->x, ec->y, ec->w, ec->h);
              ec->comp_data->mapped = EINA_TRUE;
              ec->override = 0; /* do not ignore the cursor_ec to set the image object */
+
+             if (e_comp_is_on_overlay(ec))
+               ptr->hwc = EINA_TRUE;
           }
 
         ptr->o_ptr = obj;
