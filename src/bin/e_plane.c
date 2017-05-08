@@ -402,7 +402,9 @@ _e_plane_cursor_surface_acquire(E_Plane *plane)
 
    e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
-   if (plane->displaying_buffer_ref.buffer != buffer)
+   tsurface = e_plane_renderer_cursor_surface_get(renderer);
+
+   if (plane->displaying_buffer_ref.buffer != buffer || !tsurface)
      {
         if (!e_plane_renderer_cursor_surface_refresh(renderer, ec))
           {
