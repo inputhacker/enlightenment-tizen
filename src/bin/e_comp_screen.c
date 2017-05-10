@@ -29,7 +29,6 @@ _tz_surface_rotation_find(E_Client *ec)
         if (tzsr->ec == ec)
           return tzsr;
      }
-   ELOGF("COMP", "|not found", NULL, ec);
 
    return NULL;
 }
@@ -1285,8 +1284,6 @@ EINTERN void
 e_comp_screen_rotation_ignore_output_transform_send(E_Client *ec, Eina_Bool ignore)
 {
    E_Comp_Screen_Tzsr *tzsr = _tz_surface_rotation_find(ec);
-
-   ELOGF("COMP", "|tzsr(%p) ignore(%d)", NULL, ec, tzsr, ignore);
 
    if (!tzsr) return;
 
