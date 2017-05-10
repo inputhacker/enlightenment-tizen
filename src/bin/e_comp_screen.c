@@ -26,8 +26,6 @@ _tz_surface_rotation_find(E_Client *ec)
 
    EINA_LIST_FOREACH(tzsr_list, l, tzsr)
      {
-   ELOGF("COMP", "|tzsr->ec(%p)", NULL, ec, tzsr->ec);
-
         if (tzsr->ec == ec)
           return tzsr;
      }
