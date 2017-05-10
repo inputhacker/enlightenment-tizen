@@ -938,6 +938,8 @@ e_plane_renderer_new(E_Plane *plane)
 {
    E_Plane_Renderer *renderer = NULL;
    tbm_surface_queue_h tqueue = NULL;
+   int ee_width = 0;
+   int ee_height = 0;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
 
@@ -958,6 +960,11 @@ e_plane_renderer_new(E_Plane *plane)
         tqueue = _get_tbm_surface_queue(renderer->ee);
         if (tqueue && !e_plane_renderer_surface_queue_set(renderer, tqueue))
            ERR("fail to e_plane_renderer_queue_set");
+
+        ecore_evas_geometry_get(renderer->ee, NULL, NULL, &ee_width, &ee_height);
+
+        if (renderer->tqueue_width != ee_width || renderer->tqueue_height != ee_height)
+          ecore_evas_manual_render(renderer->ee);
      }
 
    return renderer;
