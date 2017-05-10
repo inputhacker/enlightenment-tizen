@@ -1391,7 +1391,7 @@ _e_comp_wl_evas_cb_multi_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
              _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
              _e_comp_wl_device_handle_axes(dev_name, dev_class, ec, ev->device, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
           }
-     
+
         _e_comp_wl_send_touch_move(ec, ev->device, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp);
      }
 }
