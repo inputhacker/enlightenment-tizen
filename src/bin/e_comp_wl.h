@@ -34,6 +34,8 @@
 #include <Evas_GL.h>
 #include <tbm_surface.h>
 
+#define E_COMP_WL_TOUCH_MAX 10
+
 typedef struct _E_Comp_Wl_Aux_Hint  E_Comp_Wl_Aux_Hint;
 typedef struct _E_Comp_Wl_Buffer E_Comp_Wl_Buffer;
 typedef struct _E_Comp_Wl_Buffer_Ref E_Comp_Wl_Buffer_Ref;
@@ -45,6 +47,8 @@ typedef struct _E_Comp_Wl_Data E_Comp_Wl_Data;
 typedef struct _E_Comp_Wl_Output E_Comp_Wl_Output;
 typedef struct _E_Comp_Wl_Input_Device E_Comp_Wl_Input_Device;
 typedef struct _E_Comp_Wl_Hook E_Comp_Wl_Hook;
+typedef struct _E_Comp_Wl_Input_Device_Multi E_Comp_Wl_Input_Device_Multi;
+
 
 typedef enum _E_Comp_Wl_Buffer_Type
 {
@@ -163,6 +167,14 @@ struct _E_Comp_Wl_Input_Device
    Ecore_Device_Class clas;
 };
 
+struct _E_Comp_Wl_Input_Device_Multi
+{
+   double radius_x;
+   double radius_y;
+   double pressure;
+   double angle;
+};
+
 struct _E_Comp_Wl_Data
 {
    struct
@@ -208,13 +220,7 @@ struct _E_Comp_Wl_Data
         E_Comp_Wl_Input_Device *last_device_ptr;
         E_Comp_Wl_Input_Device *last_device_touch;
         E_Comp_Wl_Input_Device *last_device_kbd;
-        struct
-          {
-             double radius_x;
-             double radius_y;
-             double pressure;
-             double angle;
-          } multi;
+        E_Comp_Wl_Input_Device_Multi multi[E_COMP_WL_TOUCH_MAX];
      } input_device_manager;
 
    struct

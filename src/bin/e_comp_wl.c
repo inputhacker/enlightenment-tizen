@@ -928,27 +928,29 @@ _e_comp_wl_device_send_axis(const char *dev_name, Evas_Device_Class dev_class, E
 }
 
 static void
-_e_comp_wl_device_handle_axes(const char *dev_name, Evas_Device_Class dev_class, E_Client *ec, double radius_x, double radius_y, double pressure, double angle)
+_e_comp_wl_device_handle_axes(const char *dev_name, Evas_Device_Class dev_class, E_Client *ec, unsigned int idx, double radius_x, double radius_y, double pressure, double angle)
 {
-   if (e_comp_wl->input_device_manager.multi.radius_x != radius_x)
+   if (idx >= E_COMP_WL_TOUCH_MAX) return;
+
+   if (e_comp_wl->input_device_manager.multi[idx].radius_x != radius_x)
      {
         _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_RADIUS_X, radius_x);
-        e_comp_wl->input_device_manager.multi.radius_x = radius_x;
+        e_comp_wl->input_device_manager.multi[idx].radius_x = radius_x;
      }
-   if (e_comp_wl->input_device_manager.multi.radius_y != radius_y)
+   if (e_comp_wl->input_device_manager.multi[idx].radius_y != radius_y)
      {
         _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_RADIUS_Y, radius_y);
-        e_comp_wl->input_device_manager.multi.radius_y = radius_y;
+        e_comp_wl->input_device_manager.multi[idx].radius_y = radius_y;
      }
-   if (e_comp_wl->input_device_manager.multi.pressure != pressure)
+   if (e_comp_wl->input_device_manager.multi[idx].pressure != pressure)
      {
         _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_PRESSURE, pressure);
-        e_comp_wl->input_device_manager.multi.pressure = pressure;
+        e_comp_wl->input_device_manager.multi[idx].pressure = pressure;
      }
-   if (e_comp_wl->input_device_manager.multi.angle != angle)
+   if (e_comp_wl->input_device_manager.multi[idx].angle != angle)
      {
         _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_ANGLE, angle);
-        e_comp_wl->input_device_manager.multi.angle = angle;
+        e_comp_wl->input_device_manager.multi[idx].angle = angle;
      }
 }
 
@@ -1228,7 +1230,7 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
                   _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
                   if (dev_name)
                     _e_comp_wl_device_handle_axes(dev_name, evas_device_class_get(dev),
-                                                  ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
+                                                  ec, 0, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
                   _e_comp_wl_send_touch_move(ec, 0, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp);
                }
              e_pointer_touch_move(e_comp->pointer, ev->cur.output.x, ev->cur.output.y);
@@ -1305,7 +1307,7 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
      {
         if (dev_name)
           _e_comp_wl_device_handle_axes(dev_name, evas_device_class_get(dev),
-                                        ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
+                                        ec, 0, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
         _e_comp_wl_evas_handle_mouse_button_to_touch(ec, ev->timestamp, ev->canvas.x, ev->canvas.y, EINA_TRUE);
         e_pointer_touch_move(e_comp->pointer, ev->output.x, ev->output.y);
         e_comp_wl->touch.pressed |= (1 << 0);
@@ -1364,7 +1366,7 @@ _e_comp_wl_evas_cb_mouse_up(void *data, Evas *evas, Evas_Object *obj EINA_UNUSED
      {
         if (dev_name)
           _e_comp_wl_device_handle_axes(dev_name, evas_device_class_get(dev),
-                                        ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
+                                        ec, 0, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
         _e_comp_wl_evas_handle_mouse_button_to_touch(ec, ev->timestamp, ev->canvas.x, ev->canvas.y, EINA_FALSE);
         e_comp_wl->touch.pressed &= ~(1 << 0);
      }
@@ -1450,7 +1452,7 @@ _e_comp_wl_evas_cb_multi_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
      {
         dev_class = evas_device_class_get(dev);
         _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
-        _e_comp_wl_device_handle_axes(dev_name, dev_class, ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
+        _e_comp_wl_device_handle_axes(dev_name, dev_class, ec, ev->device, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
      }
 
    _e_comp_wl_send_touch(ec, ev->device, ev->canvas.x, ev->canvas.y, ev->timestamp, EINA_TRUE);
@@ -1482,7 +1484,7 @@ _e_comp_wl_evas_cb_multi_up(void *data, Evas *evas, Evas_Object *obj EINA_UNUSED
      {
         dev_class = evas_device_class_get(dev);
         _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
-        _e_comp_wl_device_handle_axes(dev_name, dev_class, ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
+        _e_comp_wl_device_handle_axes(dev_name, dev_class, ec, ev->device, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
      }
 
    _e_comp_wl_send_touch(ec, ev->device, 0, 0, ev->timestamp, EINA_FALSE);
@@ -1512,7 +1514,7 @@ _e_comp_wl_evas_cb_multi_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
           {
              dev_class = evas_device_class_get(dev);
              _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
-             _e_comp_wl_device_handle_axes(dev_name, dev_class, ec, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
+             _e_comp_wl_device_handle_axes(dev_name, dev_class, ec, ev->device, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
           }
      
         _e_comp_wl_send_touch_move(ec, ev->device, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp);
@@ -5843,12 +5845,12 @@ e_comp_wl_touch_send(E_Client *ec, int idx, int x, int y, Eina_Bool pressed, Eco
    if (dev)
      {
         _e_comp_wl_send_event_device(wc, time, dev, serial);
-        _e_comp_wl_device_handle_axes(ecore_device_identifier_get(dev), ECORE_DEVICE_CLASS_TOUCH, ec, radius_x, radius_y, pressure, angle);
+        _e_comp_wl_device_handle_axes(ecore_device_identifier_get(dev), ECORE_DEVICE_CLASS_TOUCH, ec, idx, radius_x, radius_y, pressure, angle);
      }
    else if (device)
      {
         _e_comp_wl_device_send_last_event_device(ec, ECORE_DEVICE_CLASS_TOUCH, time);
-        _e_comp_wl_device_handle_axes(device->identifier, device->clas, ec, radius_x, radius_y, pressure, angle);
+        _e_comp_wl_device_handle_axes(device->identifier, device->clas, ec, idx, radius_x, radius_y, pressure, angle);
      }
 
    x = x + ec->client.x;
@@ -5879,12 +5881,12 @@ e_comp_wl_touch_update_send(E_Client *ec, int idx, int x, int y, Ecore_Device *d
    if (dev)
      {
         _e_comp_wl_send_event_device(wc, time, dev, serial);
-        _e_comp_wl_device_handle_axes(ecore_device_identifier_get(dev), ECORE_DEVICE_CLASS_TOUCH, ec, radius_x, radius_y, pressure, angle);
+        _e_comp_wl_device_handle_axes(ecore_device_identifier_get(dev), ECORE_DEVICE_CLASS_TOUCH, ec, idx, radius_x, radius_y, pressure, angle);
      }
    else if (device)
      {
         _e_comp_wl_device_send_last_event_device(ec, ECORE_DEVICE_CLASS_TOUCH, time);
-        _e_comp_wl_device_handle_axes(device->identifier, device->clas, ec, radius_x, radius_y, pressure, angle);
+        _e_comp_wl_device_handle_axes(device->identifier, device->clas, ec, idx, radius_x, radius_y, pressure, angle);
      }
 
    x = x + ec->client.x;
