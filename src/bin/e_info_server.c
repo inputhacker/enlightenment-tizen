@@ -94,7 +94,9 @@ static Eina_List *module_hook = NULL;
 #define VALUE_TYPE_REQUEST_FOR_KILL "uts"
 #define VALUE_TYPE_REPLY_KILL "s"
 #define VALUE_TYPE_REQUEST_FOR_WININFO "t"
-#define VALUE_TYPE_REPLY_WININFO "tuisiiiiibbiibbbiitsiiib"
+#define VALUE_TYPE_REPLY_WININFO "uiiiiiibbiibbbiitsiiib"
+#define VALUE_TYPE_REQUEST_FOR_WININFO_TREE "ti"
+#define VALUE_TYPE_REPLY_WININFO_TREE "tsia(tsiiiiiiii)"
 
 enum
 {
@@ -3079,7 +3081,6 @@ _e_info_server_ec_find_by_win(Ecore_Window win)
 
         ec = evas_object_data_get(o, "E_Client");
         if (!ec) continue;
-        if (e_client_util_ignored_get(ec)) continue;
 
         w = e_client_util_win_get(ec);
         if (w == win)
@@ -3214,6 +3215,114 @@ finish:
 }
 
 static Eldbus_Message *
+_e_info_server_cb_get_window_name(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply;
+   Eina_Bool res;
+   E_Client *ec;
+   uint64_t win;
+
+   res = eldbus_message_arguments_get(msg, VALUE_TYPE_REQUEST_FOR_WININFO,
+                                      &win);
+   if (res != EINA_TRUE)
+     {
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                      "get_window_name: an attempt to get arguments from method call message failed");
+     }
+
+   ec = _e_info_server_ec_find_by_win(win);
+   if (!ec)
+     {
+        return eldbus_message_error_new(msg, WIN_NOT_EXIST, "get_window_name: specified window doesn't exist");
+     }
+
+   reply = eldbus_message_method_return_new(msg);
+
+   eldbus_message_arguments_append(reply, "s",
+                                   e_client_util_name_get(ec) ?: "NO NAME");
+
+   return reply;
+}
+
+static void
+_e_info_server_wininfo_tree_info_add(E_Client *ec, Eldbus_Message_Iter *iter,
+                                 int recurse, int level)
+{
+   Eldbus_Message_Iter *struct_of_child;
+
+   if (ec->transients)
+     {
+        E_Client *child;
+        const Eina_List *l;
+
+        EINA_LIST_FOREACH(ec->transients, l, child)
+          {
+             uint64_t win;
+             unsigned int num_child = -1;
+             int hwc = -1, pl_zpos;
+
+             if (recurse)
+                num_child = eina_list_count(child->transients);
+
+#ifdef ENABLE_HWC_MULTI
+
+                if ((!child->iconic) && (!child->visibility.obscured) &&
+                    evas_object_visible_get(ec->frame))
+                  _e_info_server_ec_hwc_info_get(child, &hwc, &pl_zpos);
+#endif
+
+             win = e_client_util_win_get(child);
+             eldbus_message_iter_arguments_append(iter, "(tsiiiiiiii)", &struct_of_child);
+             eldbus_message_iter_arguments_append
+                (struct_of_child, "tsiiiiiiii", win, e_client_util_name_get(child) ?: "NO NAME",
+                         num_child, level, child->x, child->y, child->w, child->h, hwc, pl_zpos);
+             eldbus_message_iter_container_close(iter, struct_of_child);
+
+             if (recurse)
+                _e_info_server_wininfo_tree_info_add(child, iter, 1, level + 1);
+          }
+     }
+}
+
+static Eldbus_Message *
+_e_info_server_cb_wininfo_tree(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply;
+   Eldbus_Message_Iter *iter, *array_of_child;
+   Eina_Bool res;
+   E_Client *ec;
+   uint64_t win;
+   int recurse;
+
+   res = eldbus_message_arguments_get(msg, VALUE_TYPE_REQUEST_FOR_WININFO_TREE,
+                                      &win, &recurse);
+   if (res != EINA_TRUE)
+     {
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                      "wininfo: an attempt to get arguments from method call message failed");
+     }
+
+   ec = _e_info_server_ec_find_by_win(win);
+   if (!ec)
+     {
+        return eldbus_message_error_new(msg, WIN_NOT_EXIST, "wininfo: specified window(s) doesn't exist");
+     }
+
+   reply = eldbus_message_method_return_new(msg);
+   iter = eldbus_message_iter_get(reply);
+
+   eldbus_message_iter_basic_append(iter, 't', (uint64_t)e_client_util_win_get(ec->parent));
+   eldbus_message_iter_basic_append(iter, 's', e_client_util_name_get(ec->parent) ?: "NO NAME");
+   eldbus_message_iter_basic_append(iter, 'i', eina_list_count(ec->transients));
+
+   array_of_child = eldbus_message_iter_container_new(iter, 'a', "(tsiiiiiiii)");
+   _e_info_server_wininfo_tree_info_add(ec, array_of_child, recurse, 1);
+   eldbus_message_iter_container_close(iter, array_of_child);
+
+   return reply;
+}
+
+static Eldbus_Message *
 _e_info_server_cb_wininfo(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
    Eldbus_Message *reply;
@@ -3223,7 +3332,7 @@ _e_info_server_cb_wininfo(const Eldbus_Service_Interface *iface EINA_UNUSED, con
    Ecore_Window pwin;
    uint32_t res_id = 0;
    pid_t pid = -1;
-   char layer_name[32];
+   char layer_name[64];
    int hwc = -1, pl_zpos = -999, dw, dh, xright, ybelow;;
 
    res = eldbus_message_arguments_get(msg, VALUE_TYPE_REQUEST_FOR_WININFO,
@@ -3269,8 +3378,7 @@ _e_info_server_cb_wininfo(const Eldbus_Service_Interface *iface EINA_UNUSED, con
 
    reply = eldbus_message_method_return_new(msg);
 
-   eldbus_message_arguments_append(reply, VALUE_TYPE_REPLY_WININFO, (uint64_t)win, res_id,
-                                   pid, e_client_util_name_get(ec) ?: "NO NAME",
+   eldbus_message_arguments_append(reply, VALUE_TYPE_REPLY_WININFO, res_id, pid,
                                    ec->x, ec->y, ec->w, ec->h, ec->layer, ec->visible,
                                    ec->argb, ec->visibility.opaque, ec->visibility.obscured,
                                    ec->iconic, evas_object_visible_get(ec->frame),
@@ -3323,7 +3431,9 @@ static const Eldbus_Method methods[] = {
    { "screen_rotation", ELDBUS_ARGS({"i", "value"}), NULL, _e_info_server_cb_screen_rotation, 0},
    { "get_win_under_touch", NULL, ELDBUS_ARGS({"i", "result"}), _e_info_server_cb_get_win_under_touch, 0 },
    { "kill_client", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_KILL, "window"}), ELDBUS_ARGS({"a"VALUE_TYPE_REPLY_KILL, "kill result"}), _e_info_server_cb_kill_client, 0 },
+   { "get_window_name", ELDBUS_ARGS({"t", "window"}), ELDBUS_ARGS({"s", "window name"}), _e_info_server_cb_get_window_name, 0 },
    { "wininfo", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_WININFO, "window"}), ELDBUS_ARGS({VALUE_TYPE_REPLY_WININFO, "window info"}), _e_info_server_cb_wininfo, 0 },
+   { "wininfo_tree", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_WININFO_TREE, "wininfo_tree"}), ELDBUS_ARGS({VALUE_TYPE_REPLY_WININFO_TREE, "window tree info"}), _e_info_server_cb_wininfo_tree, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 
