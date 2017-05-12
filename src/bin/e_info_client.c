@@ -1317,6 +1317,43 @@ _e_info_client_proc_dlog_switch(int argc, char **argv)
    "\tenlightenment_info -prop -name err           : Get all properties for windows whose names contain an \"err\" substring\n" \
    "\tenlightenment_info -prop -name \"\"          : Get all properties for all windows\n"
 
+/* property value can consist of several lines separated by '\n', which we got to print nicely */
+static void
+_parse_property(const char *prop_name, const char *prop_value)
+{
+   char *begin, *end;	/* current line */
+
+   /* process a simple case */
+   if (!strchr(prop_value, '\n'))
+     {
+        printf("%27s : %s\n", prop_name, prop_value);
+        return;
+     }
+
+   char *const tmp = strdup(prop_value);
+   if (!tmp)
+     return;
+
+   begin = tmp;
+
+   while (*begin != '\0')
+     {
+       end = strchr(begin, '\n');
+       if (end)
+         *end = '\0';
+
+       printf("%27s : %s\n", begin == tmp ? prop_name : "", begin);
+
+       /* it's the last line */
+       if (!end)
+         break;
+
+       begin = end + 1;
+     }
+
+   free(tmp);
+}
+
 static void
 _cb_window_prop_get(const Eldbus_Message *msg)
 {
@@ -1347,9 +1384,9 @@ _cb_window_prop_get(const Eldbus_Message *msg)
           }
 
         if (title && !strncmp(title, "[WINDOW PROP]", sizeof("[WINDOW PROP]")))
-           printf("---------------------------------------------------------------------------------------------------------\n");
+          printf("---------------------------------------------------------------------------------------------------------\n");
         else
-           printf("%20s : %s\n", title, value);
+          _parse_property(title, value);
      }
    printf("----------------------------------------------------------------------------------------------------------\n");
 

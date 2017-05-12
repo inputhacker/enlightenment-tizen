@@ -919,7 +919,7 @@ _get_win_prop_Transform(const Evas_Object *evas_obj)
    int i, count;
 
    ec = evas_object_data_get(evas_obj, "E_Client");
-   count = e_client_transform_core_transform_count_get(ec);
+   count = e_client_transform_core_transform_count_get((E_Client *)ec);
 
    astrcat_(&str, "transform count: %d\n", count);
 
@@ -936,7 +936,7 @@ _get_win_prop_Transform(const Evas_Object *evas_obj)
         int vx = 0, vy = 0, vw = 0, vh = 0;
         E_Util_Transform *transform = NULL;
 
-        transform = e_client_transform_core_transform_get(ec, i);
+        transform = e_client_transform_core_transform_get((E_Client *)ec, i);
         if (!transform) continue;
 
         e_util_transform_move_round_get(transform, &x, &y, NULL);
@@ -987,6 +987,9 @@ _get_win_prop_Subsurface_Below_Child_List(const Evas_Object *evas_obj)
    cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    list = cdata->sub.below_list;
 
+   if (!list)
+     return strdup("None");
+
    EINA_LIST_FOREACH(list, l, child)
      astrcat_(&str, "0x%x, ", e_client_util_win_get(child));
 
@@ -1015,6 +1018,9 @@ _get_win_prop_Subsurface_Child_List(const Evas_Object *evas_obj)
 
    cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    list = cdata->sub.list;
+
+   if (!list)
+     return strdup("None");
 
    EINA_LIST_FOREACH(list, l, child)
      astrcat_(&str, "0x%x, ", e_client_util_win_get(child));
@@ -1062,6 +1068,9 @@ _get_win_prop_Aux_Hint(const Evas_Object *evas_obj)
      return strdup("None");
 
    cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+
+   if (!cdata->aux_hint.hints)
+     return strdup("None");
 
    EINA_LIST_FOREACH(cdata->aux_hint.hints, l, hint)
      astrcat_(&str, "[%d][%s][%s]\n", hint->id, hint->hint, hint->val);
