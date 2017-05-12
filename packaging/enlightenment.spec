@@ -49,6 +49,7 @@ BuildRequires:  pkgconfig(capi-system-device)
 BuildRequires:  pkgconfig(tzsh-server)
 BuildRequires:  pkgconfig(cynara-client)
 BuildRequires:  pkgconfig(cynara-creds-socket)
+BuildRequires:  pkgconfig(libsmack)
 Requires:       libwayland-extension-server
 %if "%{LIBGOMP}" == "use"
 Requires:       libgomp

@@ -476,7 +476,7 @@ PKG_CHECK_MODULES([CAPI_SYSTEM_DEVICE],
                   [capi-system-device])
 #cynara
 PKG_CHECK_MODULES(CYNARA,
-                  [cynara-client, cynara-creds-socket, cynara-session],
+                  [cynara-client, cynara-creds-socket, cynara-session, libsmack],
                   [have_cynara="yes"], [have_cynara="no"])
 if test "x${have_cynara}" = "xyes"; then
     AC_DEFINE([HAVE_CYNARA], [1], [Define to 1 if you have cynara])

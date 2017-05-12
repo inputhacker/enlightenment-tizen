@@ -690,6 +690,15 @@ main(int argc, char **argv)
    TS("E_Process Init Done");
    _e_main_shutdown_push(e_process_shutdown);
 
+   TS("E_Security Init");
+   if (!e_security_init())
+     {
+        e_error_message_show(_("Enlightenment cannot setup security system!\n"));
+        _e_main_shutdown(-1);
+     }
+   TS("E_Security Init Done");
+   _e_main_shutdown_push(e_security_shutdown);
+
    TS("Load Modules");
    _e_main_modules_load(safe_mode);
    TS("Load Modules Done");
