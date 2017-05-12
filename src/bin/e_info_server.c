@@ -856,7 +856,7 @@ _astrcat(char **dst, const char *src)
                                     }                                \
                                   free(temp); })
 
-static inline const char*
+static const char*
 _get_win_prop_Rotation(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -910,7 +910,7 @@ fail:
    return NULL;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Transform(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -968,7 +968,7 @@ fail:
    return NULL;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Subsurface_Below_Child_List(const Evas_Object *evas_obj)
 {
    const E_Comp_Wl_Client_Data *cdata;
@@ -1000,7 +1000,7 @@ fail:
    return NULL;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Subsurface_Child_List(const Evas_Object *evas_obj)
 {
    const E_Comp_Wl_Client_Data *cdata;
@@ -1032,7 +1032,7 @@ fail:
    return NULL;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Subsurface_Parent(const Evas_Object *evas_obj)
 {
    const E_Comp_Wl_Client_Data *cdata;
@@ -1052,7 +1052,7 @@ _get_win_prop_Subsurface_Parent(const Evas_Object *evas_obj)
    return str;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Aux_Hint(const Evas_Object *evas_obj)
 {
    const E_Comp_Wl_Client_Data *cdata;
@@ -1082,7 +1082,7 @@ fail:
    return NULL;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Video_Client(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1096,7 +1096,7 @@ _get_win_prop_Video_Client(const Evas_Object *evas_obj)
    return str;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Ignore_first_unmap(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1110,7 +1110,7 @@ _get_win_prop_Ignore_first_unmap(const Evas_Object *evas_obj)
    return str;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Transformed(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1118,7 +1118,7 @@ _get_win_prop_Transformed(const Evas_Object *evas_obj)
    return ec->transformed ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Maximize_override(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1126,7 +1126,7 @@ _get_win_prop_Maximize_override(const Evas_Object *evas_obj)
    return ec->maximize_override ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_No_shape_cut(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1134,7 +1134,7 @@ _get_win_prop_No_shape_cut(const Evas_Object *evas_obj)
    return ec->no_shape_cut ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Ignored(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1142,7 +1142,7 @@ _get_win_prop_Ignored(const Evas_Object *evas_obj)
    return ec->ignored ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Layer_block(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1150,7 +1150,7 @@ _get_win_prop_Layer_block(const Evas_Object *evas_obj)
    return ec->layer_block ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Shape_changed(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1158,7 +1158,7 @@ _get_win_prop_Shape_changed(const Evas_Object *evas_obj)
    return ec->shape_changed ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Unredirected_single(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1166,7 +1166,7 @@ _get_win_prop_Unredirected_single(const Evas_Object *evas_obj)
    return ec->unredirected_single ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Redirected(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1174,7 +1174,7 @@ _get_win_prop_Redirected(const Evas_Object *evas_obj)
    return ec->redirected ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Tooltip(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1182,7 +1182,7 @@ _get_win_prop_Tooltip(const Evas_Object *evas_obj)
    return ec->tooltip ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Dialog(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1190,7 +1190,7 @@ _get_win_prop_Dialog(const Evas_Object *evas_obj)
    return ec->dialog ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Input_only(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1198,7 +1198,7 @@ _get_win_prop_Input_only(const Evas_Object *evas_obj)
    return ec->input_only ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Override(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1206,7 +1206,7 @@ _get_win_prop_Override(const Evas_Object *evas_obj)
    return ec->override ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_E_Transient_Policy(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1220,7 +1220,7 @@ _get_win_prop_E_Transient_Policy(const Evas_Object *evas_obj)
    return str;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_E_FullScreen_Policy(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1234,7 +1234,7 @@ _get_win_prop_E_FullScreen_Policy(const Evas_Object *evas_obj)
    return str;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_E_Maximize_Policy(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1248,7 +1248,7 @@ _get_win_prop_E_Maximize_Policy(const Evas_Object *evas_obj)
    return str;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Want_focus(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1256,7 +1256,7 @@ _get_win_prop_Want_focus(const Evas_Object *evas_obj)
    return ec->want_focus ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Take_focus(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1264,7 +1264,7 @@ _get_win_prop_Take_focus(const Evas_Object *evas_obj)
    return ec->take_focus ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Re_manage(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1272,7 +1272,7 @@ _get_win_prop_Re_manage(const Evas_Object *evas_obj)
    return ec->re_manage ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Fullscreen(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1280,7 +1280,7 @@ _get_win_prop_Fullscreen(const Evas_Object *evas_obj)
    return ec->fullscreen ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Urgent(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1288,7 +1288,7 @@ _get_win_prop_Urgent(const Evas_Object *evas_obj)
    return ec->urgent ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Sticky(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1296,7 +1296,7 @@ _get_win_prop_Sticky(const Evas_Object *evas_obj)
    return ec->sticky ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Iconic(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1304,7 +1304,7 @@ _get_win_prop_Iconic(const Evas_Object *evas_obj)
    return ec->iconic ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Focused(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1312,7 +1312,7 @@ _get_win_prop_Focused(const Evas_Object *evas_obj)
    return ec->focused ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Moving(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1320,7 +1320,7 @@ _get_win_prop_Moving(const Evas_Object *evas_obj)
    return ec->moving ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Hidden(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1328,7 +1328,7 @@ _get_win_prop_Hidden(const Evas_Object *evas_obj)
    return ec->hidden ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _set_win_prop_Hidden(Evas_Object *evas_obj, const char *prop_value)
 {
    if(strstr(prop_value, "TRUE"))
@@ -1341,7 +1341,7 @@ _set_win_prop_Hidden(Evas_Object *evas_obj, const char *prop_value)
    return NULL;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_32bit(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1349,7 +1349,7 @@ _get_win_prop_32bit(const Evas_Object *evas_obj)
    return ec->argb ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Visible(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1357,7 +1357,7 @@ _get_win_prop_Visible(const Evas_Object *evas_obj)
    return ec->visible ? strdup("TRUE") : strdup("FALSE");
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Layer(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1374,7 +1374,7 @@ _get_win_prop_Layer(const Evas_Object *evas_obj)
    return str;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Shape_input(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1397,7 +1397,7 @@ fail:
    return NULL;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Shape_rects(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1420,7 +1420,7 @@ fail:
    return NULL;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Transients(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1444,7 +1444,7 @@ fail:
    return NULL;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_ParentWindowID(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1461,7 +1461,7 @@ _get_win_prop_ParentWindowID(const Evas_Object *evas_obj)
    return str;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Geometry(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1475,7 +1475,7 @@ _get_win_prop_Geometry(const Evas_Object *evas_obj)
    return str;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Role(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1489,7 +1489,7 @@ _get_win_prop_Role(const Evas_Object *evas_obj)
    return str;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Window_Name(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1503,7 +1503,7 @@ _get_win_prop_Window_Name(const Evas_Object *evas_obj)
    return str;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_ResourceID(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1520,7 +1520,7 @@ _get_win_prop_ResourceID(const Evas_Object *evas_obj)
    return str;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_PID(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1542,7 +1542,7 @@ _get_win_prop_PID(const Evas_Object *evas_obj)
    return str;
 }
 
-static inline const char*
+static const char*
 _get_win_prop_Window_ID(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
