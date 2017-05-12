@@ -1,0 +1,13 @@
+#ifdef E_TYPEDEFS
+#else
+#ifndef E_PRIVILEGE_H
+#define E_PRIVILEGE_H
+
+extern EINTERN const char *E_PRIVILEGE_NOTIFICATION_LEVEL_SET;
+extern EINTERN const char *E_PRIVILEGE_SCREEN_MODE_SET;
+extern EINTERN const char *E_PRIVILEGE_BRIGHTNESS_SET;
+extern EINTERN const char *E_PRIVILEGE_DATA_ONLY_SET;
+extern EINTERN const char *E_PRIVILEGE_KEYGRAB_SET;
+
+#endif
+#endif
