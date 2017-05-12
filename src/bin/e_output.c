@@ -587,7 +587,7 @@ e_output_best_mode_find(E_Output *output)
   if (!output->info.connected)
      {
         ERR("output is not connected.");
-        return EINA_FALSE;
+        return NULL;
      }
 
    EINA_LIST_FOREACH(output->info.modes, l, mode)
