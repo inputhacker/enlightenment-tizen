@@ -1071,8 +1071,8 @@ _e_comp_wl_evas_cb_mouse_out(void *data, Evas *evas EINA_UNUSED, Evas_Object *ob
         _e_comp_wl_device_send_last_event_device(ec, ECORE_DEVICE_CLASS_MOUSE, ev->timestamp);
 
         wl_pointer_send_leave(res, serial, ec->comp_data->surface);
-        ec->pointer_enter_sent = EINA_FALSE;
      }
+   ec->pointer_enter_sent = EINA_FALSE;
 }
 
 static void
