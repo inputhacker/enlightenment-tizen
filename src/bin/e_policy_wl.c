@@ -16,17 +16,6 @@
 #include <tizen-launch-server-protocol.h>
 #include <tzsh_server.h>
 
-#ifdef HAVE_CYNARA
-# include <cynara-session.h>
-# include <cynara-client.h>
-# include <cynara-creds-socket.h>
-#endif
-
-#define PRIVILEGE_NOTIFICATION_LEVEL_SET "http://tizen.org/privilege/window.priority.set"
-#define PRIVILEGE_SCREEN_MODE_SET "http://tizen.org/privilege/display"
-#define PRIVILEGE_BRIGHTNESS_SET "http://tizen.org/privilege/display"
-#define PRIVILEGE_DATA_ONLY_SET "http://tizen.org/privilege/force.selection"
-
 #define APP_DEFINE_GROUP_NAME "effect"
 
 typedef enum _Tzsh_Srv_Role
@@ -234,9 +223,6 @@ typedef struct _E_Policy_Wl
    /* tizen_launch_effect_interface */
    Eina_List       *tzlaunch_effect;        /* list of E_Policy_Wl_Tzlaunch_Effect */
    Eina_List       *tzlaunch_effect_info;  /* list of E_Policy_Wl_Tzlaunch_Effect_Info */
-#ifdef HAVE_CYNARA
-   cynara          *p_cynara;
-#endif
 
    /* tizen_ws_shell_interface ver_2 */
    Eina_List       *tzsh_extensions;           /* list of E_Policy_Wl_Tzsh_Extension */
@@ -1774,91 +1760,6 @@ _tzpol_iface_cb_conformant_get(struct wl_client *client EINA_UNUSED, struct wl_r
 // --------------------------------------------------------
 // notification level
 // --------------------------------------------------------
-#define SMACK_LABEL_LEN 255
-#define PATH_MAX_LEN 64
-
-#ifdef HAVE_CYNARA
-static void
-_e_policy_wl_smack_label_direct_read(int pid, char **client)
-{
-   int ret;
-   int fd = -1;
-   char smack_label[SMACK_LABEL_LEN +1];
-   char path[PATH_MAX_LEN + 1];
-
-   bzero(smack_label, SMACK_LABEL_LEN + 1);
-   bzero(path, PATH_MAX_LEN + 1);
-   snprintf(path, PATH_MAX_LEN, "/proc/%d/attr/current", pid);
-   fd = open(path, O_RDONLY);
-   if (fd == -1) return;
-
-   ret = read(fd, smack_label, SMACK_LABEL_LEN);
-   close(fd);
-   if (ret < 0) return;
-
-   *client = calloc(SMACK_LABEL_LEN + 1, sizeof(char));
-   strncpy(*client, smack_label, SMACK_LABEL_LEN + 1);
-}
-#endif
-
-static Eina_Bool
-_e_policy_wl_privilege_check(int fd, const char *privilege)
-{
-#ifdef HAVE_CYNARA
-   char *client = NULL, *user = NULL, *client_session = NULL;
-   pid_t pid = 0;
-   int ret = -1;
-   Eina_Bool res = EINA_FALSE;
-
-   if ((!polwl->p_cynara))
-     {
-        ELOGF("TZPOL",
-              "Cynara is not initialized. DENY all requests", NULL, NULL);
-        return EINA_FALSE;
-     }
-
-   ret = cynara_creds_socket_get_user(fd, USER_METHOD_DEFAULT, &user);
-   if (ret != CYNARA_API_SUCCESS) goto cynara_finished;
-
-   ret = cynara_creds_socket_get_pid(fd, &pid);
-   if (ret != CYNARA_API_SUCCESS) goto cynara_finished;
-
-   client_session = cynara_session_from_pid(pid);
-   if (!client_session) goto cynara_finished;
-
-   /* Temporary fix for mis matching socket smack label
-    * ret = cynara_creds_socket_get_client(fd, CLIENT_METHOD_DEFAULT, &client);
-    * if (ret != CYNARA_API_SUCCESS) goto cynara_finished; 
-    */
-   _e_policy_wl_smack_label_direct_read(pid, &client);
-   if (!client) goto cynara_finished;
-
-   ret = cynara_check(polwl->p_cynara,
-                      client,
-                      client_session,
-                      user,
-                      privilege);
-
-   if (ret == CYNARA_API_ACCESS_ALLOWED)
-     res = EINA_TRUE;
-
-cynara_finished:
-   ELOGF("TZPOL",
-         "Privilege Check For %s %s fd:%d client:%s user:%s pid:%u client_session:%s ret:%d",
-         NULL, NULL,
-         privilege, res?"SUCCESS":"FAIL",
-         fd, client?:"N/A", user?:"N/A", pid, client_session?:"N/A", ret);
-
-   if (client_session) free(client_session);
-   if (user) free(user);
-   if (client) free(client);
-
-   return res;
-#else
-   return EINA_TRUE;
-#endif
-}
-
 static void
 _tzpol_notilv_set(E_Client *ec, int lv)
 {
@@ -1890,7 +1791,9 @@ _tzpol_iface_cb_notilv_set(struct wl_client *client, struct wl_resource *res_tzp
 {
    E_Client *ec;
    E_Policy_Wl_Surface *psurf;
-   int fd;
+   pid_t pid = 0;
+   uid_t uid = 0;
+   Eina_Bool res;
 
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
@@ -1898,8 +1801,10 @@ _tzpol_iface_cb_notilv_set(struct wl_client *client, struct wl_resource *res_tzp
    psurf = _e_policy_wl_surf_add(ec, res_tzpol);
    EINA_SAFETY_ON_NULL_RETURN(psurf);
 
-   fd = wl_client_get_fd(client);
-   if (!_e_policy_wl_privilege_check(fd, PRIVILEGE_NOTIFICATION_LEVEL_SET))
+   wl_client_get_credentials(client, &pid, &uid, NULL);
+   res = e_security_privilege_check(pid, uid,
+                                    E_PRIVILEGE_NOTIFICATION_LEVEL_SET);
+   if (!res)
      {
         ELOGF("TZPOL",
               "Privilege Check Failed! DENY set_notification_level",
@@ -2048,16 +1953,20 @@ _tzpol_iface_cb_transient_for_unset(struct wl_client *client EINA_UNUSED, struct
 // window screen mode
 // --------------------------------------------------------
 static void
-_tzpol_iface_cb_win_scrmode_set(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol, struct wl_resource *surf, uint32_t mode)
+_tzpol_iface_cb_win_scrmode_set(struct wl_client *client, struct wl_resource *res_tzpol, struct wl_resource *surf, uint32_t mode)
 {
    E_Client *ec;
-   int fd;
+   pid_t pid = 0;
+   uid_t uid = 0;
+   Eina_Bool res;
 
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   fd = wl_client_get_fd(client);
-   if (!_e_policy_wl_privilege_check(fd, PRIVILEGE_SCREEN_MODE_SET))
+   wl_client_get_credentials(client, &pid, &uid, NULL);
+   res = e_security_privilege_check(pid, uid,
+                                    E_PRIVILEGE_SCREEN_MODE_SET);
+   if (!res)
      {
         ELOGF("TZPOL",
               "Privilege Check Failed! DENY set_screen_mode",
@@ -3110,7 +3019,9 @@ _tz_dpy_pol_iface_cb_brightness_set(struct wl_client *client, struct wl_resource
 {
    E_Client *ec;
    E_Policy_Wl_Dpy_Surface *dpy_surf;
-   int fd;
+   pid_t pid = 0;
+   uid_t uid = 0;
+   Eina_Bool res;
 
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
@@ -3118,8 +3029,10 @@ _tz_dpy_pol_iface_cb_brightness_set(struct wl_client *client, struct wl_resource
    dpy_surf = _e_policy_wl_dpy_surf_add(ec, res_tz_dpy_pol);
    EINA_SAFETY_ON_NULL_RETURN(dpy_surf);
 
-   fd = wl_client_get_fd(client);
-   if (!_e_policy_wl_privilege_check(fd, PRIVILEGE_BRIGHTNESS_SET))
+   wl_client_get_credentials(client, &pid, &uid, NULL);
+   res = e_security_privilege_check(pid, uid,
+                                    E_PRIVILEGE_BRIGHTNESS_SET);
+   if (!res)
      {
         ELOGF("TZ_DPY_POL",
               "Privilege Check Failed! DENY set_brightness",
@@ -6494,15 +6407,16 @@ _tz_clipboard_cb_hide(struct wl_client *client EINA_UNUSED, struct wl_resource *
 }
 
 static void
-_tz_clipboard_cb_data_only_set(struct wl_client *wc, struct wl_resource *res_tz_clipboard, uint32_t set)
+_tz_clipboard_cb_data_only_set(struct wl_client *client, struct wl_resource *res_tz_clipboard, uint32_t set)
 {
    E_Policy_Wl_Tz_Clipboard *tz_clipboard = NULL;
    struct wl_client *_wc;
    struct wl_resource *data_res;
    pid_t pid = 0;
+   uid_t uid = 0;
+   Eina_Bool res;
    Eina_List *clients;
    E_Client *ec, *found = NULL;
-   int fd;
 
    tz_clipboard = wl_resource_get_user_data(res_tz_clipboard);
    EINA_SAFETY_ON_NULL_RETURN(tz_clipboard);
@@ -6512,16 +6426,16 @@ _tz_clipboard_cb_data_only_set(struct wl_client *wc, struct wl_resource *res_tz_
         ELOGF("TZPOL",
               "Unable to set data only mode for wl_client(%p) : "
               "ec_list exists",
-              NULL, NULL, wc);
+              NULL, NULL, client);
         goto send_deny;
      }
 
-   if (!(data_res = e_comp_wl_data_find_for_client(wc)))
+   if (!(data_res = e_comp_wl_data_find_for_client(client)))
      {
         ELOGF("TZPOL",
               "Unable to set data only mode for wl_client(%p) : "
               "no wl_data_device resource",
-              NULL, NULL, wc);
+              NULL, NULL, client);
         goto send_deny;
      }
 
@@ -6534,7 +6448,7 @@ _tz_clipboard_cb_data_only_set(struct wl_client *wc, struct wl_resource *res_tz_
              if (ec->comp_data && ec->comp_data->surface)
                {
                   _wc = wl_resource_get_client(ec->comp_data->surface);
-                  if (_wc== wc)
+                  if (_wc == client)
                     found = ec;
                }
           }
@@ -6545,13 +6459,15 @@ _tz_clipboard_cb_data_only_set(struct wl_client *wc, struct wl_resource *res_tz_
         ELOGF("TZPOL",
               "Unable to set data only mode for wl_client(%p) : "
               "have ec(%p)",
-              NULL, NULL, wc, ec);
+              NULL, NULL, client, ec);
         goto send_deny;
      }
 
    /* Privilege Check */
-   fd = wl_client_get_fd(wc);
-   if (!_e_policy_wl_privilege_check(fd, PRIVILEGE_DATA_ONLY_SET))
+   wl_client_get_credentials(client, &pid, &uid, NULL);
+   res = e_security_privilege_check(pid, uid,
+                                    E_PRIVILEGE_DATA_ONLY_SET);
+   if (!res)
      {
         ELOGF("TZPOL",
               "Privilege Check Failed! DENY data_only_set",
@@ -6561,7 +6477,7 @@ _tz_clipboard_cb_data_only_set(struct wl_client *wc, struct wl_resource *res_tz_
 
    ELOGF("TZPOL",
          "Set data only mode :%d for wl_client(%p)",
-         NULL, NULL, set, wc);
+         NULL, NULL, set, client);
    e_comp_wl_data_device_only_set(data_res, !(set == 0));
    tizen_clipboard_send_allowed_data_only(res_tz_clipboard, (uint32_t)1);
    return;
@@ -6882,11 +6798,6 @@ e_policy_wl_init(void)
 
    polwl->tzpols = eina_hash_pointer_new(_e_policy_wl_tzpol_del);
 
-#ifdef HAVE_CYNARA
-   if (cynara_initialize(&polwl->p_cynara, NULL) != CYNARA_API_SUCCESS)
-     ERR("cynara_initialize failed.");
-#endif
-
    E_COMP_OBJECT_INTERCEPT_HOOK_APPEND(hooks_co, E_COMP_OBJECT_INTERCEPT_HOOK_SHOW_HELPER, _e_policy_wl_cb_hook_intercept_show_helper, NULL);
 
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREENSAVER_ON,  _e_policy_wl_cb_scrsaver_on,  NULL);
@@ -6974,11 +6885,6 @@ e_policy_wl_shutdown(void)
      wl_global_destroy(global);
 
    E_FREE_FUNC(polwl->tzpols, eina_hash_free);
-
-#ifdef HAVE_CYNARA
-   if (polwl->p_cynara)
-     cynara_finish(polwl->p_cynara);
-#endif
 
    E_FREE(polwl);
 }
