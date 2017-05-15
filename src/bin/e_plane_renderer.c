@@ -1811,13 +1811,38 @@ e_plane_renderer_client_renderer_get(E_Plane_Renderer_Client *renderer_client)
 EINTERN tbm_surface_queue_h
 e_plane_renderer_surface_queue_create(E_Plane_Renderer *renderer, int width, int height, unsigned int buffer_flags)
 {
+   E_Plane *plane = NULL;
    tbm_surface_queue_h tqueue = NULL;
    int format = TBM_FORMAT_ARGB8888;
-   int queue_size = 3; /* query tdm ????? */
+   tdm_error error;
+   const tdm_prop *props;
+   int i, count;
+   int buffer_count = 3;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, NULL);
 
-   tqueue = tbm_surface_queue_create(queue_size, width, height, format, buffer_flags);
+   plane = renderer->plane;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
+
+   error = tdm_layer_get_available_properties(plane->tlayer, &props, &count);
+   if (error == TDM_ERROR_NONE)
+     {
+        for (i = 0; i < count; i++)
+          {
+              tdm_value value;
+
+              if (strncmp(props[i].name, "reserved-buffer-count", TDM_NAME_LEN))
+                continue;
+
+              error = tdm_layer_get_property(plane->tlayer, props[i].id, &value);
+              if (error == TDM_ERROR_NONE)
+                buffer_count = value.u32;
+
+              break;
+          }
+     }
+
+   tqueue = tbm_surface_queue_create(buffer_count, width, height, format, buffer_flags);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(tqueue, NULL);
 
    return tqueue;
