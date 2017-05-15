@@ -1321,14 +1321,6 @@ _get_win_prop_Moving(const Evas_Object *evas_obj)
 }
 
 static const char*
-_get_win_prop_Hidden(const Evas_Object *evas_obj)
-{
-   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
-
-   return ec->hidden ? strdup("TRUE") : strdup("FALSE");
-}
-
-static const char*
 _set_win_prop_Hidden(Evas_Object *evas_obj, const char *prop_value)
 {
    if(strstr(prop_value, "TRUE"))
@@ -1339,6 +1331,14 @@ _set_win_prop_Hidden(Evas_Object *evas_obj, const char *prop_value)
      return strdup("invalid property value");
 
    return NULL;
+}
+
+static const char*
+_get_win_prop_Hidden(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->hidden ? strdup("TRUE") : strdup("FALSE");
 }
 
 static const char*
@@ -1462,6 +1462,20 @@ _get_win_prop_ParentWindowID(const Evas_Object *evas_obj)
 }
 
 static const char*
+_set_win_prop_Geometry(Evas_Object *evas_obj, const char *prop_value)
+{
+   int x = -1, y = -1, w = -1, h = -1;
+
+   sscanf(prop_value, "%d, %d %dx%d", &x, &y, &w, &h);
+   if (x < 0 || y < 0 || w <= 0 || h <= 0)
+     return strdup("invalid property value");
+
+   evas_object_geometry_set(evas_obj, x, y, w, h);
+
+   return NULL;
+}
+
+static const char*
 _get_win_prop_Geometry(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1469,7 +1483,7 @@ _get_win_prop_Geometry(const Evas_Object *evas_obj)
 
    ec = evas_object_data_get(evas_obj, "E_Client");
 
-   if (asprintf(&str, "[%d, %d, %d, %d]", ec->x, ec->y, ec->w, ec->h) < 0)
+   if (asprintf(&str, "[%d, %d %dx%d]", ec->x, ec->y, ec->w, ec->h) < 0)
      return NULL;
 
    return str;
@@ -1616,7 +1630,7 @@ static struct property_manager
     {
         "Geometry",
         _get_win_prop_Geometry,
-        NULL
+        _set_win_prop_Geometry
     },
     {
         "ParentWindowID",
