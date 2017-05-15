@@ -1308,14 +1308,15 @@ _e_info_client_proc_dlog_switch(int argc, char **argv)
 #endif
 
 #define PROP_USAGE \
-   "win_id | -id win_id | -pid pid | -name \"win_name\" [property_name [property_value]]\n\n" \
+   "0x<win_id> | -id win_id | -pid pid | -name \"win_name\" [property_name [property_value]]\n" \
    "Example:\n" \
-   "\tenlightenment_info -prop 0xb88ffaa0          : Get all properties for specified window\n" \
+   "\tenlightenment_info -prop                     : Get all properties for a window specified via a touch\n" \
+   "\tenlightenment_info -prop Hidden              : Get the \"Hidden\" property for a window specified via a touch\n" \
    "\tenlightenment_info -prop 0xb88ffaa0 Layer    : Get the \"Layer\" property for specified window\n" \
    "\tenlightenment_info -prop 0xb88ffaa0 Hidden 1 : Set the \"Hidden\" property for specified window\n" \
    "\tenlightenment_info -prop -pid 2502 Hidden 0  : Set the \"Hidden\" property for all windows belonged to a process\n" \
    "\tenlightenment_info -prop -name err           : Get all properties for windows whose names contain an \"err\" substring\n" \
-   "\tenlightenment_info -prop -name \"\"          : Get all properties for all windows\n"
+   "\tenlightenment_info -prop -name \"\"            : Get all properties for all windows\n"
 
 /* property value can consist of several lines separated by '\n', which we got to print nicely */
 static void
@@ -1412,40 +1413,60 @@ _e_info_client_prop_prop_info(int argc, char **argv)
    uint32_t mode = 0;
    int simple_mode = 1;
 
-   if (argc < 3 || (argv[2][0] == '-' && argc < 4)) goto error;
+   Ecore_Window win;
+   char win_id[64] = {0, };
 
-   if (argv[2][0] == '-')
+   /* for a window specified via a touch */
+   /* TODO: what's about a property with "0x" as a substring? (e.g. kyky0xkyky) */
+   if (argc < 3 || (argv[2][0] != '-' && !strstr(argv[2], "0x")))
      {
-        if (!strcmp(argv[2], "-id")) mode = WINDOW_ID_MODE;
-        else if (!strcmp(argv[2], "-pid")) mode = WINDOW_PID_MODE;
-        else if (!strcmp(argv[2], "-name")) mode = WINDOW_NAME_MODE;
-        else goto error;
+        printf("Select the window whose property(ies) you wish to get/set\n");
+        if (_e_get_window_under_touch(&win))
+          {
+             printf("Error: cannot get window under touch\n");
+             return;
+          }
 
-        value = argv[3];
+        /* TODO: memory corruption */
+        snprintf(win_id, sizeof(win_id), "%lu", win);
 
-        simple_mode = 0;
-     }
-   else
-     {
         mode = WINDOW_ID_MODE;
-        value = argv[2];
-     }
+        value = win_id;
 
-   if (simple_mode)
-     {
-       if (argc >= 4)
-         {
-           if (argc > 4) property_value = argv[4];
-           property_name = argv[3];
-         }
+        if (argc > 2) property_name  = argv[2];
+        if (argc > 3) property_value = argv[3];
      }
    else
      {
-       if (argc >= 5)
-         {
-           if (argc > 5) property_value = argv[5];
-           property_name = argv[4];
-         }
+        if (argv[2][0] == '-' && argc < 4) goto error;
+
+        if (argv[2][0] == '-')
+          {
+             if (!strcmp(argv[2], "-id")) mode = WINDOW_ID_MODE;
+             else if (!strcmp(argv[2], "-pid")) mode = WINDOW_PID_MODE;
+             else if (!strcmp(argv[2], "-name")) mode = WINDOW_NAME_MODE;
+             else goto error;
+
+             value = argv[3];
+
+             simple_mode = 0;
+          }
+        else
+          {
+             mode = WINDOW_ID_MODE;
+             value = argv[2];
+          }
+
+        if (simple_mode)
+          {
+             if (argc > 3) property_name  = argv[3];
+             if (argc > 4) property_value = argv[4];
+          }
+        else
+          {
+             if (argc > 4) property_name  = argv[4];
+             if (argc > 5) property_value = argv[5];
+          }
      }
 
    /* all checks about win_id/pid/win_name, property_name, property_value sanity are performed on server side,
@@ -1457,7 +1478,8 @@ _e_info_client_prop_prop_info(int argc, char **argv)
    return;
 
 error:
-   printf("Error Check Args: enlightenment_info -prop win_id [property_name [property_value]]\n"
+   printf("Error Check Args: enlightenment_info -prop [property_name [property_value]]\n"
+          "                  enlightenment_info -prop 0x<win_id> [property_name [property_value]]\n"
           "                  enlightenment_info -prop -id win_id [property_name [property_value]]\n"
           "                  enlightenment_info -prop -pid pid [property_name [property_value]]\n"
           "                  enlightenment_info -prop -name win_name [property_name [property_value]]\n");
@@ -3528,7 +3550,7 @@ static struct
    {
       "prop",
       PROP_USAGE,
-      "Get/set window property(ies)",
+      "Get/set window(s) property(ies)",
       _e_info_client_prop_prop_info
    },
    {
