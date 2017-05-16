@@ -1847,8 +1847,6 @@ _msg_fill_out_window_props(const Eldbus_Message *msg, Eldbus_Message_Iter *iter,
    Eldbus_Message_Iter* struct_of_ec;
    int idx;
 
-   __WINDOW_PROP_ARG_APPEND("[WINDOW PROP]", "[WINDOW PROP]");
-
    /* accordingly to -prop option rules (if user's provided some property name) */
    if (strlen(property_name))
      {
@@ -1881,7 +1879,7 @@ _msg_fill_out_window_props(const Eldbus_Message *msg, Eldbus_Message_Iter *iter,
                return eldbus_message_error_new(msg, FAIL_TO_SET_PROPERTY,
                        "get_window_prop: this property isn't setable");
           }
-        else
+        else /* if wanna get property */
           {
              if (win_properties[idx].get_prop)
                {
@@ -1899,8 +1897,12 @@ _msg_fill_out_window_props(const Eldbus_Message *msg, Eldbus_Message_Iter *iter,
                        "get_window_prop: this property isn't getable");
           }
      }
-   else
+   else /* if user wanna get all properties */
      {
+       /* to improve readability, if user wanna get properties for several windows, some
+        * delimiter being used */
+        __WINDOW_PROP_ARG_APPEND("delimiter", "");
+
         for (idx = 0; idx < win_property_size; ++idx)
           {
              if (win_properties[idx].get_prop)
@@ -1922,6 +1924,7 @@ _msg_fill_out_window_props(const Eldbus_Message *msg, Eldbus_Message_Iter *iter,
 #undef __WINDOW_PROP_ARG_APPEND
 }
 
+/* create the reply message and look for window(s) an user wanna get/set property(ies) for */
 static Eldbus_Message *
 _msg_window_prop_append(const Eldbus_Message *msg, uint32_t mode, const char *value,
         const char *property_name, const char *property_value)
@@ -1967,6 +1970,8 @@ _msg_window_prop_append(const Eldbus_Message *msg, uint32_t mode, const char *va
      {
         ec = evas_object_data_get(o, "E_Client");
         if (!ec) continue;
+
+        /* here we're dealing with evas objects which are e_client */
 
         if (mode == WINDOW_ID_MODE)
           {

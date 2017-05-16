@@ -1310,13 +1310,14 @@ _e_info_client_proc_dlog_switch(int argc, char **argv)
 #define PROP_USAGE \
    "0x<win_id> | -id win_id | -pid pid | -name \"win_name\" [property_name [property_value]]\n" \
    "Example:\n" \
-   "\tenlightenment_info -prop                     : Get all properties for a window specified via a touch\n" \
-   "\tenlightenment_info -prop Hidden              : Get the \"Hidden\" property for a window specified via a touch\n" \
-   "\tenlightenment_info -prop 0xb88ffaa0 Layer    : Get the \"Layer\" property for specified window\n" \
-   "\tenlightenment_info -prop 0xb88ffaa0 Hidden 1 : Set the \"Hidden\" property for specified window\n" \
-   "\tenlightenment_info -prop -pid 2502 Hidden 0  : Set the \"Hidden\" property for all windows belonged to a process\n" \
-   "\tenlightenment_info -prop -name err           : Get all properties for windows whose names contain an \"err\" substring\n" \
-   "\tenlightenment_info -prop -name \"\"            : Get all properties for all windows\n"
+   "\tenlightenment_info -prop                        : Get all properties for a window specified via a touch\n" \
+   "\tenlightenment_info -prop Hidden                 : Get the \"Hidden\" property for a window specified via a touch\n" \
+   "\tenlightenment_info -prop 0xb88ffaa0 Layer       : Get the \"Layer\" property for specified window\n" \
+   "\tenlightenment_info -prop 0xb88ffaa0 Hidden TRUE : Set the \"Hidden\" property for specified window\n" \
+   "\tenlightenment_info -prop -pid 2502 Hidden FALSE : Set the \"Hidden\" property for all windows belonged to a process\n" \
+   "\tenlightenment_info -prop -name err              : Get all properties for windows whose names contain an \"err\" substring\n" \
+   "\tenlightenment_info -prop -name \"\"               : Get all properties for all windows\n" \
+   "\tenlightenment_info -prop -name \"\" Hidden TRUE   : Set the \"Hidden\" property for all windows\n"
 
 /* property value can consist of several lines separated by '\n', which we got to print nicely */
 static void
@@ -1324,7 +1325,7 @@ _parse_property(const char *prop_name, const char *prop_value)
 {
    char *begin, *end;	/* current line */
 
-   /* process a simple case */
+   /* process a single line property value */
    if (!strchr(prop_value, '\n'))
      {
         printf("%27s : %s\n", prop_name, prop_value);
@@ -1361,6 +1362,7 @@ _cb_window_prop_get(const Eldbus_Message *msg)
    const char *name = NULL, *text = NULL;
    Eldbus_Message_Iter *array, *ec;
    Eina_Bool res;
+   int first_delimiter = 1;
 
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
@@ -1368,7 +1370,6 @@ _cb_window_prop_get(const Eldbus_Message *msg)
    res = eldbus_message_arguments_get(msg, "a(ss)", &array);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
 
-   printf("--------------------------------------[ window prop ]-----------------------------------------------------\n");
    while (eldbus_message_iter_get_and_next(array, 'r', &ec))
      {
         const char *title = NULL;
@@ -1384,12 +1385,16 @@ _cb_window_prop_get(const Eldbus_Message *msg)
              continue;
           }
 
-        if (title && !strncmp(title, "[WINDOW PROP]", sizeof("[WINDOW PROP]")))
-          printf("---------------------------------------------------------------------------------------------------------\n");
+        if (title && !strncmp(title, "delimiter", sizeof("delimiter")))
+          {
+             if (first_delimiter)
+               first_delimiter = 0;
+             else
+               printf("---------------------------------------------------------------------------------------------------------\n");
+          }
         else
           _parse_property(title, value);
      }
-   printf("----------------------------------------------------------------------------------------------------------\n");
 
    return;
 
