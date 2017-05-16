@@ -293,6 +293,58 @@ _e_get_window_name(uint64_t win)
    return win_name;
 }
 
+static void
+_e_message_get_windows(void *data, const Eldbus_Message *msg, Eldbus_Pending *p EINA_UNUSED)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   Eldbus_Message_Iter *array_of_windows;
+   uint64_t win;
+   Eina_List **win_list = data;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "at", &array_of_windows);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   while (eldbus_message_iter_get_and_next(array_of_windows, 't', &win))
+     {
+        *win_list = eina_list_append(*win_list, (void *)((Ecore_Window)win));
+     }
+
+   ecore_main_loop_quit();
+
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+
+   ecore_main_loop_quit();
+}
+
+const static int _E_GET_WINDOWS_NAME_MODE = 1;
+const static int _E_GET_WINDOWS_PID_MODE = 2;
+
+static Eina_List *
+_e_get_windows(int mode, char *value)
+{
+   Eldbus_Pending *p;
+   Eina_List *win_list = NULL;
+
+   p = eldbus_proxy_call(e_info_client.proxy, "get_windows",
+                         _e_message_get_windows,
+                         &win_list, -1, "is", mode, value);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(p, NULL);
+
+   ecore_main_loop_begin();
+
+   return win_list;
+}
+
 static E_Win_Info *
 _e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int opaque, const char *name, int x, int y, int w, int h, int layer, int visible, int visibility, int iconic, int frame_visible, int focused, int hwc, int pl_zpos, Ecore_Window parent_id, const char *layer_name)
 {
@@ -2828,6 +2880,8 @@ usage:
    printf("Usage: enlightenment_info %s", KILL_USAGE);
 }
 
+static int window_id_format_dec;
+
 static void
 _e_info_client_cb_wininfo(const Eldbus_Message *msg)
 {
@@ -2869,8 +2923,12 @@ _e_info_client_cb_wininfo(const Eldbus_Message *msg)
                                       &redirected);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
 
-   printf("\n   Parent id: 0x%lx\n"
-          "   Resource id: %u\n"
+   if (window_id_format_dec)
+     printf("\n   Parent id: %lu\n", (unsigned long)parent_id);
+   else
+     printf("\n   Parent id: 0x%lx\n", (unsigned long)parent_id);
+
+   printf("   Resource id: %u\n"
           "   PID: %d\n"
           "   X: %d\n"
           "   Y: %d\n"
@@ -2886,7 +2944,7 @@ _e_info_client_cb_wininfo(const Eldbus_Message *msg)
           "   Frame visible: %d\n"
           "   Redirect State: %s\n"
           "   Layer name: %s\n",
-          (unsigned long)parent_id, res_id, pid, x, y, w, h, border_size, alpha ? 32 : 24,
+          res_id, pid, x, y, w, h, border_size, alpha ? 32 : 24,
           focused, opaque, obscured, iconic, visible ? "Visible" : "Not visible",
           frame_visible, redirected ? "yes" : "no", layer_name);
    printf("   PL@ZPos:");
@@ -2933,7 +2991,11 @@ _e_info_client_cb_wininfo_tree(const Eldbus_Message *msg)
                                       &pwin, &pname, &num_children, &array_of_children);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
 
-   printf("\n   Parent window id: 0x%lx \"%s\"\n", (unsigned long)pwin, pname);
+   if (window_id_format_dec)
+     printf("\n   Parent window id: %lu \"%s\"\n", (unsigned long)pwin, pname);
+   else
+     printf("\n   Parent window id: 0x%lx \"%s\"\n", (unsigned long)pwin, pname);
+
    printf ("      %d child%s%s\n", num_children, num_children == 1 ? "" : "ren",
       num_children ? ":" : ".");
 
@@ -2952,7 +3014,10 @@ _e_info_client_cb_wininfo_tree(const Eldbus_Message *msg)
         EINA_SAFETY_ON_FALSE_GOTO(res, finish);
 
         for (j = 0; j <= level; j++) printf ("   ");
-        printf("0x%lx \"%s\":", (unsigned long)child_win, child_name);
+        if (window_id_format_dec)
+          printf("%lu \"%s\":", (unsigned long)child_win, child_name);
+        else
+          printf("0x%lx \"%s\":", (unsigned long)child_win, child_name);
         printf (" %dx%d+%d+%d", w, h, x, y);
         if (hwc > 0) printf(" hwc@%i", pl_zpos);
         else if (!hwc) printf(" comp@%i", pl_zpos);
@@ -2974,14 +3039,56 @@ finish:
      }
 }
 
+static Eina_Bool
+_e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats)
+{
+   Eina_Bool res;
+   char *win_name;
+
+   win_name = _e_get_window_name(win);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(win_name, EINA_FALSE);
+
+   if (window_id_format_dec)
+     printf("\nwininfo: Window id: %lu \"%s\"\n", (unsigned long)win, win_name);
+   else
+     printf("\nwininfo: Window id: 0x%lx \"%s\"\n", (unsigned long)win, win_name);
+
+   free(win_name);
+
+   if ((children || tree))
+     {
+        res = _e_info_client_eldbus_message_with_args("wininfo_tree",
+                                                      _e_info_client_cb_wininfo_tree,
+                                                      VALUE_TYPE_REQUEST_FOR_WININFO_TREE,
+                                                      win, tree);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
+     }
+   else
+     stats = 1;
+
+   if (stats)
+     {
+        res = _e_info_client_eldbus_message_with_args("wininfo",
+                                                      _e_info_client_cb_wininfo,
+                                                      VALUE_TYPE_REQUEST_FOR_WININFO,
+                                                      win);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
+     }
+
+   return EINA_TRUE;
+}
+
 #define WININFO_USAGE \
   "[-options ...]\n\n" \
   "where options include:\n" \
-  "\t-help        : print this message.\n" \
-  "\t-children    : print parent and child identifiers.\n" \
-  "\t-tree        : print children identifiers recursively.\n" \
-  "\t-stats       : print window geometry [DEFAULT]\n" \
-  "\t-id windowid : use the window with the specified id\n" \
+  "\t-help             : print this message.\n" \
+  "\t-children         : print parent and child identifiers.\n" \
+  "\t-tree             : print children identifiers recursively.\n" \
+  "\t-stats            : print window geometry [DEFAULT]\n" \
+  "\t-id windowid      : use the window with the specified id\n" \
+  "\t-name windowname  : use the window with the specified name\n" \
+  "\t-pid windowpid    : use the window with the specified id\n" \
+  "\t-int              : print window id in decimal\n" \
 
 static void
 _e_info_client_proc_wininfo(int argc, char **argv)
@@ -2989,48 +3096,99 @@ _e_info_client_proc_wininfo(int argc, char **argv)
    Eina_Bool res;
    uint64_t win = 0;
    int i, children = 0, tree = 0, stats = 0;
-   char *win_name;
+   char *name = NULL, *pid = NULL;
+   Eina_List *win_list = NULL, *l;
 
    /* Handle our command line arguments */
-   for (i = 2; i < argc; i++) {
-     if (eina_streq (argv[i], "-help"))
-       goto usage;
-     if (eina_streq (argv[i], "-children"))
-       {
-          children = 1;
-          continue;
-       }
-     if (eina_streq (argv[i], "-tree"))
-       {
-          tree = 1;
-          continue;
-       }
-     if (eina_streq (argv[i], "-stats"))
-       {
-          stats = 1;
-          continue;
-       }
-     if (eina_streq (argv[i], "-id"))
-       {
-          if (++i >= argc)
-            {
-               printf("Error: -id requires argument\n");
-               goto usage;
-            }
+   for (i = 2; i < argc; i++)
+     {
+        if (eina_streq(argv[i], "-help"))
+          goto usage;
 
-          if (strlen(argv[i]) >= 2 && argv[i][0] == '0' && argv[i][1] == 'x')
-            res = _util_string_to_ulong(argv[i], (unsigned long *)&win, 16);
-          else
-            res = _util_string_to_ulong(argv[i], (unsigned long *)&win, 10);
-          EINA_SAFETY_ON_FALSE_GOTO(res, usage);
+        if (eina_streq (argv[i], "-children"))
+          {
+             children = 1;
+             continue;
+          }
 
-          continue;
-      }
+        if (eina_streq(argv[i], "-tree"))
+          {
+             tree = 1;
+             continue;
+          }
 
-     goto usage;
-   }
+        if (eina_streq(argv[i], "-stats"))
+          {
+             stats = 1;
+             continue;
+          }
 
-   if (!win)
+        if (eina_streq(argv[i], "-id"))
+          {
+             if (++i >= argc || (argv[i][0] < '0' || argv[i][0] > '9'))
+               {
+                  printf("Error: -id requires argument\n");
+                  goto usage;
+               }
+
+             if (strlen(argv[i]) >= 2 && argv[i][0] == '0' && argv[i][1] == 'x')
+               res = _util_string_to_ulong(argv[i], (unsigned long *)&win, 16);
+             else
+               res = _util_string_to_ulong(argv[i], (unsigned long *)&win, 10);
+
+             EINA_SAFETY_ON_FALSE_GOTO(res, usage);
+
+             continue;
+          }
+
+        if (eina_streq(argv[i], "-name"))
+          {
+             if (++i >= argc)
+               {
+                  printf("Error: -name requires argument\n");
+                  goto usage;
+               }
+
+             name = argv[i];
+             continue;
+          }
+
+        if (eina_streq(argv[i], "-pid"))
+          {
+             if (++i >= argc || (argv[i][0] < '0' || argv[i][0] > '9'))
+               {
+                  printf("Error: -name requires argument\n");
+                  goto usage;
+               }
+
+             pid = argv[i];
+             continue;
+          }
+        if (eina_streq (argv[i], "-int"))
+          {
+             window_id_format_dec = 1;
+             continue;
+          }
+
+        goto usage;
+     }
+
+   if (!win && (name || pid))
+     {
+        if (name)
+          win_list = _e_get_windows(_E_GET_WINDOWS_NAME_MODE, name);
+        else
+          win_list = _e_get_windows(_E_GET_WINDOWS_PID_MODE, pid);
+
+        if (!win_list)
+          {
+             printf("Error: cannot get windows\n");
+             return;
+          }
+     }
+
+
+   if (!win && !win_list)
      {
         printf("Please select the window about which you\n"
                "would like information by clicking the\n"
@@ -3042,32 +3200,26 @@ _e_info_client_proc_wininfo(int argc, char **argv)
           }
      }
 
-   win_name = _e_get_window_name(win);
-   EINA_SAFETY_ON_NULL_RETURN(win_name);
-
-   printf("\nwininfo: Window id: 0x%lx \"%s\"\n", (unsigned long)win, win_name);
-
-   free(win_name);
-
-   if ((children || tree))
+   if (win)
      {
-        res = _e_info_client_eldbus_message_with_args("wininfo_tree",
-                                                      _e_info_client_cb_wininfo_tree,
-                                                      VALUE_TYPE_REQUEST_FOR_WININFO_TREE,
-                                                      win, tree);
+        res = _e_info_client_display_wininfo(win, children, tree, stats);
         EINA_SAFETY_ON_FALSE_RETURN(res);
      }
    else
-     stats = 1;
-
-   if (stats)
      {
-        res = _e_info_client_eldbus_message_with_args("wininfo",
-                                                      _e_info_client_cb_wininfo,
-                                                      VALUE_TYPE_REQUEST_FOR_WININFO,
-                                                      win);
-        EINA_SAFETY_ON_FALSE_RETURN(res);
+        for(l = win_list; l; l = eina_list_next(l))
+          {
+             uint64_t win;
+
+             win = (uint64_t)((Ecore_Window)eina_list_data_get(l));
+             res = _e_info_client_display_wininfo(win, children, tree, stats);
+             EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+          }
      }
+
+finish:
+   if (win_list)
+     eina_list_free(win_list);
 
    return;
 

@@ -3215,6 +3215,99 @@ finish:
 }
 
 static Eldbus_Message *
+_e_info_server_cb_get_windows(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   const static int _E_GET_WINDOWS_NAME_MODE = 1;
+   const static int _E_GET_WINDOWS_PID_MODE = 2;
+   Eldbus_Message *reply;
+   Eldbus_Message_Iter *iter;
+   Eina_Bool res;
+   E_Client *ec;
+   char *value;
+   uint32_t mode;
+   int count = 0;
+   Eldbus_Message_Iter *array_of_windows;
+   Evas_Object *o;
+   pid_t pid;
+
+   res = eldbus_message_arguments_get(msg, "is", &mode, &value);
+   if (res != EINA_TRUE)
+     {
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                      "get_windows: an attempt to get arguments from method call message failed");
+     }
+
+   if (mode == _E_GET_WINDOWS_PID_MODE)
+     {
+        if (strlen(value) >= 2 && value[0] == '0' && value[1] == 'x')
+          res = e_util_string_to_int(value, &pid, 16);
+        else
+          res = e_util_string_to_int(value, &pid, 10);
+
+       if (res == EINA_FALSE)
+         return eldbus_message_error_new(msg, INVALID_ARGS,
+                                       "get_windows: invalid input arguments");
+     }
+
+   reply = eldbus_message_method_return_new(msg);
+   iter = eldbus_message_iter_get(reply);
+
+   eldbus_message_iter_arguments_append(iter, "at", &array_of_windows);
+
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        const char *ec_name, *find;
+        Ecore_Window win;
+
+        ec = evas_object_data_get(o, "E_Client");
+        if (!ec) continue;
+
+        ec_name = e_client_util_name_get(ec) ?: "NO NAME";
+
+        if (mode == _E_GET_WINDOWS_NAME_MODE)
+          {
+             find = strstr(ec_name, (const char *)value);
+
+             if (!find)
+               continue;
+          }
+        else if (mode == _E_GET_WINDOWS_PID_MODE)
+          {
+             pid_t ec_pid = -1;
+
+             ec_pid = ec->netwm.pid;
+             if (ec_pid <= 0)
+               {
+                  if (ec->comp_data)
+                    {
+                       E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+                       if (cdata->surface)
+                       wl_client_get_credentials(wl_resource_get_client(cdata->surface), &ec_pid, NULL, NULL);
+                    }
+               }
+             if (ec_pid != pid)
+               continue;
+          }
+
+        win = e_client_util_win_get(ec);
+
+        count++;
+
+        eldbus_message_iter_arguments_append(array_of_windows, "t", win);
+     }
+
+   eldbus_message_iter_container_close(iter, array_of_windows);
+
+   if (count)
+     return reply;
+
+   eldbus_message_unref(reply);
+
+   return eldbus_message_error_new(msg, WIN_NOT_EXIST,
+                              "get_windows: specified window(s) doesn't exist");
+}
+
+static Eldbus_Message *
 _e_info_server_cb_get_window_name(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
    Eldbus_Message *reply;
@@ -3432,6 +3525,7 @@ static const Eldbus_Method methods[] = {
    { "get_win_under_touch", NULL, ELDBUS_ARGS({"i", "result"}), _e_info_server_cb_get_win_under_touch, 0 },
    { "kill_client", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_KILL, "window"}), ELDBUS_ARGS({"a"VALUE_TYPE_REPLY_KILL, "kill result"}), _e_info_server_cb_kill_client, 0 },
    { "get_window_name", ELDBUS_ARGS({"t", "window"}), ELDBUS_ARGS({"s", "window name"}), _e_info_server_cb_get_window_name, 0 },
+   { "get_windows", ELDBUS_ARGS({"is", "mode, value"}), ELDBUS_ARGS({"at", "array_of_windows"}), _e_info_server_cb_get_windows, 0 },
    { "wininfo", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_WININFO, "window"}), ELDBUS_ARGS({VALUE_TYPE_REPLY_WININFO, "window info"}), _e_info_server_cb_wininfo, 0 },
    { "wininfo_tree", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_WININFO_TREE, "wininfo_tree"}), ELDBUS_ARGS({VALUE_TYPE_REPLY_WININFO_TREE, "window tree info"}), _e_info_server_cb_wininfo_tree, 0 },
    { NULL, NULL, NULL, NULL, 0 }
