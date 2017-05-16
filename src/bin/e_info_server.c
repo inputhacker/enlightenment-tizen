@@ -3482,6 +3482,93 @@ _e_info_server_cb_wininfo(const Eldbus_Service_Interface *iface EINA_UNUSED, con
    return reply;
 }
 
+static void
+_e_info_server_cb_wininfo_size_hints_append(E_Client *ec, Eldbus_Message_Iter *array_of_hints)
+{
+   char temp[512] = {0};
+   Evas_Coord w, h, l, r, t, b;
+   double x, y;
+
+   evas_object_size_hint_min_get(ec->frame, &w, &h);
+   snprintf(temp, sizeof(temp), "   min: h(%d), v(%d)", w, h);
+   eldbus_message_iter_arguments_append(array_of_hints, "s", temp);
+
+   evas_object_size_hint_max_get(ec->frame, &w, &h);
+   snprintf(temp, sizeof(temp), "   max: h(%d), v(%d)", w, h);
+   eldbus_message_iter_arguments_append(array_of_hints, "s", temp);
+
+   evas_object_size_hint_request_get(ec->frame, &w, &h);
+   snprintf(temp, sizeof(temp), "   request: h(%d), v(%d)", w, h);
+   eldbus_message_iter_arguments_append(array_of_hints, "s", temp);
+
+   evas_object_size_hint_align_get(ec->frame, &x, &y);
+   snprintf(temp, sizeof(temp), "   align: x(%f), y(%f)", x, y);
+   eldbus_message_iter_arguments_append(array_of_hints, "s", temp);
+
+   evas_object_size_hint_weight_get(ec->frame, &x, &y);
+   snprintf(temp, sizeof(temp), "   weight: x(%f), y(%f)", x, y);
+   eldbus_message_iter_arguments_append(array_of_hints, "s", temp);
+
+   evas_object_size_hint_padding_get(ec->frame, &l, &r, &t, &b);
+   snprintf(temp, sizeof(temp), "   padding: l(%d), r(%d), t(%d), b(%d)",
+            l, r, t, b);
+   eldbus_message_iter_arguments_append(array_of_hints, "s", temp);
+}
+
+static void
+_e_info_server_cb_wininfo_wm_hints_append(E_Client *ec, Eldbus_Message_Iter *array_of_hints)
+{
+   Eina_List *l;
+   E_Comp_Wl_Aux_Hint *hint;
+   char temp[512] = {0};
+
+   if (!ec->comp_data)
+     return;
+
+   EINA_LIST_FOREACH(ec->comp_data->aux_hint.hints, l, hint)
+     {
+        snprintf(temp, sizeof(temp), "%s: %s", hint->hint, hint->val);
+        eldbus_message_iter_arguments_append(array_of_hints, "s", temp);
+     }
+}
+
+static Eldbus_Message *
+_e_info_server_cb_wininfo_hints(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply;
+   Eldbus_Message_Iter *iter, *array_of_hints;
+   Eina_Bool res;
+   E_Client *ec;
+   uint64_t win;
+   int wm_mode;
+
+   res = eldbus_message_arguments_get(msg, "it", &wm_mode, &win);
+   if (res != EINA_TRUE)
+     {
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                      "wininfo_hints: an attempt to get arguments from method call message failed");
+     }
+
+   ec = _e_info_server_ec_find_by_win(win);
+   if (!ec)
+     {
+        return eldbus_message_error_new(msg, WIN_NOT_EXIST,
+                      "wininfo_hints: specified window(s) doesn't exist");
+     }
+
+   reply = eldbus_message_method_return_new(msg);
+   iter = eldbus_message_iter_get(reply);
+
+   eldbus_message_iter_arguments_append(iter, "as", &array_of_hints);
+   if (wm_mode)
+      _e_info_server_cb_wininfo_wm_hints_append(ec, array_of_hints);
+   else
+      _e_info_server_cb_wininfo_size_hints_append(ec, array_of_hints);
+   eldbus_message_iter_container_close(iter, array_of_hints);
+
+   return reply;
+}
+
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
@@ -3528,6 +3615,7 @@ static const Eldbus_Method methods[] = {
    { "get_windows", ELDBUS_ARGS({"is", "mode, value"}), ELDBUS_ARGS({"at", "array_of_windows"}), _e_info_server_cb_get_windows, 0 },
    { "wininfo", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_WININFO, "window"}), ELDBUS_ARGS({VALUE_TYPE_REPLY_WININFO, "window info"}), _e_info_server_cb_wininfo, 0 },
    { "wininfo_tree", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_WININFO_TREE, "wininfo_tree"}), ELDBUS_ARGS({VALUE_TYPE_REPLY_WININFO_TREE, "window tree info"}), _e_info_server_cb_wininfo_tree, 0 },
+   { "wininfo_hints", ELDBUS_ARGS({"it", "mode, window"}), ELDBUS_ARGS({"as", "window hints"}), _e_info_server_cb_wininfo_hints, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 

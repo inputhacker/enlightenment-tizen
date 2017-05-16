@@ -3039,8 +3039,46 @@ finish:
      }
 }
 
+static void
+_e_info_client_cb_wininfo_print_hints(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   Eldbus_Message_Iter *array_of_hints;
+   int count = 0;
+   char *hint;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "as", &array_of_hints);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   while (eldbus_message_iter_get_and_next(array_of_hints, 's', &hint))
+     {
+        printf("   %s\n", hint);
+        count++;
+     }
+
+   if (!count)
+     printf("   No window hints\n");
+
+   ecore_main_loop_quit();
+
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+
+   ecore_main_loop_quit();
+}
+
 static Eina_Bool
-_e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats)
+_e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats,
+                               int wm, int size)
 {
    Eina_Bool res;
    char *win_name;
@@ -3055,6 +3093,9 @@ _e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats)
 
    free(win_name);
 
+   if (!children && !tree && !wm && !size)
+     stats = 1;
+
    if ((children || tree))
      {
         res = _e_info_client_eldbus_message_with_args("wininfo_tree",
@@ -3063,8 +3104,6 @@ _e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats)
                                                       win, tree);
         EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
      }
-   else
-     stats = 1;
 
    if (stats)
      {
@@ -3072,6 +3111,26 @@ _e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats)
                                                       _e_info_client_cb_wininfo,
                                                       VALUE_TYPE_REQUEST_FOR_WININFO,
                                                       win);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
+     }
+
+   if (wm)
+     {
+        printf("\nAux_Hint:\n");
+        res = _e_info_client_eldbus_message_with_args("wininfo_hints",
+                                                      _e_info_client_cb_wininfo_print_hints,
+                                                      "it",
+                                                      1, win);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
+     }
+
+   if (size)
+     {
+        printf("\nSize hints:\n");
+        res = _e_info_client_eldbus_message_with_args("wininfo_hints",
+                                                      _e_info_client_cb_wininfo_print_hints,
+                                                      "it",
+                                                      0, win);
         EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
      }
 
@@ -3089,13 +3148,16 @@ _e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats)
   "\t-name windowname  : use the window with the specified name\n" \
   "\t-pid windowpid    : use the window with the specified id\n" \
   "\t-int              : print window id in decimal\n" \
+  "\t-size             : print size hints\n" \
+  "\t-wm               : print window manager hints\n" \
+  "\t-all              : -tree, -stats, -wm, -size\n" \
 
 static void
 _e_info_client_proc_wininfo(int argc, char **argv)
 {
    Eina_Bool res;
    uint64_t win = 0;
-   int i, children = 0, tree = 0, stats = 0;
+   int i, children = 0, tree = 0, stats = 0, wm = 0, size = 0;
    char *name = NULL, *pid = NULL;
    Eina_List *win_list = NULL, *l;
 
@@ -3169,6 +3231,24 @@ _e_info_client_proc_wininfo(int argc, char **argv)
              window_id_format_dec = 1;
              continue;
           }
+        if (eina_streq (argv[i], "-wm"))
+          {
+             wm = 1;
+             continue;
+          }
+        if (eina_streq (argv[i], "-size"))
+          {
+             size = 1;
+             continue;
+          }
+        if (eina_streq (argv[i], "-all"))
+          {
+             tree = 1;
+             stats = 1;
+             wm = 1;
+             size = 1;
+             continue;
+          }
 
         goto usage;
      }
@@ -3187,7 +3267,6 @@ _e_info_client_proc_wininfo(int argc, char **argv)
           }
      }
 
-
    if (!win && !win_list)
      {
         printf("Please select the window about which you\n"
@@ -3202,7 +3281,7 @@ _e_info_client_proc_wininfo(int argc, char **argv)
 
    if (win)
      {
-        res = _e_info_client_display_wininfo(win, children, tree, stats);
+        res = _e_info_client_display_wininfo(win, children, tree, stats, wm, size);
         EINA_SAFETY_ON_FALSE_RETURN(res);
      }
    else
@@ -3212,7 +3291,7 @@ _e_info_client_proc_wininfo(int argc, char **argv)
              uint64_t win;
 
              win = (uint64_t)((Ecore_Window)eina_list_data_get(l));
-             res = _e_info_client_display_wininfo(win, children, tree, stats);
+             res = _e_info_client_display_wininfo(win, children, tree, stats, wm, size);
              EINA_SAFETY_ON_FALSE_GOTO(res, finish);
           }
      }
