@@ -1450,6 +1450,7 @@ _tzpol_iface_cb_activate_below_by_res_id(struct wl_client *client EINA_UNUSED, s
    E_Client *below_ec = NULL;
    E_Client *parent_ec = NULL;
    Eina_Bool check_ancestor = EINA_FALSE;
+   Eina_Bool intercepted = EINA_FALSE;
 
    ec = e_pixmap_find_client_by_res_id(res_id);
    EINA_SAFETY_ON_NULL_RETURN(ec);
@@ -1462,6 +1463,15 @@ _tzpol_iface_cb_activate_below_by_res_id(struct wl_client *client EINA_UNUSED, s
    ELOGF("TZPOL",
          "ACTIVATE_BELOW|win:0x%08x(res_id:%d)|below_win:0x%08x(res_id:%d)",
          NULL, NULL, e_client_util_win_get(ec), res_id, e_client_util_win_get(below_ec), below_res_id);
+
+   intercepted = e_policy_interceptor_call(E_POLICY_INTERCEPT_ACTIVATE_BELOW,
+                                           ec, below_ec);
+   if (intercepted)
+     {
+        ELOGF("TZPOL", "ACTIVATE_BELOW|Handled by Intercept function",
+              ec->pixmap, ec);
+        return;
+     }
 
    if (ec->layer > below_ec->layer) return;
 
@@ -1500,6 +1510,7 @@ _tzpol_iface_cb_activate_above_by_res_id(struct wl_client *client EINA_UNUSED, s
    E_Client *above_ec = NULL;
    E_Client *parent_ec = NULL;
    Eina_Bool check_ancestor = EINA_FALSE;
+   Eina_Bool intercepted = EINA_FALSE;
 
    ec = e_pixmap_find_client_by_res_id(res_id);
    EINA_SAFETY_ON_NULL_RETURN(ec);
@@ -1512,6 +1523,15 @@ _tzpol_iface_cb_activate_above_by_res_id(struct wl_client *client EINA_UNUSED, s
    ELOGF("TZPOL",
          "ACTIVATE_ABOVE|win:0x%08x(res_id:%d)|above_win:0x%08x(res_id:%d)",
          NULL, NULL, e_client_util_win_get(ec), res_id, e_client_util_win_get(above_ec), above_res_id);
+
+   intercepted = e_policy_interceptor_call(E_POLICY_INTERCEPT_ACTIVATE_ABOVE,
+                                           ec, above_ec);
+   if (intercepted)
+     {
+        ELOGF("TZPOL", "ACTIVATE_ABOVE|Handled by Intercept function",
+              ec->pixmap, ec);
+        return;
+     }
 
    if (ec->layer < above_ec->layer) return;
 
