@@ -501,7 +501,11 @@ e_pixmap_size_changed(E_Pixmap *cp, int w, int h)
    EINA_SAFETY_ON_NULL_RETURN_VAL(cp, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(cp->client, EINA_FALSE);
    if (cp->dirty) return EINA_TRUE;
+
    ec = cp->client;
+   if (!ec->comp_data || e_object_is_del(E_OBJECT(ec)))
+     return (w != cp->w) || (h != cp->h);
+
    return (w != ec->comp_data->width_from_buffer) || (h != ec->comp_data->height_from_buffer);
 }
 
@@ -513,7 +517,15 @@ e_pixmap_size_get(E_Pixmap *cp, int *w, int *h)
    if (h) *h = 0;
    EINA_SAFETY_ON_NULL_RETURN_VAL(cp, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(cp->client, EINA_FALSE);
+
    ec = cp->client;
+   if (!ec->comp_data || e_object_is_del(E_OBJECT(ec)))
+     {
+        if (w) *w = cp->w;
+        if (h) *h = cp->h;
+        return (cp->w > 0) && (cp->h > 0);
+     }
+
    if (w) *w = ec->comp_data->width_from_buffer;
    if (h) *h = ec->comp_data->height_from_buffer;
    return (ec->comp_data->width_from_buffer > 0) && (ec->comp_data->height_from_buffer > 0);
