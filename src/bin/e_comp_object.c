@@ -544,9 +544,19 @@ _e_comp_object_shadow(E_Comp_Object *cw)
 static void
 _e_comp_object_map_transform_pos(E_Client *ec, int sx, int sy, int *dx, int *dy)
 {
-   E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
-   int transform = vp->buffer.transform;
+   E_Comp_Wl_Buffer_Viewport *vp;
+   int transform;
    int bw, bh, tx, ty;
+
+   if (!ec || !ec->comp_data || e_object_is_del(E_OBJECT(ec)))
+     {
+        *dx = sx;
+        *dy = sy;
+        return;
+     }
+
+   vp = &ec->comp_data->scaler.buffer_viewport;
+   transform = vp->buffer.transform;
 
    e_pixmap_size_get(ec->pixmap, &bw, &bh);
 
