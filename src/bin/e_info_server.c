@@ -3351,7 +3351,7 @@ _e_info_server_wininfo_tree_info_add(E_Client *ec, Eldbus_Message_Iter *iter,
         EINA_LIST_FOREACH(ec->transients, l, child)
           {
              uint64_t win;
-             unsigned int num_child = -1;
+             int num_child = -1;
              int hwc = -1, pl_zpos;
 
              if (recurse)
@@ -3569,6 +3569,61 @@ _e_info_server_cb_wininfo_hints(const Eldbus_Service_Interface *iface EINA_UNUSE
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_wininfo_shape(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply;
+   Eldbus_Message_Iter *iter, *array_of_shape, *struct_of_shape;
+   Eina_Bool res;
+   E_Client *ec;
+   uint64_t win;
+   int i;
+
+   res = eldbus_message_arguments_get(msg, "t", &win);
+   if (res != EINA_TRUE)
+     {
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                      "wininfo_shape: an attempt to get arguments from method call message failed");
+     }
+
+   ec = _e_info_server_ec_find_by_win(win);
+   if (!ec)
+     {
+        return eldbus_message_error_new(msg, WIN_NOT_EXIST, "wininfo_shape: specified window(s) doesn't exist");
+     }
+
+   reply = eldbus_message_method_return_new(msg);
+   iter = eldbus_message_iter_get(reply);
+
+   eldbus_message_iter_basic_append(iter, 'i', ec->shape_rects_num);
+   array_of_shape = eldbus_message_iter_container_new(iter, 'a', "(iiii)");
+   for(i = 0; i < ec->shape_rects_num; ++i)
+     {
+        eldbus_message_iter_arguments_append(iter, "(iiii)", &struct_of_shape);
+        eldbus_message_iter_arguments_append
+           (struct_of_shape, "iiii",
+            ec->shape_rects[i].x, ec->shape_rects[i].y,
+            ec->shape_rects[i].w, ec->shape_rects[i].h);
+        eldbus_message_iter_container_close(iter, struct_of_shape);
+     }
+   eldbus_message_iter_container_close(iter, array_of_shape);
+
+   eldbus_message_iter_basic_append(iter, 'i', ec->shape_input_rects_num);
+   array_of_shape = eldbus_message_iter_container_new(iter, 'a', "(iiii)");
+   for(i = 0; i < ec->shape_input_rects_num; ++i)
+     {
+        eldbus_message_iter_arguments_append(iter, "(iiii)", &struct_of_shape);
+        eldbus_message_iter_arguments_append
+           (struct_of_shape, "iiii",
+            ec->shape_input_rects[i].x, ec->shape_input_rects[i].y,
+            ec->shape_input_rects[i].w, ec->shape_input_rects[i].h);
+        eldbus_message_iter_container_close(iter, struct_of_shape);
+     }
+   eldbus_message_iter_container_close(iter, array_of_shape);
+
+   return reply;
+}
+
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
@@ -3616,6 +3671,7 @@ static const Eldbus_Method methods[] = {
    { "wininfo", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_WININFO, "window"}), ELDBUS_ARGS({VALUE_TYPE_REPLY_WININFO, "window info"}), _e_info_server_cb_wininfo, 0 },
    { "wininfo_tree", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_WININFO_TREE, "wininfo_tree"}), ELDBUS_ARGS({VALUE_TYPE_REPLY_WININFO_TREE, "window tree info"}), _e_info_server_cb_wininfo_tree, 0 },
    { "wininfo_hints", ELDBUS_ARGS({"it", "mode, window"}), ELDBUS_ARGS({"as", "window hints"}), _e_info_server_cb_wininfo_hints, 0 },
+   { "wininfo_shape", ELDBUS_ARGS({"t", "window"}), ELDBUS_ARGS({"ia(iiii)ia(iiii)", "window shape"}), _e_info_server_cb_wininfo_shape, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 

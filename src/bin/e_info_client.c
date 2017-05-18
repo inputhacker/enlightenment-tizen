@@ -3076,9 +3076,73 @@ finish:
    ecore_main_loop_quit();
 }
 
+static void
+_e_info_client_cb_wininfo_print_shape(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   Eldbus_Message_Iter *array_of_shape, *array_of_shape_input;
+   Eldbus_Message_Iter *struct_of_shape;
+   int count = 0;
+   int shape_rects_num, shape_input_rects_num;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "ia(iiii)ia(iiii)",
+                                      &shape_rects_num, &array_of_shape,
+                                      &shape_input_rects_num, &array_of_shape_input);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   printf("   Number of shape rectangles: %d\n", shape_rects_num);
+   if (shape_rects_num)
+     {
+        while (eldbus_message_iter_get_and_next(array_of_shape, 'r', &struct_of_shape))
+          {
+             int x, y, w, h;
+             res = eldbus_message_iter_arguments_get(struct_of_shape,
+                                                     "iiii",
+                                                     &x, &y, &w, &h);
+             EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+             count++;
+             printf("      %d) x(%d), y(%d), w(%d), h(%d)\n", count, x, y, w, h);
+
+          }
+     }
+
+   count = 0;
+   printf("   Number of shape input rectangles: %d\n", shape_input_rects_num);
+   if (shape_input_rects_num)
+     {
+        while (eldbus_message_iter_get_and_next(array_of_shape_input, 'r', &struct_of_shape))
+          {
+             int x, y, w, h;
+             res = eldbus_message_iter_arguments_get(struct_of_shape,
+                                                     "iiii",
+                                                     &x, &y, &w, &h);
+             EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+             count++;
+             printf("      %d) x(%d), y(%d), w(%d), h(%d)\n", count, x, y, w, h);
+
+          }
+     }
+
+   ecore_main_loop_quit();
+
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+
+   ecore_main_loop_quit();
+}
+
 static Eina_Bool
 _e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats,
-                               int wm, int size)
+                               int wm, int size, int shape)
 {
    Eina_Bool res;
    char *win_name;
@@ -3093,7 +3157,7 @@ _e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats,
 
    free(win_name);
 
-   if (!children && !tree && !wm && !size)
+   if (!children && !tree && !wm && !size && !shape)
      stats = 1;
 
    if ((children || tree))
@@ -3134,6 +3198,15 @@ _e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats,
         EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
      }
 
+   if (shape)
+     {
+        res = _e_info_client_eldbus_message_with_args("wininfo_shape",
+                                                      _e_info_client_cb_wininfo_print_shape,
+                                                      "t",
+                                                      win);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
+     }
+
    return EINA_TRUE;
 }
 
@@ -3150,14 +3223,21 @@ _e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats,
   "\t-int              : print window id in decimal\n" \
   "\t-size             : print size hints\n" \
   "\t-wm               : print window manager hints\n" \
-  "\t-all              : -tree, -stats, -wm, -size\n" \
+  "\t-shape            : print shape rectangles\n" \
+  "\t-all              : -tree, -stats, -wm, -size, -shape\n" \
+  "Example:\n" \
+  "\tenlightenment_info -wininfo\n" \
+  "\tenlightenment_info -wininfo -id [win_id] -all\n" \
+  "\tenlightenment_info -wininfo -children -stats -size\n" \
+  "\tenlightenment_info -wininfo -name [win_name] -tree -wm\n" \
+  "\tenlightenment_info -wininfo -pid [win_pid] -size -shape -int\n" \
 
 static void
 _e_info_client_proc_wininfo(int argc, char **argv)
 {
    Eina_Bool res;
    uint64_t win = 0;
-   int i, children = 0, tree = 0, stats = 0, wm = 0, size = 0;
+   int i, children = 0, tree = 0, stats = 0, wm = 0, size = 0, shape = 0;
    char *name = NULL, *pid = NULL;
    Eina_List *win_list = NULL, *l;
 
@@ -3241,12 +3321,18 @@ _e_info_client_proc_wininfo(int argc, char **argv)
              size = 1;
              continue;
           }
+        if (eina_streq (argv[i], "-shape"))
+          {
+             shape = 1;
+             continue;
+          }
         if (eina_streq (argv[i], "-all"))
           {
              tree = 1;
              stats = 1;
              wm = 1;
              size = 1;
+             shape = 1;
              continue;
           }
 
@@ -3281,7 +3367,7 @@ _e_info_client_proc_wininfo(int argc, char **argv)
 
    if (win)
      {
-        res = _e_info_client_display_wininfo(win, children, tree, stats, wm, size);
+        res = _e_info_client_display_wininfo(win, children, tree, stats, wm, size, shape);
         EINA_SAFETY_ON_FALSE_RETURN(res);
      }
    else
@@ -3291,7 +3377,7 @@ _e_info_client_proc_wininfo(int argc, char **argv)
              uint64_t win;
 
              win = (uint64_t)((Ecore_Window)eina_list_data_get(l));
-             res = _e_info_client_display_wininfo(win, children, tree, stats, wm, size);
+             res = _e_info_client_display_wininfo(win, children, tree, stats, wm, size, shape);
              EINA_SAFETY_ON_FALSE_GOTO(res, finish);
           }
      }
