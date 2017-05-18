@@ -287,6 +287,8 @@ static Eina_Bool
 _hwc_available_get(E_Client *ec)
 {
    E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+   E_Output *eout;
+   int transform = 0;
 
    if ((!cdata) ||
        (!cdata->buffer_ref.buffer) ||
@@ -313,6 +315,14 @@ _hwc_available_get(E_Client *ec)
      }
 
    if (e_comp_wl_tbm_buffer_sync_timeline_used(cdata->buffer_ref.buffer))
+     return EINA_FALSE;
+
+   /* if the buffer transform of surface is not same with output's transform, we
+    * can't show it to HW overlay directly.
+    */
+   eout = e_output_find(ec->zone->output_id);
+   transform = cdata->scaler.buffer_viewport.buffer.transform;
+   if ((eout->config.rotation / 90) != transform)
      return EINA_FALSE;
 
    return EINA_TRUE;
