@@ -2561,6 +2561,69 @@ _e_info_client_proc_screen_rotation(int argc, char **argv)
      printf("_e_info_client_eldbus_message_with_args error");
 }
 
+static void
+_e_info_client_cb_remote_surface(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   Eldbus_Message_Iter *lines;
+   char *result = NULL;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   if (res) goto finish;
+
+   res = eldbus_message_arguments_get(msg, "as", &lines);
+   if (!res) goto finish;
+
+   while (eldbus_message_iter_get_and_next(lines, 's', &result))
+     printf("%s\n", result);
+
+   return;
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_remote_surface(int argc, char **argv)
+{
+   Eina_Bool res;
+   int i;
+   int dump = -1, query = 0;
+
+   if (argc < 3) goto arg_err;
+   for (i = 2; i < argc; i++)
+     {
+        if (eina_streq(argv[i], "dump"))
+          {
+             if (argc == i + 1)
+               goto arg_err;
+
+             dump = atoi(argv[i+1]);
+             i = i + 1;
+          }
+
+        if (eina_streq(argv[i], "info"))
+          {
+             query = 1;
+          }
+     }
+
+   if (dump == -1 && query == 0)
+     goto arg_err;
+
+   res = _e_info_client_eldbus_message_with_args("remote_surface",
+                                                 _e_info_client_cb_remote_surface,
+                                                 "ii",
+                                                 dump, query);
+   EINA_SAFETY_ON_FALSE_RETURN(res);
+   return;
+arg_err:
+   printf("%s\n", USAGE_REMOTE_SURFACE);
+}
+
 static struct
 {
    const char *option;
@@ -2754,6 +2817,12 @@ static struct
       "to rotate screen",
       _e_info_client_proc_screen_rotation
    },
+   {
+      "remote_surface",
+      USAGE_REMOTE_SURFACE,
+      "for remote surface debugging",
+      _e_info_client_proc_remote_surface
+   }
 };
 
 static void

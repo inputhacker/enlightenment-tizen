@@ -180,4 +180,17 @@ typedef enum
 #define SIGNATURE_SUBSURFACE "uuuiiiiuuuuuuuus"
 #define WAYLAND_SERVER_RESOURCE_ID_MASK 0xff000000
 
+/* -------------------------------------------------------------------------- */
+/* REMOTE SURFACE                                                             */
+/* -------------------------------------------------------------------------- */
+#define USAGE_REMOTE_SURFACE                                                   \
+   "enlightenment_info -remote_surface (info | dump)\n"                                                           \
+   "Commands:\n"                                                               \
+   "\tinfo : print current remote surface info\n"                              \
+   "\tdump : on/off to dump provider's buffer by -dump_buffers [0:off, 1:on]\n"\
+   "Example:\n"                                                                \
+   "\tenlightenment_info -remote_surface info\n"                              \
+   "\tenlightenment_info -remote_surface dump 0\n"                            \
+   "\tenlightenment_info -remote_surface dump 1\n"
+
 #endif /* end of _E_INFO_SHARED_TYPES_ */

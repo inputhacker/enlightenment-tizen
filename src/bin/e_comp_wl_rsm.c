@@ -2398,6 +2398,165 @@ e_comp_wl_remote_surface_commit(E_Client *ec)
 #endif /* HAVE_REMOTE_SURFACE */
 }
 
+EINTERN void
+e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
+{
+#ifdef HAVE_REMOTE_SURFACE
+   Eldbus_Message_Iter *line_array;
+   Eina_Iterator *hash_iter;
+   E_Comp_Wl_Remote_Provider *provider;
+   E_Comp_Wl_Remote_Source *source;
+   int idx = 0;
+   char info_str[1024];
+
+   eldbus_message_iter_arguments_append(iter, "as", &line_array);
+   if (!_rsm)
+     {
+        eldbus_message_iter_basic_append(line_array,
+                                         's',
+                                         "Remote Surface not initialized..");
+        eldbus_message_iter_container_close(iter, line_array);
+        return;
+     }
+
+   /* PROVIDER */
+   hash_iter = eina_hash_iterator_data_new(_rsm->provider_hash);
+   EINA_ITERATOR_FOREACH(hash_iter, provider)
+     {
+        E_Client *ec = provider->ec;
+        E_Comp_Wl_Remote_Surface *remote_surface;
+        Eina_List *l;
+
+        if (!ec) continue;
+
+        snprintf(info_str, sizeof(info_str),
+                 "%10s [%d] 0x%08x win(0x%08x) res(%d) pid(%d) vis(%d) name(%s)",
+                 "PROVIDER", idx++, (unsigned int)provider,
+                 e_client_util_win_get(ec),
+                 e_pixmap_res_id_get(ec->pixmap),
+                 ec->netwm.pid,
+                 provider->vis_ref,
+                 e_client_util_name_get(ec)?:ec->icccm.class?:"NO NAME");
+        eldbus_message_iter_basic_append(line_array, 's', info_str);
+
+        if (provider->surfaces)
+          {
+             snprintf(info_str, sizeof(info_str), "%7s", "│");
+             eldbus_message_iter_basic_append(line_array, 's', info_str);
+          }
+
+        EINA_LIST_FOREACH(provider->surfaces, l, remote_surface)
+          {
+             struct wl_client *wc = NULL;
+             E_Client *owner = NULL;
+             pid_t pid = -1;
+             int s_idx = 0;
+             Eina_Bool is_last = 0;
+
+             if (!remote_surface->resource) continue;
+
+             owner = remote_surface->owner;
+             if (!owner)
+               owner = remote_surface->bind_ec;
+
+             wc = wl_resource_get_client(remote_surface->resource);
+             if (wc)
+               wl_client_get_credentials(wc, &pid, NULL, NULL);
+
+             if ((eina_list_last(provider->surfaces) == l))
+                 is_last = EINA_TRUE;
+
+             snprintf(info_str, sizeof(info_str),
+                      "%10s CONSUMER [%d] 0x%08x ec(0x%08x) win(0x%08x) pid(%d) vis(%d) redirected(%d) name(%s)",
+                      is_last? "└─" : "├─", s_idx++, (unsigned int)remote_surface,
+                      (unsigned int)owner?:0,
+                      owner?e_client_util_win_get(owner):0,
+                      pid,
+                      remote_surface->visible,
+                      remote_surface->redirect,
+                      owner? e_client_util_name_get(owner)?:owner->icccm.class?:"NO NAME":"NO OWNER"
+                      );
+             eldbus_message_iter_basic_append(line_array, 's', info_str);
+          }
+        eldbus_message_iter_basic_append(line_array, 's', "");
+     }
+   eina_iterator_free(hash_iter);
+
+   /* SOURCE */
+   idx = 0;
+   hash_iter = eina_hash_iterator_data_new(_rsm->source_hash);
+   EINA_ITERATOR_FOREACH(hash_iter, source)
+     {
+        E_Client *ec = source->ec;
+        E_Comp_Wl_Remote_Surface *remote_surface;
+        Eina_List *l;
+
+        if (!ec) continue;
+        snprintf(info_str, sizeof(info_str),
+                 "%10s [%d] 0x%08x win(0x%08x) res(%d) pid(%d) offscreen(%d) name(%s)",
+                 "SOURCE", idx++, (unsigned int)source,
+                 e_client_util_win_get(ec),
+                 e_pixmap_res_id_get(ec->pixmap),
+                 ec->netwm.pid,
+                 source->offscreen_ref,
+                 e_client_util_name_get(ec)?:ec->icccm.class?:"NO NAME");
+        eldbus_message_iter_basic_append(line_array, 's', info_str);
+
+        if (source->surfaces)
+          {
+             snprintf(info_str, sizeof(info_str), "%7s", "│");
+             eldbus_message_iter_basic_append(line_array, 's', info_str);
+          }
+
+        EINA_LIST_FOREACH(source->surfaces, l, remote_surface)
+          {
+             struct wl_client *wc = NULL;
+             E_Client *owner = NULL;
+             pid_t pid = -1;
+             int s_idx = 0;
+             Eina_Bool is_last = 0;
+
+             if (!remote_surface->resource) continue;
+
+             owner = remote_surface->owner;
+             if (!owner)
+               owner = remote_surface->bind_ec;
+
+             wc = wl_resource_get_client(remote_surface->resource);
+             if (wc)
+               wl_client_get_credentials(wc, &pid, NULL, NULL);
+
+             if ((eina_list_last(source->surfaces) == l))
+               is_last = EINA_TRUE;
+
+             snprintf(info_str, sizeof(info_str),
+                      "%10s CONSUMER [%d] 0x%08x ec(0x%08x) win(0x%08x) pid(%d) vis(%d) redirected(%d) name(%s)",
+                      is_last? "└─" : "├─", s_idx++, (unsigned int)remote_surface,
+                      (unsigned int)owner?:0,
+                      owner?e_client_util_win_get(owner):0,
+                      pid,
+                      remote_surface->visible,
+                      remote_surface->redirect,
+                      owner? e_client_util_name_get(owner)?:owner->icccm.class?:"NO NAME":"NO OWNER"
+                     );
+             eldbus_message_iter_basic_append(line_array, 's', info_str);
+          }
+        eldbus_message_iter_basic_append(line_array, 's', "");
+     }
+   eina_iterator_free(hash_iter);
+
+   eldbus_message_iter_container_close(iter, line_array);
+#else
+   Eldbus_Message_Iter *line_array;
+
+   eldbus_message_iter_arguments_append(iter, "as", &line_array);
+   eldbus_message_iter_basic_append(line_array,
+                                    's',
+                                    "Enlightenment doesn't support remote surface");
+   eldbus_message_iter_container_close(iter, line_array);
+#endif
+}
+
 #undef E_CLIENT_HOOK_APPEND
 #define E_CLIENT_HOOK_APPEND(l, t, cb, d) \
   do                                      \
