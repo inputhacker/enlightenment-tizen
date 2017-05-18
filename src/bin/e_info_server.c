@@ -93,6 +93,86 @@ static void              _e_info_transform_set(E_Info_Transform *transform, int 
 static void              _e_info_transform_del(E_Info_Transform *transform);
 static void              _e_info_transform_del_with_id(E_Client *ec, int id);
 
+static int _e_info_server_hooks_delete = 0;
+static int _e_info_server_hooks_walking = 0;
+
+static Eina_Inlist *_e_info_server_hooks[] =
+{
+    [E_INFO_SERVER_HOOK_BUFFER_DUMP_BEGIN] = NULL,
+    [E_INFO_SERVER_HOOK_BUFFER_DUMP_END] = NULL
+};
+
+static void
+_e_info_server_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Info_Server_Hook *iswh;
+   unsigned int x;
+
+   for (x = 0; x < E_INFO_SERVER_HOOK_LAST; x++)
+     EINA_INLIST_FOREACH_SAFE(_e_info_server_hooks[x], l, iswh)
+       {
+          if (!iswh->delete_me) continue;
+          _e_info_server_hooks[x] = eina_inlist_remove(_e_info_server_hooks[x],
+                                                EINA_INLIST_GET(iswh));
+          free(iswh);
+       }
+}
+
+static void
+_e_info_server_hook_call(E_Info_Server_Hook_Point hookpoint, void *data EINA_UNUSED)
+{
+   E_Info_Server_Hook *iswh;
+
+   _e_info_server_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_info_server_hooks[hookpoint], iswh)
+     {
+        if (iswh->delete_me) continue;
+        iswh->func(iswh->data);
+     }
+   _e_info_server_hooks_walking--;
+   if ((_e_info_server_hooks_walking == 0) && (_e_info_server_hooks_delete > 0))
+     _e_info_server_hooks_clean();
+}
+
+E_API E_Info_Server_Hook *
+e_info_server_hook_add(E_Info_Server_Hook_Point hookpoint, E_Info_Server_Hook_Cb func, const void *data)
+{
+   E_Info_Server_Hook *iswh;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_INFO_SERVER_HOOK_LAST, NULL);
+   iswh = E_NEW(E_Info_Server_Hook, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(iswh, NULL);
+   iswh->hookpoint = hookpoint;
+   iswh->func = func;
+   iswh->data = (void*)data;
+   _e_info_server_hooks[hookpoint] = eina_inlist_append(_e_info_server_hooks[hookpoint],
+                                                 EINA_INLIST_GET(iswh));
+   return iswh;
+}
+
+E_API void
+e_info_server_hook_del(E_Info_Server_Hook *iswh)
+{
+   iswh->delete_me = 1;
+   if (_e_info_server_hooks_walking == 0)
+     {
+        _e_info_server_hooks[iswh->hookpoint] = eina_inlist_remove(_e_info_server_hooks[iswh->hookpoint],
+                                                          EINA_INLIST_GET(iswh));
+        free(iswh);
+     }
+   else
+     _e_info_server_hooks_delete++;
+}
+
+E_API void
+e_info_server_hook_call(E_Info_Server_Hook_Point hookpoint)
+{
+   if ((hookpoint < 0) || (hookpoint >= E_INFO_SERVER_HOOK_LAST)) return;
+
+   _e_info_server_hook_call(hookpoint, NULL);
+}
+
 static void
 _msg_clients_append(Eldbus_Message_Iter *iter)
 {
@@ -2449,6 +2529,7 @@ _e_info_server_cb_buffer_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
         if (e_info_dump_running == 0)
           return reply;
 
+        e_info_server_hook_call(E_INFO_SERVER_HOOK_BUFFER_DUMP_BEGIN);
         tdm_helper_dump_stop();
         tbm_surface_internal_dump_end();
 
@@ -2461,6 +2542,7 @@ _e_info_server_cb_buffer_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
           }
         e_info_dump_count = 0;
         e_info_dump_running = 0;
+        e_info_server_hook_call(E_INFO_SERVER_HOOK_BUFFER_DUMP_END);
      }
 
    return reply;
