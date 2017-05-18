@@ -190,6 +190,18 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
              dst_pos_y = ec->y;
           }
 
+        /* if output is transformed, the position of a buffer on screen should be also
+         * transformed.
+         */
+        if (output->config.rotation > 0)
+          {
+             int bw, bh;
+             e_pixmap_size_get(ec->pixmap, &bw, &bh);
+             e_comp_wl_rect_convert(ec->zone->w, ec->zone->h,
+                                    output->config.rotation / 90, 1,
+                                    dst_pos_x, dst_pos_y, bw, bh,
+                                    &dst_pos_x, &dst_pos_y, NULL, NULL);
+          }
 
         if (plane->info.src_config.size.h != aligned_width ||
             plane->info.src_config.size.v != surf_info.height ||
