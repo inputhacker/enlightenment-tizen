@@ -929,6 +929,11 @@ _e_main_cb_signal_user(void *data EINA_UNUSED, int ev_type EINA_UNUSED, void *ev
 static int
 _e_main_dirs_init(void)
 {
+   if(getenv("E_CONF_RO"))
+     {
+        return 1;
+     }
+
    const char *base;
    const char *dirs[] =
    {

@@ -11,6 +11,8 @@ static int       _e_config_eet_close_handle(Eet_File *ef, char *file);
 /* local subsystem globals */
 static int _e_config_save_block = 0;
 static const char *_e_config_profile = NULL;
+static int _e_config_save_queued = 0;
+static Ecore_Idle_Enterer *_idle_enter = NULL;
 
 static E_Config_DD *_e_config_edd = NULL;
 static E_Config_DD *_e_config_module_edd = NULL;
@@ -283,6 +285,18 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, log_type, INT);
 }
 
+static Eina_Bool
+_e_config_idle_cb(void *data)
+{
+   if (_e_config_save_queued)
+     {
+        _e_config_save_cb(NULL);
+        _e_config_save_queued = 0;
+     }
+
+   return ECORE_CALLBACK_RENEW;
+}
+
 /* externally accessible functions */
 EINTERN int
 e_config_init(void)
@@ -292,7 +306,7 @@ e_config_init(void)
    /* TIZEN_ONLY: We don't save e.cfg file.
     * Sometimes e.cfg file was broken after writing.
     */
-   e_config_save_block_set(1);
+   if (getenv("E_CONF_RO")) e_config_save_block_set(1);
 
    /* if environment var set - use this profile name */
    _e_config_profile = eina_stringshare_add(getenv("E_CONF_PROFILE"));
@@ -303,12 +317,17 @@ e_config_init(void)
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_config, 0);
 
    e_config_save_queue();
+
+   _idle_enter = ecore_idle_enterer_add(_e_config_idle_cb, NULL);
    return 1;
 }
 
 EINTERN int
 e_config_shutdown(void)
 {
+   if (_idle_enter) ecore_idle_enterer_del(_idle_enter);
+   _idle_enter = NULL;
+
    eina_stringshare_del(_e_config_profile);
 
    _e_config_edd_shutdown();
@@ -384,7 +403,7 @@ e_config_load(void)
 #undef D
         e_config_profile_set("default");
         if (!reload) e_config_profile_del(e_config_profile_get());
-        e_config_save_block_set(1);
+        if (getenv("E_CONF_RO")) e_config_save_block_set(1);
         e_error_message_show(_("Could not load e.cfg"));
         return;
      }
@@ -492,7 +511,8 @@ E_API void
 e_config_save_queue(void)
 {
    // TODO: add ecore_timer_add and call _e_config_save_cb
-   _e_config_save_cb(NULL);
+   //_e_config_save_cb(NULL) moved to be called in idle time
+   _e_config_save_queued = 1;
 }
 
 E_API const char *
@@ -632,17 +652,8 @@ e_config_save_block_get(void)
    return _e_config_save_block;
 }
 
-/**
- * Loads configurations from file located in the working profile
- * The configurations are stored in a struct declated by the
- * macros E_CONFIG_DD_NEW and E_CONFIG_<b>TYPE</b>
- *
- * @param domain of the configuration file.
- * @param edd to struct definition
- * @return returns allocated struct on success, if unable to find config returns null
- */
-E_API void *
-e_config_domain_load(const char *domain, E_Config_DD *edd)
+void *
+_e_config_domain_user_load(const char *domain, E_Config_DD *edd)
 {
    Eet_File *ef;
    char buf[4096];
@@ -661,9 +672,42 @@ e_config_domain_load(const char *domain, E_Config_DD *edd)
              return data;
           }
      }
+
+   ELOGF("CFG", "Could not load %s", NULL, NULL, buf);
+
+   return data;
+}
+
+/**
+ * Loads configurations from file located in the working profile
+ * The configurations are stored in a struct declated by the
+ * macros E_CONFIG_DD_NEW and E_CONFIG_<b>TYPE</b>
+ *
+ * @param domain of the configuration file.
+ * @param edd to struct definition
+ * @return returns allocated struct on success, if unable to find config returns null
+ */
+E_API void *
+e_config_domain_load(const char *domain, E_Config_DD *edd)
+{
+   if (getenv("E_CONF_RO"))
+     {
+        return e_config_domain_system_load(domain, edd);
+     }
    else
      {
-        ELOGF("CFG", "Could not load %s", NULL, NULL, buf);
+        void *data = _e_config_domain_user_load(domain, edd);
+
+        if (!data)
+          {
+             // load data from system and save it for next loading
+             void *sys_data = e_config_domain_system_load(domain, edd);
+             e_config_domain_save(domain, edd, sys_data);
+             data = _e_config_domain_user_load(domain, edd);
+          }
+        if (data) return data;
+
+        ELOGF("CFG", "Enlightenment has an error again while loading domain %s", NULL, NULL, domain);
      }
 
    return e_config_domain_system_load(domain, edd);

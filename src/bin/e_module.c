@@ -204,7 +204,9 @@ e_module_shutdown(void)
              m = _e_modules->data;
              if ((m) && (m->enabled) && !(m->error))
                {
-                  if (m->func.save) m->func.save(m);
+                  // if (m->func.save) m->func.save(m); dont' save config, there is a possibility
+                  // that the file save operation at the time of system shutdown
+                  // may break when filesystem unmount.
                   if (m->func.shutdown) m->func.shutdown(m);
                   m->enabled = 0;
                }
@@ -743,7 +745,9 @@ _e_module_free(E_Module *m)
 
    if ((m->enabled) && (!m->error))
      {
-        if (m->func.save) m->func.save(m);
+        // if (m->func.save) m->func.save(m); dont' save config, there is a possibility
+        // that the file save operation at the time of system shutdown
+        // may break when filesystem unmount.
         if (m->func.shutdown) m->func.shutdown(m);
      }
    if (m->name) eina_stringshare_del(m->name);
