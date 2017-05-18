@@ -2047,7 +2047,11 @@ _remote_manager_cb_provider_create(struct wl_client *client, struct wl_resource 
 }
 
 static void
-_remote_manager_cb_surface_create(struct wl_client *client, struct wl_resource *res_remote_manager, uint32_t id, uint32_t res_id, struct wl_resource *wl_tbm)
+_remote_manager_cb_surface_create(struct wl_client *client,
+                                  struct wl_resource *res_remote_manager,
+                                  uint32_t id,
+                                  uint32_t res_id,
+                                  struct wl_resource *wl_tbm)
 {
    struct wl_resource *resource;
    E_Comp_Wl_Remote_Surface *remote_surface;
@@ -2055,7 +2059,9 @@ _remote_manager_cb_surface_create(struct wl_client *client, struct wl_resource *
    E_Comp_Wl_Remote_Source *source = NULL;
    E_Client *ec;
    int version;
-   pid_t pid;
+   pid_t pid = 0;
+   uid_t uid = 0;
+   Eina_Bool res;
 
    EINA_SAFETY_ON_NULL_RETURN(_rsm);
 
@@ -2094,13 +2100,22 @@ _remote_manager_cb_surface_create(struct wl_client *client, struct wl_resource *
         goto fail;
      }
 
-   wl_client_get_credentials(client, &pid, NULL, NULL);
    provider = _remote_provider_find(ec);
    if (!provider)
      {
+        /* check the privilege for the client which wants to be the remote surface of normal UI client */
+        wl_client_get_credentials(client, &pid, &uid, NULL);
+        res = e_security_privilege_check(pid, uid, E_PRIVILEGE_INTERNAL_DEFAULT_PLATFORM);
+        if (!res)
+          {
+             ELOGF("TRS",
+                   "Privilege Check Failed! DENY creating tizen_remote_surface pid:%d",
+                   NULL, NULL, pid);
+             goto fail;
+          }
+
         if (version >= TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
           {
-             /* TODO: privilege check */
              if (ec->comp_data->sub.data)
                {
                   ERR("Subsurface could not be source client");
