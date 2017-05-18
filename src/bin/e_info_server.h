@@ -57,5 +57,31 @@ struct _E_Info_Hook
    void *data;
 };
 
+typedef struct _E_Info_Server_Hook E_Info_Server_Hook;
+
+typedef enum _E_Info_Server_Hook_Point
+{
+   E_INFO_SERVER_HOOK_BUFFER_DUMP_BEGIN,
+   E_INFO_SERVER_HOOK_BUFFER_DUMP_END,
+   E_INFO_SERVER_HOOK_LAST
+} E_Info_Server_Hook_Point;
+
+typedef void (*E_Info_Server_Hook_Cb)(void *data);
+
+struct _E_Info_Server_Hook
+{
+   EINA_INLIST;
+   E_Info_Server_Hook_Point hookpoint;
+   E_Info_Server_Hook_Cb    func;
+   void             *data;
+   unsigned char     delete_me : 1;
+};
+
+E_API E_Info_Server_Hook *e_info_server_hook_add(E_Info_Server_Hook_Point hookpoint, E_Info_Server_Hook_Cb func, const void *data);
+
+E_API void e_info_server_hook_del(E_Info_Server_Hook *ph);
+
+E_API void e_info_server_hook_call(E_Info_Server_Hook_Point hookpoint);
+
 #endif
 #endif
