@@ -8,6 +8,7 @@ extern EINTERN const char *E_PRIVILEGE_SCREEN_MODE_SET;
 extern EINTERN const char *E_PRIVILEGE_BRIGHTNESS_SET;
 extern EINTERN const char *E_PRIVILEGE_DATA_ONLY_SET;
 extern EINTERN const char *E_PRIVILEGE_KEYGRAB_SET;
+extern EINTERN const char *E_PRIVILEGE_INTERNAL_DEFAULT_PLATFORM;
 
 #endif
 #endif
