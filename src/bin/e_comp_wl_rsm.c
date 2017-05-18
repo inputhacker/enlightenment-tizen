@@ -1156,8 +1156,8 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
    EINA_SAFETY_ON_NULL_RETURN(_rsm);
 
    remote_surface = wl_resource_get_user_data(resource);
-   if (!remote_surface) return;
-   if (!remote_surface->valid) return;
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
 
    if (remote_surface->provider)
      {
@@ -1247,8 +1247,8 @@ _remote_surface_cb_unredirect(struct wl_client *client, struct wl_resource *reso
    E_Comp_Wl_Remote_Surface *remote_surface;
 
    remote_surface = wl_resource_get_user_data(resource);
-   if (!remote_surface) return;
-   if (!remote_surface->valid) return;
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
 
    remote_surface->redirect = EINA_FALSE;
 //   _remote_surface_visible_set(remote_surface, EINA_FALSE);
@@ -1271,10 +1271,10 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
    double eradx, erady, epressure, eangle;
 
    remote_surface = wl_resource_get_user_data(resource);
-   if (!remote_surface) return;
-   if (!remote_surface->provider) return;
-   if (!remote_surface->provider->ec) return;
-   if (!remote_surface->valid) return;
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->ec);
 
    provider = remote_surface->provider;
    ec = provider->ec;
@@ -1399,10 +1399,10 @@ _remote_surface_cb_mouse_wheel_transfer(struct wl_client *client, struct wl_reso
    Ecore_Device *edev = NULL;
 
    remote_surface = wl_resource_get_user_data(resource);
-   if (!remote_surface) return;
-   if (!remote_surface->provider) return;
-   if (!remote_surface->provider->ec) return;
-   if (!remote_surface->valid) return;
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->ec);
 
    provider = remote_surface->provider;
    ec = provider->ec;
@@ -1427,10 +1427,10 @@ _remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_reso
    double eradx, erady, epressure, eangle;
 
    remote_surface = wl_resource_get_user_data(resource);
-   if (!remote_surface) return;
-   if (!remote_surface->provider) return;
-   if (!remote_surface->provider->ec) return;
-   if (!remote_surface->valid) return;
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->ec);
 
    provider = remote_surface->provider;
    ec = provider->ec;
@@ -1511,10 +1511,10 @@ _remote_surface_cb_touch_cancel_transfer(struct wl_client *client, struct wl_res
    E_Client *ec;
 
    remote_surface = wl_resource_get_user_data(resource);
-   if (!remote_surface) return;
-   if (!remote_surface->provider) return;
-   if (!remote_surface->provider->ec) return;
-   if (!remote_surface->valid) return;
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->ec);
 
    provider = remote_surface->provider;
    ec = provider->ec;
@@ -1534,10 +1534,10 @@ _remote_surface_cb_key_event_transfer(struct wl_client *client, struct wl_resour
    Ecore_Device_Class eclas;
 
    remote_surface = wl_resource_get_user_data(resource);
-   if (!remote_surface) return;
-   if (!remote_surface->provider) return;
-   if (!remote_surface->provider->ec) return;
-   if (!remote_surface->valid) return;
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider);
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->ec);
 
    provider = remote_surface->provider;
    ec = provider->ec;
@@ -1592,8 +1592,8 @@ _remote_surface_cb_visibility_transfer(struct wl_client *client, struct wl_resou
    E_Comp_Wl_Remote_Surface *remote_surface;
 
    remote_surface = wl_resource_get_user_data(resource);
-   if (!remote_surface) return;
-   if (!remote_surface->valid) return;
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
 
    if (visibility_type == TIZEN_REMOTE_SURFACE_VISIBILITY_TYPE_INVISIBLE)
      {
@@ -1612,8 +1612,8 @@ _remote_surface_cb_owner_set(struct wl_client *client, struct wl_resource *resou
    E_Client *owner = NULL;
 
    remote_surface = wl_resource_get_user_data(resource);
-   if (!remote_surface) return;
-   if (!remote_surface->valid) return;
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
 
    if (surface_resource)
      owner = wl_resource_get_user_data(surface_resource);
@@ -1643,8 +1643,8 @@ _remote_surface_cb_region_create(struct wl_client *client, struct wl_resource *r
    E_Comp_Wl_Remote_Provider *provider;
 
    remote_surface = wl_resource_get_user_data(remote_surface_resource);
-   if (!remote_surface) return;
-   if (!remote_surface->valid) return;
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
 
    resource = wl_resource_create(client,
                                  &tizen_remote_surface_region_interface,
@@ -1686,8 +1686,8 @@ _remote_surface_cb_release(struct wl_client *client, struct wl_resource *resourc
    E_Comp_Wl_Remote_Buffer *remote_buffer;
 
    remote_surface = wl_resource_get_user_data(resource);
-   if (!remote_surface) return;
-   if (!remote_surface->valid) return;
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
 
    remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
    EINA_SAFETY_ON_NULL_RETURN(remote_buffer);
@@ -1703,8 +1703,8 @@ _remote_surface_cb_remote_render_set(struct wl_client *client, struct wl_resourc
    E_Comp_Wl_Remote_Source *source = NULL;
 
    remote_surface = wl_resource_get_user_data(resource);
-   if (!remote_surface) return;
-   if (!remote_surface->valid) return;
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
 
    source = remote_surface->source;
    if (!source) return;
@@ -1895,8 +1895,8 @@ _remote_manager_cb_surface_bind(struct wl_client *client, struct wl_resource *re
    E_Client *ec = NULL;
 
    remote_surface = wl_resource_get_user_data(remote_surface_resource);
-   if (!remote_surface) return;
-   if (!remote_surface->valid) return;
+   EINA_SAFETY_ON_NULL_RETURN(remote_surface);
+   EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
 
    provider = remote_surface->provider;
    if (!provider) return;
