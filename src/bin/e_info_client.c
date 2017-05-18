@@ -1432,8 +1432,7 @@ _e_info_client_prop_prop_info(int argc, char **argv)
              return;
           }
 
-        /* TODO: memory corruption */
-        snprintf(win_id, sizeof(win_id), "%lu", win);
+        snprintf(win_id, sizeof(win_id), "%lu", (unsigned long int)win);
 
         mode = WINDOW_ID_MODE;
         value = win_id;

@@ -1135,6 +1135,21 @@ _get_win_prop_No_shape_cut(const Evas_Object *evas_obj)
 }
 
 static const char*
+_set_win_prop_Ignored(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     ec->ignored = 1; /* TODO: is't right? */
+   else if(strstr(prop_value, "FALSE"))
+     e_client_unignore(ec);
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
 _get_win_prop_Ignored(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1164,6 +1179,21 @@ _get_win_prop_Unredirected_single(const Evas_Object *evas_obj)
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
 
    return ec->unredirected_single ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_set_win_prop_Redirected(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     e_client_redirected_set(ec, EINA_TRUE);
+   else if(strstr(prop_value, "FALSE"))
+     e_client_redirected_set(ec, EINA_FALSE);
+   else
+     return strdup("invalid property value");
+
+   return NULL;
 }
 
 static const char*
@@ -1273,11 +1303,41 @@ _get_win_prop_Re_manage(const Evas_Object *evas_obj)
 }
 
 static const char*
+_set_win_prop_Fullscreen(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     e_client_fullscreen(ec, E_FULLSCREEN_RESIZE); /* TODO: what a policy to use? */
+   else if(strstr(prop_value, "FALSE"))
+     e_client_unfullscreen(ec);
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
 _get_win_prop_Fullscreen(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
 
    return ec->fullscreen ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_set_win_prop_Urgent(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     e_client_urgent_set(ec, EINA_TRUE);
+   else if(strstr(prop_value, "FALSE"))
+     e_client_urgent_set(ec, EINA_FALSE);
+   else
+     return strdup("invalid property value");
+
+   return NULL;
 }
 
 static const char*
@@ -1289,6 +1349,21 @@ _get_win_prop_Urgent(const Evas_Object *evas_obj)
 }
 
 static const char*
+_set_win_prop_Sticky(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     e_client_stick(ec);
+   else if(strstr(prop_value, "FALSE"))
+     e_client_unstick(ec);
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
 _get_win_prop_Sticky(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1297,11 +1372,41 @@ _get_win_prop_Sticky(const Evas_Object *evas_obj)
 }
 
 static const char*
+_set_win_prop_Iconic(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     e_client_iconify(ec);
+   else if(strstr(prop_value, "FALSE"))
+     e_client_uniconify(ec);
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
 _get_win_prop_Iconic(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
 
    return ec->iconic ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
+_set_win_prop_Focused(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     ec->focused = 1;
+   else if(strstr(prop_value, "FALSE"))
+     ec->focused = 0;
+   else
+     return strdup("invalid property value");
+
+   return NULL;
 }
 
 static const char*
@@ -1350,11 +1455,88 @@ _get_win_prop_32bit(const Evas_Object *evas_obj)
 }
 
 static const char*
+_set_win_prop_Visible(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   if(strstr(prop_value, "TRUE"))
+     ec->visible = 1;
+   else if(strstr(prop_value, "FALSE"))
+     ec->visible = 0;
+   else
+     return strdup("invalid property value");
+
+   return NULL;
+}
+
+static const char*
 _get_win_prop_Visible(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
 
    return ec->visible ? strdup("TRUE") : strdup("FALSE");
+}
+
+/* this code looks awful but to make it sane some global changes are required,
+ * but I'm not sure I'm allowed to do such changes which relate ONLY to e_info app */
+static inline int
+_check_layer_idx(const char *layer_name, int layer_idx)
+{
+   char tmp[64] = {0, };
+
+   e_comp_layer_name_get(layer_idx, tmp, sizeof(tmp));
+
+   return strncmp(tmp, layer_name, strlen(tmp));
+}
+
+static int
+_e_comp_layer_idx_get(const char *layer_name)
+{
+   if (!layer_name) return E_LAYER_MAX + 1;
+
+   if (!_check_layer_idx(layer_name, E_LAYER_BOTTOM))                     return E_LAYER_BOTTOM;
+   if (!_check_layer_idx(layer_name, E_LAYER_BG))                         return E_LAYER_BG;
+   if (!_check_layer_idx(layer_name, E_LAYER_DESKTOP))                    return E_LAYER_DESKTOP;
+   if (!_check_layer_idx(layer_name, E_LAYER_DESKTOP_TOP))                return E_LAYER_DESKTOP_TOP;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_DESKTOP))             return E_LAYER_CLIENT_DESKTOP;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_BELOW))               return E_LAYER_CLIENT_BELOW;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_NORMAL))              return E_LAYER_CLIENT_NORMAL;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_ABOVE))               return E_LAYER_CLIENT_ABOVE;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_EDGE))                return E_LAYER_CLIENT_EDGE;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_FULLSCREEN))          return E_LAYER_CLIENT_FULLSCREEN;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_EDGE_FULLSCREEN))     return E_LAYER_CLIENT_EDGE_FULLSCREEN;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_POPUP))               return E_LAYER_CLIENT_POPUP;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_TOP))                 return E_LAYER_CLIENT_TOP;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_DRAG))                return E_LAYER_CLIENT_DRAG;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_PRIO))                return E_LAYER_CLIENT_PRIO;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_NOTIFICATION_LOW))    return E_LAYER_CLIENT_NOTIFICATION_LOW;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_NOTIFICATION_NORMAL)) return E_LAYER_CLIENT_NOTIFICATION_NORMAL;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_NOTIFICATION_HIGH))   return E_LAYER_CLIENT_NOTIFICATION_HIGH;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_NOTIFICATION_TOP))    return E_LAYER_CLIENT_NOTIFICATION_TOP;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_ALERT_LOW))           return E_LAYER_CLIENT_ALERT_LOW;
+   if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_ALERT))               return E_LAYER_CLIENT_ALERT;
+   if (!_check_layer_idx(layer_name, E_LAYER_POPUP))                      return E_LAYER_POPUP;
+   if (!_check_layer_idx(layer_name, E_LAYER_EFFECT))                     return E_LAYER_EFFECT;
+   if (!_check_layer_idx(layer_name, E_LAYER_MENU))                       return E_LAYER_MENU;
+   if (!_check_layer_idx(layer_name, E_LAYER_DESKLOCK))                   return E_LAYER_DESKLOCK;
+   if (!_check_layer_idx(layer_name, E_LAYER_MAX))                        return E_LAYER_MAX;
+
+   return E_LAYER_MAX + 1;
+}
+
+static const char*
+_set_win_prop_Layer(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+   int layer_idx;
+
+   layer_idx = _e_comp_layer_idx_get(prop_value);
+   if (layer_idx == (E_LAYER_MAX + 1))
+     return strdup("invalid property value");
+
+   ec->layer = layer_idx;
+
+   return NULL;
 }
 
 static const char*
@@ -1464,13 +1646,16 @@ _get_win_prop_ParentWindowID(const Evas_Object *evas_obj)
 static const char*
 _set_win_prop_Geometry(Evas_Object *evas_obj, const char *prop_value)
 {
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
    int x = -1, y = -1, w = -1, h = -1;
 
    sscanf(prop_value, "%d, %d %dx%d", &x, &y, &w, &h);
    if (x < 0 || y < 0 || w <= 0 || h <= 0)
      return strdup("invalid property value");
 
-   evas_object_geometry_set(evas_obj, x, y, w, h);
+   /* TODO: I have no enough knowledges to say that it's a proper way
+    *       to change e_client geometry */
+   ec->x = x; ec->y = y; ec->w = w; ec->h = h;
 
    return NULL;
 }
@@ -1490,6 +1675,16 @@ _get_win_prop_Geometry(const Evas_Object *evas_obj)
 }
 
 static const char*
+_set_win_prop_Role(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   e_client_window_role_set(ec, prop_value);
+
+   return NULL;
+}
+
+static const char*
 _get_win_prop_Role(const Evas_Object *evas_obj)
 {
    const E_Client *ec;
@@ -1501,6 +1696,22 @@ _get_win_prop_Role(const Evas_Object *evas_obj)
      return NULL;
 
    return str;
+}
+
+static const char*
+_set_win_prop_Window_Name(Evas_Object *evas_obj, const char *prop_value)
+{
+   E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   /* TODO: I ain't sure it's a proper order */
+   if (ec->netwm.name)
+     eina_stringshare_replace(&ec->netwm.name, prop_value);
+   else if (ec->icccm.title)
+     eina_stringshare_replace(&ec->icccm.title, prop_value);
+   else
+     eina_stringshare_replace(&ec->netwm.name, prop_value);
+
+   return NULL;
 }
 
 static const char*
@@ -1570,6 +1781,8 @@ _get_win_prop_Window_ID(const Evas_Object *evas_obj)
    return str;
 }
 
+#undef astrcat_
+
 typedef const char* (*get_prop_t)(const Evas_Object *evas_obj);
 typedef const char* (*set_prop_t)(Evas_Object *evas_obj, const char *prop_value);
 
@@ -1620,12 +1833,12 @@ static struct property_manager
     {
         "Window_Name",
         _get_win_prop_Window_Name,
-        NULL
+        _set_win_prop_Window_Name
     },
     {
         "Role",
         _get_win_prop_Role,
-        NULL
+        _set_win_prop_Role
     },
     {
         "Geometry",
@@ -1655,12 +1868,12 @@ static struct property_manager
     {
         "Layer",
         _get_win_prop_Layer,
-        NULL
+        _set_win_prop_Layer
     },
     {
         "Visible",
         _get_win_prop_Visible,
-        NULL
+        _set_win_prop_Visible
     },
     {
         "32bit",
@@ -1680,27 +1893,27 @@ static struct property_manager
     {
         "Focused",
         _get_win_prop_Focused,
-        NULL
+        _set_win_prop_Focused
     },
     {
         "Iconic",
         _get_win_prop_Iconic,
-        NULL
+        _set_win_prop_Iconic
     },
     {
         "Sticky",
         _get_win_prop_Sticky,
-        NULL
+        _set_win_prop_Sticky
     },
     {
         "Urgent",
         _get_win_prop_Urgent,
-        NULL
+        _set_win_prop_Urgent
     },
     {
         "Fullscreen",
         _get_win_prop_Fullscreen,
-        NULL
+        _set_win_prop_Fullscreen
     },
     {
         "Re_manage",
@@ -1755,7 +1968,7 @@ static struct property_manager
     {
         "Redirected",
         _get_win_prop_Redirected,
-        NULL
+        _set_win_prop_Redirected
     },
     {
         "Unredirected_single",
@@ -1775,7 +1988,7 @@ static struct property_manager
     {
         "Ignored",
         _get_win_prop_Ignored,
-        NULL
+        _set_win_prop_Ignored
     },
     {
         "No_shape_cut",
@@ -2021,9 +2234,6 @@ _msg_window_prop_append(const Eldbus_Message *msg, uint32_t mode, const char *va
                }
           }
      }
-
-finish:
-   eldbus_message_iter_container_close(iter, array_of_ec);
 
    if (window_exists == EINA_TRUE && !error_msg)
      return reply_msg;
