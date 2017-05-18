@@ -63,6 +63,7 @@ static Eina_List    *e_info_dump_hdlrs;
 static char         *e_info_dump_path;
 static int           e_info_dump_running;
 static int           e_info_dump_count;
+static int           e_info_dump_remote_surface = 0;
 
 //FILE pointer for protocol_trace
 static FILE *log_fp_ptrace = NULL;
@@ -2388,8 +2389,11 @@ _e_info_server_cb_buffer_change(void *data, int type, void *event)
      }
    if (e_client_util_ignored_get(ec))
      {
-        ERR("%s: e_client_util_ignored_get(ec) true. return\n", __func__);
-        return ECORE_CALLBACK_PASS_ON;
+        if (!e_info_dump_remote_surface || !ec->remote_surface.provider)
+          {
+             ERR("%s: e_client_util_ignored_get(ec) true. return\n", __func__);
+             return ECORE_CALLBACK_PASS_ON;
+          }
      }
 
    buffer = e_pixmap_resource_get(ec->pixmap);
@@ -2943,6 +2947,41 @@ _e_info_server_cb_force_render(const Eldbus_Service_Interface *iface EINA_UNUSED
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_remote_surface(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   int dump_request, info_query;
+   Eina_Bool res;
+   Eldbus_Message_Iter *iter, *line_array;
+
+   res = eldbus_message_arguments_get(msg,
+                                      "ii", &dump_request, &info_query);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(res, reply);
+
+   if (info_query)
+     {
+        e_comp_wl_remote_surface_debug_info_get(eldbus_message_iter_get(reply));
+     }
+   else if (dump_request != -1)
+     {
+        char reply_msg[1024] = "";
+
+        e_info_dump_remote_surface = dump_request;
+
+        snprintf(reply_msg, sizeof(reply_msg), "Switch %s remote surface dump",
+                 dump_request? "ON":"OFF");
+
+        iter = eldbus_message_iter_get(reply);
+        eldbus_message_iter_arguments_append(iter, "as", &line_array);
+        eldbus_message_iter_basic_append(line_array, 's', reply_msg);
+        eldbus_message_iter_container_close(iter, line_array);
+     }
+
+   return reply;
+}
+
+//{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
@@ -2982,6 +3021,7 @@ static const Eldbus_Method methods[] = {
    { "desktop_geometry_set", ELDBUS_ARGS({"iiii", "Geometry"}), NULL, _e_info_server_cb_desktop_geometry_set, 0},
    { "desk_zoom", ELDBUS_ARGS({"ddii", "Zoom"}), NULL, _e_info_server_cb_desk_zoom, 0},
    { "frender", ELDBUS_ARGS({"i", "frender"}), ELDBUS_ARGS({"s", "force_render_result"}), _e_info_server_cb_force_render, 0},
+   { "remote_surface", ELDBUS_ARGS({"ii", "remote surface query"}), ELDBUS_ARGS({"as", "remote surfac information"}), _e_info_server_cb_remote_surface, 0},
    { NULL, NULL, NULL, NULL, 0 }
 };
 
