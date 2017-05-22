@@ -55,7 +55,8 @@ typedef struct _E_Comp_Wl_Remote_Surface E_Comp_Wl_Remote_Surface;
 typedef struct _E_Comp_Wl_Remote_Region E_Comp_Wl_Remote_Region;
 typedef struct _E_Comp_Wl_Remote_Buffer E_Comp_Wl_Remote_Buffer;
 
-struct _E_Comp_Wl_Remote_Manager{
+struct _E_Comp_Wl_Remote_Manager
+{
    struct wl_global *global;
 
    Eina_Hash *provider_hash;
@@ -67,69 +68,89 @@ struct _E_Comp_Wl_Remote_Manager{
    int dummy_fd; /* tizen_remote_surface@chagned_buffer need valid fd when it send tbm surface */
 };
 
+/* widget client */
 struct _E_Comp_Wl_Remote_Provider
 {
-     struct wl_resource *resource;
+   struct wl_resource *resource;
 
-     E_Client *ec;
+   E_Client *ec;
 
-     Eina_List *surfaces;
-     E_Comp_Wl_Remote_Surface *onscreen_parent;
+   Eina_List *surfaces;
+   E_Comp_Wl_Remote_Surface *onscreen_parent;
 
-     Eina_Bool visible;
-     int vis_ref;
-     uint32_t input_event_filter;
+   Eina_Bool visible;
+   int vis_ref;
+   uint32_t input_event_filter;
 
-     Eina_Bool is_offscreen;
+   Eina_Bool is_offscreen;
 };
 
-struct _E_Comp_Wl_Remote_Source {
-     E_Client *ec;
-     Eina_List *surfaces;
+/* normal UI client */
+struct _E_Comp_Wl_Remote_Source
+{
+   E_Client *ec;
+   Eina_List *surfaces;
 
-     E_Comp_Wl_Buffer_Ref buffer_ref;
-     const char *image_path;
-     Ecore_Thread *th;
-     Eina_Bool deleted;
+   E_Comp_Wl_Buffer_Ref buffer_ref;
+   const char *image_path;
+   Ecore_Thread *th;
+   Eina_Bool deleted;
 
-     int offscreen_ref;
-     Eina_Bool is_offscreen;
+   int offscreen_ref;
+   Eina_Bool is_offscreen;
 };
 
-struct _E_Comp_Wl_Remote_Surface {
-     struct wl_resource *resource;
-     struct wl_resource *wl_tbm;
-     struct wl_listener tbm_destroy_listener;
+/* widget viewer or task-manager client */
+struct _E_Comp_Wl_Remote_Surface
+{
+   struct wl_resource *resource;
+   struct wl_resource *wl_tbm;
+   struct wl_listener tbm_destroy_listener;
 
-     E_Comp_Wl_Remote_Provider *provider;
-     E_Comp_Wl_Remote_Source *source;
-     E_Client *bind_ec;
+   E_Comp_Wl_Remote_Provider *provider;
+   E_Comp_Wl_Remote_Source *source;
+   E_Client *bind_ec;
 
-     E_Client *owner;
-     Eina_List *regions;
+   E_Client *owner;
+   Eina_List *regions;
 
-     Eina_Bool redirect;
-     Eina_Bool visible;
+   Eina_Bool redirect;
+   Eina_Bool visible;
 
-     Eina_Bool remote_render;
+   Eina_Bool remote_render;
 
-     Eina_Bool valid;
+   Eina_Bool valid;
 
-     int version;
+   struct
+   {
+      Eina_Bool use;
+      enum tizen_remote_surface_changed_buffer_event_filter filter;
+   } changed_buff_ev_filter;
+
+   struct
+   {
+      Eina_Bool set;
+      enum tizen_remote_surface_buffer_type type;
+      uint32_t serial;
+   } req_curr_buff;
+
+   int version;
 };
 
-struct _E_Comp_Wl_Remote_Region {
-     struct wl_resource *resource;
+struct _E_Comp_Wl_Remote_Region
+{
+   struct wl_resource *resource;
 
-     E_Comp_Wl_Remote_Surface *remote_surface;
-     Eina_Rectangle geometry;
-     Evas_Object *mirror;
+   E_Comp_Wl_Remote_Surface *remote_surface;
+   Eina_Rectangle geometry;
+   Evas_Object *mirror;
 };
 
-struct _E_Comp_Wl_Remote_Buffer {
-     E_Comp_Wl_Buffer_Ref ref;
-     struct wl_resource *resource;
-     struct wl_listener destroy_listener;
+struct _E_Comp_Wl_Remote_Buffer
+{
+   E_Comp_Wl_Buffer_Ref ref;
+   struct wl_resource *resource;
+   struct wl_listener destroy_listener;
 };
 
 static E_Comp_Wl_Remote_Manager *_rsm = NULL;
@@ -442,6 +463,192 @@ _remote_provider_find(E_Client *ec)
    return provider;
 }
 
+/* true : given buffer type can be delivered to the client
+ * false: the client wants to filter given buffer type, thus changed_buffer
+ *        event for this type of buffer will not be sent to the client.
+ */
+static Eina_Bool
+_remote_surface_changed_buff_ev_filter_check(E_Comp_Wl_Remote_Surface *rs,
+                                             enum tizen_remote_surface_buffer_type buff_type)
+{
+   Eina_Bool res = EINA_TRUE;
+
+   if (rs->changed_buff_ev_filter.use)
+     {
+        switch (buff_type)
+          {
+           case TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM:
+              if (rs->changed_buff_ev_filter.filter & TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_EVENT_FILTER_TBM)
+                res = EINA_FALSE;
+              break;
+           case TIZEN_REMOTE_SURFACE_BUFFER_TYPE_IMAGE_FILE:
+              if (rs->changed_buff_ev_filter.filter & TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_EVENT_FILTER_IMAGE_FILE)
+                res = EINA_FALSE;
+              break;
+           default:
+              break;
+          }
+     }
+
+   return res;
+}
+
+static Eina_Bool
+_remote_surface_changed_buff_protocol_send(E_Comp_Wl_Remote_Surface *rs,
+                                           enum tizen_remote_surface_buffer_type buff_type,
+                                           E_Comp_Wl_Remote_Buffer *rbuff,
+                                           int img_file_fd,
+                                           unsigned int img_file_size,
+                                           Eina_Bool ref_set,
+                                           E_Comp_Wl_Buffer *buff)
+{
+   struct wl_resource *tbm = NULL;
+   Eina_Bool send = EINA_FALSE;
+   struct wl_array opts;
+   Eina_Bool add_opts = EINA_FALSE;
+   char *p, tmp[16];
+   int len;
+
+   if (rbuff)
+     tbm = rbuff->resource;
+
+   send = _remote_surface_changed_buff_ev_filter_check(rs, buff_type);
+   if (send)
+     {
+        if ((ref_set) &&
+            (buff) &&
+            (rs->version >= TIZEN_REMOTE_SURFACE_RELEASE_SINCE_VERSION))
+          e_comp_wl_buffer_reference(&rbuff->ref, buff);
+
+        if (rs->version >= TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
+          {
+             if (rs->req_curr_buff.set)
+               {
+                  /* example of option list:
+                   *  [0] "curr_buff_req_serial"
+                   *  [1] "257"
+                   *  [2] "opt_none"
+                   */
+                  wl_array_init(&opts);
+                  p = wl_array_add(&opts, 21);
+                  if (p) strncpy(p, "curr_buff_req_serial", 21);
+
+                  snprintf(tmp, sizeof(tmp), "%u", rs->req_curr_buff.serial);
+                  len = strlen(tmp) + 1;
+                  p = wl_array_add(&opts, len);
+                  if (p) strncpy(p, tmp, len);
+
+                  p = wl_array_add(&opts, 9);
+                  if (p) strncpy(p, "opt_none", 9);
+
+                  rs->req_curr_buff.set = EINA_FALSE;
+                  add_opts = EINA_TRUE;
+               }
+
+             RSMINF("CHANGED_BUFF send:%d type:%u tbm:%p fd:%d(%d) add_opts:%d EV_FILTER(%d):%u",
+                    NULL, NULL, "SURFACE", rs,
+                    send, buff_type, tbm, img_file_fd, img_file_size, add_opts,
+                    rs->changed_buff_ev_filter.use,
+                    rs->changed_buff_ev_filter.filter);
+
+             tizen_remote_surface_send_changed_buffer(rs->resource,
+                                                      buff_type,
+                                                      tbm,
+                                                      img_file_fd,
+                                                      img_file_size,
+                                                      ecore_time_get() * 1000,
+                                                      add_opts ? &opts : NULL);
+          }
+        else
+          tizen_remote_surface_send_update_buffer(rs->resource,
+                                                  tbm,
+                                                  ecore_time_get() * 1000);
+     }
+
+   if (add_opts)
+     wl_array_release(&opts);
+
+   return send;
+}
+
+static Eina_Bool
+_remote_surface_buff_send(E_Comp_Wl_Remote_Surface *rs)
+{
+   enum tizen_remote_surface_buffer_type buff_type;
+   E_Comp_Wl_Remote_Provider *provider;
+   E_Comp_Wl_Remote_Source *src;
+   E_Comp_Wl_Buffer *buff = NULL;
+   struct wl_resource *rbuff_res = NULL;
+   E_Comp_Wl_Remote_Buffer *rbuff = NULL;
+   char *img_path;
+   int fd = _rsm->dummy_fd;
+   off_t img_size = 0;
+   Eina_Bool res = EINA_FALSE;
+
+   E_Client *src_ec = NULL;
+
+   src = rs->source;
+   provider = rs->provider;
+
+   if (provider)
+     {
+        src_ec = provider->ec;
+        img_path = NULL;
+     }
+   else if (src)
+     {
+        src_ec = src->ec;
+        img_path = (char *)src->image_path;
+     }
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(src_ec, EINA_FALSE);
+
+   buff = e_pixmap_resource_get(src_ec->pixmap);
+   if (buff)
+     {
+        rbuff_res = e_comp_wl_tbm_remote_buffer_get(rs->wl_tbm, buff->resource);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(rbuff_res, EINA_FALSE);
+
+        rbuff = _e_comp_wl_remote_buffer_get(rbuff_res);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(rbuff, EINA_FALSE);
+
+        buff_type = TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM;
+        res = EINA_TRUE;
+     }
+   else
+     {
+        EINA_SAFETY_ON_NULL_RETURN_VAL(img_path, EINA_FALSE);
+
+        fd = open(img_path, O_RDONLY);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(fd != -1, EINA_FALSE);
+
+        img_size = lseek(fd, 0, SEEK_END);
+        EINA_SAFETY_ON_FALSE_GOTO(img_size > 0, close_fd);
+
+        buff_type = TIZEN_REMOTE_SURFACE_BUFFER_TYPE_IMAGE_FILE;
+        res = EINA_TRUE;
+     }
+
+   /* TODO: if client wants to receive image file for the remote_surfac_provider,
+    * then makes image file from tbm buffer and sends information for that file.
+    * otherwise, just sends tbm buffer to the client.
+    */
+   if (res)
+     res = _remote_surface_changed_buff_protocol_send(rs,
+                                                      buff_type,
+                                                      rbuff,
+                                                      fd,
+                                                      (unsigned int)img_size,
+                                                      EINA_FALSE,
+                                                      NULL);
+
+   return res;
+
+close_fd:
+   close(fd);
+   return EINA_FALSE;
+}
+
 static void
 _remote_surface_visible_set(E_Comp_Wl_Remote_Surface *remote_surface, Eina_Bool set)
 {
@@ -536,13 +743,13 @@ _remote_source_send_image_update(E_Comp_Wl_Remote_Source *source)
         if (remote_surface->version < TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
           continue;
 
-        tizen_remote_surface_send_changed_buffer(remote_surface->resource,
-                                                 TIZEN_REMOTE_SURFACE_BUFFER_TYPE_IMAGE_FILE,
-                                                 NULL,
-                                                 fd,
-                                                 (unsigned int)image_size,
-                                                 ecore_time_get() * 1000,
-                                                 NULL);
+        _remote_surface_changed_buff_protocol_send(remote_surface,
+                                                   TIZEN_REMOTE_SURFACE_BUFFER_TYPE_IMAGE_FILE,
+                                                   NULL,
+                                                   fd,
+                                                   (unsigned int)image_size,
+                                                   EINA_FALSE,
+                                                   NULL);
      }
 
    close(fd);
@@ -1187,21 +1394,13 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
         remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
         EINA_SAFETY_ON_NULL_RETURN(remote_buffer);
 
-        if (remote_surface->version >= 2)
-          e_comp_wl_buffer_reference(&remote_buffer->ref, buffer);
-
-        if (remote_surface->version >= TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
-          tizen_remote_surface_send_changed_buffer(resource,
+        _remote_surface_changed_buff_protocol_send(remote_surface,
                                                    TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
-                                                   remote_buffer->resource,
+                                                   remote_buffer,
                                                    _rsm->dummy_fd,
                                                    0,
-                                                   ecore_time_get() * 1000,
-                                                   NULL);
-        else
-          tizen_remote_surface_send_update_buffer(resource,
-                                                  remote_buffer->resource,
-                                                  ecore_time_get() * 1000);
+                                                   EINA_TRUE,
+                                                   buffer);
      }
    else if (remote_surface->source)
      {
@@ -1225,16 +1424,13 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
              remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
              EINA_SAFETY_ON_NULL_RETURN(remote_buffer);
 
-             if (remote_surface->version >= 2)
-               e_comp_wl_buffer_reference(&remote_buffer->ref, buffer);
-
-             tizen_remote_surface_send_changed_buffer(remote_surface->resource,
-                                                      TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
-                                                      remote_buffer->resource,
-                                                      _rsm->dummy_fd,
-                                                      0,
-                                                      ecore_time_get() * 1000,
-                                                      NULL);
+             _remote_surface_changed_buff_protocol_send(remote_surface,
+                                                        TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
+                                                        remote_buffer,
+                                                        _rsm->dummy_fd,
+                                                        0,
+                                                        EINA_TRUE,
+                                                        buffer);
           }
         else
           {
@@ -1718,6 +1914,69 @@ _remote_surface_cb_remote_render_set(struct wl_client *client, struct wl_resourc
    _remote_source_offscreen_set(source, set);
 }
 
+static void
+_remote_surface_cb_changed_buffer_event_filter_set(struct wl_client *client,
+                                                   struct wl_resource *rsurf_res,
+                                                   enum tizen_remote_surface_changed_buffer_event_filter filter)
+{
+   E_Comp_Wl_Remote_Surface *rs;
+
+   rs = wl_resource_get_user_data(rsurf_res);
+   EINA_SAFETY_ON_NULL_RETURN(rs);
+   EINA_SAFETY_ON_FALSE_RETURN(rs->valid);
+
+   if (filter == TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_EVENT_FILTER_NONE)
+     rs->changed_buff_ev_filter.use = EINA_FALSE;
+   else
+     rs->changed_buff_ev_filter.use = EINA_TRUE;
+
+   rs->changed_buff_ev_filter.filter = filter;
+
+   RSMINF("use:%d filter:%u", NULL, NULL, "SURFACE", rs,
+          rs->changed_buff_ev_filter.use,
+          rs->changed_buff_ev_filter.filter);
+}
+
+static void
+_remote_surface_cb_curr_buff_get(struct wl_client *client,
+                                 struct wl_resource *rsurf_res,
+                                 enum tizen_remote_surface_buffer_type buff_type,
+                                 uint32_t req_serial)
+{
+   E_Comp_Wl_Remote_Surface *rs;
+   Eina_Bool res;
+
+   rs = wl_resource_get_user_data(rsurf_res);
+   EINA_SAFETY_ON_NULL_RETURN(rs);
+   EINA_SAFETY_ON_FALSE_RETURN(rs->valid);
+
+   RSMINF("buff_type:%u req_serial:%u", NULL, NULL, "SURFACE", rs,
+          buff_type, req_serial);
+
+   /* compare buffer type with filter value of changed_buffer event */
+   res = _remote_surface_changed_buff_ev_filter_check(rs, buff_type);
+   EINA_SAFETY_ON_FALSE_RETURN(res);
+
+   /* setup request info before sending current buffer */
+   rs->req_curr_buff.set = EINA_TRUE;
+   rs->req_curr_buff.type = buff_type;
+   rs->req_curr_buff.serial = req_serial;
+
+   RSMINF("buff_type:%u req_serial:%u", NULL, NULL, "SURFACE", rs,
+          buff_type, req_serial);
+
+   /* send current buffer to the requesting client */
+   res = _remote_surface_buff_send(rs);
+   EINA_SAFETY_ON_FALSE_GOTO(res, err_cleanup);
+
+   return;
+
+err_cleanup:
+   rs->req_curr_buff.set = EINA_FALSE;
+   rs->req_curr_buff.type = 0;
+   rs->req_curr_buff.serial = 0;
+}
+
 static const struct tizen_remote_surface_interface _remote_surface_interface =
 {
    _remote_surface_cb_destroy,
@@ -1733,6 +1992,8 @@ static const struct tizen_remote_surface_interface _remote_surface_interface =
    _remote_surface_cb_region_create,
    _remote_surface_cb_release,
    _remote_surface_cb_remote_render_set,
+   _remote_surface_cb_changed_buffer_event_filter_set,
+   _remote_surface_cb_curr_buff_get,
 };
 
 static void
@@ -1961,7 +2222,7 @@ _e_comp_wl_remote_cb_client_iconify(void *data, E_Client *ec)
           return;
 
         source = E_NEW(E_Comp_Wl_Remote_Source, 1);
-        if (!source) return;
+        EINA_SAFETY_ON_NULL_RETURN(source);
 
         source->ec = ec;
         eina_hash_add(_rsm->source_hash, &ec, source);
@@ -2084,24 +2345,21 @@ _e_comp_wl_remote_surface_source_update(E_Comp_Wl_Remote_Source *source, E_Comp_
         if (remote_surface->version < TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
           continue;
 
+        if (!remote_surface->redirect) continue;
+
         remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(remote_surface->wl_tbm, buffer->resource);
         if (!remote_buffer_resource) continue;
 
         remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
         if (!remote_buffer) continue;
 
-        if (!remote_surface->redirect) continue;
-
-        if (remote_surface->version >= 2)
-          e_comp_wl_buffer_reference(&remote_buffer->ref, buffer);
-
-        tizen_remote_surface_send_changed_buffer(remote_surface->resource,
-                                                 TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
-                                                 remote_buffer->resource,
-                                                 _rsm->dummy_fd,
-                                                 0,
-                                                 ecore_time_get() * 1000,
-                                                 NULL);
+        _remote_surface_changed_buff_protocol_send(remote_surface,
+                                                   TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
+                                                   remote_buffer,
+                                                   _rsm->dummy_fd,
+                                                   0,
+                                                   EINA_TRUE,
+                                                   buffer);
      }
 }
 
@@ -2234,21 +2492,13 @@ _e_comp_wl_remote_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *st
                     }
                   else
                     {
-                       if (surface->version >= 2)
-                         e_comp_wl_buffer_reference(&remote_buffer->ref, buffer);
-
-                       if (surface->version >= TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
-                         tizen_remote_surface_send_changed_buffer(surface->resource,
+                       _remote_surface_changed_buff_protocol_send(surface,
                                                                   TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
-                                                                  remote_buffer->resource,
+                                                                  remote_buffer,
                                                                   _rsm->dummy_fd,
                                                                   0,
-                                                                  ecore_time_get() * 1000,
-                                                                  NULL);
-                       else
-                         tizen_remote_surface_send_update_buffer(surface->resource,
-                                                                 remote_buffer->resource,
-                                                                 ecore_time_get()  * 1000);
+                                                                  EINA_TRUE,
+                                                                  buffer);
                     }
                }
           }
@@ -2347,9 +2597,11 @@ e_comp_wl_remote_surface_commit(E_Client *ec)
    E_Client *offscreen_parent;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
-   if (e_object_is_del(E_OBJECT(ec)) || !ec->comp_data) return EINA_FALSE;
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(ec)), EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
 
-   if ((source = _remote_source_find(ec)))
+   source = _remote_source_find(ec);
+   if (source)
      {
         if (source->is_offscreen)
           {
@@ -2583,7 +2835,7 @@ e_comp_wl_remote_surface_init(void)
 
    rs_manager->global = wl_global_create(e_comp_wl->wl.disp,
                                          &tizen_remote_surface_manager_interface,
-                                         4,
+                                         5,
                                          NULL,
                                          _remote_manager_cb_bind);
 
