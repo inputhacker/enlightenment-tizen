@@ -6553,6 +6553,18 @@ e_client_transform_core_input_inv_transform(E_Client *ec, int x, int y, int *out
    e_util_transform_vertex_pos_round_get(&result_vertex, out_x, out_y, NULL, NULL);
 }
 
+E_API void
+e_client_transform_core_input_inv_rect_transform(E_Client *ec, int x, int y, int *out_x, int *out_y)
+{
+   if (!ec) return;
+   if (!e_client_transform_core_enable_get(ec)) return;
+
+   e_util_transform_matrix_inv_rect_coords_get(&ec->transform_core.result.transform,
+                                               &ec->transform_core.result.vertices,
+                                               ec->zone->w, ec->zone->h,
+                                               x, y, out_x, out_y);
+}
+
 E_API E_Pixmap *
 e_client_pixmap_change(E_Client *ec, E_Pixmap *newcp)
 {
