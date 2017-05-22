@@ -720,6 +720,63 @@ e_util_transform_matrix_multiply(E_Util_Transform_Matrix *matrix1,
    return result;
 }
 
+E_API void
+e_util_transform_matrix_inv_rect_coords_get(E_Util_Transform *transform, E_Util_Transform_Rect_Vertex *vetices, int w, int h, int x, int y, int *out_x, int *out_y)
+{
+   int scale_w = 0, scale_h = 0;
+   int move_x = 0, move_y = 0;
+   int x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+   int result_x = 0, result_y = 0;
+   double dmove_x = 0.0, dmove_y = 0.0;
+   double dx1 = 0.0, dx2 = 0.0, dy1 = 0.0, dy2 = 0.0;
+   double dresult_x = 0.0, dresult_y = 0.0;
+   double d_inv_map_x = 0.0, d_inv_map_y = 0.0;
+
+   if (!out_x || !out_y) return;
+
+   /* get rectangle's points from vertices. becase transform matrix is different with Evas_Map
+    * Evas_Map calculate using transformed rectangle's points, so to remove different these,
+    * calculate points using rectangle's points
+    */
+   e_util_transform_vertices_pos_get(vetices, 0, &dx1, &dy1, NULL, NULL);
+   e_util_transform_vertices_pos_get(vetices, 2, &dx2, &dy2, NULL, NULL);
+   e_util_transform_move_get(transform, &dmove_x, &dmove_y, NULL);
+
+   x1 = E_UTIL_TRANSFORM_ROUND(dx1);
+   x2 = E_UTIL_TRANSFORM_ROUND(dx2);
+   y1 = E_UTIL_TRANSFORM_ROUND(dy1);
+   y2 = E_UTIL_TRANSFORM_ROUND(dy2);
+
+   scale_w = x2 - x1;
+   scale_h = y2 - y1;
+
+   move_x = E_UTIL_TRANSFORM_ROUND(dmove_x);
+   move_y = E_UTIL_TRANSFORM_ROUND(dmove_y);
+
+   /* calculate inverse transformed coordinates */
+   dresult_x = (x * (double)scale_w / (double)w) + move_x;
+   dresult_y = (y * (double)scale_h / (double)h) + move_y;
+
+   result_x = *out_x = E_UTIL_TRANSFORM_ROUND(dresult_x);
+   result_y = *out_y = E_UTIL_TRANSFORM_ROUND(dresult_y);
+
+   /* this logic is added because Evas_Map doesn't do round.
+    * so check whether transformed result from Evas_Map is roundable.
+    * If the first digit after decimal point of result is greater than 5(roundable),
+    * add 1 to the inverted result.
+    */
+   d_inv_map_x = (double)w + ((((double)result_x - (double)(scale_w + move_x)) * w) / (double)scale_w);
+   d_inv_map_y = (double)(h * (result_y - move_y)) / (double)scale_h;
+   if ((int)(d_inv_map_x * 10) % 10 >= 5)
+     {
+        *out_x = result_x + 1;
+     }
+   if ((int)(d_inv_map_y * 10) % 10 >= 5)
+     {
+        *out_y = result_y + 1;
+     }
+}
+
 E_API E_Util_Transform_Vertex
 e_util_transform_matrix_multiply_vertex(E_Util_Transform_Matrix *matrix,
                                         E_Util_Transform_Vertex *vertex)
