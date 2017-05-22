@@ -144,5 +144,8 @@ E_API void                         e_util_transform_keep_ratio_set(E_Util_Transf
 E_API Eina_Bool                    e_util_transform_keep_ratio_get(E_Util_Transform *transform);
 E_API E_Util_Transform             e_util_transform_keep_ratio_apply(E_Util_Transform *transform, int origin_w, int origin_h);
 E_API void                         e_util_transform_log(E_Util_Transform *transform, const char *str);
+
+E_API void e_util_transform_matrix_inv_rect_coords_get(E_Util_Transform *transform, E_Util_Transform_Rect_Vertex *vetices, int w, int h, int x, int y, int *out_x, int *out_y);
+
 #endif
 #endif
