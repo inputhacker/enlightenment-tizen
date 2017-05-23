@@ -1776,7 +1776,7 @@ _e_info_server_cb_keymap_info_get(const Eldbus_Service_Interface *iface EINA_UNU
 }
 
 static void
-_e_info_server_hook_call(const char *module_name, const char *log_path)
+_e_info_server_module_hook_call(const char *module_name, const char *log_path)
 {
    Eina_List *l;
    E_Info_Hook *data;
@@ -1791,6 +1791,7 @@ _e_info_server_hook_call(const char *module_name, const char *log_path)
      }
 }
 
+/* a hook with given name(module_name) is defined by plug-in modules*/
 E_API void
 e_info_server_hook_set(const char *module_name, E_Info_Hook_Cb func, void *data)
 {
@@ -1840,7 +1841,7 @@ _e_info_server_cb_module_info_get(const Eldbus_Service_Interface *iface EINA_UNU
         return reply;
      }
 
-   _e_info_server_hook_call(module_name, path);
+   _e_info_server_module_hook_call(module_name, path);
 
    return reply;
 }
@@ -1857,7 +1858,7 @@ _e_info_server_cb_keygrab_status_get(const Eldbus_Service_Interface *iface EINA_
         return reply;
      }
 
-   _e_info_server_hook_call("keygrab", path);
+   _e_info_server_module_hook_call("keygrab", path);
 
    return reply;
 }
