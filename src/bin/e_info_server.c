@@ -2235,6 +2235,8 @@ _msg_window_prop_append(const Eldbus_Message *msg, uint32_t mode, const char *va
           }
      }
 
+   eldbus_message_iter_container_close(iter, array_of_ec);
+
    if (window_exists == EINA_TRUE && !error_msg)
      return reply_msg;
 
