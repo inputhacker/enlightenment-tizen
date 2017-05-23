@@ -1687,6 +1687,11 @@ _tzpol_iface_cb_role_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
         if (!ec->comp_data) return;
         e_comp_wl->selection.cbhm = ec->comp_data->surface;
      }
+   else if (!e_util_strcmp("wl_pointer-cursor", role))
+     {
+        ELOGF("TZPOL", "Set CURSOR role", ec->pixmap, ec);
+        ec->is_cursor = EINA_TRUE;
+     }
 }
 
 static void
@@ -5423,6 +5428,7 @@ _tzlaunch_img_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_res
      {
         if (pre_ec == tzlaunch_img->ec) continue;
         if (!pre_ec->ignored) continue;
+        if (pre_ec->is_cursor) continue;
         new_ec = pre_ec;
         break;
      }
@@ -5508,6 +5514,7 @@ _tzlaunch_splash_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_
      {
         if (pre_ec == tzlaunch_splash->ec) continue;
         if (!pre_ec->ignored) continue;
+        if (pre_ec->is_cursor) continue;
         new_ec = pre_ec;
         break;
      }
