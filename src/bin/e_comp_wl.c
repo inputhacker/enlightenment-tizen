@@ -1158,8 +1158,9 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
                  if (e_pointer_is_hidden(e_comp->pointer))
                    _e_comp_wl_cursor_reload(ec);
                }
+
+             _e_comp_wl_cursor_move_timer_control(ec);
           }
-        _e_comp_wl_cursor_move_timer_control(ec);
      }
 }
 
