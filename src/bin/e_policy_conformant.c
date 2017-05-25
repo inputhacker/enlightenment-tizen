@@ -367,7 +367,7 @@ _conf_client_type_get(E_Client *ec)
    Conformant_Type type = CONFORMANT_TYPE_MAX;
    if (!ec) return type;
 
-   if (ec->vkbd.vkbd)
+   if (ec->vkbd.vkbd && !ec->vkbd.floating)
      type = CONFORMANT_TYPE_KEYBOARD;
    else if (e_policy_client_is_cbhm(ec))
      type = CONFORMANT_TYPE_CLIPBOARD;
