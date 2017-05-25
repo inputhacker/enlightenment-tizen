@@ -672,6 +672,7 @@ struct E_Client
 #ifdef _F_E_VIRTUAL_KEYBOARD_TYPE_
       E_Virtual_Keyboard_Window_Type win_type;
 #endif
+      unsigned char                  floating : 1;
    } vkbd;
 
    struct
