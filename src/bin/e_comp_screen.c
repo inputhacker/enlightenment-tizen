@@ -915,7 +915,7 @@ e_comp_screen_init()
    E_Comp *comp;
    E_Comp_Screen *e_comp_screen = NULL;
 
-   int w = 0, h = 0, scr_w = 1, scr_h = 1;
+   int w = 0, h = 0, scr_w = 1920, scr_h = 1080;
    struct xkb_context *ctx = NULL;
    struct xkb_keymap *map = NULL;
    char buf[1024];
