@@ -46,6 +46,7 @@ void wl_map_for_each(struct wl_map *map, void *func, void *data);
 #define INVALID_PROPERTY_NAME        ERR_BASE"InvalidPropertyName"
 #define FAIL_TO_SET_PROPERTY         ERR_BASE"FailedToSetProperty"
 #define FAIL_TO_GET_PROPERTY         ERR_BASE"FailedToGetProperty"
+#define WININFO_FORMAT_FAIL          ERR_BASE"WininfoFormatFail"
 
 E_API int E_EVENT_INFO_ROTATION_MESSAGE = -1;
 
@@ -105,6 +106,9 @@ enum
 {
    E_INFO_SERVER_SIGNAL_WIN_UNDER_TOUCH = 0
 };
+
+extern char *
+_tbm_surface_internal_format_to_str(tbm_format format);
 
 static E_Info_Transform *_e_info_transform_new(E_Client *ec, int id, int enable, int x, int y, int sx, int sy, int degree, int background);
 static E_Info_Transform *_e_info_transform_find(E_Client *ec, int id);
@@ -4464,7 +4468,6 @@ _e_info_server_wininfo_tree_info_add(E_Client *ec, Eldbus_Message_Iter *iter,
                 num_child = eina_list_count(child->transients);
 
 #ifdef ENABLE_HWC_MULTI
-
                 if ((!child->iconic) && (!child->visibility.obscured) &&
                     evas_object_visible_get(ec->frame))
                   _e_info_server_ec_hwc_info_get(child, &hwc, &pl_zpos);
@@ -4730,6 +4733,101 @@ _e_info_server_cb_wininfo_shape(const Eldbus_Service_Interface *iface EINA_UNUSE
    return reply;
 }
 
+static char *
+_e_comp_wl_buffer_type_to_str(E_Comp_Wl_Buffer_Type type)
+{
+   if (type == E_COMP_WL_BUFFER_TYPE_SHM) return "E_COMP_WL_BUFFER_TYPE_SHM";
+   else if (type == E_COMP_WL_BUFFER_TYPE_NATIVE) return "E_COMP_WL_BUFFER_TYPE_NATIVE";
+   else if (type == E_COMP_WL_BUFFER_TYPE_VIDEO) return "E_COMP_WL_BUFFER_TYPE_VIDEO";
+   else if (type == E_COMP_WL_BUFFER_TYPE_TBM) return "E_COMP_WL_BUFFER_TYPE_TBM";
+
+   return "E_COMP_WL_BUFFER_TYPE_NONE";
+}
+
+static char *
+_wl_shm_format_to_str(uint32_t format)
+{
+   if (format == WL_SHM_FORMAT_ARGB8888) return "WL_SHM_FORMAT_ARGB8888";
+   else if (format == WL_SHM_FORMAT_XRGB8888) return "WL_SHM_FORMAT_XRGB8888";
+
+   return "unknwon";
+}
+
+static Eldbus_Message *
+_e_info_server_cb_wininfo_format(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply;
+   Eina_Bool res;
+   E_Client *ec;
+   uint64_t win;
+   int32_t w, h;
+   uint32_t format;
+   const char *format_str = NULL, *buffer_type_str = NULL;
+   E_Comp_Wl_Buffer *buffer = NULL;
+   struct wl_shm_buffer *shm_buffer;
+   tbm_surface_h tbm_surface;
+   tbm_surface_info_s info = {0};
+
+   res = eldbus_message_arguments_get(msg, "t", &win);
+   if (res != EINA_TRUE)
+     {
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                      "wininfo_format: an attempt to get arguments from method call message failed");
+     }
+
+   ec = _e_info_server_ec_find_by_win(win);
+   if (!ec)
+     {
+        return eldbus_message_error_new(msg, WIN_NOT_EXIST, "wininfo_format: specified window(s) doesn't exist");
+     }
+
+   buffer = e_pixmap_resource_get(ec->pixmap);
+   if (!buffer)
+     return eldbus_message_error_new(msg, WININFO_FORMAT_FAIL, "wininfo_format: cannot get Comp_Wl_Buffer");
+
+   switch (buffer->type)
+     {
+      case E_COMP_WL_BUFFER_TYPE_SHM:
+         shm_buffer = wl_shm_buffer_get(buffer->resource);
+         if (!buffer)
+           return eldbus_message_error_new(msg, WININFO_FORMAT_FAIL, "wininfo_format: cannot get shm_buffer");
+
+         w = wl_shm_buffer_get_width(shm_buffer);
+         h = wl_shm_buffer_get_height(shm_buffer);
+         format = wl_shm_buffer_get_format(shm_buffer);
+         format_str = _wl_shm_format_to_str(format);
+
+         break;
+      case E_COMP_WL_BUFFER_TYPE_NATIVE:
+      case E_COMP_WL_BUFFER_TYPE_VIDEO:
+      case E_COMP_WL_BUFFER_TYPE_TBM:
+         tbm_surface = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, buffer->resource);
+         if (!tbm_surface)
+           return eldbus_message_error_new(msg, WININFO_FORMAT_FAIL, "wininfo_format: cannot get tbm_surface");
+
+         if (tbm_surface_get_info(tbm_surface, &info) != TBM_SURFACE_ERROR_NONE)
+            return eldbus_message_error_new(msg, WININFO_FORMAT_FAIL, "wininfo_format: cannot get surface info");
+
+         w = (int32_t)info.width;
+         h = (int32_t)info.height;
+         format = info.format;
+         format_str = _tbm_surface_internal_format_to_str(format);
+
+         break;
+      default:
+         return eldbus_message_error_new(msg, WININFO_FORMAT_FAIL, "wininfo_format: unknown buffer type");
+     }
+
+   buffer_type_str = _e_comp_wl_buffer_type_to_str(buffer->type);
+
+   reply = eldbus_message_method_return_new(msg);
+
+   eldbus_message_arguments_append(reply, "ssii", buffer_type_str, format_str,
+                                   w, h);
+
+   return reply;
+}
+
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
@@ -4778,6 +4876,7 @@ static const Eldbus_Method methods[] = {
    { "wininfo_tree", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_WININFO_TREE, "wininfo_tree"}), ELDBUS_ARGS({VALUE_TYPE_REPLY_WININFO_TREE, "window tree info"}), _e_info_server_cb_wininfo_tree, 0 },
    { "wininfo_hints", ELDBUS_ARGS({"it", "mode, window"}), ELDBUS_ARGS({"as", "window hints"}), _e_info_server_cb_wininfo_hints, 0 },
    { "wininfo_shape", ELDBUS_ARGS({"t", "window"}), ELDBUS_ARGS({"ia(iiii)ia(iiii)", "window shape"}), _e_info_server_cb_wininfo_shape, 0 },
+   { "wininfo_format", ELDBUS_ARGS({"t", "window"}), ELDBUS_ARGS({"ssii", "window format"}), _e_info_server_cb_wininfo_format, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 

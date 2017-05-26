@@ -3242,9 +3242,43 @@ finish:
    ecore_main_loop_quit();
 }
 
+static void
+_e_info_client_cb_wininfo_print_format(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   int32_t w, h;
+   const char *format_str = NULL, *buffer_type_str = NULL;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg,
+                                      "ssii",
+                                      &buffer_type_str,
+                                      &format_str,
+                                      &w,
+                                      &h);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   printf("\n   Buffer type: %s\n"
+          "   Format: %s\n"
+          "   Width: %d\n"
+          "   Height: %d\n",
+          buffer_type_str, format_str, w, h);
+
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
 static Eina_Bool
 _e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats,
-                               int wm, int size, int shape)
+                               int wm, int size, int shape, int format)
 {
    Eina_Bool res;
    char *win_name;
@@ -3259,7 +3293,7 @@ _e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats,
 
    free(win_name);
 
-   if (!children && !tree && !wm && !size && !shape)
+   if (!children && !tree && !wm && !size && !shape && !format)
      stats = 1;
 
    if ((children || tree))
@@ -3309,6 +3343,15 @@ _e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats,
         EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
      }
 
+   if (format)
+     {
+        res = _e_info_client_eldbus_message_with_args("wininfo_format",
+                                                      _e_info_client_cb_wininfo_print_format,
+                                                      "t",
+                                                      win);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
+     }
+
    return EINA_TRUE;
 }
 
@@ -3326,7 +3369,8 @@ _e_info_client_display_wininfo(uint64_t win, int children, int tree, int stats,
   "\t-size             : print size hints\n" \
   "\t-wm               : print window manager hints\n" \
   "\t-shape            : print shape rectangles\n" \
-  "\t-all              : -tree, -stats, -wm, -size, -shape\n" \
+  "\t-format           : print the buffer info\n" \
+  "\t-all              : -tree, -stats, -wm, -size, -shape -format\n" \
   "Example:\n" \
   "\tenlightenment_info -wininfo\n" \
   "\tenlightenment_info -wininfo -id [win_id] -all\n" \
@@ -3339,7 +3383,7 @@ _e_info_client_proc_wininfo(int argc, char **argv)
 {
    Eina_Bool res;
    uint64_t win = 0;
-   int i, children = 0, tree = 0, stats = 0, wm = 0, size = 0, shape = 0;
+   int i, children = 0, tree = 0, stats = 0, wm = 0, size = 0, shape = 0, format = 0;
    char *name = NULL, *pid = NULL;
    Eina_List *win_list = NULL, *l;
 
@@ -3428,6 +3472,11 @@ _e_info_client_proc_wininfo(int argc, char **argv)
              shape = 1;
              continue;
           }
+        if (eina_streq (argv[i], "-format"))
+          {
+             format = 1;
+             continue;
+          }
         if (eina_streq (argv[i], "-all"))
           {
              tree = 1;
@@ -3435,6 +3484,7 @@ _e_info_client_proc_wininfo(int argc, char **argv)
              wm = 1;
              size = 1;
              shape = 1;
+             format = 1;
              continue;
           }
 
@@ -3469,7 +3519,8 @@ _e_info_client_proc_wininfo(int argc, char **argv)
 
    if (win)
      {
-        res = _e_info_client_display_wininfo(win, children, tree, stats, wm, size, shape);
+        res = _e_info_client_display_wininfo(win, children, tree, stats, wm,
+                                             size, shape, format);
         EINA_SAFETY_ON_FALSE_RETURN(res);
      }
    else
@@ -3479,7 +3530,8 @@ _e_info_client_proc_wininfo(int argc, char **argv)
              uint64_t win;
 
              win = (uint64_t)((Ecore_Window)eina_list_data_get(l));
-             res = _e_info_client_display_wininfo(win, children, tree, stats, wm, size, shape);
+             res = _e_info_client_display_wininfo(win, children, tree, stats, wm,
+                                                  size, shape, format);
              EINA_SAFETY_ON_FALSE_GOTO(res, finish);
           }
      }
