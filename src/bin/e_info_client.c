@@ -3723,6 +3723,7 @@ static struct
       USAGE_FORCE_RENDER,
       "force render according to parameters",
       _e_info_client_proc_force_render
+   },
    {
       "remote_surface",
       USAGE_REMOTE_SURFACE,
