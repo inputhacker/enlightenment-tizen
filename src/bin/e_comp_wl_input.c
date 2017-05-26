@@ -9,7 +9,7 @@ static Eina_Bool dont_use_xkb_cache = EINA_FALSE;
 static Eina_Bool use_cache_keymap = EINA_FALSE;
 
 static void
-_e_comp_wl_input_update_seat_caps(void)
+_e_comp_wl_input_update_seat_caps(struct wl_client *wc)
 {
    Eina_List *l;
    struct wl_resource *res;
@@ -23,7 +23,11 @@ _e_comp_wl_input_update_seat_caps(void)
      caps |= WL_SEAT_CAPABILITY_TOUCH;
 
    EINA_LIST_FOREACH(e_comp_wl->seat.resources, l, res)
+     {
+        /* if a wc is null, send seat capability to all wl_seat resources */
+        if (wc && (wl_resource_get_client(res) != wc)) continue;
         wl_seat_send_capabilities(res, caps);
+     }
 }
 
 static void
@@ -319,7 +323,7 @@ _e_comp_wl_input_cb_bind_seat(struct wl_client *client, void *data EINA_UNUSED, 
                                   e_comp->wl_comp_data,
                                   _e_comp_wl_input_cb_unbind_seat);
 
-   _e_comp_wl_input_update_seat_caps();
+   _e_comp_wl_input_update_seat_caps(client);
    if (e_comp_wl->seat.version >= WL_SEAT_NAME_SINCE_VERSION)
      wl_seat_send_name(res, e_comp_wl->seat.name);
 }
@@ -682,7 +686,7 @@ e_comp_wl_input_pointer_enabled_set(Eina_Bool enabled)
      }
 
    e_comp_wl->ptr.enabled = !!enabled;
-   _e_comp_wl_input_update_seat_caps();
+   _e_comp_wl_input_update_seat_caps(NULL);
 }
 
 E_API void
@@ -696,7 +700,7 @@ e_comp_wl_input_keyboard_enabled_set(Eina_Bool enabled)
      }
 
    e_comp_wl->kbd.enabled = !!enabled;
-   _e_comp_wl_input_update_seat_caps();
+   _e_comp_wl_input_update_seat_caps(NULL);
 }
 
 E_API Eina_Bool
@@ -948,7 +952,7 @@ e_comp_wl_input_touch_enabled_set(Eina_Bool enabled)
      }
 
    e_comp_wl->touch.enabled = !!enabled;
-   _e_comp_wl_input_update_seat_caps();
+   _e_comp_wl_input_update_seat_caps(NULL);
 }
 
 EINTERN Eina_Bool
