@@ -658,7 +658,7 @@ _e_comp_object_cb_mouse_down(void *data, Evas *e EINA_UNUSED, Evas_Object *obj E
 
    if (!cw->ec) return;
    if (e_client_action_get()) return;
-   e_bindings_evas_event_mouse_button_convert(ev, &ev2);
+   e_bindings_evas_event_mouse_down_button_convert(ev, &ev2);
    e_client_mouse_down(cw->ec, ev->button, &ev->output, &ev2);
 }
 
@@ -672,7 +672,7 @@ _e_comp_object_cb_mouse_up(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EIN
 
    if (!cw->ec) return;
    if (e_client_action_get() && (e_client_action_get() != cw->ec)) return;
-   e_bindings_evas_event_mouse_button_convert(ev, &ev2);
+   e_bindings_evas_event_mouse_up_button_convert(ev, &ev2);
    e_client_mouse_up(cw->ec, ev->button, &ev->output, &ev2);
 }
 
