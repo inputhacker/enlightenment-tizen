@@ -2971,7 +2971,7 @@ _e_info_client_proc_kill_client(int argc, char **argv)
    const static int KILL_PID_MODE = 3;
    const static int KILL_ALL_MODE = 4;
    Eina_Bool res;
-   uint64_t uint64_value;
+   uint64_t uint64_value = 0;
    const char *str_value = "";
    uint32_t mode;
 
