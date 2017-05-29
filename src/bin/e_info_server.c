@@ -226,7 +226,7 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
 #endif
 
 static void
-_msg_clients_append(Eldbus_Message_Iter *iter)
+_msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
 {
    Eldbus_Message_Iter *array_of_ec;
    E_Client *ec;
@@ -247,7 +247,7 @@ _msg_clients_append(Eldbus_Message_Iter *iter)
 
         ec = evas_object_data_get(o, "E_Client");
         if (!ec) continue;
-        if (e_client_util_ignored_get(ec)) continue;
+        if (is_visible && e_client_util_ignored_get(ec)) continue;
 
         win = e_client_util_win_get(ec);
         e_comp_layer_name_get(ec->layer, layer_name, sizeof(layer_name));
@@ -297,7 +297,18 @@ _e_info_server_cb_window_info_get(const Eldbus_Service_Interface *iface EINA_UNU
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
 
-   _msg_clients_append(eldbus_message_iter_get(reply));
+   _msg_clients_append(eldbus_message_iter_get(reply), EINA_TRUE);
+
+   return reply;
+}
+
+/* Method Handlers */
+static Eldbus_Message *
+_e_info_server_cb_all_window_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+
+   _msg_clients_append(eldbus_message_iter_get(reply), EINA_FALSE);
 
    return reply;
 }
@@ -3689,6 +3700,52 @@ _e_info_server_cb_buffer_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_selected_buffer_dump(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   const char *win_id_s = NULL;
+   const char *path = NULL;
+   int32_t win_id = 0;
+   Evas_Object *o;
+
+   if (!eldbus_message_arguments_get(msg, "ss", &win_id_s, &path))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+    if (!win_id_s) win_id = 0;
+    else
+      {
+         if (strlen(win_id_s) >= 2 && win_id_s[0] == '0' && win_id_s[1] == 'x')
+            sscanf(win_id_s, "%x", &win_id);
+         else
+            sscanf(win_id_s, "%d", &win_id);
+      }
+
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        E_Client *ec = evas_object_data_get(o, "E_Client");
+        char fname[PATH_MAX];
+        Ecore_Window win;
+
+        if (!ec) continue;
+        if (e_client_util_ignored_get(ec)) continue;
+
+        win = e_client_util_win_get(ec);
+
+        if (win_id != win) continue;
+
+        snprintf(fname, sizeof(fname), "%s/0x%08x.png", path, win);
+
+        e_info_server_dump_client(ec, fname);
+        break;
+     }
+
+   return reply;
+}
+
 static void
 _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp_screen, int gl)
 {
@@ -4771,6 +4828,7 @@ _e_info_server_cb_wininfo_shape(const Eldbus_Service_Interface *iface EINA_UNUSE
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
+   { "get_all_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_all_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
    { "subsurface", NULL, ELDBUS_ARGS({"a("SIGNATURE_SUBSURFACE")", "array of ec"}), _e_info_server_cb_subsurface, 0 },
    { "dump_topvwins", ELDBUS_ARGS({"s", "directory"}), NULL, _e_info_server_cb_topvwins_dump, 0 },
@@ -4791,6 +4849,7 @@ static const Eldbus_Method methods[] = {
    { "punch", ELDBUS_ARGS({"iiiiiiiii", "punch_geometry"}), NULL, _e_info_server_cb_punch, 0},
    { "transform_message", ELDBUS_ARGS({"siiiiiiii", "transform_message"}), NULL, e_info_server_cb_transform_message, 0},
    { "dump_buffers", ELDBUS_ARGS({"iis", "start"}), NULL, _e_info_server_cb_buffer_dump, 0 },
+   { "dump_selected_buffers", ELDBUS_ARGS({"ss", "dump_selected_buffers"}), NULL, _e_info_server_cb_selected_buffer_dump, 0 },
    { "output_mode", ELDBUS_ARGS({SIGNATURE_OUTPUT_MODE_CLIENT, "output mode"}), ELDBUS_ARGS({"a("SIGNATURE_OUTPUT_MODE_SERVER")", "array of ec"}), _e_info_server_cb_output_mode, 0 },
 #ifdef ENABLE_HWC_MULTI
    { "hwc_trace_message", ELDBUS_ARGS({"i", "hwc_trace_message"}), NULL, e_info_server_cb_hwc_trace_message, 0},
