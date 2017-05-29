@@ -140,7 +140,24 @@ e_bindings_evas_modifiers_convert(Evas_Modifier *modifiers)
 }
 
 E_API void
-e_bindings_evas_event_mouse_button_convert(const Evas_Event_Mouse_Down *ev, E_Binding_Event_Mouse_Button *event)
+e_bindings_evas_event_mouse_down_button_convert(const Evas_Event_Mouse_Down *ev, E_Binding_Event_Mouse_Button *event)
+{
+   memset(event, 0, sizeof(E_Binding_Event_Mouse_Button));
+   event->button = ev->button;
+   event->canvas.x = ev->output.x, event->canvas.y = ev->output.y;
+   event->timestamp = ev->timestamp;
+
+   event->modifiers = e_bindings_evas_modifiers_convert(ev->modifiers);
+
+   event->hold = (ev->event_flags & EVAS_EVENT_FLAG_ON_HOLD);
+   event->scroll = (ev->event_flags & EVAS_EVENT_FLAG_ON_SCROLL);
+
+   event->double_click = (ev->flags & EVAS_BUTTON_DOUBLE_CLICK);
+   event->triple_click = (ev->flags & EVAS_BUTTON_TRIPLE_CLICK);
+}
+
+E_API void
+e_bindings_evas_event_mouse_up_button_convert(const Evas_Event_Mouse_Up *ev, E_Binding_Event_Mouse_Button *event)
 {
    memset(event, 0, sizeof(E_Binding_Event_Mouse_Button));
    event->button = ev->button;
@@ -272,7 +289,7 @@ e_bindings_mouse_down_evas_event_handle(E_Binding_Context ctxt, E_Object *obj, E
 {
    E_Binding_Event_Mouse_Button event;
 
-   e_bindings_evas_event_mouse_button_convert(ev, &event);
+   e_bindings_evas_event_mouse_down_button_convert(ev, &event);
 
    return e_bindings_mouse_down_event_handle(ctxt, obj, &event);
 }
@@ -310,7 +327,7 @@ e_bindings_mouse_up_evas_event_handle(E_Binding_Context ctxt, E_Object *obj, Eva
 {
    E_Binding_Event_Mouse_Button event;
 
-   e_bindings_evas_event_mouse_button_convert((Evas_Event_Mouse_Down*)ev, &event);
+   e_bindings_evas_event_mouse_up_button_convert((Evas_Event_Mouse_Up*)ev, &event);
 
    return e_bindings_mouse_up_event_handle(ctxt, obj, &event);
 }

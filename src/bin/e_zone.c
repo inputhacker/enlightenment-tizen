@@ -1313,7 +1313,7 @@ _e_zone_cb_bg_mouse_up(void *data,
      {
         E_Binding_Event_Mouse_Button event;
 
-        e_bindings_evas_event_mouse_button_convert(event_info, &event);
+        e_bindings_evas_event_mouse_up_button_convert(event_info, &event);
         if (zone->cur_mouse_action->func.end_mouse)
           zone->cur_mouse_action->func.end_mouse(E_OBJECT(zone), "", &event);
         else if (zone->cur_mouse_action->func.end)
