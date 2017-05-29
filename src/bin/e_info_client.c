@@ -944,6 +944,75 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
 }
 
 static void
+_e_info_client_proc_topwins_info(int argc, char **argv)
+{
+   E_Win_Info *win;
+   Eina_List *l;
+   int i = 0;
+   int prev_layer = -1;
+   int hwc_off = 0;
+
+   const char *prev_layer_name = NULL;
+
+   if (!_e_info_client_eldbus_message("get_all_window_info", _cb_window_info_get))
+     return;
+
+   printf("%d Top level windows\n", eina_list_count(e_info_client.win_list));
+   printf("--------------------------------------[ topvwins ]----------------------------------------------------------------------------\n");
+   printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc Dep Opaq Visi Icon  Map  Frame  PL@ZPos  Parent     Title\n");
+   printf("------------------------------------------------------------------------------------------------------------------------------\n");
+
+   if (!e_info_client.win_list)
+     {
+        printf("no window\n");
+        return;
+     }
+
+   EINA_LIST_FOREACH(e_info_client.win_list, l, win)
+     {
+        if (!win) return;
+        char tmp[20];
+        i++;
+        if (win->layer != prev_layer)
+          {
+             if (prev_layer != -1)
+                printf("---------------------------------------------------------------------------------------------------------------------[%s]\n",
+                       prev_layer_name ? prev_layer_name : " ");
+             prev_layer = win->layer;
+             prev_layer_name = win->layer_name;
+          }
+
+        if (win->hwc >= 0)
+          {
+             if ((!win->iconic) && (!win->visibility) && (win->frame_visible))
+               {
+                  if (win->hwc) snprintf(tmp, sizeof(tmp), "hwc@%i", win->pl_zpos);
+                  else snprintf(tmp, sizeof(tmp), "comp@%i", win->pl_zpos);
+               }
+             else
+               snprintf(tmp, sizeof(tmp), " - ");
+          }
+        else // hwc is not initialized or hwc_deactive 1
+          {
+             hwc_off = 1;
+             snprintf(tmp, sizeof(tmp), " - ");
+          }
+
+        printf("%3d 0x%08x  %5d  %5d  %5d %5d %6d %6d   %c  %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->alpha? 32:24, win->opaque);
+        printf("%2d    %d    %s   %3d    %-8s %-8x   %s\n", win->visibility, win->iconic, win->vis? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
+     }
+
+   if (prev_layer_name)
+      printf("---------------------------------------------------------------------------------------------------------------------[%s]\n",
+             prev_layer_name ? prev_layer_name : " ");
+
+   if(hwc_off)
+     printf("\nHWC is disabled\n\n");
+
+   E_FREE_LIST(e_info_client.win_list, _e_win_info_free);
+}
+
+static void
 _e_info_client_proc_compobjs_info(int argc, char **argv)
 {
    Eina_Bool res;
@@ -1969,6 +2038,7 @@ _e_info_client_proc_transform_set(int argc, char **argv)
   "  enlightenment_info -dump_buffers 1 -p /tmp/test   : start dump buffer - the dump path is '/tmp/test/dump_xxxx'\n" \
   "  enlightenment_info -dump_buffers 1 -c 60 -p /test : start dump buffer with 60 buffers to '/test/dump_xxxx' folder\n" \
   "  enlightenment_info -dump_buffers 0                : stop dump buffer (store dump files to dump path)\n" \
+  "  enlightenment_info -dump_selected_buffers Win_ID(from enlightenment_info -topvwins)   : dump Win_ID(store dump files to dump path)\n" \
 
 static char *
 _buffer_shot_directory_check(char *path)
@@ -2319,6 +2389,34 @@ _e_info_client_proc_buffer_shot(int argc, char **argv)
           }
         else
           goto err;
+     }
+   else
+     goto err;
+
+   return;
+
+err:
+   printf("Error Check Args\n%s\n", DUMP_BUFFERS_USAGE);
+return;
+}
+
+static void
+_e_info_client_proc_selected_buffer_shot(int argc, char **argv)
+{
+   const char *win_id=NULL;
+   char path[PATH_MAX];
+
+   strncpy(path, "/tmp", PATH_MAX);
+   if (argc == 3)
+     {
+        win_id = argv[2];
+
+        if (!_e_info_client_eldbus_message_with_args("dump_selected_buffers", NULL, "ss", win_id, path))
+          {
+             printf("_e_info_client_proc_selected_buffer_shot fail (%s)\n", win_id);
+             return;
+          }
+        printf("_e_info_client_proc_selected_buffer_shot %s is saved.\n", win_id);
      }
    else
      goto err;
@@ -3561,6 +3659,11 @@ static struct
       _e_info_client_proc_topvwins_info
    },
    {
+      "topwins", NULL,
+      "Print all windows",
+      _e_info_client_proc_topwins_info
+   },
+   {
       "compobjs", "[simple]",
       "Display detailed information of all composite objects",
       _e_info_client_proc_compobjs_info
@@ -3641,6 +3744,11 @@ static struct
       "dump_buffers", DUMP_BUFFERS_USAGE,
       "Dump attach buffers [on:1,off:0] (default path:/tmp/dump_xxx/)",
       _e_info_client_proc_buffer_shot
+   },
+   {
+      "dump_selected_buffers", DUMP_BUFFERS_USAGE,
+      "Dump Win_ID buffers. Win_ID comed from enlightenment_info -topvwins(default path:/tmp/dump_xxx/)",
+      _e_info_client_proc_selected_buffer_shot
    },
    {
       "output_mode", NULL,
