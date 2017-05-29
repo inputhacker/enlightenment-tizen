@@ -4496,7 +4496,7 @@ _e_info_server_wininfo_tree_info_add(E_Client *ec, Eldbus_Message_Iter *iter,
           {
              uint64_t win;
              int num_child = -1;
-             int hwc = -1, pl_zpos;
+             int hwc = -1, pl_zpos = -999;
 
              if (recurse)
                 num_child = eina_list_count(child->transients);
