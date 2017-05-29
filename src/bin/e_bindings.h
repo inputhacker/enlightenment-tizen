@@ -177,7 +177,8 @@ E_API E_Action   *e_bindings_wheel_ecore_event_handle(E_Binding_Context ctxt, E_
 
 E_API int e_bindings_evas_modifiers_convert(Evas_Modifier *modifiers);
 E_API int e_bindings_modifiers_to_ecore_convert(E_Binding_Modifier modifiers);
-E_API void e_bindings_evas_event_mouse_button_convert(const Evas_Event_Mouse_Down *ev, E_Binding_Event_Mouse_Button *event);
+E_API void e_bindings_evas_event_mouse_down_button_convert(const Evas_Event_Mouse_Down *ev, E_Binding_Event_Mouse_Button *event);
+E_API void e_bindings_evas_event_mouse_up_button_convert(const Evas_Event_Mouse_Up *ev, E_Binding_Event_Mouse_Button *event);
 E_API void e_bindings_evas_event_mouse_wheel_convert(const Evas_Event_Mouse_Wheel *ev, E_Binding_Event_Wheel *event);
 E_API void e_bindings_ecore_event_mouse_button_convert(const Ecore_Event_Mouse_Button *ev, E_Binding_Event_Mouse_Button *event);
 E_API void e_bindings_ecore_event_mouse_wheel_convert(const Ecore_Event_Mouse_Wheel *ev, E_Binding_Event_Wheel *event);
