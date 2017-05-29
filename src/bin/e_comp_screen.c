@@ -1019,9 +1019,18 @@ e_comp_screen_init()
 
    if (screen_rotation)
      {
+        Ecore_Drm_Device *dev;
+        const Eina_List *l;
+
         /* SHOULD called with resize option after ecore_evas_resize */
         ecore_evas_rotation_with_resize_set(comp->ee, screen_rotation);
         ecore_evas_geometry_get(comp->ee, NULL, NULL, &w, &h);
+
+        EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
+          {
+             ecore_drm_evdev_device_rotate_set(dev, screen_rotation);
+             ecore_drm_device_touch_rotation_set(dev, screen_rotation);
+          }
 
         snprintf(buf, sizeof(buf), "\tEE Rotate and Resize %d, %dx%d", screen_rotation, w, h);
         e_main_ts(buf);
@@ -1273,7 +1282,11 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
    ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
 
    EINA_LIST_FOREACH(ecore_drm_devices_get(), ll, dev)
-     ecore_drm_device_pointer_rotation_set(dev, e_comp_screen->rotation);
+     {
+        ecore_drm_device_pointer_rotation_set(dev, e_comp_screen->rotation);
+        ecore_drm_evdev_device_rotate_set(dev, e_comp_screen->rotation);
+        ecore_drm_device_touch_rotation_set(dev, e_comp_screen->rotation);
+     }
 
    INF("EE Rotated and Resized: %d, %dx%d", e_comp_screen->rotation, w, h);
 
