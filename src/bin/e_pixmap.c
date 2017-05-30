@@ -128,6 +128,9 @@ _e_pixmap_free(E_Pixmap *cp)
      }
    if (cp->data_pool)
      {
+        if (cp->client && cp->client->frame)
+          e_comp_object_clear(cp->client->frame);
+
         wl_shm_pool_unref(cp->data_pool);
         cp->data_pool = NULL;
      }
