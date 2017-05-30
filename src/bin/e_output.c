@@ -843,12 +843,10 @@ e_output_commit(E_Output *output)
      {
         if (plane->need_unset && plane->sync_unset_count)
           {
-             if (fb_commit)
-               {
-                  plane->sync_unset_count--;
-                  if (plane->sync_unset_count)
-                    continue;
-               }
+             if (!fb_commit) continue;
+
+             plane->sync_unset_count--;
+             if (plane->sync_unset_count) continue;
           }
 
         if (!e_plane_fetch(plane)) continue;
