@@ -23,6 +23,7 @@ E_API Eina_List                  *e_policy_visibility_foreground_clients_get(voi
 E_API Eina_Bool                   e_policy_visibility_client_is_activity(E_Client *ec);
 E_API Eina_Bool                   e_policy_visibility_client_lower(E_Client *ec);
 E_API Eina_Bool                   e_policy_visibility_client_raise(E_Client *ec);
+E_API Eina_Bool                   e_policy_visibility_client_iconify(E_Client *ec);
 E_API Eina_Bool                   e_policy_visibility_client_uniconify(E_Client *ec, Eina_Bool raise);
 E_API Eina_Bool                   e_policy_visibility_client_activate(E_Client *ec);
 E_API Eina_Bool                   e_policy_visibility_client_layer_lower(E_Client *ec, E_Layer layer);

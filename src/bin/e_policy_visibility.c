@@ -500,6 +500,7 @@ _e_vis_job_add(E_Vis_Client *vc, E_Vis_Job_Type type, Ecore_Task_Cb timeout_func
 
    if ((job->type == E_VIS_JOB_TYPE_LOWER) ||
        (job->type == E_VIS_JOB_TYPE_HIDE) ||
+       (job->type == E_VIS_JOB_TYPE_ICONIFY) ||
        (job->type == E_VIS_JOB_TYPE_LAYER_LOWER))
      e_comp_canvas_norender_push();
 
@@ -515,6 +516,7 @@ _e_vis_job_del(Eina_Clist *elem)
    job = EINA_CLIST_ENTRY(elem, E_Vis_Job, entry);
    if ((job->type == E_VIS_JOB_TYPE_LOWER) ||
        (job->type == E_VIS_JOB_TYPE_HIDE) ||
+       (job->type == E_VIS_JOB_TYPE_ICONIFY) ||
        (job->type == E_VIS_JOB_TYPE_LAYER_LOWER))
      e_comp_canvas_norender_pop();
    E_FREE_FUNC(job->timer, ecore_timer_del);
@@ -1128,6 +1130,10 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
          e_comp_canvas_norender_pop();
          if (vc) evas_object_layer_set(ec->frame, vc->layer);
          break;
+      case E_VIS_JOB_TYPE_ICONIFY:
+         e_comp_canvas_norender_pop();
+         e_client_iconify(ec);
+         break;
       case E_VIS_JOB_TYPE_SHOW:
          /* checks for dectecting hide request after show request */
          if ((ec) && (!e_object_is_del(E_OBJECT(ec))) &&
@@ -1540,6 +1546,49 @@ e_policy_visibility_client_lower(E_Client *ec)
              E_VIS_CLIENT_GET(vc2, child);
              if (!vc2) continue;
              _e_vis_client_job_add(vc2, E_VIS_JOB_TYPE_LOWER);
+          }
+     }
+
+   return EINA_TRUE;
+}
+
+E_API Eina_Bool
+e_policy_visibility_client_iconify(E_Client *ec)
+{
+   E_Client *child;
+   Eina_List *l;
+
+   if (!e_config->use_buffer_flush) return EINA_FALSE;
+
+   E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
+
+   VS_DBG(ec, "API ENTRY | ICONIFY");
+   if (ec->iconic) return EINA_FALSE;
+
+   /* find activity client among the clients to be lower */
+   if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.iconify))
+     {
+        VS_INF(ec, "NO activity clients");
+        return EINA_FALSE;
+     }
+
+   if (!_e_vis_ec_below_uniconify(ec))
+     {
+        VS_DBG(ec, "Failed to uniconify below client");
+        return EINA_FALSE;
+     }
+
+   /* add lower job, it will be executed after below activity client finishs updating */
+   _e_vis_client_job_add(vc, E_VIS_JOB_TYPE_ICONIFY);
+   if (e_config->transient.iconify)
+     {
+        l = eina_list_clone(ec->transients);
+
+        EINA_LIST_FREE(l, child)
+          {
+             E_VIS_CLIENT_GET(vc2, child);
+             if (!vc2) continue;
+             _e_vis_client_job_add(vc2, E_VIS_JOB_TYPE_ICONIFY);
           }
      }
 

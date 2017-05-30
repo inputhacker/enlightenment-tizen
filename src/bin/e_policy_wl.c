@@ -2210,6 +2210,10 @@ e_policy_wl_iconify(E_Client *ec)
 
    ELOG("Set ICONIFY BY CLIENT", ec->pixmap, ec);
    ec->exp_iconify.by_client = 1;
+
+   if (e_policy_visibility_client_iconify(ec))
+     return;
+
    e_client_iconify(ec);
 
    EC_CHANGED(ec);
