@@ -110,6 +110,7 @@ typedef enum
    E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY,
    E_VIS_JOB_TYPE_LAYER_LOWER,
    E_VIS_JOB_TYPE_DEFER_MOVE,
+   E_VIS_JOB_TYPE_ICONIFY,
 } E_Vis_Job_Type;
 
 /* external data structure */
