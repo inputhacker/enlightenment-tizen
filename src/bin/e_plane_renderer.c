@@ -7,6 +7,7 @@
 # include <tbm_surface_internal.h>
 # include <wayland-tbm-server.h>
 # include <Evas_Engine_GL_Drm.h>
+# include <Evas_Engine_GL_Tbm.h>
 # include <Evas_Engine_Software_Tbm.h>
 # include <sys/eventfd.h>
 # if HAVE_LIBGOMP
@@ -103,6 +104,13 @@ _get_tbm_surface_queue(Ecore_Evas *ee)
         info = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(ecore_evas_get(ee));
         if (info->info.surface)
            tbm_queue = gbm_tbm_get_surface_queue(info->info.surface);
+     }
+   else if(!strcmp(name, "gl_drm_tbm"))
+     {
+        Evas_Engine_Info_GL_Tbm *info;
+        info = (Evas_Engine_Info_GL_Tbm *)evas_engine_info_get(ecore_evas_get(ee));
+        EINA_SAFETY_ON_NULL_RETURN_VAL(info, NULL);
+        tbm_queue = (tbm_surface_queue_h)info->info.tbm_queue;
      }
    else if(!strcmp(name, "drm_tbm"))
      {
@@ -958,14 +966,14 @@ e_plane_renderer_new(E_Plane *plane)
         renderer->event_hdlr = ecore_main_fd_handler_add(renderer->event_fd, ECORE_FD_READ,
                                _e_plane_renderer_cb_queue_acquirable_event, NULL, NULL, NULL);
 
-        tqueue = _get_tbm_surface_queue(renderer->ee);
-        if (tqueue && !e_plane_renderer_surface_queue_set(renderer, tqueue))
-           ERR("fail to e_plane_renderer_queue_set");
-
         ecore_evas_geometry_get(renderer->ee, NULL, NULL, &ee_width, &ee_height);
 
         if (renderer->tqueue_width != ee_width || renderer->tqueue_height != ee_height)
           ecore_evas_manual_render(renderer->ee);
+
+        tqueue = _get_tbm_surface_queue(renderer->ee);
+        if (tqueue && !e_plane_renderer_surface_queue_set(renderer, tqueue))
+           ERR("fail to e_plane_renderer_queue_set");
      }
 
    return renderer;
@@ -2219,8 +2227,12 @@ e_plane_renderer_show_state(E_Plane_Renderer *renderer)
 
    EINA_SAFETY_ON_NULL_RETURN(renderer);
 
-   ELOGF("E_PLANE_RENDERER", "Renderer(%p) Plane(%p) ec(%p) state(%d) mode_chage_age(%d)",
-         NULL, NULL, renderer, renderer->plane, renderer->ec, renderer->state, renderer->mode_change_age);
+   if (renderer->ec)
+      ELOGF("E_PLANE_RENDERER", "Renderer(%p) Plane(%p) ec(%p) state(%d) mode_chage_age(%d)",
+            NULL, NULL, renderer, renderer->plane, renderer->ec, renderer->state, renderer->mode_change_age);
+   else
+      ELOGF("E_PLANE_RENDERER", "Renderer(%p) Plane(%p) ee_engine:%s state(%d) mode_chage_age(%d)",
+            NULL, NULL, renderer, renderer->plane, ecore_evas_engine_name_get(renderer->ee), renderer->state, renderer->mode_change_age);
 
    EINA_LIST_FOREACH(renderer->disp_surfaces, l, tmp_tsurface)
      {

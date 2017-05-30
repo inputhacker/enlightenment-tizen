@@ -7,6 +7,7 @@
 # include <tbm_surface_internal.h>
 # include <wayland-tbm-server.h>
 # include <Evas_Engine_GL_Drm.h>
+# include <Evas_Engine_GL_Tbm.h>
 # include <Evas_Engine_Software_Tbm.h>
 
 # ifndef CLEAR
@@ -74,6 +75,13 @@ _get_tbm_surface_queue(E_Comp *e_comp)
         info = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(e_comp->evas);
         if (info->info.surface)
            tbm_queue = gbm_tbm_get_surface_queue(info->info.surface);
+     }
+   else if(!strcmp(name, "gl_drm_tbm"))
+     {
+        Evas_Engine_Info_GL_Tbm *info;
+        info = (Evas_Engine_Info_GL_Tbm *)evas_engine_info_get(e_comp->evas);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(info, NULL);
+        tbm_queue = (tbm_surface_queue_h)info->info.tbm_queue;
      }
    else if(!strcmp(name, "drm_tbm"))
      {
@@ -708,6 +716,11 @@ e_plane_setup(E_Plane *plane)
         /* enable hwc to evas engine gl_drm */
         einfo->info.hwc_enable = EINA_TRUE;
         ecore_evas_manual_render_set(e_comp->ee, 1);
+     }
+   else if(!strcmp("gl_drm_tbm", name))
+     {
+        ecore_evas_manual_render_set(e_comp->ee, 1);
+        return EINA_TRUE;
      }
    else if(!strcmp("drm_tbm", name))
      {

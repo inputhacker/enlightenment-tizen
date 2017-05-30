@@ -582,9 +582,11 @@ _e_comp_screen_engine_init(void)
 
    /* set env for use tbm_surface_queue*/
    setenv("USE_EVAS_SOFTWARE_TBM_ENGINE", "1", 1);
+   //setenv("USE_EVAS_GL_TBM_ENGINE", "1", 1);
 
    /* set gl available if we have ecore_evas support */
-   if (ecore_evas_engine_type_supported_get(ECORE_EVAS_ENGINE_OPENGL_DRM))
+   if (ecore_evas_engine_type_supported_get(ECORE_EVAS_ENGINE_OPENGL_DRM) ||
+       ecore_evas_engine_type_supported_get(ECORE_EVAS_ENGINE_OPENGL_TBM))
      e_comp_gl_set(EINA_TRUE);
 
    /* e_comp_screen new */

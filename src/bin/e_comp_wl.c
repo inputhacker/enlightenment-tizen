@@ -4425,13 +4425,8 @@ _e_comp_wl_gl_init(void *data EINA_UNUSED)
    Evas_GL_Surface *sfc = NULL;
    Evas_GL_Config *cfg = NULL;
    Eina_Bool res;
-   const char *name;
 
    if (!e_comp_gl_get()) return;
-
-   name = ecore_evas_engine_name_get(e_comp->ee);
-   if (!name) return;
-   if (strcmp(name, "gl_drm")) return;
 
    /* create dummy evas gl to bind wayland display of enlightenment to egl display */
    e_main_ts("\tE_Comp_Wl_GL Init");
@@ -5029,6 +5024,7 @@ e_comp_wl_buffer_reference(E_Comp_Wl_Buffer_Ref *ref, E_Comp_Wl_Buffer *buffer)
              if (ref->buffer->resource)
                {
                   if (!wl_resource_get_client(ref->buffer->resource)) return;
+
                   wl_buffer_send_release(ref->buffer->resource);
 #ifdef HAVE_WAYLAND_TBM
                   wayland_tbm_server_increase_buffer_sync_timeline(e_comp_wl->tbm.server,
@@ -5098,21 +5094,21 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
      }
    else if (tbm_surf)
      {
-	   tbm_surf = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, resource);
-	   if (!tbm_surf)
-		 goto err;
+        tbm_surf = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, resource);
+        if (!tbm_surf)
+          goto err;
 
-	   if ((ec) && (ec->comp_data->video_client))
-		 {
-			buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
-			buffer->w = buffer->h = 1;
-		 }
-	   else
-		 {
-			buffer->type = E_COMP_WL_BUFFER_TYPE_TBM;
-			buffer->w = tbm_surface_get_width(tbm_surf);
-			buffer->h = tbm_surface_get_height(tbm_surf);
-		 }
+        if ((ec) && (ec->comp_data->video_client))
+          {
+             buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
+             buffer->w = buffer->h = 1;
+          }
+        else
+          {
+             buffer->type = E_COMP_WL_BUFFER_TYPE_TBM;
+             buffer->w = tbm_surface_get_width(tbm_surf);
+             buffer->h = tbm_surface_get_height(tbm_surf);
+          }
      }
    else if (e_comp->gl)
      {
