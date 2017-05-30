@@ -429,6 +429,10 @@ if test "x${have_wayland}" = "xyes"; then
   else
     have_hwc=no
   fi
+
+  if test "x$have_hwc" = "xyes";then
+    AC_DEFINE_UNQUOTED([HAVE_ZOOM_PP], [1], [enable pp_zoom support])
+  fi
 fi
 
 # does this compiler support -fopenmp, does it have the include file

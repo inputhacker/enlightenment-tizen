@@ -669,48 +669,78 @@ e_output_commit(E_Output *output)
    if (fb_commit && (output->dpms == E_OUTPUT_DPMS_OFF))
      e_plane_unfetch(fb_target);
 
-   /* set planes */
-   EINA_LIST_FOREACH(output->planes, l, plane)
+   if (output->zoom_set)
      {
-        /* skip the fb_target fetch because we do this previously */
-        if (e_plane_is_fb_target(plane)) continue;
-
-        /* if the plane is the candidate to unset,
-           set the plane to be unset_try */
-        if (e_plane_is_unset_candidate(plane))
-          e_plane_unset_try_set(plane, EINA_TRUE);
-
-        /* if the plane is trying to unset,
-           1. if fetching the fb is not available, continue.
-           2. if fetching the fb is available, verify the unset commit check.  */
-        if (e_plane_is_unset_try(plane))
+        /* commit only primary */
+        if (!fb_commit)
           {
-            if (!fb_commit) continue;
-            if (!e_plane_unset_commit_check(plane)) continue;
+             ERR("fb_commit is failed.");
+             return EINA_FALSE;
           }
 
-        /* fetch the surface to the plane */
-        if (!e_plane_fetch(plane)) continue;
+        /* do not execute the tdm functions */
+        e_plane_activation_set(plane, EINA_FALSE);
 
-        if (output->dpms == E_OUTPUT_DPMS_OFF)
-          e_plane_unfetch(plane);
-
-        if (e_plane_is_unset_try(plane))
-          e_plane_unset_try_set(plane, EINA_FALSE);
-     }
-
-   if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
-
-   EINA_LIST_FOREACH(output->planes, l, plane)
-     {
-        if (e_plane_is_unset_try(plane)) continue;
+        if (!e_plane_fetch(plane))
+          {
+//            ERR("fail to fetch the plane.");
+            return EINA_FALSE;
+          }
 
         if (!e_plane_commit(plane))
           ERR("fail to e_plane_commit");
 
-        // TODO: to be fixed. check fps of fb_target currently.
-        if (fb_commit) _e_output_update_fps();
+        if (!e_plane_zoom_commit(plane))
+          ERR("fail to e_plane_zoom_commit");
      }
+   else
+     {
+        /* set planes */
+        EINA_LIST_FOREACH(output->planes, l, plane)
+          {
+             /* skip the fb_target fetch because we do this previously */
+             if (e_plane_is_fb_target(plane)) continue;
+
+             /* execute the tdm functions */
+             e_plane_activation_set(plane, EINA_TRUE);
+
+             /* if the plane is the candidate to unset,
+                set the plane to be unset_try */
+             if (e_plane_is_unset_candidate(plane))
+               e_plane_unset_try_set(plane, EINA_TRUE);
+
+             /* if the plane is trying to unset,
+                1. if fetching the fb is not available, continue.
+                2. if fetching the fb is available, verify the unset commit check.  */
+             if (e_plane_is_unset_try(plane))
+               {
+                 if (!fb_commit) continue;
+                 if (!e_plane_unset_commit_check(plane)) continue;
+               }
+
+             /* fetch the surface to the plane */
+             if (!e_plane_fetch(plane)) continue;
+
+             if (output->dpms == E_OUTPUT_DPMS_OFF)
+               e_plane_unfetch(plane);
+
+             if (e_plane_is_unset_try(plane))
+               e_plane_unset_try_set(plane, EINA_FALSE);
+          }
+
+        if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
+
+        EINA_LIST_FOREACH(output->planes, l, plane)
+          {
+             if (e_plane_is_unset_try(plane)) continue;
+
+             if (!e_plane_commit(plane))
+               ERR("fail to e_plane_commit");
+
+             // TODO: to be fixed. check fps of fb_target currently.
+             if (fb_commit) _e_output_update_fps();
+          }
+    }
 
    return EINA_TRUE;
 }
@@ -873,3 +903,166 @@ e_output_plane_get_by_zpos(E_Output *output, int zpos)
 
    return NULL;
 }
+
+#ifdef HAVE_ZOOM_PP
+#ifdef HAVE_TOUCH_TRANSFORM
+static Eina_Bool
+_e_output_zoom_touch_set(E_Plane *plane, Eina_Bool set)
+{
+   Ecore_Drm_Device *dev = NULL;
+   Eina_Bool ret = EINA_FALSE;
+   const Eina_List *l;
+   Ecore_Drm_Output *primary_output = NULL;
+   int w, h;
+
+   EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
+     {
+        primary_output = ecore_drm_output_primary_get(dev);
+        if (primary_output != NULL)
+          break;
+     }
+
+   if (!primary_output)
+     {
+        ERR("fail get primary_output");
+        return EINA_FALSE;
+     }
+
+   if (set)
+     ret = ecore_drm_device_touch_transformation_set(dev,
+                                                     plane->zoom_rect.x, plane->zoom_rect.y,
+                                                     plane->zoom_rect.w, plane->zoom_rect.h);
+   else
+     {
+        e_output_size_get(plane->output, &w, &h);
+        ret = ecore_drm_device_touch_transformation_set(dev, 0, 0, e_comp->w, e_comp->h);
+     }
+
+   if (ret != EINA_TRUE)
+     ERR("fail ecore_drm_device_touch_transformation_set");
+
+   return ret;
+}
+#endif //HAVE_TOUCH_TRANSFORM
+
+static void
+_e_output_zoom_scaled_rect_get(int out_w, int out_h, double zoomx, double zoomy, int cx, int cy, Eina_Rectangle *rect)
+{
+   double x, y;
+   double dx, dy;
+
+   rect->w = (int)((double)out_w / zoomx);
+   rect->h = (int)((double)out_h / zoomy);
+
+   x = 0 - cx;
+   y = 0 - cy;
+
+   x = (((double)x) * zoomx);
+   y = (((double)y) * zoomy);
+
+   x = x + cx;
+   y = y + cy;
+
+   if (x == 0)
+     dx = 0;
+   else
+     dx = 0 - x;
+
+   if (y == 0)
+     dy = 0;
+   else
+     dy = 0 - y;
+
+   rect->x = (int)(dx / zoomx);
+   rect->y = (int)(dy / zoomy);
+}
+
+EINTERN Eina_Bool
+e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy)
+{
+   E_Zone *zone = NULL;
+   E_Plane *ep = NULL;
+   Eina_List *l;
+   Eina_Rectangle rect = {0, };
+   int w, h;
+
+   if (!e_comp_screen_pp_support())
+     {
+        WRN("Comp Screen does not support the Zoom.");
+        return EINA_FALSE;
+     }
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
+
+   e_output_size_get(eout, &w, &h);
+
+   EINA_SAFETY_ON_FALSE_RETURN_VAL((cx >= 0 || cy >= 0), EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL((cx < w || cy < h), EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL((zoomx > 0 || zoomy > 0), EINA_FALSE);
+
+   ep = e_output_fb_target_get(eout);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
+
+#ifdef ENABLE_HWC_MULTI
+   e_comp_hwc_multi_plane_set(EINA_FALSE);
+#endif
+
+   DBG("set zoom (zoomx:%f,zoomy:%f) (w:%d,h:%d)", zoomx, zoomy, cx, cy);
+
+   /* get the scaled rect */
+   _e_output_zoom_scaled_rect_get(w, h, zoomx, zoomy, cx, cy, &rect);
+   DBG("zoom_rect (x:%d,y:%d) (w:%d,h:%d)", rect.x, rect.y, rect.w, rect.h);
+
+   if (!e_plane_zoom_set(ep, &rect))
+     {
+        ERR("e_plane_zoom_set failed.");
+#ifdef ENABLE_HWC_MULTI
+        e_comp_hwc_multi_plane_set(EINA_TRUE);
+#endif
+        return EINA_FALSE;
+     }
+
+#ifdef HAVE_TOUCH_TRANSFORM
+   //test position
+   if (!_e_output_zoom_touch_set(plane, EINA_TRUE))
+     ERR("fail _e_output_zoom_touch_set");
+#endif
+
+   if (!eout->zoom_set) eout->zoom_set = EINA_TRUE;
+   DBG("zoom set output:%s", eout->id);
+
+   return EINA_TRUE;
+}
+
+EINTERN void
+e_output_zoom_unset(E_Output *eout)
+{
+   E_Zone *zone = NULL;
+   E_Plane *ep = NULL;
+   Eina_List *l;
+   Eina_Bool ret = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN(eout);
+
+   if (!eout->zoom_set) return;
+
+   ep = e_output_fb_target_get(eout);
+   EINA_SAFETY_ON_NULL_RETURN(ep);
+
+#ifdef HAVE_TOUCH_TRANSFORM
+   //test position
+   if (!_e_output_zoom_touch_set(plane, EINA_FALSE))
+     ERR("fail _e_output_zoom_touch_set");
+#endif
+
+   e_plane_zoom_unset(ep);
+
+   eout->zoom_set = EINA_FALSE;
+
+#ifdef ENABLE_HWC_MULTI
+   e_comp_hwc_multi_plane_set(EINA_TRUE);
+#endif
+
+   DBG("e_output_zoom_unset: output:%s", eout->id);
+}
+#endif
