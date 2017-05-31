@@ -1506,6 +1506,9 @@ e_comp_init(void)
    e_comp_new();
 
    e_main_ts("\tE_Comp_Screen Init");
+   /* initialize the hwc with the configuration vaule */
+   e_comp->hwc = conf->hwc;
+
    if (!e_comp_screen_init())
      {
         ERR("Fail to init e_comp_screen");
