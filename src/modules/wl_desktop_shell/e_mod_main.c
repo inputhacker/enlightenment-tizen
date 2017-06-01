@@ -1118,6 +1118,7 @@ _e_xdg_shell_surface_map_cb_timer(void *data)
              ELOGF("LAUNCH", "SHOW real win after splash effect by map_timer", ec->pixmap, ec);
              e_comp_object_signal_emit(ec->frame, "e,action,launch_real,done", "e");
           }
+        ec->use_splash = EINA_FALSE;
 
         /* unset previous content */
         e_comp_object_content_unset(ec->frame);
@@ -1225,6 +1226,7 @@ _e_xdg_shell_surface_map(struct wl_resource *resource)
              ELOGF("LAUNCH", "SHOW real win after splash effect", ec->pixmap, ec);
              e_comp_object_signal_emit(ec->frame, "e,action,launch_real,done", "e");
           }
+        ec->use_splash = EINA_FALSE;
 
         /* unset previous content */
         e_comp_object_content_unset(ec->frame);
