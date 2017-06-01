@@ -56,7 +56,6 @@ struct _E_Output
    E_Zone              *zone;
 
    tdm_output           *toutput;
-   Ecore_Drm_Output     *output;  // for evas drm engine.
 
    E_Comp_Screen        *e_comp_screen;
    E_OUTPUT_DPMS        dpms;
@@ -71,15 +70,13 @@ struct _E_Output
 EINTERN Eina_Bool         e_output_init(void);
 EINTERN void              e_output_shutdown(void);
 EINTERN E_Output        * e_output_new(E_Comp_Screen *e_comp_screen, int index);
-EINTERN E_Output        * e_output_drm_new(Ecore_Drm_Output *output);
 EINTERN void              e_output_del(E_Output *output);
 EINTERN Eina_Bool         e_output_rotate(E_Output *output, int rotate);
 EINTERN Eina_Bool         e_output_update(E_Output *output);
-EINTERN Eina_Bool         e_output_drm_update(E_Output *output);
 EINTERN Eina_Bool         e_output_mode_apply(E_Output *output, E_Output_Mode *mode);
 EINTERN Eina_Bool         e_output_commit(E_Output *output);
 EINTERN Eina_Bool         e_output_render(E_Output *output);
-EINTERN Eina_Bool         e_output_hwc_setup(E_Output *output);
+EINTERN Eina_Bool         e_output_setup(E_Output *output);
 EINTERN E_Output_Mode   * e_output_best_mode_find(E_Output *output);
 EINTERN Eina_Bool         e_output_connected(E_Output *output);
 EINTERN Eina_Bool         e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val);
