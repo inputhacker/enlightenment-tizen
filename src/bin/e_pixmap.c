@@ -461,13 +461,13 @@ e_pixmap_refresh(E_Pixmap *cp)
 
    if (shm_buffer)
      format = wl_shm_buffer_get_format(shm_buffer);
+   else if (buffer->tbm_surface)
+     format = tbm_surface_get_format(buffer->tbm_surface);
    else if (e_comp->gl && buffer->resource)
      e_comp_wl->wl.glapi->evasglQueryWaylandBuffer(e_comp_wl->wl.gl,
                                                    buffer->resource,
                                                    EVAS_GL_TEXTURE_FORMAT,
                                                    &format);
-   else if (buffer->tbm_surface)
-      format = tbm_surface_get_format(buffer->tbm_surface);
    else if (buffer->type == E_COMP_WL_BUFFER_TYPE_VIDEO)
       format = 0;
    else

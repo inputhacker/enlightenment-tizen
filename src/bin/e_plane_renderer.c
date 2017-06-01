@@ -692,6 +692,7 @@ _e_plane_renderer_client_surface_flags_get(E_Plane_Renderer_Client *renderer_cli
      {
        case E_COMP_WL_BUFFER_TYPE_NATIVE:
        case E_COMP_WL_BUFFER_TYPE_VIDEO:
+       case E_COMP_WL_BUFFER_TYPE_TBM:
          tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
          EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, 0);
 
