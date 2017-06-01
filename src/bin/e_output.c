@@ -208,7 +208,7 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
    size = strlen(name) + 4;
 
    id = calloc(1, size);
-   if (!id) return NULL;
+   if (!id) goto fail;
    snprintf(id, size, "%s-%d", name, index);
 
    output->id = id;
@@ -654,6 +654,15 @@ e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val)
    output->dpms = val;
 
    return EINA_TRUE;
+}
+
+EINTERN void
+e_output_size_get(E_Output *output, int *w, int *h)
+{
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   *w = output->config.mode.w;
+   *h = output->config.mode.h;
 }
 
 static char *
