@@ -274,7 +274,7 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
      {
         ELOGF("E_PLANE", "Set     Plane(%p)     tsurface(%p) (%dx%d,[%d,%d,%d,%d]=>[%d,%d,%d,%d])",
               NULL, NULL, plane, tsurface,
-              plane->info.src_config.size.h, plane->info.src_config.size.h,
+              plane->info.src_config.size.h, plane->info.src_config.size.v,
               plane->info.src_config.pos.x, plane->info.src_config.pos.y,
               plane->info.src_config.pos.w, plane->info.src_config.pos.h,
               plane->info.dst_pos.x, plane->info.dst_pos.y,
