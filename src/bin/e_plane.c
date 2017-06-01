@@ -600,7 +600,6 @@ e_plane_new(E_Output *output, int index)
    tdm_output *toutput = NULL;
    tdm_layer_capability layer_capabilities;
    char name[40];
-   E_Plane_Renderer *renderer = NULL;
    tdm_error tdm_err = TDM_ERROR_NONE;
    unsigned int buffer_flags = 0;
    int zpos;
@@ -646,16 +645,6 @@ e_plane_new(E_Output *output, int index)
      {
         plane->is_primary = EINA_TRUE;
         plane->is_fb = EINA_TRUE; // TODO: query from libtdm if it is fb target plane
-
-        renderer = e_plane_renderer_new(plane);
-        if (!renderer)
-          {
-             ERR("fail to e_plane_renderer_new");
-             free(plane);
-             return NULL;
-          }
-
-        plane->renderer = renderer;
      }
 
    if (layer_capabilities & TDM_LAYER_CAPABILITY_VIDEO)
@@ -686,14 +675,24 @@ e_plane_free(E_Plane *plane)
 }
 
 EINTERN Eina_Bool
-e_plane_hwc_setup(E_Plane *plane)
+e_plane_setup(E_Plane *plane)
 {
    const char *name;
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+   E_Plane_Renderer *renderer = NULL;
 
    /* we assume that the primary plane gets a ecore_evas */
    if (!plane->is_fb) return EINA_FALSE;
+
+   renderer = e_plane_renderer_new(plane);
+   if (!renderer)
+     {
+        ERR("fail to e_plane_renderer_new");
+        free(plane);
+        return EINA_FALSE;
+     }
+   plane->renderer = renderer;
 
    name = ecore_evas_engine_name_get(e_comp->ee);
    if (!strcmp("gl_drm", name))
@@ -701,16 +700,29 @@ e_plane_hwc_setup(E_Plane *plane)
         Evas_Engine_Info_GL_Drm *einfo = NULL;
         /* get the evas_engine_gl_drm information */
         einfo = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(e_comp->evas);
-        if (!einfo) return EINA_FALSE;
+        if (!einfo)
+          {
+             ERR("fail to get the GL_Drm einfo.");
+             goto hwc_setup_fail;
+          }
         /* enable hwc to evas engine gl_drm */
         einfo->info.hwc_enable = EINA_TRUE;
         ecore_evas_manual_render_set(e_comp->ee, 1);
-        return EINA_TRUE;
      }
    else if(!strcmp("drm_tbm", name))
      {
         ecore_evas_manual_render_set(e_comp->ee, 1);
-        return EINA_TRUE;
+     }
+
+   return EINA_TRUE;
+
+hwc_setup_fail:
+   ecore_evas_manual_render_set(e_comp->ee, 0);
+
+   if (plane->renderer)
+     {
+        e_plane_renderer_del(plane->renderer);
+        plane->renderer = NULL;
      }
 
    return EINA_FALSE;

@@ -1435,24 +1435,6 @@ _e_comp_screensaver_off(void *data EINA_UNUSED, int type EINA_UNUSED, void *even
    return ECORE_CALLBACK_PASS_ON;
 }
 
-static Eina_Bool
-_e_comp_hwc_init(void)
-{
-   if (!e_comp || !e_comp->e_comp_screen)
-     {
-        e_error_message_show(_("Enlightenment cannot has no e_comp at HWC(HardWare Composite)!\n"));
-        return EINA_FALSE;
-     }
-
-   if (!e_comp_screen_hwc_setup(e_comp->e_comp_screen))
-     {
-        ERR("fail to e_comp_screen_hwc_setup");
-        return EINA_FALSE;
-     }
-
-   return EINA_TRUE;
-}
-
 //////////////////////////////////////////////////////////////////////////
 
 EINTERN Eina_Bool
@@ -1519,21 +1501,10 @@ e_comp_init(void)
 
    e_comp_canvas_fake_layers_init();
 
+   if (conf->hwc) e_comp->hwc = EINA_TRUE; // activate hwc policy
    if (conf->hwc_deactive) e_comp->hwc_deactive = EINA_TRUE; // deactive hwc policy
    if (conf->hwc_reuse_cursor_buffer) e_comp->hwc_reuse_cursor_buffer = EINA_TRUE;
    if (conf->hwc_sync_mode_change) e_comp->hwc_sync_mode_change = EINA_TRUE;
-
-#ifdef HAVE_HWC
-   if (conf->hwc)
-     {
-        e_comp->hwc = _e_comp_hwc_init();
-        if (!e_comp->hwc)
-          {
-             WRN("fail to init hwc.");
-             e_comp->hwc_deactive = EINA_TRUE;
-          }
-     }
-#endif
 
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREENSAVER_ON,  _e_comp_screensaver_on,  NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREENSAVER_OFF, _e_comp_screensaver_off, NULL);

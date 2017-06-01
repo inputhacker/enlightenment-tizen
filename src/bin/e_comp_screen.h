@@ -40,7 +40,7 @@ extern E_API int E_EVENT_SCREEN_CHANGE;
 
 E_API   Eina_Bool         e_comp_screen_init(void);
 E_API   void              e_comp_screen_shutdown(void);
-EINTERN Eina_Bool         e_comp_screen_hwc_setup(E_Comp_Screen *e_comp_screen);
+EINTERN Eina_Bool         e_comp_screen_setup(E_Comp_Screen *e_comp_screen);
 EINTERN void              e_comp_screen_hwc_info_debug(void);
 
 EINTERN void              e_comp_screen_e_screens_setup(E_Comp_Screen *e_comp_screen, int rw, int rh);
