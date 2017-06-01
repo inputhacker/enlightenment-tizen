@@ -48,6 +48,7 @@ EINTERN const Eina_List * e_comp_screen_e_screens_get(E_Comp_Screen *e_comp_scre
 E_API   Eina_Bool         e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation);
 
 EINTERN void              e_comp_screen_rotation_ignore_output_transform_send(E_Client *ec, Eina_Bool ignore);
+EINTERN E_Output        * e_comp_screen_primary_output_get(E_Comp_Screen *e_comp_screen);
 
 
 #endif /*E_COMP_SCREEN_H*/
