@@ -593,7 +593,7 @@ _e_comp_object_cb_mouse_down(void *data, Evas *e EINA_UNUSED, Evas_Object *obj E
 static void
 _e_comp_object_cb_mouse_up(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info)
 {
-   Evas_Event_Mouse_Down *ev = event_info;
+   Evas_Event_Mouse_Up *ev = event_info;
    E_Comp_Object *cw = data;
    E_Binding_Event_Mouse_Button ev2;
 
