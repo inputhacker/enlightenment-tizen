@@ -539,11 +539,16 @@ e_output_mode_apply(E_Output *output, E_Output_Mode *mode)
    output->config.mode.h = mode->h;
    output->config.mode.refresh = mode->refresh;
 
+   /* the index of the tdm_output is higher, the tdm_output is important.
+      the priority of the e_output is higher, the e_output is more important. */
+   output->config.priority = 100 - output->index;
+
    output->config.enabled = 1;
 
-   INF("E_OUTPUT: '%s' %i %i %ix%i", output->info.name,
+   INF("E_OUTPUT: '%s' %i %i %ix%i %i %i", output->info.name,
        output->config.geom.x, output->config.geom.y,
-       output->config.geom.w, output->config.geom.h);
+       output->config.geom.w, output->config.geom.h,
+       output->config.rotation, output->config.priority);
 
    INF("E_OUTPUT: rotation = %d", output->config.rotation);
 

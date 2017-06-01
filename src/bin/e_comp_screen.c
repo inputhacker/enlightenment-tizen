@@ -1292,6 +1292,28 @@ e_comp_screen_rotation_ignore_output_transform_send(E_Client *ec, Eina_Bool igno
    tizen_screen_rotation_send_ignore_output_transform(tzsr->resource, ec->comp_data->surface, ignore);
 }
 
+EINTERN E_Output *
+e_comp_screen_primary_output_get(E_Comp_Screen *e_comp_screen)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, NULL);
+
+   E_Output *output = NULL, *o = NULL;
+   Eina_List *l = NULL;
+   int highest_priority = 0;
+
+   /* find the highest priority of the e_output */
+   EINA_LIST_FOREACH(e_comp_screen->outputs, l, o)
+     {
+        if (highest_priority < o->config.priority)
+          {
+             highest_priority = o->config.priority;
+             output = o;
+          }
+     }
+
+   return output;
+}
+
 EINTERN void
 e_comp_screen_hwc_info_debug(void)
 {
