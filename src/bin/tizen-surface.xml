@@ -1,0 +1,16 @@
+<protocol name="tizen_surface">
+  <interface name="tizen_surface_shm" version="2">
+    <request name="get_flusher">
+      <arg name="id" type="new_id" interface="tizen_surface_shm_flusher" summary=""/>
+      <arg name="surface" type="object" interface="wl_surface" summary="surface object"/>
+    </request>
+  </interface>
+
+  <interface name="tizen_surface_shm_flusher" version="2">
+    <request name="destroy" type="destructor" />
+    <event name="flush">
+    </event>
+    <event name="free_flush" since="2">
+    </event>
+  </interface>
+</protocol>

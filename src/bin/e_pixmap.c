@@ -1002,7 +1002,7 @@ e_pixmap_init(void)
      return EINA_FALSE;
 
    global = wl_global_create(e_comp_wl->wl.disp, &tizen_surface_shm_interface,
-                             1, NULL, _e_pixmap_tzsurf_shm_cb_bind);
+                             2, NULL, _e_pixmap_tzsurf_shm_cb_bind);
    if (!global)
      return EINA_FALSE;
 
@@ -1018,7 +1018,7 @@ e_pixmap_shutdown(void)
  * implementation. the implementation for shared memory is in evas_shm engine.
  */
 E_API void
-e_pixmap_buffer_clear(E_Pixmap *cp)
+e_pixmap_buffer_clear(E_Pixmap *cp, Eina_Bool only_free)
 {
    E_Comp_Wl_Client_Data *cdata;
    struct wl_resource *cb;
@@ -1030,13 +1030,33 @@ e_pixmap_buffer_clear(E_Pixmap *cp)
    if (!e_config->use_buffer_flush)
      return;
 
-   DBG("PIXMAP: Buffer Flush(%s) '%s'(%p)", cp->shm_flusher ? "SHM" : "NATIVE",
-       cp->client->icccm.name?:"", cp->client);
+   DBG("PIXMAP: Buffer Flush(%s) '%s'(%p) only_free:%d", cp->shm_flusher ? "SHM" : "NATIVE",
+       cp->client->icccm.name?:"", cp->client, only_free);
 
    if (cp->shm_flusher)
-     tizen_surface_shm_flusher_send_flush(cp->shm_flusher);
+     {
+        if (only_free == EINA_TRUE)
+          {
+            if (TIZEN_SURFACE_SHM_FLUSHER_FREE_FLUSH_SINCE_VERSION <= wl_resource_get_version(cp->shm_flusher))
+              {
+                 tizen_surface_shm_flusher_send_free_flush(cp->shm_flusher);
+              }
+            else
+              {
+                 /*free_flush was supported from version 2*/
+                 return;
+              }
+           }
+         else
+           {
+              tizen_surface_shm_flusher_send_flush(cp->shm_flusher);
+           }
+     }
    else if (cp->buffer)
      {
+        if (only_free)
+          return;
+
         switch (cp->buffer->type)
           {
            case E_COMP_WL_BUFFER_TYPE_TBM:
@@ -1058,21 +1078,26 @@ e_pixmap_buffer_clear(E_Pixmap *cp)
               break;
           }
      }
+   else
+     return;
 
-   /* release the helded buffer by e_client */
-   if (cp->client->comp_data)
-     e_comp_wl_buffer_reference(&cp->client->comp_data->buffer_ref, NULL);
-
-   /* composite object clear */
-   e_comp_object_clear(cp->client->frame);
-
-   /* pending frame event callback*/
-   if (!cp->client->comp_data) return;
-   cdata = (E_Comp_Wl_Client_Data *)cp->client->comp_data;
-   EINA_LIST_FOREACH_SAFE(cdata->frames, l, ll, cb)
+   if (only_free == EINA_FALSE)
      {
-        wl_callback_send_done(cb, ecore_time_unix_get() * 1000);
-        wl_resource_destroy(cb);
+        /* release the helded buffer by e_client */
+        if (cp->client->comp_data)
+          e_comp_wl_buffer_reference(&cp->client->comp_data->buffer_ref, NULL);
+
+        /* composite object clear */
+        e_comp_object_clear(cp->client->frame);
+
+        /* pending frame event callback*/
+        if (!cp->client->comp_data) return;
+        cdata = (E_Comp_Wl_Client_Data *)cp->client->comp_data;
+        EINA_LIST_FOREACH_SAFE(cdata->frames, l, ll, cb)
+          {
+             wl_callback_send_done(cb, ecore_time_unix_get() * 1000);
+             wl_resource_destroy(cb);
+          }
      }
 
 }
