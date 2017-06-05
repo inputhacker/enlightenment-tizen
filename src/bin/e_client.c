@@ -5357,7 +5357,7 @@ e_client_iconify(E_Client *ec)
    _e_client_hook_call(E_CLIENT_HOOK_ICONIFY, ec);
 
    if (e_config->use_buffer_flush)
-     e_pixmap_buffer_clear(ec->pixmap);
+     e_pixmap_buffer_clear(ec->pixmap, EINA_FALSE);
 
    TRACE_DS_END();
 }

@@ -992,6 +992,10 @@ _quickpanel_cb_buffer_change(void *data, int type, void *event)
    /* make frame event */
    e_pixmap_image_clear(ec->pixmap, EINA_TRUE);
 
+   /* To use single buffer*/
+   if (EINA_FALSE == e_qp_visible_get())
+     e_pixmap_buffer_clear(ec->pixmap, EINA_TRUE);
+
 end:
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -1010,6 +1014,8 @@ _quickpanel_client_evas_cb_hide(void *data, Evas *evas, Evas_Object *obj, void *
 
    if (qp->need_scroll_update)
      _e_qp_client_scrollable_update();
+
+   e_pixmap_buffer_clear(qp->ec->pixmap, EINA_TRUE);
 }
 
 static void
