@@ -83,6 +83,8 @@ struct _E_Comp_Wl_Remote_Provider
    uint32_t input_event_filter;
 
    Eina_Bool is_offscreen;
+
+   Eina_Bool ignore_output_transform;
 };
 
 /* normal UI client */
@@ -98,6 +100,8 @@ struct _E_Comp_Wl_Remote_Source
 
    int offscreen_ref;
    Eina_Bool is_offscreen;
+
+   Eina_Bool ignore_output_transform;
 };
 
 /* widget viewer or task-manager client */
@@ -159,6 +163,7 @@ static void _e_comp_wl_remote_surface_state_buffer_set(E_Comp_Wl_Surface_State *
 static void _e_comp_wl_remote_buffer_cb_destroy(struct wl_listener *listener, void *data);
 static E_Comp_Wl_Remote_Buffer *_e_comp_wl_remote_buffer_get(struct wl_resource *remote_buffer_resource);
 static void _remote_surface_region_clear(E_Comp_Wl_Remote_Surface *remote_surface);
+static void _remote_surface_ignore_output_transform_send(E_Comp_Wl_Remote_Provider *provider, E_Comp_Wl_Remote_Source *source);
 
 static Ecore_Device *
 _device_get_by_identifier(const char *identifier)
@@ -334,7 +339,6 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
 
    if (set)
      {
-        e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_TRUE);
         provider->is_offscreen = set;
         ec->ignored = EINA_TRUE;
 
@@ -357,7 +361,6 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
      }
    else
      {
-        e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
         e_client_visibility_skip_set(ec, EINA_FALSE);
         provider->is_offscreen = set;
         ec->icccm.accepts_focus = ec->icccm.take_focus = ec->want_focus = EINA_TRUE;
@@ -367,6 +370,8 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
 
         e_comp_wl_surface_commit(ec);
      }
+
+   _remote_surface_ignore_output_transform_send(provider, NULL);
 
    RSMINF("%s offscreen",
           ec->pixmap, ec,
@@ -709,6 +714,86 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
         e_policy_allow_user_geometry_set(ec, EINA_TRUE);
         remote_surface->bind_ec = ec;
      }
+}
+
+static void
+_remote_surface_ignore_output_transform_send(E_Comp_Wl_Remote_Provider *provider, E_Comp_Wl_Remote_Source *source)
+{
+   E_Comp_Wl_Remote_Surface *remote_surface = NULL;
+   Eina_List *surfaces = NULL;
+   Eina_Bool *ignore_output_transform_ptr = NULL;
+   Eina_Bool *is_offscreen_ptr = NULL;
+   E_Client *ec = NULL;
+   const char *obj_str = NULL, *msg;
+   void *obj = NULL;
+
+   if (provider)
+     {
+        surfaces = provider->surfaces;
+        ignore_output_transform_ptr = &provider->ignore_output_transform;
+        is_offscreen_ptr = &provider->is_offscreen;
+        ec = provider->ec;
+        obj_str = "PROVIDER";
+        obj = provider;
+     }
+   else if (source)
+     {
+        surfaces = source->surfaces;
+        ignore_output_transform_ptr = &source->ignore_output_transform;
+        is_offscreen_ptr = &source->is_offscreen;
+        ec = source->ec;
+        obj_str = "SOURCE";
+        obj = source;
+     }
+   else
+     return;
+
+   EINA_SAFETY_ON_NULL_RETURN(is_offscreen_ptr);
+   EINA_SAFETY_ON_NULL_RETURN(ignore_output_transform_ptr);
+
+   if (eina_list_count(surfaces) != 1)
+     {
+        msg = "remote surface count = 0 or over 1";
+        goto ignore;
+     }
+
+   remote_surface = eina_list_nth(surfaces, 0);
+   if (remote_surface && remote_surface->bind_ec)
+     {
+        msg = "1 binding remote surface";
+        goto no_ignore;
+     }
+
+   if (*is_offscreen_ptr)
+     {
+        msg = "offscreen";
+        goto ignore;
+     }
+   else
+     {
+        msg = "not offscreen";
+        goto no_ignore;
+     }
+
+   return;
+
+ignore:
+   if (*ignore_output_transform_ptr != EINA_TRUE)
+     {
+        RSMINF("ignore output transform: %s", NULL, ec, obj_str, obj, msg);
+        e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_TRUE);
+        *ignore_output_transform_ptr = EINA_TRUE;
+     }
+   return;
+
+no_ignore:
+   if (*ignore_output_transform_ptr != EINA_FALSE)
+     {
+        RSMINF("not ignore output transform: %s", NULL, ec, obj_str, obj, msg);
+        e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
+        *ignore_output_transform_ptr = EINA_FALSE;
+     }
+   return;
 }
 
 static void
@@ -1084,6 +1169,7 @@ _remote_source_offscreen_set(E_Comp_Wl_Remote_Source *source, Eina_Bool set)
 
         if (source->offscreen_ref == 1)
           {
+             _remote_surface_ignore_output_transform_send(NULL, source);
              source->is_offscreen = EINA_TRUE;
 
              source->ec->exp_iconify.not_raise = 1;
@@ -1112,6 +1198,7 @@ _remote_source_offscreen_set(E_Comp_Wl_Remote_Source *source, Eina_Bool set)
 
         if (source->offscreen_ref == 0)
           {
+             _remote_surface_ignore_output_transform_send(NULL, source);
              source->is_offscreen = EINA_FALSE;
              source->ec->exp_iconify.skip_by_remote = 0;
              EC_CHANGED(source->ec);
@@ -1344,6 +1431,8 @@ _remote_surface_cb_resource_destroy(struct wl_resource *resource)
 
    if (remote_surface->wl_tbm)
      wl_list_remove(&remote_surface->tbm_destroy_listener.link);
+
+   _remote_surface_ignore_output_transform_send(provider, source);
 
    E_FREE(remote_surface);
 }
@@ -2158,6 +2247,9 @@ _remote_manager_cb_surface_create(struct wl_client *client,
           "SURFACE", remote_surface, resource, ec, provider, source, remote_surface->version);
 
    remote_surface->valid = EINA_TRUE;
+
+   _remote_surface_ignore_output_transform_send(provider, source);
+
    return;
 
 fail:
@@ -2183,6 +2275,8 @@ _remote_manager_cb_surface_bind(struct wl_client *client, struct wl_resource *re
      ec = wl_resource_get_user_data(surface_resource);
 
    _remote_surface_bind_client(remote_surface, ec);
+
+   _remote_surface_ignore_output_transform_send(provider, NULL);
 }
 
 static const struct tizen_remote_surface_manager_interface _remote_manager_interface =
