@@ -431,21 +431,37 @@ if test "x${have_wayland}" = "xyes"; then
   fi
 fi
 
-# Check for libgomp
-libgomp=no
-AC_ARG_ENABLE([libgomp],
-  AS_HELP_STRING([--enable-libgomp], [enable libgomp @<:@default=disabled@:>@]),
-  [libgomp=$enableval],
-  [libgomp=no])
-AC_MSG_CHECKING([whether libgomp is enabled])
-AC_MSG_RESULT([${libgomp}])
+# does this compiler support -fopenmp, does it have the include file
+# <omp.h> and does it have libgomp ?
 
-if test "x$libgomp" != "xno"; then
-    AC_DEFINE([HAVE_LIBGOMP], [1], [Enable libgomp])
-    have_libgomp=yes
+AC_MSG_CHECKING([for OpenMP])
+
+safe_CFLAGS=$CFLAGS
+CFLAGS="-fopenmp $mflag_primary -Werror"
+
+AC_LINK_IFELSE([AC_LANG_SOURCE([
+#include <omp.h>
+int main(int argc, char** argv)
+{
+  omp_set_dynamic(0);
+  return 0;
+}
+])],
+[
+   have_libgomp=yes
+   AC_MSG_RESULT([yes])
+], [
+   have_libgomp=no
+   AC_MSG_RESULT([no])
+])
+CFLAGS=$safe_CFLAGS
+
+if test "x$have_libgomp" != "xno"; then
+AC_DEFINE([HAVE_LIBGOMP], [1], [Enable libgomp])
+   have_libgomp=yes
 else
-    AC_DEFINE([HAVE_LIBGOMP], [0], [Disable libgomp])
-    have_libgomp=no
+AC_DEFINE([HAVE_LIBGOMP], [0], [Disable libgomp])
+   have_libgomp=no
 fi
 AM_CONDITIONAL([HAVE_LIBGOMP], [test "x${have_libgomp}" = "xyes"])
 
