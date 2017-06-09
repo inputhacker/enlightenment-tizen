@@ -236,7 +236,7 @@ _hwc_set(E_Output *eout)
 
    EINA_LIST_FOREACH(eout->planes, l, ep)
      {
-        if (!conf->hwc_use_multi_plane &&
+        if (!e_comp->hwc_use_multi_plane &&
             !e_plane_is_cursor(ep) &&
             !e_plane_is_fb_target(ep))
           continue;
@@ -337,7 +337,7 @@ _hwc_prepare_init(E_Output *eout)
    ep_l = e_output_planes_get(eout);
    EINA_LIST_FOREACH(ep_l, l, ep)
      {
-        if (!conf->hwc_use_multi_plane &&
+        if (!e_comp->hwc_use_multi_plane &&
             !e_plane_is_cursor(ep) &&
             !e_plane_is_fb_target(ep))
           continue;
@@ -429,7 +429,7 @@ _hwc_prepare(E_Output *eout, int n_vis, int n_skip, Eina_List *hwc_clist)
    if (n_ec <= 0) return EINA_FALSE;
 
    // list up available_hw layers E_Client can be set
-   // if conf->hwc_use_multi_plane FALSE, than use only fb target plane
+   // if e_comp->hwc_use_multi_plane FALSE, than use only fb target plane
    ep_l = e_output_planes_get(eout);
    EINA_LIST_FOREACH(ep_l, l, ep)
      {
@@ -442,7 +442,7 @@ _hwc_prepare(E_Output *eout, int n_vis, int n_skip, Eina_List *hwc_clist)
                }
              continue;
           }
-        if (!conf->hwc_use_multi_plane) continue;
+        if (!e_comp->hwc_use_multi_plane) continue;
         if (e_plane_is_cursor(ep)) continue;
         if (ep->zpos > ep_fb->zpos)
           hwc_ly = eina_list_append(hwc_ly, ep);
@@ -504,7 +504,7 @@ _hwc_cancel(E_Output *eout)
 
    EINA_LIST_FOREACH(eout->planes, l, ep)
      {
-        if (!conf->hwc_use_multi_plane &&
+        if (!e_comp->hwc_use_multi_plane &&
             !e_plane_is_cursor(ep) &&
             !e_plane_is_fb_target(ep))
           {
@@ -534,7 +534,7 @@ _hwc_reserved_clean()
         eout = e_output_find(zone->output_id);
         EINA_LIST_FOREACH(eout->planes, ll, ep)
           {
-             if (!conf->hwc_use_multi_plane &&
+             if (!e_comp->hwc_use_multi_plane &&
                  !e_plane_is_cursor(ep) &&
                  !e_plane_is_fb_target(ep))
                continue;
@@ -1505,6 +1505,9 @@ e_comp_init(void)
    if (conf->hwc_deactive) e_comp->hwc_deactive = EINA_TRUE; // deactive hwc policy
    if (conf->hwc_reuse_cursor_buffer) e_comp->hwc_reuse_cursor_buffer = EINA_TRUE;
    if (conf->hwc_sync_mode_change) e_comp->hwc_sync_mode_change = EINA_TRUE;
+#ifdef ENABLE_HWC_MULTI
+   if (conf->hwc_use_multi_plane) e_comp->hwc_use_multi_plane = EINA_TRUE;
+#endif
 
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREENSAVER_ON,  _e_comp_screensaver_on,  NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREENSAVER_OFF, _e_comp_screensaver_off, NULL);
