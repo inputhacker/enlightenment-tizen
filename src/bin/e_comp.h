@@ -243,6 +243,7 @@ E_API Eina_List *e_comp_vis_ec_list_get(E_Zone *zone); // visible ec list sorted
 
 #ifdef ENABLE_HWC_MULTI
 E_API void e_comp_hwc_end(const char *location);
+EINTERN void e_comp_hwc_multi_plane_set(Eina_Bool set);
 #endif
 
 E_API Eina_Bool e_comp_socket_init(const char *name);
