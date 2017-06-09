@@ -2598,6 +2598,9 @@ _e_comp_wl_remote_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *st
                        surface->bind_ec->comp_data->pending.new_attach = EINA_TRUE;
 
                        e_comp_wl_surface_commit(surface->bind_ec);
+
+                       /* need to prepare hwc whenever buffer changed */
+                       e_comp_render_queue();
                     }
                   else
                     {
