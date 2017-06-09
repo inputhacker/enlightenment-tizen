@@ -3835,11 +3835,13 @@ reshadow:
      _e_comp_object_shadow_setup(cw);
    do
      {
+        int old_x, old_y, new_x = 0, new_y = 0;
+
+        old_x = cw->x, old_y = cw->y;
+
         _e_comp_smart_cb_frame_recalc(cw, cw->smart_obj, NULL);
-        /* this guarantees that we won't get blocked by the NOP check in the interceptor */
-        cw->y = cw->x = -99999;
         if (pbg)
-          evas_object_move(obj, cw->ec->x, cw->ec->y);
+          new_x = cw->ec->x, new_y = cw->ec->y;
         else if (cw->ec->placed || (!cw->ec->new_client))
           {
              /* if no previous frame:
@@ -3859,7 +3861,14 @@ reshadow:
                   x = MAX(cw->ec->zone->x, cw->ec->client.x - cw->client_inset.l);
                   y = MAX(cw->ec->zone->y, cw->ec->client.y - cw->client_inset.t);
                }
-             evas_object_move(obj, x, y);
+             new_x = x, new_y = y;
+          }
+
+        if (old_x != new_x || old_y != new_y)
+          {
+             /* this guarantees that we won't get blocked by the NOP check in the interceptor */
+             cw->y = cw->x = -99999;
+             evas_object_move(obj, new_x, new_y);
           }
      } while (0);
 
