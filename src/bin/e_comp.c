@@ -943,6 +943,17 @@ e_comp_hwc_end(const char *location)
 
    ELOGF("HWC", " End...  at %s.", NULL, NULL, location);
 }
+
+EINTERN void
+e_comp_hwc_multi_plane_set(Eina_Bool set)
+{
+   if (e_comp->hwc_use_multi_plane == set) return;
+
+   e_comp_hwc_end(__FUNCTION__);
+   e_comp->hwc_use_multi_plane = set;
+
+   ELOGF("HWC", "e_comp_hwc_multi_plane_set : %d", NULL, NULL, set);
+}
 #endif  // end of ENABLE_HWC_MULTI
 
 static Eina_Bool
