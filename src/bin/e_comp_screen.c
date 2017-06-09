@@ -309,6 +309,7 @@ _e_comp_screen_new(E_Comp *comp)
 {
    E_Comp_Screen *e_comp_screen = NULL;
    tdm_error error = TDM_ERROR_NONE;
+   tdm_display_capability capabilities;
 
    e_comp_screen = E_NEW(E_Comp_Screen, 1);
    if (!e_comp_screen) return NULL;
@@ -321,6 +322,19 @@ _e_comp_screen_new(E_Comp *comp)
         free(e_comp_screen);
         return NULL;
      }
+
+   error = tdm_display_get_capabilities(e_comp_screen->tdisplay, &capabilities);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("tdm get_capabilities failed");
+        tdm_display_deinit(e_comp_screen->tdisplay);
+        free(e_comp_screen);
+        return NULL;
+     }
+
+   /* check the pp_support */
+   if (capabilities & TDM_DISPLAY_CAPABILITY_PP)
+     e_comp_screen->pp_enabled = EINA_TRUE;
 
    if (e_comp_socket_init("tdm-socket"))
      PRCTL("[Winsys] change permission and create sym link for %s", "tdm-socket");
@@ -1110,6 +1124,19 @@ e_comp_screen_primary_output_get(E_Comp_Screen *e_comp_screen)
      }
 
    return output;
+}
+
+EINTERN Eina_Bool
+e_comp_screen_pp_support(void)
+{
+   E_Comp_Screen *e_comp_screen = NULL;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp, EINA_FALSE);
+
+   e_comp_screen = e_comp->e_comp_screen;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen->tdisplay, EINA_FALSE);
+
+   return e_comp_screen->pp_enabled;
 }
 
 EINTERN void
