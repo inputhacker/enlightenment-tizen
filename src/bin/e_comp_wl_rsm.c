@@ -517,7 +517,7 @@ _remote_surface_changed_buff_protocol_send(E_Comp_Wl_Remote_Surface *rs,
      {
         if ((ref_set) &&
             (buff) &&
-            (rs->version >= TIZEN_REMOTE_SURFACE_RELEASE_SINCE_VERSION))
+            (rs->version >= 2)) /* WORKAROUND for 3.0: old version wayland-scanner can't generation since macro. TIZEN_REMOTE_SURFACE_RELEASE_SINCE_VERSION */
           e_comp_wl_buffer_reference(&rbuff->ref, buff);
 
         if (rs->version >= TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
