@@ -348,6 +348,11 @@ struct _E_Comp_Wl_Data
         Eina_Bool (*read_pixels)(E_Comp_Wl_Output *output, void *pixels);
      } screenshooter;
 
+   struct
+     {
+        struct wl_global *global;
+     } video;
+
    Eina_List *outputs;
 
    Ecore_Fd_Handler *fd_hdlr;
