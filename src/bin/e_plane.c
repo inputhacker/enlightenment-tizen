@@ -32,33 +32,9 @@ _get_comp_wl_buffer(E_Client *ec)
    E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    if (!cdata) return NULL;
 
-   E_Comp_Wl_Buffer_Ref *buffer_ref = &cdata ->buffer_ref;
+   E_Comp_Wl_Buffer_Ref *buffer_ref = &cdata->buffer_ref;
 
    return buffer_ref->buffer;
-}
-
-static struct wl_resource *
-_get_wl_buffer(E_Client *ec)
-{
-   E_Pixmap *pixmap = ec->pixmap;
-   E_Comp_Wl_Buffer *buffer = e_pixmap_resource_get(pixmap);
-
-   if (!buffer) return NULL;
-
-   return buffer->resource;
-}
-
-static struct wl_resource *
-_get_wl_buffer_ref(E_Client *ec)
-{
-   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
-   if (!cdata) return NULL;
-
-   E_Comp_Wl_Buffer_Ref *buffer_ref = &cdata ->buffer_ref;
-
-   if (!buffer_ref->buffer) return NULL;
-
-   return buffer_ref->buffer->resource;
 }
 
 static tbm_surface_queue_h
@@ -93,7 +69,7 @@ _e_plane_surface_unset(E_Plane *plane)
    tdm_error error;
 
    if (plane_trace_debug)
-      ELOGF("E_PLANE", "Unset   Plane(%p)", NULL, NULL, plane);
+      ELOGF("E_PLANE", "Unset   Plane(%p) zpos(%d)", NULL, NULL, plane, plane->zpos);
 
    error = tdm_layer_unset_buffer(tlayer);
    if (error != TDM_ERROR_NONE)
@@ -272,9 +248,9 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
 
    if (plane_trace_debug)
      {
-        ELOGF("E_PLANE", "Set     Plane(%p)     tsurface(%p) (%dx%d,[%d,%d,%d,%d]=>[%d,%d,%d,%d])",
-              NULL, NULL, plane, tsurface,
-              plane->info.src_config.size.h, plane->info.src_config.size.v,
+        ELOGF("E_PLANE", "Set     Plane(%p) zpos(%d)   tsurface(%p) (%dx%d,[%d,%d,%d,%d]=>[%d,%d,%d,%d])",
+              NULL, NULL, plane, plane->zpos, tsurface,
+              plane->info.src_config.size.h, plane->info.src_config.size.h,
               plane->info.src_config.pos.x, plane->info.src_config.pos.y,
               plane->info.src_config.pos.w, plane->info.src_config.pos.h,
               plane->info.dst_pos.x, plane->info.dst_pos.y,
@@ -329,7 +305,8 @@ _e_plane_surface_from_client_acquire_reserved(E_Plane *plane)
         e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
         if (plane_trace_debug)
-          ELOGF("E_PLANE", "Plane:%p Display Client", ec->pixmap, ec, plane);
+          ELOGF("E_PLANE", "Display Plane(%p) zpos(%d)   Client ec(%p, %s)",
+                ec->pixmap, ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
         /* acquire the surface from the client_queue */
         tsurface = e_plane_renderer_client_surface_recieve(renderer_client);
@@ -376,7 +353,8 @@ _e_plane_surface_from_client_acquire(E_Plane *plane)
    if (!e_comp_object_hwc_update_exists(ec->frame)) return NULL;
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "Display Client Plane(%p)", ec->pixmap, ec, plane);
+     ELOGF("E_PLANE", "Display Plane(%p) zpos(%d)   Client ec(%p, %s)",
+           ec->pixmap, ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
    e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
@@ -410,7 +388,8 @@ _e_plane_cursor_surface_acquire(E_Plane *plane)
    if (!e_comp_object_hwc_update_exists(ec->frame)) return NULL;
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "Display Cursor Client Plane(%p)", NULL, ec, plane);
+     ELOGF("E_PLANE", "Display Cursor Plane(%p) zpos(%d)   ec(%p)",
+           NULL, ec, plane, plane->zpos, ec);
 
    e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
@@ -473,7 +452,8 @@ _e_plane_surface_from_ecore_evas_acquire(E_Plane *plane)
    if (tsurface)
      {
         if (plane_trace_debug)
-          ELOGF("E_PLANE", "Display Canvas Plane(%p)", NULL, NULL, plane);
+          ELOGF("E_PLANE", "Display Plane(%p) zpos(%d)   Canvas",
+                NULL, NULL, plane, plane->zpos);
      }
 
    return tsurface;
@@ -922,8 +902,9 @@ e_plane_commit(E_Plane *plane)
    TRACE_DS_ASYNC_BEGIN((unsigned int)plane->tlayer, [PLANE:COMMIT~HANDLER]);
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "Commit  Plane(%p)     tsurface(%p) tqueue(%p) data(%p)",
-           NULL, NULL, plane, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL, data);
+     ELOGF("E_PLANE", "Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
+           NULL, NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
+           data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
    error = tdm_layer_commit(plane->tlayer, _e_plane_commit_hanler, data);
    if (error != TDM_ERROR_NONE)
@@ -1033,7 +1014,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
    if (!tsurface)
      {
         if (plane_trace_debug)
-          ELOGF("E_PLANE", "Done    Plane(%p)  data(%p)  ::Unset", NULL, NULL, plane, data);
+          ELOGF("E_PLANE", "Done    Plane(%p) zpos(%d)   data(%p)::Unset", NULL, NULL, plane, plane->zpos, data);
 
         e_comp_wl_buffer_reference(&plane->displaying_buffer_ref, NULL);
         if (plane->displaying_buffer_tsurface)
@@ -1059,8 +1040,10 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
         /* composite */
         /* debug */
         if (plane_trace_debug)
-          ELOGF("E_PLANE", "Done    Plane(%p)  tsurface(%p) tqueue(%p) data(%p)::Canvas",
-                NULL, NULL, plane, tsurface, renderer ? renderer->tqueue : NULL, data);
+          ELOGF("E_PLANE", "Done    Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)::Canvas",
+                NULL, NULL, plane, plane->zpos, tsurface, renderer ? renderer->tqueue : NULL,
+                data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
+
         if (plane->reserved_memory)
           {
              if (displaying_tsurface)
@@ -1096,9 +1079,9 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
         /* no composite */
         /* debug */
         if (plane_trace_debug)
-          ELOGF("E_PLANE", "Done    Plane(%p)     wl_buffer(%p) tsurface(%p) tqueue(%p) data(%p) wl_buffer_ref(%p) ::Client",
-                ec->pixmap, ec, plane, _get_wl_buffer(ec), tsurface, (renderer ? renderer->tqueue : NULL),
-                data, _get_wl_buffer_ref(ec));
+          ELOGF("E_PLANE", "Done    Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)::Client",
+                ec->pixmap, ec, plane, plane->zpos, tsurface, (renderer ? renderer->tqueue : NULL),
+                data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
         if (plane->role == E_PLANE_ROLE_OVERLAY)
           {
@@ -1248,7 +1231,8 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
    if (plane_trace_debug)
-      ELOGF("E_PLANE", "Request Plane(%p) ec Set", (ec ? ec->pixmap : NULL), ec, plane);
+      ELOGF("E_PLANE", "Request Plane(%p) zpos(%d)   Set ec(%p, %s)",
+            (ec ? ec->pixmap : NULL), ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
    if (ec)
      {
@@ -1347,7 +1331,8 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
    plane->need_ev = EINA_TRUE;
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "Plane(%p) ec Set", (ec ? ec->pixmap : NULL), ec, plane);
+     ELOGF("E_PLANE", "Plane(%p) zpos(%d)   Set ec(%p, %s)",
+           (ec ? ec->pixmap : NULL), ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
    return EINA_TRUE;
 }
