@@ -71,6 +71,8 @@ _e_plane_surface_unset(E_Plane *plane)
    if (plane_trace_debug)
       ELOGF("E_PLANE", "Unset   Plane(%p) zpos(%d)", NULL, NULL, plane, plane->zpos);
 
+   CLEAR(plane->info);
+
    error = tdm_layer_unset_buffer(tlayer);
    if (error != TDM_ERROR_NONE)
      {
