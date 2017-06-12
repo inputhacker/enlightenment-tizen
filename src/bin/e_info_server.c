@@ -3017,6 +3017,18 @@ _e_info_server_module_hook_call(const char *module_name, const char *log_path)
      }
 }
 
+static void
+_e_info_server_module_hook_cleanup(void)
+{
+   E_Info_Hook *hdata;
+
+   EINA_LIST_FREE(module_hook, hdata)
+     {
+        eina_stringshare_del(hdata->module_name);
+        E_FREE(hdata);
+     }
+}
+
 /* a hook with given name(module_name) is defined by plug-in modules*/
 E_API void
 e_info_server_hook_set(const char *module_name, E_Info_Hook_Cb func, void *data)
@@ -5039,6 +5051,8 @@ e_info_server_shutdown(void)
      }
    e_info_dump_count = 0;
    e_info_dump_running = 0;
+
+   if (module_hook) _e_info_server_module_hook_cleanup();
 
    e_info_protocol_shutdown();
 
