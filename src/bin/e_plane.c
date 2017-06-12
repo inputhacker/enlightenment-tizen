@@ -271,22 +271,6 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
    return EINA_TRUE;
 }
 
-static void
-_e_plane_surface_on_client_reserved_release(E_Plane *plane, tbm_surface_h tsurface)
-{
-   E_Plane_Renderer *renderer = plane->renderer;
-   E_Client *ec = plane->ec;
-
-   if (!ec)
-     {
-        ERR("no ec at plane.");
-        return;
-     }
-
-   /* release the tsurface */
-   e_plane_renderer_surface_send(renderer, ec, tsurface);
-}
-
 static tbm_surface_h
 _e_plane_surface_from_client_acquire_reserved(E_Plane *plane)
 {
@@ -327,18 +311,6 @@ _e_plane_surface_from_client_acquire_reserved(E_Plane *plane)
    tsurface = e_plane_renderer_surface_queue_acquire(plane->renderer);
 
    return tsurface;
-}
-
-static void
-_e_plane_surface_on_client_release(E_Plane *plane, tbm_surface_h tsurface)
-{
-   E_Client *ec = plane->ec;
-
-   if (!ec)
-     {
-        ERR("no ec at plane.");
-        return;
-     }
 }
 
 static tbm_surface_h
@@ -840,16 +812,9 @@ e_plane_unfetch(E_Plane *plane)
    EINA_SAFETY_ON_NULL_RETURN(plane->tsurface);
 
    if (plane->is_fb && !plane->ec)
-     {
-        _e_plane_surface_on_ecore_evas_release(plane, plane->tsurface);
-     }
+     _e_plane_surface_on_ecore_evas_release(plane, plane->tsurface);
    else
-     {
-        if (!plane->ec) return;
-
-        if (plane->reserved_memory) _e_plane_surface_on_client_reserved_release(plane, plane->tsurface);
-        else _e_plane_surface_on_client_release(plane, plane->tsurface);
-     }
+     if (!plane->ec) return;
 
    displaying_tsurface = e_plane_renderer_displaying_surface_get(plane->renderer);
 
@@ -1053,7 +1018,6 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
                   if (plane->ec)
                     {
                        e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
-                       _e_plane_surface_on_client_reserved_release(plane, displaying_tsurface);
                        _e_plane_surface_send_dequeuable_surfaces(plane);
                     }
                   else
@@ -1095,7 +1059,6 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
                        if (plane->ec)
                          {
                             e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
-                            _e_plane_surface_on_client_reserved_release(plane, displaying_tsurface);
                             _e_plane_surface_send_dequeuable_surfaces(plane);
                          }
                        else
@@ -1110,8 +1073,6 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
                   /* release */
                   if (displaying_tsurface)
                     {
-                       _e_plane_surface_on_client_release(plane, displaying_tsurface);
-
                        if (!plane->displaying_buffer_ref.buffer)
                          e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
                    }
