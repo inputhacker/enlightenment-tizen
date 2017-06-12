@@ -57,9 +57,6 @@ struct _E_Plane
    tdm_info_layer        info;
    tbm_surface_h         tsurface;
 
-   E_Comp_Wl_Buffer_Ref  displaying_buffer_ref;
-   tbm_surface_h         displaying_buffer_tsurface;
-
    E_Plane_Renderer     *renderer;
    E_Output             *output;
 
@@ -76,6 +73,13 @@ struct _E_Plane
    Eina_Bool             need_ev;
 
    E_Plane_Role          role;
+
+   /* current display information */
+   struct
+   {
+      E_Comp_Wl_Buffer_Ref  buffer_ref;
+      tbm_surface_h         tsurface;
+   } display_info;
 };
 
 struct _E_Plane_Commit_Data {

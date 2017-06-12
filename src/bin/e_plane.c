@@ -377,7 +377,7 @@ _e_plane_cursor_surface_acquire(E_Plane *plane)
 
    tsurface = e_plane_renderer_cursor_surface_get(renderer);
 
-   if (plane->displaying_buffer_ref.buffer != buffer || !tsurface)
+   if (plane->display_info.buffer_ref.buffer != buffer || !tsurface)
      {
         if (!e_plane_renderer_cursor_surface_refresh(renderer, ec))
           {
@@ -996,11 +996,12 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
         if (plane_trace_debug)
           ELOGF("E_PLANE", "Done    Plane(%p) zpos(%d)   data(%p)::Unset", NULL, NULL, plane, plane->zpos, data);
 
-        e_comp_wl_buffer_reference(&plane->displaying_buffer_ref, NULL);
-        if (plane->displaying_buffer_tsurface)
+        e_comp_wl_buffer_reference(&plane->display_info.buffer_ref, NULL);
+        if (plane->display_info.tsurface)
           {
-             tbm_surface_internal_unref(plane->displaying_buffer_tsurface);
-             plane->displaying_buffer_tsurface = NULL;
+             e_plane_renderer_surface_queue_release(plane->renderer, plane->display_info.tsurface);
+             tbm_surface_internal_unref(plane->display_info.tsurface);
+             plane->display_info.tsurface = NULL;
           }
 
         plane->pending_commit_data_list = eina_list_remove(plane->pending_commit_data_list, data);
@@ -1042,15 +1043,15 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
           }
         else
           {
-             if (displaying_tsurface && !plane->displaying_buffer_ref.buffer)
+             if (displaying_tsurface && !plane->display_info.buffer_ref.buffer)
                e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
           }
 
-        e_comp_wl_buffer_reference(&plane->displaying_buffer_ref, NULL);
-        if (plane->displaying_buffer_tsurface)
+        e_comp_wl_buffer_reference(&plane->display_info.buffer_ref, NULL);
+        if (plane->display_info.tsurface)
           {
-             tbm_surface_internal_unref(plane->displaying_buffer_tsurface);
-             plane->displaying_buffer_tsurface = NULL;
+             tbm_surface_internal_unref(plane->display_info.tsurface);
+             plane->display_info.tsurface = NULL;
           }
      }
    else
@@ -1086,21 +1087,21 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
                   /* release */
                   if (displaying_tsurface)
                     {
-                       if (!plane->displaying_buffer_ref.buffer)
+                       if (!plane->display_info.buffer_ref.buffer)
                          e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
                    }
                }
           }
 
-        e_comp_wl_buffer_reference(&plane->displaying_buffer_ref, data->buffer_ref.buffer);
+        e_comp_wl_buffer_reference(&plane->display_info.buffer_ref, data->buffer_ref.buffer);
 
-        if (plane->displaying_buffer_tsurface)
+        if (plane->display_info.tsurface)
           {
-             tbm_surface_internal_unref(plane->displaying_buffer_tsurface);
-             plane->displaying_buffer_tsurface = NULL;
+             tbm_surface_internal_unref(plane->display_info.tsurface);
+             plane->display_info.tsurface = NULL;
           }
         tbm_surface_internal_ref(tsurface);
-        plane->displaying_buffer_tsurface = tsurface;
+        plane->display_info.tsurface = tsurface;
 
         e_comp_wl_buffer_reference(&data->buffer_ref, NULL);
      }
@@ -1402,7 +1403,7 @@ e_plane_show_state(E_Plane *plane)
    EINA_SAFETY_ON_NULL_RETURN(plane);
 
    ELOGF("E_PLANE", "Plane(%p) zpos(%d) ec(%p) display tsurface(%p)",
-         NULL, NULL, plane, plane->zpos, plane->ec, plane->displaying_buffer_tsurface);
+         NULL, NULL, plane, plane->zpos, plane->ec, plane->display_info.tsurface);
 
    if (plane->renderer)
      e_plane_renderer_show_state(plane->renderer);
