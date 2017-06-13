@@ -62,7 +62,7 @@ struct _E_Plane
 
    unsigned int          buffer_flags;
    Eina_Bool             pending_commit;
-   Eina_List             *pending_commit_data_list;
+   Eina_List            *pending_commit_data_list;
    Eina_Bool             need_unset;
    Eina_Bool             need_unset_commit;
    int                   sync_unset_count;
@@ -79,13 +79,16 @@ struct _E_Plane
    {
       E_Comp_Wl_Buffer_Ref  buffer_ref;
       tbm_surface_h         tsurface;
+      E_Plane_Renderer     *renderer;
+      E_Client             *ec;
    } display_info;
 };
 
 struct _E_Plane_Commit_Data {
-   tbm_surface_h  tsurface;
-   E_Plane       *plane;
-   E_Client      *ec;
+   tbm_surface_h         tsurface;
+   E_Plane              *plane;
+   E_Plane_Renderer     *renderer;
+   E_Client             *ec;
    E_Comp_Wl_Buffer_Ref  buffer_ref;
 };
 

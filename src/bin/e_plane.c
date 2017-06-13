@@ -62,6 +62,23 @@ _get_tbm_surface_queue(E_Comp *e_comp)
    return tbm_queue;
 }
 
+static void
+_e_plane_renderer_unset(E_Plane *plane)
+{
+   Eina_List *data_l;
+   E_Plane_Commit_Data *data = NULL;
+
+   plane->display_info.renderer = NULL;
+
+   EINA_LIST_FOREACH(plane->pending_commit_data_list, data_l, data)
+     data->renderer = NULL;
+
+   if (plane->renderer)
+     e_plane_renderer_del(plane->renderer);
+
+   plane->renderer = NULL;
+}
+
 static Eina_Bool
 _e_plane_surface_unset(E_Plane *plane)
 {
@@ -622,7 +639,7 @@ e_plane_free(E_Plane *plane)
    if (!plane) return;
 
    if (plane->name) eina_stringshare_del(plane->name);
-   if (plane->renderer) e_plane_renderer_del(plane->renderer);
+   if (plane->renderer) _e_plane_renderer_unset(plane);
    if (plane->ec) e_plane_ec_set(plane, NULL);
 
    free(plane);
@@ -908,6 +925,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
      {
         data = E_NEW(E_Plane_Commit_Data, 1);
         data->plane = plane;
+        data->renderer = NULL;
         data->tsurface = NULL;
         data->ec = NULL;
         plane->need_unset_commit = EINA_FALSE;
@@ -928,6 +946,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
      {
         data = E_NEW(E_Plane_Commit_Data, 1);
         data->plane = plane;
+        data->renderer = plane->renderer;
         data->tsurface = plane->tsurface;
         tbm_surface_internal_ref(data->tsurface);
         data->ec = NULL;
@@ -945,6 +964,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
           {
              data = E_NEW(E_Plane_Commit_Data, 1);
              data->plane = plane;
+             data->renderer = plane->renderer;
              data->tsurface = plane->tsurface;
              tbm_surface_internal_ref(data->tsurface);
              data->ec = plane->ec;
@@ -974,9 +994,17 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
    EINA_SAFETY_ON_NULL_RETURN(data);
 
    plane = data->plane;
+   renderer = data->renderer;
    tsurface = data->tsurface;
    ec = data->ec;
-   renderer = plane->renderer;
+
+   /* update renderer info */
+   if (renderer)
+     {
+        displaying_tsurface = e_plane_renderer_displaying_surface_get(renderer);
+        e_plane_renderer_displaying_surface_set(renderer, tsurface);
+        e_plane_renderer_previous_surface_set(renderer, displaying_tsurface);
+     }
 
    if (!tsurface)
      {
@@ -984,26 +1012,8 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
           ELOGF("E_PLANE", "Done    Plane(%p) zpos(%d)   data(%p)::Unset", NULL, NULL, plane, plane->zpos, data);
 
         e_comp_wl_buffer_reference(&plane->display_info.buffer_ref, NULL);
-        if (plane->display_info.tsurface)
-          {
-             e_plane_renderer_surface_queue_release(plane->renderer, plane->display_info.tsurface);
-             tbm_surface_internal_unref(plane->display_info.tsurface);
-             plane->display_info.tsurface = NULL;
-          }
-
-        plane->pending_commit_data_list = eina_list_remove(plane->pending_commit_data_list, data);
-        free(data);
-        return;
      }
-
-   if (renderer)
-     {
-        displaying_tsurface = e_plane_renderer_displaying_surface_get(renderer);
-        e_plane_renderer_displaying_surface_set(renderer, tsurface);
-        e_plane_renderer_previous_surface_set(plane->renderer, displaying_tsurface);
-     }
-
-   if (plane->is_fb && !ec)
+   else if (!ec)
      {
         /* composite */
         /* debug */
@@ -1012,34 +1022,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
                 NULL, NULL, plane, plane->zpos, tsurface, renderer ? renderer->tqueue : NULL,
                 data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
-        if (plane->reserved_memory)
-          {
-             if (displaying_tsurface)
-               {
-                  if (plane->ec)
-                    {
-                       e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
-                       _e_plane_surface_send_dequeuable_surfaces(plane);
-                    }
-                  else
-                    {
-                       e_plane_renderer_sent_surface_recevie(plane->renderer, displaying_tsurface);
-                       e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
-                    }
-               }
-          }
-        else
-          {
-             if (displaying_tsurface && !plane->display_info.buffer_ref.buffer)
-               e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
-          }
-
         e_comp_wl_buffer_reference(&plane->display_info.buffer_ref, NULL);
-        if (plane->display_info.tsurface)
-          {
-             tbm_surface_internal_unref(plane->display_info.tsurface);
-             plane->display_info.tsurface = NULL;
-          }
      }
    else
      {
@@ -1050,50 +1033,53 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
                 ec->pixmap, ec, plane, plane->zpos, tsurface, (renderer ? renderer->tqueue : NULL),
                 data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
-        if (plane->role == E_PLANE_ROLE_OVERLAY)
+        e_comp_wl_buffer_reference(&plane->display_info.buffer_ref, data->buffer_ref.buffer);
+     }
+
+    e_comp_wl_buffer_reference(&data->buffer_ref, NULL);
+
+    if (plane->role != E_PLANE_ROLE_CURSOR)
+      {
+        if (plane->display_info.renderer && plane->display_info.tsurface)
           {
              if (plane->reserved_memory)
                {
-                  /* release */
-                  if (displaying_tsurface)
+                  if (plane->ec)
                     {
-                       if (plane->ec)
-                         {
-                            e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
-                            _e_plane_surface_send_dequeuable_surfaces(plane);
-                         }
-                       else
-                         {
-                            e_plane_renderer_sent_surface_recevie(plane->renderer, displaying_tsurface);
-                            e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
-                         }
+                       e_plane_renderer_surface_queue_release(plane->display_info.renderer, plane->display_info.tsurface);
+                       _e_plane_surface_send_dequeuable_surfaces(plane);
+                    }
+                  else
+                    {
+                       e_plane_renderer_sent_surface_recevie(plane->display_info.renderer, plane->display_info.tsurface);
+                       e_plane_renderer_surface_queue_release(plane->display_info.renderer, plane->display_info.tsurface);
                     }
                }
              else
                {
-                  /* release */
-                  if (displaying_tsurface)
-                    {
-                       if (!plane->display_info.buffer_ref.buffer)
-                         e_plane_renderer_surface_queue_release(plane->renderer, displaying_tsurface);
-                   }
+                  if (!plane->display_info.ec)
+                    e_plane_renderer_surface_queue_release(plane->display_info.renderer, plane->display_info.tsurface);
                }
           }
+      }
 
-        e_comp_wl_buffer_reference(&plane->display_info.buffer_ref, data->buffer_ref.buffer);
+    /* update plane display info */
+    plane->display_info.renderer = renderer;
+    plane->display_info.ec = ec;
 
-        if (plane->display_info.tsurface)
-          {
-             tbm_surface_internal_unref(plane->display_info.tsurface);
-             plane->display_info.tsurface = NULL;
-          }
-        tbm_surface_internal_ref(tsurface);
-        plane->display_info.tsurface = tsurface;
+    if (plane->display_info.tsurface)
+      {
+         tbm_surface_internal_unref(plane->display_info.tsurface);
+         plane->display_info.tsurface = NULL;
+      }
 
-        e_comp_wl_buffer_reference(&data->buffer_ref, NULL);
-     }
+    if (tsurface)
+      {
+         tbm_surface_internal_ref(tsurface);
+         plane->display_info.tsurface = tsurface;
+         tbm_surface_internal_unref(tsurface);
+      }
 
-   tbm_surface_internal_unref(tsurface);
    plane->pending_commit_data_list = eina_list_remove(plane->pending_commit_data_list, data);
    free(data);
 }
@@ -1124,8 +1110,7 @@ e_plane_reserved_set(E_Plane *plane, Eina_Bool set)
                }
              else
                {
-                  e_plane_renderer_del(renderer);
-                  plane->renderer = NULL;
+                  _e_plane_renderer_unset(plane);
                   e_plane_role_set(plane, E_PLANE_ROLE_NONE);
                }
           }
@@ -1231,10 +1216,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
              if (!plane->is_fb)
                {
                   if ((plane->renderer) && (plane->role != E_PLANE_ROLE_OVERLAY))
-                    {
-                       e_plane_renderer_del(plane->renderer);
-                       plane->renderer = NULL;
-                    }
+                    _e_plane_renderer_unset(plane);
 
                   if (!plane->renderer)
                     plane->renderer = e_plane_renderer_new(plane);
@@ -1276,8 +1258,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
 
              if (plane->renderer)
                {
-                  e_plane_renderer_del(plane->renderer);
-                  plane->renderer = NULL;
+                  _e_plane_renderer_unset(plane);
                   e_plane_role_set(plane, E_PLANE_ROLE_NONE);
                }
           }
