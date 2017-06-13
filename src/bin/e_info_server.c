@@ -3661,8 +3661,9 @@ _e_info_server_cb_buffer_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
    int start = 0;
    int count = 0;
    const char *path = NULL;
+   double scale;
 
-   if (!eldbus_message_arguments_get(msg, "iis", &start, &count, &path))
+   if (!eldbus_message_arguments_get(msg, "iisd", &start, &count, &path, &scale))
      {
         ERR("Error getting arguments.");
         return reply;
@@ -3684,7 +3685,13 @@ _e_info_server_cb_buffer_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
         else
           {
              /* start dump */
-             tbm_surface_internal_dump_start(e_info_dump_path, e_comp->w, e_comp->h, count);
+             if (scale > 0.0)
+               tbm_surface_internal_dump_with_scale_start(e_info_dump_path,
+                                                          e_comp->w,
+                                                          e_comp->h,
+                                                          count, scale);
+             else
+                tbm_surface_internal_dump_start(e_info_dump_path, e_comp->w, e_comp->h, count);
              tdm_helper_dump_start(e_info_dump_path, &e_info_dump_count);
              E_LIST_HANDLER_APPEND(e_info_dump_hdlrs, E_EVENT_CLIENT_BUFFER_CHANGE,
                                _e_info_server_cb_buffer_change, NULL);
@@ -4862,7 +4869,7 @@ static const Eldbus_Method methods[] = {
    { "get_fps_info", NULL, ELDBUS_ARGS({"s", "fps request"}), _e_info_server_cb_fps_info_get, 0},
    { "punch", ELDBUS_ARGS({"iiiiiiiii", "punch_geometry"}), NULL, _e_info_server_cb_punch, 0},
    { "transform_message", ELDBUS_ARGS({"siiiiiiii", "transform_message"}), NULL, e_info_server_cb_transform_message, 0},
-   { "dump_buffers", ELDBUS_ARGS({"iis", "start"}), NULL, _e_info_server_cb_buffer_dump, 0 },
+   { "dump_buffers", ELDBUS_ARGS({"iisd", "start"}), NULL, _e_info_server_cb_buffer_dump, 0 },
    { "dump_selected_buffers", ELDBUS_ARGS({"ss", "dump_selected_buffers"}), NULL, _e_info_server_cb_selected_buffer_dump, 0 },
    { "output_mode", ELDBUS_ARGS({SIGNATURE_OUTPUT_MODE_CLIENT, "output mode"}), ELDBUS_ARGS({"a("SIGNATURE_OUTPUT_MODE_SERVER")", "array of ec"}), _e_info_server_cb_output_mode, 0 },
 #ifdef ENABLE_HWC_MULTI
