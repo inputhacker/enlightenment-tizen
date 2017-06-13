@@ -2038,6 +2038,7 @@ _e_info_client_proc_transform_set(int argc, char **argv)
   "  enlightenment_info -dump_buffers 1 -p /tmp/test   : start dump buffer - the dump path is '/tmp/test/dump_xxxx'\n" \
   "  enlightenment_info -dump_buffers 1 -c 60 -p /test : start dump buffer with 60 buffers to '/test/dump_xxxx' folder\n" \
   "  enlightenment_info -dump_buffers 0                : stop dump buffer (store dump files to dump path)\n" \
+  "  enlightenment_info -dump_buffers 1 -s 0.5         : start dump buffer with 0.5 scale factor\n" \
   "  enlightenment_info -dump_selected_buffers Win_ID(from enlightenment_info -topvwins)   : dump Win_ID(store dump files to dump path)\n" \
 
 static char *
@@ -2278,120 +2279,79 @@ _e_info_client_proc_buffer_shot(int argc, char **argv)
 {
    int dumprun = 0;
    int count = 100;
+   int i;
    char path[PATH_MAX];
+   double scale = 0.0;
 
    strncpy(path, "/tmp", PATH_MAX);
-   if (argc == 3)
+
+   EINA_SAFETY_ON_TRUE_GOTO(argc < 3, err);
+
+   dumprun = atoi(argv[2]);
+
+   EINA_SAFETY_ON_TRUE_GOTO(dumprun < 0 || dumprun > 1, err);
+
+   for (i = 3; i < argc; i++)
      {
-        dumprun = atoi(argv[2]);
-
-        if (dumprun < 0 || dumprun > 1) goto err;
-
-        if (!_e_info_client_eldbus_message_with_args("dump_buffers", NULL, "iis", dumprun, count, path))
+        if (eina_streq(argv[i], "-c"))
           {
-             printf("_e_info_client_proc_buffer_shot fail (%d)\n", dumprun);
-             return;
-          }
-        printf("_e_info_client_proc_buffer_shot %s\n", (dumprun == 1 ? "start" : "stop"));
-     }
-   else if (argc == 5)
-     {
-        dumprun = atoi(argv[2]);
-
-        if (dumprun < 0 || dumprun > 1) goto err;
-
-        if (eina_streq(argv[3], "-c"))
-          {
-             count = atoi(argv[4]);
-             if (count < 0) goto err;
-
-             if (!_e_info_client_eldbus_message_with_args("dump_buffers", NULL, "iis", dumprun, count, path))
+             if (++i >= argc || (argv[i][0] < '0' || argv[i][0] > '9'))
                {
-                  printf("_e_info_client_proc_buffer_shot fail (%d)\n", dumprun);
-                  return;
-               }
-             printf("_e_info_client_proc_buffer_shot %s\n", (dumprun == 1 ? "start" : "stop"));
-          }
-        else if (eina_streq(argv[3], "-p"))
-          {
-             char *tmp_path = _buffer_shot_directory_check(argv[4]);
-             if (tmp_path == NULL)
-               {
-                  printf("cannot find directory: %s\n", argv[4]);
+                  printf("Error: -c requires argument\n");
                   goto err;
                }
-
-             if (!_e_info_client_eldbus_message_with_args("dump_buffers", NULL, "iis", dumprun, count, tmp_path))
-               {
-                  printf("_e_info_client_proc_buffer_shot fail (%d)\n", dumprun);
-                  free(tmp_path);
-                  return;
-               }
-             free(tmp_path);
+             count = atoi(argv[i]);
+             EINA_SAFETY_ON_TRUE_GOTO(count < 1, err);
+             continue;
           }
-        else
+
+          if (eina_streq(argv[i], "-p"))
+            {
+               int str_len;
+               char *tmp_path;
+
+               if (++i >= argc)
+                 {
+                    printf("Error: -p requires argument\n");
+                    goto err;
+                 }
+               tmp_path = _buffer_shot_directory_check(argv[i]);
+               if (tmp_path == NULL)
+                 {
+                    printf("cannot find directory: %s\n", argv[i]);
+                    goto err;
+                 }
+
+               str_len = strlen(tmp_path);
+
+               strncpy(path, tmp_path, PATH_MAX < str_len ? PATH_MAX : str_len);
+
+               free(tmp_path);
+               continue;
+            }
+          if (eina_streq(argv[i], "-s"))
+            {
+               if (++i >= argc || (argv[i][0] < '0' || argv[i][0] > '9'))
+                 {
+                    printf("Error: -s requires argument\n");
+                    goto err;
+                 }
+               scale = atof(argv[i]);
+               EINA_SAFETY_ON_TRUE_GOTO(scale <= 0.0, err);
+               continue;
+            }
+
           goto err;
      }
-   else if (argc == 7)
+
+   if (!_e_info_client_eldbus_message_with_args("dump_buffers", NULL, "iisd",
+                                                dumprun, count, path, scale))
      {
-        dumprun = atoi(argv[2]);
-
-        if (dumprun < 0 || dumprun > 1) goto err;
-
-        if (eina_streq(argv[3], "-c"))
-          {
-             char *tmp_path = NULL;
-
-             if (!eina_streq(argv[5], "-p")) goto err;
-
-             count = atoi(argv[4]);
-             if (count < 0) goto err;
-
-             tmp_path = _buffer_shot_directory_check(argv[6]);
-             if (tmp_path == NULL)
-               {
-                  printf("cannot find directory: %s\n", argv[6]);
-                  goto err;
-               }
-
-             if (!_e_info_client_eldbus_message_with_args("dump_buffers", NULL, "iis", dumprun, count, tmp_path))
-               {
-                  printf("_e_info_client_proc_buffer_shot fail (%d)\n", dumprun);
-                  free(tmp_path);
-                  return;
-               }
-             printf("_e_info_client_proc_buffer_shot %s\n", (dumprun == 1 ? "start" : "stop"));
-             free(tmp_path);
-          }
-        else if (eina_streq(argv[3], "-p"))
-          {
-             char *tmp_path = NULL;
-
-             if (!eina_streq(argv[5], "-c")) goto err;
-
-             count = atoi(argv[6]);
-             if (count < 0) goto err;
-
-             tmp_path = _buffer_shot_directory_check(argv[4]);
-             if (tmp_path == NULL)
-               {
-                  printf("cannot find directory: %s\n", argv[4]);
-                  goto err;
-               }
-
-             if (!_e_info_client_eldbus_message_with_args("dump_buffers", NULL, "iis", dumprun, count, tmp_path))
-               {
-                  printf("_e_info_client_proc_buffer_shot fail (%d)\n", dumprun);
-                  free(tmp_path);
-                  return;
-               }
-             free(tmp_path);
-          }
-        else
-          goto err;
+        printf("_e_info_client_proc_buffer_shot fail (%d)\n", dumprun);
+        return;
      }
-   else
-     goto err;
+
+   printf("_e_info_client_proc_buffer_shot %s\n", (dumprun == 1 ? "start" : "stop"));
 
    return;
 
