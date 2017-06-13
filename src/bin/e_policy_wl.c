@@ -6862,6 +6862,7 @@ e_policy_wl_shutdown(void)
    E_Policy_Wl_Tzsh_Srv *tzsh_srv;
    E_Policy_Wl_Tzsh_Extension *tzsh_extension;
    E_Policy_Wl_Tzlaunch *tzlaunch;
+   E_Policy_Wl_Tzlaunch_Effect_Info *effect_info;
    E_Policy_Wl_Tz_Dpy_Pol *tz_dpy_pol;
    E_Policy_Wl_Tz_Indicator *tz_indicator;
    struct wl_global *global;
@@ -6900,6 +6901,11 @@ e_policy_wl_shutdown(void)
 
    EINA_LIST_FREE(polwl->tzlaunchs, tzlaunch)
      wl_resource_destroy(tzlaunch->res_tzlaunch);
+
+   EINA_LIST_FREE(polwl->tzlaunch_effect_info, effect_info)
+     {
+        E_FREE(effect_info);
+     }
 
    EINA_LIST_FREE(polwl->tz_indicators, tz_indicator)
      {
