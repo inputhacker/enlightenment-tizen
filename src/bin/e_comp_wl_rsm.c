@@ -897,7 +897,6 @@ _remote_source_image_data_save(Thread_Data *td, const char *path, const char *na
         snprintf(fname, sizeof(fname), "%s-%d", name, ++id);
         snprintf(dest, sizeof(dest), "%s/%s.png", path, fname);
      }
-   dupname = strdup(fname);
 
    shm_buffer = td->shm_buffer;
    tbm_surface = td->tbm_surface;
@@ -911,6 +910,7 @@ _remote_source_image_data_save(Thread_Data *td, const char *path, const char *na
          w = stride / 4;
          h = wl_shm_buffer_get_height(shm_buffer);
 
+         dupname = strdup(fname);
          ret = tbm_surface_internal_capture_shm_buffer(ptr, w, h, stride, path, dupname, "png");
          free((void*)dupname);
          if (!ret)
@@ -921,6 +921,7 @@ _remote_source_image_data_save(Thread_Data *td, const char *path, const char *na
          w = tbm_surface_get_width(tbm_surface);
          h = tbm_surface_get_height(tbm_surface);
 
+         dupname = strdup(fname);
          ret = tbm_surface_internal_capture_buffer(tbm_surface, path, dupname, "png");
          free((void*)dupname);
          if (!ret)
