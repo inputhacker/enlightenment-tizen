@@ -2163,7 +2163,7 @@ _e_info_client_proc_slot_set(int argc, char **argv)
         mode = -1;
         if (!strncmp(argv[2], "start", strlen("start"))) mode = E_INFO_CMD_MESSAGE_START;
         if (!strncmp(argv[2], "list", strlen("list"))) mode = E_INFO_CMD_MESSAGE_LIST;
-        if (!strncmp(argv[2], "create", strlen("add"))) mode = E_INFO_CMD_MESSAGE_CREATE;
+        if (!strncmp(argv[2], "create", strlen("create"))) mode = E_INFO_CMD_MESSAGE_CREATE;
         if (!strncmp(argv[2], "modify", strlen("modify"))) mode = E_INFO_CMD_MESSAGE_MODIFY;
         if (!strncmp(argv[2], "del", strlen("del"))) mode = E_INFO_CMD_MESSAGE_DEL;
         if (!strncmp(argv[2], "raise", strlen("raise"))) mode = E_INFO_CMD_MESSAGE_RAISE;
