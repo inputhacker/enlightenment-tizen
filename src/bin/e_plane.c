@@ -693,15 +693,6 @@ e_plane_setup(E_Plane *plane)
    /* we assume that the primary plane gets a ecore_evas */
    if (!plane->is_fb) return EINA_FALSE;
 
-   renderer = e_plane_renderer_new(plane);
-   if (!renderer)
-     {
-        ERR("fail to e_plane_renderer_new");
-        free(plane);
-        return EINA_FALSE;
-     }
-   plane->renderer = renderer;
-
    name = ecore_evas_engine_name_get(e_comp->ee);
    if (!strcmp("gl_drm", name))
      {
@@ -726,6 +717,15 @@ e_plane_setup(E_Plane *plane)
      {
         ecore_evas_manual_render_set(e_comp->ee, 1);
      }
+
+   renderer = e_plane_renderer_new(plane);
+   if (!renderer)
+     {
+        ERR("fail to e_plane_renderer_new");
+        free(plane);
+        return EINA_FALSE;
+     }
+   plane->renderer = renderer;
 
    return EINA_TRUE;
 
