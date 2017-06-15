@@ -938,8 +938,6 @@ e_plane_commit(E_Plane *plane)
      ELOGF("E_PLANE", "Commit  Plane(%p)     tsurface(%p) tqueue(%p) data(%p)",
            NULL, NULL, plane, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL, data);
 
-   plane->pending_commit_data_list = eina_list_append(plane->pending_commit_data_list, data);
-
    error = tdm_layer_commit(plane->tlayer, _e_plane_commit_hanler, data);
    if (error != TDM_ERROR_NONE)
      {
@@ -980,6 +978,8 @@ e_plane_commit_data_aquire(E_Plane *plane)
         plane->need_unset_commit = EINA_FALSE;
         plane->sync_unset_count = 0;
 
+        plane->pending_commit_data_list = eina_list_append(plane->pending_commit_data_list, data);
+
         return data;
      }
 
@@ -997,6 +997,8 @@ e_plane_commit_data_aquire(E_Plane *plane)
         tbm_surface_internal_ref(data->tsurface);
         data->ec = NULL;
 
+        plane->pending_commit_data_list = eina_list_append(plane->pending_commit_data_list, data);
+
         /* set the update_exist to be false */
         e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
 
@@ -1012,6 +1014,8 @@ e_plane_commit_data_aquire(E_Plane *plane)
              tbm_surface_internal_ref(data->tsurface);
              data->ec = plane->ec;
              e_comp_wl_buffer_reference(&data->buffer_ref, _get_comp_wl_buffer(plane->ec));
+
+             plane->pending_commit_data_list = eina_list_append(plane->pending_commit_data_list, data);
 
              /* set the update_exist to be false */
              e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
