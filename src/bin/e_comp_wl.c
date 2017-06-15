@@ -159,6 +159,42 @@ _e_comp_wl_cb_prepare(void *data EINA_UNUSED, Ecore_Fd_Handler *hdlr EINA_UNUSED
    wl_display_flush_clients(e_comp_wl->wl.disp);
 }
 
+E_API enum wl_output_transform
+e_comp_wl_output_buffer_transform_get(E_Client *ec)
+{
+   E_Comp_Wl_Buffer_Viewport *vp;
+   E_Comp_Wl_Buffer *buffer;
+   enum wl_output_transform transform, rotation;
+
+   if (!ec) return WL_OUTPUT_TRANSFORM_NORMAL;
+   if (e_object_is_del(E_OBJECT(ec))) return WL_OUTPUT_TRANSFORM_NORMAL;
+   if (!ec->comp_data) return WL_OUTPUT_TRANSFORM_NORMAL;
+
+   vp = &ec->comp_data->scaler.buffer_viewport;
+   if (ec->comp_data->sub.data)
+     return vp->buffer.transform;
+
+   buffer = ec->comp_data->buffer_ref.buffer;
+
+   if (!buffer ||
+       (buffer->type != E_COMP_WL_BUFFER_TYPE_NATIVE && buffer->type != E_COMP_WL_BUFFER_TYPE_TBM))
+     return vp->buffer.transform;
+
+   rotation = wayland_tbm_server_buffer_get_buffer_transform(NULL, buffer->resource);
+   if (rotation == 0)
+     return vp->buffer.transform;
+
+   /* ignore the flip value when calculating transform because the screen rotation
+    * functionality doesn't consider the flip output transform currently
+    */
+   transform = (4 + (vp->buffer.transform & 0x3) - rotation) & 0x3;
+
+   DBG("ec(%p) window rotation(%d) buffer_transform(%d) : transform(%d)",
+       ec, rotation, vp->buffer.transform, transform);
+
+   return transform;
+}
+
 E_API void
 e_comp_wl_map_size_cal_from_buffer(E_Client *ec)
 {
@@ -174,7 +210,7 @@ e_comp_wl_map_size_cal_from_buffer(E_Client *ec)
         return;
      }
 
-   switch (vp->buffer.transform)
+   switch (e_comp_wl_output_buffer_transform_get(ec))
      {
       case WL_OUTPUT_TRANSFORM_90:
       case WL_OUTPUT_TRANSFORM_270:
@@ -2000,6 +2036,45 @@ _e_comp_wl_cb_zone_display_state_change(void *d EINA_UNUSED, int t EINA_UNUSED, 
  }
 
 static Eina_Bool
+_e_comp_wl_cb_client_rot_change_begin(void *d EINA_UNUSED, int t EINA_UNUSED, E_Event_Client_Rotation_Change_Begin *ev)
+{
+   E_Client *ec = ev->ec;
+   E_Comp_Wl_Buffer_Viewport *vp;
+
+   if (!ec) return ECORE_CALLBACK_PASS_ON;
+   if (e_object_is_del(E_OBJECT(ec))) return ECORE_CALLBACK_PASS_ON;
+   if (!ec->comp_data) return ECORE_CALLBACK_PASS_ON;
+   if (ec->comp_data->sub.data) return ECORE_CALLBACK_PASS_ON;
+   if (ec->e.state.rot.ang.next < 0) return ECORE_CALLBACK_PASS_ON;
+
+   vp = &ec->comp_data->scaler.buffer_viewport;
+   vp->wait_for_transform_change = ((360 + ec->e.state.rot.ang.next - ec->e.state.rot.ang.curr) % 360) / 90;
+
+   DBG("ec(%p) wait_for_transform_change(%d)", ec, vp->wait_for_transform_change);
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
+static Eina_Bool
+_e_comp_wl_cb_client_rot_change_cancel(void *d EINA_UNUSED, int t EINA_UNUSED, E_Event_Client_Rotation_Change_Cancel *ev)
+{
+   E_Client *ec = ev->ec;
+   E_Comp_Wl_Buffer_Viewport *vp;
+
+   if (!ec) return ECORE_CALLBACK_PASS_ON;
+   if (e_object_is_del(E_OBJECT(ec))) return ECORE_CALLBACK_PASS_ON;
+   if (!ec->comp_data) return ECORE_CALLBACK_PASS_ON;
+   if (ec->comp_data->sub.data) return ECORE_CALLBACK_PASS_ON;
+
+   vp = &ec->comp_data->scaler.buffer_viewport;
+   vp->wait_for_transform_change = 0;
+
+   DBG("ec(%p) wait_for_transform_change(%d) reset", ec, vp->wait_for_transform_change);
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
+static Eina_Bool
 _e_comp_wl_cb_client_rot_change_end(void *d EINA_UNUSED, int t EINA_UNUSED, E_Event_Client_Rotation_Change_End *ev EINA_UNUSED)
 {
    E_Client *focused_ec;
@@ -2328,6 +2403,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
    E_Comp_Wl_Buffer *buffer;
    struct wl_resource *cb;
    Eina_List *l, *ll;
+   E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
 
    if ((ec->ignored) &&
        (ec->comp_data->shell.surface || ec->internal))
@@ -2336,6 +2412,18 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
         ec->new_client = 1;
         e_comp->new_clients++;
         e_client_unignore(ec);
+     }
+
+   if (vp->wait_for_transform_change && (vp->buffer.transform != state->buffer_viewport.buffer.transform))
+     {
+        int transform_change = (4 + state->buffer_viewport.buffer.transform - vp->buffer.transform) & 0x3;
+
+        DBG("ec(%p) wait_for_transform_change(%d) change(%d) : new(%d) old(%d)",
+            ec, vp->wait_for_transform_change, transform_change,
+            state->buffer_viewport.buffer.transform, vp->buffer.transform);
+
+        if (transform_change == vp->wait_for_transform_change)
+          vp->wait_for_transform_change = 0;
      }
 
    ec->comp_data->scaler.buffer_viewport = state->buffer_viewport;
@@ -2530,13 +2618,12 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
 
              if (eina_list_count(state->buffer_damages))
                {
-                  E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
-
                   EINA_LIST_FREE(state->buffer_damages, dmg)
                     {
                        if (buffer)
                          e_comp_wl_rect_convert_inverse(buffer->w, buffer->h,
-                                                        vp->buffer.transform, vp->buffer.scale,
+                                                        e_comp_wl_output_buffer_transform_get(ec),
+                                                        vp->buffer.scale,
                                                         dmg->x, dmg->y, dmg->w, dmg->h,
                                                         &dmg->x, &dmg->y, &dmg->w, &dmg->h);
                        damages = eina_list_append(damages, dmg);
@@ -4789,6 +4876,8 @@ e_comp_wl_init(void)
    E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_MOUSE_MOVE,          _e_comp_wl_cb_mouse_move,          NULL);
    E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_MOUSE_BUTTON_CANCEL, _e_comp_wl_cb_mouse_button_cancel, NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_ZONE_DISPLAY_STATE_CHANGE, _e_comp_wl_cb_zone_display_state_change, NULL);
+   E_LIST_HANDLER_APPEND(handlers, E_EVENT_CLIENT_ROTATION_CHANGE_BEGIN, _e_comp_wl_cb_client_rot_change_begin, NULL);
+   E_LIST_HANDLER_APPEND(handlers, E_EVENT_CLIENT_ROTATION_CHANGE_CANCEL, _e_comp_wl_cb_client_rot_change_cancel, NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_CLIENT_ROTATION_CHANGE_END, _e_comp_wl_cb_client_rot_change_end, NULL);
 
    /* add hooks to catch e_client events */
