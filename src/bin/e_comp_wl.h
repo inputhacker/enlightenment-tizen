@@ -120,6 +120,12 @@ struct _E_Comp_Wl_Buffer_Viewport {
      } surface;
 
    int changed;
+
+   /* When screen or window is rotated, a transformed buffer could be
+    * attached after attaching a few buffers. So to detect when the transformed
+    * buffer exactly, we need to know the status of waiting the transformed buffer.
+    */
+   uint32_t wait_for_transform_change;
 };
 
 struct _E_Comp_Wl_Surface_State
@@ -547,6 +553,7 @@ E_API void e_comp_wl_shell_surface_ready(E_Client *ec);
 EINTERN Eina_Bool e_comp_wl_video_subsurface_has(E_Client *ec);
 EINTERN Eina_Bool e_comp_wl_normal_subsurface_has(E_Client *ec);
 
+E_API enum wl_output_transform e_comp_wl_output_buffer_transform_get(E_Client *ec);
 E_API void e_comp_wl_map_size_cal_from_buffer(E_Client *ec);
 E_API void e_comp_wl_map_size_cal_from_viewport(E_Client *ec);
 E_API void e_comp_wl_map_apply(E_Client *ec);

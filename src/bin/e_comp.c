@@ -320,7 +320,7 @@ _hwc_available_get(E_Client *ec)
    if ((minh > 0) && (minh > cdata->buffer_ref.buffer->h))
      return EINA_FALSE;
 
-   transform = cdata->scaler.buffer_viewport.buffer.transform;
+   transform = e_comp_wl_output_buffer_transform_get(ec);
    if ((eout->config.rotation / 90) != transform)
      return EINA_FALSE;
 

@@ -556,7 +556,7 @@ _e_comp_object_map_transform_pos(E_Client *ec, int sx, int sy, int *dx, int *dy)
      }
 
    vp = &ec->comp_data->scaler.buffer_viewport;
-   transform = vp->buffer.transform;
+   transform = e_comp_wl_output_buffer_transform_get(ec);
 
    e_pixmap_size_get(ec->pixmap, &bw, &bh);
 
@@ -5466,7 +5466,7 @@ e_comp_object_map_update(Evas_Object *obj)
 
    if (!ec || !ec->comp_data || e_object_is_del(E_OBJECT(ec))) return;
 
-   if (!ec->comp_data->scaler.buffer_viewport.buffer.transform &&
+   if (!e_comp_wl_output_buffer_transform_get(ec) &&
        ec->comp_data->scaler.buffer_viewport.buffer.scale == 1)
      {
         if (evas_object_map_enable_get(cw->effect_obj))
