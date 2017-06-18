@@ -1863,7 +1863,6 @@ EINTERN Eina_Bool
 e_plane_zoom_commit(E_Plane *plane)
 {
    tbm_surface_h tsurface = plane->tsurface;
-   tbm_surface_info_s surf_info;
    E_Plane_Commit_Data *data = NULL;
    E_Plane_Pp_Data *pp_data = NULL;
    int count = 0;
@@ -1932,141 +1931,6 @@ pp_fail:
    return EINA_FALSE;
 }
 
-static void
-_e_plane_zoom_set_show(E_Plane *plane)
-{
-   E_Plane_Pp_Data *pp_data = NULL;
-   tbm_surface_h zoom_tsurface = NULL;
-   tbm_error_e tbm_err = TBM_ERROR_NONE;
-   tdm_error tdm_err = TDM_ERROR_NONE;
-
-   if (!plane->tsurface)
-     return;
-
-   if (eina_list_count(plane->pending_commit_zoom_data_list) != 0)
-     return;
-
-   if (plane->pending_commit)
-     return;
-
-   plane->pending_commit = EINA_TRUE;
-
-   tbm_err = tbm_surface_queue_dequeue(plane->zoom_tqueue, &zoom_tsurface);
-   if (tbm_err != TBM_ERROR_NONE)
-     {
-        plane->pending_commit = EINA_FALSE;
-        ERR("_e_plane_zoom_set_show: fail tbm_surface_queue_dequeue");
-        return;
-     }
-   tbm_surface_internal_ref(zoom_tsurface);
-
-   pp_data = E_NEW(E_Plane_Pp_Data, 1);
-   pp_data->zoom_tsurface = zoom_tsurface;
-   pp_data->data = NULL;
-   pp_data->plane = plane;
-
-   plane->pending_commit_zoom_data_list = eina_list_append(plane->pending_commit_zoom_data_list, pp_data);
-
-   if (plane->zoom_rect.x != plane->zoom_rect_temp.x || plane->zoom_rect.y != plane->zoom_rect_temp.y ||
-       plane->zoom_rect.w != plane->zoom_rect_temp.w || plane->zoom_rect.h != plane->zoom_rect_temp.h)
-     {
-        if (!_e_plane_zoom_set_pp_info(plane))
-          {
-             ERR("e_plane_zoom_commit: fail _e_plane_zoom_set_pp_info");
-             goto pp_fail;
-          }
-     }
-
-   tdm_err = tdm_pp_set_done_handler(plane->tpp, _e_plane_zoom_pp_cb, pp_data);
-   EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, pp_fail);
-
-   tdm_err = tdm_pp_attach(plane->tpp, plane->tsurface, zoom_tsurface);
-   EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, pp_fail);
-
-   tdm_err = tdm_pp_commit(plane->tpp);
-   EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, pp_fail);
-
-   DBG("_e_plane_zoom_set_show: done pp_data:%p", pp_data);
-
-   return;
-
-pp_fail:
-   plane->pending_commit = EINA_FALSE;
-   plane->pending_commit_zoom_data_list = eina_list_remove(plane->pending_commit_zoom_data_list, pp_data);
-   tbm_surface_queue_release(plane->zoom_tqueue, zoom_tsurface);
-   tbm_surface_internal_unref(zoom_tsurface);
-   free(pp_data);
-   ERR("_e_plane_zoom_set_show: fail");
-}
-
-static void
-_e_plane_zoom_unset_show(E_Plane *plane)
-{
-   E_Plane_Pp_Data *pp_data = NULL;
-   tbm_surface_info_s src_info, dst_info;
-   tbm_surface_h zoom_tsurface = NULL;
-   tbm_surface_h dst_tsurface = NULL;
-   tbm_error_e tbm_err = TBM_ERROR_NONE;
-   tdm_error tdm_err = TDM_ERROR_NONE;
-   tdm_layer *tlayer = NULL;
-
-   if (!plane->tsurface)
-     return;
-
-   if (eina_list_count(plane->pending_commit_zoom_data_list) != 0)
-     return;
-
-   if (plane->pending_commit)
-     return;
-
-   tbm_err = tbm_surface_queue_dequeue(plane->zoom_tqueue, &zoom_tsurface);
-   if (tbm_err != TBM_ERROR_NONE)
-     {
-        ERR("_e_plane_zoom_unset_show: fail tbm_surface_queue_dequeue");
-        return;
-     }
-   tbm_surface_internal_ref(zoom_tsurface);
-
-   pp_data = E_NEW(E_Plane_Pp_Data, 1);
-   pp_data->zoom_tsurface = zoom_tsurface;
-   pp_data->data = NULL;
-   pp_data->plane = plane;
-
-   plane->pending_commit_zoom_data_list = eina_list_append(plane->pending_commit_zoom_data_list, pp_data);
-
-   tbm_err = tbm_surface_map(plane->tsurface, TBM_SURF_OPTION_READ, &src_info);
-   if (tbm_err != TBM_SURFACE_ERROR_NONE)
-     {
-        ERR("_e_plane_zoom_unset_show: fail to map the src_tsurface.");
-        goto map_fail;
-     }
-
-   tbm_err = tbm_surface_map(zoom_tsurface, TBM_SURF_OPTION_WRITE, &dst_info);
-   if (tbm_err != TBM_SURFACE_ERROR_NONE)
-     {
-        tbm_surface_unmap(plane->tsurface);
-        ERR("_e_plane_zoom_unset_show: fail to map the dst_tsurface.");
-        goto map_fail;
-     }
-   memcpy(dst_info.planes[0].ptr, src_info.planes[0].ptr, src_info.planes[0].size);
-
-   tbm_surface_unmap(zoom_tsurface);
-   tbm_surface_unmap(plane->tsurface);
-
-   _e_plane_zoom_pp_cb(plane->tpp, plane->tsurface, zoom_tsurface, pp_data);
-
-   DBG("_e_plane_zoom_unset_show: done pp_data:%p", pp_data);
-
-   return;
-
-map_fail:
-   plane->pending_commit_zoom_data_list = eina_list_remove(plane->pending_commit_zoom_data_list, pp_data);
-   tbm_surface_queue_release(plane->zoom_tqueue, zoom_tsurface);
-   tbm_surface_internal_unref(zoom_tsurface);
-   free(pp_data);
-   ERR("_e_plane_zoom_unset_show: fail");
-}
-
 EINTERN Eina_Bool
 e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect)
 {
@@ -2076,8 +1940,11 @@ e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect)
    tdm_error ret = TDM_ERROR_NONE;
    int w, h;
 
-   if (plane->zoom_unset)
-     plane->zoom_unset = EINA_FALSE;
+   if ((plane->zoom_rect_temp.x == rect->x) && (plane->zoom_rect_temp.y == rect->y) &&
+       (plane->zoom_rect_temp.w == rect->w) && (plane->zoom_rect_temp.h == rect->h))
+     return EINA_TRUE;
+
+   if (plane->zoom_unset) plane->zoom_unset = EINA_FALSE;
 
    e_comp_screen = e_comp->e_comp_screen;
    e_output_size_get(plane->output, &w, &h);
@@ -2102,16 +1969,10 @@ e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect)
           }
      }
 
-   if ((plane->zoom_rect_temp.x == rect->x) && (plane->zoom_rect_temp.y == rect->y) &&
-       (plane->zoom_rect_temp.w == rect->w) && (plane->zoom_rect_temp.h == rect->h))
-     return EINA_TRUE;
-
    plane->zoom_rect_temp.x = rect->x;
    plane->zoom_rect_temp.y = rect->y;
    plane->zoom_rect_temp.w = rect->w;
    plane->zoom_rect_temp.h = rect->h;
-
-   _e_plane_zoom_set_show(plane);
 
    return EINA_TRUE;
 
@@ -2134,8 +1995,6 @@ e_plane_zoom_unset(E_Plane *plane)
    plane->zoom_rect.y = plane->zoom_rect_temp.y = 0;
    plane->zoom_rect.w = plane->zoom_rect_temp.w = 0;
    plane->zoom_rect.h = plane->zoom_rect_temp.h = 0;
-
-   _e_plane_zoom_unset_show(plane);
 
    plane->zoom_unset = EINA_TRUE;
 }

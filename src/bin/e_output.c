@@ -683,7 +683,7 @@ e_output_commit(E_Output *output)
 
         if (!e_plane_fetch(plane))
           {
-//            ERR("fail to fetch the plane.");
+            ERR("fail to fetch the plane.");
             return EINA_FALSE;
           }
 
@@ -977,12 +977,24 @@ _e_output_zoom_scaled_rect_get(int out_w, int out_h, double zoomx, double zoomy,
    rect->y = (int)(dy / zoomy);
 }
 
+static void
+_e_output_render_update(E_Output *output)
+{
+   E_Client *ec = NULL;
+
+   E_CLIENT_FOREACH(ec)
+     {
+        if (ec->visible && (!ec->input_only))
+          e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+     }
+
+   e_output_render(output);
+}
+
 EINTERN Eina_Bool
 e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy)
 {
-   E_Zone *zone = NULL;
    E_Plane *ep = NULL;
-   Eina_List *l;
    Eina_Rectangle rect = {0, };
    int w, h;
 
@@ -1031,16 +1043,16 @@ e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy)
    if (!eout->zoom_set) eout->zoom_set = EINA_TRUE;
    DBG("zoom set output:%s", eout->id);
 
+   /* update the ecore_evas */
+   _e_output_render_update(eout);
+
    return EINA_TRUE;
 }
 
 EINTERN void
 e_output_zoom_unset(E_Output *eout)
 {
-   E_Zone *zone = NULL;
    E_Plane *ep = NULL;
-   Eina_List *l;
-   Eina_Bool ret = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN(eout);
 
@@ -1062,6 +1074,9 @@ e_output_zoom_unset(E_Output *eout)
 #ifdef ENABLE_HWC_MULTI
    e_comp_hwc_multi_plane_set(EINA_TRUE);
 #endif
+
+   /* update the ecore_evas */
+   _e_output_render_update(eout);
 
    DBG("e_output_zoom_unset: output:%s", eout->id);
 }
