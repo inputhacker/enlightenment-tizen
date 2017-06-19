@@ -650,7 +650,7 @@ e_output_render(E_Output *output)
 EINTERN Eina_Bool
 e_output_commit(E_Output *output)
 {
-   E_Plane *plane = NULL;
+   E_Plane *plane = NULL, *fb_target = NULL;
    Eina_List *l;
    Eina_Bool fb_commit = EINA_FALSE;
 
@@ -662,41 +662,54 @@ e_output_commit(E_Output *output)
         return EINA_FALSE;
      }
 
+   fb_target = e_output_fb_target_get(output);
+
+   /* fetch the fb_target at first */
+   fb_commit = e_plane_fetch(fb_target);
+   if (fb_commit && (output->dpms == E_OUTPUT_DPMS_OFF))
+     e_plane_unfetch(fb_target);
+
    /* set planes */
    EINA_LIST_FOREACH(output->planes, l, plane)
      {
-        if (plane->need_unset && plane->sync_unset_count)
-          {
-             if (!fb_commit) continue;
+        /* skip the fb_target fetch because we do this previously */
+        if (e_plane_is_fb_target(plane)) continue;
 
-             plane->sync_unset_count--;
-             if (plane->sync_unset_count) continue;
+        /* if the plane is the candidate to unset,
+           set the plane to be unset_try */
+        if (e_plane_is_unset_candidate(plane))
+          e_plane_unset_try_set(plane, EINA_TRUE);
+
+        /* if the plane is trying to unset,
+           1. if fetching the fb is not available, continue.
+           2. if fetching the fb is available, verify the unset commit check.  */
+        if (e_plane_is_unset_try(plane))
+          {
+            if (!fb_commit) continue;
+            if (!e_plane_unset_commit_check(plane)) continue;
           }
 
+        /* fetch the surface to the plane */
         if (!e_plane_fetch(plane)) continue;
 
-        if (e_plane_is_fb_target(plane))
-          fb_commit = EINA_TRUE;
-
         if (output->dpms == E_OUTPUT_DPMS_OFF)
-          {
-             if (!plane->need_unset_commit)
-               e_plane_unfetch(plane);
-          }
+          e_plane_unfetch(plane);
+
+        if (e_plane_is_unset_try(plane))
+          e_plane_unset_try_set(plane, EINA_FALSE);
      }
 
    if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
 
    EINA_LIST_FOREACH(output->planes, l, plane)
      {
-        if (plane->need_unset_commit && plane->sync_unset_count)
-          continue;
-
-        if (e_plane_is_fb_target(plane) && fb_commit)
-          _e_output_update_fps();
+        if (e_plane_is_unset_try(plane)) continue;
 
         if (!e_plane_commit(plane))
           ERR("fail to e_plane_commit");
+
+        // TODO: to be fixed. check fps of fb_target currently.
+        if (fb_commit) _e_output_update_fps();
      }
 
    return EINA_TRUE;
