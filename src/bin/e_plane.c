@@ -24,6 +24,7 @@ static E_Client_Hook *client_hook_new = NULL;
 static E_Client_Hook *client_hook_del = NULL;
 static const char *_e_plane_ec_last_err = NULL;
 static Eina_Bool plane_trace_debug = 0;
+static void _e_plane_zoom_pending_data_pp(E_Plane *plane);
 
 E_API int E_EVENT_PLANE_WIN_CHANGE = -1;
 
@@ -931,15 +932,6 @@ e_plane_commit(E_Plane *plane)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
-   if (plane->is_primary)
-     {
-        if (plane->zoom_tsurface)
-          {
-             if (!tbm_surface_queue_can_dequeue(plane->zoom_tqueue, 0))
-               return EINA_TRUE;
-          }
-     }
-
    data = e_plane_commit_data_aquire(plane);
 
    if (!data) return EINA_TRUE;
@@ -974,7 +966,7 @@ e_plane_commit(E_Plane *plane)
 
         if (plane->zoom_unset)
           {
-             if (plane->is_primary)
+             if (e_plane_is_fb_target(plane))
                {
                   if (plane->zoom_tsurface)
                     {
@@ -983,7 +975,9 @@ e_plane_commit(E_Plane *plane)
 
                        plane->zoom_tsurface = NULL;
                     }
-                  if (eina_list_count(plane->pending_commit_zoom_data_list) == 0)
+
+                  if ((eina_list_count(plane->pending_pp_zoom_data_list) == 0) &&
+                      (eina_list_count(plane->pending_commit_zoom_data_list) == 0))
                     {
                        _e_plane_zoom_destroy(plane);
                        plane->zoom_unset = EINA_FALSE;
@@ -1593,6 +1587,57 @@ _e_plane_tdm_info_set(E_Plane *plane, unsigned int size_w, unsigned int size_h,
    plane->info.transform = transform;
 }
 
+static Eina_Bool
+_e_plane_zoom_set_pp_info(E_Plane *plane)
+{
+   tdm_info_pp pp_info;
+   tdm_error ret = TDM_ERROR_NONE;
+   unsigned int aligned_width = 0;
+   tbm_surface_info_s surf_info;
+   tbm_surface_h tsurface = plane->tsurface;
+   int dst_w, dst_h;
+
+   tbm_surface_get_info(tsurface, &surf_info);
+
+   aligned_width = _e_plane_aligned_width_get(tsurface);
+   if (aligned_width == 0) return EINA_FALSE;
+
+   e_output_size_get(plane->output, &dst_w, &dst_h);
+
+   pp_info.src_config.size.h = aligned_width;
+   pp_info.src_config.size.v = surf_info.height;
+   pp_info.src_config.pos.x = plane->zoom_rect_temp.x;
+   pp_info.src_config.pos.y = plane->zoom_rect_temp.y;
+   pp_info.src_config.pos.w = plane->zoom_rect_temp.w;
+   pp_info.src_config.pos.h = plane->zoom_rect_temp.h;
+   pp_info.src_config.format = TBM_FORMAT_ARGB8888;
+
+   pp_info.dst_config.size.h = aligned_width;
+   pp_info.dst_config.size.v = surf_info.height;
+   pp_info.dst_config.pos.x = 0;
+   pp_info.dst_config.pos.y = 0;
+   pp_info.dst_config.pos.w = dst_w;
+   pp_info.dst_config.pos.h = dst_h;
+   pp_info.dst_config.format = TBM_FORMAT_ARGB8888;
+
+   pp_info.transform = TDM_TRANSFORM_NORMAL;
+   pp_info.sync = 0;
+   pp_info.flags = 0;
+
+   ret = tdm_pp_set_info(plane->tpp, &pp_info);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
+
+   plane->zoom_rect.x = plane->zoom_rect_temp.x;
+   plane->zoom_rect.y = plane->zoom_rect_temp.y;
+   plane->zoom_rect.w = plane->zoom_rect_temp.w;
+   plane->zoom_rect.h = plane->zoom_rect_temp.h;
+
+   DBG("_e_plane_zoom_set_pp_info success(src x:%d,y:%d,w:%d,h:%d)",
+       plane->zoom_rect.x, plane->zoom_rect.y, plane->zoom_rect.w, plane->zoom_rect.h);
+
+   return EINA_TRUE;
+}
+
 static void
 _e_plane_zoom_commit_data_release(E_Plane_Pp_Data *data)
 {
@@ -1611,18 +1656,13 @@ _e_plane_zoom_commit_data_release(E_Plane_Pp_Data *data)
         tbm_surface_internal_unref(plane->zoom_tsurface);
      }
    plane->zoom_tsurface = zoom_tsurface;
-//   plane->zoom_commit = EINA_FALSE;
-#if 0
-   if (plane->zoom_need_unset)
-     {
-        plane->zoom_set = EINA_FALSE;
-        plane->zoom_set_prepare = EINA_FALSE;
-        plane->zoom_need_unset = EINA_FALSE;
-     }
-#endif
+
    plane->pending_commit_zoom_data_list = eina_list_remove(plane->pending_commit_zoom_data_list, data);
 
    free(data);
+
+   if (eina_list_count(plane->pending_pp_zoom_data_list) != 0)
+     _e_plane_zoom_pending_data_pp(plane);
 }
 
 static void
@@ -1691,12 +1731,7 @@ _e_plane_zoom_pp_cb(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurfa
 
         return;
      }
-   
-#if 0
-   plane->zoom_converting = EINA_FALSE;
-   if (plane->zoom_show_current)
-     plane->zoom_show_current = EINA_FALSE;
-#endif
+
    tlayer = plane->tlayer;
    output = plane->output;
 
@@ -1730,9 +1765,9 @@ _e_plane_zoom_pp_cb(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurfa
 
    if (plane_trace_debug)
      {
-        ELOGF("E_PLANE", "Set     Plane(%p)     tsurface(%p) (%dx%d,[%d,%d,%d,%d]=>[%d,%d,%d,%d])",
+        ELOGF("E_PLANE", "Set(zoom)  Plane(%p)     tsurface(%p) (%dx%d,[%d,%d,%d,%d]=>[%d,%d,%d,%d])",
               NULL, NULL, plane, tsurface_dst,
-              plane->info.src_config.size.h, plane->info.src_config.size.h,
+              plane->info.src_config.size.h, plane->info.src_config.size.v,
               plane->info.src_config.pos.x, plane->info.src_config.pos.y,
               plane->info.src_config.pos.w, plane->info.src_config.pos.h,
               plane->info.dst_pos.x, plane->info.dst_pos.y,
@@ -1766,14 +1801,6 @@ _e_plane_zoom_pp_cb(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurfa
    pp_data->zoom_tsurface = zoom_tsurface;
    pp_data->plane = plane;
 
-//   _e_plane_ev(plane, E_EVENT_PLANE_WIN_CHANGE);
-
-#ifdef HAVE_TOUCH_TRANSFORM
-   //coreect position
-//   if (!_e_plane_zoom_set_touch(plane))
-//     ERR("_e_plane_zoom_pp_cb: fail _e_plane_zoom_set_touch");
-#endif
-
    tdm_err = tdm_layer_commit(tlayer, _e_plane_zoom_commit_handler, pp_data);
    if (tdm_err != TDM_ERROR_NONE)
      {
@@ -1781,66 +1808,100 @@ _e_plane_zoom_pp_cb(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurfa
         _e_plane_zoom_commit_data_release(pp_data);
         return;
      }
-#if 0
-   tdm_err = tdm_output_wait_vblank(output->toutput, 1, 0, _e_plane_zoom_vblank_handler, (void *)plane);
-   if (tdm_err != TDM_ERROR_NONE)
-     {
-        ERR("_e_plane_zoom_pp_cb: fail to tdm_output_wait_vblank plane:%p, zpos:%d", plane, plane->zpos);
-        return;
-     }
-#endif
+
    return;
 }
 
-static Eina_Bool
-_e_plane_zoom_set_pp_info(E_Plane *plane)
+static void
+_e_plane_zoom_pending_data_pp(E_Plane *plane)
 {
    tdm_info_pp pp_info;
    tdm_error ret = TDM_ERROR_NONE;
-   unsigned int aligned_width = 0;
-   tbm_surface_info_s surf_info;
    tbm_surface_h tsurface = plane->tsurface;
+   tbm_surface_info_s surf_info;
    int dst_w, dst_h;
+   E_Plane_Commit_Data *data = NULL;
+   E_Plane_Pp_Data *pp_data = NULL;
+   tbm_error_e tbm_err = TBM_ERROR_NONE;
+   tbm_surface_h zoom_tsurface = NULL;
+   tdm_error tdm_err = TDM_ERROR_NONE;
+   Eina_List *l, *ll;
 
-   tbm_surface_get_info(tsurface, &surf_info);
+   EINA_SAFETY_ON_NULL_RETURN(plane);
 
-   aligned_width = _e_plane_aligned_width_get(tsurface);
-   if (aligned_width == 0) return EINA_FALSE;
+   if (plane->zoom_unset)
+     {
+        EINA_LIST_FOREACH_SAFE(plane->pending_pp_zoom_data_list, l, ll, data)
+          {
+             if (!data) continue;
 
-   e_output_size_get(plane->output, &dst_w, &dst_h);
+             plane->pending_pp_zoom_data_list = eina_list_remove_list(plane->pending_pp_zoom_data_list, l);
 
-   pp_info.src_config.size.h = aligned_width;
-   pp_info.src_config.size.v = surf_info.height;
-   pp_info.src_config.pos.x = plane->zoom_rect_temp.x;
-   pp_info.src_config.pos.y = plane->zoom_rect_temp.y;
-   pp_info.src_config.pos.w = plane->zoom_rect_temp.w;
-   pp_info.src_config.pos.h = plane->zoom_rect_temp.h;
-   pp_info.src_config.format = TBM_FORMAT_ARGB8888;
+             if (data->ec)
+               e_pixmap_image_clear(data->ec->pixmap, 1);
+             e_plane_commit_data_release(data);
+          }
 
-   pp_info.dst_config.size.h = aligned_width;
-   pp_info.dst_config.size.v = surf_info.height;
-   pp_info.dst_config.pos.x = 0;
-   pp_info.dst_config.pos.y = 0;
-   pp_info.dst_config.pos.w = dst_w;
-   pp_info.dst_config.pos.h = dst_h;
-   pp_info.dst_config.format = TBM_FORMAT_ARGB8888;
+        return;
+     }
 
-   pp_info.transform = TDM_TRANSFORM_NORMAL;
-   pp_info.sync = 0;
-   pp_info.flags = 0;
+   data = eina_list_nth(plane->pending_pp_zoom_data_list, 0);
+   if (!data)
+     {
+        ERR("_e_plane_zoom_pending_data_pp: fail E_Plane_Commit_Data get");
+        return;
+     }
 
-   ret = tdm_pp_set_info(plane->tpp, &pp_info);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
+   tbm_err = tbm_surface_queue_dequeue(plane->zoom_tqueue, &zoom_tsurface);
+   if (tbm_err != TBM_ERROR_NONE)
+     {
+        ERR("_e_plane_zoom_pending_data_pp: fail tbm_surface_queue_dequeue");
+        return;
+     }
+   tbm_surface_internal_ref(zoom_tsurface);
 
-   plane->zoom_rect.x = plane->zoom_rect_temp.x;
-   plane->zoom_rect.y = plane->zoom_rect_temp.y;
-   plane->zoom_rect.w = plane->zoom_rect_temp.w;
-   plane->zoom_rect.h = plane->zoom_rect_temp.h;
+   plane->pending_pp_zoom_data_list = eina_list_remove(plane->pending_pp_zoom_data_list, data);
 
-   DBG("_e_plane_zoom_set_pp_info success(src x:%d,y:%d,w:%d,h:%d)",
-       plane->zoom_rect.x, plane->zoom_rect.y, plane->zoom_rect.w, plane->zoom_rect.h);
+   pp_data = E_NEW(E_Plane_Pp_Data, 1);
+   pp_data->zoom_tsurface = zoom_tsurface;
+   pp_data->data = data;
+   pp_data->plane = plane;
 
-   return EINA_TRUE;
+   plane->pending_commit_zoom_data_list = eina_list_append(plane->pending_commit_zoom_data_list, pp_data);
+
+   if (plane->zoom_rect.x != plane->zoom_rect_temp.x || plane->zoom_rect.y != plane->zoom_rect_temp.y ||
+       plane->zoom_rect.w != plane->zoom_rect_temp.w || plane->zoom_rect.h != plane->zoom_rect_temp.h)
+     {
+        if (!_e_plane_zoom_set_pp_info(plane))
+          {
+             ERR("_e_plane_zoom_pending_data_pp: fail _e_plane_zoom_set_pp_info");
+             goto pp_fail;
+          }
+     }
+
+   tdm_err = tdm_pp_set_done_handler(plane->tpp, _e_plane_zoom_pp_cb, pp_data);
+   EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, pp_fail);
+
+   tdm_err = tdm_pp_attach(plane->tpp, tsurface, zoom_tsurface);
+   EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, pp_fail);
+
+   tdm_err = tdm_pp_commit(plane->tpp);
+   EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, pp_fail);
+
+   return;
+
+pp_fail:
+   plane->pending_commit_zoom_data_list = eina_list_remove(plane->pending_commit_zoom_data_list, pp_data);
+
+   if (data)
+     e_plane_commit_data_release(data);
+
+   if (pp_data)
+     free(pp_data);
+
+   ERR("_e_plane_zoom_pending_data_pp: fail");
+
+   return;
 }
 
 static Eina_Bool
@@ -1881,7 +1942,23 @@ e_plane_zoom_commit(E_Plane *plane)
         ERR("e_plane_zoom_commit: fail E_Plane_Commit_Data get");
         return EINA_FALSE;
      }
-   if (_e_plane_zoom_find_data(plane, data)) return EINA_TRUE;
+   if (_e_plane_zoom_find_data(plane, data))
+     {
+         ERR("e_plane_zoom_commit: _e_plane_zoom_find_data return");
+        return EINA_TRUE;
+     }
+
+   if (!tbm_surface_queue_can_dequeue(plane->zoom_tqueue, 0))
+     {
+        plane->pending_pp_zoom_data_list = eina_list_append(plane->pending_pp_zoom_data_list, data);
+        return EINA_TRUE;
+     }
+
+   if (eina_list_count(plane->pending_pp_zoom_data_list) != 0)
+     {
+        plane->pending_pp_zoom_data_list = eina_list_append(plane->pending_pp_zoom_data_list, data);
+        return EINA_TRUE;
+     }
 
    tbm_err = tbm_surface_queue_dequeue(plane->zoom_tqueue, &zoom_tsurface);
    if (tbm_err != TBM_ERROR_NONE)
@@ -1927,6 +2004,8 @@ pp_fail:
 
    if (pp_data)
      free(pp_data);
+
+   ERR("e_plane_zoom_commit: fail");
 
    return EINA_FALSE;
 }
