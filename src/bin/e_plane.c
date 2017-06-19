@@ -977,7 +977,7 @@ e_plane_commit(E_Plane *plane)
                     }
 
                   if ((eina_list_count(plane->pending_pp_zoom_data_list) == 0) &&
-                      (eina_list_count(plane->pending_commit_zoom_data_list) == 0))
+                      (eina_list_count(plane->zoom_data_list) == 0))
                     {
                        _e_plane_zoom_destroy(plane);
                        plane->zoom_unset = EINA_FALSE;
@@ -1657,7 +1657,7 @@ _e_plane_zoom_commit_data_release(E_Plane_Pp_Data *data)
      }
    plane->zoom_tsurface = zoom_tsurface;
 
-   plane->pending_commit_zoom_data_list = eina_list_remove(plane->pending_commit_zoom_data_list, data);
+   plane->zoom_data_list = eina_list_remove(plane->zoom_data_list, data);
 
    free(data);
 
@@ -1725,7 +1725,7 @@ _e_plane_zoom_pp_cb(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurfa
         tbm_surface_queue_release(plane->zoom_tqueue, tsurface_dst);
         tbm_surface_internal_unref(tsurface_dst);
 
-        plane->pending_commit_zoom_data_list = eina_list_remove(plane->pending_commit_zoom_data_list, pp_data);
+        plane->zoom_data_list = eina_list_remove(plane->zoom_data_list, pp_data);
 
         free(pp_data);
 
@@ -1867,7 +1867,7 @@ _e_plane_zoom_pending_data_pp(E_Plane *plane)
    pp_data->data = data;
    pp_data->plane = plane;
 
-   plane->pending_commit_zoom_data_list = eina_list_append(plane->pending_commit_zoom_data_list, pp_data);
+   plane->zoom_data_list = eina_list_append(plane->zoom_data_list, pp_data);
 
    if (plane->zoom_rect.x != plane->zoom_rect_temp.x || plane->zoom_rect.y != plane->zoom_rect_temp.y ||
        plane->zoom_rect.w != plane->zoom_rect_temp.w || plane->zoom_rect.h != plane->zoom_rect_temp.h)
@@ -1891,7 +1891,7 @@ _e_plane_zoom_pending_data_pp(E_Plane *plane)
    return;
 
 pp_fail:
-   plane->pending_commit_zoom_data_list = eina_list_remove(plane->pending_commit_zoom_data_list, pp_data);
+   plane->zoom_data_list = eina_list_remove(plane->zoom_data_list, pp_data);
 
    if (data)
      e_plane_commit_data_release(data);
@@ -1910,7 +1910,7 @@ _e_plane_zoom_find_data(E_Plane *plane, E_Plane_Commit_Data *data)
    Eina_List *l = NULL;
    E_Plane_Pp_Data *pp_data = NULL;
 
-   EINA_LIST_FOREACH(plane->pending_commit_zoom_data_list, l, pp_data)
+   EINA_LIST_FOREACH(plane->zoom_data_list, l, pp_data)
      {
         if (!pp_data) continue;
         if (!pp_data->data) continue;
@@ -1973,7 +1973,7 @@ e_plane_zoom_commit(E_Plane *plane)
    pp_data->data = data;
    pp_data->plane = plane;
 
-   plane->pending_commit_zoom_data_list = eina_list_append(plane->pending_commit_zoom_data_list, pp_data);
+   plane->zoom_data_list = eina_list_append(plane->zoom_data_list, pp_data);
 
    if (plane->zoom_rect.x != plane->zoom_rect_temp.x || plane->zoom_rect.y != plane->zoom_rect_temp.y ||
        plane->zoom_rect.w != plane->zoom_rect_temp.w || plane->zoom_rect.h != plane->zoom_rect_temp.h)
@@ -1997,7 +1997,7 @@ e_plane_zoom_commit(E_Plane *plane)
    return EINA_TRUE;
 
 pp_fail:
-   plane->pending_commit_zoom_data_list = eina_list_remove(plane->pending_commit_zoom_data_list, pp_data);
+   plane->zoom_data_list = eina_list_remove(plane->zoom_data_list, pp_data);
 
    if (data)
      e_plane_commit_data_release(data);

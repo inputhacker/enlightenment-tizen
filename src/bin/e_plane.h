@@ -81,7 +81,7 @@ struct _E_Plane
 
    /* for zoom */
    tdm_pp               *tpp;
-   Eina_List            *pending_commit_zoom_data_list;
+   Eina_List            *zoom_data_list;
    Eina_List            *pending_pp_zoom_data_list;
    tbm_surface_queue_h   zoom_tqueue;
    tbm_surface_h         zoom_tsurface;
