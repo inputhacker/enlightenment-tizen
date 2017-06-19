@@ -527,6 +527,38 @@ _e_plane_renderer_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
    ec->renderer_client = NULL;
 }
 
+static void
+_e_plane_unset_reset(E_Plane *plane)
+{
+   Eina_Bool print_log = EINA_FALSE;
+
+   /* reset the unset plane flags */
+   if (plane->unset_candidate) {plane->unset_candidate = EINA_FALSE; print_log = EINA_TRUE;}
+   if (plane->unset_counter > 0) {plane->unset_counter = 0; print_log = EINA_TRUE;}
+   if (plane->unset_try) {plane->unset_try = EINA_FALSE; print_log = EINA_TRUE;}
+   if (plane->unset_commit) {plane->unset_commit = EINA_FALSE; print_log = EINA_TRUE;}
+
+   if (print_log && plane_trace_debug)
+      ELOGF("E_PLANE", " Plane(%p) Unset flags Reset", NULL, NULL, plane);
+}
+
+static void
+_e_plane_unset_candidate_set(E_Plane *plane)
+{
+   E_Plane *fb_target = NULL;
+
+   fb_target = e_output_fb_target_get(plane->output);
+   if (fb_target)
+     {
+        if(fb_target->ec)
+          plane->unset_counter = 0;
+        else
+          plane->unset_counter = e_plane_renderer_render_count_get(fb_target->renderer) + 1;
+     }
+
+   plane->unset_candidate = EINA_TRUE;
+}
+
 EINTERN Eina_Bool
 e_plane_init(void)
 {
@@ -786,12 +818,6 @@ e_plane_fetch(E_Plane *plane)
    /* exist tsurface for update plane */
    if (tsurface)
      {
-        if (plane->need_unset)
-          plane->need_unset = EINA_FALSE;
-
-        if (plane->need_unset_commit)
-          plane->need_unset_commit = EINA_FALSE;
-
         plane->tsurface = tsurface;
 
         /* set plane info and set tsurface to the plane */
@@ -807,7 +833,7 @@ e_plane_fetch(E_Plane *plane)
      }
    else
      {
-        if (plane->need_unset)
+        if (e_plane_is_unset_try(plane))
           {
              if (eina_list_count(plane->pending_commit_data_list))
                return EINA_FALSE;
@@ -820,13 +846,10 @@ e_plane_fetch(E_Plane *plane)
                    ERR("failed to unset surface plane:%p", plane);
                    return EINA_FALSE;
                 }
-
-              plane->need_unset = EINA_FALSE;
-              plane->need_unset_commit = EINA_TRUE;
           }
         else
           {
-             if (!plane->need_unset_commit) return EINA_FALSE;
+             return EINA_FALSE;
           }
      }
 
@@ -840,6 +863,9 @@ e_plane_unfetch(E_Plane *plane)
 
    EINA_SAFETY_ON_NULL_RETURN(plane);
    EINA_SAFETY_ON_NULL_RETURN(plane->tsurface);
+
+   /* do not reset the plane when the plan is trying to unset */
+   if (e_plane_is_unset_try(plane)) return;
 
    if (plane->is_fb && !plane->ec)
      _e_plane_surface_on_ecore_evas_release(plane, plane->tsurface);
@@ -934,15 +960,16 @@ e_plane_commit_data_aquire(E_Plane *plane)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
 
-   if (plane->need_unset_commit)
+   if (plane->unset_commit)
      {
         data = E_NEW(E_Plane_Commit_Data, 1);
         data->plane = plane;
         data->renderer = NULL;
         data->tsurface = NULL;
         data->ec = NULL;
-        plane->need_unset_commit = EINA_FALSE;
-        plane->sync_unset_count = 0;
+
+        /* reset to be the initail unset values */
+        _e_plane_unset_reset(plane);
 
         plane->pending_commit_data_list = eina_list_append(plane->pending_commit_data_list, data);
 
@@ -1141,6 +1168,74 @@ e_plane_hwc_trace_debug(Eina_Bool onoff)
    INF("Plane: hwc trace_debug is %s", onoff?"ON":"OFF");
 }
 
+EINTERN Eina_Bool
+e_plane_is_unset_candidate(E_Plane *plane)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   return plane->unset_candidate;
+}
+
+EINTERN Eina_Bool
+e_plane_is_unset_try(E_Plane *plane)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   return plane->unset_try;
+}
+
+EINTERN void
+e_plane_unset_try_set(E_Plane *plane, Eina_Bool set)
+{
+   EINA_SAFETY_ON_NULL_RETURN(plane);
+
+   if (plane->unset_try == set) return;
+
+   if (set)
+     {
+        if (!e_plane_is_unset_candidate(plane))
+          {
+             WRN("Plane is not unset_candidate.");
+             return;
+          }
+
+       plane->unset_candidate = EINA_FALSE;
+       plane->unset_try = EINA_TRUE;
+
+       if (plane_trace_debug)
+         ELOGF("E_PLANE", "Plane(%p) Set unset_try. unset_counter(%d)", NULL, NULL, plane, plane->unset_counter);
+     }
+   else
+     {
+        plane->unset_commit = EINA_TRUE;
+        plane->unset_try = EINA_FALSE;
+
+       if (plane_trace_debug)
+         ELOGF("E_PLANE", "Plane(%p) UnSet unset_try. unset_counter(%d)", NULL, NULL, plane, plane->unset_counter);
+     }
+}
+
+EINTERN Eina_Bool
+e_plane_unset_commit_check(E_Plane *plane)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   if (!e_plane_is_unset_try(plane))
+     {
+        WRN("Plane is not unset_try.");
+        return EINA_FALSE;
+     }
+
+   plane->unset_counter--;
+
+   if (plane_trace_debug)
+     ELOGF("E_PLANE", "Plane(%p) Check unset_commit. unset_counter(%d)", NULL, NULL, plane, plane->unset_counter);
+
+   if (plane->unset_counter > 0) return EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
 E_API Eina_Bool
 e_plane_type_set(E_Plane *plane, E_Plane_Type type)
 {
@@ -1188,8 +1283,6 @@ e_plane_ec_get(E_Plane *plane)
 E_API Eina_Bool
 e_plane_ec_set(E_Plane *plane, E_Client *ec)
 {
-   E_Plane *fb_target = NULL;
-
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
    if (plane_trace_debug)
@@ -1249,38 +1342,41 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
                _e_plane_surface_send_dequeuable_surfaces(plane);
           }
 
+        if (!plane->is_fb) _e_plane_unset_reset(plane);
+
         e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
      }
    else
      {
-        if (!plane->is_fb)
+        /* To set null to a plane means two things.
+           1. if the plane is fb target, the plane uses the ecore_evas.
+           2. if the plane is not fb target, the plane needs to unset
+              at the time that the result of the ecore_evas renderer(compositing)
+              is finished with the tsurface(ec) of the plane. For this,
+              we set the unset_candidate flags to the plane and measure to unset
+              the plane at the e_output_commit.
+         */
+        if (plane->is_fb)
+          {
+             if (!e_plane_renderer_ecore_evas_use(plane->renderer))
+               {
+                  ERR("failed to use ecore_evas plane:%p", plane);
+                  return EINA_FALSE;
+               }
+          }
+        else
           {
              if (plane->tsurface)
                {
-                  fb_target = e_output_fb_target_get(plane->output);
-                  if (fb_target)
-                    {
-                       if(fb_target->ec)
-                         plane->sync_unset_count = 0;
-                       else
-                         plane->sync_unset_count = e_plane_renderer_render_count_get(fb_target->renderer) + 1;
-                    }
-
-                  plane->need_unset = EINA_TRUE;
+                  _e_plane_unset_candidate_set(plane);
+                  if (plane_trace_debug)
+                    ELOGF("E_PLANE", "Plane(%p) Set the unset_candidate", (plane->ec ? ec->pixmap : NULL), ec, plane);
                }
 
              if (plane->renderer)
                {
                   _e_plane_renderer_unset(plane);
                   e_plane_role_set(plane, E_PLANE_ROLE_NONE);
-               }
-          }
-        else
-          {
-             if (!e_plane_renderer_ecore_evas_use(plane->renderer))
-               {
-                  ERR("failed to use ecore_evas plane:%p", plane);
-                  return EINA_FALSE;
                }
           }
      }
