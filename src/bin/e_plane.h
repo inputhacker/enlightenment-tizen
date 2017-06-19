@@ -83,11 +83,13 @@ struct _E_Plane
    tdm_pp               *tpp;
    Eina_List            *zoom_data_list;
    Eina_List            *pending_pp_zoom_data_list;
+   Eina_List            *pending_commit_zoom_data_list;
    tbm_surface_queue_h   zoom_tqueue;
    tbm_surface_h         zoom_tsurface;
    Eina_Rectangle        zoom_rect;
    Eina_Rectangle        zoom_rect_temp;
    Eina_Bool             zoom_unset;
+   Eina_Bool             zoom_commit;
 
    /* current display information */
    struct
@@ -97,15 +99,6 @@ struct _E_Plane
       E_Plane_Renderer     *renderer;
       E_Client             *ec;
    } display_info;
-
-   /* for zoom */
-   tdm_pp               *tpp;
-   Eina_List            *pending_commit_zoom_data_list;
-   tbm_surface_queue_h   zoom_tqueue;
-   tbm_surface_h         zoom_tsurface;
-   Eina_Rectangle        zoom_rect;
-   Eina_Rectangle        zoom_rect_temp;
-   Eina_Bool             zoom_unset;
 };
 
 struct _E_Plane_Commit_Data {
