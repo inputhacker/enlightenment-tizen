@@ -621,6 +621,18 @@ _remote_surface_buff_send(E_Comp_Wl_Remote_Surface *rs)
 
         buff_type = TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM;
         res = EINA_TRUE;
+
+        /* TODO: if client wants to receive image file for the remote_surfac_provider,
+         * then makes image file from tbm buffer and sends information for that file.
+         * otherwise, just sends tbm buffer to the client.
+         */
+        res = _remote_surface_changed_buff_protocol_send(rs,
+                                                         buff_type,
+                                                         rbuff,
+                                                         _rsm->dummy_fd,
+                                                         (unsigned int)img_size,
+                                                         EINA_FALSE,
+                                                         NULL);
      }
    else
      {
@@ -634,20 +646,21 @@ _remote_surface_buff_send(E_Comp_Wl_Remote_Surface *rs)
 
         buff_type = TIZEN_REMOTE_SURFACE_BUFFER_TYPE_IMAGE_FILE;
         res = EINA_TRUE;
+
+        /* TODO: if client wants to receive image file for the remote_surfac_provider,
+         * then makes image file from tbm buffer and sends information for that file.
+         * otherwise, just sends tbm buffer to the client.
+         */
+        res = _remote_surface_changed_buff_protocol_send(rs,
+                                                         buff_type,
+                                                         rbuff,
+                                                         fd,
+                                                         (unsigned int)img_size,
+                                                         EINA_FALSE,
+                                                         NULL);
+        close(fd);
      }
 
-   /* TODO: if client wants to receive image file for the remote_surfac_provider,
-    * then makes image file from tbm buffer and sends information for that file.
-    * otherwise, just sends tbm buffer to the client.
-    */
-   if (res)
-     res = _remote_surface_changed_buff_protocol_send(rs,
-                                                      buff_type,
-                                                      rbuff,
-                                                      fd,
-                                                      (unsigned int)img_size,
-                                                      EINA_FALSE,
-                                                      NULL);
 
    return res;
 
