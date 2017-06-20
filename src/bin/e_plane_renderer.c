@@ -1498,11 +1498,6 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
                   INF("There is any dequeuable surface.");
                   return EINA_FALSE;
                 }
-
-              wayland_tbm_server_client_queue_activate(cqueue, 0, renderer->tqueue_size, 1);
-
-              if (e_comp->hwc_sync_mode_change)
-                wayland_tbm_server_client_queue_set_dequeue_cb(cqueue, _e_plane_renderer_exported_surface_dequeue_cb, plane);
            }
         else if ((renderer->state == E_PLANE_RENDERER_STATE_CANDIDATE) && (renderer->ec != ec))
            {
@@ -1521,12 +1516,6 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
                   INF("There is any dequeuable surface.");
                   return EINA_FALSE;
                 }
-
-              /* activate the client queue */
-              wayland_tbm_server_client_queue_activate(cqueue, 0, renderer->tqueue_size, 1);
-
-              if (e_comp->hwc_sync_mode_change)
-                wayland_tbm_server_client_queue_set_dequeue_cb(cqueue, _e_plane_renderer_exported_surface_dequeue_cb, plane);
            }
         else if ((renderer->state == E_PLANE_RENDERER_STATE_CANDIDATE) && (renderer->ec == ec))
            {
@@ -1554,6 +1543,11 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
 
         /* export */
         e_plane_renderer_surface_send(renderer, ec, tsurface);
+
+        wayland_tbm_server_client_queue_activate(cqueue, 0, renderer->tqueue_size, 1);
+
+        if (e_comp->hwc_sync_mode_change)
+          wayland_tbm_server_client_queue_set_dequeue_cb(cqueue, _e_plane_renderer_exported_surface_dequeue_cb, plane);
 
         tsq_err = tbm_surface_queue_notify_reset(renderer->tqueue);
         if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
