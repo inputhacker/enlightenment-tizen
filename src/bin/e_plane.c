@@ -26,6 +26,45 @@ static Eina_Bool plane_trace_debug = 0;
 
 E_API int E_EVENT_PLANE_WIN_CHANGE = -1;
 
+static int _e_plane_hooks_delete = 0;
+static int _e_plane_hooks_walking = 0;
+
+static Eina_Inlist *_e_plane_hooks[] =
+{
+   [E_PLANE_HOOK_VIDEO_SET] = NULL,
+};
+
+static void
+_e_plane_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Plane_Hook *ch;
+   unsigned int x;
+   for (x = 0; x < E_PLANE_HOOK_LAST; x++)
+     EINA_INLIST_FOREACH_SAFE(_e_plane_hooks[x], l, ch)
+       {
+          if (!ch->delete_me) continue;
+          _e_plane_hooks[x] = eina_inlist_remove(_e_plane_hooks[x], EINA_INLIST_GET(ch));
+         free(ch);
+       }
+}
+
+static void
+_e_plane_hook_call(E_Plane_Hook_Point hookpoint, E_Plane *plane)
+{
+   E_Plane_Hook *ch;
+
+   _e_plane_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_plane_hooks[hookpoint], ch)
+     {
+        if (ch->delete_me) continue;
+        ch->func(ch->data, plane);
+     }
+   _e_plane_hooks_walking--;
+   if ((_e_plane_hooks_walking == 0) && (_e_plane_hooks_delete > 0))
+     _e_plane_hooks_clean();
+}
+
 static E_Comp_Wl_Buffer *
 _get_comp_wl_buffer(E_Client *ec)
 {
@@ -557,6 +596,34 @@ _e_plane_unset_candidate_set(E_Plane *plane)
      }
 
    plane->unset_candidate = EINA_TRUE;
+}
+
+E_API E_Plane_Hook *
+e_plane_hook_add(E_Plane_Hook_Point hookpoint, E_Plane_Hook_Cb func, const void *data)
+{
+   E_Plane_Hook *ch;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_PLANE_HOOK_LAST, NULL);
+   ch = E_NEW(E_Plane_Hook, 1);
+   if (!ch) return NULL;
+   ch->hookpoint = hookpoint;
+   ch->func = func;
+   ch->data = (void*)data;
+   _e_plane_hooks[hookpoint] = eina_inlist_append(_e_plane_hooks[hookpoint], EINA_INLIST_GET(ch));
+   return ch;
+}
+
+E_API void
+e_plane_hook_del(E_Plane_Hook *ch)
+{
+   ch->delete_me = 1;
+   if (_e_plane_hooks_walking == 0)
+     {
+        _e_plane_hooks[ch->hookpoint] = eina_inlist_remove(_e_plane_hooks[ch->hookpoint], EINA_INLIST_GET(ch));
+        free(ch);
+     }
+   else
+     _e_plane_hooks_delete++;
 }
 
 EINTERN Eina_Bool
