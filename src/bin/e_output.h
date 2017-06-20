@@ -88,6 +88,7 @@ E_API void                e_output_util_planes_print(void);
 E_API Eina_Bool           e_output_is_fb_composing(E_Output *output);
 E_API Eina_Bool           e_output_is_fb_full_compositing(E_Output *output);
 E_API E_Plane           * e_output_fb_target_get(E_Output *output);
+E_API E_Plane           * e_output_plane_get_by_zpos(E_Output *output, int zpos);
 
 #endif
 #endif
