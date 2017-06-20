@@ -802,6 +802,21 @@ e_output_is_fb_composing(E_Output *output)
    return EINA_FALSE;
 }
 
+E_API Eina_Bool
+e_output_is_fb_full_compositing(E_Output *output)
+{
+   Eina_List *p_l;
+   E_Plane *ep;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->planes, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->planes, p_l, ep)
+      if(ep->ec) return EINA_FALSE;
+
+   return EINA_FALSE;
+}
+
 E_API E_Plane *
 e_output_fb_target_get(E_Output *output)
 {
