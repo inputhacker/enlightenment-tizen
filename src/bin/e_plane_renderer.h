@@ -93,6 +93,7 @@ EINTERN Eina_Bool                  e_plane_renderer_ecore_evas_use(E_Plane_Rende
 EINTERN void                       e_plane_renderer_sent_surface_recevie(E_Plane_Renderer *renderer, tbm_surface_h tsurface);
 EINTERN Eina_Bool                  e_plane_renderer_ec_valid_check(E_Plane_Renderer *renderer, E_Client *ec);
 EINTERN int                        e_plane_renderer_render_count_get(E_Plane_Renderer *renderer);
+EINTERN void                       e_plane_renderer_ecore_evas_force_render(E_Plane_Renderer *renderer);
 
 EINTERN void                       e_plane_renderer_hwc_trace_debug(Eina_Bool onoff);
 EINTERN void                       e_plane_renderer_show_state(E_Plane_Renderer *renderer);
