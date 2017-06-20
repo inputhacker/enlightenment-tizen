@@ -2279,3 +2279,17 @@ e_plane_renderer_render_count_get(E_Plane_Renderer *renderer)
 
    return count;
 }
+
+EINTERN void
+e_plane_renderer_ecore_evas_force_render(E_Plane_Renderer *renderer)
+{
+   int w, h;
+
+   EINA_SAFETY_ON_NULL_RETURN(renderer);
+
+   if (!renderer->ee) return;
+   if (!renderer->evas) return;
+
+   ecore_evas_geometry_get(renderer->ee, 0, 0, &w, &h);
+   evas_damage_rectangle_add(renderer->evas, 0, 0, w,  h);
+}
