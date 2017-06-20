@@ -82,6 +82,7 @@ EINTERN Eina_Bool         e_output_connected(E_Output *output);
 EINTERN Eina_Bool         e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val);
 EINTERN void              e_output_size_get(E_Output *output, int *w, int *h);
 E_API E_Output          * e_output_find(const char *id);
+E_API E_Output          * e_output_find_by_index(int index);
 E_API const Eina_List   * e_output_planes_get(E_Output *output);
 E_API void                e_output_util_planes_print(void);
 E_API Eina_Bool           e_output_is_fb_composing(E_Output *output);

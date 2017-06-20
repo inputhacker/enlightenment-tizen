@@ -834,3 +834,24 @@ e_output_fb_target_get(E_Output *output)
 
    return NULL;
 }
+
+E_API E_Output *
+e_output_find_by_index(int index)
+{
+   E_Output *output;
+   E_Comp_Screen *e_comp_screen;
+   Eina_List *l;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp->e_comp_screen, NULL);
+
+   e_comp_screen = e_comp->e_comp_screen;
+
+   EINA_LIST_FOREACH(e_comp_screen->outputs, l, output)
+     {
+        if (output->index == index)
+           return output;
+     }
+
+   return NULL;
+}
