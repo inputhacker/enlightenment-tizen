@@ -855,3 +855,21 @@ e_output_find_by_index(int index)
 
    return NULL;
 }
+
+E_API E_Plane *
+e_output_plane_get_by_zpos(E_Output *output, int zpos)
+{
+   Eina_List *p_l;
+   E_Plane *ep;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->planes, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->planes, p_l, ep)
+     {
+        if (ep->zpos == zpos)
+          return ep;
+     }
+
+   return NULL;
+}
