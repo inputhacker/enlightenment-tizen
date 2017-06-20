@@ -26,6 +26,9 @@ typedef enum _E_Plane_Color
 typedef struct _E_Plane                      E_Plane;
 typedef struct _E_Plane_Commit_Data          E_Plane_Commit_Data;
 typedef struct _E_Event_Plane_Win_Change     E_Event_Plane_Win_Change;
+typedef struct _E_Plane_Hook                 E_Plane_Hook;
+typedef void (*E_Plane_Hook_Cb) (void *data, E_Plane *plane);
+
 #else
 #ifndef E_PLANE_H
 #define E_PLANE_H
@@ -96,6 +99,21 @@ struct _E_Plane_Commit_Data {
    E_Comp_Wl_Buffer_Ref  buffer_ref;
 };
 
+typedef enum _E_Plane_Hook_Point
+{
+   E_PLANE_HOOK_VIDEO_SET,
+   E_PLANE_HOOK_LAST
+} E_Plane_Hook_Point;
+
+struct _E_Plane_Hook
+{
+   EINA_INLIST;
+   E_Plane_Hook_Point hookpoint;
+   E_Plane_Hook_Cb func;
+   void *data;
+   unsigned char delete_me : 1;
+};
+
 struct _E_Event_Plane_Win_Change
 {
    E_Plane *ep;
@@ -137,6 +155,9 @@ E_API Eina_Bool              e_plane_is_primary(E_Plane *plane);
 E_API Eina_Bool              e_plane_is_cursor(E_Plane *plane);
 E_API E_Plane_Color          e_plane_color_val_get(E_Plane *plane);
 E_API Eina_Bool              e_plane_is_fb_target(E_Plane *plane);
+
+E_API E_Plane_Hook          *e_plane_hook_add(E_Plane_Hook_Point hookpoint, E_Plane_Hook_Cb func, const void *data);
+E_API void                   e_plane_hook_del(E_Plane_Hook *ch);
 
 #endif
 #endif
