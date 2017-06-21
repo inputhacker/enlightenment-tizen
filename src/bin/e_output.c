@@ -1669,13 +1669,14 @@ e_output_rotate(E_Output *output, int rotate)
    rot_dif = output->config.rotation - rotate;
    if (rot_dif < 0) rot_dif = -rot_dif;
 
+#if 0
    if ((rot_dif % 180) && (output->config.geom.w != output->config.geom.h))
      {
         ERR("output size(%dx%d) should be squre.",
             output->config.geom.w, output->config.geom.h);
         return EINA_FALSE;
      }
-
+#endif
    switch (rotate)
      {
       case 90:

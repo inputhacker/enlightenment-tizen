@@ -697,6 +697,10 @@ _e_comp_screen_engine_init(void)
 
    INF("ecore evase engine init with TDM. HWC.");
 
+   const char *s = getenv("E_SCREEN_ROTATION");
+   if (s)
+     e_config->screen_rotation_pre = atoi(s);
+
    /* check the screen rotation */
    screen_rotation = (e_config->screen_rotation_pre + e_config->screen_rotation_setting) % 360;
 
