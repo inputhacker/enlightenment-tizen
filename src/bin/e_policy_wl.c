@@ -1690,6 +1690,8 @@ _tzpol_iface_cb_role_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
    else if (!e_util_strcmp("wl_pointer-cursor", role))
      {
         ELOGF("TZPOL", "Set CURSOR role", ec->pixmap, ec);
+        evas_object_layer_set(ec->frame, E_LAYER_CLIENT_CURSOR);
+        ec->layer = E_LAYER_CLIENT_CURSOR;
         ec->is_cursor = EINA_TRUE;
      }
 }

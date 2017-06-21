@@ -4463,11 +4463,11 @@ e_client_above_get(const E_Client *ec)
                return ec2;
           }
      }
-   if (ec->layer == E_LAYER_CLIENT_ALERT) return NULL;
+   if (ec->layer == E_LAYER_CLIENT_CURSOR) return NULL;
    if (e_comp_canvas_client_layer_map(ec->layer) == 9999) return NULL;
 
    /* go up the layers until we find one */
-   for (x = e_comp_canvas_layer_map(ec->layer) + 1; x <= e_comp_canvas_layer_map(E_LAYER_CLIENT_ALERT); x++)
+   for (x = e_comp_canvas_layer_map(ec->layer) + 1; x <= e_comp_canvas_layer_map(E_LAYER_CLIENT_CURSOR); x++)
      {
         if (!e_comp->layers[x].clients) continue;
         EINA_INLIST_FOREACH(e_comp->layers[x].clients, ec2)
@@ -4540,8 +4540,7 @@ E_API E_Client *
 e_client_bottom_get(void)
 {
    unsigned int x;
-
-   for (x = e_comp_canvas_layer_map(E_LAYER_CLIENT_DESKTOP); x <= e_comp_canvas_layer_map(E_LAYER_CLIENT_ALERT); x++)
+   for (x = e_comp_canvas_layer_map(E_LAYER_CLIENT_DESKTOP); x <= e_comp_canvas_layer_map(E_LAYER_CLIENT_CURSOR); x++)
      {
         E_Client *ec2;
 
@@ -4557,8 +4556,7 @@ E_API E_Client *
 e_client_top_get(void)
 {
    unsigned int x;
-
-   for (x = e_comp_canvas_layer_map(E_LAYER_CLIENT_ALERT); x >= e_comp_canvas_layer_map(E_LAYER_CLIENT_DESKTOP); x--)
+   for (x = e_comp_canvas_layer_map(E_LAYER_CLIENT_CURSOR); x >= e_comp_canvas_layer_map(E_LAYER_CLIENT_DESKTOP); x--)
      {
         E_Client *ec2;
 

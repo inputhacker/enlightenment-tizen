@@ -117,7 +117,8 @@ _e_comp_wl_input_pointer_cb_cursor_set(struct wl_client *client, struct wl_resou
         ec->comp_data->shell.configure = _e_comp_wl_input_pointer_configure;
         ec->comp_data->shell.map = _e_comp_wl_input_pointer_map;
 
-        evas_object_layer_set(ec->frame, E_LAYER_MAX - 1);
+        evas_object_layer_set(ec->frame, E_LAYER_CLIENT_CURSOR);
+        ec->layer = E_LAYER_CLIENT_CURSOR;
         ec->is_cursor = EINA_TRUE;
      }
 

@@ -526,7 +526,7 @@ e_comp_canvas_fake_layers_init(void)
    unsigned int layer;
 
    /* init layers */
-   for (layer = e_comp_canvas_layer_map(E_LAYER_CLIENT_DESKTOP); layer <= e_comp_canvas_layer_map(E_LAYER_CLIENT_ALERT); layer++)
+   for (layer = e_comp_canvas_layer_map(E_LAYER_CLIENT_DESKTOP); layer <= e_comp_canvas_layer_map(E_LAYER_CLIENT_CURSOR); layer++)
      {
         Evas_Object *o2;
 
@@ -572,11 +572,13 @@ e_comp_canvas_layer_map_to(unsigned int layer)
       case 18: return E_LAYER_CLIENT_NOTIFICATION_TOP;
       case 19: return E_LAYER_CLIENT_ALERT_LOW;
       case 20: return E_LAYER_CLIENT_ALERT;
-      case 21: return E_LAYER_POPUP;
-      case 22: return E_LAYER_EFFECT;
-      case 23: return E_LAYER_MENU;
-      case 24: return E_LAYER_DESKLOCK;
-      case 25: return E_LAYER_MAX;
+      case 21: return E_LAYER_CLIENT_ALERT_HIGH;
+      case 22: return E_LAYER_CLIENT_CURSOR;
+      case 23: return E_LAYER_POPUP;
+      case 24: return E_LAYER_EFFECT;
+      case 25: return E_LAYER_MENU;
+      case 26: return E_LAYER_DESKLOCK;
+      case 27: return E_LAYER_MAX;
       default: break;
      }
    return -INT_MAX;
@@ -608,11 +610,13 @@ e_comp_canvas_layer_map(E_Layer layer)
       case E_LAYER_CLIENT_NOTIFICATION_TOP: return 18;
       case E_LAYER_CLIENT_ALERT_LOW: return 19;
       case E_LAYER_CLIENT_ALERT: return 20;
-      case E_LAYER_POPUP: return 21;
-      case E_LAYER_EFFECT: return 22;
-      case E_LAYER_MENU: return 23;
-      case E_LAYER_DESKLOCK: return 24;
-      case E_LAYER_MAX: return 25;
+      case E_LAYER_CLIENT_ALERT_HIGH: return 21;
+      case E_LAYER_CLIENT_CURSOR: return 22;
+      case E_LAYER_POPUP: return 23;
+      case E_LAYER_EFFECT: return 24;
+      case E_LAYER_MENU: return 25;
+      case E_LAYER_DESKLOCK: return 26;
+      case E_LAYER_MAX: return 27;
       default: break;
      }
 
@@ -643,6 +647,8 @@ e_comp_canvas_client_layer_map(E_Layer layer)
       case E_LAYER_CLIENT_NOTIFICATION_TOP: return 14;
       case E_LAYER_CLIENT_ALERT_LOW: return 15;
       case E_LAYER_CLIENT_ALERT: return 16;
+      case E_LAYER_CLIENT_ALERT_HIGH: return 17;
+      case E_LAYER_CLIENT_CURSOR: return 18;
       default: break;
      }
    return 9999;
@@ -670,7 +676,9 @@ e_comp_canvas_client_layer_map_nearest(int layer)
    LAYER_MAP(E_LAYER_CLIENT_NOTIFICATION_HIGH);
    LAYER_MAP(E_LAYER_CLIENT_NOTIFICATION_TOP);
    LAYER_MAP(E_LAYER_CLIENT_ALERT_LOW);
-   return E_LAYER_CLIENT_ALERT;
+   LAYER_MAP(E_LAYER_CLIENT_ALERT);
+   LAYER_MAP(E_LAYER_CLIENT_ALERT_HIGH);
+   return E_LAYER_CLIENT_CURSOR;
 }
 
 E_API void
