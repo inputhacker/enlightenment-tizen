@@ -1833,6 +1833,8 @@ e_comp_layer_name_get(unsigned int layer, char *buff, int buff_size)
       case E_LAYER_CLIENT_NOTIFICATION_TOP: strncpy(buff, "E_LAYER_CLIENT_NOTIFICATION_TOP", buff_size); break;
       case E_LAYER_CLIENT_ALERT_LOW: strncpy(buff, "E_LAYER_CLIENT_ALERT_LOW", buff_size); break;
       case E_LAYER_CLIENT_ALERT: strncpy(buff, "E_LAYER_CLIENT_ALERT", buff_size); break;
+      case E_LAYER_CLIENT_ALERT_HIGH: strncpy(buff, "E_LAYER_CLIENT_ALERT_HIGH", buff_size); break;
+      case E_LAYER_CLIENT_CURSOR: strncpy(buff, "E_LAYER_CLIENT_CURSOR", buff_size); break;
       case E_LAYER_POPUP: strncpy(buff, "E_LAYER_POPUP", buff_size); break;
       case E_LAYER_EFFECT: strncpy(buff, "E_LAYER_EFFECT", buff_size); break;
       case E_LAYER_MENU: strncpy(buff, "E_LAYER_MENU", buff_size); break;
