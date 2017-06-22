@@ -50,6 +50,7 @@ struct _E_Plane
 
    E_Client             *ec;
    E_Client             *prepare_ec;
+   Eina_Bool             ec_redirected;
 
    Eina_Bool             reserved_memory;
 
