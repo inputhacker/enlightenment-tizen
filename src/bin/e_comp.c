@@ -276,7 +276,7 @@ _hwc_available_get(E_Client *ec)
 {
    E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    E_Output *eout;
-   int transform = 0;
+   int transform = 0, minw = 0, minh = 0;
 
    if ((!cdata) ||
        (!cdata->buffer_ref.buffer) ||
@@ -311,6 +311,15 @@ _hwc_available_get(E_Client *ec)
     * can't show it to HW overlay directly.
     */
    eout = e_output_find(ec->zone->output_id);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
+
+   tdm_output_get_available_size(eout->toutput, &minw, &minh, NULL, NULL, NULL);
+
+   if ((minw > 0) && (minw > cdata->buffer_ref.buffer->w))
+     return EINA_FALSE;
+   if ((minh > 0) && (minh > cdata->buffer_ref.buffer->h))
+     return EINA_FALSE;
+
    transform = cdata->scaler.buffer_viewport.buffer.transform;
    if ((eout->config.rotation / 90) != transform)
      return EINA_FALSE;
