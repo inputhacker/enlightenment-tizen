@@ -234,16 +234,6 @@ _hwc_set(E_Output *eout)
    EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(eout->planes, EINA_FALSE);
 
-   EINA_LIST_FOREACH(eout->planes, l, ep)
-     {
-        if (!e_comp->hwc_use_multi_plane &&
-            !e_plane_is_cursor(ep) &&
-            !e_plane_is_fb_target(ep))
-          continue;
-
-        if (ep->ec) e_client_redirected_set(ep->ec, 1);
-     }
-
    ep_l = e_output_planes_get(eout);
    EINA_LIST_REVERSE_FOREACH(ep_l, l , ep)
      {
@@ -257,7 +247,6 @@ _hwc_set(E_Output *eout)
                   if (set)
                     {
                        ELOGF("HWC", "is set on fb_target( %d)", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
-                       e_client_redirected_set(ep->prepare_ec, 0);
                        mode = E_HWC_MODE_FULL;
 
                        // fb target is occupied by a client surface, means compositor disabled
@@ -272,7 +261,6 @@ _hwc_set(E_Output *eout)
              if (set)
                {
                   ELOGF("HWC", "is set on %d", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
-                  e_client_redirected_set(ep->prepare_ec, 0);
                   mode |= E_HWC_MODE_HYBRID;
                }
              else
@@ -514,7 +502,6 @@ _hwc_cancel(E_Output *eout)
              continue;
           }
 
-        if (ep->ec) e_client_redirected_set(ep->ec, 1);
         e_plane_ec_prepare_set(ep, NULL);
         e_plane_ec_set(ep, NULL);
      }
@@ -555,7 +542,6 @@ _hwc_plane_unset(E_Plane *ep)
    if (e_plane_is_reserved(ep))
      e_plane_reserved_set(ep, 0);
 
-   if (ep->ec) e_client_redirected_set(ep->ec, 1);
    e_plane_ec_prepare_set(ep, NULL);
    e_plane_ec_set(ep, NULL);
 
@@ -573,7 +559,6 @@ _hwc_plane_change_ec(E_Plane *ep, E_Client *old_ec, E_Client *new_ec)
           e_plane_reserved_set(ep, 0);
      }
 
-   if (ep->ec) e_client_redirected_set(ep->ec, 1);
    e_plane_ec_prepare_set(ep, NULL);
 
    if (e_plane_ec_set(ep, new_ec))
@@ -583,8 +568,6 @@ _hwc_plane_change_ec(E_Plane *ep, E_Client *old_ec, E_Client *new_ec)
              ELOGF("HWC", "new_ec(%s) is set on %d",
                    new_ec->pixmap, new_ec,
                    e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
-
-             e_client_redirected_set(new_ec, 0);
           }
         else
           {

@@ -870,6 +870,7 @@ _e_plane_renderer_client_ec_buffer_change_cb(void *data, int type, void *event)
 static void
 _e_plane_renderer_recover_ec(E_Plane_Renderer *renderer)
 {
+   E_Plane *plane = renderer->plane;
    E_Client *ec = renderer->ec;
    E_Comp_Wl_Client_Data *cdata = NULL;
    E_Comp_Wl_Buffer *buffer = NULL;
@@ -900,11 +901,14 @@ _e_plane_renderer_recover_ec(E_Plane_Renderer *renderer)
    e_pixmap_resource_set(ec->pixmap, buffer);
    e_pixmap_dirty(ec->pixmap);
    e_pixmap_refresh(ec->pixmap);
-   e_pixmap_image_refresh(ec->pixmap);
 
-   e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
-   e_comp_object_dirty(ec->frame);
-   e_comp_object_render(ec->frame);
+   if (plane->ec_redirected)
+     {
+        e_pixmap_image_refresh(ec->pixmap);
+        e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+        e_comp_object_dirty(ec->frame);
+        e_comp_object_render(ec->frame);
+     }
 
    return;
 }
@@ -1594,8 +1598,12 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
    E_Client *ec = NULL;
    E_Plane_Renderer_Client *renderer_client = NULL;
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+   E_Plane *plane = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
+
+   plane = renderer->plane;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
    ec = renderer->ec;
    if (!ec) return EINA_TRUE;
@@ -1624,12 +1632,14 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
    if (!_e_plane_renderer_client_backup_buffer_set(renderer_client))
        ERR("fail to _e_comp_hwc_set_backup_buffer");
 
-   /* force update */
-   e_pixmap_image_refresh(ec->pixmap);
-   e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
-   e_comp_object_dirty(ec->frame);
-   e_comp_object_render(ec->frame);
-
+   if (plane->ec_redirected)
+     {
+        /* force update */
+        e_pixmap_image_refresh(ec->pixmap);
+        e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+        e_comp_object_dirty(ec->frame);
+        e_comp_object_render(ec->frame);
+     }
 done:
    if (e_comp->hwc_sync_mode_change)
      {

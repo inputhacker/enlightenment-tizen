@@ -1292,6 +1292,12 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
      {
         if (plane->ec == ec) return EINA_TRUE;
 
+        if (plane->ec_redirected)
+          {
+             if (plane->ec) e_client_redirected_set(plane->ec, EINA_TRUE);
+             plane->ec_redirected = EINA_FALSE;
+          }
+
         if (plane->reserved_memory)
           e_plane_reserved_set(plane, EINA_TRUE);
 
@@ -1344,6 +1350,9 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
         if (!plane->is_fb) _e_plane_unset_reset(plane);
 
         e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
+
+        if (ec->redirected) plane->ec_redirected = EINA_TRUE;
+        e_client_redirected_set(ec, EINA_FALSE);
      }
    else
      {
@@ -1377,6 +1386,12 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
                   _e_plane_renderer_unset(plane);
                   e_plane_role_set(plane, E_PLANE_ROLE_NONE);
                }
+          }
+
+        if (plane->ec_redirected)
+          {
+             if (plane->ec) e_client_redirected_set(plane->ec, EINA_TRUE);
+             plane->ec_redirected = EINA_FALSE;
           }
      }
 
