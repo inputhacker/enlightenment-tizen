@@ -1943,14 +1943,15 @@ _opt_parse(char *opt, char *delims, int *vals, int n_vals)
      {
         res = _util_string_to_int_token(opt, &opt, &n, 10);
         EINA_SAFETY_ON_FALSE_RETURN_VAL(res, EINA_FALSE);
-        EINA_SAFETY_ON_TRUE_RETURN_VAL(
-           (!((strlen(opt) == 0) && (i == (n_vals - 1))) &&
-            (strlen(opt) < 2)),
-           EINA_FALSE);
+
+        vals[i] = n;
+
+        if ((strlen(opt) == 0) || (i == (n_vals - 1)))
+          return EINA_TRUE;
+
         EINA_SAFETY_ON_TRUE_RETURN_VAL((*opt != delims[i]), EINA_FALSE);
 
         opt = opt + 1;
-        vals[i] = n;
      }
 
    return EINA_TRUE;
@@ -1961,58 +1962,37 @@ _e_info_client_proc_punch(int argc, char **argv)
 {
    int onoff = 0, x = 0, y = 0, w = 0, h = 0;
    int a = 0, r = 0, g = 0, b = 0;
-   char *arg, *end;
+   char delims_geom[] = { 'x', '+', '+', '\0' };
+   int vals_geom[] = { 0, 0, 0, 0 };
+   char delims_col[] = { ',', ',', ',', '\0' };
+   int vals_col[] = { 0, 0, 0, 0 };
+   Eina_Bool res;
 
-   EINA_SAFETY_ON_FALSE_RETURN(argc >= 3);
-   EINA_SAFETY_ON_NULL_RETURN(argv[2]);
+   EINA_SAFETY_ON_FALSE_GOTO(argc >= 3, wrong_args);
+   EINA_SAFETY_ON_NULL_GOTO(argv[2], wrong_args);
 
-   arg = argv[2];
-   if (!strncmp(arg, "on", 2))
-     onoff = 1;
+   if (!strncmp(argv[2], "on", 2)) onoff = 1;
 
-   if (argv[3])
+   if (argc >= 4 && argv[3])
      {
-        arg = argv[3];
-        w = strtoul(arg, &end, 10);
-        EINA_SAFETY_ON_FALSE_GOTO(*end == 'x', failed);
+        res = _opt_parse(argv[3], delims_geom, vals_geom, (sizeof(vals_geom) / sizeof(int)));
+        EINA_SAFETY_ON_FALSE_GOTO(res, wrong_args);
 
-        arg = end + 1;
-        h = strtoul(arg, &end, 10);
-
-        if (*end == '+' || *end == '-')
-          {
-             arg = end + 1;
-             x = strtol(arg, &end, 10);
-             EINA_SAFETY_ON_FALSE_GOTO(*end == '+' || *end == '-', failed);
-
-             arg = end + 1;
-             y = strtol(arg, &end, 10);
-          }
+        w = vals_geom[0]; h = vals_geom[1]; x = vals_geom[2]; y = vals_geom[3];
      }
 
-   if (argv[4])
+   if (argc >= 5 && argv[4])
      {
-        arg = argv[4];
+        res = _opt_parse(argv[4], delims_col, vals_col, (sizeof(vals_col) / sizeof(int)));
+        EINA_SAFETY_ON_FALSE_GOTO(res, wrong_args);
 
-        a = strtoul(arg, &end, 10);
-        EINA_SAFETY_ON_FALSE_GOTO(*end == ',', failed);
-
-        arg = end + 1;
-        r = strtoul(arg, &end, 10);
-        EINA_SAFETY_ON_FALSE_GOTO(*end == ',', failed);
-
-        arg = end + 1;
-        g = strtoul(arg, &end, 10);
-        EINA_SAFETY_ON_FALSE_GOTO(*end == ',', failed);
-
-        arg = end + 1;
-        b = strtoul(arg, &end, 10);
+        a = vals_col[0]; r = vals_col[1]; g = vals_col[2]; b = vals_col[3];
      }
 
    _e_info_client_eldbus_message_with_args("punch", NULL, "iiiiiiiii", onoff, x, y, w, h, a, r, g, b);
    return;
 
-failed:
+wrong_args:
    printf("wrong geometry arguments(<w>x<h>+<x>+<y>\n");
    printf("wrong color arguments(<a>,<r>,<g>,<b>)\n");
 }
