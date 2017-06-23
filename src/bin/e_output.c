@@ -687,9 +687,6 @@ e_output_commit(E_Output *output)
             return EINA_FALSE;
           }
 
-        if (!e_plane_commit(plane))
-          ERR("fail to e_plane_commit");
-
         if (!e_plane_zoom_commit(plane))
           ERR("fail to e_plane_zoom_commit");
      }

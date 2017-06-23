@@ -955,7 +955,6 @@ e_plane_commit(E_Plane *plane)
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
    data = e_plane_commit_data_aquire(plane);
-
    if (!data) return EINA_TRUE;
 
    TRACE_DS_ASYNC_BEGIN((unsigned int)plane->tlayer, [PLANE:COMMIT~HANDLER]);
@@ -965,46 +964,43 @@ e_plane_commit(E_Plane *plane)
            NULL, NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
            data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
-   if (plane->activation)
+   error = tdm_layer_commit(plane->tlayer, _e_plane_commit_hanler, data);
+   if (error != TDM_ERROR_NONE)
      {
-        error = tdm_layer_commit(plane->tlayer, _e_plane_commit_hanler, data);
-        if (error != TDM_ERROR_NONE)
-          {
-             ERR("fail to tdm_layer_commit plane:%p, zpos:%d", plane, plane->zpos);
-             e_plane_commit_data_release(data);
-             return EINA_FALSE;
-          }
+        ERR("fail to tdm_layer_commit plane:%p, zpos:%d", plane, plane->zpos);
+        e_plane_commit_data_release(data);
+        return EINA_FALSE;
+     }
 
-        error = tdm_output_wait_vblank(plane->output->toutput, 1, 0, _e_plane_vblank_handler, (void *)plane);
-        if (error != TDM_ERROR_NONE)
-          {
-             ERR("fail to tdm_output_wait_vblank plane:%p, zpos:%d", plane, plane->zpos);
-             return EINA_FALSE;
-          }
+   error = tdm_output_wait_vblank(plane->output->toutput, 1, 0, _e_plane_vblank_handler, (void *)plane);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("fail to tdm_output_wait_vblank plane:%p, zpos:%d", plane, plane->zpos);
+        return EINA_FALSE;
+     }
 
-        /* send frame event enlightenment dosen't send frame evnet in nocomp */
-        if (plane->ec)
-           e_pixmap_image_clear(plane->ec->pixmap, 1);
+   /* send frame event enlightenment dosen't send frame evnet in nocomp */
+   if (plane->ec)
+      e_pixmap_image_clear(plane->ec->pixmap, 1);
 
-        if (plane->zoom_unset)
+   if (plane->zoom_unset)
+     {
+        if (e_plane_is_fb_target(plane))
           {
-             if (e_plane_is_fb_target(plane))
+             if (plane->zoom_tsurface)
                {
-                  if (plane->zoom_tsurface)
-                    {
-                       tbm_surface_queue_release(plane->zoom_tqueue, plane->zoom_tsurface);
-                       tbm_surface_internal_unref(plane->zoom_tsurface);
+                  tbm_surface_queue_release(plane->zoom_tqueue, plane->zoom_tsurface);
+                  tbm_surface_internal_unref(plane->zoom_tsurface);
 
-                       plane->zoom_tsurface = NULL;
-                    }
+                  plane->zoom_tsurface = NULL;
+               }
 
-                  if ((eina_list_count(plane->pending_commit_zoom_data_list) == 0) &&
-                      (eina_list_count(plane->pending_pp_zoom_data_list) == 0) &&
-                      (eina_list_count(plane->zoom_data_list) == 0))
-                    {
-                       _e_plane_zoom_destroy(plane);
-                       plane->zoom_unset = EINA_FALSE;
-                    }
+             if ((eina_list_count(plane->pending_commit_zoom_data_list) == 0) &&
+                 (eina_list_count(plane->pending_pp_zoom_data_list) == 0) &&
+                 (eina_list_count(plane->zoom_data_list) == 0))
+               {
+                  _e_plane_zoom_destroy(plane);
+                  plane->zoom_unset = EINA_FALSE;
                }
           }
      }
@@ -1971,6 +1967,16 @@ e_plane_zoom_commit(E_Plane *plane)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
+   data = e_plane_commit_data_aquire(plane);
+   if (!data) return EINA_TRUE;
+
+   TRACE_DS_ASYNC_BEGIN((unsigned int)plane->tlayer, [PLANE:COMMIT~HANDLER]);
+
+   if (plane_trace_debug)
+     ELOGF("E_PLANE", "Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
+           NULL, NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
+           data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
+
    count = eina_list_count(plane->pending_commit_data_list);
    if (count == 0) return EINA_TRUE;
 
@@ -1980,9 +1986,10 @@ e_plane_zoom_commit(E_Plane *plane)
         ERR("e_plane_zoom_commit: fail E_Plane_Commit_Data get");
         return EINA_FALSE;
      }
+
    if (_e_plane_zoom_find_data(plane, data))
      {
-         ERR("e_plane_zoom_commit: _e_plane_zoom_find_data return");
+        ERR("e_plane_zoom_commit: _e_plane_zoom_find_data return");
         return EINA_TRUE;
      }
 
@@ -2031,6 +2038,8 @@ e_plane_zoom_commit(E_Plane *plane)
 
    tdm_err = tdm_pp_commit(plane->tpp);
    EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, pp_fail);
+
+   plane->pending_commit = EINA_TRUE;
 
    return EINA_TRUE;
 
