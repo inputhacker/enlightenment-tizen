@@ -408,13 +408,6 @@ _e_plane_cursor_surface_acquire(E_Plane *plane)
    return tsurface;
 }
 
-static void
-_e_plane_surface_on_ecore_evas_release(E_Plane *plane, tbm_surface_h tsurface)
-{
-   /* release the tsurface */
-   e_plane_renderer_surface_queue_release(plane->renderer, tsurface);
-}
-
 static tbm_surface_h
 _e_plane_surface_from_ecore_evas_acquire(E_Plane *plane)
 {
@@ -868,9 +861,15 @@ e_plane_unfetch(E_Plane *plane)
    if (e_plane_is_unset_try(plane)) return;
 
    if (plane->is_fb && !plane->ec)
-     _e_plane_surface_on_ecore_evas_release(plane, plane->tsurface);
+     {
+        e_plane_renderer_surface_queue_release(plane->renderer, plane->tsurface);
+     }
    else
-     if (!plane->ec) return;
+     {
+        if (!plane->ec) return;
+        if (plane->reserved_memory)
+          e_plane_renderer_surface_queue_release(plane->renderer, plane->tsurface);
+     }
 
    displaying_tsurface = e_plane_renderer_displaying_surface_get(plane->renderer);
 
