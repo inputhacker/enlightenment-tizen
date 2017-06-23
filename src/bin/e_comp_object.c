@@ -5509,8 +5509,8 @@ e_comp_object_map_update(Evas_Object *obj)
    l = snprintf(p, remain, " %d,%d", x, y);
    p += l, remain -= l;
 
-//   ELOGF("COMP", "obj(%p) transform map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d =>%s)",
-//         cw->ec->pixmap, cw->ec, obj, ec->x, ec->y, bw, bh, x1, y1, x2, y1, x2, y2, x1, y2, buffer);
+   DBG("ec(%p) obj(%p) transform map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d => %s)",
+       cw->ec, obj, ec->x, ec->y, bw, bh, x1, y1, x2, y1, x2, y2, x1, y2, buffer);
 
    evas_object_map_set(cw->effect_obj, map);
    evas_object_map_enable_set(cw->effect_obj, EINA_TRUE);
