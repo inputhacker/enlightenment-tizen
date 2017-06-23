@@ -969,36 +969,15 @@ e_plane_commit_data_aquire(E_Plane *plane)
 
         /* reset to be the initail unset values */
         _e_plane_unset_reset(plane);
-
-        plane->pending_commit_data_list = eina_list_append(plane->pending_commit_data_list, data);
-
-        return data;
-     }
-
-   if (!plane->renderer) return NULL;
-
-   /* check update_exist */
-   if (!e_plane_renderer_update_exist_check(plane->renderer))
-     return NULL;
-
-   if (plane->is_fb && !plane->ec)
-     {
-        data = E_NEW(E_Plane_Commit_Data, 1);
-        data->plane = plane;
-        data->renderer = plane->renderer;
-        data->tsurface = plane->tsurface;
-        tbm_surface_internal_ref(data->tsurface);
-        data->ec = NULL;
-
-        plane->pending_commit_data_list = eina_list_append(plane->pending_commit_data_list, data);
-
-        /* set the update_exist to be false */
-        e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
-
-        return data;
      }
    else
      {
+        if (!plane->renderer) return NULL;
+
+        /* check update_exist */
+        if (!e_plane_renderer_update_exist_check(plane->renderer))
+          return NULL;
+
         if (plane->ec)
           {
              data = E_NEW(E_Plane_Commit_Data, 1);
@@ -1007,18 +986,33 @@ e_plane_commit_data_aquire(E_Plane *plane)
              data->tsurface = plane->tsurface;
              tbm_surface_internal_ref(data->tsurface);
              data->ec = plane->ec;
-             e_comp_wl_buffer_reference(&data->buffer_ref, _get_comp_wl_buffer(plane->ec));
-
-             plane->pending_commit_data_list = eina_list_append(plane->pending_commit_data_list, data);
 
              /* set the update_exist to be false */
              e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
 
-             return data;
+             e_comp_wl_buffer_reference(&data->buffer_ref, _get_comp_wl_buffer(plane->ec));
+          }
+        else
+          {
+             if (plane->is_fb)
+               {
+                  data = E_NEW(E_Plane_Commit_Data, 1);
+                  data->plane = plane;
+                  data->renderer = plane->renderer;
+                  data->tsurface = plane->tsurface;
+                  tbm_surface_internal_ref(data->tsurface);
+                  data->ec = NULL;
+
+                  /* set the update_exist to be false */
+                  e_plane_renderer_update_exist_set(plane->renderer, EINA_FALSE);
+               }
           }
      }
 
-   return NULL;
+   if (data)
+     plane->pending_commit_data_list = eina_list_append(plane->pending_commit_data_list, data);
+
+   return data;
 }
 
 EINTERN void
