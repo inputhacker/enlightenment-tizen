@@ -672,22 +672,10 @@ e_output_commit(E_Output *output)
    if (output->zoom_set)
      {
         /* commit only primary */
-        if (!fb_commit)
-          {
-             ERR("fb_commit is failed.");
-             return EINA_FALSE;
-          }
+        if (!fb_commit) return EINA_TRUE;
 
-        /* do not execute the tdm functions */
-        e_plane_activation_set(plane, EINA_FALSE);
-
-        if (!e_plane_fetch(plane))
-          {
-            ERR("fail to fetch the plane.");
-            return EINA_FALSE;
-          }
-
-        if (!e_plane_zoom_commit(plane))
+        /* zoom commit */
+        if (!e_plane_zoom_commit(fb_target))
           ERR("fail to e_plane_zoom_commit");
      }
    else
@@ -697,9 +685,6 @@ e_output_commit(E_Output *output)
           {
              /* skip the fb_target fetch because we do this previously */
              if (e_plane_is_fb_target(plane)) continue;
-
-             /* execute the tdm functions */
-             e_plane_activation_set(plane, EINA_TRUE);
 
              /* if the plane is the candidate to unset,
                 set the plane to be unset_try */

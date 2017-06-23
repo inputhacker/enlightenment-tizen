@@ -1552,19 +1552,6 @@ e_plane_show_state(E_Plane *plane)
      e_plane_renderer_show_state(plane->renderer);
 }
 
-EINTERN void
-e_plane_activation_set(E_Plane *plane, Eina_Bool set)
-{
-   EINA_SAFETY_ON_NULL_RETURN(plane);
-
-   if (plane->activation == set) return;
-
-   plane->activation = set;
-
-   ELOGF("E_PLANE", "Plane(%p) activation set to be %s",
-         NULL, NULL, plane, set?"True":"False");
-}
-
 static Eina_Bool
 _e_plane_zoom_set_pp_info(E_Plane *plane)
 {
@@ -2070,8 +2057,6 @@ e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect)
        (plane->zoom_rect_temp.w == rect->w) && (plane->zoom_rect_temp.h == rect->h))
      return EINA_TRUE;
 
-   if (plane->zoom_unset) plane->zoom_unset = EINA_FALSE;
-
    e_comp_screen = e_comp->e_comp_screen;
    e_output_size_get(plane->output, &w, &h);
 
@@ -2100,6 +2085,9 @@ e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect)
    plane->zoom_rect_temp.w = rect->w;
    plane->zoom_rect_temp.h = rect->h;
 
+   plane->zoom_unset = EINA_FALSE;
+   plane->activation = EINA_FALSE;
+
    return EINA_TRUE;
 
 fail:
@@ -2123,4 +2111,5 @@ e_plane_zoom_unset(E_Plane *plane)
    plane->zoom_rect.h = plane->zoom_rect_temp.h = 0;
 
    plane->zoom_unset = EINA_TRUE;
+   plane->activation = EINA_TRUE;
 }
