@@ -95,19 +95,19 @@ _e_plane_surface_unset(E_Plane *plane)
    tdm_layer *tlayer = plane->tlayer;
    tdm_error error;
 
+   /* skip the set the surface to the tdm layer */
+   if (plane->skip_surface_set) return EINA_TRUE;
+
    if (plane_trace_debug)
       ELOGF("E_PLANE", "Unset   Plane(%p) zpos(%d)", NULL, NULL, plane, plane->zpos);
 
    CLEAR(plane->info);
 
-   if (plane->activation)
+   error = tdm_layer_unset_buffer(tlayer);
+   if (error != TDM_ERROR_NONE)
      {
-        error = tdm_layer_unset_buffer(tlayer);
-        if (error != TDM_ERROR_NONE)
-          {
-              ERR("fail to tdm_layer_unset_buffer");
-              return EINA_FALSE;
-          }
+         ERR("fail to tdm_layer_unset_buffer");
+         return EINA_FALSE;
      }
 
    return EINA_TRUE;
@@ -233,6 +233,9 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
    unsigned int aligned_width;
    int dst_x, dst_y, dst_w, dst_h;
 
+   /* skip the set the surface to the tdm layer */
+   if (plane->skip_surface_set) return EINA_TRUE;
+
    /* set layer when the layer infomation is different from the previous one */
    tbm_surface_get_info(tsurface, &surf_info);
 
@@ -287,28 +290,22 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
                                 dst_x, dst_y, dst_w, dst_h,
                                 TDM_TRANSFORM_NORMAL))
      {
-        if (plane->activation)
+        error = tdm_layer_set_info(tlayer, &plane->info);
+        if (error != TDM_ERROR_NONE)
           {
-             error = tdm_layer_set_info(tlayer, &plane->info);
-             if (error != TDM_ERROR_NONE)
-               {
-                  ERR("fail to tdm_layer_set_info");
-                  return EINA_FALSE;
-               }
+             ERR("fail to tdm_layer_set_info");
+             return EINA_FALSE;
           }
      }
 
-   if (plane->activation)
-     {
-       if (plane_trace_debug)
-          ELOGF("E_PLANE", "Set  Plane(%p)     tsurface(%p)", NULL, NULL, plane, tsurface);
+  if (plane_trace_debug)
+     ELOGF("E_PLANE", "Set  Plane(%p)     tsurface(%p)", NULL, NULL, plane, tsurface);
 
-        error = tdm_layer_set_buffer(tlayer, tsurface);
-        if (error != TDM_ERROR_NONE)
-          {
-             ERR("fail to tdm_layer_set_buffer");
-             return EINA_FALSE;
-          }
+   error = tdm_layer_set_buffer(tlayer, tsurface);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("fail to tdm_layer_set_buffer");
+        return EINA_FALSE;
      }
 
    _e_plane_ev(plane, E_EVENT_PLANE_WIN_CHANGE);
@@ -659,7 +656,7 @@ e_plane_new(E_Output *output, int index)
    tdm_layer_get_zpos(tlayer, &zpos);
    plane->zpos = zpos;
    plane->output = output;
-   plane->activation = EINA_TRUE;
+   plane->skip_surface_set = EINA_FALSE;
 
    tdm_err = tdm_layer_get_buffer_flags(plane->tlayer, &buffer_flags);
    if (tdm_err == TDM_ERROR_NONE)
@@ -2086,7 +2083,7 @@ e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect)
    plane->zoom_rect_temp.h = rect->h;
 
    plane->zoom_unset = EINA_FALSE;
-   plane->activation = EINA_FALSE;
+   plane->skip_surface_set = EINA_TRUE;
 
    return EINA_TRUE;
 
@@ -2111,5 +2108,5 @@ e_plane_zoom_unset(E_Plane *plane)
    plane->zoom_rect.h = plane->zoom_rect_temp.h = 0;
 
    plane->zoom_unset = EINA_TRUE;
-   plane->activation = EINA_TRUE;
+   plane->skip_surface_set = EINA_FALSE;
 }

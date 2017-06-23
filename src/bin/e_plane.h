@@ -70,7 +70,7 @@ struct _E_Plane
    Eina_Bool             unset_commit;
    int                   unset_counter;
 
-   Eina_Bool             activation;
+   Eina_Bool             skip_surface_set;
 
    /* true if plane's ec is set or unset.
     * false when E_Event_Plane_Win_Change has been generated.
