@@ -91,6 +91,7 @@ struct _E_Comp_Wl_Remote_Provider
    Eina_Bool visible;
    int vis_ref;
    uint32_t input_event_filter;
+   int buffer_mode;
 };
 
 /* normal UI client */
@@ -443,6 +444,9 @@ _remote_provider_visible_set(E_Comp_Wl_Remote_Provider *provider, Eina_Bool set)
              tizen_remote_surface_provider_send_visibility
                 (provider->resource,
                  TIZEN_REMOTE_SURFACE_PROVIDER_VISIBILITY_TYPE_INVISIBLE);
+
+             if (provider->buffer_mode)
+               e_pixmap_buffer_clear(provider->common.ec->pixmap, EINA_TRUE);
           }
      }
 
@@ -1972,7 +1976,28 @@ _remote_surface_cb_release(struct wl_client *client, struct wl_resource *resourc
    EINA_SAFETY_ON_NULL_RETURN(remote_buffer);
 
    if (remote_surface->version >= 2)
-     e_comp_wl_buffer_reference(&remote_buffer->ref, NULL);
+     {
+        E_Comp_Wl_Buffer *buf = NULL;
+
+        if (remote_buffer->ref.buffer &&
+            remote_buffer->ref.buffer->resource)
+           buf = remote_buffer->ref.buffer;
+
+        e_comp_wl_buffer_reference(&remote_buffer->ref, NULL);
+
+        /*Send release event to provider*/
+        if (remote_surface->provider->buffer_mode &&
+            buf && buf->busy == 0)
+          {
+             if (remote_surface->provider->buffer_mode == 1 ||
+                 (remote_surface->provider->buffer_mode == 2 &&
+                  remote_surface->provider->vis_ref == 0))
+               {
+                  E_Client *ec = remote_surface->provider->common.ec;
+                  e_pixmap_buffer_clear(ec->pixmap, EINA_TRUE);
+               }
+          }
+     }
 }
 
 static void
@@ -2125,6 +2150,9 @@ _remote_manager_cb_provider_create(struct wl_client *client, struct wl_resource 
    /* send resource id */
    res_id = e_pixmap_res_id_get(ec->pixmap);
    tizen_remote_surface_provider_send_resource_id(resource, res_id);
+
+   /* set buffer mode */
+   provider->buffer_mode = e_config->rsm_buffer_release_mode;
 }
 
 static void
