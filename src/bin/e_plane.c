@@ -707,7 +707,6 @@ e_plane_setup(E_Plane *plane)
    else if(!strcmp("gl_drm_tbm", name))
      {
         ecore_evas_manual_render_set(e_comp->ee, 1);
-        return EINA_TRUE;
      }
    else if(!strcmp("drm_tbm", name))
      {
