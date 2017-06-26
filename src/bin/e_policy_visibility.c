@@ -1513,9 +1513,6 @@ e_policy_visibility_client_raise(E_Client *ec)
 E_API Eina_Bool
 e_policy_visibility_client_lower(E_Client *ec)
 {
-   E_Client *child;
-   Eina_List *l;
-
    if (!e_config->use_buffer_flush) return EINA_FALSE;
 
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
@@ -1537,17 +1534,6 @@ e_policy_visibility_client_lower(E_Client *ec)
 
    /* add lower job, it will be executed after below activity client finishs updating */
    _e_vis_client_job_add(vc, E_VIS_JOB_TYPE_LOWER);
-   if (e_config->transient.lower)
-     {
-        l = eina_list_clone(ec->transients);
-
-        EINA_LIST_FREE(l, child)
-          {
-             E_VIS_CLIENT_GET(vc2, child);
-             if (!vc2) continue;
-             _e_vis_client_job_add(vc2, E_VIS_JOB_TYPE_LOWER);
-          }
-     }
 
    return EINA_TRUE;
 }
@@ -1555,9 +1541,6 @@ e_policy_visibility_client_lower(E_Client *ec)
 E_API Eina_Bool
 e_policy_visibility_client_iconify(E_Client *ec)
 {
-   E_Client *child;
-   Eina_List *l;
-
    if (!e_config->use_buffer_flush) return EINA_FALSE;
 
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
@@ -1580,17 +1563,6 @@ e_policy_visibility_client_iconify(E_Client *ec)
 
    /* add lower job, it will be executed after below activity client finishs updating */
    _e_vis_client_job_add(vc, E_VIS_JOB_TYPE_ICONIFY);
-   if (e_config->transient.iconify)
-     {
-        l = eina_list_clone(ec->transients);
-
-        EINA_LIST_FREE(l, child)
-          {
-             E_VIS_CLIENT_GET(vc2, child);
-             if (!vc2) continue;
-             _e_vis_client_job_add(vc2, E_VIS_JOB_TYPE_ICONIFY);
-          }
-     }
 
    return EINA_TRUE;
 }
