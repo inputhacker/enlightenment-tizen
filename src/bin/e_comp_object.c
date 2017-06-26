@@ -5459,7 +5459,7 @@ e_comp_object_map_update(Evas_Object *obj)
    API_ENTRY;
    E_Client *ec = cw->ec;
    Evas_Map *map;
-   int x1, y1, x2, y2, x, y, bw, bh;
+   int x1, y1, x2, y2, x, y, bw, bh, tw, th;
    char buffer[128];
    char *p = buffer;
    int l, remain = sizeof buffer;
@@ -5475,6 +5475,8 @@ e_comp_object_map_update(Evas_Object *obj)
              evas_object_map_enable_set(cw->effect_obj, EINA_FALSE);
              evas_object_hide(cw->map_input_obj);
           }
+        e_pixmap_size_get(ec->pixmap, &bw, &bh);
+        evas_object_resize(cw->effect_obj, bw, bh);
         return;
      }
 
@@ -5516,6 +5518,12 @@ e_comp_object_map_update(Evas_Object *obj)
    evas_object_map_enable_set(cw->effect_obj, EINA_TRUE);
 
    evas_map_free(map);
+
+   /* if there's screen rotation with comp mode, then ec->effect_obj and
+    * ec->obj should rotate. if not, in evas_map, update region is clipped.
+    */
+   _e_comp_object_map_transform_rect(cw->ec, 0, 0, bw, bh, NULL, NULL, &tw, &th);
+   evas_object_resize(cw->effect_obj, tw, th);
 
    evas_object_show(cw->map_input_obj);
 }
