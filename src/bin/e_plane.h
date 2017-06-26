@@ -62,8 +62,8 @@ struct _E_Plane
    E_Output             *output;
 
    unsigned int          buffer_flags;
-   Eina_Bool             pending_commit;
-   Eina_List            *pending_commit_data_list;
+   Eina_Bool             wait_commit;
+   Eina_List            *commit_data_list;
    Eina_Bool             unset_candidate;
    Eina_Bool             unset_try;
    Eina_Bool             unset_commit;
