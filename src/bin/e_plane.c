@@ -78,7 +78,7 @@ _e_plane_renderer_unset(E_Plane *plane)
 
    plane->display_info.renderer = NULL;
 
-   EINA_LIST_FOREACH(plane->pending_commit_data_list, data_l, data)
+   EINA_LIST_FOREACH(plane->commit_data_list, data_l, data)
      data->renderer = NULL;
 
    if (plane->renderer)
@@ -771,7 +771,7 @@ e_plane_fetch(E_Plane *plane)
         return EINA_FALSE;
      }
 
-   if (plane->pending_commit)
+   if (plane->wait_commit)
       return EINA_FALSE;
 
    if (plane->is_fb && !plane->ec)
@@ -827,7 +827,7 @@ e_plane_fetch(E_Plane *plane)
      {
         if (e_plane_is_unset_try(plane))
           {
-             if (eina_list_count(plane->pending_commit_data_list))
+             if (eina_list_count(plane->commit_data_list))
                return EINA_FALSE;
 
               plane->tsurface = NULL;
@@ -891,7 +891,7 @@ _e_plane_vblank_handler(tdm_output *output, unsigned int sequence,
 
    EINA_SAFETY_ON_NULL_RETURN(plane);
 
-   plane->pending_commit = EINA_FALSE;
+   plane->wait_commit = EINA_FALSE;
 }
 
 static void
@@ -946,7 +946,7 @@ e_plane_commit(E_Plane *plane)
     if (plane->ec)
       e_pixmap_image_clear(plane->ec->pixmap, 1);
 
-   plane->pending_commit = EINA_TRUE;
+   plane->wait_commit = EINA_TRUE;
 
    return EINA_TRUE;
 }
@@ -1009,7 +1009,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
      }
 
    if (data)
-     plane->pending_commit_data_list = eina_list_append(plane->pending_commit_data_list, data);
+     plane->commit_data_list = eina_list_append(plane->commit_data_list, data);
 
    return data;
 }
@@ -1112,7 +1112,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
          tbm_surface_internal_unref(tsurface);
       }
 
-   plane->pending_commit_data_list = eina_list_remove(plane->pending_commit_data_list, data);
+   plane->commit_data_list = eina_list_remove(plane->commit_data_list, data);
    free(data);
 }
 
