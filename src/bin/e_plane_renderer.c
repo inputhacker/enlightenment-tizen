@@ -646,14 +646,14 @@ _e_plane_renderer_client_exported_surfaces_release(E_Plane_Renderer_Client *rend
 
                   renderer_client->exported_surfaces = eina_list_remove_list(renderer_client->exported_surfaces, l_s);
 
-                  if (eina_list_count(plane->pending_commit_data_list)) continue;
+                  if (eina_list_count(plane->commit_data_list)) continue;
 
                   if (tsurface == renderer->previous_tsurface)
                      _e_plane_renderer_exported_surface_release(renderer, tsurface);
                }
           }
 
-        if (!eina_list_count(plane->pending_commit_data_list) && !tbm_surface_queue_can_dequeue(renderer->tqueue, 0))
+        if (!eina_list_count(plane->commit_data_list) && !tbm_surface_queue_can_dequeue(renderer->tqueue, 0))
           {
              EINA_LIST_FOREACH_SAFE(renderer->disp_surfaces, l_s, ll_s, tsurface)
                {

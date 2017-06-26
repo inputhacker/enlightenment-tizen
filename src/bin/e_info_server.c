@@ -3983,7 +3983,7 @@ _msg_show_pending_commit_append(Eldbus_Message_Iter *iter)
           {
              if (!plane) continue;
 
-             EINA_LIST_FOREACH(plane->pending_commit_data_list, data_l, data)
+             EINA_LIST_FOREACH(plane->commit_data_list, data_l, data)
                {
                   Eldbus_Message_Iter* struct_of_pending_commit;
 
