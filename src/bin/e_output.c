@@ -675,8 +675,8 @@ e_output_commit(E_Output *output)
         if (!fb_commit) return EINA_TRUE;
 
         /* zoom commit */
-        if (!e_plane_zoom_commit(fb_target))
-          ERR("fail to e_plane_zoom_commit");
+        if (!e_plane_pp_commit(fb_target))
+          ERR("fail to e_plane_pp_commit");
      }
    else
      {

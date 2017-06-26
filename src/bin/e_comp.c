@@ -930,6 +930,9 @@ e_comp_hwc_end(const char *location)
 EINTERN void
 e_comp_hwc_multi_plane_set(Eina_Bool set)
 {
+   E_Comp_Config *conf = e_comp_config_get();
+
+   if (!conf->hwc_use_multi_plane) return;
    if (e_comp->hwc_use_multi_plane == set) return;
 
    e_comp_hwc_end(__FUNCTION__);

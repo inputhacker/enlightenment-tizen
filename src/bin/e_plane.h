@@ -25,7 +25,6 @@ typedef enum _E_Plane_Color
 
 typedef struct _E_Plane                      E_Plane;
 typedef struct _E_Plane_Commit_Data          E_Plane_Commit_Data;
-typedef struct _E_Plane_Pp_Data              E_Plane_Pp_Data;
 typedef struct _E_Event_Plane_Win_Change     E_Event_Plane_Win_Change;
 #else
 #ifndef E_PLANE_H
@@ -70,8 +69,6 @@ struct _E_Plane
    Eina_Bool             unset_commit;
    int                   unset_counter;
 
-   Eina_Bool             skip_surface_set;
-
    /* true if plane's ec is set or unset.
     * false when E_Event_Plane_Win_Change has been generated.
     */
@@ -79,17 +76,18 @@ struct _E_Plane
 
    E_Plane_Role          role;
 
-   /* for zoom */
+   /* for pp */
    tdm_pp               *tpp;
-   Eina_List            *zoom_data_list;
-   Eina_List            *pending_pp_zoom_data_list;
-   Eina_List            *pending_commit_zoom_data_list;
-   tbm_surface_queue_h   zoom_tqueue;
-   tbm_surface_h         zoom_tsurface;
+   Eina_List            *pending_pp_data_list;
+   Eina_List            *pending_pp_commit_data_list;
+   tbm_surface_queue_h   pp_tqueue;
+   tbm_surface_h         pp_tsurface;
+   Eina_Bool             pp_set_info;
+   Eina_Bool             pp_set;
+   Eina_Bool             pp_commit;
+   Eina_Bool             skip_surface_set;
+
    Eina_Rectangle        zoom_rect;
-   Eina_Rectangle        zoom_rect_temp;
-   Eina_Bool             zoom_unset;
-   Eina_Bool             zoom_commit;
 
    /* current display information */
    struct
@@ -107,12 +105,6 @@ struct _E_Plane_Commit_Data {
    E_Plane_Renderer     *renderer;
    E_Client             *ec;
    E_Comp_Wl_Buffer_Ref  buffer_ref;
-};
-
-struct _E_Plane_Pp_Data {
-   E_Plane_Commit_Data *data;
-   E_Plane       *plane;
-   tbm_surface_h  zoom_tsurface;
 };
 
 struct _E_Event_Plane_Win_Change
@@ -142,7 +134,7 @@ EINTERN Eina_Bool            e_plane_is_unset_candidate(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_is_unset_try(E_Plane *plane);
 EINTERN void                 e_plane_unset_try_set(E_Plane *plane, Eina_Bool set);
 EINTERN Eina_Bool            e_plane_unset_commit_check(E_Plane *plane);
-EINTERN Eina_Bool            e_plane_zoom_commit(E_Plane *plane);
+EINTERN Eina_Bool            e_plane_pp_commit(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect);
 EINTERN void                 e_plane_zoom_unset(E_Plane *plane);
 
