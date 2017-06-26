@@ -1628,7 +1628,7 @@ e_policy_visibility_client_activate(E_Client *ec)
         l = eina_list_clone(ec->transients);
 
         EINA_LIST_FREE(l, child)
-           ret |= e_policy_visibility_client_activate(child);
+           ret |= e_policy_visibility_client_uniconify(child, EINA_TRUE);
      }
 
    /* TODO find topmost activity client and emit signal */
