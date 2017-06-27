@@ -104,6 +104,8 @@ struct _E_Comp_Wl_Remote_Source
    Eina_Bool deleted;
 
    int offscreen_ref;
+
+   Eina_Bool defer_img_save;
 };
 
 /* widget viewer or task-manager client */
@@ -166,6 +168,7 @@ static void _e_comp_wl_remote_buffer_cb_destroy(struct wl_listener *listener, vo
 static E_Comp_Wl_Remote_Buffer *_e_comp_wl_remote_buffer_get(struct wl_resource *remote_buffer_resource);
 static void _remote_surface_region_clear(E_Comp_Wl_Remote_Surface *remote_surface);
 static void _remote_surface_ignore_output_transform_send(E_Comp_Wl_Remote_Common *common);
+static void _remote_source_save_start(E_Comp_Wl_Remote_Source *source);
 
 static Ecore_Device *
 _device_get_by_identifier(const char *identifier)
@@ -859,7 +862,9 @@ _remote_source_destroy(E_Comp_Wl_Remote_Source *source)
 
    if (source->th)
      {
-        RSMDBG("thread is running. pending destroy", NULL, source->common.ec, "SOURCE", source);
+        RSMDBG("IMG save is cancelled. th:%p pending destroy",
+               source->common.ec->pixmap, source->common.ec, "SOURCE",
+               source, source->th);
         ecore_thread_cancel(source->th);
         source->deleted = EINA_TRUE;
         return;
@@ -977,8 +982,13 @@ _remote_source_save(void *data, Ecore_Thread *th)
    dest_path = _remote_source_image_data_save(td, dupdir, dupname);
    if (dest_path)
      {
+        RSMDBG("IMG save success. th:%p file:%s", NULL, ec, "SOURCE", NULL, th, dest_path);
         td->image_path = eina_stringshare_add(dest_path);
         free((void*)dest_path);
+     }
+   else
+     {
+        RSMDBG("IMG save failure. th:%p file:%s", NULL, ec, "SOURCE", NULL, th, dest_path);
      }
    free((void*)dupname);
    free((void*)dupdir);
@@ -998,6 +1008,8 @@ _remote_source_save_done(void *data, Ecore_Thread *th)
 
    source = _remote_source_find(ec);
    if (!source) goto end;
+
+   RSMDBG("IMG save DONE. th:%p", NULL, ec, "SOURCE", source, th);
 
    if (th == source->th)
      {
@@ -1044,6 +1056,7 @@ _remote_source_save_cancel(void *data, Ecore_Thread *th)
    Thread_Data *td = data;
    E_Client *ec;
    E_Comp_Wl_Remote_Source *source = NULL;
+   Eina_Bool del = EINA_FALSE;
 
    if (!td) return;
 
@@ -1053,8 +1066,8 @@ _remote_source_save_cancel(void *data, Ecore_Thread *th)
    source = _remote_source_find(ec);
    if (!source) goto end;
 
-   RSMDBG("Source save CANCELED", source->common.ec->pixmap, source->common.ec,
-          "SOURCE", source);
+   RSMDBG("IMG save CANCELED. th:%p %s", source->common.ec->pixmap, source->common.ec,
+          "SOURCE", source, th, td->image_path);
 
    if (th == source->th)
      {
@@ -1066,7 +1079,10 @@ _remote_source_save_cancel(void *data, Ecore_Thread *th)
      ecore_file_remove(td->image_path);
 
    if (source->deleted)
-     _remote_source_destroy(source);
+     {
+        _remote_source_destroy(source);
+        del = EINA_TRUE;
+     }
 end:
    if (ec)
      e_object_unref(E_OBJECT(ec));
@@ -1077,6 +1093,16 @@ end:
 
    eina_stringshare_del(td->image_path);
    E_FREE(td);
+
+   if ((!del) && (source))
+     {
+        if (source->defer_img_save)
+          {
+             RSMDBG("IMG save retry", NULL, source->common.ec, "SOURCE", source);
+             _remote_source_save_start(source);
+             source->defer_img_save = EINA_FALSE;
+          }
+     }
 }
 
 static void
@@ -1100,7 +1126,12 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
    td->ec = ec;
 
    if (source->th)
-     ecore_thread_cancel(source->th);
+     {
+        RSMDBG("IMG prev save is cancelled. th:%p",
+               source->common.ec->pixmap, source->common.ec->pixmap, "SOURCE",
+               source, source->th);
+        ecore_thread_cancel(source->th);
+     }
 
    e_comp_wl_buffer_reference(&source->buffer_ref, buffer);
    switch (buffer->type)
@@ -1138,6 +1169,7 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
                                  _remote_source_save_done,
                                  _remote_source_save_cancel,
                                  td);
+   RSMDBG("IMG save START. th:%p", ec->pixmap, ec, "SOURCE", source, source->th);
    return;
 end:
    e_comp_wl_buffer_reference(&source->buffer_ref, NULL);
@@ -2442,7 +2474,13 @@ _e_comp_wl_remote_surface_source_update(E_Comp_Wl_Remote_Source *source, E_Comp_
    if ((!source) || (!buffer)) return;
 
    if (source->th)
-     ecore_thread_cancel(source->th);
+     {
+        RSMDBG("IMG save is cancelled. th:%p Save job will be triggered later.",
+               source->common.ec->pixmap, source->common.ec, "SOURCE",
+               source, source->th);
+        ecore_thread_cancel(source->th);
+        source->defer_img_save = EINA_TRUE;
+     }
 
    EINA_LIST_FOREACH(source->common.surfaces, l, remote_surface)
      {
