@@ -175,6 +175,7 @@ struct _E_Config
    double conformant_ack_timeout;
    Eina_Bool calc_vis_without_effect;
    Eina_Bool save_win_buffer;
+   Eina_Bool hold_prev_win_img;
    const char *indicator_plug_name;
    Eina_Bool launchscreen_without_timer;
    int log_type;

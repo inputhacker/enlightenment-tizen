@@ -889,8 +889,11 @@ _remote_source_destroy(E_Comp_Wl_Remote_Source *source)
    /* is it ok without client's ack ?*/
    if (source->image_path)
      {
-        RSMDBG("delete image %s", NULL, source->common.ec, "SOURCE", source, source->image_path);
-        ecore_file_remove(source->image_path);
+        if (!e_config->hold_prev_win_img)
+          {
+             RSMDBG("IMG del %s", NULL, source->common.ec, "SOURCE", source, source->image_path);
+             ecore_file_remove(source->image_path);
+          }
         eina_stringshare_del(source->image_path);
      }
 
@@ -1038,14 +1041,22 @@ _remote_source_save_done(void *data, Ecore_Thread *th)
         /* remove previous file */
         if ((source->image_path) && (e_util_strcmp(source->image_path, td->image_path)))
           {
-             ecore_file_remove(source->image_path);
+             if (!e_config->hold_prev_win_img)
+               {
+                  RSMDBG("IMG del %s", ec->pixmap, ec, "SOURCE", source, source->image_path);
+                  ecore_file_remove(source->image_path);
+               }
              eina_stringshare_del(source->image_path);
           }
         source->image_path = eina_stringshare_add(td->image_path);
         _remote_source_send_image_update(source);
      }
    else
-     ecore_file_remove(td->image_path);
+     {
+        RSMDBG("IMG not matched. del. src:%s td:%s", ec->pixmap, ec, "SOURCE",
+               source, source->image_path, td->image_path);
+        ecore_file_remove(td->image_path);
+     }
 end:
    if (ec)
      e_object_unref(E_OBJECT(ec));
@@ -1083,8 +1094,14 @@ _remote_source_save_cancel(void *data, Ecore_Thread *th)
         e_comp_wl_buffer_reference(&source->buffer_ref, NULL);
      }
 
-   if (td->image_path)
-     ecore_file_remove(td->image_path);
+   if (!e_config->hold_prev_win_img)
+     {
+        if (td->image_path)
+          {
+             RSMDBG("IMG del %s", NULL, source->common.ec, "SOURCE", source, td->image_path);
+             ecore_file_remove(td->image_path);
+          }
+     }
 
    if (source->deleted)
      {
