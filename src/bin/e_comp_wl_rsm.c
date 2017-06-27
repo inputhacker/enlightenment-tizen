@@ -975,12 +975,16 @@ _remote_source_save(void *data, Ecore_Thread *th)
    if (!(run_dir = getenv("XDG_RUNTIME_DIR")))
      return;
 
-   snprintf(dest_dir, sizeof(dest_dir), "%s/.enlightenment", run_dir);
+   snprintf(dest_dir, sizeof(dest_dir), "%s/.e-img", run_dir);
    if (!ecore_file_exists(dest_dir))
      ecore_file_mkdir(dest_dir);
    dupdir = strdup(dest_dir);
 
-   snprintf(name, sizeof(name), "e-window-image_0x%08x", (unsigned int)ec);
+   snprintf(name, sizeof(name),
+            "win_%d_%u",
+            ec->netwm.pid,
+            e_pixmap_res_id_get(ec->pixmap));
+
    dupname = strdup(name);
 
    dest_path = _remote_source_image_data_save(td, dupdir, dupname);
