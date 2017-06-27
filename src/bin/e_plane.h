@@ -76,6 +76,8 @@ struct _E_Plane
 
    E_Plane_Role          role;
 
+   Eina_Bool             skip_surface_set;
+
    /* current display information */
    struct
    {

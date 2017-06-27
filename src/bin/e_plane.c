@@ -85,6 +85,9 @@ _e_plane_surface_unset(E_Plane *plane)
    tdm_layer *tlayer = plane->tlayer;
    tdm_error error;
 
+   /* skip the set the surface to the tdm layer */
+   if (plane->skip_surface_set) return EINA_TRUE;
+
    if (plane_trace_debug)
       ELOGF("E_PLANE", "Unset   Plane(%p) zpos(%d)", NULL, NULL, plane, plane->zpos);
 
@@ -219,6 +222,9 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
    E_Client *ec = plane->ec;
    unsigned int aligned_width;
    int dst_x, dst_y, dst_w, dst_h;
+
+   /* skip the set the surface to the tdm layer */
+   if (plane->skip_surface_set) return EINA_TRUE;
 
    /* set layer when the layer infomation is different from the previous one */
    tbm_surface_get_info(tsurface, &surf_info);
@@ -640,6 +646,7 @@ e_plane_new(E_Output *output, int index)
    tdm_layer_get_zpos(tlayer, &zpos);
    plane->zpos = zpos;
    plane->output = output;
+   plane->skip_surface_set = EINA_FALSE;
 
    tdm_err = tdm_layer_get_buffer_flags(plane->tlayer, &buffer_flags);
    if (tdm_err == TDM_ERROR_NONE)
