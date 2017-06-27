@@ -45,6 +45,7 @@ static Eina_Bool         _e_vis_ec_activity_check(E_Client *ec, Eina_Bool check_
 static void              _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type);
 static void              _e_vis_ec_setup(E_Client *ec);
 static void              _e_vis_ec_reset(E_Client *ec);
+static Eina_Bool         _e_vis_ec_above_is_non_alpha_visible(E_Client *ec, Eina_Bool check_child);
 static Eina_Bool         _e_vis_ec_below_uniconify(E_Client *ec);
 static void              _e_vis_cb_child_launch_done(void *data, Evas_Object *obj, const char *signal, const char *source);
 static void              _e_vis_update_foreground_job_queue(void);
@@ -874,7 +875,10 @@ _e_vis_client_grab_clear_cb(void *data)
    VS_INF(grab->vc->ec, "FORCE CLEAR! Grab %s, cur state:%d", grab->name, grab->vc->state);
 
    if (grab->vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY)
-     _e_vis_ec_below_uniconify(grab->vc->ec);
+     {
+        if (!_e_vis_ec_above_is_non_alpha_visible(grab->vc->ec, EINA_FALSE))
+          _e_vis_ec_below_uniconify(grab->vc->ec);
+     }
 
    grab->deleted = 1;
    _e_vis_client_grab_remove(grab->vc, grab);
@@ -1186,7 +1190,7 @@ _e_vis_ec_foreground_check(E_Client *ec, Eina_Bool with_transients)
 }
 
 static Eina_Bool
-_e_vis_ec_above_is_non_alpha_visible(E_Client *ec)
+_e_vis_ec_above_is_non_alpha_visible(E_Client *ec, Eina_Bool check_child)
 {
    E_Client *above;
    Eina_Bool is_non_alpha_visible = EINA_FALSE;
@@ -1195,6 +1199,7 @@ _e_vis_ec_above_is_non_alpha_visible(E_Client *ec)
      {
         if (e_client_util_ignored_get(above)) continue;
         if (!E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h)) continue;
+        if (check_child && (above->parent == ec)) continue;
 
         if (above->visibility.obscured == E_VISIBILITY_UNOBSCURED)
           {
@@ -1212,9 +1217,6 @@ static void
 _e_vis_ec_below_activity_clients_get(E_Client *ec, Eina_List **below_list)
 {
    E_Client *below;
-
-   if (_e_vis_ec_above_is_non_alpha_visible(ec))
-     return;
 
    for (below = e_client_below_get(ec); below; below = e_client_below_get(below))
      {
@@ -1404,6 +1406,12 @@ _e_vis_intercept_hide(void *data EINA_UNUSED, E_Client *ec)
         return EINA_TRUE;
      }
 
+   if (_e_vis_ec_above_is_non_alpha_visible(ec, EINA_FALSE))
+     {
+        VS_DBG(ec, "Obscured by above window.");
+        return EINA_TRUE;
+     }
+
    if (!_e_vis_ec_below_uniconify(ec))
      {
         VS_DBG(ec, "Failed to uniconify below client");
@@ -1526,6 +1534,12 @@ e_policy_visibility_client_lower(E_Client *ec)
         return EINA_FALSE;
      }
 
+   if (_e_vis_ec_above_is_non_alpha_visible(ec, EINA_TRUE))
+     {
+        VS_DBG(ec, "Obscured by above window.");
+        return EINA_FALSE;
+     }
+
    if (!_e_vis_ec_below_uniconify(ec))
      {
         VS_DBG(ec, "Failed to uniconify below client");
@@ -1552,6 +1566,12 @@ e_policy_visibility_client_iconify(E_Client *ec)
    if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.iconify))
      {
         VS_INF(ec, "NO activity clients");
+        return EINA_FALSE;
+     }
+
+   if (_e_vis_ec_above_is_non_alpha_visible(ec, EINA_TRUE))
+     {
+        VS_DBG(ec, "Obscured by above window.");
         return EINA_FALSE;
      }
 
@@ -1649,6 +1669,12 @@ e_policy_visibility_client_layer_lower(E_Client *ec, E_Layer layer)
    if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.lower))
      {
         VS_INF(ec, "NO activity clients");
+        return EINA_FALSE;
+     }
+
+   if (_e_vis_ec_above_is_non_alpha_visible(ec, EINA_TRUE))
+     {
+        VS_DBG(ec, "Obscured by above window.");
         return EINA_FALSE;
      }
 
