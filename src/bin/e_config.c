@@ -280,6 +280,7 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, conformant_ack_timeout, DOUBLE);
    E_CONFIG_VAL(D, T, calc_vis_without_effect, UCHAR);
    E_CONFIG_VAL(D, T, save_win_buffer, UCHAR);
+   E_CONFIG_VAL(D, T, hold_prev_win_img, UCHAR);
    E_CONFIG_VAL(D, T, indicator_plug_name, STR);
    E_CONFIG_VAL(D, T, launchscreen_without_timer, UCHAR);
    E_CONFIG_VAL(D, T, log_type, INT);
@@ -496,6 +497,7 @@ e_config_load(void)
    E_CONFIG_LIMIT(e_config->conformant_ack_timeout, 3.0, 100.0);
    E_CONFIG_LIMIT(e_config->calc_vis_without_effect, 0, 1);
    E_CONFIG_LIMIT(e_config->save_win_buffer, 0, 1);
+   E_CONFIG_LIMIT(e_config->hold_prev_win_img, 0, 1);
    E_CONFIG_LIMIT(e_config->launchscreen_without_timer, 0, 1);
    E_CONFIG_LIMIT(e_config->log_type, 0, 255);
 }
