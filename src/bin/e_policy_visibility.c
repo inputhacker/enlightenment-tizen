@@ -1225,6 +1225,10 @@ _e_vis_ec_below_activity_clients_get(E_Client *ec, Eina_List **below_list)
         E_VIS_CLIENT_GET(vc, below);
         if (!vc) continue;
 
+        if ((below->transient_policy == E_TRANSIENT_BELOW) &&
+            (below->parent == ec))
+          continue;
+
         *below_list = eina_list_prepend(*below_list, vc);
         if ((below->argb) && (below->visibility.opaque <= 0))
           continue;

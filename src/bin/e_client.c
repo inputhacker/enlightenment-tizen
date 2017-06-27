@@ -1995,7 +1995,8 @@ _e_client_cb_evas_restack(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA
              /* Don't stack iconic transients. If the user wants these shown,
               * that's another option.
               */
-             if (child->iconic) continue;
+             if (child->iconic && child->exp_iconify.by_client) continue;
+
              if (child->transient_policy == E_TRANSIENT_ABOVE)
                {
                   if (below)
@@ -2889,8 +2890,11 @@ _e_client_transient_for_group_make(E_Client *ec, Eina_List **list)
              if (!child) continue;
              if (!child->iconic)
                {
-                  *list = eina_list_prepend(*list, child);
-                  _e_client_transient_for_group_make(child, list);
+                  if (child->transient_policy == E_TRANSIENT_ABOVE)
+                    {
+                       *list = eina_list_prepend(*list, child);
+                       _e_client_transient_for_group_make(child, list);
+                    }
                }
           }
      }
@@ -5383,6 +5387,22 @@ e_client_uniconify(E_Client *ec)
    desk = e_desk_current_get(ec->desk->zone);
    e_client_desk_set(ec, desk);
    not_raise = ec->exp_iconify.not_raise;
+
+   if (e_config->transient.iconify)
+     {
+        E_Client *child;
+        Eina_List *list = eina_list_clone(ec->transients);
+
+        EINA_LIST_FREE(list, child)
+          {
+             if (child->transient_policy == E_TRANSIENT_BELOW)
+               {
+                  child->exp_iconify.not_raise = not_raise;
+                  e_client_uniconify(child);
+               }
+          }
+     }
+
    if (!not_raise)
      evas_object_raise(ec->frame);
 
@@ -5412,8 +5432,11 @@ e_client_uniconify(E_Client *ec)
 
         EINA_LIST_FREE(list, child)
           {
-             child->exp_iconify.not_raise = not_raise;
-             e_client_uniconify(child);
+             if (child->transient_policy == E_TRANSIENT_ABOVE)
+               {
+                  child->exp_iconify.not_raise = not_raise;
+                  e_client_uniconify(child);
+               }
           }
      }
 
