@@ -137,17 +137,59 @@ _e_plane_ev(E_Plane *ep, int type)
 }
 
 static Eina_Bool
-_e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
+_e_plane_tlayer_info_set(E_Plane *plane, unsigned int size_w, unsigned int size_h,
+                         unsigned int src_x, unsigned int src_y, unsigned int src_w, unsigned int src_h,
+                         unsigned int dst_x, unsigned int dst_y, unsigned int dst_w, unsigned int dst_h,
+                         tdm_transform transform)
 {
-   tbm_surface_info_s surf_info;
-   tdm_error error;
-   tdm_layer *tlayer = plane->tlayer;
-   E_Output *output = plane->output;
-   E_Client *ec = plane->ec;
-   int aligned_width;
-   int dst_pos_x, dst_pos_y;
+   if (plane_trace_debug)
+     {
+        ELOGF("E_PLANE", "Set  Plane(%p)     (%dx%d,[%d,%d,%d,%d]=>[%d,%d,%d,%d])",
+              NULL, NULL, plane,
+              plane->info.src_config.size.h, plane->info.src_config.size.v,
+              plane->info.src_config.pos.x, plane->info.src_config.pos.y,
+              plane->info.src_config.pos.w, plane->info.src_config.pos.h,
+              plane->info.dst_pos.x, plane->info.dst_pos.y,
+              plane->info.dst_pos.w, plane->info.dst_pos.h);
+     }
 
-   /* set layer when the layer infomation is different from the previous one */
+   if (plane->info.src_config.size.h != size_w ||
+       plane->info.src_config.size.v != size_h ||
+       plane->info.src_config.pos.x != src_x ||
+       plane->info.src_config.pos.y != src_y ||
+       plane->info.src_config.pos.w != src_w ||
+       plane->info.src_config.pos.h != src_h ||
+       plane->info.dst_pos.x != dst_x ||
+       plane->info.dst_pos.y != dst_y ||
+       plane->info.dst_pos.w != dst_w ||
+       plane->info.dst_pos.h != dst_h ||
+       plane->info.transform != transform)
+     {
+        /* change the information at plane->info */
+        plane->info.src_config.size.h = size_w;
+        plane->info.src_config.size.v = size_h;
+        plane->info.src_config.pos.x = src_x;
+        plane->info.src_config.pos.y = src_y;
+        plane->info.src_config.pos.w = src_w;
+        plane->info.src_config.pos.h = src_h;
+        plane->info.dst_pos.x = dst_x;
+        plane->info.dst_pos.y = dst_y;
+        plane->info.dst_pos.w = dst_w;
+        plane->info.dst_pos.h = dst_h;
+        plane->info.transform = transform;
+
+        return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
+static unsigned int
+_e_plane_aligned_width_get(tbm_surface_h tsurface)
+{
+   unsigned int aligned_width = 0;
+   tbm_surface_info_s surf_info;
+
    tbm_surface_get_info(tsurface, &surf_info);
 
    switch (surf_info.format)
@@ -170,8 +212,27 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
         break;
       default:
         ERR("not supported format: %x", surf_info.format);
-        return EINA_FALSE;
      }
+
+   return aligned_width;
+}
+
+static Eina_Bool
+_e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
+{
+   tbm_surface_info_s surf_info;
+   tdm_error error;
+   tdm_layer *tlayer = plane->tlayer;
+   E_Output *output = plane->output;
+   E_Client *ec = plane->ec;
+   unsigned int aligned_width;
+   int dst_x, dst_y, dst_w, dst_h;
+
+   /* set layer when the layer infomation is different from the previous one */
+   tbm_surface_get_info(tsurface, &surf_info);
+
+   aligned_width = _e_plane_aligned_width_get(tsurface);
+   if (aligned_width == 0) return EINA_FALSE;
 
    if (ec)
      {
@@ -184,13 +245,13 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
                   return EINA_FALSE;
                }
 
-             dst_pos_x = pointer->x - pointer->hot.x;
-             dst_pos_y = pointer->y - pointer->hot.y;
+             dst_x = pointer->x - pointer->hot.x;
+             dst_y = pointer->y - pointer->hot.y;
           }
         else
           {
-             dst_pos_x = ec->x;
-             dst_pos_y = ec->y;
+             dst_x = ec->x;
+             dst_y = ec->y;
           }
 
         /* if output is transformed, the position of a buffer on screen should be also
@@ -202,87 +263,35 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
              e_pixmap_size_get(ec->pixmap, &bw, &bh);
              e_comp_wl_rect_convert(ec->zone->w, ec->zone->h,
                                     output->config.rotation / 90, 1,
-                                    dst_pos_x, dst_pos_y, bw, bh,
-                                    &dst_pos_x, &dst_pos_y, NULL, NULL);
+                                    dst_x, dst_y, bw, bh,
+                                    &dst_x, &dst_y, NULL, NULL);
           }
-
-        if (plane->info.src_config.size.h != aligned_width ||
-            plane->info.src_config.size.v != surf_info.height ||
-            plane->info.src_config.pos.x != 0 ||
-            plane->info.src_config.pos.y != 0 ||
-            plane->info.src_config.pos.w != surf_info.width ||
-            plane->info.src_config.pos.h != surf_info.height ||
-            plane->info.dst_pos.x != dst_pos_x ||
-            plane->info.dst_pos.y != dst_pos_y ||
-            plane->info.dst_pos.w != surf_info.width ||
-            plane->info.dst_pos.h != surf_info.height ||
-            plane->info.transform != TDM_TRANSFORM_NORMAL)
-          {
-             plane->info.src_config.size.h = aligned_width;
-             plane->info.src_config.size.v = surf_info.height;
-             plane->info.src_config.pos.x = 0;
-             plane->info.src_config.pos.y = 0;
-             plane->info.src_config.pos.w = surf_info.width;
-             plane->info.src_config.pos.h = surf_info.height;
-             plane->info.dst_pos.x = dst_pos_x;
-             plane->info.dst_pos.y = dst_pos_y;
-             plane->info.dst_pos.w = surf_info.width;
-             plane->info.dst_pos.h = surf_info.height;
-             plane->info.transform = TDM_TRANSFORM_NORMAL;
-
-             error = tdm_layer_set_info(tlayer, &plane->info);
-             if (error != TDM_ERROR_NONE)
-               {
-                  ERR("fail to tdm_layer_set_info");
-                  return EINA_FALSE;
-               }
-          }
+        dst_w = surf_info.width;
+        dst_h = surf_info.height;
      }
    else
      {
-        if (plane->info.src_config.size.h != aligned_width ||
-            plane->info.src_config.size.v != surf_info.height ||
-            plane->info.src_config.pos.x != 0 ||
-            plane->info.src_config.pos.y != 0 ||
-            plane->info.src_config.pos.w != surf_info.width ||
-            plane->info.src_config.pos.h != surf_info.height ||
-            plane->info.dst_pos.x != output->config.geom.x ||
-            plane->info.dst_pos.y != output->config.geom.y ||
-            plane->info.dst_pos.w != output->config.geom.w ||
-            plane->info.dst_pos.h != output->config.geom.h ||
-            plane->info.transform != TDM_TRANSFORM_NORMAL)
-          {
-             plane->info.src_config.size.h = aligned_width;
-             plane->info.src_config.size.v = surf_info.height;
-             plane->info.src_config.pos.x = 0;
-             plane->info.src_config.pos.y = 0;
-             plane->info.src_config.pos.w = surf_info.width;
-             plane->info.src_config.pos.h = surf_info.height;
-             plane->info.dst_pos.x = output->config.geom.x;
-             plane->info.dst_pos.y = output->config.geom.y;
-             plane->info.dst_pos.w = output->config.geom.w;
-             plane->info.dst_pos.h = output->config.geom.h;
-             plane->info.transform = TDM_TRANSFORM_NORMAL;
+        dst_x = output->config.geom.x;
+        dst_y = output->config.geom.y;
+        dst_w = output->config.geom.w;
+        dst_h = output->config.geom.h;
+     }
 
-             error = tdm_layer_set_info(tlayer, &plane->info);
-             if (error != TDM_ERROR_NONE)
-               {
-                  ERR("fail to tdm_layer_set_info");
-                  return EINA_FALSE;
-               }
+   if (_e_plane_tlayer_info_set(plane, aligned_width, surf_info.height,
+                                0, 0, surf_info.width, surf_info.height,
+                                dst_x, dst_y, dst_w, dst_h,
+                                TDM_TRANSFORM_NORMAL))
+     {
+        error = tdm_layer_set_info(tlayer, &plane->info);
+        if (error != TDM_ERROR_NONE)
+          {
+             ERR("fail to tdm_layer_set_info");
+             return EINA_FALSE;
           }
      }
 
-   if (plane_trace_debug)
-     {
-        ELOGF("E_PLANE", "Set     Plane(%p) zpos(%d)   tsurface(%p) (%dx%d,[%d,%d,%d,%d]=>[%d,%d,%d,%d])",
-              NULL, NULL, plane, plane->zpos, tsurface,
-              plane->info.src_config.size.h, plane->info.src_config.size.h,
-              plane->info.src_config.pos.x, plane->info.src_config.pos.y,
-              plane->info.src_config.pos.w, plane->info.src_config.pos.h,
-              plane->info.dst_pos.x, plane->info.dst_pos.y,
-              plane->info.dst_pos.w, plane->info.dst_pos.h);
-     }
+  if (plane_trace_debug)
+     ELOGF("E_PLANE", "Set  Plane(%p)     tsurface(%p)", NULL, NULL, plane, tsurface);
 
    error = tdm_layer_set_buffer(tlayer, tsurface);
    if (error != TDM_ERROR_NONE)
