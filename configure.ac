@@ -487,6 +487,9 @@ AM_CONDITIONAL([HAVE_WAYLAND_TBM], [test "x${have_wayland_tbm}" = "xyes"])
 AM_CONDITIONAL([HAVE_REMOTE_SURFACE], [test "x${have_remote_surface}" = "xyes"])
 AM_CONDITIONAL([HAVE_HWC], [test "x${have_hwc}" = "xyes"])
 
+#pixman
+PKG_CHECK_MODULES([PIXMAN], [pixman-1])
+
 #capi-system-device
 PKG_CHECK_MODULES([CAPI_SYSTEM_DEVICE],
                   [capi-system-device])

@@ -7,6 +7,8 @@
 #include <tbm_surface_internal.h>
 #include <wayland-tbm-server.h>
 
+#include <pixman.h>
+
 #define RSMINF(f, cp, ec, obj, ptr, x...)                            \
    do                                                                \
      {                                                               \
@@ -840,6 +842,8 @@ typedef struct {
      struct wl_shm_pool *shm_pool;
      tbm_surface_h tbm_surface;
 
+     uint32_t transform;
+
      const char *image_path;
      E_Client *ec;
 } Thread_Data;
@@ -900,11 +904,119 @@ _remote_source_destroy(E_Comp_Wl_Remote_Source *source)
    E_FREE(source);
 }
 
+static pixman_format_code_t
+_remote_source_image_data_pixman_format_get_from_tbm_surface(tbm_format format)
+{
+   switch(format)
+     {
+      case TBM_FORMAT_ARGB8888: return PIXMAN_a8r8g8b8;
+      case TBM_FORMAT_XRGB8888: return PIXMAN_x8r8g8b8;
+      default:                  return PIXMAN_x8r8g8b8;
+     }
+   return PIXMAN_x8r8g8b8;
+}
+
+static pixman_format_code_t
+_remote_source_image_data_pixman_format_get_from_shm_buffer(uint32_t format)
+{
+   switch(format)
+     {
+      case WL_SHM_FORMAT_ARGB8888: return PIXMAN_a8r8g8b8;
+      case WL_SHM_FORMAT_XRGB8888: return PIXMAN_x8r8g8b8;
+      default:                     return PIXMAN_x8r8g8b8;
+     }
+   return PIXMAN_x8r8g8b8;
+}
+
+static tbm_surface_h
+_remote_source_image_data_transform(Thread_Data *td, int w, int h)
+{
+   tbm_surface_h transform_surface = NULL;
+   tbm_surface_info_s info;
+   int tw = 0, th = 0;
+   pixman_image_t *src_img = NULL, *dst_img = NULL;
+   pixman_format_code_t src_format, dst_format;
+   pixman_transform_t t;
+   struct pixman_f_transform ft;
+   unsigned char *src_ptr = NULL, *dst_ptr = NULL;
+   int c = 0, s = 0, tx = 0, ty = 0;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(td, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(td->tbm_surface, NULL);
+
+   if (td->transform == WL_OUTPUT_TRANSFORM_NORMAL || td->transform > WL_OUTPUT_TRANSFORM_270) return NULL;
+
+   if (td->tbm_surface)
+     {
+        src_format = _remote_source_image_data_pixman_format_get_from_tbm_surface(tbm_surface_get_format(td->tbm_surface));
+        dst_format = src_format;
+
+        tbm_surface_map(td->tbm_surface, TBM_SURF_OPTION_READ|TBM_SURF_OPTION_WRITE, &info);
+        src_ptr = info.planes[0].ptr;
+
+        src_img = pixman_image_create_bits(src_format, w, h, (uint32_t*)src_ptr, info.planes[0].stride);
+        EINA_SAFETY_ON_NULL_GOTO(src_img, error_case);
+     }
+   else if (td->shm_buffer)
+     {
+        src_format = _remote_source_image_data_pixman_format_get_from_shm_buffer(wl_shm_buffer_get_format(td->shm_buffer));
+        dst_format = src_format;
+
+        src_ptr = wl_shm_buffer_get_data(td->shm_buffer);
+        src_img = pixman_image_create_bits(src_format, w, h, (uint32_t*)src_ptr, w * 4);
+        EINA_SAFETY_ON_NULL_GOTO(src_img, error_case);
+     }
+
+   if (td->transform == WL_OUTPUT_TRANSFORM_90)
+     {
+        c = 0, s = -1, tx = -w;
+        tw = h, th = w;
+     }
+   else if (td->transform == WL_OUTPUT_TRANSFORM_180)
+     {
+        c = -1, s = 0, tx = -w, ty = -h;
+        tw = w, th = h;
+     }
+   else if (td->transform == WL_OUTPUT_TRANSFORM_270)
+     {
+        c = 0, s = 1, ty = -h;
+        tw = h, th = w;
+     }
+
+   transform_surface = tbm_surface_create(tw, th, tbm_surface_get_format(td->tbm_surface));
+   EINA_SAFETY_ON_NULL_GOTO(transform_surface, error_case);
+
+   tbm_surface_map(transform_surface, TBM_SURF_OPTION_READ|TBM_SURF_OPTION_WRITE, &info);
+   dst_ptr = info.planes[0].ptr;
+
+   dst_img = pixman_image_create_bits(dst_format, tw, th, (uint32_t*)dst_ptr, info.planes[0].stride);
+   EINA_SAFETY_ON_NULL_GOTO(dst_img, error_case);
+
+   pixman_f_transform_init_identity(&ft);
+   pixman_f_transform_translate(&ft, NULL, tx, ty);
+   pixman_f_transform_rotate(&ft, NULL, c, s);
+
+   pixman_transform_from_pixman_f_transform(&t, &ft);
+   pixman_image_set_transform(src_img, &t);
+
+   pixman_image_composite(PIXMAN_OP_SRC, src_img, NULL, dst_img, 0, 0, 0, 0, 0, 0, w, h);
+
+error_case:
+
+   if (src_img) pixman_image_unref(src_img);
+   if (dst_img) pixman_image_unref(dst_img);
+
+   if (src_ptr && td->tbm_surface) tbm_surface_unmap(td->tbm_surface);
+   if (dst_ptr) tbm_surface_unmap(transform_surface);
+
+   return transform_surface;
+}
+
 static const char *
 _remote_source_image_data_save(Thread_Data *td, const char *path, const char *name)
 {
    struct wl_shm_buffer *shm_buffer = NULL;
-   tbm_surface_h tbm_surface = NULL;
+   tbm_surface_h tbm_surface = NULL, transform_surface = NULL;
    int w, h, stride;
    void *ptr;
    char dest[2048], fname[2048];
@@ -928,26 +1040,53 @@ _remote_source_image_data_save(Thread_Data *td, const char *path, const char *na
 
    if (shm_buffer)
      {
-         ptr = wl_shm_buffer_get_data(shm_buffer);
-         EINA_SAFETY_ON_NULL_RETURN_VAL(ptr, NULL);
-
          stride = wl_shm_buffer_get_stride(shm_buffer);
          w = stride / 4;
          h = wl_shm_buffer_get_height(shm_buffer);
 
+         transform_surface = _remote_source_image_data_transform(td, w, h);
+         if (transform_surface)
+           {
+              tbm_surface_info_s info;
+              tbm_surface_map(transform_surface, TBM_SURF_OPTION_READ|TBM_SURF_OPTION_WRITE, &info);
+              ptr = info.planes[0].ptr;
+           }
+         else
+           {
+              ptr = wl_shm_buffer_get_data(shm_buffer);
+              EINA_SAFETY_ON_NULL_RETURN_VAL(ptr, NULL);
+           }
+
          dupname = strdup(fname);
          ret = tbm_surface_internal_capture_shm_buffer(ptr, w, h, stride, path, dupname, "png");
+
+         if (transform_surface)
+           {
+              tbm_surface_unmap(transform_surface);
+              tbm_surface_destroy(transform_surface);
+           }
+
          free((void*)dupname);
          if (!ret)
            return NULL;
      }
    else if (tbm_surface)
      {
+         transform_surface = _remote_source_image_data_transform(td, tbm_surface_get_width(tbm_surface), tbm_surface_get_height(tbm_surface));
+         if (transform_surface)
+           tbm_surface = transform_surface;
+
+         RSMDBG("image save. transform_surface=%p transform=%d", td->ec->pixmap, td->ec, "SOURCE", NULL, transform_surface, td->transform);
+
          w = tbm_surface_get_width(tbm_surface);
          h = tbm_surface_get_height(tbm_surface);
 
          dupname = strdup(fname);
          ret = tbm_surface_internal_capture_buffer(tbm_surface, path, dupname, "png");
+
+         if (transform_surface)
+           tbm_surface_destroy(transform_surface);
+
          free((void*)dupname);
          if (!ret)
            return NULL;
@@ -1157,6 +1296,14 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
                source, source->th);
         ecore_thread_cancel(source->th);
      }
+
+   if (ec->comp_data)
+     {
+        E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
+        td->transform = vp->buffer.transform;
+     }
+   else
+     td->transform = 0;
 
    e_comp_wl_buffer_reference(&source->buffer_ref, buffer);
    switch (buffer->type)
