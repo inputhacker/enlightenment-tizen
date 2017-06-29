@@ -498,6 +498,8 @@ fi
 
 AM_CONDITIONAL([HAVE_SYSTEMD], [test "x${have_systemd}" = "xyes"])
 
+#pixman
+PKG_CHECK_MODULES([PIXMAN], [pixman-1])
 
 #capi-system-device
 PKG_CHECK_MODULES([CAPI_SYSTEM_DEVICE],
