@@ -1,5 +1,5 @@
-#ifndef _E_DEVICEMGR_PRIVATE_H_
-#define _E_DEVICEMGR_PRIVATE_H_
+#ifndef _E_COMP_WL_PRIVATE_H_
+#define _E_COMP_WL_PRIVATE_H_
 
 #include "e.h"
 #define LOG_TAG	"DEVICEMGR"
@@ -66,7 +66,7 @@ struct _E_Devicemgr_Config_Data
 };
 
 /* Functions for config data */
-void e_devicemgr_conf_init(E_Devicemgr_Config_Data *dconfig);
-void e_devicemgr_conf_fini(E_Devicemgr_Config_Data *dconfig);
+void e_comp_wl_conf_init(E_Devicemgr_Config_Data *dconfig);
+void e_comp_wl_conf_fini(E_Devicemgr_Config_Data *dconfig);
 
-#endif//_E_DEVICEMGR_PRIVATE_H_
+#endif//_E_COMP_WL_PRIVATE_H_

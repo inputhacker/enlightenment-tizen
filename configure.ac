@@ -285,6 +285,9 @@ e_requires="\
   eio >= $efl_version \
   eo >= $efl_version \
   libtbm \
+  libpng \
+  pixman-1 \
+  eom-server \
   libtdm >= "1.0.0" \
   "
 

@@ -180,6 +180,7 @@ struct _E_Config
    Eina_Bool launchscreen_without_timer;
    int log_type;
    int rsm_buffer_release_mode; /* 0:none, 1:release on free, 2:release on hide */
+   Eina_Bool eom_enable;
 };
 
 struct _E_Config_Desklock_Background

@@ -1,5 +1,10 @@
-#include "e_devicemgr_viewport.h"
-#include "e_devicemgr_buffer.h"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include "e.h"
+#include <wayland-server.h>
+#include <wayland-tbm-server.h>
 
 #define PER(fmt,arg...)   ERR("window(0x%08"PRIxPTR") ec(%p) epc(%p): "fmt, \
    viewport->window, viewport->ec, viewport->epc, ##arg)
@@ -80,9 +85,9 @@ typedef struct _E_Viewport {
    E_Comp_Wl_Hook *subsurf_hook_create;
 } E_Viewport;
 
-static E_Viewport* _e_devicemgr_viewport_get_viewport(struct wl_resource *resource);
-static void _e_devicemgr_viewport_cb_parent_resize(void *data, Evas *e, Evas_Object *obj, void *event_info);
-static void _e_devicemgr_viewport_parent_check(E_Viewport *viewport);
+static E_Viewport* _e_comp_wl_viewport_get_viewport(struct wl_resource *resource);
+static void _e_comp_wl_viewport_cb_parent_resize(void *data, Evas *e, Evas_Object *obj, void *event_info);
+static void _e_comp_wl_viewport_parent_check(E_Viewport *viewport);
 
 static E_Client*
 _topmost_parent_get(E_Client *ec)
@@ -118,7 +123,7 @@ _destroy_viewport(E_Viewport *viewport)
    if (viewport->epc && viewport->query_parent_size)
      {
         evas_object_event_callback_del_full(viewport->epc->frame, EVAS_CALLBACK_RESIZE,
-                                            _e_devicemgr_viewport_cb_parent_resize, viewport);
+                                            _e_comp_wl_viewport_cb_parent_resize, viewport);
         viewport->epc = NULL;
      }
 
@@ -160,7 +165,7 @@ _subsurface_cb_create(void *data, E_Client *ec)
    if (EINA_UNLIKELY(!ec)) return;
    if (viewport->ec != ec) return;
 
-   _e_devicemgr_viewport_parent_check(viewport);
+   _e_comp_wl_viewport_parent_check(viewport);
 }
 
 static void
@@ -171,7 +176,7 @@ _client_cb_del(void *data, E_Client *ec)
    if (viewport->epc != ec) return;
 
    evas_object_event_callback_del(viewport->epc->frame, EVAS_CALLBACK_RESIZE,
-                                  _e_devicemgr_viewport_cb_parent_resize);
+                                  _e_comp_wl_viewport_cb_parent_resize);
    PIN("epc del");
    viewport->epc = NULL;
 }
@@ -185,7 +190,7 @@ _client_cb_move(void *data, E_Client *ec)
    if (ec != topmost && ec != viewport->epc) return;
 
    PDB("move start: topmost(%p)", topmost);
-   e_devicemgr_viewport_apply(topmost);
+   e_comp_wl_viewport_apply(topmost);
    PDB("move end");
 }
 
@@ -198,12 +203,12 @@ _client_cb_resize(void *data, E_Client *ec)
    if (ec != topmost && ec != viewport->epc) return;
 
    PDB("resize start: topmost(%p)", topmost);
-   e_devicemgr_viewport_apply(topmost);
+   e_comp_wl_viewport_apply(topmost);
    PDB("resize end");
 }
 
 static void
-_e_devicemgr_viewport_parent_check(E_Viewport *viewport)
+_e_comp_wl_viewport_parent_check(E_Viewport *viewport)
 {
    E_Client *ec = viewport->ec;
    E_Client *new_parent;
@@ -216,7 +221,7 @@ _e_devicemgr_viewport_parent_check(E_Viewport *viewport)
 
    if (viewport->epc)
       evas_object_event_callback_del(viewport->epc->frame, EVAS_CALLBACK_RESIZE,
-                                     _e_devicemgr_viewport_cb_parent_resize);
+                                     _e_comp_wl_viewport_cb_parent_resize);
 
    viewport->epc = new_parent;
 
@@ -226,11 +231,11 @@ _e_devicemgr_viewport_parent_check(E_Viewport *viewport)
 
    if (viewport->query_parent_size)
      evas_object_event_callback_add(viewport->epc->frame, EVAS_CALLBACK_RESIZE,
-                                    _e_devicemgr_viewport_cb_parent_resize, viewport);
+                                    _e_comp_wl_viewport_cb_parent_resize, viewport);
 }
 
 static void
-_e_devicemgr_viewport_set_changed(E_Viewport *viewport)
+_e_comp_wl_viewport_set_changed(E_Viewport *viewport)
 {
    E_Client *ec;
    E_Client *subc;
@@ -247,8 +252,8 @@ _e_devicemgr_viewport_set_changed(E_Viewport *viewport)
         if (!subc || !subc->comp_data || e_object_is_del(E_OBJECT(subc)))
           continue;
 
-        sub_viewport = _e_devicemgr_viewport_get_viewport(subc->comp_data->scaler.viewport);
-        _e_devicemgr_viewport_set_changed(sub_viewport);
+        sub_viewport = _e_comp_wl_viewport_get_viewport(subc->comp_data->scaler.viewport);
+        _e_comp_wl_viewport_set_changed(sub_viewport);
      }
 
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
@@ -256,13 +261,13 @@ _e_devicemgr_viewport_set_changed(E_Viewport *viewport)
         if (!subc || !subc->comp_data || e_object_is_del(E_OBJECT(subc)))
           continue;
 
-        sub_viewport = _e_devicemgr_viewport_get_viewport(subc->comp_data->scaler.viewport);
-        _e_devicemgr_viewport_set_changed(sub_viewport);
+        sub_viewport = _e_comp_wl_viewport_get_viewport(subc->comp_data->scaler.viewport);
+        _e_comp_wl_viewport_set_changed(sub_viewport);
      }
 }
 
 static void
-_e_devicemgr_destination_mode_destroy(struct wl_resource *resource)
+_e_comp_wl_destination_mode_destroy(struct wl_resource *resource)
 {
    E_Viewport *viewport = wl_resource_get_user_data(resource);
 
@@ -271,20 +276,20 @@ _e_devicemgr_destination_mode_destroy(struct wl_resource *resource)
    if (viewport->type == DESTINATION_TYPE_MODE)
      viewport->type = DESTINATION_TYPE_NONE;
 
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 
    PIN("destination.mode destroy");
 }
 
 static void
-_e_devicemgr_destination_mode_cb_destroy(struct wl_client *client,
+_e_comp_wl_destination_mode_cb_destroy(struct wl_client *client,
                                          struct wl_resource *resource)
 {
    wl_resource_destroy(resource);
 }
 
 static void
-_e_devicemgr_destination_mode_cb_follow_parent_transform(struct wl_client *client EINA_UNUSED,
+_e_comp_wl_destination_mode_cb_follow_parent_transform(struct wl_client *client EINA_UNUSED,
                                                          struct wl_resource *resource)
 {
    E_Viewport *viewport = wl_resource_get_user_data(resource);
@@ -297,11 +302,11 @@ _e_devicemgr_destination_mode_cb_follow_parent_transform(struct wl_client *clien
    PIN("follow_parent_transform");
 
    viewport->follow_parent_transform = EINA_TRUE;
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 }
 
 static void
-_e_devicemgr_destination_mode_cb_unfollow_parent_transform(struct wl_client *client EINA_UNUSED,
+_e_comp_wl_destination_mode_cb_unfollow_parent_transform(struct wl_client *client EINA_UNUSED,
                                                            struct wl_resource *resource)
 {
    E_Viewport *viewport = wl_resource_get_user_data(resource);
@@ -314,11 +319,11 @@ _e_devicemgr_destination_mode_cb_unfollow_parent_transform(struct wl_client *cli
    PIN("unfollow_parent_transform");
 
    viewport->follow_parent_transform = EINA_FALSE;
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 }
 
 static void
-_e_devicemgr_destination_mode_cb_set(struct wl_client *client,
+_e_comp_wl_destination_mode_cb_set(struct wl_client *client,
                                      struct wl_resource *resource,
                                      uint32_t type)
 {
@@ -341,11 +346,11 @@ _e_devicemgr_destination_mode_cb_set(struct wl_client *client,
    PIN("type(%d)", type);
 
    viewport->destination.mode.type = type;
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 }
 
 static void
-_e_devicemgr_destination_mode_cb_set_ratio(struct wl_client *client,
+_e_comp_wl_destination_mode_cb_set_ratio(struct wl_client *client,
                                            struct wl_resource *resource,
                                            wl_fixed_t horizontal,
                                            wl_fixed_t vertical)
@@ -362,7 +367,7 @@ _e_devicemgr_destination_mode_cb_set_ratio(struct wl_client *client,
      {
         PDB("reset destinatino ratio");
         viewport->destination.mode.ratio_h = ratio_h;
-        _e_devicemgr_viewport_set_changed(viewport);
+        _e_comp_wl_viewport_set_changed(viewport);
         return;
      }
 
@@ -380,11 +385,11 @@ _e_devicemgr_destination_mode_cb_set_ratio(struct wl_client *client,
 
    viewport->destination.mode.ratio_h = ratio_h;
    viewport->destination.mode.ratio_v = ratio_v;
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 }
 
 static void
-_e_devicemgr_destination_mode_cb_set_scale(struct wl_client *client,
+_e_comp_wl_destination_mode_cb_set_scale(struct wl_client *client,
                                            struct wl_resource *resource,
                                            wl_fixed_t horizontal,
                                            wl_fixed_t vertical)
@@ -401,7 +406,7 @@ _e_devicemgr_destination_mode_cb_set_scale(struct wl_client *client,
      {
         PDB("reset destinatino scale");
         viewport->destination.mode.scale_h = scale_h;
-        _e_devicemgr_viewport_set_changed(viewport);
+        _e_comp_wl_viewport_set_changed(viewport);
         return;
      }
 
@@ -419,11 +424,11 @@ _e_devicemgr_destination_mode_cb_set_scale(struct wl_client *client,
 
    viewport->destination.mode.scale_h = scale_h;
    viewport->destination.mode.scale_v = scale_v;
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 }
 
 static void
-_e_devicemgr_destination_mode_cb_set_align(struct wl_client *client,
+_e_comp_wl_destination_mode_cb_set_align(struct wl_client *client,
                                            struct wl_resource *resource,
                                            wl_fixed_t horizontal,
                                            wl_fixed_t vertical)
@@ -440,7 +445,7 @@ _e_devicemgr_destination_mode_cb_set_align(struct wl_client *client,
      {
         PDB("reset destinatino align");
         viewport->destination.mode.align_h = align_h;
-        _e_devicemgr_viewport_set_changed(viewport);
+        _e_comp_wl_viewport_set_changed(viewport);
         return;
      }
 
@@ -462,11 +467,11 @@ _e_devicemgr_destination_mode_cb_set_align(struct wl_client *client,
 
    viewport->destination.mode.align_h = align_h;
    viewport->destination.mode.align_v = align_v;
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 }
 
 static void
-_e_devicemgr_destination_mode_cb_set_offset(struct wl_client *client,
+_e_comp_wl_destination_mode_cb_set_offset(struct wl_client *client,
                                             struct wl_resource *resource,
                                             int32_t x,
                                             int32_t y,
@@ -489,23 +494,23 @@ _e_devicemgr_destination_mode_cb_set_offset(struct wl_client *client,
    viewport->destination.mode.offset_y = y;
    viewport->destination.mode.offset_w = w;
    viewport->destination.mode.offset_h = h;
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 }
 
-static const struct tizen_destination_mode_interface _e_devicemgr_destination_mode_interface =
+static const struct tizen_destination_mode_interface _e_comp_wl_destination_mode_interface =
 {
-   _e_devicemgr_destination_mode_cb_destroy,
-   _e_devicemgr_destination_mode_cb_follow_parent_transform,
-   _e_devicemgr_destination_mode_cb_unfollow_parent_transform,
-   _e_devicemgr_destination_mode_cb_set,
-   _e_devicemgr_destination_mode_cb_set_ratio,
-   _e_devicemgr_destination_mode_cb_set_scale,
-   _e_devicemgr_destination_mode_cb_set_align,
-   _e_devicemgr_destination_mode_cb_set_offset,
+   _e_comp_wl_destination_mode_cb_destroy,
+   _e_comp_wl_destination_mode_cb_follow_parent_transform,
+   _e_comp_wl_destination_mode_cb_unfollow_parent_transform,
+   _e_comp_wl_destination_mode_cb_set,
+   _e_comp_wl_destination_mode_cb_set_ratio,
+   _e_comp_wl_destination_mode_cb_set_scale,
+   _e_comp_wl_destination_mode_cb_set_align,
+   _e_comp_wl_destination_mode_cb_set_offset,
 };
 
 static void
-_e_devicemgr_viewport_cb_parent_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+_e_comp_wl_viewport_cb_parent_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    E_Viewport *viewport = data;
    Evas_Coord old_w, old_h;
@@ -526,9 +531,9 @@ _e_devicemgr_viewport_cb_parent_resize(void *data, Evas *e EINA_UNUSED, Evas_Obj
 }
 
 static void
-_e_devicemgr_viewport_destroy(struct wl_resource *resource)
+_e_comp_wl_viewport_destroy(struct wl_resource *resource)
 {
-   E_Viewport *viewport = _e_devicemgr_viewport_get_viewport(resource);
+   E_Viewport *viewport = _e_comp_wl_viewport_get_viewport(resource);
 
    if (!viewport) return;
 
@@ -536,18 +541,18 @@ _e_devicemgr_viewport_destroy(struct wl_resource *resource)
 }
 
 static void
-_e_devicemgr_viewport_cb_destroy(struct wl_client *client EINA_UNUSED,
+_e_comp_wl_viewport_cb_destroy(struct wl_client *client EINA_UNUSED,
                                  struct wl_resource *resource)
 {
    wl_resource_destroy(resource);
 }
 
 static void
-_e_devicemgr_viewport_cb_set_transform(struct wl_client *client EINA_UNUSED,
+_e_comp_wl_viewport_cb_set_transform(struct wl_client *client EINA_UNUSED,
                                        struct wl_resource *resource,
                                        uint32_t transform)
 {
-   E_Viewport *viewport = _e_devicemgr_viewport_get_viewport(resource);
+   E_Viewport *viewport = _e_comp_wl_viewport_get_viewport(resource);
 
    if (!viewport) return;
 
@@ -557,7 +562,7 @@ _e_devicemgr_viewport_cb_set_transform(struct wl_client *client EINA_UNUSED,
         return;
      }
 
-   _e_devicemgr_viewport_parent_check(viewport);
+   _e_comp_wl_viewport_parent_check(viewport);
 
    if (viewport->transform == transform)
      return;
@@ -565,22 +570,22 @@ _e_devicemgr_viewport_cb_set_transform(struct wl_client *client EINA_UNUSED,
    PIN("transform(%d)", transform);
 
    viewport->transform = transform;
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 }
 
 static void
-_e_devicemgr_viewport_cb_set_source(struct wl_client *client EINA_UNUSED,
+_e_comp_wl_viewport_cb_set_source(struct wl_client *client EINA_UNUSED,
                                     struct wl_resource *resource,
                                     uint32_t x,
                                     uint32_t y,
                                     uint32_t width,
                                     uint32_t height)
 {
-   E_Viewport *viewport = _e_devicemgr_viewport_get_viewport(resource);
+   E_Viewport *viewport = _e_comp_wl_viewport_get_viewport(resource);
 
    if (!viewport) return;
 
-   _e_devicemgr_viewport_parent_check(viewport);
+   _e_comp_wl_viewport_parent_check(viewport);
 
    if (viewport->source.x == x && viewport->source.y == y &&
        viewport->source.w == width && viewport->source.h == height)
@@ -591,20 +596,20 @@ _e_devicemgr_viewport_cb_set_source(struct wl_client *client EINA_UNUSED,
    viewport->source.w = width;
    viewport->source.h = height;
    viewport->cropped_source = viewport->source;
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 
    PIN("source(%d,%d %dx%d)", EINA_RECTANGLE_ARGS(&viewport->source));
 }
 
 static void
-_e_devicemgr_viewport_cb_set_destination(struct wl_client *client EINA_UNUSED,
+_e_comp_wl_viewport_cb_set_destination(struct wl_client *client EINA_UNUSED,
                                          struct wl_resource *resource,
                                          int32_t x,
                                          int32_t y,
                                          uint32_t width,
                                          uint32_t height)
 {
-   E_Viewport *viewport = _e_devicemgr_viewport_get_viewport(resource);
+   E_Viewport *viewport = _e_comp_wl_viewport_get_viewport(resource);
 
    if (!viewport) return;
 
@@ -614,7 +619,7 @@ _e_devicemgr_viewport_cb_set_destination(struct wl_client *client EINA_UNUSED,
         return;
      }
 
-   _e_devicemgr_viewport_parent_check(viewport);
+   _e_comp_wl_viewport_parent_check(viewport);
 
    viewport->type = DESTINATION_TYPE_RECT;
 
@@ -628,18 +633,18 @@ _e_devicemgr_viewport_cb_set_destination(struct wl_client *client EINA_UNUSED,
    viewport->destination.rect.y = y;
    viewport->destination.rect.w = width;
    viewport->destination.rect.h = height;
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 }
 
 static void
-_e_devicemgr_viewport_cb_set_destination_ratio(struct wl_client *client EINA_UNUSED,
+_e_comp_wl_viewport_cb_set_destination_ratio(struct wl_client *client EINA_UNUSED,
                                                struct wl_resource *resource,
                                                wl_fixed_t x,
                                                wl_fixed_t y,
                                                wl_fixed_t width,
                                                wl_fixed_t height)
 {
-   E_Viewport *viewport = _e_devicemgr_viewport_get_viewport(resource);
+   E_Viewport *viewport = _e_comp_wl_viewport_get_viewport(resource);
    double ratio_x, ratio_y, ratio_w, ratio_h;
 
    if (!viewport) return;
@@ -651,7 +656,7 @@ _e_devicemgr_viewport_cb_set_destination_ratio(struct wl_client *client EINA_UNU
         return;
      }
 
-   _e_devicemgr_viewport_parent_check(viewport);
+   _e_comp_wl_viewport_parent_check(viewport);
 
    ratio_x = (viewport->epc) ? wl_fixed_to_double(x) : 0;
    ratio_y = (viewport->epc) ? wl_fixed_to_double(y) : 0;
@@ -676,15 +681,15 @@ _e_devicemgr_viewport_cb_set_destination_ratio(struct wl_client *client EINA_UNU
    viewport->destination.ratio.y = ratio_y;
    viewport->destination.ratio.w = ratio_w;
    viewport->destination.ratio.h = ratio_h;
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 }
 static void
-_e_devicemgr_viewport_cb_get_destination_mode(struct wl_client *client,
+_e_comp_wl_viewport_cb_get_destination_mode(struct wl_client *client,
                                               struct wl_resource *resource,
                                               uint32_t id)
 {
    int version = wl_resource_get_version(resource);
-   E_Viewport *viewport = _e_devicemgr_viewport_get_viewport(resource);
+   E_Viewport *viewport = _e_comp_wl_viewport_get_viewport(resource);
    struct wl_resource *res;
 
    if (!viewport)
@@ -696,7 +701,7 @@ _e_devicemgr_viewport_cb_get_destination_mode(struct wl_client *client,
         return;
      }
 
-   _e_devicemgr_viewport_parent_check(viewport);
+   _e_comp_wl_viewport_parent_check(viewport);
 
    if (!(res = wl_resource_create(client, &tizen_destination_mode_interface, version, id)))
      {
@@ -716,21 +721,21 @@ _e_devicemgr_viewport_cb_get_destination_mode(struct wl_client *client,
    viewport->destination.mode.align_h = -1.0;
 
    /* set resource implementation */
-   wl_resource_set_implementation(res, &_e_devicemgr_destination_mode_interface,
-                                  viewport, _e_devicemgr_destination_mode_destroy);
+   wl_resource_set_implementation(res, &_e_comp_wl_destination_mode_interface,
+                                  viewport, _e_comp_wl_destination_mode_destroy);
 
 }
 
 static void
-_e_devicemgr_viewport_cb_query_parent_size(struct wl_client *client,
+_e_comp_wl_viewport_cb_query_parent_size(struct wl_client *client,
                                            struct wl_resource *resource)
 {
-   E_Viewport *viewport = _e_devicemgr_viewport_get_viewport(resource);
+   E_Viewport *viewport = _e_comp_wl_viewport_get_viewport(resource);
    Evas_Coord w = 0, h = 0;
 
    if (!viewport) return;
 
-   _e_devicemgr_viewport_parent_check(viewport);
+   _e_comp_wl_viewport_parent_check(viewport);
 
    if (viewport->epc)
      {
@@ -744,7 +749,7 @@ _e_devicemgr_viewport_cb_query_parent_size(struct wl_client *client,
           {
              viewport->query_parent_size = EINA_TRUE;
              evas_object_event_callback_add(viewport->epc->frame, EVAS_CALLBACK_RESIZE,
-                                            _e_devicemgr_viewport_cb_parent_resize, viewport);
+                                            _e_comp_wl_viewport_cb_parent_resize, viewport);
           }
      }
    else
@@ -763,14 +768,14 @@ _e_devicemgr_viewport_cb_query_parent_size(struct wl_client *client,
 }
 
 static void
-_e_devicemgr_viewport_cb_follow_parent_transform(struct wl_client *client EINA_UNUSED,
+_e_comp_wl_viewport_cb_follow_parent_transform(struct wl_client *client EINA_UNUSED,
                                                  struct wl_resource *resource)
 {
    E_Viewport *viewport = wl_resource_get_user_data(resource);
 
    if (!viewport) return;
 
-   _e_devicemgr_viewport_parent_check(viewport);
+   _e_comp_wl_viewport_parent_check(viewport);
 
    if (viewport->follow_parent_transform)
      return;
@@ -778,18 +783,18 @@ _e_devicemgr_viewport_cb_follow_parent_transform(struct wl_client *client EINA_U
    PIN("follow_parent_transform");
 
    viewport->follow_parent_transform = EINA_TRUE;
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 }
 
 static void
-_e_devicemgr_viewport_cb_unfollow_parent_transform(struct wl_client *client EINA_UNUSED,
+_e_comp_wl_viewport_cb_unfollow_parent_transform(struct wl_client *client EINA_UNUSED,
                                                    struct wl_resource *resource)
 {
    E_Viewport *viewport = wl_resource_get_user_data(resource);
 
    if (!viewport) return;
 
-   _e_devicemgr_viewport_parent_check(viewport);
+   _e_comp_wl_viewport_parent_check(viewport);
 
    if (!viewport->follow_parent_transform)
      return;
@@ -797,20 +802,20 @@ _e_devicemgr_viewport_cb_unfollow_parent_transform(struct wl_client *client EINA
    PIN("unfollow_parent_transform");
 
    viewport->follow_parent_transform = EINA_FALSE;
-   _e_devicemgr_viewport_set_changed(viewport);
+   _e_comp_wl_viewport_set_changed(viewport);
 }
 
-static const struct tizen_viewport_interface _e_devicemgr_viewport_interface =
+static const struct tizen_viewport_interface _e_comp_wl_viewport_interface =
 {
-   _e_devicemgr_viewport_cb_destroy,
-   _e_devicemgr_viewport_cb_set_transform,
-   _e_devicemgr_viewport_cb_set_source,
-   _e_devicemgr_viewport_cb_set_destination,
-   _e_devicemgr_viewport_cb_set_destination_ratio,
-   _e_devicemgr_viewport_cb_get_destination_mode,
-   _e_devicemgr_viewport_cb_query_parent_size,
-   _e_devicemgr_viewport_cb_follow_parent_transform,
-   _e_devicemgr_viewport_cb_unfollow_parent_transform,
+   _e_comp_wl_viewport_cb_destroy,
+   _e_comp_wl_viewport_cb_set_transform,
+   _e_comp_wl_viewport_cb_set_source,
+   _e_comp_wl_viewport_cb_set_destination,
+   _e_comp_wl_viewport_cb_set_destination_ratio,
+   _e_comp_wl_viewport_cb_get_destination_mode,
+   _e_comp_wl_viewport_cb_query_parent_size,
+   _e_comp_wl_viewport_cb_follow_parent_transform,
+   _e_comp_wl_viewport_cb_unfollow_parent_transform,
 };
 
 static void
@@ -998,7 +1003,7 @@ _destination_mode_calculate_destination(E_Viewport *viewport, Eina_Rectangle *pr
         sh = viewport->source.h;
      }
    else
-     e_devmgr_buffer_size_get(ec, &sw, &sh);
+     e_comp_wl_video_buffer_size_get(ec, &sw, &sh);
 
    transform = e_comp_wl_output_buffer_transform_get(ec);
 
@@ -1160,7 +1165,7 @@ _destination_mode_calculate_destination(E_Viewport *viewport, Eina_Rectangle *pr
 }
 
 static Eina_Bool
-_e_devicemgr_viewport_calculate_destination(E_Viewport *viewport, Eina_Rectangle *prect, Eina_Rectangle *rect)
+_e_comp_wl_viewport_calculate_destination(E_Viewport *viewport, Eina_Rectangle *prect, Eina_Rectangle *rect)
 {
    switch (viewport->type)
      {
@@ -1202,7 +1207,7 @@ _e_devicemgr_viewport_calculate_destination(E_Viewport *viewport, Eina_Rectangle
 }
 
 static void
-_e_devicemgr_viewport_crop_by_parent(E_Viewport *viewport, Eina_Rectangle *parent, Eina_Rectangle *dst)
+_e_comp_wl_viewport_crop_by_parent(E_Viewport *viewport, Eina_Rectangle *parent, Eina_Rectangle *dst)
 {
    E_Comp_Wl_Buffer_Viewport *vp = &viewport->ec->comp_data->scaler.buffer_viewport;
    Eina_Rectangle crop;
@@ -1224,7 +1229,7 @@ _e_devicemgr_viewport_crop_by_parent(E_Viewport *viewport, Eina_Rectangle *paren
      {
         if (viewport->source.w == -1)
           {
-             e_devmgr_buffer_size_get(viewport->ec, &bw, &bh);
+             e_comp_wl_video_buffer_size_get(viewport->ec, &bw, &bh);
 
              viewport->cropped_source.x = viewport->cropped_source.y = 0;
              viewport->cropped_source.w = bw;
@@ -1254,7 +1259,7 @@ _e_devicemgr_viewport_crop_by_parent(E_Viewport *viewport, Eina_Rectangle *paren
 
    PDB("  => (%d,%d %dx%d)", EINA_RECTANGLE_ARGS(dst));
 
-   e_devmgr_buffer_size_get(viewport->ec, &bw, &bh);
+   e_comp_wl_video_buffer_size_get(viewport->ec, &bw, &bh);
 
    if (viewport->source.w == -1)
      {
@@ -1286,7 +1291,7 @@ _e_devicemgr_viewport_crop_by_parent(E_Viewport *viewport, Eina_Rectangle *paren
 }
 
 static Eina_Bool
-_e_devicemgr_viewport_apply_transform(E_Viewport *viewport, int *rtransform)
+_e_comp_wl_viewport_apply_transform(E_Viewport *viewport, int *rtransform)
 {
    E_Client *ec = viewport->ec;
    E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
@@ -1342,7 +1347,7 @@ _e_devicemgr_viewport_apply_transform(E_Viewport *viewport, int *rtransform)
 }
 
 static Eina_Bool
-_e_devicemgr_viewport_apply_destination(E_Viewport *viewport, Eina_Rectangle *rrect)
+_e_comp_wl_viewport_apply_destination(E_Viewport *viewport, Eina_Rectangle *rrect)
 {
    E_Client *ec = viewport->ec;
    E_Comp_Wl_Buffer_Viewport *vp;
@@ -1376,7 +1381,7 @@ _e_devicemgr_viewport_apply_destination(E_Viewport *viewport, Eina_Rectangle *rr
              prect.h = vpp->surface.height;
           }
         else
-          e_devmgr_buffer_transform_scale_size_get(epc, &prect.w, &prect.h);
+          e_comp_wl_video_buffer_transform_scale_size_get(epc, &prect.w, &prect.h);
      }
 
    if (!(prect.w > 0 && prect.h > 0))
@@ -1389,7 +1394,7 @@ _e_devicemgr_viewport_apply_destination(E_Viewport *viewport, Eina_Rectangle *rr
      {
       case DESTINATION_TYPE_RECT:
       case DESTINATION_TYPE_RATIO:
-         if (!_e_devicemgr_viewport_calculate_destination(viewport, &prect, &dst))
+         if (!_e_comp_wl_viewport_calculate_destination(viewport, &prect, &dst))
            return EINA_FALSE;
          break;
       case DESTINATION_TYPE_MODE:
@@ -1402,7 +1407,7 @@ _e_devicemgr_viewport_apply_destination(E_Viewport *viewport, Eina_Rectangle *rr
          return EINA_FALSE;
      }
 
-   _e_devicemgr_viewport_crop_by_parent(viewport, &prect, &dst);
+   _e_comp_wl_viewport_crop_by_parent(viewport, &prect, &dst);
 
    /* The values of below x, y, w, h are specified in the transform 0 and in the parent */
    if (ec->comp_data->sub.data)
@@ -1443,7 +1448,7 @@ _e_devicemgr_viewport_apply_destination(E_Viewport *viewport, Eina_Rectangle *rr
 }
 
 static Eina_Bool
-_e_devicemgr_viewport_apply_source(E_Viewport *viewport)
+_e_comp_wl_viewport_apply_source(E_Viewport *viewport)
 {
    E_Client *ec = viewport->ec;
    E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
@@ -1455,7 +1460,7 @@ _e_devicemgr_viewport_apply_source(E_Viewport *viewport)
    if (viewport->cropped_source.w == -1)
      return EINA_FALSE;
 
-   e_devmgr_buffer_size_get(ec, &bw, &bh);
+   e_comp_wl_video_buffer_size_get(ec, &bw, &bh);
 
    rect.w = bw;
    rect.h = bh;
@@ -1497,7 +1502,7 @@ _e_devicemgr_viewport_apply_source(E_Viewport *viewport)
 }
 
 Eina_Bool
-e_devicemgr_viewport_apply(E_Client *ec)
+e_comp_wl_viewport_apply(E_Client *ec)
 {
    E_Viewport *viewport;
    E_Client *subc;
@@ -1506,10 +1511,10 @@ e_devicemgr_viewport_apply(E_Client *ec)
    if (!ec || !ec->comp_data || e_object_is_del(E_OBJECT(ec)))
      return EINA_FALSE;
 
-   viewport = _e_devicemgr_viewport_get_viewport(ec->comp_data->scaler.viewport);
+   viewport = _e_comp_wl_viewport_get_viewport(ec->comp_data->scaler.viewport);
 
    if (viewport)
-     _e_devicemgr_viewport_parent_check(viewport);
+     _e_comp_wl_viewport_parent_check(viewport);
 
    if (viewport && ec->comp_data->buffer_ref.buffer)
      {
@@ -1521,9 +1526,9 @@ e_devicemgr_viewport_apply(E_Client *ec)
         /* evas map follow screen coordinates. so all information including the
          * transform and destination also should follow screen coordinates.
          */
-        changed |= _e_devicemgr_viewport_apply_transform(viewport, &rtransform);
-        changed |= _e_devicemgr_viewport_apply_destination(viewport, &rrect);
-        src_changed |= _e_devicemgr_viewport_apply_source(viewport);
+        changed |= _e_comp_wl_viewport_apply_transform(viewport, &rtransform);
+        changed |= _e_comp_wl_viewport_apply_destination(viewport, &rrect);
+        src_changed |= _e_comp_wl_viewport_apply_source(viewport);
 
         viewport->changed = EINA_FALSE;
 
@@ -1550,16 +1555,16 @@ e_devicemgr_viewport_apply(E_Client *ec)
      PDB("%p buffer", ec->comp_data->buffer_ref.buffer);
 
    EINA_LIST_FOREACH(ec->comp_data->sub.list, l, subc)
-     e_devicemgr_viewport_apply(subc);
+     e_comp_wl_viewport_apply(subc);
 
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
-     e_devicemgr_viewport_apply(subc);
+     e_comp_wl_viewport_apply(subc);
 
    return EINA_TRUE;
 }
 
 Eina_Bool
-e_devicemgr_viewport_is_changed(E_Client *ec)
+e_comp_wl_viewport_is_changed(E_Client *ec)
 {
    E_Viewport *viewport;
    E_Client *subc;
@@ -1568,23 +1573,23 @@ e_devicemgr_viewport_is_changed(E_Client *ec)
    if (!ec || !ec->comp_data || e_object_is_del(E_OBJECT(ec)))
      return EINA_FALSE;
 
-   viewport = _e_devicemgr_viewport_get_viewport(ec->comp_data->scaler.viewport);
+   viewport = _e_comp_wl_viewport_get_viewport(ec->comp_data->scaler.viewport);
    if(viewport && viewport->changed)
       return EINA_TRUE;
 
    EINA_LIST_FOREACH(ec->comp_data->sub.list, l, subc)
-     if (e_devicemgr_viewport_is_changed(subc))
+     if (e_comp_wl_viewport_is_changed(subc))
        return EINA_TRUE;
 
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
-     if (e_devicemgr_viewport_is_changed(subc))
+     if (e_comp_wl_viewport_is_changed(subc))
        return EINA_TRUE;
 
    return EINA_FALSE;
 }
 
 static void
-_e_devicemgr_viewport_cb_surface_destroy(struct wl_listener *listener, void *data)
+_e_comp_wl_viewport_cb_surface_destroy(struct wl_listener *listener, void *data)
 {
    E_Viewport *viewport = container_of(listener, E_Viewport, surface_destroy_listener);
 
@@ -1592,7 +1597,7 @@ _e_devicemgr_viewport_cb_surface_destroy(struct wl_listener *listener, void *dat
 }
 
 static void
-_e_devicemgr_viewport_cb_apply_viewport(struct wl_listener *listener, void *data)
+_e_comp_wl_viewport_cb_apply_viewport(struct wl_listener *listener, void *data)
 {
    E_Viewport *viewport = container_of(listener, E_Viewport, surface_apply_viewport_listener);
    E_Client *ec = viewport->ec;
@@ -1600,9 +1605,9 @@ _e_devicemgr_viewport_cb_apply_viewport(struct wl_listener *listener, void *data
    E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
 
    if (vp->changed)
-     _e_devicemgr_viewport_set_changed(viewport);
+     _e_comp_wl_viewport_set_changed(viewport);
 
-   _e_devicemgr_viewport_parent_check(viewport);
+   _e_comp_wl_viewport_parent_check(viewport);
 
    if (!viewport->changed) return;
    if (!ec->comp_data->buffer_ref.buffer) return;
@@ -1610,7 +1615,7 @@ _e_devicemgr_viewport_cb_apply_viewport(struct wl_listener *listener, void *data
 
    PDB("apply: topmost(%p)", topmost);
 
-   if (!e_devicemgr_viewport_apply(topmost))
+   if (!e_comp_wl_viewport_apply(topmost))
      {
         PER("failed to apply tizen_viewport");
         return;
@@ -1618,7 +1623,7 @@ _e_devicemgr_viewport_cb_apply_viewport(struct wl_listener *listener, void *data
 }
 
 static Eina_Bool
-_e_devicemgr_viewport_cb_topmost_rotate(void *data, int type, void *event)
+_e_comp_wl_viewport_cb_topmost_rotate(void *data, int type, void *event)
 {
    E_Viewport *viewport = data;
    E_Client *ec = viewport->ec;
@@ -1629,14 +1634,14 @@ _e_devicemgr_viewport_cb_topmost_rotate(void *data, int type, void *event)
       return ECORE_CALLBACK_PASS_ON;
 
    PDB("rorate start: topmost(%p)", topmost);
-   e_devicemgr_viewport_apply(topmost);
+   e_comp_wl_viewport_apply(topmost);
    PDB("rorate end");
 
    return ECORE_CALLBACK_PASS_ON;
 }
 
 Eina_Bool
-e_devicemgr_viewport_create(struct wl_resource *resource,
+e_comp_wl_viewport_create(struct wl_resource *resource,
                             uint32_t id,
                             struct wl_resource *surface)
 {
@@ -1685,7 +1690,7 @@ e_devicemgr_viewport_create(struct wl_resource *resource,
    viewport->ec = ec;
    viewport->window = e_client_util_win_get(ec);
 
-   _e_devicemgr_viewport_parent_check(viewport);
+   _e_comp_wl_viewport_parent_check(viewport);
 
    viewport->client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _client_cb_del, viewport);
    viewport->client_hook_move = e_client_hook_add(E_CLIENT_HOOK_MOVE_UPDATE, _client_cb_move, viewport);
@@ -1695,20 +1700,20 @@ e_devicemgr_viewport_create(struct wl_resource *resource,
 
    viewport->topmost_rotate_hdl =
      ecore_event_handler_add(E_EVENT_CLIENT_ROTATION_CHANGE_END,
-                             _e_devicemgr_viewport_cb_topmost_rotate, viewport);
+                             _e_comp_wl_viewport_cb_topmost_rotate, viewport);
 
    viewport->source.w = -1;
    viewport->cropped_source.w = -1;
 
-   viewport->surface_apply_viewport_listener.notify = _e_devicemgr_viewport_cb_apply_viewport;
+   viewport->surface_apply_viewport_listener.notify = _e_comp_wl_viewport_cb_apply_viewport;
    wl_signal_add(&ec->comp_data->apply_viewport_signal, &viewport->surface_apply_viewport_listener);
 
    /* Use scaler variable because tizen_viewport is the alternative of wl_viewport */
    ec->comp_data->scaler.viewport = res;
-   wl_resource_set_implementation(res, &_e_devicemgr_viewport_interface,
-                                  viewport, _e_devicemgr_viewport_destroy);
+   wl_resource_set_implementation(res, &_e_comp_wl_viewport_interface,
+                                  viewport, _e_comp_wl_viewport_destroy);
 
-   viewport->surface_destroy_listener.notify = _e_devicemgr_viewport_cb_surface_destroy;
+   viewport->surface_destroy_listener.notify = _e_comp_wl_viewport_cb_surface_destroy;
    wl_resource_add_destroy_listener(ec->comp_data->surface, &viewport->surface_destroy_listener);
 
    PIN("tizen_viewport@%d viewport(%p) created", id, viewport);
@@ -1717,19 +1722,19 @@ e_devicemgr_viewport_create(struct wl_resource *resource,
 }
 
 static E_Viewport*
-_e_devicemgr_viewport_get_viewport(struct wl_resource *resource)
+_e_comp_wl_viewport_get_viewport(struct wl_resource *resource)
 {
    if (!resource)
      return NULL;
 
-   if (wl_resource_instance_of(resource, &tizen_viewport_interface, &_e_devicemgr_viewport_interface))
+   if (wl_resource_instance_of(resource, &tizen_viewport_interface, &_e_comp_wl_viewport_interface))
      return wl_resource_get_user_data(resource);
 
    return NULL;
 }
 
 static void
-_e_devicemgr_viewport_print(void *data, const char *log_path)
+_e_comp_wl_viewport_print(void *data, const char *log_path)
 {
    FILE *log_fl;
    Evas_Object *o;
@@ -1756,7 +1761,7 @@ _e_devicemgr_viewport_print(void *data, const char *log_path)
         ec = evas_object_data_get(o, "E_Client");
         if (!ec || e_object_is_del(E_OBJECT(ec)) || !ec->comp_data) continue;
 
-        viewport = _e_devicemgr_viewport_get_viewport(ec->comp_data->scaler.viewport);
+        viewport = _e_comp_wl_viewport_get_viewport(ec->comp_data->scaler.viewport);
         if (!viewport) continue;
 
         if (first_line)
@@ -1831,18 +1836,18 @@ _e_devicemgr_viewport_print(void *data, const char *log_path)
 
 
 int
-e_devicemgr_viewport_init(void)
+e_comp_wl_viewport_init(void)
 {
    if (!e_comp_wl) return 0;
    if (!e_comp_wl->wl.disp) return 0;
 
-   e_info_server_hook_set("viewport", _e_devicemgr_viewport_print, NULL);
+   e_info_server_hook_set("viewport", _e_comp_wl_viewport_print, NULL);
 
    return 1;
 }
 
 void
-e_devicemgr_viewport_fini(void)
+e_comp_wl_viewport_shutdown(void)
 {
    e_info_server_hook_set("viewport", NULL, NULL);
 }

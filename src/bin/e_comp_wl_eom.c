@@ -1,10 +1,8 @@
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "e.h"
-#include "e_mod_main.h"
-#include "e_devicemgr_privates.h"
-#include "e_devicemgr_buffer.h"
-#include "e_devicemgr_tdm.h"
-#include "e_devicemgr_video.h"
-#include "e_devicemgr_eom.h"
 #include <eom-server-protocol.h>
 #include <Ecore_Drm.h>
 #include <tdm.h>
@@ -945,11 +943,11 @@ _e_eom_cb_pp(tbm_surface_h surface, void *user_data)
      }
 
 #ifdef EOM_DUMP_MIRROR_BUFFERS
-   E_Devmgr_Buf *mbuf = e_devmgr_buffer_create_tbm(surface);
-   EINA_SAFETY_ON_NULL_RETURN(mbuf);
+   E_Comp_Wl_Video_Buf *vbuf = e_comp_wl_video_buffer_create_tbm(surface);
+   EINA_SAFETY_ON_NULL_RETURN(vbuf);
    static int i;
-   e_devmgr_buffer_dump(mbuf, "eom_mirror", i++, 0);
-   e_devmgr_buffer_unref(mbuf);
+   e_comp_wl_video_buffer_dump(vbuf, "eom_mirror", i++, 0);
+   e_comp_wl_video_buffer_unref(vbuf);
 #endif
 
    if(!_e_eom_output_show(eom_output, surface, _e_eom_tbm_buffer_release_mirror_mod, NULL))
@@ -1583,10 +1581,10 @@ err:
 static Eina_Bool
 _e_eom_init_internal()
 {
-   g_eom->dpy = e_devmgr_dpy->tdm;
+   g_eom->dpy = e_comp->e_comp_screen->tdisplay;
    EINA_SAFETY_ON_NULL_GOTO(g_eom->dpy, err);
 
-   g_eom->bufmgr = e_devmgr_dpy->bufmgr;
+   g_eom->bufmgr = e_comp->e_comp_screen->bufmgr;
    EINA_SAFETY_ON_NULL_GOTO(g_eom->bufmgr, err);
 
    if (_e_eom_output_init(g_eom->dpy) != EINA_TRUE)
@@ -1723,7 +1721,7 @@ _e_eom_output_hide_layers(E_EomOutputPtr eom_output)
    if (!eom_output || eom_output->state == NONE)
      return;
 
-   layer = e_devicemgr_video_layer_get(eom_output->output);
+   layer = e_comp_wl_video_layer_get(eom_output->output);
    if (!layer)
      return;
 
@@ -2394,11 +2392,11 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
    EOMDB("===============>  EXT START   tbm_buff:%p", tbm_buffer);
 
 #ifdef EOM_DUMP_PRESENTATION_BUFFERS
-   E_Devmgr_Buf *mbuf = e_devmgr_buffer_create_tbm(tbm_buffer);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(mbuf, ECORE_CALLBACK_PASS_ON);
+   E_Comp_Wl_Video_Buf *vbuf = e_comp_wl_video_buffer_create_tbm(tbm_buffer);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, ECORE_CALLBACK_PASS_ON);
    static int i;
-   e_devmgr_buffer_dump(mbuf, "eom_external", i++, 0);
-   e_devmgr_buffer_unref(mbuf);
+   e_comp_wl_video_buffer_dump(vbuf, "eom_external", i++, 0);
+   e_comp_wl_video_buffer_unref(vbuf);
 #endif
 
    if(!_e_eom_output_show(eom_output, tbm_buffer, _e_eom_tbm_buffer_release_ext_mod, eom_buff))
@@ -2609,7 +2607,7 @@ err:
 }
 
 int
-e_devicemgr_eom_init(void)
+e_comp_wl_eom_init(void)
 {
    Eina_Bool ret = EINA_FALSE;
 
@@ -2622,7 +2620,7 @@ e_devicemgr_eom_init(void)
 }
 
 void
-e_devicemgr_eom_fini(void)
+e_comp_wl_eom_fini(void)
 {
   if (!g_eom) return;
 
@@ -2630,7 +2628,7 @@ e_devicemgr_eom_fini(void)
 }
 
 Eina_Bool
-e_devicemgr_eom_is_ec_external(E_Client *ec)
+e_comp_wl_eom_is_ec_external(E_Client *ec)
 {
    E_EomOutputPtr eom_output;
 
@@ -2643,7 +2641,7 @@ e_devicemgr_eom_is_ec_external(E_Client *ec)
 }
 
 tdm_output*
-e_devicemgr_eom_tdm_output_by_ec_get(E_Client *ec)
+e_comp_wl_eom_tdm_output_by_ec_get(E_Client *ec)
 {
    E_EomOutputPtr eom_output;
 

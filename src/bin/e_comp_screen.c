@@ -315,10 +315,20 @@ _e_comp_screen_new(E_Comp *comp)
    if (!e_comp_screen) return NULL;
 
    /* tdm display init */
+   e_comp_screen->bufmgr = tbm_bufmgr_init(-1);
+   if (!e_comp_screen->bufmgr)
+     {
+        ERR("tbm_bufmgr_init failed\n");
+        free(e_comp_screen);
+        return NULL;
+     }
+
+   /* tdm display init */
    e_comp_screen->tdisplay = tdm_display_init(&error);
    if (!e_comp_screen->tdisplay)
      {
         ERR("fail to get tdm_display\n");
+        tbm_bufmgr_deinit(e_comp_screen->bufmgr);
         free(e_comp_screen);
         return NULL;
      }

@@ -2,26 +2,21 @@
 #include "config.h"
 #endif
 
-#define E_COMP_WL
+#include "e.h"
 #include <sys/mman.h>
-#include <e.h>
 #include <Ecore_Drm.h>
 #include <pixman.h>
 #include <png.h>
 #include <tdm_helper.h>
-#include "e_mod_main.h"
-#include "e_devicemgr_privates.h"
-#include "e_devicemgr_tdm.h"
-#include "e_devicemgr_buffer.h"
 
 //#define DEBUG_LIFECYCLE
 
 #define PNG_DEPTH 8
 
-#define BER(fmt,arg...)   ERR("%d: "fmt, mbuf ? mbuf->stamp : 0, ##arg)
-#define BWR(fmt,arg...)   WRN("%d: "fmt, mbuf ? mbuf->stamp : 0, ##arg)
-#define BIN(fmt,arg...)   INF("%d: "fmt, mbuf ? mbuf->stamp : 0, ##arg)
-#define BDB(fmt,arg...)   DBG("%d: "fmt, mbuf ? mbuf->stamp : 0, ##arg)
+#define BER(fmt,arg...)   ERR("%d: "fmt, vbuf ? vbuf->stamp : 0, ##arg)
+#define BWR(fmt,arg...)   WRN("%d: "fmt, vbuf ? vbuf->stamp : 0, ##arg)
+#define BIN(fmt,arg...)   INF("%d: "fmt, vbuf ? vbuf->stamp : 0, ##arg)
+#define BDB(fmt,arg...)   DBG("%d: "fmt, vbuf ? vbuf->stamp : 0, ##arg)
 
 #define MBUF_RETURN_IF_FAIL(cond) \
    {if (!(cond)) { BER("'%s' failed. (%s)", #cond, func); return; }}
@@ -39,69 +34,46 @@ typedef struct _MBufFreeFuncInfo
    void *data;
 } MBufFreeFuncInfo;
 
-static void _e_devmgr_buffer_cb_destroy(struct wl_listener *listener, void *data);
-static void _e_devmgr_buffer_free(E_Devmgr_Buf *mbuf, const char *func);
-#define e_devmgr_buffer_free(b) _e_devmgr_buffer_free(b,__FUNCTION__)
+static void _e_comp_wl_video_buffer_cb_destroy(struct wl_listener *listener, void *data);
+static void _e_comp_wl_video_buffer_free(E_Comp_Wl_Video_Buf *vbuf, const char *func);
+#define e_comp_wl_video_buffer_free(b) _e_comp_wl_video_buffer_free(b,__FUNCTION__)
 
 static Eina_List *mbuf_lists;
 
-static E_Devmgr_Buf*
+static E_Comp_Wl_Video_Buf*
 _find_mbuf(uint stamp)
 {
-   E_Devmgr_Buf *mbuf;
+   E_Comp_Wl_Video_Buf *vbuf;
    Eina_List *l;
 
    if (!mbuf_lists)
      return NULL;
 
-   EINA_LIST_FOREACH(mbuf_lists, l, mbuf)
+   EINA_LIST_FOREACH(mbuf_lists, l, vbuf)
      {
-        if (mbuf->stamp == stamp)
-          return mbuf;
+        if (vbuf->stamp == stamp)
+          return vbuf;
      }
 
    return NULL;
 }
 
-static tbm_bo
-_handle_to_bo(uint handle)
-{
-   struct drm_gem_flink arg = {0,};
-   tbm_bo bo;
-
-   arg.handle = handle;
-   if (drmIoctl(e_devmgr_dpy->drm_fd, DRM_IOCTL_GEM_FLINK, &arg))
-     {
-        ERR("failed flink id (gem:%d)\n", handle);
-        return NULL;
-     }
-
-   bo = tbm_bo_import(e_devmgr_dpy->bufmgr, arg.name);
-   if (!bo)
-     {
-        ERR("failed import (gem:%d, name:%d)\n", handle, arg.name);
-        return NULL;
-     }
-
-   return bo;
-}
-
 static Eina_Bool
-_e_devicemgr_buffer_access_data_begin(E_Devmgr_Buf *mbuf)
+_e_comp_wl_video_buffer_access_data_begin(E_Comp_Wl_Video_Buf *vbuf)
 {
-   EINA_SAFETY_ON_NULL_RETURN_VAL(mbuf, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, EINA_FALSE);
 
-   mbuf->ptrs[0] = mbuf->ptrs[1] = mbuf->ptrs[2] = NULL;
+   vbuf->ptrs[0] = vbuf->ptrs[1] = vbuf->ptrs[2] = NULL;
 
-   if (mbuf->type == TYPE_SHM)
+   if (vbuf->type == TYPE_SHM)
      {
-        struct wl_shm_buffer *shm_buffer = wl_shm_buffer_get(mbuf->resource);
+        struct wl_shm_buffer *shm_buffer = wl_shm_buffer_get(vbuf->resource);
         EINA_SAFETY_ON_NULL_RETURN_VAL(shm_buffer, EINA_FALSE);
-        mbuf->ptrs[0] = wl_shm_buffer_get_data(shm_buffer);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(mbuf->ptrs[0], EINA_FALSE);
+        vbuf->ptrs[0] = wl_shm_buffer_get_data(shm_buffer);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf->ptrs[0], EINA_FALSE);
         return EINA_TRUE;
      }
-   else if (mbuf->type == TYPE_TBM)
+   else if (vbuf->type == TYPE_TBM)
      {
         int i, j;
         tbm_bo bos[4] = {0,};
@@ -110,7 +82,7 @@ _e_devicemgr_buffer_access_data_begin(E_Devmgr_Buf *mbuf)
           {
              tbm_bo_handle bo_handles;
 
-             bos[i] = tbm_surface_internal_get_bo(mbuf->tbm_surface, i);
+             bos[i] = tbm_surface_internal_get_bo(vbuf->tbm_surface, i);
              if (!bos[i]) continue;
 
              bo_handles = tbm_bo_map(bos[i], TBM_DEVICE_CPU, TBM_OPTION_READ);
@@ -121,24 +93,24 @@ _e_devicemgr_buffer_access_data_begin(E_Devmgr_Buf *mbuf)
                   return EINA_FALSE;
                }
 
-             mbuf->ptrs[i] = bo_handles.ptr;
+             vbuf->ptrs[i] = bo_handles.ptr;
           }
 
-        EINA_SAFETY_ON_NULL_RETURN_VAL(mbuf->ptrs[0], EINA_FALSE);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf->ptrs[0], EINA_FALSE);
 
-        switch(mbuf->tbmfmt)
+        switch(vbuf->tbmfmt)
           {
            case TBM_FORMAT_YVU420:
            case TBM_FORMAT_YUV420:
-             if (!mbuf->ptrs[1])
-                mbuf->ptrs[1] = mbuf->ptrs[0];
-             if (!mbuf->ptrs[2])
-                mbuf->ptrs[2] = mbuf->ptrs[1];
+             if (!vbuf->ptrs[1])
+                vbuf->ptrs[1] = vbuf->ptrs[0];
+             if (!vbuf->ptrs[2])
+                vbuf->ptrs[2] = vbuf->ptrs[1];
              break;
            case TBM_FORMAT_NV12:
            case TBM_FORMAT_NV21:
-             if (!mbuf->ptrs[1])
-               mbuf->ptrs[1] = mbuf->ptrs[0];
+             if (!vbuf->ptrs[1])
+               vbuf->ptrs[1] = vbuf->ptrs[0];
              break;
            default:
              break;
@@ -151,81 +123,81 @@ _e_devicemgr_buffer_access_data_begin(E_Devmgr_Buf *mbuf)
 }
 
 static void
-_e_devicemgr_buffer_access_data_end(E_Devmgr_Buf *mbuf)
+_e_comp_wl_video_buffer_access_data_end(E_Comp_Wl_Video_Buf *vbuf)
 {
-   EINA_SAFETY_ON_NULL_RETURN(mbuf);
+   EINA_SAFETY_ON_NULL_RETURN(vbuf);
 
-   if (mbuf->type == TYPE_SHM)
+   if (vbuf->type == TYPE_SHM)
      {
-        mbuf->ptrs[0] = NULL;
+        vbuf->ptrs[0] = NULL;
      }
-   else if (mbuf->type == TYPE_TBM)
+   else if (vbuf->type == TYPE_TBM)
      {
         int i;
         tbm_bo bos[4] = {0,};
 
         for (i = 0; i < 3; i++)
           {
-             bos[i] = tbm_surface_internal_get_bo(mbuf->tbm_surface, i);
+             bos[i] = tbm_surface_internal_get_bo(vbuf->tbm_surface, i);
              if (!bos[i]) continue;
 
              tbm_bo_unmap(bos[i]);
-             mbuf->ptrs[i] = NULL;
+             vbuf->ptrs[i] = NULL;
           }
      }
 }
 
-static E_Devmgr_Buf*
-_e_devmgr_buffer_create_res(struct wl_resource *resource, const char *func)
+static E_Comp_Wl_Video_Buf*
+_e_comp_wl_video_buffer_create_res(struct wl_resource *resource, const char *func)
 {
-   E_Devmgr_Buf *mbuf = NULL;
+   E_Comp_Wl_Video_Buf *vbuf = NULL;
    struct wl_shm_buffer *shm_buffer;
    tbm_surface_h tbm_surface;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(resource, NULL);
 
-   mbuf = calloc(1, sizeof(E_Devmgr_Buf));
-   EINA_SAFETY_ON_FALSE_GOTO(mbuf != NULL, create_fail);
+   vbuf = calloc(1, sizeof(E_Comp_Wl_Video_Buf));
+   EINA_SAFETY_ON_FALSE_GOTO(vbuf != NULL, create_fail);
 
-   mbuf->ref_cnt = 1;
-   mbuf->stamp = e_devmgr_buffer_get_mills();
-   while (_find_mbuf(mbuf->stamp))
-     mbuf->stamp++;
-   mbuf->func = strdup(func);
+   vbuf->ref_cnt = 1;
+   vbuf->stamp = e_comp_wl_video_buffer_get_mills();
+   while (_find_mbuf(vbuf->stamp))
+     vbuf->stamp++;
+   vbuf->func = strdup(func);
 
-   mbuf->resource = resource;
+   vbuf->resource = resource;
 
    if ((shm_buffer = wl_shm_buffer_get(resource)))
      {
         uint32_t tbmfmt = wl_shm_buffer_get_format(shm_buffer);
 
-        mbuf->type = TYPE_SHM;
+        vbuf->type = TYPE_SHM;
 
         if (tbmfmt == WL_SHM_FORMAT_ARGB8888)
-          mbuf->tbmfmt = TBM_FORMAT_ARGB8888;
+          vbuf->tbmfmt = TBM_FORMAT_ARGB8888;
         else if (tbmfmt == WL_SHM_FORMAT_XRGB8888)
-          mbuf->tbmfmt = TBM_FORMAT_XRGB8888;
+          vbuf->tbmfmt = TBM_FORMAT_XRGB8888;
         else
-          mbuf->tbmfmt = tbmfmt;
+          vbuf->tbmfmt = tbmfmt;
 
-        mbuf->width = wl_shm_buffer_get_width(shm_buffer);
-        mbuf->height = wl_shm_buffer_get_height(shm_buffer);
-        mbuf->pitches[0] = wl_shm_buffer_get_stride(shm_buffer);
+        vbuf->width = wl_shm_buffer_get_width(shm_buffer);
+        vbuf->height = wl_shm_buffer_get_height(shm_buffer);
+        vbuf->pitches[0] = wl_shm_buffer_get_stride(shm_buffer);
 
-        mbuf->width_from_pitch = mbuf->width;
-        mbuf->height_from_size = mbuf->height;;
+        vbuf->width_from_pitch = vbuf->width;
+        vbuf->height_from_size = vbuf->height;;
      }
    else if ((tbm_surface = wayland_tbm_server_get_surface(e_comp->wl_comp_data->tbm.server, resource)))
      {
         int i;
 
-        mbuf->type = TYPE_TBM;
-        mbuf->tbm_surface = tbm_surface;
+        vbuf->type = TYPE_TBM;
+        vbuf->tbm_surface = tbm_surface;
         tbm_surface_internal_ref(tbm_surface);
 
-        mbuf->tbmfmt = tbm_surface_get_format(tbm_surface);
-        mbuf->width = tbm_surface_get_width(tbm_surface);
-        mbuf->height = tbm_surface_get_height(tbm_surface);
+        vbuf->tbmfmt = tbm_surface_get_format(tbm_surface);
+        vbuf->width = tbm_surface_get_width(tbm_surface);
+        vbuf->height = tbm_surface_get_height(tbm_surface);
 
         for (i = 0; i < 3; i++)
           {
@@ -235,19 +207,19 @@ _e_devmgr_buffer_create_res(struct wl_resource *resource, const char *func)
              bo = tbm_surface_internal_get_bo(tbm_surface, i);
              if (bo)
                {
-                  mbuf->handles[i] = tbm_bo_get_handle(bo, TBM_DEVICE_DEFAULT).u32;
-                  EINA_SAFETY_ON_FALSE_GOTO(mbuf->handles[i] > 0, create_fail);
+                  vbuf->handles[i] = tbm_bo_get_handle(bo, TBM_DEVICE_DEFAULT).u32;
+                  EINA_SAFETY_ON_FALSE_GOTO(vbuf->handles[i] > 0, create_fail);
 
-                  mbuf->names[i] = tbm_bo_export(bo);
-                  EINA_SAFETY_ON_FALSE_GOTO(mbuf->names[i] > 0, create_fail);
+                  vbuf->names[i] = tbm_bo_export(bo);
+                  EINA_SAFETY_ON_FALSE_GOTO(vbuf->names[i] > 0, create_fail);
                }
 
              tbm_surface_internal_get_plane_data(tbm_surface, i, &size, &offset, &pitch);
-             mbuf->pitches[i] = pitch;
-             mbuf->offsets[i] = offset;
+             vbuf->pitches[i] = pitch;
+             vbuf->offsets[i] = offset;
           }
 
-        tdm_helper_get_buffer_full_size(tbm_surface, &mbuf->width_from_pitch, &mbuf->height_from_size);
+        tdm_helper_get_buffer_full_size(tbm_surface, &vbuf->width_from_pitch, &vbuf->height_from_size);
      }
    else
      {
@@ -255,79 +227,79 @@ _e_devmgr_buffer_create_res(struct wl_resource *resource, const char *func)
         goto create_fail;
      }
 
-   mbuf_lists = eina_list_append(mbuf_lists, mbuf);
+   mbuf_lists = eina_list_append(mbuf_lists, vbuf);
 
    BDB("type(%d) %dx%d(%dx%d), %c%c%c%c, name(%d,%d,%d) hnd(%d,%d,%d), pitch(%d,%d,%d), offset(%d,%d,%d): %s",
-       mbuf->type, mbuf->width_from_pitch, mbuf->height_from_size,
-       mbuf->width, mbuf->height, FOURCC_STR(mbuf->tbmfmt),
-       mbuf->names[0], mbuf->names[1], mbuf->names[2],
-       mbuf->handles[0], mbuf->handles[1], mbuf->handles[2],
-       mbuf->pitches[0], mbuf->pitches[1], mbuf->pitches[2],
-       mbuf->offsets[0], mbuf->offsets[1], mbuf->offsets[2],
+       vbuf->type, vbuf->width_from_pitch, vbuf->height_from_size,
+       vbuf->width, vbuf->height, FOURCC_STR(vbuf->tbmfmt),
+       vbuf->names[0], vbuf->names[1], vbuf->names[2],
+       vbuf->handles[0], vbuf->handles[1], vbuf->handles[2],
+       vbuf->pitches[0], vbuf->pitches[1], vbuf->pitches[2],
+       vbuf->offsets[0], vbuf->offsets[1], vbuf->offsets[2],
        func);
 
-   return mbuf;
+   return vbuf;
 
 create_fail:
-   e_devmgr_buffer_free(mbuf);
+   e_comp_wl_video_buffer_free(vbuf);
 
    return NULL;
 }
 
-E_Devmgr_Buf*
-_e_devmgr_buffer_create(struct wl_resource *resource, const char *func)
+E_Comp_Wl_Video_Buf*
+_e_comp_wl_video_buffer_create(struct wl_resource *resource, const char *func)
 {
-   E_Devmgr_Buf *mbuf = _e_devmgr_buffer_create_res(resource, func);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(mbuf, NULL);
+   E_Comp_Wl_Video_Buf *vbuf = _e_comp_wl_video_buffer_create_res(resource, func);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
 
-   mbuf->destroy_listener.notify = _e_devmgr_buffer_cb_destroy;
-   wl_resource_add_destroy_listener(resource, &mbuf->destroy_listener);
+   vbuf->destroy_listener.notify = _e_comp_wl_video_buffer_cb_destroy;
+   wl_resource_add_destroy_listener(resource, &vbuf->destroy_listener);
 
-   return mbuf;
+   return vbuf;
 }
 
-E_Devmgr_Buf*
-_e_devmgr_buffer_create_comp(E_Comp_Wl_Buffer *comp_buffer, const char *func)
+E_Comp_Wl_Video_Buf*
+_e_comp_wl_video_buffer_create_comp(E_Comp_Wl_Buffer *comp_buffer, const char *func)
 {
-   E_Devmgr_Buf *mbuf;
+   E_Comp_Wl_Video_Buf *vbuf;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(comp_buffer, NULL);
 
-   mbuf = _e_devmgr_buffer_create_res(comp_buffer->resource, func);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(mbuf, NULL);
+   vbuf = _e_comp_wl_video_buffer_create_res(comp_buffer->resource, func);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
 
-   mbuf->comp_buffer = comp_buffer;
+   vbuf->comp_buffer = comp_buffer;
 
-   mbuf->destroy_listener.notify = _e_devmgr_buffer_cb_destroy;
-   wl_resource_add_destroy_listener(comp_buffer->resource, &mbuf->destroy_listener);
+   vbuf->destroy_listener.notify = _e_comp_wl_video_buffer_cb_destroy;
+   wl_resource_add_destroy_listener(comp_buffer->resource, &vbuf->destroy_listener);
 
-   return mbuf;
+   return vbuf;
 }
 
-E_Devmgr_Buf*
-_e_devmgr_buffer_create_tbm(tbm_surface_h tbm_surface, const char *func)
+E_Comp_Wl_Video_Buf*
+_e_comp_wl_video_buffer_create_tbm(tbm_surface_h tbm_surface, const char *func)
 {
-   E_Devmgr_Buf *mbuf;
+   E_Comp_Wl_Video_Buf *vbuf;
    int i;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(tbm_surface, NULL);
 
-   mbuf = calloc(1, sizeof(E_Devmgr_Buf));
-   EINA_SAFETY_ON_FALSE_GOTO(mbuf != NULL, create_fail);
+   vbuf = calloc(1, sizeof(E_Comp_Wl_Video_Buf));
+   EINA_SAFETY_ON_FALSE_GOTO(vbuf != NULL, create_fail);
 
-   mbuf->ref_cnt = 1;
-   mbuf->stamp = e_devmgr_buffer_get_mills();
-   while (_find_mbuf(mbuf->stamp))
-     mbuf->stamp++;
-   mbuf->func = strdup(func);
+   vbuf->ref_cnt = 1;
+   vbuf->stamp = e_comp_wl_video_buffer_get_mills();
+   while (_find_mbuf(vbuf->stamp))
+     vbuf->stamp++;
+   vbuf->func = strdup(func);
 
-   mbuf->type = TYPE_TBM;
-   mbuf->tbm_surface = tbm_surface;
+   vbuf->type = TYPE_TBM;
+   vbuf->tbm_surface = tbm_surface;
    tbm_surface_internal_ref(tbm_surface);
 
-   mbuf->tbmfmt = tbm_surface_get_format(tbm_surface);
-   mbuf->width = tbm_surface_get_width(tbm_surface);
-   mbuf->height = tbm_surface_get_height(tbm_surface);
+   vbuf->tbmfmt = tbm_surface_get_format(tbm_surface);
+   vbuf->width = tbm_surface_get_width(tbm_surface);
+   vbuf->height = tbm_surface_get_height(tbm_surface);
 
    for (i = 0; i < 3; i++)
      {
@@ -337,127 +309,57 @@ _e_devmgr_buffer_create_tbm(tbm_surface_h tbm_surface, const char *func)
         bo = tbm_surface_internal_get_bo(tbm_surface, i);
         if (bo)
           {
-             mbuf->handles[i] = tbm_bo_get_handle(bo, TBM_DEVICE_DEFAULT).u32;
-             EINA_SAFETY_ON_FALSE_GOTO(mbuf->handles[i] > 0, create_fail);
+             vbuf->handles[i] = tbm_bo_get_handle(bo, TBM_DEVICE_DEFAULT).u32;
+             EINA_SAFETY_ON_FALSE_GOTO(vbuf->handles[i] > 0, create_fail);
 
-             mbuf->names[i] = tbm_bo_export(bo);
-             EINA_SAFETY_ON_FALSE_GOTO(mbuf->names[i] > 0, create_fail);
+             vbuf->names[i] = tbm_bo_export(bo);
+             EINA_SAFETY_ON_FALSE_GOTO(vbuf->names[i] > 0, create_fail);
           }
 
         tbm_surface_internal_get_plane_data(tbm_surface, i, &size, &offset, &pitch);
-        mbuf->pitches[i] = pitch;
-        mbuf->offsets[i] = offset;
+        vbuf->pitches[i] = pitch;
+        vbuf->offsets[i] = offset;
      }
 
-   tdm_helper_get_buffer_full_size(tbm_surface, &mbuf->width_from_pitch, &mbuf->height_from_size);
+   tdm_helper_get_buffer_full_size(tbm_surface, &vbuf->width_from_pitch, &vbuf->height_from_size);
 
-   mbuf_lists = eina_list_append(mbuf_lists, mbuf);
+   mbuf_lists = eina_list_append(mbuf_lists, vbuf);
 
    BDB("type(%d) %dx%d(%dx%d), %c%c%c%c, name(%d,%d,%d) hnd(%d,%d,%d), pitch(%d,%d,%d), offset(%d,%d,%d): %s",
-       mbuf->type, mbuf->width_from_pitch, mbuf->height_from_size,
-       mbuf->width, mbuf->height, FOURCC_STR(mbuf->tbmfmt),
-       mbuf->names[0], mbuf->names[1], mbuf->names[2],
-       mbuf->handles[0], mbuf->handles[1], mbuf->handles[2],
-       mbuf->pitches[0], mbuf->pitches[1], mbuf->pitches[2],
-       mbuf->offsets[0], mbuf->offsets[1], mbuf->offsets[2],
+       vbuf->type, vbuf->width_from_pitch, vbuf->height_from_size,
+       vbuf->width, vbuf->height, FOURCC_STR(vbuf->tbmfmt),
+       vbuf->names[0], vbuf->names[1], vbuf->names[2],
+       vbuf->handles[0], vbuf->handles[1], vbuf->handles[2],
+       vbuf->pitches[0], vbuf->pitches[1], vbuf->pitches[2],
+       vbuf->offsets[0], vbuf->offsets[1], vbuf->offsets[2],
        func);
 
-   return mbuf;
+   return vbuf;
 
 create_fail:
-   e_devmgr_buffer_free(mbuf);
+   e_comp_wl_video_buffer_free(vbuf);
 
    return NULL;
 }
 
-E_Devmgr_Buf*
-_e_devmgr_buffer_create_hnd(uint handle, int width, int height, int pitch, const char *func)
+E_Comp_Wl_Video_Buf*
+_e_comp_wl_video_buffer_alloc(int width, int height, tbm_format tbmfmt, Eina_Bool scanout, const char *func)
 {
-   E_Devmgr_Buf *mbuf = NULL;
-   tbm_surface_h tbm_surface;
-   tbm_surface_info_s info = {0,};
-   tbm_bo bo = NULL;
-
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(handle > 0, NULL);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(width > 0, NULL);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(height > 0, NULL);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(pitch > 0, NULL);
-
-   mbuf = calloc(1, sizeof(E_Devmgr_Buf));
-   EINA_SAFETY_ON_NULL_GOTO(mbuf, create_fail);
-
-   mbuf->ref_cnt = 1;
-   mbuf->stamp = e_devmgr_buffer_get_mills();
-   while (_find_mbuf(mbuf->stamp))
-     mbuf->stamp++;
-   mbuf->func = strdup(func);
-
-   bo = _handle_to_bo(handle);
-   EINA_SAFETY_ON_NULL_GOTO(bo, create_fail);
-
-   info.width = width;
-   info.height = height;
-   info.format = TBM_FORMAT_ARGB8888;
-   info.bpp = tbm_surface_internal_get_bpp(info.format);
-   info.num_planes = 1;
-   info.planes[0].stride = pitch;
-
-   tbm_surface = tbm_surface_internal_create_with_bos(&info, &bo, 1);
-   EINA_SAFETY_ON_NULL_GOTO(tbm_surface, create_fail);
-
-   mbuf->type = TYPE_TBM;
-   mbuf->tbm_surface = tbm_surface;
-
-   mbuf->tbmfmt = info.format;
-   mbuf->width = info.width;
-   mbuf->height = info.height;
-   mbuf->pitches[0] = info.planes[0].stride;
-   mbuf->handles[0] = handle;
-
-   mbuf->width_from_pitch = mbuf->pitches[0]>>2;
-
-   mbuf->names[0] = tbm_bo_export(bo);
-   EINA_SAFETY_ON_FALSE_GOTO(mbuf->names[0] > 0, create_fail);
-
-   tbm_bo_unref(bo);
-
-   mbuf_lists = eina_list_append(mbuf_lists, mbuf);
-
-   BDB("type(%d) %dx%d %c%c%c%c nm(%d,%d,%d) hnd(%d,%d,%d) pitch(%d,%d,%d) offset(%d,%d,%d): %s",
-       mbuf->type, mbuf->width, mbuf->height, FOURCC_STR(mbuf->tbmfmt),
-       mbuf->names[0], mbuf->names[1], mbuf->names[2],
-       mbuf->handles[0], mbuf->handles[1], mbuf->handles[2],
-       mbuf->pitches[0], mbuf->pitches[1], mbuf->pitches[2],
-       mbuf->offsets[0], mbuf->offsets[1], mbuf->offsets[2],
-       func);
-
-   return mbuf;
-
-create_fail:
-   if (bo)
-     tbm_bo_unref(bo);
-   e_devmgr_buffer_free(mbuf);
-   return NULL;
-}
-
-E_Devmgr_Buf*
-_e_devmgr_buffer_alloc(int width, int height, tbm_format tbmfmt, Eina_Bool scanout, const char *func)
-{
-   E_Devmgr_Buf *mbuf = NULL;
+   E_Comp_Wl_Video_Buf *vbuf = NULL;
    tbm_surface_h tbm_surface = NULL;
    int i;
 
    EINA_SAFETY_ON_FALSE_RETURN_VAL(width > 0, NULL);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(height > 0, NULL);
 
-   mbuf = calloc(1, sizeof(E_Devmgr_Buf));
-   EINA_SAFETY_ON_FALSE_GOTO(mbuf != NULL, alloc_fail);
+   vbuf = calloc(1, sizeof(E_Comp_Wl_Video_Buf));
+   EINA_SAFETY_ON_FALSE_GOTO(vbuf != NULL, alloc_fail);
 
-   mbuf->ref_cnt = 1;
-   mbuf->stamp = e_devmgr_buffer_get_mills();
-   while (_find_mbuf(mbuf->stamp))
-     mbuf->stamp++;
-   mbuf->func = strdup(func);
+   vbuf->ref_cnt = 1;
+   vbuf->stamp = e_comp_wl_video_buffer_get_mills();
+   while (_find_mbuf(vbuf->stamp))
+     vbuf->stamp++;
+   vbuf->func = strdup(func);
 
    if (scanout)
      tbm_surface = tbm_surface_internal_create_with_flags(width, height, tbmfmt, TBM_BO_SCANOUT);
@@ -465,13 +367,13 @@ _e_devmgr_buffer_alloc(int width, int height, tbm_format tbmfmt, Eina_Bool scano
      tbm_surface = tbm_surface_internal_create_with_flags(width, height, tbmfmt, TBM_BO_DEFAULT);
    EINA_SAFETY_ON_NULL_GOTO(tbm_surface, alloc_fail);
 
-   mbuf->type = TYPE_TBM;
-   mbuf->tbm_surface = tbm_surface;
+   vbuf->type = TYPE_TBM;
+   vbuf->tbm_surface = tbm_surface;
    tbm_surface_internal_ref(tbm_surface);
 
-   mbuf->tbmfmt = tbmfmt;
-   mbuf->width = width;
-   mbuf->height = height;
+   vbuf->tbmfmt = tbmfmt;
+   vbuf->width = width;
+   vbuf->height = height;
 
    for (i = 0; i < 3; i++)
      {
@@ -481,179 +383,179 @@ _e_devmgr_buffer_alloc(int width, int height, tbm_format tbmfmt, Eina_Bool scano
         bo = tbm_surface_internal_get_bo(tbm_surface, i);
         if (bo)
           {
-             mbuf->handles[i] = tbm_bo_get_handle(bo, TBM_DEVICE_DEFAULT).u32;
-             EINA_SAFETY_ON_FALSE_GOTO(mbuf->handles[i] > 0, alloc_fail);
+             vbuf->handles[i] = tbm_bo_get_handle(bo, TBM_DEVICE_DEFAULT).u32;
+             EINA_SAFETY_ON_FALSE_GOTO(vbuf->handles[i] > 0, alloc_fail);
 
-             mbuf->names[i] = tbm_bo_export(bo);
-             EINA_SAFETY_ON_FALSE_GOTO(mbuf->names[i] > 0, alloc_fail);
+             vbuf->names[i] = tbm_bo_export(bo);
+             EINA_SAFETY_ON_FALSE_GOTO(vbuf->names[i] > 0, alloc_fail);
           }
 
         tbm_surface_internal_get_plane_data(tbm_surface, i, &size, &offset, &pitch);
-        mbuf->pitches[i] = pitch;
-        mbuf->offsets[i] = offset;
+        vbuf->pitches[i] = pitch;
+        vbuf->offsets[i] = offset;
      }
 
-   tdm_helper_get_buffer_full_size(tbm_surface, &mbuf->width_from_pitch, &mbuf->height_from_size);
+   tdm_helper_get_buffer_full_size(tbm_surface, &vbuf->width_from_pitch, &vbuf->height_from_size);
 
    tbm_surface_internal_unref(tbm_surface);
 
-   mbuf_lists = eina_list_append(mbuf_lists, mbuf);
+   mbuf_lists = eina_list_append(mbuf_lists, vbuf);
 
    BDB("type(%d) %dx%d(%dx%d) %c%c%c%c nm(%d,%d,%d) hnd(%d,%d,%d) pitch(%d,%d,%d) offset(%d,%d,%d): %s",
-       mbuf->type, mbuf->width_from_pitch, mbuf->height_from_size,
-       mbuf->width, mbuf->height, FOURCC_STR(mbuf->tbmfmt),
-       mbuf->names[0], mbuf->names[1], mbuf->names[2],
-       mbuf->handles[0], mbuf->handles[1], mbuf->handles[2],
-       mbuf->pitches[0], mbuf->pitches[1], mbuf->pitches[2],
-       mbuf->offsets[0], mbuf->offsets[1], mbuf->offsets[2],
+       vbuf->type, vbuf->width_from_pitch, vbuf->height_from_size,
+       vbuf->width, vbuf->height, FOURCC_STR(vbuf->tbmfmt),
+       vbuf->names[0], vbuf->names[1], vbuf->names[2],
+       vbuf->handles[0], vbuf->handles[1], vbuf->handles[2],
+       vbuf->pitches[0], vbuf->pitches[1], vbuf->pitches[2],
+       vbuf->offsets[0], vbuf->offsets[1], vbuf->offsets[2],
        func);
 
-   return mbuf;
+   return vbuf;
 
 alloc_fail:
    if (tbm_surface)
      tbm_surface_internal_unref(tbm_surface);
-   e_devmgr_buffer_free(mbuf);
+   e_comp_wl_video_buffer_free(vbuf);
    return NULL;
 }
 
-E_Devmgr_Buf*
-_e_devmgr_buffer_ref(E_Devmgr_Buf *mbuf, const char *func)
+E_Comp_Wl_Video_Buf*
+_e_comp_wl_video_buffer_ref(E_Comp_Wl_Video_Buf *vbuf, const char *func)
 {
-   if (!mbuf)
+   if (!vbuf)
      return NULL;
 
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(MBUF_IS_VALID(mbuf), NULL);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(MBUF_IS_VALID(vbuf), NULL);
 
-   mbuf->ref_cnt++;
-   BDB("count(%d) ref: %s", mbuf->ref_cnt, func);
+   vbuf->ref_cnt++;
+   BDB("count(%d) ref: %s", vbuf->ref_cnt, func);
 
-   return mbuf;
+   return vbuf;
 }
 
 void
-_e_devmgr_buffer_unref(E_Devmgr_Buf *mbuf, const char *func)
+_e_comp_wl_video_buffer_unref(E_Comp_Wl_Video_Buf *vbuf, const char *func)
 {
-   if (!mbuf)
+   if (!vbuf)
      return;
 
-   MBUF_RETURN_IF_FAIL(_e_devmgr_buffer_valid(mbuf, func));
+   MBUF_RETURN_IF_FAIL(_e_comp_wl_video_buffer_valid(vbuf, func));
 
-   mbuf->ref_cnt--;
-   BDB("count(%d) unref: %s", mbuf->ref_cnt, func);
+   vbuf->ref_cnt--;
+   BDB("count(%d) unref: %s", vbuf->ref_cnt, func);
 
-   if (!mbuf->buffer_destroying && mbuf->ref_cnt == 0)
-     _e_devmgr_buffer_free(mbuf, func);
+   if (!vbuf->buffer_destroying && vbuf->ref_cnt == 0)
+     _e_comp_wl_video_buffer_free(vbuf, func);
 }
 
 static void
-_e_devmgr_buffer_free(E_Devmgr_Buf *mbuf, const char *func)
+_e_comp_wl_video_buffer_free(E_Comp_Wl_Video_Buf *vbuf, const char *func)
 {
    MBufFreeFuncInfo *info;
    Eina_List *l, *ll;
 
-   if (!mbuf)
+   if (!vbuf)
      return;
 
-   MBUF_RETURN_IF_FAIL(_e_devmgr_buffer_valid(mbuf, func));
+   MBUF_RETURN_IF_FAIL(_e_comp_wl_video_buffer_valid(vbuf, func));
 
-   BDB("mbuf(%p) tbm_surface(%p) freed: %s", mbuf, mbuf->tbm_surface, func);
+   BDB("vbuf(%p) tbm_surface(%p) freed: %s", vbuf, vbuf->tbm_surface, func);
 
-   mbuf->buffer_destroying = EINA_TRUE;
+   vbuf->buffer_destroying = EINA_TRUE;
 
-   if (mbuf->destroy_listener.notify)
+   if (vbuf->destroy_listener.notify)
      {
-        wl_list_remove(&mbuf->destroy_listener.link);
-        mbuf->destroy_listener.notify = NULL;
+        wl_list_remove(&vbuf->destroy_listener.link);
+        vbuf->destroy_listener.notify = NULL;
      }
 
-   EINA_LIST_FOREACH_SAFE(mbuf->free_funcs, l, ll, info)
+   EINA_LIST_FOREACH_SAFE(vbuf->free_funcs, l, ll, info)
      {
         /* call before tmb_bo_unref */
-        mbuf->free_funcs = eina_list_remove_list(mbuf->free_funcs, l);
+        vbuf->free_funcs = eina_list_remove_list(vbuf->free_funcs, l);
         if (info->func)
-          info->func(mbuf, info->data);
+          info->func(vbuf, info->data);
         free(info);
      }
 
 #if 0
-   /* DO not check ref_count here. Even if ref_count is not 0, mbuf can be
+   /* DO not check ref_count here. Even if ref_count is not 0, vbuf can be
     * be destroyed by wl_buffer_destroy forcely. video or screenmirror should add
-    * the mbuf free function and handle the destroying mbuf situation.
+    * the vbuf free function and handle the destroying vbuf situation.
     */
-   if (!mbuf->buffer_destroying)
-     MBUF_RETURN_IF_FAIL(mbuf->ref_cnt == 0);
+   if (!vbuf->buffer_destroying)
+     MBUF_RETURN_IF_FAIL(vbuf->ref_cnt == 0);
 #endif
 
    /* make sure all operation is done */
-   MBUF_RETURN_IF_FAIL(mbuf->in_use == EINA_FALSE);
+   MBUF_RETURN_IF_FAIL(vbuf->in_use == EINA_FALSE);
 
-   if (mbuf->type == TYPE_TBM && mbuf->tbm_surface)
+   if (vbuf->type == TYPE_TBM && vbuf->tbm_surface)
      {
-        tbm_surface_internal_unref(mbuf->tbm_surface);
-        mbuf->tbm_surface = NULL;
+        tbm_surface_internal_unref(vbuf->tbm_surface);
+        vbuf->tbm_surface = NULL;
      }
 
-   mbuf_lists = eina_list_remove(mbuf_lists, mbuf);
+   mbuf_lists = eina_list_remove(mbuf_lists, vbuf);
 
-   mbuf->stamp = 0;
+   vbuf->stamp = 0;
 
-   if (mbuf->func)
+   if (vbuf->func)
      {
-        free(mbuf->func);
+        free(vbuf->func);
      }
 
-   free(mbuf);
+   free(vbuf);
 }
 
 static void
-_e_devmgr_buffer_cb_destroy(struct wl_listener *listener, void *data)
+_e_comp_wl_video_buffer_cb_destroy(struct wl_listener *listener, void *data)
 {
-   E_Devmgr_Buf *mbuf = container_of(listener, E_Devmgr_Buf, destroy_listener);
+   E_Comp_Wl_Video_Buf *vbuf = container_of(listener, E_Comp_Wl_Video_Buf, destroy_listener);
 
-   if (!mbuf) return;
+   if (!vbuf) return;
 
-   mbuf->comp_buffer = NULL;
+   vbuf->comp_buffer = NULL;
 
-   if (mbuf->buffer_destroying == EINA_FALSE)
+   if (vbuf->buffer_destroying == EINA_FALSE)
      {
-       mbuf->destroy_listener.notify = NULL;
-       e_devmgr_buffer_free(mbuf);
+       vbuf->destroy_listener.notify = NULL;
+       e_comp_wl_video_buffer_free(vbuf);
      }
 }
 
 void
-e_devmgr_buffer_clear(E_Devmgr_Buf *mbuf)
+e_comp_wl_video_buffer_clear(E_Comp_Wl_Video_Buf *vbuf)
 {
-   EINA_SAFETY_ON_NULL_RETURN(mbuf);
+   EINA_SAFETY_ON_NULL_RETURN(vbuf);
 
-   if (!_e_devicemgr_buffer_access_data_begin(mbuf))
+   if (!_e_comp_wl_video_buffer_access_data_begin(vbuf))
      {
         BER("can't access ptr");
         return;
      }
 
-   switch(mbuf->tbmfmt)
+   switch(vbuf->tbmfmt)
      {
       case TBM_FORMAT_ARGB8888:
       case TBM_FORMAT_XRGB8888:
-        memset(mbuf->ptrs[0], 0, mbuf->pitches[0] * mbuf->height);
+        memset(vbuf->ptrs[0], 0, vbuf->pitches[0] * vbuf->height);
         break;
       case TBM_FORMAT_YVU420:
       case TBM_FORMAT_YUV420:
-        memset((char*)mbuf->ptrs[0] + mbuf->offsets[0], 0x10, mbuf->pitches[0] * mbuf->height);
-        memset((char*)mbuf->ptrs[1] + mbuf->offsets[1], 0x80, mbuf->pitches[1] * (mbuf->height >> 1));
-        memset((char*)mbuf->ptrs[2] + mbuf->offsets[2], 0x80, mbuf->pitches[2] * (mbuf->height >> 1));
+        memset((char*)vbuf->ptrs[0] + vbuf->offsets[0], 0x10, vbuf->pitches[0] * vbuf->height);
+        memset((char*)vbuf->ptrs[1] + vbuf->offsets[1], 0x80, vbuf->pitches[1] * (vbuf->height >> 1));
+        memset((char*)vbuf->ptrs[2] + vbuf->offsets[2], 0x80, vbuf->pitches[2] * (vbuf->height >> 1));
         break;
       case TBM_FORMAT_NV12:
       case TBM_FORMAT_NV21:
-        memset((char*)mbuf->ptrs[0] + mbuf->offsets[0], 0x10, mbuf->pitches[0] * mbuf->height);
-        memset((char*)mbuf->ptrs[1] + mbuf->offsets[1], 0x80, mbuf->pitches[1] * (mbuf->height >> 1));
+        memset((char*)vbuf->ptrs[0] + vbuf->offsets[0], 0x10, vbuf->pitches[0] * vbuf->height);
+        memset((char*)vbuf->ptrs[1] + vbuf->offsets[1], 0x80, vbuf->pitches[1] * (vbuf->height >> 1));
         break;
       case TBM_FORMAT_YUYV:
         {
-           int *ibuf = (int*)mbuf->ptrs[0];
-           int i, size = mbuf->pitches[0] * mbuf->height / 4;
+           int *ibuf = (int*)vbuf->ptrs[0];
+           int i, size = vbuf->pitches[0] * vbuf->height / 4;
 
            for (i = 0 ; i < size ; i++)
              ibuf[i] = 0x10801080;
@@ -661,48 +563,48 @@ e_devmgr_buffer_clear(E_Devmgr_Buf *mbuf)
         break;
       case TBM_FORMAT_UYVY:
         {
-           int *ibuf = (int*)mbuf->ptrs[0];
-           int i, size = mbuf->pitches[0] * mbuf->height / 4;
+           int *ibuf = (int*)vbuf->ptrs[0];
+           int i, size = vbuf->pitches[0] * vbuf->height / 4;
 
            for (i = 0 ; i < size ; i++)
              ibuf[i] = 0x80108010; /* YUYV -> 0xVYUY */
         }
         break;
       default:
-        BWR("can't clear %c%c%c%c buffer", FOURCC_STR(mbuf->tbmfmt));
+        BWR("can't clear %c%c%c%c buffer", FOURCC_STR(vbuf->tbmfmt));
         break;
      }
 
-   _e_devicemgr_buffer_access_data_end(mbuf);
+   _e_comp_wl_video_buffer_access_data_end(vbuf);
 }
 
 Eina_Bool
-_e_devmgr_buffer_valid(E_Devmgr_Buf *mbuf, const char *func)
+_e_comp_wl_video_buffer_valid(E_Comp_Wl_Video_Buf *vbuf, const char *func)
 {
-   E_Devmgr_Buf *temp;
+   E_Comp_Wl_Video_Buf *temp;
    Eina_List *l;
 
-   MBUF_RETURN_VAL_IF_FAIL(mbuf != NULL, EINA_FALSE);
-   MBUF_RETURN_VAL_IF_FAIL(mbuf->stamp != 0, EINA_FALSE);
+   MBUF_RETURN_VAL_IF_FAIL(vbuf != NULL, EINA_FALSE);
+   MBUF_RETURN_VAL_IF_FAIL(vbuf->stamp != 0, EINA_FALSE);
 
    EINA_LIST_FOREACH(mbuf_lists, l, temp)
      {
-        if (temp->stamp == mbuf->stamp)
+        if (temp->stamp == vbuf->stamp)
             return EINA_TRUE;
      }
 
-   BDB("mbuf(%p) invalid", mbuf);
+   BDB("vbuf(%p) invalid", vbuf);
 
    return EINA_FALSE;
 }
 
 static MBufFreeFuncInfo*
-_e_devmgr_buffer_free_func_find(E_Devmgr_Buf *mbuf, MBuf_Free_Func func, void *data)
+_e_comp_wl_video_buffer_free_func_find(E_Comp_Wl_Video_Buf *vbuf, MBuf_Free_Func func, void *data)
 {
    MBufFreeFuncInfo *info;
    Eina_List *l;
 
-   EINA_LIST_FOREACH(mbuf->free_funcs, l, info)
+   EINA_LIST_FOREACH(vbuf->free_funcs, l, info)
      {
         if (info->func == func && info->data == data)
             return info;
@@ -712,14 +614,14 @@ _e_devmgr_buffer_free_func_find(E_Devmgr_Buf *mbuf, MBuf_Free_Func func, void *d
 }
 
 void
-e_devmgr_buffer_free_func_add(E_Devmgr_Buf *mbuf, MBuf_Free_Func func, void *data)
+e_comp_wl_video_buffer_free_func_add(E_Comp_Wl_Video_Buf *vbuf, MBuf_Free_Func func, void *data)
 {
    MBufFreeFuncInfo *info;
 
-   EINA_SAFETY_ON_FALSE_RETURN(MBUF_IS_VALID(mbuf));
+   EINA_SAFETY_ON_FALSE_RETURN(MBUF_IS_VALID(vbuf));
    EINA_SAFETY_ON_NULL_RETURN(func);
 
-   info = _e_devmgr_buffer_free_func_find(mbuf, func, data);
+   info = _e_comp_wl_video_buffer_free_func_find(vbuf, func, data);
    if (info)
      return;
 
@@ -729,30 +631,30 @@ e_devmgr_buffer_free_func_add(E_Devmgr_Buf *mbuf, MBuf_Free_Func func, void *dat
    info->func = func;
    info->data = data;
 
-   mbuf->free_funcs = eina_list_append(mbuf->free_funcs, info);
+   vbuf->free_funcs = eina_list_append(vbuf->free_funcs, info);
 }
 
 void
-e_devmgr_buffer_free_func_del(E_Devmgr_Buf *mbuf, MBuf_Free_Func func, void *data)
+e_comp_wl_video_buffer_free_func_del(E_Comp_Wl_Video_Buf *vbuf, MBuf_Free_Func func, void *data)
 {
    MBufFreeFuncInfo *info;
 
-   EINA_SAFETY_ON_FALSE_RETURN(MBUF_IS_VALID(mbuf));
+   EINA_SAFETY_ON_FALSE_RETURN(MBUF_IS_VALID(vbuf));
    EINA_SAFETY_ON_NULL_RETURN(func);
 
-   info = _e_devmgr_buffer_free_func_find(mbuf, func, data);
+   info = _e_comp_wl_video_buffer_free_func_find(vbuf, func, data);
    if (!info)
      return;
 
-   mbuf->free_funcs = eina_list_remove(mbuf->free_funcs, info);
+   vbuf->free_funcs = eina_list_remove(vbuf->free_funcs, info);
 
    free(info);
 }
 
 static pixman_format_code_t
-_e_devmgr_buffer_pixman_format_get(E_Devmgr_Buf *mbuf)
+_e_comp_wl_video_buffer_pixman_format_get(E_Comp_Wl_Video_Buf *vbuf)
 {
-   switch(mbuf->tbmfmt)
+   switch(vbuf->tbmfmt)
      {
       case TBM_FORMAT_ARGB8888:
         return PIXMAN_a8r8g8b8;
@@ -765,7 +667,7 @@ _e_devmgr_buffer_pixman_format_get(E_Devmgr_Buf *mbuf)
 }
 
 void
-e_devmgr_buffer_convert(E_Devmgr_Buf *srcbuf, E_Devmgr_Buf *dstbuf,
+e_comp_wl_video_buffer_convert(E_Comp_Wl_Video_Buf *srcbuf, E_Comp_Wl_Video_Buf *dstbuf,
                         int sx, int sy, int sw, int sh,
                         int dx, int dy, int dw, int dh,
                         Eina_Bool over, int rotate, int hflip, int vflip)
@@ -783,11 +685,11 @@ e_devmgr_buffer_convert(E_Devmgr_Buf *srcbuf, E_Devmgr_Buf *dstbuf,
    EINA_SAFETY_ON_FALSE_RETURN(MBUF_IS_VALID(srcbuf));
    EINA_SAFETY_ON_FALSE_RETURN(MBUF_IS_VALID(dstbuf));
 
-   if (!_e_devicemgr_buffer_access_data_begin(srcbuf))
+   if (!_e_comp_wl_video_buffer_access_data_begin(srcbuf))
      return;
-   if (!_e_devicemgr_buffer_access_data_begin(dstbuf))
+   if (!_e_comp_wl_video_buffer_access_data_begin(dstbuf))
      {
-        _e_devicemgr_buffer_access_data_end(srcbuf);
+        _e_comp_wl_video_buffer_access_data_end(srcbuf);
         return;
      }
 
@@ -797,9 +699,9 @@ e_devmgr_buffer_convert(E_Devmgr_Buf *srcbuf, E_Devmgr_Buf *dstbuf,
    EINA_SAFETY_ON_FALSE_RETURN(!srcbuf->ptrs[1]);
    EINA_SAFETY_ON_FALSE_RETURN(!dstbuf->ptrs[1]);
 
-   src_format = _e_devmgr_buffer_pixman_format_get(srcbuf);
+   src_format = _e_comp_wl_video_buffer_pixman_format_get(srcbuf);
    EINA_SAFETY_ON_FALSE_GOTO(src_format > 0, cant_convert);
-   dst_format = _e_devmgr_buffer_pixman_format_get(dstbuf);
+   dst_format = _e_comp_wl_video_buffer_pixman_format_get(dstbuf);
    EINA_SAFETY_ON_FALSE_GOTO(dst_format > 0, cant_convert);
 
    buf_width = IS_RGB(srcbuf->tbmfmt)?(srcbuf->pitches[0]/4):srcbuf->pitches[0];
@@ -873,12 +775,12 @@ cant_convert:
    if (src_img) pixman_image_unref(src_img);
    if (dst_img) pixman_image_unref(dst_img);
 
-   _e_devicemgr_buffer_access_data_end(srcbuf);
-   _e_devicemgr_buffer_access_data_end(dstbuf);
+   _e_comp_wl_video_buffer_access_data_end(srcbuf);
+   _e_comp_wl_video_buffer_access_data_end(dstbuf);
 }
 
 Eina_Bool
-e_devmgr_buffer_copy(E_Devmgr_Buf *srcbuf, E_Devmgr_Buf *dstbuf)
+e_comp_wl_video_buffer_copy(E_Comp_Wl_Video_Buf *srcbuf, E_Comp_Wl_Video_Buf *dstbuf)
 {
    int i, j, c_height;
    unsigned char *s, *d;
@@ -886,11 +788,11 @@ e_devmgr_buffer_copy(E_Devmgr_Buf *srcbuf, E_Devmgr_Buf *dstbuf)
    EINA_SAFETY_ON_FALSE_RETURN_VAL(MBUF_IS_VALID(srcbuf), EINA_FALSE);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(MBUF_IS_VALID(dstbuf), EINA_FALSE);
 
-   if (!_e_devicemgr_buffer_access_data_begin(srcbuf))
+   if (!_e_comp_wl_video_buffer_access_data_begin(srcbuf))
      return EINA_FALSE;
-   if (!_e_devicemgr_buffer_access_data_begin(dstbuf))
+   if (!_e_comp_wl_video_buffer_access_data_begin(dstbuf))
      {
-        _e_devicemgr_buffer_access_data_end(srcbuf);
+        _e_comp_wl_video_buffer_access_data_end(srcbuf);
         return EINA_FALSE;
      }
 
@@ -941,14 +843,14 @@ e_devmgr_buffer_copy(E_Devmgr_Buf *srcbuf, E_Devmgr_Buf *dstbuf)
         break;
       default:
         ERR("not implemented for %c%c%c%c", FOURCC_STR(srcbuf->tbmfmt));
-        _e_devicemgr_buffer_access_data_end(srcbuf);
-        _e_devicemgr_buffer_access_data_end(dstbuf);
+        _e_comp_wl_video_buffer_access_data_end(srcbuf);
+        _e_comp_wl_video_buffer_access_data_end(dstbuf);
 
         return EINA_FALSE;
      }
 
-   _e_devicemgr_buffer_access_data_end(srcbuf);
-   _e_devicemgr_buffer_access_data_end(dstbuf);
+   _e_comp_wl_video_buffer_access_data_end(srcbuf);
+   _e_comp_wl_video_buffer_access_data_end(dstbuf);
 
    return EINA_TRUE;
 }
@@ -956,7 +858,7 @@ e_devmgr_buffer_copy(E_Devmgr_Buf *srcbuf, E_Devmgr_Buf *dstbuf)
 typedef struct _ColorTable
 {
    tbm_format tbmfmt;
-   E_Devmgr_Buf_Color_Type type;
+   E_Comp_Wl_Video_Buf_Color_Type type;
 } ColorTable;
 
 static ColorTable color_table[] =
@@ -972,8 +874,8 @@ static ColorTable color_table[] =
    { TBM_FORMAT_UYVY,      TYPE_YUV422 },
 };
 
-E_Devmgr_Buf_Color_Type
-e_devmgr_buffer_color_type(tbm_format tbmfmt)
+E_Comp_Wl_Video_Buf_Color_Type
+e_comp_wl_video_buffer_color_type(tbm_format tbmfmt)
 {
    int i, size;
 
@@ -1080,69 +982,69 @@ _dump_png(const char* file, const void * data, int width, int height)
 }
 
 void
-e_devmgr_buffer_dump(E_Devmgr_Buf *mbuf, const char *prefix, int nth, Eina_Bool raw)
+e_comp_wl_video_buffer_dump(E_Comp_Wl_Video_Buf *vbuf, const char *prefix, int nth, Eina_Bool raw)
 {
    char path[128];
    const char *dir = "/tmp/dump";
 
-   if (!mbuf) return;
+   if (!vbuf) return;
 
-   if (!_e_devicemgr_buffer_access_data_begin(mbuf))
+   if (!_e_comp_wl_video_buffer_access_data_begin(vbuf))
      {
         BER("can't access ptr");
         return;
      }
 
-   if (IS_RGB(mbuf->tbmfmt))
+   if (IS_RGB(vbuf->tbmfmt))
      snprintf(path, sizeof(path), "%s/%s_%c%c%c%c_%dx%d_%03d.%s", dir, prefix,
-              FOURCC_STR(mbuf->tbmfmt), mbuf->width_from_pitch, mbuf->height,
+              FOURCC_STR(vbuf->tbmfmt), vbuf->width_from_pitch, vbuf->height,
               nth, raw?"raw":"png");
    else
      snprintf(path, sizeof(path), "%s/%s_%c%c%c%c_%dx%d_%03d.yuv", dir, prefix,
-              FOURCC_STR(mbuf->tbmfmt), mbuf->pitches[0], mbuf->height, nth);
+              FOURCC_STR(vbuf->tbmfmt), vbuf->pitches[0], vbuf->height, nth);
 
    BDB("dump %s", path);
 
-   switch(mbuf->tbmfmt)
+   switch(vbuf->tbmfmt)
      {
       case TBM_FORMAT_ARGB8888:
       case TBM_FORMAT_XRGB8888:
         if (raw)
-          _dump_raw(path, mbuf->ptrs[0], mbuf->pitches[0] * mbuf->height, NULL, 0, NULL, 0);
+          _dump_raw(path, vbuf->ptrs[0], vbuf->pitches[0] * vbuf->height, NULL, 0, NULL, 0);
         else
-          _dump_png(path, mbuf->ptrs[0], mbuf->width_from_pitch, mbuf->height);
+          _dump_png(path, vbuf->ptrs[0], vbuf->width_from_pitch, vbuf->height);
         break;
       case TBM_FORMAT_YVU420:
       case TBM_FORMAT_YUV420:
         _dump_raw(path,
-                  (char*)mbuf->ptrs[0] + mbuf->offsets[0], mbuf->pitches[0] * mbuf->height,
-                  (char*)mbuf->ptrs[1] + mbuf->offsets[1], mbuf->pitches[1] * (mbuf->height >> 1),
-                  (char*)mbuf->ptrs[2] + mbuf->offsets[2], mbuf->pitches[2] * (mbuf->height >> 1));
+                  (char*)vbuf->ptrs[0] + vbuf->offsets[0], vbuf->pitches[0] * vbuf->height,
+                  (char*)vbuf->ptrs[1] + vbuf->offsets[1], vbuf->pitches[1] * (vbuf->height >> 1),
+                  (char*)vbuf->ptrs[2] + vbuf->offsets[2], vbuf->pitches[2] * (vbuf->height >> 1));
         break;
       case TBM_FORMAT_NV12:
       case TBM_FORMAT_NV21:
         _dump_raw(path,
-                  (char*)mbuf->ptrs[0] + mbuf->offsets[0], mbuf->pitches[0] * mbuf->height,
-                  (((char*)mbuf->ptrs[1]) + mbuf->offsets[1]), mbuf->pitches[1] * (mbuf->height >> 1),
+                  (char*)vbuf->ptrs[0] + vbuf->offsets[0], vbuf->pitches[0] * vbuf->height,
+                  (((char*)vbuf->ptrs[1]) + vbuf->offsets[1]), vbuf->pitches[1] * (vbuf->height >> 1),
                   NULL, 0);
         break;
       case TBM_FORMAT_YUYV:
       case TBM_FORMAT_UYVY:
         _dump_raw(path,
-                  (char*)mbuf->ptrs[0] + mbuf->offsets[0], mbuf->pitches[0] * mbuf->height,
+                  (char*)vbuf->ptrs[0] + vbuf->offsets[0], vbuf->pitches[0] * vbuf->height,
                   NULL, 0,
                   NULL, 0);
         break;
       default:
-        BWR("can't clear %c%c%c%c buffer", FOURCC_STR(mbuf->tbmfmt));
+        BWR("can't clear %c%c%c%c buffer", FOURCC_STR(vbuf->tbmfmt));
         break;
      }
 
-   _e_devicemgr_buffer_access_data_end(mbuf);
+   _e_comp_wl_video_buffer_access_data_end(vbuf);
 }
 
 uint
-e_devmgr_buffer_get_mills(void)
+e_comp_wl_video_buffer_get_mills(void)
 {
    struct timespec tp;
 
@@ -1152,15 +1054,15 @@ e_devmgr_buffer_get_mills(void)
 }
 
 int
-e_devmgr_buffer_list_length(void)
+e_comp_wl_video_buffer_list_length(void)
 {
    return eina_list_count(mbuf_lists);
 }
 
 void
-e_devmgr_buffer_list_print(const char *log_path)
+e_comp_wl_video_buffer_list_print(const char *log_path)
 {
-   E_Devmgr_Buf *mbuf;
+   E_Comp_Wl_Video_Buf *vbuf;
    Eina_List *l;
    FILE *log_fl;
 
@@ -1175,21 +1077,21 @@ e_devmgr_buffer_list_print(const char *log_path)
 
    fprintf(log_fl, "* Devicemgr Buffers:\n");
    fprintf(log_fl, "stamp\tsize\tformat\thandles\tpitches\toffsets\tcreator\tin_use\n");
-   EINA_LIST_FOREACH(mbuf_lists, l, mbuf)
+   EINA_LIST_FOREACH(mbuf_lists, l, vbuf)
      {
         fprintf(log_fl, "%d\t%dx%d\t%c%c%c%c\t%d,%d,%d\t%d,%d,%d\t%d,%d,%d\t%s\t%d\n",
-                mbuf->stamp, mbuf->width, mbuf->height, FOURCC_STR(mbuf->tbmfmt),
-                mbuf->handles[0], mbuf->handles[1], mbuf->handles[2],
-                mbuf->pitches[0], mbuf->pitches[1], mbuf->pitches[2],
-                mbuf->offsets[0], mbuf->offsets[1], mbuf->offsets[2],
-                mbuf->func, mbuf->in_use);
+                vbuf->stamp, vbuf->width, vbuf->height, FOURCC_STR(vbuf->tbmfmt),
+                vbuf->handles[0], vbuf->handles[1], vbuf->handles[2],
+                vbuf->pitches[0], vbuf->pitches[1], vbuf->pitches[2],
+                vbuf->offsets[0], vbuf->offsets[1], vbuf->offsets[2],
+                vbuf->func, vbuf->in_use);
      }
 
    fclose(log_fl);
 }
 
 void
-e_devmgr_buffer_size_get(E_Client *ec, int *bw, int *bh)
+e_comp_wl_video_buffer_size_get(E_Client *ec, int *bw, int *bh)
 {
    E_Comp_Wl_Buffer *buffer = e_pixmap_resource_get(ec->pixmap);
 
@@ -1218,7 +1120,7 @@ e_devmgr_buffer_size_get(E_Client *ec, int *bw, int *bh)
 }
 
 void
-e_devmgr_buffer_transform_scale_size_get(E_Client *ec, int *bw, int *bh)
+e_comp_wl_video_buffer_transform_scale_size_get(E_Client *ec, int *bw, int *bh)
 {
    E_Comp_Wl_Buffer *buffer = e_pixmap_resource_get(ec->pixmap);
    E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;

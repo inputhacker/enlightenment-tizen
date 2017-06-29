@@ -1,9 +1,10 @@
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#include "e.h"
 #include <tdm.h>
 #include <values.h>
-#include "e_devicemgr_video.h"
-#include "e_devicemgr_dpms.h"
-#include "e_devicemgr_viewport.h"
-#include "e_devicemgr_eom.h"
 
 //#define DUMP_BUFFER
 
@@ -13,6 +14,13 @@ static Eina_Bool video_punch;
 
 #define BUFFER_MAX_COUNT   5
 #define MIN_WIDTH   32
+
+#undef NEVER_GET_HERE
+#define NEVER_GET_HERE()     CRI("** need to improve more **")
+
+#ifndef CLEAR
+#define CLEAR(x) memset(&(x), 0, sizeof (x))
+#endif
 
 #define VER(fmt,arg...)   ERR("window(0x%08"PRIxPTR") ec(%p): "fmt, video->window, video->ec, ##arg)
 #define VWR(fmt,arg...)   WRN("window(0x%08"PRIxPTR") ec(%p): "fmt, video->window, video->ec, ##arg)
@@ -76,7 +84,7 @@ struct _E_Video
     */
    Eina_List    *waiting_list;   /* buffers which are not committed yet */
    Eina_List    *committed_list; /* buffers which are committed, but not shown on screen yet */
-   E_Devmgr_Buf *current_fb;     /* buffer which is showing on screen currently */
+   E_Comp_Wl_Video_Buf *current_fb;     /* buffer which is showing on screen currently */
    Eina_Bool     waiting_vblank;
 
    /* attributes */
@@ -98,12 +106,19 @@ typedef struct _Tdm_Prop_Value
 } Tdm_Prop_Value;
 
 static Eina_List *video_list;
+static Eina_List *video_layers;
 
 static void _e_video_set(E_Video *video, E_Client *ec);
 static void _e_video_destroy(E_Video *video);
 static void _e_video_render(E_Video *video, const char *func);
-static Eina_Bool _e_video_frame_buffer_show(E_Video *video, E_Devmgr_Buf *mbuf);
+static Eina_Bool _e_video_frame_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf *vbuf);
 static void _e_video_pp_buffer_cb_release(tbm_surface_h surface, void *user_data);
+
+tdm_output *e_comp_wl_tdm_output_get(Ecore_Drm_Output *output);
+tdm_layer *e_comp_wl_tdm_video_layer_get(tdm_output *output);
+tdm_layer *e_comp_wl_tdm_avaiable_video_layer_get(tdm_output *output);
+void e_comp_wl_tdm_set_layer_usable(tdm_layer *layer, Eina_Bool usable);
+Eina_Bool e_comp_wl_tdm_get_layer_usable(tdm_layer *layer);
 
 static int
 gcd(int a, int b)
@@ -234,31 +249,31 @@ find_offscreen_parent_get(E_Client *ec)
    return NULL;
 }
 
-static E_Devmgr_Buf*
+static E_Comp_Wl_Video_Buf*
 _e_video_mbuf_find(Eina_List *list, tbm_surface_h buffer)
 {
-   E_Devmgr_Buf *mbuf;
+   E_Comp_Wl_Video_Buf *vbuf;
    Eina_List *l = NULL;
 
-   EINA_LIST_FOREACH(list, l, mbuf)
+   EINA_LIST_FOREACH(list, l, vbuf)
      {
-        if (mbuf->tbm_surface == buffer)
-           return mbuf;
+        if (vbuf->tbm_surface == buffer)
+           return vbuf;
      }
 
    return NULL;
 }
 
-static E_Devmgr_Buf*
+static E_Comp_Wl_Video_Buf*
 _e_video_mbuf_find_with_comp_buffer(Eina_List *list, E_Comp_Wl_Buffer *comp_buffer)
 {
-   E_Devmgr_Buf *mbuf;
+   E_Comp_Wl_Video_Buf *vbuf;
    Eina_List *l = NULL;
 
-   EINA_LIST_FOREACH(list, l, mbuf)
+   EINA_LIST_FOREACH(list, l, vbuf)
      {
-        if (mbuf->comp_buffer == comp_buffer)
-           return mbuf;
+        if (vbuf->comp_buffer == comp_buffer)
+           return vbuf;
      }
 
    return NULL;
@@ -279,7 +294,7 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
              tdm_layer_commit(video->layer, NULL, NULL);
           }
         VIN("release layer: %p", video->layer);
-        e_devicemgr_tdm_set_layer_usable(video->layer, EINA_TRUE);
+        e_comp_wl_tdm_set_layer_usable(video->layer, EINA_TRUE);
         video->layer = NULL;
         video->old_comp_buffer = NULL;
      }
@@ -287,14 +302,14 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
      {
         if (video->layer) return EINA_TRUE;
         if (!video->layer)
-          video->layer = e_devicemgr_tdm_avaiable_video_layer_get(video->output);
+          video->layer = e_comp_wl_tdm_avaiable_video_layer_get(video->output);
         if (!video->layer)
           {
              VWR("no available layer for video");
              return EINA_FALSE;
           }
         VIN("assign layer: %p", video->layer);
-        e_devicemgr_tdm_set_layer_usable(video->layer, EINA_FALSE);
+        e_comp_wl_tdm_set_layer_usable(video->layer, EINA_FALSE);
      }
 
    return EINA_TRUE;
@@ -366,117 +381,117 @@ _e_video_parent_is_viewable(E_Video *video)
 }
 
 static void
-_e_video_input_buffer_cb_free(E_Devmgr_Buf *mbuf, void *data)
+_e_video_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
 {
    E_Video *video = data;
    Eina_Bool need_hide = EINA_FALSE;
 
-   VDT("Buffer(%p) to be free, refcnt(%d)", mbuf, mbuf->ref_cnt);
+   VDT("Buffer(%p) to be free, refcnt(%d)", vbuf, vbuf->ref_cnt);
 
-   video->input_buffer_list = eina_list_remove(video->input_buffer_list, mbuf);
+   video->input_buffer_list = eina_list_remove(video->input_buffer_list, vbuf);
 
-   if (mbuf->comp_buffer)
-     e_comp_wl_buffer_reference(&mbuf->buffer_ref, NULL);
+   if (vbuf->comp_buffer)
+     e_comp_wl_buffer_reference(&vbuf->buffer_ref, NULL);
 
-   if (video->current_fb == mbuf)
+   if (video->current_fb == vbuf)
      {
         VIN("current fb destroyed");
-        e_devmgr_buffer_set_use(video->current_fb, EINA_FALSE);
+        e_comp_wl_video_buffer_set_use(video->current_fb, EINA_FALSE);
         video->current_fb = NULL;
         need_hide = EINA_TRUE;
       }
 
-   if (eina_list_data_find(video->committed_list, mbuf))
+   if (eina_list_data_find(video->committed_list, vbuf))
      {
         VIN("committed fb destroyed");
-        video->committed_list = eina_list_remove(video->committed_list, mbuf);
-        e_devmgr_buffer_set_use(mbuf, EINA_FALSE);
+        video->committed_list = eina_list_remove(video->committed_list, vbuf);
+        e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
         need_hide = EINA_TRUE;
       }
 
-   if (eina_list_data_find(video->waiting_list, mbuf))
+   if (eina_list_data_find(video->waiting_list, vbuf))
      {
         VIN("waiting fb destroyed");
-        video->waiting_list = eina_list_remove(video->waiting_list, mbuf);
+        video->waiting_list = eina_list_remove(video->waiting_list, vbuf);
      }
 
    if (need_hide && video->layer)
      _e_video_frame_buffer_show(video, NULL);
 }
 
-static E_Devmgr_Buf*
+static E_Comp_Wl_Video_Buf*
 _e_video_input_buffer_get(E_Video *video, E_Comp_Wl_Buffer *comp_buffer, Eina_Bool scanout)
 {
-   E_Devmgr_Buf *mbuf;
+   E_Comp_Wl_Video_Buf *vbuf;
 
-   mbuf = _e_video_mbuf_find_with_comp_buffer(video->input_buffer_list, comp_buffer);
-   if (mbuf)
+   vbuf = _e_video_mbuf_find_with_comp_buffer(video->input_buffer_list, comp_buffer);
+   if (vbuf)
      {
-        mbuf->content_r = video->geo.input_r;
-        return mbuf;
+        vbuf->content_r = video->geo.input_r;
+        return vbuf;
      }
 
-   mbuf = e_devmgr_buffer_create_comp(comp_buffer);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(mbuf, NULL);
+   vbuf = e_comp_wl_video_buffer_create_comp(comp_buffer);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
 
    if (video->pp)
      {
-        if (video->pp_align != -1 && (mbuf->width_from_pitch % video->pp_align))
+        if (video->pp_align != -1 && (vbuf->width_from_pitch % video->pp_align))
           {
-             E_Devmgr_Buf *temp, *temp2;
-             int aligned_width = ROUNDUP(mbuf->width_from_pitch, video->pp_align);
+             E_Comp_Wl_Video_Buf *temp, *temp2;
+             int aligned_width = ROUNDUP(vbuf->width_from_pitch, video->pp_align);
 
-             temp = e_devmgr_buffer_alloc(aligned_width, mbuf->height, mbuf->tbmfmt, scanout);
+             temp = e_comp_wl_video_buffer_alloc(aligned_width, vbuf->height, vbuf->tbmfmt, scanout);
              if (!temp)
                {
-                  e_devmgr_buffer_unref(mbuf);
+                  e_comp_wl_video_buffer_unref(vbuf);
                   return NULL;
                }
 
-             VDB("copy mbuf(%d,%dx%d) => mbuf(%d,%dx%d)",
-                 MSTAMP(mbuf), mbuf->width_from_pitch, mbuf->height,
+             VDB("copy vbuf(%d,%dx%d) => vbuf(%d,%dx%d)",
+                 MSTAMP(vbuf), vbuf->width_from_pitch, vbuf->height,
                  MSTAMP(temp), temp->width, temp->height);
 
-             e_devmgr_buffer_copy(mbuf, temp);
-             temp2 = mbuf;
-             mbuf = temp;
-             e_devmgr_buffer_unref(temp2);
+             e_comp_wl_video_buffer_copy(vbuf, temp);
+             temp2 = vbuf;
+             vbuf = temp;
+             e_comp_wl_video_buffer_unref(temp2);
 
-             video->geo.input_w = mbuf->width_from_pitch;
+             video->geo.input_w = vbuf->width_from_pitch;
 #ifdef DUMP_BUFFER
              static int i;
-             e_devmgr_buffer_dump(mbuf, "copy", i++, 0);
+             e_comp_wl_video_buffer_dump(vbuf, "copy", i++, 0);
 #endif
           }
      }
 
-   mbuf->content_r = video->geo.input_r;
+   vbuf->content_r = video->geo.input_r;
 
-   video->input_buffer_list = eina_list_append(video->input_buffer_list, mbuf);
-   e_devmgr_buffer_free_func_add(mbuf, _e_video_input_buffer_cb_free, video);
+   video->input_buffer_list = eina_list_append(video->input_buffer_list, vbuf);
+   e_comp_wl_video_buffer_free_func_add(vbuf, _e_video_input_buffer_cb_free, video);
 
    VDT("Client(%s):PID(%d) RscID(%d), Buffer(%p) created, refcnt:%d"
        " scanout=%d", e_client_util_name_get(video->ec) ?: "No Name" ,
-       video->ec->netwm.pid, wl_resource_get_id(video->surface), mbuf,
-       mbuf->ref_cnt, scanout);
+       video->ec->netwm.pid, wl_resource_get_id(video->surface), vbuf,
+       vbuf->ref_cnt, scanout);
 
-   return mbuf;
+   return vbuf;
 }
 
 static void
 _e_video_input_buffer_valid(E_Video *video, E_Comp_Wl_Buffer *comp_buffer)
 {
-   E_Devmgr_Buf *mbuf;
+   E_Comp_Wl_Video_Buf *vbuf;
    Eina_List *l;
 
-   EINA_LIST_FOREACH(video->input_buffer_list, l, mbuf)
+   EINA_LIST_FOREACH(video->input_buffer_list, l, vbuf)
      {
         tbm_surface_h tbm_surf;
         tbm_bo bo;
         uint32_t size = 0, offset = 0, pitch = 0;
 
-        if (!mbuf->comp_buffer) continue;
-        if (mbuf->resource == comp_buffer->resource)
+        if (!vbuf->comp_buffer) continue;
+        if (vbuf->resource == comp_buffer->resource)
           {
              WRN("got wl_buffer@%d twice", wl_resource_get_id(comp_buffer->resource));
              return;
@@ -486,37 +501,37 @@ _e_video_input_buffer_valid(E_Video *video, E_Comp_Wl_Buffer *comp_buffer)
         bo = tbm_surface_internal_get_bo(tbm_surf, 0);
         tbm_surface_internal_get_plane_data(tbm_surf, 0, &size, &offset, &pitch);
 
-        if (mbuf->names[0] == tbm_bo_export(bo) && mbuf->offsets[0] == offset)
+        if (vbuf->names[0] == tbm_bo_export(bo) && vbuf->offsets[0] == offset)
           {
              WRN("can tearing: wl_buffer@%d, wl_buffer@%d are same. gem_name(%d)",
-                 wl_resource_get_id(mbuf->resource),
-                 wl_resource_get_id(comp_buffer->resource), mbuf->names[0]);
+                 wl_resource_get_id(vbuf->resource),
+                 wl_resource_get_id(comp_buffer->resource), vbuf->names[0]);
              return;
           }
      }
 }
 
 static void
-_e_video_pp_buffer_cb_free(E_Devmgr_Buf *mbuf, void *data)
+_e_video_pp_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
 {
    E_Video *video = data;
 
-   e_devmgr_buffer_set_use(mbuf, EINA_FALSE);
+   e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
 
-   if (video->current_fb == mbuf)
+   if (video->current_fb == vbuf)
      video->current_fb = NULL;
 
-   video->committed_list = eina_list_remove(video->committed_list, mbuf);
+   video->committed_list = eina_list_remove(video->committed_list, vbuf);
 
-   video->waiting_list = eina_list_remove(video->waiting_list, mbuf);
+   video->waiting_list = eina_list_remove(video->waiting_list, vbuf);
 
-   video->pp_buffer_list = eina_list_remove(video->pp_buffer_list, mbuf);
+   video->pp_buffer_list = eina_list_remove(video->pp_buffer_list, vbuf);
 }
 
-static E_Devmgr_Buf*
+static E_Comp_Wl_Video_Buf*
 _e_video_pp_buffer_get(E_Video *video, int width, int height)
 {
-   E_Devmgr_Buf *mbuf;
+   E_Comp_Wl_Video_Buf *vbuf;
    Eina_List *l;
    int i = 0;
    int aligned_width;
@@ -528,25 +543,25 @@ _e_video_pp_buffer_get(E_Video *video, int width, int height)
 
    if (video->pp_buffer_list)
      {
-        mbuf = eina_list_data_get(video->pp_buffer_list);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(mbuf, NULL);
+        vbuf = eina_list_data_get(video->pp_buffer_list);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
 
         /* if we need bigger pp_buffers, destroy all pp_buffers and create */
-        if (aligned_width > mbuf->width_from_pitch || height != mbuf->height)
+        if (aligned_width > vbuf->width_from_pitch || height != vbuf->height)
           {
              Eina_List *ll;
 
              VIN("pp buffer changed: %dx%d => %dx%d",
-                 mbuf->width_from_pitch, mbuf->height,
+                 vbuf->width_from_pitch, vbuf->height,
                  aligned_width, height);
 
-             EINA_LIST_FOREACH_SAFE(video->pp_buffer_list, l, ll, mbuf)
+             EINA_LIST_FOREACH_SAFE(video->pp_buffer_list, l, ll, vbuf)
                {
-                  tdm_buffer_remove_release_handler(mbuf->tbm_surface,
-                                                    _e_video_pp_buffer_cb_release, mbuf);
+                  tdm_buffer_remove_release_handler(vbuf->tbm_surface,
+                                                    _e_video_pp_buffer_cb_release, vbuf);
                   /* free forcely */
-                  e_devmgr_buffer_set_use(mbuf, EINA_FALSE);
-                  e_devmgr_buffer_unref(mbuf);
+                  e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
+                  e_comp_wl_video_buffer_unref(vbuf);
                }
              if (video->pp_buffer_list)
                NEVER_GET_HERE();
@@ -560,16 +575,16 @@ _e_video_pp_buffer_get(E_Video *video, int width, int height)
      {
         for (i = 0; i < BUFFER_MAX_COUNT; i++)
           {
-             mbuf = e_devmgr_buffer_alloc(aligned_width, height, video->pp_tbmfmt, EINA_TRUE);
-             EINA_SAFETY_ON_NULL_RETURN_VAL(mbuf, NULL);
+             vbuf = e_comp_wl_video_buffer_alloc(aligned_width, height, video->pp_tbmfmt, EINA_TRUE);
+             EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
 
-             e_devmgr_buffer_free_func_add(mbuf, _e_video_pp_buffer_cb_free, video);
-             video->pp_buffer_list = eina_list_append(video->pp_buffer_list, mbuf);
+             e_comp_wl_video_buffer_free_func_add(vbuf, _e_video_pp_buffer_cb_free, video);
+             video->pp_buffer_list = eina_list_append(video->pp_buffer_list, vbuf);
 
           }
 
         VIN("pp buffer created: %dx%d, %c%c%c%c",
-            mbuf->width_from_pitch, height, FOURCC_STR(video->pp_tbmfmt));
+            vbuf->width_from_pitch, height, FOURCC_STR(video->pp_tbmfmt));
 
         video->next_buffer = video->pp_buffer_list;
      }
@@ -578,12 +593,12 @@ _e_video_pp_buffer_get(E_Video *video, int width, int height)
    EINA_SAFETY_ON_NULL_RETURN_VAL(video->next_buffer, NULL);
 
    l = video->next_buffer;
-   while ((mbuf = video->next_buffer->data))
+   while ((vbuf = video->next_buffer->data))
      {
         video->next_buffer = (video->next_buffer->next) ? video->next_buffer->next : video->pp_buffer_list;
 
-        if (!mbuf->in_use)
-          return mbuf;
+        if (!vbuf->in_use)
+          return vbuf;
 
         if (l == video->next_buffer)
           {
@@ -961,7 +976,7 @@ _e_video_geometry_cal(E_Video * video)
 
    _e_video_geometry_cal_map(video);
 
-   if (dconfig->conf->eom_enable == EINA_TRUE && video->external_video)
+   if (e_config->eom_enable == EINA_TRUE && video->external_video)
      {
         tdm_err = tdm_output_get_mode(video->output, &mode);
         if (tdm_err != TDM_ERROR_NONE)
@@ -988,7 +1003,7 @@ _e_video_geometry_cal(E_Video * video)
         screen.h = zone->h;
      }
 
-   e_devmgr_buffer_size_get(video->ec, &input_r.w, &input_r.h);
+   e_comp_wl_video_buffer_size_get(video->ec, &input_r.w, &input_r.h);
    // when topmost is not mapped, input size can be abnormal.
    // in this case, it will be render by topmost showing.
    if (!eina_rectangle_intersection(&video->geo.input_r, &input_r) || (video->geo.input_r.w <= 10 || video->geo.input_r.h <= 10))
@@ -1068,13 +1083,13 @@ _e_video_format_info_get(E_Video *video)
 static Eina_Bool
 _e_video_can_commit(E_Video *video)
 {
-   if (dconfig->conf->eom_enable == EINA_TRUE)
+   if (e_config->eom_enable == EINA_TRUE)
      {
-        if (!video->external_video && e_devicemgr_dpms_get(video->drm_output))
+        if (!video->external_video && e_dpms_get(video->drm_output))
           return EINA_FALSE;
      }
    else
-     if (e_devicemgr_dpms_get(video->drm_output))
+     if (e_dpms_get(video->drm_output))
        return EINA_FALSE;
 
    if (!_e_video_is_visible(video))
@@ -1090,7 +1105,7 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
 {
    E_Video *video;
    Eina_List *l;
-   E_Devmgr_Buf *mbuf;
+   E_Comp_Wl_Video_Buf *vbuf;
 
    EINA_LIST_FOREACH(video_list, l, video)
      {
@@ -1104,27 +1119,27 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
      {
         tbm_surface_h displaying_buffer = tdm_layer_get_displaying_buffer(video->layer, NULL);
 
-        EINA_LIST_FOREACH(video->committed_list, l, mbuf)
+        EINA_LIST_FOREACH(video->committed_list, l, vbuf)
           {
-             if (mbuf->tbm_surface == displaying_buffer) break;
+             if (vbuf->tbm_surface == displaying_buffer) break;
           }
-        if (!mbuf) return;
+        if (!vbuf) return;
      }
    else
-     mbuf = eina_list_nth(video->committed_list, 0);
+     vbuf = eina_list_nth(video->committed_list, 0);
 
-   video->committed_list = eina_list_remove(video->committed_list, mbuf);
+   video->committed_list = eina_list_remove(video->committed_list, vbuf);
 
    /* client can attachs the same wl_buffer twice. */
-   if (video->current_fb && MBUF_IS_VALID(video->current_fb) && mbuf != video->current_fb)
+   if (video->current_fb && MBUF_IS_VALID(video->current_fb) && vbuf != video->current_fb)
      {
-        e_devmgr_buffer_set_use(video->current_fb, EINA_FALSE);
+        e_comp_wl_video_buffer_set_use(video->current_fb, EINA_FALSE);
 
         if (video->current_fb->comp_buffer)
           e_comp_wl_buffer_reference(&video->current_fb->buffer_ref, NULL);
      }
 
-   video->current_fb = mbuf;
+   video->current_fb = vbuf;
 
    VDB("current_fb(%d)", MSTAMP(video->current_fb));
 }
@@ -1136,7 +1151,7 @@ _e_video_vblank_handler(tdm_output *output, unsigned int sequence,
 {
    E_Video *video;
    Eina_List *l;
-   E_Devmgr_Buf *mbuf;
+   E_Comp_Wl_Video_Buf *vbuf;
 
    EINA_LIST_FOREACH(video_list, l, video)
      {
@@ -1149,15 +1164,15 @@ _e_video_vblank_handler(tdm_output *output, unsigned int sequence,
 
    if (!video->waiting_list) return;
 
-   mbuf = eina_list_nth(video->waiting_list, 0);
+   vbuf = eina_list_nth(video->waiting_list, 0);
 
-   video->waiting_list = eina_list_remove(video->waiting_list, mbuf);
-   video->committed_list = eina_list_append(video->committed_list, mbuf);
+   video->waiting_list = eina_list_remove(video->waiting_list, vbuf);
+   video->committed_list = eina_list_append(video->committed_list, vbuf);
 
    if (!_e_video_can_commit(video))
      goto no_commit;
 
-   if (!_e_video_frame_buffer_show(video, mbuf))
+   if (!_e_video_frame_buffer_show(video, vbuf))
      goto no_commit;
 
    goto done;
@@ -1170,14 +1185,14 @@ done:
 }
 
 static Eina_Bool
-_e_video_frame_buffer_show(E_Video *video, E_Devmgr_Buf *mbuf)
+_e_video_frame_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf *vbuf)
 {
    tdm_info_layer info, old_info;
    tdm_error ret;
    E_Client *topmost;
    Tdm_Prop_Value *prop;
 
-   if (!mbuf)
+   if (!vbuf)
      {
         if (video->layer)
           {
@@ -1210,17 +1225,17 @@ _e_video_frame_buffer_show(E_Video *video, E_Devmgr_Buf *mbuf)
    EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
 
    CLEAR(info);
-   info.src_config.size.h = mbuf->width_from_pitch;
-   info.src_config.size.v = mbuf->height_from_size;
-   info.src_config.pos.x = mbuf->content_r.x;
-   info.src_config.pos.y = mbuf->content_r.y;
-   info.src_config.pos.w = mbuf->content_r.w;
-   info.src_config.pos.h = mbuf->content_r.h;
+   info.src_config.size.h = vbuf->width_from_pitch;
+   info.src_config.size.v = vbuf->height_from_size;
+   info.src_config.pos.x = vbuf->content_r.x;
+   info.src_config.pos.y = vbuf->content_r.y;
+   info.src_config.pos.w = vbuf->content_r.w;
+   info.src_config.pos.h = vbuf->content_r.h;
    info.dst_pos.x = video->geo.tdm_output_r.x;
    info.dst_pos.y = video->geo.tdm_output_r.y;
    info.dst_pos.w = video->geo.tdm_output_r.w;
    info.dst_pos.h = video->geo.tdm_output_r.h;
-   info.transform = mbuf->content_t;
+   info.transform = vbuf->content_t;
 
    if (memcmp(&old_info, &info, sizeof(tdm_info_layer)))
      {
@@ -1228,7 +1243,7 @@ _e_video_frame_buffer_show(E_Video *video, E_Devmgr_Buf *mbuf)
         EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
      }
 
-   ret = tdm_layer_set_buffer(video->layer, mbuf->tbm_surface);
+   ret = tdm_layer_set_buffer(video->layer, vbuf->tbm_surface);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
 
    ret = tdm_layer_commit(video->layer, _e_video_commit_handler, video);
@@ -1288,7 +1303,7 @@ _e_video_frame_buffer_show(E_Video *video, E_Devmgr_Buf *mbuf)
        "Geometry details are : buffer size(%dx%d) src(%d,%d, %dx%d)"
        " dst(%d,%d, %dx%d), transform(%d)",
        e_client_util_name_get(video->ec) ?: "No Name" , video->ec->netwm.pid,
-       wl_resource_get_id(video->surface), mbuf, mbuf->ref_cnt,
+       wl_resource_get_id(video->surface), vbuf, vbuf->ref_cnt,
        info.src_config.size.h, info.src_config.size.v, info.src_config.pos.x,
        info.src_config.pos.y, info.src_config.pos.w, info.src_config.pos.h,
        info.dst_pos.x, info.dst_pos.y, info.dst_pos.w, info.dst_pos.h, info.transform);
@@ -1298,20 +1313,20 @@ _e_video_frame_buffer_show(E_Video *video, E_Devmgr_Buf *mbuf)
 }
 
 static void
-_e_video_buffer_show(E_Video *video, E_Devmgr_Buf *mbuf, unsigned int transform)
+_e_video_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
 {
-   mbuf->content_t = transform;
+   vbuf->content_t = transform;
 
-   e_devmgr_buffer_set_use(mbuf, EINA_TRUE);
+   e_comp_wl_video_buffer_set_use(vbuf, EINA_TRUE);
 
-   if (mbuf->comp_buffer)
-     e_comp_wl_buffer_reference(&mbuf->buffer_ref, mbuf->comp_buffer);
+   if (vbuf->comp_buffer)
+     e_comp_wl_buffer_reference(&vbuf->buffer_ref, vbuf->comp_buffer);
 
    if (!video->waiting_vblank)
-      video->committed_list = eina_list_append(video->committed_list, mbuf);
+      video->committed_list = eina_list_append(video->committed_list, vbuf);
    else
      {
-        video->waiting_list = eina_list_append(video->waiting_list, mbuf);
+        video->waiting_list = eina_list_append(video->waiting_list, vbuf);
         VDB("There are waiting fbs more than 1");
         return;
      }
@@ -1319,7 +1334,7 @@ _e_video_buffer_show(E_Video *video, E_Devmgr_Buf *mbuf, unsigned int transform)
    if (!_e_video_can_commit(video))
      goto no_commit;
 
-   if (!_e_video_frame_buffer_show(video, mbuf))
+   if (!_e_video_frame_buffer_show(video, vbuf))
      goto no_commit;
 
    return;
@@ -1465,15 +1480,15 @@ _e_video_set(E_Video *video, E_Client *ec)
    evas_object_event_callback_add(video->ec->frame, EVAS_CALLBACK_SHOW,
                                   _e_video_cb_evas_show, video);
 
-   if (dconfig->conf->eom_enable == EINA_TRUE)
+   if (e_config->eom_enable == EINA_TRUE)
      {
-        video->external_video = e_devicemgr_eom_is_ec_external(ec);
+        video->external_video = e_comp_wl_eom_is_ec_external(ec);
         if (video->external_video)
           {
              /* TODO: support screenmirror for external video */
              video->drm_output = NULL;
 
-             video->output = e_devicemgr_eom_tdm_output_by_ec_get(ec);
+             video->output = e_comp_wl_eom_tdm_output_by_ec_get(ec);
              EINA_SAFETY_ON_NULL_RETURN(video->output);
           }
         else
@@ -1482,7 +1497,7 @@ _e_video_set(E_Video *video, E_Client *ec)
              EINA_SAFETY_ON_NULL_RETURN(video->drm_output);
 
              /* TODO: find proper output */
-             video->output = e_devicemgr_tdm_output_get(video->drm_output);
+             video->output = e_comp_wl_tdm_output_get(video->drm_output);
              EINA_SAFETY_ON_NULL_RETURN(video->output);
           }
      }
@@ -1492,11 +1507,11 @@ _e_video_set(E_Video *video, E_Client *ec)
         EINA_SAFETY_ON_NULL_RETURN(video->drm_output);
 
         /* TODO: find proper output */
-        video->output = e_devicemgr_tdm_output_get(video->drm_output);
+        video->output = e_comp_wl_tdm_output_get(video->drm_output);
         EINA_SAFETY_ON_NULL_RETURN(video->output);
      }
 
-   layer = e_devicemgr_tdm_video_layer_get(video->output);
+   layer = e_comp_wl_tdm_video_layer_get(video->output);
    tdm_layer_get_capabilities(layer, &lyr_capabilities);
 
    if (lyr_capabilities & TDM_LAYER_CAPABILITY_VIDEO)
@@ -1532,7 +1547,7 @@ _e_video_set(E_Video *video, E_Client *ec)
 
    tdm_output_get_available_size(video->output, &ominw, &ominh, &omaxw, &omaxh, &video->output_align);
 
-   tdm_display_get_capabilities(e_devmgr_dpy->tdm, &disp_capabilities);
+   tdm_display_get_capabilities(e_comp->e_comp_screen->tdisplay, &disp_capabilities);
 
    if (!(disp_capabilities & TDM_DISPLAY_CAPABILITY_PP))
      {
@@ -1545,7 +1560,7 @@ _e_video_set(E_Video *video, E_Client *ec)
         int minw = -1, minh = -1, maxw = -1, maxh = -1;
         int pminw = -1, pminh = -1, pmaxw = -1, pmaxh = -1;
 
-        tdm_display_get_pp_available_size(e_devmgr_dpy->tdm, &pminw, &pminh, &pmaxw, &pmaxh, &video->pp_align);
+        tdm_display_get_pp_available_size(e_comp->e_comp_screen->tdisplay, &pminw, &pminh, &pmaxw, &pmaxh, &video->pp_align);
 
         minw = MAX(ominw, pminw);
         minh = MAX(ominh, pminh);
@@ -1596,28 +1611,28 @@ _e_video_set(E_Video *video, E_Client *ec)
 static void
 _e_video_hide(E_Video *video)
 {
-   E_Devmgr_Buf *mbuf;
+   E_Comp_Wl_Video_Buf *vbuf;
 
    if (video->current_fb || video->committed_list)
      _e_video_frame_buffer_show(video, NULL);
 
    if (video->current_fb)
      {
-        e_devmgr_buffer_set_use(video->current_fb, EINA_FALSE);
+        e_comp_wl_video_buffer_set_use(video->current_fb, EINA_FALSE);
         video->current_fb = NULL;
       }
 
-   EINA_LIST_FREE(video->committed_list, mbuf)
-     e_devmgr_buffer_set_use(mbuf, EINA_FALSE);
+   EINA_LIST_FREE(video->committed_list, vbuf)
+     e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
 
-   EINA_LIST_FREE(video->waiting_list, mbuf)
-     e_devmgr_buffer_set_use(mbuf, EINA_FALSE);
+   EINA_LIST_FREE(video->waiting_list, vbuf)
+     e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
 }
 
 static void
 _e_video_destroy(E_Video *video)
 {
-   E_Devmgr_Buf *mbuf;
+   E_Comp_Wl_Video_Buf *vbuf;
    Eina_List *l = NULL, *ll = NULL;
 
    if (!video)
@@ -1643,18 +1658,18 @@ _e_video_destroy(E_Video *video)
    _e_video_hide(video);
 
    /* others */
-   EINA_LIST_FOREACH_SAFE(video->input_buffer_list, l, ll, mbuf)
+   EINA_LIST_FOREACH_SAFE(video->input_buffer_list, l, ll, vbuf)
      {
-        e_devmgr_buffer_set_use(mbuf, EINA_FALSE);
-        e_devmgr_buffer_unref(mbuf);
+        e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
+        e_comp_wl_video_buffer_unref(vbuf);
      }
 
-   EINA_LIST_FOREACH_SAFE(video->pp_buffer_list, l, ll, mbuf)
+   EINA_LIST_FOREACH_SAFE(video->pp_buffer_list, l, ll, vbuf)
      {
-        tdm_buffer_remove_release_handler(mbuf->tbm_surface,
-                                          _e_video_pp_buffer_cb_release, mbuf);
-        e_devmgr_buffer_set_use(mbuf, EINA_FALSE);
-        e_devmgr_buffer_unref(mbuf);
+        tdm_buffer_remove_release_handler(vbuf->tbm_surface,
+                                          _e_video_pp_buffer_cb_release, vbuf);
+        e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
+        e_comp_wl_video_buffer_unref(vbuf);
      }
 
    if(video->tdm_prop_list)
@@ -1698,8 +1713,8 @@ _e_video_destroy(E_Video *video)
    free(video);
 
 #if 0
-   if (e_devmgr_buffer_list_length() > 0)
-     e_devmgr_buffer_list_print(NULL);
+   if (e_comp_wl_video_buffer_list_length() > 0)
+     e_comp_wl_video_buffer_list_print(NULL);
 #endif
 }
 
@@ -1710,7 +1725,7 @@ _e_video_check_if_pp_needed(E_Video *video)
    const tbm_format *formats;
    Eina_Bool found = EINA_FALSE;
    tdm_layer_capability capabilities = 0;
-   tdm_layer *layer = e_devicemgr_tdm_video_layer_get(video->output);
+   tdm_layer *layer = e_comp_wl_tdm_video_layer_get(video->output);
 
    tdm_layer_get_capabilities(layer, &capabilities);
 
@@ -1756,25 +1771,25 @@ need_pp:
 static void
 _e_video_pp_buffer_cb_release(tbm_surface_h surface, void *user_data)
 {
-   E_Devmgr_Buf *mbuf = (E_Devmgr_Buf*)user_data;
+   E_Comp_Wl_Video_Buf *vbuf = (E_Comp_Wl_Video_Buf*)user_data;
 
-   mbuf->in_use = EINA_FALSE;
+   vbuf->in_use = EINA_FALSE;
 }
 
 static void
 _e_video_pp_cb_done(tdm_pp *pp, tbm_surface_h sb, tbm_surface_h db, void *user_data)
 {
    E_Video *video = (E_Video*)user_data;
-   E_Devmgr_Buf *input_buffer, *pp_buffer;
+   E_Comp_Wl_Video_Buf *input_buffer, *pp_buffer;
 
    input_buffer = _e_video_mbuf_find(video->input_buffer_list, sb);
    if (input_buffer)
-     e_devmgr_buffer_unref(input_buffer);
+     e_comp_wl_video_buffer_unref(input_buffer);
 
    pp_buffer = _e_video_mbuf_find(video->pp_buffer_list, db);
    if (pp_buffer)
      {
-        e_devmgr_buffer_set_use(pp_buffer, EINA_FALSE);
+        e_comp_wl_video_buffer_set_use(pp_buffer, EINA_FALSE);
         if (!_e_video_is_visible(video)) return;
 
         _e_video_buffer_show(video, pp_buffer, 0);
@@ -1782,7 +1797,7 @@ _e_video_pp_cb_done(tdm_pp *pp, tbm_surface_h sb, tbm_surface_h db, void *user_d
         /* don't unref pp_buffer here because we will unref it when video destroyed */
 #ifdef DUMP_BUFFER
         static int i;
-        e_devmgr_buffer_dump(pp_buffer, "out", i++, 0);
+        e_comp_wl_video_buffer_dump(pp_buffer, "out", i++, 0);
 #endif
      }
    else
@@ -1797,8 +1812,8 @@ static void
 _e_video_render(E_Video *video, const char *func)
 {
    E_Comp_Wl_Buffer *comp_buffer;
-   E_Devmgr_Buf *pp_buffer = NULL;
-   E_Devmgr_Buf *input_buffer = NULL;
+   E_Comp_Wl_Video_Buf *pp_buffer = NULL;
+   E_Comp_Wl_Video_Buf *input_buffer = NULL;
    E_Client *topmost;
 
    EINA_SAFETY_ON_NULL_RETURN(video->ec);
@@ -1827,10 +1842,10 @@ _e_video_render(E_Video *video, const char *func)
    topmost = find_topmost_parent_get(video->ec);
    EINA_SAFETY_ON_NULL_RETURN(topmost);
 
-   if(e_devicemgr_viewport_is_changed(topmost))
+   if(e_comp_wl_viewport_is_changed(topmost))
      {
         VIN("need update viewport: apply topmost");
-        e_devicemgr_viewport_apply(topmost);
+        e_comp_wl_viewport_apply(topmost);
      }
 
    if (!_e_video_geometry_cal(video))
@@ -1868,7 +1883,7 @@ _e_video_render(E_Video *video, const char *func)
 
 #ifdef DUMP_BUFFER
         static int i;
-        e_devmgr_buffer_dump(input_buffer, "render", i++, 0);
+        e_comp_wl_video_buffer_dump(input_buffer, "render", i++, 0);
 #endif
         goto done;
      }
@@ -1876,10 +1891,10 @@ _e_video_render(E_Video *video, const char *func)
    /* 2. converting case */
    if (!video->pp)
      {
-        video->pp = tdm_display_create_pp(e_devmgr_dpy->tdm, NULL);
+        video->pp = tdm_display_create_pp(e_comp->e_comp_screen->tdisplay, NULL);
         EINA_SAFETY_ON_NULL_GOTO(video->pp, render_fail);
 
-        tdm_display_get_pp_available_size(e_devmgr_dpy->tdm, &video->pp_minw, &video->pp_minh,
+        tdm_display_get_pp_available_size(e_comp->e_comp_screen->tdisplay, &video->pp_minw, &video->pp_minh,
                                           &video->pp_maxw, &video->pp_maxh, &video->pp_align);
      }
 
@@ -1933,19 +1948,19 @@ _e_video_render(E_Video *video, const char *func)
 
 #ifdef DUMP_BUFFER
    static int i;
-   e_devmgr_buffer_dump(input_buffer, "in", i++, 0);
+   e_comp_wl_video_buffer_dump(input_buffer, "in", i++, 0);
 #endif
 
    if (tdm_pp_attach(video->pp, input_buffer->tbm_surface, pp_buffer->tbm_surface))
      goto render_fail;
 
-   e_devmgr_buffer_set_use(pp_buffer, EINA_TRUE);
+   e_comp_wl_video_buffer_set_use(pp_buffer, EINA_TRUE);
 
    e_comp_wl_buffer_reference(&input_buffer->buffer_ref, comp_buffer);
 
    if (tdm_pp_commit(video->pp))
      {
-       e_devmgr_buffer_set_use(pp_buffer, EINA_FALSE);
+       e_comp_wl_video_buffer_set_use(pp_buffer, EINA_FALSE);
        goto render_fail;
      }
 
@@ -1956,7 +1971,7 @@ _e_video_render(E_Video *video, const char *func)
 
 render_fail:
    if (input_buffer)
-     e_devmgr_buffer_unref(input_buffer);
+     e_comp_wl_video_buffer_unref(input_buffer);
 
 done:
    if (!video->cb_registered)
@@ -1990,11 +2005,11 @@ _e_video_cb_ec_buffer_change(void *data, int type, void *event)
         E_Comp_Wl_Buffer *comp_buffer = e_pixmap_resource_get(ec->pixmap);
         if (comp_buffer && wl_shm_buffer_get(comp_buffer->resource))
           {
-             E_Devmgr_Buf *mbuf = e_devmgr_buffer_create(comp_buffer->resource);
-             EINA_SAFETY_ON_NULL_RETURN_VAL(mbuf, ECORE_CALLBACK_PASS_ON);
+             E_Comp_Wl_Video_Buf *vbuf = e_comp_wl_video_buffer_create(comp_buffer->resource);
+             EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, ECORE_CALLBACK_PASS_ON);
              static int i;
-             e_devmgr_buffer_dump(mbuf, "dump", i++, 0);
-             e_devmgr_buffer_unref(mbuf);
+             e_comp_wl_video_buffer_dump(vbuf, "dump", i++, 0);
+             e_comp_wl_video_buffer_unref(vbuf);
           }
      }
 #endif
@@ -2006,10 +2021,10 @@ _e_video_cb_ec_buffer_change(void *data, int type, void *event)
    if (!video->ec->comp_data->video_client)
      return ECORE_CALLBACK_PASS_ON;
 
-   if (dconfig->conf->eom_enable == EINA_TRUE)
+   if (e_config->eom_enable == EINA_TRUE)
      {
         /* skip external client buffer if its top parent is not current for eom anymore */
-        if (video->external_video && !e_devicemgr_eom_is_ec_external(ec))
+        if (video->external_video && !e_comp_wl_eom_is_ec_external(ec))
           {
              VWR("skip external buffer");
              return ECORE_CALLBACK_PASS_ON;
@@ -2072,7 +2087,7 @@ _e_video_cb_ec_client_show(void *data, int type, void *event)
    if(ec == find_topmost_parent_get(video->ec))
      {
        VIN("video need rendering..");
-       e_devicemgr_viewport_apply(ec);
+       e_comp_wl_viewport_apply(ec);
        _e_video_render(video, __FUNCTION__);
      }
 
@@ -2145,7 +2160,7 @@ _e_video_cb_topmost_ec_visibility_change(void *data, int type, void *event)
 }
 
 static void
-_e_devicemgr_video_object_destroy(struct wl_resource *resource)
+_e_comp_wl_video_object_destroy(struct wl_resource *resource)
 {
    E_Video *video = wl_resource_get_user_data(resource);
    EINA_SAFETY_ON_NULL_RETURN(video);
@@ -2165,13 +2180,13 @@ _e_devicemgr_video_object_destroy(struct wl_resource *resource)
 }
 
 static void
-_e_devicemgr_video_object_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+_e_comp_wl_video_object_cb_destroy(struct wl_client *client, struct wl_resource *resource)
 {
    wl_resource_destroy(resource);
 }
 
 static void
-_e_devicemgr_video_object_cb_set_attribute(struct wl_client *client,
+_e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
                                            struct wl_resource *resource,
                                            const char *name,
                                            int32_t value)
@@ -2192,7 +2207,7 @@ _e_devicemgr_video_object_cb_set_attribute(struct wl_client *client,
           name,value);
 
    // check available property & count
-   layer = e_devicemgr_tdm_video_layer_get(video->output);
+   layer = e_comp_wl_tdm_video_layer_get(video->output);
    tdm_layer_get_available_properties(layer, &props, &count);
 
    for (i = 0; i < count; i++)
@@ -2296,7 +2311,7 @@ _e_devicemgr_video_object_cb_set_attribute(struct wl_client *client,
 }
 
 static void
-_e_devicemgr_video_object_cb_follow_topmost_visibility(struct wl_client *client,
+_e_comp_wl_video_object_cb_follow_topmost_visibility(struct wl_client *client,
                                            struct wl_resource *resource)
 {
    E_Video *video;
@@ -2314,7 +2329,7 @@ _e_devicemgr_video_object_cb_follow_topmost_visibility(struct wl_client *client,
 }
 
 static void
-_e_devicemgr_video_object_cb_unfollow_topmost_visibility(struct wl_client *client,
+_e_comp_wl_video_object_cb_unfollow_topmost_visibility(struct wl_client *client,
                                            struct wl_resource *resource)
 {
    E_Video *video;
@@ -2332,7 +2347,7 @@ _e_devicemgr_video_object_cb_unfollow_topmost_visibility(struct wl_client *clien
 }
 
 static void
-_e_devicemgr_video_object_cb_allowed_attribute(struct wl_client *client,
+_e_comp_wl_video_object_cb_allowed_attribute(struct wl_client *client,
                                            struct wl_resource *resource)
 {
    E_Video *video;
@@ -2350,7 +2365,7 @@ _e_devicemgr_video_object_cb_allowed_attribute(struct wl_client *client,
 }
 
 static void
-_e_devicemgr_video_object_cb_disallowed_attribute(struct wl_client *client,
+_e_comp_wl_video_object_cb_disallowed_attribute(struct wl_client *client,
                                            struct wl_resource *resource)
 {
    E_Video *video;
@@ -2367,18 +2382,18 @@ _e_devicemgr_video_object_cb_disallowed_attribute(struct wl_client *client,
 
 }
 
-static const struct tizen_video_object_interface _e_devicemgr_video_object_interface =
+static const struct tizen_video_object_interface _e_comp_wl_video_object_interface =
 {
-   _e_devicemgr_video_object_cb_destroy,
-   _e_devicemgr_video_object_cb_set_attribute,
-   _e_devicemgr_video_object_cb_follow_topmost_visibility,
-   _e_devicemgr_video_object_cb_unfollow_topmost_visibility,
-   _e_devicemgr_video_object_cb_allowed_attribute,
-   _e_devicemgr_video_object_cb_disallowed_attribute,
+   _e_comp_wl_video_object_cb_destroy,
+   _e_comp_wl_video_object_cb_set_attribute,
+   _e_comp_wl_video_object_cb_follow_topmost_visibility,
+   _e_comp_wl_video_object_cb_unfollow_topmost_visibility,
+   _e_comp_wl_video_object_cb_allowed_attribute,
+   _e_comp_wl_video_object_cb_disallowed_attribute,
 };
 
 static void
-_e_devicemgr_video_cb_get_object(struct wl_client *client,
+_e_comp_wl_video_cb_get_object(struct wl_client *client,
                                  struct wl_resource *resource,
                                  uint32_t id,
                                  struct wl_resource *surface)
@@ -2409,12 +2424,12 @@ _e_devicemgr_video_cb_get_object(struct wl_client *client,
         return;
      }
 
-   wl_resource_set_implementation(res, &_e_devicemgr_video_object_interface,
-                                  video, _e_devicemgr_video_object_destroy);
+   wl_resource_set_implementation(res, &_e_comp_wl_video_object_interface,
+                                  video, _e_comp_wl_video_object_destroy);
 }
 
 static void
-_e_devicemgr_video_cb_get_viewport(struct wl_client *client,
+_e_comp_wl_video_cb_get_viewport(struct wl_client *client,
                                    struct wl_resource *resource,
                                    uint32_t id,
                                    struct wl_resource *surface)
@@ -2432,7 +2447,7 @@ _e_devicemgr_video_cb_get_viewport(struct wl_client *client,
         return;
      }
 
-   if (!e_devicemgr_viewport_create(resource, id, surface))
+   if (!e_comp_wl_viewport_create(resource, id, surface))
      {
         ERR("Failed to create viewport for wl_surface@%d",
             wl_resource_get_id(surface));
@@ -2441,14 +2456,14 @@ _e_devicemgr_video_cb_get_viewport(struct wl_client *client,
      }
 }
 
-static const struct tizen_video_interface _e_devicemgr_video_interface =
+static const struct tizen_video_interface _e_comp_wl_video_interface =
 {
-   _e_devicemgr_video_cb_get_object,
-   _e_devicemgr_video_cb_get_viewport,
+   _e_comp_wl_video_cb_get_object,
+   _e_comp_wl_video_cb_get_viewport,
 };
 
 static void
-_e_devicemgr_video_cb_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
+_e_comp_wl_video_cb_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
    struct wl_resource *res;
    const tbm_format *formats = NULL;
@@ -2461,23 +2476,23 @@ _e_devicemgr_video_cb_bind(struct wl_client *client, void *data, uint32_t versio
         return;
      }
 
-   wl_resource_set_implementation(res, &_e_devicemgr_video_interface, NULL, NULL);
+   wl_resource_set_implementation(res, &_e_comp_wl_video_interface, NULL, NULL);
 
    /* 1st, use pp information. */
-   if (e_devmgr_dpy->pp_available)
+   if (e_comp_screen_pp_support())
      {
-        tdm_display_get_pp_available_formats(e_devmgr_dpy->tdm, &formats, &count);
+        tdm_display_get_pp_available_formats(e_comp->e_comp_screen->tdisplay, &formats, &count);
         for (i = 0; i < count; i++)
            tizen_video_send_format(res, formats[i]);
      }
    else
      {
-        tdm_output *output = e_devicemgr_tdm_output_get(NULL);
+        tdm_output *output = e_comp_wl_tdm_output_get(NULL);
         tdm_layer *layer;
 
         EINA_SAFETY_ON_NULL_RETURN(output);
 
-        layer = e_devicemgr_tdm_video_layer_get(output);
+        layer = e_comp_wl_tdm_video_layer_get(output);
         EINA_SAFETY_ON_NULL_RETURN(layer);
 
         tdm_layer_get_available_formats(layer, &formats, &count);
@@ -2489,19 +2504,19 @@ _e_devicemgr_video_cb_bind(struct wl_client *client, void *data, uint32_t versio
 static Eina_List *video_hdlrs;
 
 static void
-_e_devicemgr_mbuf_print(void *data, const char *log_path)
+_e_comp_wl_mbuf_print(void *data, const char *log_path)
 {
-   e_devmgr_buffer_list_print(log_path);
+   e_comp_wl_video_buffer_list_print(log_path);
 }
 
 static void
-_e_devicemgr_video_dst_change(void *data, const char *log_path)
+_e_comp_wl_video_dst_change(void *data, const char *log_path)
 {
    Eina_List *video_list, *l;
    E_Video *video;
    static int i = -1;
    int temp = 64;
-   video_list = e_devicemgr_video_list_get();
+   video_list = e_comp_wl_video_list_get();
 
    EINA_LIST_FOREACH(video_list, l, video)
      {
@@ -2529,30 +2544,36 @@ _e_devicemgr_video_dst_change(void *data, const char *log_path)
 }
 
 static void
-_e_devicemgr_video_to_primary(void *data, const char *log_path)
+_e_comp_wl_video_to_primary(void *data, const char *log_path)
 {
    video_to_primary = !video_to_primary;
 }
 
 static void
-_e_devicemgr_video_punch(void *data, const char *log_path)
+_e_comp_wl_video_punch(void *data, const char *log_path)
 {
    video_punch = !video_punch;
 }
 
 int
-e_devicemgr_video_init(void)
+e_comp_wl_video_init(void)
 {
+   e_comp->wl_comp_data->available_hw_accel.underlay = EINA_TRUE;
+   DBG("enable HW underlay");
+
+   e_comp->wl_comp_data->available_hw_accel.scaler = EINA_TRUE;
+   DBG("enable HW scaler");
+
    if (!e_comp_wl) return 0;
    if (!e_comp_wl->wl.disp) return 0;
    if (e_comp->wl_comp_data->video.global) return 1;
 
-   e_info_server_hook_set("mbuf", _e_devicemgr_mbuf_print, NULL);
-   e_info_server_hook_set("video-dst-change", _e_devicemgr_video_dst_change, NULL);
-   e_info_server_hook_set("video-to-primary", _e_devicemgr_video_to_primary, NULL);
-   e_info_server_hook_set("video-punch", _e_devicemgr_video_punch, NULL);
+   e_info_server_hook_set("vbuf", _e_comp_wl_mbuf_print, NULL);
+   e_info_server_hook_set("video-dst-change", _e_comp_wl_video_dst_change, NULL);
+   e_info_server_hook_set("video-to-primary", _e_comp_wl_video_to_primary, NULL);
+   e_info_server_hook_set("video-punch", _e_comp_wl_video_punch, NULL);
 
-   _video_detail_log_dom = eina_log_domain_register("e-devicemgr-video", EINA_COLOR_BLUE);
+   _video_detail_log_dom = eina_log_domain_register("e-comp-wl-video", EINA_COLOR_BLUE);
    if (_video_detail_log_dom < 0)
      {
         ERR("Failed eina_log_domain_register()..!\n");
@@ -2560,7 +2581,7 @@ e_devicemgr_video_init(void)
      }
 
    e_comp->wl_comp_data->video.global =
-     wl_global_create(e_comp_wl->wl.disp, &tizen_video_interface, 1, NULL, _e_devicemgr_video_cb_bind);
+     wl_global_create(e_comp_wl->wl.disp, &tizen_video_interface, 1, NULL, _e_comp_wl_video_cb_bind);
 
    /* try to add tizen_video to wayland globals */
    if (!e_comp->wl_comp_data->video.global)
@@ -2584,11 +2605,14 @@ e_devicemgr_video_init(void)
 }
 
 void
-e_devicemgr_video_fini(void)
+e_comp_wl_video_shutdown(void)
 {
+   e_comp->wl_comp_data->available_hw_accel.underlay = EINA_FALSE;
+   e_comp->wl_comp_data->available_hw_accel.scaler = EINA_FALSE;
+
    E_FREE_LIST(video_hdlrs, ecore_event_handler_del);
 
-   e_info_server_hook_set("mbuf", NULL, NULL);
+   e_info_server_hook_set("vbuf", NULL, NULL);
    e_info_server_hook_set("video-dst-change", NULL, NULL);
    e_info_server_hook_set("video-to-primary", NULL, NULL);
    e_info_server_hook_set("video-punch", NULL, NULL);
@@ -2598,13 +2622,13 @@ e_devicemgr_video_fini(void)
 }
 
 Eina_List*
-e_devicemgr_video_list_get(void)
+e_comp_wl_video_list_get(void)
 {
    return video_list;
 }
 
-E_Devmgr_Buf*
-e_devicemgr_video_fb_get(E_Video *video)
+E_Comp_Wl_Video_Buf*
+e_comp_wl_video_fb_get(E_Video *video)
 {
    tdm_layer_capability capabilities = 0;
 
@@ -2623,7 +2647,7 @@ e_devicemgr_video_fb_get(E_Video *video)
 }
 
 void
-e_devicemgr_video_pos_get(E_Video *video, int *x, int *y)
+e_comp_wl_video_pos_get(E_Video *video, int *x, int *y)
 {
    EINA_SAFETY_ON_NULL_RETURN(video);
 
@@ -2632,7 +2656,7 @@ e_devicemgr_video_pos_get(E_Video *video, int *x, int *y)
 }
 
 Ecore_Drm_Output*
-e_devicemgr_video_drm_output_get(E_Video *video)
+e_comp_wl_video_drm_output_get(E_Video *video)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(video, NULL);
 
@@ -2640,7 +2664,7 @@ e_devicemgr_video_drm_output_get(E_Video *video)
 }
 
 tdm_layer *
-e_devicemgr_video_layer_get(tdm_output *output)
+e_comp_wl_video_layer_get(tdm_output *output)
 {
    E_Video *video;
    Eina_List *l;
@@ -2655,4 +2679,197 @@ e_devicemgr_video_layer_get(tdm_output *output)
      }
 
    return NULL;
+}
+
+tdm_output*
+e_comp_wl_tdm_output_get(Ecore_Drm_Output *output)
+{
+   Ecore_Drm_Device *dev;
+   Ecore_Drm_Output *o;
+   Eina_List *devs;
+   Eina_List *l, *ll;
+   int pipe = 0;
+
+   if (!output)
+     {
+        int i, count = 0;
+        tdm_display_get_output_count(e_comp->e_comp_screen->tdisplay, &count);
+        for (i = 0; i < count; i++)
+          {
+             tdm_output *toutput = tdm_display_get_output(e_comp->e_comp_screen->tdisplay, i, NULL);
+             tdm_output_conn_status status = TDM_OUTPUT_CONN_STATUS_DISCONNECTED;
+
+             if (!toutput)
+               continue;
+
+             tdm_output_get_conn_status(toutput, &status);
+             if (status != TDM_OUTPUT_CONN_STATUS_DISCONNECTED)
+               {
+                  tdm_output_type type;
+                  tdm_output_get_output_type(toutput, &type);
+                  INF("found tdm output: type(%d)", type);
+                  return toutput;
+               }
+          }
+
+        ERR("not found tdm output");
+
+        return NULL;
+     }
+
+   devs = eina_list_clone(ecore_drm_devices_get());
+   EINA_LIST_FOREACH(devs, l, dev)
+     {
+        pipe = 0;
+        EINA_LIST_FOREACH(dev->outputs, ll, o)
+          {
+             if (o == output)
+                goto found;
+             pipe++;
+          }
+     }
+found:
+   eina_list_free(devs);
+
+   return tdm_display_get_output(e_comp->e_comp_screen->tdisplay, pipe, NULL);
+}
+
+tdm_layer*
+e_comp_wl_tdm_video_layer_get(tdm_output *output)
+{
+   int i, count = 0;
+#ifdef CHECKING_PRIMARY_ZPOS
+   int primary_idx = 0, primary_zpos = 0;
+   tdm_layer *primary_layer;
+#endif
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+
+   tdm_output_get_layer_count(output, &count);
+   for (i = 0; i < count; i++)
+     {
+        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
+        tdm_layer_capability capabilities = 0;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
+
+        tdm_layer_get_capabilities(layer, &capabilities);
+        if (capabilities & TDM_LAYER_CAPABILITY_VIDEO)
+          return layer;
+     }
+
+#ifdef CHECKING_PRIMARY_ZPOS
+   tdm_output_get_primary_index(output, &primary_idx);
+   primary_layer = tdm_output_get_layer(output, primary_idx, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(primary_layer, NULL);
+   tdm_layer_get_zpos(primary_layer, &primary_zpos);
+#endif
+
+   for (i = 0; i < count; i++)
+     {
+        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
+        tdm_layer_capability capabilities = 0;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
+
+        tdm_layer_get_capabilities(layer, &capabilities);
+        if (capabilities & TDM_LAYER_CAPABILITY_OVERLAY)
+          {
+#ifdef CHECKING_PRIMARY_ZPOS
+             int zpos = 0;
+             tdm_layer_get_zpos(layer, &zpos);
+             if (zpos >= primary_zpos) continue;
+#endif
+             return layer;
+          }
+     }
+
+   return NULL;
+}
+
+tdm_layer*
+e_comp_wl_tdm_avaiable_video_layer_get(tdm_output *output)
+{
+   Eina_Bool has_video_layer = EINA_FALSE;
+   int i, count = 0;
+#ifdef CHECKING_PRIMARY_ZPOS
+   int primary_idx = 0, primary_zpos = 0;
+   tdm_layer *primary_layer;
+#endif
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+
+   /* check video layers first */
+   tdm_output_get_layer_count(output, &count);
+   for (i = 0; i < count; i++)
+     {
+        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
+        tdm_layer_capability capabilities = 0;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
+
+        tdm_layer_get_capabilities(layer, &capabilities);
+        if (capabilities & TDM_LAYER_CAPABILITY_VIDEO)
+          {
+             has_video_layer = EINA_TRUE;
+             if (!e_comp_wl_tdm_get_layer_usable(layer)) continue;
+             return layer;
+          }
+     }
+
+   /* if a output has video layers, it means that there is no available video layer for video */
+   if (has_video_layer)
+     return NULL;
+
+   /* check graphic layers second */
+#ifdef CHECKING_PRIMARY_ZPOS
+   tdm_output_get_primary_index(output, &primary_idx);
+   primary_layer = tdm_output_get_layer(output, primary_idx, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(primary_layer, NULL);
+   tdm_layer_get_zpos(primary_layer, &primary_zpos);
+#endif
+
+   for (i = 0; i < count; i++)
+     {
+        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
+        tdm_layer_capability capabilities = 0;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
+
+        tdm_layer_get_capabilities(layer, &capabilities);
+        if (capabilities & TDM_LAYER_CAPABILITY_OVERLAY)
+          {
+#ifdef CHECKING_PRIMARY_ZPOS
+             int zpos = 0;
+             tdm_layer_get_zpos(layer, &zpos);
+             if (zpos >= primary_zpos) continue;
+#endif
+             if (!e_comp_wl_tdm_get_layer_usable(layer)) continue;
+             return layer;
+          }
+     }
+
+   return NULL;
+}
+
+void
+e_comp_wl_tdm_set_layer_usable(tdm_layer *layer, Eina_Bool usable)
+{
+   if (usable)
+     video_layers = eina_list_remove(video_layers, layer);
+   else
+     {
+        tdm_layer *used_layer;
+        Eina_List *l = NULL;
+        EINA_LIST_FOREACH(video_layers, l, used_layer)
+          if (used_layer == layer) return;
+        video_layers = eina_list_append(video_layers, layer);
+     }
+}
+
+Eina_Bool
+e_comp_wl_tdm_get_layer_usable(tdm_layer *layer)
+{
+   tdm_layer *used_layer;
+   Eina_List *l = NULL;
+   EINA_LIST_FOREACH(video_layers, l, used_layer)
+     if (used_layer == layer)
+       return EINA_FALSE;
+   return EINA_TRUE;
 }

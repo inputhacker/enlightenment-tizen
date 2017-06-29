@@ -45,6 +45,10 @@ BuildRequires:  pkgconfig(tzsh-server)
 BuildRequires:  pkgconfig(cynara-client)
 BuildRequires:  pkgconfig(cynara-creds-socket)
 BuildRequires:  pkgconfig(libsmack)
+BuildRequires:  pkgconfig(libpng)
+BuildRequires:  pkgconfig(pixman-1)
+BuildRequires:  pkgconfig(eom-server)
+
 Requires:       libwayland-extension-server
 %if "%{LIBGOMP}" == "use"
 Requires:       libgomp

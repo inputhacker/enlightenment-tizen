@@ -96,6 +96,11 @@ endif
 
 ENLIGHTENMENTHEADERS += \
 src/bin/e_comp_wl_rsm.h \
+src/bin/e_comp_wl_eom.h \
+src/bin/e_comp_wl_video.h \
+src/bin/e_comp_wl_video_buffer.h \
+src/bin/e_comp_wl_viewport.h \
+src/bin/e_comp_wl_screenshooter.h \
 src/bin/services/e_service_gesture.h \
 src/bin/services/e_service_lockscreen.h \
 src/bin/services/e_service_quickpanel.h \
@@ -173,8 +178,6 @@ src/bin/e_info_protocol.c \
 src/bin/e_uuid_store.c \
 src/bin/session-recovery-protocol.c \
 src/bin/session-recovery-server-protocol.h \
-src/bin/e_comp_wl_screenshooter_server.c \
-src/bin/e_comp_wl_screenshooter_server.h \
 src/bin/e_comp_wl_data.c \
 src/bin/e_comp_wl_input.c \
 src/bin/e_comp_wl.c \
@@ -188,6 +191,11 @@ endif
 
 enlightenment_src += \
 src/bin/e_comp_wl_rsm.c \
+src/bin/e_comp_wl_eom.c \
+src/bin/e_comp_wl_video.c \
+src/bin/e_comp_wl_video_buffer.c \
+src/bin/e_comp_wl_viewport.c \
+src/bin/e_comp_wl_screenshooter.c \
 src/bin/services/e_service_gesture.c \
 src/bin/services/e_service_lockscreen.c \
 src/bin/services/e_service_quickpanel.c \

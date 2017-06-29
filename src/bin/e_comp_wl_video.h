@@ -1,5 +1,24 @@
-#ifndef __E_COMP_WL_TDM_H__
-#define __E_COMP_WL_TDM_H__
+#ifdef E_TYPEDEFS
+
+#else
+#ifndef E_COMP_WL_VIDEO_H
+#define E_COMP_WL_VIDEO_H
+
+#define E_COMP_WL
+#include "e_comp_wl_video_buffer.h"
+
+typedef struct _E_Video E_Video;
+
+int e_comp_wl_video_init(void);
+void e_comp_wl_video_shutdown(void);
+
+Eina_List* e_comp_wl_video_list_get(void);
+E_Comp_Wl_Video_Buf* e_comp_wl_video_fb_get(E_Video *video);
+void e_comp_wl_video_pos_get(E_Video *video, int *x, int *y);
+Ecore_Drm_Output* e_comp_wl_video_drm_output_get(E_Video *video);
+tdm_layer* e_comp_wl_video_layer_get(tdm_output *output);
+
+
 
 #include <tdm.h>
 #include <tbm_bufmgr.h>
@@ -21,26 +40,5 @@
 #define ALIGN_TO_8KB(x)     ((((x) + (1 << 13) - 1) >> 13) << 13)
 #define ALIGN_TO_64KB(x)    ((((x) + (1 << 16) - 1) >> 16) << 16)
 
-typedef struct _E_DevMgr_Display
-{
-   int drm_fd;
-   tbm_bufmgr bufmgr;
-   tdm_display *tdm;
-
-   Eina_Bool pp_available;
-   Eina_Bool capture_available;
-} E_DevMgr_Display;
-
-extern E_DevMgr_Display *e_devmgr_dpy;
-
-int e_comp_wl_tdm_init(void);
-void e_comp_wl_tdm_fini(void);
-void e_comp_wl_tdm_update(void);
-
-tdm_output *e_comp_wl_tdm_output_get(Ecore_Drm_Output *output);
-tdm_layer *e_comp_wl_tdm_video_layer_get(tdm_output *output);
-tdm_layer *e_comp_wl_tdm_avaiable_video_layer_get(tdm_output *output);
-void e_comp_wl_tdm_set_layer_usable(tdm_layer *layer, Eina_Bool usable);
-Eina_Bool e_comp_wl_tdm_get_layer_usable(tdm_layer *layer);
-
+#endif
 #endif
