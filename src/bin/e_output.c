@@ -671,6 +671,37 @@ e_output_commit(E_Output *output)
 
    if (output->zoom_set)
      {
+        /* unset check */
+        EINA_LIST_FOREACH(output->planes, l, plane)
+          {
+             /* skip the fb_target fetch because we do this previously */
+             if (e_plane_is_fb_target(plane)) continue;
+             if (!e_plane_is_unset_candidate(plane)) continue;
+
+             e_plane_unset_try_set(plane, EINA_TRUE);
+
+             /* if the plane is trying to unset,
+                1. if fetching the fb is not available, continue.
+                2. if fetching the fb is available, verify the unset commit check.  */
+             if (e_plane_is_unset_try(plane))
+               {
+                 if (!fb_commit) continue;
+                 if (!e_plane_unset_commit_check(plane)) continue;
+               }
+
+             /* fetch the surface to the plane */
+             if (!e_plane_fetch(plane)) continue;
+
+             if (output->dpms == E_OUTPUT_DPMS_OFF)
+               e_plane_unfetch(plane);
+
+             if (e_plane_is_unset_try(plane))
+               e_plane_unset_try_set(plane, EINA_FALSE);
+
+             if (!e_plane_commit(plane))
+               ERR("fail to e_plane_commit");
+          }
+
         /* commit only primary */
         if (!fb_commit) return EINA_TRUE;
 
