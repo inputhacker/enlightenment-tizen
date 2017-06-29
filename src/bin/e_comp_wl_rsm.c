@@ -2399,11 +2399,20 @@ _e_comp_wl_remote_cb_client_iconify(void *data, E_Client *ec)
      {
         if (ec->ignored) return;
         if (ec->parent) return;
-        if ((e_policy_client_is_home_screen(ec)) ||
-            (e_policy_client_is_lockscreen(ec)) ||
-            (e_policy_client_is_volume(ec)) ||
-            (e_policy_client_is_volume_tv(ec)) ||
-            (e_policy_client_is_cbhm(ec)))
+        if (e_policy_client_is_lockscreen(ec) ||
+            e_policy_client_is_home_screen(ec) ||
+            e_policy_client_is_quickpanel(ec) ||
+            e_policy_client_is_conformant(ec) ||
+            e_policy_client_is_volume(ec) ||
+            e_policy_client_is_volume_tv(ec) ||
+            e_policy_client_is_floating(ec) ||
+            e_policy_client_is_cursor(ec) ||
+            e_policy_client_is_subsurface(ec) ||
+            e_policy_client_is_cbhm(ec) ||
+            e_policy_client_is_toast_popup(ec) ||
+            e_policy_client_is_keyboard(ec) ||
+            e_policy_client_is_keyboard_sub(ec) ||
+            e_policy_client_is_keyboard_magnifier(ec))
           return;
 
         source = E_NEW(E_Comp_Wl_Remote_Source, 1);
