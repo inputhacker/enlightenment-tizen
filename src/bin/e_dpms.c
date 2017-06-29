@@ -1,88 +1,165 @@
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "e.h"
+#include <Ecore_Drm.h>
 
-static Ecore_Event_Handler *_e_dpms_handler_config_mode = NULL;
-static Ecore_Event_Handler *_e_dpms_handler_border_fullscreen = NULL;
-static Ecore_Event_Handler *_e_dpms_handler_border_unfullscreen = NULL;
-static Ecore_Event_Handler *_e_dpms_handler_border_remove = NULL;
-static Ecore_Event_Handler *_e_dpms_handler_border_iconify = NULL;
-static Ecore_Event_Handler *_e_dpms_handler_border_uniconify = NULL;
-static Ecore_Event_Handler *_e_dpms_handler_border_desk_set = NULL;
-static Ecore_Event_Handler *_e_dpms_handler_desk_show = NULL;
-
-#define STANDBY 5
-#define SUSPEND 6
-#define OFF 7
-
-E_API void
-e_dpms_update(void)
+typedef enum _E_Dpms_Mode
 {
-   /* do nothing */
-   ;
+   E_DPMS_MODE_ON      = 0,
+   E_DPMS_MODE_STANDBY = 1,
+   E_DPMS_MODE_SUSPEND = 2,
+   E_DPMS_MODE_OFF     = 3
+} E_Dpms_Mode;
+
+#define BUS "org.enlightenment.wm"
+#define PATH "/org/enlightenment/wm"
+#define INTERFACE "org.enlightenment.wm.dpms"
+
+static Ecore_Drm_Output *dpms_output;
+static unsigned int dpms_value;
+
+static Eldbus_Connection *conn;
+static Eldbus_Service_Interface *iface;
+
+static Eldbus_Message *
+_e_dpms_set_cb(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   unsigned int uint32 = -1;
+   int result = -1;
+
+   DBG("got DPMS request");
+
+   if (eldbus_message_arguments_get(msg, "u", &uint32) && uint32 < 4)
+     {
+        Ecore_Drm_Device *dev;
+        Ecore_Drm_Output *output;
+        Eina_List *devs, *l, *ll;
+        E_Zone *zone;
+        Eina_List *zl;
+
+        INF("DPMS value: %d", uint32);
+
+        devs = eina_list_clone(ecore_drm_devices_get());
+        EINA_LIST_FOREACH(devs, l, dev)
+           EINA_LIST_FOREACH(dev->outputs, ll, output)
+             {
+                int x;
+                ecore_drm_output_position_get(output, &x, NULL);
+
+                EINA_LIST_FOREACH(e_comp->zones, zl, zone)
+                  {
+                     if (uint32 == E_DPMS_MODE_ON)
+                       e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_ON);
+                     else if (uint32 == E_DPMS_MODE_OFF)
+                       e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_OFF);
+                  }
+
+                /* only for main output */
+                if (x != 0)
+                  continue;
+
+                DBG("set DPMS");
+
+                dpms_output = output;
+                dpms_value = uint32;
+                ecore_drm_output_dpms_set(output, uint32);
+             }
+
+        result = uint32;
+        if (devs) eina_list_free(devs);
+     }
+
+   eldbus_message_arguments_append(reply, "i", result);
+
+   return reply;
 }
 
-E_API void
-e_dpms_force_update(void)
+static Eldbus_Message *
+_e_dpms_get_cb(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
 {
-   int enabled;
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
 
-   enabled = 0;
-   if (!enabled) return;
+   DBG("got DPMS 'get' request");
+
+   eldbus_message_arguments_append(reply, "i", dpms_value);
+
+   return reply;
+}
+
+static const Eldbus_Method methods[] =
+{
+   {"set", ELDBUS_ARGS({"u", "uint32"}), ELDBUS_ARGS({"i", "int32"}), _e_dpms_set_cb, 0},
+   {"get", NULL, ELDBUS_ARGS({"i", "int32"}), _e_dpms_get_cb, 0},
+   {}
+};
+
+static const Eldbus_Service_Interface_Desc iface_desc = {
+   INTERFACE, methods, NULL, NULL, NULL, NULL
+};
+
+static void
+_e_dpms_name_request_cb(void *data, const Eldbus_Message *msg, Eldbus_Pending *pending EINA_UNUSED)
+{
+   unsigned int reply;
+
+   if (eldbus_message_error_get(msg, NULL, NULL))
+     {
+        printf("error on on_name_request\n");
+        return;
+     }
+
+   if (!eldbus_message_arguments_get(msg, "u", &reply))
+     {
+        printf("error geting arguments on on_name_request\n");
+        return;
+     }
 }
 
 static Eina_Bool
-_e_dpms_handler_config_mode_cb(void *data EINA_UNUSED, int type EINA_UNUSED, void *event EINA_UNUSED)
+_e_dpms_dbus_init(void *data)
 {
-   e_dpms_update();
-   return ECORE_CALLBACK_PASS_ON;
-}
+   if (conn)
+     return ECORE_CALLBACK_CANCEL;
 
-static Eina_Bool
-_e_dpms_handler_border_fullscreen_check_cb(void *data EINA_UNUSED, int type EINA_UNUSED, void *event EINA_UNUSED)
-{
-   if (e_config->no_dpms_on_fullscreen) e_dpms_update();
-   return ECORE_CALLBACK_PASS_ON;
-}
+   if (!conn)
+     conn = eldbus_connection_get(ELDBUS_CONNECTION_TYPE_SYSTEM);
 
-static Eina_Bool
-_e_dpms_handler_border_desk_set_cb(void *data EINA_UNUSED, int type EINA_UNUSED, void *event EINA_UNUSED)
-{
-   if (e_config->no_dpms_on_fullscreen) e_dpms_update();
-   return ECORE_CALLBACK_PASS_ON;
-}
+   if (!conn)
+     {
+        ERR("eldbus_connection_get fail..");
+        ecore_timer_add(1.0, _e_dpms_dbus_init, NULL);
+        return ECORE_CALLBACK_CANCEL;
+     }
 
-static Eina_Bool
-_e_dpms_handler_desk_show_cb(void *data EINA_UNUSED, int type EINA_UNUSED, void *event EINA_UNUSED)
-{
-   if (e_config->no_dpms_on_fullscreen) e_dpms_update();
-   return ECORE_CALLBACK_PASS_ON;
+   INF("eldbus_connection_get success..");
+
+   iface = eldbus_service_interface_register(conn, PATH, &iface_desc);
+   EINA_SAFETY_ON_NULL_GOTO(iface, failed);
+
+   eldbus_name_request(conn, BUS, ELDBUS_NAME_REQUEST_FLAG_DO_NOT_QUEUE,
+                       _e_dpms_name_request_cb, NULL);
+
+   return ECORE_CALLBACK_CANCEL;
+failed:
+   if (conn)
+     {
+        eldbus_name_release(conn, BUS, NULL, NULL);
+        eldbus_connection_unref(conn);
+        conn = NULL;
+     }
+
+   return ECORE_CALLBACK_CANCEL;
 }
 
 EINTERN int
 e_dpms_init(void)
 {
-   _e_dpms_handler_config_mode = ecore_event_handler_add
-       (E_EVENT_CONFIG_MODE_CHANGED, _e_dpms_handler_config_mode_cb, NULL);
+   if (eldbus_init() == 0) return 0;
 
-   _e_dpms_handler_border_fullscreen = ecore_event_handler_add
-       (E_EVENT_CLIENT_FULLSCREEN, _e_dpms_handler_border_fullscreen_check_cb, NULL);
-
-   _e_dpms_handler_border_unfullscreen = ecore_event_handler_add
-       (E_EVENT_CLIENT_UNFULLSCREEN, _e_dpms_handler_border_fullscreen_check_cb, NULL);
-
-   _e_dpms_handler_border_remove = ecore_event_handler_add
-       (E_EVENT_CLIENT_REMOVE, _e_dpms_handler_border_fullscreen_check_cb, NULL);
-
-   _e_dpms_handler_border_iconify = ecore_event_handler_add
-       (E_EVENT_CLIENT_ICONIFY, _e_dpms_handler_border_fullscreen_check_cb, NULL);
-
-   _e_dpms_handler_border_uniconify = ecore_event_handler_add
-       (E_EVENT_CLIENT_UNICONIFY, _e_dpms_handler_border_fullscreen_check_cb, NULL);
-
-   _e_dpms_handler_border_desk_set = ecore_event_handler_add
-       (E_EVENT_CLIENT_DESK_SET, _e_dpms_handler_border_desk_set_cb, NULL);
-
-   _e_dpms_handler_desk_show = ecore_event_handler_add
-       (E_EVENT_DESK_SHOW, _e_dpms_handler_desk_show_cb, NULL);
+   _e_dpms_dbus_init(NULL);
 
    return 1;
 }
@@ -90,53 +167,28 @@ e_dpms_init(void)
 EINTERN int
 e_dpms_shutdown(void)
 {
-   if (_e_dpms_handler_config_mode)
+   if (iface)
      {
-        ecore_event_handler_del(_e_dpms_handler_config_mode);
-        _e_dpms_handler_config_mode = NULL;
+        eldbus_service_interface_unregister(iface);
+        iface = NULL;
+     }
+   if (conn)
+     {
+        eldbus_name_release(conn, BUS, NULL, NULL);
+        eldbus_connection_unref(conn);
+        conn = NULL;
      }
 
-   if (_e_dpms_handler_border_fullscreen)
-     {
-        ecore_event_handler_del(_e_dpms_handler_border_fullscreen);
-        _e_dpms_handler_border_fullscreen = NULL;
-     }
-
-   if (_e_dpms_handler_border_unfullscreen)
-     {
-        ecore_event_handler_del(_e_dpms_handler_border_unfullscreen);
-        _e_dpms_handler_border_unfullscreen = NULL;
-     }
-
-   if (_e_dpms_handler_border_remove)
-     {
-        ecore_event_handler_del(_e_dpms_handler_border_remove);
-        _e_dpms_handler_border_remove = NULL;
-     }
-
-   if (_e_dpms_handler_border_iconify)
-     {
-        ecore_event_handler_del(_e_dpms_handler_border_iconify);
-        _e_dpms_handler_border_iconify = NULL;
-     }
-
-   if (_e_dpms_handler_border_uniconify)
-     {
-        ecore_event_handler_del(_e_dpms_handler_border_uniconify);
-        _e_dpms_handler_border_uniconify = NULL;
-     }
-
-   if (_e_dpms_handler_border_desk_set)
-     {
-        ecore_event_handler_del(_e_dpms_handler_border_desk_set);
-        _e_dpms_handler_border_desk_set = NULL;
-     }
-
-   if (_e_dpms_handler_desk_show)
-     {
-        ecore_event_handler_del(_e_dpms_handler_desk_show);
-        _e_dpms_handler_desk_show = NULL;
-     }
+   eldbus_shutdown();
 
    return 1;
+}
+
+EINTERN unsigned int
+e_dpms_get(Ecore_Drm_Output *output)
+{
+   if (dpms_output == output)
+     return dpms_value;
+
+   return DRM_MODE_DPMS_ON;
 }

@@ -149,6 +149,7 @@ struct _E_Config
 #endif
    unsigned int screen_rotation_pre;
    unsigned int screen_rotation_setting;
+   Eina_Bool eom_enable;
    int use_cursor_timer;
    int cursor_timer_interval;
    Eina_List *client_types;

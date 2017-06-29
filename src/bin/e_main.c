@@ -608,6 +608,15 @@ main(int argc, char **argv)
    TS("E_Pointer Init Done");
    _e_main_shutdown_push(e_pointer_shutdown);
 
+   TS("Dpms Init");
+   if (!e_dpms_init())
+     {
+        e_error_message_show(_("Enlightenment cannot set up dpms.\n"));
+        _e_main_shutdown(-1);
+     }
+   TS("Dpms Init Done");
+   _e_main_shutdown_push(e_dpms_shutdown);
+
    TRACE_DS_BEGIN(MAIN:SCREEN INIT);
    TS("Screens Init");
    if (!_e_main_screens_init())
@@ -619,6 +628,18 @@ main(int argc, char **argv)
    TS("Screens Init Done");
    _e_main_shutdown_push(_e_main_screens_shutdown);
    TRACE_DS_END();
+
+   if (e_config->eom_enable)
+     {
+        TS("Eom Init");
+        if (!e_eom_init())
+          {
+             e_error_message_show(_("Enlightenment cannot set up eom.\n"));
+             _e_main_shutdown(-1);
+          }
+        TS("Eom Init Done");
+        _e_main_shutdown_push(e_eom_shutdown);
+     }
 
    TS("E_Screensaver Init");
    if (!e_screensaver_init())

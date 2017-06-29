@@ -257,6 +257,7 @@ _e_config_edd_init(Eina_Bool old)
 #endif
    E_CONFIG_VAL(D, T, screen_rotation_pre, UINT);
    E_CONFIG_VAL(D, T, screen_rotation_setting, UINT);
+   E_CONFIG_VAL(D, T, eom_enable, UCHAR);
    E_CONFIG_VAL(D, T, use_cursor_timer, INT);
    E_CONFIG_VAL(D, T, cursor_timer_interval, INT);
    E_CONFIG_LIST(D, T, client_types, _e_config_client_type_edd);
@@ -482,6 +483,7 @@ e_config_load(void)
    E_CONFIG_LIMIT(e_config->keyboard.repeat_rate, -1, 1000); // 1 second
    E_CONFIG_LIMIT(e_config->screen_rotation_pre, 0, 270);
    E_CONFIG_LIMIT(e_config->screen_rotation_setting, 0, 270);
+   E_CONFIG_LIMIT(e_config->eom_enable, 0, 1);
    E_CONFIG_LIMIT(e_config->use_cursor_timer, 0, 1);
    E_CONFIG_LIMIT(e_config->sleep_for_dri, 0, 1);
    E_CONFIG_LIMIT(e_config->create_wm_ready, 0, 1);

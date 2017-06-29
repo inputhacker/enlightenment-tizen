@@ -34,6 +34,7 @@
 #include "e_dialog.h"
 #include "e_screensaver.h"
 #include "e_dpms.h"
+#include "e_eom.h"
 #include "e_obj_dialog.h"
 #include "e_mouse.h"
 #include "e_msgbus.h"
@@ -58,6 +59,10 @@
 # include "e_comp_wl_tbm.h"
 #endif
 #include "e_comp_wl_rsm.h"
+#include "e_comp_wl_screenshooter.h"
+#include "e_comp_wl_video.h"
+#include "e_comp_wl_video_buffer.h"
+#include "e_comp_wl_viewport.h"
 #include "e_policy.h"
 #include "e_policy_visibility.h"
 #include "e_process.h"

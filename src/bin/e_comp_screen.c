@@ -339,10 +339,21 @@ _e_comp_screen_new(E_Comp *comp)
         return NULL;
      }
 
+   /* tdm display init */
+   e_comp_screen->bufmgr = tbm_bufmgr_init(-1);
+   if (!e_comp_screen->bufmgr)
+     {
+        ERR("tbm_bufmgr_init failed\n");
+        tdm_display_deinit(e_comp_screen->tdisplay);
+        free(e_comp_screen);
+        return NULL;
+     }
+
    error = tdm_display_get_capabilities(e_comp_screen->tdisplay, &capabilities);
    if (error != TDM_ERROR_NONE)
      {
         ERR("tdm get_capabilities failed");
+        tbm_bufmgr_deinit(e_comp_screen->bufmgr);
         tdm_display_deinit(e_comp_screen->tdisplay);
         free(e_comp_screen);
         return NULL;
@@ -363,6 +374,7 @@ _e_comp_screen_del(E_Comp_Screen *e_comp_screen)
 {
    if (!e_comp_screen) return;
 
+   if (e_comp_screen->bufmgr) tbm_bufmgr_deinit(e_comp_screen->bufmgr);
    if (e_comp_screen->tdisplay) tdm_display_deinit(e_comp_screen->tdisplay);
 
    free(e_comp_screen);

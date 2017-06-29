@@ -41,6 +41,7 @@ src/bin/e_dialog.h \
 src/bin/e_dnd.h \
 src/bin/e_dpms.h \
 src/bin/e_env.h \
+src/bin/e_eom.h \
 src/bin/e_error.h \
 src/bin/e_focus.h \
 src/bin/e_grabinput.h \
@@ -96,6 +97,10 @@ endif
 
 ENLIGHTENMENTHEADERS += \
 src/bin/e_comp_wl_rsm.h \
+src/bin/e_comp_wl_video.h \
+src/bin/e_comp_wl_video_buffer.h \
+src/bin/e_comp_wl_viewport.h \
+src/bin/e_comp_wl_screenshooter.h \
 src/bin/services/e_service_gesture.h \
 src/bin/services/e_service_lockscreen.h \
 src/bin/services/e_service_quickpanel.h \
@@ -132,6 +137,7 @@ src/bin/e_dialog.c \
 src/bin/e_dpms.c \
 src/bin/e_dnd.c \
 src/bin/e_env.c \
+src/bin/e_eom.c \
 src/bin/e_error.c \
 src/bin/e_focus.c \
 src/bin/e_grabinput.c \
@@ -186,6 +192,10 @@ endif
 
 enlightenment_src += \
 src/bin/e_comp_wl_rsm.c \
+src/bin/e_comp_wl_video.c \
+src/bin/e_comp_wl_video_buffer.c \
+src/bin/e_comp_wl_viewport.c \
+src/bin/e_comp_wl_screenshooter.c \
 src/bin/services/e_service_gesture.c \
 src/bin/services/e_service_lockscreen.c \
 src/bin/services/e_service_quickpanel.c \

@@ -4825,6 +4825,10 @@ e_comp_wl_init(void)
 
    e_pixmap_init();
 
+   e_comp_wl_screenshooter_init();
+   e_comp_wl_video_init();
+   e_comp_wl_viewport_init();
+
    /* add event handlers to catch E events */
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREEN_CHANGE,            _e_comp_wl_cb_randr_change,        NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_COMP_OBJECT_ADD,         _e_comp_wl_cb_comp_object_add,     NULL);
@@ -4878,6 +4882,10 @@ e_comp_wl_shutdown(void)
    E_FREE_LIST(handlers, ecore_event_handler_del);
    E_FREE_LIST(hooks, e_client_hook_del);
    _e_comp_wl_gl_shutdown();
+
+   e_comp_wl_viewport_shutdown();
+   e_comp_wl_video_shutdown();
+   e_comp_wl_screenshooter_shutdown();
 
 #ifdef HAVE_WAYLAND_TBM
    e_comp_wl_tbm_shutdown();

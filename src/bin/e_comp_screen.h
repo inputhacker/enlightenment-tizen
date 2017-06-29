@@ -20,6 +20,7 @@ struct _E_Comp_Screen
 
    int            num_outputs;
    tdm_display   *tdisplay;
+   tbm_bufmgr     bufmgr;
 
    /* for sw compositing */
    const Eina_List *devices;
