@@ -895,10 +895,9 @@ _e_comp_hwc_cb_begin_timeout(void *data EINA_UNUSED)
 {
    e_comp->nocomp_delay_timer = NULL;
 
-   if (e_comp->nocomp_override == 0 && _e_comp_hwc_usable())
+   if (e_comp->nocomp_override == 0)
      {
-        e_comp->nocomp_want = 1;
-        _e_comp_hwc_begin();
+        e_comp_render_queue();
      }
    return EINA_FALSE;
 }
@@ -911,7 +910,6 @@ e_comp_hwc_end(const char *location)
    Eina_List *l;
    Eina_Bool fully_hwc = (e_comp->hwc_mode == E_HWC_MODE_FULL) ? EINA_TRUE : EINA_FALSE;
 
-   e_comp->nocomp_want = 0;
    E_FREE_FUNC(e_comp->nocomp_delay_timer, ecore_timer_del);
    _hwc_reserved_clean();
 
@@ -1068,7 +1066,6 @@ setup_hwcompose:
                }
              else
                {
-                  e_comp->nocomp_want = 1;
                   _e_comp_hwc_begin();
                }
           }
@@ -1419,9 +1416,7 @@ _e_comp_override_expire(void *data EINA_UNUSED)
    if (e_comp->nocomp_override <= 0)
      {
         e_comp->nocomp_override = 0;
-#ifdef ENABLE_HWC_MULTI
-        if (e_comp->nocomp_want) _e_comp_hwc_begin();
-#endif
+        e_comp_render_queue();
      }
    return EINA_FALSE;
 }
