@@ -183,7 +183,6 @@ _e_output_zoom_rotate(E_Output *eout)
    Eina_List *l;
    int rotate = 0;
    int w, h;
-   Eina_Rectangle rect = {0, };
 
    EINA_SAFETY_ON_NULL_RETURN(eout);
 
@@ -193,14 +192,15 @@ _e_output_zoom_rotate(E_Output *eout)
    _e_output_zoom_coordinate_cal_with_angle(eout, rotate);
 
    _e_output_zoom_scaled_rect_get(w, h, eout->zoom_conf.zoomx, eout->zoom_conf.zoomy,
-                                  eout->zoom_conf.adjusted_cx, eout->zoom_conf.adjusted_cy, &rect);
-   DBG("zoom_rect rotate(x:%d,y:%d) (w:%d,h:%d)", rect.x, rect.y, rect.w, rect.h);
+                                  eout->zoom_conf.adjusted_cx, eout->zoom_conf.adjusted_cy, &eout->zoom_conf.rect);
+   DBG("zoom_rect rotate(x:%d,y:%d) (w:%d,h:%d)",
+       eout->zoom_conf.rect.x, eout->zoom_conf.rect.y, eout->zoom_conf.rect.w, eout->zoom_conf.rect.h);
 
    EINA_LIST_FOREACH(eout->planes, l, ep)
      {
         if (!e_plane_is_fb_target(ep)) continue;
 
-        e_plane_zoom_set(ep, &rect);
+        e_plane_zoom_set(ep, &eout->zoom_conf.rect);
         break;
      }
 
@@ -1142,9 +1142,8 @@ e_output_plane_get_by_zpos(E_Output *output, int zpos)
 }
 
 #ifdef HAVE_ZOOM_PP
-#ifdef HAVE_TOUCH_TRANSFORM
 static Eina_Bool
-_e_output_zoom_touch_set(E_Plane *plane, Eina_Bool set)
+_e_output_zoom_touch_set(E_Output *eout, Eina_Bool set)
 {
    Ecore_Drm_Device *dev = NULL;
    Eina_Bool ret = EINA_FALSE;
@@ -1167,12 +1166,12 @@ _e_output_zoom_touch_set(E_Plane *plane, Eina_Bool set)
 
    if (set)
      ret = ecore_drm_device_touch_transformation_set(dev,
-                                                     plane->zoom_rect.x, plane->zoom_rect.y,
-                                                     plane->zoom_rect.w, plane->zoom_rect.h);
+                                                     eout->zoom_conf.rect.x, eout->zoom_conf.rect.y,
+                                                     eout->zoom_conf.rect.w, eout->zoom_conf.rect.h);
    else
      {
-        e_output_size_get(plane->output, &w, &h);
-        ret = ecore_drm_device_touch_transformation_set(dev, 0, 0, e_comp->w, e_comp->h);
+        e_output_size_get(eout, &w, &h);
+        ret = ecore_drm_device_touch_transformation_set(dev, 0, 0, w, h);
      }
 
    if (ret != EINA_TRUE)
@@ -1180,13 +1179,11 @@ _e_output_zoom_touch_set(E_Plane *plane, Eina_Bool set)
 
    return ret;
 }
-#endif //HAVE_TOUCH_TRANSFORM
 
 EINTERN Eina_Bool
 e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy)
 {
    E_Plane *ep = NULL;
-   Eina_Rectangle rect = {0, };
    int w, h;
 
    if (!e_comp_screen_pp_support())
@@ -1223,10 +1220,11 @@ e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy)
 
    /* get the scaled rect */
    _e_output_zoom_scaled_rect_get(w, h, eout->zoom_conf.zoomx, eout->zoom_conf.zoomy,
-                                  eout->zoom_conf.adjusted_cx, eout->zoom_conf.adjusted_cy, &rect);
-   DBG("zoom_rect (x:%d,y:%d) (w:%d,h:%d)", rect.x, rect.y, rect.w, rect.h);
+                                  eout->zoom_conf.adjusted_cx, eout->zoom_conf.adjusted_cy, &eout->zoom_conf.rect);
+   DBG("zoom_rect (x:%d,y:%d) (w:%d,h:%d)",
+       eout->zoom_conf.rect.x, eout->zoom_conf.rect.y, eout->zoom_conf.rect.w, eout->zoom_conf.rect.h);
 
-   if (!e_plane_zoom_set(ep, &rect))
+   if (!e_plane_zoom_set(ep, &eout->zoom_conf.rect))
      {
         ERR("e_plane_zoom_set failed.");
 #ifdef ENABLE_HWC_MULTI
@@ -1235,11 +1233,8 @@ e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy)
         return EINA_FALSE;
      }
 
-#ifdef HAVE_TOUCH_TRANSFORM
-   //test position
-   if (!_e_output_zoom_touch_set(plane, EINA_TRUE))
+   if (!_e_output_zoom_touch_set(eout, EINA_TRUE))
      ERR("fail _e_output_zoom_touch_set");
-#endif
 
    if (!eout->zoom_set) eout->zoom_set = EINA_TRUE;
    DBG("zoom set output:%s", eout->id);
@@ -1262,11 +1257,8 @@ e_output_zoom_unset(E_Output *eout)
    ep = e_output_fb_target_get(eout);
    EINA_SAFETY_ON_NULL_RETURN(ep);
 
-#ifdef HAVE_TOUCH_TRANSFORM
-   //test position
-   if (!_e_output_zoom_touch_set(plane, EINA_FALSE))
+   if (!_e_output_zoom_touch_set(eout, EINA_FALSE))
      ERR("fail _e_output_zoom_touch_set");
-#endif
 
    eout->zoom_conf.zoomx = 0;
    eout->zoom_conf.zoomy = 0;
@@ -1276,6 +1268,10 @@ e_output_zoom_unset(E_Output *eout)
    eout->zoom_conf.current_angle = 0;
    eout->zoom_conf.adjusted_cx = 0;
    eout->zoom_conf.adjusted_cy = 0;
+   eout->zoom_conf.rect.x = 0;
+   eout->zoom_conf.rect.y = 0;
+   eout->zoom_conf.rect.w = 0;
+   eout->zoom_conf.rect.h = 0;
 
    e_plane_zoom_unset(ep);
 

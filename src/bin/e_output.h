@@ -77,6 +77,7 @@ struct _E_Output
       int               adjusted_cy;
       int               init_angle;
       int               current_angle;
+      Eina_Rectangle    rect;
    } zoom_conf;
 #endif
 };
