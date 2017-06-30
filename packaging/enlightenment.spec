@@ -8,6 +8,8 @@ Group:          Graphics/EFL
 Source0:        enlightenment-%{version}.tar.bz2
 Source1001:     enlightenment.manifest
 
+%define TIZEN_REL_VERSION 1
+
 %if 0%{?tizen_version_major} <= 3
 # use libgomp only in arm 32bit mobile
 %ifarch %{arm}
@@ -79,6 +81,7 @@ export CFLAGS+=" -fPIE "
 export LDFLAGS+=" -pie "
 %endif
 %autogen \
+      TIZEN_REL_VERSION="%{release}-%{TIZEN_REL_VERSION}" \
       --enable-function-trace \
       --enable-wayland \
       --enable-quick-init \

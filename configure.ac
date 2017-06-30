@@ -62,6 +62,14 @@ AC_SUBST([release_info])
 ##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
 ##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##--##
 
+AC_ARG_VAR([TIZEN_REL_VERSION], [Tizen release version])
+if test x"${TIZEN_REL_VERSION}" != x""; then
+       AC_DEFINE_UNQUOTED([TIZEN_REL_VERSION], ["${TIZEN_REL_VERSION}"], [Tizen release version])
+       AC_SUBST(TIZEN_REL_VERSION)
+else
+       echo "TIZEN_REL_VERSION is empty !"
+fi
+
 release=relname
 AC_SUBST([release])
 
