@@ -1734,10 +1734,7 @@ e_comp_override_del()
    if (e_comp->nocomp_override <= 0)
      {
         e_comp->nocomp_override = 0;
-#ifdef ENABLE_HWC_MULTI
-        if (e_comp->nocomp_want)
-          _e_comp_hwc_begin();
-#endif
+        e_comp_render_queue();
      }
 }
 
