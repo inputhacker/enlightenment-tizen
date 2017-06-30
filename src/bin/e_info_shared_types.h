@@ -99,7 +99,7 @@ typedef enum _E_Info_Cmd_Output_Mode
 #define SIGNATURE_OUTPUT_MODE_CLIENT "ii" /* i: E_Info_Cmd_Output_Mode
                                            * i: mode number
                                            */
-#define SIGNATURE_OUTPUT_MODE_SERVER "uuuuuuuuuuuusiiii" /* u: h value of outputmode
+#define SIGNATURE_OUTPUT_MODE_SERVER "uuuuuuuuuuuusiiiii" /* u: h value of outputmode
                                                           * u: hsync_start value of outputmode
                                                           * u: hsync_end value of outputmode
                                                           * u: htotal value of outputmode
@@ -116,6 +116,7 @@ typedef enum _E_Info_Cmd_Output_Mode
                                                           * i: output id
                                                           * i: check flag for output connection
                                                           * i: check flag for gl support
+                                                          * i: DPMS
                                                           */
 
 

@@ -54,7 +54,7 @@ typedef struct output_mode_info
    unsigned int vdisplay, vsync_start, vsync_end, vtotal;
    unsigned int refresh, vscan, clock;
    unsigned int flags;
-   int current, output, connect;
+   int current, output, connect, dpms;
    const char *name;
 } E_Info_Output_Mode;
 
@@ -2392,7 +2392,7 @@ static E_Info_Output_Mode *
 _e_output_mode_info_new(uint32_t h, uint32_t hsync_start, uint32_t hsync_end, uint32_t htotal,
                         uint32_t v, uint32_t vsync_start, uint32_t vsync_end, uint32_t vtotal,
                         uint32_t refresh, uint32_t vscan, uint32_t clock, uint32_t flags,
-                        int current, int output, int connect, const char *name)
+                        int current, int output, int connect, const char *name, int dpms)
 {
    E_Info_Output_Mode *mode = NULL;
 
@@ -2415,6 +2415,7 @@ _e_output_mode_info_new(uint32_t h, uint32_t hsync_start, uint32_t hsync_end, ui
    mode->output = output;
    mode->connect = connect;
    mode->name = eina_stringshare_add(name);
+   mode->dpms = dpms;
 
    return mode;
 }
@@ -2449,7 +2450,7 @@ _cb_output_mode_info(const Eldbus_Message *msg)
         uint32_t h, hsync_start, hsync_end, htotal;
         uint32_t v, vsync_start, vsync_end, vtotal;
         uint32_t refresh, vscan, clock, flag;
-        int current, output, connect;
+        int current, output, connect, dpms;
         const char *name;
         E_Info_Output_Mode *mode = NULL;
         res = eldbus_message_iter_arguments_get(ec,
@@ -2457,7 +2458,7 @@ _cb_output_mode_info(const Eldbus_Message *msg)
                                                 &h, &hsync_start, &hsync_end, &htotal,
                                                 &v, &vsync_start, &vsync_end, &vtotal,
                                                 &refresh, &vscan, &clock, &flag, &name,
-                                                &current, &output, &connect, &gl);
+                                                &current, &output, &connect, &gl, &dpms);
         if (!res)
           {
              printf("Failed to get output mode info\n");
@@ -2467,7 +2468,7 @@ _cb_output_mode_info(const Eldbus_Message *msg)
         mode = _e_output_mode_info_new(h, hsync_start, hsync_end, htotal,
                                        v, vsync_start, vsync_end, vtotal,
                                        refresh, vscan, clock, flag,
-                                       current, output, connect, name);
+                                       current, output, connect, name, dpms);
         e_info_client.mode_list = eina_list_append(e_info_client.mode_list, mode);
      }
    e_info_client.gl = gl;
@@ -2487,6 +2488,12 @@ _e_info_client_proc_output_mode(int argc, char **argv)
    int output = 0;
    int idx = 0;
    char curr;
+   const char *str_dpms[] = {
+      "on",
+      "standby",
+      "suspend",
+      "off"
+   };
 
    if (!_e_info_client_eldbus_message_with_args("output_mode", _cb_output_mode_info,
                                                 SIGNATURE_OUTPUT_MODE_CLIENT, E_INFO_CMD_OUTPUT_MODE_GET, 0))
@@ -2524,10 +2531,10 @@ _e_info_client_proc_output_mode(int argc, char **argv)
              idx = 0;
 
              if (mode->connect == 1)
-               printf("%s\n", "connected");
+               printf("%s, %s\n", "connected", str_dpms[mode->dpms]);
              else
                {
-                  printf("%s\n", "disconnected");
+                  printf("%s, %s\n", "disconnected", str_dpms[mode->dpms]);
                   continue;
                }
           }

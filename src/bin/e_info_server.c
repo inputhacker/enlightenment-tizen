@@ -3780,6 +3780,7 @@ _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp
    tdm_error ret = TDM_ERROR_NONE;
    int i, j, count, mode_count, current;
    unsigned int preferred;
+   tdm_output_dpms dpms;
 
    eldbus_message_iter_arguments_append(iter, "a("SIGNATURE_OUTPUT_MODE_SERVER")",
                                         &array_of_mode);
@@ -3790,7 +3791,7 @@ _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp
                                              &struct_of_mode);
         eldbus_message_iter_arguments_append(struct_of_mode, SIGNATURE_OUTPUT_MODE_SERVER,
                                              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "none",
-                                             0, 0, 0, 0);
+                                             0, 0, 0, 0, 0);
         eldbus_message_iter_container_close(array_of_mode, struct_of_mode);
 
         eldbus_message_iter_container_close(iter, array_of_mode);
@@ -3817,7 +3818,7 @@ _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp
                                                   &struct_of_mode);
              eldbus_message_iter_arguments_append(struct_of_mode, SIGNATURE_OUTPUT_MODE_SERVER,
                                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "none",
-                                                  0, i, 0, 1);
+                                                  0, i, 0, 1, 0);
              eldbus_message_iter_container_close(array_of_mode, struct_of_mode);
 
              continue;
@@ -3828,6 +3829,10 @@ _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp
           continue;
 
         ret = tdm_output_get_available_modes(output, &modes, &mode_count);
+        if (ret != TDM_ERROR_NONE)
+          continue;
+
+        ret = tdm_output_get_dpms(output, &dpms);
         if (ret != TDM_ERROR_NONE)
           continue;
 
@@ -3845,7 +3850,7 @@ _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp
                                                   modes[j].hdisplay, modes[j].hsync_start, modes[j].hsync_end, modes[j].htotal,
                                                   modes[j].vdisplay, modes[j].vsync_start, modes[j].vsync_end, modes[j].vtotal,
                                                   modes[j].vrefresh, modes[j].vscan, modes[j].clock, preferred, modes[j].name,
-                                                  current, i, 1, 1);
+                                                  current, i, 1, 1, dpms);
              eldbus_message_iter_container_close(array_of_mode, struct_of_mode);
           }
      }
