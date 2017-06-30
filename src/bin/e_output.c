@@ -32,7 +32,7 @@ _e_output_zoom_top_visible_ec_get()
 }
 
 static int
-_e_output_zoom_rotate_get_angle(E_Output *eout)
+_e_output_zoom_get_angle(E_Output *eout)
 {
    E_Client *ec = NULL;
    int angle = 0;
@@ -89,12 +89,12 @@ _e_output_zoom_coordinate_cal_with_angle(E_Output *eout, int angle)
      }
    else
      {
-        if ((angle % 180) == (eout->zoom_conf.init_angle % 180)) /*180 changed than init, don't have to cal ratio*/
+        if ((angle % 180) == (eout->zoom_conf.init_angle % 180)) /*180 changed from init, don't have to cal ratio*/
           {
              x = eout->zoom_conf.init_cx;
              y = eout->zoom_conf.init_cy;
           }
-        else /* 90 or 270 changed than init, need ratio cal*/
+        else /* 90 or 270 changed from init, need ratio cal*/
           {
              if (angle == 90 || angle == 270)
                {
@@ -107,22 +107,22 @@ _e_output_zoom_coordinate_cal_with_angle(E_Output *eout, int angle)
                   y = (float)eout->config.geom.h / eout->config.geom.w * eout->zoom_conf.init_cy;
                }
           }
-        if (angle % 360 == 0)
+        if (angle == 0)
           {
              eout->zoom_conf.adjusted_cx = x;
              eout->zoom_conf.adjusted_cy = y;
           }
-        else if (angle % 360 == 90)
+        else if (angle == 90)
           {
              eout->zoom_conf.adjusted_cx = y;
              eout->zoom_conf.adjusted_cy = w - x - 1;
           }
-        else if (angle % 360 == 180)
+        else if (angle == 180)
           {
              eout->zoom_conf.adjusted_cx = w - x - 1;
              eout->zoom_conf.adjusted_cy = h - y - 1;
           }
-        else /*rotate % 360 == 270 */
+        else /*rotate == 270 */
           {
              eout->zoom_conf.adjusted_cx = h - y - 1;
              eout->zoom_conf.adjusted_cy = x;
@@ -181,16 +181,15 @@ _e_output_zoom_rotate(E_Output *eout)
 {
    E_Plane *ep = NULL;
    Eina_List *l;
-   int rotate = 0;
    int w, h;
 
    EINA_SAFETY_ON_NULL_RETURN(eout);
 
    e_output_size_get(eout, &w, &h);
 
-   rotate = _e_output_zoom_rotate_get_angle(eout);
-   _e_output_zoom_coordinate_cal_with_angle(eout, rotate);
+   _e_output_zoom_coordinate_cal_with_angle(eout, eout->zoom_conf.current_angle);
 
+   /* get the scaled rect */
    _e_output_zoom_scaled_rect_get(w, h, eout->zoom_conf.zoomx, eout->zoom_conf.zoomy,
                                   eout->zoom_conf.adjusted_cx, eout->zoom_conf.adjusted_cy, &eout->zoom_conf.rect);
    DBG("zoom_rect rotate(x:%d,y:%d) (w:%d,h:%d)",
@@ -213,7 +212,7 @@ _e_output_zoom_rotating_check(E_Output *output)
 {
    int angle = 0;
 
-   angle = _e_output_zoom_rotate_get_angle(output);
+   angle = _e_output_zoom_get_angle(output);
    if (output->zoom_conf.current_angle != angle)
      {
         output->zoom_conf.current_angle = angle;
@@ -1185,6 +1184,7 @@ e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy)
 {
    E_Plane *ep = NULL;
    int w, h;
+   int angle = 0;
 
    if (!e_comp_screen_pp_support())
      {
@@ -1195,10 +1195,18 @@ e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy)
    EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
 
    e_output_size_get(eout, &w, &h);
+   angle = _e_output_zoom_get_angle(eout);
 
-   EINA_SAFETY_ON_FALSE_RETURN_VAL((cx >= 0 || cy >= 0), EINA_FALSE);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL((cx < w || cy < h), EINA_FALSE);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL((zoomx > 0 || zoomy > 0), EINA_FALSE);
+   if (cx < 0 || cy < 0) return EINA_FALSE;
+   if (zoomx <= 0 || zoomy <= 0) return EINA_FALSE;
+   if (angle % 180 == 0)
+     {
+        if (cx >= w || cy >= h) return EINA_FALSE;
+     }
+   else
+     {
+        if (cx >= h || cy >= w) return EINA_FALSE;
+     }
 
    ep = e_output_fb_target_get(eout);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
@@ -1213,10 +1221,10 @@ e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy)
    eout->zoom_conf.zoomy = zoomy;
    eout->zoom_conf.init_cx = cx;
    eout->zoom_conf.init_cy = cy;
-   eout->zoom_conf.init_angle = _e_output_zoom_rotate_get_angle(eout);
-   eout->zoom_conf.current_angle = eout->zoom_conf.init_angle;
+   eout->zoom_conf.init_angle = angle;
+   eout->zoom_conf.current_angle = angle;
 
-   _e_output_zoom_coordinate_cal_with_angle(eout, eout->zoom_conf.init_angle);
+   _e_output_zoom_coordinate_cal_with_angle(eout, angle);
 
    /* get the scaled rect */
    _e_output_zoom_scaled_rect_get(w, h, eout->zoom_conf.zoomx, eout->zoom_conf.zoomy,
