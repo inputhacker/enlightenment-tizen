@@ -140,7 +140,6 @@ struct _E_Comp
    Ecore_Timer    *nocomp_override_timer;
    int             nocomp_override; //number of times hwc override has been requested
    Eina_Bool       nocomp : 1; // TODO: remove it from E_Comp!!
-   Eina_Bool       nocomp_want : 1;
    int             hwc_mode;
    Eina_Bool       hwc : 1;
    Eina_Bool       hwc_deactive : 1; // deactive hwc policy
