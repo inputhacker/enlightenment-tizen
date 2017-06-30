@@ -8,6 +8,8 @@ Group:          Graphics/EFL
 Source0:        enlightenment-%{version}.tar.bz2
 Source1001:     enlightenment.manifest
 
+%define TIZEN_REL_VERSION 1
+
 %ifarch %{arm}
 %define LIBGOMP use
 %endif
@@ -74,6 +76,7 @@ export CFLAGS+=" -fPIE "
 export LDFLAGS+=" -pie "
 %endif
 %autogen \
+      TIZEN_REL_VERSION="%{release}-%{TIZEN_REL_VERSION}" \
       --enable-function-trace \
       --enable-wayland \
       --enable-quick-init \

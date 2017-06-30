@@ -4858,6 +4858,16 @@ _e_info_server_cb_wininfo_shape(const Eldbus_Service_Interface *iface EINA_UNUSE
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_version_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+
+   eldbus_message_arguments_append(reply, "ss", VERSION, TIZEN_REL_VERSION);
+
+   return reply;
+}
+
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"iiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
@@ -4910,6 +4920,7 @@ static const Eldbus_Method methods[] = {
    { "wininfo_tree", ELDBUS_ARGS({VALUE_TYPE_REQUEST_FOR_WININFO_TREE, "wininfo_tree"}), ELDBUS_ARGS({VALUE_TYPE_REPLY_WININFO_TREE, "window tree info"}), _e_info_server_cb_wininfo_tree, 0 },
    { "wininfo_hints", ELDBUS_ARGS({"it", "mode, window"}), ELDBUS_ARGS({"as", "window hints"}), _e_info_server_cb_wininfo_hints, 0 },
    { "wininfo_shape", ELDBUS_ARGS({"t", "window"}), ELDBUS_ARGS({"ia(iiii)ia(iiii)", "window shape"}), _e_info_server_cb_wininfo_shape, 0 },
+   { "get_version", NULL, ELDBUS_ARGS({"ss", "version of E20"}), _e_info_server_cb_version_get, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 

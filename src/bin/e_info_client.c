@@ -3675,6 +3675,33 @@ usage:
    printf("Usage: enlightenment_info -wininfo %s", WININFO_USAGE);
 }
 
+static void
+_cb_window_proc_version_get(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   char *ver, *rel;
+   Eina_Bool res;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_RETURN(res);
+
+   res = eldbus_message_arguments_get(msg, "ss", &ver, &rel);
+   EINA_SAFETY_ON_FALSE_RETURN(res);
+
+   printf("Version: %s\n", ver);
+   printf("Release: %s\n", rel);
+}
+
+static void
+_e_info_client_proc_version(int argc, char **argv)
+{
+   if (!_e_info_client_eldbus_message("get_version", _cb_window_proc_version_get))
+     {
+        printf("_e_info_client_eldbus_message error:%s\n", "get_einfo");
+        return;
+     }
+}
+
 static struct
 {
    const char *option;
@@ -3683,6 +3710,12 @@ static struct
    void (*func)(int argc, char **argv);
 } procs[] =
 {
+   {
+      "version",
+      NULL,
+      "print version of enlightenment",
+      _e_info_client_proc_version
+   },
    {
       "protocol_trace", "[console|file_path|disable]",
       "Enable/disable wayland protocol trace",
