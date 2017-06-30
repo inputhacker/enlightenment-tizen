@@ -1,5 +1,227 @@
 #include "e.h"
 
+#ifdef HAVE_ZOOM_PP
+static E_Client *
+_e_output_zoom_top_visible_ec_get()
+{
+   E_Client *ec;
+   Evas_Object *o;
+   E_Comp_Wl_Client_Data *cdata;
+
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        ec = evas_object_data_get(o, "E_Client");
+
+        /* check e_client and skip e_clients not intersects with zone */
+        if (!ec) continue;
+        if (e_object_is_del(E_OBJECT(ec))) continue;
+        if (e_client_util_ignored_get(ec)) continue;
+        if (ec->iconic) continue;
+        if (ec->visible == 0) continue;
+        if (!(ec->visibility.obscured == 0 || ec->visibility.obscured == 1)) continue;
+        if (!ec->frame) continue;
+        if (!evas_object_visible_get(ec->frame)) continue;
+        /* if ec is subsurface, skip this */
+        cdata = (E_Comp_Wl_Client_Data *)ec->comp_data;
+        if (cdata && cdata->sub.data) continue;
+
+        return ec;
+     }
+
+   return NULL;
+}
+
+static int
+_e_output_zoom_rotate_get_angle(E_Output *eout)
+{
+   E_Client *ec = NULL;
+   int angle = 0;
+   int ec_angle = 0;
+
+   ec = _e_output_zoom_top_visible_ec_get();
+   if (ec)
+     ec_angle = ec->e.state.rot.ang.curr;
+
+   angle = (ec_angle + eout->config.rotation) % 360;
+
+   return angle;
+}
+
+static void
+_e_output_zoom_coordinate_cal_with_angle(E_Output *eout, int angle)
+{
+   int x, y;
+   int w, h;
+
+   if (angle == 0 || angle == 180)
+     {
+        w = eout->config.geom.w;
+        h = eout->config.geom.h;
+     }
+   else
+     {
+        w = eout->config.geom.h;
+        h = eout->config.geom.w;
+     }
+
+   if (angle == eout->zoom_conf.init_angle)
+     {
+        if (angle == 0)
+          {
+             eout->zoom_conf.adjusted_cx = eout->zoom_conf.init_cx;
+             eout->zoom_conf.adjusted_cy = eout->zoom_conf.init_cy;
+          }
+        else if (angle == 90)
+          {
+             eout->zoom_conf.adjusted_cx = eout->zoom_conf.init_cy;
+             eout->zoom_conf.adjusted_cy = w - eout->zoom_conf.init_cx - 1;
+          }
+        else if (angle == 180)
+          {
+             eout->zoom_conf.adjusted_cx = w - eout->zoom_conf.init_cx - 1;
+             eout->zoom_conf.adjusted_cy = h - eout->zoom_conf.init_cy - 1;
+          }
+        else /* 270 */
+          {
+             eout->zoom_conf.adjusted_cx = h - eout->zoom_conf.init_cy - 1;
+             eout->zoom_conf.adjusted_cy = eout->zoom_conf.init_cx;
+          }
+     }
+   else
+     {
+        if ((angle % 180) == (eout->zoom_conf.init_angle % 180)) /*180 changed than init, don't have to cal ratio*/
+          {
+             x = eout->zoom_conf.init_cx;
+             y = eout->zoom_conf.init_cy;
+          }
+        else /* 90 or 270 changed than init, need ratio cal*/
+          {
+             if (angle == 90 || angle == 270)
+               {
+                  x = (float)eout->config.geom.h / eout->config.geom.w * eout->zoom_conf.init_cx;
+                  y = (float)eout->config.geom.w / eout->config.geom.h * eout->zoom_conf.init_cy;
+               }
+             else /*0 or 180*/
+               {
+                  x = (float)eout->config.geom.w / eout->config.geom.h * eout->zoom_conf.init_cx;
+                  y = (float)eout->config.geom.h / eout->config.geom.w * eout->zoom_conf.init_cy;
+               }
+          }
+        if (angle % 360 == 0)
+          {
+             eout->zoom_conf.adjusted_cx = x;
+             eout->zoom_conf.adjusted_cy = y;
+          }
+        else if (angle % 360 == 90)
+          {
+             eout->zoom_conf.adjusted_cx = y;
+             eout->zoom_conf.adjusted_cy = w - x - 1;
+          }
+        else if (angle % 360 == 180)
+          {
+             eout->zoom_conf.adjusted_cx = w - x - 1;
+             eout->zoom_conf.adjusted_cy = h - y - 1;
+          }
+        else /*rotate % 360 == 270 */
+          {
+             eout->zoom_conf.adjusted_cx = h - y - 1;
+             eout->zoom_conf.adjusted_cy = x;
+          }
+     }
+}
+
+static void
+_e_output_zoom_scaled_rect_get(int out_w, int out_h, double zoomx, double zoomy, int cx, int cy, Eina_Rectangle *rect)
+{
+   double x, y;
+   double dx, dy;
+
+   rect->w = (int)((double)out_w / zoomx);
+   rect->h = (int)((double)out_h / zoomy);
+
+   x = 0 - cx;
+   y = 0 - cy;
+
+   x = (((double)x) * zoomx);
+   y = (((double)y) * zoomy);
+
+   x = x + cx;
+   y = y + cy;
+
+   if (x == 0)
+     dx = 0;
+   else
+     dx = 0 - x;
+
+   if (y == 0)
+     dy = 0;
+   else
+     dy = 0 - y;
+
+   rect->x = (int)(dx / zoomx);
+   rect->y = (int)(dy / zoomy);
+}
+
+static void
+_e_output_render_update(E_Output *output)
+{
+   E_Client *ec = NULL;
+
+   E_CLIENT_FOREACH(ec)
+     {
+        if (ec->visible && (!ec->input_only))
+          e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+     }
+
+   e_output_render(output);
+}
+
+static void
+_e_output_zoom_rotate(E_Output *eout)
+{
+   E_Plane *ep = NULL;
+   Eina_List *l;
+   int rotate = 0;
+   int w, h;
+   Eina_Rectangle rect = {0, };
+
+   EINA_SAFETY_ON_NULL_RETURN(eout);
+
+   e_output_size_get(eout, &w, &h);
+
+   rotate = _e_output_zoom_rotate_get_angle(eout);
+   _e_output_zoom_coordinate_cal_with_angle(eout, rotate);
+
+   _e_output_zoom_scaled_rect_get(w, h, eout->zoom_conf.zoomx, eout->zoom_conf.zoomy,
+                                  eout->zoom_conf.adjusted_cx, eout->zoom_conf.adjusted_cy, &rect);
+   DBG("zoom_rect rotate(x:%d,y:%d) (w:%d,h:%d)", rect.x, rect.y, rect.w, rect.h);
+
+   EINA_LIST_FOREACH(eout->planes, l, ep)
+     {
+        if (!e_plane_is_fb_target(ep)) continue;
+
+        e_plane_zoom_set(ep, &rect);
+        break;
+     }
+
+   /* update the ecore_evas */
+   _e_output_render_update(eout);
+}
+
+static void
+_e_output_zoom_rotating_check(E_Output *output)
+{
+   int angle = 0;
+
+   angle = _e_output_zoom_rotate_get_angle(output);
+   if (output->zoom_conf.current_angle != angle)
+     {
+        output->zoom_conf.current_angle = angle;
+        _e_output_zoom_rotate(output);
+     }
+}
+#endif
+
 static void
 _e_output_cb_output_change(tdm_output *toutput,
                                   tdm_output_change_type type,
@@ -705,6 +927,8 @@ e_output_commit(E_Output *output)
         /* commit only primary */
         if (!fb_commit) return EINA_TRUE;
 
+        _e_output_zoom_rotating_check(output);
+
         /* zoom commit */
         if (!e_plane_pp_commit(fb_target))
           ERR("fail to e_plane_pp_commit");
@@ -958,52 +1182,6 @@ _e_output_zoom_touch_set(E_Plane *plane, Eina_Bool set)
 }
 #endif //HAVE_TOUCH_TRANSFORM
 
-static void
-_e_output_zoom_scaled_rect_get(int out_w, int out_h, double zoomx, double zoomy, int cx, int cy, Eina_Rectangle *rect)
-{
-   double x, y;
-   double dx, dy;
-
-   rect->w = (int)((double)out_w / zoomx);
-   rect->h = (int)((double)out_h / zoomy);
-
-   x = 0 - cx;
-   y = 0 - cy;
-
-   x = (((double)x) * zoomx);
-   y = (((double)y) * zoomy);
-
-   x = x + cx;
-   y = y + cy;
-
-   if (x == 0)
-     dx = 0;
-   else
-     dx = 0 - x;
-
-   if (y == 0)
-     dy = 0;
-   else
-     dy = 0 - y;
-
-   rect->x = (int)(dx / zoomx);
-   rect->y = (int)(dy / zoomy);
-}
-
-static void
-_e_output_render_update(E_Output *output)
-{
-   E_Client *ec = NULL;
-
-   E_CLIENT_FOREACH(ec)
-     {
-        if (ec->visible && (!ec->input_only))
-          e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
-     }
-
-   e_output_render(output);
-}
-
 EINTERN Eina_Bool
 e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy)
 {
@@ -1034,8 +1212,18 @@ e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy)
 
    DBG("set zoom (zoomx:%f,zoomy:%f) (w:%d,h:%d)", zoomx, zoomy, cx, cy);
 
+   eout->zoom_conf.zoomx = zoomx;
+   eout->zoom_conf.zoomy = zoomy;
+   eout->zoom_conf.init_cx = cx;
+   eout->zoom_conf.init_cy = cy;
+   eout->zoom_conf.init_angle = _e_output_zoom_rotate_get_angle(eout);
+   eout->zoom_conf.current_angle = eout->zoom_conf.init_angle;
+
+   _e_output_zoom_coordinate_cal_with_angle(eout, eout->zoom_conf.init_angle);
+
    /* get the scaled rect */
-   _e_output_zoom_scaled_rect_get(w, h, zoomx, zoomy, cx, cy, &rect);
+   _e_output_zoom_scaled_rect_get(w, h, eout->zoom_conf.zoomx, eout->zoom_conf.zoomy,
+                                  eout->zoom_conf.adjusted_cx, eout->zoom_conf.adjusted_cy, &rect);
    DBG("zoom_rect (x:%d,y:%d) (w:%d,h:%d)", rect.x, rect.y, rect.w, rect.h);
 
    if (!e_plane_zoom_set(ep, &rect))
@@ -1079,6 +1267,15 @@ e_output_zoom_unset(E_Output *eout)
    if (!_e_output_zoom_touch_set(plane, EINA_FALSE))
      ERR("fail _e_output_zoom_touch_set");
 #endif
+
+   eout->zoom_conf.zoomx = 0;
+   eout->zoom_conf.zoomy = 0;
+   eout->zoom_conf.init_cx = 0;
+   eout->zoom_conf.init_cy = 0;
+   eout->zoom_conf.init_angle = 0;
+   eout->zoom_conf.current_angle = 0;
+   eout->zoom_conf.adjusted_cx = 0;
+   eout->zoom_conf.adjusted_cy = 0;
 
    e_plane_zoom_unset(ep);
 

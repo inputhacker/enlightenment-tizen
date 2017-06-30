@@ -67,6 +67,17 @@ struct _E_Output
    } cursor_available;
 #ifdef HAVE_ZOOM_PP
    Eina_Bool            zoom_set;
+   struct
+   {
+      double            zoomx;
+      double            zoomy;
+      int               init_cx;
+      int               init_cy;
+      int               adjusted_cx;
+      int               adjusted_cy;
+      int               init_angle;
+      int               current_angle;
+   } zoom_conf;
 #endif
 };
 
