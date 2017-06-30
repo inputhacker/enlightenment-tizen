@@ -15,6 +15,8 @@ typedef struct _E_Info_Client
    Eldbus_Object     *obj;
 
    /* topvwins */
+   int                use_gl, use_hwc, use_multi_layer, hwc;
+   const char        *engine;
    Eina_List         *win_list;
 
    Eina_List         *input_dev;
@@ -392,17 +394,10 @@ _e_win_info_free(E_Win_Info *win)
 }
 
 static void
-_cb_window_info_get(const Eldbus_Message *msg)
+_e_win_info_make_array(Eldbus_Message_Iter *array)
 {
-   const char *name = NULL, *text = NULL;
-   Eldbus_Message_Iter *array, *ec;
+   Eldbus_Message_Iter *ec;
    Eina_Bool res;
-
-   res = eldbus_message_error_get(msg, &name, &text);
-   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
-
-   res = eldbus_message_arguments_get(msg, "a("VALUE_TYPE_FOR_TOPVWINS")", &array);
-   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
 
    while (eldbus_message_iter_get_and_next(array, 'r', &ec))
      {
@@ -445,6 +440,22 @@ _cb_window_info_get(const Eldbus_Message *msg)
         win = _e_win_info_new(id, res_id, pid, alpha, opaque, win_name, x, y, w, h, layer, visible, visibility, iconic, frame_visible, focused, hwc, pl_zpos, parent_id, layer_name);
         e_info_client.win_list = eina_list_append(e_info_client.win_list, win);
      }
+}
+
+static void
+_cb_window_info_get(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eldbus_Message_Iter *array;
+   Eina_Bool res;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "a("VALUE_TYPE_FOR_TOPVWINS")", &array);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   _e_win_info_make_array(array);
 
 finish:
    if ((name) || (text))
@@ -452,6 +463,34 @@ finish:
         printf("errname:%s errmsg:%s\n", name, text);
      }
 }
+
+static void
+_cb_vwindow_info_get(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eldbus_Message_Iter *array;
+   char *engine;
+   Eina_Bool res;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "iiiisa("VALUE_TYPE_FOR_TOPVWINS")",
+                                      &e_info_client.use_gl, &e_info_client.use_hwc, &e_info_client.use_multi_layer,
+                                      &e_info_client.hwc, &engine,
+                                      &array);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+   e_info_client.engine = eina_stringshare_add(engine);
+
+   _e_win_info_make_array(array);
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
 
 static void
 _e_info_client_cb_compobjs(const Eldbus_Message *msg)
@@ -885,8 +924,16 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
 
    const char *prev_layer_name = NULL;
 
-   if (!_e_info_client_eldbus_message("get_window_info", _cb_window_info_get))
+   if (!_e_info_client_eldbus_message("get_window_info", _cb_vwindow_info_get))
      return;
+
+   printf("GL :  %s\n", e_info_client.use_gl ? "on":"off");
+   printf("ENG:  %s\n", e_info_client.engine);
+   if (e_info_client.use_hwc)
+     {
+        printf("HWC:  %s\n", e_info_client.hwc ? "on":"off");
+        printf("Multi Plane:  %s\n\n", e_info_client.use_multi_layer ? "on":"off");
+     }
 
    printf("%d Top level windows\n", eina_list_count(e_info_client.win_list));
    printf("--------------------------------------[ topvwins ]----------------------------------------------------------------------------\n");
@@ -941,6 +988,11 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
      printf("\nHWC is disabled\n\n");
 
    E_FREE_LIST(e_info_client.win_list, _e_win_info_free);
+   if (e_info_client.engine)
+     {
+        eina_stringshare_del(e_info_client.engine);
+        e_info_client.engine = NULL;
+     }
 }
 
 static void
