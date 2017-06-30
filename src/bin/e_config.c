@@ -283,6 +283,7 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, launchscreen_without_timer, UCHAR);
    E_CONFIG_VAL(D, T, log_type, INT);
    E_CONFIG_VAL(D, T, rsm_buffer_release_mode, INT);
+   E_CONFIG_VAL(D, T, deiconify_approve, UCHAR);
 }
 
 /* externally accessible functions */
@@ -483,6 +484,7 @@ e_config_load(void)
    E_CONFIG_LIMIT(e_config->launchscreen_without_timer, 0, 1);
    E_CONFIG_LIMIT(e_config->log_type, 0, 255);
    E_CONFIG_LIMIT(e_config->rsm_buffer_release_mode, 0, 2);
+   E_CONFIG_LIMIT(e_config->deiconify_approve, 0, 1);
 }
 
 E_API int
