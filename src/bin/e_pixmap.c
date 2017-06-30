@@ -138,7 +138,10 @@ _e_pixmap_free(E_Pixmap *cp)
    ELOG("PIXMAP FREE", cp, cp->client);
 
    if (cp->shm_flusher)
-     wl_resource_destroy(cp->shm_flusher);
+     {
+        wl_resource_set_user_data(cp->shm_flusher, NULL);
+        cp->shm_flusher = NULL;
+     }
 
    if (cp->buffer)
      wl_list_remove(&cp->buffer_destroy_listener.link);
@@ -208,7 +211,8 @@ _e_pixmap_tzsurf_shm_flusher_cb_res_destroy(struct wl_resource *resource)
    E_Pixmap *cp;
 
    cp = wl_resource_get_user_data(resource);
-   cp->shm_flusher = NULL;
+   if (cp)
+     cp->shm_flusher = NULL;
 }
 
 static void
