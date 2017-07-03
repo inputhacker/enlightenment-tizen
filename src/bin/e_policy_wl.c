@@ -1263,6 +1263,8 @@ _tzpos_iface_cb_set(struct wl_client *client EINA_UNUSED, struct wl_resource *re
         ec->changes.tz_position = 1;
         EC_CHANGED(ec);
      }
+
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_POSITION_SET, ec);
 }
 
 static const struct tizen_position_interface _tzpos_iface =
