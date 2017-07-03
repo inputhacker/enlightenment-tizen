@@ -8,6 +8,7 @@ typedef struct _E_Policy_Config       E_Policy_Config;
 typedef struct _E_Policy          E_Policy;
 typedef struct _E_Policy_System_Info E_Policy_System_Info;
 typedef struct _E_Policy_Interceptor E_Policy_Interceptor;
+typedef struct _E_Policy_Hook        E_Policy_Hook;
 
 typedef enum _E_Policy_Intercept_Point
 {
@@ -18,11 +19,28 @@ typedef enum _E_Policy_Intercept_Point
    E_POLICY_INTERCEPT_LAST,
 } E_Policy_Intercept_Point;
 
+typedef enum _E_Policy_Hook_Point
+{
+   E_POLICY_HOOK_CLIENT_POSITION_SET,
+   E_POLICY_HOOK_LAST
+} E_Policy_Hook_Point;
+
 typedef Eina_Bool (*E_Policy_Intercept_Cb)(void *data, E_Client *ec, va_list list);
+typedef void (*E_Policy_Hook_Cb)(void *data, E_Client *ec);
 
 # else
 # ifndef E_POLICY_H
 # define E_POLICY_H
+
+struct _E_Policy_Hook
+{
+   EINA_INLIST;
+   E_Policy_Hook_Point hookpoint;
+   E_Policy_Hook_Cb    func;
+   void               *data;
+   unsigned char       delete_me : 1;
+};
+
 struct _E_Policy_Desk
 {
    E_Desk          *desk;
@@ -177,6 +195,9 @@ E_API void      e_policy_aux_message_send_from_int(E_Client *ec, const char *key
 
 E_API E_Policy_Interceptor *e_policy_interceptor_add(E_Policy_Intercept_Point ipoint, E_Policy_Intercept_Cb func, const void *data);
 E_API void                  e_policy_interceptor_del(E_Policy_Interceptor *pi);
+E_API E_Policy_Hook        *e_policy_hook_add(E_Policy_Hook_Point hookpoint, E_Policy_Hook_Cb func, const void *data);
+E_API void                  e_policy_hook_del(E_Policy_Hook *hook);
+E_API Eina_Bool             e_policy_hook_call(E_Policy_Hook_Point hookpoint, E_Client *ec);
 
 E_API void e_policy_allow_user_geometry_set(E_Client *ec, Eina_Bool set);
 E_API void e_policy_deferred_job(void);

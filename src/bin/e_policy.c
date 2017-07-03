@@ -30,6 +30,13 @@ static Eina_List *hooks_cp = NULL;
 static Ecore_Idle_Enterer *_e_pol_idle_enterer = NULL;
 static Eina_Bool _e_pol_changed_vis = EINA_FALSE;
 static Eina_List *_e_pol_changed_zone = NULL;
+static int _e_policy_hooks_delete = 0;
+static int _e_policy_hooks_walking = 0;
+
+static Eina_Inlist *_e_policy_hooks[] =
+{
+   [E_POLICY_HOOK_CLIENT_POSITION_SET] = NULL,
+};
 
 static E_Policy_Client *_e_policy_client_add(E_Client *ec);
 static void        _e_policy_client_del(E_Policy_Client *pc);
@@ -2023,6 +2030,71 @@ e_policy_interceptor_del(E_Policy_Interceptor *pi)
      }
    else
      _e_policy_interceptors_delete++;
+}
+
+E_API E_Policy_Hook *
+e_policy_hook_add(E_Policy_Hook_Point hookpoint, E_Policy_Hook_Cb func, const void *data)
+{
+   E_Policy_Hook *ph;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_POLICY_HOOK_LAST, NULL);
+   ph = E_NEW(E_Policy_Hook, 1);
+   if (!ph) return NULL;
+   ph->hookpoint = hookpoint;
+   ph->func = func;
+   ph->data = (void*)data;
+   _e_policy_hooks[hookpoint] = eina_inlist_append(_e_policy_hooks[hookpoint], EINA_INLIST_GET(ph));
+   return ph;
+}
+
+E_API void
+e_policy_hook_del(E_Policy_Hook *ph)
+{
+   ph->delete_me = 1;
+   if (_e_policy_hooks_walking == 0)
+     {
+        _e_policy_hooks[ph->hookpoint] = eina_inlist_remove(_e_policy_hooks[ph->hookpoint], EINA_INLIST_GET(ph));
+        free(ph);
+     }
+   else
+     _e_policy_hooks_delete++;
+}
+
+static void
+_e_policy_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Policy_Hook *ph;
+   unsigned int x;
+
+   for (x = 0; x < E_POLICY_HOOK_LAST; x++)
+     {
+        EINA_INLIST_FOREACH_SAFE(_e_policy_hooks[x], l, ph)
+          {
+             if (!ph->delete_me) continue;
+             _e_policy_hooks[x] = eina_inlist_remove(_e_policy_hooks[x], EINA_INLIST_GET(ph));
+             free(ph);
+          }
+     }
+}
+
+E_API Eina_Bool
+e_policy_hook_call(E_Policy_Hook_Point hookpoint, E_Client *ec)
+{
+   E_Policy_Hook *ch;
+
+   e_object_ref(E_OBJECT(ec));
+   _e_policy_hooks_walking++;
+
+   EINA_INLIST_FOREACH(_e_policy_hooks[hookpoint], ch)
+     {
+        if (ch->delete_me) continue;
+        ch->func(ch->data, ec);
+     }
+   _e_policy_hooks_walking--;
+   if ((_e_policy_hooks_walking == 0) && (_e_policy_hooks_delete > 0))
+     _e_policy_hooks_clean();
+   return !!e_object_unref(E_OBJECT(ec));
 }
 
 E_API void
