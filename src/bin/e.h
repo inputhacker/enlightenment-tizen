@@ -334,7 +334,6 @@ extern E_API Eina_Bool restart;
 extern E_API Eina_Bool e_nopause;
 
 extern E_API Eina_Bool e_precache_end;
-extern E_API Eina_Bool x_fatal;
 
 extern EINTERN const char *e_first_frame;
 extern EINTERN double e_first_frame_start_time;
