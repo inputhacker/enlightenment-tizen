@@ -2,6 +2,9 @@
 #ifdef __linux__
 # include <sys/prctl.h>
 #endif
+#ifdef HAVE_SYSTEMD
+# include <systemd/sd-daemon.h>
+#endif
 
 #define MAX_LEVEL 80
 
@@ -719,6 +722,12 @@ main(int argc, char **argv)
 
    TRACE_DS_END();
 
+#ifdef HAVE_SYSTEMD
+   TS("[WM] Send start-up completion");
+   sd_notify(0, "READY=1");
+#else
+   TS("[WM] Skip sending start-up completion. (no systemd)");
+#endif
    ecore_main_loop_begin();
 
    inloop = EINA_FALSE;
