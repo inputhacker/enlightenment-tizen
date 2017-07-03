@@ -90,7 +90,6 @@ static void      _e_main_hook_call(E_Main_Hook_Point hookpoint, void *data EINA_
 /* local variables */
 static Eina_Bool really_know = EINA_FALSE;
 static Eina_Bool inloop = EINA_FALSE;
-static jmp_buf x_fatal_buff;
 
 static int _e_main_lvl = 0;
 static int(*_e_main_shutdown_func[MAX_LEVEL]) (void);
@@ -113,7 +112,6 @@ static Eina_Inlist *_e_main_hooks[] =
 
 /* external variables */
 E_API Eina_Bool e_precache_end = EINA_FALSE;
-E_API Eina_Bool x_fatal = EINA_FALSE;
 E_API Eina_Bool good = EINA_FALSE;
 E_API Eina_Bool evil = EINA_FALSE;
 E_API Eina_Bool starting = EINA_TRUE;
@@ -720,10 +718,8 @@ main(int argc, char **argv)
      _e_main_create_wm_ready();
 
    TRACE_DS_END();
-   if (!setjmp(x_fatal_buff))
-     ecore_main_loop_begin();
-   else
-     CRI("FATAL: X Died. Connection gone. Abbreviated Shutdown\n");
+
+   ecore_main_loop_begin();
 
    inloop = EINA_FALSE;
    stopping = EINA_TRUE;
@@ -877,18 +873,6 @@ _e_main_parse_arguments(int argc, char **argv)
                );
              _e_main_shutdown(-1);
           }
-     }
-}
-
-EINTERN void
-_e_main_cb_x_fatal(void *data EINA_UNUSED)
-{
-   e_error_message_show("Lost X Connection.\n");
-   ecore_main_loop_quit();
-   if (!x_fatal)
-     {
-        x_fatal = EINA_TRUE;
-        if (inloop) longjmp(x_fatal_buff, -99);
      }
 }
 

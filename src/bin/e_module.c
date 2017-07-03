@@ -195,21 +195,16 @@ e_module_shutdown(void)
 #endif
 
    /* do not use EINA_LIST_FREE! e_object_del modifies list */
-   if (x_fatal)
-     e_module_save_all();
-   else
+   while (_e_modules)
      {
-        while (_e_modules)
+        m = _e_modules->data;
+        if ((m) && (m->enabled) && !(m->error))
           {
-             m = _e_modules->data;
-             if ((m) && (m->enabled) && !(m->error))
-               {
-                  if (m->func.save) m->func.save(m);
-                  if (m->func.shutdown) m->func.shutdown(m);
-                  m->enabled = 0;
-               }
-             e_object_del(E_OBJECT(m));
+             if (m->func.save) m->func.save(m);
+             if (m->func.shutdown) m->func.shutdown(m);
+             m->enabled = 0;
           }
+        e_object_del(E_OBJECT(m));
      }
 
    E_FREE_FUNC(_e_module_path_hash, eina_hash_free);
