@@ -1001,11 +1001,18 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
 
 error_case:
 
-   if (src_img) pixman_image_unref(src_img);
-   if (dst_img) pixman_image_unref(dst_img);
-
    if (src_ptr && td->tbm_surface) tbm_surface_unmap(td->tbm_surface);
    if (dst_ptr) tbm_surface_unmap(transform_surface);
+
+   // if dst_img is null, then trasform is failed. So we should destroy transform_surface.
+   if (!dst_img)
+     {
+        tbm_surface_destroy(transform_surface);
+        transform_surface = NULL;
+     }
+
+   if (src_img) pixman_image_unref(src_img);
+   if (dst_img) pixman_image_unref(dst_img);
 
    return transform_surface;
 }
