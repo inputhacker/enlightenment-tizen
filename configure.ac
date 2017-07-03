@@ -490,6 +490,34 @@ AM_CONDITIONAL([HAVE_HWC], [test "x${have_hwc}" = "xyes"])
 #pixman
 PKG_CHECK_MODULES([PIXMAN], [pixman-1])
 
+# Check for systemd
+want_systemd="yes"
+AC_ARG_ENABLE([systemd],
+  [AS_HELP_STRING([--disable-systemd], [disable systemd @<:@default=enabled@:>@])],
+  [
+    if test "x${enableval}" = "xyes"; then
+      want_systemd="yes"
+    else
+      want_systemd="no"
+    fi
+  ])
+AC_MSG_CHECKING([whether systemd is enabled])
+AC_MSG_RESULT([${want_systemd}])
+
+have_systemd="no"
+if test "x$want_systemd" = "xyes"; then
+  PKG_CHECK_MODULES([SYSTEMD], [libsystemd >= 209],
+    [
+      have_systemd="yes"
+      AC_DEFINE_UNQUOTED([HAVE_SYSTEMD], [1], [enable systemd support])
+    ])
+else
+  have_systemd="no"
+fi
+
+AM_CONDITIONAL([HAVE_SYSTEMD], [test "x${have_systemd}" = "xyes"])
+
+
 #capi-system-device
 PKG_CHECK_MODULES([CAPI_SYSTEM_DEVICE],
                   [capi-system-device])
