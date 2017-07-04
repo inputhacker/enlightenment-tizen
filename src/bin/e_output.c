@@ -478,6 +478,10 @@ e_output_update(E_Output *output)
         INF("E_OUTPUT: disconnected.. id: %s", output->id);
      }
 
+   /* the index of the tdm_output is higher, the tdm_output is important.
+   the priority of the e_output is higher, the e_output is more important. */
+   output->config.priority = 100 - output->index;
+
    return EINA_TRUE;
 }
 
@@ -509,10 +513,6 @@ e_output_mode_apply(E_Output *output, E_Output_Mode *mode)
    output->config.mode.w = mode->w;
    output->config.mode.h = mode->h;
    output->config.mode.refresh = mode->refresh;
-
-   /* the index of the tdm_output is higher, the tdm_output is important.
-      the priority of the e_output is higher, the e_output is more important. */
-   output->config.priority = 100 - output->index;
 
    output->config.enabled = 1;
 
