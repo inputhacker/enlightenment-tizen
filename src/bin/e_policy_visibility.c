@@ -1241,7 +1241,6 @@ static Eina_Bool
 _e_vis_ec_below_uniconify(E_Client *ec)
 {
    Eina_List *below_list = NULL;
-   Eina_List *l = NULL;
    Eina_Bool ret = EINA_FALSE;
    E_Vis_Client *below;
 
@@ -1262,7 +1261,7 @@ _e_vis_ec_below_uniconify(E_Client *ec)
      }
    else
      {
-        EINA_LIST_FOREACH(below_list, l, below)
+        EINA_LIST_FREE(below_list, below)
           {
              if (below->ec == ec->parent)
                {
