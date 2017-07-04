@@ -757,6 +757,7 @@ e_output_find(const char *id)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp, NULL);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp->e_comp_screen, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(id, NULL);
 
    e_comp_screen = e_comp->e_comp_screen;
 
