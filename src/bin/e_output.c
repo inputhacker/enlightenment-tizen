@@ -162,10 +162,30 @@ _e_output_zoom_scaled_rect_get(int out_w, int out_h, double zoomx, double zoomy,
    rect->y = (int)(dy / zoomy);
 }
 
+static Eina_Bool
+_e_output_animating_check()
+{
+   E_Client *ec = NULL;
+
+   E_CLIENT_FOREACH(ec)
+     {
+        if (ec->visible && (!ec->input_only))
+          {
+             if (e_comp_object_is_animating(ec->frame))
+               return EINA_TRUE;
+          }
+     }
+
+   return EINA_FALSE;
+}
+
 static void
 _e_output_render_update(E_Output *output)
 {
    E_Client *ec = NULL;
+
+   if (_e_output_animating_check())
+     return;
 
    E_CLIENT_FOREACH(ec)
      {
