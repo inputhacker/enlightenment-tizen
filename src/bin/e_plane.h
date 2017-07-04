@@ -85,6 +85,7 @@ struct _E_Plane
    Eina_Bool             pp_set_info;
    Eina_Bool             pp_set;
    Eina_Bool             pp_commit;
+   Eina_Bool             pp_layer_commit;
    Eina_Bool             skip_surface_set;
 
    Eina_Rectangle        zoom_rect;

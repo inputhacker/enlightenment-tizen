@@ -965,6 +965,15 @@ e_plane_commit(E_Plane *plane)
 
    plane->wait_commit = EINA_TRUE;
 
+   if (plane->tpp)
+     {
+        if (!plane->pp_set && !plane->pp_commit && plane->is_fb)
+          {
+             tdm_pp_destroy(plane->tpp);
+             plane->tpp = NULL;
+          }
+     }
+
    return EINA_TRUE;
 }
 
@@ -1573,7 +1582,7 @@ _e_plane_pp_layer_commit_handler(tdm_layer *layer, unsigned int sequence,
 
    plane = data->plane;
 
-   plane->pp_commit = EINA_FALSE;
+   plane->pp_layer_commit = EINA_FALSE;
 
    /* if pp_set is false, do not deal with pending list */
    if (!plane->pp_set)
@@ -1686,7 +1695,7 @@ _e_plane_pp_layer_commit(E_Plane *plane, tbm_surface_h tsurface)
    tbm_surface_internal_ref(data->tsurface);
    data->ec = NULL;
 
-   if (plane->pp_commit)
+   if (plane->pp_layer_commit)
      {
         plane->pending_pp_commit_data_list = eina_list_append(plane->pending_pp_commit_data_list, data);
         return EINA_TRUE;
@@ -1706,7 +1715,7 @@ _e_plane_pp_layer_commit(E_Plane *plane, tbm_surface_h tsurface)
         goto fail;
      }
 
-   plane->pp_commit = EINA_TRUE;
+   plane->pp_layer_commit = EINA_TRUE;
 
    return EINA_TRUE;
 
@@ -1739,6 +1748,7 @@ _e_plane_pp_commit_handler(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h
    e_plane_commit_data_release(data);
 
    plane->wait_commit = EINA_FALSE;
+   plane->pp_commit = EINA_FALSE;
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "PP Commit Handler Plane(%p)", NULL, NULL, plane);
@@ -1792,6 +1802,7 @@ _e_plane_pp_commit(E_Plane *plane, E_Plane_Commit_Data *data)
    EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, commit_fail);
 
    plane->wait_commit = EINA_TRUE;
+   plane->pp_commit = EINA_TRUE;
 
    return EINA_TRUE;
 
@@ -1953,9 +1964,12 @@ e_plane_zoom_unset(E_Plane *plane)
         plane->pp_tqueue = NULL;
      }
 
-   if (plane->tpp)
+   if (!plane->pp_commit)
      {
-        tdm_pp_destroy(plane->tpp);
-        plane->tpp = NULL;
+        if (plane->tpp)
+          {
+             tdm_pp_destroy(plane->tpp);
+             plane->tpp = NULL;
+          }
      }
 }
