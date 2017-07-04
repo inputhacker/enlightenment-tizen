@@ -1581,6 +1581,7 @@ _e_plane_pp_layer_commit_handler(tdm_layer *layer, unsigned int sequence,
    /* if pp_set is false, do not deal with pending list */
    if (!plane->pp_set)
    {
+      tbm_surface_internal_unref(data->tsurface);
       free(data);
       return;
    }
