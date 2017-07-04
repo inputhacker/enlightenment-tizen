@@ -1,6 +1,5 @@
 #include "e.h"
 
-#ifdef HAVE_ZOOM_PP
 static E_Client *
 _e_output_zoom_top_visible_ec_get()
 {
@@ -239,7 +238,6 @@ _e_output_zoom_rotating_check(E_Output *output)
         _e_output_zoom_rotate(output);
      }
 }
-#endif
 
 static void
 _e_output_cb_output_change(tdm_output *toutput,
@@ -1160,7 +1158,6 @@ e_output_plane_get_by_zpos(E_Output *output, int zpos)
    return NULL;
 }
 
-#ifdef HAVE_ZOOM_PP
 static Eina_Bool
 _e_output_zoom_touch_set(E_Output *eout, Eina_Bool set)
 {
@@ -1314,4 +1311,3 @@ e_output_zoom_unset(E_Output *eout)
 
    DBG("e_output_zoom_unset: output:%s", eout->id);
 }
-#endif

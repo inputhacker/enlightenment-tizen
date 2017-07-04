@@ -178,6 +178,7 @@ struct _E_Config
    const char *indicator_plug_name;
    Eina_Bool launchscreen_without_timer;
    int log_type;
+   Eina_Bool use_pp_zoom;
 };
 
 struct _E_Config_Desklock_Background

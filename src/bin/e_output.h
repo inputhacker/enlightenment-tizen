@@ -65,7 +65,7 @@ struct _E_Output
        int max_w, max_h;
        int preferred_align;
    } cursor_available;
-#ifdef HAVE_ZOOM_PP
+
    Eina_Bool            zoom_set;
    struct
    {
@@ -79,7 +79,6 @@ struct _E_Output
       int               current_angle;
       Eina_Rectangle    rect;
    } zoom_conf;
-#endif
 };
 
 EINTERN Eina_Bool         e_output_init(void);
@@ -104,11 +103,8 @@ E_API Eina_Bool           e_output_is_fb_composing(E_Output *output);
 E_API Eina_Bool           e_output_is_fb_full_compositing(E_Output *output);
 E_API E_Plane           * e_output_fb_target_get(E_Output *output);
 E_API E_Plane           * e_output_plane_get_by_zpos(E_Output *output, int zpos);
-
-#ifdef HAVE_ZOOM_PP
 EINTERN Eina_Bool         e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy);
 EINTERN void              e_output_zoom_unset(E_Output *eout);
-#endif
 
 #endif
 #endif

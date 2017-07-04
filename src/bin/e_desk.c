@@ -821,13 +821,31 @@ e_desk_zoom_set(E_Desk *desk, double zoomx, double zoomy, int cx, int cy)
 {
    E_Client *ec;
    Eina_List *l;
-#ifdef HAVE_ZOOM_PP
    E_Zone *zone = NULL;
    E_Output *eout = NULL;
-#endif
 
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
+
+   if (e_config->use_pp_zoom)
+     {
+        if (e_comp_screen_pp_support())
+          {
+             zone = desk->zone;
+             eout = e_output_find(zone->output_id);
+             if (!eout)
+               {
+                  ERR("e_desk_zoom_set: fail get eout");
+                  return;
+               }
+             if (!e_output_zoom_set(eout, zoomx, zoomy, cx, cy))
+               ERR("e_desk_zoom_set: fail zoom set");
+             else
+               DBG("e_desk_zoom_set: zoomx:%f, zoomy:%f, x:%d, y:%d", zoomx, zoomy, cx, cy);
+
+             return;
+          }
+     }
 
    if (e_config->use_desk_smart_obj)
      {
@@ -858,23 +876,6 @@ e_desk_zoom_set(E_Desk *desk, double zoomx, double zoomy, int cx, int cy)
              _e_desk_util_comp_hwc_disable_set(EINA_TRUE);
           }
      }
-#ifdef HAVE_ZOOM_PP
-   else
-     {
-        /* use PP */
-        zone = desk->zone;
-        eout = e_output_find(zone->output_id);
-        if (!eout)
-          {
-             ERR("e_desk_zoom_set: fail get eout");
-             return;
-          }
-        if (!e_output_zoom_set(eout, zoomx, zoomy, cx, cy))
-          ERR("e_desk_zoom_set: fail zoom set");
-        else
-          DBG("e_desk_zoom_set: zoomx:%f, zoomy:%f, x:%d, y:%d", zoomx, zoomy, cx, cy);
-     }
-#endif
 }
 
 E_API void
@@ -882,13 +883,30 @@ e_desk_zoom_unset(E_Desk *desk)
 {
    E_Client *ec;
    Eina_List *l;
-#ifdef HAVE_ZOOM_PP
    E_Zone *zone = NULL;
    E_Output *eout = NULL;
-#endif
 
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
+
+   if (e_config->use_pp_zoom)
+     {
+        if (e_comp_screen_pp_support())
+          {
+             zone = desk->zone;
+             eout = e_output_find(zone->output_id);
+             if (!eout)
+               {
+                  ERR("e_desk_zoom_unset: fail get eout");
+                  return;
+               }
+
+             e_output_zoom_unset(eout);
+             DBG("e_desk_zoom_unset");
+
+             return;
+          }
+     }
 
    if (e_config->use_desk_smart_obj)
      {
@@ -916,22 +934,6 @@ e_desk_zoom_unset(E_Desk *desk)
         /* FIXME TEMP enable hwc */
         _e_desk_util_comp_hwc_disable_set(EINA_FALSE);
      }
-#ifdef HAVE_ZOOM_PP
-   else
-     {
-        /* use PP */
-        zone = desk->zone;
-        eout = e_output_find(zone->output_id);
-        if (!eout)
-          {
-             ERR("e_desk_zoom_set: fail get eout");
-             return;
-          }
-
-        e_output_zoom_unset(eout);
-        DBG("e_desk_zoom_unset");
-     }
-#endif
 }
 
 E_API void
