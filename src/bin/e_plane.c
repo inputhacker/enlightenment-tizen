@@ -792,7 +792,7 @@ e_plane_fetch(E_Plane *plane)
    if (plane->wait_commit)
       return EINA_FALSE;
 
-   if (plane->pp_layer_commit && !plane->pp_set && plane->is_fb)
+   if (plane->pp_layer_commit && !plane->pp_set)
      return EINA_FALSE;
 
    if (plane->is_fb && !plane->ec)
@@ -967,15 +967,6 @@ e_plane_commit(E_Plane *plane)
       e_pixmap_image_clear(plane->ec->pixmap, 1);
 
    plane->wait_commit = EINA_TRUE;
-
-   if (plane->tpp)
-     {
-        if (!plane->pp_set && !plane->pp_commit && plane->is_fb)
-          {
-             tdm_pp_destroy(plane->tpp);
-             plane->tpp = NULL;
-          }
-     }
 
    return EINA_TRUE;
 }
@@ -1757,7 +1748,15 @@ _e_plane_pp_commit_handler(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h
      ELOGF("E_PLANE", "PP Commit Handler Plane(%p)", NULL, NULL, plane);
 
    /* if pp_set is false, skip the commit */
-   if (!plane->pp_set) goto done;
+   if (!plane->pp_set)
+     {
+        if (plane->tpp)
+          {
+             tdm_pp_destroy(plane->tpp);
+             plane->tpp = NULL;
+          }
+        goto done;
+     }
 
    if (!_e_plane_pp_layer_commit(plane, tsurface_dst))
      ERR("fail to _e_plane_pp_layer_commit");
