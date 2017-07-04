@@ -116,6 +116,7 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
 {
    E_Output *output = NULL;
    E_Plane *plane = NULL;
+   E_Plane *default_fb = NULL;
    tdm_output *toutput = NULL;
    tdm_error error;
    char *id = NULL;
@@ -198,6 +199,19 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
      }
 
    output->planes = eina_list_sort(output->planes, eina_list_count(output->planes), _e_output_cb_planes_sort);
+
+   default_fb = e_output_default_fb_target_get(output);
+   if (!default_fb)
+     {
+        ERR("fail to get default_fb_target plane");
+        goto fail;
+     }
+
+   if (!e_plane_fb_target_set(default_fb, EINA_TRUE))
+     {
+        ERR("fail to set fb_target plane");
+        goto fail;
+     }
 
    output->e_comp_screen = e_comp_screen;
 
@@ -522,7 +536,7 @@ e_output_setup(E_Output *output)
 
    EINA_LIST_FOREACH_SAFE(output->planes, l, ll, plane)
      {
-        if (plane->is_primary)
+        if (plane->is_fb)
           {
              if (!e_plane_setup(plane)) return EINA_FALSE;
              else return EINA_TRUE;
@@ -830,6 +844,47 @@ e_output_fb_target_get(E_Output *output)
      {
         if (e_plane_is_fb_target(ep))
           return ep;
+     }
+
+   return NULL;
+}
+
+EINTERN E_Plane *
+e_output_default_fb_target_get(E_Output *output)
+{
+   Eina_List *p_l;
+   E_Plane *ep;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->planes, EINA_FALSE);
+
+   /* find lowest zpos graphic type layer */
+   EINA_LIST_FOREACH(output->planes, p_l, ep)
+     {
+        if (e_plane_type_get(ep) == E_PLANE_TYPE_GRAPHIC)
+          {
+             Eina_List *formats = NULL;
+             Eina_List *formats_l = NULL;
+             Eina_Bool available_rgb = EINA_FALSE;
+             tbm_format *format;
+
+             formats = e_plane_available_tbm_formats_get(ep);
+             if (!formats) continue;
+
+             EINA_LIST_FOREACH(formats, formats_l, format)
+               {
+                  if (*format == TBM_FORMAT_ARGB8888 ||
+                      *format == TBM_FORMAT_XRGB8888)
+                    {
+                       available_rgb = EINA_TRUE;
+                       break;
+                    }
+               }
+
+             if (!available_rgb) continue;
+
+             return ep;
+          }
      }
 
    return NULL;

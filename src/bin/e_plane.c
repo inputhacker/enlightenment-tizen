@@ -724,10 +724,7 @@ e_plane_new(E_Output *output, int index)
 
    /* check the layer is the primary layer */
    if (layer_capabilities & TDM_LAYER_CAPABILITY_PRIMARY)
-     {
-        plane->is_primary = EINA_TRUE;
-        plane->is_fb = EINA_TRUE; // TODO: query from libtdm if it is fb target plane
-     }
+     plane->is_primary = EINA_TRUE;
 
    if (layer_capabilities & TDM_LAYER_CAPABILITY_VIDEO)
      plane->type = E_PLANE_TYPE_VIDEO;
