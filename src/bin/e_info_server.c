@@ -210,6 +210,7 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
    *hwc = 0;
 
    eout = e_output_find(ec->zone->output_id);
+   if (!eout) return;
    EINA_LIST_FOREACH(eout->planes, l, ep)
      {
         if (e_plane_is_fb_target(ep))
