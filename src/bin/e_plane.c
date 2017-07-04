@@ -976,6 +976,38 @@ e_plane_unfetch(E_Plane *plane)
      }
 }
 
+static Eina_Bool
+_e_plane_fb_target_change(E_Plane *fb_target, E_Plane *plane)
+{
+   E_Plane_Renderer *renderer = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(fb_target, EINA_FALSE);
+
+   if (fb_target == plane) return EINA_TRUE;
+
+   renderer = fb_target->renderer;
+
+   if (plane->renderer)
+     _e_plane_renderer_unset(plane);
+
+   renderer->plane = plane;
+   plane->renderer = renderer;
+   fb_target->renderer = NULL;
+
+   fb_target->is_fb = EINA_FALSE;
+   plane->is_fb = EINA_TRUE;
+
+   fb_target->unset_counter = 1;
+   fb_target->unset_candidate = EINA_TRUE;
+
+   if (plane_trace_debug)
+     ELOGF("E_PLANE", "Change fb_target Plane(%p) zpos(%d) -> plane(%p) zpos(%d)",
+            NULL, NULL, fb_target, fb_target->zpos, plane, plane->zpos);
+
+   return EINA_TRUE;
+}
+
 static void
 _e_plane_vblank_handler(tdm_output *output, unsigned int sequence,
                                   unsigned int tv_sec, unsigned int tv_usec,
@@ -1002,6 +1034,24 @@ _e_plane_commit_hanler(tdm_layer *layer, unsigned int sequence,
    e_plane_commit_data_release(data);
 }
 
+static void
+_e_plane_fb_target_change_check(E_Plane *plane)
+{
+   if (!plane->is_fb) return;
+   if (!plane->fb_change || !plane->fb_change_counter) return;
+
+   plane->fb_change_counter--;
+
+   if (plane->fb_change_counter) return;
+
+   if (!_e_plane_fb_target_change(plane, plane->fb_change))
+     ERR("fail to change fb_target");
+
+   plane->fb_change = NULL;
+
+   return;
+}
+
 EINTERN Eina_Bool
 e_plane_commit(E_Plane *plane)
 {
@@ -1013,6 +1063,8 @@ e_plane_commit(E_Plane *plane)
    data = e_plane_commit_data_aquire(plane);
 
    if (!data) return EINA_TRUE;
+
+   _e_plane_fb_target_change_check(plane);
 
    TRACE_DS_ASYNC_BEGIN((unsigned int)plane->tlayer, [PLANE:COMMIT~HANDLER]);
 
@@ -1138,6 +1190,18 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
           ELOGF("E_PLANE", "Done    Plane(%p) zpos(%d)   data(%p)::Unset", NULL, NULL, plane, plane->zpos, data);
 
         e_comp_wl_buffer_reference(&plane->display_info.buffer_ref, NULL);
+
+        if (plane->reserved_video)
+          {
+             e_comp_override_del();
+             plane->reserved_video = EINA_FALSE;
+             plane->is_video = EINA_TRUE;
+
+             if (plane_trace_debug)
+               ELOGF("E_PLANE", "Call HOOK_VIDEO_SET Plane(%p) zpos(%d)", NULL, NULL, plane, plane->zpos);
+
+             _e_plane_hook_call(E_PLANE_HOOK_VIDEO_SET, plane);
+          }
      }
    else if (!ec)
      {
@@ -1604,3 +1668,136 @@ e_plane_show_state(E_Plane *plane)
    if (plane->renderer)
      e_plane_renderer_show_state(plane->renderer);
 }
+
+E_API Eina_Bool
+e_plane_video_usable(E_Plane *plane)
+{
+   E_Plane *fb_target = NULL;
+   E_Output *output;
+   E_Plane *find_plane;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   output = plane->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   fb_target = e_output_fb_target_get(output);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(fb_target, EINA_FALSE);
+
+   if (fb_target->zpos > plane->zpos) return EINA_TRUE;
+
+   if (fb_target->is_reserved) return EINA_FALSE;
+
+   find_plane = e_output_plane_get_by_zpos(output, plane->zpos + 1);
+   if (!find_plane) return EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
+E_API Eina_Bool
+e_plane_video_set(E_Plane *plane, Eina_Bool set, Eina_Bool *wait)
+{
+   E_Output *output = NULL;
+   E_Plane *fb_target = NULL;
+   E_Plane *default_fb = NULL;
+   E_Plane *change_plane = NULL;
+   Eina_Bool fb_hwc_on = EINA_FALSE;
+   Eina_Bool fb_full_comp = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   if (wait) *wait = EINA_FALSE;
+
+   if(!e_plane_video_usable(plane))
+     {
+        ERR("plane:%p zpos:%d not video usable", plane, plane->zpos);
+        return EINA_FALSE;
+     }
+
+   output = plane->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   fb_target = e_output_fb_target_get(output);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(fb_target, EINA_FALSE);
+
+   if (fb_target->ec) fb_hwc_on = EINA_TRUE;
+   if (e_output_is_fb_full_compositing(output)) fb_full_comp = EINA_TRUE;
+
+   if (set)
+     {
+        if (fb_target->zpos > plane->zpos)
+          {
+             plane->is_video = EINA_TRUE;
+             e_plane_role_set(plane, E_PLANE_ROLE_VIDEO);
+             if (wait) *wait = EINA_FALSE;
+             return EINA_TRUE;
+          }
+
+        change_plane = e_output_plane_get_by_zpos(output, plane->zpos + 1);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(change_plane, EINA_FALSE);
+
+        e_comp_override_add();
+        plane->reserved_video = EINA_TRUE;
+
+        fb_target->fb_change_counter = e_plane_renderer_render_count_get(fb_target->renderer);
+
+        if (fb_hwc_on || fb_full_comp || !fb_target->fb_change_counter)
+          {
+             if (fb_full_comp) e_plane_renderer_ecore_evas_force_render(fb_target->renderer);
+
+             if (!_e_plane_fb_target_change(fb_target, change_plane))
+               {
+                  e_comp_override_del();
+                  ERR("fail to change fb_target");
+                  return EINA_FALSE;
+               }
+          }
+        else
+          {
+             fb_target->fb_change = change_plane;
+          }
+
+        e_plane_role_set(plane, E_PLANE_ROLE_VIDEO);
+        if (wait) *wait = EINA_TRUE;
+
+        if (plane_trace_debug)
+          ELOGF("E_PLANE", "Video   Plane(%p) zpos(%d) Set wait(%d) counter(%d) change_plane(%p) zpos(%d)",
+                NULL, NULL, plane, plane->zpos, wait ? *wait : 0, fb_target->fb_change_counter,
+                change_plane, change_plane->zpos);
+     }
+   else
+     {
+        default_fb = e_output_default_fb_target_get(output);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(default_fb, EINA_FALSE);
+
+        if (default_fb->zpos > plane->zpos)
+          {
+             plane->is_video = EINA_FALSE;
+             e_plane_role_set(plane, E_PLANE_ROLE_NONE);
+             return EINA_TRUE;
+          }
+
+        e_comp_override_add();
+
+        if (fb_full_comp) e_plane_renderer_ecore_evas_force_render(fb_target->renderer);
+
+        if (!_e_plane_fb_target_change(fb_target, default_fb))
+          {
+            ERR("fail to change fb_target");
+            e_comp_override_del();
+            return EINA_FALSE;
+          }
+
+        plane->is_video = EINA_FALSE;
+        e_plane_role_set(plane, E_PLANE_ROLE_NONE);
+
+        e_comp_override_del();
+
+        if (plane_trace_debug)
+          ELOGF("E_PLANE", "Video   Plane(%p) zpos(%d) Unset default_fb(%p) zpos(%d)",
+                NULL, NULL, plane, plane->zpos, default_fb, default_fb->zpos);
+     }
+
+   return EINA_TRUE;
+}
+

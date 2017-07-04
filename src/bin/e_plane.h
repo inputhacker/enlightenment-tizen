@@ -72,6 +72,12 @@ struct _E_Plane
    Eina_Bool             unset_commit;
    int                   unset_counter;
 
+   Eina_Bool             is_video;
+   Eina_Bool             reserved_video;
+
+   E_Plane              *fb_change;
+   int                   fb_change_counter;
+
    /* true if plane's ec is set or unset.
     * false when E_Event_Plane_Win_Change has been generated.
     */
@@ -159,6 +165,9 @@ E_API Eina_Bool              e_plane_is_primary(E_Plane *plane);
 E_API Eina_Bool              e_plane_is_cursor(E_Plane *plane);
 E_API E_Plane_Color          e_plane_color_val_get(E_Plane *plane);
 E_API Eina_Bool              e_plane_is_fb_target(E_Plane *plane);
+
+E_API Eina_Bool              e_plane_video_usable(E_Plane *plane);
+E_API Eina_Bool              e_plane_video_set(E_Plane *plane, Eina_Bool set, Eina_Bool *wait);
 
 E_API E_Plane_Hook          *e_plane_hook_add(E_Plane_Hook_Point hookpoint, E_Plane_Hook_Cb func, const void *data);
 E_API void                   e_plane_hook_del(E_Plane_Hook *ch);
