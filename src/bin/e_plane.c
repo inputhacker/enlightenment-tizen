@@ -792,6 +792,9 @@ e_plane_fetch(E_Plane *plane)
    if (plane->wait_commit)
       return EINA_FALSE;
 
+   if (plane->pp_layer_commit && !plane->pp_set && plane->is_fb)
+     return EINA_FALSE;
+
    if (plane->is_fb && !plane->ec)
      {
         /* acquire the surface */
