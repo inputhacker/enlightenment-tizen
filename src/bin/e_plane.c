@@ -689,6 +689,9 @@ e_plane_new(E_Output *output, int index)
    tdm_error tdm_err = TDM_ERROR_NONE;
    unsigned int buffer_flags = 0;
    int zpos;
+   const tbm_format *formats;
+   int count;
+   int i;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
 
@@ -742,6 +745,17 @@ e_plane_new(E_Output *output, int index)
      plane->type = E_PLANE_TYPE_GRAPHIC;
    else
      plane->type = E_PLANE_TYPE_INVALID;
+
+   tdm_err = tdm_layer_get_available_formats(plane->tlayer, &formats, &count);
+   if (tdm_err != TDM_ERROR_NONE)
+     {
+        ERR("fail to get available formats");
+        E_FREE(plane);
+        return NULL;
+     }
+
+   for ( i = 0 ; i < count ; i++)
+     plane->available_formats = eina_list_append(plane->available_formats, &formats[i]);
 
    INF("E_PLANE: (%d) plane:%p name:%s zpos:%d capa:%s %s",
        index, plane, plane->name, plane->zpos,plane->is_primary?"primary":"", plane->reserved_memory?"reserved_memory":"");
@@ -1572,6 +1586,14 @@ e_plane_is_fb_target(E_Plane *plane)
    if (plane->is_fb) return EINA_TRUE;
 
    return EINA_FALSE;
+}
+
+EINTERN Eina_List *
+e_plane_available_tbm_formats_get(E_Plane *plane)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
+
+   return plane->available_formats;
 }
 
 EINTERN void
