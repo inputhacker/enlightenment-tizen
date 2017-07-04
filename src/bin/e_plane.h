@@ -141,6 +141,7 @@ EINTERN Eina_Bool            e_plane_is_unset_candidate(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_is_unset_try(E_Plane *plane);
 EINTERN void                 e_plane_unset_try_set(E_Plane *plane, Eina_Bool set);
 EINTERN Eina_Bool            e_plane_unset_commit_check(E_Plane *plane);
+EINTERN Eina_Bool            e_plane_fb_target_set(E_Plane *plane, Eina_Bool set);
 
 E_API Eina_Bool              e_plane_type_set(E_Plane *plane, E_Plane_Type type);
 E_API E_Plane_Type           e_plane_type_get(E_Plane *plane);
