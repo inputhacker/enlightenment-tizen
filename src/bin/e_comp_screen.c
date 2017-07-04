@@ -629,6 +629,20 @@ _e_comp_screen_engine_init(void)
    /* get the size of the primary output */
    e_output_size_get(output, &scr_w, &scr_h);
 
+   /* if output is disconnected, set the default width, height */
+   if (scr_w == 0 || scr_h == 0)
+     {
+        scr_w = 1;
+        scr_h = 1;
+
+        if (!e_output_fake_config_set(output, w, h))
+          {
+             e_error_message_show(_("Fail to set the fake output config!\n"));
+             _e_comp_screen_engine_deinit();
+             return EINA_FALSE;
+          }
+     }
+
    INF("GL available:%d config engine:%d screen size:%dx%d",
        e_comp_gl_get(), e_comp_config_get()->engine, scr_w, scr_h);
 

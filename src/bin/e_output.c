@@ -642,6 +642,25 @@ e_output_size_get(E_Output *output, int *w, int *h)
 }
 
 EINTERN Eina_Bool
+e_output_fake_config_set(E_Output *output, int w, int h)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   output->config.geom.x = 0;
+   output->config.geom.y = 0;
+   output->config.geom.w = w;
+   output->config.geom.h = h;
+
+   output->config.mode.w = w;
+   output->config.mode.h = h;
+   output->config.mode.refresh = 60;
+   output->config.enabled = 1;
+
+   return EINA_TRUE;
+}
+
+
+EINTERN Eina_Bool
 e_output_render(E_Output *output)
 {
    E_Plane *plane = NULL;
