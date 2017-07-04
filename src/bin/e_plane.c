@@ -1542,6 +1542,16 @@ e_plane_color_val_get(E_Plane *plane)
    return plane->color;
 }
 
+EINTERN Eina_Bool
+e_plane_fb_target_set(E_Plane *plane, Eina_Bool set)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   plane->is_fb = set;
+
+   return EINA_TRUE;
+}
+
 E_API Eina_Bool
 e_plane_is_fb_target(E_Plane *plane)
 {
