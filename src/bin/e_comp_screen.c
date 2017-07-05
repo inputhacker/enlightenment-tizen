@@ -929,14 +929,6 @@ e_comp_screen_init()
    if ((comp->pointer = e_pointer_canvas_new(comp->ee, EINA_TRUE)))
      {
         e_pointer_hide(comp->pointer);
-
-        if (comp->e_comp_screen->rotation)
-          {
-             const Eina_List *l;
-             Ecore_Drm_Device *dev;
-             EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
-               ecore_drm_device_pointer_rotation_set(dev, comp->e_comp_screen->rotation);
-          }
      }
    e_main_ts("\tE_Pointer New Done");
 
@@ -1055,10 +1047,8 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
 {
    E_Output *output = NULL, *o;
    Eina_List *l;
-   const Eina_List *ll;
    int w, h;
    int screen_rotation;
-   Ecore_Drm_Device *dev;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation % 90, EINA_FALSE);
@@ -1097,9 +1087,6 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
 
    ecore_evas_rotation_with_resize_set(e_comp->ee, e_comp_screen->rotation);
    ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
-
-   EINA_LIST_FOREACH(ecore_drm_devices_get(), ll, dev)
-     ecore_drm_device_pointer_rotation_set(dev, e_comp_screen->rotation);
 
    INF("EE Rotated and Resized: %d, %dx%d", e_comp_screen->rotation, w, h);
 
