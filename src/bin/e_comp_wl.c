@@ -881,6 +881,13 @@ _e_comp_wl_evas_cb_mouse_in(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj
 
    if (!ec->comp_data || !ec->comp_data->surface) return;
 
+   if ((e_comp_object_is_animating(ec->frame)) ||
+       (evas_object_data_get(ec->frame, "effect_running")))
+     {
+        INF("[Server] No touch event(mouse_in) to client while effect");
+        return;
+     }
+
    e_comp_wl->ptr.ec = ec;
    if (e_comp_wl->drag)
      {
@@ -938,6 +945,13 @@ _e_comp_wl_evas_cb_mouse_out(void *data, Evas *evas EINA_UNUSED, Evas_Object *ob
                           ec->client.x, ec->client.y, ec->client.w, ec->client.h);
    if (ec->cur_mouse_action && inside_check) return;
    if (e_object_is_del(E_OBJECT(e_comp))) return;
+
+   if ((e_comp_object_is_animating(ec->frame)) ||
+       (evas_object_data_get(ec->frame, "effect_running")))
+     {
+        INF("[Server] No touch event(mouse_out) to client while effect");
+        return;
+     }
 
    /* FIXME? this is a hack to just reset the cursor whenever we mouse out. not sure if accurate */
    {
@@ -1128,6 +1142,13 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
 
    if ((!need_send_motion) && (!need_send_released) && (ec->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)) return;
 
+   if ((e_comp_object_is_animating(ec->frame)) ||
+       (evas_object_data_get(ec->frame, "effect_running")))
+     {
+        INF("[Server] No touch event(mouse_move) to client while effect");
+        return;
+     }
+
    if ((!e_comp_wl->drag_client) ||
        (!e_client_has_xwindow(e_comp_wl->drag_client)))
      {
@@ -1209,6 +1230,13 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
+   if ((e_comp_object_is_animating(ec->frame)) ||
+       (evas_object_data_get(ec->frame, "effect_running")))
+     {
+        INF("[Server] No touch event(mouse_down) to client while effect");
+        return;
+     }
+
    dev = ev->dev;
    dev_name = evas_device_description_get(dev);
 
@@ -1259,6 +1287,13 @@ _e_comp_wl_evas_cb_mouse_up(void *data, Evas *evas, Evas_Object *obj EINA_UNUSED
    if (!ec) return;
    if (ec->cur_mouse_action) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
+
+   if ((e_comp_object_is_animating(ec->frame)) ||
+       (evas_object_data_get(ec->frame, "effect_running")))
+     {
+        INF("[Server] No touch event(mouse_up) to client while effect");
+        return;
+     }
 
    if (!need_send_released)
      {
@@ -1334,6 +1369,13 @@ _e_comp_wl_evas_cb_mouse_wheel(void *data, Evas *evas EINA_UNUSED, Evas_Object *
 
    if (!ec->comp_data || !ec->comp_data->surface) return;
 
+   if ((e_comp_object_is_animating(ec->frame)) ||
+       (evas_object_data_get(ec->frame, "effect_running")))
+     {
+        INF("[Server] No touch event(mouse_wheel) to client while effect");
+        return;
+     }
+
    if (!eina_list_count(e_comp_wl->ptr.resources))
      return;
 
@@ -1357,6 +1399,13 @@ _e_comp_wl_evas_cb_multi_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
 
    /* Do not deliver emulated single touch events to client */
    if (ev->device == 0) return;
+
+   if ((e_comp_object_is_animating(ec->frame)) ||
+       (evas_object_data_get(ec->frame, "effect_running")))
+     {
+        INF("[Server] No touch event(multi_down) to client while effect");
+        return;
+     }
 
    dev = ev->dev;
    if (dev && (dev_name = evas_device_description_get(dev)))
@@ -1386,6 +1435,13 @@ _e_comp_wl_evas_cb_multi_up(void *data, Evas *evas, Evas_Object *obj EINA_UNUSED
 
    /* Do not deliver emulated single touch events to client */
    if (ev->device == 0) return;
+
+   if ((e_comp_object_is_animating(ec->frame)) ||
+       (evas_object_data_get(ec->frame, "effect_running")))
+     {
+        INF("[Server] No touch event(multi_up) to client while effect");
+        return;
+     }
 
    flags = evas_event_default_flags_get(evas);
    if (flags & EVAS_EVENT_FLAG_ON_HOLD) return;
@@ -1417,6 +1473,13 @@ _e_comp_wl_evas_cb_multi_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
 
    /* Do not deliver emulated single touch events to client */
    if (ev->device == 0) return;
+
+   if ((e_comp_object_is_animating(ec->frame)) ||
+       (evas_object_data_get(ec->frame, "effect_running")))
+     {
+        INF("[Server] No touch event(multi_move) to client while effect");
+        return;
+     }
 
    if (e_comp_wl->touch.pressed & (1 << ev->device))
      {
