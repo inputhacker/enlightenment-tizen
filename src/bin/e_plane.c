@@ -1632,7 +1632,7 @@ static Eina_Bool
 _e_plane_pp_layer_commit(E_Plane *plane, tbm_surface_h tsurface)
 {
    tbm_surface_info_s surf_info;
-   tbm_surface_h pp_tsurface;
+   tbm_surface_h pp_tsurface = NULL;
    tbm_error_e tbm_err;
    tdm_error tdm_err;
    tdm_layer *tlayer = plane->tlayer;
