@@ -1317,6 +1317,9 @@ _e_plane_fb_target_change(E_Plane *fb_target, E_Plane *plane)
    fb_target->unset_counter = 1;
    fb_target->unset_candidate = EINA_TRUE;
 
+   CLEAR(plane->info);
+   _e_plane_unset_reset(plane);
+
    if (plane_trace_debug)
      ELOGF("E_PLANE", "Change fb_target Plane(%p) zpos(%d) -> plane(%p) zpos(%d)",
            NULL, NULL, fb_target, fb_target->zpos, plane, plane->zpos);
