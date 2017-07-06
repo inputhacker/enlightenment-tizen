@@ -821,41 +821,60 @@ e_desk_zoom_set(E_Desk *desk, double zoomx, double zoomy, int cx, int cy)
 {
    E_Client *ec;
    Eina_List *l;
-
-   if (!e_config->use_desk_smart_obj)
-     {
-        DBG("Do nothing, Desk Smart Object is disabled");
-        return;
-     }
+   E_Zone *zone = NULL;
+   E_Output *eout = NULL;
 
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
 
-   E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
-
-   if ((sd->zoom.ratio_x != zoomx) || (sd->zoom.ratio_y != zoomy) ||
-       (sd->zoom.center_x != cx) || (sd->zoom.center_y != cy))
+   if (e_config->use_pp_zoom)
      {
-        sd->zoom.ratio_x = zoomx;
-        sd->zoom.ratio_y = zoomy;
-        sd->zoom.center_x = cx;
-        sd->zoom.center_y = cy;
+        if (e_comp_screen_pp_support())
+          {
+             zone = desk->zone;
+             eout = e_output_find(zone->output_id);
+             if (!eout)
+               {
+                  ERR("e_desk_zoom_set: fail get eout");
+                  return;
+               }
+             if (!e_output_zoom_set(eout, zoomx, zoomy, cx, cy))
+               ERR("e_desk_zoom_set: fail zoom set");
+             else
+               DBG("e_desk_zoom_set: zoomx:%f, zoomy:%f, x:%d, y:%d", zoomx, zoomy, cx, cy);
 
-        _e_desk_object_zoom(desk->smart_obj, zoomx, zoomy, cx, cy);
-        EINA_LIST_FOREACH(sd->clients, l, ec)
-           _e_desk_client_zoom(ec, zoomx, zoomy, cx, cy);
+             return;
+          }
      }
 
-   if (!sd->zoom.enabled)
+   if (e_config->use_desk_smart_obj)
      {
-        sd->zoom.enabled = EINA_TRUE;
+        E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
 
-        evas_object_map_enable_set(desk->smart_obj, EINA_TRUE);
-        EINA_LIST_FOREACH(sd->clients, l, ec)
-           evas_object_map_enable_set(ec->frame, EINA_TRUE);
+        if ((sd->zoom.ratio_x != zoomx) || (sd->zoom.ratio_y != zoomy) ||
+            (sd->zoom.center_x != cx) || (sd->zoom.center_y != cy))
+          {
+             sd->zoom.ratio_x = zoomx;
+             sd->zoom.ratio_y = zoomy;
+             sd->zoom.center_x = cx;
+             sd->zoom.center_y = cy;
 
-        /* FIXME TEMP disable hwc */
-        _e_desk_util_comp_hwc_disable_set(EINA_TRUE);
+             _e_desk_object_zoom(desk->smart_obj, zoomx, zoomy, cx, cy);
+             EINA_LIST_FOREACH(sd->clients, l, ec)
+               _e_desk_client_zoom(ec, zoomx, zoomy, cx, cy);
+          }
+
+        if (!sd->zoom.enabled)
+          {
+             sd->zoom.enabled = EINA_TRUE;
+
+             evas_object_map_enable_set(desk->smart_obj, EINA_TRUE);
+             EINA_LIST_FOREACH(sd->clients, l, ec)
+               evas_object_map_enable_set(ec->frame, EINA_TRUE);
+
+             /* FIXME TEMP disable hwc */
+             _e_desk_util_comp_hwc_disable_set(EINA_TRUE);
+          }
      }
 }
 
@@ -864,37 +883,57 @@ e_desk_zoom_unset(E_Desk *desk)
 {
    E_Client *ec;
    Eina_List *l;
-
-   if (!e_config->use_desk_smart_obj)
-     {
-        DBG("Do nothing, Desk Smart Object is disabled");
-        return;
-     }
+   E_Zone *zone = NULL;
+   E_Output *eout = NULL;
 
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
 
-   E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
-
-   if (!sd->zoom.enabled)
-     return;
-
-   sd->zoom.ratio_x = 1.0;
-   sd->zoom.ratio_y = 1.0;
-   sd->zoom.enabled = EINA_FALSE;
-
-   evas_object_map_enable_set(desk->smart_obj, EINA_FALSE);
-   EINA_LIST_FOREACH(sd->clients, l, ec)
+   if (e_config->use_pp_zoom)
      {
-        /* NOTE Is it really necessary?
-         * Why isn't it enough to just call evas_object_map_enable_set(false)? */
-        _e_desk_client_zoom(ec, sd->zoom.ratio_x, sd->zoom.ratio_y,
-                            sd->zoom.center_x, sd->zoom.center_y);
-        evas_object_map_enable_set(ec->frame, EINA_FALSE);
+        if (e_comp_screen_pp_support())
+          {
+             zone = desk->zone;
+             eout = e_output_find(zone->output_id);
+             if (!eout)
+               {
+                  ERR("e_desk_zoom_unset: fail get eout");
+                  return;
+               }
+
+             e_output_zoom_unset(eout);
+             DBG("e_desk_zoom_unset");
+
+             return;
+          }
      }
 
-   /* FIXME TEMP enable hwc */
-   _e_desk_util_comp_hwc_disable_set(EINA_FALSE);
+   if (e_config->use_desk_smart_obj)
+     {
+        E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
+
+        if (!sd->zoom.enabled)
+          return;
+
+        sd->zoom.ratio_x = 1.0;
+        sd->zoom.ratio_y = 1.0;
+        sd->zoom.center_x = 0;
+        sd->zoom.center_y = 0;
+        sd->zoom.enabled = EINA_FALSE;
+
+        evas_object_map_enable_set(desk->smart_obj, EINA_FALSE);
+        EINA_LIST_FOREACH(sd->clients, l, ec)
+          {
+             /* NOTE Is it really necessary?
+              * Why isn't it enough to just call evas_object_map_enable_set(false)? */
+             _e_desk_client_zoom(ec, sd->zoom.ratio_x, sd->zoom.ratio_y,
+                                 sd->zoom.center_x, sd->zoom.center_y);
+             evas_object_map_enable_set(ec->frame, EINA_FALSE);
+          }
+
+        /* FIXME TEMP enable hwc */
+        _e_desk_util_comp_hwc_disable_set(EINA_FALSE);
+     }
 }
 
 E_API void
