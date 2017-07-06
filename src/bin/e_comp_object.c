@@ -1561,7 +1561,12 @@ _e_comp_intercept_layer_set(void *data, Evas_Object *obj, int layer)
                   ec = NULL;
                }
              if (ec && (cw->ec->parent == ec))
-               evas_object_stack_above(obj, ec->frame);
+               {
+                  if (cw->ec->transient_policy == E_TRANSIENT_ABOVE)
+                    evas_object_stack_above(obj, ec->frame);
+                  else
+                    evas_object_stack_below(obj, ec->frame);
+               }
              else
                evas_object_stack_below(obj, ec ? ec->frame : e_comp->layers[cw->layer].obj);
           }
