@@ -1,5 +1,4 @@
 #include "e.h"
-#include "e_comp_wl_screenshooter_server.h"
 
 #include <wayland-tbm-server.h>
 
@@ -4104,100 +4103,6 @@ _e_comp_wl_session_recovery_cb_bind(struct wl_client *client, void *data EINA_UN
 }
 
 static void
-_e_comp_wl_screenshooter_cb_shoot(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, struct wl_resource *output_resource, struct wl_resource *buffer_resource)
-{
-   E_Comp_Wl_Output *output;
-   E_Comp_Wl_Buffer *buffer;
-   struct wl_shm_buffer *shm_buffer;
-   int stride;
-   void *pixels = NULL, *d;
-   Eina_Bool res;
-
-   output = wl_resource_get_user_data(output_resource);
-   buffer = e_comp_wl_buffer_get(buffer_resource, NULL);
-
-   if (!output) return;
-
-   if (!buffer)
-     {
-        wl_resource_post_no_memory(resource);
-        return;
-     }
-
-   EINA_SAFETY_ON_NULL_RETURN(e_comp_wl->screenshooter.read_pixels);
-
-   if ((buffer->w < output->w) || (buffer->h < output->h))
-     {
-        ERR("Buffer size less than output");
-        /* send done with bad buffer error */
-        return;
-     }
-
-   stride = buffer->w * sizeof(int);
-
-   pixels = malloc(stride * buffer->h);
-   if (!pixels)
-     {
-        /* send done with bad buffer error */
-        ERR("Could not allocate space for destination");
-        return;
-     }
-
-   res = e_comp_wl->screenshooter.read_pixels(output, pixels);
-   if (!res)
-     {
-        free(pixels);
-        return;
-     }
-
-   shm_buffer = wl_shm_buffer_get(buffer->resource);
-   if (!shm_buffer)
-     {
-        ERR("Could not get shm_buffer from resource");
-        free(pixels);
-        return;
-     }
-
-   stride = wl_shm_buffer_get_stride(shm_buffer);
-   d = wl_shm_buffer_get_data(shm_buffer);
-   if (!d)
-     {
-        ERR("Could not get buffer data");
-        free(pixels);
-        return;
-     }
-
-   wl_shm_buffer_begin_access(shm_buffer);
-   memcpy(d, pixels, buffer->h * stride);
-   wl_shm_buffer_end_access(shm_buffer);
-
-   screenshooter_send_done(resource);
-
-   free(pixels);
-}
-
-static const struct screenshooter_interface _e_screenshooter_interface =
-{
-   _e_comp_wl_screenshooter_cb_shoot
-};
-
-static void
-_e_comp_wl_screenshooter_cb_bind(struct wl_client *client, void *data, uint32_t version EINA_UNUSED, uint32_t id)
-{
-   struct wl_resource *res;
-
-   res = wl_resource_create(client, &screenshooter_interface, 1, id);
-   if (!res)
-     {
-        ERR("Could not create screenshooter resource: %m");
-        wl_client_post_no_memory(client);
-        return;
-     }
-
-   wl_resource_set_implementation(res, &_e_screenshooter_interface, data, NULL);
-}
-
-static void
 _e_comp_wl_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
 {
    Ecore_Window win;
@@ -4773,15 +4678,6 @@ _e_comp_wl_compositor_create(void)
 
    /* initialize shm mechanism */
    wl_display_init_shm(cdata->wl.disp);
-
-   cdata->screenshooter.global =
-     wl_global_create(cdata->wl.disp, &screenshooter_interface, 1,
-                      e_comp, _e_comp_wl_screenshooter_cb_bind);
-   if (!cdata->screenshooter.global)
-     {
-        ERR("Could not create screenshooter global: %m");
-        goto comp_global_err;
-     }
 
    /* _e_comp_wl_cb_randr_change(NULL, 0, NULL); */
 

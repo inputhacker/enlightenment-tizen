@@ -468,38 +468,6 @@ fail:
    return EINA_FALSE;
 }
 
-static Eina_Bool
-_drm_read_pixels(E_Comp_Wl_Output *output, void *pixels)
-{
-   Ecore_Drm_Device *dev;
-   Ecore_Drm_Fb *fb = NULL;
-   const Eina_List *drm_devs, *l;
-   int i = 0, bstride;
-   unsigned char *s, *d = pixels;
-
-   drm_devs = ecore_drm_devices_get();
-   EINA_LIST_FOREACH(drm_devs, l, dev)
-     {
-        fb = dev->next;
-        if (!fb) fb = dev->current;
-        if (fb) break;
-     }
-
-   if (!fb) return EINA_FALSE;
-
-   bstride = output->w * sizeof(int);
-
-   for (i = output->y; i < output->y + output->h; i++)
-     {
-        s = fb->mmap;
-        s += (fb->stride * i) + (output->x * sizeof(int));
-        memcpy(d, s, (output->w * sizeof(int)));
-        d += bstride;
-     }
-
-   return EINA_TRUE;
-}
-
 E_API void
 _e_comp_screen_keymap_set(struct xkb_context **ctx, struct xkb_keymap **map)
 {
@@ -931,8 +899,6 @@ e_comp_screen_init()
         goto failed_comp_screen;
      }
    e_main_ts("\tE_Comp_Canvas Init Done");
-
-   e_comp_wl->screenshooter.read_pixels = _drm_read_pixels;
 
    /* pointer */
    ecore_evas_pointer_xy_get(e_comp->ee,
