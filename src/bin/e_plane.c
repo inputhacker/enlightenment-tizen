@@ -2101,6 +2101,12 @@ e_plane_video_set(E_Plane *plane, Eina_Bool set, Eina_Bool *wait)
         default_fb = e_output_default_fb_target_get(output);
         EINA_SAFETY_ON_NULL_RETURN_VAL(default_fb, EINA_FALSE);
 
+        if (plane->reserved_video)
+          {
+             plane->reserved_video = EINA_FALSE;
+             e_comp_override_del();
+          }
+
         if (default_fb->zpos > plane->zpos)
           {
              plane->is_video = EINA_FALSE;
