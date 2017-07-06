@@ -164,6 +164,8 @@ EINTERN Eina_Bool            e_plane_unset_commit_check(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_fb_target_set(E_Plane *plane, Eina_Bool set);
 EINTERN Eina_List           *e_plane_available_tbm_formats_get(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_pp_commit(E_Plane *plane);
+EINTERN Eina_Bool            e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect);
+EINTERN void                 e_plane_zoom_unset(E_Plane *plane);
 
 E_API Eina_Bool              e_plane_type_set(E_Plane *plane, E_Plane_Type type);
 E_API E_Plane_Type           e_plane_type_get(E_Plane *plane);

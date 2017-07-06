@@ -2140,3 +2140,119 @@ e_plane_pp_commit(E_Plane *plane)
 
    return EINA_TRUE;
 }
+
+EINTERN Eina_Bool
+e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   E_Comp_Screen *e_comp_screen = NULL;
+   tdm_error ret = TDM_ERROR_NONE;
+   int w, h;
+
+   if ((plane->pp_rect.x == rect->x) &&
+       (plane->pp_rect.y == rect->y) &&
+       (plane->pp_rect.w == rect->w) &&
+       (plane->pp_rect.h == rect->h))
+     return EINA_TRUE;
+
+   e_comp_screen = e_comp->e_comp_screen;
+   e_output_size_get(plane->output, &w, &h);
+
+   if (!plane->tpp)
+     {
+        plane->tpp = tdm_display_create_pp(e_comp_screen->tdisplay, &ret);
+        if (ret != TDM_ERROR_NONE)
+          {
+             ERR("fail tdm pp create");
+             goto fail;
+          }
+     }
+
+   if (!plane->pp_tqueue)
+     {
+        plane->pp_tqueue = tbm_surface_queue_create(3, w, h, TBM_FORMAT_ARGB8888, plane->buffer_flags | TBM_BO_SCANOUT);
+        if (!plane->pp_tqueue)
+          {
+             ERR("fail tbm_surface_queue_create");
+             goto fail;
+          }
+     }
+
+   plane->pp_rect.x = rect->x;
+   plane->pp_rect.y = rect->y;
+   plane->pp_rect.w = rect->w;
+   plane->pp_rect.h = rect->h;
+
+   plane->pp_set = EINA_TRUE;
+   plane->skip_surface_set = EINA_TRUE;
+   plane->pp_set_info = EINA_TRUE;
+
+   return EINA_TRUE;
+
+fail:
+   if (plane->tpp)
+     {
+        tdm_pp_destroy(plane->tpp);
+        plane->tpp = NULL;
+     }
+
+   return EINA_FALSE;
+}
+
+EINTERN void
+e_plane_zoom_unset(E_Plane *plane)
+{
+   E_Plane_Commit_Data *data = NULL;
+   Eina_List *l, *ll;
+
+   EINA_SAFETY_ON_NULL_RETURN(plane);
+
+   plane->pp_set_info = EINA_FALSE;
+   plane->skip_surface_set = EINA_FALSE;
+   plane->pp_set = EINA_FALSE;
+
+   plane->pp_rect.x = 0;
+   plane->pp_rect.y = 0;
+   plane->pp_rect.w = 0;
+   plane->pp_rect.h = 0;
+
+   EINA_LIST_FOREACH_SAFE(plane->pending_pp_commit_data_list, l, ll, data)
+     {
+        if (!data) continue;
+        plane->pending_pp_commit_data_list = eina_list_remove_list(plane->pending_pp_commit_data_list, l);
+        tbm_surface_queue_release(plane->pp_tqueue, data->tsurface);
+        tbm_surface_internal_unref(data->tsurface);
+        free(data);
+     }
+
+   EINA_LIST_FOREACH_SAFE(plane->pending_pp_data_list, l, ll, data)
+     {
+        if (!data) continue;
+        plane->pending_pp_data_list = eina_list_remove_list(plane->pending_pp_data_list, l);
+        if (data->ec) e_pixmap_image_clear(data->ec->pixmap, 1);
+        e_plane_commit_data_release(data);
+     }
+
+   if (plane->pp_tsurface)
+     {
+        tbm_surface_queue_release(plane->pp_tqueue, plane->pp_tsurface);
+        tbm_surface_internal_unref(plane->pp_tsurface);
+        plane->pp_tsurface = NULL;
+     }
+
+   if (plane->pp_tqueue)
+     {
+        tbm_surface_queue_destroy(plane->pp_tqueue);
+        plane->pp_tqueue = NULL;
+     }
+
+   if (!plane->pp_commit)
+     {
+        if (plane->tpp)
+          {
+             tdm_pp_destroy(plane->tpp);
+             plane->tpp = NULL;
+          }
+     }
+}
