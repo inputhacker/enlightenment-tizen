@@ -231,35 +231,35 @@ e_hints_aux_hint_supported_get(void)
    return aux_hints_supported;
 }
 
-EAPI Eina_Bool
+E_API Eina_Bool
 e_hints_aux_hint_add(E_Client *ec, int32_t id, const char *name, const char *val)
 {
    if (!ec) return EINA_FALSE;
    return e_hints_aux_hint_add_with_pixmap(ec->pixmap, id, name, val);
 }
 
-EAPI Eina_Bool
+E_API Eina_Bool
 e_hints_aux_hint_change(E_Client *ec, int32_t id, const char *val)
 {
    if (!ec) return EINA_FALSE;
    return e_hints_aux_hint_change_with_pixmap(ec->pixmap, id, val);
 }
 
-EAPI Eina_Bool
+E_API Eina_Bool
 e_hints_aux_hint_del(E_Client *ec, int32_t id)
 {
    if (!ec) return EINA_FALSE;
    return e_hints_aux_hint_del_with_pixmap(ec->pixmap, id);
 }
 
-EAPI const char *
+E_API const char *
 e_hints_aux_hint_value_get(E_Client *ec, const char *name)
 {
    if (!ec) return NULL;
    return e_hints_aux_hint_value_get_with_pixmap(ec->pixmap, name);
 }
 
-EAPI Eina_Bool
+E_API Eina_Bool
 e_hints_aux_hint_add_with_pixmap(E_Pixmap *cp, int32_t id, const char *name, const char *val)
 {
    E_Comp_Wl_Client_Data *cdata;
@@ -316,7 +316,7 @@ e_hints_aux_hint_add_with_pixmap(E_Pixmap *cp, int32_t id, const char *name, con
    return EINA_FALSE;
 }
 
-EAPI Eina_Bool
+E_API Eina_Bool
 e_hints_aux_hint_change_with_pixmap(E_Pixmap *cp, int32_t id, const char *val)
 {
    E_Comp_Wl_Client_Data *cdata;
@@ -356,7 +356,7 @@ e_hints_aux_hint_change_with_pixmap(E_Pixmap *cp, int32_t id, const char *val)
    return EINA_FALSE;
 }
 
-EAPI Eina_Bool
+E_API Eina_Bool
 e_hints_aux_hint_del_with_pixmap(E_Pixmap *cp, int32_t id)
 {
    E_Comp_Wl_Client_Data *cdata;
@@ -387,7 +387,7 @@ e_hints_aux_hint_del_with_pixmap(E_Pixmap *cp, int32_t id)
    return EINA_TRUE;
 }
 
-EAPI const char *
+E_API const char *
 e_hints_aux_hint_value_get_with_pixmap(E_Pixmap *cp, const char *name)
 {
    E_Comp_Wl_Client_Data *cdata;

@@ -3832,7 +3832,7 @@ static const struct wl_subsurface_interface _e_subsurface_interface =
    _e_comp_wl_subsurface_cb_desync_set
 };
 
-EAPI Eina_Bool
+E_API Eina_Bool
 e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_resource *surface_resource)
 {
    struct wl_client *client;
