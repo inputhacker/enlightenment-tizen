@@ -168,7 +168,7 @@ _e_output_zoom_touch_set(E_Output *eout, Eina_Bool set)
    Eina_Bool ret = EINA_FALSE;
    const Eina_List *l;
    Ecore_Drm_Output *primary_output = NULL;
-   int w, h;
+   int w = 0, h = 0;
 
    EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
      {
