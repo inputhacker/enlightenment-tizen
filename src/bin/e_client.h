@@ -858,7 +858,8 @@ struct E_Client
       unsigned char by_client : 1;
       unsigned char not_raise : 1;
       unsigned char skip_iconify : 1;
-      unsigned char skip_by_remote : 1; // skip iconify by remote surface client
+      unsigned char skip_by_remote : 1;    // skip iconify by remote surface client
+      unsigned char deiconify_update : 1;  // wait client render if deiconify_update is 1
    } exp_iconify;
 
    struct
