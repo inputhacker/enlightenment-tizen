@@ -220,6 +220,22 @@ _e_comp_screen_cb_input_device_del(void *data, int type, void *event)
              e_pointer_hide(e_comp->pointer);
           }
      }
+   if (e->caps & EVDEV_SEAT_KEYBOARD)
+     {
+        comp->wl_comp_data->kbd.num_devices--;
+        if (comp->wl_comp_data->kbd.num_devices == 0)
+          {
+             e_comp_wl_input_keyboard_enabled_set(EINA_FALSE);
+          }
+     }
+   if (e->caps & EVDEV_SEAT_TOUCH)
+     {
+        comp->wl_comp_data->touch.num_devices--;
+        if (comp->wl_comp_data->touch.num_devices == 0)
+          {
+             e_comp_wl_input_touch_enabled_set(EINA_FALSE);
+          }
+     }
 
 end:
 
