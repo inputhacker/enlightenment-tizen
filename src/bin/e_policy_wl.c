@@ -4983,7 +4983,12 @@ _launch_splash_off(E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash)
 
    if (ec)
      {
-        if (!tzlaunch_splash->replaced)
+        if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
+          {
+             // if Launchscreen is replaced to cursor, than hide
+             evas_object_hide(ec->frame);
+          }
+        else if (!tzlaunch_splash->replaced)
           {
              if (ec->focused)
                e_comp_wl_feed_focus_in(ec);
