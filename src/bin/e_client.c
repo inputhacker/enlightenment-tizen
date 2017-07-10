@@ -3722,8 +3722,12 @@ e_client_new(E_Pixmap *cp, int first_map, int internal)
    ec->exp_iconify.not_raise = 0;
    ec->exp_iconify.skip_iconify = 0;
    ec->exp_iconify.skip_by_remote = 0;
+   if (e_config->deiconify_approve)
+     ec->exp_iconify.deiconify_update= 1;
+   else
+     ec->exp_iconify.deiconify_update= 0;
 
-   if (!_e_client_hook_call(E_CLIENT_HOOK_NEW_CLIENT, ec)) 
+   if (!_e_client_hook_call(E_CLIENT_HOOK_NEW_CLIENT, ec))
      {
         /* delete the above allocated object */
         //e_object_del(E_OBJECT(ec));
