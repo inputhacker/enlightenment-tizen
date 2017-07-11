@@ -1690,14 +1690,6 @@ e_policy_visibility_client_layer_lower(E_Client *ec, E_Layer layer)
    return EINA_TRUE;
 }
 
-E_API void
-e_policy_visibility_uniconify_render_disable_set(E_Client *ec, Eina_Bool disable)
-{
-   E_VIS_CLIENT_GET_OR_RETURN(vc, ec);
-   VS_DBG(ec, "API ENTRY | Disable uniconify render");
-   vc->disable_uniconify_render = !!disable;
-}
-
 EINTERN void
 e_policy_visibility_client_defer_move(E_Client *ec, int x, int y)
 {

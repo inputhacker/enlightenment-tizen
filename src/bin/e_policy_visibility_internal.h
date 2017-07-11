@@ -157,7 +157,6 @@ struct _E_Vis_Client
       Eina_List   *grab_list;
    } job;
    Eina_Bool prepare_emitted;
-   Eina_Bool disable_uniconify_render;
    E_Layer layer;
 
    struct
