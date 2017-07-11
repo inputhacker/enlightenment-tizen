@@ -12,26 +12,6 @@
 #include <Edje_Edit.h>
 
 #define USE_WAYLAND_LOG_TRACE
-#define USE_WAYLAND_LOGGER ((WAYLAND_VERSION_MAJOR == 1) && (WAYLAND_VERSION_MINOR > 11))
-
-#if !USE_WAYLAND_LOGGER
-struct wl_object
-{
-   const struct wl_interface *interface;
-   const void *implementation;
-   uint32_t id;
-};
-
-struct wl_resource
-{
-   struct wl_object object;
-   wl_resource_destroy_func_t destroy;
-   struct wl_list link;
-   struct wl_signal destroy_signal;
-   struct wl_client *client;
-   void *data;
-};
-#endif
 
 void wl_map_for_each(struct wl_map *map, void *func, void *data);
 
@@ -76,10 +56,8 @@ static int           e_info_dump_remote_surface = 0;
 //FILE pointer for protocol_trace
 static FILE *log_fp_ptrace = NULL;
 
-#if USE_WAYLAND_LOGGER
 //wayland protocol logger
 static struct wl_protocol_logger *e_info_protocol_logger;
-#endif
 
 // Module list for module info
 static Eina_List *module_hook = NULL;
@@ -2716,106 +2694,6 @@ get_next_argument(const char *signature, struct argument_details *details)
    return signature;
 }
 
-#if !USE_WAYLAND_LOGGER
-static void
-_e_info_server_protocol_debug_func(struct wl_closure *closure, struct wl_resource *resource, int send)
-{
-   int i;
-   struct argument_details arg;
-   struct wl_object *target = &resource->object;
-   struct wl_client *wc = resource->client;
-   const char *signature = closure->message->signature;
-   struct timespec tp;
-   unsigned int time;
-   pid_t client_pid = -1;
-   E_Comp_Connected_Client_Info *cinfo;
-   Eina_List *l;
-   char strbuf[512], *str_buff = strbuf;
-   int str_r, str_l;
-
-   str_buff[0] = '\0';
-   str_r = sizeof(strbuf);
-
-   if (wc)
-     {
-        protocol_client_destroy_listener_reg(wc);
-        wl_client_get_credentials(wc, &client_pid, NULL, NULL);
-     }
-
-   clock_gettime(CLOCK_MONOTONIC, &tp);
-   time = (tp.tv_sec * 1000000L) + (tp.tv_nsec / 1000);
-
-   E_Info_Protocol_Log elog = {0,};
-   elog.type = send;
-   elog.client_pid = client_pid;
-   elog.target_id = target->id;
-   snprintf(elog.name, PATH_MAX, "%s:%s", target->interface->name, closure->message->name);
-   EINA_LIST_FOREACH(e_comp->connected_clients, l, cinfo)
-     {
-        if (cinfo->pid == client_pid)
-          snprintf(elog.cmd, PATH_MAX, "%s", cinfo->name);
-     }
-
-   if (!e_info_protocol_rule_validate(&elog)) return;
-   BUF_SNPRINTF("[%10.3f] %s%d%s%s@%u.%s(",
-              time / 1000.0,
-              send ? "Server -> Client [PID:" : "Server <- Client [PID:",
-              client_pid, "] ",
-              target->interface->name, target->id,
-              closure->message->name);
-
-   for (i = 0; i < closure->count; i++)
-     {
-        signature = get_next_argument(signature, &arg);
-        if (i > 0) BUF_SNPRINTF(", ");
-
-        switch (arg.type)
-          {
-           case 'u':
-             BUF_SNPRINTF("%u", closure->args[i].u);
-             break;
-           case 'i':
-             BUF_SNPRINTF("%d", closure->args[i].i);
-             break;
-           case 'f':
-             BUF_SNPRINTF("%f",
-             wl_fixed_to_double(closure->args[i].f));
-             break;
-           case 's':
-             BUF_SNPRINTF("\"%s\"", closure->args[i].s);
-             break;
-           case 'o':
-             if (closure->args[i].o)
-               BUF_SNPRINTF("%s@%u", closure->args[i].o->interface->name, closure->args[i].o->id);
-             else
-               BUF_SNPRINTF("nil");
-             break;
-           case 'n':
-             BUF_SNPRINTF("new id %s@", (closure->message->types[i]) ? closure->message->types[i]->name : "[unknown]");
-             if (closure->args[i].n != 0)
-               BUF_SNPRINTF("%u", closure->args[i].n);
-             else
-               BUF_SNPRINTF("nil");
-             break;
-           case 'a':
-             BUF_SNPRINTF("array");
-             break;
-           case 'h':
-             BUF_SNPRINTF("fd %d", closure->args[i].h);
-             break;
-          }
-     }
-
-   BUF_SNPRINTF("), cmd: %s", elog.cmd ? elog.cmd : "cmd is NULL");
-
-   if (log_fp_ptrace)
-     fprintf(log_fp_ptrace, "%s\n", strbuf);
-   else
-     INF("%s", strbuf);
-}
-
-#else
-
 static void
 _e_info_server_protocol_debug_func2(void *user_data, enum wl_protocol_logger_type direction, const struct wl_protocol_logger_message *message)
 {
@@ -2914,7 +2792,6 @@ _e_info_server_protocol_debug_func2(void *user_data, enum wl_protocol_logger_typ
    else
      INF("%s", strbuf);
 }
-#endif
 
 static Eldbus_Message *
 _e_info_server_cb_protocol_trace(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
@@ -2936,15 +2813,11 @@ _e_info_server_cb_protocol_trace(const Eldbus_Service_Interface *iface EINA_UNUS
 
    if (!strncmp(path, "disable", 7))
      {
-#if !USE_WAYLAND_LOGGER
-        wl_debug_server_debug_func_set(NULL);
-#else
         if (e_info_protocol_logger)
           {
              wl_protocol_logger_destroy(e_info_protocol_logger);
              e_info_protocol_logger = NULL;
           }
-#endif
         return reply;
      }
 
@@ -2960,16 +2833,12 @@ _e_info_server_cb_protocol_trace(const Eldbus_Service_Interface *iface EINA_UNUS
         setvbuf(log_fp_ptrace, NULL, _IOLBF, 512);
      }
 
-#if !USE_WAYLAND_LOGGER
-   wl_debug_server_debug_func_set((wl_server_debug_func_ptr)_e_info_server_protocol_debug_func);
-#else
      if (e_info_protocol_logger)
        {
           wl_protocol_logger_destroy(e_info_protocol_logger);
           e_info_protocol_logger = NULL;
        }
      e_info_protocol_logger = wl_display_add_protocol_logger(e_comp->wl_comp_data->wl.disp, _e_info_server_protocol_debug_func2, NULL);
-#endif
 
    return reply;
 }
@@ -4972,9 +4841,6 @@ e_info_server_protocol_trace_path_init(char *trace_path)
      }
 
    setvbuf(log_fp_ptrace, NULL, _IOLBF, 512);
-#if !USE_WAYLAND_LOGGER
-   wl_debug_server_debug_func_set((wl_server_debug_func_ptr)_e_info_server_protocol_debug_func);
-#else
    if (e_info_protocol_logger)
      {
         wl_protocol_logger_destroy(e_info_protocol_logger);
@@ -4982,8 +4848,8 @@ e_info_server_protocol_trace_path_init(char *trace_path)
      }
 
    e_info_protocol_logger = wl_display_add_protocol_logger(e_comp->wl_comp_data->wl.disp, _e_info_server_protocol_debug_func2, NULL);
-#endif
-    return EINA_TRUE;
+
+   return EINA_TRUE;
 }
 
 static Eina_Bool
