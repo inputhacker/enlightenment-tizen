@@ -752,7 +752,7 @@ _e_info_server_get_resource(void *element, void *data)
    Eldbus_Message_Iter* struct_of_res;
 
    eldbus_message_iter_arguments_append(array_of_res, "("VALUE_TYPE_REPLY_RESLIST")", &struct_of_res);
-   eldbus_message_iter_arguments_append(struct_of_res, VALUE_TYPE_REPLY_RESLIST, "[resource]", wl_resource_get_name(resource), wl_resource_get_id(resource));
+   eldbus_message_iter_arguments_append(struct_of_res, VALUE_TYPE_REPLY_RESLIST, "[resource]", wl_resource_get_class(resource), wl_resource_get_id(resource));
    eldbus_message_iter_container_close(array_of_res, struct_of_res);
    resurceCnt++;
 }
@@ -2848,7 +2848,7 @@ _e_info_server_protocol_debug_func2(void *user_data, enum wl_protocol_logger_typ
    elog.type = (direction == WL_PROTOCOL_LOGGER_EVENT)?1:0;
    elog.client_pid = client_pid;
    elog.target_id = wl_resource_get_id(message->resource);
-   snprintf(elog.name, PATH_MAX, "%s:%s", wl_resource_get_name(message->resource), message->message->name);
+   snprintf(elog.name, PATH_MAX, "%s:%s", wl_resource_get_class(message->resource), message->message->name);
    EINA_LIST_FOREACH(e_comp->connected_clients, l, cinfo)
      {
         if (cinfo->pid == client_pid)
@@ -2860,7 +2860,7 @@ _e_info_server_protocol_debug_func2(void *user_data, enum wl_protocol_logger_typ
               time / 1000.0,
               elog.type ? "Server -> Client [PID:" : "Server <- Client [PID:",
               client_pid, "] ",
-              wl_resource_get_name(message->resource),
+              wl_resource_get_class(message->resource),
               wl_resource_get_id(message->resource),
               message->message->name);
 
@@ -2887,7 +2887,7 @@ _e_info_server_protocol_debug_func2(void *user_data, enum wl_protocol_logger_typ
            case 'o':
              if (message->arguments[i].o)
                BUF_SNPRINTF("%s@%u",
-                        wl_resource_get_name((struct wl_resource*)message->arguments[i].o),
+                        wl_resource_get_class((struct wl_resource*)message->arguments[i].o),
                         wl_resource_get_id((struct wl_resource*)message->arguments[i].o));
              else
                BUF_SNPRINTF("nil");
