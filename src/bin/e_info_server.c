@@ -744,10 +744,9 @@ _e_info_server_cb_connected_clients_get(const Eldbus_Service_Interface *iface EI
 
 static int resurceCnt = 0;
 
-static void
-_e_info_server_get_resource(void *element, void *data)
+static enum wl_iterator_result
+_e_info_server_get_resource(struct wl_resource *resource, void *data)
 {
-   struct wl_resource *resource = element;
    Eldbus_Message_Iter* array_of_res= data;
    Eldbus_Message_Iter* struct_of_res;
 
@@ -755,6 +754,8 @@ _e_info_server_get_resource(void *element, void *data)
    eldbus_message_iter_arguments_append(struct_of_res, VALUE_TYPE_REPLY_RESLIST, "[resource]", wl_resource_get_class(resource), wl_resource_get_id(resource));
    eldbus_message_iter_container_close(array_of_res, struct_of_res);
    resurceCnt++;
+
+   return WL_ITERATOR_CONTINUE;
 }
 
 static void
@@ -764,7 +765,6 @@ _msg_clients_res_list_append(Eldbus_Message_Iter *iter, uint32_t mode, int id)
 
    struct wl_list * client_list;
    struct wl_client *client;
-   struct wl_map *res_objs;
    //E_Comp_Data *cdata;
    E_Comp_Wl_Data *cdata;
    int pid = -1;
@@ -796,8 +796,7 @@ _msg_clients_res_list_append(Eldbus_Message_Iter *iter, uint32_t mode, int id)
         eldbus_message_iter_container_close(array_of_res, struct_of_res);
 
         resurceCnt = 0;
-        res_objs = wl_client_get_resources(client);
-        wl_map_for_each(res_objs, _e_info_server_get_resource, array_of_res);
+        wl_client_for_each_resource(client, _e_info_server_get_resource, array_of_res);
 
         eldbus_message_iter_arguments_append(array_of_res, "("VALUE_TYPE_REPLY_RESLIST")", &struct_of_res);
         eldbus_message_iter_arguments_append(struct_of_res, VALUE_TYPE_REPLY_RESLIST, "[count]", "resurceCnt", resurceCnt);
