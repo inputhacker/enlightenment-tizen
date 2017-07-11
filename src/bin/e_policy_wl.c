@@ -250,7 +250,7 @@ enum _E_Policy_Hint_Type
 {
    E_POLICY_HINT_USER_GEOMETRY = 0,
    E_POLICY_HINT_FIXED_RESIZE = 1,
-   E_POLICY_HINT_DEICONIFY_APPROVE_DISABLE = 2,
+   E_POLICY_HINT_DEICONIFY_UPDATE = 2,
    E_POLICY_HINT_ICONIFY = 3,
    E_POLICY_HINT_ABOVE_LOCKSCREEN = 4,
    E_POLICY_HINT_GESTURE_DISABLE = 5,
@@ -265,7 +265,7 @@ static const char *hint_names[] =
 {
    "wm.policy.win.user.geometry",
    "wm.policy.win.fixed.resize",
-   "wm.policy.win.deiconify.approve.disable",
+   "wm.policy.win.deiconify.update",
    "wm.policy.win.iconify",
    "wm.policy.win.above.lock",
    "wm.policy.win.gesture.disable",
@@ -2261,16 +2261,13 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
           {
              /* TODO: support other aux_hints */
           }
-        else if (!strcmp(hint->hint, hint_names[E_POLICY_HINT_DEICONIFY_APPROVE_DISABLE]))
+        else if (!strcmp(hint->hint, hint_names[E_POLICY_HINT_DEICONIFY_UPDATE]))
           {
-             Eina_Bool disable;
-
              if (!strcmp(hint->val, "1"))
-               disable = EINA_TRUE;
+               ec->exp_iconify.deiconify_update = EINA_TRUE;
              else
-               disable = EINA_FALSE;
+               ec->exp_iconify.deiconify_update = EINA_FALSE;
 
-             e_policy_visibility_uniconify_render_disable_set(ec, disable);
           }
         else if (!strcmp(hint->hint, hint_names[E_POLICY_HINT_GESTURE_DISABLE]))
           {
