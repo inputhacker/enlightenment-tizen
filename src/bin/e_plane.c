@@ -24,7 +24,7 @@ static E_Client_Hook *client_hook_new = NULL;
 static E_Client_Hook *client_hook_del = NULL;
 static const char *_e_plane_ec_last_err = NULL;
 static Eina_Bool plane_trace_debug = 0;
-static Eina_Bool _e_plane_pp_layer_commit(E_Plane *plane, tbm_surface_h tsurface);
+static Eina_Bool _e_plane_pp_layer_data_commit(E_Plane *plane, E_Plane_Commit_Data *data);
 static Eina_Bool _e_plane_pp_commit(E_Plane *plane, E_Plane_Commit_Data *data);
 
 E_API int E_EVENT_PLANE_WIN_CHANGE = -1;
@@ -702,7 +702,7 @@ _e_plane_pp_layer_commit_handler(tdm_layer *layer, unsigned int sequence,
      {
         plane->pending_pp_commit_data_list = eina_list_remove(plane->pending_pp_commit_data_list, data);
 
-        if (!_e_plane_pp_layer_commit(plane, data->tsurface))
+        if (!_e_plane_pp_layer_data_commit(plane, data))
           {
              ERR("fail to _e_plane_pp_layer_commit");
              return;
@@ -726,43 +726,12 @@ _e_plane_pp_layer_commit_handler(tdm_layer *layer, unsigned int sequence,
 static Eina_Bool
 _e_plane_pp_layer_commit(E_Plane *plane, tbm_surface_h tsurface)
 {
-   tbm_surface_info_s surf_info;
    tbm_surface_h pp_tsurface = NULL;
    tbm_error_e tbm_err;
-   tdm_error tdm_err;
-   tdm_layer *tlayer = plane->tlayer;
-   unsigned int aligned_width;
-   int dst_w, dst_h;
    E_Plane_Commit_Data *data = NULL;
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "PP Layer Commit  Plane(%p)     pp_tsurface(%p)", NULL, NULL, plane, tsurface);
-
-   /* set layer when the layer infomation is different from the previous one */
-   tbm_surface_get_info(tsurface, &surf_info);
-
-   /* get the size of the output */
-   e_output_size_get(plane->output, &dst_w, &dst_h);
-
-   aligned_width = _e_plane_aligned_width_get(tsurface);
-   if (aligned_width == 0)
-     {
-        ERR("aligned_width 0");
-        goto fail;
-     }
-
-   if (_e_plane_tlayer_info_set(plane, aligned_width, surf_info.height,
-                                0, 0, surf_info.width, surf_info.height,
-                                0, 0, dst_w, dst_h,
-                                TDM_TRANSFORM_NORMAL))
-     {
-        tdm_err = tdm_layer_set_info(tlayer, &plane->info);
-        if (tdm_err != TDM_ERROR_NONE)
-          {
-             ERR("fail tdm_layer_set_info");
-             goto fail;
-          }
-     }
 
    tbm_err = tbm_surface_queue_enqueue(plane->pp_tqueue, tsurface);
    if (tbm_err != TBM_ERROR_NONE)
@@ -791,7 +760,60 @@ _e_plane_pp_layer_commit(E_Plane *plane, tbm_surface_h tsurface)
         return EINA_TRUE;
      }
 
-   tdm_err = tdm_layer_set_buffer(tlayer, pp_tsurface);
+   if (!_e_plane_pp_layer_data_commit(plane, data))
+     {
+        ERR("fail to _e_plane_pp_layer_data_commit");
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+
+fail:
+   tbm_surface_queue_release(plane->pp_tqueue, tsurface);
+   if (pp_tsurface && pp_tsurface != tsurface)
+     tbm_surface_queue_release(plane->pp_tqueue, pp_tsurface);
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_plane_pp_layer_data_commit(E_Plane *plane, E_Plane_Commit_Data *data)
+{
+   tbm_surface_info_s surf_info;
+   unsigned int aligned_width;
+   int dst_w, dst_h;
+   tdm_layer *tlayer = plane->tlayer;
+   tdm_error tdm_err;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(data, EINA_FALSE);
+
+   aligned_width = _e_plane_aligned_width_get(data->tsurface);
+   if (aligned_width == 0)
+     {
+        ERR("aligned_width 0");
+        goto fail;
+     }
+
+   /* set layer when the layer infomation is different from the previous one */
+   tbm_surface_get_info(data->tsurface, &surf_info);
+
+   /* get the size of the output */
+   e_output_size_get(plane->output, &dst_w, &dst_h);
+
+   if (_e_plane_tlayer_info_set(plane, aligned_width, surf_info.height,
+                                0, 0, surf_info.width, surf_info.height,
+                                0, 0, dst_w, dst_h,
+                                TDM_TRANSFORM_NORMAL))
+     {
+        tdm_err = tdm_layer_set_info(tlayer, &plane->info);
+        if (tdm_err != TDM_ERROR_NONE)
+          {
+             ERR("fail tdm_layer_set_info");
+             goto fail;
+          }
+     }
+
+   tdm_err = tdm_layer_set_buffer(tlayer, data->tsurface);
    if (tdm_err != TDM_ERROR_NONE)
      {
         ERR("fail to tdm_layer_set_buffer");
@@ -810,14 +832,9 @@ _e_plane_pp_layer_commit(E_Plane *plane, tbm_surface_h tsurface)
    return EINA_TRUE;
 
 fail:
-   if (data)
-     {
-        tbm_surface_internal_unref(data->tsurface);
-        free(data);
-     }
-   tbm_surface_queue_release(plane->pp_tqueue, tsurface);
-   if (pp_tsurface && pp_tsurface != tsurface)
-     tbm_surface_queue_release(plane->pp_tqueue, pp_tsurface);
+   tbm_surface_internal_unref(data->tsurface);
+   tbm_surface_queue_release(plane->pp_tqueue, data->tsurface);
+   free(data);
 
    return EINA_FALSE;
 }
