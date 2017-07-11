@@ -2545,7 +2545,6 @@ _e_comp_wl_remote_cb_client_iconify(void *data, E_Client *ec)
    if (!(source = _remote_source_find(ec)))
      {
         if (ec->ignored) return;
-        if (ec->parent) return;
         if (e_policy_client_is_lockscreen(ec) ||
             e_policy_client_is_home_screen(ec) ||
             e_policy_client_is_quickpanel(ec) ||
