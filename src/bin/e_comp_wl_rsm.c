@@ -2539,6 +2539,27 @@ err:
    wl_client_post_no_memory(client);
 }
 
+static Eina_Bool
+_image_save_type_check(E_Client *ec)
+{
+   if (e_policy_client_is_lockscreen(ec) ||
+       e_policy_client_is_home_screen(ec) ||
+       e_policy_client_is_quickpanel(ec) ||
+       e_policy_client_is_volume(ec) ||
+       e_policy_client_is_volume_tv(ec) ||
+       e_policy_client_is_floating(ec) ||
+       e_policy_client_is_cursor(ec) ||
+       e_policy_client_is_subsurface(ec) ||
+       e_policy_client_is_cbhm(ec) ||
+       e_policy_client_is_toast_popup(ec) ||
+       e_policy_client_is_keyboard(ec) ||
+       e_policy_client_is_keyboard_sub(ec) ||
+       e_policy_client_is_keyboard_magnifier(ec))
+     return EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
 static void
 _e_comp_wl_remote_cb_client_iconify(void *data, E_Client *ec)
 {
@@ -2547,20 +2568,7 @@ _e_comp_wl_remote_cb_client_iconify(void *data, E_Client *ec)
    if (!(source = _remote_source_find(ec)))
      {
         if (ec->ignored) return;
-        if (e_policy_client_is_lockscreen(ec) ||
-            e_policy_client_is_home_screen(ec) ||
-            e_policy_client_is_quickpanel(ec) ||
-            e_policy_client_is_volume(ec) ||
-            e_policy_client_is_volume_tv(ec) ||
-            e_policy_client_is_floating(ec) ||
-            e_policy_client_is_cursor(ec) ||
-            e_policy_client_is_subsurface(ec) ||
-            e_policy_client_is_cbhm(ec) ||
-            e_policy_client_is_toast_popup(ec) ||
-            e_policy_client_is_keyboard(ec) ||
-            e_policy_client_is_keyboard_sub(ec) ||
-            e_policy_client_is_keyboard_magnifier(ec))
-          return;
+        if (!_image_save_type_check(ec)) return;
 
         source = E_NEW(E_Comp_Wl_Remote_Source, 1);
         EINA_SAFETY_ON_NULL_RETURN(source);
@@ -3010,21 +3018,7 @@ e_comp_wl_remote_surface_image_save(E_Client *ec)
    if (!e_config->hold_prev_win_img) return;
    if (ec->saved_img) return;
    if (ec->ignored) return;
-
-   if (e_policy_client_is_lockscreen(ec) ||
-       e_policy_client_is_home_screen(ec) ||
-       e_policy_client_is_quickpanel(ec) ||
-       e_policy_client_is_volume(ec) ||
-       e_policy_client_is_volume_tv(ec) ||
-       e_policy_client_is_floating(ec) ||
-       e_policy_client_is_cursor(ec) ||
-       e_policy_client_is_subsurface(ec) ||
-       e_policy_client_is_cbhm(ec) ||
-       e_policy_client_is_toast_popup(ec) ||
-       e_policy_client_is_keyboard(ec) ||
-       e_policy_client_is_keyboard_sub(ec) ||
-       e_policy_client_is_keyboard_magnifier(ec))
-     return;
+   if (!_image_save_type_check(ec)) return;
 
    src = _remote_source_find(ec);
    if (!src)
