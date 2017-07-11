@@ -990,11 +990,18 @@ _e_vis_client_prepare_foreground_signal_emit(E_Vis_Client *vc)
 static Eina_Bool
 _e_vis_client_is_uniconify_render_necessary(E_Vis_Client *vc)
 {
-   if (vc->disable_uniconify_render)
+   if (!e_config->use_buffer_flush)
      {
-        VS_INF(vc->ec, "Disabled deiconify rendering");
+        E_Client *ec = NULL;
+        if (vc) ec = vc->ec;
+        if (ec && ec->exp_iconify.deiconify_update) // hint or conf->deiconify_approve set deiconify update 1
+          goto need_deiconify_render;
+
+        VS_INF(ec, "Not necessary deiconify rendering");
         return EINA_FALSE;
      }
+
+need_deiconify_render:
    if (_e_vis_client_is_uniconic(vc))
      {
         VS_INF(vc->ec, "Already uniconic state");
@@ -1509,13 +1516,12 @@ e_policy_visibility_client_raise(E_Client *ec)
    Eina_List *l;
    Eina_Bool ret = EINA_FALSE;
 
-   if (!e_config->use_buffer_flush) return EINA_FALSE;
 
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
    VS_DBG(ec, "API ENTRY | RAISE");
 
-   if (!ec->iconic)
+   if (!ec->iconic && !ec->exp_iconify.deiconify_update)
      return EINA_FALSE;
 
    if (ec->exp_iconify.by_client)
@@ -1540,8 +1546,6 @@ e_policy_visibility_client_raise(E_Client *ec)
 E_API Eina_Bool
 e_policy_visibility_client_lower(E_Client *ec)
 {
-   if (!e_config->use_buffer_flush) return EINA_FALSE;
-
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
    VS_DBG(ec, "API ENTRY | LOWER");
@@ -1574,8 +1578,6 @@ e_policy_visibility_client_lower(E_Client *ec)
 E_API Eina_Bool
 e_policy_visibility_client_iconify(E_Client *ec)
 {
-   if (!e_config->use_buffer_flush) return EINA_FALSE;
-
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
    VS_DBG(ec, "API ENTRY | ICONIFY");
@@ -1613,10 +1615,8 @@ e_policy_visibility_client_uniconify(E_Client *ec, Eina_Bool raise)
    Eina_List *l;
    Eina_Bool ret = EINA_FALSE;
 
-   if (!e_config->use_buffer_flush) return EINA_FALSE;
-
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
-   if (!ec->iconic)
+   if (!ec->iconic && !ec->exp_iconify.deiconify_update)
      return EINA_FALSE;
 
    VS_DBG(ec, "API ENTRY | UNICONIFY");
@@ -1650,8 +1650,6 @@ e_policy_visibility_client_activate(E_Client *ec)
    Eina_List *l;
    Eina_Bool ret = EINA_FALSE;
 
-   if (!e_config->use_buffer_flush) return EINA_FALSE;
-
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
    VS_DBG(ec, "API ENTRY | ACTIVATE");
@@ -1678,8 +1676,6 @@ e_policy_visibility_client_activate(E_Client *ec)
 E_API Eina_Bool
 e_policy_visibility_client_layer_lower(E_Client *ec, E_Layer layer)
 {
-   if (!e_config->use_buffer_flush) return EINA_FALSE;
-
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
    VS_DBG(ec, "API ENTRY | LAYER LOWER (layer:%d)", layer);
@@ -1765,9 +1761,6 @@ E_API Eina_Bool
 e_policy_visibility_init(void)
 {
    E_Client *ec;
-
-   if (!e_config->use_buffer_flush)
-     return EINA_FALSE;
 
    INF("Init Visibility Module");
    if (pol_vis)
