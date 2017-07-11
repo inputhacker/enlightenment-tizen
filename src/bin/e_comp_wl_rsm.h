@@ -7,6 +7,7 @@ typedef struct _E_Event_Remote_Surface_Provider E_Event_Remote_Surface_Provider;
 EINTERN void      e_comp_wl_remote_surface_init(void);
 EINTERN void      e_comp_wl_remote_surface_shutdown(void);
 EINTERN Eina_Bool e_comp_wl_remote_surface_commit(E_Client *ec);
+EAPI    void      e_comp_wl_remote_surface_image_save(E_Client *ec);
 EINTERN void      e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter);
 
 E_API extern int E_EVENT_REMOTE_SURFACE_PROVIDER_VISIBILITY_CHANGE;

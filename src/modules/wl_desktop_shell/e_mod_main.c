@@ -561,6 +561,9 @@ _e_shell_surface_unmap(struct wl_resource *resource)
 
    if (ec->comp_data->mapped)
      {
+        /* need to save its last buffer to image file */
+        e_comp_wl_remote_surface_image_save(ec);
+
         ec->visible = EINA_FALSE;
         evas_object_hide(ec->frame);
         ec->comp_data->mapped = EINA_FALSE;
@@ -1285,6 +1288,9 @@ _e_xdg_shell_surface_unmap(struct wl_resource *resource)
 
    if (ec->comp_data->mapped)
      {
+        /* need to save its last buffer to image file */
+        e_comp_wl_remote_surface_image_save(ec);
+
         ec->visible = EINA_FALSE;
         evas_object_hide(ec->frame);
         ec->comp_data->mapped = EINA_FALSE;
