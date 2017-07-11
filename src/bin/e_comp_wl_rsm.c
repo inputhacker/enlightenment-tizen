@@ -1189,6 +1189,8 @@ _remote_source_save_done(void *data, Ecore_Thread *th)
           }
         source->image_path = eina_stringshare_add(td->image_path);
         _remote_source_send_image_update(source);
+
+        ec->saved_img = EINA_TRUE;
      }
    else
      {
@@ -2997,6 +2999,50 @@ e_comp_wl_remote_surface_commit(E_Client *ec)
    return EINA_FALSE;
 #endif /* HAVE_REMOTE_SURFACE */
 }
+
+EAPI void
+e_comp_wl_remote_surface_image_save(E_Client *ec)
+{
+#ifdef HAVE_REMOTE_SURFACE
+   E_Comp_Wl_Remote_Source *src;
+
+   if (!e_config->save_win_buffer) return;
+   if (!e_config->hold_prev_win_img) return;
+   if (ec->saved_img) return;
+   if (ec->ignored) return;
+
+   if (e_policy_client_is_lockscreen(ec) ||
+       e_policy_client_is_home_screen(ec) ||
+       e_policy_client_is_quickpanel(ec) ||
+       e_policy_client_is_volume(ec) ||
+       e_policy_client_is_volume_tv(ec) ||
+       e_policy_client_is_floating(ec) ||
+       e_policy_client_is_cursor(ec) ||
+       e_policy_client_is_subsurface(ec) ||
+       e_policy_client_is_cbhm(ec) ||
+       e_policy_client_is_toast_popup(ec) ||
+       e_policy_client_is_keyboard(ec) ||
+       e_policy_client_is_keyboard_sub(ec) ||
+       e_policy_client_is_keyboard_magnifier(ec))
+     return;
+
+   src = _remote_source_find(ec);
+   if (!src)
+     {
+        src = E_NEW(E_Comp_Wl_Remote_Source, 1);
+        EINA_SAFETY_ON_NULL_GOTO(src, end);
+
+        src->common.ec = ec;
+        eina_hash_add(_rsm->source_hash, &ec, src);
+     }
+
+   _remote_source_save_start(src);
+
+end:
+   return;
+#endif /* HAVE_REMOTE_SURFACE */
+}
+
 
 EINTERN void
 e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
