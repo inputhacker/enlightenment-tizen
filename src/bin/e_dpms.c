@@ -3,7 +3,6 @@
 #endif
 
 #include "e.h"
-#include <Ecore_Drm.h>
 
 typedef enum _E_Dpms_Mode
 {
@@ -17,9 +16,6 @@ typedef enum _E_Dpms_Mode
 #define PATH "/org/enlightenment/wm"
 #define INTERFACE "org.enlightenment.wm.dpms"
 
-static Ecore_Drm_Output *dpms_output;
-static unsigned int dpms_value;
-
 static Eldbus_Connection *conn;
 static Eldbus_Service_Interface *iface;
 
@@ -27,49 +23,25 @@ static Eldbus_Message *
 _e_dpms_set_cb(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
-   unsigned int uint32 = -1;
+   E_Dpms_Mode dpms_value = E_DPMS_MODE_OFF;
    int result = -1;
 
    DBG("got DPMS request");
 
-   if (eldbus_message_arguments_get(msg, "u", &uint32) && uint32 < 4)
+   if (eldbus_message_arguments_get(msg, "u", &dpms_value) && dpms_value <= E_DPMS_MODE_OFF)
      {
-        Ecore_Drm_Device *dev;
-        Ecore_Drm_Output *output;
-        Eina_List *devs, *l, *ll;
-        E_Zone *zone;
-        Eina_List *zl;
+        E_Output *output = e_output_find_by_index(0);
+        E_OUTPUT_DPMS val;
 
-        INF("DPMS value: %d", uint32);
+        INF("DPMS value: %d", dpms_value);
 
-        devs = eina_list_clone(ecore_drm_devices_get());
-        EINA_LIST_FOREACH(devs, l, dev)
-           EINA_LIST_FOREACH(dev->outputs, ll, output)
-             {
-                int x;
-                ecore_drm_output_position_get(output, &x, NULL);
+        if (dpms_value == E_DPMS_MODE_ON) val = E_OUTPUT_DPMS_ON;
+        else if (dpms_value == E_DPMS_MODE_STANDBY) val = E_OUTPUT_DPMS_STANDBY;
+        else if (dpms_value == E_DPMS_MODE_SUSPEND) val = E_OUTPUT_DPMS_SUSPEND;
+        else val = E_OUTPUT_DPMS_OFF;
 
-                EINA_LIST_FOREACH(e_comp->zones, zl, zone)
-                  {
-                     if (uint32 == E_DPMS_MODE_ON)
-                       e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_ON);
-                     else if (uint32 == E_DPMS_MODE_OFF)
-                       e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_OFF);
-                  }
-
-                /* only for main output */
-                if (x != 0)
-                  continue;
-
-                DBG("set DPMS");
-
-                dpms_output = output;
-                dpms_value = uint32;
-                ecore_drm_output_dpms_set(output, uint32);
-             }
-
-        result = uint32;
-        if (devs) eina_list_free(devs);
+        if (e_output_dpms_set(output, val))
+          DBG("set DPMS");
      }
 
    eldbus_message_arguments_append(reply, "i", result);
@@ -81,8 +53,20 @@ static Eldbus_Message *
 _e_dpms_get_cb(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   E_Output *output = e_output_find_by_index(0);
+   E_Dpms_Mode dpms_value = E_DPMS_MODE_OFF;
 
-   DBG("got DPMS 'get' request");
+   if (output)
+     {
+        E_OUTPUT_DPMS val = e_output_dpms_get(output);
+
+        if (val == E_OUTPUT_DPMS_ON) dpms_value = E_DPMS_MODE_ON;
+        else if (val == E_OUTPUT_DPMS_STANDBY) dpms_value = E_DPMS_MODE_STANDBY;
+        else if (val == E_OUTPUT_DPMS_SUSPEND) dpms_value = E_DPMS_MODE_SUSPEND;
+        else dpms_value = E_DPMS_MODE_OFF;
+     }
+
+   DBG("got DPMS 'get' request: %d", dpms_value);
 
    eldbus_message_arguments_append(reply, "i", dpms_value);
 
@@ -96,7 +80,8 @@ static const Eldbus_Method methods[] =
    {}
 };
 
-static const Eldbus_Service_Interface_Desc iface_desc = {
+static const Eldbus_Service_Interface_Desc iface_desc =
+{
    INTERFACE, methods, NULL, NULL, NULL, NULL
 };
 
@@ -182,13 +167,4 @@ e_dpms_shutdown(void)
    eldbus_shutdown();
 
    return 1;
-}
-
-EINTERN unsigned int
-e_dpms_get(Ecore_Drm_Output *output)
-{
-   if (dpms_output == output)
-     return dpms_value;
-
-   return DRM_MODE_DPMS_ON;
 }
