@@ -1485,6 +1485,8 @@ e_comp_init(void)
 
    e_comp_new();
 
+   if (conf->hwc_ignore_primary) e_comp->hwc_ignore_primary = EINA_TRUE;
+
    e_main_ts("\tE_Comp_Screen Init");
    if (!e_comp_screen_init())
      {

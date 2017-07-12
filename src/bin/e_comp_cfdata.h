@@ -36,6 +36,7 @@ struct _E_Comp_Config
    unsigned char hwc_deactive;
    unsigned char hwc_reuse_cursor_buffer;
    unsigned char hwc_sync_mode_change;
+   unsigned char hwc_ignore_primary;
    unsigned char smooth_windows;
    unsigned char nofade;
    double        first_draw_delay;
