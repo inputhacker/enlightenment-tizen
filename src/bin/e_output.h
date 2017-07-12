@@ -3,6 +3,11 @@
 typedef struct _E_Output        E_Output;
 typedef struct _E_Output_Mode   E_Output_Mode;
 typedef enum   _E_Output_Dpms   E_OUTPUT_DPMS;
+
+typedef struct _E_Output_Hook   E_Output_Hook;
+typedef enum   _E_Output_Hook_Point E_Output_Hook_Point;
+typedef void (*E_Output_Hook_Cb) (void *data, E_Output *output);
+
 #else
 #ifndef E_OUTPUT_H
 #define E_OUTPUT_H
@@ -15,9 +20,9 @@ typedef enum   _E_Output_Dpms   E_OUTPUT_DPMS;
 enum _E_Output_Dpms
 {
    E_OUTPUT_DPMS_ON,
-   E_OUTPUT_DPMS_OFF,
    E_OUTPUT_DPMS_STANDBY,
-   E_OUTPUT_DPMS_SUSPEND
+   E_OUTPUT_DPMS_SUSPEND,
+   E_OUTPUT_DPMS_OFF,
 };
 
 struct _E_Output_Mode
@@ -81,6 +86,21 @@ struct _E_Output
    } zoom_conf;
 };
 
+enum _E_Output_Hook_Point
+{
+   E_OUTPUT_HOOK_DPMS_CHANGE,
+   E_OUTPUT_HOOK_LAST
+};
+
+struct _E_Output_Hook
+{
+   EINA_INLIST;
+   E_Output_Hook_Point hookpoint;
+   E_Output_Hook_Cb func;
+   void *data;
+   unsigned char delete_me : 1;
+};
+
 EINTERN Eina_Bool         e_output_init(void);
 EINTERN void              e_output_shutdown(void);
 EINTERN E_Output        * e_output_new(E_Comp_Screen *e_comp_screen, int index);
@@ -94,6 +114,7 @@ EINTERN Eina_Bool         e_output_setup(E_Output *output);
 EINTERN E_Output_Mode   * e_output_best_mode_find(E_Output *output);
 EINTERN Eina_Bool         e_output_connected(E_Output *output);
 EINTERN Eina_Bool         e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val);
+E_API E_OUTPUT_DPMS       e_output_dpms_get(E_Output *output);
 EINTERN void              e_output_size_get(E_Output *output, int *w, int *h);
 EINTERN E_Plane         * e_output_default_fb_target_get(E_Output *output);
 EINTERN Eina_Bool         e_output_fake_config_set(E_Output *output, int w, int h);
@@ -107,6 +128,9 @@ E_API Eina_Bool           e_output_is_fb_composing(E_Output *output);
 E_API Eina_Bool           e_output_is_fb_full_compositing(E_Output *output);
 E_API E_Plane           * e_output_fb_target_get(E_Output *output);
 E_API E_Plane           * e_output_plane_get_by_zpos(E_Output *output, int zpos);
+E_API E_Output_Hook     * e_output_hook_add(E_Output_Hook_Point hookpoint, E_Output_Hook_Cb func, const void *data);
+E_API void                e_output_hook_del(E_Output_Hook *ch);
+
 
 #endif
 #endif

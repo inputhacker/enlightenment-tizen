@@ -1,5 +1,44 @@
 #include "e.h"
 
+static int _e_output_hooks_delete = 0;
+static int _e_output_hooks_walking = 0;
+
+static Eina_Inlist *_e_output_hooks[] =
+{
+   [E_OUTPUT_HOOK_DPMS_CHANGE] = NULL,
+};
+
+static void
+_e_output_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Output_Hook *ch;
+   unsigned int x;
+   for (x = 0; x < E_OUTPUT_HOOK_LAST; x++)
+     EINA_INLIST_FOREACH_SAFE(_e_output_hooks[x], l, ch)
+       {
+          if (!ch->delete_me) continue;
+          _e_output_hooks[x] = eina_inlist_remove(_e_output_hooks[x], EINA_INLIST_GET(ch));
+         free(ch);
+       }
+}
+
+static void
+_e_output_hook_call(E_Output_Hook_Point hookpoint, E_Output *output)
+{
+   E_Output_Hook *ch;
+
+   _e_output_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_output_hooks[hookpoint], ch)
+     {
+        if (ch->delete_me) continue;
+        ch->func(ch->data, output);
+     }
+   _e_output_hooks_walking--;
+   if ((_e_output_hooks_walking == 0) && (_e_output_hooks_delete > 0))
+     _e_output_hooks_clean();
+}
+
 static E_Client *
 _e_output_zoom_top_visible_ec_get()
 {
@@ -302,6 +341,9 @@ _e_output_cb_output_change(tdm_output *toutput,
           else edpms = e_output->dpms;
 
           e_output->dpms = edpms;
+
+          _e_output_hook_call(E_OUTPUT_HOOK_DPMS_CHANGE, e_output);
+
           break;
        default:
           break;
@@ -904,9 +946,15 @@ e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val)
         return EINA_FALSE;
      }
 
-   output->dpms = val;
-
    return EINA_TRUE;
+}
+
+E_API E_OUTPUT_DPMS
+e_output_dpms_get(E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, E_OUTPUT_DPMS_OFF);
+
+   return output->dpms;
 }
 
 EINTERN void
@@ -1396,3 +1444,30 @@ e_output_zoom_unset(E_Output *eout)
    DBG("e_output_zoom_unset: output:%s", eout->id);
 }
 
+E_API E_Output_Hook *
+e_output_hook_add(E_Output_Hook_Point hookpoint, E_Output_Hook_Cb func, const void *data)
+{
+   E_Output_Hook *ch;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_OUTPUT_HOOK_LAST, NULL);
+   ch = E_NEW(E_Output_Hook, 1);
+   if (!ch) return NULL;
+   ch->hookpoint = hookpoint;
+   ch->func = func;
+   ch->data = (void*)data;
+   _e_output_hooks[hookpoint] = eina_inlist_append(_e_output_hooks[hookpoint], EINA_INLIST_GET(ch));
+   return ch;
+}
+
+E_API void
+e_output_hook_del(E_Output_Hook *ch)
+{
+   ch->delete_me = 1;
+   if (_e_output_hooks_walking == 0)
+     {
+        _e_output_hooks[ch->hookpoint] = eina_inlist_remove(_e_output_hooks[ch->hookpoint], EINA_INLIST_GET(ch));
+        free(ch);
+     }
+   else
+     _e_output_hooks_delete++;
+}
