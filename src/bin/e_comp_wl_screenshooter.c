@@ -5,7 +5,6 @@
 #include "e.h"
 #include <wayland-server.h>
 #include <Ecore_Wayland.h>
-#include <Ecore_Drm.h>
 #include <screenshooter-server-protocol.h>
 #include <tizen-extension-server-protocol.h>
 #include <tdm.h>
@@ -23,8 +22,7 @@ typedef struct _E_Mirror
 
    Eina_List *buffer_queue;
    E_Comp_Wl_Output *wl_output;
-   Ecore_Drm_Output *drm_output;
-   Ecore_Drm_Device *drm_device;
+   E_Output *e_output;
 
    tdm_output *tdm_output;
    tdm_layer *tdm_primary_layer;
@@ -84,7 +82,9 @@ static Eina_List *mirror_list;
 static void _e_tz_screenmirror_destroy(E_Mirror *mirror);
 static void _e_tz_screenmirror_buffer_dequeue(E_Mirror_Buffer *buffer);
 static void _e_tz_screenmirror_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data);
-static void _e_tz_screenmirror_vblank_handler(void *data);
+static void _e_tz_screenmirror_vblank_handler(tdm_output *output, unsigned int sequence,
+                                              unsigned int tv_sec, unsigned int tv_usec,
+                                              void *data);
 
 static Eina_Bool
 _e_screenmirror_privilege_check(struct wl_client *client)
@@ -174,7 +174,7 @@ _e_tz_screenmirror_cb_timeout(void *data)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(mirror, ECORE_CALLBACK_RENEW);
 
-   _e_tz_screenmirror_vblank_handler((void*)mirror);
+   _e_tz_screenmirror_vblank_handler(NULL, 0, 0, 0, (void*)mirror);
 
    return ECORE_CALLBACK_RENEW;
 }
@@ -182,11 +182,13 @@ _e_tz_screenmirror_cb_timeout(void *data)
 static Eina_Bool
 _e_tz_screenmirror_watch_vblank(E_Mirror *mirror)
 {
+   tdm_error ret;
+
    if (mirror != keep_stream_mirror)
      return EINA_FALSE;
 
    /* If not DPMS_ON, we call vblank handler directly to dump screen */
-   if (e_dpms_get(mirror->drm_output))
+   if (e_output_dpms_get(mirror->e_output))
      {
         if (!mirror->timer)
           mirror->timer = ecore_timer_add((double)1/DUMP_FPS,
@@ -204,12 +206,9 @@ _e_tz_screenmirror_watch_vblank(E_Mirror *mirror)
    if (mirror->wait_vblank)
      return EINA_TRUE;
 
-   if (!ecore_drm_output_wait_vblank(mirror->drm_output, mirror->per_vblank,
-                                     _e_tz_screenmirror_vblank_handler, mirror))
-     {
-        ERR("failed: ecore_drm_output_wait_vblank");
-        return EINA_FALSE;
-     }
+   ret = tdm_output_wait_vblank(mirror->tdm_output, mirror->per_vblank, 0,
+                                _e_tz_screenmirror_vblank_handler, mirror);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
 
    mirror->wait_vblank = EINA_TRUE;
 
@@ -981,7 +980,7 @@ _e_tz_screenmirror_buffer_queue(E_Mirror_Buffer *buffer)
           {
              _e_tz_screenmirror_drm_buffer_clear_check(buffer);
 
-             if (e_dpms_get(mirror->drm_output))
+             if (e_output_dpms_get(mirror->e_output))
                {
                   if (!mirror->timer)
                     {
@@ -1045,7 +1044,7 @@ _e_tz_screenmirror_buffer_queue(E_Mirror_Buffer *buffer)
           {
              _e_tz_screenmirror_drm_buffer_clear_check(buffer);
 
-             if (e_dpms_get(mirror->drm_output))
+             if (e_output_dpms_get(mirror->e_output))
                return;
 
              if (!_e_tz_screenmirror_tdm_capture_attach(mirror, buffer))
@@ -1170,7 +1169,9 @@ fail_get:
 }
 
 static void
-_e_tz_screenmirror_vblank_handler(void *data)
+_e_tz_screenmirror_vblank_handler(tdm_output *output, unsigned int sequence,
+                                  unsigned int tv_sec, unsigned int tv_usec,
+                                  void *data)
 {
    E_Mirror *mirror = data;
    E_Mirror_Buffer *buffer;
@@ -1218,13 +1219,8 @@ static E_Mirror*
 _e_tz_screenmirror_create(struct wl_client *client, struct wl_resource *shooter_resource, struct wl_resource *output_resource)
 {
    E_Mirror *mirror = NULL;
-   Ecore_Drm_Output *drm_output;
-   Ecore_Drm_Device *dev;
-   Eina_List *devs;
-   Eina_List *l, *ll;
    tdm_error err = TDM_ERROR_NONE;
    int count, i;
-   unsigned int crtc_id;
 
    mirror = E_NEW(E_Mirror, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(mirror, NULL);
@@ -1237,24 +1233,11 @@ _e_tz_screenmirror_create(struct wl_client *client, struct wl_resource *shooter_
 
    mirror->per_vblank = (mirror->wl_output->refresh / (DUMP_FPS * 1000));
 
-   devs = eina_list_clone(ecore_drm_devices_get());
-   EINA_LIST_FOREACH(devs, l, dev)
-      EINA_LIST_FOREACH(dev->outputs, ll, drm_output)
-        {
-           int x, y;
-           ecore_drm_output_position_get(drm_output, &x, &y);
-           if (x != mirror->wl_output->x || y != mirror->wl_output->y) continue;
-           mirror->drm_output = drm_output;
-           mirror->drm_device = dev;
-           break;
-        }
-   eina_list_free(devs);
-   EINA_SAFETY_ON_NULL_GOTO(mirror->drm_output, fail_create);
+   mirror->e_output = e_output_find(mirror->wl_output->id);
+   EINA_SAFETY_ON_NULL_GOTO(mirror->e_output, fail_create);
 
-   crtc_id = ecore_drm_output_crtc_id_get(mirror->drm_output);
-
-   mirror->tdm_output = tdm_display_get_output(e_comp->e_comp_screen->tdisplay, crtc_id, &err);
-   EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, fail_create);
+   mirror->tdm_output = mirror->e_output->toutput;
+   EINA_SAFETY_ON_NULL_GOTO(mirror->tdm_output, fail_create);
 
    err = tdm_output_get_layer_count(mirror->tdm_output, &count);
    EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, fail_create);
@@ -1475,7 +1458,7 @@ _e_tz_screenmirror_cb_start(struct wl_client *client, struct wl_resource *resour
 
    if (mirror->capture)
      {
-        if (e_dpms_get(mirror->drm_output))
+        if (e_output_dpms_get(mirror->e_output))
           {
              if (!mirror->timer)
                mirror->timer = ecore_timer_add((double)1/DUMP_FPS, _e_tz_screenmirror_capture_cb_timeout, mirror);
@@ -1650,7 +1633,7 @@ _e_screenshooter_cb_shoot(struct wl_client *client,
 
    mirror->buffer_queue = eina_list_append(mirror->buffer_queue, buffer);
 
-   if (e_dpms_get(mirror->drm_output))
+   if (e_output_dpms_get(mirror->e_output))
      {
         ERR("_e_screenshooter_cb_shoot: dpms on fail");
         goto dump_done;
