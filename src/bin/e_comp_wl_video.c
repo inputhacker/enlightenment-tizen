@@ -43,7 +43,6 @@ struct _E_Video
    struct wl_resource *surface;
    E_Client *ec;
    Ecore_Window window;
-   Ecore_Drm_Output *drm_output;
    tdm_output *output;
    E_Output *e_output;
    tdm_layer *layer;
@@ -120,7 +119,6 @@ static Eina_Bool _e_video_frame_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf 
 static void _e_video_pp_buffer_cb_release(tbm_surface_h surface, void *user_data);
 static void _e_video_video_set_hook(void *data, E_Plane *plane);
 
-static tdm_output* _e_video_tdm_output_get(Ecore_Drm_Output *output);
 static tdm_layer* _e_video_tdm_video_layer_get(tdm_output *output);
 static tdm_layer* _e_video_tdm_avaiable_video_layer_get(tdm_output *output);
 static void _e_video_tdm_set_layer_usable(tdm_layer *layer, Eina_Bool usable);
@@ -656,31 +654,6 @@ _e_video_pp_buffer_get(E_Video *video, int width, int height)
    return NULL;
 }
 
-static Ecore_Drm_Output*
-_e_video_drm_output_find(E_Client *ec)
-{
-   Ecore_Drm_Device *dev;
-   Ecore_Drm_Output *output;
-   Eina_List *devs;
-   Eina_List *l, *ll;
-
-   devs = eina_list_clone(ecore_drm_devices_get());
-   EINA_LIST_FOREACH(devs, l, dev)
-      EINA_LIST_FOREACH(dev->outputs, ll, output)
-        {
-           int x, y, w, h;
-           ecore_drm_output_position_get(output, &x, &y);
-           ecore_drm_output_current_resolution_get(output, &w, &h, NULL);
-           if (x <= ec->x && y <= ec->y && ec->x < x + w && ec->y < y + h)
-             {
-                eina_list_free(devs);
-                return output;
-             }
-        }
-   eina_list_free(devs);
-   return NULL;
-}
-
 /* convert from logical screen to physical output */
 static void
 _e_video_geometry_cal_physical(E_Video *video)
@@ -1133,11 +1106,11 @@ _e_video_can_commit(E_Video *video)
 {
    if (e_config->eom_enable == EINA_TRUE)
      {
-        if (!video->external_video && e_dpms_get(video->drm_output))
+        if (!video->external_video && e_output_dpms_get(video->e_output))
           return EINA_FALSE;
      }
    else
-     if (e_dpms_get(video->drm_output))
+     if (e_output_dpms_get(video->e_output))
        return EINA_FALSE;
 
    if (!_e_video_is_visible(video))
@@ -1568,29 +1541,37 @@ _e_video_set(E_Video *video, E_Client *ec)
         video->external_video = e_eom_is_ec_external(ec);
         if (video->external_video)
           {
-             /* TODO: support screenmirror for external video */
-             video->drm_output = NULL;
+             tdm_error ret;
+             unsigned int index = 0;
 
              video->output = e_eom_tdm_output_by_ec_get(ec);
              EINA_SAFETY_ON_NULL_RETURN(video->output);
+
+             ret = tdm_output_get_pipe(video->output, &index);
+             EINA_SAFETY_ON_FALSE_RETURN(ret == TDM_ERROR_NONE);
+
+             video->e_output = e_output_find_by_index(index);
+             EINA_SAFETY_ON_NULL_RETURN(video->e_output);
           }
         else
           {
-             video->drm_output = _e_video_drm_output_find(video->ec);
-             EINA_SAFETY_ON_NULL_RETURN(video->drm_output);
+             EINA_SAFETY_ON_NULL_RETURN(video->ec->zone);
 
-             /* TODO: find proper output */
-             video->output = _e_video_tdm_output_get(video->drm_output);
+             video->e_output = e_output_find(video->ec->zone->output_id);
+             EINA_SAFETY_ON_NULL_RETURN(video->e_output);
+
+             video->output = video->e_output->toutput;
              EINA_SAFETY_ON_NULL_RETURN(video->output);
           }
      }
    else
      {
-        video->drm_output = _e_video_drm_output_find(video->ec);
-        EINA_SAFETY_ON_NULL_RETURN(video->drm_output);
+        EINA_SAFETY_ON_NULL_RETURN(video->ec->zone);
 
-        /* TODO: find proper output */
-        video->output = _e_video_tdm_output_get(video->drm_output);
+        video->e_output = e_output_find(video->ec->zone->output_id);
+        EINA_SAFETY_ON_NULL_RETURN(video->e_output);
+
+        video->output = video->e_output->toutput;
         EINA_SAFETY_ON_NULL_RETURN(video->output);
      }
 
@@ -2544,7 +2525,7 @@ _e_comp_wl_video_cb_bind(struct wl_client *client, void *data, uint32_t version,
      }
    else
      {
-        tdm_output *output = _e_video_tdm_output_get(NULL);
+        tdm_output *output = tdm_display_get_output(e_comp->e_comp_screen->tdisplay, 0, NULL);
         tdm_layer *layer;
 
         EINA_SAFETY_ON_NULL_RETURN(output);
@@ -2659,59 +2640,6 @@ e_comp_wl_video_layer_get(tdm_output *output)
      }
 
    return NULL;
-}
-
-static tdm_output*
-_e_video_tdm_output_get(Ecore_Drm_Output *output)
-{
-   Ecore_Drm_Device *dev;
-   Ecore_Drm_Output *o;
-   Eina_List *devs;
-   Eina_List *l, *ll;
-   int pipe = 0;
-
-   if (!output)
-     {
-        int i, count = 0;
-        tdm_display_get_output_count(e_comp->e_comp_screen->tdisplay, &count);
-        for (i = 0; i < count; i++)
-          {
-             tdm_output *toutput = tdm_display_get_output(e_comp->e_comp_screen->tdisplay, i, NULL);
-             tdm_output_conn_status status = TDM_OUTPUT_CONN_STATUS_DISCONNECTED;
-
-             if (!toutput)
-               continue;
-
-             tdm_output_get_conn_status(toutput, &status);
-             if (status != TDM_OUTPUT_CONN_STATUS_DISCONNECTED)
-               {
-                  tdm_output_type type;
-                  tdm_output_get_output_type(toutput, &type);
-                  INF("found tdm output: type(%d)", type);
-                  return toutput;
-               }
-          }
-
-        ERR("not found tdm output");
-
-        return NULL;
-     }
-
-   devs = eina_list_clone(ecore_drm_devices_get());
-   EINA_LIST_FOREACH(devs, l, dev)
-     {
-        pipe = 0;
-        EINA_LIST_FOREACH(dev->outputs, ll, o)
-          {
-             if (o == output)
-               goto found;
-             pipe++;
-          }
-     }
-found:
-   eina_list_free(devs);
-
-   return tdm_display_get_output(e_comp->e_comp_screen->tdisplay, pipe, NULL);
 }
 
 static tdm_layer*
