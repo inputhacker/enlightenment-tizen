@@ -9,11 +9,6 @@
 #include <screenshooter-server-protocol.h>
 #include <tizen-extension-server-protocol.h>
 #include <tdm.h>
-#ifdef HAVE_CYNARA
-#include <cynara-session.h>
-#include <cynara-client.h>
-#include <cynara-creds-socket.h>
-#endif
 
 #define DUMP_FPS     30
 
@@ -56,10 +51,6 @@ typedef struct _E_Mirror
    struct wl_listener client_destroy_listener;
 
    Eina_Bool oneshot_client_destroy;
-#ifdef HAVE_CYNARA
-   cynara *p_cynara;
-   Eina_Bool cynara_initialized;
-#endif
 } E_Mirror;
 
 typedef struct _E_Mirror_Buffer
@@ -95,123 +86,29 @@ static void _e_tz_screenmirror_buffer_dequeue(E_Mirror_Buffer *buffer);
 static void _e_tz_screenmirror_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data);
 static void _e_tz_screenmirror_vblank_handler(void *data);
 
-#ifdef HAVE_CYNARA
-static void _e_screenmirror_cynara_log(const char *func_name, int err);
-
-#define PRIVILEGE_SCREENSHOT "http://tizen.org/privilege/screenshot"
-#define SMACK_LABEL_LEN 255
-#define PATH_MAX_LEN 64
-#define CYNARA_BUFSIZE 128
-#define E_SCREENMIRROR_CYNARA_ERROR_CHECK_GOTO(func_name, ret, label) \
-   do \
-     { \
-        if (EINA_UNLIKELY(ret != CYNARA_API_SUCCESS)) \
-          { \
-             _e_screenmirror_cynara_log(func_name, ret); \
-             goto label; \
-          } \
-     } \
-   while (0)
-
-static void
-_e_screenmirror_cynara_log(const char *func_name, int err)
-{
-   char buf[CYNARA_BUFSIZE] = "\0";
-   int ret;
-
-   ret = cynara_strerror(err, buf, CYNARA_BUFSIZE);
-   if (ret != CYNARA_API_SUCCESS)
-     {
-        DBG("Failed to cynara_strerror: %d (error log about %s: %d)\n", ret, func_name, err);
-        return;
-     }
-   DBG("%s is failed: %s\n", func_name, buf);
-}
-
 static Eina_Bool
-_e_screenmirror_su_check(struct wl_client *client)
+_e_screenmirror_privilege_check(struct wl_client *client)
 {
-   uid_t uid;
+   Eina_Bool res = EINA_FALSE;
+   pid_t pid = 0;
+   uid_t uid = 0;
 
-   wl_client_get_credentials(client, NULL, &uid, NULL);
+   wl_client_get_credentials(client, &pid, &uid, NULL);
 
-   if (uid == 0) /* DBG("pass privilege check if super user"); */
+   /* pass privilege check if super user */
+   if (uid == 0)
      return EINA_TRUE;
 
-   return EINA_FALSE;
-}
+   res = e_security_privilege_check(pid, uid, E_PRIVILEGE_SCREENSHOT);
+   if (!res)
+     {
+        ELOGF("EOM",
+              "Privilege Check Failed! DENY screenshot pid:%d",
+              NULL, NULL, pid);
+        return EINA_FALSE;
+     }
 
-static Eina_Bool
-_e_screenmirror_privilege(struct wl_client *client, cynara *p_cynara, int socket_fd, const char *rule)
-{
-   int ret, pid;
-   char *clientSmack = NULL, *uid = NULL, *client_session = NULL;
-   Eina_Bool res = EINA_FALSE;
-
-   ret = cynara_creds_socket_get_user(socket_fd, USER_METHOD_UID, &uid);
-   E_SCREENMIRROR_CYNARA_ERROR_CHECK_GOTO("cynara_creds_socket_get_user", ret, finish);
-
-   ret = cynara_creds_socket_get_pid(socket_fd, &pid);
-   E_SCREENMIRROR_CYNARA_ERROR_CHECK_GOTO("cynara_creds_socket_get_pid", ret, finish);
-
-   client_session = cynara_session_from_pid(pid);
-
-   ret = cynara_creds_socket_get_client(socket_fd, CLIENT_METHOD_SMACK, &clientSmack);
-   E_SCREENMIRROR_CYNARA_ERROR_CHECK_GOTO("cynara_creds_socket_get_client", ret, finish);
-
-   ret = cynara_check(p_cynara, clientSmack, client_session, uid, rule);
-
-   if (ret == CYNARA_API_ACCESS_ALLOWED)
-     res = EINA_TRUE;
-
-finish:
-   E_FREE(client_session);
-   E_FREE(clientSmack);
-   E_FREE(uid);
-
-   return res;
-}
-#endif
-
-static Eina_Bool
-_e_screenmirror_privilege_check(struct wl_client *client, E_Mirror *mirror, int socket_fd, const char *rule)
-{
-#ifdef HAVE_CYNARA
-   Eina_Bool res = EINA_FALSE;
-
-   if (mirror->p_cynara == NULL && !mirror->cynara_initialized) return EINA_TRUE;
-
-   if (_e_screenmirror_su_check(client) == EINA_TRUE) return EINA_TRUE;
-
-   res = _e_screenmirror_privilege(client, mirror->p_cynara, socket_fd, rule);
-
-   return res;
-#else
    return EINA_TRUE;
-#endif
-}
-
-static Eina_Bool
-_e_screenmirror_privilege_check_with_cynara_init(struct wl_client *client, int socket_fd, const char *rule)
-{
-#ifdef HAVE_CYNARA
-   int ret;
-   Eina_Bool res = EINA_FALSE;
-   cynara *p_cynara;
-
-   if (_e_screenmirror_su_check(client) == EINA_TRUE) return EINA_TRUE;
-
-   ret = cynara_initialize(&p_cynara, NULL);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == CYNARA_API_SUCCESS, EINA_FALSE);
-
-   res = _e_screenmirror_privilege(client, p_cynara, socket_fd, rule);
-
-   if (p_cynara) cynara_finish(p_cynara);
-
-   return res;
-#else
-   return EINA_TRUE;
-#endif
 }
 
 static void
@@ -1384,12 +1281,6 @@ _e_tz_screenmirror_create(struct wl_client *client, struct wl_resource *shooter_
 
    INF("per_vblank(%d)", mirror->per_vblank);
 
-#ifdef HAVE_CYNARA
-   ret = cynara_initialize(&mirror->p_cynara, NULL);
-   EINA_SAFETY_ON_FALSE_GOTO(ret == CYNARA_API_SUCCESS, fail_create);
-   mirror->cynara_initialized = EINA_TRUE;
-#endif
-
    mirror_list = eina_list_append(mirror_list, mirror);
 
    mirror->client_destroy_listener.notify = _e_tz_screenmirror_cb_client_destroy;
@@ -1398,11 +1289,8 @@ _e_tz_screenmirror_create(struct wl_client *client, struct wl_resource *shooter_
    mirror->oneshot_client_destroy = EINA_FALSE;
 
    return mirror;
-fail_create:
-#ifdef HAVE_CYNARA
-   mirror->p_cynara = NULL;
-#endif
 
+fail_create:
    E_FREE(mirror);
 
    return NULL;
@@ -1430,12 +1318,6 @@ _e_tz_screenmirror_destroy(E_Mirror *mirror)
    if (!_e_tz_screenmirror_find_mirror(mirror))
      return;
    mirror_list = eina_list_remove(mirror_list, mirror);
-
-#ifdef HAVE_CYNARA
-   if (mirror->p_cynara) cynara_finish(mirror->p_cynara);
-   mirror->p_cynara = NULL;
-   mirror->cynara_initialized = EINA_FALSE;
-#endif
 
    if (mirror->capture_timer)
      ecore_timer_del(mirror->capture_timer);
@@ -1493,14 +1375,13 @@ _e_tz_screenmirror_cb_destroy(struct wl_client *client EINA_UNUSED, struct wl_re
 }
 
 static void
-_e_tz_screenmirror_cb_set_stretch(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, uint32_t stretch)
+_e_tz_screenmirror_cb_set_stretch(struct wl_client *client, struct wl_resource *resource, uint32_t stretch)
 {
    E_Mirror *mirror = wl_resource_get_user_data(resource);
 
    EINA_SAFETY_ON_NULL_RETURN(mirror);
 
-   if (_e_screenmirror_privilege_check(client, mirror, wl_client_get_fd(client),
-                                       PRIVILEGE_SCREENSHOT) == EINA_FALSE)
+   if (_e_screenmirror_privilege_check(client) == EINA_FALSE)
      {
         ERR("_e_tz_screenmirror_cb_set_stretch: priv check failed");
         return;
@@ -1513,15 +1394,14 @@ _e_tz_screenmirror_cb_set_stretch(struct wl_client *client EINA_UNUSED, struct w
 }
 
 static void
-_e_tz_screenmirror_cb_queue(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, struct wl_resource *buffer_resource)
+_e_tz_screenmirror_cb_queue(struct wl_client *client, struct wl_resource *resource, struct wl_resource *buffer_resource)
 {
    E_Mirror *mirror = wl_resource_get_user_data(resource);
    E_Mirror_Buffer *buffer;
 
    EINA_SAFETY_ON_NULL_RETURN(mirror);
 
-   if (_e_screenmirror_privilege_check(client, mirror, wl_client_get_fd(client),
-                                       PRIVILEGE_SCREENSHOT) == EINA_FALSE)
+   if (_e_screenmirror_privilege_check(client) == EINA_FALSE)
      {
         ERR("_e_tz_screenmirror_cb_queue: priv check failed");
         return;
@@ -1545,15 +1425,14 @@ _e_tz_screenmirror_cb_queue(struct wl_client *client EINA_UNUSED, struct wl_reso
 }
 
 static void
-_e_tz_screenmirror_cb_dequeue(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, struct wl_resource *buffer_resource)
+_e_tz_screenmirror_cb_dequeue(struct wl_client *client, struct wl_resource *resource, struct wl_resource *buffer_resource)
 {
    E_Mirror *mirror = wl_resource_get_user_data(resource);
    E_Mirror_Buffer *buffer;
 
    EINA_SAFETY_ON_NULL_RETURN(mirror);
 
-   if (_e_screenmirror_privilege_check(client, mirror, wl_client_get_fd(client),
-                                       PRIVILEGE_SCREENSHOT) == EINA_FALSE)
+   if (_e_screenmirror_privilege_check(client) == EINA_FALSE)
      {
         ERR("_e_tz_screenmirror_cb_dequeue: priv check failed");
         return;
@@ -1574,15 +1453,14 @@ _e_tz_screenmirror_cb_dequeue(struct wl_client *client EINA_UNUSED, struct wl_re
 }
 
 static void
-_e_tz_screenmirror_cb_start(struct wl_client *client EINA_UNUSED, struct wl_resource *resource)
+_e_tz_screenmirror_cb_start(struct wl_client *client, struct wl_resource *resource)
 {
    E_Mirror *mirror = wl_resource_get_user_data(resource);
    tdm_error err = TDM_ERROR_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN(mirror);
 
-   if (_e_screenmirror_privilege_check(client, mirror, wl_client_get_fd(client),
-                                       PRIVILEGE_SCREENSHOT) == EINA_FALSE)
+   if (_e_screenmirror_privilege_check(client) == EINA_FALSE)
      {
         ERR("_e_tz_screenmirror_cb_start: priv check failed");
         return;
@@ -1613,14 +1491,13 @@ _e_tz_screenmirror_cb_start(struct wl_client *client EINA_UNUSED, struct wl_reso
 }
 
 static void
-_e_tz_screenmirror_cb_stop(struct wl_client *client EINA_UNUSED, struct wl_resource *resource)
+_e_tz_screenmirror_cb_stop(struct wl_client *client, struct wl_resource *resource)
 {
    E_Mirror *mirror = wl_resource_get_user_data(resource);
 
    EINA_SAFETY_ON_NULL_RETURN(mirror);
 
-   if (_e_screenmirror_privilege_check(client, mirror, wl_client_get_fd(client),
-                                       PRIVILEGE_SCREENSHOT) == EINA_FALSE)
+   if (_e_screenmirror_privilege_check(client) == EINA_FALSE)
      {
         ERR("_e_tz_screenmirror_cb_stop: priv check failed");
         return;
@@ -1678,8 +1555,7 @@ _e_tz_screenshooter_get_screenmirror(struct wl_client *client,
    wl_resource_set_implementation(mirror->resource, &_e_tz_screenmirror_interface,
                                   mirror, destroy_tz_screenmirror);
 
-   if (_e_screenmirror_privilege_check(client, mirror, wl_client_get_fd(client),
-                                       PRIVILEGE_SCREENSHOT) == EINA_TRUE)
+   if (_e_screenmirror_privilege_check(client) == EINA_TRUE)
      DBG("_e_tz_screenshooter_get_screenmirror: priv check success");
    else
      DBG("_e_tz_screenshooter_get_screenmirror: priv check failed");
@@ -1719,8 +1595,7 @@ _e_tz_screenshooter_cb_bind(struct wl_client *client, void *data, uint32_t versi
         return;
      }
 
-   if (_e_screenmirror_privilege_check_with_cynara_init(client, wl_client_get_fd(client),
-                                                        PRIVILEGE_SCREENSHOT) == EINA_TRUE)
+   if (_e_screenmirror_privilege_check(client) == EINA_TRUE)
      tizen_screenshooter_send_screenshooter_notify(res, EINA_TRUE);
    else
      tizen_screenshooter_send_screenshooter_notify(res, EINA_FALSE);
@@ -1757,8 +1632,7 @@ _e_screenshooter_cb_shoot(struct wl_client *client,
    /* resource == shooter means that we're using weston screenshooter */
    mirror->resource = mirror->shooter;
 
-   if (_e_screenmirror_privilege_check(client, mirror, wl_client_get_fd(client),
-                                       PRIVILEGE_SCREENSHOT) == EINA_FALSE)
+   if (_e_screenmirror_privilege_check(client) == EINA_FALSE)
      {
         ERR("_e_screenshooter_cb_shoot: priv check failed");
         screenshooter_send_done(mirror->resource);
