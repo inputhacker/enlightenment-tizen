@@ -1200,11 +1200,44 @@ e_output_default_fb_target_get(E_Output *output)
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(output->planes, EINA_FALSE);
 
-   /* find lowest zpos graphic type layer */
-   EINA_LIST_FOREACH(output->planes, p_l, ep)
+   if (e_comp->hwc_ignore_primary)
      {
-        if (ep->is_primary)
-          return ep;
+        /* find lowest zpos graphic type layer */
+        EINA_LIST_FOREACH(output->planes, p_l, ep)
+          {
+             Eina_List *formats = NULL;
+             Eina_List *formats_l = NULL;
+             Eina_Bool available_rgb = EINA_FALSE;
+             tbm_format *format;
+
+             if (e_plane_type_get(ep) != E_PLANE_TYPE_GRAPHIC) continue;
+
+             formats = e_plane_available_tbm_formats_get(ep);
+             if (!formats) continue;
+
+             EINA_LIST_FOREACH(formats, formats_l, format)
+               {
+                  if (*format == TBM_FORMAT_ARGB8888 ||
+                      *format == TBM_FORMAT_XRGB8888)
+                    {
+                       available_rgb = EINA_TRUE;
+                       break;
+                    }
+               }
+
+             if (!available_rgb) continue;
+
+             return ep;
+          }
+     }
+   else
+     {
+        /* find primary layer */
+        EINA_LIST_FOREACH(output->planes, p_l, ep)
+          {
+             if (ep->is_primary)
+               return ep;
+          }
      }
 
    return NULL;
