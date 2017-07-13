@@ -1382,7 +1382,13 @@ _e_comp_signal_user(void *data EINA_UNUSED, int type EINA_UNUSED, Ecore_Event_Si
 static void
 _e_comp_free(E_Comp *c)
 {
-   E_FREE_LIST(c->zones, e_object_del);
+   Eina_List *l, *ll;
+   E_Zone *zone;
+
+   EINA_LIST_FOREACH_SAFE(c->zones, l, ll, zone)
+     {
+        e_object_del(E_OBJECT(zone));
+     }
 
    e_comp_canvas_clear();
 
