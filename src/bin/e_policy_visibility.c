@@ -1774,6 +1774,6 @@ e_policy_visibility_shutdown(void)
    E_FREE_FUNC(pol_vis->idle_enter, ecore_idle_enterer_del);
    E_FREE_LIST(pol_vis->hooks, e_client_hook_del);
    E_FREE_LIST(pol_vis->handlers, ecore_event_handler_del);
-   E_FREE_LIST(pol_vis->interceptors, e_comp_hook_del);
+   E_FREE_LIST(pol_vis->interceptors, e_comp_object_intercept_hook_del);
    E_FREE(pol_vis);
 }
