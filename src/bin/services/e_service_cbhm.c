@@ -26,7 +26,7 @@ static void
 _cbhm_free(E_Policy_Cbhm *cbhm)
 {
    E_FREE_LIST(cbhm->hooks, e_client_hook_del);
-   E_FREE_LIST(cbhm->intercept_hooks, e_client_hook_del);
+   E_FREE_LIST(cbhm->intercept_hooks, e_comp_object_intercept_hook_del);
    E_FREE(_pol_cbhm);
 }
 
