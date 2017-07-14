@@ -7,7 +7,7 @@
 #include "services/e_service_cbhm.h"
 #include "services/e_service_scrsaver.h"
 #include "e_policy_wl_display.h"
-#include "e_policy_conformant.h"
+#include "e_policy_conformant_internal.h"
 #include "e_policy_visibility.h"
 
 #include <device/display.h>

@@ -1,5 +1,5 @@
 #include "e.h"
-#include "e_policy_conformant.h"
+#include "e_policy_conformant_internal.h"
 #include "e_policy_wl.h"
 #include "e_policy_visibility.h"
 #include "e_policy_private_data.h"

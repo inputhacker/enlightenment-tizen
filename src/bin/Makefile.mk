@@ -110,6 +110,7 @@ src/bin/services/e_service_indicator.h \
 src/bin/services/e_service_cbhm.h \
 src/bin/services/e_service_scrsaver.h \
 src/bin/e_policy.h \
+src/bin/e_policy_conformant.h \
 src/bin/e_policy_visibility.h \
 src/bin/e_policy_private_data.h \
 src/bin/e_policy_wl.h \
