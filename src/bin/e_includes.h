@@ -59,6 +59,7 @@
 #endif
 #include "e_comp_wl_rsm.h"
 #include "e_policy.h"
+#include "e_policy_conformant.h"
 #include "e_policy_visibility.h"
 #include "e_process.h"
 #include "e_splitlayout.h"

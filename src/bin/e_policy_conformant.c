@@ -631,6 +631,47 @@ _conf_part_register(E_Client *ec, Conformant_Type type)
    evas_object_smart_callback_add(ec->frame, "hiding", _conf_cb_part_obj_hiding, (void*)type);
 }
 
+static void
+_conf_part_deregister(E_Client *ec, Conformant_Type type)
+{
+   Defer_Job *job;
+
+   if (!g_conf)
+     return;
+
+   if (!g_conf->part[type].ec)
+     {
+        INF("Can't deregister ec(%p) for %s. no ec has been registered",
+            ec, _conf_type_to_str(type));
+        return;
+     }
+   else if (g_conf->part[type].ec != ec)
+     {
+        INF("Can't deregister ec(%p) for %s. ec(%p) was not registered.",
+            ec, _conf_type_to_str(type), g_conf->part[type].ec);
+        return;
+     }
+
+   // deregister callback
+   evas_object_event_callback_del_full(ec->frame, EVAS_CALLBACK_DEL,      _conf_cb_part_obj_del,     (void*)type);
+   evas_object_event_callback_del_full(ec->frame, EVAS_CALLBACK_SHOW,     _conf_cb_part_obj_show,    (void*)type);
+   evas_object_event_callback_del_full(ec->frame, EVAS_CALLBACK_HIDE,     _conf_cb_part_obj_hide,    (void*)type);
+   evas_object_event_callback_del_full(ec->frame, EVAS_CALLBACK_MOVE,     _conf_cb_part_obj_move,    (void*)type);
+   evas_object_event_callback_del_full(ec->frame, EVAS_CALLBACK_RESIZE,   _conf_cb_part_obj_resize,  (void*)type);
+
+   evas_object_smart_callback_del_full(ec->frame, "hiding", _conf_cb_part_obj_hiding, (void*)type);
+
+
+   g_conf->part[type].ec = NULL;
+   g_conf->part[type].state.will_hide = EINA_FALSE;
+   g_conf->part[type].last_serial = 0;
+   EINA_LIST_FREE(g_conf->part[type].defer_jobs, job)
+     {
+        e_client_hook_del(job->owner_del_hook);
+        free(job);
+     }
+}
+
 static Eina_Bool
 _conf_cb_client_add(void *data, int evtype EINA_UNUSED, void *event)
 {
@@ -917,17 +958,63 @@ _conf_event_shutdown(void)
    E_FREE_FUNC(g_conf->idle_enterer, ecore_idle_enterer_del);
 }
 
-EINTERN void
+E_API Eina_Bool
 e_policy_conformant_part_add(E_Client *ec)
 {
    Conformant_Type type = CONFORMANT_TYPE_MAX;
 
-   EINA_SAFETY_ON_NULL_RETURN(g_conf);
+   if (!g_conf) return EINA_FALSE;
+   if (!ec) return EINA_FALSE;
 
    type = _conf_client_type_get(ec);
-   EINA_SAFETY_ON_TRUE_RETURN(type >= CONFORMANT_TYPE_MAX);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(type >= CONFORMANT_TYPE_MAX, EINA_FALSE);
 
    _conf_part_register(ec, type);
+
+   g_conf->part[type].changed = 1;
+
+   return EINA_TRUE;
+}
+
+E_API Eina_Bool
+e_policy_conformant_part_del(E_Client *ec)
+{
+   Conformant_Type type, t;
+
+   if (!g_conf) return EINA_FALSE;
+   if (!ec) return EINA_FALSE;
+
+   type = CONFORMANT_TYPE_MAX;
+
+   // find part whether ec has registered
+   for (t = 0; t < CONFORMANT_TYPE_MAX; t++)
+     {
+        if (g_conf->part[t].ec == ec)
+          {
+             type = t;
+             break;
+          }
+     }
+
+   if (type >= CONFORMANT_TYPE_MAX)
+     return EINA_FALSE;
+
+   _conf_state_update(type,
+                      EINA_FALSE,
+                      g_conf->part[type].state.x,
+                      g_conf->part[type].state.y,
+                      g_conf->part[type].state.w,
+                      g_conf->part[type].state.h);
+
+   g_conf->part[type].owner = NULL;
+   g_conf->part[type].state.will_hide = EINA_FALSE;
+
+   if (type == CONFORMANT_TYPE_CLIPBOARD)
+     e_policy_stack_transient_for_set(g_conf->part[type].ec, NULL);
+
+   _conf_part_deregister(ec, type);
+
+   return EINA_TRUE;
 }
 
 EINTERN void
