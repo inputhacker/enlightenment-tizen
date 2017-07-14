@@ -1223,7 +1223,7 @@ _e_tz_screenmirror_create(struct wl_client *client, struct wl_resource *shooter_
    Eina_List *devs;
    Eina_List *l, *ll;
    tdm_error err = TDM_ERROR_NONE;
-   int count, i, ret;
+   int count, i;
    unsigned int crtc_id;
 
    mirror = E_NEW(E_Mirror, 1);
