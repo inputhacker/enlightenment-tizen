@@ -2188,7 +2188,8 @@ _remote_surface_cb_release(struct wl_client *client, struct wl_resource *resourc
         e_comp_wl_buffer_reference(&remote_buffer->ref, NULL);
 
         /*Send release event to provider*/
-        if (remote_surface->provider->buffer_mode &&
+        if (remote_surface->provider &&
+            remote_surface->provider->buffer_mode &&
             buf && buf->busy == 0)
           {
              if (remote_surface->provider->buffer_mode == 1 ||
