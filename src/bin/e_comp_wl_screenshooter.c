@@ -531,7 +531,7 @@ _e_tz_screenmirror_dump_still(E_Mirror_Buffer *buffer)
    int i;
    int rotate = 0;
 
-   if (buffer->vbuf->type == TYPE_SHM)
+   if (buffer->vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
      {
         if (!_e_tz_screenmirror_tmp_buffer_create(buffer))
           {
@@ -624,7 +624,7 @@ _e_tz_screenmirror_dump_still(E_Mirror_Buffer *buffer)
 
      }
 
-   if (buffer->vbuf->type == TYPE_SHM)
+   if (buffer->vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
      _e_tz_screenmirror_copy_tmp_buffer(buffer);
 }
 
@@ -662,7 +662,7 @@ _e_tz_screenmirror_capture_oneshot_done_handler(tdm_capture *capture, tbm_surfac
    E_Mirror_Buffer *mirror_buffer = user_data;
    E_Mirror *mirror = mirror_buffer->mirror;
 
-   if (mirror_buffer->vbuf->type == TYPE_SHM)
+   if (mirror_buffer->vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
      _e_tz_screenmirror_copy_tmp_buffer(mirror_buffer);
 
    _e_tz_screenmirror_destroy(mirror);
@@ -703,7 +703,7 @@ _e_tz_screenmirror_mirrorbuf_find(E_Mirror *mirror, tbm_surface_h surf)
         if (!buffer || !buffer->vbuf)
           continue;
 
-        if (buffer->vbuf->type == TYPE_SHM)
+        if (buffer->vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
           {
              if (!buffer->tmp || !buffer->tmp->tbm_surface)
                continue;
@@ -940,7 +940,7 @@ _e_tz_screenmirror_tdm_capture_attach(E_Mirror *mirror, E_Mirror_Buffer *buffer)
 {
    tdm_error err = TDM_ERROR_NONE;
 
-   if (buffer->vbuf->type == TYPE_SHM)
+   if (buffer->vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
      {
         if (!_e_tz_screenmirror_tmp_buffer_create(buffer))
           {
@@ -1028,7 +1028,7 @@ _e_tz_screenmirror_buffer_queue(E_Mirror_Buffer *buffer)
           }
         else
           {
-             if (buffer->vbuf->type == TYPE_SHM)
+             if (buffer->vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
                {
                   if (!_e_tz_screenmirror_tmp_buffer_create(buffer))
                     {
@@ -1056,7 +1056,7 @@ _e_tz_screenmirror_buffer_queue(E_Mirror_Buffer *buffer)
           }
         else
           {
-             if (buffer->vbuf->type == TYPE_SHM)
+             if (buffer->vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
                {
                   if (!_e_tz_screenmirror_tmp_buffer_create(buffer))
                     {

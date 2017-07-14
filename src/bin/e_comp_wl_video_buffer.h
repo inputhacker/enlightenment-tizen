@@ -2,8 +2,8 @@
 
 typedef enum _E_Comp_Wl_Video_Buf_Type
 {
-   TYPE_SHM,
-   TYPE_TBM,
+   E_COMP_WL_VIDEO_BUF_TYPE_SHM,
+   E_COMP_WL_VIDEO_BUF_TYPE_TBM,
 } E_Comp_Wl_Video_Buf_Type;
 
 typedef struct _E_Comp_Wl_Video_Buf E_Comp_Wl_Video_Buf;

@@ -62,7 +62,7 @@ _e_comp_wl_video_buffer_access_data_begin(E_Comp_Wl_Video_Buf *vbuf)
 
    vbuf->ptrs[0] = vbuf->ptrs[1] = vbuf->ptrs[2] = NULL;
 
-   if (vbuf->type == TYPE_SHM)
+   if (vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
      {
         struct wl_shm_buffer *shm_buffer = wl_shm_buffer_get(vbuf->resource);
         EINA_SAFETY_ON_NULL_RETURN_VAL(shm_buffer, EINA_FALSE);
@@ -70,7 +70,7 @@ _e_comp_wl_video_buffer_access_data_begin(E_Comp_Wl_Video_Buf *vbuf)
         EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf->ptrs[0], EINA_FALSE);
         return EINA_TRUE;
      }
-   else if (vbuf->type == TYPE_TBM)
+   else if (vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_TBM)
      {
         int i, j;
         tbm_bo bos[4] = {0,};
@@ -124,11 +124,11 @@ _e_comp_wl_video_buffer_access_data_end(E_Comp_Wl_Video_Buf *vbuf)
 {
    EINA_SAFETY_ON_NULL_RETURN(vbuf);
 
-   if (vbuf->type == TYPE_SHM)
+   if (vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
      {
         vbuf->ptrs[0] = NULL;
      }
-   else if (vbuf->type == TYPE_TBM)
+   else if (vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_TBM)
      {
         int i;
         tbm_bo bos[4] = {0,};
@@ -167,7 +167,7 @@ _e_comp_wl_video_buffer_create_res(struct wl_resource *resource)
      {
         uint32_t tbmfmt = wl_shm_buffer_get_format(shm_buffer);
 
-        vbuf->type = TYPE_SHM;
+        vbuf->type = E_COMP_WL_VIDEO_BUF_TYPE_SHM;
 
         if (tbmfmt == WL_SHM_FORMAT_ARGB8888)
           vbuf->tbmfmt = TBM_FORMAT_ARGB8888;
@@ -187,7 +187,7 @@ _e_comp_wl_video_buffer_create_res(struct wl_resource *resource)
      {
         int i;
 
-        vbuf->type = TYPE_TBM;
+        vbuf->type = E_COMP_WL_VIDEO_BUF_TYPE_TBM;
         vbuf->tbm_surface = tbm_surface;
         tbm_surface_internal_ref(tbm_surface);
 
@@ -287,7 +287,7 @@ e_comp_wl_video_buffer_create_tbm(tbm_surface_h tbm_surface)
    while (_find_vbuf(vbuf->stamp))
      vbuf->stamp++;
 
-   vbuf->type = TYPE_TBM;
+   vbuf->type = E_COMP_WL_VIDEO_BUF_TYPE_TBM;
    vbuf->tbm_surface = tbm_surface;
    tbm_surface_internal_ref(tbm_surface);
 
@@ -359,7 +359,7 @@ e_comp_wl_video_buffer_alloc(int width, int height, tbm_format tbmfmt, Eina_Bool
      tbm_surface = tbm_surface_internal_create_with_flags(width, height, tbmfmt, TBM_BO_DEFAULT);
    EINA_SAFETY_ON_NULL_GOTO(tbm_surface, alloc_fail);
 
-   vbuf->type = TYPE_TBM;
+   vbuf->type = E_COMP_WL_VIDEO_BUF_TYPE_TBM;
    vbuf->tbm_surface = tbm_surface;
    tbm_surface_internal_ref(tbm_surface);
 
@@ -481,7 +481,7 @@ _e_comp_wl_video_buffer_free(E_Comp_Wl_Video_Buf *vbuf)
    /* make sure all operation is done */
    VBUF_RETURN_IF_FAIL(vbuf->in_use == EINA_FALSE);
 
-   if (vbuf->type == TYPE_TBM && vbuf->tbm_surface)
+   if (vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_TBM && vbuf->tbm_surface)
      {
         tbm_surface_internal_unref(vbuf->tbm_surface);
         vbuf->tbm_surface = NULL;
