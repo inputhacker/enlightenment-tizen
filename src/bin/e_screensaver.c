@@ -104,6 +104,8 @@ e_screensaver_init(void)
    if (!_saver)
      {
         _saver = E_NEW(E_Screensaver, 1);
+        if (!_saver) return 0;
+
         _saver->idletime = 0.0;
      }
    return 1;
