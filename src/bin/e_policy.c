@@ -118,9 +118,11 @@ _e_policy_client_add(E_Client *ec)
    if (e_object_is_del(E_OBJECT(ec))) return NULL;
 
    pc = eina_hash_find(hash_policy_clients, &ec);
-   if (pc) return NULL;
+   if (pc) return pc;
 
    pc = E_NEW(E_Policy_Client, 1);
+   if (!pc) return NULL;
+
    pc->ec = ec;
 
    eina_hash_add(hash_policy_clients, &ec, pc);
@@ -1423,6 +1425,8 @@ e_policy_desk_add(E_Desk *desk)
    if (pd) return;
 
    pd = E_NEW(E_Policy_Desk, 1);
+   if (!pd) return;
+
    pd->desk = desk;
    pd->zone = desk->zone;
 
