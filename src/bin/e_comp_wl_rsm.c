@@ -772,8 +772,6 @@ _remote_surface_ignore_output_transform_send(E_Comp_Wl_Remote_Common *common)
         goto no_ignore;
      }
 
-   return;
-
 ignore:
    if (common->ignore_output_transform != EINA_TRUE)
      {
@@ -2143,6 +2141,12 @@ _remote_surface_cb_region_create(struct wl_client *client, struct wl_resource *r
      }
 
    region = E_NEW(E_Comp_Wl_Remote_Region, 1);
+   if (!region)
+     {
+        wl_client_post_no_memory(client);
+        wl_resource_destroy(resource);
+        return;
+     }
    region->remote_surface = remote_surface;
    region->resource = resource;
    region->geometry.x = -1;
@@ -2333,6 +2337,12 @@ _remote_manager_cb_provider_create(struct wl_client *client, struct wl_resource 
      }
 
    provider = E_NEW(E_Comp_Wl_Remote_Provider, 1);
+   if (!provider)
+     {
+        wl_client_post_no_memory(client);
+        wl_resource_destroy(resource);
+        return;
+     }
    provider->common.ec = ec;
    provider->resource = resource;
 
@@ -2389,6 +2399,12 @@ _remote_manager_cb_surface_create(struct wl_client *client,
      }
 
    remote_surface = E_NEW(E_Comp_Wl_Remote_Surface, 1);
+   if (!remote_surface)
+     {
+        wl_client_post_no_memory(client);
+        wl_resource_destroy(resource);
+        return;
+     }
    remote_surface->resource = resource;
    remote_surface->version = wl_resource_get_version(resource);
    remote_surface->redirect = EINA_FALSE;
