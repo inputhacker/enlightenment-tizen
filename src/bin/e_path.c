@@ -325,16 +325,22 @@ e_path_dir_list_get(E_Path *ep)
         EINA_LIST_FOREACH(*(ep->user_dir_list), l, epd)
           {
              new_epd = malloc(sizeof(E_Path_Dir));
-             new_epd->dir = eina_stringshare_add(epd->dir);
-             dir_list = eina_list_append(dir_list, new_epd);
+             if (new_epd)
+               {
+                  new_epd->dir = eina_stringshare_add(epd->dir);
+                  dir_list = eina_list_append(dir_list, new_epd);
+               }
           }
      }
 
    EINA_LIST_FOREACH(ep->default_dir_list, l, epd)
      {
         new_epd = malloc(sizeof(E_Path_Dir));
-        new_epd->dir = eina_stringshare_add(epd->dir);
-        dir_list = eina_list_append(dir_list, new_epd);
+        if (new_epd)
+          {
+             new_epd->dir = eina_stringshare_add(epd->dir);
+             dir_list = eina_list_append(dir_list, new_epd);
+          }
      }
 
    return dir_list;
