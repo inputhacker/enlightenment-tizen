@@ -155,6 +155,7 @@ _e_pixmap_new(E_Pixmap_Type type)
    E_Pixmap *cp;
 
    cp = E_NEW(E_Pixmap, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cp, NULL);
    cp->type = type;
    cp->w = cp->h = 0;
    cp->refcount = 1;
