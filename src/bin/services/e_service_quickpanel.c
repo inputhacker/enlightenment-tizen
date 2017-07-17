@@ -514,22 +514,22 @@ _e_qp_srv_effect_finish_job_start(E_Policy_Quickpanel *qp, Eina_Bool visible)
       case E_POLICY_ANGLE_MAP_90:
          from = qp->effect.x;
          to = (visible) ? (ec->zone->w - from) : (-from);
-         duration = ((double)abs(to) / (ec->zone->w / 2)) * ref;
+         duration = ((double)abs(to) / ((double)ec->zone->w / 2)) * ref;
          break;
       case E_POLICY_ANGLE_MAP_180:
          from = qp->effect.y;
          to = (visible) ? (-from) : (ec->zone->h - from);
-         duration = ((double)abs(to) / (ec->zone->h / 2)) * ref;
+         duration = ((double)abs(to) / ((double)ec->zone->h / 2)) * ref;
          break;
       case E_POLICY_ANGLE_MAP_270:
          from = qp->effect.x;
          to = (visible) ? (-from) : (ec->zone->w - from);
-         duration = ((double)abs(to) / (ec->zone->w / 2)) * ref;
+         duration = ((double)abs(to) / ((double)ec->zone->w / 2)) * ref;
          break;
       default:
          from = qp->effect.y;
          to = (visible) ? (ec->zone->h - from) : (-from);
-         duration = ((double)abs(to) / (ec->zone->h / 2)) * ref;
+         duration = ((double)abs(to) / ((double)ec->zone->h / 2)) * ref;
          break;
      }
 
@@ -1860,6 +1860,8 @@ e_qp_client_add(E_Client *ec)
      }
 
    qp_client = E_NEW(E_QP_Client, 1);
+   EINA_SAFETY_ON_NULL_RETURN(qp_client);
+
    qp_client->ec = ec;
    qp_client->ref = 1;
    qp_client->hint.vis = EINA_TRUE;
