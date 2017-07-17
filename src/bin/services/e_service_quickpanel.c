@@ -1620,6 +1620,9 @@ e_service_quickpanel_client_set(E_Client *ec)
    // set skip iconify
    ec->exp_iconify.skip_iconify = 1;
 
+   // disable effect
+   ec->animatable = 0;
+
    /* add quickpanel to force update list of zone */
    e_zone_orientation_force_update_add(ec->zone, ec);
 
