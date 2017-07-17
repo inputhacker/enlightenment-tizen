@@ -94,6 +94,7 @@ e_comp_cfdata_config_new(void)
    E_Comp_Match *mat;
 
    cfg = E_NEW(E_Comp_Config, 1);
+   if (!cfg) goto error;
    cfg->version = E_COMP_VERSION;
    cfg->shadow_style = eina_stringshare_add("default");
    cfg->effect_file = NULL;
@@ -136,16 +137,19 @@ e_comp_cfdata_config_new(void)
    cfg->match.popups = NULL;
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.popups = eina_list_append(cfg->match.popups, mat);
    mat->name = eina_stringshare_add("shelf");
    mat->shadow_style = eina_stringshare_add("popup");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.popups = eina_list_append(cfg->match.popups, mat);
    mat->name = eina_stringshare_add("_e_popup_desklock");
    mat->shadow_style = eina_stringshare_add("still");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.popups = eina_list_append(cfg->match.popups, mat);
    mat->name = eina_stringshare_add("_e_popup_notification");
    mat->shadow_style = eina_stringshare_add("still");
@@ -153,18 +157,21 @@ e_comp_cfdata_config_new(void)
    mat->focus = 1;
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.popups = eina_list_append(cfg->match.popups, mat);
    mat->name = eina_stringshare_add("E Drag");
    mat->shadow_style = eina_stringshare_add("still");
    mat->no_shadow = 1;
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.popups = eina_list_append(cfg->match.popups, mat);
    mat->shadow_style = eina_stringshare_add("popup");
 
    cfg->match.borders = NULL;
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.borders = eina_list_append(cfg->match.borders, mat);
    mat->fullscreen = 1;
    mat->shadow_style = eina_stringshare_add("fullscreen");
@@ -172,52 +179,62 @@ e_comp_cfdata_config_new(void)
    cfg->match.overrides = NULL;
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->name = eina_stringshare_add("E");
    mat->clas = eina_stringshare_add("everything");
    mat->shadow_style = eina_stringshare_add("everything");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_DROPDOWN_MENU;
    mat->shadow_style = eina_stringshare_add("menu");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_POPUP_MENU;
    mat->shadow_style = eina_stringshare_add("menu");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_COMBO;
    mat->shadow_style = eina_stringshare_add("menu");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_TOOLTIP;
    mat->shadow_style = eina_stringshare_add("menu");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_MENU;
    mat->shadow_style = eina_stringshare_add("menu");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_DND;
    mat->shadow_style = eina_stringshare_add("still");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_DOCK;
    mat->shadow_style = eina_stringshare_add("none");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->shadow_style = eina_stringshare_add("popup");
 
    cfg->match.menus = NULL;
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.menus = eina_list_append(cfg->match.menus, mat);
    mat->shadow_style = eina_stringshare_add("menu");
 
@@ -227,6 +244,12 @@ e_comp_cfdata_config_new(void)
    cfg->input_log_enable = 0;
 
    return cfg;
+
+error:
+   if (cfg)
+     e_comp_cfdata_config_free(cfg);
+
+   return NULL;
 }
 
 E_API void
