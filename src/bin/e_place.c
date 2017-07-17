@@ -122,6 +122,8 @@ e_place_desk_region_smart(E_Desk *desk, Eina_List *skiplist, int x, int y, int w
    a_h = 2;
    a_x = E_NEW(int, 2);
    a_y = E_NEW(int, 2);
+   if (!a_x || !a_y) goto error;
+
    a_alloc_w = 2;
    a_alloc_h = 2;
 
@@ -130,6 +132,7 @@ e_place_desk_region_smart(E_Desk *desk, Eina_List *skiplist, int x, int y, int w
 
    u_x = calloc(zw + 1, sizeof(char));
    u_y = calloc(zh + 1, sizeof(char));
+   if (!u_x || !u_y) goto error;
 
    a_x[0] = 0;
    a_x[1] = zw;
@@ -179,6 +182,7 @@ e_place_desk_region_smart(E_Desk *desk, Eina_List *skiplist, int x, int y, int w
                     {
                        a_alloc_w += 32;
                        E_REALLOC(a_x, int, a_alloc_w);
+                       if (!a_x) goto error;
                     }
                   a_x[a_w - 1] = bx;
                   u_x[bx] = 1;
@@ -190,6 +194,7 @@ e_place_desk_region_smart(E_Desk *desk, Eina_List *skiplist, int x, int y, int w
                     {
                        a_alloc_w += 32;
                        E_REALLOC(a_x, int, a_alloc_w);
+                       if (!a_x) goto error;
                     }
                   a_x[a_w - 1] = bx + bw;
                   u_x[bx + bw] = 1;
@@ -201,6 +206,7 @@ e_place_desk_region_smart(E_Desk *desk, Eina_List *skiplist, int x, int y, int w
                     {
                        a_alloc_h += 32;
                        E_REALLOC(a_y, int, a_alloc_h);
+                       if (!a_y) goto error;
                     }
                   a_y[a_h - 1] = by;
                   u_y[by] = 1;
@@ -212,6 +218,7 @@ e_place_desk_region_smart(E_Desk *desk, Eina_List *skiplist, int x, int y, int w
                     {
                        a_alloc_h += 32;
                        E_REALLOC(a_y, int, a_alloc_h);
+                       if (!a_y) goto error;
                     }
                   a_y[a_h - 1] = by + bh;
                   u_y[by + bh] = 1;
@@ -325,6 +332,14 @@ done:
    *rx += desk->zone->x;
    *ry += desk->zone->y;
    return 1;
+
+error:
+   E_FREE(a_x);
+   E_FREE(a_y);
+   free(u_x);
+   free(u_y);
+
+   return 0;
 }
 
 E_API int
