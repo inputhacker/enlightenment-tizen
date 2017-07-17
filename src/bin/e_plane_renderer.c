@@ -688,6 +688,7 @@ _e_plane_renderer_client_surface_flags_get(E_Plane_Renderer_Client *renderer_cli
 
    buffer = _get_comp_wl_buffer(ec);
    if (!buffer) return 0;
+   if (!buffer->resource) return 0;
 
    switch (buffer->type)
      {
