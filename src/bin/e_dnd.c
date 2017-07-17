@@ -393,6 +393,8 @@ e_dnd_util_text_uri_list_convert(char *data, int size)
 
    if ((!data) || (!size)) return NULL;
    tmp = malloc(size);
+   if (!tmp) return NULL;
+
    is = i = 0;
    while ((is < size) && (data[is]))
      {
@@ -571,6 +573,7 @@ _e_drag_end(int x, int y)
                               /* Isn't nul terminated */
                               size++;
                               data = realloc(data, size);
+                              if (!data) break;
                               data[size - 1] = 0;
                            }
                          _drag_current->data = data;
