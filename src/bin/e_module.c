@@ -480,9 +480,12 @@ init_done:
         E_Config_Module *module;
 
         module = E_NEW(E_Config_Module, 1);
-        module->name = eina_stringshare_add(m->name);
-        module->enabled = 0;
-        e_config->modules = eina_list_append(e_config->modules, module);
+        if (module)
+          {
+             module->name = eina_stringshare_add(m->name);
+             module->enabled = 0;
+             e_config->modules = eina_list_append(e_config->modules, module);
+          }
         e_config_save_queue();
      }
    if (modpath) eina_stringshare_del(modpath);
@@ -538,6 +541,7 @@ e_module_enable(E_Module *m)
                   e_config_save_queue();
 
                   ev = E_NEW(E_Event_Module_Update, 1);
+                  if (!ev) break;
                   ev->name = eina_stringshare_ref(em->name);
                   ev->enabled = 1;
                   ecore_event_add(E_EVENT_MODULE_UPDATE, ev,
@@ -582,6 +586,7 @@ e_module_disable(E_Module *m)
              e_config_save_queue();
 
              ev = E_NEW(E_Event_Module_Update, 1);
+             if (!ev) break;
              ev->name = eina_stringshare_ref(em->name);
              ev->enabled = 0;
              ecore_event_add(E_EVENT_MODULE_UPDATE, ev,
@@ -803,6 +808,7 @@ _e_module_dialog_disable_create(const char *title, const char *body, E_Module *m
 #endif
 
    dd = E_NEW(Disable_Dialog, 1);
+   if (!dd) return;
    dd->title = strdup(title);
    dd->body = strdup(body);
    dd->m = m;
