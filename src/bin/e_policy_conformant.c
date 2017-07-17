@@ -297,6 +297,7 @@ _conf_client_defer_job_create(Defer_Job_Type job_type, Conformant_Type conf_type
    Defer_Job *job;
 
    job = E_NEW(Defer_Job, 1);
+   if (!job) return NULL;
 
    job->type = job_type;
    job->conf_type = conf_type;
@@ -785,6 +786,7 @@ _conf_cb_intercept_hook_hide(void *data EINA_UNUSED, E_Client *ec)
                                        type,
                                        pre_serial + 1,
                                        g_conf->part[type].owner);
+   if (!job) return EINA_TRUE;
 
    g_conf->part[type].defer_jobs = eina_list_append(g_conf->part[type].defer_jobs, job);
    g_conf->part[type].state.will_hide = EINA_TRUE;
