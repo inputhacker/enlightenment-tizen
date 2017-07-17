@@ -740,6 +740,7 @@ _e_plane_pp_layer_commit(E_Plane *plane, tbm_surface_h tsurface)
      }
 
    data = E_NEW(E_Plane_Commit_Data, 1);
+   if (!data) goto fail;
    data->plane = plane;
    data->renderer = NULL;
    data->tsurface = pp_tsurface;
@@ -1426,6 +1427,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
    if (plane->unset_commit)
      {
         data = E_NEW(E_Plane_Commit_Data, 1);
+        if (!data) return NULL;
         data->plane = plane;
         data->renderer = NULL;
         data->tsurface = NULL;
@@ -1445,6 +1447,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
         if (plane->ec)
           {
              data = E_NEW(E_Plane_Commit_Data, 1);
+             if (!data) return NULL;
              data->plane = plane;
              data->renderer = plane->renderer;
              data->tsurface = plane->tsurface;
@@ -1461,6 +1464,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
              if (plane->is_fb)
                {
                   data = E_NEW(E_Plane_Commit_Data, 1);
+                  if (!data) return NULL;
                   data->plane = plane;
                   data->renderer = plane->renderer;
                   data->tsurface = plane->tsurface;
