@@ -124,12 +124,17 @@ _e_policy_check_transient_child_visible(E_Client *ancestor_ec, E_Client *ec)
 
         if (!child_ec->comp_data) continue;
         if (!child_ec->comp_data->mapped) continue;
+        if (child_ec->transient_policy == E_TRANSIENT_BELOW) continue;
 
         if ((child_ec->exp_iconify.skip_iconify == EINA_TRUE) ||
             (child_ec->exp_iconify.skip_by_remote == EINA_TRUE))
           {
              if (child_ec->visibility.obscured == E_VISIBILITY_UNOBSCURED)
                {
+                  ELOGF("Find visible child", "ancestor(win:0x%08x, ec:%p), child(win:0x%08x, ec:%p)",
+                        ec->pixmap, ec,
+                        e_client_util_win_get(ancestor_ec), ancestor_ec,
+                        e_client_util_win_get(child_ec), child_ec);
                   return EINA_TRUE;
                }
              else
@@ -139,6 +144,10 @@ _e_policy_check_transient_child_visible(E_Client *ancestor_ec, E_Client *ec)
                        e_client_geometry_get(child_ec, &child_x, &child_y, &child_w, &child_h);
                        if (E_CONTAINS(child_x, child_y, child_w, child_h, anc_x, anc_y, anc_w, anc_h))
                          {
+                            ELOGF("Find visible child", "ancestor(win:0x%08x, ec:%p), child(win:0x%08x, ec:%p)",
+                                  ec->pixmap, ec,
+                                  e_client_util_win_get(ancestor_ec), ancestor_ec,
+                                  e_client_util_win_get(child_ec), child_ec);
                             return EINA_TRUE;
                          }
                     }
@@ -149,6 +158,10 @@ _e_policy_check_transient_child_visible(E_Client *ancestor_ec, E_Client *ec)
              if ((!child_ec->iconic) ||
                  (child_ec->visibility.obscured == E_VISIBILITY_UNOBSCURED))
                {
+                  ELOGF("Find visible child", "ancestor(win:0x%08x, ec:%p), child(win:0x%08x, ec:%p)",
+                        ec->pixmap, ec,
+                        e_client_util_win_get(ancestor_ec), ancestor_ec,
+                        e_client_util_win_get(child_ec), child_ec);
                   return EINA_TRUE;
                }
           }
@@ -1358,6 +1371,9 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
         E_Client *topmost;
 
         topmost = eina_list_data_get(ec->transients);
+
+        if (topmost->transient_policy == E_TRANSIENT_BELOW)
+          return EINA_TRUE;
 
         /* allow show if topmost child is alpha window or not fully cover region of ec */
         if ((topmost->argb) || !(E_CONTAINS(topmost->x, topmost->y, topmost->w, topmost->h, ec->x, ec->y, ec->w, ec->h)))
