@@ -214,7 +214,6 @@ _mover_smart_add(Evas_Object *obj)
    evas_object_smart_data_set(obj, md);
 
    evas_object_move(obj, -1 , -1);
-   evas_object_layer_set(obj, E_POLICY_QUICKPANEL_LAYER);
    evas_object_intercept_show_callback_add(obj, _mover_intercept_show, md);
 }
 
@@ -353,6 +352,8 @@ _e_qp_srv_mover_new(E_Policy_Quickpanel *qp)
    /* Should setup 'md' before call evas_object_show() */
    md = evas_object_smart_data_get(mover);
    md->ec = qp->ec;
+
+   evas_object_layer_set(md->smart_obj, qp->ec->layer);
 
    e_service_region_rectangle_get(qp->handler_obj, qp->rotation, &x, &y, &w, &h);
    EINA_RECTANGLE_SET(&md->handler_rect, x, y, w, h);
