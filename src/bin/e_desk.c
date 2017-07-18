@@ -173,6 +173,7 @@ e_desk_name_set(E_Desk *desk, const char *name)
    eina_stringshare_replace(&desk->name, name);
 
    ev = E_NEW(E_Event_Desk_Name_Change, 1);
+   if (!ev) return;
    ev->desk = desk;
    e_object_ref(E_OBJECT(desk));
    ecore_event_add(E_EVENT_DESK_NAME_CHANGE, ev,
@@ -187,6 +188,7 @@ e_desk_name_add(int zone, int desk_x, int desk_y, const char *name)
    e_desk_name_del(zone, desk_x, desk_y);
 
    cfname = E_NEW(E_Config_Desktop_Name, 1);
+   if (!cfname) return;
    cfname->zone = zone;
    cfname->desk_x = desk_x;
    cfname->desk_y = desk_y;
@@ -266,6 +268,8 @@ e_desk_show(E_Desk *desk)
    Edje_Message_Float_Set *msg;
    E_Desk *desk2;
    int dx = 0, dy = 0;
+   Ecore_Event *eev_ecore_event;
+   Ecore_Event *ev_ecore_event;
 
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
@@ -274,10 +278,11 @@ e_desk_show(E_Desk *desk)
    desk2 = e_desk_at_xy_get(desk->zone, desk->zone->desk_x_current, desk->zone->desk_y_current);
    if ((!starting) && (!desk2->visible)) return;
    eev = E_NEW(E_Event_Desk_Before_Show, 1);
+   if (!eev) return;
    eev->desk = e_desk_current_get(desk->zone);
    e_object_ref(E_OBJECT(eev->desk));
-   ecore_event_add(E_EVENT_DESK_BEFORE_SHOW, eev,
-                   _e_desk_event_desk_before_show_free, NULL);
+   eev_ecore_event = ecore_event_add(E_EVENT_DESK_BEFORE_SHOW, eev,
+                                     _e_desk_event_desk_before_show_free, NULL);
 
    if (desk2->visible)
      {
@@ -324,16 +329,36 @@ e_desk_show(E_Desk *desk)
 #endif
 
    ev = E_NEW(E_Event_Desk_Show, 1);
+   if (!ev) goto error;
    ev->desk = desk;
    e_object_ref(E_OBJECT(desk));
-   ecore_event_add(E_EVENT_DESK_SHOW, ev, _e_desk_event_desk_show_free, NULL);
+   ev_ecore_event = ecore_event_add(E_EVENT_DESK_SHOW, ev, _e_desk_event_desk_show_free, NULL);
 
    eeev = E_NEW(E_Event_Desk_After_Show, 1);
+   if (!eeev) goto error;
    eeev->desk = e_desk_current_get(desk->zone);
    e_object_ref(E_OBJECT(eeev->desk));
    ecore_event_add(E_EVENT_DESK_AFTER_SHOW, eeev,
                    _e_desk_event_desk_after_show_free, NULL);
    e_zone_edge_flip_eval(desk->zone);
+
+   return;
+
+error:
+   if (ev)
+     {
+        if (ev_ecore_event)
+          ecore_event_del(ev_ecore_event);
+        e_object_unref(E_OBJECT(ev->desk));
+        free(ev);
+     }
+   if (eev)
+     {
+        if (eev_ecore_event)
+          ecore_event_del(eev_ecore_event);
+        e_object_unref(E_OBJECT(eev->desk));
+        free(eev);
+     }
 }
 
 E_API void
@@ -383,6 +408,7 @@ e_desk_deskshow(E_Zone *zone)
      }
    desk->deskshow_toggle = !desk->deskshow_toggle;
    ev = E_NEW(E_Event_Desk_Show, 1);
+   if (!ev) return;
    ev->desk = desk;
    e_object_ref(E_OBJECT(desk));
    ecore_event_add(E_EVENT_DESK_DESKSHOW, ev,
@@ -575,6 +601,7 @@ e_desk_window_profile_set(E_Desk *desk,
    eina_stringshare_replace(&desk->window_profile, profile);
 
    ev = E_NEW(E_Event_Desk_Window_Profile_Change, 1);
+   if (!ev) return;
    ev->desk = desk;
    e_object_ref(E_OBJECT(desk));
    ecore_event_add(E_EVENT_DESK_WINDOW_PROFILE_CHANGE, ev,
@@ -592,6 +619,7 @@ e_desk_window_profile_add(int zone,
    e_desk_window_profile_del(zone, desk_x, desk_y);
 
    cfprof = E_NEW(E_Config_Desktop_Window_Profile, 1);
+   if (!cfprof) return;
    cfprof->zone = zone;
    cfprof->desk_x = desk_x;
    cfprof->desk_y = desk_y;
@@ -678,6 +706,7 @@ e_desk_flip_end(E_Desk *desk)
    E_Client *ec;
 
    ev = E_NEW(E_Event_Desk_After_Show, 1);
+   if (!ev) return;
    ev->desk = desk;
    e_object_ref(E_OBJECT(ev->desk));
    ecore_event_add(E_EVENT_DESK_AFTER_SHOW, ev,
