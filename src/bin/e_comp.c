@@ -1474,6 +1474,21 @@ e_comp_init(void)
         e_main_ts("\tE_Comp_Data New Done");
      }
 
+   /* HWC, in terms of E20's architecture, is a part of E20 responsible for hardware compositing
+    *
+    * - no-optimized HWC takes away, from the evas engine compositor, a part of the composition
+    * work without an assumption was that part worthy(optimally) to be delegated to hardware;
+    * - optimized HWC makes this assumption (delegate it to tdm-backend, to be exact);
+    *
+    * of course if the tdm-backend makes no optimization these HWCs behave equally...
+    *
+    * when we're talking about 'optimized' we mean optimized by power consumption criteria.
+    */
+   if (conf->hwc_optimized)
+     INF("E20's gonna use optimized hwc.");
+   else
+     INF("E20's gonna use no-optimized hwc.");
+
    // comp config versioning - add this in. over time add epochs etc. if
    // necessary, but for now a simple version number will do
    if (conf->version < E_COMP_VERSION)
@@ -1513,6 +1528,7 @@ e_comp_init(void)
    if (conf->hwc_deactive) e_comp->hwc_deactive = EINA_TRUE; // deactive hwc policy
    if (conf->hwc_reuse_cursor_buffer) e_comp->hwc_reuse_cursor_buffer = EINA_TRUE;
    if (conf->hwc_sync_mode_change) e_comp->hwc_sync_mode_change = EINA_TRUE;
+   if (conf->hwc_optimized) e_comp->hwc_optimized = EINA_TRUE;
 #ifdef ENABLE_HWC_MULTI
    if (conf->hwc_use_multi_plane) e_comp->hwc_use_multi_plane = EINA_TRUE;
 #endif
