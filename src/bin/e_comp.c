@@ -1263,7 +1263,7 @@ _e_comp_shapes_update_job(void *d EINA_UNUSED)
    Evas_Object *o = NULL;
    Eina_Rectangle *tr;
    Eina_Iterator *ti;
-   Eina_Rectangle *exr;
+   Eina_Rectangle *exr, *exr_new;
    unsigned int i, tile_count;
 #ifdef SHAPE_DEBUG
    Eina_Rectangle *r;
@@ -1318,8 +1318,9 @@ _e_comp_shapes_update_job(void *d EINA_UNUSED)
         exr[i++] = *(Eina_Rectangle*)((char*)tr);
         if (i == tile_count - 1)
           {
-             exr = realloc(exr, sizeof(Eina_Rectangle) * (tile_count *= 2));
-             EINA_SAFETY_ON_NULL_GOTO(exr, exr_fail);
+             exr_new = realloc(exr, sizeof(Eina_Rectangle) * (tile_count *= 2));
+             EINA_SAFETY_ON_NULL_GOTO(exr_new, exr_fail);
+             exr = exr_new;
           }
 #ifdef SHAPE_DEBUG
         Eina_List *l;
