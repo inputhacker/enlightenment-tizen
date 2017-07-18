@@ -1153,6 +1153,37 @@ _e_desk_hide_begin(E_Desk *desk, int dx, int dy)
 }
 
 static void
+_e_desk_zoom_first_set(E_Desk *desk)
+{
+   E_Client *ec;
+   Eina_List *l;
+
+   E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
+
+   sd->zoom.ratio_x = 1.0;
+   sd->zoom.ratio_y = 1.0;
+   sd->zoom.center_x = 0;
+   sd->zoom.center_y = 0;
+
+   _e_desk_object_zoom(desk->smart_obj, 1.0, 1.0, 0, 0);
+   EINA_LIST_FOREACH(sd->clients, l, ec)
+     _e_desk_client_zoom(ec, 1.0, 1.0, 0, 0);
+
+   if (!sd->zoom.enabled)
+     {
+        sd->zoom.enabled = EINA_TRUE;
+
+        evas_object_map_enable_set(desk->smart_obj, EINA_TRUE);
+        EINA_LIST_FOREACH(sd->clients, l, ec)
+          evas_object_map_enable_set(ec->frame, EINA_TRUE);
+
+        /* FIXME TEMP disable hwc */
+        _e_desk_util_comp_hwc_disable_set(EINA_TRUE);
+     }
+
+}
+
+static void
 _e_desk_smart_init(E_Desk *desk)
 {
    E_Zone *zone;
@@ -1167,7 +1198,8 @@ _e_desk_smart_init(E_Desk *desk)
 
    /* FIXME indicator object won't be work, if remove this code.
     * I have no idea why this code is necessary, so I just let it be. */
-   e_desk_zoom_set(desk, 1.0, 1.0, 0, 0);
+//   e_desk_zoom_set(desk, 1.0, 1.0, 0, 0);
+   _e_desk_zoom_first_set(desk);
 }
 
 static Eina_Bool
