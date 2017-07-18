@@ -201,7 +201,7 @@ _e_output_zoom_scaled_rect_get(int out_w, int out_h, double zoomx, double zoomy,
 }
 
 static Eina_Bool
-_e_output_zoom_touch_set(E_Output *eout, Eina_Bool set)
+_e_output_zoom_touch_transform(E_Output *eout, Eina_Bool set)
 {
    Ecore_Drm_Device *dev = NULL;
    Eina_Bool ret = EINA_FALSE;
@@ -234,6 +234,70 @@ _e_output_zoom_touch_set(E_Output *eout, Eina_Bool set)
 
    if (ret != EINA_TRUE)
      ERR("fail ecore_drm_device_touch_transformation_set");
+
+   return ret;
+}
+
+static Eina_Bool
+_e_output_cb_ecore_event_mouse_up(void *data, int type EINA_UNUSED, void *event EINA_UNUSED)
+{
+   E_Output *eout = NULL;
+
+   if (!data)
+     return ECORE_CALLBACK_PASS_ON;
+
+   eout = data;
+
+   if (eout->zoom_conf.need_touch_set)
+     {
+        if (e_comp_wl->touch.pressed == 0)
+          {
+             _e_output_zoom_touch_transform(eout, EINA_TRUE);
+             eout->zoom_conf.need_touch_set = EINA_FALSE;
+
+             E_FREE_FUNC(eout->touch_up_handler, ecore_event_handler_del);
+          }
+     }
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
+static Eina_Bool
+_e_output_zoom_touch_set(E_Output *eout)
+{
+   Eina_Bool ret = EINA_FALSE;
+
+   if (eout->zoom_conf.need_touch_set) return EINA_TRUE;
+
+   if (e_comp_wl->touch.pressed)
+     {
+        if (eout->touch_up_handler == NULL)
+          eout->touch_up_handler = ecore_event_handler_add(ECORE_EVENT_MOUSE_BUTTON_UP,
+                                                           _e_output_cb_ecore_event_mouse_up, eout);
+
+        eout->zoom_conf.need_touch_set = EINA_TRUE;
+        return EINA_TRUE;
+     }
+   eout->zoom_conf.need_touch_set = EINA_FALSE;
+
+   ret = _e_output_zoom_touch_transform(eout, EINA_TRUE);
+
+   return ret;
+}
+
+static Eina_Bool
+_e_output_zoom_touch_unset(E_Output *eout)
+{
+   Eina_Bool ret = EINA_FALSE;
+
+   if (!eout) return EINA_FALSE;
+
+   eout->zoom_conf.need_touch_set = EINA_FALSE;
+
+   if (eout->touch_up_handler)
+     E_FREE_FUNC(eout->touch_up_handler, ecore_event_handler_del);
+
+   ret = _e_output_zoom_touch_transform(eout, EINA_FALSE);
 
    return ret;
 }
@@ -1388,7 +1452,7 @@ e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy)
         return EINA_FALSE;
      }
 
-   if (!_e_output_zoom_touch_set(eout, EINA_TRUE))
+   if (!_e_output_zoom_touch_set(eout))
      ERR("fail _e_output_zoom_touch_set");
 
    if (!eout->zoom_set) eout->zoom_set = EINA_TRUE;
@@ -1414,8 +1478,8 @@ e_output_zoom_unset(E_Output *eout)
    ep = e_output_fb_target_get(eout);
    EINA_SAFETY_ON_NULL_RETURN(ep);
 
-   if (!_e_output_zoom_touch_set(eout, EINA_FALSE))
-     ERR("fail _e_output_zoom_touch_set");
+   if (!_e_output_zoom_touch_unset(eout))
+     ERR("fail _e_output_zoom_touch_unset");
 
    eout->zoom_conf.zoomx = 0;
    eout->zoom_conf.zoomy = 0;

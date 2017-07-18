@@ -83,7 +83,9 @@ struct _E_Output
       int               init_angle;
       int               current_angle;
       Eina_Rectangle    rect;
+      Eina_Bool         need_touch_set;
    } zoom_conf;
+   Ecore_Event_Handler *touch_up_handler;
 };
 
 enum _E_Output_Hook_Point
