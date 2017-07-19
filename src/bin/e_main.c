@@ -1267,8 +1267,14 @@ static void
 _e_main_create_wm_ready(void)
 {
    FILE *_wmready_checker = NULL;
+   const char *path_wm_ready = "/run/.wm_ready";
 
-   _wmready_checker = fopen("/run/.wm_ready", "wb");
+   if (!e_util_file_realpath_check(path_wm_ready, EINA_TRUE))
+     {
+        WRN("%s is maybe link, so delete it\n", path_wm_ready);
+     }
+
+   _wmready_checker = fopen(path_wm_ready, "wb");
    if (_wmready_checker)
      {
         TS("[WM] WINDOW MANAGER is READY!!!");
@@ -1277,7 +1283,8 @@ _e_main_create_wm_ready(void)
 
         /*TODO: Next lines should be removed. */
         FILE *_tmp_wm_ready_checker;
-        _tmp_wm_ready_checker = fopen("/tmp/.wm_ready", "wb");
+
+        _tmp_wm_ready_checker = fopen(path_wm_ready, "wb");
 
         if (_tmp_wm_ready_checker)
           {

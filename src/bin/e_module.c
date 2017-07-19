@@ -892,8 +892,15 @@ static void
 _e_module_create_wm_start(void)
 {
    FILE *_wm_start_checker = NULL;
+   const char *path_wm_start_run = "/run/wm_start";
+   const char *path_wm_start_tmp = "/tmp/wm_start";
 
-   _wm_start_checker = fopen("/run/wm_start", "wb");
+   if (!e_util_file_realpath_check(path_wm_start_run, EINA_TRUE))
+     {
+        WRN("%s is maybe link, so delete it\n", path_wm_start_run);
+     }
+
+   _wm_start_checker = fopen(path_wm_start_run, "wb");
    if (_wm_start_checker)
      {
         PRCTL("[Winsys] /run/wm_start is created");
@@ -904,7 +911,12 @@ _e_module_create_wm_start(void)
         PRCTL("[Winsys] Failed to create /run/wm_start");
      }
 
-   _wm_start_checker = fopen("/tmp/wm_start", "wb");
+   if (!e_util_file_realpath_check(path_wm_start_tmp, EINA_TRUE))
+     {
+        WRN("%s is maybe link, so delete it\n", path_wm_start_tmp);
+     }
+
+   _wm_start_checker = fopen(path_wm_start_tmp, "wb");
    if (_wm_start_checker)
      {
         PRCTL("[Winsys] /tmp/wm_start is created");
