@@ -145,6 +145,7 @@ struct _E_Comp
    Eina_Bool       hwc_deactive : 1; // deactive hwc policy
    Eina_Bool       hwc_reuse_cursor_buffer;
    Eina_Bool       hwc_sync_mode_change;
+   Eina_Bool       hwc_use_detach;
    Eina_Bool       hwc_use_multi_plane;
    Eina_Bool       hwc_ignore_primary;
 

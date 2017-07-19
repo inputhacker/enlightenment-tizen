@@ -1514,6 +1514,7 @@ e_comp_init(void)
    if (conf->hwc_deactive) e_comp->hwc_deactive = EINA_TRUE; // deactive hwc policy
    if (conf->hwc_reuse_cursor_buffer) e_comp->hwc_reuse_cursor_buffer = EINA_TRUE;
    if (conf->hwc_sync_mode_change) e_comp->hwc_sync_mode_change = EINA_TRUE;
+   if (conf->hwc_use_detach) e_comp->hwc_use_detach = EINA_TRUE;
 #ifdef ENABLE_HWC_MULTI
    if (conf->hwc_use_multi_plane) e_comp->hwc_use_multi_plane = EINA_TRUE;
 #endif

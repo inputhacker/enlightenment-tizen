@@ -37,6 +37,7 @@ struct _E_Comp_Config
    unsigned char hwc_reuse_cursor_buffer; // 0: none, 1: reuse hwc cursor buffer when cursor image is changed
    unsigned char hwc_sync_mode_change; // 0: none, 1: synchronize scanout buffer when hwc mode change in reserved memory plane
    unsigned char hwc_ignore_primary; // 0: none, 1: hwc use plane has lowest zpos and support rgb to default ui layer
+   unsigned char hwc_use_detach; // 0: hwc use dequeue protocol, 1: hwc use detach request when synchronize scanout buffer
    unsigned char smooth_windows;
    unsigned char nofade;
    double        first_draw_delay;
