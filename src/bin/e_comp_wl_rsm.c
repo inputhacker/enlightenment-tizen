@@ -911,7 +911,6 @@ _remote_source_image_data_pixman_format_get_from_tbm_surface(tbm_format format)
       case TBM_FORMAT_XRGB8888: return PIXMAN_x8r8g8b8;
       default:                  return PIXMAN_x8r8g8b8;
      }
-   return PIXMAN_x8r8g8b8;
 }
 
 static pixman_format_code_t
@@ -923,7 +922,6 @@ _remote_source_image_data_pixman_format_get_from_shm_buffer(uint32_t format)
       case WL_SHM_FORMAT_XRGB8888: return PIXMAN_x8r8g8b8;
       default:                     return PIXMAN_x8r8g8b8;
      }
-   return PIXMAN_x8r8g8b8;
 }
 
 static tbm_surface_h
