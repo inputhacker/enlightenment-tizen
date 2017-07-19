@@ -720,8 +720,44 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
         e_comp_wl_surface_commit(remote_surface->bind_ec);
 
         remote_surface->bind_ec = NULL;
+
+        /* try to send latest buffer of the provider to the consumer when unbinding
+         * the remote surface to avoid showing old buffer on consumer's window for a while.
+         */
+        if (remote_surface->provider)
+          {
+             E_Comp_Wl_Buffer *buffer;
+             struct wl_resource *remote_buffer_resource;
+             E_Comp_Wl_Remote_Buffer *remote_buffer;
+
+             RSMINF("Try to send latest buffer of provider:%p(ec:%p)",
+                    NULL, NULL,
+                    "SURFACE", remote_surface,
+                    remote_surface->provider,
+                    remote_surface->provider->common.ec);
+
+             EINA_SAFETY_ON_NULL_GOTO(remote_surface->provider->common.ec, bind_ec_set);
+
+             buffer = e_pixmap_resource_get(remote_surface->provider->common.ec->pixmap);
+             EINA_SAFETY_ON_NULL_GOTO(buffer, bind_ec_set);
+
+             remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(remote_surface->wl_tbm, buffer->resource);
+             EINA_SAFETY_ON_NULL_GOTO(remote_buffer_resource, bind_ec_set);
+
+             remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
+             EINA_SAFETY_ON_NULL_GOTO(remote_buffer, bind_ec_set);
+
+             _remote_surface_changed_buff_protocol_send(remote_surface,
+                                                        TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
+                                                        remote_buffer,
+                                                        _rsm->dummy_fd,
+                                                        0,
+                                                        EINA_TRUE,
+                                                        buffer);
+          }
      }
 
+bind_ec_set:
    if (ec)
      {
         if (e_object_is_del(E_OBJECT(ec)))
