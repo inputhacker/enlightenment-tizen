@@ -452,9 +452,9 @@ _e_tz_screenmirror_position_get(E_Mirror *mirror, E_Comp_Wl_Video_Buf *vbuf, Ein
 }
 
 static void
-_e_tz_screenmirror_dump_still_get_cropinfo(E_Comp_Wl_Video_Buf *tmp, E_Comp_Wl_Video_Buf *dst, tdm_layer *layer,
-                                           int w, int h, Eina_Rectangle *pos, Eina_Rectangle *showing_pos,
-                                           Eina_Rectangle *dst_crop, int rotate)
+_e_tz_screenmirror_dump_get_cropinfo(E_Comp_Wl_Video_Buf *tmp, E_Comp_Wl_Video_Buf *dst, tdm_layer *layer,
+                                     int w, int h, Eina_Rectangle *pos, Eina_Rectangle *showing_pos,
+                                     Eina_Rectangle *dst_crop, int rotate)
 {
    tdm_info_layer info;
    tdm_error err = TDM_ERROR_NONE;
@@ -516,38 +516,21 @@ _e_tz_screenmirror_dump_still_get_cropinfo(E_Comp_Wl_Video_Buf *tmp, E_Comp_Wl_V
         dst_crop->y = pos->y;
         dst_crop->w = pos->w;
         dst_crop->h = pos->h;
-        ERR("_e_tz_screenmirror_dump_still_get_cropinfo: unknown case error");
+        ERR("_e_tz_screenmirror_dump_get_cropinfo: unknown case error");
      }
 }
 
-static void
-_e_tz_screenmirror_dump_still(E_Mirror_Buffer *buffer)
+static Eina_Bool
+_e_tz_screenmirror_video_buffer_convert(E_Mirror *mirror, E_Comp_Wl_Video_Buf *vbuf)
 {
-   E_Mirror *mirror = buffer->mirror;
-   E_Comp_Wl_Video_Buf *ui, *dst;
+   E_Comp_Wl_Video_Buf *ui = NULL;
    tdm_error err = TDM_ERROR_NONE;
    int count;
    int i;
    int rotate = 0;
 
-   if (buffer->vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
-     {
-        if (!_e_tz_screenmirror_tmp_buffer_create(buffer))
-          {
-             ERR("_e_tz_screenmirror_dump_still: tmp buffer create fail");
-             return;
-          }
-
-        dst = buffer->tmp;
-     }
-   else
-     dst = buffer->vbuf;
-   EINA_SAFETY_ON_NULL_RETURN(dst);
-
-   e_comp_wl_video_buffer_clear(dst);
-
    ui = _e_tz_screenmirror_ui_buffer_get(mirror);
-   EINA_SAFETY_ON_NULL_RETURN(ui);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(ui, EINA_FALSE);
 
    if (mirror->rotate_change)
      {
@@ -569,8 +552,8 @@ _e_tz_screenmirror_dump_still(E_Mirror_Buffer *buffer)
      rotate = 270;
 
    err = tdm_output_get_layer_count(mirror->tdm_output, &count);
-   EINA_SAFETY_ON_FALSE_RETURN(err == TDM_ERROR_NONE);
-   EINA_SAFETY_ON_FALSE_RETURN(count >= 0);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(count >= 0, EINA_FALSE);
 
    for (i = 0; i < count; i++)
      {
@@ -578,18 +561,18 @@ _e_tz_screenmirror_dump_still(E_Mirror_Buffer *buffer)
         tdm_layer_capability capability;
         tbm_surface_h surface = NULL;
         E_Comp_Wl_Video_Buf *tmp = NULL;
-        Eina_Rectangle dst_pos = {0, };
         Eina_Rectangle showing_pos = {0, };
+        Eina_Rectangle dst_pos = {0, };
         Eina_Rectangle src_crop = {0, };
         Eina_Rectangle dst_crop = {0, };
 
         layer = tdm_output_get_layer(mirror->tdm_output, i, &err);
-        EINA_SAFETY_ON_FALSE_RETURN(err == TDM_ERROR_NONE);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
 
         if (layer != mirror->tdm_primary_layer)
           {
              err = tdm_layer_get_capabilities(layer, &capability);
-             EINA_SAFETY_ON_FALSE_RETURN(err == TDM_ERROR_NONE);
+             EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
              if (capability & TDM_LAYER_CAPABILITY_VIDEO)
                continue;
 
@@ -612,16 +595,46 @@ _e_tz_screenmirror_dump_still(E_Mirror_Buffer *buffer)
              src_crop.h = showing_pos.h = tmp->height;
           }
 
-        _e_tz_screenmirror_position_get(mirror, buffer->vbuf, &dst_pos);
+        _e_tz_screenmirror_position_get(mirror, vbuf, &dst_pos);
 
-        _e_tz_screenmirror_dump_still_get_cropinfo(tmp, dst, layer, ui->width, ui->height,
-                                                   &dst_pos, &showing_pos, &dst_crop, rotate);
-        e_comp_wl_video_buffer_convert(tmp, dst,
+        _e_tz_screenmirror_dump_get_cropinfo(tmp, vbuf, layer, ui->width, ui->height,
+                                             &dst_pos, &showing_pos, &dst_crop, rotate);
+        e_comp_wl_video_buffer_convert(tmp, vbuf,
                                        src_crop.x, src_crop.y, src_crop.w, src_crop.h,
                                        dst_crop.x, dst_crop.y, dst_crop.w, dst_crop.h,
                                        EINA_TRUE, rotate, 0, 0);
-
      }
+
+   return EINA_TRUE;
+}
+
+static void
+_e_tz_screenmirror_stillshot(E_Mirror_Buffer *buffer)
+{
+   E_Mirror *mirror = buffer->mirror;
+   E_Comp_Wl_Video_Buf *ui, *dst;
+   tdm_error err = TDM_ERROR_NONE;
+   int count;
+   int i;
+   int rotate = 0;
+
+   if (buffer->vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
+     {
+        if (!_e_tz_screenmirror_tmp_buffer_create(buffer))
+          {
+             ERR("_e_tz_screenmirror_stillshot: tmp buffer create fail");
+             return;
+          }
+
+        dst = buffer->tmp;
+     }
+   else
+     dst = buffer->vbuf;
+   EINA_SAFETY_ON_NULL_RETURN(dst);
+
+   e_comp_wl_video_buffer_clear(dst);
+
+   _e_tz_screenmirror_video_buffer_convert(mirror, dst);
 
    if (buffer->vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
      _e_tz_screenmirror_copy_tmp_buffer(buffer);
@@ -1192,7 +1205,7 @@ _e_tz_screenmirror_vblank_handler(tdm_output *output, unsigned int sequence,
    if (!buffer)
      return;
 
-   _e_tz_screenmirror_dump_still(buffer);
+   _e_tz_screenmirror_stillshot(buffer);
    _e_tz_screenmirror_buffer_dequeue(buffer);
 
    /* timer is a substitution for vblank during dpms off. so if timer is running,
@@ -1655,7 +1668,7 @@ _e_screenshooter_cb_shoot(struct wl_client *client,
           }
      }
    else
-     _e_tz_screenmirror_dump_still(buffer);
+     _e_tz_screenmirror_stillshot(buffer);
 
 dump_done:
    _e_tz_screenmirror_buffer_free(buffer);
@@ -1684,6 +1697,74 @@ _e_screenshooter_cb_bind(struct wl_client *client, void *data, uint32_t version,
    screenshot_auto_rotation = EINA_TRUE;
 
    wl_resource_set_implementation(res, &_e_screenshooter_interface, NULL, NULL);
+}
+
+EINTERN Eina_Bool
+e_comp_wl_screenshooter_dump(tbm_surface_h tbm_surface)
+{
+   E_Mirror *mirror = NULL;
+   E_Comp_Wl_Video_Buf *vbuf = NULL;
+   tdm_error err = TDM_ERROR_NONE;
+   int count, i;
+   Eina_Bool ret = EINA_FALSE;
+
+   mirror = E_NEW(E_Mirror, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(mirror, EINA_FALSE);
+
+   mirror->e_output = e_output_find_by_index(0);
+   EINA_SAFETY_ON_NULL_GOTO(mirror->e_output, done);
+
+   mirror->tdm_output = mirror->e_output->toutput;
+   EINA_SAFETY_ON_NULL_GOTO(mirror->tdm_output, done);
+
+   err = tdm_output_get_layer_count(mirror->tdm_output, &count);
+   EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, done);
+   EINA_SAFETY_ON_FALSE_GOTO(count >= 0, done);
+
+   for (i = 0; i < count; i++)
+     {
+        tdm_layer *layer;
+        tdm_layer_capability capability;
+
+        layer = tdm_output_get_layer(mirror->tdm_output, i, &err);
+        EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, done);
+
+        err = tdm_layer_get_capabilities(layer, &capability);
+        EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, done);
+
+        if (capability & TDM_LAYER_CAPABILITY_PRIMARY)
+          {
+             mirror->tdm_primary_layer = layer;
+             break;
+          }
+     }
+   EINA_SAFETY_ON_NULL_GOTO(mirror->tdm_primary_layer, done);
+
+   vbuf = e_comp_wl_video_buffer_create_tbm(tbm_surface);
+   EINA_SAFETY_ON_NULL_GOTO(vbuf, done);
+
+   e_comp_wl_video_buffer_clear(vbuf);
+
+   ret = _e_tz_screenmirror_video_buffer_convert(mirror, vbuf);
+   if (!ret)
+     ERR("_e_tz_screenmirror_video_buffer_convert fail");
+
+done:
+   if (mirror->ui_buffer_list)
+     {
+        Eina_List *l, *ll;
+        E_Comp_Wl_Video_Buf *tmp = NULL;
+
+         EINA_LIST_FOREACH_SAFE(mirror->ui_buffer_list, l, ll, tmp)
+           e_comp_wl_video_buffer_unref(tmp);
+     }
+
+   if (vbuf)
+     e_comp_wl_video_buffer_unref(vbuf);
+
+   E_FREE(mirror);
+
+   return ret;
 }
 
 EINTERN int
