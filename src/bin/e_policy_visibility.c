@@ -1012,7 +1012,7 @@ need_deiconify_render:
 }
 
 static Eina_Bool
-_e_vis_client_uniconify_render(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool raise)
+_e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool raise)
 {
    E_Client *ec;
 
@@ -1283,7 +1283,10 @@ _e_vis_ec_below_uniconify(E_Client *ec)
      {
         EINA_LIST_FREE(below_list, below)
           {
-             if (below->ec == ec->parent)
+             Eina_Bool job_added = EINA_FALSE;
+             E_Client *below_ec = below->ec;
+
+             if (below_ec == ec->parent)
                {
                   /* Check if its parent is waiting for a child's uniconify.
                    * if so cancel the waiting now.
@@ -1296,7 +1299,19 @@ _e_vis_ec_below_uniconify(E_Client *ec)
                     }
                }
 
-             ret |= _e_vis_client_uniconify_render(below, E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY, 0);
+             job_added = _e_vis_client_add_uniconify_render_pending(below, E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY, 0);
+
+             if (!job_added)
+               {
+                  if ((below_ec->iconic) && (!ec->exp_iconify.by_client))
+                    {
+                       // show evas obj if uniconify pending is not necessary
+                       VS_DBG(below_ec, "Show below iconic client in advance");
+                       evas_object_show(below_ec->frame);
+                    }
+               }
+
+             ret |= job_added;
           }
      }
 
@@ -1527,7 +1542,7 @@ e_policy_visibility_client_raise(E_Client *ec)
    if (ec->exp_iconify.by_client)
      return EINA_FALSE;
 
-   ret = _e_vis_client_uniconify_render(vc, E_VIS_JOB_TYPE_UNICONIFY, 1);
+   ret = _e_vis_client_add_uniconify_render_pending(vc, E_VIS_JOB_TYPE_UNICONIFY, 1);
 
    /* uniconify its transients recursively */
    if (e_config->transient.raise)
@@ -1625,9 +1640,9 @@ e_policy_visibility_client_uniconify(E_Client *ec, Eina_Bool raise)
     * suppose that transients will be above on the parent. */
 
    if (raise)
-     ret = _e_vis_client_uniconify_render(vc, E_VIS_JOB_TYPE_UNICONIFY, raise);
+     ret = _e_vis_client_add_uniconify_render_pending(vc, E_VIS_JOB_TYPE_UNICONIFY, raise);
    else
-     ret = _e_vis_client_uniconify_render(vc, E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY, raise);
+     ret = _e_vis_client_add_uniconify_render_pending(vc, E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY, raise);
 
    /* uniconify its transients recursively */
    if (e_config->transient.iconify)
@@ -1654,7 +1669,7 @@ e_policy_visibility_client_activate(E_Client *ec)
 
    VS_DBG(ec, "API ENTRY | ACTIVATE");
 
-   ret = _e_vis_client_uniconify_render(vc, E_VIS_JOB_TYPE_ACTIVATE, 1);
+   ret = _e_vis_client_add_uniconify_render_pending(vc, E_VIS_JOB_TYPE_ACTIVATE, 1);
 
    /* TODO search clients to be foreground
     * suppose that transients will be above on the parent. */
