@@ -1265,10 +1265,11 @@ e_plane_unfetch(E_Plane *plane)
    tbm_surface_h displaying_tsurface = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(plane);
-   EINA_SAFETY_ON_NULL_RETURN(plane->tsurface);
 
    /* do not reset the plane when the plan is trying to unset */
    if (e_plane_is_unset_try(plane)) return;
+
+   EINA_SAFETY_ON_NULL_RETURN(plane->tsurface);
 
    if (plane->is_fb && !plane->ec)
      {
