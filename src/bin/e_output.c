@@ -1107,8 +1107,8 @@ e_output_commit(E_Output *output)
               * 2. if fetching the fb is available, verify the unset commit check.  */
              if (e_plane_is_unset_try(plane))
                {
-                  if (!fb_commit) continue;
-                  if (!e_plane_unset_commit_check(plane)) continue;
+                  if (!e_plane_unset_commit_check(plane, fb_commit))
+                    continue;
                }
 
              /* fetch the surface to the plane */
@@ -1151,8 +1151,8 @@ e_output_commit(E_Output *output)
               * 2. if fetching the fb is available, verify the unset commit check.  */
              if (e_plane_is_unset_try(plane))
                {
-                 if (!fb_commit) continue;
-                 if (!e_plane_unset_commit_check(plane)) continue;
+                 if (!e_plane_unset_commit_check(plane, fb_commit))
+                   continue;
                }
 
              /* fetch the surface to the plane */
