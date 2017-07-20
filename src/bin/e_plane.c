@@ -1690,7 +1690,7 @@ e_plane_unset_try_set(E_Plane *plane, Eina_Bool set)
 }
 
 EINTERN Eina_Bool
-e_plane_unset_commit_check(E_Plane *plane)
+e_plane_unset_commit_check(E_Plane *plane, Eina_Bool fb_commit)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
@@ -1700,10 +1700,13 @@ e_plane_unset_commit_check(E_Plane *plane)
         return EINA_FALSE;
      }
 
-   plane->unset_counter--;
+   if (fb_commit)
+     {
+        plane->unset_counter--;
 
-   if (plane_trace_debug)
-     ELOGF("E_PLANE", "Plane(%p) Check unset_commit. unset_counter(%d)", NULL, NULL, plane, plane->unset_counter);
+        if (plane_trace_debug)
+          ELOGF("E_PLANE", "Plane(%p) Check unset_commit. unset_counter(%d)", NULL, NULL, plane, plane->unset_counter);
+     }
 
    if (plane->unset_counter > 0) return EINA_FALSE;
 
