@@ -1690,6 +1690,9 @@ _e_video_hide(E_Video *video)
         video->current_fb = NULL;
      }
 
+   if (video->old_comp_buffer)
+     video->old_comp_buffer = NULL;
+
    EINA_LIST_FREE(video->committed_list, vbuf)
       e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
 
