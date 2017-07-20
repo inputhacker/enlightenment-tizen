@@ -4947,8 +4947,8 @@ _launch_splash_off(E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash)
    tzlaunch_splash->timeout = NULL;
 
    ELOGF("TZPOL",
-         "Launchscreen hide | pid %d",
-         ec->pixmap, ec, tzlaunch_splash->pid);
+         "Launchscreen hide | pid %d, replaced:%d, tzlaunch_pixmap:%p, ec_pixmap:%p",
+         ec->pixmap, ec, tzlaunch_splash->pid, tzlaunch_splash->replaced, tzlaunch_splash->ep, ec->pixmap);
 
    if (tzlaunch_splash->indicator_obj)
      {
@@ -4983,7 +4983,10 @@ _launch_splash_off(E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash)
         if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
           {
              // if Launchscreen is replaced to cursor, than hide
+             e_comp_object_content_unset(ec->frame);
+             ec->visible = EINA_FALSE;
              evas_object_hide(ec->frame);
+             ec->ignored = EINA_TRUE;
           }
         else if (!tzlaunch_splash->replaced)
           {
