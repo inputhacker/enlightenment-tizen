@@ -612,11 +612,7 @@ static void
 _e_tz_screenmirror_stillshot(E_Mirror_Buffer *buffer)
 {
    E_Mirror *mirror = buffer->mirror;
-   E_Comp_Wl_Video_Buf *ui, *dst;
-   tdm_error err = TDM_ERROR_NONE;
-   int count;
-   int i;
-   int rotate = 0;
+   E_Comp_Wl_Video_Buf *vbuf;
 
    if (buffer->vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
      {
@@ -626,15 +622,15 @@ _e_tz_screenmirror_stillshot(E_Mirror_Buffer *buffer)
              return;
           }
 
-        dst = buffer->tmp;
+        vbuf = buffer->tmp;
      }
    else
-     dst = buffer->vbuf;
-   EINA_SAFETY_ON_NULL_RETURN(dst);
+     vbuf = buffer->vbuf;
+   EINA_SAFETY_ON_NULL_RETURN(vbuf);
 
-   e_comp_wl_video_buffer_clear(dst);
+   e_comp_wl_video_buffer_clear(vbuf);
 
-   _e_tz_screenmirror_video_buffer_convert(mirror, dst);
+   _e_tz_screenmirror_video_buffer_convert(mirror, vbuf);
 
    if (buffer->vbuf->type == E_COMP_WL_VIDEO_BUF_TYPE_SHM)
      _e_tz_screenmirror_copy_tmp_buffer(buffer);

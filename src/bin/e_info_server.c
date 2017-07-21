@@ -3653,7 +3653,6 @@ _e_info_server_cb_screen_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    const char *path = NULL;
-   tbm_error_e tbm_err = TBM_ERROR_NONE;
    tbm_surface_h surface = NULL;
    E_Output *eout = NULL;
    int w = 0, h = 0;
