@@ -1040,8 +1040,12 @@ e_output_commit(E_Output *output)
 
    /* fetch the fb_target at first */
    fb_commit = e_plane_fetch(fb_target);
-   if (fb_commit && (output->dpms == E_OUTPUT_DPMS_OFF))
-     e_plane_unfetch(fb_target);
+   if (fb_commit)
+     {
+        // TODO: to be fixed. check fps of fb_target currently.
+        _e_output_update_fps();
+        if (output->dpms == E_OUTPUT_DPMS_OFF) e_plane_unfetch(fb_target);
+     }
 
    if (output->zoom_set)
      {
@@ -1125,9 +1129,6 @@ e_output_commit(E_Output *output)
 
              if (!e_plane_commit(plane))
                ERR("fail to e_plane_commit");
-
-             // TODO: to be fixed. check fps of fb_target currently.
-             if (fb_commit) _e_output_update_fps();
           }
      }
 
