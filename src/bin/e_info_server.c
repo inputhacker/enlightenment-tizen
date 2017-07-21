@@ -3648,6 +3648,46 @@ _e_info_server_cb_selected_buffer_dump(const Eldbus_Service_Interface *iface EIN
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_screen_dump(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   const char *path = NULL;
+   tbm_error_e tbm_err = TBM_ERROR_NONE;
+   tbm_surface_h surface = NULL;
+   E_Output *eout = NULL;
+   int w = 0, h = 0;
+
+   if (!eldbus_message_arguments_get(msg, "s", &path))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+   eout = e_output_find_by_index(0);
+   e_output_size_get(eout, &w, &h);
+
+   surface = tbm_surface_create(w, h, TBM_FORMAT_ARGB8888);
+   if (!surface)
+     {
+        ERR("Error create tbm_surface.");
+        return reply;
+     }
+
+   if (!e_comp_wl_screenshooter_dump(surface))
+     {
+        ERR("Error dump fail.");
+        tbm_surface_destroy(surface);
+        return reply;
+     }
+
+   tdm_helper_dump_buffer(surface, path);
+
+   tbm_surface_destroy(surface);
+
+   return reply;
+}
+
 static void
 _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp_screen, int gl)
 {
@@ -4767,6 +4807,7 @@ static const Eldbus_Method methods[] = {
    { "transform_message", ELDBUS_ARGS({"siiiiiiii", "transform_message"}), NULL, e_info_server_cb_transform_message, 0},
    { "dump_buffers", ELDBUS_ARGS({"iisd", "start"}), NULL, _e_info_server_cb_buffer_dump, 0 },
    { "dump_selected_buffers", ELDBUS_ARGS({"ss", "dump_selected_buffers"}), NULL, _e_info_server_cb_selected_buffer_dump, 0 },
+   { "dump_screen", ELDBUS_ARGS({"s", "dump_screen"}), NULL, _e_info_server_cb_screen_dump, 0 },
    { "output_mode", ELDBUS_ARGS({SIGNATURE_OUTPUT_MODE_CLIENT, "output mode"}), ELDBUS_ARGS({"a("SIGNATURE_OUTPUT_MODE_SERVER")", "array of ec"}), _e_info_server_cb_output_mode, 0 },
 #ifdef ENABLE_HWC_MULTI
    { "hwc_trace_message", ELDBUS_ARGS({"i", "hwc_trace_message"}), NULL, e_info_server_cb_hwc_trace_message, 0},

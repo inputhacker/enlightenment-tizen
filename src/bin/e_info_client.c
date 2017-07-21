@@ -2447,6 +2447,123 @@ err:
 return;
 }
 
+static Eina_Bool
+_e_info_client_proc_screen_shot_name_check(const char *name, int length)
+{
+   if (length < 5)
+     return EINA_FALSE;
+
+   if (name[length - 1] != 'g' || name[length - 2] != 'n' ||
+       name[length - 3] != 'p' || name[length - 4] != '.')
+     return EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
+static void
+_e_info_client_proc_screen_shot(int argc, char **argv)
+{
+   int i;
+   char *path = NULL;
+   char *name = NULL;
+   char *fname = NULL;
+   int path_len;
+   int name_len;
+   Eina_Bool p = EINA_FALSE;
+   Eina_Bool n = EINA_FALSE;
+
+   for (i = 2; i < argc; i++)
+     {
+        if (eina_streq(argv[i], "-p"))
+          {
+             char *tmp_path;
+
+             if (++i >= argc)
+               {
+                  printf("Error: -p requires argument\n");
+                  goto err;
+               }
+
+             tmp_path = _buffer_shot_directory_check(argv[i]);
+             if (tmp_path == NULL)
+               {
+                  printf("cannot find directory: %s, make directory before dump\n", argv[i]);
+                  goto err;
+               }
+             free(tmp_path);
+
+             path = argv[i];
+             p = EINA_TRUE;
+
+             continue;
+          }
+        if (eina_streq(argv[i], "-n"))
+          {
+             if (++i >= argc)
+               {
+                  printf("Error: -n requires argument\n");
+                  goto err;
+               }
+
+             name = argv[i];
+             n = EINA_TRUE;
+
+             continue;
+          }
+     }
+
+
+   if (!p)
+     {
+        path = (char *)calloc(1, PATH_MAX * sizeof(char));
+        EINA_SAFETY_ON_NULL_RETURN(path);
+        strncpy(path, "/tmp/", PATH_MAX);
+     }
+   if (!n)
+     {
+        name = (char *)calloc(1, PATH_MAX * sizeof(char));
+        EINA_SAFETY_ON_NULL_GOTO(name, err);
+        strncpy(name, "dump_screen.png", PATH_MAX);
+     }
+   path_len = strlen(path);
+   name_len = strlen(name);
+
+   if (n)
+     {
+        if (!_e_info_client_proc_screen_shot_name_check(name, name_len))
+          {
+             printf("Error: support only 'png' file\n       write like -n xxx.png\n");
+             goto err;
+          }
+     }
+
+   if (path_len + name_len >= PATH_MAX)
+     {
+        printf("_e_info_client_proc_screen_shot fail. long name\n");
+        goto err;
+     }
+
+   fname = (char *)calloc(1, PATH_MAX * sizeof(char));
+   EINA_SAFETY_ON_NULL_GOTO(fname, err);
+   if (path[path_len - 1] == '/')
+     snprintf(fname, PATH_MAX, "%s%s", path, name);
+   else
+     snprintf(fname, PATH_MAX, "%s/%s", path, name);
+
+   printf("make dump: %s\n", fname);
+
+   if (!_e_info_client_eldbus_message_with_args("dump_screen", NULL, "s", fname))
+     printf("_e_info_client_proc_screen_shot fail\n");
+
+err:
+   if (!p) free(path);
+   if (!n) free(name);
+   if (fname) free(fname);
+
+   return;
+}
+
+
 static E_Info_Output_Mode *
 _e_output_mode_info_new(uint32_t h, uint32_t hsync_start, uint32_t hsync_end, uint32_t htotal,
                         uint32_t v, uint32_t vsync_start, uint32_t vsync_end, uint32_t vtotal,
@@ -3830,6 +3947,11 @@ static struct
       "dump_selected_buffers", DUMP_BUFFERS_USAGE,
       "Dump Win_ID buffers. Win_ID comed from enlightenment_info -topvwins(default path:/tmp/dump_xxx/)",
       _e_info_client_proc_selected_buffer_shot
+   },
+   {
+      "dump_screen", "enlightenment_info -dump_screen -p /tmp/ -n xxx.png   :make dump /tmp/xxx.png",
+      "Dump current screen (default path:/tmp/dump_screen.png)",
+      _e_info_client_proc_screen_shot
    },
    {
       "output_mode", NULL,
