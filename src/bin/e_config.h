@@ -154,14 +154,22 @@ struct _E_Config
    int cursor_timer_interval; // time value the cursor will be displayed in second (default : 5)
    Eina_List *client_types;
    const char *comp_shadow_file;
-   int                       sleep_for_dri;
-   int                       create_wm_ready;
-   int                       create_wm_start;
+   int                       sleep_for_dri;   // 0: disable the dri device file check
+                                              // 1: wait until the dri device file is created at startup
+   int                       create_wm_ready; // 0: disable the creation of wm_ready file
+                                              // 1: create a wm_ready file to let other daemons know
+                                              // about the completion of server initialization
+   int                       create_wm_start; // 0: disable the creation of wm_start file
+                                              // 1: create a wm_start file to let other daemons know
+                                              // that non-delayed server modules are loaded
+   // property of canvas background object
    struct
    {
-      unsigned char r, g, b, a;
-      int opmode;
+      unsigned char r, g, b, a; // RGBA color components of canvas background object
+      int opmode;               // blending operation for canvas background object
+                                // e.g., EVAS_RENDER_COPY
    } comp_canvas_bg;
+
    int delayed_load_idle_count;
    Eina_Bool use_buffer_flush; // 0: none, 1: let a client flush buffer when it is changed into iconic state to save memory
    Eina_Bool use_desk_smart_obj; // 0: none, 1: make e_desk as a smart object
