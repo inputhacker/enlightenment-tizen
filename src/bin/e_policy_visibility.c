@@ -1303,7 +1303,7 @@ _e_vis_ec_below_uniconify(E_Client *ec)
 
              if (!job_added)
                {
-                  if ((below_ec->iconic) && (!ec->exp_iconify.by_client))
+                  if ((below_ec->iconic) && (!below_ec->exp_iconify.by_client))
                     {
                        // show evas obj if uniconify pending is not necessary
                        VS_DBG(below_ec, "Show below iconic client in advance");
