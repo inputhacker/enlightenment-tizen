@@ -188,7 +188,7 @@ e_info_server_hook_del(E_Info_Server_Hook *iswh)
 E_API void
 e_info_server_hook_call(E_Info_Server_Hook_Point hookpoint)
 {
-   if ((hookpoint < 0) || (hookpoint >= E_INFO_SERVER_HOOK_LAST)) return;
+   if (hookpoint >= E_INFO_SERVER_HOOK_LAST) return;
 
    _e_info_server_hook_call(hookpoint, NULL);
 }
@@ -332,6 +332,8 @@ static Obj_Info *
 _obj_info_get(Evas_Object *po, Evas_Object *o, int depth)
 {
    Obj_Info *info = E_NEW(Obj_Info, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(info, NULL);
+
    info->po = po;
    info->o = o;
    info->depth = depth;
@@ -352,6 +354,7 @@ _compobj_info_get(Evas_Object *po, Evas_Object *o, int depth)
    Evas_Native_Surface *ns;
 
    cobj = E_NEW(E_Info_Comp_Obj, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cobj, NULL);
 
    cobj->obj = (unsigned int)o;
    cobj->depth = depth;
@@ -550,6 +553,7 @@ _e_info_server_cb_compobjs(const Eldbus_Service_Interface *iface EINA_UNUSED, co
    for (o = evas_object_bottom_get(e_comp->evas); o; o = evas_object_above_get(o))
      {
         info = _obj_info_get(NULL, o, 0);
+        if (!info) continue;
         stack = eina_list_append(stack, info);
      }
 
@@ -561,6 +565,7 @@ _e_info_server_cb_compobjs(const Eldbus_Service_Interface *iface EINA_UNUSED, co
 
         /* store data */
         cobj = _compobj_info_get(info->po, info->o, info->depth);
+        if (!cobj) continue;
         queue = eina_list_append(queue, cobj);
 
         /* 3. push : child objects */
