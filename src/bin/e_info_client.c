@@ -680,7 +680,7 @@ _cb_input_device_info_get(const Eldbus_Message *msg)
    const char *name = NULL, *text = NULL;
    Eldbus_Message_Iter *array, *eldbus_msg;
    Eina_Bool res;
-   E_Comp_Wl_Input_Device *dev;
+   E_Comp_Wl_Input_Device *dev = NULL;
 
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
@@ -705,6 +705,8 @@ _cb_input_device_info_get(const Eldbus_Message *msg)
           }
 
         dev = E_NEW(E_Comp_Wl_Input_Device, 1);
+        EINA_SAFETY_ON_NULL_GOTO(dev, finish);
+
         dev->name = strdup(dev_name);
         dev->identifier = strdup(identifier);
         dev->clas = clas;
@@ -890,6 +892,8 @@ _e_info_client_proc_protocol_rule(int argc, char **argv)
    if (new_argc < 2)
      {
         new_s1 = (char *)calloc (1, PATH_MAX);
+        EINA_SAFETY_ON_NULL_RETURN(new_s1);
+
         snprintf(new_s1, PATH_MAX, "%s", "no_data");
         new_argv[1] = new_s1;
         new_argc++;
@@ -897,6 +901,8 @@ _e_info_client_proc_protocol_rule(int argc, char **argv)
    if (new_argc < 3)
      {
         new_s2 = (char *)calloc (1, PATH_MAX);
+        EINA_SAFETY_ON_NULL_GOTO(new_s2, finish);
+
         snprintf(new_s2, PATH_MAX, "%s", "no_data");
         new_argv[2] = new_s2;
         new_argc++;
@@ -904,11 +910,12 @@ _e_info_client_proc_protocol_rule(int argc, char **argv)
    if (new_argc != 3)
      {
         printf("protocol-trace: Usage> enlightenment_info -protocol_rule [add | remove | print | help] [allow/deny/all]\n");
-        return;
+        goto finish;
      }
 
    _e_info_client_eldbus_message_with_args("protocol_rule", _cb_protocol_rule, "sss", new_argv[0], new_argv[1], new_argv[2]);
 
+finish:
    if (new_s1) free(new_s1);
    if (new_s2) free(new_s2);
 }
