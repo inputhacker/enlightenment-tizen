@@ -5034,6 +5034,7 @@ e_info_server_dump_client(E_Client *ec, char *fname)
         tbm_surface_info_s surface_info;
         tbm_surface_h tbm_surface = wayland_tbm_server_get_surface(NULL, buffer->resource);
 
+        EINA_SAFETY_ON_NULL_RETURN(tbm_surface);
         memset(&surface_info, 0, sizeof(tbm_surface_info_s));
         tbm_surface_map(tbm_surface, TBM_SURF_OPTION_READ, &surface_info);
 
@@ -5046,6 +5047,7 @@ e_info_server_dump_client(E_Client *ec, char *fname)
         tbm_surface_info_s surface_info;
         tbm_surface_h tbm_surface = buffer->tbm_surface;
 
+        EINA_SAFETY_ON_NULL_RETURN(tbm_surface);
         memset(&surface_info, 0, sizeof(tbm_surface_info_s));
         tbm_surface_map(tbm_surface, TBM_SURF_OPTION_READ, &surface_info);
 
@@ -5102,6 +5104,7 @@ _e_info_transform_new(E_Client *ec, int id, int enable, int x, int y, int sx, in
    if (!result)
      {
         result = (E_Info_Transform*)malloc(sizeof(E_Info_Transform));
+        EINA_SAFETY_ON_NULL_RETURN_VAL(result, NULL);
         memset(result, 0, sizeof(E_Info_Transform));
         result->id = id;
         result->ec = ec;
