@@ -87,12 +87,14 @@ make %{?_smp_mflags}
 
 %install
 %make_install
+ln -sf %{_bindir}/enlightenment_info %{buildroot}%{_bindir}/winfo
 
 %files
 %manifest %{name}.manifest
 %defattr(-,root,root,-)
 %license COPYING
 %attr(550,root,root) %{_bindir}/enlightenment*
+%attr(550,root,root) %{_bindir}/winfo*
 %{_libdir}/enlightenment/*
 %{_datadir}/enlightenment/*
 %{_sysconfdir}/dbus-1/system.d/org.enlightenment.wm.conf
