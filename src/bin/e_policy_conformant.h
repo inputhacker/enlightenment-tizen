@@ -6,5 +6,5 @@ EINTERN void                e_policy_conformant_shutdown(void);
 
 E_API Eina_Bool             e_policy_conformant_part_add(E_Client *ec);
 E_API Eina_Bool             e_policy_conformant_part_del(E_Client *ec);
-
+E_API Eina_Bool             e_policy_conformant_part_update(E_Client *ec);
 #endif
