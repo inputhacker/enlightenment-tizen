@@ -5509,6 +5509,7 @@ _tzlaunch_img_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_res
 
    tzlaunch_img->pid = pid;
    tzlaunch_img->ec->netwm.pid = pid;
+   tzlaunch_img->ec->use_splash = EINA_TRUE;
 }
 
 static void
@@ -5596,6 +5597,7 @@ _tzlaunch_splash_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_
 
    tzlaunch_splash->pid = pid;
    tzlaunch_splash->ec->netwm.pid = pid;
+   tzlaunch_splash->ec->use_splash = EINA_TRUE;
 }
 
 static const struct tizen_launch_image_interface _tzlaunch_img_iface =
