@@ -1017,6 +1017,38 @@ e_policy_conformant_part_del(E_Client *ec)
    return EINA_TRUE;
 }
 
+E_API Eina_Bool
+e_policy_conformant_part_update(E_Client *ec)
+{
+   Conformant_Type type;
+   E_Client *owner;
+
+   if (!g_conf) return EINA_FALSE;
+   if (!ec) return EINA_FALSE;
+
+   type = _conf_client_type_get(ec);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(type >= CONFORMANT_TYPE_MAX, EINA_FALSE);
+
+   if (g_conf->part[type].state.visible)
+     {
+        owner = _conf_part_owner_find(g_conf->part[type].ec, type);
+        if (!owner)
+          {
+             DBG("NO new owner for the conformant area");
+             return EINA_FALSE;
+          }
+
+        if (owner != g_conf->part[type].owner)
+          {
+             DBG("Update state %s ec(%p). new_owner(win:%x, ec:%p)", _conf_type_to_str(type), ec, e_client_util_win_get(owner), owner);
+             g_conf->part[type].owner = owner;
+             g_conf->part[type].changed = EINA_TRUE;
+          }
+     }
+
+   return EINA_TRUE;
+}
+
 EINTERN void
 e_policy_conformant_client_add(E_Client *ec, struct wl_resource *res)
 {
