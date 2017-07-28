@@ -499,8 +499,8 @@ _e_eom_util_calculate_fullsize(int src_h, int src_v, int dst_size_h, int dst_siz
 {
    double h_ratio, v_ratio;
 
-   h_ratio = src_h / dst_size_h;
-   v_ratio = src_v / dst_size_v;
+   h_ratio = (double)src_h / (double)dst_size_h;
+   v_ratio = (double)src_v / (double)dst_size_v;
 
    if (h_ratio == v_ratio)
      {
@@ -1483,15 +1483,21 @@ _e_eom_cb_tdm_output_status_change(tdm_output *output, tdm_output_change_type ty
 
         eom_output->name = eina_stringshare_add(new_name);
 
+#ifdef ENABLE_HWC_MULTI
+        e_comp_hwc_multi_plane_set(EINA_FALSE);
+#else
         e_comp_override_add();
-
+#endif
         _e_eom_output_connected(eom_output);
      }
    else if (status == TDM_OUTPUT_CONN_STATUS_DISCONNECTED)
      {
         _e_eom_output_disconnected(eom_output);
-
+#ifdef ENABLE_HWC_MULTI
+        e_comp_hwc_multi_plane_set(EINA_TRUE);
+#else
         e_comp_override_del();
+#endif
      }
 }
 
