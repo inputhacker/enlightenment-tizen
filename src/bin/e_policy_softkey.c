@@ -100,6 +100,7 @@ e_policy_softkey_add(E_Zone *zone)
    E_Policy_Softkey *softkey;
 
    softkey = E_NEW(E_Policy_Softkey, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(softkey, NULL);
 
    softkey->zone = zone;
    softkey->home = _e_policy_softkey_icon_add(zone, "home");
