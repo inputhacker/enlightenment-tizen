@@ -1137,12 +1137,13 @@ e_policy_wl_visibility_send(E_Client *ec, int vis)
                  }
 
                ELOGF("TZVIS",
-                     "SEND     |win:0x%08x|res_tzvis:0x%08x|ver:%d|sent_vis:%d",
+                     "SEND     |win:0x%08x|res_tzvis:0x%08x|ver:%d|sent_vis:%d|pid:%d|title:%s, name:%s",
                      ec->pixmap, ec,
                      (unsigned int)win,
                      (unsigned int)res_tzvis,
                      ver,
-                     sent_vis);
+                     sent_vis,
+                     ec->netwm.pid, ec->icccm.title, ec->netwm.name);
                sent = EINA_TRUE;
                if (ec->comp_data->mapped)
                  {
