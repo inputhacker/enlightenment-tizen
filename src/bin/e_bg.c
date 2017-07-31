@@ -222,6 +222,7 @@ e_bg_default_set(const char *file)
      e_config->desktop_default_background = NULL;
 
    ev = E_NEW(E_Event_Bg_Update, 1);
+   if (!ev) return;
    ev->zone = -1;
    ev->desk_x = -1;
    ev->desk_y = -1;
@@ -252,6 +253,7 @@ e_bg_add(int zone, int desk_x, int desk_y, const char *file)
 
    e_bg_del(zone, desk_x, desk_y);
    cfbg = E_NEW(E_Config_Desktop_Background, 1);
+   if (!cfbg) return;
    cfbg->zone = zone;
    cfbg->desk_x = desk_x;
    cfbg->desk_y = desk_y;
@@ -259,6 +261,7 @@ e_bg_add(int zone, int desk_x, int desk_y, const char *file)
    e_config->desktop_backgrounds = eina_list_append(e_config->desktop_backgrounds, cfbg);
 
    ev = E_NEW(E_Event_Bg_Update, 1);
+   if (!ev) return;
    ev->zone = zone;
    ev->desk_x = desk_x;
    ev->desk_y = desk_y;
@@ -285,6 +288,7 @@ e_bg_del(int zone, int desk_x, int desk_y)
      }
 
    ev = E_NEW(E_Event_Bg_Update, 1);
+   if (!ev) return;
    ev->zone = zone;
    ev->desk_x = desk_x;
    ev->desk_y = desk_y;
