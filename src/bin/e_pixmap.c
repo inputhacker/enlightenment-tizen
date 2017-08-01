@@ -239,6 +239,9 @@ _e_pixmap_tzsurf_shm_cb_flusher_get(struct wl_client *client, struct wl_resource
         return;
      }
 
+   if (ec->pixmap->shm_flusher)
+      wl_resource_set_user_data(ec->pixmap->shm_flusher, NULL);
+
    wl_resource_set_implementation(res, &_tzsurf_shm_flusher_iface, ec->pixmap,
                                   _e_pixmap_tzsurf_shm_flusher_cb_res_destroy);
 
