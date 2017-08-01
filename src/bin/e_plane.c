@@ -1376,6 +1376,35 @@ _e_plane_fb_target_change_check(E_Plane *plane)
 }
 
 EINTERN Eina_Bool
+e_plane_offscreen_commit(E_Plane *plane)
+{
+   E_Plane_Commit_Data *data = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   if (plane->unset_commit) return EINA_TRUE;
+
+   data = e_plane_commit_data_aquire(plane);
+
+   if (!data) return EINA_TRUE;
+
+   _e_plane_fb_target_change_check(plane);
+
+   if (plane_trace_debug)
+     ELOGF("E_PLANE", "Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p) Offscreen",
+           NULL, NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
+           data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
+
+   e_plane_commit_data_release(data);
+
+   /* send frame event enlightenment doesn't send frame event in nocomp */
+   if (plane->ec)
+     e_pixmap_image_clear(plane->ec->pixmap, 1);
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
 e_plane_commit(E_Plane *plane)
 {
    E_Plane_Commit_Data *data = NULL;
