@@ -4100,6 +4100,7 @@ e_comp_object_shape_apply(Evas_Object *obj)
         unsigned char *spix, *sp;
 
         spix = calloc(w * h, sizeof(unsigned char));
+        if (!spix) return;
         for (i = 0; i < cw->ec->shape_rects_num; i++)
           {
              int rx, ry, rw, rh;
