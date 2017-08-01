@@ -830,6 +830,7 @@ e_comp_screen_e_screens_setup(E_Comp_Screen *e_comp_screen, int rw, int rh)
    EINA_LIST_FOREACH(outputs, l, output)
      {
         screen = E_NEW(E_Screen, 1);
+        if (!screen) continue;
         screen->escreen = screen->screen = i;
         screen->x = output->config.geom.x;
         screen->y = output->config.geom.y;
@@ -865,6 +866,7 @@ e_comp_screen_e_screens_setup(E_Comp_Screen *e_comp_screen, int rw, int rh)
      {
 out:
         screen = E_NEW(E_Screen, 1);
+        if (!screen) return;
         screen->escreen = screen->screen = 0;
         screen->x = 0;
         screen->y = 0;
