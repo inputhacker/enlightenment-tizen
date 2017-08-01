@@ -5969,9 +5969,9 @@ _e_comp_wl_buffer_coord_get(int width, int height, int transform, int scale)
 
    if (transform & 0x4)
      {
-        e_util_transform_matrix_translate(&m, -(width / 2), 0, 0);
+        e_util_transform_matrix_translate(&m, -((double)width / 2), 0, 0);
         e_util_transform_matrix_flip_x(&m);
-        e_util_transform_matrix_translate(&m, width / 2, 0, 0);
+        e_util_transform_matrix_translate(&m, (double)width / 2, 0, 0);
      }
 
    switch (transform & 0x3)
