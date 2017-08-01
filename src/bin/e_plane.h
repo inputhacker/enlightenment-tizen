@@ -156,6 +156,7 @@ EINTERN void                 e_plane_reserved_set(E_Plane *plane, Eina_Bool set)
 EINTERN void                 e_plane_hwc_trace_debug(Eina_Bool onoff);
 EINTERN Eina_Bool            e_plane_render(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_commit(E_Plane *plane);
+EINTERN Eina_Bool            e_plane_offscreen_commit(E_Plane *plane);
 EINTERN void                 e_plane_show_state(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_is_unset_candidate(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_is_unset_try(E_Plane *plane);
