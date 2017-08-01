@@ -1040,12 +1040,8 @@ e_output_commit(E_Output *output)
 
    /* fetch the fb_target at first */
    fb_commit = e_plane_fetch(fb_target);
-   if (fb_commit)
-     {
-        // TODO: to be fixed. check fps of fb_target currently.
-        _e_output_update_fps();
-        if (output->dpms == E_OUTPUT_DPMS_OFF) e_plane_unfetch(fb_target);
-     }
+   // TODO: to be fixed. check fps of fb_target currently.
+   if (fb_commit) _e_output_update_fps();
 
    if (output->zoom_set)
      {
@@ -1076,8 +1072,16 @@ e_output_commit(E_Output *output)
              if (e_plane_is_unset_try(plane))
                e_plane_unset_try_set(plane, EINA_FALSE);
 
-             if (!e_plane_commit(plane))
-               ERR("fail to e_plane_commit");
+             if (output->dpms == E_OUTPUT_DPMS_OFF)
+               {
+                  if (!e_plane_offscreen_commit(plane))
+                    ERR("fail to e_plane_offscreen_commit");
+               }
+             else
+               {
+                  if (!e_plane_commit(plane))
+                    ERR("fail to e_plane_commit");
+               }
           }
 
         /* zoom commit only primary */
@@ -1086,8 +1090,16 @@ e_output_commit(E_Output *output)
         _e_output_zoom_rotating_check(output);
 
         /* zoom commit */
-        if (!e_plane_pp_commit(fb_target))
-          ERR("fail to e_plane_pp_commit");
+        if (output->dpms == E_OUTPUT_DPMS_OFF)
+          {
+             if (!e_plane_offscreen_commit(fb_target))
+               ERR("fail to e_plane_offscreen_commit");
+          }
+        else
+          {
+             if (!e_plane_pp_commit(fb_target))
+               ERR("fail to e_plane_pp_commit");
+          }
      }
    else
      {
@@ -1114,21 +1126,24 @@ e_output_commit(E_Output *output)
              /* fetch the surface to the plane */
              if (!e_plane_fetch(plane)) continue;
 
-             if (output->dpms == E_OUTPUT_DPMS_OFF)
-               e_plane_unfetch(plane);
-
              if (e_plane_is_unset_try(plane))
                e_plane_unset_try_set(plane, EINA_FALSE);
           }
-
-        if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
 
         EINA_LIST_FOREACH(output->planes, l, plane)
           {
              if (e_plane_is_unset_try(plane)) continue;
 
-             if (!e_plane_commit(plane))
-               ERR("fail to e_plane_commit");
+             if (output->dpms == E_OUTPUT_DPMS_OFF)
+               {
+                  if (!e_plane_offscreen_commit(plane))
+                    ERR("fail to e_plane_offscreen_commit");
+               }
+             else
+               {
+                  if (!e_plane_commit(plane))
+                    ERR("fail to e_plane_commit");
+               }
           }
      }
 
