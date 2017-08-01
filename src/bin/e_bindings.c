@@ -209,6 +209,7 @@ e_bindings_mouse_add(E_Binding_Context ctxt, int button, E_Binding_Modifier mod,
    E_Binding_Mouse *binding;
 
    binding = calloc(1, sizeof(E_Binding_Mouse));
+   if (!binding) return;
    binding->ctxt = ctxt;
    binding->button = button;
    binding->mod = mod;
@@ -348,6 +349,7 @@ e_bindings_key_add(E_Binding_Context ctxt, const char *key, E_Binding_Modifier m
    E_Binding_Key *binding;
 
    binding = calloc(1, sizeof(E_Binding_Key));
+   if (!binding) return;
    binding->ctxt = ctxt;
    binding->key = eina_stringshare_add(key);
    binding->mod = mod;
@@ -562,6 +564,7 @@ e_bindings_edge_add(E_Binding_Context ctxt, E_Zone_Edge edge, Eina_Bool drag_onl
    E_Binding_Edge *binding;
 
    binding = calloc(1, sizeof(E_Binding_Edge));
+   if (!binding) return;
    binding->ctxt = ctxt;
    binding->edge = edge;
    binding->mod = mod;
@@ -692,6 +695,12 @@ e_bindings_edge_in_event_handle(E_Binding_Context ctxt, E_Object *obj, E_Event_Z
                     {
                        E_Binding_Edge_Data *ed = E_NEW(E_Binding_Edge_Data, 1);
                        E_Event_Zone_Edge *ev2 = E_NEW(E_Event_Zone_Edge, 1);
+                       if (!ed || !ev2)
+                         {
+                            E_FREE(ed);
+                            E_FREE(ev2);
+                            continue;
+                         }
 
                        /* The original event will be freed before it can be
                         * used again */
@@ -825,6 +834,7 @@ e_bindings_signal_add(E_Binding_Context ctxt, const char *sig, const char *src, 
    E_Binding_Signal *binding;
 
    binding = calloc(1, sizeof(E_Binding_Signal));
+   if (!binding) return;
    binding->ctxt = ctxt;
    if (sig) binding->sig = eina_stringshare_add(sig);
    if (src) binding->src = eina_stringshare_add(src);
@@ -919,6 +929,7 @@ e_bindings_wheel_add(E_Binding_Context ctxt, int direction, int z, E_Binding_Mod
    E_Binding_Wheel *binding;
 
    binding = calloc(1, sizeof(E_Binding_Wheel));
+   if (!binding) return;
    binding->ctxt = ctxt;
    binding->direction = direction;
    binding->z = z;
