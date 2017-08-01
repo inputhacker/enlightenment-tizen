@@ -262,14 +262,14 @@ e_desk_name_update(void)
 E_API void
 e_desk_show(E_Desk *desk)
 {
-   E_Event_Desk_Show *ev;
-   E_Event_Desk_Before_Show *eev;
-   E_Event_Desk_After_Show *eeev;
-   Edje_Message_Float_Set *msg;
-   E_Desk *desk2;
+   E_Event_Desk_Show *ev = NULL;
+   E_Event_Desk_Before_Show *eev = NULL;
+   E_Event_Desk_After_Show *eeev = NULL;
+   Edje_Message_Float_Set *msg = NULL;
+   E_Desk *desk2 = NULL;
    int dx = 0, dy = 0;
-   Ecore_Event *eev_ecore_event;
-   Ecore_Event *ev_ecore_event;
+   Ecore_Event *eev_ecore_event = NULL;
+   Ecore_Event *ev_ecore_event = NULL;
 
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
