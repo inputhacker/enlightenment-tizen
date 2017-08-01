@@ -1105,6 +1105,8 @@ e_plane_setup(E_Plane *plane)
    if (!plane->is_fb) return EINA_FALSE;
 
    name = ecore_evas_engine_name_get(e_comp->ee);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(name, EINA_FALSE);
+
    if (!strcmp("gl_drm", name))
      {
         Evas_Engine_Info_GL_Drm *einfo = NULL;
