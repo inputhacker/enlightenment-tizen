@@ -384,10 +384,12 @@ static void
 _e_comp_screen_deinit_outputs(E_Comp_Screen *e_comp_screen)
 {
    E_Output *output;
+   Eina_List *l, *ll;
 
    // free up e_outputs
-   EINA_LIST_FREE(e_comp_screen->outputs, output)
+   EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l, ll, output)
      {
+        e_comp_screen->outputs = eina_list_remove_list(e_comp_screen->outputs, l);
         e_output_del(output);
      }
 
