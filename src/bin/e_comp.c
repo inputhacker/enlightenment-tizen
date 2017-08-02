@@ -530,6 +530,7 @@ _hwc_reserved_clean()
         E_Output * eout;
         if (!zone->output_id) continue;
         eout = e_output_find(zone->output_id);
+        if (!eout) continue;;
         EINA_LIST_FOREACH(eout->planes, ll, ep)
           {
              if (!e_comp->hwc_use_multi_plane &&
@@ -648,6 +649,7 @@ _e_comp_hwc_changed(void)
         if (!zone || !zone->output_id) continue;
 
         eout = e_output_find(zone->output_id);
+        if (!eout) continue;
         ep_l = e_output_planes_get(eout);
         EINA_LIST_REVERSE_FOREACH(ep_l, p_l, ep)
           {
@@ -800,6 +802,7 @@ _e_comp_hwc_usable(void)
         if (!zone || !zone->output_id) continue;
 
         eout = e_output_find(zone->output_id);
+        if (!eout) continue;
         ep_l = e_output_planes_get(eout);
 
         if ((eout->cursor_available.max_w == -1) ||
@@ -2006,6 +2009,7 @@ e_comp_is_on_overlay(E_Client *ec)
 
         if (!ec->zone || !ec->zone->output_id) return EINA_FALSE;
         eout = e_output_find(ec->zone->output_id);
+        if (!eout) return EINA_FALSE;
         EINA_LIST_FOREACH_SAFE(eout->planes, l, ll, ep)
           {
              E_Client *overlay_ec = ep->ec;
