@@ -32,6 +32,10 @@
 #define EOM_DELAY_CHECK_TIMEOUT 4.0
 #define EOM_ROTATE_DELAY_TIMEOUT 0.4
 
+#ifndef CLEAR
+#define CLEAR(x) memset(&(x), 0, sizeof (x))
+#endif
+
 typedef struct _E_Eom E_Eom, *E_EomPtr;
 typedef struct _E_Eom_Out_Mode E_EomOutMode, *E_EomOutModePtr;
 typedef struct _E_Eom_Output E_EomOutput, *E_EomOutputPtr;
@@ -40,6 +44,7 @@ typedef struct _E_Eom_Comp_Object_Intercept_Hook_Data E_EomCompObjectInterceptHo
 typedef struct _E_Eom_Output_Buffer E_EomOutputBuffer, *E_EomOutputBufferPtr;
 typedef struct _E_Eom_Buffer E_EomBuffer, *E_EomBufferPtr;
 typedef struct _E_Eom_Output_Pp E_EomOutputPp, *E_EomOutputPpPtr;
+typedef struct _E_Eom_Pp_Data E_EomPpData, *E_EomPpDataPtr;
 typedef void(*E_EomEndShowingEventPtr)(E_EomOutputPtr eom_output, tbm_surface_h srfc, void * user_data);
 
 typedef enum
@@ -103,6 +108,8 @@ struct _E_Eom_Output
 
    tdm_output *output;
    tdm_layer *primary_layer;
+   tdm_layer *overlay_layer;
+   Eina_Bool need_overlay_pp;
 
    E_EomOutputState state;
    tdm_output_conn_status status;
@@ -110,26 +117,29 @@ struct _E_Eom_Output
    eom_output_attribute_state_e attribute_state;
    enum wl_eom_status connection;
 
+   /* pp primary (mirror mode data) */
    E_EomOutputPpPtr pp_primary;
-   Eina_Bool pp_converting;
-   Eina_Bool pp_deinit;
-
-   /* output buffers*/
+   Eina_Bool pp_primary_converting;
+   Eina_Bool pp_primary_deinit;
    Eina_List *pending_buff;       /* can be deleted any time */
    E_EomOutputBufferPtr wait_buff; /* wait end of commit, can't be deleted */
    E_EomOutputBufferPtr show_buff; /* current showed buffer, can be deleted only after commit event with different buff */
+   Eina_List *pending_pp_data;
+
+   /* pp overlay (presentation mode subsurface data) */
+   E_EomOutputPpPtr pp_overlay;
+   Eina_Bool pp_overlay_converting;
+   Eina_Bool pp_overlay_deinit;
+   Eina_List *pending_overlay_buff;       /* can be deleted any time */
+   E_EomOutputBufferPtr wait_overlay_buff; /* wait end of commit, can't be deleted */
+   E_EomOutputBufferPtr show_overlay_buff; /* current showed buffer, can be deleted only after commit event with different buff */
+   Eina_List *pending_pp_overlay;
 
    /* If attribute has been set while external output is disconnected
     * then show black screen and wait until EOM client start sending
     * buffers. After expiring of the delay start mirroring */
    Ecore_Timer *delay;
    Ecore_Timer *watchdog;
-};
-
-struct _E_Eom_Output_Pp
-{
-   tdm_pp *pp;
-   tbm_surface_queue_h queue;
 };
 
 struct _E_Eom_Client
@@ -149,6 +159,7 @@ struct _E_Eom_Output_Buffer
    tbm_surface_h tbm_surface;
    E_EomEndShowingEventPtr cb_func;
    void *cb_user_data;
+   Eina_Bool primary;
 };
 
 struct _E_Eom_Buffer
@@ -158,6 +169,20 @@ struct _E_Eom_Buffer
 
    /* double reference to avoid sigterm crash */
    E_Comp_Wl_Buffer_Ref comp_wl_buffer_ref_2;
+};
+
+struct _E_Eom_Output_Pp
+{
+   tdm_pp *pp;
+   tbm_surface_queue_h queue;
+   tdm_info_pp pp_info;
+};
+
+struct _E_Eom_Pp_Data
+{
+   E_EomOutputPtr eom_output;
+   E_EomBufferPtr eom_buffer;
+   tbm_surface_h tsurface;
 };
 
 struct _E_Eom_Comp_Object_Intercept_Hook_Data
@@ -201,6 +226,7 @@ static Eina_Bool eom_trace_debug = 0;
 
 static void _e_eom_cb_dequeuable(tbm_surface_queue_h queue, void *user_data);
 static void _e_eom_cb_pp(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurface_dst, void *user_data);
+static void _e_eom_presentation_pp_run(E_EomOutputPtr eom_output, tbm_surface_h src_surface, E_EomBufferPtr eom_buff, Eina_Bool primary);
 static E_EomOutputPtr _e_eom_output_get_by_id(int id);
 
 static E_EomOutputBufferPtr
@@ -257,7 +283,7 @@ _e_eom_buffer_create(E_Comp_Wl_Buffer *wl_buffer)
 }
 
 static void
-_e_eom_buffer_destroy(E_EomBuffer * eom_buffer)
+_e_eom_buffer_destroy(E_EomBuffer *eom_buffer)
 {
    EINA_SAFETY_ON_NULL_RETURN(eom_buffer);
 
@@ -357,6 +383,97 @@ _e_eom_output_state_set_status(E_EomOutputPtr output, tdm_output_conn_status sta
    if (output == NULL)
      return;
    output->status = status;
+}
+
+static Eina_Bool
+_e_eom_output_video_layer_find(E_EomOutputPtr eom_output, tbm_format format)
+{
+   tdm_layer *layer = NULL;
+   tdm_layer *tmp_overlay_layer = NULL;
+   tdm_error err = TDM_ERROR_NONE;
+   tdm_layer_capability capa;
+   int i, count, format_count;
+   int primary_index = 0;
+   const tbm_format *formats;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(eom_output, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(eom_output->output, EINA_FALSE);
+
+   if (eom_output->overlay_layer)
+     {
+       if (eom_output->need_overlay_pp)
+         return EINA_FALSE;
+       else
+         return EINA_TRUE;
+     }
+
+   err = tdm_output_get_layer_count(eom_output->output, &count);
+   if (err != TDM_ERROR_NONE)
+     {
+        EOMER("tdm_output_get_layer_count fail(%d)", err);
+        return EINA_FALSE;
+     }
+
+   for (i = 0; i < count; i++)
+     {
+        layer = (tdm_layer *)tdm_output_get_layer(eom_output->output, i, &err);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
+
+        err = tdm_layer_get_capabilities(layer, &capa);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
+
+        if (capa & TDM_LAYER_CAPABILITY_PRIMARY)
+          {
+             primary_index = i + 1;
+             continue;
+          }
+
+        if (primary_index == i)
+          tmp_overlay_layer = layer;
+
+        if (capa & TDM_LAYER_CAPABILITY_VIDEO)
+          {
+             eom_output->overlay_layer = layer;
+             break;
+          }
+     }
+
+   if (eom_output->overlay_layer)
+     return EINA_TRUE;
+
+   for (i = 0; i < count; i++)
+     {
+        layer = (tdm_layer *)tdm_output_get_layer(eom_output->output, i, &err);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
+
+        err = tdm_layer_get_capabilities(layer, &capa);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
+
+        if ((capa & TDM_LAYER_CAPABILITY_PRIMARY) || (capa & TDM_LAYER_CAPABILITY_CURSOR))
+          continue;
+
+        if (capa & TDM_LAYER_CAPABILITY_SCALE)
+          {
+             format_count = 0;
+             err = tdm_layer_get_available_formats(layer, &formats, &format_count);
+             EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
+
+             for (i = 0; i < count; i++)
+               {
+                  if (formats[i] == format)
+                    {
+                       eom_output->overlay_layer = layer;
+                       break;
+                    }
+               }
+          }
+     }
+   if (eom_output->overlay_layer)
+     return EINA_TRUE;
+
+   eom_output->overlay_layer = tmp_overlay_layer;
+
+   return EINA_FALSE;
 }
 
 static Eina_Bool
@@ -486,65 +603,85 @@ _e_eom_util_get_output_surface(const char *name)
 }
 
 static Eina_Bool
-_e_eom_pp_init(E_EomOutputPtr eom_output)
+_e_eom_pp_init(E_EomOutputPtr eom_output, Eina_Bool primary)
 {
    tdm_error err = TDM_ERROR_NONE;
-   E_EomOutputPpPtr ppdata = NULL;
+   E_EomOutputPpPtr eom_pp = NULL;
    tdm_pp *pp = NULL;
    tbm_surface_queue_h queue = NULL;
 
-   if (eom_output->pp_primary == NULL)
+   if (primary)
      {
-        ppdata = E_NEW(E_EomOutputPp, 1);
-        if (!ppdata)
-          return EINA_FALSE;
-
-        pp = tdm_display_create_pp(g_eom->dpy, &err);
-        EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, err);
-        /* TODO: Add support for other formats */
-        queue = tbm_surface_queue_create(3, eom_output->width,eom_output->height,
-                                         TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
-        EINA_SAFETY_ON_NULL_GOTO(queue, err);
-
-        ppdata->pp = pp;
-        ppdata->queue = queue;
-
-        eom_output->pp_primary = ppdata;
+        if (eom_output->pp_primary != NULL)
+          return EINA_TRUE;
      }
+   else
+     {
+        if (eom_output->pp_overlay != NULL)
+          return EINA_TRUE;
+     }
+
+   eom_pp = E_NEW(E_EomOutputPp, 1);
+   if (!eom_pp)
+     return EINA_FALSE;
+
+   pp = tdm_display_create_pp(g_eom->dpy, &err);
+   EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, error);
+   /* TODO: Add support for other formats */
+   queue = tbm_surface_queue_create(3, eom_output->width,eom_output->height,
+                                    TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
+   EINA_SAFETY_ON_NULL_GOTO(queue, error);
+
+   eom_pp->pp = pp;
+   eom_pp->queue = queue;
+
+   if (primary)
+     eom_output->pp_primary = eom_pp;
+   else
+     eom_output->pp_overlay = eom_pp;
 
    return EINA_TRUE;
 
-err:
+error:
    if (pp)
      tdm_pp_destroy(pp);
 
-   if (ppdata)
-     E_FREE(ppdata);
+   if (eom_pp)
+     E_FREE(eom_pp);
 
    return EINA_FALSE;
 }
 
 static void
-_e_eom_pp_deinit(E_EomOutputPtr eom_output)
+_e_eom_pp_deinit(E_EomOutputPtr eom_output, Eina_Bool primary)
 {
-   if (eom_output->pp_primary->queue)
+   E_EomOutputPpPtr eom_pp = NULL;
+
+   if (primary)
+      eom_pp = eom_output->pp_primary;
+   else
+      eom_pp = eom_output->pp_overlay;
+
+   if (!eom_pp)
+     return;
+
+   if (eom_pp->queue)
      {
         if (eom_trace_debug)
           EOMDB("flush and destroy queue");
-        tbm_surface_queue_flush(eom_output->pp_primary->queue);
-        tbm_surface_queue_destroy(eom_output->pp_primary->queue);
-        eom_output->pp_primary->queue = NULL;
+        tbm_surface_queue_flush(eom_pp->queue);
+        tbm_surface_queue_destroy(eom_pp->queue);
      }
 
-   if (eom_output->pp_primary->pp)
-     {
-        tdm_pp_destroy(eom_output->pp_primary->pp);
-        eom_output->pp_primary->pp = NULL;
-     }
+   if (eom_pp->pp)
+     tdm_pp_destroy(eom_pp->pp);
 
-   if (eom_output->pp_primary)
-     E_FREE(eom_output->pp_primary);
-   eom_output->pp_primary = NULL;
+   E_FREE(eom_pp);
+
+   if (primary)
+     eom_output->pp_primary = NULL;
+   else
+     eom_output->pp_overlay = NULL;
 }
 
 static Eina_Bool
@@ -592,15 +729,32 @@ _e_eom_util_calculate_fullsize(int src_h, int src_v, int dst_size_h, int dst_siz
 }
 
 static void
-_e_eom_tbm_buffer_release_mirror_mod(E_EomOutputPtr eom_output, tbm_surface_h surface, void * unused)
+_e_eom_tbm_buffer_release_pp_primary(E_EomOutputPtr eom_output, tbm_surface_h surface, void *eom_buff)
 {
    if (eom_trace_debug)
-     EOMDB("release eom_output:%p, tbm_surface_h:%p data:%p", eom_output, surface, unused);
+     EOMDB("release pp_primary eom_output:%p, tbm_surface_h:%p data:%p", eom_output, surface, eom_buff);
 
    if (!eom_output->pp_primary || !eom_output->pp_primary->queue)
      return;
 
    tbm_surface_queue_release(eom_output->pp_primary->queue, surface);
+
+   if (eom_buff)
+     _e_eom_buffer_destroy(eom_buff);
+}
+
+static void
+_e_eom_tbm_buffer_release_pp_overlay(E_EomOutputPtr eom_output, tbm_surface_h surface, void *eom_buff)
+{
+   if (eom_trace_debug)
+     EOMDB("release pp_overlay eom_output:%p, tbm_surface_h:%p data:%p", eom_output, surface, eom_buff);
+
+   if (!eom_output->pp_overlay || !eom_output->pp_overlay->queue)
+     return;
+
+   tbm_surface_queue_release(eom_output->pp_overlay->queue, surface);
+
+   _e_eom_buffer_destroy(eom_buff);
 }
 
 static void
@@ -611,6 +765,15 @@ _e_eom_cb_layer_commit(tdm_layer *layer EINA_UNUSED, unsigned int sequence EINA_
    E_EomOutputBufferPtr outbuff = NULL;
    E_EomOutputPtr eom_output = NULL;
    tdm_error err = TDM_ERROR_NONE;
+   E_EomOutputBufferPtr wait_buff;
+   E_EomOutputBufferPtr show_buff;
+   Eina_List *pending_buff;
+   Eina_List *pending_pp_list;
+   E_EomPpDataPtr pending_pp = NULL;
+   Eina_Bool primary = EINA_FALSE;
+   tdm_layer *tlayer;
+   tbm_surface_h tsurface;
+   E_EomBufferPtr eom_buffer;
 
    EINA_SAFETY_ON_NULL_RETURN(user_data);
    outbuff = (E_EomOutputBufferPtr)user_data;
@@ -618,107 +781,202 @@ _e_eom_cb_layer_commit(tdm_layer *layer EINA_UNUSED, unsigned int sequence EINA_
    eom_output = outbuff->eom_output;
    EINA_SAFETY_ON_NULL_RETURN(eom_output);
 
+   primary = outbuff->primary;
+
    if (eom_trace_debug)
      EOMDB("========================>  CM  END     tbm_buff:%p", outbuff->tbm_surface);
 
    /*it means that eom_output has been canceled*/
-   if (eom_output->wait_buff == NULL)
+   if (primary)
      {
-        _e_eom_output_buff_delete(outbuff);
-        return;
+        if (eom_output->wait_buff == NULL)
+          {
+             _e_eom_output_buff_delete(outbuff);
+             return;
+          }
+
+        wait_buff = eom_output->wait_buff;
+        show_buff = eom_output->show_buff;
+        pending_buff = eom_output->pending_buff;
+        pending_pp_list = eom_output->pending_pp_data;
+        tlayer = eom_output->primary_layer;
+     }
+   else
+     {
+        if (eom_output->wait_overlay_buff == NULL)
+          {
+             _e_eom_output_buff_delete(outbuff);
+             return;
+          }
+
+        wait_buff = eom_output->wait_overlay_buff;
+        show_buff = eom_output->show_overlay_buff;
+        pending_buff = eom_output->pending_overlay_buff;
+        pending_pp_list = eom_output->pending_pp_overlay;
+        tlayer = eom_output->overlay_layer;
      }
 
-   EINA_SAFETY_ON_FALSE_RETURN(eom_output->wait_buff == outbuff);
+   EINA_SAFETY_ON_FALSE_RETURN(wait_buff == outbuff);
 
    if (eom_trace_debug)
      EOMDB("commit finish tbm_surface_h:%p", outbuff->tbm_surface);
 
    /* check if show buffer is present */
-   if (eom_output->show_buff != NULL)
+   if (show_buff != NULL)
      {
         if (eom_trace_debug)
-          EOMDB("delete show buffer tbm_surface_h:%p", eom_output->show_buff->tbm_surface);
-        _e_eom_output_buff_delete(eom_output->show_buff);
-        eom_output->show_buff = NULL;
+          EOMDB("delete show buffer tbm_surface_h:%p", show_buff->tbm_surface);
+        _e_eom_output_buff_delete(show_buff);
+        if (primary)
+          eom_output->show_buff = NULL;
+        else
+          eom_output->show_overlay_buff = NULL;
      }
 
-   /* set wait_buffer as show_buff; */
+   /* set wait_buffer as show_buff */
    if (eom_trace_debug)
      EOMDB("set wait_buffer as show_buff tbm_surface_h:%p", outbuff->tbm_surface);
-   eom_output->wait_buff = NULL;
-   eom_output->show_buff = outbuff;
+
+   if (primary)
+     {
+        eom_output->wait_buff = NULL;
+        eom_output->show_buff = outbuff;
+     }
+   else
+     {
+        eom_output->wait_overlay_buff = NULL;
+        eom_output->show_overlay_buff = outbuff;
+     }
 
    /* check if pending buffer is present */
-   outbuff = eina_list_nth(eom_output->pending_buff, 0);
+   outbuff = eina_list_nth(pending_buff, 0);
    if (outbuff != NULL)
      {
-        eom_output->pending_buff = eina_list_remove(eom_output->pending_buff, outbuff);
+        if (primary)
+          eom_output->pending_buff = eina_list_remove(eom_output->pending_buff, outbuff);
+        else
+          eom_output->pending_overlay_buff = eina_list_remove(eom_output->pending_overlay_buff, outbuff);
 
         if (eom_trace_debug)
           {
              EOMDB("========================>  CM- START   tbm_buff:%p", outbuff->tbm_surface);
-             EOMDB("do commit tdm_output:%p tdm_layer:%p tbm_surface_h:%p", eom_output->output,
-                   eom_output->primary_layer, outbuff->tbm_surface);
-           }
-        err = tdm_layer_set_buffer(eom_output->primary_layer, outbuff->tbm_surface);
+             EOMDB("do commit tdm_output:%p tdm_layer:%p tbm_surface_h:%p",
+                   eom_output->output, tlayer, outbuff->tbm_surface);
+          }
+        err = tdm_layer_set_buffer(tlayer, outbuff->tbm_surface);
         EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, error);
 
-        err = tdm_layer_commit(eom_output->primary_layer, _e_eom_cb_layer_commit, outbuff);
-        EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, error);
+        err = tdm_layer_commit(tlayer, _e_eom_cb_layer_commit, outbuff);
+        EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, error2);
 
         eom_output->wait_buff = outbuff;
      }
 
+   pending_pp = eina_list_nth(pending_pp_list, 0);
+   if (pending_pp != NULL)
+     {
+        if (primary)
+          {
+             if (!tbm_surface_queue_can_dequeue(eom_output->pp_primary->queue, 0))
+               return;
+          }
+        else
+          {
+             if (!tbm_surface_queue_can_dequeue(eom_output->pp_overlay->queue, 0))
+               return;
+          }
+        pending_pp_list = eina_list_remove(pending_pp_list, pending_pp);
+
+        tsurface = pending_pp->tsurface;
+        eom_buffer = pending_pp->eom_buffer;
+
+        E_FREE(pending_pp);
+
+        _e_eom_presentation_pp_run(eom_output, tsurface, eom_buffer, primary);
+     }
+
    return;
 
+error2:
+   tdm_layer_unset_buffer(tlayer);
+
 error:
-   if (outbuff)
-     {
-        EOMDB("========================>  CM- ENDERR  tbm_buff:%p", outbuff);
-        _e_eom_output_buff_delete(outbuff);
-     }
+   EOMDB("========================>  CM- ENDERR  tbm_buff:%p", outbuff->tbm_surface);
+
+   _e_eom_output_buff_delete(outbuff);
 }
 
 static Eina_Bool
 _e_eom_output_show(E_EomOutputPtr eom_output, tbm_surface_h tbm_srfc,
-                   E_EomEndShowingEventPtr cb_func, void *cb_user_data)
+                   E_EomEndShowingEventPtr cb_func, void *cb_user_data, Eina_Bool primary)
 {
    tdm_error err = TDM_ERROR_NONE;
+   tdm_layer *layer;
 
    /* create new output buffer */
    E_EomOutputBufferPtr outbuff = _e_eom_output_buff_create(eom_output, tbm_srfc, cb_func, cb_user_data);
    EINA_SAFETY_ON_NULL_RETURN_VAL(outbuff, EINA_FALSE);
 
-   /* check if output free to commit */
-   if (eom_output->wait_buff == NULL) /* do commit */
+   if (primary)
      {
-        if (eom_trace_debug)
+        outbuff->primary = EINA_TRUE;
+
+        /* check if output free to commit */
+        if (eom_output->wait_buff != NULL)
           {
-             EOMDB("========================>  CM  START   tbm_buff:%p", tbm_srfc);
-             EOMDB("do commit tdm_output:%p tdm_layer:%p tbm_surface_h:%p", eom_output->output,
-                   eom_output->primary_layer, outbuff->tbm_surface);
+             eom_output->pending_buff = eina_list_append(eom_output->pending_buff , outbuff);
+
+             if (eom_trace_debug)
+               EOMDB("add to pending list tdm_output:%p tdm_layer:%p tbm_surface_h:%p",
+                     eom_output->output, eom_output->primary_layer, outbuff->tbm_surface);
+
+             return EINA_TRUE;
           }
-        err = tdm_layer_set_buffer(eom_output->primary_layer, outbuff->tbm_surface);
-        EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, error);
-
-        err = tdm_layer_commit(eom_output->primary_layer, _e_eom_cb_layer_commit, outbuff);
-        EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, error2);
-
-        eom_output->wait_buff = outbuff;
+        else
+          {
+             layer = eom_output->primary_layer;
+          }
      }
-   else /* add to pending queue */
+   else
      {
-        eom_output->pending_buff = eina_list_append(eom_output->pending_buff , outbuff);
+        /* check if output free to commit */
+        if (eom_output->wait_overlay_buff != NULL)
+          {
+             eom_output->pending_overlay_buff = eina_list_append(eom_output->pending_overlay_buff , outbuff);
 
-        if (eom_trace_debug)
-          EOMDB("add to pending list tdm_output:%p tdm_layer:%p tbm_surface_h:%p",
-                eom_output->output, eom_output->primary_layer, outbuff->tbm_surface);
+             if (eom_trace_debug)
+               EOMDB("add to pending list tdm_output:%p tdm_layer:%p tbm_surface_h:%p",
+                     eom_output->output, eom_output->overlay_layer, outbuff->tbm_surface);
+
+             return EINA_TRUE;
+          }
+        else
+          {
+             layer = eom_output->overlay_layer;
+          }
      }
+
+   if (eom_trace_debug)
+     {
+        EOMDB("========================>  CM  START   tbm_buff:%p", tbm_srfc);
+        EOMDB("do commit tdm_output:%p tdm_layer:%p tbm_surface_h:%p",
+              eom_output->output, layer, outbuff->tbm_surface);
+     }
+     err = tdm_layer_set_buffer(layer, outbuff->tbm_surface);
+     EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, error);
+
+     err = tdm_layer_commit(layer, _e_eom_cb_layer_commit, outbuff);
+     EINA_SAFETY_ON_FALSE_GOTO(err == TDM_ERROR_NONE, error2);
+
+     if (primary)
+       eom_output->wait_buff = outbuff;
+     else
+       eom_output->wait_overlay_buff = outbuff;
 
    return EINA_TRUE;
 
 error2:
-   tdm_layer_unset_buffer(eom_output->primary_layer);
+   tdm_layer_unset_buffer(layer);
 
 error:
    if (outbuff)
@@ -730,76 +988,153 @@ error:
    return EINA_FALSE;
 }
 
+static unsigned int
+_e_eom_aligned_width_get(tbm_surface_info_s *surf_info)
+{
+   unsigned int aligned_width = 0;
+
+   switch (surf_info->format)
+     {
+      case TBM_FORMAT_YUV420:
+      case TBM_FORMAT_YVU420:
+      case TBM_FORMAT_YUV422:
+      case TBM_FORMAT_YVU422:
+      case TBM_FORMAT_NV12:
+      case TBM_FORMAT_NV21:
+        aligned_width = surf_info->planes[0].stride;
+        break;
+      case TBM_FORMAT_YUYV:
+      case TBM_FORMAT_UYVY:
+        aligned_width = surf_info->planes[0].stride >> 1;
+        break;
+      case TBM_FORMAT_ARGB8888:
+      case TBM_FORMAT_XRGB8888:
+        aligned_width = surf_info->planes[0].stride >> 2;
+        break;
+      default:
+        EOMER("not supported format: %x", surf_info->format);
+     }
+
+   return aligned_width;
+}
+
 static Eina_Bool
-_e_eom_pp_info_set(E_EomOutputPtr eom_output, tbm_surface_h src, tbm_surface_h dst)
+_e_eom_pp_info_set(E_EomOutputPtr eom_output, tbm_surface_h src, tbm_surface_h dst, Eina_Bool primary, Eina_Bool mirror)
 {
    tdm_error err = TDM_ERROR_NONE;
    tdm_info_pp pp_info;
    int x = 0, y = 0, w = 0, h = 0;
+   int width = 0, height = 0;
+   tbm_surface_info_s src_info;
+   tbm_surface_info_s dst_info;
+   unsigned int src_aligned_w;
+   unsigned int dst_aligned_w;
 
    memset(&pp_info, 0, sizeof(tdm_info_pp));
 
-   if (g_eom->angle == 0 || g_eom->angle == 180)
+   tbm_surface_get_info(src, &src_info);
+   tbm_surface_get_info(dst, &dst_info);
+   src_aligned_w = _e_eom_aligned_width_get(&src_info);
+   dst_aligned_w = _e_eom_aligned_width_get(&dst_info);
+
+   if (mirror)
      {
-        _e_eom_util_calculate_fullsize(g_eom->width, g_eom->height,
-                                       eom_output->width, eom_output->height,
-                                       &x, &y, &w, &h);
+        if (g_eom->angle == 90 || g_eom->angle == 270)
+         {
+            width = g_eom->height;
+            height = g_eom->width;
+         }
+       else
+         {
+            width = g_eom->width;
+            height = g_eom->height;
+         }
      }
-   else if (g_eom->angle == 90 || g_eom->angle == 270)
+   else
      {
-        _e_eom_util_calculate_fullsize(g_eom->height, g_eom->width,
-                                       eom_output->width, eom_output->height,
-                                       &x, &y, &w, &h);
+        width = src_aligned_w;
+        height = src_info.height;
      }
+
+   _e_eom_util_calculate_fullsize(width, height, eom_output->width, eom_output->height,
+                                  &x, &y, &w, &h);
 
    if (eom_trace_debug)
      {
-        EOMDB("PP: angle:%d", g_eom->angle);
-        EOMDB("PP: src:%dx%d, dst:%dx%d", g_eom->width, g_eom->height,
-              eom_output->width, eom_output->height);
-        EOMDB("PP calculation: x:%d, y:%d, w:%d, h:%d", x, y, w, h);
+        if (mirror)
+          {
+             EOMDB("PP mirror: angle:%d", g_eom->angle);
+             EOMDB("PP mirror: src:%dx%d, dst:%dx%d", g_eom->width, g_eom->height, eom_output->width, eom_output->height);
+             EOMDB("PP calculation: x:%d, y:%d, w:%d, h:%d", x, y, w, h);
+          }
+        else
+          {
+             EOMDB("PP prentation: src:%dx%d, dst:%dx%d", src_info.width, src_info.height, dst_info.width, dst_info.height);
+             EOMDB("PP prentation calculation: x:%d, y:%d, w:%d, h:%d", x, y, w, h);
+          }
      }
 
-   pp_info.src_config.size.h = g_eom->width;
-   pp_info.src_config.size.v = g_eom->height;
+   pp_info.src_config.size.h = src_aligned_w;
+   pp_info.src_config.size.v = src_info.height;
    pp_info.src_config.pos.x = 0;
    pp_info.src_config.pos.y = 0;
-   pp_info.src_config.pos.w = g_eom->width;
-   pp_info.src_config.pos.h = g_eom->height;
-   pp_info.src_config.format = TBM_FORMAT_ARGB8888;
+   pp_info.src_config.pos.w = src_info.width;
+   pp_info.src_config.pos.h = src_info.height;
+   pp_info.src_config.format = src_info.format;
 
-   pp_info.dst_config.size.h = eom_output->width;
-   pp_info.dst_config.size.v = eom_output->height;
+   pp_info.dst_config.size.h = dst_aligned_w;
+   pp_info.dst_config.size.v = dst_info.height;
    pp_info.dst_config.pos.x = x;
    pp_info.dst_config.pos.y = y;
    pp_info.dst_config.pos.w = w;
    pp_info.dst_config.pos.h = h;
-   pp_info.dst_config.format = TBM_FORMAT_ARGB8888;
+   pp_info.dst_config.format = dst_info.format;
 
-   switch (g_eom->angle)
+   if (mirror)
      {
-      case 0:
-         pp_info.transform = TDM_TRANSFORM_NORMAL;
-         break;
-      case 90:
-         pp_info.transform = TDM_TRANSFORM_90;
-         break;
-      case 180:
-         pp_info.transform = TDM_TRANSFORM_180;
-         break;
-      case 270:
-         pp_info.transform = TDM_TRANSFORM_270;
-         break;
-      default:
-         EOMIN("Never get here");
-         break;
+        switch (g_eom->angle)
+          {
+           case 0:
+              pp_info.transform = TDM_TRANSFORM_NORMAL;
+              break;
+           case 90:
+              pp_info.transform = TDM_TRANSFORM_90;
+              break;
+           case 180:
+              pp_info.transform = TDM_TRANSFORM_180;
+              break;
+           case 270:
+              pp_info.transform = TDM_TRANSFORM_270;
+              break;
+           default:
+              EOMIN("Never get here");
+              break;
+          }
      }
+   else
+     pp_info.transform = TDM_TRANSFORM_NORMAL;
 
    pp_info.sync = 0;
    pp_info.flags = 0;
 
-   err = tdm_pp_set_info(eom_output->pp_primary->pp, &pp_info);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
+   if (primary)
+     {
+        if (memcmp(&eom_output->pp_primary->pp_info, &pp_info, sizeof(tdm_info_layer)))
+          {
+             err = tdm_pp_set_info(eom_output->pp_primary->pp, &pp_info);
+             EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
+             memcpy(&eom_output->pp_primary->pp_info, &pp_info, sizeof(tdm_info_layer));
+          }
+     }
+   else
+     {
+        if (memcmp(&eom_output->pp_overlay->pp_info, &pp_info, sizeof(tdm_info_layer)))
+          {
+             err = tdm_pp_set_info(eom_output->pp_overlay->pp, &pp_info);
+             EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
+             memcpy(&eom_output->pp_overlay->pp_info, &pp_info, sizeof(tdm_info_layer));
+          }
+     }
 
    return EINA_TRUE;
 }
@@ -916,7 +1251,7 @@ _e_eom_pp_run(E_EomOutputPtr eom_output, Eina_Bool first_run)
         return;
      }
 
-   if (eom_output->pp_deinit)
+   if (eom_output->pp_primary_deinit)
      return;
 
    if (!eom_output->pp_primary)
@@ -958,7 +1293,7 @@ _e_eom_pp_run(E_EomOutputPtr eom_output, Eina_Bool first_run)
              /* TODO: it has to be implemented in better way */
              _e_eom_clear_surfaces(eom_output, pp_primary->queue);
 
-             ret = _e_eom_pp_info_set(eom_output, src_surface, dst_surface);
+             ret = _e_eom_pp_info_set(eom_output, src_surface, dst_surface, EINA_TRUE, EINA_TRUE);
              EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, error);
           }
 
@@ -971,7 +1306,7 @@ _e_eom_pp_run(E_EomOutputPtr eom_output, Eina_Bool first_run)
         tdm_err = tdm_pp_attach(pp_primary->pp, src_surface, dst_surface);
         EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, attach_fail);
 
-        eom_output->pp_converting = EINA_TRUE;
+        eom_output->pp_primary_converting = EINA_TRUE;
 
         tdm_err = tdm_pp_commit(pp_primary->pp);
         EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, commit_fail);
@@ -1012,7 +1347,7 @@ _e_eom_cb_pp(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurface_dst,
    EINA_SAFETY_ON_NULL_RETURN(user_data);
    eom_output = (E_EomOutputPtr)user_data;
 
-   eom_output->pp_converting = EINA_FALSE;
+   eom_output->pp_primary_converting = EINA_FALSE;
 
    tbm_surface_internal_unref(tsurface_src);
    tbm_surface_internal_unref(tsurface_dst);
@@ -1025,10 +1360,10 @@ _e_eom_cb_pp(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurface_dst,
    if (eom_trace_debug)
      EOMDB("==============================>  PP  END     tbm_buff:%p", tsurface_dst);
 
-   if (eom_output->pp_deinit)
+   if (eom_output->pp_primary_deinit)
      {
-        _e_eom_pp_deinit(eom_output);
-        eom_output->pp_deinit = EINA_FALSE;
+        _e_eom_pp_deinit(eom_output, EINA_TRUE);
+        eom_output->pp_primary_deinit = EINA_FALSE;
         return;
      }
 
@@ -1055,7 +1390,7 @@ _e_eom_cb_pp(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurface_dst,
    tbm_surface_internal_dump_buffer(surface, file, i++, 0);
 #endif
 
-   if (!_e_eom_output_show(eom_output, tsurface_dst, _e_eom_tbm_buffer_release_mirror_mod, NULL))
+   if (!_e_eom_output_show(eom_output, tsurface_dst, _e_eom_tbm_buffer_release_pp_primary, NULL, EINA_TRUE))
      {
         EOMER("_e_eom_add_buff_to_show fail");
         tbm_surface_queue_release(pp_primary->queue, tsurface_dst);
@@ -1065,6 +1400,292 @@ _e_eom_cb_pp(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurface_dst,
 
    if (eom_trace_debug)
      EOMDB("==============================<  PP");
+}
+
+static void
+_e_eom_layer_overlay_set(E_EomOutputPtr eom_output, tbm_surface_h tsurface)
+{
+   tdm_info_layer layer_info, old_info;
+   tdm_error err = TDM_ERROR_NONE;
+   tbm_surface_info_s dst_info;
+   unsigned int width;
+
+   CLEAR(old_info);
+   err = tdm_layer_get_info(eom_output->overlay_layer, &old_info);
+   EINA_SAFETY_ON_FALSE_RETURN(err == TDM_ERROR_NONE);
+
+   tbm_surface_get_info(tsurface, &dst_info);
+   width = _e_eom_aligned_width_get(&dst_info);
+
+   memset(&layer_info, 0x0, sizeof(tdm_info_layer));
+   layer_info.src_config.size.h = width;
+   layer_info.src_config.size.v = dst_info.height;
+   layer_info.src_config.pos.x = 0;
+   layer_info.src_config.pos.y = 0;
+   layer_info.src_config.pos.w = dst_info.width;
+   layer_info.src_config.pos.h = dst_info.height;
+   layer_info.src_config.format = dst_info.format;
+   layer_info.dst_pos.x = 0;
+   layer_info.dst_pos.y = 0;
+   layer_info.dst_pos.w = eom_output->width;
+   layer_info.dst_pos.h = eom_output->height;
+   layer_info.transform = TDM_TRANSFORM_NORMAL;
+
+   if (memcmp(&old_info, &layer_info, sizeof(tdm_info_layer)))
+     {
+        err = tdm_layer_set_info(eom_output->overlay_layer, &layer_info);
+        EINA_SAFETY_ON_FALSE_RETURN(err == TDM_ERROR_NONE);
+     }
+}
+
+static void
+_e_eom_cb_pp_presentation(E_EomOutputPtr eom_output, E_EomPpDataPtr ppdata, E_EomOutputPpPtr eom_pp, Eina_Bool primary)
+{
+   E_EomEndShowingEventPtr cb_func;
+   E_EomBufferPtr eom_buff;
+   tbm_surface_h tsurface;
+
+   eom_buff = ppdata->eom_buffer;
+   tsurface = ppdata->tsurface;
+
+   E_FREE(ppdata);
+
+   if (g_eom->main_output_state == 0)
+     {
+        tbm_surface_queue_release(eom_pp->queue, tsurface);
+        return;
+     }
+
+   if (eom_output->state == MIRROR)
+     {
+        tbm_surface_queue_release(eom_pp->queue, tsurface);
+        return;
+     }
+
+#ifdef EOM_DUMP_PRESENTATION_BUFFERS
+   char file[256];
+   static int i;
+   snprintf(file, sizeof file, "%s_%d", "eom_external", i++);
+   tbm_surface_internal_dump_buffer(tsurface, file, i++, 0);
+#endif
+
+   if (primary)
+     {
+        cb_func = _e_eom_tbm_buffer_release_pp_primary;
+     }
+   else
+     {
+        _e_eom_layer_overlay_set(eom_output, tsurface);
+
+        cb_func = _e_eom_tbm_buffer_release_pp_overlay;
+     }
+
+   if (!_e_eom_output_show(eom_output, tsurface, cb_func, eom_buff, primary))
+     {
+        EOMER("pp show fail");
+        if (primary)
+          tbm_surface_queue_release(eom_output->pp_primary->queue, tsurface);
+        else
+          tbm_surface_queue_release(eom_output->pp_overlay->queue, tsurface);
+     }
+
+   if (eom_trace_debug)
+     EOMDB("==============================<  presentation PP");
+}
+
+
+static void
+_e_eom_cb_pp_presentation_primary(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurface_dst, void *user_data)
+{
+   E_EomOutputPtr eom_output = NULL;
+   E_EomPpDataPtr ppdata = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(user_data);
+   ppdata = (E_EomPpDataPtr)user_data;
+   eom_output = ppdata->eom_output;
+
+   eom_output->pp_primary_converting = EINA_FALSE;
+
+   tbm_surface_internal_unref(tsurface_src);
+   tbm_surface_internal_unref(tsurface_dst);
+
+   if (eom_output->pp_primary_deinit)
+     {
+        eom_output->pp_primary_deinit = EINA_FALSE;
+        _e_eom_pp_deinit(eom_output, EINA_FALSE);
+     }
+
+   if (eom_trace_debug)
+     EOMDB("==============================>  presentation PP  END  primary   tbm_buff:%p", tsurface_dst);
+
+   if (eom_output->pp_primary == NULL)
+     {
+        E_FREE(ppdata);
+        return;
+     }
+
+   ppdata->tsurface = tsurface_dst;
+
+   _e_eom_cb_pp_presentation(eom_output, ppdata, eom_output->pp_primary, EINA_TRUE);
+}
+
+static void
+_e_eom_cb_pp_presentation_overlay(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurface_dst, void *user_data)
+{
+   E_EomOutputPtr eom_output = NULL;
+   E_EomPpDataPtr ppdata = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(user_data);
+   ppdata = (E_EomPpDataPtr)user_data;
+   eom_output = ppdata->eom_output;
+
+   tbm_surface_internal_unref(tsurface_src);
+   tbm_surface_internal_unref(tsurface_dst);
+
+   eom_output->pp_overlay_converting = EINA_FALSE;
+
+   if (eom_output->pp_overlay_deinit)
+     {
+        eom_output->pp_overlay_deinit = EINA_FALSE;
+        _e_eom_pp_deinit(eom_output, EINA_FALSE);
+     }
+
+   if (eom_trace_debug)
+     EOMDB("==============================>  presentation PP  END  overlay   tbm_buff:%p", tsurface_dst);
+
+   if (eom_output->pp_overlay == NULL)
+     {
+        E_FREE(ppdata);
+        return;
+     }
+
+   ppdata->tsurface = tsurface_dst;
+
+   _e_eom_cb_pp_presentation(eom_output, ppdata, eom_output->pp_overlay, EINA_FALSE);
+}
+
+static void
+_e_eom_presentation_pp_run(E_EomOutputPtr eom_output, tbm_surface_h src_surface, E_EomBufferPtr eom_buff, Eina_Bool primary)
+{
+   tdm_error tdm_err = TDM_ERROR_NONE;
+   tbm_surface_h dst_surface = NULL;
+   Eina_Bool ret = EINA_FALSE;
+   E_EomClientPtr eom_client_itr = NULL;
+   Eina_List *l;
+   E_EomOutputPpPtr eom_pp = NULL;
+   E_EomPpDataPtr ppdata = NULL;
+
+   if (g_eom->main_output_state == 0)
+     return;
+
+   if (eom_output->state == WAIT_PRESENTATION)
+     {
+        EOMDB("remove delayed presentation timer");
+        if (eom_output->delay)
+          ecore_timer_del(eom_output->delay);
+     }
+
+   if (eom_output->state != PRESENTATION)
+     {
+        _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_PRESENTATION);
+
+        EINA_LIST_FOREACH(g_eom->clients, l, eom_client_itr)
+          {
+             if (eom_client_itr->output_id == eom_output->id)
+               wl_eom_send_output_mode(eom_client_itr->resource, eom_output->id,
+                                       _e_eom_output_state_get_mode(eom_output));
+          }
+
+        eom_output->state = PRESENTATION;
+     }
+
+   if (primary)
+     eom_pp = eom_output->pp_primary;
+   else
+     eom_pp = eom_output->pp_overlay;
+
+   if (!eom_pp || !eom_pp->pp || !eom_pp->queue)
+     {
+        EOMER("no pp data");
+        return;
+     }
+
+   ppdata = E_NEW(E_EomPpData, 1);
+   if (!ppdata)
+     {
+        EOMER("make pp data fail");
+        _e_eom_buffer_destroy(eom_buff);
+        return;
+     }
+   ppdata->eom_output = eom_output;
+   ppdata->eom_buffer = eom_buff;
+   ppdata->tsurface = src_surface;
+
+   if (!tbm_surface_queue_can_dequeue(eom_pp->queue, 0))
+     {
+        if (eom_trace_debug)
+          EOMDB("all pp buffers are busy, wait release queue(%p)", eom_pp->queue);
+
+        if (primary)
+          eom_output->pending_pp_data = eina_list_append(eom_output->pending_pp_data, ppdata);
+        else
+          eom_output->pending_pp_overlay = eina_list_append(eom_output->pending_pp_overlay, ppdata);
+
+        return;
+     }
+
+   tdm_err = tbm_surface_queue_dequeue(eom_pp->queue, &dst_surface);
+   EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, error);
+
+   if (eom_trace_debug)
+     EOMDB("============================>  presentation PP  START   tbm_buff:%p", dst_surface);
+
+   ret = _e_eom_pp_info_set(eom_output, src_surface, dst_surface, primary, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, error);
+
+   if (primary)
+     tdm_err = tdm_pp_set_done_handler(eom_pp->pp, _e_eom_cb_pp_presentation_primary, ppdata);
+   else
+     tdm_err = tdm_pp_set_done_handler(eom_pp->pp, _e_eom_cb_pp_presentation_overlay, ppdata);
+   EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, error);
+
+   tbm_surface_internal_ref(src_surface);
+   tbm_surface_internal_ref(dst_surface);
+
+   tdm_err = tdm_pp_attach(eom_pp->pp, src_surface, dst_surface);
+   EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, attach_fail);
+
+   if (primary)
+     eom_output->pp_primary_converting = EINA_TRUE;
+   else
+     eom_output->pp_overlay_converting = EINA_TRUE;
+
+   tdm_err = tdm_pp_commit(eom_pp->pp);
+   EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, commit_fail);
+
+   if (eom_trace_debug)
+     {
+        EOMDB("do presentation pp commit tdm_output:%p tbm_surface_h(src:%p dst:%p)",
+              eom_output->output, src_surface, dst_surface);
+        EOMER("============================<  presentation PP  done   tbm_buff:%p", dst_surface);
+     }
+
+   return;
+
+commit_fail:
+attach_fail:
+   tbm_surface_internal_unref(dst_surface);
+   tbm_surface_internal_unref(src_surface);
+
+error:
+   EOMER("failed run pp tdm error: %d", tdm_err);
+
+   if (dst_surface)
+     {
+        if (eom_trace_debug)
+          EOMDB("============================>  presentation PP  ENDERR  tbm_buff:%p", dst_surface);
+        tbm_surface_queue_release(eom_pp->queue, dst_surface);
+     }
 }
 
 static void
@@ -1150,7 +1771,7 @@ _e_eom_output_start_mirror(E_EomOutputPtr eom_output)
    _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_MIRROR);
    eom_output->state = MIRROR;
 
-   ret = _e_eom_pp_init(eom_output);
+   ret = _e_eom_pp_init(eom_output, EINA_TRUE);
    EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, err);
 
    _e_eom_pp_run(eom_output, EINA_TRUE);
@@ -1186,10 +1807,43 @@ err:
 }
 
 static void
+_e_eom_output_overlay_buff_release(E_EomOutputPtr eom_output)
+{
+   Eina_List *l, *ll;
+   E_EomOutputBufferPtr buff = NULL;
+   E_EomPpDataPtr ppdata = NULL;
+
+   EINA_LIST_FOREACH_SAFE(eom_output->pending_overlay_buff, l, ll, buff)
+     {
+        if (eom_trace_debug)
+          EOMDB("delete pending overlay tbm_buff:%p", buff->tbm_surface);
+        eom_output->pending_overlay_buff = eina_list_remove_list(eom_output->pending_overlay_buff, l);
+        _e_eom_output_buff_delete(buff);
+     }
+   eom_output->wait_overlay_buff = NULL;
+
+   if (eom_trace_debug)
+     EOMDB("delete show overlay tbm_buff:%p", eom_output->show_overlay_buff ? eom_output->show_overlay_buff->tbm_surface : NULL);
+   _e_eom_output_buff_delete(eom_output->show_overlay_buff);
+   eom_output->show_overlay_buff = NULL;
+
+   EINA_LIST_FOREACH_SAFE(eom_output->pending_pp_overlay, l, ll, ppdata)
+     {
+        if (eom_trace_debug)
+          EOMDB("delete pending overlay pp data:%p", ppdata);
+        eom_output->pending_pp_overlay = eina_list_remove_list(eom_output->pending_pp_overlay, l);
+        _e_eom_buffer_destroy(ppdata->eom_buffer);
+        E_FREE(ppdata);
+     }
+   eom_output->pending_pp_overlay = NULL;
+}
+
+static void
 _e_eom_output_all_buff_release(E_EomOutputPtr eom_output)
 {
    Eina_List *l, *ll;
    E_EomOutputBufferPtr  buff = NULL;
+   E_EomPpDataPtr ppdata = NULL;
 
    EINA_LIST_FOREACH_SAFE(eom_output->pending_buff, l, ll, buff)
      {
@@ -1205,6 +1859,16 @@ _e_eom_output_all_buff_release(E_EomOutputPtr eom_output)
      EOMDB("delete show tbm_buff:%p", eom_output->show_buff ? eom_output->show_buff->tbm_surface : NULL);
    _e_eom_output_buff_delete(eom_output->show_buff);
    eom_output->show_buff = NULL;
+
+   EINA_LIST_FOREACH_SAFE(eom_output->pending_pp_data, l, ll, ppdata)
+     {
+        if (eom_trace_debug)
+          EOMDB("delete pending pp data:%p", ppdata);
+        eom_output->pending_pp_data = eina_list_remove_list(eom_output->pending_pp_data, l);
+        _e_eom_buffer_destroy(ppdata->eom_buffer);
+        E_FREE(ppdata);
+     }
+   eom_output->pending_pp_data = NULL;
 }
 
 static void
@@ -1223,6 +1887,18 @@ _e_eom_output_deinit(E_EomOutputPtr eom_output)
    else
      eom_output->state = NONE;
 
+   if (eom_output->overlay_layer)
+     {
+        err = tdm_layer_unset_buffer(eom_output->overlay_layer);
+        if (err != TDM_ERROR_NONE)
+          EOMER("fail unset buffer:%d", err);
+
+        err = tdm_layer_commit(eom_output->overlay_layer, NULL, eom_output);
+        if (err != TDM_ERROR_NONE)
+          EOMER("fail commit on deleting output err:%d", err);
+     }
+   _e_eom_output_overlay_buff_release(eom_output);
+
    if (eom_output->primary_layer)
      {
         err = tdm_layer_unset_buffer(eom_output->primary_layer);
@@ -1233,13 +1909,17 @@ _e_eom_output_deinit(E_EomOutputPtr eom_output)
         if (err != TDM_ERROR_NONE)
           EOMER("fail commit on deleting output err:%d", err);
      }
-
    _e_eom_output_all_buff_release(eom_output);
 
-   if (!eom_output->pp_converting)
-     _e_eom_pp_deinit(eom_output);
+   if (!eom_output->pp_primary_converting)
+     _e_eom_pp_deinit(eom_output, EINA_TRUE);
    else
-     eom_output->pp_deinit = EINA_TRUE;
+     eom_output->pp_primary_deinit = EINA_TRUE;
+
+   if (!eom_output->pp_overlay_converting)
+     _e_eom_pp_deinit(eom_output, EINA_FALSE);
+   else
+     eom_output->pp_overlay_deinit = EINA_TRUE;
 
    err = tdm_output_set_dpms(eom_output->output, TDM_OUTPUT_DPMS_OFF);
    if (err != TDM_ERROR_NONE)
@@ -1827,6 +2507,7 @@ _e_eom_cb_wl_eom_client_destory(struct wl_resource *resource)
    E_EomClientPtr client = NULL, iterator = NULL;
    E_EomOutputPtr output = NULL;
    Eina_List *l = NULL;
+   tdm_error err = TDM_ERROR_NONE;
    Eina_Bool ret;
 
    EOMDB("=======================>  CLIENT DESTROY");
@@ -1855,6 +2536,26 @@ _e_eom_cb_wl_eom_client_destory(struct wl_resource *resource)
         output->state = NONE;
         goto end;
      }
+
+   if (output->show_overlay_buff)
+     {
+        if (output->overlay_layer)
+          {
+             err = tdm_layer_unset_buffer(output->overlay_layer);
+             if (err != TDM_ERROR_NONE)
+               EOMER("fail unset buffer:%d", err);
+
+             err = tdm_layer_commit(output->overlay_layer, NULL, output);
+             if (err != TDM_ERROR_NONE)
+               EOMER("fail commit on deleting output err:%d", err);
+          }
+
+        _e_eom_output_overlay_buff_release(output);
+     }
+   output->overlay_layer = NULL;
+   output->need_overlay_pp = EINA_FALSE;
+
+   _e_eom_output_all_buff_release(output);
 
    /* If a client has been disconnected and mirror mode has not
     * been restored, start mirror mode
@@ -2395,11 +3096,39 @@ _e_eom_client_get_current_by_ec(E_Client *ec)
 }
 
 static void
-_e_eom_tbm_buffer_release_ext_mod(E_EomOutputPtr eom_output, tbm_surface_h srfc, void * eom_buff)
+_e_eom_tbm_buffer_release_ext_mod(E_EomOutputPtr eom_output, tbm_surface_h srfc, void *eom_buff)
 {
    if (eom_trace_debug)
      EOMDB("============>  EXT END     tbm_buff:%p E_EomBuffer:%p", srfc, eom_buff);
    _e_eom_buffer_destroy(eom_buff);
+}
+
+static E_EomClientPtr
+_e_eom_client_get_current_by_ec_parrent(E_Client *ec)
+{
+   Eina_List *l;
+   E_EomClientPtr client;
+   E_Client *parent = NULL;
+
+   if (!ec->comp_data || !ec->comp_data->sub.data)
+     return NULL;
+
+   EINA_LIST_FOREACH(g_eom->clients, l, client)
+     {
+        parent = ec->comp_data->sub.data->parent;
+        while (parent)
+          {
+             if (client->ec == parent)
+               return client;
+
+             if (!parent->comp_data || !parent->comp_data->sub.data)
+               break;
+
+             parent = parent->comp_data->sub.data->parent;
+          }
+     }
+
+   return NULL;
 }
 
 static Eina_Bool
@@ -2412,6 +3141,7 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
    E_Client *ec = NULL;
    tbm_surface_h tbm_buffer = NULL;
    Eina_List *l;
+   Eina_Bool overlay = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ev, ECORE_CALLBACK_PASS_ON);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ev->ec, ECORE_CALLBACK_PASS_ON);
@@ -2422,7 +3152,13 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
 
    eom_client = _e_eom_client_get_current_by_ec(ec);
    if (eom_client == NULL)
-     return ECORE_CALLBACK_PASS_ON;
+     {
+        eom_client = _e_eom_client_get_current_by_ec_parrent(ec);
+        if (eom_client == NULL)
+          return ECORE_CALLBACK_PASS_ON;
+
+        overlay = EINA_TRUE;
+     }
 
    eom_output = _e_eom_output_get_by_id(eom_client->output_id);
    EINA_SAFETY_ON_NULL_RETURN_VAL(eom_output, ECORE_CALLBACK_PASS_ON);
@@ -2438,7 +3174,7 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
     * external outputs Enlightenment sees that client's resolution
     * differs form main screen resolution. Therefore, Enlightenment
     * is trying to resize it back to main screen resolution. It uses
-    * timer for that purpose. To forbid it just delte the timer */
+    * timer for that purpose. To forbid it just delete the timer */
 
    /* TODO: It works but maybe there is better solution exists ?
     * Also I do not know how it affects on performance */
@@ -2449,20 +3185,61 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
         E_FREE_FUNC(ec->map_timer, ecore_timer_del);
      }
 
-   /* TODO: Support buffers smaller then output resolution */
-   if (wl_buffer->w != eom_output->width ||
-       wl_buffer->h != eom_output->height )
-     {
-        EOMER("tbm_buffer does not fit output's resolution");
-        return ECORE_CALLBACK_PASS_ON;
-     }
-
    /* TODO: support different SHMEM buffers etc. */
    tbm_buffer = wayland_tbm_server_get_surface(e_comp->wl_comp_data->tbm.server, wl_buffer->resource);
    EINA_SAFETY_ON_NULL_RETURN_VAL(tbm_buffer, ECORE_CALLBACK_PASS_ON);
 
+   if ((tbm_surface_get_width(tbm_buffer) <= 1) || (tbm_surface_get_height(tbm_buffer) <= 1))
+     return ECORE_CALLBACK_PASS_ON;
+
    E_EomBufferPtr eom_buff = _e_eom_buffer_create(wl_buffer);
    EINA_SAFETY_ON_NULL_RETURN_VAL(eom_buff, ECORE_CALLBACK_PASS_ON);
+
+   if (wl_buffer->w != eom_output->width || wl_buffer->h != eom_output->height )
+     {
+        Eina_Bool need_pp = EINA_FALSE;
+
+        if (eom_trace_debug)
+          EOMDB("tbm_buffer does not fit output's resolution. wl_buffer(%dx%d), eom_output(%dx%d), tbm_buff(%dx%d)",
+                wl_buffer->w, wl_buffer->h, eom_output->width, eom_output->height,
+                tbm_surface_get_width(tbm_buffer), tbm_surface_get_height(tbm_buffer));
+
+        if (overlay)
+          {
+             Eina_Bool video_layer = EINA_FALSE;
+             tbm_format format = tbm_surface_get_format(tbm_buffer);
+
+             video_layer = _e_eom_output_video_layer_find(eom_output, format);
+             if (!video_layer)
+               {
+                  /* need pp */
+                  need_pp = EINA_TRUE;
+                  eom_output->need_overlay_pp = EINA_TRUE;
+                  if (!_e_eom_pp_init(eom_output, EINA_FALSE))
+                    {
+                       EOMER("pp_init for overlay fail");
+                       return ECORE_CALLBACK_PASS_ON;
+                    }
+               }
+             /* else - possible direct buffer set */
+          }
+        else
+          {
+             need_pp = EINA_TRUE;
+             if (!_e_eom_pp_init(eom_output, EINA_TRUE))
+               {
+                  EOMER("pp_init for primary fail");
+                  return ECORE_CALLBACK_PASS_ON;
+               }
+          }
+
+        if (need_pp)
+          {
+             EOMDB("run _e_eom_presentation_pp_run");
+             _e_eom_presentation_pp_run(eom_output, tbm_buffer, eom_buff, !overlay);
+             return ECORE_CALLBACK_PASS_ON;
+          }
+     }
 
    if (eom_trace_debug)
      EOMDB("===============>  EXT START   tbm_buff:%p", tbm_buffer);
@@ -2474,7 +3251,10 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
    tbm_surface_internal_dump_buffer(tbm_buffer, file, i++, 0);
 #endif
 
-   if (!_e_eom_output_show(eom_output, tbm_buffer, _e_eom_tbm_buffer_release_ext_mod, eom_buff))
+   if (overlay)
+     _e_eom_layer_overlay_set(eom_output, tbm_buffer);
+
+   if (!_e_eom_output_show(eom_output, tbm_buffer, _e_eom_tbm_buffer_release_ext_mod, eom_buff, !overlay))
      {
         EOMDB("===============>  EXT ENDERR  tbm_buff:%p", tbm_buffer);
         EOMDB("_e_eom_add_buff_to_show fail");
