@@ -1345,7 +1345,8 @@ _quickpanel_cb_client_remove(void *data, int type, void *event)
    if (qp->below == ev->ec)
      qp->below = NULL;
 
-   _quickpanel_below_change_eval(data, event);
+   if (!stopping)
+     _quickpanel_below_change_eval(data, event);
 end:
    return ECORE_CALLBACK_PASS_ON;
 }

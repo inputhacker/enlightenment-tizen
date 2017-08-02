@@ -1042,7 +1042,18 @@ _e_client_del(E_Client *ec)
    E_FREE(ec->comp_data);
 
    if ((!ec->new_client) && (!stopping))
-     _e_client_event_simple(ec, E_EVENT_CLIENT_REMOVE);
+     {
+        ELOGF("COMP", "SEND E_EVENT_CLIENT_REMOVE event", ec->pixmap, ec);
+        _e_client_event_simple(ec, E_EVENT_CLIENT_REMOVE);
+     }
+   else
+     {
+        if (stopping)
+          {
+             ELOGF("COMP", "SEND E_EVENT_CLIENT_REMOVE event on stopping env", ec->pixmap, ec);
+             _e_client_event_simple(ec, E_EVENT_CLIENT_REMOVE);
+          }
+     }
 
    ELOG("CLIENT DEL", ec->pixmap, ec);
 

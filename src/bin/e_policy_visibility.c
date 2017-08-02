@@ -1358,7 +1358,8 @@ _e_vis_cb_client_remove(void *data EINA_UNUSED, int type EINA_UNUSED, void *even
    if (pol_vis->activity == ev->ec)
      pol_vis->activity = NULL;
 
-   _e_vis_update_foreground_job_queue();
+   if (!stopping)
+     _e_vis_update_foreground_job_queue();
 
    return ECORE_CALLBACK_PASS_ON;
 }
