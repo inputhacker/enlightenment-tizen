@@ -1552,6 +1552,10 @@ _e_video_set(E_Video *video, E_Client *ec)
 
              video->e_output = e_output_find_by_index(index);
              EINA_SAFETY_ON_NULL_RETURN(video->e_output);
+
+             ec->comp_data->video_client = 1;
+
+             return;
           }
         else
           {
@@ -2065,7 +2069,7 @@ _e_video_cb_ec_buffer_change(void *data, int type, void *event)
    if (e_config->eom_enable == EINA_TRUE)
      {
         /* skip external client buffer if its top parent is not current for eom anymore */
-        if (video->external_video && !e_eom_is_ec_external(ec))
+        if (video->external_video && e_eom_is_ec_external(ec))
           {
              VWR("skip external buffer");
              return ECORE_CALLBACK_PASS_ON;
@@ -2125,8 +2129,18 @@ _e_video_cb_ec_client_show(void *data, int type, void *event)
         return ECORE_CALLBACK_PASS_ON;
      }
 
-   if(ec == find_topmost_parent_get(video->ec))
+   if (ec == find_topmost_parent_get(video->ec))
      {
+        if (e_config->eom_enable == EINA_TRUE)
+          {
+             /* skip external client buffer if its top parent is not current for eom anymore */
+             if (video->external_video && e_eom_is_ec_external(ec))
+               {
+                  VWR("skip external buffer");
+                  return ECORE_CALLBACK_PASS_ON;
+               }
+          }
+
         VIN("video need rendering..");
         e_comp_wl_viewport_apply(ec);
         _e_video_render(video, __FUNCTION__);
