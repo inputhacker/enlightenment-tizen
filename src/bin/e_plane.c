@@ -403,7 +403,7 @@ _e_plane_surface_from_client_acquire(E_Plane *plane)
    E_Plane_Renderer *renderer = plane->renderer;
    tbm_surface_h tsurface = NULL;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, NULL);
+   if (!buffer) return NULL;
 
    if (!e_comp_object_hwc_update_exists(ec->frame)) return NULL;
 
