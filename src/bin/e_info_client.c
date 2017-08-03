@@ -3826,6 +3826,141 @@ _e_info_client_proc_version(int argc, char **argv)
      }
 }
 
+static void
+_e_info_client_cb_module_list_get(const Eldbus_Message *msg)
+{
+   const char *errname = NULL, *errtext = NULL;
+   Eldbus_Message_Iter *module_array = NULL;
+   Eldbus_Message_Iter *inner_module_array = NULL;
+   Eina_Stringshare *module_name = NULL;
+   int count = 0;
+   int onoff = 0;
+
+   // check error
+   EINA_SAFETY_ON_TRUE_GOTO(eldbus_message_error_get(msg, &errname, &errtext), err);
+
+   // get arguments
+   EINA_SAFETY_ON_FALSE_GOTO(eldbus_message_arguments_get(msg, "ia(si)", &count, &module_array), err);
+   printf("============< print module list >===========\n");
+   printf("module count : %d\n", count);
+   while (eldbus_message_iter_get_and_next(module_array, 'r', &inner_module_array))
+     {
+        EINA_SAFETY_ON_FALSE_GOTO(
+           eldbus_message_iter_arguments_get(inner_module_array, "si", &module_name, &onoff),
+           err);
+        printf("module [ %30s ]\t:\t%s\n", module_name, onoff?"enabled":"disabled");
+     }
+   goto finish;
+
+err:
+   if (errname || errtext)
+     printf("errname : %s, errmsg : %s\n", errname, errtext);
+   else
+     printf("Error occurred in _e_info_client_cb_module_list_get\n");
+
+finish:
+   return;
+}
+
+static void
+_e_info_client_cb_module_load(const Eldbus_Message *msg)
+{
+   const char *errname = NULL, *errtext = NULL;
+   const char *result = NULL;
+
+   EINA_SAFETY_ON_TRUE_GOTO(eldbus_message_error_get(msg, &errname, &errtext), err);
+
+   EINA_SAFETY_ON_FALSE_GOTO(eldbus_message_arguments_get(msg, "s", &result), err);
+
+   printf("%s\n", result);
+   goto finish;
+
+err:
+   if (errname || errtext)
+     printf("errname : %s, errmsg : %s\n", errname, errtext);
+   else
+     printf("Error occurred in _e_info_client_cb_module_load\n");
+
+finish:
+   return;
+}
+
+static void
+_e_info_client_cb_module_unload(const Eldbus_Message *msg)
+{
+   const char *errname = NULL, *errtext = NULL;
+   const char *result = NULL;
+
+   EINA_SAFETY_ON_TRUE_GOTO(eldbus_message_error_get(msg, &errname, &errtext), err);
+
+   EINA_SAFETY_ON_FALSE_GOTO(eldbus_message_arguments_get(msg, "s", &result), err);
+
+   printf("%s\n", result);
+   goto finish;
+
+err:
+   if (errname || errtext)
+     printf("errname : %s, errmsg : %s\n", errname, errtext);
+   else
+     printf("Error occurred in _e_info_client_cb_module_unload\n");
+
+finish:
+   return;
+}
+
+static void
+_e_info_client_proc_module(int argc, char **argv)
+{
+   const char *program = argv[0];
+   const char *command = argv[2];
+   const char *module_name = argv[3];
+
+   EINA_SAFETY_ON_FALSE_GOTO(((argc >= 3) && (argc <= 4)), usage);
+
+   if (strncmp(command, "list", strlen(command)) == 0)
+     {
+        if (argc != 3)
+          goto usage;
+
+        _e_info_client_eldbus_message("module_list_get", _e_info_client_cb_module_list_get);
+        goto finish;
+     }
+   else if (strncmp(command, "load", strlen(command)) == 0)
+     {
+        if (argc != 4)
+           goto usage;
+
+        _e_info_client_eldbus_message_with_args("module_load",
+                                                _e_info_client_cb_module_load,
+                                                "s",
+                                                module_name);
+        goto finish;
+     }
+   else if (strncmp(command, "unload", strlen(command)) == 0)
+     {
+        if (argc != 4)
+           goto usage;
+
+        _e_info_client_eldbus_message_with_args("module_unload",
+                                                _e_info_client_cb_module_unload,
+                                                "s",
+                                                module_name);
+        goto finish;
+     }
+
+usage:
+   printf("Usage : %s -module <command> [<module_name>]\n\n", program);
+   printf("Commands:\n"
+          "list : Print the current modules list loaded\n"
+          "load <module_name> : Load module with the given name\n"
+          "unload <module_name> : Unload module with the given name\n\n");
+   printf("Example:\n"
+          "%s -module load e-mod-tizen-effect\n"
+          "%s -module unload e-mod-tizen-effect\n", program, program);
+finish:
+   return;
+}
+
 static struct
 {
    const char *option;
@@ -4058,6 +4193,12 @@ static struct
       WININFO_USAGE,
       "displaying information about windows",
       _e_info_client_proc_wininfo
+   },
+   {
+      "module",
+      "[list], [load <module_name>], [unload <module_name>]",
+      "manage modules on enlightenment",
+      _e_info_client_proc_module
    }
 };
 

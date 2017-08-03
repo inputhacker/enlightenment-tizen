@@ -4781,6 +4781,137 @@ _e_info_server_cb_version_get(const Eldbus_Service_Interface *iface EINA_UNUSED,
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_module_list_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eina_List *module_list = NULL, *l = NULL;
+   E_Module *mod = NULL;
+   Eldbus_Message *reply = NULL;
+   Eldbus_Message_Iter *iter = NULL, *module_array = NULL;
+   Eldbus_Message_Iter *inner_module_array = NULL;
+
+   module_list = e_module_list();
+   if (module_list == NULL)
+     {
+        ERR("cannot get module list");
+        return eldbus_message_error_new(msg, FAIL_TO_GET_PROPERTY,
+                                        "module list: e_module_list() returns NULL");
+     }
+
+   // init message
+   reply = eldbus_message_method_return_new(msg);
+   iter = eldbus_message_iter_get(reply);
+
+   // get module count
+   eldbus_message_iter_basic_append(iter, 'i', eina_list_count(module_list));
+
+   // get module list
+   eldbus_message_iter_arguments_append(iter, "a(si)", &module_array);
+   EINA_LIST_FOREACH(module_list, l, mod)
+     {
+        char module_name[128] = {0};
+        int isonoff = 0;
+        snprintf(module_name, sizeof(module_name), "%s", mod->name);
+        isonoff = e_module_enabled_get(mod);
+        eldbus_message_iter_arguments_append(module_array, "(si)", &inner_module_array);
+        eldbus_message_iter_arguments_append(inner_module_array, "si", module_name, isonoff);
+        eldbus_message_iter_container_close(module_array, inner_module_array);
+     }
+   eldbus_message_iter_container_close(iter, module_array);
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_info_server_cb_module_load(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = NULL;
+   E_Module *module = NULL;
+   const char *module_name = NULL;
+   char msg_to_client[128] = {0};
+   int res = 0;
+
+   if (eldbus_message_arguments_get(msg, "s", &module_name) == EINA_FALSE || module_name == NULL)
+     {
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                                        "module load: an attempt to get arguments from method call message failed");
+     }
+
+   // find module & enable
+   module = e_module_find(module_name);
+   if (module == NULL)
+     {
+        module = e_module_new(module_name);
+     }
+   if (module == NULL || module->error)
+     {
+        snprintf(msg_to_client, sizeof(msg_to_client), "module load: cannot find module name : %s", module_name);
+        if(module != NULL)
+          e_object_del(E_OBJECT(module));
+     }
+   else
+     {
+        if (e_module_enabled_get(module))
+          {
+             snprintf(msg_to_client, sizeof(msg_to_client), "enlightenment module[ %s ] is already loaded", module_name);
+          }
+        else
+          {
+             res = e_module_enable(module);
+             snprintf(msg_to_client, sizeof(msg_to_client), "enlightenment module[ %s ] load %s", module_name, res?"succeed":"failed");
+          }
+     }
+
+   // return message to client
+   reply = eldbus_message_method_return_new(msg);
+   eldbus_message_arguments_append(reply, "s", msg_to_client);
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_info_server_cb_module_unload(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = NULL;
+   E_Module *module = NULL;
+   const char *module_name = NULL;
+   char msg_to_client[128] = {0};
+   int res = 0;
+
+   if (eldbus_message_arguments_get(msg, "s", &module_name) == EINA_FALSE || module_name == NULL)
+     {
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                                        "module unload: an attempt to get arguments from method call message failed");
+     }
+
+   module = e_module_find(module_name);
+   if (module == NULL)
+     {
+        snprintf(msg_to_client, sizeof(msg_to_client), "module unload: cannot find module name : %s", module_name);
+        goto finish;
+     }
+   else
+     {
+        if (e_module_enabled_get(module))
+          {
+             res = e_module_disable(module);
+             snprintf(msg_to_client, sizeof(msg_to_client), "enlightenment module[ %s ] unload %s", module_name, res?"succeed":"failed");
+          }
+        else
+          {
+             snprintf(msg_to_client, sizeof(msg_to_client), "enlightenment module[ %s ] is already unloaded", module_name);
+          }
+        goto finish;
+     }
+
+finish:
+   // return message to client
+   reply = eldbus_message_method_return_new(msg);
+   eldbus_message_arguments_append(reply, "s", msg_to_client);
+
+   return reply;
+}
+
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"iiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
@@ -4835,6 +4966,9 @@ static const Eldbus_Method methods[] = {
    { "wininfo_hints", ELDBUS_ARGS({"it", "mode, window"}), ELDBUS_ARGS({"as", "window hints"}), _e_info_server_cb_wininfo_hints, 0 },
    { "wininfo_shape", ELDBUS_ARGS({"t", "window"}), ELDBUS_ARGS({"ia(iiii)ia(iiii)", "window shape"}), _e_info_server_cb_wininfo_shape, 0 },
    { "get_version", NULL, ELDBUS_ARGS({"ss", "version of E20"}), _e_info_server_cb_version_get, 0 },
+   { "module_list_get", NULL, ELDBUS_ARGS({"ia(si)", "module list"}), _e_info_server_cb_module_list_get, 0 },
+   { "module_load", ELDBUS_ARGS({"s", "target module"}), ELDBUS_ARGS({"s", "load result"}), _e_info_server_cb_module_load, 0 },
+   { "module_unload", ELDBUS_ARGS({"s", "target module"}), ELDBUS_ARGS({"s", "unload result"}), _e_info_server_cb_module_unload, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 
