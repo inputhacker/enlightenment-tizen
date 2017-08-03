@@ -1180,6 +1180,7 @@ void _e_eom_clear_surfaces(E_EomOutputPtr eom_output, tbm_surface_queue_h queue)
      }
 }
 
+#ifdef SUPPORT_ROTATE
 static E_Client *
 _e_eom_top_visible_ec_get()
 {
@@ -1209,10 +1210,12 @@ _e_eom_top_visible_ec_get()
 
    return NULL;
 }
+#endif
 
 static Eina_Bool
 _e_eom_pp_rotate_check()
 {
+#ifdef SUPPORT_ROTATE
    E_Client *ec;
 
    ec = _e_eom_top_visible_ec_get();
@@ -1227,7 +1230,7 @@ _e_eom_pp_rotate_check()
 
         return EINA_TRUE;
      }
-
+#endif
    return EINA_FALSE;
 }
 
@@ -2490,6 +2493,7 @@ _e_eom_output_hide_layers(E_EomOutputPtr eom_output)
 static void
 _e_eom_top_ec_angle_get(void)
 {
+#ifdef SUPPORT_ROTATE
    E_Client *ec;
 
    ec = _e_eom_top_visible_ec_get();
@@ -2499,6 +2503,9 @@ _e_eom_top_ec_angle_get(void)
         if (eom_trace_debug)
           EOMDB("top ec rotate angle:%d", g_eom->angle);
      }
+#else
+   g_eom->angle = 0;
+#endif
 }
 
 static void
@@ -3290,6 +3297,7 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
    return ECORE_CALLBACK_PASS_ON;
 }
 
+#ifdef SUPPORT_ROTATE
 static Eina_Bool
 _e_eom_cb_rotation_effect_ready(void *data, int type, void *event)
 {
@@ -3424,7 +3432,7 @@ _e_eom_cb_rotation_end(void *data, int evtype EINA_UNUSED, void *event)
 
    return ECORE_CALLBACK_PASS_ON;
 }
-
+#endif
 static Eina_Bool
 _e_eom_init()
 {
@@ -3448,12 +3456,13 @@ _e_eom_init()
    E_LIST_HANDLER_APPEND(g_eom->handlers, ECORE_DRM_EVENT_ACTIVATE, _e_eom_cb_ecore_drm_activate, g_eom);
    E_LIST_HANDLER_APPEND(g_eom->handlers, ECORE_DRM_EVENT_OUTPUT, _e_eom_cb_ecore_drm_output, g_eom);
    E_LIST_HANDLER_APPEND(g_eom->handlers, E_EVENT_CLIENT_BUFFER_CHANGE, _e_eom_cb_client_buffer_change, NULL);
+#ifdef SUPPORT_ROTATE
    /* TODO: add if def _F_ZONE_WINDOW_ROTATION_ */
    E_LIST_HANDLER_APPEND(g_eom->handlers, E_EVENT_ZONE_ROTATION_EFFECT_READY, _e_eom_cb_rotation_effect_ready, g_eom);
    E_LIST_HANDLER_APPEND(g_eom->handlers, E_EVENT_ZONE_ROTATION_EFFECT_CANCEL, _e_eom_cb_rotation_effect_cancel, g_eom);
    E_LIST_HANDLER_APPEND(g_eom->handlers, E_EVENT_ZONE_ROTATION_EFFECT_DONE, _e_eom_cb_rotation_effect_done, g_eom);
    E_LIST_HANDLER_APPEND(g_eom->handlers, E_EVENT_CLIENT_ROTATION_CHANGE_END, _e_eom_cb_rotation_end, g_eom);
-
+#endif
    return EINA_TRUE;
 
 err:
