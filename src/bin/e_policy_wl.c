@@ -1725,6 +1725,7 @@ _tzpol_iface_cb_type_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
          break;
 
       case TIZEN_POLICY_WIN_TYPE_NOTIFICATION:
+         ec->animatable = 0;
          win_type = E_WINDOW_TYPE_NOTIFICATION;
          break;
 
