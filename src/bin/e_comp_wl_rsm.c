@@ -773,6 +773,23 @@ bind_ec_set:
         /* TODO: enable user geometry? */
         e_policy_allow_user_geometry_set(ec, EINA_TRUE);
         remote_surface->bind_ec = ec;
+
+        /* try to set latest buffer of the provider to bind_ec */
+        if (remote_surface->provider && remote_surface->provider->common.ec)
+          {
+             E_Comp_Wl_Buffer *buffer;
+
+             buffer = e_pixmap_resource_get(remote_surface->provider->common.ec->pixmap);
+             EINA_SAFETY_ON_NULL_RETURN(buffer);
+
+             _e_comp_wl_remote_surface_state_buffer_set(&remote_surface->bind_ec->comp_data->pending, buffer);
+
+             remote_surface->bind_ec->comp_data->pending.sx = 0;
+             remote_surface->bind_ec->comp_data->pending.sy = 0;
+             remote_surface->bind_ec->comp_data->pending.new_attach = EINA_TRUE;
+
+             e_comp_wl_surface_commit(remote_surface->bind_ec);
+          }
      }
 }
 
