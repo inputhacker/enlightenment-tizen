@@ -1754,8 +1754,6 @@ _e_eom_output_connected_setup(E_EomOutputPtr eom_output)
 static Eina_Bool
 _e_eom_output_start_mirror(E_EomOutputPtr eom_output)
 {
-   tdm_info_layer layer_info;
-   tdm_error tdm_err = TDM_ERROR_NONE;
    Eina_Bool ret = EINA_FALSE;
 
    if (eom_output->state == MIRROR)
@@ -1791,8 +1789,6 @@ err:
 static void
 _e_eom_output_start_presentation(E_EomOutputPtr eom_output)
 {
-   tdm_info_layer layer_info;
-   tdm_error tdm_err = TDM_ERROR_NONE;
    Eina_Bool ret = EINA_FALSE;
 
    ret = _e_eom_output_connected_setup(eom_output);
