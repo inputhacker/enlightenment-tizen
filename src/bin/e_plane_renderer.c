@@ -1569,7 +1569,7 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
              /* check dequeuable */
              if (!e_plane_renderer_surface_queue_can_dequeue(renderer))
                {
-                  INF("There is any dequeuable surface.");
+                  INF("There is no dequeuable surface.");
                   return EINA_FALSE;
                }
           }
@@ -1587,7 +1587,7 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
              /* check dequeuable */
              if (!e_plane_renderer_surface_queue_can_dequeue(renderer))
                {
-                  INF("There is any dequeuable surface.");
+                  INF("There is no dequeuable surface.");
                   return EINA_FALSE;
                }
            }
