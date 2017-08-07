@@ -87,6 +87,8 @@ _get_tbm_surface_queue(Ecore_Evas *ee)
    tbm_surface_queue_h tbm_queue = NULL;
 
    name = ecore_evas_engine_name_get(ee);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(name, NULL);
+
    if (!strcmp(name, "gl_drm"))
      {
         Evas_Engine_Info_GL_Drm *info;
