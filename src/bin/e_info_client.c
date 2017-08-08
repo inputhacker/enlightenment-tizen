@@ -3961,6 +3961,44 @@ finish:
    return;
 }
 
+static void
+_e_info_client_cb_shutdown(const Eldbus_Message *msg)
+{
+   const char *errname = NULL, *errtext = NULL;
+   const char *result = NULL;
+
+   EINA_SAFETY_ON_TRUE_GOTO(eldbus_message_error_get(msg, &errname, &errtext), err);
+
+   EINA_SAFETY_ON_FALSE_GOTO(eldbus_message_arguments_get(msg, "s", &result), err);
+
+   printf("%s", result);
+   goto finish;
+
+err:
+   if(errname || errtext)
+     printf("errname : %s, errmsg : %s\n", errname, errtext);
+   else
+     printf("Error occurred in _e_info_client_cb_shutdown\n");
+
+finish:
+   return;
+}
+
+static void
+_e_info_client_proc_shutdown(int argc, char **argv)
+{
+   EINA_SAFETY_ON_FALSE_GOTO(argc == 2, usage);
+
+   _e_info_client_eldbus_message("shutdown", _e_info_client_cb_shutdown);
+   goto finish;
+
+usage :
+   printf("Usage : %s -shutdown\n\n", argv[0]);
+
+finish:
+   return;
+}
+
 static struct
 {
    const char *option;
@@ -4199,6 +4237,12 @@ static struct
       "[list], [load <module_name>], [unload <module_name>]",
       "manage modules on enlightenment",
       _e_info_client_proc_module
+   },
+   {
+      "shutdown",
+      NULL,
+      "Shutdown Enlightenment",
+      _e_info_client_proc_shutdown
    }
 };
 

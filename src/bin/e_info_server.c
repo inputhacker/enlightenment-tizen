@@ -4912,6 +4912,22 @@ finish:
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_shutdown(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = NULL;
+   char msg_to_client[128] = {0};
+
+   snprintf(msg_to_client, sizeof(msg_to_client), "Enlightenment will be shutdown");
+   reply = eldbus_message_method_return_new(msg);
+   eldbus_message_arguments_append(reply, "s", msg_to_client);
+
+   ecore_main_loop_quit();
+
+   return reply;
+
+}
+
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"iiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
@@ -4969,6 +4985,7 @@ static const Eldbus_Method methods[] = {
    { "module_list_get", NULL, ELDBUS_ARGS({"ia(si)", "module list"}), _e_info_server_cb_module_list_get, 0 },
    { "module_load", ELDBUS_ARGS({"s", "target module"}), ELDBUS_ARGS({"s", "load result"}), _e_info_server_cb_module_load, 0 },
    { "module_unload", ELDBUS_ARGS({"s", "target module"}), ELDBUS_ARGS({"s", "unload result"}), _e_info_server_cb_module_unload, 0 },
+   { "shutdown", NULL, ELDBUS_ARGS({"s", "shutdown result"}), _e_info_server_cb_shutdown, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 
