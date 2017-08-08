@@ -191,6 +191,7 @@ struct _E_Config
    int rsm_buffer_release_mode; // 0:none, 1:release on free, 2:release on hide
    Eina_Bool deiconify_approve; // 0:none, 1:wait render commit when deiconify
    Eina_Bool use_pp_zoom; // 0: pp zoom disable, 1: pp zoom enable
+   Eina_Bool priority_control; // 0: no priority change, 1: priority raise on focus
 };
 
 struct _E_Config_Desklock_Background
