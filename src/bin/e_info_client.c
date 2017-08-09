@@ -3915,7 +3915,10 @@ _e_info_client_proc_module(int argc, char **argv)
    const char *command = argv[2];
    const char *module_name = argv[3];
 
-   EINA_SAFETY_ON_FALSE_GOTO(((argc >= 3) && (argc <= 4)), usage);
+   if (((argc < 3) || (argc > 4)))
+     {
+       goto usage;
+     }
 
    if (strncmp(command, "list", strlen(command)) == 0)
      {
