@@ -1,5 +1,17 @@
 #include "e.h"
 
+typedef struct _E_Output_Capture E_Output_Capture;
+
+struct _E_Output_Capture
+{
+   E_Output *output;
+   tdm_capture *tcapture;
+   tbm_surface_h surface;
+   E_Output_Capture_Cb func;
+   void *data;
+   Eina_Bool in_using;
+};
+
 static int _e_output_hooks_delete = 0;
 static int _e_output_hooks_walking = 0;
 
@@ -492,6 +504,559 @@ _e_output_cb_planes_sort(const void *d1, const void *d2)
    if (!plane2) return(-1);
 
    return (plane1->zpos - plane2->zpos);
+}
+
+static tdm_capture *
+_e_output_tdm_capture_create(E_Output *output, tdm_capture_capability cap)
+{
+   tdm_error error = TDM_ERROR_NONE;
+   tdm_capture *tcapture = NULL;
+   tdm_capture_capability capabilities;
+   E_Comp_Screen *e_comp_screen = NULL;
+
+   e_comp_screen = e_comp->e_comp_screen;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+
+   error = tdm_display_get_capture_capabilities(e_comp_screen->tdisplay, &capabilities);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, EINA_FALSE);
+
+   if (!(capabilities & cap))
+     return NULL;
+
+   tcapture = tdm_output_create_capture(output->toutput, &error);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("create tdm_capture failed");
+        return NULL;
+     }
+
+   return tcapture;
+}
+
+static void
+_e_output_center_rect_get (int src_w, int src_h, int dst_w, int dst_h, Eina_Rectangle *fit)
+{
+   float rw, rh;
+
+   if (src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0 || !fit)
+     return;
+
+   rw = (float)src_w / dst_w;
+   rh = (float)src_h / dst_h;
+
+   if (rw > rh)
+     {
+        fit->w = dst_w;
+        fit->h = src_h / rw;
+        fit->x = 0;
+        fit->y = (dst_h - fit->h) / 2;
+     }
+   else if (rw < rh)
+     {
+        fit->w = src_w / rh;
+        fit->h = dst_h;
+        fit->x = (dst_w - fit->w) / 2;
+        fit->y = 0;
+     }
+   else
+     {
+        fit->w = dst_w;
+        fit->h = dst_h;
+        fit->x = 0;
+        fit->y = 0;
+     }
+
+   if (fit->x % 2)
+     fit->x = fit->x - 1;
+}
+
+static Eina_Bool
+_e_output_capture_position_get(E_Output *output, int dst_w, int dst_h, Eina_Rectangle *fit, Eina_Bool rotate)
+{
+   int output_w = 0, output_h = 0;
+
+   e_output_size_get(output, &output_w, &output_h);
+
+   if (output_w == 0 || output_h == 0)
+     return EINA_FALSE;
+
+   if (rotate)
+     _e_output_center_rect_get(output_h, output_w, dst_w, dst_h, fit);
+   else
+     _e_output_center_rect_get(output_w, output_h, dst_w, dst_h, fit);
+
+   return EINA_TRUE;
+}
+
+static unsigned int
+_e_output_aligned_width_get(tbm_surface_h tsurface)
+{
+   unsigned int aligned_width = 0;
+   tbm_surface_info_s surf_info;
+
+   tbm_surface_get_info(tsurface, &surf_info);
+
+   switch (surf_info.format)
+     {
+      case TBM_FORMAT_YUV420:
+      case TBM_FORMAT_YVU420:
+      case TBM_FORMAT_YUV422:
+      case TBM_FORMAT_YVU422:
+      case TBM_FORMAT_NV12:
+      case TBM_FORMAT_NV21:
+        aligned_width = surf_info.planes[0].stride;
+        break;
+      case TBM_FORMAT_YUYV:
+      case TBM_FORMAT_UYVY:
+        aligned_width = surf_info.planes[0].stride >> 1;
+        break;
+      case TBM_FORMAT_ARGB8888:
+      case TBM_FORMAT_XRGB8888:
+        aligned_width = surf_info.planes[0].stride >> 2;
+        break;
+      default:
+        ERR("not supported format: %x", surf_info.format);
+     }
+
+   return aligned_width;
+}
+
+static E_Client *
+_e_output_top_visible_ec_get()
+{
+   E_Client *ec;
+   Evas_Object *o;
+   E_Comp_Wl_Client_Data *cdata;
+
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        ec = evas_object_data_get(o, "E_Client");
+
+        /* check e_client and skip e_clients not intersects with zone */
+        if (!ec) continue;
+        if (e_object_is_del(E_OBJECT(ec))) continue;
+        if (e_client_util_ignored_get(ec)) continue;
+        if (ec->iconic) continue;
+        if (ec->visible == 0) continue;
+        if (!(ec->visibility.obscured == 0 || ec->visibility.obscured == 1)) continue;
+        if (!ec->frame) continue;
+        if (!evas_object_visible_get(ec->frame)) continue;
+        /* if ec is subsurface, skip this */
+        cdata = (E_Comp_Wl_Client_Data *)ec->comp_data;
+        if (cdata && cdata->sub.data) continue;
+
+        return ec;
+     }
+
+   return NULL;
+}
+
+static int
+_e_output_top_ec_angle_get(void)
+{
+   E_Client *ec = NULL;
+
+   ec = _e_output_top_visible_ec_get();
+   if (ec)
+     return ec->e.state.rot.ang.curr;
+
+   return 0;
+}
+
+static Eina_Bool
+_e_output_tdm_capture_info_set(E_Output *output, tdm_capture *tcapture, tbm_surface_h tsurface,
+                               tdm_capture_type type, Eina_Bool auto_rotate)
+{
+   tdm_error error = TDM_ERROR_NONE;
+   tdm_info_capture capture_info;
+   tbm_error_e tbm_error = TBM_ERROR_NONE;
+   tbm_surface_info_s surf_info;
+   Eina_Rectangle dst_pos;
+   unsigned int width;
+   int angle = 0;
+   int output_angle = 0;
+   Eina_Bool ret;
+   Eina_Bool rotate_check = EINA_FALSE;
+
+   tbm_error = tbm_surface_get_info(tsurface, &surf_info);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(tbm_error == TBM_ERROR_NONE, EINA_FALSE);
+
+   width = _e_output_aligned_width_get(tsurface);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(width == 0, EINA_FALSE);
+
+   memset(&capture_info, 0, sizeof(tdm_info_capture));
+   capture_info.dst_config.size.h = width;
+   capture_info.dst_config.size.v = surf_info.height;
+   capture_info.dst_config.format = surf_info.format;
+   capture_info.transform = TDM_TRANSFORM_NORMAL;
+
+   angle = _e_output_top_ec_angle_get();
+   output_angle = output->config.rotation;
+
+   if (auto_rotate &&
+      (((angle + output_angle) % 360 == 90) || ((angle + output_angle) % 360 == 270)))
+     rotate_check = EINA_TRUE;
+
+   ret = _e_output_capture_position_get(output, surf_info.width, surf_info.height, &dst_pos, rotate_check);
+   if (ret)
+     {
+        capture_info.dst_config.pos.x = dst_pos.x;
+        capture_info.dst_config.pos.y = dst_pos.y;
+        capture_info.dst_config.pos.w = dst_pos.w;
+        capture_info.dst_config.pos.h = dst_pos.h;
+
+        if (rotate_check)
+          {
+             int tmp = (angle + output_angle) % 360;
+             if (tmp == 90)
+               capture_info.transform = TDM_TRANSFORM_90;
+             else if (tmp == 180)
+               capture_info.transform = TDM_TRANSFORM_180;
+             else if (tmp == 270)
+               capture_info.transform = TDM_TRANSFORM_270;
+          }
+        else if (auto_rotate && output_angle == 90)
+          capture_info.transform = TDM_TRANSFORM_90;
+        else if (auto_rotate && output_angle == 180)
+          capture_info.transform = TDM_TRANSFORM_180;
+        else if (auto_rotate && output_angle == 270)
+          capture_info.transform = TDM_TRANSFORM_270;
+     }
+   else
+     {
+        capture_info.dst_config.pos.x = 0;
+        capture_info.dst_config.pos.y = 0;
+        capture_info.dst_config.pos.w = surf_info.width;
+        capture_info.dst_config.pos.h = surf_info.height;
+     }
+
+   capture_info.type = type;
+
+   error = tdm_capture_set_info(tcapture, &capture_info);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("tdm_capture set_info failed");
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
+static void
+_e_output_tdm_capture_done_handler(tdm_capture *tcapture, tbm_surface_h tsurface, void *user_data)
+{
+   E_Output *output = NULL;
+   E_Output_Capture *cdata = NULL;
+
+   cdata = (E_Output_Capture *)user_data;
+   output = cdata->output;
+
+   tbm_surface_internal_unref(tsurface);
+
+   cdata->func(output, tsurface, cdata->data);
+
+   tdm_capture_destroy(cdata->tcapture);
+
+   E_FREE(cdata);
+}
+
+static Eina_Bool
+_e_output_tdm_capture(E_Output *output, tdm_capture *tcapture, tbm_surface_h tsurface, E_Output_Capture_Cb func, void *data)
+{
+   tdm_error error = TDM_ERROR_NONE;
+   E_Output_Capture *cdata = NULL;
+
+   cdata = E_NEW(E_Output_Capture, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cdata, EINA_FALSE);
+
+   cdata->output = output;
+   cdata->tcapture = tcapture;
+   cdata->data = data;
+   cdata->func = func;
+
+   tbm_surface_internal_ref(tsurface);
+
+   error = tdm_capture_set_done_handler(tcapture, _e_output_tdm_capture_done_handler, cdata);
+   EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, fail);
+
+   error = tdm_capture_attach(tcapture, tsurface);
+   EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, fail);
+
+   error = tdm_capture_commit(tcapture);
+   EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, fail);
+
+   return EINA_TRUE;
+
+fail:
+   tbm_surface_internal_unref(tsurface);
+
+   if (cdata)
+     E_FREE(cdata);
+
+   return EINA_FALSE;
+}
+
+static void
+_e_output_capture_showing_rect_get(Eina_Rectangle *out_rect, Eina_Rectangle *dst_rect, Eina_Rectangle *showing_rect)
+{
+   showing_rect->x = dst_rect->x;
+   showing_rect->y = dst_rect->y;
+
+   if (dst_rect->x >= out_rect->w)
+     showing_rect->w = 0;
+   else if (dst_rect->x + dst_rect->w > out_rect->w)
+     showing_rect->w = out_rect->w - dst_rect->x;
+   else
+     showing_rect->w = dst_rect->w;
+
+   if (dst_rect->y >= out_rect->h)
+     showing_rect->h = 0;
+   else if (dst_rect->y + dst_rect->h > out_rect->h)
+     showing_rect->h = out_rect->h - dst_rect->y;
+   else
+     showing_rect->h = dst_rect->h;
+}
+
+static Eina_Bool
+_e_output_capture_src_crop_get(E_Output *output, tdm_layer *layer, Eina_Rectangle *fit, Eina_Rectangle *showing_rect)
+{
+   tdm_info_layer info;
+   tdm_error error = TDM_ERROR_NONE;
+   const tdm_output_mode *mode = NULL;
+   float ratio_x, ratio_y;
+   Eina_Rectangle out_rect;
+   Eina_Rectangle dst_rect;
+
+   fit->x = 0;
+   fit->y = 0;
+   fit->w = 0;
+   fit->h = 0;
+
+   tdm_output_get_mode(output->toutput, &mode);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, EINA_FALSE);
+
+   out_rect.x = 0;
+   out_rect.y = 0;
+   out_rect.w = mode->hdisplay;
+   out_rect.h = mode->vdisplay;
+
+   error = tdm_layer_get_info(layer, &info);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, EINA_FALSE);
+
+   dst_rect.x = info.dst_pos.x;
+   dst_rect.y = info.dst_pos.y;
+   dst_rect.w = info.dst_pos.w;
+   dst_rect.h = info.dst_pos.h;
+
+   _e_output_capture_showing_rect_get(&out_rect, &dst_rect, showing_rect);
+
+   fit->x = info.src_config.pos.x;
+   fit->y = info.src_config.pos.y;
+
+   if (info.transform % 2 == 0)
+     {
+        ratio_x = (float)info.src_config.pos.w / dst_rect.w;
+        ratio_y = (float)info.src_config.pos.h / dst_rect.h;
+
+        fit->w = showing_rect->w * ratio_x;
+        fit->h = showing_rect->h * ratio_y;
+     }
+   else
+     {
+        ratio_x = (float)info.src_config.pos.w / dst_rect.h;
+        ratio_y = (float)info.src_config.pos.h / dst_rect.w;
+
+        fit->w = showing_rect->h * ratio_x;
+        fit->h = showing_rect->w * ratio_y;
+     }
+
+   return EINA_TRUE;
+}
+
+static void
+_e_output_capture_dst_crop_get(E_Comp_Wl_Video_Buf *tmp, E_Comp_Wl_Video_Buf *dst, tdm_layer *layer,
+                               int w, int h, Eina_Rectangle *pos, Eina_Rectangle *showing_pos,
+                               Eina_Rectangle *dst_crop, int rotate)
+{
+   tdm_info_layer info;
+   tdm_error error = TDM_ERROR_NONE;
+
+   dst_crop->x = 0;
+   dst_crop->y = 0;
+   dst_crop->w = 0;
+   dst_crop->h = 0;
+
+   error = tdm_layer_get_info(layer, &info);
+   EINA_SAFETY_ON_FALSE_RETURN(error == TDM_ERROR_NONE);
+
+   if (info.src_config.pos.w == w && info.src_config.pos.h == h &&
+       pos->x == 0 && pos->y == 0 && pos->w == tmp->width && pos->h == tmp->height)
+     {
+        dst_crop->x = pos->x;
+        dst_crop->y = pos->y;
+        dst_crop->w = pos->w;
+        dst_crop->h = pos->h;
+     }
+   else if ((w == pos->w) && (h == pos->h) && (showing_pos->w == pos->w) && (showing_pos->h == pos->h))
+     {
+        dst_crop->x = info.dst_pos.x + pos->x;
+        dst_crop->y = info.dst_pos.y + pos->y;
+        dst_crop->w = info.dst_pos.w;
+        dst_crop->h = info.dst_pos.h;
+     }
+   else if (rotate == 0)
+     {
+        dst_crop->x = showing_pos->x * pos->w / w + pos->x;
+        dst_crop->y = showing_pos->y * pos->h / h + pos->y;
+        dst_crop->w = showing_pos->w * pos->w / w;
+        dst_crop->h = showing_pos->h * pos->h / h;
+     }
+   else if (rotate == 90)
+     {
+        dst_crop->x = (h - showing_pos->y - showing_pos->h) * pos->w / h + pos->x;
+        dst_crop->y = showing_pos->x * pos->h / w + pos->y;
+        dst_crop->w = showing_pos->h * pos->w / h;
+        dst_crop->h = showing_pos->w * pos->h / w;
+     }
+   else if (rotate == 180)
+     {
+        dst_crop->x = (w - showing_pos->x - showing_pos->w) * pos->w / w + pos->x;
+        dst_crop->y = (h - showing_pos->y - showing_pos->h) * pos->h / h + pos->y;
+        dst_crop->w = showing_pos->w * pos->w / w;
+        dst_crop->h = showing_pos->h * pos->h / h;
+     }
+   else if (rotate == 270)
+     {
+        dst_crop->x = showing_pos->y * pos->w / h + pos->x;
+        dst_crop->y = (w - showing_pos->x - showing_pos->w) * pos->h / w + pos->y;
+        dst_crop->w = showing_pos->h * pos->w / h;
+        dst_crop->h = showing_pos->w * pos->h / w;
+     }
+   else
+     {
+        dst_crop->x = pos->x;
+        dst_crop->y = pos->y;
+        dst_crop->w = pos->w;
+        dst_crop->h = pos->h;
+        ERR("_e_tz_screenmirror_dump_get_cropinfo: unknown case error");
+     }
+}
+
+static Eina_Bool
+_e_output_video_buffer_capture(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, Eina_Bool auto_rotate)
+{
+   tdm_error error = TDM_ERROR_NONE;
+   int width = 0, height = 0, rotate = 0;
+   int i, count;
+   int angle = 0;
+   int output_angle = 0;
+   Eina_Bool rotate_check = EINA_FALSE;
+
+   e_output_size_get(output, &width, &height);
+   if (width == 0 || height == 0)
+     return EINA_FALSE;
+
+   angle = _e_output_top_ec_angle_get();
+   output_angle = output->config.rotation;
+
+   if (auto_rotate &&
+      ((angle + output_angle) % 360 == 90 || (angle + output_angle) % 360 == 270))
+     rotate_check = EINA_TRUE;
+
+   if (rotate_check)
+     {
+        int tmp = (angle + output_angle) % 360;
+
+        if (tmp == 90)
+          rotate = 90;
+        else if (tmp == 180)
+          rotate = 180;
+        else if (tmp == 270)
+          rotate = 270;
+     }
+   else if (auto_rotate && output_angle == 90)
+     rotate = 90;
+   else if (auto_rotate && output_angle == 180)
+     rotate = 180;
+   else if (auto_rotate && output_angle == 270)
+     rotate = 270;
+
+   error = tdm_output_get_layer_count(output->toutput, &count);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(count >= 0, EINA_FALSE);
+
+   for (i = 0; i < count; i++)
+     {
+        E_Comp_Wl_Video_Buf *tmp = NULL;
+        tdm_layer *layer;
+        tdm_layer_capability capability;
+        tbm_surface_h surface = NULL;
+        Eina_Rectangle showing_pos = {0, };
+        Eina_Rectangle dst_pos = {0, };
+        Eina_Rectangle src_crop = {0, };
+        Eina_Rectangle dst_crop = {0, };
+        Eina_Bool ret;
+
+        layer = tdm_output_get_layer(output->toutput, i, &error);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, EINA_FALSE);
+
+        error = tdm_layer_get_capabilities(layer, &capability);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, EINA_FALSE);
+        if (capability & TDM_LAYER_CAPABILITY_VIDEO)
+          continue;
+
+        surface = tdm_layer_get_displaying_buffer(layer, &error);
+        if (surface == NULL)
+          continue;
+
+        tmp = e_comp_wl_video_buffer_create_tbm(surface);
+        if (tmp == NULL)
+          continue;
+
+        ret = _e_output_capture_src_crop_get(output, layer, &src_crop, &showing_pos);
+        if (ret == EINA_FALSE)
+          {
+             e_comp_wl_video_buffer_unref(tmp);
+             continue;
+          }
+
+        ret = _e_output_capture_position_get(output, vbuf->width, vbuf->height, &dst_pos, rotate_check);
+        if (ret == EINA_FALSE)
+          {
+             e_comp_wl_video_buffer_unref(tmp);
+             continue;
+          }
+
+        _e_output_capture_dst_crop_get(tmp, vbuf, layer, width, height,
+                                       &dst_pos, &showing_pos, &dst_crop, rotate);
+
+        e_comp_wl_video_buffer_convert(tmp, vbuf,
+                                       src_crop.x, src_crop.y, src_crop.w, src_crop.h,
+                                       dst_crop.x, dst_crop.y, dst_crop.w, dst_crop.h,
+                                       EINA_TRUE, rotate, 0, 0);
+
+        e_comp_wl_video_buffer_unref(tmp);
+     }
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotate)
+{
+   E_Comp_Wl_Video_Buf *vbuf = NULL;
+   Eina_Bool ret = EINA_FALSE;
+
+   vbuf = e_comp_wl_video_buffer_create_tbm(tsurface);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, EINA_FALSE);
+
+   e_comp_wl_video_buffer_clear(vbuf);
+
+   ret = _e_output_video_buffer_capture(output, vbuf, auto_rotate);
+
+   e_comp_wl_video_buffer_unref(vbuf);
+
+   return ret;
 }
 
 EINTERN E_Output *
@@ -1550,4 +2115,36 @@ e_output_hook_del(E_Output_Hook *ch)
      }
    else
      _e_output_hooks_delete++;
+}
+
+EINTERN Eina_Bool
+e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotate, E_Output_Capture_Cb func, void *data)
+{
+   Eina_Bool ret = EINA_FALSE;
+   tdm_capture *tcapture = NULL;
+
+   tcapture = _e_output_tdm_capture_create(output, TDM_CAPTURE_CAPABILITY_ONESHOT);
+   if (tcapture)
+     {
+        ret = _e_output_tdm_capture_info_set(output, tcapture, tsurface, TDM_CAPTURE_TYPE_ONESHOT, auto_rotate);
+        EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
+
+        ret = _e_output_tdm_capture(output, tcapture, tsurface, func, data);
+        EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
+     }
+   else
+     {
+        ret = _e_output_capture(output, tsurface, auto_rotate);
+        EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
+
+        func(output, tsurface, data);
+     }
+
+   return EINA_TRUE;
+
+fail:
+   if (tcapture)
+     tdm_capture_destroy(tcapture);
+
+   return EINA_FALSE;
 }

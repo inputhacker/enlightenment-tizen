@@ -1,12 +1,16 @@
 #ifdef E_TYPEDEFS
 
-typedef struct _E_Output        E_Output;
-typedef struct _E_Output_Mode   E_Output_Mode;
-typedef enum   _E_Output_Dpms   E_OUTPUT_DPMS;
+#include <tbm_surface.h>
 
-typedef struct _E_Output_Hook   E_Output_Hook;
+typedef struct _E_Output            E_Output;
+typedef struct _E_Output_Mode       E_Output_Mode;
+typedef enum   _E_Output_Dpms       E_OUTPUT_DPMS;
+
+typedef struct _E_Output_Hook       E_Output_Hook;
 typedef enum   _E_Output_Hook_Point E_Output_Hook_Point;
 typedef void (*E_Output_Hook_Cb) (void *data, E_Output *output);
+
+typedef void (*E_Output_Capture_Cb) (E_Output *output, tbm_surface_h surface, void *user_data);
 
 #else
 #ifndef E_OUTPUT_H
@@ -122,6 +126,7 @@ EINTERN E_Plane         * e_output_default_fb_target_get(E_Output *output);
 EINTERN Eina_Bool         e_output_fake_config_set(E_Output *output, int w, int h);
 EINTERN Eina_Bool         e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy);
 EINTERN void              e_output_zoom_unset(E_Output *output);
+EINTERN Eina_Bool         e_output_capture(E_Output *output, tbm_surface_h surface, Eina_Bool auto_rotate, E_Output_Capture_Cb func, void *data);
 E_API E_Output          * e_output_find(const char *id);
 E_API E_Output          * e_output_find_by_index(int index);
 E_API const Eina_List   * e_output_planes_get(E_Output *output);
