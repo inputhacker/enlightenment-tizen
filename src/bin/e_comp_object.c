@@ -1027,6 +1027,7 @@ _e_comp_object_animating_end(E_Comp_Object *cw)
                     {
                        if (!cw->ec->extra_animating)
                          {
+                            ELOGF("COMP", "Un-Set launching flag..", cw->ec->pixmap, cw->ec);
                             cw->ec->launching = EINA_FALSE;
                             if (cw->ec->first_mapped)
                               {
@@ -1924,7 +1925,7 @@ _e_comp_intercept_hide(void *data, Evas_Object *obj)
 
    if (cw->ec->launching == EINA_TRUE)
      {
-        ELOG("Hide. Cancel launching flag", cw->ec->pixmap, cw->ec);
+        ELOGF("COMP", "Hide. Cancel launching flag", cw->ec->pixmap, cw->ec);
         cw->ec->launching = EINA_FALSE;
      }
 
@@ -2819,7 +2820,7 @@ _e_comp_smart_show(Evas_Object *obj)
      {
         if (cw->ec->exp_iconify.by_client)
           {
-             ELOG("Set launching flag..", cw->ec->pixmap, cw->ec);
+             ELOGF("COMP", "Set launching flag..", cw->ec->pixmap, cw->ec);
              cw->ec->launching = EINA_TRUE;
           }
 
@@ -2828,7 +2829,7 @@ _e_comp_smart_show(Evas_Object *obj)
    else if (!cw->showing) /* if set, client was ec->hidden during show animation */
      {
         cw->showing = 1;
-        ELOG("Set launching flag..", cw->ec->pixmap, cw->ec);
+        ELOGF("COMP", "Set launching flag..", cw->ec->pixmap, cw->ec);
         cw->ec->launching = EINA_TRUE;
 
         e_comp_object_signal_emit(cw->smart_obj, "e,state,visible", "e");

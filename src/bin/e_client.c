@@ -4898,7 +4898,7 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
           (e_config->focus_setting == E_FOCUS_NEW_DIALOG_IF_OWNER_FOCUSED)))) ||
        (just_do_it))
      {
-        ELOG("Set launching flag..", ec->pixmap, ec);
+        ELOGF("COMP", "Set launching flag..", ec->pixmap, ec);
         ec->launching = EINA_TRUE;
 
         ec->exp_iconify.not_raise = 0;

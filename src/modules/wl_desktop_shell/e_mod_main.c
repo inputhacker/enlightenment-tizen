@@ -1158,6 +1158,8 @@ _e_xdg_shell_surface_map_cb_timer(void *data)
                }
           }
 
+        ELOGF("COMP", "Un-Set launching flag", ec->pixmap, ec);
+        ec->launching = EINA_FALSE;
         ec->first_mapped = 1;
         EC_CHANGED(ec);
      }
@@ -1259,6 +1261,8 @@ _e_xdg_shell_surface_map(struct wl_resource *resource)
                }
           }
 
+        ELOGF("COMP", "Un-Set launching flag..", ec->pixmap, ec);
+        ec->launching = EINA_FALSE;
         ec->first_mapped = 1;
         EC_CHANGED(ec);
      }
