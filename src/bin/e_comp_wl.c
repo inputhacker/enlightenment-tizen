@@ -1853,6 +1853,13 @@ _e_comp_wl_buffer_cb_destroy(struct wl_listener *listener, void *data EINA_UNUSE
    eina_stringshare_del(buffer->debug_info.owner_name);
 
    wl_signal_emit(&buffer->destroy_signal, buffer);
+
+   if (buffer->destroy_listener.notify)
+     {
+        wl_list_remove(&buffer->destroy_listener.link);
+        buffer->destroy_listener.notify = NULL;
+     }
+
    free(buffer);
 }
 
