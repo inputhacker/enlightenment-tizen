@@ -66,6 +66,7 @@ static Eina_Inlist *_e_comp_wl_hooks[] =
    [E_COMP_WL_HOOK_SHELL_SURFACE_READY] = NULL,
    [E_COMP_WL_HOOK_SUBSURFACE_CREATE] = NULL,
    [E_COMP_WL_HOOK_BUFFER_CHANGE] = NULL,
+   [E_COMP_WL_HOOK_CLIENT_REUSE] = NULL,
 };
 
 static Eina_List *hooks = NULL;
@@ -4508,6 +4509,9 @@ _e_comp_wl_client_usable_get(pid_t pid, E_Pixmap *ep)
              ec->ignored = 0;
              if (!ec->comp_data) return NULL;
              _e_comp_wl_client_evas_init(ec);
+
+             ELOGF("COMP", "Reusable ec. new_pixmap:%p", ec->pixmap, ec, ec->pixmap);
+             _e_comp_wl_hook_call(E_COMP_WL_HOOK_CLIENT_REUSE, ec);
           }
      }
 
