@@ -1018,6 +1018,12 @@ _e_vis_client_uniconify_render(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool 
 
    ec = vc->ec;
 
+   if (ec->zone->display_state == E_ZONE_DISPLAY_STATE_OFF)
+     {
+        VS_DBG(ec, "Display off. no need to uniconify render.");
+        return EINA_FALSE;
+     }
+
    if (!_e_vis_client_is_uniconify_render_necessary(vc))
        return EINA_FALSE;
 
