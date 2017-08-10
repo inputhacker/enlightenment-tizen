@@ -1544,6 +1544,7 @@ _e_comp_wl_client_priority_adjust(int pid, int set, int adj, Eina_Bool use_adj, 
 static void
 _e_comp_wl_client_priority_raise(E_Client *ec)
 {
+   if (!e_config->priority_control) return;
    if (ec->netwm.pid <= 0) return;
    if (ec->netwm.pid == getpid()) return;
    _e_comp_wl_client_priority_adjust(ec->netwm.pid,
@@ -1554,6 +1555,7 @@ _e_comp_wl_client_priority_raise(E_Client *ec)
 static void
 _e_comp_wl_client_priority_normal(E_Client *ec)
 {
+   if (!e_config->priority_control) return;
    if (ec->netwm.pid <= 0) return;
    if (ec->netwm.pid == getpid()) return;
    _e_comp_wl_client_priority_adjust(ec->netwm.pid, e_config->priority, 1,
