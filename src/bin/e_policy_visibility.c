@@ -1035,6 +1035,7 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
    VS_DBG(ec, "BEGIN Uniconify render: raise %d", raise);
 
    e_policy_wl_visibility_send(ec, E_VISIBILITY_PRE_UNOBSCURED);
+   ec->visibility.changed = 1;
 
    _e_vis_client_prepare_foreground_signal_emit(vc);
    vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY;
