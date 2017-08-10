@@ -5089,56 +5089,109 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
    if (!(buffer = E_NEW(E_Comp_Wl_Buffer, 1))) return NULL;
 
    shmbuff = wl_shm_buffer_get(resource);
-   tbm_surf = wayland_tbm_server_get_surface(NULL, resource);
 
-   if (shmbuff)
+   /* TODO: This option is temporarily. It will be removed later. */
+   /* prefer to use native buffer(wl_buffer) */
+   if (e_comp->use_native_type_buffer)
      {
-        buffer->type = E_COMP_WL_BUFFER_TYPE_SHM;
-
-        buffer->w = wl_shm_buffer_get_width(shmbuff);
-        buffer->h = wl_shm_buffer_get_height(shmbuff);
-     }
-   else if (tbm_surf)
-     {
-        tbm_surf = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, resource);
-        if (!tbm_surf)
-          goto err;
-
-        if ((ec) && (ec->comp_data->video_client))
+        if (shmbuff)
           {
-             buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
-             buffer->w = buffer->h = 1;
+             buffer->type = E_COMP_WL_BUFFER_TYPE_SHM;
+
+             buffer->w = wl_shm_buffer_get_width(shmbuff);
+             buffer->h = wl_shm_buffer_get_height(shmbuff);
           }
         else
           {
-             buffer->type = E_COMP_WL_BUFFER_TYPE_TBM;
-             buffer->w = tbm_surface_get_width(tbm_surf);
-             buffer->h = tbm_surface_get_height(tbm_surf);
+             if ((ec) && (ec->comp_data->video_client))
+               {
+                  buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
+                  buffer->w = buffer->h = 1;
+               }
+             else if (e_comp->gl)
+               {
+                  buffer->type = E_COMP_WL_BUFFER_TYPE_NATIVE;
+
+                  res = e_comp_wl->wl.glapi->evasglQueryWaylandBuffer(e_comp_wl->wl.gl,
+                                                                      resource,
+                                                                      EVAS_GL_WIDTH,
+                                                                      &buffer->w);
+                  EINA_SAFETY_ON_FALSE_GOTO(res, err);
+
+                  res = e_comp_wl->wl.glapi->evasglQueryWaylandBuffer(e_comp_wl->wl.gl,
+                                                                      resource,
+                                                                      EVAS_GL_HEIGHT,
+                                                                      &buffer->h);
+                  EINA_SAFETY_ON_FALSE_GOTO(res, err);
+               }
+             else
+               {
+                  tbm_surf = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, resource);
+                  if (!tbm_surf)
+                    goto err;
+
+                  buffer->type = E_COMP_WL_BUFFER_TYPE_NATIVE;
+                  buffer->w = tbm_surface_get_width(tbm_surf);
+                  buffer->h = tbm_surface_get_height(tbm_surf);
+                  buffer->tbm_surface = tbm_surf;
+               }
           }
-     }
-   else if (e_comp->gl)
-     {
-         buffer->type = E_COMP_WL_BUFFER_TYPE_NATIVE;
+          buffer->shm_buffer = shmbuff;
+       }
+     else
+       {
+          tbm_surf = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, resource);
 
-         res = e_comp_wl->wl.glapi->evasglQueryWaylandBuffer(e_comp_wl->wl.gl,
-                                                             resource,
-                                                             EVAS_GL_WIDTH,
-                                                             &buffer->w);
-         EINA_SAFETY_ON_FALSE_GOTO(res, err);
+          if (shmbuff)
+            {
+               buffer->type = E_COMP_WL_BUFFER_TYPE_SHM;
 
-         res = e_comp_wl->wl.glapi->evasglQueryWaylandBuffer(e_comp_wl->wl.gl,
-                                                             resource,
-                                                             EVAS_GL_HEIGHT,
-                                                             &buffer->h);
-         EINA_SAFETY_ON_FALSE_GOTO(res, err);
-     }
-   else
-     {
-         goto err;
-     }
+               buffer->w = wl_shm_buffer_get_width(shmbuff);
+               buffer->h = wl_shm_buffer_get_height(shmbuff);
+            }
+          else if (tbm_surf)
+            {
+               tbm_surf = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, resource);
+               if (!tbm_surf)
+                 goto err;
 
-   buffer->shm_buffer = shmbuff;
-   buffer->tbm_surface = tbm_surf;
+               if ((ec) && (ec->comp_data->video_client))
+                 {
+                    buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
+                    buffer->w = buffer->h = 1;
+                 }
+               else
+                 {
+                    buffer->type = E_COMP_WL_BUFFER_TYPE_TBM;
+                    buffer->w = tbm_surface_get_width(tbm_surf);
+                    buffer->h = tbm_surface_get_height(tbm_surf);
+                 }
+            }
+          else if (e_comp->gl)
+            {
+                buffer->type = E_COMP_WL_BUFFER_TYPE_NATIVE;
+
+                res = e_comp_wl->wl.glapi->evasglQueryWaylandBuffer(e_comp_wl->wl.gl,
+                                                                    resource,
+                                                                    EVAS_GL_WIDTH,
+                                                                    &buffer->w);
+                EINA_SAFETY_ON_FALSE_GOTO(res, err);
+
+                res = e_comp_wl->wl.glapi->evasglQueryWaylandBuffer(e_comp_wl->wl.gl,
+                                                                    resource,
+                                                                    EVAS_GL_HEIGHT,
+                                                                    &buffer->h);
+                EINA_SAFETY_ON_FALSE_GOTO(res, err);
+            }
+          else
+            {
+                goto err;
+            }
+
+          buffer->shm_buffer = shmbuff;
+          buffer->tbm_surface = tbm_surf;
+       }
+
    buffer->resource = resource;
    wl_signal_init(&buffer->destroy_signal);
    buffer->destroy_listener.notify = _e_comp_wl_buffer_cb_destroy;

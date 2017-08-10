@@ -1521,6 +1521,7 @@ e_comp_init(void)
 #ifdef ENABLE_HWC_MULTI
    if (conf->hwc_use_multi_plane) e_comp->hwc_use_multi_plane = EINA_TRUE;
 #endif
+   if (conf->use_native_type_buffer) e_comp->use_native_type_buffer = EINA_TRUE;
 
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREENSAVER_ON,  _e_comp_screensaver_on,  NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREENSAVER_OFF, _e_comp_screensaver_off, NULL);
