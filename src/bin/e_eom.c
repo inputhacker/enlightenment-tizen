@@ -3429,12 +3429,32 @@ _e_eom_cb_rotation_end(void *data, int evtype EINA_UNUSED, void *event)
    return ECORE_CALLBACK_PASS_ON;
 }
 #endif
+
+static Eina_Bool
+_e_eom_external_output_check()
+{
+   tdm_error ret = TDM_ERROR_NONE;
+   tdm_display *dpy = NULL;
+   int count;
+
+   dpy = e_comp->e_comp_screen->tdisplay;
+
+   ret = tdm_display_get_output_count(dpy, &count);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(count > 1, EINA_FALSE);
+
+   return EINA_TRUE;
+}
+
 static Eina_Bool
 _e_eom_init()
 {
    Eina_Bool ret = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_GOTO(e_comp_wl, err);
+
+   if (!_e_eom_external_output_check())
+     return EINA_TRUE;
 
    g_eom = E_NEW(E_Eom, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(g_eom, EINA_FALSE);
