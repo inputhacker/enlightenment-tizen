@@ -109,6 +109,19 @@ struct _E_Plane
       E_Plane_Renderer     *renderer;
       E_Client             *ec;
    } display_info;
+
+   /* below are fields relative to the optimized hwc */
+
+   /* this object represents an underlying hw layer associated with this plane
+    * and should be used only by optimized hwc, instead of 'tlayer',
+    * as no prizes for guessing
+    *
+    * this association happens in EACH update_cb, after 'validate' to be exact
+    *
+    * we don't know a REAL zpos of an underlying hw layer this object represents,
+    * the only thing we know that zpos order will be complied
+    */
+   tdm_hwc_window       *hwc_wnd;
 };
 
 struct _E_Plane_Commit_Data {
@@ -166,6 +179,7 @@ EINTERN Eina_List           *e_plane_available_tbm_formats_get(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_pp_commit(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect);
 EINTERN void                 e_plane_zoom_unset(E_Plane *plane);
+EINTERN Eina_Bool            e_plane_is_fb_target_owned_by_ecore_evas(E_Plane *plane);
 
 E_API Eina_Bool              e_plane_type_set(E_Plane *plane, E_Plane_Type type);
 E_API E_Plane_Type           e_plane_type_get(E_Plane *plane);

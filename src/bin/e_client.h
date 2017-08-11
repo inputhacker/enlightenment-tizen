@@ -937,6 +937,14 @@ struct E_Client
    int effect_type;
    Eina_Bool use_splash : 1;
    Eina_Bool saved_img : 1; // indicates that window has been saved as the image file even once
+
+   /* FIXME: it's a kludge
+    *
+    * whether this e_client is acceptable (from wm point of view) to be shown by hw directly,
+    * without composition
+    *
+    * used only by optimized hwc */
+   Eina_Bool hwc_acceptable;
 };
 
 #define e_client_focus_policy_click(ec) \

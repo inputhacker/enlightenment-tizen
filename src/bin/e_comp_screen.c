@@ -1164,6 +1164,7 @@ e_comp_screen_hwc_info_debug(void)
         EINA_LIST_FOREACH_SAFE(output->planes, l_l, ll_l, plane)
           {
               if (!plane) continue;
+              /* FIXME: hwc extension doesn't provide thing like layer */
               tdm_layer_get_capabilities(plane->tlayer, &layer_capabilities);
               snprintf(layer_cap, sizeof(layer_cap), "%s%s%s%s%s%s%s%s",
                        _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_CURSOR),
