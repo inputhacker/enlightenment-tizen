@@ -2371,3 +2371,22 @@ e_plane_zoom_unset(E_Plane *plane)
           }
      }
 }
+
+EINTERN Eina_Bool
+e_plane_fps_get(E_Plane *plane, double *fps)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   if (plane->old_fps == plane->fps)
+     return EINA_FALSE;
+
+   if (plane->fps > 0.0)
+     {
+        *fps = plane->fps;
+        plane->old_fps = plane->fps;
+        return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
