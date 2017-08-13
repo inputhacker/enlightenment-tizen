@@ -1916,6 +1916,15 @@ _e_client_cb_evas_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
 
    ec->pre_cb.x = x; ec->pre_cb.y = y;
 
+   if (ec->focused)
+     {
+        if (!E_INTERSECTS(ec->x, ec->y, ec->w, ec->h,
+                          ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
+          {
+             _e_client_revert_focus(ec);
+          }
+     }
+
    e_client_visibility_calculate();
 }
 
