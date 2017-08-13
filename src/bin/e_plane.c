@@ -1389,6 +1389,40 @@ _e_plane_fb_target_change_check(E_Plane *plane)
    return;
 }
 
+static void
+_e_plane_update_fps(E_Plane *plane)
+{
+   static double time = 0.0;
+   static double lapse = 0.0;
+   static int cframes = 0;
+   static int flapse = 0;
+
+   if (e_comp->calc_fps)
+     {
+        double dt;
+        double tim = ecore_time_get();
+
+        dt = tim - plane->frametimes[0];
+        plane->frametimes[0] = tim;
+
+        time += dt;
+        cframes++;
+
+        if (lapse == 0.0)
+          {
+             lapse = tim;
+             flapse = cframes;
+          }
+        else if ((tim - lapse) >= 0.5)
+          {
+             plane->fps = (cframes - flapse) / (tim - lapse);
+             lapse = tim;
+             flapse = cframes;
+             time = 0.0;
+          }
+     }
+}
+
 EINTERN Eina_Bool
 e_plane_offscreen_commit(E_Plane *plane)
 {
@@ -1459,6 +1493,8 @@ e_plane_commit(E_Plane *plane)
      e_pixmap_image_clear(plane->ec->pixmap, 1);
 
    plane->wait_commit = EINA_TRUE;
+
+   _e_plane_update_fps(plane);
 
    return EINA_TRUE;
 }

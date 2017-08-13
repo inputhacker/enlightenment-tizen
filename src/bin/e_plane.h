@@ -109,6 +109,10 @@ struct _E_Plane
       E_Plane_Renderer     *renderer;
       E_Client             *ec;
    } display_info;
+
+   double               fps;
+   double               old_fps;
+   double               frametimes[122];
 };
 
 struct _E_Plane_Commit_Data {
