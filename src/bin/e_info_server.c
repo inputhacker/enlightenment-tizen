@@ -95,6 +95,7 @@ static Eina_List *module_hook = NULL;
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
+#define VALUE_TYPE_FOR_LAYER_FPS "sid"
 #define VALUE_TYPE_REQUEST_FOR_KILL "uts"
 #define VALUE_TYPE_REPLY_KILL "s"
 #define VALUE_TYPE_REQUEST_FOR_WININFO "t"
@@ -3117,37 +3118,6 @@ _e_info_server_cb_keygrab_status_get(const Eldbus_Service_Interface *iface EINA_
 }
 
 static Eldbus_Message *
-_e_info_server_cb_fps_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
-{
-   static double old_fps = 0;
-
-   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
-   char buf[128] = {};
-
-   if (!e_comp->calc_fps)
-     {
-        e_comp->calc_fps = 1;
-     }
-
-   if (old_fps == e_comp->fps)
-     {
-        snprintf(buf, sizeof(buf), "no_update");
-     }
-   else if (e_comp->fps > 0.0)
-     {
-        snprintf(buf, sizeof(buf), "... FPS %3.1f", e_comp->fps);
-        old_fps = e_comp->fps;
-     }
-   else
-     {
-        snprintf(buf, sizeof(buf), "... FPS N/A");
-     }
-
-   eldbus_message_arguments_append(reply, "s", buf);
-   return reply;
-}
-
-static Eldbus_Message *
 _e_info_server_cb_punch(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
@@ -4033,6 +4003,97 @@ e_info_server_cb_show_pending_commit(const Eldbus_Service_Interface *iface EINA_
 
    return reply;
 }
+
+static void
+_msg_layer_fps_append(Eldbus_Message_Iter *iter)
+{
+   Eina_List *output_l, *plane_l;
+   Eldbus_Message_Iter *array_of_layer_fps;
+   E_Comp_Screen *e_comp_screen = NULL;
+   E_Output *output = NULL;
+   E_Plane *plane = NULL;
+   double fps = 0.0;
+   char output_name[30];
+   int size = 0;
+
+   eldbus_message_iter_arguments_append(iter, "a("VALUE_TYPE_FOR_LAYER_FPS")", &array_of_layer_fps);
+
+   e_comp_screen = e_comp->e_comp_screen;
+
+   EINA_LIST_FOREACH(e_comp_screen->outputs, output_l, output)
+     {
+        if (!output) continue;
+
+        strncpy(output_name, output->id, sizeof(char)*30);
+
+        EINA_LIST_FOREACH(output->planes, plane_l, plane)
+          {
+             if (!plane) continue;
+             if (!e_plane_fps_get(plane, &fps)) continue;
+
+             Eldbus_Message_Iter* struct_of_layer_fps;
+
+             eldbus_message_iter_arguments_append(array_of_layer_fps, "("VALUE_TYPE_FOR_LAYER_FPS")", &struct_of_layer_fps);
+
+             eldbus_message_iter_arguments_append
+               (struct_of_layer_fps, VALUE_TYPE_FOR_LAYER_FPS,
+                 output_name,
+                 plane->zpos,
+                 plane->fps);
+
+            eldbus_message_iter_container_close(array_of_layer_fps, struct_of_layer_fps);
+          }
+        memset(output_name, 0x0, sizeof(char)*30);
+     }
+
+   eldbus_message_iter_container_close(iter, array_of_layer_fps);
+}
+
+static Eldbus_Message *
+_e_info_server_cb_layer_fps_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+
+   if (!e_comp->calc_fps)
+     {
+        e_comp->calc_fps = 1;
+     }
+
+   _msg_layer_fps_append(eldbus_message_iter_get(reply));
+
+   return reply;
+}
+#else
+static Eldbus_Message *
+_e_info_server_cb_fps_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   static double old_fps = 0;
+
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   char buf[128] = {};
+
+   if (!e_comp->calc_fps)
+     {
+        e_comp->calc_fps = 1;
+     }
+
+   if (old_fps == e_comp->fps)
+     {
+        snprintf(buf, sizeof(buf), "no_update");
+     }
+   else if (e_comp->fps > 0.0)
+     {
+        snprintf(buf, sizeof(buf), "... FPS %3.1f", e_comp->fps);
+        old_fps = e_comp->fps;
+     }
+   else
+     {
+        snprintf(buf, sizeof(buf), "... FPS N/A");
+     }
+
+   eldbus_message_arguments_append(reply, "s", buf);
+   return reply;
+}
 #endif
 
 static Eldbus_Message *
@@ -4894,7 +4955,6 @@ static const Eldbus_Method methods[] = {
    { "get_input_devices", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_INPUTDEV")", "array of input"}), _e_info_server_cb_input_device_info_get, 0},
    { "protocol_trace", ELDBUS_ARGS({"s", "protocol_trace"}), NULL, _e_info_server_cb_protocol_trace, 0},
    { "protocol_rule", ELDBUS_ARGS({"sss", "protocol_rule"}), ELDBUS_ARGS({"s", "rule request"}), _e_info_server_cb_protocol_rule, 0},
-   { "get_fps_info", NULL, ELDBUS_ARGS({"s", "fps request"}), _e_info_server_cb_fps_info_get, 0},
    { "punch", ELDBUS_ARGS({"iiiiiiiii", "punch_geometry"}), NULL, _e_info_server_cb_punch, 0},
    { "transform_message", ELDBUS_ARGS({"siiiiiiii", "transform_message"}), NULL, e_info_server_cb_transform_message, 0},
    { "dump_buffers", ELDBUS_ARGS({"iisd", "start"}), NULL, _e_info_server_cb_buffer_dump, 0 },
@@ -4905,6 +4965,9 @@ static const Eldbus_Method methods[] = {
    { "hwc", ELDBUS_ARGS({"i", "hwc"}), NULL, e_info_server_cb_hwc, 0},
    { "show_plane_state", NULL, NULL, e_info_server_cb_show_plane_state, 0},
    { "show_pending_commit", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_PENDING_COMMIT")", "array of pending commit"}), e_info_server_cb_show_pending_commit, 0},
+   { "get_layer_fps_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_LAYER_FPS")", "array of pending commit"}), _e_info_server_cb_layer_fps_info_get, 0},
+#else
+   { "get_fps_info", NULL, ELDBUS_ARGS({"s", "fps request"}), _e_info_server_cb_fps_info_get, 0},
 #endif
    { "get_keymap", NULL, ELDBUS_ARGS({"hi", "keymap fd"}), _e_info_server_cb_keymap_info_get, 0},
    { "effect_control", ELDBUS_ARGS({"i", "effect_control"}), NULL, e_info_server_cb_effect_control, 0},

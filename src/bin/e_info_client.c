@@ -27,6 +27,9 @@ typedef struct _E_Info_Client
 
    /* pending_commit */
    Eina_List         *pending_commit_list;
+
+   /* layer fps */
+   Eina_List         *layer_fps_list;
 } E_Info_Client;
 
 typedef struct _E_Win_Info
@@ -68,11 +71,19 @@ typedef struct _E_Pending_Commit_Info
    unsigned int tsurface;
 } E_Pending_Commit_Info;
 
+typedef struct _E_Layer_Fps_Info
+{
+   const char *output;
+   int zpos;
+   double fps;
+} E_Layer_Fps_Info;
+
 #define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiibbbiius"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
+#define VALUE_TYPE_FOR_LAYER_FPS "sid"
 #define VALUE_TYPE_REQUEST_FOR_KILL "uts"
 #define VALUE_TYPE_REPLY_KILL "s"
 #define VALUE_TYPE_REQUEST_FOR_WININFO "t"
@@ -1956,40 +1967,6 @@ arg_err:
 
 }
 
-static void
-_cb_fps_info_get(const Eldbus_Message *msg)
-{
-   const char *name = NULL, *text = NULL;
-   Eina_Bool res;
-   const char *fps;
-
-   res = eldbus_message_error_get(msg, &name, &text);
-   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
-
-   res = eldbus_message_arguments_get(msg, "s", &fps);
-   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
-   if (strcmp(fps, "no_update"))
-        printf("%s\n", fps);
-
-finish:
-   if ((name) || (text ))
-     {
-        printf("errname:%s errmsg:%s\n", name, text);
-     }
-}
-
-static void
-_e_info_client_proc_fps_info(int argc, char **argv)
-{
-   do
-     {
-        if (!_e_info_client_eldbus_message("get_fps_info", _cb_fps_info_get))
-          return;
-        usleep(500000);
-     }
-   while (1);
-}
-
 static Eina_Bool
 _opt_parse(char *opt, char *delims, int *vals, int n_vals)
 {
@@ -2780,6 +2757,133 @@ _e_info_client_proc_show_pending_commit(int argc, char **argv)
      }
 
    E_FREE_LIST(e_info_client.pending_commit_list, _e_pending_commit_info_free);
+}
+
+static E_Layer_Fps_Info *
+_e_player_fps_info_new(const char *output, int zpos, double fps)
+{
+   E_Layer_Fps_Info *layer_fps = NULL;
+
+   layer_fps = E_NEW(E_Layer_Fps_Info, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(layer_fps, NULL);
+
+   layer_fps->output = output;
+   layer_fps->zpos = zpos;
+   layer_fps->fps = fps;
+
+   return layer_fps;
+}
+
+static void
+_e_layer_fps_info_free(E_Layer_Fps_Info *layer_fps)
+{
+   E_FREE(layer_fps);
+}
+
+static void
+_cb_layer_fps_info_get(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eldbus_Message_Iter *array, *eldbus_msg;
+   Eina_Bool res;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "a("VALUE_TYPE_FOR_LAYER_FPS")", &array);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   while (eldbus_message_iter_get_and_next(array, 'r', &eldbus_msg))
+     {
+        E_Layer_Fps_Info *layer_fps = NULL;
+        const char *output;
+        int zpos;
+        double fps;
+        res = eldbus_message_iter_arguments_get(eldbus_msg,
+                                                VALUE_TYPE_FOR_LAYER_FPS,
+                                                &output,
+                                                &zpos,
+                                                &fps);
+        if (!res)
+          {
+             printf("Failed to get player_fps info\n");
+             continue;
+          }
+
+        layer_fps = _e_player_fps_info_new(output, zpos, fps);
+        if (!layer_fps) continue;
+
+        e_info_client.layer_fps_list = eina_list_append(e_info_client.layer_fps_list, layer_fps);
+     }
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_fps_layer_info(int argc, char **argv)
+{
+   do
+     {
+        Eina_List *l;
+        E_Layer_Fps_Info *layer_fps;
+
+        if (!_e_info_client_eldbus_message("get_layer_fps_info", _cb_layer_fps_info_get))
+          return;
+
+        if (!e_info_client.layer_fps_list)
+          goto fps_layer_done;
+
+        EINA_LIST_FOREACH(e_info_client.layer_fps_list, l, layer_fps)
+          {
+             printf("%3s-ZPos@%d...%3.1f\n",
+                    layer_fps->output,
+                    layer_fps->zpos,
+                    layer_fps->fps);
+          }
+
+        E_FREE_LIST(e_info_client.layer_fps_list, _e_layer_fps_info_free);
+fps_layer_done:
+        usleep(500000);
+     }
+   while (1);
+}
+#else
+static void
+_cb_fps_info_get(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   const char *fps;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "s", &fps);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+   if (strcmp(fps, "no_update"))
+        printf("%s\n", fps);
+
+finish:
+   if ((name) || (text ))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_fps_info(int argc, char **argv)
+{
+   do
+     {
+        if (!_e_info_client_eldbus_message("get_fps_info", _cb_fps_info_get))
+          return;
+        usleep(500000);
+     }
+   while (1);
 }
 #endif
 
@@ -3806,11 +3910,6 @@ static struct
       _e_info_client_proc_input_device_info
    },
    {
-      "fps", NULL,
-      "Print FPS in every sec",
-      _e_info_client_proc_fps_info
-   },
-   {
       "punch", "[on/off] [<X>x<H>+<X>+<Y>] [<a>,<r>,<g>,<b>]",
       "HWC should be disabled first with \"-hwc\" option. Punch a UI framebuffer [on/off].",
       _e_info_client_proc_punch
@@ -3860,6 +3959,17 @@ static struct
       NULL,
       "show state of pending commit",
       _e_info_client_proc_show_pending_commit
+   },
+   {
+      "fps", NULL,
+      "Print FPS in every sec per layer",
+      _e_info_client_proc_fps_layer_info
+   },
+#else
+   {
+      "fps", NULL,
+      "Print FPS in every sec",
+      _e_info_client_proc_fps_info
    },
 #endif
    {
