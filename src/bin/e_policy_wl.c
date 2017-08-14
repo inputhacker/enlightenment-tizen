@@ -3169,6 +3169,12 @@ _tzpol_iface_cb_ack_conformant_region(struct wl_client *client, struct wl_resour
    e_policy_conformant_client_ack(ec, res_tzpol, serial);
 }
 
+static void
+_tzpol_iface_cb_destroy(struct wl_client *client, struct wl_resource *res_tzpol)
+{
+   wl_resource_destroy(res_tzpol);
+}
+
 // --------------------------------------------------------
 // tizen_policy_interface
 // --------------------------------------------------------
@@ -3211,6 +3217,7 @@ static const struct tizen_policy_interface _tzpol_iface =
    _tzpol_iface_cb_subsurf_watcher_get,
    _tzpol_iface_cb_parent_set,
    _tzpol_iface_cb_ack_conformant_region,
+   _tzpol_iface_cb_destroy,
 };
 
 static void
@@ -6807,7 +6814,7 @@ e_policy_wl_init(void)
    /* create globals */
    global = wl_global_create(e_comp_wl->wl.disp,
                              &tizen_policy_interface,
-                             5,
+                             6,
                              NULL,
                              _tzpol_cb_bind);
    EINA_SAFETY_ON_NULL_GOTO(global, err);
