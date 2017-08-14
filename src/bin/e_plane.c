@@ -113,6 +113,31 @@ _get_tbm_surface_queue(E_Comp *e_comp)
    return tbm_queue;
 }
 
+static Eina_Bool
+_e_plane_surface_can_set(E_Plane *plane, tbm_surface_h tsurface)
+{
+   E_Output *output = NULL;
+   E_Plane *tmp_plane = NULL;
+   Eina_List *l;
+
+   output = plane->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->planes, l, tmp_plane)
+     {
+        if (tmp_plane->tsurface == tsurface)
+          {
+             if (plane_trace_debug)
+               ELOGF("E_PLANE", "Used    Plane(%p) zpos(%d) tsurface(%p)",
+                      NULL, NULL, tmp_plane, tmp_plane->zpos, tsurface);
+
+             return EINA_FALSE;
+          }
+     }
+
+   return EINA_TRUE;
+}
+
 static void
 _e_plane_renderer_unset(E_Plane *plane)
 {
@@ -352,6 +377,24 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
    _e_plane_ev(plane, E_EVENT_PLANE_WIN_CHANGE);
 
    return EINA_TRUE;
+}
+
+static void
+_e_plane_surface_cancel_acquire(E_Plane *plane, tbm_surface_h tsurface)
+{
+   E_Client *ec = plane->ec;
+   E_Plane_Renderer *renderer = plane->renderer;
+
+   if ((plane->is_fb && !plane->ec) ||
+       (plane->ec && plane->role == E_PLANE_ROLE_OVERLAY && plane->is_reserved))
+     {
+        if (!e_plane_renderer_surface_queue_cancel_acquire(renderer, tsurface))
+          ERR("fail to e_plane_renderer_surface_queue_cancel_acquire");
+     }
+
+   if (ec) e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
+
+   return;
 }
 
 static tbm_surface_h
@@ -1207,6 +1250,14 @@ e_plane_render(E_Plane *plane)
 }
 
 EINTERN Eina_Bool
+e_plane_is_fetch_retry(E_Plane *plane)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   return plane->fetch_retry;
+}
+
+EINTERN Eina_Bool
 e_plane_fetch(E_Plane *plane)
 {
    tbm_surface_h tsurface = NULL;
@@ -1260,6 +1311,16 @@ e_plane_fetch(E_Plane *plane)
    /* exist tsurface for update plane */
    if (tsurface)
      {
+        if (!_e_plane_surface_can_set(plane, tsurface))
+          {
+             _e_plane_surface_cancel_acquire(plane, tsurface);
+             plane->fetch_retry = EINA_TRUE;
+
+             return EINA_FALSE;
+          }
+
+        if (plane->fetch_retry) plane->fetch_retry = EINA_FALSE;
+
         plane->tsurface = tsurface;
 
         /* set plane info and set tsurface to the plane */

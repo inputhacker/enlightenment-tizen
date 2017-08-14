@@ -75,6 +75,8 @@ struct _E_Plane
    Eina_Bool             is_video;
    Eina_Bool             reserved_video;
 
+   Eina_Bool             fetch_retry;
+
    E_Plane              *fb_change;
    int                   fb_change_counter;
 
@@ -166,6 +168,7 @@ EINTERN Eina_Bool            e_plane_is_unset_candidate(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_is_unset_try(E_Plane *plane);
 EINTERN void                 e_plane_unset_try_set(E_Plane *plane, Eina_Bool set);
 EINTERN Eina_Bool            e_plane_unset_commit_check(E_Plane *plane, Eina_Bool fb_commit);
+EINTERN Eina_Bool            e_plane_is_fetch_retry(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_fb_target_set(E_Plane *plane, Eina_Bool set);
 EINTERN Eina_List           *e_plane_available_tbm_formats_get(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_pp_commit(E_Plane *plane);

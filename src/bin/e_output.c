@@ -1697,6 +1697,19 @@ e_output_commit(E_Output *output)
                }
           }
 
+        EINA_LIST_FOREACH(output->planes, l, plane)
+          {
+             if (e_plane_is_fetch_retry(plane))
+               {
+                 if (!e_plane_fetch(plane)) continue;
+                 if (e_plane_is_fb_target(plane))
+                   {
+                      fb_commit = EINA_TRUE;
+                      _e_output_update_fps();
+                   }
+               }
+          }
+
         /* zoom commit only primary */
         if (!fb_commit) return EINA_TRUE;
 
@@ -1741,6 +1754,19 @@ e_output_commit(E_Output *output)
 
              if (e_plane_is_unset_try(plane))
                e_plane_unset_try_set(plane, EINA_FALSE);
+          }
+
+        EINA_LIST_FOREACH(output->planes, l, plane)
+          {
+             if (e_plane_is_fetch_retry(plane))
+               {
+                 if (!e_plane_fetch(plane)) continue;
+                 if (e_plane_is_fb_target(plane))
+                   {
+                      fb_commit = EINA_TRUE;
+                      _e_output_update_fps();
+                   }
+               }
           }
 
         EINA_LIST_FOREACH(output->planes, l, plane)

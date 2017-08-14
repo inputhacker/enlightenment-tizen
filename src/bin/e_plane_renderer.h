@@ -79,6 +79,7 @@ EINTERN tbm_surface_queue_h        e_plane_renderer_surface_queue_create(E_Plane
 EINTERN Eina_Bool                  e_plane_renderer_surface_queue_set(E_Plane_Renderer *renderer, tbm_surface_queue_h tqueue);
 EINTERN void                       e_plane_renderer_surface_queue_destroy(E_Plane_Renderer *renderer);
 EINTERN tbm_surface_h              e_plane_renderer_surface_queue_acquire(E_Plane_Renderer *renderer);
+EINTERN Eina_Bool                  e_plane_renderer_surface_queue_cancel_acquire(E_Plane_Renderer *renderer, tbm_surface_h tsurface);
 EINTERN void                       e_plane_renderer_surface_queue_release(E_Plane_Renderer *renderer, tbm_surface_h tsurface);
 EINTERN Eina_Bool                  e_plane_renderer_surface_queue_enqueue(E_Plane_Renderer *renderer, tbm_surface_h tsurface);
 EINTERN Eina_Bool                  e_plane_renderer_surface_queue_can_dequeue(E_Plane_Renderer *renderer);
