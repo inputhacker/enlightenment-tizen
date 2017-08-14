@@ -518,12 +518,43 @@ _remote_surface_changed_buff_protocol_send(E_Comp_Wl_Remote_Surface *rs,
                                            Eina_Bool ref_set,
                                            E_Comp_Wl_Buffer *buff)
 {
+   E_Comp_Wl_Remote_Common *common = NULL;
+   E_Client *src_ec = NULL;
    struct wl_resource *tbm = NULL;
    Eina_Bool send = EINA_FALSE;
    struct wl_array opts;
    Eina_Bool add_opts = EINA_FALSE;
    char *p, tmp[16];
    int len;
+
+   if (rs->provider)
+     {
+        common = &rs->provider->common;
+        src_ec = rs->provider->common.ec;
+     }
+   else if (rs->source)
+     {
+        common = &rs->source->common;
+        src_ec = rs->source->common.ec;
+     }
+
+   if (!common || !src_ec)
+     {
+        ERR("CHANGED_BUFF: no common(%p) or src_ec(%p)", common, src_ec);
+        return EINA_FALSE;
+     }
+
+   DBG("CHANGED_BUFF: src_ec(%p) bind_ec(%p) buffer_transform(%d)",
+       src_ec, rs->bind_ec, e_comp_wl_output_buffer_transform_get(src_ec));
+
+   /* if unbinded, buffer_transform should be 0 for consumer to composite buffers.
+    * Otherwise, we skip sending a change_buffer event because buffer is not ready.
+    */
+   if (!rs->bind_ec && e_comp_wl_output_buffer_transform_get(src_ec))
+     {
+        RSMINF("CHANGED_BUFF skiped: buffer not ready", NULL, NULL, "SURFACE", rs);
+        return EINA_TRUE;
+     }
 
    if (rbuff)
      tbm = rbuff->resource;
@@ -787,6 +818,9 @@ bind_ec_set:
              remote_surface->bind_ec->comp_data->pending.sx = 0;
              remote_surface->bind_ec->comp_data->pending.sy = 0;
              remote_surface->bind_ec->comp_data->pending.new_attach = EINA_TRUE;
+
+             remote_surface->bind_ec->comp_data->pending.buffer_viewport =
+               remote_surface->provider->common.ec->comp_data->scaler.buffer_viewport;
 
              e_comp_wl_surface_commit(remote_surface->bind_ec);
           }
@@ -2845,6 +2879,8 @@ _e_comp_wl_remote_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *st
 
    if (e_object_is_del(E_OBJECT(ec))) return;
 
+   ec->comp_data->scaler.buffer_viewport = state->buffer_viewport;
+
    if (state->new_attach)
      e_comp_wl_surface_attach(ec, state->buffer);
 
@@ -2906,6 +2942,8 @@ _e_comp_wl_remote_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *st
                   if (surface->bind_ec)
                     {
                        E_Comp_Wl_Buffer *buffer;
+
+                       surface->bind_ec->comp_data->pending.buffer_viewport = ec->comp_data->scaler.buffer_viewport;
 
                        buffer = e_comp_wl_buffer_get(remote_buffer->resource, surface->bind_ec);
                        _e_comp_wl_remote_surface_state_buffer_set(&surface->bind_ec->comp_data->pending, buffer);
