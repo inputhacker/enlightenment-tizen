@@ -14,7 +14,7 @@ static Eina_Hash *pixmaps[E_PIXMAP_TYPE_MAX] = {NULL};
 static Eina_Hash *res_ids = NULL;
 static uint32_t res_id = 0;
 static Eina_Hash *aliases[E_PIXMAP_TYPE_MAX] = {NULL};
-static uint32_t dummy_pixmap_id = 0;
+static uint32_t dummy_pixmap_id = 1; // dummy id starts from 1
 
 struct _E_Pixmap
 {
