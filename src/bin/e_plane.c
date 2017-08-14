@@ -579,6 +579,29 @@ _e_plane_renderer_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
 }
 
 static void
+_e_plane_fb_target_all_unset_counter_reset(E_Plane *fb_target)
+{
+   E_Plane *plane = NULL;
+   E_Output *output = NULL;
+   Eina_List *l;
+
+   output = fb_target->output;
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   EINA_LIST_FOREACH(output->planes, l, plane)
+     {
+        /* reset the unset_counter */
+        if (plane->unset_counter > 0)
+          {
+             plane->unset_counter = 0;
+
+             if (plane_trace_debug)
+               ELOGF("E_PLANE", " Plane(%p) Unset Counter Reset", NULL, NULL, plane);
+          }
+     }
+}
+
+static void
 _e_plane_unset_reset(E_Plane *plane)
 {
    Eina_Bool print_log = EINA_FALSE;
@@ -1906,7 +1929,10 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
                _e_plane_surface_send_dequeuable_surfaces(plane);
           }
 
-        if (!plane->is_fb) _e_plane_unset_reset(plane);
+        if (plane->is_fb)
+          _e_plane_fb_target_all_unset_counter_reset(plane);
+        else
+          _e_plane_unset_reset(plane);
 
         e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
 
