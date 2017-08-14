@@ -2042,6 +2042,36 @@ e_plane_renderer_surface_queue_enqueue(E_Plane_Renderer *renderer, tbm_surface_h
 }
 
 EINTERN Eina_Bool
+e_plane_renderer_surface_queue_cancel_acquire(E_Plane_Renderer *renderer, tbm_surface_h tsurface)
+{
+   tbm_surface_queue_h tqueue = NULL;
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, EINA_FALSE);
+
+   tqueue = renderer->tqueue;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
+
+   /* debug */
+   if (renderer_trace_debug)
+    {
+        E_Client *ec = renderer->ec;
+        ELOGF("E_PLANE_RENDERER", "Cancel Acquire Renderer(%p)  tsurface(%p) tqueue(%p) wl_buffer(%p) ",
+              ec->pixmap, ec, renderer, tsurface, renderer->tqueue, _get_wl_buffer(ec));
+    }
+
+   tsq_err = tbm_surface_queue_cancel_acquire(tqueue, tsurface);
+   if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+     {
+        ERR("tbm_surface_queue_cancel_acquire failed. tbm_surface_queue(%p) tbm_surface(%p)", tqueue, tsurface);
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
 e_plane_renderer_surface_queue_can_dequeue(E_Plane_Renderer *renderer)
 {
    tbm_surface_queue_h tqueue = NULL;
