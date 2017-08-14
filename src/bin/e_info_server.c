@@ -4369,7 +4369,7 @@ _e_info_server_cb_kill_client(const Eldbus_Service_Interface *iface EINA_UNUSED,
    uint32_t mode;
    const char *str_value;
    int count;
-   Eldbus_Message_Iter *array_of_string;
+   Eldbus_Message_Iter *array_of_string = NULL;
 
    res = eldbus_message_arguments_get(msg, VALUE_TYPE_REQUEST_FOR_KILL,
                                       &mode, &uint64_value, &str_value);
