@@ -4014,7 +4014,6 @@ _msg_layer_fps_append(Eldbus_Message_Iter *iter)
    E_Plane *plane = NULL;
    double fps = 0.0;
    char output_name[30];
-   int size = 0;
 
    eldbus_message_iter_arguments_append(iter, "a("VALUE_TYPE_FOR_LAYER_FPS")", &array_of_layer_fps);
 
