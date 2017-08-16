@@ -660,14 +660,14 @@ _e_plane_unset_reset(E_Plane *plane)
 }
 
 static void
-_e_plane_unset_candidate_set(E_Plane *plane)
+_e_plane_unset_candidate_set(E_Plane *plane, Eina_Bool sync)
 {
    E_Plane *fb_target = NULL;
 
    fb_target = e_output_fb_target_get(plane->output);
    if (fb_target)
      {
-        if(fb_target->ec)
+        if(fb_target->ec && !sync)
           plane->unset_counter = 0;
         else
           plane->unset_counter = e_plane_renderer_render_count_get(fb_target->renderer) + 1;
@@ -1931,7 +1931,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
      ELOGF("E_PLANE", "Request Plane(%p) zpos(%d)   Set ec(%p, %s)",
            (ec ? ec->pixmap : NULL), ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
-   if (ec)
+   if (ec && (plane->is_fb || !plane->ec))
      {
         if (plane->ec == ec) return EINA_TRUE;
 
@@ -1969,6 +1969,12 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
           {
              if (!plane->is_fb)
                {
+                  if (e_plane_is_unset_candidate(plane) || e_plane_is_unset_try(plane))
+                    {
+                       INF("Trying to unset plane:%p zpos:%d", plane, plane->zpos);
+                       return EINA_FALSE;
+                    }
+
                   if ((plane->renderer) && (plane->role != E_PLANE_ROLE_OVERLAY))
                     _e_plane_renderer_unset(plane);
 
@@ -1992,8 +1998,6 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
 
         if (plane->is_fb)
           _e_plane_fb_target_all_unset_counter_reset(plane);
-        else
-          _e_plane_unset_reset(plane);
 
         e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
 
@@ -2022,7 +2026,11 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
           {
              if (plane->tsurface)
                {
-                  _e_plane_unset_candidate_set(plane);
+                  if (ec)
+                    _e_plane_unset_candidate_set(plane, EINA_TRUE);
+                  else
+                    _e_plane_unset_candidate_set(plane, EINA_FALSE);
+
                   if (plane_trace_debug)
                     ELOGF("E_PLANE", "Plane(%p) Set the unset_candidate", (plane->ec ? ec->pixmap : NULL), ec, plane);
                }
@@ -2038,6 +2046,18 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
           {
              if (plane->ec) e_client_redirected_set(plane->ec, EINA_TRUE);
              plane->ec_redirected = EINA_FALSE;
+          }
+
+        if (ec)
+          {
+             plane->ec = NULL;
+             plane->need_ev = EINA_TRUE;
+
+             if (plane_trace_debug)
+               ELOGF("E_PLANE", "Plane(%p) zpos(%d)   Set ec(%p, %s)",
+                     (ec ? ec->pixmap : NULL), ec, plane, plane->zpos, NULL, NULL);
+
+             return EINA_FALSE;
           }
      }
 
