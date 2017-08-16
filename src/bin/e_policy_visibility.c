@@ -1353,20 +1353,33 @@ _e_vis_hook_new_client_post(void *data EINA_UNUSED, E_Client *ec)
    _e_vis_client_add(ec);
 }
 
+static void
+_e_vis_client_remove(E_Client *ec)
+{
+   E_VIS_CLIENT_GET_OR_RETURN(vc, ec);
+   eina_hash_del_by_key(pol_vis->clients_hash, &ec);
+
+   if (pol_vis->activity == ec)
+     pol_vis->activity = NULL;
+
+   if (!stopping)
+     _e_vis_update_foreground_job_queue();
+}
+
+static void
+_e_vis_hook_client_del(void *data EINA_UNUSED, E_Client *ec)
+{
+   if (!ec->new_client) return;
+   _e_vis_client_remove(ec);
+}
+
 static Eina_Bool
 _e_vis_cb_client_remove(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
 {
    E_Event_Client *ev;
 
    ev = event;
-   E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ev->ec, ECORE_CALLBACK_PASS_ON);
-   eina_hash_del_by_key(pol_vis->clients_hash, &ev->ec);
-
-   if (pol_vis->activity == ev->ec)
-     pol_vis->activity = NULL;
-
-   if (!stopping)
-     _e_vis_update_foreground_job_queue();
+   _e_vis_client_remove(ev->ec);
 
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -1484,6 +1497,8 @@ static void
 _e_vis_event_init(void)
 {
    E_LIST_HOOK_APPEND(pol_vis->hooks, E_CLIENT_HOOK_NEW_CLIENT_POST, _e_vis_hook_new_client_post, NULL);
+   E_LIST_HOOK_APPEND(pol_vis->hooks, E_CLIENT_HOOK_DEL, _e_vis_hook_client_del, NULL);
+
    E_LIST_HANDLER_APPEND(pol_vis->handlers, E_EVENT_CLIENT_REMOVE,   _e_vis_cb_client_remove, NULL);
 
    E_COMP_OBJECT_INTERCEPT_HOOK_APPEND(pol_vis->interceptors, E_COMP_OBJECT_INTERCEPT_HOOK_SHOW_HELPER,  _e_vis_intercept_show, NULL);
