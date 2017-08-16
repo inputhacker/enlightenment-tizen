@@ -1568,10 +1568,17 @@ _e_tz_screenshooter_set_oneshot_auto_rotation(struct wl_client *client,
      screenshot_auto_rotation = EINA_FALSE;
 }
 
+static void
+_e_tz_screenshooter_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
 static const struct tizen_screenshooter_interface _e_tz_screenshooter_interface =
 {
    _e_tz_screenshooter_get_screenmirror,
-   _e_tz_screenshooter_set_oneshot_auto_rotation
+   _e_tz_screenshooter_set_oneshot_auto_rotation,
+   _e_tz_screenshooter_destroy,
 };
 
 static void
@@ -1580,7 +1587,7 @@ _e_tz_screenshooter_cb_bind(struct wl_client *client, void *data, uint32_t versi
    struct wl_resource *res;
    int i;
 
-   if (!(res = wl_resource_create(client, &tizen_screenshooter_interface, MIN(version, 1), id)))
+   if (!(res = wl_resource_create(client, &tizen_screenshooter_interface, MIN(version, 2), id)))
      {
         ERR("Could not create tizen_screenshooter resource: %m");
         wl_client_post_no_memory(client);
@@ -1778,7 +1785,7 @@ e_comp_wl_screenshooter_init(void)
      }
 
    /* try to add tizen_screenshooter to wayland globals */
-   if (!wl_global_create(e_comp_wl->wl.disp, &tizen_screenshooter_interface, 1,
+   if (!wl_global_create(e_comp_wl->wl.disp, &tizen_screenshooter_interface, 2,
                          NULL, _e_tz_screenshooter_cb_bind))
      {
         ERR("Could not add tizen_screenshooter to wayland globals");
