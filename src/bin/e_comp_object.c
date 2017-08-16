@@ -4213,7 +4213,12 @@ _e_comp_object_cb_buffer_destroy(struct wl_listener *listener, void *data EINA_U
    E_Comp_Object *cw;
    cw = container_of(listener, E_Comp_Object, buffer_destroy_listener);
 
-   cw->buffer_destroy_listener.notify = NULL;
+   if (cw->buffer_destroy_listener.notify)
+     {
+        cw->buffer_destroy_listener.notify = NULL;
+        wl_list_remove(&cw->buffer_destroy_listener.link);
+     }
+
    if (e_object_is_del(E_OBJECT(cw->ec)))
      {
         if (!e_object_delay_del_ref_get(E_OBJECT(cw->ec)))

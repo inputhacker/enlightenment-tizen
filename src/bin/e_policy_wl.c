@@ -3887,6 +3887,11 @@ _tzsh_reg_cb_shell_destroy(struct wl_listener *listener, void *data)
    E_Policy_Wl_Tzsh_Region *tzsh_reg;
 
    tzsh_reg = container_of(listener, E_Policy_Wl_Tzsh_Region, destroy_listener);
+   if (tzsh_reg->destroy_listener.notify)
+     {
+        wl_list_remove(&tzsh_reg->destroy_listener.link);
+        tzsh_reg->destroy_listener.notify = NULL;
+     }
 
    if (tzsh_reg->res_tzsh_reg)
      {

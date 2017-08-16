@@ -1667,6 +1667,12 @@ _remote_surface_cb_tbm_destroy(struct wl_listener *listener, void *data)
    remote_surface = container_of(listener, E_Comp_Wl_Remote_Surface, tbm_destroy_listener);
    if (!remote_surface) return;
 
+   if (remote_surface->tbm_destroy_listener.notify)
+     {
+        wl_list_remove(&remote_surface->tbm_destroy_listener.link);
+        remote_surface->tbm_destroy_listener.notify = NULL;
+     }
+
    remote_surface->wl_tbm = NULL;
 }
 
@@ -2761,6 +2767,12 @@ _e_comp_wl_remote_buffer_cb_destroy(struct wl_listener *listener, void *data)
 
    remote_buffer = container_of(listener, E_Comp_Wl_Remote_Buffer, destroy_listener);
    if (!remote_buffer) return;
+
+   if (remote_buffer->destroy_listener.notify)
+     {
+        wl_list_remove(&remote_buffer->destroy_listener.link);
+        remote_buffer->destroy_listener.notify = NULL;
+     }
 
    e_comp_wl_buffer_reference(&remote_buffer->ref, NULL);
    free(remote_buffer);

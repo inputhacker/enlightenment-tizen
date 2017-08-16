@@ -407,6 +407,11 @@ _conf_client_resource_destroy(struct wl_listener *listener, void *data)
    if (!cres)
      return;
 
+   if (cres->destroy_listener.notify)
+     {
+        wl_list_remove(&cres->destroy_listener.link);
+        cres->destroy_listener.notify = NULL;
+     }
    DBG("Destroy Wl Resource res %p owner %s(%p)",
          cres->res, cres->cfc->ec->icccm.name ? cres->cfc->ec->icccm.name : "", cres->cfc->ec);
 
