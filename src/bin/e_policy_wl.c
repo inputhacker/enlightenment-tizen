@@ -3099,6 +3099,17 @@ _tzpol_iface_cb_subsurf_watcher_destroy(struct wl_resource *resource)
 }
 
 static void
+_tzpol_subsurf_watcher_iface_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
+static const struct tizen_subsurface_watcher_interface _tzpol_subsurf_watcher_iface =
+{
+   _tzpol_subsurf_watcher_iface_cb_destroy,
+};
+
+static void
 _tzpol_iface_cb_subsurf_watcher_get(struct wl_client *client, struct wl_resource *res_tzpol, uint32_t id, struct wl_resource *surface)
 {
    E_Client *ec;
@@ -3107,7 +3118,7 @@ _tzpol_iface_cb_subsurf_watcher_get(struct wl_client *client, struct wl_resource
    if (!(ec = wl_resource_get_user_data(surface))) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
-   if (!(res = wl_resource_create(client, &tizen_subsurface_watcher_interface, 1, id)))
+   if (!(res = wl_resource_create(client, &tizen_subsurface_watcher_interface, 2, id)))
      {
         wl_resource_post_no_memory(res_tzpol);
         return;
@@ -3115,7 +3126,10 @@ _tzpol_iface_cb_subsurf_watcher_get(struct wl_client *client, struct wl_resource
 
    ec->comp_data->sub.watcher = res;
 
-   wl_resource_set_implementation(res, NULL, ec, _tzpol_iface_cb_subsurf_watcher_destroy);
+   wl_resource_set_implementation(res,
+                                  &_tzpol_subsurf_watcher_iface,
+                                  ec,
+                                  _tzpol_iface_cb_subsurf_watcher_destroy);
 }
 
 static void
