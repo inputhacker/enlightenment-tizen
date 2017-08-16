@@ -2054,8 +2054,8 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
              plane->need_ev = EINA_TRUE;
 
              if (plane_trace_debug)
-               ELOGF("E_PLANE", "Plane(%p) zpos(%d)   Set ec(%p, %s)",
-                     (ec ? ec->pixmap : NULL), ec, plane, plane->zpos, NULL, NULL);
+               ELOGF("E_PLANE", "Plane(%p) zpos(%d)   Set NULL",
+                     (ec ? ec->pixmap : NULL), ec, plane, plane->zpos);
 
              return EINA_FALSE;
           }
