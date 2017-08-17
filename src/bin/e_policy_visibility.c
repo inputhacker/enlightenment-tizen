@@ -1024,6 +1024,15 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
         return EINA_FALSE;
      }
 
+   /* do not add child window which is obscured by 24 bit parent window */
+   if ((ec->parent) &&
+       !(ec->parent->argb) &&
+       (ec->transient_policy == E_TRANSIENT_BELOW))
+     {
+        VS_DBG(ec, "Transient below. no need to uniconify render.");
+        return EINA_FALSE;
+     }
+
    if (!_e_vis_client_is_uniconify_render_necessary(vc))
        return EINA_FALSE;
 
