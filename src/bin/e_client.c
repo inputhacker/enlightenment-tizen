@@ -5197,7 +5197,13 @@ e_client_unmaximize(E_Client *ec, E_Maximize max)
                   if (ec->layout.splited)
                     e_client_util_move_resize_without_frame(ec, x, y, w, h);
                   else
-                    e_policy_visibility_client_defer_move(ec, x, y);
+                    {
+                       if (ec->changes.pos)
+                         {
+                            x = ec->x; y = ec->y;
+                         }
+                       e_policy_visibility_client_defer_move(ec, x, y);
+                    }
                   e_hints_window_size_unset(ec);
                }
              else
@@ -5207,7 +5213,14 @@ e_client_unmaximize(E_Client *ec, E_Maximize max)
                   if (ec->layout.splited)
                     e_client_util_move_resize_without_frame(ec, x, y, w, h);
                   else
-                    e_policy_visibility_client_defer_move(ec, x, y);
+                     {
+                        if (ec->changes.pos)
+                          {
+                             x = ec->x; y = ec->y;
+                          }
+                        e_policy_visibility_client_defer_move(ec, x, y);
+                     }
+
                   e_hints_window_size_set(ec);
                }
              if (vert)

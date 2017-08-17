@@ -2714,6 +2714,7 @@ _e_policy_wl_floating_mode_apply(E_Client *ec, Eina_Bool floating)
    if (ec->floating == floating) return;
 
    ec->floating = floating;
+   ec->lock_client_location = EINA_FALSE;
 
    if (ec->frame)
      {
