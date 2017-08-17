@@ -2019,10 +2019,16 @@ _e_video_render(E_Video *video, const char *func)
         info.transform = video->geo.tdm_transform;
 
         if (tdm_pp_set_info(video->pp, &info))
-          goto render_fail;
+          {
+             VER("tdm_pp_set_info() failed");
+             goto render_fail;
+          }
 
         if (tdm_pp_set_done_handler(video->pp, _e_video_pp_cb_done, video))
-          goto render_fail;
+          {
+             VER("tdm_pp_set_done_handler() failed");
+             goto render_fail;
+          }
 
         CLEAR(video->pp_r);
         video->pp_r.w = info.dst_config.pos.w;
@@ -2032,7 +2038,10 @@ _e_video_render(E_Video *video, const char *func)
    pp_buffer->content_r = video->pp_r;
 
    if (tdm_pp_attach(video->pp, input_buffer->tbm_surface, pp_buffer->tbm_surface))
-     goto render_fail;
+     {
+        VER("tdm_pp_attach() failed");
+        goto render_fail;
+     }
 
    e_comp_wl_video_buffer_set_use(pp_buffer, EINA_TRUE);
 
@@ -2040,6 +2049,7 @@ _e_video_render(E_Video *video, const char *func)
 
    if (tdm_pp_commit(video->pp))
      {
+        VER("tdm_pp_commit() failed");
         e_comp_wl_video_buffer_set_use(pp_buffer, EINA_FALSE);
         goto render_fail;
      }
