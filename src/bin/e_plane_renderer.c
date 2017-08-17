@@ -870,6 +870,8 @@ _e_plane_renderer_recover_ec(E_Plane_Renderer *renderer)
    E_Comp_Wl_Buffer *buffer = NULL;
    tbm_surface_h tsurface =NULL;
 
+   if (!plane->ec_redirected) return;
+
    if (!ec) return;
 
    cdata = ec->comp_data;
@@ -896,13 +898,10 @@ _e_plane_renderer_recover_ec(E_Plane_Renderer *renderer)
    e_pixmap_dirty(ec->pixmap);
    e_pixmap_refresh(ec->pixmap);
 
-   if (plane->ec_redirected)
-     {
-        e_pixmap_image_refresh(ec->pixmap);
-        e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
-        e_comp_object_dirty(ec->frame);
-        e_comp_object_render(ec->frame);
-     }
+   e_pixmap_image_refresh(ec->pixmap);
+   e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+   e_comp_object_dirty(ec->frame);
+   e_comp_object_render(ec->frame);
 
    return;
 }
