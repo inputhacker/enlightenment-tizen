@@ -741,15 +741,9 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
                NULL, NULL,
                "SURFACE", remote_surface, remote_surface->bind_ec);
 
-        /* do NULL buffer commit for binded ec */
-        _e_comp_wl_remote_surface_state_buffer_set(&remote_surface->bind_ec->comp_data->pending, NULL);
-
         remote_surface->bind_ec->comp_data->pending.sx = 0;
         remote_surface->bind_ec->comp_data->pending.sy = 0;
         remote_surface->bind_ec->comp_data->pending.new_attach = EINA_TRUE;
-
-        e_comp_wl_surface_commit(remote_surface->bind_ec);
-
         remote_surface->bind_ec = NULL;
 
         /* try to send latest buffer of the provider to the consumer when unbinding
