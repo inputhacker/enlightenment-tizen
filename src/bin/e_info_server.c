@@ -530,6 +530,26 @@ _compobj_info_get(Evas_Object *po, Evas_Object *o, int depth)
         cobj->img.dirty = evas_object_image_pixels_dirty_get(o);
      }
 
+   if (evas_object_map_enable_get(o))
+     {
+        const Evas_Map *m = evas_object_map_get(o);
+        if (m)
+          {
+             int i;
+             cobj->map.enable = EINA_TRUE;
+             cobj->map.alpha = evas_map_alpha_get(m);
+             for (i = 0; i < 4; i++)
+               {
+                  Evas_Coord x, y, z;
+                  evas_map_point_image_uv_get(m, i, &cobj->map.u[i], &cobj->map.v[i]);
+                  evas_map_point_coord_get(m, i, &x, &y, &z);
+                  cobj->map.x[i] = x;
+                  cobj->map.y[i] = y;
+                  cobj->map.z[i] = z;
+               }
+          }
+     }
+
    return cobj;
 }
 
@@ -618,7 +638,14 @@ _e_info_server_cb_compobjs(const Eldbus_Service_Interface *iface EINA_UNUSED, co
                                              cobj->img.lw, cobj->img.lh,
                                              cobj->img.fx, cobj->img.fy, cobj->img.fw, cobj->img.fh,
                                              cobj->img.alpha,
-                                             cobj->img.dirty);
+                                             cobj->img.dirty,
+                                             cobj->map.enable,
+                                             cobj->map.alpha,
+                                             cobj->map.u[0], cobj->map.u[1], cobj->map.u[2], cobj->map.u[3],
+                                             cobj->map.v[0], cobj->map.v[1], cobj->map.v[2], cobj->map.v[3],
+                                             cobj->map.x[0], cobj->map.x[1], cobj->map.x[2], cobj->map.x[3],
+                                             cobj->map.y[0], cobj->map.y[1], cobj->map.y[2], cobj->map.y[3],
+                                             cobj->map.z[0], cobj->map.z[1], cobj->map.z[2], cobj->map.z[3]);
 
         eldbus_message_iter_container_close(cobjs, struct_of_cobj);
 
