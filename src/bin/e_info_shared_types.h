@@ -11,7 +11,7 @@ typedef enum
 /* -------------------------------------------------------------------------- */
 /* COMPOSITE OBJECTS                                                          */
 /* -------------------------------------------------------------------------- */
-#define SIGNATURE_COMPOBJS_CLIENT "uissisiiiiiiiibbbbsssdbsssuiiiiiiiibb"
+#define SIGNATURE_COMPOBJS_CLIENT "uissisiiiiiiiibbbbsssdbsssuiiiiiiiibbbbddddddddiiiiiiiiiiii"
 
 typedef struct _E_Info_Comp_Obj
 {
@@ -51,6 +51,13 @@ typedef struct _E_Info_Comp_Obj
       Eina_Bool    dirty;          // b
    } img;
 
+   struct
+   {
+      Eina_Bool    enable;            // b
+      Eina_Bool    alpha;             // b
+      double       u[4], v[4];        // dddddddd
+      int          x[4], y[4], z[4];  // iiiiiiiiiiii
+   } map;
 } E_Info_Comp_Obj;
 
 /* -------------------------------------------------------------------------- */

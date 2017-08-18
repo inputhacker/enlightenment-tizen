@@ -522,41 +522,43 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
 
    if (compobjs_simple)
      printf(
-        "==========================================================================================================================\n"
-        "                        /-- Object Type        /-- Alpha                                 /-- Edj: group                   \n"
-        "                        |    r  : Rectangle    |                                         |   Edj Member: part, value      \n"
-        "                        |    EDJ: Edje         | /-- Pass Events                         |   Native Image:                \n"
-        "                        |    IMG: Image        | |/-- Freeze Events                      |    type, buff, size, load, fill\n"
-        "                        |    EC : ec->frame    | ||/-- Focused                           |                      size  size\n"
-        "                        |                      | |||                                     |   File Image:                  \n"
-        "                        |                      | ||| /-- Visibility                      |    data, size, load, fill      \n"
-        "                        |                      | ||| |                                   |                size  size      \n"
-        "                        |                      | ||| |                                   |                                \n"
-        "========================|======================|=|||=|===================================|================================\n"
-        "Layer  ObjectID         |     X    Y    W    H | ||| |   ObjectName                      | Additional Info                \n"
-        "========================|======================|=|||=|===================================|================================\n"
+        "===========================================================================================================================\n"
+        "                        /-- Object Type        /-- Alpha                                                                   \n"
+        "                        |    r  : Rectangle    |                                          /-- Edj: group                   \n"
+        "                        |    EDJ: Edje         | /-- Pass Events                          |   Edj Member: part, value      \n"
+        "                        |    IMG: Image        | |/-- Freeze Events                       |   Native Image:                \n"
+        "                        |    EC : ec->frame    | ||/-- Focused                            |    type, buff, size, load, fill\n"
+        "                        |                      | |||/-- EvasMap                           |                      size  size\n"
+        "                        |                      | ||||                                     |   File Image:                  \n"
+        "                        |                      | |||| /-- Visibility                      |    data, size, load, fill      \n"
+        "                        |                      | |||| |                                   |                size  size      \n"
+        "                        |                      | |||| |                                   |                                \n"
+        "========================|======================|=||||=|===================================|================================\n"
+        "Layer  ObjectID         |     X    Y    W    H | |||| |   ObjectName                      | Additional Info                \n"
+        "========================|======================|=||||=|===================================|================================\n"
         );
    else
      printf(
-        "======================================================================================================================\n"
-        "                        /-- Object Type                            /-- Alpha                                          \n"
-        "                        |    r  : Rectangle Object                 |                                                  \n"
-        "                        |    EDJ: Edje Object                      | /-- Pass Events                                  \n"
-        "                        |    IMG: Image Object                     | |/-- Freeze Events                               \n"
-        "                        |    EC : ec->frame Object                 | ||/-- Focused                                    \n"
-        "                        |                                          | |||                                              \n"
-        "                        |    /-- Render Operation                  | ||| /-- Visibility                               \n"
-        "                        |    |    BL: EVAS_RENDER_BLEND            | ||| |                                            \n"
-        "                        |    |    CP: EVAS_RENDER_COPY             | ||| |                                            \n"
-        "                        |    |                                     | ||| |                           [Additional Info]\n"
-        "                        |    |                                     | ||| |                          EDJ: group, file |\n"
-        "                        |    |                                     | ||| |                   EDJ member: part, value |\n"
-        "                        |    |                                     | ||| |   Image: Type, Size, Load Size, Fill Size |\n"
-        "                        |    |                                     | ||| |                                           |\n"
-        "                        |    |                                     | ||| |                                           |\n"
-        "========================|====|=====================================|=|||=|============================================\n"
-        "Layer  ObjectID         |    |    X    Y    W    H  Color(RGBA)    | ||| |     ObjectName                            |\n"
-        "========================|====|=====================================|=|||=|============================================\n"
+        "=======================================================================================================================\n"
+        "                        /-- Object Type                            /-- Alpha                                           \n"
+        "                        |    r  : Rectangle Object                 |                                                   \n"
+        "                        |    EDJ: Edje Object                      | /-- Pass Events                                   \n"
+        "                        |    IMG: Image Object                     | |/-- Freeze Events                                \n"
+        "                        |    EC : ec->frame Object                 | ||/-- Focused                                     \n"
+        "                        |                                          | |||/-  EvasMap                                    \n"
+        "                        |                                          | ||||                                              \n"
+        "                        |    /-- Render Operation                  | |||| /-- Visibility                               \n"
+        "                        |    |    BL: EVAS_RENDER_BLEND            | |||| |                                            \n"
+        "                        |    |    CP: EVAS_RENDER_COPY             | |||| |                                            \n"
+        "                        |    |                                     | |||| |                           [Additional Info]\n"
+        "                        |    |                                     | |||| |                          EDJ: group, file |\n"
+        "                        |    |                                     | |||| |                   EDJ member: part, value |\n"
+        "                        |    |                                     | |||| |   Image: Type, Size, Load Size, Fill Size |\n"
+        "                        |    |                                     | |||| |             Map: Enable, Alpha, UV, Coord |\n"
+        "                        |    |                                     | |||| |                                           |\n"
+        "========================|====|=====================================|=||||=|============================================\n"
+        "Layer  ObjectID         |    |    X    Y    W    H  Color(RGBA)    | |||| |     ObjectName                            |\n"
+        "========================|====|=====================================|=||||=|============================================\n"
         );
 
    while (eldbus_message_iter_get_and_next(array, 'r', &obj))
@@ -590,7 +592,14 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
                                                 &cobj.img.lw, &cobj.img.lh,
                                                 &cobj.img.fx, &cobj.img.fy, &cobj.img.fw, &cobj.img.fh,
                                                 &cobj.img.alpha,
-                                                &cobj.img.dirty);
+                                                &cobj.img.dirty,
+                                                &cobj.map.enable,
+                                                &cobj.map.alpha,
+                                                &cobj.map.u[0], &cobj.map.u[1], &cobj.map.u[2], &cobj.map.u[3],
+                                                &cobj.map.v[0], &cobj.map.v[1], &cobj.map.v[2], &cobj.map.v[3],
+                                                &cobj.map.x[0], &cobj.map.x[1], &cobj.map.x[2], &cobj.map.x[3],
+                                                &cobj.map.y[0], &cobj.map.y[1], &cobj.map.y[2], &cobj.map.y[3],
+                                                &cobj.map.z[0], &cobj.map.z[1], &cobj.map.z[2], &cobj.map.z[3]);
         if (!res)
           {
              printf("Failed to get composite obj info\n");
@@ -600,7 +609,7 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
         if (cobj.depth == 0)
           {
              if (!compobjs_simple)
-               printf(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -- - - - - - - - -|\n");
+               printf(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -- - - - - - - - - |\n");
              printf("%4d ", cobj.ly);
           }
         else
@@ -612,18 +621,19 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
 
         if (compobjs_simple)
           printf("%5.5s "
-                 "|%4d,%4d %4dx%4d|%s|%s%s%s|%s|",
+                 "|%4d,%4d %4dx%4d|%s|%s%s%s%s|%s|",
                  cobj.type,
                  cobj.x, cobj.y, cobj.w, cobj.h,
                  cobj.img.alpha == 1 ? "A" : " ",
                  cobj.pass_events == 1 ? "p" : " ",
                  cobj.freeze_events == 1 ? "z" : " ",
                  cobj.focus == 1 ? "F" : " ",
+                 cobj.map.enable == 1 ? "M" : " ",
                  cobj.vis == 1 ? "V" : " ");
         else
           printf("%5.5s "
                  "|%3.3s"
-                 "|%4d,%4d %4dx%4d|%3d %3d %3d %3d|%s|%s%s%s|%s|",
+                 "|%4d,%4d %4dx%4d|%3d %3d %3d %3d|%s|%s%s%s%s|%s|",
                  cobj.type,
                  cobj.opmode,
                  cobj.x, cobj.y, cobj.w, cobj.h,
@@ -632,6 +642,7 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
                  cobj.pass_events == 1 ? "p" : " ",
                  cobj.freeze_events == 1 ? "z" : " ",
                  cobj.focus == 1 ? "F" : " ",
+                 cobj.map.enable == 1 ? "M" : " ",
                  cobj.vis == 1 ? "V" : " ");
 
         obj_name = cobj.name;
@@ -671,12 +682,29 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
           }
 
         printf("\n");
+        if (!compobjs_simple && cobj.map.enable)
+          {
+             printf("                                                                                                            ");
+             printf("|Map: %s\n", (cobj.map.alpha == 1) ? "alpha(on)" : "alpha(off)");
+             printf("                                                                                                            ");
+             printf("|    UV (  %4d,%4d   |  %4d,%4d   |  %4d,%4d   |  %4d,%4d   )\n",
+                    (int)cobj.map.u[0], (int)cobj.map.v[0],
+                    (int)cobj.map.u[1], (int)cobj.map.v[1],
+                    (int)cobj.map.u[2], (int)cobj.map.v[2],
+                    (int)cobj.map.u[3], (int)cobj.map.v[3]);
+             printf("                                                                                                            ");
+             printf("| Coord (%4d,%4d,%4d|%4d,%4d,%4d|%4d,%4d,%4d|%4d,%4d,%4d)\n",
+                    cobj.map.x[0], cobj.map.y[0], cobj.map.z[0],
+                    cobj.map.x[1], cobj.map.y[1], cobj.map.z[1],
+                    cobj.map.x[2], cobj.map.y[2], cobj.map.z[2],
+                    cobj.map.x[3], cobj.map.y[3], cobj.map.z[3]);
+          }
      }
 
    if (compobjs_simple)
-     printf("==========================================================================================================================\n");
+     printf("===========================================================================================================================\n");
    else
-     printf("======================================================================================================================\n");
+     printf("=======================================================================================================================\n");
 
 finish:
    if ((name) || (text))
