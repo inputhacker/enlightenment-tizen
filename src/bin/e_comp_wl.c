@@ -425,9 +425,9 @@ e_comp_wl_map_apply(E_Client *ec)
    e_util_transform_texcoord_set(cdata->viewport_transform, 2, x2, y2);
    e_util_transform_texcoord_set(cdata->viewport_transform, 3, x1, y2);
 
-//   ELOGF("COMP", "viewport map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d)",
-//         ec->pixmap, ec, ec->x, ec->y, ec->comp_data->width_from_viewport,
-//         ec->comp_data->height_from_viewport, x1, y1, x2, y1, x2, y2, x1, y2);
+   ELOGF("TRANSFORM", "viewport map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d)",
+         ec->pixmap, ec, ec->x, ec->y, ec->comp_data->width_from_viewport,
+         ec->comp_data->height_from_viewport, x1, y1, x2, y1, x2, y2, x1, y2);
 
    e_client_transform_core_update(ec);
 }
@@ -2417,13 +2417,13 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
         e_client_unignore(ec);
      }
 
-   if (vp->wait_for_transform_change && (vp->buffer.transform != state->buffer_viewport.buffer.transform))
+   if (vp->buffer.transform != state->buffer_viewport.buffer.transform)
      {
         int transform_change = (4 + state->buffer_viewport.buffer.transform - vp->buffer.transform) & 0x3;
 
-        DBG("ec(%p) wait_for_transform_change(%d) change(%d) : new(%d) old(%d)",
-            ec, vp->wait_for_transform_change, transform_change,
-            state->buffer_viewport.buffer.transform, vp->buffer.transform);
+        ELOGF("TRANSFORM", "buffer_transform changed: old(%d) new(%d)",
+              ec->pixmap, ec,
+              vp->buffer.transform, state->buffer_viewport.buffer.transform);
 
         if (transform_change == vp->wait_for_transform_change)
           vp->wait_for_transform_change = 0;

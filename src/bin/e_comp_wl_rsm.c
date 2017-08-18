@@ -862,7 +862,7 @@ _remote_surface_ignore_output_transform_send(E_Comp_Wl_Remote_Common *common)
 ignore:
    if (common->ignore_output_transform != EINA_TRUE)
      {
-        RSMINF("ignore output transform: %s", NULL, common->ec, "common", NULL, msg);
+        ELOGF("TRANSFORM", "ignore output transform: %s", common->ec->pixmap, common->ec, msg);
         e_comp_screen_rotation_ignore_output_transform_send(common->ec, EINA_TRUE);
         common->ignore_output_transform = EINA_TRUE;
      }
@@ -871,7 +871,7 @@ ignore:
 no_ignore:
    if (common->ignore_output_transform != EINA_FALSE)
      {
-        RSMINF("not ignore output transform: %s", NULL, common->ec, "common", NULL, msg);
+        ELOGF("TRANSFORM", "not ignore output transform: %s", common->ec->pixmap, common->ec, msg);
         e_comp_screen_rotation_ignore_output_transform_send(common->ec, EINA_FALSE);
         common->ignore_output_transform = EINA_FALSE;
      }
@@ -2876,8 +2876,21 @@ _e_comp_wl_remote_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *st
    E_Comp_Wl_Remote_Buffer *remote_buffer;
    struct wl_resource *remote_buffer_resource;
    Eina_List *l, *ll;
+   E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
 
    if (e_object_is_del(E_OBJECT(ec))) return;
+
+   if (vp->buffer.transform != state->buffer_viewport.buffer.transform)
+     {
+        int transform_change = (4 + state->buffer_viewport.buffer.transform - vp->buffer.transform) & 0x3;
+
+        ELOGF("TRANSFORM", "buffer_transform changed: old(%d) new(%d)",
+              ec->pixmap, ec,
+              vp->buffer.transform, state->buffer_viewport.buffer.transform);
+
+        if (transform_change == vp->wait_for_transform_change)
+          vp->wait_for_transform_change = 0;
+     }
 
    ec->comp_data->scaler.buffer_viewport = state->buffer_viewport;
 
