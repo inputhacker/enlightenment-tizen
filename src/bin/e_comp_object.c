@@ -5483,7 +5483,7 @@ e_comp_object_map_update(Evas_Object *obj)
      {
         if (evas_object_map_enable_get(cw->effect_obj))
           {
-             ELOGF("COMP", "transform map: disable", cw->ec->pixmap, cw->ec);
+             ELOGF("TRANSFORM", "map: disable", cw->ec->pixmap, cw->ec);
              evas_object_map_enable_set(cw->effect_obj, EINA_FALSE);
              evas_object_hide(cw->map_input_obj);
           }
@@ -5505,7 +5505,7 @@ e_comp_object_map_update(Evas_Object *obj)
 
    _e_comp_object_map_transform_pos(ec, x1, y1, &x, &y);
    evas_map_point_image_uv_set(map, 0, x, y);
-   l = snprintf(p, remain, " %d,%d", x, y);
+   l = snprintf(p, remain, "%d,%d", x, y);
    p += l, remain -= l;
 
    _e_comp_object_map_transform_pos(ec, x2, y1, &x, &y);
@@ -5523,8 +5523,9 @@ e_comp_object_map_update(Evas_Object *obj)
    l = snprintf(p, remain, " %d,%d", x, y);
    p += l, remain -= l;
 
-   DBG("ec(%p) obj(%p) transform map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d => %s)",
-       cw->ec, obj, ec->x, ec->y, bw, bh, x1, y1, x2, y1, x2, y2, x1, y2, buffer);
+   ELOGF("TRANSFORM", "map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d=>%s)",
+         cw->ec->pixmap, cw->ec,
+         ec->x, ec->y, bw, bh, x1, y1, x2, y1, x2, y2, x1, y2, buffer);
 
    evas_object_map_set(cw->effect_obj, map);
    evas_object_map_enable_set(cw->effect_obj, EINA_TRUE);

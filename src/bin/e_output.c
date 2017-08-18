@@ -1241,6 +1241,8 @@ e_output_rotate(E_Output *output, int rotate)
                          output->info.size.w, output->info.size.h,
                          output->config.mode.refresh, 0, transform);
 
+   ELOGF("TRANSFORM", "output(%s) transform(%d)", NULL, NULL, output->info.name, transform);
+
    return EINA_TRUE;
 }
 
