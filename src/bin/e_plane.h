@@ -128,6 +128,7 @@ struct _E_Plane_Commit_Data {
 typedef enum _E_Plane_Hook_Point
 {
    E_PLANE_HOOK_VIDEO_SET,
+   E_PLANE_HOOK_UNSET,
    E_PLANE_HOOK_LAST
 } E_Plane_Hook_Point;
 

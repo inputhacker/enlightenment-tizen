@@ -35,6 +35,7 @@ static int _e_plane_hooks_walking = 0;
 static Eina_Inlist *_e_plane_hooks[] =
 {
    [E_PLANE_HOOK_VIDEO_SET] = NULL,
+   [E_PLANE_HOOK_UNSET] = NULL,
 };
 
 static void
@@ -177,6 +178,8 @@ _e_plane_surface_unset(E_Plane *plane)
         ERR("fail to tdm_layer_unset_buffer");
         return EINA_FALSE;
      }
+
+   _e_plane_hook_call(E_PLANE_HOOK_UNSET, plane);
 
    return EINA_TRUE;
 }
