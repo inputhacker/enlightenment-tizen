@@ -1249,8 +1249,12 @@ EINTERN Eina_Bool
 e_plane_fetch(E_Plane *plane)
 {
    tbm_surface_h tsurface = NULL;
+   E_Output *output = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   output = plane->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
    if (e_comp_canvas_norender_get() > 0)
      {
@@ -1311,12 +1315,15 @@ e_plane_fetch(E_Plane *plane)
 
         plane->tsurface = tsurface;
 
-        /* set plane info and set tsurface to the plane */
-        if (!_e_plane_surface_set(plane, tsurface))
+        if (output->dpms != E_OUTPUT_DPMS_OFF)
           {
-             ERR("fail: _e_plane_set_info.");
-             e_plane_unfetch(plane);
-             return EINA_FALSE;
+             /* set plane info and set tsurface to the plane */
+             if (!_e_plane_surface_set(plane, tsurface))
+               {
+                  ERR("fail: _e_plane_set_info.");
+                  e_plane_unfetch(plane);
+                  return EINA_FALSE;
+               }
           }
 
         /* set the update_exist to be true */
