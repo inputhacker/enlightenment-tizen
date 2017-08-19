@@ -1109,7 +1109,7 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
    return EINA_TRUE;
 }
 
-EINTERN void
+E_API void
 e_comp_screen_rotation_ignore_output_transform_send(E_Client *ec, Eina_Bool ignore)
 {
    E_Comp_Screen_Tzsr *tzsr = _tz_surface_rotation_find(ec);
