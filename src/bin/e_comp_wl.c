@@ -2427,6 +2427,9 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
      {
         int transform_change = (4 + state->buffer_viewport.buffer.transform - vp->buffer.transform) & 0x3;
 
+        /* when buffer is transformed, we have to apply the new evas-map */
+        state->buffer_viewport.changed = EINA_TRUE;
+
         ELOGF("TRANSFORM", "buffer_transform changed: old(%d) new(%d)",
               ec->pixmap, ec,
               vp->buffer.transform, state->buffer_viewport.buffer.transform);
