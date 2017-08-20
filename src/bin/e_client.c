@@ -874,6 +874,12 @@ _e_client_revert_focus(E_Client *ec)
      }
 }
 
+EINTERN void
+e_client_revert_focus(E_Client *ec)
+{
+   _e_client_revert_focus(ec);
+}
+
 static void
 _e_client_free(E_Client *ec)
 {

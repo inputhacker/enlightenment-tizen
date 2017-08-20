@@ -1600,6 +1600,9 @@ _tzpol_iface_cb_lower(struct wl_client *client EINA_UNUSED, struct wl_resource *
 
    if (!e_client_first_mapped_get(ec))
      e_client_post_raise_lower_set(ec, EINA_FALSE, EINA_TRUE);
+
+   if (ec->focused)
+     e_client_revert_focus(ec);
 }
 
 static void
