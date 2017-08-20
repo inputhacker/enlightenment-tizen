@@ -1160,7 +1160,12 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
          break;
       case E_VIS_JOB_TYPE_LOWER:
          e_comp_canvas_norender_pop();
-         if (ec) evas_object_lower(ec->frame);
+         if (ec)
+           {
+              evas_object_lower(ec->frame);
+              if (ec->focused)
+                e_client_revert_focus(ec);
+           }
          break;
       case E_VIS_JOB_TYPE_HIDE:
          e_comp_canvas_norender_pop();
