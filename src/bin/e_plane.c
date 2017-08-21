@@ -1981,7 +1981,9 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
           {
              if (!plane->is_fb)
                {
-                  if (e_plane_is_unset_candidate(plane) || e_plane_is_unset_try(plane))
+                  if (e_plane_is_unset_candidate(plane) ||
+                      e_plane_is_unset_try(plane) ||
+                      plane->unset_commit)
                     {
                        INF("Trying to unset plane:%p zpos:%d", plane, plane->zpos);
                        return EINA_FALSE;
