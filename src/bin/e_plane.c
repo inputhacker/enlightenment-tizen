@@ -1934,9 +1934,40 @@ e_plane_ec_get(E_Plane *plane)
    return plane->ec;
 }
 
+static E_Plane*
+_e_plane_ec_used_check(E_Plane *plane, E_Client *ec)
+{
+   E_Output *output = NULL;
+   E_Plane *tmp_plane = NULL;
+   Eina_List *l;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
+
+   output = plane->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->planes, l, tmp_plane)
+     {
+        if (plane == tmp_plane) continue;
+
+        if (tmp_plane->ec == ec)
+          {
+             if (plane_trace_debug)
+               ELOGF("E_PLANE", "Used    Plane(%p) zpos(%d) ec(%p)",
+                      NULL, NULL, tmp_plane, tmp_plane->zpos, ec);
+
+             return tmp_plane;
+          }
+     }
+
+   return NULL;
+}
+
 E_API Eina_Bool
 e_plane_ec_set(E_Plane *plane, E_Client *ec)
 {
+   E_Plane *used_plane = NULL;
+
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
    if (plane_trace_debug)
@@ -1947,11 +1978,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
      {
         if (plane->ec == ec) return EINA_TRUE;
 
-        if (plane->ec_redirected)
-          {
-             if (plane->ec) e_client_redirected_set(plane->ec, EINA_TRUE);
-             plane->ec_redirected = EINA_FALSE;
-          }
+        if (plane->ec_redirected && plane->ec) e_client_redirected_set(plane->ec, EINA_TRUE);
 
         if (plane->reserved_memory)
           e_plane_reserved_set(plane, EINA_TRUE);
@@ -1972,10 +1999,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
              e_plane_role_set(plane, E_PLANE_ROLE_CURSOR);
 
              if (!e_plane_renderer_cursor_ec_set(plane->renderer, ec))
-               {
-                  plane->ec = NULL;
-                  return EINA_FALSE;
-               }
+               goto set_fail;
           }
         else
           {
@@ -2001,10 +2025,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
              e_plane_role_set(plane, E_PLANE_ROLE_OVERLAY);
 
              if (!e_plane_renderer_ec_set(plane->renderer, ec))
-               {
-                  plane->ec = NULL;
-                  return EINA_FALSE;
-               }
+               goto set_fail;
 
              if (plane->reserved_memory)
                _e_plane_surface_send_dequeuable_surfaces(plane);
@@ -2015,7 +2036,26 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
 
         e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
 
-        if (ec->redirected) plane->ec_redirected = EINA_TRUE;
+        if (plane->ec_redirected)
+          {
+             if (plane->ec)
+               {
+                  used_plane = _e_plane_ec_used_check(plane, plane->ec);
+                  if (used_plane)
+                    e_client_redirected_set(plane->ec, EINA_FALSE);
+                  else
+                    e_client_redirected_set(plane->ec, EINA_TRUE);
+               }
+
+             plane->ec_redirected = EINA_FALSE;
+          }
+
+        used_plane = _e_plane_ec_used_check(plane, ec);
+        if (used_plane)
+          plane->ec_redirected = used_plane->ec_redirected;
+        else
+          if (ec->redirected) plane->ec_redirected = EINA_TRUE;
+
         e_client_redirected_set(ec, EINA_FALSE);
      }
    else
@@ -2028,6 +2068,9 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
          *    we set the unset_candidate flags to the plane and measure to unset
          *    the plane at the e_output_commit.
          */
+
+        if (plane->ec_redirected && plane->ec) e_client_redirected_set(plane->ec, EINA_TRUE);
+
         if (plane->is_fb)
           {
              if (!e_plane_renderer_ecore_evas_use(plane->renderer))
@@ -2058,7 +2101,15 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
 
         if (plane->ec_redirected)
           {
-             if (plane->ec) e_client_redirected_set(plane->ec, EINA_TRUE);
+             if (plane->ec)
+               {
+                  used_plane = _e_plane_ec_used_check(plane, plane->ec);
+                  if (used_plane)
+                    e_client_redirected_set(plane->ec, EINA_FALSE);
+                  else
+                    e_client_redirected_set(plane->ec, EINA_TRUE);
+               }
+
              plane->ec_redirected = EINA_FALSE;
           }
 
@@ -2083,6 +2134,25 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
            (ec ? ec->pixmap : NULL), ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
    return EINA_TRUE;
+
+set_fail:
+   if (plane->ec_redirected)
+     {
+       if (plane->ec)
+         {
+            used_plane = _e_plane_ec_used_check(plane, plane->ec);
+            if (used_plane)
+              e_client_redirected_set(plane->ec, EINA_FALSE);
+            else
+              e_client_redirected_set(plane->ec, EINA_TRUE);
+         }
+
+       plane->ec_redirected = EINA_FALSE;
+     }
+
+   plane->ec = NULL;
+
+   return EINA_FALSE;
 }
 
 E_API E_Client *
