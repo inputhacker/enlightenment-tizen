@@ -125,6 +125,8 @@ _e_plane_surface_can_set(E_Plane *plane, tbm_surface_h tsurface)
 
    EINA_LIST_FOREACH(output->planes, l, tmp_plane)
      {
+        if (plane == tmp_plane) continue;
+
         if (tmp_plane->tsurface == tsurface)
           {
              if (plane_trace_debug)
