@@ -3017,20 +3017,11 @@ _e_comp_wl_remote_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *st
           {
              EINA_LIST_FOREACH(provider->common.surfaces, l, surface)
                {
-                  remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(surface->wl_tbm, buffer->resource);
-                  if (!remote_buffer_resource) continue;
-
-                  remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
-                  if (!remote_buffer) continue;
-
                   if (!surface->redirect) continue;
                   if (surface->bind_ec)
                     {
-                       E_Comp_Wl_Buffer *buffer;
-
                        surface->bind_ec->comp_data->pending.buffer_viewport = ec->comp_data->scaler.buffer_viewport;
 
-                       buffer = e_comp_wl_buffer_get(remote_buffer->resource, surface->bind_ec);
                        _e_comp_wl_remote_surface_state_buffer_set(&surface->bind_ec->comp_data->pending, buffer);
                        surface->bind_ec->comp_data->pending.sx = sx;
                        surface->bind_ec->comp_data->pending.sy = sy;
@@ -3043,6 +3034,12 @@ _e_comp_wl_remote_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *st
                     }
                   else
                     {
+                       remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(surface->wl_tbm, buffer->resource);
+                       if (!remote_buffer_resource) continue;
+
+                       remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
+                       if (!remote_buffer) continue;
+
                        _remote_surface_changed_buff_protocol_send(surface,
                                                                   TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
                                                                   remote_buffer,
