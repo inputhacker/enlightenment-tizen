@@ -748,6 +748,13 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
         remote_surface->bind_ec->comp_data->pending.sy = 0;
         remote_surface->bind_ec->comp_data->pending.new_attach = EINA_TRUE;
 
+        /* when unbinded, ignore_output_transform event is sended. And map should be disable. */
+        remote_surface->bind_ec->comp_data->pending.buffer_viewport.buffer.transform = WL_OUTPUT_TRANSFORM_NORMAL;
+        remote_surface->bind_ec->comp_data->pending.buffer_viewport.changed = 0;
+        remote_surface->bind_ec->comp_data->scaler.buffer_viewport.buffer.transform = WL_OUTPUT_TRANSFORM_NORMAL;
+        remote_surface->bind_ec->comp_data->scaler.buffer_viewport.changed = 0;
+        e_comp_wl_map_apply(remote_surface->bind_ec);
+
         e_comp_wl_surface_commit(remote_surface->bind_ec);
 
         remote_surface->bind_ec = NULL;
