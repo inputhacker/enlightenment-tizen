@@ -401,6 +401,7 @@ _e_output_cb_output_change(tdm_output *toutput,
    E_Output *e_output = NULL;
    E_OUTPUT_DPMS edpms;
    tdm_output_dpms tdpms = (tdm_output_dpms)value.u32;
+   static Eina_Bool override = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN(toutput);
    EINA_SAFETY_ON_NULL_RETURN(user_data);
@@ -410,8 +411,25 @@ _e_output_cb_output_change(tdm_output *toutput,
    switch (type)
      {
        case TDM_OUTPUT_CHANGE_DPMS:
-          if (tdpms == TDM_OUTPUT_DPMS_OFF) edpms = E_OUTPUT_DPMS_OFF;
-          else if (tdpms == TDM_OUTPUT_DPMS_ON) edpms = E_OUTPUT_DPMS_ON;
+          if (tdpms == TDM_OUTPUT_DPMS_OFF)
+            {
+               edpms = E_OUTPUT_DPMS_OFF;
+               if (!override)
+                 {
+                    e_comp_override_add();
+                    override = EINA_TRUE;
+                 }
+            }
+          else if (tdpms == TDM_OUTPUT_DPMS_ON)
+            {
+               edpms = E_OUTPUT_DPMS_ON;
+               if (override)
+                 {
+                    e_comp_override_del();
+                    override = EINA_FALSE;
+                 }
+               ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+            }
           else if (tdpms == TDM_OUTPUT_DPMS_STANDBY) edpms = E_OUTPUT_DPMS_STANDBY;
           else if (tdpms == TDM_OUTPUT_DPMS_SUSPEND) edpms = E_OUTPUT_DPMS_SUSPEND;
           else edpms = e_output->dpms;
