@@ -71,6 +71,7 @@ struct _E_Plane
    Eina_Bool             unset_try;
    Eina_Bool             unset_commit;
    int                   unset_counter;
+   E_Client             *unset_ec;
 
    Eina_Bool             is_video;
    Eina_Bool             reserved_video;
