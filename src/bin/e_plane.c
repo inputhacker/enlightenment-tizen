@@ -1223,6 +1223,7 @@ _notify_hwc_about_animation(tdm_output *output, tbm_surface_h surf)
    tdm_hwc_window_info info;
    tdm_hwc_window *hwc_wnd;
    tbm_surface_h surface;
+   tdm_error tdm_err;
    int num_types;
 
    hwc_wnd = tdm_output_create_hwc_window(output, NULL);
@@ -1255,7 +1256,13 @@ _notify_hwc_about_animation(tdm_output *output, tbm_surface_h surf)
    tdm_hwc_window_set_info(hwc_wnd, &info);
    tdm_hwc_window_set_buffer(hwc_wnd, surf);
 
-   tdm_output_validate(output, &num_types);
+   tdm_err = tdm_output_validate(output, &num_types);
+   if (tdm_err != TDM_ERROR_NONE)
+     INF("an error while trying to make tdm_output_validate(): %d.", tdm_err);
+
+   /* we don't need it anymore, the hwc_wnd was created only to notify
+    * hwc extension about our wish to have the 'fb_target' */
+   tdm_output_destroy_hwc_window(output, hwc_wnd);
 }
 
 EINTERN Eina_Bool
