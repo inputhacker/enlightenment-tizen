@@ -1566,7 +1566,7 @@ e_plane_commit(E_Plane *plane)
    if (!data) return EINA_FALSE;
 
    _e_plane_fb_target_change_check(plane);
-   
+
    if (!e_comp->hwc_optimized)
      TRACE_DS_ASYNC_BEGIN((unsigned int)plane->tlayer, [PLANE:COMMIT~HANDLER]);
 
@@ -1585,13 +1585,13 @@ e_plane_commit(E_Plane *plane)
              e_plane_commit_data_release(data);
              return EINA_FALSE;
           }
-     }
 
-   error = tdm_output_wait_vblank(plane->output->toutput, 1, 0, _e_plane_vblank_handler, (void *)plane);
-   if (error != TDM_ERROR_NONE)
-     {
-        ERR("fail to tdm_output_wait_vblank plane:%p, zpos:%d", plane, plane->zpos);
-        return EINA_FALSE;
+        error = tdm_output_wait_vblank(plane->output->toutput, 1, 0, _e_plane_vblank_handler, (void *)plane);
+        if (error != TDM_ERROR_NONE)
+          {
+             ERR("fail to tdm_output_wait_vblank plane:%p, zpos:%d", plane, plane->zpos);
+             return EINA_FALSE;
+          }
      }
 
    /* send frame event enlightenment dosen't send frame evnet in nocomp */

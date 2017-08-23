@@ -991,6 +991,11 @@ _e_output_commit_hanler(tdm_output *output, unsigned int sequence,
    EINA_LIST_FOREACH(e_output_planes_get(eo), l, ep)
      EINA_LIST_FOREACH(ep->commit_data_list, l_data_list, plane_commit_data)
        e_plane_commit_data_release(plane_commit_data);
+
+   /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
+    * a 'page flip' happened so it's time to allow to make 'fetch and commit' for all e_planes */
+   EINA_LIST_FOREACH(e_output_planes_get(eo), l, ep)
+     ep->wait_commit = EINA_FALSE;
 }
 
 EINTERN Eina_Bool
