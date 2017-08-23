@@ -1787,6 +1787,16 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
      {
         EINA_SAFETY_ON_NULL_RETURN(remote_surface->provider->common.ec);
 
+        if (remote_surface->redirect)
+          {
+             RSMINF("Already Redirect surface provider:%p(ec:%p)",
+                    NULL, NULL,
+                    "SURFACE", remote_surface,
+                    remote_surface->provider, remote_surface->provider->common.ec);
+
+             return;
+          }
+
         RSMINF("Redirect surface provider:%p(ec:%p)",
                NULL, NULL,
                "SURFACE", remote_surface,
@@ -1813,6 +1823,17 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
    else if (remote_surface->source)
      {
         EINA_SAFETY_ON_NULL_RETURN(remote_surface->source->common.ec);
+
+        if (remote_surface->redirect)
+          {
+             RSMINF("Already Redirect surface source:%p(ec:%p)",
+                    NULL, NULL,
+                    "SURFACE", remote_surface,
+                    remote_surface->source, remote_surface->source->common.ec);
+
+             return;
+          }
+
         RSMINF("Redirect surface source:%p(ec:%p)",
                NULL, NULL,
                "SURFACE", remote_surface,
