@@ -1225,7 +1225,7 @@ _e_info_client_proc_keygrab_status(int argc, char **argv)
 }
 
 static char *
-_directory_make(char *path)
+_directory_make(char *type, char *path)
 {
    char dir[PATH_MAX], curdir[PATH_MAX], stamp[PATH_MAX];
    time_t timer;
@@ -1290,9 +1290,9 @@ _directory_make(char *path)
    snprintf(stamp, PATH_MAX, "%04d%02d%02d.%02d%02d%02d", t->tm_year+1900, t->tm_mon+1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec);
 
    if (strlen(dir) == 1 && dir[0] == '/')
-     snprintf(fullpath, PATH_MAX, "/topvwins-%s", stamp);
+     snprintf(fullpath, PATH_MAX, "/%s-%s", type, stamp);
    else
-     snprintf(fullpath, PATH_MAX, "%s/topvwins-%s", dir, stamp);
+     snprintf(fullpath, PATH_MAX, "%s/%s-%s", dir, type, stamp);
 
    free (buf);
 
@@ -1309,18 +1309,32 @@ _directory_make(char *path)
 }
 
 static void
-_e_info_client_proc_topvwins_shot(int argc, char **argv)
+_e_info_client_proc_wins_shot(int argc, char **argv)
 {
-   char *directory = _directory_make(argv[2]);
-   EINA_SAFETY_ON_NULL_RETURN(directory);
+   char *directory = NULL;
+   char *type = NULL;
 
-   if (!_e_info_client_eldbus_message_with_args("dump_topvwins", NULL, "s", directory))
+   if (argc == 3)
+     directory = _directory_make(argv[2], NULL);
+   else if (argc == 4)
+     directory = _directory_make(argv[2], argv[3]);
+   else
+     goto arg_err;
+
+   if (!directory) goto arg_err;
+
+   type = argv[2];
+   if (!_e_info_client_eldbus_message_with_args("dump_wins", NULL, SIGNATURE_DUMP_WINS, type, directory))
      {
         free(directory);
         return;
      }
 
    free(directory);
+
+   return;
+arg_err:
+   printf("Usage: enlightenment_info -dump %s\n", USAGE_DUMPIMAGE);
 }
 
 static void
@@ -4180,9 +4194,10 @@ static struct
       _e_info_client_proc_subsurface
    },
    {
-      "dump_topvwins", "[directory_path]",
-      "Dump top-level visible windows (default directory_path : current working directory)",
-      _e_info_client_proc_topvwins_shot
+      "dump",
+      USAGE_DUMPIMAGE,
+      "Dump window images with options",
+      _e_info_client_proc_wins_shot
    },
    {
       "eina_log_levels", "[mymodule1:5,mymodule2:2]",

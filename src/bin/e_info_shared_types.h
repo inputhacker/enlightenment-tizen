@@ -201,4 +201,14 @@ typedef enum
    "\tenlightenment_info -remote_surface dump 0\n"                            \
    "\tenlightenment_info -remote_surface dump 1\n"
 
+/* -------------------------------------------------------------------------- */
+/* DUMP WINS                                                                  */
+/* -------------------------------------------------------------------------- */
+#define SIGNATURE_DUMP_WINS "ss"
+#define USAGE_DUMPIMAGE                                                  \
+   "[Option..] [DIR]\n"                                                  \
+   "\ttopvwins     : Dump buffer commit on top visible clients\n"        \
+   "\tns           : Dump native surfaces set on clients\n"
+
+
 #endif /* end of _E_INFO_SHARED_TYPES_ */

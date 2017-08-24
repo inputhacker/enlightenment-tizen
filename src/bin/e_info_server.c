@@ -2360,18 +2360,9 @@ _e_info_server_cb_window_prop_get(const Eldbus_Service_Interface *iface EINA_UNU
    return _msg_window_prop_append(msg, mode, value, property_name, property_value);
 }
 
-static Eldbus_Message *
-_e_info_server_cb_topvwins_dump(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+static void _e_info_server_cb_wins_dump_topvwins(const char *dir)
 {
-   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
-   const char *dir;
    Evas_Object *o;
-
-   if (!eldbus_message_arguments_get(msg, "s", &dir))
-     {
-        ERR("Error getting arguments.");
-        return reply;
-     }
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
@@ -2390,6 +2381,96 @@ _e_info_server_cb_topvwins_dump(const Eldbus_Service_Interface *iface EINA_UNUSE
 
         e_info_server_dump_client(ec, fname);
      }
+}
+
+static void _e_info_server_cb_wins_dump_ns(const char *dir)
+{
+   Evas_Object *o;
+
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        Ecore_Window win;
+        E_Client *ec;
+        Evas_Native_Surface *ns = NULL;
+        Evas_Object *co = NULL; // native surface set
+        tbm_surface_h tbm_surface = NULL;
+        char fname[PATH_MAX];
+        const char *bltin_t = NULL;
+
+        ec = evas_object_data_get(o, "E_Client");
+        win = e_client_util_win_get(ec);
+
+        // find obj which have native surface set
+        bltin_t = evas_object_type_get(o);
+        if (!e_util_strcmp(bltin_t, "image"))
+          {
+             // builtin types "image" could have cw->obj
+             ns = evas_object_image_native_surface_get(o);
+             if (ns) co = o;
+          }
+
+        if (!ns)
+          {
+             if (!co) co = evas_object_name_child_find(o, "cw->obj", -1);
+             if (co) ns = evas_object_image_native_surface_get(co);
+          }
+
+        if (!ns)
+          {
+             Eina_List *ll;
+             Evas_Object *c = NULL;
+
+             if (evas_object_smart_data_get(o))
+               {
+                  //find smart obj members
+                  EINA_LIST_REVERSE_FOREACH(evas_object_smart_members_get(o), ll, c)
+                    {
+                       if (!co) co = evas_object_name_child_find(c, "cw->obj", -1);
+                       if (co) ns = evas_object_image_native_surface_get(co);
+                       if (ns) break;
+                    }
+               }
+          }
+
+        if (!ns) continue;
+
+        switch (ns->type)
+          {
+           case EVAS_NATIVE_SURFACE_WL:
+              snprintf(fname, sizeof(fname), "%s/0x%08x_wl_%p.png", dir, win, co);
+              if (ns->data.wl.legacy_buffer)
+                tbm_surface = wayland_tbm_server_get_surface(NULL, ns->data.wl.legacy_buffer);
+              if (tbm_surface)
+                tdm_helper_dump_buffer(tbm_surface, fname);
+              break;
+           case EVAS_NATIVE_SURFACE_TBM:
+              snprintf(fname, sizeof(fname), "%s/0x%08x_tbm_%p.png", dir, win, co);
+              if (ns->data.tbm.buffer)
+                tdm_helper_dump_buffer(ns->data.tbm.buffer, fname);
+              break;
+           default:
+              break;
+          }
+     }
+}
+
+static Eldbus_Message *
+_e_info_server_cb_wins_dump(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   const char *type;
+   const char *dir;
+
+   if (!eldbus_message_arguments_get(msg, SIGNATURE_DUMP_WINS, &type, &dir))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+   if (!e_util_strcmp(type, "topvwins"))
+     _e_info_server_cb_wins_dump_topvwins(dir);
+   else if (!e_util_strcmp(type, "ns"))
+     _e_info_server_cb_wins_dump_ns(dir);
 
    return reply;
 }
@@ -5021,7 +5102,7 @@ static const Eldbus_Method methods[] = {
    { "get_all_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_all_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
    { "subsurface", NULL, ELDBUS_ARGS({"a("SIGNATURE_SUBSURFACE")", "array of ec"}), _e_info_server_cb_subsurface, 0 },
-   { "dump_topvwins", ELDBUS_ARGS({"s", "directory"}), NULL, _e_info_server_cb_topvwins_dump, 0 },
+   { "dump_wins", ELDBUS_ARGS({SIGNATURE_DUMP_WINS, "directory"}), NULL, _e_info_server_cb_wins_dump, 0 },
    { "eina_log_levels", ELDBUS_ARGS({"s", "eina log levels"}), NULL, _e_info_server_cb_eina_log_levels, 0 },
    { "eina_log_path", ELDBUS_ARGS({"s", "eina log path"}), NULL, _e_info_server_cb_eina_log_path, 0 },
 #ifdef HAVE_DLOG
