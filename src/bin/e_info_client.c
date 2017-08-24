@@ -1314,12 +1314,15 @@ _e_info_client_proc_wins_shot(int argc, char **argv)
    char *directory = NULL;
    char *type = NULL;
 
-   if (argc == 3)
-     directory = _directory_make(argv[2], NULL);
-   else if (argc == 4)
-     directory = _directory_make(argv[2], argv[3]);
-   else
-     goto arg_err;
+   if (eina_streq(argv[2], "topvwins") || eina_streq(argv[2], "ns"))
+     {
+        if (argc == 3)
+          directory = _directory_make(argv[2], NULL);
+        else if (argc == 4)
+          directory = _directory_make(argv[2], argv[3]);
+        else
+          goto arg_err;
+     }
 
    if (!directory) goto arg_err;
 
@@ -4159,7 +4162,7 @@ static struct
    {
       "version",
       NULL,
-      "print version of enlightenment",
+      "Print version of enlightenment",
       _e_info_client_proc_version
    },
    {
@@ -4292,13 +4295,13 @@ static struct
    {
       "show_plane_state",
       NULL,
-      "show state of plane",
+      "Show state of plane",
       _e_info_client_proc_show_plane_state
    },
    {
       "show_pending_commit",
       NULL,
-      "show state of pending commit",
+      "Show state of pending commit",
       _e_info_client_proc_show_pending_commit
    },
    {
@@ -4337,7 +4340,7 @@ static struct
    {
       "aux_msg",
       "[window] [key] [value] [options]",
-      "send aux message to client",
+      "Send aux message to client",
       _e_info_client_proc_aux_message
    },
    {
@@ -4354,44 +4357,44 @@ static struct
    },
    {
       "desk",
-      NULL,
-      "current desktop",
+      USAGE_DESK,
+      "Current desktop",
       _e_info_client_proc_desk
    },
    {
       "frender",
       USAGE_FORCE_RENDER,
-      "force render according to parameters",
+      "Force render according to parameters",
       _e_info_client_proc_force_render
    },
    {
       "screen_rotation",
       "[0|90|180|270]",
-      "to rotate screen",
+      "To rotate screen",
       _e_info_client_proc_screen_rotation
    },
    {
       "remote_surface",
       USAGE_REMOTE_SURFACE,
-      "for remote surface debugging",
+      "For remote surface debugging",
       _e_info_client_proc_remote_surface
    },
    {
       "kill",
       KILL_USAGE,
-      "kill a client",
+      "Kill a client",
       _e_info_client_proc_kill_client
    },
    {
       "wininfo",
       WININFO_USAGE,
-      "displaying information about windows",
+      "Displaying information about windows",
       _e_info_client_proc_wininfo
    },
    {
       "module",
       "[list], [load <module_name>], [unload <module_name>]",
-      "manage modules on enlightenment",
+      "Manage modules on enlightenment",
       _e_info_client_proc_module
    },
    {
@@ -4523,7 +4526,7 @@ _e_info_client_process(int argc, char **argv)
 }
 
 static void
-_e_info_client_print_usage(const char *exec)
+_e_info_client_print_usage_all(const char *exec)
 {
    int nproc = sizeof(procs) / sizeof(procs[0]);
    int i;
@@ -4545,6 +4548,41 @@ _e_info_client_print_usage(const char *exec)
 }
 
 static void
+_e_info_client_print_usage(int argc, char **argv)
+{
+   int nproc = sizeof(procs) / sizeof(procs[0]);
+   int i;
+
+   for (i = 0; i < nproc; i++)
+     {
+        if (!strncmp(argv[1]+1, procs[i].option, strlen(procs[i].option)))
+          {
+             printf("  %s\n\n", (procs[i].description)?procs[i].description:"");
+             printf("  %s -%s %s\n", argv[0], procs[i].option, (procs[i].params)?procs[i].params:"");
+          }
+     }
+
+   printf("\n");
+}
+
+static void
+_e_info_client_print_description(const char *exec)
+{
+   int nproc = sizeof(procs) / sizeof(procs[0]);
+   int i;
+
+   printf("\n\n");
+
+   for (i = 0; i < nproc; i++)
+     {
+        printf(" -%-30s\t", procs[i].option);
+        printf(": %s\n", (procs[i].description)?procs[i].description:"");
+     }
+
+   printf("\n");
+}
+
+static void
 end_program(int sig)
 {
    ecore_main_loop_quit();
@@ -4558,7 +4596,7 @@ main(int argc, char **argv)
 {
    if (argc < 2 || argv[1][0] != '-')
      {
-        _e_info_client_print_usage(argv[0]);
+        _e_info_client_print_description(argv[0]);
         return 0;
      }
 
@@ -4570,7 +4608,14 @@ main(int argc, char **argv)
        !strcmp(argv[1], "-help") ||
        !strcmp(argv[1], "--help"))
      {
-        _e_info_client_print_usage(argv[0]);
+        _e_info_client_print_usage_all(argv[0]);
+     }
+   else if (argc >= 3 &&
+      (!strcmp(argv[2], "-h") ||
+       !strcmp(argv[2], "-help") ||
+       !strcmp(argv[2], "--help")))
+     {
+        _e_info_client_print_usage(argc, argv);
      }
    else
      {
@@ -4578,7 +4623,7 @@ main(int argc, char **argv)
         if (!_e_info_client_process(argc, argv))
           {
              printf("unknown option: %s\n", argv[1]);
-             _e_info_client_print_usage(argv[0]);
+             _e_info_client_print_usage(argc, argv);
           }
      }
 

@@ -192,7 +192,7 @@ typedef enum
 /* REMOTE SURFACE                                                             */
 /* -------------------------------------------------------------------------- */
 #define USAGE_REMOTE_SURFACE                                                   \
-   "enlightenment_info -remote_surface (info | dump)\n"                                                           \
+   "enlightenment_info -remote_surface (info | dump)\n"                        \
    "Commands:\n"                                                               \
    "\tinfo : print current remote surface info\n"                              \
    "\tdump : on/off to dump provider's buffer by -dump_buffers [0:off, 1:on]\n"\
@@ -209,6 +209,14 @@ typedef enum
    "[Option..] [DIR]\n"                                                  \
    "\ttopvwins     : Dump buffer commit on top visible clients\n"        \
    "\tns           : Dump native surfaces set on clients\n"
+
+/* -------------------------------------------------------------------------- */
+/* DESK                                                                       */
+/* -------------------------------------------------------------------------- */
+#define USAGE_DESK                                                  \
+   "[Option..] [DIR]\n"                                                  \
+   "\tgeometry [ x][ y][ w][ h]     : change desktop screen given geometry\n"        \
+   "\tzoom     [zx][zy][cx][cy]     : scale desktop screen\n"
 
 
 #endif /* end of _E_INFO_SHARED_TYPES_ */
