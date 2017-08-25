@@ -3199,6 +3199,20 @@ _tzpol_iface_cb_destroy(struct wl_client *client, struct wl_resource *res_tzpol)
    wl_resource_destroy(res_tzpol);
 }
 
+static void
+_tzpol_iface_cb_has_video(struct wl_client *client, struct wl_resource *res_tzpol, struct wl_resource *surface, uint32_t has)
+{
+   E_Client *ec;
+
+   if (!(ec = wl_resource_get_user_data(surface))) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (ec->comp_data->has_video_client == has) return;
+
+   ELOGF("TZPOL", "video client has(%d)", ec->pixmap, ec, has);
+
+   ec->comp_data->has_video_client = has;
+}
+
 // --------------------------------------------------------
 // tizen_policy_interface
 // --------------------------------------------------------
@@ -3242,6 +3256,7 @@ static const struct tizen_policy_interface _tzpol_iface =
    _tzpol_iface_cb_parent_set,
    _tzpol_iface_cb_ack_conformant_region,
    _tzpol_iface_cb_destroy,
+   _tzpol_iface_cb_has_video,
 };
 
 static void
@@ -6846,7 +6861,7 @@ e_policy_wl_init(void)
    /* create globals */
    global = wl_global_create(e_comp_wl->wl.disp,
                              &tizen_policy_interface,
-                             6,
+                             7,
                              NULL,
                              _tzpol_cb_bind);
    EINA_SAFETY_ON_NULL_GOTO(global, err);

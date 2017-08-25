@@ -293,6 +293,9 @@ e_comp_wl_video_subsurface_has(E_Client *ec)
    if (ec->comp_data->video_client)
      return EINA_TRUE;
 
+   if (ec->comp_data->has_video_client)
+     return EINA_TRUE;
+
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
      if (e_comp_wl_video_subsurface_has(subc))
         return EINA_TRUE;
