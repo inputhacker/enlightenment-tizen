@@ -3475,50 +3475,54 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
          _e_comp_wl_subsurface_check_below_bg_rectangle(topmost);
          return;
      }
-   if (!ec->comp_data->sub.below_list && !ec->comp_data->sub.below_list_pending) return;
+
    if (ec->argb) return;
-   if (!e_comp_wl_normal_subsurface_has(ec)) return;
 
-   ELOGF("COMP", "         |bg_rectangle", NULL, ec);
+   if (ec->comp_data->sub.below_list ||
+       ec->comp_data->sub.below_list_pending ||
+       e_comp_wl_video_subsurface_has(ec))
+     {
+        ELOGF("COMP", "         |bg_rectangle(%p) created", NULL, ec, ec->comp_data->sub.below_obj);
 
-   /* create a bg rectangle if topmost window is 24 depth window */
-   ec->comp_data->sub.below_obj = evas_object_rectangle_add(e_comp->evas);
-   EINA_SAFETY_ON_NULL_RETURN(ec->comp_data->sub.below_obj);
+        /* create a bg rectangle if topmost window is 24 depth window */
+        ec->comp_data->sub.below_obj = evas_object_rectangle_add(e_comp->evas);
+        EINA_SAFETY_ON_NULL_RETURN(ec->comp_data->sub.below_obj);
 
-   layer = evas_object_layer_get(ec->frame);
-   evas_object_layer_set(ec->comp_data->sub.below_obj, layer);
-   evas_object_render_op_set(ec->comp_data->sub.below_obj, EVAS_RENDER_COPY);
+        layer = evas_object_layer_get(ec->frame);
+        evas_object_layer_set(ec->comp_data->sub.below_obj, layer);
+        evas_object_render_op_set(ec->comp_data->sub.below_obj, EVAS_RENDER_COPY);
 
-   /* It's more reasonable to use the transparent color instead of black because
-    * we can show the alpha value of the 24 depth topmost window.
-    */
-   evas_object_color_set(ec->comp_data->sub.below_obj, 0x00, 0x00, 0x00, 0x00);
-   evas_object_move(ec->comp_data->sub.below_obj, ec->x, ec->y);
-   evas_object_resize(ec->comp_data->sub.below_obj, ec->w, ec->h);
-   evas_object_name_set(ec->comp_data->sub.below_obj, "below_bg_rectangle");
+        /* It's more reasonable to use the transparent color instead of black because
+         * we can show the alpha value of the 24 depth topmost window.
+         */
+        evas_object_color_set(ec->comp_data->sub.below_obj, 0x00, 0x00, 0x00, 0x00);
+        evas_object_move(ec->comp_data->sub.below_obj, ec->x, ec->y);
+        evas_object_resize(ec->comp_data->sub.below_obj, ec->w, ec->h);
+        evas_object_name_set(ec->comp_data->sub.below_obj, "below_bg_rectangle");
 
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_RESIZE,
-                                  _e_comp_wl_subsurface_bg_evas_cb_resize, ec);
+        evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_RESIZE,
+                                       _e_comp_wl_subsurface_bg_evas_cb_resize, ec);
 
-   /* set alpha only if SW path */
-   e_comp_object_alpha_set(ec->frame, EINA_TRUE);
+        /* set alpha only if SW path */
+        e_comp_object_alpha_set(ec->frame, EINA_TRUE);
 
-   /* force update for changing alpha value. If the native surface has been already
-    * set before, changing alpha value can't be applied to egl image.
-    */
-   e_comp_object_native_surface_set(ec->frame, EINA_FALSE);
-   e_pixmap_image_refresh(ec->pixmap);
-   e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
-   e_comp_object_dirty(ec->frame);
-   e_comp_object_render(ec->frame);
+        /* force update for changing alpha value. If the native surface has been already
+         * set before, changing alpha value can't be applied to egl image.
+         */
+        e_comp_object_native_surface_set(ec->frame, EINA_FALSE);
+        e_pixmap_image_refresh(ec->pixmap);
+        e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+        e_comp_object_dirty(ec->frame);
+        e_comp_object_render(ec->frame);
 
-   _e_comp_wl_subsurface_restack(ec);
-   _e_comp_wl_subsurface_restack_bg_rectangle(ec);
+        _e_comp_wl_subsurface_restack(ec);
+        _e_comp_wl_subsurface_restack_bg_rectangle(ec);
 
-   if (evas_object_visible_get(ec->frame))
-     evas_object_show(ec->comp_data->sub.below_obj);
+        if (evas_object_visible_get(ec->frame))
+          evas_object_show(ec->comp_data->sub.below_obj);
 
-   _e_comp_wl_subsurface_mask_set(ec);
+        _e_comp_wl_subsurface_mask_set(ec);
+     }
 }
 
 static void
