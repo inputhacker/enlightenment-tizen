@@ -773,6 +773,8 @@ _e_vis_client_job_exec(E_Vis_Client *vc, E_Vis_Job_Type type)
 static void
 _e_vis_client_grab_add(E_Vis_Client *vc, E_Vis_Grab *grab)
 {
+   VS_INF(vc->ec, "Add Client Visibility Grab: %s", grab->name);
+
    vc->job.grab_list = eina_list_append(vc->job.grab_list, grab);
 }
 
