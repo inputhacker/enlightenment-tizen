@@ -124,6 +124,10 @@ static void          _e_qp_srv_effect_update(E_Policy_Quickpanel *qp, int x, int
 static E_QP_Client * _e_qp_client_ec_get(E_Client *ec);
 static Eina_Bool     _e_qp_client_scrollable_update(void);
 
+static void          _quickpanel_client_evas_cb_show(void *data, Evas *evas, Evas_Object *obj, void *event);
+static void          _quickpanel_client_evas_cb_hide(void *data, Evas *evas, Evas_Object *obj, void *event);
+static void          _quickpanel_client_evas_cb_move(void *data, Evas *evas, Evas_Object *obj, void *event);
+
 inline static Eina_Bool
 _e_qp_srv_is_effect_finish_job_started(E_Policy_Quickpanel *qp)
 {
@@ -922,6 +926,12 @@ _region_obj_cb_gesture_end(void *data EINA_UNUSED, Evas_Object *handler, int x, 
 static void
 _quickpanel_free(E_Policy_Quickpanel *qp)
 {
+   ELOGF("QUICKPANEL", "Remove Client | qp %p", qp->ec->pixmap, qp->ec, qp);
+
+   evas_object_event_callback_del(qp->ec->frame, EVAS_CALLBACK_SHOW, _quickpanel_client_evas_cb_show);
+   evas_object_event_callback_del(qp->ec->frame, EVAS_CALLBACK_HIDE, _quickpanel_client_evas_cb_hide);
+   evas_object_event_callback_del(qp->ec->frame, EVAS_CALLBACK_MOVE, _quickpanel_client_evas_cb_move);
+
    E_FREE_LIST(qp_clients, free);
    E_FREE_FUNC(qp->mover, evas_object_del);
    E_FREE_FUNC(qp->indi_obj, evas_object_del);
@@ -1587,11 +1597,11 @@ e_service_quickpanel_client_set(E_Client *ec)
    /* if we have not setup evas callbacks for this client, do it */
    if (_pol_quickpanel) return;
 
-   ELOGF("QUICKPANEL", "Set Client | ec %p", NULL, NULL, ec);
-
    qp = calloc(1, sizeof(*qp));
    if (!qp)
      return;
+
+   ELOGF("QUICKPANEL", "Set Client | qp %p", ec->pixmap, ec, qp);
 
    _pol_quickpanel = qp;
 
