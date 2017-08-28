@@ -1048,6 +1048,14 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
      {
         // check clients not able to use hwc
 
+        /* window manager required full GLES composition */
+        if (e_comp->hwc_optimized && e_comp->nocomp_override > 0)
+          {
+             ec->hwc_acceptable = EINA_FALSE;
+             INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable(nocomp_override > 0).",
+                                  ec, ec->icccm.name, ec->icccm.title);
+          }
+
         // if ec->frame is not for client buffer (e.g. launchscreen)
         if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE ||
 
@@ -2142,13 +2150,17 @@ E_API void
 e_comp_override_add()
 {
    e_comp->nocomp_override++;
+#ifdef ENABLE_HWC_MULTI
    if (e_comp->nocomp_override > 0)
      {
-        // go full compositing
-#ifdef ENABLE_HWC_MULTI
-        e_comp_hwc_end(__FUNCTION__);
-#endif
+        // go full GLES compositing
+        if (!e_comp->hwc_optimized)
+          e_comp_hwc_end(__FUNCTION__);
+        else
+          /* We must notify the hwc extension about the full GLES composition. */
+          e_comp_render_queue();
      }
+#endif
 }
 
 E_API E_Comp *
