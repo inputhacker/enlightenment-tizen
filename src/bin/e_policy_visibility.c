@@ -791,7 +791,15 @@ _e_vis_client_grab_remove(E_Vis_Client *vc, E_Vis_Grab *grab)
 
    vc->job.grab_list = eina_list_remove(vc->job.grab_list, grab);
    if (!vc->job.grab_list)
-     _e_vis_job_eval();
+     {
+        if (vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY)
+          {
+             vc->state = E_VIS_ICONIFY_STATE_UNICONIC;
+             VS_DBG(vc->ec, "\tUPDATE ICONIC STATE: %s", "UNICONIC");
+          }
+
+        _e_vis_job_eval();
+     }
 }
 
 static Eina_Bool
