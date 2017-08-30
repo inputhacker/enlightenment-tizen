@@ -1363,6 +1363,16 @@ end:
      }
 }
 
+/* Stop capture job when the window is uniconified while capturing
+ * on another thread.
+ *
+ * If a commit event occurs for iconified window, then does cancellation
+ * for capture thread and set the defer_img_save to true to restart the
+ * capture thread again for new window buffer.
+ *
+ * It can be using ecore_thread_check API to check whether the capture
+ * job is done.
+ */
 static void
 _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
 {
@@ -2698,6 +2708,33 @@ _e_comp_wl_remote_cb_client_iconify(void *data, E_Client *ec)
 }
 
 static void
+_e_comp_wl_remote_cb_client_uniconify(void *data, E_Client *ec)
+{
+   E_Comp_Wl_Remote_Source *source;
+
+   source = _remote_source_find(ec);
+   if (!source) return;
+   EINA_SAFETY_ON_FALSE_RETURN(ec == source->common.ec);
+
+   if (source->th)
+     {
+        RSMDBG("IMG save could be cancelled. UNICONIFY th:%p(cancel:%d) defer_img_save:%d iconic:%d del:%d ec_del:%d",
+               ec->pixmap, ec, "SOURCE", source,
+               source->th, ecore_thread_check(source->th),
+               source->defer_img_save, ec->iconic,
+               source->deleted, e_object_is_del(E_OBJECT(ec)));
+
+        if (!ecore_thread_check(source->th) &&
+            !source->deleted &&
+            !e_object_is_del(E_OBJECT(ec)))
+          {
+             RSMDBG("IMG save CANCELLED.", ec->pixmap, ec, "SOURCE", source);
+             ecore_thread_cancel(source->th);
+          }
+     }
+}
+
+static void
 _e_comp_wl_remote_cb_client_del(void *data, E_Client *ec)
 {
    E_Comp_Wl_Remote_Provider *provider;
@@ -2806,16 +2843,32 @@ _e_comp_wl_remote_surface_source_update(E_Comp_Wl_Remote_Source *source, E_Comp_
    E_Comp_Wl_Remote_Buffer *remote_buffer;
    struct wl_resource *remote_buffer_resource;
    Eina_List *l;
+   E_Client *ec = NULL;
 
    if ((!source) || (!buffer)) return;
 
    if (source->th)
      {
-        RSMDBG("IMG save is cancelled. th:%p Save job will be triggered later.",
-               source->common.ec->pixmap, source->common.ec, "SOURCE",
-               source, source->th);
-        ecore_thread_cancel(source->th);
-        source->defer_img_save = EINA_TRUE;
+        ec = source->common.ec;
+
+        RSMDBG("IMG save could be cancelled. COMMIT th:%p(cancel:%d) defer_img_save:%d iconic:%d del:%d ec_del:%d",
+               ec->pixmap, ec, "SOURCE", source,
+               source->th, ecore_thread_check(source->th),
+               source->defer_img_save, ec->iconic,
+               source->deleted, e_object_is_del(E_OBJECT(ec)));
+
+        if (!ecore_thread_check(source->th) &&
+            !source->deleted &&
+            !e_object_is_del(E_OBJECT(ec)) &&
+            !ec->iconic)
+          {
+             RSMDBG("IMG save CANCELLED. job will be triggered later.",
+                    source->common.ec->pixmap, source->common.ec, "SOURCE",
+                    source);
+
+             ecore_thread_cancel(source->th);
+             source->defer_img_save = EINA_TRUE; /* restart */
+          }
      }
 
    EINA_LIST_FOREACH(source->common.surfaces, l, remote_surface)
@@ -3370,7 +3423,10 @@ e_comp_wl_remote_surface_init(void)
    /* client hook */
    E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_DEL, _e_comp_wl_remote_cb_client_del, NULL);
    if (e_config->save_win_buffer)
-     E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_ICONIFY, _e_comp_wl_remote_cb_client_iconify, NULL);
+     {
+        E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_ICONIFY,   _e_comp_wl_remote_cb_client_iconify,   NULL);
+        E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_UNICONIFY, _e_comp_wl_remote_cb_client_uniconify, NULL);
+     }
 
    /* client event */
    E_LIST_HANDLER_APPEND(rs_manager->event_hdlrs,
