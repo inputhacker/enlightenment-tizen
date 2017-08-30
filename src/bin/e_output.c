@@ -341,6 +341,59 @@ _e_output_zoom_rotating_check(E_Output *output)
      }
 }
 
+static Eina_Bool
+_e_output_visible_client_check(E_Output *output)
+{
+   Eina_Rectangle r;
+   E_Client *ec;
+   Eina_Bool found = EINA_FALSE;
+   int x, y, w, h;
+   E_Zone *zone = NULL;
+   E_Comp_Wl_Client_Data *cdata = NULL;
+   E_Output *zone_output = NULL;
+   Eina_List *l;
+
+   EINA_LIST_FOREACH(e_comp->zones, l, zone)
+     {
+        zone_output = e_output_find(zone->output_id);
+        if (!zone_output) continue;
+        if (zone_output != output) continue;
+
+        EINA_RECTANGLE_SET(&r, zone->x, zone->y, zone->w, zone->h);
+
+        E_CLIENT_REVERSE_FOREACH(ec)
+          {
+              if (e_object_is_del(E_OBJECT(ec))) continue;
+              if (e_client_util_ignored_get(ec)) continue;
+              if (!ec->frame) continue;
+              if (ec->is_cursor) continue;
+              if (!ec->visible) continue;
+              if (!evas_object_visible_get(ec->frame)) continue;
+              cdata = (E_Comp_Wl_Client_Data *)ec->comp_data;
+              if (cdata && cdata->sub.data) continue; /* skip subsurface */
+              if (cdata && !cdata->mapped) continue;
+              if (!ec->iconic) continue;
+              e_client_geometry_get(ec, &x, &y, &w, &h);
+              if (E_INTERSECTS(x, y, w, h, r.x, r.y, r.w, r.h))
+                {
+                  found = EINA_TRUE;
+                  break;
+                }
+          }
+     }
+
+   return found;
+}
+
+static void
+_e_output_dpms_on_render(E_Output *output)
+{
+   if (!output) return;
+
+   if (_e_output_visible_client_check(output))
+     ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+}
+
 static void
 _e_output_cb_output_change(tdm_output *toutput,
                                   tdm_output_change_type type,
@@ -377,7 +430,7 @@ _e_output_cb_output_change(tdm_output *toutput,
                     e_comp_override_del();
                     override = EINA_FALSE;
                  }
-               ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+               _e_output_dpms_on_render(e_output);
             }
           else if (tdpms == TDM_OUTPUT_DPMS_STANDBY) edpms = E_OUTPUT_DPMS_STANDBY;
           else if (tdpms == TDM_OUTPUT_DPMS_SUSPEND) edpms = E_OUTPUT_DPMS_SUSPEND;
