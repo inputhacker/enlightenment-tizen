@@ -1,6 +1,12 @@
 #include "e.h"
 #include <Ecore_Drm.h>
 
+#define PATH "/org/enlightenment/wm"
+#define IFACE "org.enlightenment.wm.screen_rotation"
+
+static Eldbus_Connection *e_comp_screen_conn;
+static Eldbus_Service_Interface *e_comp_screen_iface;
+
 static Eina_List *event_handlers = NULL;
 static Eina_Bool session_state = EINA_FALSE;
 
@@ -8,6 +14,11 @@ static Eina_Bool dont_set_ecore_drm_keymap = EINA_FALSE;
 static Eina_Bool dont_use_xkb_cache = EINA_FALSE;
 
 E_API int              E_EVENT_SCREEN_CHANGE = 0;
+
+enum
+{
+   E_COMP_SCREEN_SIGNAL_ROTATION_CHANGED = 0
+};
 
 typedef struct _E_Comp_Screen_Tzsr
 {
@@ -101,6 +112,76 @@ _tz_screen_rotation_cb_bind(struct wl_client *client, void *data, uint32_t versi
      }
 
    wl_resource_set_implementation(res, &_tz_screen_rotation_interface, NULL, NULL);
+}
+
+static Eldbus_Message *
+_e_comp_screen_dbus_get_cb(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   int rotation = 0;
+
+   if (e_comp && e_comp->e_comp_screen)
+     rotation = e_comp->e_comp_screen->rotation;
+
+   DBG("got screen-rotation 'get' request: %d", rotation);
+
+   eldbus_message_arguments_append(reply, "i", rotation);
+
+   return reply;
+}
+
+static const Eldbus_Method methods[] =
+{
+   {"get", NULL, ELDBUS_ARGS({"i", "int32"}), _e_comp_screen_dbus_get_cb, 0},
+   {}
+};
+
+static const Eldbus_Signal signals[] = {
+   [E_COMP_SCREEN_SIGNAL_ROTATION_CHANGED] = {"changed", ELDBUS_ARGS({ "i", "rotation" }), 0},
+   {}
+};
+
+static const Eldbus_Service_Interface_Desc iface_desc = {
+     IFACE, methods, signals, NULL, NULL, NULL
+};
+
+static Eina_Bool
+_e_comp_screen_dbus_init(void *data EINA_UNUSED)
+{
+   E_Comp_Screen *e_comp_screen = e_comp->e_comp_screen;
+
+   if (e_comp_screen_conn) return ECORE_CALLBACK_CANCEL;
+
+   if (!e_comp_screen_conn)
+     e_comp_screen_conn = eldbus_connection_get(ELDBUS_CONNECTION_TYPE_SYSTEM);
+
+   if(!e_comp_screen_conn)
+     {
+        ecore_timer_add(1, _e_comp_screen_dbus_init, NULL);
+        return ECORE_CALLBACK_CANCEL;
+     }
+
+   e_comp_screen_iface = eldbus_service_interface_register(e_comp_screen_conn,
+                                                           PATH,
+                                                           &iface_desc);
+   EINA_SAFETY_ON_NULL_GOTO(e_comp_screen_iface, err);
+
+   if (e_comp_screen->rotation)
+     {
+        eldbus_service_signal_emit(e_comp_screen_iface, E_COMP_SCREEN_SIGNAL_ROTATION_CHANGED, e_comp_screen->rotation);
+        ELOGF("TRANSFORM", "screen-rotation sends signal: %d", NULL, NULL, e_comp_screen->rotation);
+     }
+
+   return ECORE_CALLBACK_CANCEL;
+
+err:
+   if (e_comp_screen_conn)
+     {
+        eldbus_connection_unref(e_comp_screen_conn);
+        e_comp_screen_conn = NULL;
+     }
+
+   return ECORE_CALLBACK_CANCEL;
 }
 
 static char *
@@ -982,6 +1063,8 @@ e_comp_screen_init()
         return EINA_FALSE;
      }
 
+   _e_comp_screen_dbus_init(NULL);
+
    tzsr_client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _tz_screen_rotation_cb_client_del, NULL);
 
    E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_ACTIVATE,         _e_comp_screen_cb_activate,         comp);
@@ -1009,6 +1092,18 @@ e_comp_screen_shutdown()
 
    /* shutdown ecore_drm */
    /* ecore_drm_shutdown(); */
+
+   if (e_comp_screen_iface)
+     {
+        eldbus_service_interface_unregister(e_comp_screen_iface);
+        e_comp_screen_iface = NULL;
+     }
+
+   if (e_comp_screen_conn)
+     {
+        eldbus_connection_unref(e_comp_screen_conn);
+        e_comp_screen_conn = NULL;
+     }
 
    _e_comp_screen_deinit_outputs(e_comp->e_comp_screen);
 
@@ -1092,6 +1187,12 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
 
    ecore_evas_rotation_with_resize_set(e_comp->ee, e_comp_screen->rotation);
    ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
+
+   if (e_comp_screen_iface)
+     {
+        eldbus_service_signal_emit(e_comp_screen_iface, E_COMP_SCREEN_SIGNAL_ROTATION_CHANGED, e_comp_screen->rotation);
+        ELOGF("TRANSFORM", "screen-rotation sends signal: %d", NULL, NULL, e_comp_screen->rotation);
+     }
 
    INF("EE Rotated and Resized: %d, %dx%d", e_comp_screen->rotation, w, h);
 
