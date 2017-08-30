@@ -1632,6 +1632,18 @@ _e_comp_intercept_layer_set(void *data, Evas_Object *obj, int layer)
 
 typedef void (*E_Comp_Object_Stack_Func)(Evas_Object *obj, Evas_Object *stack);
 
+static Eina_Bool
+_e_comp_object_is_pending(E_Client *ec)
+{
+   E_Client *topmost;
+
+   if (!ec) return EINA_FALSE;
+
+   topmost = e_comp_wl_topmost_parent_get(ec);
+
+   return (topmost) ? topmost->layer_pending : EINA_FALSE;
+}
+
 static void
 _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Object_Stack_Func stack_cb)
 {
@@ -1641,9 +1653,10 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
    Evas_Object *o = stack;
    Eina_Bool raising = stack_cb == evas_object_stack_above;
 
-   if ((cw->ec->layer_block) || (cw->ec->layer_pending))
+   /* We should consider topmost's layer_pending for subsurface */
+   if ((cw->ec->layer_block) || _e_comp_object_is_pending(cw->ec))
      {
-        if (cw->ec->layer_pending)
+        if (_e_comp_object_is_pending(cw->ec))
           e_comp_object_layer_update(cw->smart_obj,
                                      raising? stack : NULL,
                                      raising? NULL : stack);
@@ -1662,7 +1675,7 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
    /* assume someone knew what they were doing during client init */
    if (cw->ec->new_client)
      layer = cw->ec->layer;
-   else if ((cw2) && (cw2->ec->layer_pending))
+   else if ((cw2) && _e_comp_object_is_pending(cw2->ec))
      layer = cw2->ec->layer;
    else
      layer = evas_object_layer_get(stack);
@@ -1731,7 +1744,7 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
      _e_comp_object_layers_add(cw, NULL, NULL, 0);
 
    /* find new object for stacking if cw2 is on state of layer_pending */
-   if ((cw2) && (cw2->ec->layer_pending))
+   if ((cw2) && _e_comp_object_is_pending(cw2->ec))
      {
         E_Client *new_stack = NULL, *current_ec = NULL;
         current_ec = cw2->ec;
@@ -1742,7 +1755,7 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
                   current_ec = new_stack;
                   if (new_stack == cw->ec) continue;
                   if (new_stack->layer != cw2->ec->layer) break;
-                  if (!new_stack->layer_pending) break;
+                  if (!_e_comp_object_is_pending(new_stack)) break;
                }
              if ((new_stack) && (new_stack->layer == cw2->ec->layer))
                stack = new_stack->frame;
@@ -1761,7 +1774,7 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
                   current_ec = new_stack;
                   if (new_stack == cw->ec) continue;
                   if (new_stack->layer != cw2->ec->layer) break;
-                  if (!new_stack->layer_pending) break;
+                  if (!_e_comp_object_is_pending(new_stack)) break;
                }
              if ((new_stack) && (new_stack->layer == cw2->ec->layer))
                stack = new_stack->frame;

@@ -260,8 +260,8 @@ e_comp_wl_map_size_cal_from_viewport(E_Client *ec)
    ec->comp_data->height_from_viewport = height;
 }
 
-static E_Client*
-_e_comp_wl_topmost_parent_get(E_Client *ec)
+EINTERN E_Client*
+e_comp_wl_topmost_parent_get(E_Client *ec)
 {
    E_Client *parent = NULL;
 
@@ -472,7 +472,7 @@ _e_comp_wl_evas_cb_show(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EIN
    EINA_LIST_FOREACH(ec->e.state.video_child, l, tmp)
      evas_object_show(tmp->frame);
 
-   topmost = _e_comp_wl_topmost_parent_get(ec);
+   topmost = e_comp_wl_topmost_parent_get(ec);
    if (topmost == ec && (ec->comp_data->sub.list || ec->comp_data->sub.below_list))
      _e_comp_wl_subsurface_show(ec);
 
@@ -501,7 +501,7 @@ _e_comp_wl_evas_cb_hide(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EIN
    EINA_LIST_FOREACH(ec->e.state.video_child, l, tmp)
      evas_object_hide(tmp->frame);
 
-   topmost = _e_comp_wl_topmost_parent_get(ec);
+   topmost = e_comp_wl_topmost_parent_get(ec);
    if (topmost == ec && (ec->comp_data->sub.list || ec->comp_data->sub.below_list))
      _e_comp_wl_subsurface_hide(ec);
 
@@ -1593,7 +1593,7 @@ e_comp_wl_subsurface_stack_update(E_Client *ec)
         return;
      }
 
-   topmost = _e_comp_wl_topmost_parent_get(ec);
+   topmost = e_comp_wl_topmost_parent_get(ec);
 
    _e_comp_wl_subsurface_restack(topmost);
    _e_comp_wl_subsurface_restack_bg_rectangle(topmost);
@@ -2269,7 +2269,7 @@ _e_comp_wl_subsurface_can_show(E_Client *ec)
      return EINA_FALSE;
 
    invisible_parent = _e_comp_wl_subsurface_invisible_parent_get(ec);
-   topmost = _e_comp_wl_topmost_parent_get(ec);
+   topmost = e_comp_wl_topmost_parent_get(ec);
 
    /* if topmost is composited by compositor && if there is a invisible parent */
    if (topmost->redirected && invisible_parent)
@@ -3468,7 +3468,7 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
    if (ec->comp_data->sub.below_obj) return;
    if (ec->comp_data->sub.data)
      {
-         E_Client *topmost = _e_comp_wl_topmost_parent_get(ec);
+         E_Client *topmost = e_comp_wl_topmost_parent_get(ec);
          if (!topmost || e_object_is_del(E_OBJECT(topmost)) || !topmost->comp_data) return;
          if (topmost->comp_data->sub.data) return;
          if (topmost->comp_data->sub.below_obj) return;
@@ -3615,7 +3615,7 @@ _e_comp_wl_subsurface_commit_from_cache(E_Client *ec)
 
    if (_e_comp_wl_surface_subsurface_order_commit(ec))
      {
-        E_Client *topmost = _e_comp_wl_topmost_parent_get(ec);
+        E_Client *topmost = e_comp_wl_topmost_parent_get(ec);
         _e_comp_wl_subsurface_restack(topmost);
         _e_comp_wl_subsurface_restack_bg_rectangle(topmost);
      }
@@ -4928,7 +4928,7 @@ e_comp_wl_surface_commit(E_Client *ec)
 
    if (_e_comp_wl_surface_subsurface_order_commit(ec))
      {
-        E_Client *topmost = _e_comp_wl_topmost_parent_get(ec);
+        E_Client *topmost = e_comp_wl_topmost_parent_get(ec);
         _e_comp_wl_subsurface_restack(topmost);
         _e_comp_wl_subsurface_restack_bg_rectangle(topmost);
      }
