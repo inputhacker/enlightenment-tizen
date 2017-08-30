@@ -1,5 +1,7 @@
 #include "e.h"
 
+#define DUMP_FPS 30
+
 typedef struct _E_Output_Capture E_Output_Capture;
 
 struct _E_Output_Capture
@@ -10,6 +12,7 @@ struct _E_Output_Capture
    E_Output_Capture_Cb func;
    void *data;
    Eina_Bool in_using;
+   Eina_Bool dequeued;
 };
 
 static int _e_output_hooks_delete = 0;
@@ -19,6 +22,11 @@ static Eina_Inlist *_e_output_hooks[] =
 {
    [E_OUTPUT_HOOK_DPMS_CHANGE] = NULL,
 };
+
+static Eina_Bool _e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotate);
+static void _e_output_vblank_handler(tdm_output *output, unsigned int sequence,
+                                     unsigned int tv_sec, unsigned int tv_usec, void *data);
+
 
 static void
 _e_output_hooks_clean(void)
@@ -734,6 +742,70 @@ _e_output_top_ec_angle_get(void)
    return 0;
 }
 
+static E_Output_Capture *
+_e_output_tdm_stream_capture_find_data(E_Output *output, tbm_surface_h tsurface)
+{
+   E_Output_Capture *cdata = NULL;
+   Eina_List *l;
+
+   EINA_LIST_FOREACH(output->stream_capture.data, l, cdata)
+     {
+        if (!cdata) continue;
+
+        if (cdata->surface == tsurface)
+          return cdata;
+     }
+
+   return NULL;
+}
+
+static Eina_Bool
+_e_output_tdm_stream_capture_stop(void *data)
+{
+   E_Output *output = data;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, ECORE_CALLBACK_CANCEL);
+
+   if (output->stream_capture.tcapture)
+     {
+        DBG("e_output stream capture stop.");
+        tdm_capture_destroy(output->stream_capture.tcapture);
+        output->stream_capture.tcapture = NULL;
+     }
+
+   output->stream_capture.timer = NULL;
+
+   return ECORE_CALLBACK_CANCEL;
+}
+
+static void
+_e_output_tdm_stream_capture_done_handler(tdm_capture *tcapture,
+                                          tbm_surface_h tsurface, void *user_data)
+{
+   E_Output *output = NULL;
+   E_Output_Capture *cdata = NULL;
+
+   output = (E_Output *)user_data;
+
+   tbm_surface_internal_unref(tsurface);
+
+   cdata = _e_output_tdm_stream_capture_find_data(output, tsurface);
+   if (cdata)
+     {
+        output->stream_capture.data = eina_list_remove(output->stream_capture.data, cdata);
+        if (!cdata->dequeued)
+          cdata->func(output, tsurface, cdata->data);
+        E_FREE(cdata);
+     }
+
+   if (!output->stream_capture.start)
+     {
+        if (eina_list_count(output->stream_capture.data) == 0)
+          output->stream_capture.timer = ecore_timer_add((double)1 / DUMP_FPS,
+                                         _e_output_tdm_stream_capture_stop, output);
+     }
+}
+
 static Eina_Bool
 _e_output_tdm_capture_info_set(E_Output *output, tdm_capture *tcapture, tbm_surface_h tsurface,
                                tdm_capture_type type, Eina_Bool auto_rotate)
@@ -829,10 +901,13 @@ _e_output_tdm_capture_done_handler(tdm_capture *tcapture, tbm_surface_h tsurface
    tdm_capture_destroy(cdata->tcapture);
 
    E_FREE(cdata);
+
+   DBG("tdm_capture done.(%p)", tsurface);
 }
 
 static Eina_Bool
-_e_output_tdm_capture(E_Output *output, tdm_capture *tcapture, tbm_surface_h tsurface, E_Output_Capture_Cb func, void *data)
+_e_output_tdm_capture(E_Output *output, tdm_capture *tcapture,
+                      tbm_surface_h tsurface, E_Output_Capture_Cb func, void *data)
 {
    tdm_error error = TDM_ERROR_NONE;
    E_Output_Capture *cdata = NULL;
@@ -865,6 +940,302 @@ fail:
      E_FREE(cdata);
 
    return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_output_stream_capture_cb_timeout(void *data)
+{
+   E_Output *output = data;
+   E_Output_Capture *cdata = NULL;
+   Eina_List *l;
+
+   EINA_SAFETY_ON_NULL_GOTO(output, done);
+
+   if (!output->stream_capture.start)
+     {
+        EINA_LIST_FREE(output->stream_capture.data, cdata)
+          {
+             tbm_surface_internal_unref(cdata->surface);
+
+             E_FREE(cdata);
+          }
+
+        if (output->stream_capture.tcapture)
+          {
+             tdm_capture_destroy(output->stream_capture.tcapture);
+             output->stream_capture.tcapture = NULL;
+          }
+
+        DBG("e_output stream capture stop.");
+
+        output->stream_capture.timer = NULL;
+
+        return ECORE_CALLBACK_CANCEL;
+     }
+
+   EINA_LIST_FOREACH(output->stream_capture.data, l, cdata)
+     {
+        if (!cdata->in_using) break;
+     }
+
+   /* can be null when client doesn't queue a buffer previously */
+   if (!cdata)
+     goto done;
+
+   cdata->in_using = EINA_TRUE;
+
+   tbm_surface_internal_unref(cdata->surface);
+
+   output->stream_capture.data = eina_list_remove(output->stream_capture.data, cdata);
+
+   cdata->func(output, cdata->surface, cdata->data);
+   E_FREE(cdata);
+
+done:
+   return ECORE_CALLBACK_RENEW;
+}
+
+static Eina_Bool
+_e_output_tdm_stream_capture(E_Output *output, tdm_capture *tcapture,
+                             tbm_surface_h tsurface, E_Output_Capture_Cb func, void *data)
+{
+   tdm_error error = TDM_ERROR_NONE;
+   E_Output_Capture *cdata = NULL;
+   E_Output_Capture *tmp_cdata = NULL;
+   Eina_List *l, *ll;
+
+   cdata = E_NEW(E_Output_Capture, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cdata, EINA_FALSE);
+
+   cdata->output = output;
+   cdata->tcapture = tcapture;
+   cdata->surface = tsurface;
+   cdata->data = data;
+   cdata->func = func;
+
+   tbm_surface_internal_ref(tsurface);
+
+   output->stream_capture.data = eina_list_append(output->stream_capture.data, cdata);
+
+   if (output->stream_capture.start)
+     {
+        if (e_output_dpms_get(output))
+          {
+             if (!output->stream_capture.timer)
+               output->stream_capture.timer = ecore_timer_add((double)1 / DUMP_FPS,
+                                                              _e_output_stream_capture_cb_timeout, output);
+             EINA_SAFETY_ON_NULL_RETURN_VAL(output->stream_capture.timer, EINA_FALSE);
+
+             return EINA_TRUE;
+          }
+        else if (output->stream_capture.timer)
+          {
+             ecore_timer_del(output->stream_capture.timer);
+             output->stream_capture.timer = NULL;
+
+             EINA_LIST_FOREACH_SAFE(output->stream_capture.data, l, ll, tmp_cdata)
+               {
+                  if (!tmp_cdata) continue;
+
+                  if (!tmp_cdata->in_using)
+                    {
+                       tmp_cdata->in_using = EINA_TRUE;
+
+                       error = tdm_capture_attach(tcapture, tsurface);
+                       if (error != TDM_ERROR_NONE)
+                         {
+                            ERR("tdm_capture_attach fail");
+                            output->stream_capture.data = eina_list_remove_list(output->stream_capture.data, l);
+                            tmp_cdata->func(tmp_cdata->output, tmp_cdata->surface, tmp_cdata->data);
+                            E_FREE(tmp_cdata);
+
+                            return EINA_FALSE;
+                         }
+                    }
+               }
+             error = tdm_capture_commit(tcapture);
+             if (error != TDM_ERROR_NONE)
+               {
+                  ERR("tdm_capture_commit fail");
+                  return EINA_FALSE;
+               }
+          }
+        else
+          {
+             cdata->in_using = EINA_TRUE;
+
+             error = tdm_capture_attach(tcapture, tsurface);
+             EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, fail);
+
+             error = tdm_capture_commit(tcapture);
+             EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, fail);
+          }
+     }
+   else
+     {
+        if (e_output_dpms_get(output))
+          return EINA_TRUE;
+
+        cdata->in_using = EINA_TRUE;
+
+        error = tdm_capture_attach(tcapture, tsurface);
+        EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, fail);
+     }
+
+   return EINA_TRUE;
+
+fail:
+   output->stream_capture.data = eina_list_remove(output->stream_capture.data, cdata);
+
+   tbm_surface_internal_unref(tsurface);
+
+   if (cdata)
+     E_FREE(cdata);
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_output_watch_vblank_timer(void *data)
+{
+   E_Output *output = data;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, ECORE_CALLBACK_RENEW);
+
+   _e_output_vblank_handler(NULL, 0, 0, 0, (void *)output);
+
+   return ECORE_CALLBACK_RENEW;
+}
+
+static Eina_Bool
+_e_output_watch_vblank(E_Output *output)
+{
+   tdm_error ret;
+   int per_vblank;
+
+   /* If not DPMS_ON, we call vblank handler directly to dump screen */
+   if (e_output_dpms_get(output))
+     {
+        if (!output->stream_capture.timer)
+          output->stream_capture.timer = ecore_timer_add((double)1 / DUMP_FPS,
+                                                         _e_output_watch_vblank_timer, output);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(output->stream_capture.timer, EINA_FALSE);
+
+        return EINA_TRUE;
+     }
+   else if (output->stream_capture.timer)
+     {
+        ecore_timer_del(output->stream_capture.timer);
+        output->stream_capture.timer = NULL;
+     }
+
+   if (output->stream_capture.wait_vblank)
+     return EINA_TRUE;
+
+   per_vblank = output->config.mode.refresh / (DUMP_FPS * 1000);
+
+   ret = tdm_output_wait_vblank(output->toutput, per_vblank, 0,
+                                _e_output_vblank_handler, output);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
+
+   output->stream_capture.wait_vblank = EINA_TRUE;
+
+   return EINA_TRUE;
+}
+
+static void
+_e_output_vblank_handler(tdm_output *toutput, unsigned int sequence,
+                         unsigned int tv_sec, unsigned int tv_usec, void *data)
+{
+   E_Output *output = data;
+   E_Output_Capture *cdata = NULL;
+   Eina_List *l;
+   Eina_Bool ret = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   output->stream_capture.wait_vblank = EINA_FALSE;
+
+   if (!output->stream_capture.start)
+     {
+        EINA_LIST_FREE(output->stream_capture.data, cdata)
+          {
+             tbm_surface_internal_unref(cdata->surface);
+
+             E_FREE(cdata);
+          }
+
+        if (output->stream_capture.timer)
+          {
+             ecore_timer_del(output->stream_capture.timer);
+             output->stream_capture.timer = NULL;
+          }
+        DBG("e_output stream capture stop.");
+
+        return;
+     }
+
+   EINA_LIST_FOREACH(output->stream_capture.data, l, cdata)
+     {
+        if (!cdata->in_using) break;
+     }
+
+   /* can be null when client doesn't queue a buffer previously */
+   if (!cdata)
+     return;
+
+   output->stream_capture.data = eina_list_remove(output->stream_capture.data, cdata);
+
+   ret = _e_output_capture(output, cdata->surface, EINA_FALSE);
+   if (ret == EINA_FALSE)
+     ERR("capture fail");
+
+   tbm_surface_internal_unref(cdata->surface);
+
+   cdata->func(output, cdata->surface, cdata->data);
+
+   E_FREE(cdata);
+
+   /* timer is a substitution for vblank during dpms off. so if timer is running,
+    * we don't watch vblank events recursively.
+    */
+   if (!output->stream_capture.timer)
+     _e_output_watch_vblank(output);
+}
+
+static Eina_Bool
+_e_output_vblank_stream_capture(E_Output *output, tbm_surface_h tsurface,
+                                E_Output_Capture_Cb func, void *data)
+{
+   E_Output_Capture *cdata = NULL;
+   Eina_Bool ret = EINA_FALSE;
+
+   cdata = E_NEW(E_Output_Capture, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cdata, EINA_FALSE);
+
+   cdata->output = output;
+   cdata->surface = tsurface;
+   cdata->data = data;
+   cdata->func = func;
+
+   tbm_surface_internal_ref(tsurface);
+
+   output->stream_capture.data = eina_list_append(output->stream_capture.data, cdata);
+
+   if (output->stream_capture.start)
+     {
+        ret = _e_output_watch_vblank(output);
+        if (ret == EINA_FALSE)
+          {
+             output->stream_capture.data = eina_list_remove(output->stream_capture.data, cdata);
+             tbm_surface_internal_unref(tsurface);
+             E_FREE(cdata);
+
+             return EINA_FALSE;
+          }
+     }
+
+   return EINA_TRUE;
 }
 
 static void
@@ -1009,7 +1380,7 @@ _e_output_capture_dst_crop_get(E_Comp_Wl_Video_Buf *tmp, E_Comp_Wl_Video_Buf *ds
         dst_crop->y = pos->y;
         dst_crop->w = pos->w;
         dst_crop->h = pos->h;
-        ERR("_e_tz_screenmirror_dump_get_cropinfo: unknown case error");
+        ERR("get_cropinfo: unknown case error");
      }
 }
 
@@ -1130,6 +1501,23 @@ _e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotat
    return ret;
 }
 
+static void
+_e_output_tdm_strem_capture_support(E_Output *output)
+{
+   tdm_error error = TDM_ERROR_NONE;
+   tdm_capture_capability capabilities;
+   E_Comp_Screen *e_comp_screen = NULL;
+
+   e_comp_screen = e_comp->e_comp_screen;
+   EINA_SAFETY_ON_NULL_RETURN(e_comp_screen);
+
+   error = tdm_display_get_capture_capabilities(e_comp_screen->tdisplay, &capabilities);
+   EINA_SAFETY_ON_FALSE_RETURN(error == TDM_ERROR_NONE);
+
+   if (capabilities & TDM_CAPTURE_CAPABILITY_STREAM)
+     output->stream_capture.possible_tdm_capture = EINA_TRUE;
+}
+
 EINTERN E_Output *
 e_output_new(E_Comp_Screen *e_comp_screen, int index)
 {
@@ -1158,7 +1546,7 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
 
    error = tdm_output_add_change_handler(toutput, _e_output_cb_output_change, output);
    if (error != TDM_ERROR_NONE)
-        WRN("fail to tdm_output_add_change_handler");
+     WRN("fail to tdm_output_add_change_handler");
 
    error = tdm_output_get_output_type(toutput, &output_type);
    if (error != TDM_ERROR_NONE) goto fail;
@@ -1233,6 +1621,8 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
      }
 
    output->e_comp_screen = e_comp_screen;
+
+   _e_output_tdm_strem_capture_support(output);
 
    return output;
 
@@ -2236,6 +2626,8 @@ e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotate
         ret = _e_output_capture(output, tsurface, auto_rotate);
         EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
 
+        DBG("capture done(%p)", tsurface);
+
         func(output, tsurface, data);
      }
 
@@ -2246,4 +2638,167 @@ fail:
      tdm_capture_destroy(tcapture);
 
    return EINA_FALSE;
+}
+
+EINTERN Eina_Bool
+e_output_stream_capture_queue(E_Output *output, tbm_surface_h tsurface, E_Output_Capture_Cb func, void *data)
+{
+   Eina_Bool ret = EINA_FALSE;
+   tdm_capture *tcapture = NULL;
+   tdm_error error = TDM_ERROR_NONE;
+
+   if (output->stream_capture.possible_tdm_capture)
+     {
+        if (!output->stream_capture.tcapture)
+          {
+             tcapture = _e_output_tdm_capture_create(output, TDM_CAPTURE_CAPABILITY_STREAM);
+             EINA_SAFETY_ON_NULL_RETURN_VAL(tcapture, EINA_FALSE);
+
+             ret = _e_output_tdm_capture_info_set(output, tcapture, tsurface, TDM_CAPTURE_TYPE_STREAM, EINA_FALSE);
+             EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
+
+             error = tdm_capture_set_done_handler(tcapture,
+                                                  _e_output_tdm_stream_capture_done_handler, output);
+             EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, fail);
+
+             output->stream_capture.tcapture = tcapture;
+
+             DBG("create tcapture(%p)", tcapture);
+          }
+        else
+          {
+             tcapture = output->stream_capture.tcapture;
+          }
+
+        ret = _e_output_tdm_stream_capture(output, tcapture, tsurface, func, data);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == EINA_TRUE, EINA_FALSE);
+     }
+   else
+     {
+        ret = _e_output_vblank_stream_capture(output, tsurface, func, data);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == EINA_TRUE, EINA_FALSE);
+     }
+
+   return EINA_TRUE;
+
+fail:
+   tdm_capture_destroy(tcapture);
+
+   return EINA_FALSE;
+}
+
+EINTERN Eina_Bool
+e_output_stream_capture_dequeue(E_Output *output, tbm_surface_h tsurface)
+{
+   E_Output_Capture *cdata = NULL;
+
+   cdata = _e_output_tdm_stream_capture_find_data(output, tsurface);
+
+   if (!cdata) return EINA_FALSE;
+
+   if (!cdata->in_using)
+     {
+        output->stream_capture.data = eina_list_remove(output->stream_capture.data, cdata);
+
+        tbm_surface_internal_unref(tsurface);
+        E_FREE(cdata);
+     }
+   else
+     cdata->dequeued = EINA_TRUE;
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_output_stream_capture_start(E_Output *output)
+{
+   tdm_error error = TDM_ERROR_NONE;
+   int count = 0;
+
+   if (output->stream_capture.start) return EINA_TRUE;
+
+   count = eina_list_count(output->stream_capture.data);
+   if (count == 0)
+     {
+        ERR("no queued buffer");
+        return EINA_FALSE;
+     }
+
+   DBG("e_output stream capture start.");
+
+   output->stream_capture.start = EINA_TRUE;
+
+   if (output->stream_capture.possible_tdm_capture)
+     {
+        if (e_output_dpms_get(output))
+          {
+             if (!output->stream_capture.timer)
+               output->stream_capture.timer = ecore_timer_add((double)1 / DUMP_FPS,
+                                                              _e_output_stream_capture_cb_timeout, output);
+             EINA_SAFETY_ON_NULL_GOTO(output->stream_capture.timer, fail);
+
+             return EINA_TRUE;
+          }
+
+        error = tdm_capture_commit(output->stream_capture.tcapture);
+        EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, fail);
+     }
+   else
+     _e_output_watch_vblank(output);
+
+   return EINA_TRUE;
+
+fail:
+   output->stream_capture.start = EINA_FALSE;
+
+   return EINA_FALSE;
+}
+
+EINTERN void
+e_output_stream_capture_stop(E_Output *output)
+{
+   E_Output_Capture *cdata = NULL;
+   Eina_Bool capturing = EINA_FALSE;
+   Eina_List *l;
+
+   if (!output->stream_capture.start) return;
+
+   output->stream_capture.start = EINA_FALSE;
+
+   if (eina_list_count(output->stream_capture.data) == 0)
+     {
+        if (!output->stream_capture.timer)
+          {
+             output->stream_capture.timer = ecore_timer_add((double)1 / DUMP_FPS,
+                                            _e_output_tdm_stream_capture_stop, output);
+             return;
+          }
+     }
+
+   if (!output->stream_capture.timer && !output->stream_capture.wait_vblank)
+     {
+        EINA_LIST_FOREACH(output->stream_capture.data, l, cdata)
+          {
+             if (cdata->in_using)
+               capturing = EINA_TRUE;
+          }
+
+        if (capturing == EINA_FALSE)
+          {
+             EINA_LIST_FREE(output->stream_capture.data, cdata)
+               {
+                  tbm_surface_internal_unref(cdata->surface);
+
+                  E_FREE(cdata);
+               }
+
+             if (output->stream_capture.tcapture)
+               {
+                  tdm_capture_destroy(output->stream_capture.tcapture);
+                  output->stream_capture.tcapture = NULL;
+               }
+          }
+
+        DBG("e_output stream capture stop.");
+     }
 }

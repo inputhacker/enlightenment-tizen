@@ -90,6 +90,16 @@ struct _E_Output
       Eina_Bool         need_touch_set;
    } zoom_conf;
    Ecore_Event_Handler *touch_up_handler;
+
+   struct
+   {
+      tdm_capture      *tcapture;
+      Eina_Bool         start;
+      Eina_List        *data;
+      Eina_Bool         possible_tdm_capture;
+      Ecore_Timer      *timer;
+      Eina_Bool         wait_vblank;
+   } stream_capture;
 };
 
 enum _E_Output_Hook_Point
@@ -127,6 +137,10 @@ EINTERN Eina_Bool         e_output_fake_config_set(E_Output *output, int w, int 
 EINTERN Eina_Bool         e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy);
 EINTERN void              e_output_zoom_unset(E_Output *output);
 EINTERN Eina_Bool         e_output_capture(E_Output *output, tbm_surface_h surface, Eina_Bool auto_rotate, E_Output_Capture_Cb func, void *data);
+EINTERN Eina_Bool         e_output_stream_capture_queue(E_Output *output, tbm_surface_h surface, E_Output_Capture_Cb func, void *data);
+EINTERN Eina_Bool         e_output_stream_capture_dequeue(E_Output *output, tbm_surface_h surface);
+EINTERN Eina_Bool         e_output_stream_capture_start(E_Output *output);
+EINTERN void              e_output_stream_capture_stop(E_Output *output);
 E_API E_Output          * e_output_find(const char *id);
 E_API E_Output          * e_output_find_by_index(int index);
 E_API const Eina_List   * e_output_planes_get(E_Output *output);
