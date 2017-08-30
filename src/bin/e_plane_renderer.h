@@ -50,6 +50,8 @@ struct _E_Plane_Renderer {
 
    Eina_List          *renderer_buffers;
    Eina_Bool           pending_deactivate;
+
+   Eina_Bool           rendered;
 };
 
 EINTERN Eina_Bool                  e_plane_renderer_init(void);

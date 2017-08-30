@@ -665,13 +665,26 @@ _e_plane_unset_candidate_set(E_Plane *plane, Eina_Bool sync)
 {
    E_Plane *fb_target = NULL;
 
+   EINA_SAFETY_ON_NULL_RETURN(plane->ec);
+
    fb_target = e_output_fb_target_get(plane->output);
    if (fb_target)
      {
         if(fb_target->ec && !sync)
           plane->unset_counter = 0;
         else
-          plane->unset_counter = e_plane_renderer_render_count_get(fb_target->renderer) + 1;
+          {
+             Eina_Bool visible = EINA_FALSE;
+             E_Plane_Renderer *renderer = fb_target->renderer;
+
+             EINA_SAFETY_ON_NULL_RETURN(renderer);
+
+             visible = evas_object_visible_get(plane->ec->frame);
+
+             plane->unset_counter = e_plane_renderer_render_count_get(fb_target->renderer);
+
+             if (!visible && !renderer->rendered) plane->unset_counter += 1;
+          }
      }
 
    plane->unset_candidate = EINA_TRUE;
