@@ -1453,7 +1453,12 @@ e_plane_renderer_render(E_Plane_Renderer *renderer, Eina_Bool is_fb)
         TRACE_DS_BEGIN(MANUAL RENDER);
 
         if (e_plane_renderer_surface_queue_can_dequeue(renderer) || !renderer->tqueue)
-          ecore_evas_manual_render(renderer->ee);
+          {
+             ecore_evas_manual_render(renderer->ee);
+             renderer->rendered = EINA_TRUE;
+          }
+        else
+          renderer->rendered = EINA_FALSE;
 
         TRACE_DS_END();
      }
