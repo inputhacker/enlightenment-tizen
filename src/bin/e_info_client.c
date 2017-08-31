@@ -4502,7 +4502,7 @@ static Eina_Bool
 _e_info_client_process(int argc, char **argv)
 {
    int nproc = sizeof(procs) / sizeof(procs[0]);
-   int i;
+   int i, proc_option_length;
 
    signal(SIGINT,  end_program);
    signal(SIGALRM, end_program);
@@ -4513,7 +4513,11 @@ _e_info_client_process(int argc, char **argv)
 
    for (i = 0; i < nproc; i++)
      {
-        if (!strncmp(argv[1]+1, procs[i].option, strlen(procs[i].option)))
+        proc_option_length = strlen(procs[i].option);
+
+        if (strlen(argv[1]+1) != proc_option_length) continue;
+
+        if (!strncmp(argv[1]+1, procs[i].option, proc_option_length))
           {
              if (procs[i].func)
                procs[i].func(argc, argv);
