@@ -3726,6 +3726,19 @@ _e_info_server_cb_selected_buffer_dump(const Eldbus_Service_Interface *iface EIN
    return reply;
 }
 
+static void
+_e_info_server_cb_screen_dump_cb(E_Output *eout, tbm_surface_h surface, void *user_data)
+{
+   char *path = (char *)user_data;
+
+   tdm_helper_dump_buffer(surface, path);
+
+   free(path);
+   tbm_surface_destroy(surface);
+
+   DBG("_e_info_server_cb_screen_dump_cb done");
+}
+
 static Eldbus_Message *
 _e_info_server_cb_screen_dump(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
@@ -3734,6 +3747,8 @@ _e_info_server_cb_screen_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
    tbm_surface_h surface = NULL;
    E_Output *eout = NULL;
    int w = 0, h = 0;
+   Eina_Bool ret = EINA_FALSE;
+   char *path_backup = NULL;
 
    if (!eldbus_message_arguments_get(msg, "s", &path))
      {
@@ -3742,6 +3757,11 @@ _e_info_server_cb_screen_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
      }
 
    eout = e_output_find_by_index(0);
+   if (eout == NULL)
+     {
+        ERR("Error get main outpute.");
+        return reply;
+     }
    e_output_size_get(eout, &w, &h);
 
    surface = tbm_surface_create(w, h, TBM_FORMAT_ARGB8888);
@@ -3751,15 +3771,21 @@ _e_info_server_cb_screen_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
         return reply;
      }
 
-   if (!e_comp_wl_screenshooter_dump(surface))
+   path_backup = (char *)calloc(1, PATH_MAX * sizeof(char));
+   if (path_backup == NULL)
      {
-        ERR("Error dump fail.");
-        tbm_surface_destroy(surface);
+        ERR("Error alloc.");
         return reply;
      }
+   strncpy(path_backup, path, PATH_MAX);
 
-   tdm_helper_dump_buffer(surface, path);
+   ret = e_output_capture(eout, surface, EINA_FALSE, _e_info_server_cb_screen_dump_cb, path_backup);
+   if (ret)
+     return reply;
+   else
+     ERR("Error fail capture.");
 
+   free(path_backup);
    tbm_surface_destroy(surface);
 
    return reply;
