@@ -750,6 +750,8 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
         remote_surface->bind_ec->comp_data->scaler.buffer_viewport.changed = 0;
         e_comp_wl_map_apply(remote_surface->bind_ec);
 
+        e_comp_wl_surface_attach(remote_surface->bind_ec, NULL);
+
         remote_surface->bind_ec = NULL;
 
         /* try to send latest buffer of the provider to the consumer when unbinding
