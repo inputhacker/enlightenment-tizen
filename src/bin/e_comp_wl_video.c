@@ -7,6 +7,7 @@
 #include <values.h>
 
 //#define DUMP_BUFFER
+#define CHECKING_PRIMARY_ZPOS
 
 static int _video_detail_log_dom = -1;
 static Eina_Bool video_to_primary;
