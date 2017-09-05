@@ -1396,6 +1396,7 @@ _tzpol_iface_cb_activate(struct wl_client *client EINA_UNUSED, struct wl_resourc
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_ACTIVE_REQ, ec);
 
    ELOGF("TZPOL", "ACTIVATE", ec->pixmap, ec);
    ec->post_lower = EINA_FALSE;
@@ -1573,6 +1574,7 @@ _tzpol_iface_cb_raise(struct wl_client *client EINA_UNUSED, struct wl_resource *
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_RAISE_REQ, ec);
 
    ELOGF("TZPOL", "RAISE", ec->pixmap, ec);
 
@@ -1590,6 +1592,7 @@ _tzpol_iface_cb_lower(struct wl_client *client EINA_UNUSED, struct wl_resource *
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_LOWER_REQ, ec);
 
    ELOGF("TZPOL", "LOWER", ec->pixmap, ec);
 
