@@ -1101,6 +1101,19 @@ no_hwc:
    return NULL;
 }
 
+static void
+_e_comp_hwc_fake_ec_init(E_Client *fake_ec)
+{
+   memset(fake_ec, 0, sizeof(E_Client));
+
+   fake_ec->x = 0;
+   fake_ec->y = 0;
+   fake_ec->w = e_comp->w;
+   fake_ec->h = e_comp->h;
+
+   fake_ec->hwc_acceptable = EINA_FALSE;
+}
+
 static Eina_Bool
 _e_comp_hwc_prepare(void)
 {
@@ -1117,6 +1130,7 @@ _e_comp_hwc_prepare(void)
         E_Output *output;
         int n_vis = 0, n_cur = 0, n_skip = 0;
         Eina_List *hwc_ok_clist = NULL, *vis_clist = NULL;
+        E_Client fake_ec;
 
         if (!zone || !zone->output_id) continue;  // no hw layer
 
@@ -1124,7 +1138,7 @@ _e_comp_hwc_prepare(void)
         if (!output) continue;
 
         vis_clist = e_comp_vis_ec_list_get(zone);
-        if (!vis_clist)
+        if (!vis_clist && !e_comp->hwc_optimized)
         {
             INF("hwc-opt: no visible clients, why we're here?");
             continue;
@@ -1134,11 +1148,22 @@ _e_comp_hwc_prepare(void)
 
         /* by demand of window manager to prevent some e_clients to be shown by hw directly */
         hwc_ok_clist = _e_comp_filter_cl_by_wm(vis_clist, &n_cur);
-        if (!hwc_ok_clist) goto nextzone;
+        if (!hwc_ok_clist)
+          {
+             if (!e_comp->hwc_optimized) goto nextzone;
 
-        n_vis = eina_list_count(vis_clist);
-        if ((n_vis < 1) || (eina_list_count(hwc_ok_clist) < 1))
-          goto nextzone;
+             /* in order to enable target window we need to create the fake ec and
+              * set hwc_acceptable to EINA_FALSE */
+             _e_comp_hwc_fake_ec_init(&fake_ec);
+             hwc_ok_clist = eina_list_append(hwc_ok_clist, &fake_ec);
+          }
+
+        if (!e_comp->hwc_optimized)
+          {
+             n_vis = eina_list_count(vis_clist);
+             if ((n_vis < 1) || (eina_list_count(hwc_ok_clist) < 1))
+               goto nextzone;
+          }
 
         INF("hwc-opt: number of clients which are gonna own hw overlays:%d.", eina_list_count(hwc_ok_clist));
 
