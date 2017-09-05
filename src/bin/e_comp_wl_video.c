@@ -20,16 +20,16 @@ static Eina_Bool video_punch;
 #define NEVER_GET_HERE()     CRI("** need to improve more **")
 
 #ifndef CLEAR
-#define CLEAR(x) memset(&(x), 0, sizeof (x))
+#define CLEAR(x) memset(&(x), 0, sizeof(x))
 #endif
 
-#define VER(fmt,arg...)   ERR("window(0x%08"PRIxPTR") ec(%p): "fmt, video->window, video->ec, ##arg)
-#define VWR(fmt,arg...)   WRN("window(0x%08"PRIxPTR") ec(%p): "fmt, video->window, video->ec, ##arg)
-#define VIN(fmt,arg...)   INF("window(0x%08"PRIxPTR") ec(%p): "fmt, video->window, video->ec, ##arg)
-#define VDB(fmt,arg...)   DBG("window(0x%08"PRIxPTR") ec(%p): "fmt, video->window, video->ec, ##arg)
+#define VER(fmt, arg...)   ERR("window(0x%08"PRIxPTR") ec(%p): "fmt, video->window, video->ec, ##arg)
+#define VWR(fmt, arg...)   WRN("window(0x%08"PRIxPTR") ec(%p): "fmt, video->window, video->ec, ##arg)
+#define VIN(fmt, arg...)   INF("window(0x%08"PRIxPTR") ec(%p): "fmt, video->window, video->ec, ##arg)
+#define VDB(fmt, arg...)   DBG("window(0x%08"PRIxPTR") ec(%p): "fmt, video->window, video->ec, ##arg)
 
 #define DET(...)          EINA_LOG_DOM_DBG(_video_detail_log_dom, __VA_ARGS__)
-#define VDT(fmt,arg...)   DET("window(0x%08"PRIxPTR"): "fmt, video->window, ##arg)
+#define VDT(fmt, arg...)   DET("window(0x%08"PRIxPTR"): "fmt, video->window, ##arg)
 
 #define GEO_FMT   "%dx%d(%dx%d+%d+%d) -> (%dx%d+%d+%d) transform(%d)"
 #define GEO_ARG(g) \
