@@ -14,6 +14,7 @@ struct _E_Comp_Config
    const char   *effect_style; // name of effect group to apply
    const char   *depth_in_style; // name of effect group to apply for depth in type
    const char   *bg_effect_style; // name of effect group for background
+   const char   *kbd_effect_style; // name of keyboard group to apply
    int           engine;
    int           max_unmapped_time;
    int           min_unmapped_time;
