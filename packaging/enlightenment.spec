@@ -96,7 +96,6 @@ make %{?_smp_mflags}
 %attr(750,root,root) %{_bindir}/enlightenment*
 %{_libdir}/enlightenment/*
 %{_datadir}/enlightenment/*
-%{_sysconfdir}/dbus-1/system.d/org.enlightenment.wm.conf
 %exclude %{_bindir}/enlightenment_remote
 %exclude /usr/share/enlightenment/data/config/profile.cfg
 %exclude %{_datadir}/enlightenment/data/*
