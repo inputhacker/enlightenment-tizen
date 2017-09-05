@@ -414,6 +414,8 @@ _e_comp_screen_new(E_Comp *comp)
    E_Comp_Screen *e_comp_screen = NULL;
    tdm_error error = TDM_ERROR_NONE;
    tdm_display_capability capabilities;
+   const tbm_format *pp_formats;
+   int count, i;
 
    e_comp_screen = E_NEW(E_Comp_Screen, 1);
    if (!e_comp_screen) return NULL;
@@ -449,7 +451,17 @@ _e_comp_screen_new(E_Comp *comp)
 
    /* check the pp_support */
    if (capabilities & TDM_DISPLAY_CAPABILITY_PP)
-     e_comp_screen->pp_enabled = EINA_TRUE;
+     {
+        error = tdm_display_get_pp_available_formats(e_comp_screen->tdisplay, &pp_formats, &count);
+        if (error != TDM_ERROR_NONE)
+          ERR("fail to get available pp formats");
+        else
+          {
+             e_comp_screen->pp_enabled = EINA_TRUE;
+             for (i = 0 ; i < count ; i++)
+               e_comp_screen->available_pp_formats = eina_list_append(e_comp_screen->available_pp_formats, &pp_formats[i]);
+          }
+     }
 
    if (e_comp_socket_init("tdm-socket"))
      PRCTL("[Winsys] change permission and create sym link for %s", "tdm-socket");
@@ -460,8 +472,16 @@ _e_comp_screen_new(E_Comp *comp)
 static void
 _e_comp_screen_del(E_Comp_Screen *e_comp_screen)
 {
+   Eina_List *l = NULL, *ll = NULL;
+   tbm_format *formats;
+
    if (!e_comp_screen) return;
 
+   if (e_comp_screen->pp_enabled)
+     {
+        EINA_LIST_FOREACH_SAFE(e_comp_screen->available_pp_formats, l, ll, formats)
+          e_comp_screen->available_pp_formats = eina_list_remove(e_comp_screen->available_pp_formats, l);
+     }
    if (e_comp_screen->bufmgr) tbm_bufmgr_deinit(e_comp_screen->bufmgr);
    if (e_comp_screen->tdisplay) tdm_display_deinit(e_comp_screen->tdisplay);
 
@@ -1252,6 +1272,26 @@ e_comp_screen_pp_support(void)
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen->tdisplay, EINA_FALSE);
 
    return e_comp_screen->pp_enabled;
+}
+
+
+EINTERN Eina_List *
+e_comp_screen_pp_available_formats_get(void)
+{
+  E_Comp_Screen *e_comp_screen = NULL;
+  EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp, EINA_FALSE);
+
+  e_comp_screen = e_comp->e_comp_screen;
+  EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+  EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen->tdisplay, EINA_FALSE);
+
+  if (!e_comp_screen->pp_enabled)
+    {
+       ERR("pp does not support.");
+       return NULL;
+    }
+
+   return e_comp_screen->available_pp_formats;
 }
 
 EINTERN void

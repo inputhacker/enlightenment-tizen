@@ -29,7 +29,8 @@ struct _E_Comp_Screen
    int rotation;
 
    /* pp support */
-   Eina_Bool pp_enabled;
+   Eina_Bool  pp_enabled;
+   Eina_List *available_pp_formats;
 };
 
 
@@ -55,6 +56,7 @@ E_API   void              e_comp_screen_rotation_ignore_output_transform_send(E_
 EINTERN E_Output        * e_comp_screen_primary_output_get(E_Comp_Screen *e_comp_screen);
 
 EINTERN Eina_Bool         e_comp_screen_pp_support(void);
+EINTERN Eina_List       * e_comp_screen_pp_available_formats_get(void);
 
 #endif /*E_COMP_SCREEN_H*/
 

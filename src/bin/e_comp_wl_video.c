@@ -2559,8 +2559,11 @@ static void
 _e_comp_wl_video_cb_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
    struct wl_resource *res;
-   const tbm_format *formats = NULL;
+   const uint32_t *formats = NULL;
    int i, count = 0;
+   Eina_List *pp_format_list = NULL;
+   Eina_List *l = NULL;
+   uint32_t *pp_format;
 
    if (!(res = wl_resource_create(client, &tizen_video_interface, version, id)))
      {
@@ -2573,10 +2576,12 @@ _e_comp_wl_video_cb_bind(struct wl_client *client, void *data, uint32_t version,
 
    /* 1st, use pp information. */
    if (e_comp_screen_pp_support())
+     pp_format_list = e_comp_screen_pp_available_formats_get();
+
+   if (pp_format_list)
      {
-        tdm_display_get_pp_available_formats(e_comp->e_comp_screen->tdisplay, &formats, &count);
-        for (i = 0; i < count; i++)
-          tizen_video_send_format(res, formats[i]);
+        EINA_LIST_FOREACH(pp_format_list, l, pp_format)
+          tizen_video_send_format(res, *pp_format);
      }
    else
      {
