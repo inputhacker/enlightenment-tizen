@@ -5,4 +5,3 @@ include data/icons/Makefile.mk
 include data/backgrounds/Makefile.mk
 include data/flags/Makefile.mk
 include data/favorites/Makefile.mk
-include data/dbus/Makefile.mk

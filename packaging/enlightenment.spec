@@ -97,7 +97,6 @@ ln -sf %{_bindir}/enlightenment_info %{buildroot}%{_bindir}/winfo
 %attr(550,root,root) %{_bindir}/winfo*
 %{_libdir}/enlightenment/*
 %{_datadir}/enlightenment/*
-%{_sysconfdir}/dbus-1/system.d/org.enlightenment.wm.conf
 %exclude %{_bindir}/enlightenment_remote
 %exclude /usr/share/enlightenment/data/config/profile.cfg
 %exclude %{_datadir}/enlightenment/data/*
