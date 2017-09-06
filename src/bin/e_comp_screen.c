@@ -1063,6 +1063,12 @@ e_comp_screen_init()
         return EINA_FALSE;
      }
 
+   if (eldbus_init() == 0)
+     {
+        ERR("eldbus_init failed");
+        goto failed_comp_screen;
+     }
+
    _e_comp_screen_dbus_init(NULL);
 
    tzsr_client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _tz_screen_rotation_cb_client_del, NULL);
@@ -1104,6 +1110,8 @@ e_comp_screen_shutdown()
         eldbus_connection_unref(e_comp_screen_conn);
         e_comp_screen_conn = NULL;
      }
+
+   eldbus_shutdown();
 
    _e_comp_screen_deinit_outputs(e_comp->e_comp_screen);
 
