@@ -1953,6 +1953,11 @@ e_comp_init(void)
    E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_SIGNAL_USER, _e_comp_signal_user,     NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_COMP_OBJECT_ADD, _e_comp_object_add,      NULL);
 
+   /* _e_comp_cb_update() isn't called before the first output commit therefore
+    * we need notify the hwc extension we want to use the target window */
+   if (e_comp->hwc_optimized)
+     _e_comp_hwc_prepare();
+
    return EINA_TRUE;
 }
 

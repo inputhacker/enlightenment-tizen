@@ -1216,55 +1216,6 @@ e_plane_render(E_Plane *plane)
    return EINA_TRUE;
 }
 
-/* let hwc extension know about an animation to force it provide us the 'fb_target' */
-static void
-_notify_hwc_about_animation(tdm_output *output, tbm_surface_h surf)
-{
-   tdm_hwc_window_info info;
-   tdm_hwc_window *hwc_wnd;
-   tbm_surface_h surface;
-   tdm_error tdm_err;
-   int num_types;
-
-   hwc_wnd = tdm_output_create_hwc_window(output, NULL);
-
-   /* CLIENT as we want to use 'fb_target' */
-   tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_CLIENT);
-   tdm_hwc_window_set_zpos(hwc_wnd, 0);
-
-   memset(&info, 0, sizeof(info));
-
-   info.src_config.pos.x = 0;
-   info.src_config.pos.y = 0;
-   info.src_config.pos.w = 1440;
-   info.src_config.pos.h = 2560;
-
-   /* do we have to fill out these? */
-   info.src_config.size.h = 1440;
-   info.src_config.size.v = 2560;
-
-   /* do we have to fill out these? */
-   info.src_config.format = TBM_FORMAT_ARGB8888;
-
-   info.dst_pos.x = 0;
-   info.dst_pos.y = 0;
-   info.dst_pos.w = 1440;
-   info.dst_pos.h = 2560;
-
-   info.transform = TDM_TRANSFORM_NORMAL;
-
-   tdm_hwc_window_set_info(hwc_wnd, &info);
-   tdm_hwc_window_set_buffer(hwc_wnd, surf);
-
-   tdm_err = tdm_output_validate(output, &num_types);
-   if (tdm_err != TDM_ERROR_NONE)
-     INF("an error while trying to make tdm_output_validate(): %d.", tdm_err);
-
-   /* we don't need it anymore, the hwc_wnd was created only to notify
-    * hwc extension about our wish to have the 'fb_target' */
-   tdm_output_destroy_hwc_window(output, hwc_wnd);
-}
-
 EINTERN Eina_Bool
 e_plane_fetch(E_Plane *plane)
 {
@@ -1339,28 +1290,9 @@ e_plane_fetch(E_Plane *plane)
           }
         else
           {
-             /* we've fetched surface (from ecore_evas) first time */
-             static Eina_Bool first = EINA_TRUE;
-
              if (e_plane_is_fb_target_owned_by_ecore_evas(plane))
                {
                   tdm_hwc_region fb_damage;
-
-                  /* FIXME: you may think it's a hack, yes you're right...
-                   *
-                   * if we use optimized hwc we can't allow e20 to make a 'tdm commit'
-                   * without 'tdm validate' (hwc extension has to know what's happening
-                   * on the screen) even if HWC within E20 is turned off;
-                   *
-                   * it seems that ecore-evas renderer's queue has a buffer to fetch
-                   * before we have any e_clients to render at all :)  ('update_job' didn't
-                   * happen), I guess it's an animation for which an e_client wasn't created;
-                   *
-                   * as we don't follow ordinary way, via 'update_job' where we let hwc
-                   * extension know about all buffers we want to show on the screen,
-                   * we have to make it right here. */
-                  if (first)
-                    _notify_hwc_about_animation(plane->output->toutput, plane->tsurface);
 
                   /* the damage isn't supported by hwc extension yet */
                   memset(&fb_damage, 0, sizeof(fb_damage));
@@ -1375,8 +1307,6 @@ e_plane_fetch(E_Plane *plane)
                           plane->tsurface, plane->ec, plane->ec->icccm.title, plane->ec->icccm.name,
                           plane->hwc_wnd);
                }
-
-             first = EINA_FALSE;
 
              /* is anybody subscribed for this event? */
              _e_plane_ev(plane, E_EVENT_PLANE_WIN_CHANGE);
