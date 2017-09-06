@@ -967,11 +967,17 @@ _e_plane_renderer_recover_ec(E_Plane_Renderer *renderer)
      }
 
    /* force update */
+   e_pixmap_usable_set(ec->pixmap, EINA_TRUE);
    e_pixmap_resource_set(ec->pixmap, buffer);
    e_pixmap_dirty(ec->pixmap);
    e_pixmap_refresh(ec->pixmap);
 
-   e_pixmap_image_refresh(ec->pixmap);
+   if (!e_pixmap_image_refresh(ec->pixmap))
+     {
+        e_comp_wl_tbm_buffer_destroy(buffer);
+        return;
+     }
+
    e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
    e_comp_object_dirty(ec->frame);
    e_comp_object_render(ec->frame);
