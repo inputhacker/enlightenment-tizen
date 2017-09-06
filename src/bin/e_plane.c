@@ -2276,7 +2276,7 @@ e_plane_is_fb_target(E_Plane *plane)
 }
 
 EINTERN Eina_List *
-e_plane_available_tbm_formats_get(E_Plane *plane)
+e_plane_available_formats_get(E_Plane *plane)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
 

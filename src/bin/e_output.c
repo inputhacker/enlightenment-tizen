@@ -2004,7 +2004,7 @@ e_output_default_fb_target_get(E_Output *output)
 
              if (e_plane_type_get(ep) != E_PLANE_TYPE_GRAPHIC) continue;
 
-             formats = e_plane_available_tbm_formats_get(ep);
+             formats = e_plane_available_formats_get(ep);
              if (!formats) continue;
 
              EINA_LIST_FOREACH(formats, formats_l, format)
