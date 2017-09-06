@@ -1187,7 +1187,13 @@ e_plane_new(E_Output *output, int index)
 EINTERN void
 e_plane_free(E_Plane *plane)
 {
+   Eina_List *l = NULL, *ll = NULL;
+   const tbm_format *formats;
+
    if (!plane) return;
+
+   EINA_LIST_FOREACH_SAFE(plane->available_formats, l, ll, formats)
+     plane->available_formats = eina_list_remove_list(plane->available_formats, l);
 
    if (plane->name) eina_stringshare_del(plane->name);
    if (plane->renderer) _e_plane_renderer_unset(plane);
