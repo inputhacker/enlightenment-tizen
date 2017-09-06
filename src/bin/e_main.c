@@ -224,15 +224,6 @@ _e_main_subsystem_defer(void *data EINA_UNUSED)
 
    TRACE_DS_BEGIN(MAIN:DEFERRED INTERNAL SUBSYSTEMS INIT);
 
-   TS("[DEFERRED] DPMS Init");
-   if (!e_dpms_init())
-     {
-        e_error_message_show(_("Enlightenment cannot set up dpms.\n"));
-        _e_main_shutdown(-1);
-     }
-   TS("[DEFERRED] DPMS Init Done");
-   _e_main_shutdown_push(e_dpms_shutdown);
-
    TS("[DEFERRED] Screens Init: win");
    if (!e_win_init())
      {
@@ -616,6 +607,15 @@ main(int argc, char **argv)
      }
    TS("E_Pointer Init Done");
    _e_main_shutdown_push(e_pointer_shutdown);
+
+   TS("Dpms Init");
+   if (!e_dpms_init())
+     {
+        e_error_message_show(_("Enlightenment cannot set up dpms.\n"));
+        _e_main_shutdown(-1);
+     }
+   TS("Dpms Init Done");
+   _e_main_shutdown_push(e_dpms_shutdown);
 
    TRACE_DS_BEGIN(MAIN:SCREEN INIT);
    TS("Screens Init");
