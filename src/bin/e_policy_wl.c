@@ -6806,7 +6806,7 @@ e_policy_wl_defer_job(void)
 
    global = wl_global_create(e_comp_wl->wl.disp,
                              &tizen_launchscreen_interface,
-                             2,
+                             1,
                              NULL,
                              _tzlaunch_cb_bind);
    EINA_SAFETY_ON_NULL_GOTO(global, err);
