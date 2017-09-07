@@ -1693,7 +1693,7 @@ _e_tz_surf_cb_bind(struct wl_client *client, void *data, uint32_t version, uint3
 
    if (!(res = wl_resource_create(client,
                                   &tizen_surface_interface,
-                                  MIN(version, 2),
+                                  version,
                                   id)))
      {
         ERR("Could not create tizen_surface resource: %m");
@@ -1744,7 +1744,7 @@ e_modapi_init(E_Module *m)
 
    if (!wl_global_create(e_comp_wl->wl.disp,
                          &tizen_surface_interface,
-                         2,
+                         1,
                          e_comp->wl_comp_data,
                          _e_tz_surf_cb_bind))
      {
