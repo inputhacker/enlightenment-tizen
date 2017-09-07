@@ -2562,7 +2562,7 @@ _e_comp_wl_video_cb_bind(struct wl_client *client, void *data, uint32_t version,
    const tbm_format *formats = NULL;
    int i, count = 0;
 
-   if (!(res = wl_resource_create(client, &tizen_video_interface, MIN(version, 2), id)))
+   if (!(res = wl_resource_create(client, &tizen_video_interface, version, id)))
      {
         ERR("Could not create tizen_video_interface resource: %m");
         wl_client_post_no_memory(client);
@@ -2639,7 +2639,7 @@ e_comp_wl_video_init(void)
      }
 
    e_comp->wl_comp_data->video.global =
-      wl_global_create(e_comp_wl->wl.disp, &tizen_video_interface, 2, NULL, _e_comp_wl_video_cb_bind);
+      wl_global_create(e_comp_wl->wl.disp, &tizen_video_interface, 1, NULL, _e_comp_wl_video_cb_bind);
 
    /* try to add tizen_video to wayland globals */
    if (!e_comp->wl_comp_data->video.global)
