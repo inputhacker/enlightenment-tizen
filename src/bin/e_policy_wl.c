@@ -3131,7 +3131,7 @@ _tzpol_iface_cb_subsurf_watcher_get(struct wl_client *client, struct wl_resource
    if (!(ec = wl_resource_get_user_data(surface))) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
-   if (!(res = wl_resource_create(client, &tizen_subsurface_watcher_interface, 2, id)))
+   if (!(res = wl_resource_create(client, &tizen_subsurface_watcher_interface, 1, id)))
      {
         wl_resource_post_no_memory(res_tzpol);
         return;
