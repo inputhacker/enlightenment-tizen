@@ -76,9 +76,16 @@ _tz_screen_rotation_get_ignore_output_transform(struct wl_client *client, struct
    tzsr_list = eina_list_append(tzsr_list, tzsr);
 }
 
+static void
+_tz_screen_rotation_iface_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
 static const struct tizen_screen_rotation_interface _tz_screen_rotation_interface =
 {
    _tz_screen_rotation_get_ignore_output_transform,
+   _tz_screen_rotation_iface_cb_destroy,
 };
 
 static void
