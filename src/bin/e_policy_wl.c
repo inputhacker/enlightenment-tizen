@@ -6872,7 +6872,7 @@ e_policy_wl_init(void)
 
    global = wl_global_create(e_comp_wl->wl.disp,
                              &tizen_display_policy_interface,
-                             2,
+                             1,
                              NULL,
                              _tz_dpy_pol_cb_bind);
    EINA_SAFETY_ON_NULL_GOTO(global, err);
