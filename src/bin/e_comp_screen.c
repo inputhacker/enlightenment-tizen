@@ -979,6 +979,17 @@ e_comp_screen_init()
         EINA_SAFETY_ON_NULL_RETURN_VAL(comp, EINA_FALSE);
      }
 
+   /* keymap */
+   dont_set_ecore_drm_keymap = getenv("NO_ECORE_DRM_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
+   dont_use_xkb_cache = getenv("NO_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
+
+   if (e_config->xkb.use_cache && !dont_use_xkb_cache)
+     {
+        e_main_ts("\tDRM Keymap Init");
+        _e_comp_screen_keymap_set(&ctx, &map);
+        e_main_ts("\tDRM Keymap Init Done");
+     }
+
    if (!_e_comp_screen_engine_init())
      {
         ERR("Could not initialize the ecore_evas engine.");
@@ -1017,17 +1028,6 @@ e_comp_screen_init()
         e_pointer_hide(comp->pointer);
      }
    e_main_ts("\tE_Pointer New Done");
-
-   /* keymap */
-   dont_set_ecore_drm_keymap = getenv("NO_ECORE_DRM_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
-   dont_use_xkb_cache = getenv("NO_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
-
-   if (e_config->xkb.use_cache && !dont_use_xkb_cache)
-     {
-        e_main_ts("\tDRM Keymap Init");
-        _e_comp_screen_keymap_set(&ctx, &map);
-        e_main_ts("\tDRM Keymap Init Done");
-     }
 
    /* FIXME: We need a way to trap for user changing the keymap inside of E
     *        without the event coming from X11 */
