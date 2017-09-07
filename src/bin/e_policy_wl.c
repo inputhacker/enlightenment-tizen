@@ -5040,6 +5040,12 @@ _launchscreen_splash_timeout(void *data)
 }
 
 static void
+_tzlaunch_iface_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
+static void
 _tzlaunch_img_iface_cb_destroy(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzlaunch_img)
 {
    wl_resource_destroy(res_tzlaunch_img);
@@ -5880,7 +5886,8 @@ _tzlaunch_effect_iface_cb_type_unset(struct wl_client *client, struct wl_resourc
 
 static const struct tizen_launchscreen_interface _tzlaunch_iface =
 {
-   _tzlaunch_iface_cb_create_img
+   _tzlaunch_iface_cb_create_img,
+   _tzlaunch_iface_cb_destroy,
 };
 
 static const struct tizen_launch_effect_interface _tzlaunch_effect_iface =
