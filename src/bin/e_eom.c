@@ -1610,6 +1610,7 @@ _e_eom_presentation_pp_run(E_EomOutputPtr eom_output, tbm_surface_h src_surface,
    if (!eom_pp || !eom_pp->pp || !eom_pp->queue)
      {
         EOMER("no pp data");
+        _e_eom_buffer_destroy(eom_buff);
         return;
      }
 
@@ -1676,6 +1677,11 @@ _e_eom_presentation_pp_run(E_EomOutputPtr eom_output, tbm_surface_h src_surface,
    return;
 
 commit_fail:
+   if (primary)
+     eom_output->pp_primary_converting = EINA_FALSE;
+   else
+     eom_output->pp_overlay_converting = EINA_FALSE;
+
 attach_fail:
    tbm_surface_internal_unref(dst_surface);
    tbm_surface_internal_unref(src_surface);
@@ -1689,6 +1695,10 @@ error:
           EOMDB("============================>  presentation PP  ENDERR  tbm_buff:%p", dst_surface);
         tbm_surface_queue_release(eom_pp->queue, dst_surface);
      }
+
+   _e_eom_buffer_destroy(eom_buff);
+
+   E_FREE(ppdata);
 }
 
 static void
@@ -3221,6 +3231,7 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
                   if (!_e_eom_pp_init(eom_output, EINA_FALSE))
                     {
                        EOMER("pp_init for overlay fail");
+                       _e_eom_buffer_destroy(eom_buff);
                        return ECORE_CALLBACK_PASS_ON;
                     }
                }
@@ -3232,6 +3243,7 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
              if (!_e_eom_pp_init(eom_output, EINA_TRUE))
                {
                   EOMER("pp_init for primary fail");
+                  _e_eom_buffer_destroy(eom_buff);
                   return ECORE_CALLBACK_PASS_ON;
                }
           }
