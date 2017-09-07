@@ -3091,6 +3091,12 @@ _tz_dpy_pol_iface_cb_brightness_set(struct wl_client *client, struct wl_resource
 }
 
 static void
+_tz_dpy_pol_iface_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
+static void
 _tzpol_iface_cb_subsurf_watcher_destroy(struct wl_resource *resource)
 {
    E_Client *ec;
@@ -3272,6 +3278,7 @@ err:
 static const struct tizen_display_policy_interface _tz_dpy_pol_iface =
 {
    _tz_dpy_pol_iface_cb_brightness_set,
+   _tz_dpy_pol_iface_cb_destroy,
 };
 
 static void
