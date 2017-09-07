@@ -1049,7 +1049,7 @@ e_comp_screen_init()
    e_main_ts("\tE_Comp_WL Keymap Init Done");
 
    /* try to add tizen_video to wayland globals */
-   if (!wl_global_create(e_comp_wl->wl.disp, &tizen_screen_rotation_interface, 2,
+   if (!wl_global_create(e_comp_wl->wl.disp, &tizen_screen_rotation_interface, 1,
                          NULL, _tz_screen_rotation_cb_bind))
      {
         ERR("Could not add tizen_screen_rotation to wayland globals");
