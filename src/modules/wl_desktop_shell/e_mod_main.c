@@ -1674,9 +1674,16 @@ _e_tz_surf_cb_tz_res_get(struct wl_client *client, struct wl_resource *resource,
    tizen_resource_send_resource_id(res, res_id);
 }
 
+static void
+_e_tz_surf_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
 static const struct tizen_surface_interface _e_tz_surf_interface =
 {
    _e_tz_surf_cb_tz_res_get,
+   _e_tz_surf_cb_destroy,
 };
 
 static void
@@ -1686,7 +1693,7 @@ _e_tz_surf_cb_bind(struct wl_client *client, void *data, uint32_t version, uint3
 
    if (!(res = wl_resource_create(client,
                                   &tizen_surface_interface,
-                                  MIN(version, 1),
+                                  version,
                                   id)))
      {
         ERR("Could not create tizen_surface resource: %m");
