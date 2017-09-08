@@ -3102,7 +3102,13 @@ _tzpol_iface_cb_subsurf_watcher_destroy(struct wl_resource *resource)
    E_Client *ec;
 
    if (!(ec = wl_resource_get_user_data(resource))) return;
-   if (e_object_is_del(E_OBJECT(ec)) || !ec->comp_data) return;
+   if (e_object_is_del(E_OBJECT(ec)))
+     {
+        if(!e_object_delay_del_ref_get(E_OBJECT(ec)))
+          return;
+     }
+   if(!ec->comp_data)
+     return;
 
    ec->comp_data->sub.watcher = NULL;
 }
