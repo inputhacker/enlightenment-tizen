@@ -480,7 +480,10 @@ _e_comp_screen_del(E_Comp_Screen *e_comp_screen)
    if (e_comp_screen->pp_enabled)
      {
         EINA_LIST_FOREACH_SAFE(e_comp_screen->available_pp_formats, l, ll, formats)
-          e_comp_screen->available_pp_formats = eina_list_remove(e_comp_screen->available_pp_formats, l);
+          {
+             if (!formats) continue;
+             e_comp_screen->available_pp_formats = eina_list_remove(e_comp_screen->available_pp_formats, l);
+          }
      }
    if (e_comp_screen->bufmgr) tbm_bufmgr_deinit(e_comp_screen->bufmgr);
    if (e_comp_screen->tdisplay) tdm_display_deinit(e_comp_screen->tdisplay);
