@@ -126,7 +126,6 @@ static void _e_video_set(E_Video *video, E_Client *ec);
 static void _e_video_destroy(E_Video *video);
 static void _e_video_render(E_Video *video, const char *func);
 static Eina_Bool _e_video_frame_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf *vbuf);
-static void _e_video_pp_buffer_cb_release(tbm_surface_h surface, void *user_data);
 static void _e_video_video_set_hook(void *data, E_Plane *plane);
 
 static tdm_layer* _e_video_tdm_video_layer_get(tdm_output *output);
@@ -611,8 +610,6 @@ _e_video_pp_buffer_get(E_Video *video, int width, int height)
 
              EINA_LIST_FOREACH_SAFE(video->pp_buffer_list, l, ll, vbuf)
                {
-                  tdm_buffer_remove_release_handler(vbuf->tbm_surface,
-                                                    _e_video_pp_buffer_cb_release, vbuf);
                   /* free forcely */
                   e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
                   e_comp_wl_video_buffer_unref(vbuf);
@@ -1544,8 +1541,6 @@ _e_video_set(E_Video *video, E_Client *ec)
    tdm_layer_capability lyr_capabilities = 0;
    const tdm_prop *props;
    tdm_layer *layer;
-   unsigned int pipe;
-   tdm_error ret;
 
    if (!video || !ec)
      return;
@@ -1608,10 +1603,6 @@ _e_video_set(E_Video *video, E_Client *ec)
         video->output = video->e_output->toutput;
         EINA_SAFETY_ON_NULL_RETURN(video->output);
      }
-
-   ret = tdm_output_get_pipe(video->output, &pipe);
-   if (ret == TDM_ERROR_NONE)
-     video->e_output = e_output_find_by_index(pipe);
 
    layer = _e_video_tdm_video_layer_get(video->output);
    tdm_layer_get_capabilities(layer, &lyr_capabilities);
@@ -1771,8 +1762,6 @@ _e_video_destroy(E_Video *video)
 
    EINA_LIST_FOREACH_SAFE(video->pp_buffer_list, l, ll, vbuf)
      {
-        tdm_buffer_remove_release_handler(vbuf->tbm_surface,
-                                          _e_video_pp_buffer_cb_release, vbuf);
         e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
         e_comp_wl_video_buffer_unref(vbuf);
      }
@@ -1871,14 +1860,6 @@ _e_video_check_if_pp_needed(E_Video *video)
 need_pp:
    video->pp_tbmfmt = video->tbmfmt;
    return EINA_TRUE;
-}
-
-static void
-_e_video_pp_buffer_cb_release(tbm_surface_h surface, void *user_data)
-{
-   E_Comp_Wl_Video_Buf *vbuf = (E_Comp_Wl_Video_Buf*)user_data;
-
-   vbuf->in_use = EINA_FALSE;
 }
 
 static void
