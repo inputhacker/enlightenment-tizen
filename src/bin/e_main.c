@@ -663,6 +663,10 @@ main(int argc, char **argv)
    TS("E_Grabinput Init Done");
    _e_main_shutdown_push(e_grabinput_shutdown);
 
+   TS("E_Gesture Init");
+   e_gesture_init();
+   _e_main_shutdown_push(e_gesture_shutdown);
+
    ecore_event_handler_add(E_EVENT_MODULE_INIT_END, _e_main_deferred_job_schedule, NULL);
 
    TS("E_Module Init");

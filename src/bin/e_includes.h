@@ -73,3 +73,4 @@
 #include "e_security.h"
 #include "e_main.h"
 #include "e_keyrouter.h"
+#include "e_gesture.h"
