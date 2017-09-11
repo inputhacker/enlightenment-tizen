@@ -1729,6 +1729,8 @@ e_output_del(E_Output *output)
 
    if (!output) return;
 
+   if (output->output_hwc) e_output_hwc_del(output->output_hwc);
+
    e_plane_shutdown();
 
    if (output->id) free(output->id);
@@ -2029,11 +2031,21 @@ e_output_mode_apply(E_Output *output, E_Output_Mode *mode)
 EINTERN Eina_Bool
 e_output_setup(E_Output *output)
 {
+   E_Output_Hwc *output_hwc = NULL;
    Eina_List *l, *ll;
    E_Plane *plane = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
+   /* available only the primary output now. */
+   if (e_comp->hwc)
+     {
+        output_hwc = e_output_hwc_new(output);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+        output->output_hwc = output_hwc;
+     }
+
+   /* ecore evas engine setup */
    EINA_LIST_FOREACH_SAFE(output->planes, l, ll, plane)
      {
         if (plane->is_fb)
@@ -2303,6 +2315,14 @@ e_output_commit(E_Output *output)
    return EINA_TRUE;
 }
 
+EINTERN const char *
+e_output_output_id_get(E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+
+   return output->id;
+}
+
 E_API E_Output *
 e_output_find(const char *id)
 {
@@ -2551,7 +2571,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
    EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
 
 #ifdef ENABLE_HWC_MULTI
-   e_comp_hwc_multi_plane_set(EINA_FALSE);
+   e_output_hwc_multi_plane_set(output->output_hwc, EINA_FALSE);
 #endif
 
    output->zoom_conf.zoomx = zoomx;
@@ -2570,7 +2590,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
      {
         ERR("e_plane_zoom_set failed.");
 #ifdef ENABLE_HWC_MULTI
-        e_comp_hwc_multi_plane_set(EINA_TRUE);
+        e_output_hwc_multi_plane_set(output->output_hwc, EINA_TRUE);
 #endif
         return EINA_FALSE;
      }
@@ -2627,7 +2647,7 @@ e_output_zoom_unset(E_Output *output)
    output->zoom_set = EINA_FALSE;
 
 #ifdef ENABLE_HWC_MULTI
-   e_comp_hwc_multi_plane_set(EINA_TRUE);
+   e_output_hwc_multi_plane_set(output->output_hwc, EINA_TRUE);
 #endif
 
    /* update the ecore_evas */

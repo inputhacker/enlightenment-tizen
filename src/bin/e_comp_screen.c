@@ -250,11 +250,11 @@ _e_comp_screen_commit_idle_cb(void *data EINA_UNUSED)
         if (!e_output_commit(output))
              ERR("fail to commit e_comp_screen->outputs.");
 
+        e_output_hwc_apply(output->output_hwc);
+
         if (!e_output_render(output))
              ERR("fail to render e_comp_screen->outputs.");
-
      }
-
 end:
    return ECORE_CALLBACK_RENEW;
 }
@@ -1160,7 +1160,7 @@ e_comp_screen_setup(E_Comp_Screen *e_comp_screen)
 
         if (!e_output_setup(output))
           {
-             ERR("fail to e_ouptut_hwc_setup.");
+             ERR("fail to e_output_setup.");
              continue;
           }
      }

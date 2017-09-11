@@ -43,6 +43,7 @@
 #include "e_log.h"
 #include "e_dbusmenu.h"
 #include "e_comp_screen.h"
+#include "e_output_hwc.h"
 #include "e_comp.h"
 #include "e_comp_cfdata.h"
 #include "e_comp_canvas.h"
