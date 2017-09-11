@@ -93,8 +93,9 @@ _get_tbm_surface_queue(E_Comp *e_comp)
      {
         Evas_Engine_Info_GL_Drm *info;
         info = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(e_comp->evas);
-        if (info->info.surface)
-          tbm_queue = gbm_tbm_get_surface_queue(info->info.surface);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(info, NULL);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(info->info.surface, NULL);
+        tbm_queue = gbm_tbm_get_surface_queue(info->info.surface);
      }
    else if(!strcmp(name, "gl_drm_tbm"))
      {
