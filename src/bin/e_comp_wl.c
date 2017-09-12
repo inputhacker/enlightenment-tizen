@@ -5740,6 +5740,7 @@ e_comp_wl_key_send(E_Client *ec, int keycode, Eina_Bool pressed, Ecore_Device *d
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
 
    wl_keycode = keycode - 8;
@@ -5778,6 +5779,7 @@ e_comp_wl_touch_send(E_Client *ec, int idx, int x, int y, Eina_Bool pressed, Eco
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
 
    if (!dev) device = _e_comp_wl_device_last_device_get(ECORE_DEVICE_CLASS_TOUCH);
@@ -5814,6 +5816,7 @@ e_comp_wl_touch_update_send(E_Client *ec, int idx, int x, int y, Ecore_Device *d
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
 
    if (!dev) device = _e_comp_wl_device_last_device_get(ECORE_DEVICE_CLASS_TOUCH);
@@ -5861,6 +5864,7 @@ e_comp_wl_mouse_button_send(E_Client *ec, int buttons, Eina_Bool pressed, Ecore_
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
 
    wc = wl_resource_get_client(ec->comp_data->surface);
@@ -5888,6 +5892,7 @@ e_comp_wl_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
 
    wc = wl_resource_get_client(ec->comp_data->surface);
@@ -5913,6 +5918,7 @@ e_comp_wl_mouse_wheel_send(E_Client *ec, int direction, int z, Ecore_Device *dev
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
 
    wc = wl_resource_get_client(ec->comp_data->surface);
@@ -5937,6 +5943,7 @@ e_comp_wl_mouse_in_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_t 
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(ec)), EINA_FALSE);
 
