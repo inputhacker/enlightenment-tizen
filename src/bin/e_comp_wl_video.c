@@ -110,6 +110,15 @@ typedef struct _Tdm_Prop_Value
    tdm_value value;
 } Tdm_Prop_Value;
 
+static tbm_format sw_formats[] = {
+	TBM_FORMAT_ARGB8888,
+	TBM_FORMAT_XRGB8888,
+	TBM_FORMAT_YUV420,
+	TBM_FORMAT_YVU420,
+};
+
+#define NUM_SW_FORMAT   (sizeof(sw_formats) / sizeof(sw_formats[0]))
+
 static Eina_List *video_list = NULL;
 static Eina_List *video_layers = NULL;
 
@@ -2591,11 +2600,17 @@ _e_comp_wl_video_cb_bind(struct wl_client *client, void *data, uint32_t version,
         EINA_SAFETY_ON_NULL_RETURN(output);
 
         layer = _e_video_tdm_video_layer_get(output);
-        EINA_SAFETY_ON_NULL_RETURN(layer);
-
-        tdm_layer_get_available_formats(layer, &formats, &count);
-        for (i = 0; i < count; i++)
-          tizen_video_send_format(res, formats[i]);
+        if (layer)
+          {
+             tdm_layer_get_available_formats(layer, &formats, &count);
+             for (i = 0; i < count; i++)
+               tizen_video_send_format(res, formats[i]);
+          }
+        else
+          {
+             for (i = 0; i < NUM_SW_FORMAT; i++)
+               tizen_video_send_format(res, sw_formats[i]);
+          }
      }
 }
 
