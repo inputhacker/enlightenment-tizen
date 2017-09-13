@@ -76,6 +76,9 @@ cp %{SOURCE1001} .
 export CFLAGS+=" -fPIE "
 export LDFLAGS+=" -pie "
 %endif
+%if "%{_with_emulator}" == "1"
+export CFLAGS+=" -DUSE_NATIVE_BUFFER "
+%endif
 %autogen \
       TIZEN_REL_VERSION="%{release}-%{TIZEN_REL_VERSION}" \
       --enable-function-trace \
