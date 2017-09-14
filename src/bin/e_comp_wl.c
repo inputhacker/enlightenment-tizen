@@ -4444,7 +4444,7 @@ _e_comp_wl_gl_init(void *data EINA_UNUSED)
    if (!e_comp_gl_get()) return;
 
    /* create dummy evas gl to bind wayland display of enlightenment to egl display */
-   e_main_ts("\tE_Comp_Wl_GL Init");
+   e_main_ts_begin("\tE_Comp_Wl_GL Init");
 
    /* if wl_drm module doesn't call e_comp_canvas_init yet,
     * then we should get evas from ecore_evas.
@@ -4486,7 +4486,7 @@ _e_comp_wl_gl_init(void *data EINA_UNUSED)
    /* for native surface */
    e_comp->gl = 1;
 
-   e_main_ts("\tE_Comp_Wl_GL Init Done");
+   e_main_ts_end("\tE_Comp_Wl_GL Init Done");
 
    return;
 

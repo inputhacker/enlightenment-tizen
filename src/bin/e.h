@@ -106,7 +106,7 @@ void *alloca (size_t);
 #  define TRACE_DS_END() traceEnd(TTRACE_TAG_WINDOW_MANAGER)
 #  define TRACE_DS_ASYNC_BEGIN(KEY, NAME, ...) traceAsyncBegin(TTRACE_TAG_WINDOW_MANAGER, KEY, "DS:"#NAME, ##__VA_ARGS__)
 #  define TRACE_DS_ASYNC_END(KEY, NAME, ...) traceAsyncEnd(TTRACE_TAG_WINDOW_MANAGER, KEY, "DS:"#NAME,  ##__VA_ARGS__)
-#  define TRACE_DS_MARK(NAME, ...) traceBegin(TTRACE_TAG_WINDOW_MANAGER, "DS:"#NAME, ##__VA_ARGS__)
+#  define TRACE_DS_MARK(NAME, ...) traceMark(TTRACE_TAG_WINDOW_MANAGER, "DS:"#NAME, ##__VA_ARGS__)
 #  define TRACE_INPUT_BEGIN(NAME, ...) traceBegin(TTRACE_TAG_INPUT, "INPUT:SERVER:"#NAME, ##__VA_ARGS__)
 #  define TRACE_INPUT_END() traceEnd(TTRACE_TAG_INPUT)
 # else
@@ -312,6 +312,8 @@ typedef struct _E_Rect         E_Rect;
 # include "e_includes.h"
 
 E_API double          e_main_ts(const char *str);
+E_API double          e_main_ts_begin(const char *str);
+E_API double          e_main_ts_end(const char *str);
 
 struct _E_Rect
 {
