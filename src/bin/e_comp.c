@@ -1465,19 +1465,19 @@ e_comp_init(void)
 
    ignores = eina_hash_pointer_new(NULL);
 
-   e_main_ts("\tE_Comp_Data Init");
+   e_main_ts_begin("\tE_Comp_Data Init");
    e_comp_cfdata_edd_init(&conf_edd, &conf_match_edd);
-   e_main_ts("\tE_Comp_Data Init Done");
+   e_main_ts_end("\tE_Comp_Data Init Done");
 
-   e_main_ts("\tE_Comp_Data Load");
+   e_main_ts_begin("\tE_Comp_Data Load");
    conf = e_config_domain_load("e_comp", conf_edd);
-   e_main_ts("\tE_Comp_Data Load Done");
+   e_main_ts_end("\tE_Comp_Data Load Done");
 
    if (!conf)
      {
-        e_main_ts("\tE_Comp_Data New");
+        e_main_ts_begin("\tE_Comp_Data New");
         conf = e_comp_cfdata_config_new();
-        e_main_ts("\tE_Comp_Data New Done");
+        e_main_ts_end("\tE_Comp_Data New Done");
      }
 
    // comp config versioning - add this in. over time add epochs etc. if
@@ -1501,15 +1501,16 @@ e_comp_init(void)
 
    if (conf->hwc_ignore_primary) e_comp->hwc_ignore_primary = EINA_TRUE;
 
-   e_main_ts("\tE_Comp_Screen Init");
+   e_main_ts_begin("\tE_Comp_Screen Init");
    if (!e_comp_screen_init())
      {
+        e_main_ts_end("\tE_Comp_Screen Init Failed");
         ERR("Fail to init e_comp_screen");
         e_object_del(E_OBJECT(e_comp));
         E_FREE_FUNC(ignores, eina_hash_free);
         return EINA_FALSE;
      }
-   e_main_ts("\tE_Comp_Screen Init Done");
+   e_main_ts_end("\tE_Comp_Screen Init Done");
 
    e_comp->comp_type = E_PIXMAP_TYPE_WL;
 
@@ -1596,16 +1597,16 @@ E_API void
 e_comp_deferred_job(void)
 {
    /* Bg update */
-   e_main_ts("\tE_BG_Zone Update");
+   e_main_ts_begin("\tE_BG_Zone Update");
    if (e_zone_current_get()->bg_object)
      e_bg_zone_update(e_zone_current_get(), E_BG_TRANSITION_DESK);
    else
      e_bg_zone_update(e_zone_current_get(), E_BG_TRANSITION_START);
-   e_main_ts("\tE_BG_Zone Update Done");
+   e_main_ts_end("\tE_BG_Zone Update Done");
 
-   e_main_ts("\tE_Comp_Wl_Deferred");
+   e_main_ts_begin("\tE_Comp_Wl_Deferred");
    e_comp_wl_deferred_job();
-   e_main_ts("\tE_Comp_Wl_Deferred Done");
+   e_main_ts_end("\tE_Comp_Wl_Deferred Done");
 }
 
 E_API void

@@ -16,9 +16,28 @@
      printf("ESTART: %1.5f [%1.5f] - %s\n", t1 - t0, t1 - t2, x); \
      t2 = t1;                                                     \
   }
+
+# define TSB(x)                                                  \
+  do {                                                           \
+     TRACE_DS_BEGIN(ESTART: %s, x);                              \
+     TS(x);                                                      \
+  } while (0)
+# define TSE(x)                                                  \
+  do {                                                           \
+     TRACE_DS_END();                                             \
+     TS(x);                                                      \
+  } while (0)
+# define TSM(x)                                                  \
+  do {                                                           \
+     TRACE_DS_MARK(ESTART: %s, x);                               \
+     TS(x);                                                      \
+  } while (0)
 static double t0, t1, t2;
 #else
 # define TS(x)
+# define TSB(x)
+# define TSE(x)
+# define TSM(x)
 #endif
 /*
  * i need to make more use of these when i'm baffled as to when something is
@@ -224,82 +243,79 @@ _e_main_subsystem_defer(void *data EINA_UNUSED)
 
    TRACE_DS_BEGIN(MAIN:DEFERRED INTERNAL SUBSYSTEMS INIT);
 
-   TS("[DEFERRED] DPMS Init");
+   TSB("[DEFERRED] DPMS Init");
    if (!e_dpms_init())
      {
         e_error_message_show(_("Enlightenment cannot set up dpms.\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("[DEFERRED] DPMS Init Done");
+   TSE("[DEFERRED] DPMS Init Done");
    _e_main_shutdown_push(e_dpms_shutdown);
 
-   TS("[DEFERRED] Screens Init: win");
+   TSB("[DEFERRED] Screens Init: win");
    if (!e_win_init())
      {
         e_error_message_show(_("Enlightenment cannot setup elementary trap!\n"));
-        TRACE_DS_END();
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("[DEFERRED] Screens Init: win Done");
+   TSE("[DEFERRED] Screens Init: win Done");
 
-   TS("[DEFERRED] E_Dnd Init");
+   TSB("[DEFERRED] E_Dnd Init");
    if (!e_dnd_init())
      {
         e_error_message_show(_("Enlightenment cannot set up its dnd system.\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("[DEFERRED] E_Dnd Init Done");
+   TSE("[DEFERRED] E_Dnd Init Done");
    _e_main_shutdown_push(e_dnd_shutdown);
 
-   TS("[DEFERRED] E_Scale Init");
+   TSB("[DEFERRED] E_Scale Init");
    if (!e_scale_init())
      {
         e_error_message_show(_("Enlightenment cannot set up its scale system.\n"));
-        TRACE_DS_END();
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("[DEFERRED] E_Scale Init Done");
+   TSE("[DEFERRED] E_Scale Init Done");
    _e_main_shutdown_push(e_scale_shutdown);
 
-   TS("[DEFERRED] E_Test_Helper Init");
+   TSB("[DEFERRED] E_Test_Helper Init");
    e_test_helper_init();
    _e_main_shutdown_push(e_test_helper_shutdown);
-   TS("[DEFERRED] E_Test_Helper Done");
+   TSE("[DEFERRED] E_Test_Helper Done");
 
-   TS("[DEFERRED] E_INFO_SERVER Init");
+   TSB("[DEFERRED] E_INFO_SERVER Init");
    e_info_server_init();
    _e_main_shutdown_push(e_info_server_shutdown);
-   TS("[DEFERRED] E_INFO_SERVER Done");
+   TSE("[DEFERRED] E_INFO_SERVER Done");
 
    TRACE_DS_END();
    TRACE_DS_BEGIN(MAIN:DEFERRED COMP JOB);
 
    /* try to do deferred job of any subsystems*/
-   TS("[DEFERRED] Compositor's deferred job");
+   TSB("[DEFERRED] Compositor's deferred job");
    e_comp_deferred_job();
-   TS("[DEFERRED] Compositor's deferred job Done");
+   TSE("[DEFERRED] Compositor's deferred job Done");
 
-   TRACE_DS_END();
    if (e_config->use_e_policy)
      {
-        TRACE_DS_BEGIN(MAIN:DEFERRED POLICY JOB);
-
-        TS("[DEFERRED] E_Policy's deferred job");
+        TSB("[DEFERRED] E_Policy's deferred job");
         e_policy_deferred_job();
-        TS("[DEFERRED] E_Policy's deferred job Done");
-
-        TRACE_DS_END();
+        TSE("[DEFERRED] E_Policy's deferred job Done");
      }
-   TRACE_DS_BEGIN(MAIN:DEFERRED MODULE JOB);
 
-   TS("[DEFERRED] E_Module's deferred job");
+   TSB("[DEFERRED] E_Module's deferred job");
    e_module_deferred_job();
-   TS("[DEFERRED] E_Module's deferred job Done");
+   TSE("[DEFERRED] E_Module's deferred job Done");
 
    TRACE_DS_END();
    TRACE_DS_END();
-
    return ECORE_CALLBACK_DONE;
+
+failed:
+   TSE("INIT FAILED");
+   TRACE_DS_END();
+   TRACE_DS_END();
+   _e_main_shutdown(-1);
 }
 
 static Eina_Bool
@@ -331,7 +347,7 @@ main(int argc, char **argv)
    printf("ESTART(main) %1.5f\n", t0);
 #endif
    TRACE_DS_BEGIN(MAIN:BEGIN STARTUP);
-   TS("Begin Startup");
+   TSB("Begin Startup");
    PRCTL("[Winsys] start of main");
 
    /* trap deadly bug signals and allow some form of sane recovery */
@@ -344,7 +360,7 @@ main(int argc, char **argv)
    /* handler will not function properly */
    if (!getenv("NOTIFY_SOCKET"))
      {
-        TS("Signal Trap");
+        TSB("Signal Trap");
         action.sa_sigaction = e_sigseg_act;
         action.sa_flags = SA_NODEFER | SA_RESETHAND | SA_SIGINFO;
         sigemptyset(&action.sa_mask);
@@ -364,7 +380,7 @@ main(int argc, char **argv)
         action.sa_flags = SA_NODEFER | SA_RESETHAND | SA_SIGINFO;
         sigemptyset(&action.sa_mask);
         sigaction(SIGABRT, &action, NULL);
-        TS("Signal Trap Done");
+        TSE("Signal Trap Done");
      }
 
    t = ecore_time_unix_get();
@@ -380,31 +396,31 @@ main(int argc, char **argv)
 
    if (getenv("E_START_MTRACK"))
      e_util_env_set("MTRACK", NULL);
-   TS("Eina Init");
+   TSB("Eina Init");
    if (!eina_init())
      {
         e_error_message_show(_("Enlightenment cannot initialize Eina!\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("Eina Init Done");
+   TSE("Eina Init Done");
    _e_main_shutdown_push(eina_shutdown);
 
 #ifdef OBJECT_HASH_CHECK
-   TS("E_Object Hash Init");
+   TSB("E_Object Hash Init");
    e_object_hash_init();
-   TS("E_Object Hash Init Done");
+   TSE("E_Object Hash Init Done");
 #endif
 
-   TS("E_Log Init");
+   TSB("E_Log Init");
    if (!e_log_init())
      {
         e_error_message_show(_("Enlightenment could not create a logging domain!\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E_Log Init Done");
+   TSE("E_Log Init Done");
    _e_main_shutdown_push(e_log_shutdown);
 
-   TS("Determine Prefix");
+   TSB("Determine Prefix");
    if (!e_prefix_determine(argv[0]))
      {
         fprintf(stderr,
@@ -413,24 +429,24 @@ main(int argc, char **argv)
                 "       This is because it is not on Linux AND has been\n"
                 "       executed strangely. This is unusual.\n");
      }
-   TS("Determine Prefix Done");
+   TSE("Determine Prefix Done");
 
    /* for debugging by redirecting stdout of e to a log file to tail */
    setvbuf(stdout, NULL, _IONBF, 0);
 
-   TS("Parse Arguments");
+   TSB("Parse Arguments");
    _e_main_parse_arguments(argc, argv);
-   TS("Parse Arguments Done");
+   TSE("Parse Arguments Done");
 
    /*** Initialize Core EFL Libraries We Need ***/
 
-   TS("Eet Init");
+   TSB("Eet Init");
    if (!eet_init())
      {
         e_error_message_show(_("Enlightenment cannot initialize Eet!\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("Eet Init Done");
+   TSE("Eet Init Done");
    _e_main_shutdown_push(eet_shutdown);
 
    /* Allow ecore to not load system modules.
@@ -439,13 +455,13 @@ main(int argc, char **argv)
     */
    ecore_app_no_system_modules();
 
-   TS("Ecore Init");
+   TSB("Ecore Init");
    if (!ecore_init())
      {
         e_error_message_show(_("Enlightenment cannot initialize Ecore!\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("Ecore Init Done");
+   TSE("Ecore Init Done");
    _e_main_shutdown_push(ecore_shutdown);
 
    e_first_frame = getenv("E_FIRST_FRAME");
@@ -454,137 +470,137 @@ main(int argc, char **argv)
    else
      e_first_frame = NULL;
 
-   TS("EIO Init");
+   TSB("EIO Init");
    if (!eio_init())
      {
         e_error_message_show(_("Enlightenment cannot initialize EIO!\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("EIO Init Done");
+   TSE("EIO Init Done");
    _e_main_shutdown_push(eio_shutdown);
 
    ecore_app_args_set(argc, (const char **)argv);
 
-   TS("Ecore Event Handlers");
+   TSB("Ecore Event Handlers");
    if (!ecore_event_handler_add(ECORE_EVENT_SIGNAL_EXIT,
                                 _e_main_cb_signal_exit, NULL))
      {
         e_error_message_show(_("Enlightenment cannot set up an exit signal handler.\n"
                                "Perhaps you are out of memory?"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
    if (!ecore_event_handler_add(ECORE_EVENT_SIGNAL_HUP,
                                 _e_main_cb_signal_hup, NULL))
      {
         e_error_message_show(_("Enlightenment cannot set up a HUP signal handler.\n"
                                "Perhaps you are out of memory?"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
    if (!ecore_event_handler_add(ECORE_EVENT_SIGNAL_USER,
                                 _e_main_cb_signal_user, NULL))
      {
         e_error_message_show(_("Enlightenment cannot set up a USER signal handler.\n"
                                "Perhaps you are out of memory?"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("Ecore Event Handlers Done");
+   TSE("Ecore Event Handlers Done");
 
-   TS("Ecore_File Init");
+   TSB("Ecore_File Init");
    if (!ecore_file_init())
      {
         e_error_message_show(_("Enlightenment cannot initialize Ecore_File!\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("Ecore_File Init Done");
+   TSE("Ecore_File Init Done");
    _e_main_shutdown_push(ecore_file_shutdown);
 
    _idle_before = ecore_idle_enterer_before_add(_e_main_cb_idle_before, NULL);
 
-   TS("XDG_DATA_DIRS Init");
+   TSB("XDG_DATA_DIRS Init");
    _xdg_data_dirs_augment();
-   TS("XDG_DATA_DIRS Init Done");
+   TSE("XDG_DATA_DIRS Init Done");
 
-   TS("Ecore_Evas Init");
+   TSB("Ecore_Evas Init");
    if (!ecore_evas_init())
      {
         e_error_message_show(_("Enlightenment cannot initialize Ecore_Evas!\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("Ecore_Evas Init Done");
+   TSE("Ecore_Evas Init Done");
 
    /* e doesn't sync to compositor - it should be one */
    ecore_evas_app_comp_sync_set(0);
 
-   TS("Edje Init");
+   TSB("Edje Init");
    if (!edje_init())
      {
         e_error_message_show(_("Enlightenment cannot initialize Edje!\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("Edje Init Done");
+   TSE("Edje Init Done");
    _e_main_shutdown_push(edje_shutdown);
 
    /*** Initialize E Subsystems We Need ***/
 
-   TS("E Directories Init");
+   TSB("E Directories Init");
    /* setup directories we will be using for configurations storage etc. */
    if (!_e_main_dirs_init())
      {
         e_error_message_show(_("Enlightenment cannot create directories in your home directory.\n"
                                "Perhaps you have no home directory or the disk is full?"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E Directories Init Done");
+   TSE("E Directories Init Done");
    _e_main_shutdown_push(_e_main_dirs_shutdown);
 
-   TS("E_Config Init");
+   TSB("E_Config Init");
    if (!e_config_init())
      {
         e_error_message_show(_("Enlightenment cannot set up its config system.\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E_Config Init Done");
+   TSE("E_Config Init Done");
    _e_main_shutdown_push(e_config_shutdown);
 
-   TS("E_Env Init");
+   TSB("E_Env Init");
    if (!e_env_init())
      {
         e_error_message_show(_("Enlightenment cannot set up its environment.\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E_Env Init Done");
+   TSE("E_Env Init Done");
    _e_main_shutdown_push(e_env_shutdown);
 
    ecore_exe_run_priority_set(e_config->priority);
 
-   TS("E Paths Init");
+   TSB("E Paths Init");
    if (!_e_main_path_init())
      {
         e_error_message_show(_("Enlightenment cannot set up paths for finding files.\n"
                                "Perhaps you are out of memory?"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E Paths Init Done");
+   TSE("E Paths Init Done");
    _e_main_shutdown_push(_e_main_path_shutdown);
 
    ecore_animator_frametime_set(1.0 / e_config->framerate);
 
-   TS("E_Theme Init");
+   TSB("E_Theme Init");
    if (!e_theme_init())
      {
         e_error_message_show(_("Enlightenment cannot set up its theme system.\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E_Theme Init Done");
+   TSE("E_Theme Init Done");
    _e_main_shutdown_push(e_theme_shutdown);
 
-   TS("E_Actions Init");
+   TSB("E_Actions Init");
    if (!e_actions_init())
      {
         e_error_message_show(_("Enlightenment cannot set up its actions system.\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E_Actions Init Done");
+   TSE("E_Actions Init Done");
    _e_main_shutdown_push(e_actions_shutdown);
 
    /* these just add event handlers and can't fail
@@ -608,59 +624,59 @@ main(int argc, char **argv)
      }
    TRACE_DS_END();
 
-   TS("E_Pointer Init");
+   TSB("E_Pointer Init");
    if (!e_pointer_init())
      {
         e_error_message_show(_("Enlightenment cannot set up its pointer system.\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E_Pointer Init Done");
+   TSE("E_Pointer Init Done");
    _e_main_shutdown_push(e_pointer_shutdown);
 
    TRACE_DS_BEGIN(MAIN:SCREEN INIT);
-   TS("Screens Init");
+   TSB("Screens Init");
    if (!_e_main_screens_init())
      {
         e_error_message_show(_("Enlightenment set up window management for all the screens on your system\n"
                                "failed. Perhaps another window manager is running?\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("Screens Init Done");
+   TSE("Screens Init Done");
    _e_main_shutdown_push(_e_main_screens_shutdown);
    TRACE_DS_END();
 
    if (e_config->eom_enable)
      {
-        TS("Eom Init");
+        TSB("Eom Init");
         if (!e_eom_init())
           {
              e_error_message_show(_("Enlightenment cannot set up eom.\n"));
-             _e_main_shutdown(-1);
+             goto failed;
           }
-        TS("Eom Init Done");
+        TSE("Eom Init Done");
         _e_main_shutdown_push(e_eom_shutdown);
      }
 
-   TS("E_Screensaver Init");
+   TSB("E_Screensaver Init");
    if (!e_screensaver_init())
      {
         e_error_message_show(_("Enlightenment cannot configure the X screensaver.\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E_Screensaver Init Done");
+   TSE("E_Screensaver Init Done");
    _e_main_shutdown_push(e_screensaver_shutdown);
 
-   TS("E_Comp Freeze");
+   TSB("E_Comp Freeze");
    e_comp_all_freeze();
-   TS("E_Comp Freeze Done");
+   TSE("E_Comp Freeze Done");
 
-   TS("E_Grabinput Init");
+   TSB("E_Grabinput Init");
    if (!e_grabinput_init())
      {
         e_error_message_show(_("Enlightenment cannot set up its grab input handling system.\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E_Grabinput Init Done");
+   TSE("E_Grabinput Init Done");
    _e_main_shutdown_push(e_grabinput_shutdown);
 
    TS("E_Gesture Init");
@@ -669,69 +685,69 @@ main(int argc, char **argv)
 
    ecore_event_handler_add(E_EVENT_MODULE_INIT_END, _e_main_deferred_job_schedule, NULL);
 
-   TS("E_Module Init");
+   TSB("E_Module Init");
    if (!e_module_init())
      {
         e_error_message_show(_("Enlightenment cannot set up its module system.\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E_Module Init Done");
+   TSE("E_Module Init Done");
    _e_main_shutdown_push(e_module_shutdown);
 
-   TS("E_Mouse Init");
+   TSB("E_Mouse Init");
    if (!e_mouse_update())
      {
         e_error_message_show(_("Enlightenment cannot configure the mouse settings.\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E_Mouse Init Done");
+   TSE("E_Mouse Init Done");
 
-   TS("E_Icon Init");
+   TSB("E_Icon Init");
    if (!e_icon_init())
      {
         e_error_message_show(_("Enlightenment cannot initialize the Icon Cache system.\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E_Icon Init Done");
+   TSE("E_Icon Init Done");
    _e_main_shutdown_push(e_icon_shutdown);
 
    if (e_config->use_e_policy)
      {
-        TS("E_Policy Init");
+        TSB("E_Policy Init");
         if (!e_policy_init())
           {
              e_error_message_show(_("Enlightenment cannot setup policy system!\n"));
-             _e_main_shutdown(-1);
+             goto failed;
           }
-        TS("E_Policy Init Done");
+        TSE("E_Policy Init Done");
         _e_main_shutdown_push(e_policy_shutdown);
      }
 
-   TS("E_Process Init");
+   TSB("E_Process Init");
    if (!e_process_init())
      {
         e_error_message_show(_("Enlightenment cannot setup process managing system!\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E_Process Init Done");
+   TSE("E_Process Init Done");
    _e_main_shutdown_push(e_process_shutdown);
 
-   TS("E_Security Init");
+   TSB("E_Security Init");
    if (!e_security_init())
      {
         e_error_message_show(_("Enlightenment cannot setup security system!\n"));
-        _e_main_shutdown(-1);
+        goto failed;
      }
-   TS("E_Security Init Done");
+   TSE("E_Security Init Done");
    _e_main_shutdown_push(e_security_shutdown);
 
-   TS("Load Modules");
+   TSB("Load Modules");
    _e_main_modules_load(safe_mode);
-   TS("Load Modules Done");
+   TSE("Load Modules Done");
 
-   TS("E_Comp Thaw");
+   TSB("E_Comp Thaw");
    e_comp_all_thaw();
-   TS("E_Comp Thaw Done");
+   TSE("E_Comp Thaw Done");
 
    _idle_after = ecore_idle_enterer_add(_e_main_cb_idle_after, NULL);
 
@@ -740,7 +756,7 @@ main(int argc, char **argv)
 
    e_util_env_set("E_RESTART", "1");
 
-   TS("MAIN LOOP AT LAST");
+   TSM("MAIN LOOP AT LAST");
 
    if (e_config->create_wm_ready)
      _e_main_create_wm_ready();
@@ -748,10 +764,10 @@ main(int argc, char **argv)
    TRACE_DS_END();
 
 #ifdef HAVE_SYSTEMD
-   TS("[WM] Send start-up completion");
+   TSM("[WM] Send start-up completion");
    sd_notify(0, "READY=1");
 #else
-   TS("[WM] Skip sending start-up completion. (no systemd)");
+   TSM("[WM] Skip sending start-up completion. (no systemd)");
 #endif
    ecore_main_loop_begin();
 
@@ -776,6 +792,11 @@ main(int argc, char **argv)
    e_prefix_shutdown();
 
    return 0;
+
+failed:
+   TSE("INIT FAILED");
+   TRACE_DS_END();
+   _e_main_shutdown(-1);
 }
 
 E_API double
@@ -787,6 +808,20 @@ e_main_ts(const char *str)
    ret = t1 - t2;
    t2 = t1;
    return ret;
+}
+
+E_API double
+e_main_ts_begin(const char *str)
+{
+   TRACE_DS_BEGIN(ESTART: %s, str);
+   return e_main_ts(str);
+}
+
+E_API double
+e_main_ts_end(const char *str)
+{
+   TRACE_DS_END();
+   return e_main_ts(str);
 }
 
 /* local functions */
@@ -1118,16 +1153,18 @@ _e_main_path_shutdown(void)
 static int
 _e_main_screens_init(void)
 {
-   TS("\tscreens: client");
+   TSB("\tscreens: client");
    if (!e_client_init()) return 0;
+   TSE("\tscreens: client Done");
 
-   TS("Compositor Init");
+   TSB("Compositor Init");
    PRCTL("[Winsys] start of compositor init");
    if (!e_comp_init())
      {
         e_error_message_show(_("Enlightenment cannot create a compositor.\n"));
         _e_main_shutdown(-1);
      }
+   TSE("Compositor Init Done");
 
    PRCTL("[Winsys] end of compositor init");
    _e_main_desk_restore();
@@ -1253,14 +1290,14 @@ _e_main_cb_idle_after(void *data EINA_UNUSED)
 #ifdef E_RELEASE_BUILD
    if (first_idle)
      {
-        TS("SLEEP");
+        TSM("SLEEP");
         first_idle = 0;
         e_precache_end = EINA_TRUE;
      }
 #else
    if (first_idle++ < 60)
      {
-        TS("SLEEP");
+        TSM("SLEEP");
         if (!first_idle)
           e_precache_end = EINA_TRUE;
      }
@@ -1283,7 +1320,7 @@ _e_main_create_wm_ready(void)
    _wmready_checker = fopen(path_wm_ready, "wb");
    if (_wmready_checker)
      {
-        TS("[WM] WINDOW MANAGER is READY!!!");
+        TSM("[WM] WINDOW MANAGER is READY!!!");
         PRCTL("[Winsys] WINDOW MANAGER is READY!!!");
         fclose(_wmready_checker);
 
@@ -1294,19 +1331,19 @@ _e_main_create_wm_ready(void)
 
         if (_tmp_wm_ready_checker)
           {
-             TS("[WM] temporary wm_ready path is created.");
+             TSM("[WM] temporary wm_ready path is created.");
              PRCTL("[Winsys] temporary wm_ready path is created.");
              fclose(_tmp_wm_ready_checker);
           }
         else
           {
-             TS("[WM] temporary wm_ready path create failed.");
+             TSM("[WM] temporary wm_ready path create failed.");
              PRCTL("[Winsys] temporary wm_ready path create failed.");
           }
      }
    else
      {
-        TS("[WM] WINDOW MANAGER is READY. BUT, failed to create .wm_ready file.");
+        TSM("[WM] WINDOW MANAGER is READY. BUT, failed to create .wm_ready file.");
         PRCTL("[Winsys] WINDOW MANAGER is READY. BUT, failed to create .wm_ready file.");
      }
 }

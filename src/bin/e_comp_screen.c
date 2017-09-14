@@ -719,14 +719,15 @@ _e_comp_screen_engine_init(void)
    e_comp->e_comp_screen = e_comp_screen;
    e_comp_screen->rotation = screen_rotation;
 
-   e_main_ts("\tE_Outputs Init");
+   e_main_ts_begin("\tE_Outputs Init");
    if (!_e_comp_screen_init_outputs(e_comp_screen))
      {
+        e_main_ts_end("\tE_Outputs Init Failed");
         e_error_message_show(_("Enlightenment cannot initialize outputs!\n"));
         _e_comp_screen_engine_deinit();
         return EINA_FALSE;
      }
-   e_main_ts("\tE_Outputs Init Done");
+   e_main_ts_end("\tE_Outputs Init Done");
 
    /* get the primary output */
    output = e_comp_screen_primary_output_get(e_comp_screen);
@@ -760,10 +761,10 @@ _e_comp_screen_engine_init(void)
    if ((e_comp_gl_get()) &&
        (e_comp_config_get()->engine == E_COMP_ENGINE_GL))
      {
-        e_main_ts("\tEE_GL_DRM New");
+        e_main_ts_begin("\tEE_GL_DRM New");
         e_comp->ee = ecore_evas_gl_drm_new(NULL, 0, 0, 0, scr_w, scr_h);
         snprintf(buf, sizeof(buf), "\tEE_GL_DRM New Done %p %dx%d", e_comp->ee, scr_w, scr_h);
-        e_main_ts(buf);
+        e_main_ts_end(buf);
 
         if (!e_comp->ee)
           e_comp_gl_set(EINA_FALSE);
@@ -772,7 +773,7 @@ _e_comp_screen_engine_init(void)
              Evas_GL *evasgl = NULL;
              Evas_GL_API *glapi = NULL;
 
-             e_main_ts("\tEvas_GL New");
+             e_main_ts_begin("\tEvas_GL New");
              evasgl = evas_gl_new(ecore_evas_get(e_comp->ee));
              if (evasgl)
                {
@@ -782,11 +783,11 @@ _e_comp_screen_engine_init(void)
                        e_comp_gl_set(EINA_FALSE);
                        ecore_evas_free(e_comp->ee);
                        e_comp->ee = NULL;
-                       e_main_ts("\tEvas_GL New Failed 1");
+                       e_main_ts_end("\tEvas_GL New Failed 1");
                     }
                   else
                     {
-                       e_main_ts("\tEvas_GL New Done");
+                       e_main_ts_end("\tEvas_GL New Done");
                     }
                }
              else
@@ -794,7 +795,7 @@ _e_comp_screen_engine_init(void)
                   e_comp_gl_set(EINA_FALSE);
                   ecore_evas_free(e_comp->ee);
                   e_comp->ee = NULL;
-                  e_main_ts("\tEvas_GL New Failed 2");
+                  e_main_ts_end("\tEvas_GL New Failed 2");
                }
              evas_gl_free(evasgl);
           }
@@ -803,10 +804,10 @@ _e_comp_screen_engine_init(void)
    /* fallback to framebuffer drm (non-accel) */
    if (!e_comp->ee)
      {
-        e_main_ts("\tEE_DRM New");
+        e_main_ts_begin("\tEE_DRM New");
         e_comp->ee = ecore_evas_drm_new(NULL, 0, 0, 0, scr_w, scr_h);
         snprintf(buf, sizeof(buf), "\tEE_DRM New Done %p %dx%d", e_comp->ee, scr_w, scr_h);
-        e_main_ts(buf);
+        e_main_ts_end(buf);
      }
 
    if (!e_comp->ee)
@@ -1008,9 +1009,9 @@ e_comp_screen_init()
 
    if (e_config->xkb.use_cache && !dont_use_xkb_cache)
      {
-        e_main_ts("\tDRM Keymap Init");
+        e_main_ts_begin("\tDRM Keymap Init");
         _e_comp_screen_keymap_set(&ctx, &map);
-        e_main_ts("\tDRM Keymap Init Done");
+        e_main_ts_end("\tDRM Keymap Init Done");
      }
 
    if (!_e_comp_screen_engine_init())
@@ -1019,24 +1020,24 @@ e_comp_screen_init()
         goto failed_comp_screen;
      }
 
-   e_main_ts("\tE_Comp_Wl Init");
+   e_main_ts_begin("\tE_Comp_Wl Init");
    if (!e_comp_wl_init())
      {
-        goto failed_comp_screen;
+        goto failed_comp_screen_with_ts;
      }
-   e_main_ts("\tE_Comp_Wl Init Done");
+   e_main_ts_end("\tE_Comp_Wl Init Done");
 
    /* get the current screen geometry */
    ecore_evas_screen_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
 
    /* canvas */
-   e_main_ts("\tE_Comp_Canvas Init");
+   e_main_ts_begin("\tE_Comp_Canvas Init");
    if (!e_comp_canvas_init(w, h))
      {
         e_error_message_show(_("Enlightenment cannot initialize outputs!\n"));
-        goto failed_comp_screen;
+        goto failed_comp_screen_with_ts;
      }
-   e_main_ts("\tE_Comp_Canvas Init Done");
+   e_main_ts_end("\tE_Comp_Canvas Init Done");
 
    /* pointer */
    ecore_evas_pointer_xy_get(e_comp->ee,
@@ -1045,12 +1046,12 @@ e_comp_screen_init()
 
    evas_event_feed_mouse_in(e_comp->evas, 0, NULL);
 
-   e_main_ts("\tE_Pointer New");
+   e_main_ts_begin("\tE_Pointer New");
    if ((comp->pointer = e_pointer_canvas_new(comp->ee, EINA_TRUE)))
      {
         e_pointer_hide(comp->pointer);
      }
-   e_main_ts("\tE_Pointer New Done");
+   e_main_ts_end("\tE_Pointer New Done");
 
    /* FIXME: We need a way to trap for user changing the keymap inside of E
     *        without the event coming from X11 */
@@ -1062,14 +1063,14 @@ e_comp_screen_init()
 
    /* FIXME: This is just for testing at the moment....
     * happens to jive with what drm does */
-   e_main_ts("\tE_Comp_WL Keymap Init");
+   e_main_ts_begin("\tE_Comp_WL Keymap Init");
    e_comp_wl_input_keymap_set(e_comp_wl_input_keymap_default_rules_get(),
                               e_comp_wl_input_keymap_default_model_get(),
                               e_comp_wl_input_keymap_default_layout_get(),
                               e_comp_wl_input_keymap_default_variant_get(),
                               e_comp_wl_input_keymap_default_options_get(),
                               ctx, map);
-   e_main_ts("\tE_Comp_WL Keymap Init Done");
+   e_main_ts_end("\tE_Comp_WL Keymap Init Done");
 
    /* try to add tizen_video to wayland globals */
    if (!wl_global_create(e_comp_wl->wl.disp, &tizen_screen_rotation_interface, 1,
@@ -1104,6 +1105,8 @@ e_comp_screen_init()
 
    return EINA_TRUE;
 
+failed_comp_screen_with_ts:
+   e_main_ts_end("\tE_Comp_Screen init failed");
 failed_comp_screen:
 
    _e_comp_screen_engine_deinit();
