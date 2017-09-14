@@ -49,6 +49,8 @@
 #include "e_utils.h"
 #include "e_hints.h"
 #include "e_plane.h"
+#include "e_window.h"
+#include "e_hwc.h"
 #include "e_plane_renderer.h"
 #include "e_output.h"
 #include "e_comp_wl.h"

@@ -168,6 +168,7 @@ struct _E_Comp
    int norender;
 
    Eina_Bool       hwc_optimized; // whether optimized (via tdm-backend) hwc is used or not
+   Eina_Bool       hwc_optimized_2; // use e_window
 };
 
 struct _E_Comp_Connected_Client_Info
@@ -244,7 +245,7 @@ E_API E_Comp_Hook *e_comp_hook_add(E_Comp_Hook_Point hookpoint, E_Comp_Hook_Cb f
 E_API void e_comp_hook_del(E_Comp_Hook *ph);
 EINTERN Eina_Bool e_comp_is_on_overlay(E_Client *ec);
 E_API Eina_List *e_comp_vis_ec_list_get(E_Zone *zone); // visible ec list sorted by z order
-
+EINTERN Eina_List *e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur);
 #ifdef ENABLE_HWC_MULTI
 E_API void e_comp_hwc_end(const char *location);
 EINTERN void e_comp_hwc_multi_plane_set(Eina_Bool set);

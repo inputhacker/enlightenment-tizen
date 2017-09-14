@@ -308,8 +308,8 @@ _e_output_cb_output_change(tdm_output *toutput,
      }
 }
 
-static void
-_e_output_update_fps()
+EINTERN void
+e_output_update_fps()
 {
    static double time = 0.0;
    static double lapse = 0.0;
@@ -449,60 +449,63 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
    output->id = id;
    INF("E_OUTPUT: (%d) output_id = %s", index, output->id);
 
-   /* FIXME: it's a kludge
-    *
-    * I've decided to base the first implementation of optimized hwc on e_plane/e_plane_renderer
-    * essences, but tdm-hwc doesn't provide such thing like layer, so we have to set up layer
-    * count manually; 3 - it's because hardware provides up to 3 hw planes per output :-)
-    *
-    * unused e_planes just have no mapped e_clients
-    *
-    * tdm-hwc - it's how I call the new TDM API, further it'll be referred as the hwc extension
-    * (for TDM, not for X :-) )
-    */
-   if (e_comp->hwc_optimized)
-     num_layers = 3;
-   else
-     tdm_output_get_layer_count(toutput, &num_layers);
-
-   if (num_layers < 1)
+   if (!e_comp->hwc_optimized_2)
      {
-        ERR("fail to get tdm_output_get_layer_count\n");
-        goto fail;
-     }
-   output->plane_count = num_layers;
-   INF("E_OUTPUT: num_planes %i", output->plane_count);
+        /* FIXME: it's a kludge
+         *
+         * I've decided to base the first implementation of optimized hwc on e_plane/e_plane_renderer
+         * essences, but tdm-hwc doesn't provide such thing like layer, so we have to set up layer
+         * count manually; 3 - it's because hardware provides up to 3 hw planes per output :-)
+         *
+         * unused e_planes just have no mapped e_clients
+         *
+         * tdm-hwc - it's how I call the new TDM API, further it'll be referred as the hwc extension
+         * (for TDM, not for X :-) )
+         */
+        if (e_comp->hwc_optimized)
+          num_layers = 3;
+        else
+          tdm_output_get_layer_count(toutput, &num_layers);
 
-   if (!e_plane_init())
-     {
-        ERR("fail to e_plane_init.");
-        goto fail;
-     }
-
-   for (i = 0; i < output->plane_count; i++)
-     {
-        plane = e_plane_new(output, i);
-        if (!plane)
+        if (num_layers < 1)
           {
-             ERR("fail to create the e_plane.");
+             ERR("fail to get tdm_output_get_layer_count\n");
              goto fail;
           }
-        output->planes = eina_list_append(output->planes, plane);
-     }
+        output->plane_count = num_layers;
+        INF("E_OUTPUT: num_planes %i", output->plane_count);
 
-   output->planes = eina_list_sort(output->planes, eina_list_count(output->planes), _e_output_cb_planes_sort);
+        if (!e_plane_init())
+          {
+             ERR("fail to e_plane_init.");
+             goto fail;
+          }
 
-   default_fb = e_output_default_fb_target_get(output);
-   if (!default_fb)
-     {
-        ERR("fail to get default_fb_target plane");
-        goto fail;
-     }
+        for (i = 0; i < output->plane_count; i++)
+          {
+             plane = e_plane_new(output, i);
+             if (!plane)
+               {
+                  ERR("fail to create the e_plane.");
+                  goto fail;
+               }
+             output->planes = eina_list_append(output->planes, plane);
+          }
 
-   if (!e_plane_fb_target_set(default_fb, EINA_TRUE))
-     {
-        ERR("fail to set fb_target plane");
-        goto fail;
+        output->planes = eina_list_sort(output->planes, eina_list_count(output->planes), _e_output_cb_planes_sort);
+
+        default_fb = e_output_default_fb_target_get(output);
+        if (!default_fb)
+          {
+             ERR("fail to get default_fb_target plane");
+             goto fail;
+          }
+
+        if (!e_plane_fb_target_set(default_fb, EINA_TRUE))
+          {
+             ERR("fail to set fb_target plane");
+             goto fail;
+          }
      }
 
    output->e_comp_screen = e_comp_screen;
@@ -1111,7 +1114,7 @@ e_output_commit(E_Output *output)
                need_tdm_commit = 1;
 
              // TODO: to be fixed. check fps of fb_target currently.
-             if (fb_commit) _e_output_update_fps();
+             if (fb_commit) e_output_update_fps();
           }
      }
 
@@ -1156,6 +1159,15 @@ e_output_planes_get(E_Output *output)
    EINA_SAFETY_ON_NULL_RETURN_VAL(output->planes, NULL);
 
    return output->planes;
+}
+
+E_API const Eina_List *
+e_output_windows_get(E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->windows, NULL);
+
+   return output->windows;
 }
 
 E_API void
@@ -1460,3 +1472,73 @@ e_output_zoom_unset(E_Output *eout)
    DBG("e_output_zoom_unset: output:%s", eout->id);
 }
 
+EINTERN E_Window *
+e_output_find_window_by_ec(E_Output *eout, E_Client *ec)
+{
+   Eina_List *l;
+   E_Window *window;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+
+   EINA_LIST_FOREACH(eout->windows, l, window)
+     {
+        if (window->ec == ec) return window;
+     }
+
+   return NULL;
+}
+
+EINTERN E_Window *
+e_output_find_window_by_ec_in_all_outputs(E_Client *ec)
+{
+   Eina_List *l_w, *l_o;
+   E_Output *output;
+   E_Window *window;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+
+
+   EINA_LIST_FOREACH(e_comp->e_comp_screen->outputs, l_o, output)
+     {
+        EINA_LIST_FOREACH(output->windows, l_w, window)
+          {
+             if (window->ec == ec) return window;
+          }
+     }
+
+   return NULL;
+}
+
+EINTERN E_Window *
+e_output_find_window_by_hwc_win(E_Output *eout, tdm_hwc_window *hwc_win)
+{
+   Eina_List *l;
+   E_Window *window;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_win, NULL);
+
+   EINA_LIST_FOREACH(eout->windows, l, window)
+     {
+        if (window->hwc_wnd == hwc_win) return window;
+     }
+
+   return NULL;
+}
+
+EINTERN E_Window *
+e_output_get_target_window(E_Output *eout)
+{
+   Eina_List *l;
+   E_Window *window;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, NULL);
+
+   EINA_LIST_FOREACH(eout->windows, l, window)
+     {
+        if (window->is_target) return window;
+     }
+
+   return NULL;
+}

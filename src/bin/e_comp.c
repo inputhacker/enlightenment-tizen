@@ -1014,6 +1014,12 @@ _e_comp_hwc_changed(void)
    return ret;
 }
 
+static Eina_Bool
+_e_comp_hwc_optimized_is_used()
+{
+   return e_comp->hwc_optimized || e_comp->hwc_optimized_2;
+}
+
 /* filter visible clients by the window manager
  *
  * returns list of clients which are acceptable to be composited by hw,
@@ -1021,8 +1027,8 @@ _e_comp_hwc_changed(void)
  *
  * for optimized hwc the returned list contains ALL clients
  */
-static Eina_List *
-_e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
+EINTERN Eina_List *
+e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
 {
    Eina_List *hwc_acceptable_cl_list = NULL;
    Eina_List *l;
@@ -1033,7 +1039,7 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
 
    *n_cur = 0;
 
-   if (e_comp->hwc_optimized)
+   if (_e_comp_hwc_optimized_is_used())
      {
         /* let's hope for the best... */
         EINA_LIST_FOREACH(vis_cl_list, l, ec)
@@ -1049,7 +1055,7 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
         // check clients not able to use hwc
 
         /* window manager required full GLES composition */
-        if (e_comp->hwc_optimized && e_comp->nocomp_override > 0)
+        if (_e_comp_hwc_optimized_is_used() && e_comp->nocomp_override > 0)
           {
              ec->hwc_acceptable = EINA_FALSE;
              INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable(nocomp_override > 0).",
@@ -1062,7 +1068,7 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
             // if there is UI subfrace, it means need to composite
             e_client_normal_client_has(ec))
           {
-             if (!e_comp->hwc_optimized) goto no_hwc;
+             if (!_e_comp_hwc_optimized_is_used()) goto no_hwc;
 
              /* we have to let hwc know about ALL clients(buffers) in case we're using
               * optimized hwc, that's why it can be called optimized :), but also we have to provide
@@ -1075,7 +1081,7 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
         // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
         if (!_hwc_available_get(ec))
           {
-             if (!e_comp->hwc_optimized)
+             if (!_e_comp_hwc_optimized_is_used())
                {
                   if (!n_ec) goto no_hwc;
                   break;
@@ -1147,7 +1153,7 @@ _e_comp_hwc_prepare(void)
         INF("hwc-opt: number of visible clients:%d.", eina_list_count(vis_clist));
 
         /* by demand of window manager to prevent some e_clients to be shown by hw directly */
-        hwc_ok_clist = _e_comp_filter_cl_by_wm(vis_clist, &n_cur);
+        hwc_ok_clist = e_comp_filter_cl_by_wm(vis_clist, &n_cur);
         if (!hwc_ok_clist)
           {
              if (!e_comp->hwc_optimized) goto nextzone;
@@ -1451,6 +1457,12 @@ setup_hwcompose:
    if (!e_comp->hwc ||
        e_comp->hwc_deactive)
      {
+        goto end;
+     }
+
+   if (e_comp->hwc_optimized_2)
+     {
+        e_hwc_re_evaluate();
         goto end;
      }
 
@@ -1900,6 +1912,8 @@ e_comp_init(void)
     */
    if (conf->hwc_optimized)
      INF("hwc-opt: E20's gonna use optimized hwc.");
+   else if (conf->hwc_optimized_2)
+      INF("hwc-opt: E20's gonna use optimized hwc 2.");
    else
      INF("hwc-opt: E20's gonna use no-optimized hwc.");
 
@@ -1924,6 +1938,15 @@ e_comp_init(void)
 
    if (conf->hwc_ignore_primary) e_comp->hwc_ignore_primary = EINA_TRUE;
    if (conf->hwc_optimized) e_comp->hwc_optimized = EINA_TRUE;
+   if (conf->hwc_optimized_2) e_comp->hwc_optimized_2 = EINA_TRUE;
+
+   if (conf->hwc_optimized && conf->hwc_optimized_2)
+     {
+        ERR("hwc_optimized and hwc_optimized_2 are defined. Define only one.");
+        e_object_del(E_OBJECT(e_comp));
+        E_FREE_FUNC(ignores, eina_hash_free);
+        return EINA_FALSE;
+     }
 
    e_main_ts("\tE_Comp_Screen Init");
    if (!e_comp_screen_init())
@@ -1957,6 +1980,8 @@ e_comp_init(void)
     * we need notify the hwc extension we want to use the target window */
    if (e_comp->hwc_optimized)
      _e_comp_hwc_prepare();
+   else if (e_comp->hwc_optimized_2)
+      e_hwc_re_evaluate();
 
    return EINA_TRUE;
 }
@@ -2435,7 +2460,7 @@ EINTERN Eina_Bool
 e_comp_is_on_overlay(E_Client *ec)
 {
    if (!ec) return EINA_FALSE;
-   if (e_comp->hwc_mode)
+   if (e_comp->hwc_mode || e_comp->hwc_optimized_2)
      {
         Eina_List *l, *ll;
         E_Output * eout;
@@ -2443,10 +2468,19 @@ e_comp_is_on_overlay(E_Client *ec)
 
         if (!ec->zone || !ec->zone->output_id) return EINA_FALSE;
         eout = e_output_find(ec->zone->output_id);
-        EINA_LIST_FOREACH_SAFE(eout->planes, l, ll, ep)
+        if (e_comp->hwc_optimized_2)
           {
-             E_Client *overlay_ec = ep->ec;
-             if (overlay_ec == ec) return EINA_TRUE;
+             E_Window *window;
+             window = e_output_find_window_by_ec(eout, ec);
+             if (window->type == TDM_COMPOSITION_DEVICE) return EINA_TRUE;
+          }
+        else
+          {
+             EINA_LIST_FOREACH_SAFE(eout->planes, l, ll, ep)
+               {
+                  E_Client *overlay_ec = ep->ec;
+                  if (overlay_ec == ec) return EINA_TRUE;
+               }
           }
      }
    return EINA_FALSE;

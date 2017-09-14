@@ -225,6 +225,14 @@ _e_comp_screen_commit_idle_cb(void *data EINA_UNUSED)
 
    e_comp_screen = e_comp->e_comp_screen;
 
+   if (e_comp->hwc_optimized_2)
+     {
+        if (!e_hwc_commit())
+           ERR("fail to commit hwc.");
+
+        goto end;
+     }
+
    EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l, ll, output)
      {
         if (!output) continue;
@@ -964,11 +972,22 @@ e_comp_screen_init()
         goto failed_comp_screen;
      }
 
-   /* this setup function is called after e_comp_canvas_init */
-   if (!e_comp_screen_setup(e_comp->e_comp_screen))
+   if (e_comp->hwc_optimized_2)
      {
-        ERR("fail to e_comp_screen_setup");
-        return EINA_FALSE;
+        if (!e_hwc_init())
+          {
+             e_error_message_show(_("Enlightenment cannot initialize hwc!\n"));
+             return EINA_FALSE;
+          }
+     }
+   else
+     {
+        /* this setup function is called after e_comp_canvas_init */
+        if (!e_comp_screen_setup(e_comp->e_comp_screen))
+          {
+             ERR("fail to e_comp_screen_setup");
+             return EINA_FALSE;
+          }
      }
 
    tzsr_client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _tz_screen_rotation_cb_client_del, NULL);
