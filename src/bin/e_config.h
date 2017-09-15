@@ -29,7 +29,7 @@ typedef struct _E_Config_Aux_Hint_Supported     E_Config_Aux_Hint_Supported;
 
 struct _E_Config
 {
-   int         config_version;
+   int         config_version; // INTERNAL
    const char *desktop_default_background;
    const char *desktop_default_name;
    const char *desktop_default_window_profile;
@@ -127,15 +127,15 @@ struct _E_Config
       int          only_label;
       const char  *default_model;
       Eina_Bool    dont_touch_my_damn_keyboard;
-      Eina_Bool    use_cache;
-      unsigned int delay_held_key_input_to_focus;
+      Eina_Bool    use_cache; // use a cached keymap file insteads generate a new keymap file
+      unsigned int delay_held_key_input_to_focus; // delay in milliseconds that sends the key press event when the focus window is changed
       struct
       {
-          const char *rules;
-          const char *model;
-          const char *layout;
-          const char *variant;
-          const char *options;
+          const char *rules; // enlightenment's default xkb rules
+          const char *model; // enlightenment's default xkb model
+          const char *layout; // enlightenment's default xkb layout
+          const char *variant; // enlightenment's default xkb variant
+          const char *options; // enlightenment's default xkb options
       } default_rmlvo;
    } xkb;
    struct
@@ -147,42 +147,51 @@ struct _E_Config
 #ifdef _F_ZONE_WINDOW_ROTATION_
    unsigned char wm_win_rotation;
 #endif
-   unsigned int screen_rotation_pre;
-   unsigned int screen_rotation_setting;
-   Eina_Bool eom_enable;
-   int use_cursor_timer;
-   int cursor_timer_interval;
+   unsigned int screen_rotation_pre; // screen-rotation value as default (0/90/180/270)
+   unsigned int screen_rotation_setting; // screen-rotation value which is set in runtime (0/90/180/270)
+   Eina_Bool eom_enable; // 0: eom disable, 1: eom enable
+   int use_cursor_timer; // boolean value for enabling cursor timer (default : disable : 0)
+   int cursor_timer_interval; // time value the cursor will be displayed in second (default : 5)
    Eina_List *client_types;
    const char *comp_shadow_file;
-   int                       sleep_for_dri;
-   int                       create_wm_ready;
-   int                       create_wm_start;
+   int                       sleep_for_dri;   // 0: disable the dri device file check
+                                              // 1: wait until the dri device file is created at startup
+   int                       create_wm_ready; // 0: disable the creation of wm_ready file
+                                              // 1: create a wm_ready file to let other daemons know
+                                              // about the completion of server initialization
+   int                       create_wm_start; // 0: disable the creation of wm_start file
+                                              // 1: create a wm_start file to let other daemons know
+                                              // that non-delayed server modules are loaded
+   // property of canvas background object
    struct
    {
-      unsigned char r, g, b, a;
-      int opmode;
+      unsigned char r, g, b, a; // RGBA color components of canvas background object
+      int opmode;               // blending operation for canvas background object
+                                // e.g., EVAS_RENDER_COPY
    } comp_canvas_bg;
+
    int delayed_load_idle_count;
-   Eina_Bool use_buffer_flush;
-   Eina_Bool use_desk_smart_obj;
-   Eina_List *sock_accesses;
-   Eina_List *aux_hint_supported;
+   Eina_Bool use_buffer_flush; // 0: none, 1: let a client flush buffer when it is changed into iconic state to save memory
+   Eina_Bool use_desk_smart_obj; // 0: none, 1: make e_desk as a smart object
+   Eina_List *sock_accesses; // list of socket(wayland-0, tbm-drm-auto, tbm-socket) to grant permission without systemd
+   Eina_List *aux_hint_supported; // pre-defined aux hint list for a client launched ahead of delayed e-module loading
    struct
    {
-      Eina_Bool qp; /* quickpanel */
+      Eina_Bool qp; // whether to use extra quickpanel module for handling quickpanel
    } use_module_srv;
-   double launchscreen_timeout;
-   Eina_Bool enable_conformant_ack;
-   double conformant_ack_timeout;
-   Eina_Bool calc_vis_without_effect;
+   double launchscreen_timeout; // time to dismiss launchscreen
+   Eina_Bool enable_conformant_ack; // 0: no ack check, 1: conformant region show/hide delay until ack
+   double conformant_ack_timeout; // not to wait conformant ack if timer expires
+   Eina_Bool calc_vis_without_effect; // 0: none, 1: send visibility event to a client eventhough running effect due to performance issue.
    Eina_Bool save_win_buffer;
    Eina_Bool hold_prev_win_img;
-   const char *indicator_plug_name;
-   Eina_Bool launchscreen_without_timer;
-   int log_type;
-   int rsm_buffer_release_mode; /* 0:none, 1:release on free, 2:release on hide */
-   Eina_Bool deiconify_approve; /* 0:none, 1:wait render commit when deiconify*/
-   Eina_Bool use_pp_zoom;
+   const char *indicator_plug_name; // name of indicator ecore_evas_plug such as "elm_indicator"
+   Eina_Bool launchscreen_without_timer; // 0: dismiss launchscreen when timer expires, 1: it doesn't use timer
+   int log_type; // where to print dlog (0: default log, 1: system log)
+   int rsm_buffer_release_mode; // 0:none, 1:release on free, 2:release on hide
+   Eina_Bool deiconify_approve; // 0:none, 1:wait render commit when deiconify
+   Eina_Bool use_pp_zoom; // 0: pp zoom disable, 1: pp zoom enable
+   Eina_Bool priority_control; // 0: no priority change, 1: priority raise on focus
 };
 
 struct _E_Config_Desklock_Background

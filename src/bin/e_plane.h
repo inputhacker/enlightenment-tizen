@@ -71,9 +71,12 @@ struct _E_Plane
    Eina_Bool             unset_try;
    Eina_Bool             unset_commit;
    int                   unset_counter;
+   E_Client             *unset_ec;
 
    Eina_Bool             is_video;
    Eina_Bool             reserved_video;
+
+   Eina_Bool             fetch_retry;
 
    E_Plane              *fb_change;
    int                   fb_change_counter;
@@ -122,6 +125,9 @@ struct _E_Plane
     * the only thing we know that zpos order will be complied
     */
    tdm_hwc_window       *hwc_wnd;
+   double               fps;
+   double               old_fps;
+   double               frametimes[122];
 };
 
 struct _E_Plane_Commit_Data {
@@ -135,6 +141,7 @@ struct _E_Plane_Commit_Data {
 typedef enum _E_Plane_Hook_Point
 {
    E_PLANE_HOOK_VIDEO_SET,
+   E_PLANE_HOOK_UNSET,
    E_PLANE_HOOK_LAST
 } E_Plane_Hook_Point;
 
@@ -169,18 +176,20 @@ EINTERN void                 e_plane_reserved_set(E_Plane *plane, Eina_Bool set)
 EINTERN void                 e_plane_hwc_trace_debug(Eina_Bool onoff);
 EINTERN Eina_Bool            e_plane_render(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_commit(E_Plane *plane);
+EINTERN Eina_Bool            e_plane_offscreen_commit(E_Plane *plane);
 EINTERN void                 e_plane_show_state(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_is_unset_candidate(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_is_unset_try(E_Plane *plane);
 EINTERN void                 e_plane_unset_try_set(E_Plane *plane, Eina_Bool set);
-EINTERN Eina_Bool            e_plane_unset_commit_check(E_Plane *plane);
+EINTERN Eina_Bool            e_plane_unset_commit_check(E_Plane *plane, Eina_Bool fb_commit);
+EINTERN Eina_Bool            e_plane_is_fetch_retry(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_fb_target_set(E_Plane *plane, Eina_Bool set);
-EINTERN Eina_List           *e_plane_available_tbm_formats_get(E_Plane *plane);
+EINTERN Eina_List           *e_plane_available_formats_get(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_pp_commit(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect);
 EINTERN void                 e_plane_zoom_unset(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_is_fb_target_owned_by_ecore_evas(E_Plane *plane);
-
+EINTERN Eina_Bool            e_plane_fps_get(E_Plane *plane, double *fps);
 E_API Eina_Bool              e_plane_type_set(E_Plane *plane, E_Plane_Type type);
 E_API E_Plane_Type           e_plane_type_get(E_Plane *plane);
 E_API Eina_Bool              e_plane_role_set(E_Plane *plane, E_Plane_Role role);

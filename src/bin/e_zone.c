@@ -110,6 +110,7 @@ _e_zone_cb_mouse_in(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *eve
    if (edge == E_ZONE_EDGE_NONE) return;
 
    zev = E_NEW(E_Event_Zone_Edge, 1);
+   if (!zev) return;
    zev->zone = zone;
    zev->edge = edge;
    zev->x = ev->output.x;
@@ -133,6 +134,7 @@ _e_zone_cb_mouse_out(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *ev
    if (edge == E_ZONE_EDGE_NONE) return;
 
    zev = E_NEW(E_Event_Zone_Edge, 1);
+   if (!zev) return;
    zev->zone = zone;
    zev->edge = edge;
    zev->x = ev->output.x;
@@ -156,6 +158,7 @@ _e_zone_cb_mouse_down(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *e
    if (edge == E_ZONE_EDGE_NONE) return;
 
    zev = E_NEW(E_Event_Zone_Edge, 1);
+   if (!zev) return;
    zev->zone = zone;
    zev->edge = edge;
    zev->x = ev->output.x;
@@ -178,6 +181,7 @@ _e_zone_cb_mouse_up(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *eve
    if (edge == E_ZONE_EDGE_NONE) return;
 
    zev = E_NEW(E_Event_Zone_Edge, 1);
+   if (!zev) return;
    zev->zone = zone;
    zev->edge = edge;
    zev->x = ev->output.x;
@@ -200,6 +204,7 @@ _e_zone_cb_mouse_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *e
    if (edge == E_ZONE_EDGE_NONE) return;
 
    zev = E_NEW(E_Event_Zone_Edge, 1);
+   if (!zev) return;
    zev->zone = zone;
    zev->edge = edge;
    zev->x = ev->cur.output.x;
@@ -275,9 +280,12 @@ e_zone_new(int num, int id, int x, int y, int w, int h)
    if (starting) return zone;
 
    ev = E_NEW(E_Event_Zone_Add, 1);
-   ev->zone = zone;
-   e_object_ref(E_OBJECT(ev->zone));
-   ecore_event_add(E_EVENT_ZONE_ADD, ev, _e_zone_event_generic_free, NULL);
+   if (ev)
+     {
+        ev->zone = zone;
+        e_object_ref(E_OBJECT(ev->zone));
+        ecore_event_add(E_EVENT_ZONE_ADD, ev, _e_zone_event_generic_free, NULL);
+     }
 
    return zone;
 }
@@ -334,9 +342,12 @@ e_zone_move(E_Zone *zone,
    evas_object_move(zone->bg_clip_object, x, y);
 
    ev = E_NEW(E_Event_Zone_Move_Resize, 1);
-   ev->zone = zone;
-   e_object_ref(E_OBJECT(ev->zone));
-   ecore_event_add(E_EVENT_ZONE_MOVE_RESIZE, ev, _e_zone_event_generic_free, NULL);
+   if (ev)
+     {
+        ev->zone = zone;
+        e_object_ref(E_OBJECT(ev->zone));
+        ecore_event_add(E_EVENT_ZONE_MOVE_RESIZE, ev, _e_zone_event_generic_free, NULL);
+     }
 
    _e_zone_edge_move_resize(zone);
    e_zone_bg_reconfigure(zone);
@@ -365,10 +376,13 @@ e_zone_resize(E_Zone *zone,
    evas_object_resize(zone->bg_clip_object, w, h);
 
    ev = E_NEW(E_Event_Zone_Move_Resize, 1);
-   ev->zone = zone;
-   e_object_ref(E_OBJECT(ev->zone));
-   ecore_event_add(E_EVENT_ZONE_MOVE_RESIZE, ev,
-                   _e_zone_event_generic_free, NULL);
+   if (ev)
+     {
+        ev->zone = zone;
+        e_object_ref(E_OBJECT(ev->zone));
+        ecore_event_add(E_EVENT_ZONE_MOVE_RESIZE, ev,
+                        _e_zone_event_generic_free, NULL);
+     }
 
    _e_zone_edge_move_resize(zone);
    e_zone_bg_reconfigure(zone);
@@ -408,10 +422,13 @@ e_zone_move_resize(E_Zone *zone,
    evas_object_resize(zone->bg_clip_object, w, h);
 
    ev = E_NEW(E_Event_Zone_Move_Resize, 1);
-   ev->zone = zone;
-   e_object_ref(E_OBJECT(ev->zone));
-   ecore_event_add(E_EVENT_ZONE_MOVE_RESIZE, ev,
-                   _e_zone_event_generic_free, NULL);
+   if (ev)
+     {
+        ev->zone = zone;
+        e_object_ref(E_OBJECT(ev->zone));
+        ecore_event_add(E_EVENT_ZONE_MOVE_RESIZE, ev,
+                        _e_zone_event_generic_free, NULL);
+     }
 
    _e_zone_edge_move_resize(zone);
    e_zone_bg_reconfigure(zone);
@@ -559,6 +576,7 @@ e_zone_desk_count_set(E_Zone *zone,
      }
 
    new_desks = malloc(xx * yy * sizeof(E_Desk *));
+   if (!new_desks) return;
    for (x = 0; x < xx; x++)
      {
         for (y = 0; y < yy; y++)
@@ -1107,6 +1125,7 @@ e_zone_useful_geometry_dirty(E_Zone *zone)
    E_OBJECT_TYPE_CHECK(zone, E_ZONE_TYPE);
 
    ev = E_NEW(E_Event_Zone_Move_Resize, 1);
+   if (!ev) return;
    ev->zone = zone;
    e_object_ref(E_OBJECT(ev->zone));
    ecore_event_add(E_EVENT_ZONE_MOVE_RESIZE, ev, _e_zone_event_generic_free, NULL);
@@ -1121,6 +1140,7 @@ e_zone_stow(E_Zone *zone)
    E_OBJECT_TYPE_CHECK(zone, E_ZONE_TYPE);
    if (zone->stowed) return;
    ev = E_NEW(E_Event_Zone_Stow, 1);
+   if (!ev) return;
    ev->zone = zone;
    e_object_ref(E_OBJECT(ev->zone));
    ecore_event_add(E_EVENT_ZONE_STOW, ev, _e_zone_event_generic_free, NULL);
@@ -1137,6 +1157,7 @@ e_zone_unstow(E_Zone *zone)
    E_OBJECT_TYPE_CHECK(zone, E_ZONE_TYPE);
    if (!zone->stowed) return;
    ev = E_NEW(E_Event_Zone_Unstow, 1);
+   if (!ev) return;
    ev->zone = zone;
    e_object_ref(E_OBJECT(ev->zone));
    ecore_event_add(E_EVENT_ZONE_UNSTOW, ev, _e_zone_event_generic_free, NULL);
@@ -1354,6 +1375,7 @@ _e_zone_object_del_attach(void *o)
    zone = o;
    if (stopping) return;
    ev = E_NEW(E_Event_Zone_Del, 1);
+   if (!ev) return;
    ev->zone = zone;
    e_object_ref(E_OBJECT(ev->zone));
    ecore_event_add(E_EVENT_ZONE_DEL, ev, _e_zone_event_generic_free, NULL);

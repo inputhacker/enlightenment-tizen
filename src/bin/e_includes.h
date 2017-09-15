@@ -66,6 +66,7 @@
 #include "e_comp_wl_video_buffer.h"
 #include "e_comp_wl_viewport.h"
 #include "e_policy.h"
+#include "e_policy_conformant.h"
 #include "e_policy_visibility.h"
 #include "e_process.h"
 #include "e_splitlayout.h"
@@ -74,3 +75,4 @@
 #include "e_security.h"
 #include "e_main.h"
 #include "e_keyrouter.h"
+#include "e_gesture.h"

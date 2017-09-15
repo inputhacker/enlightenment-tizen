@@ -7,7 +7,7 @@
 #include "services/e_service_cbhm.h"
 #include "services/e_service_scrsaver.h"
 #include "e_policy_wl_display.h"
-#include "e_policy_conformant.h"
+#include "e_policy_conformant_internal.h"
 #include "e_policy_visibility.h"
 
 #include <device/display.h>
@@ -1137,12 +1137,13 @@ e_policy_wl_visibility_send(E_Client *ec, int vis)
                  }
 
                ELOGF("TZVIS",
-                     "SEND     |win:0x%08x|res_tzvis:0x%08x|ver:%d|sent_vis:%d",
+                     "SEND     |win:0x%08x|res_tzvis:0x%08x|ver:%d|sent_vis:%d|pid:%d|title:%s, name:%s",
                      ec->pixmap, ec,
                      (unsigned int)win,
                      (unsigned int)res_tzvis,
                      ver,
-                     sent_vis);
+                     sent_vis,
+                     ec->netwm.pid, ec->icccm.title, ec->netwm.name);
                sent = EINA_TRUE;
                if (ec->comp_data->mapped)
                  {
@@ -1395,6 +1396,7 @@ _tzpol_iface_cb_activate(struct wl_client *client EINA_UNUSED, struct wl_resourc
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_ACTIVE_REQ, ec);
 
    ELOGF("TZPOL", "ACTIVATE", ec->pixmap, ec);
    ec->post_lower = EINA_FALSE;
@@ -1572,6 +1574,7 @@ _tzpol_iface_cb_raise(struct wl_client *client EINA_UNUSED, struct wl_resource *
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_RAISE_REQ, ec);
 
    ELOGF("TZPOL", "RAISE", ec->pixmap, ec);
 
@@ -1589,6 +1592,7 @@ _tzpol_iface_cb_lower(struct wl_client *client EINA_UNUSED, struct wl_resource *
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_LOWER_REQ, ec);
 
    ELOGF("TZPOL", "LOWER", ec->pixmap, ec);
 
@@ -1599,6 +1603,9 @@ _tzpol_iface_cb_lower(struct wl_client *client EINA_UNUSED, struct wl_resource *
 
    if (!e_client_first_mapped_get(ec))
      e_client_post_raise_lower_set(ec, EINA_FALSE, EINA_TRUE);
+
+   if (ec->focused)
+     e_client_revert_focus(ec);
 }
 
 static void
@@ -1724,6 +1731,7 @@ _tzpol_iface_cb_type_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
          break;
 
       case TIZEN_POLICY_WIN_TYPE_NOTIFICATION:
+         ec->animatable = 0;
          win_type = E_WINDOW_TYPE_NOTIFICATION;
          break;
 
@@ -2712,6 +2720,7 @@ _e_policy_wl_floating_mode_apply(E_Client *ec, Eina_Bool floating)
    if (ec->floating == floating) return;
 
    ec->floating = floating;
+   ec->lock_client_location = EINA_FALSE;
 
    if (ec->frame)
      {
@@ -3086,6 +3095,12 @@ _tz_dpy_pol_iface_cb_brightness_set(struct wl_client *client, struct wl_resource
 }
 
 static void
+_tz_dpy_pol_iface_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
+static void
 _tzpol_iface_cb_subsurf_watcher_destroy(struct wl_resource *resource)
 {
    E_Client *ec;
@@ -3095,6 +3110,17 @@ _tzpol_iface_cb_subsurf_watcher_destroy(struct wl_resource *resource)
 
    ec->comp_data->sub.watcher = NULL;
 }
+
+static void
+_tzpol_subsurf_watcher_iface_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
+static const struct tizen_subsurface_watcher_interface _tzpol_subsurf_watcher_iface =
+{
+   _tzpol_subsurf_watcher_iface_cb_destroy,
+};
 
 static void
 _tzpol_iface_cb_subsurf_watcher_get(struct wl_client *client, struct wl_resource *res_tzpol, uint32_t id, struct wl_resource *surface)
@@ -3113,7 +3139,10 @@ _tzpol_iface_cb_subsurf_watcher_get(struct wl_client *client, struct wl_resource
 
    ec->comp_data->sub.watcher = res;
 
-   wl_resource_set_implementation(res, NULL, ec, _tzpol_iface_cb_subsurf_watcher_destroy);
+   wl_resource_set_implementation(res,
+                                  &_tzpol_subsurf_watcher_iface,
+                                  ec,
+                                  _tzpol_iface_cb_subsurf_watcher_destroy);
 }
 
 static void
@@ -3167,6 +3196,26 @@ _tzpol_iface_cb_ack_conformant_region(struct wl_client *client, struct wl_resour
    e_policy_conformant_client_ack(ec, res_tzpol, serial);
 }
 
+static void
+_tzpol_iface_cb_destroy(struct wl_client *client, struct wl_resource *res_tzpol)
+{
+   wl_resource_destroy(res_tzpol);
+}
+
+static void
+_tzpol_iface_cb_has_video(struct wl_client *client, struct wl_resource *res_tzpol, struct wl_resource *surface, uint32_t has)
+{
+   E_Client *ec;
+
+   if (!(ec = wl_resource_get_user_data(surface))) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (ec->comp_data->has_video_client == has) return;
+
+   ELOGF("TZPOL", "video client has(%d)", ec->pixmap, ec, has);
+
+   ec->comp_data->has_video_client = has;
+}
+
 // --------------------------------------------------------
 // tizen_policy_interface
 // --------------------------------------------------------
@@ -3209,6 +3258,8 @@ static const struct tizen_policy_interface _tzpol_iface =
    _tzpol_iface_cb_subsurf_watcher_get,
    _tzpol_iface_cb_parent_set,
    _tzpol_iface_cb_ack_conformant_region,
+   _tzpol_iface_cb_destroy,
+   _tzpol_iface_cb_has_video,
 };
 
 static void
@@ -3256,6 +3307,7 @@ err:
 static const struct tizen_display_policy_interface _tz_dpy_pol_iface =
 {
    _tz_dpy_pol_iface_cb_brightness_set,
+   _tz_dpy_pol_iface_cb_destroy,
 };
 
 static void
@@ -3885,6 +3937,11 @@ _tzsh_reg_cb_shell_destroy(struct wl_listener *listener, void *data)
    E_Policy_Wl_Tzsh_Region *tzsh_reg;
 
    tzsh_reg = container_of(listener, E_Policy_Wl_Tzsh_Region, destroy_listener);
+   if (tzsh_reg->destroy_listener.notify)
+     {
+        wl_list_remove(&tzsh_reg->destroy_listener.link);
+        tzsh_reg->destroy_listener.notify = NULL;
+     }
 
    if (tzsh_reg->res_tzsh_reg)
      {
@@ -4947,8 +5004,8 @@ _launch_splash_off(E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash)
    tzlaunch_splash->timeout = NULL;
 
    ELOGF("TZPOL",
-         "Launchscreen hide | pid %d",
-         ec->pixmap, ec, tzlaunch_splash->pid);
+         "Launchscreen hide | pid %d, replaced:%d, tzlaunch_pixmap:%p, ec_pixmap:%p",
+         ec->pixmap, ec, tzlaunch_splash->pid, tzlaunch_splash->replaced, tzlaunch_splash->ep, ec->pixmap);
 
    if (tzlaunch_splash->indicator_obj)
      {
@@ -4983,7 +5040,10 @@ _launch_splash_off(E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash)
         if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
           {
              // if Launchscreen is replaced to cursor, than hide
+             e_comp_object_content_unset(ec->frame);
+             ec->visible = EINA_FALSE;
              evas_object_hide(ec->frame);
+             ec->ignored = EINA_TRUE;
           }
         else if (!tzlaunch_splash->replaced)
           {
@@ -5029,6 +5089,12 @@ _launchscreen_splash_timeout(void *data)
    _launch_splash_off(tzlaunch_splash);
 
    return ECORE_CALLBACK_CANCEL;
+}
+
+static void
+_tzlaunch_iface_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
 }
 
 static void
@@ -5506,6 +5572,7 @@ _tzlaunch_img_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_res
 
    tzlaunch_img->pid = pid;
    tzlaunch_img->ec->netwm.pid = pid;
+   tzlaunch_img->ec->use_splash = EINA_TRUE;
 }
 
 static void
@@ -5593,6 +5660,7 @@ _tzlaunch_splash_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_
 
    tzlaunch_splash->pid = pid;
    tzlaunch_splash->ec->netwm.pid = pid;
+   tzlaunch_splash->ec->use_splash = EINA_TRUE;
 }
 
 static const struct tizen_launch_image_interface _tzlaunch_img_iface =
@@ -5870,7 +5938,8 @@ _tzlaunch_effect_iface_cb_type_unset(struct wl_client *client, struct wl_resourc
 
 static const struct tizen_launchscreen_interface _tzlaunch_iface =
 {
-   _tzlaunch_iface_cb_create_img
+   _tzlaunch_iface_cb_create_img,
+   _tzlaunch_iface_cb_destroy,
 };
 
 static const struct tizen_launch_effect_interface _tzlaunch_effect_iface =
@@ -6795,7 +6864,7 @@ e_policy_wl_init(void)
    /* create globals */
    global = wl_global_create(e_comp_wl->wl.disp,
                              &tizen_policy_interface,
-                             5,
+                             7,
                              NULL,
                              _tzpol_cb_bind);
    EINA_SAFETY_ON_NULL_GOTO(global, err);

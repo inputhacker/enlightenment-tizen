@@ -76,6 +76,9 @@ cp %{SOURCE1001} .
 export CFLAGS+=" -fPIE "
 export LDFLAGS+=" -pie "
 %endif
+%if "%{_with_emulator}" == "1"
+export CFLAGS+=" -DUSE_NATIVE_BUFFER "
+%endif
 %autogen \
       TIZEN_REL_VERSION="%{release}-%{TIZEN_REL_VERSION}" \
       --enable-function-trace \
@@ -87,15 +90,16 @@ make %{?_smp_mflags}
 
 %install
 %make_install
+ln -sf %{_bindir}/enlightenment_info %{buildroot}%{_bindir}/winfo
 
 %files
 %manifest %{name}.manifest
 %defattr(-,root,root,-)
 %license COPYING
-%attr(750,root,root) %{_bindir}/enlightenment*
+%attr(550,root,root) %{_bindir}/enlightenment*
+%attr(550,root,root) %{_bindir}/winfo*
 %{_libdir}/enlightenment/*
 %{_datadir}/enlightenment/*
-%{_sysconfdir}/dbus-1/system.d/org.enlightenment.wm.conf
 %exclude %{_bindir}/enlightenment_remote
 %exclude /usr/share/enlightenment/data/config/profile.cfg
 %exclude %{_datadir}/enlightenment/data/*

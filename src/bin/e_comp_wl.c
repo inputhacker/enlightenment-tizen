@@ -65,6 +65,7 @@ static Eina_Inlist *_e_comp_wl_hooks[] =
    [E_COMP_WL_HOOK_SHELL_SURFACE_READY] = NULL,
    [E_COMP_WL_HOOK_SUBSURFACE_CREATE] = NULL,
    [E_COMP_WL_HOOK_BUFFER_CHANGE] = NULL,
+   [E_COMP_WL_HOOK_CLIENT_REUSE] = NULL,
 };
 
 static Eina_List *hooks = NULL;
@@ -259,8 +260,8 @@ e_comp_wl_map_size_cal_from_viewport(E_Client *ec)
    ec->comp_data->height_from_viewport = height;
 }
 
-static E_Client*
-_e_comp_wl_topmost_parent_get(E_Client *ec)
+EINTERN E_Client*
+e_comp_wl_topmost_parent_get(E_Client *ec)
 {
    E_Client *parent = NULL;
 
@@ -290,6 +291,9 @@ e_comp_wl_video_subsurface_has(E_Client *ec)
    if (!ec->comp_data) return EINA_FALSE;
 
    if (ec->comp_data->video_client)
+     return EINA_TRUE;
+
+   if (ec->comp_data->has_video_client)
      return EINA_TRUE;
 
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
@@ -423,9 +427,9 @@ e_comp_wl_map_apply(E_Client *ec)
    e_util_transform_texcoord_set(cdata->viewport_transform, 2, x2, y2);
    e_util_transform_texcoord_set(cdata->viewport_transform, 3, x1, y2);
 
-//   ELOGF("COMP", "viewport map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d)",
-//         ec->pixmap, ec, ec->x, ec->y, ec->comp_data->width_from_viewport,
-//         ec->comp_data->height_from_viewport, x1, y1, x2, y1, x2, y2, x1, y2);
+   ELOGF("TRANSFORM", "viewport map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d)",
+         ec->pixmap, ec, ec->x, ec->y, ec->comp_data->width_from_viewport,
+         ec->comp_data->height_from_viewport, x1, y1, x2, y1, x2, y2, x1, y2);
 
    e_client_transform_core_update(ec);
 }
@@ -468,7 +472,7 @@ _e_comp_wl_evas_cb_show(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EIN
    EINA_LIST_FOREACH(ec->e.state.video_child, l, tmp)
      evas_object_show(tmp->frame);
 
-   topmost = _e_comp_wl_topmost_parent_get(ec);
+   topmost = e_comp_wl_topmost_parent_get(ec);
    if (topmost == ec && (ec->comp_data->sub.list || ec->comp_data->sub.below_list))
      _e_comp_wl_subsurface_show(ec);
 
@@ -497,7 +501,7 @@ _e_comp_wl_evas_cb_hide(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EIN
    EINA_LIST_FOREACH(ec->e.state.video_child, l, tmp)
      evas_object_hide(tmp->frame);
 
-   topmost = _e_comp_wl_topmost_parent_get(ec);
+   topmost = e_comp_wl_topmost_parent_get(ec);
    if (topmost == ec && (ec->comp_data->sub.list || ec->comp_data->sub.below_list))
      _e_comp_wl_subsurface_hide(ec);
 
@@ -880,13 +884,6 @@ _e_comp_wl_evas_cb_mouse_in(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj
 
    if (!ec->comp_data || !ec->comp_data->surface) return;
 
-   if ((e_comp_object_is_animating(ec->frame)) ||
-       (evas_object_data_get(ec->frame, "effect_running")))
-     {
-        INF("[Server] No touch event(mouse_in) to client while effect");
-        return;
-     }
-
    e_comp_wl->ptr.ec = ec;
    if (e_comp_wl->drag)
      {
@@ -944,13 +941,6 @@ _e_comp_wl_evas_cb_mouse_out(void *data, Evas *evas EINA_UNUSED, Evas_Object *ob
                           ec->client.x, ec->client.y, ec->client.w, ec->client.h);
    if (ec->cur_mouse_action && inside_check) return;
    if (e_object_is_del(E_OBJECT(e_comp))) return;
-
-   if ((e_comp_object_is_animating(ec->frame)) ||
-       (evas_object_data_get(ec->frame, "effect_running")))
-     {
-        INF("[Server] No touch event(mouse_out) to client while effect");
-        return;
-     }
 
    /* FIXME? this is a hack to just reset the cursor whenever we mouse out. not sure if accurate */
    {
@@ -1141,13 +1131,6 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
 
    if ((!need_send_motion) && (!need_send_released) && (ec->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)) return;
 
-   if ((e_comp_object_is_animating(ec->frame)) ||
-       (evas_object_data_get(ec->frame, "effect_running")))
-     {
-        INF("[Server] No touch event(mouse_move) to client while effect");
-        return;
-     }
-
    if ((!e_comp_wl->drag_client) ||
        (!e_client_has_xwindow(e_comp_wl->drag_client)))
      {
@@ -1229,13 +1212,6 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
-   if ((e_comp_object_is_animating(ec->frame)) ||
-       (evas_object_data_get(ec->frame, "effect_running")))
-     {
-        INF("[Server] No touch event(mouse_down) to client while effect");
-        return;
-     }
-
    dev = ev->dev;
    dev_name = evas_device_description_get(dev);
 
@@ -1286,13 +1262,6 @@ _e_comp_wl_evas_cb_mouse_up(void *data, Evas *evas, Evas_Object *obj EINA_UNUSED
    if (!ec) return;
    if (ec->cur_mouse_action) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
-
-   if ((e_comp_object_is_animating(ec->frame)) ||
-       (evas_object_data_get(ec->frame, "effect_running")))
-     {
-        INF("[Server] No touch event(mouse_up) to client while effect");
-        return;
-     }
 
    if (!need_send_released)
      {
@@ -1368,13 +1337,6 @@ _e_comp_wl_evas_cb_mouse_wheel(void *data, Evas *evas EINA_UNUSED, Evas_Object *
 
    if (!ec->comp_data || !ec->comp_data->surface) return;
 
-   if ((e_comp_object_is_animating(ec->frame)) ||
-       (evas_object_data_get(ec->frame, "effect_running")))
-     {
-        INF("[Server] No touch event(mouse_wheel) to client while effect");
-        return;
-     }
-
    if (!eina_list_count(e_comp_wl->ptr.resources))
      return;
 
@@ -1398,13 +1360,6 @@ _e_comp_wl_evas_cb_multi_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
 
    /* Do not deliver emulated single touch events to client */
    if (ev->device == 0) return;
-
-   if ((e_comp_object_is_animating(ec->frame)) ||
-       (evas_object_data_get(ec->frame, "effect_running")))
-     {
-        INF("[Server] No touch event(multi_down) to client while effect");
-        return;
-     }
 
    dev = ev->dev;
    if (dev && (dev_name = evas_device_description_get(dev)))
@@ -1434,13 +1389,6 @@ _e_comp_wl_evas_cb_multi_up(void *data, Evas *evas, Evas_Object *obj EINA_UNUSED
 
    /* Do not deliver emulated single touch events to client */
    if (ev->device == 0) return;
-
-   if ((e_comp_object_is_animating(ec->frame)) ||
-       (evas_object_data_get(ec->frame, "effect_running")))
-     {
-        INF("[Server] No touch event(multi_up) to client while effect");
-        return;
-     }
 
    flags = evas_event_default_flags_get(evas);
    if (flags & EVAS_EVENT_FLAG_ON_HOLD) return;
@@ -1472,13 +1420,6 @@ _e_comp_wl_evas_cb_multi_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
 
    /* Do not deliver emulated single touch events to client */
    if (ev->device == 0) return;
-
-   if ((e_comp_object_is_animating(ec->frame)) ||
-       (evas_object_data_get(ec->frame, "effect_running")))
-     {
-        INF("[Server] No touch event(multi_move) to client while effect");
-        return;
-     }
 
    if (e_comp_wl->touch.pressed & (1 << ev->device))
      {
@@ -1542,6 +1483,7 @@ _e_comp_wl_client_priority_adjust(int pid, int set, int adj, Eina_Bool use_adj, 
 static void
 _e_comp_wl_client_priority_raise(E_Client *ec)
 {
+   if (!e_config->priority_control) return;
    if (ec->netwm.pid <= 0) return;
    if (ec->netwm.pid == getpid()) return;
    _e_comp_wl_client_priority_adjust(ec->netwm.pid,
@@ -1552,6 +1494,7 @@ _e_comp_wl_client_priority_raise(E_Client *ec)
 static void
 _e_comp_wl_client_priority_normal(E_Client *ec)
 {
+   if (!e_config->priority_control) return;
    if (ec->netwm.pid <= 0) return;
    if (ec->netwm.pid == getpid()) return;
    _e_comp_wl_client_priority_adjust(ec->netwm.pid, e_config->priority, 1,
@@ -1650,7 +1593,7 @@ e_comp_wl_subsurface_stack_update(E_Client *ec)
         return;
      }
 
-   topmost = _e_comp_wl_topmost_parent_get(ec);
+   topmost = e_comp_wl_topmost_parent_get(ec);
 
    _e_comp_wl_subsurface_restack(topmost);
    _e_comp_wl_subsurface_restack_bg_rectangle(topmost);
@@ -1913,6 +1856,13 @@ _e_comp_wl_buffer_cb_destroy(struct wl_listener *listener, void *data EINA_UNUSE
    eina_stringshare_del(buffer->debug_info.owner_name);
 
    wl_signal_emit(&buffer->destroy_signal, buffer);
+
+   if (buffer->destroy_listener.notify)
+     {
+        wl_list_remove(&buffer->destroy_listener.link);
+        buffer->destroy_listener.notify = NULL;
+     }
+
    free(buffer);
 }
 
@@ -2319,7 +2269,7 @@ _e_comp_wl_subsurface_can_show(E_Client *ec)
      return EINA_FALSE;
 
    invisible_parent = _e_comp_wl_subsurface_invisible_parent_get(ec);
-   topmost = _e_comp_wl_topmost_parent_get(ec);
+   topmost = e_comp_wl_topmost_parent_get(ec);
 
    /* if topmost is composited by compositor && if there is a invisible parent */
    if (topmost->redirected && invisible_parent)
@@ -2476,13 +2426,16 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
         e_client_unignore(ec);
      }
 
-   if (vp->wait_for_transform_change && (vp->buffer.transform != state->buffer_viewport.buffer.transform))
+   if (vp->buffer.transform != state->buffer_viewport.buffer.transform)
      {
         int transform_change = (4 + state->buffer_viewport.buffer.transform - vp->buffer.transform) & 0x3;
 
-        DBG("ec(%p) wait_for_transform_change(%d) change(%d) : new(%d) old(%d)",
-            ec, vp->wait_for_transform_change, transform_change,
-            state->buffer_viewport.buffer.transform, vp->buffer.transform);
+        /* when buffer is transformed, we have to apply the new evas-map */
+        state->buffer_viewport.changed = EINA_TRUE;
+
+        ELOGF("TRANSFORM", "buffer_transform changed: old(%d) new(%d)",
+              ec->pixmap, ec,
+              vp->buffer.transform, state->buffer_viewport.buffer.transform);
 
         if (transform_change == vp->wait_for_transform_change)
           vp->wait_for_transform_change = 0;
@@ -3515,57 +3468,61 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
    if (ec->comp_data->sub.below_obj) return;
    if (ec->comp_data->sub.data)
      {
-         E_Client *topmost = _e_comp_wl_topmost_parent_get(ec);
+         E_Client *topmost = e_comp_wl_topmost_parent_get(ec);
          if (!topmost || e_object_is_del(E_OBJECT(topmost)) || !topmost->comp_data) return;
          if (topmost->comp_data->sub.data) return;
          if (topmost->comp_data->sub.below_obj) return;
          _e_comp_wl_subsurface_check_below_bg_rectangle(topmost);
          return;
      }
-   if (!ec->comp_data->sub.below_list && !ec->comp_data->sub.below_list_pending) return;
+
    if (ec->argb) return;
-   if (!e_comp_wl_normal_subsurface_has(ec)) return;
 
-   ELOGF("COMP", "         |bg_rectangle", NULL, ec);
+   if (ec->comp_data->sub.below_list ||
+       ec->comp_data->sub.below_list_pending ||
+       e_comp_wl_video_subsurface_has(ec))
+     {
+        ELOGF("COMP", "         |bg_rectangle(%p) created", NULL, ec, ec->comp_data->sub.below_obj);
 
-   /* create a bg rectangle if topmost window is 24 depth window */
-   ec->comp_data->sub.below_obj = evas_object_rectangle_add(e_comp->evas);
-   EINA_SAFETY_ON_NULL_RETURN(ec->comp_data->sub.below_obj);
+        /* create a bg rectangle if topmost window is 24 depth window */
+        ec->comp_data->sub.below_obj = evas_object_rectangle_add(e_comp->evas);
+        EINA_SAFETY_ON_NULL_RETURN(ec->comp_data->sub.below_obj);
 
-   layer = evas_object_layer_get(ec->frame);
-   evas_object_layer_set(ec->comp_data->sub.below_obj, layer);
-   evas_object_render_op_set(ec->comp_data->sub.below_obj, EVAS_RENDER_COPY);
+        layer = evas_object_layer_get(ec->frame);
+        evas_object_layer_set(ec->comp_data->sub.below_obj, layer);
+        evas_object_render_op_set(ec->comp_data->sub.below_obj, EVAS_RENDER_COPY);
 
-   /* It's more reasonable to use the transparent color instead of black because
-    * we can show the alpha value of the 24 depth topmost window.
-    */
-   evas_object_color_set(ec->comp_data->sub.below_obj, 0x00, 0x00, 0x00, 0x00);
-   evas_object_move(ec->comp_data->sub.below_obj, ec->x, ec->y);
-   evas_object_resize(ec->comp_data->sub.below_obj, ec->w, ec->h);
-   evas_object_name_set(ec->comp_data->sub.below_obj, "below_bg_rectangle");
+        /* It's more reasonable to use the transparent color instead of black because
+         * we can show the alpha value of the 24 depth topmost window.
+         */
+        evas_object_color_set(ec->comp_data->sub.below_obj, 0x00, 0x00, 0x00, 0x00);
+        evas_object_move(ec->comp_data->sub.below_obj, ec->x, ec->y);
+        evas_object_resize(ec->comp_data->sub.below_obj, ec->w, ec->h);
+        evas_object_name_set(ec->comp_data->sub.below_obj, "below_bg_rectangle");
 
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_RESIZE,
-                                  _e_comp_wl_subsurface_bg_evas_cb_resize, ec);
+        evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_RESIZE,
+                                       _e_comp_wl_subsurface_bg_evas_cb_resize, ec);
 
-   /* set alpha only if SW path */
-   e_comp_object_alpha_set(ec->frame, EINA_TRUE);
+        /* set alpha only if SW path */
+        e_comp_object_alpha_set(ec->frame, EINA_TRUE);
 
-   /* force update for changing alpha value. If the native surface has been already
-    * set before, changing alpha value can't be applied to egl image.
-    */
-   e_comp_object_native_surface_set(ec->frame, EINA_FALSE);
-   e_pixmap_image_refresh(ec->pixmap);
-   e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
-   e_comp_object_dirty(ec->frame);
-   e_comp_object_render(ec->frame);
+        /* force update for changing alpha value. If the native surface has been already
+         * set before, changing alpha value can't be applied to egl image.
+         */
+        e_comp_object_native_surface_set(ec->frame, EINA_FALSE);
+        e_pixmap_image_refresh(ec->pixmap);
+        e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+        e_comp_object_dirty(ec->frame);
+        e_comp_object_render(ec->frame);
 
-   _e_comp_wl_subsurface_restack(ec);
-   _e_comp_wl_subsurface_restack_bg_rectangle(ec);
+        _e_comp_wl_subsurface_restack(ec);
+        _e_comp_wl_subsurface_restack_bg_rectangle(ec);
 
-   if (evas_object_visible_get(ec->frame))
-     evas_object_show(ec->comp_data->sub.below_obj);
+        if (evas_object_visible_get(ec->frame))
+          evas_object_show(ec->comp_data->sub.below_obj);
 
-   _e_comp_wl_subsurface_mask_set(ec);
+        _e_comp_wl_subsurface_mask_set(ec);
+     }
 }
 
 static void
@@ -3662,7 +3619,7 @@ _e_comp_wl_subsurface_commit_from_cache(E_Client *ec)
 
    if (_e_comp_wl_surface_subsurface_order_commit(ec))
      {
-        E_Client *topmost = _e_comp_wl_topmost_parent_get(ec);
+        E_Client *topmost = e_comp_wl_topmost_parent_get(ec);
         _e_comp_wl_subsurface_restack(topmost);
         _e_comp_wl_subsurface_restack_bg_rectangle(topmost);
      }
@@ -4414,6 +4371,9 @@ _e_comp_wl_client_usable_get(pid_t pid, E_Pixmap *ep)
              ec->ignored = 0;
              if (!ec->comp_data) return NULL;
              _e_comp_wl_client_evas_init(ec);
+
+             ELOGF("COMP", "Reusable ec. new_pixmap:%p", ec->pixmap, ec, ec->pixmap);
+             _e_comp_wl_hook_call(E_COMP_WL_HOOK_CLIENT_REUSE, ec);
           }
      }
 
@@ -4972,7 +4932,7 @@ e_comp_wl_surface_commit(E_Client *ec)
 
    if (_e_comp_wl_surface_subsurface_order_commit(ec))
      {
-        E_Client *topmost = _e_comp_wl_topmost_parent_get(ec);
+        E_Client *topmost = e_comp_wl_topmost_parent_get(ec);
         _e_comp_wl_subsurface_restack(topmost);
         _e_comp_wl_subsurface_restack_bg_rectangle(topmost);
      }
@@ -5139,56 +5099,109 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
    if (!(buffer = E_NEW(E_Comp_Wl_Buffer, 1))) return NULL;
 
    shmbuff = wl_shm_buffer_get(resource);
-   tbm_surf = wayland_tbm_server_get_surface(NULL, resource);
 
-   if (shmbuff)
+   /* TODO: This option is temporarily. It will be removed later. */
+   /* prefer to use native buffer(wl_buffer) */
+   if (e_comp->use_native_type_buffer)
      {
-        buffer->type = E_COMP_WL_BUFFER_TYPE_SHM;
-
-        buffer->w = wl_shm_buffer_get_width(shmbuff);
-        buffer->h = wl_shm_buffer_get_height(shmbuff);
-     }
-   else if (tbm_surf)
-     {
-        tbm_surf = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, resource);
-        if (!tbm_surf)
-          goto err;
-
-        if ((ec) && (ec->comp_data->video_client))
+        if (shmbuff)
           {
-             buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
-             buffer->w = buffer->h = 1;
+             buffer->type = E_COMP_WL_BUFFER_TYPE_SHM;
+
+             buffer->w = wl_shm_buffer_get_width(shmbuff);
+             buffer->h = wl_shm_buffer_get_height(shmbuff);
           }
         else
           {
-             buffer->type = E_COMP_WL_BUFFER_TYPE_TBM;
-             buffer->w = tbm_surface_get_width(tbm_surf);
-             buffer->h = tbm_surface_get_height(tbm_surf);
+             if ((ec) && (ec->comp_data->video_client))
+               {
+                  buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
+                  buffer->w = buffer->h = 1;
+               }
+             else if (e_comp->gl)
+               {
+                  buffer->type = E_COMP_WL_BUFFER_TYPE_NATIVE;
+
+                  res = e_comp_wl->wl.glapi->evasglQueryWaylandBuffer(e_comp_wl->wl.gl,
+                                                                      resource,
+                                                                      EVAS_GL_WIDTH,
+                                                                      &buffer->w);
+                  EINA_SAFETY_ON_FALSE_GOTO(res, err);
+
+                  res = e_comp_wl->wl.glapi->evasglQueryWaylandBuffer(e_comp_wl->wl.gl,
+                                                                      resource,
+                                                                      EVAS_GL_HEIGHT,
+                                                                      &buffer->h);
+                  EINA_SAFETY_ON_FALSE_GOTO(res, err);
+               }
+             else
+               {
+                  tbm_surf = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, resource);
+                  if (!tbm_surf)
+                    goto err;
+
+                  buffer->type = E_COMP_WL_BUFFER_TYPE_NATIVE;
+                  buffer->w = tbm_surface_get_width(tbm_surf);
+                  buffer->h = tbm_surface_get_height(tbm_surf);
+                  buffer->tbm_surface = tbm_surf;
+               }
           }
-     }
-   else if (e_comp->gl)
-     {
-         buffer->type = E_COMP_WL_BUFFER_TYPE_NATIVE;
+          buffer->shm_buffer = shmbuff;
+       }
+     else
+       {
+          tbm_surf = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, resource);
 
-         res = e_comp_wl->wl.glapi->evasglQueryWaylandBuffer(e_comp_wl->wl.gl,
-                                                             resource,
-                                                             EVAS_GL_WIDTH,
-                                                             &buffer->w);
-         EINA_SAFETY_ON_FALSE_GOTO(res, err);
+          if (shmbuff)
+            {
+               buffer->type = E_COMP_WL_BUFFER_TYPE_SHM;
 
-         res = e_comp_wl->wl.glapi->evasglQueryWaylandBuffer(e_comp_wl->wl.gl,
-                                                             resource,
-                                                             EVAS_GL_HEIGHT,
-                                                             &buffer->h);
-         EINA_SAFETY_ON_FALSE_GOTO(res, err);
-     }
-   else
-     {
-         goto err;
-     }
+               buffer->w = wl_shm_buffer_get_width(shmbuff);
+               buffer->h = wl_shm_buffer_get_height(shmbuff);
+            }
+          else if (tbm_surf)
+            {
+               tbm_surf = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, resource);
+               if (!tbm_surf)
+                 goto err;
 
-   buffer->shm_buffer = shmbuff;
-   buffer->tbm_surface = tbm_surf;
+               if ((ec) && (ec->comp_data->video_client))
+                 {
+                    buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
+                    buffer->w = buffer->h = 1;
+                 }
+               else
+                 {
+                    buffer->type = E_COMP_WL_BUFFER_TYPE_TBM;
+                    buffer->w = tbm_surface_get_width(tbm_surf);
+                    buffer->h = tbm_surface_get_height(tbm_surf);
+                 }
+            }
+          else if (e_comp->gl)
+            {
+                buffer->type = E_COMP_WL_BUFFER_TYPE_NATIVE;
+
+                res = e_comp_wl->wl.glapi->evasglQueryWaylandBuffer(e_comp_wl->wl.gl,
+                                                                    resource,
+                                                                    EVAS_GL_WIDTH,
+                                                                    &buffer->w);
+                EINA_SAFETY_ON_FALSE_GOTO(res, err);
+
+                res = e_comp_wl->wl.glapi->evasglQueryWaylandBuffer(e_comp_wl->wl.gl,
+                                                                    resource,
+                                                                    EVAS_GL_HEIGHT,
+                                                                    &buffer->h);
+                EINA_SAFETY_ON_FALSE_GOTO(res, err);
+            }
+          else
+            {
+                goto err;
+            }
+
+          buffer->shm_buffer = shmbuff;
+          buffer->tbm_surface = tbm_surf;
+       }
+
    buffer->resource = resource;
    wl_signal_init(&buffer->destroy_signal);
    buffer->destroy_listener.notify = _e_comp_wl_buffer_cb_destroy;
@@ -6032,9 +6045,9 @@ _e_comp_wl_buffer_coord_get(int width, int height, int transform, int scale)
 
    if (transform & 0x4)
      {
-        e_util_transform_matrix_translate(&m, -(width / 2), 0, 0);
+        e_util_transform_matrix_translate(&m, -((double)width / 2), 0, 0);
         e_util_transform_matrix_flip_x(&m);
-        e_util_transform_matrix_translate(&m, width / 2, 0, 0);
+        e_util_transform_matrix_translate(&m, (double)width / 2, 0, 0);
      }
 
    switch (transform & 0x3)

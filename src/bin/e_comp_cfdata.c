@@ -38,6 +38,7 @@ e_comp_cfdata_edd_init(E_Config_DD **conf_edd, E_Config_DD **match_edd)
    E_CONFIG_VAL(D, T, effect_style, STR);
    E_CONFIG_VAL(D, T, depth_in_style, STR);
    E_CONFIG_VAL(D, T, bg_effect_style, STR);
+   E_CONFIG_VAL(D, T, kbd_effect_style, STR);
    E_CONFIG_VAL(D, T, max_unmapped_time, INT);
    E_CONFIG_VAL(D, T, min_unmapped_time, INT);
    E_CONFIG_VAL(D, T, fps_average_range, INT);
@@ -62,6 +63,8 @@ e_comp_cfdata_edd_init(E_Config_DD **conf_edd, E_Config_DD **match_edd)
    E_CONFIG_VAL(D, T, hwc_ignore_primary, UCHAR);
    E_CONFIG_VAL(D, T, hwc_optimized, UCHAR);
    E_CONFIG_VAL(D, T, hwc_optimized_2, UCHAR);
+   E_CONFIG_VAL(D, T, hwc_use_detach, UCHAR);
+   E_CONFIG_VAL(D, T, use_native_type_buffer, UCHAR);
    E_CONFIG_VAL(D, T, nofade, UCHAR);
    E_CONFIG_VAL(D, T, smooth_windows, UCHAR);
    E_CONFIG_VAL(D, T, first_draw_delay, DOUBLE);
@@ -96,12 +99,14 @@ e_comp_cfdata_config_new(void)
    E_Comp_Match *mat;
 
    cfg = E_NEW(E_Comp_Config, 1);
+   if (!cfg) goto error;
    cfg->version = E_COMP_VERSION;
    cfg->shadow_style = eina_stringshare_add("default");
    cfg->effect_file = NULL;
    cfg->effect_style = "none";
    cfg->depth_in_style = "none";
    cfg->bg_effect_style = NULL;
+   cfg->kbd_effect_style = "keyboard";
    cfg->engine = E_COMP_ENGINE_SW;
    cfg->max_unmapped_time = 10 * 3600; // implement
    cfg->min_unmapped_time = 5 * 60; // implement
@@ -131,6 +136,8 @@ e_comp_cfdata_config_new(void)
    cfg->hwc_ignore_primary = 0;
    cfg->hwc_optimized = 0;
    cfg->hwc_optimized_2 = 0;
+   cfg->hwc_use_detach = 0;
+   cfg->use_native_type_buffer = 0;  // 1 if use_native(wl_buffer), 0 if use_tbm(tbm_surface)
    cfg->nofade = 0;
    cfg->smooth_windows = 0; // 1 if gl, 0 if not
    cfg->first_draw_delay = 0.15;
@@ -140,16 +147,19 @@ e_comp_cfdata_config_new(void)
    cfg->match.popups = NULL;
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.popups = eina_list_append(cfg->match.popups, mat);
    mat->name = eina_stringshare_add("shelf");
    mat->shadow_style = eina_stringshare_add("popup");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.popups = eina_list_append(cfg->match.popups, mat);
    mat->name = eina_stringshare_add("_e_popup_desklock");
    mat->shadow_style = eina_stringshare_add("still");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.popups = eina_list_append(cfg->match.popups, mat);
    mat->name = eina_stringshare_add("_e_popup_notification");
    mat->shadow_style = eina_stringshare_add("still");
@@ -157,18 +167,21 @@ e_comp_cfdata_config_new(void)
    mat->focus = 1;
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.popups = eina_list_append(cfg->match.popups, mat);
    mat->name = eina_stringshare_add("E Drag");
    mat->shadow_style = eina_stringshare_add("still");
    mat->no_shadow = 1;
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.popups = eina_list_append(cfg->match.popups, mat);
    mat->shadow_style = eina_stringshare_add("popup");
 
    cfg->match.borders = NULL;
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.borders = eina_list_append(cfg->match.borders, mat);
    mat->fullscreen = 1;
    mat->shadow_style = eina_stringshare_add("fullscreen");
@@ -176,52 +189,62 @@ e_comp_cfdata_config_new(void)
    cfg->match.overrides = NULL;
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->name = eina_stringshare_add("E");
    mat->clas = eina_stringshare_add("everything");
    mat->shadow_style = eina_stringshare_add("everything");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_DROPDOWN_MENU;
    mat->shadow_style = eina_stringshare_add("menu");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_POPUP_MENU;
    mat->shadow_style = eina_stringshare_add("menu");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_COMBO;
    mat->shadow_style = eina_stringshare_add("menu");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_TOOLTIP;
    mat->shadow_style = eina_stringshare_add("menu");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_MENU;
    mat->shadow_style = eina_stringshare_add("menu");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_DND;
    mat->shadow_style = eina_stringshare_add("still");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->primary_type = E_WINDOW_TYPE_DOCK;
    mat->shadow_style = eina_stringshare_add("none");
 
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.overrides = eina_list_append(cfg->match.overrides, mat);
    mat->shadow_style = eina_stringshare_add("popup");
 
    cfg->match.menus = NULL;
    mat = E_NEW(E_Comp_Match, 1);
+   if (!mat) goto error;
    cfg->match.menus = eina_list_append(cfg->match.menus, mat);
    mat->shadow_style = eina_stringshare_add("menu");
 
@@ -231,6 +254,12 @@ e_comp_cfdata_config_new(void)
    cfg->input_log_enable = 0;
 
    return cfg;
+
+error:
+   if (cfg)
+     e_comp_cfdata_config_free(cfg);
+
+   return NULL;
 }
 
 E_API void
@@ -253,6 +282,7 @@ e_comp_cfdata_config_free(E_Comp_Config *cfg)
    eina_stringshare_del(cfg->effect_style);
    eina_stringshare_del(cfg->depth_in_style);
    eina_stringshare_del(cfg->bg_effect_style);
+   eina_stringshare_del(cfg->kbd_effect_style);
    eina_stringshare_del(cfg->effect_file);
    eina_stringshare_del(cfg->shadow_style);
    eina_stringshare_del(cfg->launch_file);

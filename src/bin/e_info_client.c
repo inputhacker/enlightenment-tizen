@@ -27,6 +27,9 @@ typedef struct _E_Info_Client
 
    /* pending_commit */
    Eina_List         *pending_commit_list;
+
+   /* layer fps */
+   Eina_List         *layer_fps_list;
 } E_Info_Client;
 
 typedef struct _E_Win_Info
@@ -68,11 +71,19 @@ typedef struct _E_Pending_Commit_Info
    unsigned int tsurface;
 } E_Pending_Commit_Info;
 
+typedef struct _E_Layer_Fps_Info
+{
+   const char *output;
+   int zpos;
+   double fps;
+} E_Layer_Fps_Info;
+
 #define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiibbbiius"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
+#define VALUE_TYPE_FOR_LAYER_FPS "sid"
 #define VALUE_TYPE_REQUEST_FOR_KILL "uts"
 #define VALUE_TYPE_REPLY_KILL "s"
 #define VALUE_TYPE_REQUEST_FOR_WININFO "t"
@@ -511,41 +522,43 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
 
    if (compobjs_simple)
      printf(
-        "==========================================================================================================================\n"
-        "                        /-- Object Type        /-- Alpha                                 /-- Edj: group                   \n"
-        "                        |    r  : Rectangle    |                                         |   Edj Member: part, value      \n"
-        "                        |    EDJ: Edje         | /-- Pass Events                         |   Native Image:                \n"
-        "                        |    IMG: Image        | |/-- Freeze Events                      |    type, buff, size, load, fill\n"
-        "                        |    EC : ec->frame    | ||/-- Focused                           |                      size  size\n"
-        "                        |                      | |||                                     |   File Image:                  \n"
-        "                        |                      | ||| /-- Visibility                      |    data, size, load, fill      \n"
-        "                        |                      | ||| |                                   |                size  size      \n"
-        "                        |                      | ||| |                                   |                                \n"
-        "========================|======================|=|||=|===================================|================================\n"
-        "Layer  ObjectID         |     X    Y    W    H | ||| |   ObjectName                      | Additional Info                \n"
-        "========================|======================|=|||=|===================================|================================\n"
+        "===========================================================================================================================\n"
+        "                        /-- Object Type        /-- Alpha                                                                   \n"
+        "                        |    r  : Rectangle    |                                          /-- Edj: group                   \n"
+        "                        |    EDJ: Edje         | /-- Pass Events                          |   Edj Member: part, value      \n"
+        "                        |    IMG: Image        | |/-- Freeze Events                       |   Native Image:                \n"
+        "                        |    EC : ec->frame    | ||/-- Focused                            |    type, buff, size, load, fill\n"
+        "                        |                      | |||/-- EvasMap                           |                      size  size\n"
+        "                        |                      | ||||                                     |   File Image:                  \n"
+        "                        |                      | |||| /-- Visibility                      |    data, size, load, fill      \n"
+        "                        |                      | |||| |                                   |                size  size      \n"
+        "                        |                      | |||| |                                   |                                \n"
+        "========================|======================|=||||=|===================================|================================\n"
+        "Layer  ObjectID         |     X    Y    W    H | |||| |   ObjectName                      | Additional Info                \n"
+        "========================|======================|=||||=|===================================|================================\n"
         );
    else
      printf(
-        "======================================================================================================================\n"
-        "                        /-- Object Type                            /-- Alpha                                          \n"
-        "                        |    r  : Rectangle Object                 |                                                  \n"
-        "                        |    EDJ: Edje Object                      | /-- Pass Events                                  \n"
-        "                        |    IMG: Image Object                     | |/-- Freeze Events                               \n"
-        "                        |    EC : ec->frame Object                 | ||/-- Focused                                    \n"
-        "                        |                                          | |||                                              \n"
-        "                        |    /-- Render Operation                  | ||| /-- Visibility                               \n"
-        "                        |    |    BL: EVAS_RENDER_BLEND            | ||| |                                            \n"
-        "                        |    |    CP: EVAS_RENDER_COPY             | ||| |                                            \n"
-        "                        |    |                                     | ||| |                           [Additional Info]\n"
-        "                        |    |                                     | ||| |                          EDJ: group, file |\n"
-        "                        |    |                                     | ||| |                   EDJ member: part, value |\n"
-        "                        |    |                                     | ||| |   Image: Type, Size, Load Size, Fill Size |\n"
-        "                        |    |                                     | ||| |                                           |\n"
-        "                        |    |                                     | ||| |                                           |\n"
-        "========================|====|=====================================|=|||=|============================================\n"
-        "Layer  ObjectID         |    |    X    Y    W    H  Color(RGBA)    | ||| |     ObjectName                            |\n"
-        "========================|====|=====================================|=|||=|============================================\n"
+        "=======================================================================================================================\n"
+        "                        /-- Object Type                            /-- Alpha                                           \n"
+        "                        |    r  : Rectangle Object                 |                                                   \n"
+        "                        |    EDJ: Edje Object                      | /-- Pass Events                                   \n"
+        "                        |    IMG: Image Object                     | |/-- Freeze Events                                \n"
+        "                        |    EC : ec->frame Object                 | ||/-- Focused                                     \n"
+        "                        |                                          | |||/-  EvasMap                                    \n"
+        "                        |                                          | ||||                                              \n"
+        "                        |    /-- Render Operation                  | |||| /-- Visibility                               \n"
+        "                        |    |    BL: EVAS_RENDER_BLEND            | |||| |                                            \n"
+        "                        |    |    CP: EVAS_RENDER_COPY             | |||| |                                            \n"
+        "                        |    |                                     | |||| |                           [Additional Info]\n"
+        "                        |    |                                     | |||| |                          EDJ: group, file |\n"
+        "                        |    |                                     | |||| |                   EDJ member: part, value |\n"
+        "                        |    |                                     | |||| |   Image: Type, Size, Load Size, Fill Size |\n"
+        "                        |    |                                     | |||| |             Map: Enable, Alpha, UV, Coord |\n"
+        "                        |    |                                     | |||| |                                           |\n"
+        "========================|====|=====================================|=||||=|============================================\n"
+        "Layer  ObjectID         |    |    X    Y    W    H  Color(RGBA)    | |||| |     ObjectName                            |\n"
+        "========================|====|=====================================|=||||=|============================================\n"
         );
 
    while (eldbus_message_iter_get_and_next(array, 'r', &obj))
@@ -579,7 +592,14 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
                                                 &cobj.img.lw, &cobj.img.lh,
                                                 &cobj.img.fx, &cobj.img.fy, &cobj.img.fw, &cobj.img.fh,
                                                 &cobj.img.alpha,
-                                                &cobj.img.dirty);
+                                                &cobj.img.dirty,
+                                                &cobj.map.enable,
+                                                &cobj.map.alpha,
+                                                &cobj.map.u[0], &cobj.map.u[1], &cobj.map.u[2], &cobj.map.u[3],
+                                                &cobj.map.v[0], &cobj.map.v[1], &cobj.map.v[2], &cobj.map.v[3],
+                                                &cobj.map.x[0], &cobj.map.x[1], &cobj.map.x[2], &cobj.map.x[3],
+                                                &cobj.map.y[0], &cobj.map.y[1], &cobj.map.y[2], &cobj.map.y[3],
+                                                &cobj.map.z[0], &cobj.map.z[1], &cobj.map.z[2], &cobj.map.z[3]);
         if (!res)
           {
              printf("Failed to get composite obj info\n");
@@ -589,7 +609,7 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
         if (cobj.depth == 0)
           {
              if (!compobjs_simple)
-               printf(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -- - - - - - - - -|\n");
+               printf(" - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -- - - - - - - - - |\n");
              printf("%4d ", cobj.ly);
           }
         else
@@ -601,18 +621,19 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
 
         if (compobjs_simple)
           printf("%5.5s "
-                 "|%4d,%4d %4dx%4d|%s|%s%s%s|%s|",
+                 "|%4d,%4d %4dx%4d|%s|%s%s%s%s|%s|",
                  cobj.type,
                  cobj.x, cobj.y, cobj.w, cobj.h,
                  cobj.img.alpha == 1 ? "A" : " ",
                  cobj.pass_events == 1 ? "p" : " ",
                  cobj.freeze_events == 1 ? "z" : " ",
                  cobj.focus == 1 ? "F" : " ",
+                 cobj.map.enable == 1 ? "M" : " ",
                  cobj.vis == 1 ? "V" : " ");
         else
           printf("%5.5s "
                  "|%3.3s"
-                 "|%4d,%4d %4dx%4d|%3d %3d %3d %3d|%s|%s%s%s|%s|",
+                 "|%4d,%4d %4dx%4d|%3d %3d %3d %3d|%s|%s%s%s%s|%s|",
                  cobj.type,
                  cobj.opmode,
                  cobj.x, cobj.y, cobj.w, cobj.h,
@@ -621,6 +642,7 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
                  cobj.pass_events == 1 ? "p" : " ",
                  cobj.freeze_events == 1 ? "z" : " ",
                  cobj.focus == 1 ? "F" : " ",
+                 cobj.map.enable == 1 ? "M" : " ",
                  cobj.vis == 1 ? "V" : " ");
 
         obj_name = cobj.name;
@@ -660,12 +682,29 @@ _e_info_client_cb_compobjs(const Eldbus_Message *msg)
           }
 
         printf("\n");
+        if (!compobjs_simple && cobj.map.enable)
+          {
+             printf("                                                                                                            ");
+             printf("|Map: %s\n", (cobj.map.alpha == 1) ? "alpha(on)" : "alpha(off)");
+             printf("                                                                                                            ");
+             printf("|    UV (  %4d,%4d   |  %4d,%4d   |  %4d,%4d   |  %4d,%4d   )\n",
+                    (int)cobj.map.u[0], (int)cobj.map.v[0],
+                    (int)cobj.map.u[1], (int)cobj.map.v[1],
+                    (int)cobj.map.u[2], (int)cobj.map.v[2],
+                    (int)cobj.map.u[3], (int)cobj.map.v[3]);
+             printf("                                                                                                            ");
+             printf("| Coord (%4d,%4d,%4d|%4d,%4d,%4d|%4d,%4d,%4d|%4d,%4d,%4d)\n",
+                    cobj.map.x[0], cobj.map.y[0], cobj.map.z[0],
+                    cobj.map.x[1], cobj.map.y[1], cobj.map.z[1],
+                    cobj.map.x[2], cobj.map.y[2], cobj.map.z[2],
+                    cobj.map.x[3], cobj.map.y[3], cobj.map.z[3]);
+          }
      }
 
    if (compobjs_simple)
-     printf("==========================================================================================================================\n");
+     printf("===========================================================================================================================\n");
    else
-     printf("======================================================================================================================\n");
+     printf("=======================================================================================================================\n");
 
 finish:
    if ((name) || (text))
@@ -680,7 +719,7 @@ _cb_input_device_info_get(const Eldbus_Message *msg)
    const char *name = NULL, *text = NULL;
    Eldbus_Message_Iter *array, *eldbus_msg;
    Eina_Bool res;
-   E_Comp_Wl_Input_Device *dev;
+   E_Comp_Wl_Input_Device *dev = NULL;
 
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
@@ -705,6 +744,8 @@ _cb_input_device_info_get(const Eldbus_Message *msg)
           }
 
         dev = E_NEW(E_Comp_Wl_Input_Device, 1);
+        EINA_SAFETY_ON_NULL_GOTO(dev, finish);
+
         dev->name = strdup(dev_name);
         dev->identifier = strdup(identifier);
         dev->clas = clas;
@@ -890,6 +931,8 @@ _e_info_client_proc_protocol_rule(int argc, char **argv)
    if (new_argc < 2)
      {
         new_s1 = (char *)calloc (1, PATH_MAX);
+        EINA_SAFETY_ON_NULL_RETURN(new_s1);
+
         snprintf(new_s1, PATH_MAX, "%s", "no_data");
         new_argv[1] = new_s1;
         new_argc++;
@@ -897,6 +940,8 @@ _e_info_client_proc_protocol_rule(int argc, char **argv)
    if (new_argc < 3)
      {
         new_s2 = (char *)calloc (1, PATH_MAX);
+        EINA_SAFETY_ON_NULL_GOTO(new_s2, finish);
+
         snprintf(new_s2, PATH_MAX, "%s", "no_data");
         new_argv[2] = new_s2;
         new_argc++;
@@ -904,11 +949,12 @@ _e_info_client_proc_protocol_rule(int argc, char **argv)
    if (new_argc != 3)
      {
         printf("protocol-trace: Usage> enlightenment_info -protocol_rule [add | remove | print | help] [allow/deny/all]\n");
-        return;
+        goto finish;
      }
 
    _e_info_client_eldbus_message_with_args("protocol_rule", _cb_protocol_rule, "sss", new_argv[0], new_argv[1], new_argv[2]);
 
+finish:
    if (new_s1) free(new_s1);
    if (new_s2) free(new_s2);
 }
@@ -1179,7 +1225,7 @@ _e_info_client_proc_keygrab_status(int argc, char **argv)
 }
 
 static char *
-_directory_make(char *path)
+_directory_make(char *type, char *path)
 {
    char dir[PATH_MAX], curdir[PATH_MAX], stamp[PATH_MAX];
    time_t timer;
@@ -1244,9 +1290,9 @@ _directory_make(char *path)
    snprintf(stamp, PATH_MAX, "%04d%02d%02d.%02d%02d%02d", t->tm_year+1900, t->tm_mon+1, t->tm_mday, t->tm_hour, t->tm_min, t->tm_sec);
 
    if (strlen(dir) == 1 && dir[0] == '/')
-     snprintf(fullpath, PATH_MAX, "/topvwins-%s", stamp);
+     snprintf(fullpath, PATH_MAX, "/%s-%s", type, stamp);
    else
-     snprintf(fullpath, PATH_MAX, "%s/topvwins-%s", dir, stamp);
+     snprintf(fullpath, PATH_MAX, "%s/%s-%s", dir, type, stamp);
 
    free (buf);
 
@@ -1263,18 +1309,35 @@ _directory_make(char *path)
 }
 
 static void
-_e_info_client_proc_topvwins_shot(int argc, char **argv)
+_e_info_client_proc_wins_shot(int argc, char **argv)
 {
-   char *directory = _directory_make(argv[2]);
-   EINA_SAFETY_ON_NULL_RETURN(directory);
+   char *directory = NULL;
+   char *type = NULL;
 
-   if (!_e_info_client_eldbus_message_with_args("dump_topvwins", NULL, "s", directory))
+   if (eina_streq(argv[2], "topvwins") || eina_streq(argv[2], "ns"))
+     {
+        if (argc == 3)
+          directory = _directory_make(argv[2], NULL);
+        else if (argc == 4)
+          directory = _directory_make(argv[2], argv[3]);
+        else
+          goto arg_err;
+     }
+
+   if (!directory) goto arg_err;
+
+   type = argv[2];
+   if (!_e_info_client_eldbus_message_with_args("dump_wins", NULL, SIGNATURE_DUMP_WINS, type, directory))
      {
         free(directory);
         return;
      }
 
    free(directory);
+
+   return;
+arg_err:
+   printf("Usage: enlightenment_info -dump %s\n", USAGE_DUMPIMAGE);
 }
 
 static void
@@ -1949,40 +2012,6 @@ arg_err:
 
 }
 
-static void
-_cb_fps_info_get(const Eldbus_Message *msg)
-{
-   const char *name = NULL, *text = NULL;
-   Eina_Bool res;
-   const char *fps;
-
-   res = eldbus_message_error_get(msg, &name, &text);
-   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
-
-   res = eldbus_message_arguments_get(msg, "s", &fps);
-   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
-   if (strcmp(fps, "no_update"))
-        printf("%s\n", fps);
-
-finish:
-   if ((name) || (text ))
-     {
-        printf("errname:%s errmsg:%s\n", name, text);
-     }
-}
-
-static void
-_e_info_client_proc_fps_info(int argc, char **argv)
-{
-   do
-     {
-        if (!_e_info_client_eldbus_message("get_fps_info", _cb_fps_info_get))
-          return;
-        usleep(500000);
-     }
-   while (1);
-}
-
 static Eina_Bool
 _opt_parse(char *opt, char *delims, int *vals, int n_vals)
 {
@@ -2440,6 +2469,123 @@ err:
 return;
 }
 
+static Eina_Bool
+_e_info_client_proc_screen_shot_name_check(const char *name, int length)
+{
+   if (length < 5)
+     return EINA_FALSE;
+
+   if (name[length - 1] != 'g' || name[length - 2] != 'n' ||
+       name[length - 3] != 'p' || name[length - 4] != '.')
+     return EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
+static void
+_e_info_client_proc_screen_shot(int argc, char **argv)
+{
+   int i;
+   char *path = NULL;
+   char *name = NULL;
+   char *fname = NULL;
+   int path_len;
+   int name_len;
+   Eina_Bool p = EINA_FALSE;
+   Eina_Bool n = EINA_FALSE;
+
+   for (i = 2; i < argc; i++)
+     {
+        if (eina_streq(argv[i], "-p"))
+          {
+             char *tmp_path;
+
+             if (++i >= argc)
+               {
+                  printf("Error: -p requires argument\n");
+                  goto err;
+               }
+
+             tmp_path = _buffer_shot_directory_check(argv[i]);
+             if (tmp_path == NULL)
+               {
+                  printf("cannot find directory: %s, make directory before dump\n", argv[i]);
+                  goto err;
+               }
+             free(tmp_path);
+
+             path = argv[i];
+             p = EINA_TRUE;
+
+             continue;
+          }
+        if (eina_streq(argv[i], "-n"))
+          {
+             if (++i >= argc)
+               {
+                  printf("Error: -n requires argument\n");
+                  goto err;
+               }
+
+             name = argv[i];
+             n = EINA_TRUE;
+
+             continue;
+          }
+     }
+
+
+   if (!p)
+     {
+        path = (char *)calloc(1, PATH_MAX * sizeof(char));
+        EINA_SAFETY_ON_NULL_RETURN(path);
+        strncpy(path, "/tmp/", PATH_MAX);
+     }
+   if (!n)
+     {
+        name = (char *)calloc(1, PATH_MAX * sizeof(char));
+        EINA_SAFETY_ON_NULL_GOTO(name, err);
+        strncpy(name, "dump_screen.png", PATH_MAX);
+     }
+   path_len = strlen(path);
+   name_len = strlen(name);
+
+   if (n)
+     {
+        if (!_e_info_client_proc_screen_shot_name_check(name, name_len))
+          {
+             printf("Error: support only 'png' file\n       write like -n xxx.png\n");
+             goto err;
+          }
+     }
+
+   if (path_len + name_len >= PATH_MAX)
+     {
+        printf("_e_info_client_proc_screen_shot fail. long name\n");
+        goto err;
+     }
+
+   fname = (char *)calloc(1, PATH_MAX * sizeof(char));
+   EINA_SAFETY_ON_NULL_GOTO(fname, err);
+   if (path[path_len - 1] == '/')
+     snprintf(fname, PATH_MAX, "%s%s", path, name);
+   else
+     snprintf(fname, PATH_MAX, "%s/%s", path, name);
+
+   printf("make dump: %s\n", fname);
+
+   if (!_e_info_client_eldbus_message_with_args("dump_screen", NULL, "s", fname))
+     printf("_e_info_client_proc_screen_shot fail\n");
+
+err:
+   if (!p) free(path);
+   if (!n) free(name);
+   if (fname) free(fname);
+
+   return;
+}
+
+
 static E_Info_Output_Mode *
 _e_output_mode_info_new(uint32_t h, uint32_t hsync_start, uint32_t hsync_end, uint32_t htotal,
                         uint32_t v, uint32_t vsync_start, uint32_t vsync_end, uint32_t vtotal,
@@ -2773,6 +2919,133 @@ _e_info_client_proc_show_pending_commit(int argc, char **argv)
      }
 
    E_FREE_LIST(e_info_client.pending_commit_list, _e_pending_commit_info_free);
+}
+
+static E_Layer_Fps_Info *
+_e_player_fps_info_new(const char *output, int zpos, double fps)
+{
+   E_Layer_Fps_Info *layer_fps = NULL;
+
+   layer_fps = E_NEW(E_Layer_Fps_Info, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(layer_fps, NULL);
+
+   layer_fps->output = output;
+   layer_fps->zpos = zpos;
+   layer_fps->fps = fps;
+
+   return layer_fps;
+}
+
+static void
+_e_layer_fps_info_free(E_Layer_Fps_Info *layer_fps)
+{
+   E_FREE(layer_fps);
+}
+
+static void
+_cb_layer_fps_info_get(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eldbus_Message_Iter *array, *eldbus_msg;
+   Eina_Bool res;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "a("VALUE_TYPE_FOR_LAYER_FPS")", &array);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   while (eldbus_message_iter_get_and_next(array, 'r', &eldbus_msg))
+     {
+        E_Layer_Fps_Info *layer_fps = NULL;
+        const char *output;
+        int zpos;
+        double fps;
+        res = eldbus_message_iter_arguments_get(eldbus_msg,
+                                                VALUE_TYPE_FOR_LAYER_FPS,
+                                                &output,
+                                                &zpos,
+                                                &fps);
+        if (!res)
+          {
+             printf("Failed to get player_fps info\n");
+             continue;
+          }
+
+        layer_fps = _e_player_fps_info_new(output, zpos, fps);
+        if (!layer_fps) continue;
+
+        e_info_client.layer_fps_list = eina_list_append(e_info_client.layer_fps_list, layer_fps);
+     }
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_fps_layer_info(int argc, char **argv)
+{
+   do
+     {
+        Eina_List *l;
+        E_Layer_Fps_Info *layer_fps;
+
+        if (!_e_info_client_eldbus_message("get_layer_fps_info", _cb_layer_fps_info_get))
+          return;
+
+        if (!e_info_client.layer_fps_list)
+          goto fps_layer_done;
+
+        EINA_LIST_FOREACH(e_info_client.layer_fps_list, l, layer_fps)
+          {
+             printf("%3s-ZPos@%d...%3.1f\n",
+                    layer_fps->output,
+                    layer_fps->zpos,
+                    layer_fps->fps);
+          }
+
+        E_FREE_LIST(e_info_client.layer_fps_list, _e_layer_fps_info_free);
+fps_layer_done:
+        usleep(500000);
+     }
+   while (1);
+}
+#else
+static void
+_cb_fps_info_get(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   const char *fps;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "s", &fps);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+   if (strcmp(fps, "no_update"))
+        printf("%s\n", fps);
+
+finish:
+   if ((name) || (text ))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_fps_info(int argc, char **argv)
+{
+   do
+     {
+        if (!_e_info_client_eldbus_message("get_fps_info", _cb_fps_info_get))
+          return;
+        usleep(500000);
+     }
+   while (1);
 }
 #endif
 
@@ -3702,6 +3975,182 @@ _e_info_client_proc_version(int argc, char **argv)
      }
 }
 
+static void
+_e_info_client_cb_module_list_get(const Eldbus_Message *msg)
+{
+   const char *errname = NULL, *errtext = NULL;
+   Eldbus_Message_Iter *module_array = NULL;
+   Eldbus_Message_Iter *inner_module_array = NULL;
+   Eina_Stringshare *module_name = NULL;
+   int count = 0;
+   int onoff = 0;
+
+   // check error
+   EINA_SAFETY_ON_TRUE_GOTO(eldbus_message_error_get(msg, &errname, &errtext), err);
+
+   // get arguments
+   EINA_SAFETY_ON_FALSE_GOTO(eldbus_message_arguments_get(msg, "ia(si)", &count, &module_array), err);
+   printf("============< print module list >===========\n");
+   printf("module count : %d\n", count);
+   while (eldbus_message_iter_get_and_next(module_array, 'r', &inner_module_array))
+     {
+        EINA_SAFETY_ON_FALSE_GOTO(
+           eldbus_message_iter_arguments_get(inner_module_array, "si", &module_name, &onoff),
+           err);
+        printf("module [ %30s ]\t:\t%s\n", module_name, onoff?"enabled":"disabled");
+     }
+   goto finish;
+
+err:
+   if (errname || errtext)
+     printf("errname : %s, errmsg : %s\n", errname, errtext);
+   else
+     printf("Error occurred in _e_info_client_cb_module_list_get\n");
+
+finish:
+   return;
+}
+
+static void
+_e_info_client_cb_module_load(const Eldbus_Message *msg)
+{
+   const char *errname = NULL, *errtext = NULL;
+   const char *result = NULL;
+
+   EINA_SAFETY_ON_TRUE_GOTO(eldbus_message_error_get(msg, &errname, &errtext), err);
+
+   EINA_SAFETY_ON_FALSE_GOTO(eldbus_message_arguments_get(msg, "s", &result), err);
+
+   printf("%s\n", result);
+   goto finish;
+
+err:
+   if (errname || errtext)
+     printf("errname : %s, errmsg : %s\n", errname, errtext);
+   else
+     printf("Error occurred in _e_info_client_cb_module_load\n");
+
+finish:
+   return;
+}
+
+static void
+_e_info_client_cb_module_unload(const Eldbus_Message *msg)
+{
+   const char *errname = NULL, *errtext = NULL;
+   const char *result = NULL;
+
+   EINA_SAFETY_ON_TRUE_GOTO(eldbus_message_error_get(msg, &errname, &errtext), err);
+
+   EINA_SAFETY_ON_FALSE_GOTO(eldbus_message_arguments_get(msg, "s", &result), err);
+
+   printf("%s\n", result);
+   goto finish;
+
+err:
+   if (errname || errtext)
+     printf("errname : %s, errmsg : %s\n", errname, errtext);
+   else
+     printf("Error occurred in _e_info_client_cb_module_unload\n");
+
+finish:
+   return;
+}
+
+static void
+_e_info_client_proc_module(int argc, char **argv)
+{
+   const char *program = argv[0];
+   const char *command = argv[2];
+   const char *module_name = argv[3];
+
+   if (((argc < 3) || (argc > 4)))
+     {
+       goto usage;
+     }
+
+   if (strncmp(command, "list", strlen(command)) == 0)
+     {
+        if (argc != 3)
+          goto usage;
+
+        _e_info_client_eldbus_message("module_list_get", _e_info_client_cb_module_list_get);
+        goto finish;
+     }
+   else if (strncmp(command, "load", strlen(command)) == 0)
+     {
+        if (argc != 4)
+           goto usage;
+
+        _e_info_client_eldbus_message_with_args("module_load",
+                                                _e_info_client_cb_module_load,
+                                                "s",
+                                                module_name);
+        goto finish;
+     }
+   else if (strncmp(command, "unload", strlen(command)) == 0)
+     {
+        if (argc != 4)
+           goto usage;
+
+        _e_info_client_eldbus_message_with_args("module_unload",
+                                                _e_info_client_cb_module_unload,
+                                                "s",
+                                                module_name);
+        goto finish;
+     }
+
+usage:
+   printf("Usage : %s -module <command> [<module_name>]\n\n", program);
+   printf("Commands:\n"
+          "list : Print the current modules list loaded\n"
+          "load <module_name> : Load module with the given name\n"
+          "unload <module_name> : Unload module with the given name\n\n");
+   printf("Example:\n"
+          "%s -module load e-mod-tizen-effect\n"
+          "%s -module unload e-mod-tizen-effect\n", program, program);
+finish:
+   return;
+}
+
+static void
+_e_info_client_cb_shutdown(const Eldbus_Message *msg)
+{
+   const char *errname = NULL, *errtext = NULL;
+   const char *result = NULL;
+
+   EINA_SAFETY_ON_TRUE_GOTO(eldbus_message_error_get(msg, &errname, &errtext), err);
+
+   EINA_SAFETY_ON_FALSE_GOTO(eldbus_message_arguments_get(msg, "s", &result), err);
+
+   printf("%s", result);
+   goto finish;
+
+err:
+   if(errname || errtext)
+     printf("errname : %s, errmsg : %s\n", errname, errtext);
+   else
+     printf("Error occurred in _e_info_client_cb_shutdown\n");
+
+finish:
+   return;
+}
+
+static void
+_e_info_client_proc_shutdown(int argc, char **argv)
+{
+   EINA_SAFETY_ON_FALSE_GOTO(argc == 2, usage);
+
+   _e_info_client_eldbus_message("shutdown", _e_info_client_cb_shutdown);
+   goto finish;
+
+usage :
+   printf("Usage : %s -shutdown\n\n", argv[0]);
+
+finish:
+   return;
+}
+
 static struct
 {
    const char *option;
@@ -3713,7 +4162,7 @@ static struct
    {
       "version",
       NULL,
-      "print version of enlightenment",
+      "Print version of enlightenment",
       _e_info_client_proc_version
    },
    {
@@ -3748,9 +4197,10 @@ static struct
       _e_info_client_proc_subsurface
    },
    {
-      "dump_topvwins", "[directory_path]",
-      "Dump top-level visible windows (default directory_path : current working directory)",
-      _e_info_client_proc_topvwins_shot
+      "dump",
+      USAGE_DUMPIMAGE,
+      "Dump window images with options",
+      _e_info_client_proc_wins_shot
    },
    {
       "eina_log_levels", "[mymodule1:5,mymodule2:2]",
@@ -3799,11 +4249,6 @@ static struct
       _e_info_client_proc_input_device_info
    },
    {
-      "fps", NULL,
-      "Print FPS in every sec",
-      _e_info_client_proc_fps_info
-   },
-   {
       "punch", "[on/off] [<X>x<H>+<X>+<Y>] [<a>,<r>,<g>,<b>]",
       "HWC should be disabled first with \"-hwc\" option. Punch a UI framebuffer [on/off].",
       _e_info_client_proc_punch
@@ -3823,6 +4268,11 @@ static struct
       "dump_selected_buffers", DUMP_BUFFERS_USAGE,
       "Dump Win_ID buffers. Win_ID comed from enlightenment_info -topvwins(default path:/tmp/dump_xxx/)",
       _e_info_client_proc_selected_buffer_shot
+   },
+   {
+      "dump_screen", "enlightenment_info -dump_screen -p /tmp/ -n xxx.png   :make dump /tmp/xxx.png",
+      "Dump current screen (default path:/tmp/dump_screen.png)",
+      _e_info_client_proc_screen_shot
    },
    {
       "output_mode", NULL,
@@ -3845,14 +4295,25 @@ static struct
    {
       "show_plane_state",
       NULL,
-      "show state of plane",
+      "Show state of plane",
       _e_info_client_proc_show_plane_state
    },
    {
       "show_pending_commit",
       NULL,
-      "show state of pending commit",
+      "Show state of pending commit",
       _e_info_client_proc_show_pending_commit
+   },
+   {
+      "fps", NULL,
+      "Print FPS in every sec per layer",
+      _e_info_client_proc_fps_layer_info
+   },
+#else
+   {
+      "fps", NULL,
+      "Print FPS in every sec",
+      _e_info_client_proc_fps_info
    },
 #endif
    {
@@ -3879,7 +4340,7 @@ static struct
    {
       "aux_msg",
       "[window] [key] [value] [options]",
-      "send aux message to client",
+      "Send aux message to client",
       _e_info_client_proc_aux_message
    },
    {
@@ -3896,39 +4357,51 @@ static struct
    },
    {
       "desk",
-      NULL,
-      "current desktop",
+      USAGE_DESK,
+      "Current desktop",
       _e_info_client_proc_desk
    },
    {
       "frender",
       USAGE_FORCE_RENDER,
-      "force render according to parameters",
+      "Force render according to parameters",
       _e_info_client_proc_force_render
    },
    {
       "screen_rotation",
       "[0|90|180|270]",
-      "to rotate screen",
+      "To rotate screen",
       _e_info_client_proc_screen_rotation
    },
    {
       "remote_surface",
       USAGE_REMOTE_SURFACE,
-      "for remote surface debugging",
+      "For remote surface debugging",
       _e_info_client_proc_remote_surface
    },
    {
       "kill",
       KILL_USAGE,
-      "kill a client",
+      "Kill a client",
       _e_info_client_proc_kill_client
    },
    {
       "wininfo",
       WININFO_USAGE,
-      "displaying information about windows",
+      "Displaying information about windows",
       _e_info_client_proc_wininfo
+   },
+   {
+      "module",
+      "[list], [load <module_name>], [unload <module_name>]",
+      "Manage modules on enlightenment",
+      _e_info_client_proc_module
+   },
+   {
+      "shutdown",
+      NULL,
+      "Shutdown Enlightenment",
+      _e_info_client_proc_shutdown
    }
 };
 
@@ -4029,7 +4502,7 @@ static Eina_Bool
 _e_info_client_process(int argc, char **argv)
 {
    int nproc = sizeof(procs) / sizeof(procs[0]);
-   int i;
+   int i, proc_option_length;
 
    signal(SIGINT,  end_program);
    signal(SIGALRM, end_program);
@@ -4040,7 +4513,11 @@ _e_info_client_process(int argc, char **argv)
 
    for (i = 0; i < nproc; i++)
      {
-        if (!strncmp(argv[1]+1, procs[i].option, strlen(procs[i].option)))
+        proc_option_length = strlen(procs[i].option);
+
+        if (strlen(argv[1]+1) != proc_option_length) continue;
+
+        if (!strncmp(argv[1]+1, procs[i].option, proc_option_length))
           {
              if (procs[i].func)
                procs[i].func(argc, argv);
@@ -4053,7 +4530,7 @@ _e_info_client_process(int argc, char **argv)
 }
 
 static void
-_e_info_client_print_usage(const char *exec)
+_e_info_client_print_usage_all(const char *exec)
 {
    int nproc = sizeof(procs) / sizeof(procs[0]);
    int i;
@@ -4075,6 +4552,41 @@ _e_info_client_print_usage(const char *exec)
 }
 
 static void
+_e_info_client_print_usage(int argc, char **argv)
+{
+   int nproc = sizeof(procs) / sizeof(procs[0]);
+   int i;
+
+   for (i = 0; i < nproc; i++)
+     {
+        if (!strncmp(argv[1]+1, procs[i].option, strlen(procs[i].option)))
+          {
+             printf("  %s\n\n", (procs[i].description)?procs[i].description:"");
+             printf("  %s -%s %s\n", argv[0], procs[i].option, (procs[i].params)?procs[i].params:"");
+          }
+     }
+
+   printf("\n");
+}
+
+static void
+_e_info_client_print_description(const char *exec)
+{
+   int nproc = sizeof(procs) / sizeof(procs[0]);
+   int i;
+
+   printf("\n\n");
+
+   for (i = 0; i < nproc; i++)
+     {
+        printf(" -%-30s\t", procs[i].option);
+        printf(": %s\n", (procs[i].description)?procs[i].description:"");
+     }
+
+   printf("\n");
+}
+
+static void
 end_program(int sig)
 {
    ecore_main_loop_quit();
@@ -4088,7 +4600,7 @@ main(int argc, char **argv)
 {
    if (argc < 2 || argv[1][0] != '-')
      {
-        _e_info_client_print_usage(argv[0]);
+        _e_info_client_print_description(argv[0]);
         return 0;
      }
 
@@ -4100,7 +4612,14 @@ main(int argc, char **argv)
        !strcmp(argv[1], "-help") ||
        !strcmp(argv[1], "--help"))
      {
-        _e_info_client_print_usage(argv[0]);
+        _e_info_client_print_usage_all(argv[0]);
+     }
+   else if (argc >= 3 &&
+      (!strcmp(argv[2], "-h") ||
+       !strcmp(argv[2], "-help") ||
+       !strcmp(argv[2], "--help")))
+     {
+        _e_info_client_print_usage(argc, argv);
      }
    else
      {
@@ -4108,7 +4627,7 @@ main(int argc, char **argv)
         if (!_e_info_client_process(argc, argv))
           {
              printf("unknown option: %s\n", argv[1]);
-             _e_info_client_print_usage(argv[0]);
+             _e_info_client_print_usage(argc, argv);
           }
      }
 

@@ -10,10 +10,11 @@ struct _E_Comp_Config
 {
    int           version;
    const char   *shadow_style;
-   const char   *effect_file;
-   const char   *effect_style;
-   const char   *depth_in_style;
-   const char   *bg_effect_style;
+   const char   *effect_file; // effect edj path for effect object
+   const char   *effect_style; // name of effect group to apply
+   const char   *depth_in_style; // name of effect group to apply for depth in type
+   const char   *bg_effect_style; // name of effect group for background
+   const char   *kbd_effect_style; // name of keyboard group to apply
    int           engine;
    int           max_unmapped_time;
    int           min_unmapped_time;
@@ -32,11 +33,13 @@ struct _E_Comp_Config
    unsigned char nocomp_use_timer;
    double        nocomp_begin_timeout;
    unsigned char hwc;
-   unsigned char hwc_use_multi_plane;
-   unsigned char hwc_deactive;
-   unsigned char hwc_reuse_cursor_buffer;
-   unsigned char hwc_sync_mode_change;
-   unsigned char hwc_ignore_primary;
+   unsigned char hwc_use_multi_plane; // 0: regards hwc layer is single. comp or nocomp switches only, 1: regards hwc layer is multiple
+   unsigned char hwc_deactive; // 0: run hwc policy if capable of, 1: not to run hwc policy
+   unsigned char hwc_reuse_cursor_buffer; // 0: none, 1: reuse hwc cursor buffer when cursor image is changed
+   unsigned char hwc_sync_mode_change; // 0: none, 1: synchronize scanout buffer when hwc mode change in reserved memory plane
+   unsigned char hwc_ignore_primary; // 0: none, 1: hwc use plane has lowest zpos and support rgb to default ui layer
+   unsigned char hwc_use_detach; // 0: hwc use dequeue protocol, 1: hwc use detach request when synchronize scanout buffer
+   unsigned char use_native_type_buffer; // 0: use the tbm_buffer(tbm_surface), 1: use the native_buffer(wl_buffer)
    unsigned char hwc_optimized;
    unsigned char hwc_optimized_2;
    unsigned char smooth_windows;

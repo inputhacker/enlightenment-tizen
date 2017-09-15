@@ -1129,6 +1129,8 @@ E_API void e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set);
 
 E_API void e_client_stay_within_canvas_margin(E_Client *ec);
 
+EINTERN void e_client_revert_focus(E_Client *ec);
+
 /**
  * Move window to coordinates that do not account client decorations yet.
  *

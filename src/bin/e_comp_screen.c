@@ -1,6 +1,12 @@
 #include "e.h"
 #include <Ecore_Drm.h>
 
+#define PATH "/org/enlightenment/wm"
+#define IFACE "org.enlightenment.wm.screen_rotation"
+
+static Eldbus_Connection *e_comp_screen_conn;
+static Eldbus_Service_Interface *e_comp_screen_iface;
+
 static Eina_List *event_handlers = NULL;
 static Eina_Bool session_state = EINA_FALSE;
 
@@ -8,6 +14,11 @@ static Eina_Bool dont_set_ecore_drm_keymap = EINA_FALSE;
 static Eina_Bool dont_use_xkb_cache = EINA_FALSE;
 
 E_API int              E_EVENT_SCREEN_CHANGE = 0;
+
+enum
+{
+   E_COMP_SCREEN_SIGNAL_ROTATION_CHANGED = 0
+};
 
 typedef struct _E_Comp_Screen_Tzsr
 {
@@ -76,9 +87,16 @@ _tz_screen_rotation_get_ignore_output_transform(struct wl_client *client, struct
    tzsr_list = eina_list_append(tzsr_list, tzsr);
 }
 
+static void
+_tz_screen_rotation_iface_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
 static const struct tizen_screen_rotation_interface _tz_screen_rotation_interface =
 {
    _tz_screen_rotation_get_ignore_output_transform,
+   _tz_screen_rotation_iface_cb_destroy,
 };
 
 static void
@@ -94,6 +112,76 @@ _tz_screen_rotation_cb_bind(struct wl_client *client, void *data, uint32_t versi
      }
 
    wl_resource_set_implementation(res, &_tz_screen_rotation_interface, NULL, NULL);
+}
+
+static Eldbus_Message *
+_e_comp_screen_dbus_get_cb(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   int rotation = 0;
+
+   if (e_comp && e_comp->e_comp_screen)
+     rotation = e_comp->e_comp_screen->rotation;
+
+   DBG("got screen-rotation 'get' request: %d", rotation);
+
+   eldbus_message_arguments_append(reply, "i", rotation);
+
+   return reply;
+}
+
+static const Eldbus_Method methods[] =
+{
+   {"get", NULL, ELDBUS_ARGS({"i", "int32"}), _e_comp_screen_dbus_get_cb, 0},
+   {}
+};
+
+static const Eldbus_Signal signals[] = {
+   [E_COMP_SCREEN_SIGNAL_ROTATION_CHANGED] = {"changed", ELDBUS_ARGS({ "i", "rotation" }), 0},
+   {}
+};
+
+static const Eldbus_Service_Interface_Desc iface_desc = {
+     IFACE, methods, signals, NULL, NULL, NULL
+};
+
+static Eina_Bool
+_e_comp_screen_dbus_init(void *data EINA_UNUSED)
+{
+   E_Comp_Screen *e_comp_screen = e_comp->e_comp_screen;
+
+   if (e_comp_screen_conn) return ECORE_CALLBACK_CANCEL;
+
+   if (!e_comp_screen_conn)
+     e_comp_screen_conn = eldbus_connection_get(ELDBUS_CONNECTION_TYPE_SYSTEM);
+
+   if(!e_comp_screen_conn)
+     {
+        ecore_timer_add(1, _e_comp_screen_dbus_init, NULL);
+        return ECORE_CALLBACK_CANCEL;
+     }
+
+   e_comp_screen_iface = eldbus_service_interface_register(e_comp_screen_conn,
+                                                           PATH,
+                                                           &iface_desc);
+   EINA_SAFETY_ON_NULL_GOTO(e_comp_screen_iface, err);
+
+   if (e_comp_screen->rotation)
+     {
+        eldbus_service_signal_emit(e_comp_screen_iface, E_COMP_SCREEN_SIGNAL_ROTATION_CHANGED, e_comp_screen->rotation);
+        ELOGF("TRANSFORM", "screen-rotation sends signal: %d", NULL, NULL, e_comp_screen->rotation);
+     }
+
+   return ECORE_CALLBACK_CANCEL;
+
+err:
+   if (e_comp_screen_conn)
+     {
+        eldbus_connection_unref(e_comp_screen_conn);
+        e_comp_screen_conn = NULL;
+     }
+
+   return ECORE_CALLBACK_CANCEL;
 }
 
 static char *
@@ -334,6 +422,8 @@ _e_comp_screen_new(E_Comp *comp)
    E_Comp_Screen *e_comp_screen = NULL;
    tdm_error error = TDM_ERROR_NONE;
    tdm_display_capability capabilities;
+   const tbm_format *pp_formats;
+   int count, i;
 
    e_comp_screen = E_NEW(E_Comp_Screen, 1);
    if (!e_comp_screen) return NULL;
@@ -369,7 +459,17 @@ _e_comp_screen_new(E_Comp *comp)
 
    /* check the pp_support */
    if (capabilities & TDM_DISPLAY_CAPABILITY_PP)
-     e_comp_screen->pp_enabled = EINA_TRUE;
+     {
+        error = tdm_display_get_pp_available_formats(e_comp_screen->tdisplay, &pp_formats, &count);
+        if (error != TDM_ERROR_NONE)
+          ERR("fail to get available pp formats");
+        else
+          {
+             e_comp_screen->pp_enabled = EINA_TRUE;
+             for (i = 0 ; i < count ; i++)
+               e_comp_screen->available_pp_formats = eina_list_append(e_comp_screen->available_pp_formats, &pp_formats[i]);
+          }
+     }
 
    if (e_comp_socket_init("tdm-socket"))
      PRCTL("[Winsys] change permission and create sym link for %s", "tdm-socket");
@@ -380,8 +480,19 @@ _e_comp_screen_new(E_Comp *comp)
 static void
 _e_comp_screen_del(E_Comp_Screen *e_comp_screen)
 {
+   Eina_List *l = NULL, *ll = NULL;
+   tbm_format *formats;
+
    if (!e_comp_screen) return;
 
+   if (e_comp_screen->pp_enabled)
+     {
+        EINA_LIST_FOREACH_SAFE(e_comp_screen->available_pp_formats, l, ll, formats)
+          {
+             if (!formats) continue;
+             e_comp_screen->available_pp_formats = eina_list_remove(e_comp_screen->available_pp_formats, l);
+          }
+     }
    if (e_comp_screen->bufmgr) tbm_bufmgr_deinit(e_comp_screen->bufmgr);
    if (e_comp_screen->tdisplay) tdm_display_deinit(e_comp_screen->tdisplay);
 
@@ -392,10 +503,12 @@ static void
 _e_comp_screen_deinit_outputs(E_Comp_Screen *e_comp_screen)
 {
    E_Output *output;
+   Eina_List *l, *ll;
 
    // free up e_outputs
-   EINA_LIST_FREE(e_comp_screen->outputs, output)
+   EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l, ll, output)
      {
+        e_comp_screen->outputs = eina_list_remove_list(e_comp_screen->outputs, l);
         e_output_del(output);
      }
 
@@ -820,6 +933,7 @@ e_comp_screen_e_screens_setup(E_Comp_Screen *e_comp_screen, int rw, int rh)
    EINA_LIST_FOREACH(outputs, l, output)
      {
         screen = E_NEW(E_Screen, 1);
+        if (!screen) continue;
         screen->escreen = screen->screen = i;
         screen->x = output->config.geom.x;
         screen->y = output->config.geom.y;
@@ -855,6 +969,7 @@ e_comp_screen_e_screens_setup(E_Comp_Screen *e_comp_screen, int rw, int rh)
      {
 out:
         screen = E_NEW(E_Screen, 1);
+        if (!screen) return;
         screen->escreen = screen->screen = 0;
         screen->x = 0;
         screen->y = 0;
@@ -895,6 +1010,17 @@ e_comp_screen_init()
         EINA_SAFETY_ON_NULL_RETURN_VAL(comp, EINA_FALSE);
      }
 
+   /* keymap */
+   dont_set_ecore_drm_keymap = getenv("NO_ECORE_DRM_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
+   dont_use_xkb_cache = getenv("NO_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
+
+   if (e_config->xkb.use_cache && !dont_use_xkb_cache)
+     {
+        e_main_ts("\tDRM Keymap Init");
+        _e_comp_screen_keymap_set(&ctx, &map);
+        e_main_ts("\tDRM Keymap Init Done");
+     }
+
    if (!_e_comp_screen_engine_init())
      {
         ERR("Could not initialize the ecore_evas engine.");
@@ -933,17 +1059,6 @@ e_comp_screen_init()
         e_pointer_hide(comp->pointer);
      }
    e_main_ts("\tE_Pointer New Done");
-
-   /* keymap */
-   dont_set_ecore_drm_keymap = getenv("NO_ECORE_DRM_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
-   dont_use_xkb_cache = getenv("NO_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
-
-   if (e_config->xkb.use_cache && !dont_use_xkb_cache)
-     {
-        e_main_ts("\tDRM Keymap Init");
-        _e_comp_screen_keymap_set(&ctx, &map);
-        e_main_ts("\tDRM Keymap Init Done");
-     }
 
    /* FIXME: We need a way to trap for user changing the keymap inside of E
     *        without the event coming from X11 */
@@ -990,6 +1105,14 @@ e_comp_screen_init()
           }
      }
 
+   if (eldbus_init() == 0)
+     {
+        ERR("eldbus_init failed");
+        goto failed_comp_screen;
+     }
+
+   _e_comp_screen_dbus_init(NULL);
+
    tzsr_client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _tz_screen_rotation_cb_client_del, NULL);
 
    E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_ACTIVATE,         _e_comp_screen_cb_activate,         comp);
@@ -1017,6 +1140,20 @@ e_comp_screen_shutdown()
 
    /* shutdown ecore_drm */
    /* ecore_drm_shutdown(); */
+
+   if (e_comp_screen_iface)
+     {
+        eldbus_service_interface_unregister(e_comp_screen_iface);
+        e_comp_screen_iface = NULL;
+     }
+
+   if (e_comp_screen_conn)
+     {
+        eldbus_connection_unref(e_comp_screen_conn);
+        e_comp_screen_conn = NULL;
+     }
+
+   eldbus_shutdown();
 
    _e_comp_screen_deinit_outputs(e_comp->e_comp_screen);
 
@@ -1101,12 +1238,18 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
    ecore_evas_rotation_with_resize_set(e_comp->ee, e_comp_screen->rotation);
    ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
 
+   if (e_comp_screen_iface)
+     {
+        eldbus_service_signal_emit(e_comp_screen_iface, E_COMP_SCREEN_SIGNAL_ROTATION_CHANGED, e_comp_screen->rotation);
+        ELOGF("TRANSFORM", "screen-rotation sends signal: %d", NULL, NULL, e_comp_screen->rotation);
+     }
+
    INF("EE Rotated and Resized: %d, %dx%d", e_comp_screen->rotation, w, h);
 
    return EINA_TRUE;
 }
 
-EINTERN void
+E_API void
 e_comp_screen_rotation_ignore_output_transform_send(E_Client *ec, Eina_Bool ignore)
 {
    E_Comp_Screen_Tzsr *tzsr = _tz_surface_rotation_find(ec);
@@ -1151,6 +1294,26 @@ e_comp_screen_pp_support(void)
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen->tdisplay, EINA_FALSE);
 
    return e_comp_screen->pp_enabled;
+}
+
+
+EINTERN Eina_List *
+e_comp_screen_pp_available_formats_get(void)
+{
+  E_Comp_Screen *e_comp_screen = NULL;
+  EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp, EINA_FALSE);
+
+  e_comp_screen = e_comp->e_comp_screen;
+  EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+  EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen->tdisplay, EINA_FALSE);
+
+  if (!e_comp_screen->pp_enabled)
+    {
+       ERR("pp does not support.");
+       return NULL;
+    }
+
+   return e_comp_screen->available_pp_formats;
 }
 
 EINTERN void

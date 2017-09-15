@@ -112,6 +112,7 @@ src/bin/services/e_service_indicator.h \
 src/bin/services/e_service_cbhm.h \
 src/bin/services/e_service_scrsaver.h \
 src/bin/e_policy.h \
+src/bin/e_policy_conformant.h \
 src/bin/e_policy_visibility.h \
 src/bin/e_policy_private_data.h \
 src/bin/e_policy_wl.h \
@@ -119,7 +120,8 @@ src/bin/e_policy_wl_display.h \
 src/bin/e_process.h \
 src/bin/e_privilege.h \
 src/bin/e_security.h \
-src/bin/e_keyrouter.h
+src/bin/e_keyrouter.h \
+src/bin/e_gesture.h
 
 enlightenment_src = \
 src/bin/e_actions.c \
@@ -218,7 +220,8 @@ src/bin/e_policy_wl_display.c \
 src/bin/e_process.c \
 src/bin/e_privilege.c \
 src/bin/e_security.c \
-src/bin/e_keyrouter.c
+src/bin/e_keyrouter.c \
+src/bin/e_gesture.c
 
 src_bin_enlightenment_CPPFLAGS = $(E_CPPFLAGS) -DEFL_BETA_API_SUPPORT -DEFL_EO_API_SUPPORT -DE_LOGGING=1 @WAYLAND_CFLAGS@ $(TTRACE_CFLAGS) $(DLOG_CFLAGS) $(PIXMAN_CFLAGS) $(POLICY_CFLAGS) @TIZEN_REMOTE_SURFACE_CFLAGS@
 if HAVE_LIBGOMP

@@ -9,7 +9,5 @@
 EINTERN int e_dpms_init(void);
 EINTERN int e_dpms_shutdown(void);
 
-EINTERN unsigned int e_dpms_get(Ecore_Drm_Output *output);
-
 #endif
 #endif

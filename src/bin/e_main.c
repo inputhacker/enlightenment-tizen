@@ -224,6 +224,15 @@ _e_main_subsystem_defer(void *data EINA_UNUSED)
 
    TRACE_DS_BEGIN(MAIN:DEFERRED INTERNAL SUBSYSTEMS INIT);
 
+   TS("[DEFERRED] DPMS Init");
+   if (!e_dpms_init())
+     {
+        e_error_message_show(_("Enlightenment cannot set up dpms.\n"));
+        _e_main_shutdown(-1);
+     }
+   TS("[DEFERRED] DPMS Init Done");
+   _e_main_shutdown_push(e_dpms_shutdown);
+
    TS("[DEFERRED] Screens Init: win");
    if (!e_win_init())
      {
@@ -608,15 +617,6 @@ main(int argc, char **argv)
    TS("E_Pointer Init Done");
    _e_main_shutdown_push(e_pointer_shutdown);
 
-   TS("Dpms Init");
-   if (!e_dpms_init())
-     {
-        e_error_message_show(_("Enlightenment cannot set up dpms.\n"));
-        _e_main_shutdown(-1);
-     }
-   TS("Dpms Init Done");
-   _e_main_shutdown_push(e_dpms_shutdown);
-
    TRACE_DS_BEGIN(MAIN:SCREEN INIT);
    TS("Screens Init");
    if (!_e_main_screens_init())
@@ -662,6 +662,10 @@ main(int argc, char **argv)
      }
    TS("E_Grabinput Init Done");
    _e_main_shutdown_push(e_grabinput_shutdown);
+
+   TS("E_Gesture Init");
+   e_gesture_init();
+   _e_main_shutdown_push(e_gesture_shutdown);
 
    ecore_event_handler_add(E_EVENT_MODULE_INIT_END, _e_main_deferred_job_schedule, NULL);
 
@@ -752,6 +756,8 @@ main(int argc, char **argv)
    ecore_main_loop_begin();
 
    inloop = EINA_FALSE;
+
+   ELOGF("COMP", "STOPPING enlightenment...", NULL, NULL);
    stopping = EINA_TRUE;
 
    _e_main_desk_save();
@@ -1267,8 +1273,14 @@ static void
 _e_main_create_wm_ready(void)
 {
    FILE *_wmready_checker = NULL;
+   const char *path_wm_ready = "/run/.wm_ready";
 
-   _wmready_checker = fopen("/run/.wm_ready", "wb");
+   if (!e_util_file_realpath_check(path_wm_ready, EINA_TRUE))
+     {
+        WRN("%s is maybe link, so delete it\n", path_wm_ready);
+     }
+
+   _wmready_checker = fopen(path_wm_ready, "wb");
    if (_wmready_checker)
      {
         TS("[WM] WINDOW MANAGER is READY!!!");
@@ -1277,7 +1289,8 @@ _e_main_create_wm_ready(void)
 
         /*TODO: Next lines should be removed. */
         FILE *_tmp_wm_ready_checker;
-        _tmp_wm_ready_checker = fopen("/tmp/.wm_ready", "wb");
+
+        _tmp_wm_ready_checker = fopen(path_wm_ready, "wb");
 
         if (_tmp_wm_ready_checker)
           {

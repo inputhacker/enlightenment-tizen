@@ -1,8 +1,17 @@
 #ifdef E_TYPEDEFS
 
-typedef struct _E_Output        E_Output;
-typedef struct _E_Output_Mode   E_Output_Mode;
-typedef enum   _E_Output_Dpms   E_OUTPUT_DPMS;
+#include <tbm_surface.h>
+
+typedef struct _E_Output            E_Output;
+typedef struct _E_Output_Mode       E_Output_Mode;
+typedef enum   _E_Output_Dpms       E_OUTPUT_DPMS;
+
+typedef struct _E_Output_Hook       E_Output_Hook;
+typedef enum   _E_Output_Hook_Point E_Output_Hook_Point;
+typedef void (*E_Output_Hook_Cb) (void *data, E_Output *output);
+
+typedef void (*E_Output_Capture_Cb) (E_Output *output, tbm_surface_h surface, void *user_data);
+
 #else
 #ifndef E_OUTPUT_H
 #define E_OUTPUT_H
@@ -15,9 +24,9 @@ typedef enum   _E_Output_Dpms   E_OUTPUT_DPMS;
 enum _E_Output_Dpms
 {
    E_OUTPUT_DPMS_ON,
-   E_OUTPUT_DPMS_OFF,
    E_OUTPUT_DPMS_STANDBY,
-   E_OUTPUT_DPMS_SUSPEND
+   E_OUTPUT_DPMS_SUSPEND,
+   E_OUTPUT_DPMS_OFF,
 };
 
 struct _E_Output_Mode
@@ -79,7 +88,34 @@ struct _E_Output
       int               init_angle;
       int               current_angle;
       Eina_Rectangle    rect;
+      Eina_Bool         need_touch_set;
    } zoom_conf;
+   Ecore_Event_Handler *touch_up_handler;
+
+   struct
+   {
+      tdm_capture      *tcapture;
+      Eina_Bool         start;
+      Eina_List        *data;
+      Eina_Bool         possible_tdm_capture;
+      Ecore_Timer      *timer;
+      Eina_Bool         wait_vblank;
+   } stream_capture;
+};
+
+enum _E_Output_Hook_Point
+{
+   E_OUTPUT_HOOK_DPMS_CHANGE,
+   E_OUTPUT_HOOK_LAST
+};
+
+struct _E_Output_Hook
+{
+   EINA_INLIST;
+   E_Output_Hook_Point hookpoint;
+   E_Output_Hook_Cb func;
+   void *data;
+   unsigned char delete_me : 1;
 };
 
 EINTERN Eina_Bool         e_output_init(void);
@@ -95,11 +131,17 @@ EINTERN Eina_Bool         e_output_setup(E_Output *output);
 EINTERN E_Output_Mode   * e_output_best_mode_find(E_Output *output);
 EINTERN Eina_Bool         e_output_connected(E_Output *output);
 EINTERN Eina_Bool         e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val);
+E_API E_OUTPUT_DPMS       e_output_dpms_get(E_Output *output);
 EINTERN void              e_output_size_get(E_Output *output, int *w, int *h);
 EINTERN E_Plane         * e_output_default_fb_target_get(E_Output *output);
 EINTERN Eina_Bool         e_output_fake_config_set(E_Output *output, int w, int h);
-EINTERN Eina_Bool         e_output_zoom_set(E_Output *eout, double zoomx, double zoomy, int cx, int cy);
-EINTERN void              e_output_zoom_unset(E_Output *eout);
+EINTERN Eina_Bool         e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy);
+EINTERN void              e_output_zoom_unset(E_Output *output);
+EINTERN Eina_Bool         e_output_capture(E_Output *output, tbm_surface_h surface, Eina_Bool auto_rotate, E_Output_Capture_Cb func, void *data);
+EINTERN Eina_Bool         e_output_stream_capture_queue(E_Output *output, tbm_surface_h surface, E_Output_Capture_Cb func, void *data);
+EINTERN Eina_Bool         e_output_stream_capture_dequeue(E_Output *output, tbm_surface_h surface);
+EINTERN Eina_Bool         e_output_stream_capture_start(E_Output *output);
+EINTERN void              e_output_stream_capture_stop(E_Output *output);
 EINTERN E_Window        * e_output_find_window_by_ec(E_Output *eout, E_Client *ec);
 EINTERN E_Window        * e_output_find_window_by_ec_in_all_outputs(E_Client *ec);
 EINTERN E_Window        * e_output_find_window_by_hwc_win(E_Output *eout, tdm_hwc_window *hwc_win);
@@ -114,6 +156,9 @@ E_API Eina_Bool           e_output_is_fb_full_compositing(E_Output *output);
 E_API E_Plane           * e_output_fb_target_get(E_Output *output);
 E_API E_Plane           * e_output_plane_get_by_zpos(E_Output *output, int zpos);
 EINTERN void              e_output_update_fps();
+E_API E_Output_Hook     * e_output_hook_add(E_Output_Hook_Point hookpoint, E_Output_Hook_Cb func, const void *data);
+E_API void                e_output_hook_del(E_Output_Hook *ch);
+
 
 #endif
 #endif

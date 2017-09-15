@@ -36,6 +36,8 @@ E_API const char  *e_util_filename_escape(const char *filename);
 //E_API char        *e_util_shell_env_path_eval(const char *path);
 E_API char        *e_util_size_string_get(off_t size);
 E_API char        *e_util_file_time_get(time_t ftime);
+E_API Eina_Bool    e_util_file_realpath_check(const char* path, Eina_Bool del_link);
+
 E_API Evas_Object *e_util_icon_add(const char *path, Evas *evas);
 //E_API Evas_Object *e_util_desktop_icon_add(Efreet_Desktop *desktop, unsigned int size, Evas *evas);
 E_API Evas_Object *e_util_icon_theme_icon_add(const char *icon_name, unsigned int size, Evas *evas);

@@ -124,6 +124,10 @@ static void          _e_qp_srv_effect_update(E_Policy_Quickpanel *qp, int x, int
 static E_QP_Client * _e_qp_client_ec_get(E_Client *ec);
 static Eina_Bool     _e_qp_client_scrollable_update(void);
 
+static void          _quickpanel_client_evas_cb_show(void *data, Evas *evas, Evas_Object *obj, void *event);
+static void          _quickpanel_client_evas_cb_hide(void *data, Evas *evas, Evas_Object *obj, void *event);
+static void          _quickpanel_client_evas_cb_move(void *data, Evas *evas, Evas_Object *obj, void *event);
+
 inline static Eina_Bool
 _e_qp_srv_is_effect_finish_job_started(E_Policy_Quickpanel *qp)
 {
@@ -214,7 +218,6 @@ _mover_smart_add(Evas_Object *obj)
    evas_object_smart_data_set(obj, md);
 
    evas_object_move(obj, -1 , -1);
-   evas_object_layer_set(obj, E_POLICY_QUICKPANEL_LAYER);
    evas_object_intercept_show_callback_add(obj, _mover_intercept_show, md);
 }
 
@@ -353,6 +356,8 @@ _e_qp_srv_mover_new(E_Policy_Quickpanel *qp)
    /* Should setup 'md' before call evas_object_show() */
    md = evas_object_smart_data_get(mover);
    md->ec = qp->ec;
+
+   evas_object_layer_set(md->smart_obj, qp->ec->layer);
 
    e_service_region_rectangle_get(qp->handler_obj, qp->rotation, &x, &y, &w, &h);
    EINA_RECTANGLE_SET(&md->handler_rect, x, y, w, h);
@@ -514,22 +519,22 @@ _e_qp_srv_effect_finish_job_start(E_Policy_Quickpanel *qp, Eina_Bool visible)
       case E_POLICY_ANGLE_MAP_90:
          from = qp->effect.x;
          to = (visible) ? (ec->zone->w - from) : (-from);
-         duration = ((double)abs(to) / (ec->zone->w / 2)) * ref;
+         duration = ((double)abs(to) / ((double)ec->zone->w / 2)) * ref;
          break;
       case E_POLICY_ANGLE_MAP_180:
          from = qp->effect.y;
          to = (visible) ? (-from) : (ec->zone->h - from);
-         duration = ((double)abs(to) / (ec->zone->h / 2)) * ref;
+         duration = ((double)abs(to) / ((double)ec->zone->h / 2)) * ref;
          break;
       case E_POLICY_ANGLE_MAP_270:
          from = qp->effect.x;
          to = (visible) ? (-from) : (ec->zone->w - from);
-         duration = ((double)abs(to) / (ec->zone->w / 2)) * ref;
+         duration = ((double)abs(to) / ((double)ec->zone->w / 2)) * ref;
          break;
       default:
          from = qp->effect.y;
          to = (visible) ? (ec->zone->h - from) : (-from);
-         duration = ((double)abs(to) / (ec->zone->h / 2)) * ref;
+         duration = ((double)abs(to) / ((double)ec->zone->h / 2)) * ref;
          break;
      }
 
@@ -921,6 +926,12 @@ _region_obj_cb_gesture_end(void *data EINA_UNUSED, Evas_Object *handler, int x, 
 static void
 _quickpanel_free(E_Policy_Quickpanel *qp)
 {
+   ELOGF("QUICKPANEL", "Remove Client | qp %p", qp->ec->pixmap, qp->ec, qp);
+
+   evas_object_event_callback_del(qp->ec->frame, EVAS_CALLBACK_SHOW, _quickpanel_client_evas_cb_show);
+   evas_object_event_callback_del(qp->ec->frame, EVAS_CALLBACK_HIDE, _quickpanel_client_evas_cb_hide);
+   evas_object_event_callback_del(qp->ec->frame, EVAS_CALLBACK_MOVE, _quickpanel_client_evas_cb_move);
+
    E_FREE_LIST(qp_clients, free);
    E_FREE_FUNC(qp->mover, evas_object_del);
    E_FREE_FUNC(qp->indi_obj, evas_object_del);
@@ -1344,7 +1355,8 @@ _quickpanel_cb_client_remove(void *data, int type, void *event)
    if (qp->below == ev->ec)
      qp->below = NULL;
 
-   _quickpanel_below_change_eval(data, event);
+   if (!stopping)
+     _quickpanel_below_change_eval(data, event);
 end:
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -1585,11 +1597,11 @@ e_service_quickpanel_client_set(E_Client *ec)
    /* if we have not setup evas callbacks for this client, do it */
    if (_pol_quickpanel) return;
 
-   ELOGF("QUICKPANEL", "Set Client | ec %p", NULL, NULL, ec);
-
    qp = calloc(1, sizeof(*qp));
    if (!qp)
      return;
+
+   ELOGF("QUICKPANEL", "Set Client | qp %p", ec->pixmap, ec, qp);
 
    _pol_quickpanel = qp;
 
@@ -1618,6 +1630,9 @@ e_service_quickpanel_client_set(E_Client *ec)
 
    // set skip iconify
    ec->exp_iconify.skip_iconify = 1;
+
+   // disable effect
+   ec->animatable = 0;
 
    /* add quickpanel to force update list of zone */
    e_zone_orientation_force_update_add(ec->zone, ec);
@@ -1860,6 +1875,8 @@ e_qp_client_add(E_Client *ec)
      }
 
    qp_client = E_NEW(E_QP_Client, 1);
+   EINA_SAFETY_ON_NULL_RETURN(qp_client);
+
    qp_client->ec = ec;
    qp_client->ref = 1;
    qp_client->hint.vis = EINA_TRUE;

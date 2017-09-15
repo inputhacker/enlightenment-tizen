@@ -1,5 +1,5 @@
 #include "e.h"
-#include "e_policy_conformant.h"
+#include "e_policy_conformant_internal.h"
 #include "e_policy_wl.h"
 #include "e_policy_visibility.h"
 #include "e_policy_private_data.h"
@@ -36,6 +36,9 @@ static int _e_policy_hooks_walking = 0;
 static Eina_Inlist *_e_policy_hooks[] =
 {
    [E_POLICY_HOOK_CLIENT_POSITION_SET] = NULL,
+   [E_POLICY_HOOK_CLIENT_ACTIVE_REQ] = NULL,
+   [E_POLICY_HOOK_CLIENT_RAISE_REQ] = NULL,
+   [E_POLICY_HOOK_CLIENT_LOWER_REQ] = NULL,
 };
 
 static E_Policy_Client *_e_policy_client_add(E_Client *ec);
@@ -118,9 +121,11 @@ _e_policy_client_add(E_Client *ec)
    if (e_object_is_del(E_OBJECT(ec))) return NULL;
 
    pc = eina_hash_find(hash_policy_clients, &ec);
-   if (pc) return NULL;
+   if (pc) return pc;
 
    pc = E_NEW(E_Policy_Client, 1);
+   if (!pc) return NULL;
+
    pc->ec = ec;
 
    eina_hash_add(hash_policy_clients, &ec, pc);
@@ -1423,6 +1428,8 @@ e_policy_desk_add(E_Desk *desk)
    if (pd) return;
 
    pd = E_NEW(E_Policy_Desk, 1);
+   if (!pd) return;
+
    pd->desk = desk;
    pd->zone = desk->zone;
 

@@ -874,6 +874,12 @@ _e_client_revert_focus(E_Client *ec)
      }
 }
 
+EINTERN void
+e_client_revert_focus(E_Client *ec)
+{
+   _e_client_revert_focus(ec);
+}
+
 static void
 _e_client_free(E_Client *ec)
 {
@@ -1042,7 +1048,18 @@ _e_client_del(E_Client *ec)
    E_FREE(ec->comp_data);
 
    if ((!ec->new_client) && (!stopping))
-     _e_client_event_simple(ec, E_EVENT_CLIENT_REMOVE);
+     {
+        ELOGF("COMP", "SEND E_EVENT_CLIENT_REMOVE event", ec->pixmap, ec);
+        _e_client_event_simple(ec, E_EVENT_CLIENT_REMOVE);
+     }
+   else
+     {
+        if (stopping)
+          {
+             ELOGF("COMP", "SEND E_EVENT_CLIENT_REMOVE event on stopping env", ec->pixmap, ec);
+             _e_client_event_simple(ec, E_EVENT_CLIENT_REMOVE);
+          }
+     }
 
    ELOG("CLIENT DEL", ec->pixmap, ec);
 
@@ -1473,8 +1490,8 @@ _e_client_resize_end(E_Client *ec)
    /* If this border was maximized, we need to unset Maximized state or
     * on restart, E still thinks it's maximized */
    if (ec->maximized != E_MAXIMIZE_NONE)
-     e_hints_window_maximized_set(ec, ec->maximized & E_MAXIMIZE_NONE,
-                                  ec->maximized & E_MAXIMIZE_NONE);
+     e_hints_window_maximized_set(ec, ec->maximized & E_MAXIMIZE_HORIZONTAL,
+                                  ec->maximized & E_MAXIMIZE_VERTICAL);
 
    _e_client_hook_call(E_CLIENT_HOOK_RESIZE_END, ec);
 
@@ -1915,6 +1932,15 @@ _e_client_cb_evas_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
                                        (Evas_Map *)evas_object_map_get(ec->frame));
 
    ec->pre_cb.x = x; ec->pre_cb.y = y;
+
+   if (ec->focused)
+     {
+        if (!E_INTERSECTS(ec->x, ec->y, ec->w, ec->h,
+                          ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
+          {
+             _e_client_revert_focus(ec);
+          }
+     }
 
    e_client_visibility_calculate();
 }
@@ -4887,7 +4913,7 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
           (e_config->focus_setting == E_FOCUS_NEW_DIALOG_IF_OWNER_FOCUSED)))) ||
        (just_do_it))
      {
-        ELOG("Set launching flag..", ec->pixmap, ec);
+        ELOGF("COMP", "Set launching flag..", ec->pixmap, ec);
         ec->launching = EINA_TRUE;
 
         ec->exp_iconify.not_raise = 0;
@@ -5177,7 +5203,13 @@ e_client_unmaximize(E_Client *ec, E_Maximize max)
                   if (ec->layout.splited)
                     e_client_util_move_resize_without_frame(ec, x, y, w, h);
                   else
-                    e_policy_visibility_client_defer_move(ec, x, y);
+                    {
+                       if (ec->changes.pos)
+                         {
+                            x = ec->x; y = ec->y;
+                         }
+                       e_policy_visibility_client_defer_move(ec, x, y);
+                    }
                   e_hints_window_size_unset(ec);
                }
              else
@@ -5187,7 +5219,14 @@ e_client_unmaximize(E_Client *ec, E_Maximize max)
                   if (ec->layout.splited)
                     e_client_util_move_resize_without_frame(ec, x, y, w, h);
                   else
-                    e_policy_visibility_client_defer_move(ec, x, y);
+                     {
+                        if (ec->changes.pos)
+                          {
+                             x = ec->x; y = ec->y;
+                          }
+                        e_policy_visibility_client_defer_move(ec, x, y);
+                     }
+
                   e_hints_window_size_set(ec);
                }
              if (vert)

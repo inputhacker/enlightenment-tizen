@@ -64,6 +64,7 @@ typedef enum _E_Comp_Wl_Hook_Point
    E_COMP_WL_HOOK_SHELL_SURFACE_READY,
    E_COMP_WL_HOOK_SUBSURFACE_CREATE,
    E_COMP_WL_HOOK_BUFFER_CHANGE,
+   E_COMP_WL_HOOK_CLIENT_REUSE,
    E_COMP_WL_HOOK_LAST,
 } E_Comp_Wl_Hook_Point;
 
@@ -470,6 +471,7 @@ struct _E_Comp_Wl_Client_Data
    Eina_Bool focus_update : 1;
    Eina_Bool opaque_state : 1;
    Eina_Bool video_client : 1;
+   Eina_Bool has_video_client : 1;
    Eina_Bool never_hwc : 1;          //  force window not to do hwc
    unsigned char accepts_focus : 1;
    unsigned char conformant : 1;
@@ -551,6 +553,7 @@ E_API void e_comp_wl_shell_surface_ready(E_Client *ec);
 
 EINTERN Eina_Bool e_comp_wl_video_subsurface_has(E_Client *ec);
 EINTERN Eina_Bool e_comp_wl_normal_subsurface_has(E_Client *ec);
+EINTERN E_Client* e_comp_wl_topmost_parent_get(E_Client *ec);
 
 E_API enum wl_output_transform e_comp_wl_output_buffer_transform_get(E_Client *ec);
 E_API void e_comp_wl_map_size_cal_from_buffer(E_Client *ec);

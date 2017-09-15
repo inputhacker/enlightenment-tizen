@@ -11,7 +11,7 @@ typedef enum
 /* -------------------------------------------------------------------------- */
 /* COMPOSITE OBJECTS                                                          */
 /* -------------------------------------------------------------------------- */
-#define SIGNATURE_COMPOBJS_CLIENT "uissisiiiiiiiibbbbsssdbsssuiiiiiiiibb"
+#define SIGNATURE_COMPOBJS_CLIENT "uissisiiiiiiiibbbbsssdbsssuiiiiiiiibbbbddddddddiiiiiiiiiiii"
 
 typedef struct _E_Info_Comp_Obj
 {
@@ -51,6 +51,13 @@ typedef struct _E_Info_Comp_Obj
       Eina_Bool    dirty;          // b
    } img;
 
+   struct
+   {
+      Eina_Bool    enable;            // b
+      Eina_Bool    alpha;             // b
+      double       u[4], v[4];        // dddddddd
+      int          x[4], y[4], z[4];  // iiiiiiiiiiii
+   } map;
 } E_Info_Comp_Obj;
 
 /* -------------------------------------------------------------------------- */
@@ -185,7 +192,7 @@ typedef enum
 /* REMOTE SURFACE                                                             */
 /* -------------------------------------------------------------------------- */
 #define USAGE_REMOTE_SURFACE                                                   \
-   "enlightenment_info -remote_surface (info | dump)\n"                                                           \
+   "enlightenment_info -remote_surface (info | dump)\n"                        \
    "Commands:\n"                                                               \
    "\tinfo : print current remote surface info\n"                              \
    "\tdump : on/off to dump provider's buffer by -dump_buffers [0:off, 1:on]\n"\
@@ -193,5 +200,23 @@ typedef enum
    "\tenlightenment_info -remote_surface info\n"                              \
    "\tenlightenment_info -remote_surface dump 0\n"                            \
    "\tenlightenment_info -remote_surface dump 1\n"
+
+/* -------------------------------------------------------------------------- */
+/* DUMP WINS                                                                  */
+/* -------------------------------------------------------------------------- */
+#define SIGNATURE_DUMP_WINS "ss"
+#define USAGE_DUMPIMAGE                                                  \
+   "[Option..] [DIR]\n"                                                  \
+   "\ttopvwins     : Dump buffer commit on top visible clients\n"        \
+   "\tns           : Dump native surfaces set on clients\n"
+
+/* -------------------------------------------------------------------------- */
+/* DESK                                                                       */
+/* -------------------------------------------------------------------------- */
+#define USAGE_DESK                                                  \
+   "[Option..] [DIR]\n"                                                  \
+   "\tgeometry [ x][ y][ w][ h]     : change desktop screen given geometry\n"        \
+   "\tzoom     [zx][zy][cx][cy]     : scale desktop screen\n"
+
 
 #endif /* end of _E_INFO_SHARED_TYPES_ */

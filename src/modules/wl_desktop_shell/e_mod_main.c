@@ -511,10 +511,11 @@ _e_shell_surface_map(struct wl_resource *resource)
    if ((!ec->comp_data->mapped) && (e_pixmap_usable_get(ec->pixmap)))
      {
         ELOGF("SHELL",
-              "Map window  |win:0x%08x|ec_size:%d,%d",
+              "Map window  |win:0x%08x|ec_size:%d,%d|pid:%d|title:%s, name:%s",
               ec->pixmap, ec,
               (unsigned int)e_client_util_win_get(ec),
-              ec->w, ec->h);
+              ec->w, ec->h, ec->netwm.pid, ec->icccm.title, ec->netwm.name);
+
 
         /* unset previous content */
         e_comp_object_content_unset(ec->frame);
@@ -1111,10 +1112,10 @@ _e_xdg_shell_surface_map_cb_timer(void *data)
    if ((!ec->comp_data->mapped) && (e_pixmap_usable_get(ec->pixmap)))
      {
         ELOGF("SHELL",
-              "Map window by map_timer |win:0x%08x|ec_size:%d,%d",
+              "Map window by map_timer |win:0x%08x|ec_size:%d,%d|pid:%d|title:%s, name:%s",
               ec->pixmap, ec,
               (unsigned int)e_client_util_win_get(ec),
-              ec->w, ec->h);
+              ec->w, ec->h, ec->netwm.pid, ec->icccm.title, ec->netwm.name);
 
         if (ec->use_splash)
           {
@@ -1157,6 +1158,8 @@ _e_xdg_shell_surface_map_cb_timer(void *data)
                }
           }
 
+        ELOGF("COMP", "Un-Set launching flag", ec->pixmap, ec);
+        ec->launching = EINA_FALSE;
         ec->first_mapped = 1;
         EC_CHANGED(ec);
      }
@@ -1219,10 +1222,10 @@ _e_xdg_shell_surface_map(struct wl_resource *resource)
         E_FREE_FUNC(ec->map_timer, ecore_timer_del);
 
         ELOGF("SHELL",
-              "Map window  |win:0x%08x|ec_size:%d,%d",
+              "Map window  |win:0x%08x|ec_size:%d,%d|pid:%d|title:%s, name:%s",
               ec->pixmap, ec,
               (unsigned int)e_client_util_win_get(ec),
-              ec->w, ec->h);
+              ec->w, ec->h, ec->netwm.pid, ec->icccm.title, ec->netwm.name);
 
         if (ec->use_splash)
           {
@@ -1258,6 +1261,8 @@ _e_xdg_shell_surface_map(struct wl_resource *resource)
                }
           }
 
+        ELOGF("COMP", "Un-Set launching flag..", ec->pixmap, ec);
+        ec->launching = EINA_FALSE;
         ec->first_mapped = 1;
         EC_CHANGED(ec);
      }
@@ -1669,9 +1674,16 @@ _e_tz_surf_cb_tz_res_get(struct wl_client *client, struct wl_resource *resource,
    tizen_resource_send_resource_id(res, res_id);
 }
 
+static void
+_e_tz_surf_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
 static const struct tizen_surface_interface _e_tz_surf_interface =
 {
    _e_tz_surf_cb_tz_res_get,
+   _e_tz_surf_cb_destroy
 };
 
 static void
@@ -1681,7 +1693,7 @@ _e_tz_surf_cb_bind(struct wl_client *client, void *data, uint32_t version, uint3
 
    if (!(res = wl_resource_create(client,
                                   &tizen_surface_interface,
-                                  MIN(version, 1),
+                                  version,
                                   id)))
      {
         ERR("Could not create tizen_surface resource: %m");

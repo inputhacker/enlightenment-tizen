@@ -288,6 +288,7 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, rsm_buffer_release_mode, INT);
    E_CONFIG_VAL(D, T, deiconify_approve, UCHAR);
    E_CONFIG_VAL(D, T, use_pp_zoom, UCHAR);
+   E_CONFIG_VAL(D, T, priority_control, UCHAR);
 }
 
 static Eina_Bool
@@ -508,6 +509,7 @@ e_config_load(void)
    E_CONFIG_LIMIT(e_config->rsm_buffer_release_mode, 0, 2);
    E_CONFIG_LIMIT(e_config->deiconify_approve, 0, 1);
    E_CONFIG_LIMIT(e_config->use_pp_zoom, 0, 1);
+   E_CONFIG_LIMIT(e_config->priority_control, 0, 1);
 }
 
 E_API int

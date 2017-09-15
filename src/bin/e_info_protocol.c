@@ -61,6 +61,7 @@ E_Info_Tree *
 _e_info_bintree_create_tree(int size)
 {
    E_Info_Tree *tree = calloc(1, sizeof(E_Info_Tree) + size);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tree, NULL);
 
    tree->size = size;
    tree->head = NULL;
@@ -72,6 +73,7 @@ E_Info_Tree_Node *
 _e_info_bintree_create_node(E_Info_Tree *tree)
 {
    E_Info_Tree_Node *node = calloc(1, sizeof(E_Info_Tree_Node) + tree->size);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(node, NULL);
 
    node->left = NULL;
    node->right = NULL;
@@ -290,6 +292,7 @@ _e_info_parser_statement_parse(E_Info_Tree *tree, E_Info_Token_Data *token)
      goto fail;
 
    node = _e_info_bintree_create_node(tree);
+   EINA_SAFETY_ON_NULL_GOTO(node, fail);
 
    data = (E_Info_Rule_Node *)_e_info_bintree_get_node_data(node);
 
@@ -386,6 +389,7 @@ _e_info_parser_token_parse(E_Info_Tree *tree, E_Info_Token_Data *token)
           goto fail;
 
         node = _e_info_bintree_create_node(tree);
+        EINA_SAFETY_ON_NULL_GOTO(node, fail);
 
         data = (E_Info_Rule_Node *)_e_info_bintree_get_node_data(node);
         data->node_type = E_INFO_NODE_TYPE_AND;
@@ -405,6 +409,7 @@ _e_info_parser_token_parse(E_Info_Tree *tree, E_Info_Token_Data *token)
           goto fail;
 
         node = _e_info_bintree_create_node(tree);
+        EINA_SAFETY_ON_NULL_GOTO(node, fail);
 
         data = (E_Info_Rule_Node *)_e_info_bintree_get_node_data(node);
         data->node_type = E_INFO_NODE_TYPE_OR;
@@ -432,6 +437,8 @@ _e_info_parser_rule_string_parse(const char * string)
    _e_info_parser_token_process(&token);
 
    tree = _e_info_bintree_create_tree(sizeof(E_Info_Rule_Node));
+   if (!tree) return NULL;
+
    node = _e_info_parser_token_parse(tree, &token);
    if (!node)
      {

@@ -1027,6 +1027,7 @@ _e_comp_object_animating_end(E_Comp_Object *cw)
                     {
                        if (!cw->ec->extra_animating)
                          {
+                            ELOGF("COMP", "Un-Set launching flag..", cw->ec->pixmap, cw->ec);
                             cw->ec->launching = EINA_FALSE;
                             if (cw->ec->first_mapped)
                               {
@@ -1631,6 +1632,18 @@ _e_comp_intercept_layer_set(void *data, Evas_Object *obj, int layer)
 
 typedef void (*E_Comp_Object_Stack_Func)(Evas_Object *obj, Evas_Object *stack);
 
+static Eina_Bool
+_e_comp_object_is_pending(E_Client *ec)
+{
+   E_Client *topmost;
+
+   if (!ec) return EINA_FALSE;
+
+   topmost = e_comp_wl_topmost_parent_get(ec);
+
+   return (topmost) ? topmost->layer_pending : EINA_FALSE;
+}
+
 static void
 _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Object_Stack_Func stack_cb)
 {
@@ -1640,9 +1653,10 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
    Evas_Object *o = stack;
    Eina_Bool raising = stack_cb == evas_object_stack_above;
 
-   if ((cw->ec->layer_block) || (cw->ec->layer_pending))
+   /* We should consider topmost's layer_pending for subsurface */
+   if ((cw->ec->layer_block) || _e_comp_object_is_pending(cw->ec))
      {
-        if (cw->ec->layer_pending)
+        if (_e_comp_object_is_pending(cw->ec))
           e_comp_object_layer_update(cw->smart_obj,
                                      raising? stack : NULL,
                                      raising? NULL : stack);
@@ -1661,7 +1675,7 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
    /* assume someone knew what they were doing during client init */
    if (cw->ec->new_client)
      layer = cw->ec->layer;
-   else if ((cw2) && (cw2->ec->layer_pending))
+   else if ((cw2) && _e_comp_object_is_pending(cw2->ec))
      layer = cw2->ec->layer;
    else
      layer = evas_object_layer_get(stack);
@@ -1730,7 +1744,7 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
      _e_comp_object_layers_add(cw, NULL, NULL, 0);
 
    /* find new object for stacking if cw2 is on state of layer_pending */
-   if ((cw2) && (cw2->ec->layer_pending))
+   if ((cw2) && _e_comp_object_is_pending(cw2->ec))
      {
         E_Client *new_stack = NULL, *current_ec = NULL;
         current_ec = cw2->ec;
@@ -1741,7 +1755,7 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
                   current_ec = new_stack;
                   if (new_stack == cw->ec) continue;
                   if (new_stack->layer != cw2->ec->layer) break;
-                  if (!new_stack->layer_pending) break;
+                  if (!_e_comp_object_is_pending(new_stack)) break;
                }
              if ((new_stack) && (new_stack->layer == cw2->ec->layer))
                stack = new_stack->frame;
@@ -1760,7 +1774,7 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
                   current_ec = new_stack;
                   if (new_stack == cw->ec) continue;
                   if (new_stack->layer != cw2->ec->layer) break;
-                  if (!new_stack->layer_pending) break;
+                  if (!_e_comp_object_is_pending(new_stack)) break;
                }
              if ((new_stack) && (new_stack->layer == cw2->ec->layer))
                stack = new_stack->frame;
@@ -1924,7 +1938,7 @@ _e_comp_intercept_hide(void *data, Evas_Object *obj)
 
    if (cw->ec->launching == EINA_TRUE)
      {
-        ELOG("Hide. Cancel launching flag", cw->ec->pixmap, cw->ec);
+        ELOGF("COMP", "Hide. Cancel launching flag", cw->ec->pixmap, cw->ec);
         cw->ec->launching = EINA_FALSE;
      }
 
@@ -2819,7 +2833,7 @@ _e_comp_smart_show(Evas_Object *obj)
      {
         if (cw->ec->exp_iconify.by_client)
           {
-             ELOG("Set launching flag..", cw->ec->pixmap, cw->ec);
+             ELOGF("COMP", "Set launching flag..", cw->ec->pixmap, cw->ec);
              cw->ec->launching = EINA_TRUE;
           }
 
@@ -2828,7 +2842,7 @@ _e_comp_smart_show(Evas_Object *obj)
    else if (!cw->showing) /* if set, client was ec->hidden during show animation */
      {
         cw->showing = 1;
-        ELOG("Set launching flag..", cw->ec->pixmap, cw->ec);
+        ELOGF("COMP", "Set launching flag..", cw->ec->pixmap, cw->ec);
         cw->ec->launching = EINA_TRUE;
 
         e_comp_object_signal_emit(cw->smart_obj, "e,state,visible", "e");
@@ -4100,6 +4114,7 @@ e_comp_object_shape_apply(Evas_Object *obj)
         unsigned char *spix, *sp;
 
         spix = calloc(w * h, sizeof(unsigned char));
+        if (!spix) return;
         for (i = 0; i < cw->ec->shape_rects_num; i++)
           {
              int rx, ry, rw, rh;
@@ -4211,7 +4226,12 @@ _e_comp_object_cb_buffer_destroy(struct wl_listener *listener, void *data EINA_U
    E_Comp_Object *cw;
    cw = container_of(listener, E_Comp_Object, buffer_destroy_listener);
 
-   cw->buffer_destroy_listener.notify = NULL;
+   if (cw->buffer_destroy_listener.notify)
+     {
+        cw->buffer_destroy_listener.notify = NULL;
+        wl_list_remove(&cw->buffer_destroy_listener.link);
+     }
+
    if (e_object_is_del(E_OBJECT(cw->ec)))
      {
         if (!e_object_delay_del_ref_get(E_OBJECT(cw->ec)))
@@ -5476,7 +5496,7 @@ e_comp_object_map_update(Evas_Object *obj)
      {
         if (evas_object_map_enable_get(cw->effect_obj))
           {
-             ELOGF("COMP", "transform map: disable", cw->ec->pixmap, cw->ec);
+             ELOGF("TRANSFORM", "map: disable", cw->ec->pixmap, cw->ec);
              evas_object_map_enable_set(cw->effect_obj, EINA_FALSE);
              evas_object_hide(cw->map_input_obj);
           }
@@ -5498,7 +5518,7 @@ e_comp_object_map_update(Evas_Object *obj)
 
    _e_comp_object_map_transform_pos(ec, x1, y1, &x, &y);
    evas_map_point_image_uv_set(map, 0, x, y);
-   l = snprintf(p, remain, " %d,%d", x, y);
+   l = snprintf(p, remain, "%d,%d", x, y);
    p += l, remain -= l;
 
    _e_comp_object_map_transform_pos(ec, x2, y1, &x, &y);
@@ -5516,8 +5536,9 @@ e_comp_object_map_update(Evas_Object *obj)
    l = snprintf(p, remain, " %d,%d", x, y);
    p += l, remain -= l;
 
-   DBG("ec(%p) obj(%p) transform map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d => %s)",
-       cw->ec, obj, ec->x, ec->y, bw, bh, x1, y1, x2, y1, x2, y2, x1, y2, buffer);
+   ELOGF("TRANSFORM", "map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d=>%s)",
+         cw->ec->pixmap, cw->ec,
+         ec->x, ec->y, bw, bh, x1, y1, x2, y1, x2, y2, x1, y2, buffer);
 
    evas_object_map_set(cw->effect_obj, map);
    evas_object_map_enable_set(cw->effect_obj, EINA_TRUE);

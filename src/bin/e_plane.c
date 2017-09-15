@@ -35,6 +35,7 @@ static int _e_plane_hooks_walking = 0;
 static Eina_Inlist *_e_plane_hooks[] =
 {
    [E_PLANE_HOOK_VIDEO_SET] = NULL,
+   [E_PLANE_HOOK_UNSET] = NULL,
 };
 
 static void
@@ -86,12 +87,15 @@ _get_tbm_surface_queue(E_Comp *e_comp)
    tbm_surface_queue_h tbm_queue = NULL;
 
    name = ecore_evas_engine_name_get(e_comp->ee);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(name, NULL);
+
    if (!strcmp(name, "gl_drm"))
      {
         Evas_Engine_Info_GL_Drm *info;
         info = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(e_comp->evas);
-        if (info->info.surface)
-          tbm_queue = gbm_tbm_get_surface_queue(info->info.surface);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(info, NULL);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(info->info.surface, NULL);
+        tbm_queue = gbm_tbm_get_surface_queue(info->info.surface);
      }
    else if(!strcmp(name, "gl_drm_tbm"))
      {
@@ -109,6 +113,33 @@ _get_tbm_surface_queue(E_Comp *e_comp)
      }
 
    return tbm_queue;
+}
+
+static Eina_Bool
+_e_plane_surface_can_set(E_Plane *plane, tbm_surface_h tsurface)
+{
+   E_Output *output = NULL;
+   E_Plane *tmp_plane = NULL;
+   Eina_List *l;
+
+   output = plane->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->planes, l, tmp_plane)
+     {
+        if (plane == tmp_plane) continue;
+
+        if (tmp_plane->tsurface == tsurface)
+          {
+             if (plane_trace_debug)
+               ELOGF("E_PLANE", "Used    Plane(%p) zpos(%d) tsurface(%p)",
+                      NULL, NULL, tmp_plane, tmp_plane->zpos, tsurface);
+
+             return EINA_FALSE;
+          }
+     }
+
+   return EINA_TRUE;
 }
 
 static void
@@ -154,6 +185,8 @@ _e_plane_surface_unset(E_Plane *plane)
         ERR("fail to tdm_layer_unset_buffer");
         return EINA_FALSE;
      }
+
+   _e_plane_hook_call(E_PLANE_HOOK_UNSET, plane);
 
    return EINA_TRUE;
 }
@@ -358,6 +391,24 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
    return EINA_TRUE;
 }
 
+static void
+_e_plane_surface_cancel_acquire(E_Plane *plane, tbm_surface_h tsurface)
+{
+   E_Client *ec = plane->ec;
+   E_Plane_Renderer *renderer = plane->renderer;
+
+   if ((plane->is_fb && !plane->ec) ||
+       (plane->ec && plane->role == E_PLANE_ROLE_OVERLAY && plane->is_reserved))
+     {
+        if (!e_plane_renderer_surface_queue_cancel_acquire(renderer, tsurface))
+          ERR("fail to e_plane_renderer_surface_queue_cancel_acquire");
+     }
+
+   if (ec) e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
+
+   return;
+}
+
 static tbm_surface_h
 _e_plane_surface_from_client_acquire_reserved(E_Plane *plane)
 {
@@ -409,7 +460,7 @@ _e_plane_surface_from_client_acquire(E_Plane *plane)
    E_Plane_Renderer *renderer = plane->renderer;
    tbm_surface_h tsurface = NULL;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, NULL);
+   if (!buffer) return NULL;
 
    if (!e_comp_object_hwc_update_exists(ec->frame)) return NULL;
 
@@ -583,6 +634,29 @@ _e_plane_renderer_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
 }
 
 static void
+_e_plane_fb_target_all_unset_counter_reset(E_Plane *fb_target)
+{
+   E_Plane *plane = NULL;
+   E_Output *output = NULL;
+   Eina_List *l;
+
+   output = fb_target->output;
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   EINA_LIST_FOREACH(output->planes, l, plane)
+     {
+        /* reset the unset_counter */
+        if (plane->unset_counter > 0)
+          {
+             plane->unset_counter = 0;
+
+             if (plane_trace_debug)
+               ELOGF("E_PLANE", " Plane(%p) Unset Counter Reset", NULL, NULL, plane);
+          }
+     }
+}
+
+static void
 _e_plane_unset_reset(E_Plane *plane)
 {
    Eina_Bool print_log = EINA_FALSE;
@@ -593,25 +667,47 @@ _e_plane_unset_reset(E_Plane *plane)
    if (plane->unset_try)         { plane->unset_try = EINA_FALSE;       print_log = EINA_TRUE; }
    if (plane->unset_commit)      { plane->unset_commit = EINA_FALSE;    print_log = EINA_TRUE; }
 
+   if (plane->unset_ec)
+     {
+        e_object_unref(E_OBJECT(plane->unset_ec));
+        plane->unset_ec = NULL;
+        print_log = EINA_TRUE;
+     }
+
    if (print_log && plane_trace_debug)
      ELOGF("E_PLANE", " Plane(%p) Unset flags Reset", NULL, NULL, plane);
 }
 
 static void
-_e_plane_unset_candidate_set(E_Plane *plane)
+_e_plane_unset_candidate_set(E_Plane *plane, Eina_Bool sync)
 {
    E_Plane *fb_target = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(plane->ec);
 
    fb_target = e_output_fb_target_get(plane->output);
    if (fb_target)
      {
-        if(fb_target->ec)
+        if(fb_target->ec && !sync)
           plane->unset_counter = 0;
         else
-          plane->unset_counter = e_plane_renderer_render_count_get(fb_target->renderer) + 1;
+          {
+             Eina_Bool visible = EINA_FALSE;
+             E_Plane_Renderer *renderer = fb_target->renderer;
+
+             EINA_SAFETY_ON_NULL_RETURN(renderer);
+
+             visible = evas_object_visible_get(plane->ec->frame);
+
+             plane->unset_counter = e_plane_renderer_render_count_get(fb_target->renderer);
+
+             if (!visible && !renderer->rendered) plane->unset_counter += 1;
+          }
      }
 
    plane->unset_candidate = EINA_TRUE;
+   plane->unset_ec = plane->ec;
+   e_object_ref(E_OBJECT(plane->unset_ec));
 }
 
 static Eina_Bool
@@ -754,6 +850,7 @@ _e_plane_pp_layer_commit(E_Plane *plane, tbm_surface_h tsurface)
      }
 
    data = E_NEW(E_Plane_Commit_Data, 1);
+   if (!data) goto fail;
    data->plane = plane;
    data->renderer = NULL;
    data->tsurface = pp_tsurface;
@@ -1129,7 +1226,16 @@ e_plane_new(E_Output *output, int index)
 EINTERN void
 e_plane_free(E_Plane *plane)
 {
+   Eina_List *l = NULL, *ll = NULL;
+   const tbm_format *formats;
+
    if (!plane) return;
+
+   EINA_LIST_FOREACH_SAFE(plane->available_formats, l, ll, formats)
+     {
+        if (!formats) continue;
+        plane->available_formats = eina_list_remove_list(plane->available_formats, l);
+     }
 
    if (plane->name) eina_stringshare_del(plane->name);
    if (plane->renderer) _e_plane_renderer_unset(plane);
@@ -1150,6 +1256,8 @@ e_plane_setup(E_Plane *plane)
    if (!plane->is_fb) return EINA_FALSE;
 
    name = ecore_evas_engine_name_get(e_comp->ee);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(name, EINA_FALSE);
+
    if (!strcmp("gl_drm", name))
      {
         Evas_Engine_Info_GL_Drm *einfo = NULL;
@@ -1217,11 +1325,23 @@ e_plane_render(E_Plane *plane)
 }
 
 EINTERN Eina_Bool
+e_plane_is_fetch_retry(E_Plane *plane)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   return plane->fetch_retry;
+}
+
+EINTERN Eina_Bool
 e_plane_fetch(E_Plane *plane)
 {
    tbm_surface_h tsurface = NULL;
+   E_Output *output = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   output = plane->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
    if (e_comp_canvas_norender_get() > 0)
      {
@@ -1272,6 +1392,16 @@ e_plane_fetch(E_Plane *plane)
    /* exist tsurface for update plane */
    if (tsurface)
      {
+        if (!_e_plane_surface_can_set(plane, tsurface))
+          {
+             _e_plane_surface_cancel_acquire(plane, tsurface);
+             plane->fetch_retry = EINA_TRUE;
+
+             return EINA_FALSE;
+          }
+
+        if (plane->fetch_retry) plane->fetch_retry = EINA_FALSE;
+
         plane->tsurface = tsurface;
 
         /* FIXME: we don't worry about the rotation
@@ -1280,12 +1410,15 @@ e_plane_fetch(E_Plane *plane)
          * and on the 'fetch' phase we have to set up only a surface */
         if (!e_comp->hwc_optimized)
           {
-             /* set plane info and set tsurface to the plane */
-             if (!_e_plane_surface_set(plane, tsurface))
+             if (output->dpms != E_OUTPUT_DPMS_OFF)
                {
-                  ERR("fail: _e_plane_set_info.");
-                  e_plane_unfetch(plane);
-                  return EINA_FALSE;
+                  /* set plane info and set tsurface to the plane */
+                  if (!_e_plane_surface_set(plane, tsurface))
+                    {
+                       ERR("fail: _e_plane_set_info.");
+                       e_plane_unfetch(plane);
+                       return EINA_FALSE;
+                    }
                }
           }
         else
@@ -1346,10 +1479,11 @@ e_plane_unfetch(E_Plane *plane)
    tbm_surface_h displaying_tsurface = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(plane);
-   EINA_SAFETY_ON_NULL_RETURN(plane->tsurface);
 
    /* do not reset the plane when the plan is trying to unset */
    if (e_plane_is_unset_try(plane)) return;
+
+   EINA_SAFETY_ON_NULL_RETURN(plane->tsurface);
 
    if (plane->is_fb && !plane->ec)
      {
@@ -1481,6 +1615,69 @@ _e_plane_fb_target_change_check(E_Plane *plane)
    return;
 }
 
+static void
+_e_plane_update_fps(E_Plane *plane)
+{
+   static double time = 0.0;
+   static double lapse = 0.0;
+   static int cframes = 0;
+   static int flapse = 0;
+
+   if (e_comp->calc_fps)
+     {
+        double dt;
+        double tim = ecore_time_get();
+
+        dt = tim - plane->frametimes[0];
+        plane->frametimes[0] = tim;
+
+        time += dt;
+        cframes++;
+
+        if (lapse == 0.0)
+          {
+             lapse = tim;
+             flapse = cframes;
+          }
+        else if ((tim - lapse) >= 0.5)
+          {
+             plane->fps = (cframes - flapse) / (tim - lapse);
+             lapse = tim;
+             flapse = cframes;
+             time = 0.0;
+          }
+     }
+}
+
+EINTERN Eina_Bool
+e_plane_offscreen_commit(E_Plane *plane)
+{
+   E_Plane_Commit_Data *data = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   if (plane->unset_commit) return EINA_TRUE;
+
+   data = e_plane_commit_data_aquire(plane);
+
+   if (!data) return EINA_TRUE;
+
+   _e_plane_fb_target_change_check(plane);
+
+   if (plane_trace_debug)
+     ELOGF("E_PLANE", "Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p) Offscreen",
+           NULL, NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
+           data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
+
+   e_plane_commit_data_release(data);
+
+   /* send frame event enlightenment doesn't send frame event in nocomp */
+   if (plane->ec)
+     e_pixmap_image_clear(plane->ec->pixmap, 1);
+
+   return EINA_TRUE;
+}
+
 EINTERN Eina_Bool
 e_plane_commit(E_Plane *plane)
 {
@@ -1530,6 +1727,8 @@ e_plane_commit(E_Plane *plane)
 
    plane->wait_commit = EINA_TRUE;
 
+   _e_plane_update_fps(plane);
+
    return EINA_TRUE;
 }
 
@@ -1543,6 +1742,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
    if (plane->unset_commit)
      {
         data = E_NEW(E_Plane_Commit_Data, 1);
+        if (!data) return NULL;
         data->plane = plane;
         data->renderer = NULL;
         data->tsurface = NULL;
@@ -1562,6 +1762,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
         if (plane->ec)
           {
              data = E_NEW(E_Plane_Commit_Data, 1);
+             if (!data) return NULL;
              data->plane = plane;
              data->renderer = plane->renderer;
              data->tsurface = plane->tsurface;
@@ -1578,6 +1779,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
              if (plane->is_fb)
                {
                   data = E_NEW(E_Plane_Commit_Data, 1);
+                  if (!data) return NULL;
                   data->plane = plane;
                   data->renderer = plane->renderer;
                   data->tsurface = plane->tsurface;
@@ -1802,7 +2004,7 @@ e_plane_unset_try_set(E_Plane *plane, Eina_Bool set)
 }
 
 EINTERN Eina_Bool
-e_plane_unset_commit_check(E_Plane *plane)
+e_plane_unset_commit_check(E_Plane *plane, Eina_Bool fb_commit)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
@@ -1812,10 +2014,13 @@ e_plane_unset_commit_check(E_Plane *plane)
         return EINA_FALSE;
      }
 
-   plane->unset_counter--;
+   if (fb_commit)
+     {
+        plane->unset_counter--;
 
-   if (plane_trace_debug)
-     ELOGF("E_PLANE", "Plane(%p) Check unset_commit. unset_counter(%d)", NULL, NULL, plane, plane->unset_counter);
+        if (plane_trace_debug)
+          ELOGF("E_PLANE", "Plane(%p) Check unset_commit. unset_counter(%d)", NULL, NULL, plane, plane->unset_counter);
+     }
 
    if (plane->unset_counter > 0) return EINA_FALSE;
 
@@ -1866,24 +2071,51 @@ e_plane_ec_get(E_Plane *plane)
    return plane->ec;
 }
 
+static E_Plane*
+_e_plane_ec_used_check(E_Plane *plane, E_Client *ec)
+{
+   E_Output *output = NULL;
+   E_Plane *tmp_plane = NULL;
+   Eina_List *l;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
+
+   output = plane->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->planes, l, tmp_plane)
+     {
+        if (plane == tmp_plane) continue;
+
+        if (tmp_plane->ec == ec)
+          {
+             if (plane_trace_debug)
+               ELOGF("E_PLANE", "Used    Plane(%p) zpos(%d) ec(%p)",
+                      NULL, NULL, tmp_plane, tmp_plane->zpos, ec);
+
+             return tmp_plane;
+          }
+     }
+
+   return NULL;
+}
+
 E_API Eina_Bool
 e_plane_ec_set(E_Plane *plane, E_Client *ec)
 {
+   E_Plane *used_plane = NULL;
+
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "Request Plane(%p) zpos(%d)   Set ec(%p, %s)",
            (ec ? ec->pixmap : NULL), ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
-   if (ec)
+   if (ec && (plane->is_fb || !plane->ec))
      {
         if (plane->ec == ec) return EINA_TRUE;
 
-        if (plane->ec_redirected)
-          {
-             if (plane->ec) e_client_redirected_set(plane->ec, EINA_TRUE);
-             plane->ec_redirected = EINA_FALSE;
-          }
+        if (plane->ec_redirected && plane->ec) e_client_redirected_set(plane->ec, EINA_TRUE);
 
         if (plane->reserved_memory)
           e_plane_reserved_set(plane, EINA_TRUE);
@@ -1904,15 +2136,25 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
              e_plane_role_set(plane, E_PLANE_ROLE_CURSOR);
 
              if (!e_plane_renderer_cursor_ec_set(plane->renderer, ec))
-               {
-                  plane->ec = NULL;
-                  return EINA_FALSE;
-               }
+               goto set_fail;
           }
         else
           {
              if (!plane->is_fb)
                {
+                  if (e_plane_is_unset_candidate(plane) ||
+                      e_plane_is_unset_try(plane) ||
+                      plane->unset_commit)
+                    {
+                       if (plane->unset_ec != ec)
+                         {
+                            INF("Trying to unset plane:%p zpos:%d", plane, plane->zpos);
+                            return EINA_FALSE;
+                         }
+                       else
+                         _e_plane_unset_reset(plane);
+                    }
+
                   if ((plane->renderer) && (plane->role != E_PLANE_ROLE_OVERLAY))
                     _e_plane_renderer_unset(plane);
 
@@ -1925,20 +2167,37 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
              e_plane_role_set(plane, E_PLANE_ROLE_OVERLAY);
 
              if (!e_plane_renderer_ec_set(plane->renderer, ec))
-               {
-                  plane->ec = NULL;
-                  return EINA_FALSE;
-               }
+               goto set_fail;
 
              if (plane->reserved_memory)
                _e_plane_surface_send_dequeuable_surfaces(plane);
           }
 
-        if (!plane->is_fb) _e_plane_unset_reset(plane);
+        if (plane->is_fb)
+          _e_plane_fb_target_all_unset_counter_reset(plane);
 
         e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
 
-        if (ec->redirected) plane->ec_redirected = EINA_TRUE;
+        if (plane->ec_redirected)
+          {
+             if (plane->ec)
+               {
+                  used_plane = _e_plane_ec_used_check(plane, plane->ec);
+                  if (used_plane)
+                    e_client_redirected_set(plane->ec, EINA_FALSE);
+                  else
+                    e_client_redirected_set(plane->ec, EINA_TRUE);
+               }
+
+             plane->ec_redirected = EINA_FALSE;
+          }
+
+        used_plane = _e_plane_ec_used_check(plane, ec);
+        if (used_plane)
+          plane->ec_redirected = used_plane->ec_redirected;
+        else
+          if (ec->redirected) plane->ec_redirected = EINA_TRUE;
+
         e_client_redirected_set(ec, EINA_FALSE);
      }
    else
@@ -1951,6 +2210,9 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
          *    we set the unset_candidate flags to the plane and measure to unset
          *    the plane at the e_output_commit.
          */
+
+        if (plane->ec_redirected && plane->ec) e_client_redirected_set(plane->ec, EINA_TRUE);
+
         if (plane->is_fb)
           {
              if (!e_plane_renderer_ecore_evas_use(plane->renderer))
@@ -1963,7 +2225,11 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
           {
              if (plane->tsurface)
                {
-                  _e_plane_unset_candidate_set(plane);
+                  if (ec)
+                    _e_plane_unset_candidate_set(plane, EINA_TRUE);
+                  else
+                    _e_plane_unset_candidate_set(plane, EINA_FALSE);
+
                   if (plane_trace_debug)
                     ELOGF("E_PLANE", "Plane(%p) Set the unset_candidate", (plane->ec ? ec->pixmap : NULL), ec, plane);
                }
@@ -1977,8 +2243,28 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
 
         if (plane->ec_redirected)
           {
-             if (plane->ec) e_client_redirected_set(plane->ec, EINA_TRUE);
+             if (plane->ec)
+               {
+                  used_plane = _e_plane_ec_used_check(plane, plane->ec);
+                  if (used_plane)
+                    e_client_redirected_set(plane->ec, EINA_FALSE);
+                  else
+                    e_client_redirected_set(plane->ec, EINA_TRUE);
+               }
+
              plane->ec_redirected = EINA_FALSE;
+          }
+
+        if (ec)
+          {
+             plane->ec = NULL;
+             plane->need_ev = EINA_TRUE;
+
+             if (plane_trace_debug)
+               ELOGF("E_PLANE", "Plane(%p) zpos(%d)   Set NULL",
+                     (ec ? ec->pixmap : NULL), ec, plane, plane->zpos);
+
+             return EINA_FALSE;
           }
      }
 
@@ -1990,6 +2276,25 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
            (ec ? ec->pixmap : NULL), ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
    return EINA_TRUE;
+
+set_fail:
+   if (plane->ec_redirected)
+     {
+       if (plane->ec)
+         {
+            used_plane = _e_plane_ec_used_check(plane, plane->ec);
+            if (used_plane)
+              e_client_redirected_set(plane->ec, EINA_FALSE);
+            else
+              e_client_redirected_set(plane->ec, EINA_TRUE);
+         }
+
+       plane->ec_redirected = EINA_FALSE;
+     }
+
+   plane->ec = NULL;
+
+   return EINA_FALSE;
 }
 
 E_API E_Client *
@@ -2097,7 +2402,7 @@ e_plane_is_fb_target_owned_by_ecore_evas(E_Plane *plane)
 }
 
 EINTERN Eina_List *
-e_plane_available_tbm_formats_get(E_Plane *plane)
+e_plane_available_formats_get(E_Plane *plane)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
 
@@ -2410,3 +2715,22 @@ e_plane_zoom_unset(E_Plane *plane)
           }
      }
 }
+
+EINTERN Eina_Bool
+e_plane_fps_get(E_Plane *plane, double *fps)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   if (plane->old_fps == plane->fps)
+     return EINA_FALSE;
+
+   if (plane->fps > 0.0)
+     {
+        *fps = plane->fps;
+        plane->old_fps = plane->fps;
+        return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+

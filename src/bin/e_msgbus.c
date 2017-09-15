@@ -29,6 +29,7 @@ EINTERN int
 e_msgbus_init(void)
 {
    _e_msgbus_data = E_NEW(E_Msgbus_Data, 1);
+   if (!_e_msgbus_data) return 0;
 
    eldbus_init();
 

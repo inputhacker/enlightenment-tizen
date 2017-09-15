@@ -343,6 +343,11 @@ _e_comp_wl_input_keymap_cache_create(const char *keymap_path, char *keymap_data)
 
    if (keymap_path)
      {
+        if (!e_util_file_realpath_check(keymap_path, EINA_TRUE))
+          {
+             WRN("%s is maybe link, so delete it\n", keymap_path);
+          }
+
         file = fopen(keymap_path, "w");
         EINA_SAFETY_ON_NULL_RETURN(file);
 

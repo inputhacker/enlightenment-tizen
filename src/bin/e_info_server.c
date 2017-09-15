@@ -73,6 +73,7 @@ static Eina_List *module_hook = NULL;
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
+#define VALUE_TYPE_FOR_LAYER_FPS "sid"
 #define VALUE_TYPE_REQUEST_FOR_KILL "uts"
 #define VALUE_TYPE_REPLY_KILL "s"
 #define VALUE_TYPE_REQUEST_FOR_WININFO "t"
@@ -166,7 +167,7 @@ e_info_server_hook_del(E_Info_Server_Hook *iswh)
 E_API void
 e_info_server_hook_call(E_Info_Server_Hook_Point hookpoint)
 {
-   if ((hookpoint < 0) || (hookpoint >= E_INFO_SERVER_HOOK_LAST)) return;
+   if (hookpoint >= E_INFO_SERVER_HOOK_LAST) return;
 
    _e_info_server_hook_call(hookpoint, NULL);
 }
@@ -310,6 +311,8 @@ static Obj_Info *
 _obj_info_get(Evas_Object *po, Evas_Object *o, int depth)
 {
    Obj_Info *info = E_NEW(Obj_Info, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(info, NULL);
+
    info->po = po;
    info->o = o;
    info->depth = depth;
@@ -330,6 +333,7 @@ _compobj_info_get(Evas_Object *po, Evas_Object *o, int depth)
    Evas_Native_Surface *ns;
 
    cobj = E_NEW(E_Info_Comp_Obj, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cobj, NULL);
 
    cobj->obj = (unsigned int)o;
    cobj->depth = depth;
@@ -504,6 +508,26 @@ _compobj_info_get(Evas_Object *po, Evas_Object *o, int depth)
         cobj->img.dirty = evas_object_image_pixels_dirty_get(o);
      }
 
+   if (evas_object_map_enable_get(o))
+     {
+        const Evas_Map *m = evas_object_map_get(o);
+        if (m)
+          {
+             int i;
+             cobj->map.enable = EINA_TRUE;
+             cobj->map.alpha = evas_map_alpha_get(m);
+             for (i = 0; i < 4; i++)
+               {
+                  Evas_Coord x, y, z;
+                  evas_map_point_image_uv_get(m, i, &cobj->map.u[i], &cobj->map.v[i]);
+                  evas_map_point_coord_get(m, i, &x, &y, &z);
+                  cobj->map.x[i] = x;
+                  cobj->map.y[i] = y;
+                  cobj->map.z[i] = z;
+               }
+          }
+     }
+
    return cobj;
 }
 
@@ -528,6 +552,7 @@ _e_info_server_cb_compobjs(const Eldbus_Service_Interface *iface EINA_UNUSED, co
    for (o = evas_object_bottom_get(e_comp->evas); o; o = evas_object_above_get(o))
      {
         info = _obj_info_get(NULL, o, 0);
+        if (!info) continue;
         stack = eina_list_append(stack, info);
      }
 
@@ -539,6 +564,7 @@ _e_info_server_cb_compobjs(const Eldbus_Service_Interface *iface EINA_UNUSED, co
 
         /* store data */
         cobj = _compobj_info_get(info->po, info->o, info->depth);
+        if (!cobj) continue;
         queue = eina_list_append(queue, cobj);
 
         /* 3. push : child objects */
@@ -590,7 +616,14 @@ _e_info_server_cb_compobjs(const Eldbus_Service_Interface *iface EINA_UNUSED, co
                                              cobj->img.lw, cobj->img.lh,
                                              cobj->img.fx, cobj->img.fy, cobj->img.fw, cobj->img.fh,
                                              cobj->img.alpha,
-                                             cobj->img.dirty);
+                                             cobj->img.dirty,
+                                             cobj->map.enable,
+                                             cobj->map.alpha,
+                                             cobj->map.u[0], cobj->map.u[1], cobj->map.u[2], cobj->map.u[3],
+                                             cobj->map.v[0], cobj->map.v[1], cobj->map.v[2], cobj->map.v[3],
+                                             cobj->map.x[0], cobj->map.x[1], cobj->map.x[2], cobj->map.x[3],
+                                             cobj->map.y[0], cobj->map.y[1], cobj->map.y[2], cobj->map.y[3],
+                                             cobj->map.z[0], cobj->map.z[1], cobj->map.z[2], cobj->map.z[3]);
 
         eldbus_message_iter_container_close(cobjs, struct_of_cobj);
 
@@ -2327,18 +2360,9 @@ _e_info_server_cb_window_prop_get(const Eldbus_Service_Interface *iface EINA_UNU
    return _msg_window_prop_append(msg, mode, value, property_name, property_value);
 }
 
-static Eldbus_Message *
-_e_info_server_cb_topvwins_dump(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+static void _e_info_server_cb_wins_dump_topvwins(const char *dir)
 {
-   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
-   const char *dir;
    Evas_Object *o;
-
-   if (!eldbus_message_arguments_get(msg, "s", &dir))
-     {
-        ERR("Error getting arguments.");
-        return reply;
-     }
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
@@ -2357,6 +2381,96 @@ _e_info_server_cb_topvwins_dump(const Eldbus_Service_Interface *iface EINA_UNUSE
 
         e_info_server_dump_client(ec, fname);
      }
+}
+
+static void _e_info_server_cb_wins_dump_ns(const char *dir)
+{
+   Evas_Object *o;
+
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        Ecore_Window win;
+        E_Client *ec;
+        Evas_Native_Surface *ns = NULL;
+        Evas_Object *co = NULL; // native surface set
+        tbm_surface_h tbm_surface = NULL;
+        char fname[PATH_MAX];
+        const char *bltin_t = NULL;
+
+        ec = evas_object_data_get(o, "E_Client");
+        win = e_client_util_win_get(ec);
+
+        // find obj which have native surface set
+        bltin_t = evas_object_type_get(o);
+        if (!e_util_strcmp(bltin_t, "image"))
+          {
+             // builtin types "image" could have cw->obj
+             ns = evas_object_image_native_surface_get(o);
+             if (ns) co = o;
+          }
+
+        if (!ns)
+          {
+             if (!co) co = evas_object_name_child_find(o, "cw->obj", -1);
+             if (co) ns = evas_object_image_native_surface_get(co);
+          }
+
+        if (!ns)
+          {
+             Eina_List *ll;
+             Evas_Object *c = NULL;
+
+             if (evas_object_smart_data_get(o))
+               {
+                  //find smart obj members
+                  EINA_LIST_REVERSE_FOREACH(evas_object_smart_members_get(o), ll, c)
+                    {
+                       if (!co) co = evas_object_name_child_find(c, "cw->obj", -1);
+                       if (co) ns = evas_object_image_native_surface_get(co);
+                       if (ns) break;
+                    }
+               }
+          }
+
+        if (!ns) continue;
+
+        switch (ns->type)
+          {
+           case EVAS_NATIVE_SURFACE_WL:
+              snprintf(fname, sizeof(fname), "%s/0x%08x_wl_%p.png", dir, win, co);
+              if (ns->data.wl.legacy_buffer)
+                tbm_surface = wayland_tbm_server_get_surface(NULL, ns->data.wl.legacy_buffer);
+              if (tbm_surface)
+                tdm_helper_dump_buffer(tbm_surface, fname);
+              break;
+           case EVAS_NATIVE_SURFACE_TBM:
+              snprintf(fname, sizeof(fname), "%s/0x%08x_tbm_%p.png", dir, win, co);
+              if (ns->data.tbm.buffer)
+                tdm_helper_dump_buffer(ns->data.tbm.buffer, fname);
+              break;
+           default:
+              break;
+          }
+     }
+}
+
+static Eldbus_Message *
+_e_info_server_cb_wins_dump(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   const char *type;
+   const char *dir;
+
+   if (!eldbus_message_arguments_get(msg, SIGNATURE_DUMP_WINS, &type, &dir))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+   if (!e_util_strcmp(type, "topvwins"))
+     _e_info_server_cb_wins_dump_topvwins(dir);
+   else if (!e_util_strcmp(type, "ns"))
+     _e_info_server_cb_wins_dump_ns(dir);
 
    return reply;
 }
@@ -2976,37 +3090,6 @@ _e_info_server_cb_keygrab_status_get(const Eldbus_Service_Interface *iface EINA_
 
    _e_info_server_module_hook_call("keygrab", path);
 
-   return reply;
-}
-
-static Eldbus_Message *
-_e_info_server_cb_fps_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
-{
-   static double old_fps = 0;
-
-   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
-   char buf[128] = {};
-
-   if (!e_comp->calc_fps)
-     {
-        e_comp->calc_fps = 1;
-     }
-
-   if (old_fps == e_comp->fps)
-     {
-        snprintf(buf, sizeof(buf), "no_update");
-     }
-   else if (e_comp->fps > 0.0)
-     {
-        snprintf(buf, sizeof(buf), "... FPS %3.1f", e_comp->fps);
-        old_fps = e_comp->fps;
-     }
-   else
-     {
-        snprintf(buf, sizeof(buf), "... FPS N/A");
-     }
-
-   eldbus_message_arguments_append(reply, "s", buf);
    return reply;
 }
 
@@ -3644,6 +3727,71 @@ _e_info_server_cb_selected_buffer_dump(const Eldbus_Service_Interface *iface EIN
 }
 
 static void
+_e_info_server_cb_screen_dump_cb(E_Output *eout, tbm_surface_h surface, void *user_data)
+{
+   char *path = (char *)user_data;
+
+   tdm_helper_dump_buffer(surface, path);
+
+   free(path);
+   tbm_surface_destroy(surface);
+
+   DBG("_e_info_server_cb_screen_dump_cb done");
+}
+
+static Eldbus_Message *
+_e_info_server_cb_screen_dump(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   const char *path = NULL;
+   tbm_surface_h surface = NULL;
+   E_Output *eout = NULL;
+   int w = 0, h = 0;
+   Eina_Bool ret = EINA_FALSE;
+   char *path_backup = NULL;
+
+   if (!eldbus_message_arguments_get(msg, "s", &path))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+   eout = e_output_find_by_index(0);
+   if (eout == NULL)
+     {
+        ERR("Error get main outpute.");
+        return reply;
+     }
+   e_output_size_get(eout, &w, &h);
+
+   surface = tbm_surface_create(w, h, TBM_FORMAT_ARGB8888);
+   if (!surface)
+     {
+        ERR("Error create tbm_surface.");
+        return reply;
+     }
+
+   path_backup = (char *)calloc(1, PATH_MAX * sizeof(char));
+   if (path_backup == NULL)
+     {
+        ERR("Error alloc.");
+        return reply;
+     }
+   strncpy(path_backup, path, PATH_MAX);
+
+   ret = e_output_capture(eout, surface, EINA_FALSE, _e_info_server_cb_screen_dump_cb, path_backup);
+   if (ret)
+     return reply;
+   else
+     ERR("Error fail capture.");
+
+   free(path_backup);
+   tbm_surface_destroy(surface);
+
+   return reply;
+}
+
+static void
 _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp_screen, int gl)
 {
    Eldbus_Message_Iter *array_of_mode;
@@ -3894,6 +4042,96 @@ e_info_server_cb_show_pending_commit(const Eldbus_Service_Interface *iface EINA_
 
    _msg_show_pending_commit_append(eldbus_message_iter_get(reply));
 
+   return reply;
+}
+
+static void
+_msg_layer_fps_append(Eldbus_Message_Iter *iter)
+{
+   Eina_List *output_l, *plane_l;
+   Eldbus_Message_Iter *array_of_layer_fps;
+   E_Comp_Screen *e_comp_screen = NULL;
+   E_Output *output = NULL;
+   E_Plane *plane = NULL;
+   double fps = 0.0;
+   char output_name[30];
+
+   eldbus_message_iter_arguments_append(iter, "a("VALUE_TYPE_FOR_LAYER_FPS")", &array_of_layer_fps);
+
+   e_comp_screen = e_comp->e_comp_screen;
+
+   EINA_LIST_FOREACH(e_comp_screen->outputs, output_l, output)
+     {
+        if (!output) continue;
+
+        strncpy(output_name, output->id, sizeof(char)*30);
+
+        EINA_LIST_FOREACH(output->planes, plane_l, plane)
+          {
+             if (!plane) continue;
+             if (!e_plane_fps_get(plane, &fps)) continue;
+
+             Eldbus_Message_Iter* struct_of_layer_fps;
+
+             eldbus_message_iter_arguments_append(array_of_layer_fps, "("VALUE_TYPE_FOR_LAYER_FPS")", &struct_of_layer_fps);
+
+             eldbus_message_iter_arguments_append
+               (struct_of_layer_fps, VALUE_TYPE_FOR_LAYER_FPS,
+                 output_name,
+                 plane->zpos,
+                 plane->fps);
+
+            eldbus_message_iter_container_close(array_of_layer_fps, struct_of_layer_fps);
+          }
+        memset(output_name, 0x0, sizeof(char)*30);
+     }
+
+   eldbus_message_iter_container_close(iter, array_of_layer_fps);
+}
+
+static Eldbus_Message *
+_e_info_server_cb_layer_fps_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+
+   if (!e_comp->calc_fps)
+     {
+        e_comp->calc_fps = 1;
+     }
+
+   _msg_layer_fps_append(eldbus_message_iter_get(reply));
+
+   return reply;
+}
+#else
+static Eldbus_Message *
+_e_info_server_cb_fps_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   static double old_fps = 0;
+
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   char buf[128] = {};
+
+   if (!e_comp->calc_fps)
+     {
+        e_comp->calc_fps = 1;
+     }
+
+   if (old_fps == e_comp->fps)
+     {
+        snprintf(buf, sizeof(buf), "no_update");
+     }
+   else if (e_comp->fps > 0.0)
+     {
+        snprintf(buf, sizeof(buf), "... FPS %3.1f", e_comp->fps);
+        old_fps = e_comp->fps;
+     }
+   else
+     {
+        snprintf(buf, sizeof(buf), "... FPS N/A");
+     }
+
+   eldbus_message_arguments_append(reply, "s", buf);
    return reply;
 }
 #endif
@@ -4264,7 +4502,7 @@ _e_info_server_cb_kill_client(const Eldbus_Service_Interface *iface EINA_UNUSED,
    uint32_t mode;
    const char *str_value;
    int count;
-   Eldbus_Message_Iter *array_of_string;
+   Eldbus_Message_Iter *array_of_string = NULL;
 
    res = eldbus_message_arguments_get(msg, VALUE_TYPE_REQUEST_FOR_KILL,
                                       &mode, &uint64_value, &str_value);
@@ -4737,13 +4975,160 @@ _e_info_server_cb_version_get(const Eldbus_Service_Interface *iface EINA_UNUSED,
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_module_list_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eina_List *module_list = NULL, *l = NULL;
+   E_Module *mod = NULL;
+   Eldbus_Message *reply = NULL;
+   Eldbus_Message_Iter *iter = NULL, *module_array = NULL;
+   Eldbus_Message_Iter *inner_module_array = NULL;
+
+   module_list = e_module_list();
+   if (module_list == NULL)
+     {
+        ERR("cannot get module list");
+        return eldbus_message_error_new(msg, FAIL_TO_GET_PROPERTY,
+                                        "module list: e_module_list() returns NULL");
+     }
+
+   // init message
+   reply = eldbus_message_method_return_new(msg);
+   iter = eldbus_message_iter_get(reply);
+
+   // get module count
+   eldbus_message_iter_basic_append(iter, 'i', eina_list_count(module_list));
+
+   // get module list
+   eldbus_message_iter_arguments_append(iter, "a(si)", &module_array);
+   EINA_LIST_FOREACH(module_list, l, mod)
+     {
+        char module_name[128] = {0};
+        int isonoff = 0;
+        snprintf(module_name, sizeof(module_name), "%s", mod->name);
+        isonoff = e_module_enabled_get(mod);
+        eldbus_message_iter_arguments_append(module_array, "(si)", &inner_module_array);
+        eldbus_message_iter_arguments_append(inner_module_array, "si", module_name, isonoff);
+        eldbus_message_iter_container_close(module_array, inner_module_array);
+     }
+   eldbus_message_iter_container_close(iter, module_array);
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_info_server_cb_module_load(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = NULL;
+   E_Module *module = NULL;
+   const char *module_name = NULL;
+   char msg_to_client[128] = {0};
+   int res = 0;
+
+   if (eldbus_message_arguments_get(msg, "s", &module_name) == EINA_FALSE || module_name == NULL)
+     {
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                                        "module load: an attempt to get arguments from method call message failed");
+     }
+
+   // find module & enable
+   module = e_module_find(module_name);
+   if (module == NULL)
+     {
+        module = e_module_new(module_name);
+     }
+   if (module == NULL || module->error)
+     {
+        snprintf(msg_to_client, sizeof(msg_to_client), "module load: cannot find module name : %s", module_name);
+        if(module != NULL)
+          e_object_del(E_OBJECT(module));
+     }
+   else
+     {
+        if (e_module_enabled_get(module))
+          {
+             snprintf(msg_to_client, sizeof(msg_to_client), "enlightenment module[ %s ] is already loaded", module_name);
+          }
+        else
+          {
+             res = e_module_enable(module);
+             snprintf(msg_to_client, sizeof(msg_to_client), "enlightenment module[ %s ] load %s", module_name, res?"succeed":"failed");
+          }
+     }
+
+   // return message to client
+   reply = eldbus_message_method_return_new(msg);
+   eldbus_message_arguments_append(reply, "s", msg_to_client);
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_info_server_cb_module_unload(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = NULL;
+   E_Module *module = NULL;
+   const char *module_name = NULL;
+   char msg_to_client[128] = {0};
+   int res = 0;
+
+   if (eldbus_message_arguments_get(msg, "s", &module_name) == EINA_FALSE || module_name == NULL)
+     {
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                                        "module unload: an attempt to get arguments from method call message failed");
+     }
+
+   module = e_module_find(module_name);
+   if (module == NULL)
+     {
+        snprintf(msg_to_client, sizeof(msg_to_client), "module unload: cannot find module name : %s", module_name);
+        goto finish;
+     }
+   else
+     {
+        if (e_module_enabled_get(module))
+          {
+             res = e_module_disable(module);
+             snprintf(msg_to_client, sizeof(msg_to_client), "enlightenment module[ %s ] unload %s", module_name, res?"succeed":"failed");
+          }
+        else
+          {
+             snprintf(msg_to_client, sizeof(msg_to_client), "enlightenment module[ %s ] is already unloaded", module_name);
+          }
+        goto finish;
+     }
+
+finish:
+   // return message to client
+   reply = eldbus_message_method_return_new(msg);
+   eldbus_message_arguments_append(reply, "s", msg_to_client);
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_info_server_cb_shutdown(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = NULL;
+   char msg_to_client[128] = {0};
+
+   snprintf(msg_to_client, sizeof(msg_to_client), "Enlightenment will be shutdown");
+   reply = eldbus_message_method_return_new(msg);
+   eldbus_message_arguments_append(reply, "s", msg_to_client);
+
+   ecore_main_loop_quit();
+
+   return reply;
+
+}
+
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"iiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
    { "get_all_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_all_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
    { "subsurface", NULL, ELDBUS_ARGS({"a("SIGNATURE_SUBSURFACE")", "array of ec"}), _e_info_server_cb_subsurface, 0 },
-   { "dump_topvwins", ELDBUS_ARGS({"s", "directory"}), NULL, _e_info_server_cb_topvwins_dump, 0 },
+   { "dump_wins", ELDBUS_ARGS({SIGNATURE_DUMP_WINS, "directory"}), NULL, _e_info_server_cb_wins_dump, 0 },
    { "eina_log_levels", ELDBUS_ARGS({"s", "eina log levels"}), NULL, _e_info_server_cb_eina_log_levels, 0 },
    { "eina_log_path", ELDBUS_ARGS({"s", "eina log path"}), NULL, _e_info_server_cb_eina_log_path, 0 },
 #ifdef HAVE_DLOG
@@ -4757,17 +5142,20 @@ static const Eldbus_Method methods[] = {
    { "get_input_devices", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_INPUTDEV")", "array of input"}), _e_info_server_cb_input_device_info_get, 0},
    { "protocol_trace", ELDBUS_ARGS({"s", "protocol_trace"}), NULL, _e_info_server_cb_protocol_trace, 0},
    { "protocol_rule", ELDBUS_ARGS({"sss", "protocol_rule"}), ELDBUS_ARGS({"s", "rule request"}), _e_info_server_cb_protocol_rule, 0},
-   { "get_fps_info", NULL, ELDBUS_ARGS({"s", "fps request"}), _e_info_server_cb_fps_info_get, 0},
    { "punch", ELDBUS_ARGS({"iiiiiiiii", "punch_geometry"}), NULL, _e_info_server_cb_punch, 0},
    { "transform_message", ELDBUS_ARGS({"siiiiiiii", "transform_message"}), NULL, e_info_server_cb_transform_message, 0},
    { "dump_buffers", ELDBUS_ARGS({"iisd", "start"}), NULL, _e_info_server_cb_buffer_dump, 0 },
    { "dump_selected_buffers", ELDBUS_ARGS({"ss", "dump_selected_buffers"}), NULL, _e_info_server_cb_selected_buffer_dump, 0 },
+   { "dump_screen", ELDBUS_ARGS({"s", "dump_screen"}), NULL, _e_info_server_cb_screen_dump, 0 },
    { "output_mode", ELDBUS_ARGS({SIGNATURE_OUTPUT_MODE_CLIENT, "output mode"}), ELDBUS_ARGS({"a("SIGNATURE_OUTPUT_MODE_SERVER")", "array of ec"}), _e_info_server_cb_output_mode, 0 },
 #ifdef ENABLE_HWC_MULTI
    { "hwc_trace_message", ELDBUS_ARGS({"i", "hwc_trace_message"}), NULL, e_info_server_cb_hwc_trace_message, 0},
    { "hwc", ELDBUS_ARGS({"i", "hwc"}), NULL, e_info_server_cb_hwc, 0},
    { "show_plane_state", NULL, NULL, e_info_server_cb_show_plane_state, 0},
    { "show_pending_commit", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_PENDING_COMMIT")", "array of pending commit"}), e_info_server_cb_show_pending_commit, 0},
+   { "get_layer_fps_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_LAYER_FPS")", "array of pending commit"}), _e_info_server_cb_layer_fps_info_get, 0},
+#else
+   { "get_fps_info", NULL, ELDBUS_ARGS({"s", "fps request"}), _e_info_server_cb_fps_info_get, 0},
 #endif
    { "get_keymap", NULL, ELDBUS_ARGS({"hi", "keymap fd"}), _e_info_server_cb_keymap_info_get, 0},
    { "effect_control", ELDBUS_ARGS({"i", "effect_control"}), NULL, e_info_server_cb_effect_control, 0},
@@ -4790,6 +5178,10 @@ static const Eldbus_Method methods[] = {
    { "wininfo_hints", ELDBUS_ARGS({"it", "mode, window"}), ELDBUS_ARGS({"as", "window hints"}), _e_info_server_cb_wininfo_hints, 0 },
    { "wininfo_shape", ELDBUS_ARGS({"t", "window"}), ELDBUS_ARGS({"ia(iiii)ia(iiii)", "window shape"}), _e_info_server_cb_wininfo_shape, 0 },
    { "get_version", NULL, ELDBUS_ARGS({"ss", "version of E20"}), _e_info_server_cb_version_get, 0 },
+   { "module_list_get", NULL, ELDBUS_ARGS({"ia(si)", "module list"}), _e_info_server_cb_module_list_get, 0 },
+   { "module_load", ELDBUS_ARGS({"s", "target module"}), ELDBUS_ARGS({"s", "load result"}), _e_info_server_cb_module_load, 0 },
+   { "module_unload", ELDBUS_ARGS({"s", "target module"}), ELDBUS_ARGS({"s", "unload result"}), _e_info_server_cb_module_unload, 0 },
+   { "shutdown", NULL, ELDBUS_ARGS({"s", "shutdown result"}), _e_info_server_cb_shutdown, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 
@@ -4989,6 +5381,7 @@ e_info_server_dump_client(E_Client *ec, char *fname)
         tbm_surface_info_s surface_info;
         tbm_surface_h tbm_surface = wayland_tbm_server_get_surface(NULL, buffer->resource);
 
+        EINA_SAFETY_ON_NULL_RETURN(tbm_surface);
         memset(&surface_info, 0, sizeof(tbm_surface_info_s));
         tbm_surface_map(tbm_surface, TBM_SURF_OPTION_READ, &surface_info);
 
@@ -5001,6 +5394,7 @@ e_info_server_dump_client(E_Client *ec, char *fname)
         tbm_surface_info_s surface_info;
         tbm_surface_h tbm_surface = buffer->tbm_surface;
 
+        EINA_SAFETY_ON_NULL_RETURN(tbm_surface);
         memset(&surface_info, 0, sizeof(tbm_surface_info_s));
         tbm_surface_map(tbm_surface, TBM_SURF_OPTION_READ, &surface_info);
 
@@ -5057,6 +5451,7 @@ _e_info_transform_new(E_Client *ec, int id, int enable, int x, int y, int sx, in
    if (!result)
      {
         result = (E_Info_Transform*)malloc(sizeof(E_Info_Transform));
+        EINA_SAFETY_ON_NULL_RETURN_VAL(result, NULL);
         memset(result, 0, sizeof(E_Info_Transform));
         result->id = id;
         result->ec = ec;

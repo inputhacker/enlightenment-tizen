@@ -512,29 +512,68 @@ _remote_surface_changed_buff_ev_filter_check(E_Comp_Wl_Remote_Surface *rs,
 static Eina_Bool
 _remote_surface_changed_buff_protocol_send(E_Comp_Wl_Remote_Surface *rs,
                                            enum tizen_remote_surface_buffer_type buff_type,
-                                           E_Comp_Wl_Remote_Buffer *rbuff,
                                            int img_file_fd,
                                            unsigned int img_file_size,
                                            Eina_Bool ref_set,
                                            E_Comp_Wl_Buffer *buff)
 {
+   E_Comp_Wl_Remote_Common *common = NULL;
+   E_Client *src_ec = NULL;
    struct wl_resource *tbm = NULL;
    Eina_Bool send = EINA_FALSE;
    struct wl_array opts;
    Eina_Bool add_opts = EINA_FALSE;
    char *p, tmp[16];
    int len;
+   struct wl_resource *rbuff_res = NULL;
+   E_Comp_Wl_Remote_Buffer *rbuff = NULL;
 
-   if (rbuff)
-     tbm = rbuff->resource;
+   if (rs->provider)
+     {
+        common = &rs->provider->common;
+        src_ec = rs->provider->common.ec;
+     }
+   else if (rs->source)
+     {
+        common = &rs->source->common;
+        src_ec = rs->source->common.ec;
+     }
+
+   if (!common || !src_ec)
+     {
+        ERR("CHANGED_BUFF: no common(%p) or src_ec(%p)", common, src_ec);
+        return EINA_FALSE;
+     }
+
+   DBG("CHANGED_BUFF: src_ec(%p) bind_ec(%p) buffer_transform(%d)",
+       src_ec, rs->bind_ec, e_comp_wl_output_buffer_transform_get(src_ec));
+
+   /* if unbinded, buffer_transform should be 0 for consumer to composite buffers.
+    * Otherwise, we skip sending a change_buffer event because buffer is not ready.
+    */
+   if (!rs->bind_ec && e_comp_wl_output_buffer_transform_get(src_ec))
+     {
+        RSMINF("CHANGED_BUFF skiped: buffer not ready", NULL, NULL, "SURFACE", rs);
+        return EINA_TRUE;
+     }
 
    send = _remote_surface_changed_buff_ev_filter_check(rs, buff_type);
    if (send)
      {
-        if ((ref_set) &&
-            (buff) &&
-            (rs->version >= TIZEN_REMOTE_SURFACE_RELEASE_SINCE_VERSION))
-          e_comp_wl_buffer_reference(&rbuff->ref, buff);
+        if (buff)
+          {
+             rbuff_res = e_comp_wl_tbm_remote_buffer_get(rs->wl_tbm, buff->resource);
+             EINA_SAFETY_ON_NULL_RETURN_VAL(rbuff_res, EINA_FALSE);
+
+             rbuff = _e_comp_wl_remote_buffer_get(rbuff_res);
+             EINA_SAFETY_ON_NULL_RETURN_VAL(rbuff, EINA_FALSE);
+
+             tbm = rbuff->resource;
+
+             if ((ref_set) &&
+                 (rs->version >= 2)) /* WORKAROUND for 3.0: old version wayland-scanner can't generation since macro. TIZEN_REMOTE_SURFACE_RELEASE_SINCE_VERSION */
+               e_comp_wl_buffer_reference(&rbuff->ref, buff);
+          }
 
         if (rs->version >= TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
           {
@@ -594,8 +633,6 @@ _remote_surface_buff_send(E_Comp_Wl_Remote_Surface *rs)
    E_Comp_Wl_Remote_Provider *provider;
    E_Comp_Wl_Remote_Source *source;
    E_Comp_Wl_Buffer *buff = NULL;
-   struct wl_resource *rbuff_res = NULL;
-   E_Comp_Wl_Remote_Buffer *rbuff = NULL;
    char *img_path;
    int fd = _rsm->dummy_fd;
    off_t img_size = 0;
@@ -622,12 +659,6 @@ _remote_surface_buff_send(E_Comp_Wl_Remote_Surface *rs)
    buff = e_pixmap_resource_get(src_ec->pixmap);
    if (buff)
      {
-        rbuff_res = e_comp_wl_tbm_remote_buffer_get(rs->wl_tbm, buff->resource);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(rbuff_res, EINA_FALSE);
-
-        rbuff = _e_comp_wl_remote_buffer_get(rbuff_res);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(rbuff, EINA_FALSE);
-
         buff_type = TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM;
         res = EINA_TRUE;
 
@@ -637,11 +668,10 @@ _remote_surface_buff_send(E_Comp_Wl_Remote_Surface *rs)
          */
         res = _remote_surface_changed_buff_protocol_send(rs,
                                                          buff_type,
-                                                         rbuff,
                                                          _rsm->dummy_fd,
                                                          (unsigned int)img_size,
                                                          EINA_FALSE,
-                                                         NULL);
+                                                         buff);
      }
    else
      {
@@ -662,7 +692,6 @@ _remote_surface_buff_send(E_Comp_Wl_Remote_Surface *rs)
          */
         res = _remote_surface_changed_buff_protocol_send(rs,
                                                          buff_type,
-                                                         rbuff,
                                                          fd,
                                                          (unsigned int)img_size,
                                                          EINA_FALSE,
@@ -710,18 +739,49 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
                NULL, NULL,
                "SURFACE", remote_surface, remote_surface->bind_ec);
 
-        /* do NULL buffer commit for binded ec */
-        _e_comp_wl_remote_surface_state_buffer_set(&remote_surface->bind_ec->comp_data->pending, NULL);
-
         remote_surface->bind_ec->comp_data->pending.sx = 0;
         remote_surface->bind_ec->comp_data->pending.sy = 0;
         remote_surface->bind_ec->comp_data->pending.new_attach = EINA_TRUE;
 
-        e_comp_wl_surface_commit(remote_surface->bind_ec);
+        /* when unbinded, ignore_output_transform event is sended. And map should be disable. */
+        remote_surface->bind_ec->comp_data->pending.buffer_viewport.buffer.transform = WL_OUTPUT_TRANSFORM_NORMAL;
+        remote_surface->bind_ec->comp_data->pending.buffer_viewport.changed = 0;
+        remote_surface->bind_ec->comp_data->scaler.buffer_viewport.buffer.transform = WL_OUTPUT_TRANSFORM_NORMAL;
+        remote_surface->bind_ec->comp_data->scaler.buffer_viewport.changed = 0;
+        e_comp_wl_map_apply(remote_surface->bind_ec);
+
+        e_comp_wl_surface_attach(remote_surface->bind_ec, NULL);
 
         remote_surface->bind_ec = NULL;
+
+        /* try to send latest buffer of the provider to the consumer when unbinding
+         * the remote surface to avoid showing old buffer on consumer's window for a while.
+         */
+        if (remote_surface->provider)
+          {
+             E_Comp_Wl_Buffer *buffer;
+
+             RSMINF("Try to send latest buffer of provider:%p(ec:%p)",
+                    NULL, NULL,
+                    "SURFACE", remote_surface,
+                    remote_surface->provider,
+                    remote_surface->provider->common.ec);
+
+             EINA_SAFETY_ON_NULL_GOTO(remote_surface->provider->common.ec, bind_ec_set);
+
+             buffer = e_pixmap_resource_get(remote_surface->provider->common.ec->pixmap);
+             EINA_SAFETY_ON_NULL_GOTO(buffer, bind_ec_set);
+
+             _remote_surface_changed_buff_protocol_send(remote_surface,
+                                                        TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
+                                                        _rsm->dummy_fd,
+                                                        0,
+                                                        EINA_TRUE,
+                                                        buffer);
+          }
      }
 
+bind_ec_set:
    if (ec)
      {
         if (e_object_is_del(E_OBJECT(ec)))
@@ -737,6 +797,26 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
         /* TODO: enable user geometry? */
         e_policy_allow_user_geometry_set(ec, EINA_TRUE);
         remote_surface->bind_ec = ec;
+
+        /* try to set latest buffer of the provider to bind_ec */
+        if (remote_surface->provider && remote_surface->provider->common.ec)
+          {
+             E_Comp_Wl_Buffer *buffer;
+
+             buffer = e_pixmap_resource_get(remote_surface->provider->common.ec->pixmap);
+             EINA_SAFETY_ON_NULL_RETURN(buffer);
+
+             _e_comp_wl_remote_surface_state_buffer_set(&remote_surface->bind_ec->comp_data->pending, buffer);
+
+             remote_surface->bind_ec->comp_data->pending.sx = 0;
+             remote_surface->bind_ec->comp_data->pending.sy = 0;
+             remote_surface->bind_ec->comp_data->pending.new_attach = EINA_TRUE;
+
+             remote_surface->bind_ec->comp_data->pending.buffer_viewport =
+               remote_surface->provider->common.ec->comp_data->scaler.buffer_viewport;
+
+             e_comp_wl_surface_commit(remote_surface->bind_ec);
+          }
      }
 }
 
@@ -772,12 +852,10 @@ _remote_surface_ignore_output_transform_send(E_Comp_Wl_Remote_Common *common)
         goto no_ignore;
      }
 
-   return;
-
 ignore:
    if (common->ignore_output_transform != EINA_TRUE)
      {
-        RSMINF("ignore output transform: %s", NULL, common->ec, "common", NULL, msg);
+        ELOGF("TRANSFORM", "ignore output transform: %s", common->ec->pixmap, common->ec, msg);
         e_comp_screen_rotation_ignore_output_transform_send(common->ec, EINA_TRUE);
         common->ignore_output_transform = EINA_TRUE;
      }
@@ -786,7 +864,7 @@ ignore:
 no_ignore:
    if (common->ignore_output_transform != EINA_FALSE)
      {
-        RSMINF("not ignore output transform: %s", NULL, common->ec, "common", NULL, msg);
+        ELOGF("TRANSFORM", "not ignore output transform: %s", common->ec->pixmap, common->ec, msg);
         e_comp_screen_rotation_ignore_output_transform_send(common->ec, EINA_FALSE);
         common->ignore_output_transform = EINA_FALSE;
      }
@@ -827,7 +905,6 @@ _remote_source_send_image_update(E_Comp_Wl_Remote_Source *source)
 
         _remote_surface_changed_buff_protocol_send(remote_surface,
                                                    TIZEN_REMOTE_SURFACE_BUFFER_TYPE_IMAGE_FILE,
-                                                   NULL,
                                                    fd,
                                                    (unsigned int)image_size,
                                                    EINA_FALSE,
@@ -913,7 +990,6 @@ _remote_source_image_data_pixman_format_get_from_tbm_surface(tbm_format format)
       case TBM_FORMAT_XRGB8888: return PIXMAN_x8r8g8b8;
       default:                  return PIXMAN_x8r8g8b8;
      }
-   return PIXMAN_x8r8g8b8;
 }
 
 static pixman_format_code_t
@@ -925,7 +1001,6 @@ _remote_source_image_data_pixman_format_get_from_shm_buffer(uint32_t format)
       case WL_SHM_FORMAT_XRGB8888: return PIXMAN_x8r8g8b8;
       default:                     return PIXMAN_x8r8g8b8;
      }
-   return PIXMAN_x8r8g8b8;
 }
 
 static tbm_surface_h
@@ -1003,11 +1078,18 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
 
 error_case:
 
-   if (src_img) pixman_image_unref(src_img);
-   if (dst_img) pixman_image_unref(dst_img);
-
    if (src_ptr && td->tbm_surface) tbm_surface_unmap(td->tbm_surface);
    if (dst_ptr) tbm_surface_unmap(transform_surface);
+
+   // if dst_img is null, then trasform is failed. So we should destroy transform_surface.
+   if (!dst_img)
+     {
+        tbm_surface_destroy(transform_surface);
+        transform_surface = NULL;
+     }
+
+   if (src_img) pixman_image_unref(src_img);
+   if (dst_img) pixman_image_unref(dst_img);
 
    return transform_surface;
 }
@@ -1271,6 +1353,16 @@ end:
      }
 }
 
+/* Stop capture job when the window is uniconified while capturing
+ * on another thread.
+ *
+ * If a commit event occurs for iconified window, then does cancellation
+ * for capture thread and set the defer_img_save to true to restart the
+ * capture thread again for new window buffer.
+ *
+ * It can be using ecore_thread_check API to check whether the capture
+ * job is done.
+ */
 static void
 _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
 {
@@ -1577,6 +1669,12 @@ _remote_surface_cb_tbm_destroy(struct wl_listener *listener, void *data)
    remote_surface = container_of(listener, E_Comp_Wl_Remote_Surface, tbm_destroy_listener);
    if (!remote_surface) return;
 
+   if (remote_surface->tbm_destroy_listener.notify)
+     {
+        wl_list_remove(&remote_surface->tbm_destroy_listener.link);
+        remote_surface->tbm_destroy_listener.notify = NULL;
+     }
+
    remote_surface->wl_tbm = NULL;
 }
 
@@ -1646,8 +1744,6 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
 {
    E_Comp_Wl_Buffer *buffer;
    E_Comp_Wl_Remote_Surface *remote_surface;
-   E_Comp_Wl_Remote_Buffer *remote_buffer;
-   struct wl_resource *remote_buffer_resource;
 
    EINA_SAFETY_ON_NULL_RETURN(_rsm);
 
@@ -1675,15 +1771,8 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
         buffer = e_pixmap_resource_get(remote_surface->provider->common.ec->pixmap);
         EINA_SAFETY_ON_NULL_RETURN(buffer);
 
-        remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(remote_surface->wl_tbm, buffer->resource);
-        EINA_SAFETY_ON_NULL_RETURN(remote_buffer_resource);
-
-        remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
-        EINA_SAFETY_ON_NULL_RETURN(remote_buffer);
-
         _remote_surface_changed_buff_protocol_send(remote_surface,
                                                    TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
-                                                   remote_buffer,
                                                    _rsm->dummy_fd,
                                                    0,
                                                    EINA_TRUE,
@@ -1704,16 +1793,8 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
 
         if ((buffer = e_pixmap_resource_get(remote_surface->source->common.ec->pixmap)))
           {
-
-             remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(remote_surface->wl_tbm, buffer->resource);
-             EINA_SAFETY_ON_NULL_RETURN(remote_buffer_resource);
-
-             remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
-             EINA_SAFETY_ON_NULL_RETURN(remote_buffer);
-
              _remote_surface_changed_buff_protocol_send(remote_surface,
                                                         TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
-                                                        remote_buffer,
                                                         _rsm->dummy_fd,
                                                         0,
                                                         EINA_TRUE,
@@ -2143,6 +2224,12 @@ _remote_surface_cb_region_create(struct wl_client *client, struct wl_resource *r
      }
 
    region = E_NEW(E_Comp_Wl_Remote_Region, 1);
+   if (!region)
+     {
+        wl_client_post_no_memory(client);
+        wl_resource_destroy(resource);
+        return;
+     }
    region->remote_surface = remote_surface;
    region->resource = resource;
    region->geometry.x = -1;
@@ -2333,6 +2420,12 @@ _remote_manager_cb_provider_create(struct wl_client *client, struct wl_resource 
      }
 
    provider = E_NEW(E_Comp_Wl_Remote_Provider, 1);
+   if (!provider)
+     {
+        wl_client_post_no_memory(client);
+        wl_resource_destroy(resource);
+        return;
+     }
    provider->common.ec = ec;
    provider->resource = resource;
 
@@ -2389,6 +2482,12 @@ _remote_manager_cb_surface_create(struct wl_client *client,
      }
 
    remote_surface = E_NEW(E_Comp_Wl_Remote_Surface, 1);
+   if (!remote_surface)
+     {
+        wl_client_post_no_memory(client);
+        wl_resource_destroy(resource);
+        return;
+     }
    remote_surface->resource = resource;
    remote_surface->version = wl_resource_get_version(resource);
    remote_surface->redirect = EINA_FALSE;
@@ -2582,6 +2681,33 @@ _e_comp_wl_remote_cb_client_iconify(void *data, E_Client *ec)
 }
 
 static void
+_e_comp_wl_remote_cb_client_uniconify(void *data, E_Client *ec)
+{
+   E_Comp_Wl_Remote_Source *source;
+
+   source = _remote_source_find(ec);
+   if (!source) return;
+   EINA_SAFETY_ON_FALSE_RETURN(ec == source->common.ec);
+
+   if (source->th)
+     {
+        RSMDBG("IMG save could be cancelled. UNICONIFY th:%p(cancel:%d) defer_img_save:%d iconic:%d del:%d ec_del:%d",
+               ec->pixmap, ec, "SOURCE", source,
+               source->th, ecore_thread_check(source->th),
+               source->defer_img_save, ec->iconic,
+               source->deleted, e_object_is_del(E_OBJECT(ec)));
+
+        if (!ecore_thread_check(source->th) &&
+            !source->deleted &&
+            !e_object_is_del(E_OBJECT(ec)))
+          {
+             RSMDBG("IMG save CANCELLED.", ec->pixmap, ec, "SOURCE", source);
+             ecore_thread_cancel(source->th);
+          }
+     }
+}
+
+static void
 _e_comp_wl_remote_cb_client_del(void *data, E_Client *ec)
 {
    E_Comp_Wl_Remote_Provider *provider;
@@ -2654,6 +2780,12 @@ _e_comp_wl_remote_buffer_cb_destroy(struct wl_listener *listener, void *data)
    remote_buffer = container_of(listener, E_Comp_Wl_Remote_Buffer, destroy_listener);
    if (!remote_buffer) return;
 
+   if (remote_buffer->destroy_listener.notify)
+     {
+        wl_list_remove(&remote_buffer->destroy_listener.link);
+        remote_buffer->destroy_listener.notify = NULL;
+     }
+
    e_comp_wl_buffer_reference(&remote_buffer->ref, NULL);
    free(remote_buffer);
 }
@@ -2681,19 +2813,33 @@ static void
 _e_comp_wl_remote_surface_source_update(E_Comp_Wl_Remote_Source *source, E_Comp_Wl_Buffer *buffer)
 {
    E_Comp_Wl_Remote_Surface *remote_surface;
-   E_Comp_Wl_Remote_Buffer *remote_buffer;
-   struct wl_resource *remote_buffer_resource;
    Eina_List *l;
+   E_Client *ec = NULL;
 
    if ((!source) || (!buffer)) return;
 
    if (source->th)
      {
-        RSMDBG("IMG save is cancelled. th:%p Save job will be triggered later.",
-               source->common.ec->pixmap, source->common.ec, "SOURCE",
-               source, source->th);
-        ecore_thread_cancel(source->th);
-        source->defer_img_save = EINA_TRUE;
+        ec = source->common.ec;
+
+        RSMDBG("IMG save could be cancelled. COMMIT th:%p(cancel:%d) defer_img_save:%d iconic:%d del:%d ec_del:%d",
+               ec->pixmap, ec, "SOURCE", source,
+               source->th, ecore_thread_check(source->th),
+               source->defer_img_save, ec->iconic,
+               source->deleted, e_object_is_del(E_OBJECT(ec)));
+
+        if (!ecore_thread_check(source->th) &&
+            !source->deleted &&
+            !e_object_is_del(E_OBJECT(ec)) &&
+            !ec->iconic)
+          {
+             RSMDBG("IMG save CANCELLED. job will be triggered later.",
+                    source->common.ec->pixmap, source->common.ec, "SOURCE",
+                    source);
+
+             ecore_thread_cancel(source->th);
+             source->defer_img_save = EINA_TRUE; /* restart */
+          }
      }
 
    EINA_LIST_FOREACH(source->common.surfaces, l, remote_surface)
@@ -2703,15 +2849,8 @@ _e_comp_wl_remote_surface_source_update(E_Comp_Wl_Remote_Source *source, E_Comp_
 
         if (!remote_surface->redirect) continue;
 
-        remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(remote_surface->wl_tbm, buffer->resource);
-        if (!remote_buffer_resource) continue;
-
-        remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
-        if (!remote_buffer) continue;
-
         _remote_surface_changed_buff_protocol_send(remote_surface,
                                                    TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
-                                                   remote_buffer,
                                                    _rsm->dummy_fd,
                                                    0,
                                                    EINA_TRUE,
@@ -2770,11 +2909,24 @@ _e_comp_wl_remote_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *st
    Eina_Rectangle *dmg;
    int x = 0, y = 0, sx = 0, sy = 0;
    E_Comp_Wl_Buffer *buffer;
-   E_Comp_Wl_Remote_Buffer *remote_buffer;
-   struct wl_resource *remote_buffer_resource;
    Eina_List *l, *ll;
+   E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
 
    if (e_object_is_del(E_OBJECT(ec))) return;
+
+   if (vp->buffer.transform != state->buffer_viewport.buffer.transform)
+     {
+        int transform_change = (4 + state->buffer_viewport.buffer.transform - vp->buffer.transform) & 0x3;
+
+        ELOGF("TRANSFORM", "buffer_transform changed: old(%d) new(%d)",
+              ec->pixmap, ec,
+              vp->buffer.transform, state->buffer_viewport.buffer.transform);
+
+        if (transform_change == vp->wait_for_transform_change)
+          vp->wait_for_transform_change = 0;
+     }
+
+   ec->comp_data->scaler.buffer_viewport = state->buffer_viewport;
 
    if (state->new_attach)
      e_comp_wl_surface_attach(ec, state->buffer);
@@ -2827,18 +2979,11 @@ _e_comp_wl_remote_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *st
           {
              EINA_LIST_FOREACH(provider->common.surfaces, l, surface)
                {
-                  remote_buffer_resource = e_comp_wl_tbm_remote_buffer_get(surface->wl_tbm, buffer->resource);
-                  if (!remote_buffer_resource) continue;
-
-                  remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
-                  if (!remote_buffer) continue;
-
                   if (!surface->redirect) continue;
                   if (surface->bind_ec)
                     {
-                       E_Comp_Wl_Buffer *buffer;
+                       surface->bind_ec->comp_data->pending.buffer_viewport = ec->comp_data->scaler.buffer_viewport;
 
-                       buffer = e_comp_wl_buffer_get(remote_buffer->resource, surface->bind_ec);
                        _e_comp_wl_remote_surface_state_buffer_set(&surface->bind_ec->comp_data->pending, buffer);
                        surface->bind_ec->comp_data->pending.sx = sx;
                        surface->bind_ec->comp_data->pending.sy = sy;
@@ -2853,7 +2998,6 @@ _e_comp_wl_remote_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *st
                     {
                        _remote_surface_changed_buff_protocol_send(surface,
                                                                   TIZEN_REMOTE_SURFACE_BUFFER_TYPE_TBM,
-                                                                  remote_buffer,
                                                                   _rsm->dummy_fd,
                                                                   0,
                                                                   EINA_TRUE,
@@ -3231,7 +3375,10 @@ e_comp_wl_remote_surface_init(void)
    /* client hook */
    E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_DEL, _e_comp_wl_remote_cb_client_del, NULL);
    if (e_config->save_win_buffer)
-     E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_ICONIFY, _e_comp_wl_remote_cb_client_iconify, NULL);
+     {
+        E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_ICONIFY,   _e_comp_wl_remote_cb_client_iconify,   NULL);
+        E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_UNICONIFY, _e_comp_wl_remote_cb_client_uniconify, NULL);
+     }
 
    /* client event */
    E_LIST_HANDLER_APPEND(rs_manager->event_hdlrs,

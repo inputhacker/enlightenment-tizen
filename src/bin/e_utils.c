@@ -1159,3 +1159,27 @@ e_util_memclear(void *s, size_t n)
 {
    memset_ptr(s, 0, n);
 }
+
+E_API Eina_Bool
+e_util_file_realpath_check(const char* path, Eina_Bool del_link)
+{
+   char *real_path;
+
+   if (!path)
+     return EINA_FALSE;
+
+   real_path = realpath(path, NULL);
+   if (real_path && strncmp(path, real_path, strlen(path)))
+     {
+        if (del_link)
+          unlink(path);
+        free(real_path);
+
+        return EINA_FALSE;
+     }
+
+   if (real_path)
+     free(real_path);
+
+   return EINA_TRUE;
+}

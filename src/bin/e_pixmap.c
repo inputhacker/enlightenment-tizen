@@ -14,7 +14,7 @@ static Eina_Hash *pixmaps[E_PIXMAP_TYPE_MAX] = {NULL};
 static Eina_Hash *res_ids = NULL;
 static uint32_t res_id = 0;
 static Eina_Hash *aliases[E_PIXMAP_TYPE_MAX] = {NULL};
-static uint32_t dummy_pixmap_id = 0;
+static uint32_t dummy_pixmap_id = 1; // dummy id starts from 1
 
 struct _E_Pixmap
 {
@@ -155,6 +155,7 @@ _e_pixmap_new(E_Pixmap_Type type)
    E_Pixmap *cp;
 
    cp = E_NEW(E_Pixmap, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cp, NULL);
    cp->type = type;
    cp->w = cp->h = 0;
    cp->refcount = 1;
@@ -237,6 +238,9 @@ _e_pixmap_tzsurf_shm_cb_flusher_get(struct wl_client *client, struct wl_resource
         wl_resource_post_no_memory(flusher);
         return;
      }
+
+   if (ec->pixmap->shm_flusher)
+      wl_resource_set_user_data(ec->pixmap->shm_flusher, NULL);
 
    wl_resource_set_implementation(res, &_tzsurf_shm_flusher_iface, ec->pixmap,
                                   _e_pixmap_tzsurf_shm_flusher_cb_res_destroy);

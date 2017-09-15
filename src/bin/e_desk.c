@@ -173,6 +173,7 @@ e_desk_name_set(E_Desk *desk, const char *name)
    eina_stringshare_replace(&desk->name, name);
 
    ev = E_NEW(E_Event_Desk_Name_Change, 1);
+   if (!ev) return;
    ev->desk = desk;
    e_object_ref(E_OBJECT(desk));
    ecore_event_add(E_EVENT_DESK_NAME_CHANGE, ev,
@@ -187,6 +188,7 @@ e_desk_name_add(int zone, int desk_x, int desk_y, const char *name)
    e_desk_name_del(zone, desk_x, desk_y);
 
    cfname = E_NEW(E_Config_Desktop_Name, 1);
+   if (!cfname) return;
    cfname->zone = zone;
    cfname->desk_x = desk_x;
    cfname->desk_y = desk_y;
@@ -260,12 +262,14 @@ e_desk_name_update(void)
 E_API void
 e_desk_show(E_Desk *desk)
 {
-   E_Event_Desk_Show *ev;
-   E_Event_Desk_Before_Show *eev;
-   E_Event_Desk_After_Show *eeev;
-   Edje_Message_Float_Set *msg;
-   E_Desk *desk2;
+   E_Event_Desk_Show *ev = NULL;
+   E_Event_Desk_Before_Show *eev = NULL;
+   E_Event_Desk_After_Show *eeev = NULL;
+   Edje_Message_Float_Set *msg = NULL;
+   E_Desk *desk2 = NULL;
    int dx = 0, dy = 0;
+   Ecore_Event *eev_ecore_event = NULL;
+   Ecore_Event *ev_ecore_event = NULL;
 
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
@@ -274,10 +278,11 @@ e_desk_show(E_Desk *desk)
    desk2 = e_desk_at_xy_get(desk->zone, desk->zone->desk_x_current, desk->zone->desk_y_current);
    if ((!starting) && (!desk2->visible)) return;
    eev = E_NEW(E_Event_Desk_Before_Show, 1);
+   if (!eev) return;
    eev->desk = e_desk_current_get(desk->zone);
    e_object_ref(E_OBJECT(eev->desk));
-   ecore_event_add(E_EVENT_DESK_BEFORE_SHOW, eev,
-                   _e_desk_event_desk_before_show_free, NULL);
+   eev_ecore_event = ecore_event_add(E_EVENT_DESK_BEFORE_SHOW, eev,
+                                     _e_desk_event_desk_before_show_free, NULL);
 
    if (desk2->visible)
      {
@@ -324,16 +329,36 @@ e_desk_show(E_Desk *desk)
 #endif
 
    ev = E_NEW(E_Event_Desk_Show, 1);
+   if (!ev) goto error;
    ev->desk = desk;
    e_object_ref(E_OBJECT(desk));
-   ecore_event_add(E_EVENT_DESK_SHOW, ev, _e_desk_event_desk_show_free, NULL);
+   ev_ecore_event = ecore_event_add(E_EVENT_DESK_SHOW, ev, _e_desk_event_desk_show_free, NULL);
 
    eeev = E_NEW(E_Event_Desk_After_Show, 1);
+   if (!eeev) goto error;
    eeev->desk = e_desk_current_get(desk->zone);
    e_object_ref(E_OBJECT(eeev->desk));
    ecore_event_add(E_EVENT_DESK_AFTER_SHOW, eeev,
                    _e_desk_event_desk_after_show_free, NULL);
    e_zone_edge_flip_eval(desk->zone);
+
+   return;
+
+error:
+   if (ev)
+     {
+        if (ev_ecore_event)
+          ecore_event_del(ev_ecore_event);
+        e_object_unref(E_OBJECT(ev->desk));
+        free(ev);
+     }
+   if (eev)
+     {
+        if (eev_ecore_event)
+          ecore_event_del(eev_ecore_event);
+        e_object_unref(E_OBJECT(eev->desk));
+        free(eev);
+     }
 }
 
 E_API void
@@ -383,6 +408,7 @@ e_desk_deskshow(E_Zone *zone)
      }
    desk->deskshow_toggle = !desk->deskshow_toggle;
    ev = E_NEW(E_Event_Desk_Show, 1);
+   if (!ev) return;
    ev->desk = desk;
    e_object_ref(E_OBJECT(desk));
    ecore_event_add(E_EVENT_DESK_DESKSHOW, ev,
@@ -575,6 +601,7 @@ e_desk_window_profile_set(E_Desk *desk,
    eina_stringshare_replace(&desk->window_profile, profile);
 
    ev = E_NEW(E_Event_Desk_Window_Profile_Change, 1);
+   if (!ev) return;
    ev->desk = desk;
    e_object_ref(E_OBJECT(desk));
    ecore_event_add(E_EVENT_DESK_WINDOW_PROFILE_CHANGE, ev,
@@ -592,6 +619,7 @@ e_desk_window_profile_add(int zone,
    e_desk_window_profile_del(zone, desk_x, desk_y);
 
    cfprof = E_NEW(E_Config_Desktop_Window_Profile, 1);
+   if (!cfprof) return;
    cfprof->zone = zone;
    cfprof->desk_x = desk_x;
    cfprof->desk_y = desk_y;
@@ -678,6 +706,7 @@ e_desk_flip_end(E_Desk *desk)
    E_Client *ec;
 
    ev = E_NEW(E_Event_Desk_After_Show, 1);
+   if (!ev) return;
    ev->desk = desk;
    e_object_ref(E_OBJECT(ev->desk));
    ecore_event_add(E_EVENT_DESK_AFTER_SHOW, ev,
@@ -1124,6 +1153,37 @@ _e_desk_hide_begin(E_Desk *desk, int dx, int dy)
 }
 
 static void
+_e_desk_zoom_first_set(E_Desk *desk)
+{
+   E_Client *ec;
+   Eina_List *l;
+
+   E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
+
+   sd->zoom.ratio_x = 1.0;
+   sd->zoom.ratio_y = 1.0;
+   sd->zoom.center_x = 0;
+   sd->zoom.center_y = 0;
+
+   _e_desk_object_zoom(desk->smart_obj, 1.0, 1.0, 0, 0);
+   EINA_LIST_FOREACH(sd->clients, l, ec)
+     _e_desk_client_zoom(ec, 1.0, 1.0, 0, 0);
+
+   if (!sd->zoom.enabled)
+     {
+        sd->zoom.enabled = EINA_TRUE;
+
+        evas_object_map_enable_set(desk->smart_obj, EINA_TRUE);
+        EINA_LIST_FOREACH(sd->clients, l, ec)
+          evas_object_map_enable_set(ec->frame, EINA_TRUE);
+
+        /* FIXME TEMP disable hwc */
+        _e_desk_util_comp_hwc_disable_set(EINA_TRUE);
+     }
+
+}
+
+static void
 _e_desk_smart_init(E_Desk *desk)
 {
    E_Zone *zone;
@@ -1138,7 +1198,8 @@ _e_desk_smart_init(E_Desk *desk)
 
    /* FIXME indicator object won't be work, if remove this code.
     * I have no idea why this code is necessary, so I just let it be. */
-   e_desk_zoom_set(desk, 1.0, 1.0, 0, 0);
+//   e_desk_zoom_set(desk, 1.0, 1.0, 0, 0);
+   _e_desk_zoom_first_set(desk);
 }
 
 static Eina_Bool
