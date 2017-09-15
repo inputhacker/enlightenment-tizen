@@ -4,7 +4,6 @@
 
 #include "e.h"
 #include <sys/mman.h>
-#include <Ecore_Drm.h>
 #include <pixman.h>
 #include <tdm_helper.h>
 
