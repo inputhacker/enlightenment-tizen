@@ -28,7 +28,7 @@ _device_close(const char *device, int fd)
 }
 
 /* local functions */
-static int 
+static int
 _cb_open_restricted(const char *path, int flags, void *data)
 {
    E_Input_Backend *input;
@@ -45,7 +45,7 @@ _cb_open_restricted(const char *path, int flags, void *data)
    return fd;
 }
 
-static void 
+static void
 _cb_close_restricted(int fd, void *data)
 {
    Ecore_Drm_Input *input;
@@ -92,8 +92,6 @@ _seat_create(E_Input_Backend *input, const char *seat)
 
    return s;
 }
-
-/////////
 
 static void
 _e_input_event_input_device_add_free(void *data EINA_UNUSED, void *ev)
@@ -294,7 +292,7 @@ _e_input_device_remove(unsigned int window, E_Input_Evdev *edev)
      }
 }
 
-static void 
+static void
 _device_added(E_Input_Backend *input, struct libinput_device *device)
 {
    struct libinput_seat *libinput_seat;
@@ -314,7 +312,7 @@ _device_added(E_Input_Backend *input, struct libinput_device *device)
      }
 
    /* try to create a new evdev device */
-   if (!(edev = _ecore_drm_evdev_device_create(seat, device)))
+   if (!(edev = _e_input_evdev_device_create(seat, device)))
      {
         ERR("Failed to create new evdev device");
         TRACE_INPUT_END();
@@ -340,20 +338,20 @@ _device_added(E_Input_Backend *input, struct libinput_device *device)
 
    ecore_event_add(ECORE_DRM_EVENT_INPUT_DEVICE_ADD,
                    ev,
-                   _ecore_drm_event_input_device_add_free,
+                   _e_input_event_input_device_add_free,
                    NULL);
 
    if (input->dev->window != -1) // window id is valid
-     _ecore_drm_device_add(input->dev->window, edev);
+     _e_input_device_add(input->dev->window, edev);
 
    TRACE_INPUT_END();
 }
 
-static void 
-_device_removed(Ecore_Drm_Input *input, struct libinput_device *device)
+static void
+_device_removed(E_Input_Backend *input, struct libinput_device *device)
 {
-   Ecore_Drm_Evdev *edev;
-   Ecore_Drm_Event_Input_Device_Del *ev;
+   E_Input_Evdev *edev;
+   E_Input_Event_Input_Device_Del *ev;
 
    TRACE_INPUT_BEGIN(_device_removed);
 
@@ -376,13 +374,13 @@ _device_removed(Ecore_Drm_Input *input, struct libinput_device *device)
    ev->seatname = eina_stringshare_add(edev->seat->name);
    ev->caps = edev->seat_caps;
 
-   ecore_event_add(ECORE_DRM_EVENT_INPUT_DEVICE_DEL,
+   ecore_event_add(E_INPUT_EVENT_INPUT_DEVICE_DEL,
                    ev,
-                   _ecore_drm_event_input_device_del_free,
+                   _e_input_event_input_device_del_free,
                    NULL);
 
    if (input->dev->window != -1) // window id is valid
-     _ecore_drm_device_remove(input->dev->window, edev);
+     _e_input_device_remove(input->dev->window, edev);
 
    /* remove this evdev from the seat's list of devices */
    edev->seat->devices = eina_list_remove(edev->seat->devices, edev);
@@ -392,20 +390,20 @@ _device_removed(Ecore_Drm_Input *input, struct libinput_device *device)
 
    /* tell launcher to release device */
    if (edev->fd >= 0)
-     _ecore_drm_launcher_device_close(edev->path, edev->fd);
+     _device_close(edev->path, edev->fd);
 
    /* destroy this evdev */
-   _ecore_drm_evdev_device_destroy(edev);
+   _e_input_evdev_device_destroy(edev);
 
    TRACE_INPUT_END();
 }
 
-static int 
+static int
 _udev_event_process(struct libinput_event *event)
 {
    struct libinput *libinput;
    struct libinput_device *device;
-   Ecore_Drm_Input *input;
+   E_Input_Backend *input;
    Eina_Bool ret = EINA_TRUE;
 
    libinput = libinput_event_get_context(event);
@@ -427,14 +425,14 @@ _udev_event_process(struct libinput_event *event)
    return ret;
 }
 
-static void 
+static void
 _input_event_process(struct libinput_event *event)
 {
    if (_udev_event_process(event)) return;
-   if (_ecore_drm_evdev_event_process(event)) return;
+   if (_e_input_evdev_event_process(event)) return;
 }
 
-static void 
+static void
 _input_events_process(Ecore_Drm_Input *input)
 {
    struct libinput_event *event;
@@ -446,10 +444,10 @@ _input_events_process(Ecore_Drm_Input *input)
      }
 }
 
-static Eina_Bool 
+static Eina_Bool
 _cb_input_dispatch(void *data, Ecore_Fd_Handler *hdlr EINA_UNUSED)
 {
-   Ecore_Drm_Input *input;
+   E_Input_Backend *input;
 
    if (!(input = data)) return EINA_TRUE;
 
@@ -462,14 +460,14 @@ _cb_input_dispatch(void *data, Ecore_Fd_Handler *hdlr EINA_UNUSED)
    return EINA_TRUE;
 }
 
-const struct libinput_interface _input_interface = 
+const struct libinput_interface _input_interface =
 {
    _cb_open_restricted,
    _cb_close_restricted,
 };
 
 static void
-ecore_drm_libinput_log_handler(struct libinput *libinput EINA_UNUSED,
+e_input_libinput_log_handler(struct libinput *libinput EINA_UNUSED,
                                enum libinput_log_priority priority,
                                const char *format, va_list args)
 {
@@ -493,23 +491,18 @@ ecore_drm_libinput_log_handler(struct libinput *libinput EINA_UNUSED,
 }
 
 /* public functions */
-EAPI Eina_Bool 
-ecore_drm_inputs_create(Ecore_Drm_Device *dev)
+E_API Eina_Bool
+e_input_inputs_create(E_Input_Device *dev)
 {
-   Ecore_Drm_Input *input;
+   E_Input_Backend *input;
    char *env;
 
    /* check for valid device */
    EINA_SAFETY_ON_NULL_RETURN_VAL(dev, EINA_FALSE);
 
-   TRACE_INPUT_BEGIN(ecore_drm_inputs_create);
-   TRACE_EFL_BEGIN(DRM INPUTS CREATE);
-
    /* try to allocate space for new input structure */
-   if (!(input = calloc(1, sizeof(Ecore_Drm_Input))))
+   if (!(input = calloc(1, sizeof(E_Input_Backend))))
      {
-        TRACE_INPUT_END();
-        TRACE_EFL_END();
         return EINA_FALSE;
      }
 
@@ -517,7 +510,7 @@ ecore_drm_inputs_create(Ecore_Drm_Device *dev)
    input->dev = dev;
 
    /* try to create libinput context */
-   input->libinput = 
+   input->libinput =
      libinput_udev_create_context(&_input_interface, input, eeze_udev_get());
    if (!input->libinput)
      {
@@ -529,7 +522,7 @@ ecore_drm_inputs_create(Ecore_Drm_Device *dev)
    if ((env = getenv(ECORE_DRM_ENV_LIBINPUT_LOG_DISABLE)) && (atoi(env) == 1))
      libinput_log_set_handler(input->libinput, NULL);
    else if ((env = getenv(ECORE_DRM_ENV_LIBINPUT_LOG_EINA_LOG)) && (atoi(env) == 1))
-     libinput_log_set_handler(input->libinput, ecore_drm_libinput_log_handler);
+     libinput_log_set_handler(input->libinput, e_input_libinput_log_handler);
 
    libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);
 
@@ -544,7 +537,7 @@ ecore_drm_inputs_create(Ecore_Drm_Device *dev)
    _input_events_process(input);
 
    /* enable this input */
-   if (!ecore_drm_inputs_enable(input))
+   if (!e_input_inputs_enable(input))
      {
         ERR("Failed to enable input");
         goto err;
@@ -553,25 +546,14 @@ ecore_drm_inputs_create(Ecore_Drm_Device *dev)
    /* append this input */
    dev->inputs = eina_list_append(dev->inputs, input);
 
-   TRACE_EFL_END();
-   TRACE_INPUT_END();
    return EINA_TRUE;
 
 err:
    if (input->libinput) libinput_unref(input->libinput);
    free(input);
-   TRACE_EFL_END();
-   TRACE_INPUT_END();
+
    return EINA_FALSE;
 }
-
-/////////
-
-const struct libinput_interface _input_interface = 
-{
-   _cb_open_restricted,
-   _cb_close_restricted,
-};
 
 E_API Eina_Bool
 e_input_inputs_devices_create(E_Input_Device *dev)
@@ -616,7 +598,7 @@ e_input_inputs_devices_create(E_Input_Device *dev)
    if ((env = getenv(ECORE_DRM_ENV_LIBINPUT_LOG_DISABLE)) && (atoi(env) == 1))
      libinput_log_set_handler(input->libinput, NULL);
    else if ((env = getenv(ECORE_DRM_ENV_LIBINPUT_LOG_EINA_LOG)) && (atoi(env) == 1))
-     libinput_log_set_handler(input->libinput, ecore_drm_libinput_log_handler);
+     libinput_log_set_handler(input->libinput, e_input_libinput_log_handler);
 
    libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);
 
@@ -659,7 +641,7 @@ err:
 }
 
 
-E_API void 
+E_API void
 e_input_inputs_destroy(E_Input_Device *dev)
 {
    E_Input_Backend *input;
@@ -689,7 +671,7 @@ e_input_inputs_destroy(E_Input_Device *dev)
      }
 }
 
-E_API Eina_Bool 
+E_API Eina_Bool
 e_input_inputs_enable(E_Input_Backend *input)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(input, EINA_FALSE);
@@ -699,14 +681,14 @@ e_input_inputs_enable(E_Input_Backend *input)
 
    if (!input->hdlr)
      {
-        input->hdlr = 
-          ecore_main_fd_handler_add(input->fd, ECORE_FD_READ, 
+        input->hdlr =
+          ecore_main_fd_handler_add(input->fd, ECORE_FD_READ,
                                     _cb_input_dispatch, input, NULL, NULL);
      }
 
    if (input->suspended)
      {
-        if (libinput_resume(input->libinput) != 0) 
+        if (libinput_resume(input->libinput) != 0)
           goto err;
 
         input->suspended = EINA_FALSE;
@@ -727,7 +709,7 @@ err:
    return EINA_FALSE;
 }
 
-E_API void 
+E_API void
 e_input_inputs_disable(E_Input_Backend *input)
 {
    EINA_SAFETY_ON_NULL_RETURN(input);
