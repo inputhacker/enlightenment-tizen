@@ -415,7 +415,6 @@ if test "x${have_wayland}" = "xyes"; then
       ])
     fi
 
-    PKG_CHECK_MODULES([ECORE_DRM], [ecore-drm >= ${efl_version}])
   else
     have_wayland_tbm=no
   fi
