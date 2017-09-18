@@ -1,6 +1,9 @@
 #ifdef E_TYPEDEFS
 
 //TODO
+typedef struct _E_Input_Evdev E_Input_Evdev;
+typedef struct _E_Input_Backend E_Input_Backend;
+typedef struct _E_Input_Seat E_Input_Seat;
 
 #else
 
@@ -38,6 +41,7 @@ struct _E_Input_Backend
 
    Eina_Bool enabled : 1;
    Eina_Bool suspended : 1;
+   Eina_Bool left_handed : 1;
 };
 
 struct _E_Input_Evdev
@@ -50,7 +54,7 @@ struct _E_Input_Evdev
 
    int mt_slot;
 
-   struct 
+   struct
      {
         int minx, miny, maxw, maxh;
         double dx, dy;
@@ -61,7 +65,7 @@ struct _E_Input_Evdev
         uint32_t prev_button, last_button;
      } mouse;
 
-   struct 
+   struct
      {
         struct xkb_keymap *keymap;
         struct xkb_state *state;
