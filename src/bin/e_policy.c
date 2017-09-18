@@ -2147,6 +2147,21 @@ e_policy_allow_user_geometry_set(E_Client *ec, Eina_Bool set)
      }
 }
 
+E_API Eina_Bool
+e_policy_allow_user_geometry_get(E_Client *ec)
+{
+   E_Policy_Client *pc;
+
+   if (EINA_UNLIKELY(!ec))
+     return EINA_FALSE;
+
+   pc = eina_hash_find(hash_policy_clients, &ec);
+   if (EINA_UNLIKELY(!pc))
+     return EINA_FALSE;
+
+   return pc->allow_user_geom;
+}
+
 E_API void
 e_policy_deferred_job(void)
 {

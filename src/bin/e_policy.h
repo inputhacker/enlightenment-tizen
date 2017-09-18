@@ -203,6 +203,7 @@ E_API void                  e_policy_hook_del(E_Policy_Hook *hook);
 E_API Eina_Bool             e_policy_hook_call(E_Policy_Hook_Point hookpoint, E_Client *ec);
 
 E_API void e_policy_allow_user_geometry_set(E_Client *ec, Eina_Bool set);
+E_API Eina_Bool e_policy_allow_user_geometry_get(E_Client *ec);
 E_API void e_policy_deferred_job(void);
 E_API int  e_policy_init(void);
 E_API int  e_policy_shutdown(void);
