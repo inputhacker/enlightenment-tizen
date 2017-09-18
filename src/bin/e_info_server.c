@@ -1309,6 +1309,14 @@ _get_win_prop_E_Maximize_Policy(const Evas_Object *evas_obj)
 }
 
 static const char*
+_get_win_prop_Accept_focus(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->icccm.accepts_focus ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
 _get_win_prop_Want_focus(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1951,6 +1959,11 @@ static struct property_manager
         "Re_manage",
         _get_win_prop_Re_manage,
         NULL
+    },
+    {
+       "Accept_focus",
+       _get_win_prop_Accept_focus,
+       NULL
     },
     {
         "Take_focus",
