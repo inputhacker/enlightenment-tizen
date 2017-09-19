@@ -1,7 +1,6 @@
 
 #include "e_input_private.h"
 
-E_API int E_INPUT_EVENT_SEAT_ADD = -1;
 static Eina_Hash *_fd_hash = NULL;
 
 static int

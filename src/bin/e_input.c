@@ -5,7 +5,9 @@ int _e_input_init_count;
 int _e_input_log_dom = -1;
 
 //TODO : event declaration
-E_API int E_EVENT_INPUT_XXX = -1;
+E_API int E_INPUT_EVENT_INPUT_DEVICE_ADD = -1;
+E_API int E_INPUT_EVENT_INPUT_DEVICE_DEL = -1;
+E_API int E_INPUT_EVENT_SEAT_ADD = -1;
 E_API int E_EVENT_INPUT_ENABLED = -1;
 E_API int E_EVENT_INPUT_DISABLED = -1;
 
@@ -61,8 +63,9 @@ e_input_init(void)
         goto log_err;
      }
 
-   //TODO : event addition
-   E_EVENT_INPUT_XXX = ecore_event_type_new();
+   E_INPUT_EVENT_INPUT_DEVICE_ADD = ecore_event_type_new();
+   E_INPUT_EVENT_INPUT_DEVICE_DEL = ecore_event_type_new();
+   E_INPUT_EVENT_SEAT_ADD = ecore_event_type_new();
    E_EVENT_INPUT_ENABLED = ecore_event_type_new();
    E_EVENT_INPUT_DISABLED = ecore_event_type_new();
 
@@ -102,8 +105,9 @@ e_input_shutdown(void)
 
    ecore_event_add(E_EVENT_INPUT_DISABLED, NULL, NULL, NULL);
 
-   //TODO : event initialization
-   E_EVENT_INPUT_XXX = -1;
+   E_INPUT_EVENT_INPUT_DEVICE_ADD = -1;
+   E_INPUT_EVENT_INPUT_DEVICE_DEL = -1;
+   E_INPUT_EVENT_SEAT_ADD = -1;
    E_EVENT_INPUT_ENABLED = -1;
    E_EVENT_INPUT_DISABLED = -1;
 
