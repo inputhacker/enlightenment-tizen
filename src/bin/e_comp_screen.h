@@ -1,5 +1,7 @@
 #ifdef E_TYPEDEFS
 
+/* temporary definition */
+#define REMOVE_ECORE_DRM_TEMP
 
 #else
 #ifndef E_COMP_SCREEN_H
