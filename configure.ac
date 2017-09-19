@@ -293,6 +293,7 @@ e_requires="\
   eio >= $efl_version \
   eo >= $efl_version \
   eeze >= $efl_version \
+  libinput \
   libtbm \
   libtdm >= "1.0.0" \
   "
@@ -525,6 +526,8 @@ fi
 
 AM_CONDITIONAL([HAVE_SYSTEMD], [test "x${have_systemd}" = "xyes"])
 
+#libinput
+PKG_CHECK_MODULES([LIBINPUT], [libinput])
 
 #capi-system-device
 PKG_CHECK_MODULES([CAPI_SYSTEM_DEVICE],

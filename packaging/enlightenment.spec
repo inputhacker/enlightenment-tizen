@@ -50,6 +50,7 @@ BuildRequires:  pkgconfig(cynara-creds-socket)
 BuildRequires:  pkgconfig(libsmack)
 BuildRequires:  pkgconfig(pixman-1)
 BuildRequires:  systemd-devel
+BuildRequires:  pkgconfig(libinput)
 Requires:       libwayland-extension-server
 %if "%{LIBGOMP}" == "use"
 Requires:       libgomp

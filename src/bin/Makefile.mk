@@ -255,6 +255,7 @@ endif
 if HAVE_SYSTEMD
 src_bin_enlightenment_CPPFLAGS += @SYSTEMD_CFLAGS@
 endif
+src_bin_enlightenment_CPPFLAGS += @LIBINPUT_CFLAGS@
 
 src_bin_enlightenment_SOURCES = \
 src/bin/e_main.c \
@@ -274,6 +275,7 @@ endif
 if HAVE_SYSTEMD
 src_bin_enlightenment_LDFLAGS += @SYSTEMD_LIBS@
 endif
+src_bin_enlightenment_LDFLAGS += @LIBINPUT_LIBS@
 
 src_bin_enlightenment_info_SOURCES = \
 src/bin/e.h \
