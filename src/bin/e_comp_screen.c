@@ -643,9 +643,6 @@ _e_comp_screen_engine_deinit(void)
    _e_comp_screen_del(e_comp->e_comp_screen);
    tbm_surface_queue_destroy(e_comp->e_comp_screen->tqueue);
    e_comp->e_comp_screen = NULL;
-
-   ecore_event_shutdown();
-   eeze_shutdown();
 }
 
 static Eina_Bool
@@ -657,18 +654,6 @@ _e_comp_screen_engine_init(void)
    char buf[1024];
    E_Output *output = NULL;
    tbm_surface_queue_h tqueue = NULL;
-
-   if (!eeze_init())
-     {
-        e_error_message_show(_("Enlightenment cannot initialize Eeze!\n"));
-        return EINA_FALSE;
-     }
-
-   if (!ecore_event_init())
-     {
-        e_error_message_show(_("Enlightenment cannot initialize Ecore_Event!\n"));
-        return EINA_FALSE;
-     }
 
    INF("ecore evase engine init with TDM. HWC.");
 
