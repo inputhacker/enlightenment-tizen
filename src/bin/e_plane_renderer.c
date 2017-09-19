@@ -83,6 +83,9 @@ _get_wl_buffer(E_Client *ec)
 static tbm_surface_queue_h
 _get_tbm_surface_queue(Ecore_Evas *ee)
 {
+#ifdef REMOVE_ECORE_DRM_TEMP
+   return e_comp->e_comp_screen->tqueue;
+#else
    const char* name;
    tbm_surface_queue_h tbm_queue = NULL;
 
@@ -112,6 +115,7 @@ _get_tbm_surface_queue(Ecore_Evas *ee)
      }
 
    return tbm_queue;
+#endif
 }
 
 static void
