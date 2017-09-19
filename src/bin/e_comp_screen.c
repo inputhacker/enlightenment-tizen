@@ -1004,6 +1004,12 @@ e_comp_screen_init()
         goto failed_comp_screen;
      }
 
+   if (!e_input_init())
+     {
+        ERR("Could not initialize the e_input.");
+        goto failed_comp_screen;
+     }
+
    e_main_ts("\tE_Comp_Wl Init");
    if (!e_comp_wl_init())
      {
@@ -1090,6 +1096,7 @@ e_comp_screen_init()
 
 failed_comp_screen:
 
+   e_input_shutdown();
    _e_comp_screen_engine_deinit();
 
    TRACE_DS_END();

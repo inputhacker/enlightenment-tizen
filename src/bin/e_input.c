@@ -61,6 +61,9 @@ e_input_init(void)
    E_EVENT_INPUT_ENABLED = ecore_event_type_new();
    E_EVENT_INPUT_DISABLED = ecore_event_type_new();
 
+   ecore_event_add(E_EVENT_INPUT_ENABLED, NULL, NULL, NULL);
+   ecore_event_handler_add(ECORE_EVENT_KEY_DOWN, _e_input_cb_key_down, NULL);
+
    return _e_input_init_count;
 
 log_err:
@@ -75,6 +78,7 @@ eina_err:
    return --_e_input_init_count;
 }
 
+#if 0
 E_API E_Input *
 e_input_new(void)
 {
@@ -85,11 +89,9 @@ e_input_new(void)
 
    if (!einput) return NULL;
 
-   ecore_event_add(E_EVENT_INPUT_ENABLED, NULL, NULL, NULL);
-   ecore_event_handler_add(ECORE_EVENT_KEY_DOWN, _e_input_cb_key_down, NULL);
-
    return einput;
 }
+#endif
 
 EINTERN int
 e_input_shutdown(void)

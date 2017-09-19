@@ -94,8 +94,10 @@ struct _E_Event_Input_Generic
 };
 
 EINTERN int e_input_init(void);
-E_API E_Input *e_input_new(void);
 EINTERN int e_input_shutdown(void);
+#if 0
+E_API E_Input *e_input_new(void);
+#endif
 
 /**
  * Sets the window of E_Input_Devices.
