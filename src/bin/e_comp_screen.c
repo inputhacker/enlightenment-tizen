@@ -641,6 +641,7 @@ _e_comp_screen_engine_deinit(void)
 
    _e_comp_screen_deinit_outputs(e_comp->e_comp_screen);
    _e_comp_screen_del(e_comp->e_comp_screen);
+   tbm_surface_queue_destroy(e_comp->e_comp_screen->tqueue);
    e_comp->e_comp_screen = NULL;
 }
 
@@ -652,6 +653,7 @@ _e_comp_screen_engine_init(void)
    int screen_rotation;
    char buf[1024];
    E_Output *output = NULL;
+   tbm_surface_queue_h tqueue = NULL;
 
    INF("ecore evase engine init with TDM. HWC.");
 
@@ -715,11 +717,21 @@ _e_comp_screen_engine_init(void)
    INF("GL available:%d config engine:%d screen size:%dx%d",
        e_comp_gl_get(), e_comp_config_get()->engine, scr_w, scr_h);
 
+   tqueue = tbm_surface_queue_create(3, scr_w, scr_h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
+   if (!tqueue)
+     {
+        e_error_message_show(_("Fail to create tbm_surface_queue!\n"));
+       _e_comp_screen_engine_deinit();
+       return EINA_FALSE;
+     }
+
+   e_comp_screen->tqueue = tqueue;
+
    if ((e_comp_gl_get()) &&
        (e_comp_config_get()->engine == E_COMP_ENGINE_GL))
      {
         e_main_ts("\tEE_GL_DRM New");
-        e_comp->ee = ecore_evas_gl_drm_new(NULL, 0, 0, 0, scr_w, scr_h);
+        e_comp->ee = ecore_evas_tbm_ext_new("gl_tbm", tqueue, NULL);
         snprintf(buf, sizeof(buf), "\tEE_GL_DRM New Done %p %dx%d", e_comp->ee, scr_w, scr_h);
         e_main_ts(buf);
 
@@ -762,7 +774,7 @@ _e_comp_screen_engine_init(void)
    if (!e_comp->ee)
      {
         e_main_ts("\tEE_DRM New");
-        e_comp->ee = ecore_evas_drm_new(NULL, 0, 0, 0, scr_w, scr_h);
+        e_comp->ee = ecore_evas_tbm_ext_new("software_tbm", tqueue, NULL);
         snprintf(buf, sizeof(buf), "\tEE_DRM New Done %p %dx%d", e_comp->ee, scr_w, scr_h);
         e_main_ts(buf);
      }

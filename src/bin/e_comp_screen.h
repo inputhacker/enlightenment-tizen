@@ -31,6 +31,8 @@ struct _E_Comp_Screen
    /* pp support */
    Eina_Bool  pp_enabled;
    Eina_List *available_pp_formats;
+
+   tbm_surface_queue_h tqueue;
 };
 
 
