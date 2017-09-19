@@ -1,16 +1,14 @@
 #ifdef E_TYPEDEFS
 
 //TODO
-typedef struct _E_Input_Evdev E_Input_Evdev;
-typedef struct _E_Input_Backend E_Input_Backend;
-typedef struct _E_Input_Seat E_Input_Seat;
-
 #else
 
 #ifndef E_INPUT_PRIVIATES_H
 #define E_INPUT_PRIVIATES_H
 
 #include <e_input.h>
+#include <libinput.h>
+#include <Eeze.h>
 
 struct xkb_keymap *cached_keymap;
 struct xkb_context *cached_context;
@@ -97,7 +95,14 @@ struct _E_Input_Evdev
      } touch;
 };
 
+void _input_events_process(E_Input_Backend *input);
+
+struct xkb_context * _e_input_device_cached_context_get(enum xkb_context_flags flags);
+struct xkb_keymap *_e_input_device_cached_keymap_get(struct xkb_context *ctx, const struct xkb_rule_names *names, enum xkb_keymap_compile_flags flags);
+
+
 void _e_input_evdev_device_destroy(E_Input_Evdev *evdev);
+void _e_input_pointer_motion_post(E_Input_Evdev *edev);
 
 #endif
 #endif

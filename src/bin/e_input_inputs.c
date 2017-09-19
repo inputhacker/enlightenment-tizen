@@ -18,6 +18,8 @@ _device_open_no_pending(const char *device, int flags)
         close(fd);
         return -1;
      }
+
+   return fd;
 }
 
 static void
@@ -48,9 +50,9 @@ _cb_open_restricted(const char *path, int flags, void *data)
 static void
 _cb_close_restricted(int fd, void *data)
 {
-   Ecore_Drm_Input *input;
-   Ecore_Drm_Seat *seat;
-   Ecore_Drm_Evdev *edev;
+   E_Input_Backend *input;
+   E_Input_Seat *seat;
+   E_Input_Evdev *edev;
    Eina_List *l, *ll;
 
    if (!(input = data)) return;
@@ -150,11 +152,11 @@ _e_input_seat_cap_to_ecore_device_class(unsigned int cap)
 {
    switch(cap)
      {
-      case EVDEV_SEAT_POINTER:
+      case E_INPUT_SEAT_POINTER:
          return ECORE_DEVICE_CLASS_MOUSE;
-      case EVDEV_SEAT_KEYBOARD:
+      case E_INPUT_SEAT_KEYBOARD:
          return ECORE_DEVICE_CLASS_KEYBOARD;
-      case EVDEV_SEAT_TOUCH:
+      case E_INPUT_SEAT_TOUCH:
          return ECORE_DEVICE_CLASS_TOUCH;
       default:
          return ECORE_DEVICE_CLASS_NONE;
@@ -246,21 +248,21 @@ _e_input_device_add(unsigned int window, E_Input_Evdev *edev)
    Eina_Bool ret = EINA_FALSE;
    Ecore_Device_Class clas;
 
-   if (edev->seat_caps & EVDEV_SEAT_POINTER)
+   if (edev->seat_caps & E_INPUT_SEAT_POINTER)
      {
-        clas = _e_input_seat_cap_to_ecore_device_class(EVDEV_SEAT_POINTER);
+        clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_POINTER);
         ret = _e_input_device_add_ecore_device(edev, clas);
         if (ret) _e_input_device_info_send(window, edev, clas, ECORE_DEVICE_SUBCLASS_NONE, 1);
      }
-   if (edev->seat_caps & EVDEV_SEAT_KEYBOARD)
+   if (edev->seat_caps & E_INPUT_SEAT_KEYBOARD)
      {
-        clas = _e_input_seat_cap_to_ecore_device_class(EVDEV_SEAT_KEYBOARD);
+        clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_KEYBOARD);
         ret = _e_input_device_add_ecore_device(edev, clas);
         if (ret) _e_input_device_info_send(window, edev, clas, ECORE_DEVICE_SUBCLASS_NONE, 1);
      }
-   if (edev->seat_caps & EVDEV_SEAT_TOUCH)
+   if (edev->seat_caps & E_INPUT_SEAT_TOUCH)
      {
-        clas = _e_input_seat_cap_to_ecore_device_class(EVDEV_SEAT_TOUCH);
+        clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_TOUCH);
         ret = _e_input_device_add_ecore_device(edev, clas);
         if (ret) _e_input_device_info_send(window, edev, clas, ECORE_DEVICE_SUBCLASS_NONE, 1);
      }
@@ -272,21 +274,21 @@ _e_input_device_remove(unsigned int window, E_Input_Evdev *edev)
    Eina_Bool ret = EINA_FALSE;
    Ecore_Device_Class clas;
 
-   if (edev->seat_caps & EVDEV_SEAT_POINTER)
+   if (edev->seat_caps & E_INPUT_SEAT_POINTER)
      {
-        clas = _e_input_seat_cap_to_ecore_device_class(EVDEV_SEAT_POINTER);
+        clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_POINTER);
         ret = _e_input_device_del_ecore_device(edev, clas);
         if (ret) _e_input_device_info_send(window, edev, clas, ECORE_DEVICE_SUBCLASS_NONE, 0);
      }
-   if (edev->seat_caps & EVDEV_SEAT_KEYBOARD)
+   if (edev->seat_caps & E_INPUT_SEAT_KEYBOARD)
      {
-        clas = _e_input_seat_cap_to_ecore_device_class(EVDEV_SEAT_KEYBOARD);
+        clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_KEYBOARD);
         ret = _e_input_device_del_ecore_device(edev, clas);
         if (ret) _e_input_device_info_send(window, edev, clas, ECORE_DEVICE_SUBCLASS_NONE, 0);
      }
-   if (edev->seat_caps & EVDEV_SEAT_TOUCH)
+   if (edev->seat_caps & E_INPUT_SEAT_TOUCH)
      {
-        clas = _e_input_seat_cap_to_ecore_device_class(EVDEV_SEAT_TOUCH);
+        clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_TOUCH);
         ret = _e_input_device_del_ecore_device(edev, clas);
         if (ret) _e_input_device_info_send(window, edev, clas, ECORE_DEVICE_SUBCLASS_NONE, 0);
      }
@@ -432,8 +434,8 @@ _input_event_process(struct libinput_event *event)
    if (_e_input_evdev_event_process(event)) return;
 }
 
-static void
-_input_events_process(Ecore_Drm_Input *input)
+void
+_input_events_process(E_Input_Backend *input)
 {
    struct libinput_event *event;
 

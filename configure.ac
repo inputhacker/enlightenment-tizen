@@ -292,6 +292,7 @@ e_requires="\
   eldbus >= $efl_version \
   eio >= $efl_version \
   eo >= $efl_version \
+  eeze >= $efl_version \
   libtbm \
   libtdm >= "1.0.0" \
   "
@@ -310,7 +311,7 @@ PKG_CHECK_EXISTS([xkeyboard-config],[
 
 profile="SLOW_PC"
 AC_ARG_WITH(profile,
-  AS_HELP_STRING([--with-profile=TARGET_PROFILE], 
+  AS_HELP_STRING([--with-profile=TARGET_PROFILE],
   [specify a target format profile of:
                                     LOWRES_PDA, MEDIUMRES_PDA, HIRES_PDA, SLOW_PC, MEDIUM_PC, FAST_PC]),
   [profile=$withval])
@@ -337,7 +338,7 @@ if test "x$e_cv_want_enotify" != "xno" ; then
   AC_E_CHECK_PKG(ENOTIFY, [ eldbus >= $efl_version ],
   [
     AC_DEFINE_UNQUOTED([HAVE_ENOTIFY], [1], [enable enotify])
-  ], 
+  ],
   [
     AC_MSG_NOTICE([enotify disabled])
     e_cv_want_enotify=no
@@ -374,7 +375,7 @@ shm_unlink("/");
 LIBS=${LIBS_save}
 AC_MSG_RESULT([${have_shm_open}])
 AC_SUBST(SHM_OPEN_LIBS)
-                           
+
 if test "x${e_cv_want_wayland_only}" != "xno" || test "x${e_cv_want_wayland_clients}" != "xno";then
   PKG_CHECK_MODULES([WAYLAND], [wayland-server >= 1.8.0 xkbcommon uuid xdg-shell-server scaler-server transform-server screenshooter-server tizen-extension-server tizen-launch-server eom-server],
     [
@@ -593,6 +594,7 @@ eina >= ${efl_version} \
 eldbus >= ${efl_version} \
 eio >= ${efl_version} \
 eo >= ${efl_version} \
+eeze >= ${efl_version} \
 "
 
 e_libs="$E_LIBS $fnmatch_libs $execinfo_libs"

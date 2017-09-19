@@ -102,9 +102,6 @@ e_input_device_free(E_Input_Device *dev)
 E_API Eina_Bool
 e_input_device_open(E_Input_Device *dev)
 {
-   uint64_t caps;
-   int events = 0;
-
    /* check for valid device */
    if (!dev) return EINA_FALSE;
 
@@ -136,20 +133,20 @@ e_input_device_close(E_Input_Device *dev)
 E_API void
 e_input_device_window_set(E_Input_Device *dev, unsigned int window)
 {
-   Eina_List *l, *ll;
-   E_Input_Seat *seat = NULL;
-   E_Input_Evdev *edev = NULL;
+//   Eina_List *l, *ll;
+//   E_Input_Seat *seat = NULL;
 
    /* check for valid device */
    EINA_SAFETY_ON_TRUE_RETURN(!dev);
 
    dev->window = window;
-
+#if 0
    EINA_LIST_FOREACH(dev->seats, l , seat)
      {
         EINA_LIST_FOREACH(seat->devices, ll, edev)
-          _e_input_device_add(window, edev);
+          ;//_e_input_device_add(window, edev);
      }
+#endif
 }
 
 E_API void
@@ -410,8 +407,9 @@ e_input_device_touch_rotation_set(E_Input_Device *dev, unsigned int rotation)
      {
         EINA_LIST_FOREACH(e_input_seat_evdev_list_get(seat), l2, edev)
           {
-             if (edev->seat_caps & EVDEV_SEAT_TOUCH)
+             if (edev->seat_caps & E_INPUT_SEAT_TOUCH)
                {
+#if 0
                   if (edev->output && edev->output->current_mode)
                     {
                        default_w = (float)edev->output->current_mode->width;
@@ -422,7 +420,7 @@ e_input_device_touch_rotation_set(E_Input_Device *dev, unsigned int rotation)
                        default_w = 0.0;
                        default_h = 0.0;
                     }
-
+#endif
                   _e_input_device_touch_matrix_identify(mat_translate);
                   _e_input_device_touch_matrix_identify(mat_rotation);
                   _e_input_device_touch_matrix_identify(result);
@@ -466,7 +464,7 @@ e_input_device_touch_transformation_set(E_Input_Device *dev, int offset_x, int o
    E_Input_Evdev *edev = NULL;
    Eina_List *l = NULL, *l2 = NULL;
    float mat_translate[6] = {0.0, }, mat_rotation[6] = {0.0 }, result[6] = {0.0, };
-   float default_w, default_h;
+   float default_w = 0.0, default_h = 0.0;
    Eina_Bool res = EINA_TRUE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(dev, EINA_FALSE);
@@ -477,8 +475,9 @@ e_input_device_touch_transformation_set(E_Input_Device *dev, int offset_x, int o
      {
         EINA_LIST_FOREACH(e_input_seat_evdev_list_get(seat), l2, edev)
           {
-             if (edev->seat_caps & EVDEV_SEAT_TOUCH)
+             if (edev->seat_caps & E_INPUT_SEAT_TOUCH)
                {
+#if 0
                   if (edev->output && edev->output->current_mode)
                     {
                        default_w = (float)edev->output->current_mode->width;
@@ -489,7 +488,7 @@ e_input_device_touch_transformation_set(E_Input_Device *dev, int offset_x, int o
                        default_w = 0.0;
                        default_h = 0.0;
                     }
-
+#endif
                   _e_input_device_touch_matrix_identify(mat_translate);
                   _e_input_device_touch_matrix_identify(mat_rotation);
                   _e_input_device_touch_matrix_identify(result);

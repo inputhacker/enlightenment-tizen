@@ -14,30 +14,30 @@ typedef struct _E_Input E_Input;
 
 typedef enum _E_Input_Evdev_Capabilities
 {
-   EVDEV_KEYBOARD = (1 << 0),
-   EVDEV_BUTTON = (1 << 1),
-   EVDEV_MOTION_ABS = (1 << 2),
-   EVDEV_MOTION_REL = (1 << 3),
-   EVDEV_TOUCH = (1 << 4),
+   E_INPUT_KEYBOARD = (1 << 0),
+   E_INPUT_BUTTON = (1 << 1),
+   E_INPUT_MOTION_ABS = (1 << 2),
+   E_INPUT_MOTION_REL = (1 << 3),
+   E_INPUT_TOUCH = (1 << 4),
 } E_Input_Evdev_Capabilities;
 
 typedef enum _E_Input_Evdev_Event_Type
 {
-   EVDEV_NONE,
-   EVDEV_ABSOLUTE_TOUCH_DOWN,
-   EVDEV_ABSOLUTE_MOTION,
-   EVDEV_ABSOLUTE_TOUCH_UP,
-   EVDEV_ABSOLUTE_MT_DOWN,
-   EVDEV_ABSOLUTE_MT_MOTION,
-   EVDEV_ABSOLUTE_MT_UP,
-   EVDEV_RELATIVE_MOTION,
+   E_INPUT_NONE,
+   E_INPUT_ABSOLUTE_TOUCH_DOWN,
+   E_INPUT_ABSOLUTE_MOTION,
+   E_INPUT_ABSOLUTE_TOUCH_UP,
+   E_INPUT_ABSOLUTE_MT_DOWN,
+   E_INPUT_ABSOLUTE_MT_MOTION,
+   E_INPUT_ABSOLUTE_MT_UP,
+   E_INPUT_RELATIVE_MOTION,
 } E_Input_Evdev_Event_Type;
 
 typedef enum _E_Input_Seat_Capabilities
 {
-   EVDEV_SEAT_POINTER = (1 << 0),
-   EVDEV_SEAT_KEYBOARD = (1 << 1),
-   EVDEV_SEAT_TOUCH = (1 << 2),
+   E_INPUT_SEAT_POINTER = (1 << 0),
+   E_INPUT_SEAT_KEYBOARD = (1 << 1),
+   E_INPUT_SEAT_TOUCH = (1 << 2),
 } E_Input_Seat_Capabilities;
 
 struct _E_Input_Event_Input_Device_Add
@@ -120,6 +120,14 @@ E_API void e_input_device_rotation_set(E_Input_Device *dev, unsigned int rotatio
 E_API Eina_Bool e_input_device_touch_rotation_set(E_Input_Device *dev, unsigned int rotation);
 E_API Eina_Bool e_input_device_touch_transformation_set(E_Input_Device *dev, int offset_x, int offset_y, int w, int h);
 E_API const Eina_List *e_input_devices_get(void);
+
+E_API void e_input_evdev_axis_size_set(E_Input_Evdev *edev, int w, int h);
+E_API const char *e_input_evdev_name_get(E_Input_Evdev *evdev);
+E_API const char *e_input_evdev_sysname_get(E_Input_Evdev *evdev);
+E_API Eina_Bool e_input_evdev_key_remap_enable(E_Input_Evdev *edev, Eina_Bool enable);
+E_API Eina_Bool e_input_evdev_key_remap_set(E_Input_Evdev *edev, int *from_keys, int *to_keys, int num);
+E_API int e_input_evdev_wheel_click_angle_get(E_Input_Evdev *dev);
+E_API Eina_Bool e_input_evdev_touch_calibration_set(E_Input_Evdev *edev, float matrix[6]);
 
 #endif
 #endif

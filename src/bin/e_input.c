@@ -1,4 +1,5 @@
 #include "e.h"
+#include <Eeze.h>
 
 int _e_input_init_count;
 int _e_input_log_dom = -1;
@@ -13,17 +14,17 @@ E_API E_Input *e_input = NULL;
 static Eina_Bool
 _e_input_cb_key_down(void *data, int type EINA_UNUSED, void *event)
 {
-   Ecore_Event_Key *ev;
-   int code = 0, vt = 0;
+//   Ecore_Event_Key *ev;
+//   int code = 0;
 
-   ev = event;
-   code = (ev->keycode - 8);
+//   ev = event;
+//   code = (ev->keycode - 8);
 
    //TODO : do some global actions for key combinations
 
    return ECORE_CALLBACK_RENEW;
 }
-
+#if 0
 static void
 _e_input_event_generic_free(void *data EINA_UNUSED, void *ev)
 {
@@ -33,7 +34,7 @@ _e_input_event_generic_free(void *data EINA_UNUSED, void *ev)
    e_object_unref(E_OBJECT(e->input));
    free(e);
 }
-
+#endif
 static void
 _e_input_free(E_Input *einput)
 {
@@ -53,7 +54,7 @@ e_input_init(void)
    if (!ecore_event_init()) goto ecore_event_err;
    if (!eeze_init()) goto eeze_err;
 
-   _e_input_log_dom = eina_log_domain_register("e_input", EINA_COLOR_GREEN)
+   _e_input_log_dom = eina_log_domain_register("e_input", EINA_COLOR_GREEN);
    if (!_e_input_log_dom)
      {
         EINA_LOG_ERR("Could not create logging domain for E_Input");

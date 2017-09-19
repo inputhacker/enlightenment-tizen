@@ -12,6 +12,7 @@ _device_calibration_set(E_Input_Evdev *edev)
    Eina_List *devices;
    const char *vals;
    enum libinput_config_status status;
+   int w = 0, h = 0;
 
    if ((!libinput_device_config_calibration_has_matrix(edev->device)) ||
        (libinput_device_config_calibration_get_default_matrix(edev->device, cal) != 0))
@@ -22,6 +23,8 @@ _device_calibration_set(E_Input_Evdev *edev)
    devices = eeze_udev_find_by_subsystem_sysname("input", sysname);
    if (eina_list_count(devices) < 1) return;
 
+   e_output_size_get(e_comp_screen_primary_output_get(e_comp->e_comp_screen), &w, &h);
+
    EINA_LIST_FREE(devices, device)
      {
         vals = eeze_udev_syspath_get_property(device, "WL_CALIBRATION");
@@ -30,8 +33,8 @@ _device_calibration_set(E_Input_Evdev *edev)
                     &cal[0], &cal[1], &cal[2], &cal[3], &cal[4], &cal[5]) != 6))
           goto cont;
 
-        cal[2] /= edev->output->current_mode->width;
-        cal[5] /= edev->output->current_mode->height;
+        cal[2] /= w;
+        cal[5] /= h;
 
         status =
           libinput_device_config_calibration_set_matrix(edev->device, cal);
@@ -45,6 +48,7 @@ cont:
      }
 }
 
+#if 0
 static void
 _device_output_set(E_Input_Evdev *edev)
 {
@@ -94,6 +98,7 @@ _device_output_set(E_Input_Evdev *edev)
           }
      }
 }
+#endif
 
 static void
 _device_configure(E_Input_Evdev *edev)
@@ -105,12 +110,13 @@ _device_configure(E_Input_Evdev *edev)
         tap = libinput_device_config_tap_get_default_enabled(edev->device);
         libinput_device_config_tap_set_enabled(edev->device, tap);
      }
-
+#if 0
    ecore_drm_outputs_geometry_get(edev->seat->input->dev,
                                   &edev->mouse.minx, &edev->mouse.miny,
                                   &edev->mouse.maxw, &edev->mouse.maxh);
 
    _device_output_set(edev);
+#endif
    _device_calibration_set(edev);
 }
 
@@ -239,7 +245,7 @@ _device_modifiers_update(E_Input_Evdev *edev)
 {
    edev->xkb.modifiers = 0;
 
-   if (edev->seat_caps & EVDEV_SEAT_KEYBOARD)
+   if (edev->seat_caps & E_INPUT_SEAT_KEYBOARD)
      _device_modifiers_update_device(edev, edev);
    else
      {
@@ -248,7 +254,7 @@ _device_modifiers_update(E_Input_Evdev *edev)
 
         EINA_LIST_FOREACH(edev->seat->devices, l, ed)
           {
-             if (!(ed->seat_caps & EVDEV_SEAT_KEYBOARD)) continue;
+             if (!(ed->seat_caps & E_INPUT_SEAT_KEYBOARD)) continue;
              _device_modifiers_update_device(edev, ed);
           }
      }
@@ -271,7 +277,7 @@ _device_remapped_key_get(E_Input_Evdev *edev, int code)
    return code;
 }
 
-EAPI Ecore_Device *
+E_API Ecore_Device *
 e_input_evdev_get_ecore_device(const char *path, Ecore_Device_Class clas)
 {
    const Eina_List *dev_list = NULL;
@@ -530,6 +536,7 @@ static void
 _device_handle_pointer_motion_absolute(struct libinput_device *device, struct libinput_event_pointer *event)
 {
    E_Input_Evdev *edev;
+   int w = 0, h = 0;
 
    TRACE_INPUT_BEGIN(_device_handle_pointer_motion_absolute);
 
@@ -539,12 +546,12 @@ _device_handle_pointer_motion_absolute(struct libinput_device *device, struct li
         return;
      }
 
+   e_output_size_get(e_comp_screen_primary_output_get(e_comp->e_comp_screen), &w, &h);
+
    edev->mouse.dx = edev->seat->ptr.dx =
-     libinput_event_pointer_get_absolute_x_transformed(event,
-                                                       edev->output->current_mode->width);
+     libinput_event_pointer_get_absolute_x_transformed(event, w);
    edev->mouse.dy = edev->seat->ptr.dy =
-     libinput_event_pointer_get_absolute_y_transformed(event,
-                                                       edev->output->current_mode->height);
+     libinput_event_pointer_get_absolute_y_transformed(event, h);
 
    if (floor(edev->seat->ptr.dx) == edev->seat->ptr.ix &&
        floor(edev->seat->ptr.dy) == edev->seat->ptr.iy)
@@ -710,7 +717,6 @@ _device_handle_axis(struct libinput_device *device, struct libinput_event_pointe
    ev->root.y = ev->y;
    ev->dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_MOUSE);
 
-#if LIBINPUT_HIGHER_08
    axis = LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL;
    if (libinput_event_pointer_has_axis(event, axis))
      ev->z = libinput_event_pointer_get_axis_value(event, axis);
@@ -721,11 +727,6 @@ _device_handle_axis(struct libinput_device *device, struct libinput_event_pointe
         ev->direction = 1;
         ev->z = libinput_event_pointer_get_axis_value(event, axis);
      }
-#else
-   axis = libinput_event_pointer_get_axis(event);
-   if (axis == LIBINPUT_POINTER_AXIS_SCROLL_HORIZONTAL) ev->direction = 1;
-   ev->z = libinput_event_pointer_get_axis_value(event);
-#endif
 
    ecore_event_add(ECORE_EVENT_MOUSE_WHEEL, ev, NULL, NULL);
    TRACE_INPUT_END();
@@ -878,6 +879,7 @@ static void
 _device_handle_touch_down(struct libinput_device *device, struct libinput_event_touch *event)
 {
    E_Input_Evdev *edev;
+   int w = 0, h = 0;
 
    TRACE_INPUT_BEGIN(_device_handle_touch_down);
 
@@ -887,10 +889,12 @@ _device_handle_touch_down(struct libinput_device *device, struct libinput_event_
         return;
      }
 
+   e_output_size_get(e_comp_screen_primary_output_get(e_comp->e_comp_screen), &w, &h);
+
    edev->mouse.dx = edev->seat->ptr.ix = edev->seat->ptr.dx =
-     libinput_event_touch_get_x_transformed(event, edev->output->current_mode->width);
+     libinput_event_touch_get_x_transformed(event, w);
    edev->mouse.dy = edev->seat->ptr.iy = edev->seat->ptr.dy =
-     libinput_event_touch_get_y_transformed(event, edev->output->current_mode->height);
+     libinput_event_touch_get_y_transformed(event, h);
 
    edev->mt_slot = libinput_event_touch_get_slot(event);
 
@@ -904,6 +908,7 @@ static void
 _device_handle_touch_motion(struct libinput_device *device, struct libinput_event_touch *event)
 {
    E_Input_Evdev *edev;
+   int w = 0, h = 0;
 
    TRACE_INPUT_BEGIN(_device_handle_touch_motion);
 
@@ -913,10 +918,12 @@ _device_handle_touch_motion(struct libinput_device *device, struct libinput_even
         return;
      }
 
+   e_output_size_get(e_comp_screen_primary_output_get(e_comp->e_comp_screen), &w, &h);
+
    edev->mouse.dx = edev->seat->ptr.dx =
-     libinput_event_touch_get_x_transformed(event, edev->output->current_mode->width);
+     libinput_event_touch_get_x_transformed(event, w);
    edev->mouse.dy = edev->seat->ptr.dy =
-     libinput_event_touch_get_y_transformed(event, edev->output->current_mode->height);
+     libinput_event_touch_get_y_transformed(event, h);
 
    if (floor(edev->seat->ptr.dx) == edev->seat->ptr.ix &&
        floor(edev->seat->ptr.dy) == edev->seat->ptr.iy)
@@ -1042,13 +1049,13 @@ _e_input_evdev_device_create(E_Input_Seat *seat, struct libinput_device *device)
 
    if (libinput_device_has_capability(device, LIBINPUT_DEVICE_CAP_KEYBOARD))
      {
-        edev->seat_caps |= EVDEV_SEAT_KEYBOARD;
+        edev->seat_caps |= E_INPUT_SEAT_KEYBOARD;
         _device_keyboard_setup(edev);
      }
 
    if (libinput_device_has_capability(device, LIBINPUT_DEVICE_CAP_POINTER))
      {
-        edev->seat_caps |= EVDEV_SEAT_POINTER;
+        edev->seat_caps |= E_INPUT_SEAT_POINTER;
 
         /* TODO: make this configurable */
         edev->mouse.threshold = 250;
@@ -1068,7 +1075,7 @@ _e_input_evdev_device_create(E_Input_Seat *seat, struct libinput_device *device)
    if (libinput_device_has_capability(device, LIBINPUT_DEVICE_CAP_TOUCH))
      {
         int palm_code;
-        edev->seat_caps |= EVDEV_SEAT_TOUCH;
+        edev->seat_caps |= E_INPUT_SEAT_TOUCH;
         palm_code = libinput_device_touch_aux_data_get_code(LIBINPUT_TOUCH_AUX_DATA_TYPE_PALM);
         if (libinput_device_touch_has_aux_data(device, palm_code))
           {
@@ -1090,7 +1097,7 @@ _e_input_evdev_device_destroy(E_Input_Evdev *edev)
 {
    EINA_SAFETY_ON_NULL_RETURN(edev);
 
-   if (edev->seat_caps & EVDEV_SEAT_KEYBOARD)
+   if (edev->seat_caps & E_INPUT_SEAT_KEYBOARD)
      {
         if (edev->xkb.state) xkb_state_unref(edev->xkb.state);
         if (edev->xkb.keymap) xkb_map_unref(edev->xkb.keymap);
@@ -1152,3 +1159,162 @@ _e_input_evdev_event_process(struct libinput_event *event)
 
    return ret;
 }
+
+/**
+ * @brief Set the axis size of the given device.
+ *
+ * @param dev The device to set the axis size to.
+ * @param w The width of the axis.
+ * @param h The height of the axis.
+ *
+ * This function sets set the width @p w and height @p h of the axis
+ * of device @p dev. If @p dev is a relative input device, a width and
+ * height must set for it. If its absolute set the ioctl correctly, if
+ * not, unsupported device.
+ */
+E_API void
+e_input_evdev_axis_size_set(E_Input_Evdev *edev, int w, int h)
+{
+   const char *sysname;
+   float cal[6];
+   const char *device;
+   Eina_List *devices;
+   const char *vals;
+   enum libinput_config_status status;
+
+   EINA_SAFETY_ON_NULL_RETURN(edev);
+   EINA_SAFETY_ON_TRUE_RETURN((w == 0) || (h == 0));
+
+   if ((!libinput_device_config_calibration_has_matrix(edev->device)) || 
+       (libinput_device_config_calibration_get_default_matrix(edev->device, cal) != 0))
+     return;
+
+   sysname = libinput_device_get_sysname(edev->device);
+
+   devices = eeze_udev_find_by_subsystem_sysname("input", sysname);
+   if (eina_list_count(devices) < 1) return;
+
+   EINA_LIST_FREE(devices, device)
+     {
+        vals = eeze_udev_syspath_get_property(device, "WL_CALIBRATION");
+	if ((!vals) || 
+            (sscanf(vals, "%f %f %f %f %f %f",
+                    &cal[0], &cal[1], &cal[2], &cal[3], &cal[4], &cal[5]) != 6))
+          goto cont;
+
+        cal[2] /= w;
+        cal[5] /= h;
+
+        status = 
+          libinput_device_config_calibration_set_matrix(edev->device, cal);
+
+        if (status != LIBINPUT_CONFIG_STATUS_SUCCESS)
+          ERR("Failed to apply calibration");
+
+cont:
+        eina_stringshare_del(device);
+        continue;
+     }
+}
+
+E_API const char *
+e_input_evdev_name_get(E_Input_Evdev *evdev)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(evdev, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(evdev->device, NULL);
+
+   return libinput_device_get_name(evdev->device);
+}
+
+E_API const char *
+e_input_evdev_sysname_get(E_Input_Evdev *evdev)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(evdev, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(evdev->device, NULL);
+
+   return libinput_device_get_sysname(evdev->device);
+}
+
+E_API Eina_Bool
+e_input_evdev_key_remap_enable(E_Input_Evdev *edev, Eina_Bool enable)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(edev, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(edev->device, EINA_FALSE);
+
+   edev->key_remap_enabled = enable;
+
+   if (enable == EINA_FALSE && edev->key_remap_hash)
+     {
+        eina_hash_free(edev->key_remap_hash);
+        edev->key_remap_hash = NULL;
+     }
+
+   return EINA_TRUE;
+}
+
+E_API Eina_Bool
+e_input_evdev_key_remap_set(E_Input_Evdev *edev, int *from_keys, int *to_keys, int num)
+{
+   int i;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(edev, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(edev->device, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(from_keys, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(to_keys, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(num <= 0, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(!edev->key_remap_enabled, EINA_FALSE);
+
+   if (edev->key_remap_hash == NULL)
+     edev->key_remap_hash = eina_hash_int32_new(NULL);
+
+   if (edev->key_remap_hash == NULL)
+     {
+        ERR("Failed to set remap key information : creating a hash is failed.");
+        return EINA_FALSE;
+     }
+
+   for (i = 0; i < num ; i++)
+     {
+        if (!from_keys[i] || !to_keys[i])
+          {
+             ERR("Failed to set remap key information : given arguments are invalid.");
+             return EINA_FALSE;
+          }
+     }
+
+   for (i = 0; i < num ; i++)
+     {
+        eina_hash_add(edev->key_remap_hash, &from_keys[i], (void *)(intptr_t)to_keys[i]);
+     }
+
+   return EINA_TRUE;
+}
+
+E_API int
+e_input_evdev_wheel_click_angle_get(E_Input_Evdev *dev)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(dev, -1);
+   return libinput_device_config_scroll_get_wheel_click_angle(dev->device);
+}
+
+E_API Eina_Bool
+e_input_evdev_touch_calibration_set(E_Input_Evdev *edev, float matrix[6])
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(edev, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(edev->device, EINA_FALSE);
+
+   if (!libinput_device_config_calibration_has_matrix(edev->device) ||
+       !libinput_device_has_capability(edev->device, LIBINPUT_DEVICE_CAP_TOUCH))
+     return EINA_FALSE;
+
+   if (libinput_device_config_calibration_set_matrix(edev->device, matrix) !=
+       LIBINPUT_CONFIG_STATUS_SUCCESS)
+     {
+        WRN("Failed to set input transformation about device: %s\n",
+            libinput_device_get_name(edev->device));
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
