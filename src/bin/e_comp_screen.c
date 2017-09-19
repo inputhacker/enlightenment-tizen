@@ -998,15 +998,15 @@ e_comp_screen_init()
         e_main_ts("\tKeymap Init Done");
      }
 
-   if (!_e_comp_screen_engine_init())
-     {
-        ERR("Could not initialize the ecore_evas engine.");
-        goto failed_comp_screen;
-     }
-
    if (!e_input_init())
      {
         ERR("Could not initialize the e_input.");
+        goto failed_comp_screen;
+     }
+
+   if (!_e_comp_screen_engine_init())
+     {
+        ERR("Could not initialize the ecore_evas engine.");
         goto failed_comp_screen;
      }
 
