@@ -11,6 +11,8 @@ _need_target_window(E_Output *eo)
      {
         if (window->skip_flag) continue;
 
+        if (e_window_is_target(window)) return EINA_TRUE;
+
         if (window->type != TDM_COMPOSITION_DEVICE)
           return EINA_TRUE;
      }
@@ -237,7 +239,7 @@ _e_hwc_output_commit(E_Output *output)
         if (e_window_is_target(window)) fb_commit = EINA_TRUE;
 
         if (output->dpms == E_OUTPUT_DPMS_OFF)
-          e_window_unfetch(window);
+           e_window_offscreen_commit(window);
      }
 
    if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;

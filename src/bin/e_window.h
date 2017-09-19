@@ -66,6 +66,7 @@ EINTERN Eina_Bool             e_window_target_surface_queue_can_dequeue(E_Window
 EINTERN tbm_surface_h         e_window_target_surface_queue_acquire(E_Window_Target *target_window);
 EINTERN void                  e_window_target_surface_queue_release(E_Window_Target *target_window, tbm_surface_h tsurface);
 EINTERN Eina_Bool             e_window_prepare_commit(E_Window *window);
+EINTERN Eina_Bool             e_window_offscreen_commit(E_Window *window);
 EINTERN Eina_Bool             e_window_activate(E_Window *window);
 EINTERN Eina_Bool             e_window_deactivate(E_Window *window);
 

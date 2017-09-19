@@ -950,6 +950,28 @@ e_window_prepare_commit(E_Window *window)
 }
 
 EINTERN Eina_Bool
+e_window_offscreen_commit(E_Window *window)
+{
+   E_Plane_Commit_Data *data = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EINA_FALSE);
+
+   data = e_window_commit_data_aquire(window);
+
+   if (!data) return EINA_TRUE;
+
+   window->commit_data = data;
+
+   e_window_commit_data_release(window);
+
+   /* send frame event enlightenment doesn't send frame event in nocomp */
+   if (window->ec)
+     e_pixmap_image_clear(window->ec->pixmap, 1);
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
 e_window_activate(E_Window *window)
 {
    struct wayland_tbm_client_queue *cqueue = NULL;
