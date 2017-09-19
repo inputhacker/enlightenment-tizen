@@ -3,6 +3,13 @@
 typedef struct _E_Input E_Input;
 //typedef struct _E_Event_Input_Generic        E_Event_Input_XXX;
 
+E_API extern int E_INPUT_EVENT_INPUT_DEVICE_ADD;
+E_API extern int E_INPUT_EVENT_INPUT_DEVICE_DEL;
+E_API extern int E_INPUT_EVENT_SEAT_ADD;
+E_API extern int E_EVENT_INPUT_ENABLED;
+E_API extern int E_EVENT_INPUT_DISABLED;
+
+
 #else
 
 #ifndef E_INPUT_H
@@ -73,12 +80,6 @@ typedef struct _E_Input_Event_Input_Device_Add E_Input_Event_Input_Device_Add;
 
 /* structure to inform old input device deleted */
 typedef struct _E_Input_Event_Input_Device_Del E_Input_Event_Input_Device_Del;
-
-E_API extern int E_INPUT_EVENT_INPUT_DEVICE_ADD;
-E_API extern int E_INPUT_EVENT_INPUT_DEVICE_DEL;
-E_API extern int E_INPUT_EVENT_SEAT_ADD;
-E_API extern int E_EVENT_INPUT_ENABLED;
-E_API extern int E_EVENT_INPUT_DISABLED;
 
 
 struct _E_Input

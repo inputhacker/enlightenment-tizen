@@ -5,7 +5,6 @@
 #include "e.h"
 #include <xdg-shell-server-protocol.h>
 #include <eom-server-protocol.h>
-#include <Ecore_Drm.h>
 #include <tdm.h>
 #include <eom.h>
 #include <tbm_bufmgr.h>
@@ -31,6 +30,8 @@
 #define EOM_CONNECT_CHECK_TIMEOUT 7.0
 #define EOM_DELAY_CHECK_TIMEOUT 4.0
 #define EOM_ROTATE_DELAY_TIMEOUT 0.4
+
+#define TBM_CONNECTOR_NAME_LEN 32
 
 #ifndef CLEAR
 #define CLEAR(x) memset(&(x), 0, sizeof (x))
@@ -536,8 +537,7 @@ _e_eom_output_primary_layer_setup(E_EomOutputPtr eom_output)
 static tbm_surface_h
 _e_eom_util_get_output_surface(const char *name)
 {
-   Ecore_Drm_Output *primary_output = NULL;
-   Ecore_Drm_Device *dev;
+   E_Output *primary_output = NULL;
    const Eina_List *l;
    tbm_surface_h tbm = NULL;
    tdm_output *tdm_output_obj = NULL;
@@ -546,22 +546,12 @@ _e_eom_util_get_output_surface(const char *name)
    tdm_error err = TDM_ERROR_NONE;
    int count = 0, i = 0;
 
-   EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
-     {
-        primary_output = ecore_drm_device_output_name_find(dev, name);
-        if (primary_output != NULL)
-          break;
-     }
+   primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
 
    if (primary_output == NULL)
      {
         EOMER("Get primary output fail.(%s)", name);
-        EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
-          {
-             primary_output = ecore_drm_output_primary_get(dev);
-             if (primary_output != NULL)
-               break;
-          }
+        primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
 
         if (primary_output == NULL)
           {
@@ -2161,7 +2151,7 @@ _e_eom_cb_tdm_output_status_change(tdm_output *output, tdm_output_change_type ty
    tdm_output_conn_status status, status_check;
    tdm_error ret = TDM_ERROR_NONE;
    const char *tmp_name;
-   char new_name[DRM_CONNECTOR_NAME_LEN];
+   char new_name[TBM_CONNECTOR_NAME_LEN];
    E_EomOutputPtr eom_output = NULL, eom_output_tmp = NULL;
    Eina_List *l;
 
@@ -2959,7 +2949,7 @@ _e_eom_cb_wl_bind(struct wl_client *client, void *data, uint32_t version, uint32
 
    EOMDB("=======================>  BIND CLIENT");
 }
-
+#if 0 // E_INPUT
 static Eina_Bool
 _e_eom_cb_ecore_drm_activate(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
 {
@@ -2986,7 +2976,7 @@ _e_eom_boot_connection_check(void *data)
    tdm_output_conn_status status = TDM_OUTPUT_CONN_STATUS_DISCONNECTED;
    tdm_error ret = TDM_ERROR_NONE;
    const char *tmp_name;
-   char new_name[DRM_CONNECTOR_NAME_LEN];
+   char new_name[TBM_CONNECTOR_NAME_LEN];
    Eina_List *l;
 
    if (g_eom->check_first_boot != 0)
@@ -3092,6 +3082,7 @@ _e_eom_cb_ecore_drm_output(void *data EINA_UNUSED, int type EINA_UNUSED, void *e
 
    return ECORE_CALLBACK_PASS_ON;
 }
+#endif
 
 static E_EomClientPtr
 _e_eom_client_get_current_by_ec(E_Client *ec)
@@ -3481,8 +3472,10 @@ _e_eom_init()
    ret = _e_eom_init_internal();
    EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, err);
 
+#if 0 // E_INPUT
    E_LIST_HANDLER_APPEND(g_eom->handlers, ECORE_DRM_EVENT_ACTIVATE, _e_eom_cb_ecore_drm_activate, g_eom);
    E_LIST_HANDLER_APPEND(g_eom->handlers, ECORE_DRM_EVENT_OUTPUT, _e_eom_cb_ecore_drm_output, g_eom);
+#endif
    E_LIST_HANDLER_APPEND(g_eom->handlers, E_EVENT_CLIENT_BUFFER_CHANGE, _e_eom_cb_client_buffer_change, NULL);
 #ifdef SUPPORT_ROTATE
    /* TODO: add if def _F_ZONE_WINDOW_ROTATION_ */
