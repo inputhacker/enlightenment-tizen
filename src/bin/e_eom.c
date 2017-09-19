@@ -31,6 +31,8 @@
 #define EOM_DELAY_CHECK_TIMEOUT 4.0
 #define EOM_ROTATE_DELAY_TIMEOUT 0.4
 
+#define TDM_CONNECTOR_NAME_LEN 32
+
 #ifndef CLEAR
 #define CLEAR(x) memset(&(x), 0, sizeof (x))
 #endif
@@ -2116,7 +2118,7 @@ _e_eom_cb_tdm_output_status_change(tdm_output *output, tdm_output_change_type ty
    tdm_output_conn_status status, status_check;
    tdm_error ret = TDM_ERROR_NONE;
    const char *tmp_name;
-   char new_name[DRM_CONNECTOR_NAME_LEN];
+   char new_name[TDM_CONNECTOR_NAME_LEN];
    E_EomOutputPtr eom_output = NULL, eom_output_tmp = NULL;
    Eina_List *l;
 
@@ -2952,7 +2954,7 @@ _e_eom_boot_connection_check(void *data)
    tdm_output_conn_status status = TDM_OUTPUT_CONN_STATUS_DISCONNECTED;
    tdm_error ret = TDM_ERROR_NONE;
    const char *tmp_name;
-   char new_name[DRM_CONNECTOR_NAME_LEN];
+   char new_name[TDM_CONNECTOR_NAME_LEN];
    Eina_List *l;
 
    if (g_eom->check_first_boot != 0)
