@@ -19,7 +19,6 @@ typedef void (*E_Output_Capture_Cb) (E_Output *output, tbm_surface_h surface, vo
 #define E_OUTPUT_TYPE (int)0xE0b11002
 
 #include "e_comp_screen.h"
-#include <Ecore_Drm.h>
 
 enum _E_Output_Dpms
 {

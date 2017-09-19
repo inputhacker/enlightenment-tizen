@@ -223,15 +223,15 @@ _e_output_zoom_scaled_rect_get(int out_w, int out_h, double zoomx, double zoomy,
 static Eina_Bool
 _e_output_zoom_touch_transform(E_Output *output, Eina_Bool set)
 {
-   Ecore_Drm_Device *dev = NULL;
+   E_Input_Device *dev = NULL;
    Eina_Bool ret = EINA_FALSE;
    const Eina_List *l;
-   Ecore_Drm_Output *primary_output = NULL;
+   E_Output *primary_output = NULL;
    int w = 0, h = 0;
 
-   EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
+   EINA_LIST_FOREACH(e_input_devices_get(), l, dev)
      {
-        primary_output = ecore_drm_output_primary_get(dev);
+        primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
         if (primary_output != NULL)
           break;
      }
@@ -243,17 +243,17 @@ _e_output_zoom_touch_transform(E_Output *output, Eina_Bool set)
      }
 
    if (set)
-     ret = ecore_drm_device_touch_transformation_set(dev,
+     ret = e_input_device_touch_transformation_set(dev,
                                                      output->zoom_conf.rect.x, output->zoom_conf.rect.y,
                                                      output->zoom_conf.rect.w, output->zoom_conf.rect.h);
    else
      {
         e_output_size_get(output, &w, &h);
-        ret = ecore_drm_device_touch_transformation_set(dev, 0, 0, w, h);
+        ret = e_input_device_touch_transformation_set(dev, 0, 0, w, h);
      }
 
    if (ret != EINA_TRUE)
-     ERR("fail ecore_drm_device_touch_transformation_set");
+     ERR("fail e_input_device_touch_transformation_set");
 
    return ret;
 }
