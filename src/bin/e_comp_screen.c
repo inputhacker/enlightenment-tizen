@@ -202,7 +202,7 @@ _layer_cap_to_str(tdm_layer_capability caps, tdm_layer_capability cap)
      }
    return "";
 }
-#if 0 // E_INPUT
+
 static Eina_Bool
 _e_comp_screen_cb_activate(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
 {
@@ -245,7 +245,6 @@ _e_comp_screen_cb_activate(void *data EINA_UNUSED, int type EINA_UNUSED, void *e
 end:
    return ECORE_CALLBACK_PASS_ON;
 }
-#endif
 
 #if 0
 static Eina_Bool
@@ -1097,9 +1096,7 @@ e_comp_screen_init()
    _e_comp_screen_dbus_init(NULL);
 
    tzsr_client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _tz_screen_rotation_cb_client_del, NULL);
-#if 0 // E_INPUT
-   E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_ACTIVATE,         _e_comp_screen_cb_activate,         comp);
-#endif
+
    E_LIST_HANDLER_APPEND(event_handlers, E_INPUT_EVENT_INPUT_DEVICE_ADD, _e_comp_screen_cb_input_device_add, comp);
    E_LIST_HANDLER_APPEND(event_handlers, E_INPUT_EVENT_INPUT_DEVICE_DEL, _e_comp_screen_cb_input_device_del, comp);
 
