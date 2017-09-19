@@ -121,7 +121,6 @@ src/bin/e_security.h \
 src/bin/e_keyrouter.h \
 src/bin/e_gesture.h \
 src/bin/e_input.h \
-src/bin/e_input_private.h \
 src/bin/e_input_device.h \
 src/bin/e_input_devicemgr.h \
 src/bin/e_input_evdev.h \
@@ -230,7 +229,9 @@ src/bin/e_privilege.c \
 src/bin/e_security.c \
 src/bin/e_keyrouter.c \
 src/bin/e_gesture.c \
+src/bin/e_input_private.h \
 src/bin/e_input.c \
+src/bin/e_input_inputs.c \
 src/bin/e_input_device.c \
 src/bin/e_input_devicemgr.c \
 src/bin/e_input_evdev.c \

@@ -203,49 +203,6 @@ _layer_cap_to_str(tdm_layer_capability caps, tdm_layer_capability cap)
    return "";
 }
 
-static Eina_Bool
-_e_comp_screen_cb_activate(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
-{
-   Ecore_Drm_Event_Activate *e;
-
-   if (!(e = event)) goto end;
-
-   if (e->active)
-     {
-        E_Client *ec;
-
-        if (session_state) goto end;
-        session_state = EINA_TRUE;
-
-        ecore_evas_show(e_comp->ee);
-        E_CLIENT_FOREACH(ec)
-          {
-             if (ec->visible && (!ec->input_only))
-               e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
-          }
-        e_comp_render_queue();
-        e_comp_shape_queue_block(0);
-        ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
-     }
-   else
-     {
-        session_state = EINA_FALSE;
-        ecore_evas_hide(e_comp->ee);
-        edje_file_cache_flush();
-        edje_collection_cache_flush();
-        evas_image_cache_flush(e_comp->evas);
-        evas_font_cache_flush(e_comp->evas);
-        evas_render_dump(e_comp->evas);
-
-        e_comp_render_queue();
-        e_comp_shape_queue_block(1);
-        ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
-     }
-
-end:
-   return ECORE_CALLBACK_PASS_ON;
-}
-
 #if 0
 static Eina_Bool
 _e_comp_screen_cb_output_drm(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)

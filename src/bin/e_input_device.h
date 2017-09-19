@@ -7,18 +7,6 @@
 #ifndef E_INPUT_DEVICE_H
 #define E_INPUT_DEVICE_H
 
-struct _E_Input_Device
-{
-   const char *seat;
-
-   Eina_List *seats;
-   Eina_List *inputs;
-
-   struct xkb_context *xkb_ctx;
-   int window;
-   Eina_Bool left_handed : 1;
-};
-
 /* Sets up a cached context to use same context for each devices.
  * This function will setup a cached context to use same context for each devices.
  *

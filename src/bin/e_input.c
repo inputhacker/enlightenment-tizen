@@ -37,14 +37,6 @@ _e_input_event_generic_free(void *data EINA_UNUSED, void *ev)
    free(e);
 }
 #endif
-static void
-_e_input_free(E_Input *einput)
-{
-   if(!einput) return;
-
-   //TODO : free member variables if there are
-   free(einput);
-}
 
 EINTERN int
 e_input_init(void)
@@ -84,11 +76,13 @@ eina_err:
 }
 
 E_API E_Input *
-e_input_new()
+e_input_new(void)
 {
    E_Input *einput;
 
-   einput = E_OBJECT_ALLOC(E_Input, E_INPUT_TYPE, _e_input_free);
+   //einput = E_OBJECT_ALLOC(E_Input, E_INPUT_TYPE, _e_input_free);
+   einput = calloc(1, sizeof(E_Input));
+
    if (!einput) return NULL;
 
    ecore_event_add(E_EVENT_INPUT_ENABLED, NULL, NULL, NULL);

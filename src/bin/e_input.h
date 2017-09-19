@@ -9,7 +9,6 @@ E_API extern int E_INPUT_EVENT_SEAT_ADD;
 E_API extern int E_EVENT_INPUT_ENABLED;
 E_API extern int E_EVENT_INPUT_DISABLED;
 
-
 #else
 
 #ifndef E_INPUT_H
@@ -84,7 +83,7 @@ typedef struct _E_Input_Event_Input_Device_Del E_Input_Event_Input_Device_Del;
 
 struct _E_Input
 {
-   E_Object e_obj_inherit;
+   //E_Object e_obj_inherit;
 
    uint32_t window;
 };
@@ -93,6 +92,10 @@ struct _E_Event_Input_Generic
 {
    E_Input *input;
 };
+
+EINTERN int e_input_init(void);
+E_API E_Input *e_input_new(void);
+EINTERN int e_input_shutdown(void);
 
 /**
  * Sets the window of E_Input_Devices.

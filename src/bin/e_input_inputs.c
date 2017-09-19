@@ -655,8 +655,8 @@ e_input_inputs_destroy(E_Input_Device *dev)
         EINA_LIST_FREE(seat->devices, edev)
           {
              //e_input_manager_device_close(edev->path, edev->fd);
-             if (fd >= 0)
-			   close(fd);
+             if (edev->fd >= 0)
+			   close(edev->fd);
              _e_input_evdev_device_destroy(edev);
           }
 
