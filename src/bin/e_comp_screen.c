@@ -940,9 +940,9 @@ out:
         else
           {
              if (e_comp_screen->rotation % 180)
-               ecore_evas_screen_geometry_get(e_comp->ee, NULL, NULL, &screen->h, &screen->w);
+               ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &screen->h, &screen->w);
              else
-               ecore_evas_screen_geometry_get(e_comp->ee, NULL, NULL, &screen->w, &screen->h);
+               ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &screen->w, &screen->h);
           }
         e_screens = eina_list_append(e_screens, screen);
      }
@@ -1003,7 +1003,7 @@ e_comp_screen_init()
    e_main_ts("\tE_Comp_Wl Init Done");
 
    /* get the current screen geometry */
-   ecore_evas_screen_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
+   ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
 
    /* canvas */
    e_main_ts("\tE_Comp_Canvas Init");
