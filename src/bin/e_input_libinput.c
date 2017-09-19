@@ -84,7 +84,7 @@ _cb_close_restricted(int fd, void *data)
    if (fd >= 0) close(fd);
 }
 
-const struct libinput_interface _input_interface = 
+const struct libinput_interface _libinput_interface =
 {
    _cb_open_restricted,
    _cb_close_restricted,
@@ -122,7 +122,7 @@ e_input_libinput_devices_create(E_Input_Device *dev)
 
    /* try to create libinput context */
    input->libinput =
-     libinput_path_create_context(&_input_interface, input);
+     libinput_path_create_context(&_libinput_interface, input);
    if (!input->libinput)
      {
         ERR("Could not create libinput path context: %m");
