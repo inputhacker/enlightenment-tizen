@@ -326,7 +326,7 @@ _device_added(E_Input_Backend *input, struct libinput_device *device)
    /* append this device to the seat */
    seat->devices = eina_list_append(seat->devices, edev);
 
-   ev = calloc(1, sizeof(Ecore_Drm_Event_Input_Device_Add));
+   ev = calloc(1, sizeof(E_Input_Event_Input_Device_Add));
    if (!ev)
      {
         TRACE_INPUT_END();
@@ -338,7 +338,7 @@ _device_added(E_Input_Backend *input, struct libinput_device *device)
    ev->seatname = eina_stringshare_add(edev->seat->name);
    ev->caps = edev->seat_caps;
 
-   ecore_event_add(ECORE_DRM_EVENT_INPUT_DEVICE_ADD,
+   ecore_event_add(E_INPUT_EVENT_INPUT_DEVICE_ADD,
                    ev,
                    _e_input_event_input_device_add_free,
                    NULL);
@@ -364,7 +364,7 @@ _device_removed(E_Input_Backend *input, struct libinput_device *device)
         return;
      }
 
-   ev = calloc(1, sizeof(Ecore_Drm_Event_Input_Device_Del));
+   ev = calloc(1, sizeof(E_Input_Event_Input_Device_Del));
    if (!ev)
      {
         TRACE_INPUT_END();
@@ -521,9 +521,9 @@ e_input_inputs_create(E_Input_Device *dev)
      }
 
    /* set libinput log priority */
-   if ((env = getenv(ECORE_DRM_ENV_LIBINPUT_LOG_DISABLE)) && (atoi(env) == 1))
+   if ((env = getenv(E_INPUT_ENV_LIBINPUT_LOG_DISABLE)) && (atoi(env) == 1))
      libinput_log_set_handler(input->libinput, NULL);
-   else if ((env = getenv(ECORE_DRM_ENV_LIBINPUT_LOG_EINA_LOG)) && (atoi(env) == 1))
+   else if ((env = getenv(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG)) && (atoi(env) == 1))
      libinput_log_set_handler(input->libinput, e_input_libinput_log_handler);
 
    libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);
@@ -579,7 +579,7 @@ e_input_inputs_devices_create(E_Input_Device *dev)
    INF("PATH_DEVICES_NUM : %d", devices_num);
 
    /* try to allocate space for new input structure */
-   if (!(input = calloc(1, sizeof(Ecore_Drm_Input))))
+   if (!(input = calloc(1, sizeof(E_Input_Backend))))
      {
         return EINA_FALSE;
      }
@@ -597,9 +597,9 @@ e_input_inputs_devices_create(E_Input_Device *dev)
      }
 
    /* set libinput log priority */
-   if ((env = getenv(ECORE_DRM_ENV_LIBINPUT_LOG_DISABLE)) && (atoi(env) == 1))
+   if ((env = getenv(E_INPUT_ENV_LIBINPUT_LOG_DISABLE)) && (atoi(env) == 1))
      libinput_log_set_handler(input->libinput, NULL);
-   else if ((env = getenv(ECORE_DRM_ENV_LIBINPUT_LOG_EINA_LOG)) && (atoi(env) == 1))
+   else if ((env = getenv(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG)) && (atoi(env) == 1))
      libinput_log_set_handler(input->libinput, e_input_libinput_log_handler);
 
    libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);

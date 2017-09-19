@@ -1,5 +1,4 @@
 #include "e.h"
-#include <Ecore_Drm.h>
 
 #define PATH "/org/enlightenment/wm"
 #define IFACE "org.enlightenment.wm.screen_rotation"
@@ -10,7 +9,7 @@ static Eldbus_Service_Interface *e_comp_screen_iface;
 static Eina_List *event_handlers = NULL;
 static Eina_Bool session_state = EINA_FALSE;
 
-static Eina_Bool dont_set_ecore_drm_keymap = EINA_FALSE;
+static Eina_Bool dont_set_e_input_keymap = EINA_FALSE;
 static Eina_Bool dont_use_xkb_cache = EINA_FALSE;
 
 E_API int              E_EVENT_SCREEN_CHANGE = 0;
@@ -333,7 +332,7 @@ end:
 static Eina_Bool
 _e_comp_screen_cb_input_device_add(void *data, int type, void *event)
 {
-   Ecore_Drm_Event_Input_Device_Add *e;
+   E_Input_Event_Input_Device_Add *e;
    E_Comp *comp = data;
 
    if (!(e = event)) goto end;
@@ -365,7 +364,7 @@ end:
 static Eina_Bool
 _e_comp_screen_cb_input_device_del(void *data, int type, void *event)
 {
-   Ecore_Drm_Event_Input_Device_Del *e;
+   E_Input_Event_Input_Device_Del *e;
    E_Comp *comp = data;
 
    if (!(e = event)) goto end;
@@ -629,10 +628,10 @@ _e_comp_screen_keymap_set(struct xkb_context **ctx, struct xkb_keymap **map)
    *ctx = context;
    *map = keymap;
 
-   if (dont_set_ecore_drm_keymap == EINA_FALSE)
+   if (dont_set_e_input_keymap == EINA_FALSE)
      {
-        ecore_drm_device_keyboard_cached_context_set(*ctx);
-        ecore_drm_device_keyboard_cached_keymap_set(*map);
+        e_input_device_keyboard_cached_context_set(*ctx);
+        e_input_device_keyboard_cached_keymap_set(*map);
      }
 
 cleanup:
@@ -1003,14 +1002,14 @@ e_comp_screen_init()
      }
 
    /* keymap */
-   dont_set_ecore_drm_keymap = getenv("NO_ECORE_DRM_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
+   dont_set_e_input_keymap = getenv("NO_E_INPUT_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
    dont_use_xkb_cache = getenv("NO_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
 
    if (e_config->xkb.use_cache && !dont_use_xkb_cache)
      {
-        e_main_ts("\tDRM Keymap Init");
+        e_main_ts("\tKeymap Init");
         _e_comp_screen_keymap_set(&ctx, &map);
-        e_main_ts("\tDRM Keymap Init Done");
+        e_main_ts("\tKeymap Init Done");
      }
 
    if (!_e_comp_screen_engine_init())
@@ -1097,8 +1096,8 @@ e_comp_screen_init()
    tzsr_client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _tz_screen_rotation_cb_client_del, NULL);
 
    E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_ACTIVATE,         _e_comp_screen_cb_activate,         comp);
-   E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_INPUT_DEVICE_ADD, _e_comp_screen_cb_input_device_add, comp);
-   E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_INPUT_DEVICE_DEL, _e_comp_screen_cb_input_device_del, comp);
+   E_LIST_HANDLER_APPEND(event_handlers, E_INPUT_EVENT_INPUT_DEVICE_ADD, _e_comp_screen_cb_input_device_add, comp);
+   E_LIST_HANDLER_APPEND(event_handlers, E_INPUT_EVENT_INPUT_DEVICE_DEL, _e_comp_screen_cb_input_device_del, comp);
 
    TRACE_DS_END();
 
@@ -1141,7 +1140,7 @@ e_comp_screen_shutdown()
    e_client_hook_del(tzsr_client_hook_del);
    tzsr_client_hook_del = NULL;
 
-   dont_set_ecore_drm_keymap = EINA_FALSE;
+   dont_set_e_input_keymap = EINA_FALSE;
    dont_use_xkb_cache = EINA_FALSE;
    E_FREE_LIST(event_handlers, ecore_event_handler_del);
 

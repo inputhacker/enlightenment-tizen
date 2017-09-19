@@ -1,10 +1,9 @@
 #define EXECUTIVE_MODE_ENABLED
 #include "e.h"
 #include <sys/mman.h>
-#include <Ecore_Drm.h>
 
 E_API int E_EVENT_TEXT_INPUT_PANEL_VISIBILITY_CHANGE = -1;
-static Eina_Bool dont_set_ecore_drm_keymap = EINA_FALSE;
+static Eina_Bool dont_set_e_input_keymap = EINA_FALSE;
 static Eina_Bool dont_use_xkb_cache = EINA_FALSE;
 static Eina_Bool use_cache_keymap = EINA_FALSE;
 
@@ -524,7 +523,7 @@ e_comp_wl_input_init(void)
      e_comp_wl->seat.name = "default";
 
    e_comp_wl->xkb.fd = -1;
-   dont_set_ecore_drm_keymap = getenv("NO_ECORE_DRM_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
+   dont_set_e_input_keymap = getenv("NO_E_INPUT_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
    dont_use_xkb_cache = getenv("NO_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
 
    /* get default keyboard repeat rate/delay from configuration */
@@ -598,7 +597,7 @@ e_comp_wl_input_shutdown(void)
      wl_global_destroy(e_comp_wl->seat.global);
    e_comp_wl->seat.global = NULL;
 
-   dont_set_ecore_drm_keymap = EINA_FALSE;
+   dont_set_e_input_keymap = EINA_FALSE;
    dont_use_xkb_cache = EINA_FALSE;
 }
 
@@ -810,8 +809,8 @@ e_comp_wl_input_keymap_set(const char *rules, const char *model, const char *lay
         return;
      }
 
-   if (e_config->xkb.use_cache && !dont_set_ecore_drm_keymap)
-     ecore_drm_device_keyboard_cached_context_set(e_comp_wl->xkb.context);
+   if (e_config->xkb.use_cache && !dont_set_e_input_keymap)
+     e_input_device_keyboard_cached_context_set(e_comp_wl->xkb.context);
 
    /* assemble xkb_rule_names so we can fetch keymap */
    memset(&names, 0, sizeof(names));
@@ -864,8 +863,8 @@ e_comp_wl_input_keymap_set(const char *rules, const char *model, const char *lay
    /* update compositor keymap */
    _e_comp_wl_input_keymap_update(keymap, keymap_path);
 
-   if (e_config->xkb.use_cache && !dont_set_ecore_drm_keymap)
-     ecore_drm_device_keyboard_cached_keymap_set(keymap);
+   if (e_config->xkb.use_cache && !dont_set_e_input_keymap)
+     e_input_device_keyboard_cached_keymap_set(keymap);
 
    /* cleanup */
    if (keymap_path) eina_stringshare_del(keymap_path);

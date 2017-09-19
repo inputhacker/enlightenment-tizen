@@ -13,6 +13,9 @@
 struct xkb_keymap *cached_keymap;
 struct xkb_context *cached_context;
 
+# define E_INPUT_ENV_LIBINPUT_LOG_DISABLE "E_INPUT_LIBINPUT_LOG_DISABLE"
+# define E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG "E_INPUT_LIBINPUT_LOG_EINA_LOG"
+
 struct _E_Input_Seat
 {
    //struct libinput_seat *seat;
