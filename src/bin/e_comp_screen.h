@@ -57,6 +57,7 @@ EINTERN E_Output        * e_comp_screen_primary_output_get(E_Comp_Screen *e_comp
 
 EINTERN Eina_Bool         e_comp_screen_pp_support(void);
 EINTERN Eina_List       * e_comp_screen_pp_available_formats_get(void);
+EINTERN Eina_Bool         e_comp_screen_output_update(E_Output *output);
 
 #endif /*E_COMP_SCREEN_H*/
 

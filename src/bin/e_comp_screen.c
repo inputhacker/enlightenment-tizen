@@ -593,6 +593,83 @@ fail:
    return EINA_FALSE;
 }
 
+EINTERN Eina_Bool
+e_comp_screen_output_update(E_Output *output)
+{
+   E_Comp_Screen *e_comp_screen = NULL;
+   E_Output_Mode *mode = NULL;
+   E_Output *output_pri = NULL;
+   Eina_Bool ret;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   e_comp_screen = e_comp->e_comp_screen;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+
+   output_pri = e_comp_screen_primary_output_get(e_comp_screen);
+   if (!output_pri)
+     {
+        e_error_message_show(_("Fail to get the primary output!\n"));
+        return EINA_FALSE;
+     }
+
+   if (output_pri == output)
+     return EINA_FALSE;
+
+   ret = e_output_update(output);
+   if (ret == EINA_FALSE)
+     {
+        ERR("fail e_output_update.");
+        return EINA_FALSE;
+     }
+
+   if (e_output_connected(output))
+     {
+        mode = e_output_best_mode_find(output);
+        if (!mode)
+          {
+             ERR("fail to get best mode.");
+             return EINA_FALSE;
+          }
+
+        ret = e_output_mode_apply(output, mode);
+        if (ret == EINA_FALSE)
+          {
+             ERR("fail to e_output_mode_apply.");
+             return EINA_FALSE;
+          }
+        ret = e_output_dpms_set(output, E_OUTPUT_DPMS_ON);
+        if (ret == EINA_FALSE)
+          {
+             ERR("fail to e_output_dpms.");
+             return EINA_FALSE;
+          }
+        ret = e_eom_connect(output);
+        if (ret == EINA_FALSE)
+          {
+             ERR("fail to e_eom_connect.");
+             return EINA_FALSE;
+          }
+     }
+   else
+     {
+        ret = e_eom_disconnect(output);
+        if (ret == EINA_FALSE)
+          {
+             ERR("fail to e_eom_disconnect.");
+             return EINA_FALSE;
+          }
+
+        if (!e_output_dpms_set(output, E_OUTPUT_DPMS_OFF))
+          {
+             ERR("fail to e_output_dpms.");
+             return EINA_FALSE;
+          }
+     }
+
+   return EINA_TRUE;
+}
+
 E_API void
 _e_comp_screen_keymap_set(struct xkb_context **ctx, struct xkb_keymap **map)
 {
