@@ -50,6 +50,7 @@ e_input_init(Ecore_Evas *ee)
    if (!ecore_init()) goto ecore_err;
    if (!ecore_event_init()) goto ecore_event_err;
    if (!eeze_init()) goto eeze_err;
+   if (!ecore_event_evas_init()) goto ecore_event_evas_err;
 
    _e_input_log_dom = eina_log_domain_register("e_input", EINA_COLOR_GREEN);
    if (!_e_input_log_dom)
@@ -66,6 +67,9 @@ e_input_init(Ecore_Evas *ee)
 
    ecore_event_add(E_EVENT_INPUT_ENABLED, NULL, NULL, NULL);
    ecore_event_handler_add(ECORE_EVENT_KEY_DOWN, _e_input_cb_key_down, NULL);
+
+   ecore_evas_input_event_register_with_multi(ee);
+   ecore_evas_input_event_register_with_multi2(ee);
 
    if (!e_input)
      {
@@ -96,6 +100,9 @@ e_input_init(Ecore_Evas *ee)
         goto xkb_ctx_err;
      }
 
+   e_input->window = ecore_evas_window_get(ee);
+   e_input_device_window_set(dev, e_input->window);
+
    if (!e_input_inputs_create(dev))
      {
         EINA_LOG_ERR("Failed to create device\n");
@@ -103,12 +110,6 @@ e_input_init(Ecore_Evas *ee)
      }
 
    e_input->dev = dev;
-
-   ecore_evas_input_event_register_with_multi(ee);
-   ecore_evas_input_event_register_with_multi2(ee);
-
-   e_input->window = ecore_evas_window_get(ee);
-   e_input_device_window_set(dev, e_input->window);
 
    return _e_input_init_count;
 
@@ -123,6 +124,9 @@ input_err:
    _e_input_inputs_shutdown();
 
 log_err:
+   ecore_event_evas_shutdown();
+
+ecore_event_evas_err:
    eeze_shutdown();
 
 eeze_err:
