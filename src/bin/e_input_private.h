@@ -17,18 +17,6 @@ struct xkb_context *cached_context;
 # define E_INPUT_ENV_LIBINPUT_LOG_DISABLE "E_INPUT_LIBINPUT_LOG_DISABLE"
 # define E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG "E_INPUT_LIBINPUT_LOG_EINA_LOG"
 
-struct _E_Input_Device
-{
-   const char *seat;
-
-   Eina_List *seats;
-   Eina_List *inputs;
-
-   struct xkb_context *xkb_ctx;
-   int window;
-   Eina_Bool left_handed : 1;
-};
-
 struct _E_Input_Seat
 {
    //struct libinput_seat *seat;
@@ -111,10 +99,12 @@ struct _E_Input_Evdev
      } touch;
 };
 
+void _e_input_inputs_init(void);
+Eina_Bool e_input_inputs_create(E_Input_Device *dev);
+
 void _input_events_process(E_Input_Backend *input);
 E_Input_Evdev *_e_input_evdev_device_create(E_Input_Seat *seat, struct libinput_device *device);
 Eina_Bool _e_input_evdev_event_process(struct libinput_event *event);
-
 
 struct xkb_context * _e_input_device_cached_context_get(enum xkb_context_flags flags);
 struct xkb_keymap *_e_input_device_cached_keymap_get(struct xkb_context *ctx, const struct xkb_rule_names *names, enum xkb_keymap_compile_flags flags);

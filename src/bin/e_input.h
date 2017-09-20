@@ -86,11 +86,24 @@ struct _E_Input
    //E_Object e_obj_inherit;
 
    uint32_t window;
+   E_Input_Device *dev;
 };
 
 struct _E_Event_Input_Generic
 {
    E_Input *input;
+};
+
+struct _E_Input_Device
+{
+   const char *seat;
+
+   Eina_List *seats;
+   Eina_List *inputs;
+
+   struct xkb_context *xkb_ctx;
+   int window;
+   Eina_Bool left_handed : 1;
 };
 
 EINTERN int e_input_init(void);

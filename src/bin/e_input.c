@@ -1,5 +1,6 @@
 #include "e.h"
 #include <Eeze.h>
+#include "e_input_private.h"
 
 int _e_input_init_count;
 int _e_input_log_dom = -1;
@@ -41,6 +42,8 @@ _e_input_event_generic_free(void *data EINA_UNUSED, void *ev)
 EINTERN int
 e_input_init(void)
 {
+   E_Input_Device *dev;
+
    if (++_e_input_init_count != 1) return _e_input_init_count;
 
    if (!eina_init()) goto eina_err;
@@ -64,8 +67,40 @@ e_input_init(void)
    ecore_event_add(E_EVENT_INPUT_ENABLED, NULL, NULL, NULL);
    ecore_event_handler_add(ECORE_EVENT_KEY_DOWN, _e_input_cb_key_down, NULL);
 
-   return _e_input_init_count;
+   if (!e_input)
+     {
+        e_input = (E_Input *)calloc(1, sizeof(E_Input));
+     }
 
+   if (!e_input)
+     {
+        EINA_LOG_ERR("Failed to alloc memory for e_input\n");
+        goto log_err;
+     }
+
+   _e_input_inputs_init();
+   dev = (E_Input_Device *)calloc(1, sizeof(E_Input_Device));
+   if (!dev)
+     {
+        EINA_LOG_ERR("Failed to alloc memory for E_Input_Device\n");
+        goto input_err;
+     }
+   dev->seat = eina_stringshare_add("seat0");
+
+   if (!e_input_inputs_create(dev))
+     {
+        EINA_LOG_ERR("Failed to create device\n");
+        goto input_create_err;
+     }
+
+   e_input->dev = dev;
+
+   return _e_input_init_count;
+input_create_err:
+   eina_stringshare_del(dev->seat);
+   free(dev);
+input_err:
+   _e_input_inputs_shutdown();
 log_err:
    eeze_shutdown();
 eeze_err:

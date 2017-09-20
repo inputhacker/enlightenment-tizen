@@ -1,4 +1,5 @@
 #include "e.h"
+#include "e_input_private.h"
 
 static Eina_Hash *_fd_hash = NULL;
 

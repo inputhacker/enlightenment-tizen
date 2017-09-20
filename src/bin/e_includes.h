@@ -75,7 +75,6 @@
 #include "e_keyrouter.h"
 #include "e_gesture.h"
 #include "e_input.h"
-#include "e_input_private.h"
 #include "e_input_device.h"
 #include "e_input_devicemgr.h"
 #include "e_input_evdev.h"

@@ -1,4 +1,5 @@
 #include "e.h"
+#include "Eeze.h"
 
 #define PATH "/org/enlightenment/wm"
 #define IFACE "org.enlightenment.wm.screen_rotation"

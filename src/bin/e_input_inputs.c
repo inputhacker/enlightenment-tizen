@@ -492,7 +492,7 @@ e_input_libinput_log_handler(struct libinput *libinput EINA_UNUSED,
 }
 
 /* public functions */
-E_API Eina_Bool
+Eina_Bool
 e_input_inputs_create(E_Input_Device *dev)
 {
    E_Input_Backend *input;
