@@ -705,25 +705,27 @@ _e_plane_unset_candidate_set(E_Plane *plane, Eina_Bool sync)
 }
 
 static Eina_Bool
-_e_plane_pp_info_set(E_Plane *plane)
+_e_plane_pp_info_set(E_Plane *plane, tbm_surface_h dst_tsurface)
 {
    tdm_info_pp pp_info;
    tdm_error ret = TDM_ERROR_NONE;
-   unsigned int aligned_width = 0;
-   tbm_surface_info_s surf_info;
-   tbm_surface_h tsurface = plane->tsurface;
-   int dst_w, dst_h;
+   unsigned int aligned_width = 0, aligned_width_dst = 0;;
+   tbm_surface_info_s surf_info, surf_info_dst;
+   tbm_surface_h src_tsurface = plane->tsurface;
 
    /* when the pp_set_info is true, change the pp set_info */
    if (!plane->pp_set_info) return EINA_TRUE;
    plane->pp_set_info = EINA_FALSE;
 
-   tbm_surface_get_info(tsurface, &surf_info);
+   tbm_surface_get_info(src_tsurface, &surf_info);
 
-   aligned_width = _e_plane_aligned_width_get(tsurface);
+   aligned_width = _e_plane_aligned_width_get(src_tsurface);
    if (aligned_width == 0) return EINA_FALSE;
 
-   e_output_size_get(plane->output, &dst_w, &dst_h);
+   tbm_surface_get_info(dst_tsurface, &surf_info_dst);
+
+   aligned_width_dst = _e_plane_aligned_width_get(dst_tsurface);
+   if (aligned_width_dst == 0) return EINA_FALSE;
 
    pp_info.src_config.size.h = aligned_width;
    pp_info.src_config.size.v = surf_info.height;
@@ -731,15 +733,15 @@ _e_plane_pp_info_set(E_Plane *plane)
    pp_info.src_config.pos.y = plane->pp_rect.y;
    pp_info.src_config.pos.w = plane->pp_rect.w;
    pp_info.src_config.pos.h = plane->pp_rect.h;
-   pp_info.src_config.format = TBM_FORMAT_ARGB8888;
+   pp_info.src_config.format = surf_info.format;
 
-   pp_info.dst_config.size.h = aligned_width;
-   pp_info.dst_config.size.v = surf_info.height;
+   pp_info.dst_config.size.h = aligned_width_dst;
+   pp_info.dst_config.size.v = surf_info_dst.height;
    pp_info.dst_config.pos.x = 0;
    pp_info.dst_config.pos.y = 0;
-   pp_info.dst_config.pos.w = dst_w;
-   pp_info.dst_config.pos.h = dst_h;
-   pp_info.dst_config.format = TBM_FORMAT_ARGB8888;
+   pp_info.dst_config.pos.w = surf_info_dst.width;
+   pp_info.dst_config.pos.h = surf_info_dst.height;
+   pp_info.dst_config.format = surf_info.format;
 
    pp_info.transform = TDM_TRANSFORM_NORMAL;
    pp_info.sync = 0;
@@ -1015,7 +1017,7 @@ _e_plane_pp_commit(E_Plane *plane, E_Plane_Commit_Data *data)
         return EINA_FALSE;
      }
 
-   if (!_e_plane_pp_info_set(plane))
+   if (!_e_plane_pp_info_set(plane, pp_tsurface))
      {
         ERR("fail _e_plane_pp_info_set");
         goto pp_fail;
