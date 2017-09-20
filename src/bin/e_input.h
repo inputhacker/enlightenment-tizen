@@ -147,6 +147,7 @@ E_API Eina_Bool e_input_evdev_key_remap_enable(E_Input_Evdev *edev, Eina_Bool en
 E_API Eina_Bool e_input_evdev_key_remap_set(E_Input_Evdev *edev, int *from_keys, int *to_keys, int num);
 E_API int e_input_evdev_wheel_click_angle_get(E_Input_Evdev *dev);
 E_API Eina_Bool e_input_evdev_touch_calibration_set(E_Input_Evdev *edev, float matrix[6]);
+E_API Ecore_Device *e_input_evdev_get_ecore_device(const char *path, Ecore_Device_Class clas);
 
 #endif
 #endif
