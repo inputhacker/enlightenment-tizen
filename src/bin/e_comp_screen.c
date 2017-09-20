@@ -367,6 +367,21 @@ _e_comp_screen_cb_ee_resize(Ecore_Evas *ee EINA_UNUSED)
    e_comp_canvas_update();
 }
 
+static Eina_Bool
+_e_comp_screen_cb_event(void *data, Ecore_Fd_Handler *hdlr EINA_UNUSED)
+{
+   E_Comp_Screen *e_comp_screen;
+   tdm_error ret;
+
+   if (!(e_comp_screen = data)) return ECORE_CALLBACK_RENEW;
+
+   ret = tdm_display_handle_events(e_comp_screen->tdisplay);
+   if (ret != TDM_ERROR_NONE)
+     ERR("tdm_display_handle_events failed");
+
+   return ECORE_CALLBACK_RENEW;
+}
+
 static E_Comp_Screen *
 _e_comp_screen_new(E_Comp *comp)
 {
@@ -375,6 +390,7 @@ _e_comp_screen_new(E_Comp *comp)
    tdm_display_capability capabilities;
    const tbm_format *pp_formats;
    int count, i;
+   int fd;
 
    e_comp_screen = E_NEW(E_Comp_Screen, 1);
    if (!e_comp_screen) return NULL;
@@ -388,24 +404,33 @@ _e_comp_screen_new(E_Comp *comp)
         return NULL;
      }
 
+   e_comp_screen->fd = -1;
+   tdm_display_get_fd(e_comp_screen->tdisplay, &fd);
+   if (fd < 0)
+     {
+        ERR("fail to get tdm_display fd\n");
+        goto fail;
+     }
+
+   e_comp_screen->fd = dup(fd);
+
+   e_comp_screen->hdlr =
+     ecore_main_fd_handler_add(e_comp_screen->fd, ECORE_FD_READ,
+                               _e_comp_screen_cb_event, e_comp_screen, NULL, NULL);
+
    /* tdm display init */
    e_comp_screen->bufmgr = tbm_bufmgr_init(-1);
    if (!e_comp_screen->bufmgr)
      {
         ERR("tbm_bufmgr_init failed\n");
-        tdm_display_deinit(e_comp_screen->tdisplay);
-        free(e_comp_screen);
-        return NULL;
+        goto fail;
      }
 
    error = tdm_display_get_capabilities(e_comp_screen->tdisplay, &capabilities);
    if (error != TDM_ERROR_NONE)
      {
         ERR("tdm get_capabilities failed");
-        tbm_bufmgr_deinit(e_comp_screen->bufmgr);
-        tdm_display_deinit(e_comp_screen->tdisplay);
-        free(e_comp_screen);
-        return NULL;
+        goto fail;
      }
 
    /* check the pp_support */
@@ -426,6 +451,16 @@ _e_comp_screen_new(E_Comp *comp)
      PRCTL("[Winsys] change permission and create sym link for %s", "tdm-socket");
 
    return e_comp_screen;
+
+fail:
+   if (e_comp_screen->bufmgr) tbm_bufmgr_deinit(e_comp_screen->bufmgr);
+   if (e_comp_screen->fd >= 0) close(e_comp_screen->fd);
+   if (e_comp_screen->hdlr) ecore_main_fd_handler_del(e_comp_screen->hdlr);
+   if (e_comp_screen->tdisplay) tdm_display_deinit(e_comp_screen->tdisplay);
+
+   free(e_comp_screen);
+
+   return NULL;
 }
 
 static void
@@ -445,6 +480,8 @@ _e_comp_screen_del(E_Comp_Screen *e_comp_screen)
           }
      }
    if (e_comp_screen->bufmgr) tbm_bufmgr_deinit(e_comp_screen->bufmgr);
+   if (e_comp_screen->fd >= 0) close(e_comp_screen->fd);
+   if (e_comp_screen->hdlr) ecore_main_fd_handler_del(e_comp_screen->hdlr);
    if (e_comp_screen->tdisplay) tdm_display_deinit(e_comp_screen->tdisplay);
 
    free(e_comp_screen);
@@ -640,9 +677,9 @@ _e_comp_screen_engine_deinit(void)
    if (!e_comp) return;
    if (!e_comp->e_comp_screen) return;
 
+   tbm_surface_queue_destroy(e_comp->e_comp_screen->tqueue);
    _e_comp_screen_deinit_outputs(e_comp->e_comp_screen);
    _e_comp_screen_del(e_comp->e_comp_screen);
-   tbm_surface_queue_destroy(e_comp->e_comp_screen->tqueue);
    e_comp->e_comp_screen = NULL;
 }
 

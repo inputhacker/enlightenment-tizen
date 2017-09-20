@@ -35,6 +35,9 @@ struct _E_Comp_Screen
    Eina_List *available_pp_formats;
 
    tbm_surface_queue_h tqueue;
+
+   int fd;
+   Ecore_Fd_Handler *hdlr;
 };
 
 
