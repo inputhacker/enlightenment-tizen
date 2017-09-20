@@ -1246,6 +1246,14 @@ e_plane_setup(E_Plane *plane)
      {
         ecore_evas_manual_render_set(e_comp->ee, 1);
      }
+   else if(!strcmp("gl_tbm", name))
+     {
+        ecore_evas_manual_render_set(e_comp->ee, 1);
+     }
+   else if(!strcmp("software_tbm", name))
+     {
+        ecore_evas_manual_render_set(e_comp->ee, 1);
+     }
 
    renderer = e_plane_renderer_new(plane);
    if (!renderer)
