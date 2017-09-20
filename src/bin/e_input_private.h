@@ -101,6 +101,7 @@ struct _E_Input_Evdev
 
 void _e_input_inputs_init(void);
 Eina_Bool e_input_inputs_create(E_Input_Device *dev);
+void _e_input_inputs_shutdown(void);
 
 void _input_events_process(E_Input_Backend *input);
 E_Input_Evdev *_e_input_evdev_device_create(E_Input_Seat *seat, struct libinput_device *device);

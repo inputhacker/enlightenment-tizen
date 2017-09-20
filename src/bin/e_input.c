@@ -89,6 +89,12 @@ e_input_init(Ecore_Evas *ee)
      }
 
    dev->seat = eina_stringshare_add("seat0");
+   dev->xkb_ctx = _e_input_device_cached_context_get(0);
+   if (!dev->xkb_ctx)
+     {
+        EINA_LOG_ERR("Failed to get xkb cached context\n");
+        goto xkb_ctx_err;
+     }
 
    if (!e_input_inputs_create(dev))
      {
@@ -109,6 +115,9 @@ e_input_init(Ecore_Evas *ee)
 input_create_err:
    eina_stringshare_del(dev->seat);
    free(dev);
+
+xkb_ctx_err:
+   xkb_context_unref(dev->xkb_ctx);
 
 input_err:
    _e_input_inputs_shutdown();
