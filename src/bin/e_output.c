@@ -471,36 +471,39 @@ _e_output_cb_output_change(tdm_output *toutput,
 
    switch (type)
      {
-       case TDM_OUTPUT_CHANGE_DPMS:
-          if (tdpms == TDM_OUTPUT_DPMS_OFF)
-            {
-               edpms = E_OUTPUT_DPMS_OFF;
-               if (!override)
-                 {
-                    e_comp_override_add();
-                    override = EINA_TRUE;
-                 }
-            }
-          else if (tdpms == TDM_OUTPUT_DPMS_ON)
-            {
-               edpms = E_OUTPUT_DPMS_ON;
-               if (override)
-                 {
-                    e_comp_override_del();
-                    override = EINA_FALSE;
-                 }
-               _e_output_dpms_on_render(e_output);
-            }
-          else if (tdpms == TDM_OUTPUT_DPMS_STANDBY) edpms = E_OUTPUT_DPMS_STANDBY;
-          else if (tdpms == TDM_OUTPUT_DPMS_SUSPEND) edpms = E_OUTPUT_DPMS_SUSPEND;
-          else edpms = e_output->dpms;
+      case TDM_OUTPUT_CHANGE_CONNECTION:
+        e_comp_screen_output_update(e_output);
+        break;
+      case TDM_OUTPUT_CHANGE_DPMS:
+        if (tdpms == TDM_OUTPUT_DPMS_OFF)
+          {
+             edpms = E_OUTPUT_DPMS_OFF;
+             if (!override)
+               {
+                  e_comp_override_add();
+                  override = EINA_TRUE;
+               }
+          }
+        else if (tdpms == TDM_OUTPUT_DPMS_ON)
+          {
+             edpms = E_OUTPUT_DPMS_ON;
+             if (override)
+               {
+                  e_comp_override_del();
+                  override = EINA_FALSE;
+               }
+             _e_output_dpms_on_render(e_output);
+          }
+        else if (tdpms == TDM_OUTPUT_DPMS_STANDBY) edpms = E_OUTPUT_DPMS_STANDBY;
+        else if (tdpms == TDM_OUTPUT_DPMS_SUSPEND) edpms = E_OUTPUT_DPMS_SUSPEND;
+        else edpms = e_output->dpms;
 
-          e_output->dpms = edpms;
+        e_output->dpms = edpms;
 
-          _e_output_hook_call(E_OUTPUT_HOOK_DPMS_CHANGE, e_output);
+        _e_output_hook_call(E_OUTPUT_HOOK_DPMS_CHANGE, e_output);
 
-          break;
-       default:
+        break;
+      default:
           break;
      }
 }
