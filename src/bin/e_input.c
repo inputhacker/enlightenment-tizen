@@ -1,5 +1,5 @@
 #include "e.h"
-#include <Eeze.h>
+//#include <Eeze.h>
 #include "e_input_private.h"
 
 int _e_input_init_count;
@@ -40,7 +40,7 @@ _e_input_event_generic_free(void *data EINA_UNUSED, void *ev)
 #endif
 
 EINTERN int
-e_input_init(void)
+e_input_init(Ecore_Evas *ee)
 {
    E_Input_Device *dev;
 
@@ -79,12 +79,15 @@ e_input_init(void)
      }
 
    _e_input_inputs_init();
+
    dev = (E_Input_Device *)calloc(1, sizeof(E_Input_Device));
+
    if (!dev)
      {
         EINA_LOG_ERR("Failed to alloc memory for E_Input_Device\n");
         goto input_err;
      }
+
    dev->seat = eina_stringshare_add("seat0");
 
    if (!e_input_inputs_create(dev))
@@ -95,20 +98,33 @@ e_input_init(void)
 
    e_input->dev = dev;
 
+   ecore_evas_input_event_register_with_multi(ee);
+   ecore_evas_input_event_register_with_multi2(ee);
+
+   e_input->window = ecore_evas_window_get(ee);
+   e_input_device_window_set(dev, e_input->window);
+
    return _e_input_init_count;
+
 input_create_err:
    eina_stringshare_del(dev->seat);
    free(dev);
+
 input_err:
    _e_input_inputs_shutdown();
+
 log_err:
    eeze_shutdown();
+
 eeze_err:
    ecore_event_shutdown();
+
 ecore_event_err:
    ecore_shutdown();
+
 ecore_err:
    eina_shutdown();
+
 eina_err:
    return --_e_input_init_count;
 }

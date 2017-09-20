@@ -1,7 +1,6 @@
 #ifdef E_TYPEDEFS
 
 typedef struct _E_Input E_Input;
-//typedef struct _E_Event_Input_Generic        E_Event_Input_XXX;
 
 E_API extern int E_INPUT_EVENT_INPUT_DEVICE_ADD;
 E_API extern int E_INPUT_EVENT_INPUT_DEVICE_DEL;
@@ -85,7 +84,7 @@ struct _E_Input
 {
    //E_Object e_obj_inherit;
 
-   uint32_t window;
+   Ecore_Window window;
    E_Input_Device *dev;
 };
 
@@ -106,8 +105,10 @@ struct _E_Input_Device
    Eina_Bool left_handed : 1;
 };
 
-EINTERN int e_input_init(void);
+EINTERN int e_input_init(Ecore_Evas *ee);
+
 EINTERN int e_input_shutdown(void);
+
 #if 0
 E_API E_Input *e_input_new(void);
 #endif
