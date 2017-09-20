@@ -2095,67 +2095,6 @@ _e_eom_output_connected(E_EomOutputPtr eom_output)
    return 0;
 }
 
-static void
-_e_eom_output_disconnected(E_EomOutputPtr eom_output)
-{
-   E_EomClientPtr iterator = NULL;
-   Eina_List *l;
-
-   if (eom_output->delay)
-     ecore_timer_del(eom_output->delay);
-
-   if (eom_output->watchdog)
-     ecore_timer_del(eom_output->watchdog);
-
-   if (g_eom->rotate_output == eom_output)
-     {
-        if (g_eom->rotate_timer)
-          ecore_timer_del(g_eom->rotate_timer);
-        g_eom->rotate_timer = NULL;
-        g_eom->rotate_output = NULL;
-     }
-
-   /* update eom_output disconnect */
-   eom_output->width = 0;
-   eom_output->height = 0;
-   eom_output->phys_width = 0;
-   eom_output->phys_height = 0;
-   eom_output->connection = WL_EOM_STATUS_DISCONNECTION;
-
-   _e_eom_output_deinit(eom_output);
-
-   /* If there were previously connected clients to the output - notify them */
-   EINA_LIST_FOREACH(g_eom->clients, l, iterator)
-     {
-        if (iterator && iterator->resource)
-          {
-             EOMDB("Send output disconnected notification to client: %p", iterator);
-
-             if (iterator->current)
-               wl_eom_send_output_info(iterator->resource, eom_output->id,
-                                       eom_output->type, eom_output->mode,
-                                       eom_output->width, eom_output->height,
-                                       eom_output->phys_width, eom_output->phys_height,
-                                       eom_output->connection,
-                                       0,
-                                       _e_eom_output_state_get_attribute(eom_output),
-                                       EOM_OUTPUT_ATTRIBUTE_STATE_INACTIVE,
-                                       EOM_ERROR_NONE);
-             else
-               wl_eom_send_output_info(iterator->resource, eom_output->id,
-                                       eom_output->type, eom_output->mode,
-                                       eom_output->width, eom_output->height,
-                                       eom_output->phys_width, eom_output->phys_height,
-                                       eom_output->connection,
-                                       1, 0, 0, 0);
-          }
-     }
-
-   EOMDB("Destory output: %s", eom_output->name);
-   eina_stringshare_del(eom_output->name);
-   eom_output->name = NULL;
-}
-
 static E_EomOutputPtr
 _e_eom_output_find(E_Output *output)
 {
@@ -2312,77 +2251,6 @@ e_eom_disconnect(E_Output *output)
    return EINA_TRUE;
 }
 
-static void
-_e_eom_cb_tdm_output_status_change(tdm_output *output, tdm_output_change_type type, tdm_value value, void *user_data)
-{
-   tdm_output_type tdm_type;
-   tdm_output_conn_status status, status_check;
-   tdm_error ret = TDM_ERROR_NONE;
-   const char *tmp_name;
-   char new_name[DRM_CONNECTOR_NAME_LEN];
-   E_EomOutputPtr eom_output = NULL, eom_output_tmp = NULL;
-   Eina_List *l;
-
-   g_eom->check_first_boot = 1;
-
-   if (type == TDM_OUTPUT_CHANGE_DPMS || g_eom->main_output_state == 0)
-     return;
-
-   if (g_eom->outputs)
-     {
-        EINA_LIST_FOREACH(g_eom->outputs, l, eom_output_tmp)
-          {
-             if (eom_output_tmp->output == output)
-               eom_output = eom_output_tmp;
-          }
-     }
-
-   EINA_SAFETY_ON_NULL_RETURN(eom_output);
-
-   ret = tdm_output_get_output_type(output, &tdm_type);
-   EINA_SAFETY_ON_FALSE_RETURN(ret == TDM_ERROR_NONE);
-
-   ret = tdm_output_get_conn_status(output, &status_check);
-   EINA_SAFETY_ON_FALSE_RETURN(ret == TDM_ERROR_NONE);
-
-   status = value.u32;
-
-   EOMDB("outupt id(%d), type(%d, %d), status(%d, %d)", eom_output->id, type, tdm_type, status_check, status);
-
-   eom_output->type = (eom_output_type_e)tdm_type;
-   eom_output->status = status;
-
-   if (status == TDM_OUTPUT_CONN_STATUS_CONNECTED)
-     {
-        if (tdm_type < ALEN(eom_conn_types))
-          tmp_name = eom_conn_types[tdm_type];
-        else
-          tmp_name = "unknown";
-
-        /* TODO: What if there will more then one output of same type.
-         * e.g. "HDMI and HDMI" "LVDS and LVDS"*/
-        snprintf(new_name, sizeof(new_name), "%s-%d", tmp_name, 0);
-
-        eom_output->name = eina_stringshare_add(new_name);
-
-#ifdef ENABLE_HWC_MULTI
-        e_comp_hwc_multi_plane_set(EINA_FALSE);
-#else
-        e_comp_override_add();
-#endif
-        _e_eom_output_connected(eom_output);
-     }
-   else if (status == TDM_OUTPUT_CONN_STATUS_DISCONNECTED)
-     {
-        _e_eom_output_disconnected(eom_output);
-#ifdef ENABLE_HWC_MULTI
-        e_comp_hwc_multi_plane_set(EINA_TRUE);
-#else
-        e_comp_override_del();
-#endif
-     }
-}
-
 static Eina_Bool
 _e_eom_output_init(tdm_display *dpy)
 {
@@ -2432,14 +2300,6 @@ _e_eom_output_init(tdm_display *dpy)
         new_output->mode = EOM_OUTPUT_MODE_NONE;
         new_output->connection = WL_EOM_STATUS_NONE;
         new_output->output = output;
-
-        ret = tdm_output_add_change_handler(output, _e_eom_cb_tdm_output_status_change, NULL);
-        if (ret != TDM_ERROR_NONE)
-          {
-             EOMER("tdm_output_add_change_handler fail(%d)", ret);
-             free(new_output);
-             goto err;
-          }
 
         if (status == TDM_OUTPUT_CONN_STATUS_DISCONNECTED)
           {
