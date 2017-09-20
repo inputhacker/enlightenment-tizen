@@ -140,6 +140,8 @@ struct _E_Eom_Output
     * buffers. After expiring of the delay start mirroring */
    Ecore_Timer *delay;
    Ecore_Timer *watchdog;
+
+   E_Output *eout;
 };
 
 struct _E_Eom_Client
@@ -2152,6 +2154,162 @@ _e_eom_output_disconnected(E_EomOutputPtr eom_output)
    EOMDB("Destory output: %s", eom_output->name);
    eina_stringshare_del(eom_output->name);
    eom_output->name = NULL;
+}
+
+static E_EomOutputPtr
+_e_eom_output_find(E_Output *output)
+{
+   E_EomOutputPtr eom_output = NULL, eom_output_tmp = NULL;
+   Eina_List *l;
+
+   if (g_eom->outputs)
+     {
+        EINA_LIST_FOREACH(g_eom->outputs, l, eom_output_tmp)
+          {
+             if (eom_output_tmp->output == output->toutput)
+               eom_output = eom_output_tmp;
+          }
+     }
+
+   return eom_output;
+}
+
+EINTERN Eina_Bool
+e_eom_connect(E_Output *output)
+{
+   E_EomOutputPtr eom_output = NULL;
+   E_EomClientPtr iterator = NULL;
+   Eina_List *l;
+
+   eom_output = _e_eom_output_find(output);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(eom_output, EINA_FALSE);
+
+   eom_output->eout = output;
+
+   /* update eom_output connect */
+   eom_output->width = output->config.mode.w;
+   eom_output->height = output->config.mode.h;
+   eom_output->phys_width = output->info.size.w;
+   eom_output->phys_height = output->info.size.h;
+   eom_output->name = eina_stringshare_add(output->id);
+
+   EOMDB("Setup new output: %s (%dx%d)", eom_output->name, eom_output->width, eom_output->height);
+
+   /* TODO: check output mode(presentation set) and HDMI type */
+
+   if (eom_output->state == WAIT_PRESENTATION)
+     {
+        EOMDB("Start Presentation");
+
+        if (eom_output->delay)
+          ecore_timer_del(eom_output->delay);
+        eom_output->delay = ecore_timer_add(EOM_DELAY_CHECK_TIMEOUT, _e_eom_timer_delayed_presentation_mode, eom_output);
+
+        _e_eom_output_start_presentation(eom_output);
+     }
+   else
+     {
+        EOMDB("Start Mirroring");
+        _e_eom_output_start_mirror(eom_output);
+     }
+
+   eom_output->connection = WL_EOM_STATUS_CONNECTION;
+
+   /* If there were previously connected clients to the output - notify them */
+   EINA_LIST_FOREACH(g_eom->clients, l, iterator)
+     {
+        if (iterator && iterator->resource)
+          {
+             EOMDB("Send output connected notification to client: %p", iterator);
+
+             if (iterator->current)
+               wl_eom_send_output_info(iterator->resource, eom_output->id,
+                                       eom_output->type, eom_output->mode,
+                                       eom_output->width, eom_output->height,
+                                       eom_output->phys_width, eom_output->phys_height,
+                                       eom_output->connection,
+                                       0,
+                                       _e_eom_output_state_get_attribute(eom_output),
+                                       EOM_OUTPUT_ATTRIBUTE_STATE_ACTIVE,
+                                       EOM_ERROR_NONE);
+             else
+               wl_eom_send_output_info(iterator->resource, eom_output->id,
+                                       eom_output->type, eom_output->mode,
+                                       eom_output->width, eom_output->height,
+                                       eom_output->phys_width, eom_output->phys_height,
+                                       eom_output->connection,
+                                       1, 0, 0, 0);
+          }
+     }
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_eom_disconnect(E_Output *output)
+{
+   E_EomOutputPtr eom_output = NULL;
+   E_EomClientPtr iterator = NULL;
+   Eina_List *l;
+
+   eom_output = _e_eom_output_find(output);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(eom_output, EINA_FALSE);
+
+   if (eom_output->delay)
+     ecore_timer_del(eom_output->delay);
+
+   if (eom_output->watchdog)
+     ecore_timer_del(eom_output->watchdog);
+
+   if (g_eom->rotate_output == eom_output)
+     {
+        if (g_eom->rotate_timer)
+          ecore_timer_del(g_eom->rotate_timer);
+        g_eom->rotate_timer = NULL;
+        g_eom->rotate_output = NULL;
+     }
+
+   /* update eom_output disconnect */
+   eom_output->width = 0;
+   eom_output->height = 0;
+   eom_output->phys_width = 0;
+   eom_output->phys_height = 0;
+   eom_output->connection = WL_EOM_STATUS_DISCONNECTION;
+
+   _e_eom_output_deinit(eom_output);
+
+   /* If there were previously connected clients to the output - notify them */
+   EINA_LIST_FOREACH(g_eom->clients, l, iterator)
+     {
+        if (iterator && iterator->resource)
+          {
+             EOMDB("Send output disconnected notification to client: %p", iterator);
+
+             if (iterator->current)
+               wl_eom_send_output_info(iterator->resource, eom_output->id,
+                                       eom_output->type, eom_output->mode,
+                                       eom_output->width, eom_output->height,
+                                       eom_output->phys_width, eom_output->phys_height,
+                                       eom_output->connection,
+                                       0,
+                                       _e_eom_output_state_get_attribute(eom_output),
+                                       EOM_OUTPUT_ATTRIBUTE_STATE_INACTIVE,
+                                       EOM_ERROR_NONE);
+             else
+               wl_eom_send_output_info(iterator->resource, eom_output->id,
+                                       eom_output->type, eom_output->mode,
+                                       eom_output->width, eom_output->height,
+                                       eom_output->phys_width, eom_output->phys_height,
+                                       eom_output->connection,
+                                       1, 0, 0, 0);
+          }
+     }
+
+   EOMDB("Destory output: %s", eom_output->name);
+   eina_stringshare_del(eom_output->name);
+   eom_output->name = NULL;
+
+   return EINA_TRUE;
 }
 
 static void
