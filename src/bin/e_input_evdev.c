@@ -400,8 +400,8 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
    e->string = e->compose;
 
    strncpy((char *)e->keyname, keyname, strlen(keyname));
-   strncpy((char *)e->key, strlen(key));
-   if (strlen(compose)) strncpy((char *)e->compose, strlen(compose));
+   strncpy((char *)e->key, key, strlen(key));
+   if (strlen(compose)) strncpy((char *)e->compose, compose, strlen(compose));
 
    e->window = (Ecore_Window)input->dev->window;
    e->event_window = (Ecore_Window)input->dev->window;

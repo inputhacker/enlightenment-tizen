@@ -1,6 +1,7 @@
 #include "e.h"
 //#include <Eeze.h>
 #include "e_input_private.h"
+#include <Ecore_Input_Evas.h>
 
 int _e_input_init_count;
 int _e_input_log_dom = -1;
@@ -173,6 +174,7 @@ e_input_shutdown(void)
    e_input_device_free(e_input->dev);
    free(e_input);
 
+   ecore_event_evas_shutdown();
    eeze_shutdown();
    ecore_event_shutdown();
    ecore_shutdown();
