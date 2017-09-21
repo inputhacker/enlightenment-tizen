@@ -2200,8 +2200,8 @@ _e_eom_main_output_info_get()
      }
    else
      {
-        g_eom->width = w;
-        g_eom->height = h;
+        g_eom->width = 0;
+        g_eom->height = 0;
         g_eom->main_output_state = EINA_FALSE;
      }
 }
