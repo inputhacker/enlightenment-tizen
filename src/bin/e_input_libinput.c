@@ -104,7 +104,7 @@ e_input_libinput_devices_create(E_Input_Device *dev)
 
    if ((env = getenv("PATH_DEVICES_NUM")))
      devices_num = atoi(env);
-   if (!env || devices_num == 0)
+   if (!env || (devices_num <= 0 || devices_num > 1023))
      {
         TRACE_INPUT_END();
         return EINA_TRUE;

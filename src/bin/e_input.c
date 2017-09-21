@@ -97,7 +97,7 @@ e_input_init(Ecore_Evas *ee)
    if (!dev->xkb_ctx)
      {
         EINA_LOG_ERR("Failed to get xkb cached context\n");
-        goto xkb_ctx_err;
+        goto device_create_err;
      }
 
    e_input->window = ecore_evas_window_get(ee);
@@ -106,19 +106,17 @@ e_input_init(Ecore_Evas *ee)
    if (!e_input_inputs_create(dev))
      {
         EINA_LOG_ERR("Failed to create device\n");
-        goto input_create_err;
+        goto device_create_err;
      }
 
    e_input->dev = dev;
 
    return _e_input_init_count;
 
-input_create_err:
+device_create_err:
    eina_stringshare_del(dev->seat);
-   free(dev);
-
-xkb_ctx_err:
    xkb_context_unref(dev->xkb_ctx);
+   free(dev);
 
 input_err:
    _e_input_inputs_shutdown();
@@ -170,6 +168,10 @@ e_input_shutdown(void)
    E_INPUT_EVENT_SEAT_ADD = -1;
    E_EVENT_INPUT_ENABLED = -1;
    E_EVENT_INPUT_DISABLED = -1;
+
+   e_input_device_close(e_input->dev);
+   e_input_device_free(e_input->dev);
+   free(e_input);
 
    eeze_shutdown();
    ecore_event_shutdown();

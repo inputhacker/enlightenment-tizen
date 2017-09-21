@@ -399,9 +399,9 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
    e->compose = strlen(compose) ? e->key + strlen(key) + 1 : NULL;
    e->string = e->compose;
 
-   strcpy((char *)e->keyname, keyname);
-   strcpy((char *)e->key, key);
-   if (strlen(compose)) strcpy((char *)e->compose, compose);
+   strncpy((char *)e->keyname, keyname, strlen(keyname));
+   strncpy((char *)e->key, strlen(key));
+   if (strlen(compose)) strncpy((char *)e->compose, strlen(compose));
 
    e->window = (Ecore_Window)input->dev->window;
    e->event_window = (Ecore_Window)input->dev->window;
@@ -999,9 +999,12 @@ _device_handle_touch_aux_data(struct libinput_device *device, struct libinput_ev
    ev->timestamp = libinput_event_touch_aux_data_get_time(event);
 
    axis = (Ecore_Axis *)calloc(1, sizeof(Ecore_Axis));
-   axis->label = ECORE_AXIS_LABEL_TOUCH_PALM;
-   axis->value = libinput_event_touch_aux_data_get_value(event);
-   ev->naxis = 1;
+   if (axis)
+     {
+        axis->label = ECORE_AXIS_LABEL_TOUCH_PALM;
+        axis->value = libinput_event_touch_aux_data_get_value(event);
+        ev->naxis = 1;
+     }
    ev->axis = axis;
 
    ecore_event_add(ECORE_EVENT_AXIS_UPDATE, ev, _e_input_aux_data_event_free, NULL);
