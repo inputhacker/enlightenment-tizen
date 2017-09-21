@@ -99,6 +99,33 @@ e_input_device_free(E_Input_Device *dev)
    free(dev);
 }
 
+static void
+_e_input_device_add_list(E_Input_Device *dev)
+{
+   Eina_List *l;
+   E_Input_Device *dev_data;
+
+   EINA_LIST_FOREACH(einput_devices, l, dev_data)
+     {
+        if (dev_data == dev) return;
+     }
+
+   einput_devices = eina_list_append(einput_devices, dev);
+}
+
+static void
+_e_input_device_remove_list(E_Input_Device *dev)
+{
+   Eina_List *l, *l_next;
+   E_Input_Device *dev_data;
+
+   EINA_LIST_FOREACH_SAFE(einput_devices, l, l_next, dev_data)
+     {
+        if (dev == dev_data)
+          einput_devices = eina_list_remove_list(einput_devices, l);
+     }
+}
+
 E_API Eina_Bool
 e_input_device_open(E_Input_Device *dev)
 {
@@ -111,6 +138,8 @@ e_input_device_open(E_Input_Device *dev)
         ERR("Failed to create xkb context: %m");
         return EINA_FALSE;
      }
+
+   _e_input_device_add_list(dev);
 
    return EINA_TRUE;
 }
@@ -126,6 +155,8 @@ e_input_device_close(E_Input_Device *dev)
 
    /* close xkb context */
    if (dev->xkb_ctx) xkb_context_unref(dev->xkb_ctx);
+
+   _e_input_device_remove_list(dev);
 
    return EINA_TRUE;
 }

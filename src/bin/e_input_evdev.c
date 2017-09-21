@@ -12,7 +12,36 @@ _device_calibration_set(E_Input_Evdev *edev)
    Eina_List *devices;
    const char *vals;
    enum libinput_config_status status;
+   E_Output *output;
    int w = 0, h = 0;
+   int temp;
+
+   output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   e_output_size_get(output, &w, &h);
+
+   edev->mouse.minx = edev->mouse.miny = 0;
+   edev->mouse.maxw = w;
+   edev->mouse.maxh = h;
+
+   if (libinput_device_has_capability(edev->device,
+                                      LIBINPUT_DEVICE_CAP_POINTER))
+     {
+        edev->seat->ptr.ix = edev->seat->ptr.dx = w / 2;
+        edev->seat->ptr.iy = edev->seat->ptr.dy = h / 2;
+        edev->mouse.dx = edev->seat->ptr.dx;
+        edev->mouse.dy = edev->seat->ptr.dy;
+
+        if (output->config.rotation == 90 || output->config.rotation == 270)
+          {
+             temp = edev->mouse.minx;
+             edev->mouse.minx = edev->mouse.miny;
+             edev->mouse.miny = temp;
+
+             temp = edev->mouse.maxw;
+             edev->mouse.maxw = edev->mouse.maxh;
+             edev->mouse.maxh = temp;
+          }
+     }
 
    if ((!libinput_device_config_calibration_has_matrix(edev->device)) ||
        (libinput_device_config_calibration_get_default_matrix(edev->device, cal) != 0))
@@ -22,8 +51,6 @@ _device_calibration_set(E_Input_Evdev *edev)
 
    devices = eeze_udev_find_by_subsystem_sysname("input", sysname);
    if (eina_list_count(devices) < 1) return;
-
-   e_output_size_get(e_comp_screen_primary_output_get(e_comp->e_comp_screen), &w, &h);
 
    EINA_LIST_FREE(devices, device)
      {
@@ -48,58 +75,6 @@ cont:
      }
 }
 
-#if 0
-static void
-_device_output_set(E_Input_Evdev *edev)
-{
-   E_Input_Backend *input;
-   Ecore_Drm_Output *output = NULL;
-   const char *oname;
-   int temp;
-
-   if (!edev->seat) return;
-   if (!(input = edev->seat->input)) return;
-
-   oname = libinput_device_get_output_name(edev->device);
-   if (oname)
-     {
-        Eina_List *l;
-
-        DBG("Device Has Output Name: %s", oname);
-
-        EINA_LIST_FOREACH(input->dev->outputs, l, output)
-          if ((output->name) && (!strcmp(output->name, oname))) break;
-     }
-
-   if (!output)
-     output = eina_list_nth(input->dev->outputs, 0);
-
-   if (!output) return;
-
-   edev->output = output;
-
-   if (libinput_device_has_capability(edev->device,
-                                      LIBINPUT_DEVICE_CAP_POINTER))
-     {
-        edev->seat->ptr.ix = edev->seat->ptr.dx = edev->output->current_mode->width / 2;
-        edev->seat->ptr.iy = edev->seat->ptr.dy = edev->output->current_mode->height / 2;
-        edev->mouse.dx = edev->seat->ptr.dx;
-        edev->mouse.dy = edev->seat->ptr.dy;
-
-        if (output->rotation == 90 || output->rotation == 270)
-          {
-             temp = edev->mouse.minx;
-             edev->mouse.minx = edev->mouse.miny;
-             edev->mouse.miny = temp;
-
-             temp = edev->mouse.maxw;
-             edev->mouse.maxw = edev->mouse.maxh;
-             edev->mouse.maxh = temp;
-          }
-     }
-}
-#endif
-
 static void
 _device_configure(E_Input_Evdev *edev)
 {
@@ -110,13 +85,7 @@ _device_configure(E_Input_Evdev *edev)
         tap = libinput_device_config_tap_get_default_enabled(edev->device);
         libinput_device_config_tap_set_enabled(edev->device, tap);
      }
-#if 0
-   ecore_drm_outputs_geometry_get(edev->seat->input->dev,
-                                  &edev->mouse.minx, &edev->mouse.miny,
-                                  &edev->mouse.maxw, &edev->mouse.maxh);
 
-   _device_output_set(edev);
-#endif
    _device_calibration_set(edev);
 }
 

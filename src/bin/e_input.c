@@ -94,10 +94,9 @@ e_input_init(Ecore_Evas *ee)
      }
 
    dev->seat = eina_stringshare_add("seat0");
-   dev->xkb_ctx = _e_input_device_cached_context_get(0);
-   if (!dev->xkb_ctx)
+   if (!e_input_device_open(dev))
      {
-        EINA_LOG_ERR("Failed to get xkb cached context\n");
+        EINA_LOG_ERR("Failed to open device\n");
         goto device_create_err;
      }
 
