@@ -2121,7 +2121,7 @@ _e_output_commit_hanler(tdm_output *output, unsigned int sequence,
                                   void *user_data)
 {
    E_Plane_Commit_Data *plane_commit_data;
-   Eina_List *l, *l_data_list;
+   const Eina_List *l; Eina_List *l_data_list;
    E_Plane *ep;
 
    E_Output *eo = (E_Output *)user_data;
@@ -2289,16 +2289,14 @@ e_output_commit(E_Output *output)
                }
              else
                {
-                /* TODO: think where to place the next line:
-                *       ERR("fail to e_plane_commit");
-                *
-                * if, at least, one 'plane commit' was successful (it means 'plane fetch' also
-                * was successful and hw overlay has the changes to be committed) allow to make
-                * a 'tdm commit' */
-                  if (!e_plane_commit(plane))
-                    ERR("fail to e_plane_commit");
-                  else
-                     need_tdm_commit = 1;
+                  /* TODO: think where to place the next line:
+                   *       ERR("fail to e_plane_commit");
+                   *
+                   * if, at least, one 'plane commit' was successful (it means 'plane fetch' also
+                   * was successful and hw overlay has the changes to be committed) allow to make
+                   * a 'tdm commit' */
+                  if (e_plane_commit(plane))
+                    need_tdm_commit = 1;
                }
           }
      }

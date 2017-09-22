@@ -1324,6 +1324,58 @@ e_plane_render(E_Plane *plane)
    return EINA_TRUE;
 }
 
+static const char*
+_get_name_of_tdm_error(tdm_error error)
+{
+    static char buf[128] = {0, };
+
+    switch (error)
+      {
+        case TDM_ERROR_NONE :
+          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_NONE");
+        break;
+        case TDM_ERROR_BAD_REQUEST :
+          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_BAD_REQUEST");
+        break;
+        case TDM_ERROR_OPERATION_FAILED :
+          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_OPERATION_FAILED");
+        break;
+        case TDM_ERROR_INVALID_PARAMETER :
+          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_INVALID_PARAMETER");
+        break;
+        case TDM_ERROR_PERMISSION_DENIED :
+          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_PERMISSION_DENIED");
+        break;
+        case TDM_ERROR_BUSY :
+          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_BUSY");
+        break;
+        case TDM_ERROR_OUT_OF_MEMORY :
+          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_OUT_OF_MEMORY");
+        break;
+        case TDM_ERROR_BAD_MODULE :
+          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_BAD_MODULE");
+        break;
+        case TDM_ERROR_NOT_IMPLEMENTED :
+          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_NOT_IMPLEMENTED");
+        break;
+        case TDM_ERROR_NO_CAPABILITY :
+          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_NO_CAPABILITY");
+        break;
+        case TDM_ERROR_DPMS_OFF :
+          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_DPMS_OFF");
+        break;
+        case TDM_ERROR_OUTPUT_DISCONNECTED :
+          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_OUTPUT_DISCONNECTED");
+        break;
+
+        default:
+          snprintf(buf, sizeof(buf) - 1, "UNKNOWN ERROR");
+        break;
+      };
+
+    return buf;
+}
+
 EINTERN Eina_Bool
 e_plane_is_fetch_retry(E_Plane *plane)
 {
@@ -1423,6 +1475,8 @@ e_plane_fetch(E_Plane *plane)
           }
         else
           {
+             tdm_error err;
+
              if (e_plane_is_fb_target_owned_by_ecore_evas(plane))
                {
                   tdm_hwc_region fb_damage;
@@ -1430,15 +1484,16 @@ e_plane_fetch(E_Plane *plane)
                   /* the damage isn't supported by hwc extension yet */
                   memset(&fb_damage, 0, sizeof(fb_damage));
 
-                  tdm_output_set_client_target_buffer(plane->output->toutput, plane->tsurface, fb_damage);
-                  INF("hwc-opt: set surface:%p on the fb_target.", plane->tsurface);
+                  err = tdm_output_set_client_target_buffer(plane->output->toutput, plane->tsurface, fb_damage);
+                  INF("hwc-opt: set surface:%p on the fb_target, err:%s.", plane->tsurface,
+                          _get_name_of_tdm_error(err));
                }
              else
                {
-                  tdm_hwc_window_set_buffer(plane->hwc_wnd, plane->tsurface);
-                  INF("hwc-opt: set surface:%p (ec:%p, title:%s, name:%s) on the hwc_wnd:%p.",
+                  err = tdm_hwc_window_set_buffer(plane->hwc_wnd, plane->tsurface);
+                  INF("hwc-opt: set surface:%p (ec:%p, title:%s, name:%s) on the hwc_wnd:%p, err:%s.",
                           plane->tsurface, plane->ec, plane->ec->icccm.title, plane->ec->icccm.name,
-                          plane->hwc_wnd);
+                          plane->hwc_wnd, _get_name_of_tdm_error(err));
                }
 
              /* is anybody subscribed for this event? */

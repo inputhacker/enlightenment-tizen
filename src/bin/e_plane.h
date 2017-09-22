@@ -125,6 +125,8 @@ struct _E_Plane
     * the only thing we know that zpos order will be complied
     */
    tdm_hwc_window       *hwc_wnd;
+   Eina_Bool             busy;
+   
    double               fps;
    double               old_fps;
    double               frametimes[122];
