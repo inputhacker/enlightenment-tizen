@@ -8,9 +8,6 @@ static Eldbus_Connection *e_comp_screen_conn;
 static Eldbus_Service_Interface *e_comp_screen_iface;
 
 static Eina_List *event_handlers = NULL;
-#if 0 // E_INPUT
-static Eina_Bool session_state = EINA_FALSE;
-#endif
 
 static Eina_Bool dont_set_e_input_keymap = EINA_FALSE;
 static Eina_Bool dont_use_xkb_cache = EINA_FALSE;

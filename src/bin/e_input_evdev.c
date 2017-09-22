@@ -999,24 +999,27 @@ _e_input_evdev_device_create(E_Input_Seat *seat, struct libinput_device *device)
    edev->path = eina_stringshare_add(libinput_device_get_sysname(device));
    edev->fd = -1;
 
-   devices = eeze_udev_find_by_filter("input", NULL, edev->path);
-   if (eina_list_count(devices) >= 1)
+   if (edev->path)
      {
-        Eina_List *l;
-        const char *dev, *name;
-
-        EINA_LIST_FOREACH(devices, l, dev)
+        devices = eeze_udev_find_by_filter("input", NULL, edev->path);
+        if (eina_list_count(devices) >= 1)
           {
-             name = eeze_udev_syspath_get_devname(dev);
-             if (name && strstr(name, edev->path))
-               {
-                  eina_stringshare_replace(&edev->path, eeze_udev_syspath_get_devpath(dev));
-                  break;
-               }
-          }
+             Eina_List *l;
+             const char *dev, *name;
 
-        EINA_LIST_FREE(devices, dev)
-          eina_stringshare_del(dev);
+             EINA_LIST_FOREACH(devices, l, dev)
+               {
+                  name = eeze_udev_syspath_get_devname(dev);
+                  if (name && strstr(name, edev->path))
+                    {
+                       eina_stringshare_replace(&edev->path, eeze_udev_syspath_get_devpath(dev));
+                       break;
+                    }
+               }
+
+             EINA_LIST_FREE(devices, dev)
+               eina_stringshare_del(dev);
+          }
      }
 
    if (libinput_device_has_capability(device, LIBINPUT_DEVICE_CAP_KEYBOARD))
