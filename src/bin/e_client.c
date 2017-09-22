@@ -2980,12 +2980,13 @@ e_client_transient_child_top_get(E_Client *ec, Eina_Bool consider_focus)
 #define EC_IS_NOT_VISIBLE if (ec->visibility.obscured != E_VISIBILITY_UNOBSCURED)
 
 static void
-_e_client_visibility_zone_calculate(E_Zone *zone)
+_e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
 {
    E_Client *ec;
    E_Client *focus_ec = NULL;
    E_Client *cur_focused_ec = NULL;
    E_Client *top_vis_full_ec = NULL;
+   Eina_Bool top_vis_full_ec_vis_changed = EINA_FALSE;
    Eina_Bool find_top_vis_ec = EINA_FALSE;
 
    Eina_Tiler *t;
@@ -3169,7 +3170,10 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
                            (ec->icccm.accepts_focus || ec->icccm.take_focus))
                          {
                             if (E_CONTAINS(x, y, w, h, zone->x, zone->y, zone->w, zone->h))
-                              top_vis_full_ec = ec;
+                              {
+                                 top_vis_full_ec = ec;
+                                 top_vis_full_ec_vis_changed = ec->visibility.changed;
+                              }
                          }
                     }
                }
@@ -3245,7 +3249,15 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
              if (top_vis_full_ec)
                {
                   if (top_vis_full_ec != cur_focused_ec)
-                    evas_object_focus_set(top_vis_full_ec->frame, 1);
+                    {
+                       if (!cur_focused_ec)
+                         evas_object_focus_set(top_vis_full_ec->frame, 1);
+                       else
+                         {
+                            if (top_vis_full_ec_vis_changed || check_focus)
+                              evas_object_focus_set(top_vis_full_ec->frame, 1);
+                         }
+                    }
                }
              else
                {
@@ -3515,6 +3527,7 @@ e_client_idler_before(void)
    E_Client *ec;
    Eina_Bool exist_clients_hash = EINA_FALSE;
    int pix_id;
+   Eina_Bool check_focus = EINA_FALSE;
 
    for (pix_id = 0; pix_id < E_PIXMAP_TYPE_MAX; pix_id++)
      {
@@ -3600,6 +3613,8 @@ e_client_idler_before(void)
         if (ec->changed)
           {
              _e_client_eval(ec);
+             if (ec->icccm.accepts_focus || ec->icccm.take_focus)
+               check_focus = EINA_TRUE;
              e_client_visibility_calculate();
           }
 
@@ -3619,7 +3634,7 @@ e_client_idler_before(void)
         Eina_List *zl;
         EINA_LIST_FOREACH(e_comp->zones, zl, zone)
           {
-             _e_client_visibility_zone_calculate(zone);
+             _e_client_visibility_zone_calculate(zone, check_focus);
           }
         _e_calc_visibility = EINA_FALSE;
      }
