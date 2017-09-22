@@ -316,6 +316,7 @@ failed:
    TRACE_DS_END();
    TRACE_DS_END();
    _e_main_shutdown(-1);
+   return ECORE_CALLBACK_DONE;
 }
 
 static Eina_Bool
