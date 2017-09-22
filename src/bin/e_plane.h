@@ -94,6 +94,7 @@ struct _E_Plane
 
    /* for pp */
    tdm_pp               *tpp;
+   Eina_List            *pp_data_list;
    Eina_List            *pending_pp_data_list;
    Eina_List            *pending_pp_commit_data_list;
    tbm_surface_queue_h   pp_tqueue;

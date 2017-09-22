@@ -936,16 +936,35 @@ fail:
    return EINA_FALSE;
 }
 
+static E_Plane_Commit_Data *
+_e_plane_pp_data_get(E_Plane *plane, tbm_surface_h tsurface)
+{
+   Eina_List *l;
+   E_Plane_Commit_Data *data = NULL;
+
+   EINA_LIST_FOREACH(plane->pp_data_list, l, data)
+     {
+        if (!data) continue;
+
+        if (data->tsurface == tsurface)
+          return data;
+     }
+
+   return NULL;
+}
+
 static void
 _e_plane_pp_commit_handler(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurface_dst, void *user_data)
 {
-   E_Plane_Commit_Data *data = NULL;
    E_Plane *plane = NULL;
+   E_Plane_Commit_Data *data = NULL;
 
-   data = (E_Plane_Commit_Data *)user_data;
-   EINA_SAFETY_ON_NULL_RETURN(data);
-   plane = data->plane;
+   plane = (E_Plane *)user_data;
    EINA_SAFETY_ON_NULL_RETURN(plane);
+   data = _e_plane_pp_data_get(plane, tsurface_src);
+   EINA_SAFETY_ON_NULL_RETURN(data);
+
+   plane->pp_data_list = eina_list_remove(plane->pp_data_list, data);
 
    /* release the commit data */
    if (data->ec) e_pixmap_image_clear(data->ec->pixmap, 1);
@@ -1002,13 +1021,15 @@ _e_plane_pp_commit(E_Plane *plane, E_Plane_Commit_Data *data)
         goto pp_fail;
      }
 
-   tdm_err = tdm_pp_set_done_handler(plane->tpp, _e_plane_pp_commit_handler, data);
+   tdm_err = tdm_pp_set_done_handler(plane->tpp, _e_plane_pp_commit_handler, plane);
    EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, pp_fail);
 
    tbm_surface_internal_ref(pp_tsurface);
    tbm_surface_internal_ref(tsurface);
    tdm_err = tdm_pp_attach(plane->tpp, tsurface, pp_tsurface);
    EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, attach_fail);
+
+   plane->pp_data_list = eina_list_append(plane->pp_data_list, data);
 
    tdm_err = tdm_pp_commit(plane->tpp);
    EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, commit_fail);
@@ -1019,6 +1040,7 @@ _e_plane_pp_commit(E_Plane *plane, E_Plane_Commit_Data *data)
    return EINA_TRUE;
 
 commit_fail:
+   plane->pp_data_list = eina_list_remove(plane->pp_data_list, data);
 attach_fail:
    tbm_surface_internal_unref(pp_tsurface);
    tbm_surface_internal_unref(tsurface);
