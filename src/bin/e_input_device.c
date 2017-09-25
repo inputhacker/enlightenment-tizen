@@ -3,6 +3,13 @@
 
 /* e_input_device private variable */
 static Eina_List *einput_devices;
+static E_Input_Device *einput_default_dev = NULL;
+
+static E_Input_Device *
+_e_input_device_default_get(void)
+{
+   return einput_default_dev;
+}
 
 struct xkb_context *
 _e_input_device_cached_context_get(enum xkb_context_flags flags)
@@ -95,6 +102,9 @@ e_input_device_free(E_Input_Device *dev)
    /* free device seat */
    if (dev->seat) eina_stringshare_del(dev->seat);
 
+   if (dev == einput_default_dev)
+     einput_default_dev = NULL;
+
    /* free structure */
    free(dev);
 }
@@ -138,6 +148,9 @@ e_input_device_open(E_Input_Device *dev)
         ERR("Failed to create xkb context: %m");
         return EINA_FALSE;
      }
+
+   if (!einput_default_dev)
+     einput_default_dev = dev;
 
    _e_input_device_add_list(dev);
 
@@ -190,9 +203,11 @@ e_input_device_pointer_xy_get(E_Input_Device *dev, int *x, int *y)
    if (x) *x = 0;
    if (y) *y = 0;
 
+   if (!dev)
+     dev = _e_input_device_default_get();
+
    /* check for valid device */
    EINA_SAFETY_ON_TRUE_RETURN(!dev);
-
    EINA_LIST_FOREACH(dev->seats, l, seat)
      {
         EINA_LIST_FOREACH(seat->devices, ll, edev)
@@ -215,6 +230,9 @@ e_input_device_pointer_warp(E_Input_Device *dev, int x, int y)
    E_Input_Seat *seat;
    E_Input_Evdev *edev;
    Eina_List *l, *ll;
+
+   if (!dev)
+     dev = _e_input_device_default_get();
 
    /* check for valid device */
    EINA_SAFETY_ON_TRUE_RETURN(!dev);
