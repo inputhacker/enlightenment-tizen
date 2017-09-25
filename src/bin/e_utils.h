@@ -4,6 +4,8 @@
 #ifndef E_UTILS_H
 #define E_UTILS_H
 
+#include "e_input.h"
+
 #define e_util_dialog_show(title, args...) \
 { \
    char __tmpbuf[4096]; \
@@ -77,7 +79,7 @@ e_util_pointer_center(const E_Client *ec)
    if (ec->zone)
      x = ec->zone->x, y = ec->zone->y;
    if (e_config->focus_policy != E_FOCUS_CLICK)
-     ecore_evas_pointer_warp(e_comp->ee,
+     e_input_device_pointer_warp(NULL,
                              x + ec->x + (ec->w / 2),
                              y + ec->y + (ec->h / 2));
 }
