@@ -122,15 +122,8 @@ src/bin/e_keyrouter.h \
 src/bin/e_gesture.h \
 src/bin/e_input.h \
 src/bin/e_input_device.h \
-src/bin/e_input_devicemgr.h \
 src/bin/e_input_evdev.h \
-src/bin/e_input_key.h \
-src/bin/e_input_libinput.h \
-src/bin/e_input_manager.h \
-src/bin/e_input_pointer.h \
-src/bin/e_input_seat.h \
-src/bin/e_input_touch.h \
-src/bin/e_input_window.h
+src/bin/e_input_libinput.h
 
 enlightenment_src = \
 src/bin/e_actions.c \
@@ -233,15 +226,8 @@ src/bin/e_input_private.h \
 src/bin/e_input.c \
 src/bin/e_input_inputs.c \
 src/bin/e_input_device.c \
-src/bin/e_input_devicemgr.c \
 src/bin/e_input_evdev.c \
-src/bin/e_input_key.c \
-src/bin/e_input_libinput.c \
-src/bin/e_input_manager.c \
-src/bin/e_input_pointer.c \
-src/bin/e_input_seat.c \
-src/bin/e_input_touch.c \
-src/bin/e_input_window.c
+src/bin/e_input_libinput.c
 
 src_bin_enlightenment_CPPFLAGS = $(E_CPPFLAGS) -DEFL_BETA_API_SUPPORT -DEFL_EO_API_SUPPORT -DE_LOGGING=1 @WAYLAND_CFLAGS@ $(TTRACE_CFLAGS) $(DLOG_CFLAGS) $(PIXMAN_CFLAGS) $(POLICY_CFLAGS) @TIZEN_REMOTE_SURFACE_CFLAGS@
 if HAVE_LIBGOMP
