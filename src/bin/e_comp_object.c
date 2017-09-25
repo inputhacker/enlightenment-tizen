@@ -1063,8 +1063,6 @@ _e_comp_object_done_defer(void *data, Evas_Object *obj EINA_UNUSED, const char *
    /* hide only after animation finishes to guarantee a full run of the animation */
    if (cw->defer_hide && ((!strcmp(emission, "e,action,hide,done")) || (!strcmp(emission, "e,action,done"))))
      evas_object_hide(cw->smart_obj);
-   else
-     e_comp_shape_queue();
 }
 
 /* run a visibility compositor effect if available, return false if object is dead */
@@ -1541,7 +1539,6 @@ _e_comp_intercept_layer_set(void *data, Evas_Object *obj, int layer)
 
              if (cw->visible)
                {
-                  e_comp_shape_queue();
                   e_comp_render_queue();
                }
              ec = e_client_above_get(cw->ec);
@@ -1626,7 +1623,6 @@ _e_comp_intercept_layer_set(void *data, Evas_Object *obj, int layer)
      }
    if (!cw->visible) return;
    e_comp_render_queue();
-   e_comp_shape_queue();
    _e_comp_object_transform_obj_stack_update(obj);
 }
 
@@ -1796,7 +1792,6 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
      evas_object_data_del(cw->smart_obj, "client_restack");
    if (!cw->visible) return;
    e_comp_render_queue();
-   e_comp_shape_queue();
 }
 
 static void
@@ -1862,7 +1857,6 @@ _e_comp_intercept_lower(void *data, Evas_Object *obj)
    evas_object_data_del(obj, "client_restack");
    if (!cw->visible) goto end;
    e_comp_render_queue();
-   e_comp_shape_queue();
    _e_comp_object_transform_obj_stack_update(obj);
 
 end:
@@ -1920,7 +1914,6 @@ _e_comp_intercept_raise(void *data, Evas_Object *obj)
      }
    if (!cw->visible) goto end;
    e_comp_render_queue();
-   e_comp_shape_queue();
    _e_comp_object_transform_obj_stack_update(obj);
 
 end:
@@ -2781,7 +2774,6 @@ _e_comp_smart_hide(Evas_Object *obj)
    if (cw->ec->focused)
      evas_object_focus_set(cw->ec->frame, 0);
    e_comp_render_queue(); //force nocomp recheck
-   e_comp_shape_queue();
 
    TRACE_DS_END();
 }
@@ -2825,7 +2817,6 @@ _e_comp_smart_show(Evas_Object *obj)
    e_comp_render_queue();
    if (cw->ec->input_only)
      {
-        e_comp_shape_queue();
         TRACE_DS_END();
         return;
      }
@@ -2858,7 +2849,6 @@ _e_comp_smart_show(Evas_Object *obj)
      {
         cw->showing = 0;
         e_comp_object_effect_set(obj, NULL);
-        e_comp_shape_queue();
      }
 
    _e_comp_object_dim_update(cw);
@@ -2910,7 +2900,6 @@ _e_comp_smart_del(Evas_Object *obj)
    evas_object_del(cw->transform_bg_obj);
    evas_object_del(cw->transform_tranp_obj);
    evas_object_del(cw->map_input_obj);
-   e_comp_shape_queue();
    eina_stringshare_del(cw->frame_theme);
    eina_stringshare_del(cw->frame_name);
    if (cw->animating)
@@ -2936,10 +2925,6 @@ _e_comp_smart_move(Evas_Object *obj, int x, int y)
    if (cw->input_obj) evas_object_move(cw->input_obj, x, y);
 
    e_comp_object_map_update(obj);
-
-   /* this gets called once during setup to init coords offscreen and guarantee first move */
-   if (e_comp && cw->visible)
-     e_comp_shape_queue();
 }
 
 static void
@@ -3006,8 +2991,6 @@ _e_comp_smart_resize(Evas_Object *obj, int w, int h)
         return;
      }
    e_comp_render_queue();
-   if (!cw->animating)
-     e_comp_shape_queue();
 
    TRACE_DS_END();
 }
@@ -3095,7 +3078,6 @@ _e_comp_object_util_del(void *data EINA_UNUSED, Evas *e EINA_UNUSED, Evas_Object
         o = edje_object_part_swallow_get(obj, "e.swallow.content");
         evas_object_del(o);
         e_comp_render_queue();
-        e_comp_shape_queue();
      }
    l = evas_object_data_get(obj, "comp_object-to_del");
    E_FREE_LIST(l, evas_object_del);
@@ -3128,8 +3110,6 @@ _e_comp_object_util_show(void *data EINA_UNUSED, Evas_Object *obj)
           /* already visible */
           return;
      }
-   else
-     e_comp_shape_queue();
    
    evas_object_show(obj);
    if (ref)
@@ -3172,7 +3152,6 @@ _e_comp_object_util_done_defer(void *data, Evas_Object *obj, const char *emissio
         if (!evas_object_data_del(obj, "comp_hiding")) return;
         evas_object_intercept_hide_callback_del(obj, _e_comp_object_util_hide);
         evas_object_hide(obj);
-        e_comp_shape_queue();
         evas_object_intercept_hide_callback_add(obj, _e_comp_object_util_hide, data);
      }
    else
@@ -3191,9 +3170,6 @@ _e_comp_object_util_moveresize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj
         evas_object_geometry_get(obj, NULL, NULL, &w, &h);
         e_zoomap_child_resize(data, w, h);
      }
-     
-   if (evas_object_visible_get(obj))
-     e_comp_shape_queue();
 }
 
 E_API E_Comp_Object_Hook *
@@ -4652,7 +4628,6 @@ _e_comp_object_effect_end_cb(void *data, Evas_Object *obj, const char *emission,
    edje_object_signal_callback_del_full(obj, "e,action,done", "e", _e_comp_object_effect_end_cb, NULL);
    cw->effect_running = 0;
    if (!_e_comp_object_animating_end(cw)) return;
-   e_comp_shape_queue();
 
    if (evas_object_data_get(cw->smart_obj, "effect_running"))
      {
@@ -4818,7 +4793,6 @@ _e_comp_object_autoclose_cleanup(Eina_Bool already_del)
    e_comp->autoclose.del_cb = NULL;
    e_comp->autoclose.key_cb = NULL;
    E_FREE_FUNC(e_comp->autoclose.key_handler, ecore_event_handler_del);
-   e_comp_shape_queue();
 }
 
 static Eina_Bool
@@ -4857,7 +4831,6 @@ _e_comp_object_autoclose_setup(Evas_Object *obj)
      }
    evas_object_layer_set(e_comp->autoclose.rect, evas_object_layer_get(obj) - 1);
    evas_object_focus_set(obj, 1);
-   e_comp_shape_queue();
    if (!e_comp->autoclose.key_handler)
      e_comp->autoclose.key_handler = ecore_event_handler_add(ECORE_EVENT_KEY_DOWN, _e_comp_object_autoclose_key_down_cb, e_comp);
 }

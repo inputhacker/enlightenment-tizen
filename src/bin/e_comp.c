@@ -2,7 +2,6 @@
 #include <sys/xattr.h>
 
 #define OVER_FLOW 1
-//#define SHAPE_DEBUG
 //#define BORDER_ZOOMAPS
 //////////////////////////////////////////////////////////////////////////
 //
@@ -62,33 +61,11 @@ E_API int E_EVENT_COMPOSITOR_FPS_UPDATE = -1;
 #undef ERR
 #undef CRI
 
-#if 1
-# ifdef SHAPE_DEBUG
-#  define SHAPE_DBG(...)            EINA_LOG_DOM_DBG(_e_comp_log_dom, __VA_ARGS__)
-#  define SHAPE_INF(...)            EINA_LOG_DOM_INFO(_e_comp_log_dom, __VA_ARGS__)
-#  define SHAPE_WRN(...)            EINA_LOG_DOM_WARN(_e_comp_log_dom, __VA_ARGS__)
-#  define SHAPE_ERR(...)            EINA_LOG_DOM_ERR(_e_comp_log_dom, __VA_ARGS__)
-#  define SHAPE_CRI(...)            EINA_LOG_DOM_CRIT(_e_comp_log_dom, __VA_ARGS__)
-# else
-#  define SHAPE_DBG(f, x ...)
-#  define SHAPE_INF(f, x ...)
-#  define SHAPE_WRN(f, x ...)
-#  define SHAPE_ERR(f, x ...)
-#  define SHAPE_CRI(f, x ...)
-# endif
-
 #define DBG(...)            EINA_LOG_DOM_DBG(_e_comp_log_dom, __VA_ARGS__)
 #define INF(...)            EINA_LOG_DOM_INFO(_e_comp_log_dom, __VA_ARGS__)
 #define WRN(...)            EINA_LOG_DOM_WARN(_e_comp_log_dom, __VA_ARGS__)
 #define ERR(...)            EINA_LOG_DOM_ERR(_e_comp_log_dom, __VA_ARGS__)
 #define CRI(...)            EINA_LOG_DOM_CRIT(_e_comp_log_dom, __VA_ARGS__)
-#else
-#define DBG(f, x ...)
-#define INF(f, x ...)
-#define WRN(f, x ...)
-#define ERR(f, x ...)
-#define CRI(f, x ...)
-#endif
 
 static void
 _e_comp_fps_update(void)
@@ -1100,262 +1077,6 @@ _e_comp_cb_animator(void *data EINA_UNUSED)
    return _e_comp_cb_update();
 }
 
-//////////////////////////////////////////////////////////////////////////
-
-
-#ifdef SHAPE_DEBUG
-static void
-_e_comp_shape_debug_rect(Eina_Rectangle *rect, E_Color *color)
-{
-   Evas_Object *o;
-
-#define COLOR_INCREMENT 30
-   o = evas_object_rectangle_add(e_comp->evas);
-   if (color->r < 256 - COLOR_INCREMENT)
-     evas_object_color_set(o, (color->r += COLOR_INCREMENT), 0, 0, 255);
-   else if (color->g < 256 - COLOR_INCREMENT)
-     evas_object_color_set(o, 0, (color->g += COLOR_INCREMENT), 0, 255);
-   else
-     evas_object_color_set(o, 0, 0, (color->b += COLOR_INCREMENT), 255);
-   evas_object_repeat_events_set(o, 1);
-   evas_object_layer_set(o, E_LAYER_EFFECT - 1);
-   evas_object_move(o, rect->x, rect->y);
-   evas_object_resize(o, rect->w, rect->h);
-   e_comp->debug_rects = eina_list_append(e_comp->debug_rects, o);
-   evas_object_show(o);
-}
-#endif
-
-static Eina_Bool
-_e_comp_shapes_update_object_checker_function_thingy(Evas_Object *o)
-{
-   Eina_List *l;
-   E_Zone *zone;
-
-   if (o == e_comp->bg_blank_object) return EINA_TRUE;
-   EINA_LIST_FOREACH(e_comp->zones, l, zone)
-     {
-        if ((o == zone->over) || (o == zone->base)) return EINA_TRUE;
-        if ((o == zone->bg_object) || (o == zone->bg_event_object) ||
-            (o == zone->bg_clip_object) || (o == zone->prev_bg_object) ||
-            (o == zone->transition_object))
-          return EINA_TRUE;
-     }
-   return EINA_FALSE;
-}
-
-static void
-#ifdef SHAPE_DEBUG
-_e_comp_shapes_update_comp_client_shape_comp_helper(E_Client *ec, Eina_Tiler *tb, Eina_List **rl)
-#else
-_e_comp_shapes_update_comp_client_shape_comp_helper(E_Client *ec, Eina_Tiler *tb)
-#endif
-{
-   int x, y, w, h;
-
-   /* ignore deleted shapes */
-   if (e_object_is_del(E_OBJECT(ec)))
-     {
-        SHAPE_INF("IGNORING DELETED: %p", ec);
-        return;
-     }
-   if ((!ec->visible) || (ec->hidden) || (!evas_object_visible_get(ec->frame)) || evas_object_pass_events_get(ec->frame))
-     {
-        SHAPE_DBG("SKIPPING SHAPE FOR %p", ec);
-        return;
-     }
-#ifdef SHAPE_DEBUG
-   INF("COMP EC: %p", ec);
-#endif
-
-   if (ec->shaped || ec->shaped_input)
-     {
-        int num, tot;
-        int l, r, t, b;
-        Eina_Rectangle *rect, *rects;
-
-        /* add the frame */
-        e_comp_object_frame_geometry_get(ec->frame, &l, &r, &t, &b);
-        e_comp_object_frame_extends_get(ec->frame, &x, &y, &w, &h);
-        if ((l + x) || (r + (w - ec->w + x)) || (t - y) || (b + (h - ec->h + y)))
-          {
-             if (t - y)
-               {
-                  eina_tiler_rect_add(tb, &(Eina_Rectangle){ec->x + x, ec->y + y, w, t - y});
-                  SHAPE_INF("ADD: %d,%d@%dx%d", ec->x + x, ec->y + y, w, t - y);
-               }
-             if (l - x)
-               {
-                  eina_tiler_rect_add(tb, &(Eina_Rectangle){ec->x + x, ec->y + y, l - x, h});
-                  SHAPE_INF("ADD: %d,%d@%dx%d", ec->x + x, ec->y + y, l - x, h);
-               }
-             if (r + (w - ec->w + x))
-               {
-                  eina_tiler_rect_add(tb, &(Eina_Rectangle){ec->x + l + ec->client.w + x, ec->y + y, r + (w - ec->w + x), h});
-                  SHAPE_INF("ADD: %d,%d@%dx%d", ec->x + l + ec->client.w + x, ec->y + y, r + (w - ec->w + x), h);
-               }
-             if (b + (h - ec->h + y))
-               {
-                  eina_tiler_rect_add(tb, &(Eina_Rectangle){ec->x + x, ec->y + t + ec->client.h + y, w, b + (h - ec->h + y)});
-                  SHAPE_INF("ADD: %d,%d@%dx%d", ec->x + x, ec->y + t + ec->client.h + y, w, b + (h - ec->h + y));
-               }
-          }
-        rects = ec->shape_rects ?: ec->shape_input_rects;
-        tot = ec->shape_rects_num ?: ec->shape_input_rects_num;
-        for (num = 0, rect = rects; num < tot; num++, rect++)
-          {
-             x = rect->x, y = rect->y, w = rect->w, h = rect->h;
-             x += ec->client.x, y += ec->client.y;
-             E_RECTS_CLIP_TO_RECT(x, y, w, h, 0, 0, e_comp->w, e_comp->h);
-             if ((w < 1) || (h < 1)) continue;
-   //#ifdef SHAPE_DEBUG not sure we can shape check these?
-             //r = E_NEW(Eina_Rectangle, 1);
-             //EINA_RECTANGLE_SET(r, x, y, w, h);
-             //rl = eina_list_append(rl, r);
-   //#endif
-             eina_tiler_rect_del(tb, &(Eina_Rectangle){x, y, w, h});
-             SHAPE_INF("DEL: %d,%d@%dx%d", x, y, w, h);
-          }
-        return;
-     }
-
-#ifdef SHAPE_DEBUG
-     {
-        Eina_Rectangle *r;
-
-        r = E_NEW(Eina_Rectangle, 1);
-        EINA_RECTANGLE_SET(r, ec->client.x, ec->client.y, ec->client.w, ec->client.h);
-        *rl = eina_list_append(*rl, r);
-     }
-#endif
-
-   if (!e_client_util_borderless(ec))
-     {
-        e_comp_object_frame_extends_get(ec->frame, &x, &y, &w, &h);
-        /* add the frame */
-        eina_tiler_rect_add(tb, &(Eina_Rectangle){ec->x + x, ec->y + y, w, h});
-        SHAPE_INF("ADD: %d,%d@%dx%d", ec->x + x, ec->y + y, w, h);
-     }
-
-   if ((!ec->shaded) && (!ec->shading))
-     {
-        /* delete the client if not shaded */
-        eina_tiler_rect_del(tb, &(Eina_Rectangle){ec->client.x, ec->client.y, ec->client.w, ec->client.h});
-        SHAPE_INF("DEL: %d,%d@%dx%d", ec->client.x, ec->client.y, ec->client.w, ec->client.h);
-     }
-}
-
-static void
-_e_comp_shapes_update_object_shape_comp_helper(Evas_Object *o, Eina_Tiler *tb)
-{
-   int x, y, w, h;
-
-   /* ignore hidden and pass-event objects */
-   if ((!evas_object_visible_get(o)) || evas_object_pass_events_get(o) || evas_object_repeat_events_get(o)) return;
-   /* ignore canvas objects */
-   if (_e_comp_shapes_update_object_checker_function_thingy(o)) return;
-   SHAPE_INF("OBJ: %p:%s", o, evas_object_name_get(o));
-   evas_object_geometry_get(o, &x, &y, &w, &h);
-   eina_tiler_rect_add(tb, &(Eina_Rectangle){x, y, w, h});
-   SHAPE_INF("ADD: %d,%d@%dx%d", x, y, w, h);
-}
-
-static void
-_e_comp_shapes_update_job(void *d EINA_UNUSED)
-{
-   Eina_Tiler *tb;
-   E_Client *ec;
-   Evas_Object *o = NULL;
-   Eina_Rectangle *tr;
-   Eina_Iterator *ti;
-   Eina_Rectangle *exr, *exr_new;
-   unsigned int i, tile_count;
-#ifdef SHAPE_DEBUG
-   Eina_Rectangle *r;
-   Eina_List *rl = NULL;
-   E_Color color = {0};
-
-   INF("---------------------");
-#endif
-
-   E_FREE_LIST(e_comp->debug_rects, evas_object_del);
-   tb = eina_tiler_new(e_comp->w, e_comp->h);
-   EINA_SAFETY_ON_NULL_GOTO(tb, tb_fail);
-
-   eina_tiler_tile_size_set(tb, 1, 1);
-   /* background */
-   eina_tiler_rect_add(tb, &(Eina_Rectangle){0, 0, e_comp->w, e_comp->h});
-
-   ec = e_client_bottom_get();
-   if (ec) o = ec->frame;
-   for (; o; o = evas_object_above_get(o))
-     {
-        int layer;
-
-        layer = evas_object_layer_get(o);
-        if (e_comp_canvas_client_layer_map(layer) == 9999) //not a client layer
-          {
-             _e_comp_shapes_update_object_shape_comp_helper(o, tb);
-             continue;
-          }
-        ec = e_comp_object_client_get(o);
-        if (ec && (!ec->no_shape_cut))
-          _e_comp_shapes_update_comp_client_shape_comp_helper(ec, tb
-#ifdef SHAPE_DEBUG
-                                                           ,&rl
-#endif
-                                                          );
-
-        else
-          _e_comp_shapes_update_object_shape_comp_helper(o, tb);
-     }
-
-   ti = eina_tiler_iterator_new(tb);
-   EINA_SAFETY_ON_NULL_GOTO(ti, ti_fail);
-   tile_count = 128;
-
-   exr = malloc(sizeof(Eina_Rectangle) * tile_count);
-   EINA_SAFETY_ON_NULL_GOTO(exr, exr_fail);
-
-   i = 0;
-   EINA_ITERATOR_FOREACH(ti, tr)
-     {
-        exr[i++] = *(Eina_Rectangle*)((char*)tr);
-        if (i == tile_count - 1)
-          {
-             exr_new = realloc(exr, sizeof(Eina_Rectangle) * (tile_count *= 2));
-             EINA_SAFETY_ON_NULL_GOTO(exr_new, exr_fail);
-             exr = exr_new;
-          }
-#ifdef SHAPE_DEBUG
-        Eina_List *l;
-
-        _e_comp_shape_debug_rect(&exr[i - 1], &color);
-        INF("%d,%d @ %dx%d", exr[i - 1].x, exr[i - 1].y, exr[i - 1].w, exr[i - 1].h);
-        EINA_LIST_FOREACH(rl, l, r)
-          {
-             if (E_INTERSECTS(r->x, r->y, r->w, r->h, tr->x, tr->y, tr->w, tr->h))
-               ERR("POSSIBLE RECT FAIL!!!!");
-          }
-#endif
-     }
-
-exr_fail:
-   free(exr);
-ti_fail:
-   eina_iterator_free(ti);
-#ifdef SHAPE_DEBUG
-   E_FREE_LIST(rl, free);
-   printf("\n");
-#endif
-tb_fail:
-   eina_tiler_free(tb);
-   e_comp->shape_job = NULL;
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-
 static Eina_Bool
 _e_comp_key_down(void *data EINA_UNUSED, int type EINA_UNUSED, Ecore_Event_Key *ev)
 {
@@ -1406,7 +1127,6 @@ _e_comp_free(E_Comp *c)
    if (c->screen_job) ecore_job_del(c->screen_job);
    if (c->nocomp_delay_timer) ecore_timer_del(c->nocomp_delay_timer);
    if (c->nocomp_override_timer) ecore_timer_del(c->nocomp_override_timer);
-   ecore_job_del(c->shape_job);
 
    free(c);
 }
@@ -1636,25 +1356,6 @@ e_comp_client_post_update_add(E_Client *ec)
    e_comp->post_updates = eina_list_append(e_comp->post_updates, ec);
    REFD(ec, 111);
    e_object_ref(E_OBJECT(ec));
-}
-
-// TODO: shoulde be removed - yigl
-E_API void
-e_comp_shape_queue(void)
-{
-   if (e_comp->comp_type != E_PIXMAP_TYPE_X) return;
-   if (!e_comp->shape_job)
-     e_comp->shape_job = ecore_job_add(_e_comp_shapes_update_job, NULL);
-}
-
-E_API void
-e_comp_shape_queue_block(Eina_Bool block)
-{
-   e_comp->shape_queue_blocked = !!block;
-   if (block)
-     E_FREE_FUNC(e_comp->shape_job, ecore_job_del);
-   else
-     e_comp_shape_queue();
 }
 
 E_API E_Comp_Config *
@@ -1946,7 +1647,6 @@ e_comp_client_redirect_toggle(E_Client *ec)
    ec->unredirected_single = !ec->unredirected_single;
    e_client_redirected_set(ec, !ec->redirected);
    ec->no_shape_cut = !ec->redirected;
-   e_comp_shape_queue();
 }
 
 E_API Eina_Bool

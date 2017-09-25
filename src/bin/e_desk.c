@@ -712,7 +712,6 @@ e_desk_flip_end(E_Desk *desk)
    ecore_event_add(E_EVENT_DESK_AFTER_SHOW, ev,
                    _e_desk_event_desk_after_show_free, NULL);
 
-   e_comp_shape_queue();
    if ((e_config->focus_policy == E_FOCUS_MOUSE) ||
        (e_config->focus_policy == E_FOCUS_SLOPPY))
      {

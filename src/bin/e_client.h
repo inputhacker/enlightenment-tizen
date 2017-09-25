@@ -1115,8 +1115,6 @@ E_API Eina_Bool e_client_normal_client_has(E_Client *ec);
 
 E_API Eina_Bool e_client_cursor_hide(E_Client *ec);
 
-E_API void e_remember_del(void *rem); /* TODO: should be removed */
-
 E_API void e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set);
 
 E_API void e_client_stay_within_canvas_margin(E_Client *ec);

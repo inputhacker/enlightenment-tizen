@@ -6791,14 +6791,6 @@ e_client_cursor_hide(E_Client *ec)
    return e_comp_wl_cursor_hide(ec);
 }
 
-/* TODO: should be removed */
-E_API void
-e_remember_del(void *rem)
-{
-   /* do nothing */
-   return;
-}
-
 E_API void
 e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set)
 {

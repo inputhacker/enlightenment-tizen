@@ -223,7 +223,6 @@ _e_comp_screen_cb_activate(void *data EINA_UNUSED, int type EINA_UNUSED, void *e
                e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
           }
         e_comp_render_queue();
-        e_comp_shape_queue_block(0);
         ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
      }
    else
@@ -237,7 +236,6 @@ _e_comp_screen_cb_activate(void *data EINA_UNUSED, int type EINA_UNUSED, void *e
         evas_render_dump(e_comp->evas);
 
         e_comp_render_queue();
-        e_comp_shape_queue_block(1);
         ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
      }
 
