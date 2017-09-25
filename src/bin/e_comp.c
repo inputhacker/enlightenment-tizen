@@ -2851,6 +2851,13 @@ e_comp_vis_ec_list_get(E_Zone *zone)
 
         if (ec->zone != zone) continue;
 
+        if (e_comp->hwc_optimized_2)
+          {
+             /* skip all small clients except the video clients */
+             if ((ec->w == 1 || ec->h == 1) && !(ec->comp_data && ec->comp_data->video_client))
+               continue;
+          }
+
         // check clients to skip composite
         if (e_client_util_ignored_get(ec) || (!evas_object_visible_get(ec->frame)))
           continue;
@@ -2871,8 +2878,9 @@ e_comp_vis_ec_list_get(E_Zone *zone)
                         0, 0, e_comp->w, e_comp->h))
            continue;
 
-        if (!ec->argb)
-          break;
+        if (!e_comp->hwc_optimized_2)
+          if (!ec->argb)
+            break;
      }
 
    return ec_list;

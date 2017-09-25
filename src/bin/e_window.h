@@ -17,8 +17,11 @@ struct _E_Window
    int                            skip_flag;
    tdm_hwc_window_composition_t   type;
    Eina_Bool                      is_target;
+   Eina_Bool                      is_video;
+   Eina_Bool                      is_deleted;
    Eina_Bool                      wait_commit;
    Eina_Bool                      update_exist;
+   Eina_Bool                      need_commit_data_release;
    tbm_surface_h                  tsurface;
    tbm_surface_h                  displaying_tsurface;
    Eina_Bool                      activated; /* window occupied the hw layer */
@@ -50,6 +53,7 @@ struct _E_Window_Commit_Data {
    tbm_surface_h         tsurface;
 };
 
+EINTERN Eina_Bool             e_window_set_ec(E_Window *window, E_Client *ec);
 EINTERN Eina_Bool             e_window_init(void);
 EINTERN E_Window             *e_window_new(E_Output *output);
 EINTERN void                  e_window_free(E_Window *window);
@@ -58,6 +62,7 @@ EINTERN Eina_Bool             e_window_set_skip_flag(E_Window *window);
 EINTERN Eina_Bool             e_window_unset_skip_flag(E_Window *window);
 EINTERN Eina_Bool             e_window_update(E_Window *window);
 EINTERN Eina_Bool             e_window_is_target(E_Window *window);
+EINTERN Eina_Bool             e_window_is_video(E_Window *window);
 EINTERN Eina_Bool             e_window_fetch(E_Window *window);
 EINTERN void                  e_window_unfetch(E_Window *window);
 EINTERN E_Window_Commit_Data *e_window_commit_data_aquire(E_Window *window);

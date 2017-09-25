@@ -15,6 +15,10 @@ EINTERN void e_comp_wl_video_shutdown(void);
 
 EINTERN tdm_layer* e_comp_wl_video_layer_get(tdm_output *output);
 
+EINTERN void
+e_video_commit_data_release(E_Client *ec, unsigned int sequence,
+                            unsigned int tv_sec, unsigned int tv_usec);
+
 #define C(b,m)              (((b) >> (m)) & 0xFF)
 #define FOURCC_STR(id)      C(id,0), C(id,8), C(id,16), C(id,24)
 #define IS_RGB(f)           ((f) == TBM_FORMAT_XRGB8888 || (f) == TBM_FORMAT_ARGB8888)

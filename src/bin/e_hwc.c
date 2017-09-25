@@ -101,10 +101,10 @@ _hwc_prepare(E_Output *eo, Eina_List *cl_list)
 
         INF("hwc-opt: hwc extension required to change composition types.");
 
-        changed_hwc_window = E_NEW(tdm_hwc_window *, 1);
+        changed_hwc_window = E_NEW(tdm_hwc_window *, num_changes);
         EINA_SAFETY_ON_NULL_RETURN_VAL(changed_hwc_window, EINA_FALSE);
 
-        composition_types = E_NEW(tdm_hwc_window_composition_t, 1);
+        composition_types = E_NEW(tdm_hwc_window_composition_t, num_changes);
         EINA_SAFETY_ON_NULL_RETURN_VAL(composition_types, EINA_FALSE);
 
         tdm_err = tdm_output_get_changed_composition_types(eo->toutput,
@@ -181,6 +181,7 @@ _hwc_prepare(E_Output *eo, Eina_List *cl_list)
 
      EINA_LIST_FOREACH(windows, l, window)
        {
+          if (window->is_deleted) continue;
           if (e_window_is_target(window)) continue;
 
           if (window->type != TDM_COMPOSITION_DEVICE || window->skip_flag)
@@ -207,7 +208,11 @@ _e_hwc_output_commit_hanler(tdm_output *output, unsigned int sequence,
    EINA_SAFETY_ON_NULL_RETURN(eo);
 
    EINA_LIST_FOREACH(e_output_windows_get(eo), l, ew)
-     e_window_commit_data_release(ew);
+     {
+         e_window_commit_data_release(ew);
+         if (e_window_is_video(ew))
+           e_video_commit_data_release(ew->ec, sequence, tv_sec, tv_usec);
+     }
 
    /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
     * a 'page flip' happened so it's time to allow to make 'fetch and commit' for all e_windows */
@@ -257,6 +262,15 @@ _e_hwc_output_commit(E_Output *output)
    if (need_tdm_commit)
      {
         tdm_error error = TDM_ERROR_NONE;
+
+        EINA_LIST_FOREACH(output->windows, l, window)
+          {
+             /* if window was placed on hw layer we need to release the commit_data */
+             if (!window->activated && window->display_info.tsurface)
+               window->need_commit_data_release = EINA_TRUE;
+             else
+               window->need_commit_data_release = EINA_FALSE;
+          }
 
         error = tdm_output_commit(output->toutput, 0, _e_hwc_output_commit_hanler, output);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
