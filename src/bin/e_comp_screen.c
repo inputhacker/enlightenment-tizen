@@ -201,63 +201,6 @@ _layer_cap_to_str(tdm_layer_capability caps, tdm_layer_capability cap)
    return "";
 }
 
-#if 0
-static Eina_Bool
-_e_comp_screen_cb_output_drm(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
-{
-   const Eina_List *l;
-   E_Output *output;
-   Ecore_Drm_Event_Output *e;
-   E_Comp_Screen *e_comp_screen = NULL;
-
-   if (!(e = event)) goto end;
-   if (!e_comp) goto end;
-   if (!e_comp->e_comp_screen) goto end;
-
-   e_comp_screen = e_comp->e_comp_screen;
-
-   DBG("WL_DRM OUTPUT CHANGE");
-
-   EINA_LIST_FOREACH(e_comp_screen->outputs, l, output)
-     {
-        if ((!strcmp(output->info.name, e->name)) &&
-            (!strcmp(output->info.screen, e->model)))
-          {
-             if (e->plug)
-               {
-                  if (!e_comp_wl_output_init(output->id, e->make, e->model,
-                                             e->x, e->y, e->w, e->h,
-                                             e->phys_width, e->phys_height,
-                                             e->refresh, e->subpixel_order,
-                                             e->transform))
-                    {
-                       ERR("Could not setup new output: %s", output->id);
-                    }
-               }
-             else
-               e_comp_wl_output_remove(output->id);
-
-             break;
-          }
-     }
-
-   /* previous calculation of e_scale gave unsuitable value because
-    * there were no sufficient information to calculate dpi.
-    * so it's considerable to re-calculate e_scale with output geometry.
-    */
-   double target_inch;
-   int dpi;
-
-   target_inch = (round((sqrt(e->phys_width * e->phys_width + e->phys_height * e->phys_height) / 25.4) * 10) / 10);
-   dpi = (round((sqrt(e->w * e->w + e->h * e->h) / target_inch) * 10) / 10);
-
-   e_scale_manual_update(dpi);
-
-end:
-   return ECORE_CALLBACK_PASS_ON;
-}
-#endif
-
 static Eina_Bool
 _e_comp_screen_commit_idle_cb(void *data EINA_UNUSED)
 {
@@ -841,9 +784,6 @@ _e_comp_screen_engine_init(void)
 
    e_comp_screen_e_screens_setup(e_comp_screen, -1, -1);
 
-   /* TODO: need the output changed handler with TDM */
-   //E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_OUTPUT,        _e_comp_screen_cb_output_drm,       comp);
-
    /* update the screen, outputs and planes at the idle enterer of the ecore_loop */
    ecore_idle_enterer_add(_e_comp_screen_commit_idle_cb, e_comp);
 
@@ -1129,9 +1069,6 @@ e_comp_screen_shutdown()
 {
    if (!e_comp) return;
    if (!e_comp->e_comp_screen) return;
-
-   /* shutdown ecore_drm */
-   /* ecore_drm_shutdown(); */
 
    if (e_comp_screen_iface)
      {
