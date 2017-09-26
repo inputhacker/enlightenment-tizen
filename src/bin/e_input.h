@@ -17,27 +17,6 @@ E_API extern int E_EVENT_INPUT_DISABLED;
 
 #include <xkbcommon/xkbcommon.h>
 
-typedef enum _E_Input_Evdev_Capabilities
-{
-   E_INPUT_KEYBOARD = (1 << 0),
-   E_INPUT_BUTTON = (1 << 1),
-   E_INPUT_MOTION_ABS = (1 << 2),
-   E_INPUT_MOTION_REL = (1 << 3),
-   E_INPUT_TOUCH = (1 << 4),
-} E_Input_Evdev_Capabilities;
-
-typedef enum _E_Input_Evdev_Event_Type
-{
-   E_INPUT_NONE,
-   E_INPUT_ABSOLUTE_TOUCH_DOWN,
-   E_INPUT_ABSOLUTE_MOTION,
-   E_INPUT_ABSOLUTE_TOUCH_UP,
-   E_INPUT_ABSOLUTE_MT_DOWN,
-   E_INPUT_ABSOLUTE_MT_MOTION,
-   E_INPUT_ABSOLUTE_MT_UP,
-   E_INPUT_RELATIVE_MOTION,
-} E_Input_Evdev_Event_Type;
-
 typedef enum _E_Input_Seat_Capabilities
 {
    E_INPUT_SEAT_POINTER = (1 << 0),
@@ -50,7 +29,7 @@ struct _E_Input_Event_Input_Device_Add
    const char *name; /* descriptive device name */
    const char *sysname; /* system name of the input device */
    const char *seatname; /* logical name of the seat */
-   E_Input_Evdev_Capabilities caps; /* capabilities on a device */
+   E_Input_Seat_Capabilities seat_caps; /* capabilities on a device */
 };
 
 struct _E_Input_Event_Input_Device_Del
@@ -58,7 +37,7 @@ struct _E_Input_Event_Input_Device_Del
    const char *name; /* descriptive device name */
    const char *sysname; /* system name of the input device */
    const char *seatname; /* logical name of the seat */
-   E_Input_Evdev_Capabilities caps; /* capabilities on a device */
+   E_Input_Seat_Capabilities seat_caps; /* capabilities on a device */
 };
 
 /* opaque structure to represent an e_input device */

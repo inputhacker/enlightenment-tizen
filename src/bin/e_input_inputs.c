@@ -335,7 +335,7 @@ _device_added(E_Input_Backend *input, struct libinput_device *device)
    ev->name = eina_stringshare_add(libinput_device_get_name(device));
    ev->sysname = eina_stringshare_add(edev->path);
    ev->seatname = eina_stringshare_add(edev->seat->name);
-   ev->caps = edev->seat_caps;
+   ev->seat_caps = edev->seat_caps;
 
    ecore_event_add(E_INPUT_EVENT_INPUT_DEVICE_ADD,
                    ev,
@@ -373,7 +373,7 @@ _device_removed(E_Input_Backend *input, struct libinput_device *device)
    ev->name = eina_stringshare_add(libinput_device_get_name(device));
    ev->sysname = eina_stringshare_add(edev->path);
    ev->seatname = eina_stringshare_add(edev->seat->name);
-   ev->caps = edev->seat_caps;
+   ev->seat_caps = edev->seat_caps;
 
    ecore_event_add(E_INPUT_EVENT_INPUT_DEVICE_DEL,
                    ev,
