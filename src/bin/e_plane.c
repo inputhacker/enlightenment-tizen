@@ -83,40 +83,7 @@ _get_comp_wl_buffer(E_Client *ec)
 static tbm_surface_queue_h
 _get_tbm_surface_queue(E_Comp *e_comp)
 {
-#ifdef REMOVE_ECORE_DRM_TEMP
    return e_comp->e_comp_screen->tqueue;
-#else
-   const char* name;
-   tbm_surface_queue_h tbm_queue = NULL;
-
-   name = ecore_evas_engine_name_get(e_comp->ee);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(name, NULL);
-
-   if (!strcmp(name, "gl_drm"))
-     {
-        Evas_Engine_Info_GL_Drm *info;
-        info = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(e_comp->evas);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(info, NULL);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(info->info.surface, NULL);
-        tbm_queue = gbm_tbm_get_surface_queue(info->info.surface);
-     }
-   else if(!strcmp(name, "gl_drm_tbm"))
-     {
-        Evas_Engine_Info_GL_Tbm *info;
-        info = (Evas_Engine_Info_GL_Tbm *)evas_engine_info_get(e_comp->evas);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(info, NULL);
-        tbm_queue = (tbm_surface_queue_h)info->info.tbm_queue;
-     }
-   else if(!strcmp(name, "drm_tbm"))
-     {
-        Evas_Engine_Info_Software_Tbm *info;
-        info = (Evas_Engine_Info_Software_Tbm *)evas_engine_info_get(e_comp->evas);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(info, NULL);
-        tbm_queue = (tbm_surface_queue_h)info->info.tbm_queue;
-     }
-
-   return tbm_queue;
-#endif
 }
 
 static Eina_Bool
