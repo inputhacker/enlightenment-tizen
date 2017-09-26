@@ -3767,6 +3767,10 @@ e_client_new(E_Pixmap *cp, int first_map, int internal)
      ec->exp_iconify.deiconify_update= 1;
    else
      ec->exp_iconify.deiconify_update= 0;
+   if (e_config->use_buffer_flush)
+     ec->exp_iconify.buffer_flush = 1;
+   else
+     ec->exp_iconify.buffer_flush = 0;
 
    if (!_e_client_hook_call(E_CLIENT_HOOK_NEW_CLIENT, ec))
      {
@@ -5416,7 +5420,7 @@ e_client_iconify(E_Client *ec)
 
    _e_client_hook_call(E_CLIENT_HOOK_ICONIFY, ec);
 
-   if (e_config->use_buffer_flush)
+   if (ec->exp_iconify.buffer_flush)
      e_pixmap_buffer_clear(ec->pixmap, EINA_FALSE);
 
    TRACE_DS_END();

@@ -1000,9 +1000,6 @@ e_pixmap_init(void)
 {
    struct wl_global *global;
 
-   if (!e_config->use_buffer_flush)
-     return EINA_TRUE;
-
    if (!e_comp_wl)
      return EINA_FALSE;
 
@@ -1035,7 +1032,7 @@ e_pixmap_buffer_clear(E_Pixmap *cp, Eina_Bool only_free)
    EINA_SAFETY_ON_NULL_RETURN(cp);
 
    /* disabled this feature */
-   if (!e_config->use_buffer_flush)
+   if (!(cp->client && cp->client->exp_iconify.buffer_flush))
      return;
 
    DBG("PIXMAP: Buffer Flush(%s) '%s'(%p) only_free:%d", cp->shm_flusher ? "SHM" : "NATIVE",

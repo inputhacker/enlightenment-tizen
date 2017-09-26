@@ -1000,10 +1000,11 @@ _e_vis_client_prepare_foreground_signal_emit(E_Vis_Client *vc)
 static Eina_Bool
 _e_vis_client_is_uniconify_render_necessary(E_Vis_Client *vc)
 {
-   if (!e_config->use_buffer_flush)
+   E_Client *ec = NULL;
+   if (vc) ec = vc->ec;
+   if (!ec) return EINA_FALSE;
+   if (!ec->exp_iconify.buffer_flush)
      {
-        E_Client *ec = NULL;
-        if (vc) ec = vc->ec;
         if (ec && ec->exp_iconify.deiconify_update) // hint or conf->deiconify_approve set deiconify update 1
           goto need_deiconify_render;
 

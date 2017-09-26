@@ -860,6 +860,7 @@ struct E_Client
       unsigned char skip_iconify : 1;
       unsigned char skip_by_remote : 1;    // skip iconify by remote surface client
       unsigned char deiconify_update : 1;  // wait client render if deiconify_update is 1
+      unsigned char buffer_flush : 1;      // 0: no flush, 1: flush buffer when iconify
    } exp_iconify;
 
    struct
