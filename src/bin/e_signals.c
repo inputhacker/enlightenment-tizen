@@ -4,7 +4,6 @@
  * to add backtrace support.
  */
 #include "e.h"
-#include <Ecore_Drm.h>
 
 #ifdef HAVE_EXECINFO_H
 # include <execinfo.h>
