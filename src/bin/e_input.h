@@ -61,16 +61,16 @@ struct _E_Input_Event_Input_Device_Del
    E_Input_Evdev_Capabilities caps; /* capabilities on a device */
 };
 
-/* opaque structure to represent a drm device */
+/* opaque structure to represent an e_input device */
 typedef struct _E_Input_Device E_Input_Device;
 
-/* opaque structure to represent a drm input */
+/* opaque structure to represent an e_input input backend */
 typedef struct _E_Input_Backend E_Input_Backend;
 
-/* opaque structure to represent a drm evdev input */
+/* opaque structure to represent an e_input evdev */
 typedef struct _E_Input_Evdev E_Input_Evdev;
 
-/* opaque structure to represent a drm seat */
+/* opaque structure to represent an e_input seat */
 typedef struct _E_Input_Seat E_Input_Seat;
 
 /* structure to inform new input device added */
