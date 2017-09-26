@@ -259,6 +259,7 @@ enum _E_Policy_Hint_Type
    E_COMP_HINT_ALWAYS_SELECTIVE = 8,
    E_POLICY_HINT_DEPENDENT_ROTATION = 9,
    E_POLICY_HINT_ROT_RENDER_NOPENDING = 10,
+   E_POLICY_HINT_ICONIFY_BUFFER_FLUSH = 11,
 };
 
 static const char *hint_names[] =
@@ -274,6 +275,7 @@ static const char *hint_names[] =
    "wm.comp.win.always.selective.mode",
    "wm.policy.win.rot.dependent",
    "wm.policy.win.rot.render.nopending",
+   "wm.policy.win.iconify.buffer.flush",
 };
 
 static void                _e_policy_wl_surf_del(E_Policy_Wl_Surface *psurf);
@@ -2398,6 +2400,13 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
                   ELOGF("ROTATION", "nopending render:1", ec->pixmap, ec);
                   ec->e.state.rot.nopending_render = 1;
                }
+          }
+        else if (!strncmp(hint->hint, hint_names[E_POLICY_HINT_ICONIFY_BUFFER_FLUSH], strlen(hint->hint)))
+          {
+             if (!strncmp(hint->val, "1", 1))
+               ec->exp_iconify.buffer_flush = EINA_TRUE;
+             else
+               ec->exp_iconify.buffer_flush = EINA_FALSE;
           }
 
         if (send)
