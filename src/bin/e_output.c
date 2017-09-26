@@ -2612,6 +2612,12 @@ e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotate
    Eina_Bool ret = EINA_FALSE;
    tdm_capture *tcapture = NULL;
 
+   if (e_output_dpms_get(output))
+     {
+        func(output, tsurface, data);
+        return EINA_TRUE;
+     }
+
    tcapture = _e_output_tdm_capture_create(output, TDM_CAPTURE_CAPABILITY_ONESHOT);
    if (tcapture)
      {
