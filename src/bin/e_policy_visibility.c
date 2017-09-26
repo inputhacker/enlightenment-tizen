@@ -1422,6 +1422,47 @@ _e_vis_cb_child_launch_done(void *data, Evas_Object *obj, const char *signal, co
      e_comp_object_signal_callback_del_full(comp_obj, "e,action,launch,done", "e", _e_vis_cb_child_launch_done, vc);
 }
 
+static void
+_e_vis_transient_group_make(E_Client *ec, Eina_List **list)
+{
+   E_Client *child;
+   Eina_List *l;
+
+   if (!ec) return;
+
+   if (e_config->transient.raise)
+     {
+        EINA_LIST_FOREACH(ec->transients, l, child)
+          {
+             if (!child) continue;
+             if (child->iconic && ec->exp_iconify.by_client)
+               continue;
+
+             if (child->transient_policy == E_TRANSIENT_ABOVE)
+               {
+                  *list = eina_list_prepend(*list, child);
+                  _e_vis_transient_group_make(child, list);
+               }
+          }
+     }
+}
+
+static E_Client *
+_e_vis_transient_top_get(E_Client *ec)
+{
+   E_Client *topmost = NULL;
+   Eina_List *transient_list = NULL;
+
+   _e_vis_transient_group_make(ec, &transient_list);
+
+   if (transient_list)
+     {
+        topmost = eina_list_data_get(transient_list);
+        eina_list_free(transient_list);
+     }
+   return topmost;
+}
+
 static Eina_Bool
 _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
 {
@@ -1437,7 +1478,8 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
      {
         E_Client *topmost;
 
-        topmost = eina_list_data_get(ec->transients);
+        topmost = _e_vis_transient_top_get(ec);
+        if (!topmost) return EINA_TRUE;
 
         if (topmost->transient_policy == E_TRANSIENT_BELOW)
           return EINA_TRUE;
@@ -1454,6 +1496,8 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
                {
                   if (topmost->pixmap && e_pixmap_usable_get(topmost->pixmap))
                     {
+                       ELOGF("COMP", "Set launching flag..", topmost->pixmap, topmost);
+                       topmost->launching = EINA_TRUE;
 
                        vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD;
                        VS_DBG(vc->ec, "\tUPDATE ICONIC STATE: %s", STATE_STR(vc));
