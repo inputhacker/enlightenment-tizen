@@ -29,7 +29,7 @@ struct _E_Input_Event_Input_Device_Add
    const char *name; /* descriptive device name */
    const char *sysname; /* system name of the input device */
    const char *seatname; /* logical name of the seat */
-   E_Input_Seat_Capabilities seat_caps; /* capabilities on a device */
+   E_Input_Seat_Capabilities caps; /* capabilities on a device */
 };
 
 struct _E_Input_Event_Input_Device_Del
@@ -37,32 +37,19 @@ struct _E_Input_Event_Input_Device_Del
    const char *name; /* descriptive device name */
    const char *sysname; /* system name of the input device */
    const char *seatname; /* logical name of the seat */
-   E_Input_Seat_Capabilities seat_caps; /* capabilities on a device */
+   E_Input_Seat_Capabilities caps; /* capabilities on a device */
 };
 
-/* opaque structure to represent an e_input device */
 typedef struct _E_Input_Device E_Input_Device;
-
-/* opaque structure to represent an e_input input backend */
 typedef struct _E_Input_Backend E_Input_Backend;
-
-/* opaque structure to represent an e_input evdev */
 typedef struct _E_Input_Evdev E_Input_Evdev;
-
-/* opaque structure to represent an e_input seat */
 typedef struct _E_Input_Seat E_Input_Seat;
 
-/* structure to inform new input device added */
 typedef struct _E_Input_Event_Input_Device_Add E_Input_Event_Input_Device_Add;
-
-/* structure to inform old input device deleted */
 typedef struct _E_Input_Event_Input_Device_Del E_Input_Event_Input_Device_Del;
-
 
 struct _E_Input
 {
-   //E_Object e_obj_inherit;
-
    Ecore_Window window;
    E_Input_Device *dev;
 };
@@ -88,17 +75,6 @@ EINTERN int e_input_init(Ecore_Evas *ee);
 
 EINTERN int e_input_shutdown(void);
 
-#if 0
-E_API E_Input *e_input_new(void);
-#endif
-
-/**
- * Sets the window of E_Input_Devices.
- * This function will set the window for given E_Input_Device devices.
- *
- * @param dev The E_Input_Device for which window is set
- * @param window The window to set
- */
 E_API void e_input_inputs_disable(E_Input_Backend *input);
 E_API Eina_List *e_input_seat_evdev_list_get(E_Input_Seat *seat);
 E_API Eina_Bool e_input_inputs_enable(E_Input_Backend *input);

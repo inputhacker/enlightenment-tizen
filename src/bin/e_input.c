@@ -1,12 +1,10 @@
 #include "e.h"
-//#include <Eeze.h>
 #include "e_input_private.h"
 #include <Ecore_Input_Evas.h>
 
 int _e_input_init_count;
 int _e_input_log_dom = -1;
 
-//TODO : event declaration
 E_API int E_INPUT_EVENT_INPUT_DEVICE_ADD = -1;
 E_API int E_INPUT_EVENT_INPUT_DEVICE_DEL = -1;
 E_API int E_INPUT_EVENT_SEAT_ADD = -1;
@@ -14,31 +12,6 @@ E_API int E_EVENT_INPUT_ENABLED = -1;
 E_API int E_EVENT_INPUT_DISABLED = -1;
 
 E_API E_Input *e_input = NULL;
-
-static Eina_Bool
-_e_input_cb_key_down(void *data, int type EINA_UNUSED, void *event)
-{
-//   Ecore_Event_Key *ev;
-//   int code = 0;
-
-//   ev = event;
-//   code = (ev->keycode - 8);
-
-   //TODO : do some global actions for key combinations
-
-   return ECORE_CALLBACK_RENEW;
-}
-#if 0
-static void
-_e_input_event_generic_free(void *data EINA_UNUSED, void *ev)
-{
-   struct _E_Event_Input_Generic *e;
-
-   e = ev;
-   e_object_unref(E_OBJECT(e->input));
-   free(e);
-}
-#endif
 
 EINTERN int
 e_input_init(Ecore_Evas *ee)
@@ -67,7 +40,6 @@ e_input_init(Ecore_Evas *ee)
    E_EVENT_INPUT_DISABLED = ecore_event_type_new();
 
    ecore_event_add(E_EVENT_INPUT_ENABLED, NULL, NULL, NULL);
-   ecore_event_handler_add(ECORE_EVENT_KEY_DOWN, _e_input_cb_key_down, NULL);
 
    ecore_evas_input_event_register_with_multi(ee);
    ecore_evas_input_event_register_with_multi2(ee);
@@ -139,21 +111,6 @@ ecore_err:
 eina_err:
    return --_e_input_init_count;
 }
-
-#if 0
-E_API E_Input *
-e_input_new(void)
-{
-   E_Input *einput;
-
-   //einput = E_OBJECT_ALLOC(E_Input, E_INPUT_TYPE, _e_input_free);
-   einput = calloc(1, sizeof(E_Input));
-
-   if (!einput) return NULL;
-
-   return einput;
-}
-#endif
 
 EINTERN int
 e_input_shutdown(void)

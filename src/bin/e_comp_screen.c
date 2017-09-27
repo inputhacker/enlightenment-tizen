@@ -237,7 +237,7 @@ _e_comp_screen_cb_input_device_add(void *data, int type, void *event)
 
    if (!(e = event)) goto end;
 
-   if (e->seat_caps & E_INPUT_SEAT_POINTER)
+   if (e->caps & E_INPUT_SEAT_POINTER)
      {
         if (comp->wl_comp_data->ptr.num_devices == 0)
           {
@@ -246,12 +246,12 @@ _e_comp_screen_cb_input_device_add(void *data, int type, void *event)
           }
         comp->wl_comp_data->ptr.num_devices++;
      }
-   if (e->seat_caps & E_INPUT_SEAT_KEYBOARD)
+   if (e->caps & E_INPUT_SEAT_KEYBOARD)
      {
         comp->wl_comp_data->kbd.num_devices++;
         e_comp_wl_input_keyboard_enabled_set(EINA_TRUE);
      }
-   if (e->seat_caps & E_INPUT_SEAT_TOUCH)
+   if (e->caps & E_INPUT_SEAT_TOUCH)
      {
         e_comp_wl_input_touch_enabled_set(EINA_TRUE);
         comp->wl_comp_data->touch.num_devices++;
@@ -269,7 +269,7 @@ _e_comp_screen_cb_input_device_del(void *data, int type, void *event)
 
    if (!(e = event)) goto end;
 
-   if (e->seat_caps & E_INPUT_SEAT_POINTER)
+   if (e->caps & E_INPUT_SEAT_POINTER)
      {
         comp->wl_comp_data->ptr.num_devices--;
         if (comp->wl_comp_data->ptr.num_devices == 0)
@@ -279,7 +279,7 @@ _e_comp_screen_cb_input_device_del(void *data, int type, void *event)
              e_pointer_hide(e_comp->pointer);
           }
      }
-   if (e->seat_caps & E_INPUT_SEAT_KEYBOARD)
+   if (e->caps & E_INPUT_SEAT_KEYBOARD)
      {
         comp->wl_comp_data->kbd.num_devices--;
         if (comp->wl_comp_data->kbd.num_devices == 0)
@@ -287,7 +287,7 @@ _e_comp_screen_cb_input_device_del(void *data, int type, void *event)
              e_comp_wl_input_keyboard_enabled_set(EINA_FALSE);
           }
      }
-   if (e->seat_caps & E_INPUT_SEAT_TOUCH)
+   if (e->caps & E_INPUT_SEAT_TOUCH)
      {
         comp->wl_comp_data->touch.num_devices--;
         if (comp->wl_comp_data->touch.num_devices == 0)

@@ -76,5 +76,3 @@
 #include "e_gesture.h"
 #include "e_input.h"
 #include "e_input_device.h"
-#include "e_input_evdev.h"
-#include "e_input_libinput.h"

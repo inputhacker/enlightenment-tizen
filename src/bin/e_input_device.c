@@ -163,9 +163,6 @@ e_input_device_close(E_Input_Device *dev)
    /* check for valid device */
    EINA_SAFETY_ON_NULL_RETURN_VAL(dev, EINA_FALSE);
 
-   ///* delete udev watch */
-   //if (dev->watch) eeze_udev_watch_del(dev->watch);
-
    /* close xkb context */
    if (dev->xkb_ctx) xkb_context_unref(dev->xkb_ctx);
 
@@ -177,20 +174,13 @@ e_input_device_close(E_Input_Device *dev)
 E_API void
 e_input_device_window_set(E_Input_Device *dev, unsigned int window)
 {
-//   Eina_List *l, *ll;
-//   E_Input_Seat *seat = NULL;
-
    /* check for valid device */
    EINA_SAFETY_ON_TRUE_RETURN(!dev);
 
+   /* TODO : Must update window of ecore/evas device when the given window */
+   /*        is not equal to the existing window. */
+
    dev->window = window;
-#if 0
-   EINA_LIST_FOREACH(dev->seats, l , seat)
-     {
-        EINA_LIST_FOREACH(seat->devices, ll, edev)
-          ;//_e_input_device_add(window, edev);
-     }
-#endif
 }
 
 E_API void
@@ -461,7 +451,7 @@ e_input_device_touch_rotation_set(E_Input_Device *dev, unsigned int rotation)
      {
         EINA_LIST_FOREACH(e_input_seat_evdev_list_get(seat), l2, edev)
           {
-             if (edev->seat_caps & E_INPUT_SEAT_TOUCH)
+             if (edev->caps & E_INPUT_SEAT_TOUCH)
                {
                   _e_input_device_touch_matrix_identify(mat_translate);
                   _e_input_device_touch_matrix_identify(mat_rotation);
@@ -522,7 +512,7 @@ e_input_device_touch_transformation_set(E_Input_Device *dev, int offset_x, int o
      {
         EINA_LIST_FOREACH(e_input_seat_evdev_list_get(seat), l2, edev)
           {
-             if (edev->seat_caps & E_INPUT_SEAT_TOUCH)
+             if (edev->caps & E_INPUT_SEAT_TOUCH)
                {
                   _e_input_device_touch_matrix_identify(mat_translate);
                   _e_input_device_touch_matrix_identify(mat_rotation);

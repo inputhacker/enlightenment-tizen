@@ -1,7 +1,5 @@
 #ifdef E_TYPEDEFS
 
-//TODO
-
 #else
 
 #ifndef E_INPUT_DEVICE_H

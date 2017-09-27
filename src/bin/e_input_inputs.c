@@ -1,4 +1,4 @@
-
+#include "e.h"
 #include "e_input_private.h"
 
 static Eina_Hash *_fd_hash = NULL;
@@ -247,19 +247,19 @@ _e_input_device_add(unsigned int window, E_Input_Evdev *edev)
    Eina_Bool ret = EINA_FALSE;
    Ecore_Device_Class clas;
 
-   if (edev->seat_caps & E_INPUT_SEAT_POINTER)
+   if (edev->caps & E_INPUT_SEAT_POINTER)
      {
         clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_POINTER);
         ret = _e_input_device_add_ecore_device(edev, clas);
         if (ret) _e_input_device_info_send(window, edev, clas, ECORE_DEVICE_SUBCLASS_NONE, 1);
      }
-   if (edev->seat_caps & E_INPUT_SEAT_KEYBOARD)
+   if (edev->caps & E_INPUT_SEAT_KEYBOARD)
      {
         clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_KEYBOARD);
         ret = _e_input_device_add_ecore_device(edev, clas);
         if (ret) _e_input_device_info_send(window, edev, clas, ECORE_DEVICE_SUBCLASS_NONE, 1);
      }
-   if (edev->seat_caps & E_INPUT_SEAT_TOUCH)
+   if (edev->caps & E_INPUT_SEAT_TOUCH)
      {
         clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_TOUCH);
         ret = _e_input_device_add_ecore_device(edev, clas);
@@ -273,19 +273,19 @@ _e_input_device_remove(unsigned int window, E_Input_Evdev *edev)
    Eina_Bool ret = EINA_FALSE;
    Ecore_Device_Class clas;
 
-   if (edev->seat_caps & E_INPUT_SEAT_POINTER)
+   if (edev->caps & E_INPUT_SEAT_POINTER)
      {
         clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_POINTER);
         ret = _e_input_device_del_ecore_device(edev, clas);
         if (ret) _e_input_device_info_send(window, edev, clas, ECORE_DEVICE_SUBCLASS_NONE, 0);
      }
-   if (edev->seat_caps & E_INPUT_SEAT_KEYBOARD)
+   if (edev->caps & E_INPUT_SEAT_KEYBOARD)
      {
         clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_KEYBOARD);
         ret = _e_input_device_del_ecore_device(edev, clas);
         if (ret) _e_input_device_info_send(window, edev, clas, ECORE_DEVICE_SUBCLASS_NONE, 0);
      }
-   if (edev->seat_caps & E_INPUT_SEAT_TOUCH)
+   if (edev->caps & E_INPUT_SEAT_TOUCH)
      {
         clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_TOUCH);
         ret = _e_input_device_del_ecore_device(edev, clas);
@@ -316,7 +316,6 @@ _device_added(E_Input_Backend *input, struct libinput_device *device)
    if (!(edev = _e_input_evdev_device_create(seat, device)))
      {
         ERR("Failed to create new evdev device");
-        TRACE_INPUT_END();
         return;
      }
 
@@ -328,24 +327,21 @@ _device_added(E_Input_Backend *input, struct libinput_device *device)
    ev = calloc(1, sizeof(E_Input_Event_Input_Device_Add));
    if (!ev)
      {
-        TRACE_INPUT_END();
         return;
      }
 
    ev->name = eina_stringshare_add(libinput_device_get_name(device));
    ev->sysname = eina_stringshare_add(edev->path);
    ev->seatname = eina_stringshare_add(edev->seat->name);
-   ev->seat_caps = edev->seat_caps;
+   ev->caps = edev->caps;
 
    ecore_event_add(E_INPUT_EVENT_INPUT_DEVICE_ADD,
                    ev,
                    _e_input_event_input_device_add_free,
                    NULL);
 
-   if (input->dev->window != -1) // window id is valid
+   if (input->dev->window != -1)
      _e_input_device_add(input->dev->window, edev);
-
-   TRACE_INPUT_END();
 }
 
 static void
@@ -354,33 +350,29 @@ _device_removed(E_Input_Backend *input, struct libinput_device *device)
    E_Input_Evdev *edev;
    E_Input_Event_Input_Device_Del *ev;
 
-   TRACE_INPUT_BEGIN(_device_removed);
-
    /* try to get the evdev structure */
    if (!(edev = libinput_device_get_user_data(device)))
      {
-        TRACE_INPUT_END();
         return;
      }
 
    ev = calloc(1, sizeof(E_Input_Event_Input_Device_Del));
    if (!ev)
      {
-        TRACE_INPUT_END();
         return;
      }
 
    ev->name = eina_stringshare_add(libinput_device_get_name(device));
    ev->sysname = eina_stringshare_add(edev->path);
    ev->seatname = eina_stringshare_add(edev->seat->name);
-   ev->seat_caps = edev->seat_caps;
+   ev->caps = edev->caps;
 
    ecore_event_add(E_INPUT_EVENT_INPUT_DEVICE_DEL,
                    ev,
                    _e_input_event_input_device_del_free,
                    NULL);
 
-   if (input->dev->window != -1) // window id is valid
+   if (input->dev->window != -1)
      _e_input_device_remove(input->dev->window, edev);
 
    /* remove this evdev from the seat's list of devices */
@@ -395,8 +387,6 @@ _device_removed(E_Input_Backend *input, struct libinput_device *device)
 
    /* destroy this evdev */
    _e_input_evdev_device_destroy(edev);
-
-   TRACE_INPUT_END();
 }
 
 static int
@@ -654,9 +644,7 @@ e_input_inputs_destroy(E_Input_Device *dev)
      {
         EINA_LIST_FREE(seat->devices, edev)
           {
-             //e_input_manager_device_close(edev->path, edev->fd);
-             if (edev->fd >= 0)
-			   close(edev->fd);
+             if (edev->fd >= 0) close(edev->fd);
              _e_input_evdev_device_destroy(edev);
           }
 

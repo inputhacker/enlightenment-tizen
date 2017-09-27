@@ -23,8 +23,7 @@ _device_calibration_set(E_Input_Evdev *edev)
    edev->mouse.maxw = w;
    edev->mouse.maxh = h;
 
-   if (libinput_device_has_capability(edev->device,
-                                      LIBINPUT_DEVICE_CAP_POINTER))
+   if (libinput_device_has_capability(edev->device, LIBINPUT_DEVICE_CAP_POINTER))
      {
         edev->seat->ptr.ix = edev->seat->ptr.dx = w / 2;
         edev->seat->ptr.iy = edev->seat->ptr.dy = h / 2;
@@ -214,7 +213,7 @@ _device_modifiers_update(E_Input_Evdev *edev)
 {
    edev->xkb.modifiers = 0;
 
-   if (edev->seat_caps & E_INPUT_SEAT_KEYBOARD)
+   if (edev->caps & E_INPUT_SEAT_KEYBOARD)
      _device_modifiers_update_device(edev, edev);
    else
      {
@@ -223,7 +222,7 @@ _device_modifiers_update(E_Input_Evdev *edev)
 
         EINA_LIST_FOREACH(edev->seat->devices, l, ed)
           {
-             if (!(ed->seat_caps & E_INPUT_SEAT_KEYBOARD)) continue;
+             if (!(ed->caps & E_INPUT_SEAT_KEYBOARD)) continue;
              _device_modifiers_update_device(edev, ed);
           }
      }
@@ -284,17 +283,13 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
    Ecore_Event_Key *e;
    char *tmp = NULL, *compose = NULL;
 
-   TRACE_INPUT_BEGIN(_device_handle_key);
-
    if (!(edev = libinput_device_get_user_data(device)))
      {
-        TRACE_INPUT_END();
         return;
      }
 
    if (!(input = edev->seat->input))
      {
-        TRACE_INPUT_END();
         return;
      }
 
@@ -308,7 +303,6 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
    if (((state == LIBINPUT_KEY_STATE_PRESSED) && (key_count != 1)) ||
        ((state == LIBINPUT_KEY_STATE_RELEASED) && (key_count != 0)))
      {
-        TRACE_INPUT_END();
         return;
      }
 
@@ -332,7 +326,7 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
    /* if shift is active, we need to transform the key to lower */
    if (xkb_state_mod_index_is_active(edev->xkb.state,
                                      xkb_map_mod_get_index(edev->xkb.keymap,
-                                                           XKB_MOD_NAME_SHIFT),
+                                     XKB_MOD_NAME_SHIFT),
                                      XKB_STATE_MODS_EFFECTIVE))
      {
         if (keyname[0] != '\0')
@@ -359,7 +353,6 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
               ((compose[0] != '\0') ? strlen(compose) : 0) + 3);
    if (!e)
      {
-        TRACE_INPUT_END();
         return;
      }
 
@@ -391,7 +384,6 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
      ecore_event_add(ECORE_EVENT_KEY_UP, e, NULL, NULL);
 
    if (tmp) free(tmp);
-   TRACE_INPUT_END();
 }
 
 static void
@@ -458,11 +450,8 @@ _device_handle_pointer_motion(struct libinput_device *device, struct libinput_ev
    E_Input_Evdev *edev;
    double dx, dy, temp;
 
-   TRACE_INPUT_BEGIN(_device_handle_pointer_motion);
-
    if (!(edev = libinput_device_get_user_data(device)))
      {
-        TRACE_INPUT_END();
         return;
      }
 
@@ -489,7 +478,6 @@ _device_handle_pointer_motion(struct libinput_device *device, struct libinput_ev
    if (floor(edev->seat->ptr.dx) == edev->seat->ptr.ix &&
        floor(edev->seat->ptr.dy) == edev->seat->ptr.iy)
      {
-        TRACE_INPUT_END();
         return;
      }
 
@@ -497,8 +485,6 @@ _device_handle_pointer_motion(struct libinput_device *device, struct libinput_ev
    edev->seat->ptr.iy = edev->seat->ptr.dy;
 
   _device_pointer_motion(edev, event);
-
-  TRACE_INPUT_END();
 }
 
 static void
@@ -507,11 +493,8 @@ _device_handle_pointer_motion_absolute(struct libinput_device *device, struct li
    E_Input_Evdev *edev;
    int w = 0, h = 0;
 
-   TRACE_INPUT_BEGIN(_device_handle_pointer_motion_absolute);
-
    if (!(edev = libinput_device_get_user_data(device)))
      {
-        TRACE_INPUT_END();
         return;
      }
 
@@ -525,15 +508,12 @@ _device_handle_pointer_motion_absolute(struct libinput_device *device, struct li
    if (floor(edev->seat->ptr.dx) == edev->seat->ptr.ix &&
        floor(edev->seat->ptr.dy) == edev->seat->ptr.iy)
      {
-        TRACE_INPUT_END();
         return;
      }
 
    edev->seat->ptr.ix = edev->seat->ptr.dx;
    edev->seat->ptr.iy = edev->seat->ptr.dy;
    _device_pointer_motion(edev, event);
-
-   TRACE_INPUT_END();
 }
 
 static void
@@ -545,22 +525,17 @@ _device_handle_button(struct libinput_device *device, struct libinput_event_poin
    enum libinput_button_state state;
    uint32_t button, timestamp;
 
-   TRACE_INPUT_BEGIN(_device_handle_button);
-
    if (!(edev = libinput_device_get_user_data(device)))
      {
-        TRACE_INPUT_END();
         return;
      }
    if (!(input = edev->seat->input))
      {
-        TRACE_INPUT_END();
         return;
      }
 
    if (!(ev = calloc(1, sizeof(Ecore_Event_Mouse_Button))))
      {
-        TRACE_INPUT_END();
         return;
      }
 
@@ -637,8 +612,6 @@ _device_handle_button(struct libinput_device *device, struct libinput_event_poin
      ecore_event_add(ECORE_EVENT_MOUSE_BUTTON_DOWN, ev, NULL, NULL);
    else
      ecore_event_add(ECORE_EVENT_MOUSE_BUTTON_UP, ev, NULL, NULL);
-
-   TRACE_INPUT_END();
 }
 
 static void
@@ -650,22 +623,17 @@ _device_handle_axis(struct libinput_device *device, struct libinput_event_pointe
    uint32_t timestamp;
    enum libinput_pointer_axis axis;
 
-   TRACE_INPUT_BEGIN(_device_handle_axis);
-
    if (!(edev = libinput_device_get_user_data(device)))
      {
-        TRACE_INPUT_END();
         return;
      }
    if (!(input = edev->seat->input))
      {
-        TRACE_INPUT_END();
         return;
      }
 
    if (!(ev = calloc(1, sizeof(Ecore_Event_Mouse_Wheel))))
      {
-        TRACE_INPUT_END();
         return;
      }
 
@@ -698,7 +666,6 @@ _device_handle_axis(struct libinput_device *device, struct libinput_event_pointe
      }
 
    ecore_event_add(ECORE_EVENT_MOUSE_WHEEL, ev, NULL, NULL);
-   TRACE_INPUT_END();
 }
 
 static void
@@ -850,11 +817,8 @@ _device_handle_touch_down(struct libinput_device *device, struct libinput_event_
    E_Input_Evdev *edev;
    int w = 0, h = 0;
 
-   TRACE_INPUT_BEGIN(_device_handle_touch_down);
-
    if (!(edev = libinput_device_get_user_data(device)))
      {
-        TRACE_INPUT_END();
         return;
      }
 
@@ -869,8 +833,6 @@ _device_handle_touch_down(struct libinput_device *device, struct libinput_event_
 
    _device_handle_touch_motion_send(edev, event);
    _device_handle_touch_event_send(edev, event, ECORE_EVENT_MOUSE_BUTTON_DOWN);
-
-   TRACE_INPUT_END();
 }
 
 static void
@@ -879,11 +841,8 @@ _device_handle_touch_motion(struct libinput_device *device, struct libinput_even
    E_Input_Evdev *edev;
    int w = 0, h = 0;
 
-   TRACE_INPUT_BEGIN(_device_handle_touch_motion);
-
    if (!(edev = libinput_device_get_user_data(device)))
      {
-        TRACE_INPUT_END();
         return;
      }
 
@@ -897,7 +856,6 @@ _device_handle_touch_motion(struct libinput_device *device, struct libinput_even
    if (floor(edev->seat->ptr.dx) == edev->seat->ptr.ix &&
        floor(edev->seat->ptr.dy) == edev->seat->ptr.iy)
      {
-        TRACE_INPUT_END();
         return;
      }
 
@@ -907,7 +865,6 @@ _device_handle_touch_motion(struct libinput_device *device, struct libinput_even
    edev->mt_slot = libinput_event_touch_get_slot(event);
 
    _device_handle_touch_motion_send(edev, event);
-   TRACE_INPUT_END();
 }
 
 static void
@@ -915,18 +872,13 @@ _device_handle_touch_up(struct libinput_device *device, struct libinput_event_to
 {
    E_Input_Evdev *edev;
 
-   TRACE_INPUT_BEGIN(_device_handle_touch_up);
-
    if (!(edev = libinput_device_get_user_data(device)))
      {
-        TRACE_INPUT_END();
         return;
      }
 
    edev->mt_slot = libinput_event_touch_get_slot(event);
-
    _device_handle_touch_event_send(edev, event, ECORE_EVENT_MOUSE_BUTTON_UP);
-   TRACE_INPUT_END();
 }
 
 static void
@@ -951,8 +903,6 @@ _device_handle_touch_aux_data(struct libinput_device *device, struct libinput_ev
    E_Input_Backend *input;
    Ecore_Event_Axis_Update *ev;
    Ecore_Axis *axis;
-
-   TRACE_INPUT_BEGIN(_device_handle_touch_aux_data);
 
    if (libinput_event_touch_aux_data_get_type(event) != LIBINPUT_TOUCH_AUX_DATA_TYPE_PALM &&
        libinput_event_touch_aux_data_get_value(event) > 0)
@@ -979,7 +929,7 @@ _device_handle_touch_aux_data(struct libinput_device *device, struct libinput_ev
    ecore_event_add(ECORE_EVENT_AXIS_UPDATE, ev, _e_input_aux_data_event_free, NULL);
 
 end:
-   TRACE_INPUT_END();
+   ;
 }
 
 E_Input_Evdev *
@@ -1024,13 +974,13 @@ _e_input_evdev_device_create(E_Input_Seat *seat, struct libinput_device *device)
 
    if (libinput_device_has_capability(device, LIBINPUT_DEVICE_CAP_KEYBOARD))
      {
-        edev->seat_caps |= E_INPUT_SEAT_KEYBOARD;
+        edev->caps |= E_INPUT_SEAT_KEYBOARD;
         _device_keyboard_setup(edev);
      }
 
    if (libinput_device_has_capability(device, LIBINPUT_DEVICE_CAP_POINTER))
      {
-        edev->seat_caps |= E_INPUT_SEAT_POINTER;
+        edev->caps |= E_INPUT_SEAT_POINTER;
 
         /* TODO: make this configurable */
         edev->mouse.threshold = 250;
@@ -1050,7 +1000,7 @@ _e_input_evdev_device_create(E_Input_Seat *seat, struct libinput_device *device)
    if (libinput_device_has_capability(device, LIBINPUT_DEVICE_CAP_TOUCH))
      {
         int palm_code;
-        edev->seat_caps |= E_INPUT_SEAT_TOUCH;
+        edev->caps |= E_INPUT_SEAT_TOUCH;
         palm_code = libinput_device_touch_aux_data_get_code(LIBINPUT_TOUCH_AUX_DATA_TYPE_PALM);
         if (libinput_device_touch_has_aux_data(device, palm_code))
           {
@@ -1072,7 +1022,7 @@ _e_input_evdev_device_destroy(E_Input_Evdev *edev)
 {
    EINA_SAFETY_ON_NULL_RETURN(edev);
 
-   if (edev->seat_caps & E_INPUT_SEAT_KEYBOARD)
+   if (edev->caps & E_INPUT_SEAT_KEYBOARD)
      {
         if (edev->xkb.state) xkb_state_unref(edev->xkb.state);
         if (edev->xkb.keymap) xkb_map_unref(edev->xkb.keymap);

@@ -1,6 +1,5 @@
 #ifdef E_TYPEDEFS
 
-//TODO
 #else
 
 #ifndef E_INPUT_PRIVIATES_H
@@ -14,15 +13,16 @@
 struct xkb_keymap *cached_keymap;
 struct xkb_context *cached_context;
 
-# define E_INPUT_ENV_LIBINPUT_LOG_DISABLE "E_INPUT_LIBINPUT_LOG_DISABLE"
-# define E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG "E_INPUT_LIBINPUT_LOG_EINA_LOG"
+#define E_INPUT_ENV_LIBINPUT_LOG_DISABLE "E_INPUT_LIBINPUT_LOG_DISABLE"
+#define E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG "E_INPUT_LIBINPUT_LOG_EINA_LOG"
 
 struct _E_Input_Seat
 {
-   //struct libinput_seat *seat;
    const char *name;
    E_Input_Backend *input;
    Eina_List *devices;
+   struct libinput_seat *seat;
+
    struct
      {
         int ix, iy;
@@ -86,7 +86,7 @@ struct _E_Input_Evdev
      Eina_Hash *key_remap_hash;
      Eina_Bool key_remap_enabled;
 
-   E_Input_Seat_Capabilities seat_caps;
+   E_Input_Seat_Capabilities caps;
 
    struct
      {
