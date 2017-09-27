@@ -27,6 +27,7 @@ BuildRequires:  pkgconfig(eet)
 BuildRequires:  pkgconfig(eina)
 BuildRequires:  pkgconfig(eio)
 BuildRequires:  pkgconfig(evas)
+BuildRequires:  pkgconfig(eeze)
 BuildRequires:  pkgconfig(libtbm)
 BuildRequires:  pkgconfig(ttrace)
 BuildRequires:  pkgconfig(wayland-server)
@@ -50,6 +51,7 @@ BuildRequires:  pkgconfig(cynara-creds-socket)
 BuildRequires:  pkgconfig(libsmack)
 BuildRequires:  pkgconfig(pixman-1)
 BuildRequires:  systemd-devel
+BuildRequires:  pkgconfig(libinput)
 Requires:       libwayland-extension-server
 %if "%{LIBGOMP}" == "use"
 Requires:       libgomp
