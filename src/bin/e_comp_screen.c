@@ -1,5 +1,4 @@
 #include "e.h"
-#include <Ecore_Drm.h>
 #include "Eeze.h"
 
 #define PATH "/org/enlightenment/wm"
@@ -9,7 +8,6 @@ static Eldbus_Connection *e_comp_screen_conn;
 static Eldbus_Service_Interface *e_comp_screen_iface;
 
 static Eina_List *event_handlers = NULL;
-static Eina_Bool session_state = EINA_FALSE;
 
 static Eina_Bool dont_set_e_input_keymap = EINA_FALSE;
 static Eina_Bool dont_use_xkb_cache = EINA_FALSE;
@@ -204,104 +202,6 @@ _layer_cap_to_str(tdm_layer_capability caps, tdm_layer_capability cap)
 }
 
 static Eina_Bool
-_e_comp_screen_cb_activate(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
-{
-   Ecore_Drm_Event_Activate *e;
-
-   if (!(e = event)) goto end;
-
-   if (e->active)
-     {
-        E_Client *ec;
-
-        if (session_state) goto end;
-        session_state = EINA_TRUE;
-
-        ecore_evas_show(e_comp->ee);
-        E_CLIENT_FOREACH(ec)
-          {
-             if (ec->visible && (!ec->input_only))
-               e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
-          }
-        e_comp_render_queue();
-        ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
-     }
-   else
-     {
-        session_state = EINA_FALSE;
-        ecore_evas_hide(e_comp->ee);
-        edje_file_cache_flush();
-        edje_collection_cache_flush();
-        evas_image_cache_flush(e_comp->evas);
-        evas_font_cache_flush(e_comp->evas);
-        evas_render_dump(e_comp->evas);
-
-        e_comp_render_queue();
-        ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
-     }
-
-end:
-   return ECORE_CALLBACK_PASS_ON;
-}
-
-#if 0
-static Eina_Bool
-_e_comp_screen_cb_output_drm(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
-{
-   const Eina_List *l;
-   E_Output *output;
-   Ecore_Drm_Event_Output *e;
-   E_Comp_Screen *e_comp_screen = NULL;
-
-   if (!(e = event)) goto end;
-   if (!e_comp) goto end;
-   if (!e_comp->e_comp_screen) goto end;
-
-   e_comp_screen = e_comp->e_comp_screen;
-
-   DBG("WL_DRM OUTPUT CHANGE");
-
-   EINA_LIST_FOREACH(e_comp_screen->outputs, l, output)
-     {
-        if ((!strcmp(output->info.name, e->name)) &&
-            (!strcmp(output->info.screen, e->model)))
-          {
-             if (e->plug)
-               {
-                  if (!e_comp_wl_output_init(output->id, e->make, e->model,
-                                             e->x, e->y, e->w, e->h,
-                                             e->phys_width, e->phys_height,
-                                             e->refresh, e->subpixel_order,
-                                             e->transform))
-                    {
-                       ERR("Could not setup new output: %s", output->id);
-                    }
-               }
-             else
-               e_comp_wl_output_remove(output->id);
-
-             break;
-          }
-     }
-
-   /* previous calculation of e_scale gave unsuitable value because
-    * there were no sufficient information to calculate dpi.
-    * so it's considerable to re-calculate e_scale with output geometry.
-    */
-   double target_inch;
-   int dpi;
-
-   target_inch = (round((sqrt(e->phys_width * e->phys_width + e->phys_height * e->phys_height) / 25.4) * 10) / 10);
-   dpi = (round((sqrt(e->w * e->w + e->h * e->h) / target_inch) * 10) / 10);
-
-   e_scale_manual_update(dpi);
-
-end:
-   return ECORE_CALLBACK_PASS_ON;
-}
-#endif
-
-static Eina_Bool
 _e_comp_screen_commit_idle_cb(void *data EINA_UNUSED)
 {
    Eina_List *l, *ll;
@@ -407,6 +307,21 @@ _e_comp_screen_cb_ee_resize(Ecore_Evas *ee EINA_UNUSED)
    e_comp_canvas_update();
 }
 
+static Eina_Bool
+_e_comp_screen_cb_event(void *data, Ecore_Fd_Handler *hdlr EINA_UNUSED)
+{
+   E_Comp_Screen *e_comp_screen;
+   tdm_error ret;
+
+   if (!(e_comp_screen = data)) return ECORE_CALLBACK_RENEW;
+
+   ret = tdm_display_handle_events(e_comp_screen->tdisplay);
+   if (ret != TDM_ERROR_NONE)
+     ERR("tdm_display_handle_events failed");
+
+   return ECORE_CALLBACK_RENEW;
+}
+
 static E_Comp_Screen *
 _e_comp_screen_new(E_Comp *comp)
 {
@@ -415,6 +330,7 @@ _e_comp_screen_new(E_Comp *comp)
    tdm_display_capability capabilities;
    const tbm_format *pp_formats;
    int count, i;
+   int fd;
 
    e_comp_screen = E_NEW(E_Comp_Screen, 1);
    if (!e_comp_screen) return NULL;
@@ -428,24 +344,33 @@ _e_comp_screen_new(E_Comp *comp)
         return NULL;
      }
 
+   e_comp_screen->fd = -1;
+   tdm_display_get_fd(e_comp_screen->tdisplay, &fd);
+   if (fd < 0)
+     {
+        ERR("fail to get tdm_display fd\n");
+        goto fail;
+     }
+
+   e_comp_screen->fd = dup(fd);
+
+   e_comp_screen->hdlr =
+     ecore_main_fd_handler_add(e_comp_screen->fd, ECORE_FD_READ,
+                               _e_comp_screen_cb_event, e_comp_screen, NULL, NULL);
+
    /* tdm display init */
    e_comp_screen->bufmgr = tbm_bufmgr_init(-1);
    if (!e_comp_screen->bufmgr)
      {
         ERR("tbm_bufmgr_init failed\n");
-        tdm_display_deinit(e_comp_screen->tdisplay);
-        free(e_comp_screen);
-        return NULL;
+        goto fail;
      }
 
    error = tdm_display_get_capabilities(e_comp_screen->tdisplay, &capabilities);
    if (error != TDM_ERROR_NONE)
      {
         ERR("tdm get_capabilities failed");
-        tbm_bufmgr_deinit(e_comp_screen->bufmgr);
-        tdm_display_deinit(e_comp_screen->tdisplay);
-        free(e_comp_screen);
-        return NULL;
+        goto fail;
      }
 
    /* check the pp_support */
@@ -466,6 +391,16 @@ _e_comp_screen_new(E_Comp *comp)
      PRCTL("[Winsys] change permission and create sym link for %s", "tdm-socket");
 
    return e_comp_screen;
+
+fail:
+   if (e_comp_screen->bufmgr) tbm_bufmgr_deinit(e_comp_screen->bufmgr);
+   if (e_comp_screen->fd >= 0) close(e_comp_screen->fd);
+   if (e_comp_screen->hdlr) ecore_main_fd_handler_del(e_comp_screen->hdlr);
+   if (e_comp_screen->tdisplay) tdm_display_deinit(e_comp_screen->tdisplay);
+
+   free(e_comp_screen);
+
+   return NULL;
 }
 
 static void
@@ -485,6 +420,8 @@ _e_comp_screen_del(E_Comp_Screen *e_comp_screen)
           }
      }
    if (e_comp_screen->bufmgr) tbm_bufmgr_deinit(e_comp_screen->bufmgr);
+   if (e_comp_screen->fd >= 0) close(e_comp_screen->fd);
+   if (e_comp_screen->hdlr) ecore_main_fd_handler_del(e_comp_screen->hdlr);
    if (e_comp_screen->tdisplay) tdm_display_deinit(e_comp_screen->tdisplay);
 
    free(e_comp_screen);
@@ -680,6 +617,7 @@ _e_comp_screen_engine_deinit(void)
    if (!e_comp) return;
    if (!e_comp->e_comp_screen) return;
 
+   tbm_surface_queue_destroy(e_comp->e_comp_screen->tqueue);
    _e_comp_screen_deinit_outputs(e_comp->e_comp_screen);
    _e_comp_screen_del(e_comp->e_comp_screen);
    e_comp->e_comp_screen = NULL;
@@ -693,6 +631,7 @@ _e_comp_screen_engine_init(void)
    int screen_rotation;
    char buf[1024];
    E_Output *output = NULL;
+   tbm_surface_queue_h tqueue = NULL;
 
    INF("ecore evase engine init with TDM. HWC.");
 
@@ -757,11 +696,21 @@ _e_comp_screen_engine_init(void)
    INF("GL available:%d config engine:%d screen size:%dx%d",
        e_comp_gl_get(), e_comp_config_get()->engine, scr_w, scr_h);
 
+   tqueue = tbm_surface_queue_create(3, scr_w, scr_h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
+   if (!tqueue)
+     {
+        e_error_message_show(_("Fail to create tbm_surface_queue!\n"));
+       _e_comp_screen_engine_deinit();
+       return EINA_FALSE;
+     }
+
+   e_comp_screen->tqueue = tqueue;
+
    if ((e_comp_gl_get()) &&
        (e_comp_config_get()->engine == E_COMP_ENGINE_GL))
      {
         e_main_ts_begin("\tEE_GL_DRM New");
-        e_comp->ee = ecore_evas_gl_drm_new(NULL, 0, 0, 0, scr_w, scr_h);
+        e_comp->ee = ecore_evas_tbm_ext_new("gl_tbm", tqueue, NULL);
         snprintf(buf, sizeof(buf), "\tEE_GL_DRM New Done %p %dx%d", e_comp->ee, scr_w, scr_h);
         e_main_ts_end(buf);
 
@@ -804,7 +753,7 @@ _e_comp_screen_engine_init(void)
    if (!e_comp->ee)
      {
         e_main_ts_begin("\tEE_DRM New");
-        e_comp->ee = ecore_evas_drm_new(NULL, 0, 0, 0, scr_w, scr_h);
+        e_comp->ee = ecore_evas_tbm_ext_new("software_tbm", tqueue, NULL);
         snprintf(buf, sizeof(buf), "\tEE_DRM New Done %p %dx%d", e_comp->ee, scr_w, scr_h);
         e_main_ts_end(buf);
      }
@@ -835,9 +784,6 @@ _e_comp_screen_engine_init(void)
    ecore_event_add(E_EVENT_SCREEN_CHANGE, NULL, NULL, NULL);
 
    e_comp_screen_e_screens_setup(e_comp_screen, -1, -1);
-
-   /* TODO: need the output changed handler with TDM */
-   //E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_OUTPUT,        _e_comp_screen_cb_output_drm,       comp);
 
    /* update the screen, outputs and planes at the idle enterer of the ecore_loop */
    ecore_idle_enterer_add(_e_comp_screen_commit_idle_cb, e_comp);
@@ -970,9 +916,9 @@ out:
         else
           {
              if (e_comp_screen->rotation % 180)
-               ecore_evas_screen_geometry_get(e_comp->ee, NULL, NULL, &screen->h, &screen->w);
+               ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &screen->h, &screen->w);
              else
-               ecore_evas_screen_geometry_get(e_comp->ee, NULL, NULL, &screen->w, &screen->h);
+               ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &screen->w, &screen->h);
           }
         e_screens = eina_list_append(e_screens, screen);
      }
@@ -1033,7 +979,7 @@ e_comp_screen_init()
    e_main_ts_end("\tE_Comp_Wl Init Done");
 
    /* get the current screen geometry */
-   ecore_evas_screen_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
+   ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
 
    /* canvas */
    e_main_ts_begin("\tE_Comp_Canvas Init");
@@ -1102,7 +1048,6 @@ e_comp_screen_init()
 
    tzsr_client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _tz_screen_rotation_cb_client_del, NULL);
 
-   E_LIST_HANDLER_APPEND(event_handlers, ECORE_DRM_EVENT_ACTIVATE,         _e_comp_screen_cb_activate,         comp);
    E_LIST_HANDLER_APPEND(event_handlers, E_INPUT_EVENT_INPUT_DEVICE_ADD, _e_comp_screen_cb_input_device_add, comp);
    E_LIST_HANDLER_APPEND(event_handlers, E_INPUT_EVENT_INPUT_DEVICE_DEL, _e_comp_screen_cb_input_device_del, comp);
 
