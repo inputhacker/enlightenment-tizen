@@ -1,5 +1,4 @@
 #include "e.h"
-#include <Ecore_Drm.h>
 
 /* local variables */
 static Eina_List *_ptrs = NULL;
@@ -327,7 +326,7 @@ E_API void
 e_pointer_rotation_set(E_Pointer *ptr, int rotation)
 {
    const Eina_List *l;
-   Ecore_Drm_Device *dev;
+   E_Input_Device *dev;
 
    if (ptr->rotation == rotation) return;
 
@@ -336,8 +335,8 @@ e_pointer_rotation_set(E_Pointer *ptr, int rotation)
    _e_pointer_position_update(ptr);
    _e_pointer_rotation_apply(ptr);
 
-   EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
-     ecore_drm_device_pointer_rotation_set(dev, rotation);
+   EINA_LIST_FOREACH(e_input_devices_get(), l, dev)
+     e_input_device_pointer_rotation_set(dev, rotation);
 
    /* ptr->rotation shouldn't include the screen rotation value */
    if (e_comp->e_comp_screen->rotation > 0)
