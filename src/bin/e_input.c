@@ -55,27 +55,18 @@ e_input_init(Ecore_Evas *ee)
         goto log_err;
      }
 
-   _e_input_inputs_init();
-
-   dev = (E_Input_Device *)calloc(1, sizeof(E_Input_Device));
+   dev = e_input_device_open();
 
    if (!dev)
      {
-        EINA_LOG_ERR("Failed to alloc memory for E_Input_Device\n");
-        goto input_err;
-     }
-
-   dev->seat = eina_stringshare_add("seat0");
-   if (!e_input_device_open(dev))
-     {
         EINA_LOG_ERR("Failed to open device\n");
-        goto device_create_err;
+        goto log_err;
      }
 
    e_input->window = ecore_evas_window_get(ee);
    e_input_device_window_set(dev, e_input->window);
 
-   if (!e_input_inputs_create(dev))
+   if (!e_input_device_input_backend_create(dev, "libinput_udev"))
      {
         EINA_LOG_ERR("Failed to create device\n");
         goto device_create_err;
@@ -86,12 +77,7 @@ e_input_init(Ecore_Evas *ee)
    return _e_input_init_count;
 
 device_create_err:
-   eina_stringshare_del(dev->seat);
-   xkb_context_unref(dev->xkb_ctx);
-   free(dev);
-
-input_err:
-   _e_input_inputs_shutdown();
+   e_input_device_close(dev);
 
 log_err:
    ecore_event_evas_shutdown();
@@ -127,7 +113,6 @@ e_input_shutdown(void)
    E_EVENT_INPUT_DISABLED = -1;
 
    e_input_device_close(e_input->dev);
-   e_input_device_free(e_input->dev);
    free(e_input);
 
    ecore_event_evas_shutdown();

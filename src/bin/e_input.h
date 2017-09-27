@@ -60,6 +60,7 @@ struct _E_Input_Device
 
    Eina_List *seats;
    Eina_List *inputs;
+   Eina_Hash *fd_hash;
 
    struct xkb_context *xkb_ctx;
    int window;
@@ -67,37 +68,38 @@ struct _E_Input_Device
 };
 
 EINTERN int e_input_init(Ecore_Evas *ee);
-
 EINTERN int e_input_shutdown(void);
 
-E_API void e_input_inputs_disable(E_Input_Backend *input);
-E_API Eina_List *e_input_seat_evdev_list_get(E_Input_Seat *seat);
-E_API Eina_Bool e_input_inputs_enable(E_Input_Backend *input);
-E_API void e_input_inputs_destroy(E_Input_Device *dev);
-E_API Eina_Bool e_input_inputs_devices_create(E_Input_Device *dev);
+EINTERN E_Input_Device *e_input_device_open(void);
+EINTERN Eina_Bool e_input_device_close(E_Input_Device *dev);
+EINTERN void e_input_device_keyboard_cached_context_set(struct xkb_context *ctx);
+EINTERN void e_input_device_keyboard_cached_keymap_set(struct xkb_keymap *map);
+EINTERN Eina_Bool e_input_device_input_backend_create(E_Input_Device *dev, const char *backend);
+EINTERN Eina_Bool e_input_device_input_create_libinput_udev(E_Input_Device *dev);
+EINTERN Eina_Bool e_input_device_input_create_libinput_path(E_Input_Device *dev);
+EINTERN void e_input_device_window_set(E_Input_Device *dev, unsigned int window);
+EINTERN void e_input_device_pointer_xy_get(E_Input_Device *dev, int *x, int *y);
+EINTERN Eina_Bool e_input_device_pointer_left_handed_set(E_Input_Device *dev, Eina_Bool left_handed);
+EINTERN Eina_Bool e_input_device_pointer_rotation_set(E_Input_Device *dev, int rotation);
+EINTERN Eina_Bool e_input_device_touch_rotation_set(E_Input_Device *dev, unsigned int rotation);
+EINTERN void e_input_device_rotation_set(E_Input_Device *dev, unsigned int rotation);
+EINTERN Eina_Bool e_input_device_touch_transformation_set(E_Input_Device *dev, int offset_x, int offset_y, int w, int h);
 
-E_API void e_input_device_keyboard_cached_context_set(struct xkb_context *ctx);
-E_API void e_input_device_keyboard_cached_keymap_set(struct xkb_keymap *map);
-E_API void e_input_device_free(E_Input_Device *dev);
-E_API Eina_Bool e_input_device_open(E_Input_Device *dev);
-E_API Eina_Bool e_input_device_close(E_Input_Device *dev);
-E_API void e_input_device_window_set(E_Input_Device *dev, unsigned int window);
-E_API void e_input_device_pointer_xy_get(E_Input_Device *dev, int *x, int *y);
-E_API void e_input_device_pointer_warp(E_Input_Device *dev, int x, int y);
-E_API Eina_Bool e_input_device_pointer_left_handed_set(E_Input_Device *dev, Eina_Bool left_handed);
-E_API Eina_Bool e_input_device_pointer_rotation_set(E_Input_Device *dev, int rotation);
-E_API void e_input_device_rotation_set(E_Input_Device *dev, unsigned int rotation);
-E_API Eina_Bool e_input_device_touch_rotation_set(E_Input_Device *dev, unsigned int rotation);
-E_API Eina_Bool e_input_device_touch_transformation_set(E_Input_Device *dev, int offset_x, int offset_y, int w, int h);
+EINTERN Eina_Bool e_input_enable_input(E_Input_Backend *input);
+EINTERN void e_input_disable_input(E_Input_Backend *input);
+
+EINTERN void e_input_evdev_axis_size_set(E_Input_Evdev *edev, int w, int h);
+EINTERN const char *e_input_evdev_sysname_get(E_Input_Evdev *evdev);
+EINTERN Eina_Bool e_input_evdev_key_remap_enable(E_Input_Evdev *edev, Eina_Bool enable);
+EINTERN Eina_Bool e_input_evdev_key_remap_set(E_Input_Evdev *edev, int *from_keys, int *to_keys, int num);
+EINTERN Eina_Bool e_input_evdev_touch_calibration_set(E_Input_Evdev *edev, float matrix[6]);
+
 E_API const Eina_List *e_input_devices_get(void);
+E_API void e_input_device_pointer_warp(E_Input_Device *dev, int x, int y);
 
-E_API void e_input_evdev_axis_size_set(E_Input_Evdev *edev, int w, int h);
 E_API const char *e_input_evdev_name_get(E_Input_Evdev *evdev);
-E_API const char *e_input_evdev_sysname_get(E_Input_Evdev *evdev);
-E_API Eina_Bool e_input_evdev_key_remap_enable(E_Input_Evdev *edev, Eina_Bool enable);
-E_API Eina_Bool e_input_evdev_key_remap_set(E_Input_Evdev *edev, int *from_keys, int *to_keys, int num);
+E_API Eina_List *e_input_seat_evdev_list_get(E_Input_Seat *seat);
 E_API int e_input_evdev_wheel_click_angle_get(E_Input_Evdev *dev);
-E_API Eina_Bool e_input_evdev_touch_calibration_set(E_Input_Evdev *edev, float matrix[6]);
 E_API Ecore_Device *e_input_evdev_get_ecore_device(const char *path, Ecore_Device_Class clas);
 
 #endif

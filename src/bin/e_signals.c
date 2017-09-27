@@ -22,9 +22,7 @@ _e_crash(void)
         list = e_input_devices_get();
         EINA_LIST_FOREACH_SAFE(list, l, ll, dev)
           {
-             e_input_inputs_destroy(dev);
              e_input_device_close(dev);
-             e_input_device_free(dev);
           }
 
         return;

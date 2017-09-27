@@ -1097,7 +1097,7 @@ _e_input_evdev_event_process(struct libinput_event *event)
  * height must set for it. If its absolute set the ioctl correctly, if
  * not, unsupported device.
  */
-E_API void
+EINTERN void
 e_input_evdev_axis_size_set(E_Input_Evdev *edev, int w, int h)
 {
    const char *sysname;
@@ -1151,7 +1151,7 @@ e_input_evdev_name_get(E_Input_Evdev *evdev)
    return libinput_device_get_name(evdev->device);
 }
 
-E_API const char *
+EINTERN const char *
 e_input_evdev_sysname_get(E_Input_Evdev *evdev)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(evdev, NULL);
@@ -1160,7 +1160,7 @@ e_input_evdev_sysname_get(E_Input_Evdev *evdev)
    return libinput_device_get_sysname(evdev->device);
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_input_evdev_key_remap_enable(E_Input_Evdev *edev, Eina_Bool enable)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(edev, EINA_FALSE);
@@ -1177,7 +1177,7 @@ e_input_evdev_key_remap_enable(E_Input_Evdev *edev, Eina_Bool enable)
    return EINA_TRUE;
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_input_evdev_key_remap_set(E_Input_Evdev *edev, int *from_keys, int *to_keys, int num)
 {
    int i;
@@ -1222,7 +1222,7 @@ e_input_evdev_wheel_click_angle_get(E_Input_Evdev *dev)
    return libinput_device_config_scroll_get_wheel_click_angle(dev->device);
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_input_evdev_touch_calibration_set(E_Input_Evdev *edev, float matrix[6])
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(edev, EINA_FALSE);
