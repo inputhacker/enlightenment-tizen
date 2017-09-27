@@ -39,7 +39,13 @@ _cb_open_restricted(const char *path, int flags, void *data)
 
    /* try to open the device */
    fd = _device_open_no_pending(path, flags);
-   if (fd < 0) ERR("Could not open device");
+
+   if (fd < 0)
+     {
+        ERR("Could not open device");
+        return -1;
+     }
+
    if (_fd_hash)
      eina_hash_add(_fd_hash, path, (void *)(intptr_t)fd);
 
