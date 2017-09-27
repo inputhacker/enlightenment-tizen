@@ -4,7 +4,6 @@
  * to add backtrace support.
  */
 #include "e.h"
-#include <Ecore_Drm.h>
 
 #ifdef HAVE_EXECINFO_H
 # include <execinfo.h>
@@ -18,20 +17,14 @@ _e_crash(void)
    if (e_comp->comp_type == E_PIXMAP_TYPE_WL)
      {
         const Eina_List *list, *l, *ll;
-        Ecore_Drm_Device *dev;
+        E_Input_Device *dev;
 
-        if (!strstr(ecore_evas_engine_name_get(e_comp->ee), "drm")) return;
-        list = ecore_drm_devices_get();
+        list = e_input_devices_get();
         EINA_LIST_FOREACH_SAFE(list, l, ll, dev)
           {
-             ecore_drm_inputs_destroy(dev);
-             ecore_drm_sprites_destroy(dev);
-             ecore_drm_device_close(dev);
-             ecore_drm_launcher_disconnect(dev);
-             ecore_drm_device_free(dev);
+             e_input_device_close(dev);
           }
 
-        ecore_drm_shutdown();
         return;
      }
 }
