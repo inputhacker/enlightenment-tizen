@@ -120,8 +120,7 @@ src/bin/e_privilege.h \
 src/bin/e_security.h \
 src/bin/e_keyrouter.h \
 src/bin/e_gesture.h \
-src/bin/e_input.h \
-src/bin/e_input_device.h
+src/bin/e_input.h
 
 enlightenment_src = \
 src/bin/e_actions.c \
