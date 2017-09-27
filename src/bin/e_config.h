@@ -192,6 +192,21 @@ struct _E_Config
    Eina_Bool deiconify_approve; // 0:none, 1:wait render commit when deiconify
    Eina_Bool use_pp_zoom; // 0: pp zoom disable, 1: pp zoom enable
    Eina_Bool priority_control; // 0: no priority change, 1: priority raise on focus
+
+   // performs evas_norender in idle to avoid memory leaks for evas objects
+   //
+   // The memory leak in the evas could occur if E doesn't perform evas rendering.
+   // It is because cleanup for evas object is processed in the rendering stage of
+   // evas. Thus if E is always performing HWC for compositing the new evas object,
+   // then leak can occurs on the evas side even after deletion of that object.
+   //
+   // In order to resolve it, we have added comp_canvas_norender configuration value.
+   // If user enables this configuration, then E always performs evas_norender in idle
+   // to cleanup evas objects which had not been rendered through evas rendering.
+   struct
+   {
+      unsigned char use; // boolean value for enabling evas_norender in idle (default : disable : 0)
+   } comp_canvas_norender;
 };
 
 struct _E_Config_Desklock_Background
