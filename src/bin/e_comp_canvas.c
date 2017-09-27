@@ -38,22 +38,11 @@ static void
 _e_comp_canvas_render_post(void *data EINA_UNUSED, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    E_Client *ec;
-   //Evas_Event_Render_Post *ev = event_info;
-   //Eina_List *l;
-   //Eina_Rectangle *r;
-
-   //if (ev)
-     //{
-        //EINA_LIST_FOREACH(ev->updated_area, l, r)
-          //INF("POST RENDER: %d,%d %dx%d", r->x, r->y, r->w, r->h);
-     //}
    EINA_LIST_FREE(e_comp->post_updates, ec)
      {
-        //INF("POST %p", ec);
         ec->on_post_updates = EINA_FALSE;
         if (!e_object_is_del(E_OBJECT(ec)))
           e_pixmap_image_clear(ec->pixmap, 1);
-        UNREFD(ec, 111);
         e_object_unref(E_OBJECT(ec));
      }
 }
