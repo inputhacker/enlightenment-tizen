@@ -54,11 +54,6 @@ struct _E_Input
    E_Input_Device *dev;
 };
 
-struct _E_Event_Input_Generic
-{
-   E_Input *input;
-};
-
 struct _E_Input_Device
 {
    const char *seat;
