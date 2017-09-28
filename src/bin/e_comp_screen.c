@@ -1073,9 +1073,6 @@ e_comp_screen_shutdown()
    if (!e_comp) return;
    if (!e_comp->e_comp_screen) return;
 
-   /* shutdown ecore_drm */
-   /* ecore_drm_shutdown(); */
-
    if (e_comp_screen_iface)
      {
         eldbus_service_interface_unregister(e_comp_screen_iface);
