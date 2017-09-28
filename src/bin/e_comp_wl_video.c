@@ -391,7 +391,7 @@ _e_video_avaiable_video_layer_get(E_Video *video)
         result = e_window_set_skip_flag(window);
         if (result != EINA_TRUE)
           {
-             VER("hwc_opt: cannot set skip_flag for window(%p)", video->ec, window);
+             VER("hwc_opt: cannot set skip_flag for window(%p)", window);
              free(layer);
              return NULL;
           }
@@ -445,7 +445,6 @@ _e_video_get_prop_id(E_Video *video, const char *name)
 static void
 _e_video_get_available_formats(const tbm_format **formats, int *count)
 {
-   tdm_error ret;
    tdm_output *output;
    tdm_layer *layer;
 
@@ -551,7 +550,6 @@ static tdm_error
 _e_video_layer_set_buffer(E_Video_Layer * layer, tbm_surface_h buff)
 {
    tdm_error ret;
-   tdm_info_layer tinfo;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
    EINA_SAFETY_ON_NULL_RETURN_VAL(buff, TDM_ERROR_BAD_REQUEST);
@@ -578,7 +576,6 @@ static tdm_error
 _e_video_layer_unset_buffer(E_Video_Layer *layer)
 {
    tdm_error ret;
-   tdm_info_layer tinfo;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
 
@@ -605,7 +602,6 @@ static tdm_error
 _e_video_layer_is_usable(E_Video_Layer * layer, unsigned int *usable)
 {
    tdm_error ret;
-   tdm_info_layer tinfo;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
    EINA_SAFETY_ON_NULL_RETURN_VAL(usable, TDM_ERROR_BAD_REQUEST);
@@ -633,7 +629,6 @@ static tdm_error
 _e_video_layer_commit(E_Video_Layer *layer, tdm_layer_commit_handler func, void *user_data)
 {
    tdm_error ret;
-   tdm_info_layer tinfo;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
 
@@ -646,12 +641,20 @@ _e_video_layer_commit(E_Video_Layer *layer, tdm_layer_commit_handler func, void 
 
         if (window->skip_flag || window->type == TDM_COMPOSITION_CLIENT)
           {
+             /* send frame event enlightenment dosen't send frame evnet in nocomp */
+             if (window->ec)
+               e_pixmap_image_clear(window->ec->pixmap, 1);
+
+             if (!window->skip_flag)
+               {
+                   window->ec->comp_data->video_client = 0;
+                   window->is_video = EINA_FALSE;
+                   window->ec->animatable = 0;
+
+                   return TDM_ERROR_NONE;
+               }
              /* to call e_update_job() */
-             e_comp_object_damage(layer->e_client->frame,
-                                  layer->e_client->x,
-                                  layer->e_client->y,
-                                  layer->e_client->w,
-                                  layer->e_client->h);
+             e_comp_render_queue();
           }
 
         layer->commit_handler = func;
@@ -670,7 +673,6 @@ static tdm_error
 _e_video_layer_get_zpos(E_Video_Layer * layer, int *zpos)
 {
    tdm_error ret;
-   tdm_info_layer tinfo;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
 
@@ -684,8 +686,6 @@ _e_video_layer_get_zpos(E_Video_Layer * layer, int *zpos)
 static tbm_surface_h
 _e_video_layer_get_displaying_buffer(E_Video_Layer *layer, int *tdm_error)
 {
-   tdm_info_layer tinfo;
-
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
 
    if (tdm_error)
@@ -711,7 +711,6 @@ static tdm_error
 _e_video_layer_set_property(E_Video_Layer * layer, Tdm_Prop_Value *prop)
 {
    tdm_error ret;
-   tdm_info_layer tinfo;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
 
@@ -736,8 +735,6 @@ _e_video_layer_destroy(E_Video_Layer *layer)
 
         window->tsurface = NULL;
         window->update_exist = EINA_FALSE;
-
-        e_window_free(window);
 
         /* to re-evaluate the window policy */
         e_comp_render_queue();
@@ -2037,7 +2034,6 @@ _e_video_set(E_Video *video, E_Client *ec)
    int ominw = -1, ominh = -1, omaxw = -1, omaxh = -1;
    int i, count = 0;
    tdm_display_capability disp_capabilities;
-   tdm_layer_capability lyr_capabilities = 0;
    const tdm_prop *props;
    unsigned int pipe;
    tdm_error ret;
@@ -2134,9 +2130,19 @@ _e_video_set(E_Video *video, E_Client *ec)
 
    if (video_to_primary)
      {
+        E_Window *window;
+
         VIN("show video to primary layer");
         ec->comp_data->video_client = 0;
         ec->animatable = 0;
+
+        if (_hwc_optimized_is_used())
+          {
+             window = e_output_find_window_by_ec_in_all_outputs(ec);
+
+             if (window)
+               window->is_video = EINA_FALSE;
+          }
      }
 
    tdm_output_get_available_size(video->output, &ominw, &ominh, &omaxw, &omaxh, &video->output_align);
@@ -2603,6 +2609,8 @@ _e_video_cb_ec_buffer_change(void *data, int type, void *event)
    E_Client *ec;
    E_Event_Client *ev = event;
    E_Video *video;
+   E_Comp_Wl_Video_Buf *vbuf;
+   Eina_List *l = NULL, *ll = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ev, ECORE_CALLBACK_PASS_ON);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ev->ec, ECORE_CALLBACK_PASS_ON);
@@ -2616,7 +2624,35 @@ _e_video_cb_ec_buffer_change(void *data, int type, void *event)
    if (!video) return ECORE_CALLBACK_PASS_ON;
 
    if (!video->ec->comp_data->video_client)
-     return ECORE_CALLBACK_PASS_ON;
+     {
+        if (_hwc_optimized_is_used())
+          {
+             _e_video_hide(video);
+
+             if (video->pp)
+               {
+                  video->pp = NULL;
+                  tdm_pp_destroy(video->pp);
+               }
+
+             /* others */
+             EINA_LIST_FOREACH_SAFE(video->input_buffer_list, l, ll, vbuf)
+               {
+                  e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
+                  e_comp_wl_video_buffer_unref(vbuf);
+               }
+
+             EINA_LIST_FOREACH_SAFE(video->pp_buffer_list, l, ll, vbuf)
+               {
+                  tdm_buffer_remove_release_handler(vbuf->tbm_surface,
+                                                    _e_video_pp_buffer_cb_release, vbuf);
+                  e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
+                  e_comp_wl_video_buffer_unref(vbuf);
+               }
+          }
+
+        return ECORE_CALLBACK_PASS_ON;
+     }
 
    if (e_config->eom_enable == EINA_TRUE)
      {

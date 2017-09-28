@@ -1705,6 +1705,8 @@ _e_comp_cb_update(void)
         if (e_object_is_del(E_OBJECT(ec))) continue;
         if (e_comp->hwc && e_comp_is_on_overlay(ec)) continue;
 
+        if (ec->comp_data && ec->comp_data->video_client) continue;
+
         /* update client */
         e_pixmap_size_get(ec->pixmap, &pw, &ph);
 
@@ -2816,7 +2818,7 @@ e_comp_is_on_overlay(E_Client *ec)
           {
              E_Window *window;
              window = e_output_find_window_by_ec(eout, ec);
-             if (window->type == TDM_COMPOSITION_DEVICE) return EINA_TRUE;
+             if (window && window->type == TDM_COMPOSITION_DEVICE) return EINA_TRUE;
           }
         else
           {

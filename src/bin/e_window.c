@@ -212,15 +212,7 @@ _e_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
    E_Zone *zone;
    Eina_Bool result;
 
-   zone = ec->zone;
-   EINA_SAFETY_ON_NULL_RETURN(zone);
-   EINA_SAFETY_ON_NULL_RETURN(zone->output_id);
-
-   output = e_output_find(zone->output_id);
-   EINA_SAFETY_ON_FALSE_RETURN(output);
-
-   window = e_output_find_window_by_ec(output, ec);
-   EINA_SAFETY_ON_FALSE_RETURN(window);
+   window = e_output_find_window_by_ec_in_all_outputs(ec);
 
    e_window_free(window);
 
@@ -611,6 +603,9 @@ e_window_update(E_Window *window)
    /* for video we update the geometry and buffer in the video module */
    if (e_window_is_video(window))
      {
+        if (!window->tsurface)
+           e_window_set_skip_flag(window);
+
         /* we always try to display the video window on the hw layer */
         error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_DEVICE);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
@@ -821,19 +816,10 @@ e_window_commit_data_aquire(E_Window *window)
 
    window->update_exist = EINA_FALSE;
 
-   if (e_window_is_target(window))
+   if (e_window_is_target(window) || e_window_is_video(window))
      {
         commit_data->tsurface = window->tsurface;
         tbm_surface_internal_ref(commit_data->tsurface);
-     }
-   else if (e_window_is_video(window))
-     {
-        commit_data->tsurface = window->tsurface;
-        tbm_surface_internal_ref(commit_data->tsurface);
-
-        /* send frame event enlightenment dosen't send frame evnet in nocomp */
-        if (window->type == TDM_COMPOSITION_DEVICE)
-          e_pixmap_image_clear(window->ec->pixmap, 1);
      }
    else
      {
@@ -842,10 +828,6 @@ e_window_commit_data_aquire(E_Window *window)
 
         e_comp_wl_buffer_reference(&commit_data->buffer_ref,
                                    _get_comp_wl_buffer(window->ec));
-
-        /* send frame event enlightenment dosen't send frame evnet in nocomp */
-        if (window->type == TDM_COMPOSITION_DEVICE)
-          e_pixmap_image_clear(window->ec->pixmap, 1);
      }
 
    return commit_data;
