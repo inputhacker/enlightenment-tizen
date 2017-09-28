@@ -3435,31 +3435,6 @@ _e_comp_wl_subsurface_bg_evas_cb_resize(void *data, Evas *evas EINA_UNUSED, Evas
 }
 
 static void
-_e_comp_wl_subsurface_mask_set(E_Client *ec)
-{
-   E_Client *subc;
-   Eina_List *l;
-
-   if (!ec) return;
-   if (e_object_is_del(E_OBJECT(ec))) return;
-   if (!ec->comp_data) return;
-
-   /* if a leaf client is not video cliet */
-   if (!ec->comp_data->sub.below_list && !ec->comp_data->sub.below_list_pending && ec->comp_data->video_client)
-     if (ec->comp_data->video_client && !e_comp_object_mask_has(ec->frame))
-       {
-          e_comp_object_mask_set(ec->frame, EINA_TRUE);
-          return;
-       }
-
-   EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
-     _e_comp_wl_subsurface_mask_set(subc);
-
-   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
-     _e_comp_wl_subsurface_mask_set(subc);
-}
-
-static void
 _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
 {
    short layer;
@@ -3520,8 +3495,6 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
 
         if (evas_object_visible_get(ec->frame))
           evas_object_show(ec->comp_data->sub.below_obj);
-
-        _e_comp_wl_subsurface_mask_set(ec);
      }
 }
 
