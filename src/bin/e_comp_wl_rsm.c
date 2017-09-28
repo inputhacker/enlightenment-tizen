@@ -3100,6 +3100,23 @@ _e_comp_wl_remote_surface_subsurface_commit(E_Comp_Wl_Remote_Provider *parent_pr
 }
 #endif /* HAVE_REMOTE_SURFACE */
 
+EAPI E_Client*
+e_comp_wl_remote_surface_bound_provider_ec_get(E_Client *ec)
+{
+#ifdef HAVE_REMOTE_SURFACE
+   E_Comp_Wl_Remote_Surface *remote_surface;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(ec)), NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, NULL);
+
+   remote_surface = eina_hash_find(_rsm->bind_surface_hash, &ec);
+   if (!remote_surface || !remote_surface->provider) return NULL;
+
+   return remote_surface->provider->common.ec;
+#endif /* HAVE_REMOTE_SURFACE */
+}
+
 EINTERN Eina_Bool
 e_comp_wl_remote_surface_commit(E_Client *ec)
 {
