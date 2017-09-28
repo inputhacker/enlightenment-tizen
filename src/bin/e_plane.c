@@ -974,7 +974,7 @@ _e_plane_pp_commit(E_Plane *plane, E_Plane_Commit_Data *data)
    tbm_surface_h pp_tsurface = NULL;
    tbm_error_e tbm_err = TBM_ERROR_NONE;
    tdm_error tdm_err = TDM_ERROR_NONE;
-   tbm_surface_h tsurface = plane->tsurface;
+   tbm_surface_h tsurface = data->tsurface;
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "PP Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
