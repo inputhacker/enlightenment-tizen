@@ -65,6 +65,7 @@ struct _E_Comp_Wl_Remote_Manager
    Eina_Hash *provider_hash;
    Eina_Hash *surface_hash;
    Eina_Hash *source_hash;
+   Eina_Hash *bind_surface_hash;
    Eina_List *event_hdlrs;
    Eina_List *client_hooks;
 
@@ -752,6 +753,7 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
 
         e_comp_wl_surface_attach(remote_surface->bind_ec, NULL);
 
+        eina_hash_del(_rsm->bind_surface_hash, &remote_surface->bind_ec, remote_surface);
         remote_surface->bind_ec = NULL;
 
         /* try to send latest buffer of the provider to the consumer when unbinding
@@ -797,6 +799,7 @@ bind_ec_set:
         /* TODO: enable user geometry? */
         e_policy_allow_user_geometry_set(ec, EINA_TRUE);
         remote_surface->bind_ec = ec;
+        eina_hash_add(_rsm->bind_surface_hash, &remote_surface->bind_ec, remote_surface);
 
         /* try to set latest buffer of the provider to bind_ec */
         if (remote_surface->provider && remote_surface->provider->common.ec)
@@ -2742,6 +2745,13 @@ _e_comp_wl_remote_cb_client_del(void *data, E_Client *ec)
         if (remote_surface->provider)
           _remote_provider_onscreen_parent_calculate(remote_surface->provider);
      }
+
+   if ((remote_surface = eina_hash_find(_rsm->bind_surface_hash, &ec)))
+     {
+        eina_hash_del(_rsm->surface_hash, &ec, remote_surface);
+        if (remote_surface->bind_ec == ec)
+           _remote_surface_bind_client(remote_surface, NULL);
+     }
 }
 
 static Eina_Bool
@@ -3382,6 +3392,7 @@ e_comp_wl_remote_surface_init(void)
    rs_manager->provider_hash = eina_hash_pointer_new(NULL);
    rs_manager->surface_hash = eina_hash_pointer_new(NULL);
    rs_manager->source_hash = eina_hash_pointer_new(NULL);
+   rs_manager->bind_surface_hash = eina_hash_pointer_new(NULL);
    rs_manager->dummy_fd = _e_comp_wl_remote_surface_dummy_fd_get();
 
    if (rs_manager->dummy_fd == -1)
@@ -3445,6 +3456,7 @@ e_comp_wl_remote_surface_shutdown(void)
    E_FREE_FUNC(rsm->provider_hash, eina_hash_free);
    E_FREE_FUNC(rsm->surface_hash, eina_hash_free);
    E_FREE_FUNC(rsm->source_hash, eina_hash_free);
+   E_FREE_FUNC(rsm->bind_surface_hash, eina_hash_free);
 
    E_FREE_LIST(rsm->client_hooks, e_client_hook_del);
    E_FREE_LIST(rsm->event_hdlrs, ecore_event_handler_del);
