@@ -696,16 +696,18 @@ _e_vis_client_cb_buffer_attach(void *data, int type EINA_UNUSED, void *event)
    E_Vis_Grab *grab;
    E_Client *ec;
    E_Event_Client *ev;
+   E_Client *provider_ec;
 
    ev = event;
    vc = data;
-   if (vc->ec != ev->ec)
+   provider_ec = e_comp_wl_remote_surface_bound_provider_ec_get(vc->ec);
+   if (vc->ec != ev->ec && provider_ec != ev->ec)
      goto renew;
 
    ec = vc->ec;
    grab = vc->grab;
 
-   VS_DBG(ec, "FINISH Uniconify render");
+   VS_DBG(ec, "FINISH Uniconify render(ev:%p, vc:%p, provider:%p)", ev->ec, vc->ec, provider_ec);
 
    /* force update
     * NOTE: this update can invoke some functions related to visibility grab */
