@@ -5,7 +5,6 @@
 #include "e.h"
 #include <xdg-shell-server-protocol.h>
 #include <eom-server-protocol.h>
-#include <Ecore_Drm.h>
 #include <tdm.h>
 #include <eom.h>
 #include <tbm_bufmgr.h>

@@ -230,7 +230,7 @@ if HAVE_LIBGOMP
 src_bin_enlightenment_CPPFLAGS += -fopenmp
 endif
 if HAVE_WAYLAND_TBM
-src_bin_enlightenment_CPPFLAGS += @WAYLAND_TBM_CFLAGS@ @ECORE_DRM_CFLAGS@
+src_bin_enlightenment_CPPFLAGS += @WAYLAND_TBM_CFLAGS@
 endif
 if HAVE_HWC
 src_bin_enlightenment_CPPFLAGS += @HWC_CFLAGS@
@@ -250,7 +250,7 @@ src_bin_enlightenment_LDFLAGS += -fopenmp
 endif
 src_bin_enlightenment_LDADD = @e_libs@ @dlopen_libs@ @cf_libs@ @VALGRIND_LIBS@ @WAYLAND_LIBS@ -lm @SHM_OPEN_LIBS@ $(TTRACE_LIBS) $(DLOG_LIBS) $(PIXMAN_LIBS) $(POLICY_LIBS) @TIZEN_REMOTE_SURFACE_LIBS@
 if HAVE_WAYLAND_TBM
-src_bin_enlightenment_LDADD += @WAYLAND_TBM_LIBS@ @ECORE_DRM_LIBS@
+src_bin_enlightenment_LDADD += @WAYLAND_TBM_LIBS@
 endif
 if HAVE_HWC
 src_bin_enlightenment_LDADD += @HWC_LIBS@
