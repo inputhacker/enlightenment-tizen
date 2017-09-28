@@ -19,26 +19,31 @@ _device_calibration_set(E_Input_Evdev *edev)
    output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    e_output_size_get(output, &w, &h);
 
-   edev->mouse.minx = edev->mouse.miny = 0;
-   edev->mouse.maxw = w;
-   edev->mouse.maxh = h;
-
-   if (libinput_device_has_capability(edev->device, LIBINPUT_DEVICE_CAP_POINTER))
+   if (output)
      {
-        edev->seat->ptr.ix = edev->seat->ptr.dx = w / 2;
-        edev->seat->ptr.iy = edev->seat->ptr.dy = h / 2;
-        edev->mouse.dx = edev->seat->ptr.dx;
-        edev->mouse.dy = edev->seat->ptr.dy;
+        edev->mouse.minx = edev->mouse.miny = 0;
+        edev->mouse.maxw = w;
+        edev->mouse.maxh = h;
 
-        if (output->config.rotation == 90 || output->config.rotation == 270)
+        if (libinput_device_has_capability(edev->device, LIBINPUT_DEVICE_CAP_POINTER))
           {
-             temp = edev->mouse.minx;
-             edev->mouse.minx = edev->mouse.miny;
-             edev->mouse.miny = temp;
+             edev->seat->ptr.dx = w / 2;
+             edev->seat->ptr.dy = h / 2;
+             edev->seat->ptr.ix = (int)edev->seat->ptr.dx;
+             edev->seat->ptr.iy = (int)edev->seat->ptr.dy;
+             edev->mouse.dx = edev->seat->ptr.dx;
+             edev->mouse.dy = edev->seat->ptr.dy;
 
-             temp = edev->mouse.maxw;
-             edev->mouse.maxw = edev->mouse.maxh;
-             edev->mouse.maxh = temp;
+             if (output->config.rotation == 90 || output->config.rotation == 270)
+               {
+                  temp = edev->mouse.minx;
+                  edev->mouse.minx = edev->mouse.miny;
+                  edev->mouse.miny = temp;
+
+                  temp = edev->mouse.maxw;
+                  edev->mouse.maxw = edev->mouse.maxh;
+                  edev->mouse.maxh = temp;
+               }
           }
      }
 
