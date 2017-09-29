@@ -1325,8 +1325,7 @@ _e_video_frame_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf *vbuf)
      }
 
    topmost = find_topmost_parent_get(video->ec);
-   if (topmost && (topmost->argb || topmost->comp_data->sub.below_obj) &&
-       !e_comp_object_mask_has(video->ec->frame))
+   if (topmost && topmost->argb && !e_comp_object_mask_has(video->ec->frame))
      {
         Eina_Bool do_punch = EINA_TRUE;
 
