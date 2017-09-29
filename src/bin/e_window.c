@@ -143,15 +143,6 @@ _e_window_surface_from_client_acquire(E_Window *window)
    return tsurface;
 }
 
-static Eina_Bool
-_e_window_on_hw_overlay(E_Window *window)
-{
-   if (window->skip_flag) return EINA_FALSE;
-   if (window->type != TDM_COMPOSITION_DEVICE) return EINA_FALSE;
-
-   return EINA_TRUE;
-}
-
 /* get current tbm_surface (surface which has been committed last) for the e_client */
 static tbm_surface_h
 _e_comp_get_current_surface_for_cl(E_Client *ec)
@@ -607,10 +598,10 @@ e_window_update(E_Window *window)
            e_window_set_skip_flag(window);
 
         /* we always try to display the video window on the hw layer */
-        error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_DEVICE);
+        error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_VIDEO);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
-        window->type = TDM_COMPOSITION_DEVICE;
+        window->type = TDM_COMPOSITION_VIDEO;
 
         return EINA_TRUE;
      }
@@ -762,7 +753,7 @@ e_window_unfetch(E_Window *window)
    EINA_SAFETY_ON_NULL_RETURN(window);
    EINA_SAFETY_ON_NULL_RETURN(window->tsurface);
 
-   if (!_e_window_on_hw_overlay(window)) return;
+   if (!e_window_is_on_hw_overlay(window)) return;
 
    if (e_window_is_target(window))
      {
@@ -795,7 +786,7 @@ e_window_commit_data_aquire(E_Window *window)
 {
    E_Window_Commit_Data *commit_data = NULL;
 
-   if (!_e_window_on_hw_overlay(window))
+   if (!e_window_is_on_hw_overlay(window))
      {
         window->update_exist = EINA_FALSE;
 
@@ -1072,6 +1063,18 @@ e_window_deactivate(E_Window *window)
    _e_window_recover_ec(window);
 
    window->activated = EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_window_is_on_hw_overlay(E_Window *window)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, EINA_FALSE);
+
+   if (window->skip_flag) return EINA_FALSE;
+   if (window->type != TDM_COMPOSITION_DEVICE && window->type != TDM_COMPOSITION_VIDEO)
+     return EINA_FALSE;
 
    return EINA_TRUE;
 }

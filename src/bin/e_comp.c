@@ -2818,7 +2818,7 @@ e_comp_is_on_overlay(E_Client *ec)
           {
              E_Window *window;
              window = e_output_find_window_by_ec(eout, ec);
-             if (window && window->type == TDM_COMPOSITION_DEVICE) return EINA_TRUE;
+             if (e_window_is_on_hw_overlay(window)) return EINA_TRUE;
           }
         else
           {

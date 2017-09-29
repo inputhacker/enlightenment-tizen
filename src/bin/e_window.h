@@ -74,6 +74,7 @@ EINTERN Eina_Bool             e_window_prepare_commit(E_Window *window);
 EINTERN Eina_Bool             e_window_offscreen_commit(E_Window *window);
 EINTERN Eina_Bool             e_window_activate(E_Window *window);
 EINTERN Eina_Bool             e_window_deactivate(E_Window *window);
+EINTERN Eina_Bool             e_window_is_on_hw_overlay(E_Window *window);
 
 #endif
 #endif

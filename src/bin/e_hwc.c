@@ -13,7 +13,7 @@ _need_target_window(E_Output *eo)
 
         if (e_window_is_target(window)) return EINA_TRUE;
 
-        if (window->type != TDM_COMPOSITION_DEVICE)
+        if (!e_window_is_on_hw_overlay(window))
           return EINA_TRUE;
      }
 
@@ -184,12 +184,12 @@ _hwc_prepare(E_Output *eo, Eina_List *cl_list)
           if (window->is_deleted) continue;
           if (e_window_is_target(window)) continue;
 
-          if (window->type != TDM_COMPOSITION_DEVICE || window->skip_flag)
+          if (e_window_is_on_hw_overlay(window))
             /* notify the window that it will be displayed on hw layer */
-            e_window_deactivate(window);
+            e_window_activate(window);
           else
             /* notify the window that it will be composite on the target buffer */
-            e_window_activate(window);
+            e_window_deactivate(window);
        }
 
      return EINA_TRUE;

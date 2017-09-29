@@ -2340,12 +2340,61 @@ _e_video_check_if_pp_needed(E_Video *video)
    const tbm_format *formats;
    Eina_Bool found = EINA_FALSE;
    tdm_layer_capability capabilities = 0;
+   tdm_error error;
 
    if (_hwc_optimized_is_used())
      {
-	     /* FIXME: temporary solution: always use pp if hwc optimized is used */
-	     video->pp_tbmfmt = TBM_FORMAT_ARGB8888;
-	     return EINA_TRUE;
+       E_Window *window;
+
+       window = e_output_find_window_by_ec_in_all_outputs(video->ec);
+
+       if (window && !window->skip_flag && window->type == TDM_COMPOSITION_VIDEO)
+         {
+            error = tdm_hwc_window_video_get_supported_format(window->hwc_wnd, &formats, &count);
+            if (error != TDM_ERROR_NONE)
+              {
+                 video->pp_tbmfmt = TBM_FORMAT_ARGB8888;
+                 return EINA_TRUE;
+              }
+            for (i = 0; i < count; i++)
+              if (formats[i] == video->tbmfmt)
+                {
+                   found = EINA_TRUE;
+                   break;
+                }
+
+            if (!found)
+              {
+                 video->pp_tbmfmt = TBM_FORMAT_ARGB8888;
+                 return EINA_TRUE;
+              }
+
+            error = tdm_hwc_window_video_get_capability(window->hwc_wnd, &capabilities);
+            if (error != TDM_ERROR_NONE)
+              {
+                 video->pp_tbmfmt = TBM_FORMAT_ARGB8888;
+                 return EINA_TRUE;
+              }
+
+            /* check size */
+            if (capabilities & TDM_HWC_WINDOW_VIDEO_CAPABILITY_SCANOUT)
+              goto need_pp;
+
+            if (video->geo.input_r.w != video->geo.output_r.w || video->geo.input_r.h != video->geo.output_r.h)
+              if (!(capabilities & TDM_HWC_WINDOW_VIDEO_CAPABILITY_SCALE))
+                goto need_pp;
+
+            /* check rotate */
+            if (video->geo.transform || e_comp->e_comp_screen->rotation > 0)
+              if (!(capabilities & TDM_HWC_WINDOW_VIDEO_CAPABILITY_TRANSFORM))
+                goto need_pp;
+
+            return EINA_FALSE;
+         }
+
+         video->pp_tbmfmt = TBM_FORMAT_ARGB8888;
+
+         return EINA_TRUE;
      }
 
    tdm_layer *layer = _e_video_tdm_video_layer_get(video->output);
