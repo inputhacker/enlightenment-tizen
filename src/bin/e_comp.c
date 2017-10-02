@@ -2554,7 +2554,7 @@ e_comp_override_add()
    if (e_comp->nocomp_override > 0)
      {
         // go full GLES compositing
-        if (!e_comp->hwc_optimized)
+        if (!_e_comp_hwc_optimized_is_used())
           e_comp_hwc_end(__FUNCTION__);
         else
           /* We must notify the hwc extension about the full GLES composition. */
