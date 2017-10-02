@@ -101,6 +101,8 @@ struct _E_Output
       Ecore_Timer      *timer;
       Eina_Bool         wait_vblank;
    } stream_capture;
+
+   Eina_Bool                      wait_commit;
 };
 
 enum _E_Output_Hook_Point

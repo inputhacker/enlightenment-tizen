@@ -216,8 +216,7 @@ _e_hwc_output_commit_hanler(tdm_output *output, unsigned int sequence,
 
    /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
     * a 'page flip' happened so it's time to allow to make 'fetch and commit' for all e_windows */
-   EINA_LIST_FOREACH(e_output_windows_get(eo), l, ew)
-     ew->wait_commit = EINA_FALSE;
+   eo->wait_commit = EINA_FALSE;
 }
 
 static Eina_Bool
@@ -263,17 +262,10 @@ _e_hwc_output_commit(E_Output *output)
      {
         tdm_error error = TDM_ERROR_NONE;
 
-        EINA_LIST_FOREACH(output->windows, l, window)
-          {
-             /* if window was placed on hw layer we need to release the commit_data */
-             if (!window->activated && window->display_info.tsurface)
-               window->need_commit_data_release = EINA_TRUE;
-             else
-               window->need_commit_data_release = EINA_FALSE;
-          }
-
         error = tdm_output_commit(output->toutput, 0, _e_hwc_output_commit_hanler, output);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+
+        output->wait_commit = EINA_TRUE;
      }
 
    return EINA_TRUE;

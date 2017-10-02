@@ -19,9 +19,7 @@ struct _E_Window
    Eina_Bool                      is_target;
    Eina_Bool                      is_video;
    Eina_Bool                      is_deleted;
-   Eina_Bool                      wait_commit;
    Eina_Bool                      update_exist;
-   Eina_Bool                      need_commit_data_release;
    tbm_surface_h                  tsurface;
    tbm_surface_h                  displaying_tsurface;
    Eina_Bool                      activated; /* window occupied the hw layer */

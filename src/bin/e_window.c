@@ -683,7 +683,7 @@ e_window_fetch(E_Window *window)
    if (e_comp_canvas_norender_get() > 0)
      return EINA_FALSE;
 
-   if (window->wait_commit)
+   if (window->output->wait_commit)
      return EINA_FALSE;
 
    /* for video we set buffer in the video module */
@@ -781,6 +781,25 @@ e_window_unfetch(E_Window *window)
    window->update_exist = EINA_FALSE;
 }
 
+/* we can do commit if we set surface at least to one window which displayed on
+ * the hw layer*/
+static Eina_Bool
+_can_commit(E_Output *output)
+{
+   Eina_List *l;
+   E_Window *window;
+
+   EINA_LIST_FOREACH(output->windows, l, window)
+     {
+        if (!e_window_is_on_hw_overlay(window)) continue;
+
+        if (window->commit_data && window->commit_data->tsurface) return EINA_TRUE;
+        if (window->display_info.tsurface) return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
 EINTERN E_Window_Commit_Data *
 e_window_commit_data_aquire(E_Window *window)
 {
@@ -789,6 +808,15 @@ e_window_commit_data_aquire(E_Window *window)
    if (!e_window_is_on_hw_overlay(window))
      {
         window->update_exist = EINA_FALSE;
+
+        /* if the window unset is needed and we can do commit */
+        if (window->display_info.tsurface && _can_commit(window->output))
+          {
+             commit_data = E_NEW(E_Window_Commit_Data, 1);
+             EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, NULL);
+
+             return commit_data;
+          }
 
         return NULL;
      }
@@ -832,10 +860,9 @@ e_window_commit_data_release(E_Window *window)
    window->displaying_tsurface = window->tsurface;
 
    /* we don't have data to release */
-   if (!window->commit_data && !window->need_commit_data_release) return;
+   if (!window->commit_data) return;
 
-   if (window->commit_data)
-     tsurface = window->commit_data->tsurface;
+   tsurface = window->commit_data->tsurface;
 
    if (!tsurface)
      {
@@ -850,8 +877,7 @@ e_window_commit_data_release(E_Window *window)
         e_comp_wl_buffer_reference(&window->display_info.buffer_ref, window->commit_data->buffer_ref.buffer);
      }
 
-   if (window->commit_data)
-     e_comp_wl_buffer_reference(&window->commit_data->buffer_ref, NULL);
+   e_comp_wl_buffer_reference(&window->commit_data->buffer_ref, NULL);
 
    if (window->display_info.tsurface)
      {
@@ -873,9 +899,7 @@ e_window_commit_data_release(E_Window *window)
         window->display_info.tsurface = tsurface;
      }
 
-   if (window->commit_data)
-     free(window->commit_data);
-
+   free(window->commit_data);
    window->commit_data = NULL;
 
    if (window->is_deleted && !window->display_info.tsurface)
@@ -962,6 +986,8 @@ e_window_prepare_commit(E_Window *window)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EINA_FALSE);
 
+   if (window->output->wait_commit) return EINA_FALSE;
+
    data = e_window_commit_data_aquire(window);
    if (!data) return EINA_FALSE;
 
@@ -970,8 +996,6 @@ e_window_prepare_commit(E_Window *window)
    /* send frame event enlightenment dosen't send frame evnet in nocomp */
    if (window->ec)
      e_pixmap_image_clear(window->ec->pixmap, 1);
-
-   window->wait_commit = EINA_TRUE;
 
    return EINA_TRUE;
 }
