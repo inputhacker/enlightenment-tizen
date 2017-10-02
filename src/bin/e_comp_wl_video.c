@@ -54,8 +54,6 @@ struct _E_Video_Layer
    E_Video_Info_Layer info;
    tbm_surface_h displaying_surface;
    E_Client *e_client;
-   tdm_layer_commit_handler commit_handler;
-   void *user_data;
 };
 
 struct _E_Video
@@ -657,9 +655,6 @@ _e_video_layer_commit(E_Video_Layer *layer, tdm_layer_commit_handler func, void 
              e_comp_render_queue();
           }
 
-        layer->commit_handler = func;
-        layer->user_data = user_data;
-
         window->update_exist = EINA_TRUE;
 
         return TDM_ERROR_NONE;
@@ -701,7 +696,7 @@ _e_video_layer_get_displaying_buffer(E_Video_Layer *layer, int *tdm_error)
         if (tdm_error)
           *tdm_error = TDM_ERROR_NONE;
 
-        return window->displaying_tsurface;
+        return e_window_get_displaying_surface(window);
      }
 
    return tdm_layer_get_displaying_buffer(layer->tdm_layer, tdm_error);
@@ -1658,11 +1653,7 @@ e_video_commit_data_release(E_Client *ec, unsigned int sequence,
    video_layer = video->layer;
    if (!video_layer) return;
 
-   if (video_layer->commit_handler)
-      video_layer->commit_handler(NULL, sequence, tv_sec, tv_usec, video_layer->user_data);
-
-   video_layer->commit_handler = NULL;
-   video_layer->user_data = NULL;
+   _e_video_commit_handler(NULL, sequence, tv_sec, tv_usec, video);
 }
 
 static void

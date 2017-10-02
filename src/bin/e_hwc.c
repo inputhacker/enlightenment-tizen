@@ -209,7 +209,7 @@ _e_hwc_output_commit_hanler(tdm_output *output, unsigned int sequence,
 
    EINA_LIST_FOREACH(e_output_windows_get(eo), l, ew)
      {
-         e_window_commit_data_release(ew);
+         if (!e_window_commit_data_release(ew)) continue;
          if (e_window_is_video(ew))
            e_video_commit_data_release(ew->ec, sequence, tv_sec, tv_usec);
      }

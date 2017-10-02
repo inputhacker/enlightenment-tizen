@@ -391,7 +391,7 @@ _e_window_recover_ec(E_Window *window)
 
    if (!buffer)
      {
-        tsurface = window->display_info.tsurface;
+        tsurface = e_window_get_displaying_surface(window);
         if (!tsurface) return;
 
         tbm_surface_internal_ref(tsurface);
@@ -508,7 +508,7 @@ e_window_free(E_Window *window)
    tdm_output *toutput;
 
    /* we cannot remove the window because we need to release the commit_data */
-   if (window->display_info.tsurface)
+   if (e_window_get_displaying_surface(window))
      {  /* mark as deleted and delete when commit_data will be released */
         window->is_deleted = EINA_TRUE;
         return;
@@ -760,7 +760,7 @@ e_window_unfetch(E_Window *window)
         e_window_target_surface_queue_release((E_Window_Target *)window, window->tsurface);
      }
 
-   window->tsurface = window->displaying_tsurface;
+   window->tsurface = e_window_get_displaying_surface(window);
 
    if (e_window_is_target(window))
      {
@@ -794,7 +794,7 @@ _can_commit(E_Output *output)
         if (!e_window_is_on_hw_overlay(window)) continue;
 
         if (window->commit_data && window->commit_data->tsurface) return EINA_TRUE;
-        if (window->display_info.tsurface) return EINA_TRUE;
+        if (e_window_get_displaying_surface(window)) return EINA_TRUE;
      }
 
    return EINA_FALSE;
@@ -810,7 +810,7 @@ e_window_commit_data_aquire(E_Window *window)
         window->update_exist = EINA_FALSE;
 
         /* if the window unset is needed and we can do commit */
-        if (window->display_info.tsurface && _can_commit(window->output))
+        if (e_window_get_displaying_surface(window) && _can_commit(window->output))
           {
              commit_data = E_NEW(E_Window_Commit_Data, 1);
              EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, NULL);
@@ -827,7 +827,7 @@ e_window_commit_data_aquire(E_Window *window)
         return NULL;
      }
 
-   if (window->tsurface == window->display_info.tsurface)
+   if (window->tsurface == e_window_get_displaying_surface(window))
      return NULL;
 
    commit_data = E_NEW(E_Window_Commit_Data, 1);
@@ -852,15 +852,14 @@ e_window_commit_data_aquire(E_Window *window)
    return commit_data;
 }
 
-EINTERN void
+EINTERN Eina_Bool
 e_window_commit_data_release(E_Window *window)
 {
    tbm_surface_h tsurface = NULL;
-
-   window->displaying_tsurface = window->tsurface;
+   tbm_surface_h displaying_surface;
 
    /* we don't have data to release */
-   if (!window->commit_data) return;
+   if (!window->commit_data) return EINA_FALSE;
 
    tsurface = window->commit_data->tsurface;
 
@@ -879,31 +878,28 @@ e_window_commit_data_release(E_Window *window)
 
    e_comp_wl_buffer_reference(&window->commit_data->buffer_ref, NULL);
 
-   if (window->display_info.tsurface)
+   displaying_surface = e_window_get_displaying_surface(window);
+   if (displaying_surface)
      {
         if (e_window_is_target(window))
           {
-             e_window_target_surface_queue_release((E_Window_Target *)window, window->display_info.tsurface);
+             e_window_target_surface_queue_release((E_Window_Target *)window, displaying_surface);
           }
      }
 
    /* update window display info */
-   if (window->display_info.tsurface)
-     {
-        tbm_surface_internal_unref(window->display_info.tsurface);
-        window->display_info.tsurface = NULL;
-     }
+   if (displaying_surface)
+     tbm_surface_internal_unref(displaying_surface);
 
-   if (tsurface)
-     {
-        window->display_info.tsurface = tsurface;
-     }
+    window->display_info.tsurface = tsurface;
 
    free(window->commit_data);
    window->commit_data = NULL;
 
-   if (window->is_deleted && !window->display_info.tsurface)
+   if (window->is_deleted && !e_window_get_displaying_surface(window))
      e_window_free(window);
+
+   return EINA_TRUE;
 }
 
 EINTERN Eina_Bool
@@ -1101,4 +1097,12 @@ e_window_is_on_hw_overlay(E_Window *window)
      return EINA_FALSE;
 
    return EINA_TRUE;
+}
+
+EINTERN tbm_surface_h
+e_window_get_displaying_surface(E_Window *window)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(window, NULL);
+
+   return window->display_info.tsurface;
 }

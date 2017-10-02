@@ -21,7 +21,6 @@ struct _E_Window
    Eina_Bool                      is_deleted;
    Eina_Bool                      update_exist;
    tbm_surface_h                  tsurface;
-   tbm_surface_h                  displaying_tsurface;
    Eina_Bool                      activated; /* window occupied the hw layer */
 
    /* current display information */
@@ -64,7 +63,7 @@ EINTERN Eina_Bool             e_window_is_video(E_Window *window);
 EINTERN Eina_Bool             e_window_fetch(E_Window *window);
 EINTERN void                  e_window_unfetch(E_Window *window);
 EINTERN E_Window_Commit_Data *e_window_commit_data_aquire(E_Window *window);
-EINTERN void                  e_window_commit_data_release(E_Window *window);
+EINTERN Eina_Bool             e_window_commit_data_release(E_Window *window);
 EINTERN Eina_Bool             e_window_target_surface_queue_can_dequeue(E_Window_Target *target_window);
 EINTERN tbm_surface_h         e_window_target_surface_queue_acquire(E_Window_Target *target_window);
 EINTERN void                  e_window_target_surface_queue_release(E_Window_Target *target_window, tbm_surface_h tsurface);
@@ -73,6 +72,7 @@ EINTERN Eina_Bool             e_window_offscreen_commit(E_Window *window);
 EINTERN Eina_Bool             e_window_activate(E_Window *window);
 EINTERN Eina_Bool             e_window_deactivate(E_Window *window);
 EINTERN Eina_Bool             e_window_is_on_hw_overlay(E_Window *window);
+EINTERN tbm_surface_h         e_window_get_displaying_surface(E_Window *window);
 
 #endif
 #endif
