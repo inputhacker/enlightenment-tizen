@@ -4619,6 +4619,9 @@ e_comp_object_effect_set(Evas_Object *obj, const char *effect)
         cw->effect_clip = 0;
      }
    cw->effect_clip_able = !edje_object_data_get(cw->effect_obj, "noclip");
+
+   _e_comp_object_dim_update(cw);
+
    return cw->effect_set;
 }
 
