@@ -133,6 +133,8 @@ struct _E_Comp_Wl_Remote_Surface
 
    Eina_Bool valid;
 
+   Eina_List *send_remote_bufs;
+
    struct
    {
       Eina_Bool use;
@@ -163,13 +165,16 @@ struct _E_Comp_Wl_Remote_Buffer
    E_Comp_Wl_Buffer_Ref ref;
    struct wl_resource *resource;
    struct wl_listener destroy_listener;
+
+   E_Comp_Wl_Remote_Surface *remote_surface;
 };
 
 static E_Comp_Wl_Remote_Manager *_rsm = NULL;
 
 static void _e_comp_wl_remote_surface_state_buffer_set(E_Comp_Wl_Surface_State *state, E_Comp_Wl_Buffer *buffer);
 static void _e_comp_wl_remote_buffer_cb_destroy(struct wl_listener *listener, void *data);
-static E_Comp_Wl_Remote_Buffer *_e_comp_wl_remote_buffer_get(struct wl_resource *remote_buffer_resource);
+static E_Comp_Wl_Remote_Buffer *_e_comp_wl_remote_buffer_get(E_Comp_Wl_Remote_Surface *remote_surface,
+                                                             struct wl_resource *remote_buffer_resource);
 static void _remote_surface_region_clear(E_Comp_Wl_Remote_Surface *remote_surface);
 static void _remote_surface_ignore_output_transform_send(E_Comp_Wl_Remote_Common *common);
 static void _remote_source_save_start(E_Comp_Wl_Remote_Source *source);
@@ -566,7 +571,7 @@ _remote_surface_changed_buff_protocol_send(E_Comp_Wl_Remote_Surface *rs,
              rbuff_res = e_comp_wl_tbm_remote_buffer_get(rs->wl_tbm, buff->resource);
              EINA_SAFETY_ON_NULL_RETURN_VAL(rbuff_res, EINA_FALSE);
 
-             rbuff = _e_comp_wl_remote_buffer_get(rbuff_res);
+             rbuff = _e_comp_wl_remote_buffer_get(rs, rbuff_res);
              EINA_SAFETY_ON_NULL_RETURN_VAL(rbuff, EINA_FALSE);
 
              tbm = rbuff->resource;
@@ -1705,6 +1710,7 @@ _remote_surface_cb_resource_destroy(struct wl_resource *resource)
    E_Comp_Wl_Remote_Provider *provider;
    E_Comp_Wl_Remote_Source *source;
    E_Comp_Wl_Remote_Region *region;
+   E_Comp_Wl_Remote_Buffer *remote_buf;
 
    remote_surface = wl_resource_get_user_data(resource);
    if (!remote_surface) return;
@@ -1732,6 +1738,12 @@ _remote_surface_cb_resource_destroy(struct wl_resource *resource)
      {
         region->remote_surface = NULL;
         wl_resource_destroy(region->resource);
+     }
+
+   EINA_LIST_FREE(remote_surface->send_remote_bufs, remote_buf)
+     {
+        remote_buf->remote_surface = NULL;
+        wayland_tbm_server_send_destroy_buffer(remote_surface->wl_tbm, remote_buf->resource);
      }
 
    if (remote_surface->bind_ec)
@@ -2281,7 +2293,7 @@ _remote_surface_cb_release(struct wl_client *client, struct wl_resource *resourc
    EINA_SAFETY_ON_NULL_RETURN(remote_surface);
    EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
 
-   remote_buffer = _e_comp_wl_remote_buffer_get(remote_buffer_resource);
+   remote_buffer = _e_comp_wl_remote_buffer_get(remote_surface, remote_buffer_resource);
    EINA_SAFETY_ON_NULL_RETURN(remote_buffer);
 
    if (remote_surface->version >= 2)
@@ -2803,9 +2815,11 @@ static void
 _e_comp_wl_remote_buffer_cb_destroy(struct wl_listener *listener, void *data)
 {
    E_Comp_Wl_Remote_Buffer *remote_buffer;
+   E_Comp_Wl_Remote_Surface *remote_surface;
 
    remote_buffer = container_of(listener, E_Comp_Wl_Remote_Buffer, destroy_listener);
    if (!remote_buffer) return;
+
 
    if (remote_buffer->destroy_listener.notify)
      {
@@ -2813,12 +2827,16 @@ _e_comp_wl_remote_buffer_cb_destroy(struct wl_listener *listener, void *data)
         remote_buffer->destroy_listener.notify = NULL;
      }
 
+   remote_surface = remote_buffer->remote_surface;
+   if (remote_surface)
+     remote_surface->send_remote_bufs = eina_list_remove(remote_surface->send_remote_bufs, remote_buffer);
+
    e_comp_wl_buffer_reference(&remote_buffer->ref, NULL);
    free(remote_buffer);
 }
 
 static E_Comp_Wl_Remote_Buffer *
-_e_comp_wl_remote_buffer_get(struct wl_resource *remote_buffer_resource)
+_e_comp_wl_remote_buffer_get(E_Comp_Wl_Remote_Surface *remote_surface, struct wl_resource *remote_buffer_resource)
 {
    E_Comp_Wl_Remote_Buffer *remote_buffer = NULL;
    struct wl_listener *listener;
@@ -2829,9 +2847,12 @@ _e_comp_wl_remote_buffer_get(struct wl_resource *remote_buffer_resource)
 
    if (!(remote_buffer = E_NEW(E_Comp_Wl_Remote_Buffer, 1))) return NULL;
 
+   remote_buffer->remote_surface = remote_surface;
    remote_buffer->resource = remote_buffer_resource;
    remote_buffer->destroy_listener.notify = _e_comp_wl_remote_buffer_cb_destroy;
    wl_resource_add_destroy_listener(remote_buffer->resource, &remote_buffer->destroy_listener);
+
+  remote_surface->send_remote_bufs = eina_list_append(remote_surface->send_remote_bufs, remote_buffer);
 
    return remote_buffer;
 }
