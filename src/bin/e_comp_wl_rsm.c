@@ -1029,7 +1029,7 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
         src_format = _remote_source_image_data_pixman_format_get_from_tbm_surface(tbm_surface_get_format(td->tbm_surface));
         dst_format = src_format;
 
-        tbm_surface_map(td->tbm_surface, TBM_SURF_OPTION_READ|TBM_SURF_OPTION_WRITE, &info);
+        tbm_surface_map(td->tbm_surface, TBM_SURF_OPTION_READ, &info);
         src_ptr = info.planes[0].ptr;
 
         src_img = pixman_image_create_bits(src_format, w, h, (uint32_t*)src_ptr, info.planes[0].stride);
@@ -1064,7 +1064,7 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
    transform_surface = tbm_surface_create(tw, th, tbm_surface_get_format(td->tbm_surface));
    EINA_SAFETY_ON_NULL_GOTO(transform_surface, error_case);
 
-   tbm_surface_map(transform_surface, TBM_SURF_OPTION_READ|TBM_SURF_OPTION_WRITE, &info);
+   tbm_surface_map(transform_surface, TBM_SURF_OPTION_WRITE, &info);
    dst_ptr = info.planes[0].ptr;
 
    dst_img = pixman_image_create_bits(dst_format, tw, th, (uint32_t*)dst_ptr, info.planes[0].stride);
