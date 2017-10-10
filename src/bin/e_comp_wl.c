@@ -319,7 +319,7 @@ e_comp_wl_normal_subsurface_has(E_Client *ec)
 
    /* if a leaf client is not video cliet */
    if (ec->comp_data->sub.data && !ec->comp_data->sub.below_list &&
-       !ec->comp_data->sub.below_list_pending && !ec->comp_data->video_client)
+       !ec->comp_data->sub.below_list_pending && !ec->comp_data->video_is_on_hw_layer)
      return EINA_TRUE;
 
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
@@ -2452,8 +2452,9 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
 
    _e_comp_wl_surface_state_buffer_set(state, NULL);
 
-   if ((state->new_attach) ||
-       (state->buffer_viewport.changed))
+   if (((state->new_attach) ||
+       (state->buffer_viewport.changed)) &&
+       (!e_comp->hwc_optimized_2 || !ec->comp_data->video_client))
      {
         _e_comp_wl_surface_state_size_update(ec, state);
         e_comp_wl_map_size_cal_from_viewport(ec);
@@ -2574,7 +2575,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
                   e_drag_resize(e_comp_wl->drag,
                                 state->bw, state->bh);
                }
-             else
+             else if (!e_comp->hwc_optimized_2 || !ec->comp_data->video_client)
                {
                   e_client_util_move_resize_without_frame(ec, x, y, ec->w, ec->h);
                }
@@ -3521,7 +3522,8 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
         if (evas_object_visible_get(ec->frame))
           evas_object_show(ec->comp_data->sub.below_obj);
 
-        _e_comp_wl_subsurface_mask_set(ec);
+        if (!e_comp->hwc_optimized_2)
+          _e_comp_wl_subsurface_mask_set(ec);
      }
 }
 
@@ -4907,7 +4909,8 @@ e_comp_wl_surface_attach(E_Client *ec, E_Comp_Wl_Buffer *buffer)
    e_pixmap_dirty(ec->pixmap);
    e_pixmap_refresh(ec->pixmap);
 
-   e_comp_wl_map_size_cal_from_buffer(ec);
+   if (!e_comp->hwc_optimized_2 || !ec->comp_data->video_client)
+     e_comp_wl_map_size_cal_from_buffer(ec);
    _e_comp_wl_surface_state_size_update(ec, &ec->comp_data->pending);
 
    /* wm-policy module uses it */

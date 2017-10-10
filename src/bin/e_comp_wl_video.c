@@ -623,6 +623,150 @@ _e_video_layer_is_usable(E_Video_Layer * layer, unsigned int *usable)
    return ret;
 }
 
+static E_Video *
+_find_e_video_by_ec(E_Client *ec)
+{
+   Eina_List *l;
+   E_Video *video = NULL;
+
+   EINA_LIST_FOREACH(video_list, l, video)
+    {
+       if (video->ec == ec) break;
+    }
+
+   return video;
+}
+
+static void
+_release_undisplayed_vbuf(E_Video *video)
+{
+   Eina_List *l = NULL;
+   E_Comp_Wl_Video_Buf *vbuf = NULL;
+   E_Window *window;
+   tbm_surface_h displaying_surface_on_hw_layer;
+
+   window = e_output_find_window_by_ec_in_all_outputs(video->ec);
+
+   displaying_surface_on_hw_layer = e_window_get_displaying_surface(window);
+
+   EINA_LIST_FOREACH(video->committed_list, l, vbuf)
+     {
+        if (vbuf->tbm_surface == window->tsurface) continue;
+        if (vbuf->tbm_surface == displaying_surface_on_hw_layer) continue;
+
+        video->committed_list = eina_list_remove(video->committed_list, vbuf);
+        e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
+        if (vbuf->comp_buffer)
+          e_comp_wl_buffer_reference(&vbuf->buffer_ref, NULL);
+     }
+}
+
+static void
+_e_video_map_update(E_Client *ec, int width_from_buffer, int height_from_buffer,
+                    Eina_Bool pp_buffer)
+{
+   int x , y, w, h;
+   E_Comp_Wl_Buffer_Viewport old_vp = {0};
+   E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
+
+   if (pp_buffer)
+     {
+        old_vp = *vp;
+
+        vp->buffer.transform = 0;
+        vp->buffer.scale = 1;
+        vp->buffer.src_x = wl_fixed_from_int(0);
+        vp->buffer.src_y = wl_fixed_from_int(0);
+        vp->buffer.src_width = wl_fixed_from_int(width_from_buffer);
+        vp->buffer.src_height = wl_fixed_from_int(height_from_buffer);
+     }
+
+   e_comp_wl_map_size_cal_from_buffer(ec);
+   e_comp_wl_map_size_cal_from_viewport(ec);
+
+   e_comp_object_frame_xy_unadjust(ec->frame,
+                                   ec->x, ec->y,
+                                   &x, &y);
+
+    w = ec->w;
+    h = ec->h;
+
+    ec->client.w = width_from_buffer;
+    ec->client.h = height_from_buffer;
+
+    e_comp_object_frame_wh_adjust(ec->frame,
+                                  ec->client.w, ec->client.h,
+                                  &ec->w, &ec->h);
+
+    if ((w != ec->w) || (h != ec->h))
+      {
+         ec->changes.size = 1;
+         EC_CHANGED(ec);
+      }
+
+   e_client_util_move_resize_without_frame(ec, x, y, ec->w, ec->h);
+
+   e_comp_wl_map_apply(ec);
+
+   if (pp_buffer)
+     *vp = old_vp;
+}
+
+/* TODO: maybe it will be better prepare window to compositing in the _e_comp_cb_update()*/
+static void
+_prepare_window_to_compositing(E_Window *window)
+{
+   E_Client *ec = NULL;
+   E_Comp_Wl_Client_Data *cdata = NULL;
+   E_Comp_Wl_Buffer *buffer = NULL;
+   tbm_surface_h tsurface = NULL;
+   E_Video *video = NULL;
+   Eina_Bool pp_buffer;
+
+   ec = window->ec;
+   if (!ec) return;
+
+   cdata = ec->comp_data;
+   if (!cdata) return;
+
+   video = _find_e_video_by_ec(ec);
+   if (!video) return;
+
+   tsurface = window->tsurface;
+   if (!tsurface) return;
+
+   _release_undisplayed_vbuf(video);
+
+   pp_buffer = !!_e_video_vbuf_find(video->pp_buffer_list, tsurface);
+
+   if (pp_buffer)
+     {
+        tbm_surface_internal_ref(tsurface);
+        buffer = e_comp_wl_tbm_buffer_get(tsurface);
+        if (!buffer)
+          {
+             tbm_surface_internal_unref(tsurface);
+             return;
+          }
+
+        e_pixmap_resource_set(ec->pixmap, buffer);
+     }
+
+   /* force update */
+   e_pixmap_dirty(ec->pixmap);
+   e_pixmap_refresh(ec->pixmap);
+
+   /* TODO: update map only if the geometry is changed */
+   _e_video_map_update(video->ec,
+                       tbm_surface_get_width(tsurface),
+                       tbm_surface_get_height(tsurface), pp_buffer);
+
+   e_pixmap_image_refresh(ec->pixmap);
+   e_comp_object_dirty(ec->frame);
+
+   return;
+}
+
 static tdm_error
 _e_video_layer_commit(E_Video_Layer *layer, tdm_layer_commit_handler func, void *user_data)
 {
@@ -639,20 +783,28 @@ _e_video_layer_commit(E_Video_Layer *layer, tdm_layer_commit_handler func, void 
 
         if (window->skip_flag || window->type == TDM_COMPOSITION_CLIENT)
           {
+             /* TODO: maybe it will be better update right after the validate */
+             window->ec->comp_data->video_is_on_hw_layer = 0;
              /* send frame event enlightenment dosen't send frame evnet in nocomp */
              if (window->ec)
                e_pixmap_image_clear(window->ec->pixmap, 1);
 
              if (!window->skip_flag)
                {
-                   window->ec->comp_data->video_client = 0;
-                   window->is_video = EINA_FALSE;
-                   window->ec->animatable = 0;
+                  _prepare_window_to_compositing(window);
 
-                   return TDM_ERROR_NONE;
+                  return TDM_ERROR_NONE;
                }
              /* to call e_update_job() */
              e_comp_render_queue();
+          }
+        else
+          {
+             /* to try set the video UI on hw layer */
+             if (!window->ec->comp_data->video_is_on_hw_layer)
+               e_comp_render_queue();
+             /* TODO: maybe it will be better update right after the validate */
+             window->ec->comp_data->video_is_on_hw_layer = 1;
           }
 
         window->update_exist = EINA_TRUE;
@@ -1613,7 +1765,7 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
           {
              if (vbuf->tbm_surface == displaying_buffer) break;
           }
-        if (!vbuf) return;
+        if (!vbuf && !_hwc_optimized_is_used()) return;
      }
    else
      vbuf = eina_list_nth(video->committed_list, 0);
@@ -1813,7 +1965,7 @@ _e_video_frame_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf *vbuf)
 
    topmost = find_topmost_parent_get(video->ec);
    if (topmost && (topmost->argb || topmost->comp_data->sub.below_obj) &&
-       !e_comp_object_mask_has(video->ec->frame))
+       !e_comp_object_mask_has(video->ec->frame) && !_hwc_optimized_is_used())
      {
         Eina_Bool do_punch = EINA_TRUE;
 
@@ -2066,6 +2218,7 @@ _e_video_set(E_Video *video, E_Client *ec)
              EINA_SAFETY_ON_NULL_RETURN(video->e_output);
 
              ec->comp_data->video_client = 1;
+             ec->comp_data->video_is_on_hw_layer = 1;
 
              return;
           }
@@ -2110,11 +2263,13 @@ _e_video_set(E_Video *video, E_Client *ec)
           {
              VIN("video client");
              ec->comp_data->video_client = 1;
+             ec->comp_data->video_is_on_hw_layer = 1;
           }
         else
           {
              VIN("no video client");
              ec->comp_data->video_client = 0;
+             ec->comp_data->video_is_on_hw_layer = 0;
              ec->animatable = 0;
           }
      }
@@ -2125,6 +2280,7 @@ _e_video_set(E_Video *video, E_Client *ec)
 
         VIN("show video to primary layer");
         ec->comp_data->video_client = 0;
+        ec->comp_data->video_is_on_hw_layer = 0;
         ec->animatable = 0;
 
         if (_hwc_optimized_is_used())
@@ -2341,6 +2497,8 @@ _e_video_check_if_pp_needed(E_Video *video)
 
        if (window && !window->skip_flag && window->type == TDM_COMPOSITION_VIDEO)
          {
+            tdm_hwc_window_video_capability capabilities = 0;
+
             error = tdm_hwc_window_video_get_supported_format(window->hwc_wnd, &formats, &count);
             if (error != TDM_ERROR_NONE)
               {
