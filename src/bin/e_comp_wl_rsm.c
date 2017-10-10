@@ -1157,14 +1157,14 @@ _remote_source_image_data_save(Thread_Data *td, const char *path, const char *na
      }
    else if (tbm_surface)
      {
-         transform_surface = _remote_source_image_data_transform(td, tbm_surface_get_width(tbm_surface), tbm_surface_get_height(tbm_surface));
+         w = tbm_surface_get_width(tbm_surface);
+         h = tbm_surface_get_height(tbm_surface);
+
+         transform_surface = _remote_source_image_data_transform(td, w, h);
          if (transform_surface)
            tbm_surface = transform_surface;
 
          RSMDBG("image save. transform_surface=%p transform=%d", td->ec->pixmap, td->ec, "SOURCE", NULL, transform_surface, td->transform);
-
-         w = tbm_surface_get_width(tbm_surface);
-         h = tbm_surface_get_height(tbm_surface);
 
          dupname = strdup(fname);
          ret = tbm_surface_internal_capture_buffer(tbm_surface, path, dupname, "png");
