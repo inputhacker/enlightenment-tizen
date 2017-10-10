@@ -931,6 +931,7 @@ struct E_Client
      {
         Eina_Bool provider : 1;
         Eina_Bool consumer : 1;
+        int       bind_ref;
      } remote_surface;
 
    Eina_Bool is_cursor : 1; // The client is a cursor client
