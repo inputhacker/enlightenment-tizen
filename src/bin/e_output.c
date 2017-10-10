@@ -1671,7 +1671,7 @@ e_output_rotate(E_Output *output, int rotate)
 
    if ((rot_dif % 180) && (output->config.geom.w != output->config.geom.h))
      {
-        ERR("output size(%dx%d) should be squre.",
+        ERR("output size(%dx%d) should be square.",
             output->config.geom.w, output->config.geom.h);
         return EINA_FALSE;
      }
