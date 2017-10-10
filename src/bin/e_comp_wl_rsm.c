@@ -1044,7 +1044,7 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
 
    if (td->transform == WL_OUTPUT_TRANSFORM_90)
      {
-        c = 0, s = -1, tx = -w;
+        c = 0, s = -1, tx = -h;
         tw = h, th = w;
      }
    else if (td->transform == WL_OUTPUT_TRANSFORM_180)
@@ -1054,7 +1054,7 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
      }
    else if (td->transform == WL_OUTPUT_TRANSFORM_270)
      {
-        c = 0, s = 1, ty = -h;
+        c = 0, s = 1, ty = -w;
         tw = h, th = w;
      }
 
@@ -1074,7 +1074,7 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
    pixman_transform_from_pixman_f_transform(&t, &ft);
    pixman_image_set_transform(src_img, &t);
 
-   pixman_image_composite(PIXMAN_OP_SRC, src_img, NULL, dst_img, 0, 0, 0, 0, 0, 0, w, h);
+   pixman_image_composite(PIXMAN_OP_SRC, src_img, NULL, dst_img, 0, 0, 0, 0, 0, 0, tw, th);
 
 error_case:
 
@@ -1391,13 +1391,7 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
         ecore_thread_cancel(source->th);
      }
 
-   if (ec->comp_data)
-     {
-        E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
-        td->transform = vp->buffer.transform;
-     }
-   else
-     td->transform = 0;
+   td->transform = e_comp_wl_output_buffer_transform_get(ec);
 
    e_comp_wl_buffer_reference(&source->buffer_ref, buffer);
    switch (buffer->type)
