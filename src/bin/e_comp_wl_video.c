@@ -1935,9 +1935,8 @@ _e_video_frame_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf *vbuf)
    info.dst_pos.w = video->geo.tdm_output_r.w;
    info.dst_pos.h = video->geo.tdm_output_r.h;
    info.transform = vbuf->content_t;
-   /* FIXME: now we always use the pp */
    if (_hwc_optimized_is_used())
-     info.src_config.format = video->pp_tbmfmt;
+     info.src_config.format = tbm_surface_get_format(vbuf->tbm_surface);
 
    if (memcmp(&old_info, &info, sizeof(tdm_info_layer)))
      {
