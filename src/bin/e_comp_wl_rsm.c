@@ -728,6 +728,33 @@ _remote_surface_visible_set(E_Comp_Wl_Remote_Surface *remote_surface, Eina_Bool 
 }
 
 static void
+_remote_surface_bind_client_set(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *ec)
+{
+   if (!remote_surface) return;
+
+   RSMINF("Set bind_ec:%p, bind_ref:%d",
+          NULL, NULL,
+          "SURFACE", remote_surface, ec, ec->remote_surface.bind_ref + 1);
+
+   remote_surface->bind_ec = ec;
+   remote_surface->bind_ec->remote_surface.bind_ref++;
+}
+
+static void
+_remote_surface_bind_client_unset(E_Comp_Wl_Remote_Surface *remote_surface)
+{
+   if (!remote_surface) return;
+
+   RSMINF("Unset bind_ec:%p, bind_ref:%d",
+          NULL, NULL,
+          "SURFACE", remote_surface, remote_surface->bind_ec,
+          remote_surface->bind_ec->remote_surface.bind_ref - 1);
+
+   remote_surface->bind_ec->remote_surface.bind_ref--;
+   remote_surface->bind_ec = NULL;
+}
+
+static void
 _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *ec)
 {
    if (!remote_surface) return;
@@ -754,7 +781,7 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
         e_comp_wl_surface_attach(remote_surface->bind_ec, NULL);
 
         eina_hash_del(_rsm->bind_surface_hash, &remote_surface->bind_ec, remote_surface);
-        remote_surface->bind_ec = NULL;
+        _remote_surface_bind_client_unset(remote_surface);
 
         /* try to send latest buffer of the provider to the consumer when unbinding
          * the remote surface to avoid showing old buffer on consumer's window for a while.
@@ -792,13 +819,9 @@ bind_ec_set:
              return;
           }
 
-        RSMINF("Set bind_ec:%p",
-               NULL, NULL,
-               "SURFACE", remote_surface, ec);
-
         /* TODO: enable user geometry? */
         e_policy_allow_user_geometry_set(ec, EINA_TRUE);
-        remote_surface->bind_ec = ec;
+        _remote_surface_bind_client_set(remote_surface, ec);
         eina_hash_add(_rsm->bind_surface_hash, &remote_surface->bind_ec, remote_surface);
 
         /* try to set latest buffer of the provider to bind_ec */

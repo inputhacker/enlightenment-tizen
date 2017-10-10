@@ -983,6 +983,7 @@ _e_policy_cb_hook_pixmap_unusable(void *data EINA_UNUSED, E_Pixmap *cp)
    if (ec->exp_iconify.by_client) return;
    if (ec->exp_iconify.skip_iconify) return;
    if (ec->exp_iconify.skip_by_remote) return;
+   if (ec->remote_surface.bind_ref > 0) return;
 
    e_policy_client_unmap(ec);
 }
