@@ -8,6 +8,14 @@ typedef struct _E_Window_Commit_Data         E_Window_Commit_Data;
 #ifndef E_WINDOW_H
 #define E_WINDOW_H
 
+typedef enum _E_Window_State
+{
+   E_WINDOW_STATE_NONE,
+   E_WINDOW_STATE_CLIENT,
+   E_WINDOW_STATE_DEVICE,
+   E_WINDOW_STATE_CLIENT_CANDIDATE
+} E_Window_State;
+
 struct _E_Window
 {
    E_Client                      *ec;
@@ -15,6 +23,7 @@ struct _E_Window
    tdm_hwc_window                *hwc_wnd;
    int                            zpos;
    int                            skip_flag;
+   Eina_Bool                      is_visible;
    tdm_hwc_window_composition_t   type;
    Eina_Bool                      is_target;
    Eina_Bool                      is_video;
@@ -22,6 +31,8 @@ struct _E_Window
    Eina_Bool                      update_exist;
    tbm_surface_h                  tsurface;
    Eina_Bool                      activated; /* window occupied the hw layer */
+
+   E_Window_State                 state;
 
    /* current display information */
    struct
@@ -31,6 +42,13 @@ struct _E_Window
    } display_info;
 
    E_Window_Commit_Data *commit_data;
+
+   /* whether E20 has to notify this e_window about the end of composition */
+   Eina_Bool                      get_notified_about_composition_end;
+   uint64_t                       frame_num;  /* the absolute number of frame to be notified about */
+
+   /* whether an e_client owned by this window got composited on the fb_target */
+   Eina_Bool                      got_composited;
 };
 
 struct _E_Window_Target
@@ -39,10 +57,11 @@ struct _E_Window_Target
 
    Ecore_Evas         *ee;
    Evas               *evas;
-   Ecore_Fd_Handler   *event_hdlr;
    int                 event_fd;
 
    tbm_surface_queue_h queue;
+
+   uint64_t            render_cnt;
 };
 
 struct _E_Window_Commit_Data {
@@ -57,6 +76,8 @@ EINTERN void                  e_window_free(E_Window *window);
 EINTERN Eina_Bool             e_window_set_zpos(E_Window *window, int zpos);
 EINTERN Eina_Bool             e_window_set_skip_flag(E_Window *window);
 EINTERN Eina_Bool             e_window_unset_skip_flag(E_Window *window);
+EINTERN Eina_Bool             e_window_mark_visible(E_Window *window);
+EINTERN Eina_Bool             e_window_mark_unvisible(E_Window *window);
 EINTERN Eina_Bool             e_window_update(E_Window *window);
 EINTERN Eina_Bool             e_window_is_target(E_Window *window);
 EINTERN Eina_Bool             e_window_is_video(E_Window *window);
@@ -67,12 +88,18 @@ EINTERN Eina_Bool             e_window_commit_data_release(E_Window *window);
 EINTERN Eina_Bool             e_window_target_surface_queue_can_dequeue(E_Window_Target *target_window);
 EINTERN tbm_surface_h         e_window_target_surface_queue_acquire(E_Window_Target *target_window);
 EINTERN void                  e_window_target_surface_queue_release(E_Window_Target *target_window, tbm_surface_h tsurface);
+EINTERN uint64_t              e_window_target_get_current_renderer_cnt(E_Window_Target *target_window);
 EINTERN Eina_Bool             e_window_prepare_commit(E_Window *window);
 EINTERN Eina_Bool             e_window_offscreen_commit(E_Window *window);
 EINTERN Eina_Bool             e_window_activate(E_Window *window);
 EINTERN Eina_Bool             e_window_deactivate(E_Window *window);
 EINTERN Eina_Bool             e_window_is_on_hw_overlay(E_Window *window);
 EINTERN tbm_surface_h         e_window_get_displaying_surface(E_Window *window);
+
+EINTERN Eina_Bool             e_window_set_state(E_Window *window, E_Window_State state);
+EINTERN E_Window_State        e_window_get_state(E_Window *window);
+
+EINTERN Eina_Bool             e_window_get_notified_about_composition_end(E_Window *window, uint64_t offset);
 
 #endif
 #endif

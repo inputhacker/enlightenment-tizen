@@ -1370,7 +1370,7 @@ e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
               * the ability for wm to prevent some clients to be shown by hw directly */
              EINA_LIST_FOREACH(vis_cl_list, l_inner, ec_inner)
                {
-                 ec_inner->hwc_acceptable = EINA_FALSE;
+                  ec_inner->hwc_acceptable = EINA_FALSE;
                   INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable (UI subsurface).",
                           ec_inner, ec_inner->icccm.name, ec_inner->icccm.title);
                }
