@@ -2886,7 +2886,7 @@ e_output_find_window_by_hwc_win(E_Output *eout, tdm_hwc_window *hwc_win)
    return NULL;
 }
 
-EINTERN E_Window *
+EINTERN E_Window_Target *
 e_output_get_target_window(E_Output *eout)
 {
    Eina_List *l;
@@ -2896,7 +2896,7 @@ e_output_get_target_window(E_Output *eout)
 
    EINA_LIST_FOREACH(eout->windows, l, window)
      {
-        if (window->is_target) return window;
+        if (window->is_target) return (E_Window_Target *)window;
      }
 
    return NULL;

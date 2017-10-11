@@ -4,6 +4,7 @@
 # include <Evas_Engine_GL_Tbm.h>
 # include <Evas_Engine_Software_Tbm.h>
 # include <sys/eventfd.h>
+# include <gbm/gbm_tbm.h>
 
 
 static E_Client_Hook *client_hook_new = NULL;
@@ -190,18 +191,12 @@ _e_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    INF("E_WINDOW: new window(%p)", window);
 
    return;
-fail:
-   if (window)
-     e_window_free(window);
 }
 
 static void
 _e_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
 {
-   E_Output *output;
    E_Window *window;
-   E_Zone *zone;
-   Eina_Bool result;
 
    window = e_output_find_window_by_ec_in_all_outputs(ec);
 
@@ -977,7 +972,6 @@ e_window_target_surface_queue_release(E_Window_Target *target_window, tbm_surfac
 EINTERN Eina_Bool
 e_window_prepare_commit(E_Window *window)
 {
-   tdm_error error = TDM_ERROR_NONE;
    E_Window_Commit_Data *data;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EINA_FALSE);

@@ -45,9 +45,10 @@ _hwc_prepare(E_Output *eo, Eina_List *cl_list)
 {
    const Eina_List *l;
    E_Client *ec;
-   int zpos = 0, num_changes;
+   uint32_t num_changes;
+   int zpos = 0;
    E_Window *window;
-   Eina_List *windows;
+   const Eina_List *windows;
    Eina_Bool result;
    tdm_error tdm_err;
 
@@ -149,7 +150,7 @@ _hwc_prepare(E_Output *eo, Eina_List *cl_list)
 
           INF("hwc-opt: hybrid composition");
 
-          window = e_output_get_target_window(eo);
+          window = (E_Window *)e_output_get_target_window(eo);
           if (!window)
             {
                ERR("hwc-opt: cannot get target window for output(%p)", eo);
@@ -200,7 +201,7 @@ _e_hwc_output_commit_hanler(tdm_output *output, unsigned int sequence,
                                   unsigned int tv_sec, unsigned int tv_usec,
                                   void *user_data)
 {
-   Eina_List *l;
+   const Eina_List *l;
    E_Window *ew;
 
    E_Output *eo = (E_Output *)user_data;
@@ -320,9 +321,8 @@ e_hwc_re_evaluate()
    EINA_LIST_FOREACH(e_comp->zones, l, zone)
      {
         E_Output *output;
-        int n_vis = 0, n_cur = 0, n_skip = 0;
+        int n_cur = 0;
         Eina_List *hwc_ok_clist = NULL, *vis_clist = NULL;
-        E_Client fake_ec;
 
         if (!zone || !zone->output_id) continue;  // no hw layer
 
@@ -348,7 +348,7 @@ e_hwc_re_evaluate()
           {
              E_Window *window = NULL;
 
-             window = e_output_get_target_window(output);
+             window = (E_Window *)e_output_get_target_window(output);
              if (!window)
                {
                   ERR("we don't have the target window");
@@ -372,10 +372,9 @@ next_zone:
 EINTERN Eina_Bool
 e_hwc_commit()
 {
-   Eina_List *l, *ll, *l_windows;
+   Eina_List *l, *ll;
    E_Comp_Screen *e_comp_screen = NULL;
    E_Output *output = NULL;
-   E_Window *window;
 
    if (!e_comp->e_comp_screen) return EINA_FALSE;
 
@@ -389,7 +388,7 @@ e_hwc_commit()
         if (!output->config.enabled) continue;
 
         if (!_e_hwc_output_commit(output))
-          ERR("fail to commit output.", output);
+          ERR("fail to commit output(%p).", output);
 
         window_target = e_output_get_target_window(output);
         if (!window_target)
