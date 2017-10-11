@@ -828,6 +828,10 @@ e_desk_geometry_set(E_Desk *desk, int x, int y, int w, int h)
           {
              continue;
           }
+        else if ((ec->comp_data) && (ec->comp_data->sub.data))
+           {
+              continue;
+           }
         else if (ec->maximized)
           {
              max = ec->maximized;
