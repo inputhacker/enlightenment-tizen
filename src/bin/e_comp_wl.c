@@ -560,6 +560,7 @@ _e_comp_wl_send_touch_cancel(E_Client *ec)
    Eina_List *l;
    struct wl_resource *res;
    struct wl_client *wc;
+   E_Comp_Config *comp_conf = NULL;
 
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
@@ -568,10 +569,15 @@ _e_comp_wl_send_touch_cancel(E_Client *ec)
 
    wc = wl_resource_get_client(ec->comp_data->surface);
 
+   comp_conf = e_comp_config_get();
+
    EINA_LIST_FOREACH(e_comp->wl_comp_data->touch.resources, l, res)
      {
         if (wl_resource_get_client(res) != wc) continue;
         if (!e_comp_wl_input_touch_check(res)) continue;
+
+        if (comp_conf && comp_conf->input_log_enable)
+           INF("[Server] Touch Cancel (win:0x%08x, name:%20s)\n", e_client_util_win_get(ec), e_client_util_name_get(ec));
 
         wl_touch_send_cancel(res);
      }
@@ -1022,14 +1028,14 @@ _e_comp_wl_send_touch(E_Client *ec, int idx, int canvas_x, int canvas_y, uint32_
         if (pressed)
           {
              if (comp_conf && comp_conf->input_log_enable)
-               INF("[Server] Touch Down (id: %d, time: %d, x:%d, y:%d)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y);
+               INF("[Server] Touch Down (id: %d, time: %d, x:%d, y:%d, win:0x%08x, name:%20s)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y, e_client_util_win_get(ec), e_client_util_name_get(ec));
 
              wl_touch_send_down(res, serial, timestamp, ec->comp_data->surface, idx, x, y); //id 0 for the 1st finger
           }
         else
           {
              if (comp_conf && comp_conf->input_log_enable)
-               INF("[Server] Touch Up (id: %d, time: %d, x:%d, y:%d)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y);
+               INF("[Server] Touch Up (id: %d, time: %d, x:%d, y:%d, win:0x%08x, name:%20s)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y, e_client_util_win_get(ec), e_client_util_name_get(ec));
 
              wl_touch_send_up(res, serial, timestamp, idx);
           }
