@@ -1739,6 +1739,7 @@ e_comp_vis_ec_list_get(E_Zone *zone)
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
         int x, y, w, h;
+        int scr_w, scr_h;
 
         ec = evas_object_data_get(o, "E_Client");
         if (!ec) continue;
@@ -1751,7 +1752,8 @@ e_comp_vis_ec_list_get(E_Zone *zone)
           continue;
 
         // check geometry if located out of screen such as quick panel
-        if (!E_INTERSECTS(0, 0, e_comp->w, e_comp->h,
+        ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &scr_w, &scr_h);
+        if (!E_INTERSECTS(0, 0, scr_w, scr_h,
                           ec->client.x, ec->client.y, ec->client.w, ec->client.h))
           continue;
 
@@ -1763,7 +1765,7 @@ e_comp_vis_ec_list_get(E_Zone *zone)
         // find full opaque win and excludes below wins from the visible list.
         e_client_geometry_get(ec, &x, &y, &w, &h);
         if (!E_CONTAINS(x, y, w, h,
-                        0, 0, e_comp->w, e_comp->h))
+                        0, 0, scr_w, scr_h))
            continue;
 
         if (!ec->argb)
