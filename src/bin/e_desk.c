@@ -954,6 +954,8 @@ e_desk_zoom_unset(E_Desk *desk)
         sd->zoom.center_y = 0;
         sd->zoom.enabled = EINA_FALSE;
 
+        _e_desk_object_zoom(desk->smart_obj, sd->zoom.ratio_x, sd->zoom.ratio_y,
+                            sd->zoom.center_x, sd->zoom.center_y);
         evas_object_map_enable_set(desk->smart_obj, EINA_FALSE);
         EINA_LIST_FOREACH(sd->clients, l, ec)
           {
@@ -1170,21 +1172,6 @@ _e_desk_zoom_first_set(E_Desk *desk)
    sd->zoom.center_y = 0;
 
    _e_desk_object_zoom(desk->smart_obj, 1.0, 1.0, 0, 0);
-   EINA_LIST_FOREACH(sd->clients, l, ec)
-     _e_desk_client_zoom(ec, 1.0, 1.0, 0, 0);
-
-   if (!sd->zoom.enabled)
-     {
-        sd->zoom.enabled = EINA_TRUE;
-
-        evas_object_map_enable_set(desk->smart_obj, EINA_TRUE);
-        EINA_LIST_FOREACH(sd->clients, l, ec)
-          evas_object_map_enable_set(ec->frame, EINA_TRUE);
-
-        /* FIXME TEMP disable hwc */
-        _e_desk_util_comp_hwc_disable_set(EINA_TRUE);
-     }
-
 }
 
 static void
@@ -1211,15 +1198,20 @@ _e_desk_smart_client_cb_resize(void *data, int type, void *event)
 {
    E_Event_Client *ev;
    E_Desk_Smart_Data *sd;
+   E_Client *ec = NULL;
 
    ev = event;
    sd = data;
-   if (!eina_list_data_find(sd->clients, ev->ec))
+   ec = ev->ec;
+   if (!ec) goto end;
+
+   if (!eina_list_data_find(sd->clients, ec))
      goto end;
 
-   _e_desk_client_zoom(ev->ec,
-                       sd->zoom.ratio_x, sd->zoom.ratio_y,
-                       sd->zoom.center_x, sd->zoom.center_y);
+   if (sd->zoom.enabled)
+     _e_desk_client_zoom(ec,
+                         sd->zoom.ratio_x, sd->zoom.ratio_y,
+                         sd->zoom.center_x, sd->zoom.center_y);
 end:
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -1293,9 +1285,6 @@ _e_desk_smart_client_add(Evas_Object *obj, E_Client *ec)
    if (eina_list_data_find(sd->clients, ec))
      return;
 
-   _e_desk_client_zoom(ec,
-                       sd->zoom.ratio_x, sd->zoom.ratio_y,
-                       sd->zoom.center_x, sd->zoom.center_y);
    sd->clients = eina_list_append(sd->clients, ec);
    evas_object_smart_changed(obj);
 }
@@ -1308,7 +1297,6 @@ _e_desk_smart_client_del(Evas_Object *obj, E_Client *ec)
    if (!eina_list_data_find(sd->clients, ec))
      return;
 
-   _e_desk_client_zoom(ec, 1.0, 1.0, 0, 0);
    sd->clients = eina_list_remove(sd->clients, ec);
    evas_object_smart_changed(obj);
 }
