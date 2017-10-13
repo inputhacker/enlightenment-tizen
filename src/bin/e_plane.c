@@ -2500,6 +2500,26 @@ e_plane_pp_commit(E_Plane *plane)
 }
 
 EINTERN Eina_Bool
+e_plane_pp_commit_possible_check(E_Plane *plane)
+{
+   if (!plane->pp_set) return EINA_FALSE;
+
+   if (plane->pp_tqueue)
+     {
+        if (!tbm_surface_queue_can_dequeue(plane->pp_tqueue, 0))
+          return EINA_FALSE;
+     }
+
+   if (plane->pending_pp_data_list)
+     {
+        if (eina_list_count(plane->pending_pp_data_list) != 0)
+          return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
 e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
