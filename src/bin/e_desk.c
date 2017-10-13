@@ -1160,9 +1160,6 @@ _e_desk_hide_begin(E_Desk *desk, int dx, int dy)
 static void
 _e_desk_zoom_first_set(E_Desk *desk)
 {
-   E_Client *ec;
-   Eina_List *l;
-
    E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
 
    sd->zoom.ratio_x = 1.0;
