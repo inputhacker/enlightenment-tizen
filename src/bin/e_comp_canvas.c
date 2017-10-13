@@ -94,6 +94,16 @@ _e_comp_cb_key_up(void *data EINA_UNUSED, int ev_type EINA_UNUSED, Ecore_Event_K
    return !e_comp_wl_key_up(ev);
 }
 
+static Eina_Bool
+_e_comp_cb_keyrouter_key(void *data EINA_UNUSED, int ev_type EINA_UNUSED, E_Keyrouter_Event_Key *ev)
+{
+   Eina_Bool res;
+
+   res = e_comp_wl_key_process(ev);
+
+   return res;
+}
+
 ////////////////////////////////////
 
 static Eina_Bool
@@ -220,6 +230,7 @@ e_comp_canvas_init(int w, int h)
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_COMPOSITOR_ENABLE,    _e_comp_cb_compositor_enabled, NULL);
    E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_KEY_DOWN, _e_comp_cb_key_down, NULL);
    E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_KEY_UP, _e_comp_cb_key_up, NULL);
+   E_LIST_HANDLER_APPEND(handlers, E_KEYROUTER_EVENT_KEY, _e_comp_cb_keyrouter_key, NULL);
 
    ecore_evas_callback_pre_render_set(e_comp->ee, _e_comp_canvas_prerender);
    ecore_evas_callback_resize_set(e_comp->ee, _e_comp_canvas_resize);

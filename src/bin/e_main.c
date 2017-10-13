@@ -636,6 +636,11 @@ main(int argc, char **argv)
    TSE("E_Pointer Init Done");
    _e_main_shutdown_push(e_pointer_shutdown);
 
+   TSB("E_Keyrouter Init");
+   e_keyrouter_init();
+   TSE("E_Keyrouter Init Done");
+   _e_main_shutdown_push(e_keyrouter_shutdown);
+
    TRACE_DS_BEGIN(MAIN:SCREEN INIT);
    TSB("Screens Init");
    if (!_e_main_screens_init())
