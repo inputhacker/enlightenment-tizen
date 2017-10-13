@@ -795,28 +795,40 @@ _e_plane_pp_layer_commit_handler(tdm_layer *layer, unsigned int sequence,
      ELOGF("E_PLANE", "PP Layer Commit Handler Plane(%p)", NULL, NULL, plane);
 
    /* deal with the pending layer commit */
-   data = eina_list_nth(plane->pending_pp_commit_data_list, 0);
-   if (data)
+   if (eina_list_count(plane->pending_pp_commit_data_list) != 0)
      {
-        plane->pending_pp_commit_data_list = eina_list_remove(plane->pending_pp_commit_data_list, data);
-
-        if (!_e_plane_pp_layer_data_commit(plane, data))
+        data = eina_list_nth(plane->pending_pp_commit_data_list, 0);
+        if (data)
           {
-             ERR("fail to _e_plane_pp_layer_commit");
-             return;
+             plane->pending_pp_commit_data_list = eina_list_remove(plane->pending_pp_commit_data_list, data);
+
+             if (plane_trace_debug)
+               ELOGF("E_PLANE", "PP Layer Commit Handler start pending commit data(%p) tsurface(%p)", NULL, NULL, data, data->tsurface);
+
+             if (!_e_plane_pp_layer_data_commit(plane, data))
+               {
+                  ERR("fail to _e_plane_pp_layer_commit");
+                  return;
+               }
           }
      }
 
    /* deal with the pending pp commit */
-   data = eina_list_nth(plane->pending_pp_data_list, 0);
-   if (data)
+   if (eina_list_count(plane->pending_pp_data_list) != 0)
      {
-        plane->pending_pp_data_list = eina_list_remove(plane->pending_pp_data_list, data);
-
-        if (!_e_plane_pp_commit(plane, data))
+        data = eina_list_nth(plane->pending_pp_data_list, 0);
+        if (data)
           {
-             ERR("fail _e_plane_pp_commit");
-             return;
+             plane->pending_pp_data_list = eina_list_remove(plane->pending_pp_data_list, data);
+
+             if (plane_trace_debug)
+               ELOGF("E_PLANE", "PP Layer Commit Handler start pending pp data(%p) tsurface(%p)", NULL, NULL, data, data->tsurface);
+
+             if (!_e_plane_pp_commit(plane, data))
+               {
+                  ERR("fail _e_plane_pp_commit");
+                  return;
+               }
           }
      }
 }
