@@ -1,6 +1,8 @@
 #include "e.h"
 #include "e_keyrouter.h"
 
+E_API int E_KEYROUTER_EVENT_KEY;
+
 static int _e_keyrouter_intercept_hooks_delete = 0;
 static int _e_keyrouter_intercept_hooks_walking = 0;
 
@@ -74,4 +76,27 @@ e_keyrouter_intercept_hook_call(E_Keyrouter_Intercept_Hook_Point hookpoint, int 
      _e_keyrouter_intercept_hooks_clean();
 
    return res;
+}
+
+E_API void
+e_keyrouter_send_event_surface(struct wl_resource *surface, int key, int mode)
+{
+   EINA_SAFETY_ON_NULL_RETURN(e_keyrouter.event_surface_send);
+   EINA_SAFETY_ON_NULL_RETURN(surface);
+
+   e_keyrouter.event_surface_send(surface, key, mode);
+}
+
+EINTERN void
+e_keyrouter_init(void)
+{
+   E_KEYROUTER_EVENT_KEY = ecore_event_type_new();
+}
+
+EINTERN int
+e_keyrouter_shutdown(void)
+{
+   E_KEYROUTER_EVENT_KEY = 0;
+
+   return 1;
 }
