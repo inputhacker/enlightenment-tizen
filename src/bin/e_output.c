@@ -384,7 +384,8 @@ _e_output_zoom_rotate(E_Output *output)
      }
 
    /* update the ecore_evas */
-   _e_output_render_update(output);
+   if (e_plane_pp_commit_possible_check(ep))
+     _e_output_render_update(output);
 }
 
 static void
@@ -2531,7 +2532,8 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
        output->zoom_conf.rect.x, output->zoom_conf.rect.y, output->zoom_conf.rect.w, output->zoom_conf.rect.h);
 
    /* update the ecore_evas */
-   _e_output_render_update(output);
+   if (e_plane_pp_commit_possible_check(ep))
+     _e_output_render_update(output);
 
    return EINA_TRUE;
 }
