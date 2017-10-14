@@ -1042,6 +1042,8 @@ _e_comp_object_animating_end(E_Comp_Object *cw)
              e_comp->animating--;
              cw->showing = 0;
              UNREFD(cw->ec, 2);
+             if (e_comp->animating == 0)
+               e_client_visibility_calculate();
              /* remove ref from animation start, account for possibility of deletion from unref */
              return !!e_object_unref(E_OBJECT(cw->ec));
           }
