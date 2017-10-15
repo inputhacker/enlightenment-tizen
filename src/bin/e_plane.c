@@ -827,6 +827,7 @@ _e_plane_pp_layer_commit_handler(tdm_layer *layer, unsigned int sequence,
              if (!_e_plane_pp_commit(plane, data))
                {
                   ERR("fail _e_plane_pp_commit");
+                  e_plane_commit_data_release(data);
                   return;
                }
           }
@@ -1059,6 +1060,7 @@ attach_fail:
    tbm_surface_internal_unref(pp_tsurface);
    tbm_surface_internal_unref(tsurface);
 pp_fail:
+   tbm_surface_queue_release(plane->pp_tqueue, pp_tsurface);
 
    ERR("failed _e_plane_pp_commit");
 
