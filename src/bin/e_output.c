@@ -383,6 +383,9 @@ _e_output_zoom_rotate(E_Output *output)
         break;
      }
 
+   if (!_e_output_zoom_touch_set(output))
+     ERR("fail _e_output_zoom_touch_set");
+
    /* update the ecore_evas */
    if (e_plane_pp_commit_possible_check(ep))
      _e_output_render_update(output);
