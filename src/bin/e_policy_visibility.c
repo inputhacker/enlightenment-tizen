@@ -65,6 +65,30 @@ static Eina_Inlist *_e_pol_vis_hooks[] =
 static int _e_pol_vis_hooks_delete = 0;
 static int _e_pol_vis_hooks_walking = 0;
 
+static inline Eina_Bool
+_e_vis_client_is_grabbed(E_Vis_Client *vc)
+{
+   return !!vc->job.grab_list;
+}
+
+static inline Eina_Bool
+_e_vis_client_is_iconic(E_Vis_Client *vc)
+{
+   return (vc->state == E_VIS_ICONIFY_STATE_ICONIC);
+}
+
+static inline Eina_Bool
+_e_vis_client_is_uniconic(E_Vis_Client *vc)
+{
+   return (vc->state == E_VIS_ICONIFY_STATE_UNICONIC);
+}
+
+static inline Eina_Bool
+_e_vis_client_is_uniconify_render_running(E_Vis_Client *vc)
+{
+   return (vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY);
+}
+
 static void
 _e_pol_vis_hooks_clean(void)
 {
@@ -259,7 +283,19 @@ _e_policy_client_iconify_by_visibility(E_Client *ec)
    if (ec->parent)
      {
         if (ec->parent->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)
-          _e_policy_client_iconify_by_visibility(ec->parent);
+          {
+             _e_policy_client_iconify_by_visibility(ec->parent);
+
+             E_VIS_CLIENT_GET(vc, ec->parent);
+             if (vc)
+               {
+                  if (_e_vis_client_is_uniconify_render_running(vc))
+                    {
+                       VS_INF(ec, "Uniconify render because parent(win:%x, ec:%p)", e_client_util_win_get(ec->parent), ec->parent);
+                       e_policy_visibility_client_uniconify(ec, !ec->parent->exp_iconify.not_raise);
+                    }
+               }
+          }
      }
 }
 
@@ -663,30 +699,6 @@ _e_vis_grab_release(E_Vis_Grab *grab)
      _e_vis_client_grab_remove(grab->vc, grab);
 
    _e_vis_grab_del(grab);
-}
-
-static inline Eina_Bool
-_e_vis_client_is_grabbed(E_Vis_Client *vc)
-{
-   return !!vc->job.grab_list;
-}
-
-static inline Eina_Bool
-_e_vis_client_is_iconic(E_Vis_Client *vc)
-{
-   return (vc->state == E_VIS_ICONIFY_STATE_ICONIC);
-}
-
-static inline Eina_Bool
-_e_vis_client_is_uniconic(E_Vis_Client *vc)
-{
-   return (vc->state == E_VIS_ICONIFY_STATE_UNICONIC);
-}
-
-static inline Eina_Bool
-_e_vis_client_is_uniconify_render_running(E_Vis_Client *vc)
-{
-   return (vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY);
 }
 
 static Eina_Bool
