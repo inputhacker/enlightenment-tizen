@@ -119,6 +119,10 @@ _hwc_update_e_windows_state(const Eina_List *windows)
              e_window_set_state(win, E_WINDOW_STATE_CLIENT_CANDIDATE);
              break;
 
+           case TDM_COMPOSITION_VIDEO:
+             e_window_set_state(win, E_WINDOW_STATE_VIDEO);
+             break;
+
            default:
              e_window_set_state(win, E_WINDOW_STATE_NONE);
              ERR("hwc-opt: unknown state of hwc_window.");
@@ -144,6 +148,9 @@ _get_name_of_wnd_state(E_Window_State wnd_state)
 
      case E_WINDOW_STATE_CLIENT_CANDIDATE:
        return "CLIENT_CANDIDATE";
+
+     case E_WINDOW_STATE_VIDEO:
+       return "VIDEO";
 
      default:
        return "UNKNOWN";
