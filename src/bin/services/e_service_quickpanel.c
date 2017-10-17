@@ -192,7 +192,10 @@ _mover_intercept_show(void *data, Evas_Object *obj)
    e_layout_pack(md->qp_layout_obj, md->handler_clip);
    e_layout_child_move(md->handler_clip, md->handler_rect.x, md->handler_rect.y);
    e_layout_child_resize(md->handler_clip, md->handler_rect.w, md->handler_rect.h);
-   evas_object_color_set(md->handler_clip, 255, 255, 255, 255);
+   if (e_config->qp_handler.use_alpha)
+     evas_object_color_set(md->handler_clip, 255, 255, 255, e_config->qp_handler.alpha);
+   else
+     evas_object_color_set(md->handler_clip, 255, 255, 255, 255);
    evas_object_show(md->handler_clip);
    evas_object_clip_set(md->handler_mirror_obj, md->handler_clip);
 
