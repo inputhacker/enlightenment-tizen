@@ -2224,6 +2224,18 @@ e_plane_ec_prepare_set(E_Plane *plane, E_Client *ec)
           }
      }
 
+   /* if the buffer transform of surface is not same with output's transform, we
+    * can't show it to HW overlay directly.
+    */
+   int transform = e_comp_wl_output_buffer_transform_get(ec);
+   if ((plane->output->config.rotation / 90) != transform)
+     {
+        if (!e_config->screen_rotation_client_ignore)
+          e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
+
+        return EINA_FALSE;
+     }
+
    plane->prepare_ec = ec;
 
    return EINA_TRUE;

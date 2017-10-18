@@ -4906,6 +4906,8 @@ e_comp_wl_surface_attach(E_Client *ec, E_Comp_Wl_Buffer *buffer)
    e_pixmap_resource_set(ec->pixmap, buffer);
    e_pixmap_dirty(ec->pixmap);
    e_pixmap_refresh(ec->pixmap);
+   
+   ELOGF("TRANSFORM", "@@@ buffer_transform(%d) animating(%d)", NULL, ec, e_comp_wl_output_buffer_transform_get(ec), e_comp_object_is_animating(ec->frame));
 
    e_comp_wl_map_size_cal_from_buffer(ec);
    _e_comp_wl_surface_state_size_update(ec, &ec->comp_data->pending);
