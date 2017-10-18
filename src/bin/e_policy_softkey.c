@@ -5,6 +5,8 @@ static void         _e_policy_softkey_iconify(E_Zone *zone, Eina_Bool all);
 static Evas_Object *_e_policy_softkey_icon_add(E_Zone *zone, const char *name);
 static void         _e_policy_softkey_icon_del(Evas_Object *comp_obj);
 
+static E_Policy_Softkey_Funcs *_e_softkey_funcs = NULL;
+
 static void
 _e_policy_cb_softkey(void *data, Evas_Object *obj EINA_UNUSED, const char *emission, const char *source EINA_UNUSED)
 {
@@ -99,12 +101,20 @@ e_policy_softkey_add(E_Zone *zone)
 {
    E_Policy_Softkey *softkey;
 
-   softkey = E_NEW(E_Policy_Softkey, 1);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(softkey, NULL);
+   if (_e_softkey_funcs && _e_softkey_funcs->softkey_create)
+     {
+        softkey = _e_softkey_funcs->softkey_create(zone);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(softkey, NULL);
+     }
+   else
+     {
+        softkey = E_NEW(E_Policy_Softkey, 1);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(softkey, NULL);
 
-   softkey->zone = zone;
-   softkey->home = _e_policy_softkey_icon_add(zone, "home");
-   softkey->back = _e_policy_softkey_icon_add(zone, "back");
+        softkey->zone = zone;
+        softkey->home = _e_policy_softkey_icon_add(zone, "home");
+        softkey->back = _e_policy_softkey_icon_add(zone, "back");
+     }
 
    e_policy->softkeys = eina_inlist_append(e_policy->softkeys, EINA_INLIST_GET(softkey));
 
@@ -116,17 +126,25 @@ e_policy_softkey_del(E_Policy_Softkey *softkey)
 {
    if (!softkey) return;
 
-   _e_policy_softkey_icon_del(softkey->home);
-   _e_policy_softkey_icon_del(softkey->back);
-
    e_policy->softkeys = eina_inlist_remove(e_policy->softkeys, EINA_INLIST_GET(softkey));
 
-   free(softkey);
+   if (_e_softkey_funcs && _e_softkey_funcs->softkey_destroy)
+     return _e_softkey_funcs->softkey_destroy(softkey);
+   else
+     {
+        _e_policy_softkey_icon_del(softkey->home);
+        _e_policy_softkey_icon_del(softkey->back);
+
+        E_FREE(softkey);
+     }
 }
 
 void
 e_policy_softkey_show(E_Policy_Softkey *softkey)
 {
+   if (_e_softkey_funcs && _e_softkey_funcs->softkey_show)
+     return _e_softkey_funcs->softkey_show(softkey);
+
    if (!softkey) return;
 
    e_policy_softkey_update(softkey);
@@ -138,6 +156,9 @@ e_policy_softkey_show(E_Policy_Softkey *softkey)
 void
 e_policy_softkey_hide(E_Policy_Softkey *softkey)
 {
+   if (_e_softkey_funcs && _e_softkey_funcs->softkey_hide)
+     return _e_softkey_funcs->softkey_hide(softkey);
+
    if (!softkey) return;
 
    evas_object_hide(softkey->home);
@@ -148,6 +169,9 @@ void
 e_policy_softkey_update(E_Policy_Softkey *softkey)
 {
    int x, y, w, h, ow, oh, space;
+
+   if (_e_softkey_funcs && _e_softkey_funcs->softkey_update)
+     return _e_softkey_funcs->softkey_update(softkey);
 
    if (!softkey) return;
 
@@ -175,4 +199,32 @@ e_policy_softkey_get(E_Zone *zone)
      }
 
    return NULL;
+}
+
+E_API Eina_Bool
+e_policy_softkey_module_func_set(E_Policy_Softkey_Funcs *fp)
+{
+   EINA_SAFETY_ON_FALSE_RETURN_VAL((_e_softkey_funcs == NULL), EINA_FALSE);
+
+   if (!fp) return EINA_FALSE;
+
+   _e_softkey_funcs = E_NEW(E_Policy_Softkey_Funcs, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(_e_softkey_funcs, EINA_FALSE);
+
+   _e_softkey_funcs->softkey_create = fp->softkey_create;
+   _e_softkey_funcs->softkey_destroy = fp->softkey_destroy;
+   _e_softkey_funcs->softkey_show = fp->softkey_show;
+   _e_softkey_funcs->softkey_hide = fp->softkey_hide;
+   _e_softkey_funcs->softkey_update = fp->softkey_update;
+
+   return EINA_TRUE;
+}
+
+E_API void
+e_policy_softkey_module_func_unset(void)
+{
+   if (!_e_softkey_funcs)
+     return;
+
+   E_FREE(_e_softkey_funcs);
 }
