@@ -1598,6 +1598,8 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
         goto fail;
      }
 
+   output->e_comp_screen = e_comp_screen;
+
    for (i = 0; i < output->plane_count; i++)
      {
         plane = e_plane_new(output, i);
@@ -1623,8 +1625,6 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
         ERR("fail to set fb_target plane");
         goto fail;
      }
-
-   output->e_comp_screen = e_comp_screen;
 
    _e_output_tdm_strem_capture_support(output);
 

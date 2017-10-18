@@ -1241,6 +1241,7 @@ EINTERN E_Plane *
 e_plane_new(E_Output *output, int index)
 {
    E_Plane *plane = NULL;
+   E_Comp_Screen *comp_screen = NULL;
    tdm_layer *tlayer = NULL;
    tdm_output *toutput = NULL;
    tdm_layer_capability layer_capabilities;
@@ -1253,6 +1254,9 @@ e_plane_new(E_Output *output, int index)
    int i;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+
+   comp_screen = output->e_comp_screen;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(comp_screen, NULL);
 
    toutput = output->toutput;
    EINA_SAFETY_ON_NULL_RETURN_VAL(toutput, NULL);
@@ -1312,6 +1316,9 @@ e_plane_new(E_Output *output, int index)
 
    for ( i = 0 ; i < count ; i++)
      plane->available_formats = eina_list_append(plane->available_formats, &formats[i]);
+
+   if (tdm_helper_commit_per_vblank_enabled(comp_screen->tdisplay))
+     plane->commit_per_vblank = EINA_TRUE;
 
    INF("E_PLANE: (%d) plane:%p name:%s zpos:%d capa:%s %s",
        index, plane, plane->name,
@@ -1627,10 +1634,16 @@ _e_plane_commit_hanler(tdm_layer *layer, unsigned int sequence,
                        void *user_data)
 {
    E_Plane_Commit_Data *data = (E_Plane_Commit_Data *)user_data;
+   E_Plane *plane = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(data);
 
    TRACE_DS_ASYNC_END((unsigned int)layer, [PLANE:COMMIT~HANDLER]);
+
+   plane = data->plane;
+
+   if (!plane->commit_per_vblank)
+     plane->wait_commit = EINA_FALSE;
 
    e_plane_commit_data_release(data);
 }
@@ -1748,11 +1761,14 @@ e_plane_commit(E_Plane *plane)
         return EINA_FALSE;
      }
 
-   error = tdm_output_wait_vblank(plane->output->toutput, 1, 0, _e_plane_vblank_handler, (void *)plane);
-   if (error != TDM_ERROR_NONE)
+   if (plane->commit_per_vblank)
      {
-        ERR("fail to tdm_output_wait_vblank plane:%p, zpos:%d", plane, plane->zpos);
-        return EINA_FALSE;
+        error = tdm_output_wait_vblank(plane->output->toutput, 1, 0, _e_plane_vblank_handler, (void *)plane);
+        if (error != TDM_ERROR_NONE)
+          {
+            ERR("fail to tdm_output_wait_vblank plane:%p, zpos:%d", plane, plane->zpos);
+            return EINA_FALSE;
+          }
      }
 
    /* send frame event enlightenment dosen't send frame evnet in nocomp */
