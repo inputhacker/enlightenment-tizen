@@ -81,6 +81,8 @@ struct _E_Plane
    E_Plane              *fb_change;
    int                   fb_change_counter;
 
+   Eina_Bool             commit_per_vblank;
+
    /* true if plane's ec is set or unset.
     * false when E_Event_Plane_Win_Change has been generated.
     */
