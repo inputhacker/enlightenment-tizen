@@ -92,7 +92,7 @@ struct _E_Policy_Softkey
    E_Zone          *zone;
    Evas_Object     *home;
    Evas_Object     *back;
-   Evas_Object     *other;
+   void            *other;
 };
 
 struct _E_Policy_Softkey_Funcs
