@@ -2143,6 +2143,8 @@ e_output_commit(E_Output *output)
                     continue;
                }
 
+             if (!e_plane_set_commit_check(plane, fb_commit)) continue;
+
              /* fetch the surface to the plane */
              if (!e_plane_fetch(plane)) continue;
 
@@ -2215,6 +2217,8 @@ e_output_commit(E_Output *output)
                  if (!e_plane_unset_commit_check(plane, fb_commit))
                    continue;
                }
+
+             if (!e_plane_set_commit_check(plane, fb_commit)) continue;
 
              /* fetch the surface to the plane */
              if (!e_plane_fetch(plane)) continue;

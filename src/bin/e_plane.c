@@ -704,6 +704,36 @@ _e_plane_unset_candidate_set(E_Plane *plane, Eina_Bool sync)
    e_object_ref(E_OBJECT(plane->unset_ec));
 }
 
+static void
+_e_plane_set_counter_reset(E_Plane *plane)
+{
+   plane->set_counter = 0;
+}
+
+static void
+_e_plane_set_counter_set(E_Plane *plane, E_Client *ec)
+{
+   E_Plane *fb_target = NULL;
+
+   if (e_plane_is_fb_target(plane) || !ec->redirected)
+     plane->set_counter = 0;
+   else
+    {
+       E_Plane_Renderer *renderer = NULL;
+
+       fb_target = e_output_fb_target_get(plane->output);
+       EINA_SAFETY_ON_NULL_RETURN(fb_target);
+
+       renderer = fb_target->renderer;
+       EINA_SAFETY_ON_NULL_RETURN(renderer);
+
+       plane->set_counter = e_plane_renderer_render_count_get(fb_target->renderer) + 1;
+    }
+
+    if (plane_trace_debug)
+      ELOGF("E_PLANE", "Plane(%p) set_counter(%d)", NULL, NULL, plane, plane->set_counter);
+}
+
 static Eina_Bool
 _e_plane_pp_info_set(E_Plane *plane, tbm_surface_h dst_tsurface)
 {
@@ -2031,6 +2061,27 @@ e_plane_unset_commit_check(E_Plane *plane, Eina_Bool fb_commit)
    return EINA_TRUE;
 }
 
+EINTERN Eina_Bool
+e_plane_set_commit_check(E_Plane *plane, Eina_Bool fb_commit)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   if (!plane->ec) return EINA_TRUE;
+   if (!plane->set_counter) return EINA_TRUE;
+
+   if (fb_commit)
+     {
+        plane->set_counter--;
+
+        if (plane_trace_debug)
+          ELOGF("E_PLANE", "Plane(%p) Check set counter. set_counter(%d)", NULL, NULL, plane, plane->set_counter);
+     }
+
+   if (plane->set_counter > 0) return EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
 E_API Eina_Bool
 e_plane_type_set(E_Plane *plane, E_Plane_Type type)
 {
@@ -2180,6 +2231,8 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
         if (plane->is_fb)
           _e_plane_fb_target_all_unset_counter_reset(plane);
 
+        _e_plane_set_counter_set(plane, ec);
+
         e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
 
         if (plane->ec_redirected)
@@ -2227,7 +2280,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
           }
         else
           {
-             if (plane->tsurface)
+             if (plane->tsurface && plane->ec)
                {
                   if (ec)
                     _e_plane_unset_candidate_set(plane, EINA_TRUE);
@@ -2240,6 +2293,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
 
              if (plane->renderer)
                {
+                  _e_plane_set_counter_reset(plane);
                   _e_plane_renderer_unset(plane);
                   e_plane_role_set(plane, E_PLANE_ROLE_NONE);
                }
