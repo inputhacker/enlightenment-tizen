@@ -695,7 +695,7 @@ _e_plane_unset_candidate_set(E_Plane *plane, Eina_Bool sync)
 
              plane->unset_counter = e_plane_renderer_render_count_get(fb_target->renderer);
 
-             if (!visible && !renderer->rendered) plane->unset_counter += 1;
+             if (visible || (!visible && !renderer->rendered)) plane->unset_counter += 1;
           }
      }
 
