@@ -829,7 +829,7 @@ _e_screenshooter_cb_shoot(struct wl_client *client,
 
    e_comp_wl_video_buffer_clear(vbuf);
 
-   ret = e_output_capture(mirror->e_output, vbuf->tbm_surface, screenshot_auto_rotation, _e_output_capture_oneshot_cb, buffer);
+   ret = e_output_capture(mirror->e_output, vbuf->tbm_surface, screenshot_auto_rotation, EINA_FALSE, _e_output_capture_oneshot_cb, buffer);
    if (ret) return;
    else ERR("capture fail");
 

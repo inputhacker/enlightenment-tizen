@@ -3797,7 +3797,7 @@ _e_info_server_cb_screen_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
      }
    strncpy(path_backup, path, PATH_MAX);
 
-   ret = e_output_capture(eout, surface, EINA_FALSE, _e_info_server_cb_screen_dump_cb, path_backup);
+   ret = e_output_capture(eout, surface, EINA_FALSE, EINA_TRUE, _e_info_server_cb_screen_dump_cb, path_backup);
    if (ret)
      return reply;
    else
