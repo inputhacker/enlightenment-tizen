@@ -866,6 +866,9 @@ _e_vis_client_cb_evas_hide(void *data EINA_UNUSED, Evas *e EINA_UNUSED, Evas_Obj
    vc->state = ec->iconic ? E_VIS_ICONIFY_STATE_ICONIC : E_VIS_ICONIFY_STATE_UNICONIC;
    VS_DBG(ec, "\tUPDATE ICONIC STATE: %s", STATE_STR(vc));
    vc->prepare_emitted = 0;
+
+   if (ec->exp_iconify.buffer_flush)
+     e_pixmap_buffer_clear(ec->pixmap, EINA_FALSE);
 }
 
 static void
@@ -1834,6 +1837,14 @@ e_policy_visibility_client_defer_move(E_Client *ec, int x, int y)
    VS_DBG(ec, "API ENTRY | Defered Move");
 
    _e_vis_client_defer_move(vc, E_VIS_JOB_TYPE_DEFER_MOVE, x, y);
+}
+
+E_API Eina_Bool
+e_policy_visibility_client_is_iconic(E_Client *ec)
+{
+   E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
+
+   return _e_vis_client_is_iconic(vc);
 }
 
 E_API E_Pol_Vis_Hook *

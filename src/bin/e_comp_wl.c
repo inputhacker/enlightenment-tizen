@@ -2736,6 +2736,13 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
      }
 
    state->buffer_viewport.changed = 0;
+
+   if (buffer &&
+       ec->exp_iconify.buffer_flush &&
+       e_policy_visibility_client_is_iconic(ec))
+     {
+        e_pixmap_buffer_clear(ec->pixmap, EINA_FALSE);
+     }
 }
 
 static void
