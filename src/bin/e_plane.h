@@ -118,6 +118,8 @@ struct _E_Plane
    double               fps;
    double               old_fps;
    double               frametimes[122];
+
+   int                  set_counter;
 };
 
 struct _E_Plane_Commit_Data {
@@ -172,6 +174,7 @@ EINTERN Eina_Bool            e_plane_is_unset_candidate(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_is_unset_try(E_Plane *plane);
 EINTERN void                 e_plane_unset_try_set(E_Plane *plane, Eina_Bool set);
 EINTERN Eina_Bool            e_plane_unset_commit_check(E_Plane *plane, Eina_Bool fb_commit);
+EINTERN Eina_Bool            e_plane_set_commit_check(E_Plane *plane, Eina_Bool fb_commit);
 EINTERN Eina_Bool            e_plane_is_fetch_retry(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_fb_target_set(E_Plane *plane, Eina_Bool set);
 EINTERN Eina_List           *e_plane_available_formats_get(E_Plane *plane);
