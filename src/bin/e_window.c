@@ -475,13 +475,10 @@ _e_window_recover_ec(E_Window *window)
    e_pixmap_dirty(ec->pixmap);
    e_pixmap_refresh(ec->pixmap);
 
-   if (window->activated) // TODO: spare
-     {
-        e_pixmap_image_refresh(ec->pixmap);
-        e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
-        e_comp_object_dirty(ec->frame);
-        e_comp_object_render(ec->frame);
-     }
+   e_pixmap_image_refresh(ec->pixmap);
+   e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+   e_comp_object_dirty(ec->frame);
+   e_comp_object_render(ec->frame);
 
    return;
 }
@@ -1165,7 +1162,8 @@ e_window_activate(E_Window *window)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EINA_FALSE);
 
-   if (window->activated) return EINA_TRUE;
+   if (window->activation_state == E_WINDOW_ACTIVATION_STATE_ACTIVATED)
+     return EINA_TRUE;
 
    ec = window->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
@@ -1174,19 +1172,23 @@ e_window_activate(E_Window *window)
 
    if (e_window_is_video(window))
    {
-      window->activated = EINA_TRUE;
+      window->activation_state = E_WINDOW_ACTIVATION_STATE_ACTIVATED;
+
+      window->ec->comp_data->video_is_on_hw_layer = EINA_TRUE;
+      /* to try set the video UI on hw layer */
+      e_comp_render_queue();
 
       return EINA_TRUE;
    }
 
    cqueue = _e_window_wayland_tbm_client_queue_get(ec);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, EINA_FALSE);
 
-   wayland_tbm_server_client_queue_activate(cqueue, 0, 0, 0);
+   if (cqueue)
+     wayland_tbm_server_client_queue_activate(cqueue, 0, 0, 0);
 
    e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
 
-   window->activated = EINA_TRUE;
+   window->activation_state = E_WINDOW_ACTIVATION_STATE_ACTIVATED;
 
    return EINA_TRUE;
 }
@@ -1199,7 +1201,8 @@ e_window_deactivate(E_Window *window)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EINA_FALSE);
 
-   if (!window->activated) return EINA_TRUE;
+   if (window->activation_state == E_WINDOW_ACTIVATION_STATE_DEACTIVATED)
+     return EINA_TRUE;
 
    ec = window->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
@@ -1208,22 +1211,25 @@ e_window_deactivate(E_Window *window)
 
    if (e_window_is_video(window))
    {
-      window->activated = EINA_FALSE;
+      e_video_prepare_window_to_compositing(window);
+
+      window->activation_state = E_WINDOW_ACTIVATION_STATE_DEACTIVATED;
+      window->ec->comp_data->video_is_on_hw_layer = EINA_FALSE;
 
       return EINA_TRUE;
    }
 
    cqueue = _e_window_wayland_tbm_client_queue_get(ec);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, EINA_FALSE);
 
-   /* TODO: do we have to immediately inform a wayland client
-    *       that an e_client got redirected or wait till it's being composited
-    *       on the fb_target and a hw overlay owned by it gets free? */
-   wayland_tbm_server_client_queue_deactivate(cqueue);
+   if (cqueue)
+     /* TODO: do we have to immediately inform a wayland client
+      *       that an e_client got redirected or wait till it's being composited
+      *       on the fb_target and a hw overlay owned by it gets free? */
+     wayland_tbm_server_client_queue_deactivate(cqueue);
 
    _e_window_recover_ec(window);
 
-   window->activated = EINA_FALSE;
+   window->activation_state = E_WINDOW_ACTIVATION_STATE_DEACTIVATED;
 
    return EINA_TRUE;
 }

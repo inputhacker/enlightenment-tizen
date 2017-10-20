@@ -17,6 +17,13 @@ typedef enum _E_Window_State
    E_WINDOW_STATE_VIDEO
 } E_Window_State;
 
+typedef enum _E_Window_Activation_State
+{
+   E_WINDOW_ACTIVATION_STATE_NONE = 0,
+   E_WINDOW_ACTIVATION_STATE_ACTIVATED,
+   E_WINDOW_ACTIVATION_STATE_DEACTIVATED,
+} E_Window_Activation_State;
+
 struct _E_Window
 {
    E_Client                      *ec;
@@ -31,7 +38,7 @@ struct _E_Window
    Eina_Bool                      is_deleted;
    Eina_Bool                      update_exist;
    tbm_surface_h                  tsurface;
-   Eina_Bool                      activated; /* window occupied the hw layer */
+   E_Window_Activation_State      activation_state; /* window has occupied the hw layer or not */
 
    E_Window_State                 state;
 
