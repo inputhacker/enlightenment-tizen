@@ -487,12 +487,52 @@ _e_hwc_window_target_render(E_Window_Target *window_target)
    return EINA_TRUE;
 }
 
+/* gets called at the beginning of an ecore_main_loop iteration */
+static void
+_tdm_output_need_validate_handler(tdm_output *output)
+{
+   INF("hwc-opt: backend asked to make the revalidation.");
+
+   /* TODO: think how to force revalidation only for the output an event came for */
+   /* TODO: maybe it'd be better to throw another job, which makes ONLY revalidation? */
+   /* throw the update_job to revalidate as backend asked us */
+   e_comp_render_queue();
+}
+
+
+/* get backend a shot to ask us for the revalidation */
+static Eina_Bool
+_e_hwc_register_need_validate_handlers(Eina_List *eos)
+{
+   E_Output *output;
+   Eina_List *l;
+   tdm_error err;
+
+   EINA_LIST_FOREACH(eos, l, output)
+     {
+        if (!output->config.enabled) continue;
+
+        err = tdm_output_set_need_validate_handler(output, _tdm_output_need_validate_handler);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
+
+        INF("hwc-opt: register a need_validate_handler for the eo:%p.", output);
+     }
+
+   return EINA_TRUE;
+}
+
 EINTERN Eina_Bool
 e_hwc_init(void)
 {
    if (!e_window_init())
      {
         ERR("hwc_opt: e_window init failed");
+        return EINA_FALSE;
+     }
+
+   if (!_e_hwc_register_need_validate_handlers(e_comp->e_comp_screen->outputs))
+     {
+        ERR("hwc_opt: _e_hwc_register_need_validate_handlers failed");
         return EINA_FALSE;
      }
 
