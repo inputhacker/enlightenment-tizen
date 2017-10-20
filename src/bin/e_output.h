@@ -85,7 +85,10 @@ struct _E_Output
       int               adjusted_cy;
       int               init_angle;
       int               current_angle;
+      int               init_screen_rotation;
+      int               current_screen_rotation;
       Eina_Rectangle    rect;
+      Eina_Rectangle    rect_touch;
       Eina_Bool         need_touch_set;
    } zoom_conf;
    Ecore_Event_Handler *touch_up_handler;
