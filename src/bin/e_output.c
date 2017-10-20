@@ -2612,7 +2612,7 @@ e_output_hook_del(E_Output_Hook *ch)
 }
 
 EINTERN Eina_Bool
-e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotate, E_Output_Capture_Cb func, void *data)
+e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotate, Eina_Bool sync, E_Output_Capture_Cb func, void *data)
 {
    Eina_Bool ret = EINA_FALSE;
    tdm_capture *tcapture = NULL;
@@ -2621,6 +2621,17 @@ e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotate
      {
         func(output, tsurface, data);
         return EINA_TRUE;
+     }
+
+   if (sync)
+     {
+       ret = _e_output_capture(output, tsurface, auto_rotate);
+       EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
+
+       DBG("capture done(%p)", tsurface);
+       func(output, tsurface, data);
+
+       return EINA_TRUE;
      }
 
    tcapture = _e_output_tdm_capture_create(output, TDM_CAPTURE_CAPABILITY_ONESHOT);
