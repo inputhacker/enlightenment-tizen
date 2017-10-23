@@ -46,33 +46,7 @@ _get_comp_wl_buffer(E_Client *ec)
 static tbm_surface_queue_h
 _get_tbm_surface_queue()
 {
-   const char* name;
-   tbm_surface_queue_h tbm_queue = NULL;
-
-   name = ecore_evas_engine_name_get(e_comp->ee);
-   if (!strcmp(name, "gl_drm"))
-     {
-        Evas_Engine_Info_GL_Drm *info;
-        info = (Evas_Engine_Info_GL_Drm *)evas_engine_info_get(e_comp->evas);
-        if (info->info.surface)
-          tbm_queue = gbm_tbm_get_surface_queue(info->info.surface);
-     }
-   else if(!strcmp(name, "gl_drm_tbm"))
-     {
-        Evas_Engine_Info_GL_Tbm *info;
-        info = (Evas_Engine_Info_GL_Tbm *)evas_engine_info_get(e_comp->evas);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(info, NULL);
-        tbm_queue = (tbm_surface_queue_h)info->info.tbm_queue;
-     }
-   else if(!strcmp(name, "drm_tbm"))
-     {
-        Evas_Engine_Info_Software_Tbm *info;
-        info = (Evas_Engine_Info_Software_Tbm *)evas_engine_info_get(e_comp->evas);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(info, NULL);
-        tbm_queue = (tbm_surface_queue_h)info->info.tbm_queue;
-     }
-
-   return tbm_queue;
+   return e_comp->e_comp_screen->tqueue;
 }
 
 static Eina_Bool
@@ -300,6 +274,8 @@ _evas_renderer_queue_has_new_composited_buffer(void *data)
 
    EINA_LIST_FOREACH(e_output_windows_get(target_window->window.output), l, win)
      {
+        if (win->is_deleted) continue;
+
         if (win->get_notified_about_composition_end)
           {
              if (win->frame_num >= target_window->render_cnt)
@@ -307,7 +283,7 @@ _evas_renderer_queue_has_new_composited_buffer(void *data)
                   win->get_notified_about_composition_end = EINA_FALSE;
 
                   INF("hwc-opt: the composition for ec:%p {name:%s} is done, throw the update_job.",
-                          win->ec, win->ec->icccm.name);
+                          win->ec, win->ec ? win->ec->icccm.name : "none");
 
                   /* an e_client got composited to the fb_target so we have to
                    * inform the hwc extension about this by throwing the update_job */
@@ -370,6 +346,14 @@ _e_window_target_new(E_Output *output)
         ecore_evas_manual_render_set(e_comp->ee, 1);
      }
    else if(!strcmp("drm_tbm", name))
+     {
+        ecore_evas_manual_render_set(e_comp->ee, 1);
+     }
+   else if(!strcmp("gl_tbm", name))
+     {
+        ecore_evas_manual_render_set(e_comp->ee, 1);
+     }
+   else if(!strcmp("software_tbm", name))
      {
         ecore_evas_manual_render_set(e_comp->ee, 1);
      }
@@ -580,6 +564,7 @@ e_window_free(E_Window *window)
    if (e_window_get_displaying_surface(window))
      {  /* mark as deleted and delete when commit_data will be released */
         window->is_deleted = EINA_TRUE;
+        window->ec = NULL;
         return;
      }
 
@@ -930,7 +915,7 @@ e_window_commit_data_aquire(E_Window *window)
    E_Window_Commit_Data *commit_data = NULL;
 
    /* we can't unref a buffer till it being composited to the fb_target */
-   if (e_window_get_state(window) == TDM_COMPOSITION_CLIENT_CANDIDATE)
+   if (e_window_get_state(window) == E_WINDOW_STATE_CLIENT_CANDIDATE)
      return NULL;
 
    if (!e_window_is_on_hw_overlay(window))
@@ -1284,8 +1269,8 @@ e_window_get_notified_about_composition_end(E_Window *win, uint64_t offset)
    win->frame_num = e_window_target_get_current_renderer_cnt(target_window) + offset + 1;
 
    INF("hwc-opt: ew:%p -- ec:%p {name:%s} asked to be notified about a %llu composited frame,"
-           " current render_cnt:%llu, delay:%llu.", win, win->ec, win->ec->icccm.name, win->frame_num,
-           target_window->render_cnt, offset);
+           " current render_cnt:%llu, delay:%llu.", win, win->ec, win->ec ? win->ec->icccm.name : "none",
+                    win->frame_num, target_window->render_cnt, offset);
 
    return EINA_TRUE;
 }

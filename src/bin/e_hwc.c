@@ -69,7 +69,7 @@ _hwc_get_notified_about_composition_end(const Eina_List *windows)
 
    EINA_LIST_FOREACH(windows, l, win)
      if (e_window_get_state(win) == E_WINDOW_STATE_CLIENT_CANDIDATE)
-       if (!win->get_notified_about_composition_end)
+       if (!win->get_notified_about_composition_end && !win->is_deleted)
          e_window_get_notified_about_composition_end(win, delay);
 
 }
@@ -512,7 +512,7 @@ _e_hwc_register_need_validate_handlers(Eina_List *eos)
      {
         if (!output->config.enabled) continue;
 
-        err = tdm_output_set_need_validate_handler(output, _tdm_output_need_validate_handler);
+        err = tdm_output_set_need_validate_handler(output->toutput, _tdm_output_need_validate_handler);
         EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
 
         INF("hwc-opt: register a need_validate_handler for the eo:%p.", output);
