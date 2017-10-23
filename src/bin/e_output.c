@@ -2035,6 +2035,17 @@ e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val)
 
    if (!ret) return EINA_FALSE;
 
+   if (val == E_OUTPUT_DPMS_OFF)
+     {
+        Eina_List *l;
+        E_Plane *ep;
+
+        EINA_LIST_FOREACH(output->planes, l, ep)
+          {
+             e_plane_dpms_off(ep);
+          }
+     }
+
    error = tdm_output_set_dpms(output->toutput, tval);
    if (error != TDM_ERROR_NONE)
      {
