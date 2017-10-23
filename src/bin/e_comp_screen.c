@@ -81,9 +81,14 @@ _tz_screen_rotation_get_ignore_output_transform(struct wl_client *client, struct
    tzsr->resource = resource;
    tzsr->ec = ec;
 
-   ELOGF("COMP", "|tzsr(%p)", NULL, ec, tzsr);
+   ELOGF("TRANSFORM", "|tzsr(%p) client_ignore(%d)", NULL, ec, tzsr, e_config->screen_rotation_client_ignore);
 
    tzsr_list = eina_list_append(tzsr_list, tzsr);
+
+   /* make all clients ignore the output tramsform
+    * we will decide later when hwc prepared.
+    */
+   e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_TRUE);
 }
 
 static void
@@ -1200,11 +1205,23 @@ e_comp_screen_rotation_ignore_output_transform_send(E_Client *ec, Eina_Bool igno
              ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform: client_ignore", NULL, ec, tzsr);
              return;
           }
+
+        if (e_policy_client_is_quickpanel(ec))
+           {
+              ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform: quickpanel", NULL, ec, tzsr);
+              return;
+           }
      }
 
    ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform(%d)", NULL, ec, tzsr, ignore);
 
    tizen_screen_rotation_send_ignore_output_transform(tzsr->resource, ec->comp_data->surface, ignore);
+}
+
+EINTERN Eina_Bool
+e_comp_screen_rotation_ignore_output_transform_watch(E_Client *ec)
+{
+   return (_tz_surface_rotation_find(ec)) ? EINA_TRUE : EINA_FALSE;
 }
 
 EINTERN E_Output *

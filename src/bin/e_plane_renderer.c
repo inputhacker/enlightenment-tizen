@@ -1022,6 +1022,8 @@ e_plane_renderer_new(E_Plane *plane)
           ERR("fail to e_plane_renderer_queue_set");
      }
 
+   renderer->need_change_buffer_transform = EINA_TRUE;
+
    return renderer;
 }
 
@@ -1450,6 +1452,7 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
    struct wayland_tbm_client_queue * cqueue = NULL;
    E_Plane_Renderer_Client *renderer_client = NULL;
    E_Plane *plane = NULL;
+   int transform;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
@@ -1466,6 +1469,23 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
 
    if ((renderer->state == E_PLANE_RENDERER_STATE_ACTIVATE) && (renderer->ec != ec))
      e_plane_renderer_deactivate(renderer);
+
+   if (renderer->ec != ec)
+     renderer->need_change_buffer_transform = EINA_TRUE;
+
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+   if ((plane->output->config.rotation / 90) != transform)
+     {
+        if (!e_config->screen_rotation_client_ignore && renderer->need_change_buffer_transform)
+          {
+             e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
+             renderer->need_change_buffer_transform = EINA_FALSE;
+             INF("ec:%p tansform:%d screen_roatation:%d", ec, transform, plane->output->config.rotation);
+          }
+        return EINA_FALSE;
+     }
+   else
+     renderer->need_change_buffer_transform = EINA_TRUE;
 
    wayland_tbm_server_client_queue_activate(cqueue, 0, 0, 0);
 
@@ -1487,8 +1507,13 @@ e_plane_renderer_deactivate(E_Plane_Renderer *renderer)
    struct wayland_tbm_client_queue * cqueue = NULL;
    E_Client *ec = NULL;
    E_Plane_Renderer_Client *renderer_client = NULL;
+   E_Plane *plane = NULL;
+   int transform;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
+
+   plane = renderer->plane;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
    ec = renderer->ec;
    if (!ec) return EINA_TRUE;
@@ -1503,6 +1528,10 @@ e_plane_renderer_deactivate(E_Plane_Renderer *renderer)
 
    if (cqueue)
      wayland_tbm_server_client_queue_deactivate(cqueue);
+
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+   if (plane->output->config.rotation != 0 && (plane->output->config.rotation / 90) == transform)
+     e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_TRUE);
 
    _e_plane_renderer_recover_ec(renderer);
 
@@ -1523,6 +1552,7 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
    E_Plane_Renderer_Client *renderer_client = NULL;
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
    E_Plane *plane = NULL;
+   int transform;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
@@ -1602,6 +1632,21 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
         /* export */
         e_plane_renderer_surface_send(renderer, ec, tsurface);
 
+        if (renderer->ec != ec)
+          renderer->need_change_buffer_transform = EINA_TRUE;
+
+        transform = e_comp_wl_output_buffer_transform_get(ec);
+        if ((plane->output->config.rotation / 90) != transform)
+          {
+             if (!e_config->screen_rotation_client_ignore && renderer->need_change_buffer_transform)
+               {
+                  e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
+                  renderer->need_change_buffer_transform = EINA_FALSE;
+               }
+          }
+        else
+          renderer->need_change_buffer_transform = EINA_TRUE;
+
         wayland_tbm_server_client_queue_activate(cqueue, 0, renderer->tqueue_size, 1);
 
         if (e_comp->hwc_sync_mode_change && !e_comp->hwc_use_detach)
@@ -1633,6 +1678,13 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
           }
      }
 
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+   if ((plane->output->config.rotation / 90) != transform)
+     {
+        INF("ec:%p tansform:%d screen_roatation:%d", ec, transform, plane->output->config.rotation);
+        return EINA_FALSE;
+     }
+
    if (renderer_trace_debug)
      ELOGF("E_PLANE_RENDERER", "Activate Renderer(%p)", ec->pixmap, ec, renderer);
 
@@ -1653,6 +1705,7 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
    E_Plane_Renderer_Client *renderer_client = NULL;
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
    E_Plane *plane = NULL;
+   int transform;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
 
@@ -1678,6 +1731,10 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
         if (_e_plane_renderer_client_surface_flags_get(renderer_client) != E_PLANE_RENDERER_CLIENT_SURFACE_FLAGS_RESERVED)
           goto done;
      }
+
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+   if (plane->output->config.rotation != 0 && (plane->output->config.rotation / 90) == transform)
+     e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_TRUE);
 
    if (renderer_trace_debug)
      ELOGF("E_PLANE_RENDERER", "Set    backup buffer   wl_buffer(%p)::Deactivate",
