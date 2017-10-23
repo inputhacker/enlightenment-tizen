@@ -277,7 +277,7 @@ _hwc_available_get(E_Client *ec)
 {
    E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    E_Output *eout;
-   int transform = 0, minw = 0, minh = 0;
+   int minw = 0, minh = 0;
 
    if ((!cdata) ||
        (!cdata->buffer_ref.buffer) ||
@@ -308,9 +308,6 @@ _hwc_available_get(E_Client *ec)
    if (e_comp_wl_tbm_buffer_sync_timeline_used(cdata->buffer_ref.buffer))
      return EINA_FALSE;
 
-   /* if the buffer transform of surface is not same with output's transform, we
-    * can't show it to HW overlay directly.
-    */
    eout = e_output_find(ec->zone->output_id);
    EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
 
@@ -321,9 +318,19 @@ _hwc_available_get(E_Client *ec)
    if ((minh > 0) && (minh > cdata->buffer_ref.buffer->h))
      return EINA_FALSE;
 
-   transform = e_comp_wl_output_buffer_transform_get(ec);
-   if ((eout->config.rotation / 90) != transform)
-     return EINA_FALSE;
+   /* If a client doesn't watch the ignore_output_transform events, we can't show
+    * a client buffer to HW overlay directly when the buffer transform is not same
+    * with output transform. If a client watch the ignore_output_transform events,
+    * we can control client's buffer transform. In this case, we don't need to
+    * check client's buffer transform here.
+    */
+   if (!e_comp_screen_rotation_ignore_output_transform_watch(ec))
+     {
+        int transform = e_comp_wl_output_buffer_transform_get(ec);
+
+        if ((eout->config.rotation / 90) != transform)
+          return EINA_FALSE;
+     }
 
    return EINA_TRUE;
 }
