@@ -149,6 +149,7 @@ struct _E_Config
 #endif
    unsigned int screen_rotation_pre; // screen-rotation value as default (0/90/180/270)
    unsigned int screen_rotation_setting; // screen-rotation value which is set in runtime (0/90/180/270)
+   Eina_Bool screen_rotation_client_ignore; // client ignores screen rotation (0/1)
    Eina_Bool eom_enable; // 0: eom disable, 1: eom enable
    int use_cursor_timer; // boolean value for enabling cursor timer (default : disable : 0)
    int cursor_timer_interval; // time value the cursor will be displayed in second (default : 5)

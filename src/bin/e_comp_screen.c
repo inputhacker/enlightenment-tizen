@@ -1243,7 +1243,18 @@ e_comp_screen_rotation_ignore_output_transform_send(E_Client *ec, Eina_Bool igno
 
    if (!tzsr) return;
 
-   ELOGF("COMP", "|tzsr(%p) ignore(%d)", NULL, ec, tzsr, ignore);
+   /* if client have to considers the output transform */
+   if (!ignore)
+     {
+        /* exception */
+        if (e_config->screen_rotation_client_ignore)
+          {
+             ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform: client_ignore", NULL, ec, tzsr);
+             return;
+          }
+     }
+
+   ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform(%d)", NULL, ec, tzsr, ignore);
 
    tizen_screen_rotation_send_ignore_output_transform(tzsr->resource, ec->comp_data->surface, ignore);
 }
