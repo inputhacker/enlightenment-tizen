@@ -169,7 +169,7 @@ struct _E_Comp
    int norender;
 
    Eina_Bool       hwc_optimized; // whether optimized (via tdm-backend) hwc is used or not
-   Eina_Bool       hwc_optimized_2; // use e_window
+   Eina_Bool       hwc_optimized_2; // use e_hwc_window
 };
 
 struct _E_Comp_Connected_Client_Info

@@ -90,7 +90,7 @@ src/bin/e_comp_wl_data.h \
 src/bin/e_comp_wl_input.h \
 src/bin/e_comp_wl.h \
 src/bin/e_hwc.h \
-src/bin/e_window.h
+src/bin/e_hwc_window.h
 
 if HAVE_WAYLAND_TBM
 ENLIGHTENMENTHEADERS += \
@@ -189,7 +189,7 @@ src/bin/e_comp_wl_input.c \
 src/bin/e_comp_wl.c \
 src/bin/tizen-surface-protocol.c \
 src/bin/e_hwc.c \
-src/bin/e_window.c \
+src/bin/e_hwc_window.c \
 $(ENLIGHTENMENTHEADERS)
 
 if HAVE_WAYLAND_TBM

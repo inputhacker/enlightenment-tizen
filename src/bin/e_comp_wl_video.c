@@ -350,7 +350,7 @@ _e_video_avaiable_video_layer_get(E_Video *video)
 
    if (_hwc_optimized_is_used())
      {
-        E_Window *window;
+        E_Hwc_Window *window;
 
         layer->e_client = video->ec;
 
@@ -359,7 +359,7 @@ _e_video_avaiable_video_layer_get(E_Video *video)
         if (window)
           {
              if (window->output != video->e_output)
-               e_window_free(window);
+               e_hwc_window_free(window);
              else
                {
                   window->is_video = 1;
@@ -369,7 +369,7 @@ _e_video_avaiable_video_layer_get(E_Video *video)
                }
           }
 
-        window = e_window_new(video->e_output);
+        window = e_hwc_window_new(video->e_output);
         if (!window)
           {
              VER("hwc_opt: cannot create new window for ec(%p)", video->ec);
@@ -377,7 +377,7 @@ _e_video_avaiable_video_layer_get(E_Video *video)
              return NULL;
           }
 
-        result = e_window_set_ec(window, video->ec);
+        result = e_hwc_window_set_ec(window, video->ec);
         if (result != EINA_TRUE)
           {
              VER("hwc_opt: cannot set ec(%p) to window(%p)", video->ec, window);
@@ -385,7 +385,7 @@ _e_video_avaiable_video_layer_get(E_Video *video)
              return NULL;
           }
 
-        result = e_window_set_skip_flag(window);
+        result = e_hwc_window_set_skip_flag(window);
         if (result != EINA_TRUE)
           {
              VER("hwc_opt: cannot set skip_flag for window(%p)", window);
@@ -511,7 +511,7 @@ _e_video_layer_set_info(E_Video_Layer *layer, E_Video_Info_Layer *vinfo)
    if (_hwc_optimized_is_used())
      {
         tdm_hwc_window_info hwc_win_info = {0};
-        E_Window *window;
+        E_Hwc_Window *window;
 
         window = e_output_find_window_by_ec_in_all_outputs(layer->e_client);
         EINA_SAFETY_ON_NULL_RETURN_VAL(window, TDM_ERROR_OPERATION_FAILED);
@@ -553,7 +553,7 @@ _e_video_layer_set_buffer(E_Video_Layer * layer, tbm_surface_h buff)
 
    if (_hwc_optimized_is_used())
      {
-        E_Window *window;
+        E_Hwc_Window *window;
 
         window = e_output_find_window_by_ec_in_all_outputs(layer->e_client);
         EINA_SAFETY_ON_NULL_RETURN_VAL(window, TDM_ERROR_OPERATION_FAILED);
@@ -578,7 +578,7 @@ _e_video_layer_unset_buffer(E_Video_Layer *layer)
 
    if (_hwc_optimized_is_used())
      {
-        E_Window *window;
+        E_Hwc_Window *window;
 
         window = e_output_find_window_by_ec_in_all_outputs(layer->e_client);
         EINA_SAFETY_ON_NULL_RETURN_VAL(window, TDM_ERROR_OPERATION_FAILED);
@@ -605,7 +605,7 @@ _e_video_layer_is_usable(E_Video_Layer * layer, unsigned int *usable)
 
    if (_hwc_optimized_is_used())
      {
-        E_Window *window;
+        E_Hwc_Window *window;
 
         window = e_output_find_window_by_ec_in_all_outputs(layer->e_client);
         EINA_SAFETY_ON_NULL_RETURN_VAL(window, TDM_ERROR_OPERATION_FAILED);
@@ -641,12 +641,12 @@ _release_undisplayed_vbuf(E_Video *video)
 {
    Eina_List *l = NULL;
    E_Comp_Wl_Video_Buf *vbuf = NULL;
-   E_Window *window;
+   E_Hwc_Window *window;
    tbm_surface_h displaying_surface_on_hw_layer;
 
    window = e_output_find_window_by_ec_in_all_outputs(video->ec);
 
-   displaying_surface_on_hw_layer = e_window_get_displaying_surface(window);
+   displaying_surface_on_hw_layer = e_hwc_window_get_displaying_surface(window);
 
    EINA_LIST_FOREACH(video->committed_list, l, vbuf)
      {
@@ -717,7 +717,7 @@ _e_video_map_update(E_Client *ec, int width_from_buffer, int height_from_buffer,
 
 /* TODO: maybe it will be better prepare window to compositing in the _e_comp_cb_update()*/
 void
-e_video_prepare_window_to_compositing(E_Window *window)
+e_video_prepare_window_to_compositing(E_Hwc_Window *window)
 {
    E_Client *ec = NULL;
    E_Comp_Wl_Client_Data *cdata = NULL;
@@ -784,7 +784,7 @@ _e_video_layer_commit(E_Video_Layer *layer, tdm_layer_commit_handler func, void 
 
    if (_hwc_optimized_is_used())
      {
-        E_Window *window;
+        E_Hwc_Window *window;
 
         window = e_output_find_window_by_ec_in_all_outputs(layer->e_client);
         EINA_SAFETY_ON_NULL_RETURN_VAL(window, TDM_ERROR_OPERATION_FAILED);
@@ -838,7 +838,7 @@ _e_video_layer_get_displaying_buffer(E_Video_Layer *layer, int *tdm_error)
 
    if (_hwc_optimized_is_used())
      {
-        E_Window *window;
+        E_Hwc_Window *window;
 
         window = e_output_find_window_by_ec_in_all_outputs(layer->e_client);
         EINA_SAFETY_ON_NULL_RETURN_VAL(window, NULL);
@@ -846,7 +846,7 @@ _e_video_layer_get_displaying_buffer(E_Video_Layer *layer, int *tdm_error)
         if (tdm_error)
           *tdm_error = TDM_ERROR_NONE;
 
-        return e_window_get_displaying_surface(window);
+        return e_hwc_window_get_displaying_surface(window);
      }
 
    return tdm_layer_get_displaying_buffer(layer->tdm_layer, tdm_error);
@@ -873,7 +873,7 @@ _e_video_layer_destroy(E_Video_Layer *layer)
 
    if (_hwc_optimized_is_used())
      {
-        E_Window *window;
+        E_Hwc_Window *window;
 
         window = e_output_find_window_by_ec_in_all_outputs(layer->e_client);
         EINA_SAFETY_ON_FALSE_RETURN(window);
@@ -2266,7 +2266,7 @@ _e_video_set(E_Video *video, E_Client *ec)
 
    if (video_to_primary)
      {
-        E_Window *window;
+        E_Hwc_Window *window;
 
         VIN("show video to primary layer");
         ec->comp_data->video_client = 0;
@@ -2479,7 +2479,7 @@ _e_video_check_if_pp_needed(E_Video *video)
 
    if (_hwc_optimized_is_used())
      {
-       E_Window *window;
+       E_Hwc_Window *window;
 
        window = e_output_find_window_by_ec_in_all_outputs(video->ec);
 

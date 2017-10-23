@@ -143,10 +143,10 @@ EINTERN Eina_Bool         e_output_stream_capture_queue(E_Output *output, tbm_su
 EINTERN Eina_Bool         e_output_stream_capture_dequeue(E_Output *output, tbm_surface_h surface);
 EINTERN Eina_Bool         e_output_stream_capture_start(E_Output *output);
 EINTERN void              e_output_stream_capture_stop(E_Output *output);
-EINTERN E_Window        * e_output_find_window_by_ec(E_Output *eout, E_Client *ec);
-EINTERN E_Window        * e_output_find_window_by_ec_in_all_outputs(E_Client *ec);
-EINTERN E_Window        * e_output_find_window_by_hwc_win(E_Output *eout, tdm_hwc_window *hwc_win);
-EINTERN E_Window_Target * e_output_get_target_window(E_Output *eout);
+EINTERN E_Hwc_Window    * e_output_find_window_by_ec(E_Output *eout, E_Client *ec);
+EINTERN E_Hwc_Window    * e_output_find_window_by_ec_in_all_outputs(E_Client *ec);
+EINTERN E_Hwc_Window    * e_output_find_window_by_hwc_win(E_Output *eout, tdm_hwc_window *hwc_win);
+EINTERN E_Hwc_Window_Target * e_output_get_target_window(E_Output *eout);
 E_API E_Output          * e_output_find(const char *id);
 E_API E_Output          * e_output_find_by_index(int index);
 E_API const Eina_List   * e_output_planes_get(E_Output *output);

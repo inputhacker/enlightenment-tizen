@@ -8,7 +8,7 @@
 extension and commit the changes to hwc extension. */
 
 EINTERN Eina_Bool            e_hwc_init(void);
-/* evaluate which e_window will be composited by hwc and wich by GLES */
+/* evaluate which e_hwc_window will be composited by hwc and wich by GLES */
 EINTERN Eina_Bool            e_hwc_re_evaluate();
 EINTERN Eina_Bool            e_hwc_commit();
 

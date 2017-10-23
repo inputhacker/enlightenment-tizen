@@ -2853,11 +2853,11 @@ fail:
    return EINA_FALSE;
 }
 
-EINTERN E_Window *
+EINTERN E_Hwc_Window *
 e_output_find_window_by_ec(E_Output *eout, E_Client *ec)
 {
    Eina_List *l;
-   E_Window *window;
+   E_Hwc_Window *window;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(eout, NULL);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
@@ -2870,12 +2870,12 @@ e_output_find_window_by_ec(E_Output *eout, E_Client *ec)
    return NULL;
 }
 
-EINTERN E_Window *
+EINTERN E_Hwc_Window *
 e_output_find_window_by_ec_in_all_outputs(E_Client *ec)
 {
    Eina_List *l_w, *l_o;
    E_Output *output;
-   E_Window *window;
+   E_Hwc_Window *window;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
 
@@ -2891,11 +2891,11 @@ e_output_find_window_by_ec_in_all_outputs(E_Client *ec)
    return NULL;
 }
 
-EINTERN E_Window *
+EINTERN E_Hwc_Window *
 e_output_find_window_by_hwc_win(E_Output *eout, tdm_hwc_window *hwc_win)
 {
    Eina_List *l;
-   E_Window *window;
+   E_Hwc_Window *window;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(eout, NULL);
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_win, NULL);
@@ -2908,17 +2908,17 @@ e_output_find_window_by_hwc_win(E_Output *eout, tdm_hwc_window *hwc_win)
    return NULL;
 }
 
-EINTERN E_Window_Target *
+EINTERN E_Hwc_Window_Target *
 e_output_get_target_window(E_Output *eout)
 {
    Eina_List *l;
-   E_Window *window;
+   E_Hwc_Window *window;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(eout, NULL);
 
    EINA_LIST_FOREACH(eout->windows, l, window)
      {
-        if (window->is_target) return (E_Window_Target *)window;
+        if (window->is_target) return (E_Hwc_Window_Target *)window;
      }
 
    return NULL;
