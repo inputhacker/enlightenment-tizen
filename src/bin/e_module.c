@@ -326,7 +326,7 @@ e_module_new(const char *name)
    if (!m) return NULL;
 
    snprintf(str, sizeof(str), "\t%s Module Open", name);
-   e_main_ts(str);
+   e_main_ts_begin(str);
 
    if (name[0] != '/')
      {
@@ -491,7 +491,7 @@ init_done:
    if (modpath) eina_stringshare_del(modpath);
 
    snprintf(str, sizeof(str), "\t%s Module Open Done m:%p", name, m);
-   e_main_ts(str);
+   e_main_ts_end(str);
 
    return m;
 }
@@ -526,7 +526,7 @@ e_module_enable(E_Module *m)
    if ((m->enabled) || (m->error)) return 0;
 
    snprintf(str, sizeof(str), "\t%s Module Enable", m->name);
-   e_main_ts(str);
+   e_main_ts_begin(str);
 
    m->data = m->func.init(m);
    if (m->data)
@@ -551,13 +551,13 @@ e_module_enable(E_Module *m)
           }
 
         snprintf(str, sizeof(str), "\t%s Module Enable Done 1", m->name);
-        e_main_ts(str);
+        e_main_ts_end(str);
 
         return 1;
      }
 
    snprintf(str, sizeof(str), "\t%s Module Enable Done 0", m->name);
-   e_main_ts(str);
+   e_main_ts_end(str);
 
    return 0;
 }

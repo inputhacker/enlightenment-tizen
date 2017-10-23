@@ -562,6 +562,7 @@ _e_comp_wl_send_touch_cancel(E_Client *ec)
    Eina_List *l;
    struct wl_resource *res;
    struct wl_client *wc;
+   E_Comp_Config *comp_conf = NULL;
 
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
@@ -570,10 +571,15 @@ _e_comp_wl_send_touch_cancel(E_Client *ec)
 
    wc = wl_resource_get_client(ec->comp_data->surface);
 
+   comp_conf = e_comp_config_get();
+
    EINA_LIST_FOREACH(e_comp->wl_comp_data->touch.resources, l, res)
      {
         if (wl_resource_get_client(res) != wc) continue;
         if (!e_comp_wl_input_touch_check(res)) continue;
+
+        if (comp_conf && comp_conf->input_log_enable)
+           INF("[Server] Touch Cancel (win:0x%08x, name:%20s)\n", e_client_util_win_get(ec), e_client_util_name_get(ec));
 
         wl_touch_send_cancel(res);
      }
@@ -1024,14 +1030,14 @@ _e_comp_wl_send_touch(E_Client *ec, int idx, int canvas_x, int canvas_y, uint32_
         if (pressed)
           {
              if (comp_conf && comp_conf->input_log_enable)
-               INF("[Server] Touch Down (id: %d, time: %d, x:%d, y:%d)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y);
+               INF("[Server] Touch Down (id: %d, time: %d, x:%d, y:%d, win:0x%08x, name:%20s)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y, e_client_util_win_get(ec), e_client_util_name_get(ec));
 
              wl_touch_send_down(res, serial, timestamp, ec->comp_data->surface, idx, x, y); //id 0 for the 1st finger
           }
         else
           {
              if (comp_conf && comp_conf->input_log_enable)
-               INF("[Server] Touch Up (id: %d, time: %d, x:%d, y:%d)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y);
+               INF("[Server] Touch Up (id: %d, time: %d, x:%d, y:%d, win:0x%08x, name:%20s)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y, e_client_util_win_get(ec), e_client_util_name_get(ec));
 
              wl_touch_send_up(res, serial, timestamp, idx);
           }
@@ -1162,8 +1168,9 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
                  if (e_pointer_is_hidden(e_comp->pointer))
                    _e_comp_wl_cursor_reload(ec);
                }
+
+             _e_comp_wl_cursor_move_timer_control(ec);
           }
-        _e_comp_wl_cursor_move_timer_control(ec);
      }
 }
 
@@ -3438,31 +3445,6 @@ _e_comp_wl_subsurface_bg_evas_cb_resize(void *data, Evas *evas EINA_UNUSED, Evas
 }
 
 static void
-_e_comp_wl_subsurface_mask_set(E_Client *ec)
-{
-   E_Client *subc;
-   Eina_List *l;
-
-   if (!ec) return;
-   if (e_object_is_del(E_OBJECT(ec))) return;
-   if (!ec->comp_data) return;
-
-   /* if a leaf client is not video cliet */
-   if (!ec->comp_data->sub.below_list && !ec->comp_data->sub.below_list_pending && ec->comp_data->video_client)
-     if (ec->comp_data->video_client && !e_comp_object_mask_has(ec->frame))
-       {
-          e_comp_object_mask_set(ec->frame, EINA_TRUE);
-          return;
-       }
-
-   EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
-     _e_comp_wl_subsurface_mask_set(subc);
-
-   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
-     _e_comp_wl_subsurface_mask_set(subc);
-}
-
-static void
 _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
 {
    short layer;
@@ -3523,9 +3505,6 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
 
         if (evas_object_visible_get(ec->frame))
           evas_object_show(ec->comp_data->sub.below_obj);
-
-        if (!e_comp->hwc_optimized_2)
-          _e_comp_wl_subsurface_mask_set(ec);
      }
 }
 
@@ -4448,7 +4427,7 @@ _e_comp_wl_gl_init(void *data EINA_UNUSED)
    if (!e_comp_gl_get()) return;
 
    /* create dummy evas gl to bind wayland display of enlightenment to egl display */
-   e_main_ts("\tE_Comp_Wl_GL Init");
+   e_main_ts_begin("\tE_Comp_Wl_GL Init");
 
    /* if wl_drm module doesn't call e_comp_canvas_init yet,
     * then we should get evas from ecore_evas.
@@ -4490,7 +4469,7 @@ _e_comp_wl_gl_init(void *data EINA_UNUSED)
    /* for native surface */
    e_comp->gl = 1;
 
-   e_main_ts("\tE_Comp_Wl_GL Init Done");
+   e_main_ts_end("\tE_Comp_Wl_GL Init Done");
 
    return;
 
@@ -5744,6 +5723,7 @@ e_comp_wl_key_send(E_Client *ec, int keycode, Eina_Bool pressed, Ecore_Device *d
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
 
    wl_keycode = keycode - 8;
@@ -5782,6 +5762,7 @@ e_comp_wl_touch_send(E_Client *ec, int idx, int x, int y, Eina_Bool pressed, Eco
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
 
    if (!dev) device = _e_comp_wl_device_last_device_get(ECORE_DEVICE_CLASS_TOUCH);
@@ -5818,6 +5799,7 @@ e_comp_wl_touch_update_send(E_Client *ec, int idx, int x, int y, Ecore_Device *d
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
 
    if (!dev) device = _e_comp_wl_device_last_device_get(ECORE_DEVICE_CLASS_TOUCH);
@@ -5865,6 +5847,7 @@ e_comp_wl_mouse_button_send(E_Client *ec, int buttons, Eina_Bool pressed, Ecore_
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
 
    wc = wl_resource_get_client(ec->comp_data->surface);
@@ -5892,6 +5875,7 @@ e_comp_wl_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
 
    wc = wl_resource_get_client(ec->comp_data->surface);
@@ -5917,6 +5901,7 @@ e_comp_wl_mouse_wheel_send(E_Client *ec, int direction, int z, Ecore_Device *dev
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
 
    wc = wl_resource_get_client(ec->comp_data->surface);
@@ -5941,6 +5926,7 @@ e_comp_wl_mouse_in_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_t 
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data->surface, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_wl, EINA_FALSE);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(ec)), EINA_FALSE);
 

@@ -983,6 +983,7 @@ _e_policy_cb_hook_pixmap_unusable(void *data EINA_UNUSED, E_Pixmap *cp)
    if (ec->exp_iconify.by_client) return;
    if (ec->exp_iconify.skip_iconify) return;
    if (ec->exp_iconify.skip_by_remote) return;
+   if (ec->remote_surface.bind_ref > 0) return;
 
    e_policy_client_unmap(ec);
 }
@@ -1005,6 +1006,7 @@ _e_policy_cb_zone_add(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
    E_Event_Zone_Add *ev;
    E_Zone *zone;
    E_Config_Policy_Desk *d;
+   E_Policy_Softkey *softkey;
    int i, n;
 
    ev = event;
@@ -1019,6 +1021,14 @@ _e_policy_cb_zone_add(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
           e_policy_desk_add(zone->desks[i]);
      }
 
+   /* add and show softkey */
+   if (e_config->use_softkey)
+     {
+        softkey = e_policy_softkey_get(zone);
+        if (!softkey)
+          softkey = e_policy_softkey_add(zone);
+     }
+
    return ECORE_CALLBACK_PASS_ON;
 }
 
@@ -1028,6 +1038,8 @@ _e_policy_cb_zone_del(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
    E_Event_Zone_Del *ev;
    E_Zone *zone;
    E_Policy_Desk *pd;
+   E_Policy_Softkey *softkey;
+
    int i, n;
 
    ev = event;
@@ -1037,6 +1049,14 @@ _e_policy_cb_zone_del(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
      {
         pd = eina_hash_find(hash_policy_desks, &zone->desks[i]);
         if (pd) e_policy_desk_del(pd);
+     }
+
+   /* add and show softkey */
+   if (e_config->use_softkey)
+     {
+        softkey = e_policy_softkey_get(zone);
+        if (softkey)
+          e_policy_softkey_del(softkey);
      }
 
    return ECORE_CALLBACK_PASS_ON;
@@ -1139,6 +1159,9 @@ _e_policy_cb_desk_show(void *data EINA_UNUSED, int type EINA_UNUSED, void *event
    if (e_config->use_softkey)
      {
         softkey = e_policy_softkey_get(ev->desk->zone);
+        if (!softkey)
+          softkey = e_policy_softkey_add(ev->desk->zone);
+
         if (eina_hash_find(hash_policy_desks, &ev->desk))
           e_policy_softkey_show(softkey);
         else
@@ -1421,7 +1444,6 @@ e_policy_desk_add(E_Desk *desk)
 {
    E_Policy_Desk *pd;
    E_Client *ec;
-   E_Policy_Softkey *softkey;
    E_Policy_Client *pc;
 
    pd = eina_hash_find(hash_policy_desks, &desk);
@@ -1444,16 +1466,6 @@ e_policy_desk_add(E_Desk *desk)
             _e_policy_client_maximize_policy_apply(pc);
          }
      }
-
-   /* add and show softkey */
-   if (e_config->use_softkey)
-     {
-        softkey = e_policy_softkey_get(desk->zone);
-        if (!softkey)
-          softkey = e_policy_softkey_add(desk->zone);
-        if (e_desk_current_get(desk->zone) == desk)
-          e_policy_softkey_show(softkey);
-     }
 }
 
 void
@@ -1464,8 +1476,6 @@ e_policy_desk_del(E_Policy_Desk *pd)
    E_Client *ec;
    Eina_List *clients_del = NULL;
    E_Policy_Softkey *softkey;
-   Eina_Bool keep = EINA_FALSE;
-   int i, n;
 
    /* hide and delete softkey */
    if (e_config->use_softkey)
@@ -1473,19 +1483,6 @@ e_policy_desk_del(E_Policy_Desk *pd)
         softkey = e_policy_softkey_get(pd->zone);
         if (e_desk_current_get(pd->zone) == pd->desk)
           e_policy_softkey_hide(softkey);
-
-        n = pd->zone->desk_y_count * pd->zone->desk_x_count;
-        for (i = 0; i < n; i++)
-          {
-             if (eina_hash_find(hash_policy_desks, &pd->zone->desks[i]))
-               {
-                  keep = EINA_TRUE;
-                  break;
-               }
-          }
-
-        if (!keep)
-          e_policy_softkey_del(softkey);
      }
 
    /* remove clients */
@@ -2145,6 +2142,21 @@ e_policy_allow_user_geometry_set(E_Client *ec, Eina_Bool set)
         ec->netwm.type = E_WINDOW_TYPE_NORMAL;
         EC_CHANGED(ec);
      }
+}
+
+E_API Eina_Bool
+e_policy_allow_user_geometry_get(E_Client *ec)
+{
+   E_Policy_Client *pc;
+
+   if (EINA_UNLIKELY(!ec))
+     return EINA_FALSE;
+
+   pc = eina_hash_find(hash_policy_clients, &ec);
+   if (EINA_UNLIKELY(!pc))
+     return EINA_FALSE;
+
+   return pc->allow_user_geom;
 }
 
 E_API void

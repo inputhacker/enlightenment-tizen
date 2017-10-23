@@ -223,15 +223,15 @@ _e_output_zoom_scaled_rect_get(int out_w, int out_h, double zoomx, double zoomy,
 static Eina_Bool
 _e_output_zoom_touch_transform(E_Output *output, Eina_Bool set)
 {
-   Ecore_Drm_Device *dev = NULL;
+   E_Input_Device *dev = NULL;
    Eina_Bool ret = EINA_FALSE;
    const Eina_List *l;
-   Ecore_Drm_Output *primary_output = NULL;
+   E_Output *primary_output = NULL;
    int w = 0, h = 0;
 
-   EINA_LIST_FOREACH(ecore_drm_devices_get(), l, dev)
+   EINA_LIST_FOREACH(e_input_devices_get(), l, dev)
      {
-        primary_output = ecore_drm_output_primary_get(dev);
+        primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
         if (primary_output != NULL)
           break;
      }
@@ -243,17 +243,17 @@ _e_output_zoom_touch_transform(E_Output *output, Eina_Bool set)
      }
 
    if (set)
-     ret = ecore_drm_device_touch_transformation_set(dev,
+     ret = e_input_device_touch_transformation_set(dev,
                                                      output->zoom_conf.rect.x, output->zoom_conf.rect.y,
                                                      output->zoom_conf.rect.w, output->zoom_conf.rect.h);
    else
      {
         e_output_size_get(output, &w, &h);
-        ret = ecore_drm_device_touch_transformation_set(dev, 0, 0, w, h);
+        ret = e_input_device_touch_transformation_set(dev, 0, 0, w, h);
      }
 
    if (ret != EINA_TRUE)
-     ERR("fail ecore_drm_device_touch_transformation_set");
+     ERR("fail e_input_device_touch_transformation_set");
 
    return ret;
 }
@@ -383,8 +383,12 @@ _e_output_zoom_rotate(E_Output *output)
         break;
      }
 
+   if (!_e_output_zoom_touch_set(output))
+     ERR("fail _e_output_zoom_touch_set");
+
    /* update the ecore_evas */
-   _e_output_render_update(output);
+   if (e_plane_pp_commit_possible_check(ep))
+     _e_output_render_update(output);
 }
 
 static void
@@ -1689,7 +1693,7 @@ e_output_rotate(E_Output *output, int rotate)
 
    if ((rot_dif % 180) && (output->config.geom.w != output->config.geom.h))
      {
-        ERR("output size(%dx%d) should be squre.",
+        ERR("output size(%dx%d) should be square.",
             output->config.geom.w, output->config.geom.h);
         return EINA_FALSE;
      }
@@ -2608,7 +2612,8 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
        output->zoom_conf.rect.x, output->zoom_conf.rect.y, output->zoom_conf.rect.w, output->zoom_conf.rect.h);
 
    /* update the ecore_evas */
-   _e_output_render_update(output);
+   if (e_plane_pp_commit_possible_check(ep))
+     _e_output_render_update(output);
 
    return EINA_TRUE;
 }
@@ -2684,10 +2689,27 @@ e_output_hook_del(E_Output_Hook *ch)
 }
 
 EINTERN Eina_Bool
-e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotate, E_Output_Capture_Cb func, void *data)
+e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotate, Eina_Bool sync, E_Output_Capture_Cb func, void *data)
 {
    Eina_Bool ret = EINA_FALSE;
    tdm_capture *tcapture = NULL;
+
+   if (e_output_dpms_get(output))
+     {
+        func(output, tsurface, data);
+        return EINA_TRUE;
+     }
+
+   if (sync)
+     {
+       ret = _e_output_capture(output, tsurface, auto_rotate);
+       EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
+
+       DBG("capture done(%p)", tsurface);
+       func(output, tsurface, data);
+
+       return EINA_TRUE;
+     }
 
    tcapture = _e_output_tdm_capture_create(output, TDM_CAPTURE_CAPABILITY_ONESHOT);
    if (tcapture)

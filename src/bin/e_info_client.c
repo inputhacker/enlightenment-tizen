@@ -3361,6 +3361,8 @@ _e_info_client_proc_kill_client(int argc, char **argv)
    const static int KILL_PID_MODE = 3;
    const static int KILL_ALL_MODE = 4;
    Eina_Bool res;
+   unsigned long tmp = 0;
+   uintptr_t ecore_win = 0;
    uint64_t uint64_value = 0;
    const char *str_value = "";
    uint32_t mode;
@@ -3369,11 +3371,12 @@ _e_info_client_proc_kill_client(int argc, char **argv)
      {
         mode = KILL_ID_MODE;
         printf("Select the window whose client you wish to kill\n");
-        if (_e_get_window_under_touch((Ecore_Window *)&uint64_value))
+        if (_e_get_window_under_touch(&ecore_win))
           {
              printf("Error: cannot get window under touch\n");
              return;
           }
+        uint64_value = (uint64_t)ecore_win;
      }
    else if (argc == 3)
      {
@@ -3385,9 +3388,11 @@ _e_info_client_proc_kill_client(int argc, char **argv)
           {
              mode = KILL_ID_MODE;
              if (strlen(argv[2]) >= 2 && argv[2][0] == '0' && argv[2][1] == 'x')
-               res = _util_string_to_ulong(argv[2], (unsigned long *)&uint64_value, 16);
+               res = _util_string_to_ulong(argv[2], &tmp, 16);
              else
-               res = _util_string_to_ulong(argv[2], (unsigned long *)&uint64_value, 10);
+               res = _util_string_to_ulong(argv[2], &tmp, 10);
+
+             uint64_value = (uint64_t)tmp;
 
              EINA_SAFETY_ON_FALSE_GOTO(res, usage);
           }
@@ -3398,9 +3403,11 @@ _e_info_client_proc_kill_client(int argc, char **argv)
           {
              mode = KILL_ID_MODE;
              if (strlen(argv[3]) >= 2 && argv[3][0] == '0' && argv[3][1] == 'x')
-               res = _util_string_to_ulong(argv[3], (unsigned long *)&uint64_value, 16);
+               res = _util_string_to_ulong(argv[3], &tmp, 16);
              else
-               res = _util_string_to_ulong(argv[3], (unsigned long *)&uint64_value, 10);
+               res = _util_string_to_ulong(argv[3], &tmp, 10);
+
+             uint64_value = (uint64_t)tmp;
 
              EINA_SAFETY_ON_FALSE_GOTO(res, usage);
           }
@@ -3413,9 +3420,11 @@ _e_info_client_proc_kill_client(int argc, char **argv)
           {
              mode = KILL_PID_MODE;
              if (strlen(argv[3]) >= 2 && argv[3][0] == '0' && argv[3][1] == 'x')
-               res = _util_string_to_ulong(argv[3], (unsigned long *)&uint64_value, 16);
+               res = _util_string_to_ulong(argv[3], &tmp, 16);
              else
-               res = _util_string_to_ulong(argv[3], (unsigned long *)&uint64_value, 10);
+               res = _util_string_to_ulong(argv[3], &tmp, 10);
+
+             uint64_value = (uint64_t)tmp;
 
              EINA_SAFETY_ON_FALSE_GOTO(res, usage);
           }
@@ -3792,6 +3801,8 @@ static void
 _e_info_client_proc_wininfo(int argc, char **argv)
 {
    Eina_Bool res;
+   unsigned long tmp = 0;
+   uintptr_t ecore_win = 0;
    uint64_t win = 0;
    int i, children = 0, tree = 0, stats = 0, wm = 0, size = 0, shape = 0;
    char *name = NULL, *pid = NULL;
@@ -3830,9 +3841,11 @@ _e_info_client_proc_wininfo(int argc, char **argv)
                }
 
              if (strlen(argv[i]) >= 2 && argv[i][0] == '0' && argv[i][1] == 'x')
-               res = _util_string_to_ulong(argv[i], (unsigned long *)&win, 16);
+               res = _util_string_to_ulong(argv[i], &tmp, 16);
              else
-               res = _util_string_to_ulong(argv[i], (unsigned long *)&win, 10);
+               res = _util_string_to_ulong(argv[i], &tmp, 10);
+
+             win = (uint64_t)tmp;
 
              EINA_SAFETY_ON_FALSE_GOTO(res, usage);
 
@@ -3914,11 +3927,12 @@ _e_info_client_proc_wininfo(int argc, char **argv)
         printf("Please select the window about which you\n"
                "would like information by clicking the\n"
                "mouse in that window.\n");
-        if (_e_get_window_under_touch((Ecore_Window *)&win))
+        if (_e_get_window_under_touch(&ecore_win))
           {
              printf("Error: cannot get window under touch\n");
              return;
           }
+        win = (uint64_t)ecore_win;
      }
 
    if (win)

@@ -19,7 +19,6 @@ typedef void (*E_Output_Capture_Cb) (E_Output *output, tbm_surface_h surface, vo
 #define E_OUTPUT_TYPE (int)0xE0b11002
 
 #include "e_comp_screen.h"
-#include <Ecore_Drm.h>
 
 enum _E_Output_Dpms
 {
@@ -139,7 +138,7 @@ EINTERN E_Plane         * e_output_default_fb_target_get(E_Output *output);
 EINTERN Eina_Bool         e_output_fake_config_set(E_Output *output, int w, int h);
 EINTERN Eina_Bool         e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy);
 EINTERN void              e_output_zoom_unset(E_Output *output);
-EINTERN Eina_Bool         e_output_capture(E_Output *output, tbm_surface_h surface, Eina_Bool auto_rotate, E_Output_Capture_Cb func, void *data);
+EINTERN Eina_Bool         e_output_capture(E_Output *output, tbm_surface_h surface, Eina_Bool auto_rotate, Eina_Bool sync, E_Output_Capture_Cb func, void *data);
 EINTERN Eina_Bool         e_output_stream_capture_queue(E_Output *output, tbm_surface_h surface, E_Output_Capture_Cb func, void *data);
 EINTERN Eina_Bool         e_output_stream_capture_dequeue(E_Output *output, tbm_surface_h surface);
 EINTERN Eina_Bool         e_output_stream_capture_start(E_Output *output);

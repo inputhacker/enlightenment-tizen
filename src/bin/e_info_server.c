@@ -1309,6 +1309,14 @@ _get_win_prop_E_Maximize_Policy(const Evas_Object *evas_obj)
 }
 
 static const char*
+_get_win_prop_Accept_focus(const Evas_Object *evas_obj)
+{
+   const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
+
+   return ec->icccm.accepts_focus ? strdup("TRUE") : strdup("FALSE");
+}
+
+static const char*
 _get_win_prop_Want_focus(const Evas_Object *evas_obj)
 {
    const E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
@@ -1953,6 +1961,11 @@ static struct property_manager
         NULL
     },
     {
+       "Accept_focus",
+       _get_win_prop_Accept_focus,
+       NULL
+    },
+    {
         "Take_focus",
         _get_win_prop_Take_focus,
         NULL
@@ -2182,6 +2195,7 @@ _msg_window_prop_append(const Eldbus_Message *msg, uint32_t mode, const char *va
    Eldbus_Message *reply_msg, *error_msg = NULL;
    E_Client *ec;
    Evas_Object *o;
+   unsigned long tmp = 0;
    uint64_t value_number = 0;
    Eina_Bool res = EINA_FALSE;
    Eina_Bool window_exists = EINA_FALSE;
@@ -2192,9 +2206,9 @@ _msg_window_prop_append(const Eldbus_Message *msg, uint32_t mode, const char *va
         else
           {
              if (strlen(value) >= 2 && value[0] == '0' && value[1] == 'x')
-               res = e_util_string_to_ulong(value, (unsigned long *)&value_number, 16);
+               res = e_util_string_to_ulong(value, &tmp, 16);
              else
-               res = e_util_string_to_ulong(value, (unsigned long *)&value_number, 10);
+               res = e_util_string_to_ulong(value, &tmp, 10);
 
              if (res == EINA_FALSE)
                {
@@ -2203,6 +2217,7 @@ _msg_window_prop_append(const Eldbus_Message *msg, uint32_t mode, const char *va
                   return eldbus_message_error_new(msg, INVALID_ARGS,
                           "get_window_prop: invalid input arguments");
                }
+             value_number = (uint64_t)tmp;
           }
      }
 
@@ -3141,8 +3156,9 @@ e_info_server_cb_transform_message(const Eldbus_Service_Interface *iface EINA_UN
    uint32_t enable, transform_id;
    uint32_t x, y, sx, sy, degree;
    uint32_t background;
+   unsigned long tmp = 0;
    const char *value = NULL;
-   uint64_t value_number;
+   uint64_t value_number = 0;
    Evas_Object *o;
    E_Client *ec;
    Eina_Bool res = EINA_FALSE;
@@ -3154,11 +3170,13 @@ e_info_server_cb_transform_message(const Eldbus_Service_Interface *iface EINA_UN
      }
 
    if (strlen(value) >= 2 && value[0] == '0' && value[1] == 'x')
-     res = e_util_string_to_ulong(value, (unsigned long *)&value_number, 16);
+     res = e_util_string_to_ulong(value, &tmp, 16);
    else
-     res = e_util_string_to_ulong(value, (unsigned long *)&value_number, 10);
+     res = e_util_string_to_ulong(value, &tmp, 10);
 
    EINA_SAFETY_ON_FALSE_RETURN_VAL(res, reply);
+
+   value_number = (uint64_t)tmp;
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
@@ -3779,7 +3797,7 @@ _e_info_server_cb_screen_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
      }
    strncpy(path_backup, path, PATH_MAX);
 
-   ret = e_output_capture(eout, surface, EINA_FALSE, _e_info_server_cb_screen_dump_cb, path_backup);
+   ret = e_output_capture(eout, surface, EINA_FALSE, EINA_TRUE, _e_info_server_cb_screen_dump_cb, path_backup);
    if (ret)
      return reply;
    else
@@ -4177,6 +4195,7 @@ e_info_server_cb_aux_message(const Eldbus_Service_Interface *iface EINA_UNUSED, 
    Eldbus_Message_Iter *opt_iter;
    const char *win_str, *key, *val, *opt;
    Eina_List *options = NULL;
+   unsigned long tmp = 0;
    uint64_t win_id = 0;
    E_Client *ec;
    Evas_Object *o;
@@ -4202,8 +4221,10 @@ e_info_server_cb_aux_message(const Eldbus_Service_Interface *iface EINA_UNUSED, 
         options = eina_list_append(options, str);
      }
 
-   res = e_util_string_to_ulong(win_str, (unsigned long *)&win_id, 16);
+   res = e_util_string_to_ulong(win_str, &tmp, 16);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(res, reply);
+
+   win_id = (uint64_t)tmp;
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {

@@ -9,6 +9,7 @@ typedef struct _E_Policy          E_Policy;
 typedef struct _E_Policy_System_Info E_Policy_System_Info;
 typedef struct _E_Policy_Interceptor E_Policy_Interceptor;
 typedef struct _E_Policy_Hook        E_Policy_Hook;
+typedef struct _E_Policy_Softkey_Funcs E_Policy_Softkey_Funcs;
 
 typedef enum _E_Policy_Intercept_Point
 {
@@ -91,6 +92,16 @@ struct _E_Policy_Softkey
    E_Zone          *zone;
    Evas_Object     *home;
    Evas_Object     *back;
+   void            *other;
+};
+
+struct _E_Policy_Softkey_Funcs
+{
+   E_Policy_Softkey* (*softkey_create)(E_Zone *zone);
+   void              (*softkey_destroy)(E_Policy_Softkey *softkey);
+   void              (*softkey_show)(E_Policy_Softkey *softkey);
+   void              (*softkey_hide)(E_Policy_Softkey *softkey);
+   void              (*softkey_update)(E_Policy_Softkey *softkey);
 };
 
 struct _E_Policy
@@ -135,7 +146,7 @@ EINTERN E_Policy_Config_Desk *e_policy_conf_desk_get_by_nums(E_Policy_Config *co
 EINTERN E_Policy_Client      *e_policy_client_get(E_Client *ec);
 EINTERN void                  e_policy_desk_add(E_Desk *desk);
 EINTERN void                  e_policy_desk_del(E_Policy_Desk *pd);
-EINTERN E_Policy_Client      *e_policy_client_launcher_get(E_Zone *zone);
+E_API   E_Policy_Client      *e_policy_client_launcher_get(E_Zone *zone);
 
 E_API Eina_Bool        e_policy_client_is_lockscreen(E_Client *ec);
 E_API Eina_Bool        e_policy_client_is_home_screen(E_Client *ec);
@@ -155,12 +166,14 @@ E_API Eina_Bool        e_policy_client_is_keyboard(E_Client *ec);
 E_API Eina_Bool        e_policy_client_is_keyboard_sub(E_Client *ec);
 E_API Eina_Bool        e_policy_client_is_keyboard_magnifier(E_Client *ec);
 
-EINTERN E_Policy_Softkey *e_policy_softkey_add(E_Zone *zone);
-EINTERN void              e_policy_softkey_del(E_Policy_Softkey *softkey);
-EINTERN void              e_policy_softkey_show(E_Policy_Softkey *softkey);
-EINTERN void              e_policy_softkey_hide(E_Policy_Softkey *softkey);
-EINTERN void              e_policy_softkey_update(E_Policy_Softkey *softkey);
-EINTERN E_Policy_Softkey *e_policy_softkey_get(E_Zone *zone);
+E_API E_Policy_Softkey *e_policy_softkey_add(E_Zone *zone);
+E_API void              e_policy_softkey_del(E_Policy_Softkey *softkey);
+E_API void              e_policy_softkey_show(E_Policy_Softkey *softkey);
+E_API void              e_policy_softkey_hide(E_Policy_Softkey *softkey);
+E_API void              e_policy_softkey_update(E_Policy_Softkey *softkey);
+E_API E_Policy_Softkey *e_policy_softkey_get(E_Zone *zone);
+E_API Eina_Bool         e_policy_softkey_module_func_set(E_Policy_Softkey_Funcs *fn);
+E_API void              e_policy_softkey_module_func_unset(void);
 
 EINTERN void             e_policy_client_visibility_send(E_Client *ec);
 EINTERN void             e_policy_client_iconify_by_visibility(E_Client *ec);
@@ -203,6 +216,7 @@ E_API void                  e_policy_hook_del(E_Policy_Hook *hook);
 E_API Eina_Bool             e_policy_hook_call(E_Policy_Hook_Point hookpoint, E_Client *ec);
 
 E_API void e_policy_allow_user_geometry_set(E_Client *ec, Eina_Bool set);
+E_API Eina_Bool e_policy_allow_user_geometry_get(E_Client *ec);
 E_API void e_policy_deferred_job(void);
 E_API int  e_policy_init(void);
 E_API int  e_policy_shutdown(void);

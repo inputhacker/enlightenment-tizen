@@ -120,7 +120,6 @@ struct _E_Comp
    Eina_List      *updates;
    Eina_List      *post_updates;
    Ecore_Animator *render_animator;
-   Ecore_Job      *shape_job;
    Ecore_Job      *update_job;
    Evas_Object    *fps_bg;
    Evas_Object    *fps_fg;
@@ -198,8 +197,6 @@ EINTERN int e_comp_shutdown(void);
 E_API void e_comp_deferred_job(void);
 E_API void e_comp_render_queue(void);
 E_API void e_comp_client_post_update_add(E_Client *ec);
-E_API void e_comp_shape_queue(void);
-E_API void e_comp_shape_queue_block(Eina_Bool block);
 E_API E_Comp_Config *e_comp_config_get(void);
 E_API const Eina_List *e_comp_list(void);
 E_API void e_comp_shadows_reset(void);

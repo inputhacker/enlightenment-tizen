@@ -121,7 +121,8 @@ src/bin/e_process.h \
 src/bin/e_privilege.h \
 src/bin/e_security.h \
 src/bin/e_keyrouter.h \
-src/bin/e_gesture.h
+src/bin/e_gesture.h \
+src/bin/e_input.h
 
 enlightenment_src = \
 src/bin/e_actions.c \
@@ -221,14 +222,19 @@ src/bin/e_process.c \
 src/bin/e_privilege.c \
 src/bin/e_security.c \
 src/bin/e_keyrouter.c \
-src/bin/e_gesture.c
+src/bin/e_gesture.c \
+src/bin/e_input_private.h \
+src/bin/e_input.c \
+src/bin/e_input_inputs.c \
+src/bin/e_input_device.c \
+src/bin/e_input_evdev.c
 
 src_bin_enlightenment_CPPFLAGS = $(E_CPPFLAGS) -DEFL_BETA_API_SUPPORT -DEFL_EO_API_SUPPORT -DE_LOGGING=1 @WAYLAND_CFLAGS@ $(TTRACE_CFLAGS) $(DLOG_CFLAGS) $(PIXMAN_CFLAGS) $(POLICY_CFLAGS) @TIZEN_REMOTE_SURFACE_CFLAGS@
 if HAVE_LIBGOMP
 src_bin_enlightenment_CPPFLAGS += -fopenmp
 endif
 if HAVE_WAYLAND_TBM
-src_bin_enlightenment_CPPFLAGS += @WAYLAND_TBM_CFLAGS@ @ECORE_DRM_CFLAGS@
+src_bin_enlightenment_CPPFLAGS += @WAYLAND_TBM_CFLAGS@
 endif
 if HAVE_HWC
 src_bin_enlightenment_CPPFLAGS += @HWC_CFLAGS@
@@ -236,6 +242,7 @@ endif
 if HAVE_SYSTEMD
 src_bin_enlightenment_CPPFLAGS += @SYSTEMD_CFLAGS@
 endif
+src_bin_enlightenment_CPPFLAGS += @LIBINPUT_CFLAGS@
 
 src_bin_enlightenment_SOURCES = \
 src/bin/e_main.c \
@@ -247,7 +254,7 @@ src_bin_enlightenment_LDFLAGS += -fopenmp
 endif
 src_bin_enlightenment_LDADD = @e_libs@ @dlopen_libs@ @cf_libs@ @VALGRIND_LIBS@ @WAYLAND_LIBS@ -lm @SHM_OPEN_LIBS@ $(TTRACE_LIBS) $(DLOG_LIBS) $(PIXMAN_LIBS) $(POLICY_LIBS) @TIZEN_REMOTE_SURFACE_LIBS@
 if HAVE_WAYLAND_TBM
-src_bin_enlightenment_LDADD += @WAYLAND_TBM_LIBS@ @ECORE_DRM_LIBS@
+src_bin_enlightenment_LDADD += @WAYLAND_TBM_LIBS@
 endif
 if HAVE_HWC
 src_bin_enlightenment_LDADD += @HWC_LIBS@
@@ -255,6 +262,7 @@ endif
 if HAVE_SYSTEMD
 src_bin_enlightenment_LDFLAGS += @SYSTEMD_LIBS@
 endif
+src_bin_enlightenment_LDFLAGS += @LIBINPUT_LIBS@
 
 src_bin_enlightenment_info_SOURCES = \
 src/bin/e.h \

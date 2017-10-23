@@ -65,6 +65,30 @@ static Eina_Inlist *_e_pol_vis_hooks[] =
 static int _e_pol_vis_hooks_delete = 0;
 static int _e_pol_vis_hooks_walking = 0;
 
+static inline Eina_Bool
+_e_vis_client_is_grabbed(E_Vis_Client *vc)
+{
+   return !!vc->job.grab_list;
+}
+
+static inline Eina_Bool
+_e_vis_client_is_iconic(E_Vis_Client *vc)
+{
+   return (vc->state == E_VIS_ICONIFY_STATE_ICONIC);
+}
+
+static inline Eina_Bool
+_e_vis_client_is_uniconic(E_Vis_Client *vc)
+{
+   return (vc->state == E_VIS_ICONIFY_STATE_UNICONIC);
+}
+
+static inline Eina_Bool
+_e_vis_client_is_uniconify_render_running(E_Vis_Client *vc)
+{
+   return (vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY);
+}
+
 static void
 _e_pol_vis_hooks_clean(void)
 {
@@ -259,7 +283,19 @@ _e_policy_client_iconify_by_visibility(E_Client *ec)
    if (ec->parent)
      {
         if (ec->parent->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)
-          _e_policy_client_iconify_by_visibility(ec->parent);
+          {
+             _e_policy_client_iconify_by_visibility(ec->parent);
+
+             E_VIS_CLIENT_GET(vc, ec->parent);
+             if (vc)
+               {
+                  if (_e_vis_client_is_uniconify_render_running(vc))
+                    {
+                       VS_INF(ec, "Uniconify render because parent(win:%x, ec:%p)", e_client_util_win_get(ec->parent), ec->parent);
+                       e_policy_visibility_client_uniconify(ec, !ec->parent->exp_iconify.not_raise);
+                    }
+               }
+          }
      }
 }
 
@@ -665,30 +701,6 @@ _e_vis_grab_release(E_Vis_Grab *grab)
    _e_vis_grab_del(grab);
 }
 
-static inline Eina_Bool
-_e_vis_client_is_grabbed(E_Vis_Client *vc)
-{
-   return !!vc->job.grab_list;
-}
-
-static inline Eina_Bool
-_e_vis_client_is_iconic(E_Vis_Client *vc)
-{
-   return (vc->state == E_VIS_ICONIFY_STATE_ICONIC);
-}
-
-static inline Eina_Bool
-_e_vis_client_is_uniconic(E_Vis_Client *vc)
-{
-   return (vc->state == E_VIS_ICONIFY_STATE_UNICONIC);
-}
-
-static inline Eina_Bool
-_e_vis_client_is_uniconify_render_running(E_Vis_Client *vc)
-{
-   return (vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY);
-}
-
 static Eina_Bool
 _e_vis_client_cb_buffer_attach(void *data, int type EINA_UNUSED, void *event)
 {
@@ -696,16 +708,18 @@ _e_vis_client_cb_buffer_attach(void *data, int type EINA_UNUSED, void *event)
    E_Vis_Grab *grab;
    E_Client *ec;
    E_Event_Client *ev;
+   E_Client *provider_ec;
 
    ev = event;
    vc = data;
-   if (vc->ec != ev->ec)
+   provider_ec = e_comp_wl_remote_surface_bound_provider_ec_get(vc->ec);
+   if (vc->ec != ev->ec && provider_ec != ev->ec)
      goto renew;
 
    ec = vc->ec;
    grab = vc->grab;
 
-   VS_DBG(ec, "FINISH Uniconify render");
+   VS_DBG(ec, "FINISH Uniconify render(ev:%p, vc:%p, provider:%p)", ev->ec, vc->ec, provider_ec);
 
    /* force update
     * NOTE: this update can invoke some functions related to visibility grab */
@@ -1000,10 +1014,11 @@ _e_vis_client_prepare_foreground_signal_emit(E_Vis_Client *vc)
 static Eina_Bool
 _e_vis_client_is_uniconify_render_necessary(E_Vis_Client *vc)
 {
-   if (!e_config->use_buffer_flush)
+   E_Client *ec = NULL;
+   if (vc) ec = vc->ec;
+   if (!ec) return EINA_FALSE;
+   if (!ec->exp_iconify.buffer_flush)
      {
-        E_Client *ec = NULL;
-        if (vc) ec = vc->ec;
         if (ec && ec->exp_iconify.deiconify_update) // hint or conf->deiconify_approve set deiconify update 1
           goto need_deiconify_render;
 
@@ -1422,6 +1437,47 @@ _e_vis_cb_child_launch_done(void *data, Evas_Object *obj, const char *signal, co
      e_comp_object_signal_callback_del_full(comp_obj, "e,action,launch,done", "e", _e_vis_cb_child_launch_done, vc);
 }
 
+static void
+_e_vis_transient_group_make(E_Client *ec, Eina_List **list)
+{
+   E_Client *child;
+   Eina_List *l;
+
+   if (!ec) return;
+
+   if (e_config->transient.raise)
+     {
+        EINA_LIST_FOREACH(ec->transients, l, child)
+          {
+             if (!child) continue;
+             if (child->iconic && ec->exp_iconify.by_client)
+               continue;
+
+             if (child->transient_policy == E_TRANSIENT_ABOVE)
+               {
+                  *list = eina_list_prepend(*list, child);
+                  _e_vis_transient_group_make(child, list);
+               }
+          }
+     }
+}
+
+static E_Client *
+_e_vis_transient_top_get(E_Client *ec)
+{
+   E_Client *topmost = NULL;
+   Eina_List *transient_list = NULL;
+
+   _e_vis_transient_group_make(ec, &transient_list);
+
+   if (transient_list)
+     {
+        topmost = eina_list_data_get(transient_list);
+        eina_list_free(transient_list);
+     }
+   return topmost;
+}
+
 static Eina_Bool
 _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
 {
@@ -1437,7 +1493,8 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
      {
         E_Client *topmost;
 
-        topmost = eina_list_data_get(ec->transients);
+        topmost = _e_vis_transient_top_get(ec);
+        if (!topmost) return EINA_TRUE;
 
         if (topmost->transient_policy == E_TRANSIENT_BELOW)
           return EINA_TRUE;
@@ -1454,6 +1511,8 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
                {
                   if (topmost->pixmap && e_pixmap_usable_get(topmost->pixmap))
                     {
+                       ELOGF("COMP", "Set launching flag..", topmost->pixmap, topmost);
+                       topmost->launching = EINA_TRUE;
 
                        vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD;
                        VS_DBG(vc->ec, "\tUPDATE ICONIC STATE: %s", STATE_STR(vc));

@@ -27,6 +27,7 @@ BuildRequires:  pkgconfig(eet)
 BuildRequires:  pkgconfig(eina)
 BuildRequires:  pkgconfig(eio)
 BuildRequires:  pkgconfig(evas)
+BuildRequires:  pkgconfig(eeze)
 BuildRequires:  pkgconfig(libtbm)
 BuildRequires:  pkgconfig(ttrace)
 BuildRequires:  pkgconfig(wayland-server)
@@ -40,7 +41,6 @@ BuildRequires:  pkgconfig(tizen-launch-server)
 BuildRequires:  pkgconfig(wayland-tbm-server)
 BuildRequires:  pkgconfig(tizen-remote-surface-server)
 BuildRequires:  pkgconfig(eom-server)
-BuildRequires:  pkgconfig(ecore-drm)
 BuildRequires:  pkgconfig(libtdm)
 BuildRequires:  pkgconfig(gbm)
 BuildRequires:  pkgconfig(capi-system-device)
@@ -50,6 +50,7 @@ BuildRequires:  pkgconfig(cynara-creds-socket)
 BuildRequires:  pkgconfig(libsmack)
 BuildRequires:  pkgconfig(pixman-1)
 BuildRequires:  systemd-devel
+BuildRequires:  pkgconfig(libinput)
 Requires:       libwayland-extension-server
 %if "%{LIBGOMP}" == "use"
 Requires:       libgomp
@@ -75,9 +76,6 @@ cp %{SOURCE1001} .
 %if "%{TIZEN_PRODUCT_TV}" != "1"
 export CFLAGS+=" -fPIE "
 export LDFLAGS+=" -pie "
-%endif
-%if "%{_with_emulator}" == "1"
-export CFLAGS+=" -DUSE_NATIVE_BUFFER "
 %endif
 %autogen \
       TIZEN_REL_VERSION="%{release}-%{TIZEN_REL_VERSION}" \

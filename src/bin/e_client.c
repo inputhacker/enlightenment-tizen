@@ -200,7 +200,7 @@ _e_client_pointer_warp_to_center_timer(void *data EINA_UNUSED)
         int x, y;
         double spd;
 
-        ecore_evas_pointer_xy_get(e_comp->ee, &x, &y);
+        e_input_device_pointer_xy_get(NULL, &x, &y);
         /* move hasn't happened yet */
         if ((x == warp_x[1]) && (y == warp_y[1]))
            return EINA_TRUE;
@@ -223,7 +223,7 @@ _e_client_pointer_warp_to_center_timer(void *data EINA_UNUSED)
              warp_to = 0;
              goto cleanup;
           }
-        ecore_evas_pointer_warp(e_comp->ee, warp_x[0], warp_y[0]);
+        e_input_device_pointer_warp(NULL, warp_x[0], warp_y[0]);
         return ECORE_CALLBACK_RENEW;
      }
 cleanup:
@@ -2565,7 +2565,7 @@ _e_client_eval(E_Client *ec)
      {
         int x, y;
 
-        ecore_evas_pointer_xy_get(e_comp->ee, &x, &y);
+        e_input_device_pointer_xy_get(NULL, &x, &y);
         if ((!ec->placed) && (!ec->re_manage) &&
             (e_config->window_placement_policy == E_WINDOW_PLACEMENT_MANUAL) &&
             (!((ec->icccm.transient_for != 0) ||
@@ -2980,12 +2980,13 @@ e_client_transient_child_top_get(E_Client *ec, Eina_Bool consider_focus)
 #define EC_IS_NOT_VISIBLE if (ec->visibility.obscured != E_VISIBILITY_UNOBSCURED)
 
 static void
-_e_client_visibility_zone_calculate(E_Zone *zone)
+_e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
 {
    E_Client *ec;
    E_Client *focus_ec = NULL;
    E_Client *cur_focused_ec = NULL;
    E_Client *top_vis_full_ec = NULL;
+   Eina_Bool top_vis_full_ec_vis_changed = EINA_FALSE;
    Eina_Bool find_top_vis_ec = EINA_FALSE;
 
    Eina_Tiler *t;
@@ -3169,7 +3170,10 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
                            (ec->icccm.accepts_focus || ec->icccm.take_focus))
                          {
                             if (E_CONTAINS(x, y, w, h, zone->x, zone->y, zone->w, zone->h))
-                              top_vis_full_ec = ec;
+                              {
+                                 top_vis_full_ec = ec;
+                                 top_vis_full_ec_vis_changed = ec->visibility.changed;
+                              }
                          }
                     }
                }
@@ -3245,7 +3249,15 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
              if (top_vis_full_ec)
                {
                   if (top_vis_full_ec != cur_focused_ec)
-                    evas_object_focus_set(top_vis_full_ec->frame, 1);
+                    {
+                       if (!cur_focused_ec)
+                         evas_object_focus_set(top_vis_full_ec->frame, 1);
+                       else
+                         {
+                            if (top_vis_full_ec_vis_changed || check_focus)
+                              evas_object_focus_set(top_vis_full_ec->frame, 1);
+                         }
+                    }
                }
              else
                {
@@ -3515,6 +3527,7 @@ e_client_idler_before(void)
    E_Client *ec;
    Eina_Bool exist_clients_hash = EINA_FALSE;
    int pix_id;
+   Eina_Bool check_focus = EINA_FALSE;
 
    for (pix_id = 0; pix_id < E_PIXMAP_TYPE_MAX; pix_id++)
      {
@@ -3600,6 +3613,8 @@ e_client_idler_before(void)
         if (ec->changed)
           {
              _e_client_eval(ec);
+             if (ec->icccm.accepts_focus || ec->icccm.take_focus)
+               check_focus = EINA_TRUE;
              e_client_visibility_calculate();
           }
 
@@ -3619,7 +3634,7 @@ e_client_idler_before(void)
         Eina_List *zl;
         EINA_LIST_FOREACH(e_comp->zones, zl, zone)
           {
-             _e_client_visibility_zone_calculate(zone);
+             _e_client_visibility_zone_calculate(zone, check_focus);
           }
         _e_calc_visibility = EINA_FALSE;
      }
@@ -3752,6 +3767,10 @@ e_client_new(E_Pixmap *cp, int first_map, int internal)
      ec->exp_iconify.deiconify_update= 1;
    else
      ec->exp_iconify.deiconify_update= 0;
+   if (e_config->use_buffer_flush)
+     ec->exp_iconify.buffer_flush = 1;
+   else
+     ec->exp_iconify.buffer_flush = 0;
 
    if (!_e_client_hook_call(E_CLIENT_HOOK_NEW_CLIENT, ec))
      {
@@ -5401,7 +5420,7 @@ e_client_iconify(E_Client *ec)
 
    _e_client_hook_call(E_CLIENT_HOOK_ICONIFY, ec);
 
-   if (e_config->use_buffer_flush)
+   if (ec->exp_iconify.buffer_flush)
      e_pixmap_buffer_clear(ec->pixmap, EINA_FALSE);
 
    TRACE_DS_END();
@@ -6152,9 +6171,9 @@ e_client_under_pointer_get(E_Desk *desk, E_Client *exclude)
     * zone of either the given desk or the desk of the excluded
     * window, so return if neither is given */
    if (desk)
-     ecore_evas_pointer_xy_get(e_comp->ee, &x, &y);
+     e_input_device_pointer_xy_get(NULL, &x, &y);
    else if (exclude)
-     ecore_evas_pointer_xy_get(e_comp->ee, &x, &y);
+     e_input_device_pointer_xy_get(NULL, &x, &y);
    else
      return NULL;
 
@@ -6187,7 +6206,7 @@ e_client_pointer_warp_to_center_now(E_Client *ec)
 {
    if (warp_client == ec)
      {
-        ecore_evas_pointer_warp(e_comp->ee, warp_to_x, warp_to_y);
+        e_input_device_pointer_warp(NULL, warp_to_x, warp_to_y);
         warp_to = 0;
         _e_client_pointer_warp_to_center_timer(NULL);
      }
@@ -6208,7 +6227,7 @@ e_client_pointer_warp_to_center(E_Client *ec)
    if (!ec->zone) return 0;
    /* Only warp the pointer if it is not already in the area of
     * the given border */
-   ecore_evas_pointer_xy_get(e_comp->ee, &x, &y);
+   e_input_device_pointer_xy_get(NULL, &x, &y);
    if ((x >= ec->x) && (x <= (ec->x + ec->w)) &&
        (y >= ec->y) && (y <= (ec->y + ec->h)))
      {
@@ -6239,7 +6258,7 @@ e_client_pointer_warp_to_center(E_Client *ec)
 
    warp_to = 1;
    warp_client = ec;
-   ecore_evas_pointer_xy_get(e_comp->ee, &warp_x[0], &warp_y[0]);
+   e_input_device_pointer_xy_get(NULL, &warp_x[0], &warp_y[0]);
    if (warp_timer) ecore_timer_del(warp_timer);
    warp_timer = ecore_timer_add(0.01, _e_client_pointer_warp_to_center_timer, ec);
    return 1;
@@ -6774,14 +6793,6 @@ E_API Eina_Bool
 e_client_cursor_hide(E_Client *ec)
 {
    return e_comp_wl_cursor_hide(ec);
-}
-
-/* TODO: should be removed */
-E_API void
-e_remember_del(void *rem)
-{
-   /* do nothing */
-   return;
 }
 
 E_API void

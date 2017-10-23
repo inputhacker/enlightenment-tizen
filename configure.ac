@@ -292,6 +292,8 @@ e_requires="\
   eldbus >= $efl_version \
   eio >= $efl_version \
   eo >= $efl_version \
+  eeze >= $efl_version \
+  libinput \
   libtbm \
   libtdm >= "1.0.0" \
   "
@@ -415,7 +417,6 @@ if test "x${have_wayland}" = "xyes"; then
       ])
     fi
 
-    PKG_CHECK_MODULES([ECORE_DRM], [ecore-drm >= ${efl_version}])
   else
     have_wayland_tbm=no
   fi
@@ -525,6 +526,8 @@ fi
 
 AM_CONDITIONAL([HAVE_SYSTEMD], [test "x${have_systemd}" = "xyes"])
 
+#libinput
+PKG_CHECK_MODULES([LIBINPUT], [libinput])
 
 #capi-system-device
 PKG_CHECK_MODULES([CAPI_SYSTEM_DEVICE],
@@ -594,6 +597,7 @@ eina >= ${efl_version} \
 eldbus >= ${efl_version} \
 eio >= ${efl_version} \
 eo >= ${efl_version} \
+eeze >= ${efl_version} \
 "
 
 e_libs="$E_LIBS $fnmatch_libs $execinfo_libs"

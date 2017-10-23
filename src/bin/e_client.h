@@ -860,6 +860,7 @@ struct E_Client
       unsigned char skip_iconify : 1;
       unsigned char skip_by_remote : 1;    // skip iconify by remote surface client
       unsigned char deiconify_update : 1;  // wait client render if deiconify_update is 1
+      unsigned char buffer_flush : 1;      // 0: no flush, 1: flush buffer when iconify
    } exp_iconify;
 
    struct
@@ -930,6 +931,7 @@ struct E_Client
      {
         Eina_Bool provider : 1;
         Eina_Bool consumer : 1;
+        int       bind_ref;
      } remote_surface;
 
    Eina_Bool is_cursor : 1; // The client is a cursor client
@@ -1122,8 +1124,6 @@ E_API Eina_Bool e_client_video_client_has(E_Client *ec);
 E_API Eina_Bool e_client_normal_client_has(E_Client *ec);
 
 E_API Eina_Bool e_client_cursor_hide(E_Client *ec);
-
-E_API void e_remember_del(void *rem); /* TODO: should be removed */
 
 E_API void e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set);
 

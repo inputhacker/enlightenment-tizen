@@ -76,3 +76,4 @@
 #include "e_main.h"
 #include "e_keyrouter.h"
 #include "e_gesture.h"
+#include "e_input.h"
