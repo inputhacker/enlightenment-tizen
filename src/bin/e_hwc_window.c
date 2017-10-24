@@ -366,7 +366,7 @@ _e_hwc_window_target_new(E_Output *output)
    ((E_Hwc_Window *)target_window)->type = TDM_COMPOSITION_DEVICE;
    ((E_Hwc_Window *)target_window)->output = output;
 
-   target_window->window.hwc_wnd = tdm_output_create_hwc_window(output->toutput, &error);
+   target_window->window.hwc_wnd = tdm_output_hwc_create_window(output->toutput, &error);
    EINA_SAFETY_ON_TRUE_GOTO(error != TDM_ERROR_NONE, fail);
 
    /* don't change type for this hwc_wnd. This hwc window need to enable
@@ -479,7 +479,7 @@ e_hwc_window_set_ec(E_Hwc_Window *window, E_Client *ec)
    toutput = window->output->toutput;
    EINA_SAFETY_ON_NULL_RETURN_VAL(toutput, EINA_FALSE);
 
-   window->hwc_wnd = tdm_output_create_hwc_window(toutput, &error);
+   window->hwc_wnd = tdm_output_hwc_create_window(toutput, &error);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
    window->ec = ec;
@@ -572,7 +572,7 @@ e_hwc_window_free(E_Hwc_Window *window)
    EINA_SAFETY_ON_NULL_RETURN(toutput);
 
    if (window->hwc_wnd)
-      tdm_output_destroy_hwc_window(toutput, window->hwc_wnd);
+      tdm_output_hwc_destroy_window(toutput, window->hwc_wnd);
 
    window->output->windows = eina_list_remove(window->output->windows, window);
 
@@ -838,7 +838,7 @@ e_hwc_window_fetch(E_Hwc_Window *window)
         /* the damage isn't supported by hwc extension yet */
         memset(&fb_damage, 0, sizeof(fb_damage));
 
-        tdm_output_set_client_target_buffer(window->output->toutput, tsurface, fb_damage);
+        tdm_output_hwc_set_client_target_buffer(window->output->toutput, tsurface, fb_damage);
         INF("hwc-opt: set surface:%p on the fb_target.", tsurface);
      }
    else
@@ -876,7 +876,7 @@ e_hwc_window_unfetch(E_Hwc_Window *window)
         /* the damage isn't supported by hwc extension yet */
         memset(&fb_damage, 0, sizeof(fb_damage));
 
-        tdm_output_set_client_target_buffer(window->output->toutput, window->tsurface, fb_damage);
+        tdm_output_hwc_set_client_target_buffer(window->output->toutput, window->tsurface, fb_damage);
         INF("hwc-opt: (unfetch) set surface:%p on the fb_target.", window->tsurface);
      }
    else

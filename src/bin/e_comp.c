@@ -547,7 +547,7 @@ static void
 _remove_pair(e_client_hwc_wnd_pair_t *pair)
 {
    if (pair->hwc_wnd)
-     tdm_output_destroy_hwc_window(pair->eo->toutput, pair->hwc_wnd);
+     tdm_output_hwc_destroy_window(pair->eo->toutput, pair->hwc_wnd);
 
    if (pair->ep)
      {
@@ -583,7 +583,7 @@ _filter_pairs_by_hw(E_Output *eo/*, Eina_List *cl_hwc_wnd_pair_ls*/, uint32_t nu
    hwc_wnds = calloc(num_changes, sizeof(tdm_hwc_window *));
    composition_types = calloc(num_changes, sizeof(tdm_hwc_window_composition_t));
 
-   tdm_output_get_changed_composition_types(eo->toutput, &num_changes, hwc_wnds,
+   tdm_output_hwc_get_changed_composition_types(eo->toutput, &num_changes, hwc_wnds,
            composition_types);
 
    for (i = 0; i < num_changes; i++)
@@ -669,7 +669,7 @@ _create_pairs_list(E_Output *eo, const Eina_List *cl_list, Eina_Bool *is_wm_prev
         tdm_hwc_window *hwc_wnd;
         tbm_surface_h surface;
 
-        hwc_wnd = tdm_output_create_hwc_window(eo->toutput, NULL);
+        hwc_wnd = tdm_output_hwc_create_window(eo->toutput, NULL);
 
         /* window manager could ask to prevent some e_clients being shown by hw directly */
         if (ec->hwc_acceptable)
@@ -737,7 +737,7 @@ _e_plane_reset(E_Plane *ep)
      {
         INF("hwc-opt: destroy hwc_wnd:%p for e_plane:%p (pos:%d).", ep->hwc_wnd, ep, ep->zpos);
 
-        tdm_output_destroy_hwc_window(ep->output->toutput, ep->hwc_wnd);
+        tdm_output_hwc_destroy_window(ep->output->toutput, ep->hwc_wnd);
         ep->hwc_wnd = NULL;
      }
 }*/
@@ -749,7 +749,7 @@ _update_pair(e_client_hwc_wnd_pair_t *pair, int z_pos)
    tbm_surface_h surface;
 
    if (!pair->hwc_wnd)
-     pair->hwc_wnd = tdm_output_create_hwc_window(pair->eo->toutput, NULL);
+     pair->hwc_wnd = tdm_output_hwc_create_window(pair->eo->toutput, NULL);
 
    /* window manager could ask to prevent some e_clients being shown by hw directly */
    if (pair->ec->hwc_acceptable)
@@ -925,7 +925,7 @@ _hwc_optimized_prepare(E_Output *eo, Eina_List *cl_list)
 
    /* make hwc extension choose which clients will own hw overlays,
     * by another point of view - make hwc extension choose which pair(s) are no-valid */
-   tdm_output_validate(eo->toutput, &num_changes);
+   tdm_output_hwc_validate(eo->toutput, &num_changes);
 
    /* thin out the 'e_client and hwc_window' pair list to leave only DEVICE-able pairs,
     * if hwc changed our requested types */
@@ -943,7 +943,7 @@ _hwc_optimized_prepare(E_Output *eo, Eina_List *cl_list)
         if (need_hybrid_mode)
           hwc_mode = E_HWC_MODE_HYBRID;
 
-        tdm_output_accept_changes(eo->toutput);
+        tdm_output_hwc_accept_changes(eo->toutput);
      }
    else
      INF("hwc-opt: hwc extension accepted our request.");

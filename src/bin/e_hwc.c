@@ -268,7 +268,7 @@ _hwc_prepare(E_Output *eo, Eina_List *cl_list)
    _print_wnds_state(windows);
 
    /* make hwc extension choose which clients will own hw overlays */
-   tdm_err = tdm_output_validate(eo->toutput, &num_changes);
+   tdm_err = tdm_output_hwc_validate(eo->toutput, &num_changes);
    if (tdm_err != TDM_ERROR_NONE)
      {
         ERR("hwc-opt: failed to validate the output(%p)", eo->toutput);
@@ -290,7 +290,7 @@ _hwc_prepare(E_Output *eo, Eina_List *cl_list)
         composition_types = E_NEW(tdm_hwc_window_composition_t, num_changes);
         EINA_SAFETY_ON_NULL_RETURN_VAL(composition_types, EINA_FALSE);
 
-        tdm_err = tdm_output_get_changed_composition_types(eo->toutput,
+        tdm_err = tdm_output_hwc_get_changed_composition_types(eo->toutput,
                                               &num_changes, changed_hwc_window,
                                               composition_types);
         if (tdm_err != TDM_ERROR_NONE)
@@ -318,7 +318,7 @@ _hwc_prepare(E_Output *eo, Eina_List *cl_list)
         free(changed_hwc_window);
         free(composition_types);
 
-        tdm_err = tdm_output_accept_changes(eo->toutput);
+        tdm_err = tdm_output_hwc_accept_changes(eo->toutput);
         if (tdm_err != TDM_ERROR_NONE)
           {
              ERR("hwc-opt: failed to accept changes required by the hwc extension");
@@ -512,7 +512,7 @@ _e_hwc_register_need_validate_handlers(Eina_List *eos)
      {
         if (!output->config.enabled) continue;
 
-        err = tdm_output_set_need_validate_handler(output->toutput, _tdm_output_need_validate_handler);
+        err = tdm_output_hwc_set_need_validate_handler(output->toutput, _tdm_output_need_validate_handler);
         EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
 
         INF("hwc-opt: register a need_validate_handler for the eo:%p.", output);

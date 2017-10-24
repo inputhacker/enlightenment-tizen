@@ -1569,7 +1569,7 @@ e_plane_fetch(E_Plane *plane)
                   /* the damage isn't supported by hwc extension yet */
                   memset(&fb_damage, 0, sizeof(fb_damage));
 
-                  err = tdm_output_set_client_target_buffer(plane->output->toutput, plane->tsurface, fb_damage);
+                  err = tdm_output_hwc_set_client_target_buffer(plane->output->toutput, plane->tsurface, fb_damage);
                   INF("hwc-opt: set surface:%p on the fb_target, err:%s.", plane->tsurface,
                           _get_name_of_tdm_error(err));
                }
@@ -1662,7 +1662,7 @@ e_plane_unfetch(E_Plane *plane)
             /* the damage isn't supported by hwc extension yet */
             memset(&fb_damage, 0, sizeof(fb_damage));
 
-            tdm_output_set_client_target_buffer(plane->output->toutput, plane->tsurface, fb_damage);
+            tdm_output_hwc_set_client_target_buffer(plane->output->toutput, plane->tsurface, fb_damage);
             INF("hwc-opt: (unfetch) set surface:%p on the fb_target.", plane->tsurface);
          }
        else
