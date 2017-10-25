@@ -849,6 +849,9 @@ _e_plane_pp_layer_commit_handler(tdm_layer *layer, unsigned int sequence,
         data = eina_list_nth(plane->pending_pp_data_list, 0);
         if (data)
           {
+             if (!tbm_surface_queue_can_dequeue(plane->pp_tqueue, 0))
+               return;
+
              plane->pending_pp_data_list = eina_list_remove(plane->pending_pp_data_list, data);
 
              if (plane_trace_debug)
