@@ -58,7 +58,7 @@ _get_evas_renderer_delay(tbm_surface_queue_h queue)
 }
 
 static void
-_hwc_get_notified_about_composition_end(const Eina_List *windows)
+_hwc_get_notified_about_need_unset_cc_type(const Eina_List *windows)
 {
    const Eina_List *l;
    E_Hwc_Window *window;
@@ -69,8 +69,8 @@ _hwc_get_notified_about_composition_end(const Eina_List *windows)
 
    EINA_LIST_FOREACH(windows, l, window)
      if (e_hwc_window_get_state(window) == E_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
-       if (!window->get_notified_about_composition_end && !window->is_deleted)
-         e_hwc_window_get_notified_about_composition_end(window, delay);
+       if (!window->get_notified_about_need_unset_cc_type && !window->is_deleted)
+         e_hwc_window_get_notified_about_need_unset_cc_type(window, delay);
 
 }
 
@@ -331,7 +331,7 @@ _hwc_prepare(E_Output *eo, Eina_List *cl_list)
    _hwc_update_e_windows_state(windows);
 
    if (_are_e_windows_with_client_candidate_state(windows))
-     _hwc_get_notified_about_composition_end(windows);
+     _hwc_get_notified_about_need_unset_cc_type(windows);
 
      if (_need_target_window(eo))
        {

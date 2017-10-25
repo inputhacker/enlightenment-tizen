@@ -51,12 +51,17 @@ struct _E_Hwc_Window
 
    E_Hwc_Window_Commit_Data       *commit_data;
 
-   /* whether E20 has to notify this E_Hwc_Window about the end of composition */
-   Eina_Bool                      get_notified_about_composition_end;
+   /* whether E20 has to notify this E_Hwc_Window about the need to unset
+    * candidate client type */
+   Eina_Bool                      get_notified_about_need_unset_cc_type;
    uint64_t                       frame_num;  /* the absolute number of frame to be notified about */
 
    /* whether an e_client owned by this window got composited on the fb_target */
    Eina_Bool                      got_composited;
+   Eina_Bool                      need_unset_cc_type; /* need unset candidate client type */
+   /* number of buffers in front of the buffer which contains the e_client
+    * owned by this window*/
+   int delay;
 };
 
 struct _E_Hwc_Window_Target

@@ -66,6 +66,37 @@ _e_hwc_window_target_surface_queue_clear(E_Hwc_Window_Target *target_window)
   return EINA_TRUE;
 }
 
+static void
+_new_buffer_is_acquired_from_evas_renderer_queue(E_Hwc_Window_Target *target_window)
+{
+   E_Hwc_Window *window;
+   const Eina_List *l;
+
+   EINA_LIST_FOREACH(e_output_windows_get(((E_Hwc_Window *)target_window)->output), l, window)
+     {
+        if (window->is_deleted) continue;
+
+        if (window->get_notified_about_need_unset_cc_type && window->got_composited)
+          {
+             window->delay--;
+             if (window->delay > 0) continue;
+
+             window->get_notified_about_need_unset_cc_type = EINA_FALSE;
+
+             window->need_unset_cc_type = EINA_TRUE;
+
+             INF("hwc-opt: the composition buffer with ec:%p {name:%s} will be displayed"
+                 "in the next, throw the update_job.",
+                 window->ec, window->ec ? window->ec->icccm.name : "none");
+
+            /* an e_client got composited to the fb_target and will be displayed
+             * in the next frame so we have to inform the hwc extension about this
+             * by throwing the update_job */
+            e_comp_render_queue();
+          }
+     }
+}
+
 static tbm_surface_h
 _e_hwc_window_surface_from_ecore_evas_acquire(E_Hwc_Window_Target *target_window)
 {
@@ -89,6 +120,8 @@ _e_hwc_window_surface_from_ecore_evas_acquire(E_Hwc_Window_Target *target_window
      }
 
    tsurface = e_hwc_window_target_surface_queue_acquire(target_window);
+   if (tsurface)
+     _new_buffer_is_acquired_from_evas_renderer_queue(target_window);
 
    return tsurface;
 }
@@ -260,34 +293,68 @@ _e_hwc_window_target_queue_acquirable_cb(tbm_surface_queue_h surface_queue, void
       ERR("failed to send acquirable event:%m");
 }
 
+static int
+_get_enqueued_surface_num(tbm_surface_queue_h queue)
+{
+   tbm_surface_queue_error_e err;
+   int enqueue_num = 0;
+
+   err = tbm_surface_queue_get_trace_surface_num(queue, TBM_SURFACE_QUEUE_TRACE_ENQUEUE, &enqueue_num);
+   if (err != TBM_SURFACE_QUEUE_ERROR_NONE)
+     {
+        ERR("fail to tbm_surface_queue_get_trace_surface_num (TBM_SURFACE_QUEUE_TRACE_ENQUEUE)");
+        return 0;
+     }
+
+   return enqueue_num;
+}
+
 static void
 _evas_renderer_queue_has_new_composited_buffer(void *data)
 {
    E_Hwc_Window_Target *target_window = (E_Hwc_Window_Target *)data;
    E_Hwc_Window *window;
    const Eina_List *l;
+   int enqueued_surface_num;
 
    target_window->render_cnt++;
 
    INF("hwc-opt: evas_renderer has a new buffer in the queue, renderer_cnt:%d",
            target_window->render_cnt);
 
+   enqueued_surface_num = _get_enqueued_surface_num(target_window->queue);
    EINA_LIST_FOREACH(e_output_windows_get(((E_Hwc_Window *)target_window)->output), l, window)
      {
         if (window->is_deleted) continue;
 
-        if (window->get_notified_about_composition_end)
+        if (window->get_notified_about_need_unset_cc_type)
           {
-             if (window->frame_num >= target_window->render_cnt)
+             if (window->frame_num <= target_window->render_cnt)
                {
-                  window->get_notified_about_composition_end = EINA_FALSE;
+                  window->got_composited = EINA_TRUE;
+
+                  if (enqueued_surface_num > 1)
+                    {
+                       window->delay = enqueued_surface_num - 1;
+
+                       INF("hwc-opt: the composition for ec:%p {name:%s} is done,"
+                           "but render queue has %d buffers before",
+                            window->ec, window->ec ? window->ec->icccm.name : "none",
+                            window->delay);
+
+                       continue;
+                    }
+
+                  window->get_notified_about_need_unset_cc_type = EINA_FALSE;
+
+                  window->need_unset_cc_type = EINA_TRUE;
 
                   INF("hwc-opt: the composition for ec:%p {name:%s} is done, throw the update_job.",
                           window->ec, window->ec ? window->ec->icccm.name : "none");
 
-                  /* an e_client got composited to the fb_target so we have to
-                   * inform the hwc extension about this by throwing the update_job */
-                  window->got_composited = EINA_TRUE;
+                  /* an e_client got composited to the fb_target and will be displayed
+                   * in the next frame so we have to inform the hwc extension about this
+                   * by throwing the update_job */
                   e_comp_render_queue();
                }
           }
@@ -690,13 +757,14 @@ e_hwc_window_update(E_Hwc_Window *window)
      {
         /* as the e_client got composited on the fb_target we have to inform the hwc
          * extension to allow it does its work, so we set the TDM_COMPOSITION_CLIENT type */
-        if (window->got_composited)
+        if (window->need_unset_cc_type)
           {
              INF("hwc-opt: ew:%p -- ec%p {name:%s} - buffer's been composited, inform hwc-extension.",
                      window, window->ec, window->ec->icccm.name);
 
              /* reset for the next DEVICE -> CLIENT_CANDIDATE transition */
              window->got_composited = EINA_FALSE;
+             window->need_unset_cc_type = EINA_FALSE;
 
              error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_CLIENT);
              EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
@@ -1259,16 +1327,16 @@ e_hwc_window_get_state(E_Hwc_Window *window)
 
 /* offset - relative offset of frame the notification should be issued for */
 EINTERN Eina_Bool
-e_hwc_window_get_notified_about_composition_end(E_Hwc_Window *window, uint64_t offset)
+e_hwc_window_get_notified_about_need_unset_cc_type(E_Hwc_Window *window, uint64_t offset)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(window, EINA_FALSE);
 
    E_Hwc_Window_Target *target_window = e_output_get_target_window(window->output);
 
-   window->get_notified_about_composition_end = EINA_TRUE;
+   window->get_notified_about_need_unset_cc_type = EINA_TRUE;
    window->frame_num = e_hwc_window_target_get_current_renderer_cnt(target_window) + offset + 1;
 
-   INF("hwc-opt: ew:%p -- ec:%p {name:%s} asked to be notified about a %llu composited frame,"
+   INF("hwc-opt: ew:%p -- ec:%p {name:%s} asked to be notified about a %llu composited frame will be displayed in the next frame,"
            " current render_cnt:%llu, delay:%llu.", window, window->ec, window->ec ? window->ec->icccm.name : "none",
                     window->frame_num, target_window->render_cnt, offset);
 
