@@ -499,15 +499,10 @@ _e_plane_cursor_surface_acquire(E_Plane *plane)
 
    e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
-   tsurface = e_plane_renderer_cursor_surface_get(renderer);
-
-   if (plane->display_info.buffer_ref.buffer != buffer || !tsurface)
+   if (!e_plane_renderer_cursor_surface_refresh(renderer, ec))
      {
-        if (!e_plane_renderer_cursor_surface_refresh(renderer, ec))
-          {
-             ERR("Failed to e_plane_renderer_cursor_surface_refresh");
-             return NULL;
-          }
+        ERR("Failed to e_plane_renderer_cursor_surface_refresh");
+        return NULL;
      }
 
    tsurface = e_plane_renderer_cursor_surface_get(renderer);

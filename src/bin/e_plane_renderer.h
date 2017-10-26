@@ -25,8 +25,8 @@ struct _E_Plane_Renderer {
    int tqueue_height;
    int tqueue_size;
 
-   tbm_surface_h cursor_tsurface;
-
+   tbm_surface_h       cursor_tsurface;
+   int                 cursor_rotation;
    E_Client           *ec;
    E_Plane_Renderer_State    state;
 

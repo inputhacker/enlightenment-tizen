@@ -10,6 +10,7 @@
 # include <Evas_Engine_GL_Tbm.h>
 # include <Evas_Engine_Software_Tbm.h>
 # include <sys/eventfd.h>
+# include <pixman.h>
 # if HAVE_LIBGOMP
 # include <omp.h>
 # endif
@@ -1053,20 +1054,91 @@ e_plane_renderer_new(E_Plane *plane)
    return renderer;
 }
 
+static void
+_e_plane_renderer_cursor_image_draw(E_Comp_Wl_Buffer *buffer, tbm_surface_info_s *tsurface_info, int rotation)
+{
+   int src_width, src_height, src_stride;
+   pixman_image_t *src_img = NULL, *dst_img = NULL;
+   pixman_transform_t t;
+   struct pixman_f_transform ft;
+   void *src_ptr = NULL, *dst_ptr = NULL;
+   int c = 0, s = 0, tx = 0, ty = 0;
+   int i, rotate;
+
+   src_width = wl_shm_buffer_get_width(buffer->shm_buffer);
+   src_height = wl_shm_buffer_get_height(buffer->shm_buffer);
+   src_stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
+   src_ptr = wl_shm_buffer_get_data(buffer->shm_buffer);
+
+   dst_ptr = tsurface_info->planes[0].ptr;
+   memset(dst_ptr, 0, tsurface_info->planes[0].stride * tsurface_info->height);
+
+   if (rotation)
+     {
+        src_img = pixman_image_create_bits(PIXMAN_a8r8g8b8, src_width, src_height, (uint32_t*)src_ptr, src_stride);
+        EINA_SAFETY_ON_NULL_GOTO(src_img, error);
+
+        dst_img = pixman_image_create_bits(PIXMAN_a8r8g8b8, tsurface_info->width, tsurface_info->height,
+                                          (uint32_t*)dst_ptr, tsurface_info->planes[0].stride);
+        EINA_SAFETY_ON_NULL_GOTO(dst_img, error);
+
+        if (rotation == 90)
+           rotation = 270;
+        else if (rotation == 270)
+           rotation = 90;
+
+        rotate = (rotation + 360) / 90 % 4;
+        switch (rotate)
+          {
+           case 1:
+              c = 0, s = -1, tx = -tsurface_info->width;
+              break;
+           case 2:
+              c = -1, s = 0, tx = -tsurface_info->width, ty = -tsurface_info->height;
+              break;
+           case 3:
+              c = 0, s = 1, ty = -tsurface_info->width;
+              break;
+          }
+
+        pixman_f_transform_init_identity(&ft);
+        pixman_f_transform_translate(&ft, NULL, tx, ty);
+        pixman_f_transform_rotate(&ft, NULL, c, s);
+
+        pixman_transform_from_pixman_f_transform(&t, &ft);
+        pixman_image_set_transform(src_img, &t);
+
+        pixman_image_composite(PIXMAN_OP_SRC, src_img, NULL, dst_img, 0, 0, 0, 0, 0, 0,
+                               tsurface_info->width, tsurface_info->height);
+     }
+   else
+     {
+        for (i = 0 ; i < src_height ; i++)
+          {
+             memcpy(dst_ptr, src_ptr, src_stride);
+             dst_ptr += tsurface_info->planes[0].stride;
+             src_ptr += src_stride;
+          }
+     }
+
+error:
+   if (src_img) pixman_image_unref(src_img);
+   if (dst_img) pixman_image_unref(dst_img);
+}
+
 EINTERN Eina_Bool
 e_plane_renderer_cursor_surface_refresh(E_Plane_Renderer *renderer, E_Client *ec)
 {
    E_Plane *plane = NULL;
    E_Output *output = NULL;
-   int i = 0;
-   int stride, height, w, h;
+   int w, h, tw, th;
    int tsurface_w, tsurface_h;
    void *src_ptr = NULL;
-   void *dst_ptr = NULL;
    tbm_surface_h tsurface = NULL;
    E_Comp_Wl_Buffer *buffer = NULL;
    tbm_surface_error_e ret = TBM_SURFACE_ERROR_NONE;
    tbm_surface_info_s tsurface_info;
+   E_Pointer *pointer = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
@@ -1079,6 +1151,14 @@ e_plane_renderer_cursor_surface_refresh(E_Plane_Renderer *renderer, E_Client *ec
 
    buffer = ec->comp_data->buffer_ref.buffer;
    EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, EINA_FALSE);
+
+   pointer = e_pointer_get(ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(pointer, EINA_FALSE);
+
+   if ((plane->display_info.buffer_ref.buffer == buffer) &&
+       (renderer->cursor_tsurface) &&
+       (renderer->cursor_rotation == pointer->rotation))
+     return EINA_TRUE;
 
    /* TODO: TBM TYPE, NATIVE_WL */
    if (buffer->type == E_COMP_WL_BUFFER_TYPE_SHM)
@@ -1096,8 +1176,19 @@ e_plane_renderer_cursor_surface_refresh(E_Plane_Renderer *renderer, E_Client *ec
         return EINA_FALSE;
      }
 
-   w = (output->cursor_available.min_w > ec->w) ? output->cursor_available.min_w : ec->w;
-   h = (output->cursor_available.min_h > ec->h) ? output->cursor_available.min_h : ec->h;
+   if (pointer->rotation == 90)
+      tw = ec->h, th = ec->w;
+   else if (pointer->rotation == 180)
+      tw = ec->w, th = ec->h;
+   else if (pointer->rotation == 270)
+      tw = ec->h, th = ec->w;
+   else
+      tw = ec->w, th = ec->h;
+
+   renderer->cursor_rotation = pointer->rotation;
+
+   w = (output->cursor_available.min_w > tw) ? output->cursor_available.min_w : tw;
+   h = (output->cursor_available.min_h > th) ? output->cursor_available.min_h : th;
 
    if (e_comp->hwc_reuse_cursor_buffer)
      {
@@ -1140,18 +1231,7 @@ e_plane_renderer_cursor_surface_refresh(E_Plane_Renderer *renderer, E_Client *ec
         return EINA_FALSE;
      }
 
-   memset(tsurface_info.planes[0].ptr, 0, tsurface_info.planes[0].stride * tsurface_info.height);
-
-   stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
-   height = wl_shm_buffer_get_height(buffer->shm_buffer);
-   dst_ptr = tsurface_info.planes[0].ptr;
-
-   for (i = 0 ; i < height ; i++)
-     {
-        memcpy(dst_ptr, src_ptr, stride);
-        dst_ptr += tsurface_info.planes[0].stride;
-        src_ptr += stride;
-     }
+   _e_plane_renderer_cursor_image_draw(buffer, &tsurface_info, pointer->rotation);
 
    tbm_surface_unmap(tsurface);
 
