@@ -3160,23 +3160,6 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
                          canvas_vis = EINA_FALSE;
                     }
                }
-
-             if (ec->visibility.obscured == E_VISIBILITY_UNOBSCURED)
-               {
-                  if (!find_top_vis_ec)
-                    {
-                       find_top_vis_ec = EINA_TRUE;
-                       if ((!ec->iconic) &&
-                           (ec->icccm.accepts_focus || ec->icccm.take_focus))
-                         {
-                            if (E_CONTAINS(x, y, w, h, zone->x, zone->y, zone->w, zone->h))
-                              {
-                                 top_vis_full_ec = ec;
-                                 top_vis_full_ec_vis_changed = ec->visibility.changed;
-                              }
-                         }
-                    }
-               }
           }
         else
           {
@@ -3209,6 +3192,25 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
                _e_client_event_simple(ec, E_EVENT_CLIENT_VISIBILITY_CHANGE);
 
              _e_client_hook_call(E_CLIENT_HOOK_EVAL_VISIBILITY, ec);
+
+             if (ec->visibility.obscured == E_VISIBILITY_UNOBSCURED)
+               {
+                  if (!find_top_vis_ec)
+                    {
+                       find_top_vis_ec = EINA_TRUE;
+                       if ((!ec->iconic) &&
+                           (ec->icccm.accepts_focus || ec->icccm.take_focus))
+                         {
+                            e_client_geometry_get(ec, &x, &y, &w, &h);
+                            if (E_CONTAINS(x, y, w, h, zone->x, zone->y, zone->w, zone->h))
+                              {
+                                 top_vis_full_ec = ec;
+                                 top_vis_full_ec_vis_changed = ec->visibility.changed;
+                              }
+                         }
+                    }
+               }
+
              ec->visibility.changed = 0;
 
              if (zone->display_state != E_ZONE_DISPLAY_STATE_OFF)
