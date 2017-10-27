@@ -1059,6 +1059,20 @@ e_comp_screen_init()
    E_LIST_HANDLER_APPEND(event_handlers, E_INPUT_EVENT_INPUT_DEVICE_ADD, _e_comp_screen_cb_input_device_add, comp);
    E_LIST_HANDLER_APPEND(event_handlers, E_INPUT_EVENT_INPUT_DEVICE_DEL, _e_comp_screen_cb_input_device_del, comp);
 
+   if (e_comp->e_comp_screen->rotation > 0)
+     {
+         const Eina_List *l;
+         E_Input_Device *dev;
+
+         EINA_LIST_FOREACH(e_input_devices_get(), l, dev)
+           {
+               e_input_device_touch_rotation_set(dev, e_comp->e_comp_screen->rotation);
+               e_input_device_rotation_set(dev, e_comp->e_comp_screen->rotation);
+
+               INF("EE Input Device Rotate: %d", e_comp->e_comp_screen->rotation);
+           }
+     }
+
    TRACE_DS_END();
 
    return EINA_TRUE;
@@ -1136,9 +1150,10 @@ E_API Eina_Bool
 e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
 {
    E_Output *output = NULL, *o;
-   Eina_List *l;
+   const Eina_List *l;
    int w, h;
    int screen_rotation;
+   E_Input_Device *dev;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation % 90, EINA_FALSE);
@@ -1177,6 +1192,14 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
 
    ecore_evas_rotation_with_resize_set(e_comp->ee, e_comp_screen->rotation);
    ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
+
+   EINA_LIST_FOREACH(e_input_devices_get(), l, dev)
+     {
+         e_input_device_touch_rotation_set(dev, e_comp_screen->rotation);
+         e_input_device_rotation_set(dev, e_comp_screen->rotation);
+
+         INF("EE Input Device Rotate: %d", e_comp_screen->rotation);
+     }
 
    if (e_comp_screen_iface)
      {
