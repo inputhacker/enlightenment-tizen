@@ -2173,131 +2173,64 @@ e_output_commit(E_Output *output)
    // TODO: to be fixed. check fps of fb_target currently.
    if (fb_commit) _e_output_update_fps();
 
-   if (output->zoom_set)
+   /* set planes */
+   EINA_LIST_FOREACH(output->planes, l, plane)
      {
-        /* unset check */
-        EINA_LIST_FOREACH(output->planes, l, plane)
+        /* skip the fb_target fetch because we do this previously */
+        if (e_plane_is_fb_target(plane)) continue;
+
+        /* if the plane is the candidate to unset,
+           set the plane to be unset_try */
+        if (e_plane_is_unset_candidate(plane))
+          e_plane_unset_try_set(plane, EINA_TRUE);
+
+        /* if the plane is trying to unset,
+         * 1. if fetching the fb is not available, continue.
+         * 2. if fetching the fb is available, verify the unset commit check.  */
+        if (e_plane_is_unset_try(plane))
           {
-             /* skip the fb_target fetch because we do this previously */
-             if (e_plane_is_fb_target(plane)) continue;
-             if (!e_plane_is_unset_candidate(plane)) continue;
+            if (!e_plane_unset_commit_check(plane, fb_commit))
+              continue;
+          }
 
-             e_plane_unset_try_set(plane, EINA_TRUE);
+        if (!e_plane_set_commit_check(plane, fb_commit)) continue;
 
-             /* if the plane is trying to unset,
-              * 1. if fetching the fb is not available, continue.
-              * 2. if fetching the fb is available, verify the unset commit check.  */
-             if (e_plane_is_unset_try(plane))
-               {
-                  if (!e_plane_unset_commit_check(plane, fb_commit))
-                    continue;
-               }
+        /* fetch the surface to the plane */
+        if (!e_plane_fetch(plane)) continue;
 
-             if (!e_plane_set_commit_check(plane, fb_commit)) continue;
+        if (e_plane_is_unset_try(plane))
+          e_plane_unset_try_set(plane, EINA_FALSE);
+     }
 
-             /* fetch the surface to the plane */
+   EINA_LIST_FOREACH(output->planes, l, plane)
+     {
+        if (e_plane_is_fetch_retry(plane))
+          {
              if (!e_plane_fetch(plane)) continue;
-
-             if (output->dpms == E_OUTPUT_DPMS_OFF)
-               e_plane_unfetch(plane);
-
-             if (e_plane_is_unset_try(plane))
-               e_plane_unset_try_set(plane, EINA_FALSE);
-
-             if (output->dpms == E_OUTPUT_DPMS_OFF)
+             if (e_plane_is_fb_target(plane))
                {
-                  if (!e_plane_offscreen_commit(plane))
-                    ERR("fail to e_plane_offscreen_commit");
-               }
-             else
-               {
-                  if (!e_plane_commit(plane))
-                    ERR("fail to e_plane_commit");
+                  fb_commit = EINA_TRUE;
+                  _e_output_update_fps();
                }
           }
+     }
 
-        EINA_LIST_FOREACH(output->planes, l, plane)
-          {
-             if (e_plane_is_fetch_retry(plane))
-               {
-                 if (!e_plane_fetch(plane)) continue;
-                 if (e_plane_is_fb_target(plane))
-                   {
-                      fb_commit = EINA_TRUE;
-                      _e_output_update_fps();
-                   }
-               }
-          }
+   EINA_LIST_FOREACH(output->planes, l, plane)
+     {
+        if (e_plane_is_unset_try(plane)) continue;
 
-        /* zoom commit only primary */
-        if (!fb_commit) return EINA_TRUE;
-
-        _e_output_zoom_rotating_check(output);
-
-        /* zoom commit */
         if (output->dpms == E_OUTPUT_DPMS_OFF)
           {
-             if (!e_plane_offscreen_commit(fb_target))
+             if (!e_plane_offscreen_commit(plane))
                ERR("fail to e_plane_offscreen_commit");
           }
         else
           {
-             if (!e_plane_pp_commit(fb_target))
-               ERR("fail to e_plane_pp_commit");
-          }
-     }
-   else
-     {
-        /* set planes */
-        EINA_LIST_FOREACH(output->planes, l, plane)
-          {
-             /* skip the fb_target fetch because we do this previously */
-             if (e_plane_is_fb_target(plane)) continue;
-
-             /* if the plane is the candidate to unset,
-                set the plane to be unset_try */
-             if (e_plane_is_unset_candidate(plane))
-               e_plane_unset_try_set(plane, EINA_TRUE);
-
-             /* if the plane is trying to unset,
-              * 1. if fetching the fb is not available, continue.
-              * 2. if fetching the fb is available, verify the unset commit check.  */
-             if (e_plane_is_unset_try(plane))
+             if ((output->zoom_set) && e_plane_is_fb_target(plane))
                {
-                 if (!e_plane_unset_commit_check(plane, fb_commit))
-                   continue;
-               }
-
-             if (!e_plane_set_commit_check(plane, fb_commit)) continue;
-
-             /* fetch the surface to the plane */
-             if (!e_plane_fetch(plane)) continue;
-
-             if (e_plane_is_unset_try(plane))
-               e_plane_unset_try_set(plane, EINA_FALSE);
-          }
-
-        EINA_LIST_FOREACH(output->planes, l, plane)
-          {
-             if (e_plane_is_fetch_retry(plane))
-               {
-                 if (!e_plane_fetch(plane)) continue;
-                 if (e_plane_is_fb_target(plane))
-                   {
-                      fb_commit = EINA_TRUE;
-                      _e_output_update_fps();
-                   }
-               }
-          }
-
-        EINA_LIST_FOREACH(output->planes, l, plane)
-          {
-             if (e_plane_is_unset_try(plane)) continue;
-
-             if (output->dpms == E_OUTPUT_DPMS_OFF)
-               {
-                  if (!e_plane_offscreen_commit(plane))
-                    ERR("fail to e_plane_offscreen_commit");
+                  _e_output_zoom_rotating_check(output);
+                  if (!e_plane_pp_commit(plane))
+                    ERR("fail to e_plane_pp_commit");
                }
              else
                {
