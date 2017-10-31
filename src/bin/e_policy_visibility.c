@@ -1089,15 +1089,12 @@ end:
 }
 
 static Eina_Bool
-_e_vis_client_defer_move(E_Vis_Client *vc, E_Vis_Job_Type type, int x, int y)
+_e_vis_client_defer_move(E_Vis_Client *vc, E_Vis_Job_Type type)
 {
    if (!vc) return EINA_FALSE;
 
-   vc->state = E_VIS_ICONIFY_STATE_GEOMETRY_CHANGE;
-   VS_DBG(vc->ec, "\tUPDATE ICONIC STATE: %s", STATE_STR(vc));
+   VS_DBG(vc->ec, "\tDEFER MOVE: %s", STATE_STR(vc));
    vc->grab = _e_vis_client_grab_get(vc, __func__);
-   vc->defer.x = x;
-   vc->defer.y = y;
    _e_vis_client_buffer_attach_handler_add(vc);
 
    _e_vis_client_job_add(vc, type);
@@ -1229,7 +1226,7 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
          if (vc &&(!e_object_is_del(E_OBJECT(ec))) &&
              (ec->visible) && (!ec->hidden) &&
              (!ec->iconic) && (!ec->ignored))
-           evas_object_move(ec->frame, vc->defer.x, vc->defer.y);
+           evas_object_move(ec->frame, ec->x, ec->y);
          break;
 
       default:
@@ -1831,12 +1828,12 @@ e_policy_visibility_client_layer_lower(E_Client *ec, E_Layer layer)
 }
 
 EINTERN void
-e_policy_visibility_client_defer_move(E_Client *ec, int x, int y)
+e_policy_visibility_client_defer_move(E_Client *ec)
 {
    E_VIS_CLIENT_GET_OR_RETURN(vc, ec);
    VS_DBG(ec, "API ENTRY | Defered Move");
 
-   _e_vis_client_defer_move(vc, E_VIS_JOB_TYPE_DEFER_MOVE, x, y);
+   _e_vis_client_defer_move(vc, E_VIS_JOB_TYPE_DEFER_MOVE);
 }
 
 E_API Eina_Bool

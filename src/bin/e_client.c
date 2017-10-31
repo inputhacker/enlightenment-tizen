@@ -5225,11 +5225,7 @@ e_client_unmaximize(E_Client *ec, E_Maximize max)
                     e_client_util_move_resize_without_frame(ec, x, y, w, h);
                   else
                     {
-                       if (ec->changes.pos)
-                         {
-                            x = ec->x; y = ec->y;
-                         }
-                       e_policy_visibility_client_defer_move(ec, x, y);
+                       e_policy_visibility_client_defer_move(ec);
                     }
                   e_hints_window_size_unset(ec);
                }
@@ -5241,11 +5237,7 @@ e_client_unmaximize(E_Client *ec, E_Maximize max)
                     e_client_util_move_resize_without_frame(ec, x, y, w, h);
                   else
                      {
-                        if (ec->changes.pos)
-                          {
-                             x = ec->x; y = ec->y;
-                          }
-                        e_policy_visibility_client_defer_move(ec, x, y);
+                        e_policy_visibility_client_defer_move(ec);
                      }
 
                   e_hints_window_size_set(ec);

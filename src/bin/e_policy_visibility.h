@@ -33,7 +33,7 @@ E_API E_Pol_Vis_Hook             *e_policy_visibility_hook_add(E_Pol_Vis_Hook_Ty
 E_API void                        e_policy_visibility_hook_del(E_Pol_Vis_Hook *h);
 E_API Eina_Bool                   e_policy_visibility_client_is_iconic(E_Client *ec);
 
-EINTERN void                      e_policy_visibility_client_defer_move(E_Client *ec, int x, int y);
+EINTERN void                      e_policy_visibility_client_defer_move(E_Client *ec);
 
 #endif
 #endif
