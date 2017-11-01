@@ -41,7 +41,6 @@ struct _E_Comp_Config
    unsigned char hwc_use_detach; // 0: hwc use dequeue protocol, 1: hwc use detach request when synchronize scanout buffer
    unsigned char use_native_type_buffer; // 0: use the tbm_buffer(tbm_surface), 1: use the native_buffer(wl_buffer)
    unsigned char hwc_optimized;
-   unsigned char hwc_optimized_2;
    unsigned char smooth_windows;
    unsigned char nofade;
    double        first_draw_delay;

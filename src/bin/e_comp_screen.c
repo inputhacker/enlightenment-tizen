@@ -215,7 +215,7 @@ _e_comp_screen_commit_idle_cb(void *data EINA_UNUSED)
 
    e_comp_screen = e_comp->e_comp_screen;
 
-   if (e_comp->hwc_optimized_2)
+   if (e_comp->hwc_optimized)
      {
         if (!e_hwc_commit())
            ERR("fail to commit hwc.");
@@ -1042,7 +1042,7 @@ e_comp_screen_init()
         goto failed_comp_screen;
      }
 
-   if (e_comp->hwc_optimized_2)
+   if (e_comp->hwc_optimized)
      {
         if (!e_hwc_init())
           {

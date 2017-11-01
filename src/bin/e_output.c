@@ -1583,63 +1583,54 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
    output->id = id;
    INF("E_OUTPUT: (%d) output_id = %s", index, output->id);
 
-   if (!e_comp->hwc_optimized_2)
+   if (e_comp->hwc_optimized)
      {
-        /* FIXME: it's a kludge
-         *
-         * I've decided to base the first implementation of optimized hwc on e_plane/e_plane_renderer
-         * essences, but tdm-hwc doesn't provide such thing like layer, so we have to set up layer
-         * count manually; 3 - it's because hardware provides up to 3 hw planes per output :-)
-         *
-         * unused e_planes just have no mapped e_clients
-         *
-         * tdm-hwc - it's how I call the new TDM API, further it'll be referred as the hwc extension
-         * (for TDM, not for X :-) )
-         */
-        if (e_comp->hwc_optimized)
-          num_layers = 3;
-        else
-          tdm_output_get_layer_count(toutput, &num_layers);
+        output->e_comp_screen = e_comp_screen;
 
-        if (num_layers < 1)
+        _e_output_tdm_strem_capture_support(output);
+
+        return output;
+     }
+
+   tdm_output_get_layer_count(toutput, &num_layers);
+   if (num_layers < 1)
+     {
+        ERR("fail to get tdm_output_get_layer_count\n");
+        goto fail;
+     }
+   output->plane_count = num_layers;
+   INF("E_OUTPUT: num_planes %i", output->plane_count);
+
+   if (!e_plane_init())
+     {
+        ERR("fail to e_plane_init.");
+        goto fail;
+     }
+
+   for (i = 0; i < output->plane_count; i++)
+     {
+        plane = e_plane_new(output, i);
+        if (!plane)
           {
-             ERR("fail to get tdm_output_get_layer_count\n");
+             ERR("fail to create the e_plane.");
              goto fail;
           }
-        output->plane_count = num_layers;
-        INF("E_OUTPUT: num_planes %i", output->plane_count);
+        output->planes = eina_list_append(output->planes, plane);
+     }
 
-        if (!e_plane_init())
-          {
-             ERR("fail to e_plane_init.");
-             goto fail;
-          }
+   output->planes = eina_list_sort(output->planes, eina_list_count(output->planes), _e_output_cb_planes_sort);
 
-        for (i = 0; i < output->plane_count; i++)
-          {
-             plane = e_plane_new(output, i);
-             if (!plane)
-               {
-                  ERR("fail to create the e_plane.");
-                  goto fail;
-               }
-             output->planes = eina_list_append(output->planes, plane);
-          }
+   default_fb = e_output_default_fb_target_get(output);
+   if (!default_fb)
+     {
+        ERR("fail to get default_fb_target plane");
+        goto fail;
+     }
 
-        output->planes = eina_list_sort(output->planes, eina_list_count(output->planes), _e_output_cb_planes_sort);
-
-        default_fb = e_output_default_fb_target_get(output);
-        if (!default_fb)
-          {
-             ERR("fail to get default_fb_target plane");
-             goto fail;
-          }
-
-        if (!e_plane_fb_target_set(default_fb, EINA_TRUE))
-          {
-             ERR("fail to set fb_target plane");
-             goto fail;
-          }
+   if (!e_plane_fb_target_set(default_fb, EINA_TRUE))
+     {
+        ERR("fail to set fb_target plane");
+        goto fail;
      }
 
    output->e_comp_screen = e_comp_screen;
@@ -2119,39 +2110,12 @@ e_output_render(E_Output *output)
   return EINA_TRUE;
 }
 
-static void
-_e_output_commit_hanler(tdm_output *output, unsigned int sequence,
-                                  unsigned int tv_sec, unsigned int tv_usec,
-                                  void *user_data)
-{
-   E_Plane_Commit_Data *plane_commit_data;
-   const Eina_List *l; Eina_List *l_data_list;
-   E_Plane *ep;
-
-   E_Output *eo = (E_Output *)user_data;
-
-   EINA_SAFETY_ON_NULL_RETURN(eo);
-
-   /* FIXME: I'm not sure that it's a problem, but I think I have to highlight it:
-    *        if a plane has several 'commit_data' to 'release', 'release'(s) happen one after
-    *        another; this behavior isn't the same as no-optimized hwc has */
-   EINA_LIST_FOREACH(e_output_planes_get(eo), l, ep)
-     EINA_LIST_FOREACH(ep->commit_data_list, l_data_list, plane_commit_data)
-       e_plane_commit_data_release(plane_commit_data);
-
-   /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
-    * a 'page flip' happened so it's time to allow to make 'fetch and commit' for all e_planes */
-   EINA_LIST_FOREACH(e_output_planes_get(eo), l, ep)
-     ep->wait_commit = EINA_FALSE;
-}
-
 EINTERN Eina_Bool
 e_output_commit(E_Output *output)
 {
    E_Plane *plane = NULL, *fb_target = NULL;
    Eina_List *l;
    Eina_Bool fb_commit = EINA_FALSE;
-   int need_tdm_commit = 0;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
@@ -2285,7 +2249,6 @@ e_output_commit(E_Output *output)
           {
              if (e_plane_is_unset_try(plane)) continue;
 
-
              if (output->dpms == E_OUTPUT_DPMS_OFF)
                {
                   if (!e_plane_offscreen_commit(plane))
@@ -2293,28 +2256,11 @@ e_output_commit(E_Output *output)
                }
              else
                {
-                  /* TODO: think where to place the next line:
-                   *       ERR("fail to e_plane_commit");
-                   *
-                   * if, at least, one 'plane commit' was successful (it means 'plane fetch' also
-                   * was successful and hw overlay has the changes to be committed) allow to make
-                   * a 'tdm commit' */
-                  if (e_plane_commit(plane))
-                    need_tdm_commit = 1;
+                  if (!e_plane_commit(plane))
+                    ERR("fail to e_plane_commit");
                }
           }
      }
-
-   /* TODO: what's about order of tdm_output_commit() and tdm_output_wait_vblank() ?
-    *
-    * for optimized hwc we can't commit changes for layers, only for the output
-    *
-    * as we skipped to commit changes for each layers, we have to:
-    *  - commit changes for the whole output
-    *  - release all plane-associated 'commit data'(s) (it's like call all 'layer_commit_hndl'(s) as
-    *    no-optimized hwc does) */
-   if (e_comp->hwc_optimized && need_tdm_commit)
-     tdm_output_commit(output->toutput, 0, _e_output_commit_hanler, output);
 
    return EINA_TRUE;
 }
@@ -2467,11 +2413,6 @@ e_output_default_fb_target_get(E_Output *output)
              Eina_List *formats_l = NULL;
              Eina_Bool available_rgb = EINA_FALSE;
              tbm_format *format;
-
-             /* we can't base the choice on a hw overlay's format
-              * 'cause we don't have a hw overlay on the 'init' phase,
-              * so we just take first one (index '0') */
-             if (e_comp->hwc_optimized) return ep;
 
              if (e_plane_type_get(ep) != E_PLANE_TYPE_GRAPHIC) continue;
 

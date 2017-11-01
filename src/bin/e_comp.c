@@ -1,8 +1,6 @@
 #include "e.h"
 #include <sys/xattr.h>
 
-# include <tdm.h> /* temporary */
-
 #define OVER_FLOW 1
 //#define BORDER_ZOOMAPS
 //////////////////////////////////////////////////////////////////////////
@@ -231,7 +229,7 @@ _hwc_set(E_Output *eout)
                        // fb target is occupied by a client surface, means compositor disabled
                        ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
                     }
-                  break; /* skip video layer */
+                  break;
                }
           }
         else if (ep->prepare_ec)
@@ -470,603 +468,6 @@ _hwc_prepare(E_Output *eout, int n_vis, int n_skip, Eina_List *hwc_clist)
    return ret;
 }
 
-/* get current tbm_surface (surface which has been committed last) for the e_client */
-static tbm_surface_h
-_e_comp_get_current_surface_for_cl(E_Client *ec)
-{
-   E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
-   if (!wl_comp_data) return NULL;
-
-   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
-   if (!cdata) return NULL;
-
-   E_Comp_Wl_Buffer_Ref *buffer_ref = &cdata->buffer_ref;
-
-   E_Comp_Wl_Buffer *e_wl_buff = buffer_ref->buffer;
-   if (!e_wl_buff) return NULL;
-
-   return wayland_tbm_server_get_surface(wl_comp_data->tbm.server, e_wl_buff->resource);
-}
-
-static uint32_t
-_e_comp_get_current_surface_flags(E_Client *ec)
-{
-   E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
-   if (!wl_comp_data) return 0;
-
-   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
-   if (!cdata) return 0;
-
-   E_Comp_Wl_Buffer_Ref *buffer_ref = &cdata->buffer_ref;
-
-   E_Comp_Wl_Buffer *e_wl_buff = buffer_ref->buffer;
-   if (!e_wl_buff) return 0;
-
-   return wayland_tbm_server_get_buffer_flags(wl_comp_data->tbm.server, e_wl_buff->resource);
-}
-
-static const char*
-get_name_of_comp_type(tdm_hwc_window_composition_t comp_type)
-{
-   static char buf[128] = {0, };
-
-   switch (comp_type)
-     {
-       case TDM_COMPOSITION_CLIENT :
-         snprintf(buf, sizeof(buf) - 1, "TDM_COMPOSITION_CLIENT");
-       break;
-
-       case TDM_COMPOSITION_DEVICE_CANDIDATE :
-         snprintf(buf, sizeof(buf) - 1, "TDM_COMPOSITION_DEVICE_CANDIDATE");
-       break;
-
-       case TDM_COMPOSITION_DEVICE :
-         snprintf(buf, sizeof(buf) - 1, "TDM_COMPOSITION_DEVICE");
-       break;
-
-       default:
-         snprintf(buf, sizeof(buf) - 1, "UNKNOWN COMPOSITION TYPE");
-       break;
-     };
-
-   return buf;
-}
-
-/* this object represents 'hwc-able' e_client, that is e_client which will
- * be mapped to e_plane (set to e_plane) */
-typedef struct
-{
-   E_Output *eo;
-
-   E_Client *ec;
-   tdm_hwc_window *hwc_wnd;
-   E_Plane *ep;
-} e_client_hwc_wnd_pair_t;
-
-static void
-_remove_pair(e_client_hwc_wnd_pair_t *pair)
-{
-   if (pair->hwc_wnd)
-     tdm_output_hwc_destroy_window(pair->eo->toutput, pair->hwc_wnd);
-
-   if (pair->ep)
-     {
-        pair->ep->hwc_wnd = NULL;
-        pair->ep->busy = EINA_FALSE;
-     }
-
-   INF("hwc-opt: remove pair:%p (ec:%p {name:%s, title:%s}, ep:%p (pos:%d), hwc_wnd:%p).",
-           pair, pair->ec, pair->ec->icccm.name, pair->ec->icccm.title, pair->ep,
-           pair->ep ? pair->ep->zpos : -1, pair->hwc_wnd);
-
-   free(pair);
-}
-
-static Eina_List *cl_hwc_wnd_pair_ls_gl;
-
-/* remove no-valid (from hwc extension point of view) pair(s);
- * returned list may be empty */
-static Eina_List*
-_filter_pairs_by_hw(E_Output *eo/*, Eina_List *cl_hwc_wnd_pair_ls*/, uint32_t num_changes, int *need_hybrid_mode)
-{
-   e_client_hwc_wnd_pair_t *pair;
-   Eina_List *l;
-
-   tdm_hwc_window_composition_t *composition_types;
-   tdm_hwc_window **hwc_wnds;
-   uint32_t i;
-
-   *need_hybrid_mode = 0;
-
-   INF("hwc-opt: filter list of 'e_client and hwc_widnow' pairs by hw.");
-
-   hwc_wnds = calloc(num_changes, sizeof(tdm_hwc_window *));
-   composition_types = calloc(num_changes, sizeof(tdm_hwc_window_composition_t));
-
-   tdm_output_hwc_get_changed_composition_types(eo->toutput, &num_changes, hwc_wnds,
-           composition_types);
-
-   for (i = 0; i < num_changes; i++)
-     {
-        EINA_LIST_FOREACH(cl_hwc_wnd_pair_ls_gl, l, pair)
-          if (pair->hwc_wnd == hwc_wnds[i])
-            break;
-
-        INF("hwc-opt: type of hwc_wnd:%p (ec:%p (name:%s, title:%s) ) has been changed to %s.",
-                pair->hwc_wnd, pair->ec, pair->ec->icccm.name,  pair->ec->icccm.title,
-                get_name_of_comp_type(composition_types[i]));
-
-        /* */
-        if (composition_types[i] == TDM_COMPOSITION_CLIENT)
-          {
-             *need_hybrid_mode = 1; /* */
-
-             _remove_pair(pair);
-             cl_hwc_wnd_pair_ls_gl = eina_list_remove_list(cl_hwc_wnd_pair_ls_gl, l);
-          }
-     }
-
-   free(composition_types);
-   free(hwc_wnds);
-
-   return cl_hwc_wnd_pair_ls_gl;
-}
-
-/* remove no-valid (from wm point of view) pair(s);
- * returned list may be empty */
-static Eina_List*
-_filter_pairs_by_wm(E_Output *eo/*, Eina_List *cl_hwc_wnd_pair_ls*/, Eina_Bool *is_wm_prevented)
-{
-   e_client_hwc_wnd_pair_t *pair;
-   Eina_List *l, *l_next;
-
-   *is_wm_prevented = EINA_FALSE;
-
-   INF("hwc-opt: filter list of 'e_client and hwc_widnow' pairs by wm.");
-
-   EINA_LIST_FOREACH_SAFE(cl_hwc_wnd_pair_ls_gl, l, l_next, pair)
-     {
-        if (!pair->ec->hwc_acceptable)
-          {
-             *is_wm_prevented = EINA_TRUE;
-
-             INF("hwc-opt: wm decided to prevent this ec:%p (name:%s, title:%s)"
-                     "to be shown by hw directly.", pair->ec, pair->ec->icccm.name,
-                     pair->ec->icccm.title);
-
-             _remove_pair(pair);
-             cl_hwc_wnd_pair_ls_gl = eina_list_remove_list(cl_hwc_wnd_pair_ls_gl, l);
-          }
-     }
-
-   return cl_hwc_wnd_pair_ls_gl;
-}
-
-static Eina_List*
-_create_pairs_list(E_Output *eo, const Eina_List *cl_list,
-        Eina_Bool *is_wm_prevented) __attribute__((__unused__));
-
-/* create an 'e_client and hwc_widnow' pair for EACH clients in the 'cl_list' list;
- * create a hwc_window for EACH clients in the 'cl_list' list;
- * 'is_wm_prevented' to inform the caller side if any e_clients prevented
- * (to be set on hw overlay) by wm are */
-static Eina_List*
-_create_pairs_list(E_Output *eo, const Eina_List *cl_list, Eina_Bool *is_wm_prevented)
-{
-   Eina_List *cl_hwc_wnd_pair_ls = NULL;
-   e_client_hwc_wnd_pair_t *pair;
-   const Eina_List *l;
-   E_Client *ec;
-   int i;
-
-   INF("hwc-opt: create list of 'e_client and hwc_widnow' pairs.");
-
-   /* z-pos '0' is the lowest z-pos */
-   i = 0;
-   EINA_LIST_REVERSE_FOREACH(cl_list, l, ec)
-     {
-        tdm_hwc_window_info info;
-        tdm_hwc_window *hwc_wnd;
-        tbm_surface_h surface;
-
-        hwc_wnd = tdm_output_hwc_create_window(eo->toutput, NULL);
-
-        /* window manager could ask to prevent some e_clients being shown by hw directly */
-        if (ec->hwc_acceptable)
-          tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_DEVICE);
-        else
-          tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_CLIENT);
-
-        tdm_hwc_window_set_zpos(hwc_wnd, i);
-
-        memset(&info, 0, sizeof(info));
-
-        info.src_config.pos.x = 0;
-        info.src_config.pos.y = 0;
-        info.src_config.pos.w = ec->w;
-        info.src_config.pos.h = ec->h;
-
-        /* do we have to fill out these? */
-        info.src_config.size.h = ec->w;
-        info.src_config.size.v = ec->h;
-
-        /* do we have to fill out these? */
-        info.src_config.format = TBM_FORMAT_ARGB8888;
-
-        info.dst_pos.x = ec->x;
-        info.dst_pos.y = ec->y;
-        info.dst_pos.w = ec->w;
-        info.dst_pos.h = ec->h;
-
-        info.transform = TDM_TRANSFORM_NORMAL;
-
-        tdm_hwc_window_set_info(hwc_wnd, &info);
-
-        /* if e_client is hwc_acceptable and is in cl_list it means it
-         * has attached/committed tbm_surface anyway
-         *
-         * NB: only an applicability of the e_client to own the hw overlay
-         *     is checked here, no buffer fetching happens here however */
-        surface = _e_comp_get_current_surface_for_cl(ec);
-        tdm_hwc_window_set_buffer(hwc_wnd, surface);
-
-        pair = calloc(1, sizeof(e_client_hwc_wnd_pair_t));
-        pair->ec = ec;
-        pair->hwc_wnd = hwc_wnd;
-
-        cl_hwc_wnd_pair_ls = eina_list_append(cl_hwc_wnd_pair_ls, pair);
-        i++;
-
-        if (!ec->hwc_acceptable)
-          *is_wm_prevented = EINA_TRUE;
-
-        INF("hwc-opt: hwc_wnd:%p, ec:%p, hwc_acceptable:%d, zpos:%d, surface:%p.",
-                hwc_wnd, ec, ec->hwc_acceptable, i - 1, surface);
-        INF("hwc-opt: pair(%p): {cl: %p, hwc_wnd:%p}.", pair, pair->ec, pair->hwc_wnd);
-     }
-
-   return cl_hwc_wnd_pair_ls;
-}
-
-/* reset e_plane to default state;
- * reset only hwc related things, things related to e_client are kept */
-/*static void
-_e_plane_reset(E_Plane *ep)
-{
-   if (ep && ep->hwc_wnd)
-     {
-        INF("hwc-opt: destroy hwc_wnd:%p for e_plane:%p (pos:%d).", ep->hwc_wnd, ep, ep->zpos);
-
-        tdm_output_hwc_destroy_window(ep->output->toutput, ep->hwc_wnd);
-        ep->hwc_wnd = NULL;
-     }
-}*/
-
-static void
-_update_pair(e_client_hwc_wnd_pair_t *pair, int z_pos)
-{
-   tdm_hwc_window_info info;
-   tbm_surface_h surface;
-
-   if (!pair->hwc_wnd)
-     pair->hwc_wnd = tdm_output_hwc_create_window(pair->eo->toutput, NULL);
-
-   /* window manager could ask to prevent some e_clients being shown by hw directly */
-   if (pair->ec->hwc_acceptable)
-     tdm_hwc_window_set_composition_type(pair->hwc_wnd, TDM_COMPOSITION_DEVICE);
-   else
-     tdm_hwc_window_set_composition_type(pair->hwc_wnd, TDM_COMPOSITION_CLIENT);
-
-   tdm_hwc_window_set_zpos(pair->hwc_wnd, z_pos);
-
-   memset(&info, 0, sizeof(info));
-
-   info.src_config.pos.x = 0;
-   info.src_config.pos.y = 0;
-   info.src_config.pos.w = pair->ec->w;
-   info.src_config.pos.h = pair->ec->h;
-
-   /* do we have to fill out these? */
-   info.src_config.size.h = pair->ec->w;
-   info.src_config.size.v = pair->ec->h;
-
-   /* do we have to fill out these? */
-   info.src_config.format = TBM_FORMAT_ARGB8888;
-
-   info.dst_pos.x = pair->ec->x;
-   info.dst_pos.y = pair->ec->y;
-   info.dst_pos.w = pair->ec->w;
-   info.dst_pos.h = pair->ec->h;
-
-   info.transform = TDM_TRANSFORM_NORMAL;
-
-   tdm_hwc_window_set_info(pair->hwc_wnd, &info);
-
-   /* if e_client is hwc_acceptable and is in cl_list it means it
-    * has attached/committed tbm_surface anyway
-    *
-    * NB: only an applicability of the e_client to own the hw overlay
-    *     is checked here, no buffer fetching happens here however */
-   surface = _e_comp_get_current_surface_for_cl(pair->ec);
-   tdm_hwc_window_set_buffer(pair->hwc_wnd, surface);
-
-   INF("hwc-opt: update pair:%p (ec:%p {name:%s, title:%s, hwc_acceptable:%d, surface:%p {type:%s}}, "
-           "ep:%p (pos:%d), hwc_wnd:%p) {z-pos:%d}.",
-           pair, pair->ec, pair->ec->icccm.name, pair->ec->icccm.title, pair->ec->hwc_acceptable,
-           surface, (_e_comp_get_current_surface_flags(pair->ec) == 7777) ? "scannout" : "default",
-                   pair->ep, pair->ep ? pair->ep->zpos : -1, pair->hwc_wnd, z_pos);
-}
-
-static Eina_List*
-_update_pairs_list(E_Output *eo, Eina_List *vis_cl_list)
-{
-   const Eina_List *ec_l; Eina_List *pair_l; Eina_List *pair_l_next;
-   e_client_hwc_wnd_pair_t *pair;
-   E_Client *ec;
-
-   Eina_Bool is_exist, is_visible;
-   int i;
-
-
-   INF("hwc-opt: remove pairs which appropriate e_clients got invisible.");
-
-   /* remove pairs which appropriate e_clients got invisible */
-   EINA_LIST_FOREACH_SAFE(cl_hwc_wnd_pair_ls_gl, pair_l, pair_l_next, pair)
-     {
-        is_visible = EINA_FALSE;
-
-        EINA_LIST_FOREACH(vis_cl_list, ec_l, ec)
-          {
-             if (pair->ec == ec)  /* if pair is "visible" */
-               {
-                  is_visible = EINA_TRUE;
-                  break;
-               }
-          }
-
-        if (!is_visible)
-          {
-             _remove_pair(pair);
-             cl_hwc_wnd_pair_ls_gl = eina_list_remove_list(cl_hwc_wnd_pair_ls_gl, pair_l);
-          }
-     }
-
-   i = 0;
-
-   INF("hwc-opt: update pairs for visible e_clients.");
-
-   /* update pairs for visible e_clients */
-   EINA_LIST_REVERSE_FOREACH(vis_cl_list, ec_l, ec)
-     {
-        is_exist = EINA_FALSE;
-
-        /* at first try to find pair to update it according the new windows stack state */
-        EINA_LIST_REVERSE_FOREACH(cl_hwc_wnd_pair_ls_gl, pair_l, pair)
-          {
-             if (pair->ec == ec)
-               {
-                  _update_pair(pair, i);
-
-                  is_exist = EINA_TRUE;
-                  break;
-               }
-          }
-
-        /* pair doesn't exist (ec gets visible a while ago) so we create it */
-        if (!is_exist)
-          {
-             pair = E_NEW(e_client_hwc_wnd_pair_t, 1);
-             pair->ec = ec;
-             pair->eo = eo;
-
-             INF("hwc-opt: create the new one");
-             _update_pair(pair, i);
-             cl_hwc_wnd_pair_ls_gl = eina_list_append(cl_hwc_wnd_pair_ls_gl, pair);
-          }
-
-        i++;
-     }
-
-   return cl_hwc_wnd_pair_ls_gl;
-}
-
-static E_Plane*
-_get_free_e_plane(E_Output *eo)
-{
-   const Eina_List *l;
-   E_Plane *ep;
-
-   EINA_LIST_FOREACH(e_output_planes_get(eo), l, ep)
-     if (!ep->busy)
-       return ep;
-
-   return NULL;
-}
-
-
-/* cl_list - list of e_clients that we have to try to associate with e_planes,
- *           in case of the success e_client(s) will own hw overlay(s)
- *           this list contains ALL visible e_clients for this output ('eo'),
- *           at least one e_client
- */
-static Eina_Bool
-_hwc_optimized_prepare(E_Output *eo, Eina_List *cl_list)
-{
-   /*Eina_List *ep_list, *ep_list_dup*/;
-   const Eina_List *l;
-   //E_Client *ec;
-   E_Plane *ep;
-
-   //Eina_List *cl_hwc_wnd_pair_ls = NULL;
-   e_client_hwc_wnd_pair_t *pair;
-   int hwc_mode;
-   uint32_t num_changes;
-   Eina_Bool is_wm_prevented; /* if any prevented (to be set on hw overlays) by wm e_clients are */
-
-   //ep_list = e_output_planes_get(eo);
-   hwc_mode = E_HWC_MODE_FULL;
-   is_wm_prevented = EINA_FALSE;
-   num_changes = 0;
-
-
-   INF("hwc-opt: update pairs list.");
-   _update_pairs_list(eo, cl_list);
-
-   /* new scheduling is the new scheduling... */
-   //EINA_LIST_FOREACH(ep_list, l, ep)
-   //  _e_plane_reset(ep);
-
-   /* create at least one 'e_client and hwc_window' pair;
-    * !!! request a hw overlay for ALL clients, except prevented by wm !!! */
-   //cl_hwc_wnd_pair_ls = _create_pairs_list(eo, cl_list, &is_wm_prevented);
-
-   INF("hwc-opt: number of pairs:%d.", eina_list_count(cl_hwc_wnd_pair_ls_gl));
-   INF("hwc-opt: let hwc extension know about current windows stack.");
-
-   /* make hwc extension choose which clients will own hw overlays,
-    * by another point of view - make hwc extension choose which pair(s) are no-valid */
-   tdm_output_hwc_validate(eo->toutput, &num_changes);
-
-   /* thin out the 'e_client and hwc_window' pair list to leave only DEVICE-able pairs,
-    * if hwc changed our requested types */
-   if (num_changes)
-     {
-        int need_hybrid_mode = 0;
-
-        INF("hwc-opt: hwc extension refused our request for full hw composition.");
-
-        /* as a pair is a candidate to own a hw overlay it's useless to have pairs
-         * which are forced by hw to be no-hwc-able */
-        _filter_pairs_by_hw(eo, num_changes, &need_hybrid_mode);
-
-        /* ... */
-        if (need_hybrid_mode)
-          hwc_mode = E_HWC_MODE_HYBRID;
-
-        tdm_output_hwc_accept_changes(eo->toutput);
-     }
-   else
-     INF("hwc-opt: hwc extension accepted our request.");
-
-   /* as a pair is a candidate to own a hw overlay it's useless to have pairs
-    * which are forced by window manager to be no-hwc-able */
-   _filter_pairs_by_wm(eo, &is_wm_prevented);
-
-   /* if we got no valid pairs we have to turn hwc off at all */
-   if (!eina_list_count(cl_hwc_wnd_pair_ls_gl))
-     {
-        INF("hwc-opt: got no devicable pairs -- switch to full gles composition.");
-        return EINA_FALSE;
-     }
-
-   if (is_wm_prevented)
-     hwc_mode = E_HWC_MODE_HYBRID;
-
-   /* here we have only valid (hwc-able) pairs */
-
-   INF("hwc-opt: number of pairs (after thinning):%d.", eina_list_count(cl_hwc_wnd_pair_ls_gl));
-
-   //ep_list_dup = ep_list;
-
-   /* if hw couldn't satisfy our demand (to provide a hw overlay for EACH e_clients we were asked) */
-   if (hwc_mode != E_HWC_MODE_FULL)
-     {
-        E_Plane *fb_target_plane;
-
-        INF("hwc-opt: hybrid composition.");
-        INF("hwc-opt: skip an e_plane used as the 'fb_target'.");
-
-        /* TODO: is it correct to use always the lowest e_plane for 'fb_target'?
-         *
-         * as we've faced with no full hw composition we have to prepare 'fb_target' e_plane
-         * to be used as a sink for the gles composition */
-        fb_target_plane = e_output_fb_target_get(eo);
-
-        /* it was done within _hwc_prepare_init() but to improve
-         * readability this line was left here intentionally */
-        e_plane_ec_prepare_set(fb_target_plane, NULL);
-
-        fb_target_plane->busy = EINA_TRUE;
-        fb_target_plane->hwc_wnd = NULL;
-
-        EINA_LIST_FOREACH(cl_hwc_wnd_pair_ls_gl, l, pair)
-          if (pair->ep == fb_target_plane)
-            pair->ep = NULL;
-
-        /* skip an e_plane used as the 'fb_target' */
-        //ep_list_dup = eina_list_next(ep_list_dup);
-     }
-   else
-     {
-        if (num_changes)
-          INF("hwc-opt: full hw composition (some CANDIDATS are).");
-        else
-          INF("hwc-opt: full hw composition.");
-
-        E_Plane *fb_target_plane;
-        fb_target_plane = e_output_fb_target_get(eo);
-        fb_target_plane->busy = EINA_FALSE;
-        fb_target_plane->hwc_wnd = NULL;
-
-        EINA_LIST_FOREACH(cl_hwc_wnd_pair_ls_gl, l, pair)
-          if (pair->ep == fb_target_plane)
-            pair->ep = NULL;
-     }
-
-   INF("state of e_planes (before assigning):");
-   EINA_LIST_FOREACH(e_output_planes_get(eo), l, ep)
-     INF(" ep:%p (pos:%d) is %s"
-         "  ec:%p {name:%s, title:%s}"
-         "  hwc_wnd:%p", ep, ep->zpos, ep->busy ? "busy" : "free", ep->ec, ep->ec ? ep->ec->icccm.name : "none",
-                 ep->ec ? ep->ec->icccm.title : "none", ep->hwc_wnd);
-
-   EINA_LIST_FOREACH(cl_hwc_wnd_pair_ls_gl, l, pair)
-     {
-        if (!pair->ep)
-          {
-             pair->ep = _get_free_e_plane(eo);
-             if (!pair->ep)
-                 INF("hwc-opt: pair.ep is NULL.");
-
-             pair->ep->busy = EINA_TRUE;
-          }
-     }
-
-   INF("state of e_planes (after assigning):");
-   EINA_LIST_FOREACH(e_output_planes_get(eo), l, ep)
-     INF(" ep:%p (pos:%d) is %s"
-         "  ec:%p {name:%s, title:%s}"
-         "  hwc_wnd:%p", ep, ep->zpos, ep->busy ? "busy" : "free", ep->ec, ep->ec ? ep->ec->icccm.name : "none",
-                 ep->ec ? ep->ec->icccm.title : "none", ep->hwc_wnd);
-
-    /* create "e_clients to e_planes" association
-     * amount of pairs is always less or equal then amount of e_planes,
-     * e_planes and pairs are sorted in the same order (by z-pos) */
-    EINA_LIST_FOREACH(cl_hwc_wnd_pair_ls_gl, l, pair)
-      {
-         e_plane_ec_prepare_set(pair->ep, pair->ec);
-         pair->ep->hwc_wnd = pair->hwc_wnd; /* pass ownership of hwc_window to e_plane */
-
-         INF("hwc-opt: create association -- pair(%p): {cl: %p, hwc_wnd:%p}, ep:%p (pos:%d).", pair,
-                 pair->ec, pair->hwc_wnd, pair->ep, pair->ep->zpos);
-      }
-
-    INF("state of e_planes (after creation of associations):");
-    EINA_LIST_FOREACH(e_output_planes_get(eo), l, ep)
-      INF(" ep:%p (pos:%d) is %s"
-          "  ec:%p {name:%s, title:%s}"
-          "  hwc_wnd:%p", ep, ep->zpos, ep->busy ? "busy" : "free", ep->ec, ep->ec ? ep->ec->icccm.name : "none",
-                  ep->ec ? ep->ec->icccm.title : "none", ep->hwc_wnd);
-
-    //INF("hwc-opt: clean up...");
-
-    /* just clean up... (hwc_windows got owned by e_planes) */
-    //EINA_LIST_FREE(cl_hwc_wnd_pair_ls, pair)
-    //  free(pair);
-
-    return EINA_TRUE;
-}
-
 static Eina_Bool
 _hwc_cancel(E_Output *eout)
 {
@@ -1283,10 +684,10 @@ _e_comp_hwc_changed(void)
    return ret;
 }
 
-static Eina_Bool
-_e_comp_hwc_optimized_is_used()
+EINTERN Eina_Bool
+e_comp_hwc_optimized_is_used()
 {
-   return e_comp->hwc_optimized || e_comp->hwc_optimized_2;
+   return e_comp->hwc_optimized;
 }
 
 /* filter visible clients by the window manager
@@ -1310,7 +711,7 @@ e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
 
    INF("hwc-opt: filter e_clients by wm.");
    
-   if (_e_comp_hwc_optimized_is_used())
+   if (e_comp_hwc_optimized_is_used())
 
      {
         /* let's hope for the best... */
@@ -1327,7 +728,7 @@ e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
         // check clients not able to use hwc
 
         /* window manager required full GLES composition */
-        if (_e_comp_hwc_optimized_is_used() && e_comp->nocomp_override > 0)
+        if (e_comp_hwc_optimized_is_used() && e_comp->nocomp_override > 0)
           {
              ec->hwc_acceptable = EINA_FALSE;
              INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable (nocomp_override > 0).",
@@ -1340,7 +741,7 @@ e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
             // if there is UI subfrace, it means need to composite
             e_client_normal_client_has(ec))
           {
-             if (!_e_comp_hwc_optimized_is_used()) goto no_hwc;
+             if (!e_comp_hwc_optimized_is_used()) goto no_hwc;
 
              /* we have to let hwc know about ALL clients(buffers) in case we're using
               * optimized hwc, that's why it can be called optimized :), but also we have to provide
@@ -1356,7 +757,7 @@ e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
         // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
         if (!_hwc_available_get(ec))
           {
-             if (!_e_comp_hwc_optimized_is_used())
+             if (!e_comp_hwc_optimized_is_used())
                {
                   if (!n_ec) goto no_hwc;
                   break;
@@ -1382,37 +783,21 @@ no_hwc:
    return NULL;
 }
 
-static void
-_e_comp_hwc_fake_ec_init(E_Client *fake_ec)
-{
-   memset(fake_ec, 0, sizeof(E_Client));
-
-   fake_ec->x = 0;
-   fake_ec->y = 0;
-   fake_ec->w = e_comp->w;
-   fake_ec->h = e_comp->h;
-
-   fake_ec->hwc_acceptable = EINA_FALSE;
-}
-
 static Eina_Bool
 _e_comp_hwc_prepare(void)
 {
-   Eina_List *l;
+   Eina_List *l, *vl;
    E_Zone *zone;
    Eina_Bool ret = EINA_FALSE;
 
    EINA_SAFETY_ON_FALSE_RETURN_VAL(e_comp->hwc, EINA_FALSE);
 
-   INF("hwc-opt: pid:%d", getpid());
-   INF("hwc-opt: we have something which causes to reschedule 'e_cliens to e_planes' mapping.");
-
    EINA_LIST_FOREACH(e_comp->zones, l, zone)
      {
+        E_Client *ec;
         E_Output *output;
-        int n_vis = 0, n_cur = 0, n_skip = 0;
+        int n_vis = 0, n_ec = 0, n_cur = 0, n_skip = 0;
         Eina_List *hwc_ok_clist = NULL, *vis_clist = NULL;
-        E_Client fake_ec;
 
         if (!zone || !zone->output_id) continue;  // no hw layer
 
@@ -1420,37 +805,35 @@ _e_comp_hwc_prepare(void)
         if (!output) continue;
 
         vis_clist = e_comp_vis_ec_list_get(zone);
-        if (!vis_clist && !e_comp->hwc_optimized)
-        {
-            INF("hwc-opt: no visible e_clients, why we're here?");
-            continue;
-        }
+        if (!vis_clist) continue;
 
-        INF("hwc-opt: number of visible e_clients:%d.", eina_list_count(vis_clist));
-
-        /* by demand of window manager to prevent some e_clients to be shown by hw directly */
-        hwc_ok_clist = e_comp_filter_cl_by_wm(vis_clist, &n_cur);
-        if (!hwc_ok_clist)
+        EINA_LIST_FOREACH(vis_clist, vl, ec)
           {
-             if (!e_comp->hwc_optimized) goto nextzone;
+             // check clients not able to use hwc
+             // if ec->frame is not for client buffer (e.g. launchscreen)
+             if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
+                goto nextzone;
 
-             /* in order to enable target window we need to create the fake ec and
-              * set hwc_acceptable to EINA_FALSE */
-             _e_comp_hwc_fake_ec_init(&fake_ec);
-             hwc_ok_clist = eina_list_append(hwc_ok_clist, &fake_ec);
+             // if there is UI subfrace, it means need to composite
+             if (e_client_normal_client_has(ec))
+                goto nextzone;
 
-             INF("hwc-opt: got no visible e_clients -- ask hwc extension to provide us with "
-                     "fb target (we always need something shown on the screen).");
+             // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
+             if (!_hwc_available_get(ec))
+               {
+                  if (!n_ec) goto nextzone;
+                  break;
+               }
+
+             // listup as many as possible from the top most visible order
+             n_ec++;
+             if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role)) n_cur++;
+             hwc_ok_clist = eina_list_append(hwc_ok_clist, ec);
           }
 
-        if (!e_comp->hwc_optimized)
-          {
-             n_vis = eina_list_count(vis_clist);
-             if ((n_vis < 1) || (eina_list_count(hwc_ok_clist) < 1))
-               goto nextzone;
-          }
-
-        INF("hwc-opt: number of e_clients which are gonna own hw overlays:%d.", eina_list_count(hwc_ok_clist));
+        n_vis = eina_list_count(vis_clist);
+        if ((n_vis < 1) || (n_ec < 1))
+          goto nextzone;
 
         _hwc_prepare_init(output);
 
@@ -1459,11 +842,7 @@ _e_comp_hwc_prepare(void)
 
         if (n_skip > 0) ret = EINA_TRUE;
 
-        /* we don't worry about cursors now... */
-        if (e_comp->hwc_optimized)
-          ret |= _hwc_optimized_prepare(output, hwc_ok_clist);
-        else
-          ret |= _hwc_prepare(output, n_vis, n_skip, hwc_ok_clist);
+        ret |= _hwc_prepare(output, n_vis, n_skip, hwc_ok_clist);
 
         nextzone:
         eina_list_free(hwc_ok_clist);
@@ -1684,8 +1063,6 @@ _e_comp_cb_update(void)
         if (e_object_is_del(E_OBJECT(ec))) continue;
         if (e_comp->hwc && e_comp_is_on_overlay(ec)) continue;
 
-        if (ec->comp_data && ec->comp_data->video_client) continue;
-
         /* update client */
         e_pixmap_size_get(ec->pixmap, &pw, &ph);
 
@@ -1746,7 +1123,7 @@ setup_hwcompose:
         goto end;
      }
 
-   if (e_comp->hwc_optimized_2)
+   if (e_comp->hwc_optimized)
      {
         e_hwc_re_evaluate();
         goto end;
@@ -1899,13 +1276,6 @@ _e_comp_screensaver_off(void *data EINA_UNUSED, int type EINA_UNUSED, void *even
 
 //////////////////////////////////////////////////////////////////////////
 
-/*  */
-static Eina_Bool
-_e_comp_check_does_reserved_memory_exist(void)
-{
-   return EINA_TRUE;
-}
-
 EINTERN Eina_Bool
 e_comp_init(void)
 {
@@ -1949,8 +1319,6 @@ e_comp_init(void)
     */
    if (conf->hwc_optimized)
      INF("hwc-opt: E20's gonna use optimized hwc.");
-   else if (conf->hwc_optimized_2)
-      INF("hwc-opt: E20's gonna use optimized hwc 2.");
    else
      INF("hwc-opt: E20's gonna use no-optimized hwc.");
 
@@ -1975,15 +1343,6 @@ e_comp_init(void)
 
    if (conf->hwc_ignore_primary) e_comp->hwc_ignore_primary = EINA_TRUE;
    if (conf->hwc_optimized) e_comp->hwc_optimized = EINA_TRUE;
-   if (conf->hwc_optimized_2) e_comp->hwc_optimized_2 = EINA_TRUE;
-
-   if (conf->hwc_optimized && conf->hwc_optimized_2)
-     {
-        ERR("hwc_optimized and hwc_optimized_2 are defined. Define only one.");
-        e_object_del(E_OBJECT(e_comp));
-        E_FREE_FUNC(ignores, eina_hash_free);
-        return EINA_FALSE;
-     }
 
    e_main_ts_begin("\tE_Comp_Screen Init");
    if (!e_comp_screen_init())
@@ -2019,33 +1378,7 @@ e_comp_init(void)
    /* _e_comp_cb_update() isn't called before the first output commit therefore
     * we need notify the hwc extension we want to use the target window */
    if (e_comp->hwc_optimized)
-     _e_comp_hwc_prepare();
-   else if (e_comp->hwc_optimized_2)
       e_hwc_re_evaluate();
-
-   /*  */
-   if (e_comp->hwc_optimized)
-     {
-        Eina_List *l_eo, *l_ep;
-        E_Output *eo;
-        E_Plane *ep;
-
-        Eina_Bool exist;
-
-        exist = _e_comp_check_does_reserved_memory_exist();
-        if (exist)
-          {
-             EINA_LIST_FOREACH(e_comp->e_comp_screen->outputs, l_eo, eo)
-               {
-                  EINA_LIST_FOREACH(eo->planes, l_ep, ep)
-                    {
-                       INF("make plane(ep:%p) follow reserved memory concept.", ep);
-                       ep->reserved_memory = EINA_TRUE;
-                       ep->buffer_flags = TBM_BO_SCANOUT;
-                    }
-               }
-          }
-     }
 
    return EINA_TRUE;
 }
@@ -2254,7 +1587,7 @@ e_comp_override_add()
    if (e_comp->nocomp_override > 0)
      {
         // go full GLES compositing
-        if (!_e_comp_hwc_optimized_is_used())
+        if (!e_comp_hwc_optimized_is_used())
           e_comp_hwc_end(__FUNCTION__);
         else
           /* We must notify the hwc extension about the full GLES composition. */
@@ -2504,7 +1837,7 @@ EINTERN Eina_Bool
 e_comp_is_on_overlay(E_Client *ec)
 {
    if (!ec) return EINA_FALSE;
-   if (e_comp->hwc_mode || e_comp->hwc_optimized_2)
+   if (e_comp->hwc_mode || e_comp->hwc_optimized)
      {
         Eina_List *l, *ll;
         E_Output * eout;
@@ -2513,7 +1846,7 @@ e_comp_is_on_overlay(E_Client *ec)
         if (!ec->zone || !ec->zone->output_id) return EINA_FALSE;
         eout = e_output_find(ec->zone->output_id);
         if (!eout) return EINA_FALSE;
-        if (e_comp->hwc_optimized_2)
+        if (e_comp->hwc_optimized)
           {
              E_Hwc_Window *window;
              window = e_output_find_window_by_ec(eout, ec);
@@ -2553,7 +1886,7 @@ e_comp_vis_ec_list_get(E_Zone *zone)
 
         if (ec->zone != zone) continue;
 
-        if (e_comp->hwc_optimized_2)
+        if (e_comp->hwc_optimized)
           {
              /* skip all small clients except the video clients */
              if ((ec->w == 1 || ec->h == 1) && !(ec->comp_data && ec->comp_data->video_client))
@@ -2581,7 +1914,8 @@ e_comp_vis_ec_list_get(E_Zone *zone)
                         0, 0, scr_w, scr_h))
            continue;
 
-        if (!e_comp->hwc_optimized_2)
+        /* for hwc optimized we need full stack of visible windows */
+        if (!e_comp->hwc_optimized)
           if (!ec->argb)
             break;
      }

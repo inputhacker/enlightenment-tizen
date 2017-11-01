@@ -144,12 +144,6 @@ _e_plane_surface_unset(E_Plane *plane)
 
    CLEAR(plane->info);
 
-   /* hwc extension doesn't provide thing like layer;
-    * it's supposed that hwc extension is responsible to unset all hw overlays
-    * which aren't used, after each 'validate' */
-   if (e_comp->hwc_optimized)
-     return EINA_TRUE;
-
    error = tdm_layer_unset_buffer(tlayer);
    if (error != TDM_ERROR_NONE)
      {
@@ -1208,61 +1202,33 @@ e_plane_new(E_Output *output, int index)
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
    plane->index = index;
 
-   /* hwc extension doesn't provide thing like layer */
-   if (!e_comp->hwc_optimized)
+   tlayer = tdm_output_get_layer(toutput, index, NULL);
+   if (!tlayer)
      {
-        tlayer = tdm_output_get_layer(toutput, index, NULL);
-        if (!tlayer)
-          {
-             ERR("fail to get layer.");
-             free(plane);
-             return NULL;
-          }
-        plane->tlayer = tlayer;
+        ERR("fail to get layer.");
+        free(plane);
+        return NULL;
      }
+   plane->tlayer = tlayer;
 
    snprintf(name, sizeof(name), "%s-plane-%d", output->id, index);
    plane->name = eina_stringshare_add(name);
 
    CLEAR(layer_capabilities);
-
-   /* now we don't worry about video, cursor and reserved_memory
-    *
-    * for optimized hwc we don't have ability to know anything about
-    * underlying hw overlay on 'init' phase, but to reuse existed code
-    * we have to provide 'primary' e_plane;
-    *
-    * Be aware: for optimized hwc it doesn't matter zpos of 'primary' plane,
-    *           '0' is used just for convenience */
-   if (e_comp->hwc_optimized && index == 0 && !e_comp->hwc_ignore_primary)
-     layer_capabilities = TDM_LAYER_CAPABILITY_PRIMARY | TDM_LAYER_CAPABILITY_GRAPHIC;
-   else if(e_comp->hwc_optimized)
-     layer_capabilities = TDM_LAYER_CAPABILITY_OVERLAY | TDM_LAYER_CAPABILITY_GRAPHIC;
-   else
-     tdm_layer_get_capabilities(plane->tlayer, &layer_capabilities);
+   tdm_layer_get_capabilities(plane->tlayer, &layer_capabilities);
 
    /* check that the layer uses the reserve nd memory */
    if (layer_capabilities & TDM_LAYER_CAPABILITY_RESEVED_MEMORY)
      plane->reserved_memory = EINA_TRUE;
 
-   /* for optimized hwc, on 'init' phase, the e_plane is linked neither
-    * to some specific hw overlay nor to zpos */
-   if (e_comp->hwc_optimized)
-     zpos = index;
-   else
-     tdm_layer_get_zpos(tlayer, &zpos);
-
+   tdm_layer_get_zpos(tlayer, &zpos);
    plane->zpos = zpos;
    plane->output = output;
    plane->skip_surface_set = EINA_FALSE;
 
-   /* now we don't worry about reserved_memory, so we don't need 'buffer_flags'... */
-   if (!e_comp->hwc_optimized)
-     {
-        tdm_err = tdm_layer_get_buffer_flags(plane->tlayer, &buffer_flags);
-        if (tdm_err == TDM_ERROR_NONE)
-          plane->buffer_flags = buffer_flags;
-     }
+   tdm_err = tdm_layer_get_buffer_flags(plane->tlayer, &buffer_flags);
+   if (tdm_err == TDM_ERROR_NONE)
+     plane->buffer_flags = buffer_flags;
 
    /* check the layer is the primary layer */
    if (layer_capabilities & TDM_LAYER_CAPABILITY_PRIMARY)
@@ -1277,20 +1243,16 @@ e_plane_new(E_Output *output, int index)
    else
      plane->type = E_PLANE_TYPE_INVALID;
 
-   /* hwc extension doesn't provide thing like layer */
-   if (!e_comp->hwc_optimized)
+   tdm_err = tdm_layer_get_available_formats(plane->tlayer, &formats, &count);
+   if (tdm_err != TDM_ERROR_NONE)
      {
-        tdm_err = tdm_layer_get_available_formats(plane->tlayer, &formats, &count);
-        if (tdm_err != TDM_ERROR_NONE)
-           {
-              ERR("fail to get available formats");
-              E_FREE(plane);
-              return NULL;
-           }
-
-        for ( i = 0 ; i < count ; i++)
-          plane->available_formats = eina_list_append(plane->available_formats, &formats[i]);
+        ERR("fail to get available formats");
+        E_FREE(plane);
+        return NULL;
      }
+
+   for ( i = 0 ; i < count ; i++)
+     plane->available_formats = eina_list_append(plane->available_formats, &formats[i]);
 
    INF("E_PLANE: (%d) plane:%p name:%s zpos:%d capa:%s %s",
        index, plane, plane->name,
@@ -1409,58 +1371,6 @@ e_plane_render(E_Plane *plane)
    return EINA_TRUE;
 }
 
-static const char*
-_get_name_of_tdm_error(tdm_error error)
-{
-    static char buf[128] = {0, };
-
-    switch (error)
-      {
-        case TDM_ERROR_NONE :
-          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_NONE");
-        break;
-        case TDM_ERROR_BAD_REQUEST :
-          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_BAD_REQUEST");
-        break;
-        case TDM_ERROR_OPERATION_FAILED :
-          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_OPERATION_FAILED");
-        break;
-        case TDM_ERROR_INVALID_PARAMETER :
-          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_INVALID_PARAMETER");
-        break;
-        case TDM_ERROR_PERMISSION_DENIED :
-          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_PERMISSION_DENIED");
-        break;
-        case TDM_ERROR_BUSY :
-          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_BUSY");
-        break;
-        case TDM_ERROR_OUT_OF_MEMORY :
-          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_OUT_OF_MEMORY");
-        break;
-        case TDM_ERROR_BAD_MODULE :
-          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_BAD_MODULE");
-        break;
-        case TDM_ERROR_NOT_IMPLEMENTED :
-          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_NOT_IMPLEMENTED");
-        break;
-        case TDM_ERROR_NO_CAPABILITY :
-          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_NO_CAPABILITY");
-        break;
-        case TDM_ERROR_DPMS_OFF :
-          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_DPMS_OFF");
-        break;
-        case TDM_ERROR_OUTPUT_DISCONNECTED :
-          snprintf(buf, sizeof(buf) - 1, "TDM_ERROR_OUTPUT_DISCONNECTED");
-        break;
-
-        default:
-          snprintf(buf, sizeof(buf) - 1, "UNKNOWN ERROR");
-        break;
-      };
-
-    return buf;
-}
-
 EINTERN Eina_Bool
 e_plane_is_fetch_retry(E_Plane *plane)
 {
@@ -1491,9 +1401,7 @@ e_plane_fetch(E_Plane *plane)
    if (plane->wait_commit)
      return EINA_FALSE;
 
-   /* we can use the tbm_surface_queue owned by "gl_drm/gl_tbm" evas engine,
-    * for both optimized and no-optimized hwc, at least now */
-   if (e_plane_is_fb_target_owned_by_ecore_evas(plane))
+   if (plane->is_fb && !plane->ec)
      {
         /* acquire the surface */
         tsurface = _e_plane_surface_from_ecore_evas_acquire(plane);
@@ -1541,48 +1449,15 @@ e_plane_fetch(E_Plane *plane)
 
         plane->tsurface = tsurface;
 
-        /* FIXME: we don't worry about the rotation
-         *
-         * for optimized hwc we set up a layer/window info during the 'update' phase,
-         * and on the 'fetch' phase we have to set up only a surface */
-        if (!e_comp->hwc_optimized)
+        if (output->dpms != E_OUTPUT_DPMS_OFF)
           {
-             if (output->dpms != E_OUTPUT_DPMS_OFF)
+             /* set plane info and set tsurface to the plane */
+             if (!_e_plane_surface_set(plane, tsurface))
                {
-                  /* set plane info and set tsurface to the plane */
-                  if (!_e_plane_surface_set(plane, tsurface))
-                    {
-                       ERR("fail: _e_plane_set_info.");
-                       e_plane_unfetch(plane);
-                       return EINA_FALSE;
-                    }
+                  ERR("fail: _e_plane_set_info.");
+                  e_plane_unfetch(plane);
+                  return EINA_FALSE;
                }
-          }
-        else
-          {
-             tdm_error err;
-
-             if (e_plane_is_fb_target_owned_by_ecore_evas(plane))
-               {
-                  tdm_hwc_region fb_damage;
-
-                  /* the damage isn't supported by hwc extension yet */
-                  memset(&fb_damage, 0, sizeof(fb_damage));
-
-                  err = tdm_output_hwc_set_client_target_buffer(plane->output->toutput, plane->tsurface, fb_damage);
-                  INF("hwc-opt: set surface:%p on the fb_target, err:%s.", plane->tsurface,
-                          _get_name_of_tdm_error(err));
-               }
-             else
-               {
-                  err = tdm_hwc_window_set_buffer(plane->hwc_wnd, plane->tsurface);
-                  INF("hwc-opt: set surface:%p (ec:%p, title:%s, name:%s) on the hwc_wnd:%p, err:%s.",
-                          plane->tsurface, plane->ec, plane->ec->icccm.title, plane->ec->icccm.name,
-                          plane->hwc_wnd, _get_name_of_tdm_error(err));
-               }
-
-             /* is anybody subscribed for this event? */
-             _e_plane_ev(plane, E_EVENT_PLANE_WIN_CHANGE);
           }
 
         /* set the update_exist to be true */
@@ -1640,39 +1515,11 @@ e_plane_unfetch(E_Plane *plane)
 
    plane->tsurface = displaying_tsurface;
 
-   /* FIXME: we don't worry about the rotation
-    *
-    * for optimized hwc we set up a layer/window info during the 'update' phase,
-    * and on the 'fetch' phase we have to set up only a surface */
-   if (!e_comp->hwc_optimized)
+   /* set plane info and set prevous tsurface to the plane */
+   if (!_e_plane_surface_set(plane, displaying_tsurface))
      {
-        /* set plane info and set prevous tsurface to the plane */
-        if (!_e_plane_surface_set(plane, displaying_tsurface))
-          {
-             ERR("fail: _e_plane_set_info.");
-             return;
-          }
-     }
-   else
-     {
-       if (e_plane_is_fb_target_owned_by_ecore_evas(plane))
-         {
-            tdm_hwc_region fb_damage;
-
-            /* the damage isn't supported by hwc extension yet */
-            memset(&fb_damage, 0, sizeof(fb_damage));
-
-            tdm_output_hwc_set_client_target_buffer(plane->output->toutput, plane->tsurface, fb_damage);
-            INF("hwc-opt: (unfetch) set surface:%p on the fb_target.", plane->tsurface);
-         }
-       else
-         {
-            tdm_hwc_window_set_buffer(plane->hwc_wnd, plane->tsurface);
-            INF("hwc-opt: (unfetch) set surface:%p on the hwc_wnd:%p.", plane->tsurface, plane->hwc_wnd);
-         }
-
-       /* is anybody subscribed for this event? */
-       _e_plane_ev(plane, E_EVENT_PLANE_WIN_CHANGE);
+        ERR("fail: _e_plane_set_info.");
+        return;
      }
 }
 
@@ -1831,37 +1678,30 @@ e_plane_commit(E_Plane *plane)
 
    data = e_plane_commit_data_aquire(plane);
 
-   /* if a plane has no changes to commit (buffer content) it's supposed
-    * that a 'plane commit' was failed */
-   if (!data) return EINA_FALSE;
+   if (!data) return EINA_TRUE;
 
    _e_plane_fb_target_change_check(plane);
 
-   if (!e_comp->hwc_optimized)
-     TRACE_DS_ASYNC_BEGIN((unsigned int)plane->tlayer, [PLANE:COMMIT~HANDLER]);
+   TRACE_DS_ASYNC_BEGIN((unsigned int)plane->tlayer, [PLANE:COMMIT~HANDLER]);
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
            NULL, NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
            data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
-   /* hwc extension doesn't provide thing like layer */
-   if (!e_comp->hwc_optimized)
+   error = tdm_layer_commit(plane->tlayer, _e_plane_commit_hanler, data);
+   if (error != TDM_ERROR_NONE)
      {
-        error = tdm_layer_commit(plane->tlayer, _e_plane_commit_hanler, data);
-        if (error != TDM_ERROR_NONE)
-          {
-             ERR("fail to tdm_layer_commit plane:%p, zpos:%d", plane, plane->zpos);
-             e_plane_commit_data_release(data);
-             return EINA_FALSE;
-          }
+        ERR("fail to tdm_layer_commit plane:%p, zpos:%d", plane, plane->zpos);
+        e_plane_commit_data_release(data);
+        return EINA_FALSE;
+     }
 
-        error = tdm_output_wait_vblank(plane->output->toutput, 1, 0, _e_plane_vblank_handler, (void *)plane);
-        if (error != TDM_ERROR_NONE)
-          {
-             ERR("fail to tdm_output_wait_vblank plane:%p, zpos:%d", plane, plane->zpos);
-             return EINA_FALSE;
-          }
+   error = tdm_output_wait_vblank(plane->output->toutput, 1, 0, _e_plane_vblank_handler, (void *)plane);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("fail to tdm_output_wait_vblank plane:%p, zpos:%d", plane, plane->zpos);
+        return EINA_FALSE;
      }
 
    /* send frame event enlightenment dosen't send frame evnet in nocomp */
@@ -2529,17 +2369,6 @@ e_plane_is_fb_target(E_Plane *plane)
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
    if (plane->is_fb) return EINA_TRUE;
-
-   return EINA_FALSE;
-}
-
-/* if a plane 'plane' is fb_target occupied by ecore_evas */
-EINTERN Eina_Bool
-e_plane_is_fb_target_owned_by_ecore_evas(E_Plane *plane)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
-
-   if (plane->is_fb && !plane->ec) return EINA_TRUE;
 
    return EINA_FALSE;
 }
