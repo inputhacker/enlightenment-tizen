@@ -22,6 +22,7 @@ struct _E_Input_Seat
    E_Input_Backend *input;
    Eina_List *devices;
    struct libinput_seat *seat;
+   Evas_Device *evas_dev;
 
    struct
      {
@@ -53,6 +54,7 @@ struct _E_Input_Evdev
 
    const char *path;
    int fd;
+   Evas_Device *evas_dev;
 
    int mt_slot;
 

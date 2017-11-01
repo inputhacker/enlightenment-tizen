@@ -29,7 +29,11 @@ struct _E_Input_Event_Input_Device_Add
    const char *name; /* descriptive device name */
    const char *sysname; /* system name of the input device */
    const char *seatname; /* logical name of the seat */
+   const char *identifier; /* unique identifier (e.g. path) */
+
    E_Input_Seat_Capabilities caps; /* capabilities on a device */
+   Evas_Device_Class clas; /* class of a device */
+   Evas_Device_Subclass subclas; /* subclass of a device */
 };
 
 struct _E_Input_Event_Input_Device_Del
@@ -37,7 +41,11 @@ struct _E_Input_Event_Input_Device_Del
    const char *name; /* descriptive device name */
    const char *sysname; /* system name of the input device */
    const char *seatname; /* logical name of the seat */
+   const char *identifier; /* unique identifier (e.g. path) */
+
    E_Input_Seat_Capabilities caps; /* capabilities on a device */
+   Evas_Device_Class clas; /* class of a device */
+   Evas_Device_Subclass subclas; /* subclass of a device */
 };
 
 typedef struct _E_Input_Device E_Input_Device;
@@ -51,6 +59,7 @@ typedef struct _E_Input_Event_Input_Device_Del E_Input_Event_Input_Device_Del;
 struct _E_Input
 {
    Ecore_Window window;
+   Ecore_Evas *ee;
    E_Input_Device *dev;
 };
 
@@ -69,6 +78,8 @@ struct _E_Input_Device
 
 EINTERN int e_input_init(Ecore_Evas *ee);
 EINTERN int e_input_shutdown(void);
+EINTERN E_Input *e_input_get(void);
+EINTERN Evas *e_input_get_evas(E_Input *ei);
 
 EINTERN E_Input_Device *e_input_device_open(void);
 EINTERN Eina_Bool e_input_device_close(E_Input_Device *dev);
@@ -100,7 +111,7 @@ E_API void e_input_device_pointer_warp(E_Input_Device *dev, int x, int y);
 E_API const char *e_input_evdev_name_get(E_Input_Evdev *evdev);
 E_API Eina_List *e_input_seat_evdev_list_get(E_Input_Seat *seat);
 E_API int e_input_evdev_wheel_click_angle_get(E_Input_Evdev *dev);
-E_API Ecore_Device *e_input_evdev_get_ecore_device(const char *path, Ecore_Device_Class clas);
+E_API Evas_Device *e_input_evdev_get_evas_device(const char *path, Evas_Device_Class clas);
 
 #endif
 #endif

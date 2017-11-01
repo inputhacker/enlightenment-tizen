@@ -1150,9 +1150,9 @@ _e_info_client_proc_input_device_info(int argc, char **argv)
      {
         i++;
         printf("%3d %50s %20s         ", i, dev->name, dev->identifier);
-        if (dev->clas == ECORE_DEVICE_CLASS_MOUSE) printf("Mouse | ");
-        else if (dev->clas == ECORE_DEVICE_CLASS_KEYBOARD) printf("Keyboard | ");
-        else if (dev->clas == ECORE_DEVICE_CLASS_TOUCH) printf("Touch | ");
+        if (dev->clas == EVAS_DEVICE_CLASS_MOUSE) printf("Mouse | ");
+        else if (dev->clas == EVAS_DEVICE_CLASS_KEYBOARD) printf("Keyboard | ");
+        else if (dev->clas == EVAS_DEVICE_CLASS_TOUCH) printf("Touch | ");
         printf("(0x%x)\n", dev->clas);
      }
 

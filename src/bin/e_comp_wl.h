@@ -171,8 +171,8 @@ struct _E_Comp_Wl_Input_Device
    Eina_List *resources;
    const char *name;
    const char *identifier;
-   Ecore_Device_Class clas;
-   Ecore_Device_Subclass subclas;
+   Evas_Device_Class clas;
+   Evas_Device_Subclass subclas;
 };
 
 struct _E_Comp_Wl_Input_Device_Multi
@@ -562,15 +562,15 @@ E_API void e_comp_wl_map_apply(E_Client *ec);
 
 E_API void e_comp_wl_input_cursor_timer_enable_set(Eina_Bool enabled);
 
-EINTERN Eina_Bool e_comp_wl_key_send(E_Client *ec, int keycode, Eina_Bool pressed, Ecore_Device *dev, uint32_t time);
-EINTERN Eina_Bool e_comp_wl_touch_send(E_Client *ec, int idx, int x, int y, Eina_Bool pressed, Ecore_Device *dev, double radius_x, double radius_y, double pressure, double angle, uint32_t time);
-EINTERN Eina_Bool e_comp_wl_touch_update_send(E_Client *ec, int idx, int x, int y, Ecore_Device *dev, double radius_x, double radius_y, double pressure, double angle, uint32_t time);
+EINTERN Eina_Bool e_comp_wl_key_send(E_Client *ec, int keycode, Eina_Bool pressed, Evas_Device *dev, uint32_t time);
+EINTERN Eina_Bool e_comp_wl_touch_send(E_Client *ec, int idx, int x, int y, Eina_Bool pressed, Evas_Device *dev, double radius_x, double radius_y, double pressure, double angle, uint32_t time);
+EINTERN Eina_Bool e_comp_wl_touch_update_send(E_Client *ec, int idx, int x, int y, Evas_Device *dev, double radius_x, double radius_y, double pressure, double angle, uint32_t time);
 EINTERN Eina_Bool e_comp_wl_touch_cancel_send(E_Client *ec);
-EINTERN Eina_Bool e_comp_wl_mouse_button_send(E_Client *ec, int buttons, Eina_Bool pressed, Ecore_Device *dev, uint32_t time);
-EINTERN Eina_Bool e_comp_wl_mouse_move_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_t time);
-EINTERN Eina_Bool e_comp_wl_mouse_wheel_send(E_Client *ec, int direction, int z, Ecore_Device *dev, uint32_t time);
-EINTERN Eina_Bool e_comp_wl_mouse_in_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_t time);
-EINTERN Eina_Bool e_comp_wl_mouse_out_send(E_Client *ec, Ecore_Device *dev, uint32_t time);
+EINTERN Eina_Bool e_comp_wl_mouse_button_send(E_Client *ec, int buttons, Eina_Bool pressed, Evas_Device *dev, uint32_t time);
+EINTERN Eina_Bool e_comp_wl_mouse_move_send(E_Client *ec, int x, int y, Evas_Device *dev, uint32_t time);
+EINTERN Eina_Bool e_comp_wl_mouse_wheel_send(E_Client *ec, int direction, int z, Evas_Device *dev, uint32_t time);
+EINTERN Eina_Bool e_comp_wl_mouse_in_send(E_Client *ec, int x, int y, Evas_Device *dev, uint32_t time);
+EINTERN Eina_Bool e_comp_wl_mouse_out_send(E_Client *ec, Evas_Device *dev, uint32_t time);
 
 EINTERN Eina_Bool e_comp_wl_cursor_hide(E_Client *ec);
 

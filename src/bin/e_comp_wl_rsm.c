@@ -179,16 +179,16 @@ static void _remote_surface_region_clear(E_Comp_Wl_Remote_Surface *remote_surfac
 static void _remote_surface_ignore_output_transform_send(E_Comp_Wl_Remote_Common *common);
 static void _remote_source_save_start(E_Comp_Wl_Remote_Source *source);
 
-static Ecore_Device *
+static Evas_Device *
 _device_get_by_identifier(const char *identifier)
 {
-   Ecore_Device *dev = NULL;
+   Evas_Device *dev = NULL;
    const Eina_List *devices, *l;
 
-   devices = ecore_device_list();
+   devices = evas_device_list();
    EINA_LIST_FOREACH(devices, l, dev)
      {
-        if (!e_util_strcmp(identifier, ecore_device_identifier_get(dev)))
+        if (!e_util_strcmp(identifier, evas_device_description_get(dev)))
           return dev;
      }
 
@@ -1885,8 +1885,8 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
    E_Comp_Wl_Remote_Surface *remote_surface;
    E_Client *ec;
 
-   Ecore_Device *edev = NULL;
-   Ecore_Device_Class eclas = ECORE_DEVICE_CLASS_NONE;
+   Evas_Device *edev = NULL;
+   Evas_Device_Class eclas = EVAS_DEVICE_CLASS_NONE;
    double eradx, erady, epressure, eangle;
 
    remote_surface = wl_resource_get_user_data(resource);
@@ -1902,9 +1902,9 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
 
    /* identify class */
    if (clas == TIZEN_INPUT_DEVICE_CLAS_MOUSE)
-     eclas = ECORE_DEVICE_CLASS_MOUSE;
+     eclas = EVAS_DEVICE_CLASS_MOUSE;
    else if (clas == TIZEN_INPUT_DEVICE_CLAS_TOUCHSCREEN)
-     eclas = ECORE_DEVICE_CLASS_TOUCH;
+     eclas = EVAS_DEVICE_CLASS_TOUCH;
    else
      {
         ERR("Not supported device clas(%d) subclas(%d) identifier(%s)",
@@ -1915,7 +1915,7 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
    edev = _device_get_by_identifier(identifier);
    if (edev)
      {
-        eclas = ecore_device_class_get(edev);
+        eclas = evas_device_class_get(edev);
      }
 
    /* fixed to */
@@ -1924,7 +1924,7 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
    epressure = wl_fixed_to_double(pressure);
    eangle = wl_fixed_to_double(angle);
 
-   if (eclas == ECORE_DEVICE_CLASS_MOUSE)
+   if (eclas == EVAS_DEVICE_CLASS_MOUSE)
      {
         switch (event_type)
           {
@@ -1964,7 +1964,7 @@ _remote_surface_cb_mouse_event_transfer(struct wl_client *client, struct wl_reso
               break;
           }
      }
-   else if (eclas == ECORE_DEVICE_CLASS_TOUCH)
+   else if (eclas == EVAS_DEVICE_CLASS_TOUCH)
      {
         switch (event_type)
           {
@@ -2015,7 +2015,7 @@ _remote_surface_cb_mouse_wheel_transfer(struct wl_client *client, struct wl_reso
    E_Comp_Wl_Remote_Surface *remote_surface;
    E_Client *ec;
 
-   Ecore_Device *edev = NULL;
+   Evas_Device *edev = NULL;
 
    remote_surface = wl_resource_get_user_data(resource);
    EINA_SAFETY_ON_NULL_RETURN(remote_surface);
@@ -2041,8 +2041,8 @@ _remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_reso
    E_Comp_Wl_Remote_Surface *remote_surface;
    E_Client *ec;
 
-   Ecore_Device *edev = NULL;
-   Ecore_Device_Class eclas;
+   Evas_Device *edev = NULL;
+   Evas_Device_Class eclas;
    double eradx, erady, epressure, eangle;
 
    remote_surface = wl_resource_get_user_data(resource);
@@ -2058,7 +2058,7 @@ _remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_reso
 
    /* identify class */
    if (clas == TIZEN_INPUT_DEVICE_CLAS_TOUCHSCREEN)
-     eclas = ECORE_DEVICE_CLASS_TOUCH;
+     eclas = EVAS_DEVICE_CLASS_TOUCH;
    else
      {
         ERR("Not supported device clas(%d) subclas(%d identifier(%s)",
@@ -2070,7 +2070,7 @@ _remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_reso
    edev = _device_get_by_identifier(identifier);
    if (edev)
      {
-        eclas = ecore_device_class_get(edev);
+        eclas = evas_device_class_get(edev);
      }
 
    /* fixed to */
@@ -2079,7 +2079,7 @@ _remote_surface_cb_touch_event_transfer(struct wl_client *client, struct wl_reso
    epressure = wl_fixed_to_double(pressure);
    eangle = wl_fixed_to_double(angle);
 
-   if (eclas == ECORE_DEVICE_CLASS_TOUCH)
+   if (eclas == EVAS_DEVICE_CLASS_TOUCH)
      {
         switch (event_type)
           {
@@ -2149,8 +2149,8 @@ _remote_surface_cb_key_event_transfer(struct wl_client *client, struct wl_resour
    E_Comp_Wl_Remote_Surface *remote_surface;
    E_Client *ec;
 
-   Ecore_Device *edev = NULL;
-   Ecore_Device_Class eclas;
+   Evas_Device *edev = NULL;
+   Evas_Device_Class eclas;
 
    remote_surface = wl_resource_get_user_data(resource);
    EINA_SAFETY_ON_NULL_RETURN(remote_surface);
@@ -2165,7 +2165,7 @@ _remote_surface_cb_key_event_transfer(struct wl_client *client, struct wl_resour
 
    /* identify class */
    if (clas == TIZEN_INPUT_DEVICE_CLAS_KEYBOARD)
-     eclas = ECORE_DEVICE_CLASS_KEYBOARD;
+     eclas = EVAS_DEVICE_CLASS_KEYBOARD;
    else
      {
         ERR("Not supported device class(%d) subclass(%d identifier(%s)",
@@ -2177,10 +2177,10 @@ _remote_surface_cb_key_event_transfer(struct wl_client *client, struct wl_resour
    edev = _device_get_by_identifier(identifier);
    if (edev)
      {
-        eclas = ecore_device_class_get(edev);
+        eclas = evas_device_class_get(edev);
      }
 
-   if (eclas == ECORE_DEVICE_CLASS_KEYBOARD)
+   if (eclas == EVAS_DEVICE_CLASS_KEYBOARD)
      {
         switch (event_type)
           {
