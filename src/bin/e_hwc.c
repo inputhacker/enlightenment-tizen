@@ -333,53 +333,53 @@ _hwc_prepare(E_Output *eo, Eina_List *cl_list)
    if (_are_e_windows_with_client_candidate_state(windows))
      _hwc_get_notified_about_need_unset_cc_type(windows);
 
-     if (_need_target_window(eo))
-       {
-          E_Hwc_Window *target_window;
+   if (_need_target_window(eo))
+     {
+        E_Hwc_Window_Target *target_window;
 
-          INF("hwc-opt: hybrid composition");
+        INF("hwc-opt: hybrid composition");
 
-          target_window = e_output_get_target_window(eo);
-          if (!target_window)
-            {
-               ERR("hwc-opt: cannot get target window for output(%p)", eo);
-               return EINA_FALSE;
-            }
+        target_window = e_output_get_target_window(eo);
+        if (!target_window)
+          {
+             ERR("hwc-opt: cannot get target window for output(%p)", eo);
+             return EINA_FALSE;
+          }
 
-          result = e_hwc_window_mark_visible((E_Hwc_Window*)target_window);
-          if (!result)
-            {
-               ERR("hwc-opt: cannot mark target_window as visible");
-               return EINA_FALSE;
-            }
+        result = e_hwc_window_mark_visible((E_Hwc_Window*)target_window);
+        if (!result)
+          {
+             ERR("hwc-opt: cannot mark target_window as visible");
+             return EINA_FALSE;
+          }
 
-          _update_skip_state(windows);
+        _update_skip_state(windows);
 
-          /* target window is enabled, means compositor is enabled */
-          ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
-       }
-     else
-       {
-          INF("hwc-opt: full composition");
-          /* target window is disabled, means compositor is disabled */
-          ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
-       }
+        /* target window is enabled, means compositor is enabled */
+        ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+     }
+   else
+     {
+        INF("hwc-opt: full composition");
+        /* target window is disabled, means compositor is disabled */
+        ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
+     }
 
-     INF("hwc-opt: windows state after validate:");
-     _print_wnds_state(windows);
+   INF("hwc-opt: windows state after validate:");
+   _print_wnds_state(windows);
 
-     EINA_LIST_FOREACH(windows, l, window)
-       {
-          if (window->is_deleted) continue;
-          if (e_hwc_window_is_target(window)) continue;
+   EINA_LIST_FOREACH(windows, l, window)
+     {
+        if (window->is_deleted) continue;
+        if (e_hwc_window_is_target(window)) continue;
 
-          if (e_hwc_window_is_on_hw_overlay(window))
-            /* notify the window that it will be displayed on hw layer */
-            e_hwc_window_activate(window);
-          else
-            /* notify the window that it will be composite on the target buffer */
-            e_hwc_window_deactivate(window);
-       }
+        if (e_hwc_window_is_on_hw_overlay(window))
+          /* notify the window that it will be displayed on hw layer */
+          e_hwc_window_activate(window);
+        else
+          /* notify the window that it will be composite on the target buffer */
+          e_hwc_window_deactivate(window);
+      }
 
      return EINA_TRUE;
 }
@@ -576,7 +576,7 @@ e_hwc_re_evaluate()
         /* if we don't have visible client we will enable target window */
         if (!hwc_ok_clist)
           {
-             E_Hwc_Window *target_window = NULL;
+             E_Hwc_Window_Target *target_window = NULL;
 
              target_window = e_output_get_target_window(output);
              if (!target_window)

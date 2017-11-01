@@ -319,7 +319,7 @@ _evas_renderer_queue_has_new_composited_buffer(void *data)
 
    target_window->render_cnt++;
 
-   INF("hwc-opt: evas_renderer has a new buffer in the queue, renderer_cnt:%d",
+   INF("hwc-opt: evas_renderer has a new buffer in the queue, renderer_cnt:%llu",
            target_window->render_cnt);
 
    enqueued_surface_num = _get_enqueued_surface_num(target_window->queue);
@@ -557,7 +557,6 @@ e_hwc_window_set_ec(E_Hwc_Window *window, E_Client *ec)
 EINTERN Eina_Bool
 e_hwc_window_init(void)
 {
-   E_Hwc_Window_Target *target_window;
    Eina_List *l;
    E_Output *output;
 
@@ -586,6 +585,7 @@ e_hwc_window_init(void)
 
    EINA_LIST_FOREACH(e_comp->e_comp_screen->outputs, l, output)
      {
+        E_Hwc_Window_Target *target_window;
         Eina_Bool result;
 
         if (!output->config.enabled) continue;
@@ -593,7 +593,7 @@ e_hwc_window_init(void)
         target_window = _e_hwc_window_target_new(output);
         EINA_SAFETY_ON_NULL_RETURN_VAL(target_window, EINA_FALSE);
 
-        result = e_hwc_window_set_skip_flag(target_window);
+        result = e_hwc_window_set_skip_flag((E_Hwc_Window *)target_window);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(result != EINA_TRUE, EINA_FALSE);
 
         output->windows = eina_list_append(output->windows, target_window);

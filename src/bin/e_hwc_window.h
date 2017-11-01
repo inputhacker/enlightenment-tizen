@@ -112,7 +112,7 @@ EINTERN tbm_surface_h e_hwc_window_get_displaying_surface(E_Hwc_Window *window);
 EINTERN Eina_Bool e_hwc_window_set_state(E_Hwc_Window *window, E_Hwc_Window_State state);
 EINTERN E_Hwc_Window_State e_hwc_window_get_state(E_Hwc_Window *window);
 
-EINTERN Eina_Bool e_hwc_window_get_notified_about_composition_end(E_Hwc_Window *window, uint64_t offset);
+EINTERN Eina_Bool e_hwc_window_get_notified_about_need_unset_cc_type(E_Hwc_Window *window, uint64_t offset);
 
 #endif
 #endif
