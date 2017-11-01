@@ -170,6 +170,7 @@ e_input_init(Ecore_Evas *ee)
         e_comp_wl_input_seat_caps_set(seat_caps);
      }
 
+   e_input->ee = ee;
    e_input->dev = dev;
 
    E_LIST_HANDLER_APPEND(e_input->handlers, E_EVENT_SCREEN_CHANGE, _e_input_cb_screen_change, NULL);
@@ -231,4 +232,18 @@ e_input_shutdown(void)
    eina_shutdown();
 
    return _e_input_init_count;
+}
+
+EINTERN E_Input *
+e_input_get()
+{
+   if (e_input) return e_input;
+   return NULL;
+}
+
+EINTERN Ecore_Evas *
+e_input_get_ecore_evas(E_Input *ei)
+{
+   if (ei) return ei->ee;
+   return NULL;
 }
