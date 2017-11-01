@@ -96,7 +96,6 @@ typedef enum
    E_VIS_ICONIFY_STATE_ICONIC,
    E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY,
    E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD,
-   E_VIS_ICONIFY_STATE_GEOMETRY_CHANGE,
 } E_Vis_Iconify_State;
 
 typedef enum
@@ -158,11 +157,6 @@ struct _E_Vis_Client
    } job;
    Eina_Bool prepare_emitted;
    E_Layer layer;
-
-   struct
-   {
-      int          x, y, w, h;
-   } defer;
 };
 
 struct _E_Vis_Job_Group

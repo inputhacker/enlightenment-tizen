@@ -81,9 +81,14 @@ _tz_screen_rotation_get_ignore_output_transform(struct wl_client *client, struct
    tzsr->resource = resource;
    tzsr->ec = ec;
 
-   ELOGF("COMP", "|tzsr(%p)", NULL, ec, tzsr);
+   ELOGF("TRANSFORM", "|tzsr(%p) client_ignore(%d)", NULL, ec, tzsr, e_config->screen_rotation_client_ignore);
 
    tzsr_list = eina_list_append(tzsr_list, tzsr);
+
+   /* make all clients ignore the output tramsform
+    * we will decide later when hwc prepared.
+    */
+   e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_TRUE);
 }
 
 static void
@@ -1073,6 +1078,20 @@ e_comp_screen_init()
    E_LIST_HANDLER_APPEND(event_handlers, E_INPUT_EVENT_INPUT_DEVICE_ADD, _e_comp_screen_cb_input_device_add, comp);
    E_LIST_HANDLER_APPEND(event_handlers, E_INPUT_EVENT_INPUT_DEVICE_DEL, _e_comp_screen_cb_input_device_del, comp);
 
+   if (e_comp->e_comp_screen->rotation > 0)
+     {
+         const Eina_List *l;
+         E_Input_Device *dev;
+
+         EINA_LIST_FOREACH(e_input_devices_get(), l, dev)
+           {
+               e_input_device_touch_rotation_set(dev, e_comp->e_comp_screen->rotation);
+               e_input_device_rotation_set(dev, e_comp->e_comp_screen->rotation);
+
+               INF("EE Input Device Rotate: %d", e_comp->e_comp_screen->rotation);
+           }
+     }
+
    TRACE_DS_END();
 
    return EINA_TRUE;
@@ -1150,9 +1169,10 @@ E_API Eina_Bool
 e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
 {
    E_Output *output = NULL, *o;
-   Eina_List *l;
+   const Eina_List *l;
    int w, h;
    int screen_rotation;
+   E_Input_Device *dev;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation % 90, EINA_FALSE);
@@ -1192,6 +1212,14 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
    ecore_evas_rotation_with_resize_set(e_comp->ee, e_comp_screen->rotation);
    ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
 
+   EINA_LIST_FOREACH(e_input_devices_get(), l, dev)
+     {
+         e_input_device_touch_rotation_set(dev, e_comp_screen->rotation);
+         e_input_device_rotation_set(dev, e_comp_screen->rotation);
+
+         INF("EE Input Device Rotate: %d", e_comp_screen->rotation);
+     }
+
    if (e_comp_screen_iface)
      {
         eldbus_service_signal_emit(e_comp_screen_iface, E_COMP_SCREEN_SIGNAL_ROTATION_CHANGED, e_comp_screen->rotation);
@@ -1210,9 +1238,32 @@ e_comp_screen_rotation_ignore_output_transform_send(E_Client *ec, Eina_Bool igno
 
    if (!tzsr) return;
 
-   ELOGF("COMP", "|tzsr(%p) ignore(%d)", NULL, ec, tzsr, ignore);
+   /* if client have to considers the output transform */
+   if (!ignore)
+     {
+        /* exception */
+        if (e_config->screen_rotation_client_ignore)
+          {
+             ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform: client_ignore", NULL, ec, tzsr);
+             return;
+          }
+
+        if (e_policy_client_is_quickpanel(ec))
+           {
+              ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform: quickpanel", NULL, ec, tzsr);
+              return;
+           }
+     }
+
+   ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform(%d)", NULL, ec, tzsr, ignore);
 
    tizen_screen_rotation_send_ignore_output_transform(tzsr->resource, ec->comp_data->surface, ignore);
+}
+
+EINTERN Eina_Bool
+e_comp_screen_rotation_ignore_output_transform_watch(E_Client *ec)
+{
+   return (_tz_surface_rotation_find(ec)) ? EINA_TRUE : EINA_FALSE;
 }
 
 EINTERN E_Output *

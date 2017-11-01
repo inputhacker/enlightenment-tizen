@@ -81,6 +81,8 @@ struct _E_Plane
    E_Plane              *fb_change;
    int                   fb_change_counter;
 
+   Eina_Bool             commit_per_vblank;
+
    /* true if plane's ec is set or unset.
     * false when E_Event_Plane_Win_Change has been generated.
     */
@@ -103,6 +105,7 @@ struct _E_Plane
    Eina_Bool             pp_set;
    Eina_Bool             pp_commit;
    Eina_Bool             pp_layer_commit;
+   E_Plane_Commit_Data  *pp_layer_commit_data;
    Eina_Rectangle        pp_rect;
 
    /* current display information */
@@ -117,6 +120,8 @@ struct _E_Plane
    double               fps;
    double               old_fps;
    double               frametimes[122];
+
+   int                  set_counter;
 };
 
 struct _E_Plane_Commit_Data {
@@ -171,6 +176,7 @@ EINTERN Eina_Bool            e_plane_is_unset_candidate(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_is_unset_try(E_Plane *plane);
 EINTERN void                 e_plane_unset_try_set(E_Plane *plane, Eina_Bool set);
 EINTERN Eina_Bool            e_plane_unset_commit_check(E_Plane *plane, Eina_Bool fb_commit);
+EINTERN Eina_Bool            e_plane_set_commit_check(E_Plane *plane, Eina_Bool fb_commit);
 EINTERN Eina_Bool            e_plane_is_fetch_retry(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_fb_target_set(E_Plane *plane, Eina_Bool set);
 EINTERN Eina_List           *e_plane_available_formats_get(E_Plane *plane);
@@ -179,6 +185,7 @@ EINTERN Eina_Bool            e_plane_pp_commit_possible_check(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect);
 EINTERN void                 e_plane_zoom_unset(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_fps_get(E_Plane *plane, double *fps);
+EINTERN void                 e_plane_dpms_off(E_Plane *plane);
 
 E_API Eina_Bool              e_plane_type_set(E_Plane *plane, E_Plane_Type type);
 E_API E_Plane_Type           e_plane_type_get(E_Plane *plane);

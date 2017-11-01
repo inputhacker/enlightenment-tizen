@@ -27,8 +27,8 @@ _device_calibration_set(E_Input_Evdev *edev)
 
         if (libinput_device_has_capability(edev->device, LIBINPUT_DEVICE_CAP_POINTER))
           {
-             edev->seat->ptr.dx = w / 2;
-             edev->seat->ptr.dy = h / 2;
+             edev->seat->ptr.dx = (double)(w / 2);
+             edev->seat->ptr.dy = (double)(h / 2);
              edev->seat->ptr.ix = (int)edev->seat->ptr.dx;
              edev->seat->ptr.iy = (int)edev->seat->ptr.dy;
              edev->mouse.dx = edev->seat->ptr.dx;

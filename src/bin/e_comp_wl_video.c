@@ -1920,6 +1920,7 @@ _e_video_frame_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf *vbuf)
    info.src_config.pos.y = vbuf->content_r.y;
    info.src_config.pos.w = vbuf->content_r.w;
    info.src_config.pos.h = vbuf->content_r.h;
+   info.src_config.format = vbuf->tbmfmt;
    info.dst_pos.x = video->geo.tdm_output_r.x;
    info.dst_pos.y = video->geo.tdm_output_r.y;
    info.dst_pos.w = video->geo.tdm_output_r.w;
@@ -2547,7 +2548,13 @@ _e_video_check_if_pp_needed(E_Video *video)
 
    if (!found)
      {
-        video->pp_tbmfmt = TBM_FORMAT_ARGB8888;
+        if (formats && count > 0)
+          video->pp_tbmfmt = formats[0];
+        else
+          {
+             WRN("No layer format information!!!");
+             video->pp_tbmfmt = TBM_FORMAT_ARGB8888;
+          }
         return EINA_TRUE;
      }
 

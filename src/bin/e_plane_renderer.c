@@ -10,6 +10,7 @@
 # include <Evas_Engine_GL_Tbm.h>
 # include <Evas_Engine_Software_Tbm.h>
 # include <sys/eventfd.h>
+# include <pixman.h>
 # if HAVE_LIBGOMP
 # include <omp.h>
 # endif
@@ -1022,7 +1023,81 @@ e_plane_renderer_new(E_Plane *plane)
           ERR("fail to e_plane_renderer_queue_set");
      }
 
+   renderer->need_change_buffer_transform = EINA_TRUE;
+
    return renderer;
+}
+
+static void
+_e_plane_renderer_cursor_image_draw(E_Comp_Wl_Buffer *buffer, tbm_surface_info_s *tsurface_info, int rotation)
+{
+   int src_width, src_height, src_stride;
+   pixman_image_t *src_img = NULL, *dst_img = NULL;
+   pixman_transform_t t;
+   struct pixman_f_transform ft;
+   void *src_ptr = NULL, *dst_ptr = NULL;
+   int c = 0, s = 0, tx = 0, ty = 0;
+   int i, rotate;
+
+   src_width = wl_shm_buffer_get_width(buffer->shm_buffer);
+   src_height = wl_shm_buffer_get_height(buffer->shm_buffer);
+   src_stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
+   src_ptr = wl_shm_buffer_get_data(buffer->shm_buffer);
+
+   dst_ptr = tsurface_info->planes[0].ptr;
+   memset(dst_ptr, 0, tsurface_info->planes[0].stride * tsurface_info->height);
+
+   if (rotation)
+     {
+        src_img = pixman_image_create_bits(PIXMAN_a8r8g8b8, src_width, src_height, (uint32_t*)src_ptr, src_stride);
+        EINA_SAFETY_ON_NULL_GOTO(src_img, error);
+
+        dst_img = pixman_image_create_bits(PIXMAN_a8r8g8b8, tsurface_info->width, tsurface_info->height,
+                                          (uint32_t*)dst_ptr, tsurface_info->planes[0].stride);
+        EINA_SAFETY_ON_NULL_GOTO(dst_img, error);
+
+        if (rotation == 90)
+           rotation = 270;
+        else if (rotation == 270)
+           rotation = 90;
+
+        rotate = (rotation + 360) / 90 % 4;
+        switch (rotate)
+          {
+           case 1:
+              c = 0, s = -1, tx = -tsurface_info->width;
+              break;
+           case 2:
+              c = -1, s = 0, tx = -tsurface_info->width, ty = -tsurface_info->height;
+              break;
+           case 3:
+              c = 0, s = 1, ty = -tsurface_info->width;
+              break;
+          }
+
+        pixman_f_transform_init_identity(&ft);
+        pixman_f_transform_translate(&ft, NULL, tx, ty);
+        pixman_f_transform_rotate(&ft, NULL, c, s);
+
+        pixman_transform_from_pixman_f_transform(&t, &ft);
+        pixman_image_set_transform(src_img, &t);
+
+        pixman_image_composite(PIXMAN_OP_SRC, src_img, NULL, dst_img, 0, 0, 0, 0, 0, 0,
+                               tsurface_info->width, tsurface_info->height);
+     }
+   else
+     {
+        for (i = 0 ; i < src_height ; i++)
+          {
+             memcpy(dst_ptr, src_ptr, src_stride);
+             dst_ptr += tsurface_info->planes[0].stride;
+             src_ptr += src_stride;
+          }
+     }
+
+error:
+   if (src_img) pixman_image_unref(src_img);
+   if (dst_img) pixman_image_unref(dst_img);
 }
 
 EINTERN Eina_Bool
@@ -1030,15 +1105,14 @@ e_plane_renderer_cursor_surface_refresh(E_Plane_Renderer *renderer, E_Client *ec
 {
    E_Plane *plane = NULL;
    E_Output *output = NULL;
-   int i = 0;
-   int stride, height, w, h;
+   int w, h, tw, th;
    int tsurface_w, tsurface_h;
    void *src_ptr = NULL;
-   void *dst_ptr = NULL;
    tbm_surface_h tsurface = NULL;
    E_Comp_Wl_Buffer *buffer = NULL;
    tbm_surface_error_e ret = TBM_SURFACE_ERROR_NONE;
    tbm_surface_info_s tsurface_info;
+   E_Pointer *pointer = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
@@ -1051,6 +1125,14 @@ e_plane_renderer_cursor_surface_refresh(E_Plane_Renderer *renderer, E_Client *ec
 
    buffer = ec->comp_data->buffer_ref.buffer;
    EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, EINA_FALSE);
+
+   pointer = e_pointer_get(ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(pointer, EINA_FALSE);
+
+   if ((plane->display_info.buffer_ref.buffer == buffer) &&
+       (renderer->cursor_tsurface) &&
+       (renderer->cursor_rotation == pointer->rotation))
+     return EINA_TRUE;
 
    /* TODO: TBM TYPE, NATIVE_WL */
    if (buffer->type == E_COMP_WL_BUFFER_TYPE_SHM)
@@ -1068,8 +1150,19 @@ e_plane_renderer_cursor_surface_refresh(E_Plane_Renderer *renderer, E_Client *ec
         return EINA_FALSE;
      }
 
-   w = (output->cursor_available.min_w > ec->w) ? output->cursor_available.min_w : ec->w;
-   h = (output->cursor_available.min_h > ec->h) ? output->cursor_available.min_h : ec->h;
+   if (pointer->rotation == 90)
+      tw = ec->h, th = ec->w;
+   else if (pointer->rotation == 180)
+      tw = ec->w, th = ec->h;
+   else if (pointer->rotation == 270)
+      tw = ec->h, th = ec->w;
+   else
+      tw = ec->w, th = ec->h;
+
+   renderer->cursor_rotation = pointer->rotation;
+
+   w = (output->cursor_available.min_w > tw) ? output->cursor_available.min_w : tw;
+   h = (output->cursor_available.min_h > th) ? output->cursor_available.min_h : th;
 
    if (e_comp->hwc_reuse_cursor_buffer)
      {
@@ -1112,18 +1205,7 @@ e_plane_renderer_cursor_surface_refresh(E_Plane_Renderer *renderer, E_Client *ec
         return EINA_FALSE;
      }
 
-   memset(tsurface_info.planes[0].ptr, 0, tsurface_info.planes[0].stride * tsurface_info.height);
-
-   stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
-   height = wl_shm_buffer_get_height(buffer->shm_buffer);
-   dst_ptr = tsurface_info.planes[0].ptr;
-
-   for (i = 0 ; i < height ; i++)
-     {
-        memcpy(dst_ptr, src_ptr, stride);
-        dst_ptr += tsurface_info.planes[0].stride;
-        src_ptr += stride;
-     }
+   _e_plane_renderer_cursor_image_draw(buffer, &tsurface_info, pointer->rotation);
 
    tbm_surface_unmap(tsurface);
 
@@ -1450,6 +1532,7 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
    struct wayland_tbm_client_queue * cqueue = NULL;
    E_Plane_Renderer_Client *renderer_client = NULL;
    E_Plane *plane = NULL;
+   int transform;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
@@ -1466,6 +1549,23 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
 
    if ((renderer->state == E_PLANE_RENDERER_STATE_ACTIVATE) && (renderer->ec != ec))
      e_plane_renderer_deactivate(renderer);
+
+   if (renderer->ec != ec)
+     renderer->need_change_buffer_transform = EINA_TRUE;
+
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+   if ((plane->output->config.rotation / 90) != transform)
+     {
+        if (!e_config->screen_rotation_client_ignore && renderer->need_change_buffer_transform)
+          {
+             e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
+             renderer->need_change_buffer_transform = EINA_FALSE;
+             INF("ec:%p tansform:%d screen_roatation:%d", ec, transform, plane->output->config.rotation);
+          }
+        return EINA_FALSE;
+     }
+   else
+     renderer->need_change_buffer_transform = EINA_TRUE;
 
    wayland_tbm_server_client_queue_activate(cqueue, 0, 0, 0);
 
@@ -1487,8 +1587,13 @@ e_plane_renderer_deactivate(E_Plane_Renderer *renderer)
    struct wayland_tbm_client_queue * cqueue = NULL;
    E_Client *ec = NULL;
    E_Plane_Renderer_Client *renderer_client = NULL;
+   E_Plane *plane = NULL;
+   int transform;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
+
+   plane = renderer->plane;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
    ec = renderer->ec;
    if (!ec) return EINA_TRUE;
@@ -1503,6 +1608,10 @@ e_plane_renderer_deactivate(E_Plane_Renderer *renderer)
 
    if (cqueue)
      wayland_tbm_server_client_queue_deactivate(cqueue);
+
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+   if (plane->output->config.rotation != 0 && (plane->output->config.rotation / 90) == transform)
+     e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_TRUE);
 
    _e_plane_renderer_recover_ec(renderer);
 
@@ -1523,6 +1632,7 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
    E_Plane_Renderer_Client *renderer_client = NULL;
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
    E_Plane *plane = NULL;
+   int transform;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
@@ -1602,6 +1712,21 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
         /* export */
         e_plane_renderer_surface_send(renderer, ec, tsurface);
 
+        if (renderer->ec != ec)
+          renderer->need_change_buffer_transform = EINA_TRUE;
+
+        transform = e_comp_wl_output_buffer_transform_get(ec);
+        if ((plane->output->config.rotation / 90) != transform)
+          {
+             if (!e_config->screen_rotation_client_ignore && renderer->need_change_buffer_transform)
+               {
+                  e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
+                  renderer->need_change_buffer_transform = EINA_FALSE;
+               }
+          }
+        else
+          renderer->need_change_buffer_transform = EINA_TRUE;
+
         wayland_tbm_server_client_queue_activate(cqueue, 0, renderer->tqueue_size, 1);
 
         if (e_comp->hwc_sync_mode_change && !e_comp->hwc_use_detach)
@@ -1633,6 +1758,13 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
           }
      }
 
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+   if ((plane->output->config.rotation / 90) != transform)
+     {
+        INF("ec:%p tansform:%d screen_roatation:%d", ec, transform, plane->output->config.rotation);
+        return EINA_FALSE;
+     }
+
    if (renderer_trace_debug)
      ELOGF("E_PLANE_RENDERER", "Activate Renderer(%p)", ec->pixmap, ec, renderer);
 
@@ -1653,6 +1785,7 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
    E_Plane_Renderer_Client *renderer_client = NULL;
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
    E_Plane *plane = NULL;
+   int transform;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
 
@@ -1678,6 +1811,10 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
         if (_e_plane_renderer_client_surface_flags_get(renderer_client) != E_PLANE_RENDERER_CLIENT_SURFACE_FLAGS_RESERVED)
           goto done;
      }
+
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+   if (plane->output->config.rotation != 0 && (plane->output->config.rotation / 90) == transform)
+     e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_TRUE);
 
    if (renderer_trace_debug)
      ELOGF("E_PLANE_RENDERER", "Set    backup buffer   wl_buffer(%p)::Deactivate",

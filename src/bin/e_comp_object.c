@@ -1113,6 +1113,7 @@ static void
 _e_comp_object_setup(E_Comp_Object *cw)
 {
    cw->clip = evas_object_rectangle_add(e_comp->evas);
+   evas_object_move(cw->clip, -9999, -9999);
    evas_object_resize(cw->clip, 999999, 999999);
    evas_object_smart_member_add(cw->clip, cw->smart_obj);
    cw->effect_obj = edje_object_add(e_comp->evas);
@@ -2921,7 +2922,6 @@ _e_comp_smart_move(Evas_Object *obj, int x, int y)
    INTERNAL_ENTRY;
 
    cw->x = x, cw->y = y;
-   evas_object_move(cw->clip, 0, 0);
    evas_object_move(cw->effect_obj, x, y);
    evas_object_move(cw->map_input_obj, x, y);
    if (cw->input_obj) evas_object_move(cw->input_obj, x, y);
