@@ -1,5 +1,6 @@
 #include "e.h"
 #include <sys/xattr.h>
+#include "services/e_service_quickpanel.h"
 
 #define OVER_FLOW 1
 //#define SHAPE_DEBUG
@@ -734,6 +735,12 @@ _e_comp_hwc_prepare(void)
         EINA_LIST_FOREACH(vis_clist, vl, ec)
           {
              // check clients not able to use hwc
+             if (E_POLICY_QUICKPANEL_LAYER >= evas_object_layer_get(ec->frame))
+               {
+                  // check whether quickpanel is open than break
+                  if (e_qp_visible_get()) break;
+               }
+
              // if ec->frame is not for client buffer (e.g. launchscreen)
              if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
                 goto nextzone;
