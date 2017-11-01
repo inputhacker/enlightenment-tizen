@@ -632,7 +632,7 @@ e_hwc_window_free(E_Hwc_Window *window)
      {  /* mark as deleted and delete when commit_data will be released */
         window->is_deleted = EINA_TRUE;
         window->ec = NULL;
-        window->skip_flag = EINA_FALSE;
+        window->skip_flag = EINA_TRUE;
         window->state = E_HWC_WINDOW_STATE_NONE;
         return;
      }
