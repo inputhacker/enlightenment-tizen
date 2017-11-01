@@ -32,7 +32,7 @@ struct _E_Hwc_Window
    int                            zpos;
    int                            skip_flag;
    Eina_Bool                      is_visible;
-   tdm_hwc_window_composition_t   type;
+   tdm_hwc_window_composition     type;
    Eina_Bool                      is_target;
    Eina_Bool                      is_video;
    Eina_Bool                      is_deleted;

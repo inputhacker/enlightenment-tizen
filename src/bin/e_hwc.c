@@ -279,7 +279,7 @@ _hwc_prepare(E_Output *eo, Eina_List *cl_list)
      {
         int i;
         tdm_hwc_window **changed_hwc_window = NULL;
-        tdm_hwc_window_composition_t *composition_types = NULL;
+        tdm_hwc_window_composition *composition_types = NULL;
         E_Hwc_Window *window;
 
         INF("hwc-opt: hwc extension required to change composition types.");
@@ -287,7 +287,7 @@ _hwc_prepare(E_Output *eo, Eina_List *cl_list)
         changed_hwc_window = E_NEW(tdm_hwc_window *, num_changes);
         EINA_SAFETY_ON_NULL_RETURN_VAL(changed_hwc_window, EINA_FALSE);
 
-        composition_types = E_NEW(tdm_hwc_window_composition_t, num_changes);
+        composition_types = E_NEW(tdm_hwc_window_composition, num_changes);
         EINA_SAFETY_ON_NULL_RETURN_VAL(composition_types, EINA_FALSE);
 
         tdm_err = tdm_output_hwc_get_changed_composition_types(eo->toutput,
