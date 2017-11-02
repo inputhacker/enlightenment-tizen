@@ -127,6 +127,16 @@ _module_is_important(const char *name)
 }
 
 /* externally accessible functions */
+EINTERN void
+e_module_event_init(void)
+{
+   if (E_EVENT_MODULE_UPDATE) return;
+
+   E_EVENT_MODULE_UPDATE = ecore_event_type_new();
+   E_EVENT_MODULE_INIT_END = ecore_event_type_new();
+   E_EVENT_MODULE_DEFER_JOB = ecore_event_type_new();
+}
+
 EINTERN int
 e_module_init(void)
 {
@@ -136,10 +146,6 @@ e_module_init(void)
    Eio_File *ls;
 
    if (_e_modules_hash) return 1;
-
-   E_EVENT_MODULE_UPDATE = ecore_event_type_new();
-   E_EVENT_MODULE_INIT_END = ecore_event_type_new();
-   E_EVENT_MODULE_DEFER_JOB = ecore_event_type_new();
 
    _e_module_path_hash = eina_hash_string_superfast_new((Eina_Free_Cb)eina_stringshare_del);
    _e_modules_hash = eina_hash_string_superfast_new(NULL);
