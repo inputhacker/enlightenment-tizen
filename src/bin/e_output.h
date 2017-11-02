@@ -10,6 +10,10 @@ typedef struct _E_Output_Hook       E_Output_Hook;
 typedef enum   _E_Output_Hook_Point E_Output_Hook_Point;
 typedef void (*E_Output_Hook_Cb) (void *data, E_Output *output);
 
+typedef struct _E_Output_Intercept_Hook       E_Output_Intercept_Hook;
+typedef enum   _E_Output_Intercept_Hook_Point E_Output_Intercept_Hook_Point;
+typedef Eina_Bool (*E_Output_Intercept_Hook_Cb) (void *data, E_Output *output);
+
 typedef void (*E_Output_Capture_Cb) (E_Output *output, tbm_surface_h surface, void *user_data);
 
 #else
@@ -117,6 +121,24 @@ struct _E_Output_Hook
    unsigned char delete_me : 1;
 };
 
+enum _E_Output_Intercept_Hook_Point
+{
+   E_OUTPUT_INTERCEPT_HOOK_DPMS_ON,
+   E_OUTPUT_INTERCEPT_HOOK_DPMS_STANDBY,
+   E_OUTPUT_INTERCEPT_HOOK_DPMS_SUSPEND,
+   E_OUTPUT_INTERCEPT_HOOK_DPMS_OFF,
+   E_OUTPUT_INTERCEPT_HOOK_LAST
+};
+
+struct _E_Output_Intercept_Hook
+{
+   EINA_INLIST;
+   E_Output_Intercept_Hook_Point hookpoint;
+   E_Output_Intercept_Hook_Cb func;
+   void *data;
+   unsigned char delete_me : 1;
+};
+
 EINTERN Eina_Bool         e_output_init(void);
 EINTERN void              e_output_shutdown(void);
 EINTERN E_Output        * e_output_new(E_Comp_Screen *e_comp_screen, int index);
@@ -151,6 +173,8 @@ E_API E_Plane           * e_output_fb_target_get(E_Output *output);
 E_API E_Plane           * e_output_plane_get_by_zpos(E_Output *output, int zpos);
 E_API E_Output_Hook     * e_output_hook_add(E_Output_Hook_Point hookpoint, E_Output_Hook_Cb func, const void *data);
 E_API void                e_output_hook_del(E_Output_Hook *ch);
+E_API E_Output_Intercept_Hook * e_output_intercept_hook_add(E_Output_Intercept_Hook_Point hookpoint, E_Output_Intercept_Hook_Cb func, const void *data);
+E_API void                e_output_intercept_hook_del(E_Output_Intercept_Hook *ch);
 
 
 #endif
