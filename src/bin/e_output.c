@@ -2070,14 +2070,23 @@ e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val)
    E_Output_Intercept_Hook_Point hookpoint;
    tdm_output_dpms tval;
    tdm_error error;
+   Eina_List *l;
+   E_Zone *zone;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   /* FIXME: The zone controlling should be moved to e_zone */
+   EINA_LIST_FOREACH(e_comp->zones, l, zone)
+     {
+        if (val == E_OUTPUT_DPMS_ON)
+          e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_ON);
+        else if (val == E_OUTPUT_DPMS_OFF)
+          e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_OFF);
+     }
 
    if (val == E_OUTPUT_DPMS_OFF)
      {
         E_Plane *ep;
-        Eina_List *l;
-
         EINA_LIST_FOREACH(output->planes, l, ep)
           {
              e_plane_dpms_off(ep);
