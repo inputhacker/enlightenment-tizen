@@ -168,6 +168,13 @@ _mover_intercept_show(void *data, Evas_Object *obj)
    e_comp_object_dirty(ec->frame);
    e_comp_object_render(ec->frame);
 
+   // desk-zoom-set apply map on all e_desk's smart_data(clients)
+   // to properly pack a quickpanel window on the mover's e_layout_object
+   // (to became a member of mover) it shouldn't be in e_desk's clists.
+   // because mover (also smart obj) is a member of e_desk
+   // otherwize, desk-zoom will mutiplied on a ec again.
+   e_desk_client_del(ec->desk, ec);
+
    e_layout_pack(md->qp_layout_obj, ec->frame);
 
   // create base_clip
@@ -263,16 +270,6 @@ _mover_smart_del(Evas_Object *obj)
    e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
    e_comp_object_dirty(ec->frame);
    e_comp_object_render(ec->frame);
-
-   /* workaround:
-    * if remove this evas_object_map_enable_set() passing false and true,
-    * we can see the afterimage of move object.
-    * to avoid this probelm, we need it. */
-   if (ec->desk->smart_obj)
-     {
-        evas_object_map_enable_set(ec->desk->smart_obj, EINA_FALSE);
-        evas_object_map_enable_set(ec->desk->smart_obj, EINA_TRUE);
-     }
 
    e_layout_unpack(ec->frame);
    e_desk_smart_member_add(ec->desk, ec->frame);
