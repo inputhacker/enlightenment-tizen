@@ -63,6 +63,7 @@
 #include "e_comp_wl_video.h"
 #include "e_comp_wl_video_buffer.h"
 #include "e_comp_wl_viewport.h"
+#include "e_comp_wl_shell.h"
 #include "e_policy.h"
 #include "e_policy_conformant.h"
 #include "e_policy_visibility.h"
