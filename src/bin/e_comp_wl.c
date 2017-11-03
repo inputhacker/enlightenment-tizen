@@ -5640,6 +5640,23 @@ e_comp_wl_key_up(Ecore_Event_Key *ev)
 }
 
 E_API Eina_Bool
+e_comp_wl_key_process(Ecore_Event_Key *ev, int type)
+{
+   Eina_Bool res = EINA_FALSE;
+
+   if (type == ECORE_EVENT_KEY_DOWN)
+     {
+        res = e_comp_wl_key_down(ev);
+     }
+   else if (type == ECORE_EVENT_KEY_UP)
+     {
+        res = e_comp_wl_key_up(ev);
+     }
+
+   return res;
+}
+
+E_API Eina_Bool
 e_comp_wl_evas_handle_mouse_button(E_Client *ec, uint32_t timestamp, uint32_t button_id, uint32_t state)
 {
    Eina_List *l;

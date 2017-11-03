@@ -79,7 +79,6 @@ struct _E_Keyrouter_Grabbed_Key
    Eina_List *top_ptr;
    Eina_List *shared_ptr;
    Eina_List *press_ptr;
-   E_Keyrouter_Key_List_Node *registered_ptr;
    Eina_List *pic_off_ptr;
 };
 
