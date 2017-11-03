@@ -72,6 +72,26 @@ struct _E_Comp_Hook
    unsigned char       delete_me : 1;
 };
 
+typedef struct _E_Comp_Intercept_Hook E_Comp_Intercept_Hook;
+
+typedef enum _E_Comp_Intercept_Hook_Point
+{
+   E_COMP_INTERCEPT_HOOK_PREPARE_PLANE,
+   E_COMP_INTERCEPT_HOOK_END_ALL_HWC,
+   E_COMP_INTERCEPT_HOOK_LAST,
+} E_Comp_Intercept_Hook_Point;
+
+typedef Eina_Bool (*E_Comp_Intercept_Hook_Cb)(void *data);
+
+struct _E_Comp_Intercept_Hook
+{
+   EINA_INLIST;
+   E_Comp_Intercept_Hook_Point hookpoint;
+   E_Comp_Intercept_Hook_Cb func;
+   void               *data;
+   unsigned char       delete_me : 1;
+};
+
 struct _E_Comp
 {
    E_Object e_obj_inherit;
@@ -149,6 +169,7 @@ struct _E_Comp
    Eina_Bool       hwc_use_multi_plane;
    Eina_Bool       hwc_ignore_primary;
    Eina_Bool       use_native_type_buffer : 1; // use native buffer type
+   Eina_Bool       hwc_intercept_pol; //apply intercept hwc policy
 
    int depth;
    unsigned int    input_key_grabs;
@@ -251,6 +272,9 @@ EINTERN void e_comp_hwc_multi_plane_set(Eina_Bool set);
 #endif
 
 E_API Eina_Bool e_comp_socket_init(const char *name);
+
+E_API E_Comp_Intercept_Hook *e_comp_intercept_hook_add(E_Comp_Intercept_Hook_Point hookpoint, E_Comp_Intercept_Hook_Cb func, const void *data);
+E_API void e_comp_intercept_hook_del(E_Comp_Intercept_Hook *ch);
 
 #endif
 #endif

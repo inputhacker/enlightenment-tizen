@@ -44,6 +44,15 @@ static Eina_Inlist *_e_comp_hooks[] =
    [E_COMP_HOOK_PREPARE_PLANE] = NULL,
 };
 
+static int _e_comp_intercept_hooks_delete = 0;
+static int _e_comp_intercept_hooks_walking = 0;
+
+static Eina_Inlist *_e_comp_intercept_hooks[] =
+{
+   [E_COMP_INTERCEPT_HOOK_PREPARE_PLANE] = NULL,
+   [E_COMP_INTERCEPT_HOOK_END_ALL_HWC] = NULL,
+};
+
 typedef enum _E_Comp_HWC_Mode
 {
    E_HWC_MODE_NO = 0,
@@ -90,6 +99,9 @@ E_API int E_EVENT_COMPOSITOR_FPS_UPDATE = -1;
 #define ERR(f, x ...)
 #define CRI(f, x ...)
 #endif
+
+static void _e_comp_intercept_hooks_clean(void);
+static Eina_Bool _e_comp_intercept_hook_call(E_Comp_Intercept_Hook_Point hookpoint);
 
 static void
 _e_comp_fps_update(void)
@@ -223,6 +235,33 @@ _e_comp_hook_call(E_Comp_Hook_Point hookpoint, void *data EINA_UNUSED)
    _e_comp_hooks_walking--;
    if ((_e_comp_hooks_walking == 0) && (_e_comp_hooks_delete > 0))
      _e_comp_hooks_clean();
+}
+
+static int
+_hwc_mode_get(void)
+{
+   E_Zone *zone = NULL;
+   E_Output * eout = NULL;
+   E_Plane *ep = NULL;
+
+   Eina_List *l, *ll;
+   E_Comp_HWC_Mode mode = E_HWC_MODE_NO;
+
+   zone = e_zone_current_get();
+   if (zone) eout = e_output_find(zone->output_id);
+   if (!eout) return E_HWC_MODE_NO;
+   EINA_LIST_FOREACH_SAFE(eout->planes, l, ll, ep)
+     {
+        if (e_plane_is_fb_target(ep) && ep->ec)
+          {
+             mode = E_HWC_MODE_FULL; break;
+          }
+        else if (ep->ec)
+          {
+             mode = E_HWC_MODE_HYBRID;
+          }
+     }
+   return mode;
 }
 
 static int
@@ -927,7 +966,21 @@ e_comp_hwc_end(const char *location)
    Eina_Bool mode_set = EINA_FALSE;
    E_Zone *zone;
    Eina_List *l;
-   Eina_Bool fully_hwc = (e_comp->hwc_mode == E_HWC_MODE_FULL) ? EINA_TRUE : EINA_FALSE;
+   int old_hwc, new_hwc;
+
+   old_hwc = _hwc_mode_get();
+
+   // once hwc_intercept_pol is activated, hwc set/unset should be handled by interceptor
+   if (e_comp->hwc_intercept_pol)
+     {
+        if (!_e_comp_intercept_hook_call(E_COMP_INTERCEPT_HOOK_END_ALL_HWC))
+          {
+             e_comp->hwc_intercept_pol = EINA_FALSE;
+             goto end;
+          }
+        else
+          return;
+     }
 
    E_FREE_FUNC(e_comp->nocomp_delay_timer, ecore_timer_del);
    _hwc_reserved_clean();
@@ -947,7 +1000,9 @@ e_comp_hwc_end(const char *location)
 
    e_comp->hwc_mode = E_HWC_MODE_NO;
 
-   if (fully_hwc)
+end:
+   new_hwc = _hwc_mode_get();
+   if ((old_hwc == E_HWC_MODE_FULL) && (new_hwc != E_HWC_MODE_FULL))
      ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
 
    ELOGF("HWC", " End...  at %s.", NULL, NULL, location);
@@ -1058,6 +1113,13 @@ setup_hwcompose:
    if (!e_comp->hwc ||
        e_comp->hwc_deactive)
      {
+        goto end;
+     }
+
+   // intercept hwc policy
+   if (!_e_comp_intercept_hook_call(E_COMP_INTERCEPT_HOOK_PREPARE_PLANE))
+     {
+        e_comp->hwc_intercept_pol = EINA_TRUE;
         goto end;
      }
 
@@ -2317,3 +2379,71 @@ e_comp_socket_init(const char *name)
 
    return EINA_TRUE;
 }
+
+static void
+_e_comp_intercept_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Comp_Intercept_Hook *ch;
+   unsigned int x;
+
+   for (x = 0; x < E_COMP_OBJECT_INTERCEPT_HOOK_LAST; x++)
+     EINA_INLIST_FOREACH_SAFE(_e_comp_intercept_hooks[x], l, ch)
+       {
+          if (!ch->delete_me) continue;
+          _e_comp_intercept_hooks[x] = eina_inlist_remove(_e_comp_intercept_hooks[x], EINA_INLIST_GET(ch));
+          free(ch);
+       }
+}
+
+static Eina_Bool
+_e_comp_intercept_hook_call(E_Comp_Intercept_Hook_Point hookpoint)
+{
+   E_Comp_Intercept_Hook *ch;
+   Eina_Bool ret = EINA_TRUE;
+
+   _e_comp_intercept_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_comp_intercept_hooks[hookpoint], ch)
+     {
+        if (ch->delete_me) continue;
+        if (!(ch->func(ch->data)))
+          {
+             ret = EINA_FALSE;
+             break;
+          }
+     }
+   _e_comp_intercept_hooks_walking--;
+   if ((_e_comp_intercept_hooks_walking == 0) && (_e_comp_intercept_hooks_delete > 0))
+     _e_comp_intercept_hooks_clean();
+
+   return ret;
+}
+
+E_API E_Comp_Intercept_Hook *
+e_comp_intercept_hook_add(E_Comp_Intercept_Hook_Point hookpoint, E_Comp_Intercept_Hook_Cb func, const void *data)
+{
+   E_Comp_Intercept_Hook *ch;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_COMP_INTERCEPT_HOOK_LAST, NULL);
+   ch = E_NEW(E_Comp_Intercept_Hook, 1);
+   if (!ch) return NULL;
+   ch->hookpoint = hookpoint;
+   ch->func = func;
+   ch->data = (void*)data;
+   _e_comp_intercept_hooks[hookpoint] = eina_inlist_append(_e_comp_intercept_hooks[hookpoint], EINA_INLIST_GET(ch));
+   return ch;
+}
+
+E_API void
+e_comp_intercept_hook_del(E_Comp_Intercept_Hook *ch)
+{
+   ch->delete_me = 1;
+   if (_e_comp_intercept_hooks_walking == 0)
+     {
+        _e_comp_intercept_hooks[ch->hookpoint] = eina_inlist_remove(_e_comp_intercept_hooks[ch->hookpoint], EINA_INLIST_GET(ch));
+        free(ch);
+     }
+   else
+     _e_comp_intercept_hooks_delete++;
+}
+
