@@ -383,6 +383,8 @@ _e_keyrouter_query_tizen_key_table(void)
              continue;
           }
 
+        KLINF("[jeon] keycode: %d, name: %s, no_priv: %d, repeat: %d\n", data->keycode, data->name, data->no_privcheck, data->repeat);
+
         krt->HardKeys[data->keycode].keycode = data->keycode;
         krt->HardKeys[data->keycode].keyname = (char *)eina_stringshare_add(data->name);
         krt->HardKeys[data->keycode].no_privcheck = data->no_privcheck ? EINA_TRUE : EINA_FALSE;
@@ -428,7 +430,7 @@ _e_keyrouter_max_keycode_get(void)
    return krt->max_tizen_hwkeys;
 }
 
-E_API void
+E_API int
 e_keyrouter_init(void)
 {
    E_Keyrouter_Config_Data *kconfig = NULL;
@@ -469,7 +471,7 @@ e_keyrouter_init(void)
    e_keyrouter.max_keycode_get = _e_keyrouter_max_keycode_get;
 
    TRACE_INPUT_END();
-   return;
+   return EINA_TRUE;
 
 err:
    if (kconfig)
@@ -484,9 +486,10 @@ err:
    if (krt) E_FREE(krt);
 
    TRACE_INPUT_END();
+   return EINA_FALSE;
 }
 
-E_API void
+E_API int
 e_keyrouter_shutdown(void)
 {
    int i;
@@ -510,4 +513,6 @@ e_keyrouter_shutdown(void)
    /* TODO: free allocated memory */
 
    eina_log_domain_unregister(_keyrouter_log_dom);
+
+   return EINA_TRUE;
 }

@@ -86,6 +86,10 @@ E_API E_Keyrouter_Intercept_Hook *e_keyrouter_intercept_hook_add(E_Keyrouter_Int
 E_API void e_keyrouter_intercept_hook_del(E_Keyrouter_Intercept_Hook *ch);
 E_API Eina_Bool e_keyrouter_intercept_hook_call(E_Keyrouter_Intercept_Hook_Point hookpoint, int type, Ecore_Event_Key *event);
 
+E_API int e_keyrouter_init(void);
+E_API int e_keyrouter_shutdown(void);
+
+
 #endif
 #endif
 

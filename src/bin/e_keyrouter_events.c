@@ -58,36 +58,36 @@ _e_keyrouter_event_routed_key_check(Ecore_Event_Key *ev, int type)
 Eina_Bool
 e_keyrouter_event_process(void *event, int type)
 {
-   Eina_Bool res = EINA_TRUE;
+   Eina_Bool res = EINA_FALSE;
    Ecore_Event_Key *ev = event;
 
    KLDBG("[%s] keyname: %s, key: %s, keycode: %d", (type == ECORE_EVENT_KEY_DOWN) ? "KEY_PRESS" : "KEY_RELEASE", ev->keyname, ev->key, ev->keycode);
 
+   e_screensaver_notidle();
+
    if (!_e_keyrouter_event_routed_key_check(event, type))
      {
-//        res = e_comp_wl_key_process(event, type);
         goto finish;
      }
 
    if (!e_keyrouter_intercept_hook_call(E_KEYROUTER_INTERCEPT_HOOK_BEFORE_KEYROUTING, type, ev))
      {
-        res = EINA_FALSE;
         goto finish;
      }
 
    if ((ECORE_EVENT_KEY_UP == type) && (!krt->HardKeys[ev->keycode].press_ptr))
      {
         KLDBG("The release key(%d) isn't a processed by keyrouter!", ev->keycode);
-        res = EINA_FALSE;
         goto finish;
      }
 
    //KLDBG("The key(%d) is going to be sent to the proper wl client(s) !", ev->keycode);
    KLDBG("[%s] keyname: %s, key: %s, keycode: %d", (type == ECORE_EVENT_KEY_DOWN) ? "KEY_PRESS" : "KEY_RELEASE", ev->keyname, ev->key, ev->keycode);
-   if (_e_keyrouter_send_key_events(type, ev))
-     res = EINA_FALSE;
+   res = _e_keyrouter_send_key_events(type, ev);
+   if (res) return EINA_FALSE;
 
 finish:
+   res = e_comp_wl_key_process(event, type);
    return res;
 }
 
@@ -437,10 +437,7 @@ _e_keyrouter_send_key_event(int type, struct wl_resource *surface, struct wl_cli
 struct wl_resource *
 e_keyrouter_util_get_surface_from_eclient(E_Client *client)
 {
-   EINA_SAFETY_ON_NULL_RETURN_VAL
-     (client, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL
-     (client->comp_data, NULL);
+   if (!client || !client->comp_data) return NULL;
 
    return client->comp_data->wl_surface;
 }

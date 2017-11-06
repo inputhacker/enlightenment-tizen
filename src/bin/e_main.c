@@ -677,6 +677,15 @@ main(int argc, char **argv)
    _e_main_shutdown_push(_e_main_screens_shutdown);
    TRACE_DS_END();
 
+   TSB("E_Keyrouter Init");
+   if (!e_keyrouter_init())
+     {
+        e_error_message_show(_("Enlightenment cannot set up its keyrouting system.\n"));
+        goto failed;
+     }
+   TSE("E_Keyrouter Init Done");
+   _e_main_shutdown_push(e_keyrouter_shutdown);
+
    if (e_config->eom_enable)
      {
         TSB("Eom Init");
