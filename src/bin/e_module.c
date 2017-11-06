@@ -328,6 +328,8 @@ e_module_new(const char *name)
    char str[1024];
 
    if (!name) return NULL;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(_e_modules_hash, NULL);
+
    m = E_OBJECT_ALLOC(E_Module, E_MODULE_TYPE, _e_module_free);
    if (!m) return NULL;
 
@@ -441,12 +443,6 @@ e_module_new(const char *name)
 init_done:
 
    _e_modules = eina_list_append(_e_modules, m);
-   if (!_e_modules_hash)
-     {
-        /* wayland module preloading */
-        if (!e_module_init())
-          CRI("WTFFFFF");
-     }
    eina_hash_add(_e_modules_hash, name, m);
    m->name = eina_stringshare_add(name);
    if (modpath)
