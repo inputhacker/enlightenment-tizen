@@ -57,6 +57,11 @@ struct _E_Output
         int                   rotation; // 0, 90, 180, 270
         int                   priority; // larger num == more important
         Eina_Bool             enabled : 1; // should this monitor be enabled?
+
+        /* TODO: maybe it'd be better to have TWO list of outputs: one for outputs managed
+         *       by no-opt-hwc and one for outputs managed by opt-hwc? */
+        Eina_Bool             managed_by_opt_hwc; // that is whether the layer policy for this output
+                                                  // is controlled by tdm-backend
    } config;
 
    int                  plane_count;
@@ -162,7 +167,7 @@ E_API E_Plane           * e_output_plane_get_by_zpos(E_Output *output, int zpos)
 EINTERN void              e_output_update_fps();
 E_API E_Output_Hook     * e_output_hook_add(E_Output_Hook_Point hookpoint, E_Output_Hook_Cb func, const void *data);
 E_API void                e_output_hook_del(E_Output_Hook *ch);
-
+EINTERN Eina_Bool         e_output_is_managed_by_opt_hwc(E_Output *output);
 
 #endif
 #endif

@@ -516,6 +516,9 @@ _hwc_reserved_clean()
         if (!zone->output_id) continue;
         eout = e_output_find(zone->output_id);
         if (!eout) continue;;
+
+        if (eout->config.managed_by_opt_hwc) continue;
+
         EINA_LIST_FOREACH(eout->planes, ll, ep)
           {
              if (!e_comp->hwc_use_multi_plane &&
@@ -635,6 +638,9 @@ _e_comp_hwc_changed(void)
 
         eout = e_output_find(zone->output_id);
         if (!eout) continue;
+
+        if (eout->config.managed_by_opt_hwc) continue;
+
         ep_l = e_output_planes_get(eout);
         EINA_LIST_REVERSE_FOREACH(ep_l, p_l, ep)
           {
@@ -692,21 +698,40 @@ _e_comp_hwc_changed(void)
    return ret;
 }
 
+/* whether an ec belong to the output managed by opt-hwc */
 EINTERN Eina_Bool
-e_comp_hwc_optimized_is_used()
+e_comp_is_ec_on_output_managed_by_opt_hwc(E_Client *ec)
 {
-   return e_comp->hwc_optimized;
+   E_Output *eo;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->zone, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->zone->output_id, EINA_FALSE);
+
+   eo = e_output_find(ec->zone->output_id);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(eo, EINA_FALSE);
+
+   if (eo->config.managed_by_opt_hwc)
+      return EINA_TRUE;
+
+   return EINA_FALSE;
 }
+
+/* TODO: no-opt hwc has to be forced to use this function too... */
 
 /* filter visible clients by the window manager
  *
  * returns list of clients which are acceptable to be composited by hw,
  * it's a caller responsibility to free it
  *
+ * is_output_managed_by_opt_hwc - whether clients are filtered for the output
+ *                                managed by opt-hwc
+ *
  * for optimized hwc the returned list contains ALL clients
  */
 EINTERN Eina_List *
-e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
+e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur, Eina_Bool is_output_managed_by_opt_hwc)
 {
    Eina_List *hwc_acceptable_cl_list = NULL;
    Eina_List *l, *l_inner;
@@ -718,9 +743,8 @@ e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
    *n_cur = 0;
 
    INF("hwc-opt: filter e_clients by wm.");
-   
-   if (e_comp_hwc_optimized_is_used())
 
+   if (is_output_managed_by_opt_hwc)
      {
         /* let's hope for the best... */
         EINA_LIST_FOREACH(vis_cl_list, l, ec)
@@ -736,7 +760,7 @@ e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
         // check clients not able to use hwc
 
         /* window manager required full GLES composition */
-        if (e_comp_hwc_optimized_is_used() && e_comp->nocomp_override > 0)
+        if (is_output_managed_by_opt_hwc && e_comp->nocomp_override > 0)
           {
              ec->hwc_acceptable = EINA_FALSE;
              INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable (nocomp_override > 0).",
@@ -749,7 +773,7 @@ e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
             // if there is UI subfrace, it means need to composite
             e_client_normal_client_has(ec))
           {
-             if (!e_comp_hwc_optimized_is_used()) goto no_hwc;
+             if (!is_output_managed_by_opt_hwc) goto no_hwc;
 
              /* we have to let hwc know about ALL clients(buffers) in case we're using
               * optimized hwc, that's why it can be called optimized :), but also we have to provide
@@ -765,7 +789,7 @@ e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur)
         // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
         if (!_hwc_available_get(ec))
           {
-             if (!e_comp_hwc_optimized_is_used())
+             if (!is_output_managed_by_opt_hwc)
                {
                   if (!n_ec) goto no_hwc;
                   break;
@@ -811,6 +835,8 @@ _e_comp_hwc_prepare(void)
 
         output = e_output_find(zone->output_id);
         if (!output) continue;
+
+        if (output->config.managed_by_opt_hwc) continue;
 
         vis_clist = e_comp_vis_ec_list_get(zone);
         if (!vis_clist) continue;
@@ -892,6 +918,9 @@ _e_comp_hwc_usable(void)
 
         eout = e_output_find(zone->output_id);
         if (!eout) continue;
+
+        if (eout->config.managed_by_opt_hwc) continue;
+
         ep_l = e_output_planes_get(eout);
 
         // It is not hwc_usable if cursor is shown when the hw cursor is not supported.
@@ -974,6 +1003,9 @@ _e_comp_hwc_begin(void)
         E_Output * eout;
         if (!zone->output_id) continue;
         eout = e_output_find(zone->output_id);
+
+        if (eout->config.managed_by_opt_hwc) continue;
+
         if(eout) mode_set |= _e_comp_hwc_apply(eout);
      }
 
@@ -1016,6 +1048,9 @@ e_comp_hwc_end(const char *location)
         E_Output * eout;
         if (!zone->output_id) continue;
         eout = e_output_find(zone->output_id);
+
+        if (eout->config.managed_by_opt_hwc) continue;
+
         if (eout) mode_set |= _hwc_cancel(eout);
      }
 
@@ -1139,12 +1174,10 @@ setup_hwcompose:
         goto end;
      }
 
-   if (e_comp->hwc_optimized)
-     {
-        e_hwc_re_evaluate();
-        goto end;
-     }
+   /* an optimized hwc's reevaluate */
+   e_hwc_re_evaluate();
 
+   /* a no-optimized hwc's reevaluate */
    if(_e_comp_hwc_usable())
      {
         if (e_comp->hwc_mode)
@@ -1323,21 +1356,6 @@ e_comp_init(void)
         e_main_ts_end("\tE_Comp_Data New Done");
      }
 
-   /* HWC, in terms of E20's architecture, is a part of E20 responsible for hardware compositing
-    *
-    * - no-optimized HWC takes away, from the evas engine compositor, a part of the composition
-    * work without an assumption was that part worthy(optimally) to be delegated to hardware;
-    * - optimized HWC makes this assumption (delegate it to tdm-backend, to be exact);
-    *
-    * of course if the tdm-backend makes no optimization these HWCs behave equally...
-    *
-    * when we're talking about 'optimized' we mean optimized by power consumption criteria.
-    */
-   if (conf->hwc_optimized)
-     INF("hwc-opt: E20's gonna use optimized hwc.");
-   else
-     INF("hwc-opt: E20's gonna use no-optimized hwc.");
-
    // comp config versioning - add this in. over time add epochs etc. if
    // necessary, but for now a simple version number will do
    if (conf->version < E_COMP_VERSION)
@@ -1358,7 +1376,6 @@ e_comp_init(void)
    e_comp_new();
 
    if (conf->hwc_ignore_primary) e_comp->hwc_ignore_primary = EINA_TRUE;
-   if (conf->hwc_optimized) e_comp->hwc_optimized = EINA_TRUE;
 
    e_main_ts_begin("\tE_Comp_Screen Init");
    if (!e_comp_screen_init())
@@ -1391,10 +1408,11 @@ e_comp_init(void)
    E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_SIGNAL_USER, _e_comp_signal_user,     NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_COMP_OBJECT_ADD, _e_comp_object_add,      NULL);
 
+   /* it's not necessary to call this function if we got no opt-hwc managed outputs,
+    * but to unify code we do it */
    /* _e_comp_cb_update() isn't called before the first output commit therefore
-    * we need notify the hwc extension we want to use the target window */
-   if (e_comp->hwc_optimized)
-      e_hwc_re_evaluate();
+    * we need notify the hwc extension that we want to use the target window */
+   e_hwc_re_evaluate();
 
    return EINA_TRUE;
 }
@@ -1602,12 +1620,13 @@ e_comp_override_add()
 #ifdef ENABLE_HWC_MULTI
    if (e_comp->nocomp_override > 0)
      {
+        /* let both hwcs a shot to switch to gles composition */
+
         // go full GLES compositing
-        if (!e_comp_hwc_optimized_is_used())
-          e_comp_hwc_end(__FUNCTION__);
-        else
-          /* We must notify the hwc extension about the full GLES composition. */
-          e_comp_render_queue();
+        e_comp_hwc_end(__FUNCTION__);
+
+        /* We must notify the hwc extension about the full GLES composition. */
+        e_hwc_re_evaluate();
      }
 #endif
 }
@@ -1852,31 +1871,34 @@ e_comp_hook_del(E_Comp_Hook *ch)
 EINTERN Eina_Bool
 e_comp_is_on_overlay(E_Client *ec)
 {
-   if (!ec) return EINA_FALSE;
-   if (e_comp->hwc_mode || e_comp->hwc_optimized)
+   E_Output *eout;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(!ec, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(!ec->zone, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(!ec->zone->output_id, EINA_FALSE);
+
+   eout = e_output_find(ec->zone->output_id);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(!eout, EINA_FALSE);
+
+   if (e_comp_is_ec_on_output_managed_by_opt_hwc(ec))
+     {
+        E_Hwc_Window *window = e_output_find_window_by_ec(eout, ec);
+        if (e_hwc_window_is_on_hw_overlay(window))
+           return EINA_TRUE;
+     }
+   else
      {
         Eina_List *l, *ll;
-        E_Output * eout;
         E_Plane *ep;
 
-        if (!ec->zone || !ec->zone->output_id) return EINA_FALSE;
-        eout = e_output_find(ec->zone->output_id);
-        if (!eout) return EINA_FALSE;
-        if (e_comp->hwc_optimized)
-          {
-             E_Hwc_Window *window;
-             window = e_output_find_window_by_ec(eout, ec);
-             if (e_hwc_window_is_on_hw_overlay(window)) return EINA_TRUE;
-          }
-        else
-          {
-             EINA_LIST_FOREACH_SAFE(eout->planes, l, ll, ep)
-               {
-                  E_Client *overlay_ec = ep->ec;
-                  if (overlay_ec == ec) return EINA_TRUE;
-               }
-          }
+        if (e_comp->hwc_mode == E_HWC_MODE_NO)
+           return EINA_FALSE;
+
+        EINA_LIST_FOREACH_SAFE(eout->planes, l, ll, ep)
+           if (ep->ec == ec)
+              return EINA_TRUE;
      }
+
    return EINA_FALSE;
 }
 
@@ -1886,9 +1908,17 @@ e_comp_vis_ec_list_get(E_Zone *zone)
    Eina_List *ec_list = NULL;
    E_Client  *ec;
    Evas_Object *o;
+   E_Output *eout;
+   Eina_Bool managed_by_opt_hwc; // whether an output(zona) managed by opt-hwc
 
    E_OBJECT_CHECK_RETURN(zone, NULL);
    E_OBJECT_TYPE_CHECK_RETURN(zone, E_ZONE_TYPE, NULL);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(!zone->output_id, NULL);
+
+   eout = e_output_find(zone->output_id);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(!eout, EINA_FALSE);
+
+   managed_by_opt_hwc = eout->config.managed_by_opt_hwc;
 
    // TODO: check if eout is available to use hwc policy
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
@@ -1902,7 +1932,7 @@ e_comp_vis_ec_list_get(E_Zone *zone)
 
         if (ec->zone != zone) continue;
 
-        if (e_comp->hwc_optimized)
+        if (managed_by_opt_hwc)
           {
              /* skip all small clients except the video clients */
              if ((ec->w == 1 || ec->h == 1) && !(ec->comp_data && ec->comp_data->video_client))
@@ -1931,7 +1961,7 @@ e_comp_vis_ec_list_get(E_Zone *zone)
            continue;
 
         /* for hwc optimized we need full stack of visible windows */
-        if (!e_comp->hwc_optimized)
+        if (!managed_by_opt_hwc)
           if (!ec->argb)
             break;
      }

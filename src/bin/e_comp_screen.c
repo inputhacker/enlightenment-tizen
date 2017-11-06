@@ -220,25 +220,23 @@ _e_comp_screen_commit_idle_cb(void *data EINA_UNUSED)
 
    e_comp_screen = e_comp->e_comp_screen;
 
-   if (e_comp->hwc_optimized)
-     {
-        if (!e_hwc_commit())
-           ERR("fail to commit hwc.");
+   /* an optimized hwc's commit */
+   if (!e_hwc_commit())
+      ERR("fail to commit hwc.");
 
-        goto end;
-     }
-
+   /* a no-optimized hwc's commit */
    EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l, ll, output)
      {
         if (!output) continue;
         if (!output->config.enabled) continue;
+
+        if (output->config.managed_by_opt_hwc) continue;
 
         if (!e_output_commit(output))
              ERR("fail to commit e_comp_screen->outputs.");
 
         if (!e_output_render(output))
              ERR("fail to render e_comp_screen->outputs.");
-
      }
 
 end:
@@ -1047,22 +1045,34 @@ e_comp_screen_init()
         goto failed_comp_screen;
      }
 
-   if (e_comp->hwc_optimized)
+   /* HWC, in terms of E20's architecture, is a part of E20 responsible for hardware compositing
+    *
+    * - no-optimized HWC takes away, from the evas engine compositor, a part of the composition
+    * work without an assumption was that part worthy(optimally) to be delegated to hardware;
+    * - optimized HWC makes this assumption (delegate it to tdm-backend, to be exact);
+    *
+    * of course if the tdm-backend makes no optimization these HWCs behave equally...
+    *
+    * optimized and no-optimized hwc-s can so-exist together to manage different outputs;
+    * as E20 may handle several outputs by different hwcs we let them both work simultaneously,
+    * so we initialize both hwcs, let both hwcs reevaluate and let both hwcs make a commit;
+    * one hwc handles only outputs managed by it, so other outputs are handled by the another hwc :)
+    */
+
+   /* an optimized hwc's initialization */
+   if (!e_hwc_init())
      {
-        if (!e_hwc_init())
-          {
-             e_error_message_show(_("Enlightenment cannot initialize hwc!\n"));
-             return EINA_FALSE;
-          }
+        ERR("Enlightenment cannot initialize hwc!\n");
+        return EINA_FALSE;
      }
-   else
+
+   /* a no-optimized hwc's initialization */
+
+   /* this setup function is called after e_comp_canvas_init */
+   if (!e_comp_screen_setup(e_comp->e_comp_screen))
      {
-        /* this setup function is called after e_comp_canvas_init */
-        if (!e_comp_screen_setup(e_comp->e_comp_screen))
-          {
-             ERR("fail to e_comp_screen_setup");
-             return EINA_FALSE;
-          }
+        ERR("fail to e_comp_screen_setup");
+        return EINA_FALSE;
      }
 
    if (eldbus_init() == 0)
@@ -1154,6 +1164,8 @@ e_comp_screen_setup(E_Comp_Screen *e_comp_screen)
      {
         if (!output) continue;
         if (!output->config.enabled) continue;
+
+        if (output->config.managed_by_opt_hwc) continue;
 
         if (!e_output_setup(output))
           {
@@ -1341,6 +1353,14 @@ e_comp_screen_hwc_info_debug(void)
    EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l_o, ll_o, output)
      {
         if (!output) continue;
+
+        /* TODO: construct debug info for outputs managed by the opt-hwc */
+        if (output->config.managed_by_opt_hwc)
+          {
+             INF("HWC: HWC Output(%d) managed by opt-hwc.", ++output_idx);
+             continue;
+          }
+
         tdm_output_get_conn_status(output->toutput, &conn_status);
         if (conn_status == TDM_OUTPUT_CONN_STATUS_DISCONNECTED) continue;
 

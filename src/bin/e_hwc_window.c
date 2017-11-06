@@ -176,6 +176,11 @@ _e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    E_Zone *zone;
    Eina_Bool result;
 
+   /* if an e_client belongs to the e_output managed by
+    * no-opt hwc there's no need to deal with hwc_windows */
+   if (!e_comp_is_ec_on_output_managed_by_opt_hwc(ec))
+      return;
+
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
    zone = ec->zone;
@@ -210,6 +215,11 @@ _e_hwc_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
 {
    E_Hwc_Window *window;
 
+   /* if an e_client belongs to the e_output managed by
+    * no-opt hwc there's no need to deal with hwc_windows */
+   if (!e_comp_is_ec_on_output_managed_by_opt_hwc(ec))
+      return;
+
    window = e_output_find_window_by_ec_in_all_outputs(ec);
 
    e_hwc_window_free(window);
@@ -229,6 +239,11 @@ _e_hwc_window_client_cb_zone_set(void *data, int type, void *event)
 
    ev = event;
    EINA_SAFETY_ON_NULL_GOTO(ev, fail);
+
+   /* if an e_client belongs to the e_output managed by
+    * no-opt hwc there's no need to deal with hwc_windows */
+   if (!e_comp_is_ec_on_output_managed_by_opt_hwc(ev->ec))
+      return ECORE_CALLBACK_PASS_ON;
 
    ec = ev->ec;
    EINA_SAFETY_ON_NULL_GOTO(ec, fail);
@@ -589,6 +604,7 @@ e_hwc_window_init(void)
         Eina_Bool result;
 
         if (!output->config.enabled) continue;
+        if (!output->config.managed_by_opt_hwc) continue;
 
         target_window = _e_hwc_window_target_new(output);
         EINA_SAFETY_ON_NULL_RETURN_VAL(target_window, EINA_FALSE);

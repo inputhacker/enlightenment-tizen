@@ -310,6 +310,19 @@ _e_video_vbuf_find_with_comp_buffer(Eina_List *list, E_Comp_Wl_Buffer *comp_buff
    return NULL;
 }
 
+static E_Output*
+_get_e_output(tdm_output *output)
+{
+   Eina_List *l;
+   E_Output *eo;
+
+   EINA_LIST_FOREACH(e_comp->e_comp_screen->outputs, l, eo)
+      if (eo->toutput == output)
+         return eo;
+
+   return NULL;
+}
+
 static Eina_Bool
 _e_video_tdm_output_has_video_layer(tdm_output *output)
 {
@@ -319,7 +332,7 @@ _e_video_tdm_output_has_video_layer(tdm_output *output)
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
    /* TODO: add the hwc window video support */
-   if (e_comp_hwc_optimized_is_used())
+   if (e_output_is_managed_by_opt_hwc(_get_e_output(output)))
      return EINA_FALSE;
 
    /* get the first suitable layer */
@@ -342,7 +355,7 @@ _e_video_avaiable_video_layer_get(E_Video *video)
    layer = calloc(1, sizeof(E_Video_Layer));
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
 
-   if (e_comp_hwc_optimized_is_used())
+   if (e_output_is_managed_by_opt_hwc(video->e_output))
      {
         E_Hwc_Window *window;
 
@@ -411,7 +424,7 @@ _e_video_get_prop_id(E_Video *video, const char *name)
    int i, count;
 
    /* hwc windows don't have any properties yet */
-   if (e_comp_hwc_optimized_is_used())
+   if (e_output_is_managed_by_opt_hwc(video->e_output))
      {
 	      return -1;
      }
@@ -441,21 +454,21 @@ _e_video_get_available_formats(const tbm_format **formats, int *count)
 
    *count = 0;
 
+   /* get the first output */
+   output = tdm_display_get_output(e_comp->e_comp_screen->tdisplay, 0, NULL);
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
    /*
     * TODO:: get available for any hwc_window.
     *        Maybe new HWC API has to be extended for it
     */
-   if (e_comp_hwc_optimized_is_used())
+   if (e_output_is_managed_by_opt_hwc(_get_e_output(output)))
      {
         *formats = sw_formats;
         *count = NUM_SW_FORMAT;
 
         return;
      }
-
-   /* get the first output */
-   output = tdm_display_get_output(e_comp->e_comp_screen->tdisplay, 0, NULL);
-   EINA_SAFETY_ON_NULL_RETURN(output);
 
    /* get the first suitable layer */
    layer = _e_video_tdm_video_layer_get(output);
@@ -470,6 +483,19 @@ _e_video_get_available_formats(const tbm_format **formats, int *count)
      }
 }
 
+/* we're not sure that a video client is within some 'zone' so we can't rely on this
+ * to get the output the client belongs to */
+static Eina_Bool
+_is_video_cl_on_output_managed_by_opt_hwc(E_Client *ec)
+{
+   //EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_TRUE);
+
+   E_Video *video = find_video_with_surface(ec->comp_data->surface);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(video, EINA_FALSE);
+
+   return e_output_is_managed_by_opt_hwc(video->e_output);
+}
+
 static tdm_error
 _e_video_layer_get_info(E_Video_Layer *layer, E_Video_Info_Layer *vinfo)
 {
@@ -479,7 +505,7 @@ _e_video_layer_get_info(E_Video_Layer *layer, E_Video_Info_Layer *vinfo)
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_INVALID_PARAMETER);
    EINA_SAFETY_ON_NULL_RETURN_VAL(vinfo, TDM_ERROR_INVALID_PARAMETER);
 
-   if (e_comp_hwc_optimized_is_used())
+   if (_is_video_cl_on_output_managed_by_opt_hwc(layer->e_client))
         memcpy(vinfo, &layer->info, sizeof(E_Video_Info_Layer));
    else
      {
@@ -502,7 +528,7 @@ _e_video_layer_set_info(E_Video_Layer *layer, E_Video_Info_Layer *vinfo)
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_INVALID_PARAMETER);
    EINA_SAFETY_ON_NULL_RETURN_VAL(vinfo, TDM_ERROR_INVALID_PARAMETER);
 
-   if (e_comp_hwc_optimized_is_used())
+   if (_is_video_cl_on_output_managed_by_opt_hwc(layer->e_client))
      {
         tdm_hwc_window_info hwc_win_info = {0};
         E_Hwc_Window *window;
@@ -545,7 +571,7 @@ _e_video_layer_set_buffer(E_Video_Layer * layer, tbm_surface_h buff)
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
    EINA_SAFETY_ON_NULL_RETURN_VAL(buff, TDM_ERROR_BAD_REQUEST);
 
-   if (e_comp_hwc_optimized_is_used())
+   if (_is_video_cl_on_output_managed_by_opt_hwc(layer->e_client))
      {
         E_Hwc_Window *window;
 
@@ -570,7 +596,7 @@ _e_video_layer_unset_buffer(E_Video_Layer *layer)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
 
-   if (e_comp_hwc_optimized_is_used())
+   if (_is_video_cl_on_output_managed_by_opt_hwc(layer->e_client))
      {
         E_Hwc_Window *window;
 
@@ -597,7 +623,7 @@ _e_video_layer_is_usable(E_Video_Layer * layer, unsigned int *usable)
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
    EINA_SAFETY_ON_NULL_RETURN_VAL(usable, TDM_ERROR_BAD_REQUEST);
 
-   if (e_comp_hwc_optimized_is_used())
+   if (_is_video_cl_on_output_managed_by_opt_hwc(layer->e_client))
      {
         E_Hwc_Window *window;
 
@@ -776,7 +802,7 @@ _e_video_layer_commit(E_Video_Layer *layer, tdm_layer_commit_handler func, void 
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
 
-   if (e_comp_hwc_optimized_is_used())
+   if (_is_video_cl_on_output_managed_by_opt_hwc(layer->e_client))
      {
         E_Hwc_Window *window;
 
@@ -808,20 +834,6 @@ _e_video_layer_commit(E_Video_Layer *layer, tdm_layer_commit_handler func, void 
    return ret;
 }
 
-static tdm_error
-_e_video_layer_get_zpos(E_Video_Layer * layer, int *zpos)
-{
-   tdm_error ret;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
-
-   if (e_comp_hwc_optimized_is_used())
-     return TDM_ERROR_BAD_MODULE;
-
-   ret = tdm_layer_get_zpos(layer->tdm_layer, zpos);
-   return ret;
-}
-
 static tbm_surface_h
 _e_video_layer_get_displaying_buffer(E_Video_Layer *layer, int *tdm_error)
 {
@@ -830,7 +842,7 @@ _e_video_layer_get_displaying_buffer(E_Video_Layer *layer, int *tdm_error)
    if (tdm_error)
      *tdm_error = TDM_ERROR_OPERATION_FAILED;
 
-   if (e_comp_hwc_optimized_is_used())
+   if (_is_video_cl_on_output_managed_by_opt_hwc(layer->e_client))
      {
         E_Hwc_Window *window;
 
@@ -853,7 +865,7 @@ _e_video_layer_set_property(E_Video_Layer * layer, Tdm_Prop_Value *prop)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
 
-   if (e_comp_hwc_optimized_is_used())
+   if (_is_video_cl_on_output_managed_by_opt_hwc(layer->e_client))
      return TDM_ERROR_BAD_MODULE;
 
    ret = tdm_layer_set_property(layer->tdm_layer, prop->id, prop->value);
@@ -865,7 +877,7 @@ _e_video_layer_destroy(E_Video_Layer *layer)
 {
    EINA_SAFETY_ON_NULL_RETURN(layer);
 
-   if (e_comp_hwc_optimized_is_used())
+   if (_is_video_cl_on_output_managed_by_opt_hwc(layer->e_client))
      {
         E_Hwc_Window *window;
 
@@ -894,7 +906,7 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
 
         if (!video->layer) return EINA_TRUE;
 
-        if (!e_comp_hwc_optimized_is_used())
+        if (!e_output_is_managed_by_opt_hwc(video->e_output))
           {
              _e_video_layer_is_usable(video->layer, &usable);
              if (!usable && !video->waiting_video_set)
@@ -910,7 +922,7 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
         video->layer = NULL;
         video->old_comp_buffer = NULL;
 
-        if (!e_comp_hwc_optimized_is_used())
+        if (!e_output_is_managed_by_opt_hwc(video->e_output))
           e_plane_video_set(video->e_plane, EINA_FALSE, NULL);
 
         video->e_plane = NULL;
@@ -935,9 +947,9 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
              return EINA_FALSE;
           }
 
-        if (!e_comp_hwc_optimized_is_used())
+        if (!e_output_is_managed_by_opt_hwc(video->e_output))
           {
-             ret = _e_video_layer_get_zpos(video->layer, &zpos);
+             ret = tdm_layer_get_zpos(video->layer->tdm_layer, &zpos);
              if (ret == TDM_ERROR_NONE)
                video->e_plane = e_output_plane_get_by_zpos(video->e_output, zpos);
 
@@ -1755,7 +1767,7 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
           {
              if (vbuf->tbm_surface == displaying_buffer) break;
           }
-        if (!vbuf && !e_comp_hwc_optimized_is_used()) return;
+        if (!vbuf && !e_output_is_managed_by_opt_hwc(video->e_output)) return;
      }
    else
      vbuf = eina_list_nth(video->committed_list, 0);
@@ -1926,7 +1938,7 @@ _e_video_frame_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf *vbuf)
    info.dst_pos.w = video->geo.tdm_output_r.w;
    info.dst_pos.h = video->geo.tdm_output_r.h;
    info.transform = vbuf->content_t;
-   if (e_comp_hwc_optimized_is_used())
+   if (e_output_is_managed_by_opt_hwc(video->e_output))
      info.src_config.format = tbm_surface_get_format(vbuf->tbm_surface);
 
    if (memcmp(&old_info, &info, sizeof(tdm_info_layer)))
@@ -1955,7 +1967,7 @@ _e_video_frame_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf *vbuf)
 
    topmost = find_topmost_parent_get(video->ec);
    if (topmost && topmost->argb && !e_comp_object_mask_has(video->ec->frame) &&
-       !e_comp_hwc_optimized_is_used())
+       !e_output_is_managed_by_opt_hwc(video->e_output))
      {
         Eina_Bool do_punch = EINA_TRUE;
 
@@ -2268,7 +2280,7 @@ _e_video_set(E_Video *video, E_Client *ec)
         ec->comp_data->block_map_apply = EINA_FALSE;
         ec->animatable = 0;
 
-        if (e_comp_hwc_optimized_is_used())
+        if (e_output_is_managed_by_opt_hwc(video->e_output))
           {
              window = e_output_find_window_by_ec_in_all_outputs(ec);
 
@@ -2328,7 +2340,7 @@ _e_video_set(E_Video *video, E_Client *ec)
             video->output_align, video->pp_align, video->video_align);
      }
 
-   if (e_comp_hwc_optimized_is_used())
+   if (e_output_is_managed_by_opt_hwc(video->e_output))
      {
 	     /*
 	      * TODO:: properties have to be added to hwc windows.
@@ -2472,7 +2484,7 @@ _e_video_check_if_pp_needed(E_Video *video)
    tdm_layer_capability capabilities = 0;
    tdm_error error;
 
-   if (e_comp_hwc_optimized_is_used())
+   if (e_output_is_managed_by_opt_hwc(video->e_output))
      {
        E_Hwc_Window *window;
 
@@ -2804,7 +2816,7 @@ _e_video_cb_ec_buffer_change(void *data, int type, void *event)
 
    if (!video->ec->comp_data->video_client)
      {
-        if (e_comp_hwc_optimized_is_used())
+        if (e_output_is_managed_by_opt_hwc(video->e_output))
           {
              _e_video_hide(video);
 

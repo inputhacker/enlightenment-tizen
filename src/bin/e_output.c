@@ -1576,6 +1576,7 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
    int size = 0;
    tdm_output_type output_type;
    int min_w, min_h, max_w, max_h, preferred_align;
+   tdm_output_capability output_caps = 0;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, NULL);
 
@@ -1586,6 +1587,20 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
    toutput = tdm_display_get_output(e_comp_screen->tdisplay, index, NULL);
    if (!toutput) goto fail;
    output->toutput = toutput;
+
+   error = tdm_output_get_capabilities(toutput, &output_caps);
+   if (error != TDM_ERROR_NONE)
+     {
+        WRN("fail to tdm_output_get_capabilities");
+        output_caps = 0;
+     }
+
+   /* if tdm_output supports hwc capability e20 has to manage it by optimized hwc */
+   if (output_caps & TDM_OUTPUT_CAPABILITY_HWC)
+     output->config.managed_by_opt_hwc = EINA_TRUE;
+
+   INF("E_OUTPUT: (%d) managed by %s", index, output->config.managed_by_opt_hwc ? "optimized hwc" :
+           "no-optimized hwc");
 
    error = tdm_output_add_change_handler(toutput, _e_output_cb_output_change, output);
    if (error != TDM_ERROR_NONE)
@@ -1620,16 +1635,16 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
    snprintf(id, size, "%s-%d", name, index);
 
    output->id = id;
-   INF("E_OUTPUT: (%d) output_id = %s", index, output->id);
+   INF("E_OUTPUT: output_id = %s", output->id);
 
-   if (e_comp->hwc_optimized)
-     {
-        output->e_comp_screen = e_comp_screen;
+   output->e_comp_screen = e_comp_screen;
 
-        _e_output_tdm_strem_capture_support(output);
+   _e_output_tdm_strem_capture_support(output);
 
-        return output;
-     }
+   if (output->config.managed_by_opt_hwc)
+     return output;
+
+   /* the e_output is managed by no optimized hwc so we have to deal with tdm_layers */
 
    tdm_output_get_layer_count(toutput, &num_layers);
    if (num_layers < 1)
@@ -1645,8 +1660,6 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
         ERR("fail to e_plane_init.");
         goto fail;
      }
-
-   output->e_comp_screen = e_comp_screen;
 
    for (i = 0; i < output->plane_count; i++)
      {
@@ -1673,8 +1686,6 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
         ERR("fail to set fb_target plane");
         goto fail;
      }
-
-   _e_output_tdm_strem_capture_support(output);
 
    return output;
 
@@ -2309,6 +2320,8 @@ e_output_util_planes_print(void)
 
         if (!output || !output->planes) continue;
 
+        if (output->config.managed_by_opt_hwc) continue;
+
         fprintf(stderr, "HWC in %s .. \n", output->id);
         fprintf(stderr, "HWC \tzPos \t on_plane \t\t\t\t on_prepare \t \n");
 
@@ -2905,4 +2918,12 @@ e_output_stream_capture_stop(E_Output *output)
 
         DBG("e_output stream capture stop.");
      }
+}
+
+EINTERN Eina_Bool
+e_output_is_managed_by_opt_hwc(E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   return output->config.managed_by_opt_hwc;
 }

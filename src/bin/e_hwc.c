@@ -511,6 +511,7 @@ _e_hwc_register_need_validate_handlers(Eina_List *eos)
    EINA_LIST_FOREACH(eos, l, output)
      {
         if (!output->config.enabled) continue;
+        if (!output->config.managed_by_opt_hwc) continue;
 
         err = tdm_output_hwc_set_need_validate_handler(output->toutput, _tdm_output_need_validate_handler);
         EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
@@ -549,8 +550,6 @@ e_hwc_re_evaluate()
 
    EINA_SAFETY_ON_FALSE_RETURN_VAL(e_comp->hwc, EINA_FALSE);
 
-   INF("hwc-opt: we have something which causes to reevaluate 'E_Hwc_Window to hw_layer' mapping.");
-
    EINA_LIST_FOREACH(e_comp->zones, l, zone)
      {
         E_Output *output;
@@ -562,12 +561,16 @@ e_hwc_re_evaluate()
         output = e_output_find(zone->output_id);
         if (!output) continue;
 
+        if (!output->config.managed_by_opt_hwc) continue;
+
+        INF("hwc-opt: we have something which causes to reevaluate 'E_Hwc_Window to hw_layer' mapping.");
+
         vis_clist = e_comp_vis_ec_list_get(zone);
 
         INF("hwc-opt: number of visible clients:%d.", eina_list_count(vis_clist));
 
         /* by demand of window manager to prevent some e_clients to be shown by hw directly */
-        hwc_ok_clist = e_comp_filter_cl_by_wm(vis_clist, &n_cur);
+        hwc_ok_clist = e_comp_filter_cl_by_wm(vis_clist, &n_cur, EINA_TRUE);
 
         /* mark all windows as an invisible */
         result = _hwc_re_evaluate_init(output);
@@ -616,6 +619,7 @@ e_hwc_commit()
 
         if (!output) continue;
         if (!output->config.enabled) continue;
+        if (!output->config.managed_by_opt_hwc) continue;
 
         if (!_e_hwc_output_commit(output))
           ERR("fail to commit output(%p).", output);

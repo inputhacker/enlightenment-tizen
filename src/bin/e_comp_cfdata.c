@@ -61,7 +61,6 @@ e_comp_cfdata_edd_init(E_Config_DD **conf_edd, E_Config_DD **match_edd)
    E_CONFIG_VAL(D, T, hwc_reuse_cursor_buffer, UCHAR);
    E_CONFIG_VAL(D, T, hwc_sync_mode_change, UCHAR);
    E_CONFIG_VAL(D, T, hwc_ignore_primary, UCHAR);
-   E_CONFIG_VAL(D, T, hwc_optimized, UCHAR);
    E_CONFIG_VAL(D, T, hwc_use_detach, UCHAR);
    E_CONFIG_VAL(D, T, use_native_type_buffer, UCHAR);
    E_CONFIG_VAL(D, T, nofade, UCHAR);
@@ -133,7 +132,6 @@ e_comp_cfdata_config_new(void)
    cfg->hwc_reuse_cursor_buffer = 0;
    cfg->hwc_sync_mode_change = 0;
    cfg->hwc_ignore_primary = 0;
-   cfg->hwc_optimized = 0;
    cfg->hwc_use_detach = 0;
    cfg->use_native_type_buffer = 0;  // 1 if use_native(wl_buffer), 0 if use_tbm(tbm_surface)
    cfg->nofade = 0;
