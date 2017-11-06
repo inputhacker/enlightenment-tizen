@@ -45,6 +45,7 @@ enum
    E_TEST_HELPER_SIGNAL_CHANGE_VISIBILITY = 0,
    E_TEST_HELPER_SIGNAL_RESTACK,
    E_TEST_HELPER_SIGNAL_WINDOW_ROTATION_CHANGED,
+   E_TEST_HELPER_SIGNAL_FOCUS_CHANGED,
 };
 
 static const Eldbus_Signal signals[] = {
@@ -64,6 +65,12 @@ static const Eldbus_Signal signals[] = {
        {
           "WinRotationChanged",
           ELDBUS_ARGS({"ui", "a window id was rotated to given angle"}),
+          0
+       },
+     [E_TEST_HELPER_SIGNAL_FOCUS_CHANGED] =
+       {
+          "FocusChanged",
+          ELDBUS_ARGS({"u", "window id of focus changed"}),
           0
        },
        { }
@@ -719,6 +726,33 @@ _e_test_helper_cb_client_rotation_end(void *data EINA_UNUSED, int type EINA_UNUS
 
    return ECORE_CALLBACK_PASS_ON;
 }
+
+static Eina_Bool
+_e_test_helper_cb_client_focus_in(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
+{
+   E_Event_Client *ev = event;
+   E_Client *ec = NULL;
+   Eldbus_Message *sig = NULL;
+   Ecore_Window win = 0;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_PASS_ON);
+
+   if(!th_data->registrant.ec) return ECORE_CALLBACK_PASS_ON;
+
+   ec = ev->ec;
+
+   win = e_pixmap_res_id_get(ec->pixmap);
+
+   if (win)
+     {
+        sig = eldbus_service_signal_new(th_data->iface, E_TEST_HELPER_SIGNAL_FOCUS_CHANGED);
+        eldbus_message_arguments_append(sig, "u", win);
+        eldbus_service_signal_send(th_data->iface, sig);
+     }
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
 static Eina_Bool
 _e_test_helper_cb_property_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const char *name, Eldbus_Message_Iter *iter, const Eldbus_Message *msg EINA_UNUSED, Eldbus_Message **err EINA_UNUSED)
 {
@@ -755,6 +789,8 @@ e_test_helper_init(void)
                         _e_test_helper_cb_client_restack, NULL);
    E_LIST_HANDLER_APPEND(th_data->hdlrs, E_EVENT_CLIENT_ROTATION_CHANGE_END,
                          _e_test_helper_cb_client_rotation_end, NULL);
+   E_LIST_HANDLER_APPEND(th_data->hdlrs, E_EVENT_CLIENT_FOCUS_IN,
+                         _e_test_helper_cb_client_focus_in, NULL);
 
    th_data->registrant.vis = -1;
 
