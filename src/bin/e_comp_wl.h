@@ -68,6 +68,13 @@ typedef enum _E_Comp_Wl_Hook_Point
    E_COMP_WL_HOOK_LAST,
 } E_Comp_Wl_Hook_Point;
 
+typedef enum _E_Comp_Wl_Sh_Surf_Role
+{
+   E_COMP_WL_SH_SURF_ROLE_NONE = 0,
+   E_COMP_WL_SH_SURF_ROLE_TOPLV = 1,
+   E_COMP_WL_SH_SURF_ROLE_POPUP = 2,
+} E_Comp_Wl_Sh_Surf_Role;
+
 typedef void (*E_Comp_Wl_Hook_Cb) (void *data, E_Client *ec);
 
 struct _E_Comp_Wl_Aux_Hint
@@ -495,6 +502,13 @@ struct _E_Comp_Wl_Client_Data
         E_Client *onscreen_parent;
         Eina_List *regions;  //list of onscreen region (Eina_Rectangle *)
      } remote_surface;
+
+   /* xdg shell v6 resource: it should be moved to member of struct shell */
+   struct
+     {
+        E_Comp_Wl_Sh_Surf_Role role;
+        struct wl_resource *res_role; /* zxdg_toplevel_v6 or zxdg_popup_v6 */
+     } sh_v6;
 };
 
 struct _E_Comp_Wl_Output

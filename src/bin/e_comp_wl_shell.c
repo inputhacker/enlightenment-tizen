@@ -1,16 +1,25 @@
 #include "e.h"
 #include <xdg-shell-server-protocol.h>
+#include <xdg-shell-unstable-v6-server-protocol.h>
 #include <tizen-extension-server-protocol.h>
 
 #define XDG_SERVER_VERSION 5
 
 typedef struct _E_Xdg_Shell E_Xdg_Shell;
+typedef struct _E_Xdg_Pos   E_Xdg_Pos;
 
 struct _E_Xdg_Shell
 {
    struct wl_client   *wc;
    struct wl_resource *res;      /* xdg_shell resource */
    Eina_List          *ping_ecs; /* list of all ec which are waiting for pong response */
+   Eina_List          *positioners; /* list of E_Xdg_Pos */
+};
+
+struct _E_Xdg_Pos
+{
+   E_Xdg_Shell        *sh;
+   struct wl_resource *res;      /* xdg_positioner_v6 resources */
 };
 
 static Eina_Hash *xdg_sh_hash = NULL;
@@ -117,7 +126,7 @@ _e_shell_surface_mouse_down_helper(E_Client *ec, E_Binding_Event_Mouse_Button *e
 static void
 _e_shell_surface_destroy(struct wl_resource *resource)
 {
-   E_Client *ec;
+   E_Client *ec = NULL;
 
    /* get the client for this resource */
    if ((ec = wl_resource_get_user_data(resource)))
@@ -1529,8 +1538,10 @@ static void
 _e_xdg_shell_cb_unbind(struct wl_resource *resource)
 {
    E_Xdg_Shell *esh;
+   E_Xdg_Pos *epos;
    E_Client *ec;
    struct wl_client *client;
+   Eina_List *l, *ll;
 
    client = wl_resource_get_client(resource);
    EINA_SAFETY_ON_NULL_RETURN(client);
@@ -1543,6 +1554,11 @@ _e_xdg_shell_cb_unbind(struct wl_resource *resource)
         if (e_object_is_del(E_OBJECT(ec))) continue;
         ec->ping_ok = EINA_TRUE;
         ec->hung = EINA_FALSE;
+     }
+
+   EINA_LIST_FOREACH_SAFE(esh->positioners, l, ll, epos)
+     {
+        E_FREE(epos);
      }
 
    eina_hash_del_by_key(xdg_sh_hash, &client);
@@ -1626,6 +1642,877 @@ _e_xdg_shell_cb_bind(struct wl_client *client, void *data EINA_UNUSED, uint32_t 
                               e_comp->wl_comp_data,
                               NULL);
 
+   return;
+
+err:
+   wl_client_post_no_memory(client);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+static void
+_e_xdg_surf_v6_configure_send(struct wl_resource *res_xdg_surf_v6,
+                              uint32_t edges,
+                              int32_t width,
+                              int32_t height)
+{
+   E_Client *ec;
+   uint32_t serial;
+
+   if (!res_xdg_surf_v6) return;
+
+   ec = wl_resource_get_user_data(res_xdg_surf_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_surf_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+
+   serial = wl_display_next_serial(e_comp_wl->wl.disp);
+   zxdg_surface_v6_send_configure(res_xdg_surf_v6, serial);
+
+   ELOGF("SH", "SEND configure v6", ec->pixmap, ec);
+}
+
+static void
+_e_xdg_sh_v6_ping(struct wl_resource *res_xdg_surf_v6)
+{
+   E_Client *ec;
+   uint32_t serial;
+   struct wl_client *client;
+   E_Xdg_Shell *esh;
+
+   if (!res_xdg_surf_v6) return;
+
+   ec = wl_resource_get_user_data(res_xdg_surf_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_surf_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+
+   client = wl_resource_get_client(res_xdg_surf_v6);
+
+   esh = eina_hash_find(xdg_sh_hash, &client);
+   EINA_SAFETY_ON_NULL_RETURN(esh);
+   EINA_SAFETY_ON_NULL_RETURN(esh->res);
+
+   if (!eina_list_data_find(esh->ping_ecs, ec))
+     esh->ping_ecs = eina_list_append(esh->ping_ecs, ec);
+
+   serial = wl_display_next_serial(e_comp_wl->wl.disp);
+   zxdg_shell_v6_send_ping(esh->res, serial);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+static void
+_e_xdg_toplv_v6_cb_res_destroy(struct wl_resource *res_xdg_toplv_v6)
+{
+   _e_shell_surface_destroy(res_xdg_toplv_v6);
+}
+
+static void
+_e_xdg_toplv_v6_cb_destroy(struct wl_client *client,
+                           struct wl_resource *res_xdg_toplv_v6)
+{
+   wl_resource_destroy(res_xdg_toplv_v6);
+}
+
+static void
+_e_xdg_toplv_v6_cb_parent_set(struct wl_client *client,
+                              struct wl_resource *res_xdg_toplv_v6,
+                              struct wl_resource *res_xdg_toplv_v6_parent)
+{
+   E_Client *ec, *pc;
+
+   ec = wl_resource_get_user_data(res_xdg_toplv_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_toplv_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+
+   if (res_xdg_toplv_v6_parent)
+     {
+        pc = wl_resource_get_user_data(res_xdg_toplv_v6_parent);
+        if (!pc)
+          {
+             ERR("Could not get parent resource clinet");
+             return;
+          }
+        if (!pc->comp_data) return;
+        res_xdg_toplv_v6_parent = pc->comp_data->surface;
+     }
+
+   /* set this client as a transient for parent */
+   _e_shell_surface_parent_set(ec, res_xdg_toplv_v6_parent);
+}
+
+static void
+_e_xdg_toplv_v6_cb_title_set(struct wl_client *client,
+                             struct wl_resource *res_xdg_toplv_v6,
+                             const char *title)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(res_xdg_toplv_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_toplv_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+
+   eina_stringshare_replace(&ec->icccm.title, title);
+   eina_stringshare_replace(&ec->icccm.name, title);
+   if (ec->frame) e_comp_object_frame_title_set(ec->frame, title);
+}
+
+static void
+_e_xdg_toplv_v6_cb_app_id_set(struct wl_client *client,
+                              struct wl_resource *res_xdg_toplv_v6,
+                              const char *app_id)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(res_xdg_toplv_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_toplv_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+
+   /* use the wl_client to get the pid * and set it in the netwm props */
+   wl_client_get_credentials(client, &ec->netwm.pid, NULL, NULL);
+
+   /* set class */
+   eina_stringshare_replace(&ec->icccm.class, app_id);
+   ec->changes.icon = !!ec->icccm.class;
+   EC_CHANGED(ec);
+}
+
+static void
+_e_xdg_toplv_v6_cb_win_menu_show(struct wl_client *client,
+                                 struct wl_resource *res_xdg_toplv_v6,
+                                 struct wl_resource *res_seat,
+                                 uint32_t serial,
+                                 int32_t x,
+                                 int32_t y)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(res_xdg_toplv_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_toplv_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+
+   /* TODO no op */
+}
+
+static void
+_e_xdg_toplv_v6_cb_move(struct wl_client *client,
+                        struct wl_resource *res_xdg_toplv_v6,
+                        struct wl_resource *res_seat,
+                        uint32_t serial)
+{
+   E_Client *ec;
+   E_Binding_Event_Mouse_Button ev;
+
+   ec = wl_resource_get_user_data(res_xdg_toplv_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_toplv_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+
+   if ((ec->maximized) || (ec->fullscreen)) return;
+
+   TRACE_DS_BEGIN(SHELL:SURFACE MOVE REQUEST CB);
+
+   switch (e_comp_wl->ptr.button)
+     {
+      case BTN_LEFT:   ev.button = 1; break;
+      case BTN_MIDDLE: ev.button = 2; break;
+      case BTN_RIGHT:  ev.button = 3; break;
+      default:         ev.button = e_comp_wl->ptr.button; break;
+     }
+
+   e_comp_object_frame_xy_unadjust(ec->frame,
+                                   wl_fixed_to_int(e_comp_wl->ptr.x),
+                                   wl_fixed_to_int(e_comp_wl->ptr.y),
+                                   &ev.canvas.x,
+                                   &ev.canvas.y);
+
+   _e_shell_surface_mouse_down_helper(ec, &ev, EINA_TRUE, 0);
+
+   TRACE_DS_END();
+}
+
+static void
+_e_xdg_toplv_v6_cb_resize(struct wl_client *client,
+                          struct wl_resource *res_xdg_toplv_v6,
+                          struct wl_resource *res_seat,
+                          uint32_t serial,
+                          uint32_t edges)
+{
+   E_Client *ec;
+   E_Binding_Event_Mouse_Button ev;
+
+   ec = wl_resource_get_user_data(res_xdg_toplv_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_toplv_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+
+   if ((edges == 0) ||
+       (edges > 15) ||
+       ((edges & 3) == 3) ||
+       ((edges & 12) == 12))
+     return;
+
+   if ((ec->maximized) || (ec->fullscreen)) return;
+
+   TRACE_DS_BEGIN(SHELL:SURFACE RESIZE REQUEST CB);
+
+   e_comp_wl->resize.resource = res_xdg_toplv_v6;
+   e_comp_wl->resize.edges = edges;
+   e_comp_wl->ptr.grab_x = e_comp_wl->ptr.x - wl_fixed_from_int(ec->client.x);
+   e_comp_wl->ptr.grab_y = e_comp_wl->ptr.y - wl_fixed_from_int(ec->client.y);
+
+   switch (e_comp_wl->ptr.button)
+     {
+      case BTN_LEFT:   ev.button = 1; break;
+      case BTN_MIDDLE: ev.button = 2; break;
+      case BTN_RIGHT:  ev.button = 3; break;
+      default:         ev.button = e_comp_wl->ptr.button; break;
+     }
+
+   e_comp_object_frame_xy_unadjust(ec->frame,
+                                   wl_fixed_to_int(e_comp_wl->ptr.x),
+                                   wl_fixed_to_int(e_comp_wl->ptr.y),
+                                   &ev.canvas.x,
+                                   &ev.canvas.y);
+
+   _e_shell_surface_mouse_down_helper(ec, &ev, EINA_FALSE, edges);
+
+   TRACE_DS_END();
+}
+
+static void
+_e_xdg_toplv_v6_cb_max_size_set(struct wl_client *client,
+                                struct wl_resource *res_xdg_toplv_v6,
+                                int32_t w,
+                                int32_t h)
+{
+   /* TODO no op */
+}
+
+static void
+_e_xdg_toplv_v6_cb_min_size_set(struct wl_client *client,
+                                struct wl_resource *res_xdg_toplv_v6,
+                                int32_t w,
+                                int32_t h)
+{
+   /* TODO no op */
+}
+
+static void
+_e_xdg_toplv_v6_cb_maximized_set(struct wl_client *client,
+                                 struct wl_resource *res_xdg_toplv_v6)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(res_xdg_toplv_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_toplv_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+
+   if (!ec->lock_user_maximize)
+     {
+        e_client_maximize(ec,
+                          ((e_config->maximize_policy & E_MAXIMIZE_TYPE) | E_MAXIMIZE_BOTH));
+     }
+}
+
+static void
+_e_xdg_toplv_v6_cb_maximized_unset(struct wl_client *client,
+                                   struct wl_resource *res_xdg_toplv_v6)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(res_xdg_toplv_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_toplv_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+
+   e_client_unmaximize(ec, E_MAXIMIZE_BOTH);
+
+   _e_xdg_shell_surface_configure_send(res_xdg_toplv_v6,
+                                       0,
+                                       ec->w,
+                                       ec->h); // TODO
+}
+
+static void
+_e_xdg_toplv_v6_cb_fullscreen_set(struct wl_client *client,
+                                  struct wl_resource *res_xdg_toplv_v6,
+                                  struct wl_resource *res_output)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(res_xdg_toplv_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_toplv_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+
+   if (!ec->lock_user_fullscreen)
+     e_client_fullscreen(ec, e_config->fullscreen_policy);
+}
+
+static void
+_e_xdg_toplv_v6_cb_fullscreen_unset(struct wl_client *client,
+                                    struct wl_resource *res_xdg_toplv_v6)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(res_xdg_toplv_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_toplv_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+
+   if (!ec->lock_user_fullscreen)
+     e_client_unfullscreen(ec);
+}
+
+static void
+_e_xdg_toplv_v6_cb_minimized_set(struct wl_client *client,
+                                 struct wl_resource *res_xdg_toplv_v6)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(res_xdg_toplv_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_toplv_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+
+   if (!ec->lock_client_iconify)
+     e_client_iconify(ec);
+}
+
+static const struct zxdg_toplevel_v6_interface _e_xdg_toplv_v6_interface =
+{
+   _e_xdg_toplv_v6_cb_destroy,
+   _e_xdg_toplv_v6_cb_parent_set,
+   _e_xdg_toplv_v6_cb_title_set,
+   _e_xdg_toplv_v6_cb_app_id_set,
+   _e_xdg_toplv_v6_cb_win_menu_show,
+   _e_xdg_toplv_v6_cb_move,
+   _e_xdg_toplv_v6_cb_resize,
+   _e_xdg_toplv_v6_cb_max_size_set,
+   _e_xdg_toplv_v6_cb_min_size_set,
+   _e_xdg_toplv_v6_cb_maximized_set,
+   _e_xdg_toplv_v6_cb_maximized_unset,
+   _e_xdg_toplv_v6_cb_fullscreen_set,
+   _e_xdg_toplv_v6_cb_fullscreen_unset,
+   _e_xdg_toplv_v6_cb_minimized_set
+};
+
+////////////////////////////////////////////////////////////////////////////////
+static void
+_e_xdg_popup_v6_cb_res_destroy(struct wl_resource *res_xdg_popup_v6)
+{
+   _e_shell_surface_destroy(res_xdg_popup_v6);
+}
+
+static void
+_e_xdg_popup_v6_cb_destroy(struct wl_client *client,
+                           struct wl_resource *res_xdg_popup_v6)
+{
+   wl_resource_destroy(res_xdg_popup_v6);
+}
+
+static void
+_e_xdg_popup_v6_cb_grab(struct wl_client *client,
+                        struct wl_resource *res_xdg_popup_v6,
+                        struct wl_resource *res_seat,
+                        uint32_t serial)
+{
+   /* TODO no op */
+}
+
+static const struct zxdg_popup_v6_interface _e_xdg_popup_v6_interface =
+{
+   _e_xdg_popup_v6_cb_destroy,
+   _e_xdg_popup_v6_cb_grab
+};
+
+////////////////////////////////////////////////////////////////////////////////
+static void
+_e_xdg_pos_v6_cb_res_destroy(struct wl_resource *res_xdg_pos_v6)
+{
+   E_Xdg_Shell *esh = NULL;
+   E_Xdg_Pos *epos = NULL;
+
+   epos = wl_resource_get_user_data(res_xdg_pos_v6);
+   EINA_SAFETY_ON_NULL_RETURN(epos);
+
+   esh = epos->sh;
+   esh->positioners = eina_list_remove(esh->positioners, epos);
+
+   E_FREE(epos);
+}
+
+static void
+_e_xdg_pos_v6_cb_destroy(struct wl_client *client,
+                         struct wl_resource *res_xdg_pos_v6)
+{
+   wl_resource_destroy(res_xdg_pos_v6);
+}
+
+static void
+_e_xdg_pos_v6_cb_size_set(struct wl_client *client,
+                          struct wl_resource *res_xdg_pos_v6,
+                          int32_t w,
+                          int32_t h)
+{
+   /* TODO: no op */
+}
+
+static void
+_e_xdg_pos_v6_cb_anchor_rect_set(struct wl_client *client,
+                                 struct wl_resource *res_xdg_pos_v6,
+                                 int32_t x,
+                                 int32_t y,
+                                 int32_t w,
+                                 int32_t h)
+{
+   /* TODO: no op */
+}
+
+static void
+_e_xdg_pos_v6_cb_anchor_set(struct wl_client *client,
+                            struct wl_resource *res_xdg_pos_v6,
+                            uint32_t anchor)
+{
+   /* TODO: no op */
+}
+
+static void
+_e_xdg_pos_v6_cb_gravity_set(struct wl_client *client,
+                             struct wl_resource *res_xdg_pos_v6,
+                             uint32_t gravity)
+{
+   /* TODO: no op */
+}
+
+static void
+_e_xdg_pos_v6_cb_constraint_adjustment_set(struct wl_client *client,
+                                           struct wl_resource *res_xdg_pos_v6,
+                                           uint32_t constraint_adjustment)
+{
+   /* TODO: no op */
+}
+
+static void
+_e_xdg_pos_v6_cb_offset_set(struct wl_client *client,
+                            struct wl_resource *res_xdg_pos_v6,
+                            int32_t x,
+                            int32_t y)
+{
+   /* TODO: no op */
+}
+
+static const struct zxdg_positioner_v6_interface _e_xdg_pos_v6_interface =
+{
+   _e_xdg_pos_v6_cb_destroy,
+   _e_xdg_pos_v6_cb_size_set,
+   _e_xdg_pos_v6_cb_anchor_rect_set,
+   _e_xdg_pos_v6_cb_anchor_set,
+   _e_xdg_pos_v6_cb_gravity_set,
+   _e_xdg_pos_v6_cb_constraint_adjustment_set,
+   _e_xdg_pos_v6_cb_offset_set
+};
+
+////////////////////////////////////////////////////////////////////////////////
+static void
+_e_xdg_surf_v6_cb_destroy(struct wl_client *client,
+                          struct wl_resource *res_xdg_surf_v6)
+{
+   wl_resource_destroy(res_xdg_surf_v6);
+}
+
+static void
+_e_xdg_surf_v6_cb_toplevel_get(struct wl_client *client,
+                               struct wl_resource *res_xdg_surf_v6,
+                               uint32_t id)
+{
+   E_Client *ec;
+   E_Comp_Client_Data *cdata;
+
+   ec = wl_resource_get_user_data(res_xdg_surf_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_surf_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Pixmap Set On Surface");
+        return;
+     }
+
+   cdata = ec->comp_data;
+   if (!cdata)
+     {
+        wl_resource_post_error(res_xdg_surf_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Data For Client");
+        return;
+     }
+
+   if (cdata->sh_v6.res_role)
+     {
+        wl_resource_post_error(res_xdg_surf_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "Client already has shell toplevel resource");
+        return;
+     }
+
+   cdata->sh_v6.res_role = wl_resource_create(client,
+                                              &zxdg_toplevel_v6_interface,
+                                              1,
+                                              id);
+   if (!cdata->sh_v6.res_role)
+     {
+        ERR("Could not create xdg toplevel resource");
+        wl_resource_post_no_memory(res_xdg_surf_v6);
+        return;
+     }
+
+   wl_resource_set_implementation(cdata->sh_v6.res_role,
+                                  &_e_xdg_toplv_v6_interface,
+                                  ec,
+                                  _e_xdg_toplv_v6_cb_res_destroy); // TODO
+
+   cdata->sh_v6.role = E_COMP_WL_SH_SURF_ROLE_TOPLV;
+
+   cdata->shell.configure_send = _e_xdg_surf_v6_configure_send;
+   cdata->shell.configure = _e_xdg_shell_surface_configure;
+   cdata->shell.ping = _e_xdg_sh_v6_ping;
+   cdata->shell.map = _e_xdg_shell_surface_map;
+   cdata->shell.unmap = _e_xdg_shell_surface_unmap;
+
+   /* set toplevel client properties */
+   ec->icccm.accepts_focus = 1;
+   if (!ec->internal)
+     ec->borderless = 1;
+   ec->lock_border = EINA_TRUE;
+   if ((!ec->internal) || (!ec->borderless))
+     ec->border.changed = ec->changes.border = !ec->borderless;
+   if (ec->netwm.type == E_WINDOW_TYPE_UNKNOWN)
+     ec->netwm.type = E_WINDOW_TYPE_NORMAL;
+   ec->comp_data->set_win_type = EINA_TRUE;
+
+   e_comp_wl_shell_surface_ready(ec);
+}
+
+static void
+_e_xdg_surf_v6_cb_popup_get(struct wl_client *client,
+                            struct wl_resource *res_xdg_surf_v6,
+                            uint32_t id,
+                            struct wl_resource *res_xdg_surf_v6_parent,
+                            struct wl_resource *res_xdg_pos_v6)
+{
+   E_Client *ec;
+   E_Comp_Client_Data *cdata;
+
+   ec = wl_resource_get_user_data(res_xdg_surf_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_surf_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Pixmap Set On Surface");
+        return;
+     }
+
+   cdata = ec->comp_data;
+   if (!cdata)
+     {
+        wl_resource_post_error(res_xdg_surf_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Data For Client");
+        return;
+     }
+
+   if (cdata->sh_v6.res_role)
+     {
+        wl_resource_post_error(res_xdg_surf_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "Client already has shell popup resource");
+        return;
+     }
+
+   if (!res_xdg_surf_v6_parent)
+     {
+        wl_resource_post_error(res_xdg_surf_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "Popup requires a parent shell surface");
+        return;
+     }
+
+   cdata->sh_v6.res_role = wl_resource_create(client,
+                                              &zxdg_popup_v6_interface,
+                                              1,
+                                              id);
+   if (!cdata->sh_v6.res_role)
+     {
+        ERR("Could not create xdg popup resource");
+        wl_resource_post_no_memory(res_xdg_surf_v6);
+        return;
+     }
+
+   wl_resource_set_implementation(cdata->sh_v6.res_role,
+                                  &_e_xdg_popup_v6_interface,
+                                  ec,
+                                  _e_xdg_popup_v6_cb_res_destroy); // TODO
+
+   cdata->sh_v6.role = E_COMP_WL_SH_SURF_ROLE_POPUP;
+
+   cdata->shell.configure_send = _e_xdg_surf_v6_configure_send;
+   cdata->shell.configure = _e_xdg_shell_surface_configure;
+   cdata->shell.ping = _e_xdg_sh_v6_ping;
+   cdata->shell.map = _e_xdg_shell_surface_map;
+   cdata->shell.unmap = _e_xdg_shell_surface_unmap;
+
+   EC_CHANGED(ec);
+   ec->new_client = ec->override = 1;
+   e_client_unignore(ec);
+   e_comp->new_clients++;
+   if (!ec->internal)
+     ec->borderless = !ec->internal_elm_win;
+   ec->lock_border = EINA_TRUE;
+   if (!ec->internal)
+     ec->border.changed = ec->changes.border = !ec->borderless;
+   ec->changes.icon = !!ec->icccm.class;
+   ec->netwm.type = E_WINDOW_TYPE_POPUP_MENU;
+   ec->comp_data->set_win_type = EINA_TRUE;
+   evas_object_layer_set(ec->frame, E_LAYER_CLIENT_POPUP);
+
+   /* set this client as a transient for parent */
+   _e_shell_surface_parent_set(ec, res_xdg_surf_v6_parent);
+}
+
+static void
+_e_xdg_surf_v6_cb_win_geom_set(struct wl_client *client,
+                               struct wl_resource *res_xdg_surf_v6,
+                               int32_t x,
+                               int32_t y,
+                               int32_t w,
+                               int32_t h)
+{
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(res_xdg_surf_v6);
+   if (!ec)
+     {
+        wl_resource_post_error(res_xdg_surf_v6,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Client For Shell Surface");
+        return;
+     }
+   EINA_RECTANGLE_SET(&ec->comp_data->shell.window, x, y, w, h);
+}
+
+static void
+_e_xdg_surf_v6_cb_configure_ack(struct wl_client *client,
+                                struct wl_resource *res_xdg_surf_v6,
+                                uint32_t serial)
+{
+   /* TODO no op */
+}
+
+static const struct zxdg_surface_v6_interface _e_xdg_surf_v6_interface =
+{
+   _e_xdg_surf_v6_cb_destroy,
+   _e_xdg_surf_v6_cb_toplevel_get,
+   _e_xdg_surf_v6_cb_popup_get,
+   _e_xdg_surf_v6_cb_win_geom_set,
+   _e_xdg_surf_v6_cb_configure_ack
+};
+
+////////////////////////////////////////////////////////////////////////////////
+static void
+_e_xdg_sh_v6_cb_destroy(struct wl_client *client,
+                        struct wl_resource *res_xdg_sh_v6)
+{
+   wl_resource_destroy(res_xdg_sh_v6);
+}
+
+static void
+_e_xdg_sh_v6_cb_pos_create(struct wl_client *client,
+                           struct wl_resource *res_xdg_sh_v6,
+                           uint32_t id)
+{
+   E_Xdg_Shell *esh = NULL;
+   E_Xdg_Pos *epos = NULL;
+   struct wl_resource *res_xdg_pos_v6 = NULL;
+
+   esh = eina_hash_find(xdg_sh_hash, &client);
+   EINA_SAFETY_ON_NULL_GOTO(esh, err);
+   EINA_SAFETY_ON_NULL_GOTO(esh->res, err);
+   EINA_SAFETY_ON_FALSE_GOTO(esh->res == res_xdg_sh_v6, err);
+
+   epos = E_NEW(E_Xdg_Pos, 1);
+   EINA_SAFETY_ON_NULL_GOTO(epos, err);
+
+   res_xdg_pos_v6 = wl_resource_create(client,
+                                       &zxdg_positioner_v6_interface,
+                                       1,
+                                       id);
+   EINA_SAFETY_ON_NULL_GOTO(res_xdg_pos_v6, err);
+
+   wl_resource_set_implementation(res_xdg_pos_v6,
+                                  &_e_xdg_pos_v6_interface,
+                                  epos,
+                                  _e_xdg_pos_v6_cb_res_destroy);
+
+   epos->sh = esh;
+   epos->res = res_xdg_pos_v6;
+
+   esh->positioners = eina_list_append(esh->positioners, epos);
+
+   return;
+
+err:
+   if (epos) E_FREE(epos);
+   wl_resource_post_no_memory(res_xdg_sh_v6);
+}
+
+static void
+_e_xdg_sh_v6_cb_surf_get(struct wl_client *client,
+                         struct wl_resource *res_xdg_sh_v6 EINA_UNUSED,
+                         uint32_t id,
+                         struct wl_resource *res_surf)
+{
+   E_Client *ec = NULL;
+   E_Comp_Client_Data *cdata = NULL;
+
+   ec = wl_resource_get_user_data(res_surf);
+   if (!ec)
+     {
+        wl_resource_post_error(res_surf,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Pixmap Set On Surface");
+        return;
+     }
+
+   cdata = ec->comp_data;
+   if (!cdata)
+     {
+        wl_resource_post_error(res_surf,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "No Data For Client");
+        return;
+     }
+
+   if (cdata->shell.surface)
+     {
+        wl_resource_post_error(res_surf,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "Client already has XDG shell surface");
+        return;
+     }
+
+   cdata->shell.surface = wl_resource_create(client,
+                                             &zxdg_surface_v6_interface,
+                                             1,
+                                             id);
+   if (!cdata->shell.surface)
+     {
+        ERR("Could not create xdg shell surface");
+        wl_resource_post_no_memory(res_surf);
+        return;
+     }
+
+   wl_resource_set_implementation(cdata->shell.surface,
+                                  &_e_xdg_surf_v6_interface,
+                                  ec,
+                                  _e_shell_surface_cb_destroy);
+
+   e_object_ref(E_OBJECT(ec));
+
+   ec->netwm.ping = 1;
+}
+
+static const struct zxdg_shell_v6_interface _e_xdg_sh_v6_interface =
+{
+   _e_xdg_sh_v6_cb_destroy,
+   _e_xdg_sh_v6_cb_pos_create,
+   _e_xdg_sh_v6_cb_surf_get,
+   _e_xdg_shell_cb_pong /* use v5 pong handler */
+};
+
+////////////////////////////////////////////////////////////////////////////////
+static void
+_e_xdg_sh_v6_cb_bind(struct wl_client *client,
+                     void *data,
+                     uint32_t version,
+                     uint32_t id)
+{
+   E_Xdg_Shell *esh;
+   struct wl_resource *res_xdg_sh_v6;
+
+   res_xdg_sh_v6 = wl_resource_create(client,
+                                      &zxdg_shell_v6_interface,
+                                      version,
+                                      id);
+   EINA_SAFETY_ON_NULL_GOTO(res_xdg_sh_v6, err);
+
+   esh = E_NEW(E_Xdg_Shell, 1);
+   EINA_SAFETY_ON_NULL_GOTO(esh, err);
+
+   esh->wc = client;
+   esh->res = res_xdg_sh_v6;
+   eina_hash_add(xdg_sh_hash, &client, esh);
+
+   wl_resource_set_implementation(res_xdg_sh_v6,
+                                  &_e_xdg_sh_v6_interface,
+                                  e_comp->wl_comp_data,
+                                  _e_xdg_shell_cb_unbind);
    return;
 
 err:
@@ -1720,6 +2607,16 @@ e_comp_wl_shell_init(void)
                          1,
                          e_comp->wl_comp_data,
                          _e_xdg_shell_cb_bind))
+     {
+        ERR("Could not create xdg_shell global: %m");
+        return;
+     }
+
+   if (!wl_global_create(e_comp_wl->wl.disp,
+                         &zxdg_shell_v6_interface,
+                         1,
+                         e_comp->wl_comp_data,
+                         _e_xdg_sh_v6_cb_bind))
      {
         ERR("Could not create xdg_shell global: %m");
         return;
