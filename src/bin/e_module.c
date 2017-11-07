@@ -127,6 +127,16 @@ _module_is_important(const char *name)
 }
 
 /* externally accessible functions */
+EINTERN void
+e_module_event_init(void)
+{
+   if (E_EVENT_MODULE_UPDATE) return;
+
+   E_EVENT_MODULE_UPDATE = ecore_event_type_new();
+   E_EVENT_MODULE_INIT_END = ecore_event_type_new();
+   E_EVENT_MODULE_DEFER_JOB = ecore_event_type_new();
+}
+
 EINTERN int
 e_module_init(void)
 {
@@ -136,10 +146,6 @@ e_module_init(void)
    Eio_File *ls;
 
    if (_e_modules_hash) return 1;
-
-   E_EVENT_MODULE_UPDATE = ecore_event_type_new();
-   E_EVENT_MODULE_INIT_END = ecore_event_type_new();
-   E_EVENT_MODULE_DEFER_JOB = ecore_event_type_new();
 
    _e_module_path_hash = eina_hash_string_superfast_new((Eina_Free_Cb)eina_stringshare_del);
    _e_modules_hash = eina_hash_string_superfast_new(NULL);
@@ -322,6 +328,8 @@ e_module_new(const char *name)
    char str[1024];
 
    if (!name) return NULL;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(_e_modules_hash, NULL);
+
    m = E_OBJECT_ALLOC(E_Module, E_MODULE_TYPE, _e_module_free);
    if (!m) return NULL;
 
@@ -435,12 +443,6 @@ e_module_new(const char *name)
 init_done:
 
    _e_modules = eina_list_append(_e_modules, m);
-   if (!_e_modules_hash)
-     {
-        /* wayland module preloading */
-        if (!e_module_init())
-          CRI("WTFFFFF");
-     }
    eina_hash_add(_e_modules_hash, name, m);
    m->name = eina_stringshare_add(name);
    if (modpath)

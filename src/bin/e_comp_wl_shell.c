@@ -1,7 +1,6 @@
 #include "e.h"
 #include <xdg-shell-server-protocol.h>
 #include <tizen-extension-server-protocol.h>
-#include "e_scaler.h"
 
 #define XDG_SERVER_VERSION 5
 
@@ -1707,18 +1706,9 @@ _e_tz_surf_cb_bind(struct wl_client *client, void *data, uint32_t version, uint3
                                   NULL);
 }
 
-E_API E_Module_Api e_modapi = { E_MODULE_API_VERSION, "Wl_Desktop_Shell" };
-
-E_API void *
-e_modapi_init(E_Module *m)
+EINTERN void
+e_comp_wl_shell_init(void)
 {
-   /* try to get the current compositor */
-   if (!e_comp) return NULL;
-
-   /* try to get the compositor data */
-   if (!e_comp->wl_comp_data) return NULL;
-
-   /* try to create global shell interface */
    if (!wl_global_create(e_comp_wl->wl.disp,
                          &wl_shell_interface,
                          1,
@@ -1726,10 +1716,9 @@ e_modapi_init(E_Module *m)
                          _e_shell_cb_bind))
      {
         ERR("Could not create shell global: %m");
-        return NULL;
+        return;
      }
 
-   /* try to create global xdg_shell interface */
    if (!wl_global_create(e_comp_wl->wl.disp,
                          &xdg_shell_interface,
                          1,
@@ -1737,10 +1726,8 @@ e_modapi_init(E_Module *m)
                          _e_xdg_shell_cb_bind))
      {
         ERR("Could not create xdg_shell global: %m");
-        return NULL;
+        return;
      }
-
-   e_scaler_init();
 
    if (!wl_global_create(e_comp_wl->wl.disp,
                          &tizen_surface_interface,
@@ -1749,36 +1736,14 @@ e_modapi_init(E_Module *m)
                          _e_tz_surf_cb_bind))
      {
         ERR("Could not create tizen_surface to wayland globals: %m");
-        return NULL;
+        return;
      }
-
-#ifdef HAVE_WL_TEXT_INPUT
-   if (!e_input_panel_init())
-     {
-        ERR("Could not init input panel");
-        return NULL;
-     }
-#endif
 
    xdg_sh_hash = eina_hash_pointer_new(NULL);
-
-   return m;
 }
 
-E_API int
-e_modapi_shutdown(E_Module *m EINA_UNUSED)
+EINTERN void
+e_comp_wl_shell_shutdown(void)
 {
-#ifdef HAVE_WL_TEXT_INPUT
-   e_input_panel_shutdown();
-#endif
    eina_hash_free(xdg_sh_hash);
-
-   return 1;
-}
-
-E_API int
-e_modapi_save(E_Module *m EINA_UNUSED)
-{
-   // do nothing
-   return 1;
 }

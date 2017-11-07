@@ -625,6 +625,8 @@ main(int argc, char **argv)
      }
    TRACE_DS_END();
 
+   e_module_event_init();
+
    TSB("E_Pointer Init");
    if (!e_pointer_init())
      {

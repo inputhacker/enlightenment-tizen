@@ -23,6 +23,17 @@ static Eina_Inlist *_e_output_hooks[] =
    [E_OUTPUT_HOOK_DPMS_CHANGE] = NULL,
 };
 
+static int _e_output_intercept_hooks_delete = 0;
+static int _e_output_intercept_hooks_walking = 0;
+
+static Eina_Inlist *_e_output_intercept_hooks[] =
+{
+   [E_OUTPUT_INTERCEPT_HOOK_DPMS_ON] = NULL,
+   [E_OUTPUT_INTERCEPT_HOOK_DPMS_STANDBY] = NULL,
+   [E_OUTPUT_INTERCEPT_HOOK_DPMS_SUSPEND] = NULL,
+   [E_OUTPUT_INTERCEPT_HOOK_DPMS_OFF] = NULL,
+};
+
 static Eina_Bool _e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotate);
 static void _e_output_vblank_handler(tdm_output *output, unsigned int sequence,
                                      unsigned int tv_sec, unsigned int tv_usec, void *data);
@@ -57,6 +68,41 @@ _e_output_hook_call(E_Output_Hook_Point hookpoint, E_Output *output)
    _e_output_hooks_walking--;
    if ((_e_output_hooks_walking == 0) && (_e_output_hooks_delete > 0))
      _e_output_hooks_clean();
+}
+
+static void
+_e_output_intercept_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Output_Intercept_Hook *ch;
+   unsigned int x;
+   for (x = 0; x < E_OUTPUT_INTERCEPT_HOOK_LAST; x++)
+     EINA_INLIST_FOREACH_SAFE(_e_output_intercept_hooks[x], l, ch)
+       {
+          if (!ch->delete_me) continue;
+          _e_output_intercept_hooks[x] = eina_inlist_remove(_e_output_intercept_hooks[x], EINA_INLIST_GET(ch));
+         free(ch);
+       }
+}
+
+static Eina_Bool
+_e_output_intercept_hook_call(E_Output_Intercept_Hook_Point hookpoint, E_Output *output)
+{
+   E_Output_Intercept_Hook *ch;
+   Eina_Bool res = EINA_TRUE;
+
+   _e_output_intercept_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_output_intercept_hooks[hookpoint], ch)
+     {
+        if (ch->delete_me) continue;
+        res = ch->func(ch->data, output);
+        if (res == EINA_FALSE) break;
+     }
+   _e_output_intercept_hooks_walking--;
+   if ((_e_output_intercept_hooks_walking == 0) && (_e_output_intercept_hooks_delete > 0))
+     _e_output_intercept_hooks_clean();
+
+   return res;
 }
 
 static E_Client *
@@ -2080,30 +2126,44 @@ e_output_connected(E_Output *output)
 EINTERN Eina_Bool
 e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val)
 {
+   E_Output_Intercept_Hook_Point hookpoint;
    tdm_output_dpms tval;
-   Eina_Bool ret = EINA_TRUE;
    tdm_error error;
+   Eina_List *l;
+   E_Zone *zone;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-   if (val == E_OUTPUT_DPMS_OFF) tval = TDM_OUTPUT_DPMS_OFF;
-   else if (val == E_OUTPUT_DPMS_ON) tval = TDM_OUTPUT_DPMS_ON;
-   else if (val == E_OUTPUT_DPMS_STANDBY) tval = TDM_OUTPUT_DPMS_STANDBY;
-   else if (val == E_OUTPUT_DPMS_SUSPEND) tval = TDM_OUTPUT_DPMS_SUSPEND;
-   else ret = EINA_FALSE;
-
-   if (!ret) return EINA_FALSE;
+   /* FIXME: The zone controlling should be moved to e_zone */
+   EINA_LIST_FOREACH(e_comp->zones, l, zone)
+     {
+        if (val == E_OUTPUT_DPMS_ON)
+          e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_ON);
+        else if (val == E_OUTPUT_DPMS_OFF)
+          e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_OFF);
+     }
 
    if (val == E_OUTPUT_DPMS_OFF)
      {
-        Eina_List *l;
         E_Plane *ep;
-
         EINA_LIST_FOREACH(output->planes, l, ep)
           {
              e_plane_dpms_off(ep);
           }
      }
+
+   if (val == E_OUTPUT_DPMS_ON) hookpoint = E_OUTPUT_INTERCEPT_HOOK_DPMS_ON;
+   else if (val == E_OUTPUT_DPMS_STANDBY) hookpoint = E_OUTPUT_INTERCEPT_HOOK_DPMS_STANDBY;
+   else if (val == E_OUTPUT_DPMS_SUSPEND) hookpoint = E_OUTPUT_INTERCEPT_HOOK_DPMS_SUSPEND;
+   else hookpoint = E_OUTPUT_INTERCEPT_HOOK_DPMS_OFF;
+
+   if (!_e_output_intercept_hook_call(hookpoint, output))
+     return EINA_TRUE;
+
+   if (val == E_OUTPUT_DPMS_ON) tval = TDM_OUTPUT_DPMS_ON;
+   else if (val == E_OUTPUT_DPMS_STANDBY) tval = TDM_OUTPUT_DPMS_STANDBY;
+   else if (val == E_OUTPUT_DPMS_SUSPEND) tval = TDM_OUTPUT_DPMS_SUSPEND;
+   else tval = TDM_OUTPUT_DPMS_OFF;
 
    error = tdm_output_set_dpms(output->toutput, tval);
    if (error != TDM_ERROR_NONE)
@@ -2633,6 +2693,34 @@ e_output_hook_del(E_Output_Hook *ch)
      }
    else
      _e_output_hooks_delete++;
+}
+
+E_API E_Output_Intercept_Hook *
+e_output_intercept_hook_add(E_Output_Intercept_Hook_Point hookpoint, E_Output_Intercept_Hook_Cb func, const void *data)
+{
+   E_Output_Intercept_Hook *ch;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_OUTPUT_INTERCEPT_HOOK_LAST, NULL);
+   ch = E_NEW(E_Output_Intercept_Hook, 1);
+   if (!ch) return NULL;
+   ch->hookpoint = hookpoint;
+   ch->func = func;
+   ch->data = (void*)data;
+   _e_output_intercept_hooks[hookpoint] = eina_inlist_append(_e_output_intercept_hooks[hookpoint], EINA_INLIST_GET(ch));
+   return ch;
+}
+
+E_API void
+e_output_intercept_hook_del(E_Output_Intercept_Hook *ch)
+{
+   ch->delete_me = 1;
+   if (_e_output_intercept_hooks_walking == 0)
+     {
+        _e_output_intercept_hooks[ch->hookpoint] = eina_inlist_remove(_e_output_intercept_hooks[ch->hookpoint], EINA_INLIST_GET(ch));
+        free(ch);
+     }
+   else
+     _e_output_intercept_hooks_delete++;
 }
 
 EINTERN Eina_Bool

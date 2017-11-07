@@ -25,8 +25,6 @@ _e_dpms_set_cb(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    E_Dpms_Mode dpms_value = E_DPMS_MODE_OFF;
    int result = -1;
-   E_Zone *zone = NULL;
-   Eina_List *zl = NULL;
 
    DBG("got DPMS request");
 
@@ -41,14 +39,6 @@ _e_dpms_set_cb(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
         else if (dpms_value == E_DPMS_MODE_STANDBY) val = E_OUTPUT_DPMS_STANDBY;
         else if (dpms_value == E_DPMS_MODE_SUSPEND) val = E_OUTPUT_DPMS_SUSPEND;
         else val = E_OUTPUT_DPMS_OFF;
-
-        EINA_LIST_FOREACH(e_comp->zones, zl, zone)
-          {
-             if (dpms_value == E_DPMS_MODE_ON)
-               e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_ON);
-             else if (dpms_value == E_DPMS_MODE_OFF)
-               e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_OFF);
-          }
 
         if (e_output_dpms_set(output, val))
           DBG("set DPMS");

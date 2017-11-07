@@ -1158,19 +1158,6 @@ _e_desk_hide_begin(E_Desk *desk, int dx, int dy)
 }
 
 static void
-_e_desk_zoom_first_set(E_Desk *desk)
-{
-   E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
-
-   sd->zoom.ratio_x = 1.0;
-   sd->zoom.ratio_y = 1.0;
-   sd->zoom.center_x = 0;
-   sd->zoom.center_y = 0;
-
-   _e_desk_object_zoom(desk->smart_obj, 1.0, 1.0, 0, 0);
-}
-
-static void
 _e_desk_smart_init(E_Desk *desk)
 {
    E_Zone *zone;
@@ -1183,10 +1170,12 @@ _e_desk_smart_init(E_Desk *desk)
    desk->smart_obj = evas_object_smart_add(e_comp->evas, _e_desk_smart_class_new());
    e_desk_geometry_set(desk, zone->x, zone->y, zone->w, zone->h);
 
-   /* FIXME indicator object won't be work, if remove this code.
-    * I have no idea why this code is necessary, so I just let it be. */
-//   e_desk_zoom_set(desk, 1.0, 1.0, 0, 0);
-   _e_desk_zoom_first_set(desk);
+   E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
+
+   sd->zoom.ratio_x = 1.0;
+   sd->zoom.ratio_y = 1.0;
+   sd->zoom.center_x = 0;
+   sd->zoom.center_y = 0;
 }
 
 static Eina_Bool
@@ -1195,6 +1184,9 @@ _e_desk_smart_client_cb_resize(void *data, int type, void *event)
    E_Event_Client *ev;
    E_Desk_Smart_Data *sd;
    E_Client *ec = NULL;
+
+   if (!data) goto end;
+   if (!event) goto end;
 
    ev = event;
    sd = data;
@@ -1249,19 +1241,26 @@ _e_desk_smart_member_add(Evas_Object *obj, Evas_Object *child)
 
    ec = evas_object_data_get(child, "E_Client");
    if (ec)
-     _e_desk_smart_client_add(obj, ec);
+     e_desk_client_del(ec->desk, ec);
 }
 
 static void
 _e_desk_smart_member_del(Evas_Object *obj, Evas_Object *child)
 {
-   E_Client *ec;
+   E_Client *ec = NULL;
+   Evas_Object *parent = NULL;
 
    _e_desk_parent_sc->member_del(obj, child);
 
+   // if quickpanel packed into mover smart obj, _e_desk_smart_member_del is called
+   // but parent is still e_desk, because mover's parent is the same e_desk
+   // than don't add ec on the sd->clists
+   parent = evas_object_smart_parent_get(child);
+   if (parent && (parent == obj)) return;
+
    ec = evas_object_data_get(child, "E_Client");
    if (ec)
-     _e_desk_smart_client_del(obj, ec);
+     e_desk_client_add(ec->desk, ec);
 }
 
 static void
@@ -1276,7 +1275,13 @@ _e_desk_smart_set_user(Evas_Smart_Class *sc)
 static void
 _e_desk_smart_client_add(Evas_Object *obj, E_Client *ec)
 {
+   Evas_Object *parent = NULL;
+
    E_DESK_SMART_DATA_GET_OR_RETURN(obj, sd);
+
+   // if ec is a member of e_desk, don't add it in data.
+   parent = evas_object_smart_parent_get(ec->frame);
+   if (parent && (parent == ec->desk->smart_obj)) return;
 
    if (eina_list_data_find(sd->clients, ec))
      return;
@@ -1292,6 +1297,9 @@ _e_desk_smart_client_del(Evas_Object *obj, E_Client *ec)
 
    if (!eina_list_data_find(sd->clients, ec))
      return;
+
+   if (sd->zoom.enabled)
+     _e_desk_client_zoom(ec, 1.0, 1.0, 0, 0);
 
    sd->clients = eina_list_remove(sd->clients, ec);
    evas_object_smart_changed(obj);

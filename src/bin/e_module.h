@@ -52,6 +52,7 @@ struct _E_Module_Api
    const char *name;
 };
 
+EINTERN void         e_module_event_init(void);
 EINTERN int          e_module_init(void);
 EINTERN int          e_module_shutdown(void);
 

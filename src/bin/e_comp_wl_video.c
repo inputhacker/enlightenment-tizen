@@ -5,6 +5,7 @@
 #include "e.h"
 #include <tdm.h>
 #include <values.h>
+#include <tdm_helper.h>
 
 //#define DUMP_BUFFER
 #define CHECKING_PRIMARY_ZPOS
@@ -1105,7 +1106,7 @@ _e_video_input_buffer_get(E_Video *video, E_Comp_Wl_Buffer *comp_buffer, Eina_Bo
      {
         if (video->pp_align != -1 && (vbuf->width_from_pitch % video->pp_align))
           {
-             E_Comp_Wl_Video_Buf *temp, *temp2;
+             E_Comp_Wl_Video_Buf *temp;
              int aligned_width = ROUNDUP(vbuf->width_from_pitch, video->pp_align);
 
              temp = e_comp_wl_video_buffer_alloc(aligned_width, vbuf->height, vbuf->tbmfmt, scanout);
@@ -1115,21 +1116,22 @@ _e_video_input_buffer_get(E_Video *video, E_Comp_Wl_Buffer *comp_buffer, Eina_Bo
                   return NULL;
                }
 
+             temp->comp_buffer = comp_buffer;
+
              VDB("copy vbuf(%d,%dx%d) => vbuf(%d,%dx%d)",
                  MSTAMP(vbuf), vbuf->width_from_pitch, vbuf->height,
-                 MSTAMP(temp), temp->width, temp->height);
+                 MSTAMP(temp), temp->width_from_pitch, temp->height);
 
              e_comp_wl_video_buffer_copy(vbuf, temp);
-             temp2 = vbuf;
+             e_comp_wl_video_buffer_unref(vbuf);
              vbuf = temp;
-             e_comp_wl_video_buffer_unref(temp2);
 
              video->geo.input_w = vbuf->width_from_pitch;
 #ifdef DUMP_BUFFER
              char file[256];
              static int i;
-             snprintf(file, sizeof file, "%s_%d", "copy", i++);
-             tbm_surface_internal_dump_buffer(tbm_buffer, file, i++, 0);
+             snprintf(file, sizeof file, "/tmp/dump/%s_%d.png", "cpy", i++);
+             tdm_helper_dump_buffer(temp->tbm_surface, file);
 #endif
           }
      }

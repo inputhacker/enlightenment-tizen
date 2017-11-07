@@ -4558,7 +4558,6 @@ _e_comp_wl_compositor_create(void)
    E_Comp_Wl_Data *cdata;
    const char *name;
    int fd = 0;
-   E_Module *_mod;
    Eina_Bool res;
 
    /* create new compositor data */
@@ -4661,16 +4660,6 @@ _e_comp_wl_compositor_create(void)
    ecore_main_fd_handler_prepare_callback_set(cdata->fd_hdlr,
                                               _e_comp_wl_cb_prepare, cdata);
 
-   /* load shell module */
-   _mod = e_module_new("wl_desktop_shell");
-   EINA_SAFETY_ON_NULL_GOTO(_mod, input_err);
-
-   if (!e_module_enable(_mod))
-     {
-        ERR("Fail to enable wl_desktop_shell module");
-        goto input_err;
-     }
-
    return EINA_TRUE;
 
 input_err:
@@ -4768,6 +4757,8 @@ e_comp_wl_init(void)
         return EINA_FALSE;
      }
 
+   e_comp_wl_shell_init();
+
 #ifdef HAVE_WAYLAND_TBM
    e_comp_wl_tbm_init();
 #endif
@@ -4847,6 +4838,7 @@ e_comp_wl_shutdown(void)
 
    e_pixmap_shutdown();
 
+   e_comp_wl_shell_shutdown();
    e_comp_wl_input_shutdown();
 
    // TODO: yigl
