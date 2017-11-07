@@ -2463,7 +2463,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
 
    if (((state->new_attach) ||
        (state->buffer_viewport.changed)) &&
-       (!e_comp_is_ec_on_output_managed_by_opt_hwc(ec) || !ec->comp_data->video_client))
+       (!e_comp_is_ec_on_output_opt_hwc(ec) || !ec->comp_data->video_client))
      {
         _e_comp_wl_surface_state_size_update(ec, state);
         e_comp_wl_map_size_cal_from_viewport(ec);
@@ -2584,7 +2584,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
                   e_drag_resize(e_comp_wl->drag,
                                 state->bw, state->bh);
                }
-             else if (!e_comp_is_ec_on_output_managed_by_opt_hwc(ec) || !ec->comp_data->video_client)
+             else if (!e_comp_is_ec_on_output_opt_hwc(ec) || !ec->comp_data->video_client)
                {
                   e_client_util_move_resize_without_frame(ec, x, y, ec->w, ec->h);
                }
@@ -5095,7 +5095,7 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
           }
         else
           {
-             if ((ec) && (ec->comp_data->video_client)  && !e_comp_is_ec_on_output_managed_by_opt_hwc(ec))
+             if ((ec) && (ec->comp_data->video_client)  && !e_comp_is_ec_on_output_opt_hwc(ec))
                {
                   buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
                   buffer->w = buffer->h = 1;
@@ -5147,7 +5147,7 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
                if (!tbm_surf)
                  goto err;
 
-               if ((ec) && (ec->comp_data->video_client) && !e_comp_is_ec_on_output_managed_by_opt_hwc(ec))
+               if ((ec) && (ec->comp_data->video_client) && !e_comp_is_ec_on_output_opt_hwc(ec))
                  {
                     buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
                     buffer->w = buffer->h = 1;

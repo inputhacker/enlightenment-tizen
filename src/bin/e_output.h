@@ -64,7 +64,7 @@ struct _E_Output
 
         /* TODO: maybe it'd be better to have TWO list of outputs: one for outputs managed
          *       by no-opt-hwc and one for outputs managed by opt-hwc? */
-        Eina_Bool             managed_by_opt_hwc; // that is whether the layer policy for this output
+        Eina_Bool             opt_hwc; // that is whether the layer policy for this output
                                                   // is controlled by tdm-backend
    } config;
 
@@ -173,10 +173,6 @@ EINTERN Eina_Bool         e_output_stream_capture_queue(E_Output *output, tbm_su
 EINTERN Eina_Bool         e_output_stream_capture_dequeue(E_Output *output, tbm_surface_h surface);
 EINTERN Eina_Bool         e_output_stream_capture_start(E_Output *output);
 EINTERN void              e_output_stream_capture_stop(E_Output *output);
-EINTERN E_Hwc_Window    * e_output_find_window_by_ec(E_Output *eout, E_Client *ec);
-EINTERN E_Hwc_Window    * e_output_find_window_by_ec_in_all_outputs(E_Client *ec);
-EINTERN E_Hwc_Window    * e_output_find_window_by_hwc_win(E_Output *eout, tdm_hwc_window *hwc_win);
-EINTERN E_Hwc_Window_Target * e_output_get_target_window(E_Output *eout);
 E_API E_Output          * e_output_find(const char *id);
 E_API E_Output          * e_output_find_by_index(int index);
 E_API const Eina_List   * e_output_planes_get(E_Output *output);
@@ -189,7 +185,6 @@ E_API E_Plane           * e_output_plane_get_by_zpos(E_Output *output, int zpos)
 EINTERN void              e_output_update_fps();
 E_API E_Output_Hook     * e_output_hook_add(E_Output_Hook_Point hookpoint, E_Output_Hook_Cb func, const void *data);
 E_API void                e_output_hook_del(E_Output_Hook *ch);
-EINTERN Eina_Bool         e_output_is_managed_by_opt_hwc(E_Output *output);
 E_API E_Output_Intercept_Hook * e_output_intercept_hook_add(E_Output_Intercept_Hook_Point hookpoint, E_Output_Intercept_Hook_Cb func, const void *data);
 E_API void                e_output_intercept_hook_del(E_Output_Intercept_Hook *ch);
 

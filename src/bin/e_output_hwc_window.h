@@ -1,0 +1,129 @@
+#ifdef E_TYPEDEFS
+
+typedef struct _E_Output_Hwc_Window                     E_Output_Hwc_Window;
+typedef struct _E_Output_Hwc_Window_Target              E_Output_Hwc_Window_Target;
+typedef struct _E_Output_Hwc_Window_Commit_Data         E_Output_Hwc_Window_Commit_Data;
+
+#else
+#ifndef E_OUTPUT_HWC_WINDOW_H
+#define E_OUTPUT_HWC_WINDOW_H
+
+typedef enum _E_Output_Hwc_Window_State
+{
+   E_OUTPUT_HWC_WINDOW_STATE_NONE,
+   E_OUTPUT_HWC_WINDOW_STATE_CLIENT,
+   E_OUTPUT_HWC_WINDOW_STATE_DEVICE,
+   E_OUTPUT_HWC_WINDOW_STATE_CLIENT_CANDIDATE,
+   E_OUTPUT_HWC_WINDOW_STATE_VIDEO
+} E_Output_Hwc_Window_State;
+
+typedef enum _E_Output_Hwc_Window_Activation_State
+{
+   E_OUTPUT_HWC_WINDOW_ACTIVATION_STATE_NONE = 0,
+   E_OUTPUT_HWC_WINDOW_ACTIVATION_STATE_ACTIVATED,
+   E_OUTPUT_HWC_WINDOW_ACTIVATION_STATE_DEACTIVATED,
+} E_Output_Hwc_Window_Activation_State;
+
+struct _E_Output_Hwc_Window
+{
+   E_Client                      *ec;
+   E_Output                      *output;
+   tdm_hwc_window                *hwc_wnd;
+   int                            zpos;
+   int                            skip_flag;
+   Eina_Bool                      is_visible;
+   tdm_hwc_window_composition     type;
+   Eina_Bool                      is_target;
+   Eina_Bool                      is_video;
+   Eina_Bool                      is_deleted;
+   Eina_Bool                      update_exist;
+   tbm_surface_h                  tsurface;
+   E_Output_Hwc_Window_Activation_State  activation_state; /* window has occupied the hw layer or not */
+
+   E_Output_Hwc_Window_State             state;
+
+   /* current display information */
+   struct
+   {
+      E_Comp_Wl_Buffer_Ref  buffer_ref;
+      tbm_surface_h         tsurface;
+   } display_info;
+
+   E_Output_Hwc_Window_Commit_Data       *commit_data;
+
+   /* whether E20 has to notify this E_Output_Hwc_Window about the need to unset
+    * candidate client type */
+   Eina_Bool                      get_notified_about_need_unset_cc_type;
+   uint64_t                       frame_num;  /* the absolute number of frame to be notified about */
+
+   /* whether an e_client owned by this window got composited on the fb_target */
+   Eina_Bool                      got_composited;
+   Eina_Bool                      need_unset_cc_type; /* need unset candidate client type */
+   /* number of buffers in front of the buffer which contains the e_client
+    * owned by this window*/
+   int delay;
+};
+
+struct _E_Output_Hwc_Window_Target
+{
+   E_Output_Hwc_Window        window; /* don't move this field */
+
+   Ecore_Evas         *ee;
+   Evas               *evas;
+   int                 event_fd;
+
+   tbm_surface_queue_h queue;
+
+   uint64_t            render_cnt;
+};
+
+struct _E_Output_Hwc_Window_Commit_Data {
+   E_Comp_Wl_Buffer_Ref  buffer_ref;
+   tbm_surface_h         tsurface;
+};
+
+EINTERN Eina_Bool e_output_hwc_window_init(E_Output *output);
+EINTERN void      e_output_hwc_window_deinit(E_Output *output); // TODO:
+
+EINTERN E_Output_Hwc_Window *e_output_hwc_window_new(E_Output *output);
+EINTERN void                 e_output_hwc_window_free(E_Output *output, E_Output_Hwc_Window *window);
+
+EINTERN Eina_Bool e_output_hwc_window_set_ec(E_Output *output, E_Output_Hwc_Window *window, E_Client *ec);
+EINTERN Eina_Bool e_output_hwc_window_set_zpos(E_Output *output, E_Output_Hwc_Window *window, int zpos);
+EINTERN Eina_Bool e_output_hwc_window_set_skip_flag(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN Eina_Bool e_output_hwc_window_unset_skip_flag(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN Eina_Bool e_output_hwc_window_mark_visible(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN Eina_Bool e_output_hwc_window_mark_unvisible(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN Eina_Bool e_output_hwc_window_update(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN Eina_Bool e_output_hwc_window_is_target(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN Eina_Bool e_output_hwc_window_is_video(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN Eina_Bool e_output_hwc_window_fetch(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN void      e_output_hwc_window_unfetch(E_Output *output, E_Output_Hwc_Window *window);
+
+EINTERN E_Output_Hwc_Window_Commit_Data *e_output_hwc_window_commit_data_aquire(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN Eina_Bool                        e_output_hwc_window_commit_data_release(E_Output *output, E_Output_Hwc_Window *window);
+
+EINTERN Eina_Bool     e_output_hwc_window_target_surface_queue_can_dequeue(E_Output *output, E_Output_Hwc_Window_Target *target_window);
+EINTERN tbm_surface_h e_output_hwc_window_target_surface_queue_acquire(E_Output *output, E_Output_Hwc_Window_Target *target_window);
+EINTERN void          e_output_hwc_window_target_surface_queue_release(E_Output *output, E_Output_Hwc_Window_Target *target_window, tbm_surface_h tsurface);
+EINTERN uint64_t      e_output_hwc_window_target_get_current_renderer_cnt(E_Output *output, E_Output_Hwc_Window_Target *target_window);
+
+EINTERN Eina_Bool e_output_hwc_window_prepare_commit(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN Eina_Bool e_output_hwc_window_offscreen_commit(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN Eina_Bool e_output_hwc_window_activate(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN Eina_Bool e_output_hwc_window_deactivate(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN Eina_Bool e_output_hwc_window_is_on_hw_overlay(E_Output *output, E_Output_Hwc_Window *window);
+EINTERN tbm_surface_h e_output_hwc_window_get_displaying_surface(E_Output *output, E_Output_Hwc_Window *window);
+
+EINTERN Eina_Bool                 e_output_hwc_window_set_state(E_Output *output, E_Output_Hwc_Window *window, E_Output_Hwc_Window_State state);
+EINTERN E_Output_Hwc_Window_State e_output_hwc_window_get_state(E_Output *output, E_Output_Hwc_Window *window);
+
+EINTERN Eina_Bool e_output_hwc_window_get_notified_about_need_unset_cc_type(E_Output *output, E_Output_Hwc_Window *window, uint64_t offset);
+
+EINTERN E_Output_Hwc_Window        *e_output_hwc_window_find_window_by_ec(E_Output *output, E_Client *ec);
+EINTERN E_Output_Hwc_Window        *e_output_hwc_window_find_window_by_ec_in_all_outputs(E_Client *ec);
+EINTERN E_Output_Hwc_Window        *e_output_hwc_window_find_by_twin(E_Output *output, tdm_hwc_window *hwc_win);
+EINTERN E_Output_Hwc_Window_Target *e_output_hwc_window_get_target_window(E_Output *output);
+
+#endif // E_OUTPUT_HWC_WINDOW_H
+#endif

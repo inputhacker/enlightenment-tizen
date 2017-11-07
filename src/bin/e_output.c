@@ -1643,9 +1643,9 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
 
    /* if tdm_output supports hwc capability e20 has to manage it by optimized hwc */
    if (output_caps & TDM_OUTPUT_CAPABILITY_HWC)
-     output->config.managed_by_opt_hwc = EINA_TRUE;
+     e_output_hwc_opt_hwc_set(output, EINA_TRUE);
 
-   INF("E_OUTPUT: (%d) managed by %s", index, output->config.managed_by_opt_hwc ? "optimized hwc" :
+   INF("E_OUTPUT: (%d) managed by %s", index, e_output_hwc_opt_hwc_enabled(output) ? "optimized hwc" :
            "no-optimized hwc");
 
    error = tdm_output_add_change_handler(toutput, _e_output_cb_output_change, output);
@@ -1687,7 +1687,7 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
 
    _e_output_tdm_strem_capture_support(output);
 
-   if (output->config.managed_by_opt_hwc)
+   if (e_output_hwc_opt_hwc_enabled(output))
      return output;
 
    /* the e_output is managed by no optimized hwc so we have to deal with tdm_layers */
@@ -2380,7 +2380,7 @@ e_output_util_planes_print(void)
 
         if (!output || !output->planes) continue;
 
-        if (output->config.managed_by_opt_hwc) continue;
+        if (e_output_hwc_opt_hwc_enabled(output)) continue;
 
         fprintf(stderr, "HWC in %s .. \n", output->id);
         fprintf(stderr, "HWC \tzPos \t on_plane \t\t\t\t on_prepare \t \n");
@@ -2888,77 +2888,6 @@ fail:
    return EINA_FALSE;
 }
 
-EINTERN E_Hwc_Window *
-e_output_find_window_by_ec(E_Output *eout, E_Client *ec)
-{
-   Eina_List *l;
-   E_Hwc_Window *window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
-
-   EINA_LIST_FOREACH(eout->windows, l, window)
-     {
-        if (window->ec == ec) return window;
-     }
-
-   return NULL;
-}
-
-EINTERN E_Hwc_Window *
-e_output_find_window_by_ec_in_all_outputs(E_Client *ec)
-{
-   Eina_List *l_w, *l_o;
-   E_Output *output;
-   E_Hwc_Window *window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
-
-
-   EINA_LIST_FOREACH(e_comp->e_comp_screen->outputs, l_o, output)
-     {
-        EINA_LIST_FOREACH(output->windows, l_w, window)
-          {
-             if (window->ec == ec) return window;
-          }
-     }
-
-   return NULL;
-}
-
-EINTERN E_Hwc_Window *
-e_output_find_window_by_hwc_win(E_Output *eout, tdm_hwc_window *hwc_win)
-{
-   Eina_List *l;
-   E_Hwc_Window *window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_win, NULL);
-
-   EINA_LIST_FOREACH(eout->windows, l, window)
-     {
-        if (window->hwc_wnd == hwc_win) return window;
-     }
-
-   return NULL;
-}
-
-EINTERN E_Hwc_Window_Target *
-e_output_get_target_window(E_Output *eout)
-{
-   Eina_List *l;
-   E_Hwc_Window *window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, NULL);
-
-   EINA_LIST_FOREACH(eout->windows, l, window)
-     {
-        if (window->is_target) return (E_Hwc_Window_Target *)window;
-     }
-
-   return NULL;
-}
-
 EINTERN void
 e_output_stream_capture_stop(E_Output *output)
 {
@@ -3006,12 +2935,4 @@ e_output_stream_capture_stop(E_Output *output)
 
         DBG("e_output stream capture stop.");
      }
-}
-
-EINTERN Eina_Bool
-e_output_is_managed_by_opt_hwc(E_Output *output)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
-
-   return output->config.managed_by_opt_hwc;
 }
