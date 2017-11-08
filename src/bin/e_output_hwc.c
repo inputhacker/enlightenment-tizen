@@ -499,28 +499,6 @@ _tdm_output_need_validate_handler(tdm_output *output)
    e_comp_render_queue();
 }
 
-EINTERN Eina_Bool
-e_output_hwc_init(E_Output *output)
-{
-   tdm_error err;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
-
-   if (!e_output_hwc_window_init(output))
-     {
-        ERR("hwc_opt: E_Output_Hwc_Window init failed");
-        return EINA_FALSE;
-     }
-
-   /* get backend a shot to ask us for the revalidation */
-   err = tdm_output_hwc_set_need_validate_handler(output->toutput, _tdm_output_need_validate_handler);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
-
-   INF("hwc-opt: register a need_validate_handler for the eo:%p.", output);
-
-   return EINA_TRUE;
-}
-
 static Eina_List *
 _e_output_hwc_vis_ec_list_get(E_Output *eout)
 {
@@ -576,6 +554,28 @@ _e_output_hwc_vis_ec_list_get(E_Output *eout)
      }
 
    return ec_list;
+}
+
+EINTERN Eina_Bool
+e_output_hwc_init(E_Output *output)
+{
+   tdm_error err;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   if (!e_output_hwc_window_init(output))
+     {
+        ERR("hwc_opt: E_Output_Hwc_Window init failed");
+        return EINA_FALSE;
+     }
+
+   /* get backend a shot to ask us for the revalidation */
+   err = tdm_output_hwc_set_need_validate_handler(output->toutput, _tdm_output_need_validate_handler);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(err == TDM_ERROR_NONE, EINA_FALSE);
+
+   INF("hwc-opt: register a need_validate_handler for the eo:%p.", output);
+
+   return EINA_TRUE;
 }
 
 EINTERN Eina_Bool
