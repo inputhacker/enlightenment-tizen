@@ -165,8 +165,6 @@ EINTERN Eina_Bool            e_plane_fetch(E_Plane *plane);
 EINTERN void                 e_plane_unfetch(E_Plane *plane);
 EINTERN E_Plane_Commit_Data *e_plane_commit_data_aquire(E_Plane *plane);
 EINTERN void                 e_plane_commit_data_release(E_Plane_Commit_Data *data);
-EINTERN Eina_Bool            e_plane_is_reserved(E_Plane *plane);
-EINTERN void                 e_plane_reserved_set(E_Plane *plane, Eina_Bool set);
 EINTERN void                 e_plane_hwc_trace_debug(Eina_Bool onoff);
 EINTERN Eina_Bool            e_plane_render(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_commit(E_Plane *plane);
@@ -200,6 +198,8 @@ E_API Eina_Bool              e_plane_is_primary(E_Plane *plane);
 E_API Eina_Bool              e_plane_is_cursor(E_Plane *plane);
 E_API E_Plane_Color          e_plane_color_val_get(E_Plane *plane);
 E_API Eina_Bool              e_plane_is_fb_target(E_Plane *plane);
+E_API Eina_Bool              e_plane_is_reserved(E_Plane *plane);
+E_API void                   e_plane_reserved_set(E_Plane *plane, Eina_Bool set);
 
 E_API Eina_Bool              e_plane_video_usable(E_Plane *plane);
 E_API Eina_Bool              e_plane_video_set(E_Plane *plane, Eina_Bool set, Eina_Bool *wait);
