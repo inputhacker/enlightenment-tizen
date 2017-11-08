@@ -632,7 +632,6 @@ e_output_hwc_window_deinit(E_Output *output)
    // TODO:
 }
 
-
 EINTERN E_Output_Hwc_Window *
 e_output_hwc_window_new(E_Output *output)
 {
@@ -990,27 +989,6 @@ e_output_hwc_window_unfetch(E_Output *output, E_Output_Hwc_Window *window)
    window->update_exist = EINA_FALSE;
 }
 
-/* we can do commit if we set surface at least to one window which displayed on
- * the hw layer*/
-static Eina_Bool
-_can_commit(E_Output *output)
-{
-   Eina_List *l;
-   E_Output_Hwc_Window *window;
-
-   EINA_LIST_FOREACH(output->windows, l, window)
-     {
-        if (!e_output_hwc_window_is_on_hw_overlay(output, window)) continue;
-
-        if (window->update_exist) return EINA_TRUE;
-
-        if (window->commit_data && window->commit_data->tsurface) return EINA_TRUE;
-        if (e_output_hwc_window_get_displaying_surface(output, window)) return EINA_TRUE;
-     }
-
-   return EINA_FALSE;
-}
-
 EINTERN E_Output_Hwc_Window_Commit_Data *
 e_output_hwc_window_commit_data_aquire(E_Output *output, E_Output_Hwc_Window *window)
 {
@@ -1025,7 +1003,7 @@ e_output_hwc_window_commit_data_aquire(E_Output *output, E_Output_Hwc_Window *wi
         window->update_exist = EINA_FALSE;
 
         /* if the window unset is needed and we can do commit */
-        if (e_output_hwc_window_get_displaying_surface(output, window) && _can_commit(output))
+        if (e_output_hwc_window_get_displaying_surface(output, window))
           {
              commit_data = E_NEW(E_Output_Hwc_Window_Commit_Data, 1);
              EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, NULL);

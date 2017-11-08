@@ -408,6 +408,27 @@ _e_output_hwc_output_commit_handler(tdm_output *output, unsigned int sequence,
    eo->wait_commit = EINA_FALSE;
 }
 
+/* we can do commit if we set surface at least to one window which displayed on
+ * the hw layer*/
+static Eina_Bool
+_can_commit(E_Output *output)
+{
+   Eina_List *l;
+   E_Output_Hwc_Window *window;
+
+   EINA_LIST_FOREACH(output->windows, l, window)
+     {
+        if (!e_output_hwc_window_is_on_hw_overlay(output, window)) continue;
+
+        if (window->update_exist) return EINA_TRUE;
+
+        if (window->commit_data && window->commit_data->tsurface) return EINA_TRUE;
+        if (e_output_hwc_window_get_displaying_surface(output, window)) return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
 static Eina_Bool
 _e_output_hwc_output_commit(E_Output *output)
 {
@@ -441,6 +462,8 @@ _e_output_hwc_output_commit(E_Output *output)
      }
 
    if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
+
+   if (!_can_commit(output)) return EINA_FALSE;
 
    EINA_LIST_FOREACH(output->windows, l, window)
      {
