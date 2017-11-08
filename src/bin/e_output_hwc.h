@@ -13,6 +13,7 @@ EINTERN Eina_Bool            e_output_hwc_re_evaluate(E_Output *output);
 EINTERN Eina_Bool            e_output_hwc_commit(E_Output *output);
 EINTERN void                 e_output_hwc_opt_hwc_set(E_Output *output, Eina_Bool set);
 EINTERN Eina_Bool            e_output_hwc_opt_hwc_enabled(E_Output *output);
+EINTERN const Eina_List     *e_output_hwc_windows_get(E_Output *output);
 
 #endif // E_OUTPUT_HWC_H
 #endif

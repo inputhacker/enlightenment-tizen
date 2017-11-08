@@ -2352,15 +2352,6 @@ e_output_planes_get(E_Output *output)
    return output->planes;
 }
 
-E_API const Eina_List *
-e_output_windows_get(E_Output *output)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output->windows, NULL);
-
-   return output->windows;
-}
-
 E_API void
 e_output_util_planes_print(void)
 {

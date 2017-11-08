@@ -26,7 +26,7 @@ _hwc_re_evaluate_init(E_Output *eout)
    const Eina_List *windows, *l;
    E_Output_Hwc_Window *window = NULL;
 
-   windows = e_output_windows_get(eout);
+   windows = e_output_hwc_windows_get(eout);
    EINA_LIST_FOREACH(windows, l, window)
      e_output_hwc_window_mark_unvisible(eout, window);
 
@@ -255,7 +255,7 @@ _hwc_prepare(E_Output *eo, Eina_List *cl_list)
         zpos++;
      }
 
-   windows = e_output_windows_get(eo);
+   windows = e_output_hwc_windows_get(eo);
    if (!windows)
      {
         ERR("hwc-opt: cannot get list of windows for output(%p)", eo);
@@ -396,7 +396,7 @@ _e_output_hwc_output_commit_handler(tdm_output *output, unsigned int sequence,
 
    EINA_SAFETY_ON_NULL_RETURN(eo);
 
-   EINA_LIST_FOREACH(e_output_windows_get(eo), l, window)
+   EINA_LIST_FOREACH(e_output_hwc_windows_get(eo), l, window)
      {
          if (!e_output_hwc_window_commit_data_release(eo, window)) continue;
          if (e_output_hwc_window_is_video(eo, window))
@@ -658,4 +658,13 @@ e_output_hwc_opt_hwc_enabled(E_Output *output)
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
    return output->config.opt_hwc;
+}
+
+EINTERN const Eina_List *
+e_output_hwc_windows_get(E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->windows, NULL);
+
+   return output->windows;
 }

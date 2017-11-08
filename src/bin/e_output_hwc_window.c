@@ -72,7 +72,7 @@ _new_buffer_is_acquired_from_evas_renderer_queue(E_Output_Hwc_Window_Target *tar
    E_Output_Hwc_Window *window;
    const Eina_List *l;
 
-   EINA_LIST_FOREACH(e_output_windows_get(((E_Output_Hwc_Window *)target_window)->output), l, window)
+   EINA_LIST_FOREACH(e_output_hwc_windows_get(((E_Output_Hwc_Window *)target_window)->output), l, window)
      {
         if (window->is_deleted) continue;
 
@@ -348,7 +348,7 @@ _evas_renderer_queue_has_new_composited_buffer(void *data)
            target_window->render_cnt);
 
    enqueued_surface_num = _get_enqueued_surface_num(target_window->queue);
-   EINA_LIST_FOREACH(e_output_windows_get(((E_Output_Hwc_Window *)target_window)->output), l, window)
+   EINA_LIST_FOREACH(e_output_hwc_windows_get(((E_Output_Hwc_Window *)target_window)->output), l, window)
      {
         if (window->is_deleted) continue;
 

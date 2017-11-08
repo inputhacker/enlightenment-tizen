@@ -176,7 +176,6 @@ EINTERN void              e_output_stream_capture_stop(E_Output *output);
 E_API E_Output          * e_output_find(const char *id);
 E_API E_Output          * e_output_find_by_index(int index);
 E_API const Eina_List   * e_output_planes_get(E_Output *output);
-E_API const Eina_List   * e_output_windows_get(E_Output *output);
 E_API void                e_output_util_planes_print(void);
 E_API Eina_Bool           e_output_is_fb_composing(E_Output *output);
 E_API Eina_Bool           e_output_is_fb_full_compositing(E_Output *output);
