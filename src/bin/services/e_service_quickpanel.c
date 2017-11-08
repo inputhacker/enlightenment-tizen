@@ -1824,9 +1824,9 @@ e_qp_visible_get(void)
    int x, y, w, h;
 
    qp = _quickpanel_get();
-   EINA_SAFETY_ON_NULL_RETURN_VAL(qp, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(qp->ec, EINA_FALSE);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(qp->ec)), EINA_FALSE);
+   if (!qp) return EINA_FALSE;
+   if (!qp->ec) return EINA_FALSE;
+   if (e_object_is_del(E_OBJECT(qp->ec))) return EINA_FALSE;
 
    ec = qp->ec;
    evas_object_geometry_get(ec->frame, &x, &y, &w, &h);
