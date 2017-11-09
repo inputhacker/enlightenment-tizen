@@ -5,6 +5,9 @@
 static Eina_List *einput_devices;
 static E_Input_Device *e_input_device_default = NULL;
 
+struct xkb_keymap *cached_keymap;
+struct xkb_context *cached_context;
+
 static int
 _device_open_no_pending(const char *device, int flags)
 {
