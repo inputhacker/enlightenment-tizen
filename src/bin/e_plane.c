@@ -1304,7 +1304,7 @@ e_plane_new(E_Output *output, int index)
    for ( i = 0 ; i < count ; i++)
      plane->available_formats = eina_list_append(plane->available_formats, &formats[i]);
 
-   if (tdm_helper_commit_per_vblank_enabled(comp_screen->tdisplay))
+   if (tdm_helper_output_commit_per_vblank_enabled(plane->output->toutput))
      plane->commit_per_vblank = EINA_TRUE;
 
    INF("E_PLANE: (%d) plane:%p name:%s zpos:%d capa:%s %s",

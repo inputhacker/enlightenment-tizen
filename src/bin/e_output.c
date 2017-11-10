@@ -1637,13 +1637,15 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
    error = tdm_output_get_capabilities(toutput, &output_caps);
    if (error != TDM_ERROR_NONE)
      {
-        WRN("fail to tdm_output_get_capabilities");
-        output_caps = 0;
+        ERR("fail to tdm_output_get_capabilities");
+        goto fail;
      }
 
    /* if tdm_output supports hwc capability e20 has to manage it by optimized hwc */
    if (output_caps & TDM_OUTPUT_CAPABILITY_HWC)
      e_output_hwc_opt_hwc_set(output, EINA_TRUE);
+   else
+     e_output_hwc_opt_hwc_set(output, EINA_FALSE);
 
    INF("E_OUTPUT: (%d) managed by %s", index, e_output_hwc_opt_hwc_enabled(output) ? "optimized hwc" :
            "no-optimized hwc");
