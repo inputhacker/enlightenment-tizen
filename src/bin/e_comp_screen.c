@@ -43,10 +43,25 @@ _tz_surface_rotation_find(E_Client *ec)
    return NULL;
 }
 
+static E_Comp_Screen_Tzsr*
+_tz_surface_rotation_find_with_resource(struct wl_resource *resource)
+{
+   E_Comp_Screen_Tzsr *tzsr;
+   Eina_List *l;
+
+   EINA_LIST_FOREACH(tzsr_list, l, tzsr)
+     {
+        if (tzsr->resource == resource)
+          return tzsr;
+     }
+
+   return NULL;
+}
+
 static void
 _tz_surface_rotation_free(E_Comp_Screen_Tzsr *tzsr)
 {
-   ELOGF("COMP", "|tzsr(%p)", NULL, tzsr->ec, tzsr);
+   ELOGF("TRANSFORM", "|tzsr(%p) freed", NULL, tzsr->ec, tzsr);
    tzsr_list = eina_list_remove(tzsr_list, tzsr);
    free(tzsr);
 }
@@ -103,6 +118,13 @@ static const struct tizen_screen_rotation_interface _tz_screen_rotation_interfac
    _tz_screen_rotation_iface_cb_destroy,
 };
 
+static void _tz_screen_rotation_cb_destroy(struct wl_resource *resource)
+{
+   E_Comp_Screen_Tzsr *tzsr = _tz_surface_rotation_find_with_resource(resource);
+   if (!tzsr) return;
+   _tz_surface_rotation_free(tzsr);
+}
+
 static void
 _tz_screen_rotation_cb_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
@@ -115,7 +137,7 @@ _tz_screen_rotation_cb_bind(struct wl_client *client, void *data, uint32_t versi
         return;
      }
 
-   wl_resource_set_implementation(res, &_tz_screen_rotation_interface, NULL, NULL);
+   wl_resource_set_implementation(res, &_tz_screen_rotation_interface, NULL, _tz_screen_rotation_cb_destroy);
 }
 
 static Eldbus_Message *
@@ -1231,6 +1253,9 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
 
    ecore_evas_rotation_with_resize_set(e_comp->ee, e_comp_screen->rotation);
    ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
+
+   /* rendering forcely to prepare HWC */
+   e_comp_render_queue();
 
    EINA_LIST_FOREACH(e_input_devices_get(), l, dev)
      {

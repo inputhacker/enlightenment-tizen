@@ -117,6 +117,7 @@ _e_process_client_info_del(E_Client *ec)
 {
    E_Process *pinfo = NULL;
    pid_t pid;
+   Eina_Bool visible;
 
    if (!ec) return;
 
@@ -131,6 +132,15 @@ _e_process_client_info_del(E_Client *ec)
         _e_process_manager->active_win = NULL;
         ELOGF("PROCESS", "ACTION DEACTIVATE. PID:%d", NULL, NULL, pid);
         _e_process_action_change(pinfo, E_PROCESS_ACT_DEACTIVATE);
+     }
+
+   if (pinfo->state != E_PROCESS_STATE_BACKGROUND)
+     {
+        if (_e_process_windows_visible_get(pid, &visible))
+          {
+             if (!visible)
+               _e_process_windows_act_no_visible_update(pid);
+          }
      }
 
    pinfo->ec_list = eina_list_remove(pinfo->ec_list, ec);
