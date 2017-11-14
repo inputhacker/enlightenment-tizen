@@ -5,6 +5,7 @@
 typedef struct _E_Output            E_Output;
 typedef struct _E_Output_Mode       E_Output_Mode;
 typedef enum   _E_Output_Dpms       E_OUTPUT_DPMS;
+typedef enum   _E_Output_Ext_State  E_Output_Ext_State;
 
 typedef struct _E_Output_Hook       E_Output_Hook;
 typedef enum   _E_Output_Hook_Point E_Output_Hook_Point;
@@ -30,6 +31,14 @@ enum _E_Output_Dpms
    E_OUTPUT_DPMS_STANDBY,
    E_OUTPUT_DPMS_SUSPEND,
    E_OUTPUT_DPMS_OFF,
+};
+
+enum _E_Output_Ext_State
+{
+   E_OUTPUT_EXT_NONE,
+   E_OUTPUT_EXT_MIRROR,
+   E_OUTPUT_EXT_PRESENTATION,
+   E_OUTPUT_EXT_WAIT_PRESENTATION,
 };
 
 struct _E_Output_Mode
