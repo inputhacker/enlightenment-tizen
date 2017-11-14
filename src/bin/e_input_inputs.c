@@ -20,7 +20,7 @@ _seat_create(E_Input_Backend *input, const char *seat)
    ei = e_input_get();
    if (!ei) return NULL;
 
-   ee = e_input_get_ecore_evas(ei);
+   ee = e_input_ecore_evas_get(ei);
    if (!ee) return NULL;
 
    evs = ecore_evas_get(ee);
@@ -156,7 +156,7 @@ _e_input_add_evas_device(E_Input_Evdev *edev, Evas_Device_Class clas)
    ei = e_input_get();
    if (!ei) return EINA_FALSE;
 
-   ee = e_input_get_ecore_evas(ei);
+   ee = e_input_ecore_evas_get(ei);
    if (!ee) return EINA_FALSE;
 
    evs = ecore_evas_get(ee);
