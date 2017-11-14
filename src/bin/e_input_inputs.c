@@ -210,7 +210,6 @@ _e_input_device_add(E_Input_Evdev *edev)
 void
 _e_input_device_remove(E_Input_Evdev *edev)
 {
-   Eina_Bool ret = EINA_FALSE;
    Evas_Device_Class clas;
 
    if (edev->caps & E_INPUT_SEAT_POINTER)
