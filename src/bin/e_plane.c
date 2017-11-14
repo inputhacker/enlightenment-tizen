@@ -524,6 +524,50 @@ _e_plane_surface_from_ecore_evas_acquire(E_Plane *plane)
    return tsurface;
 }
 
+static tbm_surface_h
+_e_plane_external_surface_acquire(E_Plane *plane)
+{
+   tbm_surface_h tsurface = NULL;
+   tdm_error ret = TDM_ERROR_NONE;
+   E_Plane *plane_primary_output_fb = NULL;
+
+   plane_primary_output_fb = e_output_fb_target_get(plane->output_primary);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane_primary_output_fb, NULL);
+
+   if (plane->ex_state == E_OUTPUT_EXT_MIRROR)
+     {
+        if ((plane->pp_rect.x != plane->mirror_rect.x) ||
+            (plane->pp_rect.y != plane->mirror_rect.y) ||
+            (plane->pp_rect.w != plane->mirror_rect.w) ||
+            (plane->pp_rect.h != plane->mirror_rect.h))
+           e_plane_zoom_set(plane, &plane->mirror_rect);
+
+        tsurface = tdm_layer_get_displaying_buffer(plane_primary_output_fb->tlayer, &ret);
+        EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, NULL);
+     }
+   else if (plane->ex_state == E_OUTPUT_EXT_PRESENTATION)
+     {
+        if (plane->ec)
+          {
+             /* acquire the surface */
+             if (plane->reserved_memory)
+               tsurface = _e_plane_surface_from_client_acquire_reserved(plane);
+             else
+               tsurface = _e_plane_surface_from_client_acquire(plane);
+
+             if ((tbm_surface_get_width(tsurface) <= 1) || (tbm_surface_get_height(tsurface) <= 1))
+               return NULL;
+          }
+        else
+          return NULL;
+     }
+
+   if (tsurface == plane->tsurface)
+     return NULL;
+
+   return tsurface;
+}
+
 static void
 _e_plane_surface_send_dequeuable_surfaces(E_Plane *plane)
 {
@@ -705,50 +749,66 @@ _e_plane_pp_info_set(E_Plane *plane, tbm_surface_h dst_tsurface)
 {
    tdm_info_pp pp_info;
    tdm_error ret = TDM_ERROR_NONE;
-   unsigned int aligned_width = 0, aligned_width_dst = 0;;
-   tbm_surface_info_s surf_info, surf_info_dst;
+   unsigned int aligned_width_src = 0, aligned_width_dst = 0;
+   tbm_surface_info_s surf_info_src, surf_info_dst;
    tbm_surface_h src_tsurface = plane->tsurface;
 
    /* when the pp_set_info is true, change the pp set_info */
    if (!plane->pp_set_info) return EINA_TRUE;
    plane->pp_set_info = EINA_FALSE;
 
-   tbm_surface_get_info(src_tsurface, &surf_info);
+   tbm_surface_get_info(src_tsurface, &surf_info_src);
 
-   aligned_width = _e_plane_aligned_width_get(src_tsurface);
-   if (aligned_width == 0) return EINA_FALSE;
+   aligned_width_src = _e_plane_aligned_width_get(src_tsurface);
+   if (aligned_width_src == 0) return EINA_FALSE;
 
    tbm_surface_get_info(dst_tsurface, &surf_info_dst);
 
    aligned_width_dst = _e_plane_aligned_width_get(dst_tsurface);
    if (aligned_width_dst == 0) return EINA_FALSE;
 
-   pp_info.src_config.size.h = aligned_width;
-   pp_info.src_config.size.v = surf_info.height;
-   pp_info.src_config.pos.x = plane->pp_rect.x;
-   pp_info.src_config.pos.y = plane->pp_rect.y;
-   pp_info.src_config.pos.w = plane->pp_rect.w;
-   pp_info.src_config.pos.h = plane->pp_rect.h;
-   pp_info.src_config.format = surf_info.format;
+   pp_info.src_config.size.h = aligned_width_src;
+   pp_info.src_config.size.v = surf_info_src.height;
+   pp_info.src_config.format = surf_info_src.format;
 
    pp_info.dst_config.size.h = aligned_width_dst;
    pp_info.dst_config.size.v = surf_info_dst.height;
-   pp_info.dst_config.pos.x = 0;
-   pp_info.dst_config.pos.y = 0;
-   pp_info.dst_config.pos.w = surf_info_dst.width;
-   pp_info.dst_config.pos.h = surf_info_dst.height;
-   pp_info.dst_config.format = surf_info.format;
+   pp_info.dst_config.format = surf_info_dst.format;
 
    pp_info.transform = TDM_TRANSFORM_NORMAL;
    pp_info.sync = 0;
    pp_info.flags = 0;
 
+   if (plane->is_external)
+     {
+        pp_info.src_config.pos.x = 0;
+        pp_info.src_config.pos.y = 0;
+        pp_info.src_config.pos.w = surf_info_src.width;
+        pp_info.src_config.pos.h = surf_info_src.height;
+        pp_info.dst_config.pos.x = plane->pp_rect.x;
+        pp_info.dst_config.pos.y = plane->pp_rect.y;
+        pp_info.dst_config.pos.w = plane->pp_rect.w;
+        pp_info.dst_config.pos.h = plane->pp_rect.h;
+     }
+   else
+     {
+        pp_info.src_config.pos.x = plane->pp_rect.x;
+        pp_info.src_config.pos.y = plane->pp_rect.y;
+        pp_info.src_config.pos.w = plane->pp_rect.w;
+        pp_info.src_config.pos.h = plane->pp_rect.h;
+        pp_info.dst_config.pos.x = 0;
+        pp_info.dst_config.pos.y = 0;
+        pp_info.dst_config.pos.w = surf_info_dst.width;
+        pp_info.dst_config.pos.h = surf_info_dst.height;
+     }
    ret = tdm_pp_set_info(plane->tpp, &pp_info);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "PP Info  Plane(%p) rect(x,y,w,h = %d,%d,%d,%d)",
-           NULL, NULL, plane, plane->pp_rect.x, plane->pp_rect.y, plane->pp_rect.w, plane->pp_rect.h);
+     ELOGF("E_PLANE", "PP Info  Plane(%p) src_rect(%d,%d),(%d,%d), dst_rect(%d,%d),(%d,%d)",
+           NULL, NULL, plane,
+           pp_info.src_config.pos.x, pp_info.src_config.pos.y, pp_info.src_config.pos.w, pp_info.src_config.pos.h,
+           pp_info.dst_config.pos.x, pp_info.dst_config.pos.y, pp_info.dst_config.pos.w, pp_info.dst_config.pos.h);
 
    return EINA_TRUE;
 }
@@ -965,6 +1025,12 @@ _e_plane_pp_layer_data_commit(E_Plane *plane, E_Plane_Commit_Data *data)
         goto fail;
      }
 
+   if (plane->is_external)
+     {
+        if (!e_output_connected(output))
+          tdm_layer_unset_buffer(tlayer);
+     }
+
    aligned_width = _e_plane_aligned_width_get(data->tsurface);
    if (aligned_width == 0)
      {
@@ -1057,7 +1123,8 @@ _e_plane_pp_commit_handler(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h
    plane->pp_commit = EINA_FALSE;
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "PP Commit Handler Plane(%p)", NULL, NULL, plane);
+     ELOGF("E_PLANE", "PP Commit Handler Plane(%p) tsurface src(%p) dst(%p)",
+           NULL, NULL, plane, tsurface_src, tsurface_dst);
 
    /* if pp_set is false, skip the commit */
    if (!plane->pp_set)
@@ -1150,6 +1217,122 @@ pp_fail:
    ERR("failed _e_plane_pp_commit");
 
    return EINA_FALSE;
+}
+
+static void
+_e_plane_ex_commit_handler(tdm_layer *layer, unsigned int sequence,
+                       unsigned int tv_sec, unsigned int tv_usec,
+                       void *user_data)
+{
+   E_Plane_Commit_Data *data = (E_Plane_Commit_Data *)user_data;
+   E_Plane *plane = NULL;
+   E_Output *output = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(data);
+
+   TRACE_DS_ASYNC_END((unsigned int)layer, [PLANE:COMMIT~HANDLER]);
+
+   plane = data->plane;
+
+   if (!plane->commit_per_vblank)
+     plane->wait_commit = EINA_FALSE;
+
+   e_plane_commit_data_release(data);
+
+   output = plane->output;
+   if (!e_output_connected(output))
+     tdm_layer_unset_buffer(plane->tlayer);
+}
+
+static void
+_e_plane_vblank_handler(tdm_output *output, unsigned int sequence,
+                        unsigned int tv_sec, unsigned int tv_usec,
+                        void *user_data)
+{
+   E_Plane *plane = (E_Plane *)user_data;
+
+   EINA_SAFETY_ON_NULL_RETURN(plane);
+
+   plane->wait_commit = EINA_FALSE;
+}
+
+static Eina_Bool
+_e_plane_external_commit(E_Plane *plane, E_Plane_Commit_Data *data)
+{
+   tdm_error error = TDM_ERROR_NONE;
+
+   TRACE_DS_ASYNC_BEGIN((unsigned int)plane->tlayer, [PLANE:COMMIT~HANDLER]);
+
+   if (plane_trace_debug)
+     ELOGF("E_PLANE", "Ex Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
+           NULL, NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
+           data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
+
+   tbm_surface_info_s surf_info;
+   unsigned int aligned_width;
+   int dst_w, dst_h;
+   tdm_layer *tlayer = plane->tlayer;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(data, EINA_FALSE);
+
+   aligned_width = _e_plane_aligned_width_get(data->tsurface);
+   if (aligned_width == 0)
+     {
+        ERR("aligned_width 0");
+        return EINA_FALSE;
+     }
+
+   /* set layer when the layer infomation is different from the previous one */
+   tbm_surface_get_info(data->tsurface, &surf_info);
+
+   /* get the size of the output */
+   e_output_size_get(plane->output, &dst_w, &dst_h);
+
+   if (_e_plane_tlayer_info_set(plane, aligned_width, surf_info.height,
+                                0, 0, surf_info.width, surf_info.height,
+                                0, 0, dst_w, dst_h,
+                                TDM_TRANSFORM_NORMAL))
+     {
+        error = tdm_layer_set_info(tlayer, &plane->info);
+        if (error != TDM_ERROR_NONE)
+          {
+             ERR("fail tdm_layer_set_info");
+             return EINA_FALSE;
+          }
+     }
+
+   error = tdm_layer_set_buffer(tlayer, data->tsurface);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("fail to tdm_layer_set_buffer");
+        return EINA_FALSE;
+     }
+
+   error = tdm_layer_commit(plane->tlayer, _e_plane_ex_commit_handler, data);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("fail to tdm_layer_commit plane:%p, zpos:%d", plane, plane->zpos);
+        e_plane_commit_data_release(data);
+        return EINA_FALSE;
+     }
+
+   if (plane->commit_per_vblank)
+     {
+        error = tdm_output_wait_vblank(plane->output->toutput, 1, 0, _e_plane_vblank_handler, (void *)plane);
+        if (error != TDM_ERROR_NONE)
+          {
+            ERR("fail to tdm_output_wait_vblank plane:%p, zpos:%d", plane, plane->zpos);
+            return EINA_FALSE;
+          }
+     }
+
+   /* send frame event enlightenment dosen't send frame evnet in nocomp */
+   if (plane->ec)
+     e_pixmap_image_clear(plane->ec->pixmap, 1);
+
+   plane->wait_commit = EINA_TRUE;
+
+   return EINA_TRUE;
 }
 
 E_API E_Plane_Hook *
@@ -1304,6 +1487,9 @@ e_plane_new(E_Output *output, int index)
    for ( i = 0 ; i < count ; i++)
      plane->available_formats = eina_list_append(plane->available_formats, &formats[i]);
 
+   if (output->index != 0)
+     plane->is_external = EINA_TRUE;
+
    if (tdm_helper_output_commit_per_vblank_enabled(plane->output->toutput))
      plane->commit_per_vblank = EINA_TRUE;
 
@@ -1414,6 +1600,7 @@ e_plane_render(E_Plane *plane)
    renderer = plane->renderer;
    if (!renderer) return EINA_TRUE;
    if (plane->ec) return EINA_TRUE;
+   if (plane->is_external) return EINA_TRUE;
 
    if (!e_plane_renderer_render(renderer, plane->is_fb))
      {
@@ -1454,7 +1641,11 @@ e_plane_fetch(E_Plane *plane)
    if (plane->wait_commit)
      return EINA_FALSE;
 
-   if (plane->is_fb && !plane->ec)
+   if (plane->is_external)
+     {
+        tsurface = _e_plane_external_surface_acquire(plane);
+     }
+   else if (plane->is_fb && !plane->ec)
      {
         /* acquire the surface */
         tsurface = _e_plane_surface_from_ecore_evas_acquire(plane);
@@ -1609,18 +1800,6 @@ _e_plane_fb_target_change(E_Plane *fb_target, E_Plane *plane)
            NULL, NULL, fb_target, fb_target->zpos, plane, plane->zpos);
 
    return EINA_TRUE;
-}
-
-static void
-_e_plane_vblank_handler(tdm_output *output, unsigned int sequence,
-                        unsigned int tv_sec, unsigned int tv_usec,
-                        void *user_data)
-{
-   E_Plane *plane = (E_Plane *)user_data;
-
-   EINA_SAFETY_ON_NULL_RETURN(plane);
-
-   plane->wait_commit = EINA_FALSE;
 }
 
 static void
@@ -2821,4 +3000,159 @@ e_plane_dpms_off(E_Plane *plane)
      {
         e_plane_commit_data_release(data);
      }
+}
+
+EINTERN Eina_Bool
+e_plane_external_fetch(E_Plane *plane)
+{
+   tbm_surface_h tsurface = NULL;
+   E_Output *output = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   output = plane->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   if (plane->wait_commit)
+     return EINA_FALSE;
+
+   tsurface = _e_plane_external_surface_acquire(plane);
+
+   /* exist tsurface for update plane */
+   if (tsurface)
+     {
+        plane->tsurface = tsurface;
+
+        if (output->dpms != E_OUTPUT_DPMS_OFF)
+          {
+             /* set plane info and set tsurface to the plane */
+             if (!_e_plane_surface_set(plane, tsurface))
+               {
+                  ERR("fail: _e_plane_set_info.");
+                  e_plane_unfetch(plane);
+                  return EINA_FALSE;
+               }
+          }
+
+        /* set the update_exist to be true */
+        e_plane_renderer_update_exist_set(plane->renderer, EINA_TRUE);
+     }
+   else
+     return EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_plane_external_commit(E_Plane *plane)
+{
+   E_Plane_Commit_Data *data = NULL;
+   tbm_surface_info_s surf_info;
+   int w, h;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane->pp_tqueue, EINA_FALSE);
+
+   data = e_plane_commit_data_aquire(plane);
+
+   if (!data) return EINA_TRUE;
+
+   tbm_surface_get_info(data->tsurface, &surf_info);
+   e_output_size_get(plane->output, &w, &h);
+
+   if (w == surf_info.width && h == surf_info.height)
+     {
+        if (_e_plane_external_commit(plane, data))
+          return EINA_TRUE;
+        else
+          return EINA_FALSE;
+     }
+
+   if (!tbm_surface_queue_can_dequeue(plane->pp_tqueue, 0))
+     {
+        if (plane_trace_debug)
+          ELOGF("E_PLANE", "Ex Commit  Can Dequeue failed Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
+                NULL, NULL, plane, plane->zpos, data->tsurface, plane->pp_tqueue,
+                data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
+        plane->pending_pp_data_list = eina_list_append(plane->pending_pp_data_list, data);
+        return EINA_TRUE;
+     }
+
+   if (eina_list_count(plane->pending_pp_data_list) != 0)
+     {
+        if (plane_trace_debug)
+          ELOGF("E_PLANE", "Ex Commit  Pending pp data remained Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
+                NULL, NULL, plane, plane->zpos, data->tsurface, plane->pp_tqueue,
+                data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
+        plane->pending_pp_data_list = eina_list_append(plane->pending_pp_data_list, data);
+        return EINA_TRUE;
+     }
+
+   if (!_e_plane_pp_commit(plane, data))
+     {
+        ERR("fail _e_plane_pp_commit");
+        e_plane_commit_data_release(data);
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_plane_external_set(E_Plane *plane, Eina_Rectangle *rect, E_Output_Ext_State state)
+{
+   Eina_Bool ret = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   DBG("e_plane_external_set. state(%d) rect(%d,%d)(%d,%d)",
+       state, rect->x, rect->y, rect->w, rect->h);
+
+   plane->mirror_rect.x = rect->x;
+   plane->mirror_rect.y = rect->y;
+   plane->mirror_rect.w = rect->w;
+   plane->mirror_rect.h = rect->h;
+
+   ret = e_plane_zoom_set(plane, rect);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == EINA_TRUE, EINA_FALSE);
+
+   if (plane->ex_state != state)
+     plane->ex_state_pre = plane->ex_state;
+   plane->ex_state = state;
+
+   if (!plane->renderer)
+     plane->renderer = e_plane_renderer_new(plane);
+
+   return EINA_TRUE;
+}
+
+EINTERN void
+e_plane_external_unset(E_Plane *plane)
+{
+   if (plane->renderer)
+     e_plane_renderer_del(plane->renderer);
+   plane->renderer = NULL;
+
+   e_plane_zoom_unset(plane);
+
+   plane->mirror_rect.x = 0;
+   plane->mirror_rect.y = 0;
+   plane->mirror_rect.w = 0;
+   plane->mirror_rect.h = 0;
+
+   if (plane->ex_state == E_OUTPUT_EXT_MIRROR)
+     {
+        if (!plane->pp_layer_commit)
+          tdm_layer_unset_buffer(plane->tlayer);
+     }
+   else if (plane->ex_state == E_OUTPUT_EXT_PRESENTATION)
+     {
+        if (!plane->wait_commit)
+          tdm_layer_unset_buffer(plane->tlayer);
+     }
+   plane->ex_state = E_OUTPUT_EXT_NONE;
+   plane->ex_state_pre = E_OUTPUT_EXT_NONE;
+
+   DBG("e_plane_external_unset");
+
 }
