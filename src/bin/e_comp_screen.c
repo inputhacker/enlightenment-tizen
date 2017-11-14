@@ -242,26 +242,18 @@ _e_comp_screen_commit_idle_cb(void *data EINA_UNUSED)
 
    e_comp_screen = e_comp->e_comp_screen;
 
-   /* a no-optimized hwc's commit */
    EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l, ll, output)
      {
         if (!output) continue;
         if (!output->config.enabled) continue;
 
-        if (e_output_hwc_opt_hwc_enabled(output))
-          {
-             /* an optimized hwc's commit */
-             if (!e_output_hwc_commit(output))
-               ERR("fail to commit hwc.");
-          }
-        else
-          {
-             if (!e_output_commit(output))
-               ERR("fail to commit e_comp_screen->outputs.");
+        if (!e_output_commit(output))
+             ERR("fail to commit e_comp_screen->outputs.");
 
-             if (!e_output_render(output))
-               ERR("fail to render e_comp_screen->outputs.");
-          }
+        e_output_hwc_apply(output->output_hwc);
+
+        if (!e_output_render(output))
+             ERR("fail to render e_comp_screen->outputs.");
      }
 
 end:
@@ -1070,8 +1062,6 @@ e_comp_screen_init()
         goto failed_comp_screen;
      }
 
-   /* a no-optimized hwc's initialization */
-
    /* this setup function is called after e_comp_canvas_init */
    if (!e_comp_screen_setup(e_comp->e_comp_screen))
      {
@@ -1169,35 +1159,9 @@ e_comp_screen_setup(E_Comp_Screen *e_comp_screen)
         if (!output) continue;
         if (!output->config.enabled) continue;
 
-        /* HWC, in terms of E20's architecture, is a part of E20 responsible for hardware compositing
-         *
-         * - no-optimized HWC takes away, from the evas engine compositor, a part of the composition
-         * work without an assumption was that part worthy(optimally) to be delegated to hardware;
-         * - optimized HWC makes this assumption (delegate it to tdm-backend, to be exact);
-         *
-         * of course if the tdm-backend makes no optimization these HWCs behave equally...
-         *
-         * optimized and no-optimized hwc-s can so-exist together to manage different outputs;
-         * as E20 may handle several outputs by different hwcs we let them both work simultaneously,
-         * so we initialize both hwcs, let both hwcs reevaluate and let both hwcs make a commit;
-         * one hwc handles only outputs managed by it, so other outputs are handled by the another hwc :)
-         */
-
-        if (e_output_hwc_opt_hwc_enabled(output))
-          {
-             /* an optimized hwc's initialization */
-             if (e_output_hwc_init(output))
-               {
-                  INF("Enlightenment succeeded to initialize e_output_hwc_init()!\n");
-                  continue;
-               }
-             else
-               ERR("Enlightenment failed to initialize e_output_hwc_init()!\n");
-          }
-
         if (!e_output_setup(output))
           {
-             ERR("fail to e_ouptut_setup.");
+             ERR("fail to e_output_setup.");
              continue;
           }
 
@@ -1388,7 +1352,7 @@ e_comp_screen_hwc_info_debug(void)
         if (!output) continue;
 
         /* TODO: construct debug info for outputs managed by the opt-hwc */
-        if (e_output_hwc_opt_hwc_enabled(output))
+        if (e_output_hwc_opt_hwc_enabled(output->output_hwc))
           {
              INF("HWC: HWC Output(%d) managed by opt-hwc.", ++output_idx);
              continue;

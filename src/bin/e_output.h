@@ -61,16 +61,10 @@ struct _E_Output
         int                   rotation; // 0, 90, 180, 270
         int                   priority; // larger num == more important
         Eina_Bool             enabled : 1; // should this monitor be enabled?
-
-        /* TODO: maybe it'd be better to have TWO list of outputs: one for outputs managed
-         *       by no-opt-hwc and one for outputs managed by opt-hwc? */
-        Eina_Bool             opt_hwc; // that is whether the layer policy for this output
-                                                  // is controlled by tdm-backend
    } config;
 
    int                  plane_count;
    Eina_List           *planes;
-   Eina_List           *windows;
    E_Zone              *zone;
 
    tdm_output           *toutput;
@@ -114,6 +108,10 @@ struct _E_Output
    } stream_capture;
 
    Eina_Bool                      wait_commit;
+
+   /* output hwc */
+   Eina_Bool     tdm_hwc;
+   E_Output_Hwc *output_hwc;
 };
 
 enum _E_Output_Hook_Point
@@ -173,6 +171,7 @@ EINTERN Eina_Bool         e_output_stream_capture_queue(E_Output *output, tbm_su
 EINTERN Eina_Bool         e_output_stream_capture_dequeue(E_Output *output, tbm_surface_h surface);
 EINTERN Eina_Bool         e_output_stream_capture_start(E_Output *output);
 EINTERN void              e_output_stream_capture_stop(E_Output *output);
+EINTERN const char      * e_output_output_id_get(E_Output *output);
 E_API E_Output          * e_output_find(const char *id);
 E_API E_Output          * e_output_find_by_index(int index);
 E_API const Eina_List   * e_output_planes_get(E_Output *output);
@@ -181,7 +180,6 @@ E_API Eina_Bool           e_output_is_fb_composing(E_Output *output);
 E_API Eina_Bool           e_output_is_fb_full_compositing(E_Output *output);
 E_API E_Plane           * e_output_fb_target_get(E_Output *output);
 E_API E_Plane           * e_output_plane_get_by_zpos(E_Output *output, int zpos);
-EINTERN void              e_output_update_fps();
 E_API E_Output_Hook     * e_output_hook_add(E_Output_Hook_Point hookpoint, E_Output_Hook_Cb func, const void *data);
 E_API void                e_output_hook_del(E_Output_Hook *ch);
 E_API E_Output_Intercept_Hook * e_output_intercept_hook_add(E_Output_Intercept_Hook_Point hookpoint, E_Output_Intercept_Hook_Cb func, const void *data);

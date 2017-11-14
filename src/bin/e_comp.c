@@ -43,13 +43,6 @@ static Eina_Inlist *_e_comp_hooks[] =
    [E_COMP_HOOK_PREPARE_PLANE] = NULL,
 };
 
-typedef enum _E_Comp_HWC_Mode
-{
-   E_HWC_MODE_NO = 0,
-   E_HWC_MODE_HYBRID,
-   E_HWC_MODE_FULL
-} E_Comp_HWC_Mode;
-
 E_API int E_EVENT_COMPOSITOR_RESIZE = -1;
 E_API int E_EVENT_COMPOSITOR_DISABLE = -1;
 E_API int E_EVENT_COMPOSITOR_ENABLE = -1;
@@ -168,7 +161,6 @@ _e_comp_fps_update(void)
      }
 }
 
-#ifdef ENABLE_HWC_MULTI
 static void
 _e_comp_hooks_clean(void)
 {
@@ -186,8 +178,8 @@ _e_comp_hooks_clean(void)
        }
 }
 
-static void
-_e_comp_hook_call(E_Comp_Hook_Point hookpoint, void *data EINA_UNUSED)
+EINTERN void
+e_comp_hook_call(E_Comp_Hook_Point hookpoint, void *data EINA_UNUSED)
 {
    E_Comp_Hook *ch;
 
@@ -201,906 +193,6 @@ _e_comp_hook_call(E_Comp_Hook_Point hookpoint, void *data EINA_UNUSED)
    if ((_e_comp_hooks_walking == 0) && (_e_comp_hooks_delete > 0))
      _e_comp_hooks_clean();
 }
-
-static int
-_hwc_set(E_Output *eout)
-{
-   const Eina_List *ep_l = NULL, *l;
-   E_Plane *ep = NULL;
-   E_Comp_HWC_Mode mode = E_HWC_MODE_NO;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout->planes, EINA_FALSE);
-
-   ep_l = e_output_planes_get(eout);
-   EINA_LIST_REVERSE_FOREACH(ep_l, l , ep)
-     {
-        Eina_Bool set = EINA_FALSE;
-
-        if (e_plane_is_fb_target(ep))
-          {
-             if (ep->prepare_ec)
-               {
-                  set = e_plane_ec_set(ep, ep->prepare_ec);
-                  if (set)
-                    {
-                       ELOGF("HWC", "is set on fb_target( %d)", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
-                       mode = E_HWC_MODE_FULL;
-
-                       // fb target is occupied by a client surface, means compositor disabled
-                       ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
-                    }
-                  break;
-               }
-          }
-        else if (ep->prepare_ec)
-          {
-             set = e_plane_ec_set(ep, ep->prepare_ec);
-             if (set)
-               {
-                  ELOGF("HWC", "is set on %d", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
-                  mode |= E_HWC_MODE_HYBRID;
-               }
-             else
-               break;
-          }
-     }
-
-   return mode;
-}
-
-static Eina_Bool
-_hwc_available_get(E_Client *ec)
-{
-   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
-   E_Output *eout;
-   int minw = 0, minh = 0;
-
-   if ((!cdata) ||
-       (!cdata->buffer_ref.buffer) ||
-       (cdata->width_from_buffer != cdata->width_from_viewport) ||
-       (cdata->height_from_buffer != cdata->height_from_viewport) ||
-       cdata->never_hwc)
-     {
-        return EINA_FALSE;
-     }
-
-   if (e_client_transform_core_enable_get(ec)) return EINA_FALSE;
-
-   switch (cdata->buffer_ref.buffer->type)
-     {
-      case E_COMP_WL_BUFFER_TYPE_NATIVE:
-         break;
-      case E_COMP_WL_BUFFER_TYPE_TBM:
-         if (cdata->buffer_ref.buffer->resource)
-           break;
-      case E_COMP_WL_BUFFER_TYPE_SHM:
-         if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
-           break;
-
-      default:
-         return EINA_FALSE;
-     }
-
-   if (e_comp_wl_tbm_buffer_sync_timeline_used(cdata->buffer_ref.buffer))
-     return EINA_FALSE;
-
-   eout = e_output_find(ec->zone->output_id);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
-
-   tdm_output_get_available_size(eout->toutput, &minw, &minh, NULL, NULL, NULL);
-
-   if ((minw > 0) && (minw > cdata->buffer_ref.buffer->w))
-     return EINA_FALSE;
-   if ((minh > 0) && (minh > cdata->buffer_ref.buffer->h))
-     return EINA_FALSE;
-
-   /* If a client doesn't watch the ignore_output_transform events, we can't show
-    * a client buffer to HW overlay directly when the buffer transform is not same
-    * with output transform. If a client watch the ignore_output_transform events,
-    * we can control client's buffer transform. In this case, we don't need to
-    * check client's buffer transform here.
-    */
-   if (!e_comp_screen_rotation_ignore_output_transform_watch(ec))
-     {
-        int transform = e_comp_wl_output_buffer_transform_get(ec);
-
-        if ((eout->config.rotation / 90) != transform)
-          return EINA_FALSE;
-     }
-
-   return EINA_TRUE;
-}
-
-static void
-_hwc_prepare_init(E_Output *eout)
-{
-   const Eina_List *ep_l = NULL, *l ;
-   E_Plane *ep = NULL;
-
-   ep_l = e_output_planes_get(eout);
-   EINA_LIST_FOREACH(ep_l, l, ep)
-     {
-        if (!e_comp->hwc_use_multi_plane &&
-            !e_plane_is_cursor(ep) &&
-            !e_plane_is_fb_target(ep))
-          continue;
-
-        e_plane_ec_prepare_set(ep, NULL);
-     }
-}
-
-static int
-_hwc_prepare_cursor(E_Output *eout, int n_cur, Eina_List *hwc_clist)
-{
-   // policy for cursor layer
-   const Eina_List *ep_l = NULL, *l ;
-   Eina_List *cur_ly = NULL;
-   E_Plane *ep = NULL;
-   int n_skip = 0;
-   int n_curly = 0;
-   int nouse = 0;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_clist, EINA_FALSE);
-
-   // list up cursor only layers
-   ep_l = e_output_planes_get(eout);
-   EINA_LIST_FOREACH(ep_l, l, ep)
-     {
-        if (e_plane_is_cursor(ep))
-          {
-             cur_ly = eina_list_append(cur_ly, ep);
-             continue;
-          }
-     }
-
-   if (!cur_ly) return 0;
-   n_curly = eina_list_count(cur_ly);
-
-   if (n_cur > 0 && n_curly > 0)
-     {
-        if (n_cur >= n_curly) nouse = 0;
-        else nouse = n_curly - n_cur;
-
-        //assign cursor on cursor only layers
-        EINA_LIST_REVERSE_FOREACH(cur_ly, l, ep)
-          {
-             E_Client *ec = NULL;
-             if (nouse > 0)
-               {
-                  nouse--;
-                  continue;
-               }
-             if (hwc_clist) ec = eina_list_data_get(hwc_clist);
-             if (ec && e_plane_ec_prepare_set(ep, ec))
-               {
-                  n_skip += 1;
-                  hwc_clist = eina_list_next(hwc_clist);
-               }
-          }
-     }
-
-   eina_list_free(cur_ly);
-
-   return n_skip;
-}
-
-static Eina_Bool
-_hwc_prepare(E_Output *eout, int n_vis, int n_skip, Eina_List *hwc_clist)
-{
-   const Eina_List *ep_l = NULL, *l ;
-   Eina_List *hwc_ly = NULL;
-   E_Plane *ep = NULL, *ep_fb = NULL;
-   int n_ly = 0, n_ec = 0;
-   E_Client *ec = NULL;
-   Eina_Bool ret = EINA_FALSE;
-   int nouse = 0;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_clist, EINA_FALSE);
-
-   n_ec = eina_list_count(hwc_clist);
-   if (n_skip > 0)
-     {
-        int i;
-        for (i = 0; i < n_skip; i++)
-          hwc_clist = eina_list_next(hwc_clist);
-
-        n_ec -= n_skip;
-        n_vis -= n_skip;
-     }
-
-   if (n_ec <= 0) return EINA_FALSE;
-
-   // list up available_hw layers E_Client can be set
-   // if e_comp->hwc_use_multi_plane FALSE, than use only fb target plane
-   ep_l = e_output_planes_get(eout);
-   EINA_LIST_FOREACH(ep_l, l, ep)
-     {
-        if (!ep_fb)
-          {
-             if (e_plane_is_fb_target(ep))
-               {
-                  ep_fb = ep;
-                  hwc_ly = eina_list_append(hwc_ly, ep);
-               }
-             continue;
-          }
-        if (!e_comp->hwc_use_multi_plane) continue;
-        if (e_plane_is_cursor(ep)) continue;
-        if (ep->zpos > ep_fb->zpos)
-          hwc_ly = eina_list_append(hwc_ly, ep);
-     }
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_ly, EINA_FALSE);
-
-   // finally, assign client on available_hw layers
-   n_ly = eina_list_count(hwc_ly);
-   if ((n_ec == n_vis) &&
-       (n_ec <= n_ly)) // fully hwc
-     {
-        nouse = n_ly - n_ec;
-     }
-   else if ((n_ly < n_vis) || // e_comp->evas on fb target plane
-            (n_ec < n_vis))
-     {
-        if (n_ec <= n_ly) nouse = n_ly - n_ec - 1;
-        else nouse = 0;
-     }
-
-   EINA_LIST_REVERSE_FOREACH(hwc_ly, l, ep)
-     {
-        ec = NULL;
-        if (nouse > 0)
-          {
-             nouse--;
-             continue;
-          }
-        if (hwc_clist) ec = eina_list_data_get(hwc_clist);
-        if (ec && e_plane_ec_prepare_set(ep, ec))
-          {
-             ret = EINA_TRUE;
-
-             hwc_clist = eina_list_next(hwc_clist);
-             n_ec--; n_vis--;
-          }
-        if (e_plane_is_fb_target(ep))
-          {
-             if (n_ec > 0 || n_vis > 0) e_plane_ec_prepare_set(ep, NULL);
-             break;
-          }
-     }
-
-   eina_list_free(hwc_ly);
-
-   return ret;
-}
-
-static Eina_Bool
-_hwc_cancel(E_Output *eout)
-{
-   Eina_List *l ;
-   E_Plane *ep;
-   Eina_Bool ret = EINA_TRUE;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout->planes, EINA_FALSE);
-
-   EINA_LIST_FOREACH(eout->planes, l, ep)
-     {
-        if (!e_comp->hwc_use_multi_plane &&
-            !e_plane_is_cursor(ep) &&
-            !e_plane_is_fb_target(ep))
-          {
-             if (ep->ec) ret = EINA_FALSE; // core cannot end HWC
-             continue;
-          }
-
-        e_plane_ec_prepare_set(ep, NULL);
-        e_plane_ec_set(ep, NULL);
-     }
-
-   return ret;
-}
-
-static Eina_Bool
-_hwc_reserved_clean()
-{
-   Eina_List *l, *ll;
-   E_Zone *zone;
-   E_Plane *ep;
-
-   EINA_LIST_FOREACH(e_comp->zones, l, zone)
-     {
-        E_Output * eout;
-        if (!zone->output_id) continue;
-        eout = e_output_find(zone->output_id);
-        if (!eout) continue;;
-
-        if (e_output_hwc_opt_hwc_enabled(eout)) continue;
-
-        EINA_LIST_FOREACH(eout->planes, ll, ep)
-          {
-             if (!e_comp->hwc_use_multi_plane &&
-                 !e_plane_is_cursor(ep) &&
-                 !e_plane_is_fb_target(ep))
-               continue;
-
-             if (e_plane_is_reserved(ep))
-                e_plane_reserved_set(ep, 0);
-          }
-     }
-
-   return EINA_TRUE;
-}
-
-static void
-_hwc_plane_unset(E_Plane *ep)
-{
-   if (e_plane_is_reserved(ep))
-     e_plane_reserved_set(ep, 0);
-
-   e_plane_ec_prepare_set(ep, NULL);
-   e_plane_ec_set(ep, NULL);
-
-   ELOGF("HWC", "unset plane %d to NULL", NULL, NULL, ep->zpos);
-}
-
-static Eina_Bool
-_hwc_plane_change_ec(E_Plane *ep, E_Client *old_ec, E_Client *new_ec)
-{
-   Eina_Bool ret = EINA_FALSE;
-
-   if (!new_ec)
-     {
-        if (e_plane_is_reserved(ep))
-          e_plane_reserved_set(ep, 0);
-     }
-
-   e_plane_ec_prepare_set(ep, NULL);
-
-   if (e_plane_ec_set(ep, new_ec))
-     {
-        if (new_ec)
-          {
-             ELOGF("HWC", "new_ec(%s) is set on %d",
-                   new_ec->pixmap, new_ec,
-                   e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
-          }
-        else
-          {
-             ELOGF("HWC", "NULL is set on %d", NULL, NULL, ep->zpos);
-          }
-        ret = EINA_TRUE;
-     }
-   else
-     {
-        ELOGF("HWC", "failed to set new_ec(%s) on %d",
-              NULL, new_ec,
-              new_ec ? (new_ec->icccm.name ? new_ec->icccm.name : "no name") : "NULL",
-              ep->zpos);
-     }
-
-   return ret;
-}
-
-static Eina_Bool
-_e_comp_hwc_apply(E_Output * eout)
-{
-   const Eina_List *ep_l = NULL, *l;
-   E_Plane *ep = NULL, *ep_fb = NULL;
-   int mode = 0;
-
-   ep_l = e_output_planes_get(eout);
-   EINA_LIST_FOREACH(ep_l, l, ep)
-     {
-        if (!ep_fb)
-          {
-             if (e_plane_is_fb_target(ep))
-               {
-                  ep_fb = ep;
-                  if (ep->prepare_ec != NULL) goto hwcompose;
-               }
-             continue;
-          }
-        if (ep->zpos > ep_fb->zpos)
-          if (ep->prepare_ec != NULL) goto hwcompose;
-     }
-
-   goto compose;
-
-hwcompose:
-   mode = _hwc_set(eout);
-   if (mode == E_HWC_MODE_NO) ELOGF("HWC", "it is failed to assign surface on plane", NULL, NULL);
-
-compose:
-   if (mode != E_HWC_MODE_NO) e_comp->hwc_mode = mode;
-
-   return !!mode;
-}
-
-static Eina_Bool
-_e_comp_hwc_changed(void)
-{
-   Eina_List *l;
-   E_Zone *zone;
-   Eina_Bool ret = EINA_FALSE;
-
-   EINA_LIST_FOREACH(e_comp->zones, l, zone)
-     {
-        E_Output *eout = NULL;
-        E_Plane *ep = NULL;
-        const Eina_List *ep_l = NULL, *p_l;
-        Eina_Bool assign_success = EINA_TRUE;
-        int mode = E_HWC_MODE_NO;
-
-        if (!zone || !zone->output_id) continue;
-
-        eout = e_output_find(zone->output_id);
-        if (!eout) continue;
-
-        if (e_output_hwc_opt_hwc_enabled(eout)) continue;
-
-        ep_l = e_output_planes_get(eout);
-        EINA_LIST_REVERSE_FOREACH(ep_l, p_l, ep)
-          {
-             if (!assign_success)
-               {
-                  //unset planes from 'assign_success' became EINA_FALSE to the fb target
-                  _hwc_plane_unset(ep);
-                  continue;
-               }
-
-             if (ep->ec != ep->prepare_ec)
-               {
-                  assign_success = _hwc_plane_change_ec(ep, ep->ec, ep->prepare_ec);
-                  ret = EINA_TRUE;
-               }
-             else if (!ep->prepare_ec)
-               {
-                  if (e_plane_is_reserved(ep))
-                    {
-                       e_plane_reserved_set(ep, 0);
-                       ELOGF("HWC", "unset reserved mem on %d", NULL, NULL, ep->zpos);
-                    }
-               }
-
-             if (ep->ec) mode = E_HWC_MODE_HYBRID;
-
-             if (e_plane_is_fb_target(ep))
-               {
-                  if (ep->ec) mode = E_HWC_MODE_FULL;
-                  break;
-               }
-          }
-
-        if (e_comp->hwc_mode != mode)
-          {
-             ELOGF("HWC", "mode changed (from %d to %d) due to surface changes",
-                   NULL, NULL,
-                   e_comp->hwc_mode, mode);
-
-             if (mode == E_HWC_MODE_FULL)
-               {
-                  // fb target is occupied by a client surface, means compositor disabled
-                  ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
-               }
-             else if (e_comp->hwc_mode == E_HWC_MODE_FULL)
-               {
-                  // fb target is occupied by a client surface, means compositor disabled
-                  ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
-               }
-
-             e_comp->hwc_mode = mode;
-          }
-     }
-
-   return ret;
-}
-
-/* whether an ec belong to the output managed by opt-hwc */
-EINTERN Eina_Bool
-e_comp_is_ec_on_output_opt_hwc(E_Client *ec)
-{
-   E_Output *eo;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->zone, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->zone->output_id, EINA_FALSE);
-
-   eo = e_output_find(ec->zone->output_id);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eo, EINA_FALSE);
-
-   if (e_output_hwc_opt_hwc_enabled(eo))
-      return EINA_TRUE;
-
-   return EINA_FALSE;
-}
-
-/* TODO: no-opt hwc has to be forced to use this function too... */
-
-/* filter visible clients by the window manager
- *
- * returns list of clients which are acceptable to be composited by hw,
- * it's a caller responsibility to free it
- *
- * is_output_opt_hwc - whether clients are filtered for the output
- *                                managed by opt-hwc
- *
- * for optimized hwc the returned list contains ALL clients
- */
-EINTERN Eina_List *
-e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur, Eina_Bool is_output_opt_hwc)
-{
-   Eina_List *hwc_acceptable_cl_list = NULL;
-   Eina_List *l, *l_inner;
-   E_Client *ec, *ec_inner;
-   int n_ec = 0;
-
-   if (!n_cur) return NULL;
-
-   *n_cur = 0;
-
-   INF("hwc-opt: filter e_clients by wm.");
-
-   if (is_output_opt_hwc)
-     {
-        /* let's hope for the best... */
-        EINA_LIST_FOREACH(vis_cl_list, l, ec)
-        {
-          ec->hwc_acceptable = EINA_TRUE;
-          INF("hwc-opt: ec:%p (name:%s, title:%s) is gonna be hwc_acceptable.",
-                  ec, ec->icccm.name, ec->icccm.title);
-        }
-     }
-
-   EINA_LIST_FOREACH(vis_cl_list, l, ec)
-     {
-        // check clients not able to use hwc
-
-        /* window manager required full GLES composition */
-        if (is_output_opt_hwc && e_comp->nocomp_override > 0)
-          {
-             ec->hwc_acceptable = EINA_FALSE;
-             INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable (nocomp_override > 0).",
-                                  ec, ec->icccm.name, ec->icccm.title);
-          }
-
-        // if ec->frame is not for client buffer (e.g. launchscreen)
-        if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE ||
-
-            // if there is UI subfrace, it means need to composite
-            e_client_normal_client_has(ec))
-          {
-             if (!is_output_opt_hwc) goto no_hwc;
-
-             /* we have to let hwc know about ALL clients(buffers) in case we're using
-              * optimized hwc, that's why it can be called optimized :), but also we have to provide
-              * the ability for wm to prevent some clients to be shown by hw directly */
-             EINA_LIST_FOREACH(vis_cl_list, l_inner, ec_inner)
-               {
-                  ec_inner->hwc_acceptable = EINA_FALSE;
-                  INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable (UI subsurface).",
-                          ec_inner, ec_inner->icccm.name, ec_inner->icccm.title);
-               }
-          }
-
-        // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
-        if (!_hwc_available_get(ec))
-          {
-             if (!is_output_opt_hwc)
-               {
-                  if (!n_ec) goto no_hwc;
-                  break;
-               }
-
-             ec->hwc_acceptable = EINA_FALSE;
-             INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable.",
-                     ec, ec->icccm.name, ec->icccm.title);
-          }
-
-        // listup as many as possible from the top most visible order
-        n_ec++;
-        if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role)) (*n_cur)++;
-        hwc_acceptable_cl_list = eina_list_append(hwc_acceptable_cl_list, ec);
-     }
-
-   return hwc_acceptable_cl_list;
-
-no_hwc:
-
-   eina_list_free(hwc_acceptable_cl_list);
-
-   return NULL;
-}
-
-static Eina_Bool
-_e_comp_hwc_prepare(void)
-{
-   Eina_List *l, *vl;
-   E_Zone *zone;
-   Eina_Bool ret = EINA_FALSE;
-
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(e_comp->hwc, EINA_FALSE);
-
-   EINA_LIST_FOREACH(e_comp->zones, l, zone)
-     {
-        E_Client *ec;
-        E_Output *output;
-        int n_vis = 0, n_ec = 0, n_cur = 0, n_skip = 0;
-        Eina_List *hwc_ok_clist = NULL, *vis_clist = NULL;
-
-        if (!zone || !zone->output_id) continue;  // no hw layer
-
-        output = e_output_find(zone->output_id);
-        if (!output) continue;
-
-        if (e_output_hwc_opt_hwc_enabled(output)) continue;
-
-        vis_clist = e_comp_vis_ec_list_get(zone);
-        if (!vis_clist) continue;
-
-        EINA_LIST_FOREACH(vis_clist, vl, ec)
-          {
-             // check clients not able to use hwc
-             if (E_POLICY_QUICKPANEL_LAYER >= evas_object_layer_get(ec->frame))
-               {
-                  // check whether quickpanel is open than break
-                  if (e_qp_visible_get()) break;
-               }
-
-             // if ec->frame is not for client buffer (e.g. launchscreen)
-             if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
-                goto nextzone;
-
-             // if there is UI subfrace, it means need to composite
-             if (e_client_normal_client_has(ec))
-                goto nextzone;
-
-             // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
-             if (!_hwc_available_get(ec))
-               {
-                  if (!n_ec) goto nextzone;
-                  break;
-               }
-
-             // listup as many as possible from the top most visible order
-             n_ec++;
-             if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role)) n_cur++;
-             hwc_ok_clist = eina_list_append(hwc_ok_clist, ec);
-          }
-
-        n_vis = eina_list_count(vis_clist);
-        if ((n_vis < 1) || (n_ec < 1))
-          goto nextzone;
-
-        _hwc_prepare_init(output);
-
-        if (n_cur >= 1)
-          n_skip = _hwc_prepare_cursor(output, n_cur, hwc_ok_clist);
-
-        if (n_skip > 0) ret = EINA_TRUE;
-
-        ret |= _hwc_prepare(output, n_vis, n_skip, hwc_ok_clist);
-
-        nextzone:
-        eina_list_free(hwc_ok_clist);
-        eina_list_free(vis_clist);
-     }
-
-   return ret;
-}
-
-static Eina_Bool
-_e_comp_hwc_usable(void)
-{
-   Eina_List *l;
-   E_Zone *zone;
-   E_Comp_Wl_Buffer *buffer = NULL;
-
-   if (!e_comp->hwc) return EINA_FALSE;
-
-   // check whether to use hwc and prepare the core assignment policy
-   if (!_e_comp_hwc_prepare()) return EINA_FALSE;
-
-   // extra policy can replace core policy
-   _e_comp_hook_call(E_COMP_HOOK_PREPARE_PLANE, NULL);
-
-   // check the hwc is avaliable.
-   EINA_LIST_FOREACH(e_comp->zones, l, zone)
-     {
-        E_Output *eout = NULL;
-        E_Plane *ep = NULL, *ep_fb = NULL;
-        const Eina_List *ep_l = NULL, *p_l;
-
-        if (!zone || !zone->output_id) continue;
-
-        eout = e_output_find(zone->output_id);
-        if (!eout) continue;
-
-        if (e_output_hwc_opt_hwc_enabled(eout)) continue;
-
-        ep_l = e_output_planes_get(eout);
-
-        // It is not hwc_usable if cursor is shown when the hw cursor is not supported.
-        if ((eout->cursor_available.max_w == -1) ||
-            (eout->cursor_available.max_h == -1))
-          {
-             // hw cursor is not supported by libtdm, than let's composite
-             if (!e_pointer_is_hidden(e_comp->pointer)) return EINA_FALSE;
-          }
-
-        ep_fb = e_output_fb_target_get(eout);
-        if (!ep_fb) return EINA_FALSE;
-
-        if (ep_fb->prepare_ec)
-          {
-             // It is not hwc_usable if the geometry of the prepare_ec at the ep_fb is not proper.
-             int bw = 0, bh = 0;
-
-             // It is not hwc_usable if attached buffer is not valid.
-             buffer = e_pixmap_resource_get(ep_fb->prepare_ec->pixmap);
-             if (!buffer) return EINA_FALSE;
-
-             e_pixmap_size_get(ep_fb->prepare_ec->pixmap, &bw, &bh);
-
-             // if client and zone's geometry is not match with, or
-             // if plane with reserved_memory(esp. fb target) has assigned smaller buffer,
-             // won't support hwc properly, than let's composite
-             if (ep_fb->reserved_memory &&
-                 ((bw != zone->w) || (bh != zone->h) ||
-                 (ep_fb->prepare_ec->x != zone->x) || (ep_fb->prepare_ec->y != zone->y) ||
-                 (ep_fb->prepare_ec->w != zone->w) || (ep_fb->prepare_ec->h != zone->h)))
-               {
-
-                  DBG("Cannot use HWC if geometry is not 1 on 1 match with reserved_memory");
-                  return EINA_FALSE;
-               }
-          }
-        else
-          {
-             // It is not hwc_usable if the all prepare_ec in every plane are null
-             Eina_Bool all_null = EINA_TRUE;
-
-             EINA_LIST_FOREACH(ep_l, p_l, ep)
-               {
-                  if (ep == ep_fb) continue;
-                  if (ep->prepare_ec)
-                    {
-                       // if attached buffer is not valid, hwc is not usable
-                       buffer = e_pixmap_resource_get(ep->prepare_ec->pixmap);
-                       if (!buffer) return EINA_FALSE;
-
-                       // It is not hwc_usable if the zpos of the ep is over the one of ep_fb
-                       if (ep->zpos < ep_fb->zpos) return EINA_FALSE;
-
-                       all_null = EINA_FALSE;
-                       break;
-                    }
-               }
-             if (all_null) return EINA_FALSE;
-          }
-     }
-
-   return EINA_TRUE;
-}
-
-static void
-_e_comp_hwc_begin(void)
-{
-   Eina_List *l;
-   E_Zone *zone;
-   Eina_Bool mode_set = EINA_FALSE;
-
-   E_FREE_FUNC(e_comp->nocomp_delay_timer, ecore_timer_del);
-
-   if (!e_comp->hwc) return;
-   if (e_comp->nocomp_override > 0) return;
-
-   EINA_LIST_FOREACH(e_comp->zones, l, zone)
-     {
-        E_Output * eout;
-        if (!zone->output_id) continue;
-        eout = e_output_find(zone->output_id);
-
-        if (e_output_hwc_opt_hwc_enabled(eout)) continue;
-
-        if(eout) mode_set |= _e_comp_hwc_apply(eout);
-     }
-
-   if (!mode_set) return;
-   if (!e_comp->hwc_mode) return;
-
-   if (e_comp->calc_fps) e_comp->frametimes[0] = 0;
-
-   ELOGF("HWC", " Begin ...", NULL, NULL);
-}
-
-static Eina_Bool
-_e_comp_hwc_cb_begin_timeout(void *data EINA_UNUSED)
-{
-   e_comp->nocomp_delay_timer = NULL;
-
-   if (e_comp->nocomp_override == 0)
-     {
-        e_comp_render_queue();
-     }
-   return EINA_FALSE;
-}
-
-E_API void
-e_comp_hwc_end(const char *location)
-{
-   Eina_Bool mode_set = EINA_FALSE;
-   E_Zone *zone;
-   Eina_List *l;
-   Eina_Bool fully_hwc = (e_comp->hwc_mode == E_HWC_MODE_FULL) ? EINA_TRUE : EINA_FALSE;
-
-   E_FREE_FUNC(e_comp->nocomp_delay_timer, ecore_timer_del);
-   _hwc_reserved_clean();
-
-   if (!e_comp->hwc) return;
-   if (!e_comp->hwc_mode) return;
-
-   EINA_LIST_FOREACH(e_comp->zones, l, zone)
-     {
-        E_Output * eout;
-        if (!zone->output_id) continue;
-        eout = e_output_find(zone->output_id);
-
-        if (e_output_hwc_opt_hwc_enabled(eout)) continue;
-
-        if (eout) mode_set |= _hwc_cancel(eout);
-     }
-
-   if (!mode_set) return;
-
-   e_comp->hwc_mode = E_HWC_MODE_NO;
-
-   if (fully_hwc)
-     ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
-
-   ELOGF("HWC", " End...  at %s.", NULL, NULL, location);
-}
-
-EINTERN void
-e_comp_hwc_multi_plane_set(Eina_Bool set)
-{
-   if (!conf->hwc_use_multi_plane) return;
-
-   if (e_comp->hwc_use_multi_plane == set) return;
-
-   e_comp_hwc_end(__FUNCTION__);
-   e_comp->hwc_use_multi_plane = set;
-
-   ELOGF("HWC", "e_comp_hwc_multi_plane_set : %d", NULL, NULL, set);
-}
-
-static Eina_Bool
-_e_comp_hwc_re_evaluate()
-{
-   Eina_List *l;
-   E_Zone *zone;
-   E_Output *output;
-
-   EINA_LIST_FOREACH(e_comp->zones, l, zone)
-     {
-        if (!zone || !zone->output_id) continue;  // no hw layer
-
-        output = e_output_find(zone->output_id);
-        if (!output) continue;
-
-        if (!e_output_hwc_opt_hwc_enabled(output)) continue;
-
-        if (!e_output_hwc_re_evaluate(output))
-          ERR("fail to e_output_hwc_re_evaluate.");
-     }
-
-   return EINA_TRUE;
-}
-
-#endif  // end of ENABLE_HWC_MULTI
 
 static Eina_Bool
 _e_comp_cb_update(void)
@@ -1167,8 +259,6 @@ _e_comp_cb_update(void)
         e_comp_object_dirty(ec->frame);
      }
 
-   if (e_comp->hwc_mode == E_HWC_MODE_FULL) goto setup_hwcompose;
-
 #ifndef ENABLE_HWC_MULTI
    if (conf->fps_show || e_comp->calc_fps)
      {
@@ -1189,56 +279,6 @@ _e_comp_cb_update(void)
    if (e_comp->updates && (!e_comp->update_job))
      ecore_animator_thaw(e_comp->render_animator);
 
-setup_hwcompose:
-#ifdef ENABLE_HWC_MULTI
-   // query if HWC can be used
-   if (!e_comp->hwc ||
-       e_comp->hwc_deactive)
-     {
-        goto end;
-     }
-
-   /* an optimized hwc's reevaluate */
-   _e_comp_hwc_re_evaluate();
-
-   /* a no-optimized hwc's reevaluate */
-   if(_e_comp_hwc_usable())
-     {
-        if (e_comp->hwc_mode)
-          {
-             if (_e_comp_hwc_changed())
-               {
-                  if (e_comp->hwc_mode == E_HWC_MODE_NO)
-                    ELOGF("HWC", " End...  due to surface changes", NULL, NULL);
-                  else
-                    ELOGF("HWC", " hwc surface changed", NULL, NULL);
-               }
-          }
-        else
-          {
-             // switch mode
-             if (conf->nocomp_use_timer)
-               {
-                  if (!e_comp->nocomp_delay_timer)
-                    {
-                       e_comp->nocomp_delay_timer = ecore_timer_add(conf->nocomp_begin_timeout,
-                                                                     _e_comp_hwc_cb_begin_timeout,
-                                                                     NULL);
-                    }
-               }
-             else
-               {
-                  _e_comp_hwc_begin();
-               }
-          }
-     }
-   else
-     {
-        e_comp_hwc_end(__FUNCTION__);
-     }
-
-end:
-#endif  // end of ENABLE_HWC_MULTI
    TRACE_DS_END();
 
    return ECORE_CALLBACK_RENEW;
@@ -1399,7 +439,16 @@ e_comp_init(void)
 
    e_comp_new();
 
-   if (conf->hwc_ignore_primary) e_comp->hwc_ignore_primary = EINA_TRUE;
+   if (conf->hwc)
+     {
+        e_comp->hwc = EINA_TRUE; // activate hwc policy on the primary output
+        if (conf->hwc_reuse_cursor_buffer) e_comp->hwc_reuse_cursor_buffer = EINA_TRUE;
+        if (conf->hwc_sync_mode_change) e_comp->hwc_sync_mode_change = EINA_TRUE;
+        if (conf->hwc_use_detach) e_comp->hwc_use_detach = EINA_TRUE;
+        if (conf->hwc_ignore_primary) e_comp->hwc_ignore_primary = EINA_TRUE;
+     }
+
+   if (conf->use_native_type_buffer) e_comp->use_native_type_buffer = EINA_TRUE;
 
    e_main_ts_begin("\tE_Comp_Screen Init");
    if (!e_comp_screen_init())
@@ -1412,31 +461,21 @@ e_comp_init(void)
      }
    e_main_ts_end("\tE_Comp_Screen Init Done");
 
+   if (conf->hwc)
+     {
+        if (conf->hwc_deactive) e_comp_hwc_deactive_set(EINA_TRUE);
+        if (conf->hwc_use_multi_plane) e_comp_hwc_multi_plane_set(EINA_TRUE);
+     }
+
    e_comp->comp_type = E_PIXMAP_TYPE_WL;
 
    e_comp_canvas_fake_layers_init();
-
-   if (conf->hwc) e_comp->hwc = EINA_TRUE; // activate hwc policy
-   if (conf->hwc_deactive) e_comp->hwc_deactive = EINA_TRUE; // deactive hwc policy
-   if (conf->hwc_reuse_cursor_buffer) e_comp->hwc_reuse_cursor_buffer = EINA_TRUE;
-   if (conf->hwc_sync_mode_change) e_comp->hwc_sync_mode_change = EINA_TRUE;
-   if (conf->hwc_use_detach) e_comp->hwc_use_detach = EINA_TRUE;
-#ifdef ENABLE_HWC_MULTI
-   if (conf->hwc_use_multi_plane) e_comp->hwc_use_multi_plane = EINA_TRUE;
-#endif
-   if (conf->use_native_type_buffer) e_comp->use_native_type_buffer = EINA_TRUE;
 
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREENSAVER_ON,  _e_comp_screensaver_on,  NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREENSAVER_OFF, _e_comp_screensaver_off, NULL);
    E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_KEY_DOWN,    _e_comp_key_down,        NULL);
    E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_SIGNAL_USER, _e_comp_signal_user,     NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_COMP_OBJECT_ADD, _e_comp_object_add,      NULL);
-
-   /* it's not necessary to call this function if we got no opt-hwc managed outputs,
-    * but to unify code we do it */
-   /* _e_comp_cb_update() isn't called before the first output commit therefore
-    * we need notify the hwc extension that we want to use the target window */
-    _e_comp_hwc_re_evaluate();
 
    return EINA_TRUE;
 }
@@ -1644,13 +683,8 @@ e_comp_override_add()
 #ifdef ENABLE_HWC_MULTI
    if (e_comp->nocomp_override > 0)
      {
-        /* let both hwcs a shot to switch to gles composition */
-
         // go full GLES compositing
         e_comp_hwc_end(__FUNCTION__);
-
-        /* We must notify the hwc extension about the full GLES composition. */
-        _e_comp_hwc_re_evaluate();
      }
 #endif
 }
@@ -1892,38 +926,76 @@ e_comp_hook_del(E_Comp_Hook *ch)
      _e_comp_hooks_delete++;
 }
 
+/* whether an ec belong to the output managed by opt-hwc */
+EINTERN Eina_Bool
+e_comp_is_ec_on_output_opt_hwc(E_Client *ec)
+{
+   E_Output *output;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->zone, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->zone->output_id, EINA_FALSE);
+
+   output = e_output_find(ec->zone->output_id);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   if (e_output_hwc_opt_hwc_enabled(output->output_hwc))
+      return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
 EINTERN Eina_Bool
 e_comp_is_on_overlay(E_Client *ec)
 {
+   Eina_List *l, *ll;
    E_Output *eout;
+   E_Plane *ep;
 
    EINA_SAFETY_ON_TRUE_RETURN_VAL(!ec, EINA_FALSE);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(!ec->zone, EINA_FALSE);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(!ec->zone->output_id, EINA_FALSE);
 
    eout = e_output_find(ec->zone->output_id);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(!eout, EINA_FALSE);
+   if (!eout) return EINA_FALSE;
 
    if (e_comp_is_ec_on_output_opt_hwc(ec))
      {
-        E_Output_Hwc_Window *window = e_output_hwc_window_find_window_by_ec(eout, ec);
-        if (e_output_hwc_window_is_on_hw_overlay(eout, window))
+        E_Output_Hwc_Window *window = e_output_hwc_find_window_by_ec(eout->output_hwc, ec);
+        if (e_output_hwc_window_is_on_hw_overlay(window))
            return EINA_TRUE;
      }
    else
      {
-        Eina_List *l, *ll;
-        E_Plane *ep;
-
-        if (e_comp->hwc_mode == E_HWC_MODE_NO)
-           return EINA_FALSE;
+        if (!e_output_hwc_mode_get(eout->output_hwc)) return EINA_FALSE;
 
         EINA_LIST_FOREACH_SAFE(eout->planes, l, ll, ep)
-           if (ep->ec == ec)
-              return EINA_TRUE;
+          {
+             E_Client *overlay_ec = ep->ec;
+             if (overlay_ec == ec) return EINA_TRUE;
+          }
      }
 
    return EINA_FALSE;
+}
+
+EINTERN E_Zone *
+e_comp_zone_find(const char *output_id)
+{
+   Eina_List *l = NULL;
+   E_Zone *zone = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_id, NULL);
+
+   EINA_LIST_FOREACH(e_comp->zones, l, zone)
+     {
+        if (!zone) continue;
+        if (!strcmp(zone->output_id, output_id)) return zone;
+     }
+
+   return NULL;
 }
 
 E_API Eina_List *
@@ -1932,17 +1004,9 @@ e_comp_vis_ec_list_get(E_Zone *zone)
    Eina_List *ec_list = NULL;
    E_Client  *ec;
    Evas_Object *o;
-   E_Output *eout;
-   Eina_Bool opt_hwc; // whether an output(zona) managed by opt-hwc
 
    E_OBJECT_CHECK_RETURN(zone, NULL);
    E_OBJECT_TYPE_CHECK_RETURN(zone, E_ZONE_TYPE, NULL);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(!zone->output_id, NULL);
-
-   eout = e_output_find(zone->output_id);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(!eout, EINA_FALSE);
-
-   opt_hwc = e_output_hwc_opt_hwc_enabled(eout);
 
    // TODO: check if eout is available to use hwc policy
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
@@ -1955,13 +1019,6 @@ e_comp_vis_ec_list_get(E_Zone *zone)
         if (e_object_is_del(E_OBJECT(ec))) continue;
 
         if (ec->zone != zone) continue;
-
-        if (opt_hwc)
-          {
-             /* skip all small clients except the video clients */
-             if ((ec->w == 1 || ec->h == 1) && !(ec->comp_data && ec->comp_data->video_client))
-               continue;
-          }
 
         // check clients to skip composite
         if (e_client_util_ignored_get(ec) || (!evas_object_visible_get(ec->frame)))
@@ -1984,10 +1041,8 @@ e_comp_vis_ec_list_get(E_Zone *zone)
                         0, 0, scr_w, scr_h))
            continue;
 
-        /* for hwc optimized we need full stack of visible windows */
-        if (!opt_hwc)
-          if (!ec->argb)
-            break;
+        if (!ec->argb)
+          break;
      }
 
    return ec_list;
@@ -2217,3 +1272,79 @@ e_comp_socket_init(const char *name)
 
    return EINA_TRUE;
 }
+
+/* set the deactive value to the only primary output */
+EINTERN void
+e_comp_hwc_deactive_set(Eina_Bool set)
+{
+   E_Output *output = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(e_comp);
+   EINA_SAFETY_ON_NULL_RETURN(e_comp->e_comp_screen);
+
+   output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   e_output_hwc_deactive_set(output->output_hwc, EINA_TRUE);
+}
+
+/* get the deactive value to the only primary output */
+EINTERN Eina_Bool
+e_comp_hwc_deactive_get(void)
+{
+   E_Output *output = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp->e_comp_screen, EINA_FALSE);
+
+   output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   return e_output_hwc_deactive_get(output->output_hwc);
+}
+
+/* set the multi_plane value to the only primary output */
+EINTERN void
+e_comp_hwc_multi_plane_set(Eina_Bool set)
+{
+   E_Output *output = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(e_comp);
+   EINA_SAFETY_ON_NULL_RETURN(e_comp->e_comp_screen);
+
+   output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   e_output_hwc_multi_plane_set(output->output_hwc, EINA_TRUE);
+}
+
+/* get the multi_plane value to the only primary output */
+EINTERN Eina_Bool
+e_comp_hwc_multi_plane_get(void)
+{
+   E_Output *output = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp->e_comp_screen, EINA_FALSE);
+
+   output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   return e_output_hwc_multi_plane_get(output->output_hwc);
+}
+
+/* end the hwc policy at the primary output */
+E_API void
+e_comp_hwc_end(const char *location)
+{
+   E_Output *output = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(e_comp);
+   EINA_SAFETY_ON_NULL_RETURN(e_comp->e_comp_screen);
+
+   output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   e_output_hwc_end(output->output_hwc, location);
+}
+

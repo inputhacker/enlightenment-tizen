@@ -139,13 +139,10 @@ struct _E_Comp
    Ecore_Timer    *nocomp_override_timer;
    int             nocomp_override; //number of times hwc override has been requested
    Eina_Bool       nocomp : 1; // TODO: remove it from E_Comp!!
-   int             hwc_mode;
    Eina_Bool       hwc : 1;
-   Eina_Bool       hwc_deactive : 1; // deactive hwc policy
    Eina_Bool       hwc_reuse_cursor_buffer;
    Eina_Bool       hwc_sync_mode_change;
    Eina_Bool       hwc_use_detach;
-   Eina_Bool       hwc_use_multi_plane;
    Eina_Bool       hwc_ignore_primary;
    Eina_Bool       use_native_type_buffer : 1; // use native buffer type
 
@@ -239,16 +236,21 @@ E_API void e_comp_post_update_purge(E_Client *ec);
 
 E_API E_Comp_Hook *e_comp_hook_add(E_Comp_Hook_Point hookpoint, E_Comp_Hook_Cb func, const void *data);
 E_API void e_comp_hook_del(E_Comp_Hook *ph);
+EINTERN void e_comp_hook_call(E_Comp_Hook_Point hookpoint, void *data EINA_UNUSED);
+
 EINTERN Eina_Bool e_comp_is_on_overlay(E_Client *ec);
+EINTERN E_Zone *e_comp_zone_find(const char *output_id);
 E_API Eina_List *e_comp_vis_ec_list_get(E_Zone *zone); // visible ec list sorted by z order
-EINTERN Eina_Bool e_comp_is_ec_on_output_opt_hwc(E_Client *ec);
-EINTERN Eina_List *e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur, Eina_Bool);
-#ifdef ENABLE_HWC_MULTI
-E_API void e_comp_hwc_end(const char *location);
-EINTERN void e_comp_hwc_multi_plane_set(Eina_Bool set);
-#endif
 
 E_API Eina_Bool e_comp_socket_init(const char *name);
+
+EINTERN Eina_Bool e_comp_is_ec_on_output_opt_hwc(E_Client *ec);
+
+EINTERN void      e_comp_hwc_deactive_set(Eina_Bool set);
+EINTERN Eina_Bool e_comp_hwc_deactive_get(void);
+EINTERN void      e_comp_hwc_multi_plane_set(Eina_Bool set);
+EINTERN Eina_Bool e_comp_hwc_multi_plane_get(void);
+E_API   void      e_comp_hwc_end(const char *location);
 
 #endif
 #endif

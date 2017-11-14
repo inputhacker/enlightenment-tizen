@@ -183,7 +183,7 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
    *hwc = -1;
    *pl_zpos = -999;
 
-   if ((!e_comp->hwc) || (e_comp->hwc_deactive))
+   if ((!e_comp->hwc) || e_comp_hwc_deactive_get())
      return;
 
    *hwc = 0;
@@ -3970,13 +3970,11 @@ e_info_server_cb_hwc(const Eldbus_Service_Interface *iface EINA_UNUSED, const El
      }
 
    if (onoff == 1)
-     {
-        e_comp->hwc_deactive = EINA_FALSE;
-     }
+     e_comp_hwc_deactive_set(EINA_FALSE);
    else if (onoff == 0)
      {
         e_comp_hwc_end("in runtime by e_info..");
-        e_comp->hwc_deactive = EINA_TRUE;
+        e_comp_hwc_deactive_set(EINA_TRUE);
      }
 
    return reply;

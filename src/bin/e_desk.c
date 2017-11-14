@@ -1310,7 +1310,8 @@ _e_desk_util_comp_hwc_disable_set(Eina_Bool disable)
 {
    if (disable)
      e_comp_hwc_end("in runtime by e_desk");
-   e_comp->hwc_deactive = disable;
+
+   e_comp_hwc_deactive_set(disable);
 }
 
 static void

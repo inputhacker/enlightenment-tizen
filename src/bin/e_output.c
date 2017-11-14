@@ -636,8 +636,8 @@ _e_output_cb_output_change(tdm_output *toutput,
      }
 }
 
-EINTERN void
-e_output_update_fps()
+static void
+_e_output_update_fps()
 {
    static double time = 0.0;
    static double lapse = 0.0;
@@ -1634,22 +1634,6 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
    if (!toutput) goto fail;
    output->toutput = toutput;
 
-   error = tdm_output_get_capabilities(toutput, &output_caps);
-   if (error != TDM_ERROR_NONE)
-     {
-        ERR("fail to tdm_output_get_capabilities");
-        goto fail;
-     }
-
-   /* if tdm_output supports hwc capability e20 has to manage it by optimized hwc */
-   if (output_caps & TDM_OUTPUT_CAPABILITY_HWC)
-     e_output_hwc_opt_hwc_set(output, EINA_TRUE);
-   else
-     e_output_hwc_opt_hwc_set(output, EINA_FALSE);
-
-   INF("E_OUTPUT: (%d) managed by %s", index, e_output_hwc_opt_hwc_enabled(output) ? "optimized hwc" :
-           "no-optimized hwc");
-
    error = tdm_output_add_change_handler(toutput, _e_output_cb_output_change, output);
    if (error != TDM_ERROR_NONE)
      WRN("fail to tdm_output_add_change_handler");
@@ -1683,14 +1667,25 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
    snprintf(id, size, "%s-%d", name, index);
 
    output->id = id;
-   INF("E_OUTPUT: output_id = %s", output->id);
+   INF("E_OUTPUT: (%d) output_id = %s", index, output->id);
 
    output->e_comp_screen = e_comp_screen;
 
    _e_output_tdm_strem_capture_support(output);
 
-   if (e_output_hwc_opt_hwc_enabled(output))
-     return output;
+   error = tdm_output_get_capabilities(toutput, &output_caps);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("fail to tdm_output_get_capabilities");
+        goto fail;
+     }
+
+   /* if tdm_output supports hwc capability e20 has to manage it by optimized hwc */
+   if (output_caps & TDM_OUTPUT_CAPABILITY_HWC)
+     {
+        output->tdm_hwc = EINA_TRUE;
+        return output;
+     }
 
    /* the e_output is managed by no optimized hwc so we have to deal with tdm_layers */
 
@@ -1750,6 +1745,8 @@ e_output_del(E_Output *output)
    E_Output_Mode *m;
 
    if (!output) return;
+
+   if (output->output_hwc) e_output_hwc_del(output->output_hwc);
 
    e_plane_shutdown();
 
@@ -2051,11 +2048,23 @@ e_output_mode_apply(E_Output *output, E_Output_Mode *mode)
 EINTERN Eina_Bool
 e_output_setup(E_Output *output)
 {
+   E_Output_Hwc *output_hwc = NULL;
    Eina_List *l, *ll;
    E_Plane *plane = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
+   /* available only the primary output now. */
+   if (e_comp->hwc)
+     {
+        output_hwc = e_output_hwc_new(output);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+        output->output_hwc = output_hwc;
+     }
+
+   if (e_output_hwc_opt_hwc_enabled(output->output_hwc)) return EINA_TRUE;
+
+   /* ecore evas engine setup */
    EINA_LIST_FOREACH_SAFE(output->planes, l, ll, plane)
      {
         if (plane->is_fb)
@@ -2221,39 +2230,144 @@ e_output_render(E_Output *output)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-   EINA_LIST_REVERSE_FOREACH(output->planes, l, plane)
+   if (e_output_hwc_opt_hwc_enabled(output->output_hwc))
      {
-        if (!e_plane_render(plane))
-         {
-            ERR("fail to e_plane_render.");
-            return EINA_FALSE;
-         }
+        if (!e_output_hwc_render(output->output_hwc))
+          {
+             ERR("fail to e_output_hwc_render.");
+             return EINA_FALSE;
+          }
+     }
+   else
+     {
+        EINA_LIST_REVERSE_FOREACH(output->planes, l, plane)
+          {
+             if (!e_plane_render(plane))
+               {
+                   ERR("fail to e_plane_render.");
+                   return EINA_FALSE;
+               }
+          }
      }
 
   return EINA_TRUE;
 }
 
-EINTERN Eina_Bool
-e_output_commit(E_Output *output)
+static void
+_e_output_hwc_output_commit_handler(tdm_output *output, unsigned int sequence,
+                                  unsigned int tv_sec, unsigned int tv_usec,
+                                  void *user_data)
+{
+   const Eina_List *l;
+   E_Output_Hwc_Window *window;
+
+   E_Output *eo = (E_Output *)user_data;
+
+   EINA_SAFETY_ON_NULL_RETURN(eo);
+
+   EINA_LIST_FOREACH(e_output_hwc_windows_get(eo->output_hwc), l, window)
+     {
+         if (!e_output_hwc_window_commit_data_release(window)) continue;
+         if (e_output_hwc_window_is_video(window))
+           e_video_commit_data_release(window->ec, sequence, tv_sec, tv_usec);
+     }
+
+   /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
+    * a 'page flip' happened so it's time to allow to make 'fetch and commit' for the e_output */
+   eo->wait_commit = EINA_FALSE;
+}
+
+/* we can do commit if we set surface at least to one window which displayed on
+ * the hw layer*/
+static Eina_Bool
+_can_commit(E_Output *output)
+{
+   Eina_List *l;
+   E_Output_Hwc_Window *window;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->output_hwc, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->output_hwc->windows, l, window)
+     {
+        if (!e_output_hwc_window_is_on_hw_overlay(window)) continue;
+
+        if (window->update_exist) return EINA_TRUE;
+
+        if (e_output_hwc_window_get_displaying_surface(window)) return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_commit(E_Output *output)
+{
+   E_Output_Hwc_Window *window = NULL;
+   Eina_List *l;
+   int need_tdm_commit = 0;
+   Eina_Bool fb_commit = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->output_hwc, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->output_hwc->windows, l, window)
+     {
+        /* an underlying hwc_window still occupies a hw overlay, so we can't
+         * allow to change buffer (make fetch) as hwc_window in a client_candidate state */
+        if (e_output_hwc_window_get_state(window) == E_OUTPUT_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
+          continue;
+
+        /* fetch the surface to the window */
+        if (!e_output_hwc_window_fetch(window)) continue;
+
+        if (e_output_hwc_window_is_target(window)) fb_commit = EINA_TRUE;
+
+        if (output->dpms == E_OUTPUT_DPMS_OFF)
+          e_output_hwc_window_offscreen_commit(window);
+     }
+
+   if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
+
+   if (!_can_commit(output))
+     {
+        INF("fail to _can_commit.");
+        return EINA_FALSE;
+     }
+
+   EINA_LIST_FOREACH(output->output_hwc->windows, l, window)
+     {
+        if (e_output_hwc_window_prepare_commit(window))
+          need_tdm_commit = 1;
+
+        // TODO: to be fixed. check fps of fb_target currently.
+        if (fb_commit) _e_output_update_fps();
+     }
+
+   if (need_tdm_commit)
+     {
+        tdm_error error = TDM_ERROR_NONE;
+
+        error = tdm_output_commit(output->toutput, 0, _e_output_hwc_output_commit_handler, output);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+
+        output->wait_commit = EINA_TRUE;
+     }
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_output_planes_commit(E_Output *output)
 {
    E_Plane *plane = NULL, *fb_target = NULL;
    Eina_List *l;
    Eina_Bool fb_commit = EINA_FALSE;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
-
-   if (!output->config.enabled)
-     {
-        WRN("E_Output disconnected");
-        return EINA_FALSE;
-     }
 
    fb_target = e_output_fb_target_get(output);
 
    /* fetch the fb_target at first */
    fb_commit = e_plane_fetch(fb_target);
    // TODO: to be fixed. check fps of fb_target currently.
-   if (fb_commit) e_output_update_fps();
+   if (fb_commit) _e_output_update_fps();
 
    /* set planes */
    EINA_LIST_FOREACH(output->planes, l, plane)
@@ -2292,7 +2406,7 @@ e_output_commit(E_Output *output)
              if (e_plane_is_fb_target(plane))
                {
                   fb_commit = EINA_TRUE;
-                  e_output_update_fps();
+                  _e_output_update_fps();
                }
           }
      }
@@ -2323,6 +2437,44 @@ e_output_commit(E_Output *output)
      }
 
    return EINA_TRUE;
+}
+EINTERN Eina_Bool
+e_output_commit(E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   if (!output->config.enabled)
+     {
+        WRN("E_Output disconnected");
+        return EINA_FALSE;
+     }
+
+   if (e_output_hwc_opt_hwc_enabled(output->output_hwc))
+     {
+        if (!_e_output_hwc_windows_commit(output))
+          {
+             ERR("fail to _e_output_hwc_windows_commit.");
+             return EINA_FALSE;
+          }
+     }
+   else
+     {
+        if (!_e_output_planes_commit(output))
+          {
+              ERR("fail to _e_output_planes_commit.");
+              return EINA_FALSE;
+          }
+     }
+
+   return EINA_TRUE;
+}
+
+EINTERN const char *
+e_output_output_id_get(E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+
+   return output->id;
 }
 
 E_API E_Output *
@@ -2373,7 +2525,7 @@ e_output_util_planes_print(void)
 
         if (!output || !output->planes) continue;
 
-        if (e_output_hwc_opt_hwc_enabled(output)) continue;
+        if (e_output_hwc_opt_hwc_enabled(output->output_hwc)) continue;
 
         fprintf(stderr, "HWC in %s .. \n", output->id);
         fprintf(stderr, "HWC \tzPos \t on_plane \t\t\t\t on_prepare \t \n");
@@ -2575,7 +2727,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
    EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
 
 #ifdef ENABLE_HWC_MULTI
-   e_comp_hwc_multi_plane_set(EINA_FALSE);
+   e_output_hwc_multi_plane_set(output->output_hwc, EINA_FALSE);
 #endif
 
    output->zoom_conf.zoomx = zoomx;
@@ -2594,7 +2746,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
      {
         ERR("e_plane_zoom_set failed.");
 #ifdef ENABLE_HWC_MULTI
-        e_comp_hwc_multi_plane_set(EINA_TRUE);
+        e_output_hwc_multi_plane_set(output->output_hwc, EINA_TRUE);
 #endif
         return EINA_FALSE;
      }
@@ -2651,7 +2803,7 @@ e_output_zoom_unset(E_Output *output)
    output->zoom_set = EINA_FALSE;
 
 #ifdef ENABLE_HWC_MULTI
-   e_comp_hwc_multi_plane_set(EINA_TRUE);
+   e_output_hwc_multi_plane_set(output->output_hwc, EINA_TRUE);
 #endif
 
    /* update the ecore_evas */
