@@ -96,19 +96,6 @@ _seat_get(E_Input_Backend *input, const char *seat)
    return _seat_create(input, seat);
 }
 
-static void
-_ecore_event_device_info_free(void *data EINA_UNUSED, void *ev)
-{
-   Ecore_Event_Device_Info *e;
-
-   e = ev;
-   eina_stringshare_del(e->name);
-   eina_stringshare_del(e->identifier);
-   eina_stringshare_del(e->seatname);
-
-   free(e);
-}
-
 static Evas_Device_Class
 _e_input_seat_cap_to_evas_device_class(unsigned int cap)
 {
