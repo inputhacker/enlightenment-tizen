@@ -91,7 +91,7 @@ EINTERN int e_input_shutdown(void);
 EINTERN const char *e_input_base_dir_get(void);
 EINTERN Eina_Bool e_input_thread_enabled_get(void);
 EINTERN E_Input *e_input_get(void);
-EINTERN Evas *e_input_get_evas(E_Input *ei);
+EINTERN Ecore_Evas *e_input_ecore_evas_get(E_Input *ei);
 
 EINTERN E_Input_Device *e_input_device_open(void);
 EINTERN Eina_Bool e_input_device_close(E_Input_Device *dev);

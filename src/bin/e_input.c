@@ -242,7 +242,7 @@ e_input_get()
 }
 
 EINTERN Ecore_Evas *
-e_input_get_ecore_evas(E_Input *ei)
+e_input_ecore_evas_get(E_Input *ei)
 {
    if (ei) return ei->ee;
    return NULL;
