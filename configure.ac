@@ -489,7 +489,10 @@ AC_MSG_CHECKING([Have dlog logger])
 AC_MSG_RESULT([${have_dlog}])
 if test "x${have_dlog}" = "xyes"; then
     AC_DEFINE([HAVE_DLOG], [1], [Define to 1 if you have dlog])
+    PKG_CHECK_MODULES(DLOG, dlog)
 fi
+
+AM_CONDITIONAL([HAVE_DLOG], [test "x${have_dlog}" = "xyes"])
 
 AM_CONDITIONAL([HAVE_WAYLAND], [test "x${have_wayland}" = "xyes"])
 AM_CONDITIONAL([HAVE_WAYLAND_TBM], [test "x${have_wayland_tbm}" = "xyes"])
@@ -588,8 +591,8 @@ eo >= ${efl_version} \
 eeze >= ${efl_version} \
 "
 
-e_libs="$E_LIBS $fnmatch_libs $execinfo_libs"
-e_cflags="-DUSE_E_CONFIG_H $E_CFLAGS -D_F_ZONE_WINDOW_ROTATION_ -D_F_E_VIRTUAL_KEYBOARD_TYPE_ -D_F_E_CLIENT_NEW_CLIENT_POST_HOOK_ -D_F_E_COMP_OBJECT_INTERCEPT_HOOK_ -D_F_TRANSIENT_FOR_PATCH -D_F_DISABLE_BACKLIGHT_MOD_SUPPORT"
+e_libs="$E_LIBS $fnmatch_libs $execinfo_libs $DLOG_LIBS"
+e_cflags="-DUSE_E_CONFIG_H $E_CFLAGS -D_F_ZONE_WINDOW_ROTATION_ -D_F_E_VIRTUAL_KEYBOARD_TYPE_ -D_F_E_CLIENT_NEW_CLIENT_POST_HOOK_ -D_F_E_COMP_OBJECT_INTERCEPT_HOOK_ -D_F_TRANSIENT_FOR_PATCH -D_F_DISABLE_BACKLIGHT_MOD_SUPPORT $DLOG_CFLAGS"
 e_configflags="-DUSE_E_CONFIG_H -D_F_ZONE_WINDOW_ROTATION_ -D_F_E_VIRTUAL_KEYBOARD_TYPE_ -D_F_E_CLIENT_NEW_CLIENT_POST_HOOK_ -D_F_E_COMP_OBJECT_INTERCEPT_HOOK_ -D_F_TRANSIENT_FOR_PATCH -D_F_DISABLE_BACKLIGHT_MOD_SUPPORT"
 
 AC_SUBST([e_libs])
