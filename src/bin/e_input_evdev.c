@@ -1098,7 +1098,7 @@ _e_input_evdev_device_destroy(E_Input_Evdev *edev)
         if (edev->xkb.keymap) xkb_map_unref(edev->xkb.keymap);
      }
 
-   if (edev->evas_dev) evas_device_del(edev->evas_device);
+   if (edev->evas_dev) evas_device_del(edev->evas_dev);
    if (edev->path) eina_stringshare_del(edev->path);
    if (edev->device) libinput_device_unref(edev->device);
    if (edev->key_remap_hash) eina_hash_free(edev->key_remap_hash);
