@@ -156,7 +156,7 @@ _e_input_add_evas_device(E_Input_Evdev *edev, Evas_Device_Class clas)
    if (!evs) return EINA_FALSE;
 
    dev = evas_device_add_full(evs,libinput_device_get_name(edev->device),
-                              edev->path, edev->seat->evas_dev , NULL, clas, EVAS_DEVICE_SUBCLASS_NONE)
+                              edev->path, edev->seat->evas_dev , NULL, clas, EVAS_DEVICE_SUBCLASS_NONE);
    if (!dev)
      {
         edev->evas_dev = NULL;
