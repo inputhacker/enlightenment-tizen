@@ -6,9 +6,6 @@
 # include <tbm_surface.h>
 # include <tbm_surface_internal.h>
 # include <wayland-tbm-server.h>
-# include <Evas_Engine_GL_Drm.h>
-# include <Evas_Engine_GL_Tbm.h>
-# include <Evas_Engine_Software_Tbm.h>
 # include <sys/eventfd.h>
 # include <pixman.h>
 # if HAVE_LIBGOMP
