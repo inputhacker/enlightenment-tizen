@@ -4,7 +4,6 @@
 
 #include "e.h"
 #include <wayland-server.h>
-#include <Ecore_Wayland.h>
 #include <screenshooter-server-protocol.h>
 #include <tizen-extension-server-protocol.h>
 
