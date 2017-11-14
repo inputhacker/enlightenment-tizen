@@ -133,7 +133,7 @@ _e_input_add_evas_device(E_Input_Evdev *edev, Evas_Device_Class clas)
 
    if (!edev || !edev->path) return EINA_FALSE;
 
-   dev_list = evas_device_list();
+   dev_list = evas_device_list(e_comp->evas, NULL);
    if (dev_list)
      {
         EINA_LIST_FOREACH(dev_list, l, dev)
@@ -178,7 +178,7 @@ _e_input_remove_evas_device(E_Input_Evdev *edev, Evas_Device_Class clas)
 
    if (!edev->path) return EINA_FALSE;
 
-   dev_list = evas_device_list();
+   dev_list = evas_device_list(e_comp->evas, NULL);
    if (!dev_list) return EINA_FALSE;
    EINA_LIST_FOREACH(dev_list, l, dev)
       {

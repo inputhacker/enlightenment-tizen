@@ -300,7 +300,7 @@ e_input_evdev_get_evas_device(const char *path, Evas_Device_Class clas)
 
    if (!path) return NULL;
 
-   dev_list = evas_device_list();
+   dev_list = evas_device_list(e_comp->evas, NULL);
    if (!dev_list) return NULL;
    EINA_LIST_FOREACH(dev_list, l, dev)
      {

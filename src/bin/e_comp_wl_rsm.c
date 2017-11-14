@@ -185,7 +185,7 @@ _device_get_by_identifier(const char *identifier)
    Evas_Device *dev = NULL;
    const Eina_List *devices, *l;
 
-   devices = evas_device_list();
+   devices = evas_device_list(e_comp->evas, NULL);
    EINA_LIST_FOREACH(devices, l, dev)
      {
         if (!e_util_strcmp(identifier, evas_device_description_get(dev)))
