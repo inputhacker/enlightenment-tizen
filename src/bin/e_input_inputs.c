@@ -27,7 +27,7 @@ _seat_create(E_Input_Backend *input, const char *seat)
    if (!evs) return NULL;
 
    /* create an evas device of a seat */
-   evas_dev = evas_device_add_full(evs, "Enlightenment seat", s->name, NULL, NULL,
+   evas_dev = evas_device_add_full(evs, seat, "Enlightenment seat", NULL, NULL,
                                    EVAS_DEVICE_CLASS_SEAT, EVAS_DEVICE_SUBCLASS_NONE);
    if (!evas_dev)
      {
