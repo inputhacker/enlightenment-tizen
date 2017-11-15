@@ -1005,6 +1005,8 @@ e_plane_renderer_new(E_Plane *plane)
    renderer->plane = plane;
    renderer->event_fd = -1;
 
+   if (plane->is_external) return renderer;
+
    if (plane->is_fb)
      {
         renderer->ee = e_comp->ee;
