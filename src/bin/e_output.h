@@ -38,7 +38,6 @@ enum _E_Output_Ext_State
    E_OUTPUT_EXT_NONE,
    E_OUTPUT_EXT_MIRROR,
    E_OUTPUT_EXT_PRESENTATION,
-   E_OUTPUT_EXT_WAIT_PRESENTATION,
 };
 
 struct _E_Output_Mode
@@ -77,6 +76,7 @@ struct _E_Output
    E_Zone              *zone;
 
    tdm_output           *toutput;
+   tdm_output_type       toutput_type;
 
    E_Comp_Screen        *e_comp_screen;
    E_OUTPUT_DPMS        dpms;
@@ -118,6 +118,15 @@ struct _E_Output
 
    /* output hwc */
    E_Output_Hwc *output_hwc;
+
+   /* external */
+   Eina_Bool            external_set;
+   Eina_Bool            external_pause;
+   struct
+   {
+      E_Output_Ext_State state;
+      E_Output_Ext_State current_state;
+   } external_conf;
 };
 
 enum _E_Output_Hook_Point
@@ -178,6 +187,8 @@ EINTERN Eina_Bool         e_output_stream_capture_dequeue(E_Output *output, tbm_
 EINTERN Eina_Bool         e_output_stream_capture_start(E_Output *output);
 EINTERN void              e_output_stream_capture_stop(E_Output *output);
 EINTERN const char      * e_output_output_id_get(E_Output *output);
+EINTERN Eina_Bool         e_output_external_set(E_Output *output, E_Output_Ext_State state);
+EINTERN void              e_output_external_unset(E_Output *output);
 E_API E_Output          * e_output_find(const char *id);
 E_API E_Output          * e_output_find_by_index(int index);
 E_API const Eina_List   * e_output_planes_get(E_Output *output);
