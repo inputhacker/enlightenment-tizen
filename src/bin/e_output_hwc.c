@@ -293,41 +293,25 @@ _hwc_plane_unset(E_Plane *ep)
 }
 
 static Eina_Bool
-_hwc_plane_change_ec(E_Plane *ep, E_Client *old_ec, E_Client *new_ec)
+_hwc_plane_change_ec(E_Plane *ep, E_Client *new_ec)
 {
-   Eina_Bool ret = EINA_FALSE;
-
-   if (!new_ec)
-     {
-        if (e_plane_is_reserved(ep))
-          e_plane_reserved_set(ep, 0);
-     }
-
-   e_plane_ec_prepare_set(ep, NULL);
-
-   if (e_plane_ec_set(ep, new_ec))
-     {
-        if (new_ec)
-          {
-             ELOGF("HWC", "new_ec(%s) is set on %d",
-                   new_ec->pixmap, new_ec,
-                   e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
-          }
-        else
-          {
-             ELOGF("HWC", "NULL is set on %d", NULL, NULL, ep->zpos);
-          }
-        ret = EINA_TRUE;
-     }
-   else
+   if (!e_plane_ec_set(ep, new_ec))
      {
         ELOGF("HWC", "failed to set new_ec(%s) on %d",
               NULL, new_ec,
               new_ec ? (new_ec->icccm.name ? new_ec->icccm.name : "no name") : "NULL",
               ep->zpos);
+        return EINA_FALSE;
      }
 
-   return ret;
+   if (new_ec)
+     ELOGF("HWC", "new_ec(%s) is set on %d",
+           new_ec->pixmap, new_ec,
+           e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
+   else
+     ELOGF("HWC", "NULL is set on %d", NULL, NULL, ep->zpos);
+
+   return EINA_TRUE;
 }
 
 static Eina_Bool
@@ -341,6 +325,7 @@ _e_output_hwc_changed(E_Output_Hwc *output_hwc)
    E_Output *eout = output_hwc->output;
 
    ep_l = e_output_planes_get(eout);
+   /* check the planes from top to down */
    EINA_LIST_REVERSE_FOREACH(ep_l, p_l, ep)
      {
         if (!assign_success)
@@ -350,18 +335,17 @@ _e_output_hwc_changed(E_Output_Hwc *output_hwc)
              continue;
           }
 
+        if (e_plane_is_reserved(ep) &&
+            ep->prepare_ec == NULL)
+          {
+             e_plane_reserved_set(ep, 0);
+             ELOGF("HWC", "unset reserved mem on %d", NULL, NULL, ep->zpos);
+          }
+
         if (ep->ec != ep->prepare_ec)
           {
-             assign_success = _hwc_plane_change_ec(ep, ep->ec, ep->prepare_ec);
+             assign_success = _hwc_plane_change_ec(ep, ep->prepare_ec);
              ret = EINA_TRUE;
-          }
-        else if (!ep->prepare_ec)
-          {
-             if (e_plane_is_reserved(ep))
-               {
-                  e_plane_reserved_set(ep, 0);
-                  ELOGF("HWC", "unset reserved mem on %d", NULL, NULL, ep->zpos);
-               }
           }
 
         if (ep->ec) mode = E_OUTPUT_HWC_MODE_HYBRID;
@@ -371,7 +355,7 @@ _e_output_hwc_changed(E_Output_Hwc *output_hwc)
              if (ep->ec) mode = E_OUTPUT_HWC_MODE_FULL;
              break;
           }
-     }
+   }
 
    if (output_hwc->hwc_mode != mode)
      {
