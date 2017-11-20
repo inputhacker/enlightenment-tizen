@@ -304,7 +304,7 @@ _hwc_plane_change_ec(E_Plane *ep, E_Client *new_ec)
    return EINA_TRUE;
 }
 
-static Eina_Bool
+static void
 _e_output_hwc_changed(E_Output_Hwc *output_hwc)
 {
    Eina_Bool ret = EINA_FALSE;
@@ -367,7 +367,13 @@ _e_output_hwc_changed(E_Output_Hwc *output_hwc)
         output_hwc->hwc_mode = mode;
      }
 
-   return ret;
+   if (ret)
+     {
+        if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NO)
+          ELOGF("HWC", " End...  due to surface changes", NULL, NULL);
+        else
+          ELOGF("HWC", " hwc surface changed", NULL, NULL);
+     }
 }
 
 static Eina_Bool
@@ -657,23 +663,16 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
    EINA_SAFETY_ON_NULL_RETURN(output_hwc);
    EINA_SAFETY_ON_NULL_RETURN(output_hwc->output);
 
-   if(_e_output_hwc_usable(output_hwc))
+   if (!_e_output_hwc_usable(output_hwc))
      {
-        if (output_hwc->hwc_mode)
-          {
-             if (_e_output_hwc_changed(output_hwc))
-               {
-                  if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NO)
-                    ELOGF("HWC", " End...  due to surface changes", NULL, NULL);
-                  else
-                    ELOGF("HWC", " hwc surface changed", NULL, NULL);
-               }
-          }
-        else
-          _e_output_hwc_begin(output_hwc);
+        e_output_hwc_end(output_hwc, __FUNCTION__);
+        return;
      }
+
+   if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NO)
+     _e_output_hwc_begin(output_hwc);
    else
-     e_output_hwc_end(output_hwc, __FUNCTION__);
+     _e_output_hwc_changed(output_hwc);
 }
 
 EINTERN E_Output_Hwc_Mode
