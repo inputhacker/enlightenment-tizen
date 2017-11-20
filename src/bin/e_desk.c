@@ -796,7 +796,9 @@ e_desk_geometry_set(E_Desk *desk, int x, int y, int w, int h)
 {
    E_Client *ec;
    E_Maximize max;
-   Eina_List *l;
+   Eina_List *l = NULL, *ll = NULL;
+   Evas_Object *m;
+
    int cx, cy, dx, dy;
 
    if (!e_config->use_desk_smart_obj)
@@ -844,6 +846,20 @@ e_desk_geometry_set(E_Desk *desk, int x, int y, int w, int h)
           }
      }
 
+   // E Client as an member of smart object is not changed even though parent obj is changed
+   // Workaround : update max geometry if ec is a member of desk->smart_obj
+   EINA_LIST_FOREACH(evas_object_smart_members_get(desk->smart_obj), ll, m)
+     {
+        ec = evas_object_data_get(m, "E_Client");
+        if (ec && ec->maximized)
+          {
+             max = ec->maximized;
+             ec->maximized = E_MAXIMIZE_NONE;
+             e_client_maximize(ec, max);
+          }
+     }
+
+   // apply geometry on smart obj
    evas_object_geometry_set(desk->smart_obj, x, y, w, h);
    e_comp_render_queue();
 }

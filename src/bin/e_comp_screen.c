@@ -255,7 +255,6 @@ _e_comp_screen_commit_idle_cb(void *data EINA_UNUSED)
         if (!e_output_render(output))
              ERR("fail to render e_comp_screen->outputs.");
      }
-
 end:
    return ECORE_CALLBACK_RENEW;
 }
