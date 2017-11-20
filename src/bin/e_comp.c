@@ -1253,7 +1253,7 @@ e_comp_hwc_deactive_set(Eina_Bool set)
    output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   e_output_hwc_deactive_set(output->output_hwc, EINA_TRUE);
+   e_output_hwc_deactive_set(output->output_hwc, set);
 }
 
 /* get the deactive value to the only primary output */

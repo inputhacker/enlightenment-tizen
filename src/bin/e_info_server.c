@@ -3972,10 +3972,7 @@ e_info_server_cb_hwc(const Eldbus_Service_Interface *iface EINA_UNUSED, const El
    if (onoff == 1)
      e_comp_hwc_deactive_set(EINA_FALSE);
    else if (onoff == 0)
-     {
-        e_comp_hwc_end("in runtime by e_info..");
-        e_comp_hwc_deactive_set(EINA_TRUE);
-     }
+     e_comp_hwc_deactive_set(EINA_TRUE);
 
    return reply;
 }
