@@ -1000,33 +1000,23 @@ _hwc_prepare(E_Output_Hwc *output_hwc, int n_vis, int n_skip, Eina_List *hwc_cli
    return ret;
 }
 
-static Eina_Bool
+static void
 _hwc_cancel(E_Output_Hwc *output_hwc)
 {
    Eina_List *l ;
    E_Plane *ep;
-   Eina_Bool ret = EINA_TRUE;
    E_Output *eout = output_hwc->output;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout->planes, EINA_FALSE);
 
    EINA_LIST_FOREACH(eout->planes, l, ep)
      {
         if (!output_hwc->hwc_use_multi_plane &&
             !e_plane_is_cursor(ep) &&
             !e_plane_is_fb_target(ep))
-          {
-             if (ep->ec) ret = EINA_FALSE; // core cannot end HWC
              continue;
-          }
 
         e_plane_ec_prepare_set(ep, NULL);
         e_plane_ec_set(ep, NULL);
      }
-
-   return ret;
 }
 
 static Eina_Bool
@@ -1063,80 +1053,28 @@ _hwc_plane_unset(E_Plane *ep)
 }
 
 static Eina_Bool
-_hwc_plane_change_ec(E_Plane *ep, E_Client *old_ec, E_Client *new_ec)
+_hwc_plane_change_ec(E_Plane *ep, E_Client *new_ec)
 {
-   Eina_Bool ret = EINA_FALSE;
-
-   if (!new_ec)
-     {
-        if (e_plane_is_reserved(ep))
-          e_plane_reserved_set(ep, 0);
-     }
-
-   e_plane_ec_prepare_set(ep, NULL);
-
-   if (e_plane_ec_set(ep, new_ec))
-     {
-        if (new_ec)
-          {
-             ELOGF("HWC", "new_ec(%s) is set on %d",
-                   new_ec->pixmap, new_ec,
-                   e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
-          }
-        else
-          {
-             ELOGF("HWC", "NULL is set on %d", NULL, NULL, ep->zpos);
-          }
-        ret = EINA_TRUE;
-     }
-   else
+   if (!e_plane_ec_set(ep, new_ec))
      {
         ELOGF("HWC", "failed to set new_ec(%s) on %d",
               NULL, new_ec,
               new_ec ? (new_ec->icccm.name ? new_ec->icccm.name : "no name") : "NULL",
               ep->zpos);
+        return EINA_FALSE;
      }
 
-   return ret;
+   if (new_ec)
+     ELOGF("HWC", "new_ec(%s) is set on %d",
+           new_ec->pixmap, new_ec,
+           e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
+   else
+     ELOGF("HWC", "NULL is set on %d", NULL, NULL, ep->zpos);
+
+   return EINA_TRUE;
 }
 
-static Eina_Bool
-_e_output_hwc_apply(E_Output_Hwc *output_hwc)
-{
-   const Eina_List *ep_l = NULL, *l;
-   E_Plane *ep = NULL, *ep_fb = NULL;
-   int mode = 0;
-   E_Output *eout = output_hwc->output;
-
-   ep_l = e_output_planes_get(eout);
-   EINA_LIST_FOREACH(ep_l, l, ep)
-     {
-        if (!ep_fb)
-          {
-             if (e_plane_is_fb_target(ep))
-               {
-                  ep_fb = ep;
-                  if (ep->prepare_ec != NULL) goto hwcompose;
-               }
-             continue;
-          }
-        if (ep->zpos > ep_fb->zpos)
-          if (ep->prepare_ec != NULL) goto hwcompose;
-     }
-
-   goto compose;
-
-hwcompose:
-   mode = _hwc_set(eout);
-   if (mode == E_OUTPUT_HWC_MODE_NO) ELOGF("HWC", "it is failed to assign surface on plane", NULL, NULL);
-
-compose:
-   if (mode != E_OUTPUT_HWC_MODE_NO) output_hwc->hwc_mode = mode;
-
-   return !!mode;
-}
-
-static Eina_Bool
+static void
 _e_output_hwc_changed(E_Output_Hwc *output_hwc)
 {
    Eina_Bool ret = EINA_FALSE;
@@ -1147,6 +1085,7 @@ _e_output_hwc_changed(E_Output_Hwc *output_hwc)
    E_Output *eout = output_hwc->output;
 
    ep_l = e_output_planes_get(eout);
+   /* check the planes from top to down */
    EINA_LIST_REVERSE_FOREACH(ep_l, p_l, ep)
      {
         if (!assign_success)
@@ -1156,18 +1095,17 @@ _e_output_hwc_changed(E_Output_Hwc *output_hwc)
              continue;
           }
 
+        if (e_plane_is_reserved(ep) &&
+            ep->prepare_ec == NULL)
+          {
+             e_plane_reserved_set(ep, 0);
+             ELOGF("HWC", "unset reserved mem on %d", NULL, NULL, ep->zpos);
+          }
+
         if (ep->ec != ep->prepare_ec)
           {
-             assign_success = _hwc_plane_change_ec(ep, ep->ec, ep->prepare_ec);
+             assign_success = _hwc_plane_change_ec(ep, ep->prepare_ec);
              ret = EINA_TRUE;
-          }
-        else if (!ep->prepare_ec)
-          {
-             if (e_plane_is_reserved(ep))
-               {
-                  e_plane_reserved_set(ep, 0);
-                  ELOGF("HWC", "unset reserved mem on %d", NULL, NULL, ep->zpos);
-               }
           }
 
         if (ep->ec) mode = E_OUTPUT_HWC_MODE_HYBRID;
@@ -1177,7 +1115,7 @@ _e_output_hwc_changed(E_Output_Hwc *output_hwc)
              if (ep->ec) mode = E_OUTPUT_HWC_MODE_FULL;
              break;
           }
-     }
+   }
 
    if (output_hwc->hwc_mode != mode)
      {
@@ -1199,7 +1137,13 @@ _e_output_hwc_changed(E_Output_Hwc *output_hwc)
         output_hwc->hwc_mode = mode;
      }
 
-   return ret;
+   if (ret)
+     {
+        if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NO)
+          ELOGF("HWC", " End...  due to surface changes", NULL, NULL);
+        else
+          ELOGF("HWC", " hwc surface changed", NULL, NULL);
+     }
 }
 
 static Eina_Bool
@@ -1265,6 +1209,10 @@ _e_output_hwc_usable(E_Output_Hwc *output_hwc)
    E_Output *eout = output_hwc->output;
    E_Comp_Wl_Buffer *buffer = NULL;
    E_Zone *zone = NULL;
+   int bw = 0, bh = 0;
+   Eina_Bool all_null = EINA_TRUE;
+   E_Plane *ep = NULL;
+   const Eina_List *ep_l = NULL, *p_l;
 
    zone = e_comp_zone_find(e_output_output_id_get(eout));
    EINA_SAFETY_ON_NULL_RETURN_VAL(zone, EINA_FALSE);
@@ -1275,118 +1223,168 @@ _e_output_hwc_usable(E_Output_Hwc *output_hwc)
    // extra policy can replace core policy
    e_comp_hook_call(E_COMP_HOOK_PREPARE_PLANE, NULL);
 
+   // It is not hwc_usable if cursor is shown when the hw cursor is not supported by libtdm.
+   if (!e_pointer_is_hidden(e_comp->pointer) &&
+       (eout->cursor_available.max_w == -1 || eout->cursor_available.max_h == -1))
+     return EINA_FALSE;
+
    // check the hwc is avaliable.
-   E_Plane *ep = NULL, *ep_fb = NULL;
-   const Eina_List *ep_l = NULL, *p_l;
-
    ep_l = e_output_planes_get(eout);
-
-   // It is not hwc_usable if cursor is shown when the hw cursor is not supported.
-   if ((eout->cursor_available.max_w == -1) ||
-       (eout->cursor_available.max_h == -1))
+   EINA_LIST_FOREACH(ep_l, p_l, ep)
      {
-        // hw cursor is not supported by libtdm, than let's composite
-        if (!e_pointer_is_hidden(e_comp->pointer)) return EINA_FALSE;
-     }
-
-   ep_fb = e_output_fb_target_get(eout);
-   if (!ep_fb) return EINA_FALSE;
-
-   if (ep_fb->prepare_ec)
-     {
-        // It is not hwc_usable if the geometry of the prepare_ec at the ep_fb is not proper.
-        int bw = 0, bh = 0;
+        if (!ep->prepare_ec) continue;
 
         // It is not hwc_usable if attached buffer is not valid.
-        buffer = e_pixmap_resource_get(ep_fb->prepare_ec->pixmap);
+        buffer = e_pixmap_resource_get(ep->prepare_ec->pixmap);
         if (!buffer) return EINA_FALSE;
 
-        e_pixmap_size_get(ep_fb->prepare_ec->pixmap, &bw, &bh);
-
-        // if client and zone's geometry is not match with, or
-        // if plane with reserved_memory(esp. fb target) has assigned smaller buffer,
-        // won't support hwc properly, than let's composite
-        if (ep_fb->reserved_memory &&
-            ((bw != zone->w) || (bh != zone->h) ||
-            (ep_fb->prepare_ec->x != zone->x) || (ep_fb->prepare_ec->y != zone->y) ||
-            (ep_fb->prepare_ec->w != zone->w) || (ep_fb->prepare_ec->h != zone->h)))
+        if (e_plane_is_fb_target(ep))
           {
-             DBG("Cannot use HWC if geometry is not 1 on 1 match with reserved_memory");
-             return EINA_FALSE;
-          }
-     }
-   else
-     {
-        // It is not hwc_usable if the all prepare_ec in every plane are null
-        Eina_Bool all_null = EINA_TRUE;
+             // It is not hwc_usable if the geometry of the prepare_ec at the ep_fb is not proper.
+             e_pixmap_size_get(ep->prepare_ec->pixmap, &bw, &bh);
 
-        EINA_LIST_FOREACH(ep_l, p_l, ep)
-          {
-             if (ep == ep_fb) continue;
-             if (ep->prepare_ec)
+             // if client and zone's geometry is not match with, or
+             // if plane with reserved_memory(esp. fb target) has assigned smaller buffer,
+             // won't support hwc properly, than let's composite
+             if (ep->reserved_memory &&
+                 ((bw != zone->w) || (bh != zone->h) ||
+                 (ep->prepare_ec->x != zone->x) || (ep->prepare_ec->y != zone->y) ||
+                 (ep->prepare_ec->w != zone->w) || (ep->prepare_ec->h != zone->h)))
                {
-                  // if attached buffer is not valid, hwc is not usable
-                  buffer = e_pixmap_resource_get(ep->prepare_ec->pixmap);
-                  if (!buffer) return EINA_FALSE;
-
-                  // It is not hwc_usable if the zpos of the ep is over the one of ep_fb
-                  if (ep->zpos < ep_fb->zpos) return EINA_FALSE;
-
-                  all_null = EINA_FALSE;
-                  break;
+                  DBG("Cannot use HWC if geometry is not 1 on 1 match with reserved_memory");
+                  return EINA_FALSE;
                }
           }
-        if (all_null) return EINA_FALSE;
+
+        all_null = EINA_FALSE;
+        break;
      }
 
+   // It is not hwc_usable if the all prepare_ec in every plane are null
+   if (all_null) return EINA_FALSE;
+
    return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_output_hwc_can_hwcompose(E_Output *eout)
+{
+   const Eina_List *ep_l = NULL, *l;
+   E_Plane *ep = NULL, *ep_fb = NULL;
+
+   ep_l = e_output_planes_get(eout);
+   /* check the planes from down to top */
+   EINA_LIST_FOREACH(ep_l, l, ep)
+     {
+        if (e_plane_is_fb_target(ep))
+          {
+             /* can hwcompose if fb_target has a ec. */
+             if (ep->prepare_ec != NULL) return EINA_TRUE;
+             else ep_fb = ep;
+          }
+        else
+          {
+             /* can hwcompose if ep has a ec and zpos is higher than ep_fb */
+             if (ep->prepare_ec != NULL &&
+                 ep_fb &&
+                 ep->zpos > ep_fb->zpos)
+               return EINA_TRUE;
+          }
+     }
+
+   return EINA_FALSE;
 }
 
 static void
 _e_output_hwc_begin(E_Output_Hwc *output_hwc)
 {
-   Eina_Bool mode_set = EINA_FALSE;
+   const Eina_List *ep_l = NULL, *l;
+   E_Output *eout = output_hwc->output;
+   E_Plane *ep = NULL;
+   E_Output_Hwc_Mode mode = E_OUTPUT_HWC_MODE_NO;
+   Eina_Bool set = EINA_FALSE;
 
    if (e_comp->nocomp_override > 0) return;
 
-   mode_set = _e_output_hwc_apply(output_hwc);
-   if (!mode_set) return;
-   if (!output_hwc->hwc_mode) return;
+   if (_e_output_hwc_can_hwcompose(eout))
+     {
+        ep_l = e_output_planes_get(eout);
 
-   ELOGF("HWC", " Begin ...", NULL, NULL);
+        /* set the prepare_ec to the e_plane */
+        /* check the planes from top to down */
+        EINA_LIST_REVERSE_FOREACH(ep_l, l , ep)
+          {
+             if (!ep->prepare_ec) continue;
+
+             set = e_plane_ec_set(ep, ep->prepare_ec);
+             if (!set) break;
+
+             if (e_plane_is_fb_target(ep))
+               {
+                  ELOGF("HWC", "is set on fb_target( %d)", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
+                  mode = E_OUTPUT_HWC_MODE_FULL;
+
+                  // fb target is occupied by a client surface, means compositor disabled
+                  ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
+               }
+             else
+               {
+                  ELOGF("HWC", "is set on %d", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
+                  mode = E_OUTPUT_HWC_MODE_HYBRID;
+               }
+          }
+
+        if (mode == E_OUTPUT_HWC_MODE_NO)
+           ELOGF("HWC", " Begin is not available yet ...", NULL, NULL);
+        else
+           ELOGF("HWC", " Begin ...", NULL, NULL);
+     }
+
+   output_hwc->hwc_mode = mode;
+}
+
+static E_Output_Hwc_Mode
+_e_output_hwc_current_hwc_mode_check(E_Output_Hwc *output_hwc)
+{
+   const Eina_List *ll = NULL, *l;
+   E_Output *output = output_hwc->output;
+   E_Plane *plane = NULL;
+
+   /* check the planes from down to top */
+   EINA_LIST_FOREACH_SAFE(output->planes, l, ll, plane)
+     {
+        if (!plane->ec) continue;
+        if (e_plane_is_fb_target(plane)) return E_OUTPUT_HWC_MODE_FULL;
+
+        return E_OUTPUT_HWC_MODE_HYBRID;
+     }
+
+   return E_OUTPUT_HWC_MODE_NO;
 }
 
 EINTERN void
 e_output_hwc_end(E_Output_Hwc *output_hwc, const char *location)
 {
-   Eina_Bool mode_set = EINA_FALSE;
-   E_Zone *zone;
-   Eina_List *l;
-   Eina_Bool fully_hwc;
+   E_Output_Hwc_Mode new_mode = E_OUTPUT_HWC_MODE_NO;
 
    EINA_SAFETY_ON_NULL_RETURN(output_hwc);
 
-  fully_hwc = (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_FULL) ? EINA_TRUE : EINA_FALSE;
-
+   /* clean the reserved planes(clean the candidate ecs) */
    _hwc_reserved_clean(output_hwc);
 
-   if (!e_comp->hwc) return;
    if (!output_hwc->hwc_mode) return;
 
-   EINA_LIST_FOREACH(e_comp->zones, l, zone)
-     {
-        E_Output * eout;
-        if (!zone->output_id) continue;
-        eout = e_output_find(zone->output_id);
-        if (eout) mode_set |= _hwc_cancel(output_hwc);
-     }
+   /* set null to the e_planes */
+   _hwc_cancel(output_hwc);
 
-   if (!mode_set) return;
+   /* check the current mode */
+   new_mode = _e_output_hwc_current_hwc_mode_check(output_hwc);
 
-   output_hwc->hwc_mode = E_OUTPUT_HWC_MODE_NO;
-
-   if (fully_hwc)
+   if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_FULL &&
+       new_mode != E_OUTPUT_HWC_MODE_FULL)
      ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+
+   output_hwc->hwc_mode = new_mode;
 
    ELOGF("HWC", " End...  at %s.", NULL, NULL, location);
 }
@@ -1443,23 +1441,16 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
      }
    else
      {
-        if (_e_output_hwc_usable(output_hwc))
+        if (!_e_output_hwc_usable(output_hwc))
           {
-             if (output_hwc->hwc_mode)
-               {
-                  if (_e_output_hwc_changed(output_hwc))
-                    {
-                       if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NO)
-                         ELOGF("HWC", " End...  due to surface changes", NULL, NULL);
-                       else
-                         ELOGF("HWC", " hwc surface changed", NULL, NULL);
-                    }
-               }
-             else
-               _e_output_hwc_begin(output_hwc);
+             e_output_hwc_end(output_hwc, __FUNCTION__);
+             return;
           }
+
+        if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NO)
+          _e_output_hwc_begin(output_hwc);
         else
-          e_output_hwc_end(output_hwc, __FUNCTION__);
+          _e_output_hwc_changed(output_hwc);
      }
 }
 
