@@ -122,6 +122,8 @@ struct _E_Plane
    double               frametimes[122];
 
    int                  set_counter;
+   Eina_Bool            fb_sync_wait;
+   Eina_Bool            fb_sync_done;
 };
 
 struct _E_Plane_Commit_Data {

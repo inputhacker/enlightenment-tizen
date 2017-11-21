@@ -1457,6 +1457,67 @@ e_plane_is_fetch_retry(E_Plane *plane)
    return plane->fetch_retry;
 }
 
+static void
+_e_plane_fb_sync_vblank_handler(tdm_output *output, unsigned int sequence,
+                        unsigned int tv_sec, unsigned int tv_usec,
+                        void *user_data)
+{
+   E_Plane *plane = (E_Plane *)user_data;
+
+   EINA_SAFETY_ON_NULL_RETURN(plane);
+
+   if (plane_trace_debug)
+     ELOGF("E_PLANE", "Done fb_target_sync plane(%p) zpos(%d)", NULL, NULL, plane, plane->zpos);
+
+   plane->fb_sync_wait = EINA_FALSE;
+   plane->fb_sync_done = EINA_TRUE;
+}
+
+static Eina_Bool
+_e_plane_fb_target_sync_set(E_Plane *plane)
+{
+   E_Output *output;
+   E_Plane *tmp_plane;
+   Eina_List *l;
+   Eina_Bool set = EINA_FALSE;
+   tdm_error error = TDM_ERROR_NONE;
+
+   if (!plane->is_fb) return EINA_FALSE;
+   if (plane->commit_per_vblank) return EINA_FALSE;
+   if (!e_plane_renderer_surface_queue_can_acquire(plane->renderer)) return EINA_FALSE;
+
+   output = plane->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->planes, l, tmp_plane)
+     {
+        if (tmp_plane->is_fb) continue;
+        if ((tmp_plane->unset_counter == 1) || (tmp_plane->set_counter == 1))
+          {
+             set = EINA_TRUE;
+             break;
+          }
+     }
+
+   if (!set) return EINA_FALSE;
+
+   error = tdm_output_wait_vblank(output->toutput, 1, 0,
+                                  _e_plane_fb_sync_vblank_handler,
+                                  (void *)plane);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("fail to tdm_output_wait_vblank plane:%p, zpos:%d", plane, plane->zpos);
+        return EINA_FALSE;
+     }
+
+   if (plane_trace_debug)
+     ELOGF("E_PLANE", "Set fb_target_sync plane(%p) zpos(%d)", NULL, NULL, plane, plane->zpos);
+
+   plane->fb_sync_wait = EINA_TRUE;
+
+   return EINA_TRUE;
+}
+
 EINTERN Eina_Bool
 e_plane_fetch(E_Plane *plane)
 {
@@ -1481,6 +1542,14 @@ e_plane_fetch(E_Plane *plane)
 
    if (plane->is_fb && !plane->ec)
      {
+        if (plane->fb_sync_wait)
+          return EINA_FALSE;
+
+        if (!plane->fb_sync_done && _e_plane_fb_target_sync_set(plane))
+          return EINA_FALSE;
+
+        plane->fb_sync_done = EINA_FALSE;
+
         /* acquire the surface */
         tsurface = _e_plane_surface_from_ecore_evas_acquire(plane);
      }
