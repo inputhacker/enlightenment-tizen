@@ -2135,6 +2135,22 @@ e_plane_renderer_surface_queue_destroy(E_Plane_Renderer *renderer)
      _e_plane_renderer_buffer_remove(renderer, tsurface);
 }
 
+EINTERN Eina_Bool
+e_plane_renderer_surface_queue_can_acquire(E_Plane_Renderer *renderer)
+{
+   tbm_surface_queue_h tqueue = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, 0);
+
+   tqueue = renderer->tqueue;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, 0);
+
+   if (!tbm_surface_queue_can_acquire(tqueue, 0))
+     return EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
 EINTERN tbm_surface_h
 e_plane_renderer_surface_queue_acquire(E_Plane_Renderer *renderer)
 {
