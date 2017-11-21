@@ -293,6 +293,24 @@ _e_video_vbuf_find_with_comp_buffer(Eina_List *list, E_Comp_Wl_Buffer *comp_buff
    return NULL;
 }
 
+
+static Eina_Bool
+_e_video_tdm_output_has_video_layer(tdm_output *output)
+{
+   tdm_layer *layer;
+   tdm_layer_capability lyr_capabilities = 0;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   /* get the first suitable layer */
+   layer = _e_video_tdm_video_layer_get(output);
+   tdm_layer_get_capabilities(layer, &lyr_capabilities);
+   if (lyr_capabilities & TDM_LAYER_CAPABILITY_VIDEO)
+     return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
 static Eina_Bool
 _e_video_set_layer(E_Video *video, Eina_Bool set)
 {
@@ -1540,7 +1558,6 @@ _e_video_set(E_Video *video, E_Client *ec)
    int ominw = -1, ominh = -1, omaxw = -1, omaxh = -1;
    int i, count = 0;
    tdm_display_capability disp_capabilities;
-   tdm_layer_capability lyr_capabilities = 0;
    const tdm_prop *props;
    tdm_layer *layer;
 
@@ -1606,10 +1623,7 @@ _e_video_set(E_Video *video, E_Client *ec)
         EINA_SAFETY_ON_NULL_RETURN(video->output);
      }
 
-   layer = _e_video_tdm_video_layer_get(video->output);
-   tdm_layer_get_capabilities(layer, &lyr_capabilities);
-
-   if (lyr_capabilities & TDM_LAYER_CAPABILITY_VIDEO)
+   if (_e_video_tdm_output_has_video_layer(video->output))
      {
         /* If tdm offers video layers, we will assign a tdm layer when showing */
         VIN("video client");
@@ -1691,6 +1705,7 @@ _e_video_set(E_Video *video, E_Client *ec)
             video->output_align, video->pp_align, video->video_align);
      }
 
+   layer = _e_video_tdm_video_layer_get(video->output);
    tdm_layer_get_available_properties(layer, &props, &count);
    for (i = 0; i < count; i++)
      {
