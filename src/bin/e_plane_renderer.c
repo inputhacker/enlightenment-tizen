@@ -2551,6 +2551,23 @@ e_plane_renderer_render_count_get(E_Plane_Renderer *renderer)
 }
 
 EINTERN void
+e_plane_renderer_surface_queue_sync_count_set(E_Plane_Renderer *renderer, unsigned int sync_count)
+{
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+
+   EINA_SAFETY_ON_NULL_RETURN(renderer);
+   EINA_SAFETY_ON_NULL_RETURN(renderer->tqueue);
+
+   tsq_err = tbm_surface_queue_set_sync_count(renderer->tqueue, sync_count);
+   if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+     ERR("fail to tbm_surface_queue_set_sync_count");
+
+   if (renderer_trace_debug)
+     ELOGF("E_PLANE_RENDERER", "Set      Renderer(%p) sync_count(%d)",
+           NULL, NULL, renderer, sync_count);
+}
+
+EINTERN void
 e_plane_renderer_ecore_evas_force_render(E_Plane_Renderer *renderer)
 {
    int w, h;
