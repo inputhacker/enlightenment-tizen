@@ -311,6 +311,33 @@ _e_video_tdm_output_has_video_layer(tdm_output *output)
    return EINA_FALSE;
 }
 
+
+/* this function is called on the start work with client while the video interface is bind */
+static void
+_e_video_get_available_formats(const tbm_format **formats, int *count)
+{
+   tdm_output *output;
+   tdm_layer *layer;
+
+   *count = 0;
+
+   /* get the first output */
+   output = tdm_display_get_output(e_comp->e_comp_screen->tdisplay, 0, NULL);
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   /* get the first suitable layer */
+   layer = _e_video_tdm_video_layer_get(output);
+   if (layer)
+     {
+        tdm_layer_get_available_formats(layer, formats, count);
+     }
+   else
+     {
+        *formats = sw_formats;
+        *count = NUM_SW_FORMAT;
+     }
+}
+
 static int
 _e_video_get_prop_id(E_Video *video, const char *name)
 {
@@ -2605,23 +2632,9 @@ _e_comp_wl_video_cb_bind(struct wl_client *client, void *data, uint32_t version,
      }
    else
      {
-        tdm_output *output = tdm_display_get_output(e_comp->e_comp_screen->tdisplay, 0, NULL);
-        tdm_layer *layer;
-
-        EINA_SAFETY_ON_NULL_RETURN(output);
-
-        layer = _e_video_tdm_video_layer_get(output);
-        if (layer)
-          {
-             tdm_layer_get_available_formats(layer, &formats, &count);
-             for (i = 0; i < count; i++)
-               tizen_video_send_format(res, formats[i]);
-          }
-        else
-          {
-             for (i = 0; i < NUM_SW_FORMAT; i++)
-               tizen_video_send_format(res, sw_formats[i]);
-          }
+        _e_video_get_available_formats(&formats, &count);
+        for (i = 0; i < count; i++)
+          tizen_video_send_format(res, formats[i]);
      }
 }
 
