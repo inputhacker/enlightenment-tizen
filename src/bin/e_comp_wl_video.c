@@ -311,6 +311,28 @@ _e_video_tdm_output_has_video_layer(tdm_output *output)
    return EINA_FALSE;
 }
 
+static int
+_e_video_get_prop_id(E_Video *video, const char *name)
+{
+   tdm_layer *layer;
+   const tdm_prop *props;
+   int i, count = 0;
+
+   layer = _e_video_tdm_video_layer_get(video->output);
+   tdm_layer_get_available_properties(layer, &props, &count);
+
+   for (i = 0; i < count; i++)
+     {
+        if (!strncmp(name, props[i].name, TDM_NAME_LEN))
+          {
+             VDB("check property(%s)", name);
+             return props[i].id;
+          }
+     }
+
+   return -1;
+}
+
 static Eina_Bool
 _e_video_set_layer(E_Video *video, Eina_Bool set)
 {
@@ -2291,10 +2313,7 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
                                          int32_t value)
 {
    E_Video *video;
-   int i, count = 0;
-   const tdm_prop *props;
-   tdm_layer *layer;
-   Eina_Bool available = EINA_FALSE;
+   int id;
 
    video = wl_resource_get_user_data(resource);
    EINA_SAFETY_ON_NULL_RETURN(video);
@@ -2306,20 +2325,8 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
          name,value);
 
    // check available property & count
-   layer = _e_video_tdm_video_layer_get(video->output);
-   tdm_layer_get_available_properties(layer, &props, &count);
-
-   for (i = 0; i < count; i++)
-     {
-        if (!strncmp(name, props[i].name, TDM_NAME_LEN))
-          {
-             available = EINA_TRUE;
-             VDB("check property(%s) value(%d)", name, value);
-             break;
-          }
-     }
-
-   if(!available)
+   id = _e_video_get_prop_id(video, name);
+   if(id < 0)
      {
         VIN("no available property");
         return;
@@ -2338,7 +2345,7 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
    if (!_e_video_is_visible(video) || !video->layer)
      {
         /* if mute off, need to do it after buffer commit */
-        if (!strncmp(props[i].name, "mute", TDM_NAME_LEN) && value == 0)
+        if (!strncmp(name, "mute", TDM_NAME_LEN) && value == 0)
           {
              Tdm_Prop_Value *prop = NULL;
              const Eina_List *l = NULL;
@@ -2357,8 +2364,8 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
              if(!prop) return;
 
              prop->value.u32 = value;
-             prop->id = props[i].id;
-             memcpy(prop->name, props[i].name, sizeof(props[i].name));
+             prop->id = id;
+             memcpy(prop->name, name, sizeof(TDM_NAME_LEN));
              VIN("Add property(%s) value(%d)", prop->name, value);
              video->late_tdm_prop_list = eina_list_append(video->late_tdm_prop_list, prop);
              return;
@@ -2395,8 +2402,8 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
         prop = calloc(1, sizeof(Tdm_Prop_Value));
         if(!prop) return;
         prop->value.u32 = value;
-        prop->id = props[i].id;
-        memcpy(prop->name, props[i].name, sizeof(props[i].name));
+        prop->id = id;
+        memcpy(prop->name, name, sizeof(TDM_NAME_LEN));
         VIN("Add property(%s) value(%d)", prop->name, value);
         video->tdm_prop_list = eina_list_append(video->tdm_prop_list, prop);
      }
@@ -2405,7 +2412,7 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
      {
         tdm_value v = {.u32 = value};
         VIN("set layer: call property(%s), value(%d)", name, value);
-        tdm_layer_set_property(video->layer, props[i].id, v);
+        tdm_layer_set_property(video->layer, id, v);
      }
 }
 
