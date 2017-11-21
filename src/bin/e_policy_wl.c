@@ -1615,14 +1615,11 @@ _tzpol_iface_cb_lower_by_res_id(struct wl_client *client EINA_UNUSED, struct wl_
 {
    E_Client *ec = NULL;
 
-   ELOGF("TZPOL",
-         "LOWER_RES|res_tzpol:0x%08x|res_id:%d",
-         NULL, NULL, (unsigned int)res_tzpol, res_id);
-
    ec = e_pixmap_find_client_by_res_id(res_id);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
+   ELOGF("TZPOL", "LOWER by res id:%d", ec->pixmap, ec, res_id);
    evas_object_lower(ec->frame);
 
    if (!e_client_first_mapped_get(ec))
@@ -1680,6 +1677,7 @@ _tzpol_iface_cb_role_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
+   ELOGF("TZPOL", "ROLE SET (role:%s)", ec->pixmap, ec, role);
    e_client_window_role_set(ec, role);
 
    /* TODO: support multiple roles */
@@ -2193,6 +2191,9 @@ _tzpol_iface_cb_iconify(struct wl_client *client EINA_UNUSED, struct wl_resource
    E_Client *ec;
 
    ec = wl_resource_get_user_data(surf);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   ELOGF("TZPOL", "ICONIFY", ec->pixmap, ec);
    e_policy_wl_iconify(ec);
 }
 
@@ -2202,6 +2203,9 @@ _tzpol_iface_cb_uniconify(struct wl_client *client EINA_UNUSED, struct wl_resour
    E_Client *ec;
 
    ec = wl_resource_get_user_data(surf);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   ELOGF("TZPOL", "UNICONIFY", ec->pixmap, ec);
    e_policy_wl_uniconify(ec);
 }
 
