@@ -257,13 +257,6 @@ _e_comp_cb_update(void)
         e_comp_object_dirty(ec->frame);
      }
 
-#ifndef ENABLE_HWC_MULTI
-   if (conf->fps_show || e_comp->calc_fps)
-     {
-        _e_comp_fps_update();
-     }
-#endif // end of ENABLE_HWC_MULTI
-
    if (conf->lock_fps)
      {
         DBG("MANUAL RENDER...");
@@ -681,9 +674,7 @@ e_comp_override_add()
    if (e_comp->nocomp_override > 0)
      {
         // go full compositing
-#ifdef ENABLE_HWC_MULTI
         e_comp_hwc_end(__FUNCTION__);
-#endif
      }
 }
 

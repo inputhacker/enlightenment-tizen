@@ -266,17 +266,6 @@ AC_ARG_ENABLE([function-trace],
 AC_MSG_CHECKING([whether enlightenment function trace is enabled])
 AC_MSG_RESULT([${function_trace}])
 
-hwc_multi_plane=no
-AC_ARG_ENABLE([hwc-multi],
-  AS_HELP_STRING([--enable-hwc-multi],[]),
-  [
-   hwc_multi_plane=yes
-   AC_DEFINE_UNQUOTED([ENABLE_HWC_MULTI], [1], [enable hwc multi])
-  ],
-  [hwc_multi_plane=no])
-AC_MSG_CHECKING([whether enlightenment hwc using multi plane is enabled])
-AC_MSG_RESULT([${hwc_multi_plane}])
-
 e_requires="\
   evas >= $efl_version \
   ecore >= $efl_version \

@@ -172,7 +172,6 @@ e_info_server_hook_call(E_Info_Server_Hook_Point hookpoint)
    _e_info_server_hook_call(hookpoint, NULL);
 }
 
-#ifdef ENABLE_HWC_MULTI
 static void
 _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
 {
@@ -203,7 +202,6 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
           }
      }
 }
-#endif
 
 static void
 _msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
@@ -259,9 +257,7 @@ _msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
         else
           iconified = 0;
 
-#ifdef ENABLE_HWC_MULTI
         _e_info_server_ec_hwc_info_get(ec, &hwc, &pl_zpos);
-#endif
 
         eldbus_message_iter_arguments_append(array_of_ec, "("VALUE_TYPE_FOR_TOPVWINS")", &struct_of_ec);
 
@@ -3939,7 +3935,6 @@ _e_info_server_cb_output_mode(const Eldbus_Service_Interface *iface EINA_UNUSED,
    return reply;
 }
 
-#ifdef ENABLE_HWC_MULTI
 static Eldbus_Message *
 e_info_server_cb_hwc_trace_message(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
@@ -4126,38 +4121,6 @@ _e_info_server_cb_layer_fps_info_get(const Eldbus_Service_Interface *iface EINA_
 
    return reply;
 }
-#else
-static Eldbus_Message *
-_e_info_server_cb_fps_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
-{
-   static double old_fps = 0;
-
-   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
-   char buf[128] = {};
-
-   if (!e_comp->calc_fps)
-     {
-        e_comp->calc_fps = 1;
-     }
-
-   if (old_fps == e_comp->fps)
-     {
-        snprintf(buf, sizeof(buf), "no_update");
-     }
-   else if (e_comp->fps > 0.0)
-     {
-        snprintf(buf, sizeof(buf), "... FPS %3.1f", e_comp->fps);
-        old_fps = e_comp->fps;
-     }
-   else
-     {
-        snprintf(buf, sizeof(buf), "... FPS N/A");
-     }
-
-   eldbus_message_arguments_append(reply, "s", buf);
-   return reply;
-}
-#endif
 
 static Eldbus_Message *
 e_info_server_cb_effect_control(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
@@ -4722,14 +4685,11 @@ _e_info_server_wininfo_tree_info_add(E_Client *ec, Eldbus_Message_Iter *iter,
              int hwc = -1, pl_zpos = -999;
 
              if (recurse)
-                num_child = eina_list_count(child->transients);
+               num_child = eina_list_count(child->transients);
 
-#ifdef ENABLE_HWC_MULTI
-
-                if ((!child->iconic) && (!child->visibility.obscured) &&
-                    evas_object_visible_get(ec->frame))
-                  _e_info_server_ec_hwc_info_get(child, &hwc, &pl_zpos);
-#endif
+             if ((!child->iconic) && (!child->visibility.obscured) &&
+                 evas_object_visible_get(ec->frame))
+               _e_info_server_ec_hwc_info_get(child, &hwc, &pl_zpos);
 
              win = e_client_util_win_get(child);
              eldbus_message_iter_arguments_append(iter, "(tsiiiiiiii)", &struct_of_child);
@@ -4827,9 +4787,7 @@ _e_info_server_cb_wininfo(const Eldbus_Service_Interface *iface EINA_UNUSED, con
           }
      }
 
-#ifdef ENABLE_HWC_MULTI
    _e_info_server_ec_hwc_info_get(ec, &hwc, &pl_zpos);
-#endif
 
    ecore_evas_screen_geometry_get(e_comp->ee, NULL, NULL, &dw, &dh);
 
@@ -5174,15 +5132,11 @@ static const Eldbus_Method methods[] = {
    { "dump_selected_buffers", ELDBUS_ARGS({"ss", "dump_selected_buffers"}), NULL, _e_info_server_cb_selected_buffer_dump, 0 },
    { "dump_screen", ELDBUS_ARGS({"s", "dump_screen"}), NULL, _e_info_server_cb_screen_dump, 0 },
    { "output_mode", ELDBUS_ARGS({SIGNATURE_OUTPUT_MODE_CLIENT, "output mode"}), ELDBUS_ARGS({"a("SIGNATURE_OUTPUT_MODE_SERVER")", "array of ec"}), _e_info_server_cb_output_mode, 0 },
-#ifdef ENABLE_HWC_MULTI
    { "hwc_trace_message", ELDBUS_ARGS({"i", "hwc_trace_message"}), NULL, e_info_server_cb_hwc_trace_message, 0},
    { "hwc", ELDBUS_ARGS({"i", "hwc"}), NULL, e_info_server_cb_hwc, 0},
    { "show_plane_state", NULL, NULL, e_info_server_cb_show_plane_state, 0},
    { "show_pending_commit", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_PENDING_COMMIT")", "array of pending commit"}), e_info_server_cb_show_pending_commit, 0},
    { "get_layer_fps_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_LAYER_FPS")", "array of pending commit"}), _e_info_server_cb_layer_fps_info_get, 0},
-#else
-   { "get_fps_info", NULL, ELDBUS_ARGS({"s", "fps request"}), _e_info_server_cb_fps_info_get, 0},
-#endif
    { "get_keymap", NULL, ELDBUS_ARGS({"hi", "keymap fd"}), _e_info_server_cb_keymap_info_get, 0},
    { "effect_control", ELDBUS_ARGS({"i", "effect_control"}), NULL, e_info_server_cb_effect_control, 0},
    { "get_keygrab_status", ELDBUS_ARGS({"s", "get_keygrab_status"}), NULL, _e_info_server_cb_keygrab_status_get, 0},
