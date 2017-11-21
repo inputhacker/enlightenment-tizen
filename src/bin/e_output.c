@@ -1599,7 +1599,7 @@ _e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotat
 }
 
 static void
-_e_output_tdm_strem_capture_support(E_Output *output)
+_e_output_tdm_stream_capture_support(E_Output *output)
 {
    tdm_error error = TDM_ERROR_NONE;
    tdm_capture_capability capabilities;
@@ -1812,7 +1812,7 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
 
    output->e_comp_screen = e_comp_screen;
 
-   _e_output_tdm_strem_capture_support(output);
+   _e_output_tdm_stream_capture_support(output);
 
    tdm_output_get_layer_count(toutput, &num_layers);
    if (num_layers < 1)
