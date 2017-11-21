@@ -39,6 +39,7 @@ EINTERN E_Output_Hwc_Window *e_output_hwc_find_window_by_ec(E_Output_Hwc *output
 
 EINTERN E_Output_Hwc  *e_output_hwc_new(E_Output *output);
 EINTERN void           e_output_hwc_del(E_Output_Hwc *output_hwc);
+
 EINTERN void           e_output_hwc_apply(E_Output_Hwc *output_hwc);
 
 EINTERN E_Output_Hwc_Mode e_output_hwc_mode_get(E_Output_Hwc *output_hwc);
@@ -49,6 +50,5 @@ EINTERN void e_output_hwc_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool se
 EINTERN Eina_Bool e_output_hwc_multi_plane_get(E_Output_Hwc *output_hwc);
 
 EINTERN void e_output_hwc_end(E_Output_Hwc *output_hwc, const char *location);
-
-#endif // E_OUTPUT_HWC_H
+#endif
 #endif

@@ -723,53 +723,6 @@ e_output_hwc_windows_get(E_Output_Hwc *output_hwc)
    return output_hwc->windows;
 }
 
-static int
-_hwc_set(E_Output *eout)
-{
-   const Eina_List *ep_l = NULL, *l;
-   E_Plane *ep = NULL;
-   E_Output_Hwc_Mode mode = E_OUTPUT_HWC_MODE_NO;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout->planes, EINA_FALSE);
-
-   ep_l = e_output_planes_get(eout);
-   EINA_LIST_REVERSE_FOREACH(ep_l, l , ep)
-     {
-        Eina_Bool set = EINA_FALSE;
-
-        if (e_plane_is_fb_target(ep))
-          {
-             if (ep->prepare_ec)
-               {
-                  set = e_plane_ec_set(ep, ep->prepare_ec);
-                  if (set)
-                    {
-                       ELOGF("HWC", "is set on fb_target( %d)", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
-                       mode = E_OUTPUT_HWC_MODE_FULL;
-
-                       // fb target is occupied by a client surface, means compositor disabled
-                       ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
-                    }
-                  break;
-               }
-          }
-        else if (ep->prepare_ec)
-          {
-             set = e_plane_ec_set(ep, ep->prepare_ec);
-             if (set)
-               {
-                  ELOGF("HWC", "is set on %d", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
-                  mode |= E_OUTPUT_HWC_MODE_HYBRID;
-               }
-             else
-               break;
-          }
-     }
-
-   return mode;
-}
-
 static Eina_Bool
 _hwc_available_get(E_Client *ec)
 {
@@ -1432,6 +1385,13 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
 {
    EINA_SAFETY_ON_NULL_RETURN(output_hwc);
    EINA_SAFETY_ON_NULL_RETURN(output_hwc->output);
+
+   if (e_output_hwc_deactive_get(output_hwc))
+     {
+        if (output_hwc->hwc_mode != E_OUTPUT_HWC_MODE_NO)
+          e_output_hwc_end(output_hwc, "deactive set.");
+        return;
+     }
 
    if (e_output_hwc_opt_hwc_enabled(output_hwc))
      {

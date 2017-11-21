@@ -592,7 +592,8 @@ _e_output_cb_output_change(tdm_output *toutput,
 {
    E_Output *e_output = NULL;
    E_OUTPUT_DPMS edpms;
-   tdm_output_dpms tdpms = (tdm_output_dpms)value.u32;
+   tdm_output_dpms tdpms;
+   tdm_output_conn_status status;
    static Eina_Bool override = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN(toutput);
@@ -602,37 +603,44 @@ _e_output_cb_output_change(tdm_output *toutput,
 
    switch (type)
      {
+      case TDM_OUTPUT_CHANGE_CONNECTION:
+        status = (tdm_output_conn_status)value.u32;
+        if (status == TDM_OUTPUT_CONN_STATUS_DISCONNECTED ||
+            status == TDM_OUTPUT_CONN_STATUS_CONNECTED)
+        e_output_external_update(e_output);
+        break;
        case TDM_OUTPUT_CHANGE_DPMS:
-          if (tdpms == TDM_OUTPUT_DPMS_OFF)
-            {
-               edpms = E_OUTPUT_DPMS_OFF;
-               if (!override)
-                 {
-                    e_comp_override_add();
-                    override = EINA_TRUE;
-                 }
-            }
-          else if (tdpms == TDM_OUTPUT_DPMS_ON)
-            {
-               edpms = E_OUTPUT_DPMS_ON;
-               if (override)
-                 {
-                    e_comp_override_del();
-                    override = EINA_FALSE;
-                 }
-               _e_output_dpms_on_render(e_output);
-            }
-          else if (tdpms == TDM_OUTPUT_DPMS_STANDBY) edpms = E_OUTPUT_DPMS_STANDBY;
-          else if (tdpms == TDM_OUTPUT_DPMS_SUSPEND) edpms = E_OUTPUT_DPMS_SUSPEND;
-          else edpms = e_output->dpms;
+        tdpms = (tdm_output_dpms)value.u32;
+        if (tdpms == TDM_OUTPUT_DPMS_OFF)
+          {
+             edpms = E_OUTPUT_DPMS_OFF;
+             if (!override)
+               {
+                  e_comp_override_add();
+                  override = EINA_TRUE;
+               }
+          }
+        else if (tdpms == TDM_OUTPUT_DPMS_ON)
+          {
+             edpms = E_OUTPUT_DPMS_ON;
+             if (override)
+               {
+                  e_comp_override_del();
+                  override = EINA_FALSE;
+               }
+             _e_output_dpms_on_render(e_output);
+          }
+        else if (tdpms == TDM_OUTPUT_DPMS_STANDBY) edpms = E_OUTPUT_DPMS_STANDBY;
+        else if (tdpms == TDM_OUTPUT_DPMS_SUSPEND) edpms = E_OUTPUT_DPMS_SUSPEND;
+        else edpms = e_output->dpms;
 
-          e_output->dpms = edpms;
+        e_output->dpms = edpms;
 
-          _e_output_hook_call(E_OUTPUT_HOOK_DPMS_CHANGE, e_output);
+        _e_output_hook_call(E_OUTPUT_HOOK_DPMS_CHANGE, e_output);
 
-          break;
+        break;
        default:
-          break;
+        break;
      }
 }
 
@@ -1607,6 +1615,242 @@ _e_output_tdm_strem_capture_support(E_Output *output)
      output->stream_capture.possible_tdm_capture = EINA_TRUE;
 }
 
+static void
+_e_output_external_rect_get(E_Output *output, int src_w, int src_h, int dst_w, int dst_h, Eina_Rectangle *rect)
+{
+   int angle = 0;
+   int output_angle = 0;
+   Eina_Bool rotate_check = EINA_FALSE;
+
+   angle = _e_output_top_ec_angle_get();
+   output_angle = output->config.rotation;
+
+   if (((angle + output_angle) % 360 == 90) || ((angle + output_angle) % 360 == 270))
+     rotate_check = EINA_TRUE;
+
+   if (rotate_check)
+     _e_output_center_rect_get(src_h, src_w, dst_w, dst_h, rect);
+   else
+     _e_output_center_rect_get(src_w, src_h, dst_w, dst_h, rect);
+}
+
+static Eina_Bool
+_e_output_external_commit(E_Output *output)
+{
+   E_Plane *plane = NULL;
+
+   if (output->external_pause) return EINA_TRUE;
+
+   if (output->external_set)
+     {
+        /* external commit only primary */
+        plane = e_output_fb_target_get(output);
+
+        /* external commit */
+        if (e_output_dpms_get(output))
+          return EINA_TRUE;
+
+        if (!e_plane_external_fetch(plane))
+          return EINA_TRUE;
+
+        if (!e_plane_external_commit(plane))
+          {
+             ERR("fail to e_plane_ex_commit");
+             return EINA_FALSE;
+          }
+     }
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_output_commit(E_Output *output)
+{
+   E_Plane *plane = NULL, *fb_target = NULL;
+   Eina_List *l;
+   Eina_Bool fb_commit = EINA_FALSE;
+
+   fb_target = e_output_fb_target_get(output);
+
+   /* fetch the fb_target at first */
+   fb_commit = e_plane_fetch(fb_target);
+   // TODO: to be fixed. check fps of fb_target currently.
+   if (fb_commit) _e_output_update_fps();
+
+   /* set planes */
+   EINA_LIST_FOREACH(output->planes, l, plane)
+     {
+        /* skip the fb_target fetch because we do this previously */
+        if (e_plane_is_fb_target(plane)) continue;
+
+        /* if the plane is the candidate to unset,
+           set the plane to be unset_try */
+        if (e_plane_is_unset_candidate(plane))
+          e_plane_unset_try_set(plane, EINA_TRUE);
+
+        /* if the plane is trying to unset,
+         * 1. if fetching the fb is not available, continue.
+         * 2. if fetching the fb is available, verify the unset commit check.  */
+        if (e_plane_is_unset_try(plane))
+          {
+            if (!e_plane_unset_commit_check(plane, fb_commit))
+              continue;
+          }
+
+        if (!e_plane_set_commit_check(plane, fb_commit)) continue;
+
+        /* fetch the surface to the plane */
+        if (!e_plane_fetch(plane)) continue;
+
+        if (e_plane_is_unset_try(plane))
+          e_plane_unset_try_set(plane, EINA_FALSE);
+     }
+
+   EINA_LIST_FOREACH(output->planes, l, plane)
+     {
+        if (e_plane_is_fetch_retry(plane))
+          {
+             if (!e_plane_fetch(plane)) continue;
+             if (e_plane_is_fb_target(plane))
+               {
+                  fb_commit = EINA_TRUE;
+                  _e_output_update_fps();
+               }
+          }
+     }
+
+   EINA_LIST_FOREACH(output->planes, l, plane)
+     {
+        if (e_plane_is_unset_try(plane)) continue;
+
+        if (output->dpms == E_OUTPUT_DPMS_OFF)
+          {
+             if (!e_plane_offscreen_commit(plane))
+               ERR("fail to e_plane_offscreen_commit");
+          }
+        else
+          {
+             if ((output->zoom_set) && e_plane_is_fb_target(plane))
+               {
+                  _e_output_zoom_rotating_check(output);
+                  if (!e_plane_pp_commit(plane))
+                    ERR("fail to e_plane_pp_commit");
+               }
+             else
+               {
+                  if (!e_plane_commit(plane))
+                    ERR("fail to e_plane_commit");
+               }
+          }
+     }
+
+   return EINA_TRUE;
+
+}
+
+
+static void
+_e_output_hwc_output_commit_handler(tdm_output *output, unsigned int sequence,
+                                  unsigned int tv_sec, unsigned int tv_usec,
+                                  void *user_data)
+{
+   const Eina_List *l;
+   E_Output_Hwc_Window *window;
+
+   E_Output *eo = (E_Output *)user_data;
+
+   EINA_SAFETY_ON_NULL_RETURN(eo);
+
+   EINA_LIST_FOREACH(e_output_hwc_windows_get(eo->output_hwc), l, window)
+     {
+         if (!e_output_hwc_window_commit_data_release(window)) continue;
+         if (e_output_hwc_window_is_video(window))
+           e_video_commit_data_release(window->ec, sequence, tv_sec, tv_usec);
+     }
+
+   /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
+    * a 'page flip' happened so it's time to allow to make 'fetch and commit' for the e_output */
+   eo->wait_commit = EINA_FALSE;
+}
+
+/* we can do commit if we set surface at least to one window which displayed on
+ * the hw layer*/
+static Eina_Bool
+_can_commit(E_Output *output)
+{
+   Eina_List *l;
+   E_Output_Hwc_Window *window;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->output_hwc, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->output_hwc->windows, l, window)
+     {
+        if (!e_output_hwc_window_is_on_hw_overlay(window)) continue;
+
+        if (window->update_exist) return EINA_TRUE;
+
+        if (e_output_hwc_window_get_displaying_surface(window)) return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_commit(E_Output *output)
+{
+   E_Output_Hwc_Window *window = NULL;
+   Eina_List *l;
+   int need_tdm_commit = 0;
+   Eina_Bool fb_commit = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->output_hwc, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->output_hwc->windows, l, window)
+     {
+        /* an underlying hwc_window still occupies a hw overlay, so we can't
+         * allow to change buffer (make fetch) as hwc_window in a client_candidate state */
+        if (e_output_hwc_window_get_state(window) == E_OUTPUT_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
+          continue;
+
+        /* fetch the surface to the window */
+        if (!e_output_hwc_window_fetch(window)) continue;
+
+        if (e_output_hwc_window_is_target(window)) fb_commit = EINA_TRUE;
+
+        if (output->dpms == E_OUTPUT_DPMS_OFF)
+          e_output_hwc_window_offscreen_commit(window);
+     }
+
+   if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
+
+   if (!_can_commit(output))
+     {
+        INF("fail to _can_commit.");
+        return EINA_FALSE;
+     }
+
+   EINA_LIST_FOREACH(output->output_hwc->windows, l, window)
+     {
+        if (e_output_hwc_window_prepare_commit(window))
+          need_tdm_commit = 1;
+
+        // TODO: to be fixed. check fps of fb_target currently.
+        if (fb_commit) _e_output_update_fps();
+     }
+
+   if (need_tdm_commit)
+     {
+        tdm_error error = TDM_ERROR_NONE;
+
+        error = tdm_output_commit(output->toutput, 0, _e_output_hwc_output_commit_handler, output);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+
+        output->wait_commit = EINA_TRUE;
+     }
+
+   return EINA_TRUE;
+}
+
 EINTERN E_Output *
 e_output_new(E_Comp_Screen *e_comp_screen, int index)
 {
@@ -1640,6 +1884,7 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
 
    error = tdm_output_get_output_type(toutput, &output_type);
    if (error != TDM_ERROR_NONE) goto fail;
+   output->toutput_type = output_type;
 
    error = tdm_output_get_cursor_available_size(toutput, &min_w, &min_h, &max_w, &max_h, &preferred_align);
    if (error == TDM_ERROR_NONE)
@@ -2142,16 +2387,22 @@ e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val)
    tdm_error error;
    Eina_List *l;
    E_Zone *zone;
+   E_Output *output_primary = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-   /* FIXME: The zone controlling should be moved to e_zone */
-   EINA_LIST_FOREACH(e_comp->zones, l, zone)
+
+   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   if (output_primary == output)
      {
-        if (val == E_OUTPUT_DPMS_ON)
-          e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_ON);
-        else if (val == E_OUTPUT_DPMS_OFF)
-          e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_OFF);
+        /* FIXME: The zone controlling should be moved to e_zone */
+        EINA_LIST_FOREACH(e_comp->zones, l, zone)
+          {
+             if (val == E_OUTPUT_DPMS_ON)
+               e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_ON);
+             else if (val == E_OUTPUT_DPMS_OFF)
+               e_zone_display_state_set(zone, E_ZONE_DISPLAY_STATE_OFF);
+          }
      }
 
    if (val == E_OUTPUT_DPMS_OFF)
@@ -2253,194 +2504,11 @@ e_output_render(E_Output *output)
   return EINA_TRUE;
 }
 
-static void
-_e_output_hwc_output_commit_handler(tdm_output *output, unsigned int sequence,
-                                  unsigned int tv_sec, unsigned int tv_usec,
-                                  void *user_data)
-{
-   const Eina_List *l;
-   E_Output_Hwc_Window *window;
-
-   E_Output *eo = (E_Output *)user_data;
-
-   EINA_SAFETY_ON_NULL_RETURN(eo);
-
-   EINA_LIST_FOREACH(e_output_hwc_windows_get(eo->output_hwc), l, window)
-     {
-         if (!e_output_hwc_window_commit_data_release(window)) continue;
-         if (e_output_hwc_window_is_video(window))
-           e_video_commit_data_release(window->ec, sequence, tv_sec, tv_usec);
-     }
-
-   /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
-    * a 'page flip' happened so it's time to allow to make 'fetch and commit' for the e_output */
-   eo->wait_commit = EINA_FALSE;
-}
-
-/* we can do commit if we set surface at least to one window which displayed on
- * the hw layer*/
-static Eina_Bool
-_can_commit(E_Output *output)
-{
-   Eina_List *l;
-   E_Output_Hwc_Window *window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output->output_hwc, EINA_FALSE);
-
-   EINA_LIST_FOREACH(output->output_hwc->windows, l, window)
-     {
-        if (!e_output_hwc_window_is_on_hw_overlay(window)) continue;
-
-        if (window->update_exist) return EINA_TRUE;
-
-        if (e_output_hwc_window_get_displaying_surface(window)) return EINA_TRUE;
-     }
-
-   return EINA_FALSE;
-}
-
-static Eina_Bool
-_e_output_hwc_windows_commit(E_Output *output)
-{
-   E_Output_Hwc_Window *window = NULL;
-   Eina_List *l;
-   int need_tdm_commit = 0;
-   Eina_Bool fb_commit = EINA_FALSE;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output->output_hwc, EINA_FALSE);
-
-   EINA_LIST_FOREACH(output->output_hwc->windows, l, window)
-     {
-        /* an underlying hwc_window still occupies a hw overlay, so we can't
-         * allow to change buffer (make fetch) as hwc_window in a client_candidate state */
-        if (e_output_hwc_window_get_state(window) == E_OUTPUT_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
-          continue;
-
-        /* fetch the surface to the window */
-        if (!e_output_hwc_window_fetch(window)) continue;
-
-        if (e_output_hwc_window_is_target(window)) fb_commit = EINA_TRUE;
-
-        if (output->dpms == E_OUTPUT_DPMS_OFF)
-          e_output_hwc_window_offscreen_commit(window);
-     }
-
-   if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
-
-   if (!_can_commit(output))
-     {
-        INF("fail to _can_commit.");
-        return EINA_FALSE;
-     }
-
-   EINA_LIST_FOREACH(output->output_hwc->windows, l, window)
-     {
-        if (e_output_hwc_window_prepare_commit(window))
-          need_tdm_commit = 1;
-
-        // TODO: to be fixed. check fps of fb_target currently.
-        if (fb_commit) _e_output_update_fps();
-     }
-
-   if (need_tdm_commit)
-     {
-        tdm_error error = TDM_ERROR_NONE;
-
-        error = tdm_output_commit(output->toutput, 0, _e_output_hwc_output_commit_handler, output);
-        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
-
-        output->wait_commit = EINA_TRUE;
-     }
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_output_planes_commit(E_Output *output)
-{
-   E_Plane *plane = NULL, *fb_target = NULL;
-   Eina_List *l;
-   Eina_Bool fb_commit = EINA_FALSE;
-
-   fb_target = e_output_fb_target_get(output);
-
-   /* fetch the fb_target at first */
-   fb_commit = e_plane_fetch(fb_target);
-   // TODO: to be fixed. check fps of fb_target currently.
-   if (fb_commit) _e_output_update_fps();
-
-   /* set planes */
-   EINA_LIST_FOREACH(output->planes, l, plane)
-     {
-        /* skip the fb_target fetch because we do this previously */
-        if (e_plane_is_fb_target(plane)) continue;
-
-        /* if the plane is the candidate to unset,
-           set the plane to be unset_try */
-        if (e_plane_is_unset_candidate(plane))
-          e_plane_unset_try_set(plane, EINA_TRUE);
-
-        /* if the plane is trying to unset,
-         * 1. if fetching the fb is not available, continue.
-         * 2. if fetching the fb is available, verify the unset commit check.  */
-        if (e_plane_is_unset_try(plane))
-          {
-            if (!e_plane_unset_commit_check(plane, fb_commit))
-              continue;
-          }
-
-        if (!e_plane_set_commit_check(plane, fb_commit)) continue;
-
-        /* fetch the surface to the plane */
-        if (!e_plane_fetch(plane)) continue;
-
-        if (e_plane_is_unset_try(plane))
-          e_plane_unset_try_set(plane, EINA_FALSE);
-     }
-
-   EINA_LIST_FOREACH(output->planes, l, plane)
-     {
-        if (e_plane_is_fetch_retry(plane))
-          {
-             if (!e_plane_fetch(plane)) continue;
-             if (e_plane_is_fb_target(plane))
-               {
-                  fb_commit = EINA_TRUE;
-                  _e_output_update_fps();
-               }
-          }
-     }
-
-   EINA_LIST_FOREACH(output->planes, l, plane)
-     {
-        if (e_plane_is_unset_try(plane)) continue;
-
-        if (output->dpms == E_OUTPUT_DPMS_OFF)
-          {
-             if (!e_plane_offscreen_commit(plane))
-               ERR("fail to e_plane_offscreen_commit");
-          }
-        else
-          {
-             if ((output->zoom_set) && e_plane_is_fb_target(plane))
-               {
-                  _e_output_zoom_rotating_check(output);
-                  if (!e_plane_pp_commit(plane))
-                    ERR("fail to e_plane_pp_commit");
-               }
-             else
-               {
-                  if (!e_plane_commit(plane))
-                    ERR("fail to e_plane_commit");
-               }
-          }
-     }
-
-   return EINA_TRUE;
-}
 EINTERN Eina_Bool
 e_output_commit(E_Output *output)
 {
+   E_Output *output_primary = NULL;
+
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
    if (!output->config.enabled)
@@ -2448,6 +2516,9 @@ e_output_commit(E_Output *output)
         WRN("E_Output disconnected");
         return EINA_FALSE;
      }
+
+   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
 
    if (e_output_hwc_opt_hwc_enabled(output->output_hwc))
      {
@@ -2459,10 +2530,21 @@ e_output_commit(E_Output *output)
      }
    else
      {
-        if (!_e_output_planes_commit(output))
+        if (output == output_primary)
           {
-              ERR("fail to _e_output_planes_commit.");
-              return EINA_FALSE;
+             if (!_e_output_commit(output))
+               {
+                   ERR("fail to _e_output_commit.");
+                   return EINA_FALSE;
+               }
+          }
+        else
+          {
+             if (!_e_output_external_commit(output))
+               {
+                  ERR("fail _e_output_external_commit");
+                  return EINA_FALSE;
+               }
           }
      }
 
@@ -2697,6 +2779,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
    E_Plane *ep = NULL;
    int w, h;
    int angle = 0;
+   E_Output *output_primary = NULL;
 
    if (!e_comp_screen_pp_support())
      {
@@ -2705,6 +2788,9 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
      }
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
 
    e_output_size_get(output, &w, &h);
    angle = _e_output_zoom_get_angle(output);
@@ -2727,7 +2813,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
    EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
 
 #ifdef ENABLE_HWC_MULTI
-   e_output_hwc_multi_plane_set(output->output_hwc, EINA_FALSE);
+   e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_FALSE);
 #endif
 
    output->zoom_conf.zoomx = zoomx;
@@ -2746,7 +2832,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
      {
         ERR("e_plane_zoom_set failed.");
 #ifdef ENABLE_HWC_MULTI
-        e_output_hwc_multi_plane_set(output->output_hwc, EINA_TRUE);
+        e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
 #endif
         return EINA_FALSE;
      }
@@ -2770,8 +2856,12 @@ EINTERN void
 e_output_zoom_unset(E_Output *output)
 {
    E_Plane *ep = NULL;
+   E_Output *output_primary = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(output);
+
+   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN(output_primary);
 
    if (!output->zoom_set) return;
 
@@ -2803,7 +2893,7 @@ e_output_zoom_unset(E_Output *output)
    output->zoom_set = EINA_FALSE;
 
 #ifdef ENABLE_HWC_MULTI
-   e_output_hwc_multi_plane_set(output->output_hwc, EINA_TRUE);
+   e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
 #endif
 
    /* update the ecore_evas */
@@ -3080,4 +3170,170 @@ e_output_stream_capture_stop(E_Output *output)
 
         DBG("e_output stream capture stop.");
      }
+}
+
+EINTERN Eina_Bool
+e_output_external_set(E_Output *output, E_Output_Ext_State state)
+{
+   E_Output *output_primary = NULL;
+   E_Plane *ep = NULL;
+   int w, h, p_w, p_h;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(output_primary == output, EINA_FALSE);
+
+   if (output->external_conf.state == state)
+     return EINA_TRUE;
+   output->external_conf.state = state;
+
+   ep = e_output_fb_target_get(output);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
+
+   e_output_size_get(output, &w, &h);
+   e_output_size_get(output_primary, &p_w, &p_h);
+
+   _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
+
+#ifdef ENABLE_HWC_MULTI
+   e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_FALSE);
+#endif
+
+   ep->output_primary = output_primary;
+   if (!e_plane_external_set(ep, &output->zoom_conf.rect, state))
+     {
+        ERR("e_plane_mirror_set failed.");
+#ifdef ENABLE_HWC_MULTI
+        e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
+#endif
+        return EINA_FALSE;
+     }
+
+   output->external_conf.state = state;
+   output->external_set = EINA_TRUE;
+
+   DBG("e_output_external_set done: output:%s, state:%d", output->id, state);
+
+   /* update the ecore_evas */
+   _e_output_render_update(output_primary);
+
+   return EINA_TRUE;
+}
+
+EINTERN void
+e_output_external_unset(E_Output *output)
+{
+   E_Output *output_primary = NULL;
+   E_Plane *ep = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN(output_primary);
+   EINA_SAFETY_ON_TRUE_RETURN(output_primary == output);
+
+   if (output->external_conf.state == E_OUTPUT_EXT_NONE)
+     return;
+
+   output->external_set = EINA_FALSE;
+   output->external_conf.state = E_OUTPUT_EXT_NONE;
+
+   ep = e_output_fb_target_get(output);
+   EINA_SAFETY_ON_NULL_RETURN(ep);
+
+   e_plane_external_unset(ep);
+   output->zoom_conf.rect.x = 0;
+   output->zoom_conf.rect.y = 0;
+   output->zoom_conf.rect.w = 0;
+   output->zoom_conf.rect.h = 0;
+
+#ifdef ENABLE_HWC_MULTI
+   e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
+#endif
+
+   /* update the ecore_evas */
+   _e_output_render_update(output_primary);
+
+   DBG("e_output_external_unset done: output:%s", output->id);
+}
+
+EINTERN Eina_Bool
+e_output_external_update(E_Output *output)
+{
+   E_Comp_Screen *e_comp_screen = NULL;
+   E_Output_Mode *mode = NULL;
+   E_Output *output_pri = NULL;
+   Eina_Bool ret;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   e_comp_screen = e_comp->e_comp_screen;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+
+   output_pri = e_comp_screen_primary_output_get(e_comp_screen);
+   if (!output_pri)
+     {
+        e_error_message_show(_("Fail to get the primary output!\n"));
+        return EINA_FALSE;
+     }
+
+   if (output_pri == output)
+     return EINA_FALSE;
+
+
+   ret = e_output_update(output);
+   if (ret == EINA_FALSE)
+     {
+        ERR("fail e_output_update.");
+        return EINA_FALSE;
+     }
+
+   if (e_output_connected(output))
+     {
+        mode = e_output_best_mode_find(output);
+        if (!mode)
+          {
+             ERR("fail to get best mode.");
+             return EINA_FALSE;
+          }
+
+        ret = e_output_mode_apply(output, mode);
+        if (ret == EINA_FALSE)
+          {
+             ERR("fail to e_output_mode_apply.");
+             return EINA_FALSE;
+          }
+        ret = e_output_dpms_set(output, E_OUTPUT_DPMS_ON);
+        if (ret == EINA_FALSE)
+          {
+             ERR("fail to e_output_dpms.");
+             return EINA_FALSE;
+          }
+
+        ret = e_eom_connect(output);
+        if (ret == EINA_FALSE)
+          {
+             ERR("fail to e_eom_connect.");
+             return EINA_FALSE;
+          }
+     }
+   else
+     {
+        ret = e_eom_disconnect(output);
+        if (ret == EINA_FALSE)
+          {
+             ERR("fail to e_eom_disconnect.");
+             return EINA_FALSE;
+          }
+
+        if (!e_output_dpms_set(output, E_OUTPUT_DPMS_OFF))
+          {
+             ERR("fail to e_output_dpms.");
+             return EINA_FALSE;
+          }
+     }
+
+   return EINA_TRUE;
 }
