@@ -705,7 +705,13 @@ _e_plane_unset_candidate_set(E_Plane *plane, Eina_Bool sync)
 
              plane->unset_counter = e_plane_renderer_render_count_get(fb_target->renderer);
 
-             if (visible || (!visible && !renderer->rendered)) plane->unset_counter += 1;
+             if (visible || (!visible && !renderer->rendered))
+               {
+                  plane->unset_counter += 1;
+                  e_plane_renderer_surface_queue_sync_count_set(fb_target->renderer, 1);
+               }
+             else
+               e_plane_renderer_surface_queue_sync_count_set(fb_target->renderer, 0);
           }
      }
 
@@ -738,6 +744,7 @@ _e_plane_set_counter_set(E_Plane *plane, E_Client *ec)
        EINA_SAFETY_ON_NULL_RETURN(renderer);
 
        plane->set_counter = e_plane_renderer_render_count_get(fb_target->renderer) + 1;
+       e_plane_renderer_surface_queue_sync_count_set(fb_target->renderer, 1);
     }
 
     if (plane_trace_debug)
