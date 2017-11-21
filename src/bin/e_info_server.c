@@ -68,7 +68,7 @@ static Eina_List *module_hook = NULL;
    str_r -= str_l; \
 } while(0)
 
-#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiibbbiius"
+#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiiibbiius"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
@@ -224,6 +224,7 @@ _msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
         pid_t pid = -1;
         char layer_name[32];
         int hwc = -1, pl_zpos = -999;
+        int iconified = 0;
 
         ec = evas_object_data_get(o, "E_Client");
         if (!ec) continue;
@@ -248,6 +249,15 @@ _msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
                }
           }
 
+        if (ec->iconic)
+          {
+             if (ec->exp_iconify.by_client)
+               iconified = 2;
+             else
+               iconified = 1;
+          }
+        else
+          iconified = 0;
 
 #ifdef ENABLE_HWC_MULTI
         _e_info_server_ec_hwc_info_get(ec, &hwc, &pl_zpos);
@@ -262,7 +272,7 @@ _msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
             pid,
             e_client_util_name_get(ec) ?: "NO NAME",
             ec->x, ec->y, ec->w, ec->h, ec->layer,
-            ec->visible, ec->argb, ec->visibility.opaque, ec->visibility.obscured, ec->iconic,
+            ec->visible, ec->argb, ec->visibility.opaque, ec->visibility.obscured, iconified,
             evas_object_visible_get(ec->frame), ec->focused, hwc, pl_zpos, pwin, layer_name);
 
         eldbus_message_iter_container_close(array_of_ec, struct_of_ec);
