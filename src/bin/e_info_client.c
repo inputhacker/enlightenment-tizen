@@ -78,7 +78,7 @@ typedef struct _E_Layer_Fps_Info
    double fps;
 } E_Layer_Fps_Info;
 
-#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiibbbiius"
+#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiiibbiius"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
