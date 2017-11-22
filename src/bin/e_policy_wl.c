@@ -1455,6 +1455,7 @@ _tzpol_iface_cb_activate_below_by_res_id(struct wl_client *client EINA_UNUSED, s
    E_Client *ec = NULL;
    E_Client *below_ec = NULL;
    E_Client *parent_ec = NULL;
+   E_Client *focus_ec = NULL;
    Eina_Bool check_ancestor = EINA_FALSE;
    Eina_Bool intercepted = EINA_FALSE;
 
@@ -1507,6 +1508,11 @@ _tzpol_iface_cb_activate_below_by_res_id(struct wl_client *client EINA_UNUSED, s
      e_client_post_raise_lower_set(ec, EINA_FALSE, EINA_FALSE);
 
    e_policy_wl_stack_changed_send(ec);
+
+   // check focus
+   focus_ec = e_client_focused_get();
+   if (focus_ec == below_ec)
+     e_client_focus_latest_set(ec);
 }
 
 static void
