@@ -1779,17 +1779,17 @@ static Eina_Bool
 _can_commit(E_Output *output)
 {
    Eina_List *l;
-   E_Output_Hwc_Window *window;
+   E_Output_Hwc_Window *hwc_window;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output->output_hwc, EINA_FALSE);
 
-   EINA_LIST_FOREACH(output->output_hwc->windows, l, window)
+   EINA_LIST_FOREACH(output->output_hwc->hwc_windows, l, hwc_window)
      {
-        if (!e_output_hwc_window_is_on_hw_overlay(window)) continue;
+        if (!e_output_hwc_window_is_on_hw_overlay(hwc_window)) continue;
 
-        if (window->update_exist) return EINA_TRUE;
+        if (hwc_window->update_exist) return EINA_TRUE;
 
-        if (e_output_hwc_window_get_displaying_surface(window)) return EINA_TRUE;
+        if (e_output_hwc_window_get_displaying_surface(hwc_window)) return EINA_TRUE;
      }
 
    return EINA_FALSE;
@@ -1798,27 +1798,27 @@ _can_commit(E_Output *output)
 static Eina_Bool
 _e_output_hwc_windows_commit(E_Output *output)
 {
-   E_Output_Hwc_Window *window = NULL;
+   E_Output_Hwc_Window *hwc_window = NULL;
    Eina_List *l;
    int need_tdm_commit = 0;
    Eina_Bool fb_commit = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output->output_hwc, EINA_FALSE);
 
-   EINA_LIST_FOREACH(output->output_hwc->windows, l, window)
+   EINA_LIST_FOREACH(output->output_hwc->hwc_windows, l, hwc_window)
      {
         /* an underlying hwc_window still occupies a hw overlay, so we can't
          * allow to change buffer (make fetch) as hwc_window in a client_candidate state */
-        if (e_output_hwc_window_get_state(window) == E_OUTPUT_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
+        if (e_output_hwc_window_get_state(hwc_window) == E_OUTPUT_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
           continue;
 
         /* fetch the surface to the window */
-        if (!e_output_hwc_window_fetch(window)) continue;
+        if (!e_output_hwc_window_fetch(hwc_window)) continue;
 
-        if (e_output_hwc_window_is_target(window)) fb_commit = EINA_TRUE;
+        if (e_output_hwc_window_is_target(hwc_window)) fb_commit = EINA_TRUE;
 
         if (output->dpms == E_OUTPUT_DPMS_OFF)
-          e_output_hwc_window_offscreen_commit(window);
+          e_output_hwc_window_offscreen_commit(hwc_window);
      }
 
    if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
@@ -1829,9 +1829,9 @@ _e_output_hwc_windows_commit(E_Output *output)
         return EINA_FALSE;
      }
 
-   EINA_LIST_FOREACH(output->output_hwc->windows, l, window)
+   EINA_LIST_FOREACH(output->output_hwc->hwc_windows, l, hwc_window)
      {
-        if (e_output_hwc_window_prepare_commit(window))
+        if (e_output_hwc_window_prepare_commit(hwc_window))
           need_tdm_commit = 1;
 
         // TODO: to be fixed. check fps of fb_target currently.

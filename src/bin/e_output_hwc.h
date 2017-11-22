@@ -26,7 +26,7 @@ struct _E_Output_Hwc
    /* that is whether the layer policy for this output
       is controlled by tdm-backend */
    Eina_Bool          opt_hwc;
-   Eina_List         *windows;
+   Eina_List         *hwc_windows;
 };
 
 /* This module is responsible for evaluate which an ec will be composite by a hwc
@@ -35,7 +35,7 @@ extension and commit the changes to hwc extension. */
 EINTERN Eina_Bool            e_output_hwc_opt_hwc_enabled(E_Output_Hwc *output_hwc);
 EINTERN const Eina_List     *e_output_hwc_windows_get(E_Output_Hwc *output_hwc);
 EINTERN Eina_Bool            e_output_hwc_render(E_Output_Hwc *output_hwc);
-EINTERN E_Output_Hwc_Window *e_output_hwc_find_window_by_ec(E_Output_Hwc *output_hwc, E_Client *ec);
+EINTERN E_Output_Hwc_Window *e_output_hwc_find_hwc_window_by_ec(E_Output_Hwc *output_hwc, E_Client *ec);
 
 EINTERN E_Output_Hwc  *e_output_hwc_new(E_Output *output);
 EINTERN void           e_output_hwc_del(E_Output_Hwc *output_hwc);
