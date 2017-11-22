@@ -27,6 +27,7 @@ struct _E_Output_Hwc
       is controlled by tdm-backend */
    Eina_Bool          opt_hwc;
    Eina_List         *hwc_windows;
+   E_Output_Hwc_Window_Target *target_hwc_window;
 };
 
 /* This module is responsible for evaluate which an ec will be composite by a hwc

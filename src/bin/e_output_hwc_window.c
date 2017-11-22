@@ -166,11 +166,6 @@ _e_output_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    E_Zone *zone;
    Eina_Bool result;
 
-   /* if an e_client belongs to the e_output managed by
-    * no-opt hwc there's no need to deal with hwc_windows */
-   if (!e_comp_is_ec_on_output_opt_hwc(ec))
-      return;
-
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
    zone = ec->zone;
@@ -179,6 +174,11 @@ _e_output_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
 
    output = e_output_find(zone->output_id);
    EINA_SAFETY_ON_NULL_RETURN(output);
+
+   /* if an e_client belongs to the e_output managed by
+    * no-opt hwc there's no need to deal with hwc_windows */
+   if (!e_output_hwc_opt_hwc_enabled(output->output_hwc))
+      return;
 
    hwc_window = e_output_hwc_window_new(output->output_hwc);
    EINA_SAFETY_ON_NULL_RETURN(hwc_window);
@@ -195,7 +195,10 @@ _e_output_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    result = e_output_hwc_window_set_state(hwc_window, E_OUTPUT_HWC_WINDOW_STATE_NONE);
    EINA_SAFETY_ON_TRUE_RETURN(result != EINA_TRUE);
 
-   INF("E_Output_Hwc_Window: new hwc_window(%p)", hwc_window);
+   /* set the hwc window to the e client */
+   ec->hwc_window = hwc_window;
+
+   INF("E_Output_Hwc_Window: new window(%p)", hwc_window);
 
    return;
 }
@@ -205,12 +208,6 @@ _e_output_hwc_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
 {
    E_Output *output;
    E_Zone *zone;
-   E_Output_Hwc_Window *hwc_window;
-
-   /* if an e_client belongs to the e_output managed by
-    * no-opt hwc there's no need to deal with hwc_windows */
-   if (!e_comp_is_ec_on_output_opt_hwc(ec))
-      return;
 
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
@@ -221,11 +218,17 @@ _e_output_hwc_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
    output = e_output_find(zone->output_id);
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   hwc_window = e_output_hwc_window_find_hwc_window_by_ec_in_all_outputs(ec);
+   /* if an e_client belongs to the e_output managed by
+    * no-opt hwc there's no need to deal with hwc_windows */
+   if (!e_output_hwc_opt_hwc_enabled(output->output_hwc))
+      return;
 
-   e_output_hwc_window_free(hwc_window);
+   if (!ec->hwc_window) return;
 
-   INF("E_Output_Hwc_Window: free hwc_window(%p)", hwc_window);
+   INF("E_Output_Hwc_Window: free hwc_window(%p)", ec->hwc_window);
+
+   e_output_hwc_window_free(ec->hwc_window);
+   ec->hwc_window = NULL;
 }
 
 static Eina_Bool
@@ -239,7 +242,7 @@ _e_output_hwc_window_client_cb_zone_set(void *data, int type, void *event)
    Eina_Bool result;
 
    ev = event;
-   EINA_SAFETY_ON_NULL_GOTO(ev, fail);
+   EINA_SAFETY_ON_NULL_GOTO(ev, end);
 
    /* if an e_client belongs to the e_output managed by
     * no-opt hwc there's no need to deal with hwc_windows */
@@ -247,25 +250,28 @@ _e_output_hwc_window_client_cb_zone_set(void *data, int type, void *event)
       return ECORE_CALLBACK_PASS_ON;
 
    ec = ev->ec;
-   EINA_SAFETY_ON_NULL_GOTO(ec, fail);
+   EINA_SAFETY_ON_NULL_GOTO(ec, end);
 
    zone = ec->zone;
-   EINA_SAFETY_ON_NULL_GOTO(zone, fail);
-   EINA_SAFETY_ON_NULL_GOTO(zone->output_id, fail);
+   EINA_SAFETY_ON_NULL_GOTO(zone, end);
+   EINA_SAFETY_ON_NULL_GOTO(zone->output_id, end);
 
    output = e_output_find(zone->output_id);
-   EINA_SAFETY_ON_NULL_GOTO(output, fail);
+   EINA_SAFETY_ON_NULL_GOTO(output, end);
 
-   hwc_window = e_output_hwc_window_find_hwc_window_by_ec_in_all_outputs(ec);
+   /* if an e_client belongs to the e_output managed by
+    * no-opt hwc there's no need to deal with hwc_windows */
+   if (!e_output_hwc_opt_hwc_enabled(output->output_hwc))
+      return ECORE_CALLBACK_PASS_ON;
 
-   /* we manage the video hwc_window in the video module */
-   if (e_output_hwc_window_is_video(hwc_window)) goto end;
-
-   if (hwc_window)
+   if (ec->hwc_window)
      {
-        if (hwc_window->output == output) goto end;
+        /* we manage the video window in the video module */
+        if (e_output_hwc_window_is_video(ec->hwc_window)) goto end;
+        if (ec->hwc_window->output == output) goto end;
 
-        e_output_hwc_window_free(hwc_window);
+        e_output_hwc_window_free(ec->hwc_window);
+        ec->hwc_window = NULL;
      }
 
    hwc_window = e_output_hwc_window_new(output->output_hwc);
@@ -282,6 +288,9 @@ _e_output_hwc_window_client_cb_zone_set(void *data, int type, void *event)
 
    result = e_output_hwc_window_set_state(hwc_window, E_OUTPUT_HWC_WINDOW_STATE_NONE);
    EINA_SAFETY_ON_TRUE_GOTO(result != EINA_TRUE, fail);
+
+   /* set the hwc window to the e client */
+   ec->hwc_window = hwc_window;
 
    INF("E_Output_Hwc_Window: output is changed for ec(%p)", ec);
 
@@ -602,6 +611,9 @@ e_output_hwc_window_init(E_Output_Hwc *output_hwc)
    target_hwc_window = _e_output_hwc_window_target_new(output_hwc);
    EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
 
+   /* set the target_window to the output_hwc */
+   output_hwc->target_hwc_window = target_hwc_window;
+
    result = e_output_hwc_window_set_skip_flag((E_Output_Hwc_Window *)target_hwc_window);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(result != EINA_TRUE, EINA_FALSE);
 
@@ -807,7 +819,7 @@ e_output_hwc_window_update(E_Output_Hwc_Window *hwc_window)
    else
      {
         /* hwc_window manager could ask to prevent some e_clients being shown by hw directly */
-        if (ec->hwc_acceptable)
+        if (hwc_window->hwc_acceptable)
           {
              error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_DEVICE);
              EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
@@ -1349,26 +1361,4 @@ e_output_hwc_window_get_notified_about_need_unset_cc_type(E_Output_Hwc_Window *h
                     hwc_window->frame_num, target_hwc_window->render_cnt, offset);
 
    return EINA_TRUE;
-}
-
-EINTERN E_Output_Hwc_Window *
-e_output_hwc_window_find_hwc_window_by_ec_in_all_outputs(E_Client *ec)
-{
-   Eina_List *l_w, *l_o;
-   E_Output *output;
-   E_Output_Hwc_Window *hwc_window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
-
-   EINA_LIST_FOREACH(e_comp->e_comp_screen->outputs, l_o, output)
-     {
-        if (!output->output_hwc) continue;
-
-        EINA_LIST_FOREACH(output->output_hwc->hwc_windows, l_w, hwc_window)
-          {
-             if (hwc_window->ec == ec) return hwc_window;
-          }
-     }
-
-   return NULL;
 }

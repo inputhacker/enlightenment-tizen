@@ -63,18 +63,7 @@ _opt_hwc_get_evas_renderer_delay(tbm_surface_queue_h queue)
 static E_Output_Hwc_Window_Target *
 _e_output_hwc_window_get_target_hwc_window(E_Output *eout)
 {
-   Eina_List *l;
-   E_Output_Hwc_Window *hwc_window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout->output_hwc, NULL);
-
-   EINA_LIST_FOREACH(eout->output_hwc->hwc_windows, l, hwc_window)
-     {
-        if (hwc_window->is_target) return (E_Output_Hwc_Window_Target *)hwc_window;
-     }
-
-   return NULL;
+   return eout->output_hwc->target_hwc_window;
 }
 
 static void
@@ -271,8 +260,7 @@ _opt_hwc_hwc_prepare(E_Output *eo, Eina_List *cl_list)
    /* clients are sorted in reverse order */
    EINA_LIST_REVERSE_FOREACH(cl_list, l, ec)
      {
-        E_Output_Hwc_Window *hwc_window;
-        hwc_window = e_output_hwc_find_hwc_window_by_ec(eo->output_hwc, ec);
+        hwc_window = ec->hwc_window;
         if (!hwc_window)
           {
              ERR("hwc-opt: cannot find the hwc_window by ec(%p)", ec);
@@ -327,7 +315,6 @@ _opt_hwc_hwc_prepare(E_Output *eo, Eina_List *cl_list)
         int i;
         tdm_hwc_window **changed_hwc_window = NULL;
         tdm_hwc_window_composition *composition_types = NULL;
-        E_Output_Hwc_Window *hwc_window;
 
         INF("hwc-opt: hwc extension required to change composition types.");
 
@@ -541,28 +528,22 @@ _e_output_hwc_vis_ec_list_get(E_Output_Hwc *output_hwc)
  * for optimized hwc the returned list contains ALL clients
  */
 static Eina_List *
-_e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur, Eina_Bool is_output_opt_hwc)
+_e_comp_filter_cl_by_wm(Eina_List *vis_cl_list)
 {
    Eina_List *hwc_acceptable_cl_list = NULL;
    Eina_List *l, *l_inner;
    E_Client *ec, *ec_inner;
-   int n_ec = 0;
-
-   if (!n_cur) return NULL;
-
-   *n_cur = 0;
+   E_Output_Hwc_Window *hwc_window = NULL;
 
    INF("hwc-opt: filter e_clients by wm.");
 
-   if (is_output_opt_hwc)
+   /* let's hope for the best... */
+   EINA_LIST_FOREACH(vis_cl_list, l, ec)
      {
-        /* let's hope for the best... */
-        EINA_LIST_FOREACH(vis_cl_list, l, ec)
-        {
-          ec->hwc_acceptable = EINA_TRUE;
-          INF("hwc-opt: ec:%p (name:%s, title:%s) is gonna be hwc_acceptable.",
-                  ec, ec->icccm.name, ec->icccm.title);
-        }
+        hwc_window = ec->hwc_window;
+        hwc_window->hwc_acceptable = EINA_TRUE;
+        INF("hwc-opt: ec:%p (name:%s, title:%s) is gonna be hwc_acceptable.",
+            ec, ec->icccm.name, ec->icccm.title);
      }
 
    EINA_LIST_FOREACH(vis_cl_list, l, ec)
@@ -570,9 +551,10 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur, Eina_Bool is_output_
         // check clients not able to use hwc
 
         /* hwc_window manager required full GLES composition */
-        if (is_output_opt_hwc && e_comp->nocomp_override > 0)
+        if (e_comp->nocomp_override > 0)
           {
-             ec->hwc_acceptable = EINA_FALSE;
+             hwc_window = ec->hwc_window;
+             hwc_window->hwc_acceptable = EINA_FALSE;
              INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable (nocomp_override > 0).",
                                   ec, ec->icccm.name, ec->icccm.title);
           }
@@ -583,14 +565,13 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur, Eina_Bool is_output_
             // if there is UI subfrace, it means need to composite
             e_client_normal_client_has(ec))
           {
-             if (!is_output_opt_hwc) goto no_hwc;
-
              /* we have to let hwc know about ALL clients(buffers) in case we're using
               * optimized hwc, that's why it can be called optimized :), but also we have to provide
               * the ability for wm to prevent some clients to be shown by hw directly */
              EINA_LIST_FOREACH(vis_cl_list, l_inner, ec_inner)
                {
-                  ec_inner->hwc_acceptable = EINA_FALSE;
+                  hwc_window = ec_inner->hwc_window;
+                  hwc_window->hwc_acceptable = EINA_FALSE;
                   INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable (UI subsurface).",
                           ec_inner, ec_inner->icccm.name, ec_inner->icccm.title);
                }
@@ -599,30 +580,17 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list, int *n_cur, Eina_Bool is_output_
         // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
         if (!_hwc_available_get(ec))
           {
-             if (!is_output_opt_hwc)
-               {
-                  if (!n_ec) goto no_hwc;
-                  break;
-               }
-
-             ec->hwc_acceptable = EINA_FALSE;
+             hwc_window = ec->hwc_window;
+             hwc_window->hwc_acceptable = EINA_FALSE;
              INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable.",
                      ec, ec->icccm.name, ec->icccm.title);
           }
 
         // listup as many as possible from the top most visible order
-        n_ec++;
-        if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role)) (*n_cur)++;
         hwc_acceptable_cl_list = eina_list_append(hwc_acceptable_cl_list, ec);
      }
 
    return hwc_acceptable_cl_list;
-
-no_hwc:
-
-   eina_list_free(hwc_acceptable_cl_list);
-
-   return NULL;
 }
 
 static Eina_Bool
@@ -630,7 +598,6 @@ _e_output_hwc_re_evaluate(E_Output_Hwc *output_hwc)
 {
    Eina_Bool ret = EINA_FALSE;
    Eina_Bool result;
-   int n_cur = 0;
    Eina_List *hwc_ok_clist = NULL, *vis_clist = NULL;
    E_Output_Hwc_Window_Target *target_hwc_window = NULL;
    E_Output *output = output_hwc->output;
@@ -642,7 +609,7 @@ _e_output_hwc_re_evaluate(E_Output_Hwc *output_hwc)
    INF("hwc-opt: number of visible clients:%d.", eina_list_count(vis_clist));
 
    /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
-   hwc_ok_clist = _e_comp_filter_cl_by_wm(vis_clist, &n_cur, EINA_TRUE);
+   hwc_ok_clist = _e_comp_filter_cl_by_wm(vis_clist);
 
    /* mark all hwc_windows as an invisible */
    result = _opt_hwc_re_evaluate_init(output);
@@ -662,7 +629,7 @@ _e_output_hwc_re_evaluate(E_Output_Hwc *output_hwc)
         EINA_SAFETY_ON_FALSE_GOTO(result, done);
      }
 
-   ret |= _opt_hwc_hwc_prepare(output, hwc_ok_clist);
+   ret = _opt_hwc_hwc_prepare(output, hwc_ok_clist);
 
 done:
    eina_list_free(hwc_ok_clist);

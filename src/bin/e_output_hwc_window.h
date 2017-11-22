@@ -62,6 +62,8 @@ struct _E_Output_Hwc_Window
    /* number of buffers in front of the buffer which contains the e_client
     * owned by this hwc_window*/
    int delay;
+
+   Eina_Bool hwc_acceptable;
 };
 
 struct _E_Output_Hwc_Window_Target
@@ -119,7 +121,6 @@ EINTERN Eina_Bool                 e_output_hwc_window_set_state(E_Output_Hwc_Win
 EINTERN E_Output_Hwc_Window_State e_output_hwc_window_get_state(E_Output_Hwc_Window *hwc_window);
 
 EINTERN Eina_Bool e_output_hwc_window_get_notified_about_need_unset_cc_type(E_Output_Hwc_Window *hwc_window, E_Output_Hwc_Window_Target *target_hwc_window, uint64_t offset);
-EINTERN E_Output_Hwc_Window        *e_output_hwc_window_find_hwc_window_by_ec_in_all_outputs(E_Client *ec);
 
 #endif // E_OUTPUT_HWC_WINDOW_H
 #endif
