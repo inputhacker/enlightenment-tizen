@@ -103,6 +103,7 @@ struct _E_Output
       Eina_Rectangle    rect;
       Eina_Rectangle    rect_touch;
       Eina_Bool         need_touch_set;
+      Eina_Bool         unset_skip;
    } zoom_conf;
    Ecore_Event_Handler *touch_up_handler;
 
