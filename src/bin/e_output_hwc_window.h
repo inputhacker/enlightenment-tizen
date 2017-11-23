@@ -87,10 +87,9 @@ struct _E_Output_Hwc_Window_Commit_Data {
 EINTERN Eina_Bool e_output_hwc_window_init(E_Output_Hwc *output_hwc);
 EINTERN void      e_output_hwc_window_deinit(E_Output_Hwc *output_hwc); // TODO:
 
-EINTERN E_Output_Hwc_Window *e_output_hwc_window_new(E_Output_Hwc *output_hwc);
+EINTERN E_Output_Hwc_Window *e_output_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec);
 EINTERN void                 e_output_hwc_window_free(E_Output_Hwc_Window *hwc_window);
 
-EINTERN Eina_Bool e_output_hwc_window_set_ec(E_Output_Hwc_Window *hwc_window, E_Client *ec);
 EINTERN Eina_Bool e_output_hwc_window_set_zpos(E_Output_Hwc_Window *hwc_window, int zpos);
 EINTERN Eina_Bool e_output_hwc_window_set_skip_flag(E_Output_Hwc_Window *hwc_window);
 EINTERN Eina_Bool e_output_hwc_window_unset_skip_flag(E_Output_Hwc_Window *hwc_window);

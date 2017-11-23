@@ -377,18 +377,10 @@ _e_video_avaiable_video_layer_get(E_Video *video)
                }
           }
 
-        hwc_window = e_output_hwc_window_new(video->e_output->output_hwc);
+        hwc_window = e_output_hwc_window_new(video->e_output->output_hwc, video->ec);
         if (!hwc_window)
           {
              VER("hwc_opt: cannot create new hwc_window for ec(%p)", video->ec);
-             free(layer);
-             return NULL;
-          }
-
-        result = e_output_hwc_window_set_ec(hwc_window, video->ec);
-        if (result != EINA_TRUE)
-          {
-             VER("hwc_opt: cannot set ec(%p) to hwc_window(%p)", video->ec, hwc_window);
              free(layer);
              return NULL;
           }

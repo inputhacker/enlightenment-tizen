@@ -180,11 +180,8 @@ _e_output_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    if (!e_output_hwc_opt_hwc_enabled(output->output_hwc))
       return;
 
-   hwc_window = e_output_hwc_window_new(output->output_hwc);
+   hwc_window = e_output_hwc_window_new(output->output_hwc, ec);
    EINA_SAFETY_ON_NULL_RETURN(hwc_window);
-
-   result = e_output_hwc_window_set_ec(hwc_window, ec);
-   EINA_SAFETY_ON_TRUE_RETURN(result != EINA_TRUE);
 
    result = e_output_hwc_window_mark_unvisible(hwc_window);
    EINA_SAFETY_ON_TRUE_RETURN(result != EINA_TRUE);
@@ -269,11 +266,8 @@ _e_output_hwc_window_client_cb_zone_set(void *data, int type, void *event)
         ec->hwc_window = NULL;
      }
 
-   hwc_window = e_output_hwc_window_new(output->output_hwc);
+   hwc_window = e_output_hwc_window_new(output->output_hwc, ec);
    EINA_SAFETY_ON_NULL_GOTO(hwc_window, fail);
-
-   result = e_output_hwc_window_set_ec(hwc_window, ec);
-   EINA_SAFETY_ON_TRUE_GOTO(result != EINA_TRUE, fail);
 
    result = e_output_hwc_window_mark_unvisible(hwc_window);
    EINA_SAFETY_ON_TRUE_GOTO(result != EINA_TRUE, fail);
@@ -551,26 +545,6 @@ _e_output_hwc_window_recover_ec(E_Output_Hwc_Window *hwc_window)
 }
 
 EINTERN Eina_Bool
-e_output_hwc_window_set_ec(E_Output_Hwc_Window *hwc_window, E_Client *ec)
-{
-   tdm_error error;
-   tdm_output *toutput;
-
-   if (hwc_window->ec == ec)
-     return EINA_TRUE;
-
-   toutput = hwc_window->output->toutput;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(toutput, EINA_FALSE);
-
-   hwc_window->hwc_wnd = tdm_output_hwc_create_window(toutput, &error);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
-
-   hwc_window->ec = ec;
-
-   return EINA_TRUE;
-}
-
-EINTERN Eina_Bool
 e_output_hwc_window_init(E_Output_Hwc *output_hwc)
 {
    E_Output_Hwc_Window_Target *target_hwc_window;
@@ -627,16 +601,32 @@ e_output_hwc_window_deinit(E_Output_Hwc *output_hwc)
 }
 
 EINTERN E_Output_Hwc_Window *
-e_output_hwc_window_new(E_Output_Hwc *output_hwc)
+e_output_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec)
 {
    E_Output_Hwc_Window *hwc_window = NULL;
+   tdm_output *toutput;
+   tdm_error error;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc->output, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+
+   toutput = output_hwc->output->toutput;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(toutput, EINA_FALSE);
 
    hwc_window = E_NEW(E_Output_Hwc_Window, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
 
    hwc_window->output = output_hwc->output;
+   hwc_window->ec = ec;
+
+   hwc_window->hwc_wnd = tdm_output_hwc_create_window(toutput, &error);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("cannot create tdm_hwc_window for toutput(%p)", toutput);
+        E_FREE(hwc_window);
+        return NULL;
+     }
 
    output_hwc->hwc_windows = eina_list_append(output_hwc->hwc_windows, hwc_window);
 
