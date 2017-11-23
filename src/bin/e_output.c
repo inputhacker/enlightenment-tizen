@@ -644,6 +644,32 @@ _e_output_cb_output_change(tdm_output *toutput,
      }
 }
 
+static Eina_Bool
+_e_output_fb_over_plane_check(E_Output *output)
+{
+   Eina_List *p_l;
+   E_Plane *ep, *fb;
+   Eina_Bool check = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->planes, EINA_FALSE);
+
+   fb = e_output_default_fb_target_get(output);
+
+   EINA_LIST_REVERSE_FOREACH(output->planes, p_l, ep)
+     {
+        if (!ep) continue;
+
+        if (ep == fb)
+          break;
+
+        if (ep->display_info.tsurface)
+          check = EINA_TRUE;
+     }
+
+   return check;
+}
+
 static void
 _e_output_update_fps()
 {
@@ -1677,6 +1703,18 @@ _e_output_commit(E_Output *output)
    // TODO: to be fixed. check fps of fb_target currently.
    if (fb_commit) _e_output_update_fps();
 
+   if (output->zoom_conf.unset_skip == EINA_TRUE)
+     {
+        output->zoom_conf.unset_skip = EINA_FALSE;
+        if (output->dpms != E_OUTPUT_DPMS_OFF)
+          {
+             _e_output_zoom_rotating_check(output);
+             if (!e_plane_pp_commit(fb_target))
+               ERR("fail to e_plane_pp_commit");
+             return EINA_TRUE;
+          }
+     }
+
    /* set planes */
    EINA_LIST_FOREACH(output->planes, l, plane)
      {
@@ -2666,6 +2704,12 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
    ep = e_output_fb_target_get(output);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
 
+   if (!output->zoom_set)
+     {
+        if (_e_output_fb_over_plane_check(output))
+          output->zoom_conf.unset_skip = EINA_TRUE;
+     }
+
    e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_FALSE);
 
    output->zoom_conf.zoomx = zoomx;
@@ -2683,6 +2727,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
    if (!e_plane_zoom_set(ep, &output->zoom_conf.rect))
      {
         ERR("e_plane_zoom_set failed.");
+        output->zoom_conf.unset_skip = EINA_FALSE;
         e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
 
         return EINA_FALSE;
@@ -2742,6 +2787,7 @@ e_output_zoom_unset(E_Output *output)
    e_plane_zoom_unset(ep);
 
    output->zoom_set = EINA_FALSE;
+   output->zoom_conf.unset_skip = EINA_FALSE;
 
    e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
 
