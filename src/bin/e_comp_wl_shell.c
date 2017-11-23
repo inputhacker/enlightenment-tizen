@@ -1660,9 +1660,12 @@ _e_xdg_surf_v6_configure_send(struct wl_resource *res_xdg_surf_v6,
                               int32_t height)
 {
    E_Client *ec;
+   E_Comp_Client_Data *cdata;
+   struct wl_array states;
    uint32_t serial;
+   struct wl_resource *resource;
 
-   if (!res_xdg_surf_v6) return;
+   EINA_SAFETY_ON_NULL_RETURN(res_xdg_surf_v6);
 
    ec = wl_resource_get_user_data(res_xdg_surf_v6);
    if (!ec)
@@ -1673,10 +1676,50 @@ _e_xdg_surf_v6_configure_send(struct wl_resource *res_xdg_surf_v6,
         return;
      }
 
+   cdata = ec->comp_data;
+   EINA_SAFETY_ON_NULL_RETURN(cdata);
+   EINA_SAFETY_ON_NULL_RETURN(cdata->sh_v6.res_role);
+
+   resource = cdata->sh_v6.res_role;
+
+   wl_array_init(&states);
+
+   if (ec->fullscreen)
+     {
+        _e_xdg_surface_state_add(resource, &states, ZXDG_TOPLEVEL_V6_STATE_FULLSCREEN);
+
+        // send fullscreen size
+        if ((width == 0) && (height == 0))
+          {
+             width = ec->client.w && ec->client.h? ec->client.w : ec->w;
+             height = ec->client.w && ec->client.h? ec->client.h : ec->h;
+          }
+     }
+   else if (ec->maximized)
+     {
+        _e_xdg_surface_state_add(resource, &states, ZXDG_TOPLEVEL_V6_STATE_MAXIMIZED);
+
+        // send maximized size
+        if ((width == 0) && (height == 0))
+          {
+             width = ec->client.w && ec->client.h? ec->client.w : ec->w;
+             height = ec->client.w && ec->client.h? ec->client.h : ec->h;
+          }
+     }
+
+   if (edges != 0)
+     _e_xdg_surface_state_add(resource, &states, ZXDG_TOPLEVEL_V6_STATE_RESIZING);
+
+   if (ec->focused)
+     _e_xdg_surface_state_add(resource, &states, ZXDG_TOPLEVEL_V6_STATE_ACTIVATED);
+
+   zxdg_toplevel_v6_send_configure(cdata->sh_v6.res_role, width, height, &states);
    serial = wl_display_next_serial(e_comp_wl->wl.disp);
    zxdg_surface_v6_send_configure(res_xdg_surf_v6, serial);
 
-   ELOGF("SH", "SEND configure v6", ec->pixmap, ec);
+   wl_array_release(&states);
+
+   ELOGF("SH", "SEND configure v6 %dx%d", ec->pixmap, ec, width, height);
 }
 
 static void
