@@ -57,6 +57,9 @@ e_input_init(Ecore_Evas *ee)
 
    dev = e_input_device_open();
 
+   e_input->ee = ee;
+   e_input->dev = dev;
+
    if (!dev)
      {
         EINA_LOG_ERR("Failed to open device\n");
@@ -71,9 +74,6 @@ e_input_init(Ecore_Evas *ee)
         EINA_LOG_ERR("Failed to create device\n");
         goto device_create_err;
      }
-
-   e_input->ee = ee;
-   e_input->dev = dev;
 
    return _e_input_init_count;
 
