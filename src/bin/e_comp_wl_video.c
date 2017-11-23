@@ -349,7 +349,6 @@ E_Video_Layer *
 _e_video_avaiable_video_layer_get(E_Video *video)
 {
    E_Video_Layer *layer = NULL;
-   Eina_Bool result;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(video, NULL);
 
@@ -381,14 +380,6 @@ _e_video_avaiable_video_layer_get(E_Video *video)
         if (!hwc_window)
           {
              VER("hwc_opt: cannot create new hwc_window for ec(%p)", video->ec);
-             free(layer);
-             return NULL;
-          }
-
-        result = e_output_hwc_window_set_skip_flag(hwc_window);
-        if (result != EINA_TRUE)
-          {
-             VER("hwc_opt: cannot set skip_flag for hwc_window(%p)", hwc_window);
              free(layer);
              return NULL;
           }
@@ -623,7 +614,7 @@ _e_video_layer_is_usable(E_Video_Layer * layer, unsigned int *usable)
         hwc_window = layer->e_client->hwc_window;
         EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, TDM_ERROR_OPERATION_FAILED);
 
-        if (hwc_window->skip_flag || hwc_window->type == TDM_COMPOSITION_CLIENT)
+        if (hwc_window->is_excluded || hwc_window->type == TDM_COMPOSITION_CLIENT)
           *usable = 1;
         else
           *usable = 0;
@@ -802,13 +793,13 @@ _e_video_layer_commit(E_Video_Layer *layer, tdm_layer_commit_handler func, void 
         hwc_window = layer->e_client->hwc_window;
         EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, TDM_ERROR_OPERATION_FAILED);
 
-        if (hwc_window->skip_flag || hwc_window->type == TDM_COMPOSITION_CLIENT)
+        if (hwc_window->is_excluded || hwc_window->type == TDM_COMPOSITION_CLIENT)
           {
              /* send frame event enlightenment dosen't send frame evnet in nocomp */
              if (hwc_window->ec)
                e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
 
-             if (!hwc_window->skip_flag)
+             if (!hwc_window->is_excluded)
                {
                   e_video_prepare_hwc_window_to_compositing(hwc_window);
 
@@ -2488,7 +2479,7 @@ _e_video_check_if_pp_needed(E_Video *video)
 
        hwc_window = video->ec->hwc_window;
 
-       if (hwc_window && !hwc_window->skip_flag && hwc_window->type == TDM_COMPOSITION_VIDEO)
+       if (hwc_window && !hwc_window->is_excluded && hwc_window->type == TDM_COMPOSITION_VIDEO)
          {
             tdm_hwc_window_video_capability capabilities = 0;
 

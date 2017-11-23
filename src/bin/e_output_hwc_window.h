@@ -30,8 +30,7 @@ struct _E_Output_Hwc_Window
    E_Output                      *output;
    tdm_hwc_window                *hwc_wnd;
    int                            zpos;
-   int                            skip_flag;
-   Eina_Bool                      is_visible;
+   int                            is_excluded; /* whether hwc_wnd excluded from being handled by hwc */
    tdm_hwc_window_composition     type;
    Eina_Bool                      is_target;
    Eina_Bool                      is_video;
@@ -91,10 +90,6 @@ EINTERN E_Output_Hwc_Window *e_output_hwc_window_new(E_Output_Hwc *output_hwc, E
 EINTERN void                 e_output_hwc_window_free(E_Output_Hwc_Window *hwc_window);
 
 EINTERN Eina_Bool e_output_hwc_window_set_zpos(E_Output_Hwc_Window *hwc_window, int zpos);
-EINTERN Eina_Bool e_output_hwc_window_set_skip_flag(E_Output_Hwc_Window *hwc_window);
-EINTERN Eina_Bool e_output_hwc_window_unset_skip_flag(E_Output_Hwc_Window *hwc_window);
-EINTERN Eina_Bool e_output_hwc_window_mark_visible(E_Output_Hwc_Window *hwc_window);
-EINTERN Eina_Bool e_output_hwc_window_mark_unvisible(E_Output_Hwc_Window *hwc_window);
 EINTERN Eina_Bool e_output_hwc_window_update(E_Output_Hwc_Window *hwc_window);
 EINTERN Eina_Bool e_output_hwc_window_is_target(E_Output_Hwc_Window *hwc_window);
 EINTERN Eina_Bool e_output_hwc_window_is_video(E_Output_Hwc_Window *hwc_window);
