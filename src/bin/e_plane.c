@@ -1376,17 +1376,6 @@ e_plane_setup(E_Plane *plane)
    plane->renderer = renderer;
 
    return EINA_TRUE;
-
-hwc_setup_fail:
-   ecore_evas_manual_render_set(e_comp->ee, 0);
-
-   if (plane->renderer)
-     {
-        e_plane_renderer_del(plane->renderer);
-        plane->renderer = NULL;
-     }
-
-   return EINA_FALSE;
 }
 
 EINTERN Eina_Bool
