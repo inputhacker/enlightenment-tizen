@@ -95,6 +95,9 @@ e_input_init(Ecore_Evas *ee)
 
    dev = e_input_device_open();
 
+   e_input->ee = ee;
+   e_input->dev = dev;
+
    if (!dev)
      {
         EINA_LOG_ERR("Failed to open device\n");
@@ -169,9 +172,6 @@ e_input_init(Ecore_Evas *ee)
         seat_caps = E_INPUT_SEAT_KEYBOARD | E_INPUT_SEAT_TOUCH;
         e_comp_wl_input_seat_caps_set(seat_caps);
      }
-
-   e_input->ee = ee;
-   e_input->dev = dev;
 
    E_LIST_HANDLER_APPEND(e_input->handlers, E_EVENT_SCREEN_CHANGE, _e_input_cb_screen_change, NULL);
 
