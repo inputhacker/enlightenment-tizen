@@ -865,7 +865,7 @@ _e_video_layer_destroy(E_Video_Layer *layer)
 {
    EINA_SAFETY_ON_NULL_RETURN(layer);
 
-   if (_is_video_cl_on_output_opt_hwc(layer->e_client))
+   if (layer->e_client && layer->e_client->hwc_window)
      {
         E_Output_Hwc_Window *hwc_window;
 
