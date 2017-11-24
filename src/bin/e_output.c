@@ -1798,16 +1798,10 @@ _can_commit(E_Output *output)
 static Eina_Bool
 _e_output_hwc_windows_prepare_commit(E_Output *output, E_Output_Hwc_Window *hwc_window)
 {
-   E_Output_Hwc_Window_Commit_Data *data;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-
    if (output->wait_commit) return EINA_FALSE;
 
-   data = e_output_hwc_window_commit_data_aquire(hwc_window);
-   if (!data) return EINA_FALSE;
-
-   hwc_window->commit_data = data;
+   if (!e_output_hwc_window_commit_data_aquire(hwc_window))
+     return EINA_FALSE;
 
    /* send frame event enlightenment dosen't send frame evnet in nocomp */
    if (hwc_window->ec)
@@ -1819,21 +1813,14 @@ _e_output_hwc_windows_prepare_commit(E_Output *output, E_Output_Hwc_Window *hwc_
 static Eina_Bool
 _e_output_hwc_windows_offscreen_commit(E_Output *output, E_Output_Hwc_Window *hwc_window)
 {
-   E_Output_Hwc_Window_Commit_Data *data = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-
-   data = e_output_hwc_window_commit_data_aquire(hwc_window);
-
-   if (!data) return EINA_TRUE;
-
-   hwc_window->commit_data = data;
-
-   e_output_hwc_window_commit_data_release(hwc_window);
+   if (!e_output_hwc_window_commit_data_aquire(hwc_window))
+     return EINA_FALSE;
 
    /* send frame event enlightenment doesn't send frame event in nocomp */
    if (hwc_window->ec)
      e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
+
+   e_output_hwc_window_commit_data_release(hwc_window);
 
    return EINA_TRUE;
 }

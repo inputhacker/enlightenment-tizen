@@ -102,8 +102,8 @@ EINTERN Eina_Bool e_output_hwc_window_is_video(E_Output_Hwc_Window *hwc_window);
 EINTERN Eina_Bool e_output_hwc_window_fetch(E_Output_Hwc_Window *hwc_window);
 EINTERN void      e_output_hwc_window_unfetch(E_Output_Hwc_Window *hwc_window);
 
-EINTERN E_Output_Hwc_Window_Commit_Data *e_output_hwc_window_commit_data_aquire(E_Output_Hwc_Window *hwc_window);
-EINTERN Eina_Bool                        e_output_hwc_window_commit_data_release(E_Output_Hwc_Window *hwc_window);
+EINTERN Eina_Bool  e_output_hwc_window_commit_data_aquire(E_Output_Hwc_Window *hwc_window);
+EINTERN Eina_Bool  e_output_hwc_window_commit_data_release(E_Output_Hwc_Window *hwc_window);
 
 EINTERN Eina_Bool     e_output_hwc_window_target_surface_queue_can_dequeue(E_Output_Hwc_Window_Target *target_hwc_window);
 EINTERN tbm_surface_h e_output_hwc_window_target_surface_queue_acquire(E_Output_Hwc_Window_Target *target_hwc_window);

@@ -994,14 +994,14 @@ e_output_hwc_window_unfetch(E_Output_Hwc_Window *hwc_window)
    hwc_window->update_exist = EINA_FALSE;
 }
 
-EINTERN E_Output_Hwc_Window_Commit_Data *
+EINTERN Eina_Bool
 e_output_hwc_window_commit_data_aquire(E_Output_Hwc_Window *hwc_window)
 {
    E_Output_Hwc_Window_Commit_Data *commit_data = NULL;
 
    /* we can't unref a buffer till it being composited to the fb_target */
    if (e_output_hwc_window_get_state(hwc_window) == E_OUTPUT_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
-     return NULL;
+     return EINA_FALSE;
 
    if (!e_output_hwc_window_is_on_hw_overlay(hwc_window))
      {
@@ -1011,25 +1011,27 @@ e_output_hwc_window_commit_data_aquire(E_Output_Hwc_Window *hwc_window)
         if (e_output_hwc_window_get_displaying_surface(hwc_window))
           {
              commit_data = E_NEW(E_Output_Hwc_Window_Commit_Data, 1);
-             EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, NULL);
+             EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
 
-             return commit_data;
+             hwc_window->commit_data = commit_data;
+
+             return EINA_TRUE;
           }
 
-        return NULL;
+        return EINA_FALSE;
      }
 
    /* check update_exist */
    if (!hwc_window->update_exist)
      {
-        return NULL;
+        return EINA_FALSE;
      }
 
    if (hwc_window->tsurface == e_output_hwc_window_get_displaying_surface(hwc_window))
-     return NULL;
+     return EINA_FALSE;
 
    commit_data = E_NEW(E_Output_Hwc_Window_Commit_Data, 1);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
 
    hwc_window->update_exist = EINA_FALSE;
 
@@ -1047,7 +1049,9 @@ e_output_hwc_window_commit_data_aquire(E_Output_Hwc_Window *hwc_window)
                                    _get_comp_wl_buffer(hwc_window->ec));
      }
 
-   return commit_data;
+   hwc_window->commit_data = commit_data;
+
+   return EINA_TRUE;
 }
 
 EINTERN Eina_Bool
