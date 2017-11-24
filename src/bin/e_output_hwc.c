@@ -1449,3 +1449,174 @@ e_output_hwc_del(E_Output_Hwc *output_hwc)
 
    E_FREE(output_hwc);
 }
+
+static void
+_e_output_hwc_update_fps()
+{
+   static double time = 0.0;
+   static double lapse = 0.0;
+   static int cframes = 0;
+   static int flapse = 0;
+
+   if (e_comp->calc_fps)
+     {
+        double dt;
+        double tim = ecore_time_get();
+
+        dt = tim - e_comp->frametimes[0];
+        e_comp->frametimes[0] = tim;
+
+        time += dt;
+        cframes++;
+
+        if (lapse == 0.0)
+          {
+             lapse = tim;
+             flapse = cframes;
+          }
+        else if ((tim - lapse) >= 0.5)
+          {
+             e_comp->fps = (cframes - flapse) / (tim - lapse);
+             lapse = tim;
+             flapse = cframes;
+             time = 0.0;
+          }
+     }
+}
+
+static void
+_e_output_hwc_output_commit_handler(tdm_output *toutput, unsigned int sequence,
+                                  unsigned int tv_sec, unsigned int tv_usec,
+                                  void *user_data)
+{
+   const Eina_List *l;
+   E_Output_Hwc_Window *window;
+   E_Output *output = NULL;
+   E_Output_Hwc *output_hwc = (E_Output_Hwc *)user_data;
+
+   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+
+   output = output_hwc->output;
+
+   EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, window)
+     {
+         if (!e_output_hwc_window_commit_data_release(window)) continue;
+         if (e_output_hwc_window_is_video(window))
+           e_video_commit_data_release(window->ec, sequence, tv_sec, tv_usec);
+     }
+
+   /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
+    * a 'page flip' happened so it's time to allow to make 'fetch and commit' for the e_output */
+   output->wait_commit = EINA_FALSE;
+}
+
+/* we can do commit if we set surface at least to one window which displayed on
+ * the hw layer*/
+static Eina_Bool
+_can_commit(E_Output *output)
+{
+   Eina_List *l;
+   E_Output_Hwc_Window *hwc_window;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->output_hwc, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->output_hwc->hwc_windows, l, hwc_window)
+     {
+        if (!e_output_hwc_window_is_on_hw_overlay(hwc_window)) continue;
+
+        if (hwc_window->update_exist) return EINA_TRUE;
+
+        if (e_output_hwc_window_get_displaying_surface(hwc_window)) return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_prepare_commit(E_Output *output, E_Output_Hwc_Window *hwc_window)
+{
+   if (output->wait_commit) return EINA_FALSE;
+
+   if (!e_output_hwc_window_commit_data_aquire(hwc_window))
+     return EINA_FALSE;
+
+   /* send frame event enlightenment dosen't send frame evnet in nocomp */
+   if (hwc_window->ec)
+     e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_offscreen_commit(E_Output *output, E_Output_Hwc_Window *hwc_window)
+{
+   if (!e_output_hwc_window_commit_data_aquire(hwc_window))
+     return EINA_FALSE;
+
+   /* send frame event enlightenment doesn't send frame event in nocomp */
+   if (hwc_window->ec)
+     e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
+
+   e_output_hwc_window_commit_data_release(hwc_window);
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_output_hwc_commit(E_Output_Hwc *output_hwc)
+{
+   E_Output_Hwc_Window *hwc_window = NULL;
+   Eina_List *l;
+   int need_tdm_commit = 0;
+   Eina_Bool fb_commit = EINA_FALSE;
+   E_Output *output = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+
+   output = output_hwc->output;
+
+   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
+     {
+        /* an underlying hwc_window still occupies a hw overlay, so we can't
+         * allow to change buffer (make fetch) as hwc_window in a client_candidate state */
+        if (e_output_hwc_window_get_state(hwc_window) == E_OUTPUT_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
+          continue;
+
+        /* fetch the surface to the window */
+        if (!e_output_hwc_window_fetch(hwc_window)) continue;
+
+        if (e_output_hwc_window_is_target(hwc_window)) fb_commit = EINA_TRUE;
+
+        if (output->dpms == E_OUTPUT_DPMS_OFF)
+          _e_output_hwc_windows_offscreen_commit(output, hwc_window);
+     }
+
+   if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
+
+   if (!_can_commit(output))
+     {
+        INF("fail to _can_commit.");
+        return EINA_FALSE;
+     }
+
+   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
+     {
+        if (_e_output_hwc_windows_prepare_commit(output, hwc_window))
+          need_tdm_commit = 1;
+
+        // TODO: to be fixed. check fps of fb_target currently.
+        if (fb_commit) _e_output_hwc_update_fps();
+     }
+
+   if (need_tdm_commit)
+     {
+        tdm_error error = TDM_ERROR_NONE;
+
+        error = tdm_output_commit(output->toutput, 0, _e_output_hwc_output_commit_handler, output_hwc);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+
+        output->wait_commit = EINA_TRUE;
+     }
+
+   return EINA_TRUE;
+}

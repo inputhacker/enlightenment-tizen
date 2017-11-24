@@ -51,5 +51,6 @@ EINTERN void e_output_hwc_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool se
 EINTERN Eina_Bool e_output_hwc_multi_plane_get(E_Output_Hwc *output_hwc);
 
 EINTERN void e_output_hwc_end(E_Output_Hwc *output_hwc, const char *location);
+EINTERN Eina_Bool       e_output_hwc_commit(E_Output_Hwc *output_hwc);
 #endif
 #endif
