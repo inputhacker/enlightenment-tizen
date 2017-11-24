@@ -41,7 +41,6 @@ e_input_init(Ecore_Evas *ee)
 
    ecore_event_add(E_EVENT_INPUT_ENABLED, NULL, NULL, NULL);
 
-   ecore_evas_input_event_register_with_multi(ee);
    ecore_evas_input_event_register_with_multi2(ee);
 
    if (!e_input)
