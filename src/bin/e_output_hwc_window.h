@@ -110,8 +110,6 @@ EINTERN tbm_surface_h e_output_hwc_window_target_surface_queue_acquire(E_Output_
 EINTERN void          e_output_hwc_window_target_surface_queue_release(E_Output_Hwc_Window_Target *target_hwc_window, tbm_surface_h tsurface);
 EINTERN uint64_t      e_output_hwc_window_target_get_current_renderer_cnt(E_Output_Hwc_Window_Target *target_hwc_window);
 
-EINTERN Eina_Bool e_output_hwc_window_prepare_commit(E_Output_Hwc_Window *hwc_window);
-EINTERN Eina_Bool e_output_hwc_window_offscreen_commit(E_Output_Hwc_Window *hwc_window);
 EINTERN Eina_Bool e_output_hwc_window_activate(E_Output_Hwc_Window *hwc_window);
 EINTERN Eina_Bool e_output_hwc_window_deactivate(E_Output_Hwc_Window *hwc_window);
 EINTERN Eina_Bool e_output_hwc_window_is_on_hw_overlay(E_Output_Hwc_Window *hwc_window);

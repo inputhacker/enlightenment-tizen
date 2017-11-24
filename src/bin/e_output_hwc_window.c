@@ -244,11 +244,6 @@ _e_output_hwc_window_client_cb_zone_set(void *data, int type, void *event)
    ev = event;
    EINA_SAFETY_ON_NULL_GOTO(ev, end);
 
-   /* if an e_client belongs to the e_output managed by
-    * no-opt hwc there's no need to deal with hwc_windows */
-   if (!e_comp_is_ec_on_output_opt_hwc(ev->ec))
-      return ECORE_CALLBACK_PASS_ON;
-
    ec = ev->ec;
    EINA_SAFETY_ON_NULL_GOTO(ec, end);
 
@@ -1184,49 +1179,6 @@ e_output_hwc_window_target_get_current_renderer_cnt(E_Output_Hwc_Window_Target *
    EINA_SAFETY_ON_FALSE_RETURN_VAL(target_hwc_window->hwc_window.is_target, 0);
 
    return target_hwc_window->render_cnt;
-}
-
-EINTERN Eina_Bool
-e_output_hwc_window_prepare_commit(E_Output_Hwc_Window *hwc_window)
-{
-   E_Output_Hwc_Window_Commit_Data *data;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-
-   if (hwc_window->output->wait_commit) return EINA_FALSE;
-
-   data = e_output_hwc_window_commit_data_aquire(hwc_window);
-   if (!data) return EINA_FALSE;
-
-   hwc_window->commit_data = data;
-
-   /* send frame event enlightenment dosen't send frame evnet in nocomp */
-   if (hwc_window->ec)
-     e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
-
-   return EINA_TRUE;
-}
-
-EINTERN Eina_Bool
-e_output_hwc_window_offscreen_commit(E_Output_Hwc_Window *hwc_window)
-{
-   E_Output_Hwc_Window_Commit_Data *data = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-
-   data = e_output_hwc_window_commit_data_aquire(hwc_window);
-
-   if (!data) return EINA_TRUE;
-
-   hwc_window->commit_data = data;
-
-   e_output_hwc_window_commit_data_release(hwc_window);
-
-   /* send frame event enlightenment doesn't send frame event in nocomp */
-   if (hwc_window->ec)
-     e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
-
-   return EINA_TRUE;
 }
 
 EINTERN Eina_Bool

@@ -1796,6 +1796,49 @@ _can_commit(E_Output *output)
 }
 
 static Eina_Bool
+_e_output_hwc_windows_prepare_commit(E_Output *output, E_Output_Hwc_Window *hwc_window)
+{
+   E_Output_Hwc_Window_Commit_Data *data;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (output->wait_commit) return EINA_FALSE;
+
+   data = e_output_hwc_window_commit_data_aquire(hwc_window);
+   if (!data) return EINA_FALSE;
+
+   hwc_window->commit_data = data;
+
+   /* send frame event enlightenment dosen't send frame evnet in nocomp */
+   if (hwc_window->ec)
+     e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_offscreen_commit(E_Output *output, E_Output_Hwc_Window *hwc_window)
+{
+   E_Output_Hwc_Window_Commit_Data *data = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   data = e_output_hwc_window_commit_data_aquire(hwc_window);
+
+   if (!data) return EINA_TRUE;
+
+   hwc_window->commit_data = data;
+
+   e_output_hwc_window_commit_data_release(hwc_window);
+
+   /* send frame event enlightenment doesn't send frame event in nocomp */
+   if (hwc_window->ec)
+     e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
 _e_output_hwc_windows_commit(E_Output *output)
 {
    E_Output_Hwc_Window *hwc_window = NULL;
@@ -1818,7 +1861,7 @@ _e_output_hwc_windows_commit(E_Output *output)
         if (e_output_hwc_window_is_target(hwc_window)) fb_commit = EINA_TRUE;
 
         if (output->dpms == E_OUTPUT_DPMS_OFF)
-          e_output_hwc_window_offscreen_commit(hwc_window);
+          _e_output_hwc_windows_offscreen_commit(output, hwc_window);
      }
 
    if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
@@ -1831,7 +1874,7 @@ _e_output_hwc_windows_commit(E_Output *output)
 
    EINA_LIST_FOREACH(output->output_hwc->hwc_windows, l, hwc_window)
      {
-        if (e_output_hwc_window_prepare_commit(hwc_window))
+        if (_e_output_hwc_windows_prepare_commit(output, hwc_window))
           need_tdm_commit = 1;
 
         // TODO: to be fixed. check fps of fb_target currently.
