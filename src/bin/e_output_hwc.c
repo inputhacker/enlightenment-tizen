@@ -150,7 +150,7 @@ _opt_hwc_get_name_of_wnd_state(E_Output_Hwc_Window_State hwc_window_state)
     switch (hwc_window_state)
     {
      case E_OUTPUT_HWC_WINDOW_STATE_NONE:
-       return "SKIP";
+       return "NONE";
 
      case E_OUTPUT_HWC_WINDOW_STATE_CLIENT:
        return "CLIENT";
