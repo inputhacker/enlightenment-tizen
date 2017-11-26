@@ -193,11 +193,14 @@ _opt_hwc_print_wnds_state(const Eina_List *wnds)
          if (hwc_window->is_excluded) continue;
 
          if (e_output_hwc_window_is_target(hwc_window))
-           INF("hwc-opt:   ew:%p -- target_hwc_window, type:%d", hwc_window, hwc_window->type);
+           ELOGF("HWC-OPT", "ew:%p -- target_hwc_window, type:%d",
+                 NULL, NULL, hwc_window, hwc_window->type);
          else
-           INF("hwc-opt:   ew:%p -- ec:%p {name:%16s}, state:%s, deleted:%s, zpos:%d",
-                   hwc_window, hwc_window->ec, hwc_window->ec->icccm.name, _opt_hwc_get_name_of_wnd_state(hwc_window->state),
-                   hwc_window->is_deleted ? "yes" : "no", hwc_window->zpos);
+           ELOGF("HWC-OPT", "ew:%p -- {name:%16s}, state:%s, deleted:%s, zpos:%d",
+                 hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+                 hwc_window, hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
+                 _opt_hwc_get_name_of_wnd_state(hwc_window->state),
+                 hwc_window->is_deleted ? "yes" : "no", hwc_window->zpos);
       }
 
     eina_list_free(sort_wnds);
@@ -286,7 +289,7 @@ _opt_hwc_hwc_prepare(E_Output *eo, Eina_List *cl_list)
         return EINA_FALSE;
      }
 
-   INF("hwc-opt: hwc_windows state before validate:");
+   ELOGF("HWC-OPT", "hwc_windows state before validate:", NULL, NULL);
    _opt_hwc_print_wnds_state(hwc_windows);
 
    /* make hwc extension choose which clients will own hw overlays */
@@ -303,7 +306,7 @@ _opt_hwc_hwc_prepare(E_Output *eo, Eina_List *cl_list)
         tdm_hwc_window **changed_hwc_window = NULL;
         tdm_hwc_window_composition *composition_types = NULL;
 
-        INF("hwc-opt: hwc extension required to change composition types.");
+        ELOGF("HWC-OPT", "hwc extension required to change composition types.", NULL, NULL);
 
         changed_hwc_window = E_NEW(tdm_hwc_window *, num_changes);
         EINA_SAFETY_ON_NULL_RETURN_VAL(changed_hwc_window, EINA_FALSE);
@@ -361,7 +364,7 @@ _opt_hwc_hwc_prepare(E_Output *eo, Eina_List *cl_list)
      {
         E_Output_Hwc_Window_Target *target_hwc_window;
 
-        INF("hwc-opt: hybrid composition");
+        ELOGF("HWC-OPT", "hybrid composition", NULL, NULL);
 
         target_hwc_window = _e_output_hwc_window_get_target_hwc_window(eo);
         if (!target_hwc_window)
@@ -382,7 +385,7 @@ _opt_hwc_hwc_prepare(E_Output *eo, Eina_List *cl_list)
          * considered like if we set a CLIENT composition type for the hwc_window */
      }
    else
-     INF("hwc-opt: full hw composition");
+     ELOGF("HWC-OPT", "full hw composition", NULL, NULL);
 
    if (prev_comp_mode != comp_mode)
      {
@@ -394,7 +397,7 @@ _opt_hwc_hwc_prepare(E_Output *eo, Eina_List *cl_list)
         prev_comp_mode = comp_mode;
      }
 
-   INF("hwc-opt: hwc_windows state after validate:");
+   ELOGF("HWC-OPT", "hwc_windows state after validate:", NULL, NULL);
    _opt_hwc_print_wnds_state(hwc_windows);
 
    EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
@@ -439,7 +442,7 @@ _e_output_hwc_window_target_render(E_Output *output, E_Output_Hwc_Window_Target 
 static void
 _tdm_output_need_validate_handler(tdm_output *output)
 {
-   INF("hwc-opt: backend asked to make the revalidation.");
+   ELOGF("HWC-OPT", "backend asked to make the revalidation.", NULL, NULL);
 
    /* TODO: I'm not sure should we keep this function at all, 'cause now it's not
     * necessary - revalidate (reevaluate) will be scheduled any way (within idle_enterer),
@@ -524,15 +527,15 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list)
    E_Client *ec, *ec_inner;
    E_Output_Hwc_Window *hwc_window = NULL;
 
-   INF("hwc-opt: filter e_clients by wm.");
+   ELOGF("HWC-OPT", "filter e_clients by wm", NULL, NULL);
 
    /* let's hope for the best... */
    EINA_LIST_FOREACH(vis_cl_list, l, ec)
      {
         hwc_window = ec->hwc_window;
         hwc_window->hwc_acceptable = EINA_TRUE;
-        INF("hwc-opt: ec:%p (name:%s, title:%s) is gonna be hwc_acceptable.",
-            ec, ec->icccm.name, ec->icccm.title);
+        ELOGF("HWC-OPT", "(name:%s, title:%s) is gonna be hwc_acceptable.",
+              ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
      }
 
    EINA_LIST_FOREACH(vis_cl_list, l, ec)
@@ -544,8 +547,8 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list)
           {
              hwc_window = ec->hwc_window;
              hwc_window->hwc_acceptable = EINA_FALSE;
-             INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable (nocomp_override > 0).",
-                                  ec, ec->icccm.name, ec->icccm.title);
+             ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable (nocomp_override > 0).",
+                   ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
           }
 
         // if ec->frame is not for client buffer (e.g. launchscreen)
@@ -561,8 +564,8 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list)
                {
                   hwc_window = ec_inner->hwc_window;
                   hwc_window->hwc_acceptable = EINA_FALSE;
-                  INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable (UI subsurface).",
-                          ec_inner, ec_inner->icccm.name, ec_inner->icccm.title);
+                  ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable (UI subsurface).",
+                        ec_inner->pixmap, ec_inner, ec_inner->icccm.name, ec_inner->icccm.title);
                }
           }
 
@@ -571,8 +574,8 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list)
           {
              hwc_window = ec->hwc_window;
              hwc_window->hwc_acceptable = EINA_FALSE;
-             INF("hwc-opt: prevent ec:%p (name:%s, title:%s) to be hwc_acceptable.",
-                     ec, ec->icccm.name, ec->icccm.title);
+             ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable.",
+                   ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
           }
 
         // listup as many as possible from the top most visible order
@@ -592,11 +595,11 @@ _e_output_hwc_re_evaluate(E_Output_Hwc *output_hwc)
    E_Output *output = output_hwc->output;
    tdm_error err;
 
-   INF("hwc-opt: we have something which causes to reevaluate 'E_Output_Hwc_Window to hw_layer' mapping.");
+   ELOGF("HWC-OPT", "we have something which causes to reevaluate 'E_Output_Hwc_Window to hw_layer' mapping.", NULL, NULL);
 
    vis_clist = _e_output_hwc_vis_ec_list_get(output_hwc);
 
-   INF("hwc-opt: number of visible clients:%d.", eina_list_count(vis_clist));
+   ELOGF("HWC-OPT", "number of visible clients:%d.", NULL, NULL, eina_list_count(vis_clist));
 
    /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
    hwc_ok_clist = _e_comp_filter_cl_by_wm(vis_clist);
@@ -1421,7 +1424,8 @@ e_output_hwc_new(E_Output *output)
         /* get backend a shot to ask us for the revalidation */
         error = tdm_output_hwc_set_need_validate_handler(output->toutput, _tdm_output_need_validate_handler);
         EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, fail);
-        INF("hwc-opt: register a need_validate_handler for the eo:%p.", output);
+
+        ELOGF("HWC-OPT", "register a need_validate_handler for the eo:%p.", NULL, NULL, output);
 
         if (!e_output_hwc_window_init(output_hwc))
           {
@@ -1594,7 +1598,7 @@ e_output_hwc_commit(E_Output_Hwc *output_hwc)
 
    if (!_can_commit(output))
      {
-        INF("fail to _can_commit.");
+        ELOGF("HWC-OPT", "Prevent by _can_commit.", NULL, NULL);
         return EINA_FALSE;
      }
 

@@ -85,10 +85,11 @@ _new_buffer_is_acquired_from_evas_renderer_queue(E_Output_Hwc_Window_Target *tar
 
              hwc_window->need_unset_cc_type = EINA_TRUE;
 
-             INF("hwc-opt: the composition buffer with ec:%p {name:%s} will be displayed"
-                 "in the next frame.",
-                 hwc_window->ec, hwc_window->ec ? hwc_window->ec->icccm.name : "none");
-          }
+             ELOGF("HWC-OPT", "the composition buffer with {name:%s} will be displayed"
+                   "in the next frame.",
+                   hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+                   hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN");
+        }
      }
 }
 
@@ -189,7 +190,7 @@ _e_output_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    /* set the hwc window to the e client */
    ec->hwc_window = hwc_window;
 
-   INF("E_Output_Hwc_Window: new window(%p)", hwc_window);
+   ELOGF("HWC-OPT", "E_Output_Hwc_Window: new window(%p)", ec->pixmap, ec, hwc_window);
 
    return;
 }
@@ -216,7 +217,7 @@ _e_output_hwc_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
 
    if (!ec->hwc_window) return;
 
-   INF("E_Output_Hwc_Window: free hwc_window(%p)", ec->hwc_window);
+   ELOGF("HWC-OPT", "E_Output_Hwc_Window: free hwc_window(%p)", ec->pixmap, ec, ec->hwc_window);
 
    e_output_hwc_window_free(ec->hwc_window);
    ec->hwc_window = NULL;
@@ -269,7 +270,7 @@ _e_output_hwc_window_client_cb_zone_set(void *data, int type, void *event)
    /* set the hwc window to the e client */
    ec->hwc_window = hwc_window;
 
-   INF("E_Output_Hwc_Window: output is changed for ec(%p)", ec);
+   ELOGF("HWC-OPT", "E_Output_Hwc_Window: output is changed for hwc_window(%p)", ec->pixmap, ec, hwc_window);
 
 end:
    return ECORE_CALLBACK_PASS_ON;
@@ -288,7 +289,7 @@ _e_output_hwc_window_target_queue_acquirable_cb(tbm_surface_queue_h surface_queu
     uint64_t value = 1;
     int ret;
 
-    INF("hwc-opt: evas_renderer enqueued a new buffer into the queue");
+    ELOGF("HWC-OPT", "evas_renderer enqueued a new buffer into the queue", NULL, NULL);
 
     ret = write(target_hwc_window->event_fd, &value, sizeof(value));
     if (ret == -1)
@@ -321,8 +322,8 @@ _evas_renderer_queue_has_new_composited_buffer(void *data)
 
    target_hwc_window->render_cnt++;
 
-   INF("hwc-opt: evas_renderer has a new buffer in the queue, renderer_cnt:%llu",
-           target_hwc_window->render_cnt);
+   ELOGF("HWC-OPT", "evas_renderer has a new buffer in the queue, renderer_cnt:%llu",
+         NULL, NULL, target_hwc_window->render_cnt);
 
    enqueued_surface_num = _get_enqueued_surface_num(target_hwc_window->queue);
    EINA_LIST_FOREACH(e_output_hwc_windows_get(((E_Output_Hwc_Window *)target_hwc_window)->output->output_hwc), l, hwc_window)
@@ -339,9 +340,9 @@ _evas_renderer_queue_has_new_composited_buffer(void *data)
                     {
                        hwc_window->delay = enqueued_surface_num - 1;
 
-                       INF("hwc-opt: the composition for ec:%p {name:%s} is done,"
-                           "but render queue has %d buffers before",
-                            hwc_window->ec, hwc_window->ec ? hwc_window->ec->icccm.name : "none",
+                       ELOGF("HWC-OPT", "the composition for {name:%s} is done, but render queue has %d buffers before",
+                            hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+                            hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
                             hwc_window->delay);
 
                        continue;
@@ -351,8 +352,9 @@ _evas_renderer_queue_has_new_composited_buffer(void *data)
 
                   hwc_window->need_unset_cc_type = EINA_TRUE;
 
-                  INF("hwc-opt: the composition for ec:%p {name:%s} is done.",
-                          hwc_window->ec, hwc_window->ec ? hwc_window->ec->icccm.name : "none");
+                  ELOGF("HWC-OPT", "the composition for {name:%s} is done.",
+                        hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+                        hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN");
                }
           }
      }
@@ -366,7 +368,7 @@ _evas_renderer_finished_composition_cb(void *data, Ecore_Fd_Handler *fd_handler)
    int fd;
    char buffer[64];
 
-   INF("hwc-opt: ecore_main_loop: the new iteration.");
+   ELOGF("HWC-OPT", "ecore_main_loop: the new iteration.", NULL, NULL);
 
    fd = ecore_main_fd_handler_fd_get(fd_handler);
    len = read(fd, buffer, sizeof(buffer));
@@ -617,7 +619,9 @@ e_output_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec)
 
    output_hwc->hwc_windows = eina_list_append(output_hwc->hwc_windows, hwc_window);
 
-   INF("E_Output_Hwc_Window: hwc_window(%p), output(%p)", hwc_window, output_hwc->output);
+   ELOGF("HWC-OPT", "E_Output_Hwc_Window: hwc_window(%p), output(%p)",
+         hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
+         hwc_window, output_hwc->output);
 
    return hwc_window;
 }
@@ -707,8 +711,10 @@ e_output_hwc_window_update(E_Output_Hwc_Window *hwc_window)
          * extension to allow it does its work, so we set the TDM_COMPOSITION_CLIENT type */
         if (hwc_window->need_unset_cc_type)
           {
-             INF("hwc-opt: ew:%p -- ec%p {name:%s} - buffer's been composited, inform hwc-extension.",
-                     hwc_window, hwc_window->ec, hwc_window->ec->icccm.name);
+
+             ELOGF("HWC-OPT", "ew:%p -- {name:%s} - buffer's been composited, inform hwc-extension.",
+                   hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
+                   hwc_window, hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN");
 
              /* reset for the next DEVICE -> CLIENT_CANDIDATE transition */
              hwc_window->got_composited = EINA_FALSE;
@@ -844,7 +850,8 @@ e_output_hwc_window_fetch(E_Output_Hwc_Window *hwc_window)
 
    if (!tsurface)
      {
-        INF("fail to fetch hwc_window");
+        ELOGF("HWC-OPT", "fail to fetch hwc_window",
+              hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec);
         return EINA_FALSE;
      }
 
@@ -859,14 +866,17 @@ e_output_hwc_window_fetch(E_Output_Hwc_Window *hwc_window)
         memset(&fb_damage, 0, sizeof(fb_damage));
 
         tdm_output_hwc_set_client_target_buffer(output->toutput, tsurface, fb_damage);
-        INF("hwc-opt: set surface:%p on the fb_target.", tsurface);
+        ELOGF("HWC-OPT", "set surface:%p on the fb_target",
+              hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, tsurface);
      }
    else
      {
         tdm_hwc_window_set_buffer(hwc_window->hwc_wnd, tsurface);
-        INF("hwc-opt: set surface:%p (ec:%p, title:%s, name:%s) on the hwc_wnd:%p.",
-                tsurface, hwc_window->ec, hwc_window->ec->icccm.title, hwc_window->ec->icccm.name,
-                hwc_window->hwc_wnd);
+        ELOGF("HWC-OPT", "set surface:%p (title:%s, name:%s) on the hwc_wnd:%p.",
+              hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
+              tsurface, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+              hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
+              hwc_window->hwc_wnd);
      }
 
    hwc_window->update_exist = EINA_TRUE;
@@ -898,12 +908,14 @@ e_output_hwc_window_unfetch(E_Output_Hwc_Window *hwc_window)
         memset(&fb_damage, 0, sizeof(fb_damage));
 
         tdm_output_hwc_set_client_target_buffer(output->toutput, hwc_window->tsurface, fb_damage);
-        INF("hwc-opt: (unfetch) set surface:%p on the fb_target.", hwc_window->tsurface);
+        ELOGF("HWC-OPT", "(unfetch) set surface:%p on the fb_target.",
+              hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window->tsurface);
      }
    else
      {
         tdm_hwc_window_set_buffer(hwc_window->hwc_wnd, hwc_window->tsurface);
-        INF("hwc-opt: (unfetch) set surface:%p on the hwc_wnd:%p.", hwc_window->tsurface, hwc_window->hwc_wnd);
+        ELOGF("HWC-OPT", "(unfetch) set surface:%p on the hwc_wnd:%p.",
+              hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window->tsurface, hwc_window->hwc_wnd);
      }
 
    hwc_window->update_exist = EINA_FALSE;
@@ -1227,9 +1239,11 @@ e_output_hwc_window_get_notified_about_need_unset_cc_type(E_Output_Hwc_Window *h
    hwc_window->get_notified_about_need_unset_cc_type = EINA_TRUE;
    hwc_window->frame_num = e_output_hwc_window_target_get_current_renderer_cnt(target_hwc_window) + offset + 1;
 
-   INF("hwc-opt: ew:%p -- ec:%p {name:%s} asked to be notified about a %llu composited frame will be displayed in the next frame,"
-           " current render_cnt:%llu, delay:%llu.", hwc_window, hwc_window->ec, hwc_window->ec ? hwc_window->ec->icccm.name : "none",
-                    hwc_window->frame_num, target_hwc_window->render_cnt, offset);
+   ELOGF("HWC-OPT", "ew:%p -- {name:%s} asked to be notified about a %llu composited frame will be displayed in the next frame,"
+         " current render_cnt:%llu, delay:%llu.",
+         hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
+         hwc_window, hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
+         hwc_window->frame_num, target_hwc_window->render_cnt, offset);
 
    return EINA_TRUE;
 }
