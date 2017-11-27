@@ -2457,9 +2457,9 @@ e_output_commit(E_Output *output)
 
    if (e_output_hwc_opt_hwc_enabled(output->output_hwc))
      {
-        if (!_e_output_planes_commit(output))
+        if (!e_output_hwc_commit(output->output_hwc))
           {
-             ERR("fail _e_output_planes_commit");
+             ERR("fail e_output_hwc_commit");
              return EINA_FALSE;
           }
      }
@@ -2467,7 +2467,7 @@ e_output_commit(E_Output *output)
      {
         if (output == output_primary)
           {
-             if (!_e_output_commit(output))
+             if (!_e_output_planes_commit(output))
                {
                    ERR("fail to _e_output_commit.");
                    return EINA_FALSE;
