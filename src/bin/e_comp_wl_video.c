@@ -2205,7 +2205,6 @@ _e_video_set(E_Video *video, E_Client *ec)
              EINA_SAFETY_ON_NULL_RETURN(video->e_output);
 
              ec->comp_data->video_client = 1;
-             ec->comp_data->block_map_apply = EINA_TRUE;
 
              return;
           }
@@ -2236,7 +2235,6 @@ _e_video_set(E_Video *video, E_Client *ec)
         /* If tdm offers video layers, we will assign a tdm layer when showing */
         VIN("video client");
         ec->comp_data->video_client = 1;
-        ec->comp_data->block_map_apply = EINA_TRUE;
      }
    else
      {
@@ -2247,13 +2245,15 @@ _e_video_set(E_Video *video, E_Client *ec)
           {
              VIN("video client");
              ec->comp_data->video_client = 1;
-             ec->comp_data->block_map_apply = EINA_TRUE;
+             if (e_output_hwc_opt_hwc_enabled(video->e_output->output_hwc))
+               ec->comp_data->block_map_apply = EINA_TRUE;
           }
         else
           {
              VIN("no video client");
              ec->comp_data->video_client = 0;
-             ec->comp_data->block_map_apply = EINA_FALSE;
+             if (e_output_hwc_opt_hwc_enabled(video->e_output->output_hwc))
+               ec->comp_data->block_map_apply = EINA_FALSE;
              ec->animatable = 0;
           }
      }
@@ -2264,7 +2264,6 @@ _e_video_set(E_Video *video, E_Client *ec)
 
         VIN("show video to primary layer");
         ec->comp_data->video_client = 0;
-        ec->comp_data->block_map_apply = EINA_FALSE;
         ec->animatable = 0;
 
         if (e_output_hwc_opt_hwc_enabled(video->e_output->output_hwc))
@@ -2273,6 +2272,8 @@ _e_video_set(E_Video *video, E_Client *ec)
 
              if (hwc_window)
                hwc_window->is_video = EINA_FALSE;
+
+             ec->comp_data->block_map_apply = EINA_FALSE;
           }
      }
 
