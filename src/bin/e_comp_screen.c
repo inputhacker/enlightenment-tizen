@@ -1163,6 +1163,8 @@ e_comp_screen_setup(E_Comp_Screen *e_comp_screen)
              ERR("fail to e_output_setup.");
              continue;
           }
+
+        INF("Enlightenment succeeded to initialize e_output_setup()!\n");
      }
 
    return EINA_TRUE;
