@@ -664,7 +664,7 @@ _release_undisplayed_vbuf(E_Video *video)
 }
 
 static void
-_e_video_map_update(E_Client *ec, int width_from_buffer, int height_from_buffer,
+_e_video_opt_hwc_map_update(E_Client *ec, int width_from_buffer, int height_from_buffer,
                     Eina_Bool pp_buffer)
 {
    int x , y, w, h;
@@ -765,7 +765,7 @@ e_video_prepare_hwc_window_to_compositing(E_Output_Hwc_Window *hwc_window)
    e_pixmap_refresh(ec->pixmap);
 
    /* TODO: update map only if the geometry is changed */
-   _e_video_map_update(video->ec,
+   _e_video_opt_hwc_map_update(video->ec,
                        tbm_surface_get_width(tsurface),
                        tbm_surface_get_height(tsurface), pp_buffer);
 
