@@ -515,6 +515,33 @@ _e_output_hwc_vis_ec_list_get(E_Output_Hwc *output_hwc)
    return ec_list;
 }
 
+static Eina_Bool
+_opt_hwc_normal_subsurface_has(E_Client *ec)
+{
+   E_Client *subc;
+   Eina_List *l;
+
+   if (!ec) return EINA_FALSE;
+   if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
+   if (!ec->comp_data) return EINA_FALSE;
+
+   /* if a leaf client is not video client or is not on hw overlay */
+   if (ec->comp_data->sub.data && !ec->comp_data->sub.below_list &&
+       !ec->comp_data->sub.below_list_pending &&
+       (!e_hwc_window_is_video(ec->hwc_window) || !e_hwc_window_is_on_hw_overlay(ec->hwc_window)))
+     return EINA_TRUE;
+
+   EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
+     if (e_comp_wl_normal_subsurface_has(subc))
+        return EINA_TRUE;
+
+   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
+     if (e_comp_wl_normal_subsurface_has(subc))
+        return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
 /* TODO: no-opt hwc has to be forced to use this function too... */
 
 /* filter visible clients by the hwc_window manager
@@ -572,7 +599,7 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list)
         if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE ||
 
             // if there is UI subfrace, it means need to composite
-            e_client_normal_client_has(ec))
+            _opt_hwc_normal_subsurface_has(ec))
           {
              /* we have to let hwc know about ALL clients(buffers) in case we're using
               * optimized hwc, that's why it can be called optimized :), but also we have to provide

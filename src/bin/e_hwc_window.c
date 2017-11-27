@@ -1138,7 +1138,6 @@ e_hwc_window_activate(E_Hwc_Window *hwc_window)
    {
       hwc_window->activation_state = E_HWC_WINDOW_ACTIVATION_STATE_ACTIVATED;
 
-      hwc_window->ec->comp_data->video_is_on_hw_layer = EINA_TRUE;
       /* to try set the video UI on hw layer */
       e_comp_render_queue();
 
@@ -1178,7 +1177,6 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
       e_video_prepare_hwc_window_to_compositing(hwc_window);
 
       hwc_window->activation_state = E_HWC_WINDOW_ACTIVATION_STATE_DEACTIVATED;
-      hwc_window->ec->comp_data->video_is_on_hw_layer = EINA_FALSE;
 
       return EINA_TRUE;
    }

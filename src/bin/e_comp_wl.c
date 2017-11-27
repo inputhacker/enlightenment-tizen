@@ -319,7 +319,7 @@ e_comp_wl_normal_subsurface_has(E_Client *ec)
 
    /* if a leaf client is not video cliet */
    if (ec->comp_data->sub.data && !ec->comp_data->sub.below_list &&
-       !ec->comp_data->sub.below_list_pending && !ec->comp_data->video_is_on_hw_layer)
+       !ec->comp_data->sub.below_list_pending && !ec->comp_data->video_client)
      return EINA_TRUE;
 
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
