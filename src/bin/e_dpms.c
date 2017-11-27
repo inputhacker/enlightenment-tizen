@@ -41,7 +41,10 @@ _e_dpms_set_cb(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
         else val = E_OUTPUT_DPMS_OFF;
 
         if (e_output_dpms_set(output, val))
-          DBG("set DPMS");
+          {
+             DBG("set DPMS");
+             result = 0;
+          }
      }
 
    eldbus_message_arguments_append(reply, "i", result);

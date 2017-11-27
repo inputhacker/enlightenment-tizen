@@ -355,10 +355,8 @@ _e_comp_object_cb_mirror_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj 
      evas_object_smart_callback_call(cw->smart_obj, "visibility_force", cw->ec);
    cw->force_visible++;
 
-#ifdef ENABLE_HWC_MULTI
    if (e_comp->hwc && !e_comp_is_on_overlay(cw->ec))
      e_comp_hwc_end(__FUNCTION__);
-#endif
 }
 
 static void

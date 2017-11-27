@@ -1599,7 +1599,7 @@ _e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotat
 }
 
 static void
-_e_output_tdm_strem_capture_support(E_Output *output)
+_e_output_tdm_stream_capture_support(E_Output *output)
 {
    tdm_error error = TDM_ERROR_NONE;
    tdm_capture_capability capabilities;
@@ -1813,7 +1813,7 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
 
    output->e_comp_screen = e_comp_screen;
 
-   _e_output_tdm_strem_capture_support(output);
+   _e_output_tdm_stream_capture_support(output);
 
    error = tdm_output_get_capabilities(toutput, &output_caps);
    if (error != TDM_ERROR_NONE)
@@ -2709,9 +2709,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
    ep = e_output_fb_target_get(output);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
 
-#ifdef ENABLE_HWC_MULTI
    e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_FALSE);
-#endif
 
    output->zoom_conf.zoomx = zoomx;
    output->zoom_conf.zoomy = zoomy;
@@ -2728,9 +2726,8 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
    if (!e_plane_zoom_set(ep, &output->zoom_conf.rect))
      {
         ERR("e_plane_zoom_set failed.");
-#ifdef ENABLE_HWC_MULTI
         e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
-#endif
+
         return EINA_FALSE;
      }
 
@@ -2789,9 +2786,7 @@ e_output_zoom_unset(E_Output *output)
 
    output->zoom_set = EINA_FALSE;
 
-#ifdef ENABLE_HWC_MULTI
    e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
-#endif
 
    /* update the ecore_evas */
    _e_output_render_update(output);
@@ -3094,17 +3089,14 @@ e_output_external_set(E_Output *output, E_Output_Ext_State state)
 
    _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
 
-#ifdef ENABLE_HWC_MULTI
    e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_FALSE);
-#endif
 
    ep->output_primary = output_primary;
    if (!e_plane_external_set(ep, &output->zoom_conf.rect, state))
      {
         ERR("e_plane_mirror_set failed.");
-#ifdef ENABLE_HWC_MULTI
         e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
-#endif
+
         return EINA_FALSE;
      }
 
@@ -3146,9 +3138,7 @@ e_output_external_unset(E_Output *output)
    output->zoom_conf.rect.w = 0;
    output->zoom_conf.rect.h = 0;
 
-#ifdef ENABLE_HWC_MULTI
    e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
-#endif
 
    /* update the ecore_evas */
    _e_output_render_update(output_primary);

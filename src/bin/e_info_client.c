@@ -2761,7 +2761,6 @@ _e_info_client_proc_output_mode(int argc, char **argv)
    return;
 }
 
-#ifdef ENABLE_HWC_MULTI
 static void
 _e_info_client_proc_hwc_trace(int argc, char **argv)
 {
@@ -3013,41 +3012,6 @@ fps_layer_done:
      }
    while (1);
 }
-#else
-static void
-_cb_fps_info_get(const Eldbus_Message *msg)
-{
-   const char *name = NULL, *text = NULL;
-   Eina_Bool res;
-   const char *fps;
-
-   res = eldbus_message_error_get(msg, &name, &text);
-   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
-
-   res = eldbus_message_arguments_get(msg, "s", &fps);
-   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
-   if (strcmp(fps, "no_update"))
-        printf("%s\n", fps);
-
-finish:
-   if ((name) || (text ))
-     {
-        printf("errname:%s errmsg:%s\n", name, text);
-     }
-}
-
-static void
-_e_info_client_proc_fps_info(int argc, char **argv)
-{
-   do
-     {
-        if (!_e_info_client_eldbus_message("get_fps_info", _cb_fps_info_get))
-          return;
-        usleep(500000);
-     }
-   while (1);
-}
-#endif
 
 static void
 _e_info_client_proc_effect_control(int argc, char **argv)
@@ -4293,7 +4257,6 @@ static struct
       "Get output mode info",
       _e_info_client_proc_output_mode
    },
-#ifdef ENABLE_HWC_MULTI
    {
       "hwc_trace",
       "[off: 0, on: 1, info:2]",
@@ -4323,13 +4286,6 @@ static struct
       "Print FPS in every sec per layer",
       _e_info_client_proc_fps_layer_info
    },
-#else
-   {
-      "fps", NULL,
-      "Print FPS in every sec",
-      _e_info_client_proc_fps_info
-   },
-#endif
    {
       "keymap", NULL,
       "Print a current keymap",

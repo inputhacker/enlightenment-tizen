@@ -484,7 +484,7 @@ static tdm_error
 _e_video_layer_get_info(E_Video_Layer *layer, E_Video_Info_Layer *vinfo)
 {
    tdm_error ret = TDM_ERROR_NONE;
-   tdm_info_layer tinfo;
+   tdm_info_layer tinfo = {0};
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_INVALID_PARAMETER);
    EINA_SAFETY_ON_NULL_RETURN_VAL(vinfo, TDM_ERROR_INVALID_PARAMETER);
@@ -508,6 +508,7 @@ static tdm_error
 _e_video_layer_set_info(E_Video_Layer *layer, E_Video_Info_Layer *vinfo)
 {
    tdm_error ret;
+   tdm_info_layer info_layer = {0};
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_INVALID_PARAMETER);
    EINA_SAFETY_ON_NULL_RETURN_VAL(vinfo, TDM_ERROR_INVALID_PARAMETER);
@@ -535,7 +536,6 @@ _e_video_layer_set_info(E_Video_Layer *layer, E_Video_Info_Layer *vinfo)
      }
    else
      {
-        tdm_info_layer info_layer = {0};
 
         memcpy(&info_layer.src_config, &vinfo->src_config, sizeof(tdm_info_config));
         memcpy(&info_layer.dst_pos, &vinfo->dst_pos, sizeof(tdm_pos));
@@ -2123,7 +2123,7 @@ _e_video_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
 
         if (video->tdm_mute_id != -1)
           {
-    	     Tdm_Prop_Value prop = {.id = video->tdm_mute_id, .value.u32 = 1};
+             Tdm_Prop_Value prop = {.id = video->tdm_mute_id, .value.u32 = 1};
              VIN("video surface hide. mute on (ec:%p)", video->ec);
              _e_video_layer_set_property(video->layer, &prop);
           }
@@ -3110,8 +3110,8 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
    // if set layer call property
    else
      {
-	   Tdm_Prop_Value prop = {.id = id, .value.u32 = value};
-	   VIN("set layer: call property(%s), value(%d)", name, value);
+        Tdm_Prop_Value prop = {.id = id, .value.u32 = value};
+        VIN("set layer: call property(%s), value(%d)", name, value);
         _e_video_layer_set_property(video->layer, &prop);
      }
 }
