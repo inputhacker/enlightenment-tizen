@@ -1690,7 +1690,7 @@ _e_output_external_commit(E_Output *output)
 }
 
 static Eina_Bool
-_e_output_commit(E_Output *output)
+_e_output_planes_commit(E_Output *output)
 {
    E_Plane *plane = NULL, *fb_target = NULL;
    Eina_List *l;
@@ -2427,9 +2427,9 @@ e_output_commit(E_Output *output)
 
    if (output == output_primary)
      {
-        if (!_e_output_commit(output))
+        if (!_e_output_planes_commit(output))
           {
-             ERR("fail _e_output_commit");
+             ERR("fail _e_output_planes_commit");
              return EINA_FALSE;
           }
      }
