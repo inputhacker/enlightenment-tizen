@@ -558,7 +558,16 @@ _e_comp_filter_cl_by_wm(Eina_List *vis_cl_list)
              ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable (nocomp_override > 0).",
                    ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
           }
-
+//TODO: we have to find what to do in this case.??
+//      we have to set the nocomp_override in this case below...(quickpanel case...)
+#if 0
+        // if there is a ec which is lower than quickpanel and quickpanel is opened.
+        if (E_POLICY_QUICKPANEL_LAYER >= evas_object_layer_get(ec->frame))
+          {
+             // check whether quickpanel is open than break
+             if (e_qp_visible_get()) goto done;
+          }
+#endif
         // if ec->frame is not for client buffer (e.g. launchscreen)
         if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE ||
 
