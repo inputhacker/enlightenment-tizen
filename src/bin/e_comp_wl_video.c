@@ -386,6 +386,8 @@ _e_video_avaiable_video_layer_get(E_Video *video)
 
         hwc_window->is_video = 1;
 
+        video->ec->hwc_window = hwc_window;
+
         return layer;
      }
 
