@@ -1,4 +1,5 @@
 #include "e.h"
+#include "services/e_service_quickpanel.h"
 
 static Eina_Bool
 _e_output_hwc_ec_check(E_Client *ec)
@@ -389,9 +390,16 @@ _e_output_hwc_planes_prepare(E_Output_Hwc *output_hwc, E_Zone *zone)
    vis_clist = e_comp_vis_ec_list_get(zone);
    if (!vis_clist) return EINA_FALSE;
 
+   // check clients not able to use hwc
    EINA_LIST_FOREACH(vis_clist, vl, ec)
      {
-        // check clients not able to use hwc
+        // if there is a ec which is lower than quickpanel and quickpanel is opened.
+        if (E_POLICY_QUICKPANEL_LAYER >= evas_object_layer_get(ec->frame))
+          {
+             // check whether quickpanel is open than break
+             if (e_qp_visible_get()) goto done;
+          }
+
         // if ec->frame is not for client buffer (e.g. launchscreen)
         if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
            goto done;
