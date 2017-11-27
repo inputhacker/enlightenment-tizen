@@ -135,6 +135,10 @@ _opt_hwc_update_e_hwc_windows_state(E_Output *output, const Eina_List *hwc_windo
              e_output_hwc_window_set_state(hwc_window, E_OUTPUT_HWC_WINDOW_STATE_VIDEO);
              break;
 
+           case TDM_COMPOSITION_DEVICE_CANDIDATE:
+             e_output_hwc_window_set_state(hwc_window, E_OUTPUT_HWC_WINDOW_STATE_DEVICE_CANDIDATE);
+             break;
+
            default:
              e_output_hwc_window_set_state(hwc_window, E_OUTPUT_HWC_WINDOW_STATE_NONE);
              ERR("hwc-opt: unknown state of hwc_window.");
@@ -163,6 +167,9 @@ _opt_hwc_get_name_of_wnd_state(E_Output_Hwc_Window_State hwc_window_state)
 
      case E_OUTPUT_HWC_WINDOW_STATE_VIDEO:
        return "VIDEO";
+
+     case E_OUTPUT_HWC_WINDOW_STATE_DEVICE_CANDIDATE:
+       return "DEVICE_CANDIDATE";
 
      default:
        return "UNKNOWN";
