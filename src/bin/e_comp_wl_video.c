@@ -328,7 +328,7 @@ static Eina_Bool
 _e_video_tdm_output_has_video_layer(tdm_output *output)
 {
    tdm_layer *layer;
-   tdm_layer_capability lyr_capabilities;
+   tdm_layer_capability lyr_capabilities = 0;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
@@ -400,35 +400,6 @@ _e_video_avaiable_video_layer_get(E_Video *video)
    return layer;
 }
 
-static int
-_e_video_get_prop_id(E_Video *video, const char *name)
-{
-   tdm_layer *layer;
-   const tdm_prop *props;
-   int i, count;
-
-   /* hwc windows don't have any properties yet */
-   if (e_output_hwc_opt_hwc_enabled(video->e_output->output_hwc))
-     {
-	      return -1;
-     }
-
-   layer = _e_video_tdm_video_layer_get(video->output);
-   tdm_layer_get_available_properties(layer, &props, &count);
-
-   for (i = 0; i < count; i++)
-     {
-        if (!strncmp(name, props[i].name, TDM_NAME_LEN))
-          {
-             VDB("check property(%s)", name);
-             return props[i].id;
-          }
-     }
-
-   return -1;
-}
-
-
 /* this function is called on the start work with client while the video interface is bind */
 static void
 _e_video_get_available_formats(const tbm_format **formats, int *count)
@@ -458,13 +429,41 @@ _e_video_get_available_formats(const tbm_format **formats, int *count)
    layer = _e_video_tdm_video_layer_get(output);
    if (layer)
      {
-	      tdm_layer_get_available_formats(layer, formats, count);
+        tdm_layer_get_available_formats(layer, formats, count);
      }
    else
      {
         *formats = sw_formats;
         *count = NUM_SW_FORMAT;
      }
+}
+
+static int
+_e_video_get_prop_id(E_Video *video, const char *name)
+{
+   tdm_layer *layer;
+   const tdm_prop *props;
+   int i, count = 0;
+
+   /* hwc windows don't have any properties yet */
+   if (e_output_hwc_opt_hwc_enabled(video->e_output->output_hwc))
+     {
+	      return -1;
+     }
+
+   layer = _e_video_tdm_video_layer_get(video->output);
+   tdm_layer_get_available_properties(layer, &props, &count);
+
+   for (i = 0; i < count; i++)
+     {
+        if (!strncmp(name, props[i].name, TDM_NAME_LEN))
+          {
+             VDB("check property(%s)", name);
+             return props[i].id;
+          }
+     }
+
+   return -1;
 }
 
 /* we're not sure that a video client is within some 'zone' so we can't rely on this
@@ -880,7 +879,7 @@ _e_video_layer_destroy(E_Video_Layer *layer)
      }
 
    if (layer->tdm_layer)
-	   _e_video_tdm_set_layer_usable(layer->tdm_layer, EINA_TRUE);
+     _e_video_tdm_set_layer_usable(layer->tdm_layer, EINA_TRUE);
 
    free(layer);
 }
@@ -891,7 +890,6 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
    if (!set)
      {
         unsigned int usable = 1;
-
         if (!video->layer) return EINA_TRUE;
 
         if (!e_output_hwc_opt_hwc_enabled(video->e_output->output_hwc))
@@ -904,7 +902,6 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
                   _e_video_layer_commit(video->layer, NULL, NULL);
                }
           }
-
         VIN("release layer: %p", video->layer);
         _e_video_layer_destroy(video->layer);
         video->layer = NULL;
@@ -2078,7 +2075,7 @@ _e_video_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
 
         if (video->tdm_mute_id != -1)
           {
-     	     Tdm_Prop_Value prop = {.id = video->tdm_mute_id, .value.u32 = 0};
+             Tdm_Prop_Value prop = {.id = video->tdm_mute_id, .value.u32 = 0};
              VIN("video surface show. mute off (ec:%p)", video->ec);
              _e_video_layer_set_property(video->layer, &prop);
           }
@@ -2169,6 +2166,7 @@ _e_video_set(E_Video *video, E_Client *ec)
    int i, count = 0;
    tdm_display_capability disp_capabilities;
    const tdm_prop *props;
+   tdm_layer *layer;
 
    if (!video || !ec)
      return;
@@ -2340,7 +2338,7 @@ _e_video_set(E_Video *video, E_Client *ec)
    /*
     * How we can send layer properties to the wl_client when we don't know which layer will be used?
     */
-   tdm_layer *layer = _e_video_tdm_video_layer_get(video->output);
+   layer = _e_video_tdm_video_layer_get(video->output);
    tdm_layer_get_available_properties(layer, &props, &count);
    for (i = 0; i < count; i++)
      {

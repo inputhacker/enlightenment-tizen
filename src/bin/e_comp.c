@@ -673,7 +673,6 @@ E_API void
 e_comp_override_add()
 {
    e_comp->nocomp_override++;
-
    if (e_comp->nocomp_override > 0)
      {
         // go full GLES compositing
@@ -989,6 +988,7 @@ e_comp_zone_find(const char *output_id)
 
    return NULL;
 }
+
 
 E_API Eina_List *
 e_comp_vis_ec_list_get(E_Zone *zone)
