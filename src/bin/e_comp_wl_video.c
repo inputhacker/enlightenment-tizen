@@ -355,11 +355,11 @@ _e_video_avaiable_video_layer_get(E_Video *video)
    layer = calloc(1, sizeof(E_Video_Layer));
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
 
+   layer->e_client = video->ec;
+
    if (e_output_hwc_opt_hwc_enabled(video->e_output->output_hwc))
      {
         E_Hwc_Window *hwc_window;
-
-        layer->e_client = video->ec;
 
         hwc_window = video->ec->hwc_window;
 
@@ -720,7 +720,6 @@ _e_video_opt_hwc_map_update(E_Client *ec, int width_from_buffer, int height_from
      *vp = old_vp;
 }
 
-/* TODO: maybe it will be better prepare hwc_window to compositing in the _e_comp_cb_update()*/
 void
 e_video_prepare_hwc_window_to_compositing(E_Hwc_Window *hwc_window)
 {
@@ -794,7 +793,7 @@ _e_video_layer_commit(E_Video_Layer *layer, tdm_layer_commit_handler func, void 
         hwc_window = layer->e_client->hwc_window;
         EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, TDM_ERROR_OPERATION_FAILED);
 
-        if (hwc_window->is_excluded || hwc_window->type == TDM_COMPOSITION_CLIENT)
+        if (!e_hwc_window_is_on_hw_overlay(hwc_window))
           {
              /* send frame event enlightenment dosen't send frame evnet in nocomp */
              if (hwc_window->ec)
@@ -802,7 +801,8 @@ _e_video_layer_commit(E_Video_Layer *layer, tdm_layer_commit_handler func, void 
 
              if (!hwc_window->is_excluded)
                {
-                  e_video_prepare_hwc_window_to_compositing(hwc_window);
+                  e_comp_object_damage(hwc_window->ec->frame, 0, 0,
+                                       hwc_window->ec->w, hwc_window->ec->h);
 
                   return TDM_ERROR_NONE;
                }

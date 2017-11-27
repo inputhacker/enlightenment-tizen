@@ -5095,7 +5095,7 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
           }
         else
           {
-             if ((ec) && (ec->comp_data->video_client)  && !e_comp_is_ec_on_output_opt_hwc(ec))
+             if ((ec) && (ec->comp_data->video_client))
                {
                   buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
                   buffer->w = buffer->h = 1;
@@ -5147,7 +5147,7 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
                if (!tbm_surf)
                  goto err;
 
-               if ((ec) && (ec->comp_data->video_client) && !e_comp_is_ec_on_output_opt_hwc(ec))
+               if ((ec) && (ec->comp_data->video_client))
                  {
                     buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
                     buffer->w = buffer->h = 1;

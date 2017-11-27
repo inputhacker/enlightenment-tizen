@@ -228,7 +228,11 @@ _e_comp_cb_update(void)
         if (e_object_is_del(E_OBJECT(ec))) continue;
         if (e_comp->hwc && e_comp_is_on_overlay(ec)) continue;
 
-        if (ec->comp_data && ec->comp_data->video_client) continue;
+        if (ec->hwc_window && e_hwc_window_is_video(ec->hwc_window))
+          {
+             e_video_prepare_hwc_window_to_compositing(ec->hwc_window);
+             continue;
+          }
 
         /* update client */
         e_pixmap_size_get(ec->pixmap, &pw, &ph);

@@ -693,14 +693,20 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
    /* for video we update the geometry and buffer in the video module */
    if (e_hwc_window_is_video(hwc_window) && (e_hwc_window_get_state(hwc_window) != E_HWC_WINDOW_STATE_CLIENT_CANDIDATE))
      {
-        if (!hwc_window->tsurface)
+        if (!hwc_window->tsurface) {
+           error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_NONE);
+           EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+
+           hwc_window->type = TDM_COMPOSITION_NONE;
+
            hwc_window->is_excluded = EINA_TRUE;
+        } else {
+           /* we always try to display the video hwc_window on the hw layer */
+           error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_VIDEO);
+           EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
-        /* we always try to display the video hwc_window on the hw layer */
-        error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_VIDEO);
-        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
-
-        hwc_window->type = TDM_COMPOSITION_VIDEO;
+           hwc_window->type = TDM_COMPOSITION_VIDEO;
+        }
 
         return EINA_TRUE;
      }
