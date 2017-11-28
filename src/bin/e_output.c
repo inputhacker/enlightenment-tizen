@@ -1665,8 +1665,6 @@ _e_output_external_commit(E_Output *output)
 {
    E_Plane *plane = NULL;
 
-   if (output->external_pause) return EINA_TRUE;
-
    if (output->external_set)
      {
         /* external commit only primary */
@@ -3080,9 +3078,9 @@ e_output_external_set(E_Output *output, E_Output_Ext_State state)
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(output_primary == output, EINA_FALSE);
 
-   if (output->external_conf.state == state)
+   if (output->ext_state == state)
      return EINA_TRUE;
-   output->external_conf.state = state;
+   output->ext_state = state;
 
    ep = e_output_fb_target_get(output);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
@@ -3103,7 +3101,7 @@ e_output_external_set(E_Output *output, E_Output_Ext_State state)
         return EINA_FALSE;
      }
 
-   output->external_conf.state = state;
+   output->ext_state = state;
    output->external_set = EINA_TRUE;
 
    DBG("e_output_external_set done: output:%s, state:%d", output->id, state);
@@ -3126,11 +3124,11 @@ e_output_external_unset(E_Output *output)
    EINA_SAFETY_ON_NULL_RETURN(output_primary);
    EINA_SAFETY_ON_TRUE_RETURN(output_primary == output);
 
-   if (output->external_conf.state == E_OUTPUT_EXT_NONE)
+   if (output->ext_state == E_OUTPUT_EXT_NONE)
      return;
 
    output->external_set = EINA_FALSE;
-   output->external_conf.state = E_OUTPUT_EXT_NONE;
+   output->ext_state = E_OUTPUT_EXT_NONE;
 
    ep = e_output_fb_target_get(output);
    EINA_SAFETY_ON_NULL_RETURN(ep);

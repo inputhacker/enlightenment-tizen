@@ -122,12 +122,7 @@ struct _E_Output
 
    /* external */
    Eina_Bool            external_set;
-   Eina_Bool            external_pause;
-   struct
-   {
-      E_Output_Ext_State state;
-      E_Output_Ext_State current_state;
-   } external_conf;
+   E_Output_Ext_State   ext_state;
 };
 
 enum _E_Output_Hook_Point
