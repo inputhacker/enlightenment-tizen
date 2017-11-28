@@ -957,9 +957,10 @@ e_comp_is_on_overlay(E_Client *ec)
 
    if (e_comp_is_ec_on_output_opt_hwc(ec))
      {
-        E_Hwc_Window *window = e_output_hwc_windows_window_find(eout->output_hwc, ec);
-        if (e_hwc_window_is_on_hw_overlay(window))
-           return EINA_TRUE;
+        E_Hwc_Window *hwc_window = ec->hwc_window;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+        if (e_hwc_window_is_on_hw_overlay(hwc_window)) return EINA_TRUE;
      }
    else
      {

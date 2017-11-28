@@ -1655,20 +1655,3 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
 
    return EINA_TRUE;
 }
-
-EINTERN E_Hwc_Window *
-e_output_hwc_windows_window_find(E_Output_Hwc *output_hwc, E_Client *ec)
-{
-   Eina_List *l;
-   E_Hwc_Window *hwc_window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
-
-   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
-     {
-        if (hwc_window->ec == ec) return hwc_window;
-     }
-
-   return NULL;
-}

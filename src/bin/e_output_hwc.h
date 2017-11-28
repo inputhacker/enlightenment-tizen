@@ -50,7 +50,5 @@ EINTERN const Eina_List   *e_output_hwc_windows_get(E_Output_Hwc *output_hwc);
 EINTERN Eina_Bool          e_output_hwc_windows_render(E_Output_Hwc *output_hwc);
 EINTERN Eina_Bool          e_output_hwc_windows_commit(E_Output_Hwc *output_hwc);
 
-EINTERN E_Hwc_Window      *e_output_hwc_windows_window_find(E_Output_Hwc *output_hwc, E_Client *ec);
-
 #endif
 #endif
