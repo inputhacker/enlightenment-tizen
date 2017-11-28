@@ -6,7 +6,7 @@ typedef struct _E_Comp_Connected_Client_Info E_Comp_Connected_Client_Info;
 
 # define E_COMP_TYPE (int) 0xE0b01003
 
-# define E_LAYER_COUNT 28
+# define E_LAYER_COUNT 31
 # define E_CLIENT_LAYER_COUNT 19
 
 typedef enum _E_Layer
@@ -36,6 +36,9 @@ typedef enum _E_Layer
    E_LAYER_CLIENT_CURSOR = 990,
    E_LAYER_POPUP = 999, // popups
    E_LAYER_EFFECT = 1999,
+   E_LAYER_DESK_OBJECT_BELOW = 3000,
+   E_LAYER_DESK_OBJECT = 3100,
+   E_LAYER_DESK_OBJECT_ABOVE = 3200,
    E_LAYER_MENU = 5000, // menus
    E_LAYER_DESKLOCK = 9999, // desklock
    E_LAYER_MAX = 32767 // EVAS_LAYER_MAX

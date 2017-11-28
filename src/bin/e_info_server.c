@@ -1567,6 +1567,9 @@ _e_comp_layer_idx_get(const char *layer_name)
    if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_CURSOR))              return E_LAYER_CLIENT_CURSOR;
    if (!_check_layer_idx(layer_name, E_LAYER_POPUP))                      return E_LAYER_POPUP;
    if (!_check_layer_idx(layer_name, E_LAYER_EFFECT))                     return E_LAYER_EFFECT;
+   if (!_check_layer_idx(layer_name, E_LAYER_DESK_OBJECT_BELOW))          return E_LAYER_DESK_OBJECT_BELOW;
+   if (!_check_layer_idx(layer_name, E_LAYER_DESK_OBJECT))                return E_LAYER_DESK_OBJECT;
+   if (!_check_layer_idx(layer_name, E_LAYER_DESK_OBJECT_ABOVE))          return E_LAYER_DESK_OBJECT_ABOVE;
    if (!_check_layer_idx(layer_name, E_LAYER_MENU))                       return E_LAYER_MENU;
    if (!_check_layer_idx(layer_name, E_LAYER_DESKLOCK))                   return E_LAYER_DESKLOCK;
    if (!_check_layer_idx(layer_name, E_LAYER_MAX))                        return E_LAYER_MAX;

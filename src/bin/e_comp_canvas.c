@@ -576,9 +576,12 @@ e_comp_canvas_layer_map_to(unsigned int layer)
       case 22: return E_LAYER_CLIENT_CURSOR;
       case 23: return E_LAYER_POPUP;
       case 24: return E_LAYER_EFFECT;
-      case 25: return E_LAYER_MENU;
-      case 26: return E_LAYER_DESKLOCK;
-      case 27: return E_LAYER_MAX;
+      case 25: return E_LAYER_DESK_OBJECT_BELOW;
+      case 26: return E_LAYER_DESK_OBJECT;
+      case 27: return E_LAYER_DESK_OBJECT_ABOVE;
+      case 28: return E_LAYER_MENU;
+      case 29: return E_LAYER_DESKLOCK;
+      case 30: return E_LAYER_MAX;
       default: break;
      }
    return -INT_MAX;
@@ -614,9 +617,12 @@ e_comp_canvas_layer_map(E_Layer layer)
       case E_LAYER_CLIENT_CURSOR: return 22;
       case E_LAYER_POPUP: return 23;
       case E_LAYER_EFFECT: return 24;
-      case E_LAYER_MENU: return 25;
-      case E_LAYER_DESKLOCK: return 26;
-      case E_LAYER_MAX: return 27;
+      case E_LAYER_DESK_OBJECT_BELOW: return 25;
+      case E_LAYER_DESK_OBJECT: return 26;
+      case E_LAYER_DESK_OBJECT_ABOVE: return 27;
+      case E_LAYER_MENU: return 28;
+      case E_LAYER_DESKLOCK: return 29;
+      case E_LAYER_MAX: return 30;
       default: break;
      }
 
