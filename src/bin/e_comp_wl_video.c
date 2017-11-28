@@ -49,6 +49,8 @@ struct _E_Video_Info_Layer
 /* the new TDM API doesn't have layers, so we have to invent layer here*/
 struct _E_Video_Layer
 {
+   E_Video *video;
+
    tdm_layer *tdm_layer;
 };
 
@@ -490,6 +492,38 @@ _e_video_layer_get_displaying_buffer(E_Video_Layer *layer, int *tdm_error)
      *tdm_error = TDM_ERROR_OPERATION_FAILED;
 
    return tdm_layer_get_displaying_buffer(layer->tdm_layer, tdm_error);
+}
+
+static tdm_error
+_e_video_layer_get_available_properties(E_Video_Layer * layer, const tdm_prop **props,
+    int *count)
+{
+  tdm_error ret = TDM_ERROR_OPERATION_FAILED;
+
+  EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
+  EINA_SAFETY_ON_NULL_RETURN_VAL(props, TDM_ERROR_BAD_REQUEST);
+  EINA_SAFETY_ON_NULL_RETURN_VAL(count, TDM_ERROR_BAD_REQUEST);
+
+  tdm_layer *tlayer = layer->tdm_layer;
+  /* if layer wasn't set then get an any available tdm_layer */
+  if (tlayer == NULL)
+    tlayer = _e_video_tdm_avaiable_video_layer_get(layer->video->output);
+  ret = tdm_layer_get_available_properties(tlayer, props, count);
+
+  return ret;
+}
+
+static tdm_error
+_e_video_layer_get_property(E_Video_Layer * layer, unsigned id, tdm_value *value)
+{
+  tdm_error ret;
+
+  EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
+  EINA_SAFETY_ON_NULL_RETURN_VAL(value, TDM_ERROR_BAD_REQUEST);
+
+  ret = tdm_layer_get_property(layer->tdm_layer, id, value);
+
+  return ret;
 }
 
 static tdm_error
@@ -1761,7 +1795,6 @@ _e_video_set(E_Video *video, E_Client *ec)
    int i, count = 0;
    tdm_display_capability disp_capabilities;
    const tdm_prop *props;
-   tdm_layer *layer;
 
    if (!video || !ec)
      return;
@@ -1907,12 +1940,11 @@ _e_video_set(E_Video *video, E_Client *ec)
             video->output_align, video->pp_align, video->video_align);
      }
 
-   layer = _e_video_tdm_video_layer_get(video->output);
-   tdm_layer_get_available_properties(layer, &props, &count);
+   _e_video_layer_get_available_properties(video->layer, &props, &count);
    for (i = 0; i < count; i++)
      {
         tdm_value value;
-        tdm_layer_get_property(layer, props[i].id, &value);
+        _e_video_layer_get_property(video->layer, props[i].id, &value);
         tizen_video_object_send_attribute(video->video_object, props[i].name, value.u32);
 
         if (!strncmp(props[i].name, "mute", TDM_NAME_LEN))
