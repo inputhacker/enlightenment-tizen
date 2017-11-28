@@ -76,7 +76,7 @@ _e_policy_softkey_icon_add(E_Zone *zone, const char *name)
 
    /* use TYPE_NONE to disable shadow for softkey object */
    comp_obj = e_comp_object_util_add(obj, E_COMP_OBJECT_TYPE_NONE);
-   evas_object_layer_set(comp_obj, E_LAYER_POPUP);
+   evas_object_layer_set(comp_obj, E_LAYER_DESK_OBJECT_ABOVE);
 
    evas_object_data_set(comp_obj, "policy_mobile_obj", obj);
 

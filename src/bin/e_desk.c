@@ -1229,7 +1229,7 @@ _e_desk_smart_add(Evas_Object *obj)
    E_LIST_HANDLER_APPEND(priv->handlers, E_EVENT_CLIENT_RESIZE, _e_desk_smart_client_cb_resize, priv);
 
    /* FIXME hard coded, it will be laid upper than unpacked clients */
-   evas_object_layer_set(obj, EVAS_LAYER_MAX - 2);
+   evas_object_layer_set(obj, E_LAYER_DESK_OBJECT);
 
    _e_desk_parent_sc->add(obj);
 }
