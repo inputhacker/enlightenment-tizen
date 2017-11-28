@@ -480,17 +480,6 @@ fail:
    return NULL;
 }
 
-static Eina_Bool
-_e_hwc_window_set_redirected(E_Hwc_Window *hwc_window, Eina_Bool redirected)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->ec, EINA_FALSE);
-
-   e_client_redirected_set(hwc_window->ec, redirected);
-
-   return EINA_TRUE;
-}
-
 static void
 _e_hwc_window_recover_ec(E_Hwc_Window *hwc_window)
 {
@@ -1132,7 +1121,8 @@ e_hwc_window_activate(E_Hwc_Window *hwc_window)
    ec = hwc_window->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
 
-   _e_hwc_window_set_redirected(hwc_window, EINA_FALSE);
+   /* set the redirected to FALSE */
+   e_client_redirected_set(ec, EINA_FALSE);
 
    if (e_hwc_window_is_video(hwc_window))
    {
@@ -1170,7 +1160,8 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
    ec = hwc_window->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
 
-   _e_hwc_window_set_redirected(hwc_window, EINA_TRUE);
+   /* set the redirected to TRUE */
+   e_client_redirected_set(ec, EINA_TRUE);
 
    if (e_hwc_window_is_video(hwc_window))
    {
