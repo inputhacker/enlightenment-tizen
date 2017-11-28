@@ -1,740 +1,11 @@
 #include "e.h"
 #include "services/e_service_quickpanel.h"
 
-static Eina_Bool _e_output_hwc_ec_check(E_Client *ec);
-
-static Eina_Bool
-_opt_hwc_need_target_hwc_window(E_Output *eo)
-{
-   Eina_List *l;
-   E_Hwc_Window *hwc_window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eo->output_hwc, EINA_FALSE);
-
-   EINA_LIST_FOREACH(eo->output_hwc->hwc_windows, l, hwc_window)
-     {
-        if (hwc_window->is_excluded) continue;
-
-        if (e_hwc_window_is_target(hwc_window)) return EINA_TRUE;
-
-        if (!e_hwc_window_is_on_hw_overlay(hwc_window))
-          return EINA_TRUE;
-     }
-
-   return EINA_FALSE;
-}
-
-static E_Hwc_Window_Target *
-_e_hwc_window_get_target_hwc_window(E_Output *eout)
-{
-   return eout->output_hwc->target_hwc_window;
-}
-
-static Eina_Bool
-_exclude_all_hwc_windows(E_Output *eout)
-{
-   const Eina_List *hwc_windows, *l;
-   E_Hwc_Window *hwc_window = NULL;
-
-   hwc_windows = e_output_hwc_windows_get(eout->output_hwc);
-   EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
-     {
-        hwc_window->is_excluded = EINA_TRUE;
-        tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_NONE);
-     }
-
-   return EINA_TRUE;
-}
-
-static uint64_t
-_opt_hwc_get_evas_renderer_delay(tbm_surface_queue_h queue)
-{
-   tbm_surface_queue_error_e err;
-   int dequeue_num = 0;
-   int enqueue_num = 0;
-
-   err = tbm_surface_queue_get_trace_surface_num(queue, TBM_SURFACE_QUEUE_TRACE_DEQUEUE, &dequeue_num);
-   if (err != TBM_SURFACE_QUEUE_ERROR_NONE)
-     {
-        ERR("fail to tbm_surface_queue_get_trace_surface_num (TBM_SURFACE_QUEUE_TRACE_DEQUEUE)");
-        return 0;
-     }
-
-   err = tbm_surface_queue_get_trace_surface_num(queue, TBM_SURFACE_QUEUE_TRACE_ENQUEUE, &enqueue_num);
-   if (err != TBM_SURFACE_QUEUE_ERROR_NONE)
-     {
-        ERR("fail to tbm_surface_queue_get_trace_surface_num (TBM_SURFACE_QUEUE_TRACE_ENQUEUE)");
-        return 0;
-     }
-
-   return dequeue_num + enqueue_num;
-}
-
-static void
-_opt_hwc_get_notified_about_need_unset_cc_type(E_Output *output, const Eina_List *hwc_windows)
-{
-   const Eina_List *l;
-   E_Hwc_Window *hwc_window;
-   uint64_t delay;
-   E_Hwc_Window_Target *target_hwc_window = _e_hwc_window_get_target_hwc_window(output);
-
-   delay = _opt_hwc_get_evas_renderer_delay(target_hwc_window->queue);
-
-   EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
-     if (e_hwc_window_get_state(hwc_window) == E_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
-       if (!hwc_window->get_notified_about_need_unset_cc_type && !hwc_window->is_deleted)
-         e_hwc_window_get_notified_about_need_unset_cc_type(hwc_window, target_hwc_window, delay);
-
-}
-
-static Eina_Bool
-_opt_hwc_are_e_hwc_windows_with_client_candidate_state(const Eina_List *hwc_windows)
-{
-   const Eina_List *l;
-   E_Hwc_Window *hwc_window;
-
-   EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
-     if (e_hwc_window_get_state(hwc_window) == E_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
-       return EINA_TRUE;
-
-   return EINA_FALSE;
-}
-
-static Eina_Bool
-_opt_hwc_update_e_hwc_windows_state(E_Output *output, const Eina_List *hwc_windows)
-{
-   const Eina_List *l;
-   E_Hwc_Window *hwc_window;
-
-   EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
-     {
-        if (hwc_window->is_deleted) continue;
-        if (e_hwc_window_is_target(hwc_window)) continue;
-
-        /* if an e_client got invisible or is invisible already/yet */
-        if (hwc_window->is_excluded)
-          {
-             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_NONE);
-             continue;
-          }
-
-        switch (hwc_window->type)
-          {
-           case TDM_COMPOSITION_CLIENT:
-             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
-             break;
-
-           case TDM_COMPOSITION_DEVICE:
-             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
-             break;
-
-           case TDM_COMPOSITION_CLIENT_CANDIDATE:
-             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_CLIENT_CANDIDATE);
-             break;
-
-           case TDM_COMPOSITION_VIDEO:
-             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_VIDEO);
-             break;
-
-           case TDM_COMPOSITION_DEVICE_CANDIDATE:
-             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_DEVICE_CANDIDATE);
-             break;
-
-           default:
-             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_NONE);
-             ERR("hwc-opt: unknown state of hwc_window.");
-          }
-     }
-
-   return EINA_TRUE;
-}
-
-static const char*
-_opt_hwc_get_name_of_wnd_state(E_Hwc_Window_State hwc_window_state)
-{
-    switch (hwc_window_state)
-    {
-     case E_HWC_WINDOW_STATE_NONE:
-       return "NONE";
-
-     case E_HWC_WINDOW_STATE_CLIENT:
-       return "CLIENT";
-
-     case E_HWC_WINDOW_STATE_DEVICE:
-       return "DEVICE";
-
-     case E_HWC_WINDOW_STATE_CLIENT_CANDIDATE:
-       return "CLIENT_CANDIDATE";
-
-     case E_HWC_WINDOW_STATE_VIDEO:
-       return "VIDEO";
-
-     case E_HWC_WINDOW_STATE_DEVICE_CANDIDATE:
-       return "DEVICE_CANDIDATE";
-
-     default:
-       return "UNKNOWN";
-    }
-}
-
-static int
-_opt_hwc_sort_cb(const void *d1, const void *d2)
-{
-   E_Hwc_Window *hwc_window_1 = (E_Hwc_Window *)d1;
-   E_Hwc_Window *hwc_window_2 = (E_Hwc_Window *)d2;
-
-   return hwc_window_1->zpos > hwc_window_2->zpos;
-}
-
-static void
-_opt_hwc_print_wnds_state(const Eina_List *wnds)
-{
-    const Eina_List *l;
-    Eina_List *sort_wnds;
-    E_Hwc_Window *hwc_window;
-
-    sort_wnds = eina_list_clone(wnds);
-    sort_wnds = eina_list_sort(sort_wnds, eina_list_count(sort_wnds), _opt_hwc_sort_cb);
-
-    EINA_LIST_FOREACH(sort_wnds, l, hwc_window)
-      {
-         if (hwc_window->is_excluded) continue;
-
-         if (e_hwc_window_is_target(hwc_window))
-           ELOGF("HWC-OPT", "ew:%p -- target_hwc_window, type:%d",
-                 NULL, NULL, hwc_window, hwc_window->type);
-         else
-           ELOGF("HWC-OPT", "ew:%p -- {name:%16s}, state:%s, deleted:%s, zpos:%d",
-                 hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-                 hwc_window, hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
-                 _opt_hwc_get_name_of_wnd_state(hwc_window->state),
-                 hwc_window->is_deleted ? "yes" : "no", hwc_window->zpos);
-      }
-
-    eina_list_free(sort_wnds);
-}
-
-static E_Hwc_Window *
-_e_hwc_window_find_by_twin(E_Output_Hwc *output_hwc, tdm_hwc_window *hwc_win)
-{
-   Eina_List *l;
-   E_Hwc_Window *hwc_window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_win, NULL);
-
-   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
-     {
-        if (hwc_window->hwc_wnd == hwc_win) return hwc_window;
-     }
-
-   return NULL;
-}
-
 typedef enum
 {
    HWC_OPT_COMP_MODE_FULL_HWC,
    HWC_OPT_COMP_MODE_HYBRID,    /* either all hwc_windows or some are composited by sw compositor */
 } _hwc_opt_comp_mode;
-
-/* cl_list - list of e_clients that contains ALL visible e_clients for this
- * output ('eo')
- */
-static Eina_Bool
-_opt_hwc_hwc_prepare(E_Output *eo, Eina_List *cl_list)
-{
-   const Eina_List *l;
-   E_Client *ec;
-   uint32_t num_changes;
-   int zpos = 0;
-   E_Hwc_Window *hwc_window;
-   const Eina_List *hwc_windows;
-   Eina_Bool result;
-   tdm_error tdm_err;
-
-   /* sw compositor is turned on at the start */
-   static _hwc_opt_comp_mode prev_comp_mode = HWC_OPT_COMP_MODE_HYBRID;
-   _hwc_opt_comp_mode comp_mode;
-
-   /* clients are sorted in reverse order */
-   EINA_LIST_REVERSE_FOREACH(cl_list, l, ec)
-     {
-        hwc_window = ec->hwc_window;
-        if (!hwc_window)
-          {
-             ERR("hwc-opt: cannot find the hwc_window by ec(%p)", ec);
-             continue;
-          }
-
-        hwc_window->is_excluded = EINA_FALSE;
-        tdm_err = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_CLIENT);
-        if (tdm_err != TDM_ERROR_NONE)
-          {
-             ERR("fail to set CLIENT composition type for E_Hwc_Window(%p)", hwc_window);
-             continue;
-          }
-
-        result = e_hwc_window_set_zpos(hwc_window, zpos);
-        if (result != EINA_TRUE)
-          {
-             ERR("hwc-opt: cannot set zpos for E_Hwc_Window(%p)", hwc_window);
-             continue;
-          }
-
-        result = e_hwc_window_update(hwc_window);
-        if (result != EINA_TRUE)
-          {
-             ERR("hwc-opt: cannot update E_Hwc_Window(%p)", hwc_window);
-             continue;
-          }
-        zpos++;
-     }
-
-   hwc_windows = e_output_hwc_windows_get(eo->output_hwc);
-   if (!hwc_windows)
-     {
-        ERR("hwc-opt: cannot get list of hwc_windows for output(%p)", eo);
-        return EINA_FALSE;
-     }
-
-   ELOGF("HWC-OPT", "hwc_windows state before validate:", NULL, NULL);
-   _opt_hwc_print_wnds_state(hwc_windows);
-
-   /* make hwc extension choose which clients will own hw overlays */
-   tdm_err = tdm_output_hwc_validate(eo->toutput, &num_changes);
-   if (tdm_err != TDM_ERROR_NONE)
-     {
-        ERR("hwc-opt: failed to validate the output(%p)", eo->toutput);
-        return EINA_FALSE;
-     }
-
-   if (num_changes)
-     {
-        int i;
-        tdm_hwc_window **changed_hwc_window = NULL;
-        tdm_hwc_window_composition *composition_types = NULL;
-
-        ELOGF("HWC-OPT", "hwc extension required to change composition types.", NULL, NULL);
-
-        changed_hwc_window = E_NEW(tdm_hwc_window *, num_changes);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(changed_hwc_window, EINA_FALSE);
-
-        composition_types = E_NEW(tdm_hwc_window_composition, num_changes);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(composition_types, EINA_FALSE);
-
-        tdm_err = tdm_output_hwc_get_changed_composition_types(eo->toutput,
-                                              &num_changes, changed_hwc_window,
-                                              composition_types);
-        if (tdm_err != TDM_ERROR_NONE)
-          {
-             ERR("hwc-opt: failed to get changed composition types");
-             free(changed_hwc_window);
-             free(composition_types);
-             return EINA_FALSE;
-          }
-
-        for (i = 0; i < num_changes; ++i)
-          {
-             hwc_window = _e_hwc_window_find_by_twin(eo->output_hwc, changed_hwc_window[i]);
-             if (!hwc_window)
-               {
-                  ERR("hwc-opt: cannot find the E_Hwc_Window by hwc hwc_window");
-                  free(changed_hwc_window);
-                  free(composition_types);
-                  return EINA_FALSE;
-               }
-
-             hwc_window->type = composition_types[i];
-          }
-
-        free(changed_hwc_window);
-        free(composition_types);
-
-        tdm_err = tdm_output_hwc_accept_changes(eo->toutput);
-        if (tdm_err != TDM_ERROR_NONE)
-          {
-             ERR("hwc-opt: failed to accept changes required by the hwc extension");
-             return EINA_FALSE;
-          }
-     }
-
-   /* to keep a state of e_hwc_windows up to date we have to update their states
-    * according to the changes wm and/or hw made */
-   _opt_hwc_update_e_hwc_windows_state(eo, hwc_windows);
-
-   if (_opt_hwc_are_e_hwc_windows_with_client_candidate_state(hwc_windows))
-     _opt_hwc_get_notified_about_need_unset_cc_type(eo, hwc_windows);
-
-   comp_mode = _opt_hwc_need_target_hwc_window(eo) ?
-           HWC_OPT_COMP_MODE_HYBRID : HWC_OPT_COMP_MODE_FULL_HWC;
-
-   if (comp_mode == HWC_OPT_COMP_MODE_HYBRID)
-     {
-        E_Hwc_Window_Target *target_hwc_window;
-
-        ELOGF("HWC-OPT", "hybrid composition", NULL, NULL);
-
-        target_hwc_window = _e_hwc_window_get_target_hwc_window(eo);
-        if (!target_hwc_window)
-          {
-             ERR("hwc-opt: cannot get target hwc_window for output(%p)", eo);
-             return EINA_FALSE;
-          }
-
-        hwc_window = (E_Hwc_Window*)target_hwc_window;
-
-        hwc_window->is_excluded = EINA_FALSE;
-        /* don't change a composition type for the e_target_hwc_window here, 'cause
-         * such action makes us to call tdm_output_validate() again;
-         *
-         * a hwc_window owned by e_target_hwc_window object is the fake hwc_window,
-         * which is used only to force tdm provide us fb_target_window, so if got here
-         * it means that tdm decided to use fb_target_window yet, this choice can be
-         * considered like if we set a CLIENT composition type for the hwc_window */
-     }
-   else
-     ELOGF("HWC-OPT", "full hw composition", NULL, NULL);
-
-   if (prev_comp_mode != comp_mode)
-     {
-        if (comp_mode == HWC_OPT_COMP_MODE_FULL_HWC)
-           ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
-        else if(comp_mode == HWC_OPT_COMP_MODE_HYBRID)
-           ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
-
-        prev_comp_mode = comp_mode;
-     }
-
-   ELOGF("HWC-OPT", "hwc_windows state after validate:", NULL, NULL);
-   _opt_hwc_print_wnds_state(hwc_windows);
-
-   EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
-     {
-        if (hwc_window->is_deleted) continue;
-        if (e_hwc_window_is_target(hwc_window)) continue;
-
-        if (e_hwc_window_is_on_hw_overlay(hwc_window))
-          /* notify the hwc_window that it will be displayed on hw layer */
-          e_hwc_window_activate(hwc_window);
-        else
-          /* notify the hwc_window that it will be composite on the target buffer */
-          e_hwc_window_deactivate(hwc_window);
-      }
-
-     return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_hwc_window_target_render(E_Output *output, E_Hwc_Window_Target *target_hwc_window)
-{
-    if (target_hwc_window->hwc_window.is_excluded) return EINA_TRUE;
-
-    if (e_comp_canvas_norender_get() > 0)
-      {
-          return EINA_TRUE;
-      }
-
-   /* render the ecore_evas and
-      update_ee is to be true at post_render_cb when the render is successful. */
-   TRACE_DS_BEGIN(MANUAL RENDER);
-
-   if (e_hwc_window_target_surface_queue_can_dequeue(target_hwc_window) || !target_hwc_window->queue)
-     ecore_evas_manual_render(target_hwc_window->ee);
-
-   TRACE_DS_END();
-
-   return EINA_TRUE;
-}
-
-/* gets called at the beginning of an ecore_main_loop iteration */
-static void
-_tdm_output_need_validate_handler(tdm_output *output)
-{
-   ELOGF("HWC-OPT", "backend asked to make the revalidation.", NULL, NULL);
-
-   /* TODO: I'm not sure should we keep this function at all, 'cause now it's not
-    * necessary - revalidate (reevaluate) will be scheduled any way (within idle_enterer),
-    * so if 'reevaluation each idle_enterer' is what we want this function is useless
-    * (though to remove it we have to change TDM API too) */
-}
-
-static Eina_List *
-_e_output_hwc_vis_ec_list_get(E_Output_Hwc *output_hwc)
-{
-   Eina_List *ec_list = NULL;
-   E_Client  *ec;
-   Evas_Object *o;
-   Eina_Bool opt_hwc; // whether an output(zona) managed by opt-hwc
-
-   opt_hwc = e_output_hwc_opt_hwc_enabled(output_hwc);
-
-   // TODO: check if eout is available to use hwc policy
-   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
-     {
-        int x, y, w, h;
-        int scr_w, scr_h;
-
-        ec = evas_object_data_get(o, "E_Client");
-        if (!ec) continue;
-        if (e_object_is_del(E_OBJECT(ec))) continue;
-
-        if (opt_hwc)
-          {
-             /* skip all small clients except the video clients */
-             if ((ec->w == 1 || ec->h == 1) && !(ec->comp_data && ec->comp_data->video_client))
-               continue;
-          }
-
-        // check clients to skip composite
-        if (e_client_util_ignored_get(ec) || (!evas_object_visible_get(ec->frame)))
-          continue;
-
-        // check geometry if located out of screen such as quick panel
-        ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &scr_w, &scr_h);
-        if (!E_INTERSECTS(0, 0, scr_w, scr_h,
-                          ec->client.x, ec->client.y, ec->client.w, ec->client.h))
-          continue;
-
-        if (evas_object_data_get(ec->frame, "comp_skip"))
-          continue;
-
-        ec_list = eina_list_append(ec_list, ec);
-
-        // find full opaque win and excludes below wins from the visible list.
-        e_client_geometry_get(ec, &x, &y, &w, &h);
-        if (!E_CONTAINS(x, y, w, h,
-                        0, 0, scr_w, scr_h))
-           continue;
-
-        /* for hwc optimized we need full stack of visible hwc_windows */
-        if (!opt_hwc)
-          if (!ec->argb)
-            break;
-     }
-
-   return ec_list;
-}
-
-static Eina_Bool
-_opt_hwc_normal_subsurface_has(E_Client *ec)
-{
-   E_Client *subc;
-   Eina_List *l;
-
-   if (!ec) return EINA_FALSE;
-   if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
-   if (!ec->comp_data) return EINA_FALSE;
-
-   /* if a leaf client is not video client or is not on hw overlay */
-   if (ec->comp_data->sub.data && !ec->comp_data->sub.below_list &&
-       !ec->comp_data->sub.below_list_pending &&
-       (!e_hwc_window_is_video(ec->hwc_window) || !e_hwc_window_is_on_hw_overlay(ec->hwc_window)))
-     return EINA_TRUE;
-
-   EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
-     if (e_comp_wl_normal_subsurface_has(subc))
-        return EINA_TRUE;
-
-   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
-     if (e_comp_wl_normal_subsurface_has(subc))
-        return EINA_TRUE;
-
-   return EINA_FALSE;
-}
-
-/* TODO: no-opt hwc has to be forced to use this function too... */
-
-/* filter visible clients by the hwc_window manager
- *
- * returns list of clients which are acceptable to be composited by hw,
- * it's a caller responsibility to free it
- *
- * is_output_opt_hwc - whether clients are filtered for the output
- *                                managed by opt-hwc
- *
- * for optimized hwc the returned list contains ALL clients
- */
-static Eina_List *
-_e_comp_filter_cl_by_wm(Eina_List *vis_cl_list)
-{
-   Eina_List *hwc_acceptable_cl_list = NULL;
-   Eina_List *l, *l_inner;
-   E_Client *ec, *ec_inner;
-   E_Hwc_Window *hwc_window = NULL;
-
-   ELOGF("HWC-OPT", "filter e_clients by wm", NULL, NULL);
-
-   /* let's hope for the best... */
-   EINA_LIST_FOREACH(vis_cl_list, l, ec)
-     {
-        hwc_window = ec->hwc_window;
-        hwc_window->hwc_acceptable = EINA_TRUE;
-        ELOGF("HWC-OPT", "(name:%s, title:%s) is gonna be hwc_acceptable.",
-              ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
-     }
-
-   EINA_LIST_FOREACH(vis_cl_list, l, ec)
-     {
-        // check clients not able to use hwc
-
-        /* hwc_window manager required full GLES composition */
-        if (e_comp->nocomp_override > 0)
-          {
-             hwc_window = ec->hwc_window;
-             hwc_window->hwc_acceptable = EINA_FALSE;
-             ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable (nocomp_override > 0).",
-                   ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
-          }
-//TODO: we have to find what to do in this case.??
-//      we have to set the nocomp_override in this case below...(quickpanel case...)
-#if 0
-        // if there is a ec which is lower than quickpanel and quickpanel is opened.
-        if (E_POLICY_QUICKPANEL_LAYER >= evas_object_layer_get(ec->frame))
-          {
-             // check whether quickpanel is open than break
-             if (e_qp_visible_get()) goto done;
-          }
-#endif
-        // if ec->frame is not for client buffer (e.g. launchscreen)
-        if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE ||
-
-            // if there is UI subfrace, it means need to composite
-            _opt_hwc_normal_subsurface_has(ec))
-          {
-             /* we have to let hwc know about ALL clients(buffers) in case we're using
-              * optimized hwc, that's why it can be called optimized :), but also we have to provide
-              * the ability for wm to prevent some clients to be shown by hw directly */
-             EINA_LIST_FOREACH(vis_cl_list, l_inner, ec_inner)
-               {
-                  hwc_window = ec_inner->hwc_window;
-                  hwc_window->hwc_acceptable = EINA_FALSE;
-                  ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable (UI subsurface).",
-                        ec_inner->pixmap, ec_inner, ec_inner->icccm.name, ec_inner->icccm.title);
-               }
-          }
-
-        // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
-        if (!_e_output_hwc_ec_check(ec))
-          {
-             hwc_window = ec->hwc_window;
-             hwc_window->hwc_acceptable = EINA_FALSE;
-             ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable.",
-                   ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
-          }
-
-        // listup as many as possible from the top most visible order
-        hwc_acceptable_cl_list = eina_list_append(hwc_acceptable_cl_list, ec);
-     }
-
-   return hwc_acceptable_cl_list;
-}
-
-static Eina_Bool
-_e_output_hwc_re_evaluate(E_Output_Hwc *output_hwc)
-{
-   Eina_Bool ret = EINA_FALSE;
-   Eina_Bool result;
-   Eina_List *hwc_ok_clist = NULL, *vis_clist = NULL;
-   E_Hwc_Window_Target *target_hwc_window = NULL;
-   E_Output *output = output_hwc->output;
-   tdm_error err;
-
-   ELOGF("HWC-OPT", "we have something which causes to reevaluate 'E_Hwc_Window to hw_layer' mapping.", NULL, NULL);
-
-   vis_clist = _e_output_hwc_vis_ec_list_get(output_hwc);
-
-   ELOGF("HWC-OPT", "number of visible clients:%d.", NULL, NULL, eina_list_count(vis_clist));
-
-   /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
-   hwc_ok_clist = _e_comp_filter_cl_by_wm(vis_clist);
-
-   /* exclude all hwc_windows from being considered by hwc */
-   result = _exclude_all_hwc_windows(output);
-   EINA_SAFETY_ON_FALSE_GOTO(result, done);
-
-   /* if we don't have visible client we will enable target hwc_window */
-   if (!hwc_ok_clist)
-     {
-        E_Hwc_Window *hwc_window;
-
-        target_hwc_window = _e_hwc_window_get_target_hwc_window(output);
-        if (!target_hwc_window)
-          {
-             ERR("we don't have the target hwc_window");
-             goto done;
-          }
-
-        hwc_window = (E_Hwc_Window*)target_hwc_window;
-
-        hwc_window->is_excluded = EINA_FALSE;
-        err = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_CLIENT);
-        if (err != TDM_ERROR_NONE)
-          {
-             ERR("fail to set CLIENT composition type for target_window");
-             goto done;
-          }
-     }
-
-   ret = _opt_hwc_hwc_prepare(output, hwc_ok_clist);
-
-done:
-   eina_list_free(hwc_ok_clist);
-   eina_list_free(vis_clist);
-
-   return ret;
-}
-
-EINTERN Eina_Bool
-e_output_hwc_render(E_Output_Hwc *output_hwc)
-{
-   E_Output *output = output_hwc->output;
-   E_Hwc_Window_Target *target_hwc_window;
-
-   target_hwc_window = _e_hwc_window_get_target_hwc_window(output);
-   if (!target_hwc_window)
-     {
-        ERR("fail to get target hwc_window for output(%p).", output);
-        return EINA_FALSE;
-     }
-
-   if (!_e_hwc_window_target_render(output, target_hwc_window))
-     ERR("fail to render output(%p).", output);
-
-   return EINA_TRUE;
-}
-
-EINTERN E_Hwc_Window *
-e_output_hwc_find_hwc_window_by_ec(E_Output_Hwc *output_hwc, E_Client *ec)
-{
-   Eina_List *l;
-   E_Hwc_Window *hwc_window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
-
-   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
-     {
-        if (hwc_window->ec == ec) return hwc_window;
-     }
-
-   return NULL;
-}
-
-EINTERN Eina_Bool
-e_output_hwc_opt_hwc_enabled(E_Output_Hwc *output_hwc)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
-
-   return output_hwc->opt_hwc;
-}
-
-EINTERN const Eina_List *
-e_output_hwc_windows_get(E_Output_Hwc *output_hwc)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
-
-   return output_hwc->hwc_windows;
-}
 
 static Eina_Bool
 _e_output_hwc_ec_check(E_Client *ec)
@@ -795,6 +66,793 @@ _e_output_hwc_ec_check(E_Client *ec)
         if ((eout->config.rotation / 90) != transform)
           return EINA_FALSE;
      }
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_need_target_hwc_window(E_Output_Hwc *output_hwc)
+{
+   Eina_List *l;
+   E_Hwc_Window *hwc_window;
+
+   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
+     {
+        if (hwc_window->is_excluded) continue;
+
+        if (e_hwc_window_is_target(hwc_window)) return EINA_TRUE;
+
+        if (!e_hwc_window_is_on_hw_overlay(hwc_window))
+          return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
+static E_Hwc_Window_Target *
+_e_output_hwc_windows_get_target_hwc_window(E_Output *eout)
+{
+   return eout->output_hwc->target_hwc_window;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_exclude_all_hwc_windows(E_Output *eout)
+{
+   const Eina_List *hwc_windows, *l;
+   E_Hwc_Window *hwc_window = NULL;
+
+   hwc_windows = e_output_hwc_windows_get(eout->output_hwc);
+   EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
+     {
+        hwc_window->is_excluded = EINA_TRUE;
+        tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_NONE);
+     }
+
+   return EINA_TRUE;
+}
+
+static uint64_t
+_e_output_hwc_windows_get_evas_renderer_delay(tbm_surface_queue_h queue)
+{
+   tbm_surface_queue_error_e err;
+   int dequeue_num = 0;
+   int enqueue_num = 0;
+
+   err = tbm_surface_queue_get_trace_surface_num(queue, TBM_SURFACE_QUEUE_TRACE_DEQUEUE, &dequeue_num);
+   if (err != TBM_SURFACE_QUEUE_ERROR_NONE)
+     {
+        ERR("fail to tbm_surface_queue_get_trace_surface_num (TBM_SURFACE_QUEUE_TRACE_DEQUEUE)");
+        return 0;
+     }
+
+   err = tbm_surface_queue_get_trace_surface_num(queue, TBM_SURFACE_QUEUE_TRACE_ENQUEUE, &enqueue_num);
+   if (err != TBM_SURFACE_QUEUE_ERROR_NONE)
+     {
+        ERR("fail to tbm_surface_queue_get_trace_surface_num (TBM_SURFACE_QUEUE_TRACE_ENQUEUE)");
+        return 0;
+     }
+
+   return dequeue_num + enqueue_num;
+}
+
+static void
+_e_output_hwc_windows_get_notified_about_need_unset_cc_type(E_Output_Hwc *output_hwc)
+{
+   const Eina_List *l;
+   E_Hwc_Window *hwc_window;
+   uint64_t delay;
+   E_Hwc_Window_Target *target_hwc_window = output_hwc->target_hwc_window;
+
+   delay = _e_output_hwc_windows_get_evas_renderer_delay(target_hwc_window->queue);
+
+   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
+     if (e_hwc_window_get_state(hwc_window) == E_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
+       if (!hwc_window->get_notified_about_need_unset_cc_type && !hwc_window->is_deleted)
+         e_hwc_window_get_notified_about_need_unset_cc_type(hwc_window, target_hwc_window, delay);
+
+}
+
+static Eina_Bool
+_e_output_hwc_windows_candidate_state_check(E_Output_Hwc *output_hwc)
+{
+   const Eina_List *l;
+   E_Hwc_Window *hwc_window;
+
+   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
+     if (e_hwc_window_get_state(hwc_window) == E_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
+       return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_states_update(const Eina_List *hwc_windows)
+{
+   const Eina_List *l;
+   E_Hwc_Window *hwc_window;
+
+   EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
+     {
+        if (hwc_window->is_deleted) continue;
+        if (e_hwc_window_is_target(hwc_window)) continue;
+
+        /* if an e_client got invisible or is invisible already/yet */
+        if (hwc_window->is_excluded)
+          {
+             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             continue;
+          }
+
+        switch (hwc_window->type)
+          {
+           case TDM_COMPOSITION_CLIENT:
+             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
+             break;
+
+           case TDM_COMPOSITION_DEVICE:
+             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
+             break;
+
+           case TDM_COMPOSITION_CLIENT_CANDIDATE:
+             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_CLIENT_CANDIDATE);
+             break;
+
+           case TDM_COMPOSITION_VIDEO:
+             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_VIDEO);
+             break;
+
+           case TDM_COMPOSITION_DEVICE_CANDIDATE:
+             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_DEVICE_CANDIDATE);
+             break;
+
+           default:
+             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             ERR("hwc-opt: unknown state of hwc_window.");
+          }
+     }
+
+   return EINA_TRUE;
+}
+
+static const char*
+_e_output_hwc_windows_get_name_of_wnd_state(E_Hwc_Window_State hwc_window_state)
+{
+    switch (hwc_window_state)
+    {
+     case E_HWC_WINDOW_STATE_NONE:
+       return "NONE";
+
+     case E_HWC_WINDOW_STATE_CLIENT:
+       return "CLIENT";
+
+     case E_HWC_WINDOW_STATE_DEVICE:
+       return "DEVICE";
+
+     case E_HWC_WINDOW_STATE_CLIENT_CANDIDATE:
+       return "CLIENT_CANDIDATE";
+
+     case E_HWC_WINDOW_STATE_VIDEO:
+       return "VIDEO";
+
+     case E_HWC_WINDOW_STATE_DEVICE_CANDIDATE:
+       return "DEVICE_CANDIDATE";
+
+     default:
+       return "UNKNOWN";
+    }
+}
+
+static int
+_e_output_hwc_windows_sort_cb(const void *d1, const void *d2)
+{
+   E_Hwc_Window *hwc_window_1 = (E_Hwc_Window *)d1;
+   E_Hwc_Window *hwc_window_2 = (E_Hwc_Window *)d2;
+
+   return hwc_window_1->zpos > hwc_window_2->zpos;
+}
+
+static void
+_e_output_hwc_windows_print_wnds_state(E_Output_Hwc *output_hwc)
+{
+    const Eina_List *l;
+    Eina_List *sort_wnds;
+    E_Hwc_Window *hwc_window;
+
+    sort_wnds = eina_list_clone(output_hwc->hwc_windows);
+    sort_wnds = eina_list_sort(sort_wnds, eina_list_count(sort_wnds), _e_output_hwc_windows_sort_cb);
+
+    EINA_LIST_FOREACH(sort_wnds, l, hwc_window)
+      {
+         if (hwc_window->is_excluded) continue;
+
+         if (e_hwc_window_is_target(hwc_window))
+           ELOGF("HWC-OPT", "ew:%p -- target_hwc_window, type:%d",
+                 NULL, NULL, hwc_window, hwc_window->type);
+         else
+           ELOGF("HWC-OPT", "ew:%p -- {name:%16s}, state:%s, deleted:%s, zpos:%d",
+                 hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+                 hwc_window, hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
+                 _e_output_hwc_windows_get_name_of_wnd_state(hwc_window->state),
+                 hwc_window->is_deleted ? "yes" : "no", hwc_window->zpos);
+      }
+
+    eina_list_free(sort_wnds);
+}
+
+static E_Hwc_Window *
+_e_output_hwc_windows_window_find_by_twin(E_Output_Hwc *output_hwc, tdm_hwc_window *hwc_win)
+{
+   Eina_List *l;
+   E_Hwc_Window *hwc_window;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_win, NULL);
+
+   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
+     {
+        if (hwc_window->hwc_wnd == hwc_win) return hwc_window;
+     }
+
+   return NULL;
+}
+
+// cl_list - list of e_clients that contains ALL visible e_clients for this output ('eo')
+ static Eina_Bool
+_e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
+{
+   const Eina_List *l;
+   E_Client *ec;
+   uint32_t num_changes;
+   int zpos = 0;
+   E_Hwc_Window *hwc_window;
+   const Eina_List *hwc_windows;
+   Eina_Bool result;
+   tdm_error tdm_err;
+   E_Output *eo = output_hwc->output;
+   tdm_output *toutput = eo->toutput;
+
+   /* sw compositor is turned on at the start */
+   static _hwc_opt_comp_mode prev_comp_mode = HWC_OPT_COMP_MODE_HYBRID;
+   _hwc_opt_comp_mode comp_mode;
+
+   /* clients are sorted in reverse order */
+   EINA_LIST_REVERSE_FOREACH(cl_list, l, ec)
+     {
+        hwc_window = ec->hwc_window;
+        if (!hwc_window)
+          {
+             ERR("hwc-opt: cannot find the hwc_window by ec(%p)", ec);
+             continue;
+          }
+
+        hwc_window->is_excluded = EINA_FALSE;
+        tdm_err = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_CLIENT);
+        if (tdm_err != TDM_ERROR_NONE)
+          {
+             ERR("fail to set CLIENT composition type for E_Hwc_Window(%p)", hwc_window);
+             continue;
+          }
+
+        result = e_hwc_window_set_zpos(hwc_window, zpos);
+        if (result != EINA_TRUE)
+          {
+             ERR("hwc-opt: cannot set zpos for E_Hwc_Window(%p)", hwc_window);
+             continue;
+          }
+
+        result = e_hwc_window_update(hwc_window);
+        if (result != EINA_TRUE)
+          {
+             ERR("hwc-opt: cannot update E_Hwc_Window(%p)", hwc_window);
+             continue;
+          }
+        zpos++;
+     }
+
+   hwc_windows = e_output_hwc_windows_get(output_hwc);
+   if (!hwc_windows)
+     {
+        ERR("hwc-opt: cannot get list of hwc_windows for output(%p)", output_hwc->output);
+        return EINA_FALSE;
+     }
+
+   ELOGF("HWC-OPT", "hwc_windows state before validate:", NULL, NULL);
+   _e_output_hwc_windows_print_wnds_state(output_hwc);
+
+   /* make hwc extension choose which clients will own hw overlays */
+   tdm_err = tdm_output_hwc_validate(toutput, &num_changes);
+   if (tdm_err != TDM_ERROR_NONE)
+     {
+        ERR("hwc-opt: failed to validate the output(%p)", toutput);
+        return EINA_FALSE;
+     }
+
+   if (num_changes)
+     {
+        int i;
+        tdm_hwc_window **changed_hwc_window = NULL;
+        tdm_hwc_window_composition *composition_types = NULL;
+
+        ELOGF("HWC-OPT", "hwc extension required to change composition types.", NULL, NULL);
+
+        changed_hwc_window = E_NEW(tdm_hwc_window *, num_changes);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(changed_hwc_window, EINA_FALSE);
+
+        composition_types = E_NEW(tdm_hwc_window_composition, num_changes);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(composition_types, EINA_FALSE);
+
+        tdm_err = tdm_output_hwc_get_changed_composition_types(toutput,
+                                              &num_changes, changed_hwc_window,
+                                              composition_types);
+        if (tdm_err != TDM_ERROR_NONE)
+          {
+             ERR("hwc-opt: failed to get changed composition types");
+             free(changed_hwc_window);
+             free(composition_types);
+             return EINA_FALSE;
+          }
+
+        for (i = 0; i < num_changes; ++i)
+          {
+             hwc_window = _e_output_hwc_windows_window_find_by_twin(output_hwc, changed_hwc_window[i]);
+             if (!hwc_window)
+               {
+                  ERR("hwc-opt: cannot find the E_Hwc_Window by hwc hwc_window");
+                  free(changed_hwc_window);
+                  free(composition_types);
+                  return EINA_FALSE;
+               }
+
+             hwc_window->type = composition_types[i];
+          }
+
+        free(changed_hwc_window);
+        free(composition_types);
+
+        tdm_err = tdm_output_hwc_accept_changes(toutput);
+        if (tdm_err != TDM_ERROR_NONE)
+          {
+             ERR("hwc-opt: failed to accept changes required by the hwc extension");
+             return EINA_FALSE;
+          }
+     }
+
+   /* to keep a state of e_hwc_windows up to date we have to update their states
+    * according to the changes wm and/or hw made */
+   _e_output_hwc_windows_states_update(hwc_windows);
+
+   if (_e_output_hwc_windows_candidate_state_check(output_hwc))
+     _e_output_hwc_windows_get_notified_about_need_unset_cc_type(output_hwc);
+
+   comp_mode = _e_output_hwc_windows_need_target_hwc_window(output_hwc) ?
+           HWC_OPT_COMP_MODE_HYBRID : HWC_OPT_COMP_MODE_FULL_HWC;
+
+   if (comp_mode == HWC_OPT_COMP_MODE_HYBRID)
+     {
+        E_Hwc_Window_Target *target_hwc_window;
+
+        ELOGF("HWC-OPT", "hybrid composition", NULL, NULL);
+
+        target_hwc_window = output_hwc->target_hwc_window;
+        if (!target_hwc_window)
+          {
+             ERR("hwc-opt: cannot get target hwc_window for output(%p)", output_hwc->output);
+             return EINA_FALSE;
+          }
+
+        hwc_window = (E_Hwc_Window*)target_hwc_window;
+
+        hwc_window->is_excluded = EINA_FALSE;
+        /* don't change a composition type for the e_target_hwc_window here, 'cause
+         * such action makes us to call tdm_output_validate() again;
+         *
+         * a hwc_window owned by e_target_hwc_window object is the fake hwc_window,
+         * which is used only to force tdm provide us fb_target_window, so if got here
+         * it means that tdm decided to use fb_target_window yet, this choice can be
+         * considered like if we set a CLIENT composition type for the hwc_window */
+     }
+   else
+     ELOGF("HWC-OPT", "full hw composition", NULL, NULL);
+
+   if (prev_comp_mode != comp_mode)
+     {
+        if (comp_mode == HWC_OPT_COMP_MODE_FULL_HWC)
+           ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
+        else if(comp_mode == HWC_OPT_COMP_MODE_HYBRID)
+           ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+
+        prev_comp_mode = comp_mode;
+     }
+
+   ELOGF("HWC-OPT", "hwc_windows state after validate:", NULL, NULL);
+   _e_output_hwc_windows_print_wnds_state(output_hwc);
+
+   /* mark the active/deactive on hwc_window */
+   EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
+     {
+        if (hwc_window->is_deleted) continue;
+        if (e_hwc_window_is_target(hwc_window)) continue;
+
+        if (e_hwc_window_is_on_hw_overlay(hwc_window))
+          /* notify the hwc_window that it will be displayed on hw layer */
+          e_hwc_window_activate(hwc_window);
+        else
+          /* notify the hwc_window that it will be composite on the target buffer */
+          e_hwc_window_deactivate(hwc_window);
+      }
+
+     return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_target_window_render(E_Output *output, E_Hwc_Window_Target *target_hwc_window)
+{
+    if (target_hwc_window->hwc_window.is_excluded) return EINA_TRUE;
+
+    if (e_comp_canvas_norender_get() > 0)
+      {
+          return EINA_TRUE;
+      }
+
+   /* render the ecore_evas and
+      update_ee is to be true at post_render_cb when the render is successful. */
+   TRACE_DS_BEGIN(MANUAL RENDER);
+
+   if (e_hwc_window_target_surface_queue_can_dequeue(target_hwc_window) || !target_hwc_window->queue)
+     ecore_evas_manual_render(target_hwc_window->ee);
+
+   TRACE_DS_END();
+
+   return EINA_TRUE;
+}
+
+/* gets called at the beginning of an ecore_main_loop iteration */
+static void
+_e_output_hwc_windows_need_validate_handler(tdm_output *output)
+{
+   ELOGF("HWC-OPT", "backend asked to make the revalidation.", NULL, NULL);
+
+   /* TODO: I'm not sure should we keep this function at all, 'cause now it's not
+    * necessary - revalidate (reevaluate) will be scheduled any way (within idle_enterer),
+    * so if 'reevaluation each idle_enterer' is what we want this function is useless
+    * (though to remove it we have to change TDM API too) */
+}
+
+static Eina_List *
+_e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
+{
+   Eina_List *ec_list = NULL;
+   E_Client  *ec;
+   Evas_Object *o;
+   Eina_Bool opt_hwc; // whether an output(zona) managed by opt-hwc
+
+   opt_hwc = e_output_hwc_opt_hwc_enabled(output_hwc);
+
+   // TODO: check if eout is available to use hwc policy
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        int x, y, w, h;
+        int scr_w, scr_h;
+
+        ec = evas_object_data_get(o, "E_Client");
+        if (!ec) continue;
+        if (e_object_is_del(E_OBJECT(ec))) continue;
+
+        if (opt_hwc)
+          {
+             /* skip all small clients except the video clients */
+             if ((ec->w == 1 || ec->h == 1) && !(ec->comp_data && ec->comp_data->video_client))
+               continue;
+          }
+
+        // check clients to skip composite
+        if (e_client_util_ignored_get(ec) || (!evas_object_visible_get(ec->frame)))
+          continue;
+
+        // check geometry if located out of screen such as quick panel
+        ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &scr_w, &scr_h);
+        if (!E_INTERSECTS(0, 0, scr_w, scr_h,
+                          ec->client.x, ec->client.y, ec->client.w, ec->client.h))
+          continue;
+
+        if (evas_object_data_get(ec->frame, "comp_skip"))
+          continue;
+
+        ec_list = eina_list_append(ec_list, ec);
+
+        // find full opaque win and excludes below wins from the visible list.
+        e_client_geometry_get(ec, &x, &y, &w, &h);
+        if (!E_CONTAINS(x, y, w, h,
+                        0, 0, scr_w, scr_h))
+           continue;
+
+        /* for hwc optimized we need full stack of visible hwc_windows */
+        if (!opt_hwc)
+          if (!ec->argb)
+            break;
+     }
+
+   return ec_list;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_normal_subsurface_has(E_Client *ec)
+{
+   E_Client *subc;
+   Eina_List *l;
+
+   if (!ec) return EINA_FALSE;
+   if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
+   if (!ec->comp_data) return EINA_FALSE;
+
+   /* if a leaf client is not video client or is not on hw overlay */
+   if (ec->comp_data->sub.data && !ec->comp_data->sub.below_list &&
+       !ec->comp_data->sub.below_list_pending &&
+       (!e_hwc_window_is_video(ec->hwc_window) || !e_hwc_window_is_on_hw_overlay(ec->hwc_window)))
+     return EINA_TRUE;
+
+   EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
+     if (e_comp_wl_normal_subsurface_has(subc))
+        return EINA_TRUE;
+
+   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
+     if (e_comp_wl_normal_subsurface_has(subc))
+        return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+/* TODO: no-opt hwc has to be forced to use this function too... */
+
+/* filter visible clients by the hwc_window manager
+ *
+ * returns list of clients which are acceptable to be composited by hw,
+ * it's a caller responsibility to free it
+ *
+ * is_output_opt_hwc - whether clients are filtered for the output
+ *                                managed by opt-hwc
+ *
+ * for optimized hwc the returned list contains ALL clients
+ */
+static Eina_List *
+_e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
+{
+   Eina_List *hwc_acceptable_cl_list = NULL;
+   Eina_List *l, *l_inner;
+   E_Client *ec, *ec_inner;
+   E_Hwc_Window *hwc_window = NULL;
+
+   ELOGF("HWC-OPT", "filter e_clients by wm", NULL, NULL);
+
+   /* let's hope for the best... */
+   EINA_LIST_FOREACH(vis_cl_list, l, ec)
+     {
+        hwc_window = ec->hwc_window;
+        hwc_window->hwc_acceptable = EINA_TRUE;
+        ELOGF("HWC-OPT", "(name:%s, title:%s) is gonna be hwc_acceptable.",
+              ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+     }
+
+   EINA_LIST_FOREACH(vis_cl_list, l, ec)
+     {
+        // check clients not able to use hwc
+
+        /* hwc_window manager required full GLES composition */
+        if (e_comp->nocomp_override > 0)
+          {
+             hwc_window = ec->hwc_window;
+             hwc_window->hwc_acceptable = EINA_FALSE;
+             ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable (nocomp_override > 0).",
+                   ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+          }
+//TODO: we have to find what to do in this case.??
+//      we have to set the nocomp_override in this case below...(quickpanel case...)
+#if 0
+        // if there is a ec which is lower than quickpanel and quickpanel is opened.
+        if (E_POLICY_QUICKPANEL_LAYER >= evas_object_layer_get(ec->frame))
+          {
+             // check whether quickpanel is open than break
+             if (e_qp_visible_get()) goto done;
+          }
+#endif
+        // if ec->frame is not for client buffer (e.g. launchscreen)
+        if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE ||
+
+            // if there is UI subfrace, it means need to composite
+            _e_output_hwc_windows_normal_subsurface_has(ec))
+          {
+             /* we have to let hwc know about ALL clients(buffers) in case we're using
+              * optimized hwc, that's why it can be called optimized :), but also we have to provide
+              * the ability for wm to prevent some clients to be shown by hw directly */
+             EINA_LIST_FOREACH(vis_cl_list, l_inner, ec_inner)
+               {
+                  hwc_window = ec_inner->hwc_window;
+                  hwc_window->hwc_acceptable = EINA_FALSE;
+                  ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable (UI subsurface).",
+                        ec_inner->pixmap, ec_inner, ec_inner->icccm.name, ec_inner->icccm.title);
+               }
+          }
+
+        // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
+        if (!_e_output_hwc_ec_check(ec))
+          {
+             hwc_window = ec->hwc_window;
+             hwc_window->hwc_acceptable = EINA_FALSE;
+             ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable.",
+                   ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+          }
+
+        // listup as many as possible from the top most visible order
+        hwc_acceptable_cl_list = eina_list_append(hwc_acceptable_cl_list, ec);
+     }
+
+   return hwc_acceptable_cl_list;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
+{
+   Eina_Bool ret = EINA_FALSE;
+   Eina_Bool result;
+   Eina_List *hwc_ok_clist = NULL, *vis_clist = NULL;
+   E_Hwc_Window_Target *target_hwc_window = NULL;
+   E_Output *output = output_hwc->output;
+   tdm_error err;
+
+   ELOGF("HWC-OPT", "we have something which causes to reevaluate 'E_Hwc_Window to hw_layer' mapping.", NULL, NULL);
+
+   vis_clist = _e_output_hwc_windows_vis_ec_list_get(output_hwc);
+
+   ELOGF("HWC-OPT", "number of visible clients:%d.", NULL, NULL, eina_list_count(vis_clist));
+
+   /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
+   hwc_ok_clist = _e_output_hwc_windows_filter_cl_by_wm(vis_clist);
+
+   /* exclude all hwc_windows from being considered by hwc */
+   result = _e_output_hwc_windows_exclude_all_hwc_windows(output);
+   EINA_SAFETY_ON_FALSE_GOTO(result, done);
+
+   /* if we don't have visible client we will enable target hwc_window */
+   if (!hwc_ok_clist)
+     {
+        E_Hwc_Window *hwc_window;
+
+        target_hwc_window = _e_output_hwc_windows_get_target_hwc_window(output);
+        if (!target_hwc_window)
+          {
+             ERR("we don't have the target hwc_window");
+             goto done;
+          }
+
+        hwc_window = (E_Hwc_Window*)target_hwc_window;
+
+        hwc_window->is_excluded = EINA_FALSE;
+        err = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_CLIENT);
+        if (err != TDM_ERROR_NONE)
+          {
+             ERR("fail to set CLIENT composition type for target_window");
+             goto done;
+          }
+     }
+
+   ret = _e_output_hwc_windows_prepare(output_hwc, hwc_ok_clist);
+
+done:
+   eina_list_free(hwc_ok_clist);
+   eina_list_free(vis_clist);
+
+   return ret;
+}
+
+
+static void
+_e_output_hwc_windows_update_fps()
+{
+   static double time = 0.0;
+   static double lapse = 0.0;
+   static int cframes = 0;
+   static int flapse = 0;
+
+   if (e_comp->calc_fps)
+     {
+        double dt;
+        double tim = ecore_time_get();
+
+        dt = tim - e_comp->frametimes[0];
+        e_comp->frametimes[0] = tim;
+
+        time += dt;
+        cframes++;
+
+        if (lapse == 0.0)
+          {
+             lapse = tim;
+             flapse = cframes;
+          }
+        else if ((tim - lapse) >= 0.5)
+          {
+             e_comp->fps = (cframes - flapse) / (tim - lapse);
+             lapse = tim;
+             flapse = cframes;
+             time = 0.0;
+          }
+     }
+}
+
+static void
+_e_output_hwc_windows_commit_handler(tdm_output *toutput, unsigned int sequence,
+                                  unsigned int tv_sec, unsigned int tv_usec,
+                                  void *user_data)
+{
+   const Eina_List *l;
+   E_Hwc_Window *window;
+   E_Output *output = NULL;
+   E_Output_Hwc *output_hwc = (E_Output_Hwc *)user_data;
+
+   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+
+   output = output_hwc->output;
+
+   EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, window)
+     {
+         if (!e_hwc_window_commit_data_release(window)) continue;
+         if (e_hwc_window_is_video(window))
+           e_video_commit_data_release(window->ec, sequence, tv_sec, tv_usec);
+     }
+
+   /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
+    * a 'page flip' happened so it's time to allow to make 'fetch and commit' for the e_output */
+   output->wait_commit = EINA_FALSE;
+}
+
+/* we can do commit if we set surface at least to one window which displayed on
+ * the hw layer*/
+static Eina_Bool
+_e_output_hwc_windows_can_commit(E_Output *output)
+{
+   Eina_List *l;
+   E_Hwc_Window *hwc_window;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->output_hwc, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->output_hwc->hwc_windows, l, hwc_window)
+     {
+        if (!e_hwc_window_is_on_hw_overlay(hwc_window)) continue;
+
+        if (hwc_window->update_exist) return EINA_TRUE;
+
+        if (e_hwc_window_get_displaying_surface(hwc_window)) return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_prepare_commit(E_Output *output, E_Hwc_Window *hwc_window)
+{
+   if (output->wait_commit) return EINA_FALSE;
+
+   if (!e_hwc_window_commit_data_aquire(hwc_window))
+     return EINA_FALSE;
+
+   /* send frame event enlightenment dosen't send frame evnet in nocomp */
+   if (hwc_window->ec)
+     e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_offscreen_commit(E_Output *output, E_Hwc_Window *hwc_window)
+{
+   if (!e_hwc_window_commit_data_aquire(hwc_window))
+     return EINA_FALSE;
+
+   /* send frame event enlightenment doesn't send frame event in nocomp */
+   if (hwc_window->ec)
+     e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
+
+   e_hwc_window_commit_data_release(hwc_window);
 
    return EINA_TRUE;
 }
@@ -1416,8 +1474,8 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
    if (e_output_hwc_opt_hwc_enabled(output_hwc))
      {
         /* evaluate which e_output_hwc_window will be composited by hwc and wich by GLES */
-        if (!_e_output_hwc_re_evaluate(output_hwc))
-           ERR("fail to _e_output_hwc_re_evaluate.");
+        if (!_e_output_hwc_windows_re_evaluate(output_hwc))
+           ERR("fail to _e_output_hwc_windows_re_evaluate.");
      }
    else
      {
@@ -1473,7 +1531,7 @@ e_output_hwc_new(E_Output *output)
         output_hwc->opt_hwc = EINA_TRUE;
 
         /* get backend a shot to ask us for the revalidation */
-        error = tdm_output_hwc_set_need_validate_handler(output->toutput, _tdm_output_need_validate_handler);
+        error = tdm_output_hwc_set_need_validate_handler(output->toutput, _e_output_hwc_windows_need_validate_handler);
         EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, fail);
 
         ELOGF("HWC-OPT", "register a need_validate_handler for the eo:%p.", NULL, NULL, output);
@@ -1504,116 +1562,56 @@ e_output_hwc_del(E_Output_Hwc *output_hwc)
    E_FREE(output_hwc);
 }
 
-static void
-_e_output_hwc_update_fps()
+EINTERN Eina_Bool
+e_output_hwc_render(E_Output_Hwc *output_hwc)
 {
-   static double time = 0.0;
-   static double lapse = 0.0;
-   static int cframes = 0;
-   static int flapse = 0;
+   E_Output *output = output_hwc->output;
+   E_Hwc_Window_Target *target_hwc_window;
 
-   if (e_comp->calc_fps)
+   target_hwc_window = _e_output_hwc_windows_get_target_hwc_window(output);
+   if (!target_hwc_window)
      {
-        double dt;
-        double tim = ecore_time_get();
-
-        dt = tim - e_comp->frametimes[0];
-        e_comp->frametimes[0] = tim;
-
-        time += dt;
-        cframes++;
-
-        if (lapse == 0.0)
-          {
-             lapse = tim;
-             flapse = cframes;
-          }
-        else if ((tim - lapse) >= 0.5)
-          {
-             e_comp->fps = (cframes - flapse) / (tim - lapse);
-             lapse = tim;
-             flapse = cframes;
-             time = 0.0;
-          }
-     }
-}
-
-static void
-_e_output_hwc_output_commit_handler(tdm_output *toutput, unsigned int sequence,
-                                  unsigned int tv_sec, unsigned int tv_usec,
-                                  void *user_data)
-{
-   const Eina_List *l;
-   E_Hwc_Window *window;
-   E_Output *output = NULL;
-   E_Output_Hwc *output_hwc = (E_Output_Hwc *)user_data;
-
-   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
-
-   output = output_hwc->output;
-
-   EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, window)
-     {
-         if (!e_hwc_window_commit_data_release(window)) continue;
-         if (e_hwc_window_is_video(window))
-           e_video_commit_data_release(window->ec, sequence, tv_sec, tv_usec);
+        ERR("fail to get target hwc_window for output(%p).", output);
+        return EINA_FALSE;
      }
 
-   /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
-    * a 'page flip' happened so it's time to allow to make 'fetch and commit' for the e_output */
-   output->wait_commit = EINA_FALSE;
+   if (!_e_output_hwc_windows_target_window_render(output, target_hwc_window))
+     ERR("fail to render output(%p).", output);
+
+   return EINA_TRUE;
 }
 
-/* we can do commit if we set surface at least to one window which displayed on
- * the hw layer*/
-static Eina_Bool
-_can_commit(E_Output *output)
+EINTERN E_Hwc_Window *
+e_output_hwc_find_hwc_window_by_ec(E_Output_Hwc *output_hwc, E_Client *ec)
 {
    Eina_List *l;
    E_Hwc_Window *hwc_window;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output->output_hwc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
 
-   EINA_LIST_FOREACH(output->output_hwc->hwc_windows, l, hwc_window)
+   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
      {
-        if (!e_hwc_window_is_on_hw_overlay(hwc_window)) continue;
-
-        if (hwc_window->update_exist) return EINA_TRUE;
-
-        if (e_hwc_window_get_displaying_surface(hwc_window)) return EINA_TRUE;
+        if (hwc_window->ec == ec) return hwc_window;
      }
 
-   return EINA_FALSE;
+   return NULL;
 }
 
-static Eina_Bool
-_e_output_hwc_windows_prepare_commit(E_Output *output, E_Hwc_Window *hwc_window)
+EINTERN Eina_Bool
+e_output_hwc_opt_hwc_enabled(E_Output_Hwc *output_hwc)
 {
-   if (output->wait_commit) return EINA_FALSE;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
 
-   if (!e_hwc_window_commit_data_aquire(hwc_window))
-     return EINA_FALSE;
-
-   /* send frame event enlightenment dosen't send frame evnet in nocomp */
-   if (hwc_window->ec)
-     e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
-
-   return EINA_TRUE;
+   return output_hwc->opt_hwc;
 }
 
-static Eina_Bool
-_e_output_hwc_windows_offscreen_commit(E_Output *output, E_Hwc_Window *hwc_window)
+EINTERN const Eina_List *
+e_output_hwc_windows_get(E_Output_Hwc *output_hwc)
 {
-   if (!e_hwc_window_commit_data_aquire(hwc_window))
-     return EINA_FALSE;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
 
-   /* send frame event enlightenment doesn't send frame event in nocomp */
-   if (hwc_window->ec)
-     e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
-
-   e_hwc_window_commit_data_release(hwc_window);
-
-   return EINA_TRUE;
+   return output_hwc->hwc_windows;
 }
 
 EINTERN Eina_Bool
@@ -1647,9 +1645,9 @@ e_output_hwc_commit(E_Output_Hwc *output_hwc)
 
    if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
 
-   if (!_can_commit(output))
+   if (!_e_output_hwc_windows_can_commit(output))
      {
-        ELOGF("HWC-OPT", "Prevent by _can_commit.", NULL, NULL);
+        ELOGF("HWC-OPT", "Prevent by _e_output_hwc_windows_can_commit.", NULL, NULL);
         return EINA_FALSE;
      }
 
@@ -1659,14 +1657,14 @@ e_output_hwc_commit(E_Output_Hwc *output_hwc)
           need_tdm_commit = 1;
 
         // TODO: to be fixed. check fps of fb_target currently.
-        if (fb_commit) _e_output_hwc_update_fps();
+        if (fb_commit) _e_output_hwc_windows_update_fps();
      }
 
    if (need_tdm_commit)
      {
         tdm_error error = TDM_ERROR_NONE;
 
-        error = tdm_output_commit(output->toutput, 0, _e_output_hwc_output_commit_handler, output_hwc);
+        error = tdm_output_commit(output->toutput, 0, _e_output_hwc_windows_commit_handler, output_hwc);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
         output->wait_commit = EINA_TRUE;
