@@ -526,7 +526,7 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
    Evas_Object *o;
    Eina_Bool opt_hwc; // whether an output(zona) managed by opt-hwc
 
-   opt_hwc = e_output_hwc_opt_hwc_enabled(output_hwc);
+   opt_hwc = e_output_hwc_windows_enabled(output_hwc);
 
    // TODO: check if eout is available to use hwc policy
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
@@ -1393,113 +1393,6 @@ _e_output_hwc_mode_get(E_Output_Hwc *output_hwc)
    return E_OUTPUT_HWC_MODE_NO;
 }
 
-EINTERN void
-e_output_hwc_end(E_Output_Hwc *output_hwc, const char *location)
-{
-   E_Output_Hwc_Mode new_mode = E_OUTPUT_HWC_MODE_NO;
-
-   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
-
-   /* clean the reserved planes(clean the candidate ecs) */
-   _e_output_hwc_planes_reserved_clean(output_hwc);
-
-   if (!output_hwc->hwc_mode) return;
-
-   /* set null to the e_planes */
-   _e_output_hwc_planes_cancel(output_hwc);
-
-   /* check the current mode */
-   new_mode = _e_output_hwc_mode_get(output_hwc);
-
-   if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_FULL &&
-       new_mode != E_OUTPUT_HWC_MODE_FULL)
-     ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
-
-   output_hwc->hwc_mode = new_mode;
-
-   ELOGF("HWC", " End...  at %s.", NULL, NULL, location);
-}
-
-EINTERN void
-e_output_hwc_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool set)
-{
-   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
-
-   e_output_hwc_end(output_hwc, __FUNCTION__);
-   output_hwc->hwc_use_multi_plane = set;
-
-   ELOGF("HWC", "e_output_hwc_multi_plane_set : %d", NULL, NULL, set);
-}
-
-EINTERN Eina_Bool
-e_output_hwc_multi_plane_get(E_Output_Hwc *output_hwc)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
-
-   return output_hwc->hwc_use_multi_plane;
-}
-
-EINTERN void
-e_output_hwc_deactive_set(E_Output_Hwc *output_hwc, Eina_Bool set)
-{
-   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
-
-   e_output_hwc_end(output_hwc, __FUNCTION__);
-   output_hwc->hwc_deactive = set;
-
-   ELOGF("HWC", "e_output_hwc_deactive_set : %d", NULL, NULL, set);
-}
-
-EINTERN Eina_Bool
-e_output_hwc_deactive_get(E_Output_Hwc *output_hwc)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
-
-   return output_hwc->hwc_deactive;
-}
-
-EINTERN void
-e_output_hwc_apply(E_Output_Hwc *output_hwc)
-{
-   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
-   EINA_SAFETY_ON_NULL_RETURN(output_hwc->output);
-
-   if (e_output_hwc_deactive_get(output_hwc))
-     {
-        if (output_hwc->hwc_mode != E_OUTPUT_HWC_MODE_NO)
-          e_output_hwc_end(output_hwc, "deactive set.");
-        return;
-     }
-
-   if (e_output_hwc_opt_hwc_enabled(output_hwc))
-     {
-        /* evaluate which e_output_hwc_window will be composited by hwc and wich by GLES */
-        if (!_e_output_hwc_windows_re_evaluate(output_hwc))
-           ERR("fail to _e_output_hwc_windows_re_evaluate.");
-     }
-   else
-     {
-        if (!_e_output_hwc_planes_usable(output_hwc))
-          {
-             e_output_hwc_end(output_hwc, __FUNCTION__);
-             return;
-          }
-
-        if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NO)
-          _e_output_hwc_planes_begin(output_hwc);
-        else
-          _e_output_hwc_planes_changed(output_hwc);
-     }
-}
-
-EINTERN E_Output_Hwc_Mode
-e_output_hwc_mode_get(E_Output_Hwc *output_hwc)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, E_OUTPUT_HWC_MODE_NO);
-
-   return output_hwc->hwc_mode;
-}
-
 EINTERN E_Output_Hwc *
 e_output_hwc_new(E_Output *output)
 {
@@ -1562,8 +1455,131 @@ e_output_hwc_del(E_Output_Hwc *output_hwc)
    E_FREE(output_hwc);
 }
 
+EINTERN void
+e_output_hwc_apply(E_Output_Hwc *output_hwc)
+{
+   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+   EINA_SAFETY_ON_NULL_RETURN(output_hwc->output);
+
+   if (e_output_hwc_deactive_get(output_hwc))
+     {
+        if (output_hwc->hwc_mode != E_OUTPUT_HWC_MODE_NO)
+          e_output_hwc_end(output_hwc, "deactive set.");
+        return;
+     }
+
+   if (e_output_hwc_windows_enabled(output_hwc))
+     {
+        /* evaluate which e_output_hwc_window will be composited by hwc and wich by GLES */
+        if (!_e_output_hwc_windows_re_evaluate(output_hwc))
+           ERR("fail to _e_output_hwc_windows_re_evaluate.");
+     }
+   else
+     {
+        if (!_e_output_hwc_planes_usable(output_hwc))
+          {
+             e_output_hwc_end(output_hwc, __FUNCTION__);
+             return;
+          }
+
+        if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NO)
+          _e_output_hwc_planes_begin(output_hwc);
+        else
+          _e_output_hwc_planes_changed(output_hwc);
+     }
+}
+
+EINTERN E_Output_Hwc_Mode
+e_output_hwc_mode_get(E_Output_Hwc *output_hwc)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, E_OUTPUT_HWC_MODE_NO);
+
+   return output_hwc->hwc_mode;
+}
+
+EINTERN void
+e_output_hwc_deactive_set(E_Output_Hwc *output_hwc, Eina_Bool set)
+{
+   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+
+   e_output_hwc_end(output_hwc, __FUNCTION__);
+   output_hwc->hwc_deactive = set;
+
+   ELOGF("HWC", "e_output_hwc_deactive_set : %d", NULL, NULL, set);
+}
+
 EINTERN Eina_Bool
-e_output_hwc_render(E_Output_Hwc *output_hwc)
+e_output_hwc_deactive_get(E_Output_Hwc *output_hwc)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+
+   return output_hwc->hwc_deactive;
+}
+
+EINTERN void
+e_output_hwc_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool set)
+{
+   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+
+   e_output_hwc_end(output_hwc, __FUNCTION__);
+   output_hwc->hwc_use_multi_plane = set;
+
+   ELOGF("HWC", "e_output_hwc_multi_plane_set : %d", NULL, NULL, set);
+}
+
+EINTERN Eina_Bool
+e_output_hwc_multi_plane_get(E_Output_Hwc *output_hwc)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+
+   return output_hwc->hwc_use_multi_plane;
+}
+
+EINTERN void
+e_output_hwc_end(E_Output_Hwc *output_hwc, const char *location)
+{
+   E_Output_Hwc_Mode new_mode = E_OUTPUT_HWC_MODE_NO;
+
+   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+
+   /* clean the reserved planes(clean the candidate ecs) */
+   _e_output_hwc_planes_reserved_clean(output_hwc);
+
+   if (!output_hwc->hwc_mode) return;
+
+   /* set null to the e_planes */
+   _e_output_hwc_planes_cancel(output_hwc);
+
+   /* check the current mode */
+   new_mode = _e_output_hwc_mode_get(output_hwc);
+
+   if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_FULL &&
+       new_mode != E_OUTPUT_HWC_MODE_FULL)
+     ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+
+   output_hwc->hwc_mode = new_mode;
+
+   ELOGF("HWC", " End...  at %s.", NULL, NULL, location);
+}
+
+EINTERN Eina_Bool
+e_output_hwc_windows_enabled(E_Output_Hwc *output_hwc)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+
+   return output_hwc->opt_hwc;
+}
+
+EINTERN const Eina_List *
+e_output_hwc_windows_get(E_Output_Hwc *output_hwc)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
+
+   return output_hwc->hwc_windows;
+}
+
+EINTERN Eina_Bool
+e_output_hwc_windows_render(E_Output_Hwc *output_hwc)
 {
    E_Output *output = output_hwc->output;
    E_Hwc_Window_Target *target_hwc_window;
@@ -1581,41 +1597,8 @@ e_output_hwc_render(E_Output_Hwc *output_hwc)
    return EINA_TRUE;
 }
 
-EINTERN E_Hwc_Window *
-e_output_hwc_find_hwc_window_by_ec(E_Output_Hwc *output_hwc, E_Client *ec)
-{
-   Eina_List *l;
-   E_Hwc_Window *hwc_window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
-
-   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
-     {
-        if (hwc_window->ec == ec) return hwc_window;
-     }
-
-   return NULL;
-}
-
 EINTERN Eina_Bool
-e_output_hwc_opt_hwc_enabled(E_Output_Hwc *output_hwc)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
-
-   return output_hwc->opt_hwc;
-}
-
-EINTERN const Eina_List *
-e_output_hwc_windows_get(E_Output_Hwc *output_hwc)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
-
-   return output_hwc->hwc_windows;
-}
-
-EINTERN Eina_Bool
-e_output_hwc_commit(E_Output_Hwc *output_hwc)
+e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
 {
    E_Hwc_Window *hwc_window = NULL;
    Eina_List *l;
@@ -1671,4 +1654,21 @@ e_output_hwc_commit(E_Output_Hwc *output_hwc)
      }
 
    return EINA_TRUE;
+}
+
+EINTERN E_Hwc_Window *
+e_output_hwc_windows_window_find(E_Output_Hwc *output_hwc, E_Client *ec)
+{
+   Eina_List *l;
+   E_Hwc_Window *hwc_window;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+
+   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
+     {
+        if (hwc_window->ec == ec) return hwc_window;
+     }
+
+   return NULL;
 }

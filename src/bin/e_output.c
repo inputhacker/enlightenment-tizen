@@ -2242,7 +2242,7 @@ e_output_setup(E_Output *output)
         output->output_hwc = output_hwc;
      }
 
-   if (e_output_hwc_opt_hwc_enabled(output->output_hwc)) return EINA_TRUE;
+   if (e_output_hwc_windows_enabled(output->output_hwc)) return EINA_TRUE;
 
    /* ecore evas engine setup */
    EINA_LIST_FOREACH_SAFE(output->planes, l, ll, plane)
@@ -2416,11 +2416,11 @@ e_output_render(E_Output *output)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-   if (e_output_hwc_opt_hwc_enabled(output->output_hwc))
+   if (e_output_hwc_windows_enabled(output->output_hwc))
      {
-        if (!e_output_hwc_render(output->output_hwc))
+        if (!e_output_hwc_windows_render(output->output_hwc))
           {
-             ERR("fail to e_output_hwc_render.");
+             ERR("fail to e_output_hwc_windows_render.");
              return EINA_FALSE;
           }
      }
@@ -2455,11 +2455,11 @@ e_output_commit(E_Output *output)
    output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
 
-   if (e_output_hwc_opt_hwc_enabled(output->output_hwc))
+   if (e_output_hwc_windows_enabled(output->output_hwc))
      {
-        if (!e_output_hwc_commit(output->output_hwc))
+        if (!e_output_hwc_windows_commit(output->output_hwc))
           {
-             ERR("fail e_output_hwc_commit");
+             ERR("fail e_output_hwc_windows_commit");
              return EINA_FALSE;
           }
      }
@@ -2542,7 +2542,7 @@ e_output_util_planes_print(void)
 
         if (!output || !output->planes) continue;
 
-        if (e_output_hwc_opt_hwc_enabled(output->output_hwc)) continue;
+        if (e_output_hwc_windows_enabled(output->output_hwc)) continue;
 
         fprintf(stderr, "HWC in %s .. \n", output->id);
         fprintf(stderr, "HWC \tzPos \t on_plane \t\t\t\t on_prepare \t \n");

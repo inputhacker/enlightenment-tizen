@@ -178,7 +178,7 @@ _e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
 
    /* if an e_client belongs to the e_output managed by
     * no-opt hwc there's no need to deal with hwc_windows */
-   if (!e_output_hwc_opt_hwc_enabled(output->output_hwc))
+   if (!e_output_hwc_windows_enabled(output->output_hwc))
       return;
 
    hwc_window = e_hwc_window_new(output->output_hwc, ec);
@@ -212,7 +212,7 @@ _e_hwc_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
 
    /* if an e_client belongs to the e_output managed by
     * no-opt hwc there's no need to deal with hwc_windows */
-   if (!e_output_hwc_opt_hwc_enabled(output->output_hwc))
+   if (!e_output_hwc_windows_enabled(output->output_hwc))
       return;
 
    if (!ec->hwc_window) return;
@@ -248,7 +248,7 @@ _e_hwc_window_client_cb_zone_set(void *data, int type, void *event)
 
    /* if an e_client belongs to the e_output managed by
     * no-opt hwc there's no need to deal with hwc_windows */
-   if (!e_output_hwc_opt_hwc_enabled(output->output_hwc))
+   if (!e_output_hwc_windows_enabled(output->output_hwc))
       return ECORE_CALLBACK_PASS_ON;
 
    if (ec->hwc_window)
@@ -540,7 +540,7 @@ e_hwc_window_init(E_Output_Hwc *output_hwc)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
 
-   if (!e_output_hwc_opt_hwc_enabled(output_hwc)) return EINA_FALSE;
+   if (!e_output_hwc_windows_enabled(output_hwc)) return EINA_FALSE;
 
    client_hook_new =  e_client_hook_add(E_CLIENT_HOOK_NEW_CLIENT,
                                         _e_hwc_window_client_cb_new, NULL);

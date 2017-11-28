@@ -33,24 +33,24 @@ struct _E_Output_Hwc
 /* This module is responsible for evaluate which an ec will be composite by a hwc
 extension and commit the changes to hwc extension. */
 
-EINTERN Eina_Bool            e_output_hwc_opt_hwc_enabled(E_Output_Hwc *output_hwc);
-EINTERN const Eina_List     *e_output_hwc_windows_get(E_Output_Hwc *output_hwc);
-EINTERN Eina_Bool            e_output_hwc_render(E_Output_Hwc *output_hwc);
-EINTERN E_Hwc_Window *e_output_hwc_find_hwc_window_by_ec(E_Output_Hwc *output_hwc, E_Client *ec);
+EINTERN E_Output_Hwc      *e_output_hwc_new(E_Output *output);
+EINTERN void               e_output_hwc_del(E_Output_Hwc *output_hwc);
+EINTERN void               e_output_hwc_apply(E_Output_Hwc *output_hwc);
+EINTERN E_Output_Hwc_Mode  e_output_hwc_mode_get(E_Output_Hwc *output_hwc);
 
-EINTERN E_Output_Hwc  *e_output_hwc_new(E_Output *output);
-EINTERN void           e_output_hwc_del(E_Output_Hwc *output_hwc);
+EINTERN void               e_output_hwc_deactive_set(E_Output_Hwc *output_hwc, Eina_Bool set);
+EINTERN Eina_Bool          e_output_hwc_deactive_get(E_Output_Hwc *output_hwc);
+EINTERN void               e_output_hwc_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool set);
+EINTERN Eina_Bool          e_output_hwc_multi_plane_get(E_Output_Hwc *output_hwc);
 
-EINTERN void           e_output_hwc_apply(E_Output_Hwc *output_hwc);
+EINTERN void               e_output_hwc_end(E_Output_Hwc *output_hwc, const char *location);
 
-EINTERN E_Output_Hwc_Mode e_output_hwc_mode_get(E_Output_Hwc *output_hwc);
+EINTERN Eina_Bool          e_output_hwc_windows_enabled(E_Output_Hwc *output_hwc);
+EINTERN const Eina_List   *e_output_hwc_windows_get(E_Output_Hwc *output_hwc);
+EINTERN Eina_Bool          e_output_hwc_windows_render(E_Output_Hwc *output_hwc);
+EINTERN Eina_Bool          e_output_hwc_windows_commit(E_Output_Hwc *output_hwc);
 
-EINTERN void e_output_hwc_deactive_set(E_Output_Hwc *output_hwc, Eina_Bool set);
-EINTERN Eina_Bool e_output_hwc_deactive_get(E_Output_Hwc *output_hwc);
-EINTERN void e_output_hwc_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool set);
-EINTERN Eina_Bool e_output_hwc_multi_plane_get(E_Output_Hwc *output_hwc);
+EINTERN E_Hwc_Window      *e_output_hwc_windows_window_find(E_Output_Hwc *output_hwc, E_Client *ec);
 
-EINTERN void e_output_hwc_end(E_Output_Hwc *output_hwc, const char *location);
-EINTERN Eina_Bool       e_output_hwc_commit(E_Output_Hwc *output_hwc);
 #endif
 #endif

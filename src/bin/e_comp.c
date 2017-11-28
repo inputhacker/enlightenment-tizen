@@ -935,7 +935,7 @@ e_comp_is_ec_on_output_opt_hwc(E_Client *ec)
    output = e_output_find(ec->zone->output_id);
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-   if (e_output_hwc_opt_hwc_enabled(output->output_hwc))
+   if (e_output_hwc_windows_enabled(output->output_hwc))
       return EINA_TRUE;
 
    return EINA_FALSE;
@@ -957,7 +957,7 @@ e_comp_is_on_overlay(E_Client *ec)
 
    if (e_comp_is_ec_on_output_opt_hwc(ec))
      {
-        E_Hwc_Window *window = e_output_hwc_find_hwc_window_by_ec(eout->output_hwc, ec);
+        E_Hwc_Window *window = e_output_hwc_windows_window_find(eout->output_hwc, ec);
         if (e_hwc_window_is_on_hw_overlay(window))
            return EINA_TRUE;
      }

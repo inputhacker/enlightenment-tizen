@@ -1351,7 +1351,7 @@ e_comp_screen_hwc_info_debug(void)
         if (!output) continue;
 
         /* TODO: construct debug info for outputs managed by the opt-hwc */
-        if (e_output_hwc_opt_hwc_enabled(output->output_hwc))
+        if (e_output_hwc_windows_enabled(output->output_hwc))
           {
              INF("HWC: HWC Output(%d) managed by opt-hwc.", ++output_idx);
              continue;
