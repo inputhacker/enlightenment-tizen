@@ -110,11 +110,8 @@ struct _E_Plane
 
    /* for external */
    Eina_Bool             is_external;
-   tbm_surface_queue_h   mirror_tqueue;
    Eina_Rectangle        mirror_rect;
-   int                   pp_rotate;
-   E_Output_Ext_State    ex_state;
-   E_Output_Ext_State    ex_state_pre;
+   E_Output_Ext_State    ext_state;
    E_Output             *output_primary;
 
    /* current display information */
