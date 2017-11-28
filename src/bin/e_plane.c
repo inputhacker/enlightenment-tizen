@@ -743,7 +743,10 @@ _e_plane_set_counter_set(E_Plane *plane, E_Client *ec)
    fb_target = e_output_fb_target_get(plane->output);
    EINA_SAFETY_ON_NULL_RETURN(fb_target);
 
-   if (fb_target->ec || e_plane_is_fb_target(plane) || !ec->redirected)
+   if (fb_target->ec ||
+       e_plane_is_fb_target(plane) ||
+       !ec->redirected ||
+       !e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
      plane->set_counter = 0;
    else
      {
