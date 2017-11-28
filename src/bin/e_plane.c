@@ -638,7 +638,7 @@ _e_plane_renderer_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
 }
 
 static void
-_e_plane_fb_target_all_unset_counter_reset(E_Plane *fb_target)
+_e_plane_fb_target_all_set_unset_counter_reset(E_Plane *fb_target)
 {
    E_Plane *plane = NULL;
    E_Output *output = NULL;
@@ -656,6 +656,15 @@ _e_plane_fb_target_all_unset_counter_reset(E_Plane *fb_target)
 
              if (plane_trace_debug)
                ELOGF("E_PLANE", " Plane(%p) Unset Counter Reset", NULL, NULL, plane);
+          }
+
+        /* reset the set_counter */
+        if (plane->set_counter > 0)
+          {
+             plane->set_counter = 0;
+
+             if (plane_trace_debug)
+               ELOGF("E_PLANE", " Plane(%p) Set Counter Reset", NULL, NULL, plane);
           }
      }
 }
@@ -731,21 +740,21 @@ _e_plane_set_counter_set(E_Plane *plane, E_Client *ec)
 {
    E_Plane *fb_target = NULL;
 
-   if (e_plane_is_fb_target(plane) || !ec->redirected)
+   fb_target = e_output_fb_target_get(plane->output);
+   EINA_SAFETY_ON_NULL_RETURN(fb_target);
+
+   if (fb_target->ec || e_plane_is_fb_target(plane) || !ec->redirected)
      plane->set_counter = 0;
    else
-    {
-       E_Plane_Renderer *renderer = NULL;
+     {
+        E_Plane_Renderer *renderer = NULL;
 
-       fb_target = e_output_fb_target_get(plane->output);
-       EINA_SAFETY_ON_NULL_RETURN(fb_target);
+        renderer = fb_target->renderer;
+        EINA_SAFETY_ON_NULL_RETURN(renderer);
 
-       renderer = fb_target->renderer;
-       EINA_SAFETY_ON_NULL_RETURN(renderer);
-
-       plane->set_counter = e_plane_renderer_render_count_get(fb_target->renderer) + 1;
-       e_plane_renderer_surface_queue_sync_count_set(fb_target->renderer, 1);
-    }
+        plane->set_counter = e_plane_renderer_render_count_get(fb_target->renderer) + 1;
+        e_plane_renderer_surface_queue_sync_count_set(fb_target->renderer, 1);
+     }
 
     if (plane_trace_debug)
       ELOGF("E_PLANE", "Plane(%p) set_counter(%d)", NULL, NULL, plane, plane->set_counter);
@@ -2495,7 +2504,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
           }
 
         if (plane->is_fb)
-          _e_plane_fb_target_all_unset_counter_reset(plane);
+          _e_plane_fb_target_all_set_unset_counter_reset(plane);
 
         _e_plane_set_counter_set(plane, ec);
 
