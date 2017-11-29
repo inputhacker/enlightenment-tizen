@@ -555,12 +555,37 @@ _e_comp_wl_evas_cb_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_U
 }
 
 static void
+_e_comp_wl_touch_axis_clean_up(void)
+{
+   int i;
+   unsigned int pressed = e_comp_wl->touch.pressed;
+
+   if (!pressed) return;
+
+   for (i = 0; i < E_COMP_WL_TOUCH_MAX; i++)
+     {
+        if (pressed & (1 << i))
+          {
+             e_comp_wl->input_device_manager.multi[i].radius_x = 1.0;
+             e_comp_wl->input_device_manager.multi[i].radius_y = 1.0;
+             e_comp_wl->input_device_manager.multi[i].pressure = 1.0;
+             e_comp_wl->input_device_manager.multi[i].angle = 0.0;
+
+             pressed &= ~(1 << i);
+          }
+        if (!pressed) break;
+     }
+}
+
+static void
 _e_comp_wl_send_touch_cancel(E_Client *ec)
 {
    Eina_List *l;
    struct wl_resource *res;
    struct wl_client *wc;
    E_Comp_Config *comp_conf = NULL;
+
+   _e_comp_wl_touch_axis_clean_up();
 
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
