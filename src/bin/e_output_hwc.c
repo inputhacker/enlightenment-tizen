@@ -685,6 +685,14 @@ _e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
                    ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
           }
 
+        if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
+          {
+             hwc_window = ec->hwc_window;
+             hwc_window->hwc_acceptable = EINA_FALSE;
+             ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable.(Cursor)",
+                   ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+          }
+
         // listup as many as possible from the top most visible order
         hwc_acceptable_cl_list = eina_list_append(hwc_acceptable_cl_list, ec);
      }
