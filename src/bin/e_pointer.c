@@ -176,6 +176,7 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
           {
              ec->hidden = 1;
              ec->visible = EINA_FALSE;
+             ec->visibility.obscured = E_VISIBILITY_FULLY_OBSCURED;
              ec->comp_data->mapped = EINA_FALSE;
              ec->override = 1; /* ignore the previous cursor_ec */
           }
@@ -201,6 +202,7 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
           {
              ec->hidden = 0;
              ec->visible = EINA_TRUE;
+             ec->visibility.obscured = E_VISIBILITY_UNOBSCURED;
              evas_object_geometry_set(ec->frame, ec->x, ec->y, ec->w, ec->h);
              ec->comp_data->mapped = EINA_TRUE;
              ec->override = 0; /* do not ignore the cursor_ec to set the image object */
