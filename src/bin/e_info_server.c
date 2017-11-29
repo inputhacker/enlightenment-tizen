@@ -178,6 +178,7 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
    Eina_List *l;
    E_Output *eout;
    E_Plane *ep;
+   E_Hwc_Window *hwc_window = NULL;
 
    *hwc = -1;
    *pl_zpos = -999;
@@ -189,16 +190,35 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
 
    eout = e_output_find(ec->zone->output_id);
    if (!eout) return;
-   EINA_LIST_FOREACH(eout->planes, l, ep)
-     {
-        if (e_plane_is_fb_target(ep))
-          *pl_zpos = ep->zpos;
 
-        if (ep->ec == ec)
+   if (e_output_hwc_windows_enabled(eout->output_hwc))
+     {
+        if (!ec->hwc_window) return;
+        hwc_window = ec->hwc_window;
+        if (e_hwc_window_get_state(hwc_window) == E_HWC_WINDOW_STATE_DEVICE)
           {
              *hwc = 1;
-             *pl_zpos = ep->zpos;
-             break;
+             *pl_zpos = e_hwc_window_get_zpos(hwc_window);
+          }
+        else if (e_hwc_window_get_state(hwc_window) == E_HWC_WINDOW_STATE_VIDEO)
+          {
+             *hwc = 1;
+             *pl_zpos = -1;
+          }
+     }
+   else
+     {
+        EINA_LIST_FOREACH(eout->planes, l, ep)
+          {
+             if (e_plane_is_fb_target(ep))
+               *pl_zpos = ep->zpos;
+
+             if (ep->ec == ec)
+               {
+                  *hwc = 1;
+                  *pl_zpos = ep->zpos;
+                  break;
+               }
           }
      }
 }

@@ -659,6 +659,16 @@ e_hwc_window_set_zpos(E_Hwc_Window *hwc_window, int zpos)
    return EINA_TRUE;
 }
 
+EINTERN int
+e_hwc_window_get_zpos(E_Hwc_Window *hwc_window)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (hwc_window->state != E_HWC_WINDOW_STATE_DEVICE) return -1;
+
+   return hwc_window->zpos;
+}
+
 EINTERN Eina_Bool
 e_hwc_window_update(E_Hwc_Window *hwc_window)
 {
