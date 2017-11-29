@@ -361,8 +361,6 @@ e_comp_wl_map_apply(E_Client *ec)
 
    if (!ec || !ec->comp_data || e_object_is_del(E_OBJECT(ec))) return;
 
-   if (ec->comp_data->block_map_apply) return;
-
    e_comp_object_map_update(ec->frame);
 
    vp = &ec->comp_data->scaler.buffer_viewport;
@@ -2461,9 +2459,8 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
 
    _e_comp_wl_surface_state_buffer_set(state, NULL);
 
-   if (((state->new_attach) ||
-       (state->buffer_viewport.changed)) &&
-       (!e_comp_is_ec_on_output_opt_hwc(ec) || !ec->comp_data->video_client))
+   if ((state->new_attach) ||
+       (state->buffer_viewport.changed))
      {
         _e_comp_wl_surface_state_size_update(ec, state);
         e_comp_wl_map_size_cal_from_viewport(ec);
@@ -2584,7 +2581,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
                   e_drag_resize(e_comp_wl->drag,
                                 state->bw, state->bh);
                }
-             else if (!e_comp_is_ec_on_output_opt_hwc(ec) || !ec->comp_data->video_client)
+             else
                {
                   e_client_util_move_resize_without_frame(ec, x, y, ec->w, ec->h);
                }

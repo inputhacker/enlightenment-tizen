@@ -165,7 +165,6 @@ _e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    E_Output *output;
    E_Hwc_Window *hwc_window;
    E_Zone *zone;
-   Eina_Bool result;
 
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
@@ -181,11 +180,8 @@ _e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    if (!e_output_hwc_windows_enabled(output->output_hwc))
       return;
 
-   hwc_window = e_hwc_window_new(output->output_hwc, ec);
+   hwc_window = e_hwc_window_new(output->output_hwc, ec, E_HWC_WINDOW_STATE_NONE);
    EINA_SAFETY_ON_NULL_RETURN(hwc_window);
-
-   result = e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_NONE);
-   EINA_SAFETY_ON_TRUE_RETURN(result != EINA_TRUE);
 
    /* set the hwc window to the e client */
    ec->hwc_window = hwc_window;
@@ -231,7 +227,6 @@ _e_hwc_window_client_cb_zone_set(void *data, int type, void *event)
    E_Zone *zone;
    E_Output *output;
    E_Hwc_Window *hwc_window = NULL;
-   Eina_Bool result;
 
    ev = event;
    EINA_SAFETY_ON_NULL_GOTO(ev, end);
@@ -261,11 +256,8 @@ _e_hwc_window_client_cb_zone_set(void *data, int type, void *event)
         ec->hwc_window = NULL;
      }
 
-   hwc_window = e_hwc_window_new(output->output_hwc, ec);
+   hwc_window = e_hwc_window_new(output->output_hwc, ec, E_HWC_WINDOW_STATE_NONE);
    EINA_SAFETY_ON_NULL_GOTO(hwc_window, fail);
-
-   result = e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_NONE);
-   EINA_SAFETY_ON_TRUE_GOTO(result != EINA_TRUE, fail);
 
    /* set the hwc window to the e client */
    ec->hwc_window = hwc_window;
@@ -441,6 +433,9 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
            TDM_COMPOSITION_NONE);
    EINA_SAFETY_ON_TRUE_GOTO(error != TDM_ERROR_NONE, fail);
 
+   error = tdm_hwc_window_set_zpos(target_hwc_window->hwc_window.hwc_wnd, 0);
+   EINA_SAFETY_ON_TRUE_GOTO(error != TDM_ERROR_NONE, fail);
+
    target_hwc_window->ee = e_comp->ee;
    target_hwc_window->evas = ecore_evas_get(target_hwc_window->ee);
    target_hwc_window->event_fd = eventfd(0, EFD_NONBLOCK);
@@ -575,7 +570,7 @@ e_hwc_window_deinit(E_Output_Hwc *output_hwc)
 }
 
 EINTERN E_Hwc_Window *
-e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec)
+e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State state)
 {
    E_Hwc_Window *hwc_window = NULL;
    tdm_output *toutput;
@@ -593,8 +588,13 @@ e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec)
 
    hwc_window->output = output_hwc->output;
    hwc_window->ec = ec;
+   hwc_window->state = state;
 
-   hwc_window->hwc_wnd = tdm_output_hwc_create_window(toutput, &error);
+   if (state == E_HWC_WINDOW_STATE_VIDEO)
+     hwc_window->hwc_wnd = tdm_output_hwc_create_video_window(toutput, &error);
+   else
+     hwc_window->hwc_wnd = tdm_output_hwc_create_window(toutput, &error);
+
    if (error != TDM_ERROR_NONE)
      {
         ERR("cannot create tdm_hwc_window for toutput(%p)", toutput);
@@ -602,9 +602,19 @@ e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec)
         return NULL;
      }
 
-   hwc_window->is_excluded = EINA_TRUE;
-   error = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_NONE);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, NULL);
+   if (state != E_HWC_WINDOW_STATE_VIDEO)
+     {
+        hwc_window->is_excluded = EINA_TRUE;
+        error = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_NONE);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, NULL);
+     }
+   else 
+     {
+        hwc_window->is_excluded = EINA_FALSE;
+        hwc_window->is_video = 1;
+        /* the video hwc_window is always displayed on hw layer */
+        hwc_window->type = TDM_COMPOSITION_DEVICE;
+     }
 
    output_hwc->hwc_windows = eina_list_append(output_hwc->hwc_windows, hwc_window);
 
@@ -686,29 +696,11 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
    hwc_wnd = hwc_window->hwc_wnd;
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_wnd, EINA_FALSE);
 
+   if (e_hwc_window_is_video(hwc_window))
+        return EINA_TRUE;
+
    error = tdm_hwc_window_set_zpos(hwc_wnd, hwc_window->zpos);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
-
-   /* for video we update the geometry and buffer in the video module */
-   if (e_hwc_window_is_video(hwc_window) && (e_hwc_window_get_state(hwc_window) != E_HWC_WINDOW_STATE_CLIENT_CANDIDATE))
-     {
-        if (!hwc_window->tsurface) {
-           error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_NONE);
-           EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
-
-           hwc_window->type = TDM_COMPOSITION_NONE;
-
-           hwc_window->is_excluded = EINA_TRUE;
-        } else {
-           /* we always try to display the video hwc_window on the hw layer */
-           error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_VIDEO);
-           EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
-
-           hwc_window->type = TDM_COMPOSITION_VIDEO;
-        }
-
-        return EINA_TRUE;
-     }
 
    if (e_hwc_window_get_state(hwc_window) == E_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
      {
@@ -1134,16 +1126,6 @@ e_hwc_window_activate(E_Hwc_Window *hwc_window)
    /* set the redirected to FALSE */
    e_client_redirected_set(ec, EINA_FALSE);
 
-   if (e_hwc_window_is_video(hwc_window))
-   {
-      hwc_window->activation_state = E_HWC_WINDOW_ACTIVATION_STATE_ACTIVATED;
-
-      /* to try set the video UI on hw layer */
-      e_comp_render_queue();
-
-      return EINA_TRUE;
-   }
-
    cqueue = _e_hwc_window_wayland_tbm_client_queue_get(ec);
 
    if (cqueue)
@@ -1173,15 +1155,6 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
    /* set the redirected to TRUE */
    e_client_redirected_set(ec, EINA_TRUE);
 
-   if (e_hwc_window_is_video(hwc_window))
-   {
-      e_video_prepare_hwc_window_to_compositing(hwc_window);
-
-      hwc_window->activation_state = E_HWC_WINDOW_ACTIVATION_STATE_DEACTIVATED;
-
-      return EINA_TRUE;
-   }
-
    cqueue = _e_hwc_window_wayland_tbm_client_queue_get(ec);
 
    if (cqueue)
@@ -1203,7 +1176,7 @@ e_hwc_window_is_on_hw_overlay(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    if (hwc_window->is_excluded) return EINA_FALSE;
-   if (hwc_window->type != TDM_COMPOSITION_DEVICE && hwc_window->type != TDM_COMPOSITION_VIDEO)
+   if (hwc_window->type != TDM_COMPOSITION_DEVICE)
      return EINA_FALSE;
 
    return EINA_TRUE;

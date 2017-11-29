@@ -104,6 +104,8 @@ _e_output_hwc_windows_exclude_all_hwc_windows(E_Output *eout)
    hwc_windows = e_output_hwc_windows_get(eout->output_hwc);
    EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
      {
+        if (e_hwc_window_is_video(hwc_window))
+          continue;
         hwc_window->is_excluded = EINA_TRUE;
         tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_NONE);
      }
@@ -195,10 +197,6 @@ _e_output_hwc_windows_states_update(const Eina_List *hwc_windows)
 
            case TDM_COMPOSITION_CLIENT_CANDIDATE:
              e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_CLIENT_CANDIDATE);
-             break;
-
-           case TDM_COMPOSITION_VIDEO:
-             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_VIDEO);
              break;
 
            case TDM_COMPOSITION_DEVICE_CANDIDATE:
@@ -527,9 +525,6 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
    Eina_List *ec_list = NULL;
    E_Client  *ec;
    Evas_Object *o;
-   Eina_Bool opt_hwc; // whether an output(zona) managed by opt-hwc
-
-   opt_hwc = e_output_hwc_windows_enabled(output_hwc);
 
    // TODO: check if eout is available to use hwc policy
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
@@ -540,13 +535,6 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
         ec = evas_object_data_get(o, "E_Client");
         if (!ec) continue;
         if (e_object_is_del(E_OBJECT(ec))) continue;
-
-        if (opt_hwc)
-          {
-             /* skip all small clients except the video clients */
-             if ((ec->w == 1 || ec->h == 1) && !(ec->comp_data && ec->comp_data->video_client))
-               continue;
-          }
 
         // check clients to skip composite
         if (e_client_util_ignored_get(ec) || (!evas_object_visible_get(ec->frame)))
@@ -569,40 +557,11 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
                         0, 0, scr_w, scr_h))
            continue;
 
-        /* for hwc optimized we need full stack of visible hwc_windows */
-        if (!opt_hwc)
-          if (!ec->argb)
-            break;
+        if (!ec->argb)
+          break;
      }
 
    return ec_list;
-}
-
-static Eina_Bool
-_e_output_hwc_windows_normal_subsurface_has(E_Client *ec)
-{
-   E_Client *subc;
-   Eina_List *l;
-
-   if (!ec) return EINA_FALSE;
-   if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
-   if (!ec->comp_data) return EINA_FALSE;
-
-   /* if a leaf client is not video client or is not on hw overlay */
-   if (ec->comp_data->sub.data && !ec->comp_data->sub.below_list &&
-       !ec->comp_data->sub.below_list_pending &&
-       (!e_hwc_window_is_video(ec->hwc_window) || !e_hwc_window_is_on_hw_overlay(ec->hwc_window)))
-     return EINA_TRUE;
-
-   EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
-     if (e_comp_wl_normal_subsurface_has(subc))
-        return EINA_TRUE;
-
-   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
-     if (e_comp_wl_normal_subsurface_has(subc))
-        return EINA_TRUE;
-
-   return EINA_FALSE;
 }
 
 /* TODO: no-opt hwc has to be forced to use this function too... */
@@ -662,7 +621,7 @@ _e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
         if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE ||
 
             // if there is UI subfrace, it means need to composite
-            _e_output_hwc_windows_normal_subsurface_has(ec))
+            e_client_normal_client_has(ec))
           {
              /* we have to let hwc know about ALL clients(buffers) in case we're using
               * optimized hwc, that's why it can be called optimized :), but also we have to provide
@@ -701,6 +660,21 @@ _e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
 }
 
 static Eina_Bool
+_e_output_hwc_windows_is_video_window(E_Output_Hwc *output_hwc)
+{
+   Eina_List *l;
+   E_Hwc_Window *hwc_window;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
+     if (e_hwc_window_is_video(hwc_window))
+       return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
 _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
 {
    Eina_Bool ret = EINA_FALSE;
@@ -723,8 +697,9 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
    result = _e_output_hwc_windows_exclude_all_hwc_windows(output);
    EINA_SAFETY_ON_FALSE_GOTO(result, done);
 
-   /* if we don't have visible client we will enable target hwc_window */
-   if (!hwc_ok_clist)
+   /* if we don't have visible client or we have video hwc_window we will
+    * enable target hwc_window */
+   if (!hwc_ok_clist || _e_output_hwc_windows_is_video_window(output_hwc))
      {
         E_Hwc_Window *hwc_window;
 
