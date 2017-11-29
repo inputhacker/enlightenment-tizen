@@ -248,7 +248,10 @@ _e_output_hwc_windows_sort_cb(const void *d1, const void *d2)
    E_Hwc_Window *hwc_window_1 = (E_Hwc_Window *)d1;
    E_Hwc_Window *hwc_window_2 = (E_Hwc_Window *)d2;
 
-   return hwc_window_1->zpos > hwc_window_2->zpos;
+   if (!hwc_window_1) return(-1);
+   if (!hwc_window_2) return(1);
+
+   return (hwc_window_2->zpos - hwc_window_1->zpos);
 }
 
 static void
