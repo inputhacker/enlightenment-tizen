@@ -128,6 +128,12 @@ _e_comp_wl_data_source_cb_resource_destroy(struct wl_resource *resource)
 
    wl_signal_emit(&source->destroy_signal, source);
 
+   if (e_comp_wl->drag_source == source)
+     {
+        e_comp_wl->drag_source = NULL;
+        e_comp_override_del();
+     }
+
    _mime_types_free(source);
    free(source);
 }
