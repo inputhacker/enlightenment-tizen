@@ -40,7 +40,7 @@
                        cw = evas_object_smart_data_get(obj); \
                        if ((!cw) || (e_util_strcmp(evas_object_type_get(obj), SMART_NAME))) \
                          cw = NULL
-#define INTERNAL_ENTRY E_Comp_Object *cw; cw = evas_object_smart_data_get(obj);
+#define INTERNAL_ENTRY E_Comp_Object *cw; cw = evas_object_smart_data_get(obj); if (!cw) return;
 
 /* enable for lots of client size info in console output */
 #if 1
@@ -3402,6 +3402,7 @@ e_comp_object_client_add(E_Client *ec)
    _e_comp_smart_init();
    o = evas_object_smart_add(e_comp->evas, _e_comp_smart);
    cw = evas_object_smart_data_get(o);
+   if (!cw) return NULL;
    evas_object_data_set(o, "E_Client", ec);
    cw->ec = ec;
    ec->frame = o;
