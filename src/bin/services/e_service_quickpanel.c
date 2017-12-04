@@ -7,7 +7,8 @@
 #define SMART_NAME            "quickpanel_object"
 #define INTERNAL_ENTRY                    \
    Mover_Data *md;                        \
-   md = evas_object_smart_data_get(obj)
+   md = evas_object_smart_data_get(obj);  \
+   if (!md) return
 
 #define QP_SHOW(qp)                       \
 do                                        \
