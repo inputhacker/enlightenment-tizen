@@ -356,6 +356,8 @@ _e_qp_srv_mover_new(E_Policy_Quickpanel *qp)
 
    /* Should setup 'md' before call evas_object_show() */
    md = evas_object_smart_data_get(mover);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(md, NULL);
+
    md->ec = qp->ec;
 
    evas_object_layer_set(md->smart_obj, qp->ec->layer);
@@ -382,6 +384,8 @@ _e_qp_srv_mover_object_relocate(E_Policy_Quickpanel *qp, int x, int y)
    ec = qp->ec;
    zone = ec->zone;
    md = evas_object_smart_data_get(qp->mover);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(md, EINA_FALSE);
+
    switch (qp->rotation)
      {
       case E_POLICY_ANGLE_MAP_90:
