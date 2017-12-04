@@ -1112,5 +1112,13 @@ E_API E_Util_Transform
 e_util_transform_keep_ratio_apply(E_Util_Transform *transform, int origin_w, int origin_h)
 {
    E_Util_Transform result;
+
+   result.ref_count = 0;
+   e_util_transform_init(&result);
+   e_util_transform_ref(&result);
+
+   /* TODO */
+   ;
+
    return result;
 }
