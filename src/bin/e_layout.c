@@ -61,6 +61,7 @@ e_layout_freeze(Evas_Object *obj)
 
    if (evas_object_smart_smart_get(obj) != _e_smart) SMARTERR(0);
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERR(0);
    sd->frozen++;
    return sd->frozen;
 }
@@ -72,6 +73,7 @@ e_layout_thaw(Evas_Object *obj)
 
    if (evas_object_smart_smart_get(obj) != _e_smart) SMARTERR(0);
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERR(0);
    sd->frozen--;
    if (sd->frozen <= 0) _e_layout_smart_reconfigure(sd);
    return sd->frozen;
@@ -84,6 +86,7 @@ e_layout_virtual_size_set(Evas_Object *obj, Evas_Coord w, Evas_Coord h)
 
    if (evas_object_smart_smart_get(obj) != _e_smart) SMARTERRNR();
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERRNR();
    if (w < 1) w = 1;
    if (h < 1) h = 1;
    if ((sd->vw == w) && (sd->vh == h)) return;
@@ -100,6 +103,7 @@ e_layout_virtual_size_get(Evas_Object *obj, Evas_Coord *w, Evas_Coord *h)
 
    if (evas_object_smart_smart_get(obj) != _e_smart) SMARTERRNR();
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERRNR();
    if (w) *w = sd->vw;
    if (h) *h = sd->vh;
 }
@@ -111,6 +115,7 @@ e_layout_coord_canvas_to_virtual(Evas_Object *obj, Evas_Coord cx, Evas_Coord cy,
 
    if (evas_object_smart_smart_get(obj) != _e_smart) SMARTERRNR();
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERRNR();
 
    if (vx) *vx = (cx - sd->x) * ((double)(sd->vw) / sd->w);
    if (vy) *vy = (cy - sd->y) * ((double)(sd->vh) / sd->h);
@@ -123,6 +128,7 @@ e_layout_coord_virtual_to_canvas(Evas_Object *obj, Evas_Coord vx, Evas_Coord vy,
 
    if (evas_object_smart_smart_get(obj) != _e_smart) SMARTERRNR();
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERRNR();
 
    if (cx) *cx = vx * ((double)(sd->w) / sd->vw) + sd->x;
    if (cy) *cy = vy * ((double)(sd->h) / sd->vh) + sd->y;
@@ -136,6 +142,7 @@ e_layout_pack(Evas_Object *obj, Evas_Object *child)
 
    if (evas_object_smart_smart_get(obj) != _e_smart) SMARTERRNR();
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERRNR();
    li = _e_layout_smart_adopt(sd, child);
    sd->items = eina_inlist_append(sd->items, EINA_INLIST_GET(li));
    evas_object_lower(child);
@@ -185,6 +192,7 @@ e_layout_top_child_get(Evas_Object *obj)
 
    if (evas_object_smart_smart_get(obj) != _e_smart) SMARTERRNR() NULL;
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERRNR() NULL;
    if (!sd->items) return NULL;
    li = (E_Layout_Item*)sd->items->last;
    return li->obj;
@@ -297,6 +305,7 @@ e_layout_children_get(Evas_Object *obj)
 
    if (evas_object_smart_smart_get(obj) != _e_smart) SMARTERRNR() NULL;
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERRNR() NULL;
    EINA_INLIST_FOREACH(sd->items, li)
      l = eina_list_append(l, li->obj);
    return l;
@@ -310,6 +319,7 @@ e_layout_top_child_at_xy_get(Evas_Object *obj, Evas_Coord x, Evas_Coord y, Eina_
 
    if (evas_object_smart_smart_get(obj) != _e_smart) SMARTERRNR() NULL;
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERRNR() NULL;
    if (!sd->items) return NULL;
    EINA_INLIST_REVERSE_FOREACH(sd->items, li)
      if (E_INSIDE(x, y, li->x, li->y, li->w, li->h))
