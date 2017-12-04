@@ -3,8 +3,10 @@
 /* global variables */
 #define SMART_NAME            "splitlayout"
 #define SLAYOUT_ENTRY                    \
-   Splitlayout_Data *sd;                        \
-sd = evas_object_smart_data_get(obj)
+   Splitlayout_Data *sd;                 \
+   sd = evas_object_smart_data_get(obj); \
+   if (!sd) return;
+
 
 typedef struct _Splitlayout_Data  Splitlayout_Data;
 typedef struct _Splitlayout_Item  Splitlayout_Item;
@@ -396,6 +398,7 @@ e_splitlayout_add(E_Desk *desk)
    _layout_smart_init();
    o = evas_object_smart_add(e, _splitlayout_smart);
    sd = evas_object_smart_data_get(o);
+   if (!sd) SMARTERR(NULL);
    sd->desk = desk;
    e_object_ref(E_OBJECT(desk));
 
@@ -428,6 +431,7 @@ e_splitlayout_freeze(Evas_Object *obj)
 
    if (evas_object_smart_smart_get(obj) != _splitlayout_smart) SMARTERR(0);
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERR(0);
    sd->frozen++;
    return sd->frozen;
 }
@@ -439,6 +443,7 @@ e_splitlayout_thaw(Evas_Object *obj)
 
    if (evas_object_smart_smart_get(obj) != _splitlayout_smart) SMARTERR(0);
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERR(0);
    sd->frozen--;
    if (sd->frozen <= 0) _layout_smart_reconfigure(sd);
    return sd->frozen;
@@ -452,6 +457,7 @@ e_splitlayout_pack(Evas_Object *obj, Evas_Object *child)
 
    if (evas_object_smart_smart_get(obj) != _splitlayout_smart) SMARTERRNR();
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERRNR();
    li = _layout_smart_adopt(sd, child);
    sd->items = eina_inlist_append(sd->items, EINA_INLIST_GET(li));
    evas_object_lower(child);
@@ -580,6 +586,7 @@ e_splitlayout_children_get(Evas_Object *obj)
 
    if (evas_object_smart_smart_get(obj) != _splitlayout_smart) SMARTERRNR() NULL;
    sd = evas_object_smart_data_get(obj);
+   if (!sd) SMARTERR(NULL);
    EINA_INLIST_FOREACH(sd->items, li)
       l = eina_list_append(l, li->obj);
    return l;
