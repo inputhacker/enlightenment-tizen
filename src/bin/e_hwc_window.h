@@ -78,6 +78,7 @@ struct _E_Hwc_Window_Target
    tbm_surface_queue_h queue;
 
    uint64_t            render_cnt;
+   int post_render_flush_cnt;
 };
 
 struct _E_Hwc_Window_Commit_Data {

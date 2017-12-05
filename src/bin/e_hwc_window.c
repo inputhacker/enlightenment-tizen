@@ -286,6 +286,18 @@ _e_hwc_window_target_queue_acquirable_cb(tbm_surface_queue_h surface_queue, void
       ERR("failed to send acquirable event:%m");
 }
 
+/* gets called as evas_renderer dequeues a new buffer from the queue */
+static void
+_e_hwc_window_target_queue_dequeue_cb(tbm_surface_queue_h surface_queue, void *data)
+{
+  E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
+
+  if (!target_hwc_window) return;
+
+  target_hwc_window->post_render_flush_cnt++;
+  ELOGF("HWC-OPT", "[soolim] dequeue the target_hwc_window(%p) post_render_flush_cnt(%d)", NULL, NULL, target_hwc_window, target_hwc_window->post_render_flush_cnt);
+}
+
 static int
 _get_enqueued_surface_num(tbm_surface_queue_h queue)
 {
@@ -454,6 +466,9 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
    tbm_surface_queue_add_acquirable_cb(target_hwc_window->queue, _e_hwc_window_target_queue_acquirable_cb,
            (void *)target_hwc_window);
 
+  /* add the dequeue callback */
+  tbm_surface_queue_add_dequeue_cb(target_hwc_window->queue, _e_hwc_window_target_queue_dequeue_cb, (void *)target_hwc_window);
+
    return target_hwc_window;
 
 fail:
@@ -606,7 +621,7 @@ e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State stat
         error = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_NONE);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, NULL);
      }
-   else 
+   else
      {
         hwc_window->is_excluded = EINA_FALSE;
         hwc_window->is_video = 1;
@@ -970,13 +985,13 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
         memset(&fb_damage, 0, sizeof(fb_damage));
 
         tdm_output_hwc_set_client_target_buffer(output->toutput, tsurface, fb_damage);
-        ELOGF("HWC-OPT", "set surface:%p on the fb_target",
+        ELOGF("HWC-OPT", "[soolim] set surface:%p on the fb_target",
               hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, tsurface);
      }
    else
      {
         tdm_hwc_window_set_buffer(hwc_window->hwc_wnd, tsurface);
-        ELOGF("HWC-OPT", "set surface:%p (title:%s, name:%s) on the hwc_wnd:%p.",
+        ELOGF("HWC-OPT", "[soolim] set surface:%p (title:%s, name:%s) on the hwc_wnd:%p.",
               hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
               tsurface, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
               hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",

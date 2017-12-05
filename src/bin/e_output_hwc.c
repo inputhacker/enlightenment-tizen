@@ -7,6 +7,17 @@ typedef enum
    HWC_OPT_COMP_MODE_HYBRID,    /* either all hwc_windows or some are composited by sw compositor */
 } _hwc_opt_comp_mode;
 
+static void
+_e_output_hwc_canvas_render_flush_post(void *data EINA_UNUSED, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   E_Output_Hwc *output_hwc = (E_Output_Hwc *)data;
+   E_Hwc_Window_Target *target_hwc_window = output_hwc->target_hwc_window;
+
+   target_hwc_window->post_render_flush_cnt--;
+   ELOGF("HWC-OPT", "[soolim] render_flush_post -- the target_hwc_window(%p) post_render_flush_cnt(%d) e_comp->evas(%p) evas(%p)",
+           NULL, NULL, target_hwc_window, target_hwc_window->post_render_flush_cnt, e_comp->evas, e);
+}
+
 static Eina_Bool
 _e_output_hwc_ec_check(E_Client *ec)
 {
@@ -520,8 +531,9 @@ _e_output_hwc_windows_target_window_render(E_Output *output, E_Hwc_Window_Target
 
    if (e_hwc_window_target_surface_queue_can_dequeue(target_hwc_window) || !target_hwc_window->queue)
      {
-        ELOGF("HWC-OPT", "=== Output Render (call the ecore_evas_manual_render)===", NULL, NULL);
+        ELOGF("HWC-OPT", "[soolim] before manual_render the target_hwc_window(%p) post_render_flush_cnt(%d)", NULL, NULL, target_hwc_window, target_hwc_window->post_render_flush_cnt);
         ecore_evas_manual_render(target_hwc_window->ee);
+        ELOGF("HWC-OPT", "[soolim] after  manual_render the target_hwc_window(%p) post_render_flush_cnt(%d)", NULL, NULL, target_hwc_window, target_hwc_window->post_render_flush_cnt);
      }
 
    TRACE_DS_END();
@@ -1433,6 +1445,8 @@ e_output_hwc_new(E_Output *output)
 
         /* turn on sw compositor at the start */
         ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+
+        evas_event_callback_add(e_comp->evas, EVAS_CALLBACK_RENDER_FLUSH_POST, _e_output_hwc_canvas_render_flush_post, output_hwc);
      }
 
    return output_hwc;

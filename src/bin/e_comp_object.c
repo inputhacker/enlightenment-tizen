@@ -1222,6 +1222,20 @@ _e_comp_object_pixels_get(void *data, Evas_Object *obj EINA_UNUSED)
      e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
 }
 
+
+static void
+_e_comp_object_pixels_noti(void *data, Evas_Object *obj EINA_UNUSED)
+{
+   E_Comp_Object *cw = data;
+   E_Client *ec = cw->ec;
+
+   ELOGF("HWC-OPT", "[soolim] pixels_noti (name:%s, title:%s).",
+         ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (cw->external_content) return;
+}
+
 /////////////////////////////////////////////
 
 static void
@@ -2141,6 +2155,7 @@ _e_comp_intercept_show(void *data, Evas_Object *obj EINA_UNUSED)
              evas_object_image_border_center_fill_set(cw->obj, EVAS_BORDER_FILL_SOLID);
              e_util_size_debug_set(cw->obj, 1);
              evas_object_image_pixels_get_callback_set(cw->obj, _e_comp_object_pixels_get, cw);
+             evas_object_image_pixels_noti_callback_set(cw->obj, _e_comp_object_pixels_noti, cw);
              evas_object_image_smooth_scale_set(cw->obj, e_comp_config_get()->smooth_windows);
              evas_object_name_set(cw->obj, "cw->obj");
              evas_object_image_colorspace_set(cw->obj, EVAS_COLORSPACE_ARGB8888);
