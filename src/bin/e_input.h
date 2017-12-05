@@ -24,6 +24,12 @@ typedef enum _E_Input_Seat_Capabilities
    E_INPUT_SEAT_TOUCH = (1 << 2),
 } E_Input_Seat_Capabilities;
 
+typedef enum _E_Input_Libinput_Backend
+{
+   E_INPUT_LIBINPUT_BACKEND_UDEV = 1,
+   E_INPUT_LIBINPUT_BACKEND_PATH
+} E_Input_Libinput_Backend;
+
 struct _E_Input_Event_Input_Device_Add
 {
    const char *name; /* descriptive device name */
@@ -74,7 +80,7 @@ EINTERN E_Input_Device *e_input_device_open(void);
 EINTERN Eina_Bool e_input_device_close(E_Input_Device *dev);
 EINTERN void e_input_device_keyboard_cached_context_set(struct xkb_context *ctx);
 EINTERN void e_input_device_keyboard_cached_keymap_set(struct xkb_keymap *map);
-EINTERN Eina_Bool e_input_device_input_backend_create(E_Input_Device *dev, const char *backend);
+EINTERN Eina_Bool e_input_device_input_backend_create(E_Input_Device *dev, E_Input_Libinput_Backend backend);
 EINTERN Eina_Bool e_input_device_input_create_libinput_udev(E_Input_Device *dev);
 EINTERN Eina_Bool e_input_device_input_create_libinput_path(E_Input_Device *dev);
 EINTERN void e_input_device_window_set(E_Input_Device *dev, unsigned int window);

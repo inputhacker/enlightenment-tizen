@@ -700,17 +700,20 @@ e_input_device_libinput_log_handler(struct libinput *libinput EINA_UNUSED,
 }
 
 EINTERN Eina_Bool
-e_input_device_input_backend_create(E_Input_Device *dev, const char *backend)
+e_input_device_input_backend_create(E_Input_Device *dev, E_Input_Libinput_Backend backend)
 {
    Eina_Bool res = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(dev, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(backend, EINA_FALSE);
 
-   if (!strncmp(backend, "libinput_udev", strlen("libinput_udev")))
-     res = e_input_device_input_create_libinput_udev(dev);
-   else if (!strncmp(backend, "libinput_path", strlen("libinput_path")))
-     res = e_input_device_input_create_libinput_path(dev);
+   if (backend == E_INPUT_LIBINPUT_BACKEND_UDEV)
+     {
+        res = e_input_device_input_create_libinput_udev(dev);
+     }
+   else if (backend == E_INPUT_LIBINPUT_BACKEND_PATH)
+     {
+        res = e_input_device_input_create_libinput_path(dev);
+     }
 
    return res;
 }
