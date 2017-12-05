@@ -1110,7 +1110,7 @@ e_getgrnam_r(const char *name)
 E_API Eina_Bool
 e_comp_socket_init(const char *name)
 {
-   const char *dir = NULL;
+   char *dir = NULL;
    char socket_path[108];
    uid_t uid;
    gid_t gid;
