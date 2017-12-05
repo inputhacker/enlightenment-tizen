@@ -2269,11 +2269,13 @@ e_comp_socket_init(const char *name)
 #define STRERR_BUFSIZE 128
    char buf[STRERR_BUFSIZE];
 
-   dir = getenv("XDG_RUNTIME_DIR");
-   if (!dir) return EINA_FALSE;
    if (!name) return EINA_FALSE;
 
+   dir = e_util_env_get("XDG_RUNTIME_DIR");
+   if (!dir) return EINA_FALSE;
+
    snprintf(socket_path, sizeof(socket_path), "%s/%s", dir, name);
+   free(dir);
 
    EINA_LIST_FOREACH(e_config->sock_accesses, l, sa)
      {
