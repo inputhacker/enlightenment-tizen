@@ -51,6 +51,25 @@ e_util_env_set(const char *var, const char *val)
      }
 }
 
+/* Utility function of getenv to make sure that environment value string
+ * is terminated with NULL.
+ *
+ * NOTE: return string has to be freed by caller after use.
+ */
+E_API char *
+e_util_env_get(const char *name)
+{
+   if (!name) return NULL;
+
+   char *val = getenv(name);
+   if (!val) return NULL;
+
+   /* Using strdup for sanitizing
+    * And it assumes that all enviroment value strings are terminated with NULL.
+    */
+   return strdup(val);
+}
+
 E_API int
 e_util_glob_match(const char *str, const char *pattern)
 {
