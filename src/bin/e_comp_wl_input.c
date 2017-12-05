@@ -371,10 +371,10 @@ _e_comp_wl_input_keymap_fd_get(off_t size)
 {
    int fd = 0, blen = 0, len = 0;
    const char *path;
-   char tmp[PATH_MAX];
+   char tmp[PATH_MAX] = {0, };
    long flags;
 
-   blen = sizeof(tmp) - 1;
+   blen = sizeof(tmp) - 20;
 
    if (!(path = getenv("XDG_RUNTIME_DIR"))) return -1;
 
