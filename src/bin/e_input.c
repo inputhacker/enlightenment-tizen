@@ -19,6 +19,8 @@ e_input_init(Ecore_Evas *ee)
    E_Input_Device *dev;
    E_Input_Libinput_Backend backend = E_INPUT_LIBINPUT_BACKEND_UDEV;
 
+   TRACE_INPUT_BEGIN(e_input_init);
+
    if (++_e_input_init_count != 1) return _e_input_init_count;
 
    if (!eina_init()) goto eina_err;
@@ -66,6 +68,8 @@ e_input_init(Ecore_Evas *ee)
    e_input->window = ecore_evas_window_get(ee);
    e_input_device_window_set(dev, e_input->window);
 
+   TRACE_INPUT_BEGIN(e_input_device_input_backend_create);
+
    if (getenv("E_INPUT_USE_LIBINPUT_UDEV_BACKEND"))
      backend = E_INPUT_LIBINPUT_BACKEND_UDEV;
    else if (getenv("E_INPUT_USE_LIBINPUT_PATH_BACKEND"))
@@ -74,10 +78,14 @@ e_input_init(Ecore_Evas *ee)
    if (!e_input_device_input_backend_create(dev, backend))
      {
         EINA_LOG_ERR("Failed to create device\n");
+        TRACE_INPUT_END();
         goto device_create_err;
      }
+   TRACE_INPUT_END();
 
    e_input->dev = dev;
+
+   TRACE_INPUT_END();
 
    return _e_input_init_count;
 
@@ -100,6 +108,9 @@ ecore_err:
    eina_shutdown();
 
 eina_err:
+
+   TRACE_INPUT_END();
+
    return --_e_input_init_count;
 }
 

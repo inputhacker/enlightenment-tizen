@@ -708,11 +708,15 @@ e_input_device_input_backend_create(E_Input_Device *dev, E_Input_Libinput_Backen
 
    if (backend == E_INPUT_LIBINPUT_BACKEND_UDEV)
      {
+        TRACE_INPUT_BEGIN(e_input_device_input_create_libinput_udev);
         res = e_input_device_input_create_libinput_udev(dev);
+        TRACE_INPUT_END();
      }
    else if (backend == E_INPUT_LIBINPUT_BACKEND_PATH)
      {
+        TRACE_INPUT_BEGIN(e_input_device_input_create_libinput_path);
         res = e_input_device_input_create_libinput_path(dev);
+        TRACE_INPUT_END();
      }
 
    return res;
@@ -755,11 +759,14 @@ e_input_device_input_create_libinput_udev(E_Input_Device *dev)
    libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);
 
    /* assign udev seat */
+   TRACE_INPUT_BEGIN(libinput_udev_assign_seat);
    if (libinput_udev_assign_seat(input->libinput, dev->seat) != 0)
      {
         ERR("Failed to assign seat: %m");
+        TRACE_INPUT_END();
         goto err;
      }
+   TRACE_INPUT_END();
 
    /* process pending events */
    _input_events_process(input);
