@@ -5396,19 +5396,21 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
    if (ec && ec->comp_data && ec->comp_data->surface)
      wc = wl_resource_get_client(ec->comp_data->surface);
 
-   if (ev->data && ev->data != (void *)0x1)
+   if (ev->data)
      {
-        r_end = (E_Comp_Wl_Routed_Key_Data *)e_comp_wl->kbd.routed_keys.data + (e_comp_wl->kbd.routed_keys.size / sizeof(*r_k));
-
-        e_comp_wl->kbd.routed_keys.size = (const char *)r_end - (const char *)e_comp_wl->kbd.routed_keys.data;
-        if (!(r_k = wl_array_add(&e_comp_wl->kbd.routed_keys, sizeof(*r_k))))
+        if (ev->data != (void *)0x1)
           {
-             DBG("wl_array_add: Out of memory\n");
-             return EINA_FALSE;
-          }
-        r_k->key = keycode;
-        r_k->pressed = EINA_TRUE;
+             r_end = (E_Comp_Wl_Routed_Key_Data *)e_comp_wl->kbd.routed_keys.data + (e_comp_wl->kbd.routed_keys.size / sizeof(*r_k));
 
+             e_comp_wl->kbd.routed_keys.size = (const char *)r_end - (const char *)e_comp_wl->kbd.routed_keys.data;
+             if (!(r_k = wl_array_add(&e_comp_wl->kbd.routed_keys, sizeof(*r_k))))
+               {
+                  DBG("wl_array_add: Out of memory\n");
+                  return EINA_FALSE;
+               }
+             r_k->key = keycode;
+             r_k->pressed = EINA_TRUE;
+          }
         return !!ec;
      }
 
@@ -5478,19 +5480,21 @@ e_comp_wl_key_up(Ecore_Event_Key *ev)
    if (ec && ec->comp_data && ec->comp_data->surface)
      wc = wl_resource_get_client(ec->comp_data->surface);
 
-   if (ev->data && ev->data != (void *)0x1)
+   if (ev->data)
      {
-        r_end = (E_Comp_Wl_Routed_Key_Data *)e_comp_wl->kbd.routed_keys.data + (e_comp_wl->kbd.routed_keys.size / sizeof(*r_k));
-
-        e_comp_wl->kbd.routed_keys.size = (const char *)r_end - (const char *)e_comp_wl->kbd.routed_keys.data;
-        if (!(r_k = wl_array_add(&e_comp_wl->kbd.routed_keys, sizeof(*r_k))))
+        if (ev->data != (void *)0x1)
           {
-             DBG("wl_array_add: Out of memory\n");
-             return EINA_FALSE;
-          }
-        r_k->key = keycode;
-        r_k->pressed = EINA_FALSE;
+             r_end = (E_Comp_Wl_Routed_Key_Data *)e_comp_wl->kbd.routed_keys.data + (e_comp_wl->kbd.routed_keys.size / sizeof(*r_k));
 
+             e_comp_wl->kbd.routed_keys.size = (const char *)r_end - (const char *)e_comp_wl->kbd.routed_keys.data;
+             if (!(r_k = wl_array_add(&e_comp_wl->kbd.routed_keys, sizeof(*r_k))))
+               {
+                  DBG("wl_array_add: Out of memory\n");
+                  return EINA_FALSE;
+               }
+             r_k->key = keycode;
+             r_k->pressed = EINA_FALSE;
+          }
         return !!ec;
      }
 
