@@ -21,6 +21,7 @@
 
 E_API void         e_util_wakeup(void);
 E_API void         e_util_env_set(const char *var, const char *val);
+E_API char        *e_util_env_get(const char *name);
 E_API int          e_util_glob_match(const char *str, const char *glob);
 E_API int          e_util_glob_case_match(const char *str, const char *glob);
 E_API int          e_util_strcasecmp(const char *s1, const char *s2);
