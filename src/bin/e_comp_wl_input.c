@@ -759,7 +759,8 @@ e_comp_wl_input_keymap_compile(struct xkb_context *ctx, struct xkb_rule_names na
           {
              WRN("Keymap file is exist (%s) but it is invaild file. Generate keymap using rmlvo\n", cache_path);
              fclose(file);
-             remove(cache_path);
+             if (remove(cache_path) != 0)
+               WRN("Failed to remove keymap file: %s (errno: %d)", cache_path, errno);
              keymap = xkb_map_new_from_names(ctx, &names, 0);
              use_cache_keymap = EINA_FALSE;
           }
