@@ -627,9 +627,9 @@ e_util_transform_matrix_rotation_y(E_Util_Transform_Matrix *matrix, double degre
    matrix->mat[0][3] = c * source.mat[0][3] + s * source.mat[2][3];
 
    matrix->mat[2][0] = (-s) * source.mat[0][0] + c * source.mat[2][0];
-   matrix->mat[2][0] = (-s) * source.mat[0][1] + c * source.mat[2][1];
-   matrix->mat[2][0] = (-s) * source.mat[0][2] + c * source.mat[2][2];
-   matrix->mat[2][0] = (-s) * source.mat[0][3] + c * source.mat[2][3];
+   matrix->mat[2][1] = (-s) * source.mat[0][1] + c * source.mat[2][1];
+   matrix->mat[2][2] = (-s) * source.mat[0][2] + c * source.mat[2][2];
+   matrix->mat[2][3] = (-s) * source.mat[0][3] + c * source.mat[2][3];
 }
 
 E_API void
