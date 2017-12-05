@@ -2293,7 +2293,7 @@ e_output_connected(E_Output *output)
    return output->info.connected;
 }
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val)
 {
    E_Output_Intercept_Hook_Point hookpoint;
