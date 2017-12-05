@@ -2404,8 +2404,10 @@ _e_info_client_proc_buffer_shot(int argc, char **argv)
                  }
 
                str_len = strlen(tmp_path);
+               if (str_len >= PATH_MAX) str_len = PATH_MAX - 1;
 
-               strncpy(path, tmp_path, PATH_MAX < str_len ? PATH_MAX : str_len);
+               strncpy(path, tmp_path, str_len);
+               path[str_len] = 0;
 
                free(tmp_path);
                continue;
