@@ -3658,8 +3658,11 @@ e_comp_object_input_area_set(Evas_Object *obj, int x, int y, int w, int h)
    input_rect_sd = evas_object_smart_data_get(cw->input_obj);
    if (input_rect_sd)
      input_rect_sd->input_rect_data_list = eina_list_append(input_rect_sd->input_rect_data_list, input_rect_data);
+   else
+     E_FREE(input_rect_data);
 
-   if (x || y || (w != cw->ec->client.w) || (h != cw->ec->client.h))
+   if ((input_rect_data) &&
+       (x || y || (w != cw->ec->client.w) || (h != cw->ec->client.h)))
      {
         input_rect_data->obj = evas_object_rectangle_add(e_comp->evas);
         evas_object_name_set(input_rect_data->obj, "cw->input_obj");
