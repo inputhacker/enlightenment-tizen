@@ -519,6 +519,9 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
    Eina_List *ec_list = NULL;
    E_Client  *ec;
    Evas_Object *o;
+   Eina_Bool opt_hwc; // whether an output(zona) managed by opt-hwc
+
+   opt_hwc = e_output_hwc_windows_enabled(output_hwc);
 
    // TODO: check if eout is available to use hwc policy
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
@@ -543,6 +546,16 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
         if (evas_object_data_get(ec->frame, "comp_skip"))
           continue;
 
+        if (ec->hwc_window && e_hwc_window_is_video(ec->hwc_window))
+          continue;
+
+        if (opt_hwc)
+          {
+             /* skip all small clients except the video clients */
+             if ((ec->w == 1 || ec->h == 1))
+               continue;
+          }
+
         ec_list = eina_list_append(ec_list, ec);
 
         // find full opaque win and excludes below wins from the visible list.
@@ -551,8 +564,10 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
                         0, 0, scr_w, scr_h))
            continue;
 
-        if (!ec->argb)
-          break;
+        /* for hwc optimized we need full stack of visible hwc_windows */
+        if (!opt_hwc)
+          if (!ec->argb)
+            break;
      }
 
    return ec_list;
