@@ -786,6 +786,7 @@ _cb_input_keymap_info_get(const Eldbus_Message *msg)
    map = mmap(NULL, size, 0x01, 0x0001, fd, 0);
    if (map == ((void *)-1))
      {
+        xkb_context_unref(context);
         close(fd);
         return;
      }
