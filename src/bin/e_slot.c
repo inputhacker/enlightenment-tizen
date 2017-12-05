@@ -246,6 +246,7 @@ e_slot_new(Evas_Object *parent)
    _slot_smart_init();
    o = evas_object_smart_add(e_comp->evas, _e_slot_smart);
    sd = evas_object_smart_data_get(o);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(sd, NULL);
    sd->id = _e_slot_generate_id();
    sd->parent_obj = parent;
 
