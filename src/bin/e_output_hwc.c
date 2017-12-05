@@ -327,12 +327,6 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
           }
 
         hwc_window->is_excluded = EINA_FALSE;
-        tdm_err = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_CLIENT);
-        if (tdm_err != TDM_ERROR_NONE)
-          {
-             ERR("fail to set CLIENT composition type for E_Hwc_Window(%p)", hwc_window);
-             continue;
-          }
 
         result = e_hwc_window_set_zpos(hwc_window, zpos);
         if (result != EINA_TRUE)
