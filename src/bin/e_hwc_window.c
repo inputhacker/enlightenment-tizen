@@ -127,16 +127,17 @@ _e_hwc_window_surface_from_client_acquire(E_Hwc_Window *hwc_window)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, NULL);
 
-   if (!e_comp_object_hwc_update_exists(ec->frame)) return NULL;
-
-   e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
-
    tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
    if (!tsurface)
      {
         ERR("fail to wayland_tbm_server_get_surface");
         return NULL;
      }
+
+   if (hwc_window->tsurface == tsurface)
+     return NULL;
+
+   e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
    return tsurface;
 }
@@ -1127,8 +1128,6 @@ e_hwc_window_activate(E_Hwc_Window *hwc_window)
 
    if (cqueue)
      wayland_tbm_server_client_queue_activate(cqueue, 0, 0, 0);
-
-   e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
 
    hwc_window->activation_state = E_HWC_WINDOW_ACTIVATION_STATE_ACTIVATED;
 
