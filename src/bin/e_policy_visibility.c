@@ -1033,6 +1033,10 @@ _e_vis_client_is_uniconify_render_necessary(E_Vis_Client *vc)
           goto need_deiconify_render;
 
         VS_INF(ec, "Not necessary deiconify rendering");
+
+        ELOGF("POL", "SEND pre-unobscured visibility event", ec->pixmap, ec);
+        _e_vis_client_send_pre_visibility_event(ec);
+
         return EINA_FALSE;
      }
 
@@ -1069,13 +1073,13 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
         return EINA_FALSE;
      }
 
-   if (!_e_vis_client_is_uniconify_render_necessary(vc))
-       return EINA_FALSE;
-
-   ec->exp_iconify.not_raise = !raise;
-
    if (_e_vis_client_is_uniconify_render_running(vc))
      goto end;
+
+   if (!_e_vis_client_is_uniconify_render_necessary(vc))
+     return EINA_FALSE;
+
+   ec->exp_iconify.not_raise = !raise;
 
    VS_DBG(ec, "BEGIN Uniconify render: raise %d", raise);
 
