@@ -162,10 +162,12 @@ _e_output_hwc_windows_candidate_state_check(E_Output_Hwc *output_hwc)
 }
 
 static Eina_Bool
-_e_output_hwc_windows_states_update(const Eina_List *hwc_windows)
+_e_output_hwc_windows_states_update(E_Output_Hwc *output_hwc)
 {
    const Eina_List *l;
    E_Hwc_Window *hwc_window;
+
+   const Eina_List *hwc_windows = e_output_hwc_windows_get(output_hwc);
 
    EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
      {
@@ -301,7 +303,6 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
    uint32_t num_changes;
    int zpos = 0;
    E_Hwc_Window *hwc_window;
-   const Eina_List *hwc_windows;
    Eina_Bool result;
    tdm_error tdm_err;
    E_Output *eo = output_hwc->output;
@@ -339,16 +340,9 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
         zpos++;
      }
 
-   hwc_windows = e_output_hwc_windows_get(output_hwc);
-   if (!hwc_windows)
-     {
-        ERR("hwc-opt: cannot get list of hwc_windows for output(%p)", output_hwc->output);
-        return EINA_FALSE;
-     }
-
    /* to keep a state of e_hwc_windows up to date we have to update their states
     * according to the changes wm and/or hw made */
-   _e_output_hwc_windows_states_update(hwc_windows);
+   _e_output_hwc_windows_states_update(output_hwc);
 
    ELOGF("HWC-OPT", "Request HWC Validation to TDM HWC:", NULL, NULL);
    _e_output_hwc_windows_print_wnds_state(output_hwc);
@@ -412,7 +406,7 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
 
         /* to keep a state of e_hwc_windows up to date we have to update their states
          * according to the changes wm and/or hw made */
-        _e_output_hwc_windows_states_update(hwc_windows);
+        _e_output_hwc_windows_states_update(output_hwc);
 
         ELOGF("HWC-OPT", "Modified after HWC Validation:", NULL, NULL);
         _e_output_hwc_windows_print_wnds_state(output_hwc);
@@ -462,7 +456,7 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
      }
 
    /* mark the active/deactive on hwc_window */
-   EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
+   EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, hwc_window)
      {
         if (hwc_window->is_deleted) continue;
         if (e_hwc_window_is_target(hwc_window)) continue;
