@@ -270,9 +270,10 @@ _e_output_hwc_windows_print_wnds_state(E_Output_Hwc *output_hwc)
            ELOGF("HWC-OPT", "ew:%p -- target_hwc_window, type:%d",
                  NULL, NULL, hwc_window, hwc_window->type);
          else
-           ELOGF("HWC-OPT", "ew:%p -- {name:%16s}, state:%s, deleted:%s, zpos:%d",
+           ELOGF("HWC-OPT", "ew:%p -- {name:%25s, title:%25s}, state:%s, deleted:%s, zpos:%d",
                  hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
                  hwc_window, hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
+                 hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
                  _e_output_hwc_windows_get_name_of_wnd_state(hwc_window->state),
                  hwc_window->is_deleted ? "yes" : "no", hwc_window->zpos);
       }
@@ -351,7 +352,11 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
         return EINA_FALSE;
      }
 
-   ELOGF("HWC-OPT", "hwc_windows state before validate:", NULL, NULL);
+   /* to keep a state of e_hwc_windows up to date we have to update their states
+    * according to the changes wm and/or hw made */
+   _e_output_hwc_windows_states_update(hwc_windows);
+
+   ELOGF("HWC-OPT", "Request HWC Validation to TDM HWC:", NULL, NULL);
    _e_output_hwc_windows_print_wnds_state(output_hwc);
 
    /* make hwc extension choose which clients will own hw overlays */
@@ -368,7 +373,7 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
         tdm_hwc_window **changed_hwc_window = NULL;
         tdm_hwc_window_composition *composition_types = NULL;
 
-        ELOGF("HWC-OPT", "hwc extension required to change composition types.", NULL, NULL);
+        ELOGF("HWC-OPT", "TDM HWC required to change composition types.", NULL, NULL);
 
         changed_hwc_window = E_NEW(tdm_hwc_window *, num_changes);
         EINA_SAFETY_ON_NULL_RETURN_VAL(changed_hwc_window, EINA_FALSE);
@@ -410,11 +415,14 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
              ERR("hwc-opt: failed to accept changes required by the hwc extension");
              return EINA_FALSE;
           }
-     }
 
-   /* to keep a state of e_hwc_windows up to date we have to update their states
-    * according to the changes wm and/or hw made */
-   _e_output_hwc_windows_states_update(hwc_windows);
+        /* to keep a state of e_hwc_windows up to date we have to update their states
+         * according to the changes wm and/or hw made */
+        _e_output_hwc_windows_states_update(hwc_windows);
+
+        ELOGF("HWC-OPT", "Modified after HWC Validation:", NULL, NULL);
+        _e_output_hwc_windows_print_wnds_state(output_hwc);
+     }
 
    if (_e_output_hwc_windows_candidate_state_check(output_hwc))
      _e_output_hwc_windows_get_notified_about_need_unset_cc_type(output_hwc);
@@ -426,7 +434,7 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
      {
         E_Hwc_Window_Target *target_hwc_window;
 
-        ELOGF("HWC-OPT", "hybrid composition", NULL, NULL);
+        ELOGF("HWC-OPT", "HWC_MODE is HYBRID composition.", NULL, NULL);
 
         target_hwc_window = output_hwc->target_hwc_window;
         if (!target_hwc_window)
@@ -447,7 +455,7 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
          * considered like if we set a CLIENT composition type for the hwc_window */
      }
    else
-     ELOGF("HWC-OPT", "full hw composition", NULL, NULL);
+     ELOGF("HWC-OPT", "HWC_MODE is HYBRID composition.", NULL, NULL);
 
    if (prev_comp_mode != comp_mode)
      {
@@ -458,9 +466,6 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
 
         prev_comp_mode = comp_mode;
      }
-
-   ELOGF("HWC-OPT", "hwc_windows state after validate:", NULL, NULL);
-   _e_output_hwc_windows_print_wnds_state(output_hwc);
 
    /* mark the active/deactive on hwc_window */
    EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
@@ -494,7 +499,10 @@ _e_output_hwc_windows_target_window_render(E_Output *output, E_Hwc_Window_Target
    TRACE_DS_BEGIN(MANUAL RENDER);
 
    if (e_hwc_window_target_surface_queue_can_dequeue(target_hwc_window) || !target_hwc_window->queue)
-     ecore_evas_manual_render(target_hwc_window->ee);
+     {
+        ELOGF("HWC-OPT", "=== Output Render (call the ecore_evas_manual_render)===", NULL, NULL);
+        ecore_evas_manual_render(target_hwc_window->ee);
+     }
 
    TRACE_DS_END();
 
@@ -593,15 +601,11 @@ _e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
    E_Client *ec, *ec_inner;
    E_Hwc_Window *hwc_window = NULL;
 
-   ELOGF("HWC-OPT", "filter e_clients by wm", NULL, NULL);
-
    /* let's hope for the best... */
    EINA_LIST_FOREACH(vis_cl_list, l, ec)
      {
         hwc_window = ec->hwc_window;
         hwc_window->hwc_acceptable = EINA_TRUE;
-        ELOGF("HWC-OPT", "(name:%s, title:%s) is gonna be hwc_acceptable.",
-              ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
      }
 
    EINA_LIST_FOREACH(vis_cl_list, l, ec)
@@ -613,7 +617,7 @@ _e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
           {
              hwc_window = ec->hwc_window;
              hwc_window->hwc_acceptable = EINA_FALSE;
-             ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable (nocomp_override > 0).",
+             ELOGF("HWC-OPT", "Prevent (name:%s, title:%s) to be hwc_acceptable (nocomp_override > 0).",
                    ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
           }
 //TODO: we have to find what to do in this case.??
@@ -639,7 +643,7 @@ _e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
                {
                   hwc_window = ec_inner->hwc_window;
                   hwc_window->hwc_acceptable = EINA_FALSE;
-                  ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable (UI subsurface).",
+                  ELOGF("HWC-OPT", "Prevent (name:%s, title:%s) to be hwc_acceptable (UI subsurface).",
                         ec_inner->pixmap, ec_inner, ec_inner->icccm.name, ec_inner->icccm.title);
                }
           }
@@ -649,7 +653,7 @@ _e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
           {
              hwc_window = ec->hwc_window;
              hwc_window->hwc_acceptable = EINA_FALSE;
-             ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable.",
+             ELOGF("HWC-OPT", "Prevent (name:%s, title:%s) to be hwc_acceptable.",
                    ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
           }
 
@@ -657,7 +661,7 @@ _e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
           {
              hwc_window = ec->hwc_window;
              hwc_window->hwc_acceptable = EINA_FALSE;
-             ELOGF("HWC-OPT", "prevent (name:%s, title:%s) to be hwc_acceptable.(Cursor)",
+             ELOGF("HWC-OPT", "Prevent (name:%s, title:%s) to be hwc_acceptable.(Cursor)",
                    ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
           }
 
@@ -693,11 +697,11 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
    E_Output *output = output_hwc->output;
    tdm_error err;
 
-   ELOGF("HWC-OPT", "we have something which causes to reevaluate 'E_Hwc_Window to hw_layer' mapping.", NULL, NULL);
+   ELOGF("HWC-OPT", "=== Output HWC Apply (evaluate) ===", NULL, NULL);
 
    vis_clist = _e_output_hwc_windows_vis_ec_list_get(output_hwc);
 
-   ELOGF("HWC-OPT", "number of visible clients:%d.", NULL, NULL, eina_list_count(vis_clist));
+   ELOGF("HWC-OPT", "The number of visible clients:%d.", NULL, NULL, eina_list_count(vis_clist));
 
    /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
    hwc_ok_clist = _e_output_hwc_windows_filter_cl_by_wm(vis_clist);
@@ -1605,6 +1609,8 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
 
    output = output_hwc->output;
 
+   ELOGF("HWC-OPT", "=== Fetch the buffers ===", NULL, NULL);
+
    EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
      {
         /* an underlying hwc_window still occupies a hw overlay, so we can't
@@ -1642,6 +1648,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
      {
         tdm_error error = TDM_ERROR_NONE;
 
+        ELOGF("HWC-OPT", "=== Output Commit ===", NULL, NULL);
         error = tdm_output_commit(output->toutput, 0, _e_output_hwc_windows_commit_handler, output_hwc);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 

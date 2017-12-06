@@ -847,8 +847,15 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
    if (!tsurface)
      {
-        ELOGF("HWC-OPT", "fail to fetch hwc_window",
-              hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec);
+        if (e_hwc_window_is_target(hwc_window))
+          ELOGF("HWC-OPT", "no updated surface (target_window) on the hwc_wnd:%p.",
+                NULL, NULL, hwc_window->hwc_wnd);
+        else
+          ELOGF("HWC-OPT", "no updated surface (title:%s, name:%s) on the hwc_wnd:%p.",
+                hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
+                hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+                hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
+                hwc_window->hwc_wnd);
         return EINA_FALSE;
      }
 
