@@ -337,9 +337,6 @@ extern E_API Eina_Bool e_nopause;
 
 extern E_API Eina_Bool e_precache_end;
 
-extern EINTERN const char *e_first_frame;
-extern EINTERN double e_first_frame_start_time;
-
 //#define SMARTERR(args...) abort()
 #define SMARTERRNR() return
 #define SMARTERR(x)  return x

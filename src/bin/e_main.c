@@ -140,8 +140,6 @@ E_API Eina_Bool starting = EINA_TRUE;
 E_API Eina_Bool stopping = EINA_FALSE;
 E_API Eina_Bool restart = EINA_FALSE;
 E_API Eina_Bool e_nopause = EINA_FALSE;
-EINTERN const char *e_first_frame = NULL;
-EINTERN double e_first_frame_start_time = -1;
 
 static Eina_Bool
 _xdg_check_str(const char *env, const char *str)
@@ -464,12 +462,6 @@ main(int argc, char **argv)
      }
    TSE("Ecore Init Done");
    _e_main_shutdown_push(ecore_shutdown);
-
-   e_first_frame = getenv("E_FIRST_FRAME");
-   if (e_first_frame && e_first_frame[0])
-     e_first_frame_start_time = ecore_time_get();
-   else
-     e_first_frame = NULL;
 
    TSB("EIO Init");
    if (!eio_init())
