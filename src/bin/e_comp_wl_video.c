@@ -218,19 +218,6 @@ find_video_with_surface(struct wl_resource *surface)
    return NULL;
 }
 
-static E_Video*
-find_video_with_e_client(E_Client *ec)
-{
-   E_Video *video;
-   Eina_List *l;
-   EINA_LIST_FOREACH(video_list, l, video)
-     {
-        if (video->ec == ec)
-          return video;
-     }
-   return NULL;
-}
-
 static E_Client*
 find_video_child_get(E_Client *ec)
 {
