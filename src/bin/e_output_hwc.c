@@ -542,13 +542,10 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
         if (evas_object_data_get(ec->frame, "comp_skip"))
           continue;
 
-        if (ec->hwc_window && e_hwc_window_is_video(ec->hwc_window))
-          continue;
-
         if (opt_hwc)
           {
              /* skip all small clients except the video clients */
-             if ((ec->w == 1 || ec->h == 1))
+             if ((ec->w == 1 || ec->h == 1) && !e_hwc_window_is_video(ec->hwc_window))
                continue;
           }
 
