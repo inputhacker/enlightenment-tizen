@@ -89,12 +89,6 @@ _e_output_hwc_windows_need_target_hwc_window(E_Output_Hwc *output_hwc)
    return EINA_FALSE;
 }
 
-static E_Hwc_Window_Target *
-_e_output_hwc_windows_get_target_hwc_window(E_Output *eout)
-{
-   return eout->output_hwc->target_hwc_window;
-}
-
 static Eina_Bool
 _e_output_hwc_windows_exclude_all_hwc_windows(E_Output *eout)
 {
@@ -716,7 +710,7 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
      {
         E_Hwc_Window *hwc_window;
 
-        target_hwc_window = _e_output_hwc_windows_get_target_hwc_window(output);
+        target_hwc_window = output_hwc->target_hwc_window;
         if (!target_hwc_window)
           {
              ERR("we don't have the target hwc_window");
@@ -1583,7 +1577,7 @@ e_output_hwc_windows_render(E_Output_Hwc *output_hwc)
    E_Output *output = output_hwc->output;
    E_Hwc_Window_Target *target_hwc_window;
 
-   target_hwc_window = _e_output_hwc_windows_get_target_hwc_window(output);
+   target_hwc_window = output_hwc->target_hwc_window;
    if (!target_hwc_window)
      {
         ERR("fail to get target hwc_window for output(%p).", output);
