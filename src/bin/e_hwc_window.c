@@ -1202,7 +1202,8 @@ e_hwc_window_set_state(E_Hwc_Window *hwc_window, E_Hwc_Window_State state)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
-   hwc_window->state = state;
+   if (hwc_window->state != state)
+     hwc_window->state = state;
 
    return EINA_TRUE;
 }
