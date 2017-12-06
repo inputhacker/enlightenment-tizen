@@ -1740,6 +1740,12 @@ e_policy_visibility_client_uniconify(E_Client *ec, Eina_Bool raise)
    if (!ec->iconic && !ec->exp_iconify.deiconify_update)
      return EINA_FALSE;
 
+   if (!ec->visible)
+     {
+        ELOGF("POL", "UNICONIFY. but NOT MAPPED. So skip...", ec->pixmap, ec);
+        return EINA_FALSE;
+     }
+
    VS_DBG(ec, "API ENTRY | UNICONIFY");
 
    /* TODO search clients to be really foreground and uniconify it.
