@@ -47,6 +47,8 @@ _device_calibration_set(E_Input_Evdev *edev)
           }
      }
 
+//LCOV_EXCL_START
+#ifdef _F_E_INPUT_ENABLE_DEVICE_CALIBRATION_
    if ((!libinput_device_config_calibration_has_matrix(edev->device)) ||
        (libinput_device_config_calibration_get_default_matrix(edev->device, cal) != 0))
      return;
@@ -56,10 +58,11 @@ _device_calibration_set(E_Input_Evdev *edev)
    devices = eeze_udev_find_by_subsystem_sysname("input", sysname);
    if (eina_list_count(devices) < 1) return;
 
+#ifdef _F_E_INPUT_USE_WL_CALIBRATION_
    EINA_LIST_FREE(devices, device)
      {
         vals = eeze_udev_syspath_get_property(device, "WL_CALIBRATION");
-	if ((!vals) ||
+        if ((!vals) ||
             (sscanf(vals, "%f %f %f %f %f %f",
                     &cal[0], &cal[1], &cal[2], &cal[3], &cal[4], &cal[5]) != 6))
           goto cont;
@@ -77,6 +80,9 @@ cont:
         eina_stringshare_del(device);
         continue;
      }
+#endif//_F_E_INPUT_USE_WL_CALIBRATION_
+#endif//_F_E_INPUT_ENABLE_DEVICE_CALIBRATION_
+//LCOV_EXCL_STOP
 }
 
 static void
@@ -951,31 +957,8 @@ _e_input_evdev_device_create(E_Input_Seat *seat, struct libinput_device *device)
 
    edev->seat = seat;
    edev->device = device;
-   edev->path = eina_stringshare_add(libinput_device_get_sysname(device));
+   edev->path = eina_stringshare_printf("%s/%s", e_input_base_dir_get(), libinput_device_get_sysname(device));
    edev->fd = -1;
-
-   if (edev->path)
-     {
-        devices = eeze_udev_find_by_filter("input", NULL, edev->path);
-        if (eina_list_count(devices) >= 1)
-          {
-             Eina_List *l;
-             const char *dev, *name;
-
-             EINA_LIST_FOREACH(devices, l, dev)
-               {
-                  name = eeze_udev_syspath_get_devname(dev);
-                  if (name && strstr(name, edev->path))
-                    {
-                       eina_stringshare_replace(&edev->path, eeze_udev_syspath_get_devpath(dev));
-                       break;
-                    }
-               }
-
-             EINA_LIST_FREE(devices, dev)
-               eina_stringshare_del(dev);
-          }
-     }
 
    if (libinput_device_has_capability(device, LIBINPUT_DEVICE_CAP_KEYBOARD))
      {

@@ -57,28 +57,6 @@ _e_input_device_cb_open_restricted(const char *path, int flags, void *data)
 static void
 _e_input_device_cb_close_restricted(int fd, void *data)
 {
-   E_Input_Backend *input;
-   E_Input_Seat *seat;
-   E_Input_Evdev *edev;
-   Eina_List *l, *ll;
-
-   if (!(input = data)) return;
-
-   EINA_LIST_FOREACH(input->dev->seats, l, seat)
-     {
-        EINA_LIST_FOREACH(seat->devices, ll, edev)
-          {
-             if (edev->fd == fd)
-               {
-                  _device_close(edev->path, fd);
-
-                  /* re-initialize fd after closing */
-                  edev->fd = -1;
-                  return;
-               }
-          }
-     }
-
    if (fd >= 0) close(fd);
 }
 

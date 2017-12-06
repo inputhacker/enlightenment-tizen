@@ -13,6 +13,12 @@ E_API int E_EVENT_INPUT_DISABLED = -1;
 
 E_API E_Input *e_input = NULL;
 
+EINTERN const char *
+e_input_base_dir_get(void)
+{
+   return e_input->input_base_dir;
+}
+
 EINTERN int
 e_input_init(Ecore_Evas *ee)
 {
@@ -57,6 +63,9 @@ e_input_init(Ecore_Evas *ee)
         goto log_err;
      }
 
+   // TODO : make this variable configurable e.g. e.cfg
+   e_input->input_base_dir = eina_stringshare_add("/dev/input");
+
    dev = e_input_device_open();
 
    if (!dev)
@@ -93,6 +102,11 @@ device_create_err:
    e_input_device_close(dev);
 
 log_err:
+   if (e_input->input_base_dir)
+     {
+        eina_stringshare_del(e_input->input_base_dir);
+        e_input->input_base_dir = NULL;
+     }
    ecore_event_evas_shutdown();
 
 ecore_event_evas_err:
@@ -128,6 +142,8 @@ e_input_shutdown(void)
    E_EVENT_INPUT_ENABLED = -1;
    E_EVENT_INPUT_DISABLED = -1;
 
+   if (e_input->input_base_dir)
+     eina_stringshare_del(e_input->input_base_dir);
    e_input_device_close(e_input->dev);
    free(e_input);
 

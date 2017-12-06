@@ -58,6 +58,7 @@ struct _E_Input
 {
    Ecore_Window window;
    E_Input_Device *dev;
+   const char *input_base_dir;
 };
 
 struct _E_Input_Device
@@ -75,6 +76,7 @@ struct _E_Input_Device
 
 EINTERN int e_input_init(Ecore_Evas *ee);
 EINTERN int e_input_shutdown(void);
+EINTERN const char *e_input_base_dir_get(void);
 
 EINTERN E_Input_Device *e_input_device_open(void);
 EINTERN Eina_Bool e_input_device_close(E_Input_Device *dev);
