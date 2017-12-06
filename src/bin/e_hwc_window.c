@@ -770,16 +770,6 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
     error = tdm_hwc_window_set_info(hwc_wnd, &info);
     EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
-    /* if e_client is in cl_list it means it has attached/committed
-     * tbm_surface anyway
-     *
-     * NB: only an applicability of the e_client to own the hw overlay
-     *     is checked here, no buffer fetching happens here however */
-    surface = _e_comp_get_current_surface_for_cl(ec);
-
-    error = tdm_hwc_window_set_buffer(hwc_wnd, surface);
-    EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
-
     return EINA_TRUE;
 }
 
