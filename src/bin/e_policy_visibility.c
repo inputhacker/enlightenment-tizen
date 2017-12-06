@@ -1014,6 +1014,13 @@ _e_vis_client_prepare_foreground_signal_emit(E_Vis_Client *vc)
    evas_object_smart_callback_call(vc->ec->frame, "e,visibility,prepare,foreground", vc->ec);
 }
 
+static void
+_e_vis_client_send_pre_visibility_event(E_Client *ec)
+{
+   if (!ec) return;
+   e_policy_wl_visibility_send(ec, E_VISIBILITY_PRE_UNOBSCURED);
+}
+
 static Eina_Bool
 _e_vis_client_is_uniconify_render_necessary(E_Vis_Client *vc)
 {
@@ -1043,6 +1050,7 @@ static Eina_Bool
 _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type, Eina_Bool raise)
 {
    E_Client *ec;
+   Eina_Bool send_vis_event = EINA_TRUE;
 
    ec = vc->ec;
 
@@ -1071,8 +1079,60 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
 
    VS_DBG(ec, "BEGIN Uniconify render: raise %d", raise);
 
-   e_policy_wl_visibility_send(ec, E_VISIBILITY_PRE_UNOBSCURED);
-   ec->visibility.changed = 1;
+   if (ec->transients)
+     {
+        if (raise)
+          {
+             E_Client *child;
+             const Eina_List *l;
+
+             EINA_LIST_FOREACH(ec->transients, l, child)
+               {
+                  if (child->transient_policy == E_TRANSIENT_BELOW)
+                    continue;
+                  if (!child->argb)
+                    {
+                       send_vis_event = EINA_FALSE;
+                       break;
+                    }
+                  else
+                    {
+                       if (child->visibility.opaque > 0)
+                         {
+                            send_vis_event = EINA_FALSE;
+                            break;
+                         }
+                    }
+               }
+          }
+        else
+          {
+             E_Client *above = NULL;
+             for (above = e_client_above_get(ec); above; above = e_client_above_get(above))
+               {
+                  if (e_client_util_ignored_get(above)) continue;
+                  if (!E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h)) continue;
+                  if ((above->parent == ec))
+                    {
+                       if (!above->argb)
+                         send_vis_event = EINA_FALSE;
+                       else
+                         {
+                            if (above->visibility.opaque > 0)
+                              send_vis_event = EINA_FALSE;
+                         }
+                    }
+                  break;
+               }
+          }
+     }
+
+   if (send_vis_event)
+     {
+        ELOGF("POL", "SEND pre-unobscured visibility event", ec->pixmap, ec);
+        _e_vis_client_send_pre_visibility_event(ec);
+        ec->visibility.changed = 1;
+     }
 
    _e_vis_client_prepare_foreground_signal_emit(vc);
    vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY;
@@ -1343,6 +1403,9 @@ _e_vis_ec_below_uniconify(E_Client *ec)
                        ret |= EINA_FALSE;
                        continue;
                     }
+
+                  ELOGF("POL", "SEND pre-unobscured visibility event", below_ec->pixmap, below_ec);
+                  _e_vis_client_send_pre_visibility_event(below_ec);
                }
 
              job_added = _e_vis_client_add_uniconify_render_pending(below, E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY, 0);
