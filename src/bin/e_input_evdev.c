@@ -6,12 +6,6 @@ static void  _device_modifiers_update(E_Input_Evdev *edev);
 static void
 _device_calibration_set(E_Input_Evdev *edev)
 {
-   const char *sysname;
-   float cal[6];
-   const char *device;
-   Eina_List *devices;
-   const char *vals;
-   enum libinput_config_status status;
    E_Output *output;
    int w = 0, h = 0;
    int temp;
@@ -947,7 +941,6 @@ E_Input_Evdev *
 _e_input_evdev_device_create(E_Input_Seat *seat, struct libinput_device *device)
 {
    E_Input_Evdev *edev;
-   Eina_List *devices;
    E_Input_Backend *b_input;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(seat, NULL);
