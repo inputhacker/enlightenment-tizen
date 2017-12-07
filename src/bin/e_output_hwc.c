@@ -294,6 +294,33 @@ _e_output_hwc_windows_window_find_by_twin(E_Output_Hwc *output_hwc, tdm_hwc_wind
    return NULL;
 }
 
+static Eina_Bool
+_e_output_hwc_windows_unset_cc_type_for_all_unvis_hwc_windows(E_Output *eout)
+{
+   const Eina_List *hwc_windows, *l;
+   E_Hwc_Window *hwc_window = NULL;
+
+   hwc_windows = e_output_hwc_windows_get(eout->output_hwc);
+   EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
+     {
+        if (hwc_window->is_excluded &&
+            e_hwc_window_get_state(hwc_window) == E_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
+          {
+             /* reset for the next DEVICE -> CLIENT_CANDIDATE transition */
+             hwc_window->got_composited = EINA_FALSE;
+             hwc_window->need_unset_cc_type = EINA_FALSE;
+             hwc_window->get_notified_about_need_unset_cc_type = EINA_FALSE;
+
+             tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_CLIENT);
+             tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_NONE);
+
+             hwc_window->type = TDM_COMPOSITION_NONE;
+          }
+     }
+
+   return EINA_TRUE;
+}
+
 // cl_list - list of e_clients that contains ALL visible e_clients for this output ('eo')
  static Eina_Bool
 _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
@@ -339,6 +366,11 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
           }
         zpos++;
      }
+
+   /* FIXME: it is quick fix for the TDM_COMPOSITION_CANDIDATE_CLIENT type freezing
+    * in the invisible hwc_windows. The CANDIDATE_CLIENT logic will be reworked and
+    * this kludge function removed */
+   _e_output_hwc_windows_unset_cc_type_for_all_unvis_hwc_windows(output_hwc->output);
 
    /* to keep a state of e_hwc_windows up to date we have to update their states
     * according to the changes wm and/or hw made */
