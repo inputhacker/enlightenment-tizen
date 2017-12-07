@@ -1008,10 +1008,15 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
 
         if (win->hwc >= 0)
           {
-             if ((!win->iconic) && (!win->visibility) && (win->frame_visible))
+             if ((!win->iconic) && (win->frame_visible))
                {
-                  if (win->hwc) snprintf(tmp, sizeof(tmp), "hwc@%i", win->pl_zpos);
-                  else snprintf(tmp, sizeof(tmp), "comp@%i", win->pl_zpos);
+                  if (win->pl_zpos == -1)
+                    snprintf(tmp, sizeof(tmp), " - ");
+                  else
+                    {
+                       if (win->hwc) snprintf(tmp, sizeof(tmp), "hwc@%i", win->pl_zpos);
+                       else snprintf(tmp, sizeof(tmp), "comp@%i", win->pl_zpos);
+                    }
                }
              else
                snprintf(tmp, sizeof(tmp), " - ");
@@ -1082,10 +1087,15 @@ _e_info_client_proc_topwins_info(int argc, char **argv)
 
         if (win->hwc >= 0)
           {
-             if ((!win->iconic) && (!win->visibility) && (win->frame_visible))
+             if ((!win->iconic) && (win->frame_visible))
                {
-                  if (win->hwc) snprintf(tmp, sizeof(tmp), "hwc@%i", win->pl_zpos);
-                  else snprintf(tmp, sizeof(tmp), "comp@%i", win->pl_zpos);
+                  if (win->pl_zpos == -1)
+                    snprintf(tmp, sizeof(tmp), " - ");
+                  else
+                    {
+                       if (win->hwc) snprintf(tmp, sizeof(tmp), "hwc@%i", win->pl_zpos);
+                       else snprintf(tmp, sizeof(tmp), "comp@%i", win->pl_zpos);
+                    }
                }
              else
                snprintf(tmp, sizeof(tmp), " - ");
@@ -3479,10 +3489,15 @@ _e_info_client_cb_wininfo(const Eldbus_Message *msg)
    printf("   PL@ZPos:");
    if (hwc >= 0)
      {
-        if ((!iconic) && (!obscured) && (frame_visible))
+        if ((!iconic) && (frame_visible))
           {
-             if (hwc) printf(" hwc@%i\n", pl_zpos);
-             else printf(" comp@%i\n", pl_zpos);
+             if (pl_zpos == -1)
+               printf(" - ");
+             else
+               {
+                  if (hwc) printf(" hwc@%i\n", pl_zpos);
+                  else printf(" comp@%i\n", pl_zpos);
+               }
           }
         else
           printf(" - \n");
@@ -3548,8 +3563,13 @@ _e_info_client_cb_wininfo_tree(const Eldbus_Message *msg)
         else
           printf("0x%lx \"%s\":", (unsigned long)child_win, child_name);
         printf (" %dx%d+%d+%d", w, h, x, y);
-        if (hwc > 0) printf(" hwc@%i", pl_zpos);
-        else if (!hwc) printf(" comp@%i", pl_zpos);
+        if (pl_zpos == -1)
+          printf(" - ");
+        else
+          {
+             if (hwc > 0) printf(" hwc@%i", pl_zpos);
+             else if (!hwc) printf(" comp@%i", pl_zpos);
+          }
         printf("\n");
         if (num_children > 0)
           {
