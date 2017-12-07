@@ -39,6 +39,7 @@ struct _E_Hwc_Window
    Eina_Bool                      update_exist;
    tbm_surface_h                  tsurface;
    E_Hwc_Window_Activation_State  activation_state; /* hwc_window has occupied the hw layer or not */
+   tdm_hwc_window_info info;
 
    E_Hwc_Window_State             state;
 

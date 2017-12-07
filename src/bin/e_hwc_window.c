@@ -680,6 +680,123 @@ e_hwc_window_get_zpos(E_Hwc_Window *hwc_window)
    return hwc_window->zpos;
 }
 
+static unsigned int
+_e_hwc_window_aligned_width_get(tbm_surface_h tsurface)
+{
+   unsigned int aligned_width = 0;
+   tbm_surface_info_s surf_info;
+
+   tbm_surface_get_info(tsurface, &surf_info);
+
+   switch (surf_info.format)
+     {
+      case TBM_FORMAT_YUV420:
+      case TBM_FORMAT_YVU420:
+      case TBM_FORMAT_YUV422:
+      case TBM_FORMAT_YVU422:
+      case TBM_FORMAT_NV12:
+      case TBM_FORMAT_NV21:
+        aligned_width = surf_info.planes[0].stride;
+        break;
+      case TBM_FORMAT_YUYV:
+      case TBM_FORMAT_UYVY:
+        aligned_width = surf_info.planes[0].stride >> 1;
+        break;
+      case TBM_FORMAT_ARGB8888:
+      case TBM_FORMAT_XRGB8888:
+        aligned_width = surf_info.planes[0].stride >> 2;
+        break;
+      default:
+        ERR("not supported format: %x", surf_info.format);
+     }
+
+   return aligned_width;
+}
+
+static Eina_Bool
+_e_hwc_window_info_set(E_Hwc_Window *hwc_window)
+{
+   tbm_surface_h tsurface = hwc_window->tsurface;
+   E_Output *output = hwc_window->output;
+   E_Client *ec = hwc_window->ec;
+   tbm_surface_info_s surf_info;
+   unsigned int size_w, size_h, src_x, src_y, src_w, src_h;
+   unsigned int dst_x, dst_y, dst_w, dst_h;
+   tbm_format format;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(tsurface == NULL, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(output == NULL, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(ec == NULL, EINA_FALSE);
+
+   /* set hwc_window when the layer infomation is different from the previous one */
+   tbm_surface_get_info(tsurface, &surf_info);
+
+   format = surf_info.format;
+
+   size_w = _e_hwc_window_aligned_width_get(tsurface);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(size_w == 0, EINA_FALSE);
+
+   size_h = surf_info.height;
+
+   src_x = 0;
+   src_y = 0;
+   src_w = surf_info.width;
+   src_h = surf_info.height;
+
+   dst_x = ec->x;
+   dst_y = ec->y;
+
+   /* if output is transformed, the position of a buffer on screen should be also
+   * transformed.
+   */
+   if (output->config.rotation > 0)
+     {
+        int bw, bh;
+        e_pixmap_size_get(ec->pixmap, &bw, &bh);
+        e_comp_wl_rect_convert(ec->zone->w, ec->zone->h,
+                               output->config.rotation / 90, 1,
+                               dst_x, dst_y, bw, bh,
+                               &dst_x, &dst_y, NULL, NULL);
+     }
+
+   dst_w = surf_info.width;
+   dst_h = surf_info.height;
+
+   if (hwc_window->info.src_config.size.h != size_w ||
+            hwc_window->info.src_config.size.v != size_h ||
+            hwc_window->info.src_config.pos.x != src_x ||
+            hwc_window->info.src_config.pos.y != src_y ||
+            hwc_window->info.src_config.pos.w != src_w ||
+            hwc_window->info.src_config.pos.h != src_h ||
+            hwc_window->info.src_config.format != format ||
+            hwc_window->info.dst_pos.x != dst_x ||
+            hwc_window->info.dst_pos.y != dst_y ||
+            hwc_window->info.dst_pos.w != dst_w ||
+            hwc_window->info.dst_pos.h != dst_h)
+     {
+        tdm_error error;
+
+        /* change the information at plane->info */
+        hwc_window->info.src_config.size.h = size_w;
+        hwc_window->info.src_config.size.v = size_h;
+        hwc_window->info.src_config.pos.x = src_x;
+        hwc_window->info.src_config.pos.y = src_y;
+        hwc_window->info.src_config.pos.w = src_w;
+        hwc_window->info.src_config.pos.h = src_h;
+        hwc_window->info.dst_pos.x = dst_x;
+        hwc_window->info.dst_pos.y = dst_y;
+        hwc_window->info.dst_pos.w = dst_w;
+        hwc_window->info.dst_pos.h = dst_h;
+        hwc_window->info.transform = TDM_TRANSFORM_NORMAL;
+        hwc_window->info.src_config.format = format;
+
+        error = tdm_hwc_window_set_info(hwc_window->hwc_wnd, &hwc_window->info);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+     }
+
+   return EINA_TRUE;
+}
+
 EINTERN Eina_Bool
 e_hwc_window_update(E_Hwc_Window *hwc_window)
 {
@@ -688,6 +805,7 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
    tbm_surface_h surface;
    E_Client *ec;
    tdm_error error;
+   Eina_Bool result;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
@@ -733,12 +851,15 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
    else
      {
         /* hwc_window manager could ask to prevent some e_clients being shown by hw directly */
-        if (hwc_window->hwc_acceptable)
+        if (hwc_window->hwc_acceptable && hwc_window->tsurface)
           {
              error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_DEVICE);
              EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
              hwc_window->type = TDM_COMPOSITION_DEVICE;
+
+             result = _e_hwc_window_info_set(hwc_window);
+             EINA_SAFETY_ON_TRUE_RETURN_VAL(result != EINA_TRUE, EINA_FALSE);
           }
         else
           {
@@ -749,29 +870,7 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
           }
       }
 
-    info.src_config.pos.x = 0;
-    info.src_config.pos.y = 0;
-    info.src_config.pos.w = ec->w;
-    info.src_config.pos.h = ec->h;
-
-    /* do we have to fill out these? */
-    info.src_config.size.h = ec->w;
-    info.src_config.size.v = ec->h;
-
-    /* do we have to fill out these? */
-    info.src_config.format = TBM_FORMAT_ARGB8888;
-
-    info.dst_pos.x = ec->x;
-    info.dst_pos.y = ec->y;
-    info.dst_pos.w = ec->w;
-    info.dst_pos.h = ec->h;
-
-    info.transform = TDM_TRANSFORM_NORMAL;
-
-    error = tdm_hwc_window_set_info(hwc_wnd, &info);
-    EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
-
-    return EINA_TRUE;
+   return EINA_TRUE;
 }
 
 EINTERN Eina_Bool
