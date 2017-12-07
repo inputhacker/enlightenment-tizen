@@ -224,15 +224,15 @@ _device_modifiers_update_device(E_Input_Evdev *edev, E_Input_Evdev *from)
 static void
 _device_modifiers_update(E_Input_Evdev *edev)
 {
+   Eina_List *l;
+   E_Input_Evdev *ed;
+
    edev->xkb.modifiers = 0;
 
    if (edev->caps & E_INPUT_SEAT_KEYBOARD)
      _device_modifiers_update_device(edev, edev);
    else
      {
-        Eina_List *l;
-        E_Input_Evdev *ed;
-
         EINA_LIST_FOREACH(edev->seat->devices, l, ed)
           {
              if (!(ed->caps & E_INPUT_SEAT_KEYBOARD)) continue;
