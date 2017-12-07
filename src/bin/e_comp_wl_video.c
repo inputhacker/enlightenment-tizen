@@ -1932,6 +1932,9 @@ _e_video_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
 
    if (e_object_is_del(E_OBJECT(video->ec))) return;
 
+   if (!video->ec->comp_data->video_client)
+     return;
+
    if (video->need_force_render)
      {
         VIN("video forcely rendering..");
@@ -1984,6 +1987,9 @@ _e_video_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
    E_Video *video = data;
 
    if (e_object_is_del(E_OBJECT(video->ec))) return;
+
+   if (!video->ec->comp_data->video_client)
+     return;
 
    /* if stand_alone is true, not hide */
    if (video->ec->comp_data->sub.data && video->ec->comp_data->sub.data->stand_alone)
