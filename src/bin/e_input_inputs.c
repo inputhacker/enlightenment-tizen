@@ -1,13 +1,6 @@
 #include "e.h"
 #include "e_input_private.h"
 
-static void
-_device_close(const char *device, int fd)
-{
-   if (fd >= 0)
-     close(fd);
-}
-
 static E_Input_Seat *
 _seat_create(E_Input_Backend *input, const char *seat)
 {
@@ -318,7 +311,10 @@ _device_removed(E_Input_Backend *input, struct libinput_device *device)
 
    /* tell launcher to release device */
    if (edev->fd >= 0)
-     _device_close(edev->path, edev->fd);
+     {
+        close(edev->fd);
+        edev->fd = -1;
+     }
 
    /* destroy this evdev */
    _e_input_evdev_device_destroy(edev);
