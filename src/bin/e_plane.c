@@ -3131,6 +3131,9 @@ e_plane_dpms_off(E_Plane *plane)
 {
    E_Plane_Commit_Data *data;
    Eina_List *l = NULL, *ll = NULL;
+   tdm_error ret;
+
+   if (!plane) return;
 
    /* pp */
    _e_plane_pp_pending_data_remove(plane);
@@ -3147,7 +3150,9 @@ e_plane_dpms_off(E_Plane *plane)
    _e_plane_unset_reset(plane);
    _e_plane_surface_unset(plane);
 
-   tdm_layer_commit(plane->tlayer, NULL, NULL);
+   ret = tdm_layer_commit(plane->tlayer, NULL, NULL);
+   if (ret != TDM_ERROR_NONE)
+     ERR("fail to tdm_layer_commit plane:%p, zpos:%d", plane, plane->zpos);
 
    EINA_LIST_FOREACH_SAFE(plane->commit_data_list, l, ll, data)
      {
