@@ -23,13 +23,6 @@ _device_open_no_pending(const char *device, int flags)
    return fd;
 }
 
-static void
-_device_close(const char *device, int fd)
-{
-   if (fd >= 0)
-     close(fd);
-}
-
 /* local functions */
 static int
 _e_input_device_cb_open_restricted(const char *path, int flags, void *data)
