@@ -1,23 +1,21 @@
 #include "e.h"
 
-static const char *_e_user_homedir = NULL;
+static char *_e_user_homedir = NULL;
 static size_t _e_user_homedir_len = 0;
 
 /* externally accessible functions */
-E_API const char *
-e_user_homedir_get(void)
+EINTERN int
+e_user_init(void)
 {
    char *d;
 
-   if (_e_user_homedir)
-     return _e_user_homedir;
-
-   _e_user_homedir = d = getenv("HOME");
+   /* e_user_shutdown will free for the d string */
+   _e_user_homedir = d = e_util_env_get("HOME");
    if (!_e_user_homedir)
      {
         _e_user_homedir = "/tmp";
         _e_user_homedir_len = sizeof("/tmp") - 1;
-        return _e_user_homedir;
+        return 1;
      }
 
    _e_user_homedir_len = strlen(_e_user_homedir);
@@ -27,6 +25,21 @@ e_user_homedir_get(void)
         _e_user_homedir_len--;
         d[_e_user_homedir_len] = '\0';
      }
+
+   return 1;
+}
+
+EINTERN int
+e_user_shutdown(void)
+{
+   E_FREE(_e_user_homedir);
+   _e_user_homedir_len = 0;
+   return 1;
+}
+
+E_API const char *
+e_user_homedir_get(void)
+{
    return _e_user_homedir;
 }
 
@@ -101,20 +114,22 @@ e_user_dir_get(void)
 
    if (!dir[0])
      {
-        char *d;
-        
-        if ((d = getenv("E_HOME")))
+        char *d = e_util_env_get("E_HOME");
+        if (d)
           {
              snprintf(dir, sizeof(dir), "%s/e", d);
              _e_user_dir_len = strlen(dir);
+             E_FREE(d);
           }
         else
           {
 #ifdef DOXDG             
-             if ((d = getenv("XDG_CONFIG_HOME")))
+             d = e_util_env_get("XDG_CONFIG_HOME");
+             if (d)
                {
                   snprintf(dir, sizeof(dir), "%s/e", d);
                   _e_user_dir_len = strlen(dir);
+                  E_FREE(d);
                }
              else
 #endif               

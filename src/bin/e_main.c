@@ -158,13 +158,13 @@ _xdg_check_str(const char *env, const char *str)
 static void
 _xdg_data_dirs_augment(void)
 {
-   const char *s;
+   char *s;
    const char *p = e_prefix_get();
    char newpath[4096], buf[4096];
 
    if (!p) return;
 
-   s = getenv("XDG_DATA_DIRS");
+   s = e_util_env_get("XDG_DATA_DIRS");
    if (s)
      {
         Eina_Bool pfxdata, pfx;
@@ -182,6 +182,7 @@ _xdg_data_dirs_augment(void)
                s);
              e_util_env_set("XDG_DATA_DIRS", buf);
           }
+        E_FREE(s);
      }
    else
      {
@@ -189,7 +190,7 @@ _xdg_data_dirs_augment(void)
         e_util_env_set("XDG_DATA_DIRS", buf);
      }
 
-   s = getenv("XDG_CONFIG_DIRS");
+   s = e_util_env_get("XDG_CONFIG_DIRS");
    snprintf(newpath, sizeof(newpath), "%s/etc/xdg", p);
    if (s)
      {
@@ -198,6 +199,7 @@ _xdg_data_dirs_augment(void)
              snprintf(buf, sizeof(buf), "%s:%s", newpath, s);
              e_util_env_set("XDG_CONFIG_DIRS", buf);
           }
+        E_FREE(s);
      }
    else
      {
@@ -205,7 +207,10 @@ _xdg_data_dirs_augment(void)
         e_util_env_set("XDG_CONFIG_DIRS", buf);
      }
 
-   if (!getenv("XDG_RUNTIME_DIR"))
+   s = e_util_env_get("XDG_RUNTIME_DIR");
+   if (s)
+     E_FREE(s);
+   else
      {
         const char *dir;
 
@@ -221,10 +226,11 @@ _xdg_data_dirs_augment(void)
      }
 
    /* set menu prefix so we get our e menu */
-   if (!getenv("XDG_MENU_PREFIX"))
-     {
-        e_util_env_set("XDG_MENU_PREFIX", "e-");
-     }
+   s = e_util_env_get("XDG_MENU_PREFIX");
+   if (s)
+     E_FREE(s);
+   else
+     e_util_env_set("XDG_MENU_PREFIX", "e-");
 }
 
 static Eina_Bool
@@ -331,7 +337,7 @@ main(int argc, char **argv)
 {
    Eina_Bool safe_mode = EINA_FALSE;
    double t = 0.0, tstart = 0.0;
-   char *s = NULL, buff[32];
+   char *s = NULL, *s1 = NULL, buff[32];
    struct sigaction action;
 
 #ifdef __linux__
@@ -357,7 +363,10 @@ main(int argc, char **argv)
    /* Wayland shm sets up a sigbus handler for catching invalid shm region */
    /* access. If we setup our sigbus handler here, then the wl-shm sigbus */
    /* handler will not function properly */
-   if (!getenv("NOTIFY_SOCKET"))
+   s = e_util_env_get("NOTIFY_SOCKET");
+   if (s)
+     E_FREE(s);
+   else
      {
         TSB("Signal Trap");
         action.sa_sigaction = e_sigseg_act;
@@ -383,18 +392,37 @@ main(int argc, char **argv)
      }
 
    t = ecore_time_unix_get();
-   s = getenv("E_START_TIME");
-   if ((s) && (!getenv("E_RESTART_OK")))
+   s = e_util_env_get("E_START_TIME");
+   if (s)
      {
-        tstart = atof(s);
-        if ((t - tstart) < 5.0) safe_mode = EINA_TRUE;
+        s1 = e_util_env_get("E_RESTART_OK");
+        if (s1)
+          E_FREE(s1); /* do nothing... */
+        else
+          {
+             /* enable safe mode
+              * 1. E_RESTART_OK is not defined.
+              * 2. the diff time between this and previous start is less than 5 seconds.
+              */
+             tstart = atof(s);
+             if ((t - tstart) < 5.0) safe_mode = EINA_TRUE;
+          }
+        E_FREE(s);
      }
+
+   /* save start time to environment variable to calculate
+    * diff time at the next restart
+    */
    tstart = t;
    snprintf(buff, sizeof(buff), "%1.1f", tstart);
    e_util_env_set("E_START_TIME", buff);
 
-   if (getenv("E_START_MTRACK"))
-     e_util_env_set("MTRACK", NULL);
+   s = e_util_env_get("E_START_MTRACK");
+   if (s)
+     {
+        e_util_env_set("MTRACK", NULL);
+        E_FREE(s);
+     }
    TSB("Eina Init");
    if (!eina_init())
      {
@@ -534,6 +562,15 @@ main(int argc, char **argv)
    _e_main_shutdown_push(edje_shutdown);
 
    /*** Initialize E Subsystems We Need ***/
+
+   TSB("E User Init");
+   if (!e_user_init())
+     {
+        e_error_message_show(_("Enlightenment cannot set up user home path\n"));
+        goto failed;
+     }
+   TSE("E User Init Done");
+   _e_main_shutdown_push(e_user_shutdown);
 
    TSB("E Directories Init");
    /* setup directories we will be using for configurations storage etc. */
@@ -779,8 +816,12 @@ main(int argc, char **argv)
    if (restart)
      {
         e_util_env_set("E_RESTART_OK", "1");
-        if (getenv("E_START_MTRACK"))
-          e_util_env_set("MTRACK", "track");
+        s = e_util_env_get("E_START_MTRACK");
+        if (s)
+          {
+             e_util_env_set("MTRACK", "track");
+             E_FREE(s);
+          }
         ecore_app_restart();
      }
 
@@ -825,7 +866,7 @@ _e_main_shutdown(int errcode)
 {
    int i = 0;
    char buf[PATH_MAX];
-   const char *dir;
+   char *dir;
 
    printf("E: Begin Shutdown Procedure!\n");
 
@@ -836,13 +877,14 @@ _e_main_shutdown(int errcode)
    if (_idle_after) ecore_idle_enterer_del(_idle_after);
    _idle_after = NULL;
 
-   dir = getenv("XDG_RUNTIME_DIR");
+   dir = e_util_env_get("XDG_RUNTIME_DIR");
    if (dir)
      {
         char buf_env[PATH_MAX];
         snprintf(buf_env, sizeof(buf_env), "%s", dir);
         snprintf(buf, sizeof(buf), "%s/.e-deleteme", buf_env);
         if (ecore_file_exists(buf)) ecore_file_recursive_rm(buf_env);
+        E_FREE(dir);
      }
    for (i = (_e_main_lvl - 1); i >= 0; i--)
      (*_e_main_shutdown_func[i])();

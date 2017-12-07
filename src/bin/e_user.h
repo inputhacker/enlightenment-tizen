@@ -3,6 +3,9 @@
 #ifndef E_USER_H
 #define E_USER_H
 
+EINTERN int       e_user_init(void);
+EINTERN int       e_user_shutdown(void);
+
 E_API const char *e_user_homedir_get(void);
 E_API size_t      e_user_homedir_concat_len(char *dst, size_t size, const char *path, size_t path_len);
 E_API size_t      e_user_homedir_concat(char *dst, size_t size, const char *path);

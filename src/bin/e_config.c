@@ -319,7 +319,12 @@ e_config_init(void)
    if (getenv("E_CONF_RO")) e_config_save_block_set(1);
 
    /* if environment var set - use this profile name */
-   _e_config_profile = eina_stringshare_add(getenv("E_CONF_PROFILE"));
+   char *s = e_util_env_get("E_CONF_PROFILE");
+   if (s)
+     {
+        _e_config_profile = eina_stringshare_add(s);
+        E_FREE(s);
+     }
 
    _e_config_edd_init(EINA_FALSE);
 

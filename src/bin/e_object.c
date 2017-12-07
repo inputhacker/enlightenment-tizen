@@ -469,12 +469,15 @@ e_object_hash_init(void)
 
    e_obj_hash_check = EINA_FALSE;
 
-   val = getenv("E_OBJECT_HASH_CHECK");
-   if ((val) && (!strcmp(val, "1")))
+   val = e_util_env_get("E_OBJECT_HASH_CHECK");
+   if (!val) return;
+   if (!strcmp(val, "1"))
      {
         e_obj_hash_check = EINA_TRUE;
         e_obj_hash = eina_hash_pointer_new(NULL);
      }
+
+   E_FREE(val);
 }
 
 E_API void

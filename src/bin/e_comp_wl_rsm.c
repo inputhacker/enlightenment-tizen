@@ -1221,7 +1221,8 @@ _remote_source_save(void *data, Ecore_Thread *th)
    E_Client *ec;
    char name[1024];
    char dest_dir[1024];
-   const char *dest_path, *run_dir, *dupname, *dupdir;
+   const char *dest_path, *dupname, *dupdir;
+   char *run_dir;
 
    if (!(td = data)) return;
 
@@ -1229,10 +1230,12 @@ _remote_source_save(void *data, Ecore_Thread *th)
    if (!ec) return;
    if (ecore_thread_check(th)) return;
 
-   if (!(run_dir = getenv("XDG_RUNTIME_DIR")))
-     return;
+   run_dir = e_util_env_get("XDG_RUNTIME_DIR");
+   if (!run_dir) return;
 
    snprintf(dest_dir, sizeof(dest_dir), "%s/.e-img", run_dir);
+   E_FREE(run_dir);
+
    if (!ecore_file_exists(dest_dir))
      ecore_file_mkdir(dest_dir);
    dupdir = strdup(dest_dir);
@@ -2933,22 +2936,26 @@ static int
 _e_comp_wl_remote_surface_dummy_fd_get(void)
 {
    int fd = 0, blen = 0, len = 0;
-   const char *path;
+   char *path;
    char tmp[PATH_MAX];
 
    blen = sizeof(tmp) - 1;
 
-   if (!(path = getenv("XDG_RUNTIME_DIR")))
-     return -1;
+   path = e_util_env_get("XDG_RUNTIME_DIR");
+   if (!path) return -1;
 
    len = strlen(path);
    if (len < blen)
      {
         strncpy(tmp, path, len + 1);
         strncat(tmp, "/enlightenment_rsm_dummy_fdXXXXXX", 34);
+        E_FREE(path);
      }
    else
-     return -1;
+     {
+        E_FREE(path);
+        return -1;
+     }
 
    if ((fd = mkstemp(tmp)) < 0)
      return -1;

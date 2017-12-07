@@ -722,10 +722,17 @@ e_input_device_input_create_libinput_udev(E_Input_Device *dev)
      }
 
    /* set libinput log priority */
-   if ((env = getenv(E_INPUT_ENV_LIBINPUT_LOG_DISABLE)) && (atoi(env) == 1))
+   env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_DISABLE);
+   if ((env) && (atoi(env) == 1))
      libinput_log_set_handler(input->libinput, NULL);
-   else if ((env = getenv(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG)) && (atoi(env) == 1))
-     libinput_log_set_handler(input->libinput, e_input_device_libinput_log_handler);
+   else
+     {
+        env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG);
+        if ((env) && (atoi(env) == 1))
+          libinput_log_set_handler(input->libinput,
+                                   e_input_device_libinput_log_handler);
+     }
+   E_FREE(env);
 
    libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);
 
@@ -768,13 +775,17 @@ e_input_device_input_create_libinput_path(E_Input_Device *dev)
    struct libinput_device *device;
    int devices_num = 0;
    char *env;
-   Eina_Stringshare *path;
 
    /* check for valid device */
    EINA_SAFETY_ON_NULL_RETURN_VAL(dev, EINA_FALSE);
 
-   if ((env = getenv("PATH_DEVICES_NUM")))
-     devices_num = atoi(env);
+   env = e_util_env_get("PATH_DEVICES_NUM");
+   if (env)
+     {
+        devices_num = atoi(env);
+        E_FREE(env);
+     }
+
    if (devices_num <= 0 || devices_num >= INT_MAX)
      {
         return EINA_TRUE;
@@ -801,10 +812,17 @@ e_input_device_input_create_libinput_path(E_Input_Device *dev)
      }
 
    /* set libinput log priority */
-   if ((env = getenv(E_INPUT_ENV_LIBINPUT_LOG_DISABLE)) && (atoi(env) == 1))
+   env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_DISABLE);
+   if ((env) && (atoi(env) == 1))
      libinput_log_set_handler(input->libinput, NULL);
-   else if ((env = getenv(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG)) && (atoi(env) == 1))
-     libinput_log_set_handler(input->libinput, e_input_device_libinput_log_handler);
+   else
+     {
+        env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG);
+        if ((env) && (atoi(env) == 1))
+          libinput_log_set_handler(input->libinput,
+                                   e_input_device_libinput_log_handler);
+     }
+   E_FREE(env);
 
    libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);
 
@@ -812,15 +830,15 @@ e_input_device_input_create_libinput_path(E_Input_Device *dev)
      {
         char buf[1024] = "PATH_DEVICE_";
         eina_convert_itoa(i + 1, buf + 12);
-        env = getenv(buf);
+        env = e_util_env_get(buf);
         if (env)
           {
-             path = eina_stringshare_add(env);
-             device = libinput_path_add_device(input->libinput, path);
+             device = libinput_path_add_device(input->libinput, env);
              if (!device)
-               ERR("Failed to initialized device %s", path);
+               ERR("Failed to initialized device %s", env);
              else
-               INF("libinput_path created input device %s", path);
+               INF("libinput_path created input device %s", env);
+             E_FREE(env);
           }
      }
 
