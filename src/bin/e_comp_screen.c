@@ -715,7 +715,7 @@ _e_comp_screen_engine_init(void)
         scr_w = 1;
         scr_h = 1;
 
-        if (!e_output_fake_config_set(output, w, h))
+        if (!e_output_fake_config_set(output, 1, 1))
           {
              e_error_message_show(_("Fail to set the fake output config!\n"));
              _e_comp_screen_engine_deinit();
