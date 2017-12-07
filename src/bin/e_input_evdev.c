@@ -43,6 +43,11 @@ _device_calibration_set(E_Input_Evdev *edev)
 
 //LCOV_EXCL_START
 #ifdef _F_E_INPUT_ENABLE_DEVICE_CALIBRATION_
+   const char *sysname;
+   float cal[6];
+   const char *device;
+   Eina_List *devices;
+
    if ((!libinput_device_config_calibration_has_matrix(edev->device)) ||
        (libinput_device_config_calibration_get_default_matrix(edev->device, cal) != 0))
      return;
@@ -53,6 +58,9 @@ _device_calibration_set(E_Input_Evdev *edev)
    if (eina_list_count(devices) < 1) return;
 
 #ifdef _F_E_INPUT_USE_WL_CALIBRATION_
+   const char *vals;
+   enum libinput_config_status status;
+
    EINA_LIST_FREE(devices, device)
      {
         vals = eeze_udev_syspath_get_property(device, "WL_CALIBRATION");
