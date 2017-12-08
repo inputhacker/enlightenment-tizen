@@ -608,6 +608,7 @@ _e_plane_renderer_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
              return;
           }
 
+        e_plane_ec_prepare_set(plane, NULL);
         e_plane_ec_set(plane, NULL);
 
         if (plane->ec == ec)
