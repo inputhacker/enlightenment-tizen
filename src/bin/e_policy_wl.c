@@ -1099,6 +1099,8 @@ e_policy_wl_visibility_send(E_Client *ec, int vis)
    int sent_vis = E_VISIBILITY_UNKNOWN;
 
    EINA_SAFETY_ON_TRUE_RETURN(vis == E_VISIBILITY_UNKNOWN);
+   if (ec && (ec->visibility.last_sent_type == vis))
+     return;
 
    win = e_client_util_win_get(ec);
 
@@ -1126,14 +1128,20 @@ e_policy_wl_visibility_send(E_Client *ec, int vis)
                if (vis == E_VISIBILITY_PRE_UNOBSCURED)
                  {
                     if (ver >= 5)
-                      tizen_visibility_send_changed(res_tzvis, vis, 0);
+                      {
+                         ec->visibility.last_sent_type = vis;
+                         tizen_visibility_send_changed(res_tzvis, vis, 0);
+                      }
                     else
                       sent_vis = -2;
                  }
                else
                  {
                     if ((vis >= E_VISIBILITY_UNOBSCURED) && (vis <= E_VISIBILITY_FULLY_OBSCURED))
-                      tizen_visibility_send_notify(res_tzvis, vis);
+                      {
+                         ec->visibility.last_sent_type = vis;
+                         tizen_visibility_send_notify(res_tzvis, vis);
+                      }
                     else
                       sent_vis = -3;
                  }

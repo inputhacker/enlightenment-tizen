@@ -1135,7 +1135,6 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
      {
         ELOGF("POL", "SEND pre-unobscured visibility event", ec->pixmap, ec);
         _e_vis_client_send_pre_visibility_event(ec);
-        ec->visibility.changed = 1;
      }
 
    _e_vis_client_prepare_foreground_signal_emit(vc);
