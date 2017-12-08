@@ -251,6 +251,36 @@ _e_hwc_window_target_queue_dequeue_cb(tbm_surface_queue_h surface_queue, void *d
   ELOGF("HWC-OPT", "[soolim] dequeue the target_hwc_window(%p) post_render_flush_cnt(%d)", NULL, NULL, target_hwc_window, target_hwc_window->post_render_flush_cnt);
 }
 
+uint64_t composited_e_hwc_wnds_key;
+
+static void
+_free_dequeued_surface_data(void *data)
+{
+   Eina_List *e_hwc_wnd_composited_list = (Eina_List *)data;
+
+   eina_list_free(e_hwc_wnd_composited_list);
+}
+
+/* gets called as somebody modifies target_window's queue */
+static void
+_e_hwc_window_target_queue_trace_cb(tbm_surface_queue_h surface_queue,
+        tbm_surface_h tbm_surface, tbm_surface_queue_trace trace, void *data)
+{
+   E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
+
+   if (trace == TBM_SURFACE_QUEUE_TRACE_DEQUEUE)
+     {
+        tbm_surface_internal_add_user_data(tbm_surface,
+                composited_e_hwc_wnds_key, _free_dequeued_surface_data);
+
+        target_hwc_window->currently_dequeued_surface = tbm_surface;
+     }
+   if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
+     {
+        tbm_surface_internal_delete_user_data(tbm_surface, composited_e_hwc_wnds_key);
+     }
+}
+
 /* gets called at the beginning of an ecore_main_loop iteration */
 static Eina_Bool
 _evas_renderer_finished_composition_cb(void *data, Ecore_Fd_Handler *fd_handler)
@@ -355,6 +385,13 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
 
   /* add the dequeue callback */
   tbm_surface_queue_add_dequeue_cb(target_hwc_window->queue, _e_hwc_window_target_queue_dequeue_cb, (void *)target_hwc_window);
+
+   /* TODO: we can use this call instead of an add_acquirable_cb and an add_dequeue_cb calls. */
+   tbm_surface_queue_add_trace_cb(target_hwc_window->queue, _e_hwc_window_target_queue_trace_cb,
+           (void *)target_hwc_window);
+
+   /* sorry..., current version of gcc requires an initializer to be evaluated at compile time */
+   composited_e_hwc_wnds_key = (uintptr_t)&composited_e_hwc_wnds_key;
 
    return target_hwc_window;
 
@@ -756,11 +793,35 @@ e_hwc_window_is_video(E_Hwc_Window *hwc_window)
    return hwc_window->is_video;
 }
 
+Eina_List *
+_get_e_hwc_wnds_composited_list(E_Hwc_Window_Target *e_hwc_target_window)
+{
+   Eina_List *e_hwc_wnds_composited_list = NULL, *new_list = NULL;
+   E_Hwc_Window *e_hwc_wnd, *ew_hwc;
+   const Eina_List *l, *ll;
+   E_Output_Hwc *eo_hwc;
+
+   tbm_surface_internal_get_user_data(e_hwc_target_window->hwc_window.tsurface,
+           composited_e_hwc_wnds_key, (void**)&e_hwc_wnds_composited_list);
+
+   eo_hwc = e_hwc_target_window->hwc_window.output->output_hwc;
+
+   /* refresh list of composited e_hwc_wnds according to existed ones */
+   EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, e_hwc_wnd)
+      EINA_LIST_FOREACH(eo_hwc->hwc_windows, ll, ew_hwc)
+         if (e_hwc_wnd == ew_hwc)
+             new_list = eina_list_append(new_list, e_hwc_wnd);
+
+   return new_list;
+}
+
 EINTERN Eina_Bool
 e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 {
    tbm_surface_h tsurface = NULL;
    E_Output *output = NULL;
+   Eina_List *e_hwc_wnds_composited_list = NULL;
+   tdm_hwc_window **hwc_wnds = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
@@ -829,14 +890,54 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
    if (e_hwc_window_is_target(hwc_window))
      {
+        E_Hwc_Window_Target *target_hwc_window;
+        uint32_t hwc_wnds_amount = 0;
+
         tdm_hwc_region fb_damage;
+
+        target_hwc_window = (E_Hwc_Window_Target *)hwc_window;
 
         /* the damage isn't supported by hwc extension yet */
         memset(&fb_damage, 0, sizeof(fb_damage));
 
-        tdm_output_hwc_set_client_target_buffer(output->toutput, tsurface, fb_damage);
+        e_hwc_wnds_composited_list = _get_e_hwc_wnds_composited_list(target_hwc_window);
+
+        hwc_wnds_amount = eina_list_count(e_hwc_wnds_composited_list);
+
+        if (hwc_wnds_amount)
+          {
+             E_Hwc_Window *e_hwc_wnd;
+             const Eina_List *l;
+             int i;
+
+             hwc_wnds = E_NEW(tdm_hwc_window *, hwc_wnds_amount);
+             EINA_SAFETY_ON_NULL_GOTO(hwc_wnds, error);
+
+             i = 0;
+             EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, e_hwc_wnd)
+                hwc_wnds[i++] = e_hwc_wnd->hwc_wnd;
+          }
+        else
+          {
+             /* if the surface has no composited hwc-wnds, despite of the fact that it was
+              * composited and fetched, it's where the e-boot-animation takes place, so we
+              * just say tdm-backend that our fake hwc-wnd got composited to this surface,
+              * as we can't pass 'NULL, 0' */
+             hwc_wnds_amount = 1;
+
+             hwc_wnds = E_NEW(tdm_hwc_window *, hwc_wnds_amount);
+             EINA_SAFETY_ON_NULL_GOTO(hwc_wnds, error);
+
+             hwc_wnds[0] = target_hwc_window->hwc_window.hwc_wnd;
+          }
+
+        tdm_output_hwc_set_client_target_buffer(output->toutput, tsurface, fb_damage,
+                hwc_wnds, hwc_wnds_amount);
         ELOGF("HWC-OPT", "[soolim] set surface:%p on the fb_target",
               hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, tsurface);
+
+        E_FREE(hwc_wnds);
+        eina_list_free(e_hwc_wnds_composited_list);
      }
    else
      {
@@ -851,6 +952,13 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    hwc_window->update_exist = EINA_TRUE;
 
    return EINA_TRUE;
+
+error:
+
+   E_FREE(hwc_wnds);
+   eina_list_free(e_hwc_wnds_composited_list);
+
+   return EINA_FALSE;
 }
 
 EINTERN void
@@ -876,7 +984,8 @@ e_hwc_window_unfetch(E_Hwc_Window *hwc_window)
         /* the damage isn't supported by hwc extension yet */
         memset(&fb_damage, 0, sizeof(fb_damage));
 
-        tdm_output_hwc_set_client_target_buffer(output->toutput, hwc_window->tsurface, fb_damage);
+        tdm_output_hwc_set_client_target_buffer(output->toutput, hwc_window->tsurface, fb_damage,
+                NULL, 0 /* TODO: sergs: e_hwc_window_unfetch() function is deprecated */ );
         ELOGF("HWC-OPT", "(unfetch) set surface:%p on the fb_target.",
               hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window->tsurface);
      }
@@ -890,6 +999,29 @@ e_hwc_window_unfetch(E_Hwc_Window *hwc_window)
    hwc_window->update_exist = EINA_FALSE;
 }
 
+/* whether an e_hwc_wnd exists on a target_buffer which is currently set at the target_window */
+static Eina_Bool
+_e_hwc_window_is_existed_on_target_wnd(E_Hwc_Window *e_hwc_wnd)
+{
+    Eina_List *e_hwc_wnds_composited_list = NULL;
+    E_Hwc_Window_Target *target_hwc_wnd;
+    E_Hwc_Window *ehw;
+    const Eina_List *l;
+
+    EINA_SAFETY_ON_NULL_RETURN_VAL(e_hwc_wnd, EINA_FALSE);
+
+    target_hwc_wnd = e_hwc_wnd->output->output_hwc->target_hwc_window;
+
+    tbm_surface_internal_get_user_data(target_hwc_wnd->hwc_window.tsurface, composited_e_hwc_wnds_key,
+            (void**)&e_hwc_wnds_composited_list);
+
+    EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, ehw)
+       if (ehw == e_hwc_wnd)
+           return EINA_TRUE;
+
+    return EINA_FALSE;
+}
+
 EINTERN Eina_Bool
 e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
 {
@@ -899,8 +1031,13 @@ e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
      {
         hwc_window->update_exist = EINA_FALSE;
 
-        /* if the hwc_window unset is needed and we can do commit */
-        if (e_hwc_window_get_displaying_surface(hwc_window))
+        /* right after an e_hwc_wnd's type has been changed from DEVICE to CLIENT
+         * we have to wait till e_hwc_wnd's buffer being composited to target_buffer
+         * and this target_buffer gets scheduled and only after this we can issue
+         * a 'fake commit_data' request to allow tdm_commit() to be called to unset
+         * an underlying hw overlay */
+        if (e_hwc_window_get_displaying_surface(hwc_window) &&
+                (_e_hwc_window_is_existed_on_target_wnd(hwc_window)))
           {
              commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
              EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);

@@ -9,15 +9,30 @@ typedef enum
    HWC_OPT_COMP_MODE_HYBRID,    /* either all hwc_windows or some are composited by sw compositor */
 } _hwc_opt_comp_mode;
 
+extern uint64_t composited_e_hwc_wnds_key;
+
 static void
-_e_output_hwc_canvas_render_flush_post(void *data EINA_UNUSED, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
+_e_output_hwc_canvas_render_flush_post(void *data, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    E_Output_Hwc *output_hwc = (E_Output_Hwc *)data;
    E_Hwc_Window_Target *target_hwc_window = output_hwc->target_hwc_window;
+   Eina_List *e_hwc_wnd_composited_list;
 
    target_hwc_window->post_render_flush_cnt--;
    ELOGF("HWC-OPT", "[soolim] render_flush_post -- the target_hwc_window(%p) post_render_flush_cnt(%d) e_comp->evas(%p) evas(%p)",
            NULL, NULL, target_hwc_window, target_hwc_window->post_render_flush_cnt, e_comp->evas, e);
+
+   /* all ecs have been composited so we can attach a list of composited e_hwc_wnds to the surface
+    * which contains their ecs composited */
+
+   e_hwc_wnd_composited_list = eina_list_clone(target_hwc_window->current_e_hwc_wnd_composited_list);
+
+   tbm_surface_internal_set_user_data(target_hwc_window->currently_dequeued_surface,
+           composited_e_hwc_wnds_key, e_hwc_wnd_composited_list);
+
+   eina_list_free(target_hwc_window->current_e_hwc_wnd_composited_list);
+   target_hwc_window->current_e_hwc_wnd_composited_list = NULL;
+   target_hwc_window->currently_dequeued_surface = NULL;
 }
 
 static Eina_Bool
