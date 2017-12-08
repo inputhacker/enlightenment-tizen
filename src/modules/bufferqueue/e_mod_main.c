@@ -173,6 +173,7 @@ _e_bq_mgr_new(char *sock_name)
    E_Bq_Mgr *bq_mgr;
    int fd;
    static char *default_sock_name = "e_bq_mgr_daemon";
+   int res = 0;
 
    bq_mgr = E_OBJECT_ALLOC(E_Bq_Mgr, E_BQ_MGR_TYPE, _e_bq_mgr_free);
    if (!bq_mgr)
@@ -198,6 +199,7 @@ _e_bq_mgr_new(char *sock_name)
         bq_mgr->loop = wl_display_get_event_loop(bq_mgr->wdpy);
         if (!bq_mgr->loop)
           {
+             wl_display_destroy(bq_mgr->wdpy);
              free(bq_mgr);
              return NULL;
           }
@@ -215,7 +217,17 @@ _e_bq_mgr_new(char *sock_name)
         if (!sock_name)
           sock_name = default_sock_name;
 
-        wl_display_add_socket(bq_mgr->wdpy, sock_name);
+        res = wl_display_add_socket(bq_mgr->wdpy, sock_name);
+        if (res < 0)
+          {
+             wl_event_source_remove(bq_mgr->signals[0]);
+             wl_event_source_remove(bq_mgr->signals[1]);
+             wl_event_source_remove(bq_mgr->signals[2]);
+             wl_event_loop_destroy(bq_mgr->loop);
+             wl_display_destroy(bq_mgr->wdpy);
+             free(bq_mgr);
+             return NULL;
+          }
 
         fd = wl_event_loop_get_fd(bq_mgr->loop);
 

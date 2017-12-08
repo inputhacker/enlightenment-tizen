@@ -30,9 +30,6 @@ struct _E_Output_Hwc
    E_Hwc_Window_Target *target_hwc_window;
 };
 
-/* This module is responsible for evaluate which an ec will be composite by a hwc
-extension and commit the changes to hwc extension. */
-
 EINTERN E_Output_Hwc      *e_output_hwc_new(E_Output *output);
 EINTERN void               e_output_hwc_del(E_Output_Hwc *output_hwc);
 EINTERN void               e_output_hwc_apply(E_Output_Hwc *output_hwc);

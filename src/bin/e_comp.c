@@ -755,6 +755,9 @@ e_comp_layer_name_get(unsigned int layer, char *buff, int buff_size)
       case E_LAYER_CLIENT_CURSOR: strncpy(buff, "E_LAYER_CLIENT_CURSOR", buff_size); break;
       case E_LAYER_POPUP: strncpy(buff, "E_LAYER_POPUP", buff_size); break;
       case E_LAYER_EFFECT: strncpy(buff, "E_LAYER_EFFECT", buff_size); break;
+      case E_LAYER_DESK_OBJECT_BELOW: strncpy(buff, "E_LAYER_DESK_OBJECT_BELOW", buff_size); break;
+      case E_LAYER_DESK_OBJECT: strncpy(buff, "E_LAYER_DESK_OBJECT", buff_size); break;
+      case E_LAYER_DESK_OBJECT_ABOVE: strncpy(buff, "E_LAYER_DESK_OBJECT_ABOVE", buff_size); break;
       case E_LAYER_MENU: strncpy(buff, "E_LAYER_MENU", buff_size); break;
       case E_LAYER_DESKLOCK: strncpy(buff, "E_LAYER_DESKLOCK", buff_size); break;
       case E_LAYER_MAX: strncpy(buff, "E_LAYER_MAX", buff_size); break;
@@ -1139,7 +1142,7 @@ e_getgrnam_r(const char *name)
 E_API Eina_Bool
 e_comp_socket_init(const char *name)
 {
-   const char *dir = NULL;
+   char *dir = NULL;
    char socket_path[108];
    uid_t uid;
    gid_t gid;
@@ -1150,11 +1153,13 @@ e_comp_socket_init(const char *name)
 #define STRERR_BUFSIZE 128
    char buf[STRERR_BUFSIZE];
 
-   dir = getenv("XDG_RUNTIME_DIR");
-   if (!dir) return EINA_FALSE;
    if (!name) return EINA_FALSE;
 
+   dir = e_util_env_get("XDG_RUNTIME_DIR");
+   if (!dir) return EINA_FALSE;
+
    snprintf(socket_path, sizeof(socket_path), "%s/%s", dir, name);
+   free(dir);
 
    EINA_LIST_FOREACH(e_config->sock_accesses, l, sa)
      {

@@ -40,7 +40,7 @@
                        cw = evas_object_smart_data_get(obj); \
                        if ((!cw) || (e_util_strcmp(evas_object_type_get(obj), SMART_NAME))) \
                          cw = NULL
-#define INTERNAL_ENTRY E_Comp_Object *cw; cw = evas_object_smart_data_get(obj);
+#define INTERNAL_ENTRY E_Comp_Object *cw; cw = evas_object_smart_data_get(obj); if (!cw) return;
 
 /* enable for lots of client size info in console output */
 #if 1
@@ -3402,6 +3402,7 @@ e_comp_object_client_add(E_Client *ec)
    _e_comp_smart_init();
    o = evas_object_smart_add(e_comp->evas, _e_comp_smart);
    cw = evas_object_smart_data_get(o);
+   if (!cw) return NULL;
    evas_object_data_set(o, "E_Client", ec);
    cw->ec = ec;
    ec->frame = o;
@@ -3631,8 +3632,11 @@ e_comp_object_input_area_set(Evas_Object *obj, int x, int y, int w, int h)
    input_rect_sd = evas_object_smart_data_get(cw->input_obj);
    if (input_rect_sd)
      input_rect_sd->input_rect_data_list = eina_list_append(input_rect_sd->input_rect_data_list, input_rect_data);
+   else
+     E_FREE(input_rect_data);
 
-   if (x || y || (w != cw->ec->client.w) || (h != cw->ec->client.h))
+   if ((input_rect_data) &&
+       (x || y || (w != cw->ec->client.w) || (h != cw->ec->client.h)))
      {
         input_rect_data->obj = evas_object_rectangle_add(e_comp->evas);
         evas_object_name_set(input_rect_data->obj, "cw->input_obj");

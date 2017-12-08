@@ -7,6 +7,13 @@ static Eina_Bool dont_set_e_input_keymap = EINA_FALSE;
 static Eina_Bool dont_use_xkb_cache = EINA_FALSE;
 static Eina_Bool use_cache_keymap = EINA_FALSE;
 
+/* default XKB values from enviroment variables */
+static char *_env_e_default_xkb_rules   = NULL;
+static char *_env_e_default_xkb_model   = NULL;
+static char *_env_e_default_xkb_layout  = NULL;
+static char *_env_e_default_xkb_variant = NULL;
+static char *_env_e_default_xkb_opts    = NULL;
+
 static void
 _e_comp_wl_input_update_seat_caps(struct wl_client *wc)
 {
@@ -369,22 +376,25 @@ static int
 _e_comp_wl_input_keymap_fd_get(off_t size)
 {
    int fd = 0, blen = 0, len = 0;
-   const char *path;
-   char tmp[PATH_MAX];
+   char *path;
+   char tmp[PATH_MAX] = {0, };
    long flags;
 
-   blen = sizeof(tmp) - 1;
+   blen = sizeof(tmp) - 20;
 
-   if (!(path = getenv("XDG_RUNTIME_DIR"))) return -1;
+   path = e_util_env_get("XDG_RUNTIME_DIR");
+   if (!path) return -1;
 
    len = strlen(path);
    if (len < blen)
      {
         strncpy(tmp, path, len + 1);
         strncat(tmp, "/e-wl-keymap-XXXXXX", 19);
+        E_FREE(path);
      }
    else
      {
+        E_FREE(path);
         return -1;
      }
 
@@ -550,6 +560,13 @@ e_comp_wl_input_init(void)
 
    E_EVENT_TEXT_INPUT_PANEL_VISIBILITY_CHANGE = ecore_event_type_new();
 
+   /* get string values from environment variables */
+   _env_e_default_xkb_rules   = e_util_env_get("E_DEFAULT_XKB_RULES"  );
+   _env_e_default_xkb_model   = e_util_env_get("E_DEFAULT_XKB_MODEL"  );
+   _env_e_default_xkb_layout  = e_util_env_get("E_DEFAULT_XKB_LAYOUT" );
+   _env_e_default_xkb_variant = e_util_env_get("E_DEFAULT_XKB_VARIANT");
+   _env_e_default_xkb_opts    = e_util_env_get("E_DEFAULT_XKB_OPTIONS");
+
    return EINA_TRUE;
 }
 
@@ -557,6 +574,13 @@ EINTERN void
 e_comp_wl_input_shutdown(void)
 {
    struct wl_resource *res;
+
+   /* free environment variable string */
+   E_FREE(_env_e_default_xkb_rules  );
+   E_FREE(_env_e_default_xkb_model  );
+   E_FREE(_env_e_default_xkb_layout );
+   E_FREE(_env_e_default_xkb_variant);
+   E_FREE(_env_e_default_xkb_opts   );
 
    /* destroy pointer resources */
    EINA_LIST_FREE(e_comp_wl->ptr.resources, res)
@@ -758,7 +782,8 @@ e_comp_wl_input_keymap_compile(struct xkb_context *ctx, struct xkb_rule_names na
           {
              WRN("Keymap file is exist (%s) but it is invaild file. Generate keymap using rmlvo\n", cache_path);
              fclose(file);
-             remove(cache_path);
+             if (remove(cache_path) != 0)
+               WRN("Failed to remove keymap file: %s (errno: %d)", cache_path, errno);
              keymap = xkb_map_new_from_names(ctx, &names, 0);
              use_cache_keymap = EINA_FALSE;
           }
@@ -879,71 +904,61 @@ e_comp_wl_input_keymap_set(const char *rules, const char *model, const char *lay
 E_API const char*
 e_comp_wl_input_keymap_default_rules_get(void)
 {
-   const char *rules;
    if (e_config->xkb.default_rmlvo.rules)
      return e_config->xkb.default_rmlvo.rules;
-   else
-     {
-        rules = getenv("E_DEFAULT_XKB_RULES");
-        if (rules) return rules;
-        else return "evdev";
-     }
+
+   if (_env_e_default_xkb_rules)
+     return _env_e_default_xkb_rules;
+
+   return "evdev";
 }
 
 E_API const char*
 e_comp_wl_input_keymap_default_model_get(void)
 {
-   const char *model;
    if (e_config->xkb.default_rmlvo.model)
      return e_config->xkb.default_rmlvo.model;
-   else
-     {
-        model = getenv("E_DEFAULT_XKB_MODEL");
-        if (model) return model;
-        else return "pc105";
-     }
+
+   if (_env_e_default_xkb_model)
+     return _env_e_default_xkb_model;
+
+   return "pc105";
 }
 
 E_API const char*
 e_comp_wl_input_keymap_default_layout_get(void)
 {
-   const char *layout;
    if (e_config->xkb.default_rmlvo.layout)
      return e_config->xkb.default_rmlvo.layout;
-   else
-     {
-        layout = getenv("E_DEFAULT_XKB_LAYOUT");
-        if (layout) return layout;
-        else return "us";
-     }
+
+   if (_env_e_default_xkb_layout)
+     return _env_e_default_xkb_layout;
+
+   return "us";
 }
 
 E_API const char*
 e_comp_wl_input_keymap_default_variant_get(void)
 {
-   const char *variant;
    if (e_config->xkb.default_rmlvo.variant)
      return e_config->xkb.default_rmlvo.variant;
-   else
-     {
-        variant = getenv("E_DEFAULT_XKB_VARIANT");
-        if (variant) return variant;
-        else return NULL;
-     }
+
+   if (_env_e_default_xkb_variant)
+     return _env_e_default_xkb_variant;
+
+   return NULL;
 }
 
 E_API const char*
 e_comp_wl_input_keymap_default_options_get(void)
 {
-   const char *options;
    if (e_config->xkb.default_rmlvo.options)
      return e_config->xkb.default_rmlvo.options;
-   else
-     {
-        options = getenv("E_DEFAULT_XKB_OPTIONS");
-        if (options) return options;
-        else return NULL;
-     }
+
+   if (_env_e_default_xkb_opts)
+     return _env_e_default_xkb_opts;
+
+   return NULL;
 }
 
 E_API void

@@ -124,12 +124,7 @@ struct _E_Output
 
    /* external */
    Eina_Bool            external_set;
-   Eina_Bool            external_pause;
-   struct
-   {
-      E_Output_Ext_State state;
-      E_Output_Ext_State current_state;
-   } external_conf;
+   E_Output_Ext_State   ext_state;
 };
 
 enum _E_Output_Hook_Point
@@ -177,7 +172,7 @@ EINTERN Eina_Bool         e_output_render(E_Output *output);
 EINTERN Eina_Bool         e_output_setup(E_Output *output);
 EINTERN E_Output_Mode   * e_output_best_mode_find(E_Output *output);
 EINTERN Eina_Bool         e_output_connected(E_Output *output);
-EINTERN Eina_Bool         e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val);
+E_API Eina_Bool           e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val);
 E_API E_OUTPUT_DPMS       e_output_dpms_get(E_Output *output);
 EINTERN void              e_output_size_get(E_Output *output, int *w, int *h);
 EINTERN E_Plane         * e_output_default_fb_target_get(E_Output *output);

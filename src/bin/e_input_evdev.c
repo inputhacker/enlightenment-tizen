@@ -6,12 +6,6 @@ static void  _device_modifiers_update(E_Input_Evdev *edev);
 static void
 _device_calibration_set(E_Input_Evdev *edev)
 {
-   const char *sysname;
-   float cal[6];
-   const char *device;
-   Eina_List *devices;
-   const char *vals;
-   enum libinput_config_status status;
    E_Output *output;
    int w = 0, h = 0;
    int temp;
@@ -47,6 +41,13 @@ _device_calibration_set(E_Input_Evdev *edev)
           }
      }
 
+//LCOV_EXCL_START
+#ifdef _F_E_INPUT_ENABLE_DEVICE_CALIBRATION_
+   const char *sysname;
+   float cal[6];
+   const char *device;
+   Eina_List *devices;
+
    if ((!libinput_device_config_calibration_has_matrix(edev->device)) ||
        (libinput_device_config_calibration_get_default_matrix(edev->device, cal) != 0))
      return;
@@ -56,10 +57,14 @@ _device_calibration_set(E_Input_Evdev *edev)
    devices = eeze_udev_find_by_subsystem_sysname("input", sysname);
    if (eina_list_count(devices) < 1) return;
 
+#ifdef _F_E_INPUT_USE_WL_CALIBRATION_
+   const char *vals;
+   enum libinput_config_status status;
+
    EINA_LIST_FREE(devices, device)
      {
         vals = eeze_udev_syspath_get_property(device, "WL_CALIBRATION");
-	if ((!vals) ||
+        if ((!vals) ||
             (sscanf(vals, "%f %f %f %f %f %f",
                     &cal[0], &cal[1], &cal[2], &cal[3], &cal[4], &cal[5]) != 6))
           goto cont;
@@ -77,6 +82,9 @@ cont:
         eina_stringshare_del(device);
         continue;
      }
+#endif//_F_E_INPUT_USE_WL_CALIBRATION_
+#endif//_F_E_INPUT_ENABLE_DEVICE_CALIBRATION_
+//LCOV_EXCL_STOP
 }
 
 static void
@@ -216,15 +224,15 @@ _device_modifiers_update_device(E_Input_Evdev *edev, E_Input_Evdev *from)
 static void
 _device_modifiers_update(E_Input_Evdev *edev)
 {
+   Eina_List *l;
+   E_Input_Evdev *ed;
+
    edev->xkb.modifiers = 0;
 
    if (edev->caps & E_INPUT_SEAT_KEYBOARD)
      _device_modifiers_update_device(edev, edev);
    else
      {
-        Eina_List *l;
-        E_Input_Evdev *ed;
-
         EINA_LIST_FOREACH(edev->seat->devices, l, ed)
           {
              if (!(ed->caps & E_INPUT_SEAT_KEYBOARD)) continue;
@@ -941,7 +949,6 @@ E_Input_Evdev *
 _e_input_evdev_device_create(E_Input_Seat *seat, struct libinput_device *device)
 {
    E_Input_Evdev *edev;
-   Eina_List *devices;
    E_Input_Backend *b_input;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(seat, NULL);
@@ -951,31 +958,8 @@ _e_input_evdev_device_create(E_Input_Seat *seat, struct libinput_device *device)
 
    edev->seat = seat;
    edev->device = device;
-   edev->path = eina_stringshare_add(libinput_device_get_sysname(device));
+   edev->path = eina_stringshare_printf("%s/%s", e_input_base_dir_get(), libinput_device_get_sysname(device));
    edev->fd = -1;
-
-   if (edev->path)
-     {
-        devices = eeze_udev_find_by_filter("input", NULL, edev->path);
-        if (eina_list_count(devices) >= 1)
-          {
-             Eina_List *l;
-             const char *dev, *name;
-
-             EINA_LIST_FOREACH(devices, l, dev)
-               {
-                  name = eeze_udev_syspath_get_devname(dev);
-                  if (name && strstr(name, edev->path))
-                    {
-                       eina_stringshare_replace(&edev->path, eeze_udev_syspath_get_devpath(dev));
-                       break;
-                    }
-               }
-
-             EINA_LIST_FREE(devices, dev)
-               eina_stringshare_del(dev);
-          }
-     }
 
    if (libinput_device_has_capability(device, LIBINPUT_DEVICE_CAP_KEYBOARD))
      {

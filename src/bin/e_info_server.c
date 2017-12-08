@@ -1578,6 +1578,9 @@ _e_comp_layer_idx_get(const char *layer_name)
    if (!_check_layer_idx(layer_name, E_LAYER_CLIENT_CURSOR))              return E_LAYER_CLIENT_CURSOR;
    if (!_check_layer_idx(layer_name, E_LAYER_POPUP))                      return E_LAYER_POPUP;
    if (!_check_layer_idx(layer_name, E_LAYER_EFFECT))                     return E_LAYER_EFFECT;
+   if (!_check_layer_idx(layer_name, E_LAYER_DESK_OBJECT_BELOW))          return E_LAYER_DESK_OBJECT_BELOW;
+   if (!_check_layer_idx(layer_name, E_LAYER_DESK_OBJECT))                return E_LAYER_DESK_OBJECT;
+   if (!_check_layer_idx(layer_name, E_LAYER_DESK_OBJECT_ABOVE))          return E_LAYER_DESK_OBJECT_ABOVE;
    if (!_check_layer_idx(layer_name, E_LAYER_MENU))                       return E_LAYER_MENU;
    if (!_check_layer_idx(layer_name, E_LAYER_DESKLOCK))                   return E_LAYER_DESKLOCK;
    if (!_check_layer_idx(layer_name, E_LAYER_MAX))                        return E_LAYER_MAX;
@@ -5242,6 +5245,8 @@ e_info_server_protocol_trace_path_init(char *trace_path)
 static Eina_Bool
 _e_info_server_dbus_init(void *data EINA_UNUSED)
 {
+   char *s = NULL;
+
    if (e_info_server.conn) return ECORE_CALLBACK_CANCEL;
 
    if (!e_info_server.conn)
@@ -5261,8 +5266,15 @@ _e_info_server_dbus_init(void *data EINA_UNUSED)
    E_EVENT_INFO_ROTATION_MESSAGE = ecore_event_type_new();
 
    e_info_protocol_init();
-   e_info_server_protocol_rule_path_init(getenv("E_INFO_RULE_FILE"));
-   e_info_server_protocol_trace_path_init(getenv("E_INFO_TRACE_FILE"));
+
+   s = e_util_env_get("E_INFO_RULE_FILE");
+   e_info_server_protocol_rule_path_init(s);
+   E_FREE(s);
+
+   s = e_util_env_get("E_INFO_TRACE_FILE");
+   e_info_server_protocol_trace_path_init(s);
+   E_FREE(s);
+
    e_main_hook_call(E_MAIN_HOOK_E_INFO_READY);
 
    return ECORE_CALLBACK_CANCEL;

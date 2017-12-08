@@ -18,23 +18,6 @@ _e_comp_canvas_event_compositor_resize_free(void *data EINA_UNUSED, void *event 
 ///////////////////////////////////
 
 static void
-_e_comp_canvas_cb_first_frame(void *data EINA_UNUSED, Evas *e, void *event_info EINA_UNUSED)
-{
-   double now = ecore_time_get();
-
-   switch (e_first_frame[0])
-     {
-      case 'A': abort();
-      case 'E':
-      case 'D': exit(-1);
-      case 'T': fprintf(stderr, "Startup time: '%f' - '%f' = '%f'\n", now, e_first_frame_start_time, now - e_first_frame_start_time);
-         break;
-     }
-
-   evas_event_callback_del_full(e, EVAS_CALLBACK_RENDER_POST, _e_comp_canvas_cb_first_frame, NULL);
-}
-
-static void
 _e_comp_canvas_render_post(void *data EINA_UNUSED, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    E_Client *ec;
@@ -170,8 +153,6 @@ e_comp_canvas_init(int w, int h)
         opmode = e_config->comp_canvas_bg.opmode;
      }
 
-   if (e_first_frame)
-     evas_event_callback_add(e_comp->evas, EVAS_CALLBACK_RENDER_POST, _e_comp_canvas_cb_first_frame, NULL);
    o = evas_object_rectangle_add(e_comp->evas);
    e_comp->bg_blank_object = o;
    evas_object_layer_set(o, E_LAYER_BOTTOM);
@@ -564,9 +545,12 @@ e_comp_canvas_layer_map_to(unsigned int layer)
       case 22: return E_LAYER_CLIENT_CURSOR;
       case 23: return E_LAYER_POPUP;
       case 24: return E_LAYER_EFFECT;
-      case 25: return E_LAYER_MENU;
-      case 26: return E_LAYER_DESKLOCK;
-      case 27: return E_LAYER_MAX;
+      case 25: return E_LAYER_DESK_OBJECT_BELOW;
+      case 26: return E_LAYER_DESK_OBJECT;
+      case 27: return E_LAYER_DESK_OBJECT_ABOVE;
+      case 28: return E_LAYER_MENU;
+      case 29: return E_LAYER_DESKLOCK;
+      case 30: return E_LAYER_MAX;
       default: break;
      }
    return -INT_MAX;
@@ -602,9 +586,12 @@ e_comp_canvas_layer_map(E_Layer layer)
       case E_LAYER_CLIENT_CURSOR: return 22;
       case E_LAYER_POPUP: return 23;
       case E_LAYER_EFFECT: return 24;
-      case E_LAYER_MENU: return 25;
-      case E_LAYER_DESKLOCK: return 26;
-      case E_LAYER_MAX: return 27;
+      case E_LAYER_DESK_OBJECT_BELOW: return 25;
+      case E_LAYER_DESK_OBJECT: return 26;
+      case E_LAYER_DESK_OBJECT_ABOVE: return 27;
+      case E_LAYER_MENU: return 28;
+      case E_LAYER_DESKLOCK: return 29;
+      case E_LAYER_MAX: return 30;
       default: break;
      }
 

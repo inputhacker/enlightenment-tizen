@@ -786,6 +786,7 @@ _cb_input_keymap_info_get(const Eldbus_Message *msg)
    map = mmap(NULL, size, 0x01, 0x0001, fd, 0);
    if (map == ((void *)-1))
      {
+        xkb_context_unref(context);
         close(fd);
         return;
      }
@@ -2414,8 +2415,10 @@ _e_info_client_proc_buffer_shot(int argc, char **argv)
                  }
 
                str_len = strlen(tmp_path);
+               if (str_len >= PATH_MAX) str_len = PATH_MAX - 1;
 
-               strncpy(path, tmp_path, PATH_MAX < str_len ? PATH_MAX : str_len);
+               strncpy(path, tmp_path, str_len);
+               path[str_len] = 0;
 
                free(tmp_path);
                continue;

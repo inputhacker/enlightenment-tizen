@@ -1550,7 +1550,6 @@ e_policy_client_maximize(E_Client *ec)
    E_OBJECT_CHECK_RETURN(ec, EINA_FALSE);
    E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
 
-   if (EINA_UNLIKELY(!ec))  return EINA_FALSE;
    if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
 
    if ((e_policy_client_is_keyboard(ec)) ||
@@ -1772,9 +1771,6 @@ e_policy_client_is_floating(E_Client *ec)
 {
    E_OBJECT_CHECK_RETURN(ec, EINA_FALSE);
    E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
-
-   if (EINA_UNLIKELY(!ec))
-     return EINA_FALSE;
 
    return ec->floating;
 }

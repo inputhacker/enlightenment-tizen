@@ -2135,6 +2135,22 @@ e_plane_renderer_surface_queue_destroy(E_Plane_Renderer *renderer)
      _e_plane_renderer_buffer_remove(renderer, tsurface);
 }
 
+EINTERN Eina_Bool
+e_plane_renderer_surface_queue_can_acquire(E_Plane_Renderer *renderer)
+{
+   tbm_surface_queue_h tqueue = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, 0);
+
+   tqueue = renderer->tqueue;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, 0);
+
+   if (!tbm_surface_queue_can_acquire(tqueue, 0))
+     return EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
 EINTERN tbm_surface_h
 e_plane_renderer_surface_queue_acquire(E_Plane_Renderer *renderer)
 {
@@ -2522,6 +2538,23 @@ e_plane_renderer_render_count_get(E_Plane_Renderer *renderer)
    count = dequeue_num + enqueue_num;
 
    return count;
+}
+
+EINTERN void
+e_plane_renderer_surface_queue_sync_count_set(E_Plane_Renderer *renderer, unsigned int sync_count)
+{
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+
+   EINA_SAFETY_ON_NULL_RETURN(renderer);
+   EINA_SAFETY_ON_NULL_RETURN(renderer->tqueue);
+
+   tsq_err = tbm_surface_queue_set_sync_count(renderer->tqueue, sync_count);
+   if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+     ERR("fail to tbm_surface_queue_set_sync_count");
+
+   if (renderer_trace_debug)
+     ELOGF("E_PLANE_RENDERER", "Set      Renderer(%p) sync_count(%d)",
+           NULL, NULL, renderer, sync_count);
 }
 
 EINTERN void

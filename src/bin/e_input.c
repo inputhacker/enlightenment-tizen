@@ -13,10 +13,19 @@ E_API int E_EVENT_INPUT_DISABLED = -1;
 
 E_API E_Input *e_input = NULL;
 
+EINTERN const char *
+e_input_base_dir_get(void)
+{
+   return e_input->input_base_dir;
+}
+
 EINTERN int
 e_input_init(Ecore_Evas *ee)
 {
    E_Input_Device *dev;
+   E_Input_Libinput_Backend backend = E_INPUT_LIBINPUT_BACKEND_UDEV;
+
+   TRACE_INPUT_BEGIN(e_input_init);
 
    if (++_e_input_init_count != 1) return _e_input_init_count;
 
@@ -41,7 +50,6 @@ e_input_init(Ecore_Evas *ee)
 
    ecore_event_add(E_EVENT_INPUT_ENABLED, NULL, NULL, NULL);
 
-   ecore_evas_input_event_register_with_multi(ee);
    ecore_evas_input_event_register_with_multi2(ee);
 
    if (!e_input)
@@ -55,6 +63,9 @@ e_input_init(Ecore_Evas *ee)
         goto log_err;
      }
 
+   // TODO : make this variable configurable e.g. e.cfg
+   e_input->input_base_dir = eina_stringshare_add("/dev/input");
+
    dev = e_input_device_open();
 
    if (!dev)
@@ -66,13 +77,24 @@ e_input_init(Ecore_Evas *ee)
    e_input->window = ecore_evas_window_get(ee);
    e_input_device_window_set(dev, e_input->window);
 
-   if (!e_input_device_input_backend_create(dev, "libinput_udev"))
+   TRACE_INPUT_BEGIN(e_input_device_input_backend_create);
+
+   if (getenv("E_INPUT_USE_LIBINPUT_UDEV_BACKEND"))
+     backend = E_INPUT_LIBINPUT_BACKEND_UDEV;
+   else if (getenv("E_INPUT_USE_LIBINPUT_PATH_BACKEND"))
+     backend = E_INPUT_LIBINPUT_BACKEND_PATH;
+
+   if (!e_input_device_input_backend_create(dev, backend))
      {
         EINA_LOG_ERR("Failed to create device\n");
+        TRACE_INPUT_END();
         goto device_create_err;
      }
+   TRACE_INPUT_END();
 
    e_input->dev = dev;
+
+   TRACE_INPUT_END();
 
    return _e_input_init_count;
 
@@ -80,6 +102,11 @@ device_create_err:
    e_input_device_close(dev);
 
 log_err:
+   if (e_input->input_base_dir)
+     {
+        eina_stringshare_del(e_input->input_base_dir);
+        e_input->input_base_dir = NULL;
+     }
    ecore_event_evas_shutdown();
 
 ecore_event_evas_err:
@@ -95,6 +122,9 @@ ecore_err:
    eina_shutdown();
 
 eina_err:
+
+   TRACE_INPUT_END();
+
    return --_e_input_init_count;
 }
 
@@ -112,6 +142,8 @@ e_input_shutdown(void)
    E_EVENT_INPUT_ENABLED = -1;
    E_EVENT_INPUT_DISABLED = -1;
 
+   if (e_input->input_base_dir)
+     eina_stringshare_del(e_input->input_base_dir);
    e_input_device_close(e_input->dev);
    free(e_input);
 
