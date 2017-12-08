@@ -1009,7 +1009,7 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
 
         if (win->hwc >= 0)
           {
-             if ((!win->iconic) && (!win->visibility) && (win->frame_visible))
+             if ((!win->iconic) && (win->frame_visible))
                {
                   if (win->hwc) snprintf(tmp, sizeof(tmp), "hwc@%i", win->pl_zpos);
                   else snprintf(tmp, sizeof(tmp), "comp@%i", win->pl_zpos);
@@ -1083,7 +1083,7 @@ _e_info_client_proc_topwins_info(int argc, char **argv)
 
         if (win->hwc >= 0)
           {
-             if ((!win->iconic) && (!win->visibility) && (win->frame_visible))
+             if ((!win->iconic) && (win->frame_visible))
                {
                   if (win->hwc) snprintf(tmp, sizeof(tmp), "hwc@%i", win->pl_zpos);
                   else snprintf(tmp, sizeof(tmp), "comp@%i", win->pl_zpos);
@@ -3482,7 +3482,7 @@ _e_info_client_cb_wininfo(const Eldbus_Message *msg)
    printf("   PL@ZPos:");
    if (hwc >= 0)
      {
-        if ((!iconic) && (!obscured) && (frame_visible))
+        if ((!iconic) && (frame_visible))
           {
              if (hwc) printf(" hwc@%i\n", pl_zpos);
              else printf(" comp@%i\n", pl_zpos);
