@@ -134,9 +134,6 @@ _e_hwc_window_surface_from_client_acquire(E_Hwc_Window *hwc_window)
         return NULL;
      }
 
-   if (hwc_window->tsurface == tsurface)
-     return NULL;
-
    e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
    return tsurface;
@@ -912,11 +909,20 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
      {
         if (e_hwc_window_is_target(hwc_window))
           {
+             if (hwc_window->update_exist && hwc_window->tsurface)
+               e_hwc_window_target_surface_queue_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
+
              if (!_e_hwc_window_target_surface_queue_clear((E_Hwc_Window_Target *)hwc_window))
                ERR("fail to _e_hwc_window_target_surface_queue_clear");
           }
+
+        hwc_window->tsurface = NULL;
+
         return EINA_FALSE;
      }
+
+   if (hwc_window->update_exist)
+      return EINA_TRUE;
 
    /* we can use the tbm_surface_queue owned by "gl_drm/gl_tbm" evas engine,
     * for both optimized and no-optimized hwc, at least now */
@@ -924,6 +930,14 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
      {
         /* acquire the surface */
         tsurface = _e_hwc_window_surface_from_ecore_evas_acquire((E_Hwc_Window_Target *)hwc_window);
+
+        if (!tsurface)
+          {
+               ELOGF("HWC-OPT", "no updated surface (target_window) on the hwc_wnd:%p.",
+                     NULL, NULL, hwc_window->hwc_wnd);
+
+             return EINA_FALSE;
+          }
      }
    else
      {
@@ -933,20 +947,16 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
         /* For send frame::done to client */
         if (!tsurface)
           e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
-     }
 
-   if (!tsurface)
-     {
-        if (e_hwc_window_is_target(hwc_window))
-          ELOGF("HWC-OPT", "no updated surface (target_window) on the hwc_wnd:%p.",
-                NULL, NULL, hwc_window->hwc_wnd);
-        else
-          ELOGF("HWC-OPT", "no updated surface (title:%s, name:%s) on the hwc_wnd:%p.",
-                hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
-                hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-                hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
-                hwc_window->hwc_wnd);
-        return EINA_FALSE;
+        if (hwc_window->tsurface == tsurface) {
+           ELOGF("HWC-OPT", "no updated surface (title:%s, name:%s) on the hwc_wnd:%p.",
+                  hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
+                  hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+                  hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
+                  hwc_window->hwc_wnd);
+
+           return EINA_FALSE;
+        }
      }
 
    /* exist tsurface for update hwc_window */

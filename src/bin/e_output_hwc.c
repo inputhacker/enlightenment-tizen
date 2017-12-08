@@ -809,6 +809,7 @@ _e_output_hwc_windows_can_commit(E_Output *output)
 {
    Eina_List *l;
    E_Hwc_Window *hwc_window;
+   Eina_Bool can_commit = EINA_TRUE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output->output_hwc, EINA_FALSE);
 
@@ -816,12 +817,10 @@ _e_output_hwc_windows_can_commit(E_Output *output)
      {
         if (!e_hwc_window_is_on_hw_overlay(hwc_window)) continue;
 
-        if (hwc_window->update_exist) return EINA_TRUE;
-
-        if (e_hwc_window_get_displaying_surface(hwc_window)) return EINA_TRUE;
+        if (!hwc_window->tsurface) can_commit = EINA_FALSE;
      }
 
-   return EINA_FALSE;
+   return can_commit;
 }
 
 static Eina_Bool
