@@ -706,6 +706,7 @@ struct E_Client
       unsigned char changed : 1;
       Eina_Bool skip : 1;
       Eina_Bool force_obscured : 1;
+      int last_sent_type;
    } visibility;
 
    struct

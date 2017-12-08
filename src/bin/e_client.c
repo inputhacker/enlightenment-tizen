@@ -2998,6 +2998,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
    Eina_Bool is_above_rot_pending = EINA_FALSE;
    Eina_Bool is_launching_effect = EINA_FALSE;
    Eina_Bool is_vis_on_skip = EINA_FALSE;
+   Eina_Bool is_display_off = EINA_FALSE;
 
    int x = 0, y = 0, w = 0, h = 0;
    const int edge = 1;
@@ -3025,6 +3026,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
      }
    else
      {
+        is_display_off = EINA_TRUE;
         _e_client_hook_call(E_CLIENT_HOOK_CAL_VISIBILITY_DISPLAY_OFF, NULL);
      }
 
@@ -3044,6 +3046,15 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
 
         /* TODO: need to check whether window intersects with entire screen, not zone. */
         /* if (!E_INTERSECTS(ec->x, ec->y, ec->w, ec->h, zone->x, zone->y, zone->w, zone->h)) continue; */
+
+        if (is_display_off)
+          {
+             if ((ec->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED) &&
+                 (ec->visibility.last_sent_type != E_VISIBILITY_FULLY_OBSCURED))
+               {
+                  ec->visibility.changed = 1;
+               }
+           }
 
         if (!e_config->calc_vis_without_effect)
           {
@@ -3834,6 +3845,7 @@ e_client_new(E_Pixmap *cp, int first_map, int internal)
    ec->visibility.opaque = -1;
    ec->visibility.changed = 0;
    ec->visibility.skip = 0;
+   ec->visibility.last_sent_type = E_VISIBILITY_UNKNOWN;
 
    ec->transform.zoom = 1.0;
    ec->transform.angle = 0.0;
