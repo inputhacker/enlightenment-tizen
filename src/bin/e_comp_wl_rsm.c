@@ -2700,6 +2700,8 @@ err:
 static Eina_Bool
 _image_save_type_check(E_Client *ec)
 {
+   if (ec->skip_save_img) return EINA_FALSE;
+
    if (e_policy_client_is_lockscreen(ec) ||
        e_policy_client_is_home_screen(ec) ||
        e_policy_client_is_quickpanel(ec) ||
@@ -3277,6 +3279,21 @@ end:
 #endif /* HAVE_REMOTE_SURFACE */
 }
 
+EAPI void
+e_comp_wl_remote_surface_image_save_skip_set(E_Client *ec, Eina_Bool set)
+{
+   if (!e_config->save_win_buffer) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+
+   ec->skip_save_img = set;
+}
+
+EAPI Eina_Bool
+e_comp_wl_remote_surface_image_save_skip_get(E_Client *ec)
+{
+   if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
+   return ec->skip_save_img;
+}
 
 EINTERN void
 e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
