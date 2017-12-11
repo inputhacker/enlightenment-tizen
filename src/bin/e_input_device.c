@@ -269,7 +269,7 @@ e_input_device_close(E_Input_Device *dev)
 }
 
 EINTERN void
-e_input_device_window_set(E_Input_Device *dev, unsigned int window)
+e_input_device_window_set(E_Input_Device *dev, Ecore_Window window)
 {
    /* check for valid device */
    EINA_SAFETY_ON_TRUE_RETURN(!dev);

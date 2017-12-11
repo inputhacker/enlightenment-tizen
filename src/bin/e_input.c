@@ -102,7 +102,7 @@ device_create_err:
    e_input_device_close(dev);
 
 log_err:
-   if (e_input->input_base_dir)
+   if (e_input && e_input->input_base_dir)
      {
         eina_stringshare_del(e_input->input_base_dir);
         e_input->input_base_dir = NULL;
