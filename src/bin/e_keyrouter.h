@@ -8,8 +8,6 @@ typedef struct _E_Keyrouter_Tizen_HWKey E_Keyrouter_Tizen_HWKey;
 typedef struct _E_Keyrouter_Grabbed_Key E_Keyrouter_Grabbed_Key;
 typedef struct _E_Keyrouter_Registered_Window_Info E_Keyrouter_Registered_Window_Info;
 
-typedef struct _E_Keyrouter_Event_Key E_Keyrouter_Event_Key;
-
 typedef enum _E_Keyrouter_Intercept_Hook_Point
 {
    E_KEYROUTER_INTERCEPT_HOOK_BEFORE_KEYROUTING,
@@ -32,8 +30,6 @@ typedef Eina_Bool (*E_Keyrouter_Intercept_Hook_Cb) (void *data, int type, Ecore_
 
 extern E_API E_Keyrouter_Info e_keyrouter;
 
-extern E_API int E_KEYROUTER_EVENT_KEY;
-
 struct _E_Keyrouter_Intercept_Hook
 {
    EINA_INLIST;
@@ -47,7 +43,6 @@ struct _E_Keyrouter_Info
 {
    void *(*keygrab_list_get)(void);
    int (*max_keycode_get)(void);
-   void (*event_surface_send)(struct wl_resource *surface, int key, int mode);
 };
 
 struct _E_Keyrouter_Registered_Window_Info
@@ -88,33 +83,9 @@ struct _E_Keyrouter_Grabbed_Key
    Eina_List *pic_off_ptr;
 };
 
-struct _E_Keyrouter_Event_Key
-{
-   Eina_Bool pressed;
-   int keycode;
-
-   Ecore_Window window;
-   unsigned int timestamp;
-   unsigned int modifiers;
-
-   Ecore_Device *dev;
-
-   struct
-   {
-      struct wl_client *client;
-      struct wl_resource *surface;
-      int mode;
-   } routed;
-};
-
 E_API E_Keyrouter_Intercept_Hook *e_keyrouter_intercept_hook_add(E_Keyrouter_Intercept_Hook_Point hookpoint, E_Keyrouter_Intercept_Hook_Cb func, const void *data);
 E_API void e_keyrouter_intercept_hook_del(E_Keyrouter_Intercept_Hook *ch);
 E_API Eina_Bool e_keyrouter_intercept_hook_call(E_Keyrouter_Intercept_Hook_Point hookpoint, int type, Ecore_Event_Key *event);
-
-E_API void e_keyrouter_send_event_surface(struct wl_resource *surface, int key, int mode);
-
-EINTERN void e_keyrouter_init(void);
-EINTERN int e_keyrouter_shutdown(void);
 
 #endif
 #endif

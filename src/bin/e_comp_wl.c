@@ -49,12 +49,6 @@ typedef struct _E_Comp_Wl_Key_Data
    Evas_Device *dev;
 } E_Comp_Wl_Key_Data;
 
-typedef struct _E_Comp_Wl_Routed_Key_Data
-{
-   uint32_t key;
-   Eina_Bool pressed;
-} E_Comp_Wl_Routed_Key_Data;
-
 static Eina_List *handlers = NULL;
 static E_Client *cursor_timer_ec = NULL;
 static Eina_Bool need_send_leave = EINA_TRUE;
@@ -5382,51 +5376,6 @@ _e_comp_wl_key_send(Ecore_Event_Key *ev, enum wl_keyboard_key_state state, Eina_
      }
 }
 
-static void
-_e_comp_wl_routed_key_send(E_Keyrouter_Event_Key *ev, enum wl_keyboard_key_state state, Eina_List *key_list, Eina_Bool focused)
-{
-   struct wl_resource *res;
-   Eina_List *l;
-   uint32_t serial, keycode;
-   struct wl_client *wc;
-   Ecore_Device *last_dev;
-   E_Comp_Config *comp_conf = NULL;
-
-   keycode = (ev->keycode - 8);
-
-   serial = wl_display_next_serial(e_comp_wl->wl.disp);
-
-   comp_conf = e_comp_config_get();
-
-   EINA_LIST_FOREACH(key_list, l, res)
-     {
-        wc = wl_resource_get_client(res);
-        if (!focused && wc != ev->routed.client) continue;
-        TRACE_INPUT_BEGIN(_e_comp_wl_routed_key_send);
-        last_dev = eina_hash_find(_last_keydev_hash, wc);
-        if (!last_dev)
-          {
-             _e_comp_wl_client_destroy_listener_add(wc);
-             eina_hash_direct_add(_last_keydev_hash, wc, ev->dev);
-             _e_comp_wl_send_event_device(ev->routed.client, ev->timestamp, ev->dev, serial);
-          }
-        else if (last_dev != ev->dev)
-          {
-             eina_hash_modify(_last_keydev_hash, wc, ev->dev);
-             _e_comp_wl_send_event_device(ev->routed.client, ev->timestamp, ev->dev, serial);
-          }
-
-        if (comp_conf && comp_conf->input_log_enable)
-          INF("[Server] Key %s (time: %d)\n", (state ? "Down" : "Up"), ev->timestamp);
-
-        if (ev->routed.surface) e_keyrouter_send_event_surface(ev->routed.surface, ev->keycode, ev->routed.mode);
-
-        wl_keyboard_send_key(res, serial, ev->timestamp,
-                             keycode, state);
-        TRACE_INPUT_END();
-     }
-}
-
 EINTERN Eina_Bool
 e_comp_wl_key_down(Ecore_Event_Key *ev)
 {
@@ -5434,7 +5383,6 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
    struct wl_client *wc = NULL;
    uint32_t keycode;
    E_Comp_Wl_Key_Data *end, *k;
-   E_Comp_Wl_Routed_Key_Data *r_end, *r_k;
 
    if ((e_comp->comp_type != E_PIXMAP_TYPE_WL) || (ev->window != e_comp->ee_win))
      {
@@ -5461,18 +5409,50 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
    if (ec && ec->comp_data && ec->comp_data->surface)
      wc = wl_resource_get_client(ec->comp_data->surface);
 
-   if (ev->data && ev->data != (void *)0x1)
+   if (ev->data)
      {
-        r_end = (E_Comp_Wl_Routed_Key_Data *)e_comp_wl->kbd.routed_keys.data + (e_comp_wl->kbd.routed_keys.size / sizeof(*r_k));
-
-        e_comp_wl->kbd.routed_keys.size = (const char *)r_end - (const char *)e_comp_wl->kbd.routed_keys.data;
-        if (!(r_k = wl_array_add(&e_comp_wl->kbd.routed_keys, sizeof(*r_k))))
+        if ((wc != ev->data) && (ev->data != (void *)0x1))
           {
-             DBG("wl_array_add: Out of memory\n");
-             return EINA_FALSE;
+             _e_comp_wl_key_send(ev, WL_KEYBOARD_KEY_STATE_PRESSED, e_comp_wl->kbd.resources, EINA_FALSE);
           }
-        r_k->key = keycode;
-        r_k->pressed = EINA_TRUE;
+        else
+          {
+             ec = NULL;
+             end = (E_Comp_Wl_Key_Data *)e_comp_wl->kbd.routed_keys.data + (e_comp_wl->kbd.routed_keys.size / sizeof(*k));
+
+             for (k = e_comp_wl->kbd.routed_keys.data; k < end; k++)
+               {
+                  /* ignore server-generated key repeats */
+                  if (k->key == keycode)
+                    {
+                       return EINA_FALSE;
+                    }
+               }
+
+             if (ev->data == (void *)0x1) return EINA_FALSE;
+
+             if ((!e_client_action_get()) && (!e_comp->input_key_grabs))
+               {
+                  ec = e_client_focused_get();
+                  if (ec && ec->comp_data && ec->comp_data->surface && e_comp_wl->kbd.focused)
+                    {
+                       _e_comp_wl_key_send(ev, WL_KEYBOARD_KEY_STATE_PRESSED, e_comp_wl->kbd.focused, EINA_TRUE);
+
+                       /* A key only sent to clients is added to the list */
+                       e_comp_wl->kbd.routed_keys.size = (const char *)end - (const char *)e_comp_wl->kbd.routed_keys.data;
+                       if (!(k = wl_array_add(&e_comp_wl->kbd.routed_keys, sizeof(*k))))
+                         {
+                            DBG("wl_array_add: Out of memory\n");
+                            return EINA_FALSE;
+                         }
+                       k->key = keycode;
+                       k->dev = ev->dev;
+                    }
+               }
+
+             /* update modifier state */
+             e_comp_wl_input_keyboard_state_update(keycode, EINA_TRUE);
+          }
 
         return !!ec;
      }
@@ -5523,7 +5503,6 @@ e_comp_wl_key_up(Ecore_Event_Key *ev)
    struct wl_client *wc = NULL;
    uint32_t keycode, delivered_key;
    E_Comp_Wl_Key_Data *end, *k;
-   E_Comp_Wl_Routed_Key_Data *r_end, *r_k;
 
    if ((e_comp->comp_type != E_PIXMAP_TYPE_WL) ||
        (ev->window != e_comp->ee_win))
@@ -5543,19 +5522,42 @@ e_comp_wl_key_up(Ecore_Event_Key *ev)
    if (ec && ec->comp_data && ec->comp_data->surface)
      wc = wl_resource_get_client(ec->comp_data->surface);
 
-   if (ev->data && ev->data != (void *)0x1)
+   if (ev->data)
      {
-        r_end = (E_Comp_Wl_Routed_Key_Data *)e_comp_wl->kbd.routed_keys.data + (e_comp_wl->kbd.routed_keys.size / sizeof(*r_k));
-
-        e_comp_wl->kbd.routed_keys.size = (const char *)r_end - (const char *)e_comp_wl->kbd.routed_keys.data;
-        if (!(r_k = wl_array_add(&e_comp_wl->kbd.routed_keys, sizeof(*r_k))))
+        end = (E_Comp_Wl_Key_Data *)e_comp_wl->kbd.routed_keys.data + (e_comp_wl->kbd.routed_keys.size / sizeof(*k));
+        for (k = e_comp_wl->kbd.routed_keys.data; k < end; k++)
           {
-             DBG("wl_array_add: Out of memory\n");
-             return EINA_FALSE;
+             if (k->key == keycode)
+               {
+                  *k = *--end;
+                  delivered_key = 1;
+               }
           }
-        r_k->key = keycode;
-        r_k->pressed = EINA_FALSE;
+        e_comp_wl->kbd.routed_keys.size =
+          (const char *)end - (const char *)e_comp_wl->kbd.routed_keys.data;
 
+        if (wc != ev->data)
+          {
+             _e_comp_wl_key_send(ev, WL_KEYBOARD_KEY_STATE_RELEASED, e_comp_wl->kbd.resources, EINA_FALSE);
+          }
+        else
+          {
+             ec = NULL;
+
+             if ((delivered_key) ||
+                 ((!e_client_action_get()) && (!e_comp->input_key_grabs)))
+               {
+                  ec = e_client_focused_get();
+
+                  if (e_comp_wl->kbd.focused)
+                    {
+                       _e_comp_wl_key_send(ev, WL_KEYBOARD_KEY_STATE_RELEASED, e_comp_wl->kbd.focused, EINA_FALSE);
+                    }
+               }
+
+             /* update modifier state */
+             e_comp_wl_input_keyboard_state_update(keycode, EINA_FALSE);
+          }
         return !!ec;
      }
 
@@ -5591,65 +5593,6 @@ e_comp_wl_key_up(Ecore_Event_Key *ev)
    e_comp_wl_input_keyboard_state_update(keycode, EINA_FALSE);
 
    return !!ec;
-}
-
-EINTERN Eina_Bool
-e_comp_wl_key_process(E_Keyrouter_Event_Key *ev)
-{
-   int keycode;
-   Eina_Bool process_flag = EINA_FALSE;
-   E_Comp_Wl_Routed_Key_Data *r_end, *r_k;
-   E_Client *ec;
-   struct wl_client *wc = NULL;
-
-   keycode = ev->keycode - 8;
-
-   r_end = (E_Comp_Wl_Routed_Key_Data *)e_comp_wl->kbd.routed_keys.data + (e_comp_wl->kbd.routed_keys.size / sizeof(*r_k));
-   for (r_k = e_comp_wl->kbd.routed_keys.data; r_k < r_end; r_k++)
-     {
-        if ((r_k->key == keycode) &&
-            (r_k->pressed == ev->pressed))
-          {
-             *r_k = *--r_end;
-             process_flag = EINA_TRUE;
-             break;
-          }
-     }
-
-   e_comp_wl->kbd.routed_keys.size =
-     (const char *)r_end - (const char *)e_comp_wl->kbd.routed_keys.data;
-
-   ec = e_client_focused_get();
-
-   if (ec && ec->comp_data && ec->comp_data->surface)
-     wc = wl_resource_get_client(ec->comp_data->surface);
-
-   if (!process_flag) return EINA_FALSE;
-   if ((wc !=ev->routed.client) && (ev->routed.client != (void *)0x1))
-     {
-        if (ev->pressed)
-          _e_comp_wl_routed_key_send(ev, WL_KEYBOARD_KEY_STATE_PRESSED, e_comp_wl->kbd.resources, EINA_FALSE);
-        else
-          _e_comp_wl_routed_key_send(ev, WL_KEYBOARD_KEY_STATE_RELEASED, e_comp_wl->kbd.resources, EINA_FALSE);
-     }
-   else
-     {
-        if ((!e_client_action_get()) && (!e_comp->input_key_grabs))
-          {
-             if (ec && ec->comp_data && ec->comp_data->surface && e_comp_wl->kbd.focused)
-               {
-                  if (ev->pressed)
-                    _e_comp_wl_routed_key_send(ev, WL_KEYBOARD_KEY_STATE_PRESSED, e_comp_wl->kbd.focused, EINA_TRUE);
-                  else
-                    _e_comp_wl_routed_key_send(ev, WL_KEYBOARD_KEY_STATE_RELEASED, e_comp_wl->kbd.focused, EINA_TRUE);
-               }
-          }
-     }
-
-   /* update modifier state */
-   e_comp_wl_input_keyboard_state_update(keycode, EINA_TRUE);
-
-   return EINA_TRUE;
 }
 
 E_API Eina_Bool
