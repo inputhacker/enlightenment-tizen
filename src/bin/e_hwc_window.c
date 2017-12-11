@@ -66,33 +66,6 @@ _e_hwc_window_target_surface_queue_clear(E_Hwc_Window_Target *target_hwc_window)
   return EINA_TRUE;
 }
 
-static void
-_new_buffer_is_acquired_from_evas_renderer_queue(E_Hwc_Window_Target *target_hwc_window)
-{
-   E_Hwc_Window *hwc_window;
-   const Eina_List *l;
-
-   EINA_LIST_FOREACH(e_output_hwc_windows_get(((E_Hwc_Window *)target_hwc_window)->output->output_hwc), l, hwc_window)
-     {
-        if (hwc_window->is_deleted) continue;
-
-        if (hwc_window->get_notified_about_need_unset_cc_type && hwc_window->got_composited)
-          {
-             hwc_window->delay--;
-             if (hwc_window->delay > 0) continue;
-
-             hwc_window->get_notified_about_need_unset_cc_type = EINA_FALSE;
-
-             hwc_window->need_unset_cc_type = EINA_TRUE;
-
-             ELOGF("HWC-OPT", "the composition buffer with {name:%s} will be displayed"
-                   "in the next frame.",
-                   hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-                   hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN");
-        }
-     }
-}
-
 static tbm_surface_h
 _e_hwc_window_surface_from_ecore_evas_acquire(E_Hwc_Window_Target *target_hwc_window)
 {
@@ -111,8 +84,6 @@ _e_hwc_window_surface_from_ecore_evas_acquire(E_Hwc_Window_Target *target_hwc_wi
      }
 
    tsurface = e_hwc_window_target_surface_queue_acquire(target_hwc_window);
-   if (tsurface)
-     _new_buffer_is_acquired_from_evas_renderer_queue(target_hwc_window);
 
    return tsurface;
 }
@@ -298,70 +269,6 @@ _e_hwc_window_target_queue_dequeue_cb(tbm_surface_queue_h surface_queue, void *d
   ELOGF("HWC-OPT", "[soolim] dequeue the target_hwc_window(%p) post_render_flush_cnt(%d)", NULL, NULL, target_hwc_window, target_hwc_window->post_render_flush_cnt);
 }
 
-static int
-_get_enqueued_surface_num(tbm_surface_queue_h queue)
-{
-   tbm_surface_queue_error_e err;
-   int enqueue_num = 0;
-
-   err = tbm_surface_queue_get_trace_surface_num(queue, TBM_SURFACE_QUEUE_TRACE_ENQUEUE, &enqueue_num);
-   if (err != TBM_SURFACE_QUEUE_ERROR_NONE)
-     {
-        ERR("fail to tbm_surface_queue_get_trace_surface_num (TBM_SURFACE_QUEUE_TRACE_ENQUEUE)");
-        return 0;
-     }
-
-   return enqueue_num;
-}
-
-static void
-_evas_renderer_queue_has_new_composited_buffer(void *data)
-{
-   E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
-   E_Hwc_Window *hwc_window;
-   const Eina_List *l;
-   int enqueued_surface_num;
-
-   target_hwc_window->render_cnt++;
-
-   ELOGF("HWC-OPT", "evas_renderer has a new buffer in the queue, renderer_cnt:%llu",
-         NULL, NULL, target_hwc_window->render_cnt);
-
-   enqueued_surface_num = _get_enqueued_surface_num(target_hwc_window->queue);
-   EINA_LIST_FOREACH(e_output_hwc_windows_get(((E_Hwc_Window *)target_hwc_window)->output->output_hwc), l, hwc_window)
-     {
-        if (hwc_window->is_deleted) continue;
-
-        if (hwc_window->get_notified_about_need_unset_cc_type)
-          {
-             if (hwc_window->frame_num <= target_hwc_window->render_cnt)
-               {
-                  hwc_window->got_composited = EINA_TRUE;
-
-                  if (enqueued_surface_num > 1)
-                    {
-                       hwc_window->delay = enqueued_surface_num - 1;
-
-                       ELOGF("HWC-OPT", "the composition for {name:%s} is done, but render queue has %d buffers before",
-                            hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-                            hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
-                            hwc_window->delay);
-
-                       continue;
-                    }
-
-                  hwc_window->get_notified_about_need_unset_cc_type = EINA_FALSE;
-
-                  hwc_window->need_unset_cc_type = EINA_TRUE;
-
-                  ELOGF("HWC-OPT", "the composition for {name:%s} is done.",
-                        hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-                        hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN");
-               }
-          }
-     }
-}
-
 /* gets called at the beginning of an ecore_main_loop iteration */
 static Eina_Bool
 _evas_renderer_finished_composition_cb(void *data, Ecore_Fd_Handler *fd_handler)
@@ -376,8 +283,6 @@ _evas_renderer_finished_composition_cb(void *data, Ecore_Fd_Handler *fd_handler)
    len = read(fd, buffer, sizeof(buffer));
    if (len == -1)
      ERR("failed to read queue acquire event fd:%m");
-
-   _evas_renderer_queue_has_new_composited_buffer(data);
 
    return ECORE_CALLBACK_RENEW;
 }
@@ -833,54 +738,24 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
    error = tdm_hwc_window_set_zpos(hwc_wnd, hwc_window->zpos);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
-   if (e_hwc_window_get_state(hwc_window) == E_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
+   /* hwc_window manager could ask to prevent some e_clients being shown by hw directly */
+   if (hwc_window->hwc_acceptable && hwc_window->tsurface)
      {
-        /* as the e_client got composited on the fb_target we have to inform the hwc
-         * extension to allow it does its work, so we set the TDM_COMPOSITION_CLIENT type */
-        if (hwc_window->need_unset_cc_type)
-          {
+        error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_DEVICE);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
-             ELOGF("HWC-OPT", "ew:%p -- {name:%s} - buffer's been composited, inform hwc-extension.",
-                   hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
-                   hwc_window, hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN");
+        hwc_window->type = TDM_COMPOSITION_DEVICE;
 
-             /* reset for the next DEVICE -> CLIENT_CANDIDATE transition */
-             hwc_window->got_composited = EINA_FALSE;
-             hwc_window->need_unset_cc_type = EINA_FALSE;
-
-             error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_CLIENT);
-             EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
-
-             hwc_window->type = TDM_COMPOSITION_CLIENT;
-          }
-
-        /* TODO: what's about z-pos? */
-        /* if the E_Hwc_Window is in the E_WINDOW_STATE_CLIENT_CANDIDATE state there's no
-         * reason to set info, update buffer, etc..., 'cause an underlying hwc_window is
-         * in a blocked state and it'll ignore any changes anyway */
-        return EINA_TRUE;
+        result = _e_hwc_window_info_set(hwc_window);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(result != EINA_TRUE, EINA_FALSE);
      }
    else
      {
-        /* hwc_window manager could ask to prevent some e_clients being shown by hw directly */
-        if (hwc_window->hwc_acceptable && hwc_window->tsurface)
-          {
-             error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_DEVICE);
-             EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+        error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_CLIENT);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
-             hwc_window->type = TDM_COMPOSITION_DEVICE;
-
-             result = _e_hwc_window_info_set(hwc_window);
-             EINA_SAFETY_ON_TRUE_RETURN_VAL(result != EINA_TRUE, EINA_FALSE);
-          }
-        else
-          {
-             error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_CLIENT);
-             EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
-
-             hwc_window->type = TDM_COMPOSITION_CLIENT;
-          }
-      }
+        hwc_window->type = TDM_COMPOSITION_CLIENT;
+     }
 
    return EINA_TRUE;
 }
@@ -939,8 +814,6 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    if (hwc_window->update_exist)
       return EINA_TRUE;
 
-   /* we can use the tbm_surface_queue owned by "gl_drm/gl_tbm" evas engine,
-    * for both optimized and no-optimized hwc, at least now */
    if (e_hwc_window_is_target(hwc_window))
      {
         /* acquire the surface */
@@ -1044,10 +917,6 @@ EINTERN Eina_Bool
 e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
 {
    E_Hwc_Window_Commit_Data *commit_data = NULL;
-
-   /* we can't unref a buffer till it being composited to the fb_target */
-   if (e_hwc_window_get_state(hwc_window) == E_HWC_WINDOW_STATE_CLIENT_CANDIDATE)
-     return EINA_FALSE;
 
    if (!e_hwc_window_is_on_hw_overlay(hwc_window))
      {
@@ -1222,15 +1091,6 @@ e_hwc_window_target_surface_queue_release(E_Hwc_Window_Target *target_hwc_window
      }
 }
 
-EINTERN uint64_t
-e_hwc_window_target_get_current_renderer_cnt(E_Hwc_Window_Target *target_hwc_window)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, 0);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(target_hwc_window->hwc_window.is_target, 0);
-
-   return target_hwc_window->render_cnt;
-}
-
 EINTERN Eina_Bool
 e_hwc_window_activate(E_Hwc_Window *hwc_window)
 {
@@ -1327,22 +1187,4 @@ e_hwc_window_get_state(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, E_HWC_WINDOW_STATE_NONE);
 
    return hwc_window->state;
-}
-
-/* offset - relative offset of frame the notification should be issued for */
-EINTERN Eina_Bool
-e_hwc_window_get_notified_about_need_unset_cc_type(E_Hwc_Window *hwc_window, E_Hwc_Window_Target *target_hwc_window, uint64_t offset)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-
-   hwc_window->get_notified_about_need_unset_cc_type = EINA_TRUE;
-   hwc_window->frame_num = e_hwc_window_target_get_current_renderer_cnt(target_hwc_window) + offset + 1;
-
-   ELOGF("HWC-OPT", "ew:%p -- {name:%s} asked to be notified about a %llu composited frame will be displayed in the next frame,"
-         " current render_cnt:%llu, delay:%llu.",
-         hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
-         hwc_window, hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
-         hwc_window->frame_num, target_hwc_window->render_cnt, offset);
-
-   return EINA_TRUE;
 }

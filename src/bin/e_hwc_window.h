@@ -13,7 +13,6 @@ typedef enum _E_Hwc_Window_State
    E_HWC_WINDOW_STATE_NONE,
    E_HWC_WINDOW_STATE_CLIENT,
    E_HWC_WINDOW_STATE_DEVICE,
-   E_HWC_WINDOW_STATE_CLIENT_CANDIDATE,
    E_HWC_WINDOW_STATE_VIDEO,
    E_HWC_WINDOW_STATE_DEVICE_CANDIDATE
 } E_Hwc_Window_State;
@@ -52,18 +51,6 @@ struct _E_Hwc_Window
 
    E_Hwc_Window_Commit_Data       *commit_data;
 
-   /* whether E20 has to notify this E_Hwc_Window about the need to unset
-    * candidate client type */
-   Eina_Bool                      get_notified_about_need_unset_cc_type;
-   uint64_t                       frame_num;  /* the absolute number of frame to be notified about */
-
-   /* whether an e_client owned by this hwc_window got composited on the fb_target */
-   Eina_Bool                      got_composited;
-   Eina_Bool                      need_unset_cc_type; /* need unset candidate client type */
-   /* number of buffers in front of the buffer which contains the e_client
-    * owned by this hwc_window*/
-   int delay;
-
    Eina_Bool hwc_acceptable;
 };
 
@@ -77,7 +64,6 @@ struct _E_Hwc_Window_Target
 
    tbm_surface_queue_h queue;
 
-   uint64_t            render_cnt;
    int post_render_flush_cnt;
 };
 
@@ -106,7 +92,6 @@ EINTERN Eina_Bool          e_hwc_window_commit_data_release(E_Hwc_Window *hwc_wi
 EINTERN Eina_Bool          e_hwc_window_target_surface_queue_can_dequeue(E_Hwc_Window_Target *target_hwc_window);
 EINTERN tbm_surface_h      e_hwc_window_target_surface_queue_acquire(E_Hwc_Window_Target *target_hwc_window);
 EINTERN void               e_hwc_window_target_surface_queue_release(E_Hwc_Window_Target *target_hwc_window, tbm_surface_h tsurface);
-EINTERN uint64_t           e_hwc_window_target_get_current_renderer_cnt(E_Hwc_Window_Target *target_hwc_window);
 
 EINTERN Eina_Bool          e_hwc_window_activate(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_deactivate(E_Hwc_Window *hwc_window);
@@ -115,8 +100,6 @@ EINTERN tbm_surface_h      e_hwc_window_get_displaying_surface(E_Hwc_Window *hwc
 
 EINTERN Eina_Bool          e_hwc_window_set_state(E_Hwc_Window *hwc_window, E_Hwc_Window_State state);
 EINTERN E_Hwc_Window_State e_hwc_window_get_state(E_Hwc_Window *hwc_window);
-
-EINTERN Eina_Bool          e_hwc_window_get_notified_about_need_unset_cc_type(E_Hwc_Window *hwc_window, E_Hwc_Window_Target *target_hwc_window, uint64_t offset);
 
 #endif // E_HWC_WINDOW_H
 #endif
