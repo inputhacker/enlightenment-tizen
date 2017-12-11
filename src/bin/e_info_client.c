@@ -16,6 +16,7 @@ typedef struct _E_Info_Client
 
    /* topvwins */
    int                use_gl, use_hwc, use_multi_layer, hwc;
+   int                use_buffer_flush, deiconify_approve;
    const char        *engine;
    Eina_List         *win_list;
 
@@ -486,9 +487,10 @@ _cb_vwindow_info_get(const Eldbus_Message *msg)
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
 
-   res = eldbus_message_arguments_get(msg, "iiiisa("VALUE_TYPE_FOR_TOPVWINS")",
+   res = eldbus_message_arguments_get(msg, "iiiisiia("VALUE_TYPE_FOR_TOPVWINS")",
                                       &e_info_client.use_gl, &e_info_client.use_hwc, &e_info_client.use_multi_layer,
                                       &e_info_client.hwc, &engine,
+                                      &e_info_client.use_buffer_flush, &e_info_client.deiconify_approve,
                                       &array);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
    e_info_client.engine = eina_stringshare_add(engine);
@@ -979,10 +981,15 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
    if (e_info_client.use_hwc)
      {
         printf("HWC:  %s\n", e_info_client.hwc ? "on":"off");
-        printf("Multi Plane:  %s\n\n", e_info_client.use_multi_layer ? "on":"off");
+        printf("Multi Plane:  %s\n", e_info_client.use_multi_layer ? "on":"off");
      }
+   printf("Buffer flush: %s\n", e_info_client.use_buffer_flush ? "on":"off");
+   if (e_info_client.use_buffer_flush)
+     printf("Deiconify Approve: %s\n", "auto on");
+   else
+     printf("Deiconify Approve: %s\n", e_info_client.deiconify_approve ? "on":"off");
 
-   printf("%d Top level windows\n", eina_list_count(e_info_client.win_list));
+   printf("\n%d Top level windows\n", eina_list_count(e_info_client.win_list));
    printf("--------------------------------------[ topvwins ]----------------------------------------------------------------------------\n");
    printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc Dep Opaq Visi Icon  Map  Frame  PL@ZPos  Parent     Title\n");
    printf("------------------------------------------------------------------------------------------------------------------------------\n");

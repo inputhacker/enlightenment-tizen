@@ -289,6 +289,8 @@ _e_info_server_cb_window_info_get(const Eldbus_Service_Interface *iface EINA_UNU
    eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->hwc_use_multi_plane);
    eldbus_message_iter_basic_append(iter, 'i', e_comp->hwc);
    eldbus_message_iter_basic_append(iter, 's', ecore_evas_engine_name_get(e_comp->ee));
+   eldbus_message_iter_basic_append(iter, 'i', e_config->use_buffer_flush);
+   eldbus_message_iter_basic_append(iter, 'i', e_config->deiconify_approve);
 
    _msg_clients_append(iter, EINA_TRUE);
 
