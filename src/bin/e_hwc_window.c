@@ -936,8 +936,13 @@ e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
         return EINA_FALSE;
      }
 
-   /* check update_exist */
-   if (!hwc_window->update_exist)
+   /* If there are not updates and there is not displaying surface it means the
+    * hwc_window's composition type just became TDM_COMPOSITION_DEVICE. Buffer
+    * for this hwc_window was set in the previous e_hwc_window_fetch but ref for
+    * buffer didn't happen because hwc_window had TDM_COMPOSITION_CLIENT type.
+    * So e20 needs to make ref for the current buffer which is set on the hwc_window.
+    */
+   if (!hwc_window->update_exist && e_hwc_window_get_displaying_surface(hwc_window))
      {
         return EINA_FALSE;
      }
