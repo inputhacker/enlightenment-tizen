@@ -789,9 +789,6 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
    output = hwc_window->output;
 
-   if (output->wait_commit)
-     return EINA_FALSE;
-
    /* for video we set buffer in the video module */
    if (e_hwc_window_is_video(hwc_window)) return EINA_FALSE;
 

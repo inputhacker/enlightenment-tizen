@@ -739,8 +739,6 @@ _e_output_hwc_windows_can_commit(E_Output *output)
 static Eina_Bool
 _e_output_hwc_windows_prepare_commit(E_Output *output, E_Hwc_Window *hwc_window)
 {
-   if (output->wait_commit) return EINA_FALSE;
-
    if (!e_hwc_window_commit_data_aquire(hwc_window))
      return EINA_FALSE;
 
@@ -1523,6 +1521,8 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
 
    output = output_hwc->output;
+
+   if (output->wait_commit) return EINA_TRUE;
 
    ELOGF("HWC-OPT", "=== Fetch the buffers ===", NULL, NULL);
 
