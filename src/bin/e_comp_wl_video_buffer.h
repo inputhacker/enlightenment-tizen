@@ -14,7 +14,7 @@ typedef struct _E_Comp_Wl_Video_Buf E_Comp_Wl_Video_Buf;
 
 #include "e_comp_wl_tbm.h"
 #include <wayland-tbm-server.h>
-#include <tizen-extension-server-protocol.h>
+#include <wayland-extension/tizen-extension-server-protocol.h>
 #include <tdm.h>
 
 struct _E_Comp_Wl_Video_Buf
