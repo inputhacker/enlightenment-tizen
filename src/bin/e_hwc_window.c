@@ -110,24 +110,6 @@ _e_hwc_window_surface_from_client_acquire(E_Hwc_Window *hwc_window)
    return tsurface;
 }
 
-/* get current tbm_surface (surface which has been committed last) for the e_client */
-static tbm_surface_h
-_e_comp_get_current_surface_for_cl(E_Client *ec)
-{
-   E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
-   if (!wl_comp_data) return NULL;
-
-   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
-   if (!cdata) return NULL;
-
-   E_Comp_Wl_Buffer_Ref *buffer_ref = &cdata->buffer_ref;
-
-   E_Comp_Wl_Buffer *e_wl_buff = buffer_ref->buffer;
-   if (!e_wl_buff) return NULL;
-
-   return wayland_tbm_server_get_surface(wl_comp_data->tbm.server, e_wl_buff->resource);
-}
-
 static void
 _e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
 {
@@ -637,8 +619,8 @@ _e_hwc_window_info_set(E_Hwc_Window *hwc_window)
    E_Output *output = hwc_window->output;
    E_Client *ec = hwc_window->ec;
    tbm_surface_info_s surf_info;
-   unsigned int size_w, size_h, src_x, src_y, src_w, src_h;
-   unsigned int dst_x, dst_y, dst_w, dst_h;
+   int size_w, size_h, src_x, src_y, src_w, src_h;
+   int dst_x, dst_y, dst_w, dst_h;
    tbm_format format;
 
    EINA_SAFETY_ON_TRUE_RETURN_VAL(tsurface == NULL, EINA_FALSE);
@@ -717,9 +699,7 @@ _e_hwc_window_info_set(E_Hwc_Window *hwc_window)
 EINTERN Eina_Bool
 e_hwc_window_update(E_Hwc_Window *hwc_window)
 {
-   tdm_hwc_window_info info = {0};
    tdm_hwc_window *hwc_wnd;
-   tbm_surface_h surface;
    E_Client *ec;
    tdm_error error;
    Eina_Bool result;

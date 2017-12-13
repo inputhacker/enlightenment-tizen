@@ -465,7 +465,6 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
    Eina_List *ec_list = NULL;
    E_Client  *ec;
    Evas_Object *o;
-   int x, y, w, h;
    int scr_w, scr_h;
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
