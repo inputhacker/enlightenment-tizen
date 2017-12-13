@@ -8,7 +8,7 @@
 #  pragma GCC diagnostic ignored "-Wshadow"
 #  define WL_HIDE_DEPRECATED
 #  include <wayland-server.h>
-#  include <wayland-extension/tizen-extension-server-protocol.h>
+#  include <tizen-extension-server-protocol.h>
 #  pragma GCC diagnostic pop
 
 #  include <xkbcommon/xkbcommon.h>
