@@ -2384,7 +2384,11 @@ e_plane_unset_try_set(E_Plane *plane, Eina_Bool set)
 EINTERN Eina_Bool
 e_plane_unset_commit_check(E_Plane *plane, Eina_Bool fb_commit)
 {
+   E_Plane *fb_target = NULL;
+
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   fb_target = e_output_fb_target_get(plane->output);
 
    if (!e_plane_is_unset_try(plane))
      {
@@ -2395,6 +2399,8 @@ e_plane_unset_commit_check(E_Plane *plane, Eina_Bool fb_commit)
    if (fb_commit)
      {
         plane->unset_counter--;
+
+        if (fb_target) e_plane_renderer_ecore_evas_force_render(fb_target->renderer);
 
         if (plane_trace_debug)
           ELOGF("E_PLANE", "Plane(%p) Check unset_commit. unset_counter(%d)", NULL, NULL, plane, plane->unset_counter);
@@ -2408,7 +2414,11 @@ e_plane_unset_commit_check(E_Plane *plane, Eina_Bool fb_commit)
 EINTERN Eina_Bool
 e_plane_set_commit_check(E_Plane *plane, Eina_Bool fb_commit)
 {
+   E_Plane *fb_target = NULL;
+
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+
+   fb_target = e_output_fb_target_get(plane->output);
 
    if (!plane->ec) return EINA_TRUE;
    if (!plane->set_counter) return EINA_TRUE;
@@ -2416,6 +2426,8 @@ e_plane_set_commit_check(E_Plane *plane, Eina_Bool fb_commit)
    if (fb_commit)
      {
         plane->set_counter--;
+
+        if (fb_target) e_plane_renderer_ecore_evas_force_render(fb_target->renderer);
 
         if (plane_trace_debug)
           ELOGF("E_PLANE", "Plane(%p) Check set counter. set_counter(%d)", NULL, NULL, plane, plane->set_counter);
