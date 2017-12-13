@@ -653,41 +653,6 @@ done:
    return ret;
 }
 
-
-static void
-_e_output_hwc_windows_update_fps()
-{
-   static double time = 0.0;
-   static double lapse = 0.0;
-   static int cframes = 0;
-   static int flapse = 0;
-
-   if (e_comp->calc_fps)
-     {
-        double dt;
-        double tim = ecore_time_get();
-
-        dt = tim - e_comp->frametimes[0];
-        e_comp->frametimes[0] = tim;
-
-        time += dt;
-        cframes++;
-
-        if (lapse == 0.0)
-          {
-             lapse = tim;
-             flapse = cframes;
-          }
-        else if ((tim - lapse) >= 0.5)
-          {
-             e_comp->fps = (cframes - flapse) / (tim - lapse);
-             lapse = tim;
-             flapse = cframes;
-             time = 0.0;
-          }
-     }
-}
-
 static void
 _e_output_hwc_windows_commit_handler(tdm_output *toutput, unsigned int sequence,
                                   unsigned int tv_sec, unsigned int tv_usec,
@@ -1514,7 +1479,6 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
    E_Hwc_Window *hwc_window = NULL;
    Eina_List *l;
    int need_tdm_commit = 0;
-   Eina_Bool fb_commit = EINA_FALSE;
    E_Output *output = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
@@ -1529,8 +1493,6 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
      {
         /* fetch the surface to the window */
         if (!e_hwc_window_fetch(hwc_window)) continue;
-
-        if (e_hwc_window_is_target(hwc_window)) fb_commit = EINA_TRUE;
 
         if (output->dpms == E_OUTPUT_DPMS_OFF)
           _e_output_hwc_windows_offscreen_commit(output, hwc_window);
@@ -1548,9 +1510,6 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
      {
         if (_e_output_hwc_windows_prepare_commit(output, hwc_window))
           need_tdm_commit = 1;
-
-        // TODO: to be fixed. check fps of fb_target currently.
-        if (fb_commit) _e_output_hwc_windows_update_fps();
      }
 
    if (need_tdm_commit)
