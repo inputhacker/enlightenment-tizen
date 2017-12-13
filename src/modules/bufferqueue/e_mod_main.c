@@ -223,7 +223,6 @@ _e_bq_mgr_new(char *sock_name)
              wl_event_source_remove(bq_mgr->signals[0]);
              wl_event_source_remove(bq_mgr->signals[1]);
              wl_event_source_remove(bq_mgr->signals[2]);
-             wl_event_loop_destroy(bq_mgr->loop);
              wl_display_destroy(bq_mgr->wdpy);
              free(bq_mgr);
              return NULL;
