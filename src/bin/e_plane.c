@@ -265,6 +265,40 @@ _e_plane_aligned_width_get(tbm_surface_h tsurface)
    return aligned_width;
 }
 
+static void
+_e_plane_cursor_position_get(E_Pointer *ptr, int width, int height, int *x, int *y)
+{
+   int rotation;
+
+   rotation = ptr->rotation;
+
+   switch (rotation)
+     {
+      case 0:
+        *x = ptr->x - ptr->hot.x;
+        *y = ptr->y - ptr->hot.y;
+        break;
+      case 90:
+        *x = ptr->x - ptr->hot.y;
+        *y = ptr->y + ptr->hot.x - width;
+        break;
+      case 180:
+        *x = ptr->x + ptr->hot.x - width;
+        *y = ptr->y + ptr->hot.y - height;
+        break;
+      case 270:
+        *x = ptr->x + ptr->hot.y - height;
+        *y = ptr->y - ptr->hot.x;
+        break;
+      default:
+        *x = ptr->x - ptr->hot.x;
+        *y = ptr->y - ptr->hot.y;
+        break;
+     }
+
+   return;
+}
+
 static Eina_Bool
 _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
 {
@@ -296,8 +330,8 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
                   return EINA_FALSE;
                }
 
-             dst_x = pointer->x - pointer->hot.x;
-             dst_y = pointer->y - pointer->hot.y;
+             _e_plane_cursor_position_get(pointer, surf_info.width, surf_info.height,
+                                          &dst_x, &dst_y);
           }
         else
           {
