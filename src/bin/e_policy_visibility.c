@@ -1737,6 +1737,13 @@ e_policy_visibility_client_lower(E_Client *ec)
 
    VS_DBG(ec, "API ENTRY | LOWER");
 
+   /* if vc has job grab, remove them */
+   if (_e_vis_client_is_uniconify_render_running(vc))
+     {
+        VS_INF(ec, "Lower while waiting Uniconify. Release grab.");
+        E_FREE_FUNC(vc->grab, _e_vis_grab_release);
+     }
+
    /* find activity client among the clients to be lower */
    if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.lower))
      {
