@@ -583,21 +583,6 @@ _e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
 }
 
 static Eina_Bool
-_e_output_hwc_windows_is_video_window(E_Output_Hwc *output_hwc)
-{
-   Eina_List *l;
-   E_Hwc_Window *hwc_window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
-
-   EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
-     if (e_hwc_window_is_video(hwc_window))
-       return EINA_TRUE;
-
-   return EINA_FALSE;
-}
-
-static Eina_Bool
 _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
 {
    Eina_Bool ret = EINA_FALSE;
@@ -620,9 +605,8 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
    result = _e_output_hwc_windows_exclude_all_hwc_windows(output);
    EINA_SAFETY_ON_FALSE_GOTO(result, done);
 
-   /* if we don't have visible client or we have video hwc_window we will
-    * enable target hwc_window */
-   if (!hwc_ok_clist || _e_output_hwc_windows_is_video_window(output_hwc))
+   /* enable the target hwc_window if there are no visible clients */
+   if (!hwc_ok_clist)
      {
         E_Hwc_Window *hwc_window;
 
