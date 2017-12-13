@@ -34,9 +34,6 @@ _e_output_hwc_ec_check(E_Client *ec)
          return EINA_FALSE;
      }
 
-   if (e_comp_wl_tbm_buffer_sync_timeline_used(cdata->buffer_ref.buffer))
-     return EINA_FALSE;
-
    eout = e_output_find(ec->zone->output_id);
    EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
 
