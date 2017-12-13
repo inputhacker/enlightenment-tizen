@@ -246,23 +246,14 @@ _e_output_hwc_windows_window_find_by_twin(E_Output_Hwc *output_hwc, tdm_hwc_wind
    return NULL;
 }
 
-// cl_list - list of e_clients that contains ALL visible e_clients for this output ('eo')
- static Eina_Bool
-_e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
+static void
+_e_output_hwc_windows_update(E_Output_Hwc *output_hwc, Eina_List *cl_list)
 {
    const Eina_List *l;
-   E_Client *ec;
-   uint32_t num_changes;
-   int zpos = 0;
    E_Hwc_Window *hwc_window;
+   E_Client *ec;
    Eina_Bool result;
-   tdm_error tdm_err;
-   E_Output *eo = output_hwc->output;
-   tdm_output *toutput = eo->toutput;
-
-   /* sw compositor is turned on at the start */
-   static _hwc_opt_comp_mode prev_comp_mode = HWC_OPT_COMP_MODE_HYBRID;
-   _hwc_opt_comp_mode comp_mode;
+   int zpos = 0;
 
    /* clients are sorted in reverse order */
    EINA_LIST_REVERSE_FOREACH(cl_list, l, ec)
@@ -295,9 +286,16 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
    /* to keep a state of e_hwc_windows up to date we have to update their states
     * according to the changes wm and/or hw made */
    _e_output_hwc_windows_states_update(output_hwc);
+}
 
-   ELOGF("HWC-OPT", "Request HWC Validation to TDM HWC:", NULL, NULL);
-   _e_output_hwc_windows_print_wnds_state(output_hwc);
+static Eina_Bool
+_e_output_hwc_windows_validate(E_Output_Hwc *output_hwc)
+{
+   tdm_error tdm_err;
+   uint32_t num_changes;
+   E_Output *eo = output_hwc->output;
+   tdm_output *toutput = eo->toutput;
+   E_Hwc_Window *hwc_window;
 
    /* make hwc extension choose which clients will own hw overlays */
    tdm_err = tdm_output_hwc_validate(toutput, &num_changes);
@@ -364,45 +362,14 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
         _e_output_hwc_windows_print_wnds_state(output_hwc);
      }
 
-   comp_mode = _e_output_hwc_windows_need_target_hwc_window(output_hwc) ?
-           HWC_OPT_COMP_MODE_HYBRID : HWC_OPT_COMP_MODE_FULL_HWC;
+   return EINA_TRUE;
+}
 
-   if (comp_mode == HWC_OPT_COMP_MODE_HYBRID)
-     {
-        E_Hwc_Window_Target *target_hwc_window;
-
-        ELOGF("HWC-OPT", "HWC_MODE is HYBRID composition.", NULL, NULL);
-
-        target_hwc_window = output_hwc->target_hwc_window;
-        if (!target_hwc_window)
-          {
-             ERR("hwc-opt: cannot get target hwc_window for output(%p)", output_hwc->output);
-             return EINA_FALSE;
-          }
-
-        hwc_window = (E_Hwc_Window*)target_hwc_window;
-
-        hwc_window->is_excluded = EINA_FALSE;
-        /* don't change a composition type for the e_target_hwc_window here, 'cause
-         * such action makes us to call tdm_output_validate() again;
-         *
-         * a hwc_window owned by e_target_hwc_window object is the fake hwc_window,
-         * which is used only to force tdm provide us fb_target_window, so if got here
-         * it means that tdm decided to use fb_target_window yet, this choice can be
-         * considered like if we set a CLIENT composition type for the hwc_window */
-     }
-   else
-     ELOGF("HWC-OPT", "HWC_MODE is FULL HW composition.", NULL, NULL);
-
-   if (prev_comp_mode != comp_mode)
-     {
-        if (comp_mode == HWC_OPT_COMP_MODE_FULL_HWC)
-           ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
-        else if(comp_mode == HWC_OPT_COMP_MODE_HYBRID)
-           ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
-
-        prev_comp_mode = comp_mode;
-     }
+static void
+_e_output_hwc_windows_activation_states_update(E_Output_Hwc *output_hwc)
+{
+   E_Hwc_Window *hwc_window;
+   const Eina_List *l;
 
    /* mark the active/deactive on hwc_window */
    EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, hwc_window)
@@ -417,8 +384,6 @@ _e_output_hwc_windows_prepare(E_Output_Hwc *output_hwc, Eina_List *cl_list)
           /* notify the hwc_window that it will be composite on the target buffer */
           e_hwc_window_deactivate(hwc_window);
       }
-
-     return EINA_TRUE;
 }
 
 static Eina_Bool
@@ -582,15 +547,46 @@ _e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
    return hwc_acceptable_cl_list;
 }
 
+/* fake window is needed if there are no visible clients(animation in the loading time, etc)*/
+static Eina_Bool
+_e_output_hwc_windows_enable_target_window(E_Output_Hwc *output_hwc, Eina_Bool need_fake_window)
+{
+   E_Hwc_Window *hwc_window;
+   tdm_error err;
+
+   if (!output_hwc->target_hwc_window)
+     {
+        ERR("we don't have the target hwc_window");
+        return EINA_FALSE;
+     }
+
+   hwc_window = (E_Hwc_Window*)output_hwc->target_hwc_window;
+
+   hwc_window->is_excluded = EINA_FALSE;
+   if (need_fake_window)
+     {
+        err = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_CLIENT);
+        if (err != TDM_ERROR_NONE)
+          {
+             ERR("fail to set CLIENT composition type for target_window");
+             return EINA_FALSE;
+          }
+     }
+
+   return EINA_TRUE;
+}
+
 static Eina_Bool
 _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
 {
    Eina_Bool ret = EINA_FALSE;
    Eina_Bool result;
    Eina_List *hwc_ok_clist = NULL, *vis_clist = NULL;
-   E_Hwc_Window_Target *target_hwc_window = NULL;
    E_Output *output = output_hwc->output;
-   tdm_error err;
+
+   /* sw compositor is turned on at the start */
+   static _hwc_opt_comp_mode prev_comp_mode = HWC_OPT_COMP_MODE_HYBRID;
+   _hwc_opt_comp_mode comp_mode;
 
    ELOGF("HWC-OPT", "=== Output HWC Apply (evaluate) ===", NULL, NULL);
 
@@ -608,31 +604,56 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
    /* enable the target hwc_window if there are no visible clients */
    if (!hwc_ok_clist)
      {
-        E_Hwc_Window *hwc_window;
-
-        target_hwc_window = output_hwc->target_hwc_window;
-        if (!target_hwc_window)
-          {
-             ERR("we don't have the target hwc_window");
-             goto done;
-          }
-
-        hwc_window = (E_Hwc_Window*)target_hwc_window;
-
-        hwc_window->is_excluded = EINA_FALSE;
-        err = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_CLIENT);
-        if (err != TDM_ERROR_NONE)
-          {
-             ERR("fail to set CLIENT composition type for target_window");
-             goto done;
-          }
+        result = _e_output_hwc_windows_enable_target_window(output_hwc, EINA_TRUE);
+        EINA_SAFETY_ON_FALSE_GOTO(result, done);
      }
 
-   ret = _e_output_hwc_windows_prepare(output_hwc, hwc_ok_clist);
+   _e_output_hwc_windows_update(output_hwc, hwc_ok_clist);
+
+   ELOGF("HWC-OPT", "Request HWC Validation to TDM HWC:", NULL, NULL);
+   _e_output_hwc_windows_print_wnds_state(output_hwc);
+
+   result = _e_output_hwc_windows_validate(output_hwc);
+   EINA_SAFETY_ON_FALSE_GOTO(result, done);
+
+   comp_mode = _e_output_hwc_windows_need_target_hwc_window(output_hwc) ?
+           HWC_OPT_COMP_MODE_HYBRID : HWC_OPT_COMP_MODE_FULL_HWC;
+
+   if (comp_mode == HWC_OPT_COMP_MODE_HYBRID)
+     {
+        ELOGF("HWC-OPT", "HWC_MODE is HYBRID composition.", NULL, NULL);
+        /* don't pass EINA_TRUE for need_fake_window here, 'cause
+        * such action makes us to call tdm_output_validate() again;
+        *
+        * a hwc_window owned by e_target_hwc_window object is the fake hwc_window,
+        * which is used only to force tdm provide us fb_target_window, so if got here
+        * it means that tdm decided to use fb_target_window yet, this choice can be
+        * considered like if we set a CLIENT composition type for the hwc_window */
+        result = _e_output_hwc_windows_enable_target_window(output_hwc, EINA_FALSE);
+        EINA_SAFETY_ON_FALSE_GOTO(result, done);
+     }
+   else
+     ELOGF("HWC-OPT", "HWC_MODE is FULL HW composition.", NULL, NULL);
+
+   if (prev_comp_mode != comp_mode)
+     {
+        if (comp_mode == HWC_OPT_COMP_MODE_FULL_HWC)
+          ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
+        else if(comp_mode == HWC_OPT_COMP_MODE_HYBRID)
+          ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+
+        prev_comp_mode = comp_mode;
+     }
+
+   _e_output_hwc_windows_activation_states_update(output_hwc);
+
+   ret = EINA_TRUE;
 
 done:
-   eina_list_free(hwc_ok_clist);
-   eina_list_free(vis_clist);
+   if (hwc_ok_clist)
+     eina_list_free(hwc_ok_clist);
+   if (vis_clist)
+     eina_list_free(vis_clist);
 
    return ret;
 }
