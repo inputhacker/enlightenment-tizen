@@ -22,6 +22,7 @@ e_input_base_dir_get(void)
 EINTERN int
 e_input_init(Ecore_Evas *ee)
 {
+   char *env = NULL;
    E_Input_Device *dev;
    E_Input_Libinput_Backend backend = E_INPUT_LIBINPUT_BACKEND_UDEV;
 
@@ -79,10 +80,12 @@ e_input_init(Ecore_Evas *ee)
 
    TRACE_INPUT_BEGIN(e_input_device_input_backend_create);
 
-   if (getenv("E_INPUT_USE_LIBINPUT_UDEV_BACKEND"))
-     backend = E_INPUT_LIBINPUT_BACKEND_UDEV;
-   else if (getenv("E_INPUT_USE_LIBINPUT_PATH_BACKEND"))
-     backend = E_INPUT_LIBINPUT_BACKEND_PATH;
+   env = e_util_env_get("E_INPUT_USE_LIBINPUT_PATH_BACKEND");
+   if (env)
+     {
+        backend = E_INPUT_LIBINPUT_BACKEND_PATH;
+        E_FREE(env);
+     }
 
    if (!e_input_device_input_backend_create(dev, backend))
      {
