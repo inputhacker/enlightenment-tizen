@@ -105,6 +105,7 @@ static void
 _device_keyboard_setup(E_Input_Evdev *edev)
 {
    E_Input_Backend *input;
+   xkb_mod_index_t xkb_idx;
 
    if ((!edev) || (!edev->seat)) return;
    if (!(input = edev->seat->input)) return;
@@ -125,22 +126,53 @@ _device_keyboard_setup(E_Input_Evdev *edev)
         return;
      }
 
-   edev->xkb.ctrl_mask =
-     1 << xkb_map_mod_get_index(edev->xkb.keymap, XKB_MOD_NAME_CTRL);
-   edev->xkb.alt_mask =
-     1 << xkb_map_mod_get_index(edev->xkb.keymap, XKB_MOD_NAME_ALT);
-   edev->xkb.shift_mask =
-     1 << xkb_map_mod_get_index(edev->xkb.keymap, XKB_MOD_NAME_SHIFT);
-   edev->xkb.win_mask =
-     1 << xkb_map_mod_get_index(edev->xkb.keymap, XKB_MOD_NAME_LOGO);
-   edev->xkb.scroll_mask =
-     1 << xkb_map_mod_get_index(edev->xkb.keymap, XKB_LED_NAME_SCROLL);
-   edev->xkb.num_mask =
-     1 << xkb_map_mod_get_index(edev->xkb.keymap, XKB_LED_NAME_NUM);
-   edev->xkb.caps_mask =
-     1 << xkb_map_mod_get_index(edev->xkb.keymap, XKB_MOD_NAME_CAPS);
-   edev->xkb.altgr_mask =
-     1 << xkb_map_mod_get_index(edev->xkb.keymap, "ISO_Level3_Shift");
+   xkb_idx = xkb_map_mod_get_index(edev->xkb.keymap, XKB_MOD_NAME_CTRL);
+   if (xkb_idx != XKB_MOD_INVALID)
+     edev->xkb.ctrl_mask = 1 << xkb_idx;
+   else
+     edev->xkb.ctrl_mask = 0;
+
+   xkb_idx = xkb_map_mod_get_index(edev->xkb.keymap, XKB_MOD_NAME_ALT);
+   if (xkb_idx != XKB_MOD_INVALID)
+     edev->xkb.alt_mask = 1 << xkb_idx;
+   else
+     edev->xkb.alt_mask = 0;
+
+   xkb_idx = xkb_map_mod_get_index(edev->xkb.keymap, XKB_MOD_NAME_SHIFT);
+   if (xkb_idx != XKB_MOD_INVALID)
+     edev->xkb.shift_mask = 1 << xkb_idx;
+   else
+     edev->xkb.shift_mask = 0;
+
+   xkb_idx = xkb_map_mod_get_index(edev->xkb.keymap, XKB_MOD_NAME_LOGO);
+   if (xkb_idx != XKB_MOD_INVALID)
+     edev->xkb.win_mask = 1 << xkb_idx;
+   else
+     edev->xkb.win_mask = 0;
+
+   xkb_idx = xkb_map_mod_get_index(edev->xkb.keymap, XKB_LED_NAME_SCROLL);
+   if (xkb_idx != XKB_MOD_INVALID)
+     edev->xkb.scroll_mask = 1 << xkb_idx;
+   else
+     edev->xkb.scroll_mask = 0;
+
+   xkb_idx = xkb_map_mod_get_index(edev->xkb.keymap, XKB_LED_NAME_NUM);
+   if (xkb_idx != XKB_MOD_INVALID)
+     edev->xkb.num_mask = 1 << xkb_idx;
+   else
+     edev->xkb.num_mask = 0;
+
+   xkb_idx = xkb_map_mod_get_index(edev->xkb.keymap, XKB_MOD_NAME_CAPS);
+   if (xkb_idx != XKB_MOD_INVALID)
+     edev->xkb.caps_mask = 1 << xkb_idx;
+   else
+     edev->xkb.caps_mask = 0;
+
+   xkb_idx = xkb_map_mod_get_index(edev->xkb.keymap, "ISO_Level3_Shift");
+   if (xkb_idx != XKB_MOD_INVALID)
+     edev->xkb.altgr_mask = 1 << xkb_idx;
+   else
+     edev->xkb.altgr_mask = 0;
 }
 
 static int
