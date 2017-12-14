@@ -292,6 +292,18 @@ _msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
    eldbus_message_iter_container_close(iter, array_of_ec);
 }
 
+static int
+_e_info_server_check_is_primary_output_opt_hwc_able()
+{
+   E_Output *primary_output;
+
+   primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   if (!primary_output)
+      return 0;
+
+   return !!e_output_hwc_windows_enabled(primary_output->output_hwc);
+}
+
 /* Method Handlers */
 static Eldbus_Message *
 _e_info_server_cb_window_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
@@ -303,6 +315,7 @@ _e_info_server_cb_window_info_get(const Eldbus_Service_Interface *iface EINA_UNU
    eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->hwc);
    eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->hwc_use_multi_plane);
    eldbus_message_iter_basic_append(iter, 'i', e_comp->hwc);
+   eldbus_message_iter_basic_append(iter, 'i', _e_info_server_check_is_primary_output_opt_hwc_able());
    eldbus_message_iter_basic_append(iter, 's', ecore_evas_engine_name_get(e_comp->ee));
    eldbus_message_iter_basic_append(iter, 'i', e_config->use_buffer_flush);
    eldbus_message_iter_basic_append(iter, 'i', e_config->deiconify_approve);
@@ -5128,7 +5141,7 @@ _e_info_server_cb_shutdown(const Eldbus_Service_Interface *iface EINA_UNUSED, co
 
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
-   { "get_window_info", NULL, ELDBUS_ARGS({"iiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
+   { "get_window_info", NULL, ELDBUS_ARGS({"iiiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
    { "get_all_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_all_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
    { "subsurface", NULL, ELDBUS_ARGS({"a("SIGNATURE_SUBSURFACE")", "array of ec"}), _e_info_server_cb_subsurface, 0 },
