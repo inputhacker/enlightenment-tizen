@@ -1029,9 +1029,10 @@ e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
          * we have to wait till e_hwc_wnd's buffer being composited to target_buffer
          * and this target_buffer gets scheduled and only after this we can issue
          * a 'fake commit_data' request to allow tdm_commit() to be called to unset
-         * an underlying hw overlay */
+         * an underlying hw overlay;
+         * target_wnd's hwc can't ever be at target_wnd :), so we pass it immediately */
         if (e_hwc_window_get_displaying_surface(hwc_window) &&
-                (_e_hwc_window_is_existed_on_target_wnd(hwc_window)))
+                (_e_hwc_window_is_existed_on_target_wnd(hwc_window) || e_hwc_window_is_target(hwc_window)))
           {
              commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
              EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
