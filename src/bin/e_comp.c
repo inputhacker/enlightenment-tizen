@@ -2265,14 +2265,27 @@ e_comp_socket_init(const char *name)
    int res;
    E_Config_Socket_Access *sa = NULL;
    Eina_List *l = NULL;
+   int l_dir, l_name;
 #undef STRERR_BUFSIZE
-#define STRERR_BUFSIZE 128
+#define STRERR_BUFSIZE 1024
    char buf[STRERR_BUFSIZE];
 
    if (!name) return EINA_FALSE;
 
    dir = e_util_env_get("XDG_RUNTIME_DIR");
    if (!dir) return EINA_FALSE;
+
+   /* check whether buffer size is less than concatenated string which
+    * is made of XDG_RUNTIME_DIR, '/', socket name and NULL.
+    */
+   l_dir = strlen(dir);
+   l_name = strlen(name);
+   if ((l_dir + l_name + 2) > STRERR_BUFSIZE)
+     {
+        ERR("Size of buffer is not enough. dir:%s name:%s",
+            dir, name);
+        return EINA_FALSE;
+     }
 
    snprintf(socket_path, sizeof(socket_path), "%s/%s", dir, name);
    free(dir);
