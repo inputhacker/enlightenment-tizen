@@ -173,7 +173,6 @@ e_log_init(void)
 
    e_log_dom = eina_log_domain_register("e", EINA_COLOR_WHITE);
    eina_log_print_cb_set(_e_log_cb, NULL);
-   eina_log_domain_level_set("e", 3);
 
 #ifdef HAVE_DLOG
    if (getenv("E_LOG_DLOG_ENABLE"))

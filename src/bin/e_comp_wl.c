@@ -848,6 +848,19 @@ _e_comp_wl_device_send_axis(const char *dev_name, Evas_Device_Class dev_class, E
 }
 
 static void
+_e_comp_wl_device_renew_axis(const char *dev_name, Evas_Device_Class dev_class, E_Client *ec, unsigned int idx, double radius_x, double radius_y, double pressure, double angle)
+{
+   _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_RADIUS_X, radius_x);
+   e_comp_wl->input_device_manager.multi[idx].radius_x = radius_x;
+   _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_RADIUS_Y, radius_y);
+   e_comp_wl->input_device_manager.multi[idx].radius_y = radius_y;
+   _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_PRESSURE, pressure);
+   e_comp_wl->input_device_manager.multi[idx].pressure = pressure;
+   _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_ANGLE, angle);
+   e_comp_wl->input_device_manager.multi[idx].angle = angle;
+}
+
+static void
 _e_comp_wl_device_handle_axes(const char *dev_name, Evas_Device_Class dev_class, E_Client *ec, unsigned int idx, double radius_x, double radius_y, double pressure, double angle)
 {
    if (idx >= E_COMP_WL_TOUCH_MAX) return;
@@ -1227,7 +1240,7 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
    if (dev &&  (evas_device_class_get(dev) == EVAS_DEVICE_CLASS_TOUCH))
      {
         if (dev_name)
-          _e_comp_wl_device_handle_axes(dev_name, evas_device_class_get(dev),
+          _e_comp_wl_device_renew_axis(dev_name, evas_device_class_get(dev),
                                         ec, 0, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
         _e_comp_wl_evas_handle_mouse_button_to_touch(ec, ev->timestamp, ev->canvas.x, ev->canvas.y, EINA_TRUE);
         e_pointer_touch_move(e_comp->pointer, ev->output.x, ev->output.y);
@@ -1373,7 +1386,7 @@ _e_comp_wl_evas_cb_multi_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
      {
         dev_class = evas_device_class_get(dev);
         _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
-        _e_comp_wl_device_handle_axes(dev_name, dev_class, ec, ev->device, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
+        _e_comp_wl_device_renew_axis(dev_name, dev_class, ec, ev->device, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
      }
 
    _e_comp_wl_send_touch(ec, ev->device, ev->canvas.x, ev->canvas.y, ev->timestamp, EINA_TRUE);

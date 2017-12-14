@@ -52,9 +52,6 @@ e_user_homedir_get(void)
 E_API size_t
 e_user_homedir_concat_len(char *dst, size_t size, const char *path, size_t path_len)
 {
-   if (!_e_user_homedir)
-     e_user_homedir_get();
-
    return eina_str_join_len(dst, size, '/', _e_user_homedir, _e_user_homedir_len, path, path_len);
 }
 
@@ -72,11 +69,6 @@ e_user_homedir_snprintf(char *dst, size_t size, const char *fmt, ...)
 {
    size_t off, ret;
    va_list ap;
-
-   if (!_e_user_homedir)
-     e_user_homedir_get();
-   if (!_e_user_homedir)
-     return 0;
 
    va_start(ap, fmt);
 

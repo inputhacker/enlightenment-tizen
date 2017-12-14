@@ -70,7 +70,7 @@ struct _E_Input_Device
    Eina_Hash *fd_hash;
 
    struct xkb_context *xkb_ctx;
-   int window;
+   Ecore_Window window;
    Eina_Bool left_handed : 1;
 };
 
@@ -85,7 +85,7 @@ EINTERN void e_input_device_keyboard_cached_keymap_set(struct xkb_keymap *map);
 EINTERN Eina_Bool e_input_device_input_backend_create(E_Input_Device *dev, E_Input_Libinput_Backend backend);
 EINTERN Eina_Bool e_input_device_input_create_libinput_udev(E_Input_Device *dev);
 EINTERN Eina_Bool e_input_device_input_create_libinput_path(E_Input_Device *dev);
-EINTERN void e_input_device_window_set(E_Input_Device *dev, unsigned int window);
+EINTERN void e_input_device_window_set(E_Input_Device *dev, Ecore_Window window);
 EINTERN void e_input_device_pointer_xy_get(E_Input_Device *dev, int *x, int *y);
 EINTERN Eina_Bool e_input_device_pointer_left_handed_set(E_Input_Device *dev, Eina_Bool left_handed);
 EINTERN Eina_Bool e_input_device_pointer_rotation_set(E_Input_Device *dev, int rotation);

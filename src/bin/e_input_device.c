@@ -27,10 +27,10 @@ _device_open_no_pending(const char *device, int flags)
 static int
 _e_input_device_cb_open_restricted(const char *path, int flags, void *data)
 {
-   E_Input_Backend *input;
+   E_Input_Backend *input = (E_Input_Backend *)data;
    int fd = -1;
 
-   if (!(input = data)) return -1;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(input, -1);
 
    /* try to open the device */
    fd = _device_open_no_pending(path, flags);
@@ -269,7 +269,7 @@ e_input_device_close(E_Input_Device *dev)
 }
 
 EINTERN void
-e_input_device_window_set(E_Input_Device *dev, unsigned int window)
+e_input_device_window_set(E_Input_Device *dev, Ecore_Window window)
 {
    /* check for valid device */
    EINA_SAFETY_ON_TRUE_RETURN(!dev);
@@ -693,12 +693,117 @@ e_input_device_input_backend_create(E_Input_Device *dev, E_Input_Libinput_Backen
    return res;
 }
 
+static void
+_einput_device_input_thread_udev_backend_heavy(void *data, Ecore_Thread *th, void *msg_data)
+{
+   char *env = NULL;
+   E_Input_Backend *input = (E_Input_Backend *)data;
+
+   EINA_SAFETY_ON_NULL_RETURN(input);
+   EINA_SAFETY_ON_NULL_RETURN(input->dev);
+   EINA_SAFETY_ON_NULL_RETURN(input->dev->seat);
+
+   /* try to create libinput context */
+   input->libinput =
+     libinput_udev_create_context(&_input_interface, input, eeze_udev_get());
+
+   if (!input->libinput)
+     {
+        ERR("Could not create libinput context: %m");
+        return;
+     }
+
+   /* set libinput log priority */
+   env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_DISABLE);
+   if ((env) && (atoi(env) == 1))
+     libinput_log_set_handler(input->libinput, NULL);
+   else
+     {
+        env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG);
+        if ((env) && (atoi(env) == 1))
+          libinput_log_set_handler(input->libinput,
+                                   e_input_device_libinput_log_handler);
+     }
+   E_FREE(env);
+
+   libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);
+
+   TRACE_INPUT_BEGIN(libinput_udev_assign_seat);
+   /* assign udev seat */
+   if (libinput_udev_assign_seat(input->libinput, input->dev->seat) != 0)
+     {
+        ERR("Failed to assign seat: %m");
+        TRACE_INPUT_END();
+        return;
+     }
+   TRACE_INPUT_END();
+
+   return;
+}
+
+static void
+_einput_device_input_thread_udev_backend_notify(void *data, Ecore_Thread *th, void *msg_data)
+{
+   //TODO : do if there is something to do in main thread
+}
+
+static void
+_einput_device_input_thread_udev_backend_end(void *data, Ecore_Thread *th, void *msg_data)
+{
+   E_Input_Backend *input = (E_Input_Backend *)data;
+   E_Input_Device *dev = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(input);
+   EINA_SAFETY_ON_NULL_RETURN(input->dev);
+
+   input->thread = NULL;
+
+   /* enable this input */
+   if (!e_input_enable_input(input))
+     {
+        ERR("Failed to enable input");
+        return;
+     }
+
+   /* append this input */
+   dev = input->dev;
+   dev->inputs = eina_list_append(dev->inputs, input);
+
+   /* process pending events */
+   _input_events_process(input);
+
+}
+
+static void
+_einput_device_input_thread_udev_backend_cancel(void *data, Ecore_Thread *th, void *msg_data)
+{
+   E_Input_Backend *input = (E_Input_Backend *)data;
+
+   EINA_SAFETY_ON_NULL_RETURN(input);
+
+   input->thread = NULL;
+}
+
+static Eina_Bool
+_e_input_device_input_thread_init_udev_backend(E_Input_Backend *input)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(input, EINA_FALSE);
+
+   input->thread = ecore_thread_feedback_run((Ecore_Thread_Cb)_einput_device_input_thread_udev_backend_heavy,
+                                             (Ecore_Thread_Notify_Cb)_einput_device_input_thread_udev_backend_notify,
+                                             (Ecore_Thread_Cb)_einput_device_input_thread_udev_backend_end,
+                                             (Ecore_Thread_Cb)_einput_device_input_thread_udev_backend_cancel, input, 1);
+   return !!(input->thread);
+}
+
+
 /* public functions */
 EINTERN Eina_Bool
 e_input_device_input_create_libinput_udev(E_Input_Device *dev)
 {
    E_Input_Backend *input;
-   char *env;
+   Eina_Bool use_thread = EINA_FALSE;
+   char *env = NULL;
 
    /* check for valid device */
    EINA_SAFETY_ON_NULL_RETURN_VAL(dev, EINA_FALSE);
@@ -711,6 +816,27 @@ e_input_device_input_create_libinput_udev(E_Input_Device *dev)
 
    /* set reference for parent device */
    input->dev = dev;
+
+   env = e_util_env_get("E_INPUT_USE_THREAD_INIT");
+   if (env)
+     {
+        use_thread = EINA_TRUE;
+        E_FREE(env);
+     }
+
+   input->use_thread = use_thread;
+
+   if (input->use_thread)
+     {
+        /* intialize libinput udev backend within an ecore thread */
+        if (!_e_input_device_input_thread_init_udev_backend(input))
+          {
+             ERR("Failed to initialize e_input backend !");
+             goto err;
+        }
+
+        return EINA_TRUE;
+     }
 
    /* try to create libinput context */
    input->libinput =
@@ -727,6 +853,8 @@ e_input_device_input_create_libinput_udev(E_Input_Device *dev)
      libinput_log_set_handler(input->libinput, NULL);
    else
      {
+        E_FREE(env);
+
         env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG);
         if ((env) && (atoi(env) == 1))
           libinput_log_set_handler(input->libinput,
@@ -746,9 +874,6 @@ e_input_device_input_create_libinput_udev(E_Input_Device *dev)
      }
    TRACE_INPUT_END();
 
-   /* process pending events */
-   _input_events_process(input);
-
    /* enable this input */
    if (!e_input_enable_input(input))
      {
@@ -758,6 +883,9 @@ e_input_device_input_create_libinput_udev(E_Input_Device *dev)
 
    /* append this input */
    dev->inputs = eina_list_append(dev->inputs, input);
+
+   /* process pending events */
+   _input_events_process(input);
 
    return EINA_TRUE;
 
@@ -817,6 +945,8 @@ e_input_device_input_create_libinput_path(E_Input_Device *dev)
      libinput_log_set_handler(input->libinput, NULL);
    else
      {
+        E_FREE(env);
+
         env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG);
         if ((env) && (atoi(env) == 1))
           libinput_log_set_handler(input->libinput,
@@ -842,9 +972,6 @@ e_input_device_input_create_libinput_path(E_Input_Device *dev)
           }
      }
 
-   /* process pending events */
-   _input_events_process(input);
-
    /* enable this input */
    if (!e_input_enable_input(input))
      {
@@ -854,6 +981,9 @@ e_input_device_input_create_libinput_path(E_Input_Device *dev)
 
    /* append this input */
    dev->inputs = eina_list_append(dev->inputs, input);
+
+   /* process pending events */
+   _input_events_process(input);
 
    return EINA_TRUE;
 
