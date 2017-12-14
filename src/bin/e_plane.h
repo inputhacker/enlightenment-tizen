@@ -124,6 +124,8 @@ struct _E_Plane
    int                  set_counter;
    Eina_Bool            fb_sync_wait;
    Eina_Bool            fb_sync_done;
+
+   Eina_Bool            unset_ec_pending;
 };
 
 struct _E_Plane_Commit_Data {
