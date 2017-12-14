@@ -853,6 +853,8 @@ e_input_device_input_create_libinput_udev(E_Input_Device *dev)
      libinput_log_set_handler(input->libinput, NULL);
    else
      {
+        E_FREE(env);
+
         env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG);
         if ((env) && (atoi(env) == 1))
           libinput_log_set_handler(input->libinput,
@@ -943,6 +945,8 @@ e_input_device_input_create_libinput_path(E_Input_Device *dev)
      libinput_log_set_handler(input->libinput, NULL);
    else
      {
+        E_FREE(env);
+
         env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG);
         if ((env) && (atoi(env) == 1))
           libinput_log_set_handler(input->libinput,
