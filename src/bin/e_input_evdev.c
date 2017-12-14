@@ -366,6 +366,7 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
               ((compose[0] != '\0') ? strlen(compose) : 0) + 3);
    if (!e)
      {
+        E_FREE(tmp);
         return;
      }
 
