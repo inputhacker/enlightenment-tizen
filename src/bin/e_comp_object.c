@@ -1222,7 +1222,7 @@ _e_comp_object_pixels_get(void *data, Evas_Object *obj EINA_UNUSED)
      e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
 }
 
-#if 0 // temporarily block this code.
+
 static void
 _e_comp_object_pixels_noti(void *data, Evas_Object *obj EINA_UNUSED)
 {
@@ -1244,7 +1244,6 @@ _e_comp_object_pixels_noti(void *data, Evas_Object *obj EINA_UNUSED)
    target_hwc_window->current_e_hwc_wnd_composited_list =
            eina_list_append(target_hwc_window->current_e_hwc_wnd_composited_list, ec->hwc_window);
 }
-#endif
 
 /////////////////////////////////////////////
 
@@ -2165,9 +2164,7 @@ _e_comp_intercept_show(void *data, Evas_Object *obj EINA_UNUSED)
              evas_object_image_border_center_fill_set(cw->obj, EVAS_BORDER_FILL_SOLID);
              e_util_size_debug_set(cw->obj, 1);
              evas_object_image_pixels_get_callback_set(cw->obj, _e_comp_object_pixels_get, cw);
-#if 0 // temporarily block this code.
              evas_object_image_pixels_noti_callback_set(cw->obj, _e_comp_object_pixels_noti, cw);
-#endif
              evas_object_image_smooth_scale_set(cw->obj, e_comp_config_get()->smooth_windows);
              evas_object_name_set(cw->obj, "cw->obj");
              evas_object_image_colorspace_set(cw->obj, EVAS_COLORSPACE_ARGB8888);
