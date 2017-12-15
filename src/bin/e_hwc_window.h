@@ -52,6 +52,7 @@ struct _E_Hwc_Window
    E_Hwc_Window_Commit_Data       *commit_data;
 
    Eina_Bool hwc_acceptable;
+   Eina_Bool need_change_buffer_transform;
 };
 
 struct _E_Hwc_Window_Target

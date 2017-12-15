@@ -511,6 +511,7 @@ e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State stat
    hwc_window->output = output_hwc->output;
    hwc_window->ec = ec;
    hwc_window->state = state;
+   hwc_window->need_change_buffer_transform = EINA_TRUE;
 
    if (state == E_HWC_WINDOW_STATE_VIDEO)
      hwc_window->hwc_wnd = tdm_output_hwc_create_video_window(toutput, &error);
@@ -718,6 +719,43 @@ _e_hwc_window_info_set(E_Hwc_Window *hwc_window)
    return EINA_TRUE;
 }
 
+static Eina_Bool
+_is_e_hwc_window_ec_has_correct_transformation(E_Hwc_Window *hwc_window)
+{
+   E_Client *ec;
+   int transform;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->ec, EINA_FALSE);
+
+   ec = hwc_window->ec;
+
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+
+   /* request an ec to change its transformation if it doesn't fit the transformation
+    * e20 has for the output 'hwc_window->output' */
+   if ((hwc_window->output->config.rotation / 90) != transform)
+     {
+        if (!e_config->screen_rotation_client_ignore && hwc_window->need_change_buffer_transform)
+          {
+             hwc_window->need_change_buffer_transform = EINA_FALSE;
+
+             /* TODO: why e_comp_wl_output_init() call ins't enough? why additional
+              * tizen_screen_rotation_send_ignore_output_transform() call is needed? */
+             e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
+
+             ELOGF("HWC-OPT", " request ec:%p (name:%s, title:%s) to change transformation to %d.",
+                     ec->pixmap, ec, ec->icccm.name, ec->icccm.title, hwc_window->output->config.rotation);
+          }
+
+        return EINA_FALSE;
+     }
+   else
+      hwc_window->need_change_buffer_transform = EINA_TRUE;
+
+   return EINA_TRUE;
+}
+
 EINTERN Eina_Bool
 e_hwc_window_update(E_Hwc_Window *hwc_window)
 {
@@ -740,8 +778,11 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
    error = tdm_hwc_window_set_zpos(hwc_wnd, hwc_window->zpos);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
-   /* hwc_window manager could ask to prevent some e_clients being shown by hw directly */
-   if (hwc_window->hwc_acceptable && hwc_window->tsurface)
+   /* hwc_window manager could ask to prevent some e_clients being shown by hw directly;
+    * if e_hwc_wnd's ec has no correct transformation we can't allow such ec to claim on
+    * hw overlay, 'cause currently hw doesn't support transformation; */
+   if (hwc_window->tsurface && hwc_window->hwc_acceptable &&
+           _is_e_hwc_window_ec_has_correct_transformation(hwc_window))
      {
         error = tdm_hwc_window_set_composition_type(hwc_wnd, TDM_COMPOSITION_DEVICE);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
@@ -1237,6 +1278,7 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
 {
    struct wayland_tbm_client_queue * cqueue = NULL;
    E_Client *ec = NULL;
+   int transform;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
@@ -1256,6 +1298,10 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
       *       that an e_client got redirected or wait till it's being composited
       *       on the fb_target and a hw overlay owned by it gets free? */
      wayland_tbm_server_client_queue_deactivate(cqueue);
+
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+   if (hwc_window->output->config.rotation != 0 && (hwc_window->output->config.rotation / 90) == transform)
+      e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_TRUE);
 
    _e_hwc_window_recover_ec(hwc_window);
 
