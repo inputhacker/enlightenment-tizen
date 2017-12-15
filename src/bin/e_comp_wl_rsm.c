@@ -6,6 +6,7 @@
 #include <tbm_surface.h>
 #include <tbm_surface_internal.h>
 #include <wayland-tbm-server.h>
+#include <tizen-extension-server-protocol.h>
 
 #include <pixman.h>
 

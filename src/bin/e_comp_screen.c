@@ -1,5 +1,6 @@
 #include "e.h"
 #include "Eeze.h"
+#include <tizen-extension-server-protocol.h>
 
 #define PATH "/org/enlightenment/wm"
 #define IFACE "org.enlightenment.wm.screen_rotation"
