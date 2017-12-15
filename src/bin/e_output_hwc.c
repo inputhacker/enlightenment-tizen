@@ -171,6 +171,10 @@ _e_output_hwc_windows_states_update(E_Output_Hwc *output_hwc)
              e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_DEVICE_CANDIDATE);
              break;
 
+           case TDM_COMPOSITION_CURSOR:
+             e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_CURSOR);
+             break;
+
            default:
              e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_NONE);
              ERR("hwc-opt: unknown state of hwc_window.");
@@ -199,6 +203,9 @@ _e_output_hwc_windows_get_name_of_wnd_state(E_Hwc_Window_State hwc_window_state)
 
      case E_HWC_WINDOW_STATE_DEVICE_CANDIDATE:
        return "DEVICE_CANDIDATE";
+
+     case E_HWC_WINDOW_STATE_CURSOR:
+       return "CURSOR";
 
      default:
        return "UNKNOWN";
@@ -563,14 +570,6 @@ _e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
           {
              hwc_window->hwc_acceptable = EINA_FALSE;
              ELOGF("HWC-OPT", "  (name:%s, title:%s) is NOT hwc_acceptable.",
-                   ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
-             continue;
-          }
-
-        if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
-          {
-             hwc_window->hwc_acceptable = EINA_FALSE;
-             ELOGF("HWC-OPT", "  (name:%s, title:%s) is NOT hwc_acceptable.(Cursor)",
                    ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
              continue;
           }

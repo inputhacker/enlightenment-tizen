@@ -14,7 +14,8 @@ typedef enum _E_Hwc_Window_State
    E_HWC_WINDOW_STATE_CLIENT,
    E_HWC_WINDOW_STATE_DEVICE,
    E_HWC_WINDOW_STATE_VIDEO,
-   E_HWC_WINDOW_STATE_DEVICE_CANDIDATE
+   E_HWC_WINDOW_STATE_DEVICE_CANDIDATE,
+   E_HWC_WINDOW_STATE_CURSOR
 } E_Hwc_Window_State;
 
 typedef enum _E_Hwc_Window_Activation_State
@@ -34,6 +35,7 @@ struct _E_Hwc_Window
    tdm_hwc_window_composition     type;
    Eina_Bool                      is_target;
    Eina_Bool                      is_video;
+   Eina_Bool                      is_cursor;
    Eina_Bool                      is_deleted;
    Eina_Bool                      update_exist;
    tbm_surface_h                  tsurface;
@@ -53,6 +55,9 @@ struct _E_Hwc_Window
 
    Eina_Bool hwc_acceptable;
    Eina_Bool need_change_buffer_transform;
+
+   tbm_surface_h       cursor_tsurface;
+   int                 cursor_rotation;
 };
 
 struct _E_Hwc_Window_Target
@@ -88,6 +93,7 @@ EINTERN int                e_hwc_window_get_zpos(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_update(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_target(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_video(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool          e_hwc_window_is_cursor(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_fetch(E_Hwc_Window *hwc_window);
 EINTERN void               e_hwc_window_unfetch(E_Hwc_Window *hwc_window);
 
