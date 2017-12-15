@@ -3,6 +3,7 @@
 #endif
 
 #include "e.h"
+#include <wayland-tbm-server.h>
 #include <sys/mman.h>
 #include <pixman.h>
 #include <tdm_helper.h>

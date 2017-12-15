@@ -6,6 +6,8 @@
 #include <tdm.h>
 #include <values.h>
 #include <tdm_helper.h>
+#include <wayland-tbm-server.h>
+#include <tizen-extension-server-protocol.h>
 
 //#define DUMP_BUFFER
 #define CHECKING_PRIMARY_ZPOS

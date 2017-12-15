@@ -6,6 +6,7 @@
 #include <wayland-server.h>
 #include <screenshooter-server-protocol.h>
 #include <tizen-extension-server-protocol.h>
+#include <wayland-tbm-server.h>
 
 #define DUMP_FPS     30
 

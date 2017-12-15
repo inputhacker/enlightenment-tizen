@@ -6,6 +6,7 @@
 #include <wayland-server.h>
 #include <wayland-tbm-server.h>
 #include <scaler-server-protocol.h>
+#include <tizen-extension-server-protocol.h>
 
 #define PER(fmt,arg...)   ERR("window(0x%08"PRIxPTR") ec(%p) epc(%p): "fmt, \
                               viewport->window, viewport->ec, viewport->epc, ##arg)

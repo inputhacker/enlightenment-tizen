@@ -1,4 +1,5 @@
 #include "e.h"
+#include <tizen-extension-server-protocol.h>
 
 #include <wayland-tbm-server.h>
 
