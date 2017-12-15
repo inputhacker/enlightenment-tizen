@@ -474,7 +474,68 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
         ec_list = eina_list_append(ec_list, ec);
      }
 
+   ELOGF("HWC-OPT", " The number of visible clients:%d.", NULL, NULL, eina_list_count(ec_list));
+
    return ec_list;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_hwc_mode_none_check(Eina_List *vis_cl_list)
+{
+   Eina_List *l;
+   E_Client *ec;
+   E_Hwc_Window *hwc_window = NULL;
+
+   /* hwc_window manager required full GLES composition */
+   if (e_comp->nocomp_override > 0)
+     {
+        ELOGF("HWC-OPT", "  HWC_MODE_NONE due to nocomp_override > 0.", NULL, NULL);
+        goto full_gl_composite;
+     }
+
+   EINA_LIST_FOREACH(vis_cl_list, l, ec)
+     {
+#if 0  // TODO: check this condition.....
+        // if there is a ec which is lower than quickpanel and quickpanel is opened.
+        if (E_POLICY_QUICKPANEL_LAYER >= evas_object_layer_get(ec->frame))
+          {
+             // check whether quickpanel is open than break
+             if (e_qp_visible_get())
+               {
+                   ELOGF("HWC-OPT", "    HWC_MODE_NONE due to quickpanel is opened.(name:%s, title:%s).",
+                         ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+               }
+             goto full_gl_composite;
+          }
+#endif
+        // if ec->frame is not for client buffer (e.g. launchscreen)
+        if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
+          {
+             ELOGF("HWC-OPT", "  HWC_MODE_NONE due to E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE(name:%s, title:%s).",
+                   ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+             goto full_gl_composite;
+          }
+
+        // if there is UI subfrace, it means need to composite
+        if (e_client_normal_client_has(ec))
+          {
+            ELOGF("HWC-OPT", "  HWC_MODE_NONE due to UI subfrace(name:%s, title:%s).",
+                  ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+            goto full_gl_composite;
+          }
+     }
+
+   return EINA_FALSE;
+
+full_gl_composite:
+   EINA_LIST_FOREACH(vis_cl_list, l, ec)
+     {
+        hwc_window = ec->hwc_window;
+        hwc_window->hwc_acceptable = EINA_FALSE;
+        ELOGF("HWC-OPT", "   (name:%s, title:%s) is NOT hwc_acceptable.",
+              ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+     }
+   return EINA_TRUE;
 }
 
 /* filter visible clients by the hwc_window manager
@@ -484,83 +545,36 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
  *
  * for optimized hwc the returned list contains ALL clients
  */
-static Eina_List *
+static void
 _e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
 {
-   Eina_List *hwc_acceptable_cl_list = NULL;
-   Eina_List *l, *l_inner;
-   E_Client *ec, *ec_inner;
+   Eina_List *l;
+   E_Client *ec;
    E_Hwc_Window *hwc_window = NULL;
 
-   /* let's hope for the best... */
    EINA_LIST_FOREACH(vis_cl_list, l, ec)
      {
         hwc_window = ec->hwc_window;
         hwc_window->hwc_acceptable = EINA_TRUE;
-     }
 
-   EINA_LIST_FOREACH(vis_cl_list, l, ec)
-     {
         // check clients not able to use hwc
-
-        /* hwc_window manager required full GLES composition */
-        if (e_comp->nocomp_override > 0)
-          {
-             hwc_window = ec->hwc_window;
-             hwc_window->hwc_acceptable = EINA_FALSE;
-             ELOGF("HWC-OPT", "    Prevent (name:%s, title:%s) to be hwc_acceptable (nocomp_override > 0).",
-                   ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
-          }
-//TODO: we have to find what to do in this case.??
-//      we have to set the nocomp_override in this case below...(quickpanel case...)
-#if 0
-        // if there is a ec which is lower than quickpanel and quickpanel is opened.
-        if (E_POLICY_QUICKPANEL_LAYER >= evas_object_layer_get(ec->frame))
-          {
-             // check whether quickpanel is open than break
-             if (e_qp_visible_get()) goto done;
-          }
-#endif
-        // if ec->frame is not for client buffer (e.g. launchscreen)
-        if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE ||
-
-            // if there is UI subfrace, it means need to composite
-            e_client_normal_client_has(ec))
-          {
-             /* we have to let hwc know about ALL clients(buffers) in case we're using
-              * optimized hwc, that's why it can be called optimized :), but also we have to provide
-              * the ability for wm to prevent some clients to be shown by hw directly */
-             EINA_LIST_FOREACH(vis_cl_list, l_inner, ec_inner)
-               {
-                  hwc_window = ec_inner->hwc_window;
-                  hwc_window->hwc_acceptable = EINA_FALSE;
-                  ELOGF("HWC-OPT", "    Prevent (name:%s, title:%s) to be hwc_acceptable (UI subsurface).",
-                        ec_inner->pixmap, ec_inner, ec_inner->icccm.name, ec_inner->icccm.title);
-               }
-          }
-
         // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
         if (!_e_output_hwc_ec_check(ec))
           {
-             hwc_window = ec->hwc_window;
              hwc_window->hwc_acceptable = EINA_FALSE;
-             ELOGF("HWC-OPT", "    Prevent (name:%s, title:%s) to be hwc_acceptable.",
+             ELOGF("HWC-OPT", "  (name:%s, title:%s) is NOT hwc_acceptable.",
                    ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+             continue;
           }
 
         if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
           {
-             hwc_window = ec->hwc_window;
              hwc_window->hwc_acceptable = EINA_FALSE;
-             ELOGF("HWC-OPT", "    Prevent (name:%s, title:%s) to be hwc_acceptable.(Cursor)",
+             ELOGF("HWC-OPT", "  (name:%s, title:%s) is NOT hwc_acceptable.(Cursor)",
                    ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+             continue;
           }
-
-        // listup as many as possible from the top most visible order
-        hwc_acceptable_cl_list = eina_list_append(hwc_acceptable_cl_list, ec);
      }
-
-   return hwc_acceptable_cl_list;
 }
 
 /* fake window is needed if there are no visible clients(animation in the loading time, etc)*/
@@ -597,7 +611,7 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
 {
    Eina_Bool ret = EINA_FALSE;
    Eina_Bool result;
-   Eina_List *hwc_ok_clist = NULL, *vis_clist = NULL;
+   Eina_List *vis_clist = NULL;
    E_Output *output = output_hwc->output;
 
    /* sw compositor is turned on at the start */
@@ -606,25 +620,26 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
 
    ELOGF("HWC-OPT", "###### Output HWC Apply (evaluate) ===", NULL, NULL);
 
-   vis_clist = _e_output_hwc_windows_vis_ec_list_get(output_hwc);
-
-   ELOGF("HWC-OPT", " The number of visible clients:%d.", NULL, NULL, eina_list_count(vis_clist));
-
-   /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
-   hwc_ok_clist = _e_output_hwc_windows_filter_cl_by_wm(vis_clist);
-
    /* exclude all hwc_windows from being considered by hwc */
    result = _e_output_hwc_windows_exclude_all_hwc_windows(output);
    EINA_SAFETY_ON_FALSE_GOTO(result, done);
 
-   /* enable the target hwc_window if there are no visible clients */
-   if (!hwc_ok_clist)
+   vis_clist = _e_output_hwc_windows_vis_ec_list_get(output_hwc);
+   if (!vis_clist)
      {
+        /* enable the target hwc_window if there are no visible clients */
         result = _e_output_hwc_windows_enable_target_window(output_hwc, EINA_TRUE);
         EINA_SAFETY_ON_FALSE_GOTO(result, done);
      }
 
-   _e_output_hwc_windows_update(output_hwc, hwc_ok_clist);
+   /* check the gles composite with all hwc_windows. */
+   if (!_e_output_hwc_windows_hwc_mode_none_check(vis_clist))
+     {
+        /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
+        _e_output_hwc_windows_filter_cl_by_wm(vis_clist);
+     }
+
+   _e_output_hwc_windows_update(output_hwc, vis_clist);
 
    result = _e_output_hwc_windows_validate(output_hwc);
    EINA_SAFETY_ON_FALSE_GOTO(result, done);
@@ -663,8 +678,6 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
    ret = EINA_TRUE;
 
 done:
-   if (hwc_ok_clist)
-     eina_list_free(hwc_ok_clist);
    if (vis_clist)
      eina_list_free(vis_clist);
 
