@@ -303,6 +303,9 @@ _e_output_hwc_windows_update(E_Output_Hwc *output_hwc, Eina_List *cl_list)
    /* to keep a state of e_hwc_windows up to date we have to update their states
     * according to the changes wm and/or hw made */
    _e_output_hwc_windows_states_update(output_hwc);
+
+   ELOGF("HWC-OPT", " Request HWC Validation to TDM HWC:", NULL, NULL);
+   _e_output_hwc_windows_print_wnds_state(output_hwc);
 }
 
 static Eina_Bool
@@ -622,9 +625,6 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
      }
 
    _e_output_hwc_windows_update(output_hwc, hwc_ok_clist);
-
-   ELOGF("HWC-OPT", " Request HWC Validation to TDM HWC:", NULL, NULL);
-   _e_output_hwc_windows_print_wnds_state(output_hwc);
 
    result = _e_output_hwc_windows_validate(output_hwc);
    EINA_SAFETY_ON_FALSE_GOTO(result, done);
