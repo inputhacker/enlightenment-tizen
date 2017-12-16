@@ -1079,7 +1079,14 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    if (e_comp_canvas_norender_get() > 0)
-     return EINA_FALSE;
+     {
+        ELOGF("HWC-OPT", " NoRender get. no updated surface (title:%s, name:%s) on the hwc_wnd:%p.",
+              hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
+              hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+              hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
+              hwc_window->hwc_wnd);
+        return EINA_FALSE;
+     }
 
    output = hwc_window->output;
 

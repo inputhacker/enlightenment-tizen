@@ -417,6 +417,7 @@ _e_output_hwc_windows_target_window_render(E_Output *output, E_Hwc_Window_Target
 
     if (e_comp_canvas_norender_get() > 0)
       {
+           ELOGF("HWC-OPT", " NoRender get. Do not ecore_evas_manual_render.", NULL, NULL);
           return EINA_TRUE;
       }
 
@@ -1515,9 +1516,9 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
 
    output = output_hwc->output;
 
-   if (output->wait_commit) return EINA_TRUE;
-
    ELOGF("HWC-OPT", "###### Prepare Windows Commit(Fetch the buffers)", NULL, NULL);
+
+   if (output->wait_commit) return EINA_TRUE;
 
    EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
      {
