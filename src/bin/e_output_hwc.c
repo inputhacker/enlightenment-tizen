@@ -128,8 +128,8 @@ _e_output_hwc_windows_exclude_all_hwc_windows(E_Output *eout)
    hwc_windows = e_output_hwc_windows_get(eout->output_hwc);
    EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
      {
-        if (e_hwc_window_is_video(hwc_window))
-          continue;
+        if (e_hwc_window_is_video(hwc_window)) continue;
+
         hwc_window->is_excluded = EINA_TRUE;
         tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_NONE);
      }
@@ -142,7 +142,6 @@ _e_output_hwc_windows_states_update(E_Output_Hwc *output_hwc)
 {
    const Eina_List *l;
    E_Hwc_Window *hwc_window;
-
    const Eina_List *hwc_windows = e_output_hwc_windows_get(output_hwc);
 
    EINA_LIST_FOREACH(hwc_windows, l, hwc_window)

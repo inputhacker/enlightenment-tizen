@@ -209,7 +209,7 @@ _e_hwc_window_client_cb_zone_set(void *data, int type, void *event)
      }
 
    hwc_window = e_hwc_window_new(output->output_hwc, ec, E_HWC_WINDOW_STATE_NONE);
-   EINA_SAFETY_ON_NULL_GOTO(hwc_window, fail);
+   EINA_SAFETY_ON_NULL_GOTO(hwc_window, end);
 
    /* set the hwc window to the e client */
    ec->hwc_window = hwc_window;
@@ -217,11 +217,6 @@ _e_hwc_window_client_cb_zone_set(void *data, int type, void *event)
    ELOGF("HWC-OPT", "E_Hwc_Window: output is changed for hwc_window(%p)", ec->pixmap, ec, hwc_window);
 
 end:
-   return ECORE_CALLBACK_PASS_ON;
-fail:
-   if (hwc_window)
-     e_hwc_window_free(hwc_window);
-
    return ECORE_CALLBACK_PASS_ON;
 }
 
@@ -294,7 +289,6 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
    const char *name = NULL;
    E_Hwc_Window_Target *target_hwc_window = NULL;
    tdm_error error = TDM_ERROR_NONE;
-   Ecore_Fd_Handler *event_hdlr = NULL;
    E_Output *output = NULL;
 
    name = ecore_evas_engine_name_get(e_comp->ee);
@@ -355,7 +349,7 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
    target_hwc_window->ee = e_comp->ee;
    target_hwc_window->evas = ecore_evas_get(target_hwc_window->ee);
    target_hwc_window->event_fd = eventfd(0, EFD_NONBLOCK);
-   event_hdlr =
+   target_hwc_window->event_hdlr =
             ecore_main_fd_handler_add(target_hwc_window->event_fd, ECORE_FD_READ,
                                       _evas_renderer_finished_composition_cb,
                                       (void *)target_hwc_window, NULL, NULL);
@@ -385,15 +379,7 @@ fail:
    ecore_evas_manual_render_set(e_comp->ee, 0);
 
    if (target_hwc_window)
-     {
-        if (event_hdlr)
-          ecore_main_fd_handler_del(event_hdlr);
-
-        if (target_hwc_window->event_fd)
-          close(target_hwc_window->event_fd);
-
-        free(target_hwc_window);
-     }
+     free(target_hwc_window);
 
    return NULL;
 }

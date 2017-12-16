@@ -67,6 +67,7 @@ struct _E_Hwc_Window_Target
    Ecore_Evas         *ee;
    Evas               *evas;
    int                 event_fd;
+   Ecore_Fd_Handler   *event_hdlr;
 
    tbm_surface_queue_h queue;
 
