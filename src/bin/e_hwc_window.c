@@ -763,7 +763,7 @@ _is_e_hwc_window_ec_has_correct_transformation(E_Hwc_Window *hwc_window)
               * tizen_screen_rotation_send_ignore_output_transform() call is needed? */
              e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
 
-             ELOGF("HWC-OPT", " request ec:%p (name:%s, title:%s) to change transformation to %d.",
+             ELOGF("HWC-OPT", " request (name:%s, title:%s) to change transformation to %d.",
                      ec->pixmap, ec, ec->icccm.name, ec->icccm.title, hwc_window->output->config.rotation);
           }
 
