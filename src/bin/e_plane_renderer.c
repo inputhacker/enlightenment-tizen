@@ -1300,6 +1300,12 @@ e_plane_renderer_ec_set(E_Plane_Renderer *renderer, E_Client *ec)
    plane = renderer->plane;
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
+   if (e_object_is_del(E_OBJECT(ec)))
+     {
+        INF("Ignore deleted ec:%p", ec);
+        return EINA_FALSE;
+     }
+
    renderer_client = e_plane_renderer_client_get(ec);
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_client, EINA_FALSE);
 
