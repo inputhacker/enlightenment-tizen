@@ -1326,7 +1326,7 @@ e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
          * an underlying hw overlay;
          * target_wnd's hwc can't ever be at target_wnd :), so we pass it immediately */
         if (e_hwc_window_get_displaying_surface(hwc_window) &&
-                (_e_hwc_window_is_existed_on_target_wnd(hwc_window) || e_hwc_window_is_target(hwc_window)))
+            (_e_hwc_window_is_existed_on_target_wnd(hwc_window) || e_hwc_window_is_target(hwc_window)))
           {
              commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
              EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
@@ -1359,7 +1359,9 @@ e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
 
    hwc_window->update_exist = EINA_FALSE;
 
-   if (e_hwc_window_is_target(hwc_window) || e_hwc_window_is_video(hwc_window))
+   if (e_hwc_window_is_target(hwc_window) ||
+       e_hwc_window_is_video(hwc_window)  ||
+       e_hwc_window_is_cursor(hwc_window))
      {
         commit_data->tsurface = hwc_window->tsurface;
         tbm_surface_internal_ref(commit_data->tsurface);
@@ -1595,10 +1597,11 @@ e_hwc_window_is_on_hw_overlay(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    if (hwc_window->is_excluded) return EINA_FALSE;
-   if (hwc_window->type != TDM_COMPOSITION_DEVICE)
-     return EINA_FALSE;
 
-   return EINA_TRUE;
+   if (hwc_window->type == TDM_COMPOSITION_DEVICE) return EINA_TRUE;
+   if (hwc_window->type == TDM_COMPOSITION_CURSOR) return EINA_TRUE;
+
+   return EINA_FALSE;
 }
 
 EINTERN tbm_surface_h
