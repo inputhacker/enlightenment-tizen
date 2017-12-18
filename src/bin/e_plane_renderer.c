@@ -2546,6 +2546,7 @@ e_plane_renderer_render_count_get(E_Plane_Renderer *renderer)
 {
    int dequeue_num = 0;
    int enqueue_num = 0;
+   int export_num = 0;
    int count = 0;
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
 
@@ -2567,7 +2568,20 @@ e_plane_renderer_render_count_get(E_Plane_Renderer *renderer)
         return 0;
      }
 
-   count = dequeue_num + enqueue_num;
+   export_num = eina_list_count(renderer->exported_surfaces);
+   if (export_num < 0)
+     {
+        ERR("invalid export_num");
+        return 0;
+     }
+
+   count = dequeue_num + enqueue_num - export_num;
+   if (count < 0)
+     {
+        ERR("invalid render_count dequeue:%d enqueue:%d export:%d",
+            dequeue_num, enqueue_num, export_num);
+        return 0;
+     }
 
    return count;
 }
