@@ -17,9 +17,9 @@ struct _E_Output_Hwc
 {
    E_Output          *output;
    E_Output_Hwc_Mode  hwc_mode;
+   Eina_Bool          hwc_deactive : 1; // deactive hwc policy
 
    /* non opt_hwc */
-   Eina_Bool          hwc_deactive : 1; // deactive hwc policy
    Eina_Bool          hwc_use_multi_plane;
 
    /* opt_hwc */

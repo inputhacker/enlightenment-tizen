@@ -487,11 +487,14 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
 }
 
 static Eina_Bool
-_e_output_hwc_windows_hwc_mode_none_check(Eina_List *vis_cl_list)
+_e_output_hwc_windows_hwc_mode_none_check(E_Output_Hwc *output_hwc, Eina_List *vis_cl_list)
 {
    Eina_List *l;
    E_Client *ec;
    E_Hwc_Window *hwc_window = NULL;
+
+   /* full composite is forced to be set */
+   if (e_output_hwc_deactive_get(output_hwc)) goto full_gl_composite;
 
    /* hwc_window manager required full GLES composition */
    if (e_comp->nocomp_override > 0)
@@ -632,7 +635,7 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
      }
 
    /* check the gles composite with all hwc_windows. */
-   if (!_e_output_hwc_windows_hwc_mode_none_check(vis_clist))
+   if (!_e_output_hwc_windows_hwc_mode_none_check(output_hwc, vis_clist))
      {
         /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
         _e_output_hwc_windows_filter_cl_by_wm(vis_clist);
@@ -1367,13 +1370,6 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
    EINA_SAFETY_ON_NULL_RETURN(output_hwc);
    EINA_SAFETY_ON_NULL_RETURN(output_hwc->output);
 
-   if (e_output_hwc_deactive_get(output_hwc))
-     {
-        if (output_hwc->hwc_mode != E_OUTPUT_HWC_MODE_NO)
-          e_output_hwc_end(output_hwc, "deactive set.");
-        return;
-     }
-
    if (e_output_hwc_windows_enabled(output_hwc))
      {
         /* evaluate which e_output_hwc_window will be composited by hwc and wich by GLES */
@@ -1382,6 +1378,13 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
      }
    else
      {
+        if (e_output_hwc_deactive_get(output_hwc))
+          {
+             if (output_hwc->hwc_mode != E_OUTPUT_HWC_MODE_NO)
+               e_output_hwc_end(output_hwc, "deactive set.");
+             return;
+          }
+
         if (!_e_output_hwc_planes_usable(output_hwc))
           {
              e_output_hwc_end(output_hwc, __FUNCTION__);
