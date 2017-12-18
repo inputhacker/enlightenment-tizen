@@ -195,8 +195,7 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
      {
         if (!ec->hwc_window) return;
         hwc_window = ec->hwc_window;
-        if (e_hwc_window_get_state(hwc_window) == E_HWC_WINDOW_STATE_DEVICE ||
-            e_hwc_window_get_state(hwc_window) == E_HWC_WINDOW_STATE_VIDEO)
+        if (e_hwc_window_is_on_hw_overlay(hwc_window))
           *hwc = 1;
 
         *pl_zpos = e_hwc_window_get_zpos(hwc_window);
