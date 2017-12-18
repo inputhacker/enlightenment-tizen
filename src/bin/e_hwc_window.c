@@ -1584,6 +1584,8 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
            tbm_surface_destroy(hwc_window->cursor_tsurface);
            hwc_window->cursor_tsurface = NULL;
         }
+
+        hwc_window->tsurface = NULL;
      }
 
    hwc_window->activation_state = E_HWC_WINDOW_ACTIVATION_STATE_DEACTIVATED;
