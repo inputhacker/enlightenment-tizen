@@ -2731,15 +2731,19 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
-
-   e_output_size_get(output, &w, &h);
-   angle = _e_output_zoom_get_angle(output);
-
    if (cx < 0 || cy < 0) return EINA_FALSE;
    if (zoomx <= 0 || zoomy <= 0) return EINA_FALSE;
 
+   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
+
+   if (output != output_primary)
+     {
+        ERR("Only Primary Output can support the Zoom.");
+        return EINA_FALSE;
+     }
+
+   e_output_size_get(output, &w, &h);
    if (output->config.rotation % 180 == 0)
      {
         if (cx >= w || cy >= h)
@@ -2751,16 +2755,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
           return EINA_FALSE;
      }
 
-   ep = e_output_fb_target_get(output);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
-
-   if (!output->zoom_set)
-     {
-        if (_e_output_fb_over_plane_check(output))
-          output->zoom_conf.unset_skip = EINA_TRUE;
-     }
-
-   e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_FALSE);
+   angle = _e_output_zoom_get_angle(output);
 
    output->zoom_conf.zoomx = zoomx;
    output->zoom_conf.zoomy = zoomy;
@@ -2774,26 +2769,38 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
    _e_output_zoom_coordinate_cal(output);
    _e_output_zoom_touch_rect_get(output);
 
+   ep = e_output_fb_target_get(output);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
+
+   if (!output->zoom_set)
+     {
+        if (_e_output_fb_over_plane_check(output))
+          output->zoom_conf.unset_skip = EINA_TRUE;
+     }
+
+   e_output_hwc_multi_plane_set(output->output_hwc, EINA_FALSE);
+
    if (!e_plane_zoom_set(ep, &output->zoom_conf.rect))
      {
         ERR("e_plane_zoom_set failed.");
         output->zoom_conf.unset_skip = EINA_FALSE;
-        e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
+        e_output_hwc_multi_plane_set(output->output_hwc, EINA_TRUE);
 
         return EINA_FALSE;
      }
+
+   /* update the ecore_evas */
+   if (e_plane_pp_commit_possible_check(ep))
+     _e_output_render_update(output);
 
    if (!_e_output_zoom_touch_set(output))
      ERR("fail _e_output_zoom_touch_set");
 
    if (!output->zoom_set) output->zoom_set = EINA_TRUE;
-   DBG("zoom set output:%s, zoom(x:%f, y:%f, cx:%d, cy:%d) rect(x:%d, y:%d, w:%d, h:%d)",
-       output->id, zoomx, zoomy, cx, cy,
-       output->zoom_conf.rect.x, output->zoom_conf.rect.y, output->zoom_conf.rect.w, output->zoom_conf.rect.h);
 
-   /* update the ecore_evas */
-   if (e_plane_pp_commit_possible_check(ep))
-     _e_output_render_update(output);
+   ELOGF("ZOOM", "zoom set output:%s, zoom(x:%f, y:%f, cx:%d, cy:%d) rect(x:%d, y:%d, w:%d, h:%d)",
+       NULL, NULL, output->id, zoomx, zoomy, cx, cy,
+       output->zoom_conf.rect.x, output->zoom_conf.rect.y, output->zoom_conf.rect.w, output->zoom_conf.rect.h);
 
    return EINA_TRUE;
 }
@@ -2802,20 +2809,21 @@ EINTERN void
 e_output_zoom_unset(E_Output *output)
 {
    E_Plane *ep = NULL;
-   E_Output *output_primary = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
-   EINA_SAFETY_ON_NULL_RETURN(output_primary);
-
    if (!output->zoom_set) return;
 
-   ep = e_output_fb_target_get(output);
-   EINA_SAFETY_ON_NULL_RETURN(ep);
+   output->zoom_set = EINA_FALSE;
+   output->zoom_conf.unset_skip = EINA_FALSE;
 
    if (!_e_output_zoom_touch_unset(output))
      ERR("fail _e_output_zoom_touch_unset");
+
+   ep = e_output_fb_target_get(output);
+   if (ep) e_plane_zoom_unset(ep);
+
+   e_output_hwc_multi_plane_set(output->output_hwc, EINA_TRUE);
 
    output->zoom_conf.zoomx = 0;
    output->zoom_conf.zoomy = 0;
@@ -2834,17 +2842,10 @@ e_output_zoom_unset(E_Output *output)
    output->zoom_conf.rect_touch.w = 0;
    output->zoom_conf.rect_touch.h = 0;
 
-   e_plane_zoom_unset(ep);
-
-   output->zoom_set = EINA_FALSE;
-   output->zoom_conf.unset_skip = EINA_FALSE;
-
-   e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
-
    /* update the ecore_evas */
    _e_output_render_update(output);
 
-   DBG("e_output_zoom_unset: output:%s", output->id);
+   ELOGF("ZOOM", "e_output_zoom_unset: output:%s", NULL, NULL, output->id);
 }
 
 E_API E_Output_Hook *
