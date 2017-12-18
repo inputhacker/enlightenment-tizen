@@ -1104,8 +1104,6 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
                ERR("fail to _e_hwc_window_target_surface_queue_clear");
           }
 
-        hwc_window->tsurface = NULL;
-
         return EINA_FALSE;
      }
 

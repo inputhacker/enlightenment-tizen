@@ -126,6 +126,7 @@ _e_output_hwc_windows_exclude_all_hwc_windows(E_Output *eout)
    E_Hwc_Window *hwc_window = NULL;
 
    hwc_windows = e_output_hwc_windows_get(eout->output_hwc);
+
    EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
      {
         if (e_hwc_window_is_video(hwc_window)) continue;
@@ -609,6 +610,20 @@ _e_output_hwc_windows_enable_target_window(E_Output_Hwc *output_hwc, Eina_Bool n
 }
 
 static Eina_Bool
+_e_output_hwc_windows_reset_buffers_for_unvis_hwc_windows(E_Output *eout)
+{
+   const Eina_List *hwc_windows, *l;
+   E_Hwc_Window *hwc_window = NULL;
+
+   hwc_windows = e_output_hwc_windows_get(eout->output_hwc);
+   EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
+     if (hwc_window->is_excluded)
+       hwc_window->tsurface = NULL;
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
 _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
 {
    Eina_Bool ret = EINA_FALSE;
@@ -674,6 +689,8 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
 
         prev_comp_mode = comp_mode;
      }
+
+   _e_output_hwc_windows_reset_buffers_for_unvis_hwc_windows(output);
 
    _e_output_hwc_windows_activation_states_update(output_hwc);
 
