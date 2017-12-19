@@ -117,13 +117,12 @@ _e_output_hwc_windows_need_target_hwc_window(E_Output_Hwc *output_hwc)
 }
 
 static Eina_Bool
-_e_output_hwc_windows_exclude_all_hwc_windows(E_Output *eout)
+_e_output_hwc_windows_all_windows_init(E_Output_Hwc *output_hwc)
 {
    const Eina_List *hwc_windows, *l;
    E_Hwc_Window *hwc_window = NULL;
 
-   hwc_windows = e_output_hwc_windows_get(eout->output_hwc);
-
+   hwc_windows = e_output_hwc_windows_get(output_hwc);
    EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
      {
         if (e_hwc_window_is_video(hwc_window)) continue;
@@ -485,7 +484,7 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
 }
 
 static Eina_Bool
-_e_output_hwc_windows_hwc_mode_none_check(E_Output_Hwc *output_hwc, Eina_List *vis_cl_list)
+_e_output_hwc_windows_full_gl_composite_check(E_Output_Hwc *output_hwc, Eina_List *vis_cl_list)
 {
    Eina_List *l;
    E_Client *ec;
@@ -554,7 +553,7 @@ full_gl_composite:
  * for optimized hwc the returned list contains ALL clients
  */
 static void
-_e_output_hwc_windows_filter_cl_by_wm(Eina_List *vis_cl_list)
+_e_output_hwc_windows_hwc_acceptable_check(Eina_List *vis_cl_list)
 {
    Eina_List *l;
    E_Client *ec;
@@ -606,27 +605,23 @@ _e_output_hwc_windows_enable_target_window(E_Output_Hwc *output_hwc, Eina_Bool n
    return EINA_TRUE;
 }
 
-static Eina_Bool
-_e_output_hwc_windows_reset_buffers_for_unvis_hwc_windows(E_Output *eout)
+static void
+_e_output_hwc_windows_exclued_windows_buffers_reset(E_Output_Hwc *output_hwc)
 {
    const Eina_List *hwc_windows, *l;
    E_Hwc_Window *hwc_window = NULL;
 
-   hwc_windows = e_output_hwc_windows_get(eout->output_hwc);
+   hwc_windows = e_output_hwc_windows_get(output_hwc);
    EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
-     if (hwc_window->is_excluded)
-       hwc_window->tsurface = NULL;
-
-   return EINA_TRUE;
+     if (hwc_window->is_excluded) hwc_window->tsurface = NULL;
 }
 
 static Eina_Bool
-_e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
+_e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
 {
    Eina_Bool ret = EINA_FALSE;
    Eina_Bool result;
    Eina_List *vis_clist = NULL;
-   E_Output *output = output_hwc->output;
 
    /* sw compositor is turned on at the start */
    static _hwc_opt_comp_mode prev_comp_mode = HWC_OPT_COMP_MODE_HYBRID;
@@ -635,9 +630,10 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
    ELOGF("HWC-OPT", "###### Output HWC Apply (evaluate) ===", NULL, NULL);
 
    /* exclude all hwc_windows from being considered by hwc */
-   result = _e_output_hwc_windows_exclude_all_hwc_windows(output);
+   result = _e_output_hwc_windows_all_windows_init(output_hwc);
    EINA_SAFETY_ON_FALSE_GOTO(result, done);
 
+   /* get the visible ecs */
    vis_clist = _e_output_hwc_windows_vis_ec_list_get(output_hwc);
    if (!vis_clist)
      {
@@ -647,17 +643,20 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
      }
 
    /* check the gles composite with all hwc_windows. */
-   if (!_e_output_hwc_windows_hwc_mode_none_check(output_hwc, vis_clist))
+   if (!_e_output_hwc_windows_full_gl_composite_check(output_hwc, vis_clist))
      {
         /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
-        _e_output_hwc_windows_filter_cl_by_wm(vis_clist);
+        _e_output_hwc_windows_hwc_acceptable_check(vis_clist);
      }
 
+   /* update thw hwc_windows information with the previous evaluation */
    _e_output_hwc_windows_update(output_hwc, vis_clist);
 
+   /* validate the updated hwc_windows by asking tdm_hwc_output */
    result = _e_output_hwc_windows_validate(output_hwc);
    EINA_SAFETY_ON_FALSE_GOTO(result, done);
 
+   /* TODO: decide the E_OUTPUT_HWC_MODE */
    comp_mode = _e_output_hwc_windows_need_target_hwc_window(output_hwc) ?
            HWC_OPT_COMP_MODE_HYBRID : HWC_OPT_COMP_MODE_FULL_HWC;
 
@@ -687,8 +686,10 @@ _e_output_hwc_windows_re_evaluate(E_Output_Hwc *output_hwc)
         prev_comp_mode = comp_mode;
      }
 
-   _e_output_hwc_windows_reset_buffers_for_unvis_hwc_windows(output);
+   /* set the buffer of the excluded hwc_window to be NULL. */
+   _e_output_hwc_windows_exclued_windows_buffers_reset(output_hwc);
 
+   /* update the activate/decativate state */
    _e_output_hwc_windows_activation_states_update(output_hwc);
 
    ret = EINA_TRUE;
@@ -1387,8 +1388,8 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
    if (e_output_hwc_windows_enabled(output_hwc))
      {
         /* evaluate which e_output_hwc_window will be composited by hwc and wich by GLES */
-        if (!_e_output_hwc_windows_re_evaluate(output_hwc))
-           ERR("fail to _e_output_hwc_windows_re_evaluate.");
+        if (!_e_output_hwc_windows_evaluate(output_hwc))
+           ERR("fail to _e_output_hwc_windows_evaluate.");
      }
    else
      {
