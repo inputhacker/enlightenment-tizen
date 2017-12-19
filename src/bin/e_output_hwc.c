@@ -496,6 +496,9 @@ _e_output_hwc_windows_full_gl_composite_check(E_Output_Hwc *output_hwc, Eina_Lis
    E_Client *ec;
    E_Hwc_Window *hwc_window = NULL;
 
+   /* make the full_gl_composite when the zoom is enabled */
+   if (output_hwc->output->zoom_set) goto full_gl_composite;
+
    /* full composite is forced to be set */
    if (e_output_hwc_deactive_get(output_hwc)) goto full_gl_composite;
 
@@ -614,14 +617,21 @@ _e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
    result = _e_output_hwc_windows_all_windows_init(output_hwc);
    EINA_SAFETY_ON_FALSE_GOTO(result, done);
 
-   /* get the visible ecs */
-   vis_clist = _e_output_hwc_windows_vis_ec_list_get(output_hwc);
-
-   /* check the gles composite with all hwc_windows. */
-   if (!_e_output_hwc_windows_full_gl_composite_check(output_hwc, vis_clist))
+   /* FIXME: now result of the compositing is always src buffer for pp and in
+    * order to turn on target_window and smooth transition is not used the
+    * all hwc_windows is excluded
+    */
+   if (!output_hwc->output->zoom_set)
      {
-        /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
-        _e_output_hwc_windows_hwc_acceptable_check(vis_clist);
+        /* get the visible ecs */
+        vis_clist = _e_output_hwc_windows_vis_ec_list_get(output_hwc);
+
+        /* check the gles composite with all hwc_windows. */
+        if (!_e_output_hwc_windows_full_gl_composite_check(output_hwc, vis_clist))
+          {
+             /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
+             _e_output_hwc_windows_hwc_acceptable_check(vis_clist);
+          }
      }
 
    /* update thw hwc_windows information with the previous evaluation */
@@ -677,6 +687,12 @@ _e_output_hwc_windows_commit_handler(tdm_output *toutput, unsigned int sequence,
    E_Output_Hwc *output_hwc = (E_Output_Hwc *)user_data;
 
    EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+
+   if (output_hwc->pp_tsurface && !output_hwc->output->zoom_set)
+     {
+        tbm_surface_internal_unref(output_hwc->pp_tsurface);
+        output_hwc->pp_tsurface = NULL;
+     }
 
    EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, window)
      {
@@ -1484,6 +1500,513 @@ e_output_hwc_windows_render(E_Output_Hwc *output_hwc)
    return EINA_TRUE;
 }
 
+static unsigned int
+e_output_hwc_windows_aligned_width_get(tbm_surface_h tsurface)
+{
+   unsigned int aligned_width = 0;
+   tbm_surface_info_s surf_info;
+
+   tbm_surface_get_info(tsurface, &surf_info);
+
+   switch (surf_info.format)
+     {
+      case TBM_FORMAT_YUV420:
+      case TBM_FORMAT_YVU420:
+      case TBM_FORMAT_YUV422:
+      case TBM_FORMAT_YVU422:
+      case TBM_FORMAT_NV12:
+      case TBM_FORMAT_NV21:
+        aligned_width = surf_info.planes[0].stride;
+        break;
+      case TBM_FORMAT_YUYV:
+      case TBM_FORMAT_UYVY:
+        aligned_width = surf_info.planes[0].stride >> 1;
+        break;
+      case TBM_FORMAT_ARGB8888:
+      case TBM_FORMAT_XRGB8888:
+        aligned_width = surf_info.planes[0].stride >> 2;
+        break;
+      default:
+        ERR("not supported format: %x", surf_info.format);
+     }
+
+   return aligned_width;
+}
+
+static E_Hwc_Window_Commit_Data *
+_e_output_hwc_windows_pp_data_get(E_Output_Hwc *output_hwc, tbm_surface_h tsurface)
+{
+   Eina_List *l;
+   E_Hwc_Window_Commit_Data *data = NULL;
+
+   EINA_LIST_FOREACH(output_hwc->pp_data_list, l, data)
+     {
+        if (!data) continue;
+
+        if (data->tsurface == tsurface)
+          return data;
+     }
+
+   return NULL;
+}
+
+static void
+_e_output_hwc_windows_pp_pending_data_remove(E_Output_Hwc *output_hwc)
+{
+   E_Hwc_Window_Commit_Data *data = NULL;
+   Eina_List *l = NULL, *ll = NULL;
+
+   if (eina_list_count(output_hwc->pending_pp_commit_data_list) != 0)
+     {
+        EINA_LIST_FOREACH_SAFE(output_hwc->pending_pp_commit_data_list, l, ll, data)
+          {
+             if (!data) continue;
+             output_hwc->pending_pp_commit_data_list = eina_list_remove_list(output_hwc->pending_pp_commit_data_list, l);
+             tbm_surface_queue_release(output_hwc->pp_tqueue, data->tsurface);
+             tbm_surface_internal_unref(data->tsurface);
+             E_FREE(data);
+          }
+     }
+   eina_list_free(output_hwc->pending_pp_commit_data_list);
+   output_hwc->pending_pp_commit_data_list = NULL;
+
+   if (eina_list_count(output_hwc->pending_pp_data_list) != 0)
+     {
+        EINA_LIST_FOREACH_SAFE(output_hwc->pending_pp_data_list, l, ll, data)
+          {
+             if (!data) continue;
+             output_hwc->pending_pp_data_list = eina_list_remove_list(output_hwc->pending_pp_data_list, l);
+          }
+     }
+   eina_list_free(output_hwc->pending_pp_data_list);
+   output_hwc->pending_pp_data_list = NULL;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_pp_output_data_commit(E_Output_Hwc *output_hwc, E_Hwc_Window_Commit_Data *data);
+
+static Eina_Bool
+_e_output_hwc_windows_pp_data_commit(E_Output_Hwc *output_hwc, E_Hwc_Window_Commit_Data *commit_data);
+
+static void
+_e_output_hwc_windows_pp_output_commit_handler(tdm_output *toutput, unsigned int sequence,
+                                              unsigned int tv_sec, unsigned int tv_usec,
+                                              void *user_data)
+{
+   E_Output_Hwc *output_hwc;
+   E_Hwc_Window_Commit_Data *data;
+   E_Output *output = NULL;
+   const Eina_List *l;
+   E_Hwc_Window *window;
+
+   EINA_SAFETY_ON_NULL_RETURN(user_data);
+
+   output_hwc = user_data;
+
+   output_hwc->pp_output_commit = EINA_FALSE;
+
+   EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, window)
+     {
+        if (e_hwc_window_is_target(window)) continue;
+
+        e_hwc_window_commit_data_release(window);
+     }
+
+   /* layer already resetted */
+   if (output_hwc->pp_output_commit_data)
+     {
+        data = output_hwc->pp_output_commit_data;
+        output_hwc->pp_output_commit_data = NULL;
+
+        /* if pp_set is false, do not deal with pending list */
+        if (!output_hwc->pp_set)
+          {
+             if (output_hwc->pp_tsurface)
+               tbm_surface_internal_unref(output_hwc->pp_tsurface);
+
+             output_hwc->pp_tsurface = data->tsurface;
+
+             E_FREE(data);
+
+             return;
+          }
+
+        if (output_hwc->pp_tqueue && output_hwc->pp_tsurface)
+          {
+             /* release and unref the current pp surface on the plane */
+             tbm_surface_queue_release(output_hwc->pp_tqueue, output_hwc->pp_tsurface);
+             tbm_surface_internal_unref(output_hwc->pp_tsurface);
+          }
+
+        /* set the new pp surface to the plane */
+        output_hwc->pp_tsurface = data->tsurface;
+
+        E_FREE(data);
+     }
+
+   ELOGF("HWC-OPT", "PP Output Commit Handler Output_Hwc(%p)", NULL, NULL, output_hwc);
+
+   output = output_hwc->output;
+   if (e_output_dpms_get(output))
+     {
+        _e_output_hwc_windows_pp_pending_data_remove(output_hwc);
+        return;
+     }
+
+   /* deal with the pending layer commit */
+   if (eina_list_count(output_hwc->pending_pp_commit_data_list) != 0)
+     {
+        data = eina_list_nth(output_hwc->pending_pp_commit_data_list, 0);
+        if (data)
+          {
+             output_hwc->pending_pp_commit_data_list = eina_list_remove(output_hwc->pending_pp_commit_data_list, data);
+
+             ELOGF("HWC-OPT", "PP Output Commit Handler start pending commit data(%p) tsurface(%p)", NULL, NULL, data, data->tsurface);
+
+             if (!_e_output_hwc_windows_pp_output_data_commit(output_hwc, data))
+               {
+                  ERR("fail to _e_output_hwc_windows_pp_output_data_commit");
+                  return;
+               }
+          }
+     }
+
+   /* deal with the pending pp commit */
+   if (eina_list_count(output_hwc->pending_pp_data_list) != 0)
+     {
+        data = eina_list_nth(output_hwc->pending_pp_data_list, 0);
+        if (data)
+          {
+             if (!tbm_surface_queue_can_dequeue(output_hwc->pp_tqueue, 0))
+               return;
+
+             output_hwc->pending_pp_data_list = eina_list_remove(output_hwc->pending_pp_data_list, data);
+
+             ELOGF("HWC-OPT", "PP Layer Commit Handler start pending pp data(%p) tsurface(%p)", NULL, NULL, data, data->tsurface);
+
+             if (!_e_output_hwc_windows_pp_data_commit(output_hwc, data))
+               {
+                  ERR("fail _e_output_hwc_windows_pp_data_commit");
+                  e_hwc_window_commit_data_release((E_Hwc_Window *)output_hwc->target_hwc_window);
+                  return;
+               }
+          }
+     }
+}
+
+static Eina_Bool
+_e_output_hwc_windows_pp_output_data_commit(E_Output_Hwc *output_hwc, E_Hwc_Window_Commit_Data *data)
+{
+   E_Output *output = NULL;
+   tdm_layer *toutput = NULL;
+   tdm_error tdm_err;
+   tdm_hwc_region fb_damage;
+
+   /* the damage isn't supported by hwc extension yet */
+   memset(&fb_damage, 0, sizeof(fb_damage));
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(data, EINA_FALSE);
+
+   output = output_hwc->output;
+   toutput = output->toutput;
+
+   if (e_output_dpms_get(output))
+     {
+        _e_output_hwc_windows_pp_pending_data_remove(output_hwc);
+        goto fail;
+     }
+
+   /* TODO: What about composited_wnds list ?*/
+   tdm_err = tdm_output_hwc_set_client_target_buffer(toutput, data->tsurface, fb_damage, NULL, 0);
+   if (tdm_err != TDM_ERROR_NONE)
+     {
+        ERR("fail to tdm_output_hwc_set_client_target_buffer");
+        goto fail;
+     }
+
+   tdm_err = tdm_output_commit(toutput, 0, _e_output_hwc_windows_pp_output_commit_handler, output_hwc);
+
+   if (tdm_err != TDM_ERROR_NONE)
+     {
+        ERR("fail to tdm_output_commit output_hwc:%p", output_hwc);
+        goto fail;
+     }
+
+   output_hwc->pp_output_commit = EINA_TRUE;
+   output_hwc->pp_output_commit_data = data;
+
+   return EINA_TRUE;
+
+fail:
+   tbm_surface_internal_unref(data->tsurface);
+   tbm_surface_queue_release(output_hwc->pp_tqueue, data->tsurface);
+   E_FREE(data);
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_pp_output_commit(E_Output_Hwc *output_hwc, tbm_surface_h tsurface)
+{
+   tbm_surface_h pp_tsurface = NULL;
+   tbm_error_e tbm_err;
+   E_Hwc_Window_Commit_Data *data = NULL;
+
+   ELOGF("HWC-OPT", "PP Layer Commit  output_hwc(%p)     pp_tsurface(%p)", NULL, NULL, output_hwc, tsurface);
+
+   tbm_err = tbm_surface_queue_enqueue(output_hwc->pp_tqueue, tsurface);
+   if (tbm_err != TBM_ERROR_NONE)
+     {
+        ERR("fail tbm_surface_queue_enqueue");
+        goto fail;
+     }
+
+   tbm_err = tbm_surface_queue_acquire(output_hwc->pp_tqueue, &pp_tsurface);
+   if (tbm_err != TBM_ERROR_NONE)
+     {
+        ERR("fail tbm_surface_queue_acquire");
+        goto fail;
+     }
+
+   data = E_NEW(E_Hwc_Window_Commit_Data, 1);
+   if (!data) goto fail;
+   data->tsurface = pp_tsurface;
+   tbm_surface_internal_ref(data->tsurface);
+
+   if (output_hwc->pp_output_commit)
+     {
+        output_hwc->pending_pp_commit_data_list = eina_list_append(output_hwc->pending_pp_commit_data_list, data);
+        return EINA_TRUE;
+     }
+
+   if (!_e_output_hwc_windows_pp_output_data_commit(output_hwc, data))
+     {
+        ERR("fail to _e_output_hwc_windows_pp_output_data_commit");
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+
+fail:
+   tbm_surface_queue_release(output_hwc->pp_tqueue, tsurface);
+   if (pp_tsurface && pp_tsurface != tsurface)
+     tbm_surface_queue_release(output_hwc->pp_tqueue, pp_tsurface);
+
+   return EINA_FALSE;
+}
+
+static void
+_e_output_hwc_windows_pp_commit_handler(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h tsurface_dst, void *user_data)
+{
+   E_Output *output = NULL;
+   E_Output_Hwc *output_hwc = NULL;
+   E_Hwc_Window_Commit_Data *data = NULL;
+
+   output_hwc = (E_Output_Hwc *)user_data;
+   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+   data = _e_output_hwc_windows_pp_data_get(output_hwc, tsurface_src);
+   EINA_SAFETY_ON_NULL_RETURN(data);
+
+   output_hwc->pp_data_list = eina_list_remove(output_hwc->pp_data_list, data);
+
+   e_hwc_window_commit_data_release((E_Hwc_Window *)output_hwc->target_hwc_window);
+
+   output_hwc->wait_commit = EINA_FALSE;
+   output_hwc->pp_commit = EINA_FALSE;
+
+   ELOGF("HWC-OPT", "PP Commit Handler output_hwc(%p) tsurface src(%p) dst(%p)",
+         NULL, NULL, output_hwc, tsurface_src, tsurface_dst);
+
+   /* if pp_set is false, skip the commit */
+   if (!output_hwc->pp_set)
+     {
+        if (output_hwc->tpp)
+          {
+             tdm_pp_destroy(output_hwc->tpp);
+             output_hwc->tpp = NULL;
+          }
+        goto done;
+     }
+
+   output = output_hwc->output;
+   if (e_output_dpms_get(output))
+     {
+        _e_output_hwc_windows_pp_pending_data_remove(output_hwc);
+        tbm_surface_queue_release(output_hwc->pp_tqueue, tsurface_dst);
+
+        goto done;
+     }
+
+   if (!_e_output_hwc_windows_pp_output_commit(output_hwc, tsurface_dst))
+     ERR("fail to _e_output_hwc_windows_pp_output_commit");
+
+done:
+   tbm_surface_internal_unref(tsurface_src);
+   tbm_surface_internal_unref(tsurface_dst);
+}
+
+static Eina_Bool
+_e_output_hwc_pp_windows_info_set(E_Output_Hwc *output_hwc, tbm_surface_h dst_tsurface)
+{
+   tdm_info_pp pp_info;
+   tdm_error ret = TDM_ERROR_NONE;
+   unsigned int aligned_width_src = 0, aligned_width_dst = 0;
+   tbm_surface_info_s surf_info_src, surf_info_dst;
+   tbm_surface_h src_tsurface = ((E_Hwc_Window *)output_hwc->target_hwc_window)->tsurface;
+
+   /* when the pp_set_info is true, change the pp set_info */
+   if (!output_hwc->pp_set_info) return EINA_TRUE;
+   output_hwc->pp_set_info = EINA_FALSE;
+
+   tbm_surface_get_info(src_tsurface, &surf_info_src);
+
+   aligned_width_src = e_output_hwc_windows_aligned_width_get(src_tsurface);
+   if (aligned_width_src == 0) return EINA_FALSE;
+
+   tbm_surface_get_info(dst_tsurface, &surf_info_dst);
+
+   aligned_width_dst = e_output_hwc_windows_aligned_width_get(dst_tsurface);
+   if (aligned_width_dst == 0) return EINA_FALSE;
+
+   pp_info.src_config.size.h = aligned_width_src;
+   pp_info.src_config.size.v = surf_info_src.height;
+   pp_info.src_config.format = surf_info_src.format;
+
+   pp_info.dst_config.size.h = aligned_width_dst;
+   pp_info.dst_config.size.v = surf_info_dst.height;
+   pp_info.dst_config.format = surf_info_dst.format;
+
+   pp_info.transform = TDM_TRANSFORM_NORMAL;
+   pp_info.sync = 0;
+   pp_info.flags = 0;
+
+   pp_info.src_config.pos.x = output_hwc->pp_rect.x;
+   pp_info.src_config.pos.y = output_hwc->pp_rect.y;
+   pp_info.src_config.pos.w = output_hwc->pp_rect.w;
+   pp_info.src_config.pos.h = output_hwc->pp_rect.h;
+   pp_info.dst_config.pos.x = 0;
+   pp_info.dst_config.pos.y = 0;
+   pp_info.dst_config.pos.w = surf_info_dst.width;
+   pp_info.dst_config.pos.h = surf_info_dst.height;
+
+   ret = tdm_pp_set_info(output_hwc->tpp, &pp_info);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
+
+   ELOGF("HWC-OPT", "PP Info  Output_Hwc(%p) src_rect(%d,%d),(%d,%d), dst_rect(%d,%d),(%d,%d)",
+         NULL, NULL, output_hwc,
+         pp_info.src_config.pos.x, pp_info.src_config.pos.y, pp_info.src_config.pos.w, pp_info.src_config.pos.h,
+         pp_info.dst_config.pos.x, pp_info.dst_config.pos.y, pp_info.dst_config.pos.w, pp_info.dst_config.pos.h);
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_pp_data_commit(E_Output_Hwc *output_hwc, E_Hwc_Window_Commit_Data *commit_data)
+{
+   E_Output *output = NULL;
+   tbm_surface_h pp_tsurface = NULL;
+   tbm_error_e tbm_err = TBM_ERROR_NONE;
+   tdm_error tdm_err = TDM_ERROR_NONE;
+   tbm_surface_h tsurface = commit_data->tsurface;
+
+   ELOGF("HWC-OPT", "PP Commit  Output_Hwc(%p)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
+            NULL, NULL, output_hwc, commit_data->tsurface, output_hwc->pp_tqueue,
+            commit_data->buffer_ref.buffer ? commit_data->buffer_ref.buffer->resource : NULL, commit_data);
+
+   output = output_hwc->output;
+   if (e_output_dpms_get(output))
+     {
+        _e_output_hwc_windows_pp_pending_data_remove(output_hwc);
+        return EINA_FALSE;
+     }
+
+   tbm_err = tbm_surface_queue_dequeue(output_hwc->pp_tqueue, &pp_tsurface);
+   if (tbm_err != TBM_ERROR_NONE)
+     {
+        ERR("fail tbm_surface_queue_dequeue");
+        return EINA_FALSE;
+     }
+
+   if (!_e_output_hwc_pp_windows_info_set(output_hwc, pp_tsurface))
+     {
+        ERR("fail _e_output_hwc_windows_info_set");
+        goto pp_fail;
+     }
+
+   tdm_err = tdm_pp_set_done_handler(output_hwc->tpp, _e_output_hwc_windows_pp_commit_handler, output_hwc);
+   EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, pp_fail);
+
+   tbm_surface_internal_ref(pp_tsurface);
+   tbm_surface_internal_ref(commit_data->tsurface);
+   tdm_err = tdm_pp_attach(output_hwc->tpp, commit_data->tsurface, pp_tsurface);
+   EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, attach_fail);
+
+   output_hwc->pp_data_list = eina_list_append(output_hwc->pp_data_list, commit_data);
+
+   tdm_err = tdm_pp_commit(output_hwc->tpp);
+   EINA_SAFETY_ON_FALSE_GOTO(tdm_err == TDM_ERROR_NONE, commit_fail);
+
+   output_hwc->wait_commit = EINA_TRUE;
+   output_hwc->pp_commit = EINA_TRUE;
+
+   return EINA_TRUE;
+
+commit_fail:
+   output_hwc->pp_data_list = eina_list_remove(output_hwc->pp_data_list, commit_data);
+attach_fail:
+   tbm_surface_internal_unref(pp_tsurface);
+   tbm_surface_internal_unref(tsurface);
+pp_fail:
+   tbm_surface_queue_release(output_hwc->pp_tqueue, pp_tsurface);
+
+   ERR("failed _e_output_hwc_windows_pp_data_commit");
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_pp_commit(E_Output_Hwc *output_hwc)
+{
+   E_Hwc_Window_Commit_Data *commit_data = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc->pp_tqueue, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc->target_hwc_window, EINA_FALSE);
+
+   commit_data = ((E_Hwc_Window *)output_hwc->target_hwc_window)->commit_data;
+   if (!commit_data) return EINA_TRUE;
+   if (!commit_data->tsurface) return EINA_TRUE;
+   if (_e_output_hwc_windows_pp_data_get(output_hwc, commit_data->tsurface))
+     return EINA_TRUE;
+
+   if (!tbm_surface_queue_can_dequeue(output_hwc->pp_tqueue, 0))
+     {
+        ELOGF("HWC-OPT", "PP Commit  Can Dequeue failed Output_Hwc(%p)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
+              NULL, NULL, output_hwc, commit_data->tsurface, output_hwc->pp_tqueue,
+              commit_data->buffer_ref.buffer ? commit_data->buffer_ref.buffer->resource : NULL, commit_data);
+        output_hwc->pending_pp_data_list = eina_list_append(output_hwc->pending_pp_data_list, commit_data);
+        return EINA_TRUE;
+     }
+
+   if (eina_list_count(output_hwc->pending_pp_data_list) != 0)
+     {
+        ELOGF("HWC-OPT", "PP Commit  Pending pp data remained Output_Hwc(%p)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
+              NULL, NULL, output_hwc, commit_data->tsurface, output_hwc->pp_tqueue,
+              commit_data->buffer_ref.buffer ? commit_data->buffer_ref.buffer->resource : NULL, commit_data);
+        output_hwc->pending_pp_data_list = eina_list_append(output_hwc->pending_pp_data_list, commit_data);
+        return EINA_TRUE;
+     }
+
+   if (!_e_output_hwc_windows_pp_data_commit(output_hwc, commit_data))
+     {
+        ERR("fail _e_output_hwc_windows_pp_data_commit");
+        e_hwc_window_commit_data_release((E_Hwc_Window *)output_hwc->target_hwc_window);
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
 EINTERN Eina_Bool
 e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
 {
@@ -1537,12 +2060,153 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
      {
         tdm_error error = TDM_ERROR_NONE;
 
-        ELOGF("HWC-OPT", "!!!!!!!! Output Commit !!!!!!!!", NULL, NULL);
-        error = tdm_output_commit(output->toutput, 0, _e_output_hwc_windows_commit_handler, output_hwc);
-        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+       if (output->zoom_set)
+         {
+            e_output_zoom_rotating_check(output);
+            ELOGF("HWC-OPT", "###### PP Commit", NULL, NULL);
+            if (!_e_output_hwc_windows_pp_commit(output_hwc))
+              {
+                ERR("_e_output_hwc_windows_pp_commit failed.");
+                return EINA_FALSE;
+              }
+         }
+       else
+         {
+            ELOGF("HWC-OPT", "!!!!!!!! Output Commit !!!!!!!!", NULL, NULL);
+            error = tdm_output_commit(output->toutput, 0, _e_output_hwc_windows_commit_handler, output_hwc);
+            EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
-        output_hwc->wait_commit = EINA_TRUE;
+            output_hwc->wait_commit = EINA_TRUE;
+         }
      }
 
    return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_output_hwc_windows_pp_commit_possible_check(E_Output_Hwc *output_hwc)
+{
+   if (!output_hwc->pp_set) return EINA_FALSE;
+
+   if (output_hwc->pp_tqueue)
+     {
+        if (!tbm_surface_queue_can_dequeue(output_hwc->pp_tqueue, 0))
+          return EINA_FALSE;
+     }
+
+   if (output_hwc->pending_pp_data_list)
+     {
+        if (eina_list_count(output_hwc->pending_pp_data_list) != 0)
+          return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_output_hwc_windows_zoom_set(E_Output_Hwc *output_hwc, Eina_Rectangle *rect)
+{
+   E_Comp_Screen *e_comp_screen = NULL;
+   tdm_error ret = TDM_ERROR_NONE;
+   int w, h;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+
+   if ((output_hwc->pp_rect.x == rect->x) &&
+       (output_hwc->pp_rect.y == rect->y) &&
+       (output_hwc->pp_rect.w == rect->w) &&
+       (output_hwc->pp_rect.h == rect->h))
+     return EINA_TRUE;
+
+   e_comp_screen = e_comp->e_comp_screen;
+   e_output_size_get(output_hwc->output, &w, &h);
+
+   if (!output_hwc->tpp)
+     {
+        output_hwc->tpp = tdm_display_create_pp(e_comp_screen->tdisplay, &ret);
+        if (ret != TDM_ERROR_NONE)
+          {
+             ERR("fail tdm pp create");
+             goto fail;
+          }
+     }
+
+   if (!output_hwc->pp_tqueue)
+     {
+        //TODO: Does e20 get the buffer flags from the tdm backend?
+        output_hwc->pp_tqueue = tbm_surface_queue_create(3, w, h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
+        if (!output_hwc->pp_tqueue)
+          {
+             ERR("fail tbm_surface_queue_create");
+             goto fail;
+          }
+     }
+
+   output_hwc->pp_rect.x = rect->x;
+   output_hwc->pp_rect.y = rect->y;
+   output_hwc->pp_rect.w = rect->w;
+   output_hwc->pp_rect.h = rect->h;
+
+   output_hwc->pp_set = EINA_TRUE;
+   output_hwc->target_hwc_window->skip_surface_set = EINA_TRUE;
+   output_hwc->pp_set_info = EINA_TRUE;
+
+   /* to wake up main loop */
+   uint64_t value = 1;
+   if (write(output_hwc->target_hwc_window->event_fd, &value, sizeof(value)) < 0)
+     ERR("failed to wake up main loop:%m");
+
+   return EINA_TRUE;
+
+fail:
+   if (output_hwc->tpp)
+     {
+        tdm_pp_destroy(output_hwc->tpp);
+        output_hwc->tpp = NULL;
+     }
+
+   return EINA_FALSE;
+}
+
+EINTERN void
+e_output_hwc_windows_zoom_unset(E_Output_Hwc *output_hwc)
+{
+   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+
+   output_hwc->pp_set_info = EINA_FALSE;
+   output_hwc->target_hwc_window->skip_surface_set = EINA_FALSE;
+   output_hwc->pp_set = EINA_FALSE;
+
+   output_hwc->pp_rect.x = 0;
+   output_hwc->pp_rect.y = 0;
+   output_hwc->pp_rect.w = 0;
+   output_hwc->pp_rect.h = 0;
+
+   _e_output_hwc_windows_pp_pending_data_remove(output_hwc);
+
+   if (output_hwc->pp_tsurface)
+     tbm_surface_queue_release(output_hwc->pp_tqueue, output_hwc->pp_tsurface);
+
+   if (output_hwc->pp_tqueue)
+     {
+        tbm_surface_queue_destroy(output_hwc->pp_tqueue);
+        output_hwc->pp_tqueue = NULL;
+     }
+
+   if (!output_hwc->pp_commit)
+     {
+        if (output_hwc->tpp)
+          {
+             tdm_pp_destroy(output_hwc->tpp);
+             output_hwc->tpp = NULL;
+          }
+     }
+
+   if (output_hwc->pp_output_commit_data)
+     output_hwc->wait_commit = EINA_TRUE;
+
+   /* to wake up main loop */
+   uint64_t value = 1;
+   if (write(output_hwc->target_hwc_window->event_fd, &value, sizeof(value)) < 0)
+     ERR("failed to wake up main loop:%m");
 }

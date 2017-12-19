@@ -29,6 +29,20 @@ struct _E_Output_Hwc
    Eina_List         *hwc_windows;
    E_Hwc_Window_Target *target_hwc_window;
    Eina_Bool          wait_commit;
+
+   /* for pp at opt_hwc */
+   tdm_pp               *tpp;
+   Eina_List            *pp_data_list;
+   Eina_List            *pending_pp_data_list;
+   Eina_List            *pending_pp_commit_data_list;
+   tbm_surface_queue_h   pp_tqueue;
+   tbm_surface_h         pp_tsurface;
+   Eina_Bool             pp_set_info;
+   Eina_Bool             pp_set;
+   Eina_Bool             pp_commit;
+   Eina_Bool             pp_output_commit;
+   E_Hwc_Window_Commit_Data  *pp_output_commit_data;
+   Eina_Rectangle        pp_rect;
 };
 
 EINTERN E_Output_Hwc      *e_output_hwc_new(E_Output *output);
@@ -47,6 +61,10 @@ EINTERN Eina_Bool          e_output_hwc_windows_enabled(E_Output_Hwc *output_hwc
 EINTERN const Eina_List   *e_output_hwc_windows_get(E_Output_Hwc *output_hwc);
 EINTERN Eina_Bool          e_output_hwc_windows_render(E_Output_Hwc *output_hwc);
 EINTERN Eina_Bool          e_output_hwc_windows_commit(E_Output_Hwc *output_hwc);
+
+EINTERN Eina_Bool          e_output_hwc_windows_pp_commit_possible_check(E_Output_Hwc *output_hwc);
+EINTERN Eina_Bool          e_output_hwc_windows_zoom_set(E_Output_Hwc *output_hwc, Eina_Rectangle *rect);
+EINTERN void               e_output_hwc_windows_zoom_unset(E_Output_Hwc *output_hwc);
 
 #endif
 #endif

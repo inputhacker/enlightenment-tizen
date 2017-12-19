@@ -76,6 +76,8 @@ struct _E_Hwc_Window_Target
    /* a surface the rendering is currently performing at */
    tbm_surface_h       currently_dequeued_surface;
    Eina_List          *current_e_hwc_wnd_composited_list;
+
+   Eina_Bool skip_surface_set;
 };
 
 struct _E_Hwc_Window_Commit_Data {

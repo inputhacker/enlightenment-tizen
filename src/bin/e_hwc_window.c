@@ -1186,6 +1186,13 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
         target_hwc_window = (E_Hwc_Window_Target *)hwc_window;
 
+        if (target_hwc_window->skip_surface_set)
+          {
+             hwc_window->update_exist = EINA_TRUE;
+
+             return EINA_TRUE;
+          }
+
         /* the damage isn't supported by hwc extension yet */
         memset(&fb_damage, 0, sizeof(fb_damage));
 
@@ -1308,6 +1315,8 @@ EINTERN Eina_Bool
 e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
 {
    E_Hwc_Window_Commit_Data *commit_data = NULL;
+
+   if (hwc_window->commit_data) return EINA_FALSE;
 
    if (!e_hwc_window_is_on_hw_overlay(hwc_window))
      {
