@@ -288,7 +288,6 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
 {
    const char *name = NULL;
    E_Hwc_Window_Target *target_hwc_window = NULL;
-   tdm_error error = TDM_ERROR_NONE;
    E_Output *output = NULL;
 
    name = ecore_evas_engine_name_get(e_comp->ee);
@@ -335,16 +334,7 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
    ((E_Hwc_Window *)target_hwc_window)->type = TDM_COMPOSITION_DEVICE;
    ((E_Hwc_Window *)target_hwc_window)->output = output;
 
-   target_hwc_window->hwc_window.hwc_wnd = tdm_output_hwc_create_window(output->toutput, &error);
-   EINA_SAFETY_ON_TRUE_GOTO(error != TDM_ERROR_NONE, fail);
-
    target_hwc_window->hwc_window.is_excluded = EINA_TRUE;
-   error = tdm_hwc_window_set_composition_type(target_hwc_window->hwc_window.hwc_wnd,
-           TDM_COMPOSITION_NONE);
-   EINA_SAFETY_ON_TRUE_GOTO(error != TDM_ERROR_NONE, fail);
-
-   error = tdm_hwc_window_set_zpos(target_hwc_window->hwc_window.hwc_wnd, 0);
-   EINA_SAFETY_ON_TRUE_GOTO(error != TDM_ERROR_NONE, fail);
 
    target_hwc_window->ee = e_comp->ee;
    target_hwc_window->evas = ecore_evas_get(target_hwc_window->ee);
@@ -1204,19 +1194,6 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
                   hwc_wnds[i++] = e_hwc_wnd->hwc_wnd;
                }
 
-          }
-        else
-          {
-             /* if the surface has no composited hwc-wnds, despite of the fact that it was
-              * composited and fetched, it's where the e-boot-animation takes place, so we
-              * just say tdm-backend that our fake hwc-wnd got composited to this surface,
-              * as we can't pass 'NULL, 0' */
-             hwc_wnds_amount = 1;
-
-             hwc_wnds = E_NEW(tdm_hwc_window *, hwc_wnds_amount);
-             EINA_SAFETY_ON_NULL_GOTO(hwc_wnds, error);
-
-             hwc_wnds[0] = target_hwc_window->hwc_window.hwc_wnd;
           }
 
         tdm_output_hwc_set_client_target_buffer(output->toutput, tsurface, fb_damage,

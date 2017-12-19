@@ -102,16 +102,20 @@ _e_output_hwc_windows_need_target_hwc_window(E_Output_Hwc *output_hwc)
 {
    Eina_List *l;
    E_Hwc_Window *hwc_window;
+   int num_vis_wnd = 0;
 
    EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
      {
         if (hwc_window->is_excluded) continue;
 
-        if (e_hwc_window_is_target(hwc_window)) return EINA_TRUE;
-
         if (!e_hwc_window_is_on_hw_overlay(hwc_window))
           return EINA_TRUE;
+
+        num_vis_wnd++;
      }
+
+   if (!num_vis_wnd)
+     return EINA_TRUE;
 
    return EINA_FALSE;
 }
@@ -128,7 +132,8 @@ _e_output_hwc_windows_all_windows_init(E_Output_Hwc *output_hwc)
         if (e_hwc_window_is_video(hwc_window)) continue;
 
         hwc_window->is_excluded = EINA_TRUE;
-        tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_NONE);
+        if (hwc_window->hwc_wnd)
+          tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_NONE);
      }
 
    return EINA_TRUE;
@@ -576,12 +581,10 @@ _e_output_hwc_windows_hwc_acceptable_check(Eina_List *vis_cl_list)
      }
 }
 
-/* fake window is needed if there are no visible clients(animation in the loading time, etc)*/
 static Eina_Bool
-_e_output_hwc_windows_enable_target_window(E_Output_Hwc *output_hwc, Eina_Bool need_fake_window)
+_e_output_hwc_windows_enable_target_window(E_Output_Hwc *output_hwc)
 {
    E_Hwc_Window *hwc_window;
-   tdm_error err;
 
    if (!output_hwc->target_hwc_window)
      {
@@ -592,15 +595,6 @@ _e_output_hwc_windows_enable_target_window(E_Output_Hwc *output_hwc, Eina_Bool n
    hwc_window = (E_Hwc_Window*)output_hwc->target_hwc_window;
 
    hwc_window->is_excluded = EINA_FALSE;
-   if (need_fake_window)
-     {
-        err = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_CLIENT);
-        if (err != TDM_ERROR_NONE)
-          {
-             ERR("fail to set CLIENT composition type for target_window");
-             return EINA_FALSE;
-          }
-     }
 
    return EINA_TRUE;
 }
@@ -635,12 +629,6 @@ _e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
 
    /* get the visible ecs */
    vis_clist = _e_output_hwc_windows_vis_ec_list_get(output_hwc);
-   if (!vis_clist)
-     {
-        /* enable the target hwc_window if there are no visible clients */
-        result = _e_output_hwc_windows_enable_target_window(output_hwc, EINA_TRUE);
-        EINA_SAFETY_ON_FALSE_GOTO(result, done);
-     }
 
    /* check the gles composite with all hwc_windows. */
    if (!_e_output_hwc_windows_full_gl_composite_check(output_hwc, vis_clist))
@@ -663,14 +651,8 @@ _e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
    if (comp_mode == HWC_OPT_COMP_MODE_HYBRID)
      {
         ELOGF("HWC-OPT", " HWC_MODE is HYBRID composition.", NULL, NULL);
-        /* don't pass EINA_TRUE for need_fake_window here, 'cause
-        * such action makes us to call tdm_output_validate() again;
-        *
-        * a hwc_window owned by e_target_hwc_window object is the fake hwc_window,
-        * which is used only to force tdm provide us fb_target_window, so if got here
-        * it means that tdm decided to use fb_target_window yet, this choice can be
-        * considered like if we set a CLIENT composition type for the hwc_window */
-        result = _e_output_hwc_windows_enable_target_window(output_hwc, EINA_FALSE);
+
+        result = _e_output_hwc_windows_enable_target_window(output_hwc);
         EINA_SAFETY_ON_FALSE_GOTO(result, done);
      }
    else
