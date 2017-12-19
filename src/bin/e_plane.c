@@ -265,6 +265,40 @@ _e_plane_aligned_width_get(tbm_surface_h tsurface)
    return aligned_width;
 }
 
+static void
+_e_plane_cursor_position_get(E_Pointer *ptr, int width, int height, int *x, int *y)
+{
+   int rotation;
+
+   rotation = ptr->rotation;
+
+   switch (rotation)
+     {
+      case 0:
+        *x = ptr->x - ptr->hot.x;
+        *y = ptr->y - ptr->hot.y;
+        break;
+      case 90:
+        *x = ptr->x - ptr->hot.y;
+        *y = ptr->y + ptr->hot.x - width;
+        break;
+      case 180:
+        *x = ptr->x + ptr->hot.x - width;
+        *y = ptr->y + ptr->hot.y - height;
+        break;
+      case 270:
+        *x = ptr->x + ptr->hot.y - height;
+        *y = ptr->y - ptr->hot.x;
+        break;
+      default:
+        *x = ptr->x - ptr->hot.x;
+        *y = ptr->y - ptr->hot.y;
+        break;
+     }
+
+   return;
+}
+
 static Eina_Bool
 _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
 {
@@ -296,8 +330,8 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
                   return EINA_FALSE;
                }
 
-             dst_x = pointer->x - pointer->hot.x;
-             dst_y = pointer->y - pointer->hot.y;
+             _e_plane_cursor_position_get(pointer, surf_info.width, surf_info.height,
+                                          &dst_x, &dst_y);
           }
         else
           {
@@ -2057,6 +2091,13 @@ e_plane_offscreen_commit(E_Plane *plane)
    if (plane->ec)
      e_pixmap_image_clear(plane->ec->pixmap, 1);
 
+   if (!plane->is_fb && plane->unset_ec_pending)
+     {
+        plane->unset_ec_pending = EINA_FALSE;
+        e_plane_ec_set(plane, NULL);
+        INF("Plane:%p zpos:%d Done unset_ec_pending", plane, plane->zpos);
+     }
+
    return EINA_TRUE;
 }
 
@@ -2106,6 +2147,13 @@ e_plane_commit(E_Plane *plane)
    plane->wait_commit = EINA_TRUE;
 
    _e_plane_update_fps(plane);
+
+   if (!plane->is_fb && plane->unset_ec_pending)
+     {
+        plane->unset_ec_pending = EINA_FALSE;
+        e_plane_ec_set(plane, NULL);
+        INF("Plane:%p zpos:%d Done unset_ec_pending", plane, plane->zpos);
+     }
 
    return EINA_TRUE;
 }
@@ -2316,8 +2364,11 @@ e_plane_reserved_set(E_Plane *plane, Eina_Bool set)
                }
              else
                {
-                  _e_plane_renderer_unset(plane);
-                  e_plane_role_set(plane, E_PLANE_ROLE_NONE);
+                  if (!plane->ec)
+                    {
+                       _e_plane_renderer_unset(plane);
+                       e_plane_role_set(plane, E_PLANE_ROLE_NONE);
+                    }
                }
           }
      }
@@ -2522,7 +2573,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
      ELOGF("E_PLANE", "Request Plane(%p) zpos(%d)   Set ec(%p, %s)",
            (ec ? ec->pixmap : NULL), ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
-   if (ec && (plane->is_fb || !plane->ec))
+   if (ec && !e_object_is_del(E_OBJECT(ec)) && (plane->is_fb || !plane->ec))
      {
         if (plane->ec == ec) return EINA_TRUE;
 
@@ -2623,6 +2674,26 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
          *    we set the unset_candidate flags to the plane and measure to unset
          *    the plane at the e_output_commit.
          */
+        if (!plane->is_fb && plane->ec && plane->set_counter &&
+            evas_object_visible_get(plane->ec->frame))
+          {
+             if (!plane->unset_ec_pending)
+               {
+                  INF("Plane:%p zpos:%d Set unset_ec_pending ", plane, plane->zpos);
+                  plane->unset_ec_pending = EINA_TRUE;
+               }
+
+             if (ec)
+               return EINA_FALSE;
+             else
+               return EINA_TRUE;
+          }
+
+        if (plane->unset_ec_pending)
+          {
+             INF("Plane:%p zpos:%d Reset unset_ec_pending", plane, plane->zpos);
+             plane->unset_ec_pending = EINA_FALSE;
+          }
 
         if (plane->ec_redirected && plane->ec) e_client_redirected_set(plane->ec, EINA_TRUE);
 

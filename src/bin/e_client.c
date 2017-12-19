@@ -3006,6 +3006,8 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
    Eina_List *changed_list = NULL;
    Eina_List *l = NULL;
    Eina_Bool effect_running = EINA_FALSE;
+   Eina_Bool ec_frame_visible = EINA_FALSE;
+   int calc_skip_type = 0;
 
    if (!e_config->calc_vis_without_effect)
      {
@@ -3027,11 +3029,13 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
    else
      {
         is_display_off = EINA_TRUE;
+        canvas_vis = EINA_FALSE;
         _e_client_hook_call(E_CLIENT_HOOK_CAL_VISIBILITY_DISPLAY_OFF, NULL);
      }
 
    E_CLIENT_REVERSE_FOREACH(ec)
      {
+        calc_skip_type = 0;
         if (e_object_is_del(E_OBJECT(ec))) continue;
         if (e_client_util_ignored_get(ec)) continue;
         if (ec->zone != zone) continue;
@@ -3054,7 +3058,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
                {
                   ec->visibility.changed = 1;
                }
-           }
+          }
 
         if (!e_config->calc_vis_without_effect)
           {
@@ -3071,17 +3075,20 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
         e_client_geometry_get(ec, &x, &y, &w, &h);
         ec_vis = ec_opaque = skip_rot_pending_show = is_vis_on_skip = EINA_FALSE;
         calc_region = EINA_TRUE;
+        ec_frame_visible = evas_object_visible_get(ec->frame);
 
         if (!ec->visible)
           {
              EC_IS_NOT_VISIBLE continue;
              calc_region = EINA_FALSE;
+             calc_skip_type |= 0x01;
           }
-        else if (!evas_object_visible_get(ec->frame))
+        else if (!ec_frame_visible)
           {
              if (ec->e.state.rot.pending_show)
                {
                   calc_region = EINA_FALSE;
+                  calc_skip_type |= 0x02;
                   skip_rot_pending_show = EINA_TRUE;
                }
              else
@@ -3090,12 +3097,14 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
                     {
                        EC_IS_NOT_VISIBLE continue;
                        calc_region = EINA_FALSE;
+                       calc_skip_type |= 0x04;
                     }
 
                   if (!ec->iconic)
                     {
                        EC_IS_NOT_VISIBLE continue;
                        calc_region = EINA_FALSE;
+                       calc_skip_type |= 0x08;
                     }
                   else
                     {
@@ -3103,6 +3112,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
                          {
                             EC_IS_NOT_VISIBLE continue;
                             calc_region = EINA_FALSE;
+                            calc_skip_type |= 0x10;
                          }
                     }
                }
@@ -3139,13 +3149,13 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
                        /* previous state is obscured: -1 or 1 */
                        ec->visibility.obscured = E_VISIBILITY_UNOBSCURED;
                        ec->visibility.changed = 1;
-                       ELOG("CLIENT VIS ON", ec->pixmap, ec);
+                       ELOGF("TZVIS", "CLIENT VIS ON.  argb:%2d, opaque:%d", ec->pixmap, ec, ec->argb, ec->visibility.opaque);
                     }
                   else
                     {
                        if (!is_above_rot_pending)
                          is_vis_on_skip = EINA_TRUE;
-                       ELOG("CLIENT VIS ON-SKIP", ec->pixmap, ec);
+                       ELOGF("TZVIS", "CLIENT VIS ON-SKIP. argb:%2d, opaque:%d", ec->pixmap, ec, ec->argb, ec->visibility.opaque);
                     }
                }
 
@@ -3185,7 +3195,9 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
                        /* previous state is unobscured: -1 or 0 */
                        ec->visibility.obscured = E_VISIBILITY_FULLY_OBSCURED;
                        ec->visibility.changed = 1;
-                       ELOG("CLIENT VIS OFF", ec->pixmap, ec);
+                       ELOGF("TZVIS", "CLIENT VIS OFF. argb:%d, opaque:%2d, frame_v:%d, canvas_v:%d, calc_r:%d(%d), rot_p:%d",
+                             ec->pixmap, ec, ec->argb, ec->visibility.opaque,
+                             ec_frame_visible, canvas_vis, calc_region, calc_skip_type, skip_rot_pending_show);
                     }
                }
           }
