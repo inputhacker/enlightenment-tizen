@@ -713,20 +713,14 @@ _einput_device_input_thread_udev_backend_heavy(void *data, Ecore_Thread *th, voi
         return;
      }
 
-   /* set libinput log priority */
-   env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_DISABLE);
-   if ((env) && (atoi(env) == 1))
+   if (input->log_disable)
      libinput_log_set_handler(input->libinput, NULL);
    else
      {
-        env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG);
-        if ((env) && (atoi(env) == 1))
-          libinput_log_set_handler(input->libinput,
-                                   e_input_device_libinput_log_handler);
+        if (input->log_use_eina)
+          libinput_log_set_handler(input->libinput, e_input_device_libinput_log_handler);
+        libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);
      }
-   E_FREE(env);
-
-   libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);
 
    TRACE_INPUT_BEGIN(libinput_udev_assign_seat);
    /* assign udev seat */
@@ -817,6 +811,22 @@ e_input_device_input_create_libinput_udev(E_Input_Device *dev)
    /* set reference for parent device */
    input->dev = dev;
 
+   input->log_disable = EINA_FALSE;
+   input->log_use_eina = EINA_FALSE;
+
+   env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_DISABLE);
+   if ((env) && (atoi(env) == 1))
+     input->log_disable = EINA_TRUE;
+   else
+     {
+        if (env) E_FREE(env);
+
+        env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG);
+        if ((env) && (atoi(env) == 1))
+          input->log_use_eina = EINA_TRUE;
+     }
+   E_FREE(env);
+
    env = e_util_env_get("E_INPUT_USE_THREAD_INIT");
    if (env)
      {
@@ -847,22 +857,14 @@ e_input_device_input_create_libinput_udev(E_Input_Device *dev)
         goto err;
      }
 
-   /* set libinput log priority */
-   env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_DISABLE);
-   if ((env) && (atoi(env) == 1))
+   if (input->log_disable)
      libinput_log_set_handler(input->libinput, NULL);
    else
      {
-        E_FREE(env);
-
-        env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG);
-        if ((env) && (atoi(env) == 1))
-          libinput_log_set_handler(input->libinput,
-                                   e_input_device_libinput_log_handler);
+        if (input->log_use_eina)
+          libinput_log_set_handler(input->libinput, e_input_device_libinput_log_handler);
+        libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);
      }
-   E_FREE(env);
-
-   libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);
 
    /* assign udev seat */
    TRACE_INPUT_BEGIN(libinput_udev_assign_seat);
@@ -930,6 +932,22 @@ e_input_device_input_create_libinput_path(E_Input_Device *dev)
    /* set reference for parent device */
    input->dev = dev;
 
+   input->log_disable = EINA_FALSE;
+   input->log_use_eina = EINA_FALSE;
+
+   env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_DISABLE);
+   if ((env) && (atoi(env) == 1))
+     input->log_disable = EINA_TRUE;
+   else
+     {
+        if (env) E_FREE(env);
+
+        env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG);
+        if ((env) && (atoi(env) == 1))
+          input->log_use_eina = EINA_TRUE;
+     }
+   E_FREE(env);
+
    /* try to create libinput context */
    input->libinput =
      libinput_path_create_context(&_input_interface, input);
@@ -939,22 +957,14 @@ e_input_device_input_create_libinput_path(E_Input_Device *dev)
         goto err;
      }
 
-   /* set libinput log priority */
-   env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_DISABLE);
-   if ((env) && (atoi(env) == 1))
+   if (input->log_disable)
      libinput_log_set_handler(input->libinput, NULL);
    else
      {
-        E_FREE(env);
-
-        env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG);
-        if ((env) && (atoi(env) == 1))
-          libinput_log_set_handler(input->libinput,
-                                   e_input_device_libinput_log_handler);
+        if (input->log_use_eina)
+          libinput_log_set_handler(input->libinput, e_input_device_libinput_log_handler);
+        libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);
      }
-   E_FREE(env);
-
-   libinput_log_set_priority(input->libinput, LIBINPUT_LOG_PRIORITY_INFO);
 
    for (int i = 0; i < devices_num; i++)
      {

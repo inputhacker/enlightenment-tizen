@@ -47,6 +47,9 @@ struct _E_Input_Backend
 
    Ecore_Thread *thread;
    Eina_Bool use_thread : 1;
+
+   Eina_Bool log_disable : 1;
+   Eina_Bool log_use_eina : 1;
 };
 
 struct _E_Input_Evdev
