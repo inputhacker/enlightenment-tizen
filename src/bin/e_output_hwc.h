@@ -28,6 +28,7 @@ struct _E_Output_Hwc
    Eina_Bool          opt_hwc;
    Eina_List         *hwc_windows;
    E_Hwc_Window_Target *target_hwc_window;
+   Eina_Bool          wait_commit;
 };
 
 EINTERN E_Output_Hwc      *e_output_hwc_new(E_Output *output);

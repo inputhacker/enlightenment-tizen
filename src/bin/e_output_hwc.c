@@ -708,12 +708,9 @@ _e_output_hwc_windows_commit_handler(tdm_output *toutput, unsigned int sequence,
 {
    const Eina_List *l;
    E_Hwc_Window *window;
-   E_Output *output = NULL;
    E_Output_Hwc *output_hwc = (E_Output_Hwc *)user_data;
 
    EINA_SAFETY_ON_NULL_RETURN(output_hwc);
-
-   output = output_hwc->output;
 
    EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, window)
      {
@@ -724,7 +721,7 @@ _e_output_hwc_windows_commit_handler(tdm_output *toutput, unsigned int sequence,
 
    /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
     * a 'page flip' happened so it's time to allow to make 'fetch and commit' for the e_output */
-   output->wait_commit = EINA_FALSE;
+   output_hwc->wait_commit = EINA_FALSE;
 }
 
 /* we can do commit if we set surface at least to one window which displayed on
@@ -1536,7 +1533,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
 
    ELOGF("HWC-OPT", "###### Prepare Windows Commit(Fetch the buffers)", NULL, NULL);
 
-   if (output->wait_commit) return EINA_TRUE;
+   if (output_hwc->wait_commit) return EINA_TRUE;
 
    EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
      {
@@ -1574,7 +1571,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
         error = tdm_output_commit(output->toutput, 0, _e_output_hwc_windows_commit_handler, output_hwc);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
-        output->wait_commit = EINA_TRUE;
+        output_hwc->wait_commit = EINA_TRUE;
      }
 
    return EINA_TRUE;
