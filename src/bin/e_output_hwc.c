@@ -1549,7 +1549,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
      {
         tdm_error error = TDM_ERROR_NONE;
 
-        ELOGF("HWC-OPT", "###### Output Commit", NULL, NULL);
+        ELOGF("HWC-OPT", "!!!!!!!! Output Commit !!!!!!!!", NULL, NULL);
         error = tdm_output_commit(output->toutput, 0, _e_output_hwc_windows_commit_handler, output_hwc);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
