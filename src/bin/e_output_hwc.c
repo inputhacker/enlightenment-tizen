@@ -616,10 +616,7 @@ _e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
    Eina_Bool ret = EINA_FALSE;
    Eina_Bool result;
    Eina_List *vis_clist = NULL;
-
-   /* sw compositor is turned on at the start */
-   static _hwc_opt_comp_mode prev_comp_mode = HWC_OPT_COMP_MODE_HYBRID;
-   _hwc_opt_comp_mode comp_mode;
+   E_Output_Hwc_Mode hwc_mode = E_OUTPUT_HWC_MODE_NO;
 
    ELOGF("HWC-OPT", "###### Output HWC Apply (evaluate) ===", NULL, NULL);
 
@@ -645,10 +642,10 @@ _e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
    EINA_SAFETY_ON_FALSE_GOTO(result, done);
 
    /* TODO: decide the E_OUTPUT_HWC_MODE */
-   comp_mode = _e_output_hwc_windows_need_target_hwc_window(output_hwc) ?
-           HWC_OPT_COMP_MODE_HYBRID : HWC_OPT_COMP_MODE_FULL_HWC;
+   hwc_mode = _e_output_hwc_windows_need_target_hwc_window(output_hwc) ?
+           E_OUTPUT_HWC_MODE_HYBRID : E_OUTPUT_HWC_MODE_FULL;
 
-   if (comp_mode == HWC_OPT_COMP_MODE_HYBRID)
+   if (hwc_mode == E_OUTPUT_HWC_MODE_HYBRID || hwc_mode == E_OUTPUT_HWC_MODE_NO)
      {
         ELOGF("HWC-OPT", " HWC_MODE is HYBRID composition.", NULL, NULL);
 
@@ -658,14 +655,14 @@ _e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
    else
      ELOGF("HWC-OPT", " HWC_MODE is FULL HW composition.", NULL, NULL);
 
-   if (prev_comp_mode != comp_mode)
+   if (output_hwc->hwc_mode != hwc_mode)
      {
-        if (comp_mode == HWC_OPT_COMP_MODE_FULL_HWC)
+        if (hwc_mode == E_OUTPUT_HWC_MODE_FULL)
           ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
-        else if(comp_mode == HWC_OPT_COMP_MODE_HYBRID)
+        else if(hwc_mode == E_OUTPUT_HWC_MODE_HYBRID)
           ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
 
-        prev_comp_mode = comp_mode;
+        output_hwc->hwc_mode  = hwc_mode;
      }
 
    /* set the buffer of the excluded hwc_window to be NULL. */
