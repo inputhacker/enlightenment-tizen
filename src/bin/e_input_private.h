@@ -46,10 +46,12 @@ struct _E_Input_Backend
    Eina_Bool left_handed : 1;
 
    Ecore_Thread *thread;
-   Eina_Bool use_thread : 1;
+   E_Input_Libinput_Backend backend;
 
    Eina_Bool log_disable : 1;
    Eina_Bool log_use_eina : 1;
+
+   unsigned int path_ndevices;
 };
 
 struct _E_Input_Evdev
