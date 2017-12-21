@@ -2501,6 +2501,40 @@ _e_info_server_cb_wins_dump(const Eldbus_Service_Interface *iface EINA_UNUSED, c
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_force_visible(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   unsigned int obj;
+   Eina_Bool visible;
+   Evas_Object *o;
+   E_Client *ec;
+
+   if (!eldbus_message_arguments_get(msg, SIGNATURE_FORCE_VISIBLE_CLIENT, &obj, &visible))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+   o = (Evas_Object*)((uintptr_t)obj);
+
+   ec = evas_object_data_get(o, "E_Client");
+   if (ec && !e_pixmap_resource_get(ec->pixmap))
+     {
+        char msg[256];
+        snprintf(msg, sizeof msg, "obj(%p) doesn't have valid wl_buffer", o);
+        eldbus_message_arguments_append(reply, "s", msg);
+        return reply;
+     }
+
+   if (visible)
+     evas_object_show(o);
+   else
+     evas_object_hide(o);
+
+   return reply;
+}
+
 /* Method Handlers */
 static Eldbus_Message *
 _e_info_server_cb_subsurface(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
@@ -5118,6 +5152,7 @@ static const Eldbus_Method methods[] = {
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
    { "subsurface", NULL, ELDBUS_ARGS({"a("SIGNATURE_SUBSURFACE")", "array of ec"}), _e_info_server_cb_subsurface, 0 },
    { "dump_wins", ELDBUS_ARGS({SIGNATURE_DUMP_WINS, "directory"}), NULL, _e_info_server_cb_wins_dump, 0 },
+   { "set_force_visible", ELDBUS_ARGS({SIGNATURE_FORCE_VISIBLE_CLIENT, "obj"}), ELDBUS_ARGS({SIGNATURE_FORCE_VISIBLE_SERVER, "msg"}), _e_info_server_cb_force_visible, 0 },
    { "eina_log_levels", ELDBUS_ARGS({"s", "eina log levels"}), NULL, _e_info_server_cb_eina_log_levels, 0 },
    { "eina_log_path", ELDBUS_ARGS({"s", "eina log path"}), NULL, _e_info_server_cb_eina_log_path, 0 },
 #ifdef HAVE_DLOG
