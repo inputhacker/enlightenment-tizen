@@ -18,7 +18,7 @@ _e_output_hwc_canvas_render_flush_post(void *data, Evas *e EINA_UNUSED, void *ev
    E_Hwc_Window_Target *target_hwc_window = output_hwc->target_hwc_window;
    Eina_List *e_hwc_wnd_composited_list;
 
-#if 0
+#if 1
    target_hwc_window->post_render_flush_cnt--;
    ELOGF("HWC-OPT", "[soolim] render_flush_post -- the target_hwc_window(%p) post_render_flush_cnt(%d) e_comp->evas(%p) evas(%p)",
            NULL, NULL, target_hwc_window, target_hwc_window->post_render_flush_cnt, e_comp->evas, e);
@@ -290,14 +290,15 @@ _e_output_hwc_windows_update(E_Output_Hwc *output_hwc, Eina_List *cl_list)
              continue;
           }
 
-        hwc_window->is_excluded = EINA_FALSE;
-
         result = e_hwc_window_set_zpos(hwc_window, zpos);
         if (result != EINA_TRUE)
           {
              ERR("hwc-opt: cannot set zpos for E_Hwc_Window(%p)", hwc_window);
              continue;
           }
+
+        /* e20 deal with video window at the e_comp_wl_video */
+        if (e_hwc_window_is_video(hwc_window)) continue;
 
         result = e_hwc_window_update(hwc_window);
         if (result != EINA_TRUE)
@@ -599,17 +600,6 @@ _e_output_hwc_windows_enable_target_window(E_Output_Hwc *output_hwc)
    return EINA_TRUE;
 }
 
-static void
-_e_output_hwc_windows_exclued_windows_buffers_reset(E_Output_Hwc *output_hwc)
-{
-   const Eina_List *hwc_windows, *l;
-   E_Hwc_Window *hwc_window = NULL;
-
-   hwc_windows = e_output_hwc_windows_get(output_hwc);
-   EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
-     if (hwc_window->is_excluded) hwc_window->tsurface = NULL;
-}
-
 static Eina_Bool
 _e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
 {
@@ -664,9 +654,6 @@ _e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
 
         output_hwc->hwc_mode  = hwc_mode;
      }
-
-   /* set the buffer of the excluded hwc_window to be NULL. */
-   _e_output_hwc_windows_exclued_windows_buffers_reset(output_hwc);
 
    /* update the activate/decativate state */
    _e_output_hwc_windows_activation_states_update(output_hwc);
@@ -1512,7 +1499,11 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
 
    ELOGF("HWC-OPT", "###### Prepare Windows Commit(Fetch the buffers)", NULL, NULL);
 
-   if (output_hwc->wait_commit) return EINA_TRUE;
+   if (output_hwc->wait_commit)
+     {
+        ELOGF("HWC-OPT", "!!!!!!!! Didn't get Output Commit Handler Yet !!!!!!!!", NULL, NULL);
+        return EINA_TRUE;
+     }
 
    EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
      {

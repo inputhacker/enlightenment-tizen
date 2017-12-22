@@ -247,10 +247,10 @@ _e_comp_screen_commit_idle_cb(void *data EINA_UNUSED)
         if (!output) continue;
         if (!output->config.enabled) continue;
 
+        e_output_hwc_apply(output->output_hwc);
+
         if (!e_output_commit(output))
              ERR("fail to commit e_comp_screen->outputs.");
-
-        e_output_hwc_apply(output->output_hwc);
 
         if (!e_output_render(output))
              ERR("fail to render e_comp_screen->outputs.");

@@ -1230,7 +1230,7 @@ _e_comp_object_pixels_noti(void *data, Evas_Object *obj EINA_UNUSED)
    E_Client *ec = cw->ec;
    E_Hwc_Window_Target *target_hwc_window;
 
-#if 0
+#if 1
    ELOGF("HWC-OPT", "[soolim] pixels_noti (name:%s, title:%s).",
          ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
 #endif
