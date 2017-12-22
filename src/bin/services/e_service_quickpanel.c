@@ -472,6 +472,7 @@ _e_qp_srv_effect_finish_job_end(E_Policy_Quickpanel *qp)
           e_policy_aux_message_send(qp->below, "quickpanel_state", "hidden", NULL);
      }
 
+   EC_CHANGED(qp->ec);
 }
 
 static Eina_Bool
