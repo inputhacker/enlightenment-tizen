@@ -32,8 +32,8 @@ struct _E_Output_Hwc
 
    /* for pp at opt_hwc */
    tdm_pp               *tpp;
-   Eina_List            *pp_data_list;
-   Eina_List            *pending_pp_data_list;
+   Eina_List            *pp_hwc_window_list;
+   Eina_List            *pending_pp_hwc_window_list;
    Eina_List            *pending_pp_commit_data_list;
    tbm_surface_queue_h   pp_tqueue;
    tbm_surface_h         pp_tsurface;
