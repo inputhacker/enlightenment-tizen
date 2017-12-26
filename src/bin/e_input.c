@@ -1,6 +1,5 @@
 #include "e.h"
 #include "e_input_private.h"
-#include "e_comp_wl_input.h"
 #include <Ecore_Input_Evas.h>
 
 int _e_input_init_count;
