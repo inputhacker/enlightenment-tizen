@@ -576,6 +576,7 @@ _remote_surface_changed_buff_protocol_send(E_Comp_Wl_Remote_Surface *rs,
              EINA_SAFETY_ON_NULL_RETURN_VAL(rbuff, EINA_FALSE);
 
              tbm = rbuff->resource;
+             EINA_SAFETY_ON_NULL_RETURN_VAL(tbm, EINA_FALSE);
 
              if ((ref_set) &&
                  (rs->version >= 2)) /* WORKAROUND for 3.0: old version wayland-scanner can't generation since macro. TIZEN_REMOTE_SURFACE_RELEASE_SINCE_VERSION */
