@@ -58,6 +58,8 @@ struct _E_Hwc_Window
 
    tbm_surface_h       cursor_tsurface;
    int                 cursor_rotation;
+
+   Eina_Bool is_device_to_client_transition;
 };
 
 struct _E_Hwc_Window_Target

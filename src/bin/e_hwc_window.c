@@ -1311,6 +1311,24 @@ _e_hwc_window_is_existed_on_target_wnd(E_Hwc_Window *e_hwc_wnd)
     return EINA_FALSE;
 }
 
+static Eina_Bool
+_e_hwc_window_is_device_to_client_transition(E_Hwc_Window *hwc_window)
+{
+   E_Hwc_Window *target_hwc_window;
+
+   if (hwc_window->is_deleted) return EINA_FALSE;
+
+   target_hwc_window = hwc_window->output->output_hwc->target_hwc_window;
+
+   if (target_hwc_window->is_excluded) return EINA_FALSE;
+   if (!hwc_window->is_device_to_client_transition) return EINA_FALSE;
+   if (e_hwc_window_is_target(hwc_window)) return EINA_FALSE;
+   if (e_hwc_window_is_cursor(hwc_window)) return EINA_FALSE;
+   if (_e_hwc_window_is_existed_on_target_wnd(hwc_window)) return EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
 EINTERN Eina_Bool
 e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
 {
@@ -1329,12 +1347,13 @@ e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
          * an underlying hw overlay;
          * target_wnd's hwc can't ever be at target_wnd :), so we pass it immediately */
         if (e_hwc_window_get_displaying_surface(hwc_window) &&
-            (_e_hwc_window_is_existed_on_target_wnd(hwc_window) || e_hwc_window_is_target(hwc_window)))
+            !_e_hwc_window_is_device_to_client_transition(hwc_window))
           {
              commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
              EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
 
              hwc_window->commit_data = commit_data;
+             hwc_window->is_device_to_client_transition = EINA_FALSE;
 
              return EINA_TRUE;
           }
@@ -1583,6 +1602,10 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
         if (pointer)
           e_pointer_hwc_set(pointer, EINA_FALSE);
      }
+
+   if (hwc_window->activation_state == E_HWC_WINDOW_ACTIVATION_STATE_ACTIVATED &&
+       !hwc_window->is_excluded)
+     hwc_window->is_device_to_client_transition = EINA_TRUE;
 
    hwc_window->activation_state = E_HWC_WINDOW_ACTIVATION_STATE_DEACTIVATED;
 
