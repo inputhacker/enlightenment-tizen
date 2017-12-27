@@ -846,6 +846,8 @@ _e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointe
    buffer = ec->comp_data->buffer_ref.buffer;
    EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, EINA_FALSE);
 
+   if (hwc_window->commit_data || hwc_window->update_exist) return EINA_TRUE;
+
    if ((hwc_window->display_info.buffer_ref.buffer == buffer) &&
        (hwc_window->cursor_tsurface) &&
        (hwc_window->cursor_rotation == pointer->rotation))
@@ -928,6 +930,8 @@ _e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointe
    tbm_surface_unmap(tsurface);
 
    hwc_window->cursor_tsurface = tsurface;
+
+   e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
 
    return EINA_TRUE;
 }
@@ -1096,16 +1100,6 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
    if (hwc_window->is_deleted) return EINA_FALSE;
 
-   if (e_comp_canvas_norender_get() > 0)
-     {
-        ELOGF("HWC-OPT", " NoRender get. no updated surface (title:%s, name:%s) on the hwc_wnd:%p.",
-              hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
-              hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-              hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
-              hwc_window->hwc_wnd);
-        return EINA_FALSE;
-     }
-
    output = hwc_window->output;
 
    /* for video we set buffer in the video module */
@@ -1130,16 +1124,14 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
              ELOGF("HWC-OPT", " set surface:(NULL) on the fb_target", hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec);
           }
-        else if (e_hwc_window_is_cursor(hwc_window))
+        else
           {
              if (hwc_window->cursor_tsurface)
                {
                   tbm_surface_destroy(hwc_window->cursor_tsurface);
                   hwc_window->cursor_tsurface = NULL;
                }
-          }
-        else
-          {
+
              tdm_hwc_window_set_buffer(hwc_window->hwc_wnd, NULL);
 
              ELOGF("HWC-OPT", " set surface:(NULL) (title:%s, name:%s) on the hwc_wnd:%p.",
@@ -1151,6 +1143,16 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
         hwc_window->tsurface = NULL;
 
+        return EINA_FALSE;
+     }
+
+   if (e_comp_canvas_norender_get() > 0)
+     {
+        ELOGF("HWC-OPT", " NoRender get. no updated surface (title:%s, name:%s) on the hwc_wnd:%p.",
+              hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
+              hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+              hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
+              hwc_window->hwc_wnd);
         return EINA_FALSE;
      }
 
@@ -1325,7 +1327,6 @@ _e_hwc_window_is_device_to_client_transition(E_Hwc_Window *hwc_window)
    if (target_hwc_window->state == E_HWC_WINDOW_STATE_NONE) return EINA_FALSE;
    if (!hwc_window->is_device_to_client_transition) return EINA_FALSE;
    if (e_hwc_window_is_target(hwc_window)) return EINA_FALSE;
-   if (e_hwc_window_is_cursor(hwc_window)) return EINA_FALSE;
    if (_e_hwc_window_is_existed_on_target_wnd(hwc_window)) return EINA_FALSE;
 
    return EINA_TRUE;
@@ -1335,8 +1336,6 @@ EINTERN Eina_Bool
 e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
 {
    E_Hwc_Window_Commit_Data *commit_data = NULL;
-
-   if (hwc_window->commit_data) return EINA_FALSE;
 
    if (!e_hwc_window_is_on_hw_overlay(hwc_window))
      {
@@ -1378,8 +1377,7 @@ e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
 
    if (e_hwc_window_is_target(hwc_window) ||
-       e_hwc_window_is_video(hwc_window)  ||
-       e_hwc_window_is_cursor(hwc_window))
+       e_hwc_window_is_video(hwc_window))
      {
         commit_data->tsurface = hwc_window->tsurface;
         tbm_surface_internal_ref(commit_data->tsurface);

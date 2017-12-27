@@ -2050,7 +2050,13 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
          {
             ELOGF("HWC-OPT", "!!!!!!!! Output Commit !!!!!!!!", NULL, NULL);
             error = tdm_output_commit(output->toutput, 0, _e_output_hwc_windows_commit_handler, output_hwc);
-            EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+            if (error != TDM_ERROR_NONE)
+            {
+               _e_output_hwc_windows_commit_handler(output->toutput, 0, 0, 0, output_hwc);
+               ERR("tdm_output_commit failed.");
+
+               return EINA_FALSE;
+            }
 
             output_hwc->wait_commit = EINA_TRUE;
          }
