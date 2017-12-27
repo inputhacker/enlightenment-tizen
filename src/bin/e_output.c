@@ -3180,12 +3180,14 @@ e_output_external_set(E_Output *output, E_Output_Ext_State state)
    _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
 
    e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_FALSE);
+   e_output_hwc_deactive_set(output_primary->output_hwc, EINA_TRUE);
 
    ep->output_primary = output_primary;
    if (!e_plane_external_set(ep, &output->zoom_conf.rect, state))
      {
         ERR("e_plane_mirror_set failed.");
         e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
+        e_output_hwc_deactive_set(output_primary->output_hwc, EINA_FALSE);
 
         return EINA_FALSE;
      }
