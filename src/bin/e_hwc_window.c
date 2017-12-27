@@ -331,7 +331,8 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
 
    ((E_Hwc_Window *)target_hwc_window)->is_target = EINA_TRUE;
    /* the target hwc_window is always displayed on hw layer */
-   ((E_Hwc_Window *)target_hwc_window)->type = TDM_COMPOSITION_DEVICE;
+   ((E_Hwc_Window *)target_hwc_window)->type = TDM_COMPOSITION_NONE;
+   ((E_Hwc_Window *)target_hwc_window)->state = E_HWC_WINDOW_STATE_NONE;
    ((E_Hwc_Window *)target_hwc_window)->output = output;
 
    target_hwc_window->hwc_window.is_excluded = EINA_TRUE;
@@ -502,21 +503,26 @@ e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State stat
         return NULL;
      }
 
-   if (state != E_HWC_WINDOW_STATE_VIDEO)
+   if (state == E_HWC_WINDOW_STATE_VIDEO)
      {
-        if (e_policy_client_is_cursor(ec))
-          hwc_window->is_cursor = EINA_TRUE;
+        /* the video hwc_window is always displayed on hw layer */
+        hwc_window->is_excluded = EINA_FALSE;
+        hwc_window->state = E_HWC_WINDOW_STATE_VIDEO;
+        hwc_window->type = TDM_COMPOSITION_DEVICE;
 
-        hwc_window->is_excluded = EINA_TRUE;
-        error = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_NONE);
-        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, NULL);
+        hwc_window->is_video = 1;
      }
    else
      {
-        hwc_window->is_excluded = EINA_FALSE;
-        hwc_window->is_video = 1;
-        /* the video hwc_window is always displayed on hw layer */
-        hwc_window->type = TDM_COMPOSITION_DEVICE;
+        error = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_NONE);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, NULL);
+
+        hwc_window->is_excluded = EINA_TRUE;
+        hwc_window->state = E_HWC_WINDOW_STATE_NONE;
+        hwc_window->type = TDM_COMPOSITION_NONE;
+
+        if (e_policy_client_is_cursor(ec))
+          hwc_window->is_cursor = EINA_TRUE;
      }
 
    output_hwc->hwc_windows = eina_list_append(output_hwc->hwc_windows, hwc_window);
@@ -935,12 +941,12 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
 {
    tdm_hwc_window *hwc_wnd;
    E_Client *ec;
-   tdm_error error;
+   tdm_error error;   
    Eina_Bool result;
-   tdm_hwc_window_composition composition_type;
    E_Comp_Wl_Buffer *buffer = NULL;
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
    tbm_surface_h tsurface = NULL;
+   E_Hwc_Window_State state = E_HWC_WINDOW_STATE_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
@@ -977,7 +983,7 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
                }
 
              tsurface = hwc_window->cursor_tsurface;
-             composition_type = TDM_COMPOSITION_CURSOR;
+             state = E_HWC_WINDOW_STATE_CURSOR;
           }
         else
           {
@@ -987,19 +993,21 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
              tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
              EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, EINA_FALSE);
 
-             composition_type = TDM_COMPOSITION_DEVICE;
+             state = E_HWC_WINDOW_STATE_DEVICE;
           }
 
         result = _e_hwc_window_info_set(hwc_window, tsurface);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(result != EINA_TRUE, EINA_FALSE);
      }
    else
-     composition_type = TDM_COMPOSITION_CLIENT;
+     state = E_HWC_WINDOW_STATE_CLIENT;
 
-   error = tdm_hwc_window_set_composition_type(hwc_wnd, composition_type);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+   if (!e_hwc_window_set_state(hwc_window, state))
+     {
+        ERR("e_hwc_window_set_state failed.");
+        return EINA_FALSE;
+     }
 
-   hwc_window->type = composition_type;
    hwc_window->is_excluded = EINA_FALSE;
 
    return EINA_TRUE;
@@ -1318,7 +1326,7 @@ _e_hwc_window_is_device_to_client_transition(E_Hwc_Window *hwc_window)
 
    if (hwc_window->is_deleted) return EINA_FALSE;
 
-   target_hwc_window = hwc_window->output->output_hwc->target_hwc_window;
+   target_hwc_window = (E_Hwc_Window *)hwc_window->output->output_hwc->target_hwc_window;
 
    if (target_hwc_window->is_excluded) return EINA_FALSE;
    if (!hwc_window->is_device_to_client_transition) return EINA_FALSE;
@@ -1610,12 +1618,16 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
 EINTERN Eina_Bool
 e_hwc_window_is_on_hw_overlay(E_Hwc_Window *hwc_window)
 {
+   E_Hwc_Window_State state = E_HWC_WINDOW_STATE_NONE;
+
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    if (hwc_window->is_excluded) return EINA_FALSE;
 
-   if (hwc_window->type == TDM_COMPOSITION_DEVICE) return EINA_TRUE;
-   if (hwc_window->type == TDM_COMPOSITION_CURSOR) return EINA_TRUE;
+   state = e_hwc_window_get_state(hwc_window);
+
+   if (state == E_HWC_WINDOW_STATE_DEVICE) return EINA_TRUE;
+   if (state == E_HWC_WINDOW_STATE_CURSOR) return EINA_TRUE;
 
    return EINA_FALSE;
 }
@@ -1628,13 +1640,60 @@ e_hwc_window_get_displaying_surface(E_Hwc_Window *hwc_window)
    return hwc_window->display_info.tsurface;
 }
 
+static tdm_hwc_window_composition
+_e_hwc_window_composition_type_get(E_Hwc_Window_State state)
+{
+   tdm_hwc_window_composition composition_type = TDM_COMPOSITION_NONE;
+
+   switch (state)
+     {
+      case E_HWC_WINDOW_STATE_NONE:
+        composition_type = TDM_COMPOSITION_NONE;
+        break;
+      case E_HWC_WINDOW_STATE_CLIENT:
+        composition_type = TDM_COMPOSITION_CLIENT;
+        break;
+      case E_HWC_WINDOW_STATE_DEVICE:
+        composition_type = TDM_COMPOSITION_DEVICE;
+        break;
+      case E_HWC_WINDOW_STATE_DEVICE_CANDIDATE:
+        composition_type = TDM_COMPOSITION_DEVICE_CANDIDATE;
+        break;
+      case E_HWC_WINDOW_STATE_CURSOR:
+        composition_type = TDM_COMPOSITION_CURSOR;
+        break;
+      default:
+        composition_type = TDM_COMPOSITION_NONE;
+        ERR("hwc-opt: unknown state of hwc_window.");
+     }
+
+   return composition_type;
+}
+
 EINTERN Eina_Bool
 e_hwc_window_set_state(E_Hwc_Window *hwc_window, E_Hwc_Window_State state)
 {
+   tdm_hwc_window_composition composition_type;
+   tdm_error error;
+
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    if (hwc_window->state != state)
-     hwc_window->state = state;
+     {
+        /* target window and video window do not set the composition type to the tdm_hwc */
+        if (e_hwc_window_is_target(hwc_window) ||
+            e_hwc_window_is_video(hwc_window))
+          hwc_window->state = state;
+        else
+          {
+             composition_type = _e_hwc_window_composition_type_get(state);
+             error = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, composition_type);
+             EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+
+             hwc_window->type = composition_type;
+             hwc_window->state = state;
+          }
+     }
 
    return EINA_TRUE;
 }

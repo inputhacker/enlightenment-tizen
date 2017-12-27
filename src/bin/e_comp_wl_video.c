@@ -602,11 +602,13 @@ _e_video_layer_is_usable(E_Video_Layer * layer, unsigned int *usable)
    if (_is_video_opt_hwc(layer->video))
      {
         E_Hwc_Window *hwc_window;
+        E_Hwc_Window_State state;
 
         hwc_window = layer->e_client->hwc_window;
         EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, TDM_ERROR_OPERATION_FAILED);
 
-        if (hwc_window->is_excluded || hwc_window->type == TDM_COMPOSITION_CLIENT)
+        state = e_hwc_window_get_state(hwc_window);
+        if (hwc_window->is_excluded || state == E_HWC_WINDOW_STATE_CLIENT)
           *usable = 1;
         else
           *usable = 0;
