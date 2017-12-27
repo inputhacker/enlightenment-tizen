@@ -106,7 +106,7 @@ _e_output_hwc_windows_need_target_hwc_window(E_Output_Hwc *output_hwc)
 
    EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
      {
-        if (hwc_window->is_excluded) continue;
+        if (hwc_window->state == E_HWC_WINDOW_STATE_NONE) continue;
 
         if (!e_hwc_window_is_on_hw_overlay(hwc_window))
           return EINA_TRUE;
@@ -136,7 +136,6 @@ _e_output_hwc_windows_all_windows_init(E_Output_Hwc *output_hwc)
              ERR("e_hwc_window_set_state failed.");
              return EINA_FALSE;
           }
-        hwc_window->is_excluded = EINA_TRUE;
      }
 
    return EINA_TRUE;
@@ -188,7 +187,7 @@ _e_output_hwc_windows_print_wnds_state(E_Output_Hwc *output_hwc)
 
     EINA_LIST_FOREACH(sort_wnds, l, hwc_window)
       {
-         if (hwc_window->is_excluded) continue;
+         if (hwc_window->state == E_HWC_WINDOW_STATE_NONE) continue;
 
          if (e_hwc_window_is_target(hwc_window))
            ELOGF("HWC-OPT", "  hwc_window:%p -- target_hwc_window, state:%s",
@@ -394,7 +393,7 @@ _e_output_hwc_windows_activation_states_update(E_Output_Hwc *output_hwc)
 static Eina_Bool
 _e_output_hwc_windows_target_window_render(E_Output *output, E_Hwc_Window_Target *target_hwc_window)
 {
-    if (target_hwc_window->hwc_window.is_excluded) return EINA_TRUE;
+    if (target_hwc_window->hwc_window.state == E_HWC_WINDOW_STATE_NONE) return EINA_TRUE;
 
     if (e_comp_canvas_norender_get() > 0)
       {
@@ -575,7 +574,6 @@ _e_output_hwc_windows_enable_target_window(E_Output_Hwc *output_hwc)
      }
 
    hwc_window = (E_Hwc_Window*)output_hwc->target_hwc_window;
-   hwc_window->is_excluded = EINA_FALSE;
    e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
 
    return EINA_TRUE;

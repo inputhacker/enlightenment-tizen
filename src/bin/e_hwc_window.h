@@ -31,7 +31,6 @@ struct _E_Hwc_Window
    E_Output                      *output;
    tdm_hwc_window                *hwc_wnd;
    int                            zpos;
-   int                            is_excluded; /* whether hwc_wnd excluded from being handled by hwc */
    tdm_hwc_window_composition     type;
    Eina_Bool                      is_target;
    Eina_Bool                      is_video;

@@ -335,8 +335,6 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
    ((E_Hwc_Window *)target_hwc_window)->state = E_HWC_WINDOW_STATE_NONE;
    ((E_Hwc_Window *)target_hwc_window)->output = output;
 
-   target_hwc_window->hwc_window.is_excluded = EINA_TRUE;
-
    target_hwc_window->ee = e_comp->ee;
    target_hwc_window->evas = ecore_evas_get(target_hwc_window->ee);
    target_hwc_window->event_fd = eventfd(0, EFD_NONBLOCK);
@@ -517,7 +515,6 @@ e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State stat
         error = tdm_hwc_window_set_composition_type(hwc_window->hwc_wnd, TDM_COMPOSITION_NONE);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, NULL);
 
-        hwc_window->is_excluded = EINA_TRUE;
         hwc_window->state = E_HWC_WINDOW_STATE_NONE;
         hwc_window->type = TDM_COMPOSITION_NONE;
 
@@ -549,7 +546,6 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
      {  /* mark as deleted and delete when commit_data will be released */
         hwc_window->is_deleted = EINA_TRUE;
         hwc_window->ec = NULL;
-        hwc_window->is_excluded = EINA_TRUE;
         hwc_window->state = E_HWC_WINDOW_STATE_NONE;
         return;
      }
@@ -583,7 +579,7 @@ e_hwc_window_get_zpos(E_Hwc_Window *hwc_window)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
-   if (hwc_window->is_excluded) return -1;
+   if (hwc_window->state == E_HWC_WINDOW_STATE_NONE) return -1;
 
    return hwc_window->zpos;
 }
@@ -941,7 +937,7 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
 {
    tdm_hwc_window *hwc_wnd;
    E_Client *ec;
-   tdm_error error;   
+   tdm_error error;
    Eina_Bool result;
    E_Comp_Wl_Buffer *buffer = NULL;
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
@@ -1007,8 +1003,6 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
         ERR("e_hwc_window_set_state failed.");
         return EINA_FALSE;
      }
-
-   hwc_window->is_excluded = EINA_FALSE;
 
    return EINA_TRUE;
 }
@@ -1117,7 +1111,7 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    /* for video we set buffer in the video module */
    if (e_hwc_window_is_video(hwc_window)) return EINA_FALSE;
 
-   if (hwc_window->is_excluded)
+   if (hwc_window->state == E_HWC_WINDOW_STATE_NONE)
      {
         if (!hwc_window->tsurface) return EINA_FALSE;
 
@@ -1328,7 +1322,7 @@ _e_hwc_window_is_device_to_client_transition(E_Hwc_Window *hwc_window)
 
    target_hwc_window = (E_Hwc_Window *)hwc_window->output->output_hwc->target_hwc_window;
 
-   if (target_hwc_window->is_excluded) return EINA_FALSE;
+   if (target_hwc_window->state == E_HWC_WINDOW_STATE_NONE) return EINA_FALSE;
    if (!hwc_window->is_device_to_client_transition) return EINA_FALSE;
    if (e_hwc_window_is_target(hwc_window)) return EINA_FALSE;
    if (e_hwc_window_is_cursor(hwc_window)) return EINA_FALSE;
@@ -1607,7 +1601,7 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
      }
 
    if (hwc_window->activation_state == E_HWC_WINDOW_ACTIVATION_STATE_ACTIVATED &&
-       !hwc_window->is_excluded)
+       hwc_window->state != E_HWC_WINDOW_STATE_NONE)
      hwc_window->is_device_to_client_transition = EINA_TRUE;
 
    hwc_window->activation_state = E_HWC_WINDOW_ACTIVATION_STATE_DEACTIVATED;
@@ -1622,7 +1616,7 @@ e_hwc_window_is_on_hw_overlay(E_Hwc_Window *hwc_window)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
-   if (hwc_window->is_excluded) return EINA_FALSE;
+   if (hwc_window->state == E_HWC_WINDOW_STATE_NONE) return EINA_FALSE;
 
    state = e_hwc_window_get_state(hwc_window);
 

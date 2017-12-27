@@ -608,7 +608,7 @@ _e_video_layer_is_usable(E_Video_Layer * layer, unsigned int *usable)
         EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, TDM_ERROR_OPERATION_FAILED);
 
         state = e_hwc_window_get_state(hwc_window);
-        if (hwc_window->is_excluded || state == E_HWC_WINDOW_STATE_CLIENT)
+        if (state == E_HWC_WINDOW_STATE_NONE || state == E_HWC_WINDOW_STATE_CLIENT)
           *usable = 1;
         else
           *usable = 0;
