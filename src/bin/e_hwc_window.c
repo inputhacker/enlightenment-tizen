@@ -1372,11 +1372,6 @@ e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
         return EINA_FALSE;
      }
 
-//
-//   if (hwc_window->tsurface == e_hwc_window_get_displaying_surface(hwc_window) &&
-//       !e_hwc_window_is_cursor(hwc_window))
-//     return EINA_FALSE;
-
    commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
 
