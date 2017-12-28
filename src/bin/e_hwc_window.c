@@ -846,8 +846,6 @@ _e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointe
    buffer = ec->comp_data->buffer_ref.buffer;
    EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, EINA_FALSE);
 
-   if (hwc_window->commit_data || hwc_window->update_exist) return EINA_TRUE;
-
    if ((hwc_window->display_info.buffer_ref.buffer == buffer) &&
        (hwc_window->cursor_tsurface) &&
        (hwc_window->cursor_rotation == pointer->rotation))
@@ -967,37 +965,27 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
      {
         if (e_hwc_window_is_cursor(hwc_window))
           {
-             E_Pointer *pointer = NULL;
-
-             pointer = e_pointer_get(ec);
-             if (!pointer)
-               {
-                  ERR("Failed to get the Pointer");
-                  return EINA_FALSE;
-               }
-
-             if (!_e_hwc_window_cursor_surface_refresh(hwc_window, pointer))
-               {
-                  ERR("Failed to _e_hwc_window_cursor_surface_refresh");
-                  return EINA_FALSE;
-               }
-
              tsurface = hwc_window->cursor_tsurface;
              state = E_HWC_WINDOW_STATE_CURSOR;
           }
         else
           {
              buffer = _get_comp_wl_buffer(ec);
-             EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, EINA_FALSE);
 
-             tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
-             EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, EINA_FALSE);
+             if (buffer)
+               tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
 
              state = E_HWC_WINDOW_STATE_DEVICE;
           }
 
-        result = _e_hwc_window_info_set(hwc_window, tsurface);
-        EINA_SAFETY_ON_TRUE_RETURN_VAL(result != EINA_TRUE, EINA_FALSE);
+        if (tsurface)
+          {
+             result = _e_hwc_window_info_set(hwc_window, tsurface);
+             EINA_SAFETY_ON_TRUE_RETURN_VAL(result != EINA_TRUE, EINA_FALSE);
+          }
+        else
+          state = E_HWC_WINDOW_STATE_CLIENT;
+
      }
    else
      state = E_HWC_WINDOW_STATE_CLIENT;
@@ -1074,13 +1062,13 @@ _e_hwc_window_cursor_surface_acquire(E_Hwc_Window *hwc_window)
    if (!e_comp_object_hwc_update_exists(ec->frame) && hwc_window->tsurface) return NULL;
 
    e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
-#if 0
+
    if (!_e_hwc_window_cursor_surface_refresh(hwc_window, pointer))
      {
         ERR("Failed to _e_hwc_window_cursor_surface_refresh");
         return NULL;
      }
-#endif
+
    tsurface = hwc_window->cursor_tsurface;
 
    return tsurface;
