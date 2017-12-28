@@ -504,7 +504,6 @@ e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State stat
    if (state == E_HWC_WINDOW_STATE_VIDEO)
      {
         /* the video hwc_window is always displayed on hw layer */
-        hwc_window->is_excluded = EINA_FALSE;
         hwc_window->state = E_HWC_WINDOW_STATE_VIDEO;
         hwc_window->type = TDM_COMPOSITION_DEVICE;
 

@@ -632,7 +632,6 @@ _e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
                  ec->comp_data->buffer_ref.buffer->w == w &&
                  ec->comp_data->buffer_ref.buffer->h == h)
                {
-                  ec->hwc_window->is_excluded = EINA_FALSE;
                   ec->hwc_window->type = TDM_COMPOSITION_DEVICE;
                }
           }
@@ -2210,7 +2209,7 @@ e_output_hwc_windows_zoom_set(E_Output_Hwc *output_hwc, Eina_Rectangle *rect)
 
    EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
      {
-        if (hwc_window->is_excluded) continue;
+        if (e_hwc_window_get_state(hwc_window) ==E_HWC_WINDOW_STATE_NONE) continue;
         if (e_hwc_window_is_target(hwc_window)) continue;
         if (e_hwc_window_is_video(hwc_window)) continue;
 
