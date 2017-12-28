@@ -34,6 +34,7 @@ E_API void                        e_policy_visibility_hook_del(E_Pol_Vis_Hook *h
 E_API Eina_Bool                   e_policy_visibility_client_is_iconic(E_Client *ec);
 
 EINTERN void                      e_policy_visibility_client_defer_move(E_Client *ec);
+EINTERN void                      e_vis_client_send_pre_visibility_event(E_Client *ec);
 
 #endif
 #endif

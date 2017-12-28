@@ -1014,8 +1014,8 @@ _e_vis_client_prepare_foreground_signal_emit(E_Vis_Client *vc)
    evas_object_smart_callback_call(vc->ec->frame, "e,visibility,prepare,foreground", vc->ec);
 }
 
-static void
-_e_vis_client_send_pre_visibility_event(E_Client *ec)
+EINTERN void
+e_vis_client_send_pre_visibility_event(E_Client *ec)
 {
    if (!ec) return;
    e_policy_wl_visibility_send(ec, E_VISIBILITY_PRE_UNOBSCURED);
@@ -1035,7 +1035,7 @@ _e_vis_client_is_uniconify_render_necessary(E_Vis_Client *vc)
         VS_INF(ec, "Not necessary deiconify rendering");
 
         ELOGF("POL", "SEND pre-unobscured visibility event", ec->pixmap, ec);
-        _e_vis_client_send_pre_visibility_event(ec);
+        e_vis_client_send_pre_visibility_event(ec);
 
         return EINA_FALSE;
      }
@@ -1134,7 +1134,7 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
    if (send_vis_event)
      {
         ELOGF("POL", "SEND pre-unobscured visibility event", ec->pixmap, ec);
-        _e_vis_client_send_pre_visibility_event(ec);
+        e_vis_client_send_pre_visibility_event(ec);
      }
 
    _e_vis_client_prepare_foreground_signal_emit(vc);
@@ -1408,7 +1408,7 @@ _e_vis_ec_below_uniconify(E_Client *ec)
                     }
 
                   ELOGF("POL", "SEND pre-unobscured visibility event", below_ec->pixmap, below_ec);
-                  _e_vis_client_send_pre_visibility_event(below_ec);
+                  e_vis_client_send_pre_visibility_event(below_ec);
                }
 
              job_added = _e_vis_client_add_uniconify_render_pending(below, E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY, 0);
