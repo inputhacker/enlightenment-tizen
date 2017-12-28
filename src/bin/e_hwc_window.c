@@ -1080,18 +1080,23 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    E_Output *output = NULL;
    Eina_List *e_hwc_wnds_composited_list = NULL;
    tdm_hwc_window **hwc_wnds = NULL;
-   int i;
    tdm_hwc_region fb_damage;
+   E_Hwc_Window_Target *target_hwc_window;
+   uint32_t hwc_wnds_amount = 0;
+   E_Hwc_Window *e_hwc_wnd;
+   const Eina_List *l;
+   int i;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    if (hwc_window->is_deleted) return EINA_FALSE;
 
-   output = hwc_window->output;
-
    /* for video we set buffer in the video module */
    if (e_hwc_window_is_video(hwc_window)) return EINA_FALSE;
 
+   output = hwc_window->output;
+
+   /* set the buffer to be null  */
    if (hwc_window->state == E_HWC_WINDOW_STATE_NONE)
      {
         if (!hwc_window->tsurface) return EINA_FALSE;
@@ -1170,17 +1175,11 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
    if (e_hwc_window_is_target(hwc_window))
      {
-        E_Hwc_Window_Target *target_hwc_window;
-        uint32_t hwc_wnds_amount = 0;
-
-        tdm_hwc_region fb_damage;
-
         target_hwc_window = (E_Hwc_Window_Target *)hwc_window;
 
         if (target_hwc_window->skip_surface_set)
           {
              hwc_window->update_exist = EINA_TRUE;
-
              return EINA_TRUE;
           }
 
@@ -1194,9 +1193,6 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
         hwc_wnds_amount = eina_list_count(e_hwc_wnds_composited_list);
         if (hwc_wnds_amount)
           {
-             E_Hwc_Window *e_hwc_wnd;
-             const Eina_List *l;
-
              hwc_wnds = E_NEW(tdm_hwc_window *, hwc_wnds_amount);
              EINA_SAFETY_ON_NULL_GOTO(hwc_wnds, error);
 

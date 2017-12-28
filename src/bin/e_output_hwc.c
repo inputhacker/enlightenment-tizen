@@ -2064,6 +2064,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
    int need_tdm_commit = 0;
    E_Output *output = NULL;
    Eina_Bool fetched = EINA_FALSE; // for logging.
+   tdm_error error = TDM_ERROR_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
 
@@ -2088,8 +2089,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
           _e_output_hwc_windows_offscreen_commit(output, hwc_window);
      }
 
-   if (!fetched)
-     ELOGF("HWC-OPT", " no new fetched buffers", NULL, NULL);
+   if (!fetched) ELOGF("HWC-OPT", " no new fetched buffers", NULL, NULL);
 
    if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
 
@@ -2107,8 +2107,6 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
 
    if (need_tdm_commit)
      {
-        tdm_error error = TDM_ERROR_NONE;
-
        if (output->zoom_set)
          {
             e_output_zoom_rotating_check(output);
