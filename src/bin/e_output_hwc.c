@@ -632,6 +632,7 @@ _e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
                  ec->comp_data->buffer_ref.buffer->w == w &&
                  ec->comp_data->buffer_ref.buffer->h == h)
                {
+                  ec->hwc_window->state = E_HWC_WINDOW_STATE_DEVICE;
                   ec->hwc_window->type = TDM_COMPOSITION_DEVICE;
                }
           }
