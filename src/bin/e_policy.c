@@ -865,6 +865,11 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
         if (ec->visibility.obscured == E_VISIBILITY_UNOBSCURED)
           {
              e_policy_client_uniconify_by_visibility(ec);
+             if (ec->visibility.last_sent_type != E_VISIBILITY_PRE_UNOBSCURED)
+               {
+                  ELOGF("POL_VIS", "SEND pre-unobscured visibility event", ec->pixmap, ec);
+                  e_vis_client_send_pre_visibility_event(ec);
+               }
              e_policy_client_visibility_send(ec);
           }
         else
