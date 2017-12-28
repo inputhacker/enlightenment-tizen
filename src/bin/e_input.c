@@ -117,6 +117,15 @@ e_input_init(Ecore_Evas *ee)
 
    TRACE_INPUT_BEGIN(e_input_device_input_backend_create);
 
+   /* FIXME: we need to select default backend udev or path.
+    *        Input system will not be initialized, if there are no enviroment is set.
+    */
+   if ((!use_udev_backend) && (!use_path_backend))
+     {
+        EINA_LOG_INFO("This system doesn't select input backend. We use udev backend defaultly\n");
+        use_udev_backend = EINA_TRUE;
+     }
+
    if ((use_udev_backend) &&
        (!e_input_device_input_backend_create(dev, E_INPUT_LIBINPUT_BACKEND_UDEV)))
      {
