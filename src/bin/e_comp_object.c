@@ -147,7 +147,7 @@ typedef struct _E_Comp_Object
    struct
      {
         Evas_Object         *mask_obj;
-        Eina_Bool           dim_enable;
+        Eina_Bool           enable;
         Eina_Bool           mask_set;
         int                 mask_x, mask_y, mask_w, mask_h;
      } dim;
@@ -5316,7 +5316,8 @@ e_comp_object_dim_mask_update(Evas_Object *obj, Eina_Bool mask_set, int x, int y
    cw->dim.mask_w = w;
    cw->dim.mask_h = h;
 
-  e_comp_object_dim_mask_set(cw->ec->frame, mask_set);
+   if (!cw->dim.enable) return;
+   e_comp_object_dim_mask_set(cw->ec->frame, mask_set);
 }
 
 E_API void
@@ -5330,7 +5331,6 @@ e_comp_object_dim_mask_set(Evas_Object *obj, Eina_Bool set)
    E_Comp_Config *conf = e_comp_config_get();
    if (cw->ec->input_only) return;
    if (!conf->dim_rect_enable) return;
-   if (!cw->dim.dim_enable) return;
 
    mask_set = !!set;
 
@@ -5342,6 +5342,7 @@ e_comp_object_dim_mask_set(Evas_Object *obj, Eina_Bool set)
              E_FREE_FUNC(cw->dim.mask_obj, evas_object_del);
           }
 
+        INF("[DIM]Mask applied on Dim rect client[%p] mask_rect[%d %d %d %d]", cw->ec, cw->dim.mask_x, cw->dim.mask_y, cw->dim.mask_w, cw->dim.mask_h);
         o = evas_object_rectangle_add(e_comp->evas);
         evas_object_color_set(o, 0, 0, 0, 0);
         evas_object_smart_member_add(o, obj);
@@ -5359,6 +5360,7 @@ e_comp_object_dim_mask_set(Evas_Object *obj, Eina_Bool set)
      {
         if (cw->dim.mask_obj)
           {
+             INF("[DIM] Mask on Dim rect Removed");
              evas_object_smart_member_del(cw->dim.mask_obj);
              E_FREE_FUNC(cw->dim.mask_obj, evas_object_del);
           }
@@ -5412,7 +5414,7 @@ _e_comp_object_dim_enable_set(E_Client *ec, Evas_Object *obj, Eina_Bool enable, 
    if (!ec) return;
    if (!conf->dim_rect_enable) return;
    if (!cw->effect_obj) return;
-   if (enable == cw->dim.dim_enable) return;
+   if (enable == cw->dim.enable) return;
 
    if (noeffect || !conf->dim_rect_effect)
      {
@@ -5425,13 +5427,21 @@ _e_comp_object_dim_enable_set(E_Client *ec, Evas_Object *obj, Eina_Bool enable, 
         strncpy(emit, (enable ? "e,state,dim,on" : "e,state,dim,off"), sizeof(emit) - 1);
      }
 
-   edje_object_signal_emit(cw->effect_obj, emit, "e");
+   cw->dim.enable = enable;
 
-   cw->dim.dim_enable = enable;
-
-   if (cw->dim.mask_set)
+   if (cw->dim.mask_set && !enable)
      {
         e_comp_object_dim_mask_set(cw->ec->frame, enable);
+        edje_object_signal_emit(cw->effect_obj, emit, "e");
+     }
+   else if (cw->dim.mask_set && enable)
+     {
+        edje_object_signal_emit(cw->effect_obj, emit, "e");
+        e_comp_object_dim_mask_set(cw->ec->frame, enable);
+     }
+   else
+     {
+        edje_object_signal_emit(cw->effect_obj, emit, "e");
      }
 }
 
@@ -5444,7 +5454,7 @@ _e_comp_object_dim_enable_get(E_Client *ec, Evas_Object *obj)
    if (!ec) return EINA_FALSE;
    if (!conf->dim_rect_enable) return EINA_FALSE;
 
-   if (cw->dim.dim_enable) return EINA_TRUE;
+   if (cw->dim.enable) return EINA_TRUE;
 
    return EINA_FALSE;
 }
@@ -5457,14 +5467,14 @@ _e_comp_object_dim_update(E_Comp_Object *cw)
    if (!cw) return;
    if (!conf->dim_rect_enable) return;
    if (!cw->effect_obj) return;
-   if (cw->dim.dim_enable)
+   if (cw->dim.enable)
      {
-        edje_object_signal_emit(cw->effect_obj, (cw->dim.dim_enable ? "e,state,dim,on,noeffect" : "e,state,dim,off,noeffect"), "e");
-        INF("[DIM] Applied on Client[%p] enable[%d]\n",cw->ec, cw->dim.dim_enable);
+        edje_object_signal_emit(cw->effect_obj, (cw->dim.enable ? "e,state,dim,on,noeffect" : "e,state,dim,off,noeffect"), "e");
+        INF("[DIM] Applied on Client[%p] enable[%d]\n",cw->ec, cw->dim.enable);
 
         if (cw->dim.mask_set)
           {
-             e_comp_object_dim_mask_set(cw->ec->frame, cw->dim.dim_enable);
+             e_comp_object_dim_mask_set(cw->ec->frame,  cw->dim.mask_set);
           }
      }
 }
