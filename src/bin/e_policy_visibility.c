@@ -2002,6 +2002,9 @@ e_policy_visibility_client_layer_lower(E_Client *ec, E_Layer layer)
 
    VS_DBG(ec, "API ENTRY | LAYER LOWER (layer:%d)", layer);
 
+   /* if vc has job grab, release them */
+   _e_vis_client_grab_cancel(vc);
+
    /* find activity client among the clients to be lower */
    if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.lower))
      {
