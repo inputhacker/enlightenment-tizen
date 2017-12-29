@@ -735,8 +735,8 @@ _is_e_hwc_window_ec_has_correct_transformation(E_Hwc_Window *hwc_window)
               * tizen_screen_rotation_send_ignore_output_transform() call is needed? */
              e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
 
-             ELOGF("HWC-OPT", " request (name:%s, title:%s) to change transformation to %d.",
-                     ec->pixmap, ec, ec->icccm.name, ec->icccm.title, hwc_window->output->config.rotation);
+             ELOGF("HWC-OPT", " request {title:%s} to change transformation to %d.",
+                     ec->pixmap, ec, ec->icccm.title, hwc_window->output->config.rotation);
           }
 
         return EINA_FALSE;
@@ -1126,10 +1126,9 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
              tdm_hwc_window_set_buffer(hwc_window->hwc_wnd, NULL);
 
-             ELOGF("HWC-OPT", " set surface:(NULL) (title:%s, name:%s) on the hwc_wnd:%p.",
+             ELOGF("HWC-OPT", " set surface:(NULL) {title:%s} on the hwc_wnd:%p.",
                    hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
                    hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-                   hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
                    hwc_window->hwc_wnd);
           }
 
@@ -1140,10 +1139,9 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
    if (e_comp_canvas_norender_get() > 0)
      {
-        ELOGF("HWC-OPT", " NoRender get. no updated surface (title:%s, name:%s) on the hwc_wnd:%p.",
+        ELOGF("HWC-OPT", " NoRender get. no updated surface {title:%s} on the hwc_wnd:%p.",
               hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
               hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-              hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
               hwc_window->hwc_wnd);
         return EINA_FALSE;
      }
@@ -1199,10 +1197,9 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
              i = 0;
              EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, e_hwc_wnd)
                {
-                  ELOGF("HWC-OPT", "  (%d) hwc_window:%p (title:%s, name:%s)",
+                  ELOGF("HWC-OPT", "  (%d) hwc_window:%p {title:%s}",
                         e_hwc_wnd->ec ? ec->pixmap : NULL, e_hwc_wnd->ec,
-                        i, e_hwc_wnd, e_hwc_wnd->ec ? e_hwc_wnd->ec->icccm.title : "UNKNOWN",
-                        e_hwc_wnd->ec ? e_hwc_wnd->ec->icccm.name : "UNKNOWN");
+                        i, e_hwc_wnd, e_hwc_wnd->ec ? e_hwc_wnd->ec->icccm.title : "UNKNOWN");
 
                   hwc_wnds[i++] = e_hwc_wnd->hwc_wnd;
                }
@@ -1218,10 +1215,9 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    else
      {
         tdm_hwc_window_set_buffer(hwc_window->hwc_wnd, tsurface);
-        ELOGF("HWC-OPT", " set surface:%p (title:%s, name:%s) on the hwc_wnd:%p.",
+        ELOGF("HWC-OPT", " set surface:%p {title:%s} on the hwc_wnd:%p.",
               hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
               tsurface, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-              hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
               hwc_window->hwc_wnd);
      }
 

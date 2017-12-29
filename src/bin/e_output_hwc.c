@@ -193,10 +193,9 @@ _e_output_hwc_windows_print_wnds_state(E_Output_Hwc *output_hwc)
            ELOGF("HWC-OPT", "  hwc_window:%p -- target_hwc_window, state:%s",
                  NULL, NULL, hwc_window, _e_output_hwc_windows_get_name_of_wnd_state(hwc_window->state));
          else
-           ELOGF("HWC-OPT", "  hwc_window:%p -- {name:%25s, title:%25s}, state:%s, deleted:%s, zpos:%d",
+           ELOGF("HWC-OPT", "  hwc_window:%p -- {title:%25s}, state:%s, deleted:%s, zpos:%d",
                  hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-                 hwc_window, hwc_window->ec ? hwc_window->ec->icccm.name : "UNKNOWN",
-                 hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+                 hwc_window, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
                  _e_output_hwc_windows_get_name_of_wnd_state(hwc_window->state),
                  hwc_window->is_deleted ? "yes" : "no", hwc_window->zpos);
       }
@@ -495,8 +494,8 @@ _e_output_hwc_windows_full_gl_composite_check(E_Output_Hwc *output_hwc, Eina_Lis
              // check whether quickpanel is open than break
              if (e_qp_visible_get())
                {
-                   ELOGF("HWC-OPT", "    HWC_MODE_NONE due to quickpanel is opened.(name:%s, title:%s).",
-                         ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+                   ELOGF("HWC-OPT", "    HWC_MODE_NONE due to quickpanel is opened.{title:%s}.",
+                         ec->pixmap, ec, ec->icccm.title);
                }
              goto full_gl_composite;
           }
@@ -504,16 +503,16 @@ _e_output_hwc_windows_full_gl_composite_check(E_Output_Hwc *output_hwc, Eina_Lis
         // if ec->frame is not for client buffer (e.g. launchscreen)
         if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
           {
-             ELOGF("HWC-OPT", "  HWC_MODE_NONE due to E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE(name:%s, title:%s).",
-                   ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+             ELOGF("HWC-OPT", "  HWC_MODE_NONE due to E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE{title:%s}.",
+                   ec->pixmap, ec, ec->icccm.title);
              goto full_gl_composite;
           }
 
         // if there is UI subfrace, it means need to composite
         if (e_client_normal_client_has(ec))
           {
-            ELOGF("HWC-OPT", "  HWC_MODE_NONE due to UI subfrace(name:%s, title:%s).",
-                  ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+            ELOGF("HWC-OPT", "  HWC_MODE_NONE due to UI subfrace{title:%s}.",
+                  ec->pixmap, ec, ec->icccm.title);
             goto full_gl_composite;
           }
      }
@@ -525,8 +524,8 @@ full_gl_composite:
      {
         hwc_window = ec->hwc_window;
         hwc_window->hwc_acceptable = EINA_FALSE;
-        ELOGF("HWC-OPT", "   (name:%s, title:%s) is NOT hwc_acceptable.",
-              ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+        ELOGF("HWC-OPT", "   {title:%s} is NOT hwc_acceptable.",
+              ec->pixmap, ec, ec->icccm.title);
      }
    return EINA_TRUE;
 }
@@ -555,8 +554,8 @@ _e_output_hwc_windows_hwc_acceptable_check(Eina_List *vis_cl_list)
         if (!_e_output_hwc_ec_check(ec))
           {
              hwc_window->hwc_acceptable = EINA_FALSE;
-             ELOGF("HWC-OPT", "  (name:%s, title:%s) is NOT hwc_acceptable.",
-                   ec->pixmap, ec, ec->icccm.name, ec->icccm.title);
+             ELOGF("HWC-OPT", "  {title:%s} is NOT hwc_acceptable.",
+                   ec->pixmap, ec, ec->icccm.title);
              continue;
           }
      }
