@@ -40,6 +40,7 @@ static void      _e_policy_client_uniconify_by_visibility(E_Client *ec);
 
 static inline Eina_Bool  _e_vis_client_is_grabbed(E_Vis_Client *vc);
 static void              _e_vis_client_grab_remove(E_Vis_Client *vc, E_Vis_Grab *grab);
+static void              _e_vis_client_grab_cancel(E_Vis_Client *vc);
 static void              _e_vis_client_job_exec(E_Vis_Client *vc, E_Vis_Job_Type type);
 static Eina_Bool         _e_vis_ec_activity_check(E_Client *ec, Eina_Bool check_alpha);
 static void              _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type);
@@ -840,6 +841,18 @@ _e_vis_client_grab_get(E_Vis_Client *vc, const char *name)
    _e_vis_client_grab_add(vc, grab);
 
    return grab;
+}
+
+static void
+_e_vis_client_grab_cancel(E_Vis_Client *vc)
+{
+   EINA_SAFETY_ON_NULL_RETURN(vc);
+
+   if (_e_vis_client_is_uniconify_render_running(vc))
+     {
+        VS_INF(vc->ec, "Visibility changed while waiting Uniconify. Release grab.");
+        E_FREE_FUNC(vc->grab, _e_vis_grab_release);
+     }
 }
 
 static void
@@ -1847,12 +1860,8 @@ e_policy_visibility_client_lower(E_Client *ec)
 
    VS_DBG(ec, "API ENTRY | LOWER");
 
-   /* if vc has job grab, remove them */
-   if (_e_vis_client_is_uniconify_render_running(vc))
-     {
-        VS_INF(ec, "Lower while waiting Uniconify. Release grab.");
-        E_FREE_FUNC(vc->grab, _e_vis_grab_release);
-     }
+   /* if vc has job grab, release them */
+   _e_vis_client_grab_cancel(vc);
 
    /* find activity client among the clients to be lower */
    if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.lower))
