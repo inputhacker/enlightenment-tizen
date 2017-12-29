@@ -1146,7 +1146,7 @@ e_policy_wl_visibility_send(E_Client *ec, int vis)
                       sent_vis = -3;
                  }
 
-               ELOGF("TZVIS",
+               ELOGF("POL_VIS",
                      "SEND     |win:0x%08x|res_tzvis:0x%08x|ver:%d|sent_vis:%d|pid:%d|title:%s, name:%s",
                      ec->pixmap, ec,
                      (unsigned int)win,
