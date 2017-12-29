@@ -607,7 +607,7 @@ _e_video_layer_is_usable(E_Video_Layer * layer, unsigned int *usable)
         hwc_window = layer->e_client->hwc_window;
         EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, TDM_ERROR_OPERATION_FAILED);
 
-        state = e_hwc_window_get_state(hwc_window);
+        state = e_hwc_window_state_get(hwc_window);
         if (state == E_HWC_WINDOW_STATE_NONE || state == E_HWC_WINDOW_STATE_CLIENT)
           *usable = 1;
         else
@@ -665,7 +665,7 @@ _e_video_layer_get_displaying_buffer(E_Video_Layer *layer, int *tdm_error)
         if (tdm_error)
           *tdm_error = TDM_ERROR_NONE;
 
-        return e_hwc_window_get_displaying_surface(hwc_window);
+        return e_hwc_window_displaying_surface_get(hwc_window);
      }
 
    return tdm_layer_get_displaying_buffer(layer->tdm_layer, tdm_error);

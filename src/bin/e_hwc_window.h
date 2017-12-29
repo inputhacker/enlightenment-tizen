@@ -92,8 +92,8 @@ EINTERN void               e_hwc_window_deinit(E_Output_Hwc *output_hwc); // TOD
 EINTERN E_Hwc_Window      *e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State state);
 EINTERN void               e_hwc_window_free(E_Hwc_Window *hwc_window);
 
-EINTERN Eina_Bool          e_hwc_window_set_zpos(E_Hwc_Window *hwc_window, int zpos);
-EINTERN int                e_hwc_window_get_zpos(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool          e_hwc_window_zpos_set(E_Hwc_Window *hwc_window, int zpos);
+EINTERN int                e_hwc_window_zpos_get(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_update(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_target(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_video(E_Hwc_Window *hwc_window);
@@ -111,10 +111,10 @@ EINTERN void               e_hwc_window_target_surface_queue_release(E_Hwc_Windo
 EINTERN Eina_Bool          e_hwc_window_activate(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_deactivate(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_on_hw_overlay(E_Hwc_Window *hwc_window);
-EINTERN tbm_surface_h      e_hwc_window_get_displaying_surface(E_Hwc_Window *hwc_window);
+EINTERN tbm_surface_h      e_hwc_window_displaying_surface_get(E_Hwc_Window *hwc_window);
 
-EINTERN Eina_Bool          e_hwc_window_set_state(E_Hwc_Window *hwc_window, E_Hwc_Window_State state);
-EINTERN E_Hwc_Window_State e_hwc_window_get_state(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool          e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state);
+EINTERN E_Hwc_Window_State e_hwc_window_state_get(E_Hwc_Window *hwc_window);
 
 #endif // E_HWC_WINDOW_H
 #endif

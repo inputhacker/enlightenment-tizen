@@ -131,9 +131,9 @@ _e_output_hwc_windows_all_windows_init(E_Output_Hwc *output_hwc)
      {
         if (e_hwc_window_is_video(hwc_window)) continue;
 
-        if (!e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_NONE))
+        if (!e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE))
           {
-             ERR("e_hwc_window_set_state failed.");
+             ERR("e_hwc_window_state_set failed.");
              return EINA_FALSE;
           }
      }
@@ -240,7 +240,7 @@ _e_output_hwc_windows_update(E_Output_Hwc *output_hwc, Eina_List *cl_list)
              continue;
           }
 
-        result = e_hwc_window_set_zpos(hwc_window, zpos);
+        result = e_hwc_window_zpos_set(hwc_window, zpos);
         if (result != EINA_TRUE)
           {
              ERR("hwc-opt: cannot set zpos for E_Hwc_Window(%p)", hwc_window);
@@ -345,9 +345,9 @@ _e_output_hwc_windows_validate(E_Output_Hwc *output_hwc)
                   return EINA_FALSE;
                }
              state = _e_output_hwc_windows_window_state_get(composition_types[i]);
-             if (!e_hwc_window_set_state(hwc_window, state))
+             if (!e_hwc_window_state_set(hwc_window, state))
                {
-                  ERR("e_hwc_window_set_state failed.");
+                  ERR("e_hwc_window_state_set failed.");
                   return EINA_FALSE;
                }
           }
@@ -574,7 +574,7 @@ _e_output_hwc_windows_enable_target_window(E_Output_Hwc *output_hwc)
      }
 
    hwc_window = (E_Hwc_Window*)output_hwc->target_hwc_window;
-   e_hwc_window_set_state(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
+   e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
 
    return EINA_TRUE;
 }
@@ -2208,7 +2208,7 @@ e_output_hwc_windows_zoom_set(E_Output_Hwc *output_hwc, Eina_Rectangle *rect)
 
    EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
      {
-        if (e_hwc_window_get_state(hwc_window) ==E_HWC_WINDOW_STATE_NONE) continue;
+        if (e_hwc_window_state_get(hwc_window) ==E_HWC_WINDOW_STATE_NONE) continue;
         if (e_hwc_window_is_target(hwc_window)) continue;
         if (e_hwc_window_is_video(hwc_window)) continue;
 

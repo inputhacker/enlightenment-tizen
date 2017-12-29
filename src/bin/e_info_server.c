@@ -198,7 +198,7 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
         if (e_hwc_window_is_on_hw_overlay(hwc_window))
           *hwc = 1;
 
-        *pl_zpos = e_hwc_window_get_zpos(hwc_window);
+        *pl_zpos = e_hwc_window_zpos_get(hwc_window);
      }
    else
      {

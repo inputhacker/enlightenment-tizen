@@ -390,7 +390,7 @@ _e_hwc_window_recover_ec(E_Hwc_Window *hwc_window)
 
    if (!buffer)
      {
-        tsurface = e_hwc_window_get_displaying_surface(hwc_window);
+        tsurface = e_hwc_window_displaying_surface_get(hwc_window);
         if (!tsurface) return;
 
         tbm_surface_internal_ref(tsurface);
@@ -541,7 +541,7 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN(hwc_window->output->output_hwc);
 
    /* we cannot remove the hwc_window because we need to release the commit_data */
-   if (e_hwc_window_get_displaying_surface(hwc_window))
+   if (e_hwc_window_displaying_surface_get(hwc_window))
      {  /* mark as deleted and delete when commit_data will be released */
         hwc_window->is_deleted = EINA_TRUE;
         hwc_window->ec = NULL;
@@ -564,7 +564,7 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
 }
 
 EINTERN Eina_Bool
-e_hwc_window_set_zpos(E_Hwc_Window *hwc_window, int zpos)
+e_hwc_window_zpos_set(E_Hwc_Window *hwc_window, int zpos)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
@@ -574,7 +574,7 @@ e_hwc_window_set_zpos(E_Hwc_Window *hwc_window, int zpos)
 }
 
 EINTERN int
-e_hwc_window_get_zpos(E_Hwc_Window *hwc_window)
+e_hwc_window_zpos_get(E_Hwc_Window *hwc_window)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
@@ -989,9 +989,9 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
    else
      state = E_HWC_WINDOW_STATE_CLIENT;
 
-   if (!e_hwc_window_set_state(hwc_window, state))
+   if (!e_hwc_window_state_set(hwc_window, state))
      {
-        ERR("e_hwc_window_set_state failed.");
+        ERR("e_hwc_window_state_set failed.");
         return EINA_FALSE;
      }
 
@@ -1250,7 +1250,7 @@ e_hwc_window_unfetch(E_Hwc_Window *hwc_window)
         e_hwc_window_target_surface_queue_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
      }
 
-   hwc_window->tsurface = e_hwc_window_get_displaying_surface(hwc_window);
+   hwc_window->tsurface = e_hwc_window_displaying_surface_get(hwc_window);
 
    if (e_hwc_window_is_target(hwc_window))
      {
@@ -1330,7 +1330,7 @@ e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
          * a 'fake commit_data' request to allow tdm_commit() to be called to unset
          * an underlying hw overlay;
          * target_wnd's hwc can't ever be at target_wnd :), so we pass it immediately */
-        if (e_hwc_window_get_displaying_surface(hwc_window) &&
+        if (e_hwc_window_displaying_surface_get(hwc_window) &&
             !_e_hwc_window_is_device_to_client_transition(hwc_window))
           {
              commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
@@ -1351,7 +1351,7 @@ e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
     * buffer didn't happen because hwc_window had TDM_COMPOSITION_CLIENT type.
     * So e20 needs to make ref for the current buffer which is set on the hwc_window.
     */
-   if (!hwc_window->update_exist && e_hwc_window_get_displaying_surface(hwc_window))
+   if (!hwc_window->update_exist && e_hwc_window_displaying_surface_get(hwc_window))
      {
         return EINA_FALSE;
      }
@@ -1407,7 +1407,7 @@ e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window)
 
    e_comp_wl_buffer_reference(&hwc_window->commit_data->buffer_ref, NULL);
 
-   displaying_surface = e_hwc_window_get_displaying_surface(hwc_window);
+   displaying_surface = e_hwc_window_displaying_surface_get(hwc_window);
    if (displaying_surface)
      {
         if (e_hwc_window_is_target(hwc_window))
@@ -1425,7 +1425,7 @@ e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window)
    free(hwc_window->commit_data);
    hwc_window->commit_data = NULL;
 
-   if (hwc_window->is_deleted && !e_hwc_window_get_displaying_surface(hwc_window))
+   if (hwc_window->is_deleted && !e_hwc_window_displaying_surface_get(hwc_window))
      e_hwc_window_free(hwc_window);
 
    return EINA_TRUE;
@@ -1599,7 +1599,7 @@ e_hwc_window_is_on_hw_overlay(E_Hwc_Window *hwc_window)
 
    if (hwc_window->state == E_HWC_WINDOW_STATE_NONE) return EINA_FALSE;
 
-   state = e_hwc_window_get_state(hwc_window);
+   state = e_hwc_window_state_get(hwc_window);
 
    if (state == E_HWC_WINDOW_STATE_DEVICE) return EINA_TRUE;
    if (state == E_HWC_WINDOW_STATE_CURSOR) return EINA_TRUE;
@@ -1608,7 +1608,7 @@ e_hwc_window_is_on_hw_overlay(E_Hwc_Window *hwc_window)
 }
 
 EINTERN tbm_surface_h
-e_hwc_window_get_displaying_surface(E_Hwc_Window *hwc_window)
+e_hwc_window_displaying_surface_get(E_Hwc_Window *hwc_window)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
 
@@ -1646,7 +1646,7 @@ _e_hwc_window_composition_type_get(E_Hwc_Window_State state)
 }
 
 EINTERN Eina_Bool
-e_hwc_window_set_state(E_Hwc_Window *hwc_window, E_Hwc_Window_State state)
+e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state)
 {
    tdm_hwc_window_composition composition_type;
    tdm_error error;
@@ -1674,7 +1674,7 @@ e_hwc_window_set_state(E_Hwc_Window *hwc_window, E_Hwc_Window_State state)
 }
 
 EINTERN E_Hwc_Window_State
-e_hwc_window_get_state(E_Hwc_Window *hwc_window)
+e_hwc_window_state_get(E_Hwc_Window *hwc_window)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, E_HWC_WINDOW_STATE_NONE);
 
