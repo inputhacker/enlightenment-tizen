@@ -11,6 +11,21 @@ static E_Client_Hook *client_hook_new = NULL;
 static E_Client_Hook *client_hook_del = NULL;
 static Ecore_Event_Handler *zone_set_event_handler = NULL;
 
+static E_Hwc_Window_Target *
+_e_hwc_window_target_window_get(E_Hwc_Window *hwc_window)
+{
+   E_Hwc_Window_Target *target_hwc_window;
+   E_Output_Hwc *output_hwc;
+
+   output_hwc = hwc_window->output_hwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
+
+   target_hwc_window = output_hwc->target_hwc_window;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, NULL);
+
+   return target_hwc_window;
+}
+
 struct wayland_tbm_client_queue *
 _e_hwc_window_wayland_tbm_client_queue_get(E_Client *ec)
 {
@@ -1286,15 +1301,14 @@ static Eina_Bool
 _e_hwc_window_is_existed_on_target_wnd(E_Hwc_Window *e_hwc_wnd)
 {
     Eina_List *e_hwc_wnds_composited_list = NULL;
-    E_Hwc_Window_Target *target_hwc_wnd;
+    E_Hwc_Window_Target *target_hwc_window;
     E_Hwc_Window *ehw;
     const Eina_List *l;
 
+    target_hwc_window = _e_hwc_window_target_window_get(e_hwc_wnd);
     EINA_SAFETY_ON_NULL_RETURN_VAL(e_hwc_wnd, EINA_FALSE);
 
-    target_hwc_wnd = e_hwc_wnd->output_hwc->target_hwc_window;
-
-    tbm_surface_internal_get_user_data(target_hwc_wnd->hwc_window.tsurface, composited_e_hwc_wnds_key,
+    tbm_surface_internal_get_user_data(target_hwc_window->hwc_window.tsurface, composited_e_hwc_wnds_key,
             (void**)&e_hwc_wnds_composited_list);
 
     EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, ehw)
@@ -1307,13 +1321,14 @@ _e_hwc_window_is_existed_on_target_wnd(E_Hwc_Window *e_hwc_wnd)
 static Eina_Bool
 _e_hwc_window_is_device_to_client_transition(E_Hwc_Window *hwc_window)
 {
-   E_Hwc_Window *target_hwc_window;
+   E_Hwc_Window_Target *target_hwc_window;
 
    if (hwc_window->is_deleted) return EINA_FALSE;
 
-   target_hwc_window = (E_Hwc_Window *)hwc_window->output_hwc->target_hwc_window;
+   target_hwc_window = _e_hwc_window_target_window_get(hwc_window);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
-   if (target_hwc_window->state == E_HWC_WINDOW_STATE_NONE) return EINA_FALSE;
+   if (((E_Hwc_Window *)target_hwc_window)->state == E_HWC_WINDOW_STATE_NONE) return EINA_FALSE;
    if (!hwc_window->is_device_to_client_transition) return EINA_FALSE;
    if (e_hwc_window_is_target(hwc_window)) return EINA_FALSE;
    if (_e_hwc_window_is_existed_on_target_wnd(hwc_window)) return EINA_FALSE;
@@ -1695,4 +1710,25 @@ e_hwc_window_state_get(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, E_HWC_WINDOW_STATE_NONE);
 
    return hwc_window->state;
+}
+
+// add hwc_window to the render_list
+EINTERN void
+e_hwc_window_render_list_add(E_Hwc_Window *hwc_window)
+{
+   E_Hwc_Window_Target *target_hwc_window;
+   E_Client *ec;
+
+   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
+
+   ec = hwc_window->ec;
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   target_hwc_window = _e_hwc_window_target_window_get(hwc_window);
+   EINA_SAFETY_ON_NULL_RETURN(target_hwc_window);
+
+   target_hwc_window->current_e_hwc_wnd_composited_list =
+           eina_list_append(target_hwc_window->current_e_hwc_wnd_composited_list, hwc_window);
+
+   ELOGF("HWC-WINS", " hwindow:%p added the render_list {title:%s}.", ec->pixmap, ec, hwc_window, ec->icccm.title);
 }

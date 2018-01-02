@@ -116,5 +116,7 @@ EINTERN tbm_surface_h      e_hwc_window_displaying_surface_get(E_Hwc_Window *hwc
 EINTERN Eina_Bool          e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state);
 EINTERN E_Hwc_Window_State e_hwc_window_state_get(E_Hwc_Window *hwc_window);
 
+EINTERN void               e_hwc_window_render_list_add(E_Hwc_Window *hwc_window);
+
 #endif // E_HWC_WINDOW_H
 #endif
