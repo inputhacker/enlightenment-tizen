@@ -975,6 +975,29 @@ e_comp_wl_input_touch_enabled_set(Eina_Bool enabled)
    _e_comp_wl_input_update_seat_caps(NULL);
 }
 
+E_API void
+e_comp_wl_input_seat_caps_set(unsigned int caps)
+{
+   Eina_Bool need_update = EINA_FALSE;
+
+   /* check for valid compositor data */
+   if (!e_comp->wl_comp_data)
+     {
+        ERR("No compositor data");
+        return;
+     }
+
+   if (caps & E_INPUT_SEAT_POINTER)
+     e_comp_wl->ptr.enabled = need_update = EINA_TRUE;
+   if (caps & E_INPUT_SEAT_KEYBOARD)
+     e_comp_wl->kbd.enabled = need_update = EINA_TRUE;
+   if (caps & E_INPUT_SEAT_TOUCH)
+     e_comp_wl->touch.enabled = need_update = EINA_TRUE;
+
+   if (need_update)
+     _e_comp_wl_input_update_seat_caps(NULL);
+}
+
 EINTERN Eina_Bool
 e_comp_wl_input_touch_check(struct wl_resource *res)
 {

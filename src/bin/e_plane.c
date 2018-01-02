@@ -723,13 +723,6 @@ _e_plane_unset_reset(E_Plane *plane)
    if (plane->unset_try)         { plane->unset_try = EINA_FALSE;       print_log = EINA_TRUE; }
    if (plane->unset_commit)      { plane->unset_commit = EINA_FALSE;    print_log = EINA_TRUE; }
 
-   if (plane->unset_ec)
-     {
-        e_object_unref(E_OBJECT(plane->unset_ec));
-        plane->unset_ec = NULL;
-        print_log = EINA_TRUE;
-     }
-
    if (print_log && plane_trace_debug)
      ELOGF("E_PLANE", " Plane(%p) Unset flags Reset", NULL, NULL, plane);
 }
@@ -768,8 +761,6 @@ _e_plane_unset_candidate_set(E_Plane *plane, Eina_Bool sync)
      }
 
    plane->unset_candidate = EINA_TRUE;
-   plane->unset_ec = plane->ec;
-   e_object_ref(E_OBJECT(plane->unset_ec));
 }
 
 static void
@@ -2616,13 +2607,8 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
                       e_plane_is_unset_try(plane) ||
                       plane->unset_commit)
                     {
-                       if (plane->unset_ec != ec)
-                         {
-                            INF("Trying to unset plane:%p zpos:%d", plane, plane->zpos);
-                            return EINA_FALSE;
-                         }
-                       else
-                         _e_plane_unset_reset(plane);
+                       INF("Trying to unset plane:%p zpos:%d", plane, plane->zpos);
+                       return EINA_FALSE;
                     }
 
                   if ((plane->renderer) && (plane->role != E_PLANE_ROLE_OVERLAY))

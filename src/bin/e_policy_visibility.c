@@ -40,6 +40,7 @@ static void      _e_policy_client_uniconify_by_visibility(E_Client *ec);
 
 static inline Eina_Bool  _e_vis_client_is_grabbed(E_Vis_Client *vc);
 static void              _e_vis_client_grab_remove(E_Vis_Client *vc, E_Vis_Grab *grab);
+static void              _e_vis_client_grab_cancel(E_Vis_Client *vc);
 static void              _e_vis_client_job_exec(E_Vis_Client *vc, E_Vis_Job_Type type);
 static Eina_Bool         _e_vis_ec_activity_check(E_Client *ec, Eina_Bool check_alpha);
 static void              _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type);
@@ -843,6 +844,18 @@ _e_vis_client_grab_get(E_Vis_Client *vc, const char *name)
 }
 
 static void
+_e_vis_client_grab_cancel(E_Vis_Client *vc)
+{
+   EINA_SAFETY_ON_NULL_RETURN(vc);
+
+   if (_e_vis_client_is_uniconify_render_running(vc))
+     {
+        VS_INF(vc->ec, "Visibility changed while waiting Uniconify. Release grab.");
+        E_FREE_FUNC(vc->grab, _e_vis_grab_release);
+     }
+}
+
+static void
 _e_vis_client_cb_evas_show(void *data EINA_UNUSED, Evas *e EINA_UNUSED, Evas_Object *obj, void *event_info EINA_UNUSED)
 {
    OBJ_EC_GET(ec, obj);
@@ -1014,8 +1027,8 @@ _e_vis_client_prepare_foreground_signal_emit(E_Vis_Client *vc)
    evas_object_smart_callback_call(vc->ec->frame, "e,visibility,prepare,foreground", vc->ec);
 }
 
-static void
-_e_vis_client_send_pre_visibility_event(E_Client *ec)
+EINTERN void
+e_vis_client_send_pre_visibility_event(E_Client *ec)
 {
    if (!ec) return;
    e_policy_wl_visibility_send(ec, E_VISIBILITY_PRE_UNOBSCURED);
@@ -1033,10 +1046,6 @@ _e_vis_client_is_uniconify_render_necessary(E_Vis_Client *vc)
           goto need_deiconify_render;
 
         VS_INF(ec, "Not necessary deiconify rendering");
-
-        ELOGF("POL", "SEND pre-unobscured visibility event", ec->pixmap, ec);
-        _e_vis_client_send_pre_visibility_event(ec);
-
         return EINA_FALSE;
      }
 
@@ -1048,6 +1057,161 @@ need_deiconify_render:
      }
 
    return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_vis_client_check_obscured_by_children(E_Client *ec)
+{
+   Eina_Bool obscured = EINA_FALSE;
+   E_Client *child = NULL;
+   const Eina_List *l = NULL;
+
+   EINA_LIST_FOREACH(ec->transients, l, child)
+     {
+        if (child->transient_policy == E_TRANSIENT_BELOW)
+          continue;
+
+        if (!child->argb)
+          {
+             ELOGF("POL_VIS", "Fully Obscured by child (win:%x, child:%p)",
+                   ec->pixmap, ec, e_client_util_win_get(child), child);
+             obscured = EINA_TRUE;
+             break;
+          }
+        else
+          {
+             if (child->visibility.opaque > 0)
+               {
+                  ELOGF("POL_VIS", "Fully Obscured by alpha opaque child (win:%x, child:%p)",
+                        ec->pixmap, ec, e_client_util_win_get(child), child);
+                  obscured = EINA_TRUE;
+                  break;
+               }
+          }
+     }
+
+   return obscured;
+}
+
+static Eina_Bool
+_e_vis_client_check_obscured_by_same_layer(E_Client *ec)
+{
+   Eina_Bool obscured = EINA_FALSE;
+   E_Client *above = NULL;
+
+   for (above = e_client_above_get(ec); above; above = e_client_above_get(above))
+     {
+        if (above->layer > ec->layer) break;
+        if (e_client_util_ignored_get(above)) continue;
+        if (e_object_is_del(E_OBJECT(above))) continue;
+        if (above->iconic && above->exp_iconify.by_client) continue;
+        if (above->comp_data && !above->comp_data->mapped) continue;
+        if (!E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h)) continue;
+
+        if (!above->argb)
+          {
+             ELOGF("POL_VIS", "Fully Obscured by above (win:%x, ec:%p, layer:%d)",
+                   ec->pixmap, ec, e_client_util_win_get(above), above, above->layer);
+             obscured = EINA_TRUE;
+             break;
+          }
+        else
+          {
+             if (above->visibility.opaque <= 0)
+               continue;
+             else
+               {
+                  ELOGF("POL_VIS", "Fully Obscured by alpha opaque above (win:%x, ec:%p, layer:%d)",
+                        ec->pixmap, ec, e_client_util_win_get(above), above, above->layer);
+                  obscured = EINA_TRUE;
+                  break;
+               }
+          }
+     }
+
+   return obscured;
+}
+
+static Eina_Bool
+_e_vis_client_check_obscured_by_above_layers(E_Client *ec)
+{
+   Eina_Bool obscured = EINA_FALSE;
+   E_Client *above = NULL;
+
+   for (above = e_client_above_get(ec); above; above = e_client_above_get(above))
+     {
+        if (above->layer <= ec->layer) continue;
+        if (e_client_util_ignored_get(above)) continue;
+        if (e_object_is_del(E_OBJECT(above))) continue;
+        if (above->iconic && above->exp_iconify.by_client) continue;
+        if (above->comp_data && !above->comp_data->mapped) continue;
+        if (!E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h)) continue;
+
+        if (!above->argb)
+          {
+             ELOGF("POL_VIS", "Fully Obscured by above (win:%x, ec:%p, layer:%d)",
+                   ec->pixmap, ec, e_client_util_win_get(above), above, above->layer);
+             obscured = EINA_TRUE;
+             break;
+          }
+        else
+          {
+             if (above->visibility.opaque <= 0)
+               continue;
+             else
+               {
+                  ELOGF("POL_VIS", "Fully Obscured by alpha opaque above (win:%x, ec:%p, layer:%d)",
+                        ec->pixmap, ec, e_client_util_win_get(above), above, above->layer);
+                  obscured = EINA_TRUE;
+                  break;
+               }
+          }
+     }
+
+   return obscured;
+}
+
+static Eina_Bool
+_e_vis_client_check_send_pre_visibility(E_Vis_Client *vc, Eina_Bool raise)
+{
+   Eina_Bool send_vis_event = EINA_TRUE;
+   E_Client *ec;
+
+   ec = vc->ec;
+
+   if (_e_vis_client_is_uniconic(vc))
+     return EINA_FALSE;
+
+   // check all windows on above layers, if obscured by above then return FALSE
+   if (_e_vis_client_check_obscured_by_above_layers(ec))
+     {
+        ELOGF("POL_VIS", "DO NOT Need to SEND pre-visibility.. obscured by above (above layer)", ec->pixmap, ec);
+        return EINA_FALSE;
+     }
+
+   if (!raise)
+     {
+        // check above windows in same layer
+        if (_e_vis_client_check_obscured_by_same_layer(ec))
+          {
+             ELOGF("POL_VIS", "DO NOT Need to SEND pre-visibility.. obscured by above (same layer)", ec->pixmap, ec);
+             send_vis_event = EINA_FALSE;
+          }
+     }
+   else
+     {
+        if (ec->transients)
+          {
+             // check children windows
+             if (_e_vis_client_check_obscured_by_children(ec))
+               {
+                  ELOGF("POL_VIS", "DO NOT Need to SEND pre-visibility.. obscured by child", ec->pixmap, ec);
+                  send_vis_event = EINA_FALSE;
+               }
+          }
+     }
+
+   return send_vis_event;
 }
 
 static Eina_Bool
@@ -1076,66 +1240,19 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
    if (_e_vis_client_is_uniconify_render_running(vc))
      goto end;
 
+   send_vis_event = _e_vis_client_check_send_pre_visibility(vc, raise);
+   if (send_vis_event)
+     {
+        ELOGF("POL_VIS", "SEND pre-unobscured visibility event", ec->pixmap, ec);
+        e_vis_client_send_pre_visibility_event(ec);
+     }
+
    if (!_e_vis_client_is_uniconify_render_necessary(vc))
      return EINA_FALSE;
 
    ec->exp_iconify.not_raise = !raise;
 
    VS_DBG(ec, "BEGIN Uniconify render: raise %d", raise);
-
-   if (ec->transients)
-     {
-        if (raise)
-          {
-             E_Client *child;
-             const Eina_List *l;
-
-             EINA_LIST_FOREACH(ec->transients, l, child)
-               {
-                  if (child->transient_policy == E_TRANSIENT_BELOW)
-                    continue;
-                  if (!child->argb)
-                    {
-                       send_vis_event = EINA_FALSE;
-                       break;
-                    }
-                  else
-                    {
-                       if (child->visibility.opaque > 0)
-                         {
-                            send_vis_event = EINA_FALSE;
-                            break;
-                         }
-                    }
-               }
-          }
-        else
-          {
-             E_Client *above = NULL;
-             for (above = e_client_above_get(ec); above; above = e_client_above_get(above))
-               {
-                  if (e_client_util_ignored_get(above)) continue;
-                  if (!E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h)) continue;
-                  if ((above->parent == ec))
-                    {
-                       if (!above->argb)
-                         send_vis_event = EINA_FALSE;
-                       else
-                         {
-                            if (above->visibility.opaque > 0)
-                              send_vis_event = EINA_FALSE;
-                         }
-                    }
-                  break;
-               }
-          }
-     }
-
-   if (send_vis_event)
-     {
-        ELOGF("POL", "SEND pre-unobscured visibility event", ec->pixmap, ec);
-        _e_vis_client_send_pre_visibility_event(ec);
-     }
 
    _e_vis_client_prepare_foreground_signal_emit(vc);
    vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY;
@@ -1407,8 +1524,8 @@ _e_vis_ec_below_uniconify(E_Client *ec)
                        continue;
                     }
 
-                  ELOGF("POL", "SEND pre-unobscured visibility event", below_ec->pixmap, below_ec);
-                  _e_vis_client_send_pre_visibility_event(below_ec);
+                  ELOGF("POL_VIS", "SEND pre-unobscured visibility event", below_ec->pixmap, below_ec);
+                  e_vis_client_send_pre_visibility_event(below_ec);
                }
 
              job_added = _e_vis_client_add_uniconify_render_pending(below, E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY, 0);
@@ -1737,6 +1854,9 @@ e_policy_visibility_client_lower(E_Client *ec)
 
    VS_DBG(ec, "API ENTRY | LOWER");
 
+   /* if vc has job grab, release them */
+   _e_vis_client_grab_cancel(vc);
+
    /* find activity client among the clients to be lower */
    if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.lower))
      {
@@ -1769,6 +1889,9 @@ e_policy_visibility_client_iconify(E_Client *ec)
 
    VS_DBG(ec, "API ENTRY | ICONIFY");
    if (ec->iconic) return EINA_FALSE;
+
+   /* if vc has job grab, release them */
+   _e_vis_client_grab_cancel(vc);
 
    /* find activity client among the clients to be lower */
    if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.iconify))
@@ -1872,6 +1995,9 @@ e_policy_visibility_client_layer_lower(E_Client *ec, E_Layer layer)
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
    VS_DBG(ec, "API ENTRY | LAYER LOWER (layer:%d)", layer);
+
+   /* if vc has job grab, release them */
+   _e_vis_client_grab_cancel(vc);
 
    /* find activity client among the clients to be lower */
    if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.lower))

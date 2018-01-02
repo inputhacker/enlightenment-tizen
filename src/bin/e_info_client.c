@@ -1360,6 +1360,58 @@ arg_err:
 }
 
 static void
+_e_info_client_cb_force_visible(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   const char *result = NULL;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg,
+                                      SIGNATURE_FORCE_VISIBLE_SERVER,
+                                      &result);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   printf("%s\n", result);
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_force_visible(int argc, char **argv)
+{
+   unsigned int obj, visible;
+   Eina_Bool res;
+
+   if (argc != 4)
+      goto arg_err;
+
+   res = _util_string_to_uint(argv[2], &obj, 16);
+   if (!res)
+      goto arg_err;
+
+   res = _util_string_to_uint(argv[3], &visible, 10);
+   if (!res)
+      goto arg_err;
+
+   if (!_e_info_client_eldbus_message_with_args("set_force_visible", _e_info_client_cb_force_visible,
+                                                SIGNATURE_FORCE_VISIBLE_CLIENT,
+                                                obj, (visible) ? EINA_TRUE : EINA_FALSE))
+      return;
+
+   return;
+arg_err:
+   printf("Usage: enlightenment_info -set_force_visible [obj_pointer_address] [0 or 1]\n");
+}
+
+static void
 _cb_subsurface_info_get(const Eldbus_Message *msg)
 {
    const char *name = NULL, *text = NULL;
@@ -4199,6 +4251,11 @@ static struct
       "compobjs", "[simple]",
       "Display detailed information of all composite objects",
       _e_info_client_proc_compobjs_info
+   },
+   {
+      "set_force_visible", NULL,
+      "show/hide a composite object",
+      _e_info_client_proc_force_visible
    },
    {
       "subsurface", NULL,

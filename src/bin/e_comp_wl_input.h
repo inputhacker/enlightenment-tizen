@@ -26,6 +26,7 @@ EINTERN void e_comp_wl_input_keyboard_enter_send(E_Client *client);
 E_API void e_comp_wl_input_pointer_enabled_set(Eina_Bool enabled);
 E_API void e_comp_wl_input_keyboard_enabled_set(Eina_Bool enabled);
 E_API void e_comp_wl_input_touch_enabled_set(Eina_Bool enabled);
+E_API void e_comp_wl_input_seat_caps_set(unsigned int caps);
 
 E_API Eina_Bool e_comp_wl_input_keymap_cache_file_use_get(void);
 E_API Eina_Stringshare *e_comp_wl_input_keymap_path_get(struct xkb_rule_names names);
