@@ -1231,7 +1231,7 @@ _e_comp_object_pixels_noti(void *data, Evas_Object *obj EINA_UNUSED)
    E_Hwc_Window_Target *target_hwc_window;
 
 #if 1
-   ELOGF("HWC-OPT", "[soolim] pixels_noti {title:%s}.",
+   ELOGF("HWC-WINS", "[soolim] pixels_noti {title:%s}.",
          ec->pixmap, ec, ec->icccm.title);
 #endif
 

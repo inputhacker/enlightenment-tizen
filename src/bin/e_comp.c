@@ -918,26 +918,6 @@ e_comp_hook_del(E_Comp_Hook *ch)
      _e_comp_hooks_delete++;
 }
 
-/* whether an ec belong to the output managed by opt-hwc */
-EINTERN Eina_Bool
-e_comp_is_ec_on_output_opt_hwc(E_Client *ec)
-{
-   E_Output *output;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->zone, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->zone->output_id, EINA_FALSE);
-
-   output = e_output_find(ec->zone->output_id);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
-
-   if (e_output_hwc_windows_enabled(output->output_hwc))
-      return EINA_TRUE;
-
-   return EINA_FALSE;
-}
-
 EINTERN Eina_Bool
 e_comp_is_on_overlay(E_Client *ec)
 {
@@ -952,7 +932,7 @@ e_comp_is_on_overlay(E_Client *ec)
    eout = e_output_find(ec->zone->output_id);
    if (!eout) return EINA_FALSE;
 
-   if (e_comp_is_ec_on_output_opt_hwc(ec))
+   if (e_output_hwc_windows_enabled(eout->output_hwc))
      {
         E_Hwc_Window *hwc_window = ec->hwc_window;
         EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);

@@ -19,18 +19,18 @@ struct _E_Output_Hwc
    E_Output_Hwc_Mode  hwc_mode;
    Eina_Bool          hwc_deactive : 1; // deactive hwc policy
 
-   /* non opt_hwc */
+   /* non hwc_wins */
    Eina_Bool          hwc_use_multi_plane;
 
-   /* opt_hwc */
+   /* hwc_wins */
    /* that is whether the layer policy for this output
       is controlled by tdm-backend */
-   Eina_Bool          opt_hwc;
+   Eina_Bool          hwc_wins;
    Eina_List         *hwc_windows;
    E_Hwc_Window_Target *target_hwc_window;
    Eina_Bool          wait_commit;
 
-   /* for pp at opt_hwc */
+   /* for pp at hwc_wins */
    tdm_pp               *tpp;
    Eina_List            *pp_hwc_window_list;
    Eina_List            *pending_pp_hwc_window_list;

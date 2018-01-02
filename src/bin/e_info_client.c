@@ -15,7 +15,7 @@ typedef struct _E_Info_Client
    Eldbus_Object     *obj;
 
    /* topvwins */
-   int                use_gl, use_hwc, use_multi_layer, hwc, opt_hwc;
+   int                use_gl, use_hwc, use_multi_layer, hwc, hwc_wins;
    int                use_buffer_flush, deiconify_approve;
    const char        *engine;
    Eina_List         *win_list;
@@ -489,7 +489,7 @@ _cb_vwindow_info_get(const Eldbus_Message *msg)
 
    res = eldbus_message_arguments_get(msg, "iiiiisiia("VALUE_TYPE_FOR_TOPVWINS")",
                                       &e_info_client.use_gl, &e_info_client.use_hwc, &e_info_client.use_multi_layer,
-                                      &e_info_client.hwc, &e_info_client.opt_hwc, &engine,
+                                      &e_info_client.hwc, &e_info_client.hwc_wins, &engine,
                                       &e_info_client.use_buffer_flush, &e_info_client.deiconify_approve,
                                       &array);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
@@ -982,7 +982,7 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
      {
         printf("HWC:  %s\n", e_info_client.hwc ? "on":"off");
         printf("Multi Plane:  %s\n", e_info_client.use_multi_layer ? "on":"off");
-        printf("Optimized HWC (primary output):  %s\n", e_info_client.opt_hwc ? "on":"off");
+        printf("Optimized HWC (primary output):  %s\n", e_info_client.hwc_wins ? "on":"off");
      }
    printf("Buffer flush: %s\n", e_info_client.use_buffer_flush ? "on":"off");
    if (e_info_client.use_buffer_flush)

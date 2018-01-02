@@ -247,8 +247,6 @@ E_API Eina_List *e_comp_vis_ec_list_get(E_Zone *zone); // visible ec list sorted
 
 E_API Eina_Bool e_comp_socket_init(const char *name);
 
-EINTERN Eina_Bool e_comp_is_ec_on_output_opt_hwc(E_Client *ec);
-
 EINTERN void      e_comp_hwc_deactive_set(Eina_Bool set);
 EINTERN Eina_Bool e_comp_hwc_deactive_get(void);
 EINTERN void      e_comp_hwc_multi_plane_set(Eina_Bool set);
