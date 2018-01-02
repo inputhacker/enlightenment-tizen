@@ -292,7 +292,7 @@ _msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
 }
 
 static int
-_e_info_server_is_hwc_wins()
+_e_info_server_is_hwc_windows()
 {
    E_Output *primary_output;
 
@@ -314,7 +314,7 @@ _e_info_server_cb_window_info_get(const Eldbus_Service_Interface *iface EINA_UNU
    eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->hwc);
    eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->hwc_use_multi_plane);
    eldbus_message_iter_basic_append(iter, 'i', e_comp->hwc);
-   eldbus_message_iter_basic_append(iter, 'i', _e_info_server_is_hwc_wins());
+   eldbus_message_iter_basic_append(iter, 'i', _e_info_server_is_hwc_windows());
    eldbus_message_iter_basic_append(iter, 's', ecore_evas_engine_name_get(e_comp->ee));
    eldbus_message_iter_basic_append(iter, 'i', e_config->use_buffer_flush);
    eldbus_message_iter_basic_append(iter, 'i', e_config->deiconify_approve);

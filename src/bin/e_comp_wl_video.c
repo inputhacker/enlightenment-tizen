@@ -468,7 +468,7 @@ _e_video_get_prop_id(E_Video *video, const char *name)
 }
 
 static Eina_Bool
-_is_video_hwc_wins(E_Video *video)
+_is_video_hwc_windows(E_Video *video)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(video, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(video->e_output, EINA_FALSE);
@@ -484,7 +484,7 @@ _e_video_layer_get_info(E_Video_Layer *layer, E_Video_Info_Layer *vinfo)
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_INVALID_PARAMETER);
    EINA_SAFETY_ON_NULL_RETURN_VAL(vinfo, TDM_ERROR_INVALID_PARAMETER);
 
-   if (_is_video_hwc_wins(layer->video))
+   if (_is_video_hwc_windows(layer->video))
         memcpy(vinfo, &layer->info, sizeof(E_Video_Info_Layer));
    else
      {
@@ -508,7 +508,7 @@ _e_video_layer_set_info(E_Video_Layer *layer, E_Video_Info_Layer *vinfo)
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_INVALID_PARAMETER);
    EINA_SAFETY_ON_NULL_RETURN_VAL(vinfo, TDM_ERROR_INVALID_PARAMETER);
 
-   if (_is_video_hwc_wins(layer->video))
+   if (_is_video_hwc_windows(layer->video))
      {
         tdm_hwc_window_info hwc_win_info = {0};
         E_Hwc_Window *hwc_window;
@@ -550,7 +550,7 @@ _e_video_layer_set_buffer(E_Video_Layer * layer, tbm_surface_h buff)
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
    EINA_SAFETY_ON_NULL_RETURN_VAL(buff, TDM_ERROR_BAD_REQUEST);
 
-   if (_is_video_hwc_wins(layer->video))
+   if (_is_video_hwc_windows(layer->video))
      {
         E_Hwc_Window *hwc_window;
 
@@ -575,7 +575,7 @@ _e_video_layer_unset_buffer(E_Video_Layer *layer)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
 
-   if (_is_video_hwc_wins(layer->video))
+   if (_is_video_hwc_windows(layer->video))
      {
         E_Hwc_Window *hwc_window;
 
@@ -602,7 +602,7 @@ _e_video_layer_is_usable(E_Video_Layer * layer, unsigned int *usable)
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
    EINA_SAFETY_ON_NULL_RETURN_VAL(usable, TDM_ERROR_BAD_REQUEST);
 
-   if (_is_video_hwc_wins(layer->video))
+   if (_is_video_hwc_windows(layer->video))
      {
         E_Hwc_Window *hwc_window;
         E_Hwc_Window_State state;
@@ -630,7 +630,7 @@ _e_video_layer_commit(E_Video_Layer *layer, tdm_layer_commit_handler func, void 
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
 
-   if (_is_video_hwc_wins(layer->video))
+   if (_is_video_hwc_windows(layer->video))
      {
         E_Hwc_Window *hwc_window;
 
@@ -654,7 +654,7 @@ _e_video_layer_get_displaying_buffer(E_Video_Layer *layer, int *tdm_error)
    if (tdm_error)
      *tdm_error = TDM_ERROR_OPERATION_FAILED;
 
-   if (_is_video_hwc_wins(layer->video))
+   if (_is_video_hwc_windows(layer->video))
      {
         E_Hwc_Window *hwc_window;
         E_Video *video;
@@ -684,7 +684,7 @@ _e_video_layer_get_available_properties(E_Video_Layer * layer, const tdm_prop **
   EINA_SAFETY_ON_NULL_RETURN_VAL(props, TDM_ERROR_BAD_REQUEST);
   EINA_SAFETY_ON_NULL_RETURN_VAL(count, TDM_ERROR_BAD_REQUEST);
 
-  if (_is_video_hwc_wins(layer->video))
+  if (_is_video_hwc_windows(layer->video))
     {
        *count = 0;
        if (layer->e_client->hwc_window->hwc_wnd)
@@ -711,7 +711,7 @@ _e_video_layer_get_property(E_Video_Layer * layer, unsigned id, tdm_value *value
   EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
   EINA_SAFETY_ON_NULL_RETURN_VAL(value, TDM_ERROR_BAD_REQUEST);
 
-  if (_is_video_hwc_wins(layer->video))
+  if (_is_video_hwc_windows(layer->video))
     {
        if (layer->e_client->hwc_window->hwc_wnd)
          ret = tdm_hwc_window_video_get_property(
@@ -732,7 +732,7 @@ _e_video_layer_set_property(E_Video_Layer * layer, Tdm_Prop_Value *prop)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
 
-   if (_is_video_hwc_wins(layer->video))
+   if (_is_video_hwc_windows(layer->video))
      return TDM_ERROR_BAD_MODULE;
 
    ret = tdm_layer_set_property(layer->tdm_layer, prop->id, prop->value);
