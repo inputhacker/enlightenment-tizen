@@ -940,7 +940,6 @@ struct E_Client
    int effect_type;
    Eina_Bool use_splash : 1;
    Eina_Bool saved_img : 1; // indicates that window has been saved as the image file even once
-
    Eina_Bool skip_save_img: 1; // indicates that window doesn't want to save its image file
 
    E_Hwc_Window *hwc_window; // hwc window for the tdm_output_hwc.

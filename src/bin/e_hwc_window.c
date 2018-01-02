@@ -202,7 +202,7 @@ _e_hwc_window_client_cb_zone_set(void *data, int type, void *event)
      {
         /* we manage the video window in the video module */
         if (e_hwc_window_is_video(ec->hwc_window)) goto end;
-        if (ec->hwc_window->output == output) goto end;
+        if (ec->hwc_window->output_hwc == output->output_hwc) goto end;
 
         e_hwc_window_free(ec->hwc_window);
         ec->hwc_window = NULL;
@@ -288,12 +288,9 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
 {
    const char *name = NULL;
    E_Hwc_Window_Target *target_hwc_window = NULL;
-   E_Output *output = NULL;
 
    name = ecore_evas_engine_name_get(e_comp->ee);
    EINA_SAFETY_ON_NULL_RETURN_VAL(name, NULL);
-
-   output = output_hwc->output;
 
    if (!strcmp("gl_drm", name))
      {
@@ -333,7 +330,7 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
    /* the target hwc_window is always displayed on hw layer */
    ((E_Hwc_Window *)target_hwc_window)->type = TDM_COMPOSITION_NONE;
    ((E_Hwc_Window *)target_hwc_window)->state = E_HWC_WINDOW_STATE_NONE;
-   ((E_Hwc_Window *)target_hwc_window)->output = output;
+   ((E_Hwc_Window *)target_hwc_window)->output_hwc = output_hwc;
 
    target_hwc_window->ee = e_comp->ee;
    target_hwc_window->evas = ecore_evas_get(target_hwc_window->ee);
@@ -485,7 +482,7 @@ e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State stat
    hwc_window = E_NEW(E_Hwc_Window, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
 
-   hwc_window->output = output_hwc->output;
+   hwc_window->output_hwc = output_hwc;
    hwc_window->ec = ec;
    hwc_window->state = state;
    hwc_window->need_change_buffer_transform = EINA_TRUE;
@@ -535,11 +532,11 @@ EINTERN void
 e_hwc_window_free(E_Hwc_Window *hwc_window)
 {
    E_Output_Hwc *output_hwc = NULL;
+   E_Output *output = NULL;
    tdm_output *toutput = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(hwc_window);
-   EINA_SAFETY_ON_NULL_RETURN(hwc_window->output);
-   EINA_SAFETY_ON_NULL_RETURN(hwc_window->output->output_hwc);
+   EINA_SAFETY_ON_NULL_RETURN(hwc_window->output_hwc);
 
    /* we cannot remove the hwc_window because we need to release the commit_data */
    if (e_hwc_window_displaying_surface_get(hwc_window))
@@ -550,14 +547,17 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
         return;
      }
 
-   toutput = hwc_window->output->toutput;
+   output_hwc = hwc_window->output_hwc;
+   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+
+   output = output_hwc->output;
+   EINA_SAFETY_ON_NULL_RETURN(output_hwc->output);
+
+   toutput = output->toutput;
    EINA_SAFETY_ON_NULL_RETURN(toutput);
 
    if (hwc_window->hwc_wnd)
       tdm_output_hwc_destroy_window(toutput, hwc_window->hwc_wnd);
-
-   output_hwc = hwc_window->output->output_hwc;
-   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
 
    output_hwc->hwc_windows = eina_list_remove(output_hwc->hwc_windows, hwc_window);
 
@@ -620,7 +620,8 @@ _e_hwc_window_aligned_width_get(tbm_surface_h tsurface)
 static Eina_Bool
 _e_hwc_window_info_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface)
 {
-   E_Output *output = hwc_window->output;
+   E_Output_Hwc *output_hwc = hwc_window->output_hwc;
+   E_Output *output = output_hwc->output;
    E_Client *ec = hwc_window->ec;
    tbm_surface_info_s surf_info;
    int size_w, size_h, src_x, src_y, src_w, src_h;
@@ -716,6 +717,8 @@ _is_e_hwc_window_ec_has_correct_transformation(E_Hwc_Window *hwc_window)
 {
    E_Client *ec;
    int transform;
+   E_Output_Hwc *output_hwc = hwc_window->output_hwc;
+   E_Output *output = output_hwc->output;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->ec, EINA_FALSE);
@@ -724,9 +727,8 @@ _is_e_hwc_window_ec_has_correct_transformation(E_Hwc_Window *hwc_window)
 
    transform = e_comp_wl_output_buffer_transform_get(ec);
 
-   /* request an ec to change its transformation if it doesn't fit the transformation
-    * e20 has for the output 'hwc_window->output' */
-   if ((hwc_window->output->config.rotation / 90) != transform)
+   /* request an ec to change its transformation if it doesn't fit the transformation */
+   if ((output->config.rotation / 90) != transform)
      {
         if (!e_config->screen_rotation_client_ignore && hwc_window->need_change_buffer_transform)
           {
@@ -737,7 +739,7 @@ _is_e_hwc_window_ec_has_correct_transformation(E_Hwc_Window *hwc_window)
              e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
 
              ELOGF("HWC-WINS", " request {title:%s} to change transformation to %d.",
-                     ec->pixmap, ec, ec->icccm.title, hwc_window->output->config.rotation);
+                     ec->pixmap, ec, ec->icccm.title, output->config.rotation);
           }
 
         return EINA_FALSE;
@@ -825,6 +827,7 @@ error:
 static Eina_Bool
 _e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointer)
 {
+   E_Output_Hwc *output_hwc = NULL;
    E_Output *output = NULL;
    int w, h, tw, th;
    int tsurface_w, tsurface_h;
@@ -840,7 +843,10 @@ _e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointe
    ec = hwc_window->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
 
-   output = hwc_window->output;
+   output_hwc = hwc_window->output_hwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+
+   output = output_hwc->output;
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
    buffer = ec->comp_data->buffer_ref.buffer;
@@ -1029,16 +1035,16 @@ _get_e_hwc_wnds_composited_list(E_Hwc_Window_Target *e_hwc_target_window)
    Eina_List *e_hwc_wnds_composited_list = NULL, *new_list = NULL;
    E_Hwc_Window *e_hwc_wnd, *ew_hwc;
    const Eina_List *l, *ll;
-   E_Output_Hwc *eo_hwc;
+   E_Output_Hwc *output_hwc;
 
    tbm_surface_internal_get_user_data(e_hwc_target_window->hwc_window.tsurface,
            composited_e_hwc_wnds_key, (void**)&e_hwc_wnds_composited_list);
 
-   eo_hwc = e_hwc_target_window->hwc_window.output->output_hwc;
+   output_hwc = e_hwc_target_window->hwc_window.output_hwc;
 
    /* refresh list of composited e_hwc_wnds according to existed ones */
    EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, e_hwc_wnd)
-      EINA_LIST_FOREACH(eo_hwc->hwc_windows, ll, ew_hwc)
+      EINA_LIST_FOREACH(output_hwc->hwc_windows, ll, ew_hwc)
          if (e_hwc_wnd == ew_hwc)
              new_list = eina_list_append(new_list, e_hwc_wnd);
 
@@ -1079,6 +1085,7 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 {
    tbm_surface_h tsurface = NULL;
    E_Output *output = NULL;
+   E_Output_Hwc *output_hwc = NULL;
    Eina_List *e_hwc_wnds_composited_list = NULL;
    tdm_hwc_window **hwc_wnds = NULL;
    tdm_hwc_region fb_damage;
@@ -1095,7 +1102,8 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    /* for video we set buffer in the video module */
    if (e_hwc_window_is_video(hwc_window)) return EINA_FALSE;
 
-   output = hwc_window->output;
+   output_hwc = hwc_window->output_hwc;
+   output = output_hwc->output;
 
    /* set the buffer to be null  */
    if (hwc_window->state == E_HWC_WINDOW_STATE_NONE)
@@ -1251,7 +1259,8 @@ e_hwc_window_unfetch(E_Hwc_Window *hwc_window)
 
    if (e_hwc_window_is_target(hwc_window))
      {
-        E_Output *output = hwc_window->output;
+        E_Output_Hwc *output_hwc = hwc_window->output_hwc;
+        E_Output *output = output_hwc->output;
         tdm_hwc_region fb_damage;
 
         /* the damage isn't supported by hwc extension yet */
@@ -1283,7 +1292,7 @@ _e_hwc_window_is_existed_on_target_wnd(E_Hwc_Window *e_hwc_wnd)
 
     EINA_SAFETY_ON_NULL_RETURN_VAL(e_hwc_wnd, EINA_FALSE);
 
-    target_hwc_wnd = e_hwc_wnd->output->output_hwc->target_hwc_window;
+    target_hwc_wnd = e_hwc_wnd->output_hwc->target_hwc_window;
 
     tbm_surface_internal_get_user_data(target_hwc_wnd->hwc_window.tsurface, composited_e_hwc_wnds_key,
             (void**)&e_hwc_wnds_composited_list);
@@ -1302,7 +1311,7 @@ _e_hwc_window_is_device_to_client_transition(E_Hwc_Window *hwc_window)
 
    if (hwc_window->is_deleted) return EINA_FALSE;
 
-   target_hwc_window = (E_Hwc_Window *)hwc_window->output->output_hwc->target_hwc_window;
+   target_hwc_window = (E_Hwc_Window *)hwc_window->output_hwc->target_hwc_window;
 
    if (target_hwc_window->state == E_HWC_WINDOW_STATE_NONE) return EINA_FALSE;
    if (!hwc_window->is_device_to_client_transition) return EINA_FALSE;
@@ -1543,6 +1552,8 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
    struct wayland_tbm_client_queue * cqueue = NULL;
    E_Client *ec = NULL;
    int transform;
+   E_Output *output = NULL;
+   E_Output_Hwc *output_hwc = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
@@ -1563,8 +1574,15 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
       *       on the fb_target and a hw overlay owned by it gets free? */
      wayland_tbm_server_client_queue_deactivate(cqueue);
 
+   output_hwc = hwc_window->output_hwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+
+   output = output_hwc->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
    transform = e_comp_wl_output_buffer_transform_get(ec);
-   if (hwc_window->output->config.rotation != 0 && (hwc_window->output->config.rotation / 90) == transform)
+
+   if (output->config.rotation != 0 && (output->config.rotation / 90) == transform)
       e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_TRUE);
 
    _e_hwc_window_recover_ec(hwc_window);

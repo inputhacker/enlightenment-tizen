@@ -673,7 +673,7 @@ e_comp_override_add()
    e_comp->nocomp_override++;
    if (e_comp->nocomp_override > 0)
      {
-        // go full GLES compositing
+        // go full compositing
         e_comp_hwc_end(__FUNCTION__);
      }
 }

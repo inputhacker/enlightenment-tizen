@@ -1235,20 +1235,22 @@ _e_comp_object_pixels_noti(void *data, Evas_Object *obj EINA_UNUSED)
 {
    E_Comp_Object *cw = data;
    E_Client *ec = cw->ec;
-   E_Hwc_Window_Target *target_hwc_window;
-
-#if 1
-   ELOGF("HWC-WINS", "[soolim] pixels_noti {title:%s}.",
-         ec->pixmap, ec, ec->icccm.title);
-#endif
 
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (cw->external_content) return;
 
    if (!ec->hwc_window) return;
 
+//   e_output_hwc_windows_render_list_add(output_hwc, hwc_window);
+
+#if 1
+   ELOGF("HWC-WINS", "pixels_noti {title:%s}.", ec->pixmap, ec, ec->icccm.title);
+#endif
+
+   E_Hwc_Window_Target *target_hwc_window;
+
    /* sorry.... */
-   target_hwc_window = ec->hwc_window->output->output_hwc->target_hwc_window;
+   target_hwc_window = ec->hwc_window->output_hwc->target_hwc_window;
 
    target_hwc_window->current_e_hwc_wnd_composited_list =
            eina_list_append(target_hwc_window->current_e_hwc_wnd_composited_list, ec->hwc_window);

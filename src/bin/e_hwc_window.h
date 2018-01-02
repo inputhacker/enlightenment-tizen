@@ -28,7 +28,7 @@ typedef enum _E_Hwc_Window_Activation_State
 struct _E_Hwc_Window
 {
    E_Client                      *ec;
-   E_Output                      *output;
+   E_Output_Hwc                  *output_hwc;
    tdm_hwc_window                *hwc_wnd;
    int                            zpos;
    tdm_hwc_window_composition     type;
