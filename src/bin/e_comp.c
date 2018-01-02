@@ -430,16 +430,9 @@ e_comp_init(void)
 
    e_comp_new();
 
+   /* conf->hwc configuration has to be check before e_comp_screen_init() */
    if (conf->hwc)
-     {
-        e_comp->hwc = EINA_TRUE; // activate hwc policy on the primary output
-        if (conf->hwc_reuse_cursor_buffer) e_comp->hwc_reuse_cursor_buffer = EINA_TRUE;
-        if (conf->hwc_sync_mode_change) e_comp->hwc_sync_mode_change = EINA_TRUE;
-        if (conf->hwc_use_detach) e_comp->hwc_use_detach = EINA_TRUE;
-        if (conf->hwc_ignore_primary) e_comp->hwc_ignore_primary = EINA_TRUE;
-     }
-
-   if (conf->use_native_type_buffer) e_comp->use_native_type_buffer = EINA_TRUE;
+     e_comp->hwc = EINA_TRUE; // activate hwc policy on the primary output
 
    e_main_ts_begin("\tE_Comp_Screen Init");
    if (!e_comp_screen_init())
@@ -452,11 +445,19 @@ e_comp_init(void)
      }
    e_main_ts_end("\tE_Comp_Screen Init Done");
 
-   if (conf->hwc)
+   if (e_comp->hwc)
      {
         if (conf->hwc_deactive) e_comp_hwc_deactive_set(EINA_TRUE);
+        if (conf->hwc_reuse_cursor_buffer) e_comp->hwc_reuse_cursor_buffer = EINA_TRUE;
+
         if (conf->hwc_use_multi_plane) e_comp_hwc_multi_plane_set(EINA_TRUE);
+        if (conf->hwc_sync_mode_change) e_comp->hwc_sync_mode_change = EINA_TRUE;
+        if (conf->hwc_use_detach) e_comp->hwc_use_detach = EINA_TRUE;
+        if (conf->hwc_ignore_primary) e_comp->hwc_ignore_primary = EINA_TRUE;
      }
+
+   // use wl_surface instead of tbm_surface for the e_comp_wl_buffer
+   if (conf->use_native_type_buffer) e_comp->use_native_type_buffer = EINA_TRUE;
 
    e_comp->comp_type = E_PIXMAP_TYPE_WL;
 
