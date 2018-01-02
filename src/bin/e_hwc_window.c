@@ -1599,6 +1599,7 @@ e_hwc_window_is_on_hw_overlay(E_Hwc_Window *hwc_window)
 
    if (state == E_HWC_WINDOW_STATE_DEVICE) return EINA_TRUE;
    if (state == E_HWC_WINDOW_STATE_CURSOR) return EINA_TRUE;
+   if (state == E_HWC_WINDOW_STATE_VIDEO) return EINA_TRUE;
 
    return EINA_FALSE;
 }
