@@ -339,6 +339,10 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
              dst_y = ec->y;
           }
 
+        /* set the default values when the dst_x and dst_y is out of bound */
+        if (dst_x < 0 || dst_x > output->config.geom.w) dst_x = output->config.geom.x;
+        if (dst_y < 0 || dst_y > output->config.geom.h) dst_y = output->config.geom.y;
+
         /* if output is transformed, the position of a buffer on screen should be also
          * transformed.
          */
