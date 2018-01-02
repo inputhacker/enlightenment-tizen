@@ -327,22 +327,30 @@ _get_e_output(tdm_output *output)
 }
 
 static Eina_Bool
-_e_video_tdm_output_has_video_layer(tdm_output *output)
+_e_video_tdm_output_has_video_layer(tdm_output *toutput)
 {
+   E_Output *output = NULL;
    tdm_layer *layer;
    tdm_layer_capability lyr_capabilities = 0;
 
+   EINA_SAFETY_ON_NULL_RETURN_VAL(toutput, EINA_FALSE);
+
+   output = _get_e_output(toutput);
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-   /* TODO: add the hwc_window video support */
-   if (e_output_hwc_windows_enabled((_get_e_output(output)->output_hwc)))
-     return EINA_FALSE;
-
-   /* get the first suitable layer */
-   layer = _e_video_tdm_video_layer_get(output);
-   tdm_layer_get_capabilities(layer, &lyr_capabilities);
-   if (lyr_capabilities & TDM_LAYER_CAPABILITY_VIDEO)
-     return EINA_TRUE;
+   if (e_output_hwc_policy_get(output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
+     {
+        /* get the first suitable layer */
+        layer = _e_video_tdm_video_layer_get(output);
+        tdm_layer_get_capabilities(layer, &lyr_capabilities);
+        if (lyr_capabilities & TDM_LAYER_CAPABILITY_VIDEO)
+          return EINA_TRUE;
+     }
+   else
+     {
+        /* TODO: add the hwc_window video support */
+        ;;;;
+     }
 
    return EINA_FALSE;
 }
@@ -351,6 +359,7 @@ E_Video_Layer *
 _e_video_avaiable_video_layer_get(E_Video *video)
 {
    E_Video_Layer *layer = NULL;
+   E_Hwc_Window *hwc_window = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(video, NULL);
 
@@ -360,10 +369,18 @@ _e_video_avaiable_video_layer_get(E_Video *video)
    layer->video = video;
    layer->e_client = video->ec;
 
-   if (e_output_hwc_windows_enabled(video->e_output->output_hwc))
+   if (e_output_hwc_policy_get(video->e_output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
      {
-        E_Hwc_Window *hwc_window = NULL;
-
+        layer->tdm_layer = _e_video_tdm_avaiable_video_layer_get(video->output);
+        if (!layer->tdm_layer)
+          {
+             free(layer);
+             return NULL;
+          }
+        _e_video_tdm_set_layer_usable(layer->tdm_layer, EINA_FALSE);
+     }
+   else
+     {
        /*
         * Try to create a video hwc window.
         * In this moment the video resource will be held.
@@ -385,17 +402,7 @@ _e_video_avaiable_video_layer_get(E_Video *video)
 
         /* set new hwc_window to the e_client */
         video->ec->hwc_window = hwc_window;
-
-        return layer;
      }
-
-   layer->tdm_layer = _e_video_tdm_avaiable_video_layer_get(video->output);
-   if (!layer->tdm_layer)
-     {
-        free(layer);
-        return NULL;
-     }
-   _e_video_tdm_set_layer_usable(layer->tdm_layer, EINA_FALSE);
 
    return layer;
 }
@@ -404,17 +411,35 @@ _e_video_avaiable_video_layer_get(E_Video *video)
 static void
 _e_video_get_available_formats(const tbm_format **formats, int *count)
 {
-   tdm_output *output;
+   E_Output *output;
+   tdm_output *toutput;
    tdm_layer *layer;
    tdm_error error;
 
    *count = 0;
 
    /* get the first output */
-   output = tdm_display_get_output(e_comp->e_comp_screen->tdisplay, 0, NULL);
+   toutput = tdm_display_get_output(e_comp->e_comp_screen->tdisplay, 0, NULL);
+   EINA_SAFETY_ON_NULL_RETURN(toutput);
+
+   output = _get_e_output(toutput);
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   if (e_output_hwc_windows_enabled(_get_e_output(output)->output_hwc))
+   if (e_output_hwc_policy_get(output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
+     {
+        /* get the first suitable layer */
+        layer = _e_video_tdm_video_layer_get(output);
+        if (layer)
+          {
+             tdm_layer_get_available_formats(layer, formats, count);
+          }
+        else
+          {
+             *formats = sw_formats;
+             *count = NUM_SW_FORMAT;
+          }
+     }
+   else
      {
         error = tdm_output_hwc_get_video_supported_formats(output, formats, count);
         if (error != TDM_ERROR_NONE)
@@ -422,20 +447,6 @@ _e_video_get_available_formats(const tbm_format **formats, int *count)
              *formats = sw_formats;
              *count = NUM_SW_FORMAT;
           }
-
-        return;
-     }
-
-   /* get the first suitable layer */
-   layer = _e_video_tdm_video_layer_get(output);
-   if (layer)
-     {
-        tdm_layer_get_available_formats(layer, formats, count);
-     }
-   else
-     {
-        *formats = sw_formats;
-        *count = NUM_SW_FORMAT;
      }
 }
 
@@ -446,33 +457,43 @@ _e_video_get_prop_id(E_Video *video, const char *name)
    const tdm_prop *props;
    int i, count = 0;
 
-   /* hwc windows don't have any properties yet */
-   if (e_output_hwc_windows_enabled(video->e_output->output_hwc))
+   if (e_output_hwc_policy_get(video->e_output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
      {
-	      return -1;
-     }
+        layer = _e_video_tdm_video_layer_get(video->output);
+        tdm_layer_get_available_properties(layer, &props, &count);
 
-   layer = _e_video_tdm_video_layer_get(video->output);
-   tdm_layer_get_available_properties(layer, &props, &count);
-
-   for (i = 0; i < count; i++)
-     {
-        if (!strncmp(name, props[i].name, TDM_NAME_LEN))
+        for (i = 0; i < count; i++)
           {
-             VDB("check property(%s)", name);
-             return props[i].id;
+             if (!strncmp(name, props[i].name, TDM_NAME_LEN))
+               {
+                  VDB("check property(%s)", name);
+                  return props[i].id;
+               }
           }
+     }
+   else
+     {
+       // TODO: hwc windows don't have any properties yet
+       //       video hwc_window has to get and set the property id.
+       // tdm_error tdm_hwc_window_video_get_property(tdm_hwc_window *hwc_window, uint32_t id, tdm_value *value);
+       ;;;;;
      }
 
    return -1;
 }
 
+// TODO: this function has to be removed.....
+//       Use. e_output_hwc_policy_get();
 static Eina_Bool
 _is_video_hwc_windows(E_Video *video)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(video, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(video->e_output, EINA_FALSE);
-   return e_output_hwc_windows_enabled(video->e_output->output_hwc);
+
+   if (e_output_hwc_policy_get(video->e_output->output_hwc) == E_OUTPUT_HWC_POLICY_WINDOWS)
+     return EINA_TRUE;
+
+   return EINA_FALSE;
 }
 
 static tdm_error
@@ -785,7 +806,7 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
         video->layer = NULL;
         video->old_comp_buffer = NULL;
 
-        if (!e_output_hwc_windows_enabled(video->e_output->output_hwc))
+        if (e_output_hwc_policy_get(video->e_output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
           {
              e_plane_video_set(video->e_plane, EINA_FALSE, NULL);
              video->e_plane = NULL;
@@ -812,7 +833,7 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
              return EINA_FALSE;
           }
 
-        if (!e_output_hwc_windows_enabled(video->e_output->output_hwc))
+        if (e_output_hwc_policy_get(video->e_output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
           {
              ret = tdm_layer_get_zpos(video->layer->tdm_layer, &zpos);
              if (ret == TDM_ERROR_NONE)
@@ -2325,7 +2346,51 @@ _e_video_check_if_pp_needed(E_Video *video)
    tdm_layer_capability capabilities = 0;
    tdm_error error;
 
-   if (e_output_hwc_windows_enabled(video->e_output->output_hwc))
+   if (e_output_hwc_policy_get(video->e_output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
+     {
+        tdm_layer *layer = _e_video_tdm_video_layer_get(video->output);
+
+        tdm_layer_get_capabilities(layer, &capabilities);
+
+        /* don't need pp if a layer has TDM_LAYER_CAPABILITY_VIDEO capability*/
+        if (capabilities & TDM_LAYER_CAPABILITY_VIDEO)
+          return EINA_FALSE;
+
+        /* check formats */
+        tdm_layer_get_available_formats(layer, &formats, &count);
+        for (i = 0; i < count; i++)
+          if (formats[i] == video->tbmfmt)
+            {
+               found = EINA_TRUE;
+               break;
+            }
+
+        if (!found)
+          {
+             if (formats && count > 0)
+               video->pp_tbmfmt = formats[0];
+             else
+               {
+                  WRN("No layer format information!!!");
+                  video->pp_tbmfmt = TBM_FORMAT_ARGB8888;
+               }
+             return EINA_TRUE;
+          }
+
+        /* check size */
+        if (capabilities & TDM_LAYER_CAPABILITY_SCANOUT)
+          goto need_pp;
+
+        if (video->geo.input_r.w != video->geo.output_r.w || video->geo.input_r.h != video->geo.output_r.h)
+          if (!(capabilities & TDM_LAYER_CAPABILITY_SCALE))
+            goto need_pp;
+
+        /* check rotate */
+        if (video->geo.transform || e_comp->e_comp_screen->rotation > 0)
+          if (!(capabilities & TDM_LAYER_CAPABILITY_TRANSFORM))
+            goto need_pp;
+     }
+   else
      {
         E_Hwc_Window *hwc_window = video->ec->hwc_window;
         tdm_hwc_window_video_capability capabilities = 0;
@@ -2368,51 +2433,7 @@ _e_video_check_if_pp_needed(E_Video *video)
         if (video->geo.transform || e_comp->e_comp_screen->rotation > 0)
           if (!(capabilities & TDM_HWC_WINDOW_VIDEO_CAPABILITY_TRANSFORM))
             goto need_pp;
-
-        return EINA_FALSE;
      }
-
-   tdm_layer *layer = _e_video_tdm_video_layer_get(video->output);
-
-   tdm_layer_get_capabilities(layer, &capabilities);
-
-   /* don't need pp if a layer has TDM_LAYER_CAPABILITY_VIDEO capability*/
-   if (capabilities & TDM_LAYER_CAPABILITY_VIDEO)
-     return EINA_FALSE;
-
-   /* check formats */
-   tdm_layer_get_available_formats(layer, &formats, &count);
-   for (i = 0; i < count; i++)
-     if (formats[i] == video->tbmfmt)
-       {
-          found = EINA_TRUE;
-          break;
-       }
-
-   if (!found)
-     {
-        if (formats && count > 0)
-          video->pp_tbmfmt = formats[0];
-        else
-          {
-             WRN("No layer format information!!!");
-             video->pp_tbmfmt = TBM_FORMAT_ARGB8888;
-          }
-        return EINA_TRUE;
-     }
-
-   /* check size */
-   if (capabilities & TDM_LAYER_CAPABILITY_SCANOUT)
-     goto need_pp;
-
-   if (video->geo.input_r.w != video->geo.output_r.w || video->geo.input_r.h != video->geo.output_r.h)
-     if (!(capabilities & TDM_LAYER_CAPABILITY_SCALE))
-       goto need_pp;
-
-   /* check rotate */
-   if (video->geo.transform || e_comp->e_comp_screen->rotation > 0)
-     if (!(capabilities & TDM_LAYER_CAPABILITY_TRANSFORM))
-       goto need_pp;
 
    return EINA_FALSE;
 

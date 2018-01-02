@@ -127,10 +127,10 @@ _e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    output = e_output_find(zone->output_id);
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   /* if an e_client belongs to the e_output managed by
-    * no-opt hwc there's no need to deal with hwc_windows */
-   if (!e_output_hwc_windows_enabled(output->output_hwc))
-      return;
+   /* If an e_client belongs to the e_output managed by hwc_plane policy,
+    * there's no need to deal with hwc_windows. */
+   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+     return;
 
    hwc_window = e_hwc_window_new(output->output_hwc, ec, E_HWC_WINDOW_STATE_NONE);
    EINA_SAFETY_ON_NULL_RETURN(hwc_window);
@@ -158,10 +158,10 @@ _e_hwc_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
    output = e_output_find(zone->output_id);
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   /* if an e_client belongs to the e_output managed by
-    * no-opt hwc there's no need to deal with hwc_windows */
-   if (!e_output_hwc_windows_enabled(output->output_hwc))
-      return;
+   /* If an e_client belongs to the e_output managed by hwc_plane policy,
+    * there's no need to deal with hwc_windows. */
+   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+     return;
 
    if (!ec->hwc_window) return;
 
@@ -193,9 +193,9 @@ _e_hwc_window_client_cb_zone_set(void *data, int type, void *event)
    output = e_output_find(zone->output_id);
    EINA_SAFETY_ON_NULL_GOTO(output, end);
 
-   /* if an e_client belongs to the e_output managed by
-    * no-opt hwc there's no need to deal with hwc_windows */
-   if (!e_output_hwc_windows_enabled(output->output_hwc))
+   /* If an e_client belongs to the e_output managed by hwc_plane policy,
+    * there's no need to deal with hwc_windows. */
+   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
       return ECORE_CALLBACK_PASS_ON;
 
    if (ec->hwc_window)
@@ -422,7 +422,8 @@ e_hwc_window_init(E_Output_Hwc *output_hwc)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
 
-   if (!e_output_hwc_windows_enabled(output_hwc)) return EINA_FALSE;
+   if (e_output_hwc_policy_get(output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+     return EINA_FALSE;
 
    client_hook_new =  e_client_hook_add(E_CLIENT_HOOK_NEW_CLIENT,
                                         _e_hwc_window_client_cb_new, NULL);

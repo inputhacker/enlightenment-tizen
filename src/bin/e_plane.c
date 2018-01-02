@@ -567,12 +567,7 @@ _e_plane_external_surface_acquire(E_Plane *plane)
 
    if (plane->ext_state == E_OUTPUT_EXT_MIRROR)
      {
-        if (e_output_hwc_windows_enabled(plane->output_primary->output_hwc))
-          {
-             tsurface = plane->output_primary->output_hwc->target_hwc_window->hwc_window.tsurface;
-             EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, NULL);
-          }
-        else
+        if (e_output_hwc_policy_get(plane->output_primary->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
           {
              plane_primary_output_fb = e_output_fb_target_get(plane->output_primary);
              EINA_SAFETY_ON_NULL_RETURN_VAL(plane_primary_output_fb, NULL);
@@ -585,6 +580,11 @@ _e_plane_external_surface_acquire(E_Plane *plane)
 
              tsurface = tdm_layer_get_displaying_buffer(plane_primary_output_fb->tlayer, &ret);
              EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, NULL);
+          }
+        else
+          {
+             tsurface = plane->output_primary->output_hwc->target_hwc_window->hwc_window.tsurface;
+             EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, NULL);
           }
      }
    else if (plane->ext_state == E_OUTPUT_EXT_PRESENTATION)

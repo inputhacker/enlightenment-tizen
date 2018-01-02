@@ -1318,7 +1318,7 @@ e_output_hwc_new(E_Output *output)
     */
    if (output->tdm_hwc)
      {
-        output_hwc->hwc_wins = EINA_TRUE;
+        output_hwc->hwc_policy = E_OUTPUT_HWC_POLICY_WINDOWS;
 
         /* get backend a shot to ask us for the revalidation */
         error = tdm_output_hwc_set_need_validate_handler(output->toutput, _e_output_hwc_windows_need_validate_handler);
@@ -1337,6 +1337,8 @@ e_output_hwc_new(E_Output *output)
 
         evas_event_callback_add(e_comp->evas, EVAS_CALLBACK_RENDER_FLUSH_POST, _e_output_hwc_canvas_render_flush_post, output_hwc);
      }
+   else
+     output_hwc->hwc_policy = E_OUTPUT_HWC_POLICY_PLANES;
 
    return output_hwc;
 
@@ -1359,14 +1361,9 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
 {
    EINA_SAFETY_ON_NULL_RETURN(output_hwc);
    EINA_SAFETY_ON_NULL_RETURN(output_hwc->output);
+   if (e_output_hwc_policy_get(output_hwc) == E_OUTPUT_HWC_POLICY_NONE) return;
 
-   if (e_output_hwc_windows_enabled(output_hwc))
-     {
-        /* evaluate which e_output_hwc_window will be composited by hwc and wich by GLES */
-        if (!_e_output_hwc_windows_evaluate(output_hwc))
-           ERR("fail to _e_output_hwc_windows_evaluate.");
-     }
-   else
+   if (e_output_hwc_policy_get(output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
      {
         if (e_output_hwc_deactive_get(output_hwc))
           {
@@ -1385,6 +1382,12 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
           _e_output_hwc_planes_begin(output_hwc);
         else
           _e_output_hwc_planes_changed(output_hwc);
+     }
+   else
+     {
+        /* evaluate which e_output_hwc_window will be composited by hwc and wich by GLES */
+        if (!_e_output_hwc_windows_evaluate(output_hwc))
+           ERR("fail to _e_output_hwc_windows_evaluate.");
      }
 }
 
@@ -1461,12 +1464,12 @@ e_output_hwc_end(E_Output_Hwc *output_hwc, const char *location)
    ELOGF("HWC", " End...  at %s.", NULL, NULL, location);
 }
 
-EINTERN Eina_Bool
-e_output_hwc_windows_enabled(E_Output_Hwc *output_hwc)
+EINTERN E_Output_Hwc_Policy
+e_output_hwc_policy_get(E_Output_Hwc *output_hwc)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
 
-   return output_hwc->hwc_wins;
+   return output_hwc->hwc_policy;
 }
 
 EINTERN const Eina_List *

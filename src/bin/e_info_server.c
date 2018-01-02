@@ -191,16 +191,7 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
    eout = e_output_find(ec->zone->output_id);
    if (!eout) return;
 
-   if (e_output_hwc_windows_enabled(eout->output_hwc))
-     {
-        if (!ec->hwc_window) return;
-        hwc_window = ec->hwc_window;
-        if (e_hwc_window_is_on_hw_overlay(hwc_window))
-          *hwc = 1;
-
-        *pl_zpos = e_hwc_window_zpos_get(hwc_window);
-     }
-   else
+   if (e_output_hwc_policy_get(eout->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
      {
         EINA_LIST_FOREACH(eout->planes, l, ep)
           {
@@ -214,6 +205,15 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
                   break;
                }
           }
+     }
+   else
+     {
+        if (!ec->hwc_window) return;
+        hwc_window = ec->hwc_window;
+        if (e_hwc_window_is_on_hw_overlay(hwc_window))
+          *hwc = 1;
+
+        *pl_zpos = e_hwc_window_zpos_get(hwc_window);
      }
 }
 
@@ -300,7 +300,10 @@ _e_info_server_is_hwc_windows()
    if (!primary_output)
       return 0;
 
-   return !!e_output_hwc_windows_enabled(primary_output->output_hwc);
+   if (e_output_hwc_policy_get(primary_output->output_hwc) == E_OUTPUT_HWC_POLICY_WINDOWS)
+     return 1;
+
+   return 0;
 }
 
 /* Method Handlers */
