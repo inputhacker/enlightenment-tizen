@@ -578,7 +578,7 @@ e_hwc_window_zpos_get(E_Hwc_Window *hwc_window)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
-   if (hwc_window->state == E_HWC_WINDOW_STATE_NONE) return -1;
+   if (hwc_window->state == E_HWC_WINDOW_STATE_NONE) return -999;
 
    return hwc_window->zpos;
 }

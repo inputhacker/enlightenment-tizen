@@ -239,15 +239,15 @@ _e_output_hwc_windows_update(E_Output_Hwc *output_hwc, Eina_List *cl_list)
              continue;
           }
 
+        /* e20 deal with video window at the e_comp_wl_video */
+        if (e_hwc_window_is_video(hwc_window)) continue;
+
         result = e_hwc_window_zpos_set(hwc_window, zpos);
         if (result != EINA_TRUE)
           {
              ERR("hwc-opt: cannot set zpos for E_Hwc_Window(%p)", hwc_window);
              continue;
           }
-
-        /* e20 deal with video window at the e_comp_wl_video */
-        if (e_hwc_window_is_video(hwc_window)) continue;
 
         result = e_hwc_window_update(hwc_window);
         if (result != EINA_TRUE)

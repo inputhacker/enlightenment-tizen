@@ -1019,7 +1019,7 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
           {
              if ((!win->iconic) && (win->frame_visible))
                {
-                  if (win->pl_zpos == -1)
+                  if (win->pl_zpos == -999)
                     snprintf(tmp, sizeof(tmp), " - ");
                   else
                     {
@@ -1098,7 +1098,7 @@ _e_info_client_proc_topwins_info(int argc, char **argv)
           {
              if ((!win->iconic) && (win->frame_visible))
                {
-                  if (win->pl_zpos == -1)
+                  if (win->pl_zpos == -999)
                     snprintf(tmp, sizeof(tmp), " - ");
                   else
                     {
@@ -3502,7 +3502,7 @@ _e_info_client_cb_wininfo(const Eldbus_Message *msg)
      {
         if ((!iconic) && (frame_visible))
           {
-             if (pl_zpos == -1)
+             if (pl_zpos == -999)
                printf(" - ");
              else
                {
@@ -3574,7 +3574,7 @@ _e_info_client_cb_wininfo_tree(const Eldbus_Message *msg)
         else
           printf("0x%lx \"%s\":", (unsigned long)child_win, child_name);
         printf (" %dx%d+%d+%d", w, h, x, y);
-        if (pl_zpos == -1)
+        if (pl_zpos == -999)
           printf(" - ");
         else
           {

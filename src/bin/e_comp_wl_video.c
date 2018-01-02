@@ -380,6 +380,9 @@ _e_video_avaiable_video_layer_get(E_Video *video)
         if (video->ec->hwc_window)
            e_hwc_window_free(video->ec->hwc_window);
 
+        /* video window is under the 24depth hwc_window for ui */
+        e_hwc_window_zpos_set(hwc_window, -1);
+
         /* set new hwc_window to the e_client */
         video->ec->hwc_window = hwc_window;
 
