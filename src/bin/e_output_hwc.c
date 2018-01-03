@@ -1837,18 +1837,14 @@ e_output_hwc_new(E_Output *output)
 
    output_hwc->output = output;
 
-   /* HWC, in terms of E20's architecture, is a part of E20 responsible for hardware compositing
-    *
-    * - no-optimized HWC takes away, from the evas engine compositor, a part of the composition
-    * work without an assumption was that part worthy(optimally) to be delegated to hardware;
-    * - optimized HWC makes this assumption (delegate it to tdm-backend, to be exact);
-    *
-    * of course if the tdm-backend makes no optimization these HWCs behave equally...
-    *
-    * optimized and no-optimized hwc-s can so-exist together to manage different outputs;
-    * as E20 may handle several outputs by different hwcs we let them both work simultaneously,
-    * so we initialize both hwcs, let both hwcs reevaluate and let both hwcs make a commit;
-    * one hwc handles only outputs managed by it, so other outputs are handled by the another hwc :)
+   /*
+    * E20 has two hwc policy options.
+    * 1. One is the E_OUTPUT_HWC_POLICY_PLANES.
+    *   - E20 decides the hwc policy with the E_Planes associated with the tdm_layers.
+    *   - E20 manages how to set the surface(buffer) of the ec to the E_Plane.
+    * 2. Another is the E_OUTPUT_HWC_POLICY_WIDNOWS.
+    *   - The tdm-backend decides the hwc policy with the E_Hwc_Windows associated with the tdm_hwc_window.
+    *   - E20 asks to verify the compsition types of the E_Hwc_Window of the ec.
     */
    if (output->tdm_hwc)
      {
