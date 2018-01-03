@@ -81,45 +81,41 @@ _get_composition_type(E_Hwc_Window_State state)
    return composition_type;
 }
 
-static void
-_e_hwc_window_canvas_render_flush_post(void *data, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
+static unsigned int
+_get_aligned_width(tbm_surface_h tsurface)
 {
-   E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
-   Eina_List *e_hwc_wnd_composited_list;
+   unsigned int aligned_width = 0;
+   tbm_surface_info_s surf_info;
 
-   ELOGF("HWC-WINS", " render_flush_post -- the target_hwc_window(%p)", NULL, NULL, target_hwc_window);
+   tbm_surface_get_info(tsurface, &surf_info);
 
-   /* all ecs have been composited so we can attach a list of composited e_hwc_wnds to the surface
-    * which contains their ecs composited */
+   switch (surf_info.format)
+     {
+      case TBM_FORMAT_YUV420:
+      case TBM_FORMAT_YVU420:
+      case TBM_FORMAT_YUV422:
+      case TBM_FORMAT_YVU422:
+      case TBM_FORMAT_NV12:
+      case TBM_FORMAT_NV21:
+        aligned_width = surf_info.planes[0].stride;
+        break;
+      case TBM_FORMAT_YUYV:
+      case TBM_FORMAT_UYVY:
+        aligned_width = surf_info.planes[0].stride >> 1;
+        break;
+      case TBM_FORMAT_ARGB8888:
+      case TBM_FORMAT_XRGB8888:
+        aligned_width = surf_info.planes[0].stride >> 2;
+        break;
+      default:
+        ERR("not supported format: %x", surf_info.format);
+     }
 
-   e_hwc_wnd_composited_list = eina_list_clone(target_hwc_window->current_e_hwc_wnd_composited_list);
-
-   tbm_surface_internal_set_user_data(target_hwc_window->currently_dequeued_surface,
-           composited_e_hwc_wnds_key, e_hwc_wnd_composited_list);
-
-   eina_list_free(target_hwc_window->current_e_hwc_wnd_composited_list);
-   target_hwc_window->current_e_hwc_wnd_composited_list = NULL;
-   target_hwc_window->currently_dequeued_surface = NULL;
+   return aligned_width;
 }
-
-static E_Hwc_Window_Target *
-_e_hwc_window_target_window_get(E_Hwc_Window *hwc_window)
-{
-   E_Hwc_Window_Target *target_hwc_window;
-   E_Output_Hwc *output_hwc;
-
-   output_hwc = hwc_window->output_hwc;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
-
-   target_hwc_window = output_hwc->target_hwc_window;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, NULL);
-
-   return target_hwc_window;
-}
-
 
 static tbm_surface_h
-_e_hwc_window_target_surface_queue_acquire(E_Hwc_Window_Target *target_hwc_window)
+_e_hwc_window_target_window_surface_acquire(E_Hwc_Window_Target *target_hwc_window)
 {
    tbm_surface_queue_h queue = NULL;
    tbm_surface_h surface = NULL;
@@ -149,7 +145,7 @@ _e_hwc_window_target_surface_queue_acquire(E_Hwc_Window_Target *target_hwc_windo
 }
 
 static void
-_e_hwc_window_target_surface_queue_release(E_Hwc_Window_Target *target_hwc_window, tbm_surface_h tsurface)
+_e_hwc_window_target_window_surface_release(E_Hwc_Window_Target *target_hwc_window, tbm_surface_h tsurface)
 {
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
    tbm_surface_queue_h tqueue = NULL;
@@ -168,26 +164,35 @@ _e_hwc_window_target_surface_queue_release(E_Hwc_Window_Target *target_hwc_windo
      }
 }
 
-static Eina_Bool
-_e_hwc_window_target_surface_queue_clear(E_Hwc_Window_Target *target_hwc_window)
+static void
+_e_hwc_window_target_window_surface_data_free(void *data)
 {
-   tbm_surface_queue_h tqueue = NULL;
-   tbm_surface_h tsurface = NULL;
+   Eina_List *e_hwc_wnd_composited_list = (Eina_List *)data;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
+   eina_list_free(e_hwc_wnd_composited_list);
+}
 
-   tqueue = target_hwc_window->queue;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
+/* gets called as somebody modifies target_window's queue */
+static void
+_e_hwc_window_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_queue,
+        tbm_surface_h tbm_surface, tbm_surface_queue_trace trace, void *data)
+{
+   E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
 
-   while ((tsurface = _e_hwc_window_target_surface_queue_acquire(target_hwc_window)))
-     _e_hwc_window_target_surface_queue_release(target_hwc_window, tsurface);
-
-  return EINA_TRUE;
+   if (trace == TBM_SURFACE_QUEUE_TRACE_DEQUEUE)
+     {
+        tbm_surface_internal_add_user_data(tbm_surface, composited_e_hwc_wnds_key, _e_hwc_window_target_window_surface_data_free);
+        target_hwc_window->currently_dequeued_surface = tbm_surface;
+     }
+   if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
+     {
+        tbm_surface_internal_delete_user_data(tbm_surface, composited_e_hwc_wnds_key);
+     }
 }
 
 /* gets called as evas_renderer enqueues a new buffer into the queue */
 static void
-_e_hwc_window_target_queue_acquirable_cb(tbm_surface_queue_h surface_queue, void *data)
+_e_hwc_window_target_window_surface_queue_acquirable_cb(tbm_surface_queue_h surface_queue, void *data)
 {
     E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
     uint64_t value = 1;
@@ -200,35 +205,9 @@ _e_hwc_window_target_queue_acquirable_cb(tbm_surface_queue_h surface_queue, void
       ERR("failed to send acquirable event:%m");
 }
 
-static void
-_free_dequeued_surface_data(void *data)
-{
-   Eina_List *e_hwc_wnd_composited_list = (Eina_List *)data;
-
-   eina_list_free(e_hwc_wnd_composited_list);
-}
-
-/* gets called as somebody modifies target_window's queue */
-static void
-_e_hwc_window_target_queue_trace_cb(tbm_surface_queue_h surface_queue,
-        tbm_surface_h tbm_surface, tbm_surface_queue_trace trace, void *data)
-{
-   E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
-
-   if (trace == TBM_SURFACE_QUEUE_TRACE_DEQUEUE)
-     {
-        tbm_surface_internal_add_user_data(tbm_surface, composited_e_hwc_wnds_key, _free_dequeued_surface_data);
-        target_hwc_window->currently_dequeued_surface = tbm_surface;
-     }
-   if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
-     {
-        tbm_surface_internal_delete_user_data(tbm_surface, composited_e_hwc_wnds_key);
-     }
-}
-
 /* gets called at the beginning of an ecore_main_loop iteration */
 static Eina_Bool
-_evas_renderer_finished_composition_cb(void *data, Ecore_Fd_Handler *fd_handler)
+_e_hwc_window_target_window_render_finished_cb(void *data, Ecore_Fd_Handler *fd_handler)
 {
    int len;
    int fd;
@@ -244,26 +223,25 @@ _evas_renderer_finished_composition_cb(void *data, Ecore_Fd_Handler *fd_handler)
    return ECORE_CALLBACK_RENEW;
 }
 
-static Eina_List *
-_e_hwc_window_target_window_composited_list_get(E_Hwc_Window_Target *e_hwc_target_window)
+static void
+_e_hwc_window_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
 {
-   Eina_List *e_hwc_wnds_composited_list = NULL, *new_list = NULL;
-   E_Hwc_Window *e_hwc_wnd, *ew_hwc;
-   const Eina_List *l, *ll;
-   E_Output_Hwc *output_hwc;
+   E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
+   Eina_List *e_hwc_wnd_composited_list;
 
-   tbm_surface_internal_get_user_data(e_hwc_target_window->hwc_window.tsurface,
-           composited_e_hwc_wnds_key, (void**)&e_hwc_wnds_composited_list);
+   ELOGF("HWC-WINS", " render_flush_post -- the target_hwc_window(%p)", NULL, NULL, target_hwc_window);
 
-   output_hwc = e_hwc_target_window->hwc_window.output_hwc;
+   /* all ecs have been composited so we can attach a list of composited e_hwc_wnds to the surface
+    * which contains their ecs composited */
 
-   /* refresh list of composited e_hwc_wnds according to existed ones */
-   EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, e_hwc_wnd)
-      EINA_LIST_FOREACH(output_hwc->hwc_windows, ll, ew_hwc)
-         if (e_hwc_wnd == ew_hwc)
-             new_list = eina_list_append(new_list, e_hwc_wnd);
+   e_hwc_wnd_composited_list = eina_list_clone(target_hwc_window->current_e_hwc_wnd_composited_list);
 
-   return new_list;
+   tbm_surface_internal_set_user_data(target_hwc_window->currently_dequeued_surface,
+           composited_e_hwc_wnds_key, e_hwc_wnd_composited_list);
+
+   eina_list_free(target_hwc_window->current_e_hwc_wnd_composited_list);
+   target_hwc_window->current_e_hwc_wnd_composited_list = NULL;
+   target_hwc_window->currently_dequeued_surface = NULL;
 }
 
 static E_Hwc_Window_Target *
@@ -320,7 +298,7 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
    target_hwc_window->event_fd = eventfd(0, EFD_NONBLOCK);
    target_hwc_window->event_hdlr =
             ecore_main_fd_handler_add(target_hwc_window->event_fd, ECORE_FD_READ,
-                                      _evas_renderer_finished_composition_cb,
+                                      _e_hwc_window_target_window_render_finished_cb,
                                       (void *)target_hwc_window, NULL, NULL);
 
    ecore_evas_manual_render(target_hwc_window->ee);
@@ -332,12 +310,14 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
     * except the writing into the event_fd object, this writing causes the new ecore_main loop
     * iteration to be triggered ('cause we've registered ecore_main fd handler to check this writing);
     * so it's just a way to inform E20's HWC that evas_renderer has done its work */
-   tbm_surface_queue_add_acquirable_cb(target_hwc_window->queue, _e_hwc_window_target_queue_acquirable_cb,
+   tbm_surface_queue_add_acquirable_cb(target_hwc_window->queue, _e_hwc_window_target_window_surface_queue_acquirable_cb,
            (void *)target_hwc_window);
 
    /* TODO: we can use this call instead of an add_acquirable_cb and an add_dequeue_cb calls. */
-   tbm_surface_queue_add_trace_cb(target_hwc_window->queue, _e_hwc_window_target_queue_trace_cb,
+   tbm_surface_queue_add_trace_cb(target_hwc_window->queue, _e_hwc_window_target_window_surface_queue_trace_cb,
            (void *)target_hwc_window);
+
+   evas_event_callback_add(e_comp->evas, EVAS_CALLBACK_RENDER_FLUSH_POST, _e_hwc_window_target_window_render_flush_post_cb, target_hwc_window);
 
    /* sorry..., current version of gcc requires an initializer to be evaluated at compile time */
    composited_e_hwc_wnds_key = (uintptr_t)&composited_e_hwc_wnds_key;
@@ -351,6 +331,60 @@ fail:
      free(target_hwc_window);
 
    return NULL;
+}
+
+static E_Hwc_Window_Target *
+_e_hwc_window_target_window_get(E_Hwc_Window *hwc_window)
+{
+   E_Hwc_Window_Target *target_hwc_window;
+   E_Output_Hwc *output_hwc;
+
+   output_hwc = hwc_window->output_hwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
+
+   target_hwc_window = output_hwc->target_hwc_window;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, NULL);
+
+   return target_hwc_window;
+}
+
+static Eina_Bool
+_e_hwc_window_target_window_clear(E_Hwc_Window_Target *target_hwc_window)
+{
+   tbm_surface_queue_h tqueue = NULL;
+   tbm_surface_h tsurface = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
+
+   tqueue = target_hwc_window->queue;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
+
+   while ((tsurface = _e_hwc_window_target_window_surface_acquire(target_hwc_window)))
+     _e_hwc_window_target_window_surface_release(target_hwc_window, tsurface);
+
+  return EINA_TRUE;
+}
+
+static Eina_List *
+_e_hwc_window_target_window_composited_list_get(E_Hwc_Window_Target *e_hwc_target_window)
+{
+   Eina_List *e_hwc_wnds_composited_list = NULL, *new_list = NULL;
+   E_Hwc_Window *e_hwc_wnd, *ew_hwc;
+   const Eina_List *l, *ll;
+   E_Output_Hwc *output_hwc;
+
+   tbm_surface_internal_get_user_data(e_hwc_target_window->hwc_window.tsurface,
+           composited_e_hwc_wnds_key, (void**)&e_hwc_wnds_composited_list);
+
+   output_hwc = e_hwc_target_window->hwc_window.output_hwc;
+
+   /* refresh list of composited e_hwc_wnds according to existed ones */
+   EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, e_hwc_wnd)
+      EINA_LIST_FOREACH(output_hwc->hwc_windows, ll, ew_hwc)
+         if (e_hwc_wnd == ew_hwc)
+             new_list = eina_list_append(new_list, e_hwc_wnd);
+
+   return new_list;
 }
 
 static void
@@ -744,39 +778,6 @@ _e_hwc_window_cursor_surface_acquire(E_Hwc_Window *hwc_window)
    return tsurface;
 }
 
-static unsigned int
-_e_hwc_window_aligned_width_get(tbm_surface_h tsurface)
-{
-   unsigned int aligned_width = 0;
-   tbm_surface_info_s surf_info;
-
-   tbm_surface_get_info(tsurface, &surf_info);
-
-   switch (surf_info.format)
-     {
-      case TBM_FORMAT_YUV420:
-      case TBM_FORMAT_YVU420:
-      case TBM_FORMAT_YUV422:
-      case TBM_FORMAT_YVU422:
-      case TBM_FORMAT_NV12:
-      case TBM_FORMAT_NV21:
-        aligned_width = surf_info.planes[0].stride;
-        break;
-      case TBM_FORMAT_YUYV:
-      case TBM_FORMAT_UYVY:
-        aligned_width = surf_info.planes[0].stride >> 1;
-        break;
-      case TBM_FORMAT_ARGB8888:
-      case TBM_FORMAT_XRGB8888:
-        aligned_width = surf_info.planes[0].stride >> 2;
-        break;
-      default:
-        ERR("not supported format: %x", surf_info.format);
-     }
-
-   return aligned_width;
-}
-
 static Eina_Bool
 _e_hwc_window_info_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface)
 {
@@ -793,7 +794,7 @@ _e_hwc_window_info_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface)
 
    format = surf_info.format;
 
-   size_w = _e_hwc_window_aligned_width_get(tsurface);
+   size_w = _get_aligned_width(tsurface);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(size_w == 0, EINA_FALSE);
 
    size_h = surf_info.height;
@@ -951,7 +952,6 @@ _e_hwc_window_is_device_to_client_transition(E_Hwc_Window *hwc_window)
    return EINA_TRUE;
 }
 
-
 EINTERN Eina_Bool
 e_hwc_window_init(E_Output_Hwc *output_hwc)
 {
@@ -992,8 +992,6 @@ e_hwc_window_init(E_Output_Hwc *output_hwc)
    output_hwc->target_hwc_window = target_hwc_window;
 
    output_hwc->hwc_windows = eina_list_append(output_hwc->hwc_windows, target_hwc_window);
-
-   evas_event_callback_add(e_comp->evas, EVAS_CALLBACK_RENDER_FLUSH_POST, _e_hwc_window_canvas_render_flush_post, target_hwc_window);
 
    return EINA_TRUE;
 }
@@ -1248,10 +1246,10 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
         if (e_hwc_window_is_target(hwc_window))
           {
              if (hwc_window->update_exist && hwc_window->tsurface)
-               _e_hwc_window_target_surface_queue_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
+               _e_hwc_window_target_window_surface_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
 
-             if (!_e_hwc_window_target_surface_queue_clear((E_Hwc_Window_Target *)hwc_window))
-               ERR("fail to _e_hwc_window_target_surface_queue_clear");
+             if (!_e_hwc_window_target_window_clear((E_Hwc_Window_Target *)hwc_window))
+               ERR("fail to _e_hwc_window_target_window_clear");
 
              /* the damage isn't supported by hwc extension yet */
              memset(&fb_damage, 0, sizeof(fb_damage));
@@ -1295,7 +1293,7 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    if (e_hwc_window_is_target(hwc_window))
      {
         /* acquire the surface */
-        tsurface = _e_hwc_window_target_surface_queue_acquire((E_Hwc_Window_Target *)hwc_window);
+        tsurface = _e_hwc_window_target_window_surface_acquire((E_Hwc_Window_Target *)hwc_window);
         if (!tsurface) return EINA_FALSE;
      }
    else if (e_hwc_window_is_cursor(hwc_window))
@@ -1387,7 +1385,7 @@ e_hwc_window_unfetch(E_Hwc_Window *hwc_window)
 
    if (e_hwc_window_is_target(hwc_window))
      {
-        _e_hwc_window_target_surface_queue_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
+        _e_hwc_window_target_window_surface_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
      }
 
    hwc_window->tsurface = e_hwc_window_displaying_surface_get(hwc_window);
@@ -1513,7 +1511,7 @@ e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window)
      {
         if (e_hwc_window_is_target(hwc_window))
           {
-             _e_hwc_window_target_surface_queue_release((E_Hwc_Window_Target *)hwc_window, displaying_surface);
+             _e_hwc_window_target_window_surface_release((E_Hwc_Window_Target *)hwc_window, displaying_surface);
           }
      }
 
