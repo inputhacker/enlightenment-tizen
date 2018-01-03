@@ -10,7 +10,7 @@
 static E_Client_Hook *client_hook_new = NULL;
 static E_Client_Hook *client_hook_del = NULL;
 static Ecore_Event_Handler *zone_set_event_handler = NULL;
-static uint64_t composited_e_hwc_wnds_key;
+static uint64_t ee_rendered_hw_list_key;
 
 static E_Comp_Wl_Buffer *
 _get_comp_wl_buffer(E_Client *ec)
@@ -167,9 +167,9 @@ _e_hwc_window_target_window_surface_release(E_Hwc_Window_Target *target_hwc_wind
 static void
 _e_hwc_window_target_window_surface_data_free(void *data)
 {
-   Eina_List *e_hwc_wnd_composited_list = (Eina_List *)data;
+   Eina_List *ee_rendered_hw_list = (Eina_List *)data;
 
-   eina_list_free(e_hwc_wnd_composited_list);
+   eina_list_free(ee_rendered_hw_list);
 }
 
 /* gets called as somebody modifies target_window's queue */
@@ -181,12 +181,12 @@ _e_hwc_window_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_q
 
    if (trace == TBM_SURFACE_QUEUE_TRACE_DEQUEUE)
      {
-        tbm_surface_internal_add_user_data(tbm_surface, composited_e_hwc_wnds_key, _e_hwc_window_target_window_surface_data_free);
-        target_hwc_window->currently_dequeued_surface = tbm_surface;
+        tbm_surface_internal_add_user_data(tbm_surface, ee_rendered_hw_list_key, _e_hwc_window_target_window_surface_data_free);
+        target_hwc_window->dequeued_tsurface = tbm_surface;
      }
    if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
      {
-        tbm_surface_internal_delete_user_data(tbm_surface, composited_e_hwc_wnds_key);
+        tbm_surface_internal_delete_user_data(tbm_surface, ee_rendered_hw_list_key);
      }
 }
 
@@ -227,21 +227,21 @@ static void
 _e_hwc_window_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
-   Eina_List *e_hwc_wnd_composited_list;
+   Eina_List *ee_rendered_hw_list;
 
    ELOGF("HWC-WINS", " render_flush_post -- the target_hwc_window(%p)", NULL, NULL, target_hwc_window);
 
    /* all ecs have been composited so we can attach a list of composited e_hwc_wnds to the surface
     * which contains their ecs composited */
 
-   e_hwc_wnd_composited_list = eina_list_clone(target_hwc_window->current_e_hwc_wnd_composited_list);
+   ee_rendered_hw_list = eina_list_clone(target_hwc_window->ee_rendered_hw_list);
 
-   tbm_surface_internal_set_user_data(target_hwc_window->currently_dequeued_surface,
-           composited_e_hwc_wnds_key, e_hwc_wnd_composited_list);
+   tbm_surface_internal_set_user_data(target_hwc_window->dequeued_tsurface,
+           ee_rendered_hw_list_key, ee_rendered_hw_list);
 
-   eina_list_free(target_hwc_window->current_e_hwc_wnd_composited_list);
-   target_hwc_window->current_e_hwc_wnd_composited_list = NULL;
-   target_hwc_window->currently_dequeued_surface = NULL;
+   eina_list_free(target_hwc_window->ee_rendered_hw_list);
+   target_hwc_window->ee_rendered_hw_list = NULL;
+   target_hwc_window->dequeued_tsurface = NULL;
 }
 
 static E_Hwc_Window_Target *
@@ -320,7 +320,7 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
    evas_event_callback_add(e_comp->evas, EVAS_CALLBACK_RENDER_FLUSH_POST, _e_hwc_window_target_window_render_flush_post_cb, target_hwc_window);
 
    /* sorry..., current version of gcc requires an initializer to be evaluated at compile time */
-   composited_e_hwc_wnds_key = (uintptr_t)&composited_e_hwc_wnds_key;
+   ee_rendered_hw_list_key = (uintptr_t)&ee_rendered_hw_list_key;
 
    return target_hwc_window;
 
@@ -366,23 +366,23 @@ _e_hwc_window_target_window_clear(E_Hwc_Window_Target *target_hwc_window)
 }
 
 static Eina_List *
-_e_hwc_window_target_window_composited_list_get(E_Hwc_Window_Target *e_hwc_target_window)
+_e_hwc_window_target_window_ee_rendered_hw_list_get(E_Hwc_Window_Target *target_window)
 {
-   Eina_List *e_hwc_wnds_composited_list = NULL, *new_list = NULL;
-   E_Hwc_Window *e_hwc_wnd, *ew_hwc;
+   Eina_List *ee_rendered_hw_list = NULL, *new_list = NULL;
+   E_Hwc_Window *hw1, *hw2;
    const Eina_List *l, *ll;
    E_Output_Hwc *output_hwc;
+   tbm_surface_h target_tsurface;
 
-   tbm_surface_internal_get_user_data(e_hwc_target_window->hwc_window.tsurface,
-           composited_e_hwc_wnds_key, (void**)&e_hwc_wnds_composited_list);
+   output_hwc = target_window->hwc_window.output_hwc;
 
-   output_hwc = e_hwc_target_window->hwc_window.output_hwc;
+   target_tsurface = target_window->hwc_window.tsurface;
+   tbm_surface_internal_get_user_data(target_tsurface, ee_rendered_hw_list_key, (void**)&ee_rendered_hw_list);
 
    /* refresh list of composited e_hwc_wnds according to existed ones */
-   EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, e_hwc_wnd)
-      EINA_LIST_FOREACH(output_hwc->hwc_windows, ll, ew_hwc)
-         if (e_hwc_wnd == ew_hwc)
-             new_list = eina_list_append(new_list, e_hwc_wnd);
+   EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw1)
+      EINA_LIST_FOREACH(output_hwc->hwc_windows, ll, hw2)
+         if (hw1 == hw2) new_list = eina_list_append(new_list, hw1);
 
    return new_list;
 }
@@ -915,7 +915,7 @@ _e_hwc_window_correct_transformation_check(E_Hwc_Window *hwc_window)
 static Eina_Bool
 _e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window)
 {
-    Eina_List *hwc_windows_composited_list = NULL;
+    Eina_List *ee_rendered_hw_list = NULL;
     E_Hwc_Window_Target *target_hwc_window;
     E_Hwc_Window *hw;
     const Eina_List *l;
@@ -926,9 +926,9 @@ _e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window)
 
     target_tsurface = target_hwc_window->hwc_window.tsurface;
 
-    tbm_surface_internal_get_user_data(target_tsurface, composited_e_hwc_wnds_key, (void**)&hwc_windows_composited_list);
+    tbm_surface_internal_get_user_data(target_tsurface, ee_rendered_hw_list_key, (void**)&ee_rendered_hw_list);
 
-    EINA_LIST_FOREACH(hwc_windows_composited_list, l, hw)
+    EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw)
        if (hw == hwc_window) return EINA_TRUE;
 
     return EINA_FALSE;
@@ -1148,7 +1148,7 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
    /* hwc_window manager could ask to prevent some e_clients being shown by hw directly;
-    * if e_hwc_wnd's ec has no correct transformation we can't allow such ec to claim on
+    * if hwc_window's ec has no correct transformation we can't allow such ec to claim on
     * hw overlay, 'cause currently hw doesn't support transformation; */
    if (hwc_window->hwc_acceptable &&
        _e_hwc_window_correct_transformation_check(hwc_window))
@@ -1219,12 +1219,12 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    tbm_surface_h tsurface = NULL;
    E_Output *output = NULL;
    E_Output_Hwc *output_hwc = NULL;
-   Eina_List *e_hwc_wnds_composited_list = NULL;
+   Eina_List *ee_rendered_hw_list = NULL;
    tdm_hwc_window **hwc_wnds = NULL;
    tdm_hwc_region fb_damage;
    E_Hwc_Window_Target *target_hwc_window;
    uint32_t hwc_wnds_amount = 0;
-   E_Hwc_Window *e_hwc_wnd;
+   E_Hwc_Window *hw;
    const Eina_List *l;
    int i;
 
@@ -1328,21 +1328,21 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
         ELOGF("HWC-WINS", " fb_target -- set surface:%p and render list below.",
               hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window->tsurface);
 
-        e_hwc_wnds_composited_list = _e_hwc_window_target_window_composited_list_get(target_hwc_window);
-        hwc_wnds_amount = eina_list_count(e_hwc_wnds_composited_list);
+        ee_rendered_hw_list = _e_hwc_window_target_window_ee_rendered_hw_list_get(target_hwc_window);
+        hwc_wnds_amount = eina_list_count(ee_rendered_hw_list);
         if (hwc_wnds_amount)
           {
              hwc_wnds = E_NEW(tdm_hwc_window *, hwc_wnds_amount);
              EINA_SAFETY_ON_NULL_GOTO(hwc_wnds, error);
 
              i = 0;
-             EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, e_hwc_wnd)
+             EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw)
                {
                   ELOGF("HWC-WINS", "  (%d) hwc_window:%p -- {title:%25s} set surface:%p",
-                        e_hwc_wnd->ec ? ec->pixmap : NULL, e_hwc_wnd->ec,
-                        i, e_hwc_wnd, e_hwc_wnd->ec ? e_hwc_wnd->ec->icccm.title : "UNKNOWN", e_hwc_wnd->tsurface);
+                        hw->ec ? ec->pixmap : NULL, hw->ec,
+                        i, hw, hw->ec ? hw->ec->icccm.title : "UNKNOWN", hw->tsurface);
 
-                  hwc_wnds[i++] = e_hwc_wnd->hwc_wnd;
+                  hwc_wnds[i++] = hw->hwc_wnd;
                }
 
           }
@@ -1351,7 +1351,7 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
                 hwc_wnds, hwc_wnds_amount);
 
         E_FREE(hwc_wnds);
-        eina_list_free(e_hwc_wnds_composited_list);
+        eina_list_free(ee_rendered_hw_list);
      }
    else
      {
@@ -1370,7 +1370,7 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 error:
 
    E_FREE(hwc_wnds);
-   eina_list_free(e_hwc_wnds_composited_list);
+   eina_list_free(ee_rendered_hw_list);
 
    return EINA_FALSE;
 }
@@ -1423,8 +1423,8 @@ e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
      {
         hwc_window->update_exist = EINA_FALSE;
 
-        /* right after an e_hwc_wnd's type has been changed from DEVICE to CLIENT
-         * we have to wait till e_hwc_wnd's buffer being composited to target_buffer
+        /* right after an hwc_window's type has been changed from DEVICE to CLIENT
+         * we have to wait till hwc_window's buffer being composited to target_buffer
          * and this target_buffer gets scheduled and only after this we can issue
          * a 'fake commit_data' request to allow tdm_commit() to be called to unset
          * an underlying hw overlay;
@@ -1724,8 +1724,8 @@ e_hwc_window_render_list_add(E_Hwc_Window *hwc_window)
    target_hwc_window = _e_hwc_window_target_window_get(hwc_window);
    EINA_SAFETY_ON_NULL_RETURN(target_hwc_window);
 
-   target_hwc_window->current_e_hwc_wnd_composited_list =
-           eina_list_append(target_hwc_window->current_e_hwc_wnd_composited_list, hwc_window);
+   target_hwc_window->ee_rendered_hw_list =
+           eina_list_append(target_hwc_window->ee_rendered_hw_list, hwc_window);
 
    ELOGF("HWC-WINS", " hwindow:%p added the render_list {title:%25s}.", ec->pixmap, ec, hwc_window, ec->icccm.title);
 }
