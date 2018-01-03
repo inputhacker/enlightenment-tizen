@@ -1784,21 +1784,73 @@ _e_output_planes_commit(E_Output *output)
 
 }
 
+static Eina_Bool
+_e_output_planes_init(E_Output *output)
+{
+   E_Plane *plane = NULL;
+   E_Plane *default_fb = NULL;
+   tdm_output *toutput = output->toutput;
+   int num_layers, i;
+
+   tdm_output_get_layer_count(toutput, &num_layers);
+   if (num_layers < 1)
+     {
+        ERR("fail to get tdm_output_get_layer_count\n");
+        goto fail;
+     }
+   output->plane_count = num_layers;
+   INF("E_OUTPUT: num_planes %i", output->plane_count);
+
+   if (!e_plane_init())
+     {
+        ERR("fail to e_plane_init.");
+        goto fail;
+     }
+
+   for (i = 0; i < output->plane_count; i++)
+     {
+        plane = e_plane_new(output, i);
+        if (!plane)
+          {
+             ERR("fail to create the e_plane.");
+             goto fail;
+          }
+        output->planes = eina_list_append(output->planes, plane);
+     }
+
+   output->planes = eina_list_sort(output->planes, eina_list_count(output->planes), _e_output_cb_planes_sort);
+
+   default_fb = e_output_default_fb_target_get(output);
+   if (!default_fb)
+     {
+        ERR("fail to get default_fb_target plane");
+        goto fail;
+     }
+
+   if (!e_plane_fb_target_set(default_fb, EINA_TRUE))
+     {
+        ERR("fail to set fb_target plane");
+        goto fail;
+     }
+
+   return EINA_TRUE;
+
+fail:
+   return EINA_FALSE;
+}
+
 EINTERN E_Output *
 e_output_new(E_Comp_Screen *e_comp_screen, int index)
 {
    E_Output *output = NULL;
-   E_Plane *plane = NULL;
-   E_Plane *default_fb = NULL;
    tdm_output *toutput = NULL;
    tdm_error error;
    char *id = NULL;
    char *name;
-   int num_layers;
-   int i;
    int size = 0;
    tdm_output_type output_type;
    int min_w, min_h, max_w, max_h, preferred_align;
+   tdm_output_capability output_caps = 0;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, NULL);
 
@@ -1850,46 +1902,21 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
 
    _e_output_tdm_stream_capture_support(output);
 
-   tdm_output_get_layer_count(toutput, &num_layers);
-   if (num_layers < 1)
+   error = tdm_output_get_capabilities(toutput, &output_caps);
+   if (error != TDM_ERROR_NONE)
      {
-        ERR("fail to get tdm_output_get_layer_count\n");
-        goto fail;
-     }
-   output->plane_count = num_layers;
-   INF("E_OUTPUT: num_planes %i", output->plane_count);
-
-   if (!e_plane_init())
-     {
-        ERR("fail to e_plane_init.");
+        ERR("fail to tdm_output_get_capabilities");
         goto fail;
      }
 
-   for (i = 0; i < output->plane_count; i++)
-     {
-        plane = e_plane_new(output, i);
-        if (!plane)
-          {
-             ERR("fail to create the e_plane.");
-             goto fail;
-          }
-        output->planes = eina_list_append(output->planes, plane);
-     }
-
-   output->planes = eina_list_sort(output->planes, eina_list_count(output->planes), _e_output_cb_planes_sort);
-
-   default_fb = e_output_default_fb_target_get(output);
-   if (!default_fb)
-     {
-        ERR("fail to get default_fb_target plane");
-        goto fail;
-     }
-
-   if (!e_plane_fb_target_set(default_fb, EINA_TRUE))
-     {
-        ERR("fail to set fb_target plane");
-        goto fail;
-     }
+   /* The E20 works the hwc_windows policy when tdm_output supports hwc capability e20.
+    * The E_Plane, E_Plane_Renderer resource is not used in E20.
+    */
+   if (output_caps & TDM_OUTPUT_CAPABILITY_HWC)
+     output->tdm_hwc = EINA_TRUE;
+   else
+     if (!_e_output_planes_init(output))
+       goto fail;
 
    return output;
 

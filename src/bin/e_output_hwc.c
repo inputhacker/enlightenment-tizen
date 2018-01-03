@@ -609,6 +609,22 @@ e_output_hwc_new(E_Output *output)
 
    output_hwc->output = output;
 
+   /*
+    * E20 has two hwc policy options.
+    * 1. One is the E_OUTPUT_HWC_POLICY_PLANES.
+    *   - E20 decides the hwc policy with the E_Planes associated with the tdm_layers.
+    *   - E20 manages how to set the surface(buffer) of the ec to the E_Plane.
+    * 2. Another is the E_OUTPUT_HWC_POLICY_WIDNOWS.
+    *   - The tdm-backend decides the hwc policy with the E_Hwc_Windows associated with the tdm_hwc_window.
+    *   - E20 asks to verify the compsition types of the E_Hwc_Window of the ec.
+    */
+   if (output->tdm_hwc)
+     {
+        output_hwc->hwc_policy = E_OUTPUT_HWC_POLICY_WINDOWS;
+     }
+   else
+     output_hwc->hwc_policy = E_OUTPUT_HWC_POLICY_PLANES;
+
    return output_hwc;
 }
 

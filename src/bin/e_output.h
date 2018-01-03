@@ -119,6 +119,7 @@ struct _E_Output
 
    /* output hwc */
    E_Output_Hwc *output_hwc;
+   Eina_Bool     tdm_hwc;
 
    /* external */
    Eina_Bool            external_set;
