@@ -4,7 +4,7 @@ typedef struct _E_Output_Hwc     E_Output_Hwc;
 
 typedef enum _E_Output_Hwc_Mode
 {
-   E_OUTPUT_HWC_MODE_NO = 0,
+   E_OUTPUT_HWC_MODE_NONE = 0,
    E_OUTPUT_HWC_MODE_HYBRID,
    E_OUTPUT_HWC_MODE_FULL
 } E_Output_Hwc_Mode;
@@ -53,7 +53,6 @@ struct _E_Output_Hwc
    Eina_Rectangle        pp_rect;
 };
 
-/* for both hwc_planes and hwc_windows */
 EINTERN E_Output_Hwc        *e_output_hwc_new(E_Output *output);
 EINTERN void                 e_output_hwc_del(E_Output_Hwc *output_hwc);
 EINTERN void                 e_output_hwc_apply(E_Output_Hwc *output_hwc);
@@ -61,20 +60,6 @@ EINTERN E_Output_Hwc_Mode    e_output_hwc_mode_get(E_Output_Hwc *output_hwc);
 EINTERN E_Output_Hwc_Policy  e_output_hwc_policy_get(E_Output_Hwc *output_hwc);
 EINTERN void                 e_output_hwc_deactive_set(E_Output_Hwc *output_hwc, Eina_Bool set);
 EINTERN Eina_Bool            e_output_hwc_deactive_get(E_Output_Hwc *output_hwc);
-
-/* for hwc_planes policy */
-EINTERN void                 e_output_hwc_planes_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool set);
-EINTERN Eina_Bool            e_output_hwc_planes_multi_plane_get(E_Output_Hwc *output_hwc);
-EINTERN void                 e_output_hwc_planes_end(E_Output_Hwc *output_hwc, const char *location);
-
-/* for hwc_windows policy */
-EINTERN const Eina_List     *e_output_hwc_windows_get(E_Output_Hwc *output_hwc);
-EINTERN Eina_Bool            e_output_hwc_windows_render(E_Output_Hwc *output_hwc);
-EINTERN Eina_Bool            e_output_hwc_windows_commit(E_Output_Hwc *output_hwc);
-
-EINTERN Eina_Bool            e_output_hwc_windows_pp_commit_possible_check(E_Output_Hwc *output_hwc);
-EINTERN Eina_Bool            e_output_hwc_windows_zoom_set(E_Output_Hwc *output_hwc, Eina_Rectangle *rect);
-EINTERN void                 e_output_hwc_windows_zoom_unset(E_Output_Hwc *output_hwc);
 
 #endif
 #endif
