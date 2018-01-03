@@ -105,28 +105,6 @@ _e_hwc_window_target_surface_queue_clear(E_Hwc_Window_Target *target_hwc_window)
 }
 
 static tbm_surface_h
-_e_hwc_window_surface_from_ecore_evas_acquire(E_Hwc_Window_Target *target_hwc_window)
-{
-   tbm_surface_h tsurface = NULL;
-   tbm_surface_queue_h queue = NULL;
-
-   if (!target_hwc_window->queue)
-     {
-        if(!(queue = _get_tbm_surface_queue(e_comp)))
-          {
-             WRN("fail to _get_tbm_surface_queue");
-             return NULL;
-          }
-
-        target_hwc_window->queue = queue;
-     }
-
-   tsurface = e_hwc_window_target_surface_queue_acquire(target_hwc_window);
-
-   return tsurface;
-}
-
-static tbm_surface_h
 _e_hwc_window_surface_from_client_acquire(E_Hwc_Window *hwc_window)
 {
    E_Client *ec = hwc_window->ec;
@@ -1263,7 +1241,7 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    if (e_hwc_window_is_target(hwc_window))
      {
         /* acquire the surface */
-        tsurface = _e_hwc_window_surface_from_ecore_evas_acquire((E_Hwc_Window_Target *)hwc_window);
+        tsurface = e_hwc_window_target_surface_queue_acquire((E_Hwc_Window_Target *)hwc_window);
         if (!tsurface) return EINA_FALSE;
      }
    else if (e_hwc_window_is_cursor(hwc_window))
