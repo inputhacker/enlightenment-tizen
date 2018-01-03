@@ -53,6 +53,7 @@ struct _E_Output_Hwc
    Eina_Rectangle        pp_rect;
 };
 
+/* for both hwc_planes and hwc_windows */
 EINTERN E_Output_Hwc        *e_output_hwc_new(E_Output *output);
 EINTERN void                 e_output_hwc_del(E_Output_Hwc *output_hwc);
 EINTERN void                 e_output_hwc_apply(E_Output_Hwc *output_hwc);
@@ -62,9 +63,9 @@ EINTERN void                 e_output_hwc_deactive_set(E_Output_Hwc *output_hwc,
 EINTERN Eina_Bool            e_output_hwc_deactive_get(E_Output_Hwc *output_hwc);
 
 /* for hwc_planes policy */
-EINTERN void                 e_output_hwc_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool set);
-EINTERN Eina_Bool            e_output_hwc_multi_plane_get(E_Output_Hwc *output_hwc);
-EINTERN void                 e_output_hwc_end(E_Output_Hwc *output_hwc, const char *location);
+EINTERN void                 e_output_hwc_planes_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool set);
+EINTERN Eina_Bool            e_output_hwc_planes_multi_plane_get(E_Output_Hwc *output_hwc);
+EINTERN void                 e_output_hwc_planes_end(E_Output_Hwc *output_hwc, const char *location);
 
 /* for hwc_windows policy */
 EINTERN const Eina_List     *e_output_hwc_windows_get(E_Output_Hwc *output_hwc);

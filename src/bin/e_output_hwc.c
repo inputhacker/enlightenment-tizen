@@ -1900,13 +1900,13 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
         if (e_output_hwc_deactive_get(output_hwc))
           {
              if (output_hwc->hwc_mode != E_OUTPUT_HWC_MODE_NO)
-               e_output_hwc_end(output_hwc, "deactive set.");
+               e_output_hwc_planes_end(output_hwc, "deactive set.");
              return;
           }
 
         if (!_e_output_hwc_planes_usable(output_hwc))
           {
-             e_output_hwc_end(output_hwc, __FUNCTION__);
+             e_output_hwc_planes_end(output_hwc, __FUNCTION__);
              return;
           }
 
@@ -1944,7 +1944,7 @@ e_output_hwc_deactive_set(E_Output_Hwc *output_hwc, Eina_Bool set)
 {
    EINA_SAFETY_ON_NULL_RETURN(output_hwc);
 
-   e_output_hwc_end(output_hwc, __FUNCTION__);
+   e_output_hwc_planes_end(output_hwc, __FUNCTION__);
    output_hwc->hwc_deactive = set;
 
    ELOGF("HWC", "e_output_hwc_deactive_set : %d", NULL, NULL, set);
@@ -1959,18 +1959,18 @@ e_output_hwc_deactive_get(E_Output_Hwc *output_hwc)
 }
 
 EINTERN void
-e_output_hwc_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool set)
+e_output_hwc_planes_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool set)
 {
    EINA_SAFETY_ON_NULL_RETURN(output_hwc);
 
-   e_output_hwc_end(output_hwc, __FUNCTION__);
+   e_output_hwc_planes_end(output_hwc, __FUNCTION__);
    output_hwc->hwc_use_multi_plane = set;
 
-   ELOGF("HWC", "e_output_hwc_multi_plane_set : %d", NULL, NULL, set);
+   ELOGF("HWC", "e_output_hwc_planes_multi_plane_set : %d", NULL, NULL, set);
 }
 
 EINTERN Eina_Bool
-e_output_hwc_multi_plane_get(E_Output_Hwc *output_hwc)
+e_output_hwc_planes_multi_plane_get(E_Output_Hwc *output_hwc)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
 
@@ -1978,7 +1978,7 @@ e_output_hwc_multi_plane_get(E_Output_Hwc *output_hwc)
 }
 
 EINTERN void
-e_output_hwc_end(E_Output_Hwc *output_hwc, const char *location)
+e_output_hwc_planes_end(E_Output_Hwc *output_hwc, const char *location)
 {
    E_Output_Hwc_Mode new_mode = E_OUTPUT_HWC_MODE_NO;
 
