@@ -1683,7 +1683,7 @@ e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state)
 
    if (hwc_window->state != state)
      {
-        /* target window and video window do not set the composition type to the tdm_hwc */
+        /* target window and video window do not set the composition type */
         if (e_hwc_window_is_target(hwc_window) ||
             e_hwc_window_is_video(hwc_window))
           hwc_window->state = state;
