@@ -9,6 +9,13 @@ typedef enum _E_Output_Hwc_Mode
    E_OUTPUT_HWC_MODE_FULL
 } E_Output_Hwc_Mode;
 
+typedef enum _E_Output_Hwc_Policy
+{
+   E_OUTPUT_HWC_POLICY_NONE = 0,
+   E_OUTPUT_HWC_POLICY_PLANES,   // hwc_planes policy that controls the hwc policy at e20 with e_planes
+   E_OUTPUT_HWC_POLICY_WINDOWS,  // hwc_windows policy that controls the hwc policy at tdm-backend with e_hwc_windows
+} E_Output_Hwc_Policy;
+
 #else
 #ifndef E_OUTPUT_HWC_H
 #define E_OUTPUT_HWC_H
@@ -16,6 +23,8 @@ typedef enum _E_Output_Hwc_Mode
 struct _E_Output_Hwc
 {
    E_Output          *output;
+
+   E_Output_Hwc_Policy  hwc_policy;
    E_Output_Hwc_Mode  hwc_mode;
    Eina_Bool          hwc_deactive : 1; // deactive hwc policy
    Eina_Bool          hwc_use_multi_plane;
