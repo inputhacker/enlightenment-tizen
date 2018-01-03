@@ -87,21 +87,34 @@ _e_hwc_window_wayland_tbm_client_queue_get(E_Client *ec)
    return cqueue;
 }
 
-static Eina_Bool
-_e_hwc_window_target_surface_queue_clear(E_Hwc_Window_Target *target_hwc_window)
+static tbm_surface_h
+_e_hwc_window_target_surface_queue_acquire(E_Hwc_Window_Target *target_hwc_window)
 {
-   tbm_surface_queue_h tqueue = NULL;
-   tbm_surface_h tsurface = NULL;
+   tbm_surface_queue_h queue = NULL;
+   tbm_surface_h surface = NULL;
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, NULL);
 
-   tqueue = target_hwc_window->queue;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
+   queue = target_hwc_window->queue;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
 
-   while ((tsurface = e_hwc_window_target_surface_queue_acquire(target_hwc_window)))
-     e_hwc_window_target_surface_queue_release(target_hwc_window, tsurface);
+   if (tbm_surface_queue_can_acquire(queue, 0))
+     {
+        tsq_err = tbm_surface_queue_acquire(queue, &surface);
 
-  return EINA_TRUE;
+        if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+          {
+             ERR("Failed to acquire tbm_surface from tbm_surface_queue(%p): tsq_err = %d", queue, tsq_err);
+             return NULL;
+          }
+     }
+   else
+     {
+        return NULL;
+     }
+
+   return surface;
 }
 
 static tbm_surface_h
@@ -124,6 +137,43 @@ _e_hwc_window_surface_from_client_acquire(E_Hwc_Window *hwc_window)
    e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
    return tsurface;
+}
+
+static void
+_e_hwc_window_target_surface_queue_release(E_Hwc_Window_Target *target_hwc_window, tbm_surface_h tsurface)
+{
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+   tbm_surface_queue_h tqueue = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(target_hwc_window);
+   EINA_SAFETY_ON_NULL_RETURN(tsurface);
+
+   tqueue = target_hwc_window->queue;
+   EINA_SAFETY_ON_NULL_RETURN(tqueue);
+
+   tsq_err = tbm_surface_queue_release(tqueue, tsurface);
+   if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+     {
+        ERR("Failed to release tbm_surface(%p) from tbm_surface_queue(%p): tsq_err = %d", tsurface, tqueue, tsq_err);
+        return;
+     }
+}
+
+static Eina_Bool
+_e_hwc_window_target_surface_queue_clear(E_Hwc_Window_Target *target_hwc_window)
+{
+   tbm_surface_queue_h tqueue = NULL;
+   tbm_surface_h tsurface = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
+
+   tqueue = target_hwc_window->queue;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
+
+   while ((tsurface = _e_hwc_window_target_surface_queue_acquire(target_hwc_window)))
+     _e_hwc_window_target_surface_queue_release(target_hwc_window, tsurface);
+
+  return EINA_TRUE;
 }
 
 static void
@@ -1194,7 +1244,7 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
         if (e_hwc_window_is_target(hwc_window))
           {
              if (hwc_window->update_exist && hwc_window->tsurface)
-               e_hwc_window_target_surface_queue_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
+               _e_hwc_window_target_surface_queue_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
 
              if (!_e_hwc_window_target_surface_queue_clear((E_Hwc_Window_Target *)hwc_window))
                ERR("fail to _e_hwc_window_target_surface_queue_clear");
@@ -1241,7 +1291,7 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    if (e_hwc_window_is_target(hwc_window))
      {
         /* acquire the surface */
-        tsurface = e_hwc_window_target_surface_queue_acquire((E_Hwc_Window_Target *)hwc_window);
+        tsurface = _e_hwc_window_target_surface_queue_acquire((E_Hwc_Window_Target *)hwc_window);
         if (!tsurface) return EINA_FALSE;
      }
    else if (e_hwc_window_is_cursor(hwc_window))
@@ -1333,7 +1383,7 @@ e_hwc_window_unfetch(E_Hwc_Window *hwc_window)
 
    if (e_hwc_window_is_target(hwc_window))
      {
-        e_hwc_window_target_surface_queue_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
+        _e_hwc_window_target_surface_queue_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
      }
 
    hwc_window->tsurface = e_hwc_window_displaying_surface_get(hwc_window);
@@ -1459,7 +1509,7 @@ e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window)
      {
         if (e_hwc_window_is_target(hwc_window))
           {
-             e_hwc_window_target_surface_queue_release((E_Hwc_Window_Target *)hwc_window, displaying_surface);
+             _e_hwc_window_target_surface_queue_release((E_Hwc_Window_Target *)hwc_window, displaying_surface);
           }
      }
 
@@ -1498,56 +1548,6 @@ e_hwc_window_target_surface_queue_can_dequeue(E_Hwc_Window_Target *target_hwc_wi
    if (num_free <= 0) return EINA_FALSE;
 
    return EINA_TRUE;
-}
-
-EINTERN tbm_surface_h
-e_hwc_window_target_surface_queue_acquire(E_Hwc_Window_Target *target_hwc_window)
-{
-   tbm_surface_queue_h queue = NULL;
-   tbm_surface_h surface = NULL;
-   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, NULL);
-
-   queue = target_hwc_window->queue;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
-
-   if (tbm_surface_queue_can_acquire(queue, 0))
-     {
-        tsq_err = tbm_surface_queue_acquire(queue, &surface);
-
-        if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
-          {
-             ERR("Failed to acquire tbm_surface from tbm_surface_queue(%p): tsq_err = %d", queue, tsq_err);
-             return NULL;
-          }
-     }
-   else
-     {
-        return NULL;
-     }
-
-   return surface;
-}
-
-EINTERN void
-e_hwc_window_target_surface_queue_release(E_Hwc_Window_Target *target_hwc_window, tbm_surface_h tsurface)
-{
-   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
-   tbm_surface_queue_h tqueue = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN(target_hwc_window);
-   EINA_SAFETY_ON_NULL_RETURN(tsurface);
-
-   tqueue = target_hwc_window->queue;
-   EINA_SAFETY_ON_NULL_RETURN(tqueue);
-
-   tsq_err = tbm_surface_queue_release(tqueue, tsurface);
-   if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
-     {
-        ERR("Failed to release tbm_surface(%p) from tbm_surface_queue(%p): tsq_err = %d", tsurface, tqueue, tsq_err);
-        return;
-     }
 }
 
 EINTERN Eina_Bool

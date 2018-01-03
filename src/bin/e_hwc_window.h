@@ -103,8 +103,6 @@ EINTERN Eina_Bool          e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_win
 EINTERN Eina_Bool          e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window);
 
 EINTERN Eina_Bool          e_hwc_window_target_surface_queue_can_dequeue(E_Hwc_Window_Target *target_hwc_window);
-EINTERN tbm_surface_h      e_hwc_window_target_surface_queue_acquire(E_Hwc_Window_Target *target_hwc_window);
-EINTERN void               e_hwc_window_target_surface_queue_release(E_Hwc_Window_Target *target_hwc_window, tbm_surface_h tsurface);
 
 EINTERN Eina_Bool          e_hwc_window_activate(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_deactivate(E_Hwc_Window *hwc_window);
