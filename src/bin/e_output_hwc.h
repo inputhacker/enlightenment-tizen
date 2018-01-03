@@ -58,7 +58,6 @@ EINTERN void                 e_output_hwc_del(E_Output_Hwc *output_hwc);
 EINTERN void                 e_output_hwc_apply(E_Output_Hwc *output_hwc);
 EINTERN E_Output_Hwc_Mode    e_output_hwc_mode_get(E_Output_Hwc *output_hwc);
 EINTERN E_Output_Hwc_Policy  e_output_hwc_policy_get(E_Output_Hwc *output_hwc);
-
 EINTERN void                 e_output_hwc_deactive_set(E_Output_Hwc *output_hwc, Eina_Bool set);
 EINTERN Eina_Bool            e_output_hwc_deactive_get(E_Output_Hwc *output_hwc);
 
