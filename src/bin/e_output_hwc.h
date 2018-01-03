@@ -37,10 +37,10 @@ EINTERN E_Output_Hwc_Mode  e_output_hwc_mode_get(E_Output_Hwc *output_hwc);
 
 EINTERN void               e_output_hwc_deactive_set(E_Output_Hwc *output_hwc, Eina_Bool set);
 EINTERN Eina_Bool          e_output_hwc_deactive_get(E_Output_Hwc *output_hwc);
-EINTERN void               e_output_hwc_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool set);
-EINTERN Eina_Bool          e_output_hwc_multi_plane_get(E_Output_Hwc *output_hwc);
+EINTERN void               e_output_hwc_planes_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool set);
+EINTERN Eina_Bool          e_output_hwc_planes_multi_plane_get(E_Output_Hwc *output_hwc);
 
-EINTERN void               e_output_hwc_end(E_Output_Hwc *output_hwc, const char *location);
+EINTERN void               e_output_hwc_planes_end(E_Output_Hwc *output_hwc, const char *location);
 
 #endif
 #endif

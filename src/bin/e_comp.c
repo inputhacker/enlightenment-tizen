@@ -1293,7 +1293,7 @@ e_comp_hwc_multi_plane_set(Eina_Bool set)
    output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   e_output_hwc_multi_plane_set(output->output_hwc, EINA_TRUE);
+   e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_TRUE);
 }
 
 /* get the multi_plane value to the only primary output */
@@ -1308,7 +1308,7 @@ e_comp_hwc_multi_plane_get(void)
    output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-   return e_output_hwc_multi_plane_get(output->output_hwc);
+   return e_output_hwc_planes_multi_plane_get(output->output_hwc);
 }
 
 /* end the hwc policy at the primary output */
@@ -1323,6 +1323,6 @@ e_comp_hwc_end(const char *location)
    output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   e_output_hwc_end(output->output_hwc, location);
+   e_output_hwc_planes_end(output->output_hwc, location);
 }
 

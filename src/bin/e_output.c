@@ -2753,13 +2753,13 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
           output->zoom_conf.unset_skip = EINA_TRUE;
      }
 
-   e_output_hwc_multi_plane_set(output->output_hwc, EINA_FALSE);
+   e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_FALSE);
 
    if (!e_plane_zoom_set(ep, &output->zoom_conf.rect))
      {
         ERR("e_plane_zoom_set failed.");
         output->zoom_conf.unset_skip = EINA_FALSE;
-        e_output_hwc_multi_plane_set(output->output_hwc, EINA_TRUE);
+        e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_TRUE);
 
         return EINA_FALSE;
      }
@@ -2798,7 +2798,7 @@ e_output_zoom_unset(E_Output *output)
    ep = e_output_fb_target_get(output);
    if (ep) e_plane_zoom_unset(ep);
 
-   e_output_hwc_multi_plane_set(output->output_hwc, EINA_TRUE);
+   e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_TRUE);
 
    output->zoom_conf.zoomx = 0;
    output->zoom_conf.zoomy = 0;
@@ -3118,13 +3118,13 @@ e_output_external_set(E_Output *output, E_Output_Ext_State state)
 
    _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
 
-   e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_FALSE);
+   e_output_hwc_planes_multi_plane_set(output_primary->output_hwc, EINA_FALSE);
 
    ep->output_primary = output_primary;
    if (!e_plane_external_set(ep, &output->zoom_conf.rect, state))
      {
         ERR("e_plane_mirror_set failed.");
-        e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
+        e_output_hwc_planes_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
 
         return EINA_FALSE;
      }
@@ -3167,7 +3167,7 @@ e_output_external_unset(E_Output *output)
    output->zoom_conf.rect.w = 0;
    output->zoom_conf.rect.h = 0;
 
-   e_output_hwc_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
+   e_output_hwc_planes_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
 
    /* update the ecore_evas */
    _e_output_render_update(output_primary);
