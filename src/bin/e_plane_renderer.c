@@ -781,8 +781,6 @@ _e_plane_renderer_surface_exported_surface_detach_cb(struct wayland_tbm_client_q
      ELOGF("E_PLANE_RENDERER", "Detach  Renderer(%p)        tsurface(%p) tqueue(%p)",
            NULL, NULL, renderer, tsurface, renderer->tqueue);
 
-   if (renderer->state != E_PLANE_RENDERER_STATE_PENDING_DEACTIVATE) return;
-
    if (renderer_buffer->exported)
      {
         if (!_e_plane_renderer_release_exported_renderer_buffer(renderer, renderer_buffer))
