@@ -12,6 +12,23 @@ static E_Client_Hook *client_hook_del = NULL;
 static Ecore_Event_Handler *zone_set_event_handler = NULL;
 static uint64_t composited_e_hwc_wnds_key;
 
+static E_Comp_Wl_Buffer *
+_get_comp_wl_buffer(E_Client *ec)
+{
+   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+   if (!cdata) return NULL;
+
+   E_Comp_Wl_Buffer_Ref *buffer_ref = &cdata->buffer_ref;
+
+   return buffer_ref->buffer;
+}
+
+static tbm_surface_queue_h
+_get_tbm_surface_queue()
+{
+   return e_comp->e_comp_screen->tqueue;
+}
+
 static void
 _e_hwc_window_canvas_render_flush_post(void *data, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
 {
@@ -68,23 +85,6 @@ _e_hwc_window_wayland_tbm_client_queue_get(E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, NULL);
 
    return cqueue;
-}
-
-static E_Comp_Wl_Buffer *
-_get_comp_wl_buffer(E_Client *ec)
-{
-   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
-   if (!cdata) return NULL;
-
-   E_Comp_Wl_Buffer_Ref *buffer_ref = &cdata->buffer_ref;
-
-   return buffer_ref->buffer;
-}
-
-static tbm_surface_queue_h
-_get_tbm_surface_queue()
-{
-   return e_comp->e_comp_screen->tqueue;
 }
 
 static Eina_Bool
@@ -445,6 +445,481 @@ _e_hwc_window_recover_ec(E_Hwc_Window *hwc_window)
    return;
 }
 
+static unsigned int
+_e_hwc_window_aligned_width_get(tbm_surface_h tsurface)
+{
+   unsigned int aligned_width = 0;
+   tbm_surface_info_s surf_info;
+
+   tbm_surface_get_info(tsurface, &surf_info);
+
+   switch (surf_info.format)
+     {
+      case TBM_FORMAT_YUV420:
+      case TBM_FORMAT_YVU420:
+      case TBM_FORMAT_YUV422:
+      case TBM_FORMAT_YVU422:
+      case TBM_FORMAT_NV12:
+      case TBM_FORMAT_NV21:
+        aligned_width = surf_info.planes[0].stride;
+        break;
+      case TBM_FORMAT_YUYV:
+      case TBM_FORMAT_UYVY:
+        aligned_width = surf_info.planes[0].stride >> 1;
+        break;
+      case TBM_FORMAT_ARGB8888:
+      case TBM_FORMAT_XRGB8888:
+        aligned_width = surf_info.planes[0].stride >> 2;
+        break;
+      default:
+        ERR("not supported format: %x", surf_info.format);
+     }
+
+   return aligned_width;
+}
+
+static Eina_Bool
+_e_hwc_window_info_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface)
+{
+   E_Output_Hwc *output_hwc = hwc_window->output_hwc;
+   E_Output *output = output_hwc->output;
+   E_Client *ec = hwc_window->ec;
+   tbm_surface_info_s surf_info;
+   int size_w, size_h, src_x, src_y, src_w, src_h;
+   int dst_x, dst_y, dst_w, dst_h;
+   tbm_format format;
+
+   /* set hwc_window when the layer infomation is different from the previous one */
+   tbm_surface_get_info(tsurface, &surf_info);
+
+   format = surf_info.format;
+
+   size_w = _e_hwc_window_aligned_width_get(tsurface);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(size_w == 0, EINA_FALSE);
+
+   size_h = surf_info.height;
+
+   src_x = 0;
+   src_y = 0;
+   src_w = surf_info.width;
+   src_h = surf_info.height;
+
+   if (e_hwc_window_is_cursor(hwc_window))
+     {
+        E_Pointer *pointer = e_pointer_get(ec);
+        if (!pointer)
+          {
+             ERR("ec doesn't have E_Pointer");
+             return EINA_FALSE;
+          }
+
+        dst_x = pointer->x - pointer->hot.x;
+        dst_y = pointer->y - pointer->hot.y;
+     }
+   else
+     {
+        dst_x = ec->x;
+        dst_y = ec->y;
+     }
+
+   /* if output is transformed, the position of a buffer on screen should be also
+   * transformed.
+   */
+   if (output->config.rotation > 0)
+     {
+        int bw, bh;
+        e_pixmap_size_get(ec->pixmap, &bw, &bh);
+        e_comp_wl_rect_convert(ec->zone->w, ec->zone->h,
+                               output->config.rotation / 90, 1,
+                               dst_x, dst_y, bw, bh,
+                               &dst_x, &dst_y, NULL, NULL);
+     }
+
+   dst_w = surf_info.width;
+   dst_h = surf_info.height;
+
+   if (hwc_window->info.src_config.size.h != size_w ||
+            hwc_window->info.src_config.size.v != size_h ||
+            hwc_window->info.src_config.pos.x != src_x ||
+            hwc_window->info.src_config.pos.y != src_y ||
+            hwc_window->info.src_config.pos.w != src_w ||
+            hwc_window->info.src_config.pos.h != src_h ||
+            hwc_window->info.src_config.format != format ||
+            hwc_window->info.dst_pos.x != dst_x ||
+            hwc_window->info.dst_pos.y != dst_y ||
+            hwc_window->info.dst_pos.w != dst_w ||
+            hwc_window->info.dst_pos.h != dst_h)
+     {
+        tdm_error error;
+
+        /* change the information at plane->info */
+        hwc_window->info.src_config.size.h = size_w;
+        hwc_window->info.src_config.size.v = size_h;
+        hwc_window->info.src_config.pos.x = src_x;
+        hwc_window->info.src_config.pos.y = src_y;
+        hwc_window->info.src_config.pos.w = src_w;
+        hwc_window->info.src_config.pos.h = src_h;
+        hwc_window->info.dst_pos.x = dst_x;
+        hwc_window->info.dst_pos.y = dst_y;
+        hwc_window->info.dst_pos.w = dst_w;
+        hwc_window->info.dst_pos.h = dst_h;
+        hwc_window->info.transform = TDM_TRANSFORM_NORMAL;
+        hwc_window->info.src_config.format = format;
+
+        error = tdm_hwc_window_set_info(hwc_window->hwc_wnd, &hwc_window->info);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+     }
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_is_e_hwc_window_ec_has_correct_transformation(E_Hwc_Window *hwc_window)
+{
+   E_Client *ec;
+   int transform;
+   E_Output_Hwc *output_hwc = hwc_window->output_hwc;
+   E_Output *output = output_hwc->output;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->ec, EINA_FALSE);
+
+   ec = hwc_window->ec;
+
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+
+   /* request an ec to change its transformation if it doesn't fit the transformation */
+   if ((output->config.rotation / 90) != transform)
+     {
+        if (!e_config->screen_rotation_client_ignore && hwc_window->need_change_buffer_transform)
+          {
+             hwc_window->need_change_buffer_transform = EINA_FALSE;
+
+             /* TODO: why e_comp_wl_output_init() call ins't enough? why additional
+              * tizen_screen_rotation_send_ignore_output_transform() call is needed? */
+             e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
+
+             ELOGF("HWC-WINS", " request {title:%25s} to change transformation to %d.",
+                     ec->pixmap, ec, ec->icccm.title, output->config.rotation);
+          }
+
+        return EINA_FALSE;
+     }
+   else
+      hwc_window->need_change_buffer_transform = EINA_TRUE;
+
+   return EINA_TRUE;
+}
+
+static void
+_e_hwc_window_cursor_image_draw(E_Comp_Wl_Buffer *buffer, tbm_surface_info_s *tsurface_info, int rotation)
+{
+   int src_width, src_height, src_stride;
+   pixman_image_t *src_img = NULL, *dst_img = NULL;
+   pixman_transform_t t;
+   struct pixman_f_transform ft;
+   void *src_ptr = NULL, *dst_ptr = NULL;
+   int c = 0, s = 0, tx = 0, ty = 0;
+   int i, rotate;
+
+   src_width = wl_shm_buffer_get_width(buffer->shm_buffer);
+   src_height = wl_shm_buffer_get_height(buffer->shm_buffer);
+   src_stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
+   src_ptr = wl_shm_buffer_get_data(buffer->shm_buffer);
+
+   dst_ptr = tsurface_info->planes[0].ptr;
+   memset(dst_ptr, 0, tsurface_info->planes[0].stride * tsurface_info->height);
+
+   if (rotation)
+     {
+        src_img = pixman_image_create_bits(PIXMAN_a8r8g8b8, src_width, src_height, (uint32_t*)src_ptr, src_stride);
+        EINA_SAFETY_ON_NULL_GOTO(src_img, error);
+
+        dst_img = pixman_image_create_bits(PIXMAN_a8r8g8b8, tsurface_info->width, tsurface_info->height,
+                                          (uint32_t*)dst_ptr, tsurface_info->planes[0].stride);
+        EINA_SAFETY_ON_NULL_GOTO(dst_img, error);
+
+        if (rotation == 90)
+           rotation = 270;
+        else if (rotation == 270)
+           rotation = 90;
+
+        rotate = (rotation + 360) / 90 % 4;
+        switch (rotate)
+          {
+           case 1:
+              c = 0, s = -1, tx = -tsurface_info->width;
+              break;
+           case 2:
+              c = -1, s = 0, tx = -tsurface_info->width, ty = -tsurface_info->height;
+              break;
+           case 3:
+              c = 0, s = 1, ty = -tsurface_info->width;
+              break;
+          }
+
+        pixman_f_transform_init_identity(&ft);
+        pixman_f_transform_translate(&ft, NULL, tx, ty);
+        pixman_f_transform_rotate(&ft, NULL, c, s);
+
+        pixman_transform_from_pixman_f_transform(&t, &ft);
+        pixman_image_set_transform(src_img, &t);
+
+        pixman_image_composite(PIXMAN_OP_SRC, src_img, NULL, dst_img, 0, 0, 0, 0, 0, 0,
+                               tsurface_info->width, tsurface_info->height);
+     }
+   else
+     {
+        for (i = 0 ; i < src_height ; i++)
+          {
+             memcpy(dst_ptr, src_ptr, src_stride);
+             dst_ptr += tsurface_info->planes[0].stride;
+             src_ptr += src_stride;
+          }
+     }
+
+error:
+   if (src_img) pixman_image_unref(src_img);
+   if (dst_img) pixman_image_unref(dst_img);
+}
+
+static Eina_Bool
+_e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointer)
+{
+   E_Output_Hwc *output_hwc = NULL;
+   E_Output *output = NULL;
+   int w, h, tw, th;
+   int tsurface_w, tsurface_h;
+   void *src_ptr = NULL;
+   tbm_surface_h tsurface = NULL;
+   E_Comp_Wl_Buffer *buffer = NULL;
+   tbm_surface_error_e ret = TBM_SURFACE_ERROR_NONE;
+   tbm_surface_info_s tsurface_info;
+   E_Client *ec;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   ec = hwc_window->ec;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   output_hwc = hwc_window->output_hwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+
+   output = output_hwc->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   buffer = ec->comp_data->buffer_ref.buffer;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, EINA_FALSE);
+
+   if ((hwc_window->display_info.buffer_ref.buffer == buffer) &&
+       (hwc_window->cursor_tsurface) &&
+       (hwc_window->cursor_rotation == pointer->rotation))
+     return EINA_TRUE;
+
+   /* TODO: TBM TYPE, NATIVE_WL */
+   if (buffer->type == E_COMP_WL_BUFFER_TYPE_SHM)
+     {
+        src_ptr = wl_shm_buffer_get_data(buffer->shm_buffer);
+        if (!src_ptr)
+          {
+             ERR("Failed get data shm buffer");
+             return EINA_FALSE;
+          }
+     }
+   else
+     {
+        ERR("unkown buffer type:%d", ec->comp_data->buffer_ref.buffer->type);
+        return EINA_FALSE;
+     }
+
+   if (pointer->rotation == 90)
+      tw = ec->h, th = ec->w;
+   else if (pointer->rotation == 180)
+      tw = ec->w, th = ec->h;
+   else if (pointer->rotation == 270)
+      tw = ec->h, th = ec->w;
+   else
+      tw = ec->w, th = ec->h;
+
+   hwc_window->cursor_rotation = pointer->rotation;
+
+   w = (output->cursor_available.min_w > tw) ? output->cursor_available.min_w : tw;
+   h = (output->cursor_available.min_h > th) ? output->cursor_available.min_h : th;
+
+   if (e_comp->hwc_reuse_cursor_buffer)
+     {
+        if (hwc_window->cursor_tsurface)
+          {
+             tsurface_w = tbm_surface_get_width(hwc_window->cursor_tsurface);
+             tsurface_h = tbm_surface_get_height(hwc_window->cursor_tsurface);
+
+             if (w != tsurface_w || h != tsurface_h)
+               {
+                  tbm_surface_destroy(hwc_window->cursor_tsurface);
+                  hwc_window->cursor_tsurface = NULL;
+               }
+          }
+     }
+   else
+     {
+        if (hwc_window->cursor_tsurface)
+          {
+             tbm_surface_destroy(hwc_window->cursor_tsurface);
+             hwc_window->cursor_tsurface = NULL;
+          }
+     }
+
+   if (!hwc_window->cursor_tsurface)
+     {
+        /* Which tbm flags should be used? */
+        tsurface = tbm_surface_internal_create_with_flags(w, h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
+        if (!tsurface) return EINA_FALSE;
+     }
+   else
+     {
+        tsurface = hwc_window->cursor_tsurface;
+     }
+
+   ret = tbm_surface_map(tsurface, TBM_SURF_OPTION_WRITE, &tsurface_info);
+   if (ret != TBM_SURFACE_ERROR_NONE)
+     {
+        ERR("Failed to map tsurface");
+        tbm_surface_destroy(tsurface);
+        return EINA_FALSE;
+     }
+
+   _e_hwc_window_cursor_image_draw(buffer, &tsurface_info, pointer->rotation);
+
+   tbm_surface_unmap(tsurface);
+
+   hwc_window->cursor_tsurface = tsurface;
+
+   e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
+
+   return EINA_TRUE;
+}
+
+Eina_List *
+_get_e_hwc_wnds_composited_list(E_Hwc_Window_Target *e_hwc_target_window)
+{
+   Eina_List *e_hwc_wnds_composited_list = NULL, *new_list = NULL;
+   E_Hwc_Window *e_hwc_wnd, *ew_hwc;
+   const Eina_List *l, *ll;
+   E_Output_Hwc *output_hwc;
+
+   tbm_surface_internal_get_user_data(e_hwc_target_window->hwc_window.tsurface,
+           composited_e_hwc_wnds_key, (void**)&e_hwc_wnds_composited_list);
+
+   output_hwc = e_hwc_target_window->hwc_window.output_hwc;
+
+   /* refresh list of composited e_hwc_wnds according to existed ones */
+   EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, e_hwc_wnd)
+      EINA_LIST_FOREACH(output_hwc->hwc_windows, ll, ew_hwc)
+         if (e_hwc_wnd == ew_hwc)
+             new_list = eina_list_append(new_list, e_hwc_wnd);
+
+   return new_list;
+}
+
+static tbm_surface_h
+_e_hwc_window_cursor_surface_acquire(E_Hwc_Window *hwc_window)
+{
+   tbm_surface_h tsurface = NULL;
+   E_Client *ec = hwc_window->ec;
+   E_Comp_Wl_Buffer *buffer = NULL;
+   E_Pointer *pointer = NULL;
+
+   pointer = e_pointer_get(ec);
+   if (!pointer) return EINA_FALSE;
+
+   buffer = ec->comp_data->buffer_ref.buffer;
+   if (!buffer) return NULL;
+
+   if (!e_comp_object_hwc_update_exists(ec->frame) && hwc_window->tsurface) return NULL;
+
+   e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
+
+   if (!_e_hwc_window_cursor_surface_refresh(hwc_window, pointer))
+     {
+        ERR("Failed to _e_hwc_window_cursor_surface_refresh");
+        return NULL;
+     }
+
+   tsurface = hwc_window->cursor_tsurface;
+
+   return tsurface;
+}
+
+/* whether an e_hwc_wnd exists on a target_buffer which is currently set at the target_window */
+static Eina_Bool
+_e_hwc_window_is_existed_on_target_wnd(E_Hwc_Window *e_hwc_wnd)
+{
+    Eina_List *e_hwc_wnds_composited_list = NULL;
+    E_Hwc_Window_Target *target_hwc_window;
+    E_Hwc_Window *ehw;
+    const Eina_List *l;
+
+    target_hwc_window = _e_hwc_window_target_window_get(e_hwc_wnd);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(e_hwc_wnd, EINA_FALSE);
+
+    tbm_surface_internal_get_user_data(target_hwc_window->hwc_window.tsurface, composited_e_hwc_wnds_key,
+            (void**)&e_hwc_wnds_composited_list);
+
+    EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, ehw)
+       if (ehw == e_hwc_wnd)
+           return EINA_TRUE;
+
+    return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_hwc_window_is_device_to_client_transition(E_Hwc_Window *hwc_window)
+{
+   E_Hwc_Window_Target *target_hwc_window;
+
+   if (hwc_window->is_deleted) return EINA_FALSE;
+
+   target_hwc_window = _e_hwc_window_target_window_get(hwc_window);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (((E_Hwc_Window *)target_hwc_window)->state == E_HWC_WINDOW_STATE_NONE) return EINA_FALSE;
+   if (!hwc_window->is_device_to_client_transition) return EINA_FALSE;
+   if (e_hwc_window_is_target(hwc_window)) return EINA_FALSE;
+   if (_e_hwc_window_is_existed_on_target_wnd(hwc_window)) return EINA_FALSE;
+
+   return EINA_TRUE;
+}
+
+static tdm_hwc_window_composition
+_e_hwc_window_composition_type_get(E_Hwc_Window_State state)
+{
+   tdm_hwc_window_composition composition_type = TDM_COMPOSITION_NONE;
+
+   switch (state)
+     {
+      case E_HWC_WINDOW_STATE_NONE:
+        composition_type = TDM_COMPOSITION_NONE;
+        break;
+      case E_HWC_WINDOW_STATE_CLIENT:
+        composition_type = TDM_COMPOSITION_CLIENT;
+        break;
+      case E_HWC_WINDOW_STATE_DEVICE:
+        composition_type = TDM_COMPOSITION_DEVICE;
+        break;
+      case E_HWC_WINDOW_STATE_DEVICE_CANDIDATE:
+        composition_type = TDM_COMPOSITION_DEVICE_CANDIDATE;
+        break;
+      case E_HWC_WINDOW_STATE_CURSOR:
+        composition_type = TDM_COMPOSITION_CURSOR;
+        break;
+      default:
+        composition_type = TDM_COMPOSITION_NONE;
+        ERR("hwc-opt: unknown state of hwc_window.");
+     }
+
+   return composition_type;
+}
+
 EINTERN Eina_Bool
 e_hwc_window_init(E_Output_Hwc *output_hwc)
 {
@@ -619,362 +1094,6 @@ e_hwc_window_zpos_get(E_Hwc_Window *hwc_window)
    return hwc_window->zpos;
 }
 
-static unsigned int
-_e_hwc_window_aligned_width_get(tbm_surface_h tsurface)
-{
-   unsigned int aligned_width = 0;
-   tbm_surface_info_s surf_info;
-
-   tbm_surface_get_info(tsurface, &surf_info);
-
-   switch (surf_info.format)
-     {
-      case TBM_FORMAT_YUV420:
-      case TBM_FORMAT_YVU420:
-      case TBM_FORMAT_YUV422:
-      case TBM_FORMAT_YVU422:
-      case TBM_FORMAT_NV12:
-      case TBM_FORMAT_NV21:
-        aligned_width = surf_info.planes[0].stride;
-        break;
-      case TBM_FORMAT_YUYV:
-      case TBM_FORMAT_UYVY:
-        aligned_width = surf_info.planes[0].stride >> 1;
-        break;
-      case TBM_FORMAT_ARGB8888:
-      case TBM_FORMAT_XRGB8888:
-        aligned_width = surf_info.planes[0].stride >> 2;
-        break;
-      default:
-        ERR("not supported format: %x", surf_info.format);
-     }
-
-   return aligned_width;
-}
-
-static Eina_Bool
-_e_hwc_window_info_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface)
-{
-   E_Output_Hwc *output_hwc = hwc_window->output_hwc;
-   E_Output *output = output_hwc->output;
-   E_Client *ec = hwc_window->ec;
-   tbm_surface_info_s surf_info;
-   int size_w, size_h, src_x, src_y, src_w, src_h;
-   int dst_x, dst_y, dst_w, dst_h;
-   tbm_format format;
-
-   /* set hwc_window when the layer infomation is different from the previous one */
-   tbm_surface_get_info(tsurface, &surf_info);
-
-   format = surf_info.format;
-
-   size_w = _e_hwc_window_aligned_width_get(tsurface);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(size_w == 0, EINA_FALSE);
-
-   size_h = surf_info.height;
-
-   src_x = 0;
-   src_y = 0;
-   src_w = surf_info.width;
-   src_h = surf_info.height;
-
-   if (e_hwc_window_is_cursor(hwc_window))
-     {
-        E_Pointer *pointer = e_pointer_get(ec);
-        if (!pointer)
-          {
-             ERR("ec doesn't have E_Pointer");
-             return EINA_FALSE;
-          }
-
-        dst_x = pointer->x - pointer->hot.x;
-        dst_y = pointer->y - pointer->hot.y;
-     }
-   else
-     {
-        dst_x = ec->x;
-        dst_y = ec->y;
-     }
-
-   /* if output is transformed, the position of a buffer on screen should be also
-   * transformed.
-   */
-   if (output->config.rotation > 0)
-     {
-        int bw, bh;
-        e_pixmap_size_get(ec->pixmap, &bw, &bh);
-        e_comp_wl_rect_convert(ec->zone->w, ec->zone->h,
-                               output->config.rotation / 90, 1,
-                               dst_x, dst_y, bw, bh,
-                               &dst_x, &dst_y, NULL, NULL);
-     }
-
-   dst_w = surf_info.width;
-   dst_h = surf_info.height;
-
-   if (hwc_window->info.src_config.size.h != size_w ||
-            hwc_window->info.src_config.size.v != size_h ||
-            hwc_window->info.src_config.pos.x != src_x ||
-            hwc_window->info.src_config.pos.y != src_y ||
-            hwc_window->info.src_config.pos.w != src_w ||
-            hwc_window->info.src_config.pos.h != src_h ||
-            hwc_window->info.src_config.format != format ||
-            hwc_window->info.dst_pos.x != dst_x ||
-            hwc_window->info.dst_pos.y != dst_y ||
-            hwc_window->info.dst_pos.w != dst_w ||
-            hwc_window->info.dst_pos.h != dst_h)
-     {
-        tdm_error error;
-
-        /* change the information at plane->info */
-        hwc_window->info.src_config.size.h = size_w;
-        hwc_window->info.src_config.size.v = size_h;
-        hwc_window->info.src_config.pos.x = src_x;
-        hwc_window->info.src_config.pos.y = src_y;
-        hwc_window->info.src_config.pos.w = src_w;
-        hwc_window->info.src_config.pos.h = src_h;
-        hwc_window->info.dst_pos.x = dst_x;
-        hwc_window->info.dst_pos.y = dst_y;
-        hwc_window->info.dst_pos.w = dst_w;
-        hwc_window->info.dst_pos.h = dst_h;
-        hwc_window->info.transform = TDM_TRANSFORM_NORMAL;
-        hwc_window->info.src_config.format = format;
-
-        error = tdm_hwc_window_set_info(hwc_window->hwc_wnd, &hwc_window->info);
-        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
-     }
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_is_e_hwc_window_ec_has_correct_transformation(E_Hwc_Window *hwc_window)
-{
-   E_Client *ec;
-   int transform;
-   E_Output_Hwc *output_hwc = hwc_window->output_hwc;
-   E_Output *output = output_hwc->output;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->ec, EINA_FALSE);
-
-   ec = hwc_window->ec;
-
-   transform = e_comp_wl_output_buffer_transform_get(ec);
-
-   /* request an ec to change its transformation if it doesn't fit the transformation */
-   if ((output->config.rotation / 90) != transform)
-     {
-        if (!e_config->screen_rotation_client_ignore && hwc_window->need_change_buffer_transform)
-          {
-             hwc_window->need_change_buffer_transform = EINA_FALSE;
-
-             /* TODO: why e_comp_wl_output_init() call ins't enough? why additional
-              * tizen_screen_rotation_send_ignore_output_transform() call is needed? */
-             e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
-
-             ELOGF("HWC-WINS", " request {title:%25s} to change transformation to %d.",
-                     ec->pixmap, ec, ec->icccm.title, output->config.rotation);
-          }
-
-        return EINA_FALSE;
-     }
-   else
-      hwc_window->need_change_buffer_transform = EINA_TRUE;
-
-   return EINA_TRUE;
-}
-
-
-static void
-_e_hwc_window_cursor_image_draw(E_Comp_Wl_Buffer *buffer, tbm_surface_info_s *tsurface_info, int rotation)
-{
-   int src_width, src_height, src_stride;
-   pixman_image_t *src_img = NULL, *dst_img = NULL;
-   pixman_transform_t t;
-   struct pixman_f_transform ft;
-   void *src_ptr = NULL, *dst_ptr = NULL;
-   int c = 0, s = 0, tx = 0, ty = 0;
-   int i, rotate;
-
-   src_width = wl_shm_buffer_get_width(buffer->shm_buffer);
-   src_height = wl_shm_buffer_get_height(buffer->shm_buffer);
-   src_stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
-   src_ptr = wl_shm_buffer_get_data(buffer->shm_buffer);
-
-   dst_ptr = tsurface_info->planes[0].ptr;
-   memset(dst_ptr, 0, tsurface_info->planes[0].stride * tsurface_info->height);
-
-   if (rotation)
-     {
-        src_img = pixman_image_create_bits(PIXMAN_a8r8g8b8, src_width, src_height, (uint32_t*)src_ptr, src_stride);
-        EINA_SAFETY_ON_NULL_GOTO(src_img, error);
-
-        dst_img = pixman_image_create_bits(PIXMAN_a8r8g8b8, tsurface_info->width, tsurface_info->height,
-                                          (uint32_t*)dst_ptr, tsurface_info->planes[0].stride);
-        EINA_SAFETY_ON_NULL_GOTO(dst_img, error);
-
-        if (rotation == 90)
-           rotation = 270;
-        else if (rotation == 270)
-           rotation = 90;
-
-        rotate = (rotation + 360) / 90 % 4;
-        switch (rotate)
-          {
-           case 1:
-              c = 0, s = -1, tx = -tsurface_info->width;
-              break;
-           case 2:
-              c = -1, s = 0, tx = -tsurface_info->width, ty = -tsurface_info->height;
-              break;
-           case 3:
-              c = 0, s = 1, ty = -tsurface_info->width;
-              break;
-          }
-
-        pixman_f_transform_init_identity(&ft);
-        pixman_f_transform_translate(&ft, NULL, tx, ty);
-        pixman_f_transform_rotate(&ft, NULL, c, s);
-
-        pixman_transform_from_pixman_f_transform(&t, &ft);
-        pixman_image_set_transform(src_img, &t);
-
-        pixman_image_composite(PIXMAN_OP_SRC, src_img, NULL, dst_img, 0, 0, 0, 0, 0, 0,
-                               tsurface_info->width, tsurface_info->height);
-     }
-   else
-     {
-        for (i = 0 ; i < src_height ; i++)
-          {
-             memcpy(dst_ptr, src_ptr, src_stride);
-             dst_ptr += tsurface_info->planes[0].stride;
-             src_ptr += src_stride;
-          }
-     }
-
-error:
-   if (src_img) pixman_image_unref(src_img);
-   if (dst_img) pixman_image_unref(dst_img);
-}
-
-
-static Eina_Bool
-_e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointer)
-{
-   E_Output_Hwc *output_hwc = NULL;
-   E_Output *output = NULL;
-   int w, h, tw, th;
-   int tsurface_w, tsurface_h;
-   void *src_ptr = NULL;
-   tbm_surface_h tsurface = NULL;
-   E_Comp_Wl_Buffer *buffer = NULL;
-   tbm_surface_error_e ret = TBM_SURFACE_ERROR_NONE;
-   tbm_surface_info_s tsurface_info;
-   E_Client *ec;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-
-   ec = hwc_window->ec;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
-
-   output_hwc = hwc_window->output_hwc;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
-
-   output = output_hwc->output;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
-
-   buffer = ec->comp_data->buffer_ref.buffer;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, EINA_FALSE);
-
-   if ((hwc_window->display_info.buffer_ref.buffer == buffer) &&
-       (hwc_window->cursor_tsurface) &&
-       (hwc_window->cursor_rotation == pointer->rotation))
-     return EINA_TRUE;
-
-   /* TODO: TBM TYPE, NATIVE_WL */
-   if (buffer->type == E_COMP_WL_BUFFER_TYPE_SHM)
-     {
-        src_ptr = wl_shm_buffer_get_data(buffer->shm_buffer);
-        if (!src_ptr)
-          {
-             ERR("Failed get data shm buffer");
-             return EINA_FALSE;
-          }
-     }
-   else
-     {
-        ERR("unkown buffer type:%d", ec->comp_data->buffer_ref.buffer->type);
-        return EINA_FALSE;
-     }
-
-   if (pointer->rotation == 90)
-      tw = ec->h, th = ec->w;
-   else if (pointer->rotation == 180)
-      tw = ec->w, th = ec->h;
-   else if (pointer->rotation == 270)
-      tw = ec->h, th = ec->w;
-   else
-      tw = ec->w, th = ec->h;
-
-   hwc_window->cursor_rotation = pointer->rotation;
-
-   w = (output->cursor_available.min_w > tw) ? output->cursor_available.min_w : tw;
-   h = (output->cursor_available.min_h > th) ? output->cursor_available.min_h : th;
-
-   if (e_comp->hwc_reuse_cursor_buffer)
-     {
-        if (hwc_window->cursor_tsurface)
-          {
-             tsurface_w = tbm_surface_get_width(hwc_window->cursor_tsurface);
-             tsurface_h = tbm_surface_get_height(hwc_window->cursor_tsurface);
-
-             if (w != tsurface_w || h != tsurface_h)
-               {
-                  tbm_surface_destroy(hwc_window->cursor_tsurface);
-                  hwc_window->cursor_tsurface = NULL;
-               }
-          }
-     }
-   else
-     {
-        if (hwc_window->cursor_tsurface)
-          {
-             tbm_surface_destroy(hwc_window->cursor_tsurface);
-             hwc_window->cursor_tsurface = NULL;
-          }
-     }
-
-   if (!hwc_window->cursor_tsurface)
-     {
-        /* Which tbm flags should be used? */
-        tsurface = tbm_surface_internal_create_with_flags(w, h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
-        if (!tsurface) return EINA_FALSE;
-     }
-   else
-     {
-        tsurface = hwc_window->cursor_tsurface;
-     }
-
-   ret = tbm_surface_map(tsurface, TBM_SURF_OPTION_WRITE, &tsurface_info);
-   if (ret != TBM_SURFACE_ERROR_NONE)
-     {
-        ERR("Failed to map tsurface");
-        tbm_surface_destroy(tsurface);
-        return EINA_FALSE;
-     }
-
-   _e_hwc_window_cursor_image_draw(buffer, &tsurface_info, pointer->rotation);
-
-   tbm_surface_unmap(tsurface);
-
-   hwc_window->cursor_tsurface = tsurface;
-
-   e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
-
-   return EINA_TRUE;
-}
-
 EINTERN Eina_Bool
 e_hwc_window_update(E_Hwc_Window *hwc_window)
 {
@@ -1062,57 +1181,6 @@ e_hwc_window_is_cursor(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    return hwc_window->is_cursor;
-}
-
-Eina_List *
-_get_e_hwc_wnds_composited_list(E_Hwc_Window_Target *e_hwc_target_window)
-{
-   Eina_List *e_hwc_wnds_composited_list = NULL, *new_list = NULL;
-   E_Hwc_Window *e_hwc_wnd, *ew_hwc;
-   const Eina_List *l, *ll;
-   E_Output_Hwc *output_hwc;
-
-   tbm_surface_internal_get_user_data(e_hwc_target_window->hwc_window.tsurface,
-           composited_e_hwc_wnds_key, (void**)&e_hwc_wnds_composited_list);
-
-   output_hwc = e_hwc_target_window->hwc_window.output_hwc;
-
-   /* refresh list of composited e_hwc_wnds according to existed ones */
-   EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, e_hwc_wnd)
-      EINA_LIST_FOREACH(output_hwc->hwc_windows, ll, ew_hwc)
-         if (e_hwc_wnd == ew_hwc)
-             new_list = eina_list_append(new_list, e_hwc_wnd);
-
-   return new_list;
-}
-
-static tbm_surface_h
-_e_hwc_window_cursor_surface_acquire(E_Hwc_Window *hwc_window)
-{
-   tbm_surface_h tsurface = NULL;
-   E_Client *ec = hwc_window->ec;
-   E_Comp_Wl_Buffer *buffer = NULL;
-   E_Pointer *pointer = NULL;
-
-   pointer = e_pointer_get(ec);
-   if (!pointer) return EINA_FALSE;
-
-   buffer = ec->comp_data->buffer_ref.buffer;
-   if (!buffer) return NULL;
-
-   if (!e_comp_object_hwc_update_exists(ec->frame) && hwc_window->tsurface) return NULL;
-
-   e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
-
-   if (!_e_hwc_window_cursor_surface_refresh(hwc_window, pointer))
-     {
-        ERR("Failed to _e_hwc_window_cursor_surface_refresh");
-        return NULL;
-     }
-
-   tsurface = hwc_window->cursor_tsurface;
-
-   return tsurface;
 }
 
 EINTERN Eina_Bool
@@ -1314,46 +1382,6 @@ e_hwc_window_unfetch(E_Hwc_Window *hwc_window)
      }
 
    hwc_window->update_exist = EINA_FALSE;
-}
-
-/* whether an e_hwc_wnd exists on a target_buffer which is currently set at the target_window */
-static Eina_Bool
-_e_hwc_window_is_existed_on_target_wnd(E_Hwc_Window *e_hwc_wnd)
-{
-    Eina_List *e_hwc_wnds_composited_list = NULL;
-    E_Hwc_Window_Target *target_hwc_window;
-    E_Hwc_Window *ehw;
-    const Eina_List *l;
-
-    target_hwc_window = _e_hwc_window_target_window_get(e_hwc_wnd);
-    EINA_SAFETY_ON_NULL_RETURN_VAL(e_hwc_wnd, EINA_FALSE);
-
-    tbm_surface_internal_get_user_data(target_hwc_window->hwc_window.tsurface, composited_e_hwc_wnds_key,
-            (void**)&e_hwc_wnds_composited_list);
-
-    EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, ehw)
-       if (ehw == e_hwc_wnd)
-           return EINA_TRUE;
-
-    return EINA_FALSE;
-}
-
-static Eina_Bool
-_e_hwc_window_is_device_to_client_transition(E_Hwc_Window *hwc_window)
-{
-   E_Hwc_Window_Target *target_hwc_window;
-
-   if (hwc_window->is_deleted) return EINA_FALSE;
-
-   target_hwc_window = _e_hwc_window_target_window_get(hwc_window);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-
-   if (((E_Hwc_Window *)target_hwc_window)->state == E_HWC_WINDOW_STATE_NONE) return EINA_FALSE;
-   if (!hwc_window->is_device_to_client_transition) return EINA_FALSE;
-   if (e_hwc_window_is_target(hwc_window)) return EINA_FALSE;
-   if (_e_hwc_window_is_existed_on_target_wnd(hwc_window)) return EINA_FALSE;
-
-   return EINA_TRUE;
 }
 
 EINTERN Eina_Bool
@@ -1664,36 +1692,6 @@ e_hwc_window_displaying_surface_get(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
 
    return hwc_window->display_info.tsurface;
-}
-
-static tdm_hwc_window_composition
-_e_hwc_window_composition_type_get(E_Hwc_Window_State state)
-{
-   tdm_hwc_window_composition composition_type = TDM_COMPOSITION_NONE;
-
-   switch (state)
-     {
-      case E_HWC_WINDOW_STATE_NONE:
-        composition_type = TDM_COMPOSITION_NONE;
-        break;
-      case E_HWC_WINDOW_STATE_CLIENT:
-        composition_type = TDM_COMPOSITION_CLIENT;
-        break;
-      case E_HWC_WINDOW_STATE_DEVICE:
-        composition_type = TDM_COMPOSITION_DEVICE;
-        break;
-      case E_HWC_WINDOW_STATE_DEVICE_CANDIDATE:
-        composition_type = TDM_COMPOSITION_DEVICE_CANDIDATE;
-        break;
-      case E_HWC_WINDOW_STATE_CURSOR:
-        composition_type = TDM_COMPOSITION_CURSOR;
-        break;
-      default:
-        composition_type = TDM_COMPOSITION_NONE;
-        ERR("hwc-opt: unknown state of hwc_window.");
-     }
-
-   return composition_type;
 }
 
 EINTERN Eina_Bool
