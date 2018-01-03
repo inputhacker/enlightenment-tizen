@@ -4,30 +4,6 @@
 
 #define DBG_EVALUATE 0
 
-extern uint64_t composited_e_hwc_wnds_key;
-
-static void
-_e_output_hwc_canvas_render_flush_post(void *data, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   E_Output_Hwc *output_hwc = (E_Output_Hwc *)data;
-   E_Hwc_Window_Target *target_hwc_window = output_hwc->target_hwc_window;
-   Eina_List *e_hwc_wnd_composited_list;
-
-   ELOGF("HWC-WINS", " render_flush_post -- the target_hwc_window(%p)", NULL, NULL, target_hwc_window);
-
-   /* all ecs have been composited so we can attach a list of composited e_hwc_wnds to the surface
-    * which contains their ecs composited */
-
-   e_hwc_wnd_composited_list = eina_list_clone(target_hwc_window->current_e_hwc_wnd_composited_list);
-
-   tbm_surface_internal_set_user_data(target_hwc_window->currently_dequeued_surface,
-           composited_e_hwc_wnds_key, e_hwc_wnd_composited_list);
-
-   eina_list_free(target_hwc_window->current_e_hwc_wnd_composited_list);
-   target_hwc_window->current_e_hwc_wnd_composited_list = NULL;
-   target_hwc_window->currently_dequeued_surface = NULL;
-}
-
 static Eina_Bool
 _e_output_hwc_ec_check(E_Client *ec)
 {
@@ -1333,8 +1309,6 @@ e_output_hwc_new(E_Output *output)
 
         /* turn on sw compositor at the start */
         ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
-
-        evas_event_callback_add(e_comp->evas, EVAS_CALLBACK_RENDER_FLUSH_POST, _e_output_hwc_canvas_render_flush_post, output_hwc);
      }
    else
      output_hwc->hwc_policy = E_OUTPUT_HWC_POLICY_PLANES;

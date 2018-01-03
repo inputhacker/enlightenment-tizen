@@ -10,6 +10,28 @@
 static E_Client_Hook *client_hook_new = NULL;
 static E_Client_Hook *client_hook_del = NULL;
 static Ecore_Event_Handler *zone_set_event_handler = NULL;
+static uint64_t composited_e_hwc_wnds_key;
+
+static void
+_e_hwc_window_canvas_render_flush_post(void *data, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
+   Eina_List *e_hwc_wnd_composited_list;
+
+   ELOGF("HWC-WINS", " render_flush_post -- the target_hwc_window(%p)", NULL, NULL, target_hwc_window);
+
+   /* all ecs have been composited so we can attach a list of composited e_hwc_wnds to the surface
+    * which contains their ecs composited */
+
+   e_hwc_wnd_composited_list = eina_list_clone(target_hwc_window->current_e_hwc_wnd_composited_list);
+
+   tbm_surface_internal_set_user_data(target_hwc_window->currently_dequeued_surface,
+           composited_e_hwc_wnds_key, e_hwc_wnd_composited_list);
+
+   eina_list_free(target_hwc_window->current_e_hwc_wnd_composited_list);
+   target_hwc_window->current_e_hwc_wnd_composited_list = NULL;
+   target_hwc_window->currently_dequeued_surface = NULL;
+}
 
 static E_Hwc_Window_Target *
 _e_hwc_window_target_window_get(E_Hwc_Window *hwc_window)
@@ -250,8 +272,6 @@ _e_hwc_window_target_queue_acquirable_cb(tbm_surface_queue_h surface_queue, void
       ERR("failed to send acquirable event:%m");
 }
 
-uint64_t composited_e_hwc_wnds_key;
-
 static void
 _free_dequeued_surface_data(void *data)
 {
@@ -269,9 +289,7 @@ _e_hwc_window_target_queue_trace_cb(tbm_surface_queue_h surface_queue,
 
    if (trace == TBM_SURFACE_QUEUE_TRACE_DEQUEUE)
      {
-        tbm_surface_internal_add_user_data(tbm_surface,
-                composited_e_hwc_wnds_key, _free_dequeued_surface_data);
-
+        tbm_surface_internal_add_user_data(tbm_surface, composited_e_hwc_wnds_key, _free_dequeued_surface_data);
         target_hwc_window->currently_dequeued_surface = tbm_surface;
      }
    if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
@@ -467,6 +485,8 @@ e_hwc_window_init(E_Output_Hwc *output_hwc)
    output_hwc->target_hwc_window = target_hwc_window;
 
    output_hwc->hwc_windows = eina_list_append(output_hwc->hwc_windows, target_hwc_window);
+
+   evas_event_callback_add(e_comp->evas, EVAS_CALLBACK_RENDER_FLUSH_POST, _e_hwc_window_canvas_render_flush_post, target_hwc_window);
 
    return EINA_TRUE;
 }
