@@ -72,8 +72,6 @@ struct _E_Hwc_Window_Target
 
    tbm_surface_queue_h queue;
 
-   int post_render_flush_cnt;
-
    /* a surface the rendering is currently performing at */
    tbm_surface_h       currently_dequeued_surface;
    Eina_List          *current_e_hwc_wnd_composited_list;

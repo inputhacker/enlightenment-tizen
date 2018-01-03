@@ -243,7 +243,7 @@ _e_hwc_window_target_queue_acquirable_cb(tbm_surface_queue_h surface_queue, void
     uint64_t value = 1;
     int ret;
 
-    ELOGF("HWC-WINS", "evas_renderer enqueued a new buffer into the queue", NULL, NULL);
+    ELOGF("HWC-WINS", " evas_renderer enqueued a new buffer into the queue", NULL, NULL);
 
     ret = write(target_hwc_window->event_fd, &value, sizeof(value));
     if (ret == -1)
@@ -288,7 +288,7 @@ _evas_renderer_finished_composition_cb(void *data, Ecore_Fd_Handler *fd_handler)
    int fd;
    char buffer[64];
 
-   ELOGF("HWC-WINS", "ecore_main_loop: the new iteration.", NULL, NULL);
+   ELOGF("HWC-WINS", " ecore_main_loop: the new iteration.", NULL, NULL);
 
    fd = ecore_main_fd_handler_fd_get(fd_handler);
    len = read(fd, buffer, sizeof(buffer));
@@ -753,7 +753,7 @@ _is_e_hwc_window_ec_has_correct_transformation(E_Hwc_Window *hwc_window)
               * tizen_screen_rotation_send_ignore_output_transform() call is needed? */
              e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
 
-             ELOGF("HWC-WINS", " request {title:%s} to change transformation to %d.",
+             ELOGF("HWC-WINS", " request {title:%25s} to change transformation to %d.",
                      ec->pixmap, ec, ec->icccm.title, output->config.rotation);
           }
 
@@ -1138,7 +1138,7 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
              tdm_output_hwc_set_client_target_buffer(output->toutput, NULL, fb_damage, NULL, 0);
 
-             ELOGF("HWC-WINS", " set surface:(NULL) on the fb_target", hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec);
+             ELOGF("HWC-WINS", " fb_target -- set surface:(NULL)", hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec);
           }
         else
           {
@@ -1150,10 +1150,9 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
              tdm_hwc_window_set_buffer(hwc_window->hwc_wnd, NULL);
 
-             ELOGF("HWC-WINS", " set surface:(NULL) {title:%s} on the hwc_wnd:%p.",
+             ELOGF("HWC-WINS", " hwc_window:%p -- {title:%25s} set surface:(NULL).",
                    hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
-                   hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-                   hwc_window->hwc_wnd);
+                   hwc_window, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN");
           }
 
         hwc_window->tsurface = NULL;
@@ -1163,7 +1162,7 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
    if (e_comp_canvas_norender_get() > 0)
      {
-        ELOGF("HWC-WINS", " NoRender get. no updated surface {title:%s} on the hwc_wnd:%p.",
+        ELOGF("HWC-WINS", " NoRender get. no updated surface {title:%25s} on the hwc_wnd:%p.",
               hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
               hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
               hwc_window->hwc_wnd);
@@ -1208,8 +1207,8 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
         /* the damage isn't supported by hwc extension yet */
         memset(&fb_damage, 0, sizeof(fb_damage));
 
-        ELOGF("HWC-WINS", " set surface:%p on the fb_target, compsite list below.",
-              hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, tsurface);
+        ELOGF("HWC-WINS", " fb_target -- set surface:%p and render list below.",
+              hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window->tsurface);
 
         e_hwc_wnds_composited_list = _get_e_hwc_wnds_composited_list(target_hwc_window);
         hwc_wnds_amount = eina_list_count(e_hwc_wnds_composited_list);
@@ -1221,9 +1220,9 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
              i = 0;
              EINA_LIST_FOREACH(e_hwc_wnds_composited_list, l, e_hwc_wnd)
                {
-                  ELOGF("HWC-WINS", "  (%d) hwc_window:%p {title:%s}",
+                  ELOGF("HWC-WINS", "  (%d) hwc_window:%p -- {title:%25s} set surface:%p",
                         e_hwc_wnd->ec ? ec->pixmap : NULL, e_hwc_wnd->ec,
-                        i, e_hwc_wnd, e_hwc_wnd->ec ? e_hwc_wnd->ec->icccm.title : "UNKNOWN");
+                        i, e_hwc_wnd, e_hwc_wnd->ec ? e_hwc_wnd->ec->icccm.title : "UNKNOWN", e_hwc_wnd->tsurface);
 
                   hwc_wnds[i++] = e_hwc_wnd->hwc_wnd;
                }
@@ -1238,11 +1237,12 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
      }
    else
      {
-        tdm_hwc_window_set_buffer(hwc_window->hwc_wnd, tsurface);
-        ELOGF("HWC-WINS", " set surface:%p {title:%s} on the hwc_wnd:%p.",
+        tdm_hwc_window_set_buffer(hwc_window->hwc_wnd, hwc_window->tsurface);
+
+        ELOGF("HWC-WINS", " hwc_window:%p -- {title:%25s} set surface:%p",
               hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
-              tsurface, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-              hwc_window->hwc_wnd);
+              hwc_window, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+              hwc_window->tsurface ? hwc_window->tsurface : NULL);
      }
 
    hwc_window->update_exist = EINA_TRUE;
@@ -1730,5 +1730,5 @@ e_hwc_window_render_list_add(E_Hwc_Window *hwc_window)
    target_hwc_window->current_e_hwc_wnd_composited_list =
            eina_list_append(target_hwc_window->current_e_hwc_wnd_composited_list, hwc_window);
 
-   ELOGF("HWC-WINS", " hwindow:%p added the render_list {title:%s}.", ec->pixmap, ec, hwc_window, ec->icccm.title);
+   ELOGF("HWC-WINS", " hwindow:%p added the render_list {title:%25s}.", ec->pixmap, ec, hwc_window, ec->icccm.title);
 }

@@ -1,13 +1,8 @@
 #include "e.h"
 #include "services/e_service_quickpanel.h"
 
-/* E_Hwc_Wnd based HWC */
 
-typedef enum
-{
-   HWC_OPT_COMP_MODE_FULL_HWC,
-   HWC_OPT_COMP_MODE_HYBRID,    /* either all hwc_windows or some are composited by sw compositor */
-} _hwc_opt_comp_mode;
+#define DBG_EVALUATE 0
 
 extern uint64_t composited_e_hwc_wnds_key;
 
@@ -18,11 +13,7 @@ _e_output_hwc_canvas_render_flush_post(void *data, Evas *e EINA_UNUSED, void *ev
    E_Hwc_Window_Target *target_hwc_window = output_hwc->target_hwc_window;
    Eina_List *e_hwc_wnd_composited_list;
 
-#if 1
-   target_hwc_window->post_render_flush_cnt--;
-   ELOGF("HWC-WINS", "[soolim] render_flush_post -- the target_hwc_window(%p) post_render_flush_cnt(%d) e_comp->evas(%p) evas(%p)",
-           NULL, NULL, target_hwc_window, target_hwc_window->post_render_flush_cnt, e_comp->evas, e);
-#endif
+   ELOGF("HWC-WINS", " render_flush_post -- the target_hwc_window(%p)", NULL, NULL, target_hwc_window);
 
    /* all ecs have been composited so we can attach a list of composited e_hwc_wnds to the surface
     * which contains their ecs composited */
@@ -65,7 +56,6 @@ _e_output_hwc_ec_check(E_Client *ec)
       case E_COMP_WL_BUFFER_TYPE_SHM:
          if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
            break;
-
       default:
          return EINA_FALSE;
      }
@@ -257,9 +247,10 @@ _e_output_hwc_windows_update(E_Output_Hwc *output_hwc, Eina_List *cl_list)
           }
         zpos++;
      }
-
+#if DBG_EVALUATE
    ELOGF("HWC-WINS", " Request HWC Validation to TDM HWC:", NULL, NULL);
    _e_output_hwc_windows_print_wnds_state(output_hwc);
+#endif
 }
 
 static E_Hwc_Window_State
@@ -360,9 +351,10 @@ _e_output_hwc_windows_validate(E_Output_Hwc *output_hwc)
              ERR("hwc-opt: failed to accept changes required by the hwc extension");
              return EINA_FALSE;
           }
-
+#if DBG_EVALUATE
         ELOGF("HWC-WINS", " Modified after HWC Validation:", NULL, NULL);
         _e_output_hwc_windows_print_wnds_state(output_hwc);
+#endif
      }
 
    return EINA_TRUE;
@@ -404,8 +396,9 @@ _e_output_hwc_windows_target_window_render(E_Output *output, E_Hwc_Window_Target
       update_ee is to be true at post_render_cb when the render is successful. */
    TRACE_DS_BEGIN(MANUAL RENDER);
 
-   if (e_hwc_window_target_surface_queue_can_dequeue(target_hwc_window) || !target_hwc_window->queue)
+   if (e_hwc_window_target_surface_queue_can_dequeue(target_hwc_window))
      {
+        ELOGF("HWC-WINS", "###### Render target window(ecore_evas_manual_render))", NULL, NULL);
         ecore_evas_manual_render(target_hwc_window->ee);
      }
 
@@ -460,8 +453,11 @@ _e_output_hwc_windows_vis_ec_list_get(E_Output_Hwc *output_hwc)
         ec_list = eina_list_append(ec_list, ec);
      }
 
-   ELOGF("HWC-WINS", " The number of visible clients:%d.", NULL, NULL, eina_list_count(ec_list));
+   output_hwc->num_vis_ec = eina_list_count(ec_list);
 
+#if DBG_EVALUATE
+   ELOGF("HWC-WINS", " The number of visible clients:%d.", NULL, NULL, eina_list_count(ec_list));
+#endif
    return ec_list;
 }
 
@@ -494,7 +490,7 @@ _e_output_hwc_windows_full_gl_composite_check(E_Output_Hwc *output_hwc, Eina_Lis
              // check whether quickpanel is open than break
              if (e_qp_visible_get())
                {
-                   ELOGF("HWC-WINS", "    HWC_MODE_NONE due to quickpanel is opened.{title:%s}.",
+                   ELOGF("HWC-WINS", "    HWC_MODE_NONE due to quickpanel is opened.{title:%25s}.",
                          ec->pixmap, ec, ec->icccm.title);
                }
              goto full_gl_composite;
@@ -503,7 +499,7 @@ _e_output_hwc_windows_full_gl_composite_check(E_Output_Hwc *output_hwc, Eina_Lis
         // if ec->frame is not for client buffer (e.g. launchscreen)
         if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
           {
-             ELOGF("HWC-WINS", "  HWC_MODE_NONE due to E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE{title:%s}.",
+             ELOGF("HWC-WINS", "  HWC_MODE_NONE due to E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE{title:%25s}.",
                    ec->pixmap, ec, ec->icccm.title);
              goto full_gl_composite;
           }
@@ -511,7 +507,7 @@ _e_output_hwc_windows_full_gl_composite_check(E_Output_Hwc *output_hwc, Eina_Lis
         // if there is UI subfrace, it means need to composite
         if (e_client_normal_client_has(ec))
           {
-            ELOGF("HWC-WINS", "  HWC_MODE_NONE due to UI subfrace{title:%s}.",
+            ELOGF("HWC-WINS", "  HWC_MODE_NONE due to UI subfrace{title:%25s}.",
                   ec->pixmap, ec, ec->icccm.title);
             goto full_gl_composite;
           }
@@ -524,8 +520,8 @@ full_gl_composite:
      {
         hwc_window = ec->hwc_window;
         hwc_window->hwc_acceptable = EINA_FALSE;
-        ELOGF("HWC-WINS", "   {title:%s} is NOT hwc_acceptable.",
-              ec->pixmap, ec, ec->icccm.title);
+        ELOGF("HWC-WINS", "   hwc_window:%p -- {title:%25s} is NOT hwc_acceptable.",
+              ec->pixmap, ec, hwc_window, ec->icccm.title);
      }
    return EINA_TRUE;
 }
@@ -554,8 +550,8 @@ _e_output_hwc_windows_hwc_acceptable_check(Eina_List *vis_cl_list)
         if (!_e_output_hwc_ec_check(ec))
           {
              hwc_window->hwc_acceptable = EINA_FALSE;
-             ELOGF("HWC-WINS", "  {title:%s} is NOT hwc_acceptable.",
-                   ec->pixmap, ec, ec->icccm.title);
+             ELOGF("HWC-WINS", "   hwc_window:%p -- {title:%25s} is NOT hwc_acceptable.",
+                   ec->pixmap, ec, hwc_window, ec->icccm.title);
              continue;
           }
      }
@@ -585,9 +581,9 @@ _e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
    Eina_Bool result;
    Eina_List *vis_clist = NULL;
    E_Output_Hwc_Mode hwc_mode = E_OUTPUT_HWC_MODE_NO;
-
+#if DBG_EVALUATE
    ELOGF("HWC-WINS", "###### Output HWC Apply (evaluate) ===", NULL, NULL);
-
+#endif
    /* exclude all hwc_windows from being considered by hwc */
    result = _e_output_hwc_windows_all_windows_init(output_hwc);
    EINA_SAFETY_ON_FALSE_GOTO(result, done);
@@ -643,13 +639,16 @@ _e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
 
    if (hwc_mode == E_OUTPUT_HWC_MODE_HYBRID || hwc_mode == E_OUTPUT_HWC_MODE_NO)
      {
+#if DBG_EVALUATE
         ELOGF("HWC-WINS", " HWC_MODE is HYBRID composition.", NULL, NULL);
-
+#endif
         result = _e_output_hwc_windows_enable_target_window(output_hwc);
         EINA_SAFETY_ON_FALSE_GOTO(result, done);
      }
+#if DBG_EVALUATE
    else
      ELOGF("HWC-WINS", " HWC_MODE is FULL HW composition.", NULL, NULL);
+#endif
 
    if (output_hwc->hwc_mode != hwc_mode)
      {
@@ -2122,6 +2121,9 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
        else
          {
             ELOGF("HWC-WINS", "!!!!!!!! Output Commit !!!!!!!!", NULL, NULL);
+            ELOGF("HWC-WINS", " The number of visible clients:%d.", NULL, NULL, output_hwc->num_vis_ec);
+            _e_output_hwc_windows_print_wnds_state(output_hwc);
+
             error = tdm_output_commit(output->toutput, 0, _e_output_hwc_windows_commit_handler, output_hwc);
             if (error != TDM_ERROR_NONE)
             {
