@@ -289,7 +289,7 @@ _e_output_hwc_planes_unset(E_Plane *ep)
    e_plane_ec_prepare_set(ep, NULL);
    e_plane_ec_set(ep, NULL);
 
-   ELOGF("HWC", "unset plane %d to NULL", NULL, NULL, ep->zpos);
+   ELOGF("HWC-PLNS", "unset plane %d to NULL", NULL, NULL, ep->zpos);
 }
 
 static Eina_Bool
@@ -297,7 +297,7 @@ _e_output_hwc_planes_change_ec(E_Plane *ep, E_Client *new_ec)
 {
    if (!e_plane_ec_set(ep, new_ec))
      {
-        ELOGF("HWC", "failed to set new_ec(%s) on %d",
+        ELOGF("HWC-PLNS", "failed to set new_ec(%s) on %d",
               NULL, new_ec,
               new_ec ? (new_ec->icccm.name ? new_ec->icccm.name : "no name") : "NULL",
               ep->zpos);
@@ -305,11 +305,11 @@ _e_output_hwc_planes_change_ec(E_Plane *ep, E_Client *new_ec)
      }
 
    if (new_ec)
-     ELOGF("HWC", "new_ec(%s) is set on %d",
+     ELOGF("HWC-PLNS", "new_ec(%s) is set on %d",
            new_ec->pixmap, new_ec,
            e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
    else
-     ELOGF("HWC", "NULL is set on %d", NULL, NULL, ep->zpos);
+     ELOGF("HWC-PLNS", "NULL is set on %d", NULL, NULL, ep->zpos);
 
    return EINA_TRUE;
 }
@@ -339,7 +339,7 @@ e_output_hwc_planes_changed(E_Output_Hwc *output_hwc)
             ep->prepare_ec == NULL)
           {
              e_plane_reserved_set(ep, 0);
-             ELOGF("HWC", "unset reserved mem on %d", NULL, NULL, ep->zpos);
+             ELOGF("HWC-PLNS", "unset reserved mem on %d", NULL, NULL, ep->zpos);
           }
 
         if (ep->ec != ep->prepare_ec)
@@ -359,7 +359,7 @@ e_output_hwc_planes_changed(E_Output_Hwc *output_hwc)
 
    if (output_hwc->hwc_mode != mode)
      {
-        ELOGF("HWC", "mode changed (from %d to %d) due to surface changes",
+        ELOGF("HWC-PLNS", "mode changed (from %d to %d) due to surface changes",
               NULL, NULL,
               output_hwc->hwc_mode, mode);
 
@@ -380,9 +380,9 @@ e_output_hwc_planes_changed(E_Output_Hwc *output_hwc)
    if (ret)
      {
         if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NONE)
-          ELOGF("HWC", " End...  due to surface changes", NULL, NULL);
+          ELOGF("HWC-PLNS", " End...  due to surface changes", NULL, NULL);
         else
-          ELOGF("HWC", " hwc surface changed", NULL, NULL);
+          ELOGF("HWC-PLNS", " hwc surface changed", NULL, NULL);
      }
 }
 
@@ -568,7 +568,7 @@ e_output_hwc_planes_begin(E_Output_Hwc *output_hwc)
 
              if (e_plane_is_fb_target(ep))
                {
-                  ELOGF("HWC", "is set on fb_target( %d)", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
+                  ELOGF("HWC-PLNS", "is set on fb_target( %d)", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
                   mode = E_OUTPUT_HWC_MODE_FULL;
 
                   // fb target is occupied by a client surface, means compositor disabled
@@ -576,15 +576,15 @@ e_output_hwc_planes_begin(E_Output_Hwc *output_hwc)
                }
              else
                {
-                  ELOGF("HWC", "is set on %d", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
+                  ELOGF("HWC-PLNS", "is set on %d", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
                   mode = E_OUTPUT_HWC_MODE_HYBRID;
                }
           }
 
         if (mode == E_OUTPUT_HWC_MODE_NONE)
-           ELOGF("HWC", " Begin is not available yet ...", NULL, NULL);
+           ELOGF("HWC-PLNS", " Begin is not available yet ...", NULL, NULL);
         else
-           ELOGF("HWC", " Begin ...", NULL, NULL);
+           ELOGF("HWC-PLNS", " Begin ...", NULL, NULL);
      }
 
    output_hwc->hwc_mode = mode;
@@ -617,7 +617,7 @@ e_output_hwc_planes_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool set)
    e_output_hwc_planes_end(output_hwc, __FUNCTION__);
    output_hwc->hwc_use_multi_plane = set;
 
-   ELOGF("HWC", "e_output_hwc_planes_multi_plane_set : %d", NULL, NULL, set);
+   ELOGF("HWC-PLNS", "e_output_hwc_planes_multi_plane_set : %d", NULL, NULL, set);
 }
 
 EINTERN Eina_Bool
@@ -652,5 +652,5 @@ e_output_hwc_planes_end(E_Output_Hwc *output_hwc, const char *location)
 
    output_hwc->hwc_mode = new_mode;
 
-   ELOGF("HWC", " End...  at %s.", NULL, NULL, location);
+   ELOGF("HWC-PLNS", " End...  at %s.", NULL, NULL, location);
 }
