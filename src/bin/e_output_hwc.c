@@ -309,7 +309,7 @@ _e_output_hwc_planes_changed(E_Output_Hwc *output_hwc)
    E_Plane *ep = NULL;
    const Eina_List *ep_l = NULL, *p_l;
    Eina_Bool assign_success = EINA_TRUE;
-   int mode = E_OUTPUT_HWC_MODE_NO;
+   int mode = E_OUTPUT_HWC_MODE_NONE;
    E_Output *eout = output_hwc->output;
 
    ep_l = e_output_planes_get(eout);
@@ -367,7 +367,7 @@ _e_output_hwc_planes_changed(E_Output_Hwc *output_hwc)
 
    if (ret)
      {
-        if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NO)
+        if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NONE)
           ELOGF("HWC", " End...  due to surface changes", NULL, NULL);
         else
           ELOGF("HWC", " hwc surface changed", NULL, NULL);
@@ -536,7 +536,7 @@ _e_output_hwc_planes_begin(E_Output_Hwc *output_hwc)
    const Eina_List *ep_l = NULL, *l;
    E_Output *eout = output_hwc->output;
    E_Plane *ep = NULL;
-   E_Output_Hwc_Mode mode = E_OUTPUT_HWC_MODE_NO;
+   E_Output_Hwc_Mode mode = E_OUTPUT_HWC_MODE_NONE;
    Eina_Bool set = EINA_FALSE;
 
    if (e_comp->nocomp_override > 0) return;
@@ -569,7 +569,7 @@ _e_output_hwc_planes_begin(E_Output_Hwc *output_hwc)
                }
           }
 
-        if (mode == E_OUTPUT_HWC_MODE_NO)
+        if (mode == E_OUTPUT_HWC_MODE_NONE)
            ELOGF("HWC", " Begin is not available yet ...", NULL, NULL);
         else
            ELOGF("HWC", " Begin ...", NULL, NULL);
@@ -594,7 +594,7 @@ _e_output_hwc_mode_get(E_Output_Hwc *output_hwc)
         return E_OUTPUT_HWC_MODE_HYBRID;
      }
 
-   return E_OUTPUT_HWC_MODE_NO;
+   return E_OUTPUT_HWC_MODE_NONE;
 }
 
 EINTERN E_Output_Hwc *
@@ -644,7 +644,7 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
 
    if (e_output_hwc_deactive_get(output_hwc))
      {
-        if (output_hwc->hwc_mode != E_OUTPUT_HWC_MODE_NO)
+        if (output_hwc->hwc_mode != E_OUTPUT_HWC_MODE_NONE)
           e_output_hwc_planes_end(output_hwc, "deactive set.");
         return;
      }
@@ -655,7 +655,7 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
         return;
      }
 
-   if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NO)
+   if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NONE)
      _e_output_hwc_planes_begin(output_hwc);
    else
      _e_output_hwc_planes_changed(output_hwc);
@@ -664,7 +664,7 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
 EINTERN E_Output_Hwc_Mode
 e_output_hwc_mode_get(E_Output_Hwc *output_hwc)
 {
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, E_OUTPUT_HWC_MODE_NO);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, E_OUTPUT_HWC_MODE_NONE);
 
    return output_hwc->hwc_mode;
 }
@@ -710,7 +710,7 @@ e_output_hwc_planes_multi_plane_get(E_Output_Hwc *output_hwc)
 EINTERN void
 e_output_hwc_planes_end(E_Output_Hwc *output_hwc, const char *location)
 {
-   E_Output_Hwc_Mode new_mode = E_OUTPUT_HWC_MODE_NO;
+   E_Output_Hwc_Mode new_mode = E_OUTPUT_HWC_MODE_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN(output_hwc);
 

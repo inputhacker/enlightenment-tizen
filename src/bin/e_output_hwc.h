@@ -4,7 +4,7 @@ typedef struct _E_Output_Hwc     E_Output_Hwc;
 
 typedef enum _E_Output_Hwc_Mode
 {
-   E_OUTPUT_HWC_MODE_NO = 0,
+   E_OUTPUT_HWC_MODE_NONE = 0,
    E_OUTPUT_HWC_MODE_HYBRID,
    E_OUTPUT_HWC_MODE_FULL
 } E_Output_Hwc_Mode;
