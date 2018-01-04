@@ -47,6 +47,8 @@ struct _E_Plane_Renderer_Buffer
 
    Eina_Bool dequeued;
    Eina_Bool exported;
+   struct wl_resource *exported_wl_buffer;
+   Eina_Bool usable;
 };
 
 /* E_Plane is a child object of E_Output. There is one Output per screen
@@ -486,6 +488,8 @@ _e_plane_renderer_release_exported_renderer_buffer(E_Plane_Renderer *renderer, E
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_buffer, EINA_FALSE);
 
    renderer_buffer->exported = EINA_FALSE;
+   renderer_buffer->exported_wl_buffer = NULL;
+   renderer_buffer->usable = EINA_FALSE;
    renderer_buffer->dequeued = EINA_FALSE;
 
    E_FREE_FUNC(renderer_buffer->release_timer, ecore_timer_del);
@@ -589,6 +593,8 @@ _e_plane_renderer_exported_surfaces_release(E_Plane_Renderer *renderer, Eina_Boo
         if (renderer->displaying_tsurface == tsurface)
           {
              renderer_buffer->exported = EINA_FALSE;
+             renderer_buffer->exported_wl_buffer = NULL;
+             renderer_buffer->usable = EINA_FALSE;
              renderer->exported_surfaces = eina_list_remove_list(renderer->exported_surfaces, l_s);
              continue;
           }
@@ -603,6 +609,8 @@ _e_plane_renderer_exported_surfaces_release(E_Plane_Renderer *renderer, Eina_Boo
           }
 
         renderer_buffer->exported = EINA_FALSE;
+        renderer_buffer->exported_wl_buffer = NULL;
+        renderer_buffer->usable = EINA_FALSE;
 
         e_plane_renderer_surface_queue_release(renderer, tsurface);
         renderer->exported_surfaces = eina_list_remove_list(renderer->exported_surfaces, l_s);
@@ -1632,6 +1640,21 @@ e_plane_renderer_deactivate(E_Plane_Renderer *renderer)
    return EINA_TRUE;
 }
 
+static Eina_Bool
+_e_plane_renderer_all_disp_surfaces_send(E_Plane_Renderer *renderer, E_Client* ec)
+{
+   tbm_surface_h tsurface = NULL;
+   Eina_List *l;
+
+   EINA_LIST_FOREACH(renderer->disp_surfaces, l, tsurface)
+     {
+        if (!tsurface) continue;
+        e_plane_renderer_surface_send(renderer, ec, tsurface);
+     }
+
+   return EINA_TRUE;
+}
+
 EINTERN Eina_Bool
 e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
 {
@@ -1709,6 +1732,12 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
              return EINA_FALSE;
           }
 
+        if (!_e_plane_renderer_all_disp_surfaces_send(renderer, ec))
+          {
+             ERR("Failed to _e_plane_renderer_all_disp_surfaces_send ec:%p", ec);
+             return EINA_FALSE;
+          }
+
         /* dequeue */
         tsurface = e_plane_renderer_surface_queue_dequeue(renderer);
         if (!tsurface)
@@ -1718,7 +1747,7 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
           }
 
         /* export */
-        e_plane_renderer_surface_send(renderer, ec, tsurface);
+        e_plane_renderer_surface_usable_send(renderer, ec, tsurface);
 
         if (renderer->ec != ec)
           renderer->need_change_buffer_transform = EINA_TRUE;
@@ -2444,6 +2473,40 @@ e_plane_renderer_sent_surface_recevie(E_Plane_Renderer *renderer, tbm_surface_h 
      }
 }
 
+EINTERN Eina_Bool
+e_plane_renderer_surface_usable_send(E_Plane_Renderer *renderer, E_Client *ec, tbm_surface_h tsurface)
+{
+   struct wayland_tbm_client_queue * cqueue = NULL;
+   E_Plane_Renderer_Buffer *renderer_buffer = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, EINA_FALSE);
+
+   cqueue = _e_plane_renderer_wayland_tbm_client_queue_get(ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, EINA_FALSE);
+
+   renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_buffer, EINA_FALSE);
+
+   if (!renderer_buffer->exported || !renderer_buffer->exported_wl_buffer)
+     {
+        ERR("Not exported tsurface:%p", tsurface);
+        return EINA_FALSE;
+     }
+
+   if (renderer_buffer->usable) return EINA_TRUE;
+
+   wayland_tbm_server_client_queue_send_buffer_usable(cqueue, renderer_buffer->exported_wl_buffer);
+   renderer_buffer->usable = EINA_TRUE;
+
+   if (renderer_trace_debug)
+   ELOGF("E_PLANE_RENDERER", "Usable  Renderer(%p)        tsurface(%p) tqueue(%p) wl_buffer(%p)",
+         ec->pixmap, ec, renderer, tsurface, renderer->tqueue, renderer_buffer->exported_wl_buffer);
+
+   return EINA_TRUE;
+}
+
 EINTERN void
 e_plane_renderer_surface_send(E_Plane_Renderer *renderer, E_Client *ec, tbm_surface_h tsurface)
 {
@@ -2468,6 +2531,9 @@ e_plane_renderer_surface_send(E_Plane_Renderer *renderer, E_Client *ec, tbm_surf
 
    if (!_e_plane_renderer_surface_find_exported_surface(renderer, tsurface))
      {
+        renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
+        EINA_SAFETY_ON_NULL_RETURN(renderer_buffer);
+
         /* export the tbm_surface(wl_buffer) to the client_queue */
         wl_buffer = wayland_tbm_server_client_queue_export_buffer2(cqueue, tsurface,
                 E_PLANE_RENDERER_CLIENT_SURFACE_FLAGS_RESERVED,
@@ -2478,12 +2544,11 @@ e_plane_renderer_surface_send(E_Plane_Renderer *renderer, E_Client *ec, tbm_surf
         renderer->exported_wl_buffer_count++;
         renderer->exported_surfaces = eina_list_append(renderer->exported_surfaces, tsurface);
 
-        renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
-        if (renderer_buffer)
-          renderer_buffer->exported = EINA_TRUE;
-
         if (!_e_plane_renderer_client_exported_surface_find(renderer_client, tsurface))
           renderer_client->exported_surfaces = eina_list_append(renderer_client->exported_surfaces, tsurface);
+
+        renderer_buffer->exported = EINA_TRUE;
+        renderer_buffer->exported_wl_buffer = wl_buffer;
 
         if (wl_buffer && renderer_trace_debug)
           ELOGF("E_PLANE_RENDERER", "Export  Renderer(%p)        tsurface(%p) tqueue(%p) wl_buffer(%p)",

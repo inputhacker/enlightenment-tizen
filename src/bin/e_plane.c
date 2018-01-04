@@ -635,7 +635,7 @@ _e_plane_external_surface_acquire(E_Plane *plane)
 }
 
 static void
-_e_plane_surface_send_dequeuable_surfaces(E_Plane *plane)
+_e_plane_surface_send_usable_dequeuable_surfaces(E_Plane *plane)
 {
    tbm_surface_h tsurface = NULL;
    E_Plane_Renderer *renderer = plane->renderer;
@@ -653,7 +653,7 @@ _e_plane_surface_send_dequeuable_surfaces(E_Plane *plane)
              continue;
           }
 
-        e_plane_renderer_surface_send(renderer, renderer->ec, tsurface);
+        e_plane_renderer_surface_usable_send(renderer, renderer->ec, tsurface);
      }
 }
 
@@ -2324,7 +2324,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
                   if (plane->ec)
                     {
                        e_plane_renderer_surface_queue_release(plane->display_info.renderer, plane->display_info.tsurface);
-                       _e_plane_surface_send_dequeuable_surfaces(plane);
+                       _e_plane_surface_send_usable_dequeuable_surfaces(plane);
                     }
                   else
                     {
@@ -2650,7 +2650,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
                goto set_fail;
 
              if (plane->reserved_memory)
-               _e_plane_surface_send_dequeuable_surfaces(plane);
+               _e_plane_surface_send_usable_dequeuable_surfaces(plane);
           }
 
         if (plane->is_fb)
