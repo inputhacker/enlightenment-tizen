@@ -188,6 +188,7 @@ src/bin/session-recovery-server-protocol.h \
 src/bin/e_comp_wl_data.c \
 src/bin/e_comp_wl_input.c \
 src/bin/e_comp_wl.c \
+src/bin/tizen-surface-protocol.c \
 $(ENLIGHTENMENTHEADERS)
 
 if HAVE_WAYLAND_TBM

@@ -3,7 +3,7 @@
 #include "e_comp_wl.h"
 #include <wayland-tbm-server.h>
 #include <tizen-extension-server-protocol.h>
-#include <tizen-surface-server-protocol.h>
+#include "tizen-surface-server.h"
 #ifndef EGL_TEXTURE_RGBA
 # define EGL_TEXTURE_RGBA 0x305E
 #endif
