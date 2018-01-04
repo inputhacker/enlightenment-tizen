@@ -516,8 +516,8 @@ _e_output_zoom_rotate(E_Output *output)
      _e_output_render_update(output);
 }
 
-static void
-_e_output_zoom_rotating_check(E_Output *output)
+EINTERN void
+e_output_zoom_rotating_check(E_Output *output)
 {
    int angle = 0;
 
@@ -1706,7 +1706,7 @@ _e_output_planes_commit(E_Output *output)
         output->zoom_conf.unset_skip = EINA_FALSE;
         if (output->dpms != E_OUTPUT_DPMS_OFF)
           {
-             _e_output_zoom_rotating_check(output);
+             e_output_zoom_rotating_check(output);
              if (!e_plane_pp_commit(fb_target))
                ERR("fail to e_plane_pp_commit");
              return EINA_TRUE;
@@ -1768,7 +1768,7 @@ _e_output_planes_commit(E_Output *output)
           {
              if ((output->zoom_set) && e_plane_is_fb_target(plane))
                {
-                  _e_output_zoom_rotating_check(output);
+                  e_output_zoom_rotating_check(output);
                   if (!e_plane_pp_commit(plane))
                     ERR("fail to e_plane_pp_commit");
                }

@@ -199,6 +199,7 @@ E_API E_Output_Hook     * e_output_hook_add(E_Output_Hook_Point hookpoint, E_Out
 E_API void                e_output_hook_del(E_Output_Hook *ch);
 E_API E_Output_Intercept_Hook * e_output_intercept_hook_add(E_Output_Intercept_Hook_Point hookpoint, E_Output_Intercept_Hook_Cb func, const void *data);
 E_API void                e_output_intercept_hook_del(E_Output_Intercept_Hook *ch);
+EINTERN void              e_output_zoom_rotating_check(E_Output *output);
 
 #endif
 #endif
