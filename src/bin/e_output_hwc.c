@@ -669,6 +669,14 @@ e_output_hwc_mode_get(E_Output_Hwc *output_hwc)
    return output_hwc->hwc_mode;
 }
 
+EINTERN E_Output_Hwc_Policy
+e_output_hwc_policy_get(E_Output_Hwc *output_hwc)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+
+   return output_hwc->hwc_policy;
+}
+
 EINTERN void
 e_output_hwc_deactive_set(E_Output_Hwc *output_hwc, Eina_Bool set)
 {
