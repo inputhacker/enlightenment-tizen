@@ -29,7 +29,7 @@ struct _E_Hwc_Window
 {
    E_Client                      *ec;
    E_Output_Hwc                  *output_hwc;
-   tdm_hwc_window                *hwc_wnd;
+   tdm_hwc_window                *thwc_window;
    int                            zpos;
    tdm_hwc_window_composition     type;
    Eina_Bool                      is_target;
@@ -113,6 +113,8 @@ EINTERN Eina_Bool          e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hw
 EINTERN E_Hwc_Window_State e_hwc_window_state_get(E_Hwc_Window *hwc_window);
 
 EINTERN void               e_hwc_window_render_list_add(E_Hwc_Window *hwc_window);
+
+EINTERN const char        *e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state);
 
 #endif // E_HWC_WINDOW_H
 #endif

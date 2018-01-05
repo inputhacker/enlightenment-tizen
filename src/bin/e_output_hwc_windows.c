@@ -109,28 +109,6 @@ _e_output_hwc_windows_all_windows_init(E_Output_Hwc *output_hwc)
    return EINA_TRUE;
 }
 
-static const char*
-_e_output_hwc_windows_get_name_of_wnd_state(E_Hwc_Window_State hwc_window_state)
-{
-    switch (hwc_window_state)
-    {
-     case E_HWC_WINDOW_STATE_NONE:
-       return "NONE";
-     case E_HWC_WINDOW_STATE_CLIENT:
-       return "CLIENT";
-     case E_HWC_WINDOW_STATE_DEVICE:
-       return "DEVICE";
-     case E_HWC_WINDOW_STATE_VIDEO:
-       return "VIDEO";
-     case E_HWC_WINDOW_STATE_DEVICE_CANDIDATE:
-       return "DEVICE_CANDIDATE";
-     case E_HWC_WINDOW_STATE_CURSOR:
-       return "CURSOR";
-     default:
-       return "UNKNOWN";
-    }
-}
-
 static int
 _e_output_hwc_windows_sort_cb(const void *d1, const void *d2)
 {
@@ -791,14 +769,15 @@ _e_output_hwc_windows_print_wnds_state(E_Output_Hwc *output_hwc)
          if (hwc_window->state == E_HWC_WINDOW_STATE_NONE) continue;
 
          if (e_hwc_window_is_target(hwc_window))
-           ELOGF("HWC-WINS", "  hwc_window:%p -- target_hwc_window, state:%s",
-                 NULL, NULL, hwc_window, _e_output_hwc_windows_get_name_of_wnd_state(hwc_window->state));
+           ELOGF("HWC-WINS", "  ehw:%p -- {%25s}, state:%s, zpos:%d",
+                 NULL, NULL, hwc_window, "Target Window",
+                 e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
          else
-           ELOGF("HWC-WINS", "  hwc_window:%p -- {title:%25s}, state:%s, deleted:%s, zpos:%d",
+           ELOGF("HWC-WINS", "  ehw:%p -- {%25s}, state:%s, zpos:%d, deleted:%s",
                  hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
                  hwc_window, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-                 _e_output_hwc_windows_get_name_of_wnd_state(hwc_window->state),
-                 hwc_window->is_deleted ? "yes" : "no", hwc_window->zpos);
+                 e_hwc_window_state_string_get(hwc_window->state),
+                 hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
       }
 
     eina_list_free(sort_wnds);
@@ -815,7 +794,7 @@ _e_output_hwc_windows_window_find_by_twin(E_Output_Hwc *output_hwc, tdm_hwc_wind
 
    EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
      {
-        if (hwc_window->hwc_wnd == hwc_win) return hwc_window;
+        if (hwc_window->thwc_window == hwc_win) return hwc_window;
      }
 
    return NULL;
@@ -1101,7 +1080,7 @@ _e_output_hwc_windows_full_gl_composite_check(E_Output_Hwc *output_hwc, Eina_Lis
              // check whether quickpanel is open than break
              if (e_qp_visible_get())
                {
-                   ELOGF("HWC-WINS", "    HWC_MODE_NONE due to quickpanel is opened.{title:%25s}.",
+                   ELOGF("HWC-WINS", "    HWC_MODE_NONE due to quickpanel is opened.{%25s}.",
                          ec->pixmap, ec, ec->icccm.title);
                }
              goto full_gl_composite;
@@ -1110,7 +1089,7 @@ _e_output_hwc_windows_full_gl_composite_check(E_Output_Hwc *output_hwc, Eina_Lis
         // if ec->frame is not for client buffer (e.g. launchscreen)
         if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
           {
-             ELOGF("HWC-WINS", "  HWC_MODE_NONE due to E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE{title:%25s}.",
+             ELOGF("HWC-WINS", "  HWC_MODE_NONE due to E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE{%25s}.",
                    ec->pixmap, ec, ec->icccm.title);
              goto full_gl_composite;
           }
@@ -1118,7 +1097,7 @@ _e_output_hwc_windows_full_gl_composite_check(E_Output_Hwc *output_hwc, Eina_Lis
         // if there is UI subfrace, it means need to composite
         if (e_client_normal_client_has(ec))
           {
-            ELOGF("HWC-WINS", "  HWC_MODE_NONE due to UI subfrace{title:%25s}.",
+            ELOGF("HWC-WINS", "  HWC_MODE_NONE due to UI subfrace{%25s}.",
                   ec->pixmap, ec, ec->icccm.title);
             goto full_gl_composite;
           }
@@ -1131,7 +1110,7 @@ full_gl_composite:
      {
         hwc_window = ec->hwc_window;
         hwc_window->hwc_acceptable = EINA_FALSE;
-        ELOGF("HWC-WINS", "   hwc_window:%p -- {title:%25s} is NOT hwc_acceptable.",
+        ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is NOT hwc_acceptable.",
               ec->pixmap, ec, hwc_window, ec->icccm.title);
      }
    return EINA_TRUE;
@@ -1161,7 +1140,7 @@ _e_output_hwc_windows_hwc_acceptable_check(Eina_List *vis_cl_list)
         if (!_e_output_hwc_windows_ec_check(ec))
           {
              hwc_window->hwc_acceptable = EINA_FALSE;
-             ELOGF("HWC-WINS", "   hwc_window:%p -- {title:%25s} is NOT hwc_acceptable.",
+             ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is NOT hwc_acceptable.",
                    ec->pixmap, ec, hwc_window, ec->icccm.title);
              continue;
           }
@@ -1553,3 +1532,4 @@ e_output_hwc_windows_zoom_unset(E_Output_Hwc *output_hwc)
    if (write(output_hwc->target_hwc_window->event_fd, &value, sizeof(value)) < 0)
      ERR("failed to wake up main loop:%m");
 }
+
