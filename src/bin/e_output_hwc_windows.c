@@ -13,16 +13,35 @@ _e_output_hwc_windows_ec_check(E_Client *ec)
    E_Output *eout;
    int minw = 0, minh = 0;
 
-   if ((!cdata) ||
-       (!cdata->buffer_ref.buffer) ||
-       (cdata->width_from_buffer != cdata->width_from_viewport) ||
-       (cdata->height_from_buffer != cdata->height_from_viewport) ||
-       cdata->never_hwc)
+   if ((!cdata) || (!cdata->buffer_ref.buffer))
      {
+        ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is forced to set CL state.(null cdata or buffer)",
+              ec->pixmap, ec, ec->hwc_window, ec->icccm.title);
         return EINA_FALSE;
      }
 
-   if (e_client_transform_core_enable_get(ec)) return EINA_FALSE;
+
+   if ((cdata->width_from_buffer != cdata->width_from_viewport) ||
+       (cdata->height_from_buffer != cdata->height_from_viewport))
+     {
+        ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is forced to set CL state.(size_from_viewport)",
+              ec->pixmap, ec, ec->hwc_window, ec->icccm.title);
+        return EINA_FALSE;
+     }
+
+   if (cdata->never_hwc)
+     {
+        ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is forced to set CL state.(never_hwc)",
+              ec->pixmap, ec, ec->hwc_window, ec->icccm.title);
+        return EINA_FALSE;
+     }
+
+   if (e_client_transform_core_enable_get(ec))
+     {
+        ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is forced to set CL state.(transfrom_core)",
+        ec->pixmap, ec, ec->hwc_window, ec->icccm.title);
+        return EINA_FALSE;
+     }
 
    switch (cdata->buffer_ref.buffer->type)
      {
@@ -44,9 +63,18 @@ _e_output_hwc_windows_ec_check(E_Client *ec)
    tdm_output_get_available_size(eout->toutput, &minw, &minh, NULL, NULL, NULL);
 
    if ((minw > 0) && (minw > cdata->buffer_ref.buffer->w))
-     return EINA_FALSE;
+     {
+        ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is forced to set CL state.(minw:%d > buffer->w:%d)",
+              ec->pixmap, ec, ec->hwc_window, ec->icccm.title, minw, cdata->buffer_ref.buffer->w);
+        return EINA_FALSE;
+     }
+
    if ((minh > 0) && (minh > cdata->buffer_ref.buffer->h))
-     return EINA_FALSE;
+     {
+        ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is forced to set CL state.(minh:%d > buffer->h:%d)",
+              ec->pixmap, ec, ec->hwc_window, ec->icccm.title, minh, cdata->buffer_ref.buffer->h);
+        return EINA_FALSE;
+     }
 
    /* If a client doesn't watch the ignore_output_transform events, we can't show
     * a client buffer to HW overlay directly when the buffer transform is not same
@@ -59,7 +87,11 @@ _e_output_hwc_windows_ec_check(E_Client *ec)
         int transform = e_comp_wl_output_buffer_transform_get(ec);
 
         if ((eout->config.rotation / 90) != transform)
-          return EINA_FALSE;
+          {
+             ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is forced to set CL state.(no igrore_transfrom)",
+                   ec->pixmap, ec, ec->hwc_window, ec->icccm.title);
+             return EINA_FALSE;
+          }
      }
 
    return EINA_TRUE;
@@ -1140,8 +1172,6 @@ _e_output_hwc_windows_hwc_acceptable_check(Eina_List *vis_cl_list)
         if (!_e_output_hwc_windows_ec_check(ec))
           {
              hwc_window->hwc_acceptable = EINA_FALSE;
-             ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is NOT hwc_acceptable.",
-                   ec->pixmap, ec, hwc_window, ec->icccm.title);
              continue;
           }
      }
@@ -1193,9 +1223,9 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
    Eina_Bool result;
    Eina_List *vis_clist = NULL;
    E_Output_Hwc_Mode hwc_mode = E_OUTPUT_HWC_MODE_NONE;
-#if DBG_EVALUATE
+
    ELOGF("HWC-WINS", "###### Output HWC Apply (evaluate) ===", NULL, NULL);
-#endif
+
    /* exclude all hwc_windows from being considered by hwc */
    result = _e_output_hwc_windows_all_windows_init(output_hwc);
    EINA_SAFETY_ON_FALSE_GOTO(result, done);
