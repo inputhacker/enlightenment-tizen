@@ -175,18 +175,41 @@ _e_hwc_window_target_window_surface_data_free(void *data)
 /* gets called as somebody modifies target_window's queue */
 static void
 _e_hwc_window_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_queue,
-        tbm_surface_h tbm_surface, tbm_surface_queue_trace trace, void *data)
+        tbm_surface_h tsurface, tbm_surface_queue_trace trace, void *data)
 {
    E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
 
+   /* gets called as evas_renderer dequeues a new buffer from the queue */
    if (trace == TBM_SURFACE_QUEUE_TRACE_DEQUEUE)
      {
-        tbm_surface_internal_add_user_data(tbm_surface, ee_rendered_hw_list_key, _e_hwc_window_target_window_surface_data_free);
-        target_hwc_window->dequeued_tsurface = tbm_surface;
+        ELOGF("HWC-WINS", " ehw:%p gets dequeue noti ts:%p -- {%s}.",
+              NULL, NULL, tsurface, target_hwc_window, "@TARGET WINDOW@");
+
+        tbm_surface_internal_add_user_data(tsurface, ee_rendered_hw_list_key, _e_hwc_window_target_window_surface_data_free);
+        target_hwc_window->dequeued_tsurface = tsurface;
      }
+   /* gets called as evas_renderer enqueues a new buffer into the queue */
+   if (trace == TBM_SURFACE_QUEUE_TRACE_ENQUEUE)
+     {
+        uint64_t value = 1;
+        int ret;
+
+        ret = write(target_hwc_window->event_fd, &value, sizeof(value));
+        if (ret == -1)
+          ERR("failed to send acquirable event:%m");
+
+        ELOGF("HWC-WINS", " ehw:%p gets enqueue noti ts:%p -- {%s}.",
+              NULL, NULL, target_hwc_window, tsurface, "@TARGET WINDOW@");
+
+        tbm_surface_internal_add_user_data(tsurface, ee_rendered_hw_list_key, _e_hwc_window_target_window_surface_data_free);
+        target_hwc_window->dequeued_tsurface = tsurface;
+     }
+   /* tsurface has been released at the queue */
    if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
      {
-        tbm_surface_internal_delete_user_data(tbm_surface, ee_rendered_hw_list_key);
+        tbm_surface_internal_delete_user_data(tsurface, ee_rendered_hw_list_key);
+        ELOGF("HWC-WINS", " ehw:%p gets release noti ts:%p -- {%s}.",
+              NULL, NULL, target_hwc_window, tsurface, "@TARGET WINDOW@");
      }
 }
 
@@ -194,15 +217,16 @@ _e_hwc_window_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_q
 static void
 _e_hwc_window_target_window_surface_queue_acquirable_cb(tbm_surface_queue_h surface_queue, void *data)
 {
+ // TODO: This function to be deprecated.
+#if 0
     E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
     uint64_t value = 1;
     int ret;
 
-    ELOGF("HWC-WINS", " evas_renderer enqueued a new buffer into the queue", NULL, NULL);
-
     ret = write(target_hwc_window->event_fd, &value, sizeof(value));
     if (ret == -1)
       ERR("failed to send acquirable event:%m");
+#endif
 }
 
 /* gets called at the beginning of an ecore_main_loop iteration */
@@ -229,7 +253,7 @@ _e_hwc_window_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSED
    E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
    Eina_List *ee_rendered_hw_list;
 
-   ELOGF("HWC-WINS", " render_flush_post -- ehw:%p -- {Target Window}", NULL, NULL, target_hwc_window);
+   ELOGF("HWC-WINS", " ehw:%p gets render_flush_post noti -- {Target Window}", NULL, NULL, target_hwc_window);
 
    /* all ecs have been composited so we can attach a list of composited e_thwc_windows to the surface
     * which contains their ecs composited */
@@ -1274,7 +1298,7 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
              tdm_output_hwc_set_client_target_buffer(output->toutput, NULL, fb_damage, NULL, 0);
 
              ELOGF("HWC-WINS", " ehw:%p set ts:(NULL) -- {%25s}, state:%s, zpos:%d",
-                   NULL, NULL, hwc_window, "Target Window",
+                   NULL, NULL, hwc_window, "@TARGET WINDOW@",
                    e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
           }
         else
@@ -1346,14 +1370,14 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
         /* the damage isn't supported by hwc extension yet */
         memset(&fb_damage, 0, sizeof(fb_damage));
 
-        ELOGF("HWC-WINS", " ehw:%p set ts:%p -- {%s}, state:%s, zpos:%d and render list below.",
-              NULL, NULL, hwc_window, hwc_window->tsurface, "Target Window",
-              e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
-
         ee_rendered_hw_list = _e_hwc_window_target_window_ee_rendered_hw_list_get(target_hwc_window);
         n_thw = eina_list_count(ee_rendered_hw_list);
         if (n_thw)
           {
+             ELOGF("HWC-WINS", " ehw:%p set ts:%p -- {%s}, state:%s, zpos:%d.",
+                   NULL, NULL, hwc_window, hwc_window->tsurface, "@TARGET WINDOW@",
+                   e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
+
              thwc_windows = E_NEW(tdm_hwc_window *, n_thw);
              EINA_SAFETY_ON_NULL_GOTO(thwc_windows, error);
 
@@ -1368,8 +1392,11 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
                   thwc_windows[i++] = hw->thwc_window;
                }
-
           }
+        else
+          ELOGF("HWC-WINS", " ehw:%p set ts:%p -- {%s}, state:%s, zpos:%d no hwc_windows to render.",
+                NULL, NULL, hwc_window, hwc_window->tsurface, "@TARGET WINDOW@",
+                e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
 
         tdm_output_hwc_set_client_target_buffer(output->toutput, tsurface, fb_damage,
                 thwc_windows, n_thw);

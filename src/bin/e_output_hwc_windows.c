@@ -802,7 +802,7 @@ _e_output_hwc_windows_print_wnds_state(E_Output_Hwc *output_hwc)
 
          if (e_hwc_window_is_target(hwc_window))
            ELOGF("HWC-WINS", "  ehw:%p -- {%25s}, state:%s, zpos:%d",
-                 NULL, NULL, hwc_window, "Target Window",
+                 NULL, NULL, hwc_window, "@TARGET WINDOW@",
                  e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
          else
            ELOGF("HWC-WINS", "  ehw:%p -- {%25s}, state:%s, zpos:%d, deleted:%s",
@@ -1224,7 +1224,7 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
    Eina_List *vis_clist = NULL;
    E_Output_Hwc_Mode hwc_mode = E_OUTPUT_HWC_MODE_NONE;
 
-   ELOGF("HWC-WINS", "###### Output HWC Apply (evaluate) ===", NULL, NULL);
+   ELOGF("HWC-WINS", "====================== Output HWC Apply (evaluate) ======================", NULL, NULL);
 
    /* exclude all hwc_windows from being considered by hwc */
    result = _e_output_hwc_windows_all_windows_init(output_hwc);
@@ -1348,7 +1348,6 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
    Eina_List *l;
    int need_tdm_commit = 0;
    E_Output *output = NULL;
-   Eina_Bool fetched = EINA_FALSE; // for logging.
    tdm_error error = TDM_ERROR_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
@@ -1368,13 +1367,9 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
         /* fetch the surface to the window */
         if (!e_hwc_window_fetch(hwc_window)) continue;
 
-        fetched = EINA_TRUE;
-
         if (output->dpms == E_OUTPUT_DPMS_OFF)
           _e_output_hwc_windows_offscreen_commit(output, hwc_window);
      }
-
-   if (!fetched) ELOGF("HWC-WINS", " no new fetched buffers", NULL, NULL);
 
    if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
 
