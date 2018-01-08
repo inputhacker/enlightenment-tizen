@@ -183,7 +183,7 @@ _e_hwc_window_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_q
    if (trace == TBM_SURFACE_QUEUE_TRACE_DEQUEUE)
      {
         ELOGF("HWC-WINS", " ehw:%p gets dequeue noti ts:%p -- {%s}.",
-              NULL, NULL, tsurface, target_hwc_window, "@TARGET WINDOW@");
+              NULL, NULL, target_hwc_window, tsurface, "@TARGET WINDOW@");
 
         tbm_surface_internal_add_user_data(tsurface, ee_rendered_hw_list_key, _e_hwc_window_target_window_surface_data_free);
         target_hwc_window->dequeued_tsurface = tsurface;
@@ -334,12 +334,10 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
     * except the writing into the event_fd object, this writing causes the new ecore_main loop
     * iteration to be triggered ('cause we've registered ecore_main fd handler to check this writing);
     * so it's just a way to inform E20's HWC that evas_renderer has done its work */
-   tbm_surface_queue_add_acquirable_cb(target_hwc_window->queue, _e_hwc_window_target_window_surface_queue_acquirable_cb,
-           (void *)target_hwc_window);
+   tbm_surface_queue_add_acquirable_cb(target_hwc_window->queue, _e_hwc_window_target_window_surface_queue_acquirable_cb, (void *)target_hwc_window);
 
    /* TODO: we can use this call instead of an add_acquirable_cb and an add_dequeue_cb calls. */
-   tbm_surface_queue_add_trace_cb(target_hwc_window->queue, _e_hwc_window_target_window_surface_queue_trace_cb,
-           (void *)target_hwc_window);
+   tbm_surface_queue_add_trace_cb(target_hwc_window->queue, _e_hwc_window_target_window_surface_queue_trace_cb, (void *)target_hwc_window);
 
    evas_event_callback_add(e_comp->evas, EVAS_CALLBACK_RENDER_FLUSH_POST, _e_hwc_window_target_window_render_flush_post_cb, target_hwc_window);
 
