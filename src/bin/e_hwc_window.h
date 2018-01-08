@@ -97,7 +97,6 @@ EINTERN Eina_Bool          e_hwc_window_is_target(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_video(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_cursor(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_fetch(E_Hwc_Window *hwc_window);
-EINTERN void               e_hwc_window_unfetch(E_Hwc_Window *hwc_window);
 
 EINTERN Eina_Bool          e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window);

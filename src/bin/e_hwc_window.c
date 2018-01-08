@@ -1427,45 +1427,6 @@ error:
    return EINA_FALSE;
 }
 
-EINTERN void
-e_hwc_window_unfetch(E_Hwc_Window *hwc_window)
-{
-   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
-   EINA_SAFETY_ON_NULL_RETURN(hwc_window->tsurface);
-
-   if (!e_hwc_window_is_on_hw_overlay(hwc_window)) return;
-
-   if (e_hwc_window_is_target(hwc_window))
-     {
-        _e_hwc_window_target_window_surface_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
-     }
-
-   hwc_window->tsurface = e_hwc_window_displaying_surface_get(hwc_window);
-
-   if (e_hwc_window_is_target(hwc_window))
-     {
-        E_Output_Hwc *output_hwc = hwc_window->output_hwc;
-        E_Output *output = output_hwc->output;
-        tdm_hwc_region fb_damage;
-
-        /* the damage isn't supported by hwc extension yet */
-        memset(&fb_damage, 0, sizeof(fb_damage));
-
-        tdm_output_hwc_set_client_target_buffer(output->toutput, hwc_window->tsurface, fb_damage,
-                NULL, 0 /* TODO: sergs: e_hwc_window_unfetch() function is deprecated */ );
-        ELOGF("HWC-WINS", "(unfetch) sets ts:%p on the fb_target.",
-              hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window->tsurface);
-     }
-   else
-     {
-        tdm_hwc_window_set_buffer(hwc_window->thwc_window, hwc_window->tsurface);
-        ELOGF("HWC-WINS", "(unfetch) sets ts:%p on the thw:%p.",
-              hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window->tsurface, hwc_window->thwc_window);
-     }
-
-   hwc_window->update_exist = EINA_FALSE;
-}
-
 EINTERN Eina_Bool
 e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
 {
