@@ -40,6 +40,13 @@ _get_wayland_tbm_client_queue(E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN_VAL(wl_surface, NULL);
 
    cqueue = wayland_tbm_server_client_queue_get(wl_comp_data->tbm.server, wl_surface);
+   if (!cqueue)
+     {
+        ELOGF("HWC-WINS", " ehw:%p has no wl_tbm_server_client_queue. -- {%25s}, state:%s, zpos:%d, deleted:%s",
+              ec->pixmap, ec, ec->hwc_window, ec->icccm.title,
+              e_hwc_window_state_string_get(ec->hwc_window->state),
+              ec->hwc_window->zpos, ec->hwc_window->is_deleted ? "yes" : "no");
+     }
    EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, NULL);
 
    return cqueue;
@@ -419,7 +426,12 @@ _e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
    zone = ec->zone;
-   EINA_SAFETY_ON_NULL_RETURN(zone);
+   if (!zone)
+     {
+        ELOGF("HWC-WINS", "Try to create hwc_window, but it couldn't.(no zone)", ec->pixmap, ec);
+        return;
+     }
+
    EINA_SAFETY_ON_NULL_RETURN(zone->output_id);
 
    output = e_output_find(zone->output_id);

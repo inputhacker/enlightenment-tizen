@@ -1676,25 +1676,56 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
 }
 
 EINTERN void
-e_video_commit_data_release(E_Client *ec, unsigned int sequence,
+e_comp_wl_video_hwc_window_commit_data_release(E_Hwc_Window *hwc_window, unsigned int sequence,
                             unsigned int tv_sec, unsigned int tv_usec)
 {
+   E_Client *ec = NULL;
    E_Video *video = NULL;
    Eina_List *l = NULL;
    E_Video_Layer *video_layer;
 
-   if (!ec) return;
+   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
+
+   ec = hwc_window->ec;
+   EINA_SAFETY_ON_NULL_RETURN(ec);
 
    EINA_LIST_FOREACH(video_list, l, video)
-     {
-        if (video->ec == ec) break;
-     }
-   if (!video) return;
+     if (video->ec == ec) break;
+   EINA_SAFETY_ON_NULL_RETURN(video);
 
    video_layer = video->layer;
-   if (!video_layer) return;
+   EINA_SAFETY_ON_NULL_RETURN(video_layer);
 
    _e_video_commit_handler(NULL, sequence, tv_sec, tv_usec, video);
+}
+
+EINTERN tbm_surface_h
+e_comp_wl_video_hwc_widow_surface_get(E_Hwc_Window *hwc_window)
+{
+   E_Client *ec = NULL;
+   Eina_List *l = NULL;
+   E_Video *video = NULL;
+   E_Video_Layer *video_layer;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
+
+   if (!e_hwc_window_is_video(hwc_window))
+     {
+       ERR("ehw:%p is NOT Video HWC window.", hwc_window);
+       return NULL;
+     }
+
+   ec = hwc_window->ec;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+
+   EINA_LIST_FOREACH(video_list, l, video)
+     if (video->ec == ec) break;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(video, NULL);
+
+   video_layer = video->layer;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(video_layer, NULL);
+
+   return hwc_window->tsurface;
 }
 
 static void

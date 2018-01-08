@@ -194,7 +194,7 @@ _e_output_hwc_windows_commit_handler(tdm_output *toutput, unsigned int sequence,
                                   void *user_data)
 {
    const Eina_List *l;
-   E_Hwc_Window *window;
+   E_Hwc_Window *hwc_window;
    E_Output_Hwc *output_hwc = (E_Output_Hwc *)user_data;
 
    EINA_SAFETY_ON_NULL_RETURN(output_hwc);
@@ -205,11 +205,11 @@ _e_output_hwc_windows_commit_handler(tdm_output *toutput, unsigned int sequence,
         output_hwc->pp_tsurface = NULL;
      }
 
-   EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, window)
+   EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, hwc_window)
      {
-         if (!e_hwc_window_commit_data_release(window)) continue;
-         if (e_hwc_window_is_video(window))
-           e_video_commit_data_release(window->ec, sequence, tv_sec, tv_usec);
+         if (!e_hwc_window_commit_data_release(hwc_window)) continue;
+         if (e_hwc_window_is_video(hwc_window))
+           e_comp_wl_video_hwc_window_commit_data_release(hwc_window, sequence, tv_sec, tv_usec);
      }
 
    /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
@@ -232,7 +232,16 @@ _e_output_hwc_windows_can_commit(E_Output *output)
      {
         if (!e_hwc_window_is_on_hw_overlay(hwc_window)) continue;
 
-        if (!hwc_window->tsurface) can_commit = EINA_FALSE;
+        if (!hwc_window->tsurface)
+          {
+             ELOGF("HWC-WINS", " ehw:%p has no ts. -- {%25s}, state:%s, zpos:%d, deleted:%s",
+                   hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+                   hwc_window, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+                   e_hwc_window_state_string_get(hwc_window->state),
+                   hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
+
+             can_commit = EINA_FALSE;
+          }
      }
 
    return can_commit;

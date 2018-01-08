@@ -2511,7 +2511,6 @@ e_output_commit(E_Output *output)
      {
         if (!e_output_hwc_windows_commit(output->output_hwc))
           {
-             ERR("fail e_output_hwc_windows_commit");
              return EINA_FALSE;
           }
      }
