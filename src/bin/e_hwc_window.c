@@ -1242,18 +1242,67 @@ e_hwc_window_is_cursor(E_Hwc_Window *hwc_window)
    return hwc_window->is_cursor;
 }
 
+static void
+_e_hwc_window_client_buffer_reset(E_Hwc_Window *hwc_window)
+{
+   E_Output_Hwc *output_hwc = NULL;
+   E_Output *output = NULL;
+   tdm_hwc_region fb_damage;
+
+   if (!hwc_window->tsurface) return;
+
+   if (e_hwc_window_is_target(hwc_window))
+     {
+        output_hwc = hwc_window->output_hwc;
+        output = output_hwc->output;
+
+        if (hwc_window->update_exist && hwc_window->tsurface)
+          _e_hwc_window_target_window_surface_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
+
+        if (!_e_hwc_window_target_window_clear((E_Hwc_Window_Target *)hwc_window))
+          ERR("fail to _e_hwc_window_target_window_clear");
+
+        /* the damage isn't supported by hwc extension yet */
+        memset(&fb_damage, 0, sizeof(fb_damage));
+
+        tdm_output_hwc_set_client_target_buffer(output->toutput, NULL, fb_damage, NULL, 0);
+
+         ELOGF("HWC-WINS", " ehw:%p sets ts:(NULL) ------- {%25s}, state:%s, zpos:%d",
+               NULL, NULL, hwc_window, "@TARGET WINDOW@",
+               e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
+     }
+   else
+     {
+        if (hwc_window->cursor_tsurface)
+          {
+             tbm_surface_destroy(hwc_window->cursor_tsurface);
+             hwc_window->cursor_tsurface = NULL;
+          }
+
+        tdm_hwc_window_set_buffer(hwc_window->thwc_window, NULL);
+
+        ELOGF("HWC-WINS", " ehw:%p sets ts:(NULL) ------- {%25s}, state:%s, zpos:%d, deleted:%s",
+              hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+              hwc_window, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+              e_hwc_window_state_string_get(hwc_window->state),
+              hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
+     }
+
+   hwc_window->tsurface = NULL;
+}
+
 EINTERN Eina_Bool
 e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 {
-   tbm_surface_h tsurface = NULL;
-   E_Output *output = NULL;
    E_Output_Hwc *output_hwc = NULL;
+   E_Hwc_Window *hw;
+   E_Hwc_Window_Target *target_hwc_window;
+   E_Output *output = NULL;
    Eina_List *ee_rendered_hw_list = NULL;
+   tbm_surface_h tsurface = NULL;
    tdm_hwc_window **thwc_windows = NULL;
    tdm_hwc_region fb_damage;
-   E_Hwc_Window_Target *target_hwc_window;
    uint32_t n_thw = 0;
-   E_Hwc_Window *hw;
    const Eina_List *l;
    int i;
 
@@ -1280,43 +1329,7 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    /* set the buffer to be null  */
    if (hwc_window->state == E_HWC_WINDOW_STATE_NONE)
      {
-        if (!hwc_window->tsurface) return EINA_FALSE;
-
-        if (e_hwc_window_is_target(hwc_window))
-          {
-             if (hwc_window->update_exist && hwc_window->tsurface)
-               _e_hwc_window_target_window_surface_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
-
-             if (!_e_hwc_window_target_window_clear((E_Hwc_Window_Target *)hwc_window))
-               ERR("fail to _e_hwc_window_target_window_clear");
-
-             /* the damage isn't supported by hwc extension yet */
-             memset(&fb_damage, 0, sizeof(fb_damage));
-
-             tdm_output_hwc_set_client_target_buffer(output->toutput, NULL, fb_damage, NULL, 0);
-
-             ELOGF("HWC-WINS", " ehw:%p sets ts:(NULL) ------- {%25s}, state:%s, zpos:%d",
-                   NULL, NULL, hwc_window, "@TARGET WINDOW@",
-                   e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
-          }
-        else
-          {
-             if (hwc_window->cursor_tsurface)
-               {
-                  tbm_surface_destroy(hwc_window->cursor_tsurface);
-                  hwc_window->cursor_tsurface = NULL;
-               }
-
-             tdm_hwc_window_set_buffer(hwc_window->thwc_window, NULL);
-
-             ELOGF("HWC-WINS", " ehw:%p sets ts:(NULL) ------- {%25s}, state:%s, zpos:%d, deleted:%s",
-                   hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-                   hwc_window, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-                   e_hwc_window_state_string_get(hwc_window->state),
-                   hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
-          }
-
-        hwc_window->tsurface = NULL;
+        _e_hwc_window_client_buffer_reset(hwc_window);
 
         return EINA_FALSE;
      }
