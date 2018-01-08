@@ -1110,9 +1110,9 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
    /* we cannot remove the hwc_window because we need to release the commit_data */
    if (e_hwc_window_displaying_surface_get(hwc_window))
      {
-        ELOGF("HWC-WINS", "ehw:%p is destroyed on eout:%p, zone_id:%d",
+        ELOGF("HWC-WINS", "ehw:%p is destroyed on eout:%p",
               hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-              hwc_window, output_hwc->output, hwc_window->ec->zone->id);
+              hwc_window, output_hwc->output);
 
         /* mark as deleted and delete when commit_data will be released */
         hwc_window->is_deleted = EINA_TRUE;
@@ -1121,9 +1121,9 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
         return;
      }
    else
-     ELOGF("HWC-WINS", "ehw:%p is destroyed on eout:%p, zone_id:%d",
+     ELOGF("HWC-WINS", "ehw:%p is destroyed on eout:%p",
            hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-           hwc_window, output_hwc->output, hwc_window->ec->zone->id);
+           hwc_window, output_hwc->output);
 
    if (hwc_window->thwc_window)
       tdm_output_hwc_destroy_window(toutput, hwc_window->thwc_window);
