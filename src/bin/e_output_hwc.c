@@ -147,5 +147,5 @@ e_output_hwc_deactive_get(E_Output_Hwc *output_hwc)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
 
-   return output_hwc->hwc_policy;
+   return output_hwc->hwc_deactive;
 }
