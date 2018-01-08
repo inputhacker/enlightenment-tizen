@@ -253,7 +253,7 @@ _e_hwc_window_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSED
    E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
    Eina_List *ee_rendered_hw_list;
 
-   ELOGF("HWC-WINS", " ehw:%p gets render_flush_post noti -- {Target Window}", NULL, NULL, target_hwc_window);
+   ELOGF("HWC-WINS", " ehw:%p gets render_flush_post noti -- {@TARGET WINDOW@}", NULL, NULL, target_hwc_window);
 
    /* all ecs have been composited so we can attach a list of composited e_thwc_windows to the surface
     * which contains their ecs composited */
