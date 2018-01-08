@@ -126,7 +126,7 @@ e_output_hwc_mode_get(E_Output_Hwc *output_hwc)
 EINTERN E_Output_Hwc_Policy
 e_output_hwc_policy_get(E_Output_Hwc *output_hwc)
 {
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, E_OUTPUT_HWC_MODE_NONE);
 
    return output_hwc->hwc_policy;
 }
@@ -147,5 +147,5 @@ e_output_hwc_deactive_get(E_Output_Hwc *output_hwc)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
 
-   return output_hwc->hwc_deactive;
+   return output_hwc->hwc_policy;
 }
