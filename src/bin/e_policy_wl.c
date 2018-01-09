@@ -1406,9 +1406,6 @@ _tzpol_iface_cb_activate(struct wl_client *client EINA_UNUSED, struct wl_resourc
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
-   EINA_SAFETY_ON_NULL_RETURN(ec->comp_data);
-   EINA_SAFETY_ON_FALSE_RETURN(ec->comp_data->mapped);
-
    e_policy_hook_call(E_POLICY_HOOK_CLIENT_ACTIVE_REQ, ec);
 
    ELOGF("TZPOL", "ACTIVATE", ec->pixmap, ec);
