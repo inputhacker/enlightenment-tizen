@@ -633,7 +633,7 @@ _e_vis_job_eval(void)
 {
    E_Vis_Job_Group *group, *tmp;
 
-   DBG("VISIBILITY | Job Eval");
+   INF("VISIBILITY | Job Eval");
 
    _e_vis_job_queue_update();
 
@@ -1225,6 +1225,12 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
    if (ec->zone->display_state == E_ZONE_DISPLAY_STATE_OFF)
      {
         VS_DBG(ec, "Display off. no need to uniconify render.");
+        return EINA_FALSE;
+     }
+
+   if (ec->comp_data && !ec->comp_data->mapped)
+     {
+        ELOGF("POL_VIS", "Not mapped. no need to uniconify render.", ec->pixmap, ec);
         return EINA_FALSE;
      }
 
