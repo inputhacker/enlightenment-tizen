@@ -1322,19 +1322,6 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
 
    if (hwc_window->is_deleted) return EINA_FALSE;
 
-   /* for video we set buffer in the video module */
-   if (e_hwc_window_is_video(hwc_window))
-     {
-         if (hwc_window->update_exist)
-           ELOGF("HWC-WINS", " ehw:%p -- {%25s}, state:%s, zpos:%d, deleted:%s",
-                 hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-                 hwc_window, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-                 e_hwc_window_state_string_get(hwc_window->state),
-                 hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
-
-        return EINA_TRUE;
-     }
-
    output_hwc = hwc_window->output_hwc;
    output = output_hwc->output;
 
@@ -1346,6 +1333,28 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
         return EINA_FALSE;
      }
 
+   /* return true if the update_exist already set. */
+   if (hwc_window->update_exist) return EINA_TRUE;
+
+   /* for video we set buffer in the video module */
+   if (e_hwc_window_is_video(hwc_window))
+     {
+        ELOGF("HWC-WINS", " ehw:%p -- {%25s}, state:%s, zpos:%d, deleted:%s",
+              hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+              hwc_window, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+              e_hwc_window_state_string_get(hwc_window->state),
+              hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
+
+        tsurface = e_comp_wl_video_hwc_widow_surface_get(hwc_window);
+        if (!tsurface) return EINA_FALSE;
+
+        tdm_hwc_window_set_buffer(hwc_window->thwc_window, tsurface);
+        hwc_window->tsurface = tsurface;
+
+        goto done;
+     }
+
+   /* Do not fetch the buffers of the windows except the video window at the canvas_norender. */
    if (e_comp_canvas_norender_get() > 0)
      {
         ELOGF("HWC-WINS", " NoRender get. no updated surface {%25s} on the thw:%p.",
@@ -1354,9 +1363,6 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
               hwc_window->thwc_window);
         return EINA_FALSE;
      }
-
-   if (hwc_window->update_exist)
-      return EINA_TRUE;
 
    if (e_hwc_window_is_target(hwc_window))
      {
@@ -1373,7 +1379,6 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
      {
         /* acquire the surface */
         tsurface = _e_hwc_window_client_surface_acquire(hwc_window);
-
         if (hwc_window->tsurface == tsurface) return EINA_FALSE;
      }
 
@@ -1438,6 +1443,7 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
               hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
      }
 
+done:
    hwc_window->update_exist = EINA_TRUE;
 
    return EINA_TRUE;

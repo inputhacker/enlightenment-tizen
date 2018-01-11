@@ -55,7 +55,7 @@ struct _E_Video_Layer
 
    /* for hwc_window */
    E_Video_Info_Layer info;
-   tbm_surface_h displaying_surface;
+   tbm_surface_h cur_tsurface; // tsurface to be set this layer.
    E_Client *e_client;
 };
 
@@ -572,17 +572,7 @@ _e_video_layer_set_buffer(E_Video_Layer * layer, tbm_surface_h buff)
    EINA_SAFETY_ON_NULL_RETURN_VAL(buff, TDM_ERROR_BAD_REQUEST);
 
    if (_is_video_hwc_windows(layer->video))
-     {
-        E_Hwc_Window *hwc_window;
-
-        hwc_window = layer->e_client->hwc_window;
-        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, TDM_ERROR_OPERATION_FAILED);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->thwc_window, TDM_ERROR_OPERATION_FAILED);
-
-        hwc_window->tsurface = buff;
-
-        ret = tdm_hwc_window_set_buffer(hwc_window->thwc_window, buff);
-     }
+     layer->cur_tsurface = buff; // set the buffer to the tdm at the e_hwc_window_fetch();
    else
      ret = tdm_layer_set_buffer(layer->tdm_layer, buff);
 
@@ -593,18 +583,19 @@ static tdm_error
 _e_video_layer_unset_buffer(E_Video_Layer *layer)
 {
    tdm_error ret;
+   E_Hwc_Window *hwc_window;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
 
    if (_is_video_hwc_windows(layer->video))
      {
-        E_Hwc_Window *hwc_window;
-
         hwc_window = layer->e_client->hwc_window;
         EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, TDM_ERROR_OPERATION_FAILED);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->thwc_window, TDM_ERROR_OPERATION_FAILED);
 
-        ret = tdm_hwc_window_set_buffer(hwc_window->thwc_window, NULL);
+        e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+        layer->cur_tsurface = NULL; // set the buffer to the tdm at the e_hwc_window_fetch();
+
+        ret = TDM_ERROR_NONE;
      }
    else
      ret = tdm_layer_unset_buffer(layer->tdm_layer);
@@ -647,23 +638,15 @@ _e_video_layer_is_usable(E_Video_Layer * layer, unsigned int *usable)
 static tdm_error
 _e_video_layer_commit(E_Video_Layer *layer, tdm_layer_commit_handler func, void *user_data)
 {
-   tdm_error ret;
+   tdm_error ret = TDM_ERROR_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
 
    if (_is_video_hwc_windows(layer->video))
-     {
-        E_Hwc_Window *hwc_window;
+     ret = TDM_ERROR_NONE;
+   else
+     ret = tdm_layer_commit(layer->tdm_layer, func, user_data);
 
-        hwc_window = layer->e_client->hwc_window;
-        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, TDM_ERROR_OPERATION_FAILED);
-
-        hwc_window->update_exist = EINA_TRUE;
-
-        return TDM_ERROR_NONE;
-     }
-
-   ret = tdm_layer_commit(layer->tdm_layer, func, user_data);
    return ret;
 }
 
@@ -1725,7 +1708,7 @@ e_comp_wl_video_hwc_widow_surface_get(E_Hwc_Window *hwc_window)
    video_layer = video->layer;
    EINA_SAFETY_ON_NULL_RETURN_VAL(video_layer, NULL);
 
-   return hwc_window->tsurface;
+   return video_layer->cur_tsurface;
 }
 
 static void
