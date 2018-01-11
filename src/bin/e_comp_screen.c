@@ -1219,6 +1219,7 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
 
    /* rendering forcely to prepare HWC */
    e_comp_render_queue();
+   e_comp_hwc_end(__FUNCTION__);
 
    EINA_LIST_FOREACH(e_input_devices_get(), l, dev)
      {
