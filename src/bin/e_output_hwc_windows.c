@@ -796,7 +796,7 @@ _e_output_hwc_windows_pp_commit(E_Output_Hwc *output_hwc)
 }
 
 static void
-_e_output_hwc_windows_print_wnds_state(E_Output_Hwc *output_hwc)
+_e_output_hwc_windows_status_print(E_Output_Hwc *output_hwc)
 {
     const Eina_List *l;
     Eina_List *sort_wnds;
@@ -880,7 +880,7 @@ _e_output_hwc_windows_update(E_Output_Hwc *output_hwc, Eina_List *cl_list)
      }
 #if DBG_EVALUATE
    ELOGF("HWC-WINS", " Request HWC Validation to TDM HWC:", NULL, NULL);
-   _e_output_hwc_windows_print_wnds_state(output_hwc);
+   _e_output_hwc_windows_status_print(output_hwc);
 #endif
 }
 
@@ -984,7 +984,7 @@ _e_output_hwc_windows_validate(E_Output_Hwc *output_hwc)
           }
 #if DBG_EVALUATE
         ELOGF("HWC-WINS", " Modified after HWC Validation:", NULL, NULL);
-        _e_output_hwc_windows_print_wnds_state(output_hwc);
+        _e_output_hwc_windows_status_print(output_hwc);
 #endif
      }
 
@@ -1410,7 +1410,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
          {
             ELOGF("HWC-WINS", "!!!!!!!! Output Commit !!!!!!!!", NULL, NULL);
             ELOGF("HWC-WINS", " The number of visible clients:%d.", NULL, NULL, output_hwc->num_vis_ec);
-            _e_output_hwc_windows_print_wnds_state(output_hwc);
+            _e_output_hwc_windows_status_print(output_hwc);
 
             error = tdm_output_commit(output->toutput, 0, _e_output_hwc_windows_commit_handler, output_hwc);
             if (error != TDM_ERROR_NONE)
