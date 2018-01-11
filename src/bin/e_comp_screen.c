@@ -1254,6 +1254,7 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
 
    /* rendering forcely to prepare HWC */
    e_comp_render_queue();
+   e_comp_hwc_end(__FUNCTION__);
 
    if (e_comp_screen_iface)
      {
