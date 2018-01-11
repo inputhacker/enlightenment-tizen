@@ -2175,6 +2175,7 @@ _e_info_client_proc_transform_set(int argc, char **argv)
 #define DUMP_BUFFERS_USAGE \
   "  enlightenment_info -dump_buffers [ARG]...\n" \
   "  enlightenment_info -dump_buffers 1                : start dump buffer (default - buffer_count:100, path:/tmp/dump_xxxx/\n" \
+  "  enlightenment_info -dump_buffers 1 -m             : start dump buffer with marking of various color\n" \
   "  enlightenment_info -dump_buffers 1 -c 50          : start dump buffer with 50 buffers\n" \
   "  enlightenment_info -dump_buffers 1 -p /tmp/test   : start dump buffer - the dump path is '/tmp/test/dump_xxxx'\n" \
   "  enlightenment_info -dump_buffers 1 -c 60 -p /test : start dump buffer with 60 buffers to '/test/dump_xxxx' folder\n" \
@@ -2423,6 +2424,7 @@ _e_info_client_proc_buffer_shot(int argc, char **argv)
    int i;
    char path[PATH_MAX];
    double scale = 0.0;
+   int mark = 0;
 
    strncpy(path, "/tmp", PATH_MAX);
 
@@ -2483,12 +2485,18 @@ _e_info_client_proc_buffer_shot(int argc, char **argv)
                EINA_SAFETY_ON_TRUE_GOTO(scale <= 0.0, err);
                continue;
             }
+          if (eina_streq(argv[i], "-m"))
+            {
+               ++i;
+               mark = 1;
+               continue;
+            }
 
           goto err;
      }
 
-   if (!_e_info_client_eldbus_message_with_args("dump_buffers", NULL, "iisd",
-                                                dumprun, count, path, scale))
+   if (!_e_info_client_eldbus_message_with_args("dump_buffers", NULL, "iisdi",
+                                                dumprun, count, path, scale, mark))
      {
         printf("_e_info_client_proc_buffer_shot fail (%d)\n", dumprun);
         return;

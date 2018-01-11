@@ -51,6 +51,8 @@ static Eina_List    *e_info_dump_hdlrs;
 static char         *e_info_dump_path;
 static int           e_info_dump_running;
 static int           e_info_dump_count;
+static int           e_info_dump_mark;
+static int           e_info_dump_mark_count;
 static int           e_info_dump_remote_surface = 0;
 
 //FILE pointer for protocol_trace
@@ -3623,6 +3625,26 @@ _e_info_server_cb_buffer_change(void *data, int type, void *event)
         tbm_surface = wayland_tbm_server_get_surface(NULL, buffer->resource);
         EINA_SAFETY_ON_NULL_RETURN_VAL(tbm_surface, ECORE_CALLBACK_PASS_ON);
 
+        if (e_info_dump_mark)
+          {
+             unsigned int colors[5] = {0xFFFF0000, 0xFF00FF00, 0xFF0000FF, 0xFF00FFFF, 0xFFFF00FF};
+             tdm_pos pos;
+             int box_size = 20;
+             int box = e_info_dump_mark_count * box_size;
+             int width = tbm_surface_get_width(tbm_surface);
+             int height = tbm_surface_get_height(tbm_surface);
+             int row = (((box / width) * box_size) % height);
+             int col = box % width;
+
+             pos.x = col;
+             pos.y = row;
+             pos.w = box_size;
+             pos.h = box_size;
+
+             tdm_helper_clear_buffer_color(tbm_surface, &pos, colors[e_info_dump_mark_count % 5]);
+             e_info_dump_mark_count++;
+          }
+
         tbm_surface_internal_dump_buffer(tbm_surface, fname);
         break;
       default:
@@ -3685,7 +3707,7 @@ _e_info_server_cb_buffer_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
    const char *path = NULL;
    double scale;
 
-   if (!eldbus_message_arguments_get(msg, "iisd", &start, &count, &path, &scale))
+   if (!eldbus_message_arguments_get(msg, "iisdi", &start, &count, &path, &scale, &e_info_dump_mark))
      {
         ERR("Error getting arguments.");
         return reply;
@@ -3696,6 +3718,7 @@ _e_info_server_cb_buffer_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
         if (e_info_dump_running == 1)
           return reply;
         e_info_dump_running = 1;
+        e_info_dump_mark_count = 0;
         e_info_dump_count = 1;
         e_info_dump_path = _e_info_server_dump_directory_make(path);
         if (e_info_dump_path == NULL)
@@ -3737,6 +3760,7 @@ _e_info_server_cb_buffer_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
           }
         e_info_dump_count = 0;
         e_info_dump_running = 0;
+        e_info_dump_mark_count = 0;
         e_info_server_hook_call(E_INFO_SERVER_HOOK_BUFFER_DUMP_END);
      }
 
@@ -5168,7 +5192,7 @@ static const Eldbus_Method methods[] = {
    { "protocol_rule", ELDBUS_ARGS({"sss", "protocol_rule"}), ELDBUS_ARGS({"s", "rule request"}), _e_info_server_cb_protocol_rule, 0},
    { "punch", ELDBUS_ARGS({"iiiiiiiii", "punch_geometry"}), NULL, _e_info_server_cb_punch, 0},
    { "transform_message", ELDBUS_ARGS({"siiiiiiii", "transform_message"}), NULL, e_info_server_cb_transform_message, 0},
-   { "dump_buffers", ELDBUS_ARGS({"iisd", "start"}), NULL, _e_info_server_cb_buffer_dump, 0 },
+   { "dump_buffers", ELDBUS_ARGS({"iisdi", "start"}), NULL, _e_info_server_cb_buffer_dump, 0 },
    { "dump_selected_buffers", ELDBUS_ARGS({"ss", "dump_selected_buffers"}), NULL, _e_info_server_cb_selected_buffer_dump, 0 },
    { "dump_screen", ELDBUS_ARGS({"s", "dump_screen"}), NULL, _e_info_server_cb_screen_dump, 0 },
    { "output_mode", ELDBUS_ARGS({SIGNATURE_OUTPUT_MODE_CLIENT, "output mode"}), ELDBUS_ARGS({"a("SIGNATURE_OUTPUT_MODE_SERVER")", "array of ec"}), _e_info_server_cb_output_mode, 0 },
