@@ -1,7 +1,7 @@
 #include "e.h"
 #include "services/e_service_quickpanel.h"
 
-#define DBG_EVALUATE 0
+#define DBG_EVALUATE 1
 
 static Eina_Bool _e_output_hwc_windows_pp_output_data_commit(E_Output_Hwc *output_hwc, E_Hwc_Window_Commit_Data *data);
 static Eina_Bool _e_output_hwc_windows_pp_window_commit(E_Output_Hwc *output_hwc, E_Hwc_Window *hwc_window);
@@ -129,7 +129,7 @@ _e_output_hwc_windows_all_windows_init(E_Output_Hwc *output_hwc)
    hwc_windows = e_output_hwc_windows_get(output_hwc);
    EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
      {
-        if (e_hwc_window_is_video(hwc_window)) continue;
+//        if (e_hwc_window_is_video(hwc_window)) continue;
 
         if (!e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE))
           {
@@ -847,36 +847,40 @@ _e_output_hwc_windows_update(E_Output_Hwc *output_hwc, Eina_List *cl_list)
    const Eina_List *l;
    E_Hwc_Window *hwc_window;
    E_Client *ec;
-   Eina_Bool result;
-   int zpos = 0;
+   int graphic_zpos = 0;
+   int video_zpos = -1;
 
    /* clients are sorted in reverse order */
    EINA_LIST_REVERSE_FOREACH(cl_list, l, ec)
      {
         hwc_window = ec->hwc_window;
-        if (!hwc_window)
+        if (!hwc_window) continue;
+
+        if (e_hwc_window_is_video(hwc_window))
           {
-             ERR("hwc-opt: cannot find the hwc_window by ec(%p)", ec);
-             continue;
+             if (!e_hwc_window_zpos_set(hwc_window, video_zpos))
+               {
+                  ERR("hwc-opt: cannot set video_zpos for E_Hwc_Window(%p)", hwc_window);
+                  continue;
+               }
+            /* video window is under the 24depth hwc_window for ui */
+             video_zpos--;
+          }
+        else
+          {
+             if (!e_hwc_window_zpos_set(hwc_window, graphic_zpos))
+               {
+                  ERR("hwc-opt: cannot set graphic_zpos for E_Hwc_Window(%p)", hwc_window);
+                  continue;
+               }
+             graphic_zpos++;
           }
 
-        /* e20 deal with video window at the e_comp_wl_video */
-        if (e_hwc_window_is_video(hwc_window)) continue;
-
-        result = e_hwc_window_zpos_set(hwc_window, zpos);
-        if (result != EINA_TRUE)
-          {
-             ERR("hwc-opt: cannot set zpos for E_Hwc_Window(%p)", hwc_window);
-             continue;
-          }
-
-        result = e_hwc_window_update(hwc_window);
-        if (result != EINA_TRUE)
+        if (!e_hwc_window_update(hwc_window))
           {
              ERR("hwc-opt: cannot update E_Hwc_Window(%p)", hwc_window);
              continue;
           }
-        zpos++;
      }
 #if DBG_EVALUATE
    ELOGF("HWC-WINS", " Request HWC Validation to TDM HWC:", NULL, NULL);
@@ -1150,6 +1154,10 @@ full_gl_composite:
    EINA_LIST_FOREACH(vis_cl_list, l, ec)
      {
         hwc_window = ec->hwc_window;
+
+        /* The video window is not composited by gl compositor */
+        if (e_hwc_window_is_video(hwc_window)) continue;
+
         hwc_window->hwc_acceptable = EINA_FALSE;
         ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is NOT hwc_acceptable.",
               ec->pixmap, ec, hwc_window, ec->icccm.title);
@@ -1175,6 +1183,9 @@ _e_output_hwc_windows_hwc_acceptable_check(Eina_List *vis_cl_list)
      {
         hwc_window = ec->hwc_window;
         hwc_window->hwc_acceptable = EINA_TRUE;
+
+        /* The video window is not composited by gl compositor */
+        if (e_hwc_window_is_video(hwc_window)) continue;
 
         // check clients not able to use hwc
         // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)

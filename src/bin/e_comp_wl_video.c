@@ -397,9 +397,6 @@ _e_video_avaiable_video_layer_get(E_Video *video)
         if (video->ec->hwc_window)
            e_hwc_window_free(video->ec->hwc_window);
 
-        /* video window is under the 24depth hwc_window for ui */
-        e_hwc_window_zpos_set(hwc_window, -1);
-
         /* set new hwc_window to the e_client */
         video->ec->hwc_window = hwc_window;
      }
@@ -523,33 +520,14 @@ _e_video_layer_get_info(E_Video_Layer *layer, E_Video_Info_Layer *vinfo)
 static tdm_error
 _e_video_layer_set_info(E_Video_Layer *layer, E_Video_Info_Layer *vinfo)
 {
-   tdm_error ret;
+   tdm_error ret = TDM_ERROR_NONE;
    tdm_info_layer info_layer = {0};
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_INVALID_PARAMETER);
    EINA_SAFETY_ON_NULL_RETURN_VAL(vinfo, TDM_ERROR_INVALID_PARAMETER);
 
    if (_is_video_hwc_windows(layer->video))
-     {
-        tdm_hwc_window_info hwc_win_info = {0};
-        E_Hwc_Window *hwc_window;
-
-        hwc_window = layer->e_client->hwc_window;
-        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, TDM_ERROR_OPERATION_FAILED);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->thwc_window, TDM_ERROR_OPERATION_FAILED);
-
-        memcpy(&hwc_win_info.src_config, &vinfo->src_config, sizeof(tdm_info_config));
-        memcpy(&hwc_win_info.dst_pos, &vinfo->dst_pos, sizeof(tdm_pos));
-        hwc_win_info.transform = vinfo->transform;
-
-        ret = tdm_hwc_window_set_info(hwc_window->thwc_window, &hwc_win_info);
-        EINA_SAFETY_ON_TRUE_RETURN_VAL(ret != TDM_ERROR_NONE, ret);
-
-        /* to re-evaluate the window policy */
-        e_comp_render_queue();
-
-        memcpy(&layer->info, vinfo, sizeof(E_Video_Info_Layer));
-     }
+     memcpy(&layer->info, vinfo, sizeof(E_Video_Info_Layer));
    else
      {
 
@@ -566,7 +544,7 @@ _e_video_layer_set_info(E_Video_Layer *layer, E_Video_Info_Layer *vinfo)
 static tdm_error
 _e_video_layer_set_buffer(E_Video_Layer * layer, tbm_surface_h buff)
 {
-   tdm_error ret;
+   tdm_error ret = TDM_ERROR_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
    EINA_SAFETY_ON_NULL_RETURN_VAL(buff, TDM_ERROR_BAD_REQUEST);
@@ -1709,6 +1687,43 @@ e_comp_wl_video_hwc_widow_surface_get(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(video_layer, NULL);
 
    return video_layer->cur_tsurface;
+}
+
+EINTERN Eina_Bool
+e_comp_wl_video_hwc_window_info_get(E_Hwc_Window *hwc_window, tdm_hwc_window_info *hwc_win_info)
+{
+   E_Client *ec = NULL;
+   Eina_List *l = NULL;
+   E_Video *video = NULL;
+   E_Video_Layer *video_layer;
+   E_Video_Info_Layer *vinfo;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (!e_hwc_window_is_video(hwc_window))
+     {
+       ERR("ehw:%p is NOT Video HWC window.", hwc_window);
+       return EINA_FALSE;
+     }
+
+   ec = hwc_window->ec;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   EINA_LIST_FOREACH(video_list, l, video)
+     if (video->ec == ec) break;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(video,EINA_FALSE);
+
+   video_layer = video->layer;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(video_layer, EINA_FALSE);
+
+   vinfo = &video_layer->info;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(vinfo, EINA_FALSE);
+
+   memcpy(&hwc_win_info->src_config, &vinfo->src_config, sizeof(tdm_info_config));
+   memcpy(&hwc_win_info->dst_pos, &vinfo->dst_pos, sizeof(tdm_pos));
+   hwc_win_info->transform = vinfo->transform;
+
+   return EINA_TRUE;
 }
 
 static void

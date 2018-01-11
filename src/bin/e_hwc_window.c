@@ -820,6 +820,22 @@ _e_hwc_window_info_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface)
    int size_w, size_h, src_x, src_y, src_w, src_h;
    int dst_x, dst_y, dst_w, dst_h;
    tbm_format format;
+   tdm_hwc_window_info hwc_win_info = {0};
+   tdm_error error;
+
+   if (e_hwc_window_is_video(hwc_window))
+     {
+        if (!e_comp_wl_video_hwc_window_info_get(hwc_window, &hwc_win_info))
+          {
+             ERR("Video window does not get the hwc_win_info.");
+             return EINA_FALSE;
+          }
+
+        error = tdm_hwc_window_set_info(hwc_window->thwc_window, &hwc_win_info);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+
+        return EINA_TRUE;
+     }
 
    /* set hwc_window when the layer infomation is different from the previous one */
    tbm_surface_get_info(tsurface, &surf_info);
@@ -913,8 +929,8 @@ _e_hwc_window_correct_transformation_check(E_Hwc_Window *hwc_window)
    E_Output_Hwc *output_hwc = hwc_window->output_hwc;
    E_Output *output = output_hwc->output;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->ec, EINA_FALSE);
+   /* do not check the transformation of the video window */
+   if (e_hwc_window_is_video(hwc_window)) return EINA_TRUE;
 
    ec = hwc_window->ec;
 
@@ -1148,9 +1164,21 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
 EINTERN Eina_Bool
 e_hwc_window_zpos_set(E_Hwc_Window *hwc_window, int zpos)
 {
+   tdm_error error;
+   tdm_hwc_window *thwc_window;
+
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
-   hwc_window->zpos = zpos;
+   if (hwc_window->zpos != zpos) hwc_window->zpos = zpos;
+
+   /* video dose not set the zpos...... need to be fixed. */
+   if (e_hwc_window_is_video(hwc_window)) return EINA_TRUE;
+
+   thwc_window = hwc_window->thwc_window;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(thwc_window, EINA_FALSE);
+
+   error = tdm_hwc_window_set_zpos(thwc_window, hwc_window->zpos);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
    return EINA_TRUE;
 }
@@ -1168,9 +1196,7 @@ e_hwc_window_zpos_get(E_Hwc_Window *hwc_window)
 EINTERN Eina_Bool
 e_hwc_window_update(E_Hwc_Window *hwc_window)
 {
-   tdm_hwc_window *thwc_window;
    E_Client *ec;
-   tdm_error error;
    Eina_Bool result;
    E_Comp_Wl_Buffer *buffer = NULL;
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
@@ -1182,41 +1208,47 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
    ec = hwc_window->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
 
-   thwc_window = hwc_window->thwc_window;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(thwc_window, EINA_FALSE);
-
-   error = tdm_hwc_window_set_zpos(thwc_window, hwc_window->zpos);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
-
    /* hwc_window manager could ask to prevent some e_clients being shown by hw directly;
     * if hwc_window's ec has no correct transformation we can't allow such ec to claim on
     * hw overlay, 'cause currently hw doesn't support transformation; */
-   if (hwc_window->hwc_acceptable &&
-       _e_hwc_window_correct_transformation_check(hwc_window))
+   if (hwc_window->hwc_acceptable)
      {
-        if (e_hwc_window_is_cursor(hwc_window))
+        if (e_hwc_window_is_video(hwc_window))
           {
-             tsurface = hwc_window->cursor_tsurface;
-             state = E_HWC_WINDOW_STATE_CURSOR;
+             tsurface = e_comp_wl_video_hwc_widow_surface_get(hwc_window);
+             state = E_HWC_WINDOW_STATE_VIDEO;
+
+             if (tsurface)
+               {
+                  result = _e_hwc_window_info_set(hwc_window, tsurface);
+                  EINA_SAFETY_ON_TRUE_RETURN_VAL(result != EINA_TRUE, EINA_FALSE);
+               }
           }
         else
           {
-             buffer = _get_comp_wl_buffer(ec);
+            if (_e_hwc_window_correct_transformation_check(hwc_window))
+             {
+                if (e_hwc_window_is_cursor(hwc_window))
+                  {
+                     tsurface = hwc_window->cursor_tsurface;
+                     state = E_HWC_WINDOW_STATE_CURSOR;
+                  }
+                else
+                  {
+                     buffer = _get_comp_wl_buffer(ec);
+                     if (buffer) tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
+                     state = E_HWC_WINDOW_STATE_DEVICE;
+                  }
 
-             if (buffer)
-               tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
-
-             state = E_HWC_WINDOW_STATE_DEVICE;
+                if (tsurface)
+                  {
+                     result = _e_hwc_window_info_set(hwc_window, tsurface);
+                     EINA_SAFETY_ON_TRUE_RETURN_VAL(result != EINA_TRUE, EINA_FALSE);
+                  }
+             }
+           else
+             state = E_HWC_WINDOW_STATE_CLIENT;
           }
-
-        if (tsurface)
-          {
-             result = _e_hwc_window_info_set(hwc_window, tsurface);
-             EINA_SAFETY_ON_TRUE_RETURN_VAL(result != EINA_TRUE, EINA_FALSE);
-          }
-        else
-          state = E_HWC_WINDOW_STATE_CLIENT;
-
      }
    else
      state = E_HWC_WINDOW_STATE_CLIENT;
