@@ -980,10 +980,20 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
    printf("ENG:  %s\n", e_info_client.engine);
    if (e_info_client.use_hwc)
      {
-        printf("HWC:  %s\n", e_info_client.hwc ? "on":"off");
-        printf("Multi Plane:  %s\n", e_info_client.use_multi_layer ? "on":"off");
-        printf("Optimized HWC (primary output):  %s\n", e_info_client.hwc_windows ? "on":"off");
+        if (e_info_client.hwc)
+          {
+             printf("HWC:  ");
+             if (e_info_client.hwc_windows)
+               printf("hwc windows policy\n");
+             else
+               printf("hwc planes policy and multiple plane is %s\n", e_info_client.use_multi_layer ? "on":"off");
+          }
+        else
+          printf("HWC:  off");
      }
+   else
+     printf("HWC:  configuration is off");
+
    printf("Buffer flush: %s\n", e_info_client.use_buffer_flush ? "on":"off");
    if (e_info_client.use_buffer_flush)
      printf("Deiconify Approve: %s\n", "auto on");
