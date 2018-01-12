@@ -744,6 +744,8 @@ _e_xdg_shell_surface_cb_parent_set(struct wl_client *client EINA_UNUSED, struct 
 
    /* set this client as a transient for parent */
    _e_shell_surface_parent_set(ec, parent_resource);
+
+   EC_CHANGED(ec);
 }
 
 static void
