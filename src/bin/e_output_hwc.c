@@ -37,7 +37,6 @@ e_output_hwc_new(E_Output *output)
      {
         output_hwc->hwc_policy = E_OUTPUT_HWC_POLICY_WINDOWS;
 
-        ELOGF("HWC-WINS", "register a need_validate_handler for the eo:%p.", NULL, NULL, output);
         if (!e_output_hwc_windows_init(output_hwc))
           {
              ERR("hwc_opt: e_output_hwc_windows_init failed");
