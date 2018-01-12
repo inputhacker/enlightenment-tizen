@@ -13,8 +13,9 @@ static Ecore_Event_Handler *zone_set_event_handler = NULL;
 static uint64_t ee_rendered_hw_list_key;
 
 static E_Comp_Wl_Buffer *
-_get_comp_wl_buffer(E_Client *ec)
+_e_hwc_window_comp_wl_buffer_get(E_Hwc_Window *hwc_window)
 {
+   E_Client *ec = hwc_window->ec;
    E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    if (!cdata) return NULL;
 
@@ -531,10 +532,10 @@ end:
 static tbm_surface_h
 _e_hwc_window_client_surface_acquire(E_Hwc_Window *hwc_window)
 {
-   E_Client *ec = hwc_window->ec;
-   E_Comp_Wl_Buffer *buffer = _get_comp_wl_buffer(ec);
+   E_Comp_Wl_Buffer *buffer = _e_hwc_window_comp_wl_buffer_get(hwc_window);
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
    tbm_surface_h tsurface = NULL;
+   E_Client *ec = hwc_window->ec;
 
    if (!buffer) return NULL;
 
@@ -1205,9 +1206,6 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
-   ec = hwc_window->ec;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
-
    /* hwc_window manager could ask to prevent some e_clients being shown by hw directly;
     * if hwc_window's ec has no correct transformation we can't allow such ec to claim on
     * hw overlay, 'cause currently hw doesn't support transformation; */
@@ -1235,7 +1233,7 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
                   }
                 else
                   {
-                     buffer = _get_comp_wl_buffer(ec);
+                     buffer = _e_hwc_window_comp_wl_buffer_get(hwc_window);
                      if (buffer) tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
                      state = E_HWC_WINDOW_STATE_DEVICE;
                   }
@@ -1543,8 +1541,7 @@ e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
         commit_data->tsurface = hwc_window->tsurface;
         tbm_surface_internal_ref(commit_data->tsurface);
 
-        e_comp_wl_buffer_reference(&commit_data->buffer_ref,
-                                   _get_comp_wl_buffer(hwc_window->ec));
+        e_comp_wl_buffer_reference(&commit_data->buffer_ref, _e_hwc_window_comp_wl_buffer_get(hwc_window));
      }
 
    hwc_window->commit_data = commit_data;
