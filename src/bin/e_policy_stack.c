@@ -297,7 +297,7 @@ e_policy_stack_cb_client_remove(E_Client *ec)
 }
 
 void
-e_policy_stack_shutdonw(void)
+e_policy_stack_shutdown(void)
 {
    eina_hash_free(hash_pol_stack);
    hash_pol_stack = NULL;
