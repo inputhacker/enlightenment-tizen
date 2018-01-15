@@ -1339,7 +1339,7 @@ _e_vis_ec_activity_check(E_Client *ec, Eina_Bool check_alpha)
 static void
 _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
 {
-   VS_DBG(ec, "Job Run: type %d", type);
+   VS_INF(ec, "Job Run: type %d", type);
 
    E_Vis_Client *vc = NULL;
    if (ec)
