@@ -3530,7 +3530,7 @@ _e_info_server_cb_buffer_change(void *data, int type, void *event)
    tbm_surface_h tbm_surface;
    struct wl_shm_buffer *shmbuffer = NULL;
    void *ptr;
-   int stride, w, h, rotation;
+   int stride, w, h, rotation, row, col;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ev, ECORE_CALLBACK_PASS_ON);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ev->ec, ECORE_CALLBACK_PASS_ON);
@@ -3601,10 +3601,15 @@ _e_info_server_cb_buffer_change(void *data, int type, void *event)
              tdm_pos pos;
              int box_size = 20;
              int box = e_info_dump_mark_count * box_size;
-             int width = tbm_surface_get_width(tbm_surface);
-             int height = tbm_surface_get_height(tbm_surface);
-             int row = (((box / width) * box_size) % height);
-             int col = box % width;
+
+             w = tbm_surface_get_width(tbm_surface);
+             h = tbm_surface_get_height(tbm_surface);
+
+             EINA_SAFETY_ON_FALSE_RETURN_VAL((w != 0), ECORE_CALLBACK_PASS_ON);
+             EINA_SAFETY_ON_FALSE_RETURN_VAL((h != 0), ECORE_CALLBACK_PASS_ON);
+
+             row = (((box / w) * box_size) % h);
+             col = box % w;
 
              pos.x = col;
              pos.y = row;
