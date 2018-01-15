@@ -332,10 +332,8 @@ _hwc_available_get(E_Client *ec)
    switch (cdata->buffer_ref.buffer->type)
      {
       case E_COMP_WL_BUFFER_TYPE_NATIVE:
-         break;
       case E_COMP_WL_BUFFER_TYPE_TBM:
-         if (cdata->buffer_ref.buffer->resource)
-           break;
+         break;
       case E_COMP_WL_BUFFER_TYPE_SHM:
          if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
            break;
