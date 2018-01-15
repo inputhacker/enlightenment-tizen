@@ -366,6 +366,8 @@ _e_plane_renderer_client_backup_buffer_set(E_Plane_Renderer_Client *renderer_cli
    e_pixmap_dirty(ec->pixmap);
    e_pixmap_refresh(ec->pixmap);
 
+   tbm_surface_internal_unref(copied_tsurface);
+
    return EINA_TRUE;
 
 fail :
@@ -930,13 +932,8 @@ _e_plane_renderer_recover_ec(E_Plane_Renderer *renderer)
         tsurface = e_plane_renderer_displaying_surface_get(renderer);
         if (!tsurface) return;
 
-        tbm_surface_internal_ref(tsurface);
         buffer = e_comp_wl_tbm_buffer_get(tsurface);
-        if (!buffer)
-          {
-             tbm_surface_internal_unref(tsurface);
-             return;
-          }
+        if (!buffer) return;
      }
 
    /* force update */
