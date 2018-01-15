@@ -2015,10 +2015,27 @@ e_plane_renderer_client_surface_recieve(E_Plane_Renderer_Client *renderer_client
    buffer = _get_comp_wl_buffer(ec);
    EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, NULL);
 
-   tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, NULL);
+   switch (buffer->type)
+     {
+       case E_COMP_WL_BUFFER_TYPE_NATIVE:
+         tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
+         break;
+       case E_COMP_WL_BUFFER_TYPE_TBM:
+         tsurface = buffer->tbm_surface;
+         break;
+       default:
+         ERR("not supported buffer type:%d", buffer->type);
+         break;
+     }
 
-   flags = wayland_tbm_server_get_buffer_flags(wl_comp_data->tbm.server, buffer->resource);
+   if (!tsurface)
+     {
+        ERR("fail to get tsurface buffer type:%d", buffer->type);
+        return NULL;
+     }
+
+   if (buffer->resource)
+     flags = wayland_tbm_server_get_buffer_flags(wl_comp_data->tbm.server, buffer->resource);
 
    if (renderer_trace_debug)
      ELOGF("E_PLANE_RENDERER", "Receive Renderer(%p)        tsurface(%p) tqueue(%p) wl_buffer(%p) flags(%d)",

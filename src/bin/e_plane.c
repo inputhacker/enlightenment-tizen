@@ -504,10 +504,22 @@ _e_plane_surface_from_client_acquire(E_Plane *plane)
           ERR("fail to e_plane_renderer_surface_queue_clear");
      }
 
-   tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
+   switch (buffer->type)
+     {
+      case E_COMP_WL_BUFFER_TYPE_NATIVE:
+        tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
+        break;
+      case E_COMP_WL_BUFFER_TYPE_TBM:
+        tsurface = buffer->tbm_surface;
+        break;
+      default:
+        ERR("not supported buffer type:%d", buffer->type);
+        break;
+     }
+
    if (!tsurface)
      {
-        ERR("fail to wayland_tbm_server_get_surface");
+        ERR("fail to get tsurface buffer type:%d", buffer->type);
         return NULL;
      }
 
