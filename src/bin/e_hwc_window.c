@@ -1139,7 +1139,7 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
    /* we cannot remove the hwc_window because we need to release the commit_data */
    if (e_hwc_window_displaying_surface_get(hwc_window))
      {
-        ELOGF("HWC-WINS", "ehw:%p is destroyed on eout:%p",
+        ELOGF("HWC-WINS", "ehw:%p is destroyed on eout:%p. displaying surface.",
               hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
               hwc_window, output_hwc->output);
 
@@ -1171,10 +1171,10 @@ e_hwc_window_zpos_set(E_Hwc_Window *hwc_window, int zpos)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    if (hwc_window->zpos != zpos) hwc_window->zpos = zpos;
-
+#if 0
    /* video dose not set the zpos...... need to be fixed. */
    if (e_hwc_window_is_video(hwc_window)) return EINA_TRUE;
-
+#endif
    thwc_window = hwc_window->thwc_window;
    EINA_SAFETY_ON_NULL_RETURN_VAL(thwc_window, EINA_FALSE);
 
@@ -1197,7 +1197,6 @@ e_hwc_window_zpos_get(E_Hwc_Window *hwc_window)
 EINTERN Eina_Bool
 e_hwc_window_update(E_Hwc_Window *hwc_window)
 {
-   E_Client *ec;
    Eina_Bool result;
    E_Comp_Wl_Buffer *buffer = NULL;
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
@@ -1306,22 +1305,23 @@ _e_hwc_window_client_buffer_reset(E_Hwc_Window *hwc_window)
 
         /* the damage isn't supported by hwc extension yet */
         memset(&fb_damage, 0, sizeof(fb_damage));
-
+#if 0
         tdm_output_hwc_set_client_target_buffer(output->toutput, NULL, fb_damage, NULL, 0);
 
          ELOGF("HWC-WINS", " ehw:%p sets ts:(NULL) ------- {%25s}, state:%s, zpos:%d",
                NULL, NULL, hwc_window, "@TARGET WINDOW@",
                e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
+#endif
      }
    else
      {
+        tdm_hwc_window_set_buffer(hwc_window->thwc_window, NULL);
+
         if (hwc_window->cursor_tsurface)
           {
              tbm_surface_destroy(hwc_window->cursor_tsurface);
              hwc_window->cursor_tsurface = NULL;
           }
-
-        tdm_hwc_window_set_buffer(hwc_window->thwc_window, NULL);
 
         ELOGF("HWC-WINS", " ehw:%p sets ts:(NULL) ------- {%25s}, state:%s, zpos:%d, deleted:%s",
               hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
@@ -1387,10 +1387,10 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    /* Do not fetch the buffers of the windows except the video window at the canvas_norender. */
    if (e_comp_canvas_norender_get() > 0)
      {
-        ELOGF("HWC-WINS", " NoRender get. no updated surface {%25s} on the thw:%p.",
+        ELOGF("HWC-WINS", " NoRender get. no updated surface {%25s} on the ehw:%p.",
               hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
               hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-              hwc_window->thwc_window);
+              hwc_window);
         return EINA_FALSE;
      }
 

@@ -1265,7 +1265,7 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
              _e_output_hwc_windows_hwc_acceptable_check(vis_clist);
           }
 
-        /* update thw hwc_windows information with the previous evaluation */
+        /* update ehw hwc_windows information with the previous evaluation */
         _e_output_hwc_windows_update(output_hwc, vis_clist);
      }
    else
