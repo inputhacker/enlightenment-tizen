@@ -17,6 +17,9 @@ _e_output_hwc_windows_ec_check(E_Client *ec)
      {
         ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is forced to set CL state.(null cdata or buffer)",
               ec->pixmap, ec, ec->hwc_window, ec->icccm.title);
+
+        /* This buffer is like unvisible window */
+        e_hwc_window_state_set(ec->hwc_window, E_HWC_WINDOW_STATE_NONE);
         return EINA_FALSE;
      }
 

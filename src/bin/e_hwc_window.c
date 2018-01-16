@@ -1286,17 +1286,12 @@ e_hwc_window_is_cursor(E_Hwc_Window *hwc_window)
 static void
 _e_hwc_window_client_buffer_reset(E_Hwc_Window *hwc_window)
 {
-   E_Output_Hwc *output_hwc = NULL;
-   E_Output *output = NULL;
    tdm_hwc_region fb_damage;
 
    if (!hwc_window->tsurface) return;
 
    if (e_hwc_window_is_target(hwc_window))
      {
-        output_hwc = hwc_window->output_hwc;
-        output = output_hwc->output;
-
         if (hwc_window->update_exist && hwc_window->tsurface)
           _e_hwc_window_target_window_surface_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
 
@@ -1306,6 +1301,12 @@ _e_hwc_window_client_buffer_reset(E_Hwc_Window *hwc_window)
         /* the damage isn't supported by hwc extension yet */
         memset(&fb_damage, 0, sizeof(fb_damage));
 #if 0
+        E_Output_Hwc *output_hwc = NULL;
+        E_Output *output = NULL;
+
+        output_hwc = hwc_window->output_hwc;
+        output = output_hwc->output;
+
         tdm_output_hwc_set_client_target_buffer(output->toutput, NULL, fb_damage, NULL, 0);
 
          ELOGF("HWC-WINS", " ehw:%p sets ts:(NULL) ------- {%25s}, state:%s, zpos:%d",
