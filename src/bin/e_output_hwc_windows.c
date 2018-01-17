@@ -227,7 +227,9 @@ _e_output_hwc_windows_can_commit(E_Output *output)
 {
    Eina_List *l;
    E_Hwc_Window *hwc_window;
+   E_Client *ec;
    Eina_Bool can_commit = EINA_TRUE;
+   Eina_Bool matched_output_size = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output->output_hwc, EINA_FALSE);
 
@@ -245,7 +247,19 @@ _e_output_hwc_windows_can_commit(E_Output *output)
 
              can_commit = EINA_FALSE;
           }
+        else
+          {  /* check if the size of the surface is the same as the one of the output */
+             if (matched_output_size == EINA_FALSE)
+               {
+                ec = hwc_window->ec;
+                if (ec->w == output->config.geom.w && ec->h == output->config.geom.h)
+                  matched_output_size = EINA_TRUE;
+               }
+          }
      }
+
+   if (matched_output_size == EINA_FALSE)
+     can_commit = EINA_FALSE;
 
    return can_commit;
 }
