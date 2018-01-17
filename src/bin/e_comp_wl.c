@@ -2171,6 +2171,11 @@ _e_comp_wl_subsurface_restack_bg_rectangle(E_Client *ec)
 
    while (bottom)
      {
+        short layer = evas_object_layer_get(bottom->frame);
+
+        if (evas_object_layer_get(ec->comp_data->sub.below_obj) != layer)
+          evas_object_layer_set(ec->comp_data->sub.below_obj, layer);
+
         evas_object_stack_below(ec->comp_data->sub.below_obj, bottom->frame);
         bottom = eina_list_nth(bottom->comp_data->sub.below_list, 0);
      }
