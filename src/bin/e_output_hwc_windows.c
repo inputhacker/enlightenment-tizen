@@ -208,11 +208,16 @@ _e_output_hwc_windows_commit_handler(tdm_output *toutput, unsigned int sequence,
         output_hwc->pp_tsurface = NULL;
      }
 
+   ELOGF("HWC-WINS", "!!!!!!!! Output Commit Handler !!!!!!!!", NULL, NULL);
+
    EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, hwc_window)
      {
          if (!e_hwc_window_commit_data_release(hwc_window)) continue;
          if (e_hwc_window_is_video(hwc_window))
-           e_comp_wl_video_hwc_window_commit_data_release(hwc_window, sequence, tv_sec, tv_usec);
+           {
+              ELOGF("HWC-WINS", "!!!!!!!! Output Commit Handler (VIDEO)!!!!!!!!", NULL, NULL);
+              e_comp_wl_video_hwc_window_commit_data_release(hwc_window, sequence, tv_sec, tv_usec);
+           }
      }
 
    /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
@@ -873,8 +878,7 @@ _e_output_hwc_windows_update(E_Output_Hwc *output_hwc, Eina_List *cl_list)
    const Eina_List *l;
    E_Hwc_Window *hwc_window;
    E_Client *ec;
-   int graphic_zpos = 0;
-   int video_zpos = -1;
+   int zpos = 0;
 
    /* clients are sorted in reverse order */
    EINA_LIST_REVERSE_FOREACH(cl_list, l, ec)
@@ -882,25 +886,12 @@ _e_output_hwc_windows_update(E_Output_Hwc *output_hwc, Eina_List *cl_list)
         hwc_window = ec->hwc_window;
         if (!hwc_window) continue;
 
-        if (e_hwc_window_is_video(hwc_window))
+        if (!e_hwc_window_zpos_set(hwc_window, zpos))
           {
-             if (!e_hwc_window_zpos_set(hwc_window, video_zpos))
-               {
-                  ERR("hwc-opt: cannot set video_zpos for E_Hwc_Window(%p)", hwc_window);
-                  continue;
-               }
-            /* video window is under the 24depth hwc_window for ui */
-             video_zpos--;
+             ERR("hwc-opt: cannot set zpos for E_Hwc_Window(%p)", hwc_window);
+             continue;
           }
-        else
-          {
-             if (!e_hwc_window_zpos_set(hwc_window, graphic_zpos))
-               {
-                  ERR("hwc-opt: cannot set graphic_zpos for E_Hwc_Window(%p)", hwc_window);
-                  continue;
-               }
-             graphic_zpos++;
-          }
+        zpos++;
 
         if (!e_hwc_window_update(hwc_window))
           {
@@ -935,6 +926,9 @@ _e_output_hwc_windows_window_state_get(tdm_hwc_window_composition composition_ty
         break;
       case TDM_COMPOSITION_CURSOR:
         state = E_HWC_WINDOW_STATE_CURSOR;
+        break;
+      case TDM_COMPOSITION_VIDEO:
+        state = E_HWC_WINDOW_STATE_VIDEO;
         break;
       default:
         state = E_HWC_WINDOW_STATE_NONE;
@@ -1182,7 +1176,11 @@ full_gl_composite:
         hwc_window = ec->hwc_window;
 
         /* The video window is not composited by gl compositor */
-        if (e_hwc_window_is_video(hwc_window)) continue;
+        if (e_hwc_window_is_video(hwc_window))
+          {
+            hwc_window->hwc_acceptable = EINA_TRUE;
+            continue;
+          }
 
         hwc_window->hwc_acceptable = EINA_FALSE;
         ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is NOT hwc_acceptable.",

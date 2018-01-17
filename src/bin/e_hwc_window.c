@@ -81,6 +81,9 @@ _get_composition_type(E_Hwc_Window_State state)
       case E_HWC_WINDOW_STATE_CURSOR:
         composition_type = TDM_COMPOSITION_CURSOR;
         break;
+      case E_HWC_WINDOW_STATE_VIDEO:
+        composition_type = TDM_COMPOSITION_VIDEO;
+        break;
       default:
         composition_type = TDM_COMPOSITION_NONE;
         ERR("hwc-opt: unknown state of hwc_window.");
@@ -1080,7 +1083,6 @@ e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State stat
      hwc_window->thwc_window = tdm_output_hwc_create_video_window(toutput, &error);
    else
      hwc_window->thwc_window = tdm_output_hwc_create_window(toutput, &error);
-
    if (error != TDM_ERROR_NONE)
      {
         ERR("cannot create tdm_hwc_window for toutput(%p)", toutput);
@@ -1088,25 +1090,19 @@ e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State stat
         return NULL;
      }
 
+   error = tdm_hwc_window_set_composition_type(hwc_window->thwc_window, TDM_COMPOSITION_NONE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, NULL);
+
+   hwc_window->state = E_HWC_WINDOW_STATE_NONE;
+   hwc_window->type = TDM_COMPOSITION_NONE;
+
+   /* cursor window */
+   if (e_policy_client_is_cursor(ec))
+     hwc_window->is_cursor = EINA_TRUE;
+
+   /* video window */
    if (state == E_HWC_WINDOW_STATE_VIDEO)
-     {
-        /* the video hwc_window is always displayed on hw layer */
-        hwc_window->state = E_HWC_WINDOW_STATE_VIDEO;
-        hwc_window->type = TDM_COMPOSITION_DEVICE;
-
-        hwc_window->is_video = 1;
-     }
-   else
-     {
-        error = tdm_hwc_window_set_composition_type(hwc_window->thwc_window, TDM_COMPOSITION_NONE);
-        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, NULL);
-
-        hwc_window->state = E_HWC_WINDOW_STATE_NONE;
-        hwc_window->type = TDM_COMPOSITION_NONE;
-
-        if (e_policy_client_is_cursor(ec))
-          hwc_window->is_cursor = EINA_TRUE;
-     }
+     hwc_window->is_video = EINA_TRUE;
 
    output_hwc->hwc_windows = eina_list_append(output_hwc->hwc_windows, hwc_window);
 
@@ -1171,10 +1167,7 @@ e_hwc_window_zpos_set(E_Hwc_Window *hwc_window, int zpos)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    if (hwc_window->zpos != zpos) hwc_window->zpos = zpos;
-#if 0
-   /* video dose not set the zpos...... need to be fixed. */
-   if (e_hwc_window_is_video(hwc_window)) return EINA_TRUE;
-#endif
+
    thwc_window = hwc_window->thwc_window;
    EINA_SAFETY_ON_NULL_RETURN_VAL(thwc_window, EINA_FALSE);
 
@@ -1370,17 +1363,25 @@ e_hwc_window_fetch(E_Hwc_Window *hwc_window)
    /* for video we set buffer in the video module */
    if (e_hwc_window_is_video(hwc_window))
      {
-        ELOGF("HWC-WINS", " ehw:%p -- {%25s}, state:%s, zpos:%d, deleted:%s",
-              hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-              hwc_window, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-              e_hwc_window_state_string_get(hwc_window->state),
-              hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
-
         tsurface = e_comp_wl_video_hwc_widow_surface_get(hwc_window);
-        if (!tsurface) return EINA_FALSE;
+        if (!tsurface)
+          {
+              ELOGF("HWC-WINS", " ehw:%p no buffer yet -- {%25s}, state:%s, zpos:%d, deleted:%s",
+                    hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+                    hwc_window, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+                    e_hwc_window_state_string_get(hwc_window->state),
+                    hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
+             return EINA_FALSE;
+          }
 
         tdm_hwc_window_set_buffer(hwc_window->thwc_window, tsurface);
         hwc_window->tsurface = tsurface;
+
+        ELOGF("HWC-WINS", " ehw:%p sets ts:%p ------- {%25s}, state:%s, zpos:%d, deleted:%s",
+              hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+              hwc_window, hwc_window->tsurface, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+              e_hwc_window_state_string_get(hwc_window->state),
+              hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
 
         goto done;
      }
@@ -1756,8 +1757,7 @@ e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state)
    if (hwc_window->state != state)
      {
         /* target window and video window do not set the composition type */
-        if (e_hwc_window_is_target(hwc_window) ||
-            e_hwc_window_is_video(hwc_window))
+        if (e_hwc_window_is_target(hwc_window))
           hwc_window->state = state;
         else
           {
