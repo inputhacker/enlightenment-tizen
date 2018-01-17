@@ -2459,6 +2459,8 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
 
         if (transform_change == vp->wait_for_transform_change)
           vp->wait_for_transform_change = 0;
+
+        if (e_comp_is_on_overlay(ec)) e_comp_hwc_end(__FUNCTION__);
      }
 
    ec->comp_data->scaler.buffer_viewport = state->buffer_viewport;
@@ -2784,6 +2786,14 @@ _e_comp_wl_surface_cb_attach(struct wl_client *client EINA_UNUSED, struct wl_res
           }
      }
 
+   if (!ec->comp_data->mapped)
+     {
+        if (!(ec->internal || ec->comp_data->sub.data))
+          {
+             ELOGF("COMP", "Current unmapped. ATTACH buffer:%p", ec->pixmap, ec, buffer);
+          }
+     }
+
    _e_comp_wl_surface_state_buffer_set(&ec->comp_data->pending, buffer);
 
    ec->comp_data->pending.sx = sx;
@@ -2936,6 +2946,14 @@ _e_comp_wl_surface_cb_commit(struct wl_client *client EINA_UNUSED, struct wl_res
 
    if (!(ec = wl_resource_get_user_data(resource))) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
+
+   if (!ec->comp_data->mapped)
+     {
+        if (!(ec->internal || ec->comp_data->sub.data))
+          {
+             ELOGF("COMP", "Current unmapped. COMMIT. pixmap_usable:%d", ec->pixmap, ec, e_pixmap_usable_get(ec->pixmap));
+          }
+     }
 
    if (ec->comp_data->need_commit_extern_parent)
      {

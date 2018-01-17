@@ -633,7 +633,7 @@ _e_vis_job_eval(void)
 {
    E_Vis_Job_Group *group, *tmp;
 
-   DBG("VISIBILITY | Job Eval");
+   INF("VISIBILITY | Job Eval");
 
    _e_vis_job_queue_update();
 
@@ -1228,6 +1228,12 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
         return EINA_FALSE;
      }
 
+   if (ec->comp_data && !ec->comp_data->mapped)
+     {
+        ELOGF("POL_VIS", "Not mapped. no need to uniconify render.", ec->pixmap, ec);
+        return EINA_FALSE;
+     }
+
    /* do not add child window which is obscured by 24 bit parent window */
    if ((ec->parent) &&
        !(ec->parent->argb) &&
@@ -1333,7 +1339,7 @@ _e_vis_ec_activity_check(E_Client *ec, Eina_Bool check_alpha)
 static void
 _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
 {
-   VS_DBG(ec, "Job Run: type %d", type);
+   VS_INF(ec, "Job Run: type %d", type);
 
    E_Vis_Client *vc = NULL;
    if (ec)

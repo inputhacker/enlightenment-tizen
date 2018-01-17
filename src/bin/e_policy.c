@@ -2281,7 +2281,7 @@ e_policy_shutdown(void)
    E_FREE_FUNC(hash_policy_desks, eina_hash_free);
    E_FREE_FUNC(hash_policy_clients, eina_hash_free);
 
-   e_policy_stack_shutdonw();
+   e_policy_stack_shutdown();
    e_policy_wl_shutdown();
 
    e_policy_conformant_shutdown();

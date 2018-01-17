@@ -5579,6 +5579,11 @@ e_comp_object_map_update(Evas_Object *obj)
 
    if (!ec || !ec->comp_data || e_object_is_del(E_OBJECT(ec))) return;
 
+   /* if buffer had been flushed, buffer could be NULL. Then map will be applied
+    * when new buffer is attached.
+    */
+   if (!ec->comp_data->buffer_ref.buffer) return;
+
    if (!e_comp_wl_output_buffer_transform_get(ec) &&
        ec->comp_data->scaler.buffer_viewport.buffer.scale == 1)
      {
