@@ -248,12 +248,21 @@ _e_output_hwc_windows_can_commit(E_Output *output)
              can_commit = EINA_FALSE;
           }
         else
-          {  /* check if the size of the surface is the same as the one of the output */
+          {
+             /* check if the size of the surface is the same as the one of the output.
+              * There MUST be at least one window which has the same size of the output.
+              * This prevent the flickering issue on the display.
+              */
              if (matched_output_size == EINA_FALSE)
                {
-                ec = hwc_window->ec;
-                if (ec->w == output->config.geom.w && ec->h == output->config.geom.h)
-                  matched_output_size = EINA_TRUE;
+                  if (e_hwc_window_is_target(hwc_window))
+                    matched_output_size = EINA_TRUE;
+                  else
+                    {
+                       ec = hwc_window->ec;
+                       if (ec->w == output->config.geom.w && ec->h == output->config.geom.h)
+                         matched_output_size = EINA_TRUE;
+                    }
                }
           }
      }
