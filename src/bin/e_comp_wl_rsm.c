@@ -2854,7 +2854,7 @@ _e_comp_wl_remote_cb_client_del(void *data, E_Client *ec)
    remote_surface = eina_hash_find(_rsm->bind_surface_hash, &ec);
    if (remote_surface)
      {
-        eina_hash_del(_rsm->surface_hash, &ec, remote_surface);
+        eina_hash_del(_rsm->bind_surface_hash, &ec, remote_surface);
         if (remote_surface->bind_ec == ec)
           _remote_surface_bind_client(remote_surface, NULL);
      }
