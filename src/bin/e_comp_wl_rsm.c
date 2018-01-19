@@ -790,6 +790,7 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
 #endif
 
         e_comp_wl_surface_attach(remote_surface->bind_ec, NULL);
+        e_comp_object_render_update_del(remote_surface->bind_ec->frame);
 
         eina_hash_del(_rsm->bind_surface_hash, &remote_surface->bind_ec, remote_surface);
         _remote_surface_bind_client_unset(remote_surface);
