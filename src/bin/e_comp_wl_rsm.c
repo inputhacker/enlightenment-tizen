@@ -607,7 +607,7 @@ _remote_surface_changed_buff_protocol_send(E_Comp_Wl_Remote_Surface *rs,
                   add_opts = EINA_TRUE;
                }
 
-             RSMINF("CHANGED_BUFF send:%d type:%u tbm:%p fd:%d(%d) add_opts:%d EV_FILTER(%d):%u",
+             RSMDBG("CHANGED_BUFF send:%d type:%u tbm:%p fd:%d(%d) add_opts:%d EV_FILTER(%d):%u",
                     NULL, NULL, "SURFACE", rs,
                     send, buff_type, tbm, img_file_fd, img_file_size, add_opts,
                     rs->changed_buff_ev_filter.use,
