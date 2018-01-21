@@ -36,7 +36,8 @@ struct _E_Output_Hwc
    Eina_List           *hwc_windows;
    E_Hwc_Window_Target *target_hwc_window;
    Eina_Bool            wait_commit;
-   int                  num_vis_ec;
+   Eina_Bool            need_commit;
+   int                  num_visible_windows;
 
    /* variables for pp at hwc_windows policy */
    tdm_pp               *tpp;

@@ -18,6 +18,24 @@ typedef enum _E_Hwc_Window_State
    E_HWC_WINDOW_STATE_CURSOR
 } E_Hwc_Window_State;
 
+typedef enum _E_Hwc_Window_Transition
+{
+   E_HWC_WINDOW_TRANSITION_NONE_TO_NONE,
+   E_HWC_WINDOW_TRANSITION_NONE_TO_CLIENT,
+   E_HWC_WINDOW_TRANSITION_NONE_TO_DEVICE,
+   E_HWC_WINDOW_TRANSITION_NONE_TO_CURSOR,
+   E_HWC_WINDOW_TRANSITION_CLIENT_TO_NONE,
+   E_HWC_WINDOW_TRANSITION_CLIENT_TO_CLIENT,
+   E_HWC_WINDOW_TRANSITION_CLIENT_TO_DEVICE,
+   E_HWC_WINDOW_TRANSITION_CLIENT_TO_CURSOR,
+   E_HWC_WINDOW_TRANSITION_DEVICE_TO_NONE,
+   E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT,
+   E_HWC_WINDOW_TRANSITION_DEVICE_TO_DEVICE,
+   E_HWC_WINDOW_TRANSITION_CURSOR_TO_NONE,
+   E_HWC_WINDOW_TRANSITION_CURSOR_TO_CLIENT,
+   E_HWC_WINDOW_TRANSITION_CURSOR_TO_CURSOR
+} E_Hwc_Window_Transition;
+
 typedef enum _E_Hwc_Window_Activation_State
 {
    E_HWC_WINDOW_ACTIVATION_STATE_NONE = 0,
@@ -42,6 +60,9 @@ struct _E_Hwc_Window
    tdm_hwc_window_info info;
 
    E_Hwc_Window_State             state;
+   E_Hwc_Window_State             prev_state;
+   E_Hwc_Window_Transition        transition;
+   E_Hwc_Window_Transition        uncompleted_transition;
 
    /* current display information */
    struct
@@ -96,12 +117,14 @@ EINTERN Eina_Bool          e_hwc_window_update(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_target(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_video(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_cursor(E_Hwc_Window *hwc_window);
-EINTERN Eina_Bool          e_hwc_window_fetch(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool          e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window);
 
 EINTERN Eina_Bool          e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window);
 
 EINTERN Eina_Bool          e_hwc_window_target_surface_queue_can_dequeue(E_Hwc_Window_Target *target_hwc_window);
+EINTERN Eina_Bool          e_hwc_window_target_enabled(E_Hwc_Window_Target *target_hwc_window);
+EINTERN Eina_Bool          e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window);
 
 EINTERN Eina_Bool          e_hwc_window_activate(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_deactivate(E_Hwc_Window *hwc_window);
@@ -110,8 +133,12 @@ EINTERN tbm_surface_h      e_hwc_window_displaying_surface_get(E_Hwc_Window *hwc
 
 EINTERN Eina_Bool          e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state);
 EINTERN E_Hwc_Window_State e_hwc_window_state_get(E_Hwc_Window *hwc_window);
+EINTERN void               e_hwc_window_prev_state_update(E_Hwc_Window *hwc_window);
+EINTERN E_Hwc_Window_State e_hwc_window_prev_state_get(E_Hwc_Window *hwc_window);
 
 EINTERN void               e_hwc_window_render_list_add(E_Hwc_Window *hwc_window);
+
+EINTERN Eina_Bool          e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window);
 
 EINTERN const char        *e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state);
 

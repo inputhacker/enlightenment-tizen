@@ -550,7 +550,7 @@ _e_video_layer_set_buffer(E_Video_Layer * layer, tbm_surface_h buff)
    EINA_SAFETY_ON_NULL_RETURN_VAL(buff, TDM_ERROR_BAD_REQUEST);
 
    if (_is_video_hwc_windows(layer->video))
-     layer->cur_tsurface = buff; // set the buffer to the tdm at the e_hwc_window_fetch();
+     layer->cur_tsurface = buff; // set the buffer to the tdm at the e_hwc_window_update();
    else
      ret = tdm_layer_set_buffer(layer->tdm_layer, buff);
 
@@ -571,7 +571,7 @@ _e_video_layer_unset_buffer(E_Video_Layer *layer)
         EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, TDM_ERROR_OPERATION_FAILED);
 
         e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
-        layer->cur_tsurface = NULL; // set the buffer to the tdm at the e_hwc_window_fetch();
+        layer->cur_tsurface = NULL; // set the buffer to the tdm at the e_hwc_window_update();
 
         ret = TDM_ERROR_NONE;
      }
