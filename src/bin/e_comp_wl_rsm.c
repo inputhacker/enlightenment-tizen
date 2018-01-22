@@ -359,7 +359,10 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
         //TODO: consider what happens if it's not normal client such as subsurface client
         //TODO: save original values
         if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.unmap))
-          ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
+          {
+             ELOGF("COMP", "Call shell.unmap by rsm", ec->pixmap, ec);
+             ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
+          }
         else
           {
              ec->visible = EINA_FALSE;
