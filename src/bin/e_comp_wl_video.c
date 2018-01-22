@@ -816,6 +816,7 @@ _e_video_input_buffer_get(E_Video *video, E_Comp_Wl_Buffer *comp_buffer, Eina_Bo
                }
              vbuf = temp;
           }
+     }
 
    vbuf->content_r = video->geo.input_r;
 
