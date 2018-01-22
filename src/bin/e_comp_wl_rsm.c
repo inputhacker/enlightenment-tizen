@@ -974,20 +974,6 @@ _remote_source_find(E_Client *ec)
    return source;
 }
 
-static E_Comp_Wl_Remote_Source *
-_remote_source_create(E_Client *ec)
-{
-   E_Comp_Wl_Remote_Source *source;
-
-   source = E_NEW(E_Comp_Wl_Remote_Source, 1);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(source, NULL);
-
-   source->common.ec = ec;
-   eina_hash_add(_rsm->source_hash, &ec, source);
-
-   return source;
-}
-
 static void
 _remote_source_destroy(E_Comp_Wl_Remote_Source *source)
 {
@@ -2609,9 +2595,13 @@ _remote_manager_cb_surface_create(struct wl_client *client,
              /* if passed */
              source = _remote_source_find(ec);
              if (!source)
-               source = _remote_source_create(ec);
+               {
+                  source = E_NEW(E_Comp_Wl_Remote_Source, 1);
+                  if (!source) goto fail;
 
-             EINA_SAFETY_ON_NULL_GOTO(source, fail);
+                  source->common.ec = ec;
+                  eina_hash_add(_rsm->source_hash, &ec, source);
+               }
           }
         else
           {
@@ -2732,75 +2722,50 @@ _image_save_type_check(E_Client *ec)
 }
 
 static void
-_e_comp_wl_remote_cb_evas_show(void *data,
-                               Evas *e EINA_UNUSED,
-                               Evas_Object *o,
-                               void *event_info EINA_UNUSED)
+_e_comp_wl_remote_cb_client_iconify(void *data, E_Client *ec)
 {
    E_Comp_Wl_Remote_Source *source;
-   E_Client *ec;
 
-   ec = evas_object_data_get(o, "E_Client");
-   EINA_SAFETY_ON_NULL_RETURN(ec);
-
-   source = _remote_source_find(ec);
-   if (!source)
+   if (!(source = _remote_source_find(ec)))
      {
         if (ec->ignored) return;
         if (!_image_save_type_check(ec)) return;
 
-        source = _remote_source_create(ec);
+        source = E_NEW(E_Comp_Wl_Remote_Source, 1);
         EINA_SAFETY_ON_NULL_RETURN(source);
+
+        source->common.ec = ec;
+        eina_hash_add(_rsm->source_hash, &ec, source);
      }
-
-   if (!source->th) return;
-
-   RSMDBG("IMG save could be cancelled. th:%p(cancel:%d) defer_img_save:%d iconic:%d del:%d ec_del:%d",
-          ec->pixmap, ec, "SOURCE", source,
-          source->th, ecore_thread_check(source->th),
-          source->defer_img_save, ec->iconic,
-          source->deleted, e_object_is_del(E_OBJECT(ec)));
-
-   if (!ecore_thread_check(source->th) &&
-       !source->deleted &&
-       !e_object_is_del(E_OBJECT(ec)))
-     {
-        RSMDBG("IMG save CANCELLED.", ec->pixmap, ec, "SOURCE", source);
-        ecore_thread_cancel(source->th);
-     }
-}
-
-static void
-_e_comp_wl_remote_cb_evas_hide(void *data EINA_UNUSED,
-                               Evas *e EINA_UNUSED,
-                               Evas_Object *o,
-                               void *event_info EINA_UNUSED)
-{
-   E_Comp_Wl_Remote_Source *source;
-   E_Client *ec;
-
-   ec = evas_object_data_get(o, "E_Client");
-   EINA_SAFETY_ON_NULL_RETURN(ec);
-
-   source = _remote_source_find(ec);
-   EINA_SAFETY_ON_NULL_RETURN(source);
-
-   if (!e_config->save_win_buffer) return;
-   if (!e_config->hold_prev_win_img) return;
-   if (ec->saved_img) return;
-   if (ec->ignored) return;
-   if (!_image_save_type_check(ec)) return;
 
    _remote_source_save_start(source);
 }
 
 static void
-_e_comp_wl_remote_cb_new_client_post(void *data EINA_UNUSED, E_Client *ec)
+_e_comp_wl_remote_cb_client_uniconify(void *data, E_Client *ec)
 {
-   if (!e_config->save_win_buffer) return;
+   E_Comp_Wl_Remote_Source *source;
 
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_SHOW, _e_comp_wl_remote_cb_evas_show, NULL);
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_HIDE, _e_comp_wl_remote_cb_evas_hide, NULL);
+   source = _remote_source_find(ec);
+   if (!source) return;
+   EINA_SAFETY_ON_FALSE_RETURN(ec == source->common.ec);
+
+   if (source->th)
+     {
+        RSMDBG("IMG save could be cancelled. UNICONIFY th:%p(cancel:%d) defer_img_save:%d iconic:%d del:%d ec_del:%d",
+               ec->pixmap, ec, "SOURCE", source,
+               source->th, ecore_thread_check(source->th),
+               source->defer_img_save, ec->iconic,
+               source->deleted, e_object_is_del(E_OBJECT(ec)));
+
+        if (!ecore_thread_check(source->th) &&
+            !source->deleted &&
+            !e_object_is_del(E_OBJECT(ec)))
+          {
+             RSMDBG("IMG save CANCELLED.", ec->pixmap, ec, "SOURCE", source);
+             ecore_thread_cancel(source->th);
+          }
+     }
 }
 
 static void
@@ -2810,8 +2775,7 @@ _e_comp_wl_remote_cb_client_del(void *data, E_Client *ec)
    E_Comp_Wl_Remote_Source *source;
    E_Comp_Wl_Remote_Surface *remote_surface;
 
-   provider = eina_hash_find(_rsm->provider_hash, &ec);
-   if (provider)
+   if ((provider = eina_hash_find(_rsm->provider_hash, &ec)))
      {
         eina_hash_del(_rsm->provider_hash, &ec, provider);
         EINA_LIST_FREE(provider->common.surfaces, remote_surface)
@@ -2832,20 +2796,12 @@ _e_comp_wl_remote_cb_client_del(void *data, E_Client *ec)
         E_FREE(provider);
      }
 
-   source = _remote_source_find(ec);
-   if (source)
+   if ((source = _remote_source_find(ec)))
      {
-        if (e_config->save_win_buffer)
-          {
-             evas_object_event_callback_del(ec->frame, EVAS_CALLBACK_SHOW, _e_comp_wl_remote_cb_evas_show);
-             evas_object_event_callback_del(ec->frame, EVAS_CALLBACK_HIDE, _e_comp_wl_remote_cb_evas_hide);
-          }
-
         _remote_source_destroy(source);
      }
 
-   remote_surface = eina_hash_find(_rsm->surface_hash, &ec);
-   if (remote_surface)
+   if ((remote_surface = eina_hash_find(_rsm->surface_hash, &ec)))
      {
         eina_hash_del(_rsm->surface_hash, &ec, remote_surface);
         if (remote_surface->owner == ec)
@@ -2854,12 +2810,11 @@ _e_comp_wl_remote_cb_client_del(void *data, E_Client *ec)
           _remote_provider_onscreen_parent_calculate(remote_surface->provider);
      }
 
-   remote_surface = eina_hash_find(_rsm->bind_surface_hash, &ec);
-   if (remote_surface)
+   if ((remote_surface = eina_hash_find(_rsm->bind_surface_hash, &ec)))
      {
         eina_hash_del(_rsm->bind_surface_hash, &ec, remote_surface);
         if (remote_surface->bind_ec == ec)
-          _remote_surface_bind_client(remote_surface, NULL);
+           _remote_surface_bind_client(remote_surface, NULL);
      }
 }
 
@@ -3306,9 +3261,13 @@ e_comp_wl_remote_surface_image_save(E_Client *ec)
 
    src = _remote_source_find(ec);
    if (!src)
-     src = _remote_source_create(ec);
+     {
+        src = E_NEW(E_Comp_Wl_Remote_Source, 1);
+        EINA_SAFETY_ON_NULL_GOTO(src, end);
 
-   EINA_SAFETY_ON_NULL_GOTO(src, end);
+        src->common.ec = ec;
+        eina_hash_add(_rsm->source_hash, &ec, src);
+     }
 
    _remote_source_save_start(src);
 
@@ -3523,8 +3482,12 @@ e_comp_wl_remote_surface_init(void)
                                          _remote_manager_cb_bind);
 
    /* client hook */
-   E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_NEW_CLIENT_POST, _e_comp_wl_remote_cb_new_client_post, NULL);
-   E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_DEL,             _e_comp_wl_remote_cb_client_del,      NULL);
+   E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_DEL, _e_comp_wl_remote_cb_client_del, NULL);
+   if (e_config->save_win_buffer)
+     {
+        E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_ICONIFY,   _e_comp_wl_remote_cb_client_iconify,   NULL);
+        E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_UNICONIFY, _e_comp_wl_remote_cb_client_uniconify, NULL);
+     }
 
    /* client event */
    E_LIST_HANDLER_APPEND(rs_manager->event_hdlrs,
