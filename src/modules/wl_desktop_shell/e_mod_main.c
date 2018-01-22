@@ -130,7 +130,10 @@ _e_shell_surface_destroy(struct wl_resource *resource)
                {
                   if ((ec->comp_data->shell.surface) &&
                       (ec->comp_data->shell.unmap))
-                    ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
+                    {
+                       ELOGF("SHELL", "Call shell.unmap by destory surface", ec->pixmap, ec);
+                       ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
+                    }
                }
              if (ec->parent)
                {
@@ -143,6 +146,8 @@ _e_shell_surface_destroy(struct wl_resource *resource)
           }
         if (ec->comp_data)
           ec->comp_data->shell.surface = NULL;
+
+        ELOGF("SHELL", "Destroy shell surface", ec->pixmap, ec);
      }
 
    e_policy_client_unmap(ec);
@@ -516,6 +521,12 @@ _e_shell_surface_map(struct wl_resource *resource)
               (unsigned int)e_client_util_win_get(ec),
               ec->w, ec->h, ec->netwm.pid, ec->icccm.title, ec->netwm.name);
 
+        ELOGF("SHELL",
+              "spash:%d, first_mapped:%d, iconic:%d(client:%d), raise:%d, lower:%d, ignore:%d, override:%d, input_only:%d",
+              ec->pixmap, ec,
+              ec->use_splash, ec->first_mapped, ec->iconic, ec->exp_iconify.by_client,
+              ec->post_raise, ec->post_lower, ec->ignored, ec->override, ec->input_only);
+
 
         /* unset previous content */
         e_comp_object_content_unset(ec->frame);
@@ -617,6 +628,7 @@ _e_shell_cb_shell_surface_get(struct wl_client *client, struct wl_resource *reso
         wl_resource_post_no_memory(surface_resource);
         return;
      }
+   ELOGF("SHELL", "Create shell surface", ec->pixmap, ec);
 
    wl_resource_set_implementation(cdata->shell.surface,
                                   &_e_shell_surface_interface,
@@ -1117,6 +1129,12 @@ _e_xdg_shell_surface_map_cb_timer(void *data)
               (unsigned int)e_client_util_win_get(ec),
               ec->w, ec->h, ec->netwm.pid, ec->icccm.title, ec->netwm.name);
 
+        ELOGF("SHELL",
+              "spash:%d, first_mapped:%d, iconic:%d(client:%d), raise:%d, lower:%d, ignore:%d, override:%d, input_only:%d",
+              ec->pixmap, ec,
+              ec->use_splash, ec->first_mapped, ec->iconic, ec->exp_iconify.by_client,
+              ec->post_raise, ec->post_lower, ec->ignored, ec->override, ec->input_only);
+
         if (ec->use_splash)
           {
              ELOGF("LAUNCH", "SHOW real win after splash effect by map_timer", ec->pixmap, ec);
@@ -1226,6 +1244,12 @@ _e_xdg_shell_surface_map(struct wl_resource *resource)
               ec->pixmap, ec,
               (unsigned int)e_client_util_win_get(ec),
               ec->w, ec->h, ec->netwm.pid, ec->icccm.title, ec->netwm.name);
+
+        ELOGF("SHELL",
+              "spash:%d, first_mapped:%d, iconic:%d(client:%d), raise:%d, lower:%d, ignore:%d, override:%d, input_only:%d",
+              ec->pixmap, ec,
+              ec->use_splash, ec->first_mapped, ec->iconic, ec->exp_iconify.by_client,
+              ec->post_raise, ec->post_lower, ec->ignored, ec->override, ec->input_only);
 
         if (ec->use_splash)
           {
@@ -1353,6 +1377,7 @@ _e_xdg_shell_cb_surface_get(struct wl_client *client, struct wl_resource *resour
         wl_resource_post_no_memory(surface_resource);
         return;
      }
+   ELOGF("SHELL", "Create xdg shell surface", ec->pixmap, ec);
 
    wl_resource_set_implementation(cdata->shell.surface,
                                   &_e_xdg_surface_interface,
@@ -1442,6 +1467,7 @@ _e_xdg_shell_cb_popup_get(struct wl_client *client, struct wl_resource *resource
         wl_resource_post_no_memory(surface_resource);
         return;
      }
+   ELOGF("SHELL", "Create xdg shell popup surface", ec->pixmap, ec);
 
    wl_resource_set_implementation(cdata->shell.surface,
                                   &_e_xdg_popup_interface,
