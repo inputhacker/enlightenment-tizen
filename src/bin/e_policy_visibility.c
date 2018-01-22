@@ -1831,6 +1831,13 @@ e_policy_visibility_client_grab_release(E_Vis_Grab *grab)
 }
 
 E_API Eina_Bool
+e_policy_visibility_client_grab_cancel(E_Client *ec)
+{
+   E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
+   return _e_vis_client_grab_cancel(vc);
+}
+
+E_API Eina_Bool
 e_policy_visibility_client_raise(E_Client *ec)
 {
    E_Client *child;
