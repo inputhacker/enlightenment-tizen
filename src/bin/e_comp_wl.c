@@ -4770,8 +4770,11 @@ _e_comp_wl_keydev_hash_free(const Eina_Hash *hash, const void *key, void *data, 
 
    destroy_listener = wl_client_get_destroy_listener(wc, _e_comp_wl_client_cb_destroy);
 
-   wl_list_remove(&destroy_listener->link);
-   E_FREE(destroy_listener);
+   if (destroy_listener)
+     {
+        wl_list_remove(&destroy_listener->link);
+        E_FREE(destroy_listener);
+     }
 
    return EINA_TRUE;
 }
