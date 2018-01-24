@@ -2666,11 +2666,18 @@ _remote_manager_cb_surface_bind(struct wl_client *client, struct wl_resource *re
    _remote_surface_ignore_output_transform_send(&provider->common);
 }
 
+static void
+_remote_manager_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
 static const struct tizen_remote_surface_manager_interface _remote_manager_interface =
 {
    _remote_manager_cb_provider_create,
    _remote_manager_cb_surface_create,
    _remote_manager_cb_surface_bind,
+   _remote_manager_cb_destroy,
 };
 
 static void
