@@ -248,9 +248,16 @@ _e_pixmap_tzsurf_shm_cb_flusher_get(struct wl_client *client, struct wl_resource
    ec->pixmap->shm_flusher = res;
 }
 
+static void
+_e_pixmap_tzsurf_shm_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
 static const struct tizen_surface_shm_interface _tzsurf_shm_iface =
 {
    _e_pixmap_tzsurf_shm_cb_flusher_get,
+   _e_pixmap_tzsurf_shm_cb_destroy,
 };
 
 static void
