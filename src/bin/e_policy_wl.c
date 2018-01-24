@@ -5963,6 +5963,12 @@ _tzlaunch_effect_iface_cb_type_unset(struct wl_client *client, struct wl_resourc
    _e_policy_wl_tzlaunch_effect_type_unset(pid);
 }
 
+static void
+_tzlaunch_effect_iface_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
 static const struct tizen_launchscreen_interface _tzlaunch_iface =
 {
    _tzlaunch_iface_cb_create_img,
@@ -5973,7 +5979,8 @@ static const struct tizen_launch_effect_interface _tzlaunch_effect_iface =
 {
    _tzlaunch_effect_iface_cb_create_splash_img,
    _tzlaunch_effect_iface_cb_type_set,
-   _tzlaunch_effect_iface_cb_type_unset
+   _tzlaunch_effect_iface_cb_type_unset,
+   _tzlaunch_effect_iface_cb_destroy,
 };
 
 static void
