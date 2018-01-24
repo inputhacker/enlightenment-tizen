@@ -59,6 +59,7 @@ struct _E_Input
    Ecore_Window window;
    E_Input_Device *dev;
    const char *input_base_dir;
+   Eina_List *handlers;
 
    Eina_Bool use_thread : 1;
 };

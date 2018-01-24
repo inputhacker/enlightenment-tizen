@@ -13,6 +13,22 @@ E_API int E_EVENT_INPUT_DISABLED = -1;
 
 E_API E_Input *e_input = NULL;
 
+static Eina_Bool
+_e_input_cb_screen_change(void *data EINA_UNUSED, int type EINA_UNUSED, void *event EINA_UNUSED)
+{
+   Eina_List *l;
+   Eina_List *devices;
+   E_Input_Device *dev_data;
+
+   devices = (Eina_List *)e_input_devices_get();
+
+   EINA_LIST_FOREACH(devices, l, dev_data)
+     {
+        e_input_device_output_changed(dev_data);
+     }
+   return ECORE_CALLBACK_PASS_ON;
+}
+
 EINTERN const char *
 e_input_base_dir_get(void)
 {
@@ -154,6 +170,8 @@ e_input_init(Ecore_Evas *ee)
 
    e_input->dev = dev;
 
+   E_LIST_HANDLER_APPEND(e_input->handlers, E_EVENT_SCREEN_CHANGE, _e_input_cb_screen_change, NULL);
+
    TRACE_INPUT_END();
 
    return _e_input_init_count;
@@ -183,6 +201,8 @@ ecore_event_evas_err:
 EINTERN int
 e_input_shutdown(void)
 {
+   Ecore_Event_Handler *h = NULL;
+
    if (_e_input_init_count < 1) return 0;
    if (--_e_input_init_count != 0) return _e_input_init_count;
 
@@ -193,6 +213,9 @@ e_input_shutdown(void)
    E_INPUT_EVENT_SEAT_ADD = -1;
    E_EVENT_INPUT_ENABLED = -1;
    E_EVENT_INPUT_DISABLED = -1;
+
+   EINA_LIST_FREE(e_input->handlers, h)
+     ecore_event_handler_del(h);
 
    if (e_input->input_base_dir)
      eina_stringshare_del(e_input->input_base_dir);
