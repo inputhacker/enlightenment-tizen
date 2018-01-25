@@ -2357,6 +2357,13 @@ e_plane_renderer_surface_queue_dequeue(E_Plane_Renderer *renderer)
    if (_e_plane_renderer_surface_find_released_surface(renderer, tsurface))
      renderer->released_surfaces = eina_list_remove(renderer->released_surfaces, tsurface);
 
+   /* if not exist, add the surface to the renderer */
+   if (!_e_plane_renderer_surface_find_disp_surface(renderer, tsurface))
+     renderer->disp_surfaces = eina_list_append(renderer->disp_surfaces, tsurface);
+
+   if (!_e_plane_renderer_buffer_add(renderer, tsurface))
+     ERR("failed to _e_plane_renderer_buffer_add");
+
    /* debug */
    if (renderer_trace_debug)
      {
