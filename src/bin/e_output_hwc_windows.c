@@ -10,7 +10,7 @@ static Eina_Bool _e_output_hwc_windows_pp_window_commit(E_Output_Hwc *output_hwc
 
 // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
 static Eina_Bool
-_e_output_hwc_windows_ec_check(E_Client *ec)
+_e_output_hwc_windows_device_state_check(E_Client *ec)
 {
    E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    E_Output *eout;
@@ -21,9 +21,6 @@ _e_output_hwc_windows_ec_check(E_Client *ec)
      {
         ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is forced to set CL state.(null cdata or buffer)",
               ec->pixmap, ec, ec->hwc_window, ec->icccm.title);
-
-        /* This buffer is like unvisible window */
-        e_hwc_window_state_set(ec->hwc_window, E_HWC_WINDOW_STATE_NONE);
         return EINA_FALSE;
      }
 
@@ -61,6 +58,8 @@ _e_output_hwc_windows_ec_check(E_Client *ec)
          if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
            break;
       default:
+         ELOGF("HWC-WINS", "   ehw:%p -- {%25s} is forced to set CL state.(buffer_type)",
+               ec->pixmap, ec, ec->hwc_window, ec->icccm.title);
          return EINA_FALSE;
      }
 
@@ -821,7 +820,7 @@ _e_output_hwc_windows_pp_commit(E_Output_Hwc *output_hwc)
 }
 
 static void
-_e_output_hwc_windows_status_print(E_Output_Hwc *output_hwc)
+_e_output_hwc_windows_status_print(E_Output_Hwc *output_hwc, Eina_Bool with_target)
 {
     const Eina_List *l;
     Eina_List *sort_wnds;
@@ -835,15 +834,20 @@ _e_output_hwc_windows_status_print(E_Output_Hwc *output_hwc)
          if (hwc_window->state == E_HWC_WINDOW_STATE_NONE) continue;
 
          if (e_hwc_window_is_target(hwc_window))
-           ELOGF("HWC-WINS", "  ehw:%p -- {%25s}, state:%s, zpos:%d",
-                 NULL, NULL, hwc_window, "@TARGET WINDOW@",
-                 e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
-         else
-           ELOGF("HWC-WINS", "  ehw:%p -- {%25s}, state:%s, zpos:%d, deleted:%s",
-                 hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-                 hwc_window, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-                 e_hwc_window_state_string_get(hwc_window->state),
-                 hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
+           {
+              if (!with_target) continue;
+
+              ELOGF("HWC-WINS", "  ehw:%p ts:%p -- {%25s}, state:%s, zpos:%d",
+                    NULL, NULL, hwc_window, hwc_window->tsurface, "@TARGET WINDOW@",
+                    e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
+              continue;
+           }
+
+         ELOGF("HWC-WINS", "  ehw:%p ts:%p -- {%25s}, state:%s, zpos:%d, deleted:%s",
+               hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+               hwc_window, hwc_window->tsurface, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+               e_hwc_window_state_string_get(hwc_window->state),
+               hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
       }
 
     eina_list_free(sort_wnds);
@@ -891,7 +895,7 @@ _e_output_hwc_windows_update(E_Output_Hwc *output_hwc)
 
 #if DBG_EVALUATE
    ELOGF("HWC-WINS", " Request HWC Validation to TDM HWC:", NULL, NULL);
-   _e_output_hwc_windows_status_print(output_hwc);
+   _e_output_hwc_windows_status_print(output_hwc, EINA_FALSE);
 #endif
 
    return EINA_TRUE;
@@ -973,6 +977,8 @@ _e_output_hwc_windows_accept(E_Output_Hwc *output_hwc, uint32_t num_changes)
           {
              hwc_window->uncompleted_transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT;
              accept_changes = EINA_FALSE;
+
+             ELOGF("HWC-WINS", " E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT is set.(Accept_Changes)", NULL, NULL);
           }
 
         /* update the state with the changed compsition */
@@ -1000,7 +1006,7 @@ _e_output_hwc_windows_accept(E_Output_Hwc *output_hwc, uint32_t num_changes)
 
 #if DBG_EVALUATE
    ELOGF("HWC-WINS", " Modified after HWC Validation:", NULL, NULL);
-   _e_output_hwc_windows_status_print(output_hwc);
+   _e_output_hwc_windows_status_print(output_hwc, EINA_FALSE);
 #endif
 
    return EINA_TRUE;
@@ -1169,7 +1175,7 @@ _e_output_hwc_windows_full_gl_composite_check(E_Output_Hwc *output_hwc, Eina_Lis
    /* hwc_window manager required full GLES composition */
    if (e_comp->nocomp_override > 0)
      {
-        ELOGF("HWC-WINS", "  HWC_MODE_NONE due to nocomp_override > 0.", NULL, NULL);
+        ELOGF("HWC-WINS", "  HWC_MODE_HYBRID due to nocomp_override > 0.", NULL, NULL);
         goto full_gl_composite;
      }
 
@@ -1241,10 +1247,10 @@ _e_output_hwc_windows_hwc_acceptable_check(Eina_List *visible_windows_list)
         if (e_hwc_window_is_video(hwc_window)) continue;
 
         // check clients are able to use hwc
-        if (_e_output_hwc_windows_ec_check(hwc_window->ec))
-          e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
-        else
+        if (_e_output_hwc_windows_device_state_check(hwc_window->ec))
           e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
+        else
+          e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
      }
 }
 
@@ -1273,6 +1279,9 @@ e_output_hwc_windows_deinit(void)
 static Eina_Bool
 _e_output_hwc_windows_uncomplete_transition_check(E_Output_Hwc *output_hwc)
 {
+#if 1
+   return EINA_TRUE;
+#else
    const Eina_List *l;
    E_Hwc_Window *hwc_window;
    E_Hwc_Window_Target *target_hwc_window = output_hwc->target_hwc_window;
@@ -1296,6 +1305,9 @@ _e_output_hwc_windows_uncomplete_transition_check(E_Output_Hwc *output_hwc)
                      {
                         e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
                         ret = EINA_FALSE;
+#if DBG_EVALUATE
+                        ELOGF("HWC-WINS", " E_HWC_WINDOW_TRANSITION_DEVICE_TO_NONE is set.(Transition_Check)", NULL, NULL);
+#endif
                      }
                 }
               else
@@ -1310,6 +1322,9 @@ _e_output_hwc_windows_uncomplete_transition_check(E_Output_Hwc *output_hwc)
                      {
                         e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
                         ret = EINA_FALSE;
+#if DBG_EVALUATE
+                        ELOGF("HWC-WINS", " E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT is set.(Transition_Check)", NULL, NULL);
+#endif
                      }
                 }
               else
@@ -1324,6 +1339,9 @@ _e_output_hwc_windows_uncomplete_transition_check(E_Output_Hwc *output_hwc)
                      {
                         e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
                         ret = EINA_FALSE;
+#if DBG_EVALUATE
+                        ELOGF("HWC-WINS", " E_HWC_WINDOW_TRANSITION_CLIENT_TO_DEVICE is set.(Transition_Check)", NULL, NULL);
+#endif
                      }
                 }
               else
@@ -1335,6 +1353,7 @@ _e_output_hwc_windows_uncomplete_transition_check(E_Output_Hwc *output_hwc)
      }
 
    return ret;
+#endif
 }
 
 static void
@@ -1374,22 +1393,39 @@ _e_output_hwc_windows_transition_update(E_Output_Hwc *output_hwc)
               if (e_hwc_window_state_get(hwc_window) == E_HWC_WINDOW_STATE_NONE)
                 {
                    hwc_window->transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_NONE;
-
+#if 0
                    /* need to complete_transition if target_window is enabled */
                    if (e_hwc_window_target_enabled(output_hwc->target_hwc_window))
-                     hwc_window->uncompleted_transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_NONE;
+                     {
+                        hwc_window->uncompleted_transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_NONE;
+#if DBG_EVALUATE
+                        ELOGF("HWC-WINS", " E_HWC_WINDOW_TRANSITION_DEVICE_TO_NONE is set.(Transition_Update)", NULL, NULL);
+                     }
+#endif
+#endif
                 }
               if (e_hwc_window_state_get(hwc_window) == E_HWC_WINDOW_STATE_CLIENT)
                 {
                    hwc_window->transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT;
-
+#if 0
                    /* need to complete_transition if target_window is enabled */
                    if (e_hwc_window_target_enabled(output_hwc->target_hwc_window))
-                     hwc_window->uncompleted_transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT;
-
+                     {
+                        hwc_window->uncompleted_transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT;
+#if DBG_EVALUATE
+                        ELOGF("HWC-WINS", " E_HWC_WINDOW_STATE_CLIENT is set.(Transition_Update)", NULL, NULL);
+#endif
+                     }
+#endif
                 }
               if (e_hwc_window_state_get(hwc_window) == E_HWC_WINDOW_STATE_DEVICE)
                 hwc_window->transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_DEVICE;
+              break;
+           case E_HWC_WINDOW_STATE_CURSOR:
+              break;
+           case E_HWC_WINDOW_STATE_VIDEO:
+              break;
+           case E_HWC_WINDOW_STATE_DEVICE_CANDIDATE:
               break;
            default:
               ERR("Unknown Prev_State: failed to update the states.");
@@ -1397,29 +1433,6 @@ _e_output_hwc_windows_transition_update(E_Output_Hwc *output_hwc)
           }
      }
 }
-
-#if 0
-static void
-_e_output_hwc_windows_zpos_assign(E_Output_Hwc *output_hwc)
-{
-   E_Hwc_Window *hwc_window;
-   const Eina_List *l;
-   int zpos = 0;
-
-   EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, hwc_window)
-     {
-        if (e_hwc_window_is_target(hwc_window)) continue;
-
-        if (hwc_window->state == E_HWC_WINDOW_STATE_NONE)
-          {
-             if (hwc_window->zpos != -999) hwc_window->zpos = -999;
-             continue;
-          }
-
-        hwc_window->zpos = zpos++;
-     }
-}
-#endif
 
 static Eina_Bool
 _e_output_hwc_windows_commit_evaulate(E_Output_Hwc *output_hwc)
@@ -1432,9 +1445,7 @@ _e_output_hwc_windows_commit_evaulate(E_Output_Hwc *output_hwc)
    can_validate = _e_output_hwc_windows_uncomplete_transition_check(output_hwc);
    if (can_validate)
      {
-        //_e_output_hwc_windows_zpos_assign(output_hwc);
-
-        if (! _e_output_hwc_windows_update(output_hwc))
+        if (!_e_output_hwc_windows_update(output_hwc))
           {
              ERR("HWC-WINS: _e_output_hwc_windows_update failed.");
              ret = EINA_FALSE;
@@ -1501,9 +1512,19 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
 
    /* evaulate the need_commit */
    if (_e_output_hwc_windows_commit_evaulate(output_hwc))
-     output_hwc->need_commit = EINA_TRUE;
+     {
+        output_hwc->need_commit = EINA_TRUE;
+#if DBG_EVALUATE
+        ELOGF("HWC-WINS", " Succeed the commit_evaulation.", NULL, NULL);
+#endif
+     }
    else
-     output_hwc->need_commit = EINA_FALSE;
+     {
+        output_hwc->need_commit = EINA_FALSE;
+#if DBG_EVALUATE
+        ELOGF("HWC-WINS", " Need to re-evaulation.", NULL, NULL);
+#endif
+     }
 
    /* update the activate/decativate state */
    _e_output_hwc_windows_activation_states_update(output_hwc);
@@ -1521,32 +1542,24 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
         if (hwc_mode == E_OUTPUT_HWC_MODE_HYBRID || hwc_mode == E_OUTPUT_HWC_MODE_NONE)
           ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
         else
-          {
-             ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
-             e_hwc_window_target_buffer_fetch(output_hwc->target_hwc_window); // release queue....
-          }
+          ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
 
         output_hwc->hwc_mode  = hwc_mode;
      }
 
+   ret = EINA_TRUE;
+
 #if DBG_EVALUATE
    if (hwc_mode == E_OUTPUT_HWC_MODE_NONE)
-     ELOGF("HWC-WINS", " HWC_MODE is NONE composition.", NULL, NULL);
+     ELOGF("HWC-WINS", " HWC_MODE is NONE composition. need_commit is %s.",
+           NULL, NULL, output_hwc->need_commit ? "TRUE" : "FALSE");
    else if (hwc_mode == E_OUTPUT_HWC_MODE_HYBRID)
-     ELOGF("HWC-WINS", " HWC_MODE is HYBRID composition.", NULL, NULL);
+     ELOGF("HWC-WINS", " HWC_MODE is HYBRID composition. need_commit is %s",
+           NULL, NULL, output_hwc->need_commit ? "TRUE" : "FALSE");
    else
-     ELOGF("HWC-WINS", " HWC_MODE is FULL HW composition.", NULL, NULL);
+     ELOGF("HWC-WINS", " HWC_MODE is FULL HW composition. need_commit is %s",
+           NULL, NULL, output_hwc->need_commit ? "TRUE" : "FALSE");
 #endif
-
-   if (e_hwc_window_target_enabled(output_hwc->target_hwc_window))
-     {
-        if (!e_hwc_window_target_buffer_fetch(output_hwc->target_hwc_window)) // try aquire
-          {
-             output_hwc->need_commit = EINA_FALSE;
-          }
-     }
-
-   ret = EINA_TRUE;
 
    return ret;
 }
@@ -1592,6 +1605,7 @@ EINTERN Eina_Bool
 e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
 {
    E_Hwc_Window *hwc_window = NULL;
+   E_Hwc_Window *target_window = NULL;
    Eina_List *l;
    E_Output *output = NULL;
    tdm_error error = TDM_ERROR_NONE;
@@ -1600,15 +1614,40 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
 
    output = output_hwc->output;
 
-   ELOGF("HWC-WINS", "###### Prepare Windows Commit(Fetch the buffers)", NULL, NULL);
-
    if (output_hwc->wait_commit)
      {
         ELOGF("HWC-WINS", "!!!!!!!! Didn't get Output Commit Handler Yet !!!!!!!!", NULL, NULL);
         return EINA_TRUE;
      }
 
-   if (output->dpms == E_OUTPUT_DPMS_OFF) return EINA_TRUE;
+   if (output->dpms == E_OUTPUT_DPMS_OFF)
+     {
+        EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
+           _e_output_hwc_windows_offscreen_commit(output, hwc_window);
+
+        return EINA_TRUE;
+     }
+
+   target_window = (E_Hwc_Window *)output_hwc->target_hwc_window;
+   if (e_hwc_window_target_enabled(output_hwc->target_hwc_window))
+     {
+        if (!e_hwc_window_target_buffer_fetch(output_hwc->target_hwc_window)) // try aquire
+          {
+             output_hwc->need_commit = EINA_FALSE;
+             target_window->update_exist = EINA_FALSE;
+#if DBG_EVALUATE
+             ELOGF("HWC-WINS", " No available surface on target_window.", NULL, NULL);
+#endif
+          }
+        else
+          {
+             output_hwc->need_commit = EINA_TRUE;
+             target_window->update_exist = EINA_TRUE;
+#if DBG_EVALUATE
+             ELOGF("HWC-WINS", " Available surface on target_window.", NULL, NULL);
+#endif
+          }
+     }
 
    if (output_hwc->need_commit)
      {
@@ -1631,7 +1670,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
           {
              ELOGF("HWC-WINS", "!!!!!!!! Output Commit !!!!!!!!", NULL, NULL);
              ELOGF("HWC-WINS", " The number of visible clients:%d.", NULL, NULL, output_hwc->num_visible_windows);
-             _e_output_hwc_windows_status_print(output_hwc);
+             _e_output_hwc_windows_status_print(output_hwc, EINA_TRUE);
 
              error = tdm_output_commit(output->toutput, 0, _e_output_hwc_windows_commit_handler, output_hwc);
              if (error != TDM_ERROR_NONE)
