@@ -24,7 +24,6 @@ _e_output_hwc_windows_device_state_check(E_Client *ec)
         return EINA_FALSE;
      }
 
-
    if ((cdata->width_from_buffer != cdata->width_from_viewport) ||
        (cdata->height_from_buffer != cdata->height_from_viewport))
      {
@@ -884,6 +883,7 @@ _e_output_hwc_windows_update(E_Output_Hwc *output_hwc)
           {
              ELOGF("HWC-WINS", "[soolim] ehw:%p e_hwc_window_buffer_fetch failed.",
                    hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window);
+             continue;
           }
 
         if (!e_hwc_window_update(hwc_window))
@@ -1102,6 +1102,7 @@ _e_output_hwc_windows_visible_windows_list_get(E_Output_Hwc *output_hwc)
    Eina_List *l;
    E_Hwc_Window *hwc_window;
    E_Client  *ec;
+   E_Comp_Wl_Client_Data *cdata = NULL;
    Evas_Object *o;
    int scr_w, scr_h;
    int zpos = 0;
@@ -1141,6 +1142,25 @@ _e_output_hwc_windows_visible_windows_list_get(E_Output_Hwc *output_hwc)
         if ((ec->w == 1 || ec->h == 1) && !e_hwc_window_is_video(hwc_window))
           {
              e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             continue;
+          }
+
+        /* skip the cdata is null */
+        cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+        if (!cdata)
+          {
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             ELOGF("HWC-WINS", "   ehw:%p -- {%25s} cdata is NULL. Set E_HWC_WINDOW_STATE_NONE.",
+                   ec->pixmap, ec, ec->hwc_window, ec->icccm.title);
+             continue;
+          }
+
+        /* skip the cdata->buffer_ref.buffer is null */
+        if (!cdata->buffer_ref.buffer)
+          {
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             ELOGF("HWC-WINS", "   ehw:%p -- {%25s} cdata->buffer_ref.buffer is NULL. Set E_HWC_WINDOW_STATE_NONE.",
+                   ec->pixmap, ec, ec->hwc_window, ec->icccm.title);
              continue;
           }
 
@@ -1682,9 +1702,8 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
              error = tdm_output_commit(output->toutput, 0, _e_output_hwc_windows_commit_handler, output_hwc);
              if (error != TDM_ERROR_NONE)
              {
-                _e_output_hwc_windows_commit_handler(output->toutput, 0, 0, 0, output_hwc);
                 ERR("tdm_output_commit failed.");
-
+                _e_output_hwc_windows_commit_handler(output->toutput, 0, 0, 0, output_hwc);
                 return EINA_FALSE;
              }
 

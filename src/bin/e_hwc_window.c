@@ -20,6 +20,7 @@ _e_hwc_window_comp_wl_buffer_get(E_Hwc_Window *hwc_window)
    if (!cdata) return NULL;
 
    E_Comp_Wl_Buffer_Ref *buffer_ref = &cdata->buffer_ref;
+   if (!buffer_ref) return NULL;
 
    return buffer_ref->buffer;
 }
@@ -540,7 +541,6 @@ _e_hwc_window_client_surface_acquire(E_Hwc_Window *hwc_window)
    E_Comp_Wl_Buffer *buffer = _e_hwc_window_comp_wl_buffer_get(hwc_window);
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
    tbm_surface_h tsurface = NULL;
-   E_Client *ec = hwc_window->ec;
 
    if (!buffer)
    {
@@ -556,8 +556,6 @@ _e_hwc_window_client_surface_acquire(E_Hwc_Window *hwc_window)
         ERR("fail to wayland_tbm_server_get_surface");
         return NULL;
      }
-
-   //e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
    return tsurface;
 }
