@@ -870,7 +870,32 @@ _e_output_hwc_windows_window_find_by_twin(E_Output_Hwc *output_hwc, tdm_hwc_wind
 }
 
 static Eina_Bool
-_e_output_hwc_windows_update(E_Output_Hwc *output_hwc)
+_e_output_hwc_windows_compsitions_update(E_Output_Hwc *output_hwc)
+{
+   const Eina_List *l;
+   E_Hwc_Window *hwc_window;
+
+   EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, hwc_window)
+     {
+        if (e_hwc_window_is_target(hwc_window)) continue;
+
+        if (!e_hwc_window_compsition_update(hwc_window))
+          {
+             ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
+             return EINA_FALSE;
+          }
+    }
+
+#if DBG_EVALUATE
+   ELOGF("HWC-WINS", " Request HWC Validation to TDM HWC:", NULL, NULL);
+   _e_output_hwc_windows_status_print(output_hwc, EINA_FALSE);
+#endif
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_output_hwc_windows_buffers_update(E_Output_Hwc *output_hwc)
 {
    const Eina_List *l;
    E_Hwc_Window *hwc_window;
@@ -886,17 +911,12 @@ _e_output_hwc_windows_update(E_Output_Hwc *output_hwc)
              continue;
           }
 
-        if (!e_hwc_window_update(hwc_window))
+        if (!e_hwc_window_buffer_update(hwc_window))
           {
              ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
              return EINA_FALSE;
           }
      }
-
-#if DBG_EVALUATE
-   ELOGF("HWC-WINS", " Request HWC Validation to TDM HWC:", NULL, NULL);
-   _e_output_hwc_windows_status_print(output_hwc, EINA_FALSE);
-#endif
 
    return EINA_TRUE;
 }
@@ -1299,9 +1319,6 @@ e_output_hwc_windows_deinit(void)
 static Eina_Bool
 _e_output_hwc_windows_uncomplete_transition_check(E_Output_Hwc *output_hwc)
 {
-#if 1
-   return EINA_TRUE;
-#else
    const Eina_List *l;
    E_Hwc_Window *hwc_window;
    E_Hwc_Window_Target *target_hwc_window = output_hwc->target_hwc_window;
@@ -1357,7 +1374,7 @@ _e_output_hwc_windows_uncomplete_transition_check(E_Output_Hwc *output_hwc)
                      hwc_window->uncompleted_transition = E_HWC_WINDOW_TRANSITION_NONE_TO_NONE;
                    else
                      {
-                        e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+                        e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
                         ret = EINA_FALSE;
 #if DBG_EVALUATE
                         ELOGF("HWC-WINS", " E_HWC_WINDOW_TRANSITION_CLIENT_TO_DEVICE is set.(Transition_Check)", NULL, NULL);
@@ -1373,7 +1390,6 @@ _e_output_hwc_windows_uncomplete_transition_check(E_Output_Hwc *output_hwc)
      }
 
    return ret;
-#endif
 }
 
 static void
@@ -1420,14 +1436,13 @@ _e_output_hwc_windows_transition_update(E_Output_Hwc *output_hwc)
                         hwc_window->uncompleted_transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_NONE;
 #if DBG_EVALUATE
                         ELOGF("HWC-WINS", " E_HWC_WINDOW_TRANSITION_DEVICE_TO_NONE is set.(Transition_Update)", NULL, NULL);
-                     }
 #endif
+                     }
 #endif
                 }
               if (e_hwc_window_state_get(hwc_window) == E_HWC_WINDOW_STATE_CLIENT)
                 {
                    hwc_window->transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT;
-#if 0
                    /* need to complete_transition if target_window is enabled */
                    if (e_hwc_window_target_enabled(output_hwc->target_hwc_window))
                      {
@@ -1436,7 +1451,6 @@ _e_output_hwc_windows_transition_update(E_Output_Hwc *output_hwc)
                         ELOGF("HWC-WINS", " E_HWC_WINDOW_STATE_CLIENT is set.(Transition_Update)", NULL, NULL);
 #endif
                      }
-#endif
                 }
               if (e_hwc_window_state_get(hwc_window) == E_HWC_WINDOW_STATE_DEVICE)
                 hwc_window->transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_DEVICE;
@@ -1465,9 +1479,9 @@ _e_output_hwc_windows_commit_evaulate(E_Output_Hwc *output_hwc)
    can_validate = _e_output_hwc_windows_uncomplete_transition_check(output_hwc);
    if (can_validate)
      {
-        if (!_e_output_hwc_windows_update(output_hwc))
+        if (!_e_output_hwc_windows_compsitions_update(output_hwc))
           {
-             ERR("HWC-WINS: _e_output_hwc_windows_update failed.");
+             ERR("HWC-WINS: _e_output_hwc_windows_compsitions_update failed.");
              ret = EINA_FALSE;
              goto done;
           }
@@ -1492,6 +1506,10 @@ _e_output_hwc_windows_commit_evaulate(E_Output_Hwc *output_hwc)
      }
 
 done:
+
+   /* update the buffers and the infos */
+   _e_output_hwc_windows_buffers_update(output_hwc);
+
    return ret;
 }
 
@@ -1523,6 +1541,12 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
    E_Hwc_Window *target_window = (E_Hwc_Window *)output_hwc->target_hwc_window;
 
    ELOGF("HWC-WINS", "====================== Output HWC Apply (evaluate) ======================", NULL, NULL);
+
+   if (e_comp_canvas_norender_get() > 0)
+     {
+        ELOGF("HWC-WINS", " Block Display... NoRender get.", NULL, NULL);
+        return EINA_TRUE;
+     }
 
    /* evaulate the current states */
    _e_output_hwc_windows_states_evaluate(output_hwc);

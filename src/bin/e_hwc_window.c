@@ -1207,19 +1207,17 @@ e_hwc_window_zpos_get(E_Hwc_Window *hwc_window)
 }
 
 EINTERN Eina_Bool
-e_hwc_window_update(E_Hwc_Window *hwc_window)
+e_hwc_window_compsition_update(E_Hwc_Window *hwc_window)
 {
-   tbm_surface_h tsurface = NULL;
    tdm_hwc_window *thwc_window;
    tdm_hwc_window_composition composition_type;
    tdm_error error;
-   Eina_Bool result;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    if (e_hwc_window_is_target(hwc_window))
    {
-      ERR("HWC-WINS: target window cannot update at e_hwc_window_update.");
+      ERR("HWC-WINS: target window cannot update at e_hwc_window_compsition_update.");
       return EINA_FALSE;
    }
 
@@ -1235,6 +1233,20 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
    error = tdm_hwc_window_set_composition_type(hwc_window->thwc_window, composition_type);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_hwc_window_buffer_update(E_Hwc_Window *hwc_window)
+{
+   tbm_surface_h tsurface = NULL;
+   tdm_hwc_window *thwc_window;
+   tdm_error error;
+   Eina_Bool result;
+
+   thwc_window = hwc_window->thwc_window;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(thwc_window, EINA_FALSE);
+
    tsurface = hwc_window->tsurface;
    if (tsurface)
      {
@@ -1244,7 +1256,7 @@ e_hwc_window_update(E_Hwc_Window *hwc_window)
      }
 
    /* set buffer */
-   error = tdm_hwc_window_set_buffer(hwc_window->thwc_window, hwc_window->tsurface);
+   error = tdm_hwc_window_set_buffer(thwc_window, hwc_window->tsurface);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
    return EINA_TRUE;
