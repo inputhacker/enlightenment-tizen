@@ -1475,6 +1475,9 @@ _e_output_hwc_windows_commit_evaulate(E_Output_Hwc *output_hwc)
    Eina_Bool can_validate;
    uint32_t num_changes;
 
+   /* update the buffers and the infos */
+   _e_output_hwc_windows_buffers_update(output_hwc);
+
    /* evaluate the transition */
    can_validate = _e_output_hwc_windows_uncomplete_transition_check(output_hwc);
    if (can_validate)
@@ -1506,9 +1509,6 @@ _e_output_hwc_windows_commit_evaulate(E_Output_Hwc *output_hwc)
      }
 
 done:
-
-   /* update the buffers and the infos */
-   _e_output_hwc_windows_buffers_update(output_hwc);
 
    return ret;
 }
@@ -1579,7 +1579,10 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
    if (hwc_mode == E_OUTPUT_HWC_MODE_HYBRID || hwc_mode == E_OUTPUT_HWC_MODE_NONE)
      e_hwc_window_state_set(target_window, E_HWC_WINDOW_STATE_DEVICE);
    else
-     e_hwc_window_state_set(target_window, E_HWC_WINDOW_STATE_NONE);
+     {
+        e_hwc_window_state_set(target_window, E_HWC_WINDOW_STATE_NONE);
+        e_hwc_window_target_buffer_fetch(output_hwc->target_hwc_window);
+     }
 
    if (output_hwc->hwc_mode != hwc_mode)
      {

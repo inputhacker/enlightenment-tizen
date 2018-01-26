@@ -2253,8 +2253,6 @@ e_output_setup(E_Output *output)
    E_Output_Hwc *output_hwc = NULL;
    Eina_List *l, *ll;
    E_Plane *plane = NULL;
-   Evas_Object *canvas_bg = NULL;
-   unsigned int r, g, b, a;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
@@ -2280,10 +2278,15 @@ e_output_setup(E_Output *output)
      }
    else
      {
+#if 0
+       Evas_Object *canvas_bg = NULL;
+       unsigned int r, g, b, a;
+
         /* set the color of the canvas_gb object */
         r = 0; g = 0; b = 0; a = 1;
         canvas_bg = e_comp->bg_blank_object;
         evas_object_color_set(canvas_bg, r, g, b, a);
+#endif
         return EINA_TRUE;
      }
 
