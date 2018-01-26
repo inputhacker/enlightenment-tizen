@@ -1547,6 +1547,8 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
         output_hwc->hwc_mode  = hwc_mode;
      }
 
+   if (hwc_mode == E_OUTPUT_HWC_MODE_NONE) output_hwc->update_changes = EINA_TRUE;
+
    ret = EINA_TRUE;
 
 #if DBG_EVALUATE
@@ -1635,6 +1637,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
           {
              output_hwc->need_commit = EINA_FALSE;
              target_window->update_exist = EINA_FALSE;
+             output_hwc->update_changes = EINA_FALSE;
 #if DBG_EVALUATE
              ELOGF("HWC-WINS", " No available surface on target_window.", NULL, NULL);
 #endif
@@ -1643,14 +1646,18 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
           {
              output_hwc->need_commit = EINA_TRUE;
              target_window->update_exist = EINA_TRUE;
+             output_hwc->update_changes = EINA_TRUE;
 #if DBG_EVALUATE
              ELOGF("HWC-WINS", " Available surface on target_window.", NULL, NULL);
 #endif
           }
      }
 
-   if (output_hwc->need_commit)
+   if (output_hwc->update_changes)
+   //if (output_hwc->need_commit || output_hwc->update_changes)
      {
+        output_hwc->update_changes = EINA_FALSE;
+
         EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
           {
              _e_output_hwc_windows_prepare_commit(output, hwc_window);
