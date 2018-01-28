@@ -1292,7 +1292,18 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
    tbm_surface_h tsurface = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+#if 1
+   if (hwc_window->uncompleted_transition != E_HWC_WINDOW_TRANSITION_NONE_TO_NONE)
+     {
+        ELOGF("HWC-WINS", " !!! ehw:%p ts:%10p is under TRANSITION. ------- {%25s}, state:%s, zpos:%d, deleted:%s.",
+              hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+              hwc_window, tsurface, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+              e_hwc_window_state_string_get(hwc_window->state),
+              hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
 
+        return EINA_FALSE;
+     }
+#endif
    /* set the buffer to be null  */
    if (hwc_window->state == E_HWC_WINDOW_STATE_NONE)
      {
@@ -1567,12 +1578,12 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
         tsurface = _e_hwc_window_target_window_surface_acquire((E_Hwc_Window_Target *)hwc_window);
         if (!tsurface)
           {
-             ELOGF("HWC-WINS", " the surface of target is null.", NULL, NULL);
+             ELOGF("HWC-WINS", " the surface of target is null.(E_HWC_WINDOW_STATE_DEVICE)", NULL, NULL);
              return EINA_FALSE;
           }
         if (tsurface == hwc_window->tsurface)
           {
-             ELOGF("HWC-WINS", " aquired buffer is same.(ts:%p)", NULL, NULL, hwc_window->tsurface);
+             ELOGF("HWC-WINS", " aquired buffer is same.(ts:%p)(E_HWC_WINDOW_STATE_DEVICE)", NULL, NULL, hwc_window->tsurface);
              return EINA_FALSE;
           }
 
@@ -1595,6 +1606,12 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
      }
    else
      {
+        if (hwc_window->tsurface == NULL)
+          {
+             ELOGF("HWC-WINS", " the surface of target is null.(E_HWC_WINDOW_STATE_NONE)", NULL, NULL);
+             return EINA_FALSE;
+          }
+
         if (hwc_window->tsurface)
           _e_hwc_window_target_window_surface_release((E_Hwc_Window_Target *)hwc_window, hwc_window->tsurface);
 
