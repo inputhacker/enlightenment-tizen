@@ -2079,28 +2079,6 @@ e_plane_renderer_surface_queue_set(E_Plane_Renderer *renderer, tbm_surface_queue
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
 
-   tsq_err = tbm_surface_queue_add_destroy_cb(tqueue, _e_plane_renderer_cb_surface_queue_destroy, (void *)renderer);
-   if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
-     {
-        ERR("fail to add destroy cb");
-        return EINA_FALSE;
-     }
-
-   if (renderer->ee)
-     {
-        tsq_err = tbm_surface_queue_add_acquirable_cb(tqueue, _e_plane_renderer_cb_acquirable, (void *)renderer->event_fd);
-        if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
-          {
-             ERR("fail to add acquirable cb");
-
-             tsq_err = tbm_surface_queue_remove_destroy_cb(tqueue, _e_plane_renderer_cb_surface_queue_destroy, (void *)renderer);
-             if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
-               ERR("fail to remove destroy cb");
-
-             return EINA_FALSE;
-          }
-     }
-
    renderer->tqueue = tqueue;
    renderer->tqueue_width = tbm_surface_queue_get_width(tqueue);
    renderer->tqueue_height = tbm_surface_queue_get_height(tqueue);
@@ -2115,11 +2093,7 @@ e_plane_renderer_surface_queue_set(E_Plane_Renderer *renderer, tbm_surface_queue
      {
         /* dequeue */
         tsurface = e_plane_renderer_surface_queue_dequeue(renderer);
-        if (!tsurface)
-          {
-             ERR("fail to dequeue surface");
-             continue;
-          }
+        if (!tsurface) continue;
 
         /* if not exist, add the surface to the renderer */
         if (!_e_plane_renderer_surface_find_disp_surface(renderer, tsurface))
@@ -2131,7 +2105,46 @@ e_plane_renderer_surface_queue_set(E_Plane_Renderer *renderer, tbm_surface_queue
 
    _e_plane_renderer_surface_release_all_disp_surfaces(renderer);
 
+   tsq_err = tbm_surface_queue_add_destroy_cb(tqueue, _e_plane_renderer_cb_surface_queue_destroy, (void *)renderer);
+   if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+     {
+        ERR("fail to add destroy cb");
+        goto fail_add_destroy_cb;
+     }
+
+   if (renderer->ee)
+     {
+        tsq_err = tbm_surface_queue_add_acquirable_cb(tqueue, _e_plane_renderer_cb_acquirable, (void *)renderer->event_fd);
+        if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+          {
+             ERR("fail to add acquirable cb");
+             goto fail;
+          }
+     }
+   else
+     {
+        if (eina_list_count(renderer->disp_surfaces) < 2)
+          {
+             ERR("fail to get disp_surface count:%d", eina_list_count(renderer->disp_surfaces));
+             goto fail;
+          }
+     }
+
    return EINA_TRUE;
+
+fail:
+   tbm_surface_queue_remove_destroy_cb(tqueue, _e_plane_renderer_cb_surface_queue_destroy, (void *)renderer);
+
+fail_add_destroy_cb:
+   EINA_LIST_FREE(renderer->disp_surfaces, tsurface)
+     _e_plane_renderer_buffer_remove(renderer, tsurface);
+
+   renderer->tqueue = NULL;
+   renderer->tqueue_width = 0;
+   renderer->tqueue_height = 0;
+   renderer->tqueue_size = 0;
+
+   return EINA_FALSE;
 }
 
 EINTERN void
