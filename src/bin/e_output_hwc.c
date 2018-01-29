@@ -106,12 +106,14 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
         else
           e_output_hwc_planes_changed(output_hwc);
      }
+#if 0
    else
      {
         /* evaluate which e_output_hwc_window will be composited by hwc and wich by GLES */
         if (!e_output_hwc_windows_evaluate(output_hwc))
            ERR("fail to e_output_hwc_windows_evaluate.");
      }
+#endif
 }
 
 EINTERN E_Output_Hwc_Mode

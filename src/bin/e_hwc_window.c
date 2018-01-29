@@ -1292,7 +1292,7 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
    tbm_surface_h tsurface = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-#if 1
+#if 0
    if (hwc_window->uncompleted_transition != E_HWC_WINDOW_TRANSITION_NONE_TO_NONE)
      {
         ELOGF("HWC-WINS", " !!! ehw:%p ts:%10p is under TRANSITION. ------- {%25s}, state:%s, zpos:%d, deleted:%s.",
@@ -1345,7 +1345,7 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
              tsurface = _e_hwc_window_cursor_surface_acquire(hwc_window);
              if (!tsurface)
                {
-                  ELOGF("HWC-WINS", "[soolim] ehw:%p cursor buffer is null.",
+                  ELOGF("HWC-WINS", "[soolim] ehw:%10p cursor buffer is null.",
                         hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window);
                   return EINA_FALSE;
                }
@@ -1396,6 +1396,7 @@ EINTERN Eina_Bool
 e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
 {
    E_Hwc_Window_Commit_Data *commit_data = NULL;
+
 
    if (hwc_window->update_exist == EINA_FALSE) return EINA_FALSE;
 
@@ -1559,6 +1560,11 @@ e_hwc_window_target_enabled(E_Hwc_Window_Target *target_hwc_window)
    return EINA_TRUE;
 }
 
+/* set the tsurface to the target_window->tsurface according to the state.
+ *  1. try to set the tsurface to the target_window at E_HWC_WINDOW_STATE_DEVICE.
+ *  2. try to set NULL and release(clear) tsurface_queue of the target_window at E_HWC_WINDOW_STATE_NONE.
+ *  Returing EINA_FALSE means that there is no update for the target_window->tsurface.
+ **/
 EINTERN Eina_Bool
 e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
 {
@@ -1578,12 +1584,12 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
         tsurface = _e_hwc_window_target_window_surface_acquire((E_Hwc_Window_Target *)hwc_window);
         if (!tsurface)
           {
-             ELOGF("HWC-WINS", " the surface of target is null.(E_HWC_WINDOW_STATE_DEVICE)", NULL, NULL);
+             //ELOGF("HWC-WINS", " the surface of target is null.(E_HWC_WINDOW_STATE_DEVICE)", NULL, NULL);
              return EINA_FALSE;
           }
         if (tsurface == hwc_window->tsurface)
           {
-             ELOGF("HWC-WINS", " aquired buffer is same.(ts:%p)(E_HWC_WINDOW_STATE_DEVICE)", NULL, NULL, hwc_window->tsurface);
+             //ELOGF("HWC-WINS", " aquired buffer is same.(ts:%p)(E_HWC_WINDOW_STATE_DEVICE)", NULL, NULL, hwc_window->tsurface);
              return EINA_FALSE;
           }
 
@@ -1600,7 +1606,7 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
 
         tdm_output_hwc_set_client_target_buffer(output->toutput, hwc_window->tsurface, fb_damage, NULL, 0);
 
-        ELOGF("HWC-WINS", " ehw:%p sets ts:%p ------- {%25s}, state:%s, zpos:%d no hwc_windows to render.",
+        ELOGF("HWC-WINS", " ehw:%p sets ts:%10p ------- {%25s}, state:%s, zpos:%d no hwc_windows to render.",
               NULL, NULL, hwc_window, hwc_window->tsurface, "@TARGET WINDOW@",
               e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
      }
@@ -1608,7 +1614,7 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
      {
         if (hwc_window->tsurface == NULL)
           {
-             ELOGF("HWC-WINS", " the surface of target is null.(E_HWC_WINDOW_STATE_NONE)", NULL, NULL);
+             //ELOGF("HWC-WINS", " the surface of target is null.(E_HWC_WINDOW_STATE_NONE)", NULL, NULL);
              return EINA_FALSE;
           }
 
@@ -1622,8 +1628,8 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
 
         //TODO: Do we set the target_buffer to be NULL?
 
-        ELOGF("HWC-WINS", " ehw:%p sets ts:(NULL) ------- {%25s}, state:%s, zpos:%d",
-              NULL, NULL, hwc_window, "@TARGET WINDOW@",
+        ELOGF("HWC-WINS", " ehw:%p sets ts:%10p ------- {%25s}, state:%s, zpos:%d",
+              NULL, NULL, hwc_window, hwc_window->tsurface, "@TARGET WINDOW@",
               e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
      }
 
@@ -1715,10 +1721,11 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
         if (pointer)
           e_pointer_hwc_set(pointer, EINA_FALSE);
      }
-
+#if 0
    if (hwc_window->activation_state == E_HWC_WINDOW_ACTIVATION_STATE_ACTIVATED &&
        hwc_window->state != E_HWC_WINDOW_STATE_NONE)
      hwc_window->is_device_to_client_transition = EINA_TRUE;
+#endif
 
    hwc_window->activation_state = E_HWC_WINDOW_ACTIVATION_STATE_DEACTIVATED;
 
@@ -1777,6 +1784,9 @@ EINTERN void
 e_hwc_window_prev_state_update(E_Hwc_Window *hwc_window)
 {
    EINA_SAFETY_ON_NULL_RETURN(hwc_window);
+
+   if (hwc_window->uncompleted_transition != E_HWC_WINDOW_TRANSITION_NONE_TO_NONE)
+     return;
 
    hwc_window->prev_state = hwc_window->state;
 }
