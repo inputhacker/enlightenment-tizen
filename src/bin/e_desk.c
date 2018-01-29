@@ -37,6 +37,7 @@ static void      _e_desk_event_desk_name_change_free(void *data, void *ev);
 static void      _e_desk_show_begin(E_Desk *desk, int dx, int dy);
 static void      _e_desk_hide_begin(E_Desk *desk, int dx, int dy);
 static void      _e_desk_event_desk_window_profile_change_free(void *data, void *ev);
+static Eina_Bool _e_desk_cb_zone_move_resize(void *data, int type EINA_UNUSED, void *event);
 
 static void      _e_desk_smart_init(E_Desk *desk);
 static void      _e_desk_smart_add(Evas_Object *obj);
@@ -107,6 +108,7 @@ e_desk_new(E_Zone *zone, int x, int y)
          * members of the smart object so far.
          */
         EINA_RECTANGLE_SET(&desk->geom, zone->x, zone->y, zone->w, zone->h);
+        E_LIST_HANDLER_APPEND(desk->handlers, E_EVENT_ZONE_MOVE_RESIZE, _e_desk_cb_zone_move_resize, desk);
      }
    else
      {
@@ -1057,6 +1059,7 @@ _e_desk_free(E_Desk *desk)
    E_FREE_FUNC(desk->smart_obj, evas_object_del);
    eina_stringshare_del(desk->name);
    desk->name = NULL;
+   E_FREE_LIST(desk->handlers, ecore_event_handler_del);
    free(desk);
 }
 
@@ -1114,6 +1117,26 @@ _e_desk_event_desk_window_profile_change_free(void *data EINA_UNUSED, void *even
    E_Event_Desk_Window_Profile_Change *ev = event;
    e_object_unref(E_OBJECT(ev->desk));
    E_FREE(ev);
+}
+
+static Eina_Bool
+_e_desk_cb_zone_move_resize(void *data, int type EINA_UNUSED, void *event)
+{
+   E_Event_Zone_Move_Resize *ev;
+   E_Desk *desk;
+
+   ev = event;
+   if (!ev) return ECORE_CALLBACK_PASS_ON;
+
+   desk = data;
+   if (!desk) return ECORE_CALLBACK_PASS_ON;
+
+   if (ev->zone != desk->zone)
+     return ECORE_CALLBACK_PASS_ON;
+
+   EINA_RECTANGLE_SET(&desk->geom, ev->zone->x, ev->zone->y, ev->zone->w, ev->zone->h);
+
+   return ECORE_CALLBACK_PASS_ON;
 }
 
 static Eina_Bool

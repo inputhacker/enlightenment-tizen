@@ -42,6 +42,7 @@ struct _E_Desk
    Eina_Rectangle       geom;
 
    unsigned int animate_count;
+   Eina_List           *handlers;
 };
 
 struct _E_Event_Desk_Show
