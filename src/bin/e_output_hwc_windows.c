@@ -852,6 +852,36 @@ _e_output_hwc_windows_status_print(E_Output_Hwc *output_hwc, Eina_Bool with_targ
     eina_list_free(sort_wnds);
 }
 
+static void
+_e_output_hwc_windows_ouput_commit_dump(E_Output_Hwc *output_hwc)
+{
+    const Eina_List *l;
+    Eina_List *sort_wnds;
+    E_Hwc_Window *hwc_window;
+    char fname[PATH_MAX];
+    Ecore_Window ec_win;
+    int i = 0;
+
+    sort_wnds = eina_list_clone(output_hwc->hwc_windows);
+    sort_wnds = eina_list_sort(sort_wnds, eina_list_count(sort_wnds), _e_output_hwc_windows_sort_cb);
+
+    EINA_LIST_FOREACH(sort_wnds, l, hwc_window)
+      {
+         if (hwc_window->state == E_HWC_WINDOW_STATE_NONE) continue;
+
+         ec_win = e_client_util_win_get(hwc_window->ec);
+
+         if (e_hwc_window_is_target(hwc_window))
+           snprintf(fname, sizeof(fname), "(%d)_output_commit_0x%08x_%s", i++, ec_win, e_hwc_window_state_string_get(hwc_window->state));
+         else
+           snprintf(fname, sizeof(fname), "(%d)_output_commit_0x%08x_%s_%d", i++, ec_win, e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
+
+         tbm_surface_internal_dump_buffer(hwc_window->tsurface, fname);
+      }
+
+    eina_list_free(sort_wnds);
+}
+
 static E_Hwc_Window *
 _e_output_hwc_windows_window_find_by_twin(E_Output_Hwc *output_hwc, tdm_hwc_window *hwc_win)
 {
@@ -1015,7 +1045,7 @@ _e_output_hwc_windows_accept(E_Output_Hwc *output_hwc, uint32_t num_changes)
 #endif
 
    /* re-validate when there is a DEVICE_TO_CLIENT transition */
-   //if (!accept_changes) goto fail;
+   if (!accept_changes) goto fail;
 
    /* accept changes */
    terror = tdm_output_hwc_accept_changes(toutput);
@@ -1647,6 +1677,59 @@ _e_output_hwc_windows_prev_states_update(E_Output_Hwc *output_hwc)
    EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
       e_hwc_window_prev_state_update(hwc_window);
 }
+#if 0
+static Eina_Bool
+_e_output_hwc_windows_target_window_commit_check(E_Output_Hwc *output_hwc)
+{
+   E_Hwc_Window_Target *target_hwc_window;
+   E_Hwc_Window *target_window;
+   E_Hwc_Window *hwc_window, *hw;
+   Eina_List *ee_rendered_hw_list = NULL;
+   uint32_t n_thw = 0;
+   const Eina_List *l;
+   int client_count = 0;
+   Eina_Bool found;
+
+   target_hwc_window = output_hwc->target_hwc_window;
+
+   target_window = (E_Hwc_Window *)target_hwc_window;
+
+   if (target_window->state == E_HWC_WINDOW_STATE_DEVICE)
+     {
+        EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
+          {
+             if (e_hwc_window_is_on_hw_overlay(hwc_window)) continue;
+             ++client_count;
+          }
+
+        ee_rendered_hw_list = e_hwc_window_target_window_ee_rendered_hw_list_get(target_hwc_window);
+        n_thw = eina_list_count(ee_rendered_hw_list);
+
+        if (n_thw != client_count) return EINA_FALSE;
+
+        if (n_thw)
+          {
+             EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw)
+               {
+                  found = EINA_FALSE;
+                  EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
+                    {
+                       if (e_hwc_window_is_on_hw_overlay(hwc_window)) continue;
+                       if (hwc_window == hw)
+                         {
+                            found = EINA_TRUE;
+                            break;
+                         }
+                    }
+                  if (!found) return EINA_FALSE;
+               }
+          }
+
+     }
+
+   return EINA_TRUE;
+}
+#endif
 
 EINTERN Eina_Bool
 e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
@@ -1714,7 +1797,14 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
              _e_output_hwc_windows_prev_states_update(output_hwc);
              return EINA_FALSE;
           }
-
+#if 0
+       if (!_e_output_hwc_windows_target_window_commit_check(output_hwc))
+         {
+             /* update the previous states. */
+             _e_output_hwc_windows_prev_states_update(output_hwc);
+             return EINA_FALSE;
+         }
+#endif
         EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
            _e_output_hwc_windows_prepare_commit(output, hwc_window);
 
@@ -1733,6 +1823,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
              ELOGF("HWC-WINS", "!!!!!!!! Output Commit !!!!!!!!", NULL, NULL);
              ELOGF("HWC-WINS", " The number of visible clients:%d.", NULL, NULL, output_hwc->num_visible_windows);
              _e_output_hwc_windows_status_print(output_hwc, EINA_TRUE);
+             _e_output_hwc_windows_ouput_commit_dump(output_hwc);
 
              error = tdm_output_commit(output->toutput, 0, _e_output_hwc_windows_commit_handler, output_hwc);
              if (error != TDM_ERROR_NONE)

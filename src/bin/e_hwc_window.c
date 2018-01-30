@@ -399,8 +399,8 @@ _e_hwc_window_target_window_clear(E_Hwc_Window_Target *target_hwc_window)
   return EINA_TRUE;
 }
 
-static Eina_List *
-_e_hwc_window_target_window_ee_rendered_hw_list_get(E_Hwc_Window_Target *target_window)
+EINTERN Eina_List *
+e_hwc_window_target_window_ee_rendered_hw_list_get(E_Hwc_Window_Target *target_window)
 {
    Eina_List *ee_rendered_hw_list = NULL, *new_list = NULL;
    E_Hwc_Window *hw1, *hw2;
@@ -1608,7 +1608,7 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
 
         tdm_output_hwc_set_client_target_buffer(output->toutput, hwc_window->tsurface, fb_damage, NULL, 0);
 
-        ee_rendered_hw_list = _e_hwc_window_target_window_ee_rendered_hw_list_get(target_hwc_window);
+        ee_rendered_hw_list = e_hwc_window_target_window_ee_rendered_hw_list_get(target_hwc_window);
         n_thw = eina_list_count(ee_rendered_hw_list);
         if (n_thw)
           {
