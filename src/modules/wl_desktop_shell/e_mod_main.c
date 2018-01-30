@@ -123,6 +123,13 @@ _e_shell_surface_destroy(struct wl_resource *resource)
    /* get the client for this resource */
    if ((ec = wl_resource_get_user_data(resource)))
      {
+        if (e_policy_visibility_client_grab_cancel(ec))
+          {
+             ELOGF("POL_VIS", "CLIENT VIS ON(temp).", ec->pixmap, ec);
+             ec->visibility.obscured = E_VISIBILITY_UNOBSCURED;
+             ec->visibility.changed = 1;
+          }
+
         if ((e_object_unref(E_OBJECT(ec))) &&
             (!e_object_is_del(E_OBJECT(ec))))
           {
