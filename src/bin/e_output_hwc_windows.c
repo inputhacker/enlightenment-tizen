@@ -1045,7 +1045,7 @@ _e_output_hwc_windows_accept(E_Output_Hwc *output_hwc, uint32_t num_changes)
 #endif
 
    /* re-validate when there is a DEVICE_TO_CLIENT transition */
-   if (!accept_changes) goto fail;
+   //if (!accept_changes) goto fail;
 
    /* accept changes */
    terror = tdm_output_hwc_accept_changes(toutput);
