@@ -546,6 +546,9 @@ _e_qp_srv_effect_finish_job_start(E_Policy_Quickpanel *qp, Eina_Bool visible)
 
    if (duration == 0.0)
      {
+        if (visible != qp->effect.final_visible_state)
+          qp->effect.final_visible_state = visible;
+
         _e_qp_srv_effect_finish_job_end(qp);
         return;
      }
