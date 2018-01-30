@@ -399,7 +399,6 @@ _e_hwc_window_target_window_clear(E_Hwc_Window_Target *target_hwc_window)
   return EINA_TRUE;
 }
 
-#if 0
 static Eina_List *
 _e_hwc_window_target_window_ee_rendered_hw_list_get(E_Hwc_Window_Target *target_window)
 {
@@ -421,7 +420,6 @@ _e_hwc_window_target_window_ee_rendered_hw_list_get(E_Hwc_Window_Target *target_
 
    return new_list;
 }
-#endif
 
 static void
 _e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
@@ -1570,9 +1568,13 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
 {
    E_Output *output;
    E_Output_Hwc *output_hwc;
-   E_Hwc_Window *hwc_window;
+   E_Hwc_Window *hwc_window, *hw;
    tbm_surface_h tsurface;
    tdm_hwc_region fb_damage;
+   Eina_List *ee_rendered_hw_list = NULL;
+   uint32_t n_thw = 0;
+   const Eina_List *l;
+   int i;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
 
@@ -1606,9 +1608,28 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
 
         tdm_output_hwc_set_client_target_buffer(output->toutput, hwc_window->tsurface, fb_damage, NULL, 0);
 
-        ELOGF("HWC-WINS", " ehw:%p sets ts:%10p ------- {%25s}, state:%s, zpos:%d no hwc_windows to render.",
-              NULL, NULL, hwc_window, hwc_window->tsurface, "@TARGET WINDOW@",
-              e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
+        ee_rendered_hw_list = _e_hwc_window_target_window_ee_rendered_hw_list_get(target_hwc_window);
+        n_thw = eina_list_count(ee_rendered_hw_list);
+        if (n_thw)
+          {
+             ELOGF("HWC-WINS", " ehw:%p sets ts:%10p ------- {%25s}, state:%s",
+                   NULL, NULL, hwc_window, hwc_window->tsurface, "@TARGET WINDOW@",
+                   e_hwc_window_state_string_get(hwc_window->state));
+
+             i = 0;
+             EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw)
+               {
+                  ELOGF("HWC-WINS", "  (%d) with ehw:%p, ts:%10p ------- {%25s}, state:%s, zpos:%d, deleted:%s",
+                        hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+                        i++, hw, hw->tsurface, hw->ec ? hw->ec->icccm.title : "UNKNOWN",
+                        e_hwc_window_state_string_get(hw->state),
+                        hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
+               }
+          }
+        else
+          ELOGF("HWC-WINS", " ehw:%p sets ts:%10p ------- {%25s}, state:%s, zpos:%d no hwc_windows to render.",
+                NULL, NULL, hwc_window, hwc_window->tsurface, "@TARGET WINDOW@",
+                e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
      }
    else
      {
@@ -1628,9 +1649,9 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
 
         //TODO: Do we set the target_buffer to be NULL?
 
-        ELOGF("HWC-WINS", " ehw:%p sets ts:%10p ------- {%25s}, state:%s, zpos:%d",
+        ELOGF("HWC-WINS", " ehw:%p sets ts:%10p ------- {%25s}, state:%s",
               NULL, NULL, hwc_window, hwc_window->tsurface, "@TARGET WINDOW@",
-              e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
+              e_hwc_window_state_string_get(hwc_window->state));
      }
 
    return EINA_TRUE;

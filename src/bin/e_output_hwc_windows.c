@@ -836,9 +836,9 @@ _e_output_hwc_windows_status_print(E_Output_Hwc *output_hwc, Eina_Bool with_targ
            {
               if (!with_target) continue;
 
-              ELOGF("HWC-WINS", "  ehw:%p ts:%p -- {%25s}, state:%s, zpos:%d",
+              ELOGF("HWC-WINS", "  ehw:%p ts:%p -- {%25s}, state:%s",
                     NULL, NULL, hwc_window, hwc_window->tsurface, "@TARGET WINDOW@",
-                    e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
+                    e_hwc_window_state_string_get(hwc_window->state));
               continue;
            }
 
