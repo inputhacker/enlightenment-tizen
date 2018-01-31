@@ -160,6 +160,8 @@ static void
 _e_comp_wl_input_cb_pointer_get(struct wl_client *client, struct wl_resource *resource, uint32_t id)
 {
    struct wl_resource *res;
+   struct wl_client *ptr_client = NULL;
+   E_Comp_Wl_Client_Data *cdata = NULL;
 
    /* try to create pointer resource */
    res = wl_resource_create(client, &wl_pointer_interface,
@@ -177,6 +179,33 @@ _e_comp_wl_input_cb_pointer_get(struct wl_client *client, struct wl_resource *re
    wl_resource_set_implementation(res, &_e_pointer_interface,
                                   e_comp->wl_comp_data,
                                  _e_comp_wl_input_cb_pointer_unbind);
+
+   if ((e_comp_wl->ptr.num_devices == 1) && e_comp_wl->ptr.ec && !e_comp_wl->ptr.ec->pointer_enter_sent && !e_config->use_cursor_timer)
+     {
+        cdata = (E_Comp_Wl_Client_Data*)e_comp_wl->ptr.ec->comp_data;
+        if (cdata && cdata->wl_surface)
+          ptr_client = wl_resource_get_client(cdata->wl_surface);
+
+        if (ptr_client == client)
+          {
+             Evas_Device *last_ptr = NULL, *dev;
+             Eina_List *list, *l;
+
+             list = (Eina_List *)evas_device_list(evas_object_evas_get(e_comp_wl->ptr.ec->frame), NULL);
+             EINA_LIST_FOREACH(list, l, dev)
+               {
+                  if ((!strncmp(evas_device_name_get(dev), e_comp_wl->input_device_manager.last_device_ptr->name, strlen(e_comp_wl->input_device_manager.last_device_ptr->name))) &&
+                      (!strncmp(evas_device_description_get(dev), e_comp_wl->input_device_manager.last_device_ptr->identifier, strlen(e_comp_wl->input_device_manager.last_device_ptr->identifier))) &&
+                      (evas_device_class_get(dev) == (Evas_Device_Class)e_comp_wl->input_device_manager.last_device_ptr->clas))
+                    {
+                       last_ptr = dev;
+                       break;
+                    }
+               }
+             if (last_ptr)
+               e_comp_wl_mouse_in_renew(e_comp_wl->ptr.ec, 0, wl_fixed_to_int(e_comp_wl->ptr.x), wl_fixed_to_int(e_comp_wl->ptr.y), NULL, NULL, NULL, ecore_time_get(), EVAS_EVENT_FLAG_NONE, last_ptr, NULL);
+          }
+     }
 }
 
 static void

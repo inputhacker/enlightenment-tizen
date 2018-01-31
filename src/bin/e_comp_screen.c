@@ -291,6 +291,33 @@ end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
+static void
+_e_comp_screen_pointer_renew(E_Input_Event_Input_Device_Del *ev)
+{
+     if ((e_comp_wl->ptr.num_devices == 0) && e_comp_wl->ptr.ec && e_comp_wl->ptr.ec->pointer_enter_sent)
+     {
+        if (e_comp_wl->input_device_manager.last_device_ptr)
+          {
+             Evas_Device *last_ptr = NULL, *dev;
+             Eina_List *list, *l;
+
+             list = (Eina_List *)evas_device_list(evas_object_evas_get(e_comp_wl->ptr.ec->frame), NULL);
+             EINA_LIST_FOREACH(list, l, dev)
+               {
+                  if ((!strncmp(evas_device_name_get(dev), e_comp_wl->input_device_manager.last_device_ptr->name, strlen(e_comp_wl->input_device_manager.last_device_ptr->name))) &&
+                      (!strncmp(evas_device_description_get(dev), e_comp_wl->input_device_manager.last_device_ptr->identifier, strlen(e_comp_wl->input_device_manager.last_device_ptr->identifier))) &&
+                      (evas_device_class_get(dev) == (Evas_Device_Class)e_comp_wl->input_device_manager.last_device_ptr->clas))
+                    {
+                       last_ptr = dev;
+                       break;
+                    }
+               }
+             if (last_ptr)
+               e_comp_wl_mouse_out_renew(e_comp_wl->ptr.ec, 0, wl_fixed_to_int(e_comp_wl->ptr.x), wl_fixed_to_int(e_comp_wl->ptr.y), NULL, NULL, NULL, ecore_time_get(), EVAS_EVENT_FLAG_NONE, last_ptr, NULL);
+          }
+     }
+}
+
 static Eina_Bool
 _e_comp_screen_cb_input_device_del(void *data, int type, void *event)
 {
@@ -307,6 +334,8 @@ _e_comp_screen_cb_input_device_del(void *data, int type, void *event)
              e_comp_wl_input_pointer_enabled_set(EINA_FALSE);
              e_pointer_object_set(comp->pointer, NULL, 0, 0);
              e_pointer_hide(e_comp->pointer);
+
+             _e_comp_screen_pointer_renew(e);
           }
      }
    if (e->caps & E_INPUT_SEAT_KEYBOARD)

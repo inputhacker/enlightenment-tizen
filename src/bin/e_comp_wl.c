@@ -1170,15 +1170,15 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
           }
         else
           {
-             _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
-             _e_comp_wl_send_mouse_move(ec, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp);
-             e_pointer_mouse_move(e_comp->pointer, ev->cur.output.x, ev->cur.output.y);
-
              if (e_config->use_cursor_timer)
                {
                  if (e_pointer_is_hidden(e_comp->pointer))
                    _e_comp_wl_cursor_reload(ec);
                }
+
+             _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
+             _e_comp_wl_send_mouse_move(ec, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp);
+             e_pointer_mouse_move(e_comp->pointer, ev->cur.output.x, ev->cur.output.y);
 
              _e_comp_wl_cursor_move_timer_control(ec);
           }
@@ -6031,6 +6031,60 @@ e_comp_wl_mouse_out_send(E_Client *ec, Ecore_Device *dev, uint32_t time)
      }
 
    return EINA_TRUE;
+}
+
+EINTERN void
+e_comp_wl_mouse_in_renew(E_Client *ec, int buttons, int x, int y, void *data, Evas_Modifier *modifiers, Evas_Lock *locks, unsigned int timestamp, Evas_Event_Flags event_flags, Evas_Device *dev, Evas_Object *event_src)
+{
+   Evas_Event_Mouse_In ev_in;
+
+   if (!ec) return;
+   if (ec->pointer_enter_sent) return;
+
+   ev_in.buttons = buttons;
+
+   ev_in.output.x = x;
+   ev_in.output.y = y;
+   ev_in.canvas.x = x;
+   ev_in.canvas.y = y;
+
+   ev_in.data = data;
+   ev_in.modifiers = modifiers;
+   ev_in.locks = locks;
+   ev_in.timestamp = timestamp;
+   ev_in.event_flags = event_flags;
+
+   ev_in.dev = dev;
+   ev_in.event_src = event_src;
+
+   _e_comp_wl_evas_cb_mouse_in((void *)ec, NULL, NULL, &ev_in);
+}
+
+EINTERN void
+e_comp_wl_mouse_out_renew(E_Client *ec, int buttons, int x, int y, void *data, Evas_Modifier *modifiers, Evas_Lock *locks, unsigned int timestamp, Evas_Event_Flags event_flags, Evas_Device *dev, Evas_Object *event_src)
+{
+   Evas_Event_Mouse_Out ev_out;
+
+   if (!ec) return;
+   if (!ec->pointer_enter_sent) return;
+
+   ev_out.buttons = buttons;
+
+   ev_out.output.x = x;
+   ev_out.output.y = y;
+   ev_out.canvas.x = x;
+   ev_out.canvas.y = y;
+
+   ev_out.data = data;
+   ev_out.modifiers = modifiers;
+   ev_out.locks = locks;
+   ev_out.timestamp = timestamp;
+   ev_out.event_flags = event_flags;
+
+   ev_out.dev = dev;
+   ev_out.event_src = event_src;
+
+   _e_comp_wl_evas_cb_mouse_out((void *)ec, NULL, NULL, &ev_out);
 }
 
 EINTERN Eina_Bool

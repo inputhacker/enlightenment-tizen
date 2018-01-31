@@ -571,6 +571,8 @@ EINTERN Eina_Bool e_comp_wl_mouse_move_send(E_Client *ec, int x, int y, Ecore_De
 EINTERN Eina_Bool e_comp_wl_mouse_wheel_send(E_Client *ec, int direction, int z, Ecore_Device *dev, uint32_t time);
 EINTERN Eina_Bool e_comp_wl_mouse_in_send(E_Client *ec, int x, int y, Ecore_Device *dev, uint32_t time);
 EINTERN Eina_Bool e_comp_wl_mouse_out_send(E_Client *ec, Ecore_Device *dev, uint32_t time);
+EINTERN void e_comp_wl_mouse_in_renew(E_Client *ec, int buttons, int x, int y, void *data, Evas_Modifier *modifiers, Evas_Lock *locks, unsigned int timestamp, Evas_Event_Flags event_flags, Evas_Device *dev, Evas_Object *event_src);
+EINTERN void e_comp_wl_mouse_out_renew(E_Client *ec, int buttons, int x, int y, void *data, Evas_Modifier *modifiers, Evas_Lock *locks, unsigned int timestamp, Evas_Event_Flags event_flags, Evas_Device *dev, Evas_Object *event_src);
 
 EINTERN Eina_Bool e_comp_wl_cursor_hide(E_Client *ec);
 
