@@ -1514,7 +1514,7 @@ _e_output_hwc_windows_transition_update(E_Output_Hwc *output_hwc)
 }
 
 static Eina_Bool
-_e_output_hwc_windows_commit_evaulate(E_Output_Hwc *output_hwc)
+_e_output_hwc_windows_composition_evaulate(E_Output_Hwc *output_hwc)
 {
    Eina_Bool ret = EINA_FALSE;
    Eina_Bool can_validate;
@@ -1556,7 +1556,7 @@ done:
 }
 
 static void
-_e_output_hwc_windows_states_evaluate(E_Output_Hwc *output_hwc)
+_e_output_hwc_windows_states_update(E_Output_Hwc *output_hwc)
 {
    Eina_List *visible_windows_list = NULL;
 
@@ -1585,31 +1585,22 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
    ELOGF("HWC-WINS", "====================== Output HWC Apply (evaluate) ======================", NULL, NULL);
 
    /* evaulate the current states */
-   _e_output_hwc_windows_states_evaluate(output_hwc);
+   _e_output_hwc_windows_states_update(output_hwc);
 
    /* update the state transition */
    _e_output_hwc_windows_transition_update(output_hwc);
 
    /* evaulate the compositions with the states*/
-   if (_e_output_hwc_windows_commit_evaulate(output_hwc))
-     {
-#if DBG_EVALUATE
-        ELOGF("HWC-WINS", " Succeed the commit_evaulation.", NULL, NULL);
-#endif
-     }
+   if (_e_output_hwc_windows_composition_evaulate(output_hwc))
+        ELOGF("HWC-WINS", " Succeed the compsition_evaulation.", NULL, NULL);
    else
-     {
-#if DBG_EVALUATE
-        ELOGF("HWC-WINS", " Need to re-evaulation.", NULL, NULL);
-#endif
-     }
+        ELOGF("HWC-WINS", " Need the comopsition re-evaulation.", NULL, NULL);
 
    /* update the activate/decativate state */
    _e_output_hwc_windows_activation_states_update(output_hwc);
 
    /* decide the E_OUTPUT_HWC_MODE */
    hwc_mode = _e_output_hwc_windows_hwc_mode_get(output_hwc);
-
    if (hwc_mode == E_OUTPUT_HWC_MODE_HYBRID || hwc_mode == E_OUTPUT_HWC_MODE_NONE)
      e_hwc_window_state_set(target_window, E_HWC_WINDOW_STATE_DEVICE);
    else
@@ -1624,8 +1615,6 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
 
         output_hwc->hwc_mode  = hwc_mode;
      }
-
-   if (hwc_mode == E_OUTPUT_HWC_MODE_NONE) output_hwc->update_changes = EINA_TRUE;
 
    ret = EINA_TRUE;
 
