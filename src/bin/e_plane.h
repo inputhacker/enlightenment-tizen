@@ -187,6 +187,9 @@ EINTERN Eina_Bool            e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *re
 EINTERN void                 e_plane_zoom_unset(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_fps_get(E_Plane *plane, double *fps);
 EINTERN void                 e_plane_dpms_off(E_Plane *plane);
+EINTERN void                 e_plane_renderer_unset(E_Plane *plane);
+EINTERN void                 e_plane_renderer_clean(E_Plane *plane);
+
 
 E_API Eina_Bool              e_plane_type_set(E_Plane *plane, E_Plane_Type type);
 E_API E_Plane_Type           e_plane_type_get(E_Plane *plane);

@@ -834,20 +834,27 @@ _e_plane_renderer_surface_exported_surface_destroy_cb(tbm_surface_h tsurface, vo
    renderer = plane->renderer;
    if (!renderer) return;
 
-   renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
-   EINA_SAFETY_ON_NULL_RETURN(renderer_buffer);
+   if (renderer->exported_wl_buffer_count > 0) renderer->exported_wl_buffer_count--;
 
    if (renderer_trace_debug)
      ELOGF("E_PLANE_RENDERER", "Destroy Renderer(%p)        tsurface(%p) tqueue(%p)",
            NULL, NULL, renderer, tsurface, renderer->tqueue);
 
-   if (renderer->state != E_PLANE_RENDERER_STATE_PENDING_DEACTIVATE) return;
-
-   if (renderer_buffer->exported)
+   renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
+   if (renderer_buffer)
      {
-        if (!_e_plane_renderer_release_exported_renderer_buffer(renderer, renderer_buffer))
-          ERR("failed to _e_plane_renderer_release_exported_renderer_buffer");
+        if (renderer->state == E_PLANE_RENDERER_STATE_PENDING_DEACTIVATE)
+          {
+             if (renderer_buffer->exported)
+               {
+                  if (!_e_plane_renderer_release_exported_renderer_buffer(renderer, renderer_buffer))
+                    ERR("failed to _e_plane_renderer_release_exported_renderer_buffer");
+               }
+          }
      }
+
+   if (!plane->is_fb && !renderer->exported_wl_buffer_count && !renderer->ec)
+     e_plane_renderer_unset(plane);
 }
 
 static void
@@ -1325,6 +1332,7 @@ e_plane_renderer_ec_set(E_Plane_Renderer *renderer, E_Client *ec)
                   if (renderer->tqueue_width != ec->w || renderer->tqueue_height != ec->h)
                     {
                        /* recreate tqueue */
+                       e_plane_renderer_clean(plane);
                        e_plane_renderer_surface_queue_destroy(renderer);
 
                        tqueue = e_plane_renderer_surface_queue_create(renderer, ec->w, ec->h, plane->buffer_flags);
@@ -1435,20 +1443,7 @@ e_plane_renderer_del(E_Plane_Renderer *renderer)
      tbm_surface_queue_remove_destroy_cb(renderer->tqueue, _e_plane_renderer_cb_surface_queue_destroy, (void *)renderer);
 
    role = e_plane_role_get(plane);
-
-   if (role == E_PLANE_ROLE_OVERLAY)
-     {
-       if (plane->reserved_memory)
-         {
-            e_plane_renderer_reserved_deactivate(renderer);
-            e_plane_renderer_surface_queue_destroy(renderer);
-         }
-       else
-         {
-            e_plane_renderer_deactivate(renderer);
-         }
-     }
-   else if (role == E_PLANE_ROLE_CURSOR)
+   if (role == E_PLANE_ROLE_CURSOR)
      {
         if (ec)
           {
@@ -1460,6 +1455,16 @@ e_plane_renderer_del(E_Plane_Renderer *renderer)
 
         _e_plane_renderer_recover_ec(renderer);
         tbm_surface_destroy(renderer->cursor_tsurface);
+     }
+   else
+     {
+        if (plane->reserved_memory)
+          {
+             e_plane_renderer_reserved_deactivate(renderer);
+             e_plane_renderer_surface_queue_destroy(renderer);
+          }
+        else
+          e_plane_renderer_deactivate(renderer);
      }
 
    if (ec)
@@ -2495,6 +2500,7 @@ e_plane_renderer_surface_send(E_Plane_Renderer *renderer, E_Client *ec, tbm_surf
                 _e_plane_renderer_surface_exported_surface_destroy_cb,
                 (void *)plane);
 
+        renderer->exported_wl_buffer_count++;
         renderer->exported_surfaces = eina_list_append(renderer->exported_surfaces, tsurface);
 
         renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
