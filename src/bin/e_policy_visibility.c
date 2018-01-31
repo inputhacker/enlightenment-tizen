@@ -1939,10 +1939,11 @@ e_policy_visibility_client_iconify(E_Client *ec)
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
    VS_DBG(ec, "API ENTRY | ICONIFY");
-   if (ec->iconic) return EINA_FALSE;
 
    /* if vc has job grab, release them */
    _e_vis_client_grab_cancel(vc);
+
+   if (ec->iconic) return EINA_FALSE;
 
    /* find activity client among the clients to be lower */
    if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.iconify))
