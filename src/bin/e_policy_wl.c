@@ -2164,10 +2164,13 @@ e_policy_wl_iconify(E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
    ELOG("Set ICONIFY BY CLIENT", ec->pixmap, ec);
-   ec->exp_iconify.by_client = 1;
 
    if (e_policy_visibility_client_iconify(ec))
-     return;
+     {
+        ec->exp_iconify.by_client = 1;
+        return;
+     }
+   ec->exp_iconify.by_client = 1;
 
    e_client_iconify(ec);
 
