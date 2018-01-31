@@ -113,20 +113,36 @@ _e_plane_surface_can_set(E_Plane *plane, tbm_surface_h tsurface)
    return EINA_TRUE;
 }
 
-static void
-_e_plane_renderer_unset(E_Plane *plane)
+EINTERN void
+e_plane_renderer_clean(E_Plane *plane)
 {
    Eina_List *data_l;
    E_Plane_Commit_Data *data = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(plane);
 
    plane->display_info.renderer = NULL;
 
    EINA_LIST_FOREACH(plane->commit_data_list, data_l, data)
      data->renderer = NULL;
+}
 
-   if (plane->renderer)
-     e_plane_renderer_del(plane->renderer);
+EINTERN void
+e_plane_renderer_unset(E_Plane *plane)
+{
+   EINA_SAFETY_ON_NULL_RETURN(plane);
 
+   if (!plane->renderer) return;
+
+   if (plane->reserved_memory)
+     e_plane_renderer_reserved_deactivate(plane->renderer);
+   else
+     e_plane_renderer_deactivate(plane->renderer);
+
+   if (plane->renderer->exported_wl_buffer_count > 0) return;
+
+   e_plane_renderer_clean(plane);
+   e_plane_renderer_del(plane->renderer);
    plane->renderer = NULL;
 }
 
@@ -1642,7 +1658,7 @@ e_plane_free(E_Plane *plane)
      }
 
    if (plane->name) eina_stringshare_del(plane->name);
-   if (plane->renderer) _e_plane_renderer_unset(plane);
+   if (plane->renderer) e_plane_renderer_unset(plane);
    if (plane->ec) e_plane_ec_set(plane, NULL);
 
    free(plane);
@@ -1975,7 +1991,7 @@ _e_plane_fb_target_change(E_Plane *fb_target, E_Plane *plane)
    renderer = fb_target->renderer;
 
    if (plane->renderer)
-     _e_plane_renderer_unset(plane);
+     e_plane_renderer_unset(plane);
 
    renderer->plane = plane;
    plane->renderer = renderer;
@@ -2373,7 +2389,7 @@ e_plane_reserved_set(E_Plane *plane, Eina_Bool set)
                {
                   if (!plane->ec)
                     {
-                       _e_plane_renderer_unset(plane);
+                       e_plane_renderer_unset(plane);
                        e_plane_role_set(plane, E_PLANE_ROLE_NONE);
                     }
                }
@@ -2620,7 +2636,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
                     }
 
                   if ((plane->renderer) && (plane->role != E_PLANE_ROLE_OVERLAY))
-                    _e_plane_renderer_unset(plane);
+                    e_plane_renderer_unset(plane);
 
                   if (!plane->renderer)
                     plane->renderer = e_plane_renderer_new(plane);
@@ -2723,7 +2739,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
              if (plane->renderer)
                {
                   _e_plane_set_counter_reset(plane);
-                  _e_plane_renderer_unset(plane);
+                  e_plane_renderer_unset(plane);
                   e_plane_role_set(plane, E_PLANE_ROLE_NONE);
                }
           }
