@@ -1802,6 +1802,7 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
 
    ec = renderer->ec;
    if (!ec) return EINA_TRUE;
+   if (renderer->state == E_PLANE_RENDERER_STATE_PENDING_DEACTIVATE) return EINA_TRUE;
 
    renderer_client = e_plane_renderer_client_get(ec);
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_client, EINA_FALSE);
