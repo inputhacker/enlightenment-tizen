@@ -1290,6 +1290,14 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
    tbm_surface_h tsurface = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+   if (hwc_window->is_deleted)
+     {
+        hwc_window->tsurface = NULL;
+        hwc_window->update_exist = EINA_TRUE;
+        hwc_window->output_hwc->update_changes = EINA_TRUE;
+        return EINA_TRUE;
+     }
+
 #if 0
    if (hwc_window->uncompleted_transition != E_HWC_WINDOW_TRANSITION_NONE_TO_NONE)
      {
