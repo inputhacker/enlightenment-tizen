@@ -1320,7 +1320,7 @@ e_output_hwc_windows_deinit(void)
    // TDOO:
    ;;;
 }
-
+#if 0
 static Eina_Bool
 _e_output_hwc_windows_uncomplete_transition_check(E_Output_Hwc *output_hwc)
 {
@@ -1490,6 +1490,7 @@ _e_output_hwc_windows_transition_update(E_Output_Hwc *output_hwc)
           }
      }
 }
+#endif
 
 static Eina_Bool
 _e_output_hwc_windows_composition_evaulate(E_Output_Hwc *output_hwc)
@@ -1554,10 +1555,9 @@ _e_output_hwc_windows_states_update(E_Output_Hwc *output_hwc)
 }
 
 /* evaluate the hwc_windows */
-EINTERN Eina_Bool
-e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
+static Eina_Bool
+_e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
 {
-   Eina_Bool ret = EINA_FALSE;
    E_Output_Hwc_Mode hwc_mode = E_OUTPUT_HWC_MODE_NONE;
    E_Hwc_Window *target_window = (E_Hwc_Window *)output_hwc->target_hwc_window;
 
@@ -1567,7 +1567,7 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
    _e_output_hwc_windows_states_update(output_hwc);
 
    /* update the state transition */
-   _e_output_hwc_windows_transition_update(output_hwc);
+   //_e_output_hwc_windows_transition_update(output_hwc);
 
    /* evaulate the compositions with the states*/
    if (_e_output_hwc_windows_composition_evaulate(output_hwc))
@@ -1580,11 +1580,6 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
 
    /* decide the E_OUTPUT_HWC_MODE */
    hwc_mode = _e_output_hwc_windows_hwc_mode_get(output_hwc);
-   if (hwc_mode == E_OUTPUT_HWC_MODE_HYBRID || hwc_mode == E_OUTPUT_HWC_MODE_NONE)
-     e_hwc_window_state_set(target_window, E_HWC_WINDOW_STATE_DEVICE);
-   else
-     e_hwc_window_state_set(target_window, E_HWC_WINDOW_STATE_NONE);
-
    if (output_hwc->hwc_mode != hwc_mode)
      {
         if (hwc_mode == E_OUTPUT_HWC_MODE_HYBRID || hwc_mode == E_OUTPUT_HWC_MODE_NONE)
@@ -1595,8 +1590,6 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
         output_hwc->hwc_mode  = hwc_mode;
      }
 
-   ret = EINA_TRUE;
-
 #if DBG_EVALUATE
    if (hwc_mode == E_OUTPUT_HWC_MODE_NONE)
      ELOGF("HWC-WINS", " HWC_MODE is NONE composition.", NULL, NULL);
@@ -1606,7 +1599,21 @@ e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
      ELOGF("HWC-WINS", " HWC_MODE is FULL HW composition.", NULL, NULL);
 #endif
 
-   return ret;
+   /* set the state of the target_window */
+   if (hwc_mode == E_OUTPUT_HWC_MODE_HYBRID || hwc_mode == E_OUTPUT_HWC_MODE_NONE)
+     e_hwc_window_state_set(target_window, E_HWC_WINDOW_STATE_DEVICE);
+   else
+     e_hwc_window_state_set(target_window, E_HWC_WINDOW_STATE_NONE);
+
+    /* target state is DEVICE and no surface, then return false */
+    if (e_hwc_window_state_get(target_window) == E_HWC_WINDOW_STATE_DEVICE &&
+        target_window->tsurface == NULL)
+      {
+         ELOGF("HWC-WINS", "Need target_window buffer.", NULL, NULL);
+         return EINA_FALSE;
+      }
+
+   return EINA_TRUE;
 }
 
 EINTERN const Eina_List *
@@ -1686,7 +1693,6 @@ EINTERN Eina_Bool
 e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
 {
    E_Hwc_Window *hwc_window = NULL;
-   E_Hwc_Window *target_window = NULL;
    Eina_List *l;
    E_Output *output = NULL;
    tdm_error error = TDM_ERROR_NONE;
@@ -1718,17 +1724,12 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
    if (_e_output_hwc_windows_update_changes(output_hwc) ||
        output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NONE)
      {
-        if (!e_output_hwc_windows_evaluate(output_hwc))
-          ERR("failed e_output_hwc_windows_evaluate");
-
-        /* target is on and no surface, then return false */
-        target_window = (E_Hwc_Window *)output_hwc->target_hwc_window;
-        if (e_hwc_window_state_get(target_window) == E_HWC_WINDOW_STATE_DEVICE &&
-            target_window->tsurface == NULL)
+        if (!_e_output_hwc_windows_evaluate(output_hwc))
           {
+             ELOGF("HWC-WINS", "Evaluation is not completed. No Commit at this time.", NULL, NULL);
              /* update the previous states. */
              _e_output_hwc_windows_prev_states_update(output_hwc);
-             return EINA_FALSE;
+             return EINA_TRUE;
           }
 
         EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)

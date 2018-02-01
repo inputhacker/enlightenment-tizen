@@ -84,36 +84,26 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
 {
    EINA_SAFETY_ON_NULL_RETURN(output_hwc);
    EINA_SAFETY_ON_NULL_RETURN(output_hwc->output);
-   if (e_output_hwc_policy_get(output_hwc) == E_OUTPUT_HWC_POLICY_NONE) return;
+   if (e_output_hwc_policy_get(output_hwc) == E_OUTPUT_HWC_POLICY_NONE ||
+       e_output_hwc_policy_get(output_hwc) == E_OUTPUT_HWC_POLICY_WINDOWS) return;
 
-   if (e_output_hwc_policy_get(output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_output_hwc_deactive_get(output_hwc))
      {
-        if (e_output_hwc_deactive_get(output_hwc))
-          {
-             if (output_hwc->hwc_mode != E_OUTPUT_HWC_MODE_NONE)
-               e_output_hwc_planes_end(output_hwc, "deactive set.");
-             return;
-          }
-
-        if (!e_output_hwc_planes_usable(output_hwc))
-          {
-             e_output_hwc_planes_end(output_hwc, __FUNCTION__);
-             return;
-          }
-
-        if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NONE)
-          e_output_hwc_planes_begin(output_hwc);
-        else
-          e_output_hwc_planes_changed(output_hwc);
+        if (output_hwc->hwc_mode != E_OUTPUT_HWC_MODE_NONE)
+          e_output_hwc_planes_end(output_hwc, "deactive set.");
+        return;
      }
-#if 0
+
+   if (!e_output_hwc_planes_usable(output_hwc))
+     {
+        e_output_hwc_planes_end(output_hwc, __FUNCTION__);
+        return;
+     }
+
+   if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NONE)
+     e_output_hwc_planes_begin(output_hwc);
    else
-     {
-        /* evaluate which e_output_hwc_window will be composited by hwc and wich by GLES */
-        if (!e_output_hwc_windows_evaluate(output_hwc))
-           ERR("fail to e_output_hwc_windows_evaluate.");
-     }
-#endif
+     e_output_hwc_planes_changed(output_hwc);
 }
 
 EINTERN E_Output_Hwc_Mode
