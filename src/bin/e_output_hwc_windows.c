@@ -924,33 +924,6 @@ _e_output_hwc_windows_compsitions_update(E_Output_Hwc *output_hwc)
    return EINA_TRUE;
 }
 
-static Eina_Bool
-_e_output_hwc_windows_buffers_update(E_Output_Hwc *output_hwc)
-{
-   const Eina_List *l;
-   E_Hwc_Window *hwc_window;
-
-   EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, hwc_window)
-     {
-        if (e_hwc_window_is_target(hwc_window)) continue;
-
-        if (!e_hwc_window_buffer_fetch(hwc_window))
-          {
-             ELOGF("HWC-WINS", " ehw:%p e_hwc_window_buffer_fetch failed.",
-                   hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window);
-             continue;
-          }
-
-        if (!e_hwc_window_buffer_update(hwc_window))
-          {
-             ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
-             return EINA_FALSE;
-          }
-     }
-
-   return EINA_TRUE;
-}
-
 static E_Hwc_Window_State
 _e_output_hwc_windows_window_state_get(tdm_hwc_window_composition composition_type)
 {
@@ -1027,11 +1000,14 @@ _e_output_hwc_windows_accept(E_Output_Hwc *output_hwc, uint32_t num_changes)
         if (hwc_window->prev_state == E_HWC_WINDOW_STATE_DEVICE &&
             composition_types[i] == TDM_COMPOSITION_CLIENT)
           {
-             hwc_window->uncompleted_transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT;
-             accept_changes = EINA_FALSE;
+             if (!e_hwc_window_is_on_target_window(hwc_window))
+               {
+                  hwc_window->uncompleted_transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT;
+                  accept_changes = EINA_FALSE;
 
-             ELOGF("HWC-WINS", " E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT is set.(Accept_Changes)",
-                   hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec);
+                  ELOGF("HWC-WINS", " E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT is set.(Accept_Changes)",
+                        hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec);
+               }
           }
 
         /* update the state with the changed compsition */
@@ -1045,7 +1021,7 @@ _e_output_hwc_windows_accept(E_Output_Hwc *output_hwc, uint32_t num_changes)
 #endif
 
    /* re-validate when there is a DEVICE_TO_CLIENT transition */
-   //if (!accept_changes) goto fail;
+   if (!accept_changes) goto fail;
 
    /* accept changes */
    terror = tdm_output_hwc_accept_changes(toutput);
@@ -1429,6 +1405,8 @@ _e_output_hwc_windows_transition_update(E_Output_Hwc *output_hwc)
         if (e_hwc_window_is_target(hwc_window)) continue;
         if (e_hwc_window_is_video(hwc_window)) continue;
 
+        if (hwc_window->uncompleted_transition) continue;
+
         switch (hwc_window->prev_state)
           {
            case E_HWC_WINDOW_STATE_NONE:
@@ -1521,7 +1499,8 @@ _e_output_hwc_windows_composition_evaulate(E_Output_Hwc *output_hwc)
    uint32_t num_changes;
 
    /* evaluate the transition */
-   can_validate = _e_output_hwc_windows_uncomplete_transition_check(output_hwc);
+   //can_validate = _e_output_hwc_windows_uncomplete_transition_check(output_hwc);
+   can_validate = EINA_TRUE;
    if (can_validate)
      {
         if (!_e_output_hwc_windows_compsitions_update(output_hwc))
@@ -1666,59 +1645,42 @@ _e_output_hwc_windows_prev_states_update(E_Output_Hwc *output_hwc)
    EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
       e_hwc_window_prev_state_update(hwc_window);
 }
-#if 0
+
+/* check if there is a need to update the output */
 static Eina_Bool
-_e_output_hwc_windows_target_window_commit_check(E_Output_Hwc *output_hwc)
+_e_output_hwc_windows_update_changes(E_Output_Hwc *output_hwc)
 {
-   E_Hwc_Window_Target *target_hwc_window;
-   E_Hwc_Window *target_window;
-   E_Hwc_Window *hwc_window, *hw;
-   Eina_List *ee_rendered_hw_list = NULL;
-   uint32_t n_thw = 0;
    const Eina_List *l;
-   int client_count = 0;
-   Eina_Bool found;
+   E_Hwc_Window *hwc_window;
+   Eina_Bool update_changes = EINA_FALSE;
 
-   target_hwc_window = output_hwc->target_hwc_window;
+   /* fetch the target buffer */
+   if (e_hwc_window_target_buffer_fetch(output_hwc->target_hwc_window)) // try aquire
+     update_changes = EINA_TRUE;
 
-   target_window = (E_Hwc_Window *)target_hwc_window;
-
-   if (target_window->state == E_HWC_WINDOW_STATE_DEVICE)
+   /* fetch the windows buffers */
+   EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, hwc_window)
      {
-        EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
+        if (e_hwc_window_is_target(hwc_window)) continue;
+
+        if (!e_hwc_window_buffer_fetch(hwc_window))
           {
-             if (e_hwc_window_is_on_hw_overlay(hwc_window)) continue;
-             ++client_count;
+             ELOGF("HWC-WINS", " ehw:%p no new buffer is fetched.",
+                   hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window);
+             continue;
           }
 
-        ee_rendered_hw_list = e_hwc_window_target_window_ee_rendered_hw_list_get(target_hwc_window);
-        n_thw = eina_list_count(ee_rendered_hw_list);
-
-        if (n_thw != client_count) return EINA_FALSE;
-
-        if (n_thw)
+        if (!e_hwc_window_buffer_update(hwc_window))
           {
-             EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw)
-               {
-                  found = EINA_FALSE;
-                  EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
-                    {
-                       if (e_hwc_window_is_on_hw_overlay(hwc_window)) continue;
-                       if (hwc_window == hw)
-                         {
-                            found = EINA_TRUE;
-                            break;
-                         }
-                    }
-                  if (!found) return EINA_FALSE;
-               }
+             ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
+             continue;
           }
 
+        update_changes = EINA_TRUE;
      }
 
-   return EINA_TRUE;
+   return update_changes;
 }
-#endif
 
 EINTERN Eina_Bool
 e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
@@ -1753,32 +1715,14 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
         return EINA_TRUE;
      }
 
-   /* update the target_window */
-   target_window = (E_Hwc_Window *)output_hwc->target_hwc_window;
-   if (!e_hwc_window_target_buffer_fetch(output_hwc->target_hwc_window)) // try aquire
+   if (_e_output_hwc_windows_update_changes(output_hwc) ||
+       output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NONE)
      {
-        target_window->update_exist = EINA_FALSE;
-        output_hwc->update_changes = EINA_FALSE;
-        //ELOGF("HWC-WINS", " No available surface on target_window.", NULL, NULL);
-     }
-   else
-     {
-        target_window->update_exist = EINA_TRUE;
-        output_hwc->update_changes = EINA_TRUE;
-        //ELOGF("HWC-WINS", " Available surface on target_window.", NULL, NULL);
-     }
-
-   /* update the buffers and the infos */
-   _e_output_hwc_windows_buffers_update(output_hwc);
-
-   if (output_hwc->update_changes || output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NONE)
-     {
-        output_hwc->update_changes = EINA_FALSE;
-
         if (!e_output_hwc_windows_evaluate(output_hwc))
           ERR("failed e_output_hwc_windows_evaluate");
 
         /* target is on and no surface, then return false */
+        target_window = (E_Hwc_Window *)output_hwc->target_hwc_window;
         if (e_hwc_window_state_get(target_window) == E_HWC_WINDOW_STATE_DEVICE &&
             target_window->tsurface == NULL)
           {
@@ -1786,14 +1730,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
              _e_output_hwc_windows_prev_states_update(output_hwc);
              return EINA_FALSE;
           }
-#if 0
-       if (!_e_output_hwc_windows_target_window_commit_check(output_hwc))
-         {
-             /* update the previous states. */
-             _e_output_hwc_windows_prev_states_update(output_hwc);
-             return EINA_FALSE;
-         }
-#endif
+
         EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
            _e_output_hwc_windows_prepare_commit(output, hwc_window);
 
