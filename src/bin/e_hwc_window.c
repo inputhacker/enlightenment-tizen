@@ -1222,10 +1222,6 @@ e_hwc_window_compsition_update(E_Hwc_Window *hwc_window)
    thwc_window = hwc_window->thwc_window;
    EINA_SAFETY_ON_NULL_RETURN_VAL(thwc_window, EINA_FALSE);
 
-   /* set zpos */
-   error = tdm_hwc_window_set_zpos(thwc_window, hwc_window->zpos);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
-
    /* set composition type */
    composition_type = _get_composition_type(hwc_window->state);
    error = tdm_hwc_window_set_composition_type(hwc_window->thwc_window, composition_type);
