@@ -1308,6 +1308,7 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
 
         if (hwc_window->tsurface == NULL) return EINA_FALSE;
 
+        hwc_window->update_exist = EINA_TRUE;
         hwc_window->tsurface = NULL;
      }
    else
@@ -1342,18 +1343,16 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
                         hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window);
                   return EINA_FALSE;
                }
-            if (!e_comp_object_hwc_update_exists(hwc_window->ec->frame)) return EINA_TRUE;
+            if (!e_comp_object_hwc_update_exists(hwc_window->ec->frame)) return EINA_FALSE;
 
-              {
-                 e_comp_object_hwc_update_set(hwc_window->ec->frame, EINA_FALSE);
-                 hwc_window->update_exist = EINA_TRUE;
+            e_comp_object_hwc_update_set(hwc_window->ec->frame, EINA_FALSE);
+            hwc_window->update_exist = EINA_TRUE;
 
-                 ELOGF("HWC-WINS", " ehw:%p sets ts:%10p ------- {%25s}, state:%s, zpos:%d, deleted:%s (Cusor)",
-                       hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-                       hwc_window, tsurface, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-                       e_hwc_window_state_string_get(hwc_window->state),
-                       hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
-              }
+            ELOGF("HWC-WINS", " ehw:%p sets ts:%10p ------- {%25s}, state:%s, zpos:%d, deleted:%s (Cusor)",
+                  hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
+                  hwc_window, tsurface, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
+                  e_hwc_window_state_string_get(hwc_window->state),
+                  hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
           }
         else
           {

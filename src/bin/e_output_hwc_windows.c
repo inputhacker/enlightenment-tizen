@@ -1671,11 +1671,7 @@ _e_output_hwc_windows_update_changes(E_Output_Hwc *output_hwc)
         if (e_hwc_window_is_target(hwc_window)) continue;
 
         if (!e_hwc_window_buffer_fetch(hwc_window))
-          {
-             ELOGF("HWC-WINS", " ehw:%p no new buffer is fetched.",
-                   hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window);
              continue;
-          }
 
         if (!e_hwc_window_buffer_update(hwc_window))
           {
