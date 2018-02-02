@@ -1044,21 +1044,40 @@ fail:
 }
 
 static Eina_Bool
-_e_output_hwc_windows_validate(E_Output_Hwc *output_hwc, uint32_t *num_changes)
+_e_output_hwc_windows_validate(E_Output_Hwc *output_hwc, Eina_List *visible_windows_list, uint32_t *num_changes)
 {
    E_Output *output = output_hwc->output;
    tdm_error terror;
    tdm_output *toutput = output->toutput;
+   tdm_hwc_window **thwc_windows = NULL;
+   int i, n_thw;
+   E_Hwc_Window *hwc_window;
+   const Eina_List *l;
 
-   /* make hwc extension choose which clients will own hw overlays */
-   terror = tdm_output_hwc_validate(toutput, num_changes);
-   if (terror != TDM_ERROR_NONE)
+   n_thw = eina_list_count(visible_windows_list);
+   if (n_thw)
      {
-        ERR("HWC-WINS: failed to validate the output(%p)", toutput);
-        return EINA_FALSE;
+        thwc_windows = E_NEW(tdm_hwc_window *, n_thw);
+        EINA_SAFETY_ON_NULL_GOTO(thwc_windows, error);
+
+        i = 0;
+        EINA_LIST_FOREACH(visible_windows_list, l, hwc_window)
+          thwc_windows[i++] = hwc_window->thwc_window;
      }
 
+   /* make hwc extension choose which clients will own hw overlays */
+   terror = tdm_output_hwc_validate(toutput, thwc_windows, n_thw, num_changes);
+   if (terror != TDM_ERROR_NONE) goto error;
+
+   E_FREE(thwc_windows);
+
    return EINA_TRUE;
+
+error:
+   ERR("HWC-WINS: failed to validate the output(%p)", toutput);
+   E_FREE(thwc_windows);
+
+   return EINA_FALSE;
 }
 
 static void
@@ -1493,7 +1512,7 @@ _e_output_hwc_windows_transition_update(E_Output_Hwc *output_hwc)
 #endif
 
 static Eina_Bool
-_e_output_hwc_windows_composition_evaulate(E_Output_Hwc *output_hwc)
+_e_output_hwc_windows_composition_evaulate(E_Output_Hwc *output_hwc, Eina_List *visible_windows_list)
 {
    Eina_Bool ret = EINA_FALSE;
    Eina_Bool can_validate;
@@ -1512,7 +1531,7 @@ _e_output_hwc_windows_composition_evaulate(E_Output_Hwc *output_hwc)
           }
 
         /* validate the updated hwc_windows by asking tdm_hwc_output */
-        if (!_e_output_hwc_windows_validate(output_hwc, &num_changes))
+        if (!_e_output_hwc_windows_validate(output_hwc, visible_windows_list, &num_changes))
           {
              ERR("HWC-WINS: _e_output_hwc_windows_validate failed.");
              ret = EINA_FALSE;
@@ -1535,7 +1554,7 @@ done:
    return ret;
 }
 
-static void
+static Eina_List *
 _e_output_hwc_windows_states_update(E_Output_Hwc *output_hwc)
 {
    Eina_List *visible_windows_list = NULL;
@@ -1550,8 +1569,7 @@ _e_output_hwc_windows_states_update(E_Output_Hwc *output_hwc)
         _e_output_hwc_windows_hwc_acceptable_check(visible_windows_list);
      }
 
-   if (visible_windows_list)
-     eina_list_free(visible_windows_list);
+   return visible_windows_list;
 }
 
 /* evaluate the hwc_windows */
@@ -1560,20 +1578,25 @@ _e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
 {
    E_Output_Hwc_Mode hwc_mode = E_OUTPUT_HWC_MODE_NONE;
    E_Hwc_Window *target_window = (E_Hwc_Window *)output_hwc->target_hwc_window;
+   Eina_List *visible_windows_list = NULL;
 
    ELOGF("HWC-WINS", "====================== Output HWC Apply (evaluate) ======================", NULL, NULL);
 
    /* evaulate the current states */
-   _e_output_hwc_windows_states_update(output_hwc);
+   visible_windows_list = _e_output_hwc_windows_states_update(output_hwc);
 
    /* update the state transition */
    //_e_output_hwc_windows_transition_update(output_hwc);
 
    /* evaulate the compositions with the states*/
-   if (_e_output_hwc_windows_composition_evaulate(output_hwc))
+   if (_e_output_hwc_windows_composition_evaulate(output_hwc, visible_windows_list))
         ELOGF("HWC-WINS", " Succeed the compsition_evaulation.", NULL, NULL);
    else
         ELOGF("HWC-WINS", " Need the comopsition re-evaulation.", NULL, NULL);
+
+
+   if (visible_windows_list)
+     eina_list_free(visible_windows_list);
 
    /* update the activate/decativate state */
    _e_output_hwc_windows_activation_states_update(output_hwc);
