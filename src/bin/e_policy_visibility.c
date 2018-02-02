@@ -537,6 +537,27 @@ _e_vis_job_push(E_Vis_Job *job)
 }
 
 static Eina_Bool
+_e_vis_job_find(E_Vis_Client *vc, E_Vis_Job_Type type)
+{
+   E_Vis_Job_Group *group, *tmp_group;
+   E_Vis_Job *job, *tmp_job;
+
+   EINA_CLIST_FOR_EACH_ENTRY_SAFE(group, tmp_group,
+                                  &pol_job_group_head, E_Vis_Job_Group, entry)
+     {
+        EINA_CLIST_FOR_EACH_ENTRY_SAFE(job, tmp_job,
+                                       &group->job_head, E_Vis_Job, entry)
+          {
+             if (job->vc != vc) continue;
+             if (job->type == type)
+               return EINA_TRUE;
+          }
+     }
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
 _e_vis_job_add(E_Vis_Client *vc, E_Vis_Job_Type type, Ecore_Task_Cb timeout_func)
 {
    E_VIS_ALLOC_RET_VAL(job, E_Vis_Job, 1, EINA_FALSE);
@@ -1743,6 +1764,12 @@ _e_vis_intercept_hide(void *data EINA_UNUSED, E_Client *ec)
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_TRUE);
 
    VS_DBG(ec, "INTERCEPTOR HIDE");
+
+   if (_e_vis_job_find(vc, E_VIS_JOB_TYPE_HIDE))
+     {
+        VS_INF(ec, "Already Pending HIDE...");
+        return EINA_FALSE;
+     }
 
    /* find activity client among the clients to be lower */
    if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.raise))
