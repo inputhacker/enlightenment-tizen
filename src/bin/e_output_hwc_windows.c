@@ -484,7 +484,7 @@ _e_output_hwc_windows_pp_output_data_commit(E_Output_Hwc *output_hwc, E_Hwc_Wind
 
    /* no need to pass composited_wnds list because smooth transition isn't
     * used is this case */
-   terror = tdm_output_hwc_set_client_target_buffer(toutput, data->tsurface, fb_damage, NULL, 0);
+   terror = tdm_output_hwc_set_client_target_buffer(toutput, data->tsurface, fb_damage);
    if (terror != TDM_ERROR_NONE)
      {
         ERR("fail to tdm_output_hwc_set_client_target_buffer");

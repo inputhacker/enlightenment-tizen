@@ -1600,7 +1600,7 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
         /* the damage isn't supported by hwc extension yet */
         memset(&fb_damage, 0, sizeof(fb_damage));
 
-        tdm_output_hwc_set_client_target_buffer(output->toutput, hwc_window->tsurface, fb_damage, NULL, 0);
+        tdm_output_hwc_set_client_target_buffer(output->toutput, hwc_window->tsurface, fb_damage);
 
         ee_rendered_hw_list = e_hwc_window_target_window_ee_rendered_hw_list_get(target_hwc_window);
         n_thw = eina_list_count(ee_rendered_hw_list);
