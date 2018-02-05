@@ -5213,6 +5213,45 @@ _e_info_server_cb_buffer_flush(const Eldbus_Service_Interface *iface EINA_UNUSED
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_deiconify_approve(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = NULL;
+   int msg_from_client = 0;
+   char msg_to_client[128] = {0};
+   E_Client *ec = NULL;
+
+   if (!eldbus_message_arguments_get(msg, "i", &msg_from_client))
+     {
+        snprintf(msg_to_client, sizeof(msg_to_client), "Error occured while get message");
+     }
+   else
+     {
+        switch (msg_from_client)
+          {
+           case 0:
+           case 1:
+              e_config->deiconify_approve = msg_from_client;
+              for (ec = e_client_top_get(); ec; ec = e_client_below_get(ec))
+                {
+                   ec->exp_iconify.deiconify_update = msg_from_client;
+                }
+              snprintf(msg_to_client, sizeof(msg_to_client), "Successfully changed!  e_config->deiconify_approve : %d",
+                       e_config->deiconify_approve);
+              break;
+           default:
+              snprintf(msg_to_client, sizeof(msg_to_client), "Not changed!  e_config->deiconify_approve : %d",
+                       e_config->deiconify_approve);
+              break;
+          }
+     }
+
+   reply = eldbus_message_method_return_new(msg);
+   eldbus_message_arguments_append(reply, "s", msg_to_client);
+
+   return reply;
+}
+
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"iiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
@@ -5271,6 +5310,7 @@ static const Eldbus_Method methods[] = {
    { "module_unload", ELDBUS_ARGS({"s", "target module"}), ELDBUS_ARGS({"s", "unload result"}), _e_info_server_cb_module_unload, 0 },
    { "shutdown", NULL, ELDBUS_ARGS({"s", "shutdown result"}), _e_info_server_cb_shutdown, 0 },
    { "buffer_flush", ELDBUS_ARGS({"i", "option"}), ELDBUS_ARGS({"s", "buffer_flush status"}), _e_info_server_cb_buffer_flush, 0},
+   { "deiconify_approve", ELDBUS_ARGS({"i", "option"}), ELDBUS_ARGS({"s", "deiconify_approve status"}), _e_info_server_cb_deiconify_approve, 0},
    { NULL, NULL, NULL, NULL, 0 }
 };
 

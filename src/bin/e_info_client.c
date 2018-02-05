@@ -4254,6 +4254,63 @@ usage:
 finish:
    return;
 }
+
+static void
+_e_info_client_cb_deiconify_approve(const Eldbus_Message *msg)
+{
+   const char *errname = NULL, *errtext = NULL;
+   const char *result = NULL;
+
+   EINA_SAFETY_ON_TRUE_GOTO(eldbus_message_error_get(msg, &errname, &errtext), err);
+   EINA_SAFETY_ON_FALSE_GOTO(eldbus_message_arguments_get(msg, "s", &result), err);
+
+   printf("%s\n", result);
+
+   goto finish;
+
+err:
+   if (errname || errtext)
+     {
+        printf("errname : %s, errmsg : %s\n", errname, errtext);
+     }
+   else
+     {
+        printf("Error occured in _e_info_client_cb_deiconify_approve\n");
+     }
+
+finish:
+   return;
+}
+
+static void
+_e_info_client_proc_deiconify_approve(int argc, char **argv)
+{
+   int deiconify_approve_option = -1;
+   if ((argc != 3) || ((argv[2][0] != '0') && (argv[2][0] != '1')))
+     {
+        _e_info_client_eldbus_message_with_args("deiconify_approve",
+                                                _e_info_client_cb_deiconify_approve,
+                                                "i",
+                                                2);
+        goto usage;
+     }
+   else
+     {
+        deiconify_approve_option = atoi(argv[2]);
+        _e_info_client_eldbus_message_with_args("deiconify_approve",
+                                                _e_info_client_cb_deiconify_approve,
+                                                "i",
+                                                deiconify_approve_option);
+        goto finish;
+     }
+
+usage:
+   printf("Usage : %s %s [<0:off>/<1:on>]\n", argv[0], argv[1]);
+
+finish:
+   return;
+}
+
 static struct
 {
    const char *option;
@@ -4508,6 +4565,12 @@ static struct
       "[0:off / 1:on]",
       "set buffer_flush configure",
       _e_info_client_proc_buffer_flush
+   },
+   {
+      "deiconify_approve",
+      "[0:off / 1:on]",
+      "set deiconify_approve configure",
+      _e_info_client_proc_deiconify_approve
    },
 };
 
