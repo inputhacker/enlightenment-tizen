@@ -399,28 +399,6 @@ _e_hwc_window_target_window_clear(E_Hwc_Window_Target *target_hwc_window)
   return EINA_TRUE;
 }
 
-EINTERN Eina_List *
-e_hwc_window_target_window_ee_rendered_hw_list_get(E_Hwc_Window_Target *target_window)
-{
-   Eina_List *ee_rendered_hw_list = NULL, *new_list = NULL;
-   E_Hwc_Window *hw1, *hw2;
-   const Eina_List *l, *ll;
-   E_Output_Hwc *output_hwc;
-   tbm_surface_h target_tsurface;
-
-   output_hwc = target_window->hwc_window.output_hwc;
-
-   target_tsurface = target_window->hwc_window.tsurface;
-   tbm_surface_internal_get_user_data(target_tsurface, ee_rendered_hw_list_key, (void**)&ee_rendered_hw_list);
-
-   /* refresh list of composited e_thwc_windows according to existed ones */
-   EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw1)
-      EINA_LIST_FOREACH(output_hwc->hwc_windows, ll, hw2)
-         if (hw1 == hw2) new_list = eina_list_append(new_list, hw1);
-
-   return new_list;
-}
-
 static void
 _e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
 {
@@ -1647,6 +1625,28 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
    hwc_window->update_exist = EINA_TRUE;
 
    return EINA_TRUE;
+}
+
+EINTERN Eina_List *
+e_hwc_window_target_window_ee_rendered_hw_list_get(E_Hwc_Window_Target *target_window)
+{
+   Eina_List *ee_rendered_hw_list = NULL, *new_list = NULL;
+   E_Hwc_Window *hw1, *hw2;
+   const Eina_List *l, *ll;
+   E_Output_Hwc *output_hwc;
+   tbm_surface_h target_tsurface;
+
+   output_hwc = target_window->hwc_window.output_hwc;
+
+   target_tsurface = target_window->hwc_window.tsurface;
+   tbm_surface_internal_get_user_data(target_tsurface, ee_rendered_hw_list_key, (void**)&ee_rendered_hw_list);
+
+   /* refresh list of composited e_thwc_windows according to existed ones */
+   EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw1)
+      EINA_LIST_FOREACH(output_hwc->hwc_windows, ll, hw2)
+         if (hw1 == hw2) new_list = eina_list_append(new_list, hw1);
+
+   return new_list;
 }
 
 EINTERN Eina_Bool
