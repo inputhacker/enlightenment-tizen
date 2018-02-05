@@ -359,7 +359,10 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
         //TODO: consider what happens if it's not normal client such as subsurface client
         //TODO: save original values
         if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.unmap))
-          ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
+          {
+             ELOGF("COMP", "Call shell.unmap by rsm", ec->pixmap, ec);
+             ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
+          }
         else
           {
              ec->visible = EINA_FALSE;
@@ -607,7 +610,7 @@ _remote_surface_changed_buff_protocol_send(E_Comp_Wl_Remote_Surface *rs,
                   add_opts = EINA_TRUE;
                }
 
-             RSMINF("CHANGED_BUFF send:%d type:%u tbm:%p fd:%d(%d) add_opts:%d EV_FILTER(%d):%u",
+             RSMDBG("CHANGED_BUFF send:%d type:%u tbm:%p fd:%d(%d) add_opts:%d EV_FILTER(%d):%u",
                     NULL, NULL, "SURFACE", rs,
                     send, buff_type, tbm, img_file_fd, img_file_size, add_opts,
                     rs->changed_buff_ev_filter.use,
@@ -787,6 +790,7 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
 #endif
 
         e_comp_wl_surface_attach(remote_surface->bind_ec, NULL);
+        e_comp_object_render_update_del(remote_surface->bind_ec->frame);
 
         eina_hash_del(_rsm->bind_surface_hash, &remote_surface->bind_ec, remote_surface);
         _remote_surface_bind_client_unset(remote_surface);
@@ -2663,11 +2667,18 @@ _remote_manager_cb_surface_bind(struct wl_client *client, struct wl_resource *re
    _remote_surface_ignore_output_transform_send(&provider->common);
 }
 
+static void
+_remote_manager_cb_destroy(struct wl_client *client, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
 static const struct tizen_remote_surface_manager_interface _remote_manager_interface =
 {
    _remote_manager_cb_provider_create,
    _remote_manager_cb_surface_create,
    _remote_manager_cb_surface_bind,
+   _remote_manager_cb_destroy,
 };
 
 static void
@@ -2812,7 +2823,7 @@ _e_comp_wl_remote_cb_client_del(void *data, E_Client *ec)
 
    if ((remote_surface = eina_hash_find(_rsm->bind_surface_hash, &ec)))
      {
-        eina_hash_del(_rsm->surface_hash, &ec, remote_surface);
+        eina_hash_del(_rsm->bind_surface_hash, &ec, remote_surface);
         if (remote_surface->bind_ec == ec)
            _remote_surface_bind_client(remote_surface, NULL);
      }

@@ -95,6 +95,7 @@ struct _E_Video
    Eina_Rectangle pp_r;    /* converter dst content rect */
    Eina_List *pp_buffer_list;
    Eina_List *next_buffer;
+   Eina_Bool pp_scanout;
 
    int output_align;
    int pp_align;
@@ -933,10 +934,60 @@ _e_video_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
      _e_video_frame_buffer_show(video, NULL);
 }
 
+static Eina_Bool
+_e_video_input_buffer_scanout_check(E_Comp_Wl_Video_Buf *vbuf)
+{
+   tbm_surface_h tbm_surface = NULL;
+   tbm_bo bo = NULL;
+   int flag;
+
+   tbm_surface = vbuf->tbm_surface;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tbm_surface, EINA_FALSE);
+
+   bo = tbm_surface_internal_get_bo(tbm_surface, 0);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(bo, EINA_FALSE);
+
+   flag = tbm_bo_get_flags(bo);
+   if (flag == TBM_BO_SCANOUT)
+      return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+static E_Comp_Wl_Video_Buf*
+_e_video_input_buffer_copy(E_Video *video, E_Comp_Wl_Buffer *comp_buf, E_Comp_Wl_Video_Buf *vbuf, Eina_Bool scanout)
+{
+   E_Comp_Wl_Video_Buf *temp = NULL;
+   int aligned_width = ROUNDUP(vbuf->width_from_pitch, video->pp_align);
+
+   temp = e_comp_wl_video_buffer_alloc(aligned_width, vbuf->height, vbuf->tbmfmt, scanout);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(temp, NULL);
+
+   temp->comp_buffer = comp_buf;
+
+   VDB("copy vbuf(%d,%dx%d) => vbuf(%d,%dx%d)",
+       MSTAMP(vbuf), vbuf->width_from_pitch, vbuf->height,
+       MSTAMP(temp), temp->width_from_pitch, temp->height);
+
+   e_comp_wl_video_buffer_copy(vbuf, temp);
+   e_comp_wl_video_buffer_unref(vbuf);
+
+   video->geo.input_w = vbuf->width_from_pitch;
+#ifdef DUMP_BUFFER
+   char file[256];
+   static int i;
+   snprintf(file, sizeof file, "/tmp/dump/%s_%d.png", "cpy", i++);
+   tdm_helper_dump_buffer(temp->tbm_surface, file);
+#endif
+
+   return temp;
+}
+
 static E_Comp_Wl_Video_Buf*
 _e_video_input_buffer_get(E_Video *video, E_Comp_Wl_Buffer *comp_buffer, Eina_Bool scanout)
 {
    E_Comp_Wl_Video_Buf *vbuf;
+   Eina_Bool need_pp_scanout = EINA_FALSE;
 
    vbuf = _e_video_vbuf_find_with_comp_buffer(video->input_buffer_list, comp_buffer);
    if (vbuf)
@@ -948,37 +999,30 @@ _e_video_input_buffer_get(E_Video *video, E_Comp_Wl_Buffer *comp_buffer, Eina_Bo
    vbuf = e_comp_wl_video_buffer_create_comp(comp_buffer);
    EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
 
+   if (video->pp_scanout)
+     {
+        Eina_Bool input_buffer_scanout = EINA_FALSE;
+        input_buffer_scanout = _e_video_input_buffer_scanout_check(vbuf);
+        if (!input_buffer_scanout) need_pp_scanout = EINA_TRUE;
+     }
+
    if (video->pp)
      {
-        if (video->pp_align != -1 && (vbuf->width_from_pitch % video->pp_align))
+        if ((video->pp_align != -1 && (vbuf->width_from_pitch % video->pp_align)) ||
+            need_pp_scanout)
           {
              E_Comp_Wl_Video_Buf *temp;
-             int aligned_width = ROUNDUP(vbuf->width_from_pitch, video->pp_align);
 
-             temp = e_comp_wl_video_buffer_alloc(aligned_width, vbuf->height, vbuf->tbmfmt, scanout);
+             if (need_pp_scanout)
+               temp = _e_video_input_buffer_copy(video, comp_buffer, vbuf, EINA_TRUE);
+             else
+               temp = _e_video_input_buffer_copy(video, comp_buffer, vbuf, scanout);
              if (!temp)
                {
                   e_comp_wl_video_buffer_unref(vbuf);
                   return NULL;
                }
-
-             temp->comp_buffer = comp_buffer;
-
-             VDB("copy vbuf(%d,%dx%d) => vbuf(%d,%dx%d)",
-                 MSTAMP(vbuf), vbuf->width_from_pitch, vbuf->height,
-                 MSTAMP(temp), temp->width_from_pitch, temp->height);
-
-             e_comp_wl_video_buffer_copy(vbuf, temp);
-             e_comp_wl_video_buffer_unref(vbuf);
              vbuf = temp;
-
-             video->geo.input_w = vbuf->width_from_pitch;
-#ifdef DUMP_BUFFER
-             char file[256];
-             static int i;
-             snprintf(file, sizeof file, "/tmp/dump/%s_%d.png", "cpy", i++);
-             tdm_helper_dump_buffer(temp->tbm_surface, file);
-#endif
           }
      }
 
@@ -2576,11 +2620,17 @@ _e_video_render(E_Video *video, const char *func)
    /* 2. converting case */
    if (!video->pp)
      {
+        tdm_pp_capability pp_cap;
+
         video->pp = tdm_display_create_pp(e_comp->e_comp_screen->tdisplay, NULL);
         EINA_SAFETY_ON_NULL_GOTO(video->pp, render_fail);
 
         tdm_display_get_pp_available_size(e_comp->e_comp_screen->tdisplay, &video->pp_minw, &video->pp_minh,
                                           &video->pp_maxw, &video->pp_maxh, &video->pp_align);
+
+        tdm_display_get_pp_capabilities(e_comp->e_comp_screen->tdisplay, &pp_cap);
+        if (pp_cap & TDM_PP_CAPABILITY_SCANOUT)
+          video->pp_scanout = EINA_TRUE;
      }
 
    if ((video->pp_minw > 0 && (video->geo.input_r.w < video->pp_minw || video->geo.tdm_output_r.w < video->pp_minw)) ||

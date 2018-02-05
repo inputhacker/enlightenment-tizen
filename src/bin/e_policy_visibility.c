@@ -40,7 +40,7 @@ static void      _e_policy_client_uniconify_by_visibility(E_Client *ec);
 
 static inline Eina_Bool  _e_vis_client_is_grabbed(E_Vis_Client *vc);
 static void              _e_vis_client_grab_remove(E_Vis_Client *vc, E_Vis_Grab *grab);
-static void              _e_vis_client_grab_cancel(E_Vis_Client *vc);
+static Eina_Bool         _e_vis_client_grab_cancel(E_Vis_Client *vc);
 static void              _e_vis_client_job_exec(E_Vis_Client *vc, E_Vis_Job_Type type);
 static Eina_Bool         _e_vis_ec_activity_check(E_Client *ec, Eina_Bool check_alpha);
 static void              _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type);
@@ -537,6 +537,27 @@ _e_vis_job_push(E_Vis_Job *job)
 }
 
 static Eina_Bool
+_e_vis_job_find(E_Vis_Client *vc, E_Vis_Job_Type type)
+{
+   E_Vis_Job_Group *group, *tmp_group;
+   E_Vis_Job *job, *tmp_job;
+
+   EINA_CLIST_FOR_EACH_ENTRY_SAFE(group, tmp_group,
+                                  &pol_job_group_head, E_Vis_Job_Group, entry)
+     {
+        EINA_CLIST_FOR_EACH_ENTRY_SAFE(job, tmp_job,
+                                       &group->job_head, E_Vis_Job, entry)
+          {
+             if (job->vc != vc) continue;
+             if (job->type == type)
+               return EINA_TRUE;
+          }
+     }
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
 _e_vis_job_add(E_Vis_Client *vc, E_Vis_Job_Type type, Ecore_Task_Cb timeout_func)
 {
    E_VIS_ALLOC_RET_VAL(job, E_Vis_Job, 1, EINA_FALSE);
@@ -548,6 +569,7 @@ _e_vis_job_add(E_Vis_Client *vc, E_Vis_Job_Type type, Ecore_Task_Cb timeout_func
    job->vc = vc;
    job->type = type;
    job->timer = ecore_timer_add(E_VIS_TIMEOUT, timeout_func, job);
+   VS_INF(vc->ec, "NEW JOB:%p, type:%d", job, type);
 
    if ((job->type == E_VIS_JOB_TYPE_LOWER) ||
        (job->type == E_VIS_JOB_TYPE_HIDE) ||
@@ -570,6 +592,8 @@ _e_vis_job_del(Eina_Clist *elem)
        (job->type == E_VIS_JOB_TYPE_ICONIFY) ||
        (job->type == E_VIS_JOB_TYPE_LAYER_LOWER))
      e_comp_canvas_norender_pop();
+
+   VS_INF(job->vc->ec, "FREE JOB:%p, type:%d", job, job->type);
    E_FREE_FUNC(job->timer, ecore_timer_del);
    free(job);
 }
@@ -593,6 +617,7 @@ _e_vis_job_exec(Eina_Clist *elem)
    _e_vis_clist_unlink(elem);
    job = EINA_CLIST_ENTRY(elem, E_Vis_Job, entry);
    _e_vis_client_job_exec(job->vc, job->type);
+   VS_INF(job->vc->ec, "FREE JOB:%p, type:%d", job, job->type);
    E_FREE_FUNC(job->timer, ecore_timer_del);
    free(job);
 }
@@ -633,7 +658,7 @@ _e_vis_job_eval(void)
 {
    E_Vis_Job_Group *group, *tmp;
 
-   INF("VISIBILITY | Job Eval");
+   INF("VISIBILITY | Job Eval Begin");
 
    _e_vis_job_queue_update();
 
@@ -646,6 +671,7 @@ _e_vis_job_eval(void)
         /* execute all of job in the group */
         _e_vis_job_group_exec(group);
      }
+   INF("VISIBILITY | Job Eval End");
 }
 
 static void
@@ -720,7 +746,7 @@ _e_vis_client_cb_buffer_attach(void *data, int type EINA_UNUSED, void *event)
    ec = vc->ec;
    grab = vc->grab;
 
-   VS_DBG(ec, "FINISH Uniconify render(ev:%p, vc:%p, provider:%p)", ev->ec, vc->ec, provider_ec);
+   VS_INF(ec, "FINISH Uniconify render(ev:%p, vc:%p, provider:%p)", ev->ec, vc->ec, provider_ec);
 
    /* force update
     * NOTE: this update can invoke some functions related to visibility grab */
@@ -772,12 +798,14 @@ _e_vis_client_job_exec(E_Vis_Client *vc, E_Vis_Job_Type type)
    _e_vis_ec_job_exec(vc->ec, type);
 
    vc->job.count--;
+   VS_INF(vc->ec, "Decrease VC JOB count:%d", vc->job.count);
+
    if (vc->job.count == 0)
      {
         if (e_object_is_del(E_OBJECT(vc->ec)))
           {
              /* all of enqueued job is executed */
-             VS_DBG(vc->ec, "Deleted Client: UNREF Delay Del");
+             VS_INF(vc->ec, "Deleted Client: UNREF Delay Del");
              e_pixmap_free(vc->ec->pixmap);
              e_object_delay_del_unref(E_OBJECT(vc->ec));
           }
@@ -843,16 +871,19 @@ _e_vis_client_grab_get(E_Vis_Client *vc, const char *name)
    return grab;
 }
 
-static void
+static Eina_Bool
 _e_vis_client_grab_cancel(E_Vis_Client *vc)
 {
-   EINA_SAFETY_ON_NULL_RETURN(vc);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(vc, EINA_FALSE);
 
    if (_e_vis_client_is_uniconify_render_running(vc))
      {
         VS_INF(vc->ec, "Visibility changed while waiting Uniconify. Release grab.");
         E_FREE_FUNC(vc->grab, _e_vis_grab_release);
+        return EINA_TRUE;
      }
+
+   return EINA_FALSE;
 }
 
 static void
@@ -979,6 +1010,7 @@ _e_vis_client_job_add(E_Vis_Client *vc, E_Vis_Job_Type type)
      return;
 
    vc->job.count++;
+   VS_INF(vc->ec, "Increase VC JOB count:%d", vc->job.count);
 }
 
 static void
@@ -1733,6 +1765,12 @@ _e_vis_intercept_hide(void *data EINA_UNUSED, E_Client *ec)
 
    VS_DBG(ec, "INTERCEPTOR HIDE");
 
+   if (_e_vis_job_find(vc, E_VIS_JOB_TYPE_HIDE))
+     {
+        VS_INF(ec, "Already Pending HIDE...");
+        return EINA_FALSE;
+     }
+
    /* find activity client among the clients to be lower */
    if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.raise))
      {
@@ -1820,6 +1858,13 @@ e_policy_visibility_client_grab_release(E_Vis_Grab *grab)
 }
 
 E_API Eina_Bool
+e_policy_visibility_client_grab_cancel(E_Client *ec)
+{
+   E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
+   return _e_vis_client_grab_cancel(vc);
+}
+
+E_API Eina_Bool
 e_policy_visibility_client_raise(E_Client *ec)
 {
    E_Client *child;
@@ -1894,10 +1939,11 @@ e_policy_visibility_client_iconify(E_Client *ec)
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
    VS_DBG(ec, "API ENTRY | ICONIFY");
-   if (ec->iconic) return EINA_FALSE;
 
    /* if vc has job grab, release them */
    _e_vis_client_grab_cancel(vc);
+
+   if (ec->iconic) return EINA_FALSE;
 
    /* find activity client among the clients to be lower */
    if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.iconify))

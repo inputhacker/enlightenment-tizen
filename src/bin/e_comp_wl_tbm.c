@@ -103,6 +103,8 @@ e_comp_wl_tbm_buffer_get(tbm_surface_h tsurface)
    buffer->shm_buffer = NULL;
    wl_signal_init(&buffer->destroy_signal);
 
+   tbm_surface_internal_ref(tsurface);
+
    return buffer;
 }
 

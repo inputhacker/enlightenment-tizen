@@ -122,6 +122,13 @@ _e_shell_surface_destroy(struct wl_resource *resource)
    /* get the client for this resource */
    if ((ec = wl_resource_get_user_data(resource)))
      {
+        if (e_policy_visibility_client_grab_cancel(ec))
+          {
+             ELOGF("POL_VIS", "CLIENT VIS ON(temp).", ec->pixmap, ec);
+             ec->visibility.obscured = E_VISIBILITY_UNOBSCURED;
+             ec->visibility.changed = 1;
+          }
+
         if ((e_object_unref(E_OBJECT(ec))) &&
             (!e_object_is_del(E_OBJECT(ec))))
           {
@@ -129,7 +136,10 @@ _e_shell_surface_destroy(struct wl_resource *resource)
                {
                   if ((ec->comp_data->shell.surface) &&
                       (ec->comp_data->shell.unmap))
-                    ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
+                    {
+                       ELOGF("SHELL", "Call shell.unmap by destory surface", ec->pixmap, ec);
+                       ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
+                    }
                }
              if (ec->parent)
                {
@@ -142,6 +152,8 @@ _e_shell_surface_destroy(struct wl_resource *resource)
           }
         if (ec->comp_data)
           ec->comp_data->shell.surface = NULL;
+
+        ELOGF("SHELL", "Destroy shell surface", ec->pixmap, ec);
      }
 
    e_policy_client_unmap(ec);
@@ -490,6 +502,57 @@ _e_shell_surface_ping(struct wl_resource *resource)
 }
 
 static void
+_e_shell_client_map_common_pre(E_Client *ec)
+{
+   if (!ec) return;
+
+   if (ec->use_splash)
+     {
+        ELOGF("LAUNCH", "SHOW real win after splash effect", ec->pixmap, ec);
+        e_comp_object_signal_emit(ec->frame, "e,action,launch_real,done", "e");
+     }
+   ec->use_splash = EINA_FALSE;
+
+   /* unset previous content */
+   e_comp_object_content_unset(ec->frame);
+
+   /* map this surface if needed */
+   ec->visible = EINA_TRUE;
+   evas_object_show(ec->frame);
+   ec->comp_data->mapped = EINA_TRUE;
+}
+
+static void
+_e_shell_client_map_common_post(E_Client *ec)
+{
+   if (!ec) return;
+
+   if (!ec->first_mapped)
+     {
+        if ((!ec->iconic) && (!e_client_util_ignored_get(ec)))
+          {
+             if (!ec->comp_data->sub.data)
+               {
+                  if (ec->post_lower)
+                    evas_object_lower(ec->frame);
+                  else if (ec->post_raise)
+                    evas_object_raise(ec->frame);
+
+                  ec->post_lower = EINA_FALSE;
+                  ec->post_raise = EINA_FALSE;
+               }
+          }
+
+        ec->first_mapped = 1;
+     }
+
+   ELOGF("COMP", "Un-Set launching flag", ec->pixmap, ec);
+   ec->launching = EINA_FALSE;
+
+   EC_CHANGED(ec);
+}
+
+static void
 _e_shell_surface_map(struct wl_resource *resource)
 {
    E_Client *ec;
@@ -515,30 +578,14 @@ _e_shell_surface_map(struct wl_resource *resource)
               (unsigned int)e_client_util_win_get(ec),
               ec->w, ec->h, ec->netwm.pid, ec->icccm.title, ec->netwm.name);
 
+        ELOGF("SHELL",
+              "spash:%d, first_mapped:%d, iconic:%d(client:%d), raise:%d, lower:%d, ignore:%d, override:%d, input_only:%d",
+              ec->pixmap, ec,
+              ec->use_splash, ec->first_mapped, ec->iconic, ec->exp_iconify.by_client,
+              ec->post_raise, ec->post_lower, ec->ignored, ec->override, ec->input_only);
 
-        /* unset previous content */
-        e_comp_object_content_unset(ec->frame);
-
-        ec->visible = EINA_TRUE;
-        evas_object_geometry_set(ec->frame, ec->x, ec->y, ec->w, ec->h);
-        evas_object_show(ec->frame);
-        ec->comp_data->mapped = EINA_TRUE;
-
-        if ((!ec->first_mapped) && (!ec->iconic) && (!e_client_util_ignored_get(ec)))
-          {
-             if (!ec->comp_data->sub.data)
-               {
-                  if (ec->post_lower)
-                     evas_object_lower(ec->frame);
-                  else if (ec->post_raise)
-                     evas_object_raise(ec->frame);
-
-                  ec->post_lower = EINA_FALSE;
-                  ec->post_raise = EINA_FALSE;
-               }
-          }
-
-        ec->first_mapped = 1;
+        _e_shell_client_map_common_pre(ec);
+        _e_shell_client_map_common_post(ec);
      }
 }
 
@@ -616,6 +663,7 @@ _e_shell_cb_shell_surface_get(struct wl_client *client, struct wl_resource *reso
         wl_resource_post_no_memory(surface_resource);
         return;
      }
+   ELOGF("SHELL", "Create shell surface", ec->pixmap, ec);
 
    wl_resource_set_implementation(cdata->shell.surface,
                                   &_e_shell_surface_interface,
@@ -732,6 +780,8 @@ _e_xdg_shell_surface_cb_parent_set(struct wl_client *client EINA_UNUSED, struct 
 
    /* set this client as a transient for parent */
    _e_shell_surface_parent_set(ec, parent_resource);
+
+   EC_CHANGED(ec);
 }
 
 static void
@@ -1116,20 +1166,13 @@ _e_xdg_shell_surface_map_cb_timer(void *data)
               (unsigned int)e_client_util_win_get(ec),
               ec->w, ec->h, ec->netwm.pid, ec->icccm.title, ec->netwm.name);
 
-        if (ec->use_splash)
-          {
-             ELOGF("LAUNCH", "SHOW real win after splash effect by map_timer", ec->pixmap, ec);
-             e_comp_object_signal_emit(ec->frame, "e,action,launch_real,done", "e");
-          }
-        ec->use_splash = EINA_FALSE;
+        ELOGF("SHELL",
+              "spash:%d, first_mapped:%d, iconic:%d(client:%d), raise:%d, lower:%d, ignore:%d, override:%d, input_only:%d",
+              ec->pixmap, ec,
+              ec->use_splash, ec->first_mapped, ec->iconic, ec->exp_iconify.by_client,
+              ec->post_raise, ec->post_lower, ec->ignored, ec->override, ec->input_only);
 
-        /* unset previous content */
-        e_comp_object_content_unset(ec->frame);
-
-        /* map this surface if needed */
-        ec->visible = EINA_TRUE;
-        evas_object_show(ec->frame);
-        ec->comp_data->mapped = EINA_TRUE;
+        _e_shell_client_map_common_pre(ec);
 
         /* force update */
         e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
@@ -1138,29 +1181,7 @@ _e_xdg_shell_surface_map_cb_timer(void *data)
 
         e_comp_wl_surface_commit(ec);
 
-        /* FIXME: sometimes popup surfaces Do Not raise above their
-         * respective parents... */
-        /* if (ec->netwm.type == E_WINDOW_TYPE_POPUP_MENU) */
-        /*   e_client_raise_latest_set(ec); */
-
-        if ((!ec->first_mapped) && (!ec->iconic) && (!e_client_util_ignored_get(ec)))
-          {
-             if (!ec->comp_data->sub.data)
-               {
-                  if (ec->post_lower)
-                     evas_object_lower(ec->frame);
-                  else if (ec->post_raise)
-                     evas_object_raise(ec->frame);
-
-                  ec->post_lower = EINA_FALSE;
-                  ec->post_raise = EINA_FALSE;
-               }
-          }
-
-        ELOGF("COMP", "Un-Set launching flag", ec->pixmap, ec);
-        ec->launching = EINA_FALSE;
-        ec->first_mapped = 1;
-        EC_CHANGED(ec);
+        _e_shell_client_map_common_post(ec);
      }
    ec->map_timer = NULL;
    return ECORE_CALLBACK_CANCEL;
@@ -1226,44 +1247,14 @@ _e_xdg_shell_surface_map(struct wl_resource *resource)
               (unsigned int)e_client_util_win_get(ec),
               ec->w, ec->h, ec->netwm.pid, ec->icccm.title, ec->netwm.name);
 
-        if (ec->use_splash)
-          {
-             ELOGF("LAUNCH", "SHOW real win after splash effect", ec->pixmap, ec);
-             e_comp_object_signal_emit(ec->frame, "e,action,launch_real,done", "e");
-          }
-        ec->use_splash = EINA_FALSE;
+        ELOGF("SHELL",
+              "spash:%d, first_mapped:%d, iconic:%d(client:%d), raise:%d, lower:%d, ignore:%d, override:%d, input_only:%d",
+              ec->pixmap, ec,
+              ec->use_splash, ec->first_mapped, ec->iconic, ec->exp_iconify.by_client,
+              ec->post_raise, ec->post_lower, ec->ignored, ec->override, ec->input_only);
 
-        /* unset previous content */
-        e_comp_object_content_unset(ec->frame);
-
-        /* map this surface if needed */
-        ec->visible = EINA_TRUE;
-        evas_object_show(ec->frame);
-        ec->comp_data->mapped = EINA_TRUE;
-
-        /* FIXME: sometimes popup surfaces Do Not raise above their
-         * respective parents... */
-        /* if (ec->netwm.type == E_WINDOW_TYPE_POPUP_MENU) */
-        /*   e_client_raise_latest_set(ec); */
-
-        if ((!ec->first_mapped) && (!ec->iconic) && (!e_client_util_ignored_get(ec)))
-          {
-             if (!ec->comp_data->sub.data)
-               {
-                  if (ec->post_lower)
-                     evas_object_lower(ec->frame);
-                  else if (ec->post_raise)
-                     evas_object_raise(ec->frame);
-
-                  ec->post_lower = EINA_FALSE;
-                  ec->post_raise = EINA_FALSE;
-               }
-          }
-
-        ELOGF("COMP", "Un-Set launching flag..", ec->pixmap, ec);
-        ec->launching = EINA_FALSE;
-        ec->first_mapped = 1;
-        EC_CHANGED(ec);
+        _e_shell_client_map_common_pre(ec);
+        _e_shell_client_map_common_post(ec);
      }
 
    TRACE_DS_END();
@@ -1352,6 +1343,7 @@ _e_xdg_shell_cb_surface_get(struct wl_client *client, struct wl_resource *resour
         wl_resource_post_no_memory(surface_resource);
         return;
      }
+   ELOGF("SHELL", "Create xdg shell surface", ec->pixmap, ec);
 
    wl_resource_set_implementation(cdata->shell.surface,
                                   &_e_xdg_surface_interface,
@@ -1441,6 +1433,7 @@ _e_xdg_shell_cb_popup_get(struct wl_client *client, struct wl_resource *resource
         wl_resource_post_no_memory(surface_resource);
         return;
      }
+   ELOGF("SHELL", "Create xdg shell popup surface", ec->pixmap, ec);
 
    wl_resource_set_implementation(cdata->shell.surface,
                                   &_e_xdg_popup_interface,

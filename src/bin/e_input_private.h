@@ -10,8 +10,8 @@
 #include <libinput.h>
 #include <Eeze.h>
 
-struct xkb_keymap *cached_keymap;
-struct xkb_context *cached_context;
+extern struct xkb_keymap *cached_keymap;
+extern struct xkb_context *cached_context;
 
 #define E_INPUT_ENV_LIBINPUT_LOG_DISABLE "E_INPUT_LIBINPUT_LOG_DISABLE"
 #define E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG "E_INPUT_LIBINPUT_LOG_EINA_LOG"
@@ -117,6 +117,9 @@ struct xkb_keymap *_e_input_device_cached_keymap_get(struct xkb_context *ctx, co
 
 void _e_input_evdev_device_destroy(E_Input_Evdev *evdev);
 void _e_input_pointer_motion_post(E_Input_Evdev *edev);
+
+void _device_calibration_set(E_Input_Evdev *edev);
+void e_input_device_output_changed(E_Input_Device *dev);
 
 #endif
 #endif

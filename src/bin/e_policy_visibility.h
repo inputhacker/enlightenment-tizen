@@ -29,6 +29,7 @@ E_API Eina_Bool                   e_policy_visibility_client_activate(E_Client *
 E_API Eina_Bool                   e_policy_visibility_client_layer_lower(E_Client *ec, E_Layer layer);
 E_API E_Vis_Grab                 *e_policy_visibility_client_grab_get(E_Client *ec, const char *name);
 E_API void                        e_policy_visibility_client_grab_release(E_Vis_Grab *grab);
+E_API Eina_Bool                   e_policy_visibility_client_grab_cancel(E_Client *ec);
 E_API E_Pol_Vis_Hook             *e_policy_visibility_hook_add(E_Pol_Vis_Hook_Type type, E_Pol_Vis_Hook_Cb cb, const void *data);
 E_API void                        e_policy_visibility_hook_del(E_Pol_Vis_Hook *h);
 E_API Eina_Bool                   e_policy_visibility_client_is_iconic(E_Client *ec);

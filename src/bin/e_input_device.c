@@ -5,6 +5,9 @@
 static Eina_List *einput_devices;
 static E_Input_Device *e_input_device_default = NULL;
 
+struct xkb_keymap *cached_keymap;
+struct xkb_context *cached_context;
+
 static int
 _device_open_no_pending(const char *device, int flags)
 {
@@ -1118,6 +1121,24 @@ err:
    return EINA_FALSE;
 }
 
+void
+e_input_device_output_changed(E_Input_Device *dev)
+{
+   E_Input_Seat *seat = NULL;
+   E_Input_Evdev *edev = NULL;
+   Eina_List *l = NULL, *l2 = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(dev);
+   EINA_SAFETY_ON_NULL_RETURN(dev->seats);
+
+   EINA_LIST_FOREACH(dev->seats, l, seat)
+     {
+        EINA_LIST_FOREACH(e_input_seat_evdev_list_get(seat), l2, edev)
+          {
+             _device_calibration_set(edev);
+          }
+     }
+}
 
 E_API const Eina_List *
 e_input_devices_get(void)

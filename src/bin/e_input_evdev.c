@@ -3,7 +3,7 @@
 
 static void  _device_modifiers_update(E_Input_Evdev *edev);
 
-static void
+void
 _device_calibration_set(E_Input_Evdev *edev)
 {
    E_Output *output;

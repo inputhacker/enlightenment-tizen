@@ -199,6 +199,9 @@ EINTERN Eina_Bool            e_plane_external_fetch(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_external_commit(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_external_set(E_Plane *plane, Eina_Rectangle *rect, E_Output_Ext_State state);
 EINTERN void                 e_plane_external_unset(E_Plane *plane);
+EINTERN void                 e_plane_renderer_unset(E_Plane *plane);
+EINTERN void                 e_plane_renderer_clean(E_Plane *plane);
+
 
 E_API Eina_Bool              e_plane_type_set(E_Plane *plane, E_Plane_Type type);
 E_API E_Plane_Type           e_plane_type_get(E_Plane *plane);
