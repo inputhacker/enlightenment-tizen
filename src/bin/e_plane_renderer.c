@@ -387,14 +387,7 @@ _e_plane_renderer_client_backup_buffer_set(E_Plane_Renderer_Client *renderer_cli
    wl_signal_add(&backup_buffer->destroy_signal, &renderer_client->buffer_destroy_listener);
    renderer_client->buffer_destroy_listener.notify = _e_plane_renderer_client_backup_buffer_cb_destroy;
 
-   /* reference backup buffer to comp data */
-   e_comp_wl_buffer_reference(&ec->comp_data->buffer_ref, backup_buffer);
-
-   /* set the backup buffer resource to the pixmap */
-   e_pixmap_resource_set(ec->pixmap, backup_buffer);
-   e_pixmap_dirty(ec->pixmap);
-   e_pixmap_refresh(ec->pixmap);
-
+   e_comp_wl_surface_attach(ec, backup_buffer);
    tbm_surface_internal_unref(copied_tsurface);
 
    return EINA_TRUE;
@@ -971,18 +964,10 @@ _e_plane_renderer_recover_ec(E_Plane_Renderer *renderer)
         if (!buffer) return;
      }
 
+   e_comp_wl_surface_attach(ec, buffer);
+
    /* force update */
-   e_pixmap_usable_set(ec->pixmap, EINA_TRUE);
-   e_pixmap_resource_set(ec->pixmap, buffer);
-   e_pixmap_dirty(ec->pixmap);
-   e_pixmap_refresh(ec->pixmap);
-
-   if (!e_pixmap_image_refresh(ec->pixmap))
-     {
-        e_comp_wl_tbm_buffer_destroy(buffer);
-        return;
-     }
-
+   e_pixmap_image_refresh(ec->pixmap);
    e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
    e_comp_object_dirty(ec->frame);
    e_comp_object_render(ec->frame);
