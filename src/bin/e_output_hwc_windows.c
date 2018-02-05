@@ -1072,18 +1072,6 @@ _e_output_hwc_windows_target_window_render(E_Output *output, E_Hwc_Window_Target
    return EINA_TRUE;
 }
 
-/* gets called at the beginning of an ecore_main_loop iteration */
-static void
-_e_output_hwc_windows_need_validate_handler(tdm_output *output)
-{
-   ELOGF("HWC-WINS", "backend asked to make the revalidation.", NULL, NULL);
-
-   /* TODO: I'm not sure should we keep this function at all, 'cause now it's not
-    * necessary - revalidate (reevaluate) will be scheduled any way (within idle_enterer),
-    * so if 'reevaluation each idle_enterer' is what we want this function is useless
-    * (though to remove it we have to change TDM API too) */
-}
-
 static Eina_List *
 _e_output_hwc_windows_visible_windows_list_get(E_Output_Hwc *output_hwc)
 {
@@ -1433,15 +1421,6 @@ _e_output_hwc_windows_update_changes(E_Output_Hwc *output_hwc)
 EINTERN Eina_Bool
 e_output_hwc_windows_init(E_Output_Hwc *output_hwc)
 {
-   tdm_error error;
-   E_Output *output;
-
-   output = output_hwc->output;
-
-   /* get backend a shot to ask us for the revalidation */
-   error = tdm_output_hwc_set_need_validate_handler(output->toutput, _e_output_hwc_windows_need_validate_handler);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, EINA_FALSE);
-
    return EINA_TRUE;
 }
 
