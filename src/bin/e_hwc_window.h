@@ -49,7 +49,6 @@ struct _E_Hwc_Window
    E_Output_Hwc                  *output_hwc;
    tdm_hwc_window                *thwc_window;
    int                            zpos;
-   tdm_hwc_window_composition     type;
    Eina_Bool                      is_target;
    Eina_Bool                      is_video;
    Eina_Bool                      is_cursor;

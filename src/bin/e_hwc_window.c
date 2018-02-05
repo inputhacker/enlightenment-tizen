@@ -324,9 +324,7 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
    EINA_SAFETY_ON_NULL_GOTO(target_hwc_window, fail);
 
    ((E_Hwc_Window *)target_hwc_window)->is_target = EINA_TRUE;
-   /* the target hwc_window is always displayed on hw layer */
-   ((E_Hwc_Window *)target_hwc_window)->type = TDM_COMPOSITION_NONE;
-   ((E_Hwc_Window *)target_hwc_window)->state = E_HWC_WINDOW_STATE_NONE;
+   ((E_Hwc_Window *)target_hwc_window)->state = E_HWC_WINDOW_STATE_DEVICE;
    ((E_Hwc_Window *)target_hwc_window)->output_hwc = output_hwc;
 
    target_hwc_window->ee = e_comp->ee;
@@ -965,49 +963,6 @@ _e_hwc_window_correct_transformation_check(E_Hwc_Window *hwc_window)
 }
 #endif
 
-#if 0
-/* whether an hwc_window exists on a target_buffer which is currently set at the target_window */
-static Eina_Bool
-_e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window)
-{
-    Eina_List *ee_rendered_hw_list = NULL;
-    E_Hwc_Window_Target *target_hwc_window;
-    E_Hwc_Window *hw;
-    const Eina_List *l;
-    tbm_surface_h target_tsurface;
-
-    target_hwc_window = _e_hwc_window_target_window_get(hwc_window);
-    EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
-
-    target_tsurface = target_hwc_window->hwc_window.tsurface;
-
-    tbm_surface_internal_get_user_data(target_tsurface, ee_rendered_hw_list_key, (void**)&ee_rendered_hw_list);
-
-    EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw)
-       if (hw == hwc_window) return EINA_TRUE;
-
-    return EINA_FALSE;
-}
-
-static Eina_Bool
-_e_hwc_window_is_device_to_client_transition(E_Hwc_Window *hwc_window)
-{
-   E_Hwc_Window_Target *target_hwc_window;
-
-   if (hwc_window->is_deleted) return EINA_FALSE;
-
-   target_hwc_window = _e_hwc_window_target_window_get(hwc_window);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-
-   if (((E_Hwc_Window *)target_hwc_window)->state == E_HWC_WINDOW_STATE_NONE) return EINA_FALSE;
-   if (!hwc_window->is_device_to_client_transition) return EINA_FALSE;
-   if (e_hwc_window_is_target(hwc_window)) return EINA_FALSE;
-   if (_e_hwc_window_is_on_target_window(hwc_window)) return EINA_FALSE;
-
-   return EINA_TRUE;
-}
-#endif
-
 EINTERN Eina_Bool
 e_hwc_window_init(E_Output_Hwc *output_hwc)
 {
@@ -1093,12 +1048,6 @@ e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State stat
         E_FREE(hwc_window);
         return NULL;
      }
-
-   error = tdm_hwc_window_set_composition_type(hwc_window->thwc_window, TDM_COMPOSITION_NONE);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, NULL);
-
-   hwc_window->state = E_HWC_WINDOW_STATE_NONE;
-   hwc_window->type = TDM_COMPOSITION_NONE;
 
    /* cursor window */
    if (e_policy_client_is_cursor(ec))

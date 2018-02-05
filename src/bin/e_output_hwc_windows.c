@@ -1314,26 +1314,18 @@ _e_output_hwc_windows_states_evaluate(E_Output_Hwc *output_hwc)
 
 /* evaluate the hwc_windows */
 static Eina_Bool
-_e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc)
+_e_output_hwc_windows_evaluate(E_Output_Hwc *output_hwc, Eina_List *visible_windows_list)
 {
    E_Output_Hwc_Mode hwc_mode = E_OUTPUT_HWC_MODE_NONE;
    E_Hwc_Window *target_window = (E_Hwc_Window *)output_hwc->target_hwc_window;
-   Eina_List *visible_windows_list = NULL;
 
    ELOGF("HWC-WINS", "====================== Output HWC Apply (evaluate) ======================", NULL, NULL);
-
-   /* evaulate the current states */
-   visible_windows_list = _e_output_hwc_windows_states_evaluate(output_hwc);
 
    /* evaulate the compositions with the states*/
    if (_e_output_hwc_windows_composition_evaulate(output_hwc, visible_windows_list))
         ELOGF("HWC-WINS", " Succeed the compsition_evaulation.", NULL, NULL);
    else
         ELOGF("HWC-WINS", " Need the comopsition re-evaulation.", NULL, NULL);
-
-
-   if (visible_windows_list)
-     eina_list_free(visible_windows_list);
 
    /* update the activate/decativate state */
    _e_output_hwc_windows_activation_states_update(output_hwc);
@@ -1465,6 +1457,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
    Eina_List *l;
    E_Output *output = NULL;
    tdm_error error = TDM_ERROR_NONE;
+   Eina_List *visible_windows_list = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
 
@@ -1490,15 +1483,18 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
         return EINA_TRUE;
      }
 
+   /* evaulate the current states */
+   visible_windows_list = _e_output_hwc_windows_states_evaluate(output_hwc);
+
    if (_e_output_hwc_windows_update_changes(output_hwc) ||
        output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NONE)
      {
-        if (!_e_output_hwc_windows_evaluate(output_hwc))
+        if (!_e_output_hwc_windows_evaluate(output_hwc, visible_windows_list))
           {
              ELOGF("HWC-WINS", "Evaluation is not completed. No Commit at this time.", NULL, NULL);
              /* update the previous states. */
              _e_output_hwc_windows_prev_states_update(output_hwc);
-             return EINA_TRUE;
+             goto fail;
           }
 
         EINA_LIST_FOREACH(output_hwc->hwc_windows, l, hwc_window)
@@ -1511,7 +1507,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
              if (!_e_output_hwc_windows_pp_commit(output_hwc))
                {
                   ERR("_e_output_hwc_windows_pp_commit failed.");
-                  return EINA_FALSE;
+                  goto fail;
                }
           }
         else
@@ -1526,7 +1522,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
              {
                 ERR("tdm_output_commit failed.");
                 _e_output_hwc_windows_commit_handler(output->toutput, 0, 0, 0, output_hwc);
-                return EINA_FALSE;
+                goto fail;
              }
 
              output_hwc->wait_commit = EINA_TRUE;
@@ -1536,7 +1532,17 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
        _e_output_hwc_windows_prev_states_update(output_hwc);
      }
 
+   if (visible_windows_list)
+     eina_list_free(visible_windows_list);
+
    return EINA_TRUE;
+
+fail:
+
+   if (visible_windows_list)
+     eina_list_free(visible_windows_list);
+
+   return EINA_FALSE;
 }
 
 EINTERN Eina_Bool
