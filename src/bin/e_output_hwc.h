@@ -30,6 +30,27 @@ struct _E_Output_Hwc
 
    /* variables for hwc_planes polic  */
    Eina_Bool          hwc_use_multi_plane;
+
+   /* variables for hwc_windows policy  */
+   Eina_Bool            hwc_wins;
+   Eina_List           *hwc_windows;
+   E_Hwc_Window_Target *target_hwc_window;
+   Eina_Bool            wait_commit;
+   int                  num_visible_windows;
+
+   /* variables for pp at hwc_windows policy */
+   tdm_pp               *tpp;
+   Eina_List            *pp_hwc_window_list;
+   Eina_List            *pending_pp_hwc_window_list;
+   Eina_List            *pending_pp_commit_data_list;
+   tbm_surface_queue_h   pp_tqueue;
+   tbm_surface_h         pp_tsurface;
+   Eina_Bool             pp_set_info;
+   Eina_Bool             pp_set;
+   Eina_Bool             pp_commit;
+   Eina_Bool             pp_output_commit;
+   E_Hwc_Window_Commit_Data  *pp_output_commit_data;
+   Eina_Rectangle        pp_rect;
 };
 
 EINTERN E_Output_Hwc        *e_output_hwc_new(E_Output *output);

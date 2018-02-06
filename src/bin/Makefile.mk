@@ -90,7 +90,9 @@ src/bin/e_comp_wl_data.h \
 src/bin/e_comp_wl_input.h \
 src/bin/e_comp_wl.h \
 src/bin/e_output_hwc.h \
-src/bin/e_output_hwc_planes.h
+src/bin/e_output_hwc_planes.h \
+src/bin/e_output_hwc_windows.h \
+src/bin/e_hwc_window.h
 
 if HAVE_WAYLAND_TBM
 ENLIGHTENMENTHEADERS += \
@@ -190,6 +192,8 @@ src/bin/e_comp_wl_input.c \
 src/bin/e_comp_wl.c \
 src/bin/e_output_hwc.c \
 src/bin/e_output_hwc_planes.c \
+src/bin/e_output_hwc_windows.c \
+src/bin/e_hwc_window.c \
 $(ENLIGHTENMENTHEADERS)
 
 if HAVE_WAYLAND_TBM

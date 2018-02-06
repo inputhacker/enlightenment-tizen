@@ -15,7 +15,7 @@ typedef struct _E_Info_Client
    Eldbus_Object     *obj;
 
    /* topvwins */
-   int                use_gl, use_hwc, use_multi_layer, hwc;
+   int                use_gl, use_hwc, use_multi_layer, hwc, hwc_windows;
    int                use_buffer_flush, deiconify_approve;
    const char        *engine;
    Eina_List         *win_list;
@@ -487,9 +487,9 @@ _cb_vwindow_info_get(const Eldbus_Message *msg)
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
 
-   res = eldbus_message_arguments_get(msg, "iiiisiia("VALUE_TYPE_FOR_TOPVWINS")",
+   res = eldbus_message_arguments_get(msg, "iiiiisiia("VALUE_TYPE_FOR_TOPVWINS")",
                                       &e_info_client.use_gl, &e_info_client.use_hwc, &e_info_client.use_multi_layer,
-                                      &e_info_client.hwc, &engine,
+                                      &e_info_client.hwc, &e_info_client.hwc_windows, &engine,
                                       &e_info_client.use_buffer_flush, &e_info_client.deiconify_approve,
                                       &array);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
@@ -980,9 +980,20 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
    printf("ENG:  %s\n", e_info_client.engine);
    if (e_info_client.use_hwc)
      {
-        printf("HWC:  %s\n", e_info_client.hwc ? "on":"off");
-        printf("Multi Plane:  %s\n", e_info_client.use_multi_layer ? "on":"off");
+        if (e_info_client.hwc)
+          {
+             printf("HWC:  ");
+             if (e_info_client.hwc_windows)
+               printf("hwc windows policy\n");
+             else
+               printf("hwc planes policy and multiple plane is %s\n", e_info_client.use_multi_layer ? "on":"off");
+          }
+        else
+          printf("HWC:  off");
      }
+   else
+     printf("HWC:  configuration is off");
+
    printf("Buffer flush: %s\n", e_info_client.use_buffer_flush ? "on":"off");
    if (e_info_client.use_buffer_flush)
      printf("Deiconify Approve: %s\n", "auto on");
@@ -1018,8 +1029,13 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
           {
              if ((!win->iconic) && (win->frame_visible))
                {
-                  if (win->hwc) snprintf(tmp, sizeof(tmp), "hwc@%i", win->pl_zpos);
-                  else snprintf(tmp, sizeof(tmp), "comp@%i", win->pl_zpos);
+                  if (win->pl_zpos == -999)
+                    snprintf(tmp, sizeof(tmp), " - ");
+                  else
+                    {
+                       if (win->hwc) snprintf(tmp, sizeof(tmp), "hwc@%i", win->pl_zpos);
+                       else snprintf(tmp, sizeof(tmp), "comp@%i", win->pl_zpos);
+                    }
                }
              else
                snprintf(tmp, sizeof(tmp), " - ");
@@ -1092,8 +1108,13 @@ _e_info_client_proc_topwins_info(int argc, char **argv)
           {
              if ((!win->iconic) && (win->frame_visible))
                {
-                  if (win->hwc) snprintf(tmp, sizeof(tmp), "hwc@%i", win->pl_zpos);
-                  else snprintf(tmp, sizeof(tmp), "comp@%i", win->pl_zpos);
+                  if (win->pl_zpos == -999)
+                    snprintf(tmp, sizeof(tmp), " - ");
+                  else
+                    {
+                       if (win->hwc) snprintf(tmp, sizeof(tmp), "hwc@%i", win->pl_zpos);
+                       else snprintf(tmp, sizeof(tmp), "comp@%i", win->pl_zpos);
+                    }
                }
              else
                snprintf(tmp, sizeof(tmp), " - ");
@@ -3551,8 +3572,13 @@ _e_info_client_cb_wininfo(const Eldbus_Message *msg)
      {
         if ((!iconic) && (frame_visible))
           {
-             if (hwc) printf(" hwc@%i\n", pl_zpos);
-             else printf(" comp@%i\n", pl_zpos);
+             if (pl_zpos == -999)
+               printf(" - ");
+             else
+               {
+                  if (hwc) printf(" hwc@%i\n", pl_zpos);
+                  else printf(" comp@%i\n", pl_zpos);
+               }
           }
         else
           printf(" - \n");
@@ -3618,8 +3644,13 @@ _e_info_client_cb_wininfo_tree(const Eldbus_Message *msg)
         else
           printf("0x%lx \"%s\":", (unsigned long)child_win, child_name);
         printf (" %dx%d+%d+%d", w, h, x, y);
-        if (hwc > 0) printf(" hwc@%i", pl_zpos);
-        else if (!hwc) printf(" comp@%i", pl_zpos);
+        if (pl_zpos == -999)
+          printf(" - ");
+        else
+          {
+             if (hwc > 0) printf(" hwc@%i", pl_zpos);
+             else if (!hwc) printf(" comp@%i", pl_zpos);
+          }
         printf("\n");
         if (num_children > 0)
           {

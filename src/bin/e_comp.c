@@ -925,18 +925,31 @@ e_comp_is_on_overlay(E_Client *ec)
    Eina_List *l, *ll;
    E_Output *eout;
    E_Plane *ep;
+   E_Hwc_Window *hwc_window;
 
-   if (!ec) return EINA_FALSE;
-   if (!ec->zone || !ec->zone->output_id) return EINA_FALSE;
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(!ec, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(!ec->zone, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(!ec->zone->output_id, EINA_FALSE);
 
    eout = e_output_find(ec->zone->output_id);
    if (!eout) return EINA_FALSE;
-   if (!e_output_hwc_mode_get(eout->output_hwc)) return EINA_FALSE;
 
-   EINA_LIST_FOREACH_SAFE(eout->planes, l, ll, ep)
+   if (e_output_hwc_policy_get(eout->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
      {
-        E_Client *overlay_ec = ep->ec;
-        if (overlay_ec == ec) return EINA_TRUE;
+        if (!e_output_hwc_mode_get(eout->output_hwc)) return EINA_FALSE;
+
+        EINA_LIST_FOREACH_SAFE(eout->planes, l, ll, ep)
+          {
+             E_Client *overlay_ec = ep->ec;
+             if (overlay_ec == ec) return EINA_TRUE;
+          }
+     }
+   else
+     {
+        hwc_window = ec->hwc_window;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+        if (e_hwc_window_is_on_hw_overlay(hwc_window)) return EINA_TRUE;
      }
 
    return EINA_FALSE;

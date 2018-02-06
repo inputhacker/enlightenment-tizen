@@ -500,20 +500,34 @@ _e_output_zoom_rotate(E_Output *output)
    DBG("zoom_rect rotate(x:%d,y:%d) (w:%d,h:%d)",
        output->zoom_conf.rect.x, output->zoom_conf.rect.y, output->zoom_conf.rect.w, output->zoom_conf.rect.h);
 
-   EINA_LIST_FOREACH(output->planes, l, ep)
+   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
      {
-        if (!e_plane_is_fb_target(ep)) continue;
+        EINA_LIST_FOREACH(output->planes, l, ep)
+          {
+             if (!e_plane_is_fb_target(ep)) continue;
 
-        e_plane_zoom_set(ep, &output->zoom_conf.rect);
-        break;
+             e_plane_zoom_set(ep, &output->zoom_conf.rect);
+             break;
+          }
+
+        if (!_e_output_zoom_touch_set(output))
+          ERR("fail _e_output_zoom_touch_set");
+
+        /* update the ecore_evas */
+        if (e_plane_pp_commit_possible_check(ep))
+          _e_output_render_update(output);
      }
+   else
+     {
+        e_output_hwc_windows_zoom_set(output->output_hwc, &output->zoom_conf.rect);
 
-   if (!_e_output_zoom_touch_set(output))
-     ERR("fail _e_output_zoom_touch_set");
+        if (!_e_output_zoom_touch_set(output))
+          ERR("fail _e_output_zoom_touch_set");
 
-   /* update the ecore_evas */
-   if (e_plane_pp_commit_possible_check(ep))
-     _e_output_render_update(output);
+        /* update the ecore_evas */
+        if (e_output_hwc_windows_pp_commit_possible_check(output->output_hwc))
+          _e_output_render_update(output);
+     }
 }
 
 EINTERN void
@@ -2250,14 +2264,30 @@ e_output_setup(E_Output *output)
         output->output_hwc = output_hwc;
      }
 
-   /* ecore evas engine setup */
-   EINA_LIST_FOREACH_SAFE(output->planes, l, ll, plane)
+   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
      {
-        if (plane->is_fb)
+        /* ecore evas engine setup */
+        EINA_LIST_FOREACH_SAFE(output->planes, l, ll, plane)
           {
-             if (!e_plane_setup(plane)) return EINA_FALSE;
-             else return EINA_TRUE;
+             if (plane->is_fb)
+               {
+                  if (!e_plane_setup(plane)) return EINA_FALSE;
+                  else return EINA_TRUE;
+               }
           }
+     }
+   else
+     {
+#if 0
+       Evas_Object *canvas_bg = NULL;
+       unsigned int r, g, b, a;
+
+        /* set the color of the canvas_gb object */
+        r = 0; g = 0; b = 0; a = 1;
+        canvas_bg = e_comp->bg_blank_object;
+        evas_object_color_set(canvas_bg, r, g, b, a);
+#endif
+        return EINA_TRUE;
      }
 
    return EINA_FALSE;
@@ -2422,13 +2452,24 @@ e_output_render(E_Output *output)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-   EINA_LIST_REVERSE_FOREACH(output->planes, l, plane)
+   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
      {
-        if (!e_plane_render(plane))
-         {
-            ERR("fail to e_plane_render.");
-            return EINA_FALSE;
-         }
+        EINA_LIST_REVERSE_FOREACH(output->planes, l, plane)
+          {
+             if (!e_plane_render(plane))
+               {
+                   ERR("fail to e_plane_render.");
+                   return EINA_FALSE;
+               }
+          }
+     }
+   else
+     {
+        if (!e_output_hwc_windows_render(output->output_hwc))
+          {
+             ERR("fail to e_output_hwc_windows_render.");
+             return EINA_FALSE;
+          }
      }
 
   return EINA_TRUE;
@@ -2450,19 +2491,29 @@ e_output_commit(E_Output *output)
    output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
 
-   if (output == output_primary)
+   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
      {
-        if (!_e_output_planes_commit(output))
+        if (output == output_primary)
           {
-             ERR("fail _e_output_planes_commit");
-             return EINA_FALSE;
+             if (!_e_output_planes_commit(output))
+               {
+                   ERR("fail to _e_output_commit.");
+                   return EINA_FALSE;
+               }
+          }
+        else
+          {
+             if (!_e_output_external_commit(output))
+               {
+                  ERR("fail _e_output_external_commit");
+                  return EINA_FALSE;
+               }
           }
      }
    else
      {
-        if (!_e_output_external_commit(output))
+        if (!e_output_hwc_windows_commit(output->output_hwc))
           {
-             ERR("fail _e_output_external_commit");
              return EINA_FALSE;
           }
      }
@@ -2526,23 +2577,26 @@ e_output_util_planes_print(void)
 
         if (!output || !output->planes) continue;
 
-        fprintf(stderr, "HWC in %s .. \n", output->id);
-        fprintf(stderr, "HWC \tzPos \t on_plane \t\t\t\t on_prepare \t \n");
-
-        EINA_LIST_REVERSE_FOREACH(output->planes, p_l, plane)
+        if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
           {
-             ec = plane->ec;
-             if (ec) fprintf(stderr, "HWC \t[%d]%s\t %s (0x%08x)",
-                             plane->zpos,
-                             plane->is_primary ? "--" : "  ",
-                             ec->icccm.title, (unsigned int)ec->frame);
+             fprintf(stderr, "HWC in %s .. \n", output->id);
+             fprintf(stderr, "HWC \tzPos \t on_plane \t\t\t\t on_prepare \t \n");
 
-             ec = plane->prepare_ec;
-             if (ec) fprintf(stderr, "\t\t\t %s (0x%08x)",
-                             ec->icccm.title, (unsigned int)ec->frame);
+             EINA_LIST_REVERSE_FOREACH(output->planes, p_l, plane)
+               {
+                  ec = plane->ec;
+                  if (ec) fprintf(stderr, "HWC \t[%d]%s\t %s (0x%08x)",
+                                  plane->zpos,
+                                  plane->is_primary ? "--" : "  ",
+                                  ec->icccm.title, (unsigned int)ec->frame);
+
+                  ec = plane->prepare_ec;
+                  if (ec) fprintf(stderr, "\t\t\t %s (0x%08x)",
+                                  ec->icccm.title, (unsigned int)ec->frame);
+                  fputc('\n', stderr);
+               }
              fputc('\n', stderr);
           }
-        fputc('\n', stderr);
      }
 }
 
@@ -2744,29 +2798,44 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
    _e_output_zoom_coordinate_cal(output);
    _e_output_zoom_touch_rect_get(output);
 
-   ep = e_output_fb_target_get(output);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
-
-   if (!output->zoom_set)
+   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
      {
-        if (_e_output_fb_over_plane_check(output))
-          output->zoom_conf.unset_skip = EINA_TRUE;
+        ep = e_output_fb_target_get(output);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
+
+        if (!output->zoom_set)
+          {
+             if (_e_output_fb_over_plane_check(output))
+               output->zoom_conf.unset_skip = EINA_TRUE;
+          }
+
+        e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_FALSE);
+
+        if (!e_plane_zoom_set(ep, &output->zoom_conf.rect))
+          {
+             ERR("e_plane_zoom_set failed.");
+             output->zoom_conf.unset_skip = EINA_FALSE;
+             e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_TRUE);
+
+             return EINA_FALSE;
+          }
+
+        /* update the ecore_evas */
+        if (e_plane_pp_commit_possible_check(ep))
+          _e_output_render_update(output);
      }
-
-   e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_FALSE);
-
-   if (!e_plane_zoom_set(ep, &output->zoom_conf.rect))
+   else
      {
-        ERR("e_plane_zoom_set failed.");
-        output->zoom_conf.unset_skip = EINA_FALSE;
-        e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_TRUE);
+        if (!e_output_hwc_windows_zoom_set(output->output_hwc, &output->zoom_conf.rect))
+          {
+             ERR("e_output_hwc_windows_zoom_set failed.");
+             return EINA_FALSE;
+          }
 
-        return EINA_FALSE;
+        /* update the ecore_evas */
+        if (e_output_hwc_windows_pp_commit_possible_check(output->output_hwc))
+          _e_output_render_update(output);
      }
-
-   /* update the ecore_evas */
-   if (e_plane_pp_commit_possible_check(ep))
-     _e_output_render_update(output);
 
    if (!_e_output_zoom_touch_set(output))
      ERR("fail _e_output_zoom_touch_set");
@@ -2795,10 +2864,17 @@ e_output_zoom_unset(E_Output *output)
    if (!_e_output_zoom_touch_unset(output))
      ERR("fail _e_output_zoom_touch_unset");
 
-   ep = e_output_fb_target_get(output);
-   if (ep) e_plane_zoom_unset(ep);
+   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+     {
+        ep = e_output_fb_target_get(output);
+        if (ep) e_plane_zoom_unset(ep);
 
-   e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_TRUE);
+        e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_TRUE);
+     }
+   else
+     {
+        e_output_hwc_windows_zoom_unset(output->output_hwc);
+     }
 
    output->zoom_conf.zoomx = 0;
    output->zoom_conf.zoomy = 0;
@@ -3119,12 +3195,14 @@ e_output_external_set(E_Output *output, E_Output_Ext_State state)
    _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
 
    e_output_hwc_planes_multi_plane_set(output_primary->output_hwc, EINA_FALSE);
+   e_output_hwc_deactive_set(output_primary->output_hwc, EINA_TRUE);
 
    ep->output_primary = output_primary;
    if (!e_plane_external_set(ep, &output->zoom_conf.rect, state))
      {
         ERR("e_plane_mirror_set failed.");
         e_output_hwc_planes_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
+        e_output_hwc_deactive_set(output_primary->output_hwc, EINA_FALSE);
 
         return EINA_FALSE;
      }

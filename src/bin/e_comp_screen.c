@@ -1350,30 +1350,41 @@ e_comp_screen_hwc_info_debug(void)
    EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l_o, ll_o, output)
      {
         if (!output) continue;
-        tdm_output_get_conn_status(output->toutput, &conn_status);
-        if (conn_status == TDM_OUTPUT_CONN_STATUS_DISCONNECTED) continue;
 
-        INF("HWC: HWC Output(%d):(x, y, w, h)=(%d, %d, %d, %d) Information.",
-            ++output_idx,
-            output->config.geom.x, output->config.geom.y, output->config.geom.w, output->config.geom.h);
-        INF("HWC:  num_layers=%d", output->plane_count);
-        EINA_LIST_FOREACH_SAFE(output->planes, l_l, ll_l, plane)
+        if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
           {
-              if (!plane) continue;
-              tdm_layer_get_capabilities(plane->tlayer, &layer_capabilities);
-              snprintf(layer_cap, sizeof(layer_cap), "%s%s%s%s%s%s%s%s",
-                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_CURSOR),
-                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_PRIMARY),
-                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_OVERLAY),
-                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_GRAPHIC),
-                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_VIDEO),
-                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_TRANSFORM),
-                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_RESEVED_MEMORY),
-                       _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_NO_CROP));
-              INF("HWC:  index=%d zpos=%d ec=%p %s",
-                  plane->index, plane->zpos,
-                  plane->ec?plane->ec:NULL,
-                  layer_cap);
+             tdm_output_get_conn_status(output->toutput, &conn_status);
+             if (conn_status == TDM_OUTPUT_CONN_STATUS_DISCONNECTED) continue;
+
+             INF("HWC: HWC Output(%d):(x, y, w, h)=(%d, %d, %d, %d) Information.",
+                 ++output_idx,
+                 output->config.geom.x, output->config.geom.y, output->config.geom.w, output->config.geom.h);
+             INF("HWC:  num_layers=%d", output->plane_count);
+             EINA_LIST_FOREACH_SAFE(output->planes, l_l, ll_l, plane)
+               {
+                   if (!plane) continue;
+                   /* FIXME: hwc extension doesn't provide thing like layer */
+                   tdm_layer_get_capabilities(plane->tlayer, &layer_capabilities);
+                   snprintf(layer_cap, sizeof(layer_cap), "%s%s%s%s%s%s%s%s",
+                            _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_CURSOR),
+                            _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_PRIMARY),
+                            _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_OVERLAY),
+                            _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_GRAPHIC),
+                            _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_VIDEO),
+                            _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_TRANSFORM),
+                            _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_RESEVED_MEMORY),
+                            _layer_cap_to_str(layer_capabilities, TDM_LAYER_CAPABILITY_NO_CROP));
+                   INF("HWC:  index=%d zpos=%d ec=%p %s",
+                       plane->index, plane->zpos,
+                       plane->ec?plane->ec:NULL,
+                       layer_cap);
+               }
+          }
+        else
+          {
+             /* TODO: construct debug info for outputs managed by the hwc-wins */
+             INF("HWC: HWC Output(%d) managed by hwc-wins.", ++output_idx);
+             continue;
           }
      }
    INF("HWC: =========================================================================");

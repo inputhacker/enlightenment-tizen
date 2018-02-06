@@ -597,19 +597,27 @@ _e_plane_external_surface_acquire(E_Plane *plane)
    tdm_error ret = TDM_ERROR_NONE;
    E_Plane *plane_primary_output_fb = NULL;
 
-   plane_primary_output_fb = e_output_fb_target_get(plane->output_primary);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(plane_primary_output_fb, NULL);
-
    if (plane->ext_state == E_OUTPUT_EXT_MIRROR)
      {
-        if ((plane->pp_rect.x != plane->mirror_rect.x) ||
-            (plane->pp_rect.y != plane->mirror_rect.y) ||
-            (plane->pp_rect.w != plane->mirror_rect.w) ||
-            (plane->pp_rect.h != plane->mirror_rect.h))
-           e_plane_zoom_set(plane, &plane->mirror_rect);
+        if (e_output_hwc_policy_get(plane->output_primary->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+          {
+             plane_primary_output_fb = e_output_fb_target_get(plane->output_primary);
+             EINA_SAFETY_ON_NULL_RETURN_VAL(plane_primary_output_fb, NULL);
 
-        tsurface = tdm_layer_get_displaying_buffer(plane_primary_output_fb->tlayer, &ret);
-        EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, NULL);
+             if ((plane->pp_rect.x != plane->mirror_rect.x) ||
+                 (plane->pp_rect.y != plane->mirror_rect.y) ||
+                 (plane->pp_rect.w != plane->mirror_rect.w) ||
+                 (plane->pp_rect.h != plane->mirror_rect.h))
+               e_plane_zoom_set(plane, &plane->mirror_rect);
+
+             tsurface = tdm_layer_get_displaying_buffer(plane_primary_output_fb->tlayer, &ret);
+             EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, NULL);
+          }
+        else
+          {
+             tsurface = plane->output_primary->output_hwc->target_hwc_window->hwc_window.tsurface;
+             EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, NULL);
+          }
      }
    else if (plane->ext_state == E_OUTPUT_EXT_PRESENTATION)
      {

@@ -180,6 +180,7 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
    Eina_List *l;
    E_Output *eout;
    E_Plane *ep;
+   E_Hwc_Window *hwc_window = NULL;
 
    *hwc = -1;
    *pl_zpos = -999;
@@ -191,17 +192,30 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
 
    eout = e_output_find(ec->zone->output_id);
    if (!eout) return;
-   EINA_LIST_FOREACH(eout->planes, l, ep)
-     {
-        if (e_plane_is_fb_target(ep))
-          *pl_zpos = ep->zpos;
 
-        if (ep->ec == ec)
+   if (e_output_hwc_policy_get(eout->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+     {
+        EINA_LIST_FOREACH(eout->planes, l, ep)
           {
-             *hwc = 1;
-             *pl_zpos = ep->zpos;
-             break;
+             if (e_plane_is_fb_target(ep))
+               *pl_zpos = ep->zpos;
+
+             if (ep->ec == ec)
+               {
+                  *hwc = 1;
+                  *pl_zpos = ep->zpos;
+                  break;
+               }
           }
+     }
+   else
+     {
+        if (!ec->hwc_window) return;
+        hwc_window = ec->hwc_window;
+        if (e_hwc_window_is_on_hw_overlay(hwc_window))
+          *hwc = 1;
+
+        *pl_zpos = e_hwc_window_zpos_get(hwc_window);
      }
 }
 
@@ -279,6 +293,21 @@ _msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
    eldbus_message_iter_container_close(iter, array_of_ec);
 }
 
+static int
+_e_info_server_is_hwc_windows()
+{
+   E_Output *primary_output;
+
+   primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   if (!primary_output)
+      return 0;
+
+   if (e_output_hwc_policy_get(primary_output->output_hwc) == E_OUTPUT_HWC_POLICY_WINDOWS)
+     return 1;
+
+   return 0;
+}
+
 /* Method Handlers */
 static Eldbus_Message *
 _e_info_server_cb_window_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
@@ -290,6 +319,7 @@ _e_info_server_cb_window_info_get(const Eldbus_Service_Interface *iface EINA_UNU
    eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->hwc);
    eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->hwc_use_multi_plane);
    eldbus_message_iter_basic_append(iter, 'i', e_comp->hwc);
+   eldbus_message_iter_basic_append(iter, 'i', _e_info_server_is_hwc_windows());
    eldbus_message_iter_basic_append(iter, 's', ecore_evas_engine_name_get(e_comp->ee));
    eldbus_message_iter_basic_append(iter, 'i', e_config->use_buffer_flush);
    eldbus_message_iter_basic_append(iter, 'i', e_config->deiconify_approve);
@@ -5254,7 +5284,7 @@ _e_info_server_cb_deiconify_approve(const Eldbus_Service_Interface *iface EINA_U
 
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
-   { "get_window_info", NULL, ELDBUS_ARGS({"iiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
+   { "get_window_info", NULL, ELDBUS_ARGS({"iiiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
    { "get_all_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_all_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
    { "subsurface", NULL, ELDBUS_ARGS({"a("SIGNATURE_SUBSURFACE")", "array of ec"}), _e_info_server_cb_subsurface, 0 },

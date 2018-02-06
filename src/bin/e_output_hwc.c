@@ -34,7 +34,26 @@ e_output_hwc_new(E_Output *output)
         INF("Output uses the HWC PLANES Policy.");
      }
    else
-     output_hwc->hwc_policy = E_OUTPUT_HWC_POLICY_WINDOWS;
+     {
+        output_hwc->hwc_policy = E_OUTPUT_HWC_POLICY_WINDOWS;
+
+        if (!e_output_hwc_windows_init(output_hwc))
+          {
+             ERR("hwc_opt: e_output_hwc_windows_init failed");
+             goto fail;
+          }
+
+        if (!e_hwc_window_init(output_hwc))
+          {
+             ERR("hwc_opt: E_Hwc_Window init failed");
+             goto fail;
+          }
+
+        /* turn on sw compositor at the start */
+        ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+
+        INF("Output uses the HWC WINDOWS Policy.");
+     }
 
    return output_hwc;
 
@@ -51,6 +70,11 @@ e_output_hwc_del(E_Output_Hwc *output_hwc)
 
    if (output_hwc->hwc_policy == E_OUTPUT_HWC_POLICY_PLANES)
       e_output_hwc_planes_deinit();
+   else
+     {
+        e_hwc_window_deinit(output_hwc);
+        e_output_hwc_windows_deinit();
+     }
 
    E_FREE(output_hwc);
 }
@@ -60,28 +84,26 @@ e_output_hwc_apply(E_Output_Hwc *output_hwc)
 {
    EINA_SAFETY_ON_NULL_RETURN(output_hwc);
    EINA_SAFETY_ON_NULL_RETURN(output_hwc->output);
-   if (e_output_hwc_policy_get(output_hwc) == E_OUTPUT_HWC_POLICY_NONE) return;
+   if (e_output_hwc_policy_get(output_hwc) == E_OUTPUT_HWC_POLICY_NONE ||
+       e_output_hwc_policy_get(output_hwc) == E_OUTPUT_HWC_POLICY_WINDOWS) return;
 
-   if (e_output_hwc_policy_get(output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_output_hwc_deactive_get(output_hwc))
      {
-        if (e_output_hwc_deactive_get(output_hwc))
-          {
-             if (output_hwc->hwc_mode != E_OUTPUT_HWC_MODE_NONE)
-               e_output_hwc_planes_end(output_hwc, "deactive set.");
-             return;
-          }
-
-        if (!e_output_hwc_planes_usable(output_hwc))
-          {
-             e_output_hwc_planes_end(output_hwc, __FUNCTION__);
-             return;
-          }
-
-        if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NONE)
-          e_output_hwc_planes_begin(output_hwc);
-        else
-          e_output_hwc_planes_changed(output_hwc);
+        if (output_hwc->hwc_mode != E_OUTPUT_HWC_MODE_NONE)
+          e_output_hwc_planes_end(output_hwc, "deactive set.");
+        return;
      }
+
+   if (!e_output_hwc_planes_usable(output_hwc))
+     {
+        e_output_hwc_planes_end(output_hwc, __FUNCTION__);
+        return;
+     }
+
+   if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NONE)
+     e_output_hwc_planes_begin(output_hwc);
+   else
+     e_output_hwc_planes_changed(output_hwc);
 }
 
 EINTERN E_Output_Hwc_Mode
@@ -95,7 +117,7 @@ e_output_hwc_mode_get(E_Output_Hwc *output_hwc)
 EINTERN E_Output_Hwc_Policy
 e_output_hwc_policy_get(E_Output_Hwc *output_hwc)
 {
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, E_OUTPUT_HWC_MODE_NONE);
 
    return output_hwc->hwc_policy;
 }

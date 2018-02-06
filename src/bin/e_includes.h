@@ -53,6 +53,8 @@
 #include "e_output.h"
 #include "e_output_hwc.h"
 #include "e_output_hwc_planes.h"
+#include "e_output_hwc_windows.h"
+#include "e_hwc_window.h"
 #include "e_comp_wl.h"
 #include "e_comp_wl_data.h"
 #include "e_comp_wl_input.h"
