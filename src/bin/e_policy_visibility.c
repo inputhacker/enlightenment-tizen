@@ -674,6 +674,41 @@ _e_vis_job_eval(void)
    INF("VISIBILITY | Job Eval End");
 }
 
+static Eina_Bool
+_e_vis_job_cancel(E_Vis_Client *vc, E_Vis_Job_Type type)
+{
+   Eina_Bool ret = EINA_FALSE;
+   E_Vis_Job_Group *group, *tmp_group;
+   E_Vis_Job *job, *tmp_job;
+
+   /* update queue before deleting */
+   _e_vis_job_queue_update();
+
+   EINA_CLIST_FOR_EACH_ENTRY_SAFE(group, tmp_group,
+                                  &pol_job_group_head, E_Vis_Job_Group, entry)
+     {
+        EINA_CLIST_FOR_EACH_ENTRY_SAFE(job, tmp_job,
+                                       &group->job_head, E_Vis_Job, entry)
+          {
+             if (job->vc != vc) continue;
+             if (job->type != type) continue;
+
+             VS_INF(vc->ec, "Find Job:%p, type:%d", job, type);
+             _e_vis_job_del(&job->entry);
+             vc->job.count--;
+             VS_INF(vc->ec, "Decrease VC JOB count:%d by cancel", vc->job.count);
+             ret = EINA_TRUE;
+          }
+        if (!eina_clist_empty(&group->job_head)) continue;
+        _e_vis_job_group_del(&group->entry);
+     }
+
+   /* evaluate job list after deleting an element */
+   _e_vis_job_eval();
+
+   return ret;
+}
+
 static void
 _e_vis_job_del_by_client(E_Vis_Client *vc)
 {
@@ -1862,6 +1897,16 @@ e_policy_visibility_client_grab_cancel(E_Client *ec)
 {
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
    return _e_vis_client_grab_cancel(vc);
+}
+
+E_API Eina_Bool
+e_policy_visibility_client_hide_job_cancel(E_Client *ec)
+{
+   if (!ec) return EINA_FALSE;
+   E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
+
+   VS_INF(ec, "Find and Cancel HIDE job...");
+   return _e_vis_job_cancel(vc, E_VIS_JOB_TYPE_HIDE);
 }
 
 E_API Eina_Bool
