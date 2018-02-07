@@ -1067,6 +1067,25 @@ _e_policy_cb_zone_del(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
    return ECORE_CALLBACK_PASS_ON;
 }
 
+static void
+_e_policy_client_maximize_update(E_Zone *zone)
+{
+   E_Client *ec = NULL;
+   E_Policy_Client *pc = NULL;
+
+   E_CLIENT_FOREACH(ec)
+     {
+        if (ec->zone != zone) continue;
+
+        pc = eina_hash_find(hash_policy_clients, &ec);
+        if (pc && pc->max_policy_state)
+          {
+             _e_policy_client_maximize_policy_cancel(pc);
+             _e_policy_client_maximize_policy_apply(pc);
+          }
+     }
+}
+
 static Eina_Bool
 _e_policy_cb_zone_move_resize(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
 {
@@ -1080,6 +1099,10 @@ _e_policy_cb_zone_move_resize(void *data EINA_UNUSED, int type EINA_UNUSED, void
         softkey = e_policy_softkey_get(ev->zone);
         e_policy_softkey_update(softkey);
      }
+
+   if (!e_config->use_desk_smart_obj)
+     _e_policy_client_maximize_update(ev->zone);
+
    return ECORE_CALLBACK_PASS_ON;
 }
 
