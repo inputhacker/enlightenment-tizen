@@ -85,6 +85,8 @@ struct _E_Event_Gesture_Tap
    E_Gesture_Mode mode;
    unsigned int fingers;
    unsigned int repeats;
+   int cx;
+   int cy:
 };
 
 struct _E_Event_Gesture_Palm_Cover
