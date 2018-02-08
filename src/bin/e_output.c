@@ -1773,7 +1773,7 @@ _e_output_planes_commit(E_Output *output)
      {
         if (e_plane_is_unset_try(plane)) continue;
 
-        if (output->dpms == E_OUTPUT_DPMS_OFF)
+        if ((output->dpms == E_OUTPUT_DPMS_OFF) || output->fake_config)
           {
              if (!e_plane_offscreen_commit(plane))
                ERR("fail to e_plane_offscreen_commit");
@@ -2437,8 +2437,10 @@ e_output_fake_config_set(E_Output *output, int w, int h)
 
    output->config.mode.w = w;
    output->config.mode.h = h;
-   output->config.mode.refresh = 60;
+   output->config.mode.refresh = 30;
    output->config.enabled = 1;
+
+   output->fake_config = EINA_TRUE;
 
    return EINA_TRUE;
 }

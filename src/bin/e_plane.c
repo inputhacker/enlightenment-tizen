@@ -1912,7 +1912,7 @@ e_plane_fetch(E_Plane *plane)
 
         plane->tsurface = tsurface;
 
-        if (output->dpms != E_OUTPUT_DPMS_OFF)
+        if ((output->dpms != E_OUTPUT_DPMS_OFF) && !output->fake_config)
           {
              /* set plane info and set tsurface to the plane */
              if (!_e_plane_surface_set(plane, tsurface))
