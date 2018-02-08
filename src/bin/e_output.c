@@ -599,6 +599,95 @@ _e_output_dpms_on_render(E_Output *output)
 }
 
 static void
+_e_output_client_resize(int w, int h)
+{
+   E_Client *ec = NULL;
+   E_Comp_Client_Data *cdata = NULL;
+
+   E_CLIENT_FOREACH(ec)
+     {
+        if ((ec->visible && !ec->input_only) ||
+           (e_client_util_name_get(ec) != NULL && !ec->input_only))
+          {
+             int x, y, cal_w, cal_h;
+
+             cdata = ec->comp_data;
+             if (cdata == NULL) continue;
+             if (cdata->shell.configure_send == NULL) continue;
+
+             cdata->shell.configure_send(ec->comp_data->shell.surface, 0, w ,h);
+          }
+     }
+}
+
+static void
+_e_output_primary_update(E_Output *e_output)
+{
+   Eina_Bool ret;
+
+   e_output_update(e_output);
+
+   if (e_output_connected(e_output))
+     {
+        E_Output_Mode *mode = NULL;
+        int w, h;
+
+        e_comp_canvas_norender_push();
+
+        mode = e_output_best_mode_find(e_output);
+        if (!mode)
+          {
+             ERR("fail to get best mode.");
+             return;
+          }
+
+        ret = e_output_mode_apply(e_output, mode);
+        if (ret == EINA_FALSE)
+          {
+             ERR("fail to e_output_mode_apply.");
+             return;
+          }
+        ret = e_output_dpms_set(e_output, E_OUTPUT_DPMS_ON);
+        if (ret == EINA_FALSE)
+          {
+             ERR("fail to e_output_dpms.");
+             return;
+          }
+
+        e_output_size_get(e_output, &w, &h);
+        if (w == e_comp->w && h == e_comp->h)
+          {
+             e_output->fake_config = EINA_FALSE;
+             e_comp_canvas_norender_pop();
+             return;
+          }
+
+        ecore_evas_resize(e_comp->ee, mode->w, mode->h);
+        e_comp->w = mode->w;
+        e_comp->h = mode->h;
+
+        ecore_event_add(E_EVENT_SCREEN_CHANGE, NULL, NULL, NULL);
+
+        e_output->fake_config = EINA_FALSE;
+
+        _e_output_client_resize(e_comp->w, e_comp->h);
+
+        e_comp_canvas_norender_pop();
+     }
+   else
+     {
+        e_output->fake_config = EINA_TRUE;
+
+        ret = e_output_dpms_set(e_output, E_OUTPUT_DPMS_OFF);
+        if (ret == EINA_FALSE)
+          {
+             ERR("fail to e_output_dpms.");
+             return;
+          }
+     }
+}
+
+static void
 _e_output_cb_output_change(tdm_output *toutput,
                                   tdm_output_change_type type,
                                   tdm_value value,
@@ -621,7 +710,17 @@ _e_output_cb_output_change(tdm_output *toutput,
         status = (tdm_output_conn_status)value.u32;
         if (status == TDM_OUTPUT_CONN_STATUS_DISCONNECTED ||
             status == TDM_OUTPUT_CONN_STATUS_CONNECTED)
-        e_output_external_update(e_output);
+          {
+             E_Output *primary = NULL;
+
+             primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+             EINA_SAFETY_ON_NULL_RETURN(primary);
+
+             if (primary == e_output)
+               _e_output_primary_update(e_output);
+             else
+               e_output_external_update(e_output);
+          }
         break;
        case TDM_OUTPUT_CHANGE_DPMS:
         tdpms = (tdm_output_dpms)value.u32;
