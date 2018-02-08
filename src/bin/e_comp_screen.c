@@ -588,6 +588,28 @@ fail:
    return EINA_FALSE;
 }
 
+static void *
+_e_comp_screen_tbm_queue_alloc(void *data EINA_UNUSED, int w, int h)
+{
+   E_Comp_Screen *e_comp_screen = NULL;
+   tbm_surface_queue_h tqueue = NULL;
+
+   tqueue = tbm_surface_queue_create(3, w, h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
+
+   e_comp->e_comp_screen->tqueue = tqueue;
+
+   return (void *)tqueue;
+}
+
+static void
+_e_comp_screen_tbm_queue_free(void *data EINA_UNUSED, void *tbm_queue)
+{
+   E_Comp_Screen *e_comp_screen = NULL;
+
+   tbm_surface_queue_destroy(tbm_queue);
+   e_comp->e_comp_screen->tqueue = NULL;
+}
+
 E_API void
 _e_comp_screen_keymap_set(struct xkb_context **ctx, struct xkb_keymap **map)
 {
@@ -676,7 +698,6 @@ _e_comp_screen_engine_deinit(void)
    if (!e_comp) return;
    if (!e_comp->e_comp_screen) return;
 
-   tbm_surface_queue_destroy(e_comp->e_comp_screen->tqueue);
    _e_comp_screen_deinit_outputs(e_comp->e_comp_screen);
    _e_comp_screen_del(e_comp->e_comp_screen);
    e_comp->e_comp_screen = NULL;
@@ -741,10 +762,10 @@ _e_comp_screen_engine_init(void)
    /* if output is disconnected, set the default width, height */
    if (scr_w == 0 || scr_h == 0)
      {
-        scr_w = 1;
+        scr_w = 2;
         scr_h = 1;
 
-        if (!e_output_fake_config_set(output, 1, 1))
+        if (!e_output_fake_config_set(output, scr_w, scr_h))
           {
              e_error_message_show(_("Fail to set the fake output config!\n"));
              _e_comp_screen_engine_deinit();
@@ -755,21 +776,11 @@ _e_comp_screen_engine_init(void)
    INF("GL available:%d config engine:%d screen size:%dx%d",
        e_comp_gl_get(), e_comp_config_get()->engine, scr_w, scr_h);
 
-   tqueue = tbm_surface_queue_create(3, scr_w, scr_h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
-   if (!tqueue)
-     {
-        e_error_message_show(_("Fail to create tbm_surface_queue!\n"));
-       _e_comp_screen_engine_deinit();
-       return EINA_FALSE;
-     }
-
-   e_comp_screen->tqueue = tqueue;
-
    if ((e_comp_gl_get()) &&
        (e_comp_config_get()->engine == E_COMP_ENGINE_GL))
      {
         e_main_ts_begin("\tEE_GL_DRM New");
-        e_comp->ee = ecore_evas_tbm_ext_new("gl_tbm", tqueue, NULL);
+        e_comp->ee = ecore_evas_tbm_allocfunc_new("gl_tbm", scr_w, scr_h, _e_comp_screen_tbm_queue_alloc, _e_comp_screen_tbm_queue_free, NULL);
         snprintf(buf, sizeof(buf), "\tEE_GL_DRM New Done %p %dx%d", e_comp->ee, scr_w, scr_h);
         e_main_ts_end(buf);
 
@@ -812,7 +823,7 @@ _e_comp_screen_engine_init(void)
    if (!e_comp->ee)
      {
         e_main_ts_begin("\tEE_DRM New");
-        e_comp->ee = ecore_evas_tbm_ext_new("software_tbm", tqueue, NULL);
+        e_comp->ee = ecore_evas_tbm_allocfunc_new("software_tbm", scr_w, scr_h, _e_comp_screen_tbm_queue_alloc, _e_comp_screen_tbm_queue_free, NULL);
         snprintf(buf, sizeof(buf), "\tEE_DRM New Done %p %dx%d", e_comp->ee, scr_w, scr_h);
         e_main_ts_end(buf);
      }
