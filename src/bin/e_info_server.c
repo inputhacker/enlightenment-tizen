@@ -3937,7 +3937,7 @@ _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp
                                              &struct_of_mode);
         eldbus_message_iter_arguments_append(struct_of_mode, SIGNATURE_OUTPUT_MODE_SERVER,
                                              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "none",
-                                             0, 0, 0, 0, 0);
+                                             0, 0, 0, 0, TDM_OUTPUT_DPMS_OFF);
         eldbus_message_iter_container_close(array_of_mode, struct_of_mode);
 
         eldbus_message_iter_container_close(iter, array_of_mode);
@@ -3964,7 +3964,7 @@ _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp
                                                   &struct_of_mode);
              eldbus_message_iter_arguments_append(struct_of_mode, SIGNATURE_OUTPUT_MODE_SERVER,
                                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "none",
-                                                  0, i, 0, 1, 0);
+                                                  0, i, 0, 1, TDM_OUTPUT_DPMS_OFF);
              eldbus_message_iter_container_close(array_of_mode, struct_of_mode);
 
              continue;
