@@ -1489,8 +1489,7 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
    /* evaulate the current states */
    visible_windows_list = _e_output_hwc_windows_states_evaluate(output_hwc);
 
-   if (_e_output_hwc_windows_update_changes(output_hwc) ||
-       output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NONE)
+   if (_e_output_hwc_windows_update_changes(output_hwc))
      {
         if (!_e_output_hwc_windows_evaluate(output_hwc, visible_windows_list))
           {
@@ -1522,14 +1521,15 @@ e_output_hwc_windows_commit(E_Output_Hwc *output_hwc)
 
              error = tdm_output_commit(output->toutput, 0, _e_output_hwc_windows_commit_handler, output_hwc);
              if (error != TDM_ERROR_NONE)
-             {
-                ERR("tdm_output_commit failed.");
-                _e_output_hwc_windows_commit_handler(output->toutput, 0, 0, 0, output_hwc);
-                goto fail;
-             }
+               {
+                  ERR("tdm_output_commit failed.");
+                  _e_output_hwc_windows_commit_handler(output->toutput, 0, 0, 0, output_hwc);
+                  goto fail;
+               }
 
              output_hwc->wait_commit = EINA_TRUE;
           }
+
 
        /* update the previous states. */
        _e_output_hwc_windows_prev_states_update(output_hwc);
