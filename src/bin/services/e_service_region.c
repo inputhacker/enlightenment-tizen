@@ -102,7 +102,7 @@ static void
 _region_free(E_Policy_Region *region)
 {
    INF("Free Instant");
-   E_FREE_LIST(region->event_list, ecore_event_del);
+   E_FREE_LIST(region->event_list, ecore_event_handler_del);
    E_FREE_FUNC(region->gesture, e_service_gesture_del);
    E_FREE_FUNC(region->obj, evas_object_del);
    free(region);
