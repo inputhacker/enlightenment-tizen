@@ -2632,7 +2632,7 @@ e_output_is_fb_full_compositing(E_Output *output)
    EINA_LIST_FOREACH(output->planes, p_l, ep)
      if(ep->ec) return EINA_FALSE;
 
-   return EINA_FALSE;
+   return EINA_TRUE;
 }
 
 E_API E_Plane *
