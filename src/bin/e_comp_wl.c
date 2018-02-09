@@ -2011,7 +2011,6 @@ _e_comp_wl_cb_mouse_move(void *d EINA_UNUSED, int t EINA_UNUSED, Ecore_Event_Mou
    e_comp_wl->ptr.x = wl_fixed_from_int(ev->x);
    e_comp_wl->ptr.y = wl_fixed_from_int(ev->y);
    if (e_comp_wl->selection.target &&
-       (!e_client_has_xwindow(e_comp_wl->selection.target)) &&
        e_comp_wl->drag)
      {
         struct wl_resource *res;
@@ -2027,19 +2026,6 @@ _e_comp_wl_cb_mouse_move(void *d EINA_UNUSED, int t EINA_UNUSED, Ecore_Event_Mou
           evas_object_move(e_comp_wl->drag_client->frame, ev->x, ev->y);
 
         wl_data_device_send_motion(res, ev->timestamp, wl_fixed_from_int(x), wl_fixed_from_int(y));
-     }
-   if (e_comp_wl->drag &&
-       e_comp_wl->drag_client &&
-       e_client_has_xwindow(e_comp_wl->drag_client))
-     {
-        _e_comp_wl_send_mouse_move(e_comp_wl->drag_client, ev->x, ev->y, ev->timestamp);
-        e_pointer_mouse_move(e_comp->pointer, ev->x, ev->y);
-        if (!e_config->use_cursor_timer)
-          {
-             if (e_pointer_is_hidden(e_comp->pointer))
-               _e_comp_wl_cursor_reload(e_comp_wl->ptr.ec);
-          }
-        _e_comp_wl_cursor_move_timer_control(NULL);
      }
 
    return ECORE_CALLBACK_RENEW;

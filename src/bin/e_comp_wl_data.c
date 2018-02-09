@@ -749,8 +749,6 @@ e_comp_wl_data_device_send_enter(E_Client *ec)
    uint32_t serial;
    int x, y;
 
-   if (e_client_has_xwindow(ec) && e_client_has_xwindow(e_comp_wl->drag_client)) return;
-   if (!e_client_has_xwindow(ec))
      {
         data_device_res =
            e_comp_wl_data_find_for_client(wl_resource_get_client(ec->comp_data->surface));
@@ -770,8 +768,6 @@ e_comp_wl_data_device_send_enter(E_Client *ec)
              e_comp_wl->drag_offer = offer;
           }
      }
-   else
-     return;
 
    e_comp_wl->selection.target = ec;
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_DEL, _e_comp_wl_data_device_target_del, ec);
@@ -788,7 +784,6 @@ e_comp_wl_data_device_send_leave(E_Client *ec)
 {
    struct wl_resource *res;
 
-   if (e_client_has_xwindow(ec) && e_client_has_xwindow(e_comp_wl->drag_client)) return;
    evas_object_event_callback_del_full(ec->frame, EVAS_CALLBACK_DEL, _e_comp_wl_data_device_target_del, ec);
    if (e_comp_wl->selection.target == ec)
      e_comp_wl->selection.target = NULL;
