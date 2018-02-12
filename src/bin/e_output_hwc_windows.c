@@ -1124,7 +1124,6 @@ _e_output_hwc_windows_visible_windows_list_get(E_Output_Hwc *output_hwc)
         if (!E_INTERSECTS(0, 0, scr_w, scr_h, ec->client.x, ec->client.y, ec->client.w, ec->client.h))
           {
              e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
-             e_hwc_window_zpos_set(hwc_window, ZPOS_NONE);
              continue;
           }
 
