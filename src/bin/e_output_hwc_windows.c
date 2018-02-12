@@ -179,8 +179,6 @@ _e_output_hwc_windows_aligned_width_get(tbm_surface_h tsurface)
    return aligned_width;
 }
 
-
-
 static void
 _e_output_hwc_windows_commit_handler(tdm_output *toutput, unsigned int sequence,
                                   unsigned int tv_sec, unsigned int tv_usec,

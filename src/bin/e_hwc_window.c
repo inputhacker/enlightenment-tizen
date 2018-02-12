@@ -1311,44 +1311,6 @@ e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
 
    if (hwc_window->update_exist == EINA_FALSE) return EINA_FALSE;
 
-#if 0
-   if (!e_hwc_window_is_on_hw_overlay(hwc_window))
-     {
-        hwc_window->update_exist = EINA_FALSE;
-
-        /* right after an hwc_window's type has been changed from DEVICE to CLIENT
-         * we have to wait till hwc_window's buffer being composited to target_buffer
-         * and this target_buffer gets scheduled and only after this we can issue
-         * a 'fake commit_data' request to allow tdm_commit() to be called to unset
-         * an underlying hw overlay;
-         * target_wnd's hwc can't ever be at target_wnd :), so we pass it immediately */
-        if (e_hwc_window_displaying_surface_get(hwc_window) &&
-            !_e_hwc_window_is_device_to_client_transition(hwc_window))
-          {
-             commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
-             EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
-
-             hwc_window->commit_data = commit_data;
-             hwc_window->is_device_to_client_transition = EINA_FALSE;
-
-             return EINA_TRUE;
-          }
-
-        return EINA_FALSE;
-     }
-
-   /* If there are not updates and there is not displaying surface, it means the
-    * hwc_window's composition type just became TDM_COMPOSITION_DEVICE. Buffer
-    * for this hwc_window was set in the previous e_hwc_window_buffer_fetch but ref for
-    * buffer didn't happen because hwc_window had TDM_COMPOSITION_CLIENT type.
-    * So e20 needs to make ref for the current buffer which is set on the hwc_window.
-    */
-   if (!hwc_window->update_exist && e_hwc_window_displaying_surface_get(hwc_window))
-     {
-        return EINA_FALSE;
-     }
-#endif
-
    commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
 
