@@ -1096,6 +1096,8 @@ _e_output_hwc_windows_visible_windows_list_get(E_Output_Hwc *output_hwc)
         if (e_object_is_del(E_OBJECT(ec)))
           {
              e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             ELOGF("HWC-WINS", "   ehw:%p -- {%25s} ec is destroying. Set E_HWC_WINDOW_STATE_NONE.",
+                   ec->pixmap, ec, ec->hwc_window, ec->icccm.title);
              continue;
           }
 
@@ -1103,6 +1105,8 @@ _e_output_hwc_windows_visible_windows_list_get(E_Output_Hwc *output_hwc)
         if (e_client_util_ignored_get(ec))
           {
              e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             ELOGF("HWC-WINS", "   ehw:%p -- {%25s} ec is ignored. Set E_HWC_WINDOW_STATE_NONE.",
+                   ec->pixmap, ec, ec->hwc_window, ec->icccm.title);
              continue;
           }
 
@@ -1110,6 +1114,8 @@ _e_output_hwc_windows_visible_windows_list_get(E_Output_Hwc *output_hwc)
         if (!evas_object_visible_get(ec->frame))
           {
              e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             ELOGF("HWC-WINS", "   ehw:%p -- {%25s} ec->frame is not visible. Set E_HWC_WINDOW_STATE_NONE.",
+                   ec->pixmap, ec, ec->hwc_window, ec->icccm.title);
              continue;
           }
 
