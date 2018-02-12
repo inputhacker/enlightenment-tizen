@@ -1090,12 +1090,24 @@ _e_output_hwc_windows_visible_windows_list_get(E_Output_Hwc *output_hwc)
         ec = evas_object_data_get(o, "E_Client");
         if (!ec) continue;
         if (!ec->hwc_window) continue;
-        if (e_object_is_del(E_OBJECT(ec))) continue;
 
         hwc_window = ec->hwc_window;
 
+        if (e_object_is_del(E_OBJECT(ec)))
+          {
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             continue;
+          }
+
         // check clients to skip composite
-        if (e_client_util_ignored_get(ec) || (!evas_object_visible_get(ec->frame)))
+        if (e_client_util_ignored_get(ec))
+          {
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             continue;
+          }
+
+        // check clients to skip composite
+        if (!evas_object_visible_get(ec->frame))
           {
              e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
              continue;
