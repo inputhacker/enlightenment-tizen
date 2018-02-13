@@ -591,7 +591,6 @@ fail:
 static void *
 _e_comp_screen_tbm_queue_alloc(void *data EINA_UNUSED, int w, int h)
 {
-   E_Comp_Screen *e_comp_screen = NULL;
    tbm_surface_queue_h tqueue = NULL;
 
    tqueue = tbm_surface_queue_create(3, w, h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
@@ -604,8 +603,6 @@ _e_comp_screen_tbm_queue_alloc(void *data EINA_UNUSED, int w, int h)
 static void
 _e_comp_screen_tbm_queue_free(void *data EINA_UNUSED, void *tbm_queue)
 {
-   E_Comp_Screen *e_comp_screen = NULL;
-
    tbm_surface_queue_destroy(tbm_queue);
    e_comp->e_comp_screen->tqueue = NULL;
 }
@@ -711,7 +708,6 @@ _e_comp_screen_engine_init(void)
    int screen_rotation;
    char buf[1024];
    E_Output *output = NULL;
-   tbm_surface_queue_h tqueue = NULL;
 
    INF("ecore evase engine init with TDM. HWC.");
 

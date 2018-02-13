@@ -609,8 +609,6 @@ _e_output_client_resize(int w, int h)
         if ((ec->visible && !ec->input_only) ||
            (e_client_util_name_get(ec) != NULL && !ec->input_only))
           {
-             int x, y, cal_w, cal_h;
-
              cdata = ec->comp_data;
              if (cdata == NULL) continue;
              if (cdata->shell.configure_send == NULL) continue;
