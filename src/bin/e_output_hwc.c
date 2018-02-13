@@ -63,7 +63,6 @@ _e_output_hwc_tbm_surface_queue_free(void *data, void *tqueue)
 
    tbm_surface_queue_destroy(tqueue);
    output_hwc->target_buffer_queue = NULL;
-   e_comp_screen->tqueue = NULL;
 }
 
 static void
