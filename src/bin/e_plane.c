@@ -130,14 +130,20 @@ e_plane_renderer_clean(E_Plane *plane)
 EINTERN void
 e_plane_renderer_unset(E_Plane *plane)
 {
+   E_Plane_Role role;
+
    EINA_SAFETY_ON_NULL_RETURN(plane);
 
    if (!plane->renderer) return;
 
-   if (plane->reserved_memory)
-     e_plane_renderer_reserved_deactivate(plane->renderer);
-   else
-     e_plane_renderer_deactivate(plane->renderer);
+   role = e_plane_role_get(plane);
+   if (role != E_PLANE_ROLE_CURSOR)
+     {
+        if (plane->reserved_memory)
+          e_plane_renderer_reserved_deactivate(plane->renderer);
+        else
+          e_plane_renderer_deactivate(plane->renderer);
+     }
 
    if (plane->renderer->exported_wl_buffer_count > 0) return;
 
