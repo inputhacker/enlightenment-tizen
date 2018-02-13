@@ -360,12 +360,6 @@ end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
-static void
-_e_comp_screen_cb_ee_resize(Ecore_Evas *ee EINA_UNUSED)
-{
-   e_comp_canvas_update();
-}
-
 static Eina_Bool
 _e_comp_screen_cb_event(void *data, Ecore_Fd_Handler *hdlr EINA_UNUSED)
 {
@@ -564,6 +558,12 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
              goto fail;
           }
 
+        if (!e_output_setup(output))
+          {
+             ERR("fail to e_output_setup.");
+             goto fail;
+          }
+
         /* update e_scale with first available output size */
         if ((e_config->scale.for_tdm) && (!scale_updated))
           {
@@ -586,25 +586,6 @@ fail:
    _e_comp_screen_deinit_outputs(e_comp_screen);
 
    return EINA_FALSE;
-}
-
-static void *
-_e_comp_screen_tbm_queue_alloc(void *data EINA_UNUSED, int w, int h)
-{
-   tbm_surface_queue_h tqueue = NULL;
-
-   tqueue = tbm_surface_queue_create(3, w, h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
-
-   e_comp->e_comp_screen->tqueue = tqueue;
-
-   return (void *)tqueue;
-}
-
-static void
-_e_comp_screen_tbm_queue_free(void *data EINA_UNUSED, void *tbm_queue)
-{
-   tbm_surface_queue_destroy(tbm_queue);
-   e_comp->e_comp_screen->tqueue = NULL;
 }
 
 E_API void
@@ -704,27 +685,13 @@ static Eina_Bool
 _e_comp_screen_engine_init(void)
 {
    E_Comp_Screen *e_comp_screen = NULL;
-   int w = 0, h = 0, scr_w = 1, scr_h = 1;
    int screen_rotation;
-   char buf[1024];
-   E_Output *output = NULL;
-
-   INF("ecore evase engine init with TDM. HWC.");
 
    /* check the screen rotation */
    screen_rotation = (e_config->screen_rotation_pre + e_config->screen_rotation_setting) % 360;
 
    INF("E_COMP_SCREEN: screen_rotation_pre %d and screen_rotation_setting %d",
        e_config->screen_rotation_pre, e_config->screen_rotation_setting);
-
-   /* set env for use tbm_surface_queue*/
-   setenv("USE_EVAS_SOFTWARE_TBM_ENGINE", "1", 1);
-   //setenv("USE_EVAS_GL_TBM_ENGINE", "1", 1);
-
-   /* set gl available if we have ecore_evas support */
-   if (ecore_evas_engine_type_supported_get(ECORE_EVAS_ENGINE_OPENGL_DRM) ||
-       ecore_evas_engine_type_supported_get(ECORE_EVAS_ENGINE_OPENGL_TBM))
-     e_comp_gl_set(EINA_TRUE);
 
    /* e_comp_screen new */
    e_comp_screen = _e_comp_screen_new(e_comp);
@@ -742,108 +709,6 @@ _e_comp_screen_engine_init(void)
         return EINA_FALSE;
      }
    e_main_ts_end("\tE_Outputs Init Done");
-
-   /* get the primary output */
-   output = e_comp_screen_primary_output_get(e_comp_screen);
-   if (!output)
-     {
-        e_error_message_show(_("Fail to get the primary output!\n"));
-        _e_comp_screen_engine_deinit();
-        return EINA_FALSE;
-     }
-
-   /* get the size of the primary output */
-   e_output_size_get(output, &scr_w, &scr_h);
-
-   /* if output is disconnected, set the default width, height */
-   if (scr_w == 0 || scr_h == 0)
-     {
-        scr_w = 2;
-        scr_h = 1;
-
-        if (!e_output_fake_config_set(output, scr_w, scr_h))
-          {
-             e_error_message_show(_("Fail to set the fake output config!\n"));
-             _e_comp_screen_engine_deinit();
-             return EINA_FALSE;
-          }
-     }
-
-   INF("GL available:%d config engine:%d screen size:%dx%d",
-       e_comp_gl_get(), e_comp_config_get()->engine, scr_w, scr_h);
-
-   if ((e_comp_gl_get()) &&
-       (e_comp_config_get()->engine == E_COMP_ENGINE_GL))
-     {
-        e_main_ts_begin("\tEE_GL_DRM New");
-        e_comp->ee = ecore_evas_tbm_allocfunc_new("gl_tbm", scr_w, scr_h, _e_comp_screen_tbm_queue_alloc, _e_comp_screen_tbm_queue_free, NULL);
-        snprintf(buf, sizeof(buf), "\tEE_GL_DRM New Done %p %dx%d", e_comp->ee, scr_w, scr_h);
-        e_main_ts_end(buf);
-
-        if (!e_comp->ee)
-          e_comp_gl_set(EINA_FALSE);
-        else
-          {
-             Evas_GL *evasgl = NULL;
-             Evas_GL_API *glapi = NULL;
-
-             e_main_ts_begin("\tEvas_GL New");
-             evasgl = evas_gl_new(ecore_evas_get(e_comp->ee));
-             if (evasgl)
-               {
-                  glapi = evas_gl_api_get(evasgl);
-                  if (!((glapi) && (glapi->evasglBindWaylandDisplay)))
-                    {
-                       e_comp_gl_set(EINA_FALSE);
-                       ecore_evas_free(e_comp->ee);
-                       e_comp->ee = NULL;
-                       e_main_ts_end("\tEvas_GL New Failed 1");
-                    }
-                  else
-                    {
-                       e_main_ts_end("\tEvas_GL New Done");
-                    }
-               }
-             else
-               {
-                  e_comp_gl_set(EINA_FALSE);
-                  ecore_evas_free(e_comp->ee);
-                  e_comp->ee = NULL;
-                  e_main_ts_end("\tEvas_GL New Failed 2");
-               }
-             evas_gl_free(evasgl);
-          }
-     }
-
-   /* fallback to framebuffer drm (non-accel) */
-   if (!e_comp->ee)
-     {
-        e_main_ts_begin("\tEE_DRM New");
-        e_comp->ee = ecore_evas_tbm_allocfunc_new("software_tbm", scr_w, scr_h, _e_comp_screen_tbm_queue_alloc, _e_comp_screen_tbm_queue_free, NULL);
-        snprintf(buf, sizeof(buf), "\tEE_DRM New Done %p %dx%d", e_comp->ee, scr_w, scr_h);
-        e_main_ts_end(buf);
-     }
-
-   if (!e_comp->ee)
-     {
-        e_error_message_show(_("Enlightenment cannot initialize outputs!\n"));
-        _e_comp_screen_engine_deinit();
-        return EINA_FALSE;
-     }
-
-   ecore_evas_data_set(e_comp->ee, "comp", e_comp);
-
-   ecore_evas_callback_resize_set(e_comp->ee, _e_comp_screen_cb_ee_resize);
-
-   if (screen_rotation)
-     {
-        /* SHOULD called with resize option after ecore_evas_resize */
-        ecore_evas_rotation_with_resize_set(e_comp->ee, screen_rotation);
-        ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
-
-        snprintf(buf, sizeof(buf), "\tEE Rotate and Resize %d, %dx%d", screen_rotation, w, h);
-        e_main_ts(buf);
-     }
 
    if (!E_EVENT_SCREEN_CHANGE) E_EVENT_SCREEN_CHANGE = ecore_event_type_new();
 
@@ -1097,13 +962,6 @@ e_comp_screen_init()
         goto failed_comp_screen;
      }
 
-   /* this setup function is called after e_comp_canvas_init */
-   if (!e_comp_screen_setup(e_comp->e_comp_screen))
-     {
-        ERR("fail to e_comp_screen_setup");
-        return EINA_FALSE;
-     }
-
    if (eldbus_init() == 0)
      {
         ERR("eldbus_init failed");
@@ -1179,31 +1037,6 @@ e_comp_screen_shutdown()
    /* delete e_comp_sreen */
    _e_comp_screen_del(e_comp->e_comp_screen);
    e_comp->e_comp_screen = NULL;
-}
-
-EINTERN Eina_Bool
-e_comp_screen_setup(E_Comp_Screen *e_comp_screen)
-{
-   Eina_List *l, *ll;
-   E_Output *output = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
-
-   EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l, ll, output)
-     {
-        if (!output) continue;
-        if (!output->config.enabled) continue;
-
-        if (!e_output_setup(output))
-          {
-             ERR("fail to e_output_setup.");
-             continue;
-          }
-
-        INF("Enlightenment succeeded to initialize e_output_setup()!\n");
-     }
-
-   return EINA_TRUE;
 }
 
 E_API Eina_Bool
