@@ -127,6 +127,7 @@ _e_plane_renderer_buffer_remove(E_Plane_Renderer *renderer, tbm_surface_h tsurfa
 
         if (renderer_buffer->tsurface == tsurface)
           {
+             E_FREE_FUNC(renderer_buffer->release_timer, ecore_timer_del);
              renderer->renderer_buffers = eina_list_remove_list(renderer->renderer_buffers, l_s);
              E_FREE(renderer_buffer);
           }
