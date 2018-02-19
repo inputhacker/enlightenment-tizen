@@ -300,12 +300,18 @@ _e_comp_screen_pointer_renew(E_Input_Event_Input_Device_Del *ev)
           {
              Evas_Device *last_ptr = NULL, *dev;
              Eina_List *list, *l;
+             const char *name;
+             const char *description;
 
              list = (Eina_List *)evas_device_list(evas_object_evas_get(e_comp_wl->ptr.ec->frame), NULL);
              EINA_LIST_FOREACH(list, l, dev)
                {
-                  if ((!strncmp(evas_device_name_get(dev), e_comp_wl->input_device_manager.last_device_ptr->name, strlen(e_comp_wl->input_device_manager.last_device_ptr->name))) &&
-                      (!strncmp(evas_device_description_get(dev), e_comp_wl->input_device_manager.last_device_ptr->identifier, strlen(e_comp_wl->input_device_manager.last_device_ptr->identifier))) &&
+                  name = evas_device_name_get(dev);
+                  description = evas_device_description_get(dev);
+
+                  if (!name || !description) continue;
+                  if ((!strncmp(name, e_comp_wl->input_device_manager.last_device_ptr->name, strlen(e_comp_wl->input_device_manager.last_device_ptr->name))) &&
+                      (!strncmp(description, e_comp_wl->input_device_manager.last_device_ptr->identifier, strlen(e_comp_wl->input_device_manager.last_device_ptr->identifier))) &&
                       (evas_device_class_get(dev) == (Evas_Device_Class)e_comp_wl->input_device_manager.last_device_ptr->clas))
                     {
                        last_ptr = dev;
