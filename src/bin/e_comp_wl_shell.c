@@ -2275,6 +2275,8 @@ _e_xdg_surf_v6_cb_toplevel_get(struct wl_client *client,
                                   ec,
                                   _e_xdg_toplv_v6_cb_res_destroy); // TODO
 
+   e_object_ref(E_OBJECT(ec));
+
    cdata->sh_v6.role = E_COMP_WL_SH_SURF_ROLE_TOPLV;
 
    cdata->shell.configure_send = _e_xdg_surf_v6_configure_send;
@@ -2356,6 +2358,8 @@ _e_xdg_surf_v6_cb_popup_get(struct wl_client *client,
                                   &_e_xdg_popup_v6_interface,
                                   ec,
                                   _e_xdg_popup_v6_cb_res_destroy); // TODO
+
+   e_object_ref(E_OBJECT(ec));
 
    cdata->sh_v6.role = E_COMP_WL_SH_SURF_ROLE_POPUP;
 
