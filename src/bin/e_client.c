@@ -3204,7 +3204,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
 
         if (!is_vis_on_skip)
           changed_list = eina_list_append(changed_list, ec);
-        is_above_rot_pending = skip_rot_pending_show;
+        is_above_rot_pending |= skip_rot_pending_show;
      }
 
    if (changed_list)
