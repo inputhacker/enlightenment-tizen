@@ -783,13 +783,12 @@ _e_client_find_focus_same_layer(E_Client *ec)
    return NULL;
 }
 
-static Eina_Bool
+static E_Client *
 _e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
 {
    E_Client *above = NULL;
-   Eina_Bool fully_contain = EINA_FALSE;
 
-   if (!ec) return EINA_FALSE;
+   if (!ec) return NULL;
 
    above = e_client_above_get(ec);
    while (above)
@@ -808,15 +807,12 @@ _e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
             (above->icccm.accepts_focus || above->icccm.take_focus))
           {
              if (E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h))
-               {
-                  fully_contain = EINA_TRUE;
-                  break;
-               }
+               break;
           }
         above = e_client_above_get(above);
      }
 
-   return fully_contain;
+   return above;
 }
 
 static void
@@ -3245,15 +3241,19 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
                          {
                             if (!focus_ec)
                               {
-                                 Eina_Bool obscured = EINA_FALSE;
-                                 obscured = _e_client_check_fully_contain_by_above(ec, EINA_FALSE);
-                                 if (!obscured)
+                                 E_Client *obscured_above = NULL;
+                                 obscured_above = _e_client_check_fully_contain_by_above(ec, EINA_FALSE);
+                                 if (!obscured_above)
                                    {
                                       focus_ec = ec;
                                       evas_object_focus_set(ec->frame, 1);
                                    }
                                  else
-                                   e_client_focus_latest_set(ec);
+                                   {
+                                      e_client_focus_latest_set(ec);
+                                      if (obscured_above == e_client_focused_get())
+                                        e_client_focus_latest_set(obscured_above);
+                                   }
                               }
                          }
                        e_client_focus_defer_unset(ec);
@@ -4982,7 +4982,7 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
         if (!ec->lock_focus_out)
           {
              E_Client *focus_ec = NULL;
-             Eina_Bool obscured = EINA_FALSE;
+             E_Client *obscured_above = NULL;
 
              if (ec->transients)
                focus_ec = e_client_transient_child_top_get(ec, EINA_TRUE);
@@ -4990,8 +4990,8 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
              if (!focus_ec)
                focus_ec = ec;
 
-             obscured = _e_client_check_fully_contain_by_above(focus_ec, EINA_FALSE);
-             if (!obscured)
+             obscured_above = _e_client_check_fully_contain_by_above(focus_ec, EINA_FALSE);
+             if (!obscured_above)
                evas_object_focus_set(focus_ec->frame, 1);
              else
                {
