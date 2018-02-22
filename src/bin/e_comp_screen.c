@@ -418,7 +418,7 @@ _e_comp_screen_new(E_Comp *comp)
                                _e_comp_screen_cb_event, e_comp_screen, NULL, NULL);
 
    /* tdm display init */
-   e_comp_screen->bufmgr = tbm_bufmgr_init(-1);
+   e_comp_screen->bufmgr = tbm_bufmgr_server_init();
    if (!e_comp_screen->bufmgr)
      {
         ERR("tbm_bufmgr_init failed\n");
