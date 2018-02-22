@@ -151,14 +151,6 @@ _e_process_client_info_del(E_Client *ec)
    return;
 }
 
-static void
-_e_process_evas_cb_prepare_foreground(void *data, Evas_Object *obj, void *event_info)
-{
-   E_Client *ec;
-   ec = data;
-   _e_process_thaw(ec->netwm.pid);
-}
-
 static Eina_Bool
 _e_process_cb_client_add(void *data EINA_UNUSED, int type EINA_UNUSED, void *event)
 {
@@ -170,8 +162,6 @@ _e_process_cb_client_add(void *data EINA_UNUSED, int type EINA_UNUSED, void *eve
 
    ec = ev->ec;
    _e_process_client_info_add(ec);
-
-   evas_object_smart_callback_add(ec->frame, "e,visibility,prepare,foreground", _e_process_evas_cb_prepare_foreground, ec);
 
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -187,8 +177,6 @@ _e_process_cb_client_remove(void *data EINA_UNUSED, int type EINA_UNUSED, void *
 
    ec = ev->ec;
    _e_process_client_info_del(ec);
-
-   evas_object_smart_callback_del(ec->frame, "e,visibility,prepare,foreground", _e_process_evas_cb_prepare_foreground);
 
    return ECORE_CALLBACK_PASS_ON;
 }
