@@ -946,7 +946,7 @@ _e_vis_client_cb_evas_hide(void *data EINA_UNUSED, Evas *e EINA_UNUSED, Evas_Obj
    VS_DBG(ec, "\tUPDATE ICONIC STATE: %s", STATE_STR(vc));
    vc->prepare_emitted = 0;
 
-   if (ec->exp_iconify.buffer_flush)
+   if (ec->iconic && ec->exp_iconify.buffer_flush)
      e_pixmap_buffer_clear(ec->pixmap, EINA_FALSE);
 }
 
