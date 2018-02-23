@@ -157,6 +157,7 @@ EINTERN void              e_output_size_get(E_Output *output, int *w, int *h);
 EINTERN E_Plane         * e_output_default_fb_target_get(E_Output *output);
 EINTERN Eina_Bool         e_output_fake_config_set(E_Output *output, int w, int h);
 EINTERN Eina_Bool         e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy);
+EINTERN Eina_Bool         e_output_zoom_get(E_Output *output, double *zoomx, double *zoomy, int *cx, int *cy);
 EINTERN void              e_output_zoom_unset(E_Output *output);
 EINTERN Eina_Bool         e_output_capture(E_Output *output, tbm_surface_h surface, Eina_Bool auto_rotate, Eina_Bool sync, E_Output_Capture_Cb func, void *data);
 EINTERN Eina_Bool         e_output_stream_capture_queue(E_Output *output, tbm_surface_h surface, E_Output_Capture_Cb func, void *data);
