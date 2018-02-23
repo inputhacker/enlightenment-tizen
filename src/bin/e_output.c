@@ -2948,6 +2948,36 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
    return EINA_TRUE;
 }
 
+EINTERN Eina_Bool
+e_output_zoom_get(E_Output *output, double *zoomx, double *zoomy, int *cx, int *cy)
+{
+   E_Output *output_primary = NULL;
+
+   if (!e_comp_screen_pp_support())
+     {
+        WRN("Comp Screen does not support the Zoom.");
+        return EINA_FALSE;
+     }
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
+
+   if (output != output_primary)
+     {
+        ERR("Only Primary Output can support the Zoom.");
+        return EINA_FALSE;
+     }
+
+   if (zoomx) *zoomx = output->zoom_conf.zoomx;
+   if (zoomy) *zoomy = output->zoom_conf.zoomy;
+   if (cx) *cx = output->zoom_conf.init_cx;
+   if (cy) *cy = output->zoom_conf.init_cy;
+
+   return EINA_TRUE;
+}
+
 EINTERN void
 e_output_zoom_unset(E_Output *output)
 {

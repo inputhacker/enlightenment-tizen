@@ -103,6 +103,7 @@ E_API unsigned int e_desks_count(void);
 
 E_API void         e_desk_geometry_set(E_Desk *desk, int x, int y, int w, int h);
 E_API void         e_desk_zoom_set(E_Desk *desk, double zoomx, double zoomy, int cx, int cy);
+E_API Eina_Bool    e_desk_zoom_get(E_Desk *desk, double *zoomx, double *zoomy, int *cx, int *cy);
 E_API void         e_desk_zoom_unset(E_Desk *desk);
 
 E_API void         e_desk_smart_member_add(E_Desk *desk, Evas_Object *obj);

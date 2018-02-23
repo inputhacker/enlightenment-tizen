@@ -928,6 +928,49 @@ e_desk_zoom_set(E_Desk *desk, double zoomx, double zoomy, int cx, int cy)
      }
 }
 
+E_API Eina_Bool
+e_desk_zoom_get(E_Desk *desk, double *zoomx, double *zoomy, int *cx, int *cy)
+{
+   E_Zone *zone = NULL;
+   E_Output *eout = NULL;
+   Eina_Bool res = EINA_FALSE;
+
+   E_OBJECT_CHECK_RETURN(desk, EINA_FALSE);
+   E_OBJECT_TYPE_CHECK_RETURN(desk, E_DESK_TYPE, EINA_FALSE);
+
+   if (e_config->use_pp_zoom)
+     {
+        if (e_comp_screen_pp_support())
+          {
+             zone = desk->zone;
+             eout = e_output_find(zone->output_id);
+             if (!eout)
+               {
+                  ERR("e_desk_zoom_set: fail get eout");
+                  return res;
+               }
+
+             res = e_output_zoom_get(eout, zoomx, zoomy, cx, cy);
+             return res;
+          }
+     }
+
+   if (e_config->use_desk_smart_obj)
+     {
+        E_DESK_SMART_DATA_GET(desk->smart_obj, sd);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(sd, EINA_FALSE);
+
+        if (zoomx) *zoomx = sd->zoom.ratio_x;
+        if (zoomy) *zoomy = sd->zoom.ratio_y;
+        if (cx) *cx = sd->zoom.center_x;
+        if (cy) *cy = sd->zoom.center_y;
+
+        res = EINA_TRUE;
+     }
+
+   return res;
+}
+
 E_API void
 e_desk_zoom_unset(E_Desk *desk)
 {
