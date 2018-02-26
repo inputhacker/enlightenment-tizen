@@ -503,6 +503,24 @@ _e_comp_screen_deinit_outputs(E_Comp_Screen *e_comp_screen)
 }
 
 static Eina_Bool
+_e_comp_screen_fake_output_set(E_Comp_Screen *e_comp_screen)
+{
+   E_Output *output = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+
+   output = e_output_find_by_index(0);
+
+   if (!e_output_setup(output))
+     {
+        ERR("fail to e_output_setup.");
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
 _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
 {
    E_Output *output = NULL;
@@ -511,6 +529,7 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
    int num_outputs;
    int i;
    Eina_Bool scale_updated = EINA_FALSE;
+   Eina_Bool connection_check = EINA_FALSE;
 
    /* init e_output */
    if (!e_output_init())
@@ -544,6 +563,8 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
         e_comp_screen->outputs = eina_list_append(e_comp_screen->outputs, output);
 
         if (!e_output_connected(output)) continue;
+
+        connection_check = EINA_TRUE;
 
         /* setting with the best mode and enable the output */
         mode = e_output_best_mode_find(output);
@@ -586,6 +607,11 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
 
    //TODO: if there is no output connected, make the fake output which is connected.
 
+   if (!connection_check)
+     {
+        if (!_e_comp_screen_fake_output_set(e_comp_screen))
+          goto fail;
+     }
 
    return EINA_TRUE;
 fail:
