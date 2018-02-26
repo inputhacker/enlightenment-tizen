@@ -53,6 +53,8 @@ e_input_init(Ecore_Evas *ee)
    Eina_Bool use_path_backend = EINA_FALSE;
    Eina_Bool skip_udev_enumeration = EINA_FALSE;
 
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ee, _e_input_init_count);
+
    TRACE_INPUT_BEGIN(e_input_init);
 
    if (++_e_input_init_count != 1) return _e_input_init_count;
