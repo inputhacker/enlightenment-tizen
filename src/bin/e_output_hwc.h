@@ -28,14 +28,16 @@ struct _E_Output_Hwc
    E_Output_Hwc_Mode    hwc_mode;
    Eina_Bool            hwc_deactive : 1; // deactive hwc policy
 
+   Ecore_Evas          *ee;
+
    /* variables for hwc_planes polic  */
-   Eina_Bool          hwc_use_multi_plane;
+   Eina_Bool            hwc_use_multi_plane;
 
    /* variables for hwc_windows policy  */
    Eina_Bool            hwc_wins;
    Eina_List           *hwc_windows;
    E_Hwc_Window_Target *target_hwc_window;
-   tbm_surface_queue_h target_buffer_queue;
+   tbm_surface_queue_h  target_buffer_queue;
    Eina_Bool            wait_commit;
    int                  num_visible_windows;
 

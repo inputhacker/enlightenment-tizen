@@ -2354,6 +2354,7 @@ e_output_setup(E_Output *output)
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
    /* available only the primary output now. */
+
    if (e_comp->hwc)
      {
         output_hwc = e_output_hwc_new(output);
@@ -2363,14 +2364,25 @@ e_output_setup(E_Output *output)
 
    if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
      {
-        /* ecore evas engine setup */
-        EINA_LIST_FOREACH_SAFE(output->planes, l, ll, plane)
+        E_Output *primary_output = NULL;
+
+        primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+
+        if (primary_output == output)
           {
-             if (plane->is_fb)
+             /* ecore evas engine setup */
+             EINA_LIST_FOREACH_SAFE(output->planes, l, ll, plane)
                {
-                  if (!e_plane_setup(plane)) return EINA_FALSE;
-                  else return EINA_TRUE;
+                  if (plane->is_fb)
+                    {
+                       if (!e_plane_setup(plane)) return EINA_FALSE;
+                       else return EINA_TRUE;
+                    }
                }
+          }
+        else
+          {
+             return EINA_TRUE;
           }
      }
    else
@@ -3435,10 +3447,19 @@ e_output_external_update(E_Output *output)
              return EINA_FALSE;
           }
 
+        ret = e_output_setup(output);
+        if (ret == EINA_FALSE)
+          {
+             ERR("fail to e_output_setup.");
+             return EINA_FALSE;
+          }
+
         ret = e_eom_connect(output);
         if (ret == EINA_FALSE)
           {
              ERR("fail to e_eom_connect.");
+             e_output_hwc_del(output->output_hwc);
+             output->output_hwc = NULL;
              return EINA_FALSE;
           }
      }
@@ -3449,6 +3470,12 @@ e_output_external_update(E_Output *output)
           {
              ERR("fail to e_eom_disconnect.");
              return EINA_FALSE;
+          }
+
+        if (output->output_hwc)
+          {
+             e_output_hwc_del(output->output_hwc);
+             output->output_hwc = NULL;
           }
 
         if (!e_output_dpms_set(output, E_OUTPUT_DPMS_OFF))

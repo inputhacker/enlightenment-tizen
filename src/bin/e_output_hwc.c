@@ -67,6 +67,21 @@ static void
 _e_output_hwc_ee_deinit(E_Output_Hwc *output_hwc)
 {
    // TODO:
+   E_Output *output = output_hwc->output;
+   E_Output *primary_output = NULL;
+
+   primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   if (primary_output != output)
+     {
+        if (output_hwc->ee)
+          ecore_evas_free(output_hwc->ee);
+        output_hwc->ee = NULL;
+     }
+   else
+     {
+        /* ecore_evas_free execute when e_comp free */
+        output_hwc->ee = NULL;
+     }
 }
 
 // TODO: Currently E20 has only one e_output for the primary output.
@@ -75,6 +90,8 @@ static Eina_Bool
 _e_output_hwc_ee_init(E_Output_Hwc* output_hwc)
 {
    E_Output *output = output_hwc->output;
+   E_Output *primary_output = NULL;
+   Ecore_Evas *ee = NULL;
    int w = 0, h = 0, scr_w = 1, scr_h = 1;
    int screen_rotation;
    char buf[1024];
@@ -117,11 +134,11 @@ _e_output_hwc_ee_init(E_Output_Hwc* output_hwc)
        (e_comp_config_get()->engine == E_COMP_ENGINE_GL))
      {
         e_main_ts_begin("\tEE_GL_DRM New");
-        e_comp->ee = ecore_evas_tbm_allocfunc_new("gl_tbm", scr_w, scr_h, _e_output_hwc_tbm_surface_queue_alloc, _e_output_hwc_tbm_surface_queue_free, (void *)output_hwc);
-        snprintf(buf, sizeof(buf), "\tEE_GL_DRM New Done %p %dx%d", e_comp->ee, scr_w, scr_h);
+        ee = ecore_evas_tbm_allocfunc_new("gl_tbm", scr_w, scr_h, _e_output_hwc_tbm_surface_queue_alloc, _e_output_hwc_tbm_surface_queue_free, (void *)output_hwc);
+        snprintf(buf, sizeof(buf), "\tEE_GL_DRM New Done %p %dx%d", ee, scr_w, scr_h);
         e_main_ts_end(buf);
 
-        if (!e_comp->ee)
+        if (!ee)
           e_comp_gl_set(EINA_FALSE);
         else
           {
@@ -129,15 +146,15 @@ _e_output_hwc_ee_init(E_Output_Hwc* output_hwc)
              Evas_GL_API *glapi = NULL;
 
              e_main_ts_begin("\tEvas_GL New");
-             evasgl = evas_gl_new(ecore_evas_get(e_comp->ee));
+             evasgl = evas_gl_new(ecore_evas_get(ee));
              if (evasgl)
                {
                   glapi = evas_gl_api_get(evasgl);
                   if (!((glapi) && (glapi->evasglBindWaylandDisplay)))
                     {
                        e_comp_gl_set(EINA_FALSE);
-                       ecore_evas_free(e_comp->ee);
-                       e_comp->ee = NULL;
+                       ecore_evas_free(ee);
+                       ee = NULL;
                        e_main_ts_end("\tEvas_GL New Failed 1");
                     }
                   else
@@ -148,8 +165,8 @@ _e_output_hwc_ee_init(E_Output_Hwc* output_hwc)
              else
                {
                   e_comp_gl_set(EINA_FALSE);
-                  ecore_evas_free(e_comp->ee);
-                  e_comp->ee = NULL;
+                  ecore_evas_free(ee);
+                  ee = NULL;
                   e_main_ts_end("\tEvas_GL New Failed 2");
                }
              evas_gl_free(evasgl);
@@ -157,33 +174,40 @@ _e_output_hwc_ee_init(E_Output_Hwc* output_hwc)
      }
 
    /* fallback to framebuffer drm (non-accel) */
-   if (!e_comp->ee)
+   if (!ee)
      {
         e_main_ts_begin("\tEE_DRM New");
-        e_comp->ee = ecore_evas_tbm_allocfunc_new("software_tbm", scr_w, scr_h, _e_output_hwc_tbm_surface_queue_alloc, _e_output_hwc_tbm_surface_queue_free, (void *)output_hwc);
-        snprintf(buf, sizeof(buf), "\tEE_DRM New Done %p %dx%d", e_comp->ee, scr_w, scr_h);
+        ee = ecore_evas_tbm_allocfunc_new("software_tbm", scr_w, scr_h, _e_output_hwc_tbm_surface_queue_alloc, _e_output_hwc_tbm_surface_queue_free, (void *)output_hwc);
+        snprintf(buf, sizeof(buf), "\tEE_DRM New Done %p %dx%d", ee, scr_w, scr_h);
         e_main_ts_end(buf);
      }
 
-   if (!e_comp->ee)
+   if (!ee)
      {
         e_error_message_show(_("Enlightenment cannot initialize outputs!\n"));
        _e_output_hwc_ee_deinit(output_hwc);
         return EINA_FALSE;
      }
 
-   ecore_evas_data_set(e_comp->ee, "comp", e_comp);
+   output_hwc->ee = ee;
 
-   ecore_evas_callback_resize_set(e_comp->ee, _e_output_hwc_cb_ee_resize);
-
-   if (screen_rotation)
+   primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   if (primary_output == output)
      {
-        /* SHOULD called with resize option after ecore_evas_resize */
-        ecore_evas_rotation_with_resize_set(e_comp->ee, screen_rotation);
-        ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
+        e_comp->ee = ee;
+        ecore_evas_data_set(e_comp->ee, "comp", e_comp);
 
-        snprintf(buf, sizeof(buf), "\tEE Rotate and Resize %d, %dx%d", screen_rotation, w, h);
-        e_main_ts(buf);
+        ecore_evas_callback_resize_set(e_comp->ee, _e_output_hwc_cb_ee_resize);
+
+        if (screen_rotation)
+          {
+             /* SHOULD called with resize option after ecore_evas_resize */
+             ecore_evas_rotation_with_resize_set(e_comp->ee, screen_rotation);
+             ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
+
+             snprintf(buf, sizeof(buf), "\tEE Rotate and Resize %d, %dx%d", screen_rotation, w, h);
+             e_main_ts(buf);
+          }
      }
 
    return EINA_TRUE;
