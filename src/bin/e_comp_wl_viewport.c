@@ -1881,20 +1881,14 @@ _e_viewport_cb_set(struct wl_client *client EINA_UNUSED,
 
    if (wl_fixed_to_double(src_width) < 0 || wl_fixed_to_double(src_height) < 0)
      {
-        wl_resource_post_error(resource,
-                               WL_VIEWPORT_ERROR_BAD_VALUE,
-                               "source dimensions must be non-negative (%fx%f)",
-                               wl_fixed_to_double(src_width),
-                               wl_fixed_to_double(src_height));
+        ERR("source dimensions must be non-negative (%fx%f)",
+            wl_fixed_to_double(src_width), wl_fixed_to_double(src_height));
         return;
      }
 
    if (dst_width <= 0 || dst_height <= 0)
      {
-        wl_resource_post_error(resource,
-                               WL_VIEWPORT_ERROR_BAD_VALUE,
-                               "destination dimensions must be positive (%dx%d)",
-                               dst_width, dst_height);
+        ERR("destination dimensions must be positive (%dx%d)", dst_width, dst_height);
         return;
      }
 
@@ -1932,11 +1926,8 @@ _e_viewport_cb_set_source(struct wl_client *client EINA_UNUSED,
 
    if (src_width <= 0 || src_height <= 0)
      {
-        wl_resource_post_error(resource,
-                               WL_VIEWPORT_ERROR_BAD_VALUE,
-                               "source size must be positive (%fx%f)",
-                               wl_fixed_to_double(src_width),
-                               wl_fixed_to_double(src_height));
+        ERR("source size must be positive (%fx%f)",
+            wl_fixed_to_double(src_width), wl_fixed_to_double(src_height));
         return;
      }
 
@@ -1970,10 +1961,7 @@ _e_viewport_cb_set_destination(struct wl_client *client EINA_UNUSED,
 
    if (dst_width <= 0 || dst_height <= 0)
      {
-        wl_resource_post_error(resource,
-                               WL_VIEWPORT_ERROR_BAD_VALUE,
-                               "destination size must be positive (%dx%d)",
-                               dst_width, dst_height);
+        ERR("destination size must be positive (%dx%d)", dst_width, dst_height);
         return;
      }
 
