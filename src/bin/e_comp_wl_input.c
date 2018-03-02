@@ -190,12 +190,17 @@ _e_comp_wl_input_cb_pointer_get(struct wl_client *client, struct wl_resource *re
           {
              Evas_Device *last_ptr = NULL, *dev;
              Eina_List *list, *l;
+             const char *name, *desc;
 
              list = (Eina_List *)evas_device_list(evas_object_evas_get(e_comp_wl->ptr.ec->frame), NULL);
              EINA_LIST_FOREACH(list, l, dev)
                {
-                  if ((!strncmp(evas_device_name_get(dev), e_comp_wl->input_device_manager.last_device_ptr->name, strlen(e_comp_wl->input_device_manager.last_device_ptr->name))) &&
-                      (!strncmp(evas_device_description_get(dev), e_comp_wl->input_device_manager.last_device_ptr->identifier, strlen(e_comp_wl->input_device_manager.last_device_ptr->identifier))) &&
+                  name = evas_device_name_get(dev);
+                  desc = evas_device_description_get(dev);
+                  if (!name || !desc) continue;
+
+                  if ((!strncmp(name, e_comp_wl->input_device_manager.last_device_ptr->name, strlen(e_comp_wl->input_device_manager.last_device_ptr->name))) &&
+                      (!strncmp(desc, e_comp_wl->input_device_manager.last_device_ptr->identifier, strlen(e_comp_wl->input_device_manager.last_device_ptr->identifier))) &&
                       (evas_device_class_get(dev) == (Evas_Device_Class)e_comp_wl->input_device_manager.last_device_ptr->clas))
                     {
                        last_ptr = dev;
