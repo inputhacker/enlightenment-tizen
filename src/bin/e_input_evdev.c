@@ -349,6 +349,7 @@ _e_input_event_key_cb_free(void *data EINA_UNUSED, void *event)
    Ecore_Event_Key *ev = event;
 
    if (ev->dev) ecore_device_unref(ev->dev);
+   if (ev->data) E_FREE(ev->data);
 
    free(ev);
 }
@@ -367,6 +368,7 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
    char key[256], keyname[256], compose_buffer[256];
    Ecore_Event_Key *e;
    char *tmp = NULL, *compose = NULL;
+   E_Keyrouter_Event_Data *key_data;
 
    if (!(edev = libinput_device_get_user_data(device)))
      {
@@ -450,6 +452,13 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
         E_FREE(tmp);
         return;
      }
+   key_data = E_NEW(E_Keyrouter_Event_Data, 1);
+   if (!key_data)
+     {
+        E_FREE(tmp);
+        E_FREE(e);
+        return;
+     }
 
    e->keyname = (char *)(e + 1);
    e->key = e->keyname + strlen(keyname) + 1;
@@ -466,7 +475,7 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
    e->timestamp = timestamp;
    e->same_screen = 1;
    e->keycode = code;
-   e->data = NULL;
+   e->data = key_data;
 
    _device_modifiers_update(edev);
 
