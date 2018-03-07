@@ -23,7 +23,7 @@ struct _E_Desk_Smart_Data
    struct
    {
       double       ratio_x, ratio_y;
-      int          center_x, center_y;
+      int          cord_x, cord_y;
       Eina_Bool    enabled;
    } zoom;
 };
@@ -902,12 +902,12 @@ e_desk_zoom_set(E_Desk *desk, double zoomx, double zoomy, int cx, int cy)
         E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
 
         if ((sd->zoom.ratio_x != zoomx) || (sd->zoom.ratio_y != zoomy) ||
-            (sd->zoom.center_x != cx) || (sd->zoom.center_y != cy))
+            (sd->zoom.cord_x != cx) || (sd->zoom.cord_y != cy))
           {
              sd->zoom.ratio_x = zoomx;
              sd->zoom.ratio_y = zoomy;
-             sd->zoom.center_x = cx;
-             sd->zoom.center_y = cy;
+             sd->zoom.cord_x = cx;
+             sd->zoom.cord_y = cy;
 
              _e_desk_object_zoom(desk->smart_obj, zoomx, zoomy, cx, cy);
              EINA_LIST_FOREACH(sd->clients, l, ec)
@@ -962,8 +962,8 @@ e_desk_zoom_get(E_Desk *desk, double *zoomx, double *zoomy, int *cx, int *cy)
 
         if (zoomx) *zoomx = sd->zoom.ratio_x;
         if (zoomy) *zoomy = sd->zoom.ratio_y;
-        if (cx) *cx = sd->zoom.center_x;
-        if (cy) *cy = sd->zoom.center_y;
+        if (cx) *cx = sd->zoom.cord_x;
+        if (cy) *cy = sd->zoom.cord_y;
 
         res = EINA_TRUE;
      }
@@ -1010,19 +1010,19 @@ e_desk_zoom_unset(E_Desk *desk)
 
         sd->zoom.ratio_x = 1.0;
         sd->zoom.ratio_y = 1.0;
-        sd->zoom.center_x = 0;
-        sd->zoom.center_y = 0;
+        sd->zoom.cord_x = 0;
+        sd->zoom.cord_y = 0;
         sd->zoom.enabled = EINA_FALSE;
 
         _e_desk_object_zoom(desk->smart_obj, sd->zoom.ratio_x, sd->zoom.ratio_y,
-                            sd->zoom.center_x, sd->zoom.center_y);
+                            sd->zoom.cord_x, sd->zoom.cord_y);
         evas_object_map_enable_set(desk->smart_obj, EINA_FALSE);
         EINA_LIST_FOREACH(sd->clients, l, ec)
           {
              /* NOTE Is it really necessary?
               * Why isn't it enough to just call evas_object_map_enable_set(false)? */
              _e_desk_client_zoom(ec, sd->zoom.ratio_x, sd->zoom.ratio_y,
-                                 sd->zoom.center_x, sd->zoom.center_y);
+                                 sd->zoom.cord_x, sd->zoom.cord_y);
              evas_object_map_enable_set(ec->frame, EINA_FALSE);
           }
 
@@ -1256,8 +1256,8 @@ _e_desk_smart_init(E_Desk *desk)
 
    sd->zoom.ratio_x = 1.0;
    sd->zoom.ratio_y = 1.0;
-   sd->zoom.center_x = 0;
-   sd->zoom.center_y = 0;
+   sd->zoom.cord_x = 0;
+   sd->zoom.cord_y = 0;
 }
 
 static Eina_Bool
@@ -1281,7 +1281,7 @@ _e_desk_smart_client_cb_resize(void *data, int type, void *event)
    if (sd->zoom.enabled)
      _e_desk_client_zoom(ec,
                          sd->zoom.ratio_x, sd->zoom.ratio_y,
-                         sd->zoom.center_x, sd->zoom.center_y);
+                         sd->zoom.cord_x, sd->zoom.cord_y);
 end:
    return ECORE_CALLBACK_PASS_ON;
 }
