@@ -51,6 +51,7 @@ static Eina_Bool         _e_vis_ec_below_uniconify(E_Client *ec);
 static void              _e_vis_cb_child_launch_done(void *data, Evas_Object *obj, const char *signal, const char *source);
 static void              _e_vis_update_foreground_job_queue(void);
 static void              _e_vis_update_forground_list(void);
+static Eina_Bool         _e_vis_client_check_send_pre_visibility(E_Vis_Client *vc, Eina_Bool raise);
 
 static E_Vis            *pol_vis = NULL;
 /* the list for E_Vis_Job */
@@ -1101,6 +1102,20 @@ e_vis_client_send_pre_visibility_event(E_Client *ec)
    e_policy_wl_visibility_send(ec, E_VISIBILITY_PRE_UNOBSCURED);
 }
 
+E_API void
+e_vis_client_check_send_pre_visibility_event(E_Client *ec, Eina_Bool raise)
+{
+   if (!ec) return;
+
+   E_VIS_CLIENT_GET_OR_RETURN(vc, ec);
+
+   if (_e_vis_client_check_send_pre_visibility(vc, raise))
+     {
+        ELOGF("POL_VIS", "SEND pre-unobscured visibility event", ec->pixmap, ec);
+        e_vis_client_send_pre_visibility_event(ec);
+     }
+}
+
 static Eina_Bool
 _e_vis_client_is_uniconify_render_necessary(E_Vis_Client *vc)
 {
@@ -1247,6 +1262,9 @@ _e_vis_client_check_send_pre_visibility(E_Vis_Client *vc, Eina_Bool raise)
    ec = vc->ec;
 
    if (_e_vis_client_is_uniconic(vc))
+     return EINA_FALSE;
+
+   if (ec->zone->display_state == E_ZONE_DISPLAY_STATE_OFF)
      return EINA_FALSE;
 
    // check all windows on above layers, if obscured by above then return FALSE
