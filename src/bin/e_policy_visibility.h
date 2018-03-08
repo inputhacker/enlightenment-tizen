@@ -37,6 +37,7 @@ E_API Eina_Bool                   e_policy_visibility_client_is_iconic(E_Client 
 
 EINTERN void                      e_policy_visibility_client_defer_move(E_Client *ec);
 EINTERN void                      e_vis_client_send_pre_visibility_event(E_Client *ec);
+EINTERN void                      e_vis_client_check_send_pre_visibility_event(E_Client *ec, Eina_Bool raise);
 
 #endif
 #endif
