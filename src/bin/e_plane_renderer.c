@@ -633,6 +633,7 @@ _e_plane_renderer_exported_surfaces_release(E_Plane_Renderer *renderer, Eina_Boo
 
         renderer_buffer->exported = EINA_FALSE;
 
+        E_FREE_FUNC(renderer_buffer->release_timer, ecore_timer_del);
         e_plane_renderer_surface_queue_release(renderer, tsurface);
         renderer->exported_surfaces = eina_list_remove_list(renderer->exported_surfaces, l_s);
 
