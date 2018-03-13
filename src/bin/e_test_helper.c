@@ -29,6 +29,7 @@ static Eina_Bool _e_test_helper_cb_property_get(const Eldbus_Service_Interface *
 
 static Eldbus_Message *_e_test_helper_cb_register_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_deregister_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_reset_register_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_change_stack(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_client_info(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_clients(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
@@ -88,6 +89,12 @@ static const Eldbus_Method methods[] ={
           ELDBUS_ARGS({"u", "window id to be deregistered"}),
           ELDBUS_ARGS({"b", "accept or not"}),
           _e_test_helper_cb_deregister_window, 0
+       },
+       {
+          "ResetRegisterWindow",
+          NULL,
+          ELDBUS_ARGS({"b", "accept or not"}),
+          _e_test_helper_cb_reset_register_window, 0
        },
        {
           "SetWindowStack",
@@ -562,6 +569,24 @@ _e_test_helper_cb_deregister_window(const Eldbus_Service_Interface *iface EINA_U
                                                 (th_data->registrant.win == id)));
 
    if (th_data->registrant.win == id)
+     {
+        _e_test_helper_registrant_clear();
+     }
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_test_helper_cb_reset_register_window(const Eldbus_Service_Interface *iface EINA_UNUSED,
+                                        const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, reply);
+
+   eldbus_message_arguments_append(reply, "b", !th_data->registrant.win);
+
+   if (th_data->registrant.win)
      {
         _e_test_helper_registrant_clear();
      }
