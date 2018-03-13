@@ -2610,6 +2610,8 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
      ELOGF("E_PLANE", "Request Plane(%p) zpos(%d)   Set ec(%p, %s)",
            (ec ? ec->pixmap : NULL), ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
+   if (plane->is_external) goto end;
+
    if (ec && !e_object_is_del(E_OBJECT(ec)) && (plane->is_fb || !plane->ec))
      {
         if (plane->ec == ec) return EINA_TRUE;
@@ -2784,7 +2786,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
              return EINA_FALSE;
           }
      }
-
+end:
    plane->ec = ec;
    plane->need_ev = EINA_TRUE;
 
