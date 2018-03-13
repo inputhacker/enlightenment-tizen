@@ -590,13 +590,15 @@ _e_comp_wl_send_touch_cancel(E_Client *ec)
 static void
 _e_comp_wl_touch_cancel(void)
 {
-   if (!e_comp_wl->ptr.ec)
-     return;
+   E_Client *ec;
+
+   ec = e_comp_wl->ptr.ec ? e_comp_wl->ptr.ec : e_comp_wl->touch.faked_ec;
+   if (!ec) return;
 
    if (!need_send_released)
      return;
 
-   _e_comp_wl_send_touch_cancel(e_comp_wl->ptr.ec);
+   _e_comp_wl_send_touch_cancel(ec);
 
    need_send_released = EINA_FALSE;
    need_send_motion = EINA_FALSE;
@@ -611,7 +613,7 @@ _e_comp_wl_evas_cb_restack(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EIN
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (ec->comp_data->sub.restacking) return;
 
-   if (ec->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)
+   if ((ec == (e_comp_wl->ptr.ec?e_comp_wl->ptr.ec:e_comp_wl->touch.faked_ec)) && !e_policy_client_is_keyboard_sub(ec))
      _e_comp_wl_touch_cancel();
 
    e_comp_wl_subsurface_stack_update(ec);
@@ -1243,6 +1245,10 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
 
    if (dev &&  (evas_device_class_get(dev) == EVAS_DEVICE_CLASS_TOUCH))
      {
+        if (!e_comp_wl->touch.pressed && !e_comp_wl->ptr.ec)
+          {
+             e_comp_wl->touch.faked_ec = ec;
+          }
         if (dev_name)
           _e_comp_wl_device_renew_axis(dev_name, evas_device_class_get(dev),
                                         ec, 0, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
@@ -1302,11 +1308,16 @@ _e_comp_wl_evas_cb_mouse_up(void *data, Evas *evas, Evas_Object *obj EINA_UNUSED
 
    if (dev && (evas_device_class_get(dev) == EVAS_DEVICE_CLASS_TOUCH))
      {
+        e_comp_wl->touch.pressed &= ~(1 << 0);
+
+        if (!e_comp_wl->touch.pressed && e_comp_wl->touch.faked_ec)
+          {
+             e_comp_wl->touch.faked_ec = NULL;
+          }
         if (dev_name)
           _e_comp_wl_device_handle_axes(dev_name, evas_device_class_get(dev),
                                         ec, 0, ev->radius_x, ev->radius_y, ev->pressure, ev->angle);
         _e_comp_wl_evas_handle_mouse_button_to_touch(ec, ev->timestamp, ev->canvas.x, ev->canvas.y, EINA_FALSE);
-        e_comp_wl->touch.pressed &= ~(1 << 0);
      }
    else
      e_comp_wl_evas_handle_mouse_button(ec, ev->timestamp, ev->button,
@@ -1417,6 +1428,13 @@ _e_comp_wl_evas_cb_multi_up(void *data, Evas *evas, Evas_Object *obj EINA_UNUSED
    flags = evas_event_default_flags_get(evas);
    if (flags & EVAS_EVENT_FLAG_ON_HOLD) return;
 
+   e_comp_wl->touch.pressed &= ~(1 << ev->device);
+
+   if (!e_comp_wl->touch.pressed && e_comp_wl->touch.faked_ec)
+     {
+        e_comp_wl->touch.faked_ec = NULL;
+     }
+
    dev = ev->dev;
    if (dev && (dev_name = evas_device_description_get(dev)))
      {
@@ -1426,7 +1444,6 @@ _e_comp_wl_evas_cb_multi_up(void *data, Evas *evas, Evas_Object *obj EINA_UNUSED
      }
 
    _e_comp_wl_send_touch(ec, ev->device, 0, 0, ev->timestamp, EINA_FALSE);
-   e_comp_wl->touch.pressed &= ~(1 << ev->device);
 }
 
 static void
