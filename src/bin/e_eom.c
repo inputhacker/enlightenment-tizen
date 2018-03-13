@@ -1917,6 +1917,58 @@ err:
 }
 
 static void
+_e_eom_send_configure_event()
+{
+   E_EomOutput *eom_output = NULL;
+   E_EomVirtualOutputPtr voutput = NULL;
+   E_EomClientPtr eom_client = NULL;
+   E_Client *ec = NULL;
+   Eina_List *l;
+   Eina_Bool ret = EINA_FALSE;
+   E_Comp_Client_Data *cdata = NULL;
+   E_Plane *ep = NULL;
+
+   EINA_LIST_FOREACH(g_eom->clients, l, eom_client)
+     {
+        if (eom_client->current == EINA_TRUE)
+          {
+             EINA_SAFETY_ON_NULL_RETURN(eom_client->ec);
+
+             ec = eom_client->ec;
+
+             cdata = ec->comp_data;
+             EINA_SAFETY_ON_NULL_RETURN(cdata);
+             EINA_SAFETY_ON_NULL_RETURN(cdata->shell.configure_send);
+
+             voutput = _e_eom_virtual_output_get_by_id(eom_client->output_id);
+             if (voutput == NULL)
+               {
+                  EOMER("no voutput error\n");
+                  return;
+               }
+
+             eom_output = voutput->eom_output;
+             if (eom_output == NULL)
+               {
+                  EOMER("no eom_output error\n");
+                  return;
+               }
+
+             EOMDB("e_comp_object_redirected_set (ec:%p)(ec->frame:%p)\n", ec, ec->frame);
+             ret = _e_eom_util_add_comp_object_redirected_hook(eom_client->ec);
+             EINA_SAFETY_ON_FALSE_RETURN(ret == EINA_TRUE);
+
+             cdata->shell.configure_send(ec->comp_data->shell.surface, 0, eom_output->width, eom_output->height);
+
+             ep = e_output_default_fb_target_get(eom_output->eout);
+             e_plane_ec_prepare_set(ep, ec);
+
+             return;
+          }
+     }
+}
+
+static void
 _e_eom_window_set_internal(struct wl_resource *resource, int output_id, E_Client *ec)
 {
    E_EomOutputPtr eom_output = NULL;
@@ -2452,6 +2504,8 @@ e_eom_connect(E_Output *output)
    if (voutput->state == WAIT_PRESENTATION)
      {
         EOMDB("Start wait Presentation");
+
+        _e_eom_send_configure_event();
 
         if (eom_output->delay_timer)
           ecore_timer_del(eom_output->delay_timer);
