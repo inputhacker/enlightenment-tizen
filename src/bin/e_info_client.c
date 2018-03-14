@@ -4291,29 +4291,51 @@ finish:
 static void
 _e_info_client_proc_buffer_flush(int argc, char **argv)
 {
-   int buffer_flush_option = -1;
-   if ((argc != 3) || ((argv[2][0] != '0') && (argv[2][0] != '1')))
+   Eina_Bool res = EINA_FALSE;
+
+   EINA_SAFETY_ON_FALSE_GOTO((argc == 3), usage);
+   EINA_SAFETY_ON_FALSE_GOTO((!strcmp(argv[2], "on")) ||
+                             (!strcmp(argv[2], "off")) ||
+                             (!strcmp(argv[2], "show")), usage);
+
+   if (!strcmp(argv[2], "on"))
      {
-        _e_info_client_eldbus_message_with_args("buffer_flush",
-                                                _e_info_client_cb_buffer_flush,
-                                                "i",
-                                                2);
-        goto usage;
+        res = _e_info_client_eldbus_message_with_args("buffer_flush",
+                                                      _e_info_client_cb_buffer_flush,
+                                                      "i",
+                                                      1);
+     }
+   else if (!strcmp(argv[2], "off"))
+     {
+        res = _e_info_client_eldbus_message_with_args("buffer_flush",
+                                                      _e_info_client_cb_buffer_flush,
+                                                      "i",
+                                                      0);
+     }
+   else if (!strcmp(argv[2], "show"))
+     {
+        res = _e_info_client_eldbus_message_with_args("buffer_flush",
+                                                      _e_info_client_cb_buffer_flush,
+                                                      "i",
+                                                      2);
      }
    else
-     {
-        buffer_flush_option = atoi(argv[2]);
-        _e_info_client_eldbus_message_with_args("buffer_flush",
-                                                _e_info_client_cb_buffer_flush,
-                                                "i",
-                                                buffer_flush_option);
-        goto finish;
-     }
+     goto usage;
+
+   EINA_SAFETY_ON_FALSE_GOTO(res, error);
+
+   return;
+
+error:
+   printf("Error occured while send send message\n\n");
 
 usage:
-   printf("Usage : %s %s [<0:off>/<1:on>]\n", argv[0], argv[1]);
+   printf("Usage : %s %s [on / off / show]\n\n"
+          "\t on : turn on buffer_flush option\n"
+          "\t off : turn off buffer_flush option\n"
+          "\t show : show buffer_flush configuration\n",
+          argv[0], argv[1]);
 
-finish:
    return;
 }
 
@@ -4629,7 +4651,7 @@ static struct
    },
    {
       "buffer_flush",
-      "[0:off / 1:on]",
+      "[on / off / show]",
       "set buffer_flush configure",
       _e_info_client_proc_buffer_flush
    },

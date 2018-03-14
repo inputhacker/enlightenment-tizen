@@ -5251,12 +5251,12 @@ _e_info_server_cb_buffer_flush(const Eldbus_Service_Interface *iface EINA_UNUSED
                 {
                    ec->exp_iconify.buffer_flush = msg_from_client;
                 }
-              snprintf(msg_to_client, sizeof(msg_to_client), "Successfully changed!  e_config->buffer_flush : %d",
-                       e_config->use_buffer_flush);
+              snprintf(msg_to_client, sizeof(msg_to_client), "Successfully changed!  e_config->buffer_flush : %s",
+                       e_config->use_buffer_flush ? "on" : "off");
               break;
            default:
-              snprintf(msg_to_client, sizeof(msg_to_client), "Not changed!  e_config->buffer_flush : %d",
-                       e_config->use_buffer_flush);
+              snprintf(msg_to_client, sizeof(msg_to_client), "Current option: e_config->buffer_flush : %s",
+                       e_config->use_buffer_flush ? "on" : "off");
               break;
           }
      }
