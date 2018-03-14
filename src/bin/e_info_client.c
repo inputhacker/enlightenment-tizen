@@ -2120,6 +2120,37 @@ _opt_parse(char *opt, char *delims, int *vals, int n_vals)
 }
 
 static void
+_e_info_client_proc_bgcolor_set(int argc, char **argv)
+{
+   int r = 0, g = 0, b = 0, a = 0;
+   char delims_col[] = { ',', ',', ',', '\0' };
+   int vals_col[] = { 0, 0, 0, 0};
+   Eina_Bool res;
+
+   if (argc < 2)
+     goto error_msg;
+
+   res = _opt_parse(argv[2], delims_col, vals_col, (sizeof(vals_col) / sizeof(int)));
+
+   if (!res)
+     goto error_msg;
+
+   a = vals_col[0];
+   r = vals_col[1];
+   g = vals_col[2];
+   b = vals_col[3];
+
+   printf("(A, R, G, B) : %d, %d, %d, %d\n", a, r, g, b);
+
+   _e_info_client_eldbus_message_with_args("bgcolor_set", NULL, "iiii", a, r, g, b);
+   return;
+
+error_msg:
+   printf("Wrong argument(s)! (<a>,<r>,<g>,<b>)\n");
+   return;
+}
+
+static void
 _e_info_client_proc_punch(int argc, char **argv)
 {
    int onoff = 0, x = 0, y = 0, w = 0, h = 0;
@@ -4443,6 +4474,11 @@ static struct
       "input_devices", NULL,
       "Print connected input devices",
       _e_info_client_proc_input_device_info
+   },
+   {
+      "bgcolor_set", "[<a>,<r>,<g>,<b>]",
+      "Set the background color of enlightenment canvas",
+      _e_info_client_proc_bgcolor_set
    },
    {
       "punch", "[on/off] [<X>x<H>+<X>+<Y>] [<a>,<r>,<g>,<b>]",

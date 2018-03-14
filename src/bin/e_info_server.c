@@ -3186,6 +3186,30 @@ _e_info_server_cb_keygrab_status_get(const Eldbus_Service_Interface *iface EINA_
 }
 
 static Eldbus_Message *
+_e_info_server_cb_bgcolor_set(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   int a, r, g, b;
+   int pa, pr, pg, pb;
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(reply, NULL);
+
+   if (!eldbus_message_arguments_get(msg, "iiii", &a, &r, &g, &b))
+     {
+        ERR("Error on getting argument from the given message.");
+        return reply;
+     }
+
+   evas_object_color_get(e_comp->bg_blank_object, &pa, &pr, &pg, &pb);
+   evas_object_color_set(e_comp->bg_blank_object, r, g, b, a);
+
+   INF("The background color of bg_blank_object has been changed.");
+   INF("(A, R, G, B) : %d, %d, %d, %d -> %d, %d, %d, %d", pa, pr, pg, pb, a, r, g, b);
+
+   return reply;
+}
+
+static Eldbus_Message *
 _e_info_server_cb_punch(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
@@ -5303,6 +5327,7 @@ static const Eldbus_Method methods[] = {
    { "get_input_devices", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_INPUTDEV")", "array of input"}), _e_info_server_cb_input_device_info_get, 0},
    { "protocol_trace", ELDBUS_ARGS({"s", "protocol_trace"}), NULL, _e_info_server_cb_protocol_trace, 0},
    { "protocol_rule", ELDBUS_ARGS({"sss", "protocol_rule"}), ELDBUS_ARGS({"s", "rule request"}), _e_info_server_cb_protocol_rule, 0},
+   { "bgcolor_set", ELDBUS_ARGS({"iiii", "bgcolor_set"}), NULL, _e_info_server_cb_bgcolor_set, 0},
    { "punch", ELDBUS_ARGS({"iiiiiiiii", "punch_geometry"}), NULL, _e_info_server_cb_punch, 0},
    { "transform_message", ELDBUS_ARGS({"siiiiiiii", "transform_message"}), NULL, e_info_server_cb_transform_message, 0},
    { "dump_buffers", ELDBUS_ARGS({"iisdi", "start"}), NULL, _e_info_server_cb_buffer_dump, 0 },
