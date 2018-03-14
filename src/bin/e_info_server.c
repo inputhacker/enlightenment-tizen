@@ -5290,12 +5290,12 @@ _e_info_server_cb_deiconify_approve(const Eldbus_Service_Interface *iface EINA_U
                 {
                    ec->exp_iconify.deiconify_update = msg_from_client;
                 }
-              snprintf(msg_to_client, sizeof(msg_to_client), "Successfully changed!  e_config->deiconify_approve : %d",
-                       e_config->deiconify_approve);
+              snprintf(msg_to_client, sizeof(msg_to_client), "Successfully changed!  e_config->deiconify_approve : %s",
+                       e_config->deiconify_approve ? "on" : "off");
               break;
            default:
-              snprintf(msg_to_client, sizeof(msg_to_client), "Not changed!  e_config->deiconify_approve : %d",
-                       e_config->deiconify_approve);
+              snprintf(msg_to_client, sizeof(msg_to_client), "Current option: e_config->deiconify_approve : %s",
+                       e_config->deiconify_approve ? "on" : "off");
               break;
           }
      }

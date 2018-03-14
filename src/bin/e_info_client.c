@@ -4369,29 +4369,51 @@ finish:
 static void
 _e_info_client_proc_deiconify_approve(int argc, char **argv)
 {
-   int deiconify_approve_option = -1;
-   if ((argc != 3) || ((argv[2][0] != '0') && (argv[2][0] != '1')))
+   Eina_Bool res = EINA_FALSE;
+
+   EINA_SAFETY_ON_FALSE_GOTO((argc == 3), usage);
+   EINA_SAFETY_ON_FALSE_GOTO((!strcmp(argv[2], "on")) ||
+                             (!strcmp(argv[2], "off")) ||
+                             (!strcmp(argv[2], "show")), usage);
+
+   if (!strcmp(argv[2], "on"))
      {
-        _e_info_client_eldbus_message_with_args("deiconify_approve",
-                                                _e_info_client_cb_deiconify_approve,
-                                                "i",
-                                                2);
-        goto usage;
+        res = _e_info_client_eldbus_message_with_args("deiconify_approve",
+                                                      _e_info_client_cb_deiconify_approve,
+                                                      "i",
+                                                      1);
+     }
+   else if (!strcmp(argv[2], "off"))
+     {
+        res = _e_info_client_eldbus_message_with_args("deiconify_approve",
+                                                      _e_info_client_cb_deiconify_approve,
+                                                      "i",
+                                                      0);
+     }
+   else if (!strcmp(argv[2], "show"))
+     {
+        res = _e_info_client_eldbus_message_with_args("deiconify_approve",
+                                                      _e_info_client_cb_deiconify_approve,
+                                                      "i",
+                                                      2);
      }
    else
-     {
-        deiconify_approve_option = atoi(argv[2]);
-        _e_info_client_eldbus_message_with_args("deiconify_approve",
-                                                _e_info_client_cb_deiconify_approve,
-                                                "i",
-                                                deiconify_approve_option);
-        goto finish;
-     }
+     goto usage;
+
+   EINA_SAFETY_ON_FALSE_GOTO(res, error);
+
+   return;
+
+error:
+   printf("Error occured while send send message\n\n");
 
 usage:
-   printf("Usage : %s %s [<0:off>/<1:on>]\n", argv[0], argv[1]);
+   printf("Usage : %s %s [on / off / show]\n\n"
+          "\t on : turn on deiconify_approve option\n"
+          "\t off : turn off deiconify_approve option\n"
+          "\t show : show deiconify_approve configuration\n",
+          argv[0], argv[1]);
 
-finish:
    return;
 }
 
@@ -4657,7 +4679,7 @@ static struct
    },
    {
       "deiconify_approve",
-      "[0:off / 1:on]",
+      "[on / off / show]",
       "set deiconify_approve configure",
       _e_info_client_proc_deiconify_approve
    },
