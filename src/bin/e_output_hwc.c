@@ -276,7 +276,7 @@ e_output_hwc_new(E_Output *output)
    return output_hwc;
 
 fail:
-   if (output_hwc) E_FREE(output_hwc);
+   E_FREE(output_hwc);
 
    return NULL;
 }
