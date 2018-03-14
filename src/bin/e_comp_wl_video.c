@@ -699,8 +699,8 @@ _e_video_layer_get_property(E_Video_Layer * layer, unsigned id, tdm_value *value
        if (layer->e_client->hwc_window->thwc_window)
          ret = tdm_hwc_window_video_get_property(
                       layer->e_client->hwc_window->thwc_window, id, value);
-
-       ret = TDM_ERROR_BAD_MODULE;
+       else
+         ret = TDM_ERROR_BAD_MODULE;
     }
   else
     ret = tdm_layer_get_property(layer->tdm_layer, id, value);
