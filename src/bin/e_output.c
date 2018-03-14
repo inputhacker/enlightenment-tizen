@@ -2307,13 +2307,22 @@ EINTERN Eina_Bool
 e_output_mode_apply(E_Output *output, E_Output_Mode *mode)
 {
    tdm_error error;
+   E_Output_Mode *current_mode = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(mode, EINA_FALSE);
 
    if (!output->info.connected)
      {
         ERR("output is not connected.");
         return EINA_FALSE;
+     }
+
+   current_mode = e_output_current_mode_get(output);
+   if (current_mode != NULL)
+     {
+        if (current_mode == mode)
+          return EINA_TRUE;
      }
 
    error = tdm_output_set_mode(output->toutput, mode->tmode);
@@ -2322,6 +2331,10 @@ e_output_mode_apply(E_Output *output, E_Output_Mode *mode)
         ERR("fail to set tmode.");
         return EINA_FALSE;
      }
+
+   if (current_mode != NULL)
+     current_mode->current = EINA_FALSE;
+   mode->current = EINA_TRUE;
 
    output->config.geom.x = 0;
    output->config.geom.y = 0;
@@ -2449,6 +2462,32 @@ e_output_best_mode_find(E_Output *output)
      }
 
    return best_mode;
+}
+
+EINTERN Eina_List *
+e_output_mode_list_get(E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->info.modes, NULL);
+
+   return output->info.modes;
+}
+
+EINTERN E_Output_Mode *
+e_output_current_mode_get(E_Output *output)
+{
+   Eina_List *l;
+   E_Output_Mode *emode = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+
+   EINA_LIST_FOREACH(output->info.modes, l, emode)
+     {
+        if (emode->current)
+          return emode;
+     }
+
+   return NULL;
 }
 
 EINTERN Eina_Bool
