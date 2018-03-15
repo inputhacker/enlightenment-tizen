@@ -3942,15 +3942,7 @@ _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp
 {
    Eldbus_Message_Iter *array_of_mode;
    Eldbus_Message_Iter *struct_of_mode;
-   tdm_display *tdpy;
-   tdm_output *output = NULL;
-   tdm_output_conn_status status;
-   const tdm_output_mode *mode = NULL;
-   const tdm_output_mode *modes = NULL;
-   tdm_error ret = TDM_ERROR_NONE;
-   int i, j, count, mode_count, current;
-   unsigned int preferred;
-   tdm_output_dpms dpms;
+   int i, count;
 
    eldbus_message_iter_arguments_append(iter, "a("SIGNATURE_OUTPUT_MODE_SERVER")",
                                         &array_of_mode);
@@ -3970,19 +3962,21 @@ _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp
      }
 
    count = e_comp_screen->num_outputs;
-   tdpy = e_comp_screen->tdisplay;
 
    for (i = 0; i < count; i++)
      {
-        output = tdm_display_get_output(tdpy, i, &ret);
-        if (ret != TDM_ERROR_NONE || output == NULL)
-          continue;
+        E_Output *eout = e_output_find_by_index(i);
+        E_Output_Mode *current_mode = NULL;
+        E_Output_Mode *emode = NULL;
+        Eina_List *modelist = NULL, *l = NULL;
+        const tdm_output_mode *tmode = NULL;
+        int current;
+        unsigned int preferred;
+        int dpms;
 
-        ret = tdm_output_get_conn_status(output, &status);
-        if (ret != TDM_ERROR_NONE)
-          continue;
+        if (eout == NULL) continue;
 
-        if (status == TDM_OUTPUT_CONN_STATUS_DISCONNECTED)
+        if (e_output_connected(eout) == EINA_FALSE)
           {
              eldbus_message_iter_arguments_append(array_of_mode, "("SIGNATURE_OUTPUT_MODE_SERVER")",
                                                   &struct_of_mode);
@@ -3994,32 +3988,30 @@ _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp
              continue;
           }
 
-        ret = tdm_output_get_mode(output, &mode);
-        if (ret != TDM_ERROR_NONE)
-          continue;
+        current_mode = e_output_current_mode_get(eout);
+        modelist = e_output_mode_list_get(eout);
+        if (modelist == NULL) continue;
 
-        ret = tdm_output_get_available_modes(output, &modes, &mode_count);
-        if (ret != TDM_ERROR_NONE)
-          continue;
-
-        ret = tdm_output_get_dpms(output, &dpms);
-        if (ret != TDM_ERROR_NONE)
-          continue;
-
-        for (j = 0; j < mode_count; j++)
+        EINA_LIST_FOREACH(modelist, l, emode)
           {
+             if (emode == NULL) continue;
+
+             tmode = emode->tmode;
+
+             if (tmode->type & TDM_OUTPUT_MODE_TYPE_PREFERRED) preferred = 1;
+             else preferred = 0;
+
+             if (emode == current_mode) current = 1;
+             else current = 0;
+
+             dpms = e_output_dpms_get(eout);
+
              eldbus_message_iter_arguments_append(array_of_mode, "("SIGNATURE_OUTPUT_MODE_SERVER")",
                                                   &struct_of_mode);
-             current = 0;
-             if (mode == modes + j) current = 1;
-
-             preferred = 0;
-             if (modes[j].type & TDM_OUTPUT_MODE_TYPE_PREFERRED) preferred = 1;
-
              eldbus_message_iter_arguments_append(struct_of_mode, SIGNATURE_OUTPUT_MODE_SERVER,
-                                                  modes[j].hdisplay, modes[j].hsync_start, modes[j].hsync_end, modes[j].htotal,
-                                                  modes[j].vdisplay, modes[j].vsync_start, modes[j].vsync_end, modes[j].vtotal,
-                                                  modes[j].vrefresh, modes[j].vscan, modes[j].clock, preferred, modes[j].name,
+                                                  tmode->hdisplay, tmode->hsync_start, tmode->hsync_end, tmode->htotal,
+                                                  tmode->vdisplay, tmode->vsync_start, tmode->vsync_end, tmode->vtotal,
+                                                  tmode->vrefresh, tmode->vscan, tmode->clock, preferred, tmode->name,
                                                   current, i, 1, 1, dpms);
              eldbus_message_iter_container_close(array_of_mode, struct_of_mode);
           }
