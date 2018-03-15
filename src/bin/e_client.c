@@ -6593,6 +6593,7 @@ e_client_transform_core_update(E_Client *ec)
              ec->transform_core.result.enable = EINA_FALSE;
              _e_client_transform_core_vertices_apply(ec, ec->frame, NULL, NULL);
              e_comp_object_transform_bg_set(ec->frame, EINA_FALSE);
+             ec->transform_core.background = EINA_FALSE;
              e_comp_object_transform_transp_set(ec->frame, EINA_FALSE);
              _e_client_transform_core_sub_update(ec, NULL);
 
