@@ -100,7 +100,8 @@ typedef enum _E_Info_Cmd_Scrsaver
 typedef enum _E_Info_Cmd_Output_Mode
 {
    E_INFO_CMD_OUTPUT_MODE_UNKNOWN,
-   E_INFO_CMD_OUTPUT_MODE_GET
+   E_INFO_CMD_OUTPUT_MODE_GET,
+   E_INFO_CMD_OUTPUT_MODE_SET
 } E_Info_Cmd_Output_Mode;
 
 #define SIGNATURE_OUTPUT_MODE_CLIENT "ii" /* i: E_Info_Cmd_Output_Mode

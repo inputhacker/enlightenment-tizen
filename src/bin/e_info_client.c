@@ -2818,11 +2818,36 @@ _e_info_client_proc_output_mode(int argc, char **argv)
       "suspend",
       "off"
    };
+   int count = 0;
 
-   if (!_e_info_client_eldbus_message_with_args("output_mode", _cb_output_mode_info,
-                                                SIGNATURE_OUTPUT_MODE_CLIENT, E_INFO_CMD_OUTPUT_MODE_GET, 0))
+   if (argc == 2)
      {
-        printf("_e_info_client_proc_output_mode fail (%d)\n", 1);
+        if (!_e_info_client_eldbus_message_with_args("output_mode", _cb_output_mode_info,
+                                                     SIGNATURE_OUTPUT_MODE_CLIENT, E_INFO_CMD_OUTPUT_MODE_GET, 0))
+          {
+             printf("_e_info_client_proc_output_mode fail (%d)\n", E_INFO_CMD_OUTPUT_MODE_GET);
+             return;
+          }
+     }
+   else if (argc == 3)
+     {
+        if ((argv[2][0] < '0' || argv[2][0] > '9'))
+          {
+             printf("Error: invalid argument\n");
+             return;
+          }
+
+        count = atoi(argv[2]);
+        if (!_e_info_client_eldbus_message_with_args("output_mode", _cb_output_mode_info,
+                                                     SIGNATURE_OUTPUT_MODE_CLIENT, E_INFO_CMD_OUTPUT_MODE_SET, count))
+          {
+             printf("_e_info_client_proc_output_mode fail (%d)\n", E_INFO_CMD_OUTPUT_MODE_SET);
+             return;
+          }
+     }
+   else
+     {
+        printf("Error: invalid argument\n");
         return;
      }
 
@@ -4561,7 +4586,8 @@ static struct
       _e_info_client_proc_screen_shot
    },
    {
-      "output_mode", NULL,
+      "output_mode",
+      "[mode number to set]",
       "Get output mode info",
       _e_info_client_proc_output_mode
    },

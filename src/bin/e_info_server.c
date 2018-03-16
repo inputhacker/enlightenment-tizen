@@ -3938,10 +3938,12 @@ _e_info_server_cb_screen_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
 }
 
 static void
-_output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp_screen, int gl)
+_output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp_screen, int gl, int mode, int mode_count)
 {
+   E_Output *primary_output = NULL;
    Eldbus_Message_Iter *array_of_mode;
    Eldbus_Message_Iter *struct_of_mode;
+   E_Output_Mode *set_mode = NULL;
    int i, count;
 
    eldbus_message_iter_arguments_append(iter, "a("SIGNATURE_OUTPUT_MODE_SERVER")",
@@ -3959,6 +3961,37 @@ _output_mode_msg_clients_append(Eldbus_Message_Iter *iter, E_Comp_Screen *e_comp
         eldbus_message_iter_container_close(iter, array_of_mode);
 
         return;
+     }
+
+   if (mode == E_INFO_CMD_OUTPUT_MODE_SET)
+     {
+        E_Output_Mode *emode = NULL;
+        Eina_List *modelist = NULL, *l = NULL;
+        int num;
+
+        primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+
+        modelist = e_output_mode_list_get(primary_output);
+        if (modelist)
+          {
+             num = eina_list_count(modelist);
+             if (mode_count >= 0 && mode_count < num)
+               {
+                  count = 0;
+                  EINA_LIST_FOREACH(modelist, l, emode)
+                    {
+                       if (count == mode_count)
+                         {
+                            set_mode = emode;
+                            break;
+                         }
+                       count++;
+                    }
+               }
+
+             if (set_mode)
+               e_output_mode_change(primary_output, set_mode);
+          }
      }
 
    count = e_comp_screen->num_outputs;
@@ -4035,15 +4068,16 @@ _e_info_server_cb_output_mode(const Eldbus_Service_Interface *iface EINA_UNUSED,
         return reply;
      }
 
-   if (mode == E_INFO_CMD_OUTPUT_MODE_GET)
+   if ((mode == E_INFO_CMD_OUTPUT_MODE_GET) ||
+       (mode == E_INFO_CMD_OUTPUT_MODE_SET))
      {
         e_comp_screen = e_comp->e_comp_screen;
         tdpy = e_comp_screen->tdisplay;
 
         if (tdpy != NULL)
-          _output_mode_msg_clients_append(eldbus_message_iter_get(reply), e_comp_screen, 1);
+          _output_mode_msg_clients_append(eldbus_message_iter_get(reply), e_comp_screen, 1, mode, count);
         else
-          _output_mode_msg_clients_append(eldbus_message_iter_get(reply), e_comp_screen, 0);
+          _output_mode_msg_clients_append(eldbus_message_iter_get(reply), e_comp_screen, 0, 0, 0);
      }
 
    return reply;
