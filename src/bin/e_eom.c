@@ -1204,6 +1204,8 @@ _e_eom_output_init(tdm_display *dpy)
         eom_output->mode = EOM_OUTPUT_MODE_NONE;
         eom_output->connection = WL_EOM_STATUS_NONE;
         eom_output->eout = e_output_find_by_index(i);
+        EINA_SAFETY_ON_NULL_GOTO(eom_output->eout, err);
+
         eom_output->output = eom_output->eout->toutput;
         eom_output->type = (eom_output_type_e)eom_output->eout->toutput_type;
 
