@@ -169,6 +169,7 @@ EINTERN void              e_output_del(E_Output *output);
 EINTERN Eina_Bool         e_output_rotate(E_Output *output, int rotate);
 EINTERN Eina_Bool         e_output_update(E_Output *output);
 EINTERN Eina_Bool         e_output_mode_apply(E_Output *output, E_Output_Mode *mode);
+EINTERN Eina_Bool         e_output_mode_change(E_Output *output, E_Output_Mode *mode);
 EINTERN Eina_Bool         e_output_commit(E_Output *output);
 EINTERN Eina_Bool         e_output_render(E_Output *output);
 EINTERN Eina_Bool         e_output_setup(E_Output *output);

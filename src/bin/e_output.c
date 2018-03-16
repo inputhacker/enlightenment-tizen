@@ -2358,6 +2358,65 @@ e_output_mode_apply(E_Output *output, E_Output_Mode *mode)
 }
 
 EINTERN Eina_Bool
+e_output_mode_change(E_Output *output, E_Output_Mode *mode)
+{
+   E_Output *primary_output = NULL;
+   E_Output_Mode *emode = NULL;
+   Eina_List *l;
+   Eina_Bool found = EINA_FALSE;
+   int w, h;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(mode, EINA_FALSE);
+
+   /* support only primay output */
+   primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(primary_output, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(output == primary_output, EINA_FALSE);
+
+   if (e_output_connected(output) != EINA_TRUE)
+     return EINA_FALSE;
+
+   EINA_LIST_FOREACH(output->info.modes, l, emode)
+     {
+        if (mode == emode)
+          {
+             found = EINA_TRUE;
+             break;
+          }
+     }
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(found == EINA_TRUE, EINA_FALSE);
+
+   e_comp_canvas_norender_push();
+
+   if (e_output_mode_apply(output, mode) == EINA_FALSE)
+     {
+        ERR("fail to e_output_mode_apply.");
+        return EINA_FALSE;
+     }
+
+   e_output_size_get(output, &w, &h);
+   if (w == e_comp->w && h == e_comp->h)
+     {
+        _e_output_render_update(output);
+        e_comp_canvas_norender_pop();
+        return EINA_TRUE;
+     }
+
+   ecore_evas_resize(e_comp->ee, mode->w, mode->h);
+   e_comp->w = mode->w;
+   e_comp->h = mode->h;
+
+   ecore_event_add(E_EVENT_SCREEN_CHANGE, NULL, NULL, NULL);
+
+   _e_output_client_resize(e_comp->w, e_comp->h);
+
+   e_comp_canvas_norender_pop();
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
 e_output_setup(E_Output *output)
 {
    E_Output_Hwc *output_hwc = NULL;
