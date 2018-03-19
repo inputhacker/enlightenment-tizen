@@ -6603,6 +6603,7 @@ e_client_transform_core_update(E_Client *ec)
      }
 
    e_client_visibility_calculate();
+   e_comp_render_queue();
 }
 
 E_API int
