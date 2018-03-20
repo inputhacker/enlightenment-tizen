@@ -1611,7 +1611,6 @@ _e_vis_ec_below_uniconify(E_Client *ec)
                   if (below->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD)
                     {
                        E_FREE_FUNC(below->grab, _e_vis_grab_release);
-                       ret |= EINA_FALSE;
                        continue;
                     }
 
