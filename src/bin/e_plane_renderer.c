@@ -976,6 +976,8 @@ _e_plane_renderer_cb_queue_acquirable_event(void *data, Ecore_Fd_Handler *fd_han
    char buffer[64];
 
    fd = ecore_main_fd_handler_fd_get(fd_handler);
+   if (fd < 0) return ECORE_CALLBACK_RENEW;
+
    len = read(fd, buffer, sizeof(buffer));
    if (len == -1)
      ERR("failed to read queue acquire event fd:%m");
