@@ -2242,7 +2242,7 @@ _e_video_set(E_Video *video, E_Client *ec)
    tdm_output_get_available_size(video->output, &ominw, &ominh, &omaxw, &omaxh, &video->output_align);
 
    tdm_err = tdm_display_get_capabilities(e_comp->e_comp_screen->tdisplay, &disp_capabilities);
-   if (tdm_err != TDM_ERROR_NONE) VIN("failed tdm_display_get_capabilities")
+   if (tdm_err != TDM_ERROR_NONE) VIN("failed tdm_display_get_capabilities");
 
    if (!(disp_capabilities & TDM_DISPLAY_CAPABILITY_PP))
      {
