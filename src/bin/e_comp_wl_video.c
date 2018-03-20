@@ -2623,6 +2623,7 @@ _e_video_render(E_Video *video, const char *func)
    if (!video->pp)
      {
         tdm_pp_capability pp_cap;
+        tdm_error error = TDM_ERROR_NONE;
 
         video->pp = tdm_display_create_pp(e_comp->e_comp_screen->tdisplay, NULL);
         EINA_SAFETY_ON_NULL_GOTO(video->pp, render_fail);
@@ -2630,9 +2631,12 @@ _e_video_render(E_Video *video, const char *func)
         tdm_display_get_pp_available_size(e_comp->e_comp_screen->tdisplay, &video->pp_minw, &video->pp_minh,
                                           &video->pp_maxw, &video->pp_maxh, &video->pp_align);
 
-        tdm_display_get_pp_capabilities(e_comp->e_comp_screen->tdisplay, &pp_cap);
-        if (pp_cap & TDM_PP_CAPABILITY_SCANOUT)
-          video->pp_scanout = EINA_TRUE;
+        error = tdm_display_get_pp_capabilities(e_comp->e_comp_screen->tdisplay, &pp_cap);
+        if (error == TDM_ERROR_NONE)
+          {
+             if (pp_cap & TDM_PP_CAPABILITY_SCANOUT)
+               video->pp_scanout = EINA_TRUE;
+          }
      }
 
    if ((video->pp_minw > 0 && (video->geo.input_r.w < video->pp_minw || video->geo.tdm_output_r.w < video->pp_minw)) ||
