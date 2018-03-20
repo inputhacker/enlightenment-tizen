@@ -253,6 +253,8 @@ _e_hwc_window_target_window_render_finished_cb(void *data, Ecore_Fd_Handler *fd_
    ELOGF("HWC-WINS", " ecore_main_loop: the new iteration.", NULL, NULL);
 
    fd = ecore_main_fd_handler_fd_get(fd_handler);
+   if (fd < 0) return ECORE_CALLBACK_RENEW;
+
    len = read(fd, buffer, sizeof(buffer));
    if (len == -1)
      ERR("failed to read queue acquire event fd:%m");
