@@ -920,6 +920,7 @@ _e_info_client_proc_protocol_rule(int argc, char **argv)
    char *new_s2 = NULL;
    int new_argc;
    int i;
+   Eina_Bool res = EINA_FALSE;
 
    if (argc < 3 ||
       (argc > 3 && !eina_streq(argv[2], "print") && !eina_streq(argv[2], "help") && !eina_streq(argv[2], "file") && !eina_streq(argv[2], "add") && !eina_streq(argv[2], "remove")))
@@ -955,7 +956,8 @@ _e_info_client_proc_protocol_rule(int argc, char **argv)
         goto finish;
      }
 
-   _e_info_client_eldbus_message_with_args("protocol_rule", _cb_protocol_rule, "sss", new_argv[0], new_argv[1], new_argv[2]);
+   res = _e_info_client_eldbus_message_with_args("protocol_rule", _cb_protocol_rule, "sss", new_argv[0], new_argv[1], new_argv[2]);
+   if (!res) printf("Error occured while send send message\n\n");
 
 finish:
    if (new_s1) free(new_s1);
@@ -2159,7 +2161,7 @@ _e_info_client_proc_punch(int argc, char **argv)
    int vals_geom[] = { 0, 0, 0, 0 };
    char delims_col[] = { ',', ',', ',', '\0' };
    int vals_col[] = { 0, 0, 0, 0 };
-   Eina_Bool res;
+   Eina_Bool res = EINA_FALSE;
 
    EINA_SAFETY_ON_FALSE_GOTO(argc >= 3, wrong_args);
    EINA_SAFETY_ON_NULL_GOTO(argv[2], wrong_args);
@@ -2182,7 +2184,9 @@ _e_info_client_proc_punch(int argc, char **argv)
         a = vals_col[0]; r = vals_col[1]; g = vals_col[2]; b = vals_col[3];
      }
 
-   _e_info_client_eldbus_message_with_args("punch", NULL, "iiiiiiiii", onoff, x, y, w, h, a, r, g, b);
+   res = _e_info_client_eldbus_message_with_args("punch", NULL, "iiiiiiiii", onoff, x, y, w, h, a, r, g, b);
+   if (!res) printf("Error occured while send send message\n\n");
+
    return;
 
 wrong_args:
@@ -4173,6 +4177,7 @@ _e_info_client_proc_module(int argc, char **argv)
    const char *program = argv[0];
    const char *command = argv[2];
    const char *module_name = argv[3];
+   Eina_Bool res = EINA_FALSE;
 
    if (((argc < 3) || (argc > 4)))
      {
@@ -4184,31 +4189,37 @@ _e_info_client_proc_module(int argc, char **argv)
         if (argc != 3)
           goto usage;
 
-        _e_info_client_eldbus_message("module_list_get", _e_info_client_cb_module_list_get);
-        goto finish;
+        res = _e_info_client_eldbus_message("module_list_get", _e_info_client_cb_module_list_get);
      }
    else if (strncmp(command, "load", strlen(command)) == 0)
      {
         if (argc != 4)
            goto usage;
 
-        _e_info_client_eldbus_message_with_args("module_load",
+        res = _e_info_client_eldbus_message_with_args("module_load",
                                                 _e_info_client_cb_module_load,
                                                 "s",
                                                 module_name);
-        goto finish;
      }
    else if (strncmp(command, "unload", strlen(command)) == 0)
      {
         if (argc != 4)
            goto usage;
 
-        _e_info_client_eldbus_message_with_args("module_unload",
+        res = _e_info_client_eldbus_message_with_args("module_unload",
                                                 _e_info_client_cb_module_unload,
                                                 "s",
                                                 module_name);
-        goto finish;
      }
+   else
+     goto usage;
+
+   EINA_SAFETY_ON_FALSE_GOTO(res, error);
+
+   return;
+
+error:
+   printf("Error occured while send send message\n\n");
 
 usage:
    printf("Usage : %s -module <command> [<module_name>]\n\n", program);
@@ -4219,7 +4230,6 @@ usage:
    printf("Example:\n"
           "%s -module load e-mod-tizen-effect\n"
           "%s -module unload e-mod-tizen-effect\n", program, program);
-finish:
    return;
 }
 
