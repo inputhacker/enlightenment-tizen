@@ -1253,11 +1253,14 @@ e_comp_screen_hwc_info_debug(void)
    INF("HWC: HWC Information ==========================================================");
    EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l_o, ll_o, output)
      {
+        tdm_error err = TDM_ERROR_NONE;
+
         if (!output) continue;
 
         if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
           {
-             tdm_output_get_conn_status(output->toutput, &conn_status);
+             err = tdm_output_get_conn_status(output->toutput, &conn_status);
+             if (err != TDM_ERROR_NONE) continue;
              if (conn_status == TDM_OUTPUT_CONN_STATUS_DISCONNECTED) continue;
 
              INF("HWC: HWC Output(%d):(x, y, w, h)=(%d, %d, %d, %d) Information.",
