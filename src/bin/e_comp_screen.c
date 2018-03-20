@@ -531,6 +531,7 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
    int i;
    Eina_Bool scale_updated = EINA_FALSE;
    Eina_Bool connection_check = EINA_FALSE;
+   tdm_error err = TDM_ERROR_NONE;
 
    /* init e_output */
    if (!e_output_init())
@@ -540,8 +541,9 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
      }
 
    /* get the num of outputs */
-   tdm_display_get_output_count(tdisplay, &num_outputs);
-   if (num_outputs < 1)
+   err = tdm_display_get_output_count(tdisplay, &num_outputs);
+   if ((err != TDM_ERROR_NONE) ||
+       (num_outputs < 1))
      {
         ERR("fail to get tdm_display_get_output_count\n");
         return EINA_FALSE;
