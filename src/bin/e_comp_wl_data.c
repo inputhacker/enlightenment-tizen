@@ -552,6 +552,7 @@ _e_comp_wl_clipboard_offer_load(void *data, Ecore_Fd_Handler *handler)
      return ECORE_CALLBACK_CANCEL;
 
    fd = ecore_main_fd_handler_fd_get(handler);
+   if (fd < 0) return ECORE_CALLBACK_RENEW;
 
    size = offer->source->contents.size;
    p = (char *)offer->source->contents.data;
