@@ -1508,7 +1508,7 @@ _e_output_capture_src_crop_get(E_Output *output, tdm_layer *layer, Eina_Rectangl
    fit->w = 0;
    fit->h = 0;
 
-   tdm_output_get_mode(output->toutput, &mode);
+   error = tdm_output_get_mode(output->toutput, &mode);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, EINA_FALSE);
 
    out_rect.x = 0;
