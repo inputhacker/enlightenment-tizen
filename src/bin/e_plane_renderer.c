@@ -46,6 +46,8 @@ struct _E_Plane_Renderer_Buffer
    Eina_Bool exported;
    struct wl_resource *exported_wl_buffer;
    Eina_Bool usable;
+
+   Eina_Bool alloced;
 };
 
 /* E_Plane is a child object of E_Output. There is one Output per screen
@@ -1299,17 +1301,21 @@ e_plane_renderer_ec_set(E_Plane_Renderer *renderer, E_Client *ec)
                {
                   if (renderer->tqueue_width != ec->w || renderer->tqueue_height != ec->h)
                     {
+                       if ((ec->w * ec->h) == (renderer->tqueue_width * renderer->tqueue_height))
+                         tqueue = e_plane_renderer_surface_queue_recreate(renderer, ec->w, ec->h, plane->buffer_flags);
+                       else
+                         tqueue = e_plane_renderer_surface_queue_create(renderer, ec->w, ec->h, plane->buffer_flags);
+
+                       EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
+
                        /* recreate tqueue */
                        e_plane_renderer_clean(plane);
                        e_plane_renderer_surface_queue_destroy(renderer);
 
-                       tqueue = e_plane_renderer_surface_queue_create(renderer, ec->w, ec->h, plane->buffer_flags);
-                       EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
-
                        if (!e_plane_renderer_surface_queue_set(renderer, tqueue))
                          {
                             ERR("Failed to set surface queue at renderer:%p", renderer);
-                            e_plane_renderer_surface_queue_destroy(renderer);
+                            tbm_surface_queue_destroy(tqueue);
                             return EINA_FALSE;
                          }
                     }
@@ -2049,6 +2055,141 @@ e_plane_renderer_client_renderer_get(E_Plane_Renderer_Client *renderer_client)
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_client, NULL);
 
    return renderer_client->renderer;
+}
+
+static void
+_e_plane_renderer_buffer_alloced_reset(E_Plane_Renderer *renderer)
+{
+   E_Plane_Renderer_Buffer *renderer_buffer = NULL;
+   Eina_List *l;
+
+   EINA_LIST_FOREACH(renderer->renderer_buffers, l, renderer_buffer)
+     renderer_buffer->alloced = EINA_FALSE;
+}
+static void
+_e_plane_renderer_surface_queue_recreate_free_cb(tbm_surface_queue_h surface_queue,
+                                                 void *data,
+                                                 tbm_surface_h tsurface)
+{
+   tbm_surface_internal_unref(tsurface);
+}
+
+static tbm_surface_h
+_e_plane_renderer_surface_queue_recreate_alloc_cb(tbm_surface_queue_h surface_queue,
+                                                  void *data)
+{
+   E_Plane_Renderer *renderer = (E_Plane_Renderer *)data;
+   E_Plane_Renderer_Buffer *renderer_buffer = NULL;
+   tbm_surface_h tsurface = NULL;
+   tbm_bo bo = NULL;
+   Eina_List *l;
+   int width = 0, height = 0, format = 0, flags = 0;
+   tbm_surface_info_s info;
+   tbm_surface_info_s new_info;
+
+   width = tbm_surface_queue_get_width(surface_queue);
+   height = tbm_surface_queue_get_height(surface_queue);
+   format = tbm_surface_queue_get_format(surface_queue);
+
+   if (renderer->plane)
+     flags = renderer->plane->buffer_flags;
+
+   EINA_LIST_FOREACH(renderer->renderer_buffers, l, renderer_buffer)
+     {
+        if (!renderer_buffer->tsurface) continue;
+        if (renderer_buffer->alloced) continue;
+
+        bo = tbm_surface_internal_get_bo(renderer_buffer->tsurface, 0);
+        if (!bo)
+          {
+             ERR("fail to get bo");
+             continue;
+          }
+
+        tbm_surface_get_info(renderer_buffer->tsurface, &info);
+
+        memcpy(&new_info, &info, sizeof(tbm_surface_info_s));
+        new_info.width = width;
+        new_info.height = height;
+        new_info.format = format;
+        new_info.planes[0].stride = new_info.size / height;
+
+        tsurface = tbm_surface_internal_create_with_bos(&new_info, &bo, 1);
+        if (!tsurface)
+          {
+             ERR("fail to alloc tsurface with bo");
+             continue;
+          }
+
+        if (renderer_trace_debug)
+          ELOGF("E_PLANE_RENDERER", "Renderer(%p) Reset tsurface:%p new_tsurface:%p tqueue:%p",
+                NULL, NULL, renderer, renderer_buffer->tsurface, tsurface, surface_queue);
+
+        renderer_buffer->alloced = EINA_TRUE;
+
+        return tsurface;
+     }
+
+   ERR("Renderer(%p) tqueue:%p reset alloc fail", renderer, surface_queue);
+   tsurface = tbm_surface_internal_create_with_flags(width, height, format, flags);
+
+   return tsurface;
+}
+
+EINTERN tbm_surface_queue_h
+e_plane_renderer_surface_queue_recreate(E_Plane_Renderer *renderer, int width, int height, unsigned int buffer_flags)
+{
+   tbm_surface_queue_h tqueue = NULL;
+   tbm_surface_queue_h renderer_tqueue = NULL;
+   tbm_surface_h tsurface = NULL;
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+   int queue_size = 0;
+   int buffer_count = 0;
+   int format = TBM_FORMAT_ARGB8888;
+   Eina_List *dequeued_tsurface = NULL, *l = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, NULL);
+
+   renderer_tqueue = renderer->tqueue;
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(renderer->tqueue, NULL);
+
+   queue_size = tbm_surface_queue_get_size(renderer_tqueue);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(queue_size > 1, NULL);
+
+   buffer_count = eina_list_count(renderer->renderer_buffers);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(buffer_count > 1, NULL);
+
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(buffer_count == queue_size, NULL);
+
+   tqueue = tbm_surface_queue_create(queue_size, width, height, format, buffer_flags);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(tqueue, NULL);
+
+   tbm_surface_queue_set_alloc_cb(tqueue, _e_plane_renderer_surface_queue_recreate_alloc_cb,
+                                  _e_plane_renderer_surface_queue_recreate_free_cb, renderer);
+   _e_plane_renderer_buffer_alloced_reset(renderer);
+
+   while (tbm_surface_queue_can_dequeue(tqueue, 0))
+     {
+        /* dequeue */
+        tsq_err = tbm_surface_queue_dequeue(tqueue, &tsurface);
+        EINA_SAFETY_ON_FALSE_GOTO (tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, error);
+
+        dequeued_tsurface = eina_list_append(dequeued_tsurface, tsurface);
+     }
+
+   EINA_LIST_FOREACH(dequeued_tsurface, l, tsurface)
+     {
+        tsq_err = tbm_surface_queue_release(tqueue, tsurface);
+        EINA_SAFETY_ON_FALSE_GOTO (tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, error);
+     }
+
+   return tqueue;
+
+error:
+   _e_plane_renderer_buffer_alloced_reset(renderer);
+   tbm_surface_queue_destroy(tqueue);
+
+   return NULL;
 }
 
 EINTERN tbm_surface_queue_h
