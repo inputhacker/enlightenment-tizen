@@ -2123,6 +2123,7 @@ _e_eom_cb_wl_bind(struct wl_client *client, void *data, uint32_t version, uint32
    E_EomPtr eom = NULL;
    E_EomVirtualOutputPtr voutput = NULL;
    Eina_List *l;
+   E_EomOutputPtr output = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(data);
    eom = data;
@@ -2143,13 +2144,28 @@ _e_eom_cb_wl_bind(struct wl_client *client, void *data, uint32_t version, uint32
      {
         EINA_LIST_FOREACH(g_eom->virtual_outputs, l, voutput)
           {
-             if (eom_trace_debug)
-               EOMDB("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d",
-                     voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
-                     voutput->phys_width, voutput->phys_height, voutput->connection_status);
-             wl_eom_send_output_info(resource, voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
-                                     voutput->phys_width, voutput->phys_height, voutput->connection,
-                                     1, 0, 0, 0);
+             if (voutput->eom_output)
+               {
+                  output = voutput->eom_output;
+
+                  EOMDB("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d",
+                         voutput->id, output->type, output->mode, output->width, output->height,
+                         output->phys_width, output->phys_height, output->connection_status);
+
+                   wl_eom_send_output_info(resource, voutput->id, output->type, output->mode, output->width, output->height,
+                                           output->phys_width, output->phys_height, output->connection,
+                                           1, 0, 0, 0);
+               }
+             else
+               {
+                   EOMDB("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d",
+                         voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
+                         voutput->phys_width, voutput->phys_height, voutput->connection_status);
+
+                   wl_eom_send_output_info(resource, voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
+                                           voutput->phys_width, voutput->phys_height, voutput->connection,
+                                           1, 0, 0, 0);
+               }
           }
      }
 
@@ -2534,7 +2550,7 @@ e_eom_connect(E_Output *output)
              EOMDB("Send output connected notification to client: %p", iterator);
 
              if (iterator->current)
-               wl_eom_send_output_info(iterator->resource, eom_output->id,
+               wl_eom_send_output_info(iterator->resource, voutput->id,
                                        eom_output->type, eom_output->mode,
                                        eom_output->width, eom_output->height,
                                        eom_output->phys_width, eom_output->phys_height,
@@ -2544,7 +2560,7 @@ e_eom_connect(E_Output *output)
                                        EOM_OUTPUT_ATTRIBUTE_STATE_ACTIVE,
                                        EOM_ERROR_NONE);
              else
-               wl_eom_send_output_info(iterator->resource, eom_output->id,
+               wl_eom_send_output_info(iterator->resource, voutput->id,
                                        eom_output->type, eom_output->mode,
                                        eom_output->width, eom_output->height,
                                        eom_output->phys_width, eom_output->phys_height,
