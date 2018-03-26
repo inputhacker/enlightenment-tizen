@@ -200,12 +200,12 @@ _e_output_hwc_windows_commit_handler(tdm_output *toutput, unsigned int sequence,
 
    EINA_LIST_FOREACH(e_output_hwc_windows_get(output_hwc), l, hwc_window)
      {
-         if (!e_hwc_window_commit_data_release(hwc_window)) continue;
          if (e_hwc_window_is_video(hwc_window))
            {
               ELOGF("HWC-WINS", "!!!!!!!! Output Commit Handler (VIDEO)!!!!!!!!", NULL, NULL);
               e_comp_wl_video_hwc_window_commit_data_release(hwc_window, sequence, tv_sec, tv_usec);
            }
+         if (!e_hwc_window_commit_data_release(hwc_window)) continue;
      }
 
    /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
