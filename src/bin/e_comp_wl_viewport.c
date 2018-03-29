@@ -628,11 +628,15 @@ _e_comp_wl_viewport_cb_set_destination(struct wl_client *client EINA_UNUSED,
 
    _e_comp_wl_viewport_parent_check(viewport);
 
-   viewport->type = DESTINATION_TYPE_RECT;
-
-   if (viewport->destination.rect.x == x && viewport->destination.rect.y == y &&
+   if (viewport->type == DESTINATION_TYPE_RECT &&
+       viewport->destination.rect.x == x && viewport->destination.rect.y == y &&
        viewport->destination.rect.w == width && viewport->destination.rect.h == height)
-     return;
+     {
+        PWR("skipped: set twice");
+        return;
+     }
+
+   viewport->type = DESTINATION_TYPE_RECT;
 
    PIN("destination.rect(%d,%d %dx%d)", x, y, width, height);
 
@@ -676,11 +680,15 @@ _e_comp_wl_viewport_cb_set_destination_ratio(struct wl_client *client EINA_UNUSE
         return;
      }
 
-   viewport->type = DESTINATION_TYPE_RATIO;
-
-   if (viewport->destination.ratio.x == ratio_x && viewport->destination.ratio.y == ratio_y &&
+   if (viewport->type == DESTINATION_TYPE_RATIO &&
+       viewport->destination.ratio.x == ratio_x && viewport->destination.ratio.y == ratio_y &&
        viewport->destination.ratio.w == ratio_w && viewport->destination.ratio.h == ratio_h)
-     return;
+     {
+        PWR("skipped: set twice");
+        return;
+     }
+
+   viewport->type = DESTINATION_TYPE_RATIO;
 
    PIN("destination.ratio(%.2f,%.2f %.2fx%.2f)", ratio_x, ratio_y, ratio_w, ratio_h);
 
