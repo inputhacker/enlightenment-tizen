@@ -342,11 +342,13 @@ _e_comp_wl_destination_mode_cb_set(struct wl_client *client,
         return;
      }
 
-   if (type != TIZEN_DESTINATION_MODE_TYPE_NONE)
-     viewport->type = DESTINATION_TYPE_MODE;
+   if (viewport->type == DESTINATION_TYPE_MODE && viewport->destination.mode.type == type)
+     {
+        PWR("skipped: set twice");
+        return;
+     }
 
-   if (viewport->destination.mode.type == type)
-     return;
+   viewport->type = DESTINATION_TYPE_MODE;
 
    PIN("type(%d)", type);
 
