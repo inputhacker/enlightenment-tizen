@@ -6003,22 +6003,17 @@ e_policy_wl_clipboard_data_selected_send(E_Client *ec)
 static void
 _e_policy_wl_cb_hook_shell_surface_ready(void *d, E_Client *ec)
 {
-   Eina_Bool res;
-
    if (EINA_UNLIKELY(!ec))
      return;
 
    _e_policy_wl_aux_hint_apply(ec);
 
-   res = e_policy_client_maximize(ec);
-   if (res)
+   e_policy_client_maximize(ec);
+   if ((ec->comp_data->shell.configure_send) &&
+       (ec->comp_data->shell.surface))
      {
-        if ((ec->comp_data->shell.configure_send) &&
-            (ec->comp_data->shell.surface))
-          {
-             ec->comp_data->shell.configure_send(ec->comp_data->shell.surface,
-                                                 0, ec->w, ec->h);
-          }
+        ec->comp_data->shell.configure_send(ec->comp_data->shell.surface,
+                                            0, ec->w, ec->h);
      }
 }
 
