@@ -1509,26 +1509,6 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
 }
 
 static Eina_Bool
-_e_vis_ec_foreground_check(E_Client *ec, Eina_Bool with_transients)
-{
-   E_Client *child;
-   Eina_List *l;
-
-   if (pol_vis->activity == ec)
-     return EINA_TRUE;
-   else if (with_transients)
-     {
-        EINA_LIST_FOREACH(ec->transients, l, child)
-          {
-             if (pol_vis->activity != child) continue;
-             return EINA_TRUE;
-          }
-     }
-
-   return EINA_FALSE;
-}
-
-static Eina_Bool
 _e_vis_ec_above_is_non_alpha_visible(E_Client *ec, Eina_Bool check_child)
 {
    E_Client *above;
@@ -1825,13 +1805,6 @@ _e_vis_intercept_hide(void *data EINA_UNUSED, E_Client *ec)
         return EINA_FALSE;
      }
 
-   /* find activity client among the clients to be lower */
-   if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.raise))
-     {
-        VS_INF(ec, "NO activity clients");
-        return EINA_TRUE;
-     }
-
    if (_e_vis_ec_above_is_non_alpha_visible(ec, EINA_FALSE))
      {
         VS_DBG(ec, "Obscured by above window.");
@@ -1972,13 +1945,6 @@ e_policy_visibility_client_lower(E_Client *ec)
    /* if vc has job grab, release them */
    _e_vis_client_grab_cancel(vc);
 
-   /* find activity client among the clients to be lower */
-   if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.lower))
-     {
-        VS_INF(ec, "NO activity clients");
-        return EINA_FALSE;
-     }
-
    if (_e_vis_ec_above_is_non_alpha_visible(ec, EINA_TRUE))
      {
         VS_DBG(ec, "Obscured by above window.");
@@ -2008,13 +1974,6 @@ e_policy_visibility_client_iconify(E_Client *ec)
    _e_vis_client_grab_cancel(vc);
 
    if (ec->iconic) return EINA_FALSE;
-
-   /* find activity client among the clients to be lower */
-   if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.iconify))
-     {
-        VS_INF(ec, "NO activity clients");
-        return EINA_FALSE;
-     }
 
    if (_e_vis_ec_above_is_non_alpha_visible(ec, EINA_TRUE))
      {
@@ -2114,13 +2073,6 @@ e_policy_visibility_client_layer_lower(E_Client *ec, E_Layer layer)
 
    /* if vc has job grab, release them */
    _e_vis_client_grab_cancel(vc);
-
-   /* find activity client among the clients to be lower */
-   if (!_e_vis_ec_foreground_check(ec, !!e_config->transient.lower))
-     {
-        VS_INF(ec, "NO activity clients");
-        return EINA_FALSE;
-     }
 
    if (_e_vis_ec_above_is_non_alpha_visible(ec, EINA_TRUE))
      {
