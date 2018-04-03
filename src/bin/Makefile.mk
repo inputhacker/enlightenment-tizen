@@ -124,6 +124,7 @@ src/bin/e_process.h \
 src/bin/e_privilege.h \
 src/bin/e_security.h \
 src/bin/e_keyrouter.h \
+src/bin/e_keyrouter_private.h \
 src/bin/e_gesture.h \
 src/bin/e_input.h
 
@@ -226,6 +227,10 @@ src/bin/e_policy_wl_display.c \
 src/bin/e_process.c \
 src/bin/e_privilege.c \
 src/bin/e_security.c \
+src/bin/e_keyrouter_events.c \
+src/bin/e_keyrouter_list.c \
+src/bin/e_keyrouter_conf.c \
+src/bin/e_keyrouter_wl.c \
 src/bin/e_keyrouter.c \
 src/bin/e_gesture.c \
 src/bin/e_input_private.h \

@@ -79,13 +79,16 @@ struct _E_Keyrouter_Grabbed_Key
    Eina_List *top_ptr;
    Eina_List *shared_ptr;
    Eina_List *press_ptr;
-   E_Keyrouter_Key_List_Node *registered_ptr;
    Eina_List *pic_off_ptr;
 };
 
 E_API E_Keyrouter_Intercept_Hook *e_keyrouter_intercept_hook_add(E_Keyrouter_Intercept_Hook_Point hookpoint, E_Keyrouter_Intercept_Hook_Cb func, const void *data);
 E_API void e_keyrouter_intercept_hook_del(E_Keyrouter_Intercept_Hook *ch);
 E_API Eina_Bool e_keyrouter_intercept_hook_call(E_Keyrouter_Intercept_Hook_Point hookpoint, int type, Ecore_Event_Key *event);
+
+E_API int e_keyrouter_init(void);
+E_API int e_keyrouter_shutdown(void);
+
 
 #endif
 #endif

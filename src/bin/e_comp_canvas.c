@@ -63,20 +63,6 @@ _e_comp_canvas_cb_mouse_wheel(void *d EINA_UNUSED, Evas *e EINA_UNUSED, Evas_Obj
    ;
 }
 
-static Eina_Bool
-_e_comp_cb_key_down(void *data EINA_UNUSED, int ev_type EINA_UNUSED, Ecore_Event_Key *ev)
-{
-   e_screensaver_notidle();
-   return !e_comp_wl_key_down(ev);
-}
-
-static Eina_Bool
-_e_comp_cb_key_up(void *data EINA_UNUSED, int ev_type EINA_UNUSED, Ecore_Event_Key *ev)
-{
-   e_screensaver_notidle();
-   return !e_comp_wl_key_up(ev);
-}
-
 ////////////////////////////////////
 
 static Eina_Bool
@@ -199,8 +185,6 @@ e_comp_canvas_init(int w, int h)
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_ZONE_ADD, _e_comp_cb_zone_change, NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_ZONE_DEL, _e_comp_cb_zone_change, NULL);
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_COMPOSITOR_ENABLE,    _e_comp_cb_compositor_enabled, NULL);
-   E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_KEY_DOWN, _e_comp_cb_key_down, NULL);
-   E_LIST_HANDLER_APPEND(handlers, ECORE_EVENT_KEY_UP, _e_comp_cb_key_up, NULL);
 
    ecore_evas_callback_pre_render_set(e_comp->ee, _e_comp_canvas_prerender);
    ecore_evas_callback_resize_set(e_comp->ee, _e_comp_canvas_resize);
