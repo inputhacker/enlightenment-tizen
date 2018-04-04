@@ -31,12 +31,6 @@ _e_keyrouter_is_key_grabbed(int key)
 static Eina_Bool
 _e_keyrouter_event_routed_key_check(Ecore_Event_Key *ev, int type)
 {
-   if (ev->data)
-     {
-        KLDBG("data is exist send to compositor: %p", ev->data);
-        return EINA_FALSE;
-     }
-
    if (ev->modifiers != 0)
      {
         KLDBG("Modifier key delivered to Focus window : Key %s(%d)", ((ECORE_EVENT_KEY_DOWN == type) ? "Down" : "Up"), ev->keycode);
@@ -60,17 +54,35 @@ e_keyrouter_event_process(void *event, int type)
 {
    Eina_Bool res = EINA_FALSE;
    Ecore_Event_Key *ev = event;
+   E_Keyrouter_Event_Data *key_data;
 
    KLDBG("[%s] keyname: %s, key: %s, keycode: %d", (type == ECORE_EVENT_KEY_DOWN) ? "KEY_PRESS" : "KEY_RELEASE", ev->keyname, ev->key, ev->keycode);
 
    e_screensaver_notidle();
 
-   if (!_e_keyrouter_event_routed_key_check(event, type))
+   key_data = (E_Keyrouter_Event_Data *)ev->data;
+
+   if (key_data->client || key_data->surface)
      {
-        goto finish;
+        e_keyrouter_wl_key_send(ev, (type==ECORE_EVENT_KEY_DOWN)?EINA_TRUE:EINA_FALSE, key_data->client, key_data->surface, EINA_FALSE);
+        return EINA_TRUE;
      }
 
-   if (!e_keyrouter_intercept_hook_call(E_KEYROUTER_INTERCEPT_HOOK_BEFORE_KEYROUTING, type, ev))
+   if (!_e_keyrouter_event_routed_key_check(event, type))
+     {
+        goto focus_deliver;
+     }
+
+   res = e_keyrouter_intercept_hook_call(E_KEYROUTER_INTERCEPT_HOOK_BEFORE_KEYROUTING, type, ev);
+   if (res)
+     {
+        if (key_data->client || key_data->surface)
+          {
+             e_keyrouter_wl_key_send(ev, (type==ECORE_EVENT_KEY_DOWN)?EINA_TRUE:EINA_FALSE, key_data->client, key_data->surface, EINA_FALSE);
+             goto finish;
+          }
+     }
+   else
      {
         goto finish;
      }
@@ -78,7 +90,7 @@ e_keyrouter_event_process(void *event, int type)
    if ((ECORE_EVENT_KEY_UP == type) && (!krt->HardKeys[ev->keycode].press_ptr))
      {
         KLDBG("The release key(%d) isn't a processed by keyrouter!", ev->keycode);
-        goto finish;
+        goto focus_deliver;
      }
 
    //KLDBG("The key(%d) is going to be sent to the proper wl client(s) !", ev->keycode);
@@ -86,8 +98,9 @@ e_keyrouter_event_process(void *event, int type)
    res = _e_keyrouter_send_key_events(type, ev);
    if (res) return EINA_FALSE;
 
-finish:
+focus_deliver:
    res = e_comp_wl_key_process(event, type);
+finish:
    return res;
 }
 
@@ -134,18 +147,7 @@ _e_keyrouter_send_key_events_release(int type, Ecore_Event_Key *ev)
           }
         else
           {
-             if (key_node_data->focused == EINA_TRUE)
-               {
-                  res = EINA_FALSE;
-                  if (key_node_data->status == E_KRT_CSTAT_DEAD)
-                    {
-                       ev->data = key_node_data->wc;
-                    }
-                  else
-                    {
-                       ev->data = (void *)0x1;
-                    }
-               }
+             if (key_node_data->focused == EINA_TRUE) res = EINA_FALSE;
              KLINF("Release Pair : %s(%s:%d)(Focus: %d)(Status: %d) => wl_surface (%p) wl_client (%p) process is ungrabbed / dead",
                       ((ECORE_EVENT_KEY_DOWN == type) ? "Down" : "Up"), ev->keyname, ev->keycode, key_node_data->focused,
                       key_node_data->status, key_node_data->surface, key_node_data->wc);
@@ -167,6 +169,7 @@ _e_keyrouter_send_key_events_press(int type, Ecore_Event_Key *ev)
    E_Client *ec_focus = NULL;
    struct wl_resource *delivered_surface = NULL;
    Eina_Bool res = EINA_TRUE;
+   int ret = 0;
    int pid = 0;
    char *pname = NULL, *cmd = NULL;
 
@@ -293,32 +296,35 @@ need_shared:
         res = _e_keyrouter_send_key_events_focus(type, surface_focus, ev, &delivered_surface);
         if (delivered_surface)
           {
-             res = e_keyrouter_wl_add_surface_destroy_listener(delivered_surface);
-             if (res != TIZEN_KEYROUTER_ERROR_NONE)
+             ret = e_keyrouter_wl_add_surface_destroy_listener(delivered_surface);
+             if (ret != TIZEN_KEYROUTER_ERROR_NONE)
                {
                   KLWRN("Failed to add wl_surface to destroy listener (res: %d)", res);
                }
           }
-        EINA_LIST_FOREACH(krt->HardKeys[keycode].shared_ptr, l, key_node_data)
+        if (res)
           {
-             if (key_node_data)
+             EINA_LIST_FOREACH(krt->HardKeys[keycode].shared_ptr, l, key_node_data)
                {
-                  if (delivered_surface && key_node_data->surface == delivered_surface)
+                  if (key_node_data)
                     {
-                       // Check for already delivered surface
-                       // do not deliver double events in this case.
-                       continue;
-                    }
-                  else
-                    {
-                       _e_keyrouter_send_key_event(type, key_node_data->surface, key_node_data->wc, ev, key_node_data->focused, TIZEN_KEYROUTER_MODE_SHARED);
-                       pid = e_keyrouter_util_get_pid(key_node_data->wc, key_node_data->surface);
-                       cmd = e_keyrouter_util_cmd_get_from_pid(pid);
-                       pname = e_keyrouter_util_process_name_get_from_cmd(cmd);
-                       KLINF("SHARED : %s(%s:%d) => wl_surface (%p) wl_client (%p) (pid: %d) (pname: %s)",
-                             ((ECORE_EVENT_KEY_DOWN == type) ? "Down" : "Up"), ev->keyname, ev->keycode, key_node_data->surface, key_node_data->wc, pid, pname ?: "Unknown");
-                       if(pname) E_FREE(pname);
-                       if(cmd) E_FREE(cmd);
+                       if (delivered_surface && key_node_data->surface == delivered_surface)
+                         {
+                            // Check for already delivered surface
+                            // do not deliver double events in this case.
+                            continue;
+                         }
+                       else
+                         {
+                            _e_keyrouter_send_key_event(type, key_node_data->surface, key_node_data->wc, ev, key_node_data->focused, TIZEN_KEYROUTER_MODE_SHARED);
+                            pid = e_keyrouter_util_get_pid(key_node_data->wc, key_node_data->surface);
+                            cmd = e_keyrouter_util_cmd_get_from_pid(pid);
+                            pname = e_keyrouter_util_process_name_get_from_cmd(cmd);
+                            KLINF("SHARED : %s(%s:%d) => wl_surface (%p) wl_client (%p) (pid: %d) (pname: %s)",
+                                  ((ECORE_EVENT_KEY_DOWN == type) ? "Down" : "Up"), ev->keyname, ev->keycode, key_node_data->surface, key_node_data->wc, pid, pname ?: "Unknown");
+                            if(pname) E_FREE(pname);
+                            if(cmd) E_FREE(cmd);
+                         }
                     }
                }
           }
@@ -334,15 +340,22 @@ _e_keyrouter_send_key_events_focus(int type, struct wl_resource *surface_focus, 
    Eina_Bool res = EINA_TRUE;
    int pid = 0;
    char *pname = NULL, *cmd = NULL;
+   E_Keyrouter_Event_Data *key_data;
 
-   if (!e_keyrouter_intercept_hook_call(E_KEYROUTER_INTERCEPT_HOOK_DELIVER_FOCUS, type, ev))
+   res = e_keyrouter_intercept_hook_call(E_KEYROUTER_INTERCEPT_HOOK_DELIVER_FOCUS, type, ev);
+   key_data = (E_Keyrouter_Event_Data *)ev->data;
+   if (res)
      {
-        if (ev->data)
+        if (key_data->surface)
           {
-             *delivered_surface = ev->data;
-             ev->data = wl_resource_get_client(ev->data);
+             *delivered_surface = key_data->surface;
+             res = e_keyrouter_wl_key_send(ev, (type==ECORE_EVENT_KEY_DOWN)?EINA_TRUE:EINA_FALSE, key_data->client, key_data->surface, EINA_TRUE);
+             return res;
           }
-        return res;
+     }
+   else
+     {
+        return EINA_FALSE;
      }
 
    pid = e_keyrouter_util_get_pid(NULL, surface_focus);

@@ -7,6 +7,7 @@ typedef struct _E_Keyrouter_Key_List_Node* E_Keyrouter_Key_List_NodePtr;
 typedef struct _E_Keyrouter_Tizen_HWKey E_Keyrouter_Tizen_HWKey;
 typedef struct _E_Keyrouter_Grabbed_Key E_Keyrouter_Grabbed_Key;
 typedef struct _E_Keyrouter_Registered_Window_Info E_Keyrouter_Registered_Window_Info;
+typedef struct _E_Keyrouter_Event_Data E_Keyrouter_Event_Data;
 
 typedef enum _E_Keyrouter_Intercept_Hook_Point
 {
@@ -80,6 +81,12 @@ struct _E_Keyrouter_Grabbed_Key
    Eina_List *shared_ptr;
    Eina_List *press_ptr;
    Eina_List *pic_off_ptr;
+};
+
+struct _E_Keyrouter_Event_Data
+{
+   struct wl_client *client;
+   struct wl_resource *surface;
 };
 
 E_API E_Keyrouter_Intercept_Hook *e_keyrouter_intercept_hook_add(E_Keyrouter_Intercept_Hook_Point hookpoint, E_Keyrouter_Intercept_Hook_Cb func, const void *data);

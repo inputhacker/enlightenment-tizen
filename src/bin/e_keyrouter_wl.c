@@ -1,6 +1,28 @@
 #include "e_keyrouter_private.h"
 
 static void
+_e_keyrouter_event_surface_send(struct wl_resource *surface, int key, int mode)
+{
+   Eina_List *l;
+   struct wl_resource *res_data;
+   struct wl_client *wc;
+
+   EINA_SAFETY_ON_NULL_RETURN(krt);
+   EINA_SAFETY_ON_NULL_RETURN(surface);
+
+   wc = wl_resource_get_client(surface);
+   EINA_SAFETY_ON_NULL_RETURN(wc);
+
+   EINA_LIST_FOREACH(krt->resources, l, res_data)
+     {
+        if (wl_resource_get_client(res_data) != wc) continue;
+        if (wl_resource_get_version(res_data) < 2) continue;
+
+        tizen_keyrouter_send_event_surface(res_data, surface, key, mode);
+     }
+}
+
+static void
 _e_keyrouter_wl_key_send(Ecore_Event_Key *ev, enum wl_keyboard_key_state state, Eina_List *key_list, Eina_Bool focused, struct wl_client *client, struct wl_resource *surface)
 {
    struct wl_resource *res;
@@ -14,6 +36,11 @@ _e_keyrouter_wl_key_send(Ecore_Event_Key *ev, enum wl_keyboard_key_state state, 
    serial = wl_display_next_serial(e_comp_wl->wl.disp);
 
    comp_conf = e_comp_config_get();
+
+   if (surface && !focused)
+     {
+        _e_keyrouter_event_surface_send(surface, ev->keycode, TIZEN_KEYROUTER_MODE_NONE);
+     }
 
    EINA_LIST_FOREACH(key_list, l, res)
      {
@@ -568,7 +595,7 @@ e_keyrouter_wl_init(void)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(krt, EINA_FALSE);
 
-   krt->global = wl_global_create(e_comp_wl->wl.disp, &tizen_keyrouter_interface, 1, krt, _e_keyrouter_cb_bind);
+   krt->global = wl_global_create(e_comp_wl->wl.disp, &tizen_keyrouter_interface, 2, krt, _e_keyrouter_cb_bind);
    EINA_SAFETY_ON_NULL_RETURN_VAL(krt->global, EINA_FALSE);
 
 #ifdef HAVE_CYNARA
