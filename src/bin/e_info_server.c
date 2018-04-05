@@ -5261,32 +5261,70 @@ _e_info_server_cb_buffer_flush(const Eldbus_Service_Interface *iface EINA_UNUSED
    int msg_from_client = 0;
    char msg_to_client[128] = {0};
    E_Client *ec = NULL;
+   Ecore_Window win = 0;
 
-   if (!eldbus_message_arguments_get(msg, "i", &msg_from_client))
+   if (!eldbus_message_arguments_get(msg, "it", &msg_from_client, &win))
      {
         snprintf(msg_to_client, sizeof(msg_to_client), "Error occured while get message");
+        goto finish;
      }
-   else
+
+   if (win)
      {
-        switch (msg_from_client)
+        // find ec
+        ec = _e_info_server_ec_find_by_win(win);
+        if (ec == NULL)
           {
-           case 0:
-           case 1:
+             snprintf(msg_to_client, sizeof(msg_to_client), "Cannot find win 0x%08x!", win);
+             goto finish;
+          }
+     }
+
+   switch (msg_from_client)
+     {
+      case 0:
+      case 1:
+         if (ec)
+           {
+              // set buffer_flush to specified window
+              ec->exp_iconify.buffer_flush = msg_from_client;
+              snprintf(msg_to_client, sizeof(msg_to_client),
+                       "Successfully changed!\n"
+                       "win(0x%08x/%s)->buffer_flush : %s",
+                       win,
+                       ec->icccm.name,
+                       ec->exp_iconify.buffer_flush ? "on" : "off");
+           }
+         else
+           {
+              // set buffer_flush to all window
               e_config->use_buffer_flush = msg_from_client;
               for (ec = e_client_top_get(); ec; ec = e_client_below_get(ec))
                 {
                    ec->exp_iconify.buffer_flush = msg_from_client;
                 }
-              snprintf(msg_to_client, sizeof(msg_to_client), "Successfully changed!  e_config->buffer_flush : %s",
+
+              snprintf(msg_to_client, sizeof(msg_to_client),
+                       "Successfully changed!\n"
+                       "e_config->use_buffer_flush : %s",
                        e_config->use_buffer_flush ? "on" : "off");
-              break;
-           default:
-              snprintf(msg_to_client, sizeof(msg_to_client), "Current option: e_config->buffer_flush : %s",
-                       e_config->use_buffer_flush ? "on" : "off");
-              break;
-          }
+           }
+         break;
+      default:
+         snprintf(msg_to_client, sizeof(msg_to_client), "Current option: e_config->use_buffer_flush : %s",
+                  e_config->use_buffer_flush ? "on" : "off");
+         if (ec)
+           {
+              snprintf(msg_to_client + strlen(msg_to_client),
+                       sizeof(msg_to_client) - strlen(msg_to_client),
+                       "\n\t\twin(0x%08x)->buffer_flush : %s",
+                       win,
+                       ec->exp_iconify.buffer_flush ? "on" : "off");
+           }
+         break;
      }
 
+finish:
    reply = eldbus_message_method_return_new(msg);
    eldbus_message_arguments_append(reply, "s", msg_to_client);
 
@@ -5390,8 +5428,8 @@ static const Eldbus_Method methods[] = {
    { "module_load", ELDBUS_ARGS({"s", "target module"}), ELDBUS_ARGS({"s", "load result"}), _e_info_server_cb_module_load, 0 },
    { "module_unload", ELDBUS_ARGS({"s", "target module"}), ELDBUS_ARGS({"s", "unload result"}), _e_info_server_cb_module_unload, 0 },
    { "shutdown", NULL, ELDBUS_ARGS({"s", "shutdown result"}), _e_info_server_cb_shutdown, 0 },
-   { "buffer_flush", ELDBUS_ARGS({"i", "option"}), ELDBUS_ARGS({"s", "buffer_flush status"}), _e_info_server_cb_buffer_flush, 0},
    { "deiconify_approve", ELDBUS_ARGS({"i", "option"}), ELDBUS_ARGS({"s", "deiconify_approve status"}), _e_info_server_cb_deiconify_approve, 0},
+   { "buffer_flush", ELDBUS_ARGS({"it", "option"}), ELDBUS_ARGS({"s", "buffer_flush status"}), _e_info_server_cb_buffer_flush, 0},
    { NULL, NULL, NULL, NULL, 0 }
 };
 

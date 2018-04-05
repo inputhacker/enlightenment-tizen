@@ -4326,37 +4326,77 @@ finish:
 static void
 _e_info_client_proc_buffer_flush(int argc, char **argv)
 {
+   unsigned long winid = 0x0;
+   uint64_t send_winid = 0x0;
+   Ecore_Window win = 0;
    Eina_Bool res = EINA_FALSE;
+   int option = -1;
+   char *win_name = NULL;
 
-   EINA_SAFETY_ON_FALSE_GOTO((argc == 3), usage);
+   EINA_SAFETY_ON_FALSE_GOTO((argc == 3) || (argc == 4), usage);
    EINA_SAFETY_ON_FALSE_GOTO((!strcmp(argv[2], "on")) ||
                              (!strcmp(argv[2], "off")) ||
                              (!strcmp(argv[2], "show")), usage);
 
-   if (!strcmp(argv[2], "on"))
+   if (argc == 4)
      {
-        res = _e_info_client_eldbus_message_with_args("buffer_flush",
-                                                      _e_info_client_cb_buffer_flush,
-                                                      "i",
-                                                      1);
-     }
-   else if (!strcmp(argv[2], "off"))
-     {
-        res = _e_info_client_eldbus_message_with_args("buffer_flush",
-                                                      _e_info_client_cb_buffer_flush,
-                                                      "i",
-                                                      0);
-     }
-   else if (!strcmp(argv[2], "show"))
-     {
-        res = _e_info_client_eldbus_message_with_args("buffer_flush",
-                                                      _e_info_client_cb_buffer_flush,
-                                                      "i",
-                                                      2);
-     }
-   else
-     goto usage;
+        // if input has window id, convert to ulong
+        if (!strcmp(argv[3], "all"))
+          res = EINA_TRUE;
+        else if ((strlen(argv[3]) >= 2) && (argv[3][0] == '0') && ((argv[3][1] == 'x') || (argv[3][1] == 'X')))
+          res = _util_string_to_ulong(argv[3], &winid, 16);
+        else
+          res = _util_string_to_ulong(argv[3], &winid, 10);
+        if (!res)
+          {
+             printf("error occured while parsing winid: %s\n", argv[3]);
+             return;
+          }
 
+        send_winid = (uint64_t) winid;
+     }
+
+   if (!strcmp(argv[2], "show"))
+     option = 2;
+   else{
+        if (argc == 3)
+          {
+             // get winid from touch
+             printf("Select the window whose property(ies) you wish to get/set\n");
+             if (!_e_get_window_under_touch(&win))
+               {
+                  win_name = _e_get_window_name(win);
+                  if (!win_name)
+                    {
+                       printf("failed to get window under touch\n");
+                       return;
+                    }
+
+                  printf("%s %s: window(%s) id : 0x%08x\n", argv[0], argv[1], win_name, win);
+                  send_winid = (uint64_t) win;
+
+                  free(win_name);
+               }
+             else
+               {
+                  printf("failed to get window under touch\n");
+                  return;
+               }
+          }
+
+        if (!strcmp(argv[2], "on"))
+          option = 1;
+        else if (!strcmp(argv[2], "off"))
+          option = 0;
+        else
+          goto usage;
+   }
+
+   res = _e_info_client_eldbus_message_with_args("buffer_flush",
+                                                 _e_info_client_cb_buffer_flush,
+                                                 "it",
+                                                 option,
+                                                 send_winid);
    EINA_SAFETY_ON_FALSE_GOTO(res, error);
 
    return;
@@ -4365,11 +4405,14 @@ error:
    printf("Error occured while send send message\n\n");
 
 usage:
-   printf("Usage : %s %s [on / off / show]\n\n"
+   printf("Usage : %s %s [on <win_id / all>], [off <win_id / all>], [show <win_id / all>]\n\n"
           "\t on : turn on buffer_flush option\n"
           "\t off : turn off buffer_flush option\n"
           "\t show : show buffer_flush configuration\n",
           argv[0], argv[1]);
+   printf("\n\t %s %s on 0x12345678\n", argv[0], argv[1]);
+   printf("\t %s %s off all\n", argv[0], argv[1]);
+   printf("\t %s %s show 0x12345678\n", argv[0], argv[1]);
 
    return;
 }
@@ -4709,7 +4752,7 @@ static struct
    },
    {
       "buffer_flush",
-      "[on / off / show]",
+      "[on <win_id / all>], [off <win_id / all>], [show <win_id / all>]",
       "set buffer_flush configure",
       _e_info_client_proc_buffer_flush
    },
