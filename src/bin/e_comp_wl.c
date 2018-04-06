@@ -2429,13 +2429,16 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
    Eina_List *l, *ll;
    E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
 
-   if ((ec->ignored) &&
-       (ec->comp_data->shell.surface || ec->internal))
+   if (ec->ignored)
      {
-        EC_CHANGED(ec);
-        ec->new_client = 1;
-        e_comp->new_clients++;
-        e_client_unignore(ec);
+        if ((ec->internal) ||
+            (ec->comp_data->shell.surface && state->new_attach))
+          {
+             EC_CHANGED(ec);
+             ec->new_client = 1;
+             e_comp->new_clients++;
+             e_client_unignore(ec);
+          }
      }
 
    if (vp->buffer.transform != state->buffer_viewport.buffer.transform)
