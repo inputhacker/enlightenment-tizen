@@ -344,7 +344,7 @@ _e_video_tdm_output_has_video_layer(tdm_output *toutput)
    if (e_output_hwc_policy_get(output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
      {
         /* get the first suitable layer */
-        layer = _e_video_tdm_video_layer_get(output);
+        layer = _e_video_tdm_video_layer_get(toutput);
         tdm_layer_get_capabilities(layer, &lyr_capabilities);
         if (lyr_capabilities & TDM_LAYER_CAPABILITY_VIDEO)
           return EINA_TRUE;
