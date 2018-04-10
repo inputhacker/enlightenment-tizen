@@ -45,7 +45,7 @@ _region_obj_geometry_update(E_Policy_Region *region)
    E_Policy_Angle_Map r;
 
    r = region->rotation;
-   if ((r < E_POLICY_ANGLE_MAP_0 ) || (r > E_POLICY_ANGLE_MAP_NUM))
+   if ((r < E_POLICY_ANGLE_MAP_0 ) || (r >= E_POLICY_ANGLE_MAP_NUM))
      return;
 
    INF("Update Geometry: rotation %d x %d y %d w %d h %d",
