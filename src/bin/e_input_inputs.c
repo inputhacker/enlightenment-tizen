@@ -294,6 +294,7 @@ _device_added(E_Input_Backend *input, struct libinput_device *device)
    if (EINA_FALSE == _e_input_device_add(edev))
      {
         ERR("Failed to create evas device !\n");
+		free(ev);
         return;
      }
 
