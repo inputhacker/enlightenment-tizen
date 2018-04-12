@@ -1085,14 +1085,8 @@ _e_comp_object_effect_visibility_start(E_Comp_Object *cw, Eina_Bool state)
      return _e_comp_object_animating_end(cw);
    if (!e_comp_object_effect_set(cw->smart_obj, cw->visibility_effect))
      return _e_comp_object_animating_end(cw);
-   /* mouse position is not available for some windows under X11
-    * only fetch pointer position if absolutely necessary
-    */
-   if (edje_object_data_get(cw->effect_obj, "need_pointer") &&
-       (e_comp->comp_type == E_PIXMAP_TYPE_X))
-     ecore_evas_pointer_xy_get(e_comp->ee, &x, &y);
-   else
-     evas_pointer_canvas_xy_get(e_comp->evas, &x, &y);
+
+   evas_pointer_canvas_xy_get(e_comp->evas, &x, &y);
    x -= cw->x;
    y -= cw->y;
    if (cw->ec->zone)

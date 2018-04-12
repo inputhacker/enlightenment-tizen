@@ -446,7 +446,8 @@ e_zone_current_get(void)
      {
         int x, y;
 
-        ecore_evas_pointer_xy_get(e_comp->ee, &x, &y);
+        e_input_device_pointer_xy_get(NULL, &x, &y);
+
         EINA_LIST_FOREACH(e_comp->zones, l, zone)
           {
              if (E_INSIDE(x, y, zone->x, zone->y, zone->w, zone->h))

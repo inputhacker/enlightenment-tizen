@@ -357,7 +357,7 @@ e_place_zone_cursor(E_Zone *zone, int x EINA_UNUSED, int y EINA_UNUSED, int w, i
 
    E_OBJECT_CHECK_RETURN(zone, 0);
 
-   ecore_evas_pointer_xy_get(e_comp->ee, &cursor_x, &cursor_y);
+   e_input_device_pointer_xy_get(NULL, &cursor_x, &cursor_y);
    *rx = cursor_x - (w >> 1);
    *ry = cursor_y - (it >> 1);
 
@@ -386,7 +386,7 @@ e_place_zone_manual(E_Zone *zone, int w, int h, int *rx, int *ry)
 
    E_OBJECT_CHECK_RETURN(zone, 0);
 
-   ecore_evas_pointer_xy_get(e_comp->ee, &cursor_x, &cursor_y);
+   e_input_device_pointer_xy_get(NULL, &cursor_x, &cursor_y);
    if (rx) *rx = cursor_x - (w >> 1);
    if (ry) *ry = cursor_y - (h >> 1);
 

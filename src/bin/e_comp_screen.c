@@ -903,7 +903,7 @@ E_API Eina_Bool
 e_comp_screen_init()
 {
    E_Comp *comp;
-   int w, h;
+   int w, h, ptr_x = 0, ptr_y = 0;
    struct xkb_context *ctx = NULL;
    struct xkb_keymap *map = NULL;
 
@@ -957,9 +957,9 @@ e_comp_screen_init()
    e_main_ts_end("\tE_Comp_Canvas Init Done");
 
    /* pointer */
-   ecore_evas_pointer_xy_get(e_comp->ee,
-                             &e_comp_wl->ptr.x,
-                             &e_comp_wl->ptr.y);
+   e_input_device_pointer_xy_get(NULL, &ptr_x, &ptr_y);
+   e_comp_wl->ptr.x = wl_fixed_from_int(ptr_x);
+   e_comp_wl->ptr.y = wl_fixed_from_int(ptr_y);
 
    evas_event_feed_mouse_in(e_comp->evas, 0, NULL);
 
