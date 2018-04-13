@@ -2042,11 +2042,6 @@ _e_plane_fb_target_change_check(E_Plane *plane)
 static void
 _e_plane_update_fps(E_Plane *plane)
 {
-   static double time = 0.0;
-   static double lapse = 0.0;
-   static int cframes = 0;
-   static int flapse = 0;
-
    if (e_comp->calc_fps)
      {
         double dt;
@@ -2055,20 +2050,20 @@ _e_plane_update_fps(E_Plane *plane)
         dt = tim - plane->frametimes[0];
         plane->frametimes[0] = tim;
 
-        time += dt;
-        cframes++;
+        plane->time += dt;
+        plane->cframes++;
 
-        if (lapse == 0.0)
+        if (plane->lapse == 0.0)
           {
-             lapse = tim;
-             flapse = cframes;
+             plane->lapse = tim;
+             plane->flapse = plane->cframes;
           }
-        else if ((tim - lapse) >= 0.5)
+        else if ((tim - plane->lapse) >= 0.5)
           {
-             plane->fps = (cframes - flapse) / (tim - lapse);
-             lapse = tim;
-             flapse = cframes;
-             time = 0.0;
+             plane->fps = (plane->cframes - plane->flapse) / (tim - plane->lapse);
+             plane->lapse = tim;
+             plane->flapse = plane->cframes;
+             plane->time = 0.0;
           }
      }
 }

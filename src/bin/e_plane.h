@@ -125,6 +125,10 @@ struct _E_Plane
    double               fps;
    double               old_fps;
    double               frametimes[122];
+   double               time;
+   double               lapse;
+   int                  cframes;
+   int                  flapse;
 
    int                  set_counter;
    Eina_Bool            fb_sync_wait;
