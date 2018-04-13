@@ -119,7 +119,7 @@ struct _E_Output
    } stream_capture;
 
    /* output hwc */
-   E_Output_Hwc *output_hwc;
+   E_Hwc *hwc;
    Eina_Bool     tdm_hwc;
 
    /* external */

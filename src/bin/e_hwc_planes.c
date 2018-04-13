@@ -2,20 +2,20 @@
 #include "services/e_service_quickpanel.h"
 
 EINTERN Eina_Bool
-e_output_hwc_planes_init(void)
+e_hwc_planes_init(void)
 {
    return EINA_TRUE;
 }
 
 EINTERN void
-e_output_hwc_planes_deinit(void)
+e_hwc_planes_deinit(void)
 {
    // TODO:
    ;;;
 }
 
 static Eina_Bool
-_e_output_hwc_planes_ec_check(E_Client *ec)
+_e_hwc_planes_ec_check(E_Client *ec)
 {
    E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    E_Output *eout;
@@ -72,18 +72,18 @@ _e_output_hwc_planes_ec_check(E_Client *ec)
 }
 
 static void
-_e_output_hwc_planes_prepare_init(E_Output_Hwc *output_hwc)
+_e_hwc_planes_prepare_init(E_Hwc *hwc)
 {
    const Eina_List *ep_l = NULL, *l ;
    E_Plane *ep = NULL;
-   E_Output *eout = output_hwc->output;
+   E_Output *eout = hwc->output;
 
-   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+   EINA_SAFETY_ON_NULL_RETURN(hwc);
 
    ep_l = e_output_planes_get(eout);
    EINA_LIST_FOREACH(ep_l, l, ep)
      {
-        if (!output_hwc->hwc_use_multi_plane &&
+        if (!hwc->hwc_use_multi_plane &&
             !e_plane_is_cursor(ep) &&
             !e_plane_is_fb_target(ep))
           continue;
@@ -93,7 +93,7 @@ _e_output_hwc_planes_prepare_init(E_Output_Hwc *output_hwc)
 }
 
 static int
-_e_output_hwc_planes_prepare_cursor(E_Output *eout, int n_cur, Eina_List *hwc_clist)
+_e_hwc_planes_prepare_cursor(E_Output *eout, int n_cur, Eina_List *hwc_clist)
 {
    // policy for cursor layer
    const Eina_List *ep_l = NULL, *l ;
@@ -148,7 +148,7 @@ _e_output_hwc_planes_prepare_cursor(E_Output *eout, int n_cur, Eina_List *hwc_cl
 }
 
 static Eina_Bool
-_e_output_hwc_planes_prepare_plane(E_Output_Hwc *output_hwc, int n_vis, int n_skip, Eina_List *hwc_clist)
+_e_hwc_planes_prepare_plane(E_Hwc *hwc, int n_vis, int n_skip, Eina_List *hwc_clist)
 {
    const Eina_List *ep_l = NULL, *l ;
    Eina_List *hwc_ly = NULL;
@@ -157,7 +157,7 @@ _e_output_hwc_planes_prepare_plane(E_Output_Hwc *output_hwc, int n_vis, int n_sk
    E_Client *ec = NULL;
    Eina_Bool ret = EINA_FALSE;
    int nouse = 0;
-   E_Output *eout = output_hwc->output;
+   E_Output *eout = hwc->output;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_clist, EINA_FALSE);
 
@@ -188,7 +188,7 @@ _e_output_hwc_planes_prepare_plane(E_Output_Hwc *output_hwc, int n_vis, int n_sk
                }
              continue;
           }
-        if (!output_hwc->hwc_use_multi_plane) continue;
+        if (!hwc->hwc_use_multi_plane) continue;
         if (e_plane_is_cursor(ep)) continue;
         if (ep->zpos > ep_fb->zpos)
           hwc_ly = eina_list_append(hwc_ly, ep);
@@ -239,15 +239,15 @@ _e_output_hwc_planes_prepare_plane(E_Output_Hwc *output_hwc, int n_vis, int n_sk
 }
 
 static void
-_e_output_hwc_planes_cancel(E_Output_Hwc *output_hwc)
+_e_hwc_planes_cancel(E_Hwc *hwc)
 {
    Eina_List *l ;
    E_Plane *ep;
-   E_Output *eout = output_hwc->output;
+   E_Output *eout = hwc->output;
 
    EINA_LIST_FOREACH(eout->planes, l, ep)
      {
-        if (!output_hwc->hwc_use_multi_plane &&
+        if (!hwc->hwc_use_multi_plane &&
             !e_plane_is_cursor(ep) &&
             !e_plane_is_fb_target(ep))
              continue;
@@ -258,15 +258,15 @@ _e_output_hwc_planes_cancel(E_Output_Hwc *output_hwc)
 }
 
 static Eina_Bool
-_e_output_hwc_planes_reserved_clean(E_Output_Hwc *output_hwc)
+_e_hwc_planes_reserved_clean(E_Hwc *hwc)
 {
    Eina_List *l;
    E_Plane *ep;
-   E_Output *eout = output_hwc->output;
+   E_Output *eout = hwc->output;
 
    EINA_LIST_FOREACH(eout->planes, l, ep)
      {
-        if (!output_hwc->hwc_use_multi_plane &&
+        if (!hwc->hwc_use_multi_plane &&
             !e_plane_is_cursor(ep) &&
             !e_plane_is_fb_target(ep))
           continue;
@@ -279,7 +279,7 @@ _e_output_hwc_planes_reserved_clean(E_Output_Hwc *output_hwc)
 }
 
 static void
-_e_output_hwc_planes_unset(E_Plane *ep)
+_e_hwc_planes_unset(E_Plane *ep)
 {
    if (e_plane_is_reserved(ep))
      e_plane_reserved_set(ep, 0);
@@ -291,7 +291,7 @@ _e_output_hwc_planes_unset(E_Plane *ep)
 }
 
 static Eina_Bool
-_e_output_hwc_planes_change_ec(E_Plane *ep, E_Client *new_ec)
+_e_hwc_planes_change_ec(E_Plane *ep, E_Client *new_ec)
 {
    if (!e_plane_ec_set(ep, new_ec))
      {
@@ -313,14 +313,14 @@ _e_output_hwc_planes_change_ec(E_Plane *ep, E_Client *new_ec)
 }
 
 EINTERN void
-e_output_hwc_planes_changed(E_Output_Hwc *output_hwc)
+e_hwc_planes_changed(E_Hwc *hwc)
 {
    Eina_Bool ret = EINA_FALSE;
    E_Plane *ep = NULL;
    const Eina_List *ep_l = NULL, *p_l;
    Eina_Bool assign_success = EINA_TRUE;
-   int mode = E_OUTPUT_HWC_MODE_NONE;
-   E_Output *eout = output_hwc->output;
+   int mode = E_HWC_MODE_NONE;
+   E_Output *eout = hwc->output;
 
    ep_l = e_output_planes_get(eout);
    /* check the planes from top to down */
@@ -329,7 +329,7 @@ e_output_hwc_planes_changed(E_Output_Hwc *output_hwc)
         if (!assign_success)
           {
              //unset planes from 'assign_success' became EINA_FALSE to the fb target
-             _e_output_hwc_planes_unset(ep);
+             _e_hwc_planes_unset(ep);
              continue;
           }
 
@@ -342,42 +342,42 @@ e_output_hwc_planes_changed(E_Output_Hwc *output_hwc)
 
         if (ep->ec != ep->prepare_ec)
           {
-             assign_success = _e_output_hwc_planes_change_ec(ep, ep->prepare_ec);
+             assign_success = _e_hwc_planes_change_ec(ep, ep->prepare_ec);
              ret = EINA_TRUE;
           }
 
-        if (ep->ec) mode = E_OUTPUT_HWC_MODE_HYBRID;
+        if (ep->ec) mode = E_HWC_MODE_HYBRID;
 
         if (e_plane_is_fb_target(ep))
           {
-             if (ep->ec) mode = E_OUTPUT_HWC_MODE_FULL;
+             if (ep->ec) mode = E_HWC_MODE_FULL;
              break;
           }
    }
 
-   if (output_hwc->hwc_mode != mode)
+   if (hwc->hwc_mode != mode)
      {
         ELOGF("HWC-PLNS", "mode changed (from %d to %d) due to surface changes",
               NULL, NULL,
-              output_hwc->hwc_mode, mode);
+              hwc->hwc_mode, mode);
 
-        if (mode == E_OUTPUT_HWC_MODE_FULL)
+        if (mode == E_HWC_MODE_FULL)
           {
              // fb target is occupied by a client surface, means compositor disabled
              ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
           }
-        else if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_FULL)
+        else if (hwc->hwc_mode == E_HWC_MODE_FULL)
           {
              // fb target is occupied by a client surface, means compositor disabled
              ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
           }
 
-        output_hwc->hwc_mode = mode;
+        hwc->hwc_mode = mode;
      }
 
    if (ret)
      {
-        if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_NONE)
+        if (hwc->hwc_mode == E_HWC_MODE_NONE)
           ELOGF("HWC-PLNS", " End...  due to surface changes", NULL, NULL);
         else
           ELOGF("HWC-PLNS", " hwc surface changed", NULL, NULL);
@@ -385,14 +385,14 @@ e_output_hwc_planes_changed(E_Output_Hwc *output_hwc)
 }
 
 static Eina_Bool
-_e_output_hwc_planes_prepare(E_Output_Hwc *output_hwc, E_Zone *zone)
+_e_hwc_planes_prepare(E_Hwc *hwc, E_Zone *zone)
 {
    Eina_List *vl;
    Eina_Bool ret = EINA_FALSE;
    E_Client *ec;
    int n_vis = 0, n_ec = 0, n_cur = 0, n_skip = 0;
    Eina_List *hwc_ok_clist = NULL, *vis_clist = NULL;
-   E_Output *output = output_hwc->output;
+   E_Output *output = hwc->output;
 
    vis_clist = e_comp_vis_ec_list_get(zone);
    if (!vis_clist) return EINA_FALSE;
@@ -416,7 +416,7 @@ _e_output_hwc_planes_prepare(E_Output_Hwc *output_hwc, E_Zone *zone)
            goto done;
 
         // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
-        if (!_e_output_hwc_planes_ec_check(ec))
+        if (!_e_hwc_planes_ec_check(ec))
           {
              if (!n_ec) goto done;
              break;
@@ -432,14 +432,14 @@ _e_output_hwc_planes_prepare(E_Output_Hwc *output_hwc, E_Zone *zone)
    if ((n_vis < 1) || (n_ec < 1))
      goto done;
 
-   _e_output_hwc_planes_prepare_init(output_hwc);
+   _e_hwc_planes_prepare_init(hwc);
 
    if (n_cur >= 1)
-     n_skip = _e_output_hwc_planes_prepare_cursor(output, n_cur, hwc_ok_clist);
+     n_skip = _e_hwc_planes_prepare_cursor(output, n_cur, hwc_ok_clist);
 
    if (n_skip > 0) ret = EINA_TRUE;
 
-   ret |= _e_output_hwc_planes_prepare_plane(output_hwc, n_vis, n_skip, hwc_ok_clist);
+   ret |= _e_hwc_planes_prepare_plane(hwc, n_vis, n_skip, hwc_ok_clist);
 
 done:
    eina_list_free(hwc_ok_clist);
@@ -449,9 +449,9 @@ done:
 }
 
 EINTERN Eina_Bool
-e_output_hwc_planes_usable(E_Output_Hwc *output_hwc)
+e_hwc_planes_usable(E_Hwc *hwc)
 {
-   E_Output *eout = output_hwc->output;
+   E_Output *eout = hwc->output;
    E_Comp_Wl_Buffer *buffer = NULL;
    E_Zone *zone = NULL;
    int bw = 0, bh = 0;
@@ -463,7 +463,7 @@ e_output_hwc_planes_usable(E_Output_Hwc *output_hwc)
    EINA_SAFETY_ON_NULL_RETURN_VAL(zone, EINA_FALSE);
 
    // check whether to use hwc and prepare the core assignment policy
-   if (!_e_output_hwc_planes_prepare(output_hwc, zone)) return EINA_FALSE;
+   if (!_e_hwc_planes_prepare(hwc, zone)) return EINA_FALSE;
 
    // extra policy can replace core policy
    e_comp_hook_call(E_COMP_HOOK_PREPARE_PLANE, NULL);
@@ -512,7 +512,7 @@ e_output_hwc_planes_usable(E_Output_Hwc *output_hwc)
 }
 
 static Eina_Bool
-_e_output_hwc_planes_can_hwcompose(E_Output *eout)
+_e_hwc_planes_can_hwcompose(E_Output *eout)
 {
    const Eina_List *ep_l = NULL, *l;
    E_Plane *ep = NULL, *ep_fb = NULL;
@@ -541,17 +541,17 @@ _e_output_hwc_planes_can_hwcompose(E_Output *eout)
 }
 
 EINTERN void
-e_output_hwc_planes_begin(E_Output_Hwc *output_hwc)
+e_hwc_planes_begin(E_Hwc *hwc)
 {
    const Eina_List *ep_l = NULL, *l;
-   E_Output *eout = output_hwc->output;
+   E_Output *eout = hwc->output;
    E_Plane *ep = NULL;
-   E_Output_Hwc_Mode mode = E_OUTPUT_HWC_MODE_NONE;
+   E_Hwc_Mode mode = E_HWC_MODE_NONE;
    Eina_Bool set = EINA_FALSE;
 
    if (e_comp->nocomp_override > 0) return;
 
-   if (_e_output_hwc_planes_can_hwcompose(eout))
+   if (_e_hwc_planes_can_hwcompose(eout))
      {
         ep_l = e_output_planes_get(eout);
 
@@ -567,7 +567,7 @@ e_output_hwc_planes_begin(E_Output_Hwc *output_hwc)
              if (e_plane_is_fb_target(ep))
                {
                   ELOGF("HWC-PLNS", "is set on fb_target( %d)", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
-                  mode = E_OUTPUT_HWC_MODE_FULL;
+                  mode = E_HWC_MODE_FULL;
 
                   // fb target is occupied by a client surface, means compositor disabled
                   ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
@@ -575,80 +575,80 @@ e_output_hwc_planes_begin(E_Output_Hwc *output_hwc)
              else
                {
                   ELOGF("HWC-PLNS", "is set on %d", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
-                  mode = E_OUTPUT_HWC_MODE_HYBRID;
+                  mode = E_HWC_MODE_HYBRID;
                }
           }
 
-        if (mode == E_OUTPUT_HWC_MODE_NONE)
+        if (mode == E_HWC_MODE_NONE)
            ELOGF("HWC-PLNS", " Begin is not available yet ...", NULL, NULL);
         else
            ELOGF("HWC-PLNS", " Begin ...", NULL, NULL);
      }
 
-   output_hwc->hwc_mode = mode;
+   hwc->hwc_mode = mode;
 }
 
-static E_Output_Hwc_Mode
-_e_output_hwc_mode_get(E_Output_Hwc *output_hwc)
+static E_Hwc_Mode
+_e_hwc_mode_get(E_Hwc *hwc)
 {
    const Eina_List *ll = NULL, *l;
-   E_Output *output = output_hwc->output;
+   E_Output *output = hwc->output;
    E_Plane *plane = NULL;
 
    /* check the planes from down to top */
    EINA_LIST_FOREACH_SAFE(output->planes, l, ll, plane)
      {
         if (!plane->ec) continue;
-        if (e_plane_is_fb_target(plane)) return E_OUTPUT_HWC_MODE_FULL;
+        if (e_plane_is_fb_target(plane)) return E_HWC_MODE_FULL;
 
-        return E_OUTPUT_HWC_MODE_HYBRID;
+        return E_HWC_MODE_HYBRID;
      }
 
-   return E_OUTPUT_HWC_MODE_NONE;
+   return E_HWC_MODE_NONE;
 }
 
 EINTERN void
-e_output_hwc_planes_multi_plane_set(E_Output_Hwc *output_hwc, Eina_Bool set)
+e_hwc_planes_multi_plane_set(E_Hwc *hwc, Eina_Bool set)
 {
-   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+   EINA_SAFETY_ON_NULL_RETURN(hwc);
 
-   e_output_hwc_planes_end(output_hwc, __FUNCTION__);
-   output_hwc->hwc_use_multi_plane = set;
+   e_hwc_planes_end(hwc, __FUNCTION__);
+   hwc->hwc_use_multi_plane = set;
 
-   ELOGF("HWC-PLNS", "e_output_hwc_planes_multi_plane_set : %d", NULL, NULL, set);
+   ELOGF("HWC-PLNS", "e_hwc_planes_multi_plane_set : %d", NULL, NULL, set);
 }
 
 EINTERN Eina_Bool
-e_output_hwc_planes_multi_plane_get(E_Output_Hwc *output_hwc)
+e_hwc_planes_multi_plane_get(E_Hwc *hwc)
 {
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
 
-   return output_hwc->hwc_use_multi_plane;
+   return hwc->hwc_use_multi_plane;
 }
 
 EINTERN void
-e_output_hwc_planes_end(E_Output_Hwc *output_hwc, const char *location)
+e_hwc_planes_end(E_Hwc *hwc, const char *location)
 {
-   E_Output_Hwc_Mode new_mode = E_OUTPUT_HWC_MODE_NONE;
+   E_Hwc_Mode new_mode = E_HWC_MODE_NONE;
 
-   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+   EINA_SAFETY_ON_NULL_RETURN(hwc);
 
    /* clean the reserved planes(clean the candidate ecs) */
-   _e_output_hwc_planes_reserved_clean(output_hwc);
+   _e_hwc_planes_reserved_clean(hwc);
 
-   if (!output_hwc->hwc_mode) return;
+   if (!hwc->hwc_mode) return;
 
    /* set null to the e_planes */
-   _e_output_hwc_planes_cancel(output_hwc);
+   _e_hwc_planes_cancel(hwc);
 
    /* check the current mode */
-   new_mode = _e_output_hwc_mode_get(output_hwc);
+   new_mode = _e_hwc_mode_get(hwc);
 
-   if (output_hwc->hwc_mode == E_OUTPUT_HWC_MODE_FULL &&
-       new_mode != E_OUTPUT_HWC_MODE_FULL)
+   if (hwc->hwc_mode == E_HWC_MODE_FULL &&
+       new_mode != E_HWC_MODE_FULL)
      ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
 
-   output_hwc->hwc_mode = new_mode;
+   hwc->hwc_mode = new_mode;
 
    ELOGF("HWC-PLNS", " End...  at %s.", NULL, NULL, location);
 }

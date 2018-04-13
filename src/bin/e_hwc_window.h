@@ -46,7 +46,7 @@ typedef enum _E_Hwc_Window_Activation_State
 struct _E_Hwc_Window
 {
    E_Client                      *ec;
-   E_Output_Hwc                  *output_hwc;
+   E_Hwc                  *hwc;
    tdm_hwc_window                *thwc_window;
    int                            zpos;
    Eina_Bool                      is_target;
@@ -104,10 +104,10 @@ struct _E_Hwc_Window_Commit_Data {
    tbm_surface_h         tsurface;
 };
 
-EINTERN Eina_Bool          e_hwc_window_init(E_Output_Hwc *output_hwc);
-EINTERN void               e_hwc_window_deinit(E_Output_Hwc *output_hwc); // TODO:
+EINTERN Eina_Bool          e_hwc_window_init(E_Hwc *hwc);
+EINTERN void               e_hwc_window_deinit(E_Hwc *hwc); // TODO:
 
-EINTERN E_Hwc_Window      *e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State state);
+EINTERN E_Hwc_Window      *e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state);
 EINTERN void               e_hwc_window_free(E_Hwc_Window *hwc_window);
 
 EINTERN Eina_Bool          e_hwc_window_zpos_set(E_Hwc_Window *hwc_window, int zpos);

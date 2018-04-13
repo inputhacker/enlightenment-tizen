@@ -934,9 +934,9 @@ e_comp_is_on_overlay(E_Client *ec)
    eout = e_output_find(ec->zone->output_id);
    if (!eout) return EINA_FALSE;
 
-   if (e_output_hwc_policy_get(eout->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_hwc_policy_get(eout->hwc) == E_HWC_POLICY_PLANES)
      {
-        if (!e_output_hwc_mode_get(eout->output_hwc)) return EINA_FALSE;
+        if (!e_hwc_mode_get(eout->hwc)) return EINA_FALSE;
 
         EINA_LIST_FOREACH_SAFE(eout->planes, l, ll, ep)
           {
@@ -1277,7 +1277,7 @@ e_comp_hwc_deactive_set(Eina_Bool set)
    output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   e_output_hwc_deactive_set(output->output_hwc, set);
+   e_hwc_deactive_set(output->hwc, set);
 }
 
 /* get the deactive value to the only primary output */
@@ -1292,7 +1292,7 @@ e_comp_hwc_deactive_get(void)
    output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-   return e_output_hwc_deactive_get(output->output_hwc);
+   return e_hwc_deactive_get(output->hwc);
 }
 
 /* set the multi_plane value to the only primary output */
@@ -1307,7 +1307,7 @@ e_comp_hwc_multi_plane_set(Eina_Bool set)
    output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_TRUE);
+   e_hwc_planes_multi_plane_set(output->hwc, EINA_TRUE);
 }
 
 /* get the multi_plane value to the only primary output */
@@ -1322,7 +1322,7 @@ e_comp_hwc_multi_plane_get(void)
    output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-   return e_output_hwc_planes_multi_plane_get(output->output_hwc);
+   return e_hwc_planes_multi_plane_get(output->hwc);
 }
 
 /* end the hwc policy at the primary output */
@@ -1337,6 +1337,6 @@ e_comp_hwc_end(const char *location)
    output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   e_output_hwc_planes_end(output->output_hwc, location);
+   e_hwc_planes_end(output->hwc, location);
 }
 

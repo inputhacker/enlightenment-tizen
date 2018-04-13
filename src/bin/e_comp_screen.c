@@ -248,7 +248,7 @@ _e_comp_screen_commit_idle_cb(void *data EINA_UNUSED)
         if (!output) continue;
         if (!output->config.enabled) continue;
 
-        e_output_hwc_apply(output->output_hwc);
+        e_hwc_apply(output->hwc);
 
         if (!e_output_commit(output))
              ERR("fail to commit e_comp_screen->outputs.");
@@ -1257,7 +1257,7 @@ e_comp_screen_hwc_info_debug(void)
 
         if (!output) continue;
 
-        if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+        if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
           {
              err = tdm_output_get_conn_status(output->toutput, &conn_status);
              if (err != TDM_ERROR_NONE) continue;

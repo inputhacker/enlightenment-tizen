@@ -500,7 +500,7 @@ _e_output_zoom_rotate(E_Output *output)
    DBG("zoom_rect rotate(x:%d,y:%d) (w:%d,h:%d)",
        output->zoom_conf.rect.x, output->zoom_conf.rect.y, output->zoom_conf.rect.w, output->zoom_conf.rect.h);
 
-   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
         EINA_LIST_FOREACH(output->planes, l, ep)
           {
@@ -519,13 +519,13 @@ _e_output_zoom_rotate(E_Output *output)
      }
    else
      {
-        e_output_hwc_windows_zoom_set(output->output_hwc, &output->zoom_conf.rect);
+        e_hwc_windows_zoom_set(output->hwc, &output->zoom_conf.rect);
 
         if (!_e_output_zoom_touch_set(output))
           ERR("fail _e_output_zoom_touch_set");
 
         /* update the ecore_evas */
-        if (e_output_hwc_windows_pp_commit_possible_check(output->output_hwc))
+        if (e_hwc_windows_pp_commit_possible_check(output->hwc))
           _e_output_render_update(output);
      }
 }
@@ -2045,7 +2045,7 @@ e_output_del(E_Output *output)
 
    if (!output) return;
 
-   if (output->output_hwc) e_output_hwc_del(output->output_hwc);
+   if (output->hwc) e_hwc_del(output->hwc);
 
    e_plane_shutdown();
 
@@ -2419,7 +2419,7 @@ e_output_mode_change(E_Output *output, E_Output_Mode *mode)
 EINTERN Eina_Bool
 e_output_setup(E_Output *output)
 {
-   E_Output_Hwc *output_hwc = NULL;
+   E_Hwc *hwc = NULL;
    Eina_List *l, *ll;
    E_Plane *plane = NULL;
 
@@ -2429,12 +2429,12 @@ e_output_setup(E_Output *output)
 
    if (e_comp->hwc)
      {
-        output_hwc = e_output_hwc_new(output);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
-        output->output_hwc = output_hwc;
+        hwc = e_hwc_new(output);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+        output->hwc = hwc;
      }
 
-   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
         E_Output *primary_output = NULL;
 
@@ -2661,7 +2661,7 @@ e_output_render(E_Output *output)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
         EINA_LIST_REVERSE_FOREACH(output->planes, l, plane)
           {
@@ -2674,9 +2674,9 @@ e_output_render(E_Output *output)
      }
    else
      {
-        if (!e_output_hwc_windows_render(output->output_hwc))
+        if (!e_hwc_windows_render(output->hwc))
           {
-             ERR("fail to e_output_hwc_windows_render.");
+             ERR("fail to e_hwc_windows_render.");
              return EINA_FALSE;
           }
      }
@@ -2700,7 +2700,7 @@ e_output_commit(E_Output *output)
    output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
 
-   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
         if (output == output_primary)
           {
@@ -2721,7 +2721,7 @@ e_output_commit(E_Output *output)
      }
    else
      {
-        if (!e_output_hwc_windows_commit(output->output_hwc))
+        if (!e_hwc_windows_commit(output->hwc))
           {
              return EINA_FALSE;
           }
@@ -2786,7 +2786,7 @@ e_output_util_planes_print(void)
 
         if (!output || !output->planes) continue;
 
-        if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+        if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
           {
              fprintf(stderr, "HWC in %s .. \n", output->id);
              fprintf(stderr, "HWC \tzPos \t on_plane \t\t\t\t on_prepare \t \n");
@@ -3007,7 +3007,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
    _e_output_zoom_coordinate_cal(output);
    _e_output_zoom_touch_rect_get(output);
 
-   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
         ep = e_output_fb_target_get(output);
         EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
@@ -3018,13 +3018,13 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
                output->zoom_conf.unset_skip = EINA_TRUE;
           }
 
-        e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_FALSE);
+        e_hwc_planes_multi_plane_set(output->hwc, EINA_FALSE);
 
         if (!e_plane_zoom_set(ep, &output->zoom_conf.rect))
           {
              ERR("e_plane_zoom_set failed.");
              output->zoom_conf.unset_skip = EINA_FALSE;
-             e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_TRUE);
+             e_hwc_planes_multi_plane_set(output->hwc, EINA_TRUE);
 
              return EINA_FALSE;
           }
@@ -3035,14 +3035,14 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
      }
    else
      {
-        if (!e_output_hwc_windows_zoom_set(output->output_hwc, &output->zoom_conf.rect))
+        if (!e_hwc_windows_zoom_set(output->hwc, &output->zoom_conf.rect))
           {
-             ERR("e_output_hwc_windows_zoom_set failed.");
+             ERR("e_hwc_windows_zoom_set failed.");
              return EINA_FALSE;
           }
 
         /* update the ecore_evas */
-        if (e_output_hwc_windows_pp_commit_possible_check(output->output_hwc))
+        if (e_hwc_windows_pp_commit_possible_check(output->hwc))
           _e_output_render_update(output);
      }
 
@@ -3103,16 +3103,16 @@ e_output_zoom_unset(E_Output *output)
    if (!_e_output_zoom_touch_unset(output))
      ERR("fail _e_output_zoom_touch_unset");
 
-   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
         ep = e_output_fb_target_get(output);
         if (ep) e_plane_zoom_unset(ep);
 
-        e_output_hwc_planes_multi_plane_set(output->output_hwc, EINA_TRUE);
+        e_hwc_planes_multi_plane_set(output->hwc, EINA_TRUE);
      }
    else
      {
-        e_output_hwc_windows_zoom_unset(output->output_hwc);
+        e_hwc_windows_zoom_unset(output->hwc);
      }
 
    output->zoom_conf.zoomx = 0;
@@ -3433,15 +3433,15 @@ e_output_external_set(E_Output *output, E_Output_Ext_State state)
 
    _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
 
-   e_output_hwc_planes_multi_plane_set(output_primary->output_hwc, EINA_FALSE);
-   e_output_hwc_deactive_set(output_primary->output_hwc, EINA_TRUE);
+   e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_FALSE);
+   e_hwc_deactive_set(output_primary->hwc, EINA_TRUE);
 
    ep->output_primary = output_primary;
    if (!e_plane_external_set(ep, &output->zoom_conf.rect, state))
      {
         ERR("e_plane_mirror_set failed.");
-        e_output_hwc_planes_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
-        e_output_hwc_deactive_set(output_primary->output_hwc, EINA_FALSE);
+        e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_TRUE);
+        e_hwc_deactive_set(output_primary->hwc, EINA_FALSE);
 
         return EINA_FALSE;
      }
@@ -3484,7 +3484,7 @@ e_output_external_unset(E_Output *output)
    output->zoom_conf.rect.w = 0;
    output->zoom_conf.rect.h = 0;
 
-   e_output_hwc_planes_multi_plane_set(output_primary->output_hwc, EINA_TRUE);
+   e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_TRUE);
 
    /* update the ecore_evas */
    _e_output_render_update(output_primary);
@@ -3556,8 +3556,8 @@ e_output_external_update(E_Output *output)
         if (ret == EINA_FALSE)
           {
              ERR("fail to e_eom_connect.");
-             e_output_hwc_del(output->output_hwc);
-             output->output_hwc = NULL;
+             e_hwc_del(output->hwc);
+             output->hwc = NULL;
              return EINA_FALSE;
           }
      }
@@ -3570,10 +3570,10 @@ e_output_external_update(E_Output *output)
              return EINA_FALSE;
           }
 
-        if (output->output_hwc)
+        if (output->hwc)
           {
-             e_output_hwc_del(output->output_hwc);
-             output->output_hwc = NULL;
+             e_hwc_del(output->hwc);
+             output->hwc = NULL;
           }
 
         if (!e_output_dpms_set(output, E_OUTPUT_DPMS_OFF))

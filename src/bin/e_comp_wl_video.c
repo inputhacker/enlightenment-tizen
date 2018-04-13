@@ -341,7 +341,7 @@ _e_video_tdm_output_has_video_layer(tdm_output *toutput)
    output = _get_e_output(toutput);
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-   if (e_output_hwc_policy_get(output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
+   if (e_hwc_policy_get(output->hwc) != E_HWC_POLICY_WINDOWS)
      {
         /* get the first suitable layer */
         layer = _e_video_tdm_video_layer_get(toutput);
@@ -372,7 +372,7 @@ _e_video_avaiable_video_layer_get(E_Video *video)
    layer->video = video;
    layer->e_client = video->ec;
 
-   if (e_output_hwc_policy_get(video->e_output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
+   if (e_hwc_policy_get(video->e_output->hwc) != E_HWC_POLICY_WINDOWS)
      {
         layer->tdm_layer = _e_video_tdm_avaiable_video_layer_get(video->output);
         if (!layer->tdm_layer)
@@ -388,7 +388,7 @@ _e_video_avaiable_video_layer_get(E_Video *video)
         * Try to create a video hwc window.
         * In this moment the video resource will be held.
         */
-        hwc_window = e_hwc_window_new(video->e_output->output_hwc, video->ec, E_HWC_WINDOW_STATE_VIDEO);
+        hwc_window = e_hwc_window_new(video->e_output->hwc, video->ec, E_HWC_WINDOW_STATE_VIDEO);
         if (!hwc_window)
           {
              VER("hwc_opt: cannot create new video hwc window for ec(%p)", video->ec);
@@ -425,7 +425,7 @@ _e_video_get_available_formats(const tbm_format **formats, int *count)
    output = _get_e_output(toutput);
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   if (e_output_hwc_policy_get(output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
+   if (e_hwc_policy_get(output->hwc) != E_HWC_POLICY_WINDOWS)
      {
         /* get the first suitable layer */
         layer = _e_video_tdm_video_layer_get(output);
@@ -457,7 +457,7 @@ _e_video_get_prop_id(E_Video *video, const char *name)
    const tdm_prop *props;
    int i, count = 0;
 
-   if (e_output_hwc_policy_get(video->e_output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
+   if (e_hwc_policy_get(video->e_output->hwc) != E_HWC_POLICY_WINDOWS)
      {
         layer = _e_video_tdm_video_layer_get(video->output);
         tdm_layer_get_available_properties(layer, &props, &count);
@@ -483,14 +483,14 @@ _e_video_get_prop_id(E_Video *video, const char *name)
 }
 
 // TODO: this function has to be removed.....
-//       Use. e_output_hwc_policy_get();
+//       Use. e_hwc_policy_get();
 static Eina_Bool
 _is_video_hwc_windows(E_Video *video)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(video, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(video->e_output, EINA_FALSE);
 
-   if (e_output_hwc_policy_get(video->e_output->output_hwc) == E_OUTPUT_HWC_POLICY_WINDOWS)
+   if (e_hwc_policy_get(video->e_output->hwc) == E_HWC_POLICY_WINDOWS)
      return EINA_TRUE;
 
    return EINA_FALSE;
@@ -770,7 +770,7 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
         video->layer = NULL;
         video->old_comp_buffer = NULL;
 
-        if (e_output_hwc_policy_get(video->e_output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
+        if (e_hwc_policy_get(video->e_output->hwc) != E_HWC_POLICY_WINDOWS)
           {
              e_plane_video_set(video->e_plane, EINA_FALSE, NULL);
              video->e_plane = NULL;
@@ -797,7 +797,7 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
              return EINA_FALSE;
           }
 
-        if (e_output_hwc_policy_get(video->e_output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
+        if (e_hwc_policy_get(video->e_output->hwc) != E_HWC_POLICY_WINDOWS)
           {
              ret = tdm_layer_get_zpos(video->layer->tdm_layer, &zpos);
              if (ret == TDM_ERROR_NONE)
@@ -2423,7 +2423,7 @@ _e_video_check_if_pp_needed(E_Video *video)
    tdm_layer_capability capabilities = 0;
    tdm_error error;
 
-   if (e_output_hwc_policy_get(video->e_output->output_hwc) != E_OUTPUT_HWC_POLICY_WINDOWS)
+   if (e_hwc_policy_get(video->e_output->hwc) != E_HWC_POLICY_WINDOWS)
      {
         tdm_layer *layer = _e_video_tdm_video_layer_get(video->output);
 

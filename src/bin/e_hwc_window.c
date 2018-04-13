@@ -284,7 +284,7 @@ _e_hwc_window_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSED
 }
 
 static E_Hwc_Window_Target *
-_e_hwc_window_target_new(E_Output_Hwc *output_hwc)
+_e_hwc_window_target_new(E_Hwc *hwc)
 {
    const char *name = NULL;
    E_Hwc_Window_Target *target_hwc_window = NULL;
@@ -314,7 +314,7 @@ _e_hwc_window_target_new(E_Output_Hwc *output_hwc)
 
    ((E_Hwc_Window *)target_hwc_window)->is_target = EINA_TRUE;
    ((E_Hwc_Window *)target_hwc_window)->state = E_HWC_WINDOW_STATE_DEVICE;
-   ((E_Hwc_Window *)target_hwc_window)->output_hwc = output_hwc;
+   ((E_Hwc_Window *)target_hwc_window)->hwc = hwc;
 
    target_hwc_window->ee = e_comp->ee;
    target_hwc_window->evas = ecore_evas_get(target_hwc_window->ee);
@@ -355,12 +355,12 @@ static E_Hwc_Window_Target *
 _e_hwc_window_target_window_get(E_Hwc_Window *hwc_window)
 {
    E_Hwc_Window_Target *target_hwc_window;
-   E_Output_Hwc *output_hwc;
+   E_Hwc *hwc;
 
-   output_hwc = hwc_window->output_hwc;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
+   hwc = hwc_window->hwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, NULL);
 
-   target_hwc_window = output_hwc->target_hwc_window;
+   target_hwc_window = hwc->target_hwc_window;
    EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, NULL);
 
    return target_hwc_window;
@@ -406,10 +406,10 @@ _e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
 
    /* If an e_client belongs to the e_output managed by hwc_plane policy,
     * there's no need to deal with hwc_windows. */
-   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      return;
 
-   hwc_window = e_hwc_window_new(output->output_hwc, ec, E_HWC_WINDOW_STATE_NONE);
+   hwc_window = e_hwc_window_new(output->hwc, ec, E_HWC_WINDOW_STATE_NONE);
    EINA_SAFETY_ON_NULL_RETURN(hwc_window);
 
    /* set the hwc window to the e client */
@@ -435,7 +435,7 @@ _e_hwc_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
 
    /* If an e_client belongs to the e_output managed by hwc_plane policy,
     * there's no need to deal with hwc_windows. */
-   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      return;
 
    if (!ec->hwc_window) return;
@@ -468,20 +468,20 @@ _e_hwc_window_client_cb_zone_set(void *data, int type, void *event)
 
    /* If an e_client belongs to the e_output managed by hwc_plane policy,
     * there's no need to deal with hwc_windows. */
-   if (e_output_hwc_policy_get(output->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
       return ECORE_CALLBACK_PASS_ON;
 
    if (ec->hwc_window)
      {
         /* we manage the video window in the video module */
         if (e_hwc_window_is_video(ec->hwc_window)) goto end;
-        if (ec->hwc_window->output_hwc == output->output_hwc) goto end;
+        if (ec->hwc_window->hwc == output->hwc) goto end;
 
         e_hwc_window_free(ec->hwc_window);
         ec->hwc_window = NULL;
      }
 
-   hwc_window = e_hwc_window_new(output->output_hwc, ec, E_HWC_WINDOW_STATE_NONE);
+   hwc_window = e_hwc_window_new(output->hwc, ec, E_HWC_WINDOW_STATE_NONE);
    EINA_SAFETY_ON_NULL_GOTO(hwc_window, end);
 
    /* set the hwc window to the e client */
@@ -638,7 +638,7 @@ error:
 static Eina_Bool
 _e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointer)
 {
-   E_Output_Hwc *output_hwc = NULL;
+   E_Hwc *hwc = NULL;
    E_Output *output = NULL;
    int w, h, tw, th;
    int tsurface_w, tsurface_h;
@@ -654,10 +654,10 @@ _e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointe
    ec = hwc_window->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
 
-   output_hwc = hwc_window->output_hwc;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+   hwc = hwc_window->hwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
 
-   output = output_hwc->output;
+   output = hwc->output;
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
    buffer = ec->comp_data->buffer_ref.buffer;
@@ -801,8 +801,8 @@ _e_hwc_window_cursor_surface_acquire(E_Hwc_Window *hwc_window)
 static Eina_Bool
 _e_hwc_window_info_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface)
 {
-   E_Output_Hwc *output_hwc = hwc_window->output_hwc;
-   E_Output *output = output_hwc->output;
+   E_Hwc *hwc = hwc_window->hwc;
+   E_Output *output = hwc->output;
    E_Client *ec = hwc_window->ec;
    tbm_surface_info_s surf_info;
    int size_w, size_h, src_x, src_y, src_w, src_h;
@@ -915,8 +915,8 @@ _e_hwc_window_correct_transformation_check(E_Hwc_Window *hwc_window)
 {
    E_Client *ec;
    int transform;
-   E_Output_Hwc *output_hwc = hwc_window->output_hwc;
-   E_Output *output = output_hwc->output;
+   E_Hwc *hwc = hwc_window->hwc;
+   E_Output *output = hwc->output;
 
    /* do not check the transformation of the video window */
    if (e_hwc_window_is_video(hwc_window)) return EINA_TRUE;
@@ -950,13 +950,13 @@ _e_hwc_window_correct_transformation_check(E_Hwc_Window *hwc_window)
 #endif
 
 EINTERN Eina_Bool
-e_hwc_window_init(E_Output_Hwc *output_hwc)
+e_hwc_window_init(E_Hwc *hwc)
 {
    E_Hwc_Window_Target *target_hwc_window;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
 
-   if (e_output_hwc_policy_get(output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
      return EINA_FALSE;
 
    client_hook_new =  e_client_hook_add(E_CLIENT_HOOK_NEW_CLIENT,
@@ -982,44 +982,44 @@ e_hwc_window_init(E_Output_Hwc *output_hwc)
         return EINA_FALSE;
      }
 
-   target_hwc_window = _e_hwc_window_target_new(output_hwc);
+   target_hwc_window = _e_hwc_window_target_new(hwc);
    EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
 
-   /* set the target_window to the output_hwc */
-   output_hwc->target_hwc_window = target_hwc_window;
+   /* set the target_window to the hwc */
+   hwc->target_hwc_window = target_hwc_window;
 
-   output_hwc->hwc_windows = eina_list_append(output_hwc->hwc_windows, target_hwc_window);
+   hwc->hwc_windows = eina_list_append(hwc->hwc_windows, target_hwc_window);
 
    return EINA_TRUE;
 }
 
 // TODO:
 EINTERN void
-e_hwc_window_deinit(E_Output_Hwc *output_hwc)
+e_hwc_window_deinit(E_Hwc *hwc)
 {
-   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+   EINA_SAFETY_ON_NULL_RETURN(hwc);
 
    // TODO:
 }
 
 EINTERN E_Hwc_Window *
-e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State state)
+e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
 {
    E_Hwc_Window *hwc_window = NULL;
    tdm_output *toutput;
    tdm_error error;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc->output, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc->output, NULL);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
 
-   toutput = output_hwc->output->toutput;
+   toutput = hwc->output->toutput;
    EINA_SAFETY_ON_NULL_RETURN_VAL(toutput, EINA_FALSE);
 
    hwc_window = E_NEW(E_Hwc_Window, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
 
-   hwc_window->output_hwc = output_hwc;
+   hwc_window->hwc = hwc;
    hwc_window->ec = ec;
    hwc_window->state = state;
    hwc_window->need_change_buffer_transform = EINA_TRUE;
@@ -1043,11 +1043,11 @@ e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State stat
    if (state == E_HWC_WINDOW_STATE_VIDEO)
      hwc_window->is_video = EINA_TRUE;
 
-   output_hwc->hwc_windows = eina_list_append(output_hwc->hwc_windows, hwc_window);
+   hwc->hwc_windows = eina_list_append(hwc->hwc_windows, hwc_window);
 
    ELOGF("HWC-WINS", "ehw:%p is created on eout:%p, zone_id:%d",
          hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-         hwc_window, output_hwc->output, ec->zone->id);
+         hwc_window, hwc->output, ec->zone->id);
 
    return hwc_window;
 }
@@ -1055,18 +1055,18 @@ e_hwc_window_new(E_Output_Hwc *output_hwc, E_Client *ec, E_Hwc_Window_State stat
 EINTERN void
 e_hwc_window_free(E_Hwc_Window *hwc_window)
 {
-   E_Output_Hwc *output_hwc = NULL;
+   E_Hwc *hwc = NULL;
    E_Output *output = NULL;
    tdm_output *toutput = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(hwc_window);
-   EINA_SAFETY_ON_NULL_RETURN(hwc_window->output_hwc);
+   EINA_SAFETY_ON_NULL_RETURN(hwc_window->hwc);
 
-   output_hwc = hwc_window->output_hwc;
-   EINA_SAFETY_ON_NULL_RETURN(output_hwc);
+   hwc = hwc_window->hwc;
+   EINA_SAFETY_ON_NULL_RETURN(hwc);
 
-   output = output_hwc->output;
-   EINA_SAFETY_ON_NULL_RETURN(output_hwc->output);
+   output = hwc->output;
+   EINA_SAFETY_ON_NULL_RETURN(hwc->output);
 
    toutput = output->toutput;
    EINA_SAFETY_ON_NULL_RETURN(toutput);
@@ -1076,7 +1076,7 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
      {
         ELOGF("HWC-WINS", "ehw:%p is destroyed on eout:%p. displaying surface.",
               hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-              hwc_window, output_hwc->output);
+              hwc_window, hwc->output);
 
         /* mark as deleted and delete when commit_data will be released */
         hwc_window->is_deleted = EINA_TRUE;
@@ -1087,12 +1087,12 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
    else
      ELOGF("HWC-WINS", "ehw:%p is destroyed on eout:%p",
            hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-           hwc_window, output_hwc->output);
+           hwc_window, hwc->output);
 
    if (hwc_window->thwc_window)
       tdm_output_hwc_destroy_window(toutput, hwc_window->thwc_window);
 
-   output_hwc->hwc_windows = eina_list_remove(output_hwc->hwc_windows, hwc_window);
+   hwc->hwc_windows = eina_list_remove(hwc->hwc_windows, hwc_window);
 
    free(hwc_window);
 }
@@ -1430,7 +1430,7 @@ EINTERN Eina_Bool
 e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
 {
    E_Output *output;
-   E_Output_Hwc *output_hwc;
+   E_Hwc *hwc;
    E_Hwc_Window *hwc_window, *hw;
    tbm_surface_h tsurface;
    tdm_hwc_region fb_damage;
@@ -1462,10 +1462,10 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
 
         hwc_window->tsurface = tsurface;
 
-        output_hwc = hwc_window->output_hwc;
-        EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+        hwc = hwc_window->hwc;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
 
-        output = output_hwc->output;
+        output = hwc->output;
         EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
         /* the damage isn't supported by hwc extension yet */
@@ -1530,17 +1530,17 @@ e_hwc_window_target_window_ee_rendered_hw_list_get(E_Hwc_Window_Target *target_w
    Eina_List *ee_rendered_hw_list = NULL, *new_list = NULL;
    E_Hwc_Window *hw1, *hw2;
    const Eina_List *l, *ll;
-   E_Output_Hwc *output_hwc;
+   E_Hwc *hwc;
    tbm_surface_h target_tsurface;
 
-   output_hwc = target_window->hwc_window.output_hwc;
+   hwc = target_window->hwc_window.hwc;
 
    target_tsurface = target_window->hwc_window.tsurface;
    tbm_surface_internal_get_user_data(target_tsurface, ee_rendered_hw_list_key, (void**)&ee_rendered_hw_list);
 
    /* refresh list of composited e_thwc_windows according to existed ones */
    EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw1)
-      EINA_LIST_FOREACH(output_hwc->hwc_windows, ll, hw2)
+      EINA_LIST_FOREACH(hwc->hwc_windows, ll, hw2)
          if (hw1 == hw2) new_list = eina_list_append(new_list, hw1);
 
    return new_list;
@@ -1590,7 +1590,7 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
    E_Client *ec = NULL;
    int transform;
    E_Output *output = NULL;
-   E_Output_Hwc *output_hwc = NULL;
+   E_Hwc *hwc = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
@@ -1610,10 +1610,10 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
       *       on the fb_target and a hw overlay owned by it gets free? */
      wayland_tbm_server_client_queue_deactivate(cqueue);
 
-   output_hwc = hwc_window->output_hwc;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_hwc, EINA_FALSE);
+   hwc = hwc_window->hwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
 
-   output = output_hwc->output;
+   output = hwc->output;
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
    transform = e_comp_wl_output_buffer_transform_get(ec);

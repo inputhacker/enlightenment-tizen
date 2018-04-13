@@ -193,7 +193,7 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
    eout = e_output_find(ec->zone->output_id);
    if (!eout) return;
 
-   if (e_output_hwc_policy_get(eout->output_hwc) == E_OUTPUT_HWC_POLICY_PLANES)
+   if (e_hwc_policy_get(eout->hwc) == E_HWC_POLICY_PLANES)
      {
         EINA_LIST_FOREACH(eout->planes, l, ep)
           {
@@ -302,7 +302,7 @@ _e_info_server_is_hwc_windows()
    if (!primary_output)
       return 0;
 
-   if (e_output_hwc_policy_get(primary_output->output_hwc) == E_OUTPUT_HWC_POLICY_WINDOWS)
+   if (e_hwc_policy_get(primary_output->hwc) == E_HWC_POLICY_WINDOWS)
      return 1;
 
    return 0;
