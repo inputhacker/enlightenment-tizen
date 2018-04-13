@@ -87,6 +87,9 @@ struct _E_Keyrouter_Event_Data
 {
    struct wl_client *client;
    struct wl_resource *surface;
+
+   int mode;
+   void *data;
 };
 
 E_API E_Keyrouter_Intercept_Hook *e_keyrouter_intercept_hook_add(E_Keyrouter_Intercept_Hook_Point hookpoint, E_Keyrouter_Intercept_Hook_Cb func, const void *data);
