@@ -26,7 +26,7 @@ struct _E_Hwc
 
    E_Hwc_Policy  hwc_policy;
    E_Hwc_Mode    hwc_mode;
-   Eina_Bool            hwc_deactive : 1; // deactive hwc policy
+   Eina_Bool     hwc_deactive : 1; // deactive hwc policy
 
    Ecore_Evas          *ee;
 
@@ -34,6 +34,7 @@ struct _E_Hwc
    Eina_Bool            hwc_use_multi_plane;
 
    /* variables for hwc_windows policy  */
+   tdm_hwc             *thwc;
    Eina_Bool            hwc_wins;
    Eina_List           *hwc_windows;
    E_Hwc_Window_Target *target_hwc_window;

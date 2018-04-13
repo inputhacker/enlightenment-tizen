@@ -84,6 +84,7 @@ struct _E_Hwc_Window
 struct _E_Hwc_Window_Target
 {
    E_Hwc_Window        hwc_window; /* don't move this field */
+   E_Hwc               *hwc;
 
    Ecore_Evas         *ee;
    Evas               *evas;

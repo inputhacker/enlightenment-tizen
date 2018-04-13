@@ -414,7 +414,6 @@ _e_video_get_available_formats(const tbm_format **formats, int *count)
    E_Output *output;
    tdm_output *toutput;
    tdm_layer *layer;
-   tdm_error error;
 
    *count = 0;
 
@@ -439,8 +438,10 @@ _e_video_get_available_formats(const tbm_format **formats, int *count)
              *count = NUM_SW_FORMAT;
           }
      }
+#if 0 //TODO:
    else
      {
+        tdm_error error;
         error = tdm_output_hwc_get_video_supported_formats(output, formats, count);
         if (error != TDM_ERROR_NONE)
           {
@@ -448,6 +449,7 @@ _e_video_get_available_formats(const tbm_format **formats, int *count)
              *count = NUM_SW_FORMAT;
           }
      }
+#endif
 }
 
 static int
@@ -672,9 +674,11 @@ _e_video_layer_get_available_properties(E_Video_Layer * layer, const tdm_prop **
   if (_is_video_hwc_windows(layer->video))
     {
        *count = 0;
+#if 0 //TODO:
        if (layer->e_client->hwc_window->thwc_window)
          ret = tdm_hwc_window_video_get_available_properties(
                          layer->e_client->hwc_window->thwc_window, props, count);
+#endif
     }
   else
     {
@@ -698,10 +702,12 @@ _e_video_layer_get_property(E_Video_Layer * layer, unsigned id, tdm_value *value
 
   if (_is_video_hwc_windows(layer->video))
     {
+#if 0 //TODO:
        if (layer->e_client->hwc_window->thwc_window)
          ret = tdm_hwc_window_video_get_property(
                       layer->e_client->hwc_window->thwc_window, id, value);
        else
+#endif
          ret = TDM_ERROR_BAD_MODULE;
     }
   else
@@ -2421,7 +2427,6 @@ _e_video_check_if_pp_needed(E_Video *video)
    const tbm_format *formats;
    Eina_Bool found = EINA_FALSE;
    tdm_layer_capability capabilities = 0;
-   tdm_error error;
 
    if (e_hwc_policy_get(video->e_output->hwc) != E_HWC_POLICY_WINDOWS)
      {
@@ -2467,10 +2472,12 @@ _e_video_check_if_pp_needed(E_Video *video)
           if (!(capabilities & TDM_LAYER_CAPABILITY_TRANSFORM))
             goto need_pp;
      }
+#if 0 // TODO:
    else
      {
         E_Hwc_Window *hwc_window = video->ec->hwc_window;
         tdm_hwc_window_video_capability capabilities = 0;
+        tdm_error error;
 
         error = tdm_output_hwc_get_video_supported_formats(video->output, &formats, &count);
         if (error != TDM_ERROR_NONE)
@@ -2511,6 +2518,7 @@ _e_video_check_if_pp_needed(E_Video *video)
           if (!(capabilities & TDM_HWC_WINDOW_VIDEO_CAPABILITY_TRANSFORM))
             goto need_pp;
      }
+#endif
 
    return EINA_FALSE;
 

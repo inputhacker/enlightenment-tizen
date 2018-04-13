@@ -984,6 +984,7 @@ e_hwc_window_init(E_Hwc *hwc)
 
    target_hwc_window = _e_hwc_window_target_new(hwc);
    EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
+   target_hwc_window->hwc = hwc;
 
    /* set the target_window to the hwc */
    hwc->target_hwc_window = target_hwc_window;
@@ -1006,15 +1007,14 @@ EINTERN E_Hwc_Window *
 e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
 {
    E_Hwc_Window *hwc_window = NULL;
-   tdm_output *toutput;
+   tdm_hwc *thwc;;
    tdm_error error;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc->output, NULL);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
 
-   toutput = hwc->output->toutput;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(toutput, EINA_FALSE);
+   thwc = hwc->thwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(thwc, EINA_FALSE);
 
    hwc_window = E_NEW(E_Hwc_Window, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
@@ -1024,13 +1024,10 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
    hwc_window->state = state;
    hwc_window->need_change_buffer_transform = EINA_TRUE;
 
-   if (state == E_HWC_WINDOW_STATE_VIDEO)
-     hwc_window->thwc_window = tdm_output_hwc_create_video_window(toutput, &error);
-   else
-     hwc_window->thwc_window = tdm_output_hwc_create_window(toutput, &error);
+   hwc_window->thwc_window = tdm_hwc_create_window(thwc, &error);
    if (error != TDM_ERROR_NONE)
      {
-        ERR("cannot create tdm_hwc_window for toutput(%p)", toutput);
+        ERR("cannot create tdm_hwc_window for thwc(%p)", thwc);
         E_FREE(hwc_window);
         return NULL;
      }
@@ -1056,8 +1053,6 @@ EINTERN void
 e_hwc_window_free(E_Hwc_Window *hwc_window)
 {
    E_Hwc *hwc = NULL;
-   E_Output *output = NULL;
-   tdm_output *toutput = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(hwc_window);
    EINA_SAFETY_ON_NULL_RETURN(hwc_window->hwc);
@@ -1065,18 +1060,12 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
    hwc = hwc_window->hwc;
    EINA_SAFETY_ON_NULL_RETURN(hwc);
 
-   output = hwc->output;
-   EINA_SAFETY_ON_NULL_RETURN(hwc->output);
-
-   toutput = output->toutput;
-   EINA_SAFETY_ON_NULL_RETURN(toutput);
-
    /* we cannot remove the hwc_window because we need to release the commit_data */
    if (e_hwc_window_displaying_surface_get(hwc_window))
      {
-        ELOGF("HWC-WINS", "ehw:%p is destroyed on eout:%p. displaying surface.",
+        ELOGF("HWC-WINS", "ehw:%p is destroyed on ehwc:%p. displaying surface.",
               hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-              hwc_window, hwc->output);
+              hwc_window, hwc);
 
         /* mark as deleted and delete when commit_data will be released */
         hwc_window->is_deleted = EINA_TRUE;
@@ -1085,12 +1074,12 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
         return;
      }
    else
-     ELOGF("HWC-WINS", "ehw:%p is destroyed on eout:%p",
+     ELOGF("HWC-WINS", "ehw:%p is destroyed on ehwc:%p",
            hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-           hwc_window, hwc->output);
+           hwc_window, hwc);
 
    if (hwc_window->thwc_window)
-      tdm_output_hwc_destroy_window(toutput, hwc_window->thwc_window);
+      tdm_hwc_window_destroy(hwc_window->thwc_window);
 
    hwc->hwc_windows = eina_list_remove(hwc->hwc_windows, hwc_window);
 
@@ -1429,11 +1418,11 @@ e_hwc_window_target_enabled(E_Hwc_Window_Target *target_hwc_window)
 EINTERN Eina_Bool
 e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
 {
-   E_Output *output;
    E_Hwc *hwc;
    E_Hwc_Window *hwc_window, *hw;
+   tdm_hwc *thwc;
    tbm_surface_h tsurface;
-   tdm_hwc_region fb_damage;
+   tdm_region fb_damage;
    Eina_List *ee_rendered_hw_list = NULL;
    uint32_t n_thw = 0;
    const Eina_List *l;
@@ -1465,13 +1454,13 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
         hwc = hwc_window->hwc;
         EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
 
-        output = hwc->output;
-        EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+        thwc = hwc->thwc;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(thwc, EINA_FALSE);
 
         /* the damage isn't supported by hwc extension yet */
         memset(&fb_damage, 0, sizeof(fb_damage));
 
-        tdm_output_hwc_set_client_target_buffer(output->toutput, hwc_window->tsurface, fb_damage);
+        tdm_hwc_set_client_target_buffer(thwc, hwc_window->tsurface, fb_damage);
 
         ee_rendered_hw_list = e_hwc_window_target_window_ee_rendered_hw_list_get(target_hwc_window);
         n_thw = eina_list_count(ee_rendered_hw_list);

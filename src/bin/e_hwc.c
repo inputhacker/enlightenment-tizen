@@ -13,7 +13,6 @@ _e_hwc_tbm_surface_queue_alloc(void *data, int w, int h)
    E_Hwc *hwc = (E_Hwc *)data;
    E_Output *output = hwc->output;
    E_Comp_Screen *e_comp_screen = output->e_comp_screen;
-   tdm_output *toutput = output->toutput;
    tbm_surface_queue_h tqueue = NULL;
    tdm_error error;
    int scr_w, scr_h, queue_w, queue_h;
@@ -22,10 +21,10 @@ _e_hwc_tbm_surface_queue_alloc(void *data, int w, int h)
 
    if (output->tdm_hwc)
      {
-        tqueue = tdm_output_hwc_get_target_buffer_queue(toutput, &error);
+        tqueue = tdm_hwc_get_client_target_buffer_queue(hwc->thwc, &error);
         if (error != TDM_ERROR_NONE)
          {
-            ERR("fail to tdm_output_hwc_get_target_buffer_queue");
+            ERR("fail to tdm_hwc_get_client_target_buffer_queue");
             return (void *)NULL;
          }
      }
@@ -34,7 +33,7 @@ _e_hwc_tbm_surface_queue_alloc(void *data, int w, int h)
         tqueue = tbm_surface_queue_create(3, w, h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
         if (!tqueue)
           {
-             ERR("fail to tdm_output_hwc_get_target_buffer_queue");
+             ERR("fail to tbm_surface_queue_create");
              return (void *)NULL;
           }
      }
@@ -217,6 +216,7 @@ EINTERN E_Hwc *
 e_hwc_new(E_Output *output)
 {
    E_Hwc *hwc = NULL;
+   tdm_error error;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
 
@@ -254,6 +254,13 @@ e_hwc_new(E_Output *output)
    else
      {
         hwc->hwc_policy = E_HWC_POLICY_WINDOWS;
+
+        hwc->thwc = tdm_output_get_hwc(output->toutput, &error);
+        if (!hwc->thwc)
+          {
+             ERR("hwc_opt: tdm_output_get_hwc failed");
+             goto fail;
+          }
 
         if (!e_hwc_windows_init(hwc))
           {

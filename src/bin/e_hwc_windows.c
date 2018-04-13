@@ -412,7 +412,7 @@ _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data)
    E_Output *output = NULL;
    tdm_layer *toutput = NULL;
    tdm_error terror;
-   tdm_hwc_region fb_damage;
+   tdm_region fb_damage;
 
    /* the damage isn't supported by hwc extension yet */
    memset(&fb_damage, 0, sizeof(fb_damage));
@@ -430,10 +430,10 @@ _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data)
 
    /* no need to pass composited_wnds list because smooth transition isn't
     * used is this case */
-   terror = tdm_output_hwc_set_client_target_buffer(toutput, data->tsurface, fb_damage);
+   terror = tdm_hwc_set_client_target_buffer(hwc->thwc, data->tsurface, fb_damage);
    if (terror != TDM_ERROR_NONE)
      {
-        ERR("fail to tdm_output_hwc_set_client_target_buffer");
+        ERR("fail to tdm_hwc_set_client_target_buffer");
         goto fail;
      }
 
@@ -906,11 +906,9 @@ _e_hwc_windows_window_state_get(tdm_hwc_window_composition composition_type)
 static Eina_Bool
 _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
 {
-   E_Output *output = hwc->output;
    E_Hwc_Window *hwc_window;
    E_Hwc_Window_State state;
    tdm_error terror;
-   tdm_output *toutput = output->toutput;
    tdm_hwc_window **changed_hwc_window = NULL;
    tdm_hwc_window_composition *composition_types = NULL;
    Eina_Bool accept_changes = EINA_TRUE;
@@ -922,7 +920,7 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
    composition_types = E_NEW(tdm_hwc_window_composition, num_changes);
    EINA_SAFETY_ON_NULL_GOTO(composition_types, fail);
 
-   terror = tdm_output_hwc_get_changed_composition_types(toutput,
+   terror = tdm_hwc_get_changed_composition_types(hwc->thwc,
                                          &num_changes, changed_hwc_window,
                                          composition_types);
    if (terror != TDM_ERROR_NONE)
@@ -970,7 +968,7 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
    if (!accept_changes) goto fail;
 
    /* accept changes */
-   terror = tdm_output_hwc_accept_changes(toutput);
+   terror = tdm_hwc_accept_changes(hwc->thwc);
    if (terror != TDM_ERROR_NONE)
      {
         ERR("HWC-WINS: failed to accept changes required by the hwc extension");
@@ -1012,7 +1010,7 @@ _e_hwc_windows_validate(E_Hwc *hwc, Eina_List *visible_windows_list, uint32_t *n
      }
 
    /* make hwc extension choose which clients will own hw overlays */
-   terror = tdm_output_hwc_validate(toutput, thwc_windows, n_thw, num_changes);
+   terror = tdm_hwc_validate(hwc->thwc, thwc_windows, n_thw, num_changes);
    if (terror != TDM_ERROR_NONE) goto error;
 
    E_FREE(thwc_windows);
