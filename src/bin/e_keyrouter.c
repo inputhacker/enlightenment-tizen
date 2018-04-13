@@ -383,7 +383,7 @@ _e_keyrouter_query_tizen_key_table(void)
              continue;
           }
 
-        KLINF("[jeon] keycode: %d, name: %s, no_priv: %d, repeat: %d\n", data->keycode, data->name, data->no_privcheck, data->repeat);
+        KLINF("keycode: %d, name: %s, no_priv: %d, repeat: %d\n", data->keycode, data->name, data->no_privcheck, data->repeat);
 
         krt->HardKeys[data->keycode].keycode = data->keycode;
         krt->HardKeys[data->keycode].keyname = (char *)eina_stringshare_add(data->name);
