@@ -625,6 +625,18 @@ e_hwc_planes_end(E_Hwc *hwc, const char *location)
 
    EINA_SAFETY_ON_NULL_RETURN(hwc);
 
+   // once intercept_pol is activated, hwc set/unset should be handled by interceptor
+   if (hwc->intercept_pol)
+     {
+        if (!e_hwc_intercept_hook_call(E_HWC_INTERCEPT_HOOK_END_ALL_PLANE, hwc))
+          {
+             hwc->intercept_pol = EINA_FALSE;
+             goto end;
+          }
+        else
+          return;
+     }
+
    /* clean the reserved planes(clean the candidate ecs) */
    _e_hwc_planes_reserved_clean(hwc);
 
@@ -633,6 +645,7 @@ e_hwc_planes_end(E_Hwc *hwc, const char *location)
    /* set null to the e_planes */
    _e_hwc_planes_cancel(hwc);
 
+end:
    /* check the current mode */
    new_mode = _e_hwc_mode_get(hwc);
 

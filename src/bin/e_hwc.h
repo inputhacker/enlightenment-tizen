@@ -16,9 +16,28 @@ typedef enum _E_Hwc_Policy
    E_HWC_POLICY_WINDOWS,  // hwc_windows policy that controls the hwc policy at tdm-backend with e_hwc_windows
 } E_Hwc_Policy;
 
+typedef enum _E_Hwc_Intercept_Hook_Point
+{
+   E_HWC_INTERCEPT_HOOK_PREPARE_PLANE,
+   E_HWC_INTERCEPT_HOOK_END_ALL_PLANE,
+   E_HWC_INTERCEPT_HOOK_LAST,
+} E_Hwc_Intercept_Hook_Point;
+
+typedef Eina_Bool (*E_Hwc_Intercept_Hook_Cb)(void *data, E_Hwc *hwc);
+typedef struct _E_Hwc_Intercept_Hook E_Hwc_Intercept_Hook;
+
 #else
 #ifndef E_HWC_H
 #define E_HWC_H
+
+struct _E_Hwc_Intercept_Hook
+{
+   EINA_INLIST;
+   E_Hwc_Intercept_Hook_Point  hookpoint;
+   E_Hwc_Intercept_Hook_Cb     func;
+   void                       *data;
+   unsigned char               delete_me : 1;
+};
 
 struct _E_Hwc
 {
@@ -42,6 +61,8 @@ struct _E_Hwc
    Eina_Bool            wait_commit;
    int                  num_visible_windows;
 
+   Eina_Bool            intercept_pol;
+
    /* variables for pp at hwc_windows policy */
    tdm_pp               *tpp;
    Eina_List            *pp_hwc_window_list;
@@ -58,12 +79,16 @@ struct _E_Hwc
 };
 
 EINTERN E_Hwc        *e_hwc_new(E_Output *output);
-EINTERN void                 e_hwc_del(E_Hwc *hwc);
-EINTERN void                 e_hwc_apply(E_Hwc *hwc);
+EINTERN void          e_hwc_del(E_Hwc *hwc);
+EINTERN void          e_hwc_apply(E_Hwc *hwc);
 EINTERN E_Hwc_Policy  e_hwc_policy_get(E_Hwc *hwc);
 EINTERN E_Hwc_Mode    e_hwc_mode_get(E_Hwc *hwc);
-EINTERN void                 e_hwc_deactive_set(E_Hwc *hwc, Eina_Bool set);
-EINTERN Eina_Bool            e_hwc_deactive_get(E_Hwc *hwc);
+EINTERN void          e_hwc_deactive_set(E_Hwc *hwc, Eina_Bool set);
+EINTERN Eina_Bool     e_hwc_deactive_get(E_Hwc *hwc);
+EINTERN Eina_Bool     e_hwc_intercept_hook_call(E_Hwc_Intercept_Hook_Point hookpoint, E_Hwc *hwc);
+
+E_API E_Hwc_Intercept_Hook *e_hwc_intercept_hook_add(E_Hwc_Intercept_Hook_Point hookpoint, E_Hwc_Intercept_Hook_Cb func, const void *data);
+E_API void e_hwc_intercept_hook_del(E_Hwc_Intercept_Hook *ch);
 
 #endif
 #endif
