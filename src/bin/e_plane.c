@@ -2753,20 +2753,19 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
              plane->ec = NULL;
              plane->need_ev = EINA_TRUE;
 
-             if (plane_trace_debug)
-               ELOGF("E_PLANE", "Plane(%p) zpos(%d)   Set NULL",
-                     (ec ? ec->pixmap : NULL), ec, plane, plane->zpos);
+             ELOGF("E_PLANE", "Plane(%p) zpos(%d)   Set NULL",
+                   (ec ? ec->pixmap : NULL), ec, plane, plane->zpos);
 
              return EINA_FALSE;
           }
      }
 end:
-   plane->ec = ec;
-   plane->need_ev = EINA_TRUE;
-
-   if (plane_trace_debug)
+   if (plane->ec != ec)
      ELOGF("E_PLANE", "Plane(%p) zpos(%d)   Set ec(%p, %s)",
            (ec ? ec->pixmap : NULL), ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
+
+   plane->ec = ec;
+   plane->need_ev = EINA_TRUE;
 
    return EINA_TRUE;
 

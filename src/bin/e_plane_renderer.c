@@ -1326,18 +1326,12 @@ e_plane_renderer_ec_set(E_Plane_Renderer *renderer, E_Client *ec)
           e_plane_renderer_reserved_deactivate(renderer_client->renderer);
 
         if (!e_plane_renderer_reserved_activate(renderer, ec))
-          {
-             INF("can't activate ec:%p.", ec);
-             return EINA_FALSE;
-          }
+          return EINA_FALSE;
      }
    else
      {
         if (!e_plane_renderer_activate(renderer, ec))
-          {
-             INF("can't activate ec:%p.", ec);
-             return EINA_FALSE;
-          }
+          return EINA_FALSE;
      }
 
    return EINA_TRUE;
@@ -1710,7 +1704,6 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
            }
         else if ((renderer->state == E_PLANE_RENDERER_STATE_CANDIDATE) && (renderer->ec == ec))
            {
-              INF("ec does not have the scanout surface yet.");
               return EINA_FALSE;
            }
         else if (renderer->state == E_PLANE_RENDERER_STATE_PENDING_DEACTIVATE)
@@ -1765,16 +1758,14 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
         if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
           ERR("fail to tbm_surface_queue_notify_reset");
 
-        if (renderer_trace_debug)
-          ELOGF("E_PLANE_RENDERER", "Candidate Renderer(%p)", ec->pixmap, ec, renderer);
+        ELOGF("E_PLANE_RENDERER", "Candidate Renderer(%p) Plane(%p) ec(%p, %s)",
+              ec->pixmap, ec, renderer, renderer->plane,  ec, e_client_util_name_get(ec));
 
         renderer->state = E_PLANE_RENDERER_STATE_CANDIDATE;
         renderer->ec = ec;
 
         renderer_client->state = E_PLANE_RENDERER_CLIENT_STATE_CANDIDATED;
         renderer_client->renderer = renderer;
-
-        INF("ec does not have the scanout surface.");
 
         return EINA_FALSE;
      }
@@ -1794,8 +1785,8 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
         return EINA_FALSE;
      }
 
-   if (renderer_trace_debug)
-     ELOGF("E_PLANE_RENDERER", "Activate Renderer(%p)", ec->pixmap, ec, renderer);
+   ELOGF("E_PLANE_RENDERER", "Activate Renderer(%p) Plane(%p) ec(%p, %s)",
+         ec->pixmap, ec, renderer, renderer->plane, ec, e_client_util_name_get(ec));
 
    renderer->ec = ec;
    renderer->state = E_PLANE_RENDERER_STATE_ACTIVATE;
@@ -1830,8 +1821,8 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
 
    cqueue = _e_plane_renderer_wayland_tbm_client_queue_get(ec);
 
-   if (renderer_trace_debug)
-     ELOGF("E_PLANE_RENDERER", "Deactivate Renderer(%p)", ec->pixmap, ec, renderer);
+   ELOGF("E_PLANE_RENDERER", "Deactivate Renderer(%p) Plane(%p) ec(%p, %s)",
+         ec->pixmap, ec, renderer, renderer->plane, ec, e_client_util_name_get(ec));
 
    if (cqueue)
      {

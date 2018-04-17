@@ -294,13 +294,7 @@ static Eina_Bool
 _e_hwc_planes_change_ec(E_Plane *ep, E_Client *new_ec)
 {
    if (!e_plane_ec_set(ep, new_ec))
-     {
-        ELOGF("HWC-PLNS", "failed to set new_ec(%s) on %d",
-              NULL, new_ec,
-              new_ec ? (new_ec->icccm.name ? new_ec->icccm.name : "no name") : "NULL",
-              ep->zpos);
-        return EINA_FALSE;
-     }
+     return EINA_FALSE;
 
    if (new_ec)
      ELOGF("HWC-PLNS", "new_ec(%s) is set on %d",
@@ -579,10 +573,8 @@ e_hwc_planes_begin(E_Hwc *hwc)
                }
           }
 
-        if (mode == E_HWC_MODE_NONE)
-           ELOGF("HWC-PLNS", " Begin is not available yet ...", NULL, NULL);
-        else
-           ELOGF("HWC-PLNS", " Begin ...", NULL, NULL);
+        if (mode != E_HWC_MODE_NONE)
+          ELOGF("HWC-PLNS", " Begin ...", NULL, NULL);
      }
 
    hwc->hwc_mode = mode;
