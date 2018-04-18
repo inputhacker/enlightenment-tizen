@@ -6012,8 +6012,14 @@ _e_policy_wl_cb_hook_shell_surface_ready(void *d, E_Client *ec)
    if ((ec->comp_data->shell.configure_send) &&
        (ec->comp_data->shell.surface))
      {
+        int w = 0, h = 0;
+        if (ec->lock_client_size)
+          {
+             w = ec->w;
+             h = ec->h;
+          }
         ec->comp_data->shell.configure_send(ec->comp_data->shell.surface,
-                                            0, ec->w, ec->h);
+                                            0, w, h);
      }
 }
 
