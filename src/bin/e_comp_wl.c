@@ -3536,11 +3536,11 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
        ec->comp_data->sub.below_list_pending ||
        e_comp_wl_video_subsurface_has(ec))
      {
-        ELOGF("COMP", "         |bg_rectangle(%p) created", NULL, ec, ec->comp_data->sub.below_obj);
-
         /* create a bg rectangle if topmost window is 24 depth window */
         ec->comp_data->sub.below_obj = evas_object_rectangle_add(e_comp->evas);
         EINA_SAFETY_ON_NULL_RETURN(ec->comp_data->sub.below_obj);
+
+        ELOGF("COMP", "         |bg_rectangle(%p) created", NULL, ec, ec->comp_data->sub.below_obj);
 
         layer = evas_object_layer_get(ec->frame);
         evas_object_layer_set(ec->comp_data->sub.below_obj, layer);
