@@ -60,6 +60,12 @@ e_keyrouter_event_process(void *event, int type)
 
    e_screensaver_notidle();
 
+   if (!ev->data)
+     {
+        KLWRN("%s key (%d) %s is not handled by keyrouter\n", ev->keyname, ev->keycode, (type == ECORE_EVENT_KEY_DOWN) ? "press" : "release");
+        goto focus_deliver;
+     }
+
    key_data = (E_Keyrouter_Event_Data *)ev->data;
 
    if (key_data->client || key_data->surface)
