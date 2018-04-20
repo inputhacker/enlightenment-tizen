@@ -953,8 +953,12 @@ _remote_source_send_image_update(E_Comp_Wl_Remote_Source *source)
 }
 
 typedef struct {
-     struct wl_shm_buffer *shm_buffer;
+     void *shm_buffer_ptr;
+     int shm_buffer_stride;
+     int shm_buffer_h;
+     unsigned int shm_buffer_format;
      struct wl_shm_pool *shm_pool;
+
      tbm_surface_h tbm_surface;
 
      uint32_t transform;
@@ -1055,7 +1059,6 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
    int c = 0, s = 0, tx = 0, ty = 0;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(td, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(td->tbm_surface, NULL);
 
    if (td->transform == WL_OUTPUT_TRANSFORM_NORMAL || td->transform > WL_OUTPUT_TRANSFORM_270) return NULL;
 
@@ -1070,14 +1073,19 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
         src_img = pixman_image_create_bits(src_format, w, h, (uint32_t*)src_ptr, info.planes[0].stride);
         EINA_SAFETY_ON_NULL_GOTO(src_img, error_case);
      }
-   else if (td->shm_buffer)
+   else if (td->shm_buffer_ptr)
      {
-        src_format = _remote_source_image_data_pixman_format_get_from_shm_buffer(wl_shm_buffer_get_format(td->shm_buffer));
+        src_format = _remote_source_image_data_pixman_format_get_from_shm_buffer(td->shm_buffer_format);
         dst_format = src_format;
 
-        src_ptr = wl_shm_buffer_get_data(td->shm_buffer);
+        src_ptr = td->shm_buffer_ptr;
         src_img = pixman_image_create_bits(src_format, w, h, (uint32_t*)src_ptr, w * 4);
         EINA_SAFETY_ON_NULL_GOTO(src_img, error_case);
+     }
+   else
+     {
+        ERR("invalid source buffer");
+        return NULL;
      }
 
    if (td->transform == WL_OUTPUT_TRANSFORM_90)
@@ -1135,7 +1143,7 @@ error_case:
 static const char *
 _remote_source_image_data_save(Thread_Data *td, const char *path, const char *name)
 {
-   struct wl_shm_buffer *shm_buffer = NULL;
+   void *shm_buffer_ptr = NULL;
    tbm_surface_h tbm_surface = NULL, transform_surface = NULL;
    int w, h, stride;
    void *ptr;
@@ -1155,14 +1163,14 @@ _remote_source_image_data_save(Thread_Data *td, const char *path, const char *na
         snprintf(dest, sizeof(dest), "%s/%s.png", path, fname);
      }
 
-   shm_buffer = td->shm_buffer;
+   shm_buffer_ptr = td->shm_buffer_ptr;
    tbm_surface = td->tbm_surface;
 
-   if (shm_buffer)
+   if (shm_buffer_ptr)
      {
-         stride = wl_shm_buffer_get_stride(shm_buffer);
+         stride = td->shm_buffer_stride;
          w = stride / 4;
-         h = wl_shm_buffer_get_height(shm_buffer);
+         h = td->shm_buffer_h;
 
          transform_surface = _remote_source_image_data_transform(td, w, h);
          if (transform_surface)
@@ -1173,7 +1181,7 @@ _remote_source_image_data_save(Thread_Data *td, const char *path, const char *na
            }
          else
            {
-              ptr = wl_shm_buffer_get_data(shm_buffer);
+              ptr = shm_buffer_ptr;
               EINA_SAFETY_ON_NULL_RETURN_VAL(ptr, NULL);
            }
 
@@ -1409,6 +1417,8 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
    Thread_Data *td;
    struct wl_shm_buffer *shm_buffer;
    struct wl_shm_pool *shm_pool;
+   void *shm_buffer_ptr = NULL;
+   int shm_buffer_stride, shm_buffer_h;
    tbm_surface_h tbm_surface;
 
    if (!(ec = source->common.ec)) return;
@@ -1438,10 +1448,22 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
          shm_buffer = wl_shm_buffer_get(buffer->resource);
          if (!shm_buffer) goto end;
 
+         shm_buffer_ptr = wl_shm_buffer_get_data(shm_buffer);
+         if (!shm_buffer_ptr) goto end;
+
+         shm_buffer_stride = wl_shm_buffer_get_stride(shm_buffer);
+         if (shm_buffer_stride <= 0) goto end;
+
+         shm_buffer_h = wl_shm_buffer_get_height(shm_buffer);
+         if (shm_buffer_h <= 0) goto end;
+
          shm_pool = wl_shm_buffer_ref_pool(shm_buffer);
          if (!shm_pool) goto end;
 
-         td->shm_buffer = shm_buffer;
+         td->shm_buffer_format = wl_shm_buffer_get_format(shm_buffer);
+         td->shm_buffer_ptr = shm_buffer_ptr;
+         td->shm_buffer_stride = shm_buffer_stride;
+         td->shm_buffer_h = shm_buffer_h;
          td->shm_pool = shm_pool;
          break;
       case E_COMP_WL_BUFFER_TYPE_NATIVE:
