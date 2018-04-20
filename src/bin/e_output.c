@@ -3,6 +3,7 @@
 #define DUMP_FPS 30
 
 typedef struct _E_Output_Capture E_Output_Capture;
+typedef struct _E_Output_Layer E_Output_Layer;
 
 struct _E_Output_Capture
 {
@@ -13,6 +14,12 @@ struct _E_Output_Capture
    void *data;
    Eina_Bool in_using;
    Eina_Bool dequeued;
+};
+
+struct _E_Output_Layer
+{
+   tdm_layer *layer;
+   int zpos;
 };
 
 static int _e_output_hooks_delete = 0;
@@ -1618,6 +1625,18 @@ _e_output_capture_dst_crop_get(E_Comp_Wl_Video_Buf *tmp, E_Comp_Wl_Video_Buf *ds
      }
 }
 
+static int
+_e_output_layer_sort_cb(const void *d1, const void *d2)
+{
+   E_Output_Layer *e_layer_1 = (E_Output_Layer *)d1;
+   E_Output_Layer *e_layer_2 = (E_Output_Layer *)d2;
+
+   if (!e_layer_1) return(1);
+   if (!e_layer_2) return(-1);
+
+   return (e_layer_1->zpos - e_layer_2->zpos);
+}
+
 static Eina_Bool
 _e_output_video_buffer_capture(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, Eina_Bool auto_rotate)
 {
@@ -1627,10 +1646,14 @@ _e_output_video_buffer_capture(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, Eina
    int angle = 0;
    int output_angle = 0;
    Eina_Bool rotate_check = EINA_FALSE;
+   E_Output_Layer *e_layer = NULL;
+   Eina_List *layers = NULL;
+   Eina_List *l;
+   Eina_Bool ret = EINA_FALSE;
 
    e_output_size_get(output, &width, &height);
    if (width == 0 || height == 0)
-     return EINA_FALSE;
+     return ret;
 
    angle = _e_output_top_ec_angle_get();
    output_angle = output->config.rotation;
@@ -1658,10 +1681,28 @@ _e_output_video_buffer_capture(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, Eina
      rotate = 270;
 
    error = tdm_output_get_layer_count(output->toutput, &count);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, EINA_FALSE);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(count >= 0, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, ret);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(count >= 0, ret);
 
    for (i = 0; i < count; i++)
+     {
+        int zpos;
+        tdm_layer *layer;
+        E_Output_Layer *e_layer = E_NEW(E_Output_Layer, 1);
+        EINA_SAFETY_ON_NULL_GOTO(e_layer, release);
+
+        layer = tdm_output_get_layer(output->toutput, i, &error);
+        EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, release);
+
+        tdm_layer_get_zpos(layer, &zpos);
+        e_layer->layer = layer;
+        e_layer->zpos = zpos;
+
+        layers = eina_list_append(layers, e_layer);
+     }
+   layers = eina_list_sort(layers, eina_list_count(layers), _e_output_layer_sort_cb);
+
+   EINA_LIST_FOREACH(layers, l, e_layer)
      {
         E_Comp_Wl_Video_Buf *tmp = NULL;
         tdm_layer *layer;
@@ -1673,11 +1714,14 @@ _e_output_video_buffer_capture(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, Eina
         Eina_Rectangle dst_crop = {0, };
         Eina_Bool ret;
 
-        layer = tdm_output_get_layer(output->toutput, i, &error);
-        EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, EINA_FALSE);
+        if (!e_layer) continue;
+
+        if (e_layer->zpos < 0) continue;
+        layer = e_layer->layer;
 
         error = tdm_layer_get_capabilities(layer, &capability);
-        EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, EINA_FALSE);
+        EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, release);
+
         if (capability & TDM_LAYER_CAPABILITY_VIDEO)
           continue;
 
@@ -1714,7 +1758,22 @@ _e_output_video_buffer_capture(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, Eina
         e_comp_wl_video_buffer_unref(tmp);
      }
 
-   return EINA_TRUE;
+   ret = EINA_TRUE;
+
+release:
+   if (layers)
+     {
+        E_Output_Layer *e_layer = NULL;
+        Eina_List *l, *ll;
+
+        EINA_LIST_FOREACH_SAFE(layers, l, ll, e_layer)
+          {
+             E_FREE(e_layer);
+          }
+        eina_list_free(layers);
+     }
+
+   return ret;
 }
 
 static Eina_Bool
