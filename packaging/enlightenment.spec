@@ -74,7 +74,7 @@ Development files for enlightenment
 cp %{SOURCE1001} .
 
 %build
-%if "%{TIZEN_PRODUCT_TV}" != "1"
+%if "%{tizen_profile_name}" != "tv"
 export CFLAGS+=" -fPIE "
 export LDFLAGS+=" -pie "
 %endif
