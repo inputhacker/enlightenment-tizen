@@ -350,8 +350,8 @@ _e_keyrouter_send_key_events_focus(int type, struct wl_resource *surface_focus, 
         if (key_data->surface)
           {
              *delivered_surface = key_data->surface;
-             res = e_keyrouter_wl_key_send(ev, (type==ECORE_EVENT_KEY_DOWN)?EINA_TRUE:EINA_FALSE, key_data->client, key_data->surface, EINA_TRUE);
-             return res;
+             res = e_keyrouter_wl_key_send(ev, (type==ECORE_EVENT_KEY_DOWN)?EINA_TRUE:EINA_FALSE, key_data->client, key_data->surface, EINA_FALSE);
+             return EINA_TRUE;
           }
      }
    else
