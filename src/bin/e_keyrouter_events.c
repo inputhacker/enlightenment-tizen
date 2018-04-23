@@ -93,12 +93,6 @@ e_keyrouter_event_process(void *event, int type)
         goto finish;
      }
 
-   if ((ECORE_EVENT_KEY_UP == type) && (!krt->HardKeys[ev->keycode].press_ptr))
-     {
-        KLDBG("The release key(%d) isn't a processed by keyrouter!", ev->keycode);
-        goto focus_deliver;
-     }
-
    //KLDBG("The key(%d) is going to be sent to the proper wl client(s) !", ev->keycode);
    KLDBG("[%s] keyname: %s, key: %s, keycode: %d", (type == ECORE_EVENT_KEY_DOWN) ? "KEY_PRESS" : "KEY_RELEASE", ev->keyname, ev->key, ev->keycode);
    res = _e_keyrouter_send_key_events(type, ev);
@@ -206,6 +200,7 @@ _e_keyrouter_send_key_events_press(int type, Ecore_Event_Key *ev)
      }
    if (!_e_keyrouter_is_key_grabbed(ev->keycode))
      {
+        res = _e_keyrouter_send_key_events_focus(type, surface_focus, ev, &delivered_surface);
         return res;
      }
 
