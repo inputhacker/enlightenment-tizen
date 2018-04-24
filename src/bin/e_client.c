@@ -3117,7 +3117,8 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
         if (canvas_vis)
           {
              if ((calc_region || skip_rot_pending_show) &&
-                 (!ec->visibility.force_obscured))
+                 (!ec->visibility.force_obscured) &&
+                 (!ec->exp_iconify.by_client))
                {
                   it = eina_tiler_iterator_new(t);
                   EINA_ITERATOR_FOREACH(it, _r)
@@ -3182,8 +3183,12 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
           {
              /* It prevents unwanted iconification of the top visible window
               * while showing an window with rotation mode.
+              * However, with rotation mode, iconification is done if client
+              * is iconified by itself.
               */
-             if ((!skip_rot_pending_show) || (ec->visibility.force_obscured))
+             if ((!skip_rot_pending_show) ||
+                 (ec->visibility.force_obscured) ||
+                 (ec->exp_iconify.by_client))
                {
                   /* obscured case */
                   if (ec->visibility.obscured != E_VISIBILITY_FULLY_OBSCURED)
