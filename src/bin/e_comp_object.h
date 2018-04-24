@@ -47,6 +47,7 @@ typedef enum _E_Comp_Object_Hook_Point
 {
    E_COMP_OBJECT_HOOK_EFFECT_START,
    E_COMP_OBJECT_HOOK_EFFECT_END,
+   E_COMP_OBJECT_HOOK_RESTACK,
    E_COMP_OBJECT_HOOK_LAST,
 } E_Comp_Object_Hook_Point;
 

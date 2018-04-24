@@ -1641,6 +1641,46 @@ _e_comp_intercept_layer_set(void *data, Evas_Object *obj, int layer)
 
 typedef void (*E_Comp_Object_Stack_Func)(Evas_Object *obj, Evas_Object *stack);
 
+static void
+_e_comp_object_raise(Evas_Object *obj)
+{
+   evas_object_raise(obj);
+
+   E_Client *ec = e_comp_object_client_get(obj);
+   if (ec)
+     _e_comp_object_hook_call(E_COMP_OBJECT_HOOK_RESTACK, ec);
+}
+
+static void
+_e_comp_object_lower(Evas_Object *obj)
+{
+   evas_object_lower(obj);
+
+   E_Client *ec = e_comp_object_client_get(obj);
+   if (ec)
+     _e_comp_object_hook_call(E_COMP_OBJECT_HOOK_RESTACK, ec);
+}
+
+static void
+_e_comp_object_stack_above(Evas_Object *obj, Evas_Object *target)
+{
+   evas_object_stack_above(obj, target);
+
+   E_Client *ec = e_comp_object_client_get(obj);
+   if (ec)
+     _e_comp_object_hook_call(E_COMP_OBJECT_HOOK_RESTACK, ec);
+}
+
+static void
+_e_comp_object_stack_below(Evas_Object *obj, Evas_Object *target)
+{
+   evas_object_stack_below(obj, target);
+
+   E_Client *ec = e_comp_object_client_get(obj);
+   if (ec)
+     _e_comp_object_hook_call(E_COMP_OBJECT_HOOK_RESTACK, ec);
+}
+
 static Eina_Bool
 _e_comp_object_is_pending(E_Client *ec)
 {
@@ -1660,7 +1700,7 @@ _e_comp_intercept_stack_helper(E_Comp_Object *cw, Evas_Object *stack, E_Comp_Obj
    E_Client *ecstack;
    short layer;
    Evas_Object *o = stack;
-   Eina_Bool raising = stack_cb == evas_object_stack_above;
+   Eina_Bool raising = stack_cb == _e_comp_object_stack_above;
 
    /* We should consider topmost's layer_pending for subsurface */
    if ((cw->ec->layer_block) || _e_comp_object_is_pending(cw->ec))
@@ -1819,7 +1859,7 @@ _e_comp_intercept_stack_above(void *data, Evas_Object *obj, Evas_Object *above)
      }
 
    TRACE_DS_BEGIN(COMP:INTERCEPT STACK ABOVE);
-   _e_comp_intercept_stack_helper(data, above, evas_object_stack_above);
+   _e_comp_intercept_stack_helper(data, above, _e_comp_object_stack_above);
    _e_comp_object_transform_obj_stack_update(obj);
    _e_comp_object_transform_obj_stack_update(above);
    TRACE_DS_END();
@@ -1836,7 +1876,7 @@ _e_comp_intercept_stack_below(void *data, Evas_Object *obj, Evas_Object *below)
      }
 
    TRACE_DS_BEGIN(COMP:INTERCEPT STACK BELOW);
-   _e_comp_intercept_stack_helper(data, below, evas_object_stack_below);
+   _e_comp_intercept_stack_helper(data, below, _e_comp_object_stack_below);
    _e_comp_object_transform_obj_stack_update(obj);
    _e_comp_object_transform_obj_stack_update(below);
    TRACE_DS_END();
@@ -1855,7 +1895,7 @@ _e_comp_intercept_lower(void *data, Evas_Object *obj)
         if (cw->ec->layer_pending)
           e_comp_object_layer_update(obj, NULL, obj);
 
-        evas_object_lower(obj);
+        _e_comp_object_lower(obj);
         goto end;
      }
    if (!EINA_INLIST_GET(cw->ec)->prev) goto end; //already lowest on layer
@@ -1866,7 +1906,7 @@ _e_comp_intercept_lower(void *data, Evas_Object *obj)
    if (evas_object_layer_get(o) != evas_object_layer_get(obj)) goto end; //already at bottom!
    if (obj == e_comp->layers[cw->layer].obj) goto end; //never lower a layer marker!
    evas_object_data_set(obj, "client_restack", (void*)1);
-   evas_object_lower(obj);
+   _e_comp_object_lower(obj);
    evas_object_data_del(obj, "client_restack");
    if (!cw->visible) goto end;
    e_comp_render_queue();
@@ -1893,7 +1933,7 @@ _e_comp_intercept_raise(void *data, Evas_Object *obj)
                e_comp_object_layer_update(obj, NULL, NULL);
           }
 
-        evas_object_raise(obj);
+        _e_comp_object_raise(obj);
         goto end;
      }
    if (!EINA_INLIST_GET(cw->ec)->next) goto end;//already highest on layer
@@ -1905,7 +1945,7 @@ _e_comp_intercept_raise(void *data, Evas_Object *obj)
    }
    if (evas_object_layer_get(o) != evas_object_layer_get(obj)) goto end; //already at top!
    if (obj == e_comp->layers[cw->layer].obj) //never raise a non-layer marker!
-     evas_object_raise(obj);
+     _e_comp_object_raise(obj);
    else
      {
         Evas_Object *op;
@@ -1920,7 +1960,7 @@ _e_comp_intercept_raise(void *data, Evas_Object *obj)
              ec = e_comp_object_client_get(o);
              if (ec && (!ec->override)) break;
           }
-        evas_object_stack_below(obj, op);
+        _e_comp_object_stack_below(obj, op);
         e_client_focus_defer_set(cw->ec);
         if (e_client_focus_track_enabled())
           e_client_raise_latest_set(cw->ec); //modify raise list if necessary
