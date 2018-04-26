@@ -5607,6 +5607,15 @@ e_comp_wl_input_cursor_timer_enable_set(Eina_Bool enabled)
      }
 }
 
+E_API void
+e_comp_wl_send_event_device(struct wl_client *wc, uint32_t timestamp, Ecore_Device *dev, uint32_t serial)
+{
+   EINA_SAFETY_ON_NULL_RETURN(wc);
+   EINA_SAFETY_ON_NULL_RETURN(dev);
+
+   _e_comp_wl_send_event_device(wc, timestamp, dev, serial);
+}
+
 EINTERN Eina_Bool
 e_comp_wl_key_send(E_Client *ec, int keycode, Eina_Bool pressed, Ecore_Device *dev, uint32_t time)
 {

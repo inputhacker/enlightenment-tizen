@@ -47,7 +47,7 @@ _e_keyrouter_wl_key_send(Ecore_Event_Key *ev, enum wl_keyboard_key_state state, 
         wc = wl_resource_get_client(res);
         if (!focused && wc != client) continue;
         TRACE_INPUT_BEGIN(_e_comp_wl_key_send);
-//        _e_comp_wl_send_event_device(client, ev->timestamp, ev->dev, serial);
+        e_comp_wl_send_event_device(client, ev->timestamp, ev->dev, serial);
 
         if (comp_conf && comp_conf->input_log_enable)
           INF("[Server] Routed Key %s (time: %d)\n", (state ? "Down" : "Up"), ev->timestamp);
