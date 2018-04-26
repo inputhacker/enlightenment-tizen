@@ -314,18 +314,19 @@ e_input_device_pointer_xy_get(E_Input_Device *dev, int *x, int *y)
      }
 }
 
-E_API void
+E_API Eina_Bool
 e_input_device_pointer_warp(E_Input_Device *dev, int x, int y)
 {
    E_Input_Seat *seat;
    E_Input_Evdev *edev;
    Eina_List *l, *ll;
+   Eina_Bool found = EINA_FALSE;
 
    if (!dev)
      dev = _e_input_device_default_get();
 
    /* check for valid device */
-   EINA_SAFETY_ON_TRUE_RETURN(!dev);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(!dev, EINA_FALSE);
    EINA_LIST_FOREACH(dev->seats, l, seat)
      {
         EINA_LIST_FOREACH(seat->devices, ll, edev)
@@ -337,8 +338,15 @@ e_input_device_pointer_warp(E_Input_Device *dev, int x, int y)
              seat->ptr.dx = seat->ptr.ix = x;
              seat->ptr.dy = seat->ptr.iy = y;
              _e_input_pointer_motion_post(edev);
+
+             found = EINA_TRUE;
           }
      }
+
+   if (found)
+     return EINA_TRUE;
+
+   return EINA_FALSE;
 }
 
 EINTERN Eina_Bool
