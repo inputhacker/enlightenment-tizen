@@ -1098,7 +1098,17 @@ _e_vis_client_prepare_foreground_signal_emit(E_Vis_Client *vc)
 EINTERN void
 e_vis_client_send_pre_visibility_event(E_Client *ec)
 {
+   Eina_Bool intercepted;
+
    if (!ec) return;
+
+   intercepted = e_policy_interceptor_call(E_POLICY_INTERCEPT_SEND_PRE_VISIBILITY, ec);
+   if (intercepted)
+     {
+        ELOGF("POL_VIS", "Handled by Intercept function", ec->pixmap, ec);
+        return;
+     }
+
    e_policy_wl_visibility_send(ec, E_VISIBILITY_PRE_UNOBSCURED);
 }
 
