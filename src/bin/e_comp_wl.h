@@ -574,6 +574,7 @@ E_API void e_comp_wl_map_size_cal_from_viewport(E_Client *ec);
 E_API void e_comp_wl_map_apply(E_Client *ec);
 
 E_API void e_comp_wl_input_cursor_timer_enable_set(Eina_Bool enabled);
+E_API void e_comp_wl_send_event_device(struct wl_client *wc, uint32_t timestamp, Ecore_Device *dev, uint32_t serial);
 
 EINTERN Eina_Bool e_comp_wl_key_send(E_Client *ec, int keycode, Eina_Bool pressed, Ecore_Device *dev, uint32_t time);
 EINTERN Eina_Bool e_comp_wl_touch_send(E_Client *ec, int idx, int x, int y, Eina_Bool pressed, Ecore_Device *dev, double radius_x, double radius_y, double pressure, double angle, uint32_t time);
