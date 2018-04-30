@@ -22,6 +22,7 @@ E_Policy_Interceptor *_e_policy_interceptors[] =
    [E_POLICY_INTERCEPT_STACK_TRANSIENT_FOR] = NULL,
    [E_POLICY_INTERCEPT_ACTIVATE_ABOVE] = NULL,
    [E_POLICY_INTERCEPT_ACTIVATE_BELOW] = NULL,
+   [E_POLICY_INTERCEPT_SEND_PRE_VISIBILITY] = NULL,
 };
 
 static Eina_List *handlers = NULL;
