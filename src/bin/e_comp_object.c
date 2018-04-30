@@ -185,6 +185,7 @@ static Eina_Inlist *_e_comp_object_hooks[] =
 {
    [E_COMP_OBJECT_HOOK_EFFECT_START] = NULL,
    [E_COMP_OBJECT_HOOK_EFFECT_END] = NULL,
+   [E_COMP_OBJECT_HOOK_RESTACK] = NULL,
 };
 
 #ifdef _F_E_COMP_OBJECT_INTERCEPT_HOOK_
@@ -236,7 +237,8 @@ _e_comp_object_hook_call(E_Comp_Object_Hook_Point hookpoint, E_Client *ec)
    if (e_object_is_del(E_OBJECT(ec)))
      {
         if ((hookpoint != E_COMP_OBJECT_HOOK_EFFECT_START) &&
-            (hookpoint != E_COMP_OBJECT_HOOK_EFFECT_END))
+            (hookpoint != E_COMP_OBJECT_HOOK_EFFECT_END) &&
+            (hookpoint != E_COMP_OBJECT_HOOK_RESTACK))
           {
              return ret;
           }
