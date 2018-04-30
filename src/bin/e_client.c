@@ -3324,7 +3324,12 @@ _e_client_transform_core_check_change(E_Client *ec)
    if (!ec->transform_core.transform_list)
      {
         if (ec->comp_data && ec->comp_data->scaler.viewport)
-          return EINA_FALSE;
+          {
+             if (!ec->comp_data->sub.below_list && !ec->comp_data->sub.below_list_pending)
+               {
+                  return EINA_FALSE;
+               }
+          }
      }
 
    if (ec->frame)
