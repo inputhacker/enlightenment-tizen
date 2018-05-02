@@ -2234,11 +2234,14 @@ _e_comp_intercept_focus(void *data, Evas_Object *obj, Eina_Bool focus)
           }
         if ((ec->iconic) && (!ec->deskshow))
           {
-             /* don't focus an iconified window. that's silly! */
-             e_client_uniconify(ec);
-             if (e_client_focus_track_enabled())
-               e_client_focus_latest_set(ec);
-             return;
+             if (!e_policy_visibility_client_is_uniconify_render_running(ec))
+               {
+                  /* don't focus an iconified window. that's silly! */
+                  e_client_uniconify(ec);
+                  if (e_client_focus_track_enabled())
+                    e_client_focus_latest_set(ec);
+                  return;
+               }
           }
         if (!ec->visible)
           {
