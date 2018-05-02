@@ -1129,6 +1129,8 @@ _e_plane_pp_data_get(E_Plane *plane, tbm_surface_h tsurface)
    Eina_List *l;
    E_Plane_Commit_Data *data = NULL;
 
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane->pp_data_list, NULL);
+
    EINA_LIST_FOREACH(plane->pp_data_list, l, data)
      {
         if (!data) continue;
@@ -1149,20 +1151,21 @@ _e_plane_pp_commit_handler(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h
 
    plane = (E_Plane *)user_data;
    EINA_SAFETY_ON_NULL_RETURN(plane);
+
+   plane->wait_commit = EINA_FALSE;
+   plane->pp_commit = EINA_FALSE;
+
    data = _e_plane_pp_data_get(plane, tsurface_src);
    EINA_SAFETY_ON_NULL_RETURN(data);
+
+   if (plane_trace_debug)
+     ELOGF("E_PLANE", "PP Commit Handler Plane(%p), data(%p)", NULL, NULL, plane, data);
 
    plane->pp_data_list = eina_list_remove(plane->pp_data_list, data);
 
    /* release the commit data */
    if (data->ec) e_pixmap_image_clear(data->ec->pixmap, 1);
    e_plane_commit_data_release(data);
-
-   plane->wait_commit = EINA_FALSE;
-   plane->pp_commit = EINA_FALSE;
-
-   if (plane_trace_debug)
-     ELOGF("E_PLANE", "PP Commit Handler Plane(%p)", NULL, NULL, plane);
 
    /* if pp_set is false, skip the commit */
    if (!plane->pp_set)
@@ -3015,6 +3018,12 @@ e_plane_dpms_off(E_Plane *plane)
 
    /* pp */
    _e_plane_pp_pending_data_remove(plane);
+   EINA_LIST_FOREACH_SAFE(plane->pp_data_list, l, ll, data)
+     {
+        e_plane_commit_data_release(data);
+     }
+   eina_list_free(plane->pp_data_list);
+   plane->pp_data_list = NULL;
 
    /* TODO: fine to skip primary layer? If DRM system, the only way to unset
     * primary layer's buffer is resetting mode setting.
