@@ -1691,14 +1691,14 @@ _e_output_video_buffer_capture(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, Eina
         E_Output_Layer *e_layer = E_NEW(E_Output_Layer, 1);
         EINA_SAFETY_ON_NULL_GOTO(e_layer, release);
 
+        layers = eina_list_append(layers, e_layer);
+
         layer = tdm_output_get_layer(output->toutput, i, &error);
         EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, release);
 
         tdm_layer_get_zpos(layer, &zpos);
         e_layer->layer = layer;
         e_layer->zpos = zpos;
-
-        layers = eina_list_append(layers, e_layer);
      }
    layers = eina_list_sort(layers, eina_list_count(layers), _e_output_layer_sort_cb);
 
