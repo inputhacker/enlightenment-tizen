@@ -1202,7 +1202,9 @@ _remote_source_image_data_save(Thread_Data *td, const char *path, const char *na
    else if (tbm_surface)
      {
          w = tbm_surface_get_width(tbm_surface);
+         EINA_SAFETY_ON_FALSE_RETURN_VAL(w > 0, NULL);
          h = tbm_surface_get_height(tbm_surface);
+         EINA_SAFETY_ON_FALSE_RETURN_VAL(h > 0, NULL);
 
          transform_surface = _remote_source_image_data_transform(td, w, h);
          if (transform_surface)
