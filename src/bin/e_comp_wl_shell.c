@@ -527,7 +527,8 @@ _e_shell_client_map_common_pre(E_Client *ec)
 
    /* map this surface if needed */
    ec->visible = EINA_TRUE;
-   evas_object_show(ec->frame);
+   if (!ec->exp_iconify.by_client)
+     evas_object_show(ec->frame);
    ec->comp_data->mapped = EINA_TRUE;
 }
 
