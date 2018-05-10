@@ -1908,6 +1908,47 @@ _e_comp_wl_buffer_cb_destroy(struct wl_listener *listener, void *data EINA_UNUSE
 }
 
 static void
+_e_comp_wl_buffer_damage_set(E_Comp_Wl_Buffer *buffer, Eina_List *buffer_damages)
+{
+   Eina_Rectangle *damage_rect = NULL;
+   Eina_Rectangle *dmg = NULL;
+   Eina_List *l = NULL;
+
+   if (buffer->type != E_COMP_WL_BUFFER_TYPE_NATIVE &&
+       buffer->type != E_COMP_WL_BUFFER_TYPE_TBM)
+     return;
+
+   if (!buffer->tbm_surface) return;
+
+   if (buffer_damages)
+     {
+        EINA_LIST_FOREACH(buffer_damages, l, dmg)
+          {
+             if (!damage_rect)
+               {
+                  damage_rect = eina_rectangle_new(dmg->x, dmg->y, dmg->w, dmg->h);
+                  EINA_SAFETY_ON_FALSE_RETURN(damage_rect);
+               }
+             else
+               eina_rectangle_union(damage_rect, dmg);
+          }
+     }
+   else
+     {
+        damage_rect = eina_rectangle_new(0, 0, buffer->w, buffer->h);
+        EINA_SAFETY_ON_FALSE_RETURN(damage_rect);
+     }
+
+   tbm_surface_internal_set_damage(buffer->tbm_surface,
+                                   damage_rect->x,
+                                   damage_rect->y,
+                                   damage_rect->w,
+                                   damage_rect->h);
+
+   eina_rectangle_free(damage_rect);
+}
+
+static void
 _e_comp_wl_client_evas_init(E_Client *ec)
 {
    if (!ec || !ec->comp_data) return;
@@ -2685,6 +2726,9 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
         else
           {
              Eina_List *damages = NULL;
+
+             if (buffer)
+               _e_comp_wl_buffer_damage_set(buffer, state->buffer_damages);
 
              if (eina_list_count(state->buffer_damages))
                {
