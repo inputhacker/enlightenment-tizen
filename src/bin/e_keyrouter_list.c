@@ -255,7 +255,7 @@ e_keyrouter_remove_client_from_list(struct wl_resource *surface, struct wl_clien
 
    EINA_SAFETY_ON_TRUE_RETURN(((!surface) && (!wc)));
 
-   for (i = 0; i < krt->max_tizen_hwkeys; i++)
+   for (i = 0; i <= krt->max_tizen_hwkeys; i++)
      {
         if (0 == krt->HardKeys[i].keycode) continue;
 

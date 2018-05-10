@@ -501,7 +501,7 @@ e_keyrouter_shutdown(void)
 
    _e_keyrouter_deinit_handlers();
 
-   for (i = 0; i < krt->max_tizen_hwkeys+1; i++)
+   for (i = 0; i <= krt->max_tizen_hwkeys; i++)
      {
         if (krt->HardKeys[i].keyname)
           eina_stringshare_del(krt->HardKeys[i].keyname);
