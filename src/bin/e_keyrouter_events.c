@@ -31,10 +31,31 @@ _e_keyrouter_is_key_grabbed(int key)
 static Eina_Bool
 _e_keyrouter_event_routed_key_check(Ecore_Event_Key *ev, int type)
 {
-   if (ev->modifiers != 0)
+   Eina_List *l, *l_next;
+   int *keycode_data;
+
+   if ((ev->modifiers != 0) && (type == ECORE_EVENT_KEY_DOWN))
      {
         KLDBG("Modifier key delivered to Focus window : Key %s(%d)", ((ECORE_EVENT_KEY_DOWN == type) ? "Down" : "Up"), ev->keycode);
+        keycode_data = E_NEW(int, 1);
+        if (keycode_data)
+          {
+             *keycode_data = ev->keycode;
+             krt->ignore_list = eina_list_append(krt->ignore_list, keycode_data);
+          }
         return EINA_FALSE;
+     }
+
+   EINA_LIST_FOREACH_SAFE(krt->ignore_list, l, l_next, keycode_data)
+     {
+        if (*keycode_data == ev->keycode)
+          {
+             KLDBG("Find ignore key, propagate event (%d)\n", ev->keycode);
+             E_FREE(keycode_data);
+             krt->ignore_list = eina_list_remove_list(krt->ignore_list, l);
+
+             return EINA_FALSE;
+          }
      }
 
    if (krt->max_tizen_hwkeys < ev->keycode)

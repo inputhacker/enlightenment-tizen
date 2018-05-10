@@ -493,6 +493,7 @@ E_API int
 e_keyrouter_shutdown(void)
 {
    int i;
+   int *keycode_data;
    E_Keyrouter_Config_Data *kconfig = krt->conf;
 
    e_keyrouter_conf_deinit(kconfig);
@@ -506,6 +507,9 @@ e_keyrouter_shutdown(void)
           eina_stringshare_del(krt->HardKeys[i].keyname);
      }
    E_FREE(krt->HardKeys);
+
+   EINA_LIST_FREE(krt->ignore_list, keycode_data)
+     E_FREE(keycode_data);
 
    e_keyrouter_wl_shutdown();
 

@@ -54,6 +54,7 @@ struct _E_Keyrouter
    Ecore_Event_Filter *ef_handler;
    Eina_List *handlers;
    Eina_List *resources;
+   Eina_List *ignore_list;
 
    E_Keyrouter_Config_Data *conf;
 
