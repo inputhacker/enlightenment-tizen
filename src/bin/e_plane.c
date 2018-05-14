@@ -706,7 +706,7 @@ _e_plane_fb_target_all_set_unset_counter_reset(E_Plane *fb_target)
         /* reset the unset_counter */
         if (plane->unset_counter > 0)
           {
-             plane->unset_counter = 0;
+             plane->unset_counter = 1;
 
              if (plane_trace_debug)
                ELOGF("E_PLANE", " Plane(%p) Unset Counter Reset", NULL, NULL, plane);
@@ -715,7 +715,7 @@ _e_plane_fb_target_all_set_unset_counter_reset(E_Plane *fb_target)
         /* reset the set_counter */
         if (plane->set_counter > 0)
           {
-             plane->set_counter = 0;
+             plane->set_counter = 1;
 
              if (plane_trace_debug)
                ELOGF("E_PLANE", " Plane(%p) Set Counter Reset", NULL, NULL, plane);
