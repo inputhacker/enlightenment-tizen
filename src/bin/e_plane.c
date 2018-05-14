@@ -1767,6 +1767,32 @@ _e_plane_fb_sync_vblank_handler(tdm_output *output, unsigned int sequence,
 }
 
 static Eina_Bool
+_e_plane_fb_target_pending_commit_sync_check(E_Plane *plane)
+{
+   E_Output *output;
+   E_Plane *tmp_plane;
+   Eina_List *l;
+
+   if (!plane->is_fb) return EINA_FALSE;
+   if (!e_plane_renderer_surface_queue_can_acquire(plane->renderer)) return EINA_FALSE;
+
+   output = plane->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   EINA_LIST_FOREACH(output->planes, l, tmp_plane)
+     {
+        if (tmp_plane->is_fb) continue;
+        if ((tmp_plane->unset_counter == 1) || (tmp_plane->set_counter == 1))
+          {
+             if (eina_list_count(tmp_plane->commit_data_list))
+               return EINA_TRUE;
+          }
+     }
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
 _e_plane_fb_target_sync_set(E_Plane *plane)
 {
    E_Output *output;
@@ -1839,6 +1865,9 @@ e_plane_fetch(E_Plane *plane)
      }
    else if (plane->is_fb && !plane->ec)
      {
+        if (_e_plane_fb_target_pending_commit_sync_check(plane))
+          return EINA_FALSE;
+
         if (plane->fb_sync_wait)
           return EINA_FALSE;
 
