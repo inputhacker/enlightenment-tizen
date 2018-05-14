@@ -426,6 +426,9 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
           }
      }
 
+   if (plane->ec && !plane->display_info.buffer_ref.buffer)
+     tbm_surface_internal_set_damage(tsurface, 0, 0, surf_info.width, surf_info.height);
+
    if (plane_trace_debug)
      ELOGF("E_PLANE", "Set  Plane(%p)     tsurface(%p)", NULL, NULL, plane, tsurface);
 
