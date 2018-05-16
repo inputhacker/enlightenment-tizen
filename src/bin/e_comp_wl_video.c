@@ -153,7 +153,7 @@ static Eina_Bool _e_video_frame_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf 
 static void _e_video_video_set_hook(void *data, E_Plane *plane);
 
 static tdm_layer* _e_video_tdm_video_layer_get(tdm_output *output);
-static tdm_layer* _e_video_tdm_avaiable_video_layer_get(tdm_output *output);
+static tdm_layer* _e_video_tdm_available_video_layer_get(tdm_output *output);
 static void _e_video_tdm_set_layer_usable(tdm_layer *layer, Eina_Bool usable);
 static Eina_Bool _e_video_tdm_get_layer_usable(tdm_layer *layer);
 
@@ -359,7 +359,7 @@ _e_video_tdm_output_has_video_layer(tdm_output *toutput)
 }
 
 E_Video_Layer *
-_e_video_avaiable_video_layer_get(E_Video *video)
+_e_video_available_video_layer_get(E_Video *video)
 {
    E_Video_Layer *layer = NULL;
    E_Hwc_Window *hwc_window = NULL;
@@ -374,7 +374,7 @@ _e_video_avaiable_video_layer_get(E_Video *video)
 
    if (e_hwc_policy_get(video->e_output->hwc) != E_HWC_POLICY_WINDOWS)
      {
-        layer->tdm_layer = _e_video_tdm_avaiable_video_layer_get(video->output);
+        layer->tdm_layer = _e_video_tdm_available_video_layer_get(video->output);
         if (!layer->tdm_layer)
           {
              free(layer);
@@ -685,7 +685,7 @@ _e_video_layer_get_available_properties(E_Video_Layer * layer, const tdm_prop **
        tdm_layer *tlayer = layer->tdm_layer;
        /* if layer wasn't set then get an any available tdm_layer */
        if (tlayer == NULL)
-         tlayer = _e_video_tdm_avaiable_video_layer_get(layer->video->output);
+         tlayer = _e_video_tdm_available_video_layer_get(layer->video->output);
        ret = tdm_layer_get_available_properties(tlayer, props, count);
     }
 
@@ -796,7 +796,7 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
 
         if (video->layer) return EINA_TRUE;
 
-        video->layer = _e_video_avaiable_video_layer_get(video);
+        video->layer = _e_video_available_video_layer_get(video);
         if (!video->layer)
           {
              VWR("no available layer for video");
@@ -3384,7 +3384,7 @@ _e_video_tdm_video_layer_get(tdm_output *output)
 }
 
 static tdm_layer*
-_e_video_tdm_avaiable_video_layer_get(tdm_output *output)
+_e_video_tdm_available_video_layer_get(tdm_output *output)
 {
    Eina_Bool has_video_layer = EINA_FALSE;
    int i, count = 0;
