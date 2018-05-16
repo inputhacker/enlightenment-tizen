@@ -2193,27 +2193,15 @@ _e_video_set(E_Video *video, E_Client *ec)
 
              return;
           }
-        else
-          {
-             EINA_SAFETY_ON_NULL_RETURN(video->ec->zone);
-
-             video->e_output = e_output_find(video->ec->zone->output_id);
-             EINA_SAFETY_ON_NULL_RETURN(video->e_output);
-
-             video->output = video->e_output->toutput;
-             EINA_SAFETY_ON_NULL_RETURN(video->output);
-          }
      }
-   else
-     {
-        EINA_SAFETY_ON_NULL_RETURN(video->ec->zone);
 
-        video->e_output = e_output_find(video->ec->zone->output_id);
-        EINA_SAFETY_ON_NULL_RETURN(video->e_output);
+   EINA_SAFETY_ON_NULL_RETURN(video->ec->zone);
 
-        video->output = video->e_output->toutput;
-        EINA_SAFETY_ON_NULL_RETURN(video->output);
-     }
+   video->e_output = e_output_find(video->ec->zone->output_id);
+   EINA_SAFETY_ON_NULL_RETURN(video->e_output);
+
+   video->output = video->e_output->toutput;
+   EINA_SAFETY_ON_NULL_RETURN(video->output);
 
    if (video_to_primary)
      {
