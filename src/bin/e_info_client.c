@@ -4537,6 +4537,39 @@ usage:
    return;
 }
 
+static void
+_e_info_client_proc_key_repeat(int argc, char **argv)
+{
+   char fd_name[PATH_MAX] = {0,};
+   int pid, rate = 0, delay = 0;
+
+   if (argc == 3 && !strncmp(argv[2], "print", sizeof("print")))
+     {
+        pid = getpid();
+        snprintf(fd_name, PATH_MAX, "/proc/%d/fd/1", pid);
+     }
+   else if (argc > 3 && argc < 6 && !strncmp(argv[2], "set", sizeof("set")))
+     {
+        delay = atoi(argv[3]);
+        if (argc > 4) rate = atoi(argv[4]);
+     }
+   else goto usage;
+
+   if (!_e_info_client_eldbus_message_with_args("key_repeat", NULL, "sii", fd_name, delay, rate))
+     printf("Error occured while send message\n");
+
+   return;
+
+usage:
+   printf("Usage : %s %s [print], [set <delay> <rate>]\n\n"
+          "\t print : print current key repeat info\n"
+          "\t set : set delay and rate (0: do not change this option)\n",
+          argv[0], argv[1]);
+   printf("\n\t %s %s print\n", argv[0], argv[1]);
+   printf("\t %s %s set 400 25\n", argv[0], argv[1]);
+   printf("\t %s %s set 0 50\n", argv[0], argv[1]);
+}
+
 static struct
 {
    const char *option;
@@ -4803,6 +4836,12 @@ static struct
       "[on <win_id / all>], [off <win_id / all>], [show <win_id / all>]",
       "set deiconify_approve configure",
       _e_info_client_proc_deiconify_approve
+   },
+   {
+      "key_repeat",
+      "[print] [set <delay> <rate>]",
+      "Print or set key repeat info",
+      _e_info_client_proc_key_repeat
    },
 };
 

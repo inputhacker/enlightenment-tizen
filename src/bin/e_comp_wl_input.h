@@ -39,5 +39,7 @@ E_API const char *e_comp_wl_input_keymap_default_layout_get(void);
 E_API const char *e_comp_wl_input_keymap_default_variant_get(void);
 E_API const char *e_comp_wl_input_keymap_default_options_get(void);
 
+E_API void e_comp_wl_input_keyboard_repeat_set(int delay, int rate);
+
 # endif
 #endif

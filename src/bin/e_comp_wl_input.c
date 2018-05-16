@@ -279,7 +279,7 @@ _e_comp_wl_input_cb_keyboard_get(struct wl_client *client, struct wl_resource *r
 
    /* send current repeat_info */
    if (wl_resource_get_version(res) >= WL_KEYBOARD_REPEAT_INFO_SINCE_VERSION)
-     wl_keyboard_send_repeat_info(res, e_config->keyboard.repeat_rate, e_config->keyboard.repeat_delay);
+     wl_keyboard_send_repeat_info(res, e_comp_wl->kbd.repeat_rate, e_comp_wl->kbd.repeat_delay);
 
    /* send current keymap */
    TRACE_INPUT_BEGIN(wl_keyboard_send_keymap);
@@ -1037,4 +1037,23 @@ e_comp_wl_input_touch_check(struct wl_resource *res)
 {
    return wl_resource_instance_of(res, &wl_touch_interface,
                                   &_e_touch_interface);
+}
+
+E_API void
+e_comp_wl_input_keyboard_repeat_set(int delay, int rate)
+{
+   struct wl_resource *res;
+   Eina_List *l;
+
+   EINA_SAFETY_ON_NULL_RETURN(e_comp_wl);
+
+   e_comp_wl->kbd.repeat_delay = delay;
+   e_comp_wl->kbd.repeat_rate = rate;
+
+   EINA_LIST_FOREACH(e_comp_wl->kbd.resources, l, res)
+     {
+        if (wl_resource_get_version(res) >= WL_KEYBOARD_REPEAT_INFO_SINCE_VERSION)
+          wl_keyboard_send_repeat_info(res, e_comp_wl->kbd.repeat_rate,
+                                       e_comp_wl->kbd.repeat_delay);
+     }
 }

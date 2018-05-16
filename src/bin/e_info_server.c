@@ -5408,6 +5408,40 @@ finish:
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_key_repeat(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   const char *path = NULL;
+   int rate = 0, delay = 0;
+   FILE *log_fp;
+
+   if (!eldbus_message_arguments_get(msg, "sii", &path, &delay, &rate))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+   if (!e_comp_wl) return reply;
+
+   if (path && strlen(path) > 0)
+     {
+        log_fp = fopen(path, "a");
+        fprintf(log_fp, "\tkeyboard repeat info\n");
+        fprintf(log_fp, "\t\trate: %d (ms), delay: %d (ms)\n", e_comp_wl->kbd.repeat_rate, e_comp_wl->kbd.repeat_delay);
+        fclose(log_fp);
+        log_fp = NULL;
+     }
+   else
+     {
+        if (delay <= 0) delay = e_comp_wl->kbd.repeat_delay;
+        if (rate <= 0) rate = e_comp_wl->kbd.repeat_rate;
+
+        e_comp_wl_input_keyboard_repeat_set(delay, rate);
+     }
+
+   return reply;
+}
+
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"iiiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
@@ -5468,6 +5502,7 @@ static const Eldbus_Method methods[] = {
    { "shutdown", NULL, ELDBUS_ARGS({"s", "shutdown result"}), _e_info_server_cb_shutdown, 0 },
    { "buffer_flush", ELDBUS_ARGS({"it", "option"}), ELDBUS_ARGS({"s", "buffer_flush status"}), _e_info_server_cb_buffer_flush, 0},
    { "deiconify_approve", ELDBUS_ARGS({"it", "option"}), ELDBUS_ARGS({"s", "deiconify_approve status"}), _e_info_server_cb_deiconify_approve, 0},
+   { "key_repeat", ELDBUS_ARGS({"sii", "option"}), NULL, _e_info_server_cb_key_repeat, 0},
    { NULL, NULL, NULL, NULL, 0 }
 };
 
