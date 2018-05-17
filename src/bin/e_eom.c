@@ -2028,25 +2028,6 @@ _e_eom_window_set_internal(struct wl_resource *resource, int output_id, E_Client
 }
 
 static void
-_e_eom_cb_wl_request_set_xdg_window(struct wl_client *client, struct wl_resource *resource, uint32_t output_id, struct wl_resource *surface)
-{
-   E_Client *ec = NULL;
-
-   if (resource == NULL || output_id <= 0 || surface == NULL)
-     return;
-
-   EOMDB("set xdg output id:%d resource:%p surface:%p", output_id, resource, surface);
-
-   if (!(ec = wl_resource_get_user_data(surface)))
-     {
-        wl_resource_post_error(surface, WL_DISPLAY_ERROR_INVALID_OBJECT, "No Client For Shell Surface");
-        return;
-     }
-
-   _e_eom_window_set_internal(resource, output_id, ec);
-}
-
-static void
 _e_eom_cb_wl_request_set_shell_window(struct wl_client *client, struct wl_resource *resource, uint32_t output_id, struct wl_resource *surface)
 {
    E_Client *ec = NULL;
@@ -2110,7 +2091,6 @@ _e_eom_cb_wl_request_get_output_info(struct wl_client *client, struct wl_resourc
 static const struct wl_eom_interface _e_eom_wl_implementation =
 {
    _e_eom_cb_wl_request_set_attribute,
-   _e_eom_cb_wl_request_set_xdg_window,
    _e_eom_cb_wl_request_set_shell_window,
    _e_eom_cb_wl_request_get_output_info
 };
