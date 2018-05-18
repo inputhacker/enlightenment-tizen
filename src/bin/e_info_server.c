@@ -7,6 +7,7 @@
 #include <wayland-tbm-server.h>
 #include "e_comp_wl.h"
 #include "e_info_protocol.h"
+#include <dlfcn.h>
 
 #define EDJE_EDIT_IS_UNSTABLE_AND_I_KNOW_ABOUT_IT
 #include <Edje_Edit.h>
@@ -5442,6 +5443,27 @@ _e_info_server_cb_key_repeat(const Eldbus_Service_Interface *iface EINA_UNUSED, 
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_memchecker(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+
+   if (e_comp->func_memory_dump)
+     {
+        e_comp->func_memory_dump();
+     }
+   else
+     {
+        e_comp->func_memory_dump = dlsym(RTLD_NEXT, "e_memcheck_dump");
+        if (e_comp->func_memory_dump)
+          e_comp->func_memory_dump();
+        else
+          ERR("Not available to dump memory");
+     }
+
+   return reply;
+}
+
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"iiiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
@@ -5503,6 +5525,7 @@ static const Eldbus_Method methods[] = {
    { "buffer_flush", ELDBUS_ARGS({"it", "option"}), ELDBUS_ARGS({"s", "buffer_flush status"}), _e_info_server_cb_buffer_flush, 0},
    { "deiconify_approve", ELDBUS_ARGS({"it", "option"}), ELDBUS_ARGS({"s", "deiconify_approve status"}), _e_info_server_cb_deiconify_approve, 0},
    { "key_repeat", ELDBUS_ARGS({"sii", "option"}), NULL, _e_info_server_cb_key_repeat, 0},
+   { "dump_memchecker", NULL, NULL, _e_info_server_cb_memchecker, 0},
    { NULL, NULL, NULL, NULL, 0 }
 };
 

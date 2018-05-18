@@ -4570,6 +4570,15 @@ usage:
    printf("\t %s %s set 0 50\n", argv[0], argv[1]);
 }
 
+static void
+_e_info_client_memchecker(int argc, char **argv)
+{
+   if (!_e_info_client_eldbus_message("dump_memchecker", NULL))
+     return;
+
+   printf("e20 dump log file under /tmp dir.\n");
+}
+
 static struct
 {
    const char *option;
@@ -4843,6 +4852,13 @@ static struct
       "Print or set key repeat info",
       _e_info_client_proc_key_repeat
    },
+   {
+      "dump_memory",
+      "file dumped under /tmp dir.",
+      "dump stack information by allocations",
+      _e_info_client_memchecker
+   },
+
 };
 
 static void
