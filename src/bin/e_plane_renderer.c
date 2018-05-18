@@ -221,6 +221,7 @@ _e_plane_renderer_client_copied_surface_create(E_Plane_Renderer_Client *renderer
      }
    else
      {
+        EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, NULL);
         tsurface = renderer->displaying_tsurface;
         EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, NULL);
      }
@@ -491,6 +492,10 @@ _e_plane_renderer_release_exported_renderer_buffer(E_Plane_Renderer *renderer, E
 
   if (!eina_list_count(renderer->exported_surfaces))
     {
+       if ((renderer->state == E_PLANE_RENDERER_STATE_CANDIDATE) ||
+           (renderer->state == E_PLANE_RENDERER_STATE_ACTIVATE))
+         e_plane_renderer_reserved_deactivate(renderer);
+
        renderer_client = e_plane_renderer_client_get(renderer->ec);
        if (renderer_client)
          {
@@ -1825,17 +1830,15 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
          ec->pixmap, ec, renderer, renderer->plane, ec, e_client_util_name_get(ec));
 
    if (cqueue)
-     {
-        /* deactive */
-        wayland_tbm_server_client_queue_deactivate(cqueue);
-
-        if (_e_plane_renderer_client_surface_flags_get(renderer_client) != E_PLANE_RENDERER_CLIENT_SURFACE_FLAGS_RESERVED)
-          goto done;
-     }
+      wayland_tbm_server_client_queue_deactivate(cqueue);
 
    transform = e_comp_wl_output_buffer_transform_get(ec);
    if (plane->output->config.rotation != 0 && (plane->output->config.rotation / 90) == transform)
      e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_TRUE);
+
+   if ((_get_comp_wl_buffer(ec)) &&
+       (_e_plane_renderer_client_surface_flags_get(renderer_client) != E_PLANE_RENDERER_CLIENT_SURFACE_FLAGS_RESERVED))
+     goto done;
 
    if (renderer_trace_debug)
      ELOGF("E_PLANE_RENDERER", "Set    backup buffer   wl_buffer(%p)::Deactivate",
