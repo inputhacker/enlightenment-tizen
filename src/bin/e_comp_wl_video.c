@@ -2153,15 +2153,8 @@ _e_video_set(E_Video *video, E_Client *ec)
    const tdm_prop *props;
    tdm_error tdm_err = TDM_ERROR_NONE;
 
-   if (!video || !ec)
-     return;
-
-   if (video->ec)
-     {
-        VWR("already has ec");
-        return;
-     }
-
+   /* TODO Consider to move this check code where the entry of creation of
+    * video_object */
    EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(ec)));
 
    video->ec = ec;
