@@ -314,7 +314,7 @@ e_hwc_new(E_Output *output)
     *   - E20 manages how to set the surface(buffer) of the ec to the E_Plane.
     * 2. Another is the E_HWC_POLICY_WIDNOWS.
     *   - The tdm-backend decides the hwc policy with the E_Hwc_Windows associated with the tdm_hwc_window.
-    *   - E20 asks to verify the compsition types of the E_Hwc_Window of the ec.
+    *   - E20 asks to verify the composition types of the E_Hwc_Window of the ec.
     */
    if (!output->tdm_hwc)
      {
