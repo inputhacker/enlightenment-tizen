@@ -195,6 +195,7 @@ _e_comp_wl_video_buffer_create_res(struct wl_resource *resource)
         vbuf->width = tbm_surface_get_width(tbm_surface);
         vbuf->height = tbm_surface_get_height(tbm_surface);
 
+        /* NOTE Some format such a NVxx and a YUVxxx can have multiple handles */
         for (i = 0; i < 3; i++)
           {
              uint32_t size = 0, offset = 0, pitch = 0;
