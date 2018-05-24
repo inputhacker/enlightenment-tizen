@@ -173,8 +173,17 @@ _e_keyrouter_keygrab_print(void *data, const char *log_path)
    if (ec_focus)
      {
         surface_focus = e_keyrouter_util_get_surface_from_eclient(ec_focus);
-        wc_focus = wl_resource_get_client(surface_focus);
-        pid_focus = e_keyrouter_util_get_pid(NULL, surface_focus);
+        if (surface_focus)
+          {
+             wc_focus = wl_resource_get_client(surface_focus);
+             pid_focus = e_keyrouter_util_get_pid(NULL, surface_focus);
+          }
+        else
+          {
+             wc_focus = NULL;
+             if (e_object_is_del(E_OBJECT(ec_focus))) pid_focus = 0;
+             else pid_focus = ec_focus->netwm.pid;
+          }
         cmd_focus = e_keyrouter_util_cmd_get_from_pid(pid_focus);
 
         fprintf(log_fl, "        Focus Client: E_Client: %p\n", ec_focus);
