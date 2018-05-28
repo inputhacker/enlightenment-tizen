@@ -8,6 +8,7 @@
 #include "e_comp_wl.h"
 #include "e_info_protocol.h"
 #include <dlfcn.h>
+#include "e_comp_object.h"
 
 #define EDJE_EDIT_IS_UNSTABLE_AND_I_KNOW_ABOUT_IT
 #include <Edje_Edit.h>
@@ -73,7 +74,7 @@ static Eina_List *module_hook = NULL;
    str_r -= str_l; \
 } while(0)
 
-#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiiibbiius"
+#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiiibbiiusb"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
@@ -242,6 +243,8 @@ _msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
         char layer_name[32];
         int hwc = -1, pl_zpos = -999;
         int iconified = 0;
+        Eina_Bool has_input_region = EINA_FALSE;
+        Eina_List *list_input_region = NULL;
 
         ec = evas_object_data_get(o, "E_Client");
         if (!ec) continue;
@@ -278,6 +281,10 @@ _msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
 
         _e_info_server_ec_hwc_info_get(ec, &hwc, &pl_zpos);
 
+        e_comp_object_input_rect_get(o, &list_input_region);
+        if (list_input_region && (eina_list_count(list_input_region) > 0))
+          has_input_region = EINA_TRUE;
+
         eldbus_message_iter_arguments_append(array_of_ec, "("VALUE_TYPE_FOR_TOPVWINS")", &struct_of_ec);
 
         eldbus_message_iter_arguments_append
@@ -288,7 +295,7 @@ _msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
             e_client_util_name_get(ec) ?: "NO NAME",
             ec->x, ec->y, ec->w, ec->h, ec->layer,
             ec->visible, ec->argb, ec->visibility.opaque, ec->visibility.obscured, iconified,
-            evas_object_visible_get(ec->frame), ec->focused, hwc, pl_zpos, pwin, layer_name);
+            evas_object_visible_get(ec->frame), ec->focused, hwc, pl_zpos, pwin, layer_name, has_input_region);
 
         eldbus_message_iter_container_close(array_of_ec, struct_of_ec);
      }
@@ -928,6 +935,36 @@ _astrcat(char **dst, const char *src)
                                        goto fail;                    \
                                     }                                \
                                   free(temp); })
+
+
+static const char *
+_get_win_prop_Input_region(const Evas_Object *evas_obj)
+{
+   Eina_List *list = NULL, *l;
+   Eina_Rectangle *data;
+   char *str = NULL;
+
+   e_comp_object_input_rect_get((Evas_Object *)evas_obj, &list);
+   if (!list || (eina_list_count(list) <= 0))
+     {
+        astrcat_(&str, "No Input Region\n");
+        return str;
+     }
+
+   EINA_LIST_FOREACH(list, l, data)
+     {
+        astrcat_(&str, "[(%d, %d) %dx%d]\n", data->x, data->y, data->w, data->h);
+     }
+   EINA_LIST_FREE(list, data);
+   list = NULL;
+
+   return str;
+fail:
+   if (str) free(str);
+   return NULL;
+}
+
+
 
 static const char*
 _get_win_prop_Rotation(const Evas_Object *evas_obj)
@@ -2134,6 +2171,11 @@ static struct property_manager
     {
         "Rotation",
         _get_win_prop_Rotation,
+        NULL
+    },
+    {
+        "Input Region",
+        _get_win_prop_Input_region,
         NULL
     }
 };
@@ -5463,6 +5505,122 @@ _e_info_server_cb_memchecker(const Eldbus_Service_Interface *iface EINA_UNUSED, 
           e_comp->func_memory_dump();
         else
           ERR("Not available to dump memory");
+
+     }
+
+   return reply;
+}
+
+static Eina_Bool
+_input_rect_timer(void *data)
+{
+   Evas_Object *rect = (Evas_Object *)data;
+
+   evas_object_hide(rect);
+   evas_object_del(rect);
+
+   e_comp_render_queue();
+
+   return ECORE_CALLBACK_CANCEL;;
+}
+
+static void
+_input_rect_draw(int x, int y, int w, int h, int time, int color_r, int color_g, int color_b)
+{
+   Evas_Object *rect;
+   EINA_SAFETY_ON_NULL_RETURN(e_comp->evas);
+
+   rect = evas_object_rectangle_add(e_comp->evas);
+   EINA_SAFETY_ON_NULL_RETURN(rect);
+
+   evas_object_color_set(rect, color_r, color_g, color_b, 150);
+   evas_object_resize(rect, w, h);
+   evas_object_move(rect, x, y);
+
+   evas_object_layer_set(rect, E_LAYER_DESK_OBJECT_ABOVE);
+
+   evas_object_show(rect);
+
+   e_comp_render_queue();
+
+   ecore_timer_add((double)time, _input_rect_timer, rect);
+}
+
+static void
+_input_region_msg_clients_append(Eldbus_Message_Iter *iter, Evas_Object *obj, int time, int color_r, int color_g, int color_b)
+{
+   Eldbus_Message_Iter *array_of_ec;
+   Eina_List *list = NULL, *l;
+   Eina_Rectangle *data;
+
+   e_comp_object_input_rect_get(obj, &list);
+   if (!list) return;
+   if (eina_list_count(list) <= 0) return;
+
+   eldbus_message_iter_arguments_append(iter, "a(iiii)", &array_of_ec);
+
+   EINA_LIST_FOREACH(list, l, data)
+     {
+        Eldbus_Message_Iter* struct_of_ec;
+
+        eldbus_message_iter_arguments_append(array_of_ec, "(iiii)", &struct_of_ec);
+
+        eldbus_message_iter_arguments_append(struct_of_ec, "iiii", data->x, data->y, data->w, data->h);
+        eldbus_message_iter_container_close(array_of_ec, struct_of_ec);
+
+        _input_rect_draw(data->x, data->y, data->w, data->h, time, color_r, color_g, color_b);
+     }
+   eldbus_message_iter_container_close(iter, array_of_ec);
+
+   EINA_LIST_FREE(list, data);
+   list = NULL;
+}
+
+static Eldbus_Message *
+_e_info_server_cb_input_region(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Eldbus_Message_Iter *iter = eldbus_message_iter_get(reply);
+
+   Evas_Object *o;
+   E_Client *ec;
+   Ecore_Window win;
+   uint64_t win_id_value = 0;
+   const char *win_id_str = NULL;
+   unsigned long tmp = 0;
+   int time = 0, color_r = 0, color_g = 0, color_b = 0;
+   Eina_Bool res = EINA_FALSE;
+
+   if (!eldbus_message_arguments_get(msg, "siiii", &win_id_str, &time, &color_r, &color_g, &color_b))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+   if (!e_comp) return reply;
+
+   if (strlen(win_id_str) >= 2 && win_id_str[0] == '0' && win_id_str[1] == 'x')
+     res = e_util_string_to_ulong(win_id_str, &tmp, 16);
+   else
+     res = e_util_string_to_ulong(win_id_str, &tmp, 10);
+   if (res == EINA_FALSE)
+     {
+        ERR("input_region: invalid input arguments");
+        return eldbus_message_error_new(msg, INVALID_ARGS,
+        "input_region: invalid input arguments");
+     }
+   win_id_value = (uint64_t)tmp;
+
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        ec = evas_object_data_get(o, "E_Client");
+        if (!ec) continue;
+        if (e_client_util_ignored_get(ec)) continue;
+
+        win = e_client_util_win_get(ec);
+        if (!win || win != win_id_value) continue;
+
+        _input_region_msg_clients_append(iter, o, time, color_r, color_g, color_b);
+        break;
      }
 
    return reply;
@@ -5530,6 +5688,7 @@ static const Eldbus_Method methods[] = {
    { "deiconify_approve", ELDBUS_ARGS({"it", "option"}), ELDBUS_ARGS({"s", "deiconify_approve status"}), _e_info_server_cb_deiconify_approve, 0},
    { "key_repeat", ELDBUS_ARGS({"sii", "option"}), NULL, _e_info_server_cb_key_repeat, 0},
    { "dump_memchecker", NULL, NULL, _e_info_server_cb_memchecker, 0},
+   { "input_region", ELDBUS_ARGS({"siiii", "options"}), ELDBUS_ARGS({"a(iiii)", "path"}), _e_info_server_cb_input_region, 0},
    { NULL, NULL, NULL, NULL, 0 }
 };
 

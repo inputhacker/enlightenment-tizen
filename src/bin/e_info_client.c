@@ -52,6 +52,7 @@ typedef struct _E_Win_Info
    int          pl_zpos;
    Ecore_Window parent_id;
    const char  *layer_name; // layer name
+   Eina_Bool has_input_region;
 } E_Win_Info;
 
 typedef struct output_mode_info
@@ -79,7 +80,7 @@ typedef struct _E_Layer_Fps_Info
    double fps;
 } E_Layer_Fps_Info;
 
-#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiiibbiius"
+#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiiibbiiusb"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
@@ -360,7 +361,7 @@ _e_get_windows(int mode, char *value)
 }
 
 static E_Win_Info *
-_e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int opaque, const char *name, int x, int y, int w, int h, int layer, int visible, int visibility, int iconic, int frame_visible, int focused, int hwc, int pl_zpos, Ecore_Window parent_id, const char *layer_name)
+_e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int opaque, const char *name, int x, int y, int w, int h, int layer, int visible, int visibility, int iconic, int frame_visible, int focused, int hwc, int pl_zpos, Ecore_Window parent_id, const char *layer_name, Eina_Bool has_input_region)
 {
    E_Win_Info *win = NULL;
 
@@ -387,6 +388,7 @@ _e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int 
    win->pl_zpos = pl_zpos;
    win->parent_id = parent_id;
    win->layer_name = eina_stringshare_add(layer_name);
+   win->has_input_region = has_input_region;
 
    return win;
 }
@@ -421,6 +423,7 @@ _e_win_info_make_array(Eldbus_Message_Iter *array)
         uint32_t res_id;
         int pid;
         E_Win_Info *win = NULL;
+        Eina_Bool has_input_region = EINA_FALSE;
         res = eldbus_message_iter_arguments_get(ec,
                                                 VALUE_TYPE_FOR_TOPVWINS,
                                                 &id,
@@ -442,14 +445,15 @@ _e_win_info_make_array(Eldbus_Message_Iter *array)
                                                 &hwc,
                                                 &pl_zpos,
                                                 &parent_id,
-                                                &layer_name);
+                                                &layer_name,
+                                                &has_input_region);
         if (!res)
           {
              printf("Failed to get win info\n");
              continue;
           }
 
-        win = _e_win_info_new(id, res_id, pid, alpha, opaque, win_name, x, y, w, h, layer, visible, visibility, iconic, frame_visible, focused, hwc, pl_zpos, parent_id, layer_name);
+        win = _e_win_info_new(id, res_id, pid, alpha, opaque, win_name, x, y, w, h, layer, visible, visibility, iconic, frame_visible, focused, hwc, pl_zpos, parent_id, layer_name, has_input_region);
         e_info_client.win_list = eina_list_append(e_info_client.win_list, win);
      }
 }
@@ -1003,9 +1007,9 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
      printf("Deiconify Approve: %s\n", e_info_client.deiconify_approve ? "on":"off");
 
    printf("\n%d Top level windows\n", eina_list_count(e_info_client.win_list));
-   printf("--------------------------------------[ topvwins ]----------------------------------------------------------------------------\n");
-   printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc Dep Opaq Visi Icon  Map  Frame  PL@ZPos  Parent     Title\n");
-   printf("------------------------------------------------------------------------------------------------------------------------------\n");
+   printf("--------------------------------------[ topvwins ]----------------------------------------------------------------------------------\n");
+   printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc InReg Dep Opaq Visi Icon  Map  Frame  PL@ZPos  Parent     Title\n");
+   printf("------------------------------------------------------------------------------------------------------------------------------------\n");
 
    if (!e_info_client.win_list)
      {
@@ -1021,7 +1025,7 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
         if (win->layer != prev_layer)
           {
              if (prev_layer != -1)
-                printf("---------------------------------------------------------------------------------------------------------------------[%s]\n",
+                printf("------------------------------------------------------------------------------------------------------------------------------------[%s]\n",
                        prev_layer_name ? prev_layer_name : " ");
              prev_layer = win->layer;
              prev_layer_name = win->layer_name;
@@ -1048,12 +1052,12 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
              snprintf(tmp, sizeof(tmp), " - ");
           }
 
-        printf("%3d 0x%08x  %5d  %5d  %5d %5d %6d %6d   %c  %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->alpha? 32:24, win->opaque);
+        printf("%3d 0x%08x  %5d  %5d  %5d %5d %6d %6d   %c    %c   %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->has_input_region?'C':' ', win->alpha? 32:24, win->opaque);
         printf("%2d    %d    %s   %3d    %-8s %-8x   %s\n", win->visibility, win->iconic, win->vis? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
      }
 
    if (prev_layer_name)
-      printf("---------------------------------------------------------------------------------------------------------------------[%s]\n",
+      printf("------------------------------------------------------------------------------------------------------------------------------------[%s]\n",
              prev_layer_name ? prev_layer_name : " ");
 
    if(hwc_off)
@@ -1082,9 +1086,9 @@ _e_info_client_proc_topwins_info(int argc, char **argv)
      return;
 
    printf("%d Top level windows\n", eina_list_count(e_info_client.win_list));
-   printf("--------------------------------------[ topvwins ]----------------------------------------------------------------------------\n");
-   printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc Dep Opaq Visi Icon  Map  Frame  PL@ZPos  Parent     Title\n");
-   printf("------------------------------------------------------------------------------------------------------------------------------\n");
+   printf("--------------------------------------[ topvwins ]----------------------------------------------------------------------------------\n");
+   printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc InReg Dep Opaq Visi Icon  Map  Frame  PL@ZPos  Parent     Title\n");
+   printf("------------------------------------------------------------------------------------------------------------------------------------\n");
 
    if (!e_info_client.win_list)
      {
@@ -1100,7 +1104,7 @@ _e_info_client_proc_topwins_info(int argc, char **argv)
         if (win->layer != prev_layer)
           {
              if (prev_layer != -1)
-                printf("---------------------------------------------------------------------------------------------------------------------[%s]\n",
+                printf("------------------------------------------------------------------------------------------------------------------------------------[%s]\n",
                        prev_layer_name ? prev_layer_name : " ");
              prev_layer = win->layer;
              prev_layer_name = win->layer_name;
@@ -1127,12 +1131,12 @@ _e_info_client_proc_topwins_info(int argc, char **argv)
              snprintf(tmp, sizeof(tmp), " - ");
           }
 
-        printf("%3d 0x%08x  %5d  %5d  %5d %5d %6d %6d   %c  %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->alpha? 32:24, win->opaque);
+        printf("%3d 0x%08x  %5d  %5d  %5d %5d %6d %6d   %c    %c   %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->has_input_region ? 'C':' ',win->alpha? 32:24, win->opaque);
         printf("%2d    %d    %s   %3d    %-8s %-8x   %s\n", win->visibility, win->iconic, win->vis? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
      }
 
    if (prev_layer_name)
-      printf("---------------------------------------------------------------------------------------------------------------------[%s]\n",
+      printf("------------------------------------------------------------------------------------------------------------------------------------[%s]\n",
              prev_layer_name ? prev_layer_name : " ");
 
    if(hwc_off)
@@ -4579,6 +4583,154 @@ _e_info_client_memchecker(int argc, char **argv)
    printf("e20 dump log file under /tmp dir.\n");
 }
 
+static void
+_cb_input_region_get(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eldbus_Message_Iter *array;
+   Eldbus_Message_Iter *iter;
+   Eina_Bool res;
+   int cnt = 0;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   printf("Input region\n");
+
+   res = eldbus_message_arguments_get(msg, "a(iiii)", &array);
+   if (!res)
+     {
+        printf("\tNo Input region\n");
+        return;
+     }
+
+   while (eldbus_message_iter_get_and_next(array, 'r', &iter))
+     {
+        int x = 0, y = 0, w = 0, h = 0;
+        res = eldbus_message_iter_arguments_get(iter,
+                                                "iiii",
+                                                &x,
+                                                &y,
+                                                &w,
+                                                &h);
+        if (!res)
+          {
+             printf("Failed to get input region info\n");
+             continue;
+          }
+        cnt++;
+        printf("\t[%d] [(%d, %d),  %dx%d]\n", cnt, x, y, w, h);
+     }
+   if (cnt == 0) printf("\tNo Input region\n");
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_input_region_usage(void)
+{
+   printf("\nUsage: \n");
+   printf("\twinfo -input_region [options] [window_id]\n");
+   printf("\t\toption: -t: time to show input_regions area (sec)\n");
+   printf("\t\t        -color: color to shwo input_regions area (r, g, b) default: red\n");
+   printf("\tex> winfo -input_region\n");
+   printf("\t    winfo -input_region -t 2 -color g 0xabc123\n");
+}
+
+static void
+_e_info_client_proc_input_region(int argc, char **argv)
+{
+   const char *win_id = NULL;
+
+   Ecore_Window win;
+   char win_temp[64] = {0, };
+   int time = 5;
+   int cnt, idx;
+   int color_r = 0, color_g = 0, color_b = 0;
+
+   cnt = argc - 2;
+   idx = 2;
+
+   while (cnt > 0)
+     {
+        if (argv[idx][0] == '-')
+          {
+             if (argv[idx][1] == 't')
+               {
+                  idx++;
+                  cnt--;
+                  if (cnt <= 0)
+                    {
+                       printf("Please input correct options\n");
+                       _e_info_client_input_region_usage();
+                       return;
+                    }
+                  time = atoi(argv[idx]);
+               }
+             else if (!strncmp(argv[idx], "-color", sizeof("-color")))
+               {
+                  idx++;
+                  cnt--;
+                  if (cnt <= 0)
+                    {
+                       printf("Please input correct options\n");
+                       _e_info_client_input_region_usage();
+                       return;
+                    }
+                  if (argv[idx][0] == 'r')
+                    {
+                       color_r = 255;
+                    }
+                  else if (argv[idx][0] == 'g')
+                    {
+                       color_g = 255;
+                    }
+                  else if (argv[idx][0] == 'b')
+                    {
+                       color_b = 255;
+                    }
+               }
+          }
+        else if (strstr(argv[idx], "0x"))
+          {
+             win_id = argv[idx];
+          }
+        else if (!strncmp(argv[idx], "help", sizeof("help")))
+          {
+             _e_info_client_input_region_usage();
+             return;
+          }
+
+        idx++;
+        cnt--;
+     }
+   if (!win_id)
+     {
+        printf("Select the window whose input_regions you wish to show\n");
+        printf("If you want to see more option, please input \"help\" > winfo -input_region help\n");
+        if (_e_get_window_under_touch(&win))
+          {
+             printf("Error: cannot get window under touch\n");
+             return;
+          }
+
+        snprintf(win_temp, sizeof(win_temp), "%lu", (unsigned long int)win);
+
+        win_id = win_temp;
+     }
+   if (!color_r && !color_g && !color_b)
+     color_r = 255;
+
+   if (!_e_info_client_eldbus_message_with_args("input_region", _cb_input_region_get, "siiii", win_id, time, color_r, color_g, color_b))
+     printf("Error occured while send message\n");
+
+   return;
+}
+
 static struct
 {
    const char *option;
@@ -4858,7 +5010,12 @@ static struct
       "dump stack information by allocations",
       _e_info_client_memchecker
    },
-
+   {
+      "input_region",
+      NULL,
+      "Print input regions",
+      _e_info_client_proc_input_region
+   },
 };
 
 static void

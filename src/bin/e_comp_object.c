@@ -3725,6 +3725,26 @@ e_comp_object_input_area_set(Evas_Object *obj, int x, int y, int w, int h)
      }
 }
 
+EINTERN void
+e_comp_object_input_rect_get(Evas_Object *obj, Eina_List **list)
+{
+   API_ENTRY;
+   E_Input_Rect_Smart_Data *input_rect_sd;
+   E_Input_Rect_Data *input_rect_data;
+   Eina_List *l;
+
+   if (!cw->input_obj) return;
+
+   input_rect_sd = evas_object_smart_data_get(cw->input_obj);
+   if (input_rect_sd)
+     {
+        EINA_LIST_FOREACH(input_rect_sd->input_rect_data_list, l, input_rect_data)
+          {
+             *list = eina_list_append(*list, &input_rect_data->rect);
+          }
+     }
+}
+
 E_API void
 e_comp_object_frame_geometry_get(Evas_Object *obj, int *l, int *r, int *t, int *b)
 {
