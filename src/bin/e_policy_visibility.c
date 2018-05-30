@@ -1529,6 +1529,11 @@ _e_vis_ec_above_is_non_alpha_visible(E_Client *ec, Eina_Bool check_child)
         if (e_client_util_ignored_get(above)) continue;
         if (!E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h)) continue;
         if (check_child && (above->parent == ec)) continue;
+        if (above->first_mapped)
+          {
+             if (above->comp_data && !above->comp_data->mapped)
+               continue;
+          }
 
         if (above->visibility.obscured == E_VISIBILITY_UNOBSCURED)
           {
