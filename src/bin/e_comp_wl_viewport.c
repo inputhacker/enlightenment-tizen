@@ -17,9 +17,8 @@
 #define PIN(fmt,arg...) ELOGF("VIEWPORT", "<INF> window(0x%08"PRIxPTR") epc(%p): " \
                               fmt, viewport->ec->pixmap, viewport->ec, \
                               viewport->window, viewport->epc, ##arg)
-#define PDB(fmt,arg...) ELOGF("VIEWPORT", "<DBG> window(0x%08"PRIxPTR") epc(%p): " \
-                              fmt, viewport->ec->pixmap, viewport->ec, \
-                              viewport->window, viewport->epc, ##arg)
+#define PDB(fmt,arg...) DBG("window(0x%08"PRIxPTR") ec(%p) epc(%p): "fmt, \
+                            viewport->window, viewport->ec, viewport->epc, ##arg)
 
 #undef SWAP
 #define SWAP(a, b)  ({double t; t = a; a = b; b = t;})
