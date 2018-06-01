@@ -925,7 +925,9 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
                          }
 
                        find_above = EINA_TRUE;
-                       break;
+
+                       if (E_CONTAINS(above_ec->x, above_ec->y, above_ec->w, above_ec->h, ec->x, ec->y, ec->w, ec->h))
+                         break;
                     }
 
                   if (!find_above) return;
