@@ -1710,7 +1710,6 @@ _tzpol_iface_cb_type_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
          break;
 
       case TIZEN_POLICY_WIN_TYPE_NOTIFICATION:
-         ec->animatable = 0;
          win_type = E_WINDOW_TYPE_NOTIFICATION;
          break;
 
@@ -1796,6 +1795,11 @@ _tzpol_notilv_set(E_Client *ec, int lv)
 
    if (ly != evas_object_layer_get(ec->frame))
      {
+        if (ly == E_LAYER_CLIENT_NORMAL)
+          e_policy_animatable_lock(ec, E_POLICY_ANIMATABLE_LAYER, 0);
+        else
+          e_policy_animatable_lock(ec, E_POLICY_ANIMATABLE_LAYER, 1);
+
         evas_object_layer_set(ec->frame, ly);
      }
 
@@ -2344,11 +2348,11 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
              if ((hint->deleted) ||
                  (!strcmp(hint->val, "0")))
                {
-                  ec->animatable = 1;
+                  e_policy_animatable_lock(ec, E_POLICY_ANIMATABLE_HINT, 0);
                }
              else if (!strcmp(hint->val, "1"))
                {
-                  ec->animatable = 0;
+                  e_policy_animatable_lock(ec, E_POLICY_ANIMATABLE_HINT, 1);
                }
           }
         else if (!strcmp(hint->hint, hint_names[E_POLICY_HINT_MSG_USE]))

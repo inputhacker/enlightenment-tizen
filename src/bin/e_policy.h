@@ -30,6 +30,12 @@ typedef enum _E_Policy_Hook_Point
    E_POLICY_HOOK_LAST
 } E_Policy_Hook_Point;
 
+typedef enum {
+   E_POLICY_ANIMATABLE_NEVER       = (1 << 0), // never animatable such as quickpanel, video
+   E_POLICY_ANIMATABLE_HINT        = (1 << 1), // no animation by aux hint "wm.policy.win.effect.disable"
+   E_POLICY_ANIMATABLE_LAYER       = (1 << 2), // no animation if window layer is among notification levels
+} E_Policy_Animatable_Lock;
+
 typedef Eina_Bool (*E_Policy_Intercept_Cb)(void *data, E_Client *ec, va_list list);
 typedef void (*E_Policy_Hook_Cb)(void *data, E_Client *ec);
 
@@ -84,6 +90,7 @@ struct _E_Policy_Client
    Eina_Bool allow_user_geom;
    Eina_Bool split_policy_state;
    int       user_geom_ref;
+   unsigned int lock_animatable;
 };
 
 struct _E_Policy_Softkey
@@ -221,5 +228,8 @@ E_API Eina_Bool e_policy_allow_user_geometry_get(E_Client *ec);
 E_API void e_policy_deferred_job(void);
 E_API int  e_policy_init(void);
 E_API int  e_policy_shutdown(void);
+
+E_API void e_policy_animatable_lock(E_Client *ec, E_Policy_Animatable_Lock animatable, Eina_Bool set);
+
 #endif
 #endif

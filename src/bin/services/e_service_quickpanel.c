@@ -1641,7 +1641,7 @@ e_service_quickpanel_client_set(E_Client *ec)
    ec->exp_iconify.skip_iconify = 1;
 
    // disable effect
-   ec->animatable = 0;
+   e_policy_animatable_lock(ec, E_POLICY_ANIMATABLE_NEVER, EINA_TRUE);
 
    /* add quickpanel to force update list of zone */
    e_zone_orientation_force_update_add(ec->zone, ec);

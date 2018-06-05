@@ -2203,7 +2203,7 @@ _e_video_set(E_Video *video, E_Client *ec)
      {
         VIN("show video to primary layer");
         ec->comp_data->video_client = 0;
-        ec->animatable = 0;
+        e_policy_animatable_lock(ec, E_POLICY_ANIMATABLE_NEVER, 1);
      }
    else if (_e_video_tdm_output_has_video_layer(video->output))
      {
@@ -2225,7 +2225,7 @@ _e_video_set(E_Video *video, E_Client *ec)
           {
              VIN("no video client");
              ec->comp_data->video_client = 0;
-             ec->animatable = 0;
+             e_policy_animatable_lock(ec, E_POLICY_ANIMATABLE_NEVER, 1);
           }
      }
 

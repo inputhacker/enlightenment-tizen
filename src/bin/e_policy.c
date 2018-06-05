@@ -2187,6 +2187,34 @@ e_policy_allow_user_geometry_get(E_Client *ec)
 }
 
 E_API void
+e_policy_animatable_lock(E_Client *ec,
+                         E_Policy_Animatable_Lock lock,
+                         Eina_Bool set)
+{
+   E_Policy_Client *pc;
+
+   if (EINA_UNLIKELY(!ec))
+     return;
+
+   pc = eina_hash_find(hash_policy_clients, &ec);
+   if (EINA_UNLIKELY(!pc))
+     return;
+
+   if (set)
+     pc->lock_animatable |= lock;
+   else
+     pc->lock_animatable &= ~(lock);
+
+   if (pc->lock_animatable)
+     ec->animatable = EINA_FALSE;
+   else
+     ec->animatable = EINA_TRUE;
+
+   ELOGF("TZPOL","EFFECT(animatable:%d) due to %d is applied on the state %08x --> result:%08x", ec->pixmap, ec,
+        ec->animatable, set, lock, pc->lock_animatable);
+}
+
+E_API void
 e_policy_deferred_job(void)
 {
    if (!e_policy) return;
