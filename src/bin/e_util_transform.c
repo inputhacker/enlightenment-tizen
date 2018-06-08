@@ -1079,8 +1079,8 @@ _e_util_transform_value_convert_to_matrix(E_Util_Transform_Matrix *out, E_Util_T
    if (!E_UTIL_TRANSFORM_IS_ZERO(value->rotation[2]))
      e_util_transform_matrix_rotation_z(out, value->rotation[2]);
 
-   e_util_transform_matrix_translate(out, source_rect->x + value->move[0] + (dest_w / 2.0),
-                                     source_rect->y + value->move[1] + (dest_h / 2.0), 0.0);
+   e_util_transform_matrix_translate(out, (source_rect->x * value->scale[0]) + value->move[0] + (dest_w / 2.0),
+                                     (source_rect->y * value->scale[1]) + value->move[1] + (dest_h / 2.0), 0.0);
 }
 
 
