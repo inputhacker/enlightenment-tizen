@@ -3000,6 +3000,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
    const int edge = 1;
    E_Comp_Wl_Client_Data *cdata;
    Eina_List *changed_list = NULL;
+   Eina_List *latest_focus_list = NULL;
    Eina_List *l = NULL;
    Eina_Bool effect_running = EINA_FALSE;
    Eina_Bool ec_frame_visible = EINA_FALSE;
@@ -3255,9 +3256,12 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
                                    }
                                  else
                                    {
-                                      e_client_focus_latest_set(ec);
+                                      latest_focus_list = eina_list_append(latest_focus_list, ec);
                                       if (obscured_above == e_client_focused_get())
-                                        e_client_focus_latest_set(obscured_above);
+                                        {
+                                           latest_focus_list = eina_list_remove(latest_focus_list, obscured_above);
+                                           latest_focus_list = eina_list_prepend(latest_focus_list, obscured_above);
+                                        }
                                    }
                               }
                          }
@@ -3267,6 +3271,14 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
           }
         eina_list_free(changed_list);
         changed_list = NULL;
+     }
+
+   if (latest_focus_list)
+     {
+        EINA_LIST_REVERSE_FOREACH(latest_focus_list, l, ec)
+          e_client_focus_latest_set(ec);
+
+        eina_list_free(latest_focus_list);
      }
 
    eina_tiler_free(t);
