@@ -613,9 +613,6 @@ _e_comp_wl_evas_cb_restack(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EIN
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (ec->comp_data->sub.restacking) return;
 
-   if ((ec == (e_comp_wl->ptr.ec?e_comp_wl->ptr.ec:e_comp_wl->touch.faked_ec)) && !e_policy_client_is_keyboard_sub(ec))
-     _e_comp_wl_touch_cancel();
-
    e_comp_wl_subsurface_stack_update(ec);
 }
 
@@ -1245,7 +1242,7 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
 
    if (dev &&  (evas_device_class_get(dev) == EVAS_DEVICE_CLASS_TOUCH))
      {
-        if (!e_comp_wl->touch.pressed && !e_comp_wl->ptr.ec)
+        if (!e_comp_wl->touch.pressed)
           {
              e_comp_wl->touch.faked_ec = ec;
           }
