@@ -243,7 +243,20 @@ _e_xdg_popup_configure_send(E_Xdg_Popup *popup)
 static void
 _e_xdg_popup_cb_resource_destroy(struct wl_resource *resource)
 {
-   /* Nothing to do here */
+   E_Xdg_Surface *exsurf;
+   E_Client *ec;
+
+   exsurf = wl_resource_get_user_data(resource);
+   if (exsurf)
+     {
+        ec = exsurf->ec;
+        if ((ec) &&
+            (!e_object_is_del(E_OBJECT(ec))))
+          {
+             if (ec->comp_data)
+               _e_client_xdg_shell_v6_assign(exsurf->ec, NULL, E_COMP_WL_SH_SURF_ROLE_NONE);
+          }
+     }
 }
 
 static void
@@ -512,7 +525,20 @@ _e_xdg_toplevel_pending_state_compare(E_Xdg_Toplevel *toplevel)
 static void
 _e_xdg_toplevel_cb_resource_destroy(struct wl_resource *resource)
 {
-   /* Nothing to do here */
+   E_Xdg_Surface *exsurf;
+   E_Client *ec;
+
+   exsurf = wl_resource_get_user_data(resource);
+   if (exsurf)
+     {
+        ec = exsurf->ec;
+        if ((ec) &&
+            (!e_object_is_del(E_OBJECT(ec))))
+          {
+             if (ec->comp_data)
+               _e_client_xdg_shell_v6_assign(exsurf->ec, NULL, E_COMP_WL_SH_SURF_ROLE_NONE);
+          }
+     }
 }
 
 static void
@@ -1259,12 +1285,6 @@ _e_xdg_surface_configure(struct wl_resource *resource,
        (exsurf->configured_geometry.w == w) &&
        (exsurf->configured_geometry.h == h))
      {
-        LOG("Configure (SKIP) Trying to resize it the same size "
-            "with previous %s (%d %d %d %d)",
-            exsurf->ec->pixmap, exsurf->ec,
-            _e_xdg_surface_util_role_string_get(exsurf),
-            x, y, w, h);
-
         return;
      }
 
