@@ -2993,7 +2993,7 @@ _e_comp_wl_surface_cb_commit(struct wl_client *client EINA_UNUSED, struct wl_res
 
    if (!ec->comp_data->mapped)
      {
-        if (ec->comp_data->shell.surface &&
+        if (ec->comp_data->shell.surface && ec->comp_data->pending.new_attach &&
             !ec->internal && !ec->comp_data->sub.data && !ec->remote_surface.provider)
           {
              ELOGF("COMP", "Current unmapped. COMMIT. pixmap_usable:%d", ec->pixmap, ec, e_pixmap_usable_get(ec->pixmap));
