@@ -151,14 +151,6 @@ _e_client_shsurface_assignable_check(E_Client *ec)
         return EINA_FALSE;
      }
 
-   if (e_pixmap_usable_get(ec->pixmap))
-     {
-        wl_resource_post_error(ec->comp_data->surface,
-                               ZXDG_SURFACE_V6_ERROR_UNCONFIGURED_BUFFER,
-                               "buffer attached/committed before configure");
-        return EINA_FALSE;
-     }
-
    return EINA_TRUE;
 }
 
