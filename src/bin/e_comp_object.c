@@ -2148,7 +2148,9 @@ _e_comp_intercept_show_helper(E_Comp_Object *cw)
         if (cw->ec->internal) //internal clients render when they feel like it
           e_comp_object_damage(cw->smart_obj, 0, 0, cw->w, cw->h);
 
-        evas_object_show(cw->smart_obj);
+        if (!cw->ec->exp_iconify.by_client ||
+            e_policy_visibility_client_is_uniconic(cw->ec))
+          evas_object_show(cw->smart_obj);
         if (!cw->ec->iconic)
           e_client_focus_defer_set(cw->ec);
      }
