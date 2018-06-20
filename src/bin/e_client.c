@@ -5491,12 +5491,14 @@ e_client_uniconify(E_Client *ec)
    E_OBJECT_CHECK(ec);
    E_OBJECT_TYPE_CHECK(ec, E_CLIENT_TYPE);
 
-   ELOGF("TZVIS", "UNICONIFY|not_raise:%d       |by_client:%d",
+   ELOGF("TZVIS", "UNICONIFY|not_raise:%d       |by_client:%d\t| mapped:%d",
          ec->pixmap, ec, (unsigned int)ec->exp_iconify.not_raise,
-         ec->exp_iconify.by_client);
+         ec->exp_iconify.by_client,
+         ec->comp_data ? ec->comp_data->mapped : 0);
 
    if (!ec->zone) return;
    if (ec->shading || (!ec->iconic)) return;
+   if ((!ec->comp_data) || (!ec->comp_data->mapped)) return;
 
    TRACE_DS_BEGIN(CLIENT:UNICONIFY);
 
@@ -5529,7 +5531,10 @@ e_client_uniconify(E_Client *ec)
      }
 
    if (ec->pixmap && e_pixmap_usable_get(ec->pixmap))
-      evas_object_show(ec->frame);
+     {
+        ELOGF("TZVIS", "UNICONIFY|object show", ec->pixmap, ec);
+        evas_object_show(ec->frame);
+     }
 
    e_client_comp_hidden_set(ec, 0);
    ec->deskshow = ec->iconic = 0;
