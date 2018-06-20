@@ -211,7 +211,7 @@ buffer_transform(int width, int height, uint32_t transform, int32_t scale,
    *dy *= scale;
 }
 
-static E_Video*
+static E_Video *
 find_video_with_surface(struct wl_resource *surface)
 {
    E_Video *video;
@@ -224,7 +224,7 @@ find_video_with_surface(struct wl_resource *surface)
    return NULL;
 }
 
-static E_Client*
+static E_Client *
 find_video_child_get(E_Client *ec)
 {
    E_Client *subc = NULL;
@@ -246,7 +246,7 @@ find_video_child_get(E_Client *ec)
    return NULL;
 }
 
-static E_Client*
+static E_Client *
 find_topmost_parent_get(E_Client *ec)
 {
    E_Client *parent = NULL;
@@ -266,7 +266,7 @@ find_topmost_parent_get(E_Client *ec)
    return ec;
 }
 
-static E_Client*
+static E_Client *
 find_offscreen_parent_get(E_Client *ec)
 {
    E_Client *parent = NULL;
@@ -289,7 +289,7 @@ find_offscreen_parent_get(E_Client *ec)
    return NULL;
 }
 
-static E_Comp_Wl_Video_Buf*
+static E_Comp_Wl_Video_Buf *
 _e_video_vbuf_find(Eina_List *list, tbm_surface_h buffer)
 {
    E_Comp_Wl_Video_Buf *vbuf;
@@ -304,7 +304,7 @@ _e_video_vbuf_find(Eina_List *list, tbm_surface_h buffer)
    return NULL;
 }
 
-static E_Comp_Wl_Video_Buf*
+static E_Comp_Wl_Video_Buf *
 _e_video_vbuf_find_with_comp_buffer(Eina_List *list, E_Comp_Wl_Buffer *comp_buffer)
 {
    E_Comp_Wl_Video_Buf *vbuf;
@@ -319,7 +319,7 @@ _e_video_vbuf_find_with_comp_buffer(Eina_List *list, E_Comp_Wl_Buffer *comp_buff
    return NULL;
 }
 
-static E_Output*
+static E_Output *
 _get_e_output(tdm_output *output)
 {
    Eina_List *l;
@@ -968,7 +968,7 @@ _e_video_input_buffer_scanout_check(E_Comp_Wl_Video_Buf *vbuf)
    return EINA_FALSE;
 }
 
-static E_Comp_Wl_Video_Buf*
+static E_Comp_Wl_Video_Buf *
 _e_video_input_buffer_copy(E_Video *video, E_Comp_Wl_Buffer *comp_buf, E_Comp_Wl_Video_Buf *vbuf, Eina_Bool scanout)
 {
    E_Comp_Wl_Video_Buf *temp = NULL;
@@ -997,7 +997,7 @@ _e_video_input_buffer_copy(E_Video *video, E_Comp_Wl_Buffer *comp_buf, E_Comp_Wl
    return temp;
 }
 
-static E_Comp_Wl_Video_Buf*
+static E_Comp_Wl_Video_Buf *
 _e_video_input_buffer_get(E_Video *video, E_Comp_Wl_Buffer *comp_buffer, Eina_Bool scanout)
 {
    E_Comp_Wl_Video_Buf *vbuf;
@@ -1103,7 +1103,7 @@ _e_video_pp_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
    video->pp_buffer_list = eina_list_remove(video->pp_buffer_list, vbuf);
 }
 
-static E_Comp_Wl_Video_Buf*
+static E_Comp_Wl_Video_Buf *
 _e_video_pp_buffer_get(E_Video *video, int width, int height)
 {
    E_Comp_Wl_Video_Buf *vbuf;
@@ -2122,7 +2122,7 @@ _e_video_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
    _e_video_frame_buffer_show(video, NULL);
 }
 
-static E_Video*
+static E_Video *
 _e_video_create(struct wl_resource *video_object, struct wl_resource *surface)
 {
    E_Video *video;
@@ -3320,7 +3320,7 @@ e_comp_wl_video_layer_get(tdm_output *output)
    return NULL;
 }
 
-static tdm_layer*
+static tdm_layer *
 _e_video_tdm_video_layer_get(tdm_output *output)
 {
    int i, count = 0;
@@ -3371,7 +3371,7 @@ _e_video_tdm_video_layer_get(tdm_output *output)
    return NULL;
 }
 
-static tdm_layer*
+static tdm_layer *
 _e_video_tdm_available_video_layer_get(tdm_output *output)
 {
    Eina_Bool has_video_layer = EINA_FALSE;
