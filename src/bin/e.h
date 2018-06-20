@@ -328,12 +328,8 @@ extern E_API E_Path *path_icons;
 extern E_API E_Path *path_modules;
 extern E_API E_Path *path_backgrounds;
 extern E_API E_Path *path_messages;
-extern E_API Eina_Bool good;
-extern E_API Eina_Bool evil;
 extern E_API Eina_Bool starting;
 extern E_API Eina_Bool stopping;
-extern E_API Eina_Bool restart;
-extern E_API Eina_Bool e_nopause;
 
 extern E_API Eina_Bool e_precache_end;
 

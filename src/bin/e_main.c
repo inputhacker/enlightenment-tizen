@@ -109,8 +109,6 @@ static void      _e_main_hooks_clean(void);
 static void      _e_main_hook_call(E_Main_Hook_Point hookpoint, void *data EINA_UNUSED);
 
 /* local variables */
-static Eina_Bool inloop = EINA_FALSE;
-
 static int _e_main_lvl = 0;
 static int(*_e_main_shutdown_func[MAX_LEVEL]) (void);
 
@@ -130,11 +128,8 @@ static Eina_Inlist *_e_main_hooks[] =
 
 /* external variables */
 E_API Eina_Bool e_precache_end = EINA_FALSE;
-E_API Eina_Bool good = EINA_FALSE;
-E_API Eina_Bool evil = EINA_FALSE;
 E_API Eina_Bool starting = EINA_TRUE;
 E_API Eina_Bool stopping = EINA_FALSE;
-E_API Eina_Bool e_nopause = EINA_FALSE;
 
 static Eina_Bool
 _xdg_check_str(const char *env, const char *str)
@@ -747,9 +742,6 @@ main(int argc, char **argv)
    _idle_after = ecore_idle_enterer_add(_e_main_cb_idle_after, NULL);
 
    starting = EINA_FALSE;
-   inloop = EINA_TRUE;
-
-   e_util_env_set("E_RESTART", "1");
 
    TSM("MAIN LOOP AT LAST");
 
@@ -765,8 +757,6 @@ main(int argc, char **argv)
    TSM("[WM] Skip sending start-up completion. (no systemd)");
 #endif
    ecore_main_loop_begin();
-
-   inloop = EINA_FALSE;
 
    ELOGF("COMP", "STOPPING enlightenment...", NULL, NULL);
    stopping = EINA_TRUE;
@@ -867,32 +857,12 @@ _e_main_parse_arguments(int argc, char **argv)
    /* handle some command-line parameters */
    for (i = 1; i < argc; i++)
      {
-        if (!strcmp(argv[i], "-good"))
-          {
-             good = EINA_TRUE;
-             evil = EINA_FALSE;
-             printf("LA LA LA\n");
-          }
-        else if (!strcmp(argv[i], "-evil"))
-          {
-             good = EINA_FALSE;
-             evil = EINA_TRUE;
-             printf("MUHAHAHAHHAHAHAHAHA\n");
-          }
-        else if (!strcmp(argv[i], "-psychotic"))
-          {
-             good = EINA_TRUE;
-             evil = EINA_TRUE;
-             printf("MUHAHALALALALALALALA\n");
-          }
-        else if ((!strcmp(argv[i], "-profile")) && (i < (argc - 1)))
+        if ((!strcmp(argv[i], "-profile")) && (i < (argc - 1)))
           {
              i++;
              if (!getenv("E_CONF_PROFILE"))
                e_util_env_set("E_CONF_PROFILE", argv[i]);
           }
-        else if (!strcmp(argv[i], "-nopause"))
-          e_nopause = EINA_TRUE;
         else if ((!strcmp(argv[i], "-version")) ||
                  (!strcmp(argv[i], "--version")))
           {
@@ -906,25 +876,8 @@ _e_main_parse_arguments(int argc, char **argv)
              printf
                (_(
                  "Options:\n"
-                 "\t-display DISPLAY\n"
-                 "\t\tConnect to display named DISPLAY.\n"
-                 "\t\tEG: -display :1.0\n"
-                 "\t-fake-xinerama-screen WxH+X+Y\n"
-                 "\t\tAdd a FAKE xinerama screen (instead of the real ones)\n"
-                 "\t\tgiven the geometry. Add as many as you like. They all\n"
-                 "\t\treplace the real xinerama screens, if any. This can\n"
-                 "\t\tbe used to simulate xinerama.\n"
-                 "\t\tEG: -fake-xinerama-screen 800x600+0+0 -fake-xinerama-screen 800x600+800+0\n"
                  "\t-profile CONF_PROFILE\n"
                  "\t\tUse the configuration profile CONF_PROFILE instead of the user selected default or just \"default\".\n"
-                 "\t-good\n"
-                 "\t\tBe good.\n"
-                 "\t-evil\n"
-                 "\t\tBe evil.\n"
-                 "\t-psychotic\n"
-                 "\t\tBe psychotic.\n"
-                 "\t-i-really-know-what-i-am-doing-and-accept-full-responsibility-for-it\n"
-                 "\t\tIf you need this help, you don't need this option.\n"
                  "\t-version\n"
                  )
                );
