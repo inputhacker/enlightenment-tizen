@@ -2127,6 +2127,7 @@ _e_video_create(struct wl_resource *video_object, struct wl_resource *surface)
 
    ec = wl_resource_get_user_data(surface);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(ec)), NULL);
 
    video = calloc(1, sizeof *video);
    EINA_SAFETY_ON_NULL_RETURN_VAL(video, NULL);
@@ -2155,10 +2156,6 @@ _e_video_set(E_Video *video, E_Client *ec)
    tdm_display_capability disp_capabilities;
    const tdm_prop *props;
    tdm_error tdm_err = TDM_ERROR_NONE;
-
-   /* TODO Consider to move this check code where the entry of creation of
-    * video_object */
-   EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(ec)));
 
    video->ec = ec;
    video->window = e_client_util_win_get(ec);
