@@ -348,6 +348,9 @@ _e_video_tdm_output_has_video_layer(tdm_output *toutput)
      {
         /* get the first suitable layer */
         layer = _e_video_tdm_video_layer_get(toutput);
+        if (!layer)
+          return EINA_FALSE;
+
         tdm_layer_get_capabilities(layer, &lyr_capabilities);
         if (lyr_capabilities & TDM_LAYER_CAPABILITY_VIDEO)
           return EINA_TRUE;
