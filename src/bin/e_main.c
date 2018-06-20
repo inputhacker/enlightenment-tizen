@@ -231,12 +231,7 @@ _xdg_data_dirs_augment(void)
 static Eina_Bool
 _e_main_subsystem_defer(void *data EINA_UNUSED)
 {
-   int argc;
-   char **argv;
-
    TRACE_DS_BEGIN(MAIN:SUBSYSTEMS DEFER);
-
-   ecore_app_args_get(&argc, &argv);
 
    /* try to init delayed subsystems */
 
@@ -460,8 +455,6 @@ main(int argc, char **argv)
      }
    TSE("EIO Init Done");
    _e_main_shutdown_push(eio_shutdown);
-
-   ecore_app_args_set(argc, (const char **)argv);
 
    TSB("Ecore Event Handlers");
    if (!ecore_event_handler_add(ECORE_EVENT_SIGNAL_EXIT,
