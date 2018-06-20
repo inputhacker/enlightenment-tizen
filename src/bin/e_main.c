@@ -126,7 +126,6 @@ static Eina_Inlist *_e_main_hooks[] =
 };
 
 /* external variables */
-E_API Eina_Bool e_precache_end = EINA_FALSE;
 E_API Eina_Bool starting = EINA_TRUE;
 E_API Eina_Bool stopping = EINA_FALSE;
 
@@ -1141,21 +1140,11 @@ _e_main_cb_idle_after(void *data EINA_UNUSED)
    eet_clearcache();
    edje_freeze();
 
-#ifdef E_RELEASE_BUILD
    if (first_idle)
      {
         TSM("SLEEP");
         first_idle = 0;
-        e_precache_end = EINA_TRUE;
      }
-#else
-   if (first_idle++ < 60)
-     {
-        TSM("SLEEP");
-        if (!first_idle)
-          e_precache_end = EINA_TRUE;
-     }
-#endif
 
    return ECORE_CALLBACK_RENEW;
 }

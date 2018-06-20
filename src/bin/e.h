@@ -331,8 +331,6 @@ extern E_API E_Path *path_messages;
 extern E_API Eina_Bool starting;
 extern E_API Eina_Bool stopping;
 
-extern E_API Eina_Bool e_precache_end;
-
 //#define SMARTERR(args...) abort()
 #define SMARTERRNR() return
 #define SMARTERR(x)  return x
