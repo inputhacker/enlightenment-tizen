@@ -3115,17 +3115,9 @@ _e_comp_wl_video_cb_get_object(struct wl_client *client,
                                uint32_t id,
                                struct wl_resource *surface)
 {
+   E_Video *video;
    int version = wl_resource_get_version(resource);
-   E_Video *video = wl_resource_get_user_data(resource);
    struct wl_resource *res;
-
-   if (video)
-     {
-        wl_resource_post_error(resource,
-                               TIZEN_VIDEO_ERROR_OBJECT_EXISTS,
-                               "a video object for that surface already exists");
-        return;
-     }
 
    res = wl_resource_create(client, &tizen_video_object_interface, version, id);
    if (res == NULL)
