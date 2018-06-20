@@ -93,7 +93,6 @@ static void      _e_main_shutdown_push(int (*func)(void));
 static void      _e_main_parse_arguments(int argc, char **argv);
 static Eina_Bool _e_main_cb_signal_exit(void *data EINA_UNUSED, int ev_type EINA_UNUSED, void *ev EINA_UNUSED);
 static Eina_Bool _e_main_cb_signal_hup(void *data EINA_UNUSED, int ev_type EINA_UNUSED, void *ev EINA_UNUSED);
-static Eina_Bool _e_main_cb_signal_user(void *data EINA_UNUSED, int ev_type EINA_UNUSED, void *ev);
 static int       _e_main_dirs_init(void);
 static int       _e_main_dirs_shutdown(void);
 static int       _e_main_path_init(void);
@@ -463,13 +462,6 @@ main(int argc, char **argv)
                                 _e_main_cb_signal_hup, NULL))
      {
         e_error_message_show(_("Enlightenment cannot set up a HUP signal handler.\n"
-                               "Perhaps you are out of memory?"));
-        goto failed;
-     }
-   if (!ecore_event_handler_add(ECORE_EVENT_SIGNAL_USER,
-                                _e_main_cb_signal_user, NULL))
-     {
-        e_error_message_show(_("Enlightenment cannot set up a USER signal handler.\n"
                                "Perhaps you are out of memory?"));
         goto failed;
      }
@@ -899,24 +891,6 @@ _e_main_cb_signal_hup(void *data EINA_UNUSED, int ev_type EINA_UNUSED, void *ev 
 {
    ecore_main_loop_quit();
    return ECORE_CALLBACK_RENEW;
-}
-
-static Eina_Bool
-_e_main_cb_signal_user(void *data EINA_UNUSED, int ev_type EINA_UNUSED, void *ev)
-{
-   Ecore_Event_Signal_User *e = ev;
-
-   if (e->number == 1)
-     {
-//        E_Action *a = e_action_find("configuration");
-//        if ((a) && (a->func.go)) a->func.go(NULL, NULL);
-     }
-   else if (e->number == 2)
-     {
-        // comp module has its own handler for this for enabling/disabling fps debug
-     }
-   return ECORE_CALLBACK_RENEW;
-
 }
 
 static int
