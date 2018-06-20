@@ -6184,9 +6184,18 @@ e_comp_wl_output_find(E_Client *ec)
 
    EINA_LIST_FOREACH(e_comp_wl->outputs, l, output)
      {
-        if (ec->x < output->x || ec->x >= (output->x + output->w) ||
-            ec->y < output->y || ec->y >= (output->y + output->h))
-          continue;
+        if (output->transform % 2)
+          {
+             if (ec->x < output->y || ec->x >= (output->y + output->h) ||
+                 ec->y < output->x || ec->y >= (output->x + output->w))
+               continue;
+          }
+        else
+          {
+             if (ec->x < output->x || ec->x >= (output->x + output->w) ||
+                 ec->y < output->y || ec->y >= (output->y + output->h))
+               continue;
+          }
 
         return output;
      }
