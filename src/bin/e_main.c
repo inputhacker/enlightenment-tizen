@@ -102,7 +102,6 @@ static int       _e_main_screens_init(void);
 static int       _e_main_screens_shutdown(void);
 static void      _e_main_desk_save(void);
 static void      _e_main_desk_restore(void);
-static void      _e_main_modules_load(Eina_Bool safe_mode);
 static Eina_Bool _e_main_cb_idle_before(void *data EINA_UNUSED);
 static Eina_Bool _e_main_cb_idle_after(void *data EINA_UNUSED);
 static void      _e_main_create_wm_ready(void);
@@ -118,8 +117,6 @@ static int(*_e_main_shutdown_func[MAX_LEVEL]) (void);
 
 static Ecore_Idle_Enterer *_idle_before = NULL;
 static Ecore_Idle_Enterer *_idle_after = NULL;
-
-static Ecore_Event_Handler *mod_init_end = NULL;
 
 static Eina_List *hooks = NULL;
 
@@ -138,7 +135,6 @@ E_API Eina_Bool good = EINA_FALSE;
 E_API Eina_Bool evil = EINA_FALSE;
 E_API Eina_Bool starting = EINA_TRUE;
 E_API Eina_Bool stopping = EINA_FALSE;
-E_API Eina_Bool restart = EINA_FALSE;
 E_API Eina_Bool e_nopause = EINA_FALSE;
 
 static Eina_Bool
@@ -335,9 +331,7 @@ _e_main_deferred_job_schedule(void *d EINA_UNUSED, int type EINA_UNUSED, void *e
 int
 main(int argc, char **argv)
 {
-   Eina_Bool safe_mode = EINA_FALSE;
-   double t = 0.0, tstart = 0.0;
-   char *s = NULL, *s1 = NULL, buff[32];
+   char *s = NULL;
    struct sigaction action;
 
 #ifdef __linux__
@@ -391,38 +385,6 @@ main(int argc, char **argv)
         TSE("Signal Trap Done");
      }
 
-   t = ecore_time_unix_get();
-   s = e_util_env_get("E_START_TIME");
-   if (s)
-     {
-        s1 = e_util_env_get("E_RESTART_OK");
-        if (s1)
-          E_FREE(s1); /* do nothing... */
-        else
-          {
-             /* enable safe mode
-              * 1. E_RESTART_OK is not defined.
-              * 2. the diff time between this and previous start is less than 5 seconds.
-              */
-             tstart = atof(s);
-             if ((t - tstart) < 5.0) safe_mode = EINA_TRUE;
-          }
-        E_FREE(s);
-     }
-
-   /* save start time to environment variable to calculate
-    * diff time at the next restart
-    */
-   tstart = t;
-   snprintf(buff, sizeof(buff), "%1.1f", tstart);
-   e_util_env_set("E_START_TIME", buff);
-
-   s = e_util_env_get("E_START_MTRACK");
-   if (s)
-     {
-        e_util_env_set("MTRACK", NULL);
-        E_FREE(s);
-     }
    TSB("Eina Init");
    if (!eina_init())
      {
@@ -783,7 +745,7 @@ main(int argc, char **argv)
    _e_main_shutdown_push(e_security_shutdown);
 
    TSB("Load Modules");
-   _e_main_modules_load(safe_mode);
+   e_module_all_load();
    TSE("Load Modules Done");
 
    TSB("E_Comp Thaw");
@@ -821,18 +783,6 @@ main(int argc, char **argv)
    e_comp_internal_save();
 
    _e_main_shutdown(0);
-
-   if (restart)
-     {
-        e_util_env_set("E_RESTART_OK", "1");
-        s = e_util_env_get("E_START_MTRACK");
-        if (s)
-          {
-             e_util_env_set("MTRACK", "track");
-             E_FREE(s);
-          }
-        ecore_app_restart();
-     }
 
    e_prefix_shutdown();
 
@@ -1004,7 +954,6 @@ _e_main_cb_signal_exit(void *data EINA_UNUSED, int ev_type EINA_UNUSED, void *ev
 static Eina_Bool
 _e_main_cb_signal_hup(void *data EINA_UNUSED, int ev_type EINA_UNUSED, void *ev EINA_UNUSED)
 {
-   restart = 1;
    ecore_main_loop_quit();
    return ECORE_CALLBACK_RENEW;
 }
@@ -1257,64 +1206,6 @@ _e_main_desk_restore(void)
           ec->want_focus = ec->take_focus = 1;
           break;
        }
-}
-
-static Eina_Bool
-_e_main_modules_load_after(void *d EINA_UNUSED, int type EINA_UNUSED, void *ev EINA_UNUSED)
-{
-   E_FREE_FUNC(mod_init_end, ecore_event_handler_del);
-   return ECORE_CALLBACK_RENEW;
-}
-
-static void
-_e_main_modules_load(Eina_Bool safe_mode)
-{
-   if (!safe_mode)
-     e_module_all_load();
-   else
-     {
-        E_Module *m;
-        char *crashmodule;
-
-        crashmodule = getenv("E_MODULE_LOAD");
-        if (crashmodule) m = e_module_new(crashmodule);
-
-        if ((crashmodule) && (m))
-          {
-             e_module_disable(m);
-             e_object_del(E_OBJECT(m));
-
-             e_error_message_show
-               (_("Enlightenment crashed early on start and has<br>"
-                  "been restarted. There was an error loading the<br>"
-                  "module named: %s. This module has been disabled<br>"
-                  "and will not be loaded."), crashmodule);
-             e_util_dialog_show
-               (_("Enlightenment crashed early on start and has been restarted"),
-               _("Enlightenment crashed early on start and has been restarted.<br>"
-                 "There was an error loading the module named: %s<br><br>"
-                 "This module has been disabled and will not be loaded."), crashmodule);
-             e_module_all_load();
-          }
-        else
-          {
-             e_error_message_show
-               (_("Enlightenment crashed early on start and has<br>"
-                  "been restarted. All modules have been disabled<br>"
-                  "and will not be loaded to help remove any problem<br>"
-                  "modules from your configuration. The module<br>"
-                  "configuration dialog should let you select your<br>"
-                  "modules again.\n"));
-             e_util_dialog_show
-               (_("Enlightenment crashed early on start and has been restarted"),
-               _("Enlightenment crashed early on start and has been restarted.<br>"
-                 "All modules have been disabled and will not be loaded to help<br>"
-                 "remove any problem modules from your configuration.<br><br>"
-                 "The module configuration dialog should let you select your<br>"
-                 "modules again."));
-          }
-        mod_init_end = ecore_event_handler_add(E_EVENT_MODULE_INIT_END, _e_main_modules_load_after, NULL);
-     }
 }
 
 static Eina_Bool
