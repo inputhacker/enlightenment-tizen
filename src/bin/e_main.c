@@ -109,7 +109,6 @@ static void      _e_main_hooks_clean(void);
 static void      _e_main_hook_call(E_Main_Hook_Point hookpoint, void *data EINA_UNUSED);
 
 /* local variables */
-static Eina_Bool really_know = EINA_FALSE;
 static Eina_Bool inloop = EINA_FALSE;
 
 static int _e_main_lvl = 0;
@@ -899,8 +898,6 @@ _e_main_parse_arguments(int argc, char **argv)
              if (!getenv("E_CONF_PROFILE"))
                e_util_env_set("E_CONF_PROFILE", argv[i]);
           }
-        else if (!strcmp(argv[i], "-i-really-know-what-i-am-doing-and-accept-full-responsibility-for-it"))
-          really_know = EINA_TRUE;
         else if (!strcmp(argv[i], "-nopause"))
           e_nopause = EINA_TRUE;
         else if ((!strcmp(argv[i], "-version")) ||
