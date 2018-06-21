@@ -2476,6 +2476,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
              EC_CHANGED(ec);
              ec->new_client = 1;
              e_comp->new_clients++;
+             ELOGF("COMP", "Unignore", ec->pixmap, ec);
              e_client_unignore(ec);
           }
      }
@@ -2584,7 +2585,8 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
         if (!ec->comp_data->mapped)
           {
              if ((ec->comp_data->shell.surface) &&
-                 (ec->comp_data->shell.map))
+                 (ec->comp_data->shell.map) &&
+                 (!ec->ignored))
                {
                   ELOGF("COMP", "Try to map. Call shell.map.", ec->pixmap, ec);
                   ec->comp_data->shell.map(ec->comp_data->shell.surface);
@@ -4973,7 +4975,8 @@ e_comp_wl_surface_commit(E_Client *ec)
      {
         if (!ec->comp_data->mapped)
           {
-             if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.map))
+             if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.map) &&
+                 (!ec->ignored))
                {
                   ELOGF("COMP", "Try to map2. Call shell.map.", ec->pixmap, ec);
                   ec->comp_data->shell.map(ec->comp_data->shell.surface);
