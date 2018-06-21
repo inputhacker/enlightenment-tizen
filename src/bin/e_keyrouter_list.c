@@ -169,7 +169,7 @@ e_keyrouter_prepend_to_keylist(struct wl_resource *surface, struct wl_client *wc
          break;
 
       case TIZEN_KEYROUTER_MODE_PRESSED:
-         krt->HardKeys[key].press_ptr = eina_list_prepend(krt->HardKeys[key].press_ptr, new_keyptr);
+         krt->HardKeys[key].press_ptr = eina_list_append(krt->HardKeys[key].press_ptr, new_keyptr);
          break;
 
      case TIZEN_KEYROUTER_MODE_PICTURE_OFF:

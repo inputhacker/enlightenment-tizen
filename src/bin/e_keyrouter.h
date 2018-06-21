@@ -89,6 +89,9 @@ struct _E_Keyrouter_Event_Data
    struct wl_resource *surface;
 
    int mode;
+
+   Eina_Bool ignored;
+
    void *data;
 };
 
