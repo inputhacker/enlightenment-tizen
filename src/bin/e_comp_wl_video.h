@@ -13,8 +13,6 @@ typedef struct _E_Video_Info_Layer E_Video_Info_Layer;
 EINTERN int e_comp_wl_video_init(void);
 EINTERN void e_comp_wl_video_shutdown(void);
 
-EINTERN tdm_layer* e_comp_wl_video_layer_get(tdm_output *output);
-
 EINTERN void          e_comp_wl_video_hwc_window_commit_data_release(E_Hwc_Window *hwc_window, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec);
 EINTERN tbm_surface_h e_comp_wl_video_hwc_widow_surface_get(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool     e_comp_wl_video_hwc_window_info_get(E_Hwc_Window *hwc_window, tdm_hwc_window_info *hwc_win_info);

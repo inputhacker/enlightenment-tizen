@@ -3302,24 +3302,6 @@ e_comp_wl_video_shutdown(void)
    _video_detail_log_dom = -1;
 }
 
-EINTERN tdm_layer *
-e_comp_wl_video_layer_get(tdm_output *output)
-{
-   E_Video *video;
-   Eina_List *l;
-
-   if (!output)
-     return NULL;
-
-   EINA_LIST_FOREACH(video_list, l, video)
-     {
-        if (video->output == output)
-          return video->layer;
-     }
-
-   return NULL;
-}
-
 static tdm_layer *
 _e_video_tdm_video_layer_get(tdm_output *output)
 {
