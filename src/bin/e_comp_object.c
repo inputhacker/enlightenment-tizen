@@ -5019,8 +5019,6 @@ e_comp_object_mask_set(Evas_Object *obj, Eina_Bool set)
              cw->mask_obj = o;
              ELOGF("COMP", "         |mask_obj", cw->ec->pixmap, cw->ec);
           }
-
-        evas_object_layer_set(cw->mask_obj, 9998);
      }
    else
      {
