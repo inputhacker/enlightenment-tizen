@@ -2931,7 +2931,7 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
      VDT("Client(%s):PID(%d) RscID(%d) Attribute:%s, Value:%d",
          e_client_util_name_get(video->ec) ?: "No Name",
          video->ec->netwm.pid, wl_resource_get_id(video->surface),
-         name,value);
+         name, value);
 
    // check available property & count
    id = _e_video_get_prop_id(video, name);
@@ -3075,7 +3075,7 @@ _e_comp_wl_video_object_cb_allowed_attribute(struct wl_client *client,
 
    VIN("set allowed_attribute");
 
-   video->allowed_attribute= EINA_TRUE;
+   video->allowed_attribute = EINA_TRUE;
 
 }
 
@@ -3093,7 +3093,7 @@ _e_comp_wl_video_object_cb_disallowed_attribute(struct wl_client *client,
 
    VIN("set disallowed_attribute");
 
-   video->allowed_attribute= EINA_FALSE;
+   video->allowed_attribute = EINA_FALSE;
 
 }
 
