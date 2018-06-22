@@ -3261,10 +3261,10 @@ e_comp_wl_video_init(void)
         return 0;
      }
 
+   /* try to add tizen_video to wayland globals */
    e_comp->wl_comp_data->video.global =
       wl_global_create(e_comp_wl->wl.disp, &tizen_video_interface, 1, NULL, _e_comp_wl_video_cb_bind);
 
-   /* try to add tizen_video to wayland globals */
    if (!e_comp->wl_comp_data->video.global)
      {
         ERR("Could not add tizen_video to wayland globals");
