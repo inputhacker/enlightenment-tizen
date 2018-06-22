@@ -2156,9 +2156,7 @@ _e_video_set(E_Video *video, E_Client *ec)
 {
    int ominw = -1, ominh = -1, omaxw = -1, omaxh = -1;
    int i, count = 0;
-   tdm_display_capability disp_capabilities;
    const tdm_prop *props;
-   tdm_error tdm_err = TDM_ERROR_NONE;
 
    video->ec = ec;
    video->window = e_client_util_win_get(ec);
@@ -2231,10 +2229,7 @@ _e_video_set(E_Video *video, E_Client *ec)
 
    tdm_output_get_available_size(video->output, &ominw, &ominh, &omaxw, &omaxh, &video->output_align);
 
-   tdm_err = tdm_display_get_capabilities(e_comp->e_comp_screen->tdisplay, &disp_capabilities);
-   if (tdm_err != TDM_ERROR_NONE) VIN("failed tdm_display_get_capabilities");
-
-   if (!(disp_capabilities & TDM_DISPLAY_CAPABILITY_PP))
+   if (!e_comp_screen_pp_support())
      {
         video->video_align = video->output_align;
         tizen_video_object_send_size(video->video_object,
