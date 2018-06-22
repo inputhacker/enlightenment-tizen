@@ -3291,6 +3291,7 @@ e_comp_wl_video_shutdown(void)
    e_comp->wl_comp_data->available_hw_accel.underlay = EINA_FALSE;
    e_comp->wl_comp_data->available_hw_accel.scaler = EINA_FALSE;
 
+   E_FREE_FUNC(e_comp->wl_comp_data->video.global, wl_global_destroy);
    E_FREE_LIST(video_hdlrs, ecore_event_handler_del);
 
    e_info_server_hook_set("vbuf", NULL, NULL);
