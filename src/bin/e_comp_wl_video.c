@@ -2401,10 +2401,10 @@ _e_video_check_if_pp_needed(E_Video *video)
              return EINA_TRUE;
           }
 
-        /* check size */
         if (capabilities & TDM_LAYER_CAPABILITY_SCANOUT)
           goto need_pp;
 
+        /* check size */
         if (video->geo.input_r.w != video->geo.output_r.w || video->geo.input_r.h != video->geo.output_r.h)
           if (!(capabilities & TDM_LAYER_CAPABILITY_SCALE))
             goto need_pp;
