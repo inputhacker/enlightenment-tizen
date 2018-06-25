@@ -160,6 +160,8 @@ static tdm_layer* _e_video_tdm_available_video_layer_get(tdm_output *output);
 static void _e_video_tdm_set_layer_usable(tdm_layer *layer, Eina_Bool usable);
 static Eina_Bool _e_video_tdm_get_layer_usable(tdm_layer *layer);
 
+static void _e_video_vblank_handler(tdm_output *output, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec, void *user_data);
+
 static int
 gcd(int a, int b)
 {
@@ -1694,6 +1696,35 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
    VDB("current_fb(%d)", MSTAMP(video->current_fb));
 }
 
+static void
+_e_video_commit_buffer(E_Video *video, E_Comp_Wl_Video_Buf *vbuf)
+{
+   video->committed_list = eina_list_append(video->committed_list, vbuf);
+
+   if (!_e_video_can_commit(video))
+     goto no_commit;
+
+   if (!_e_video_frame_buffer_show(video, vbuf))
+     goto no_commit;
+
+   return;
+
+no_commit:
+   _e_video_commit_handler(NULL, 0, 0, 0, video);
+   _e_video_vblank_handler(NULL, 0, 0, 0, video);
+}
+
+static void
+_e_video_commit_from_waiting_list(E_Video *video)
+{
+   E_Comp_Wl_Video_Buf *vbuf;
+
+   vbuf = eina_list_nth(video->waiting_list, 0);
+   video->waiting_list = eina_list_remove(video->waiting_list, vbuf);
+
+   _e_video_commit_buffer(video, vbuf);
+}
+
 EINTERN void
 e_comp_wl_video_hwc_window_commit_data_release(E_Hwc_Window *hwc_window, unsigned int sequence,
                             unsigned int tv_sec, unsigned int tv_usec)
@@ -1802,33 +1833,15 @@ _e_video_vblank_handler(tdm_output *output, unsigned int sequence,
 
    video->waiting_vblank = EINA_FALSE;
 
-   if (!video->waiting_list) return;
    if (video->waiting_video_set) return;
 
-   vbuf = eina_list_nth(video->waiting_list, 0);
-
-   video->waiting_list = eina_list_remove(video->waiting_list, vbuf);
-   video->committed_list = eina_list_append(video->committed_list, vbuf);
-
-   if (!_e_video_can_commit(video))
-     goto no_commit;
-
-   if (!_e_video_frame_buffer_show(video, vbuf))
-     goto no_commit;
-
-   goto done;
-
-no_commit:
-   _e_video_commit_handler(NULL, 0, 0, 0, video);
-   _e_video_vblank_handler(NULL, 0, 0, 0, video);
-done:
-   return;
+   if (video->waiting_list)
+     _e_video_commit_from_waiting_list(video);
 }
 
 static void
 _e_video_video_set_hook(void *data, E_Plane *plane)
 {
-   E_Comp_Wl_Video_Buf *vbuf = NULL;
    E_Video *video = (E_Video *)data;
 
    if (video->e_plane != plane) return;
@@ -1836,27 +1849,10 @@ _e_video_video_set_hook(void *data, E_Plane *plane)
 
    video->waiting_video_set = EINA_FALSE;
 
-   if (!video->waiting_list) return;
    if (video->waiting_vblank) return;
 
-   vbuf = eina_list_nth(video->waiting_list, 0);
-
-   video->waiting_list = eina_list_remove(video->waiting_list, vbuf);
-   video->committed_list = eina_list_append(video->committed_list, vbuf);
-
-   if (!_e_video_can_commit(video))
-     goto no_commit;
-
-   if (!_e_video_frame_buffer_show(video, vbuf))
-     goto no_commit;
-
-   goto done;
-
-no_commit:
-   _e_video_commit_handler(NULL, 0, 0, 0, video);
-   _e_video_vblank_handler(NULL, 0, 0, 0, video);
-done:
-   return;
+   if (video->waiting_list)
+     _e_video_commit_from_waiting_list(video);
 }
 
 static Eina_Bool
@@ -1997,27 +1993,14 @@ _e_video_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf *vbuf, unsigned int tra
    if (vbuf->comp_buffer)
      e_comp_wl_buffer_reference(&vbuf->buffer_ref, vbuf->comp_buffer);
 
-   if (!video->waiting_vblank && !video->waiting_video_set)
-     video->committed_list = eina_list_append(video->committed_list, vbuf);
-   else
+   if (video->waiting_vblank || video->waiting_video_set)
      {
         video->waiting_list = eina_list_append(video->waiting_list, vbuf);
         VDB("There are waiting fbs more than 1");
         return;
      }
 
-   if (!_e_video_can_commit(video))
-     goto no_commit;
-
-   if (!_e_video_frame_buffer_show(video, vbuf))
-     goto no_commit;
-
-   return;
-
-no_commit:
-   _e_video_commit_handler(NULL, 0, 0, 0, video);
-   _e_video_vblank_handler(NULL, 0, 0, 0, video);
-   return;
+   _e_video_commit_buffer(video, vbuf);
 }
 
 static void
