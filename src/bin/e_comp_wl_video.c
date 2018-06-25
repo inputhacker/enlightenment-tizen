@@ -249,26 +249,6 @@ find_video_child_get(E_Client *ec)
 }
 
 static E_Client *
-find_topmost_parent_get(E_Client *ec)
-{
-   E_Client *parent = NULL;
-
-   if (!ec->comp_data || !ec->comp_data->sub.data)
-     return ec;
-
-   parent = ec->comp_data->sub.data->parent;
-   while (parent)
-     {
-        if (!parent->comp_data || !parent->comp_data->sub.data)
-          return parent;
-
-        parent = parent->comp_data->sub.data->parent;
-     }
-
-   return ec;
-}
-
-static E_Client *
 find_offscreen_parent_get(E_Client *ec)
 {
    E_Client *parent = NULL;
@@ -885,7 +865,7 @@ _e_video_parent_is_viewable(E_Video *video)
 
    if (e_object_is_del(E_OBJECT(video->ec))) return EINA_FALSE;
 
-   topmost_parent = find_topmost_parent_get(video->ec);
+   topmost_parent = e_comp_wl_topmost_parent_get(video->ec);
 
    if (!topmost_parent)
      return EINA_FALSE;
@@ -1195,7 +1175,7 @@ _e_video_geometry_cal_physical(E_Video *video)
    int tran, flip;
    int transform;
 
-   topmost = find_topmost_parent_get(video->ec);
+   topmost = e_comp_wl_topmost_parent_get(video->ec);
    EINA_SAFETY_ON_NULL_GOTO(topmost, normal);
 
    output = e_comp_wl_output_find(topmost);
@@ -1545,7 +1525,7 @@ _e_video_geometry_cal(E_Video * video)
         E_Zone *zone;
         E_Client *topmost;
 
-        topmost = find_topmost_parent_get(video->ec);
+        topmost = e_comp_wl_topmost_parent_get(video->ec);
         EINA_SAFETY_ON_NULL_RETURN_VAL(topmost, EINA_FALSE);
 
         zone = e_comp_zone_xy_get(topmost->x, topmost->y);
@@ -1933,7 +1913,7 @@ _e_video_frame_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf *vbuf)
         free(prop);
      }
 
-   topmost = find_topmost_parent_get(video->ec);
+   topmost = e_comp_wl_topmost_parent_get(video->ec);
    if (topmost && topmost->argb && !e_comp_object_mask_has(video->ec->frame))
      {
         Eina_Bool do_punch = EINA_TRUE;
@@ -2546,7 +2526,7 @@ _e_video_render(E_Video *video, const char *func)
    if (!wayland_tbm_server_get_surface(NULL, comp_buffer->resource))
      return;
 
-   topmost = find_topmost_parent_get(video->ec);
+   topmost = e_comp_wl_topmost_parent_get(video->ec);
    EINA_SAFETY_ON_NULL_RETURN(topmost);
 
    if(e_comp_wl_viewport_is_changed(topmost))
@@ -2787,7 +2767,7 @@ _e_video_cb_ec_client_show(void *data, int type, void *event)
         return ECORE_CALLBACK_PASS_ON;
      }
 
-   if (ec == find_topmost_parent_get(video->ec))
+   if (ec == e_comp_wl_topmost_parent_get(video->ec))
      {
         if (e_config->eom_enable == EINA_TRUE)
           {
@@ -2847,7 +2827,7 @@ _e_video_cb_topmost_ec_visibility_change(void *data, int type, void *event)
 
    EINA_LIST_FOREACH(video_list, l, video)
      {
-        E_Client *topmost = find_topmost_parent_get(video->ec);
+        E_Client *topmost = e_comp_wl_topmost_parent_get(video->ec);
         if (!topmost) continue;
         if (topmost == video->ec) continue;
         if (topmost != ec) continue;
