@@ -632,13 +632,9 @@ _e_video_layer_get_displaying_buffer(E_Video_Layer *layer, int *tdm_error)
    if (_is_video_hwc_windows(layer->video))
      {
         E_Hwc_Window *hwc_window;
-        E_Video *video;
 
         hwc_window = layer->e_client->hwc_window;
         EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
-
-        video = find_video_with_surface(layer->e_client->comp_data->surface);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(video, EINA_FALSE);
 
         if (tdm_error)
           *tdm_error = TDM_ERROR_NONE;
