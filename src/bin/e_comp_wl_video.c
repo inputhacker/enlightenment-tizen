@@ -126,8 +126,7 @@ struct _E_Video
    Eina_Bool  follow_topmost_visibility;
    Eina_Bool  allowed_attribute;
 
-   Eina_Bool     waiting_video_set;
-   E_Plane_Hook *video_set_hook;
+   E_Plane_Hook *video_plane_ready_handler;
 };
 
 typedef struct _Tdm_Prop_Value
@@ -742,13 +741,15 @@ _e_video_layer_destroy(E_Video_Layer *layer)
 static Eina_Bool
 _e_video_set_layer(E_Video *video, Eina_Bool set)
 {
+   Eina_Bool need_wait;
+
    if (!set)
      {
         unsigned int usable = 1;
         if (!video->layer) return EINA_TRUE;
 
         _e_video_layer_is_usable(video->layer, &usable);
-        if (!usable && !video->waiting_video_set)
+        if (!usable && !video->video_plane_ready_handler)
           {
              VIN("stop video");
              _e_video_layer_unset_buffer(video->layer);
@@ -766,12 +767,7 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
              video->e_plane = NULL;
           }
 
-        video->waiting_video_set = EINA_FALSE;
-        if (video->video_set_hook)
-          {
-             e_plane_hook_del(video->video_set_hook);
-             video->video_set_hook = NULL;
-          }
+        E_FREE_FUNC(video->video_plane_ready_handler, e_plane_hook_del);
      }
    else
      {
@@ -801,7 +797,7 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
                   return EINA_FALSE;
                }
 
-             if (!e_plane_video_set(video->e_plane, EINA_TRUE, &video->waiting_video_set))
+             if (!e_plane_video_set(video->e_plane, EINA_TRUE, &need_wait))
                {
                   VWR("fail set video to e_plane");
                   _e_video_layer_destroy(video->layer);
@@ -809,10 +805,11 @@ _e_video_set_layer(E_Video *video, Eina_Bool set)
                   video->e_plane = NULL;
                   return EINA_FALSE;
                }
-             if (video->waiting_video_set)
+             if (need_wait)
                {
-                  if (!video->video_set_hook)
-                    video->video_set_hook = e_plane_hook_add(E_PLANE_HOOK_VIDEO_SET, _e_video_video_set_hook, video);
+                    video->video_plane_ready_handler =
+                       e_plane_hook_add(E_PLANE_HOOK_VIDEO_SET,
+                                        _e_video_video_set_hook, video);
                }
           }
 
@@ -1809,7 +1806,7 @@ _e_video_vblank_handler(tdm_output *output, unsigned int sequence,
 
    video->waiting_vblank = EINA_FALSE;
 
-   if (video->waiting_video_set) return;
+   if (video->video_plane_ready_handler) return;
 
    if (video->waiting_list)
      _e_video_commit_from_waiting_list(video);
@@ -1821,14 +1818,12 @@ _e_video_video_set_hook(void *data, E_Plane *plane)
    E_Video *video = (E_Video *)data;
 
    if (video->e_plane != plane) return;
-   if (!video->waiting_video_set) return;
-
-   video->waiting_video_set = EINA_FALSE;
-
    if (video->waiting_vblank) return;
 
    if (video->waiting_list)
      _e_video_commit_from_waiting_list(video);
+
+   E_FREE_FUNC(video->video_plane_ready_handler, e_plane_hook_del);
 }
 
 static Eina_Bool
@@ -1969,7 +1964,7 @@ _e_video_buffer_show(E_Video *video, E_Comp_Wl_Video_Buf *vbuf, unsigned int tra
    if (vbuf->comp_buffer)
      e_comp_wl_buffer_reference(&vbuf->buffer_ref, vbuf->comp_buffer);
 
-   if (video->waiting_vblank || video->waiting_video_set)
+   if (video->waiting_vblank || video->video_plane_ready_handler)
      {
         video->waiting_list = eina_list_append(video->waiting_list, vbuf);
         VDB("There are waiting fbs more than 1");
