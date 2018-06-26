@@ -235,19 +235,20 @@ _e_xdg_popup_configure_send(E_Xdg_Popup *popup)
 static void
 _e_xdg_popup_cb_resource_destroy(struct wl_resource *resource)
 {
-   E_Xdg_Surface *exsurf;
+   E_Xdg_Popup *popup;
    E_Client *ec;
 
-   exsurf = wl_resource_get_user_data(resource);
-   if (exsurf)
+   popup = wl_resource_get_user_data(resource);
+   if (!popup)
+     return;
+
+   popup->resource = NULL;
+   ec = popup->base.ec;
+   if ((ec) &&
+       (!e_object_is_del(E_OBJECT(ec))))
      {
-        ec = exsurf->ec;
-        if ((ec) &&
-            (!e_object_is_del(E_OBJECT(ec))))
-          {
-             if (ec->comp_data)
-               _e_client_xdg_shell_v6_assign(exsurf->ec, NULL, E_COMP_WL_SH_SURF_ROLE_NONE);
-          }
+        if (ec->comp_data)
+          _e_client_xdg_shell_v6_assign(popup->base.ec, NULL, E_COMP_WL_SH_SURF_ROLE_NONE);
      }
 }
 
@@ -517,19 +518,20 @@ _e_xdg_toplevel_pending_state_compare(E_Xdg_Toplevel *toplevel)
 static void
 _e_xdg_toplevel_cb_resource_destroy(struct wl_resource *resource)
 {
-   E_Xdg_Surface *exsurf;
+   E_Xdg_Toplevel *toplevel;
    E_Client *ec;
 
-   exsurf = wl_resource_get_user_data(resource);
-   if (exsurf)
+   toplevel = wl_resource_get_user_data(resource);
+   if (!toplevel)
+     return;
+
+   toplevel->resource = NULL;
+   ec = toplevel->base.ec;
+   if ((ec) &&
+       (!e_object_is_del(E_OBJECT(ec))))
      {
-        ec = exsurf->ec;
-        if ((ec) &&
-            (!e_object_is_del(E_OBJECT(ec))))
-          {
-             if (ec->comp_data)
-               _e_client_xdg_shell_v6_assign(exsurf->ec, NULL, E_COMP_WL_SH_SURF_ROLE_NONE);
-          }
+        if (ec->comp_data)
+          _e_client_xdg_shell_v6_assign(toplevel->base.ec, NULL, E_COMP_WL_SH_SURF_ROLE_NONE);
      }
 }
 
@@ -550,13 +552,7 @@ _e_xdg_toplevel_cb_parent_set(struct wl_client *client,
 
    toplevel = wl_resource_get_user_data(resource);
    if (!toplevel)
-     {
-        ERR("No E_Xdg_Toplevel data in wl_resource", NULL, NULL);
-        wl_resource_post_error(resource,
-                               WL_DISPLAY_ERROR_INVALID_OBJECT,
-                               "No E_Xdg_Toplevel data in wl_resource");
-        return;
-     }
+     return;
 
    if (res_parent)
      {
@@ -599,13 +595,7 @@ _e_xdg_toplevel_cb_title_set(struct wl_client *client,
 
    toplevel = wl_resource_get_user_data(resource);
    if (!toplevel)
-     {
-        ERR("No E_Xdg_Toplevel data in wl_resource", NULL, NULL);
-        wl_resource_post_error(resource,
-                               WL_DISPLAY_ERROR_INVALID_OBJECT,
-                               "No E_Xdg_Toplevel data in wl_resource");
-        return;
-     }
+     return;
 
    e_shell_e_client_name_title_set(toplevel->base.ec, title, title);
 }
@@ -620,13 +610,7 @@ _e_xdg_toplevel_cb_app_id_set(struct wl_client *client,
 
    toplevel = wl_resource_get_user_data(resource);
    if (!toplevel)
-     {
-        ERR("No E_Xdg_Toplevel data in wl_resource", NULL, NULL);
-        wl_resource_post_error(resource,
-                               WL_DISPLAY_ERROR_INVALID_OBJECT,
-                               "No E_Xdg_Toplevel data in wl_resource");
-        return;
-     }
+     return;
 
    ec = toplevel->base.ec;
    if (!ec)
@@ -665,13 +649,7 @@ _e_xdg_toplevel_cb_move(struct wl_client *client,
 
    toplevel = wl_resource_get_user_data(resource);
    if (!toplevel)
-     {
-        ERR("No E_Xdg_Toplevel data in wl_resource", NULL, NULL);
-        wl_resource_post_error(resource,
-                               WL_DISPLAY_ERROR_INVALID_OBJECT,
-                               "No E_Xdg_Toplevel data in wl_resource");
-        return;
-     }
+     return;
 
    if (!e_shell_e_client_interactive_move(toplevel->base.ec, res_seat))
      {
@@ -694,13 +672,7 @@ _e_xdg_toplevel_cb_resize(struct wl_client *client,
 
    toplevel = wl_resource_get_user_data(resource);
    if (!toplevel)
-     {
-        ERR("No E_Xdg_Toplevel data in wl_resource", NULL, NULL);
-        wl_resource_post_error(resource,
-                               WL_DISPLAY_ERROR_INVALID_OBJECT,
-                               "No E_Xdg_Toplevel data in wl_resource");
-        return;
-     }
+     return;
 
    if (!e_shell_e_client_interactive_resize(toplevel->base.ec, resource, res_seat, edges))
      {
@@ -722,12 +694,7 @@ _e_xdg_toplevel_cb_max_size_set(struct wl_client *client,
 
    toplevel = wl_resource_get_user_data(resource);
    if (!toplevel)
-     {
-        wl_resource_post_error(resource,
-                               WL_DISPLAY_ERROR_INVALID_OBJECT,
-                               "No data in wl_resource");
-        return;
-     }
+     return;
 
    toplevel->next.max_size.w = w;
    toplevel->next.max_size.h = h;
@@ -743,12 +710,7 @@ _e_xdg_toplevel_cb_min_size_set(struct wl_client *client,
 
    toplevel = wl_resource_get_user_data(resource);
    if (!toplevel)
-     {
-        wl_resource_post_error(resource,
-                               WL_DISPLAY_ERROR_INVALID_OBJECT,
-                               "No data in wl_resource");
-        return;
-     }
+     return;
 
    toplevel->next.min_size.w = w;
    toplevel->next.min_size.h = h;
@@ -763,13 +725,7 @@ _e_xdg_toplevel_cb_maximized_set(struct wl_client *client, struct wl_resource *r
 
    toplevel = wl_resource_get_user_data(resource);
    if (!toplevel)
-     {
-        ERR("No E_Xdg_Toplevel data in wl_resource", NULL, NULL);
-        wl_resource_post_error(resource,
-                               WL_DISPLAY_ERROR_INVALID_OBJECT,
-                               "No E_Xdg_Toplevel data in wl_resource");
-        return;
-     }
+     return;
 
    ec = toplevel->base.ec;
    if (!ec)
@@ -796,13 +752,7 @@ _e_xdg_toplevel_cb_maximized_unset(struct wl_client *client, struct wl_resource 
 
    toplevel = wl_resource_get_user_data(resource);
    if (!toplevel)
-     {
-        ERR("No E_Xdg_Toplevel data in wl_resource", NULL, NULL);
-        wl_resource_post_error(resource,
-                               WL_DISPLAY_ERROR_INVALID_OBJECT,
-                               "No E_Xdg_Toplevel data in wl_resource");
-        return;
-     }
+     return;
 
    ec = toplevel->base.ec;
    if (!ec)
@@ -828,13 +778,7 @@ _e_xdg_toplevel_cb_fullscreen_set(struct wl_client *client,
 
    toplevel = wl_resource_get_user_data(resource);
    if (!toplevel)
-     {
-        ERR("No E_Xdg_Toplevel data in wl_resource", NULL, NULL);
-        wl_resource_post_error(resource,
-                               WL_DISPLAY_ERROR_INVALID_OBJECT,
-                               "No E_Xdg_Toplevel data in wl_resource");
-        return;
-     }
+     return;
 
    ec = toplevel->base.ec;
    if (!ec)
@@ -858,13 +802,7 @@ _e_xdg_toplevel_cb_fullscreen_unset(struct wl_client *client, struct wl_resource
 
    toplevel = wl_resource_get_user_data(resource);
    if (!toplevel)
-     {
-        ERR("No E_Xdg_Toplevel data in wl_resource", NULL, NULL);
-        wl_resource_post_error(resource,
-                               WL_DISPLAY_ERROR_INVALID_OBJECT,
-                               "No E_Xdg_Toplevel data in wl_resource");
-        return;
-     }
+     return;
 
    ec = toplevel->base.ec;
    if (!ec)
@@ -888,13 +826,7 @@ _e_xdg_toplevel_cb_minimized_set(struct wl_client *client, struct wl_resource *r
 
    toplevel = wl_resource_get_user_data(resource);
    if (!toplevel)
-     {
-        ERR("No E_Xdg_Toplevel data in wl_resource", NULL, NULL);
-        wl_resource_post_error(resource,
-                               WL_DISPLAY_ERROR_INVALID_OBJECT,
-                               "No E_Xdg_Toplevel data in wl_resource");
-        return;
-     }
+     return;
 
    ec = toplevel->base.ec;
    if (!ec)
@@ -1669,6 +1601,9 @@ end:
 static void
 _e_xdg_surface_destroy(E_Xdg_Surface *exsurf)
 {
+   E_Xdg_Toplevel *toplevel;
+   E_Xdg_Popup *popup;
+
    _e_xdg_shell_surface_remove(exsurf->shell, exsurf);
 
    if (exsurf->configure_list)
@@ -1677,6 +1612,26 @@ _e_xdg_surface_destroy(E_Xdg_Surface *exsurf)
      ecore_idle_enterer_del(exsurf->configure_idle);
    if (exsurf->commit_handler)
      ecore_event_handler_del(exsurf->commit_handler);
+
+   /* Set user data of wl_resource for toplevel or popup to null.
+    * Once zxdg_surface is destroyed, using toplevel or popup interface is
+    * invalid. we also cannot access freed memory. */
+   switch (exsurf->role)
+     {
+      case E_COMP_WL_SH_SURF_ROLE_TOPLV:
+         toplevel = (E_Xdg_Toplevel *)exsurf;
+         if (toplevel->resource)
+           wl_resource_set_user_data(toplevel->resource, NULL);
+         break;
+      case E_COMP_WL_SH_SURF_ROLE_POPUP:
+         popup = (E_Xdg_Popup *)exsurf;
+         if (popup->resource)
+           wl_resource_set_user_data(popup->resource, NULL);
+         break;
+      case E_COMP_WL_SH_SURF_ROLE_NONE:
+      default:
+         break;
+     }
 
    free(exsurf);
 }
