@@ -1932,6 +1932,7 @@ _e_comp_intercept_lower(void *data, Evas_Object *obj)
    _e_comp_object_transform_obj_stack_update(obj);
 
 end:
+   e_client_focus_stack_lower(cw->ec);
    TRACE_DS_END();
 }
 
@@ -1981,8 +1982,6 @@ _e_comp_intercept_raise(void *data, Evas_Object *obj)
           }
         _e_comp_object_stack_below(obj, op);
         e_client_focus_defer_set(cw->ec);
-        if (e_client_focus_track_enabled())
-          e_client_raise_latest_set(cw->ec); //modify raise list if necessary
      }
    if (!cw->visible) goto end;
    e_comp_render_queue();
@@ -2051,24 +2050,23 @@ _e_comp_intercept_hide(void *data, Evas_Object *obj)
    /* if we have no animations running, go ahead and hide */
    cw->defer_hide = 0;
    evas_object_hide(obj);
-   if (cw->ec->zone->display_state != E_ZONE_DISPLAY_STATE_OFF)
-     e_client_focus_defer_unset(cw->ec);
 }
 
 static void
 _e_comp_intercept_show_helper(E_Comp_Object *cw)
 {
+   E_Client *ec = cw->ec;
    int w = 0, h = 0;
 
 #ifdef _F_E_COMP_OBJECT_INTERCEPT_HOOK_
-   if (!_e_comp_object_intercept_hook_call(E_COMP_OBJECT_INTERCEPT_HOOK_SHOW_HELPER, cw->ec)) return;
+   if (!_e_comp_object_intercept_hook_call(E_COMP_OBJECT_INTERCEPT_HOOK_SHOW_HELPER, ec)) return;
 #endif
 
-   if (cw->ec->sticky)
+   if (ec->sticky)
      e_comp_object_signal_emit(cw->smart_obj, "e,state,sticky", "e");
    if (cw->visible)
      {
-        if (cw->ec->iconic && cw->animating)
+        if (ec->iconic && cw->animating)
           {
              /* triggered during iconify animation */
              e_comp_object_signal_emit(cw->smart_obj, "e,action,uniconify", "e");
@@ -2079,78 +2077,78 @@ _e_comp_intercept_show_helper(E_Comp_Object *cw)
    if (cw->content_type == E_COMP_OBJECT_CONTENT_TYPE_EXT_IMAGE ||
        cw->content_type == E_COMP_OBJECT_CONTENT_TYPE_EXT_EDJE)
      {
-        evas_object_move(cw->smart_obj, cw->ec->x, cw->ec->y);
-        evas_object_resize(cw->smart_obj, cw->ec->w, cw->ec->h);
+        evas_object_move(cw->smart_obj, ec->x, ec->y);
+        evas_object_resize(cw->smart_obj, ec->w, ec->h);
         e_comp_object_frame_theme_set(cw->smart_obj, E_COMP_OBJECT_FRAME_RESHADOW);
         cw->real_hid = 0;
         evas_object_show(cw->smart_obj);
 
-        if (!cw->ec->iconic)
-          e_client_focus_defer_set(cw->ec);
+        if (!ec->iconic)
+          e_client_focus_defer_set(ec);
 
         return;
      }
-   if ((!cw->updates) && (!cw->ec->input_only) && (!cw->ec->ignored))
+   if ((!cw->updates) && (!ec->input_only) && (!ec->ignored))
      {
         int pw, ph;
 
-        pw = cw->ec->client.w, ph = cw->ec->client.h;
+        pw = ec->client.w, ph = ec->client.h;
         if ((!pw) || (!ph))
-          if (!e_pixmap_size_get(cw->ec->pixmap, &pw, &ph))
+          if (!e_pixmap_size_get(ec->pixmap, &pw, &ph))
             {
-               cw->ec->changes.visible = !cw->ec->hidden;
-               cw->ec->visible = 1;
-               EC_CHANGED(cw->ec);
+               ec->changes.visible = !ec->hidden;
+               ec->visible = 1;
+               EC_CHANGED(ec);
                return;
             }
 
         cw->updates = eina_tiler_new(pw, ph);
         if (!cw->updates)
           {
-             cw->ec->changes.visible = !cw->ec->hidden;
-             cw->ec->visible = 1;
-             EC_CHANGED(cw->ec);
+             ec->changes.visible = !ec->hidden;
+             ec->visible = 1;
+             EC_CHANGED(ec);
              return;
           }
      }
    if (cw->updates)
      eina_tiler_tile_size_set(cw->updates, 1, 1);
-   if (cw->ec->new_client)
+   if (ec->new_client)
      {
         /* ignore until client idler first run */
-        cw->ec->changes.visible = !cw->ec->hidden;
-        cw->ec->visible = 1;
-        EC_CHANGED(cw->ec);
+        ec->changes.visible = !ec->hidden;
+        ec->visible = 1;
+        EC_CHANGED(ec);
 
         return;
      }
-   if (cw->ec->input_only)
+   if (ec->input_only)
      {
         /* who cares */
         cw->real_hid = 0;
-        evas_object_move(cw->smart_obj, cw->ec->x, cw->ec->y);
-        evas_object_resize(cw->smart_obj, cw->ec->w, cw->ec->h);
+        evas_object_move(cw->smart_obj, ec->x, ec->y);
+        evas_object_resize(cw->smart_obj, ec->w, ec->h);
         evas_object_show(cw->smart_obj);
         return;
      }
    /* re-set geometry */
-   evas_object_move(cw->smart_obj, cw->ec->x, cw->ec->y);
+   evas_object_move(cw->smart_obj, ec->x, ec->y);
    /* ensure that some kind of frame calc has occurred if there's a frame */
-   if (e_pixmap_is_x(cw->ec->pixmap) && cw->frame_object &&
-       (cw->ec->h == cw->ec->client.h) && (cw->ec->w == cw->ec->client.w))
+   if (e_pixmap_is_x(ec->pixmap) && cw->frame_object &&
+       (ec->h == ec->client.h) && (ec->w == ec->client.w))
      CRI("ACK!");
    /* force resize in case it hasn't happened yet, or just to update size */
-   evas_object_resize(cw->smart_obj, cw->ec->w, cw->ec->h);
+   evas_object_resize(cw->smart_obj, ec->w, ec->h);
    if ((cw->w < 1) || (cw->h < 1))
      {
         /* if resize didn't go through, try again */
-        cw->ec->visible = cw->ec->changes.visible = 1;
-        EC_CHANGED(cw->ec);
+        ec->visible = ec->changes.visible = 1;
+        EC_CHANGED(ec);
         return;
      }
    /* if pixmap not available, clear pixmap since we're going to fetch it again */
-   if (!e_pixmap_size_get(cw->ec->pixmap, &w, &h))
-     e_pixmap_clear(cw->ec->pixmap);
+   if (!e_pixmap_size_get(ec->pixmap, &w, &h))
+     e_pixmap_clear(ec->pixmap);
 
    if (cw->real_hid && w && h)
      {
@@ -2162,20 +2160,22 @@ _e_comp_intercept_show_helper(E_Comp_Object *cw)
    /* only do the show if show is allowed */
    if (!cw->real_hid)
      {
-        if (cw->ec->internal) //internal clients render when they feel like it
+        if (ec->internal) //internal clients render when they feel like it
           e_comp_object_damage(cw->smart_obj, 0, 0, cw->w, cw->h);
 
-        if (!cw->ec->exp_iconify.by_client ||
-            e_policy_visibility_client_is_uniconic(cw->ec))
-          evas_object_show(cw->smart_obj);
-        if (!cw->ec->iconic ||
-            e_policy_visibility_client_is_uniconic(cw->ec))
+        if (!ec->exp_iconify.by_client ||
+            e_policy_visibility_client_is_uniconic(ec))
           {
-             if (cw->ec->exp_iconify.not_raise &&
-                 e_client_check_above_focused(cw->ec))
-               e_client_focus_latest_set(cw->ec);
-             else
-               e_client_focus_defer_set(cw->ec);
+             evas_object_show(cw->smart_obj);
+             if (!ec->iconic ||
+                 e_policy_visibility_client_is_uniconic(ec))
+               {
+                  if (ec->exp_iconify.not_raise &&
+                      e_client_check_above_focused(ec))
+                    e_client_focus_latest_set(ec);
+                  else
+                    e_client_focus_defer_set(ec);
+               }
           }
      }
 }
@@ -2857,7 +2857,11 @@ _e_comp_smart_hide(Evas_Object *obj)
      }
    /* ensure focus-out */
    if (cw->ec->focused)
-     evas_object_focus_set(cw->ec->frame, 0);
+     {
+        ELOGF("FOCUS", "focus unset | smart_hide", NULL, cw->ec);
+        evas_object_focus_set(cw->ec->frame, 0);
+        e_client_focus_defer_unset(cw->ec);
+     }
    e_comp_render_queue(); //force nocomp recheck
 
    TRACE_DS_END();

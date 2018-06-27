@@ -49,7 +49,6 @@ static E_Client *action_client = NULL;
 static E_Drag *client_drag = NULL;
 
 static Eina_List *focus_stack = NULL;
-static Eina_List *raise_stack = NULL;
 static Eina_List *defer_focus_stack = NULL;
 
 static Eina_Bool comp_grabbed = EINA_FALSE;
@@ -65,6 +64,7 @@ static Eina_Rectangle action_orig = {0, 0, 0, 0};
 static E_Client_Layout_Cb _e_client_layout_cb = NULL;
 
 static Eina_Bool _e_calc_visibility = EINA_FALSE;
+static Eina_Bool _e_visibility_changed = EINA_FALSE;
 
 EINTERN void e_client_focused_set(E_Client *ec);
 
@@ -250,6 +250,7 @@ cleanup:
         
         if (!warp_client->lock_focus_out)
           {
+             ELOGF("FOCUS", "focus set | pointer_warp_to_center", NULL, warp_client);
              evas_object_focus_set(warp_client->frame, 1);
              e_client_focus_latest_set(warp_client);
           }
@@ -738,52 +739,6 @@ _e_client_transform_move_end(E_Client *ec)
 }
 
 static E_Client *
-_e_client_find_focus_same_layer(E_Client *ec)
-{
-   E_Client *temp_ec;
-   int zone_w, zone_h;
-   int x = 0, y = 0, w = 0, h = 0;
-   E_Zone *zone = NULL;
-   unsigned int id;
-
-   zone = ec->zone;
-   if (!zone) return NULL;
-
-   zone_w = zone->w;
-   zone_h = zone->h;
-
-   id = e_comp_canvas_layer_map(ec->layer);
-   if (id >= E_LAYER_COUNT) return NULL;
-   if (!e_comp->layers[id].clients) return NULL;
-
-   EINA_INLIST_REVERSE_FOREACH(e_comp->layers[id].clients, temp_ec)
-     {
-        if (temp_ec == ec) continue;
-        if (e_object_is_del(E_OBJECT(temp_ec))) continue;
-        if (e_client_util_ignored_get(temp_ec)) continue;
-        if (!temp_ec->frame) continue;
-        if (!temp_ec->first_mapped) continue;
-
-        e_client_geometry_get(temp_ec, &x, &y, &w, &h);
-        if ((x >= zone_w) || (y >= zone_h)) continue;
-        if (((x + w) <= 0) || ((y + h) <= 0)) continue;
-
-        if ((!temp_ec->iconic) && (temp_ec->desk == ec->desk) &&
-            (temp_ec->icccm.accepts_focus || temp_ec->icccm.take_focus) &&
-            (temp_ec->netwm.type != E_WINDOW_TYPE_DOCK) &&
-            (temp_ec->netwm.type != E_WINDOW_TYPE_TOOLBAR) &&
-            (temp_ec->netwm.type != E_WINDOW_TYPE_MENU) &&
-            (temp_ec->netwm.type != E_WINDOW_TYPE_SPLASH) &&
-            (temp_ec->netwm.type != E_WINDOW_TYPE_DESKTOP))
-          {
-             return temp_ec;
-          }
-     }
-
-   return NULL;
-}
-
-static E_Client *
 _e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
 {
    E_Client *above = NULL;
@@ -829,65 +784,100 @@ _e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
    return above;
 }
 
-static void
-_e_client_find_next_focus(E_Client *ec)
+static Eina_Bool
+_e_client_focus_can_take(E_Client *ec)
 {
-   E_Client *next_focus = NULL;
+   if (!ec) return EINA_FALSE;
+   if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
+   if (e_client_util_ignored_get(ec)) return EINA_FALSE;
+   if (!(ec->icccm.accepts_focus || ec->icccm.take_focus)) return EINA_FALSE;
+   if (ec->lock_focus_in || ec->lock_focus_out) return EINA_FALSE;
+   if (!ec->visible) return EINA_FALSE;
+   if (ec->visibility.obscured != E_VISIBILITY_UNOBSCURED)
+     {
+        if (ec->iconic && e_policy_visibility_client_is_iconic(ec))
+          return EINA_FALSE;
+        if (ec->visibility.obscured == E_VISIBILITY_UNKNOWN)
+          return EINA_FALSE;
+     }
+   if (_e_client_check_fully_contain_by_above(ec, EINA_FALSE)) return EINA_FALSE;
 
-   if (!ec) return;
-
-   if (!_e_client_intercept_hook_call(E_CLIENT_INTERCEPT_HOOK_FOCUS_REVERT, ec))
-     return;
-
-   if (_e_client_check_fully_contain_by_above(ec, EINA_TRUE))
-     return;
-
-   next_focus = _e_client_find_focus_same_layer(ec);
-   if (next_focus)
-     evas_object_focus_set(next_focus->frame, 1);
+   return EINA_TRUE;
 }
 
-static void
-_e_client_revert_focus(E_Client *ec)
+static E_Client *
+_e_client_find_next_focus(E_Client *ec)
 {
-   E_Client *pec;
-   E_Desk *desk;
+   Eina_List *l = NULL;
+   E_Client *temp_ec = NULL;
 
-   if (stopping) return;
-   if (!ec->focused) return;
-   if (!ec->zone) return;
+   // intercept revert focus policy
+   if (ec && !_e_client_intercept_hook_call(E_CLIENT_INTERCEPT_HOOK_FOCUS_REVERT, ec))
+     return NULL;
+
+   EINA_LIST_FOREACH(focus_stack, l, temp_ec)
+     {
+        if (_e_client_focus_can_take(temp_ec))
+          return temp_ec;
+     }
+
+   return NULL;
+}
+
+static E_Client *
+_e_client_revert_focus_get(E_Client *ec)
+{
+   E_Client *pec = NULL, *focus_ec = NULL;
+   E_Desk *desk = NULL;
+
+   if (stopping) return NULL;
+   if (!ec)
+     return _e_client_find_next_focus(NULL);
+
+   if (!ec->zone) return NULL;
    desk = e_desk_current_get(ec->zone);
-   if (!desk) return;
-   if (ec->desk == desk)
-     evas_object_focus_set(ec->frame, 0);
+   if (!desk) return NULL;
+   if (ec->zone->display_state == E_ZONE_DISPLAY_STATE_OFF) return NULL;
 
    if ((ec->parent) &&
        (ec->parent->desk == desk) && (ec->parent->modal == ec))
      {
-        evas_object_focus_set(ec->parent->frame, 1);
+        // set parent focus
+        focus_ec = ec->parent;
         if (e_config->raise_on_revert_focus)
           evas_object_raise(ec->parent->frame);
      }
    else if (e_config->focus_policy == E_FOCUS_MOUSE)
      {
+        // set mouse over focus
         pec = e_client_under_pointer_get(desk, ec);
         if (pec)
-          evas_object_focus_set(pec->frame, 1);
+          focus_ec = pec;
         /* no autoraise/revert here because it's probably annoying */
      }
    else
-     {
-        if (ec->zone->display_state != E_ZONE_DISPLAY_STATE_OFF)
-          {
-             _e_client_find_next_focus(ec);
-          }
-     }
+     focus_ec = _e_client_find_next_focus(ec);
+
+   return focus_ec;
 }
 
 EINTERN void
 e_client_revert_focus(E_Client *ec)
 {
-   _e_client_revert_focus(ec);
+   E_Client *focus_ec = NULL;
+   focus_ec = _e_client_revert_focus_get(ec);
+
+   if (focus_ec)
+     {
+        if (focus_ec != ec)
+          {
+             e_client_focus_defer_unset(ec);
+             ELOGF("FOCUS", "focus unset | revert_focus", NULL, ec);
+             evas_object_focus_set(ec->frame, EINA_FALSE);
+          }
+        ELOGF("FOCUS", "focus set | revert_focus", NULL, focus_ec);
+        evas_object_focus_set(focus_ec->frame, EINA_TRUE);
+     }
 }
 
 EINTERN Eina_Bool
@@ -1002,7 +992,6 @@ _e_client_free(E_Client *ec)
    eina_stringshare_replace(&ec->internal_icon_key, NULL);
 
    focus_stack = eina_list_remove(focus_stack, ec);
-   raise_stack = eina_list_remove(raise_stack, ec);
    defer_focus_stack = eina_list_remove(defer_focus_stack, ec);
 
    if (ec->e.state.profile.wait_desk)
@@ -1032,7 +1021,6 @@ _e_client_del(E_Client *ec)
 
    ec->changed = 0;
    focus_stack = eina_list_remove(focus_stack, ec);
-   raise_stack = eina_list_remove(raise_stack, ec);
    defer_focus_stack = eina_list_remove(defer_focus_stack, ec);
 
    if (ec == e_comp_object_dim_client_get())
@@ -1072,8 +1060,7 @@ _e_client_del(E_Client *ec)
      evas_object_hide(ec->internal_elm_win);
 
    if (ec->focused)
-     _e_client_revert_focus(ec);
-   evas_object_focus_set(ec->frame, 0);
+     e_client_revert_focus(ec);
 
    E_FREE_FUNC(ec->ping_poller, ecore_poller_del);
    /* must be called before parent/child clear */
@@ -1826,7 +1813,10 @@ _e_client_reset_lost_window(E_Client *ec)
 
    evas_object_raise(ec->frame);
    if (!ec->lock_focus_out)
-     evas_object_focus_set(ec->frame, 1);
+     {
+        ELOGF("FOCUS", "focus set | reset_lost_window", NULL, ec);
+        evas_object_focus_set(ec->frame, 1);
+     }
 
    e_client_pointer_warp_to_center(ec);
    ec->during_lost = EINA_FALSE;
@@ -1895,11 +1885,6 @@ _e_client_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
      }
    if (action_client == ec) _e_client_action_finish();
 
-   if (!ec->hidden)
-     {
-        if (ec->focused)
-          _e_client_revert_focus(ec);
-     }
    ec->want_focus = ec->take_focus = 0;
 
    ec->post_show = 0;
@@ -1971,7 +1956,7 @@ _e_client_cb_evas_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
         if (!E_INTERSECTS(ec->x, ec->y, ec->w, ec->h,
                           ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
           {
-             _e_client_revert_focus(ec);
+             e_client_revert_focus(ec);
           }
      }
 
@@ -2644,6 +2629,7 @@ _e_client_eval(E_Client *ec)
                   ec->cur_mouse_action->func.go(E_OBJECT(ec), NULL);
                   if (e_config->border_raise_on_mouse_action)
                     evas_object_raise(ec->frame);
+                  ELOGF("FOCUS", "focus set | client eval", NULL, ec);
                   evas_object_focus_set(ec->frame, 1);
                }
              ec->changes.visible = 0;
@@ -2738,10 +2724,9 @@ _e_client_eval(E_Client *ec)
      {
         if ((!ec->icccm.accepts_focus) && (!ec->icccm.take_focus))
           {
-             if (ec->focused)
-               _e_client_revert_focus(ec);
+             if (!ec->focused)
+               ec->changes.accepts_focus = 0;
           }
-        ec->changes.accepts_focus = 0;
      }
 
    if (send_event && prop)
@@ -2891,50 +2876,6 @@ _e_client_transform_sub_apply(E_Client *ec, E_Client *epc, double zoom)
 }
 
 static void
-_e_client_latest_stacked_focus_set(void)
-{
-   E_Client *temp_ec = NULL;
-   E_Client *focus_ec = NULL;
-   E_Zone *zone;
-
-   int zone_w, zone_h;
-   int x = 0, y = 0, w = 0, h = 0;
-   Eina_List *l = NULL;
-
-   zone = e_zone_current_get();
-   if (!zone) return;
-
-   zone_w = zone->w;
-   zone_h = zone->h;
-
-   EINA_LIST_FOREACH(focus_stack, l, temp_ec)
-     {
-        if (e_object_is_del(E_OBJECT(temp_ec))) continue;
-        if (!temp_ec->frame) continue;
-        e_client_geometry_get(temp_ec, &x, &y, &w, &h);
-
-        if ((x >= zone_w) || (y >= zone_h)) continue;
-        if (((x + w) <= 0) || ((y + h) <= 0)) continue;
-
-        if ((!temp_ec->iconic) &&
-            (evas_object_visible_get(temp_ec->frame) || temp_ec->changes.visible) &&
-            (temp_ec->icccm.accepts_focus || temp_ec->icccm.take_focus) &&
-            (temp_ec->netwm.type != E_WINDOW_TYPE_DOCK) &&
-            (temp_ec->netwm.type != E_WINDOW_TYPE_TOOLBAR) &&
-            (temp_ec->netwm.type != E_WINDOW_TYPE_MENU) &&
-            (temp_ec->netwm.type != E_WINDOW_TYPE_SPLASH) &&
-            (temp_ec->netwm.type != E_WINDOW_TYPE_DESKTOP))
-          {
-             focus_ec = temp_ec;
-             break;
-          }
-     }
-
-   if (focus_ec)
-     evas_object_focus_set(focus_ec->frame, 1);
-}
-
-static void
 _e_client_transient_for_group_make(E_Client *ec, Eina_List **list)
 {
    E_Client *child;
@@ -3051,14 +2992,9 @@ _e_client_visibility_touched_check(E_Client *ec)
 }
 
 static void
-_e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
+_e_client_visibility_zone_calculate(E_Zone *zone)
 {
    E_Client *ec;
-   E_Client *focus_ec = NULL;
-   E_Client *cur_focused_ec = NULL;
-   E_Client *top_vis_full_ec = NULL;
-   Eina_Bool top_vis_full_ec_vis_changed = EINA_FALSE;
-   Eina_Bool find_top_vis_ec = EINA_FALSE;
 
    Eina_Tiler *t;
    Eina_Rectangle r, *_r;
@@ -3075,7 +3011,6 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
    const int edge = 1;
    E_Comp_Wl_Client_Data *cdata;
    Eina_List *changed_list = NULL;
-   Eina_List *latest_focus_list = NULL;
    Eina_List *l = NULL;
    Eina_Bool effect_running = EINA_FALSE;
    Eina_Bool ec_frame_visible = EINA_FALSE;
@@ -3310,96 +3245,142 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
                             e_comp_wl_touch_cancel();
                          }
                     }
-                  if (!find_top_vis_ec)
-                    {
-                       find_top_vis_ec = EINA_TRUE;
-                       if ((!ec->iconic) &&
-                           (ec->icccm.accepts_focus || ec->icccm.take_focus))
-                         {
-                            e_client_geometry_get(ec, &x, &y, &w, &h);
-                            if (E_CONTAINS(x, y, w, h, zone->x, zone->y, zone->w, zone->h))
-                              {
-                                 top_vis_full_ec = ec;
-                                 top_vis_full_ec_vis_changed = ec->visibility.changed;
-                              }
-                         }
-                    }
                }
 
              ec->visibility.changed = 0;
-
-             if (zone->display_state != E_ZONE_DISPLAY_STATE_OFF)
-               {
-                  if (eina_list_data_find(defer_focus_stack, ec))
-                    {
-                       if ((ec->visibility.obscured == E_VISIBILITY_UNOBSCURED) &&
-                           ((ec->icccm.accepts_focus) || (ec->icccm.take_focus)))
-                         {
-                            if (!focus_ec)
-                              {
-                                 E_Client *obscured_above = NULL;
-                                 obscured_above = _e_client_check_fully_contain_by_above(ec, EINA_FALSE);
-                                 if (!obscured_above)
-                                   {
-                                      focus_ec = ec;
-                                      evas_object_focus_set(ec->frame, 1);
-                                   }
-                                 else
-                                   {
-                                      latest_focus_list = eina_list_append(latest_focus_list, ec);
-                                      if (obscured_above == e_client_focused_get())
-                                        {
-                                           latest_focus_list = eina_list_remove(latest_focus_list, obscured_above);
-                                           latest_focus_list = eina_list_prepend(latest_focus_list, obscured_above);
-                                        }
-                                   }
-                              }
-                         }
-                       e_client_focus_defer_unset(ec);
-                    }
-               }
+             _e_visibility_changed = 1;
           }
-        eina_list_free(changed_list);
-        changed_list = NULL;
      }
-
-   if (latest_focus_list)
-     {
-        EINA_LIST_REVERSE_FOREACH(latest_focus_list, l, ec)
-          e_client_focus_latest_set(ec);
-
-        eina_list_free(latest_focus_list);
-     }
-
    eina_tiler_free(t);
+   TRACE_DS_END();
+}
 
-   if (zone->display_state != E_ZONE_DISPLAY_STATE_OFF)
+static void
+_e_client_merge_focus_stack_with_defer_focus(void)
+{
+   Eina_List *l = NULL;
+   E_Client *ec = NULL, *defer_ec = NULL;
+   Eina_Bool find_rel = EINA_FALSE;
+   Eina_Bool inserted = EINA_FALSE;
+
+   if (focus_track_frozen > 0) return;
+
+   if (!focus_stack)
      {
-        if (!focus_ec)
+        focus_stack = eina_list_merge(focus_stack, defer_focus_stack);
+        goto end;
+     }
+
+   E_CLIENT_REVERSE_FOREACH(defer_ec)
+     {
+        if (!eina_list_data_find(defer_focus_stack, defer_ec)) continue;
+
+        find_rel = EINA_FALSE;
+        inserted = EINA_FALSE;
+        focus_stack = eina_list_remove(focus_stack, defer_ec);
+
+        EINA_LIST_FOREACH(focus_stack, l, ec)
           {
-             cur_focused_ec = e_client_focused_get();
-             if (top_vis_full_ec)
+             if (ec == NULL) continue;
+
+             if (!find_rel)
                {
-                  if (top_vis_full_ec != cur_focused_ec)
-                    {
-                       if (!cur_focused_ec)
-                         evas_object_focus_set(top_vis_full_ec->frame, 1);
-                       else
-                         {
-                            if (top_vis_full_ec_vis_changed || check_focus)
-                              evas_object_focus_set(top_vis_full_ec->frame, 1);
-                         }
-                    }
+                  if (ec == focused)
+                    find_rel = EINA_TRUE;
+                  continue;
                }
-             else
-               {
-                  if (!cur_focused_ec)
-                    _e_client_latest_stacked_focus_set();
-               }
+
+             if (ec->layer > defer_ec->layer) continue;
+
+             focus_stack = eina_list_prepend_relative_list(focus_stack, defer_ec, l);
+             inserted = EINA_TRUE;
+             break;
+          }
+
+        if (!inserted)
+          focus_stack = eina_list_append(focus_stack, defer_ec);
+     }
+
+end:
+   defer_focus_stack = eina_list_free(defer_focus_stack);
+   return;
+}
+
+static void
+_e_client_focus_calculate(E_Zone *zone)
+{
+   E_Client *defered_focus_ec = NULL, *reverted_focus_ec = NULL;
+   E_Client *ec = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(zone);
+   if (zone->display_state == E_ZONE_DISPLAY_STATE_OFF) return;
+
+   if ((!focused) ||
+       (focused != eina_list_data_get(focus_stack)) ||
+       (!_e_client_focus_can_take(focused)))
+     {
+        reverted_focus_ec = _e_client_revert_focus_get(focused);
+        if (!reverted_focus_ec && focused)
+          {
+             e_client_focus_defer_unset(focused);
+             ELOGF("FOCUS", "focus unset | focus calculate", NULL, focused);
+             evas_object_focus_set(focused->frame, EINA_FALSE);
           }
      }
 
-   TRACE_DS_END();
+   E_CLIENT_REVERSE_FOREACH(ec)
+     {
+        if (!eina_list_data_find(defer_focus_stack, ec)) continue;
+
+        if (!ec) continue;
+        if (e_object_is_del(E_OBJECT(ec))) continue;
+        if (e_client_util_ignored_get(ec)) continue;
+        if (ec->zone != zone) continue;
+        if (!e_desk_current_get(ec->zone)) continue;
+        if (ec->desk != e_desk_current_get(ec->zone)) continue;
+
+        if (!(ec->icccm.accepts_focus || ec->icccm.take_focus)) continue;
+        if (ec->lock_focus_in || ec->lock_focus_out) continue;
+        if (!evas_object_visible_get(ec->frame)) continue;
+        if (ec->iconic) continue;
+        if (ec->visibility.obscured != E_VISIBILITY_UNOBSCURED) continue;
+        if (_e_client_check_fully_contain_by_above(ec, EINA_FALSE)) continue;
+
+        if (focused && (focused->layer > ec->layer)) continue;
+        else if (!focused && reverted_focus_ec && (reverted_focus_ec->layer > ec->layer)) continue;
+
+        defered_focus_ec = ec;
+        break;
+     }
+
+   if (defered_focus_ec)
+     {
+        if (defered_focus_ec != focused)
+          {
+             ELOGF("FOCUS", "focus set | defer_focus", NULL, defered_focus_ec);
+             if (focused)
+               e_client_focus_defer_unset(focused);
+             evas_object_focus_set(defered_focus_ec->frame, EINA_TRUE);
+          }
+
+        e_client_focus_defer_unset(defered_focus_ec);
+
+        _e_client_merge_focus_stack_with_defer_focus();
+     }
+   else if(reverted_focus_ec)
+     {
+        if (reverted_focus_ec != focused)
+          {
+             ELOGF("FOCUS", "focus set | revert_focus", NULL, reverted_focus_ec);
+             if (focused)
+               e_client_focus_defer_unset(focused);
+             evas_object_focus_set(reverted_focus_ec->frame, EINA_TRUE);
+          }
+
+        e_client_focus_defer_unset(reverted_focus_ec);
+     }
+
+   return;
 }
 
 static Eina_Bool
@@ -3755,9 +3736,10 @@ e_client_idler_before(void)
         if (ec->changed)
           {
              _e_client_eval(ec);
-             if (ec->icccm.accepts_focus || ec->icccm.take_focus)
-               check_focus = EINA_TRUE;
              e_client_visibility_calculate();
+             if (ec->changes.accepts_focus)
+               check_focus = EINA_TRUE;
+             ec->changes.accepts_focus = 0;
           }
 
         if ((ec->changes.visible) && (ec->visible) && (!ec->changed))
@@ -3769,17 +3751,26 @@ e_client_idler_before(void)
           }
      }
 
-   if (_e_calc_visibility &&
-      (e_comp_canvas_norender_get() <= 0))
+   if (e_comp_canvas_norender_get() <= 0)
      {
         E_Zone *zone;
         Eina_List *zl;
         EINA_LIST_FOREACH(e_comp->zones, zl, zone)
           {
-             _e_client_visibility_zone_calculate(zone, check_focus);
+             if (_e_calc_visibility)
+               _e_client_visibility_zone_calculate(zone);
+             if (check_focus ||
+                 (focused == NULL) ||
+                 (_e_calc_visibility && (defer_focus_stack != NULL)) ||
+                 (_e_visibility_changed))
+               {
+                  _e_client_focus_calculate(zone);
+               }
           }
         _e_calc_visibility = EINA_FALSE;
+        _e_visibility_changed = 0;
      }
+
 
    TRACE_DS_END();
 }
@@ -3847,13 +3838,6 @@ e_client_unignore(E_Client *ec)
    if (!ec->ignored) return;
 
    ec->ignored = 0;
-   if (!e_client_util_ignored_get(ec))
-     {
-        if (starting)
-          focus_stack = eina_list_prepend(focus_stack, ec);
-        else
-          focus_stack = eina_list_append(focus_stack, ec);
-     }
    _e_client_event_simple(ec, E_EVENT_CLIENT_ADD);
 }
 
@@ -4002,13 +3986,6 @@ e_client_new(E_Pixmap *cp, int first_map, int internal)
           evas_object_layer_set(ec->frame, E_LAYER_CLIENT_ABOVE);
         else
           evas_object_layer_set(ec->frame, E_LAYER_CLIENT_NORMAL);
-     }
-   if (!e_client_util_ignored_get(ec))
-     {
-        if (starting)
-          focus_stack = eina_list_prepend(focus_stack, ec);
-        else
-          focus_stack = eina_list_append(focus_stack, ec);
      }
 
 #ifdef _F_E_CLIENT_NEW_CLIENT_POST_HOOK_
@@ -4851,27 +4828,45 @@ e_client_intercept_hook_del(E_Client_Intercept_Hook *ch)
      _e_client_intercept_hooks_delete++;
 }
 
+EINTERN void
+e_client_focus_stack_lower(E_Client *ec)
+{
+   Eina_List *l = NULL;
+   E_Client *ec2 = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+   if (focus_track_frozen > 0) return;
+
+   focus_stack = eina_list_remove(focus_stack, ec);
+
+   EINA_LIST_REVERSE_FOREACH(focus_stack, l, ec2)
+     {
+        if (ec2 == NULL) continue;
+        if (ec2->layer < ec->layer) continue;
+
+        focus_stack = eina_list_append_relative_list(focus_stack, ec, l);
+        return;
+     }
+
+   focus_stack = eina_list_prepend(focus_stack, ec);
+   return;
+}
+
 E_API void
 e_client_focus_latest_set(E_Client *ec)
 {
-   if (!ec) CRI("ACK");
+   EINA_SAFETY_ON_NULL_RETURN(ec);
    if (focus_track_frozen > 0) return;
+
    focus_stack = eina_list_remove(focus_stack, ec);
    focus_stack = eina_list_prepend(focus_stack, ec);
 }
 
 E_API void
-e_client_raise_latest_set(E_Client *ec)
-{
-   if (!ec) CRI("ACK");
-   raise_stack = eina_list_remove(raise_stack, ec);
-   raise_stack = eina_list_prepend(raise_stack, ec);
-}
-
-E_API void
 e_client_focus_defer_set(E_Client *ec)
 {
-   if (!ec) CRI("ACK");
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
    defer_focus_stack = eina_list_remove(defer_focus_stack, ec);
    defer_focus_stack = eina_list_prepend(defer_focus_stack, ec);
 }
@@ -4879,7 +4874,8 @@ e_client_focus_defer_set(E_Client *ec)
 E_API void
 e_client_focus_defer_unset(E_Client *ec)
 {
-   if (!ec) CRI("ACK");
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
    defer_focus_stack = eina_list_remove(defer_focus_stack, ec);
 }
 
@@ -4912,6 +4908,7 @@ e_client_refocus(void)
      if (ec->desk && ec->desk->visible && (!ec->iconic))
        {
           if (e_comp->input_key_grabs || e_comp->input_mouse_grabs) break;
+          ELOGF("FOCUS", "focus set | refocus", NULL, ec);
           evas_object_focus_set(ec->frame, 1);
           break;
        }
@@ -4958,6 +4955,7 @@ e_client_focus_set_with_pointer(E_Client *ec)
    if (ec == focused) return;
 
    TRACE_DS_BEGIN(CLIENT:FOCUS SET WITH POINTER);
+   ELOGF("FOCUS", "focus set | focus with pointer", NULL, ec);
    evas_object_focus_set(ec->frame, 1);
 
    if (e_config->focus_policy == E_FOCUS_CLICK)
@@ -5049,6 +5047,8 @@ e_client_focused_set(E_Client *ec)
              _e_client_event_simple(ec_unfocus, E_EVENT_CLIENT_FOCUS_OUT);
              e_client_urgent_set(ec_unfocus, ec_unfocus->icccm.urgent);
           }
+
+        e_client_focus_defer_unset(ec_unfocus);
         break;
      }
    if (!ec)
@@ -5120,7 +5120,18 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
 
              obscured_above = _e_client_check_fully_contain_by_above(focus_ec, EINA_FALSE);
              if (!obscured_above)
-               evas_object_focus_set(focus_ec->frame, 1);
+               {
+                  if (!e_policy_visibility_client_is_uniconic(ec))
+                    {
+                       e_client_focus_defer_set(focus_ec);
+                       e_client_focus_latest_set(focus_ec);
+                    }
+                  else
+                    {
+                       ELOGF("FOCUS", "focus set | client activate", NULL, ec);
+                       evas_object_focus_set(focus_ec->frame, 1);
+                    }
+               }
              else
                {
                   e_client_focus_defer_set(focus_ec);
@@ -5148,12 +5159,6 @@ YOLO E_API void
 e_client_focus_stack_set(Eina_List *l)
 {
    focus_stack = l;
-}
-
-E_API Eina_List *
-e_client_raise_stack_get(void)
-{
-   return raise_stack;
 }
 
 E_API Eina_List *
@@ -5558,10 +5563,6 @@ e_client_iconify(E_Client *ec)
    if (ec->fullscreen)
      ec->desk->fullscreen_clients = eina_list_remove(ec->desk->fullscreen_clients, ec);
    e_client_comp_hidden_set(ec, 1);
-   if (!ec->new_client)
-     {
-        _e_client_revert_focus(ec);
-     }
    evas_object_hide(ec->frame);
    e_client_urgent_set(ec, ec->icccm.urgent);
 

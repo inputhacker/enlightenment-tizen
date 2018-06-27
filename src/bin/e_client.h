@@ -1047,8 +1047,8 @@ E_API E_Client_Hook *e_client_hook_add(E_Client_Hook_Point hookpoint, E_Client_H
 E_API void e_client_hook_del(E_Client_Hook *ch);
 E_API E_Client_Intercept_Hook *e_client_intercept_hook_add(E_Client_Intercept_Hook_Point hookpoint, E_Client_Intercept_Hook_Cb func, const void *data);
 E_API void e_client_intercept_hook_del(E_Client_Intercept_Hook *ch);
+EINTERN void e_client_focus_stack_lower(E_Client *ec);
 E_API void e_client_focus_latest_set(E_Client *ec);
-E_API void e_client_raise_latest_set(E_Client *ec);
 E_API void e_client_focus_defer_set(E_Client *ec);
 E_API void e_client_focus_defer_unset(E_Client *ec);
 E_API Eina_Bool e_client_focus_track_enabled(void);
@@ -1059,7 +1059,6 @@ E_API void e_client_focus_set_with_pointer(E_Client *ec);
 E_API void e_client_activate(E_Client *ec, Eina_Bool just_do_it);
 E_API E_Client *e_client_focused_get(void);
 E_API Eina_List *e_client_focus_stack_get(void);
-E_API Eina_List *e_client_raise_stack_get(void);
 E_API Eina_List *e_client_lost_windows_get(E_Zone *zone);
 E_API void e_client_shade(E_Client *ec, E_Direction dir);
 E_API void e_client_unshade(E_Client *ec, E_Direction dir);
