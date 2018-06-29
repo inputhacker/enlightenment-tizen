@@ -78,6 +78,9 @@ struct _E_Hwc
    Eina_Bool             pp_output_commit;
    E_Hwc_Window_Commit_Data  *pp_output_commit_data;
    Eina_Rectangle        pp_rect;
+
+
+   Eina_List            *hwc_window_queues;
 };
 
 EINTERN E_Hwc        *e_hwc_new(E_Output *output);

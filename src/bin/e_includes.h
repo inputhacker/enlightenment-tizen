@@ -55,6 +55,7 @@
 #include "e_hwc_planes.h"
 #include "e_hwc_windows.h"
 #include "e_hwc_window.h"
+#include "e_hwc_window_queue.h"
 #include "e_comp_wl.h"
 #include "e_comp_wl_data.h"
 #include "e_comp_wl_input.h"

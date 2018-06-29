@@ -92,7 +92,8 @@ src/bin/e_comp_wl.h \
 src/bin/e_hwc.h \
 src/bin/e_hwc_planes.h \
 src/bin/e_hwc_windows.h \
-src/bin/e_hwc_window.h
+src/bin/e_hwc_window.h \
+src/bin/e_hwc_window_queue.h
 
 if HAVE_WAYLAND_TBM
 ENLIGHTENMENTHEADERS += \
@@ -196,6 +197,7 @@ src/bin/e_hwc.c \
 src/bin/e_hwc_planes.c \
 src/bin/e_hwc_windows.c \
 src/bin/e_hwc_window.c \
+src/bin/e_hwc_window_queue.c \
 $(ENLIGHTENMENTHEADERS)
 
 if HAVE_WAYLAND_TBM
