@@ -3330,6 +3330,14 @@ _e_client_transform_core_check_change(E_Client *ec)
    if (ec->frame)
      evas_object_geometry_get(ec->frame, 0, 0, &w, &h);
 
+   if ((ec->transform_core.transform_list) &&
+       (ec->comp_data && ec->comp_data->sub.below_obj))
+     {
+        Evas_Map *map_ = evas_object_map_get(ec->comp_data->sub.below_obj);
+        if (!map_)
+          check = EINA_TRUE;
+     }
+
    // check client position or size change
    if (ec->x != ec->transform_core.backup.client_x ||
        ec->y != ec->transform_core.backup.client_y ||

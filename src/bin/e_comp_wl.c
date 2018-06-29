@@ -3600,6 +3600,8 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
 
         if (evas_object_visible_get(ec->frame))
           evas_object_show(ec->comp_data->sub.below_obj);
+
+        e_client_transform_core_update(ec);
      }
 }
 
