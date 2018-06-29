@@ -898,6 +898,12 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
                {
                   if (!E_CONTAINS(ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h, ec->x, ec->y, ec->w, ec->h))
                     {
+                       if (ec->visibility.last_sent_type == E_VISIBILITY_PRE_UNOBSCURED)
+                         {
+                            ELOGF("POL_VIS", "SEND unobscured/fully-obscured visibility event because iconify visibility", ec->pixmap, ec);
+                            e_policy_wl_visibility_send(ec, E_VISIBILITY_UNOBSCURED);
+                            e_policy_wl_visibility_send(ec, E_VISIBILITY_FULLY_OBSCURED);
+                         }
                        e_policy_client_iconify_by_visibility(ec);
                        return;
                     }
@@ -935,6 +941,12 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
                     }
                   else
                     {
+                       if (ec->visibility.last_sent_type == E_VISIBILITY_PRE_UNOBSCURED)
+                         {
+                            ELOGF("POL_VIS", "SEND unobscured/fully-obscured visibility event because iconify visibility", ec->pixmap, ec);
+                            e_policy_wl_visibility_send(ec, E_VISIBILITY_UNOBSCURED);
+                            e_policy_wl_visibility_send(ec, E_VISIBILITY_FULLY_OBSCURED);
+                         }
                        e_policy_client_iconify_by_visibility(ec);
                     }
                }
