@@ -1381,3 +1381,25 @@ e_input_evdev_touch_calibration_set(E_Input_Evdev *edev, float matrix[6])
    return EINA_TRUE;
 }
 
+EAPI Eina_Bool
+e_input_evdev_mouse_accel_speed_set(E_Input_Evdev *edev, double speed)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(edev, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(edev->device, EINA_FALSE);
+
+   if (!libinput_device_has_capability(edev->device, LIBINPUT_DEVICE_CAP_POINTER))
+     return EINA_FALSE;
+
+   if (!libinput_device_config_accel_is_available(edev->device))
+     return EINA_FALSE;
+
+   if (libinput_device_config_accel_set_speed(edev->device, speed) !=
+       LIBINPUT_CONFIG_STATUS_SUCCESS)
+     {
+        WRN("Failed to set mouse accel about device: %s\n",
+            libinput_device_get_name(edev->device));
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}

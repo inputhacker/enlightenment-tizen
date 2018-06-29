@@ -1154,3 +1154,26 @@ e_input_devices_get(void)
    return einput_devices;
 }
 
+EAPI Eina_Bool
+e_input_device_mouse_accel_speed_set(E_Input_Device *dev, double speed)
+{
+   E_Input_Seat *seat = NULL;
+   E_Input_Evdev *edev = NULL;
+   Eina_List *l = NULL, *l2 = NULL;
+   Eina_Bool res = EINA_TRUE, ret = EINA_TRUE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(dev, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(dev->seats, EINA_FALSE);
+
+   EINA_LIST_FOREACH(dev->seats, l, seat)
+     {
+        EINA_LIST_FOREACH(e_input_seat_evdev_list_get(seat), l2, edev)
+          {
+             if (edev->caps & E_INPUT_SEAT_POINTER)
+               res = e_input_evdev_mouse_accel_speed_set(edev, speed);
+             if (!res) ret = EINA_FALSE;
+          }
+     }
+
+   return ret;
+}

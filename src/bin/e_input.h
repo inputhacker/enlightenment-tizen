@@ -116,9 +116,11 @@ EINTERN const char *e_input_evdev_sysname_get(E_Input_Evdev *evdev);
 EINTERN Eina_Bool e_input_evdev_key_remap_enable(E_Input_Evdev *edev, Eina_Bool enable);
 EINTERN Eina_Bool e_input_evdev_key_remap_set(E_Input_Evdev *edev, int *from_keys, int *to_keys, int num);
 EINTERN Eina_Bool e_input_evdev_touch_calibration_set(E_Input_Evdev *edev, float matrix[6]);
+EINTERN Eina_Bool e_input_evdev_mouse_accel_speed_set(E_Input_Evdev *edev, double speed);
 
 E_API const Eina_List *e_input_devices_get(void);
 E_API Eina_Bool e_input_device_pointer_warp(E_Input_Device *dev, int x, int y);
+E_API Eina_Bool e_input_device_mouse_accel_speed_set(E_Input_Device *dev, double speed);
 
 E_API const char *e_input_evdev_name_get(E_Input_Evdev *evdev);
 E_API Eina_List *e_input_seat_evdev_list_get(E_Input_Seat *seat);
