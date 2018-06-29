@@ -1795,7 +1795,6 @@ _e_video_vblank_handler(tdm_output *output, unsigned int sequence,
 {
    E_Video *video;
    Eina_List *l;
-   E_Comp_Wl_Video_Buf *vbuf;
 
    EINA_LIST_FOREACH(video_list, l, video)
      {
