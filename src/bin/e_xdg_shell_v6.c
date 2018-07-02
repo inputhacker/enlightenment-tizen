@@ -1414,6 +1414,7 @@ _e_xdg_surface_cb_popup_get(struct wl_client *client,
      {
         ERR("Could not create xdg popup resource", NULL, NULL);
         wl_resource_post_no_memory(resource);
+        return;
      }
 
    wl_resource_set_implementation(popup_resource,
