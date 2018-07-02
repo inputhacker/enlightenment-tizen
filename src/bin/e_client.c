@@ -3546,11 +3546,8 @@ e_client_post_raise_lower_set(E_Client *ec, Eina_Bool raise_set, Eina_Bool lower
 {
    if (!ec) return;
 
-   if (!ec->first_mapped)
-     {
-        ec->post_raise = raise_set;
-        ec->post_lower = lower_set;
-     }
+   ec->post_raise = raise_set;
+   ec->post_lower = lower_set;
 }
 
 E_API Eina_Bool

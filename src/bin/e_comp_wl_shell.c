@@ -738,24 +738,21 @@ _e_shell_client_map_common_post(E_Client *ec)
 {
    if (!ec) return;
 
-   if (!ec->first_mapped)
+   if ((!ec->iconic) && (!e_client_util_ignored_get(ec)))
      {
-        if ((!ec->iconic) && (!e_client_util_ignored_get(ec)))
+        if (!ec->comp_data->sub.data)
           {
-             if (!ec->comp_data->sub.data)
-               {
-                  if (ec->post_lower)
-                    evas_object_lower(ec->frame);
-                  else if (ec->post_raise)
-                    evas_object_raise(ec->frame);
+             if (ec->post_lower)
+               evas_object_lower(ec->frame);
+             else if (ec->post_raise)
+               evas_object_raise(ec->frame);
 
-                  ec->post_lower = EINA_FALSE;
-                  ec->post_raise = EINA_FALSE;
-               }
+             ec->post_lower = EINA_FALSE;
+             ec->post_raise = EINA_FALSE;
           }
-
-        ec->first_mapped = 1;
      }
+
+   ec->first_mapped = 1;
 
    e_policy_visibility_client_hide_job_cancel(ec);
    e_vis_client_check_send_pre_visibility_event(ec, EINA_FALSE);
