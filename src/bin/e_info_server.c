@@ -2663,6 +2663,7 @@ _e_info_server_cb_eina_log_levels(const Eldbus_Service_Interface *iface EINA_UNU
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    const char *start = NULL;
+   int len = 0;
 
    if (!eldbus_message_arguments_get(msg, "s", &start) || !start)
      {
@@ -2687,8 +2688,9 @@ _e_info_server_cb_eina_log_levels(const Eldbus_Service_Interface *iface EINA_UNU
            goto parse_end;
 
         // Parse name
-        strncpy(module_name, start, MIN(end - start, (sizeof module_name) - 1));
-        module_name[end - start] = '\0';
+        len = MIN(end - start, (sizeof module_name) - 1);
+        strncpy(module_name, start, len);
+        module_name[len] = '\0';
 
 		  eina_log_domain_level_set((const char*)module_name, level);
 
