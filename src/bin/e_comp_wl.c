@@ -3333,6 +3333,7 @@ _e_comp_wl_compositor_cb_region_create(struct wl_client *client, struct wl_resou
    if (!(res = wl_resource_create(client, &wl_region_interface, 1, id)))
      {
         ERR("\tFailed to create region resource");
+        eina_tiler_free(tiler);
         wl_resource_post_no_memory(resource);
         return;
      }

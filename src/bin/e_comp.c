@@ -2282,6 +2282,7 @@ e_comp_socket_init(const char *name)
      {
         ERR("Size of buffer is not enough. dir:%s name:%s",
             dir, name);
+        free(dir);
         return EINA_FALSE;
      }
 
