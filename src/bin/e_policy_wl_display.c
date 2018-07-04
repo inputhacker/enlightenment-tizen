@@ -2,7 +2,9 @@
 
 typedef struct _E_Display_Dbus_Info
 {
-   Eldbus_Connection *conn;
+   Eldbus_Connection *edbus_conn;
+   Eldbus_Connection_Type edbus_conn_type;
+   Ecore_Event_Handler *dbus_init_done_handler;
 } E_Display_Dbus_Info;
 
 #define BUS_NAME "org.enlightenment.wm"
@@ -40,39 +42,60 @@ static void _e_policy_wl_display_hook_client_visibility(void *d EINA_UNUSED, E_C
 static Eina_Bool _e_policy_wl_display_screen_mode_find_visible_window(void);
 static void      _e_policy_wl_display_screen_mode_send(E_Display_Screen_Mode mode);
 
+static Eina_Bool
+_e_policy_display_cb_dbus_init_done(void *data, int type, void *event)
+{
+   E_DBus_Init_Done_Event *e = event;
+
+   if (e->status == E_DBUS_INIT_SUCCESS && e->conn_type == _e_display_dbus_info.edbus_conn_type)
+     {
+        _e_display_dbus_info.edbus_conn = e_dbus_connection_ref(_e_display_dbus_info.edbus_conn_type);
+
+        if (_e_display_dbus_info.edbus_conn)
+          eldbus_name_request(_e_display_dbus_info.edbus_conn,
+                             BUS_NAME, ELDBUS_NAME_REQUEST_FLAG_DO_NOT_QUEUE,
+                             _e_policy_display_dbus_request_name_cb, NULL);
+     }
+
+   ecore_event_handler_del(_e_display_dbus_info.dbus_init_done_handler);
+   _e_display_dbus_info.dbus_init_done_handler = NULL;
+
+   return ECORE_CALLBACK_PASS_ON;
+}
 
 static Eina_Bool
 _e_policy_display_dbus_init(void)
 {
-   if (eldbus_init() == 0) return EINA_FALSE;
+   _e_display_dbus_info.edbus_conn = NULL;
+   _e_display_dbus_info.edbus_conn_type = ELDBUS_CONNECTION_TYPE_SYSTEM;
+   _e_display_dbus_info.dbus_init_done_handler = NULL;
 
-   _e_display_dbus_info.conn = eldbus_connection_get(ELDBUS_CONNECTION_TYPE_SYSTEM);
-   if (!_e_display_dbus_info.conn) goto failed;
+   if (e_dbus_init() <= 0) return EINA_FALSE;
 
-   eldbus_name_request(_e_display_dbus_info.conn,
-                       BUS_NAME,
-                       ELDBUS_NAME_REQUEST_FLAG_DO_NOT_QUEUE,
-                       _e_policy_display_dbus_request_name_cb,
-                       NULL);
+   _e_display_dbus_info.dbus_init_done_handler = ecore_event_handler_add(E_EVENT_DBUS_INIT_DONE, _e_policy_display_cb_dbus_init_done, NULL);
+   e_dbus_dbus_init(_e_display_dbus_info.edbus_conn_type);
 
    return EINA_TRUE;
-
-failed:
-   _e_policy_display_dbus_shutdown();
-   return EINA_FALSE;
 }
 
 static void
 _e_policy_display_dbus_shutdown(void)
 {
-   if (_e_display_dbus_info.conn)
+   if (_e_display_dbus_info.dbus_init_done_handler)
      {
-        eldbus_name_release(_e_display_dbus_info.conn, BUS_NAME, NULL, NULL);
-        eldbus_connection_unref(_e_display_dbus_info.conn);
-        _e_display_dbus_info.conn = NULL;
+        ecore_event_handler_del(_e_display_dbus_info.dbus_init_done_handler);
+        _e_display_dbus_info.dbus_init_done_handler = NULL;
      }
 
-   eldbus_shutdown();
+
+   if (_e_display_dbus_info.edbus_conn)
+     {
+        eldbus_name_release(_e_display_dbus_info.edbus_conn, BUS_NAME, NULL, NULL);
+        e_dbus_connection_unref(_e_display_dbus_info.edbus_conn);
+        _e_display_dbus_info.edbus_conn = NULL;
+     }
+
+   e_dbus_shutdown();
 }
 
 static void
@@ -174,7 +197,7 @@ _e_policy_wl_display_screen_mode_send(E_Display_Screen_Mode mode)
    Eina_Bool ret;
    unsigned int timeout = 0;
 
-   if (!_e_display_dbus_info.conn) return;
+   if (!_e_display_dbus_info.edbus_conn) return;
 
    if (mode == E_DISPLAY_SCREEN_MODE_ALWAYS_ON)
      {
@@ -214,7 +237,7 @@ _e_policy_wl_display_screen_mode_send(E_Display_Screen_Mode mode)
    _e_display_screen_mode = mode;
    DBG("[SCREEN_MODE] Request screen mode:%d\n", mode);
 
-   eldbus_connection_send(_e_display_dbus_info.conn, msg, NULL, NULL, -1);
+   eldbus_connection_send(_e_display_dbus_info.edbus_conn, msg, NULL, NULL, -1);
 }
 
 #undef E_CLIENT_HOOK_APPEND

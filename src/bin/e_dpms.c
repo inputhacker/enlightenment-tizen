@@ -16,7 +16,9 @@ typedef enum _E_Dpms_Mode
 #define PATH "/org/enlightenment/wm"
 #define INTERFACE "org.enlightenment.wm.dpms"
 
-static Eldbus_Connection *conn;
+static Eldbus_Connection *edbus_conn = NULL;
+static Eldbus_Connection_Type edbus_conn_type = ELDBUS_CONNECTION_TYPE_SYSTEM;
+Ecore_Event_Handler *dbus_init_done_handler = NULL;
 static Eldbus_Service_Interface *iface;
 
 static Eldbus_Message *
@@ -95,13 +97,13 @@ _e_dpms_name_request_cb(void *data, const Eldbus_Message *msg, Eldbus_Pending *p
 
    if (eldbus_message_error_get(msg, NULL, NULL))
      {
-        printf("error on on_name_request\n");
+        ERR("error on on_name_request\n");
         return;
      }
 
    if (!eldbus_message_arguments_get(msg, "u", &reply))
      {
-        printf("error geting arguments on on_name_request\n");
+        ERR("error geting arguments on on_name_request\n");
         return;
      }
 }
@@ -109,45 +111,54 @@ _e_dpms_name_request_cb(void *data, const Eldbus_Message *msg, Eldbus_Pending *p
 static Eina_Bool
 _e_dpms_dbus_init(void *data)
 {
-   if (conn)
-     return ECORE_CALLBACK_CANCEL;
-
-   if (!conn)
-     conn = eldbus_connection_get(ELDBUS_CONNECTION_TYPE_SYSTEM);
-
-   if (!conn)
-     {
-        ERR("eldbus_connection_get fail..");
-        ecore_timer_add(1.0, _e_dpms_dbus_init, NULL);
-        return ECORE_CALLBACK_CANCEL;
-     }
-
-   INF("eldbus_connection_get success..");
-
-   iface = eldbus_service_interface_register(conn, PATH, &iface_desc);
+   iface = eldbus_service_interface_register(edbus_conn, PATH, &iface_desc);
    EINA_SAFETY_ON_NULL_GOTO(iface, failed);
 
-   eldbus_name_request(conn, BUS, ELDBUS_NAME_REQUEST_FLAG_DO_NOT_QUEUE,
+   eldbus_name_request(edbus_conn, BUS, ELDBUS_NAME_REQUEST_FLAG_DO_NOT_QUEUE,
                        _e_dpms_name_request_cb, NULL);
 
    return ECORE_CALLBACK_CANCEL;
+
 failed:
-   if (conn)
+   if (edbus_conn)
      {
-        eldbus_name_release(conn, BUS, NULL, NULL);
-        eldbus_connection_unref(conn);
-        conn = NULL;
+        eldbus_name_release(edbus_conn, BUS, NULL, NULL);
+        e_dbus_connection_unref(edbus_conn);
+        edbus_conn = NULL;
      }
 
    return ECORE_CALLBACK_CANCEL;
 }
 
+static Eina_Bool
+_e_dpms_cb_dbus_init_done(void *data, int type, void *event)
+{
+   E_DBus_Init_Done_Event *e = event;
+
+   if (e->status == E_DBUS_INIT_SUCCESS && e->conn_type == edbus_conn_type)
+     {
+        edbus_conn = e_dbus_connection_ref(edbus_conn_type);
+
+        if (edbus_conn)
+          _e_dpms_dbus_init(NULL);
+     }
+
+   ecore_event_handler_del(dbus_init_done_handler);
+   dbus_init_done_handler = NULL;
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
 EINTERN int
 e_dpms_init(void)
 {
-   if (eldbus_init() == 0) return 0;
+   dbus_init_done_handler = NULL;
 
-   _e_dpms_dbus_init(NULL);
+   if (e_dbus_init() > 0)
+     {
+        dbus_init_done_handler = ecore_event_handler_add(E_EVENT_DBUS_INIT_DONE, _e_dpms_cb_dbus_init_done, NULL);
+        e_dbus_dbus_init(edbus_conn_type);
+     }
 
    return 1;
 }
@@ -155,19 +166,26 @@ e_dpms_init(void)
 EINTERN int
 e_dpms_shutdown(void)
 {
+   if (dbus_init_done_handler)
+     {
+        ecore_event_handler_del(dbus_init_done_handler);
+        dbus_init_done_handler = NULL;
+     }
+
    if (iface)
      {
         eldbus_service_interface_unregister(iface);
         iface = NULL;
      }
-   if (conn)
+
+   if (edbus_conn)
      {
-        eldbus_name_release(conn, BUS, NULL, NULL);
-        eldbus_connection_unref(conn);
-        conn = NULL;
+        eldbus_name_release(edbus_conn, BUS, NULL, NULL);
+        e_dbus_connection_unref(edbus_conn);
+        edbus_conn = NULL;
      }
 
-   eldbus_shutdown();
+   e_dbus_shutdown();
 
    return 1;
 }

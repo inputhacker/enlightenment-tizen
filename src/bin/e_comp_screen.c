@@ -5,7 +5,9 @@
 #define PATH "/org/enlightenment/wm"
 #define IFACE "org.enlightenment.wm.screen_rotation"
 
-static Eldbus_Connection *e_comp_screen_conn;
+static Ecore_Event_Handler *dbus_init_done_handler;
+static Eldbus_Connection *edbus_conn = NULL;
+static Eldbus_Connection_Type edbus_conn_type = ELDBUS_CONNECTION_TYPE_SYSTEM;
 static Eldbus_Service_Interface *e_comp_screen_iface;
 
 static Eina_List *event_handlers = NULL;
@@ -172,23 +174,12 @@ static const Eldbus_Service_Interface_Desc iface_desc = {
      IFACE, methods, signals, NULL, NULL, NULL
 };
 
-static Eina_Bool
-_e_comp_screen_dbus_init(void *data EINA_UNUSED)
+static void
+_e_comp_screen_dbus_init()
 {
    E_Comp_Screen *e_comp_screen = e_comp->e_comp_screen;
 
-   if (e_comp_screen_conn) return ECORE_CALLBACK_CANCEL;
-
-   if (!e_comp_screen_conn)
-     e_comp_screen_conn = eldbus_connection_get(ELDBUS_CONNECTION_TYPE_SYSTEM);
-
-   if(!e_comp_screen_conn)
-     {
-        ecore_timer_add(1, _e_comp_screen_dbus_init, NULL);
-        return ECORE_CALLBACK_CANCEL;
-     }
-
-   e_comp_screen_iface = eldbus_service_interface_register(e_comp_screen_conn,
+   e_comp_screen_iface = eldbus_service_interface_register(edbus_conn,
                                                            PATH,
                                                            &iface_desc);
    EINA_SAFETY_ON_NULL_GOTO(e_comp_screen_iface, err);
@@ -199,16 +190,16 @@ _e_comp_screen_dbus_init(void *data EINA_UNUSED)
         ELOGF("TRANSFORM", "screen-rotation sends signal: %d", NULL, NULL, e_comp_screen->rotation);
      }
 
-   return ECORE_CALLBACK_CANCEL;
+   return;
 
 err:
-   if (e_comp_screen_conn)
+   if (edbus_conn)
      {
-        eldbus_connection_unref(e_comp_screen_conn);
-        e_comp_screen_conn = NULL;
+        e_dbus_connection_unref(edbus_conn);
+        edbus_conn = NULL;
      }
 
-   return ECORE_CALLBACK_CANCEL;
+   return;
 }
 
 static char *
@@ -757,6 +748,25 @@ _e_comp_screen_engine_init(void)
    return EINA_TRUE;
 }
 
+static Eina_Bool
+_e_comp_screen_cb_dbus_init_done(void *data, int type, void *event)
+{
+   E_DBus_Init_Done_Event *e = event;
+
+   if (e->status == E_DBUS_INIT_SUCCESS && e->conn_type == edbus_conn_type)
+     {
+        edbus_conn = e_dbus_connection_ref(edbus_conn_type);
+
+        if (edbus_conn)
+          _e_comp_screen_dbus_init();
+     }
+
+   ecore_event_handler_del(dbus_init_done_handler);
+   dbus_init_done_handler = NULL;
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
 EINTERN void
 e_comp_screen_e_screens_setup(E_Comp_Screen *e_comp_screen, int rw, int rh)
 {
@@ -997,13 +1007,12 @@ e_comp_screen_init()
         goto failed_comp_screen;
      }
 
-   if (eldbus_init() == 0)
+   dbus_init_done_handler = NULL;
+   if (e_dbus_init() > 0)
      {
-        ERR("eldbus_init failed");
-        goto failed_comp_screen;
+        dbus_init_done_handler = ecore_event_handler_add(E_EVENT_DBUS_INIT_DONE, _e_comp_screen_cb_dbus_init_done, NULL);
+        e_dbus_dbus_init(edbus_conn_type);
      }
-
-   _e_comp_screen_dbus_init(NULL);
 
    tzsr_client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _tz_screen_rotation_cb_client_del, NULL);
 
@@ -1052,13 +1061,13 @@ e_comp_screen_shutdown()
         e_comp_screen_iface = NULL;
      }
 
-   if (e_comp_screen_conn)
+   if (edbus_conn)
      {
-        eldbus_connection_unref(e_comp_screen_conn);
-        e_comp_screen_conn = NULL;
+        e_dbus_connection_unref(edbus_conn);
+        edbus_conn = NULL;
      }
 
-   eldbus_shutdown();
+   e_dbus_shutdown();
 
    _e_comp_screen_deinit_outputs(e_comp->e_comp_screen);
 

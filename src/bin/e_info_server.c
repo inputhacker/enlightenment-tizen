@@ -32,8 +32,10 @@ E_API int E_EVENT_INFO_ROTATION_MESSAGE = -1;
 
 typedef struct _E_Info_Server
 {
-   Eldbus_Connection *conn;
+   Eldbus_Connection *edbus_conn;
+   Eldbus_Connection_Type edbus_conn_type;
    Eldbus_Service_Interface *iface;
+   Ecore_Event_Handler *dbus_init_done_handler;
 } E_Info_Server;
 
 typedef struct _E_Info_Transform
@@ -5595,18 +5597,7 @@ _e_info_server_dbus_init(void *data EINA_UNUSED)
 {
    char *s = NULL;
 
-   if (e_info_server.conn) return ECORE_CALLBACK_CANCEL;
-
-   if (!e_info_server.conn)
-     e_info_server.conn = eldbus_connection_get(ELDBUS_CONNECTION_TYPE_SYSTEM);
-
-   if(!e_info_server.conn)
-     {
-        ecore_timer_add(1, _e_info_server_dbus_init, NULL);
-        return ECORE_CALLBACK_CANCEL;
-     }
-
-   e_info_server.iface = eldbus_service_interface_register(e_info_server.conn,
+   e_info_server.iface = eldbus_service_interface_register(e_info_server.edbus_conn,
                                                            PATH,
                                                            &iface_desc);
    EINA_SAFETY_ON_NULL_GOTO(e_info_server.iface, err);
@@ -5630,22 +5621,41 @@ _e_info_server_dbus_init(void *data EINA_UNUSED)
 err:
    e_info_server_shutdown();
 
-   if (e_info_server.conn)
-     {
-        eldbus_name_release(e_info_server.conn, BUS, NULL, NULL);
-        eldbus_connection_unref(e_info_server.conn);
-        e_info_server.conn = NULL;
-     }
-
    return ECORE_CALLBACK_CANCEL;
 }
+
+static Eina_Bool
+_e_info_server_cb_dbus_init_done(void *data, int type, void *event)
+{
+   E_DBus_Init_Done_Event *e = event;
+
+   if (e->status == E_DBUS_INIT_SUCCESS && e->conn_type == e_info_server.edbus_conn_type)
+     {
+        e_info_server.edbus_conn = e_dbus_connection_ref(e_info_server.edbus_conn_type);
+
+        if (e_info_server.edbus_conn)
+          _e_info_server_dbus_init(NULL);
+     }
+
+   ecore_event_handler_del(e_info_server.dbus_init_done_handler);
+   e_info_server.dbus_init_done_handler = NULL;
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
 
 EINTERN int
 e_info_server_init(void)
 {
-   if (eldbus_init() == 0) return 0;
+   e_info_server.edbus_conn = NULL;
+   e_info_server.edbus_conn_type = ELDBUS_CONNECTION_TYPE_SYSTEM;
+   e_info_server.dbus_init_done_handler = NULL;
 
-   _e_info_server_dbus_init(NULL);
+   if (e_dbus_init() > 0)
+     {
+        e_info_server.dbus_init_done_handler = ecore_event_handler_add(E_EVENT_DBUS_INIT_DONE, _e_info_server_cb_dbus_init_done, NULL);
+        e_dbus_dbus_init(e_info_server.edbus_conn_type);
+     }
 
    return 1;
 }
@@ -5653,17 +5663,26 @@ e_info_server_init(void)
 EINTERN int
 e_info_server_shutdown(void)
 {
+   if (e_info_server.dbus_init_done_handler)
+     {
+         ecore_event_handler_del(e_info_server.dbus_init_done_handler);
+         e_info_server.dbus_init_done_handler = NULL;
+     }
+
    if (e_info_server.iface)
      {
         eldbus_service_interface_unregister(e_info_server.iface);
         e_info_server.iface = NULL;
      }
 
-   if (e_info_server.conn)
+   if (e_info_server.edbus_conn)
      {
-        eldbus_connection_unref(e_info_server.conn);
-        e_info_server.conn = NULL;
+        eldbus_name_release(e_info_server.edbus_conn, BUS, NULL, NULL);
+        e_dbus_connection_unref(e_info_server.edbus_conn);
+        e_info_server.edbus_conn = NULL;
      }
+
+   e_dbus_shutdown();
 
    if (e_info_transform_list)
      {
