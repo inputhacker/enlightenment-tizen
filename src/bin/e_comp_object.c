@@ -2151,7 +2151,8 @@ _e_comp_intercept_show_helper(E_Comp_Object *cw)
         if (!cw->ec->exp_iconify.by_client ||
             e_policy_visibility_client_is_uniconic(cw->ec))
           evas_object_show(cw->smart_obj);
-        if (!cw->ec->iconic)
+        if (!cw->ec->iconic ||
+            e_policy_visibility_client_is_uniconic(cw->ec))
           e_client_focus_defer_set(cw->ec);
      }
 }
