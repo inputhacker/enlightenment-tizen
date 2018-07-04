@@ -1135,6 +1135,7 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
    Evas_Event_Mouse_Move *ev;
    Evas_Device *dev = NULL;
    const char *dev_name;
+   int pointer_x, pointer_y;
 
    ev = event;
 
@@ -1177,8 +1178,13 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
 
              _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
              _e_comp_wl_send_mouse_move(ec, ev->cur.canvas.x, ev->cur.canvas.y, ev->timestamp);
-             e_pointer_mouse_move(e_comp->pointer, ev->cur.output.x, ev->cur.output.y);
 
+             pointer_x = ev->cur.output.x;
+             pointer_y = ev->cur.output.y;
+             if (e_client_transform_core_enable_get(ec))
+               e_client_transform_core_input_inv_rect_transform(ec, pointer_x, pointer_y, &pointer_x, &pointer_y);
+
+             e_pointer_mouse_move(e_comp->pointer, pointer_x, pointer_y);
              _e_comp_wl_cursor_move_timer_control(ec);
           }
      }
@@ -1227,6 +1233,7 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
    Evas_Device *dev = NULL;
    const char *dev_name;
    E_Client *focused;
+   int pointer_x, pointer_y;
 
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
@@ -1249,7 +1256,12 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
      {
         e_comp_wl_evas_handle_mouse_button(ec, ev->timestamp, ev->button,
                                            WL_POINTER_BUTTON_STATE_PRESSED);
-        e_pointer_mouse_move(e_comp->pointer, ev->output.x, ev->output.y);
+
+        pointer_x = ev->output.x;
+        pointer_y = ev->output.y;
+        if (e_client_transform_core_enable_get(ec))
+          e_client_transform_core_input_inv_rect_transform(ec, pointer_x, pointer_y, &pointer_x, &pointer_y);
+        e_pointer_mouse_move(e_comp->pointer, pointer_x, pointer_y);
      }
 
    need_send_released = EINA_TRUE;
