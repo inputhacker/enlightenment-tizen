@@ -1101,6 +1101,9 @@ e_vis_client_send_pre_visibility_event(E_Client *ec)
    Eina_Bool intercepted;
 
    if (!ec) return;
+   if ((ec->visibility.last_sent_type == E_VISIBILITY_PRE_UNOBSCURED) ||
+       (ec->visibility.last_sent_type == E_VISIBILITY_UNOBSCURED))
+     return;
 
    intercepted = e_policy_interceptor_call(E_POLICY_INTERCEPT_SEND_PRE_VISIBILITY, ec);
    if (intercepted)
