@@ -521,6 +521,12 @@ AM_CONDITIONAL([HAVE_SYSTEMD], [test "x${have_systemd}" = "xyes"])
 #libinput
 PKG_CHECK_MODULES([LIBINPUT], [libinput])
 
+have_extra_touch_event="no"
+AC_CHECK_LIB(input, libinput_event_touch_get_major, [have_extra_touch_event="yes"])
+if test "x${have_extra_touch_event}" = "xyes";then
+AC_DEFINE_UNQUOTED([LIBINPUT_SUPPORT_EXTRA_TOUCH_EVENT], [1], [libinput support extra touch event])
+fi
+
 #capi-system-device
 PKG_CHECK_MODULES([CAPI_SYSTEM_DEVICE],
                   [capi-system-device])
