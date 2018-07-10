@@ -11,6 +11,18 @@ typedef struct _E_Policy_Interceptor E_Policy_Interceptor;
 typedef struct _E_Policy_Hook        E_Policy_Hook;
 typedef struct _E_Policy_Softkey_Funcs E_Policy_Softkey_Funcs;
 
+typedef enum _E_Policy_Softkey_Expand
+{
+   E_POLICY_SOFTKEY_EXPAND_OFF,
+   E_POLICY_SOFTKEY_EXPAND_ON
+} E_Policy_Softkey_Expand;
+
+typedef enum _E_Policy_Softkey_Opacity
+{
+   E_POLICY_SOFTKEY_OPACITY_OPAQUE,
+   E_POLICY_SOFTKEY_OPACITY_TRANSPARENT
+} E_Policy_Softkey_Opacity;
+
 typedef enum _E_Policy_Intercept_Point
 {
    E_POLICY_INTERCEPT_LAUNCHSCREEN_OBJECT_SETUP,
@@ -98,6 +110,8 @@ struct _E_Policy_Softkey
    EINA_INLIST;
 
    E_Zone          *zone;
+   E_Policy_Softkey_Expand  expand;
+   E_Policy_Softkey_Opacity opacity;
    Evas_Object     *home;
    Evas_Object     *back;
    void            *other;
@@ -110,6 +124,11 @@ struct _E_Policy_Softkey_Funcs
    void              (*softkey_show)(E_Policy_Softkey *softkey);
    void              (*softkey_hide)(E_Policy_Softkey *softkey);
    void              (*softkey_update)(E_Policy_Softkey *softkey);
+   int               (*softkey_visible_get)(E_Policy_Softkey *softkey);
+   void              (*softkey_expand_set)(E_Policy_Softkey *softkey, E_Policy_Softkey_Expand expand);
+   Eina_Bool         (*softkey_expand_get)(E_Policy_Softkey *softkey, E_Policy_Softkey_Expand *expand);
+   void              (*softkey_opacity_set)(E_Policy_Softkey *softkey, E_Policy_Softkey_Opacity opacity);
+   Eina_Bool         (*softkey_opacity_get)(E_Policy_Softkey *softkey, E_Policy_Softkey_Opacity *opacity);
 };
 
 struct _E_Policy
@@ -179,6 +198,11 @@ E_API void              e_policy_softkey_del(E_Policy_Softkey *softkey);
 E_API void              e_policy_softkey_show(E_Policy_Softkey *softkey);
 E_API void              e_policy_softkey_hide(E_Policy_Softkey *softkey);
 E_API void              e_policy_softkey_update(E_Policy_Softkey *softkey);
+E_API int               e_policy_softkey_visible_get(E_Policy_Softkey *softkey);
+E_API void              e_policy_softkey_expand_set(E_Policy_Softkey *softkey, E_Policy_Softkey_Expand expand);
+E_API Eina_Bool         e_policy_softkey_expand_get(E_Policy_Softkey *softkey, E_Policy_Softkey_Expand *expand);
+E_API void              e_policy_softkey_opacity_set(E_Policy_Softkey *softkey, E_Policy_Softkey_Opacity opacity);
+E_API Eina_Bool         e_policy_softkey_opacity_get(E_Policy_Softkey *softkey, E_Policy_Softkey_Opacity *opacity);
 E_API E_Policy_Softkey *e_policy_softkey_get(E_Zone *zone);
 E_API Eina_Bool         e_policy_softkey_module_func_set(E_Policy_Softkey_Funcs *fn);
 E_API void              e_policy_softkey_module_func_unset(void);

@@ -187,6 +187,86 @@ e_policy_softkey_update(E_Policy_Softkey *softkey)
    evas_object_geometry_set(softkey->back, x + space, y, ow, oh);
 }
 
+int
+e_policy_softkey_visible_get(E_Policy_Softkey *softkey)
+{
+   int visible;
+
+   if (_e_softkey_funcs && _e_softkey_funcs->softkey_visible_get)
+     return _e_softkey_funcs->softkey_visible_get(softkey);
+
+   if (!softkey) return 0;
+
+   visible = evas_object_visible_get(softkey->home);
+   return visible;
+}
+
+void
+e_policy_softkey_expand_set(E_Policy_Softkey *softkey, E_Policy_Softkey_Expand expand)
+{
+   if (_e_softkey_funcs && _e_softkey_funcs->softkey_expand_set)
+     return _e_softkey_funcs->softkey_expand_set(softkey, expand);
+
+   if (!softkey) return;
+
+   softkey->expand = expand;
+}
+
+Eina_Bool
+e_policy_softkey_expand_get(E_Policy_Softkey *softkey, E_Policy_Softkey_Expand *expand)
+{
+   if (_e_softkey_funcs && _e_softkey_funcs->softkey_expand_get)
+     return _e_softkey_funcs->softkey_expand_get(softkey, expand);
+
+   if (!softkey)
+     {
+        if (expand)
+          *expand = E_POLICY_SOFTKEY_EXPAND_OFF;
+
+        return EINA_FALSE;
+     }
+   else
+     {
+        if (expand)
+          *expand = softkey->expand;
+
+        return EINA_TRUE;
+     }
+}
+
+void
+e_policy_softkey_opacity_set(E_Policy_Softkey *softkey, E_Policy_Softkey_Opacity opacity)
+{
+   if (_e_softkey_funcs && _e_softkey_funcs->softkey_opacity_set)
+     return _e_softkey_funcs->softkey_opacity_set(softkey, opacity);
+
+   if (!softkey) return;
+
+   softkey->opacity = opacity;
+}
+
+Eina_Bool
+e_policy_softkey_opacity_get(E_Policy_Softkey *softkey, E_Policy_Softkey_Opacity *opacity)
+{
+   if (_e_softkey_funcs && _e_softkey_funcs->softkey_opacity_get)
+     return _e_softkey_funcs->softkey_opacity_get(softkey, opacity);
+
+   if (!softkey)
+     {
+        if (opacity)
+          *opacity = E_POLICY_SOFTKEY_OPACITY_OPAQUE;
+
+        return EINA_FALSE;
+     }
+   else
+     {
+        if (opacity)
+          *opacity = softkey->opacity;
+
+        return EINA_TRUE;
+     }
+}
+
 E_Policy_Softkey *
 e_policy_softkey_get(E_Zone *zone)
 {
@@ -216,6 +296,11 @@ e_policy_softkey_module_func_set(E_Policy_Softkey_Funcs *fp)
    _e_softkey_funcs->softkey_show = fp->softkey_show;
    _e_softkey_funcs->softkey_hide = fp->softkey_hide;
    _e_softkey_funcs->softkey_update = fp->softkey_update;
+   _e_softkey_funcs->softkey_visible_get = fp->softkey_visible_get;
+   _e_softkey_funcs->softkey_expand_set = fp->softkey_expand_set;
+   _e_softkey_funcs->softkey_expand_get = fp->softkey_expand_get;
+   _e_softkey_funcs->softkey_opacity_set = fp->softkey_opacity_set;
+   _e_softkey_funcs->softkey_opacity_get = fp->softkey_opacity_get;
 
    return EINA_TRUE;
 }
