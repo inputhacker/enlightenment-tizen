@@ -749,6 +749,30 @@ _e_plane_fb_target_all_set_unset_counter_reset(E_Plane *fb_target)
 }
 
 static void
+_e_plane_fb_target_all_unset_candidate_sync_fb(E_Plane *fb_target)
+{
+   E_Plane *plane = NULL;
+   E_Output *output = NULL;
+   Eina_Bool set_sync_count = EINA_FALSE;
+   Eina_List *l;
+
+   output = fb_target->output;
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   EINA_LIST_FOREACH(output->planes, l, plane)
+     {
+        if ((plane->unset_candidate) && (plane->unset_counter == 0))
+          {
+             plane->unset_counter = 1;
+             set_sync_count = EINA_TRUE;
+          }
+     }
+
+   if (set_sync_count)
+     e_plane_renderer_surface_queue_sync_count_set(fb_target->renderer, 1);
+}
+
+static void
 _e_plane_unset_reset(E_Plane *plane)
 {
    Eina_Bool print_log = EINA_FALSE;
@@ -2737,6 +2761,9 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
                   ERR("failed to use ecore_evas plane:%p", plane);
                   return EINA_FALSE;
                }
+
+             if (plane->ec)
+               _e_plane_fb_target_all_unset_candidate_sync_fb(plane);
           }
         else
           {
