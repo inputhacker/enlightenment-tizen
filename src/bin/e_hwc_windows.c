@@ -985,13 +985,14 @@ static void
 _e_hwc_windows_composition_update(E_Hwc *hwc)
 {
    E_Hwc_Window *hwc_window = NULL;
-   Eina_List *l = NULL;
+   const Eina_List *l = NULL;
    E_Hwc_Window_State state;
    E_Pointer *pointer = NULL;
 
    EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
      {
         if (hwc_window->is_target) continue;
+        if (!hwc_window->ec) continue;
 
         state = e_hwc_window_state_get(hwc_window);
 
