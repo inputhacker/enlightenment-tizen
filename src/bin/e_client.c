@@ -3338,7 +3338,7 @@ _e_client_transform_core_check_change(E_Client *ec)
    if ((ec->transform_core.transform_list) &&
        (ec->comp_data && ec->comp_data->sub.below_obj))
      {
-        Evas_Map *map_ = evas_object_map_get(ec->comp_data->sub.below_obj);
+        const Evas_Map *map_ = evas_object_map_get(ec->comp_data->sub.below_obj);
         if (!map_)
           check = EINA_TRUE;
      }
