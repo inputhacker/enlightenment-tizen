@@ -1020,7 +1020,7 @@ _get_win_prop_Transform(const Evas_Object *evas_obj)
         if (view_port)
           e_util_transform_viewport_get(transform, &vx, &vy, &vw, &vh);
 
-        astrcat_(&str, "transform : [%d] [%d, %d] [%2.1f, %2.1f] [%d] [%d :%d, %d, %d, %d]\n",
+        astrcat_(&str, "transform : [%d] [%d, %d] [%2.3f, %2.3f] [%d] [%d :%d, %d, %d, %d]\n",
                 i, x, y, dsx, dsy, rz, view_port, vx, vy, vw, vh);
 
         if (e_util_transform_bg_transform_flag_get(transform))
@@ -1029,7 +1029,7 @@ _get_win_prop_Transform(const Evas_Object *evas_obj)
              e_util_transform_bg_scale_get(transform, &dsx, &dsy, NULL);
              e_util_transform_bg_rotation_round_get(transform, NULL, NULL, &rz);
 
-             astrcat_(&str, "transform_bg : --------- [%d] [%d, %d] [%2.1f, %2.1f] [%d]",
+             astrcat_(&str, "transform_bg : --------- [%d] [%d, %d] [%2.3f, %2.3f] [%d]",
                      i, x, y, dsx, dsy, rz);
           }
      }
