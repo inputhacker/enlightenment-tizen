@@ -45,11 +45,11 @@ static void      _e_policy_wl_display_screen_mode_send(E_Display_Screen_Mode mod
 static Eina_Bool
 _e_policy_display_cb_dbus_init_done(void *data, int type, void *event)
 {
-   E_DBus_Init_Done_Event *e = event;
+   E_DBus_Conn_Init_Done_Event *e = event;
 
-   if (e->status == E_DBUS_INIT_SUCCESS && e->conn_type == _e_display_dbus_info.edbus_conn_type)
+   if (e->status == E_DBUS_CONN_INIT_SUCCESS && e->conn_type == _e_display_dbus_info.edbus_conn_type)
      {
-        _e_display_dbus_info.edbus_conn = e_dbus_connection_ref(_e_display_dbus_info.edbus_conn_type);
+        _e_display_dbus_info.edbus_conn = e_dbus_conn_connection_ref(_e_display_dbus_info.edbus_conn_type);
 
         if (_e_display_dbus_info.edbus_conn)
           eldbus_name_request(_e_display_dbus_info.edbus_conn,
@@ -70,10 +70,10 @@ _e_policy_display_dbus_init(void)
    _e_display_dbus_info.edbus_conn_type = ELDBUS_CONNECTION_TYPE_SYSTEM;
    _e_display_dbus_info.dbus_init_done_handler = NULL;
 
-   if (e_dbus_init() <= 0) return EINA_FALSE;
+   if (e_dbus_conn_init() <= 0) return EINA_FALSE;
 
-   _e_display_dbus_info.dbus_init_done_handler = ecore_event_handler_add(E_EVENT_DBUS_INIT_DONE, _e_policy_display_cb_dbus_init_done, NULL);
-   e_dbus_dbus_init(_e_display_dbus_info.edbus_conn_type);
+   _e_display_dbus_info.dbus_init_done_handler = ecore_event_handler_add(E_EVENT_DBUS_CONN_INIT_DONE, _e_policy_display_cb_dbus_init_done, NULL);
+   e_dbus_conn_dbus_init(_e_display_dbus_info.edbus_conn_type);
 
    return EINA_TRUE;
 }
@@ -91,11 +91,11 @@ _e_policy_display_dbus_shutdown(void)
    if (_e_display_dbus_info.edbus_conn)
      {
         eldbus_name_release(_e_display_dbus_info.edbus_conn, BUS_NAME, NULL, NULL);
-        e_dbus_connection_unref(_e_display_dbus_info.edbus_conn);
+        e_dbus_conn_connection_unref(_e_display_dbus_info.edbus_conn);
         _e_display_dbus_info.edbus_conn = NULL;
      }
 
-   e_dbus_shutdown();
+   e_dbus_conn_shutdown();
 }
 
 static void

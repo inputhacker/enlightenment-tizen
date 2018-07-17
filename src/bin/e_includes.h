@@ -80,5 +80,5 @@
 #include "e_keyrouter.h"
 #include "e_gesture.h"
 #include "e_input.h"
-#include "e_dbus.h"
+#include "e_dbus_conn.h"
 #include "e_xdg_shell_v6.h"

@@ -5786,11 +5786,11 @@ err:
 static Eina_Bool
 _e_info_server_cb_dbus_init_done(void *data, int type, void *event)
 {
-   E_DBus_Init_Done_Event *e = event;
+   E_DBus_Conn_Init_Done_Event *e = event;
 
-   if (e->status == E_DBUS_INIT_SUCCESS && e->conn_type == e_info_server.edbus_conn_type)
+   if (e->status == E_DBUS_CONN_INIT_SUCCESS && e->conn_type == e_info_server.edbus_conn_type)
      {
-        e_info_server.edbus_conn = e_dbus_connection_ref(e_info_server.edbus_conn_type);
+        e_info_server.edbus_conn = e_dbus_conn_connection_ref(e_info_server.edbus_conn_type);
 
         if (e_info_server.edbus_conn)
           _e_info_server_dbus_init(NULL);
@@ -5810,10 +5810,10 @@ e_info_server_init(void)
    e_info_server.edbus_conn_type = ELDBUS_CONNECTION_TYPE_SYSTEM;
    e_info_server.dbus_init_done_handler = NULL;
 
-   if (e_dbus_init() > 0)
+   if (e_dbus_conn_init() > 0)
      {
-        e_info_server.dbus_init_done_handler = ecore_event_handler_add(E_EVENT_DBUS_INIT_DONE, _e_info_server_cb_dbus_init_done, NULL);
-        e_dbus_dbus_init(e_info_server.edbus_conn_type);
+        e_info_server.dbus_init_done_handler = ecore_event_handler_add(E_EVENT_DBUS_CONN_INIT_DONE, _e_info_server_cb_dbus_init_done, NULL);
+        e_dbus_conn_dbus_init(e_info_server.edbus_conn_type);
      }
 
    return 1;
@@ -5837,11 +5837,11 @@ e_info_server_shutdown(void)
    if (e_info_server.edbus_conn)
      {
         eldbus_name_release(e_info_server.edbus_conn, BUS, NULL, NULL);
-        e_dbus_connection_unref(e_info_server.edbus_conn);
+        e_dbus_conn_connection_unref(e_info_server.edbus_conn);
         e_info_server.edbus_conn = NULL;
      }
 
-   e_dbus_shutdown();
+   e_dbus_conn_shutdown();
 
    if (e_info_transform_list)
      {

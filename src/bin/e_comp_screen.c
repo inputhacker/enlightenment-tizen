@@ -195,7 +195,7 @@ _e_comp_screen_dbus_init()
 err:
    if (edbus_conn)
      {
-        e_dbus_connection_unref(edbus_conn);
+        e_dbus_conn_connection_unref(edbus_conn);
         edbus_conn = NULL;
      }
 
@@ -751,11 +751,11 @@ _e_comp_screen_engine_init(void)
 static Eina_Bool
 _e_comp_screen_cb_dbus_init_done(void *data, int type, void *event)
 {
-   E_DBus_Init_Done_Event *e = event;
+   E_DBus_Conn_Init_Done_Event *e = event;
 
-   if (e->status == E_DBUS_INIT_SUCCESS && e->conn_type == edbus_conn_type)
+   if (e->status == E_DBUS_CONN_INIT_SUCCESS && e->conn_type == edbus_conn_type)
      {
-        edbus_conn = e_dbus_connection_ref(edbus_conn_type);
+        edbus_conn = e_dbus_conn_connection_ref(edbus_conn_type);
 
         if (edbus_conn)
           _e_comp_screen_dbus_init();
@@ -1008,10 +1008,10 @@ e_comp_screen_init()
      }
 
    dbus_init_done_handler = NULL;
-   if (e_dbus_init() > 0)
+   if (e_dbus_conn_init() > 0)
      {
-        dbus_init_done_handler = ecore_event_handler_add(E_EVENT_DBUS_INIT_DONE, _e_comp_screen_cb_dbus_init_done, NULL);
-        e_dbus_dbus_init(edbus_conn_type);
+        dbus_init_done_handler = ecore_event_handler_add(E_EVENT_DBUS_CONN_INIT_DONE, _e_comp_screen_cb_dbus_init_done, NULL);
+        e_dbus_conn_dbus_init(edbus_conn_type);
      }
 
    tzsr_client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _tz_screen_rotation_cb_client_del, NULL);
@@ -1063,11 +1063,11 @@ e_comp_screen_shutdown()
 
    if (edbus_conn)
      {
-        e_dbus_connection_unref(edbus_conn);
+        e_dbus_conn_connection_unref(edbus_conn);
         edbus_conn = NULL;
      }
 
-   e_dbus_shutdown();
+   e_dbus_conn_shutdown();
 
    _e_comp_screen_deinit_outputs(e_comp->e_comp_screen);
 

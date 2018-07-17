@@ -127,7 +127,7 @@ src/bin/e_keyrouter.h \
 src/bin/e_keyrouter_private.h \
 src/bin/e_gesture.h \
 src/bin/e_input.h \
-src/bin/e_dbus.h \
+src/bin/e_dbus_conn.h \
 src/bin/e_xdg_shell_v6.h
 
 enlightenment_src = \
@@ -240,7 +240,7 @@ src/bin/e_input.c \
 src/bin/e_input_inputs.c \
 src/bin/e_input_device.c \
 src/bin/e_input_evdev.c \
-src/bin/e_dbus.c \
+src/bin/e_dbus_conn.c \
 src/bin/e_xdg_shell_v6.c
 
 src_bin_enlightenment_CPPFLAGS = $(E_CPPFLAGS) -DEFL_BETA_API_SUPPORT -DEFL_EO_API_SUPPORT -DE_LOGGING=1 @WAYLAND_CFLAGS@ $(TTRACE_CFLAGS) $(DLOG_CFLAGS) $(PIXMAN_CFLAGS) $(POLICY_CFLAGS) @TIZEN_REMOTE_SURFACE_CFLAGS@
