@@ -1018,14 +1018,17 @@ e_plane_renderer_new(E_Plane *plane)
         renderer->event_hdlr = ecore_main_fd_handler_add(renderer->event_fd, ECORE_FD_READ,
                                _e_plane_renderer_cb_queue_acquirable_event, NULL, NULL, NULL);
 
+        TRACE_DS_BEGIN(Plane Render:Manual Render);
         ecore_evas_geometry_get(renderer->ee, NULL, NULL, &ee_width, &ee_height);
-
         if (renderer->tqueue_width != ee_width || renderer->tqueue_height != ee_height)
           ecore_evas_manual_render(renderer->ee);
+        TRACE_DS_END();
 
         tqueue = _get_tbm_surface_queue(renderer->ee);
+        TRACE_DS_BEGIN(Plane Render:Set Queue);
         if (tqueue && !e_plane_renderer_surface_queue_set(renderer, tqueue))
           ERR("fail to e_plane_renderer_queue_set");
+        TRACE_DS_END();
      }
 
    renderer->need_change_buffer_transform = EINA_TRUE;

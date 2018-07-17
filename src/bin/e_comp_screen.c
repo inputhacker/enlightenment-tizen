@@ -387,13 +387,16 @@ _e_comp_screen_new(E_Comp *comp)
    if (!e_comp_screen) return NULL;
 
    /* tdm display init */
+   TRACE_DS_BEGIN(E_COMP_SCREEN:TDM Display Init);
    e_comp_screen->tdisplay = tdm_display_init(&error);
    if (!e_comp_screen->tdisplay)
      {
         ERR("fail to get tdm_display\n");
         free(e_comp_screen);
+        TRACE_DS_END();
         return NULL;
      }
+   TRACE_DS_END();
 
    e_comp_screen->fd = -1;
    tdm_display_get_fd(e_comp_screen->tdisplay, &fd);
@@ -409,6 +412,7 @@ _e_comp_screen_new(E_Comp *comp)
      ecore_main_fd_handler_add(e_comp_screen->fd, ECORE_FD_READ,
                                _e_comp_screen_cb_event, e_comp_screen, NULL, NULL);
 
+   TRACE_DS_BEGIN(E_COMP_SCREEN:TBM Bufmgr Init);
    /* tdm display init */
    e_comp_screen->bufmgr = tbm_bufmgr_server_init();
    if (!e_comp_screen->bufmgr)
@@ -416,6 +420,7 @@ _e_comp_screen_new(E_Comp *comp)
         ERR("tbm_bufmgr_init failed\n");
         goto fail;
      }
+   TRACE_DS_END();
 
    error = tdm_display_get_capabilities(e_comp_screen->tdisplay, &capabilities);
    if (error != TDM_ERROR_NONE)
@@ -438,8 +443,10 @@ _e_comp_screen_new(E_Comp *comp)
           }
      }
 
+   TRACE_DS_BEGIN(E_COMP_SCREEN:tdm-socket Init);
    if (e_comp_socket_init("tdm-socket"))
      PRCTL("[Winsys] change permission and create sym link for %s", "tdm-socket");
+   TRACE_DS_END();
 
    return e_comp_screen;
 
@@ -450,6 +457,7 @@ fail:
    if (e_comp_screen->tdisplay) tdm_display_deinit(e_comp_screen->tdisplay);
 
    free(e_comp_screen);
+   TRACE_DS_END();
 
    return NULL;
 }
@@ -545,14 +553,18 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
 
    for (i = 0; i < num_outputs; i++)
      {
+        TRACE_DS_BEGIN(OUTPUT:NEW);
         output = e_output_new(e_comp_screen, i);
         if (!output) goto fail;
+        TRACE_DS_END();
 
+        TRACE_DS_BEGIN(OUTPUT:UPDATE);
         if (!e_output_update(output))
           {
             ERR("fail to e_output_update.");
             goto fail;
           }
+        TRACE_DS_END();
 
         e_comp_screen->outputs = eina_list_append(e_comp_screen->outputs, output);
 
@@ -561,29 +573,38 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
         connection_check = EINA_TRUE;
 
         /* setting with the best mode and enable the output */
+        TRACE_DS_BEGIN(OUTPUT:FIND BEST MODE);
         mode = e_output_best_mode_find(output);
         if (!mode)
           {
              ERR("fail to get best mode.");
              goto fail;
           }
+        TRACE_DS_END();
 
+        TRACE_DS_BEGIN(OUTPUT:APPLY MODE);
         if (!e_output_mode_apply(output, mode))
           {
              ERR("fail to e_output_mode_apply.");
              goto fail;
           }
+        TRACE_DS_END();
+
+        TRACE_DS_BEGIN(OUTPUT:SET DPMS);
         if (!e_output_dpms_set(output, E_OUTPUT_DPMS_ON))
           {
              ERR("fail to e_output_dpms.");
              goto fail;
           }
+        TRACE_DS_END();
 
+        TRACE_DS_BEGIN(OUTPUT:SETUP);
         if (!e_output_setup(output))
           {
              ERR("fail to e_output_setup.");
              goto fail;
           }
+        TRACE_DS_END();
 
         /* update e_scale with first available output size */
         if ((e_config->scale.for_tdm) && (!scale_updated))
@@ -610,6 +631,7 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
    return EINA_TRUE;
 fail:
    _e_comp_screen_deinit_outputs(e_comp_screen);
+   TRACE_DS_END();
 
    return EINA_FALSE;
 }
@@ -720,21 +742,28 @@ _e_comp_screen_engine_init(void)
        e_config->screen_rotation_pre, e_config->screen_rotation_setting);
 
    /* e_comp_screen new */
+   TRACE_DS_BEGIN(E_COMP_SCREEN:NEW);
    e_comp_screen = _e_comp_screen_new(e_comp);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+   if (!e_comp_screen)
+     {
+        TRACE_DS_END();
+        e_error_message_show(_("Enlightenment cannot create e_comp_screen!\n"));
+        return EINA_FALSE;
+     }
+   TRACE_DS_END();
 
    e_comp->e_comp_screen = e_comp_screen;
    e_comp_screen->rotation = screen_rotation;
 
-   e_main_ts_begin("\tE_Outputs Init");
+   TRACE_DS_BEGIN(E_COMP_SCREEN:OUTPUTS INIT);
    if (!_e_comp_screen_init_outputs(e_comp_screen))
      {
-        e_main_ts_end("\tE_Outputs Init Failed");
+        TRACE_DS_END();
         e_error_message_show(_("Enlightenment cannot initialize outputs!\n"));
         _e_comp_screen_engine_deinit();
         return EINA_FALSE;
      }
-   e_main_ts_end("\tE_Outputs Init Done");
+   TRACE_DS_END();
 
    if (!E_EVENT_SCREEN_CHANGE) E_EVENT_SCREEN_CHANGE = ecore_event_type_new();
 
@@ -1007,12 +1036,14 @@ e_comp_screen_init()
         goto failed_comp_screen;
      }
 
+   TRACE_DS_BEGIN(E_COMP_SCREEN:DBUS INIT);
    dbus_init_done_handler = NULL;
    if (e_dbus_conn_init() > 0)
      {
         dbus_init_done_handler = ecore_event_handler_add(E_EVENT_DBUS_CONN_INIT_DONE, _e_comp_screen_cb_dbus_init_done, NULL);
         e_dbus_conn_dbus_init(edbus_conn_type);
      }
+   TRACE_DS_END();
 
    tzsr_client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _tz_screen_rotation_cb_client_del, NULL);
 
