@@ -803,6 +803,7 @@ _e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
         if ((!e_object_is_del(E_OBJECT(above))) &&
             (!e_client_util_ignored_get(above)) &&
             (above->visible) &&
+            (!above->iconic || e_policy_visibility_client_is_uniconic(above)) &&
             (above->frame) &&
             (above->icccm.accepts_focus || above->icccm.take_focus))
           {
