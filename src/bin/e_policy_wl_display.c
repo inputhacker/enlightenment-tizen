@@ -39,7 +39,7 @@ static void _e_policy_wl_display_hook_client_del(void *d EINA_UNUSED, E_Client *
 static void _e_policy_wl_display_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec);
 
 /* for screen mode */
-static Eina_Bool _e_policy_wl_display_screen_mode_find_visible_window(void);
+static E_Client *_e_policy_wl_display_screen_mode_find_visible_window(void);
 static void      _e_policy_wl_display_screen_mode_send(E_Display_Screen_Mode mode);
 
 static Eina_Bool
@@ -162,15 +162,14 @@ _e_policy_wl_display_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
      }
 }
 
-static Eina_Bool
+static E_Client *
 _e_policy_wl_display_screen_mode_find_visible_window(void)
 {
    Eina_List *l = NULL;
    E_Client *ec = NULL;
-   Eina_Bool find = EINA_FALSE;
    int ec_visibility;
 
-   if (_screen_mode_client_list == NULL) return EINA_FALSE;
+   if (_screen_mode_client_list == NULL) return NULL;
 
    EINA_LIST_FOREACH(_screen_mode_client_list, l, ec)
      {
@@ -182,12 +181,11 @@ _e_policy_wl_display_screen_mode_find_visible_window(void)
         if ((ec_visibility == E_VISIBILITY_UNOBSCURED) ||
             (ec_visibility == E_VISIBILITY_PARTIALLY_OBSCURED))
           {
-             find = EINA_TRUE;
              break;
           }
      }
 
-   return find;
+   return ec;
 }
 
 static void
@@ -235,7 +233,7 @@ _e_policy_wl_display_screen_mode_send(E_Display_Screen_Mode mode)
      }
 
    _e_display_screen_mode = mode;
-   DBG("[SCREEN_MODE] Request screen mode:%d\n", mode);
+   ELOGF("TZPOL", "SCR_MODE | Send screen mode:%d to system", NULL, NULL, mode);
 
    eldbus_connection_send(_e_display_dbus_info.edbus_conn, msg, NULL, NULL, -1);
 }
@@ -296,16 +294,24 @@ e_policy_display_screen_mode_set(E_Client *ec, int mode)
 void
 e_policy_display_screen_mode_apply(void)
 {
-   /* check the _screen_mode_client_list and update the lcd locked status */
-   if (_e_policy_wl_display_screen_mode_find_visible_window())
+   E_Client *ec = NULL;
+
+   ec = _e_policy_wl_display_screen_mode_find_visible_window();
+   if (ec)
      {
         if (_e_display_screen_mode == E_DISPLAY_SCREEN_MODE_DEFAULT)
-          _e_policy_wl_display_screen_mode_send(E_DISPLAY_SCREEN_MODE_ALWAYS_ON);
+          {
+             ELOGF("TZPOL", "SCR_MODE | Request to change screen mode:%d", ec->pixmap, ec, E_DISPLAY_SCREEN_MODE_ALWAYS_ON);
+             _e_policy_wl_display_screen_mode_send(E_DISPLAY_SCREEN_MODE_ALWAYS_ON);
+          }
      }
    else
      {
         if (_e_display_screen_mode == E_DISPLAY_SCREEN_MODE_ALWAYS_ON)
-          _e_policy_wl_display_screen_mode_send(E_DISPLAY_SCREEN_MODE_DEFAULT);
+          {
+             ELOGF("TZPOL", "SCR_MODE | Request to change screen mode:%d", NULL, NULL, E_DISPLAY_SCREEN_MODE_DEFAULT);
+             _e_policy_wl_display_screen_mode_send(E_DISPLAY_SCREEN_MODE_DEFAULT);
+          }
      }
 }
 
