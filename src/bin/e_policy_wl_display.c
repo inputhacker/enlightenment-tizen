@@ -22,6 +22,7 @@ typedef struct _E_Display_Dbus_Info
 /* static global variables */
 static E_Display_Dbus_Info _e_display_dbus_info;
 static Eina_List *_display_control_hooks = NULL;
+static Eina_List *_display_control_handlers = NULL;
 
 /* for screen mode */
 static Eina_List *_screen_mode_client_list = NULL;
@@ -37,6 +38,9 @@ static Eina_Bool _e_policy_wl_display_client_remove_from_list(Eina_List** list, 
 
 static void _e_policy_wl_display_hook_client_del(void *d EINA_UNUSED, E_Client *ec);
 static void _e_policy_wl_display_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec);
+
+static Eina_Bool _e_policy_wl_display_cb_client_remove(void *d EINA_UNUSED, int type EINA_UNUSED, void *event);
+
 
 /* for screen mode */
 static E_Client *_e_policy_wl_display_screen_mode_find_visible_window(void);
@@ -162,6 +166,13 @@ _e_policy_wl_display_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
      }
 }
 
+static Eina_Bool
+_e_policy_wl_display_cb_client_remove(void *d EINA_UNUSED, int type EINA_UNUSED, void *event)
+{
+   e_policy_display_screen_mode_apply();
+   return ECORE_CALLBACK_PASS_ON;
+}
+
 static E_Client *
 _e_policy_wl_display_screen_mode_find_visible_window(void)
 {
@@ -260,6 +271,9 @@ e_policy_display_init(void)
    E_CLIENT_HOOK_APPEND(_display_control_hooks, E_CLIENT_HOOK_DEL, _e_policy_wl_display_hook_client_del, NULL);
    E_CLIENT_HOOK_APPEND(_display_control_hooks, E_CLIENT_HOOK_EVAL_VISIBILITY, _e_policy_wl_display_hook_client_visibility, NULL);
 
+   /* handler functions */
+   E_LIST_HANDLER_APPEND(_display_control_handlers, E_EVENT_CLIENT_REMOVE, _e_policy_wl_display_cb_client_remove, NULL);
+
    return EINA_TRUE;
 }
 
@@ -267,6 +281,7 @@ void
 e_policy_display_shutdown(void)
 {
    E_FREE_LIST(_display_control_hooks, e_client_hook_del);
+   E_FREE_LIST(_display_control_handlers, ecore_event_handler_del);
 
    if (_screen_mode_client_list) eina_list_free(_screen_mode_client_list);
 
