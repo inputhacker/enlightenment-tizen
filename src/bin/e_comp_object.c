@@ -4411,6 +4411,13 @@ e_comp_object_dirty(Evas_Object *obj)
    API_ENTRY;
    if (cw->external_content) return;
    /* only actually dirty if pixmap is available */
+   if (!e_pixmap_resource_get(cw->ec->pixmap))
+     {
+        // e_pixmap_size_get returns last attached buffer size
+        // eventhough it is destroyed
+        ERR("ERROR NO PIXMAP FOR ec:%p", cw->ec);
+        return;
+     }
    dirty = e_pixmap_size_get(cw->ec->pixmap, &w, &h);
    visible = cw->visible;
    if (!dirty) w = h = 1;
