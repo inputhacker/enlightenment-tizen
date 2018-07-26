@@ -3300,11 +3300,23 @@ _e_comp_wl_compositor_cb_region_create(struct wl_client *client, struct wl_resou
 {
    Eina_Tiler *tiler;
    struct wl_resource *res;
+   int w, h;
 
    DBG("Region Create: %d", wl_resource_get_id(resource));
 
    /* try to create new tiler */
-   if (!(tiler = eina_tiler_new(e_comp->w, e_comp->h)))
+   if (e_comp->e_comp_screen->rotation % 180)
+     {
+        w = e_comp->h;
+        h = e_comp->w;
+     }
+   else
+     {
+        w = e_comp->w;
+        h = e_comp->h;
+     }
+
+   if (!(tiler = eina_tiler_new(w, h)))
      {
         ERR("Could not create Eina_Tiler");
         wl_resource_post_no_memory(resource);
