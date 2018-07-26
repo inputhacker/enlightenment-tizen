@@ -1822,16 +1822,15 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
 
    ec = renderer->ec;
    if (!ec) return EINA_TRUE;
-   if (renderer->state == E_PLANE_RENDERER_STATE_PENDING_DEACTIVATE) return EINA_TRUE;
 
    renderer_client = e_plane_renderer_client_get(ec);
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_client, EINA_FALSE);
 
+   if (e_object_is_del(E_OBJECT(ec))) goto done;
+
+   if (renderer->state == E_PLANE_RENDERER_STATE_PENDING_DEACTIVATE) return EINA_TRUE;
+
    cqueue = _e_plane_renderer_wayland_tbm_client_queue_get(ec);
-
-   ELOGF("E_PLANE_RENDERER", "Deactivate Renderer(%p) Plane(%p) ec(%p, %s)",
-         ec->pixmap, ec, renderer, renderer->plane, ec, e_client_util_name_get(ec));
-
    if (cqueue)
       wayland_tbm_server_client_queue_deactivate(cqueue);
 
@@ -1859,6 +1858,9 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
         e_comp_object_render(ec->frame);
      }
 done:
+   ELOGF("E_PLANE_RENDERER", "Deactivate Renderer(%p) Plane(%p) ec(%p, %s)",
+         ec->pixmap, ec, renderer, renderer->plane, ec, e_client_util_name_get(ec));
+
    if (e_comp->hwc_sync_mode_change)
      {
         if (cqueue)
