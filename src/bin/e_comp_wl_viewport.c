@@ -1228,6 +1228,7 @@ _e_comp_wl_viewport_crop_by_parent(E_Viewport *viewport, Eina_Rectangle *parent,
    Eina_Rectangle crop;
    double rx, ry, rw, rh;
    int bw, bh;
+   int transform;
 
    PDB("dst(%d,%d %dx%d) parent(%d,%d %dx%d)", EINA_RECTANGLE_ARGS(dst), EINA_RECTANGLE_ARGS(parent));
 
@@ -1268,6 +1269,13 @@ _e_comp_wl_viewport_crop_by_parent(E_Viewport *viewport, Eina_Rectangle *parent,
    rw = (double)crop.w / dst->w;
    rh = (double)crop.h / dst->h;
 
+   transform = e_comp_wl_output_buffer_transform_get(viewport->ec);
+   if (transform % 2)
+     {
+        SWAP(rx, ry);
+        SWAP(rw, rh);
+     }
+
    crop.x += dst->x;
    crop.y += dst->y;
    *dst = crop;
@@ -1292,10 +1300,6 @@ _e_comp_wl_viewport_crop_by_parent(E_Viewport *viewport, Eina_Rectangle *parent,
    viewport->cropped_source.y += viewport->cropped_source.h * ry;
    viewport->cropped_source.w = viewport->cropped_source.w * rw;
    viewport->cropped_source.h = viewport->cropped_source.h * rh;
-
-   _source_transform_to_surface(bw, bh,
-                                e_comp_wl_output_buffer_transform_get(viewport->ec), 1,
-                                &viewport->cropped_source, &viewport->cropped_source);
 
    vp->buffer.src_x = wl_fixed_from_int(viewport->cropped_source.x);
    vp->buffer.src_y = wl_fixed_from_int(viewport->cropped_source.y);
