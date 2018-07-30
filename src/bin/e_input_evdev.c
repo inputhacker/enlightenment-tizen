@@ -380,7 +380,7 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
         return;
      }
 
-   if (!edev->ecore_dev)
+   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_KEYBOARD))
      edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_KEYBOARD);
 
    if (!edev->ecore_dev)
@@ -498,7 +498,7 @@ _device_pointer_motion(E_Input_Evdev *edev, struct libinput_event_pointer *event
 
    if (!(input = edev->seat->input)) return;
 
-   if (!edev->ecore_dev)
+   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_MOUSE))
      edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_MOUSE);
 
    if (!edev->ecore_dev)
@@ -647,7 +647,7 @@ _device_handle_button(struct libinput_device *device, struct libinput_event_poin
         return;
      }
 
-   if (!edev->ecore_dev)
+   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_MOUSE))
      edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_MOUSE);
 
    if (!edev->ecore_dev)
@@ -754,7 +754,7 @@ _device_handle_axis(struct libinput_device *device, struct libinput_event_pointe
         return;
      }
 
-   if (!edev->ecore_dev)
+   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_MOUSE))
      edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_MOUSE);
 
    if (!edev->ecore_dev)
@@ -809,7 +809,7 @@ _device_handle_touch_event_send(E_Input_Evdev *edev, struct libinput_event_touch
    if (!edev) return;
    if (!(input = edev->seat->input)) return;
 
-   if (!edev->ecore_dev)
+   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_TOUCH))
      edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_TOUCH);
 
    if (!edev->ecore_dev)
@@ -909,7 +909,7 @@ _device_handle_touch_motion_send(E_Input_Evdev *edev, struct libinput_event_touc
    if (!edev) return;
    if (!(input = edev->seat->input)) return;
 
-   if (!edev->ecore_dev)
+   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_TOUCH))
      edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_TOUCH);
 
    if (!edev->ecore_dev)
@@ -1061,7 +1061,7 @@ _device_handle_touch_aux_data(struct libinput_device *device, struct libinput_ev
    if (!(edev = libinput_device_get_user_data(device))) goto end;
    if (!(input = edev->seat->input)) goto end;
 
-   if (!edev->ecore_dev)
+   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_MOUSE))
      edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_MOUSE);
 
    if (!edev->ecore_dev)
