@@ -1619,17 +1619,17 @@ _e_xdg_surface_destroy(E_Xdg_Surface *exsurf)
     * invalid. we also cannot access freed memory. */
    switch (exsurf->role)
      {
-      case E_COMP_WL_SH_SURF_ROLE_TOPLV:
+      case E_XDG_SURFACE_ROLE_TOPLEVEL:
          toplevel = (E_Xdg_Toplevel *)exsurf;
          if (toplevel->resource)
            wl_resource_set_user_data(toplevel->resource, NULL);
          break;
-      case E_COMP_WL_SH_SURF_ROLE_POPUP:
+      case E_XDG_SURFACE_ROLE_POPUP:
          popup = (E_Xdg_Popup *)exsurf;
          if (popup->resource)
            wl_resource_set_user_data(popup->resource, NULL);
          break;
-      case E_COMP_WL_SH_SURF_ROLE_NONE:
+      case E_XDG_SURFACE_ROLE_NONE:
       default:
          break;
      }
