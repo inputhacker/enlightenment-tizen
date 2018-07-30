@@ -1728,6 +1728,10 @@ e_plane_setup(E_Plane *plane)
      {
         ecore_evas_manual_render_set(e_comp->ee, 1);
      }
+   else if(!strcmp("gl_tbm_ES", name))
+     {
+        ecore_evas_manual_render_set(e_comp->ee, 1);
+     }
    else if(!strcmp("software_tbm", name))
      {
         ecore_evas_manual_render_set(e_comp->ee, 1);

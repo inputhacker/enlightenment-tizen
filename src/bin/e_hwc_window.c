@@ -390,7 +390,8 @@ _e_hwc_window_target_new(E_Hwc *hwc)
    if(!strcmp("gl_drm_tbm", name) ||
       !strcmp("drm_tbm", name) ||
       !strcmp("gl_tbm", name) ||
-      !strcmp("software_tbm", name))
+      !strcmp("software_tbm", name) ||
+      !strcmp("gl_tbm_ES", name))
      {
         ecore_evas_manual_render_set(e_comp->ee, 1);
      }

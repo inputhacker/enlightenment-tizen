@@ -209,7 +209,10 @@ _e_hwc_ee_init(E_Hwc* hwc)
        (e_comp_config_get()->engine == E_COMP_ENGINE_GL))
      {
         e_main_ts_begin("\tEE_GL_DRM New");
-        ee = ecore_evas_tbm_allocfunc_new("gl_tbm", scr_w, scr_h, _e_hwc_tbm_surface_queue_alloc, _e_hwc_tbm_surface_queue_free, (void *)hwc);
+        if (e_comp->avoid_afill)
+          ee = ecore_evas_tbm_allocfunc_new("gl_tbm_ES", scr_w, scr_h, _e_hwc_tbm_surface_queue_alloc, _e_hwc_tbm_surface_queue_free, (void *)hwc);
+        else
+          ee = ecore_evas_tbm_allocfunc_new("gl_tbm", scr_w, scr_h, _e_hwc_tbm_surface_queue_alloc, _e_hwc_tbm_surface_queue_free, (void *)hwc);
         snprintf(buf, sizeof(buf), "\tEE_GL_DRM New Done %p %dx%d", ee, scr_w, scr_h);
         e_main_ts_end(buf);
 

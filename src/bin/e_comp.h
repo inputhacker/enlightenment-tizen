@@ -148,6 +148,7 @@ struct _E_Comp
    Eina_Bool       hwc_use_detach;
    Eina_Bool       hwc_ignore_primary;
    Eina_Bool       use_native_type_buffer : 1; // use native buffer type
+   Eina_Bool       avoid_afill; // avoid to fill the alpha channel as 0xff. that means filling 0x00.
 
    int depth;
    unsigned int    input_key_grabs;
