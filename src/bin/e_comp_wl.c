@@ -2767,11 +2767,20 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
        (!eina_tiler_empty(state->input)))
      {
         Eina_Tiler *src, *tmp;
+        int sw, sh;
 
-        tmp = eina_tiler_new(state->bw, state->bh);
+        if (state->bw > 0) sw = state->bw;
+        else sw = ec->w;
+
+        if (state->bh > 0) sh = state->bh;
+        else sh = ec->h;
+
+        tmp = eina_tiler_new(sw, sh);
         eina_tiler_tile_size_set(tmp, 1, 1);
+
         eina_tiler_rect_add(tmp,
-                            &(Eina_Rectangle){0, 0, state->bw, state->bh});
+                            &(Eina_Rectangle){0, 0, sw, sh});
+
         if ((src = eina_tiler_intersection(state->input, tmp)))
           {
              Eina_Rectangle *rect;

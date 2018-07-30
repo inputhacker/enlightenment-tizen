@@ -3674,8 +3674,19 @@ e_comp_object_input_area_set(Evas_Object *obj, int x, int y, int w, int h)
    API_ENTRY;
    E_Input_Rect_Data *input_rect_data;
    E_Input_Rect_Smart_Data *input_rect_sd;
+   int client_w, client_h;
 
-   E_RECTS_CLIP_TO_RECT(x, y, w, h, 0, 0, cw->ec->client.w, cw->ec->client.h);
+   if (cw->ec->client.w)
+     client_w = cw->ec->client.w;
+   else
+     client_w = cw->ec->w;
+
+   if (cw->ec->client.h)
+     client_h = cw->ec->client.h;
+   else
+     client_h = cw->ec->h;
+
+   E_RECTS_CLIP_TO_RECT(x, y, w, h, 0, 0, client_w, client_h);
 
    input_rect_data = E_NEW(E_Input_Rect_Data, 1);
    EINA_RECTANGLE_SET(&input_rect_data->rect, x, y, w, h);
