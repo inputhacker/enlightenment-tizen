@@ -1061,8 +1061,8 @@ _device_handle_touch_aux_data(struct libinput_device *device, struct libinput_ev
    if (!(edev = libinput_device_get_user_data(device))) goto end;
    if (!(input = edev->seat->input)) goto end;
 
-   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_MOUSE))
-     edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_MOUSE);
+   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_TOUCH))
+     edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_TOUCH);
 
    if (!edev->ecore_dev)
      {
