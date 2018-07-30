@@ -1607,8 +1607,7 @@ _e_xdg_surface_destroy(E_Xdg_Surface *exsurf)
 
    _e_xdg_shell_surface_remove(exsurf->shell, exsurf);
 
-   if (exsurf->configure_list)
-     eina_list_free(exsurf->configure_list);
+   E_FREE_LIST(exsurf->configure_list, free);
    if (exsurf->configure_idle)
      ecore_idle_enterer_del(exsurf->configure_idle);
    if (exsurf->commit_handler)
