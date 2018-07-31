@@ -33,6 +33,7 @@ static Eldbus_Message *_e_test_helper_cb_deregister_window(const Eldbus_Service_
 static Eldbus_Message *_e_test_helper_cb_reset_register_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_change_stack(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_activate_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_change_iconic_state(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_client_info(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_clients(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_dpms(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
@@ -109,6 +110,12 @@ static const Eldbus_Method methods[] ={
           ELDBUS_ARGS({"u", "window id to activate"}),
           NULL,
           _e_test_helper_cb_activate_window, 0
+       },
+       {
+          "SetWindowIconify",
+          ELDBUS_ARGS({"ub", "window id to change iconic state, iconify or uniconify"}),
+          NULL,
+          _e_test_helper_cb_change_iconic_state, 0
        },
        {
           "GetWinInfo",
@@ -644,6 +651,35 @@ _e_test_helper_cb_activate_window(const Eldbus_Service_Interface *iface EINA_UNU
      {
         ec = e_pixmap_find_client_by_res_id(win);
         e_policy_wl_activate(ec);
+     }
+
+   return reply;
+}
+
+static Eldbus_Message*
+_e_test_helper_cb_change_iconic_state(const Eldbus_Service_Interface *iface EINA_UNUSED,
+                                      const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Ecore_Window win = 0x0;
+   Eina_Bool iconic = EINA_FALSE;
+   E_Client *ec = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, reply);
+
+   if (!eldbus_message_arguments_get(msg, "ub", &win, &iconic))
+     {
+        ERR("error on eldbus_message_arguments_get()\n");
+        return reply;
+     }
+
+   if (win)
+     {
+        ec = e_pixmap_find_client_by_res_id(win);
+        if (iconic)
+          e_policy_wl_iconify(ec);
+        else
+          e_policy_wl_uniconify(ec);
      }
 
    return reply;
