@@ -5,6 +5,41 @@
 
 #define ZPOS_NONE -999
 
+#define EHWSINF(f, ec, x...)                                \
+   do                                                       \
+     {                                                      \
+        if (!ec)                                            \
+          INF("EWL|%20.20s|              |             |"f, \
+              "HWC-WINS", ##x);                             \
+        else                                                \
+          INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|"f,         \
+              "HWC-WINS",                                   \
+              (unsigned int)(e_client_util_win_get(ec)),    \
+              (unsigned int)(ec),                           \
+              ##x);                                         \
+     }                                                      \
+   while (0)
+
+#define EHWSTRACE(f, ec, x...)                              \
+   do                                                            \
+     {                                                           \
+        if (ehws_trace)                                          \
+          {                                                      \
+             if (!ec)                                            \
+               INF("EWL|%20.20s|              |             |"f, \
+                   "HWC-WINS", ##x);                             \
+             else                                                \
+               INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|"f,         \
+                   "HWC-WINS",                                   \
+                   (unsigned int)(e_client_util_win_get(ec)),    \
+                   (unsigned int)(ec),                           \
+                   ##x);                                         \
+          }                                                      \
+     }                                                           \
+   while (0)
+
+static Eina_Bool ehws_trace = EINA_TRUE;
+
 static Eina_Bool _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data);
 static Eina_Bool _e_hwc_windows_pp_window_commit(E_Hwc *hwc, E_Hwc_Window *hwc_window);
 

@@ -7,6 +7,46 @@
 # include <pixman.h>
 # include <wayland-tbm-server.h>
 
+#ifndef CLEAR
+#define CLEAR(x) memset(&(x), 0, sizeof (x))
+#endif
+
+#define EHWINF(f, ec, ehw, x...)                                \
+   do                                                           \
+     {                                                          \
+        if ((!ec) && (!ehw))                                    \
+          INF("EWL|%20.20s|              |             |"f,     \
+              "HWC-WIN", ##x);                                  \
+        else                                                    \
+          INF("EWL|%20.20s|win:0x%08x|ec:0x%08x| ehw:0x%08x "f, \
+              "HWC-WIN",                                        \
+              (unsigned int)(e_client_util_win_get(ec)),        \
+              (unsigned int)(ec),                               \
+              (unsigned int)(ehw),                              \
+              ##x);                                             \
+     }                                                          \
+   while (0)
+
+#define EHWTRACE(f, ec, ehw, x...)                                  \
+   do                                                               \
+     {                                                              \
+        if (ehw_trace)                                              \
+          {                                                         \
+            if ((!ec) && (!ehw))                                    \
+              INF("EWL|%20.20s|              |             |"f,     \
+                  "HWC-WIN", ##x);                                  \
+            else                                                    \
+              INF("EWL|%20.20s|win:0x%08x|ec:0x%08x| ehw:0x%08x "f, \
+                  "HWC-WIN",                                        \
+                  (unsigned int)(e_client_util_win_get(ec)),        \
+                  (unsigned int)(ec),                               \
+                  (unsigned int)(ehw),                              \
+                  ##x);                                             \
+          }                                                         \
+     }                                                              \
+   while (0)
+
+static Eina_Bool ehw_trace = EINA_TRUE;
 static E_Client_Hook *client_hook_new = NULL;
 static E_Client_Hook *client_hook_del = NULL;
 static Ecore_Event_Handler *zone_set_event_handler = NULL;
