@@ -12,6 +12,7 @@
 #define ERR(f, p, e, x...)  ELOGF("XDG6 <ERR>", f, p, e, ##x)
 
 #define e_xdg_surface_role_biggest_struct E_Xdg_Toplevel
+#define E_XDG_SURFACE_V6_TYPE (int)0xE0b06000
 
 typedef enum   _E_Xdg_Surface_Role        E_Xdg_Surface_Role;
 typedef struct _E_Xdg_Size                E_Xdg_Size;
@@ -54,6 +55,7 @@ struct _E_Xdg_Toplevel_State
 
 struct _E_Xdg_Surface
 {
+   E_Object e_obj_inherit;
    struct wl_resource   *resource;        /* wl_resource for Zxdg_Surface_V6 */
    E_Client             *ec;              /* E_Client corresponding Xdg_Surface */
    E_Xdg_Shell          *shell;           /* Xdg_Shell created Xdg_Surface */
@@ -246,11 +248,9 @@ _e_xdg_popup_cb_resource_destroy(struct wl_resource *resource)
    E_Xdg_Popup *popup;
 
    popup = wl_resource_get_user_data(resource);
-   if (!popup)
-     return;
-
    popup->resource = NULL;
    _e_client_xdg_shell_v6_role_assingment_unset(popup->base.ec);
+   e_object_unref(E_OBJECT(popup));
 }
 
 static void
@@ -522,11 +522,9 @@ _e_xdg_toplevel_cb_resource_destroy(struct wl_resource *resource)
    E_Xdg_Toplevel *toplevel;
 
    toplevel = wl_resource_get_user_data(resource);
-   if (!toplevel)
-     return;
-
    toplevel->resource = NULL;
    _e_client_xdg_shell_v6_role_assingment_unset(toplevel->base.ec);
+   e_object_unref(E_OBJECT(toplevel));
 }
 
 static void
@@ -1347,6 +1345,8 @@ _e_xdg_surface_cb_toplevel_get(struct wl_client *client, struct wl_resource *res
         wl_resource_destroy(toplevel_resource);
         return;
      }
+
+   e_object_ref(E_OBJECT(exsurf));
 }
 
 static void
@@ -1426,6 +1426,8 @@ _e_xdg_surface_cb_popup_get(struct wl_client *client,
 
    _e_xdg_popup_parent_set((E_Xdg_Popup *)exsurf, parent);
    _e_xdg_popup_positioner_apply((E_Xdg_Popup *)exsurf, p);
+
+   e_object_ref(E_OBJECT(exsurf));
 }
 
 static void
@@ -1594,11 +1596,14 @@ end:
 }
 
 static void
-_e_xdg_surface_destroy(E_Xdg_Surface *exsurf)
+_e_xdg_surface_free(E_Xdg_Surface *exsurf)
 {
-   E_Xdg_Toplevel *toplevel;
-   E_Xdg_Popup *popup;
+   free(exsurf);
+}
 
+static void
+_e_xdg_surface_del(E_Xdg_Surface *exsurf)
+{
    _e_xdg_shell_surface_remove(exsurf->shell, exsurf);
 
    E_FREE_LIST(exsurf->configure_list, free);
@@ -1606,28 +1611,6 @@ _e_xdg_surface_destroy(E_Xdg_Surface *exsurf)
      ecore_idle_enterer_del(exsurf->configure_idle);
    if (exsurf->commit_handler)
      ecore_event_handler_del(exsurf->commit_handler);
-
-   /* Set user data of wl_resource for toplevel or popup to null.
-    * Once zxdg_surface is destroyed, using toplevel or popup interface is
-    * invalid. we also cannot access freed memory. */
-   switch (exsurf->role)
-     {
-      case E_XDG_SURFACE_ROLE_TOPLEVEL:
-         toplevel = (E_Xdg_Toplevel *)exsurf;
-         if (toplevel->resource)
-           wl_resource_set_user_data(toplevel->resource, NULL);
-         break;
-      case E_XDG_SURFACE_ROLE_POPUP:
-         popup = (E_Xdg_Popup *)exsurf;
-         if (popup->resource)
-           wl_resource_set_user_data(popup->resource, NULL);
-         break;
-      case E_XDG_SURFACE_ROLE_NONE:
-      default:
-         break;
-     }
-
-   free(exsurf);
 }
 
 static void
@@ -1652,8 +1635,7 @@ _e_xdg_surface_cb_resource_destroy(struct wl_resource *resource)
     * attribute 'toplevel and popup' is no longer meaningful. */
    _e_client_xdg_shell_v6_role_assingment_unset(exsurf->ec);
    e_shell_e_client_destroy(exsurf->ec);
-   _e_xdg_surface_destroy(exsurf);
-
+   e_object_del(E_OBJECT(exsurf));
 }
 
 static E_Xdg_Surface *
@@ -1682,12 +1664,15 @@ _e_xdg_surface_create(E_Xdg_Shell *shell,
         return NULL;
      }
 
-   exsurf = (E_Xdg_Surface *)calloc(1, sizeof(e_xdg_surface_role_biggest_struct));
+   exsurf = E_OBJECT_ALLOC(e_xdg_surface_role_biggest_struct,
+                           E_XDG_SURFACE_V6_TYPE,
+                           _e_xdg_surface_free);
    if (!exsurf)
      {
         wl_client_post_no_memory(shell->wclient);
         return NULL;
      }
+   e_object_del_func_set(E_OBJECT(exsurf), E_OBJECT_CLEANUP_FUNC(_e_xdg_surface_del));
 
    exsurf->resource = wl_resource_create(shell->wclient,
                                          &zxdg_surface_v6_interface,
@@ -1697,7 +1682,7 @@ _e_xdg_surface_create(E_Xdg_Shell *shell,
      {
         ERR("Could not create wl_resource for xdg surface", ec->pixmap, ec);
         wl_client_post_no_memory(shell->wclient);
-        free(exsurf);
+        e_object_del(E_OBJECT(exsurf));
         return NULL;
      }
 
