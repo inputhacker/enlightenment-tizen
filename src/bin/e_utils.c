@@ -8,6 +8,8 @@ E_API E_Path * path_modules = NULL;
 E_API E_Path * path_backgrounds = NULL;
 E_API E_Path * path_messages = NULL;
 
+E_API int E_EVENT_FILE_MONITOR_CREATED = -1;
+
 /* local subsystem functions */
 static Eina_Bool    _e_util_cb_delayed_del(void *data);
 static Eina_Bool    _e_util_wakeup_cb(void *data);
@@ -18,6 +20,7 @@ static void         _e_util_cb_delayed_cancel(void *data, void *obj);
 
 /* local subsystem globals */
 static Ecore_Timer *_e_util_dummy_timer = NULL;
+static Eina_Hash *_e_file_monitor_hash = NULL;
 
 /* externally accessible functions */
 E_API void
@@ -1201,4 +1204,138 @@ e_util_file_realpath_check(const char* path, Eina_Bool del_link)
      free(real_path);
 
    return EINA_TRUE;
+}
+
+static void
+_e_util_file_monitor_event_free(void *data, void *event)
+{
+   E_Util_Event_File_Monitor *ev = event;
+   E_Util_File_Monitor *mon = (E_Util_File_Monitor *)data;
+
+   eina_stringshare_del(ev->path);
+   if (mon)
+     {
+        eina_hash_del(_e_file_monitor_hash, ev->path, mon);
+     }
+
+   free(ev);
+}
+
+static void
+_e_util_file_monitor_send_event(const char *path, void *data, void *user_data, int ev_type)
+{
+   E_Util_Event_File_Monitor *e = NULL;
+
+   e = calloc(1, sizeof(E_Util_Event_File_Monitor));
+
+   if (!e)
+     {
+        ERR("Failed to allocate memory for E_Util_Event_File_Monitor !\n");
+        return;
+     }
+
+   e->path = eina_stringshare_add(path);
+   e->data = user_data;
+
+   INF("[%s] ECORE_FILE_EVENT_CREATED_FILE (path:%s)", __FUNCTION__, e->path);
+   TRACE_DS_BEGIN(E_UTIL_FILE_MONITOR:CREATED_FILE:%s, e->path);
+   ecore_event_add(ev_type, e, _e_util_file_monitor_event_free, data);
+   TRACE_DS_END();
+}
+
+static void
+_e_util_file_monitor_cb(void *data, Ecore_File_Monitor *em,
+                Ecore_File_Event event, const char *path)
+{
+   E_Util_File_Monitor *mon = (E_Util_File_Monitor *)data;
+
+   if (event != ECORE_FILE_EVENT_CREATED_FILE) return;
+   if (strcmp(path, mon->path)) return;
+
+   _e_util_file_monitor_send_event(path, mon, mon->user_data, E_EVENT_FILE_MONITOR_CREATED);
+}
+
+static void
+_e_util_file_monitor_hash_free(void *data)
+{
+   E_Util_File_Monitor *mon = (E_Util_File_Monitor *)data;
+
+   if (mon)
+     {
+        eina_stringshare_del(mon->path);
+        ecore_file_monitor_del(mon->em);
+     }
+
+   free(mon);
+}
+
+E_API void
+e_util_file_monitor_init(void)
+{
+   E_EVENT_FILE_MONITOR_CREATED = ecore_event_type_new();
+
+   if (!_e_file_monitor_hash)
+     _e_file_monitor_hash = eina_hash_string_small_new(_e_util_file_monitor_hash_free);
+}
+
+E_API int
+e_util_file_monitor_shutdown(void)
+{
+   E_EVENT_FILE_MONITOR_CREATED = -1;
+
+   eina_hash_free(_e_file_monitor_hash);
+   _e_file_monitor_hash = NULL;
+
+   return 1;
+}
+
+E_API int
+e_util_file_monitor_add(const char *path, void *data)
+{
+   char *dir_path = NULL;
+   E_Util_File_Monitor *mon;
+
+   if (!path) return 0;
+
+   if (ecore_file_exists(path))
+     {
+        _e_util_file_monitor_send_event(path, NULL, data, E_EVENT_FILE_MONITOR_CREATED);
+        return 1;
+     }
+
+   if (eina_hash_find(_e_file_monitor_hash, path))
+     return 1;
+
+   dir_path = ecore_file_dir_get(path);
+
+   if (!ecore_file_exists(dir_path))
+     {
+        ERR("The parent directory (%s) of the path (%s) doesn't exist !", dir_path, path);
+        free(dir_path);
+        return 0;
+     }
+
+   mon = calloc(1, sizeof(E_Util_File_Monitor));
+
+   if (!mon)
+     {
+        ERR("Failed to allocate memory for E_Util_File_Monitor !");
+        return 0;
+     }
+
+   Ecore_File_Monitor *em = ecore_file_monitor_add(dir_path, _e_util_file_monitor_cb, mon);
+
+   if (em)
+     {
+        mon->em = em;
+        mon->path = eina_stringshare_add(path);
+        mon->user_data = data;
+        eina_hash_add(_e_file_monitor_hash, path, mon);
+        return 1;
+     }
+
+   if (mon)
+     free(mon);
+
+   return 0;
 }

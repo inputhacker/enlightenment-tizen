@@ -475,6 +475,11 @@ main(int argc, char **argv)
    TSE("Ecore_File Init Done");
    _e_main_shutdown_push(ecore_file_shutdown);
 
+   TSB("E_Util_File_Monitor Init");
+   e_util_file_monitor_init();
+   TSE("E_Util_File_Monitor Init Done");
+   _e_main_shutdown_push(e_util_file_monitor_shutdown);
+
    _idle_before = ecore_idle_enterer_before_add(_e_main_cb_idle_before, NULL);
 
    TSB("XDG_DATA_DIRS Init");

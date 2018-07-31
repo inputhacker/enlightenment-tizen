@@ -1,10 +1,31 @@
 #ifdef E_TYPEDEFS
 
+extern E_API int E_EVENT_FILE_MONITOR_CREATED;
+
 #else
 #ifndef E_UTILS_H
 #define E_UTILS_H
 
 #include "e_input.h"
+
+#define E_UTIL_DBUS_READY_PATH "/run/enlightenment/dbus_ready"
+#define E_UTIL_SENSORD_READY_PATH "/run/enlightenment/sensord_ready"
+
+typedef struct _E_Util_File_Monitor E_Util_File_Monitor;
+typedef struct _E_Util_Event_File_Monitor E_Util_Event_File_Monitor;
+
+struct _E_Util_File_Monitor
+{
+   const char *path;
+   Ecore_File_Monitor *em;
+   void *user_data;
+};
+
+struct _E_Util_Event_File_Monitor
+{
+   const char *path;
+   void *data;
+};
 
 #define e_util_dialog_show(title, args...) \
 { \
@@ -71,6 +92,10 @@ E_API void e_util_evas_objects_above_print_smart(Evas_Object *o);
 E_API void e_util_string_list_free(Eina_List *l);
 
 E_API void e_util_memclear(void *s, size_t n);
+
+E_API void e_util_file_monitor_init(void);
+E_API int e_util_file_monitor_shutdown(void);
+E_API int e_util_file_monitor_add(const char *path, void *data);
 
 static inline void
 e_util_pointer_center(const E_Client *ec)
