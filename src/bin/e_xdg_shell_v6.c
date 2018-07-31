@@ -170,6 +170,14 @@ _e_client_xdg_shell_v6_assign(E_Client *ec,
 }
 
 static void
+_e_client_xdg_shell_v6_role_assingment_unset(E_Client *ec)
+{
+   if ((!ec) || (!ec->comp_data) || (e_object_is_del(E_OBJECT(ec))))
+     return;
+   _e_client_xdg_shell_v6_assign(ec, NULL, E_COMP_WL_SH_SURF_ROLE_NONE);
+}
+
+static void
 _validate_size(struct wl_resource *resource, int32_t value)
 {
    if (value <= 0)
@@ -236,20 +244,13 @@ static void
 _e_xdg_popup_cb_resource_destroy(struct wl_resource *resource)
 {
    E_Xdg_Popup *popup;
-   E_Client *ec;
 
    popup = wl_resource_get_user_data(resource);
    if (!popup)
      return;
 
    popup->resource = NULL;
-   ec = popup->base.ec;
-   if ((ec) &&
-       (!e_object_is_del(E_OBJECT(ec))))
-     {
-        if (ec->comp_data)
-          _e_client_xdg_shell_v6_assign(popup->base.ec, NULL, E_COMP_WL_SH_SURF_ROLE_NONE);
-     }
+   _e_client_xdg_shell_v6_role_assingment_unset(popup->base.ec);
 }
 
 static void
@@ -519,20 +520,13 @@ static void
 _e_xdg_toplevel_cb_resource_destroy(struct wl_resource *resource)
 {
    E_Xdg_Toplevel *toplevel;
-   E_Client *ec;
 
    toplevel = wl_resource_get_user_data(resource);
    if (!toplevel)
      return;
 
    toplevel->resource = NULL;
-   ec = toplevel->base.ec;
-   if ((ec) &&
-       (!e_object_is_del(E_OBJECT(ec))))
-     {
-        if (ec->comp_data)
-          _e_client_xdg_shell_v6_assign(toplevel->base.ec, NULL, E_COMP_WL_SH_SURF_ROLE_NONE);
-     }
+   _e_client_xdg_shell_v6_role_assingment_unset(toplevel->base.ec);
 }
 
 static void
@@ -1653,6 +1647,10 @@ _e_xdg_surface_cb_resource_destroy(struct wl_resource *resource)
        exsurf->ec->pixmap, exsurf->ec,
        _e_xdg_surface_util_role_string_get(exsurf));
 
+   /* Although zxdg_toplevel_v6 or zxdg_popup_v6 are still existed, unset
+    * assignment at here anyway. once zxdg_surface_v6 is destroyed, the
+    * attribute 'toplevel and popup' is no longer meaningful. */
+   _e_client_xdg_shell_v6_role_assingment_unset(exsurf->ec);
    e_shell_e_client_destroy(exsurf->ec);
    _e_xdg_surface_destroy(exsurf);
 
