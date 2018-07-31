@@ -1,4 +1,5 @@
 #include "e.h"
+#include "e_policy_wl.h"
 
 #define BUS "org.enlightenment.wm"
 #define PATH "/org/enlightenment/wm"
@@ -31,6 +32,7 @@ static Eldbus_Message *_e_test_helper_cb_register_window(const Eldbus_Service_In
 static Eldbus_Message *_e_test_helper_cb_deregister_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_reset_register_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_change_stack(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_activate_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_client_info(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_clients(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_dpms(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
@@ -101,6 +103,12 @@ static const Eldbus_Method methods[] ={
           ELDBUS_ARGS({"uui", "window id to restack, above or below, stacking type"}),
           NULL,
           _e_test_helper_cb_change_stack, 0
+       },
+       {
+          "SetWindowActivate",
+          ELDBUS_ARGS({"u", "window id to activate"}),
+          NULL,
+          _e_test_helper_cb_activate_window, 0
        },
        {
           "GetWinInfo",
@@ -612,6 +620,31 @@ _e_test_helper_cb_change_stack(const Eldbus_Service_Interface *iface EINA_UNUSED
 
    if ((win) && (above != -1))
      _e_test_helper_restack(win, target, above);
+
+   return reply;
+}
+
+static Eldbus_Message*
+_e_test_helper_cb_activate_window(const Eldbus_Service_Interface *iface EINA_UNUSED,
+                                  const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Ecore_Window win = 0x0;
+   E_Client *ec = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, reply);
+
+   if (!eldbus_message_arguments_get(msg, "u", &win))
+     {
+        ERR("error on eldbus_message_arguments_get()\n");
+        return reply;
+     }
+
+   if (win)
+     {
+        ec = e_pixmap_find_client_by_res_id(win);
+        e_policy_wl_activate(ec);
+     }
 
    return reply;
 }
