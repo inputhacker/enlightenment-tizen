@@ -47,9 +47,8 @@
    while (0)
 
 static Eina_Bool ehw_trace = EINA_TRUE;
-static E_Client_Hook *client_hook_new = NULL;
-static E_Client_Hook *client_hook_del = NULL;
-static Ecore_Event_Handler *zone_set_event_handler = NULL;
+static Eina_List *hwc_window_client_hooks = NULL;
+static Eina_List *hwc_window_event_hdlrs = NULL;
 static uint64_t ee_rendered_hw_list_key;
 
 static int _e_hwc_window_hooks_delete = 0;
@@ -1077,28 +1076,12 @@ e_hwc_window_init(E_Hwc *hwc)
    if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
      return EINA_FALSE;
 
-   client_hook_new =  e_client_hook_add(E_CLIENT_HOOK_NEW_CLIENT,
-                                        _e_hwc_window_client_cb_new, NULL);
-   if (!client_hook_new)
-     {
-        ERR("fail to add the E_CLIENT_HOOK_NEW_CLIENT hook.");
-        return EINA_FALSE;
-     }
-   client_hook_del =  e_client_hook_add(E_CLIENT_HOOK_DEL,
-                                        _e_hwc_window_client_cb_del, NULL);
-   if (!client_hook_del)
-     {
-        ERR("fail to add the E_CLIENT_HOOK_DEL hook.");
-        return EINA_FALSE;
-     }
-
-   zone_set_event_handler =
-            ecore_event_handler_add(E_EVENT_CLIENT_ZONE_SET, _e_hwc_window_client_cb_zone_set, NULL);
-   if (!zone_set_event_handler)
-     {
-        ERR("fail to add the E_EVENT_CLIENT_ZONE_SET event handler.");
-        return EINA_FALSE;
-     }
+   E_LIST_HOOK_APPEND(hwc_window_client_hooks, E_CLIENT_HOOK_NEW_CLIENT,
+                      _e_hwc_window_client_cb_new, NULL);
+   E_LIST_HOOK_APPEND(hwc_window_client_hooks, E_CLIENT_HOOK_DEL,
+                      _e_hwc_window_client_cb_del, NULL);
+   E_LIST_HANDLER_APPEND(hwc_window_event_hdlrs, E_EVENT_CLIENT_ZONE_SET,
+                         _e_hwc_window_client_cb_zone_set, NULL);
 
    target_hwc_window = _e_hwc_window_target_new(hwc);
    EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
@@ -1119,6 +1102,9 @@ e_hwc_window_deinit(E_Hwc *hwc)
 
    if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
      return;
+
+   E_FREE_LIST(hwc_window_client_hooks, e_client_hook_del);
+   E_FREE_LIST(hwc_window_event_hdlrs, ecore_event_handler_del);
 
    hwc->hwc_windows = eina_list_remove(hwc->hwc_windows, hwc->target_hwc_window);
    e_object_del(E_OBJECT(hwc->target_hwc_window));
