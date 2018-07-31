@@ -36,8 +36,10 @@ static Eldbus_Message *_e_test_helper_cb_activate_window(const Eldbus_Service_In
 static Eldbus_Message *_e_test_helper_cb_change_iconic_state(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_set_transient_for(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_unset_transient_for(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_set_noti_level(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_client_info(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_clients(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_get_noti_level(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_dpms(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_ev_freeze(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_ev_mouse(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
@@ -132,6 +134,12 @@ static const Eldbus_Method methods[] ={
           _e_test_helper_cb_unset_transient_for, 0
        },
        {
+          "SetWindowNotiLevel",
+          ELDBUS_ARGS({"ui", "window id to set notification level, notification level"}),
+          NULL,
+          _e_test_helper_cb_set_noti_level, 0
+       },
+       {
           "GetWinInfo",
           ELDBUS_ARGS({"u", "window id"}),
           ELDBUS_ARGS({E_TH_SIGN_WIN_INFO, "information of ec"}),
@@ -142,6 +150,12 @@ static const Eldbus_Method methods[] ={
           NULL,
           ELDBUS_ARGS({"ua("E_TH_SIGN_WIN_INFO")", "array of ec"}),
           _e_test_helper_cb_get_clients, 0
+       },
+       {
+          "GetWindowNotiLevel",
+          ELDBUS_ARGS({"u", "window id to get notification level"}),
+          ELDBUS_ARGS({"i", "notification level"}),
+          _e_test_helper_cb_get_noti_level, 0
        },
        {
           "DPMS",
@@ -764,6 +778,32 @@ fin:
    return reply;
 }
 
+static Eldbus_Message*
+_e_test_helper_cb_set_noti_level(const Eldbus_Service_Interface *iface EINA_UNUSED,
+                                 const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Ecore_Window win = 0x0;
+   int layer = 0;
+   E_Client *ec = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, reply);
+
+   if (!eldbus_message_arguments_get(msg, "ui", &win, &layer))
+     {
+        ERR("error on eldbus_message_arguments_get()\n");
+        return reply;
+     }
+
+   if (win)
+     {
+        ec = e_pixmap_find_client_by_res_id(win);
+        evas_object_layer_set(ec->frame, layer);
+     }
+
+   return reply;
+}
+
 static Eldbus_Message *
 _e_test_helper_cb_get_client_info(const Eldbus_Service_Interface *iface EINA_UNUSED,
                                   const Eldbus_Message *msg)
@@ -794,6 +834,29 @@ _e_test_helper_cb_get_clients(const Eldbus_Service_Interface *iface EINA_UNUSED,
    reply = eldbus_message_method_return_new(msg);
    _e_test_helper_message_append_clients(eldbus_message_iter_get(reply));
 
+   return reply;
+}
+
+static Eldbus_Message *
+_e_test_helper_cb_get_noti_level(const Eldbus_Service_Interface *iface EINA_UNUSED,
+                                 const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Ecore_Window win = 0x0;
+   E_Client *ec = NULL;
+   int layer = -1;
+
+   if (!eldbus_message_arguments_get(msg, "u", &win))
+     {
+        ERR("error on eldbus_message_arguments_get()\n");
+        goto fin;
+     }
+
+   ec = e_pixmap_find_client_by_res_id(win);
+   layer = ec->layer;
+
+fin:
+   eldbus_message_arguments_append(reply, "i", layer);
    return reply;
 }
 
