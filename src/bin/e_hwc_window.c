@@ -52,6 +52,45 @@ static E_Client_Hook *client_hook_del = NULL;
 static Ecore_Event_Handler *zone_set_event_handler = NULL;
 static uint64_t ee_rendered_hw_list_key;
 
+static int _e_hwc_window_hooks_delete = 0;
+static int _e_hwc_window_hooks_walking = 0;
+
+static Eina_Inlist *_e_hwc_window_hooks[] =
+{
+   [E_HWC_WINDOW_HOOK_ACCEPTED_STATE_CHANGE] = NULL,
+};
+
+static void
+_e_hwc_window_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Hwc_Window_Hook *ch;
+   unsigned int x;
+   for (x = 0; x < E_HWC_WINDOW_HOOK_LAST; x++)
+     EINA_INLIST_FOREACH_SAFE(_e_hwc_window_hooks[x], l, ch)
+       {
+          if (!ch->delete_me) continue;
+          _e_hwc_window_hooks[x] = eina_inlist_remove(_e_hwc_window_hooks[x], EINA_INLIST_GET(ch));
+          free(ch);
+       }
+}
+
+static void
+_e_hwc_window_hook_call(E_Hwc_Window_Hook_Point hookpoint, E_Hwc_Window *hwc_window)
+{
+   E_Hwc_Window_Hook *ch;
+
+   _e_hwc_window_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_hwc_window_hooks[hookpoint], ch)
+     {
+        if (ch->delete_me) continue;
+        ch->func(ch->data, hwc_window);
+     }
+   _e_hwc_window_hooks_walking--;
+   if ((_e_hwc_window_hooks_walking == 0) && (_e_hwc_window_hooks_delete > 0))
+     _e_hwc_window_hooks_clean();
+}
+
 static E_Comp_Wl_Buffer *
 _e_hwc_window_comp_wl_buffer_get(E_Hwc_Window *hwc_window)
 {
@@ -1703,6 +1742,8 @@ e_hwc_window_accepted_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State sta
             hwc_window->ec, hwc_window, e_hwc_window_state_string_get(state),
             hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN");
 
+   _e_hwc_window_hook_call(E_HWC_WINDOW_HOOK_ACCEPTED_STATE_CHANGE, hwc_window);
+
    return EINA_TRUE;
 }
 
@@ -1804,4 +1845,34 @@ e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state)
      default:
        return "UNKNOWN";
     }
+}
+
+E_API E_Hwc_Window_Hook *
+e_hwc_window_hook_add(E_Hwc_Window_Hook_Point hookpoint, E_Hwc_Window_Hook_Cb func, const void *data)
+{
+   E_Hwc_Window_Hook *ch;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_HWC_WINDOW_HOOK_LAST, NULL);
+   ch = E_NEW(E_Hwc_Window_Hook, 1);
+   if (!ch) return NULL;
+   ch->hookpoint = hookpoint;
+   ch->func = func;
+   ch->data = (void*)data;
+   _e_hwc_window_hooks[hookpoint] = eina_inlist_append(_e_hwc_window_hooks[hookpoint],
+                                                       EINA_INLIST_GET(ch));
+   return ch;
+}
+
+E_API void
+e_hwc_window_hook_del(E_Hwc_Window_Hook *ch)
+{
+   ch->delete_me = 1;
+   if (_e_hwc_window_hooks_walking == 0)
+     {
+        _e_hwc_window_hooks[ch->hookpoint] = eina_inlist_remove(_e_hwc_window_hooks[ch->hookpoint],
+                                                                EINA_INLIST_GET(ch));
+        free(ch);
+     }
+   else
+     _e_hwc_window_hooks_delete++;
 }

@@ -1,8 +1,10 @@
 #ifdef E_TYPEDEFS
 
-typedef struct _E_Hwc_Window                     E_Hwc_Window;
-typedef struct _E_Hwc_Window_Target              E_Hwc_Window_Target;
-typedef struct _E_Hwc_Window_Commit_Data         E_Hwc_Window_Commit_Data;
+typedef struct _E_Hwc_Window                      E_Hwc_Window;
+typedef struct _E_Hwc_Window_Target               E_Hwc_Window_Target;
+typedef struct _E_Hwc_Window_Commit_Data          E_Hwc_Window_Commit_Data;
+typedef struct _E_Hwc_Window_Hook                 E_Hwc_Window_Hook;
+typedef void (*E_Hwc_Window_Hook_Cb) (void *data, E_Hwc_Window *hwc_window);
 
 #else
 #ifndef E_HWC_WINDOW_H
@@ -42,6 +44,21 @@ typedef enum _E_Hwc_Window_Activation_State
    E_HWC_WINDOW_ACTIVATION_STATE_ACTIVATED,
    E_HWC_WINDOW_ACTIVATION_STATE_DEACTIVATED,
 } E_Hwc_Window_Activation_State;
+
+typedef enum _E_Hwc_Window_Hook_Point
+{
+   E_HWC_WINDOW_HOOK_ACCEPTED_STATE_CHANGE,
+   E_HWC_WINDOW_HOOK_LAST
+} E_Hwc_Window_Hook_Point;
+
+struct _E_Hwc_Window_Hook
+{
+   EINA_INLIST;
+   E_Hwc_Window_Hook_Point hookpoint;
+   E_Hwc_Window_Hook_Cb func;
+   void *data;
+   unsigned char delete_me : 1;
+};
 
 struct _E_Hwc_Window
 {
@@ -144,5 +161,7 @@ EINTERN Eina_Bool          e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_wi
 
 EINTERN const char        *e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state);
 
+EINTERN E_Hwc_Window_Hook *e_hwc_window_hook_add(E_Hwc_Window_Hook_Point hookpoint, E_Hwc_Window_Hook_Cb func, const void *data);
+EINTERN void               e_hwc_window_hook_del(E_Hwc_Window_Hook *ch);
 #endif // E_HWC_WINDOW_H
 #endif
