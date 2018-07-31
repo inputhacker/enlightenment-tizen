@@ -100,8 +100,11 @@ struct _E_Hwc_Window
       E_Hwc_Window_Buffer         buffer;
    } display;
 
-   tbm_surface_h       cursor_tsurface;
-   int                 cursor_rotation;
+   struct
+   {
+      int                         rotation;
+      tbm_surface_h               tsurface;
+   } cursor;
 
    E_Hwc_Window_Queue            *queue;
    struct wl_listener             queue_destroy_listener;

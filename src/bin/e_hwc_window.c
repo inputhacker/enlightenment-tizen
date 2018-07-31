@@ -704,8 +704,8 @@ _e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointe
    EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, EINA_FALSE);
 
    if ((hwc_window->display.buffer_ref.buffer == buffer) &&
-       (hwc_window->cursor_tsurface) &&
-       (hwc_window->cursor_rotation == pointer->rotation))
+       (hwc_window->cursor.tsurface) &&
+       (hwc_window->cursor.rotation == pointer->rotation))
      return EINA_TRUE;
 
    /* TODO: TBM TYPE, NATIVE_WL */
@@ -733,44 +733,42 @@ _e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointe
    else
       tw = ec->w, th = ec->h;
 
-   hwc_window->cursor_rotation = pointer->rotation;
+   hwc_window->cursor.rotation = pointer->rotation;
 
    w = (output->cursor_available.min_w > tw) ? output->cursor_available.min_w : tw;
    h = (output->cursor_available.min_h > th) ? output->cursor_available.min_h : th;
 
    if (e_comp->hwc_reuse_cursor_buffer)
      {
-        if (hwc_window->cursor_tsurface)
+        if (hwc_window->cursor.tsurface)
           {
-             tsurface_w = tbm_surface_get_width(hwc_window->cursor_tsurface);
-             tsurface_h = tbm_surface_get_height(hwc_window->cursor_tsurface);
+             tsurface_w = tbm_surface_get_width(hwc_window->cursor.tsurface);
+             tsurface_h = tbm_surface_get_height(hwc_window->cursor.tsurface);
 
              if (w != tsurface_w || h != tsurface_h)
                {
-                  tbm_surface_destroy(hwc_window->cursor_tsurface);
-                  hwc_window->cursor_tsurface = NULL;
+                  tbm_surface_destroy(hwc_window->cursor.tsurface);
+                  hwc_window->cursor.tsurface = NULL;
                }
           }
      }
    else
      {
-        if (hwc_window->cursor_tsurface)
+        if (hwc_window->cursor.tsurface)
           {
-             tbm_surface_destroy(hwc_window->cursor_tsurface);
-             hwc_window->cursor_tsurface = NULL;
+             tbm_surface_destroy(hwc_window->cursor.tsurface);
+             hwc_window->cursor.tsurface = NULL;
           }
      }
 
-   if (!hwc_window->cursor_tsurface)
+   if (!hwc_window->cursor.tsurface)
      {
         /* Which tbm flags should be used? */
         tsurface = tbm_surface_internal_create_with_flags(w, h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
-        if (!tsurface) return EINA_FALSE;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, EINA_FALSE);
      }
    else
-     {
-        tsurface = hwc_window->cursor_tsurface;
-     }
+     tsurface = hwc_window->cursor.tsurface;
 
    ret = tbm_surface_map(tsurface, TBM_SURF_OPTION_WRITE, &tsurface_info);
    if (ret != TBM_SURFACE_ERROR_NONE)
@@ -784,7 +782,7 @@ _e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointe
 
    tbm_surface_unmap(tsurface);
 
-   hwc_window->cursor_tsurface = tsurface;
+   hwc_window->cursor.tsurface = tsurface;
 
    /* to set the hwc_window_cursor_tsurface to the hwc_window->buffer.tsurface */
    e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
@@ -801,31 +799,10 @@ _e_hwc_window_cursor_surface_acquire(E_Hwc_Window *hwc_window)
    E_Pointer *pointer = NULL;
 
    pointer = e_pointer_get(ec);
-   if (!pointer)
-     {
-        ELOGF("HWC-WINS", "[soolim] ehw:%p Pointer is null.(Cursor)",
-             hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
-             hwc_window);
-        return NULL;
-     }
+   if (!pointer) return NULL;
 
-   buffer = ec->comp_data->buffer_ref.buffer;
-   if (!buffer)
-     {
-        ELOGF("HWC-WINS", "[soolim] ehw:%p E_Comp_Wl_Buffer is null.(Cursor)",
-             hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
-             hwc_window);
-        return NULL;
-     }
-#if 1
-   if (hwc_window->cursor_tsurface) return hwc_window->cursor_tsurface;
-#else
-   /* return the exist tsurface when there is no update on cursor image(pointer image) */
-   if (!e_comp_object_hwc_update_exists(ec->frame) && hwc_window->buffer.tsurface)
-     return hwc_window->buffer.tsurface;
-#endif
-
-   //e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
+   buffer = _e_hwc_window_comp_wl_buffer_get(hwc_window);
+   if (!buffer) return NULL;
 
    if (!_e_hwc_window_cursor_surface_refresh(hwc_window, pointer))
      {
@@ -833,9 +810,41 @@ _e_hwc_window_cursor_surface_acquire(E_Hwc_Window *hwc_window)
         return NULL;
      }
 
-   tsurface = hwc_window->cursor_tsurface;
+   tsurface = hwc_window->cursor.tsurface;
 
    return tsurface;
+}
+
+static void
+_e_hwc_window_cursor_position_get(E_Pointer *ptr, int width, int height, int *x, int *y)
+{
+   int rotation;;
+
+   rotation = ptr->rotation;
+
+   switch (rotation)
+     {
+      case 0:
+        *x = ptr->x - ptr->hot.x;
+        *y = ptr->y - ptr->hot.y;
+        break;
+      case 90:
+        *x = ptr->x - ptr->hot.y;
+        *y = ptr->y + ptr->hot.x - width;
+        break;
+      case 180:
+        *x = ptr->x + ptr->hot.x - width;
+        *y = ptr->y + ptr->hot.y - height;
+        break;
+      case 270:
+        *x = ptr->x + ptr->hot.y - height;
+        *y = ptr->y - ptr->hot.x;
+        break;
+      default:
+        *x = ptr->x - ptr->hot.x;
+        *y = ptr->y - ptr->hot.y;
+        break;
+     }
 }
 
 static Eina_Bool
@@ -889,8 +898,11 @@ _e_hwc_window_info_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface)
              return EINA_FALSE;
           }
 
-        dst_x = pointer->x - pointer->hot.x;
-        dst_y = pointer->y - pointer->hot.y;
+       _e_hwc_window_cursor_position_get(pointer,
+                                         src_w,
+                                         src_h,
+                                         &dst_x,
+                                         &dst_y);
      }
    else
      {
@@ -1249,10 +1261,10 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
    /* set the buffer to be null  */
    if (hwc_window->state == E_HWC_WINDOW_STATE_NONE)
      {
-        if (hwc_window->cursor_tsurface)
+        if (hwc_window->cursor.tsurface)
           {
-             tbm_surface_destroy(hwc_window->cursor_tsurface);
-             hwc_window->cursor_tsurface = NULL;
+             tbm_surface_destroy(hwc_window->cursor.tsurface);
+             hwc_window->cursor.tsurface = NULL;
           }
 
         if (hwc_window->buffer.tsurface == NULL) return EINA_FALSE;
