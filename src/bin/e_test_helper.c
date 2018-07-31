@@ -34,6 +34,8 @@ static Eldbus_Message *_e_test_helper_cb_reset_register_window(const Eldbus_Serv
 static Eldbus_Message *_e_test_helper_cb_change_stack(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_activate_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_change_iconic_state(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_set_transient_for(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_unset_transient_for(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_client_info(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_clients(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_dpms(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
@@ -116,6 +118,18 @@ static const Eldbus_Method methods[] ={
           ELDBUS_ARGS({"ub", "window id to change iconic state, iconify or uniconify"}),
           NULL,
           _e_test_helper_cb_change_iconic_state, 0
+       },
+       {
+          "SetWindowTransientFor",
+          ELDBUS_ARGS({"uu", "child window id to set transient_for, parent window id to set transient_for"}),
+          ELDBUS_ARGS({"b", "accept or not"}),
+          _e_test_helper_cb_set_transient_for, 0
+       },
+       {
+          "UnsetWindowTransientFor",
+          ELDBUS_ARGS({"u", "child window id to set transient_for"}),
+          ELDBUS_ARGS({"b", "accept or not"}),
+          _e_test_helper_cb_unset_transient_for, 0
        },
        {
           "GetWinInfo",
@@ -682,6 +696,71 @@ _e_test_helper_cb_change_iconic_state(const Eldbus_Service_Interface *iface EINA
           e_policy_wl_uniconify(ec);
      }
 
+   return reply;
+}
+
+static Eldbus_Message*
+_e_test_helper_cb_set_transient_for(const Eldbus_Service_Interface *iface EINA_UNUSED,
+                                    const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Ecore_Window parent = 0x0, child = 0x0;
+   E_Client *ec = NULL, *pec = NULL;
+   Eina_Bool accept = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_GOTO(th_data, fin);
+
+   if (!eldbus_message_arguments_get(msg, "uu", &child, &parent))
+     {
+        ERR("error on eldbus_message_arguments_get()\n");
+        goto fin;
+     }
+
+   if (parent && child)
+     {
+        pec = e_pixmap_find_client_by_res_id(parent);
+        EINA_SAFETY_ON_NULL_GOTO(pec, fin);
+
+        ec = e_pixmap_find_client_by_res_id(child);
+        EINA_SAFETY_ON_NULL_GOTO(ec, fin);
+
+        e_policy_stack_transient_for_set(ec, pec);
+        accept = EINA_TRUE;
+     }
+
+fin:
+   eldbus_message_arguments_append(reply, "b", accept);
+   return reply;
+}
+
+static Eldbus_Message*
+_e_test_helper_cb_unset_transient_for(const Eldbus_Service_Interface *iface EINA_UNUSED,
+                                      const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Ecore_Window child = 0x0;
+   E_Client *ec = NULL;
+   Eina_Bool accept = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_GOTO(th_data, fin);
+
+   if (!eldbus_message_arguments_get(msg, "u", &child))
+     {
+        ERR("error on eldbus_message_arguments_get()\n");
+        goto fin;
+     }
+
+   if (child)
+     {
+        ec = e_pixmap_find_client_by_res_id(child);
+        EINA_SAFETY_ON_NULL_GOTO(ec, fin);
+
+        e_policy_stack_transient_for_set(ec, NULL);
+        accept = EINA_TRUE;
+     }
+
+fin:
+   eldbus_message_arguments_append(reply, "b", accept);
    return reply;
 }
 
