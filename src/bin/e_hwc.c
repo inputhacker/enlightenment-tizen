@@ -350,6 +350,12 @@ e_hwc_new(E_Output *output)
              goto fail;
           }
 
+        if (!e_hwc_window_queue_init(hwc))
+          {
+             ERR("hwc_opt: E_Hwc_Window_Queue init failed");
+             goto fail;
+          }
+
         if (!e_hwc_window_init(hwc))
           {
              ERR("hwc_opt: E_Hwc_Window init failed");
@@ -383,6 +389,7 @@ e_hwc_del(E_Hwc *hwc)
      {
         e_hwc_window_deinit(hwc);
         e_hwc_windows_deinit();
+        e_hwc_window_queue_deinit();
      }
 
    E_FREE(hwc);

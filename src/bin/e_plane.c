@@ -619,7 +619,7 @@ _e_plane_external_surface_acquire(E_Plane *plane)
           }
         else
           {
-             tsurface = plane->output_primary->hwc->target_hwc_window->hwc_window.tsurface;
+             tsurface = plane->output_primary->hwc->target_hwc_window->hwc_window.buffer.tsurface;
              EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, NULL);
           }
      }

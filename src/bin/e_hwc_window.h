@@ -2,6 +2,7 @@
 
 typedef struct _E_Hwc_Window                      E_Hwc_Window;
 typedef struct _E_Hwc_Window_Target               E_Hwc_Window_Target;
+typedef struct _E_Hwc_Window_Buffer               E_Hwc_Window_Buffer;
 typedef struct _E_Hwc_Window_Commit_Data          E_Hwc_Window_Commit_Data;
 typedef struct _E_Hwc_Window_Hook                 E_Hwc_Window_Hook;
 typedef void (*E_Hwc_Window_Hook_Cb) (void *data, E_Hwc_Window *hwc_window);
@@ -60,12 +61,20 @@ struct _E_Hwc_Window_Hook
    unsigned char delete_me : 1;
 };
 
+struct _E_Hwc_Window_Buffer
+{
+   tbm_surface_h                  tsurface;
+   E_Hwc_Window_Queue            *queue;
+   struct wl_listener             queue_destroy_listener;
+   Eina_Bool                      from_queue;
+};
+
 struct _E_Hwc_Window
 {
    E_Object                       e_obj_inherit;
 
    E_Client                      *ec;
-   E_Hwc                  *hwc;
+   E_Hwc                         *hwc;
    tdm_hwc_window                *thwc_window;
    int                            zpos;
    Eina_Bool                      is_target;
@@ -73,44 +82,43 @@ struct _E_Hwc_Window
    Eina_Bool                      is_cursor;
    Eina_Bool                      is_deleted;
    Eina_Bool                      update_exist;
-   tbm_surface_h                  tsurface;
    E_Hwc_Window_Activation_State  activation_state; /* hwc_window has occupied the hw layer or not */
-   tdm_hwc_window_info info;
 
    E_Hwc_Window_State             state;
    E_Hwc_Window_State             accepted_state;
    E_Hwc_Window_Transition        transition;
    E_Hwc_Window_Transition        uncompleted_transition;
 
+   E_Hwc_Window_Buffer            buffer;
+
+   tdm_hwc_window_info            info;
+   E_Hwc_Window_Commit_Data      *commit_data;
    /* current display information */
    struct
    {
-      E_Comp_Wl_Buffer_Ref  buffer_ref;
-      tbm_surface_h         tsurface;
-   } display_info;
-
-   E_Hwc_Window_Commit_Data       *commit_data;
-
-   Eina_Bool hwc_acceptable;
-   Eina_Bool need_change_buffer_transform;
+      E_Comp_Wl_Buffer_Ref        buffer_ref;
+      E_Hwc_Window_Buffer         buffer;
+   } display;
 
    tbm_surface_h       cursor_tsurface;
    int                 cursor_rotation;
 
+   E_Hwc_Window_Queue            *queue;
+   struct wl_listener             queue_destroy_listener;
+
    Eina_Bool is_device_to_client_transition;
+   Eina_Bool need_change_buffer_transform;
 };
 
 struct _E_Hwc_Window_Target
 {
    E_Hwc_Window        hwc_window; /* don't move this field */
-   E_Hwc               *hwc;
+   E_Hwc              *hwc;
 
    Ecore_Evas         *ee;
    Evas               *evas;
    int                 event_fd;
    Ecore_Fd_Handler   *event_hdlr;
-
-   tbm_surface_queue_h queue;
 
    /* a surface the rendering is currently performing at */
    tbm_surface_h       dequeued_tsurface;
@@ -120,8 +128,8 @@ struct _E_Hwc_Window_Target
 };
 
 struct _E_Hwc_Window_Commit_Data {
-   E_Comp_Wl_Buffer_Ref  buffer_ref;
-   tbm_surface_h         tsurface;
+   E_Comp_Wl_Buffer_Ref   buffer_ref;
+   E_Hwc_Window_Buffer    buffer;
 };
 
 EINTERN Eina_Bool          e_hwc_window_init(E_Hwc *hwc);
@@ -142,12 +150,12 @@ EINTERN Eina_Bool          e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window);
 
-EINTERN Eina_Bool          e_hwc_window_target_surface_queue_can_dequeue(E_Hwc_Window_Target *target_hwc_window);
+EINTERN Eina_Bool          e_hwc_window_target_can_render(E_Hwc_Window_Target *target_hwc_window);
 EINTERN Eina_Bool          e_hwc_window_target_enabled(E_Hwc_Window_Target *target_hwc_window);
 EINTERN Eina_Bool          e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window);
 EINTERN Eina_List         *e_hwc_window_target_window_ee_rendered_hw_list_get(E_Hwc_Window_Target *target_window);
 
-EINTERN Eina_Bool          e_hwc_window_activate(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool          e_hwc_window_activate(E_Hwc_Window *hwc_window, E_Hwc_Window_Queue *queue);
 EINTERN Eina_Bool          e_hwc_window_deactivate(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_on_hw_overlay(E_Hwc_Window *hwc_window);
 EINTERN tbm_surface_h      e_hwc_window_displaying_surface_get(E_Hwc_Window *hwc_window);
