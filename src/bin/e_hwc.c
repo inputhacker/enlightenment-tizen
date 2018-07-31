@@ -301,6 +301,22 @@ e_hwc_new(E_Output *output)
 
    hwc->output = output;
 
+   if (!output->tdm_hwc)
+     {
+        hwc->hwc_policy = E_HWC_POLICY_PLANES;
+     }
+   else
+     {
+        hwc->hwc_policy = E_HWC_POLICY_WINDOWS;
+
+        hwc->thwc = tdm_output_get_hwc(output->toutput, &error);
+        if (!hwc->thwc)
+          {
+             ERR("hwc_opt: tdm_output_get_hwc failed");
+             goto fail;
+          }
+     }
+
    if (!_e_hwc_ee_init(hwc))
      {
         ERR("hwc_opt: _e_hwc_ee_init failed");
@@ -316,9 +332,8 @@ e_hwc_new(E_Output *output)
     *   - The tdm-backend decides the hwc policy with the E_Hwc_Windows associated with the tdm_hwc_window.
     *   - E20 asks to verify the composition types of the E_Hwc_Window of the ec.
     */
-   if (!output->tdm_hwc)
+   if (hwc->hwc_policy == E_HWC_POLICY_PLANES)
      {
-        hwc->hwc_policy = E_HWC_POLICY_PLANES;
         if (!e_hwc_planes_init())
           {
              ERR("hwc_opt: e_hwc_windows_init failed");
@@ -329,15 +344,6 @@ e_hwc_new(E_Output *output)
      }
    else
      {
-        hwc->hwc_policy = E_HWC_POLICY_WINDOWS;
-
-        hwc->thwc = tdm_output_get_hwc(output->toutput, &error);
-        if (!hwc->thwc)
-          {
-             ERR("hwc_opt: tdm_output_get_hwc failed");
-             goto fail;
-          }
-
         if (!e_hwc_windows_init(hwc))
           {
              ERR("hwc_opt: e_hwc_windows_init failed");
