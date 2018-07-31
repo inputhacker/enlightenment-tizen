@@ -1852,6 +1852,27 @@ e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state)
     }
 }
 
+EINTERN const char*
+e_hwc_window_name_get(E_Hwc_Window *hwc_window)
+{
+   const char *name;
+
+   if (!hwc_window)
+     return "UNKNOWN";
+
+   if (hwc_window->is_target)
+     return "@TARGET WINDOW@";
+
+   if (!hwc_window->ec)
+     return "UNKNOWN";
+
+   name = e_client_util_name_get(hwc_window->ec);
+   if (!name)
+     return "UNKNOWN";
+
+   return name;
+}
+
 E_API E_Hwc_Window_Hook *
 e_hwc_window_hook_add(E_Hwc_Window_Hook_Point hookpoint, E_Hwc_Window_Hook_Cb func, const void *data)
 {

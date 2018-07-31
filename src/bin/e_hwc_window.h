@@ -162,6 +162,7 @@ EINTERN void               e_hwc_window_render_list_add(E_Hwc_Window *hwc_window
 EINTERN Eina_Bool          e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window);
 
 EINTERN const char        *e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state);
+EINTERN const char        *e_hwc_window_name_get(E_Hwc_Window *hwc_window);
 
 EINTERN E_Hwc_Window_Hook *e_hwc_window_hook_add(E_Hwc_Window_Hook_Point hookpoint, E_Hwc_Window_Hook_Cb func, const void *data);
 EINTERN void               e_hwc_window_hook_del(E_Hwc_Window_Hook *ch);
