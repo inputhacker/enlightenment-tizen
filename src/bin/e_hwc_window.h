@@ -10,6 +10,8 @@ typedef void (*E_Hwc_Window_Hook_Cb) (void *data, E_Hwc_Window *hwc_window);
 #ifndef E_HWC_WINDOW_H
 #define E_HWC_WINDOW_H
 
+#define E_HWC_WINDOW_TYPE (int)0xE0b11003
+
 typedef enum _E_Hwc_Window_State
 {
    E_HWC_WINDOW_STATE_NONE,
@@ -60,6 +62,8 @@ struct _E_Hwc_Window_Hook
 
 struct _E_Hwc_Window
 {
+   E_Object                       e_obj_inherit;
+
    E_Client                      *ec;
    E_Hwc                  *hwc;
    tdm_hwc_window                *thwc_window;

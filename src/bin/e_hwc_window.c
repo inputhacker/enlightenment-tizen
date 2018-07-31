@@ -359,6 +359,21 @@ _e_hwc_window_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSED
    target_hwc_window->dequeued_tsurface = NULL;
 }
 
+static void
+_e_hwc_window_target_free(E_Hwc_Window_Target *target_hwc_window)
+{
+   evas_event_callback_del(target_hwc_window->evas,
+                           EVAS_CALLBACK_RENDER_FLUSH_POST,
+                           _e_hwc_window_target_window_render_flush_post_cb);
+
+   ecore_main_fd_handler_del(target_hwc_window->event_hdlr);
+   close(target_hwc_window->event_fd);
+
+   EHWINF("Free target window", NULL, target_hwc_window);
+
+   E_FREE(target_hwc_window);
+}
+
 static E_Hwc_Window_Target *
 _e_hwc_window_target_new(E_Hwc *hwc)
 {
@@ -385,7 +400,7 @@ _e_hwc_window_target_new(E_Hwc *hwc)
         ecore_evas_manual_render_set(e_comp->ee, 1);
      }
 
-   target_hwc_window = E_NEW(E_Hwc_Window_Target, 1);
+   target_hwc_window = E_OBJECT_ALLOC(E_Hwc_Window_Target, E_HWC_WINDOW_TYPE, _e_hwc_window_target_free);
    EINA_SAFETY_ON_NULL_GOTO(target_hwc_window, fail);
 
    ((E_Hwc_Window *)target_hwc_window)->is_target = EINA_TRUE;
@@ -1025,6 +1040,33 @@ _e_hwc_window_correct_transformation_check(E_Hwc_Window *hwc_window)
 }
 #endif
 
+static void
+_e_hwc_window_free(E_Hwc_Window *hwc_window)
+{
+   E_Hwc *hwc = NULL;
+   E_Output *output = NULL;
+   tdm_output *toutput = NULL;
+
+   hwc = hwc_window->hwc;
+   EINA_SAFETY_ON_NULL_GOTO(hwc, done);
+
+   hwc->hwc_windows = eina_list_remove(hwc->hwc_windows, hwc_window);
+
+   output = hwc->output;
+   EINA_SAFETY_ON_NULL_GOTO(hwc->output, done);
+
+   toutput = output->toutput;
+   EINA_SAFETY_ON_NULL_GOTO(toutput, done);
+
+   if (hwc_window->thwc_window)
+     tdm_hwc_window_destroy(hwc_window->thwc_window);
+
+   EHWINF("Free", NULL, hwc_window);
+
+done:
+   E_FREE(hwc_window);
+}
+
 EINTERN Eina_Bool
 e_hwc_window_init(E_Hwc *hwc)
 {
@@ -1070,13 +1112,32 @@ e_hwc_window_init(E_Hwc *hwc)
    return EINA_TRUE;
 }
 
-// TODO:
 EINTERN void
 e_hwc_window_deinit(E_Hwc *hwc)
 {
    EINA_SAFETY_ON_NULL_RETURN(hwc);
 
-   // TODO:
+   if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
+     return;
+
+   hwc->hwc_windows = eina_list_remove(hwc->hwc_windows, hwc->target_hwc_window);
+   e_object_del(E_OBJECT(hwc->target_hwc_window));
+   hwc->target_hwc_window = NULL;
+}
+
+EINTERN void
+e_hwc_window_free(E_Hwc_Window *hwc_window)
+{
+   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
+
+   EHWINF("Del", hwc_window->ec, hwc_window);
+
+   hwc_window->ec = NULL;
+   hwc_window->is_deleted = EINA_TRUE;
+
+   e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+
+   e_object_del(E_OBJECT(hwc_window));
 }
 
 EINTERN E_Hwc_Window *
@@ -1092,7 +1153,7 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
    thwc = hwc->thwc;
    EINA_SAFETY_ON_NULL_RETURN_VAL(thwc, EINA_FALSE);
 
-   hwc_window = E_NEW(E_Hwc_Window, 1);
+   hwc_window = E_OBJECT_ALLOC(E_Hwc_Window, E_HWC_WINDOW_TYPE, _e_hwc_window_free);
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
 
    hwc_window->hwc = hwc;
@@ -1123,43 +1184,6 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
          hwc_window, hwc->output, ec->zone->id);
 
    return hwc_window;
-}
-
-EINTERN void
-e_hwc_window_free(E_Hwc_Window *hwc_window)
-{
-   E_Hwc *hwc = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
-   EINA_SAFETY_ON_NULL_RETURN(hwc_window->hwc);
-
-   hwc = hwc_window->hwc;
-   EINA_SAFETY_ON_NULL_RETURN(hwc);
-
-   /* we cannot remove the hwc_window because we need to release the commit_data */
-   if (e_hwc_window_displaying_surface_get(hwc_window))
-     {
-        ELOGF("HWC-WINS", "ehw:%p is destroyed on ehwc:%p. displaying surface.",
-              hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-              hwc_window, hwc);
-
-        /* mark as deleted and delete when commit_data will be released */
-        hwc_window->is_deleted = EINA_TRUE;
-        hwc_window->ec = NULL;
-        e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
-        return;
-     }
-   else
-     ELOGF("HWC-WINS", "ehw:%p is destroyed on ehwc:%p",
-           hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-           hwc_window, hwc);
-
-   if (hwc_window->thwc_window)
-      tdm_hwc_window_destroy(hwc_window->thwc_window);
-
-   hwc->hwc_windows = eina_list_remove(hwc->hwc_windows, hwc_window);
-
-   free(hwc_window);
 }
 
 EINTERN Eina_Bool
