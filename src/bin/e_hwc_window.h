@@ -59,7 +59,7 @@ struct _E_Hwc_Window
    tdm_hwc_window_info info;
 
    E_Hwc_Window_State             state;
-   E_Hwc_Window_State             prev_state;
+   E_Hwc_Window_State             accepted_state;
    E_Hwc_Window_Transition        transition;
    E_Hwc_Window_Transition        uncompleted_transition;
 
@@ -135,8 +135,8 @@ EINTERN tbm_surface_h      e_hwc_window_displaying_surface_get(E_Hwc_Window *hwc
 
 EINTERN Eina_Bool          e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state);
 EINTERN E_Hwc_Window_State e_hwc_window_state_get(E_Hwc_Window *hwc_window);
-EINTERN void               e_hwc_window_prev_state_update(E_Hwc_Window *hwc_window);
-EINTERN E_Hwc_Window_State e_hwc_window_prev_state_get(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool          e_hwc_window_accepted_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state);
+EINTERN E_Hwc_Window_State e_hwc_window_accepted_state_get(E_Hwc_Window *hwc_window);
 
 EINTERN void               e_hwc_window_render_list_add(E_Hwc_Window *hwc_window);
 

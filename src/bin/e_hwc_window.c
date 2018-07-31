@@ -1691,6 +1691,30 @@ e_hwc_window_displaying_surface_get(E_Hwc_Window *hwc_window)
 }
 
 EINTERN Eina_Bool
+e_hwc_window_accepted_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (hwc_window->accepted_state == state) return EINA_TRUE;
+
+   hwc_window->accepted_state = state;
+
+   EHWTRACE("Set Accepted state:%s -- {%s}",
+            hwc_window->ec, hwc_window, e_hwc_window_state_string_get(state),
+            hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN");
+
+   return EINA_TRUE;
+}
+
+EINTERN E_Hwc_Window_State
+e_hwc_window_accepted_state_get(E_Hwc_Window *hwc_window)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, E_HWC_WINDOW_STATE_NONE);
+
+   return hwc_window->accepted_state;
+}
+
+EINTERN Eina_Bool
 e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
@@ -1710,25 +1734,6 @@ e_hwc_window_state_get(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, E_HWC_WINDOW_STATE_NONE);
 
    return hwc_window->state;
-}
-
-EINTERN void
-e_hwc_window_prev_state_update(E_Hwc_Window *hwc_window)
-{
-   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
-
-   if (hwc_window->uncompleted_transition != E_HWC_WINDOW_TRANSITION_NONE_TO_NONE)
-     return;
-
-   hwc_window->prev_state = hwc_window->state;
-}
-
-EINTERN E_Hwc_Window_State
-e_hwc_window_prev_state_get(E_Hwc_Window *hwc_window)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, E_HWC_WINDOW_STATE_NONE);
-
-   return hwc_window->prev_state;
 }
 
 // add hwc_window to the render_list

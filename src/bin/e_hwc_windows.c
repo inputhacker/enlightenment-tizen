@@ -976,8 +976,7 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
           }
 
         /* accept_changes failed at DEVICE to CLIENT transition */
-        if (hwc_window->prev_state == E_HWC_WINDOW_STATE_DEVICE &&
-            composition_types[i] == TDM_COMPOSITION_CLIENT)
+        if (composition_types[i] == TDM_COMPOSITION_CLIENT)
           {
              if (!e_hwc_window_is_on_target_window(hwc_window))
                {
@@ -1419,16 +1418,6 @@ _e_hwc_windows_evaluate(E_Hwc *hwc, Eina_List *visible_windows_list)
    return EINA_TRUE;
 }
 
-static void
-_e_hwc_windows_prev_states_update(E_Hwc *hwc)
-{
-   E_Hwc_Window *hwc_window = NULL;
-   Eina_List *l;
-
-   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
-      e_hwc_window_prev_state_update(hwc_window);
-}
-
 /* check if there is a need to update the output */
 static Eina_Bool
 _e_hwc_windows_update_changes(E_Hwc *hwc)
@@ -1543,7 +1532,6 @@ e_hwc_windows_commit(E_Hwc *hwc)
           {
              ELOGF("HWC-WINS", "Evaluation is not completed. No Commit at this time.", NULL, NULL);
              /* update the previous states. */
-             _e_hwc_windows_prev_states_update(hwc);
              goto fail;
           }
 
@@ -1577,10 +1565,6 @@ e_hwc_windows_commit(E_Hwc *hwc)
 
              hwc->wait_commit = EINA_TRUE;
           }
-
-
-       /* update the previous states. */
-       _e_hwc_windows_prev_states_update(hwc);
      }
 
    if (visible_windows_list)
