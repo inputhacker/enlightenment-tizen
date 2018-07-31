@@ -37,6 +37,7 @@ static Eldbus_Message *_e_test_helper_cb_change_iconic_state(const Eldbus_Servic
 static Eldbus_Message *_e_test_helper_cb_set_transient_for(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_unset_transient_for(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_set_noti_level(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_set_focus_skip(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_client_info(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_clients(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_get_noti_level(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
@@ -138,6 +139,12 @@ static const Eldbus_Method methods[] ={
           ELDBUS_ARGS({"ui", "window id to set notification level, notification level"}),
           NULL,
           _e_test_helper_cb_set_noti_level, 0
+       },
+       {
+          "SetWindowFocusSkip",
+          ELDBUS_ARGS({"ub", "window id to set focus skip, skip set or skip unset"}),
+          NULL,
+          _e_test_helper_cb_set_focus_skip, 0
        },
        {
           "GetWinInfo",
@@ -799,6 +806,34 @@ _e_test_helper_cb_set_noti_level(const Eldbus_Service_Interface *iface EINA_UNUS
      {
         ec = e_pixmap_find_client_by_res_id(win);
         evas_object_layer_set(ec->frame, layer);
+     }
+
+   return reply;
+}
+
+static Eldbus_Message*
+_e_test_helper_cb_set_focus_skip(const Eldbus_Service_Interface *iface EINA_UNUSED,
+                                 const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Ecore_Window win = 0x0;
+   Eina_Bool skip_set = EINA_FALSE;
+   E_Client *ec = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, reply);
+
+   if (!eldbus_message_arguments_get(msg, "ub", &win, &skip_set))
+     {
+        ERR("error on eldbus_message_arguments_get()\n");
+        return reply;
+     }
+
+   if (win)
+     {
+        ec = e_pixmap_find_client_by_res_id(win);
+        ec->icccm.accepts_focus = ec->icccm.take_focus = !skip_set;
+        ec->changes.accepts_focus = 1;
+        ec->changed = 1;
      }
 
    return reply;
