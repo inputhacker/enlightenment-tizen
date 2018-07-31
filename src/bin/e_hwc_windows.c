@@ -921,9 +921,6 @@ _e_hwc_windows_window_state_get(tdm_hwc_window_composition composition_type)
       case TDM_COMPOSITION_DEVICE:
         state = E_HWC_WINDOW_STATE_DEVICE;
         break;
-      case TDM_COMPOSITION_DEVICE_CANDIDATE:
-        state = E_HWC_WINDOW_STATE_DEVICE_CANDIDATE;
-        break;
       case TDM_COMPOSITION_CURSOR:
         state = E_HWC_WINDOW_STATE_CURSOR;
         break;

@@ -16,8 +16,7 @@ typedef enum _E_Hwc_Window_State
    E_HWC_WINDOW_STATE_CLIENT,
    E_HWC_WINDOW_STATE_DEVICE,
    E_HWC_WINDOW_STATE_VIDEO,
-   E_HWC_WINDOW_STATE_DEVICE_CANDIDATE,
-   E_HWC_WINDOW_STATE_CURSOR
+   E_HWC_WINDOW_STATE_CURSOR,
 } E_Hwc_Window_State;
 
 typedef enum _E_Hwc_Window_Transition
@@ -40,9 +39,8 @@ typedef enum _E_Hwc_Window_Transition
 
 typedef enum _E_Hwc_Window_Activation_State
 {
-   E_HWC_WINDOW_ACTIVATION_STATE_NONE = 0,
+   E_HWC_WINDOW_ACTIVATION_STATE_DEACTIVATED = 0,
    E_HWC_WINDOW_ACTIVATION_STATE_ACTIVATED,
-   E_HWC_WINDOW_ACTIVATION_STATE_DEACTIVATED,
 } E_Hwc_Window_Activation_State;
 
 typedef enum _E_Hwc_Window_Hook_Point

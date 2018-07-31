@@ -156,9 +156,6 @@ _get_composition_type(E_Hwc_Window_State state)
       case E_HWC_WINDOW_STATE_DEVICE:
         composition_type = TDM_COMPOSITION_DEVICE;
         break;
-      case E_HWC_WINDOW_STATE_DEVICE_CANDIDATE:
-        composition_type = TDM_COMPOSITION_DEVICE_CANDIDATE;
-        break;
       case E_HWC_WINDOW_STATE_CURSOR:
         composition_type = TDM_COMPOSITION_CURSOR;
         break;
@@ -1838,8 +1835,6 @@ e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state)
        return "DV"; // Deivce
      case E_HWC_WINDOW_STATE_VIDEO:
        return "VD"; // Video
-     case E_HWC_WINDOW_STATE_DEVICE_CANDIDATE:
-       return "DC"; // Deivce Candidate
      case E_HWC_WINDOW_STATE_CURSOR:
        return "CS"; // Cursor
      default:
