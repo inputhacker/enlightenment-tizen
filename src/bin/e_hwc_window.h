@@ -109,7 +109,8 @@ struct _E_Hwc_Window
    E_Hwc_Window_Queue            *queue;
    struct wl_listener             queue_destroy_listener;
 
-   Eina_Bool is_device_to_client_transition;
+   Eina_Bool                      render_target;
+   Eina_Bool                      need_redirect;
 };
 
 struct _E_Hwc_Window_Target
@@ -170,8 +171,8 @@ EINTERN Eina_Bool          e_hwc_window_accepted_state_set(E_Hwc_Window *hwc_win
 EINTERN E_Hwc_Window_State e_hwc_window_accepted_state_get(E_Hwc_Window *hwc_window);
 
 EINTERN void               e_hwc_window_render_list_add(E_Hwc_Window *hwc_window);
-
 EINTERN Eina_Bool          e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool          e_hwc_window_render_target_window_set(E_Hwc_Window *hwc_window, Eina_Bool set);
 
 EINTERN const char        *e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state);
 EINTERN const char        *e_hwc_window_name_get(E_Hwc_Window *hwc_window);

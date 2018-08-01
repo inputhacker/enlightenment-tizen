@@ -1079,6 +1079,7 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
    hwc_window->hwc = hwc;
    hwc_window->ec = ec;
    hwc_window->state = state;
+   hwc_window->render_target = EINA_TRUE;
 
    hwc_window->thwc_window = tdm_hwc_create_window(thwc, &error);
    if (error != TDM_ERROR_NONE)
@@ -1742,6 +1743,87 @@ e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window)
    return EINA_FALSE;
 }
 
+
+static void
+_e_hwc_window_client_recover(E_Hwc_Window *hwc_window)
+{
+   E_Comp_Wl_Buffer *buffer = NULL, *recover_buffer = NULL;;
+   tbm_surface_h tsurface =NULL;
+   E_Client *ec = NULL;
+
+   ec = hwc_window->ec;
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   buffer = _e_hwc_window_comp_wl_buffer_get(hwc_window);
+   if (!buffer)
+     {
+        tsurface = e_hwc_window_displaying_surface_get(hwc_window);
+        if (!tsurface) return;
+
+        recover_buffer = e_comp_wl_tbm_buffer_get(tsurface);
+     }
+   else
+     recover_buffer = buffer;
+
+
+   EINA_SAFETY_ON_NULL_RETURN(recover_buffer);
+
+   EHWTRACE("Recover ts:%p -- {%s}",
+            hwc_window->ec, hwc_window, recover_buffer->tbm_surface,
+            e_hwc_window_name_get(hwc_window));
+
+   /* force update */
+   e_comp_wl_surface_attach(ec, recover_buffer);
+
+   return;
+}
+
+EINTERN Eina_Bool
+e_hwc_window_render_target_window_set(E_Hwc_Window *hwc_window, Eina_Bool set)
+{
+   E_Client *ec = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   ec = hwc_window->ec;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   if (hwc_window->render_target == set) return EINA_TRUE;
+
+   if (set)
+     {
+         _e_hwc_window_client_recover(hwc_window);
+
+        if (hwc_window->need_redirect)
+          {
+             e_pixmap_image_refresh(ec->pixmap);
+             e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+             e_comp_object_dirty(ec->frame);
+             e_comp_object_render(ec->frame);
+
+             e_client_redirected_set(ec, EINA_TRUE);
+             hwc_window->need_redirect = EINA_FALSE;
+
+             EHWTRACE("Redirect -- {%s}",
+                      hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
+          }
+     }
+   else
+     {
+        if (hwc_window->ec->redirected)
+          {
+             e_client_redirected_set(hwc_window->ec, EINA_FALSE);
+             hwc_window->need_redirect = EINA_TRUE;
+
+             EHWTRACE("Unredirect -- {%s}",
+                      hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
+          }
+     }
+
+   hwc_window->render_target = set;
+
+   return EINA_TRUE;
+}
 
 EINTERN const char*
 e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state)
