@@ -124,7 +124,9 @@ struct _E_Hwc_Window_Target
 
    /* a surface the rendering is currently performing at */
    tbm_surface_h       dequeued_tsurface;
+   Eina_List          *rendered_tsurface_list;
    Eina_List          *ee_rendered_hw_list;
+   Eina_Bool           is_rendering;
 
    Eina_Bool skip_surface_set;
 };

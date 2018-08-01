@@ -240,8 +240,10 @@ static void
 _e_hwc_window_target_window_surface_data_free(void *data)
 {
    Eina_List *ee_rendered_hw_list = (Eina_List *)data;
+   E_Hwc_Window *hwc_window = NULL;
 
-   eina_list_free(ee_rendered_hw_list);
+   EINA_LIST_FREE(ee_rendered_hw_list, hwc_window)
+     e_object_unref(E_OBJECT(hwc_window));
 }
 
 /* gets called as somebody modifies target_window's queue */
@@ -254,29 +256,24 @@ _e_hwc_window_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_q
    /* gets called as evas_renderer dequeues a new buffer from the queue */
    if (trace == TBM_SURFACE_QUEUE_TRACE_DEQUEUE)
      {
-        ELOGF("HWC-WINS", " ehw:%p gets dequeue noti ts:%p -- {%s}.",
-              NULL, NULL, target_hwc_window, tsurface, "@TARGET WINDOW@");
+        if (!target_hwc_window->is_rendering) return;
 
-        tbm_surface_internal_add_user_data(tsurface, ee_rendered_hw_list_key, _e_hwc_window_target_window_surface_data_free);
+        EHWTRACE("gets dequeue noti ts:%p -- {%s}.",
+                 NULL, target_hwc_window, tsurface, "@TARGET WINDOW@");
+
+        tbm_surface_internal_add_user_data(tsurface,
+                                           ee_rendered_hw_list_key,
+                                           _e_hwc_window_target_window_surface_data_free);
         target_hwc_window->dequeued_tsurface = tsurface;
-     }
-   /* gets called as evas_renderer enqueues a new buffer into the queue */
-   if (trace == TBM_SURFACE_QUEUE_TRACE_ENQUEUE)
-     {
-        uint64_t value = 1;
-        int ret;
-
-        ret = write(target_hwc_window->event_fd, &value, sizeof(value));
-        if (ret == -1)
-          ERR("failed to send acquirable event:%m");
-
-        tbm_surface_internal_add_user_data(tsurface, ee_rendered_hw_list_key, _e_hwc_window_target_window_surface_data_free);
-        target_hwc_window->dequeued_tsurface = tsurface;
+        target_hwc_window->rendered_tsurface_list = eina_list_append(target_hwc_window->rendered_tsurface_list,
+                                                                     tsurface);
      }
    /* tsurface has been released at the queue */
    if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
      {
         tbm_surface_internal_delete_user_data(tsurface, ee_rendered_hw_list_key);
+        target_hwc_window->rendered_tsurface_list = eina_list_remove(target_hwc_window->rendered_tsurface_list,
+                                                                     tsurface);
      }
 }
 
@@ -284,8 +281,6 @@ _e_hwc_window_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_q
 static void
 _e_hwc_window_target_window_surface_queue_acquirable_cb(tbm_surface_queue_h surface_queue, void *data)
 {
- // TODO: This function to be deprecated.
-#if 0
     E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
     uint64_t value = 1;
     int ret;
@@ -293,7 +288,6 @@ _e_hwc_window_target_window_surface_queue_acquirable_cb(tbm_surface_queue_h surf
     ret = write(target_hwc_window->event_fd, &value, sizeof(value));
     if (ret == -1)
       ERR("failed to send acquirable event:%m");
-#endif
 }
 
 /* gets called at the beginning of an ecore_main_loop iteration */
@@ -318,13 +312,24 @@ static void
 _e_hwc_window_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
+   E_Hwc_Window *hwc_window = NULL;
    Eina_List *ee_rendered_hw_list;
 
    EHWTRACE("gets render_flush_post noti ------ {@TARGET WINDOW@}", NULL, target_hwc_window);
 
-   /* all ecs have been composited so we can attach a list of composited e_thwc_windows to the surface
-    * which contains their ecs composited */
+   if (!target_hwc_window->dequeued_tsurface)
+     {
+        WRN("flush_post_cb is called but tsurface isn't dequeued");
 
+        EINA_LIST_FREE(target_hwc_window->ee_rendered_hw_list, hwc_window)
+          e_object_unref(E_OBJECT(hwc_window));
+
+        target_hwc_window->ee_rendered_hw_list = NULL;
+        return;
+     }
+
+   /* all ecs have been composited so we can attach a list of composited e_hwc_windows to the surface
+    * which contains their ecs composited */
    ee_rendered_hw_list = eina_list_clone(target_hwc_window->ee_rendered_hw_list);
 
    tbm_surface_internal_set_user_data(target_hwc_window->dequeued_tsurface,
@@ -1705,6 +1710,8 @@ e_hwc_window_render_list_add(E_Hwc_Window *hwc_window)
    target_hwc_window->ee_rendered_hw_list =
            eina_list_append(target_hwc_window->ee_rendered_hw_list, hwc_window);
 
+   e_object_ref(E_OBJECT(hwc_window));
+
    EHWTRACE(" added the render_list -- {%25s}.", ec, hwc_window, e_hwc_window_name_get(hwc_window));
 }
 
@@ -1715,7 +1722,7 @@ e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window)
    E_Hwc_Window_Target *target_hwc_window;
    E_Hwc_Window *target_window;
    E_Hwc_Window *hw;
-   const Eina_List *l;
+   const Eina_List *l, *ll;
    tbm_surface_h target_tsurface;
 
    target_hwc_window = _e_hwc_window_target_window_get(hwc_window);
@@ -1724,12 +1731,13 @@ e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window)
    target_window = (E_Hwc_Window *)target_hwc_window;
    if (e_hwc_window_state_get(target_window) != E_HWC_WINDOW_STATE_DEVICE) return EINA_FALSE;
 
-   target_tsurface = target_hwc_window->hwc_window.buffer.tsurface;
+   EINA_LIST_FOREACH(target_hwc_window->rendered_tsurface_list, l, target_tsurface)
+     {
+        tbm_surface_internal_get_user_data(target_tsurface, ee_rendered_hw_list_key, (void**)&ee_rendered_hw_list);
 
-   tbm_surface_internal_get_user_data(target_tsurface, ee_rendered_hw_list_key, (void**)&ee_rendered_hw_list);
-
-   EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw)
-     if (hw == hwc_window) return EINA_TRUE;
+        EINA_LIST_FOREACH(ee_rendered_hw_list, ll, hw)
+          if (hw == hwc_window) return EINA_TRUE;
+     }
 
    return EINA_FALSE;
 }

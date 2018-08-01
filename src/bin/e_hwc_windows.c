@@ -1061,7 +1061,9 @@ _e_hwc_windows_target_window_render(E_Output *output, E_Hwc_Window_Target *targe
    if (e_hwc_window_target_can_render(target_hwc_window))
      {
         TRACE_DS_BEGIN(MANUAL RENDER);
+        target_hwc_window->is_rendering = EINA_TRUE;
         ecore_evas_manual_render(target_hwc_window->ee);
+        target_hwc_window->is_rendering = EINA_FALSE;
         TRACE_DS_END();
      }
 
