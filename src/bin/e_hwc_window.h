@@ -81,13 +81,12 @@ struct _E_Hwc_Window
    Eina_Bool                      is_video;
    Eina_Bool                      is_cursor;
    Eina_Bool                      is_deleted;
-   Eina_Bool                      update_exist;
+
    E_Hwc_Window_Activation_State  activation_state; /* hwc_window has occupied the hw layer or not */
 
    E_Hwc_Window_State             state;
    E_Hwc_Window_State             accepted_state;
    E_Hwc_Window_Transition        transition;
-   E_Hwc_Window_Transition        uncompleted_transition;
 
    E_Hwc_Window_Buffer            buffer;
 
@@ -146,11 +145,11 @@ EINTERN void               e_hwc_window_free(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_zpos_set(E_Hwc_Window *hwc_window, int zpos);
 EINTERN int                e_hwc_window_zpos_get(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_compsition_update(E_Hwc_Window *hwc_window);
-EINTERN Eina_Bool          e_hwc_window_buffer_update(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool          e_hwc_window_info_update(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool          e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_target(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_video(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_cursor(E_Hwc_Window *hwc_window);
-EINTERN Eina_Bool          e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window);
 
 EINTERN Eina_Bool          e_hwc_window_commit_data_acquire(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window);
@@ -158,6 +157,7 @@ EINTERN Eina_Bool          e_hwc_window_commit_data_release(E_Hwc_Window *hwc_wi
 EINTERN Eina_Bool          e_hwc_window_target_can_render(E_Hwc_Window_Target *target_hwc_window);
 EINTERN Eina_Bool          e_hwc_window_target_enabled(E_Hwc_Window_Target *target_hwc_window);
 EINTERN Eina_Bool          e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window);
+EINTERN Eina_Bool          e_hwc_window_target_buffer_skip(E_Hwc_Window_Target *target_hwc_window);
 EINTERN Eina_List         *e_hwc_window_target_window_ee_rendered_hw_list_get(E_Hwc_Window_Target *target_window);
 
 EINTERN Eina_Bool          e_hwc_window_activate(E_Hwc_Window *hwc_window, E_Hwc_Window_Queue *queue);

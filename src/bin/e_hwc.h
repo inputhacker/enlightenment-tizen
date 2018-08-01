@@ -43,9 +43,9 @@ struct _E_Hwc
 {
    E_Output            *output;
 
-   E_Hwc_Policy  hwc_policy;
-   E_Hwc_Mode    hwc_mode;
-   Eina_Bool     hwc_deactive : 1; // deactive hwc policy
+   E_Hwc_Policy         hwc_policy;
+   E_Hwc_Mode           hwc_mode;
+   Eina_Bool            hwc_deactive : 1; // deactive hwc policy
 
    Ecore_Evas          *ee;
 
@@ -59,7 +59,9 @@ struct _E_Hwc
    E_Hwc_Window_Target *target_hwc_window;
    tbm_surface_queue_h  target_buffer_queue;
    Eina_Bool            wait_commit;
+   Eina_List           *visible_windows;
    int                  num_visible_windows;
+   Eina_Bool            transition;
 
    Eina_Bool            intercept_pol;
 
