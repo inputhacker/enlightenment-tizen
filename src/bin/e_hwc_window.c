@@ -1621,15 +1621,15 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
 EINTERN Eina_Bool
 e_hwc_window_is_on_hw_overlay(E_Hwc_Window *hwc_window)
 {
-   E_Hwc_Window_State state = E_HWC_WINDOW_STATE_NONE;
+   E_Hwc_Window_State accepted_state = E_HWC_WINDOW_STATE_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
-   state = e_hwc_window_state_get(hwc_window);
+   accepted_state = hwc_window->accepted_state;
 
-   if (state == E_HWC_WINDOW_STATE_DEVICE) return EINA_TRUE;
-   if (state == E_HWC_WINDOW_STATE_CURSOR) return EINA_TRUE;
-   if (state == E_HWC_WINDOW_STATE_VIDEO) return EINA_TRUE;
+   if (accepted_state == E_HWC_WINDOW_STATE_DEVICE) return EINA_TRUE;
+   if (accepted_state == E_HWC_WINDOW_STATE_CURSOR) return EINA_TRUE;
+   if (accepted_state == E_HWC_WINDOW_STATE_VIDEO) return EINA_TRUE;
 
    return EINA_FALSE;
 }
@@ -1653,7 +1653,7 @@ e_hwc_window_accepted_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State sta
 
    EHWTRACE("Set Accepted state:%s -- {%s}",
             hwc_window->ec, hwc_window, e_hwc_window_state_string_get(state),
-            hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN");
+            e_hwc_window_name_get(hwc_window));
 
    _e_hwc_window_hook_call(E_HWC_WINDOW_HOOK_ACCEPTED_STATE_CHANGE, hwc_window);
 

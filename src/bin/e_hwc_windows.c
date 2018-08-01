@@ -904,6 +904,26 @@ _e_hwc_windows_window_state_get(tdm_hwc_window_composition composition_type)
    return state;
 }
 
+static void
+_e_hwc_windows_activation_states_update(E_Hwc *hwc)
+{
+   E_Hwc_Window *hwc_window;
+   const Eina_List *l;
+
+   /* mark the active/deactive on hwc_window */
+   EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
+     {
+        if (hwc_window->is_deleted) continue;
+        if (hwc_window->queue) continue;
+        if (e_hwc_window_is_target(hwc_window)) continue;
+        if (e_hwc_window_is_video(hwc_window)) continue;
+
+        if (e_hwc_window_is_on_hw_overlay(hwc_window))
+          /* notify the hwc_window that it will be displayed on hw layer */
+          e_hwc_window_activate(hwc_window, NULL);
+      }
+}
+
 static Eina_Bool
 _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
 {
@@ -913,6 +933,7 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
    tdm_hwc_window **changed_hwc_window = NULL;
    tdm_hwc_window_composition *composition_types = NULL;
    Eina_Bool accept_changes = EINA_TRUE;
+   const Eina_List *l;
    int i;
 
    changed_hwc_window = E_NEW(tdm_hwc_window *, num_changes);
@@ -977,6 +998,16 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
         goto fail;
      }
 
+   EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
+     {
+        if (e_hwc_window_is_target(hwc_window)) continue;
+
+        state = e_hwc_window_state_get(hwc_window);
+        e_hwc_window_accepted_state_set(hwc_window, state);
+     }
+
+   _e_hwc_windows_activation_states_update(hwc);
+
    free(changed_hwc_window);
    free(composition_types);
 
@@ -1024,27 +1055,6 @@ error:
    E_FREE(thwc_windows);
 
    return EINA_FALSE;
-}
-
-static void
-_e_hwc_windows_activation_states_update(E_Hwc *hwc)
-{
-   E_Hwc_Window *hwc_window;
-   const Eina_List *l;
-
-   /* mark the active/deactive on hwc_window */
-   EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
-     {
-        if (hwc_window->is_deleted) continue;
-        if (e_hwc_window_is_target(hwc_window)) continue;
-
-        if (e_hwc_window_is_on_hw_overlay(hwc_window))
-          /* notify the hwc_window that it will be displayed on hw layer */
-          e_hwc_window_activate(hwc_window, NULL);
-        else
-          /* notify the hwc_window that it will be composite on the target buffer */
-          e_hwc_window_deactivate(hwc_window);
-      }
 }
 
 static Eina_Bool
@@ -1304,9 +1314,6 @@ _e_hwc_windows_evaluate(E_Hwc *hwc, Eina_List *visible_windows_list)
      EHWSTRACE(" Succeed the compsition_evaulation.", NULL);
    else
      EHWSTRACE(" Need the comopsition re-evaulation.", NULL);
-
-   /* update the activate/decativate state */
-   _e_hwc_windows_activation_states_update(hwc);
 
    /* decide the E_HWC_MODE */
    hwc_mode = _e_hwc_windows_hwc_mode_get(hwc);
