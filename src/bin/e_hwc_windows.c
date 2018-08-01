@@ -442,10 +442,9 @@ _e_hwc_windows_pp_output_commit_handler(tdm_output *toutput, unsigned int sequen
 static Eina_Bool
 _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data)
 {
-   E_Output *output = NULL;
-   tdm_layer *toutput = NULL;
    tdm_error terror;
    tdm_region fb_damage;
+   E_Output *output;
 
    /* the damage isn't supported by hwc extension yet */
    memset(&fb_damage, 0, sizeof(fb_damage));
@@ -453,7 +452,6 @@ _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data)
    EINA_SAFETY_ON_NULL_RETURN_VAL(data, EINA_FALSE);
 
    output = hwc->output;
-   toutput = output->toutput;
 
    if (e_output_dpms_get(output))
      {
@@ -470,7 +468,7 @@ _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data)
         goto fail;
      }
 
-   terror = tdm_output_commit(toutput, 0, _e_hwc_windows_pp_output_commit_handler, hwc);
+   terror = tdm_hwc_commit(hwc->thwc, 0, _e_hwc_windows_pp_output_commit_handler, hwc);
 
    if (terror != TDM_ERROR_NONE)
      {
@@ -1526,7 +1524,7 @@ e_hwc_windows_commit(E_Hwc *hwc)
           {
              _e_hwc_windows_status_print(hwc, EINA_TRUE);
 
-             error = tdm_output_commit(output->toutput, 0, _e_hwc_windows_commit_handler, hwc);
+        error = tdm_hwc_commit(hwc->thwc, 0, _e_hwc_windows_commit_handler, hwc);
              if (error != TDM_ERROR_NONE)
                {
                   ERR("tdm_output_commit failed.");
