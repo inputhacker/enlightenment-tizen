@@ -1873,7 +1873,7 @@ e_hwc_window_name_get(E_Hwc_Window *hwc_window)
    return name;
 }
 
-E_API E_Hwc_Window_Hook *
+EINTERN E_Hwc_Window_Hook *
 e_hwc_window_hook_add(E_Hwc_Window_Hook_Point hookpoint, E_Hwc_Window_Hook_Cb func, const void *data)
 {
    E_Hwc_Window_Hook *ch;
@@ -1889,7 +1889,7 @@ e_hwc_window_hook_add(E_Hwc_Window_Hook_Point hookpoint, E_Hwc_Window_Hook_Cb fu
    return ch;
 }
 
-E_API void
+EINTERN void
 e_hwc_window_hook_del(E_Hwc_Window_Hook *ch)
 {
    ch->delete_me = 1;
