@@ -94,14 +94,14 @@ static E_Comp_Wl_Buffer *
 _e_hwc_window_comp_wl_buffer_get(E_Hwc_Window *hwc_window)
 {
    E_Client *ec = hwc_window->ec;
-   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
-   E_Comp_Wl_Buffer_Ref *buffer_ref;
+   E_Comp_Wl_Client_Data *cdata = NULL;
 
+   if (!ec) return NULL;
+
+   cdata = ec->comp_data;
    if (!cdata) return NULL;
 
-   buffer_ref = &cdata->buffer_ref;
-
-   return buffer_ref->buffer;
+   return cdata->buffer_ref.buffer;
 }
 
 struct wayland_tbm_client_queue *
@@ -114,6 +114,8 @@ _get_wayland_tbm_client_queue(E_Client *ec)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(wl_comp_data, NULL);
 
+   if (!ec) return NULL;
+
    cdata = (E_Comp_Wl_Client_Data *)e_pixmap_cdata_get(ec->pixmap);
    EINA_SAFETY_ON_NULL_RETURN_VAL(cdata, NULL);
 
@@ -123,12 +125,11 @@ _get_wayland_tbm_client_queue(E_Client *ec)
    cqueue = wayland_tbm_server_client_queue_get(wl_comp_data->tbm.server, wl_surface);
    if (!cqueue)
      {
-        ELOGF("HWC-WINS", " ehw:%p has no wl_tbm_server_client_queue. -- {%25s}, state:%s, zpos:%d, deleted:%s",
-              ec->pixmap, ec, ec->hwc_window, ec->icccm.title,
-              e_hwc_window_state_string_get(ec->hwc_window->state),
-              ec->hwc_window->zpos, ec->hwc_window->is_deleted ? "yes" : "no");
+        EHWINF("has no wl_tbm_server_client_queue. -- {%25s}, state:%s, zpos:%d, deleted:%s",
+               ec, ec->hwc_window,
+               ec->icccm.title, e_hwc_window_state_string_get(ec->hwc_window->state),
+               ec->hwc_window->zpos, (ec->hwc_window->is_deleted ? "yes" : "no"));
      }
-   EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, NULL);
 
    return cqueue;
 }
@@ -269,9 +270,6 @@ _e_hwc_window_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_q
         if (ret == -1)
           ERR("failed to send acquirable event:%m");
 
-        ELOGF("HWC-WINS", " ehw:%p gets enqueue noti ts:%p -- {%s}.",
-              NULL, NULL, target_hwc_window, tsurface, "@TARGET WINDOW@");
-
         tbm_surface_internal_add_user_data(tsurface, ee_rendered_hw_list_key, _e_hwc_window_target_window_surface_data_free);
         target_hwc_window->dequeued_tsurface = tsurface;
      }
@@ -279,8 +277,6 @@ _e_hwc_window_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_q
    if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
      {
         tbm_surface_internal_delete_user_data(tsurface, ee_rendered_hw_list_key);
-        ELOGF("HWC-WINS", " ehw:%p gets release noti ts:%p -- {%s}.",
-              NULL, NULL, target_hwc_window, tsurface, "@TARGET WINDOW@");
      }
 }
 
@@ -308,8 +304,6 @@ _e_hwc_window_target_window_render_finished_cb(void *data, Ecore_Fd_Handler *fd_
    int fd;
    char buffer[64];
 
-   ELOGF("HWC-WINS", " ecore_main_loop: the new iteration.", NULL, NULL);
-
    fd = ecore_main_fd_handler_fd_get(fd_handler);
    if (fd < 0) return ECORE_CALLBACK_RENEW;
 
@@ -326,7 +320,7 @@ _e_hwc_window_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSED
    E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
    Eina_List *ee_rendered_hw_list;
 
-   ELOGF("HWC-WINS", " ehw:%p gets render_flush_post noti ------ {@TARGET WINDOW@}", NULL, NULL, target_hwc_window);
+   EHWTRACE("gets render_flush_post noti ------ {@TARGET WINDOW@}", NULL, target_hwc_window);
 
    /* all ecs have been composited so we can attach a list of composited e_thwc_windows to the surface
     * which contains their ecs composited */
@@ -476,11 +470,7 @@ _e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
    zone = ec->zone;
-   if (!zone)
-     {
-        ELOGF("HWC-WINS", "Try to create hwc_window, but it couldn't.(no zone)", ec->pixmap, ec);
-        return;
-     }
+   if (!zone) return;
 
    EINA_SAFETY_ON_NULL_RETURN(zone->output_id);
 
@@ -570,9 +560,8 @@ _e_hwc_window_client_cb_zone_set(void *data, int type, void *event)
    /* set the hwc window to the e client */
    ec->hwc_window = hwc_window;
 
-   ELOGF("HWC-WINS", "ehw:%p is set on eout:%p, zone_id:%d.",
-         hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
-         hwc_window, output, zone->id);
+   EHWINF("set on eout:%p, zone_id:%d.",
+          ec, hwc_window, output, zone->id);
 
 end:
    return ECORE_CALLBACK_PASS_ON;
@@ -585,19 +574,22 @@ _e_hwc_window_client_surface_acquire(E_Hwc_Window *hwc_window)
    E_Comp_Wl_Data *wl_comp_data = (E_Comp_Wl_Data *)e_comp->wl_comp_data;
    tbm_surface_h tsurface = NULL;
 
-   if (!buffer)
-   {
-      ELOGF("HWC-WINS", "[soolim] ehw:%p E_Comp_Wl_Buffer is null.",
-            hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec,
-            hwc_window);
-      return NULL;
-   }
+   if (!buffer) return NULL;
 
-   tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
-   if (!tsurface)
+   switch (buffer->type)
      {
-        ERR("fail to wayland_tbm_server_get_surface");
-        return NULL;
+       case E_COMP_WL_BUFFER_TYPE_SHM:
+         break;
+       case E_COMP_WL_BUFFER_TYPE_NATIVE:
+       case E_COMP_WL_BUFFER_TYPE_VIDEO:
+         tsurface = wayland_tbm_server_get_surface(wl_comp_data->tbm.server, buffer->resource);
+         break;
+       case E_COMP_WL_BUFFER_TYPE_TBM:
+         tsurface = buffer->tbm_surface;
+         break;
+       default:
+         ERR("not supported buffer type:%d", buffer->type);
+         break;
      }
 
    return tsurface;
@@ -961,46 +953,6 @@ _e_hwc_window_info_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface)
    return EINA_TRUE;
 }
 
-#if 0
-static Eina_Bool
-_e_hwc_window_correct_transformation_check(E_Hwc_Window *hwc_window)
-{
-   E_Client *ec;
-   int transform;
-   E_Hwc *hwc = hwc_window->hwc;
-   E_Output *output = hwc->output;
-
-   /* do not check the transformation of the video window */
-   if (e_hwc_window_is_video(hwc_window)) return EINA_TRUE;
-
-   ec = hwc_window->ec;
-
-   transform = e_comp_wl_output_buffer_transform_get(ec);
-
-   /* request an ec to change its transformation if it doesn't fit the transformation */
-   if ((output->config.rotation / 90) != transform)
-     {
-        if (!e_config->screen_rotation_client_ignore && hwc_window->need_change_buffer_transform)
-          {
-             hwc_window->need_change_buffer_transform = EINA_FALSE;
-
-             /* TODO: why e_comp_wl_output_init() call ins't enough? why additional
-              * tizen_screen_rotation_send_ignore_output_transform() call is needed? */
-             e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_FALSE);
-
-             ELOGF("HWC-WINS", " request {%25s} to change transformation to %d.",
-                     ec->pixmap, ec, ec->icccm.title, output->config.rotation);
-          }
-
-        return EINA_FALSE;
-     }
-   else
-      hwc_window->need_change_buffer_transform = EINA_TRUE;
-
-   return EINA_TRUE;
-}
-#endif
-
 static void
 _e_hwc_window_free(E_Hwc_Window *hwc_window)
 {
@@ -1122,7 +1074,6 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
    hwc_window->hwc = hwc;
    hwc_window->ec = ec;
    hwc_window->state = state;
-   hwc_window->need_change_buffer_transform = EINA_TRUE;
 
    hwc_window->thwc_window = tdm_hwc_create_window(thwc, &error);
    if (error != TDM_ERROR_NONE)
@@ -1142,10 +1093,8 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
 
    hwc->hwc_windows = eina_list_append(hwc->hwc_windows, hwc_window);
 
-   ELOGF("HWC-WINS", "ehw:%p is created on eout:%p, zone_id:%d",
-         hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-         hwc_window, hwc->output, ec->zone->id);
-
+   EHWINF("is created on eout:%p, zone_id:%d",
+          hwc_window->ec, hwc_window, hwc->output, ec->zone->id);
    return hwc_window;
 }
 
@@ -1179,10 +1128,10 @@ e_hwc_window_compsition_update(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    if (e_hwc_window_is_target(hwc_window))
-   {
-      ERR("HWC-WINS: target window cannot update at e_hwc_window_compsition_update.");
-      return EINA_FALSE;
-   }
+     {
+        ERR("HWC-WINS: target window cannot update at e_hwc_window_compsition_update.");
+        return EINA_FALSE;
+     }
 
    thwc_window = hwc_window->thwc_window;
    EINA_SAFETY_ON_NULL_RETURN_VAL(thwc_window, EINA_FALSE);
@@ -1278,15 +1227,8 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
         if (e_hwc_window_is_video(hwc_window))
           {
              tsurface = e_comp_wl_video_hwc_widow_surface_get(hwc_window);
-             if (!tsurface)
-                {
-                   ELOGF("HWC-WINS", " ehw:%p no video buffer yet -- {%25s}, state:%s, zpos:%d, deleted:%s (Video)",
-                         hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-                         hwc_window, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-                         e_hwc_window_state_string_get(hwc_window->state),
-                         hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
-                   return EINA_FALSE;
-                }
+             if (!tsurface) return EINA_FALSE;
+
              hwc_window->update_exist = EINA_TRUE;
 
              ELOGF("HWC-WINS", " ehw:%p sets ts:%10p ------- {%25s}, state:%s, zpos:%d, deleted:%s (Video)",
@@ -1308,34 +1250,25 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
 
             e_comp_object_hwc_update_set(hwc_window->ec->frame, EINA_FALSE);
             hwc_window->update_exist = EINA_TRUE;
-
-            ELOGF("HWC-WINS", " ehw:%p sets ts:%10p ------- {%25s}, state:%s, zpos:%d, deleted:%s (Cusor)",
-                  hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-                  hwc_window, tsurface, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-                  e_hwc_window_state_string_get(hwc_window->state),
-                  hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
           }
         else
           {
              /* acquire the surface */
              tsurface = _e_hwc_window_client_surface_acquire(hwc_window);
-             if (!tsurface)
-               {
-                  ELOGF("HWC-WINS", " ehw:%p client buffer is null.",
-                        hwc_window->ec ? ec->pixmap : NULL, hwc_window->ec, hwc_window);
-                  return EINA_FALSE;
-               }
+             if (!tsurface) return EINA_FALSE;
+
              if (tsurface == hwc_window->buffer.tsurface) return EINA_FALSE;
 
              hwc_window->update_exist = EINA_TRUE;
-
-             ELOGF("HWC-WINS", " ehw:%p sets ts:%10p ------- {%25s}, state:%s, zpos:%d, deleted:%s (Window)",
-                   hwc_window->ec ? hwc_window->ec->pixmap : NULL, hwc_window->ec,
-                   hwc_window, tsurface, hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN",
-                   e_hwc_window_state_string_get(hwc_window->state),
-                   hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
           }
      }
+
+   EHWTRACE("FET ts:%10p ------- {%25s}, state:%s, zpos:%d, deleted:%s cursor:%d video:%d",
+            hwc_window->ec, hwc_window,
+            tsurface, e_hwc_window_name_get(hwc_window),
+            e_hwc_window_state_string_get(hwc_window->state),
+            hwc_window->zpos, (hwc_window->is_deleted ? "yes" : "no"),
+            e_hwc_window_is_cursor(hwc_window), e_hwc_window_is_video(hwc_window));
 
    /* exist tsurface for update hwc_window */
    hwc_window->buffer.tsurface = tsurface;
@@ -1344,7 +1277,7 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
 }
 
 EINTERN Eina_Bool
-e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window)
+e_hwc_window_commit_data_acquire(E_Hwc_Window *hwc_window)
 {
    E_Hwc_Window_Commit_Data *commit_data = NULL;
 
@@ -1735,7 +1668,9 @@ e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
-   if (hwc_window->state != state) hwc_window->state = state;
+   if (hwc_window->state == state) return EINA_TRUE;
+
+   hwc_window->state = state;
 
    /* zpos is -999 at state none */
    if (state == E_HWC_WINDOW_STATE_NONE)
@@ -1770,7 +1705,7 @@ e_hwc_window_render_list_add(E_Hwc_Window *hwc_window)
    target_hwc_window->ee_rendered_hw_list =
            eina_list_append(target_hwc_window->ee_rendered_hw_list, hwc_window);
 
-   ELOGF("HWC-WINS", " added the render_list -- ehw:%p -- {%25s}.", ec->pixmap, ec, hwc_window, ec->icccm.title);
+   EHWTRACE(" added the render_list -- {%25s}.", ec, hwc_window, e_hwc_window_name_get(hwc_window));
 }
 
 EINTERN Eina_Bool
@@ -1810,7 +1745,7 @@ e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state)
      case E_HWC_WINDOW_STATE_CLIENT:
        return "CL"; // Client
      case E_HWC_WINDOW_STATE_DEVICE:
-       return "DV"; // Deivce
+       return "DV"; // Device
      case E_HWC_WINDOW_STATE_VIDEO:
        return "VD"; // Video
      case E_HWC_WINDOW_STATE_CURSOR:

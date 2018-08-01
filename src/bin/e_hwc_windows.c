@@ -249,7 +249,7 @@ _e_hwc_windows_commit_handler(tdm_output *toutput, unsigned int sequence,
 static Eina_Bool
 _e_hwc_windows_prepare_commit(E_Output *output, E_Hwc_Window *hwc_window)
 {
-   if (!e_hwc_window_commit_data_aquire(hwc_window))
+   if (!e_hwc_window_commit_data_acquire(hwc_window))
      return EINA_FALSE;
 
    /* send frame event enlightenment dosen't send frame evnet in nocomp */
@@ -262,7 +262,7 @@ _e_hwc_windows_prepare_commit(E_Output *output, E_Hwc_Window *hwc_window)
 static Eina_Bool
 _e_hwc_windows_offscreen_commit(E_Output *output, E_Hwc_Window *hwc_window)
 {
-   if (!e_hwc_window_commit_data_aquire(hwc_window))
+   if (!e_hwc_window_commit_data_acquire(hwc_window))
      return EINA_FALSE;
 
    /* send frame event enlightenment doesn't send frame event in nocomp */
@@ -827,36 +827,6 @@ _e_hwc_windows_status_print(E_Hwc *hwc, Eina_Bool with_target)
                    hwc_window->buffer.tsurface, e_hwc_window_name_get(hwc_window),
                    e_hwc_window_state_string_get(hwc_window->state),
                    hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
-      }
-
-    eina_list_free(sort_wnds);
-}
-
-static void
-_e_hwc_windows_ouput_commit_dump(E_Hwc *hwc)
-{
-    const Eina_List *l;
-    Eina_List *sort_wnds;
-    E_Hwc_Window *hwc_window;
-    char fname[PATH_MAX];
-    Ecore_Window ec_win;
-    int i = 0;
-
-    sort_wnds = eina_list_clone(hwc->hwc_windows);
-    sort_wnds = eina_list_sort(sort_wnds, eina_list_count(sort_wnds), _e_hwc_windows_sort_cb);
-
-    EINA_LIST_FOREACH(sort_wnds, l, hwc_window)
-      {
-         if (hwc_window->state == E_HWC_WINDOW_STATE_NONE) continue;
-
-         ec_win = e_client_util_win_get(hwc_window->ec);
-
-         if (e_hwc_window_is_target(hwc_window))
-           snprintf(fname, sizeof(fname), "(%d)_output_commit_0x%08x_%s", i++, ec_win, e_hwc_window_state_string_get(hwc_window->state));
-         else
-           snprintf(fname, sizeof(fname), "(%d)_output_commit_0x%08x_%s_%d", i++, ec_win, e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
-
-         tbm_surface_internal_dump_buffer(hwc_window->buffer.tsurface, fname);
       }
 
     eina_list_free(sort_wnds);
@@ -1505,7 +1475,6 @@ e_hwc_windows_commit(E_Hwc *hwc)
         else
           {
              _e_hwc_windows_status_print(hwc, EINA_TRUE);
-             _e_hwc_windows_ouput_commit_dump(hwc);
 
              error = tdm_output_commit(output->toutput, 0, _e_hwc_windows_commit_handler, hwc);
              if (error != TDM_ERROR_NONE)

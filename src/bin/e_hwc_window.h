@@ -110,7 +110,6 @@ struct _E_Hwc_Window
    struct wl_listener             queue_destroy_listener;
 
    Eina_Bool is_device_to_client_transition;
-   Eina_Bool need_change_buffer_transform;
 };
 
 struct _E_Hwc_Window_Target
@@ -150,7 +149,7 @@ EINTERN Eina_Bool          e_hwc_window_is_video(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_cursor(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window);
 
-EINTERN Eina_Bool          e_hwc_window_commit_data_aquire(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool          e_hwc_window_commit_data_acquire(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window);
 
 EINTERN Eina_Bool          e_hwc_window_target_can_render(E_Hwc_Window_Target *target_hwc_window);
