@@ -1247,12 +1247,23 @@ static void
 _e_util_file_monitor_cb(void *data, Ecore_File_Monitor *em,
                 Ecore_File_Event event, const char *path)
 {
+   int cmp = 0;
    E_Util_File_Monitor *mon = (E_Util_File_Monitor *)data;
 
    if (event != ECORE_FILE_EVENT_CREATED_FILE) return;
-   if (strcmp(path, mon->path)) return;
+   if ((mon->is_dir && !strncmp(mon->path, path, strlen(mon->path)))
+        || (!mon->is_dir && strcmp(mon->path, path)))
+     {
+        _e_util_file_monitor_send_event(path, mon, mon->user_data, E_EVENT_FILE_MONITOR_CREATED);
+     }
 
-   _e_util_file_monitor_send_event(path, mon, mon->user_data, E_EVENT_FILE_MONITOR_CREATED);
+   if (mon->is_dir)
+     cmp = strncmp(mon->path, path, strlen(mon->path));
+   else
+     cmp = strcmp(mon->path, path);
+
+   if (!cmp)
+     _e_util_file_monitor_send_event(path, mon, mon->user_data, E_EVENT_FILE_MONITOR_CREATED);
 }
 
 static void
@@ -1293,11 +1304,12 @@ E_API int
 e_util_file_monitor_add(const char *path, void *data)
 {
    char *dir_path = NULL;
+   Eina_Bool is_dir = EINA_FALSE;
    E_Util_File_Monitor *mon;
 
    if (!path) return 0;
 
-   if (ecore_file_exists(path))
+   if (ecore_file_exists(path) && !(is_dir = ecore_file_is_dir(path)))
      {
         _e_util_file_monitor_send_event(path, NULL, data, E_EVENT_FILE_MONITOR_CREATED);
         return 1;
@@ -1306,7 +1318,9 @@ e_util_file_monitor_add(const char *path, void *data)
    if (eina_hash_find(_e_file_monitor_hash, path))
      return 1;
 
-   dir_path = ecore_file_dir_get(path);
+   dir_path = strdup(path);
+   if (!ecore_file_is_dir(path))
+     dir_path = ecore_file_dir_get(path);
 
    if (!ecore_file_exists(dir_path))
      {
@@ -1325,10 +1339,13 @@ e_util_file_monitor_add(const char *path, void *data)
 
    Ecore_File_Monitor *em = ecore_file_monitor_add(dir_path, _e_util_file_monitor_cb, mon);
 
+   free(dir_path);
+
    if (em)
      {
         mon->em = em;
         mon->path = eina_stringshare_add(path);
+        mon->is_dir = is_dir;
         mon->user_data = data;
         eina_hash_add(_e_file_monitor_hash, path, mon);
         return 1;

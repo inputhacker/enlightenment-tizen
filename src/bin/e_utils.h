@@ -18,6 +18,7 @@ struct _E_Util_File_Monitor
 {
    const char *path;
    Ecore_File_Monitor *em;
+   Eina_Bool is_dir;
    void *user_data;
 };
 
