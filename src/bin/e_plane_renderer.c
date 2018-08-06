@@ -1276,6 +1276,8 @@ e_plane_renderer_ec_set(E_Plane_Renderer *renderer, E_Client *ec)
    E_Plane *plane = NULL;
    tbm_surface_queue_h tqueue = NULL;
    E_Plane_Renderer_Client *renderer_client = NULL;
+   int w, h;
+   int output_rotation;
 
    plane = renderer->plane;
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
@@ -1293,9 +1295,21 @@ e_plane_renderer_ec_set(E_Plane_Renderer *renderer, E_Client *ec)
      {
         if (!renderer->ee)
           {
+             output_rotation = plane->output->config.rotation;
+             if (output_rotation % 180)
+               {
+                  w = ec->h;
+                  h = ec->w;
+               }
+             else
+               {
+                  w = ec->w;
+                  h = ec->h;
+               }
+
              if (!renderer->tqueue)
                {
-                  tqueue = e_plane_renderer_surface_queue_create(renderer, ec->w, ec->h, plane->buffer_flags);
+                  tqueue = e_plane_renderer_surface_queue_create(renderer, w, h, plane->buffer_flags);
                   EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
 
                   if (!e_plane_renderer_surface_queue_set(renderer, tqueue))
@@ -1307,12 +1321,12 @@ e_plane_renderer_ec_set(E_Plane_Renderer *renderer, E_Client *ec)
                }
              else
                {
-                  if (renderer->tqueue_width != ec->w || renderer->tqueue_height != ec->h)
+                  if (renderer->tqueue_width != w || renderer->tqueue_height != h)
                     {
-                       if ((ec->w * ec->h) == (renderer->tqueue_width * renderer->tqueue_height))
-                         tqueue = e_plane_renderer_surface_queue_recreate(renderer, ec->w, ec->h, plane->buffer_flags);
+                       if ((w * h) == (renderer->tqueue_width * renderer->tqueue_height))
+                         tqueue = e_plane_renderer_surface_queue_recreate(renderer, w, h, plane->buffer_flags);
                        else
-                         tqueue = e_plane_renderer_surface_queue_create(renderer, ec->w, ec->h, plane->buffer_flags);
+                         tqueue = e_plane_renderer_surface_queue_create(renderer, w, h, plane->buffer_flags);
 
                        EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
 
