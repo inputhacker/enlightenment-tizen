@@ -4619,6 +4619,42 @@ const static int KILL_ID_MODE = 1;
 const static int KILL_NAME_MODE = 2;
 const static int KILL_PID_MODE = 3;
 const static int KILL_ALL_MODE = 4;
+const static int KILL_PID_FORCE_MODE = 5;
+
+static int
+_e_info_server_pid_kill(pid_t id, Eldbus_Message_Iter *array_of_string)
+{
+   int cnt = 0;
+   pid_t pid = -1;
+   char result[128];
+
+   E_Comp_Wl_Data *cdata;
+   struct wl_list * client_list;
+   struct wl_client *client;
+
+   if (!e_comp) return 0;
+   if (!(cdata = e_comp->wl_comp_data)) return 0;
+   if (!cdata->wl.disp) return 0;
+
+   client_list = wl_display_get_client_list(cdata->wl.disp);
+
+   wl_client_for_each(client, client_list)
+     {
+        if (!client) continue;
+        wl_client_get_credentials(client, &pid, NULL, NULL);
+        if (pid != id) continue;
+
+        wl_client_destroy(client);
+        INF("[%s] client(%p, pid:%d) has been destroyed !", __FUNCTION__, client, pid);
+
+        snprintf(result, sizeof(result), "[Server] A client (PID:%d) has been destroyed !", pid);
+        eldbus_message_iter_arguments_append(array_of_string, VALUE_TYPE_REPLY_KILL, result);
+        cnt++;
+        break;
+     }
+
+   return cnt;
+}
 
 static int
 _e_info_server_ec_kill(uint32_t mode, void *value, Eldbus_Message_Iter *array_of_string)
@@ -4665,8 +4701,7 @@ _e_info_server_ec_kill(uint32_t mode, void *value, Eldbus_Message_Iter *array_of
         count++;
         e_client_act_kill_begin(ec);
 
-        snprintf(result, sizeof(result),
-                 "[Server] killing creator(%s) of resource 0x%lx",
+        snprintf(result, sizeof(result), "[Server] killing creator(%s) of resource 0x%lx",
                  ec_name, (unsigned long)e_client_util_win_get(ec));
         eldbus_message_iter_arguments_append(array_of_string, VALUE_TYPE_REPLY_KILL, result);
      }
@@ -4717,15 +4752,16 @@ _e_info_server_cb_kill_client(const Eldbus_Service_Interface *iface EINA_UNUSED,
                 "[Server] killing creator(%s) of resource 0x%lx",
                 e_client_util_name_get(ec) ?: "NO NAME", (unsigned long)win);
      }
-   else if (mode >= KILL_NAME_MODE && mode <= KILL_ALL_MODE)
+   else if (mode >= KILL_NAME_MODE && mode <= KILL_PID_FORCE_MODE)
      {
         if (mode == KILL_NAME_MODE)
           count = _e_info_server_ec_kill(mode, (void *)str_value, array_of_string);
+        else if (mode == KILL_PID_FORCE_MODE)
+          count = _e_info_server_pid_kill((pid_t)uint64_value, array_of_string);
         else
           count = _e_info_server_ec_kill(mode, (void *)&uint64_value, array_of_string);
 
-        snprintf(result, sizeof(result),
-                 "\n[Server] killed %d client(s)", count);
+        snprintf(result, sizeof(result), "\n[Server] killed %d client(s)", count);
      }
    else
      {

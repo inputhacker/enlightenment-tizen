@@ -3344,10 +3344,11 @@ arg_err:
 
 #define KILL_USAGE \
   "[COMMAND] [ARG]...\n" \
-  "\t-id    : the identifier for the resource whose creator is to be killed.\n" \
-  "\t-name  : the name for the resource whose creator is to be killed.\n" \
-  "\t-pid   : the pid for the resource whose creator is to be killed.\n" \
-  "\t-all   : kill all clients with top level windows\n" \
+  "\t-id     : the identifier for the resource whose creator is to be killed.\n" \
+  "\t-name   : the name for the resource whose creator is to be killed.\n" \
+  "\t-pid    : the pid for the resource whose creator is to be killed.\n" \
+  "\t-pid -f : the pid of the client is going to be killed immediately.\n" \
+  "\t-all    : kill all clients with top level windows\n" \
   "\t-help\n" \
   "Example:\n" \
   "\tenlightenment_info -kill\n" \
@@ -3355,6 +3356,7 @@ arg_err:
   "\tenlightenment_info -kill -id [win_id]\n" \
   "\tenlightenment_info -kill -name [win_name]\n" \
   "\tenlightenment_info -kill -pid [pid]\n" \
+  "\tenlightenment_info -kill -pid [pid] -f\n" \
   "\tenlightenment_info -kill -all\n" \
   "\tenlightenment_info -kill -help\n" \
 
@@ -3479,12 +3481,14 @@ _e_info_client_proc_kill_client(int argc, char **argv)
    const static int KILL_NAME_MODE = 2;
    const static int KILL_PID_MODE = 3;
    const static int KILL_ALL_MODE = 4;
+   const static int KILL_PID_FORCE_MODE = 5;
+
    Eina_Bool res;
    unsigned long tmp = 0;
    uintptr_t ecore_win = 0;
    uint64_t uint64_value = 0;
    const char *str_value = "";
-   uint32_t mode;
+   uint32_t mode = 0;
 
    if (argc == 2)
      {
@@ -3549,6 +3553,23 @@ _e_info_client_proc_kill_client(int argc, char **argv)
           }
         else
           goto usage;
+     }
+   else if (argc == 5)
+     {
+        if (eina_streq(argv[2], "-pid") && eina_streq(argv[4], "-f"))
+          {
+             mode = KILL_PID_FORCE_MODE;
+
+             if (strlen(argv[3]) >= 2 && argv[3][0] == '0' && argv[3][1] == 'x')
+               res = _util_string_to_ulong(argv[3], &tmp, 16);
+             else
+               res = _util_string_to_ulong(argv[3], &tmp, 10);
+
+             uint64_value = (uint64_t)tmp;
+             str_value = argv[4];
+
+             EINA_SAFETY_ON_FALSE_GOTO(res, usage);
+          }
      }
    else
      goto usage;
