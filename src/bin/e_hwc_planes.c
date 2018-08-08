@@ -20,6 +20,7 @@ _e_hwc_planes_ec_check(E_Client *ec)
    E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    E_Output *eout;
    int minw = 0, minh = 0;
+   int transform;
 
    if ((!cdata) ||
        (!cdata->buffer_ref.buffer) ||
@@ -60,13 +61,18 @@ _e_hwc_planes_ec_check(E_Client *ec)
     * we can control client's buffer transform. In this case, we don't need to
     * check client's buffer transform here.
     */
-   if (!e_comp_screen_rotation_ignore_output_transform_watch(ec))
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+   if ((eout->config.rotation / 90) != transform)
      {
-        int transform = e_comp_wl_output_buffer_transform_get(ec);
-
-        if ((eout->config.rotation / 90) != transform)
+        if (e_comp_screen_rotation_ignore_output_transform_watch(ec))
+          {
+            if (e_comp_wl->touch.pressed)
+              return EINA_FALSE;
+          }
+        else
           return EINA_FALSE;
      }
+
 
    return EINA_TRUE;
 }

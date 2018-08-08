@@ -114,17 +114,25 @@ _e_hwc_windows_device_state_check(E_Client *ec)
         return EINA_FALSE;
      }
 
-   transform = e_comp_wl_output_buffer_transform_get(ec);
-
    /* If a client doesn't watch the ignore_output_transform events, we can't show
     * a client buffer to HW overlay directly when the buffer transform is not same
     * with output transform. If a client watch the ignore_output_transform events,
     * we can control client's buffer transform. In this case, we don't need to
     * check client's buffer transform here.
     */
-   if (!e_comp_screen_rotation_ignore_output_transform_watch(ec))
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+   if ((eout->config.rotation / 90) != transform)
      {
-        if ((eout->config.rotation / 90) != transform)
+        if (e_comp_screen_rotation_ignore_output_transform_watch(ec))
+          {
+             if (e_comp_wl->touch.pressed)
+               {
+                  EHWSTRACE("   ehw:%p -- {%25s} is forced to set CL state.(touch pressed)",
+                            ec, ec->hwc_window, ec->icccm.title);
+                  return EINA_FALSE;
+               }
+          }
+        else
           {
              EHWSTRACE("   ehw:%p -- {%25s} is forced to set CL state.(no igrore_transfrom)",
                        ec, ec->hwc_window, ec->icccm.title);
