@@ -1262,6 +1262,14 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
              continue;
           }
 
+        if (e_hwc_window_is_video(hwc_window))
+          {
+            if (!e_comp_wl_video_hwc_widow_surface_get(hwc_window))
+              continue;
+
+            e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO);
+          }
+
         windows_list = eina_list_append(windows_list, hwc_window);
      }
 

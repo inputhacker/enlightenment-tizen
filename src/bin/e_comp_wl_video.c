@@ -425,18 +425,16 @@ _e_video_get_available_formats(const tbm_format **formats, int *count)
              *count = NUM_SW_FORMAT;
           }
      }
-#if 0 //TODO:
    else
      {
         tdm_error error;
-        error = tdm_output_hwc_get_video_supported_formats(output, formats, count);
+        error = tdm_hwc_get_video_supported_formats(output->hwc->thwc, formats, count);
         if (error != TDM_ERROR_NONE)
           {
              *formats = sw_formats;
              *count = NUM_SW_FORMAT;
           }
      }
-#endif
 }
 
 static int
@@ -1739,7 +1737,7 @@ e_comp_wl_video_hwc_widow_surface_get(E_Hwc_Window *hwc_window)
      }
 
    ec = hwc_window->ec;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+   if (!ec) return NULL;
 
    EINA_LIST_FOREACH(video_list, l, video)
      if (video->ec == ec) break;
@@ -2404,14 +2402,12 @@ _e_video_check_if_pp_needed(E_Video *video)
           if (!(capabilities & TDM_LAYER_CAPABILITY_TRANSFORM))
             goto need_pp;
      }
-#if 0 // TODO:
    else
      {
-        E_Hwc_Window *hwc_window = video->ec->hwc_window;
-        tdm_hwc_window_video_capability capabilities = 0;
+        tdm_hwc_video_capability capabilities = 0;
         tdm_error error;
 
-        error = tdm_output_hwc_get_video_supported_formats(video->output, &formats, &count);
+        error = tdm_hwc_get_video_supported_formats(video->e_output->hwc->thwc, &formats, &count);
         if (error != TDM_ERROR_NONE)
           {
              video->pp_tbmfmt = TBM_FORMAT_ARGB8888;
@@ -2430,7 +2426,7 @@ _e_video_check_if_pp_needed(E_Video *video)
              return EINA_TRUE;
           }
 
-        error = tdm_hwc_window_video_get_capability(hwc_window->thwc_window, &capabilities);
+        error = tdm_hwc_get_video_capability(video->e_output->hwc->thwc, &capabilities);
         if (error != TDM_ERROR_NONE)
           {
              video->pp_tbmfmt = TBM_FORMAT_ARGB8888;
@@ -2438,19 +2434,18 @@ _e_video_check_if_pp_needed(E_Video *video)
           }
 
         /* check size */
-        if (capabilities & TDM_HWC_WINDOW_VIDEO_CAPABILITY_SCANOUT)
+        if (capabilities & TDM_HWC_VIDEO_CAPABILITY_SCANOUT)
           goto need_pp;
 
         if (video->geo.input_r.w != video->geo.output_r.w || video->geo.input_r.h != video->geo.output_r.h)
-          if (!(capabilities & TDM_HWC_WINDOW_VIDEO_CAPABILITY_SCALE))
+          if (!(capabilities & TDM_HWC_VIDEO_CAPABILITY_SCALE))
             goto need_pp;
 
         /* check rotate */
         if (video->geo.transform || e_comp->e_comp_screen->rotation > 0)
-          if (!(capabilities & TDM_HWC_WINDOW_VIDEO_CAPABILITY_TRANSFORM))
+          if (!(capabilities & TDM_HWC_VIDEO_CAPABILITY_TRANSFORM))
             goto need_pp;
      }
-#endif
 
    return EINA_FALSE;
 
