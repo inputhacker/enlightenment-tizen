@@ -1,6 +1,8 @@
 #include "e.h"
 #include "e_devicemgr.h"
 
+E_API E_Devicemgr_Info e_devicemgr;
+
 static int _e_devicemgr_intercept_hooks_delete = 0;
 static int _e_devicemgr_intercept_hooks_walking = 0;
 
@@ -77,4 +79,35 @@ e_devicemgr_intercept_hook_call(E_Devicemgr_Intercept_Hook_Point hookpoint, void
      _e_devicemgr_intercept_hooks_clean();
 
    return ret;
+}
+
+E_API Eina_Bool
+e_devicemgr_is_blocking_event(Ecore_Device_Class clas)
+{
+   unsigned int res = 0x0;
+   unsigned int dev_clas = 0x0;
+
+   if (!e_devicemgr.get_block_event_type)
+     return EINA_FALSE;
+
+   res = e_devicemgr.get_block_event_type();
+   if (!res) return EINA_FALSE;
+
+   switch (clas)
+     {
+        case ECORE_DEVICE_CLASS_KEYBOARD:
+          dev_clas = TIZEN_INPUT_DEVICE_MANAGER_CLAS_KEYBOARD;
+          break;
+        case ECORE_DEVICE_CLASS_MOUSE:
+          dev_clas = TIZEN_INPUT_DEVICE_MANAGER_CLAS_MOUSE;
+          break;
+        case ECORE_DEVICE_CLASS_TOUCH:
+          dev_clas = TIZEN_INPUT_DEVICE_MANAGER_CLAS_TOUCHSCREEN;
+          break;
+        default:
+          return EINA_FALSE;
+     }
+
+   if (res & dev_clas) return EINA_TRUE;
+   return EINA_FALSE;
 }
