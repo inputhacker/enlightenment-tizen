@@ -504,11 +504,6 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
 
    queue->state = E_HWC_WINDOW_QUEUE_STATE_UNSET;
 
-   if (queue->state == E_HWC_WINDOW_QUEUE_STATE_PENDING_UNSET)
-     hwc_window = queue->pending_unset_user;
-   else
-     hwc_window = queue->user;
-
    if (queue->user)
      {
         e_object_unref(E_OBJECT(queue->user));
