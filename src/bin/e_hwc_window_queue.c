@@ -597,7 +597,6 @@ _e_hwc_window_queue_exported_buffer_destroy_cb(struct wl_listener *listener, voi
    E_Hwc_Window *user = NULL;
 
    queue_buffer = container_of(listener, E_Hwc_Window_Queue_Buffer, exported_destroy_listener);
-   if (!queue_buffer) return;
 
    wl_buffer = (struct wl_resource *)data;
    if (wl_buffer != queue_buffer->exported_wl_buffer) return;
