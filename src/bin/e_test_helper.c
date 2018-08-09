@@ -805,6 +805,8 @@ _e_test_helper_cb_set_noti_level(const Eldbus_Service_Interface *iface EINA_UNUS
    if (win)
      {
         ec = e_pixmap_find_client_by_res_id(win);
+        if (!ec) return reply;
+
         evas_object_layer_set(ec->frame, layer);
      }
 
@@ -831,6 +833,8 @@ _e_test_helper_cb_set_focus_skip(const Eldbus_Service_Interface *iface EINA_UNUS
    if (win)
      {
         ec = e_pixmap_find_client_by_res_id(win);
+        if (!ec) return reply;
+
         ec->icccm.accepts_focus = ec->icccm.take_focus = !skip_set;
         ec->changes.accepts_focus = 1;
         ec->changed = 1;
@@ -888,6 +892,8 @@ _e_test_helper_cb_get_noti_level(const Eldbus_Service_Interface *iface EINA_UNUS
      }
 
    ec = e_pixmap_find_client_by_res_id(win);
+   if (!ec) goto fin;
+
    layer = ec->layer;
 
 fin:
