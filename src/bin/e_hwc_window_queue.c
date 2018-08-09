@@ -504,6 +504,13 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
 
    queue->state = E_HWC_WINDOW_QUEUE_STATE_UNSET;
 
+   if (queue->state == E_HWC_WINDOW_QUEUE_STATE_PENDING_UNSET)
+     hwc_window = queue->pending_unset_user;
+   else
+     hwc_window = queue->user;
+
+   tdm_hwc_window_release_buffer_queue(hwc_window, queue->tqueue);
+
    if (queue->user)
      {
         e_object_unref(E_OBJECT(queue->user));
@@ -1099,7 +1106,7 @@ _e_hwc_window_tqueue_get(E_Hwc_Window *hwc_window)
    if (hwc_window->is_target)
      tqueue = _get_tbm_surface_queue();
    else
-     tqueue = tdm_hwc_window_get_buffer_queue(hwc_window->thwc_window, &error);
+     tqueue = tdm_hwc_window_acquire_buffer_queue(hwc_window->thwc_window, &error);
 
    if (!tqueue)
      {

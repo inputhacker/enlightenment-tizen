@@ -516,6 +516,8 @@ _e_hwc_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      return;
 
+   e_hwc_window_preparation_set(ec->hwc_window, TDM_PREPARATION_NONE);
+
    if (!ec->hwc_window) return;
 
    e_hwc_window_free(ec->hwc_window);
@@ -1752,6 +1754,47 @@ e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window)
      }
 
    return EINA_FALSE;
+}
+
+EINTERN Eina_Bool
+e_hwc_window_preparation_set(E_Hwc_Window *hwc_window, int preparation_types)
+{
+   E_Hwc_Window_Queue *queue = NULL;
+
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (hwc_window->preparation_types == preparation_types) return EINA_TRUE;
+
+   if (preparation_types & TDM_PREPARATION_BUFFER_QUEUE)
+     {
+         if (!hwc_window->queue)
+           {
+              queue = e_hwc_window_queue_user_set(hwc_window);
+              if (!queue)
+                {
+                   ERR("fail to e_hwc_window_queue_user_set ehw:%p", hwc_window);
+                   hwc_window->queue = NULL;
+                   return EINA_FALSE;
+                }
+
+              wl_signal_add(&queue->destroy_signal, &hwc_window->queue_destroy_listener);
+              hwc_window->queue_destroy_listener.notify = _e_hwc_window_cb_queue_destroy;
+              hwc_window->queue = queue;
+           }
+     }
+   else
+     {
+         if (hwc_window->queue)
+           {
+              e_hwc_window_queue_user_unset(hwc_window->queue, hwc_window);
+              wl_list_remove(&hwc_window->queue_destroy_listener.link);
+              hwc_window->queue = NULL;
+           }
+     }
+
+   hwc_window->preparation_types = preparation_types;
+
+   return EINA_TRUE;
 }
 
 static void
