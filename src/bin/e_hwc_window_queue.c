@@ -1075,11 +1075,14 @@ _e_hwc_window_queue_create(tbm_surface_queue_h tqueue)
    return queue;
 
 fail:
-   EINA_LIST_FREE(queue->buffers, queue_buffer)
-     _e_hwc_window_queue_buffer_destroy(queue_buffer);
-
    if (surfaces) E_FREE(surfaces);
-   if (queue) E_FREE(queue);
+   if (queue)
+     {
+        EINA_LIST_FREE(queue->buffers, queue_buffer)
+          _e_hwc_window_queue_buffer_destroy(queue_buffer);
+
+        E_FREE(queue);
+     }
 
    return NULL;
 }
