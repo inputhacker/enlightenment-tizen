@@ -4644,8 +4644,8 @@ _e_info_server_pid_kill(pid_t id, Eldbus_Message_Iter *array_of_string)
         wl_client_get_credentials(client, &pid, NULL, NULL);
         if (pid != id) continue;
 
-        wl_client_destroy(client);
         INF("[%s] client(%p, pid:%d) has been destroyed !", __FUNCTION__, client, pid);
+        wl_client_destroy(client);
 
         snprintf(result, sizeof(result), "[Server] A client (PID:%d) has been destroyed !", pid);
         eldbus_message_iter_arguments_append(array_of_string, VALUE_TYPE_REPLY_KILL, result);
