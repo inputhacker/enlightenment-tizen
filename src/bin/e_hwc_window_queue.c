@@ -1070,6 +1070,8 @@ _e_hwc_window_queue_create(tbm_surface_queue_h tqueue)
 
    wl_signal_init(&queue->destroy_signal);
 
+   if (surfaces) E_FREE(surfaces);
+
    EHWQINF("Create tq:%p", NULL, queue, tqueue);
 
    return queue;
