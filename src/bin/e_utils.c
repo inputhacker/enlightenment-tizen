@@ -1334,6 +1334,7 @@ e_util_file_monitor_add(const char *path, void *data)
    if (!mon)
      {
         ERR("Failed to allocate memory for E_Util_File_Monitor !");
+        free(dir_path);
         return 0;
      }
 
