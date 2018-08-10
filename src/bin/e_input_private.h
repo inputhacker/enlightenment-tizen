@@ -16,6 +16,8 @@ extern struct xkb_context *cached_context;
 #define E_INPUT_ENV_LIBINPUT_LOG_DISABLE "E_INPUT_LIBINPUT_LOG_DISABLE"
 #define E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG "E_INPUT_LIBINPUT_LOG_EINA_LOG"
 
+#define E_INPUT_MAX_SLOTS 10
+
 struct _E_Input_Seat
 {
    const char *name;
@@ -106,6 +108,11 @@ struct _E_Input_Evdev
              int x, y;
              int w, h;
           } transform;
+        struct
+          {
+             int x;
+             int y;
+          } coords[E_INPUT_MAX_SLOTS];
      } touch;
 };
 
