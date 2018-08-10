@@ -5434,7 +5434,7 @@ _e_comp_wl_key_send(Ecore_Event_Key *ev, enum wl_keyboard_key_state state, Eina_
         if (wl_resource_get_client(res) != wc) continue;
 
         TRACE_INPUT_BEGIN(_e_comp_wl_key_send);
-        _e_comp_wl_send_event_device(ev->data, ev->timestamp, ev->dev, serial);
+        _e_comp_wl_send_event_device(wc, ev->timestamp, ev->dev, serial);
 
         if (comp_conf && comp_conf->input_log_enable)
           INF("[Server] Key %s (time: %d)\n", (state ? "Down" : "Up"), ev->timestamp);
