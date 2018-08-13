@@ -1135,7 +1135,7 @@ _e_xdg_surface_configure_send(struct wl_resource *resource,
      }
 
    LOG("Scheduling task to send configure %s edges %d w %d h %d",
-       exsurf->ex->pixmap, exsurf->ec,
+       exsurf->ec->pixmap, exsurf->ec,
        _e_xdg_surface_util_role_string_get(exsurf), edges, width, height);
 
    switch (exsurf->role)
