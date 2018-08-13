@@ -203,6 +203,7 @@ typedef struct E_Client E_Client;
 typedef struct E_Event_Client E_Event_Client;
 typedef struct _E_Event_Client_Property E_Event_Client_Property;
 typedef struct _E_Client_Pending_Resize E_Client_Pending_Resize;
+typedef struct _E_Client_Pending_Geometry E_Client_Pending_Geometry;
 typedef struct E_Event_Client_Zone_Set E_Event_Client_Zone_Set;
 typedef struct E_Event_Client_Desk_Set E_Event_Client_Desk_Set;
 typedef struct _E_Client_Hook E_Client_Hook;
@@ -311,6 +312,20 @@ struct _E_Client_Pending_Resize
 {
    int           w, h;
    unsigned int  serial;
+};
+
+typedef enum
+{
+   E_GEOMETRY_NONE = 0,
+   E_GEOMETRY_POS  = (1 << 0),
+   E_GEOMETRY_SIZE = (1 << 1)
+} E_Client_Demand_Geometry;
+
+struct _E_Client_Pending_Geometry
+{
+   E_Client_Demand_Geometry      mode;
+   int                           x, y, w, h;
+   unsigned int                  serial;
 };
 
 struct E_Client
@@ -943,6 +958,13 @@ struct E_Client
    Eina_Bool skip_save_img: 1; // indicates that window doesn't want to save its image file
 
    E_Hwc_Window *hwc_window; // hwc window for the tdm_hwc.
+
+   struct
+     {
+        Eina_Bool    wait_commit;
+        unsigned int serial : 1;
+        Eina_List    *pending_geometry; // E_Client_Pending_Geometry
+     } surface_sync;
 };
 
 #define e_client_focus_policy_click(ec) \
@@ -1126,6 +1148,9 @@ E_API void e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set);
 E_API void e_client_stay_within_canvas_margin(E_Client *ec);
 
 EINTERN void e_client_revert_focus(E_Client *ec);
+
+EINTERN void      e_client_pending_geometry_flush(E_Client *ec);
+EINTERN Eina_Bool e_client_pending_geometry_has(E_Client *ec);
 
 /**
  * Move window to coordinates that do not account client decorations yet.

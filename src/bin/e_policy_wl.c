@@ -1231,10 +1231,20 @@ _tzpos_iface_cb_set(struct wl_client *client EINA_UNUSED, struct wl_resource *re
 
    if (!ec->lock_client_location)
      {
-        ec->x = ec->client.x = ec->desk->geom.x + x;
-        ec->y = ec->client.y = ec->desk->geom.y + y;
-        ec->placed = 1;
-        ec->changes.pos = 1;
+        if (e_client_pending_geometry_has(ec))
+          {
+             // if there is geometry pending list, add move job at the end of the list.
+             // so client to be applied new position at the same time with the pending requests
+             // pending geometries are flushed when 'wl surface commit' and matched serial are delivered.
+             e_comp_wl_commit_sync_client_geometry_add(ec, E_GEOMETRY_POS, ec->surface_sync.serial, x, y, 0, 0);
+          }
+        else
+          {
+             ec->x = ec->client.x = ec->desk->geom.x + x;
+             ec->y = ec->client.y = ec->desk->geom.y + y;
+             ec->placed = 1;
+             ec->changes.pos = 1;
+          }
         ec->changes.tz_position = 1;
         EC_CHANGED(ec);
      }
@@ -2769,6 +2779,8 @@ _tzpol_iface_cb_floating_mode_unset(struct wl_client *client EINA_UNUSED, struct
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
    ELOGF("TZPOL", "FLOATING Unset", ec->pixmap, ec);
+
+   e_client_pending_geometry_flush(ec);
 
    _e_policy_wl_floating_mode_apply(ec, EINA_FALSE);
 }

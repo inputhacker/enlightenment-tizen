@@ -1322,6 +1322,14 @@ _e_comp_intercept_move(void *data, Evas_Object *obj, int x, int y)
      }
    /* only update during resize if triggered by resize */
    if (e_client_util_resizing_get(cw->ec) && (!cw->force_move)) return;
+   /* delay to move while surface waits paired commit serial*/
+   if (e_client_pending_geometry_has(cw->ec))
+     {
+        cw->ec->changes.pos = 1;
+        EC_CHANGED(cw->ec);
+        return;
+     }
+
    cw->ec->x = x, cw->ec->y = y;
    if (cw->ec->new_client)
      {
@@ -1436,6 +1444,12 @@ _e_comp_intercept_resize(void *data, Evas_Object *obj, int w, int h)
         /* netwm sync resizes queue themselves and then trigger later on */
         _e_comp_object_client_pending_resize_add(cw->ec, iw, ih, cw->ec->netwm.sync.serial);
      }
+   if (e_client_pending_geometry_has(cw->ec))
+     {
+        /* do nothing while waiting paired commit serial*/
+        return;
+     }
+
    cw->ec->w = w, cw->ec->h = h;
    if ((!cw->ec->shading) && (!cw->ec->shaded))
      {

@@ -6921,3 +6921,29 @@ e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set)
    ec->visibility.force_obscured = set;
    e_client_visibility_calculate();
 }
+
+/* tizen_move_resize */
+EINTERN Eina_Bool
+e_client_pending_geometry_has(E_Client *ec)
+{
+   if (!eina_list_count(ec->surface_sync.pending_geometry))
+     return EINA_FALSE;
+
+   return ec->surface_sync.wait_commit;
+}
+
+EINTERN void
+e_client_pending_geometry_flush(E_Client *ec)
+{
+   E_Client_Pending_Geometry *geo;
+
+   if (!eina_list_count(ec->surface_sync.pending_geometry))
+     {
+        EINA_LIST_FREE(ec->surface_sync.pending_geometry, geo)
+          {
+             E_FREE(geo);
+          }
+        ec->surface_sync.wait_commit = EINA_FALSE;
+        ELOGF("POSSIZE", "pending geometry has flushed", ec->pixmap, ec);
+     }
+}

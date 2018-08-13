@@ -2182,6 +2182,8 @@ e_policy_allow_user_geometry_set(E_Client *ec, Eina_Bool set)
         ec->lock_client_size = EINA_TRUE;
         ec->placed = 0;
         ec->netwm.type = E_WINDOW_TYPE_NORMAL;
+
+        e_client_pending_geometry_flush(ec);
         EC_CHANGED(ec);
      }
 }

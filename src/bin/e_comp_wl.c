@@ -33,6 +33,7 @@ static void _e_comp_wl_subsurface_restack_bg_rectangle(E_Client *ec);
 static void _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec);
 static void _e_comp_wl_subsurface_show(E_Client *ec);
 static void _e_comp_wl_subsurface_hide(E_Client *ec);
+static void _e_comp_wl_move_resize_init(void);
 
 static E_Client * _e_comp_wl_client_usable_get(pid_t pid, E_Pixmap *ep);
 
@@ -2639,9 +2640,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
         if ((ec->comp_data->shell.surface) &&
             (ec->comp_data->shell.configure))
           {
-             ec->comp_data->shell.configure(ec->comp_data->shell.surface,
-                                            x, y,
-                                            ec->w, ec->h);
+             e_comp_wl_commit_sync_configure(ec);
           }
         else
           {
@@ -4847,6 +4846,7 @@ e_comp_wl_init(void)
    e_comp_wl_screenshooter_init();
    e_comp_wl_video_init();
    e_comp_wl_viewport_init();
+   _e_comp_wl_move_resize_init();
 
    /* add event handlers to catch E events */
    E_LIST_HANDLER_APPEND(handlers, E_EVENT_SCREEN_CHANGE,            _e_comp_wl_cb_randr_change,        NULL);
@@ -6249,4 +6249,217 @@ e_comp_wl_output_find(E_Client *ec)
      }
 
    return NULL;
+}
+
+
+// --------------------------------------------------------
+// tizen_move_resize
+// --------------------------------------------------------
+EINTERN Eina_Bool
+e_comp_wl_commit_sync_client_geometry_add(E_Client *ec,
+                                          E_Client_Demand_Geometry mode,
+                                          uint32_t serial,
+                                          int32_t x,
+                                          int32_t y,
+                                          int32_t w,
+                                          int32_t h)
+{
+   E_Client_Pending_Geometry *geo;
+
+   if (!ec) goto err;
+   if (e_object_is_del(E_OBJECT(ec))) goto err;
+   if (ec->new_client || ec->fullscreen || ec->maximized) goto err;
+   if (mode == E_GEOMETRY_NONE) goto err;
+
+   geo = E_NEW(E_Client_Pending_Geometry, 1);
+   if (!geo) goto err;
+
+   geo->serial = serial;
+   geo->mode = mode;
+   if (mode & E_GEOMETRY_POS)
+     {
+        geo->x = x;
+        geo->y = y;
+     }
+   if (mode & E_GEOMETRY_SIZE)
+     {
+        geo->w = w;
+        geo->h = h;
+     }
+
+   ec->surface_sync.pending_geometry = eina_list_append(ec->surface_sync.pending_geometry, geo);
+   ec->surface_sync.wait_commit = EINA_TRUE;
+
+   return EINA_TRUE;
+
+err:
+   ELOGF("POSSIZE", "Could not add geometry(new:%d full:%d max:%d)", ec->pixmap, ec, ec->new_client, ec->fullscreen, ec->maximized);
+   return EINA_FALSE;
+}
+
+EINTERN Eina_Bool
+e_comp_wl_commit_sync_configure(E_Client *ec)
+{
+   Eina_List *l;
+   E_Client_Pending_Geometry *geo;
+   E_Client_Demand_Geometry change = 0;
+   int bw, bh;
+   struct
+     {
+        int x, y, w, h;
+     } config;
+
+   if (!ec || !ec->frame) goto ret;
+   if (e_object_is_del(E_OBJECT(ec))) goto ret;
+
+   bw = bh = 0;
+   config.x = ec->x; config.y = ec->y; config.w = ec->w; config.h = ec->h;
+   //if (!e_pixmap_size_get(ec->pixmap, &bw, &bh)) goto err;
+   e_pixmap_size_get(ec->pixmap, &bw, &bh);
+
+   if (eina_list_count(ec->surface_sync.pending_geometry))
+     {
+        EINA_LIST_FOREACH(ec->surface_sync.pending_geometry, l, geo)
+          {
+             if (geo->serial <= ec->surface_sync.serial)
+               {
+                  if (geo->mode & E_GEOMETRY_SIZE)
+                    {
+                       config.w = geo->w; config.h = geo->h;
+                    }
+                  if (geo->mode & E_GEOMETRY_POS)
+                    {
+                       config.x = geo->x; config.y = geo->y;
+                    }
+                  change |= geo->mode;
+                  ec->surface_sync.pending_geometry = eina_list_remove(ec->surface_sync.pending_geometry, geo);
+                  E_FREE(geo);
+               }
+          }
+
+        if (change & E_GEOMETRY_SIZE)
+          {
+             if ((config.w != ec->w) || (config.h != ec->h))
+               {
+                  ec->w = config.w;
+                  ec->h = config.h;
+                  ec->changes.size = EINA_TRUE;
+                  EC_CHANGED(ec);
+               }
+          }
+
+        if (change & E_GEOMETRY_POS)
+          {
+             ec->x = ec->client.x = ec->desk->geom.x + config.x;
+             ec->y = ec->client.y = ec->desk->geom.y + config.y;
+             ec->placed = 1;
+             ec->changes.pos = 1;
+             EC_CHANGED(ec);
+          }
+
+        if (change)
+          ELOGF("POSSIZE", "Configure pending geometry mode:%d(%d,%d - %dx%d)", ec->pixmap, ec, change, ec->x, ec->y, ec->w, ec->h);
+     }
+
+   // cw interceptor(move,resize) won't work if wait_commit is TRUE
+   ec->surface_sync.wait_commit = EINA_FALSE;
+
+   if ((ec->comp_data->shell.surface) &&
+       (ec->comp_data->shell.configure))
+     {
+        ec->comp_data->shell.configure(ec->comp_data->shell.surface,
+                                       ec->x, ec->y,
+                                       ec->w, ec->h);
+     }
+
+   // rollback wait_commit if there are pending requests remained
+   if (eina_list_count(ec->surface_sync.pending_geometry))
+     ec->surface_sync.wait_commit = EINA_TRUE;
+
+   return EINA_TRUE;
+
+err:
+   ELOGF("POSSIZE", "Could not configure geometry (%d,%d - %dx%d) bw:%d bh:%d", ec->pixmap, ec, ec->x, ec->y, ec->w, ec->h, bw, bh);
+
+ret:
+   return EINA_FALSE;
+}
+
+static void
+_tz_move_resize_iface_cb_destroy(struct wl_client *client EINA_UNUSED,
+                                 struct wl_resource *res_moveresize)
+{
+   wl_resource_destroy(res_moveresize);
+}
+
+static void
+_tz_move_resize_iface_cb_set_geometry(struct wl_client *client EINA_UNUSED,
+                                      struct wl_resource *res_moveresize,
+                                      struct wl_resource *surface,
+                                      uint32_t serial,
+                                      int32_t x,
+                                      int32_t y,
+                                      int32_t w,
+                                      int32_t h)
+{
+   /* to be implemented */
+   E_Client *ec;
+
+   ec = wl_resource_get_user_data(surface);
+   if (!ec) goto err;
+   if (!e_comp_wl_commit_sync_client_geometry_add(ec, E_GEOMETRY_POS | E_GEOMETRY_SIZE, serial, x, y, w, h)) goto err;
+   return;
+
+err:
+   ELOGF("POSSIZE", "Could not add set_geometry request(serial:%d, %d,%d - %dx%d)", ec->pixmap, ec, serial, x, y, w, h);
+}
+
+static const struct tizen_move_resize_interface _tz_move_resize_iface =
+{
+   _tz_move_resize_iface_cb_destroy,
+   _tz_move_resize_iface_cb_set_geometry,
+};
+
+static void
+_tz_moveresize_cb_bind(struct wl_client *client,
+                       void *data EINA_UNUSED,
+                       uint32_t ver,
+                       uint32_t id)
+{
+   struct wl_resource *res_moveresize;
+
+   res_moveresize = wl_resource_create(client,
+                                       &tizen_move_resize_interface,
+                                       ver,
+                                       id);
+   EINA_SAFETY_ON_NULL_GOTO(res_moveresize, err);
+
+
+   wl_resource_set_implementation(res_moveresize,
+                                  &_tz_move_resize_iface,
+                                  NULL,
+                                  NULL);
+   return;
+
+err:
+   ERR("Could not create tizen_move_resize_interface res: %m");
+   wl_client_post_no_memory(client);
+}
+
+static void
+_e_comp_wl_move_resize_init(void)
+{
+   if (!e_comp_wl) return;
+   if (!e_comp_wl->wl.disp) return;
+
+   if (!wl_global_create(e_comp_wl->wl.disp,
+                         &tizen_move_resize_interface,
+                         1,
+                         NULL,
+                         _tz_moveresize_cb_bind))
+     {
+        ERR("Could not create tizen_move_resize_interface to wayland globals: %m");
+     }
+
+   return;
 }

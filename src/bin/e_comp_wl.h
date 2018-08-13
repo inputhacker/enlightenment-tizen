@@ -574,5 +574,7 @@ E_API void e_comp_wl_subsurface_stack_update(E_Client *ec);
 
 E_API extern int E_EVENT_WAYLAND_GLOBAL_ADD;
 
+EINTERN Eina_Bool e_comp_wl_commit_sync_client_geometry_add(E_Client *ec, E_Client_Demand_Geometry mode, uint32_t serial, int32_t x, int32_t y, int32_t w, int32_t h);
+EINTERN Eina_Bool e_comp_wl_commit_sync_configure(E_Client *ec);
 # endif
 #endif
