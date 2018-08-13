@@ -167,6 +167,8 @@ _e_client_xdg_shell_v6_assign(E_Client *ec,
                               struct wl_resource *resource,
                               E_Comp_Wl_Sh_Surf_Role role)
 {
+   if ((!ec) || (!ec->comp_data) || (e_object_is_del(E_OBJECT(ec))))
+     return;
    ec->comp_data->sh_v6.res_role = resource;
    ec->comp_data->sh_v6.role = role;
 }
@@ -1634,7 +1636,11 @@ _e_xdg_surface_cb_resource_destroy(struct wl_resource *resource)
     * assignment at here anyway. once zxdg_surface_v6 is destroyed, the
     * attribute 'toplevel and popup' is no longer meaningful. */
    _e_client_xdg_shell_v6_role_assingment_unset(exsurf->ec);
+
    e_shell_e_client_destroy(exsurf->ec);
+   /* set null after destroying shell of e_client, ec will be freed */
+   exsurf->ec = NULL;
+
    e_object_del(E_OBJECT(exsurf));
 }
 
