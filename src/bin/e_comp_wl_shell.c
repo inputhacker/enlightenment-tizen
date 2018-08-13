@@ -106,7 +106,6 @@ e_shell_e_client_toplevel_set(E_Client *ec)
    ELOGF("SHELL", "Set toplevel", ec->pixmap, ec);
 
    /* set toplevel client properties */
-   ec->icccm.accepts_focus = 1;
    if (!ec->internal)
      ec->borderless = 1;
    ec->lock_border = EINA_TRUE;

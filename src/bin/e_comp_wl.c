@@ -3240,6 +3240,7 @@ _e_comp_wl_compositor_cb_surface_create(struct wl_client *client, struct wl_reso
         if ((!ec->client.w) && (ec->client.h))
           ec->client.w = ec->client.h = 1;
         ec->comp_data->surface = res;
+        ec->icccm.accepts_focus = 1;
      }
 
    /* set reference to pixmap so we can fetch it later */
