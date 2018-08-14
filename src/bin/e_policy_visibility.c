@@ -1784,6 +1784,12 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
                {
                   if (topmost->pixmap && e_pixmap_usable_get(topmost->pixmap))
                     {
+                       if (e_policy_visibility_client_is_uniconic(topmost))
+                         {
+                            ELOGF("COMP", "Already child(win:0x%08x ec:%p) uniconify_render done..", ec->pixmap, ec, e_client_util_win_get(topmost), topmost);
+                            return EINA_TRUE;
+                         }
+
                        ELOGF("COMP", "Set launching flag..", topmost->pixmap, topmost);
                        topmost->launching = EINA_TRUE;
 
