@@ -978,7 +978,7 @@ _e_plane_pp_layer_commit_handler(tdm_layer *layer, unsigned int sequence,
      ELOGF("E_PLANE", "PP Layer Commit Handler Plane(%p)", NULL, NULL, plane);
 
    output = plane->output;
-   if (e_output_dpms_get(output))
+   if (e_output_dpms_get(output) == E_OUTPUT_DPMS_OFF)
      {
         _e_plane_pp_pending_data_remove(plane);
         return;
@@ -1091,7 +1091,7 @@ _e_plane_pp_layer_data_commit(E_Plane *plane, E_Plane_Commit_Data *data)
    EINA_SAFETY_ON_NULL_RETURN_VAL(data, EINA_FALSE);
 
    output = plane->output;
-   if (e_output_dpms_get(output))
+   if (e_output_dpms_get(output) == E_OUTPUT_DPMS_OFF)
      {
         _e_plane_pp_pending_data_remove(plane);
         goto fail;
@@ -1206,7 +1206,7 @@ _e_plane_pp_commit_handler(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h
      }
 
    output = plane->output;
-   if (e_output_dpms_get(output))
+   if (e_output_dpms_get(output) == E_OUTPUT_DPMS_OFF)
      {
         _e_plane_pp_pending_data_remove(plane);
         tbm_surface_queue_release(plane->pp_tqueue, tsurface_dst);
@@ -1237,7 +1237,7 @@ _e_plane_pp_commit(E_Plane *plane, E_Plane_Commit_Data *data)
            data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
    output = plane->output;
-   if (e_output_dpms_get(output))
+   if (e_output_dpms_get(output) == E_OUTPUT_DPMS_OFF)
      {
         _e_plane_pp_pending_data_remove(plane);
         return EINA_FALSE;
