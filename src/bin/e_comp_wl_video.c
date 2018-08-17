@@ -414,7 +414,7 @@ _e_video_get_available_formats(const tbm_format **formats, int *count)
    if (e_hwc_policy_get(output->hwc) != E_HWC_POLICY_WINDOWS)
      {
         /* get the first suitable layer */
-        layer = _e_video_tdm_video_layer_get(output);
+        layer = _e_video_tdm_video_layer_get(toutput);
         if (layer)
           {
              tdm_layer_get_available_formats(layer, formats, count);
