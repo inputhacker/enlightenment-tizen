@@ -1011,6 +1011,29 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
 }
 
 static void
+_e_hwc_windows_preparation_update(E_Hwc *hwc)
+{
+   tdm_error terror;
+   E_Hwc_Window *hwc_window;
+   const Eina_List *l;
+   int preparation_types;
+
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
+     {
+        if (hwc_window->is_target) continue;
+        if (!hwc_window->thwc_window) continue;
+
+        terror = tdm_hwc_window_get_preparation_types(hwc_window->thwc_window,
+                                                      &preparation_types);
+        if (terror != TDM_ERROR_NONE) continue;
+
+        e_hwc_window_preparation_set(hwc_window, preparation_types);
+     }
+
+   return;
+}
+
+static void
 _e_hwc_windows_render_target_update(E_Hwc *hwc)
 {
    E_Hwc_Window *hwc_window = NULL;
@@ -1097,6 +1120,7 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
         e_hwc_window_state_set(hwc_window, state);
      }
 
+   _e_hwc_windows_preparation_update(hwc);
    _e_hwc_windows_render_target_update(hwc);
 
 #if DBG_EVALUATE
@@ -1528,29 +1552,6 @@ _e_hwc_windows_target_state_set(E_Hwc_Window_Target *target_hwc_window, E_Hwc_Wi
      e_hwc_window_accepted_state_set(target_window, state);
 }
 
-static void
-_e_hwc_windows_preparation_update(E_Hwc *hwc)
-{
-   tdm_error terror;
-   E_Hwc_Window *hwc_window;
-   const Eina_List *l;
-   int preparation_types;
-
-   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
-     {
-        if (hwc_window->is_target) continue;
-        if (!hwc_window->thwc_window) continue;
-
-        terror = tdm_hwc_window_get_preparation_types(hwc_window->thwc_window,
-                                                      &preparation_types);
-        if (terror != TDM_ERROR_NONE) continue;
-
-        e_hwc_window_preparation_set(hwc_window, preparation_types);
-     }
-
-   return;
-}
-
 /* evaluate the hwc_windows */
 static Eina_Bool
 _e_hwc_windows_evaluate(E_Hwc *hwc)
@@ -1569,8 +1570,6 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
      EHWSTRACE(" Succeed the compsition_evaulation.", NULL);
    else
      EHWSTRACE(" Need the comopsition re-evaulation.", NULL);
-
-   _e_hwc_windows_preparation_update(hwc);
 
    /* decide the E_HWC_MODE */
    hwc_mode = _e_hwc_windows_hwc_mode_get(hwc);

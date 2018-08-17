@@ -552,7 +552,6 @@ _e_hwc_window_queue_buffers_recall(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_
    Eina_List *l = NULL;
    E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
    struct wayland_tbm_client_queue *cqueue = NULL;
-   E_Comp_Wl_Buffer *comp_buffer, *backup_buffer = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
 
@@ -561,22 +560,7 @@ _e_hwc_window_queue_buffers_recall(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_
                                           (void *)queue);
 
    if (hwc_window)
-     {
-        if ((hwc_window->buffer.tsurface) &&
-            (hwc_window->buffer.queue) &&
-            (hwc_window->buffer.tsurface != hwc_window->display.buffer.tsurface))
-           {
-              comp_buffer = _comp_wl_buffer_get(hwc_window->ec);
-              if (comp_buffer->tbm_surface)
-                {
-                   backup_buffer = _comp_wl_backup_buffer_get(comp_buffer->tbm_surface);
-                   e_comp_wl_surface_attach(hwc_window->ec, backup_buffer);
-                   e_hwc_window_buffer_fetch(hwc_window);
-                }
-           }
-
-        cqueue = _user_cqueue_get(hwc_window->ec);
-     }
+     cqueue = _user_cqueue_get(hwc_window->ec);
 
    EINA_LIST_FOREACH(queue->buffers, l, queue_buffer)
      {

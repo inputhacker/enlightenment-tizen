@@ -1829,6 +1829,8 @@ _e_hwc_window_client_recover(E_Hwc_Window *hwc_window)
    /* force update */
    e_comp_wl_surface_attach(ec, recover_buffer);
 
+   e_hwc_window_buffer_fetch(hwc_window);
+
    return;
 }
 
