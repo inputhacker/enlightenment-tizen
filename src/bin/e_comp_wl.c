@@ -34,6 +34,7 @@ static void _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec);
 static void _e_comp_wl_subsurface_show(E_Client *ec);
 static void _e_comp_wl_subsurface_hide(E_Client *ec);
 static void _e_comp_wl_move_resize_init(void);
+static void _e_comp_wl_surface_state_serial_update(E_Client *ec, E_Comp_Wl_Surface_State *state);
 
 static E_Client * _e_comp_wl_client_usable_get(pid_t pid, E_Pixmap *ep);
 
@@ -2523,7 +2524,10 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
    ec->comp_data->scaler.buffer_viewport = state->buffer_viewport;
 
    if (state->new_attach)
-     e_comp_wl_surface_attach(ec, state->buffer);
+     {
+        _e_comp_wl_surface_state_serial_update(ec, state);
+        e_comp_wl_surface_attach(ec, state->buffer);
+     }
 
    /* emit a apply_viewport signal when the information of viewport and buffer is ready */
    wl_signal_emit(&ec->comp_data->apply_viewport_signal,
@@ -6255,6 +6259,24 @@ e_comp_wl_output_find(E_Client *ec)
 // --------------------------------------------------------
 // tizen_move_resize
 // --------------------------------------------------------
+static void
+_e_comp_wl_surface_state_serial_update(E_Client *ec, E_Comp_Wl_Surface_State *state)
+{
+   E_Comp_Wl_Buffer *buffer;
+   uint32_t serial = 0;
+
+   if (!ec) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
+   if (!ec->comp_data) return;
+
+   buffer = state->buffer;
+   if (!buffer) return;
+
+   serial = wayland_tbm_server_buffer_get_buffer_serial(buffer->resource);
+   ec->surface_sync.serial = serial;
+   ELOGF("POSSIZE", "Update serial(%u) wl_buffer&%u", ec->pixmap, ec, serial, wl_resource_get_id(buffer->resource));
+}
+
 EINTERN Eina_Bool
 e_comp_wl_commit_sync_client_geometry_add(E_Client *ec,
                                           E_Client_Demand_Geometry mode,
