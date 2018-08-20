@@ -5437,6 +5437,18 @@ e_client_iconify(E_Client *ec)
    if (ec->shading || ec->iconic) return;
    if (ec->exp_iconify.skip_iconify && !ec->exp_iconify.by_client) return;
    if (ec->exp_iconify.skip_by_remote) return;
+   if (!ec->comp_data || !ec->comp_data->mapped)
+     {
+        if (!ec->exp_iconify.by_client)
+          {
+             ELOGF("TZVIS", "Not mapped.. So, don't iconify", ec->pixmap, ec);
+             return;
+          }
+        else
+          {
+             ELOGF("TZVIS", "Not mapped.. But, iconify by user request", ec->pixmap, ec);
+          }
+     }
 
    TRACE_DS_BEGIN(CLIENT:ICONIFY);
 
