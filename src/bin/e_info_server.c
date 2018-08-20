@@ -4618,7 +4618,6 @@ _e_info_server_ec_find_by_win(Ecore_Window win)
 const static int KILL_ID_MODE = 1;
 const static int KILL_NAME_MODE = 2;
 const static int KILL_PID_MODE = 3;
-const static int KILL_ALL_MODE = 4;
 const static int KILL_PID_FORCE_MODE = 5;
 
 static int
