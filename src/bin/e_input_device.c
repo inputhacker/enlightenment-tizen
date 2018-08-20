@@ -808,6 +808,8 @@ e_input_device_input_create_libinput_udev(E_Input_Device *dev)
 {
    E_Input_Backend *input;
    char *env = NULL;
+   int buf_size = 0;
+   int res = 0;
 
    /* check for valid device */
    EINA_SAFETY_ON_NULL_RETURN_VAL(dev, EINA_FALSE);
@@ -835,6 +837,24 @@ e_input_device_input_create_libinput_udev(E_Input_Device *dev)
         env = e_util_env_get(E_INPUT_ENV_LIBINPUT_LOG_EINA_LOG);
         if ((env) && (atoi(env) == 1))
           input->log_use_eina = EINA_TRUE;
+     }
+   E_FREE(env);
+
+   env = e_util_env_get("UDEV_MONITOR_EVENT_SOURCE");
+
+   if (env)
+     {
+        libinput_udev_set_udev_monitor_event_source(env);
+     }
+   E_FREE(env);
+
+   env = e_util_env_get("UDEV_MONITOR_BUFFER_SIZE");
+
+   if ((env) && (buf_size = atoi(env)))
+     {
+        res = libinput_udev_set_udev_monitor_buffer_size(buf_size);
+        if (res)
+          ERR("Wrong buffer size for udev monitor : %d\n", buf_size);
      }
    E_FREE(env);
 
