@@ -288,6 +288,8 @@ _e_comp_wl_destination_mode_destroy(struct wl_resource *resource)
 
    _e_comp_wl_viewport_set_changed(viewport);
 
+   viewport->destination.mode.resource = NULL;
+
    PIN("destination.mode destroy");
 }
 
