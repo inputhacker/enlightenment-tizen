@@ -365,6 +365,12 @@ _e_hwc_window_queue_waiting_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *
    EINA_LIST_FOREACH_SAFE(queue->waiting_user, l, ll, tmp_hwc_window)
      {
         if(tmp_hwc_window != hwc_window) continue;
+
+        tdm_hwc_window_release_buffer_queue(hwc_window->thwc_window, queue->tqueue);
+
+        EHWQINF("Release buffer queue ehw:%p tq:%p",
+                hwc_window->ec, queue, hwc_window, queue->tqueue);
+
         e_object_unref(E_OBJECT(hwc_window));
         queue->waiting_user = eina_list_remove_list(queue->waiting_user, l);
      }
@@ -508,7 +514,12 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
      hwc_window = queue->user;
 
    if (hwc_window)
-     tdm_hwc_window_release_buffer_queue(hwc_window->thwc_window, queue->tqueue);
+     {
+        tdm_hwc_window_release_buffer_queue(hwc_window->thwc_window, queue->tqueue);
+
+        EHWQINF("Release buffer queue ehw:%p tq:%p",
+                hwc_window->ec, queue, hwc_window, queue->tqueue);
+     }
 
    queue->state = E_HWC_WINDOW_QUEUE_STATE_UNSET;
 
@@ -1091,7 +1102,12 @@ _e_hwc_window_tqueue_get(E_Hwc_Window *hwc_window)
    if (hwc_window->is_target)
      tqueue = _get_tbm_surface_queue();
    else
-     tqueue = tdm_hwc_window_acquire_buffer_queue(hwc_window->thwc_window, &error);
+     {
+        tqueue = tdm_hwc_window_acquire_buffer_queue(hwc_window->thwc_window, &error);
+
+        EHWQINF("Acquire buffer queue ehw:%p tq:%p",
+                hwc_window->ec, NULL, hwc_window, tqueue);
+     }
 
    if (!tqueue)
      {
