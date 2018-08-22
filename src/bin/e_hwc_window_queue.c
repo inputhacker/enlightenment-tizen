@@ -502,14 +502,15 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
 {
    E_Hwc_Window *hwc_window = NULL;
 
-   queue->state = E_HWC_WINDOW_QUEUE_STATE_UNSET;
-
    if (queue->state == E_HWC_WINDOW_QUEUE_STATE_PENDING_UNSET)
      hwc_window = queue->pending_unset_user;
    else
      hwc_window = queue->user;
 
-   tdm_hwc_window_release_buffer_queue(hwc_window, queue->tqueue);
+   if (hwc_window)
+     tdm_hwc_window_release_buffer_queue(hwc_window->thwc_window, queue->tqueue);
+
+   queue->state = E_HWC_WINDOW_QUEUE_STATE_UNSET;
 
    if (queue->user)
      {
