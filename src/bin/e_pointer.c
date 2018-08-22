@@ -165,6 +165,8 @@ e_pointer_object_set(E_Pointer *ptr, Evas_Object *obj, int x, int y)
    if ((!e_config->show_cursor) || (!e_comp_wl->ptr.enabled))
      {
         e_pointer_hide(ptr);
+        ptr->o_ptr = NULL;
+        ptr->device = E_POINTER_NONE;
         return;
      }
 
