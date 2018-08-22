@@ -615,6 +615,7 @@ _e_shell_surface_unmap(struct wl_resource *resource)
         ec->visible = EINA_FALSE;
         evas_object_hide(ec->frame);
         ec->comp_data->mapped = EINA_FALSE;
+        ec->visibility.last_sent_type = E_VISIBILITY_UNKNOWN;
 
         ELOGF("SHELL",
               "Unmap window  |win:0x%08x|ec_size:%d,%d",
@@ -1288,6 +1289,7 @@ _e_xdg_shell_surface_unmap(struct wl_resource *resource)
         ec->visible = EINA_FALSE;
         evas_object_hide(ec->frame);
         ec->comp_data->mapped = EINA_FALSE;
+        ec->visibility.last_sent_type = E_VISIBILITY_UNKNOWN;
 
         ELOGF("SHELL",
               "Unmap window  |win:0x%08x|ec_size:%d,%d",
