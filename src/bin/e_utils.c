@@ -1318,9 +1318,10 @@ e_util_file_monitor_add(const char *path, void *data)
    if (eina_hash_find(_e_file_monitor_hash, path))
      return 1;
 
-   dir_path = strdup(path);
    if (!ecore_file_is_dir(path))
      dir_path = ecore_file_dir_get(path);
+   else
+     dir_path = strdup(path);
 
    if (!ecore_file_exists(dir_path))
      {
