@@ -622,6 +622,15 @@ main(int argc, char **argv)
    _e_main_shutdown_push(_e_main_screens_shutdown);
    TRACE_DS_END();
 
+   TSB("E_Devicemgr Init");
+   if (!e_devicemgr_init())
+     {
+        e_error_message_show(_("Enlightenment cannot set up its device_manager system.\n"));
+        goto failed;
+     }
+   TSE("E_Devicemgr Init Done");
+   _e_main_shutdown_push(e_devicemgr_shutdown);
+
    TSB("E_Keyrouter Init");
    if (!e_keyrouter_init())
      {

@@ -44,9 +44,7 @@ typedef struct _E_Comp_Wl_Surface_State E_Comp_Wl_Surface_State;
 typedef struct _E_Comp_Wl_Client_Data E_Comp_Wl_Client_Data;
 typedef struct _E_Comp_Wl_Data E_Comp_Wl_Data;
 typedef struct _E_Comp_Wl_Output E_Comp_Wl_Output;
-typedef struct _E_Comp_Wl_Input_Device E_Comp_Wl_Input_Device;
 typedef struct _E_Comp_Wl_Hook E_Comp_Wl_Hook;
-typedef struct _E_Comp_Wl_Input_Device_Multi E_Comp_Wl_Input_Device_Multi;
 
 
 typedef enum _E_Comp_Wl_Buffer_Type
@@ -172,23 +170,6 @@ struct _E_Comp_Wl_Subsurf_Data
      } remote_surface;
 };
 
-struct _E_Comp_Wl_Input_Device
-{
-   Eina_List *resources;
-   const char *name;
-   const char *identifier;
-   Ecore_Device_Class clas;
-   Ecore_Device_Subclass subclas;
-};
-
-struct _E_Comp_Wl_Input_Device_Multi
-{
-   double radius_x;
-   double radius_y;
-   double pressure;
-   double angle;
-};
-
 struct _E_Comp_Wl_Data
 {
    struct
@@ -225,17 +206,6 @@ struct _E_Comp_Wl_Data
         /*           struct wl_signal moved; */
         /*        } seat, output; */
      } signals;
-
-   struct
-     {
-        struct wl_global *global;
-        Eina_List *resources;
-        Eina_List *device_list;
-        E_Comp_Wl_Input_Device *last_device_ptr;
-        E_Comp_Wl_Input_Device *last_device_touch;
-        E_Comp_Wl_Input_Device *last_device_kbd;
-        E_Comp_Wl_Input_Device_Multi multi[E_COMP_WL_TOUCH_MAX];
-     } input_device_manager;
 
    struct
      {
@@ -491,9 +461,9 @@ struct _E_Comp_Wl_Client_Data
       unsigned char layer : 1;
    } fetch;
 
-   E_Comp_Wl_Input_Device *last_device_ptr;
-   E_Comp_Wl_Input_Device *last_device_touch;
-   E_Comp_Wl_Input_Device *last_device_kbd;
+   E_Devicemgr_Input_Device *last_device_ptr;
+   E_Devicemgr_Input_Device *last_device_touch;
+   E_Devicemgr_Input_Device *last_device_kbd;
 
    E_Util_Transform *viewport_transform;
 

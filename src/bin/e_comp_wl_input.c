@@ -199,9 +199,9 @@ _e_comp_wl_input_cb_pointer_get(struct wl_client *client, struct wl_resource *re
                   desc = evas_device_description_get(dev);
                   if (!name || !desc) continue;
 
-                  if ((!strncmp(name, e_comp_wl->input_device_manager.last_device_ptr->name, strlen(e_comp_wl->input_device_manager.last_device_ptr->name))) &&
-                      (!strncmp(desc, e_comp_wl->input_device_manager.last_device_ptr->identifier, strlen(e_comp_wl->input_device_manager.last_device_ptr->identifier))) &&
-                      (evas_device_class_get(dev) == (Evas_Device_Class)e_comp_wl->input_device_manager.last_device_ptr->clas))
+                  if ((!strncmp(name, e_devicemgr->last_device_ptr->name, strlen(e_devicemgr->last_device_ptr->name))) &&
+                      (!strncmp(desc, e_devicemgr->last_device_ptr->identifier, strlen(e_devicemgr->last_device_ptr->identifier))) &&
+                      (evas_device_class_get(dev) == (Evas_Device_Class)e_devicemgr->last_device_ptr->clas))
                     {
                        last_ptr = dev;
                        break;

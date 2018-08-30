@@ -83,3 +83,4 @@
 #include "e_input.h"
 #include "e_dbus_conn.h"
 #include "e_xdg_shell_v6.h"
+#include "e_devicemgr.h"

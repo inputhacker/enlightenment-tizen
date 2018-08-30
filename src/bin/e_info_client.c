@@ -725,7 +725,7 @@ _cb_input_device_info_get(const Eldbus_Message *msg)
    const char *name = NULL, *text = NULL;
    Eldbus_Message_Iter *array, *eldbus_msg;
    Eina_Bool res;
-   E_Comp_Wl_Input_Device *dev = NULL;
+   E_Devicemgr_Input_Device *dev = NULL;
 
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
@@ -749,7 +749,7 @@ _cb_input_device_info_get(const Eldbus_Message *msg)
              continue;
           }
 
-        dev = E_NEW(E_Comp_Wl_Input_Device, 1);
+        dev = E_NEW(E_Devicemgr_Input_Device, 1);
         EINA_SAFETY_ON_NULL_GOTO(dev, finish);
 
         dev->name = strdup(dev_name);
@@ -1164,7 +1164,7 @@ _e_info_client_proc_compobjs_info(int argc, char **argv)
 static void
 _e_info_client_proc_input_device_info(int argc, char **argv)
 {
-   E_Comp_Wl_Input_Device *dev;
+   E_Devicemgr_Input_Device *dev;
    Eina_List *l;
    int i = 0;
 

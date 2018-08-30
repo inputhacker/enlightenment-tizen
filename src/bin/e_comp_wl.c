@@ -611,17 +611,17 @@ _e_comp_wl_evas_cb_restack(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EIN
    e_comp_wl_subsurface_stack_update(ec);
 }
 
-static E_Comp_Wl_Input_Device *
+static E_Devicemgr_Input_Device *
 _e_comp_wl_device_last_device_get(Ecore_Device_Class dev_class)
 {
    switch (dev_class)
      {
       case ECORE_DEVICE_CLASS_MOUSE:
-         return e_comp_wl->input_device_manager.last_device_ptr;
+         return e_devicemgr->last_device_ptr;
       case ECORE_DEVICE_CLASS_KEYBOARD:
-         return e_comp_wl->input_device_manager.last_device_kbd;
+         return e_devicemgr->last_device_kbd;
       case ECORE_DEVICE_CLASS_TOUCH:
-         return e_comp_wl->input_device_manager.last_device_touch;
+         return e_devicemgr->last_device_touch;
       default:
          return NULL;;
      }
@@ -629,25 +629,25 @@ _e_comp_wl_device_last_device_get(Ecore_Device_Class dev_class)
 }
 
 static void
-_e_comp_wl_device_last_device_set(Ecore_Device_Class dev_class, E_Comp_Wl_Input_Device *device)
+_e_comp_wl_device_last_device_set(Ecore_Device_Class dev_class, E_Devicemgr_Input_Device *device)
 {
    switch (dev_class)
      {
       case ECORE_DEVICE_CLASS_MOUSE:
-         e_comp_wl->input_device_manager.last_device_ptr = device;
+         e_devicemgr->last_device_ptr = device;
          break;
       case ECORE_DEVICE_CLASS_KEYBOARD:
-         e_comp_wl->input_device_manager.last_device_kbd = device;
+         e_devicemgr->last_device_kbd = device;
          break;
       case ECORE_DEVICE_CLASS_TOUCH:
-         e_comp_wl->input_device_manager.last_device_touch = device;
+         e_devicemgr->last_device_touch = device;
          break;
       default:
          break;
      }
 }
 
-static E_Comp_Wl_Input_Device *
+static E_Devicemgr_Input_Device *
 _e_comp_wl_device_client_last_device_get(E_Client *ec, Ecore_Device_Class dev_class)
 {
    switch (dev_class)
@@ -665,7 +665,7 @@ _e_comp_wl_device_client_last_device_get(E_Client *ec, Ecore_Device_Class dev_cl
 }
 
 static void
-_e_comp_wl_device_client_last_device_set(E_Client *ec, Ecore_Device_Class dev_class, E_Comp_Wl_Input_Device *device)
+_e_comp_wl_device_client_last_device_set(E_Client *ec, Ecore_Device_Class dev_class, E_Devicemgr_Input_Device *device)
 {
    switch (dev_class)
      {
@@ -686,7 +686,7 @@ _e_comp_wl_device_client_last_device_set(E_Client *ec, Ecore_Device_Class dev_cl
 static void
 _e_comp_wl_device_send_event_device(E_Client *ec, Evas_Device *dev, uint32_t timestamp)
 {
-   E_Comp_Wl_Input_Device *last_device, *ec_last_device, *input_dev;
+   E_Devicemgr_Input_Device *last_device, *ec_last_device, *input_dev;
    struct wl_resource *dev_res;
    const char *dev_name;
    Ecore_Device_Class dev_class;
@@ -710,7 +710,7 @@ _e_comp_wl_device_send_event_device(E_Client *ec, Evas_Device *dev, uint32_t tim
 
    serial = wl_display_next_serial(e_comp_wl->wl.disp);
    wc = wl_resource_get_client(ec->comp_data->surface);
-   EINA_LIST_FOREACH(e_comp_wl->input_device_manager.device_list, l, input_dev)
+   EINA_LIST_FOREACH(e_devicemgr->device_list, l, input_dev)
      {
         if (!eina_streq(input_dev->identifier, dev_name) || (input_dev->clas != dev_class)) continue;
         if ((!last_device) || (last_device != input_dev) || (!ec_last_device) || (ec_last_device != input_dev))
@@ -730,7 +730,7 @@ _e_comp_wl_device_send_event_device(E_Client *ec, Evas_Device *dev, uint32_t tim
 static void
 _e_comp_wl_device_send_last_event_device(E_Client *ec, Ecore_Device_Class dev_class, uint32_t timestamp)
 {
-   E_Comp_Wl_Input_Device *last_device;
+   E_Devicemgr_Input_Device *last_device;
    struct wl_resource *dev_res;
    struct wl_client *wc;
    uint32_t serial;
@@ -755,7 +755,7 @@ _e_comp_wl_device_send_last_event_device(E_Client *ec, Ecore_Device_Class dev_cl
  static void
 _e_comp_wl_send_event_device(struct wl_client *wc, uint32_t timestamp, Ecore_Device *dev, uint32_t serial)
 {
-   E_Comp_Wl_Input_Device *input_dev;
+   E_Devicemgr_Input_Device *input_dev;
    struct wl_resource *dev_res;
    const char *dev_name;
    Eina_List *l, *ll;
@@ -764,7 +764,7 @@ _e_comp_wl_send_event_device(struct wl_client *wc, uint32_t timestamp, Ecore_Dev
 
    dev_name = ecore_device_identifier_get(dev);
 
-   EINA_LIST_FOREACH(e_comp_wl->input_device_manager.device_list, l, input_dev)
+   EINA_LIST_FOREACH(e_devicemgr->device_list, l, input_dev)
      {
         if (!eina_streq(input_dev->identifier, dev_name)) continue;
         _e_comp_wl_device_last_device_set(ecore_device_class_get(dev), input_dev);
@@ -821,7 +821,7 @@ _e_comp_wl_cursor_timer(void *data)
 static void
 _e_comp_wl_device_send_axis(const char *dev_name, Evas_Device_Class dev_class, E_Client *ec, enum tizen_input_device_axis_type axis_type, double value)
 {
-   E_Comp_Wl_Input_Device *input_dev;
+   E_Devicemgr_Input_Device *input_dev;
    struct wl_resource *dev_res;
    struct wl_client *wc;
    Eina_List *l, *ll;
@@ -834,7 +834,7 @@ _e_comp_wl_device_send_axis(const char *dev_name, Evas_Device_Class dev_class, E
    f_value = wl_fixed_from_double(value);
    wc = wl_resource_get_client(ec->comp_data->surface);
 
-   EINA_LIST_FOREACH(e_comp_wl->input_device_manager.device_list, l, input_dev)
+   EINA_LIST_FOREACH(e_devicemgr->device_list, l, input_dev)
      {
         if ((strcmp(input_dev->identifier, dev_name)) || (input_dev->clas != (Ecore_Device_Class)dev_class)) continue;
         EINA_LIST_FOREACH(input_dev->resources, ll, dev_res)
@@ -849,13 +849,13 @@ static void
 _e_comp_wl_device_renew_axis(const char *dev_name, Evas_Device_Class dev_class, E_Client *ec, unsigned int idx, double radius_x, double radius_y, double pressure, double angle)
 {
    _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_RADIUS_X, radius_x);
-   e_comp_wl->input_device_manager.multi[idx].radius_x = radius_x;
+   e_devicemgr->multi[idx].radius_x = radius_x;
    _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_RADIUS_Y, radius_y);
-   e_comp_wl->input_device_manager.multi[idx].radius_y = radius_y;
+   e_devicemgr->multi[idx].radius_y = radius_y;
    _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_PRESSURE, pressure);
-   e_comp_wl->input_device_manager.multi[idx].pressure = pressure;
+   e_devicemgr->multi[idx].pressure = pressure;
    _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_ANGLE, angle);
-   e_comp_wl->input_device_manager.multi[idx].angle = angle;
+   e_devicemgr->multi[idx].angle = angle;
 }
 
 static void
@@ -863,25 +863,25 @@ _e_comp_wl_device_handle_axes(const char *dev_name, Evas_Device_Class dev_class,
 {
    if (idx >= E_COMP_WL_TOUCH_MAX) return;
 
-   if (e_comp_wl->input_device_manager.multi[idx].radius_x != radius_x)
+   if (e_devicemgr->multi[idx].radius_x != radius_x)
      {
         _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_RADIUS_X, radius_x);
-        e_comp_wl->input_device_manager.multi[idx].radius_x = radius_x;
+        e_devicemgr->multi[idx].radius_x = radius_x;
      }
-   if (e_comp_wl->input_device_manager.multi[idx].radius_y != radius_y)
+   if (e_devicemgr->multi[idx].radius_y != radius_y)
      {
         _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_RADIUS_Y, radius_y);
-        e_comp_wl->input_device_manager.multi[idx].radius_y = radius_y;
+        e_devicemgr->multi[idx].radius_y = radius_y;
      }
-   if (e_comp_wl->input_device_manager.multi[idx].pressure != pressure)
+   if (e_devicemgr->multi[idx].pressure != pressure)
      {
         _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_PRESSURE, pressure);
-        e_comp_wl->input_device_manager.multi[idx].pressure = pressure;
+        e_devicemgr->multi[idx].pressure = pressure;
      }
-   if (e_comp_wl->input_device_manager.multi[idx].angle != angle)
+   if (e_devicemgr->multi[idx].angle != angle)
      {
         _e_comp_wl_device_send_axis(dev_name, dev_class, ec, TIZEN_INPUT_DEVICE_AXIS_TYPE_ANGLE, angle);
-        e_comp_wl->input_device_manager.multi[idx].angle = angle;
+        e_devicemgr->multi[idx].angle = angle;
      }
 }
 
@@ -5755,7 +5755,7 @@ e_comp_wl_touch_send(E_Client *ec, int idx, int x, int y, Eina_Bool pressed, Eco
 {
    struct wl_client *wc;
    uint32_t serial;
-   E_Comp_Wl_Input_Device *device = NULL;
+   E_Devicemgr_Input_Device *device = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->comp_data, EINA_FALSE);
@@ -5790,7 +5790,7 @@ e_comp_wl_touch_send(E_Client *ec, int idx, int x, int y, Eina_Bool pressed, Eco
 EINTERN Eina_Bool
 e_comp_wl_touch_update_send(E_Client *ec, int idx, int x, int y, Ecore_Device *dev, double radius_x, double radius_y, double pressure, double angle, uint32_t time)
 {
-   E_Comp_Wl_Input_Device *device;
+   E_Devicemgr_Input_Device *device;
    uint32_t serial;
    struct wl_client *wc;
 

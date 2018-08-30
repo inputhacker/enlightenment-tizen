@@ -698,13 +698,11 @@ _input_msg_clients_append(Eldbus_Message_Iter *iter)
 {
    Eldbus_Message_Iter *array_of_input;
    Eina_List *l;
-   E_Comp_Wl_Data *cdata;
-   E_Comp_Wl_Input_Device *dev;
+   E_Devicemgr_Input_Device *dev;
 
    eldbus_message_iter_arguments_append(iter, "a("VALUE_TYPE_FOR_INPUTDEV")", &array_of_input);
 
-   cdata = e_comp->wl_comp_data;
-   EINA_LIST_FOREACH(cdata->input_device_manager.device_list, l, dev)
+   EINA_LIST_FOREACH(e_devicemgr->device_list, l, dev)
      {
         Eldbus_Message_Iter *struct_of_input;
 
