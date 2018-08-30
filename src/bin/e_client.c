@@ -2976,6 +2976,29 @@ e_client_transient_child_top_get(E_Client *ec, Eina_Bool consider_focus)
 #endif
 #define EC_IS_NOT_VISIBLE if (ec->visibility.obscured != E_VISIBILITY_UNOBSCURED)
 
+static Eina_Bool
+_e_client_visibility_touched_check(E_Client *ec)
+{
+   Eina_Bool res = EINA_FALSE;
+   int x, y, w, h;
+   int tx, ty;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, res);
+
+   tx = wl_fixed_to_int(e_comp->wl_comp_data->ptr.x);
+   ty = wl_fixed_to_int(e_comp->wl_comp_data->ptr.y);
+
+   e_client_geometry_get(ec, &x, &y, &w, &h);
+
+   if ((tx >= x) && (tx <= x + w) &&
+       (ty >= y) && (ty <= y + h))
+     {
+        res = EINA_TRUE;
+     }
+
+   return res;
+}
+
 static void
 _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
 {
@@ -3006,6 +3029,9 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
    Eina_Bool effect_running = EINA_FALSE;
    Eina_Bool ec_frame_visible = EINA_FALSE;
    int calc_skip_type = 0;
+
+   Eina_Bool touched_win_changed = EINA_FALSE;
+   E_Client *touched_ec;
 
    if (!e_config->calc_vis_without_effect)
      {
@@ -3212,6 +3238,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
 
    if (changed_list)
      {
+        touched_ec = e_comp_wl->ptr.ec ? e_comp_wl->ptr.ec : e_comp_wl->touch.faked_ec;
         EINA_LIST_FOREACH(changed_list, l, ec)
           {
              if (ec->visibility.changed)
@@ -3219,8 +3246,19 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
 
              _e_client_hook_call(E_CLIENT_HOOK_EVAL_VISIBILITY, ec);
 
+             if (ec == touched_ec)
+               touched_win_changed = EINA_TRUE;
+
              if (ec->visibility.obscured == E_VISIBILITY_UNOBSCURED)
                {
+                  if (e_comp_wl->touch.pressed && !touched_win_changed && !e_policy_client_is_keyboard_sub(ec))
+                    {
+                       if (_e_client_visibility_touched_check(ec))
+                         {
+                            touched_win_changed = EINA_TRUE;
+                            e_comp_wl_touch_cancel();
+                         }
+                    }
                   if (!find_top_vis_ec)
                     {
                        find_top_vis_ec = EINA_TRUE;

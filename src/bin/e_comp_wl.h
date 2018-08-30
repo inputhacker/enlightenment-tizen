@@ -274,6 +274,7 @@ struct _E_Comp_Wl_Data
         Eina_Bool enabled : 1;
         unsigned int num_devices;
         unsigned int pressed;
+        E_Client *faked_ec;
      } touch;
 
    struct
