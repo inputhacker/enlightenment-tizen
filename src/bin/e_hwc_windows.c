@@ -1342,7 +1342,7 @@ _e_hwc_windows_full_gl_composite_check(E_Hwc *hwc, Eina_List *visible_windows_li
         if (E_POLICY_QUICKPANEL_LAYER >= evas_object_layer_get(ec->frame))
           {
              // check whether quickpanel is open than break
-             if (e_qp_visible_get())
+             if (e_config->use_desk_smart_obj && e_qp_visible_get())
                {
                    EHWSTRACE("    HWC_MODE_NONE due to quickpanel is opened.{%25s}.",
                              ec, ec->icccm.title);
