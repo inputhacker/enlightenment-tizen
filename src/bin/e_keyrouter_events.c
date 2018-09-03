@@ -167,12 +167,12 @@ _e_keyrouter_send_key_events_release(int type, Ecore_Event_Key *ev)
                   if (key_data->surface || key_data->client)
                     {
                        _e_keyrouter_send_key_event(type, key_data->surface, key_data->client, ev,
-                                                   key_node_data->focused, TIZEN_KEYROUTER_MODE_PRESSED);
+                                                   EINA_FALSE, TIZEN_KEYROUTER_MODE_PRESSED);
 
                        pid = e_keyrouter_util_get_pid(key_data->client, key_data->surface);
                        cmd = e_keyrouter_util_cmd_get_from_pid(pid);
                        pname = e_keyrouter_util_process_name_get_from_cmd(cmd);
-                       KLINF("Release Direct : %s(%s:%d)(Focus: %d)(Status: %d) => wl_surface (%p) wl_client (%p) (pid: %d) (pname: %s)",
+                       KLINF("Release Hook : %s(%s:%d)(Focus: %d)(Status: %d) => wl_surface (%p) wl_client (%p) (pid: %d) (pname: %s)",
                              ((ECORE_EVENT_KEY_DOWN == type) ? "Down" : "Up"), ev->keyname, ev->keycode, key_node_data->focused,
                              key_node_data->status, key_data->surface, key_data->client, pid, pname ?: "Unknown");
                        if(pname) E_FREE(pname);
@@ -407,7 +407,19 @@ _e_keyrouter_send_key_events_focus(int type, struct wl_resource *surface_focus, 
         else if (key_data->surface)
           {
              *delivered_surface = key_data->surface;
+             e_keyrouter_prepend_to_keylist(key_data->surface, key_data->client, ev->keycode, TIZEN_KEYROUTER_MODE_PRESSED, EINA_TRUE);
              res = e_keyrouter_wl_key_send(ev, (type==ECORE_EVENT_KEY_DOWN)?EINA_TRUE:EINA_FALSE, key_data->client, key_data->surface, EINA_FALSE);
+
+             pid = e_keyrouter_util_get_pid(NULL, key_data->surface);
+             cmd = e_keyrouter_util_cmd_get_from_pid(pid);
+             pname = e_keyrouter_util_process_name_get_from_cmd(cmd);
+
+             KLINF("FOCUS HOOK : %s(%s:%d) => wl_surface (%p) (pid: %d) (pname: %s)",
+                   ((ECORE_EVENT_KEY_DOWN == type) ? "Down" : "Up"), ev->keyname, ev->keycode,
+                   key_data->surface, pid, pname ?: "Unknown");
+
+             if(pname) E_FREE(pname);
+             if(cmd) E_FREE(cmd);
              return EINA_TRUE;
           }
      }
