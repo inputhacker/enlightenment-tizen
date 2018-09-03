@@ -434,6 +434,8 @@ e_comp_init(void)
    if (conf->hwc)
      e_comp->hwc = EINA_TRUE; // activate hwc policy on the primary output
 
+   if (conf->avoid_afill) e_comp->avoid_afill = EINA_TRUE;
+
    e_main_ts_begin("\tE_Comp_Screen Init");
    if (!e_comp_screen_init())
      {
@@ -460,7 +462,6 @@ e_comp_init(void)
    if (conf->use_native_type_buffer) e_comp->use_native_type_buffer = EINA_TRUE;
 
    e_comp->comp_type = E_PIXMAP_TYPE_WL;
-   if (conf->avoid_afill) e_comp->avoid_afill = EINA_TRUE;
 
    e_comp_canvas_fake_layers_init();
 
