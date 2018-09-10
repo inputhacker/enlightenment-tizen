@@ -4565,8 +4565,19 @@ e_client_geometry_get(E_Client *ec, int *x, int *y, int *w, int *h)
              evas_object_geometry_get(ec->frame, &gx, &gy, &gw, &gh);
              if (gw == 0 && gh == 0)
                {
+                  /* In this case, there is no image buffer in e_comp_object, thus it
+                   * should return geometry value of ec itself. It usually happens if
+                   * new ec is not mapped yet.
+                   */
                   gw = ec->w;
                   gh = ec->h;
+
+                  if ((ec->changes.pos) &&
+                      ((gx != ec->x) || (gy != ec->y)))
+                    {
+                       gx = ec->x;
+                       gy = ec->y;
+                    }
                }
           }
         else
