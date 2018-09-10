@@ -6327,7 +6327,7 @@ e_comp_wl_commit_sync_configure(E_Client *ec)
         EINA_LIST_FOREACH(ec->surface_sync.pending_geometry, l, geo)
           {
              ++cntfit;
-             if (geo->mode | E_GEOMETRY_SIZE)
+             if (geo->mode & E_GEOMETRY_SIZE)
                {
                   // last index of the same size buffer
                   if ((geo->w == bw) || (geo->h == bh))
