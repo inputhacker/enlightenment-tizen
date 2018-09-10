@@ -762,6 +762,8 @@ e_devicemgr_inputgen_get_device_info(E_Devicemgr_Input_Device *dev)
      return;
 
    dev_list = _e_devicemgr_inputgen_list_get(dev->clas);
+   EINA_SAFETY_ON_NULL_RETURN(dev_list);
+
    EINA_LIST_FOREACH(*dev_list, l, ddata)
      {
         if (!strncmp(ddata->name, dev->name, strlen(dev->name)))
