@@ -37,6 +37,7 @@ static void      _e_desk_event_desk_name_change_free(void *data, void *ev);
 static void      _e_desk_show_begin(E_Desk *desk, int dx, int dy);
 static void      _e_desk_hide_begin(E_Desk *desk, int dx, int dy);
 static void      _e_desk_event_desk_window_profile_change_free(void *data, void *ev);
+static void      _e_desk_event_desk_geometry_change_free(void *data, void *ev);
 static Eina_Bool _e_desk_cb_zone_move_resize(void *data, int type EINA_UNUSED, void *event);
 
 static void      _e_desk_smart_init(E_Desk *desk);
@@ -61,6 +62,7 @@ E_API int E_EVENT_DESK_AFTER_SHOW = 0;
 E_API int E_EVENT_DESK_DESKSHOW = 0;
 E_API int E_EVENT_DESK_NAME_CHANGE = 0;
 E_API int E_EVENT_DESK_WINDOW_PROFILE_CHANGE = 0;
+E_API int E_EVENT_DESK_GEOMETRY_CHANGE = 0;
 
 EINTERN int
 e_desk_init(void)
@@ -71,6 +73,7 @@ e_desk_init(void)
    E_EVENT_DESK_DESKSHOW = ecore_event_type_new();
    E_EVENT_DESK_NAME_CHANGE = ecore_event_type_new();
    E_EVENT_DESK_WINDOW_PROFILE_CHANGE = ecore_event_type_new();
+   E_EVENT_DESK_GEOMETRY_CHANGE = ecore_event_type_new();
    return 1;
 }
 
@@ -800,6 +803,7 @@ e_desk_geometry_set(E_Desk *desk, int x, int y, int w, int h)
    E_Maximize max;
    Eina_List *l = NULL, *ll = NULL;
    Evas_Object *m;
+   E_Event_Desk_Geometry_Change *ev = NULL;
 
    int cx, cy, dx, dy;
 
@@ -863,6 +867,20 @@ e_desk_geometry_set(E_Desk *desk, int x, int y, int w, int h)
 
    // apply geometry on smart obj
    evas_object_geometry_set(desk->smart_obj, x, y, w, h);
+
+   ev = E_NEW(E_Event_Desk_Geometry_Change, 1);
+   if (ev)
+     {
+        ev->desk = desk;
+        ev->x = x;
+        ev->y = y;
+        ev->w = w;
+        ev->h = h;
+        e_object_ref(E_OBJECT(desk));
+        ecore_event_add(E_EVENT_DESK_GEOMETRY_CHANGE, ev,
+                        _e_desk_event_desk_geometry_change_free, NULL);
+     }
+
    e_comp_render_queue();
 }
 
@@ -1114,6 +1132,14 @@ static void
 _e_desk_event_desk_window_profile_change_free(void *data EINA_UNUSED, void *event)
 {
    E_Event_Desk_Window_Profile_Change *ev = event;
+   e_object_unref(E_OBJECT(ev->desk));
+   E_FREE(ev);
+}
+
+static void
+_e_desk_event_desk_geometry_change_free(void *data EINA_UNUSED, void *event)
+{
+   E_Event_Desk_Geometry_Change *ev = event;
    e_object_unref(E_OBJECT(ev->desk));
    E_FREE(ev);
 }
