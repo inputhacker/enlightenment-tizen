@@ -6274,7 +6274,7 @@ _e_comp_wl_surface_state_serial_update(E_Client *ec, E_Comp_Wl_Surface_State *st
 
    serial = wayland_tbm_server_buffer_get_buffer_serial(buffer->resource);
    ec->surface_sync.serial = serial;
-   ELOGF("POSSIZE", "Update serial(%u) wl_buffer&%u", ec->pixmap, ec, serial, wl_resource_get_id(buffer->resource));
+   DBG("POSSIZE |win:0x%08x|ec:0x%08x|Update serial(%u) wl_buffer&%u", ec->pixmap, ec, serial, wl_resource_get_id(buffer->resource));
 }
 
 EINTERN Eina_Bool
