@@ -213,6 +213,7 @@ struct _E_Config
       unsigned char use_alpha; // boolean value for applying transparency to qp handler (default : disable : 0)
       int           alpha; // alpha component (0:transparent, 255:opaque), only used when use_alpha is 1
    } qp_handler;
+   Eina_Bool qp_add_on_desk_smart;
 };
 
 struct _E_Config_Desklock_Background
