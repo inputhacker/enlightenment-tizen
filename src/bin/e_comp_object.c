@@ -365,7 +365,7 @@ _e_comp_object_cb_mirror_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj 
    cw->force_visible++;
 
    if (e_comp->hwc && !e_comp_is_on_overlay(cw->ec))
-     e_comp_hwc_end(__FUNCTION__);
+     e_comp_hwc_client_end(cw->ec, __FUNCTION__);
 }
 
 static void
