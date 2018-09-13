@@ -2466,20 +2466,19 @@ e_output_default_fb_target_get(E_Output *output)
         /* find lowest zpos graphic type layer */
         EINA_LIST_FOREACH(output->planes, p_l, ep)
           {
-             Eina_List *formats = NULL;
-             Eina_List *formats_l = NULL;
              Eina_Bool available_rgb = EINA_FALSE;
-             tbm_format *format;
+             const tbm_format *formats;
+             int count, i;
 
              if (e_plane_type_get(ep) != E_PLANE_TYPE_GRAPHIC) continue;
 
-             formats = e_plane_available_formats_get(ep);
-             if (!formats) continue;
+             if (!e_plane_available_formats_get(ep, &formats, &count))
+                continue;
 
-             EINA_LIST_FOREACH(formats, formats_l, format)
+             for (i = 0; i < count; i++)
                {
-                  if (*format == TBM_FORMAT_ARGB8888 ||
-                      *format == TBM_FORMAT_XRGB8888)
+                  if (formats[i] == TBM_FORMAT_ARGB8888 ||
+                      formats[i] == TBM_FORMAT_XRGB8888)
                     {
                        available_rgb = EINA_TRUE;
                        break;

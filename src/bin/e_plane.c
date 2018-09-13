@@ -2731,12 +2731,23 @@ e_plane_is_fb_target(E_Plane *plane)
    return EINA_FALSE;
 }
 
-EINTERN Eina_List *
-e_plane_available_formats_get(E_Plane *plane)
+EINTERN Eina_Bool
+e_plane_available_formats_get(E_Plane *plane, const tbm_format **formats, int *count)
 {
-   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
+   tdm_error tdm_err;
 
-   return plane->available_formats;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(formats, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(count, EINA_FALSE);
+
+   tdm_err = tdm_layer_get_available_formats(plane->tlayer, formats, count);
+   if (tdm_err != TDM_ERROR_NONE)
+     {
+        ERR("fail to get available formats");
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
 }
 
 EINTERN void
