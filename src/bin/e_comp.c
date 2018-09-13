@@ -319,6 +319,8 @@ _hwc_available_get(E_Client *ec)
    int minw = 0, minh = 0;
    int transform;
 
+   if (ec->comp_override > 0) return EINA_FALSE;
+
    if ((!cdata) ||
        (!cdata->buffer_ref.buffer) ||
        (cdata->width_from_buffer != cdata->width_from_viewport) ||
@@ -963,10 +965,101 @@ _e_comp_hwc_cb_begin_timeout(void *data EINA_UNUSED)
    return EINA_FALSE;
 }
 
+static Eina_Bool
+_e_comp_client_is_above_hwc(E_Client *ec, E_Client *hwc_ec)
+{
+   Evas_Object *o;
+   int layer, hwc_layer;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_ec, EINA_FALSE);
+
+   if (ec == hwc_ec) return EINA_FALSE;
+   if (!evas_object_visible_get(ec->frame)) return EINA_FALSE;
+
+   layer = evas_object_layer_get(ec->frame);
+   hwc_layer = evas_object_layer_get(hwc_ec->frame);
+
+   /* compare layer */
+   if (hwc_layer > layer) return EINA_FALSE;
+   if (layer > hwc_layer) return EINA_TRUE;
+
+   o = evas_object_above_get(hwc_ec->frame);
+   if (evas_object_layer_get(o) == hwc_layer)
+     {
+        do {
+           if (o == ec->frame)
+             return EINA_TRUE;
+           o = evas_object_above_get(o);
+        } while (o && (evas_object_layer_get(o) == hwc_layer));
+     }
+   else
+     return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+EINTERN void
+e_comp_hwc_client_end(E_Client *ec, const char *location)
+{
+   E_Zone *zone;
+   const Eina_List *planes;
+   E_Plane *plane;
+   E_Output *output;
+   const Eina_List *l;
+   int old_hwc, new_hwc;
+
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   if (!e_comp->hwc) return;
+   if (!e_comp->hwc_use_multi_plane)
+     {
+        e_comp_hwc_end(__FUNCTION__);
+        return;
+     }
+
+   old_hwc = _hwc_mode_get();
+
+   zone = ec->zone;
+   EINA_SAFETY_ON_NULL_RETURN(zone);
+
+   output = e_output_find(zone->output_id);
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   planes = e_output_planes_get(output);
+   if (!planes) return;
+
+   EINA_LIST_FOREACH(planes, l, plane)
+     {
+        if (!plane->ec)
+          {
+             if (e_plane_is_reserved(plane))
+               e_plane_reserved_set(plane, 0);
+             continue;
+          }
+
+        if (!_e_comp_client_is_above_hwc(ec, plane->ec))
+          continue;
+
+        if (e_plane_is_reserved(plane))
+          e_plane_reserved_set(plane, 0);
+
+        e_plane_ec_prepare_set(plane, NULL);
+        e_plane_ec_set(plane, NULL);
+     }
+
+   new_hwc = _hwc_mode_get();
+   if ((old_hwc == E_HWC_MODE_FULL) && (new_hwc != E_HWC_MODE_FULL))
+     ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+
+   ELOGF("HWC", " End client:%p(%s)...  at %s.", NULL, NULL, ec, e_client_util_name_get(ec), location);
+
+   e_comp->hwc_mode = new_hwc;
+}
+
 E_API void
 e_comp_hwc_end(const char *location)
 {
-   Eina_Bool mode_set = EINA_FALSE;
    E_Zone *zone;
    Eina_List *l;
    int old_hwc, new_hwc;
@@ -996,12 +1089,8 @@ e_comp_hwc_end(const char *location)
         E_Output * eout;
         if (!zone->output_id) continue;
         eout = e_output_find(zone->output_id);
-        if (eout) mode_set |= _hwc_cancel(eout);
+        if (eout) _hwc_cancel(eout);
      }
-
-   if (!mode_set) return;
-
-   e_comp->hwc_mode = E_HWC_MODE_NO;
 
 end:
    new_hwc = _hwc_mode_get();
@@ -1009,6 +1098,8 @@ end:
      ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
 
    ELOGF("HWC", " End...  at %s.", NULL, NULL, location);
+
+   e_comp->hwc_mode = new_hwc;
 }
 
 EINTERN void
@@ -1846,6 +1937,29 @@ e_comp_override_add()
         e_comp_hwc_end(__FUNCTION__);
 #endif
      }
+}
+
+E_API void
+e_comp_client_override_del(E_Client *ec)
+{
+   if (!ec) return;
+
+   ec->comp_override--;
+   if (ec->comp_override <= 0)
+     {
+        ec->comp_override = 0;
+        e_comp_render_queue();
+     }
+}
+
+E_API void
+e_comp_client_override_add(E_Client *ec)
+{
+   if (!ec) return;
+
+   ec->comp_override++;
+   if (ec->comp_override > 0)
+     e_comp_hwc_client_end(ec, __FUNCTION__);
 }
 
 E_API E_Comp *

@@ -941,6 +941,8 @@ struct E_Client
    Eina_Bool use_splash : 1;
    Eina_Bool saved_img : 1; // indicates that window has been saved as the image file even once
    Eina_Bool skip_save_img: 1; // indicates that window doesn't want to save its image file
+
+   int comp_override;
 };
 
 #define e_client_focus_policy_click(ec) \
