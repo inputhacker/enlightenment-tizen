@@ -473,3 +473,37 @@ e_hwc_deactive_get(E_Hwc *hwc)
 
    return hwc->hwc_deactive;
 }
+
+EINTERN Eina_Bool
+e_hwc_client_is_above_hwc(E_Client *ec, E_Client *hwc_ec)
+{
+   Evas_Object *o;
+   int layer, hwc_layer;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_ec, EINA_FALSE);
+
+   if (ec == hwc_ec) return EINA_FALSE;
+   if (!evas_object_visible_get(ec->frame)) return EINA_FALSE;
+
+   layer = evas_object_layer_get(ec->frame);
+   hwc_layer = evas_object_layer_get(hwc_ec->frame);
+
+   /* compare layer */
+   if (hwc_layer > layer) return EINA_FALSE;
+   if (layer > hwc_layer) return EINA_TRUE;
+
+   o = evas_object_above_get(hwc_ec->frame);
+   if (evas_object_layer_get(o) == hwc_layer)
+     {
+        do {
+           if (o == ec->frame)
+             return EINA_TRUE;
+           o = evas_object_above_get(o);
+        } while (o && (evas_object_layer_get(o) == hwc_layer));
+     }
+   else
+     return EINA_TRUE;
+
+   return EINA_FALSE;
+}

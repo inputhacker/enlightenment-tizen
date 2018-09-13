@@ -681,6 +681,29 @@ e_comp_override_add()
      }
 }
 
+E_API void
+e_comp_client_override_del(E_Client *ec)
+{
+   if (!ec) return;
+
+   ec->comp_override--;
+   if (ec->comp_override <= 0)
+     {
+        ec->comp_override = 0;
+        e_comp_render_queue();
+     }
+}
+
+E_API void
+e_comp_client_override_add(E_Client *ec)
+{
+   if (!ec) return;
+
+   ec->comp_override++;
+   if (ec->comp_override > 0)
+     e_comp_hwc_client_end(ec, __FUNCTION__);
+}
+
 E_API E_Comp *
 e_comp_find_by_window(Ecore_Window win)
 {
@@ -1342,3 +1365,19 @@ e_comp_hwc_end(const char *location)
    e_hwc_planes_end(output->hwc, location);
 }
 
+EINTERN void
+e_comp_hwc_client_end(E_Client *ec, const char *location)
+{
+   E_Zone *zone;
+   E_Output *output;
+
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   zone = ec->zone;
+   EINA_SAFETY_ON_NULL_RETURN(zone);
+
+   output = e_output_find(zone->output_id);
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   e_hwc_planes_client_end(output->hwc, ec, location);
+}

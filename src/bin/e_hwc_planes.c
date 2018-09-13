@@ -663,3 +663,57 @@ end:
 
    ELOGF("HWC-PLNS", " End...  at %s.", NULL, NULL, location);
 }
+
+EINTERN void
+e_hwc_planes_client_end(E_Hwc *hwc, E_Client *ec, const char *location)
+{
+   const Eina_List *planes;
+   E_Plane *plane;
+   E_Output *output;
+   const Eina_List *l;
+   int old_hwc, new_hwc;
+
+   EINA_SAFETY_ON_NULL_RETURN(hwc);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   if (!hwc->hwc_use_multi_plane)
+     {
+        e_hwc_planes_end(hwc, __FUNCTION__);
+        return;
+     }
+
+   output = hwc->output;
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   planes = e_output_planes_get(output);
+   if (!planes) return;
+
+   old_hwc = _e_hwc_mode_get(hwc);
+
+   EINA_LIST_FOREACH(planes, l, plane)
+     {
+        if (!plane->ec)
+          {
+             if (e_plane_is_reserved(plane))
+               e_plane_reserved_set(plane, 0);
+             continue;
+          }
+
+        if (!e_hwc_client_is_above_hwc(ec, plane->ec))
+          continue;
+
+        if (e_plane_is_reserved(plane))
+          e_plane_reserved_set(plane, 0);
+
+        e_plane_ec_prepare_set(plane, NULL);
+        e_plane_ec_set(plane, NULL);
+     }
+
+   new_hwc = _e_hwc_mode_get(hwc);
+   if ((old_hwc == E_HWC_MODE_FULL) && (new_hwc != E_HWC_MODE_FULL))
+     ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+
+   ELOGF("HWC-PLNS", " End client:%p(%s)...  at %s.", NULL, NULL, ec, e_client_util_name_get(ec), location);
+
+   hwc->hwc_mode = new_hwc;
+}

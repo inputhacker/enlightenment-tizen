@@ -224,6 +224,8 @@ E_API Eina_Bool e_comp_util_object_is_above_nocomp(Evas_Object *obj);
 E_API Eina_Bool e_comp_util_kbd_grabbed(void);
 E_API Eina_Bool e_comp_util_mouse_grabbed(void);
 
+E_API void e_comp_client_override_del(E_Client *ec);
+E_API void e_comp_client_override_add(E_Client *ec);
 
 static inline Eina_Bool
 e_comp_util_client_is_fullscreen(const E_Client *ec)
@@ -254,6 +256,7 @@ EINTERN void      e_comp_hwc_deactive_set(Eina_Bool set);
 EINTERN Eina_Bool e_comp_hwc_deactive_get(void);
 EINTERN void      e_comp_hwc_multi_plane_set(Eina_Bool set);
 EINTERN Eina_Bool e_comp_hwc_multi_plane_get(void);
+EINTERN void      e_comp_hwc_client_end(E_Client *ec, const char *location);
 E_API   void      e_comp_hwc_end(const char *location);
 
 #endif

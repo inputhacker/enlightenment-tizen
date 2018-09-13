@@ -958,6 +958,7 @@ struct E_Client
    Eina_Bool skip_save_img: 1; // indicates that window doesn't want to save its image file
 
    E_Hwc_Window *hwc_window; // hwc window for the tdm_hwc.
+   int comp_override;
 
    struct
      {
