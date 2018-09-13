@@ -174,7 +174,8 @@ _mover_intercept_show(void *data, Evas_Object *obj)
    // (to became a member of mover) it shouldn't be in e_desk's clists.
    // because mover (also smart obj) is a member of e_desk
    // otherwize, desk-zoom will mutiplied on a ec again.
-   e_desk_client_del(ec->desk, ec);
+   if (e_config->qp_add_on_desk_smart)
+     e_desk_client_del(ec->desk, ec);
 
    e_layout_pack(md->qp_layout_obj, ec->frame);
 
@@ -191,7 +192,7 @@ _mover_intercept_show(void *data, Evas_Object *obj)
    // create handler_mirror_obj
    md->handler_mirror_obj =  e_comp_object_util_mirror_add(ec->frame);
    e_layout_pack(md->qp_layout_obj, md->handler_mirror_obj);
-   e_layout_child_move(md->handler_mirror_obj, ec->x, ec->y);
+   e_layout_child_move(md->handler_mirror_obj, 0, 0);
    e_layout_child_resize(md->handler_mirror_obj, ec->w, ec->h);
    evas_object_show(md->handler_mirror_obj);
 
@@ -209,7 +210,8 @@ _mover_intercept_show(void *data, Evas_Object *obj)
 
    evas_object_show(obj);
 
-   e_desk_smart_member_add(ec->desk, obj);
+   if (e_config->qp_add_on_desk_smart)
+     e_desk_smart_member_add(ec->desk, obj);
 }
 
 static void
@@ -273,7 +275,9 @@ _mover_smart_del(Evas_Object *obj)
    e_comp_object_render(ec->frame);
 
    e_layout_unpack(ec->frame);
-   e_desk_smart_member_add(ec->desk, ec->frame);
+
+   if (e_config->qp_add_on_desk_smart)
+     e_desk_smart_member_add(ec->desk, ec->frame);
 
    free(md);
 }
@@ -348,6 +352,8 @@ _e_qp_srv_mover_new(E_Policy_Quickpanel *qp)
    Evas_Object *mover;
    Mover_Data *md;
    int x, y, w, h;
+   E_Desk *desk;
+   int tx, ty;
 
    e_comp_client_override_add(qp->ec);
 
@@ -365,7 +371,19 @@ _e_qp_srv_mover_new(E_Policy_Quickpanel *qp)
    e_service_region_rectangle_get(qp->handler_obj, qp->rotation, &x, &y, &w, &h);
    EINA_RECTANGLE_SET(&md->handler_rect, x, y, w, h);
 
-   evas_object_move(mover, 0, 0);
+   tx = qp->ec->zone->x;
+   ty = qp->ec->zone->y;
+   if (e_config->use_desk_smart_obj)
+     {
+        desk = e_desk_current_get(qp->ec->zone);
+        if (desk)
+          {
+             tx = desk->geom.x;
+             ty = desk->geom.y;
+          }
+     }
+
+   evas_object_move(mover, tx, ty);
    evas_object_resize(mover, qp->ec->w, qp->ec->h);
    evas_object_show(mover);
 
@@ -377,46 +395,61 @@ _e_qp_srv_mover_new(E_Policy_Quickpanel *qp)
 static Eina_Bool
 _e_qp_srv_mover_object_relocate(E_Policy_Quickpanel *qp, int x, int y)
 {
-   E_Zone *zone;
    E_Client *ec;
    Mover_Data *md;
+   int tx, ty, tw, th;
 
    ec = qp->ec;
-   zone = ec->zone;
+
    md = evas_object_smart_data_get(qp->mover);
    EINA_SAFETY_ON_NULL_RETURN_VAL(md, EINA_FALSE);
+
+   evas_object_geometry_get(qp->mover, &tx, &ty, &tw, &th);
 
    switch (qp->rotation)
      {
       case E_POLICY_ANGLE_MAP_90:
-         if ((x + md->handler_rect.w) > zone->w) return EINA_FALSE;
+         if (x < tx) return EINA_FALSE;
+         if ((x + md->handler_rect.w) > (tx+tw)) return EINA_FALSE;
 
-         e_layout_child_resize(md->base_clip, x, ec->h);
-         e_layout_child_move(md->handler_mirror_obj, x - ec->w + md->handler_rect.w, 0);
-         e_layout_child_move(md->handler_clip, x, 0);
+         e_layout_child_move(md->base_clip, 0, 0);
+         e_layout_child_resize(md->base_clip, x - tx, ec->h);
+
+         e_layout_child_move(md->handler_mirror_obj, x - tx - ec->w + md->handler_rect.w, 0);
+         e_layout_child_move(md->handler_clip, x - tx, 0);
          break;
+
       case E_POLICY_ANGLE_MAP_180:
-         if ((y - md->handler_rect.h) < 0) return EINA_FALSE;
+         if (y > (ty+th)) return EINA_FALSE;
+         if ((y - md->handler_rect.h) < ty) return EINA_FALSE;
 
-         e_layout_child_move(md->base_clip, 0, y);
-         e_layout_child_resize(md->base_clip, ec->w, ec->h - y);
-         e_layout_child_move(md->handler_mirror_obj, 0, y - md->handler_rect.h);
-         e_layout_child_move(md->handler_clip, 0, y - md->handler_rect.h);
+         e_layout_child_move(md->base_clip, 0, y - ty);
+         e_layout_child_resize(md->base_clip, ec->w, ty + ec->h - y);
+
+         e_layout_child_move(md->handler_mirror_obj, 0, y - ty - md->handler_rect.h);
+         e_layout_child_move(md->handler_clip, 0, y - ty - md->handler_rect.h);
          break;
+
       case E_POLICY_ANGLE_MAP_270:
-         if ((x - md->handler_rect.w) < 0) return EINA_FALSE;
+         if ((x + md->handler_rect.w) > (tx+tw)) return EINA_FALSE;
+         if ((x - md->handler_rect.w) < tx) return EINA_FALSE;
 
-         e_layout_child_move(md->base_clip, x, 0);
-         e_layout_child_resize(md->base_clip, ec->w - x, ec->h);
-         e_layout_child_move(md->handler_mirror_obj, x - md->handler_rect.w, 0);
-         e_layout_child_move(md->handler_clip, x - md->handler_rect.w, 0);
+         e_layout_child_move(md->base_clip, x - tx, 0);
+         e_layout_child_resize(md->base_clip, tx + ec->w - x, ec->h);
+
+         e_layout_child_move(md->handler_mirror_obj, x - tx - md->handler_rect.w, 0);
+         e_layout_child_move(md->handler_clip, x - tx - md->handler_rect.w, 0);
          break;
-      default:
-        if ((y + md->handler_rect.h) > zone->h) return EINA_FALSE;
 
-        e_layout_child_resize(md->base_clip, ec->w, y);
-        e_layout_child_move(md->handler_mirror_obj, 0, y - ec->h + md->handler_rect.h);
-        e_layout_child_move(md->handler_clip, 0, y);
+      default:
+         if (y < ty) return EINA_FALSE;
+         if ((y + md->handler_rect.h) > (ty+th)) return EINA_FALSE;
+
+         e_layout_child_move(md->base_clip, 0, 0);
+         e_layout_child_resize(md->base_clip, ec->w, y - ty);
+
+         e_layout_child_move(md->handler_mirror_obj, 0, y - ty - ec->h + md->handler_rect.h);
+         e_layout_child_move(md->handler_clip, 0, y - ty);
      }
 
    return EINA_TRUE;
@@ -1054,7 +1087,54 @@ _quickpanel_client_evas_cb_move(void *data, Evas *evas, Evas_Object *obj, void *
 }
 
 static void
-_quickpanel_handler_rect_add(E_Policy_Quickpanel *qp, E_Policy_Angle_Map ridx, int x, int y, int w, int h)
+_quickpanel_handler_obj_region_convert_set(E_Policy_Quickpanel *qp, E_Policy_Angle_Map ridx, int x, int y, int w, int h, int tx, int ty, int tw, int th)
+{
+   int nx, ny, nw, nh;
+
+   switch (ridx)
+     {
+      case E_POLICY_ANGLE_MAP_0:
+         nx = tx;
+         ny = ty + th - h;
+         nw = w;
+         nh = h;
+         break;
+
+      case E_POLICY_ANGLE_MAP_90:
+         nx = tx + tw - w;
+         ny = ty;
+         nw = w;
+         nh = h;
+         break;
+
+      case E_POLICY_ANGLE_MAP_180:
+         nx = tx;
+         ny = ty;
+         nw = w;
+         nh = h;
+         break;
+
+      case E_POLICY_ANGLE_MAP_270:
+         nx = tx;
+         ny = ty;
+         nw = w;
+         nh = h;
+         break;
+
+      default:
+         nx = tx;
+         ny = ty + th - h;
+         nw = w;
+         nh = h;
+         break;
+     }
+
+   e_service_region_rectangle_set(qp->handler_obj, ridx, nx, ny, nw, nh);
+   ELOGF("QUICKPANEL", "handler obj:%p, angle:%d, geo(%d,%d,%d,%d)", NULL, NULL, qp->handler_obj, ridx, nx, ny, nw, nh);
+}
+
+static void
+_quickpanel_handler_rect_add(E_Policy_Quickpanel *qp, E_Policy_Angle_Map ridx, int x, int y, int w, int h, int tx, int ty, int tw, int th)
 {
    E_Client *ec;
    Evas_Object *obj;
@@ -1087,7 +1167,55 @@ _quickpanel_handler_rect_add(E_Policy_Quickpanel *qp, E_Policy_Angle_Map ridx, i
    qp->handler_obj = obj;
 
 end:
-   e_service_region_rectangle_set(qp->handler_obj, ridx, x, y, w, h);
+   _quickpanel_handler_obj_region_convert_set(qp, ridx, x, y, w, h, tx, ty, tw, th);
+}
+
+void _quickpanel_indi_obj_region_convert_set(E_Policy_Quickpanel *qp, int angle, int x, int y, int w, int h, int tx, int ty, int tw, int th)
+{
+   int nx, ny, nw, nh;
+
+   if ((w <= 0) || (h <= 0)) return;
+
+   switch (angle)
+     {
+      case E_POLICY_ANGLE_MAP_0:
+         nx = tx;
+         ny = ty;
+         nw = w;
+         nh = h;
+         break;
+
+      case E_POLICY_ANGLE_MAP_90:
+         nx = tx;
+         ny = ty;
+         nw = w;
+         nh = h;
+         break;
+
+      case E_POLICY_ANGLE_MAP_180:
+         nx = tx;
+         ny = ty + th - h;
+         nw = w;
+         nh = h;
+         break;
+
+      case E_POLICY_ANGLE_MAP_270:
+         nx = tx + tw - w;
+         ny = ty;
+         nw = w;
+         nh = h;
+         break;
+
+      default:
+         nx = tx;
+         ny = ty;
+         nw = w;
+         nh = h;
+         break;
+     }
+
+   e_service_region_rectangle_set(qp->indi_obj, angle, nx, ny, nw, nh);
+   ELOGF("QUICKPANEL", "indicator obj:%p, angle:%d, geo(%d,%d,%d,%d)", NULL, NULL, qp->indi_obj, angle, nx, ny, nw, nh);
 }
 
 static void
@@ -1095,28 +1223,33 @@ _quickpanel_handler_region_set(E_Policy_Quickpanel *qp, E_Policy_Angle_Map ridx,
 {
    Eina_Iterator *it;
    Eina_Rectangle *r;
-   int x = 0, y = 0;
+   E_Desk *desk = NULL;
+   int tx, ty, tw, th;
 
    /* FIXME supported single rectangle, not tiler */
+
+   tx = qp->ec->zone->x;
+   ty = qp->ec->zone->y;
+   tw = qp->ec->zone->w;
+   th = qp->ec->zone->h;
+
+   if (e_config->use_desk_smart_obj)
+     {
+        desk = e_desk_current_get(qp->ec->zone);
+        if (desk)
+          {
+             tx = desk->geom.x;
+             ty = desk->geom.y;
+             tw = desk->geom.w;
+             th = desk->geom.h;
+          }
+     }
 
    it = eina_tiler_iterator_new(tiler);
    EINA_ITERATOR_FOREACH(it, r)
      {
-        _quickpanel_handler_rect_add(qp, ridx, r->x, r->y, r->w, r->h);
-
-        /* FIXME: this should be set by another way like indicator */
-        if (ridx == E_POLICY_ANGLE_MAP_180)
-          {
-             x = 0;
-             y = qp->ec->zone->h - r->h;
-          }
-        else if (ridx == E_POLICY_ANGLE_MAP_270)
-          {
-             x = qp->ec->zone->w - r->w;
-             y = 0;
-          }
-        e_service_region_rectangle_set(qp->indi_obj, ridx, x, y, r->w, r->h);
-
+        _quickpanel_handler_rect_add(qp, ridx, r->x, r->y, r->w, r->h, tx, ty, tw, th);
+        _quickpanel_indi_obj_region_convert_set(qp, ridx, r->x, r->y, r->w, r->h, tx, ty, tw, th);
         break;
      }
    eina_iterator_free(it);
@@ -1399,6 +1532,41 @@ end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
+static Eina_Bool
+_quickpanel_cb_desk_geometry_change(void *data, int type, void *event)
+{
+   E_Policy_Quickpanel *qp;
+   E_Event_Desk_Geometry_Change *ev;
+   E_Desk *desk = NULL;
+   int x, y, w, h;
+   int angle;
+
+   qp = data;
+   EINA_SAFETY_ON_NULL_GOTO(qp, end);
+
+   ev = event;
+   EINA_SAFETY_ON_NULL_GOTO(ev, end);
+
+   desk = e_desk_current_get(qp->ec->zone);
+   EINA_SAFETY_ON_NULL_GOTO(desk, end);
+
+   for (angle = E_POLICY_ANGLE_MAP_0; angle < E_POLICY_ANGLE_MAP_NUM; angle++)
+     {
+        e_service_region_rectangle_get(qp->indi_obj, angle, &x, &y, &w, &h);
+        if ((w > 0) && (h > 0))
+          _quickpanel_indi_obj_region_convert_set(qp, angle, x, y, w, h, ev->desk->geom.x, ev->desk->geom.y, ev->desk->geom.w, ev->desk->geom.h);
+
+        e_service_region_rectangle_get(qp->handler_obj, angle, &x, &y, &w, &h);
+        if ((w > 0) && (h > 0))
+          _quickpanel_handler_obj_region_convert_set(qp, angle, x, y, w, h, ev->desk->geom.x, ev->desk->geom.y, ev->desk->geom.w, ev->desk->geom.h);
+     }
+
+   evas_object_move(qp->ec->frame, ev->desk->geom.x, ev->desk->geom.y);
+
+end:
+   return ECORE_CALLBACK_PASS_ON;
+}
+
 static Evas_Object *
 _quickpanel_indicator_object_new(E_Policy_Quickpanel *qp)
 {
@@ -1420,7 +1588,9 @@ _quickpanel_indicator_object_new(E_Policy_Quickpanel *qp)
                                 _region_obj_cb_gesture_end, qp);
 
    evas_object_show(indi_obj);
-   e_desk_smart_member_add(qp->ec->desk, indi_obj);
+
+   if (e_config->qp_add_on_desk_smart)
+     e_desk_smart_member_add(qp->ec->desk, indi_obj);
 
    return indi_obj;
 }
@@ -1663,6 +1833,7 @@ e_service_quickpanel_client_set(E_Client *ec)
    E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_REMOVE,                   _quickpanel_cb_client_remove,    qp);
    E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_BUFFER_CHANGE,            _quickpanel_cb_buffer_change,    qp);
    E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_FOCUS_IN,                 _quickpanel_cb_client_focus_in,  qp);
+   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_DESK_GEOMETRY_CHANGE,            _quickpanel_cb_desk_geometry_change, qp);
 
    E_COMP_OBJECT_INTERCEPT_HOOK_APPEND(qp->intercept_hooks, E_COMP_OBJECT_INTERCEPT_HOOK_SHOW_HELPER, _quickpanel_intercept_hook_show, qp);
 
