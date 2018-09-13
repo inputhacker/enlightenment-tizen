@@ -717,3 +717,38 @@ e_hwc_planes_client_end(E_Hwc *hwc, E_Client *ec, const char *location)
 
    hwc->hwc_mode = new_hwc;
 }
+
+EINTERN void
+e_hwc_planes_apply(E_Hwc *hwc)
+{
+   EINA_SAFETY_ON_NULL_RETURN(hwc);
+   EINA_SAFETY_ON_NULL_RETURN(hwc->output);
+
+   if (e_hwc_policy_get(hwc) == E_HWC_POLICY_NONE ||
+       e_hwc_policy_get(hwc) == E_HWC_POLICY_WINDOWS) return;
+
+   if (e_hwc_deactive_get(hwc))
+     {
+        if (hwc->hwc_mode != E_HWC_MODE_NONE)
+          e_hwc_planes_end(hwc, "deactive set.");
+        return;
+     }
+
+   // intercept hwc policy
+   if (!e_hwc_intercept_hook_call(E_HWC_INTERCEPT_HOOK_PREPARE_PLANE, hwc))
+     {
+        hwc->intercept_pol = EINA_TRUE;
+        return;
+     }
+
+   if (!e_hwc_planes_usable(hwc))
+     {
+        e_hwc_planes_end(hwc, __FUNCTION__);
+        return;
+     }
+
+   if (hwc->hwc_mode == E_HWC_MODE_NONE)
+     e_hwc_planes_begin(hwc);
+   else
+     e_hwc_planes_changed(hwc);
+}

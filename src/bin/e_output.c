@@ -2761,6 +2761,8 @@ e_output_commit(E_Output *output)
 
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
+        e_hwc_planes_apply(output->hwc);
+
         if (output == output_primary)
           {
              if (!_e_output_planes_commit(output))

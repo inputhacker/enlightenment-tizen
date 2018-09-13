@@ -82,7 +82,6 @@ struct _E_Hwc
 
 EINTERN E_Hwc        *e_hwc_new(E_Output *output);
 EINTERN void          e_hwc_del(E_Hwc *hwc);
-EINTERN void          e_hwc_apply(E_Hwc *hwc);
 EINTERN E_Hwc_Policy  e_hwc_policy_get(E_Hwc *hwc);
 EINTERN E_Hwc_Mode    e_hwc_mode_get(E_Hwc *hwc);
 EINTERN void          e_hwc_deactive_set(E_Hwc *hwc, Eina_Bool set);
