@@ -2524,7 +2524,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
         if (transform_change == vp->wait_for_transform_change)
           vp->wait_for_transform_change = 0;
 
-        if (e_comp_is_on_overlay(ec)) e_comp_hwc_end(__FUNCTION__);
+        if (e_comp_is_on_overlay(ec)) e_comp_hwc_client_end(ec, __FUNCTION__);
      }
 
    ec->comp_data->scaler.buffer_viewport = state->buffer_viewport;

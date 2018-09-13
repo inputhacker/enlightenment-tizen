@@ -1250,7 +1250,7 @@ _e_client_move_begin(E_Client *ec)
      }
 
    if (e_comp->hwc)
-     e_comp_override_add();
+     e_comp_client_override_add(ec);
 
    return 1;
 }
@@ -1266,7 +1266,7 @@ _e_client_move_end(E_Client *ec)
      _e_client_transform_move_end(ec);
 
    if (e_comp->hwc)
-     e_comp_override_del();
+     e_comp_client_override_del(ec);
 
    ecmove = NULL;
    return 1;
@@ -1495,7 +1495,7 @@ _e_client_resize_end(E_Client *ec)
      _e_client_transform_resize_end(ec);
 
    if (e_comp->hwc)
-     e_comp_override_del();
+     e_comp_client_override_del(ec);
 
    ecresize = NULL;
 
@@ -6034,7 +6034,7 @@ e_client_resize_begin(E_Client *ec)
      }
 
    if (e_comp->hwc)
-     e_comp_override_add();
+     e_comp_client_override_add(ec);
 
    return EINA_TRUE;
 error:

@@ -262,7 +262,7 @@ _mover_smart_del(Evas_Object *obj)
 
    evas_object_color_set(ec->frame, ec->netwm.opacity, ec->netwm.opacity, ec->netwm.opacity, ec->netwm.opacity);
 
-   e_comp_override_del();
+   e_comp_client_override_del(ec);
 
    /* force update
     * we need to force update 'E_Client' here even if update only evas_object,
@@ -349,7 +349,7 @@ _e_qp_srv_mover_new(E_Policy_Quickpanel *qp)
    Mover_Data *md;
    int x, y, w, h;
 
-   e_comp_override_add();
+   e_comp_client_override_add(qp->ec);
 
    _mover_smart_init();
    mover = evas_object_smart_add(evas_object_evas_get(qp->ec->frame), _mover_smart);
