@@ -312,8 +312,8 @@ _e_hwc_planes_change_ec(E_Plane *ep, E_Client *new_ec)
    return EINA_TRUE;
 }
 
-EINTERN void
-e_hwc_planes_changed(E_Hwc *hwc)
+static void
+_e_hwc_planes_changed(E_Hwc *hwc)
 {
    Eina_Bool ret = EINA_FALSE;
    E_Plane *ep = NULL;
@@ -448,8 +448,8 @@ done:
    return ret;
 }
 
-EINTERN Eina_Bool
-e_hwc_planes_usable(E_Hwc *hwc)
+static Eina_Bool
+_e_hwc_planes_usable(E_Hwc *hwc)
 {
    E_Output *eout = hwc->output;
    E_Comp_Wl_Buffer *buffer = NULL;
@@ -540,8 +540,8 @@ _e_hwc_planes_can_hwcompose(E_Output *eout)
    return EINA_FALSE;
 }
 
-EINTERN void
-e_hwc_planes_begin(E_Hwc *hwc)
+static void
+_e_hwc_planes_begin(E_Hwc *hwc)
 {
    const Eina_List *ep_l = NULL, *l;
    E_Output *eout = hwc->output;
@@ -741,14 +741,14 @@ e_hwc_planes_apply(E_Hwc *hwc)
         return;
      }
 
-   if (!e_hwc_planes_usable(hwc))
+   if (!_e_hwc_planes_usable(hwc))
      {
         e_hwc_planes_end(hwc, __FUNCTION__);
         return;
      }
 
    if (hwc->hwc_mode == E_HWC_MODE_NONE)
-     e_hwc_planes_begin(hwc);
+     _e_hwc_planes_begin(hwc);
    else
-     e_hwc_planes_changed(hwc);
+     _e_hwc_planes_changed(hwc);
 }
