@@ -1515,11 +1515,11 @@ _e_hwc_windows_update_changes(E_Hwc *hwc)
    if (e_hwc_window_target_buffer_fetch(hwc->target_hwc_window)) // try aquire
      update_changes = EINA_TRUE;
 
-   /* fetch the windows buffers */
    EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
      {
         if (e_hwc_window_is_target(hwc_window)) continue;
 
+        /* fetch the window buffer */
         if (e_hwc_window_buffer_fetch(hwc_window))
           update_changes = EINA_TRUE;
         else
@@ -1530,11 +1530,12 @@ _e_hwc_windows_update_changes(E_Hwc *hwc)
                e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
           }
 
+        /* update the window's info */
         if (e_hwc_window_info_update(hwc_window))
           update_changes = EINA_TRUE;
      }
 
-   /* update the changes of the visible windows */
+   /* update the the visible windows */
    if (_e_hwc_windows_visible_windows_updates(hwc))
      update_changes = EINA_TRUE;
 
