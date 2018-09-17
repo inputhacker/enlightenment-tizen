@@ -1479,10 +1479,14 @@ _e_hwc_windows_visible_windows_changed_check(E_Hwc *hwc, Eina_List *visible_wind
 }
 
 static Eina_Bool
-_e_hwc_windows_visible_windows_updates(E_Hwc *hwc, Eina_List *visible_windows)
+_e_hwc_windows_visible_windows_updates(E_Hwc *hwc)
 {
    E_Hwc_Window *hwc_window;
    Eina_List *l;
+   Eina_List *visible_windows;
+
+   visible_windows = _e_hwc_windows_visible_windows_list_get(hwc);
+   if (!visible_windows && !hwc->visible_windows) return EINA_FALSE;
 
    if (!_e_hwc_windows_visible_windows_changed_check(hwc, visible_windows))
      return EINA_FALSE;
@@ -1490,6 +1494,7 @@ _e_hwc_windows_visible_windows_updates(E_Hwc *hwc, Eina_List *visible_windows)
    EINA_LIST_FREE(hwc->visible_windows, hwc_window)
      e_object_unref(E_OBJECT(hwc_window));
 
+   /* store the current visible windows */
    hwc->visible_windows = eina_list_clone(visible_windows);
 
    EINA_LIST_FOREACH(hwc->visible_windows, l, hwc_window)
@@ -1504,7 +1509,6 @@ _e_hwc_windows_update_changes(E_Hwc *hwc)
 {
    E_Hwc_Window *hwc_window = NULL;
    Eina_Bool update_changes = EINA_FALSE;
-   Eina_List *visible_windows = NULL;
    const Eina_List *l;
 
    /* fetch the target buffer */
@@ -1530,11 +1534,8 @@ _e_hwc_windows_update_changes(E_Hwc *hwc)
           update_changes = EINA_TRUE;
      }
 
-   visible_windows = _e_hwc_windows_visible_windows_list_get(hwc);
-   if (!update_changes && !hwc->visible_windows && !visible_windows)
-     return EINA_FALSE;
-
-   if (_e_hwc_windows_visible_windows_updates(hwc, visible_windows))
+   /* update the changes of the visible windows */
+   if (_e_hwc_windows_visible_windows_updates(hwc))
      update_changes = EINA_TRUE;
 
    return update_changes;
