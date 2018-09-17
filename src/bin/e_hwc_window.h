@@ -160,7 +160,6 @@ EINTERN Eina_Bool          e_hwc_window_target_can_render(E_Hwc_Window_Target *t
 EINTERN Eina_Bool          e_hwc_window_target_enabled(E_Hwc_Window_Target *target_hwc_window);
 EINTERN Eina_Bool          e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window);
 EINTERN Eina_Bool          e_hwc_window_target_buffer_skip(E_Hwc_Window_Target *target_hwc_window);
-EINTERN Eina_List         *e_hwc_window_target_window_ee_rendered_hw_list_get(E_Hwc_Window_Target *target_window);
 
 EINTERN Eina_Bool          e_hwc_window_activate(E_Hwc_Window *hwc_window, E_Hwc_Window_Queue *queue);
 EINTERN Eina_Bool          e_hwc_window_deactivate(E_Hwc_Window *hwc_window);
