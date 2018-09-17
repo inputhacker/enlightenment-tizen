@@ -865,7 +865,7 @@ _e_hwc_windows_compsitions_update(E_Hwc *hwc)
      {
         if (e_hwc_window_is_target(hwc_window)) continue;
 
-        if (!e_hwc_window_compsition_update(hwc_window))
+        if (!e_hwc_window_composition_update(hwc_window))
           {
              ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
              return EINA_FALSE;

@@ -146,7 +146,7 @@ EINTERN void               e_hwc_window_free(E_Hwc_Window *hwc_window);
 
 EINTERN Eina_Bool          e_hwc_window_zpos_set(E_Hwc_Window *hwc_window, int zpos);
 EINTERN int                e_hwc_window_zpos_get(E_Hwc_Window *hwc_window);
-EINTERN Eina_Bool          e_hwc_window_compsition_update(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool          e_hwc_window_composition_update(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_info_update(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_target(E_Hwc_Window *hwc_window);

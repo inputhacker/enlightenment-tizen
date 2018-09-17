@@ -1014,7 +1014,7 @@ e_hwc_window_zpos_get(E_Hwc_Window *hwc_window)
 }
 
 EINTERN Eina_Bool
-e_hwc_window_compsition_update(E_Hwc_Window *hwc_window)
+e_hwc_window_composition_update(E_Hwc_Window *hwc_window)
 {
    tdm_hwc_window *thwc_window;
    tdm_hwc_window_composition composition_type;
@@ -1024,7 +1024,7 @@ e_hwc_window_compsition_update(E_Hwc_Window *hwc_window)
 
    if (e_hwc_window_is_target(hwc_window))
      {
-        ERR("HWC-WINS: target window cannot update at e_hwc_window_compsition_update.");
+        ERR("HWC-WINS: target window cannot update at e_hwc_window_composition_update.");
         return EINA_FALSE;
      }
 
