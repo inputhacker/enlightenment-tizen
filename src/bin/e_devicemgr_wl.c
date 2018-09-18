@@ -102,6 +102,21 @@ _e_devicemgr_wl_device_cb_unbind(struct wl_resource *resource)
 }
 
 void
+e_devicemgr_wl_device_update(E_Devicemgr_Input_Device *dev)
+{
+   struct wl_array axes;
+   Eina_List *l;
+   struct wl_resource *res;
+
+   wl_array_init(&axes);
+
+   EINA_LIST_FOREACH(dev->resources, l, res)
+     {
+        tizen_input_device_send_device_info(res, dev->name, dev->clas, dev->subclas, &axes);
+     }
+}
+
+void
 e_devicemgr_wl_device_add(E_Devicemgr_Input_Device *dev)
 {
    struct wl_resource *res, *seat_res, *dev_mgr_res;

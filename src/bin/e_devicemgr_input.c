@@ -1,5 +1,22 @@
 #include "e_devicemgr_private.h"
 
+Eina_Bool
+e_devicemgr_strcmp(const char *dst, const char *src)
+{
+   int dst_len, src_len, str_len;
+
+   dst_len = strlen(dst);
+   src_len = strlen(src);
+
+   if (src_len > dst_len) str_len = src_len;
+   else str_len = dst_len;
+
+   if (!strncmp(dst, src, str_len))
+     return EINA_TRUE;
+   else
+     return EINA_FALSE;
+}
+
 static int
 _e_devicemgr_input_pointer_warp(int x, int y)
 {
@@ -275,6 +292,33 @@ _e_devicemgr_input_device_del(const char *name, const char *identifier, const ch
    E_FREE(dev);
 }
 
+static void
+_e_devicemgr_input_device_update(Ecore_Device *dev)
+{
+   Eina_List *l;
+   E_Devicemgr_Input_Device *data;
+   char *dev_identifier;
+
+   EINA_SAFETY_ON_NULL_RETURN(dev);
+
+   dev_identifier = (char *)ecore_device_identifier_get(dev);
+   EINA_SAFETY_ON_NULL_RETURN(dev_identifier);
+
+   EINA_LIST_FOREACH(e_devicemgr->device_list, l, data)
+     {
+        if (data->clas == ecore_device_class_get(dev) && data->identifier)
+          {
+             if (e_devicemgr_strcmp(dev_identifier, data->identifier))
+               {
+                  data->subclas = ecore_device_subclass_get(dev);
+
+                  e_devicemgr_wl_device_update(data);
+                  return;
+               }
+          }
+     }
+}
+
 static Eina_Bool
 _e_devicemgr_input_cb_mouse_button_down(void *data, int type, void *event)
 {
@@ -331,6 +375,21 @@ _e_devicemgr_input_cb_device_del(void *data, int type, void *event)
    ev = (Ecore_Event_Device_Info *)event;
 
    _e_devicemgr_input_device_del(ev->name, ev->identifier, ev->seatname, ev->clas, ev->subclas);
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
+static Eina_Bool
+_e_devicemgr_input_cb_device_update(void *data, int type, void *event)
+{
+   Ecore_Event_Device_Update *ev;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(event, ECORE_CALLBACK_PASS_ON);
+
+   ev = (Ecore_Event_Device_Update *)event;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ev->dev, ECORE_CALLBACK_PASS_ON);
+
+   _e_devicemgr_input_device_update(ev->dev);
 
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -518,6 +577,7 @@ e_devicemgr_input_init(void)
    E_LIST_HANDLER_APPEND(e_devicemgr->handlers, ECORE_EVENT_MOUSE_BUTTON_UP, _e_devicemgr_input_cb_mouse_button_up, NULL);
    E_LIST_HANDLER_APPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_ADD, _e_devicemgr_input_cb_device_add, NULL);
    E_LIST_HANDLER_APPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_DEL, _e_devicemgr_input_cb_device_del, NULL);
+   E_LIST_HANDLER_APPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_SUBCLASS_UPDATE, _e_devicemgr_input_cb_device_update, NULL);
 
    _e_devicemgr_device_query();
 

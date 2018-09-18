@@ -114,6 +114,7 @@ Eina_Bool e_devicemgr_wl_init(void);
 void e_devicemgr_wl_shutdown(void);
 void e_devicemgr_wl_device_add(E_Devicemgr_Input_Device *dev);
 void e_devicemgr_wl_device_del(E_Devicemgr_Input_Device *dev);
+void e_devicemgr_wl_device_update(E_Devicemgr_Input_Device *dev);
 
 Eina_Bool e_devicemgr_block_check_keyboard(Ecore_Event_Key *ev, Eina_Bool pressed);
 Eina_Bool e_devicemgr_block_check_move(Ecore_Event_Mouse_Move *ev);
@@ -132,6 +133,7 @@ void e_devicemgr_inputgen_get_device_info(E_Devicemgr_Input_Device *dev);
 int e_devicemgr_create_virtual_device(Ecore_Device_Class clas, const char *name);
 void e_devicemgr_destroy_virtual_device(int uinp_fd);
 
+Eina_Bool e_devicemgr_strcmp(const char *dst, const char *src);
 int e_devicemgr_keycode_from_string(const char *keyname);
 int e_devicemgr_input_pointer_warp(struct wl_client *client, struct wl_resource *resource, struct wl_resource *surface, wl_fixed_t x, wl_fixed_t y);
 void e_devicemgr_wl_detent_send_event(int detent);
