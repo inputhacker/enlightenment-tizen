@@ -31,6 +31,10 @@ typedef struct _E_Info_Client
 
    /* layer fps */
    Eina_List         *layer_fps_list;
+
+   /* dump_buffers */
+   const char *dump_fullpath;
+   Eina_Bool dump_success;
 } E_Info_Client;
 
 typedef struct _E_Win_Info
@@ -2365,6 +2369,31 @@ arg_err:
 }
 
 static void
+_cb_buffer_shot(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   char *fullpath = NULL;
+   int error = 0;
+   Eina_Bool res;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "is", &error, &fullpath);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+
+   if (strcmp(fullpath, "nopath") && !e_info_client.dump_fullpath)
+     e_info_client.dump_fullpath = eina_stringshare_add(fullpath);
+   e_info_client.dump_success = error;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
 _e_info_client_proc_buffer_shot(int argc, char **argv)
 {
    int dumprun = 0;
@@ -2443,20 +2472,30 @@ _e_info_client_proc_buffer_shot(int argc, char **argv)
           goto err;
      }
 
-   if (!_e_info_client_eldbus_message_with_args("dump_buffers", NULL, "iisdi",
+   if (!_e_info_client_eldbus_message_with_args("dump_buffers", _cb_buffer_shot, "iisdi",
                                                 dumprun, count, path, scale, mark))
      {
-        printf("_e_info_client_proc_buffer_shot fail (%d)\n", dumprun);
+        printf("dump_buffers fail (%d)\n", dumprun);
         return;
      }
 
-   printf("_e_info_client_proc_buffer_shot %s\n", (dumprun == 1 ? "start" : "stop"));
+   printf("dump_buffers %s %s.\n",
+          (dumprun == 1 ? "start" : "stop"), (e_info_client.dump_success == 0 ? "success" : "fail"));
+
+   if (e_info_client.dump_fullpath)
+     {
+        if (dumprun == 0 && e_info_client.dump_success == 0 && e_info_client.dump_fullpath)
+          printf("saved : %s\n", e_info_client.dump_fullpath);
+
+        eina_stringshare_del(e_info_client.dump_fullpath);
+        e_info_client.dump_fullpath = NULL;
+     }
 
    return;
 
 err:
    printf("Error Check Args\n%s\n", DUMP_BUFFERS_USAGE);
-return;
+   return;
 }
 
 static void
