@@ -877,6 +877,29 @@ e_client_revert_focus(E_Client *ec)
    _e_client_revert_focus(ec);
 }
 
+EINTERN Eina_Bool
+e_client_check_above_focused(E_Client *ec)
+{
+   E_Client *focus = NULL;
+   E_Client *above = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   focus = e_client_focused_get();
+   if (!focus) return EINA_FALSE;
+
+   above = e_client_above_get(ec);
+   while (above)
+     {
+        if (above == focus)
+          return EINA_TRUE;
+
+        above = e_client_above_get(above);
+     }
+
+   return EINA_FALSE;
+}
+
 static void
 _e_client_free(E_Client *ec)
 {

@@ -1149,6 +1149,7 @@ E_API void e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set);
 E_API void e_client_stay_within_canvas_margin(E_Client *ec);
 
 EINTERN void e_client_revert_focus(E_Client *ec);
+EINTERN Eina_Bool e_client_check_above_focused(E_Client *ec);
 
 EINTERN void      e_client_pending_geometry_flush(E_Client *ec);
 EINTERN Eina_Bool e_client_pending_geometry_has(E_Client *ec);
