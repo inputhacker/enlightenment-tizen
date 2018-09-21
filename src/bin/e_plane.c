@@ -2234,7 +2234,7 @@ e_plane_commit_data_aquire(E_Plane *plane)
         data = E_NEW(E_Plane_Commit_Data, 1);
         if (!data) return NULL;
         data->plane = plane;
-        data->renderer = NULL;
+        data->renderer = plane->renderer;
         data->tsurface = NULL;
         data->ec = NULL;
 
