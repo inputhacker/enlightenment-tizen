@@ -222,7 +222,7 @@ _e_hwc_windows_aligned_width_get(tbm_surface_h tsurface)
 }
 
 static void
-_e_hwc_windows_commit_handler(tdm_output *toutput, unsigned int sequence,
+_e_hwc_windows_commit_handler(tdm_hwc *thwc, unsigned int sequence,
                                   unsigned int tv_sec, unsigned int tv_usec,
                                   void *user_data)
 {
@@ -1720,7 +1720,7 @@ e_hwc_windows_commit(E_Hwc *hwc)
         if (error != TDM_ERROR_NONE)
           {
              ERR("tdm_output_commit failed.");
-             _e_hwc_windows_commit_handler(output->toutput, 0, 0, 0, hwc);
+             _e_hwc_windows_commit_handler(hwc->thwc, 0, 0, 0, hwc);
              goto fail;
           }
 
