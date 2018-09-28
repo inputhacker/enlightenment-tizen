@@ -221,6 +221,28 @@ _e_hwc_windows_aligned_width_get(tbm_surface_h tsurface)
    return aligned_width;
 }
 
+static Eina_Bool
+_e_hwc_windows_aquire_commit_data(E_Hwc *hwc)
+{
+   const Eina_List *l;
+   E_Hwc_Window *hwc_window;
+   Eina_Bool ret = EINA_FALSE;
+
+   /* return TRUE when the number of the commit data is more than one */
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
+     {
+        if (!e_hwc_window_commit_data_acquire(hwc_window)) continue;
+
+        /* send frame event enlightenment doesn't send frame event in nocomp */
+        if (hwc_window->ec)
+          e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
+
+        if (!ret) ret = EINA_TRUE;
+     }
+
+   return ret;
+}
+
 static void
 _e_hwc_windows_commit_handler(tdm_hwc *thwc, unsigned int sequence,
                                   unsigned int tv_sec, unsigned int tv_usec,
@@ -252,19 +274,6 @@ _e_hwc_windows_commit_handler(tdm_hwc *thwc, unsigned int sequence,
    /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
     * a 'page flip' happened so it's time to allow to make 'fetch and commit' for the e_output */
    hwc->wait_commit = EINA_FALSE;
-}
-
-static Eina_Bool
-_e_hwc_windows_prepare_commit(E_Hwc_Window *hwc_window)
-{
-   if (!e_hwc_window_commit_data_acquire(hwc_window))
-     return EINA_FALSE;
-
-   /* send frame event enlightenment doesn't send frame event in nocomp */
-   if (hwc_window->ec)
-     e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
-
-   return EINA_TRUE;
 }
 
 static Eina_Bool
@@ -1663,7 +1672,6 @@ e_hwc_windows_commit(E_Hwc *hwc)
    Eina_List *l;
    E_Output *output = NULL;
    tdm_error error = TDM_ERROR_NONE;
-   Eina_Bool update = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
 
@@ -1694,13 +1702,8 @@ e_hwc_windows_commit(E_Hwc *hwc)
         return EINA_TRUE;
      }
 
-   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
-     {
-        if (_e_hwc_windows_prepare_commit(hwc_window))
-          update = EINA_TRUE;
-     }
-
-   if (!update) return EINA_TRUE;
+   if (!_e_hwc_windows_aquire_commit_data(hwc))
+     return EINA_TRUE;
 
    EHWSTRACE("!!!!!!!! Output Commit !!!!!!!!", NULL);
 
