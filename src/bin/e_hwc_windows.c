@@ -221,6 +221,23 @@ _e_hwc_windows_aligned_width_get(tbm_surface_h tsurface)
    return aligned_width;
 }
 
+static void
+_e_hwc_windows_release_commit_data(E_Hwc *hwc, int sequence,
+                                  unsigned int tv_sec, unsigned int tv_usec)
+{
+   const Eina_List *l;
+   E_Hwc_Window *hwc_window;
+
+   EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
+     {
+         if (!hwc_window->commit_data) continue;
+         if (e_hwc_window_is_video(hwc_window))
+           e_comp_wl_video_hwc_window_commit_data_release(hwc_window, sequence, tv_sec, tv_usec);
+
+         if (!e_hwc_window_commit_data_release(hwc_window)) continue;
+     }
+}
+
 static Eina_Bool
 _e_hwc_windows_aquire_commit_data(E_Hwc *hwc)
 {
@@ -248,10 +265,7 @@ _e_hwc_windows_commit_handler(tdm_hwc *thwc, unsigned int sequence,
                                   unsigned int tv_sec, unsigned int tv_usec,
                                   void *user_data)
 {
-   const Eina_List *l;
-   E_Hwc_Window *hwc_window;
    E_Hwc *hwc = (E_Hwc *)user_data;
-
    EINA_SAFETY_ON_NULL_RETURN(hwc);
 
    if (hwc->pp_tsurface && !hwc->output->zoom_set)
@@ -260,14 +274,7 @@ _e_hwc_windows_commit_handler(tdm_hwc *thwc, unsigned int sequence,
         hwc->pp_tsurface = NULL;
      }
 
-   EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
-     {
-         if (!hwc_window->commit_data) continue;
-         if (e_hwc_window_is_video(hwc_window))
-           e_comp_wl_video_hwc_window_commit_data_release(hwc_window, sequence, tv_sec, tv_usec);
-
-         if (!e_hwc_window_commit_data_release(hwc_window)) continue;
-     }
+   _e_hwc_windows_release_commit_data(hwc, sequence, tv_sec, tv_usec);
 
    EHWSTRACE("!!!!!!!! Output Commit Handler !!!!!!!!", NULL);
 
