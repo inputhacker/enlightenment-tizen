@@ -4794,13 +4794,15 @@ _e_info_client_proc_input_region(int argc, char **argv)
    return;
 }
 
-static struct
+typedef struct _ProcInfo
 {
    const char *option;
    const char *params;
    const char *description;
    void (*func)(int argc, char **argv);
-} procs[] =
+} ProcInfo;
+
+static ProcInfo procs_to_tracelogs[] =
 {
    {
       "version",
@@ -4810,45 +4812,14 @@ static struct
    },
    {
       "protocol_trace", "[console|file_path|disable]",
-      "Enable/disable wayland protocol trace",
+      "Enable/Disable wayland protocol trace",
       _e_info_client_proc_protocol_trace
    },
    {
       "protocol_rule",
       PROTOCOL_RULE_USAGE,
-      "Add/remove wayland protocol rule you want to trace",
+      "Add/Remove wayland protocol rule you want to trace",
       _e_info_client_proc_protocol_rule
-   },
-   {
-      "topvwins", NULL,
-      "Print top visible windows",
-      _e_info_client_proc_topvwins_info
-   },
-   {
-      "topwins", NULL,
-      "Print all windows",
-      _e_info_client_proc_topwins_info
-   },
-   {
-      "compobjs", "[simple]",
-      "Display detailed information of all composite objects",
-      _e_info_client_proc_compobjs_info
-   },
-   {
-      "set_force_visible", NULL,
-      "show/hide a composite object",
-      _e_info_client_proc_force_visible
-   },
-   {
-      "subsurface", NULL,
-      "Print subsurface information",
-      _e_info_client_proc_subsurface
-   },
-   {
-      "dump",
-      USAGE_DUMPIMAGE,
-      "Dump window images with options",
-      _e_info_client_proc_wins_shot
    },
    {
       "eina_log_levels", "[mymodule1:5,mymodule2:2]",
@@ -4864,26 +4835,44 @@ static struct
    {
       "dlog",
       "[on:1,off:0]",
-      "Logging using dlog system (on:1, off:0)",
+      "Logging using dlog system [on 1, off 0]",
       _e_info_client_proc_dlog_switch
    },
 #endif
    {
-      "prop",
-      PROP_USAGE,
-      "Get/set window(s) property(ies)",
-      _e_info_client_prop_prop_info
+      "hwc_trace",
+      "[off: 0, on: 1, info:2]",
+      "Show the hwc trace log",
+      _e_info_client_proc_hwc_trace
+   },
+};
+
+static ProcInfo procs_to_printinfo[] =
+{
+   {
+      "topvwins", NULL,
+      "Print top visible windows",
+      _e_info_client_proc_topvwins_info
+   },
+   {
+      "topwins", NULL,
+      "Print all windows",
+      _e_info_client_proc_topwins_info
+   },
+   {
+      "compobjs", "[simple]",
+      "Print detailed information of all composite objects",
+      _e_info_client_proc_compobjs_info
+   },
+   {
+      "subsurface", NULL,
+      "Print subsurface information",
+      _e_info_client_proc_subsurface
    },
    {
       "connected_clients", NULL,
       "Print connected clients on Enlightenment",
       _e_info_client_proc_connected_clients
-   },
-   {
-      "rotation",
-      ROTATION_USAGE,
-      "Send a message about rotation",
-      _e_info_client_proc_rotation
    },
    {
       "reslist",
@@ -4897,10 +4886,93 @@ static struct
       _e_info_client_proc_input_device_info
    },
    {
+      "output_mode",
+      "[mode number to set]",
+      "Print output mode info",
+      _e_info_client_proc_output_mode
+   },
+   {
+      "show_plane_state",
+      NULL,
+      "Print state of plane",
+      _e_info_client_proc_show_plane_state
+   },
+   {
+      "show_pending_commit",
+      NULL,
+      "Print state of pending commit",
+      _e_info_client_proc_show_pending_commit
+   },
+   {
+      "fps", NULL,
+      "Print FPS in every sec per layer",
+      _e_info_client_proc_fps_layer_info
+   },
+   {
+      "keymap", NULL,
+      "Print a current keymap",
+      _e_info_client_proc_keymap_info
+   },
+   {
+      "keygrab_status", NULL,
+      "Print a keygrab status",
+      _e_info_client_proc_keygrab_status
+   },
+   {
+      "module_info", NULL,
+      "Print information maintained by extra modules",
+      _e_info_client_proc_module_info
+   },
+   {
+      "wininfo",
+      WININFO_USAGE,
+      "Print information about windows",
+      _e_info_client_proc_wininfo
+   },
+   {
+      "input_region",
+      NULL,
+      "Print input regions",
+      _e_info_client_proc_input_region
+   },
+};
+
+static ProcInfo procs_to_execute[] =
+{
+   {
+      "set_force_visible", NULL,
+      "Show/Hide a composite object",
+      _e_info_client_proc_force_visible
+   },
+   {
+      "dump",
+      USAGE_DUMPIMAGE,
+      "Dump window images with options [topvwins, ns]",
+      _e_info_client_proc_wins_shot
+   },
+   {
+      "prop",
+      PROP_USAGE,
+      "Get/Set window(s) property(ies)",
+      _e_info_client_prop_prop_info
+   },
+   {
+      "rotation",
+      ROTATION_USAGE,
+      "Send a message about rotation",
+      _e_info_client_proc_rotation
+   },
+   {
       "bgcolor_set", "[<a>,<r>,<g>,<b>]",
       "Set the background color of enlightenment canvas",
       _e_info_client_proc_bgcolor_set
    },
+   {
+      "key_repeat",
+      "[print] [set <delay> <rate>]",
+      "Print or Set key repeat info",
+      _e_info_client_proc_key_repeat
+   }, 
    {
       "punch", "[on/off] [<X>x<H>+<X>+<Y>] [<a>,<r>,<g>,<b>]",
       "HWC should be disabled first with \"-hwc\" option. Punch a UI framebuffer [on/off].",
@@ -4928,60 +5000,16 @@ static struct
       _e_info_client_proc_screen_shot
    },
    {
-      "output_mode",
-      "[mode number to set]",
-      "Get output mode info",
-      _e_info_client_proc_output_mode
-   },
-   {
-      "hwc_trace",
-      "[off: 0, on: 1, info:2]",
-      "Show the hwc trace log",
-      _e_info_client_proc_hwc_trace
-   },
-   {
       "hwc",
       "[on: 1, off: 0]",
-      "On/Off the hw composite",
+      "HW composite [on 1, off 0]",
       _e_info_client_proc_hwc
-   },
-   {
-      "show_plane_state",
-      NULL,
-      "Show state of plane",
-      _e_info_client_proc_show_plane_state
-   },
-   {
-      "show_pending_commit",
-      NULL,
-      "Show state of pending commit",
-      _e_info_client_proc_show_pending_commit
-   },
-   {
-      "fps", NULL,
-      "Print FPS in every sec per layer",
-      _e_info_client_proc_fps_layer_info
-   },
-   {
-      "keymap", NULL,
-      "Print a current keymap",
-      _e_info_client_proc_keymap_info
    },
    {
       "effect",
       "[on: 1, off: 0]",
-      "On/Off the window effect",
+      "Window effect [on 1, off 0]",
       _e_info_client_proc_effect_control
-   },
-   {
-      "keygrab_status", NULL,
-      "Print a keygrab status",
-      _e_info_client_proc_keygrab_status
-   },
-   {
-      "module_info", NULL,
-      "Print information maintained by extra modules",
-      _e_info_client_proc_module_info
    },
    {
       "aux_msg",
@@ -5004,7 +5032,7 @@ static struct
    {
       "desk",
       USAGE_DESK,
-      "Current desktop",
+      "Set geometry or zoom for current desktop",
       _e_info_client_proc_desk
    },
    {
@@ -5032,12 +5060,6 @@ static struct
       _e_info_client_proc_kill_client
    },
    {
-      "wininfo",
-      WININFO_USAGE,
-      "Displaying information about windows",
-      _e_info_client_proc_wininfo
-   },
-   {
       "module",
       "[list], [load <module_name>], [unload <module_name>]",
       "Manage modules on enlightenment",
@@ -5052,34 +5074,75 @@ static struct
    {
       "buffer_flush",
       "[on <win_id / all>], [off <win_id / all>], [show <win_id / all>]",
-      "set buffer_flush configure",
+      "Set buffer_flush configure",
       _e_info_client_proc_buffer_flush
    },
    {
       "deiconify_approve",
       "[on <win_id / all>], [off <win_id / all>], [show <win_id / all>]",
-      "set deiconify_approve configure",
+      "Set deiconify_approve configure",
       _e_info_client_proc_deiconify_approve
-   },
-   {
-      "key_repeat",
-      "[print] [set <delay> <rate>]",
-      "Print or set key repeat info",
-      _e_info_client_proc_key_repeat
    },
    {
       "dump_memory",
       "file dumped under /tmp dir.",
-      "dump stack information by allocations",
+      "Dump stack information by allocations",
       _e_info_client_memchecker
    },
-   {
-      "input_region",
-      NULL,
-      "Print input regions",
-      _e_info_client_proc_input_region
-   },
 };
+
+static Eina_List *list_tracelogs = NULL;
+static Eina_List *list_printinfo = NULL;
+static Eina_List *list_exec= NULL;
+
+static int
+_util_sort_string_cb(const void *data1, const void *data2)
+{
+   const ProcInfo *info1, *info2;
+   const char *s1, *s2;
+
+   info1 = data1;
+   info2 = data2;
+   s1 = info1->option;
+   s2 = info2->option;
+
+   return strncmp(s1, s2, strlen(s2));
+}
+
+static void
+_e_info_client_shutdown_list(void)
+{
+   list_tracelogs = eina_list_free(list_tracelogs);
+   list_printinfo = eina_list_free(list_printinfo);
+   list_exec = eina_list_free(list_exec);
+}
+
+static void
+_e_info_client_init_list(void)
+{
+   int n_info = 0, i;
+   list_tracelogs = list_printinfo = list_exec = NULL;
+
+   n_info = sizeof(procs_to_tracelogs) / sizeof(procs_to_tracelogs[0]);
+   for (i = 0; i < n_info; i++)
+     {
+        list_tracelogs = eina_list_append(list_tracelogs, &procs_to_tracelogs[i]);
+     }
+
+   n_info = sizeof(procs_to_printinfo) / sizeof(procs_to_printinfo[0]);
+   for (i = 0; i < n_info; i++)
+     {
+        list_printinfo = eina_list_append(list_printinfo, &procs_to_printinfo[i]);
+     }
+   list_printinfo = eina_list_sort(list_printinfo, eina_list_count(list_printinfo), _util_sort_string_cb);
+
+   n_info = sizeof(procs_to_execute) / sizeof(procs_to_execute[0]);
+   for (i = 0; i < n_info; i++)
+     {
+        list_exec = eina_list_append(list_exec, &procs_to_execute[i]);
+     }
+   list_exec = eina_list_sort(list_exec, eina_list_count(list_exec), _util_sort_string_cb);
+}
 
 static void
 _e_info_client_eldbus_message_cb(void *data, const Eldbus_Message *msg, Eldbus_Pending *p EINA_UNUSED)
@@ -5177,8 +5240,9 @@ err:
 static Eina_Bool
 _e_info_client_process(int argc, char **argv)
 {
-   int nproc = sizeof(procs) / sizeof(procs[0]);
-   int i, proc_option_length;
+   Eina_List *l = NULL;
+   ProcInfo  *procinfo = NULL;
+   int proc_option_length, argv_len;
 
    signal(SIGINT,  end_program);
    signal(SIGALRM, end_program);
@@ -5187,16 +5251,41 @@ _e_info_client_process(int argc, char **argv)
    signal(SIGQUIT, end_program);
    signal(SIGTERM, end_program);
 
-   for (i = 0; i < nproc; i++)
+   argv_len = strlen(argv[1]+1);
+   EINA_LIST_FOREACH(list_tracelogs, l, procinfo)
      {
-        proc_option_length = strlen(procs[i].option);
-
-        if (strlen(argv[1]+1) != proc_option_length) continue;
-
-        if (!strncmp(argv[1]+1, procs[i].option, proc_option_length))
+        proc_option_length = strlen(procinfo->option);
+        if (argv_len != proc_option_length) continue;
+        if (!strncmp(argv[1]+1, procinfo->option, proc_option_length))
           {
-             if (procs[i].func)
-               procs[i].func(argc, argv);
+             if (procinfo->func)
+               procinfo->func(argc, argv);
+
+             return EINA_TRUE;
+          }
+     }
+
+   EINA_LIST_FOREACH(list_printinfo, l, procinfo)
+     {
+        proc_option_length = strlen(procinfo->option);
+        if (argv_len != proc_option_length) continue;
+        if (!strncmp(argv[1]+1, procinfo->option, proc_option_length))
+          {
+             if (procinfo->func)
+               procinfo->func(argc, argv);
+
+             return EINA_TRUE;
+          }
+     }
+
+   EINA_LIST_FOREACH(list_exec, l, procinfo)
+     {
+        proc_option_length = strlen(procinfo->option);
+        if (argv_len != proc_option_length) continue;
+        if (!strncmp(argv[1]+1, procinfo->option, proc_option_length))
+          {
+             if (procinfo->func)
+               procinfo->func(argc, argv);
 
              return EINA_TRUE;
           }
@@ -5208,55 +5297,90 @@ _e_info_client_process(int argc, char **argv)
 static void
 _e_info_client_print_usage_all(const char *exec)
 {
-   int nproc = sizeof(procs) / sizeof(procs[0]);
-   int i;
+   Eina_List *l = NULL;
+   ProcInfo  *procinfo = NULL;
 
    printf("\nUsage:\n");
-
-   for (i = 0; i < nproc; i++)
-     printf("  %s -%s %s\n", exec, procs[i].option, (procs[i].params)?procs[i].params:"");
-
-   printf("\nOptions:\n");
-
-   for (i = 0; i < nproc; i++)
+   EINA_LIST_FOREACH(list_tracelogs, l, procinfo)
      {
-        printf("  -%s\n", procs[i].option);
-        printf("      %s\n", (procs[i].description)?procs[i].description:"");
+        printf("  %s -%s %s\n", exec, procinfo->option, (procinfo->params)?procinfo->params:"");
      }
-
-   printf("\n");
+   printf("\n\n");
+   EINA_LIST_FOREACH(list_printinfo, l, procinfo)
+     {
+        printf("  %s -%s %s\n", exec, procinfo->option, (procinfo->params)?procinfo->params:"");
+     }
+   printf("\n\n");
+   EINA_LIST_FOREACH(list_exec, l, procinfo)
+     {
+        printf("  %s -%s %s\n", exec, procinfo->option, (procinfo->params)?procinfo->params:"");
+     }
 }
 
 static void
 _e_info_client_print_usage(int argc, char **argv)
 {
-   int nproc = sizeof(procs) / sizeof(procs[0]);
-   int i;
+   Eina_List *l = NULL;
+   ProcInfo  *procinfo = NULL;
 
-   for (i = 0; i < nproc; i++)
+   EINA_LIST_FOREACH(list_tracelogs, l, procinfo)
      {
-        if (!strncmp(argv[1]+1, procs[i].option, strlen(procs[i].option)))
+        if (!strncmp(argv[1]+1, procinfo->option, strlen(procinfo->option)))
           {
-             printf("  %s\n\n", (procs[i].description)?procs[i].description:"");
-             printf("  %s -%s %s\n", argv[0], procs[i].option, (procs[i].params)?procs[i].params:"");
+             printf("  %s\n\n", (procinfo->description)?procinfo->description:"");
+             printf("  %s -%s %s\n", argv[0], procinfo->option, (procinfo->params)?procinfo->params:"");
+             goto end;
           }
      }
 
+   EINA_LIST_FOREACH(list_printinfo, l, procinfo)
+     {
+        if (!strncmp(argv[1]+1, procinfo->option, strlen(procinfo->option)))
+          {
+             printf("  %s\n\n", (procinfo->description)?procinfo->description:"");
+             printf("  %s -%s %s\n", argv[0], procinfo->option, (procinfo->params)?procinfo->params:"");
+             goto end;
+          }
+     }
+
+   EINA_LIST_FOREACH(list_exec, l, procinfo)
+     {
+        if (!strncmp(argv[1]+1, procinfo->option, strlen(procinfo->option)))
+          {
+             printf("  %s\n\n", (procinfo->description)?procinfo->description:"");
+             printf("  %s -%s %s\n", argv[0], procinfo->option, (procinfo->params)?procinfo->params:"");
+             goto end;
+          }
+     }
+
+end:
    printf("\n");
 }
 
 static void
 _e_info_client_print_description(const char *exec)
 {
-   int nproc = sizeof(procs) / sizeof(procs[0]);
-   int i;
+   Eina_List *l = NULL;
+   ProcInfo  *procinfo = NULL;
 
    printf("\n\n");
 
-   for (i = 0; i < nproc; i++)
+   EINA_LIST_FOREACH(list_tracelogs, l, procinfo)
      {
-        printf(" -%-30s\t", procs[i].option);
-        printf(": %s\n", (procs[i].description)?procs[i].description:"");
+        printf(" -%-30s\t", procinfo->option);
+        printf(": %s\n", (procinfo->description)?procinfo->description:"");
+     }
+   printf("\n");
+   EINA_LIST_FOREACH(list_printinfo, l, procinfo)
+     {
+        printf(" -%-30s\t", procinfo->option);
+        printf(": %s\n", (procinfo->description)?procinfo->description:"");
+     }
+   printf("\n");
+   EINA_LIST_FOREACH(list_exec, l, procinfo)
+     {
+        printf(" -%-30s\t", procinfo->option);
+        printf(": %s\n", (procinfo->description)?procinfo->description:"");
      }
 
    printf("\n");
@@ -5274,6 +5398,22 @@ end_program(int sig)
 int
 main(int argc, char **argv)
 {
+   if (!eina_init())
+     {
+        printf("fail eina_init");
+        return -1;
+     }
+
+   if (!ecore_init())
+     {
+        printf("fail ecore_init");
+        eina_shutdown();
+        return -1;
+     }
+
+   /* list up all proc*/
+   _e_info_client_init_list();
+
    if (argc < 2 || argv[1][0] != '-')
      {
         _e_info_client_print_description(argv[0]);
@@ -5282,8 +5422,10 @@ main(int argc, char **argv)
 
    /* connecting dbus */
    if (!_e_info_client_eldbus_connect())
-     goto err;
-
+     {
+        printf("fail eldbus connection");
+        goto err;
+     }
    if (!strcmp(argv[1], "-h") ||
        !strcmp(argv[1], "-help") ||
        !strcmp(argv[1], "--help"))
@@ -5307,12 +5449,16 @@ main(int argc, char **argv)
           }
      }
 
+   /* list free proc*/
+   _e_info_client_shutdown_list();
+
    /* disconnecting dbus */
    _e_info_client_eldbus_disconnect();
 
    return 0;
 
 err:
+   _e_info_client_shutdown_list();
    _e_info_client_eldbus_disconnect();
    return -1;
 }
