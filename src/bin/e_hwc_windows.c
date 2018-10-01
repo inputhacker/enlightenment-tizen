@@ -222,7 +222,7 @@ _e_hwc_windows_aligned_width_get(tbm_surface_h tsurface)
 }
 
 static void
-_e_hwc_windows_release_commit_data(E_Hwc *hwc, int sequence,
+_e_hwc_windows_commit_data_release(E_Hwc *hwc, int sequence,
                                   unsigned int tv_sec, unsigned int tv_usec)
 {
    const Eina_List *l;
@@ -239,7 +239,7 @@ _e_hwc_windows_release_commit_data(E_Hwc *hwc, int sequence,
 }
 
 static Eina_Bool
-_e_hwc_windows_aquire_commit_data(E_Hwc *hwc)
+_e_hwc_windows_commit_data_aquire(E_Hwc *hwc)
 {
    const Eina_List *l;
    E_Hwc_Window *hwc_window;
@@ -274,7 +274,7 @@ _e_hwc_windows_commit_handler(tdm_hwc *thwc, unsigned int sequence,
         hwc->pp_tsurface = NULL;
      }
 
-   _e_hwc_windows_release_commit_data(hwc, sequence, tv_sec, tv_usec);
+   _e_hwc_windows_commit_data_release(hwc, sequence, tv_sec, tv_usec);
 
    EHWSTRACE("!!!!!!!! Output Commit Handler !!!!!!!!", NULL);
 
@@ -1467,7 +1467,7 @@ _e_hwc_windows_visible_windows_changed_check(E_Hwc *hwc, Eina_List *visible_wind
 }
 
 static Eina_Bool
-_e_hwc_windows_visible_windows_updates(E_Hwc *hwc)
+_e_hwc_windows_visible_windows_update(E_Hwc *hwc)
 {
    E_Hwc_Window *hwc_window;
    Eina_List *l;
@@ -1493,7 +1493,7 @@ _e_hwc_windows_visible_windows_updates(E_Hwc *hwc)
 
 /* check if there is a need to update the output */
 static Eina_Bool
-_e_hwc_windows_update_changes(E_Hwc *hwc)
+_e_hwc_windows_changes_update(E_Hwc *hwc)
 {
    E_Hwc_Window *hwc_window = NULL;
    Eina_Bool update_changes = EINA_FALSE;
@@ -1524,7 +1524,7 @@ _e_hwc_windows_update_changes(E_Hwc *hwc)
      }
 
    /* update the the visible windows */
-   if (_e_hwc_windows_visible_windows_updates(hwc))
+   if (_e_hwc_windows_visible_windows_update(hwc))
      update_changes = EINA_TRUE;
 
    return update_changes;
@@ -1589,7 +1589,7 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
 }
 
 static Eina_Bool
-_e_hwc_windows_prepare_target(E_Hwc *hwc)
+_e_hwc_windows_target_prepare(E_Hwc *hwc)
 {
    E_Hwc_Window *hwc_window = NULL;
 
@@ -1659,13 +1659,13 @@ e_hwc_windows_commit(E_Hwc *hwc)
         return EINA_TRUE;
      }
 
-   if (!_e_hwc_windows_update_changes(hwc))
+   if (!_e_hwc_windows_changes_update(hwc))
      return EINA_TRUE;
 
    if (!_e_hwc_windows_evaluate(hwc))
      return EINA_TRUE;
 
-   if (!_e_hwc_windows_prepare_target(hwc))
+   if (!_e_hwc_windows_target_prepare(hwc))
      return EINA_TRUE;
 
    if (output->dpms == E_OUTPUT_DPMS_OFF)
@@ -1674,7 +1674,7 @@ e_hwc_windows_commit(E_Hwc *hwc)
         return EINA_TRUE;
      }
 
-   if (!_e_hwc_windows_aquire_commit_data(hwc))
+   if (!_e_hwc_windows_commit_data_aquire(hwc))
      return EINA_TRUE;
 
    EHWSTRACE("!!!!!!!! HWC Commit !!!!!!!!", NULL);
