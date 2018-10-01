@@ -1398,32 +1398,6 @@ full_gl_composite:
    return EINA_TRUE;
 }
 
-/* filter visible clients by the hwc_window manager
- *
- * returns list of clients which are acceptable to be composited by hw,
- * it's a caller responsibility to free it
- *
- * for optimized hwc the returned list contains ALL clients
- */
-static void
-_e_hwc_windows_hwc_acceptable_check(Eina_List *visible_windows_list)
-{
-   Eina_List *l;
-   E_Hwc_Window *hwc_window = NULL;
-
-   EINA_LIST_FOREACH(visible_windows_list, l, hwc_window)
-     {
-        /* The video window is not composited by gl compositor */
-        if (e_hwc_window_is_video(hwc_window)) continue;
-
-        // check clients are able to use hwc
-        if (_e_hwc_windows_device_state_check(hwc_window->ec))
-          e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
-        else
-          e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
-     }
-}
-
 static Eina_Bool
 _e_hwc_windows_composition_evaluate(E_Hwc *hwc, Eina_List *visible_windows_list)
 {
@@ -1452,6 +1426,8 @@ static Eina_List *
 _e_hwc_windows_states_evaluate(E_Hwc *hwc)
 {
    Eina_List *visible_windows = NULL;
+   Eina_List *l;
+   E_Hwc_Window *hwc_window = NULL;
 
    /* get the visible ecs */
    visible_windows = hwc->visible_windows;
@@ -1459,8 +1435,19 @@ _e_hwc_windows_states_evaluate(E_Hwc *hwc)
    /* check the gles composite with all hwc_windows. */
    if (_e_hwc_windows_full_gl_composite_check(hwc, visible_windows)) return visible_windows;
 
-   /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
-   _e_hwc_windows_hwc_acceptable_check(visible_windows);
+   /* check clients are able to use hwc */
+   EINA_LIST_FOREACH(visible_windows, l, hwc_window)
+     {
+        /* The video window is not composited by gl compositor */
+        if (e_hwc_window_is_video(hwc_window)) continue;
+
+        /* filter the visible clients which e20 prevent to shown by hw directly
+           by demand of e20 */
+        if (_e_hwc_windows_device_state_check(hwc_window->ec))
+          e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
+        else
+          e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
+     }
 
    return visible_windows;
 }
