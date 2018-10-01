@@ -871,31 +871,6 @@ _e_hwc_windows_window_find_by_twin(E_Hwc *hwc, tdm_hwc_window *hwc_win)
    return NULL;
 }
 
-static Eina_Bool
-_e_hwc_windows_compsitions_update(E_Hwc *hwc)
-{
-   const Eina_List *l;
-   E_Hwc_Window *hwc_window;
-
-   EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
-     {
-        if (e_hwc_window_is_target(hwc_window)) continue;
-
-        if (!e_hwc_window_composition_update(hwc_window))
-          {
-             ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
-             return EINA_FALSE;
-          }
-    }
-
-#if DBG_EVALUATE
-   EHWSTRACE(" Request HWC Validation to TDM HWC:", NULL);
-   _e_hwc_windows_status_print(hwc, EINA_FALSE);
-#endif
-
-   return EINA_TRUE;
-}
-
 static E_Hwc_Window_State
 _e_hwc_windows_window_state_get(tdm_hwc_window_composition composition_type)
 {
@@ -1200,6 +1175,11 @@ _e_hwc_windows_validate(E_Hwc *hwc, Eina_List *visible_windows_list, uint32_t *n
    E_Hwc_Window *hwc_window;
    const Eina_List *l;
 
+#if DBG_EVALUATE
+   EHWSTRACE(" Request HWC Validation to TDM HWC:", NULL);
+   _e_hwc_windows_status_print(hwc, EINA_FALSE);
+#endif
+
    n_thw = eina_list_count(visible_windows_list);
    if (n_thw)
      {
@@ -1447,6 +1427,10 @@ _e_hwc_windows_states_evaluate(E_Hwc *hwc)
           e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
         else
           e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
+
+        /* update the composition type */
+        if (!e_hwc_window_composition_update(hwc_window))
+          ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
      }
 
    return visible_windows;
@@ -1564,8 +1548,6 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
    Eina_Bool ret;
 
    visible_windows = _e_hwc_windows_states_evaluate(hwc);
-
-   _e_hwc_windows_compsitions_update(hwc);
 
    /* evaulate the compositions with the states*/
    ret = _e_hwc_windows_composition_evaluate(hwc, visible_windows);
