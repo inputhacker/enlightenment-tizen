@@ -1547,16 +1547,14 @@ static Eina_Bool
 _e_hwc_windows_evaluate(E_Hwc *hwc)
 {
    E_Hwc_Mode hwc_mode = E_HWC_MODE_NONE;
-   Eina_Bool ret;
 
    _e_hwc_windows_states_evaluate(hwc);
 
    /* evaulate the compositions with the states*/
-   ret = _e_hwc_windows_composition_evaluate(hwc);
-   if (ret)
-     EHWSTRACE(" Succeed the compsition_evaulation.", NULL);
-   else
-     EHWSTRACE(" Need the comopsition re-evaulation.", NULL);
+   if (!_e_hwc_windows_composition_evaluate(hwc))
+     goto fail_evaluate;
+
+   EHWSTRACE(" Succeed the compsition_evaulation.", NULL);
 
    /* decide the E_HWC_MODE */
    hwc_mode = _e_hwc_windows_hwc_mode_get(hwc);
@@ -1585,7 +1583,11 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
    else
      _e_hwc_windows_target_state_set(hwc->target_hwc_window, E_HWC_WINDOW_STATE_NONE);
 
-    return ret;
+    return EINA_TRUE;
+
+fail_evaluate:
+   EHWSTRACE(" Need the comopsition re-evaulation.", NULL);
+   return EINA_FALSE;
 }
 
 static Eina_Bool
