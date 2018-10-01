@@ -6288,8 +6288,8 @@ e_comp_wl_commit_sync_client_geometry_add(E_Client *ec,
 {
    E_Client_Pending_Geometry *geo;
 
-   if (!ec) goto err;
-   if (e_object_is_del(E_OBJECT(ec))) goto err;
+   if (!ec) goto ret;
+   if (e_object_is_del(E_OBJECT(ec))) goto ret;
    if (ec->new_client || ec->fullscreen || ec->maximized) goto err;
    if (mode == E_GEOMETRY_NONE) goto err;
 
@@ -6316,6 +6316,8 @@ e_comp_wl_commit_sync_client_geometry_add(E_Client *ec,
 
 err:
    ELOGF("POSSIZE", "Could not add geometry(new:%d full:%d max:%d)", ec->pixmap, ec, ec->new_client, ec->fullscreen, ec->maximized);
+
+ret:
    return EINA_FALSE;
 }
 
@@ -6450,7 +6452,7 @@ _tz_move_resize_iface_cb_set_geometry(struct wl_client *client EINA_UNUSED,
    E_Client *ec;
 
    ec = wl_resource_get_user_data(surface);
-   if (!ec) goto err;
+   if (!ec) return;
    if (!e_comp_wl_commit_sync_client_geometry_add(ec, E_GEOMETRY_POS | E_GEOMETRY_SIZE, serial, x, y, w, h)) goto err;
    return;
 
