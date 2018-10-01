@@ -1677,7 +1677,7 @@ e_hwc_windows_commit(E_Hwc *hwc)
    if (!_e_hwc_windows_aquire_commit_data(hwc))
      return EINA_TRUE;
 
-   EHWSTRACE("!!!!!!!! Output Commit !!!!!!!!", NULL);
+   EHWSTRACE("!!!!!!!! HWC Commit !!!!!!!!", NULL);
 
    if (output->zoom_set)
      {
@@ -1694,7 +1694,7 @@ e_hwc_windows_commit(E_Hwc *hwc)
         error = tdm_hwc_commit(hwc->thwc, 0, _e_hwc_windows_commit_handler, hwc);
         if (error != TDM_ERROR_NONE)
           {
-             ERR("tdm_output_commit failed.");
+             ERR("tdm_hwc_commit failed.");
              _e_hwc_windows_commit_handler(hwc->thwc, 0, 0, 0, hwc);
              goto fail;
           }
