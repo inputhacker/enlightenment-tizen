@@ -3002,24 +3002,39 @@ e_client_transient_child_top_get(E_Client *ec, Eina_Bool consider_focus)
 static Eina_Bool
 _e_client_visibility_touched_check(E_Client *ec)
 {
-   Eina_Bool res = EINA_FALSE;
    int x, y, w, h;
    int tx, ty;
+   Eina_List *list = NULL, *l;
+   Eina_Rectangle *data;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, res);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
 
    tx = wl_fixed_to_int(e_comp->wl_comp_data->ptr.x);
    ty = wl_fixed_to_int(e_comp->wl_comp_data->ptr.y);
+
+   e_comp_object_input_rect_get(ec->frame, &list);
+   if (!list || (eina_list_count(list) > 0))
+     {
+        EINA_LIST_FOREACH(list, l, data)
+          {
+             if ((tx >= data->x) && (tx <= data->x + data->w) &&
+                 (ty >= data->y) && (ty <= data->y + data->h))
+               {
+                  return EINA_TRUE;
+               }
+          }
+        return EINA_FALSE;
+     }
 
    e_client_geometry_get(ec, &x, &y, &w, &h);
 
    if ((tx >= x) && (tx <= x + w) &&
        (ty >= y) && (ty <= y + h))
      {
-        res = EINA_TRUE;
+        return EINA_TRUE;
      }
 
-   return res;
+   return EINA_FALSE;
 }
 
 static void
