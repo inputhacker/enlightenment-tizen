@@ -1165,7 +1165,7 @@ fail:
 }
 
 static Eina_Bool
-_e_hwc_windows_validate(E_Hwc *hwc, Eina_List *visible_windows_list, uint32_t *num_changes)
+_e_hwc_windows_validate(E_Hwc *hwc, uint32_t *num_changes)
 {
    E_Output *output = hwc->output;
    tdm_error terror;
@@ -1174,20 +1174,21 @@ _e_hwc_windows_validate(E_Hwc *hwc, Eina_List *visible_windows_list, uint32_t *n
    int i, n_thw;
    E_Hwc_Window *hwc_window;
    const Eina_List *l;
+   Eina_List *visible_windows = hwc->visible_windows;
 
 #if DBG_EVALUATE
    EHWSTRACE(" Request HWC Validation to TDM HWC:", NULL);
    _e_hwc_windows_status_print(hwc, EINA_FALSE);
 #endif
 
-   n_thw = eina_list_count(visible_windows_list);
+   n_thw = eina_list_count(visible_windows);
    if (n_thw)
      {
         thwc_windows = E_NEW(tdm_hwc_window *, n_thw);
         EINA_SAFETY_ON_NULL_GOTO(thwc_windows, error);
 
         i = 0;
-        EINA_LIST_FOREACH(visible_windows_list, l, hwc_window)
+        EINA_LIST_FOREACH(visible_windows, l, hwc_window)
           thwc_windows[i++] = hwc_window->thwc_window;
      }
 
@@ -1308,11 +1309,12 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 }
 
 static Eina_Bool
-_e_hwc_windows_full_gl_composite_check(E_Hwc *hwc, Eina_List *visible_windows_list)
+_e_hwc_windows_full_gl_composite_check(E_Hwc *hwc)
 {
    Eina_List *l;
    E_Client *ec;
    E_Hwc_Window *hwc_window = NULL;
+   Eina_List *visible_windows = hwc->visible_windows;
 
    /* make the full_gl_composite when the zoom is enabled */
    if (hwc->output->zoom_set) goto full_gl_composite;
@@ -1327,7 +1329,7 @@ _e_hwc_windows_full_gl_composite_check(E_Hwc *hwc, Eina_List *visible_windows_li
         goto full_gl_composite;
      }
 
-   EINA_LIST_FOREACH(visible_windows_list, l, hwc_window)
+   EINA_LIST_FOREACH(visible_windows, l, hwc_window)
      {
         ec = hwc_window->ec;
 
@@ -1365,7 +1367,7 @@ _e_hwc_windows_full_gl_composite_check(E_Hwc *hwc, Eina_List *visible_windows_li
    return EINA_FALSE;
 
 full_gl_composite:
-   EINA_LIST_FOREACH(visible_windows_list, l, hwc_window)
+   EINA_LIST_FOREACH(visible_windows, l, hwc_window)
      {
         /* The video window is not composited by gl compositor */
         if (e_hwc_window_is_video(hwc_window)) continue;
@@ -1379,13 +1381,13 @@ full_gl_composite:
 }
 
 static Eina_Bool
-_e_hwc_windows_composition_evaluate(E_Hwc *hwc, Eina_List *visible_windows_list)
+_e_hwc_windows_composition_evaluate(E_Hwc *hwc)
 {
    Eina_Bool ret = EINA_FALSE;
    uint32_t num_changes;
 
    /* validate the updated hwc_windows by asking tdm_hwc_output */
-   if (!_e_hwc_windows_validate(hwc, visible_windows_list, &num_changes))
+   if (!_e_hwc_windows_validate(hwc, &num_changes))
      {
         ERR("HWC-WINS: _e_hwc_windows_validate failed.");
         ret = EINA_FALSE;
@@ -1402,7 +1404,7 @@ done:
    return ret;
 }
 
-static Eina_List *
+static void
 _e_hwc_windows_states_evaluate(E_Hwc *hwc)
 {
    Eina_List *visible_windows = NULL;
@@ -1413,7 +1415,7 @@ _e_hwc_windows_states_evaluate(E_Hwc *hwc)
    visible_windows = hwc->visible_windows;
 
    /* check the gles composite with all hwc_windows. */
-   if (_e_hwc_windows_full_gl_composite_check(hwc, visible_windows)) return visible_windows;
+   if (_e_hwc_windows_full_gl_composite_check(hwc)) return;
 
    /* check clients are able to use hwc */
    EINA_LIST_FOREACH(visible_windows, l, hwc_window)
@@ -1432,8 +1434,6 @@ _e_hwc_windows_states_evaluate(E_Hwc *hwc)
         if (!e_hwc_window_composition_update(hwc_window))
           ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
      }
-
-   return visible_windows;
 }
 
 static Eina_Bool
@@ -1544,13 +1544,12 @@ static Eina_Bool
 _e_hwc_windows_evaluate(E_Hwc *hwc)
 {
    E_Hwc_Mode hwc_mode = E_HWC_MODE_NONE;
-   Eina_List *visible_windows = NULL;
    Eina_Bool ret;
 
-   visible_windows = _e_hwc_windows_states_evaluate(hwc);
+   _e_hwc_windows_states_evaluate(hwc);
 
    /* evaulate the compositions with the states*/
-   ret = _e_hwc_windows_composition_evaluate(hwc, visible_windows);
+   ret = _e_hwc_windows_composition_evaluate(hwc);
    if (ret)
      EHWSTRACE(" Succeed the compsition_evaulation.", NULL);
    else
