@@ -283,19 +283,22 @@ _e_hwc_windows_commit_handler(tdm_hwc *thwc, unsigned int sequence,
    hwc->wait_commit = EINA_FALSE;
 }
 
-static Eina_Bool
-_e_hwc_windows_offscreen_commit(E_Output *output, E_Hwc_Window *hwc_window)
+static void
+_e_hwc_windows_offscreen_commit(E_Hwc *hwc)
 {
-   if (!e_hwc_window_commit_data_acquire(hwc_window))
-     return EINA_FALSE;
+   E_Hwc_Window *hwc_window = NULL;
+   Eina_List *l;
 
-   /* send frame event enlightenment doesn't send frame event in nocomp */
-   if (hwc_window->ec)
-     e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
+     {
+        if (!e_hwc_window_commit_data_acquire(hwc_window)) continue;
 
-   e_hwc_window_commit_data_release(hwc_window);
+        /* send frame event enlightenment doesn't send frame event in nocomp */
+        if (hwc_window->ec)
+          e_pixmap_image_clear(hwc_window->ec->pixmap, 1);
 
-   return EINA_TRUE;
+        e_hwc_window_commit_data_release(hwc_window);
+     }
 }
 
 static E_Hwc_Window *
@@ -1641,8 +1644,6 @@ e_hwc_windows_render(E_Hwc *hwc)
 EINTERN Eina_Bool
 e_hwc_windows_commit(E_Hwc *hwc)
 {
-   E_Hwc_Window *hwc_window = NULL;
-   Eina_List *l;
    E_Output *output = NULL;
    tdm_error error = TDM_ERROR_NONE;
 
@@ -1669,9 +1670,7 @@ e_hwc_windows_commit(E_Hwc *hwc)
 
    if (output->dpms == E_OUTPUT_DPMS_OFF)
      {
-        EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
-           _e_hwc_windows_offscreen_commit(output, hwc_window);
-
+        _e_hwc_windows_offscreen_commit(hwc);
         return EINA_TRUE;
      }
 
