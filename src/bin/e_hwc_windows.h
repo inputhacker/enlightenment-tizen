@@ -6,7 +6,6 @@
 EINTERN Eina_Bool            e_hwc_windows_init(E_Hwc *hwc);
 EINTERN void                 e_hwc_windows_deinit(void);
 
-EINTERN const Eina_List     *e_hwc_windows_get(E_Hwc *hwc);
 EINTERN Eina_Bool            e_hwc_windows_render(E_Hwc *hwc);
 EINTERN Eina_Bool            e_hwc_windows_commit(E_Hwc *hwc);
 

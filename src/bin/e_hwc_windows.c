@@ -228,7 +228,7 @@ _e_hwc_windows_commit_data_release(E_Hwc *hwc, int sequence,
    const Eina_List *l;
    E_Hwc_Window *hwc_window;
 
-   EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
          if (!hwc_window->commit_data) continue;
          if (e_hwc_window_is_video(hwc_window))
@@ -372,7 +372,7 @@ _e_hwc_windows_pp_output_commit_handler(tdm_output *toutput, unsigned int sequen
 
    hwc->pp_output_commit = EINA_FALSE;
 
-   EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, window)
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, window)
      {
         if (window->commit_data && !window->commit_data->buffer.tsurface)
           e_hwc_window_commit_data_release(window);
@@ -746,7 +746,7 @@ pp_fail:
 static E_Hwc_Window *
 _e_hwc_windows_pp_get_hwc_window_for_zoom(E_Hwc *hwc)
 {
-   const Eina_List *hwc_windows, *l;
+   const Eina_List *l;
    E_Hwc_Window *hwc_window = NULL;
    E_Hwc_Window *hwc_window_for_zoom = NULL;
    int num = 0;
@@ -754,8 +754,7 @@ _e_hwc_windows_pp_get_hwc_window_for_zoom(E_Hwc *hwc)
 
    e_output_size_get(hwc->output, &w, &h);
 
-   hwc_windows = e_hwc_windows_get(hwc);
-   EINA_LIST_FOREACH(hwc_windows, l, hwc_window)
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
    {
       if (!e_hwc_window_is_on_hw_overlay(hwc_window)) continue;
 
@@ -911,7 +910,7 @@ _e_hwc_windows_activation_states_update(E_Hwc *hwc)
    const Eina_List *l;
 
    /* mark the active/deactive on hwc_window */
-   EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
         if (hwc_window->is_deleted) continue;
         if (hwc_window->queue) continue;
@@ -932,7 +931,7 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
    Eina_Bool transition = EINA_FALSE;
    const Eina_List *l;
 
-   EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
         if (e_hwc_window_is_target(hwc_window)) continue;
         if (e_hwc_window_is_video(hwc_window)) continue;
@@ -1034,7 +1033,7 @@ _e_hwc_windows_render_target_update(E_Hwc *hwc)
    E_Hwc_Window_State state;
    E_Pointer *pointer = NULL;
 
-   EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
         if (hwc_window->is_target) continue;
         if (!hwc_window->ec) continue;
@@ -1145,7 +1144,7 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
         goto fail;
      }
 
-   EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
         if (e_hwc_window_is_target(hwc_window)) continue;
 
@@ -1503,7 +1502,7 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
    if (e_hwc_window_target_buffer_fetch(hwc->target_hwc_window)) // try aquire
      update_changes = EINA_TRUE;
 
-   EINA_LIST_FOREACH(e_hwc_windows_get(hwc), l, hwc_window)
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
         if (e_hwc_window_is_target(hwc_window)) continue;
 
@@ -1614,14 +1613,6 @@ e_hwc_windows_init(E_Hwc *hwc)
 EINTERN void
 e_hwc_windows_deinit(void)
 {
-}
-
-EINTERN const Eina_List *
-e_hwc_windows_get(E_Hwc *hwc)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, NULL);
-
-   return hwc->hwc_windows;
 }
 
 EINTERN Eina_Bool
