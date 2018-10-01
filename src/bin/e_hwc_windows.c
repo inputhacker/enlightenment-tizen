@@ -1027,23 +1027,22 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
 }
 
 static void
-_e_hwc_windows_preparation_update(E_Hwc *hwc)
+_e_hwc_windows_constraints_update(E_Hwc *hwc)
 {
    tdm_error terror;
    E_Hwc_Window *hwc_window;
    const Eina_List *l;
-   int preparation_types;
+   int constraints;
 
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
         if (hwc_window->is_target) continue;
         if (!hwc_window->thwc_window) continue;
 
-        terror = tdm_hwc_window_get_preparation_types(hwc_window->thwc_window,
-                                                      &preparation_types);
+        terror = tdm_hwc_window_get_constraints(hwc_window->thwc_window, &constraints);
         if (terror != TDM_ERROR_NONE) continue;
 
-        e_hwc_window_preparation_set(hwc_window, preparation_types);
+        e_hwc_window_constraints_set(hwc_window, constraints);
      }
 
    return;
@@ -1136,7 +1135,7 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
         e_hwc_window_state_set(hwc_window, state);
      }
 
-   _e_hwc_windows_preparation_update(hwc);
+   _e_hwc_windows_constraints_update(hwc);
    _e_hwc_windows_render_target_update(hwc);
 
 #if DBG_EVALUATE

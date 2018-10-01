@@ -517,7 +517,7 @@ _e_hwc_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      return;
 
-   e_hwc_window_preparation_set(ec->hwc_window, TDM_PREPARATION_NONE);
+   e_hwc_window_constraints_set(ec->hwc_window, TDM_CONSTRAINT_NONE);
 
    if (!ec->hwc_window) return;
 
@@ -1758,15 +1758,15 @@ e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window)
 }
 
 EINTERN Eina_Bool
-e_hwc_window_preparation_set(E_Hwc_Window *hwc_window, int preparation_types)
+e_hwc_window_constraints_set(E_Hwc_Window *hwc_window, int constraints)
 {
    E_Hwc_Window_Queue *queue = NULL;
 
    EINA_SAFETY_ON_FALSE_RETURN_VAL(hwc_window, EINA_FALSE);
 
-   if (hwc_window->preparation_types == preparation_types) return EINA_TRUE;
+   if (hwc_window->constraints == constraints) return EINA_TRUE;
 
-   if (preparation_types & TDM_PREPARATION_BUFFER_QUEUE)
+   if (constraints & TDM_CONSTRAINT_BUFFER_QUEUE)
      {
          if (!hwc_window->queue)
            {
@@ -1793,7 +1793,7 @@ e_hwc_window_preparation_set(E_Hwc_Window *hwc_window, int preparation_types)
            }
      }
 
-   hwc_window->preparation_types = preparation_types;
+   hwc_window->constraints = constraints;
 
    return EINA_TRUE;
 }
