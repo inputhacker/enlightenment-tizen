@@ -1457,11 +1457,10 @@ _e_hwc_windows_states_evaluate(E_Hwc *hwc)
    visible_windows = hwc->visible_windows;
 
    /* check the gles composite with all hwc_windows. */
-   if (!_e_hwc_windows_full_gl_composite_check(hwc, visible_windows))
-     {
-        /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
-        _e_hwc_windows_hwc_acceptable_check(visible_windows);
-     }
+   if (_e_hwc_windows_full_gl_composite_check(hwc, visible_windows)) return visible_windows;
+
+   /* by demand of hwc_window manager to prevent some e_clients to be shown by hw directly */
+   _e_hwc_windows_hwc_acceptable_check(visible_windows);
 
    return visible_windows;
 }
