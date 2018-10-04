@@ -903,26 +903,6 @@ _e_hwc_windows_window_state_get(tdm_hwc_window_composition composition_type)
    return state;
 }
 
-static void
-_e_hwc_windows_activation_states_update(E_Hwc *hwc)
-{
-   E_Hwc_Window *hwc_window;
-   const Eina_List *l;
-
-   /* mark the active/deactive on hwc_window */
-   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
-     {
-        if (hwc_window->is_deleted) continue;
-        if (hwc_window->queue) continue;
-        if (e_hwc_window_is_target(hwc_window)) continue;
-        if (e_hwc_window_is_video(hwc_window)) continue;
-
-        if (e_hwc_window_is_on_hw_overlay(hwc_window))
-          /* notify the hwc_window that it will be displayed on hw layer */
-          e_hwc_window_activate(hwc_window, NULL);
-      }
-}
-
 static Eina_Bool
 _e_hwc_windows_transition_check(E_Hwc *hwc)
 {
@@ -1146,13 +1126,19 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
 
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
+        if (hwc_window->is_deleted) continue;
         if (e_hwc_window_is_target(hwc_window)) continue;
 
+        /* update the accepted_state */
         state = e_hwc_window_state_get(hwc_window);
         e_hwc_window_accepted_state_set(hwc_window, state);
-     }
 
-   _e_hwc_windows_activation_states_update(hwc);
+        /* notify the hwc_window that it will be displayed on hw layer */
+        if (!hwc_window->queue &&
+            !e_hwc_window_is_video(hwc_window) &&
+            e_hwc_window_is_on_hw_overlay(hwc_window))
+          e_hwc_window_activate(hwc_window, NULL);
+     }
 
    free(changed_hwc_window);
    free(composition_types);
