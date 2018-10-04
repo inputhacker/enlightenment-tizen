@@ -754,7 +754,8 @@ _e_shell_client_map_common_post(E_Client *ec)
    ec->first_mapped = 1;
 
    e_policy_visibility_client_hide_job_cancel(ec);
-   e_vis_client_check_send_pre_visibility_event(ec, EINA_FALSE);
+   if (!(ec->iconic && ec->exp_iconify.by_client))
+     e_vis_client_check_send_pre_visibility_event(ec, EINA_FALSE);
 
    ELOGF("COMP", "Un-Set launching flag", ec->pixmap, ec);
    ec->launching = EINA_FALSE;
