@@ -1412,11 +1412,9 @@ fail_evaluate:
 }
 
 static Eina_Bool
-_e_hwc_windows_target_prepare(E_Hwc *hwc)
+_e_hwc_windows_target_buffer_prepared(E_Hwc *hwc)
 {
    E_Hwc_Window *hwc_window = NULL;
-
-   if (hwc->hwc_mode == E_HWC_MODE_FULL) return EINA_TRUE;
 
    hwc_window = (E_Hwc_Window *)hwc->target_hwc_window;
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc->target_hwc_window, EINA_FALSE);
@@ -1480,8 +1478,10 @@ e_hwc_windows_commit(E_Hwc *hwc)
    if (!_e_hwc_windows_evaluate(hwc))
      return EINA_TRUE;
 
-   if (!_e_hwc_windows_target_prepare(hwc))
-     return EINA_TRUE;
+   if (hwc->hwc_mode != E_HWC_MODE_FULL) {
+     if (!_e_hwc_windows_target_buffer_prepared(hwc))
+       return EINA_TRUE;
+   }
 
    if (output->dpms == E_OUTPUT_DPMS_OFF)
      {
