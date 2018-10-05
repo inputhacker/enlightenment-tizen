@@ -1234,7 +1234,7 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 }
 
 static Eina_Bool
-_e_hwc_windows_full_gl_composite_check(E_Hwc *hwc)
+_e_hwc_windows_all_client_states_available_check(E_Hwc *hwc)
 {
    Eina_List *l;
    E_Client *ec;
@@ -1242,16 +1242,16 @@ _e_hwc_windows_full_gl_composite_check(E_Hwc *hwc)
    Eina_List *visible_windows = hwc->visible_windows;
 
    /* make the full_gl_composite when the zoom is enabled */
-   if (hwc->output->zoom_set) goto full_gl_composite;
+   if (hwc->output->zoom_set) return EINA_TRUE;
 
    /* full composite is forced to be set */
-   if (e_hwc_deactive_get(hwc)) goto full_gl_composite;
+   if (e_hwc_deactive_get(hwc)) return EINA_TRUE;
 
    /* hwc_window manager required full GLES composition */
    if (e_comp->nocomp_override > 0)
      {
         EHWSTRACE("  HWC_MODE_NONE due to nocomp_override > 0.", NULL);
-        goto full_gl_composite;
+        return EINA_TRUE;
      }
 
    EINA_LIST_FOREACH(visible_windows, l, hwc_window)
@@ -1268,7 +1268,7 @@ _e_hwc_windows_full_gl_composite_check(E_Hwc *hwc)
                {
                    EHWSTRACE("    HWC_MODE_NONE due to quickpanel is opened.{%25s}.",
                              ec, ec->icccm.title);
-                   goto full_gl_composite;
+                   return EINA_TRUE;
                }
           }
 
@@ -1277,7 +1277,7 @@ _e_hwc_windows_full_gl_composite_check(E_Hwc *hwc)
           {
              EHWSTRACE("  HWC_MODE_NONE due to E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE{%25s}.",
                        ec, ec->icccm.title);
-             goto full_gl_composite;
+             return EINA_TRUE;
           }
 
         // if there is UI subfrace, it means need to composite
@@ -1285,24 +1285,11 @@ _e_hwc_windows_full_gl_composite_check(E_Hwc *hwc)
           {
             EHWSTRACE("  HWC_MODE_NONE due to UI subfrace{%25s}.",
                       ec, ec->icccm.title);
-            goto full_gl_composite;
+            return EINA_TRUE;
           }
      }
 
    return EINA_FALSE;
-
-full_gl_composite:
-   EINA_LIST_FOREACH(visible_windows, l, hwc_window)
-     {
-        /* The video window is not composited by gl compositor */
-        if (e_hwc_window_is_video(hwc_window)) continue;
-
-        e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
-
-        EHWSTRACE("   ehw:%p -- {%25s} is NOT hwc_acceptable.",
-                hwc_window->ec, hwc_window, hwc_window->ec->icccm.title);
-     }
-   return EINA_TRUE;
 }
 
 static void
@@ -1315,25 +1302,53 @@ _e_hwc_windows_states_evaluate(E_Hwc *hwc)
    /* get the visible ecs */
    visible_windows = hwc->visible_windows;
 
-   /* check the gles composite with all hwc_windows. */
-   if (_e_hwc_windows_full_gl_composite_check(hwc)) return;
-
-   /* check clients are able to use hwc */
-   EINA_LIST_FOREACH(visible_windows, l, hwc_window)
+   /* check if e20 forces to set that all window has TDM_COMPOSITION_CLIENT types */
+   if (_e_hwc_windows_all_client_states_available_check(hwc))
      {
-        /* The video window is not composited by gl compositor */
-        if (e_hwc_window_is_video(hwc_window)) continue;
+        EINA_LIST_FOREACH(visible_windows, l, hwc_window)
+          {
+             /* The video window set the TDM_COMPOSITION_VIDEO type. */
+             if (e_hwc_window_is_video(hwc_window))
+               {
+                  if (!e_hwc_window_composition_update(hwc_window))
+                    ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
+                  continue;
+               }
 
-        /* filter the visible clients which e20 prevent to shown by hw directly
-           by demand of e20 */
-        if (_e_hwc_windows_device_state_check(hwc_window->ec))
-          e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
-        else
-          e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
 
-        /* update the composition type */
-        if (!e_hwc_window_composition_update(hwc_window))
-          ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
+             EHWSTRACE("   ehw:%p -- {%25s} is NOT hwc_acceptable.",
+                     hwc_window->ec, hwc_window, hwc_window->ec->icccm.title);
+
+             /* update the composition type */
+             if (!e_hwc_window_composition_update(hwc_window))
+               ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
+          }
+     }
+   else
+     {
+        /* check clients are able to use hwc */
+        EINA_LIST_FOREACH(visible_windows, l, hwc_window)
+          {
+             /* The video window set the TDM_COMPOSITION_VIDEO type. */
+             if (e_hwc_window_is_video(hwc_window))
+               {
+                  if (!e_hwc_window_composition_update(hwc_window))
+                    ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
+                  continue;
+               }
+
+             /* filter the visible clients which e20 prevent to shown by hw directly
+                by demand of e20 */
+             if (_e_hwc_windows_device_state_check(hwc_window->ec))
+               e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
+             else
+               e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
+
+             /* update the composition type */
+             if (!e_hwc_window_composition_update(hwc_window))
+               ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
+          }
      }
 }
 
