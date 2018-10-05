@@ -992,7 +992,6 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
    tdm_error terror;
    tdm_hwc_window **changed_hwc_window = NULL;
    tdm_hwc_window_composition *composition_types = NULL;
-   Eina_Bool transition  = EINA_FALSE;
    const Eina_List *l;
    E_Hwc_Mode hwc_mode = E_HWC_MODE_NONE;
    int i;
@@ -1043,19 +1042,14 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
    _e_hwc_windows_status_print(hwc, EINA_FALSE);
 #endif
 
+   /* skip the target_buffer when the window is on trainsition of the composition */
    hwc_mode = _e_hwc_windows_hwc_mode_get(hwc);
-   if (hwc_mode != E_HWC_MODE_FULL)
+   if (hwc_mode != E_HWC_MODE_FULL &&
+       _e_hwc_windows_transition_check(hwc))
      {
-        transition = _e_hwc_windows_transition_check(hwc);
-        if (transition)
-          {
-             e_hwc_window_target_buffer_skip(hwc->target_hwc_window);
-             hwc->transition = EINA_TRUE;
-             goto fail;
-          }
+        e_hwc_window_target_buffer_skip(hwc->target_hwc_window);
+        goto fail;
      }
-
-   hwc->transition = EINA_FALSE;
 
    EHWSTRACE("HWC Accept", NULL);
 

@@ -61,7 +61,6 @@ struct _E_Hwc
    Eina_Bool            wait_commit;
    Eina_List           *visible_windows;
    int                  num_visible_windows;
-   Eina_Bool            transition;
 
    Eina_Bool            intercept_pol;
 
