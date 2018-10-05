@@ -1929,26 +1929,22 @@ e_hwc_window_constraints_update(E_Hwc_Window *hwc_window)
 static void
 _e_hwc_window_client_recover(E_Hwc_Window *hwc_window)
 {
-   E_Comp_Wl_Buffer *buffer = NULL, *recover_buffer = NULL;;
+   E_Comp_Wl_Buffer *recover_buffer = NULL;;
    tbm_surface_h tsurface =NULL;
    E_Client *ec = NULL;
 
    ec = hwc_window->ec;
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   buffer = _e_hwc_window_comp_wl_buffer_get(hwc_window);
-   if (!buffer)
+   recover_buffer = _e_hwc_window_comp_wl_buffer_get(hwc_window);
+   if (!recover_buffer)
      {
         tsurface = e_hwc_window_displaying_surface_get(hwc_window);
         if (!tsurface) return;
 
         recover_buffer = e_comp_wl_tbm_buffer_get(tsurface);
+        EINA_SAFETY_ON_NULL_RETURN(recover_buffer);
      }
-   else
-     recover_buffer = buffer;
-
-
-   EINA_SAFETY_ON_NULL_RETURN(recover_buffer);
 
    EHWTRACE("Recover ts:%p -- {%s}",
             hwc_window->ec, hwc_window, recover_buffer->tbm_surface,
@@ -1958,8 +1954,6 @@ _e_hwc_window_client_recover(E_Hwc_Window *hwc_window)
    e_comp_wl_surface_attach(ec, recover_buffer);
 
    e_hwc_window_buffer_fetch(hwc_window);
-
-   return;
 }
 
 static Eina_Bool
