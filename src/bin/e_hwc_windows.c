@@ -1305,30 +1305,6 @@ full_gl_composite:
    return EINA_TRUE;
 }
 
-static Eina_Bool
-_e_hwc_windows_composition_evaluate(E_Hwc *hwc)
-{
-   Eina_Bool ret = EINA_FALSE;
-   uint32_t num_changes;
-
-   /* validate the updated hwc_windows by asking tdm_hwc_output */
-   if (!_e_hwc_windows_validate(hwc, &num_changes))
-     {
-        ERR("HWC-WINS: _e_hwc_windows_validate failed.");
-        ret = EINA_FALSE;
-        goto done;
-     }
-
-   if (_e_hwc_windows_accept(hwc, num_changes))
-     ret = EINA_TRUE;
-   else
-     ret = EINA_FALSE;
-
-done:
-
-   return ret;
-}
-
 static void
 _e_hwc_windows_states_evaluate(E_Hwc *hwc)
 {
@@ -1469,12 +1445,20 @@ static Eina_Bool
 _e_hwc_windows_evaluate(E_Hwc *hwc)
 {
    E_Hwc_Mode hwc_mode = E_HWC_MODE_NONE;
+   uint32_t num_changes;
 
    _e_hwc_windows_states_evaluate(hwc);
 
-   /* evaulate the compositions with the states*/
-   if (!_e_hwc_windows_composition_evaluate(hwc))
-     goto fail_evaluate;
+   /* validate the visible hwc_windows' states*/
+   if (!_e_hwc_windows_validate(hwc, &num_changes))
+     {
+        ERR("HWC-WINS: _e_hwc_windows_validate failed.");
+        goto fail_evaluate;
+     }
+
+   /* accept the result of the validation */
+   if (!_e_hwc_windows_accept(hwc, num_changes))
+       goto fail_evaluate;
 
    EHWSTRACE(" Succeed the compsition_evaulation.", NULL);
 
