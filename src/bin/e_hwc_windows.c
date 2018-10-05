@@ -983,35 +983,6 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
     return transition;
 }
 
-static void
-_e_hwc_windows_constraints_update(E_Hwc *hwc)
-{
-   E_Hwc_Window *hwc_window;
-   const Eina_List *l;
-
-   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
-     {
-        if (hwc_window->is_target) continue;
-
-        e_hwc_window_constraints_update(hwc_window);
-     }
-
-   return;
-}
-
-static void
-_e_hwc_windows_render_target_update(E_Hwc *hwc)
-{
-   E_Hwc_Window *hwc_window = NULL;
-   const Eina_List *l = NULL;
-
-   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
-     {
-        if (hwc_window->is_target) continue;
-        e_hwc_window_render_target_window_update(hwc_window);
-     }
-}
-
 static Eina_Bool
 _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
 {
@@ -1060,8 +1031,12 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
         e_hwc_window_state_set(hwc_window, state);
      }
 
-   _e_hwc_windows_constraints_update(hwc);
-   _e_hwc_windows_render_target_update(hwc);
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
+     {
+        if (e_hwc_window_is_target(hwc_window)) continue;
+        e_hwc_window_constraints_update(hwc_window);
+        e_hwc_window_render_target_window_update(hwc_window);
+     }
 
 #if DBG_EVALUATE
    EHWSTRACE(" Modified after HWC Validation:", NULL);
