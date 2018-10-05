@@ -936,6 +936,7 @@ _e_plane_renderer_recover_ec(E_Plane_Renderer *renderer)
 
    cdata = ec->comp_data;
    if (!cdata) return;
+   if (!cdata->mapped) return;
 
    buffer = cdata->buffer_ref.buffer;
 
