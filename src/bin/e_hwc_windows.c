@@ -43,106 +43,6 @@ static Eina_Bool ehws_trace = EINA_TRUE;
 static Eina_Bool _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data);
 static Eina_Bool _e_hwc_windows_pp_window_commit(E_Hwc *hwc, E_Hwc_Window *hwc_window);
 
-// if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
-static Eina_Bool
-_e_hwc_windows_device_state_check(E_Client *ec)
-{
-   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
-   E_Output *eout;
-   int minw = 0, minh = 0;
-   int transform;
-
-   if ((!cdata) || (!cdata->buffer_ref.buffer))
-     {
-        EHWSTRACE("   ehw:%p -- {%25s} is forced to set CL state.(null cdata or buffer)",
-                  ec, ec->hwc_window, ec->icccm.title);
-        return EINA_FALSE;
-     }
-
-   if ((cdata->width_from_buffer != cdata->width_from_viewport) ||
-       (cdata->height_from_buffer != cdata->height_from_viewport))
-     {
-        EHWSTRACE("   ehw:%p -- {%25s} is forced to set CL state.(size_from_viewport)",
-                  ec, ec->hwc_window, ec->icccm.title);
-        return EINA_FALSE;
-     }
-
-   if (cdata->never_hwc)
-     {
-        EHWSTRACE("   ehw:%p -- {%25s} is forced to set CL state.(never_hwc)",
-                  ec, ec->hwc_window, ec->icccm.title);
-        return EINA_FALSE;
-     }
-
-   if (e_client_transform_core_enable_get(ec))
-     {
-        EHWSTRACE("   ehw:%p -- {%25s} is forced to set CL state.(transfrom_core)",
-                  ec, ec->hwc_window, ec->icccm.title);
-        return EINA_FALSE;
-     }
-
-   switch (cdata->buffer_ref.buffer->type)
-     {
-      case E_COMP_WL_BUFFER_TYPE_NATIVE:
-      case E_COMP_WL_BUFFER_TYPE_TBM:
-         break;
-      case E_COMP_WL_BUFFER_TYPE_SHM:
-         if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
-           break;
-      default:
-         EHWSTRACE("   ehw:%p -- {%25s} is forced to set CL state.(buffer_type)",
-                   ec, ec->hwc_window, ec->icccm.title);
-         return EINA_FALSE;
-     }
-
-   eout = e_output_find(ec->zone->output_id);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
-
-   tdm_output_get_available_size(eout->toutput, &minw, &minh, NULL, NULL, NULL);
-
-   if ((minw > 0) && (minw > cdata->buffer_ref.buffer->w))
-     {
-        EHWSTRACE("   ehw:%p -- {%25s} is forced to set CL state.(minw:%d > buffer->w:%d)",
-                  ec, ec->hwc_window, ec->icccm.title, minw, cdata->buffer_ref.buffer->w);
-        return EINA_FALSE;
-     }
-
-   if ((minh > 0) && (minh > cdata->buffer_ref.buffer->h))
-     {
-        EHWSTRACE("   ehw:%p -- {%25s} is forced to set CL state.(minh:%d > buffer->h:%d)",
-                  ec, ec->hwc_window, ec->icccm.title, minh, cdata->buffer_ref.buffer->h);
-        return EINA_FALSE;
-     }
-
-   /* If a client doesn't watch the ignore_output_transform events, we can't show
-    * a client buffer to HW overlay directly when the buffer transform is not same
-    * with output transform. If a client watch the ignore_output_transform events,
-    * we can control client's buffer transform. In this case, we don't need to
-    * check client's buffer transform here.
-    */
-   transform = e_comp_wl_output_buffer_transform_get(ec);
-   if ((eout->config.rotation / 90) != transform)
-     {
-        if (e_comp_screen_rotation_ignore_output_transform_watch(ec))
-          {
-             if (e_comp_wl->touch.pressed)
-               {
-                  EHWSTRACE("   ehw:%p -- {%25s} is forced to set CL state.(touch pressed)",
-                            ec, ec->hwc_window, ec->icccm.title);
-                  return EINA_FALSE;
-               }
-          }
-        else
-          {
-             EHWSTRACE("   ehw:%p -- {%25s} is forced to set CL state.(no igrore_transfrom)",
-                       ec, ec->hwc_window, ec->icccm.title);
-             return EINA_FALSE;
-          }
-     }
-
-   return EINA_TRUE;
-}
-
 static E_Hwc_Mode
 _e_hwc_windows_hwc_mode_get(E_Hwc *hwc)
 {
@@ -1340,7 +1240,7 @@ _e_hwc_windows_states_evaluate(E_Hwc *hwc)
 
              /* filter the visible clients which e20 prevent to shown by hw directly
                 by demand of e20 */
-             if (_e_hwc_windows_device_state_check(hwc_window->ec))
+             if (e_hwc_window_device_state_available_check(hwc_window))
                e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
              else
                e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
