@@ -1004,37 +1004,11 @@ _e_hwc_windows_render_target_update(E_Hwc *hwc)
 {
    E_Hwc_Window *hwc_window = NULL;
    const Eina_List *l = NULL;
-   E_Hwc_Window_State state;
-   E_Pointer *pointer = NULL;
 
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
         if (hwc_window->is_target) continue;
-        if (!hwc_window->ec) continue;
-
-        state = e_hwc_window_state_get(hwc_window);
-
-        if (hwc_window->is_cursor)
-          pointer = e_pointer_get(hwc_window->ec);
-
-        switch(state)
-          {
-            case E_HWC_WINDOW_STATE_DEVICE:
-            case E_HWC_WINDOW_STATE_CURSOR:
-              e_hwc_window_render_target_window_set(hwc_window, EINA_FALSE);
-              if (pointer)
-                e_pointer_hwc_set(pointer, EINA_TRUE);
-              break;
-            case E_HWC_WINDOW_STATE_CLIENT:
-            case E_HWC_WINDOW_STATE_NONE:
-              e_hwc_window_render_target_window_set(hwc_window, EINA_TRUE);
-              if (pointer)
-                e_pointer_hwc_set(pointer, EINA_FALSE);
-              break;
-            case E_HWC_WINDOW_STATE_VIDEO:
-            default:
-              break;
-          }
+        e_hwc_window_render_target_window_update(hwc_window);
      }
 }
 

@@ -1848,8 +1848,8 @@ _e_hwc_window_client_recover(E_Hwc_Window *hwc_window)
    return;
 }
 
-EINTERN Eina_Bool
-e_hwc_window_render_target_window_set(E_Hwc_Window *hwc_window, Eina_Bool set)
+static Eina_Bool
+_e_hwc_window_render_target_window_set(E_Hwc_Window *hwc_window, Eina_Bool set)
 {
    E_Client *ec = NULL;
 
@@ -1894,6 +1894,46 @@ e_hwc_window_render_target_window_set(E_Hwc_Window *hwc_window, Eina_Bool set)
 
    return EINA_TRUE;
 }
+
+EINTERN Eina_Bool
+e_hwc_window_render_target_window_update(E_Hwc_Window *hwc_window)
+{
+   E_Client *ec = NULL;
+   E_Pointer *pointer = NULL;
+   E_Hwc_Window_State state;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   ec = hwc_window->ec;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   if (hwc_window->is_cursor)
+     pointer = e_pointer_get(hwc_window->ec);
+
+   state = e_hwc_window_state_get(hwc_window);
+
+   switch(state)
+     {
+       case E_HWC_WINDOW_STATE_DEVICE:
+       case E_HWC_WINDOW_STATE_CURSOR:
+         _e_hwc_window_render_target_window_set(hwc_window, EINA_FALSE);
+         if (pointer)
+           e_pointer_hwc_set(pointer, EINA_TRUE);
+         break;
+       case E_HWC_WINDOW_STATE_CLIENT:
+       case E_HWC_WINDOW_STATE_NONE:
+         _e_hwc_window_render_target_window_set(hwc_window, EINA_TRUE);
+         if (pointer)
+           e_pointer_hwc_set(pointer, EINA_FALSE);
+         break;
+       case E_HWC_WINDOW_STATE_VIDEO:
+       default:
+         break;
+     }
+
+   return EINA_TRUE;
+}
+
 
 EINTERN const char*
 e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state)
