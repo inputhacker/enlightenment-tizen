@@ -467,6 +467,18 @@ _e_hwc_window_target_window_get(E_Hwc_Window *hwc_window)
 }
 
 static void
+_e_hwc_window_constraints_reset(E_Hwc_Window *hwc_window)
+{
+   /* reset the TDM_CONSTRAINT_BUFFER_QUEUE */
+   if (hwc_window->queue)
+     {
+        e_hwc_window_queue_user_unset(hwc_window->queue, hwc_window);
+        wl_list_remove(&hwc_window->queue_destroy_listener.link);
+        hwc_window->queue = NULL;
+     }
+}
+
+static void
 _e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
 {
    E_Output *output;
@@ -517,9 +529,9 @@ _e_hwc_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      return;
 
-   e_hwc_window_constraints_set(ec->hwc_window, TDM_CONSTRAINT_NONE);
-
    if (!ec->hwc_window) return;
+
+   _e_hwc_window_constraints_reset(ec->hwc_window);
 
    e_hwc_window_free(ec->hwc_window);
    ec->hwc_window = NULL;
@@ -1758,11 +1770,18 @@ e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window)
 }
 
 EINTERN Eina_Bool
-e_hwc_window_constraints_set(E_Hwc_Window *hwc_window, int constraints)
+e_hwc_window_constraints_update(E_Hwc_Window *hwc_window)
 {
    E_Hwc_Window_Queue *queue = NULL;
+   tdm_error terror;
+   int constraints;
 
    EINA_SAFETY_ON_FALSE_RETURN_VAL(hwc_window, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(hwc_window->thwc_window, EINA_FALSE);
+
+   /* get the constraints from libtdm */
+   terror = tdm_hwc_window_get_constraints(hwc_window->thwc_window, &constraints);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(terror != TDM_ERROR_NONE, EINA_FALSE);
 
    if (hwc_window->constraints == constraints) return EINA_TRUE;
 
@@ -1785,12 +1804,7 @@ e_hwc_window_constraints_set(E_Hwc_Window *hwc_window, int constraints)
      }
    else
      {
-         if (hwc_window->queue)
-           {
-              e_hwc_window_queue_user_unset(hwc_window->queue, hwc_window);
-              wl_list_remove(&hwc_window->queue_destroy_listener.link);
-              hwc_window->queue = NULL;
-           }
+         _e_hwc_window_constraints_reset(hwc_window);
      }
 
    hwc_window->constraints = constraints;

@@ -986,20 +986,14 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
 static void
 _e_hwc_windows_constraints_update(E_Hwc *hwc)
 {
-   tdm_error terror;
    E_Hwc_Window *hwc_window;
    const Eina_List *l;
-   int constraints;
 
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
         if (hwc_window->is_target) continue;
-        if (!hwc_window->thwc_window) continue;
 
-        terror = tdm_hwc_window_get_constraints(hwc_window->thwc_window, &constraints);
-        if (terror != TDM_ERROR_NONE) continue;
-
-        e_hwc_window_constraints_set(hwc_window, constraints);
+        e_hwc_window_constraints_update(hwc_window);
      }
 
    return;

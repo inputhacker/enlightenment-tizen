@@ -171,7 +171,7 @@ EINTERN E_Hwc_Window_State e_hwc_window_state_get(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_accepted_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state);
 EINTERN E_Hwc_Window_State e_hwc_window_accepted_state_get(E_Hwc_Window *hwc_window);
 
-EINTERN Eina_Bool          e_hwc_window_constraints_set(E_Hwc_Window *hwc_window, int constraints);
+EINTERN Eina_Bool          e_hwc_window_constraints_update(E_Hwc_Window *hwc_window);
 
 EINTERN void               e_hwc_window_render_list_add(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window);
