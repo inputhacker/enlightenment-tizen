@@ -22,6 +22,13 @@
 # define TRACE_DS_END()
 #endif
 
+typedef enum _E_Pol_Vis_Type
+{
+   E_POL_VIS_TYPE_NON_ALPHA,
+   E_POL_VIS_TYPE_ALPHA,
+   E_POL_VIS_TYPE_ALPHA_OPAQUE,
+} E_Pol_Vis_Type;
+
 struct _E_Pol_Vis_Hook
 {
    EINA_INLIST;
@@ -46,8 +53,8 @@ static Eina_Bool         _e_vis_ec_activity_check(E_Client *ec, Eina_Bool check_
 static void              _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type);
 static void              _e_vis_ec_setup(E_Client *ec);
 static void              _e_vis_ec_reset(E_Client *ec);
-static Eina_Bool         _e_vis_ec_above_is_non_alpha_visible(E_Client *ec, Eina_Bool check_child);
-static Eina_Bool         _e_vis_ec_below_uniconify(E_Client *ec);
+static E_Pol_Vis_Type    _e_vis_ec_above_visible_type(E_Client *ec, Eina_Bool check_child);
+static Eina_Bool         _e_vis_ec_below_uniconify(E_Client *ec, E_Pol_Vis_Type above_vis_type);
 static void              _e_vis_cb_child_launch_done(void *data, Evas_Object *obj, const char *signal, const char *source);
 static void              _e_vis_update_foreground_job_queue(void);
 static void              _e_vis_update_forground_list(void);
@@ -992,12 +999,15 @@ static Eina_Bool
 _e_vis_client_grab_clear_cb(void *data)
 {
    E_Vis_Grab *grab = data;
+   E_Pol_Vis_Type above_vis_type;
+
    VS_INF(grab->vc->ec, "FORCE CLEAR! Grab %s, cur state:%d", grab->name, grab->vc->state);
 
    if (grab->vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY)
      {
-        if (!_e_vis_ec_above_is_non_alpha_visible(grab->vc->ec, EINA_FALSE))
-          _e_vis_ec_below_uniconify(grab->vc->ec);
+        above_vis_type = _e_vis_ec_above_visible_type(grab->vc->ec, EINA_FALSE);
+        if (above_vis_type != E_POL_VIS_TYPE_NON_ALPHA)
+          _e_vis_ec_below_uniconify(grab->vc->ec, above_vis_type);
      }
 
    grab->deleted = 1;
@@ -1521,11 +1531,11 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
      }
 }
 
-static Eina_Bool
-_e_vis_ec_above_is_non_alpha_visible(E_Client *ec, Eina_Bool check_child)
+static E_Pol_Vis_Type
+_e_vis_ec_above_visible_type(E_Client *ec, Eina_Bool check_child)
 {
    E_Client *above;
-   Eina_Bool is_non_alpha_visible = EINA_FALSE;
+   E_Pol_Vis_Type above_vis_type = E_POL_VIS_TYPE_ALPHA;
 
    for (above = e_client_above_get(ec); above; above = e_client_above_get(above))
      {
@@ -1541,13 +1551,18 @@ _e_vis_ec_above_is_non_alpha_visible(E_Client *ec, Eina_Bool check_child)
         if (above->visibility.obscured == E_VISIBILITY_UNOBSCURED)
           {
              if (!above->argb)
-               is_non_alpha_visible = EINA_TRUE;
+               above_vis_type = E_POL_VIS_TYPE_NON_ALPHA;
+             else
+               {
+                  if (above->visibility.opaque > 0)
+                    above_vis_type = E_POL_VIS_TYPE_ALPHA_OPAQUE;
+               }
 
              break;
           }
      }
 
-   return is_non_alpha_visible;
+   return above_vis_type;
 }
 
 static void
@@ -1575,11 +1590,12 @@ _e_vis_ec_below_activity_clients_get(E_Client *ec, Eina_List **below_list)
 }
 
 static Eina_Bool
-_e_vis_ec_below_uniconify(E_Client *ec)
+_e_vis_ec_below_uniconify(E_Client *ec, E_Pol_Vis_Type above_vis_type)
 {
    Eina_List *below_list = NULL;
    Eina_Bool ret = EINA_FALSE;
    E_Vis_Client *below;
+   Eina_Bool send_vis;
 
    if (!ec) return EINA_FALSE;
 
@@ -1598,6 +1614,11 @@ _e_vis_ec_below_uniconify(E_Client *ec)
      }
    else
      {
+        if (above_vis_type == E_POL_VIS_TYPE_ALPHA_OPAQUE)
+          send_vis = EINA_FALSE;
+        else
+          send_vis = EINA_TRUE;
+
         EINA_LIST_FREE(below_list, below)
           {
              Eina_Bool job_added = EINA_FALSE;
@@ -1618,7 +1639,7 @@ _e_vis_ec_below_uniconify(E_Client *ec)
                   e_vis_client_send_pre_visibility_event(below_ec);
                }
 
-             job_added = _e_vis_client_add_uniconify_render_pending(below, E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY, 0, EINA_TRUE);
+             job_added = _e_vis_client_add_uniconify_render_pending(below, E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY, 0, send_vis);
 
              if (!job_added)
                {
@@ -1819,6 +1840,8 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
 static Eina_Bool
 _e_vis_intercept_hide(void *data EINA_UNUSED, E_Client *ec)
 {
+   E_Pol_Vis_Type above_vis_type;
+
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_TRUE);
 
    VS_DBG(ec, "INTERCEPTOR HIDE");
@@ -1829,13 +1852,14 @@ _e_vis_intercept_hide(void *data EINA_UNUSED, E_Client *ec)
         return EINA_FALSE;
      }
 
-   if (_e_vis_ec_above_is_non_alpha_visible(ec, EINA_FALSE))
+   above_vis_type = _e_vis_ec_above_visible_type(ec, EINA_FALSE);
+   if (above_vis_type == E_POL_VIS_TYPE_NON_ALPHA)
      {
         VS_DBG(ec, "Obscured by above window.");
         return EINA_TRUE;
      }
 
-   if (!_e_vis_ec_below_uniconify(ec))
+   if (!_e_vis_ec_below_uniconify(ec, above_vis_type))
      {
         VS_DBG(ec, "Failed to uniconify below client");
         return EINA_TRUE;
@@ -1962,6 +1986,8 @@ e_policy_visibility_client_raise(E_Client *ec)
 E_API Eina_Bool
 e_policy_visibility_client_lower(E_Client *ec)
 {
+   E_Pol_Vis_Type above_vis_type;
+
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
    VS_DBG(ec, "API ENTRY | LOWER");
@@ -1969,13 +1995,14 @@ e_policy_visibility_client_lower(E_Client *ec)
    /* if vc has job grab, release them */
    _e_vis_client_grab_cancel(vc);
 
-   if (_e_vis_ec_above_is_non_alpha_visible(ec, EINA_TRUE))
+   above_vis_type = _e_vis_ec_above_visible_type(ec, EINA_TRUE);
+   if (above_vis_type == E_POL_VIS_TYPE_NON_ALPHA)
      {
         VS_DBG(ec, "Obscured by above window.");
         return EINA_FALSE;
      }
 
-   if (!_e_vis_ec_below_uniconify(ec))
+   if (!_e_vis_ec_below_uniconify(ec, above_vis_type))
      {
         VS_DBG(ec, "Failed to uniconify below client");
         return EINA_FALSE;
@@ -1990,6 +2017,8 @@ e_policy_visibility_client_lower(E_Client *ec)
 E_API Eina_Bool
 e_policy_visibility_client_iconify(E_Client *ec)
 {
+   E_Pol_Vis_Type above_vis_type;
+
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
    VS_DBG(ec, "API ENTRY | ICONIFY");
@@ -1999,13 +2028,14 @@ e_policy_visibility_client_iconify(E_Client *ec)
 
    if (ec->iconic) return EINA_FALSE;
 
-   if (_e_vis_ec_above_is_non_alpha_visible(ec, EINA_TRUE))
+   above_vis_type = _e_vis_ec_above_visible_type(ec, EINA_TRUE);
+   if (above_vis_type == E_POL_VIS_TYPE_NON_ALPHA)
      {
         VS_DBG(ec, "Obscured by above window.");
         return EINA_FALSE;
      }
 
-   if (!_e_vis_ec_below_uniconify(ec))
+   if (!_e_vis_ec_below_uniconify(ec, above_vis_type))
      {
         VS_DBG(ec, "Failed to uniconify below client");
         return EINA_FALSE;
@@ -2091,6 +2121,8 @@ e_policy_visibility_client_activate(E_Client *ec)
 E_API Eina_Bool
 e_policy_visibility_client_layer_lower(E_Client *ec, E_Layer layer)
 {
+   E_Pol_Vis_Type above_vis_type;
+
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
    VS_DBG(ec, "API ENTRY | LAYER LOWER (layer:%d)", layer);
@@ -2098,13 +2130,14 @@ e_policy_visibility_client_layer_lower(E_Client *ec, E_Layer layer)
    /* if vc has job grab, release them */
    _e_vis_client_grab_cancel(vc);
 
-   if (_e_vis_ec_above_is_non_alpha_visible(ec, EINA_TRUE))
+   above_vis_type = _e_vis_ec_above_visible_type(ec, EINA_TRUE);
+   if (above_vis_type == E_POL_VIS_TYPE_NON_ALPHA)
      {
         VS_DBG(ec, "Obscured by above window.");
         return EINA_FALSE;
      }
 
-   if (!_e_vis_ec_below_uniconify(ec))
+   if (!_e_vis_ec_below_uniconify(ec, above_vis_type))
      {
         VS_DBG(ec, "Failed to uniconify below client");
         return EINA_FALSE;
