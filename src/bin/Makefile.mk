@@ -293,6 +293,8 @@ src/bin/e.h \
 src/bin/e_info_client.c
 src_bin_enlightenment_info_LDADD = @E_INFO_LIBS@
 src_bin_enlightenment_info_CPPFLAGS = $(E_CPPFLAGS) @E_INFO_CFLAGS@
+src_bin_enlightenment_info_LDFLAGS = -pie
+src_bin_enlightenment_info_CPPFLAGS += -fPIE
 
 # HACK! why install-data-hook? install-exec-hook is run after bin_PROGRAMS
 # and before internal_bin_PROGRAMS are installed. install-data-hook is
