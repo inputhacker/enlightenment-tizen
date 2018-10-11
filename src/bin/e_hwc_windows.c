@@ -1059,12 +1059,10 @@ static Eina_List *
 _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 {
    Eina_List *windows_list = NULL;
-   Eina_List *l;
    E_Hwc_Window *hwc_window;
    E_Client  *ec;
    Evas_Object *o;
    int scr_w, scr_h;
-   int zpos = 0;
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
@@ -1125,10 +1123,6 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 
         windows_list = eina_list_append(windows_list, hwc_window);
      }
-
-   /* assign zpos */
-   EINA_LIST_REVERSE_FOREACH(windows_list, l, hwc_window)
-     e_hwc_window_zpos_set(hwc_window, zpos++);
 
    return windows_list;
 }
@@ -1285,9 +1279,12 @@ _e_hwc_windows_visible_windows_update(E_Hwc *hwc)
    E_Hwc_Window *hwc_window;
    Eina_List *l;
    Eina_List *visible_windows;
+   int zpos = 0;
 
+   /* get the visibile windows */
    visible_windows = _e_hwc_windows_visible_windows_list_get(hwc);
-   if (!visible_windows && !hwc->visible_windows) return EINA_FALSE;
+   if (!visible_windows && !hwc->visible_windows)
+     return EINA_FALSE;
 
    if (!_e_hwc_windows_visible_windows_changed_check(hwc, visible_windows))
      return EINA_FALSE;
@@ -1298,8 +1295,13 @@ _e_hwc_windows_visible_windows_update(E_Hwc *hwc)
    /* store the current visible windows */
    hwc->visible_windows = eina_list_clone(visible_windows);
 
-   EINA_LIST_FOREACH(hwc->visible_windows, l, hwc_window)
-     e_object_ref(E_OBJECT(hwc_window));
+   /* use the reverse iteration for assgining the zpos */
+   EINA_LIST_REVERSE_FOREACH(hwc->visible_windows, l, hwc_window)
+     {
+        /* assign zpos */
+        e_hwc_window_zpos_set(hwc_window, zpos++);
+        e_object_ref(E_OBJECT(hwc_window));
+     }
 
    return EINA_TRUE;
 }
