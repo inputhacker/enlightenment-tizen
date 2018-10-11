@@ -2,8 +2,6 @@
 
 typedef struct _E_Input E_Input;
 
-E_API extern int E_INPUT_EVENT_INPUT_DEVICE_ADD;
-E_API extern int E_INPUT_EVENT_INPUT_DEVICE_DEL;
 E_API extern int E_INPUT_EVENT_SEAT_ADD;
 E_API extern int E_EVENT_INPUT_ENABLED;
 E_API extern int E_EVENT_INPUT_DISABLED;
@@ -30,37 +28,10 @@ typedef enum _E_Input_Libinput_Backend
    E_INPUT_LIBINPUT_BACKEND_PATH
 } E_Input_Libinput_Backend;
 
-struct _E_Input_Event_Input_Device_Add
-{
-   const char *name; /* descriptive device name */
-   const char *sysname; /* system name of the input device */
-   const char *seatname; /* logical name of the seat */
-   const char *identifier; /* unique identifier (e.g. path) */
-
-   E_Input_Seat_Capabilities caps; /* capabilities on a device */
-   Ecore_Device_Class clas; /* class of a device */
-   Ecore_Device_Subclass subclas; /* subclass of a device */
-};
-
-struct _E_Input_Event_Input_Device_Del
-{
-   const char *name; /* descriptive device name */
-   const char *sysname; /* system name of the input device */
-   const char *seatname; /* logical name of the seat */
-   const char *identifier; /* unique identifier (e.g. path) */
-
-   E_Input_Seat_Capabilities caps; /* capabilities on a device */
-   Ecore_Device_Class clas; /* class of a device */
-   Ecore_Device_Subclass subclas; /* subclass of a device */
-};
-
 typedef struct _E_Input_Device E_Input_Device;
 typedef struct _E_Input_Backend E_Input_Backend;
 typedef struct _E_Input_Evdev E_Input_Evdev;
 typedef struct _E_Input_Seat E_Input_Seat;
-
-typedef struct _E_Input_Event_Input_Device_Add E_Input_Event_Input_Device_Add;
-typedef struct _E_Input_Event_Input_Device_Del E_Input_Event_Input_Device_Del;
 
 struct _E_Input
 {

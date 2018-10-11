@@ -1,6 +1,40 @@
 #include "e.h"
 #include "e_input_private.h"
 
+static char *
+_e_input_ecore_device_class_to_string(Ecore_Device_Class clas)
+{
+   switch (clas)
+     {
+        case ECORE_DEVICE_CLASS_NONE:
+          return "None";
+          break;
+        case ECORE_DEVICE_CLASS_SEAT:
+          return "Seat";
+          break;
+        case ECORE_DEVICE_CLASS_KEYBOARD:
+          return "Keyboard";
+          break;
+        case ECORE_DEVICE_CLASS_MOUSE:
+          return "Mouse";
+          break;
+        case ECORE_DEVICE_CLASS_TOUCH:
+          return "Touch";
+          break;
+        case ECORE_DEVICE_CLASS_PEN:
+          return "Pen";
+          break;
+        case ECORE_DEVICE_CLASS_WAND:
+          return "Wand";
+          break;
+        case ECORE_DEVICE_CLASS_GAMEPAD:
+          return "Gamepad";
+          break;
+        default:
+          return "Unknown";
+     }
+}
+
 static Ecore_Device_Class
 _e_input_seat_cap_to_ecore_device_class(unsigned int cap)
 {
@@ -94,34 +128,6 @@ _seat_create(E_Input_Backend *input, const char *seat)
    return s;
 }
 
-static void
-_e_input_event_input_device_add_free(void *data EINA_UNUSED, void *ev)
-{
-   E_Input_Event_Input_Device_Add *e;
-
-   e = ev;
-   eina_stringshare_del(e->name);
-   eina_stringshare_del(e->sysname);
-   eina_stringshare_del(e->seatname);
-   eina_stringshare_del(e->identifier);
-
-   free(e);
-}
-
-static void
-_e_input_event_input_device_del_free(void *data EINA_UNUSED, void *ev)
-{
-   E_Input_Event_Input_Device_Del *e;
-
-   e = ev;
-   eina_stringshare_del(e->name);
-   eina_stringshare_del(e->sysname);
-   eina_stringshare_del(e->seatname);
-   eina_stringshare_del(e->identifier);
-
-   free(e);
-}
-
 static E_Input_Seat *
 _seat_get(E_Input_Backend *input, const char *seat)
 {
@@ -135,7 +141,6 @@ _seat_get(E_Input_Backend *input, const char *seat)
 
    return _seat_create(input, seat);
 }
-
 
 static Eina_Bool
 _e_input_add_ecore_device(E_Input_Evdev *edev, Ecore_Device_Class clas)
@@ -172,7 +177,27 @@ _e_input_add_ecore_device(E_Input_Evdev *edev, Ecore_Device_Class clas)
    ecore_device_class_set(dev, clas);
    ecore_device_subclass_set(dev, ECORE_DEVICE_SUBCLASS_NONE);
 
-   edev->ecore_dev = ecore_device_ref(dev);
+   if (!edev->ecore_dev)
+     {
+        if (!edev->ecore_dev_list || (eina_list_count(edev->ecore_dev_list) == 0))
+          {
+             /* 1st Ecore_Device is added */
+             edev->ecore_dev = ecore_device_ref(dev);
+          }
+        else
+          {
+             /* 3rd or more Ecore_Device is added */
+             edev->ecore_dev_list = eina_list_append(edev->ecore_dev_list, ecore_device_ref(dev));
+          }
+     }
+   else
+     {
+        /* 2nd Ecore_Device is added */
+        edev->ecore_dev_list = eina_list_append(edev->ecore_dev_list, edev->ecore_dev);
+        edev->ecore_dev = NULL;
+
+        edev->ecore_dev_list = eina_list_append(edev->ecore_dev_list, ecore_device_ref(dev));
+     }
 
    _e_input_ecore_device_event(dev, EINA_TRUE);
 
@@ -182,9 +207,9 @@ _e_input_add_ecore_device(E_Input_Evdev *edev, Ecore_Device_Class clas)
 static Eina_Bool
 _e_input_remove_ecore_device(E_Input_Evdev *edev, Ecore_Device_Class clas)
 {
-   const Eina_List *dev_list = NULL;
-   const Eina_List *l;
-   Ecore_Device *dev = NULL;
+   const Eina_List *dev_list = NULL, *l;
+   Eina_List *ll, *ll_next;
+   Ecore_Device *dev = NULL, *data;
    const char *identifier;
 
    if (!edev->path) return EINA_FALSE;
@@ -198,8 +223,18 @@ _e_input_remove_ecore_device(E_Input_Evdev *edev, Ecore_Device_Class clas)
          if (!identifier) continue;
          if ((ecore_device_class_get(dev) == clas) && (!strcmp(identifier, edev->path)))
            {
+              if (edev->ecore_dev) edev->ecore_dev = NULL;
+              else if (edev->ecore_dev_list)
+                {
+                   EINA_LIST_FOREACH_SAFE(edev->ecore_dev_list, ll, ll_next, data)
+                     {
+                        if (data == dev)
+                          {
+                             edev->ecore_dev_list = eina_list_remove_list(edev->ecore_dev_list, ll);
+                          }
+                     }
+                }
               ecore_device_del(dev);
-              edev->ecore_dev = NULL;
               _e_input_ecore_device_event(dev, EINA_FALSE);
               return EINA_TRUE;
            }
@@ -211,11 +246,12 @@ Eina_Bool
 _e_input_device_add(E_Input_Evdev *edev)
 {
    Eina_Bool ret = EINA_FALSE;
-   Ecore_Device_Class clas;
+   Ecore_Device_Class clas = ECORE_DEVICE_CLASS_NONE;
 
    if (edev->caps & E_INPUT_SEAT_POINTER)
      {
-        clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_POINTER);
+        if (!e_devicemgr_detent_is_detent(libinput_device_get_name(edev->device)))
+          clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_POINTER);
         ret = _e_input_add_ecore_device(edev, clas);
      }
    if (edev->caps & E_INPUT_SEAT_KEYBOARD)
@@ -235,11 +271,13 @@ _e_input_device_add(E_Input_Evdev *edev)
 void
 _e_input_device_remove(E_Input_Evdev *edev)
 {
-   Ecore_Device_Class clas;
+   Ecore_Device_Class clas = ECORE_DEVICE_CLASS_NONE;
+   Ecore_Device *data;
 
    if (edev->caps & E_INPUT_SEAT_POINTER)
      {
-        clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_POINTER);
+        if (!e_devicemgr_detent_is_detent(libinput_device_get_name(edev->device)))
+          clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_POINTER);
         _e_input_remove_ecore_device(edev, clas);
      }
    if (edev->caps & E_INPUT_SEAT_KEYBOARD)
@@ -252,6 +290,21 @@ _e_input_device_remove(E_Input_Evdev *edev)
         clas = _e_input_seat_cap_to_ecore_device_class(E_INPUT_SEAT_TOUCH);
         _e_input_remove_ecore_device(edev, clas);
      }
+
+   if (edev->ecore_dev_list)
+     {
+        if (eina_list_count(edev->ecore_dev_list) > 0)
+          {
+             EINA_LIST_FREE(edev->ecore_dev_list, data)
+               {
+                  WRN("Invalid device is left. name: %s, identifier: %s, clas: %s\n",
+                      ecore_device_name_get(data), ecore_device_description_get(data),
+                      _e_input_ecore_device_class_to_string(ecore_device_class_get(data)));
+                  ecore_device_del(data);
+               }
+          }
+        edev->ecore_dev_list = NULL;
+     }
 }
 
 static void
@@ -261,7 +314,6 @@ _device_added(E_Input_Backend *input, struct libinput_device *device)
    const char *seat_name;
    E_Input_Seat *seat;
    E_Input_Evdev *edev;
-   E_Input_Event_Input_Device_Add *ev;
 
    libinput_seat = libinput_device_get_seat(device);
    seat_name = libinput_seat_get_logical_name(libinput_seat);
@@ -285,63 +337,23 @@ _device_added(E_Input_Backend *input, struct libinput_device *device)
    /* append this device to the seat */
    seat->devices = eina_list_append(seat->devices, edev);
 
-   ev = calloc(1, sizeof(E_Input_Event_Input_Device_Add));
-   if (!ev)
-     {
-        return;
-     }
-
    if (EINA_FALSE == _e_input_device_add(edev))
      {
         ERR("Failed to create evas device !\n");
-		free(ev);
         return;
      }
-
-   ev->name = eina_stringshare_add(libinput_device_get_name(device));
-   ev->sysname = eina_stringshare_add(edev->path);
-   ev->seatname = eina_stringshare_add(edev->seat->name);
-   ev->caps = edev->caps;
-   ev->clas = ecore_device_class_get(edev->ecore_dev);
-   ev->identifier = eina_stringshare_add(edev->path);
-   ev->subclas = ecore_device_subclass_get(edev->ecore_dev);
-
-   ecore_event_add(E_INPUT_EVENT_INPUT_DEVICE_ADD,
-                   ev,
-                   _e_input_event_input_device_add_free,
-                   NULL);
 }
 
 static void
 _device_removed(E_Input_Backend *input, struct libinput_device *device)
 {
    E_Input_Evdev *edev;
-   E_Input_Event_Input_Device_Del *ev;
 
    /* try to get the evdev structure */
    if (!(edev = libinput_device_get_user_data(device)))
      {
         return;
      }
-
-   ev = calloc(1, sizeof(E_Input_Event_Input_Device_Del));
-   if (!ev)
-     {
-        return;
-     }
-
-   ev->name = eina_stringshare_add(libinput_device_get_name(device));
-   ev->sysname = eina_stringshare_add(edev->path);
-   ev->seatname = eina_stringshare_add(edev->seat->name);
-   ev->caps = edev->caps;
-   ev->clas = ecore_device_class_get(edev->ecore_dev);
-   ev->identifier = eina_stringshare_add(edev->path);
-   ev->subclas = ecore_device_subclass_get(edev->ecore_dev);
-
-   ecore_event_add(E_INPUT_EVENT_INPUT_DEVICE_DEL,
-                   ev,
-                   _e_input_event_input_device_del_free,
-                   NULL);
 
    _e_input_device_remove(edev);
 

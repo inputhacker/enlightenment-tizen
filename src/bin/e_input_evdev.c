@@ -369,6 +369,8 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
    Ecore_Event_Key *e;
    char *tmp = NULL, *compose = NULL;
    E_Keyrouter_Event_Data *key_data;
+   Ecore_Device *ecore_dev = NULL, *data;
+   Eina_List *l;
 
    if (!(edev = libinput_device_get_user_data(device)))
      {
@@ -380,10 +382,25 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
         return;
      }
 
-   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_KEYBOARD))
-     edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_KEYBOARD);
+   if (edev->ecore_dev) ecore_dev = edev->ecore_dev;
+   else if (edev->ecore_dev_list && eina_list_count(edev->ecore_dev_list) > 0)
+     {
+        EINA_LIST_FOREACH(edev->ecore_dev_list, l, data)
+          {
+             if (ecore_device_class_get(data) == ECORE_DEVICE_CLASS_KEYBOARD)
+               {
+                  ecore_dev = data;
+                  break;
+               }
+          }
+     }
+   else
+     {
+        edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_KEYBOARD);
+        ecore_dev = edev->ecore_dev;
+     }
 
-   if (!edev->ecore_dev)
+   if (!ecore_dev)
      {
         ERR("Failed to get source ecore device from event !\n");
         return;
@@ -480,7 +497,7 @@ _device_handle_key(struct libinput_device *device, struct libinput_event_keyboar
    _device_modifiers_update(edev);
 
    e->modifiers = edev->xkb.modifiers;
-   e->dev = ecore_device_ref(edev->ecore_dev);
+   e->dev = ecore_device_ref(ecore_dev);
 
    if (state)
      ecore_event_add(ECORE_EVENT_KEY_DOWN, e, _e_input_event_key_cb_free, NULL);
@@ -495,15 +512,45 @@ _device_pointer_motion(E_Input_Evdev *edev, struct libinput_event_pointer *event
 {
    E_Input_Backend *input;
    Ecore_Event_Mouse_Move *ev;
+   Ecore_Device *ecore_dev = NULL, *data, *detent_data = NULL;
+   Eina_List *l;
 
    if (!(input = edev->seat->input)) return;
 
-   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_MOUSE))
-     edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_MOUSE);
+   if (edev->ecore_dev) ecore_dev = edev->ecore_dev;
+   else if (edev->ecore_dev_list && eina_list_count(edev->ecore_dev_list) > 0)
+     {
+        EINA_LIST_FOREACH(edev->ecore_dev_list, l, data)
+          {
+             if (ecore_device_class_get(data) == ECORE_DEVICE_CLASS_MOUSE)
+               {
+                  ecore_dev = data;
+                  break;
+               }
+             else if (ecore_device_class_get(data) == ECORE_DEVICE_CLASS_NONE)
+               {
+                  detent_data = data;
+               }
+          }
+        if (!ecore_dev && e_devicemgr_detent_is_detent(libinput_device_get_name(edev->device)))
+          {
+             ecore_dev = detent_data;
+          }
+     }
+   else
+     {
+        edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_MOUSE);
+        ecore_dev = edev->ecore_dev;
+     }
 
-   if (!edev->ecore_dev)
+   if (!ecore_dev)
      {
         ERR("Failed to get source ecore device from event !\n");
+        return;
+     }
+   else if ((detent_data == ecore_dev) || e_devicemgr_detent_is_detent(ecore_device_name_get(ecore_dev)))
+     {
+        /* Do not process detent device's move events. */
         return;
      }
 
@@ -546,7 +593,7 @@ _device_pointer_motion(E_Input_Evdev *edev, struct libinput_event_pointer *event
    ev->multi.y = ev->y;
    ev->multi.root.x = ev->x;
    ev->multi.root.y = ev->y;
-   ev->dev = ecore_device_ref(edev->ecore_dev);
+   ev->dev = ecore_device_ref(ecore_dev);
 
    ecore_event_add(ECORE_EVENT_MOUSE_MOVE, ev, _e_input_event_mouse_move_cb_free, NULL);
 }
@@ -637,6 +684,8 @@ _device_handle_button(struct libinput_device *device, struct libinput_event_poin
    Ecore_Event_Mouse_Button *ev;
    enum libinput_button_state state;
    uint32_t button, timestamp;
+   Ecore_Device *ecore_dev = NULL, *detent_data = NULL, *data;
+   Eina_List *l;
 
    if (!(edev = libinput_device_get_user_data(device)))
      {
@@ -647,10 +696,33 @@ _device_handle_button(struct libinput_device *device, struct libinput_event_poin
         return;
      }
 
-   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_MOUSE))
-     edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_MOUSE);
+   if (edev->ecore_dev) ecore_dev = edev->ecore_dev;
+   else if (edev->ecore_dev_list && eina_list_count(edev->ecore_dev_list) > 0)
+     {
+        EINA_LIST_FOREACH(edev->ecore_dev_list, l, data)
+          {
+             if (ecore_device_class_get(data) == ECORE_DEVICE_CLASS_MOUSE)
+               {
+                  ecore_dev = data;
+                  break;
+               }
+             else if (ecore_device_class_get(data) == ECORE_DEVICE_CLASS_NONE)
+               {
+                  detent_data = data;
+               }
+          }
+        if (!ecore_dev && e_devicemgr_detent_is_detent(libinput_device_get_name(edev->device)))
+          {
+             ecore_dev = detent_data;
+          }
+     }
+   else
+     {
+        edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_MOUSE);
+        ecore_dev = edev->ecore_dev;
+     }
 
-   if (!edev->ecore_dev)
+   if (!ecore_dev)
      {
         ERR("Failed to get source ecore device from event !\n");
         return;
@@ -693,7 +765,7 @@ _device_handle_button(struct libinput_device *device, struct libinput_event_poin
    ev->multi.y = ev->y;
    ev->multi.root.x = ev->x;
    ev->multi.root.y = ev->y;
-   ev->dev = ecore_device_ref(edev->ecore_dev);
+   ev->dev = ecore_device_ref(ecore_dev);
 
    if (state)
      {
@@ -744,6 +816,8 @@ _device_handle_axis(struct libinput_device *device, struct libinput_event_pointe
    Ecore_Event_Mouse_Wheel *ev;
    uint32_t timestamp;
    enum libinput_pointer_axis axis;
+   Ecore_Device *ecore_dev = NULL, *detent_data = NULL, *data;
+   Eina_List *l;
 
    if (!(edev = libinput_device_get_user_data(device)))
      {
@@ -754,10 +828,33 @@ _device_handle_axis(struct libinput_device *device, struct libinput_event_pointe
         return;
      }
 
-   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_MOUSE))
-     edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_MOUSE);
+   if (edev->ecore_dev) ecore_dev = edev->ecore_dev;
+   else if (edev->ecore_dev_list && eina_list_count(edev->ecore_dev_list) > 0)
+     {
+        EINA_LIST_FOREACH(edev->ecore_dev_list, l, data)
+          {
+             if (ecore_device_class_get(data) == ECORE_DEVICE_CLASS_MOUSE)
+               {
+                  ecore_dev = data;
+                  break;
+               }
+             else if (ecore_device_class_get(data) == ECORE_DEVICE_CLASS_NONE)
+               {
+                  detent_data = data;
+               }
+          }
+        if (!ecore_dev && e_devicemgr_detent_is_detent(libinput_device_get_name(edev->device)))
+          {
+             ecore_dev = detent_data;
+          }
+     }
+   else
+     {
+        edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_MOUSE);
+        ecore_dev = edev->ecore_dev;
+     }
 
-   if (!edev->ecore_dev)
+   if (!ecore_dev)
      {
         ERR("Failed to get source ecore device from event !\n");
         return;
@@ -783,7 +880,7 @@ _device_handle_axis(struct libinput_device *device, struct libinput_event_pointe
    ev->y = edev->seat->ptr.iy;
    ev->root.x = ev->x;
    ev->root.y = ev->y;
-   ev->dev = ecore_device_ref(edev->ecore_dev);
+   ev->dev = ecore_device_ref(ecore_dev);
 
    axis = LIBINPUT_POINTER_AXIS_SCROLL_VERTICAL;
    if (libinput_event_pointer_has_axis(event, axis))
@@ -805,14 +902,31 @@ _device_handle_touch_event_send(E_Input_Evdev *edev, struct libinput_event_touch
    E_Input_Backend *input;
    Ecore_Event_Mouse_Button *ev;
    uint32_t timestamp, button = 0;
+   Ecore_Device *ecore_dev = NULL, *data;
+   Eina_List *l;
 
    if (!edev) return;
    if (!(input = edev->seat->input)) return;
 
-   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_TOUCH))
-     edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_TOUCH);
+   if (edev->ecore_dev) ecore_dev = edev->ecore_dev;
+   else if (edev->ecore_dev_list && eina_list_count(edev->ecore_dev_list) > 0)
+     {
+        EINA_LIST_FOREACH(edev->ecore_dev_list, l, data)
+          {
+             if (ecore_device_class_get(data) == ECORE_DEVICE_CLASS_TOUCH)
+               {
+                  ecore_dev = data;
+                  break;
+               }
+          }
+     }
+   else
+     {
+        edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_TOUCH);
+        ecore_dev = edev->ecore_dev;
+     }
 
-   if (!edev->ecore_dev)
+   if (!ecore_dev)
      {
         ERR("Failed to get source ecore device from event !\n");
         return;
@@ -860,7 +974,7 @@ _device_handle_touch_event_send(E_Input_Evdev *edev, struct libinput_event_touch
    ev->multi.y = ev->y;
    ev->multi.root.x = ev->x;
    ev->multi.root.y = ev->y;
-   ev->dev = ecore_device_ref(edev->ecore_dev);
+   ev->dev = ecore_device_ref(ecore_dev);
 
    if (state == ECORE_EVENT_MOUSE_BUTTON_DOWN)
      {
@@ -905,14 +1019,31 @@ _device_handle_touch_motion_send(E_Input_Evdev *edev, struct libinput_event_touc
 {
    E_Input_Backend *input;
    Ecore_Event_Mouse_Move *ev;
+   Ecore_Device *ecore_dev = NULL, *data;
+   Eina_List *l;
 
    if (!edev) return;
    if (!(input = edev->seat->input)) return;
 
-   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_TOUCH))
-     edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_TOUCH);
+   if (edev->ecore_dev) ecore_dev = edev->ecore_dev;
+   else if (edev->ecore_dev_list && eina_list_count(edev->ecore_dev_list) > 0)
+     {
+        EINA_LIST_FOREACH(edev->ecore_dev_list, l, data)
+          {
+             if (ecore_device_class_get(data) == ECORE_DEVICE_CLASS_TOUCH)
+               {
+                  ecore_dev = data;
+                  break;
+               }
+          }
+     }
+   else
+     {
+        edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_TOUCH);
+        ecore_dev = edev->ecore_dev;
+     }
 
-   if (!edev->ecore_dev)
+   if (!ecore_dev)
      {
         ERR("Failed to get source ecore device from event !\n");
         return;
@@ -954,7 +1085,7 @@ _device_handle_touch_motion_send(E_Input_Evdev *edev, struct libinput_event_touc
    ev->multi.y = ev->y;
    ev->multi.root.x = ev->x;
    ev->multi.root.y = ev->y;
-   ev->dev = ecore_device_ref(edev->ecore_dev);
+   ev->dev = ecore_device_ref(ecore_dev);
 
    ecore_event_add(ECORE_EVENT_MOUSE_MOVE, ev, _e_input_event_mouse_move_cb_free, NULL);
 }
@@ -1074,6 +1205,8 @@ _device_handle_touch_aux_data(struct libinput_device *device, struct libinput_ev
    E_Input_Backend *input;
    Ecore_Event_Axis_Update *ev;
    Ecore_Axis *axis;
+   Ecore_Device *ecore_dev = NULL, *data;
+   Eina_List *l;
 
    if (libinput_event_touch_aux_data_get_type(event) != LIBINPUT_TOUCH_AUX_DATA_TYPE_PALM &&
        libinput_event_touch_aux_data_get_value(event) > 0)
@@ -1082,10 +1215,25 @@ _device_handle_touch_aux_data(struct libinput_device *device, struct libinput_ev
    if (!(edev = libinput_device_get_user_data(device))) goto end;
    if (!(input = edev->seat->input)) goto end;
 
-   if (!edev->ecore_dev || (ecore_device_class_get(edev->ecore_dev) != ECORE_DEVICE_CLASS_TOUCH))
-     edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_TOUCH);
+   if (edev->ecore_dev) ecore_dev = edev->ecore_dev;
+   else if (edev->ecore_dev_list && eina_list_count(edev->ecore_dev_list) > 0)
+     {
+        EINA_LIST_FOREACH(edev->ecore_dev_list, l, data)
+          {
+             if (ecore_device_class_get(data) == ECORE_DEVICE_CLASS_TOUCH)
+               {
+                  ecore_dev = data;
+                  break;
+               }
+          }
+     }
+   else
+     {
+        edev->ecore_dev = e_input_evdev_get_ecore_device(edev->path, ECORE_DEVICE_CLASS_TOUCH);
+        ecore_dev = edev->ecore_dev;
+     }
 
-   if (!edev->ecore_dev)
+   if (!ecore_dev)
      {
         ERR("Failed to get source ecore device from event !\n");
         goto end;
@@ -1106,7 +1254,7 @@ _device_handle_touch_aux_data(struct libinput_device *device, struct libinput_ev
         ev->naxis = 1;
      }
    ev->axis = axis;
-   ev->dev = ecore_device_ref(edev->ecore_dev);
+   ev->dev = ecore_device_ref(ecore_dev);
 
    ecore_event_add(ECORE_EVENT_AXIS_UPDATE, ev, _e_input_aux_data_event_free, NULL);
 
@@ -1178,6 +1326,8 @@ _e_input_evdev_device_create(E_Input_Seat *seat, struct libinput_device *device)
 void
 _e_input_evdev_device_destroy(E_Input_Evdev *edev)
 {
+   Ecore_Device *dev;
+
    EINA_SAFETY_ON_NULL_RETURN(edev);
 
    if (edev->caps & E_INPUT_SEAT_KEYBOARD)
@@ -1187,6 +1337,11 @@ _e_input_evdev_device_destroy(E_Input_Evdev *edev)
      }
 
    if (edev->ecore_dev) ecore_device_del(edev->ecore_dev);
+   if (edev->ecore_dev_list)
+     EINA_LIST_FREE(edev->ecore_dev_list, dev)
+       {
+          ecore_device_del(dev);
+       }
    if (edev->path) eina_stringshare_del(edev->path);
    if (edev->device) libinput_device_unref(edev->device);
    if (edev->key_remap_hash) eina_hash_free(edev->key_remap_hash);

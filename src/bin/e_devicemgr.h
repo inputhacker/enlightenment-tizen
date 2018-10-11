@@ -101,6 +101,9 @@ E_API Eina_Bool e_devicemgr_is_blocking_event(Ecore_Device_Class clas);
 E_API int e_devicemgr_init(void);
 E_API int e_devicemgr_shutdown(void);
 
+Eina_Bool e_devicemgr_detent_is_detent(const char *name);
+
+
 #endif
 #endif
 

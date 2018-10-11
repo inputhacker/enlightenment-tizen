@@ -252,12 +252,12 @@ end:
 static Eina_Bool
 _e_comp_screen_cb_input_device_add(void *data, int type, void *event)
 {
-   E_Input_Event_Input_Device_Add *e;
+   Ecore_Event_Device_Info *e;
    E_Comp *comp = data;
 
    if (!(e = event)) goto end;
 
-   if (e->caps & E_INPUT_SEAT_POINTER)
+   if (e->clas == ECORE_DEVICE_CLASS_MOUSE)
      {
         if (comp->wl_comp_data->ptr.num_devices == 0)
           {
@@ -266,12 +266,12 @@ _e_comp_screen_cb_input_device_add(void *data, int type, void *event)
           }
         comp->wl_comp_data->ptr.num_devices++;
      }
-   if (e->caps & E_INPUT_SEAT_KEYBOARD)
+   else if (e->clas == ECORE_DEVICE_CLASS_KEYBOARD)
      {
         comp->wl_comp_data->kbd.num_devices++;
         e_comp_wl_input_keyboard_enabled_set(EINA_TRUE);
      }
-   if (e->caps & E_INPUT_SEAT_TOUCH)
+   else if (e->clas == ECORE_DEVICE_CLASS_TOUCH)
      {
         e_comp_wl_input_touch_enabled_set(EINA_TRUE);
         comp->wl_comp_data->touch.num_devices++;
@@ -282,7 +282,7 @@ end:
 }
 
 static void
-_e_comp_screen_pointer_renew(E_Input_Event_Input_Device_Del *ev)
+_e_comp_screen_pointer_renew(void)
 {
      if ((e_comp_wl->ptr.num_devices == 0) && e_comp_wl->ptr.ec && e_comp_wl->ptr.ec->pointer_enter_sent)
      {
@@ -317,12 +317,12 @@ _e_comp_screen_pointer_renew(E_Input_Event_Input_Device_Del *ev)
 static Eina_Bool
 _e_comp_screen_cb_input_device_del(void *data, int type, void *event)
 {
-   E_Input_Event_Input_Device_Del *e;
+   Ecore_Event_Device_Info *e;
    E_Comp *comp = data;
 
    if (!(e = event)) goto end;
 
-   if (e->caps & E_INPUT_SEAT_POINTER)
+   if (e->clas == ECORE_DEVICE_CLASS_MOUSE)
      {
         comp->wl_comp_data->ptr.num_devices--;
         if (comp->wl_comp_data->ptr.num_devices == 0)
@@ -331,10 +331,10 @@ _e_comp_screen_cb_input_device_del(void *data, int type, void *event)
              e_pointer_object_set(comp->pointer, NULL, 0, 0);
              e_pointer_hide(e_comp->pointer);
 
-             _e_comp_screen_pointer_renew(e);
+             _e_comp_screen_pointer_renew();
           }
      }
-   if (e->caps & E_INPUT_SEAT_KEYBOARD)
+   else if (e->clas == ECORE_DEVICE_CLASS_KEYBOARD)
      {
         comp->wl_comp_data->kbd.num_devices--;
         if (comp->wl_comp_data->kbd.num_devices == 0)
@@ -342,7 +342,7 @@ _e_comp_screen_cb_input_device_del(void *data, int type, void *event)
              e_comp_wl_input_keyboard_enabled_set(EINA_FALSE);
           }
      }
-   if (e->caps & E_INPUT_SEAT_TOUCH)
+   else if (e->clas == ECORE_DEVICE_CLASS_TOUCH)
      {
         comp->wl_comp_data->touch.num_devices--;
         if (comp->wl_comp_data->touch.num_devices == 0)
@@ -1045,8 +1045,8 @@ e_comp_screen_init()
 
    tzsr_client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _tz_screen_rotation_cb_client_del, NULL);
 
-   E_LIST_HANDLER_APPEND(event_handlers, E_INPUT_EVENT_INPUT_DEVICE_ADD, _e_comp_screen_cb_input_device_add, comp);
-   E_LIST_HANDLER_APPEND(event_handlers, E_INPUT_EVENT_INPUT_DEVICE_DEL, _e_comp_screen_cb_input_device_del, comp);
+   E_LIST_HANDLER_APPEND(event_handlers, ECORE_EVENT_DEVICE_ADD, _e_comp_screen_cb_input_device_add, comp);
+   E_LIST_HANDLER_APPEND(event_handlers, ECORE_EVENT_DEVICE_DEL, _e_comp_screen_cb_input_device_del, comp);
 
    if (e_comp->e_comp_screen->rotation > 0)
      {

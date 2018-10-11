@@ -114,8 +114,8 @@ e_devicemgr_keycode_from_string(const char *keyname)
    return keycode;
 }
 
-static Eina_Bool
-_e_devicemgr_detent_is_detent(const char *name)
+Eina_Bool
+e_devicemgr_detent_is_detent(const char *name)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(name, EINA_FALSE);
 
@@ -419,9 +419,6 @@ _e_devicemgr_input_process_mouse_move(Ecore_Event_Mouse_Move *ev)
 {
    Eina_Bool res = ECORE_CALLBACK_PASS_ON;
 
-   if (ev->dev && _e_devicemgr_detent_is_detent(ecore_device_name_get(ev->dev)))
-     return res;
-
    res = e_devicemgr_block_check_move(ev);
 
    return res;
@@ -434,7 +431,7 @@ _e_devicemgr_input_process_mouse_wheel(Ecore_Event_Mouse_Wheel *ev)
 
    if (!ev->dev) return ECORE_CALLBACK_PASS_ON;
 
-   if (!_e_devicemgr_detent_is_detent(ecore_device_name_get(ev->dev)))
+   if (!e_devicemgr_detent_is_detent(ecore_device_name_get(ev->dev)))
      return ECORE_CALLBACK_PASS_ON;
 
    detent = (int)(ev->z / (e_devicemgr->detent.wheel_click_angle
@@ -477,35 +474,7 @@ _e_devicemgr_input_event_filter(void *data EINA_UNUSED, void *loop_data EINA_UNU
 
    if (!event) return res;
 
-   if ((ECORE_EVENT_DEVICE_ADD == type) ||
-       (ECORE_EVENT_DEVICE_DEL == type))
-     {
-        Ecore_Event_Device_Info *ev;
-        ev = (Ecore_Event_Device_Info *)event;
-
-        /* Remove mouse class from tizen detent device */
-        if (_e_devicemgr_detent_is_detent(ev->name))
-          ev->clas &= ~ECORE_DEVICE_CLASS_MOUSE;
-     }
-   else if (E_INPUT_EVENT_INPUT_DEVICE_ADD == type)
-     {
-        E_Input_Event_Input_Device_Add *ev;
-        ev = (E_Input_Event_Input_Device_Add *)event;
-
-        /* Remove pointer capability from tizen detent device */
-        if (_e_devicemgr_detent_is_detent(ev->name))
-          ev->caps &= ~E_INPUT_SEAT_POINTER;
-     }
-   else if (E_INPUT_EVENT_INPUT_DEVICE_DEL == type)
-     {
-        E_Input_Event_Input_Device_Del *ev;
-        ev = (E_Input_Event_Input_Device_Del *)event;
-
-        /* Remove pointer capability from tizen detent device */
-        if (_e_devicemgr_detent_is_detent(ev->name))
-          ev->caps &= ~E_INPUT_SEAT_POINTER;
-     }
-   else if (ECORE_EVENT_KEY_DOWN == type)
+   if (ECORE_EVENT_KEY_DOWN == type)
      {
         Ecore_Event_Key *ev;
         ev = (Ecore_Event_Key *)event;

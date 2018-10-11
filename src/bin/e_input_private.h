@@ -65,6 +65,7 @@ struct _E_Input_Evdev
    const char *path;
    int fd;
    Ecore_Device *ecore_dev;
+   Eina_List *ecore_dev_list;
 
    int mt_slot;
 
