@@ -1587,17 +1587,14 @@ EINTERN Eina_Bool
 e_hwc_window_activate(E_Hwc_Window *hwc_window, E_Hwc_Window_Queue *queue)
 {
    struct wayland_tbm_client_queue *cqueue = NULL;
-   E_Client *ec = NULL;
    int flush = 0;
    int queue_size = 0;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->ec, EINA_FALSE);
 
    if (hwc_window->activation_state == E_HWC_WINDOW_ACTIVATION_STATE_ACTIVATED)
      return EINA_TRUE;
-
-   ec = hwc_window->ec;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
 
    if (e_hwc_window_is_cursor(hwc_window)) return EINA_TRUE;
 
@@ -1607,7 +1604,7 @@ e_hwc_window_activate(E_Hwc_Window *hwc_window, E_Hwc_Window_Queue *queue)
         queue_size = tbm_surface_queue_get_size(queue->tqueue);
      }
 
-   cqueue = _get_wayland_tbm_client_queue(ec);
+   cqueue = _get_wayland_tbm_client_queue(hwc_window->ec);
    if (cqueue)
      wayland_tbm_server_client_queue_activate(cqueue, 0, queue_size, flush);
 
@@ -1626,6 +1623,7 @@ e_hwc_window_deactivate(E_Hwc_Window *hwc_window)
    struct wayland_tbm_client_queue * cqueue = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->ec, EINA_FALSE);
 
    if (hwc_window->activation_state == E_HWC_WINDOW_ACTIVATION_STATE_DEACTIVATED)
      return EINA_TRUE;
