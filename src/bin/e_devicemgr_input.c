@@ -551,24 +551,6 @@ _e_devicemgr_input_event_filter(void *data EINA_UNUSED, void *loop_data EINA_UNU
    return res;
 }
 
-static void
-_e_devicemgr_device_query(void)
-{
-   Eina_List *list, *l;
-   Ecore_Device *dev;
-
-   list = (Eina_List *)ecore_device_list();
-
-   EINA_LIST_FOREACH(list, l, dev)
-     {
-        _e_devicemgr_input_device_add(ecore_device_name_get(dev),
-                                      ecore_device_identifier_get(dev),
-                                      ecore_device_name_get(dev),
-                                      ecore_device_class_get(dev),
-                                      ecore_device_subclass_get(dev));
-     }
-}
-
 Eina_Bool
 e_devicemgr_input_init(void)
 {
@@ -578,8 +560,6 @@ e_devicemgr_input_init(void)
    E_LIST_HANDLER_APPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_ADD, _e_devicemgr_input_cb_device_add, NULL);
    E_LIST_HANDLER_APPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_DEL, _e_devicemgr_input_cb_device_del, NULL);
    E_LIST_HANDLER_APPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_SUBCLASS_UPDATE, _e_devicemgr_input_cb_device_update, NULL);
-
-   _e_devicemgr_device_query();
 
    return EINA_TRUE;
 }
