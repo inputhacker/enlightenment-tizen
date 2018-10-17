@@ -1552,6 +1552,9 @@ _e_vis_ec_above_visible_type(E_Client *ec, Eina_Bool check_child)
                continue;
           }
 
+        if (above->iconic && above->exp_iconify.by_client)
+          continue;
+
         if (above->visibility.obscured == E_VISIBILITY_UNOBSCURED)
           {
              if (!above->argb)
@@ -1561,9 +1564,16 @@ _e_vis_ec_above_visible_type(E_Client *ec, Eina_Bool check_child)
                   if (above->visibility.opaque > 0)
                     above_vis_type = E_POL_VIS_TYPE_ALPHA_OPAQUE;
                }
-
-             break;
           }
+        else
+          {
+             if (!above->visible)
+               continue;
+
+             above_vis_type = E_POL_VIS_TYPE_NON_ALPHA;
+          }
+
+        break;
      }
 
    return above_vis_type;
