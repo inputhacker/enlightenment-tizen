@@ -326,8 +326,10 @@ _e_devicemgr_input_cb_mouse_button_down(void *data, int type, void *event)
    Eina_Bool res = ECORE_CALLBACK_PASS_ON;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(event, res);
-
    ev = (Ecore_Event_Mouse_Button *)event;
+
+   res = e_devicemgr_block_check_button(ev, EINA_TRUE);
+   if (res == ECORE_CALLBACK_DONE) return res;
 
    if (e_devicemgr->dconfig->conf->input.button_remap_enable)
      res = _e_devicemgr_input_mouse_button_remap(ev, EINA_TRUE);
@@ -342,8 +344,10 @@ _e_devicemgr_input_cb_mouse_button_up(void *data, int type, void *event)
    Eina_Bool res = ECORE_CALLBACK_PASS_ON;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(event, res);
-
    ev = (Ecore_Event_Mouse_Button *)event;
+
+   res = e_devicemgr_block_check_button(ev, EINA_FALSE);
+   if (res == ECORE_CALLBACK_DONE) return res;
 
    if (e_devicemgr->dconfig->conf->input.button_remap_enable)
      res = _e_devicemgr_input_mouse_button_remap(ev, EINA_FALSE);
@@ -352,12 +356,54 @@ _e_devicemgr_input_cb_mouse_button_up(void *data, int type, void *event)
 }
 
 static Eina_Bool
+_e_devicemgr_input_cb_mouse_move(void *data, int type, void *event)
+{
+   Ecore_Event_Mouse_Move *ev;
+   Eina_Bool res = ECORE_CALLBACK_PASS_ON;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(event, res);
+   ev = (Ecore_Event_Mouse_Move *)event;
+
+   res = e_devicemgr_block_check_move(ev);
+
+   return res;
+}
+
+static Eina_Bool
+_e_devicemgr_input_cb_mouse_wheel(void *data, int type, void *event)
+{
+   Ecore_Event_Mouse_Wheel *ev;
+   int detent;
+   Eina_Bool res = ECORE_CALLBACK_PASS_ON;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(event, res);
+   ev = (Ecore_Event_Mouse_Wheel *)event;
+
+   if (!ev->dev) return ECORE_CALLBACK_PASS_ON;
+
+   if (!e_devicemgr_detent_is_detent(ecore_device_name_get(ev->dev)))
+     return ECORE_CALLBACK_PASS_ON;
+
+   detent = (int)(ev->z / (e_devicemgr->detent.wheel_click_angle
+                           ? e_devicemgr->detent.wheel_click_angle
+                           : 1));
+
+   if (detent == 2 || detent == -2)
+     {
+        detent = (detent / 2)*(-1);
+        e_devicemgr_wl_detent_send_event(detent);
+     }
+
+   return ECORE_CALLBACK_DONE;
+}
+
+
+static Eina_Bool
 _e_devicemgr_input_cb_device_add(void *data, int type, void *event)
 {
    Ecore_Event_Device_Info *ev;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(event, ECORE_CALLBACK_PASS_ON);
-
    ev = (Ecore_Event_Device_Info *)event;
 
    _e_devicemgr_input_device_add(ev->name, ev->identifier, ev->seatname, ev->clas, ev->subclas);
@@ -371,7 +417,6 @@ _e_devicemgr_input_cb_device_del(void *data, int type, void *event)
    Ecore_Event_Device_Info *ev;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(event, ECORE_CALLBACK_PASS_ON);
-
    ev = (Ecore_Event_Device_Info *)event;
 
    _e_devicemgr_input_device_del(ev->name, ev->identifier, ev->seatname, ev->clas, ev->subclas);
@@ -395,62 +440,13 @@ _e_devicemgr_input_cb_device_update(void *data, int type, void *event)
 }
 
 static Eina_Bool
-_e_devicemgr_input_process_mouse_button_down(Ecore_Event_Mouse_Button *ev)
+_e_devicemgr_input_cb_key_down(void *data, int type, void *event)
 {
+   Ecore_Event_Key *ev;
    Eina_Bool res = ECORE_CALLBACK_PASS_ON;
 
-   res = e_devicemgr_block_check_button(ev, EINA_TRUE);
-
-   return res;
-}
-
-static Eina_Bool
-_e_devicemgr_input_process_mouse_button_up(Ecore_Event_Mouse_Button *ev)
-{
-   Eina_Bool res = ECORE_CALLBACK_PASS_ON;
-
-   res = e_devicemgr_block_check_button(ev, EINA_FALSE);
-
-   return res;
-}
-
-static Eina_Bool
-_e_devicemgr_input_process_mouse_move(Ecore_Event_Mouse_Move *ev)
-{
-   Eina_Bool res = ECORE_CALLBACK_PASS_ON;
-
-   res = e_devicemgr_block_check_move(ev);
-
-   return res;
-}
-
-static Eina_Bool
-_e_devicemgr_input_process_mouse_wheel(Ecore_Event_Mouse_Wheel *ev)
-{
-   int detent;
-
-   if (!ev->dev) return ECORE_CALLBACK_PASS_ON;
-
-   if (!e_devicemgr_detent_is_detent(ecore_device_name_get(ev->dev)))
-     return ECORE_CALLBACK_PASS_ON;
-
-   detent = (int)(ev->z / (e_devicemgr->detent.wheel_click_angle
-                           ? e_devicemgr->detent.wheel_click_angle
-                           : 1));
-
-   if (detent == 2 || detent == -2)
-     {
-        detent = (detent / 2)*(-1);
-        e_devicemgr_wl_detent_send_event(detent);
-     }
-
-   return ECORE_CALLBACK_DONE;
-}
-
-static Eina_Bool
-_e_devicemgr_input_process_key_down(Ecore_Event_Key *ev)
-{
-   Eina_Bool res = ECORE_CALLBACK_PASS_ON;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(event, ECORE_CALLBACK_PASS_ON);
+   ev = (Ecore_Event_Key *)event;
 
    res = e_devicemgr_block_check_keyboard(ev, EINA_TRUE);
 
@@ -458,64 +454,15 @@ _e_devicemgr_input_process_key_down(Ecore_Event_Key *ev)
 }
 
 static Eina_Bool
-_e_devicemgr_input_process_key_up(Ecore_Event_Key *ev)
+_e_devicemgr_input_cb_key_up(void *data, int type, void *event)
 {
+   Ecore_Event_Key *ev;
    Eina_Bool res = ECORE_CALLBACK_PASS_ON;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(event, ECORE_CALLBACK_PASS_ON);
+   ev = (Ecore_Event_Key *)event;
 
    res = e_devicemgr_block_check_keyboard(ev, EINA_FALSE);
-
-   return res;
-}
-
-static Eina_Bool
-_e_devicemgr_input_event_filter(void *data EINA_UNUSED, void *loop_data EINA_UNUSED, int type, void *event)
-{
-   Eina_Bool res = ECORE_CALLBACK_PASS_ON;
-
-   if (!event) return res;
-
-   if (ECORE_EVENT_KEY_DOWN == type)
-     {
-        Ecore_Event_Key *ev;
-        ev = (Ecore_Event_Key *)event;
-
-        res = _e_devicemgr_input_process_key_down(ev);
-     }
-   else if (ECORE_EVENT_KEY_UP == type)
-     {
-        Ecore_Event_Key *ev;
-        ev = (Ecore_Event_Key *)event;
-
-        res = _e_devicemgr_input_process_key_up(ev);
-     }
-   else if (ECORE_EVENT_MOUSE_BUTTON_DOWN == type)
-     {
-        Ecore_Event_Mouse_Button *ev;
-        ev = (Ecore_Event_Mouse_Button *)event;
-
-        res = _e_devicemgr_input_process_mouse_button_down(ev);
-     }
-   else if (ECORE_EVENT_MOUSE_BUTTON_UP == type)
-     {
-        Ecore_Event_Mouse_Button *ev;
-        ev = (Ecore_Event_Mouse_Button *)event;
-
-        res = _e_devicemgr_input_process_mouse_button_up(ev);
-     }
-   else if (ECORE_EVENT_MOUSE_MOVE == type)
-     {
-        Ecore_Event_Mouse_Move *ev;
-        ev = (Ecore_Event_Mouse_Move *)event;
-
-        res = _e_devicemgr_input_process_mouse_move(ev);
-     }
-   else if (ECORE_EVENT_MOUSE_WHEEL == type)
-     {
-        Ecore_Event_Mouse_Wheel *ev;
-        ev = (Ecore_Event_Mouse_Wheel *)event;
-
-        res = _e_devicemgr_input_process_mouse_wheel(ev);
-     }
 
    return res;
 }
@@ -523,12 +470,15 @@ _e_devicemgr_input_event_filter(void *data EINA_UNUSED, void *loop_data EINA_UNU
 Eina_Bool
 e_devicemgr_input_init(void)
 {
-   e_devicemgr->ev_filter = ecore_event_filter_add(NULL, _e_devicemgr_input_event_filter, NULL, NULL);
-   E_LIST_HANDLER_APPEND(e_devicemgr->handlers, ECORE_EVENT_MOUSE_BUTTON_DOWN, _e_devicemgr_input_cb_mouse_button_down, NULL);
-   E_LIST_HANDLER_APPEND(e_devicemgr->handlers, ECORE_EVENT_MOUSE_BUTTON_UP, _e_devicemgr_input_cb_mouse_button_up, NULL);
-   E_LIST_HANDLER_APPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_ADD, _e_devicemgr_input_cb_device_add, NULL);
-   E_LIST_HANDLER_APPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_DEL, _e_devicemgr_input_cb_device_del, NULL);
-   E_LIST_HANDLER_APPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_SUBCLASS_UPDATE, _e_devicemgr_input_cb_device_update, NULL);
+   E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_MOUSE_BUTTON_DOWN, _e_devicemgr_input_cb_mouse_button_down, NULL);
+   E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_MOUSE_BUTTON_UP, _e_devicemgr_input_cb_mouse_button_up, NULL);
+   E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_MOUSE_MOVE, _e_devicemgr_input_cb_mouse_move, NULL);
+   E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_MOUSE_WHEEL, _e_devicemgr_input_cb_mouse_wheel, NULL);
+   E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_KEY_DOWN, _e_devicemgr_input_cb_key_down, NULL);
+   E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_KEY_UP, _e_devicemgr_input_cb_key_up, NULL);
+   E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_ADD, _e_devicemgr_input_cb_device_add, NULL);
+   E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_DEL, _e_devicemgr_input_cb_device_del, NULL);
+   E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_SUBCLASS_UPDATE, _e_devicemgr_input_cb_device_update, NULL);
 
    return EINA_TRUE;
 }
@@ -540,6 +490,4 @@ e_devicemgr_input_shutdown(void)
 
    EINA_LIST_FREE(e_devicemgr->handlers, h)
      ecore_event_handler_del(h);
-
-   ecore_event_filter_del(e_devicemgr->ev_filter);
 }

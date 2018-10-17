@@ -43,7 +43,6 @@ struct _E_Devicemgr
    E_Devicemgr_Config_Data *dconfig;
    E_Devicemgr_Wl_Data *wl_data;
 
-   Ecore_Event_Filter *ev_filter;
    Eina_List *handlers;
 
    Eina_List *device_list;

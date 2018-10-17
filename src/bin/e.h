@@ -236,6 +236,16 @@ typedef struct _E_Rect         E_Rect;
     } \
   while (0)
 
+# define E_LIST_HANDLER_PREPEND(list, type, callback, data) \
+  do \
+    { \
+       Ecore_Event_Handler *_eh; \
+       _eh = ecore_event_handler_prepend(type, (Ecore_Event_Handler_Cb)callback, data); \
+       assert(_eh); \
+       list = eina_list_append(list, _eh); \
+    } \
+  while (0)
+
 #define E_LIST_HOOK_APPEND(list, type, callback, data) \
   do \
     { \
