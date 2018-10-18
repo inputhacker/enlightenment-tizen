@@ -45,10 +45,11 @@ typedef struct _E_Win_Info
    const char  *name;       // name of client window
    int          x, y, w, h; // geometry
    int          layer;      // value of E_Layer
-   int          vis;        // visibility
+   int          vis;        // ec->visible
+   int          mapped;     // map state (ec->comp_data->mapped)
    int          alpha;      // alpha window
    int          opaque;
-   int          visibility;
+   int          visibility; // visibillity
    int          iconic;
    int          frame_visible;  //ec->frame obj visible get
    int          focused;
@@ -84,7 +85,7 @@ typedef struct _E_Layer_Fps_Info
    double fps;
 } E_Layer_Fps_Info;
 
-#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbiiibbiiusb"
+#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbbiiibbiiusb"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
@@ -365,7 +366,7 @@ _e_get_windows(int mode, char *value)
 }
 
 static E_Win_Info *
-_e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int opaque, const char *name, int x, int y, int w, int h, int layer, int visible, int visibility, int iconic, int frame_visible, int focused, int hwc, int pl_zpos, Ecore_Window parent_id, const char *layer_name, Eina_Bool has_input_region)
+_e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int opaque, const char *name, int x, int y, int w, int h, int layer, int visible, int mapped, int visibility, int iconic, int frame_visible, int focused, int hwc, int pl_zpos, Ecore_Window parent_id, const char *layer_name, Eina_Bool has_input_region)
 {
    E_Win_Info *win = NULL;
 
@@ -384,6 +385,7 @@ _e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int 
    win->alpha = alpha;
    win->opaque = opaque;
    win->vis = visible;
+   win->mapped = mapped;
    win->visibility = visibility;
    win->frame_visible = frame_visible;
    win->iconic = iconic;
@@ -422,7 +424,7 @@ _e_win_info_make_array(Eldbus_Message_Iter *array)
         const char *win_name;
         const char *layer_name;
         int x, y, w, h, layer, visibility, opaque, hwc, pl_zpos;
-        Eina_Bool visible, alpha, iconic, focused, frame_visible;
+        Eina_Bool visible, mapped, alpha, iconic, focused, frame_visible;
         Ecore_Window id, parent_id;
         uint32_t res_id;
         int pid;
@@ -440,6 +442,7 @@ _e_win_info_make_array(Eldbus_Message_Iter *array)
                                                 &h,
                                                 &layer,
                                                 &visible,
+                                                &mapped,
                                                 &alpha,
                                                 &opaque,
                                                 &visibility,
@@ -457,7 +460,7 @@ _e_win_info_make_array(Eldbus_Message_Iter *array)
              continue;
           }
 
-        win = _e_win_info_new(id, res_id, pid, alpha, opaque, win_name, x, y, w, h, layer, visible, visibility, iconic, frame_visible, focused, hwc, pl_zpos, parent_id, layer_name, has_input_region);
+        win = _e_win_info_new(id, res_id, pid, alpha, opaque, win_name, x, y, w, h, layer, visible, mapped, visibility, iconic, frame_visible, focused, hwc, pl_zpos, parent_id, layer_name, has_input_region);
         e_info_client.win_list = eina_list_append(e_info_client.win_list, win);
      }
 }
@@ -1012,7 +1015,7 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
 
    printf("\n%d Top level windows\n", eina_list_count(e_info_client.win_list));
    printf("--------------------------------------[ topvwins ]----------------------------------------------------------------------------------\n");
-   printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc InReg Dep Opaq Visi Icon  Map  Frame  PL@ZPos  Parent     Title\n");
+   printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc InReg Dep Opaq Vsbt Icon Vis Map  Frame  PL@ZPos  Parent     Title\n");
    printf("------------------------------------------------------------------------------------------------------------------------------------\n");
 
    if (!e_info_client.win_list)
@@ -1057,7 +1060,7 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
           }
 
         printf("%3d 0x%08x  %5d  %5d  %5d %5d %6d %6d   %c    %c   %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->has_input_region?'C':' ', win->alpha? 32:24, win->opaque);
-        printf("%2d    %d    %s   %3d    %-8s %-8x   %s\n", win->visibility, win->iconic, win->vis? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
+        printf("%2d    %d   %d   %s   %3d    %-8s %-8x   %s\n", win->visibility, win->iconic, win->vis, win->mapped? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
      }
 
    if (prev_layer_name)
@@ -1091,7 +1094,7 @@ _e_info_client_proc_topwins_info(int argc, char **argv)
 
    printf("%d Top level windows\n", eina_list_count(e_info_client.win_list));
    printf("--------------------------------------[ topvwins ]----------------------------------------------------------------------------------\n");
-   printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc InReg Dep Opaq Visi Icon  Map  Frame  PL@ZPos  Parent     Title\n");
+   printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc InReg Dep Opaq Vsbt Icon Vis Map  Frame  PL@ZPos  Parent     Title\n");
    printf("------------------------------------------------------------------------------------------------------------------------------------\n");
 
    if (!e_info_client.win_list)
@@ -1136,7 +1139,7 @@ _e_info_client_proc_topwins_info(int argc, char **argv)
           }
 
         printf("%3d 0x%08x  %5d  %5d  %5d %5d %6d %6d   %c    %c   %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->has_input_region ? 'C':' ',win->alpha? 32:24, win->opaque);
-        printf("%2d    %d    %s   %3d    %-8s %-8x   %s\n", win->visibility, win->iconic, win->vis? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
+        printf("%2d    %d   %d   %s   %3d    %-8s %-8x   %s\n", win->visibility, win->iconic, win->vis, win->mapped? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
      }
 
    if (prev_layer_name)
