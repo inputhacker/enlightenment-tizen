@@ -401,6 +401,7 @@ _e_hwc_window_target_new(E_Hwc *hwc)
 
    ((E_Hwc_Window *)target_hwc_window)->is_target = EINA_TRUE;
    ((E_Hwc_Window *)target_hwc_window)->state = E_HWC_WINDOW_STATE_DEVICE;
+   ((E_Hwc_Window *)target_hwc_window)->accepted_state = E_HWC_WINDOW_STATE_DEVICE;
    ((E_Hwc_Window *)target_hwc_window)->hwc = hwc;
 
    target_hwc_window->ee = e_comp->ee;
