@@ -1363,6 +1363,7 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
 {
    E_Hwc_Mode hwc_mode = E_HWC_MODE_NONE;
    uint32_t num_changes;
+   Eina_Bool accept = EINA_FALSE;
 
    _e_hwc_windows_states_evaluate(hwc);
 
@@ -1370,14 +1371,11 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
    if (!_e_hwc_windows_validate(hwc, &num_changes))
      {
         ERR("HWC-WINS: _e_hwc_windows_validate failed.");
-        goto fail_evaluate;
+        return EINA_FALSE;
      }
 
    /* accept the result of the validation */
-   if (!_e_hwc_windows_accept(hwc, num_changes))
-       goto fail_evaluate;
-
-   EHWSTRACE(" Succeed the compsition_evaulation.", NULL);
+   accept = _e_hwc_windows_accept(hwc, num_changes);
 
    /* decide the E_HWC_MODE */
    hwc_mode = _e_hwc_windows_hwc_mode_get(hwc);
@@ -1406,11 +1404,16 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
    else
      _e_hwc_windows_target_state_set(hwc->target_hwc_window, E_HWC_WINDOW_STATE_NONE);
 
-    return EINA_TRUE;
-
-fail_evaluate:
-   EHWSTRACE(" Need the comopsition re-evaulation.", NULL);
-   return EINA_FALSE;
+   if (accept)
+     {
+        EHWSTRACE(" Succeed the compsition_evaulation.", NULL);
+        return EINA_TRUE;
+     }
+   else
+     {
+        EHWSTRACE(" Need the comopsition re-evaulation.", NULL);
+        return EINA_FALSE;
+     }
 }
 
 static Eina_Bool
