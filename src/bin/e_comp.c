@@ -242,9 +242,8 @@ _e_comp_cb_update(void)
              else if (!e_pixmap_size_get(ec->pixmap, NULL, NULL))
                {
                   WRN("FAIL %p", ec);
-                  e_comp_object_redirected_set(ec->frame, 0);
-                  if (e_pixmap_failures_get(ec->pixmap) < 3)
-                    e_comp_object_render_update_add(ec->frame);
+                  /* if client pixmap is not valid while checking updates list in job cb handler
+                     than let evas object as it is and make no updats on. */
                }
           }
 
