@@ -2201,9 +2201,11 @@ e_output_commit(E_Output *output)
           {
              /* skip the fb_target fetch because we do this previously */
              if (e_plane_is_fb_target(plane)) continue;
-             if (!e_plane_is_unset_candidate(plane)) continue;
 
-             e_plane_unset_try_set(plane, EINA_TRUE);
+             /* if the plane is the candidate to unset,
+                set the plane to be unset_try */
+             if (e_plane_is_unset_candidate(plane))
+               e_plane_unset_try_set(plane, EINA_TRUE);
 
              /* if the plane is trying to unset,
               * 1. if fetching the fb is not available, continue.
