@@ -24,7 +24,8 @@ typedef enum _Tzsh_Srv_Role
    TZSH_SRV_ROLE_UNKNOWN = -1,
    TZSH_SRV_ROLE_CALL,
    TZSH_SRV_ROLE_VOLUME,
-   TZSH_SRV_ROLE_QUICKPANEL,
+   TZSH_SRV_ROLE_QUICKPANEL_SYSTEM_DEFAULT,
+   TZSH_SRV_ROLE_QUICKPANEL_CONTEXT_MENU,
    TZSH_SRV_ROLE_LOCKSCREEN,
    TZSH_SRV_ROLE_INDICATOR,
    TZSH_SRV_ROLE_TVSERVICE,
@@ -82,6 +83,7 @@ typedef struct _E_Policy_Wl_Tzsh_Client
    E_Policy_Wl_Tzsh        *tzsh;
    struct wl_resource *res_tzsh_client;
    Eina_Bool           qp_client;
+   E_Quickpanel_Type   qp_type;
 } E_Policy_Wl_Tzsh_Client;
 
 typedef struct _E_Policy_Wl_Tzsh_Region
@@ -620,16 +622,17 @@ _e_policy_wl_tzsh_srv_role_get(const char *name)
 {
    Tzsh_Srv_Role role = TZSH_SRV_ROLE_UNKNOWN;
 
-   if      (!e_util_strcmp(name, "call"               )) role = TZSH_SRV_ROLE_CALL;
-   else if (!e_util_strcmp(name, "volume"             )) role = TZSH_SRV_ROLE_VOLUME;
-   else if (!e_util_strcmp(name, "quickpanel"         )) role = TZSH_SRV_ROLE_QUICKPANEL;
-   else if (!e_util_strcmp(name, "lockscreen"         )) role = TZSH_SRV_ROLE_LOCKSCREEN;
-   else if (!e_util_strcmp(name, "indicator"          )) role = TZSH_SRV_ROLE_INDICATOR;
-   else if (!e_util_strcmp(name, "tvsrv"              )) role = TZSH_SRV_ROLE_TVSERVICE;
-   else if (!e_util_strcmp(name, "screensaver_manager")) role = TZSH_SRV_ROLE_SCREENSAVER_MNG;
-   else if (!e_util_strcmp(name, "screensaver"        )) role = TZSH_SRV_ROLE_SCREENSAVER;
-   else if (!e_util_strcmp(name, "cbhm"               )) role = TZSH_SRV_ROLE_CBHM;
-   else if (!e_util_strcmp(name, "softkey"            )) role = TZSH_SRV_ROLE_SOFTKEY;
+   if      (!e_util_strcmp(name, "call"                     )) role = TZSH_SRV_ROLE_CALL;
+   else if (!e_util_strcmp(name, "volume"                   )) role = TZSH_SRV_ROLE_VOLUME;
+   else if (!e_util_strcmp(name, "quickpanel_system_default")) role = TZSH_SRV_ROLE_QUICKPANEL_SYSTEM_DEFAULT;
+   else if (!e_util_strcmp(name, "quickpanel_context_menu"  )) role = TZSH_SRV_ROLE_QUICKPANEL_CONTEXT_MENU;
+   else if (!e_util_strcmp(name, "lockscreen"               )) role = TZSH_SRV_ROLE_LOCKSCREEN;
+   else if (!e_util_strcmp(name, "indicator"                )) role = TZSH_SRV_ROLE_INDICATOR;
+   else if (!e_util_strcmp(name, "tvsrv"                    )) role = TZSH_SRV_ROLE_TVSERVICE;
+   else if (!e_util_strcmp(name, "screensaver_manager"      )) role = TZSH_SRV_ROLE_SCREENSAVER_MNG;
+   else if (!e_util_strcmp(name, "screensaver"              )) role = TZSH_SRV_ROLE_SCREENSAVER;
+   else if (!e_util_strcmp(name, "cbhm"                     )) role = TZSH_SRV_ROLE_CBHM;
+   else if (!e_util_strcmp(name, "softkey"                  )) role = TZSH_SRV_ROLE_SOFTKEY;
 
    return role;
 }
@@ -799,7 +802,8 @@ _e_policy_wl_tzsh_client_del(E_Policy_Wl_Tzsh_Client *tzsh_client)
        (tzsh_client->tzsh->ec))
      {
         if (tzsh_client->qp_client)
-          e_qp_client_del(tzsh_client->tzsh->ec);
+          e_qp_client_del(tzsh_client->tzsh->ec,
+                          tzsh_client->qp_type);
      }
 
    memset(tzsh_client, 0x0, sizeof(E_Policy_Wl_Tzsh_Client));
@@ -3424,8 +3428,17 @@ _tzsh_srv_iface_cb_region_set(struct wl_client *client, struct wl_resource *res_
    tzsh_reg = wl_resource_get_user_data(res_reg);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_reg);
 
-   if (tzsh_srv->role == TZSH_SRV_ROLE_QUICKPANEL)
-     e_service_quickpanel_region_set(type, angle, tzsh_reg->tiler);
+   if ((tzsh_srv->role == TZSH_SRV_ROLE_QUICKPANEL_SYSTEM_DEFAULT) ||
+       (tzsh_srv->role == TZSH_SRV_ROLE_QUICKPANEL_CONTEXT_MENU))
+     {
+        EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh);
+        EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh->ec);
+
+        e_service_quickpanel_region_set(tzsh_srv->tzsh->ec,
+                                        type,
+                                        angle,
+                                        tzsh_reg->tiler);
+     }
    else if (tzsh_srv->role == TZSH_SRV_ROLE_VOLUME)
      e_service_volume_region_set(type, angle, tzsh_reg->tiler);
 }
@@ -3495,10 +3508,10 @@ _tzsh_srv_qp_cb_msg(struct wl_client *client EINA_UNUSED, struct wl_resource *re
    switch (msg)
      {
       case TWS_SERVICE_QUICKPANEL_MSG_SHOW:
-         e_service_quickpanel_show();
+         e_service_quickpanel_show(EC);
          break;
       case TWS_SERVICE_QUICKPANEL_MSG_HIDE:
-         e_service_quickpanel_hide();
+         e_service_quickpanel_hide(EC);
          break;
       default:
          ERR("Unknown message!! msg %d", msg);
@@ -3559,7 +3572,10 @@ _tzsh_srv_iface_cb_quickpanel_get(struct wl_client *client, struct wl_resource *
    if (!eina_list_data_find(polwl->tzsh_srvs, tzsh_srv))
      return;
 
-   res = wl_resource_create(client, &tws_service_quickpanel_interface, 1, id);
+   res = wl_resource_create(client,
+                            &tws_service_quickpanel_interface,
+                            wl_resource_get_version(res_tzsh_srv),
+                            id);
    if (!res)
      {
         wl_client_post_no_memory(client);
@@ -3994,8 +4010,10 @@ _tzsh_iface_cb_srv_create(struct wl_client *client, struct wl_resource *res_tzsh
                                   tzsh_srv,
                                   _tzsh_cb_srv_destroy);
 
-   if (role == TZSH_SRV_ROLE_QUICKPANEL)
-     e_service_quickpanel_client_set(tzsh->ec);
+   if (role == TZSH_SRV_ROLE_QUICKPANEL_SYSTEM_DEFAULT)
+     e_service_quickpanel_client_add(tzsh->ec, E_SERVICE_QUICKPANEL_TYPE_SYSTEM_DEFAULT);
+   else if (role == TZSH_SRV_ROLE_QUICKPANEL_CONTEXT_MENU)
+     e_service_quickpanel_client_add(tzsh->ec, E_SERVICE_QUICKPANEL_TYPE_CONTEXT_MENU);
    else if (role == TZSH_SRV_ROLE_VOLUME)
      e_service_volume_client_set(tzsh->ec);
    else if (role == TZSH_SRV_ROLE_LOCKSCREEN)
@@ -4460,12 +4478,15 @@ _tzsh_qp_iface_cb_show(struct wl_client *client EINA_UNUSED, struct wl_resource 
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh->ec);
 
+   /* unexpected case: this client doesn't have specific quickpanel type */
+   EINA_SAFETY_ON_TRUE_RETURN(tzsh_client->qp_type == E_QUICKPANEL_TYPE_UNKNOWN);
+
    ec = tzsh_client->tzsh->ec;
 
    if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
      return;
 
-   e_qp_client_show(ec);
+   e_qp_client_show(ec, tzsh_client->qp_type);
 }
 
 static void
@@ -4479,12 +4500,15 @@ _tzsh_qp_iface_cb_hide(struct wl_client *client EINA_UNUSED, struct wl_resource 
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh->ec);
 
+   /* unexpected case: this client doesn't have specific quickpanel type */
+   EINA_SAFETY_ON_TRUE_RETURN(tzsh_client->qp_type == E_QUICKPANEL_TYPE_UNKNOWN);
+
    ec = tzsh_client->tzsh->ec;
 
    if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
      return;
 
-   e_qp_client_hide(ec);
+   e_qp_client_hide(ec, tzsh_client->qp_type);
 }
 
 static void
@@ -4498,12 +4522,15 @@ _tzsh_qp_iface_cb_enable(struct wl_client *client EINA_UNUSED, struct wl_resourc
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh->ec);
 
+   /* unexpected case: this client doesn't have specific quickpanel type */
+   EINA_SAFETY_ON_TRUE_RETURN(tzsh_client->qp_type == E_QUICKPANEL_TYPE_UNKNOWN);
+
    ec = tzsh_client->tzsh->ec;
 
    if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
      return;
 
-   e_qp_client_scrollable_set(ec, EINA_TRUE);
+   e_qp_client_scrollable_set(ec, tzsh_client->qp_type, EINA_TRUE);
 }
 
 static void
@@ -4517,12 +4544,15 @@ _tzsh_qp_iface_cb_disable(struct wl_client *client EINA_UNUSED, struct wl_resour
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh->ec);
 
+   /* unexpected case: this client doesn't have specific quickpanel type */
+   EINA_SAFETY_ON_TRUE_RETURN(tzsh_client->qp_type == E_QUICKPANEL_TYPE_UNKNOWN);
+
    ec = tzsh_client->tzsh->ec;
 
    if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
      return;
 
-   e_qp_client_scrollable_set(ec, EINA_FALSE);
+   e_qp_client_scrollable_set(ec, tzsh_client->qp_type, EINA_FALSE);
 }
 
 static void
@@ -4539,6 +4569,9 @@ _tzsh_qp_iface_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl_reso
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh->ec);
 
+   /* unexpected case: this client doesn't have specific quickpanel type */
+   EINA_SAFETY_ON_TRUE_RETURN(tzsh_client->qp_type == E_QUICKPANEL_TYPE_UNKNOWN);
+
    ec = tzsh_client->tzsh->ec;
 
    if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
@@ -4548,16 +4581,16 @@ _tzsh_qp_iface_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl_reso
      {
       case TWS_QUICKPANEL_STATE_TYPE_VISIBILITY:
         val = TWS_QUICKPANEL_STATE_VALUE_VISIBLE_HIDE;
-        vis = e_qp_visible_get();
+        vis = e_qp_visible_get(ec, tzsh_client->qp_type);
         if (vis) val = TWS_QUICKPANEL_STATE_VALUE_VISIBLE_SHOW;
         break;
       case TWS_QUICKPANEL_STATE_TYPE_SCROLLABLE:
         val = TWS_QUICKPANEL_STATE_VALUE_SCROLLABLE_UNSET;
-        scrollable = e_qp_client_scrollable_get(ec);
+        scrollable = e_qp_client_scrollable_get(ec, tzsh_client->qp_type);
         if (scrollable) val = TWS_QUICKPANEL_STATE_VALUE_SCROLLABLE_SET;
         break;
       case TWS_QUICKPANEL_STATE_TYPE_ORIENTATION:
-        ridx = e_qp_orientation_get();
+        ridx = e_qp_orientation_get(ec, tzsh_client->qp_type);
         val = TWS_QUICKPANEL_STATE_VALUE_ORIENTATION_0 + ridx;
         break;
       default:
@@ -4567,6 +4600,34 @@ _tzsh_qp_iface_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl_reso
    tws_quickpanel_send_state_get_done(res_tzsh_qp, type, val, 0);
 }
 
+static void
+_tzsh_qp_iface_cb_type_set(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzsh_qp, uint32_t type)
+{
+   E_Policy_Wl_Tzsh_Client *tzsh_client;
+   E_Client *ec;
+
+   tzsh_client = wl_resource_get_user_data(res_tzsh_qp);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh->ec);
+
+   /* unexpected case: this client has already specific quickpanel type */
+   EINA_SAFETY_ON_FALSE_RETURN(tzsh_client->qp_type == E_QUICKPANEL_TYPE_UNKNOWN);
+
+   tzsh_client->qp_type = (E_Quickpanel_Type)type;
+   ec = tzsh_client->tzsh->ec;
+
+   if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
+     return;
+
+   /* Since various types of qp are supported, one ec can be used for handler for
+    * two or more qp types. So e_qp_client_add function is called at the callback
+    * of qp_type_set, because it is easy to add the E_QP_Client instance after setting
+    * of qp type is completed.
+    */
+   e_qp_client_add(ec, type);
+}
+
 static const struct tws_quickpanel_interface _tzsh_qp_iface =
 {
    _tzsh_qp_iface_cb_release,
@@ -4574,7 +4635,8 @@ static const struct tws_quickpanel_interface _tzsh_qp_iface =
    _tzsh_qp_iface_cb_hide,
    _tzsh_qp_iface_cb_enable,
    _tzsh_qp_iface_cb_disable,
-   _tzsh_qp_iface_cb_state_get
+   _tzsh_qp_iface_cb_state_get,
+   _tzsh_qp_iface_cb_type_set
 };
 
 static void
@@ -4652,7 +4714,14 @@ _tzsh_iface_cb_qp_get(struct wl_client *client, struct wl_resource *res_tzsh, ui
      }
 
    tzsh_client->qp_client = EINA_TRUE;
-   e_qp_client_add(tzsh->ec);
+   tzsh_client->qp_type = E_QUICKPANEL_TYPE_UNKNOWN;
+
+   /* Since various types of qp are supported, one ec can be used for handler for
+    * two or more qp types. So e_qp_client_add function is called at the callback
+    * of qp_type_set, because it is easy to add the E_QP_Client instance after setting
+    * of qp type is completed.
+    */
+   //e_qp_client_add(tzsh->ec);
 
    wl_resource_set_implementation(res_tzsh_qp,
                                   &_tzsh_qp_iface,
@@ -6770,7 +6839,7 @@ e_policy_wl_init(void)
 
    global = wl_global_create(e_comp_wl->wl.disp,
                              &tizen_ws_shell_interface,
-                             2,
+                             3,
                              NULL,
                              _tzsh_cb_bind);
 

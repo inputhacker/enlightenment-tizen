@@ -412,7 +412,7 @@ _e_hwc_planes_prepare(E_Hwc *hwc, E_Zone *zone)
         if (E_POLICY_QUICKPANEL_LAYER >= evas_object_layer_get(ec->frame))
           {
              // check whether quickpanel is open than break
-             if (e_config->use_desk_smart_obj && e_qp_visible_get()) goto done;
+             if (e_config->use_desk_smart_obj && e_qps_visible_get()) goto done;
           }
 
         // if ec->frame is not for client buffer (e.g. launchscreen)

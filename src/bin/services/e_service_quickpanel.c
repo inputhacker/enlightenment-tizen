@@ -5,38 +5,59 @@
 #include "e_policy_wl.h"
 
 #define SMART_NAME            "quickpanel_object"
-#define INTERNAL_ENTRY                    \
-   Mover_Data *md;                        \
-   md = evas_object_smart_data_get(obj);  \
+#define INTERNAL_ENTRY                       \
+   Mover_Data *md;                           \
+   md = evas_object_smart_data_get(obj);     \
    if (!md) return
 
-#define QP_SHOW(qp)                       \
-do                                        \
-{                                         \
-   if (qp->ec && !qp->ec->visible)        \
-     {                                    \
-        qp->show_block = EINA_FALSE;      \
-        qp->ec->visible = EINA_TRUE;      \
-        evas_object_show(qp->ec->frame);  \
-     }                                    \
+#define QP_SHOW(qp)                          \
+do                                           \
+{                                            \
+   if (qp->ec && !qp->ec->visible)           \
+     {                                       \
+        qp->show_block = EINA_FALSE;         \
+        qp->ec->visible = EINA_TRUE;         \
+        evas_object_show(qp->ec->frame);     \
+     }                                       \
 } while (0)
 
-#define QP_HIDE(qp)                       \
-do                                        \
-{                                         \
-   if (qp->ec && qp->ec->visible)         \
-     {                                    \
-        qp->show_block = EINA_TRUE;       \
-        qp->ec->visible = EINA_FALSE;     \
-        evas_object_hide(qp->ec->frame);  \
-     }                                    \
+#define QP_HIDE(qp)                          \
+do                                           \
+{                                            \
+   if (qp->ec && qp->ec->visible)            \
+     {                                       \
+        qp->show_block = EINA_TRUE;          \
+        qp->ec->visible = EINA_FALSE;        \
+        evas_object_hide(qp->ec->frame);     \
+     }                                       \
 } while (0)
 
-#define QP_VISIBLE_SET(qp, vis)  \
-do                               \
-{                                \
-   if (vis) QP_SHOW(qp);         \
-   else     QP_HIDE(qp);         \
+#define QP_VISIBLE_SET(qp, vis)              \
+do                                           \
+{                                            \
+   if (vis) QP_SHOW(qp);                     \
+   else     QP_HIDE(qp);                     \
+} while(0)
+
+#define BACKEND_FUNC_CALL(f, ...)            \
+do                                           \
+{                                            \
+   if ((qp_mgr_funcs) &&                     \
+       (qp_mgr_funcs->f))                    \
+     {                                       \
+        qp_mgr_funcs->f(__VA_ARGS__);        \
+        return;                              \
+     }                                       \
+} while(0)
+
+#define BACKEND_FUNC_CALL_RET(f, ...)        \
+do                                           \
+{                                            \
+   if ((qp_mgr_funcs) &&                     \
+       (qp_mgr_funcs->f))                    \
+     {                                       \
+        return qp_mgr_funcs->f(__VA_ARGS__); \
+     }                                       \
 } while(0)
 
 typedef struct _E_Policy_Quickpanel E_Policy_Quickpanel;
@@ -47,6 +68,8 @@ typedef struct _E_QP_Client E_QP_Client;
 struct _E_Policy_Quickpanel
 {
    E_Client *ec;
+   E_Service_Quickpanel_Type type;
+
    E_Client *below;
    E_Client *stacking;
    Evas_Object *mover;
@@ -106,6 +129,7 @@ struct _Mover_Data
 struct _E_QP_Client
 {
    E_Client *ec;
+   E_Quickpanel_Type type;
    int ref;
    struct
    {
@@ -114,7 +138,7 @@ struct _E_QP_Client
    } hint;
 };
 
-static E_Policy_Quickpanel *_pol_quickpanel = NULL;
+static Eina_List *qp_services = NULL; /* list of E_Policy_Quickpanel for quickpanel services */
 static Evas_Smart *_mover_smart = NULL;
 static Eina_Bool _changed = EINA_FALSE;
 static E_QP_Mgr_Funcs *qp_mgr_funcs = NULL;
@@ -122,8 +146,8 @@ static E_QP_Mgr_Funcs *qp_mgr_funcs = NULL;
 Eina_List *qp_clients = NULL; /* list of E_QP_Client */
 
 static void          _e_qp_srv_effect_update(E_Policy_Quickpanel *qp, int x, int y);
-static E_QP_Client * _e_qp_client_ec_get(E_Client *ec);
-static Eina_Bool     _e_qp_client_scrollable_update(void);
+static E_QP_Client * _e_qp_client_ec_get(E_Client *ec, E_Quickpanel_Type type);
+static Eina_Bool     _e_qp_client_scrollable_update(E_Policy_Quickpanel *qp);
 
 static void          _quickpanel_client_evas_cb_show(void *data, Evas *evas, Evas_Object *obj, void *event);
 static void          _quickpanel_client_evas_cb_hide(void *data, Evas *evas, Evas_Object *obj, void *event);
@@ -147,10 +171,43 @@ _e_qp_srv_is_effect_running(E_Policy_Quickpanel *qp)
    return !!qp->effect.active;
 }
 
+/* look for E_Policy_Quickpanel instance of qp service
+ * which is same as given ec
+ *
+ * @param ec window of qp service
+ * @return E_Policy_Quickpanel instance of qp service
+ */
 static E_Policy_Quickpanel *
-_quickpanel_get()
+_quickpanel_service_get(E_Client *ec)
 {
-   return _pol_quickpanel;
+   E_Policy_Quickpanel *qp;
+   Eina_List *l;
+
+   EINA_LIST_FOREACH(qp_services, l, qp)
+     if (qp->ec == ec)
+       return qp;
+
+   return NULL;
+}
+
+/* look for E_Policy_Quickpanel instance of qp service
+ * which has same type as given qp_client
+ *
+ * @param qp_client instance of qp client
+ * @return instance of qp service
+ */
+static E_Policy_Quickpanel *
+_quickpanel_get_with_client_type(E_QP_Client *qp_client)
+{
+   E_Policy_Quickpanel *qp;
+   Eina_List *l;
+
+   /* look for a qp service which has same type as given qp client */
+   EINA_LIST_FOREACH(qp_services, l, qp)
+     if (qp->type == (E_Service_Quickpanel_Type)qp_client->type)
+       return qp;
+
+   return NULL;
 }
 
 static void
@@ -483,9 +540,13 @@ _e_qp_srv_effect_finish_job_end(E_Policy_Quickpanel *qp)
 
    e_zone_orientation_block_set(qp->ec->zone, "quickpanel-mover", EINA_FALSE);
 
+   /* send visible event to only client with the same type of quickpanel service */
    EINA_LIST_FOREACH(qp_clients, l, qp_client)
-      e_tzsh_qp_state_visible_update(qp_client->ec,
-                                     qp->effect.final_visible_state);
+     {
+        if (qp->type == (E_Service_Quickpanel_Type)qp_client->type)
+          e_tzsh_qp_state_visible_update(qp_client->ec,
+                                         qp->effect.final_visible_state);
+     }
 
    focused = e_client_focused_get();
    if (focused)
@@ -908,7 +969,7 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
     * which is placed at the below of the quickpanel window doesn't want
     * to show and scroll the quickpanel window.
     */
-   qp_client = _e_qp_client_ec_get(qp->below);
+   qp_client = _e_qp_client_ec_get(qp->below, (E_Quickpanel_Type)qp->type);
    if ((qp_client) && (!qp_client->hint.scrollable))
      return;
 
@@ -983,7 +1044,9 @@ _quickpanel_free(E_Policy_Quickpanel *qp)
    E_FREE_LIST(qp->events, ecore_event_handler_del);
    E_FREE_LIST(qp->hooks, e_client_hook_del);
    E_FREE_LIST(qp->intercept_hooks, e_comp_object_intercept_hook_del);
-   E_FREE(_pol_quickpanel);
+
+   qp_services = eina_list_remove(qp_services, qp);
+   E_FREE(qp);
 }
 
 static void
@@ -1027,6 +1090,8 @@ _quickpanel_cb_buffer_change(void *data, int type, void *event)
    E_Policy_Quickpanel *qp;
    E_Event_Client *ev;
    E_Client *ec;
+   int x, y, w, h;
+   Eina_Bool vis = EINA_FALSE;
 
    qp = data;
    if (!qp->ec)
@@ -1045,8 +1110,17 @@ _quickpanel_cb_buffer_change(void *data, int type, void *event)
    /* make frame event */
    e_pixmap_image_clear(ec->pixmap, EINA_TRUE);
 
-   /* To use single buffer*/
-   if (EINA_FALSE == e_qp_visible_get())
+   /* use single buffer if qp service's ec is invisible */
+   evas_object_geometry_get(ec->frame, &x, &y, &w, &h);
+
+   if (E_INTERSECTS(x, y, w, h,
+                    ec->zone->x,
+                    ec->zone->y,
+                    ec->zone->w,
+                    ec->zone->h))
+     vis = evas_object_visible_get(ec->frame);
+
+   if (!vis)
      e_pixmap_buffer_clear(ec->pixmap, EINA_TRUE);
 
 end:
@@ -1066,7 +1140,7 @@ _quickpanel_client_evas_cb_hide(void *data, Evas *evas, Evas_Object *obj, void *
    evas_object_show(qp->indi_obj);
 
    if (qp->need_scroll_update)
-     _e_qp_client_scrollable_update();
+     _e_qp_client_scrollable_update(qp);
 
    e_pixmap_buffer_clear(qp->ec->pixmap, EINA_TRUE);
 }
@@ -1147,7 +1221,7 @@ _quickpanel_handler_rect_add(E_Policy_Quickpanel *qp, E_Policy_Angle_Map ridx, i
    if (qp->handler_obj)
      goto end;
 
-   obj = e_service_region_object_new();
+   obj = e_service_region_object_new(ec);
    evas_object_name_set(obj, "qp::handler_obj");
    if (!obj)
      return;
@@ -1260,7 +1334,7 @@ _e_qp_srv_visible_set(E_Policy_Quickpanel *qp, Eina_Bool vis)
 {
    Eina_Bool res;
 
-   res = _e_qp_client_scrollable_update();
+   res = _e_qp_client_scrollable_update(qp);
    if (!res) return;
 
    if (qp->effect.disable_ref)
@@ -1372,9 +1446,13 @@ _quickpanel_cb_rotation_done(void *data, int type, void *event)
 
    _e_qp_srv_effect_disable_unref(qp);
 
+   /* send orientation event to only client with the same type of quickpanel service */
    EINA_LIST_FOREACH(qp_clients, l, qp_client)
-     e_tzsh_qp_state_orientation_update(qp_client->ec,
-                                        qp->rotation);
+     {
+        if (qp->type == (E_Service_Quickpanel_Type)qp_client->type)
+          e_tzsh_qp_state_orientation_update(qp_client->ec,
+                                             qp->rotation);
+     }
 
 end:
    return ECORE_CALLBACK_PASS_ON;
@@ -1526,7 +1604,7 @@ _quickpanel_cb_client_focus_in(void *data, int type, void *event)
      {
         DBG("Focus changed to '%s'(%x), Hide QP",
             ec->icccm.name ? ec->icccm.name : "", e_client_util_win_get(ec));
-        e_service_quickpanel_hide();
+        e_service_quickpanel_hide(qp->ec);
      }
 end:
    return ECORE_CALLBACK_PASS_ON;
@@ -1572,7 +1650,7 @@ _quickpanel_indicator_object_new(E_Policy_Quickpanel *qp)
 {
    Evas_Object *indi_obj;
 
-   indi_obj = e_service_region_object_new();
+   indi_obj = e_service_region_object_new(qp->ec);
    evas_object_name_set(indi_obj, "qp::indicator_obj");
    if (!indi_obj)
      return NULL;
@@ -1638,11 +1716,11 @@ _quickpanel_idle_enter(void *data)
                        if (below_old)
                          e_policy_aux_message_send(below_old, "quickpanel_state", "hidden", NULL);
 
-                       e_service_quickpanel_hide();
+                       e_service_quickpanel_hide(qp->ec);
                     }
                }
 
-             _e_qp_client_scrollable_update();
+             _e_qp_client_scrollable_update(qp);
           }
 
         qp->changes.below = EINA_FALSE;
@@ -1675,17 +1753,14 @@ end:
 }
 
 static E_QP_Client *
-_e_qp_client_ec_get(E_Client *ec)
+_e_qp_client_ec_get(E_Client *ec, E_Quickpanel_Type type)
 {
-   E_Policy_Quickpanel *qp = _quickpanel_get();
    E_QP_Client *qp_client = NULL;
    Eina_List *l;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(qp, qp_client);
-
    EINA_LIST_FOREACH(qp_clients, l, qp_client)
      {
-        if (qp_client->ec == ec)
+        if ((qp_client->ec == ec) && (qp_client->type == type))
           return qp_client;
      }
 
@@ -1693,16 +1768,14 @@ _e_qp_client_ec_get(E_Client *ec)
 }
 
 /* return value
- *  EINA_TRUE : user can scrool the QP.
+ *  EINA_TRUE : user can scroll the QP.
  *  EINA_FALSE: user can't scroll QP since below window doesn't want.
  */
 static Eina_Bool
-_e_qp_client_scrollable_update(void)
+_e_qp_client_scrollable_update(E_Policy_Quickpanel *qp)
 {
-   E_Policy_Quickpanel *qp;
    Eina_Bool res = EINA_TRUE;
 
-   qp = _quickpanel_get();
    EINA_SAFETY_ON_NULL_RETURN_VAL(qp, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(qp->ec, EINA_FALSE);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(qp->ec)), EINA_FALSE);
@@ -1747,25 +1820,13 @@ _e_qp_client_scrollable_update(void)
     }                                                    \
   while (0)
 
-/* NOTE: supported single client for quickpanel for now. */
+/* window for quickpanel service */
 EINTERN void
-e_service_quickpanel_client_set(E_Client *ec)
+e_service_quickpanel_client_add(E_Client *ec, E_Service_Quickpanel_Type type)
 {
-   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_client_set)
-     {
-        qp_mgr_funcs->quickpanel_client_set(ec);
-        return;
-     }
+   E_Policy_Quickpanel *qp = NULL;
 
-   E_Policy_Quickpanel *qp;
-
-   if (EINA_UNLIKELY(!ec))
-     {
-        qp = _quickpanel_get();
-        if (qp)
-          _quickpanel_free(qp);
-        return;
-     }
+   BACKEND_FUNC_CALL(quickpanel_client_add, ec, type);
 
    /* check for client being deleted */
    if (e_object_is_del(E_OBJECT(ec))) return;
@@ -1773,38 +1834,39 @@ e_service_quickpanel_client_set(E_Client *ec)
    /* check for wayland pixmap */
    if (e_pixmap_type_get(ec->pixmap) != E_PIXMAP_TYPE_WL) return;
 
-   /* if we have not setup evas callbacks for this client, do it */
-   if (_pol_quickpanel) return;
-
-   qp = calloc(1, sizeof(*qp));
-   if (!qp)
-     return;
+   qp = E_NEW(E_Policy_Quickpanel, 1);
+   EINA_SAFETY_ON_NULL_RETURN(qp);
 
    ELOGF("QUICKPANEL", "Set Client | qp %p", ec->pixmap, ec, qp);
 
-   _pol_quickpanel = qp;
-
    qp->ec = ec;
    qp->show_block = EINA_TRUE;
-   /* default effect type */
-   qp->effect.type = E_SERVICE_QUICKPANEL_EFFECT_TYPE_SWIPE;
+   qp->effect.type = E_SERVICE_QUICKPANEL_EFFECT_TYPE_SWIPE; /* default effect type */
    qp->below = _quickpanel_below_visible_client_get(qp);
-   qp->indi_obj = _quickpanel_indicator_object_new(qp);
-   if (!qp->indi_obj)
+   qp->type = type;
+
+   if (type == E_SERVICE_QUICKPANEL_TYPE_SYSTEM_DEFAULT)
      {
-        free(qp);
-        return;
+        qp->indi_obj = _quickpanel_indicator_object_new(qp);
+        EINA_SAFETY_ON_NULL_GOTO(qp->indi_obj, indi_err);
+
+        e_client_window_role_set(ec, "quickpanel_system_default");
+     }
+   else if (type == E_SERVICE_QUICKPANEL_TYPE_CONTEXT_MENU)
+     {
+        /* don't support swipe type of effect for the qp context menu in public
+         * you have to make your own qp module and provide backend functions
+         * if you want to change type of effect of qp context menu
+         */
+        qp->effect.type = E_SERVICE_QUICKPANEL_EFFECT_TYPE_MOVE;
+        e_client_window_role_set(ec, "quickpanel_context_menu");
      }
 
    e_comp_screen_rotation_ignore_output_transform_send(qp->ec, EINA_TRUE);
 
-   e_client_window_role_set(ec, "quickpanel");
-
    // set quickpanel layer
    if (E_POLICY_QUICKPANEL_LAYER != evas_object_layer_get(ec->frame))
-     {
-        evas_object_layer_set(ec->frame, E_POLICY_QUICKPANEL_LAYER);
-     }
+     evas_object_layer_set(ec->frame, E_POLICY_QUICKPANEL_LAYER);
    ec->layer = E_POLICY_QUICKPANEL_LAYER;
 
    // set skip iconify
@@ -1818,41 +1880,60 @@ e_service_quickpanel_client_set(E_Client *ec)
 
    QP_HIDE(qp);
 
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_SHOW, _quickpanel_client_evas_cb_show, qp);
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_HIDE, _quickpanel_client_evas_cb_hide, qp);
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_MOVE, _quickpanel_client_evas_cb_move, qp);
-
-   E_CLIENT_HOOK_APPEND(qp->hooks,   E_CLIENT_HOOK_DEL,                       _quickpanel_hook_client_del,     qp);
-   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_ROTATION_CHANGE_BEGIN,    _quickpanel_cb_rotation_begin,   qp);
-   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_ROTATION_CHANGE_CANCEL,   _quickpanel_cb_rotation_cancel,  qp);
-   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_ROTATION_CHANGE_END,      _quickpanel_cb_rotation_done,    qp);
-   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_SHOW,                     _quickpanel_cb_client_show,      qp);
-   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_HIDE,                     _quickpanel_cb_client_hide,      qp);
-   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_MOVE,                     _quickpanel_cb_client_move, qp);
-   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_STACK,                    _quickpanel_cb_client_stack,     qp);
-   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_REMOVE,                   _quickpanel_cb_client_remove,    qp);
-   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_BUFFER_CHANGE,            _quickpanel_cb_buffer_change,    qp);
-   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_CLIENT_FOCUS_IN,                 _quickpanel_cb_client_focus_in,  qp);
-   E_LIST_HANDLER_APPEND(qp->events, E_EVENT_DESK_GEOMETRY_CHANGE,            _quickpanel_cb_desk_geometry_change, qp);
+   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_SHOW,                    _quickpanel_client_evas_cb_show,     qp);
+   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_HIDE,                    _quickpanel_client_evas_cb_hide,     qp);
+   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_MOVE,                    _quickpanel_client_evas_cb_move,     qp);
+   E_CLIENT_HOOK_APPEND(qp->hooks,           E_CLIENT_HOOK_DEL,                     _quickpanel_hook_client_del,         qp);
+   E_LIST_HANDLER_APPEND(qp->events,         E_EVENT_CLIENT_ROTATION_CHANGE_BEGIN,  _quickpanel_cb_rotation_begin,       qp);
+   E_LIST_HANDLER_APPEND(qp->events,         E_EVENT_CLIENT_ROTATION_CHANGE_CANCEL, _quickpanel_cb_rotation_cancel,      qp);
+   E_LIST_HANDLER_APPEND(qp->events,         E_EVENT_CLIENT_ROTATION_CHANGE_END,    _quickpanel_cb_rotation_done,        qp);
+   E_LIST_HANDLER_APPEND(qp->events,         E_EVENT_CLIENT_SHOW,                   _quickpanel_cb_client_show,          qp);
+   E_LIST_HANDLER_APPEND(qp->events,         E_EVENT_CLIENT_HIDE,                   _quickpanel_cb_client_hide,          qp);
+   E_LIST_HANDLER_APPEND(qp->events,         E_EVENT_CLIENT_MOVE,                   _quickpanel_cb_client_move,          qp);
+   E_LIST_HANDLER_APPEND(qp->events,         E_EVENT_CLIENT_STACK,                  _quickpanel_cb_client_stack,         qp);
+   E_LIST_HANDLER_APPEND(qp->events,         E_EVENT_CLIENT_REMOVE,                 _quickpanel_cb_client_remove,        qp);
+   E_LIST_HANDLER_APPEND(qp->events,         E_EVENT_CLIENT_BUFFER_CHANGE,          _quickpanel_cb_buffer_change,        qp);
+   E_LIST_HANDLER_APPEND(qp->events,         E_EVENT_CLIENT_FOCUS_IN,               _quickpanel_cb_client_focus_in,      qp);
+   E_LIST_HANDLER_APPEND(qp->events,         E_EVENT_DESK_GEOMETRY_CHANGE,          _quickpanel_cb_desk_geometry_change, qp);
 
    E_COMP_OBJECT_INTERCEPT_HOOK_APPEND(qp->intercept_hooks, E_COMP_OBJECT_INTERCEPT_HOOK_SHOW_HELPER, _quickpanel_intercept_hook_show, qp);
 
-
    qp->idle_enterer = ecore_idle_enterer_add(_quickpanel_idle_enter, qp);
+
+   qp_services = eina_list_append(qp_services, qp);
+
+   return;
+
+indi_err:
+   if (qp) free(qp);
+}
+
+EINTERN void
+e_service_quickpanel_client_del(E_Client *ec)
+{
+   E_Policy_Quickpanel *qp;
+   Eina_List *l, *ll;
+
+   BACKEND_FUNC_CALL(quickpanel_client_del, ec);
+
+   EINA_LIST_FOREACH_SAFE(qp_services, l, ll, qp)
+     {
+        if (qp->ec == ec)
+          {
+             _quickpanel_free(qp);
+             break;
+          }
+     }
 }
 
 EINTERN void
 e_service_quickpanel_effect_type_set(E_Client *ec, E_Service_Quickpanel_Effect_Type type)
 {
-   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_effect_type_set)
-     {
-        qp_mgr_funcs->quickpanel_effect_type_set(ec, type);
-        return;
-     }
-
    E_Policy_Quickpanel *qp;
 
-   qp = _quickpanel_get();
+   BACKEND_FUNC_CALL(quickpanel_effect_type_set, ec, type);
+
+   qp = _quickpanel_service_get(ec);
    if (!qp)
      return;
 
@@ -1895,17 +1976,12 @@ e_service_quickpanel_effect_type_set(E_Client *ec, E_Service_Quickpanel_Effect_T
 EINTERN void
 e_service_quickpanel_scroll_lock_set(E_Client *ec, Eina_Bool lock)
 {
-   E_Policy_Quickpanel *qp;
+   E_Policy_Quickpanel *qp = NULL;
 
-   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_scroll_lock_set)
-     {
-        qp_mgr_funcs->quickpanel_scroll_lock_set(ec, lock);
-        return;
-     }
+   BACKEND_FUNC_CALL(quickpanel_scroll_lock_set, ec, lock);
 
-   qp = _quickpanel_get();
+   qp = _quickpanel_service_get(ec);
    if (!qp) return;
-   if ((qp->ec != ec)) return;
 
    if (qp->scroll_lock == lock)
      return;
@@ -1914,39 +1990,21 @@ e_service_quickpanel_scroll_lock_set(E_Client *ec, Eina_Bool lock)
    qp->scroll_lock = lock;
 }
 
-E_API E_Client *
-e_service_quickpanel_client_get(void)
-{
-   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_client_get)
-      return qp_mgr_funcs->quickpanel_client_get();
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(_pol_quickpanel, NULL);
-
-   return _pol_quickpanel->ec;
-}
-
 EINTERN Eina_Bool
-e_service_quickpanel_region_set(int type, int angle, Eina_Tiler *tiler)
+e_service_quickpanel_region_set(E_Client *ec, int type, int angle, Eina_Tiler *tiler)
 {
-   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_region_set)
-      return qp_mgr_funcs->quickpanel_region_set(type, angle, tiler);
-
    E_Policy_Quickpanel *qp;
    E_Policy_Angle_Map ridx;
 
-   qp = _quickpanel_get();
-   if (EINA_UNLIKELY(!qp))
-     return EINA_FALSE;
+   BACKEND_FUNC_CALL_RET(quickpanel_region_set, ec, type, angle, tiler);
 
-   if (EINA_UNLIKELY(!qp->ec))
-     return EINA_FALSE;
-
-   if (e_object_is_del(E_OBJECT(qp->ec)))
-     return EINA_FALSE;
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(ec)), EINA_FALSE);
 
    // FIXME: region type
-   if (type != 0)
-     return EINA_FALSE;
+   if (type != 0) return EINA_FALSE;
+
+   qp = _quickpanel_service_get(ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(qp, EINA_FALSE);
 
    ridx = e_policy_angle_map(angle);
    _quickpanel_handler_region_set(qp, ridx, tiler);
@@ -1955,17 +2013,13 @@ e_service_quickpanel_region_set(int type, int angle, Eina_Tiler *tiler)
 }
 
 EINTERN void
-e_service_quickpanel_show(void)
+e_service_quickpanel_show(E_Client *ec)
 {
-   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_show)
-     {
-        qp_mgr_funcs->quickpanel_show();
-        return;
-     }
-
    E_Policy_Quickpanel *qp;
 
-   qp = _quickpanel_get();
+   BACKEND_FUNC_CALL(quickpanel_show, ec);
+
+   qp = _quickpanel_service_get(ec);
    EINA_SAFETY_ON_NULL_RETURN(qp);
    EINA_SAFETY_ON_NULL_RETURN(qp->ec);
    EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(qp->ec)));
@@ -1974,17 +2028,13 @@ e_service_quickpanel_show(void)
 }
 
 EINTERN void
-e_service_quickpanel_hide(void)
+e_service_quickpanel_hide(E_Client *ec)
 {
-   if (qp_mgr_funcs && qp_mgr_funcs->quickpanel_hide)
-     {
-        qp_mgr_funcs->quickpanel_hide();
-        return;
-     }
-
    E_Policy_Quickpanel *qp;
 
-   qp = _quickpanel_get();
+   BACKEND_FUNC_CALL(quickpanel_hide, ec);
+
+   qp = _quickpanel_service_get(ec);
    EINA_SAFETY_ON_NULL_RETURN(qp);
    EINA_SAFETY_ON_NULL_RETURN(qp->ec);
    EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(qp->ec)));
@@ -1992,40 +2042,81 @@ e_service_quickpanel_hide(void)
    _e_qp_srv_visible_set(qp, EINA_FALSE);
 }
 
+/* check if at least one quickpanel is visible */
 EINTERN Eina_Bool
-e_qp_visible_get(void)
+e_qps_visible_get(void)
 {
-   if (qp_mgr_funcs && qp_mgr_funcs->qp_visible_get)
-      return qp_mgr_funcs->qp_visible_get();
-
    E_Policy_Quickpanel *qp;
    E_Client *ec;
+   Eina_Bool vis;
+   int x, y, w, h;
+   Eina_List *l;
+
+   BACKEND_FUNC_CALL_RET(qps_visible_get);
+
+   EINA_LIST_FOREACH(qp_services, l, qp)
+     {
+        ec = qp->ec;
+        if (!ec) continue;
+        if (e_object_is_del(E_OBJECT(ec))) continue;
+
+        evas_object_geometry_get(ec->frame,
+                                 &x, &y, &w, &h);
+
+        if (E_INTERSECTS(x, y, w, h,
+                         ec->zone->x,
+                         ec->zone->y,
+                         ec->zone->w,
+                         ec->zone->h))
+          {
+             vis = evas_object_visible_get(ec->frame);
+             if (vis) return EINA_TRUE;
+          }
+     }
+
+   return EINA_FALSE;
+}
+
+EINTERN Eina_Bool
+e_qp_visible_get(E_Client *ec, E_Quickpanel_Type type)
+{
+   E_Policy_Quickpanel *qp;
+   E_QP_Client *qp_client;
    Eina_Bool vis = EINA_FALSE;
    int x, y, w, h;
 
-   qp = _quickpanel_get();
-   if (!qp) return EINA_FALSE;
-   if (!qp->ec) return EINA_FALSE;
-   if (e_object_is_del(E_OBJECT(qp->ec))) return EINA_FALSE;
+   BACKEND_FUNC_CALL_RET(qp_visible_get, ec, type);
 
-   ec = qp->ec;
-   evas_object_geometry_get(ec->frame, &x, &y, &w, &h);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(ec)), EINA_FALSE);
 
-   if (E_INTERSECTS(x, y, w, h, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
-     vis = evas_object_visible_get(ec->frame);
+   qp_client = _e_qp_client_ec_get(ec, type);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(qp_client, EINA_FALSE);
+
+   qp = _quickpanel_get_with_client_type(qp_client);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(qp, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(qp->ec, EINA_FALSE);
+
+   evas_object_geometry_get(qp->ec->frame, &x, &y, &w, &h);
+
+   if (E_INTERSECTS(x, y, w, h, qp->ec->zone->x, qp->ec->zone->y, qp->ec->zone->w, qp->ec->zone->h))
+     vis = evas_object_visible_get(qp->ec->frame);
 
    return vis;
 }
 
 EINTERN int
-e_qp_orientation_get(void)
+e_qp_orientation_get(E_Client *ec, E_Quickpanel_Type type)
 {
-   if (qp_mgr_funcs && qp_mgr_funcs->qp_orientation_get)
-      return qp_mgr_funcs->qp_orientation_get();
-
    E_Policy_Quickpanel *qp;
+   E_QP_Client *qp_client;
 
-   qp = _quickpanel_get();
+   BACKEND_FUNC_CALL_RET(qp_orientation_get, ec, type);
+
+   qp_client = _e_qp_client_ec_get(ec, type);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(qp_client, EINA_FALSE);
+
+   qp = _quickpanel_get_with_client_type(qp_client);
    EINA_SAFETY_ON_NULL_RETURN_VAL(qp, E_POLICY_ANGLE_MAP_0);
    EINA_SAFETY_ON_NULL_RETURN_VAL(qp->ec, E_POLICY_ANGLE_MAP_0);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(qp->ec)), E_POLICY_ANGLE_MAP_0);
@@ -2034,20 +2125,16 @@ e_qp_orientation_get(void)
 }
 
 EINTERN void
-e_qp_client_add(E_Client *ec)
+e_qp_client_add(E_Client *ec, E_Quickpanel_Type type)
 {
-   if (qp_mgr_funcs && qp_mgr_funcs->qp_client_add)
-     {
-        qp_mgr_funcs->qp_client_add(ec);
-        return;
-     }
-
    E_QP_Client *qp_client;
+
+   BACKEND_FUNC_CALL(qp_client_add, ec, type);
 
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(ec)));
 
-   qp_client = _e_qp_client_ec_get(ec);
+   qp_client = _e_qp_client_ec_get(ec, type);
    if (qp_client)
      {
         qp_client->ref++;
@@ -2061,27 +2148,21 @@ e_qp_client_add(E_Client *ec)
    qp_client->ref = 1;
    qp_client->hint.vis = EINA_TRUE;
    qp_client->hint.scrollable = EINA_TRUE;
+   qp_client->type = type;
 
    qp_clients = eina_list_append(qp_clients, qp_client);
 }
 
 EINTERN void
-e_qp_client_del(E_Client *ec)
+e_qp_client_del(E_Client *ec, E_Quickpanel_Type type)
 {
-   if (qp_mgr_funcs && qp_mgr_funcs->qp_client_del)
-     {
-        qp_mgr_funcs->qp_client_del(ec);
-        return;
-     }
-
-   E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
-   qp = _quickpanel_get();
-   EINA_SAFETY_ON_NULL_RETURN(qp);
+   BACKEND_FUNC_CALL(qp_client_del, ec, type);
+
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   qp_client = _e_qp_client_ec_get(ec);
+   qp_client = _e_qp_client_ec_get(ec, type);
    EINA_SAFETY_ON_NULL_RETURN(qp_client);
 
    qp_client->ref--;
@@ -2093,81 +2174,77 @@ e_qp_client_del(E_Client *ec)
 }
 
 EINTERN void
-e_qp_client_show(E_Client *ec)
+e_qp_client_show(E_Client *ec, E_Quickpanel_Type type)
 {
-   if (qp_mgr_funcs && qp_mgr_funcs->qp_client_show)
-     {
-        qp_mgr_funcs->qp_client_show(ec);
-        return;
-     }
-
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
-   qp = _quickpanel_get();
+   BACKEND_FUNC_CALL(qp_client_show, ec, type);
+
+   qp_client = _e_qp_client_ec_get(ec, type);
+   EINA_SAFETY_ON_NULL_RETURN(qp_client);
+   EINA_SAFETY_ON_FALSE_RETURN(qp_client->hint.scrollable);
+
+   qp = _quickpanel_get_with_client_type(qp_client);
    EINA_SAFETY_ON_NULL_RETURN(qp);
    EINA_SAFETY_ON_NULL_RETURN(qp->ec);
    EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(qp->ec)));
-
-   qp_client = _e_qp_client_ec_get(ec);
-   EINA_SAFETY_ON_NULL_RETURN(qp_client);
-   EINA_SAFETY_ON_FALSE_RETURN(qp_client->hint.scrollable);
 
    _e_qp_srv_visible_set(qp, EINA_TRUE);
 }
 
 EINTERN void
-e_qp_client_hide(E_Client *ec)
+e_qp_client_hide(E_Client *ec, E_Quickpanel_Type type)
 {
-   if (qp_mgr_funcs && qp_mgr_funcs->qp_client_hide)
-     {
-        qp_mgr_funcs->qp_client_hide(ec);
-        return;
-     }
-
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
-   qp = _quickpanel_get();
+   BACKEND_FUNC_CALL(qp_client_hide, ec, type);
+
+   qp_client = _e_qp_client_ec_get(ec, type);
+   EINA_SAFETY_ON_NULL_RETURN(qp_client);
+   EINA_SAFETY_ON_FALSE_RETURN(qp_client->hint.scrollable);
+
+   qp = _quickpanel_get_with_client_type(qp_client);
    EINA_SAFETY_ON_NULL_RETURN(qp);
    EINA_SAFETY_ON_NULL_RETURN(qp->ec);
    EINA_SAFETY_ON_TRUE_RETURN(e_object_is_del(E_OBJECT(qp->ec)));
-
-   qp_client = _e_qp_client_ec_get(ec);
-   EINA_SAFETY_ON_NULL_RETURN(qp_client);
-   EINA_SAFETY_ON_FALSE_RETURN(qp_client->hint.scrollable);
 
    _e_qp_srv_visible_set(qp, EINA_FALSE);
 }
 
 EINTERN Eina_Bool
-e_qp_client_scrollable_set(E_Client *ec, Eina_Bool set)
+e_qp_client_scrollable_set(E_Client *ec, E_Quickpanel_Type type, Eina_Bool set)
 {
-   if (qp_mgr_funcs && qp_mgr_funcs->qp_client_scrollable_set)
-      return qp_mgr_funcs->qp_client_scrollable_set(ec, set);
-
+   E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
-   qp_client = _e_qp_client_ec_get(ec);
+   BACKEND_FUNC_CALL_RET(qp_client_scrollable_set, ec, type, set);
+
+   qp_client = _e_qp_client_ec_get(ec, type);
    EINA_SAFETY_ON_NULL_RETURN_VAL(qp_client, EINA_FALSE);
 
    if (qp_client->hint.scrollable != set)
      qp_client->hint.scrollable = set;
 
-   _e_qp_client_scrollable_update();
+   qp = _quickpanel_get_with_client_type(qp_client);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(qp, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(qp->ec, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(qp->ec)), EINA_FALSE);
 
-   return EINA_FALSE;
+   _e_qp_client_scrollable_update(qp);
+
+   return EINA_TRUE;
 }
 
 EINTERN Eina_Bool
-e_qp_client_scrollable_get(E_Client *ec)
+e_qp_client_scrollable_get(E_Client *ec, E_Quickpanel_Type type)
 {
-   if (qp_mgr_funcs && qp_mgr_funcs->qp_client_scrollable_get)
-      return qp_mgr_funcs->qp_client_scrollable_get(ec);
-
    E_QP_Client *qp_client;
 
-   qp_client = _e_qp_client_ec_get(ec);
+   BACKEND_FUNC_CALL_RET(qp_client_scrollable_get, ec, type);
+
+   qp_client = _e_qp_client_ec_get(ec, type);
    EINA_SAFETY_ON_NULL_RETURN_VAL(qp_client, EINA_FALSE);
 
    return qp_client->hint.scrollable;
@@ -2183,19 +2260,16 @@ e_service_quickpanel_module_func_set(E_QP_Mgr_Funcs *fp)
    qp_mgr_funcs = E_NEW(E_QP_Mgr_Funcs, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(qp_mgr_funcs, EINA_FALSE);
 
-   qp_mgr_funcs->quickpanel_client_set = fp->quickpanel_client_set;
-   qp_mgr_funcs->quickpanel_client_get = fp->quickpanel_client_get;
+   qp_mgr_funcs->quickpanel_client_add = fp->quickpanel_client_add;
+   qp_mgr_funcs->quickpanel_client_del = fp->quickpanel_client_del;
    qp_mgr_funcs->quickpanel_show = fp->quickpanel_show;
    qp_mgr_funcs->quickpanel_hide = fp->quickpanel_hide;
    qp_mgr_funcs->quickpanel_region_set = fp->quickpanel_region_set;
-   qp_mgr_funcs->quickpanel_handler_object_add = fp->quickpanel_handler_object_add;
-   qp_mgr_funcs->quickpanel_handler_object_del = fp->quickpanel_handler_object_del;
    qp_mgr_funcs->quickpanel_effect_type_set = fp->quickpanel_effect_type_set;
    qp_mgr_funcs->quickpanel_scroll_lock_set = fp->quickpanel_scroll_lock_set;
-
+   qp_mgr_funcs->qps_visible_get = fp->qps_visible_get;
    qp_mgr_funcs->qp_visible_get = fp->qp_visible_get;
    qp_mgr_funcs->qp_orientation_get = fp->qp_orientation_get;
-
    qp_mgr_funcs->qp_client_add = fp->qp_client_add;
    qp_mgr_funcs->qp_client_del = fp->qp_client_del;
    qp_mgr_funcs->qp_client_show = fp->qp_client_show;

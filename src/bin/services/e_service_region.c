@@ -22,11 +22,12 @@
 
 struct _E_Policy_Region
 {
-   Evas_Object       *obj;
-   E_Policy_Gesture       *gesture;
-   Eina_List         *event_list;
-   Eina_Rectangle     geom[E_POLICY_ANGLE_MAP_NUM];
-   E_Policy_Angle_Map            rotation;
+   Evas_Object        *obj;
+   E_Client           *ec;
+   E_Policy_Gesture   *gesture;
+   Eina_List          *event_list;
+   Eina_Rectangle      geom[E_POLICY_ANGLE_MAP_NUM];
+   E_Policy_Angle_Map  rotation;
 };
 
 static void
@@ -75,7 +76,7 @@ _region_rotation_cb_change_end(void *data, int type, void *event)
    if (EINA_UNLIKELY(!ec))
      goto end;
 
-   if (e_service_quickpanel_client_get() != ec)
+   if (ec != region->ec)
      goto end;
 
    _region_rotation_set(region, ec->e.state.rot.ang.curr);
@@ -88,12 +89,7 @@ end:
 static Eina_Bool
 _region_rotation_init(E_Policy_Region *region)
 {
-   E_Client *ec;
-
-   /* FIXME: temporary use quickpanel to find out ui orientation */
-   ec = e_service_quickpanel_client_get();
-   if (ec)
-     _region_rotation_set(region, ec->e.state.rot.ang.curr);
+   _region_rotation_set(region, region->ec->e.state.rot.ang.curr);
 
    E_LIST_HANDLER_APPEND(region->event_list, E_EVENT_CLIENT_ROTATION_CHANGE_END, _region_rotation_cb_change_end, region);
 
@@ -107,7 +103,7 @@ _region_free(E_Policy_Region *region)
    E_FREE_LIST(region->event_list, ecore_event_handler_del);
    E_FREE_FUNC(region->gesture, e_service_gesture_del);
    E_FREE_FUNC(region->obj, evas_object_del);
-   free(region);
+   E_FREE(region);
 }
 
 static void
@@ -123,7 +119,7 @@ _region_object_cb_del(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *e
 }
 
 EINTERN Evas_Object *
-e_service_region_object_new(void)
+e_service_region_object_new(E_Client *ec)
 {
    E_Policy_Region *region;
    Evas_Object *o;
@@ -138,6 +134,7 @@ e_service_region_object_new(void)
    evas_object_color_set(o, 0, 0, 0, 0);
    evas_object_repeat_events_set(o, EINA_TRUE);
    region->obj = o;
+   region->ec = ec;
 
    if (!_region_rotation_init(region))
      goto err_event;
