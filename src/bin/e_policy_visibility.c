@@ -98,6 +98,12 @@ _e_vis_client_is_uniconify_render_running(E_Vis_Client *vc)
    return (vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY);
 }
 
+static inline Eina_Bool
+_e_vis_client_is_uniconify_render_running_done(E_Vis_Client *vc)
+{
+   return (vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_RENDER_DONE);
+}
+
 static void
 _e_pol_vis_hooks_clean(void)
 {
@@ -654,6 +660,21 @@ _e_vis_job_group_eval(E_Vis_Job_Group *group)
 }
 
 static void
+_e_vis_job_group_state_update(E_Vis_Job_Group *group)
+{
+   E_Vis_Job *job, *tmp;
+   EINA_CLIST_FOR_EACH_ENTRY_SAFE(job, tmp,
+                                  &group->job_head, E_Vis_Job, entry)
+     {
+        if (_e_vis_client_is_uniconify_render_running_done(job->vc))
+          {
+             job->vc->state = E_VIS_ICONIFY_STATE_UNICONIC;
+             VS_DBG(job->vc->ec, "\tUPDATE ICONIC STATE: %s", "UNICONIC");
+          }
+     }
+}
+
+static void
 _e_vis_job_queue_update(void)
 {
    if (!pol_job_group) return;
@@ -677,6 +698,10 @@ _e_vis_job_eval(void)
         /* if all of job in the group is ready */
         if (!_e_vis_job_group_eval(group))
           break;
+
+        /* updates state to uniconic from render_done */
+        _e_vis_job_group_state_update(group);
+
         /* execute all of job in the group */
         _e_vis_job_group_exec(group);
      }
@@ -881,8 +906,8 @@ _e_vis_client_grab_remove(E_Vis_Client *vc, E_Vis_Grab *grab)
      {
         if (vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY)
           {
-             vc->state = E_VIS_ICONIFY_STATE_UNICONIC;
-             VS_DBG(vc->ec, "\tUPDATE ICONIC STATE: %s", "UNICONIC");
+             vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_RENDER_DONE;
+             VS_DBG(vc->ec, "\tUPDATE ICONIC STATE: %s", STATE_STR(vc));
           }
 
         _e_vis_job_eval();
@@ -1366,6 +1391,9 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
 
    if (!_e_vis_client_is_uniconify_render_necessary(vc))
      return EINA_FALSE;
+
+   if (_e_vis_client_is_uniconify_render_running_done(vc))
+     goto end;
 
    ec->exp_iconify.not_raise = !raise;
 
@@ -2193,9 +2221,14 @@ e_policy_visibility_client_is_uniconic(E_Client *ec)
 E_API Eina_Bool
 e_policy_visibility_client_is_uniconify_render_running(E_Client *ec)
 {
+   Eina_Bool running = EINA_FALSE;
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
-   return _e_vis_client_is_uniconify_render_running(vc);
+   if ((_e_vis_client_is_uniconify_render_running(vc)) ||
+       (_e_vis_client_is_uniconify_render_running_done(vc)))
+     running = EINA_TRUE;
+
+   return running;
 }
 
 E_API E_Pol_Vis_Hook *
