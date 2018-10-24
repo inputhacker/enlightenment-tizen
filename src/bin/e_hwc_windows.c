@@ -1187,7 +1187,7 @@ _e_hwc_windows_all_client_states_available_check(E_Hwc *hwc)
 }
 
 static void
-_e_hwc_windows_states_evaluate(E_Hwc *hwc)
+_e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
 {
    Eina_List *visible_windows = NULL;
    Eina_List *l;
@@ -1334,6 +1334,10 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
    if (_e_hwc_windows_visible_windows_update(hwc))
      update_changes = EINA_TRUE;
 
+   /* update the states of the visible windows when there is something to update */
+   if (update_changes)
+     _e_hwc_windows_visible_windows_states_update(hwc);
+
    return update_changes;
 }
 
@@ -1356,8 +1360,6 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
    E_Hwc_Mode hwc_mode = E_HWC_MODE_NONE;
    uint32_t num_changes;
    Eina_Bool accept = EINA_FALSE;
-
-   _e_hwc_windows_states_evaluate(hwc);
 
    /* validate the visible hwc_windows' states*/
    if (!_e_hwc_windows_validate(hwc, &num_changes))
