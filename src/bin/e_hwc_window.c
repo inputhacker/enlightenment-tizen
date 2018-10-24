@@ -979,7 +979,7 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
         hwc_window->queue = NULL;
      }
 
-   e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+   e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
 
    e_object_del(E_OBJECT(hwc_window));
 }
@@ -1695,13 +1695,20 @@ e_hwc_window_accepted_state_get(E_Hwc_Window *hwc_window)
 }
 
 EINTERN Eina_Bool
-e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state)
+e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state, Eina_Bool composition_update)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    if (hwc_window->state == state) return EINA_TRUE;
 
    hwc_window->state = state;
+
+   /* update the composition type */
+   if (composition_update)
+     {
+        if (!e_hwc_window_composition_update(hwc_window))
+          ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
+     }
 
    /* zpos is -999 at state none */
    if (state == E_HWC_WINDOW_STATE_NONE)

@@ -166,7 +166,7 @@ EINTERN Eina_Bool          e_hwc_window_deactivate(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_on_hw_overlay(E_Hwc_Window *hwc_window);
 EINTERN tbm_surface_h      e_hwc_window_displaying_surface_get(E_Hwc_Window *hwc_window);
 
-EINTERN Eina_Bool          e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state);
+EINTERN Eina_Bool          e_hwc_window_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state, Eina_Bool composition_update);
 EINTERN E_Hwc_Window_State e_hwc_window_state_get(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_accepted_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state);
 EINTERN E_Hwc_Window_State e_hwc_window_accepted_state_get(E_Hwc_Window *hwc_window);

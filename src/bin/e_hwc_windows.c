@@ -927,7 +927,7 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
 
         /* update the state with the changed compsition */
         state = _e_hwc_windows_window_state_get(composition_types[i]);
-        e_hwc_window_state_set(hwc_window, state);
+        e_hwc_window_state_set(hwc_window, state, EINA_TRUE);
      }
 
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
@@ -1074,21 +1074,21 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 
         if (e_object_is_del(E_OBJECT(ec)))
           {
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
              continue;
           }
 
         // check clients to skip composite
         if (e_client_util_ignored_get(ec))
           {
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
              continue;
           }
 
         // check clients to skip composite
         if (!evas_object_visible_get(ec->frame))
           {
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
              continue;
           }
 
@@ -1096,20 +1096,20 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
         ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &scr_w, &scr_h);
         if (!E_INTERSECTS(0, 0, scr_w, scr_h, ec->client.x, ec->client.y, ec->client.w, ec->client.h))
           {
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
              continue;
           }
 
         if (evas_object_data_get(ec->frame, "comp_skip"))
           {
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
              continue;
           }
 
         /* skip all small clients except the video clients */
         if ((ec->w == 1 || ec->h == 1) && !e_hwc_window_is_video(hwc_window))
           {
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE);
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
              continue;
           }
 
@@ -1118,7 +1118,7 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
             if (!e_comp_wl_video_hwc_widow_surface_get(hwc_window))
               continue;
 
-            e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO);
+            e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO, EINA_TRUE);
           }
 
         windows_list = eina_list_append(windows_list, hwc_window);
@@ -1209,14 +1209,10 @@ _e_hwc_windows_states_evaluate(E_Hwc *hwc)
                   continue;
                }
 
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
 
              EHWSTRACE("   ehw:%p -- {%25s} is NOT hwc_acceptable.",
                      hwc_window->ec, hwc_window, hwc_window->ec->icccm.title);
-
-             /* update the composition type */
-             if (!e_hwc_window_composition_update(hwc_window))
-               ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
           }
      }
    else
@@ -1235,13 +1231,9 @@ _e_hwc_windows_states_evaluate(E_Hwc *hwc)
              /* filter the visible clients which e20 prevent to shown by hw directly
                 by demand of e20 */
              if (e_hwc_window_device_state_available_check(hwc_window))
-               e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE);
+               e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE, EINA_TRUE);
              else
-               e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT);
-
-             /* update the composition type */
-             if (!e_hwc_window_composition_update(hwc_window))
-               ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
+               e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
           }
      }
 }
@@ -1351,7 +1343,7 @@ _e_hwc_windows_target_state_set(E_Hwc_Window_Target *target_hwc_window, E_Hwc_Wi
    E_Hwc_Window *target_window = (E_Hwc_Window *)target_hwc_window;
 
    if (target_window->state != state)
-     e_hwc_window_state_set(target_window, state);
+     e_hwc_window_state_set(target_window, state, EINA_FALSE);
 
    if (target_window->accepted_state != state)
      e_hwc_window_accepted_state_set(target_window, state);
