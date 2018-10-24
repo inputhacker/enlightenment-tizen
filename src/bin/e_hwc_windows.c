@@ -884,7 +884,7 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
 }
 
 static Eina_Bool
-_e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
+_e_hwc_windows_validated_changes_update(E_Hwc *hwc, uint32_t num_changes)
 {
    E_Hwc_Window *hwc_window;
    E_Hwc_Window_Target *target_hwc_window;
@@ -892,8 +892,6 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
    tdm_error terror;
    tdm_hwc_window **changed_hwc_window = NULL;
    tdm_hwc_window_composition *composition_types = NULL;
-   const Eina_List *l;
-   E_Hwc_Mode hwc_mode = E_HWC_MODE_NONE;
    int i;
 
    changed_hwc_window = E_NEW(tdm_hwc_window *, num_changes);
@@ -930,35 +928,40 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
         e_hwc_window_state_set(hwc_window, state, EINA_TRUE);
      }
 
-   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
-     {
-        if (e_hwc_window_is_target(hwc_window)) continue;
-        e_hwc_window_constraints_update(hwc_window);
-        e_hwc_window_render_target_window_update(hwc_window);
-     }
-
 #if DBG_EVALUATE
    EHWSTRACE(" Modified after HWC Validation:", NULL);
    _e_hwc_windows_status_print(hwc, EINA_FALSE);
 #endif
 
-   /* skip the target_buffer when the window is on trainsition of the composition */
-   hwc_mode = _e_hwc_windows_hwc_mode_get(hwc);
-   if (hwc_mode != E_HWC_MODE_FULL &&
-       _e_hwc_windows_transition_check(hwc))
-     {
-        e_hwc_window_target_buffer_skip(hwc->target_hwc_window);
-        goto fail;
-     }
+   free(changed_hwc_window);
+   free(composition_types);
 
+   return EINA_TRUE;
+
+fail:
+   if (changed_hwc_window) free(changed_hwc_window);
+   if (composition_types) free(composition_types);
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_hwc_windows_accept(E_Hwc *hwc)
+{
+   E_Hwc_Window *hwc_window;
+   E_Hwc_Window_State state;
+   tdm_error terror;
+   const Eina_List *l;
+
+   /* _e_hwc_windows_accept */
    EHWSTRACE("HWC Accept", NULL);
 
    /* accept changes */
    terror = tdm_hwc_accept_changes(hwc->thwc);
    if (terror != TDM_ERROR_NONE)
      {
-        ERR("HWC-WINS: failed to accept changes required by the hwc extension");
-        goto fail;
+        ERR("HWC-WINS: failed to accept changes.");
+        return EINA_FALSE;
      }
 
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
@@ -977,16 +980,7 @@ _e_hwc_windows_accept(E_Hwc *hwc, uint32_t num_changes)
           e_hwc_window_activate(hwc_window, NULL);
      }
 
-   free(changed_hwc_window);
-   free(composition_types);
-
    return EINA_TRUE;
-
-fail:
-   if (changed_hwc_window) free(changed_hwc_window);
-   if (composition_types) free(composition_types);
-
-   return EINA_FALSE;
 }
 
 static Eina_Bool
@@ -1358,20 +1352,37 @@ static Eina_Bool
 _e_hwc_windows_evaluate(E_Hwc *hwc)
 {
    E_Hwc_Mode hwc_mode = E_HWC_MODE_NONE;
+   E_Hwc_Window *hwc_window = NULL;
+   const Eina_List *l;
    uint32_t num_changes;
-   Eina_Bool accept = EINA_FALSE;
 
    /* validate the visible hwc_windows' states*/
    if (!_e_hwc_windows_validate(hwc, &num_changes))
      {
         ERR("HWC-WINS: _e_hwc_windows_validate failed.");
-        return EINA_FALSE;
+        goto failed_evaluation;
      }
 
-   /* accept the result of the validation */
-   accept = _e_hwc_windows_accept(hwc, num_changes);
+   /* update the valiated_changes if there are the composition changes after validation */
+   if (num_changes)
+     {
+        if (!_e_hwc_windows_validated_changes_update(hwc, num_changes))
+          {
+             ERR("HWC-WINS: _e_hwc_windows_validated_changes_update failed.");
+             goto failed_evaluation;
+          }
+     }
 
-   /* decide the E_HWC_MODE */
+   /* constraints update and update the windows to be composited to the target_buffer */
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
+     {
+        if (e_hwc_window_is_target(hwc_window)) continue;
+
+        e_hwc_window_constraints_update(hwc_window);
+        e_hwc_window_render_target_window_update(hwc_window);
+     }
+
+   /* update the E_HWC_MODE */
    hwc_mode = _e_hwc_windows_hwc_mode_get(hwc);
    if (hwc->hwc_mode != hwc_mode)
      {
@@ -1383,31 +1394,45 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
         hwc->hwc_mode  = hwc_mode;
      }
 
-#if DBG_EVALUATE
-   if (hwc_mode == E_HWC_MODE_NONE)
-     EHWSTRACE(" HWC_MODE is NONE composition.", NULL);
-   else if (hwc_mode == E_HWC_MODE_HYBRID)
-     EHWSTRACE(" HWC_MODE is HYBRID composition.", NULL);
-   else
-     EHWSTRACE(" HWC_MODE is FULL HW composition.", NULL);
-#endif
-
    /* set the state of the target_window */
-   if (hwc_mode == E_HWC_MODE_HYBRID || hwc_mode == E_HWC_MODE_NONE)
-     _e_hwc_windows_target_state_set(hwc->target_hwc_window, E_HWC_WINDOW_STATE_DEVICE);
+   if (hwc_mode == E_HWC_MODE_NONE)
+     {
+        EHWSTRACE(" HWC_MODE is NONE composition.", NULL);
+        _e_hwc_windows_target_state_set(hwc->target_hwc_window, E_HWC_WINDOW_STATE_DEVICE);
+     }
+   else if (hwc_mode == E_HWC_MODE_HYBRID)
+     {
+        EHWSTRACE(" HWC_MODE is HYBRID composition.", NULL);
+        _e_hwc_windows_target_state_set(hwc->target_hwc_window, E_HWC_WINDOW_STATE_DEVICE);
+     }
    else
-     _e_hwc_windows_target_state_set(hwc->target_hwc_window, E_HWC_WINDOW_STATE_NONE);
+     {
+        EHWSTRACE(" HWC_MODE is FULL HW composition.", NULL);
+        _e_hwc_windows_target_state_set(hwc->target_hwc_window, E_HWC_WINDOW_STATE_NONE);
+     }
 
-   if (accept)
+   /* skip the target_buffer when the window is on trainsition of the composition */
+   if (hwc_mode != E_HWC_MODE_FULL && _e_hwc_windows_transition_check(hwc))
      {
-        EHWSTRACE(" Succeed the compsition_evaulation.", NULL);
-        return EINA_TRUE;
+        e_hwc_window_target_buffer_skip(hwc->target_hwc_window);
+        goto failed_evaluation;
      }
-   else
+
+   /* accept the result of the validation */
+   if (!_e_hwc_windows_accept(hwc))
      {
-        EHWSTRACE(" Need the comopsition re-evaulation.", NULL);
-        return EINA_FALSE;
+        ERR("HWC-WINS: _e_hwc_windows_validated_changes_update failed.");
+        goto failed_evaluation;
      }
+
+   EHWSTRACE(" Succeed the compsition_evaulation.", NULL);
+
+   return EINA_TRUE;
+
+failed_evaluation:
+   EHWSTRACE(" Need the comopsition re-evaulation.", NULL);
+
+   return EINA_FALSE;
 }
 
 static Eina_Bool
