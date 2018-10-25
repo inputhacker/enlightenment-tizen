@@ -218,6 +218,7 @@ _e_policy_check_above_alpha_opaque(E_Client *ec)
         if (!above_ec) continue;
         if (e_client_util_ignored_get(above_ec)) continue;
         if (!E_CONTAINS(above_ec->x, above_ec->y, above_ec->w, above_ec->h, ec->x, ec->y, ec->w, ec->h)) continue;
+        if (above_ec->comp_data && !above_ec->comp_data->mapped) continue;
 
         if (above_ec->argb)
           {
