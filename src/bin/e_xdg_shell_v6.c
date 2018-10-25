@@ -237,6 +237,9 @@ _e_xdg_popup_committed(E_Xdg_Popup *popup)
 static void
 _e_xdg_popup_configure_send(E_Xdg_Popup *popup)
 {
+   if (!popup) return;
+   if (!popup->resource) return;
+
    zxdg_popup_v6_send_configure(popup->resource,
                                 popup->geometry.x,
                                 popup->geometry.y,
@@ -309,6 +312,12 @@ _e_xdg_toplevel_committed(E_Xdg_Toplevel *toplevel)
         return;
      }
 
+   if (!toplevel->resource)
+     {
+        ERR("E_Client must have xdg_toplevel instance", ec->pixmap, ec);
+        return;
+     }
+
    if (!e_pixmap_usable_get(ec->pixmap))
      {
         ERR("E_Pixmap should be valid here", ec->pixmap, ec);
@@ -370,6 +379,8 @@ _e_xdg_toplevel_configure_send(E_Xdg_Toplevel *toplevel,
 {
    uint32_t *s;
    struct wl_array states;
+
+   if (!toplevel->resource) return;
 
    configure->state = toplevel->pending.state;
    configure->size = toplevel->pending.size;
@@ -1078,6 +1089,7 @@ _e_xdg_surface_cb_configure_send(void *data)
    EINA_SAFETY_ON_NULL_GOTO(exsurf, end);
    EINA_SAFETY_ON_NULL_GOTO(exsurf->ec, end);
    EINA_SAFETY_ON_NULL_GOTO(exsurf->ec->comp_data, end);
+   EINA_SAFETY_ON_NULL_GOTO(exsurf->resource, end);
 
    if (e_object_is_del(E_OBJECT(exsurf->ec)))
      goto end;
@@ -1734,6 +1746,7 @@ static void
 _e_xdg_shell_ping(E_Xdg_Shell *shell)
 {
    EINA_SAFETY_ON_NULL_RETURN(shell);
+   EINA_SAFETY_ON_NULL_RETURN(shell->resource);
 
    if (shell->ping_serial != 0)
      return;
