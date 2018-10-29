@@ -817,6 +817,8 @@ _e_plane_unset_candidate_set(E_Plane *plane, Eina_Bool sync)
                }
              else
                e_plane_renderer_surface_queue_sync_count_set(fb_target->renderer, 0);
+
+             e_plane_renderer_ecore_evas_force_render(fb_target->renderer);
           }
      }
 
@@ -851,6 +853,8 @@ _e_plane_set_counter_set(E_Plane *plane, E_Client *ec)
 
         plane->set_counter = e_plane_renderer_render_count_get(fb_target->renderer) + 1;
         e_plane_renderer_surface_queue_sync_count_set(fb_target->renderer, 1);
+
+        e_plane_renderer_ecore_evas_force_render(fb_target->renderer);
      }
 
     if (plane_trace_debug)
