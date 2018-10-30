@@ -1828,6 +1828,7 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
    E_Plane_Renderer_Client *renderer_client = NULL;
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
    E_Plane *plane = NULL;
+   Eina_Bool usable = EINA_FALSE;
    int transform;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
@@ -1861,8 +1862,13 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
      ELOGF("E_PLANE_RENDERER", "Set    backup buffer   wl_buffer(%p)::Deactivate",
            ec->pixmap, ec, _get_wl_buffer(ec));
 
+   usable = e_pixmap_usable_get(ec->pixmap);
+
    if (!_e_plane_renderer_client_backup_buffer_set(renderer_client))
      ERR("fail to _e_comp_hwc_set_backup_buffer");
+
+   if (!usable)
+     e_pixmap_usable_set(ec->pixmap, EINA_FALSE);
 
    if (plane->ec_redirected)
      {
