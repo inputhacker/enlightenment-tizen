@@ -780,6 +780,10 @@ _e_comp_hwc_prepare(void)
         output = e_output_find(zone->output_id);
         if (!output) continue;
 
+        _hwc_prepare_init(output);
+
+        if (e_comp->nocomp_override > 0) continue;
+
         vis_clist = e_comp_vis_ec_list_get(zone);
         if (!vis_clist) continue;
 
@@ -817,8 +821,6 @@ _e_comp_hwc_prepare(void)
         if ((n_vis < 1) || (n_ec < 1))
           goto nextzone;
 
-        _hwc_prepare_init(output);
-
         if (n_cur >= 1)
           n_skip = _hwc_prepare_cursor(output, n_cur, hwc_ok_clist);
 
@@ -844,7 +846,7 @@ _e_comp_hwc_usable(void)
    if (!e_comp->hwc) return EINA_FALSE;
 
    // check whether to use hwc and prepare the core assignment policy
-   if (!_e_comp_hwc_prepare()) return EINA_FALSE;
+   _e_comp_hwc_prepare();
 
    // extra policy can replace core policy
    _e_comp_hook_call(E_COMP_HOOK_PREPARE_PLANE, NULL);
@@ -935,7 +937,6 @@ _e_comp_hwc_begin(void)
    E_FREE_FUNC(e_comp->nocomp_delay_timer, ecore_timer_del);
 
    if (!e_comp->hwc) return;
-   if (e_comp->nocomp_override > 0) return;
 
    EINA_LIST_FOREACH(e_comp->zones, l, zone)
      {
