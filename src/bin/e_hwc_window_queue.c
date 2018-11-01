@@ -425,8 +425,8 @@ _e_hwc_window_queue_pending_unset(E_Hwc_Window_Queue *queue)
      {
         queue->pending_unset_user = queue->user;
         e_object_ref(E_OBJECT(queue->pending_unset_user));
-        queue->user = NULL;
         e_object_unref(E_OBJECT(queue->user));
+        queue->user = NULL;
      }
 
    return EINA_TRUE;
