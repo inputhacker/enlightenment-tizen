@@ -51,6 +51,7 @@ static Eldbus_Message *_e_test_helper_cb_get_clients(const Eldbus_Service_Interf
 static Eldbus_Message *_e_test_helper_cb_get_noti_level(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_dpms(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_ev_freeze(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_kill_win(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_ev_mouse(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_ev_key(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_hwc(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
@@ -206,6 +207,12 @@ static const Eldbus_Method methods[] ={
           ELDBUS_ARGS({"u", "0=events will start to be processed or 1=freeze input events processing"}),
           ELDBUS_ARGS({"b", "accept or not"}),
           _e_test_helper_cb_ev_freeze, 0
+       },
+       {
+          "RequestKillWin",
+          ELDBUS_ARGS({"s", "window name to kill"}),
+          NULL,
+          _e_test_helper_cb_kill_win, 0
        },
        {
           "EventMouse",
@@ -615,6 +622,37 @@ _e_test_helper_cb_ev_freeze(const Eldbus_Service_Interface *iface, const Eldbus_
      }
 
    eldbus_message_arguments_append(reply, "b", accept);
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_test_helper_cb_kill_win(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   E_Client *ec = NULL;
+   Evas_Object *o = NULL;
+   char *win_name = NULL;
+
+   if (!eldbus_message_arguments_get(msg, "s", &win_name))
+     {
+        ERR("Error on eldbus_message_arguments_get()\n");
+        return reply;
+     }
+
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        const char *ec_name = NULL;
+        ec = evas_object_data_get(o, "E_Client");
+        if (!ec) continue;
+        if (e_client_util_ignored_get(ec)) continue;
+
+        ec_name = e_client_util_name_get(ec) ?: "NO NAME";
+
+        if (e_util_strcmp(ec_name, win_name)) continue;
+        ELOGF("E_TEST_HELPER", "Window killed by request(ec: %s)", ec, ec? ec->icccm.name : "NO NAME");
+        e_client_act_kill_begin(ec);
+     }
 
    return reply;
 }
