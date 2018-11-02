@@ -28,8 +28,6 @@ struct _E_Hwc_Window_Queue
    E_Hwc_Window                     *pending_unset_user;
    Eina_List                        *waiting_user;
    E_Hwc_Window_Queue_State          state;
-
-   Eina_Bool                         is_target;
 };
 
 struct _E_Hwc_Window_Queue_Buffer
@@ -49,7 +47,6 @@ struct _E_Hwc_Window_Queue_Buffer
 
 EINTERN Eina_Bool            e_hwc_window_queue_init(E_Hwc *hwc);
 EINTERN void                 e_hwc_window_queue_deinit(void);
-EINTERN Eina_Bool            e_hwc_window_queue_target_set(E_Hwc_Window_Queue *queue, Eina_Bool target);
 EINTERN E_Hwc_Window_Queue * e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window);
 EINTERN void                 e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window);
 

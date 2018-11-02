@@ -985,19 +985,6 @@ e_hwc_window_queue_deinit(void)
    _hwc_winq_mgr = NULL;
 }
 
-EINTERN Eina_Bool
-e_hwc_window_queue_target_set(E_Hwc_Window_Queue *queue, Eina_Bool target)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(_hwc_winq_mgr, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
-
-   if (queue->is_target == target) return EINA_TRUE;
-
-   queue->is_target = target;
-
-   return EINA_TRUE;
-}
-
 EINTERN E_Hwc_Window_Queue *
 e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
 {

@@ -420,7 +420,6 @@ _e_hwc_window_target_new(E_Hwc *hwc)
    wl_signal_add(&queue->destroy_signal, &((E_Hwc_Window *)target_hwc_window)->queue_destroy_listener);
    ((E_Hwc_Window *)target_hwc_window)->queue_destroy_listener.notify = _e_hwc_window_cb_queue_destroy;
    ((E_Hwc_Window *)target_hwc_window)->queue = queue;
-   e_hwc_window_queue_target_set(queue, EINA_TRUE);
 
    /* as evas_renderer has finished its work (to provide a composited buffer) it enqueues
     * the result buffer into this queue and acquirable cb gets called; this cb does nothing
