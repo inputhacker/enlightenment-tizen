@@ -3335,10 +3335,18 @@ e_info_server_cb_slot_message(const Eldbus_Service_Interface *iface EINA_UNUSED,
      {
         E_Zone *zone = e_zone_current_get();
         E_Desk *desk = e_desk_current_get(zone);
-        slot = e_slot_new(desk->layout);
-        evas_object_move(slot, x, y);
-        evas_object_resize(slot, w, h);
-        __SLOT_ARG_APPEND_TYPE("[SLOT INFO]", "[SLOT CREATE]  slot_id:%02d (%04d,%04d,%04dx%04d)\n", e_slot_find_id(slot), x, y, w, h );
+
+        if (desk)
+          {
+             slot = e_slot_new(desk->layout);
+             evas_object_move(slot, x, y);
+             evas_object_resize(slot, w, h);
+             __SLOT_ARG_APPEND_TYPE("[SLOT INFO]", "[SLOT CREATE]  slot_id:%02d (%04d,%04d,%04dx%04d)\n", e_slot_find_id(slot), x, y, w, h );
+          }
+        else
+          {
+             __SLOT_ARG_APPEND_TYPE("[SLOT INFO]", "no desk slot\n");
+          }
      }
    else if (mode == E_INFO_CMD_MESSAGE_MODIFY)
      {
@@ -3454,9 +3462,12 @@ e_info_server_cb_slot_message(const Eldbus_Service_Interface *iface EINA_UNUSED,
      {
         E_Zone *zone = e_zone_current_get();
         E_Desk *desk = e_desk_current_get(zone);
-        if (!desk) continue;
-        if (start_split) evas_object_raise(desk->layout);
-        else evas_object_lower(desk->layout);
+
+        if (desk)
+          {
+             if (start_split) evas_object_raise(desk->layout);
+             else evas_object_lower(desk->layout);
+          }
         //evas_object_show(desk->layout);
         __SLOT_ARG_APPEND_TYPE("[SLOT INFO]", "[SLOT %s]", start_split ? "START" : "STOP");
      }
