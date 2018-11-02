@@ -379,7 +379,7 @@ _e_hwc_window_queue_waiting_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *
 static Eina_Bool
 _e_hwc_window_queue_waiting_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
 {
-   queue->state = E_HWC_WINDOW_QUEUE_STATE_WAITING_SET;
+   queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_WAITING;
 
    return EINA_TRUE;
 }
@@ -401,7 +401,7 @@ _e_hwc_window_queue_pending_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_win
         return EINA_FALSE;
      }
 
-   queue->state = E_HWC_WINDOW_QUEUE_STATE_PENDING_SET;
+   queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_PENDING;
    e_hwc_window_activate(hwc_window, queue);
 
    return EINA_TRUE;
@@ -419,7 +419,7 @@ _e_hwc_window_queue_set(E_Hwc_Window_Queue *queue)
 static Eina_Bool
 _e_hwc_window_queue_pending_unset(E_Hwc_Window_Queue *queue)
 {
-   queue->state = E_HWC_WINDOW_QUEUE_STATE_PENDING_UNSET;
+   queue->state = E_HWC_WINDOW_QUEUE_STATE_UNSET_PENDING;
 
    if (queue->user)
      {
@@ -442,7 +442,7 @@ _e_hwc_window_queue_cb_dequeueable(tbm_surface_queue_h surface_queue, void *data
 
    if (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET)
      _e_hwc_window_queue_dequeue_buffer_send(queue);
-   else if (queue->state != E_HWC_WINDOW_QUEUE_STATE_PENDING_SET)
+   else if (queue->state != E_HWC_WINDOW_QUEUE_STATE_SET_PENDING)
      _e_hwc_window_queue_pending_set(queue, queue->user);
 }
 
@@ -452,7 +452,7 @@ _e_hwc_window_queue_user_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
 
    if (queue->user ||
-       queue->state == E_HWC_WINDOW_QUEUE_STATE_PENDING_UNSET)
+       queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_PENDING)
      {
         _e_hwc_window_queue_waiting_user_set(queue, hwc_window);
 
@@ -508,7 +508,7 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
 {
    E_Hwc_Window *hwc_window = NULL;
 
-   if (queue->state == E_HWC_WINDOW_QUEUE_STATE_PENDING_UNSET)
+   if (queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_PENDING)
      hwc_window = queue->pending_unset_user;
    else
      hwc_window = queue->user;
@@ -615,7 +615,7 @@ _e_hwc_window_queue_exported_buffer_destroy_cb(struct wl_listener *listener, voi
              queue_buffer->tsurface, queue->tqueue,
              queue_buffer->exported_wl_buffer);
 
-   if (queue->state != E_HWC_WINDOW_QUEUE_STATE_PENDING_UNSET) return;
+   if (queue->state != E_HWC_WINDOW_QUEUE_STATE_UNSET_PENDING) return;
 
    if (_e_hwc_window_queue_buffers_recall_done_check(queue))
      _e_hwc_window_queue_unset(queue);
@@ -704,147 +704,6 @@ _e_hwc_window_queue_buffers_export(E_Hwc_Window_Queue *queue)
    return EINA_TRUE;
 }
 
-EINTERN E_Hwc_Window_Queue_Buffer *
-e_hwc_window_queue_buffer_get(E_Hwc_Window_Queue *queue, tbm_surface_h tsurface)
-{
-   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
-   Eina_List *l = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, EINA_FALSE);
-
-   EINA_LIST_FOREACH(queue->buffers, l, queue_buffer)
-     {
-        if (queue_buffer->tsurface == tsurface)
-          return queue_buffer;
-     }
-
-   return NULL;
-}
-
-EINTERN Eina_Bool
-e_hwc_window_queue_can_dequeue(E_Hwc_Window_Queue *queue)
-{
-   if (!queue->tqueue) return EINA_FALSE;
-
-   if (tbm_surface_queue_can_dequeue(queue->tqueue, 0))
-     return EINA_TRUE;
-
-   return EINA_FALSE;
-}
-
-EINTERN E_Hwc_Window_Queue_Buffer *
-e_hwc_window_queue_buffer_dequeue(E_Hwc_Window_Queue *queue)
-{
-   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
-   tbm_surface_h tsurface = NULL;
-   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
-   E_Hwc_Window *user = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
-
-   if (!queue->tqueue) return NULL;
-   if (!tbm_surface_queue_can_dequeue(queue->tqueue, 0)) return NULL;
-
-   tsq_err = tbm_surface_queue_dequeue(queue->tqueue, &tsurface);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, NULL);
-
-   queue_buffer = e_hwc_window_queue_buffer_get(queue, tsurface);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, NULL);
-
-   queue_buffer->released = EINA_FALSE;
-   queue_buffer->dequeued = EINA_TRUE;
-
-   user = queue->user;
-
-   EHWQTRACE("DEQ ts:%p tq:%p",
-             (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
-
-   return queue_buffer;
-}
-
-EINTERN Eina_Bool
-e_hwc_window_queue_buffer_enqueue(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_Buffer *queue_buffer)
-{
-   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
-   E_Hwc_Window *user = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, EINA_FALSE);
-
-   if (!queue->tqueue) return EINA_FALSE;
-
-   queue_buffer->dequeued = EINA_FALSE;
-
-   user = queue->user;
-
-   EHWQTRACE("ENQ ts:%p tq:%p",
-             (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
-
-   tsq_err = tbm_surface_queue_enqueue(queue->tqueue, queue_buffer->tsurface);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, EINA_FALSE);
-
-   return EINA_TRUE;
-}
-
-EINTERN E_Hwc_Window_Queue_Buffer *
-e_hwc_window_queue_buffer_acquire(E_Hwc_Window_Queue *queue)
-{
-   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
-   tbm_surface_h tsurface = NULL;
-   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
-   E_Hwc_Window *user = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
-
-   if (!queue->tqueue) return NULL;
-   if (!tbm_surface_queue_can_acquire(queue->tqueue, 0)) return NULL;
-
-   tsq_err = tbm_surface_queue_acquire(queue->tqueue, &tsurface);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, NULL);
-
-   queue_buffer = e_hwc_window_queue_buffer_get(queue, tsurface);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, NULL);
-
-   queue_buffer->released = EINA_FALSE;
-   queue_buffer->dequeued = EINA_FALSE;
-   queue_buffer->acquired = EINA_TRUE;
-
-   user = queue->user;
-
-   EHWQTRACE("ACQ ts:%p tq:%p",
-             (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
-
-   return queue_buffer;
-}
-
-EINTERN Eina_Bool
-e_hwc_window_queue_buffer_release(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_Buffer *queue_buffer)
-{
-   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
-   E_Hwc_Window *user = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, EINA_FALSE);
-
-   if (!queue->tqueue) return EINA_FALSE;
-
-   if (queue_buffer->released) return EINA_TRUE;
-
-   queue_buffer->released = EINA_TRUE;
-   queue_buffer->dequeued = EINA_FALSE;
-   queue_buffer->acquired = EINA_FALSE;
-
-   user = queue->user;
-
-   EHWQTRACE("REL ts:%p tq:%p",
-             (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
-
-   tsq_err = tbm_surface_queue_release(queue->tqueue, queue_buffer->tsurface);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, EINA_FALSE);
-
-   return EINA_TRUE;
-}
 #if 0
 static Eina_Bool
 _e_hwc_window_release_hash_fn(const Eina_Hash *hash, const void *key, void *data, void *fdata)
@@ -941,41 +800,8 @@ _e_hwc_window_queue_cb_accepted_state_change(void *data, E_Hwc_Window *hwc_windo
    state = e_hwc_window_accepted_state_get(hwc_window);
 
    if ((state == E_HWC_WINDOW_STATE_DEVICE) &&
-       (queue->state == E_HWC_WINDOW_QUEUE_STATE_PENDING_SET))
+       (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_PENDING))
      _e_hwc_window_queue_set(queue);
-}
-
-EINTERN void
-e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
-{
-   EINA_SAFETY_ON_NULL_RETURN(queue);
-
-   if ((hwc_window) &&
-       (eina_list_data_find(queue->waiting_user, hwc_window) == hwc_window))
-     {
-        _e_hwc_window_queue_waiting_user_unset(queue, hwc_window);
-        EHWQINF("Unset waiting user ehw:%p -- {%s}",
-                hwc_window->ec, queue, hwc_window,
-                (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
-        return;
-     }
-
-   if (hwc_window != queue->user) return;
-
-   e_hwc_window_deactivate(queue->user);
-
-   _e_hwc_window_queue_buffers_recall(queue, queue->user);
-
-   EHWQINF("Unset user ehw:%p -- {%s}",
-           hwc_window->ec, queue, hwc_window,
-           (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
-
-   if (_e_hwc_window_queue_buffers_recall_done_check(queue))
-     _e_hwc_window_queue_unset(queue);
-   else
-     _e_hwc_window_queue_pending_unset(queue);
-
-   return;
 }
 
 static void
@@ -1142,44 +968,6 @@ _e_hwc_window_queue_get(E_Hwc_Window *hwc_window)
    return queue;
 }
 
-EINTERN E_Hwc_Window_Queue *
-e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
-{
-   struct wayland_tbm_client_queue *cqueue = NULL;
-   E_Hwc_Window_Queue *queue = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
-
-   if (hwc_window->is_target)
-     return _e_hwc_window_queue_get(hwc_window);
-
-   cqueue = _user_cqueue_get(hwc_window->ec);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, NULL);
-
-   queue = _e_hwc_window_queue_get(hwc_window);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
-
-   if (!_e_hwc_window_queue_user_set(queue, hwc_window))
-     {
-        ERR("fail to set user queue:%p hwc_window:%p", queue, hwc_window);
-        return NULL;
-     }
-
-   return queue;
-}
-
-EINTERN Eina_Bool
-e_hwc_window_queue_target_set(E_Hwc_Window_Queue *queue, Eina_Bool target)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
-
-   if (queue->is_target == target) return EINA_TRUE;
-
-   queue->is_target = target;
-
-   return EINA_TRUE;
-}
-
 EINTERN Eina_Bool
 e_hwc_window_queue_init(E_Hwc *hwc)
 {
@@ -1217,3 +1005,217 @@ e_hwc_window_queue_deinit(void)
    E_FREE(hwc_winq_mgr);
    _hwc_winq_mgr = NULL;
 }
+
+EINTERN Eina_Bool
+e_hwc_window_queue_target_set(E_Hwc_Window_Queue *queue, Eina_Bool target)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
+
+   if (queue->is_target == target) return EINA_TRUE;
+
+   queue->is_target = target;
+
+   return EINA_TRUE;
+}
+
+EINTERN E_Hwc_Window_Queue *
+e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
+{
+   struct wayland_tbm_client_queue *cqueue = NULL;
+   E_Hwc_Window_Queue *queue = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
+
+   if (hwc_window->is_target)
+     return _e_hwc_window_queue_get(hwc_window);
+
+   cqueue = _user_cqueue_get(hwc_window->ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, NULL);
+
+   queue = _e_hwc_window_queue_get(hwc_window);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
+
+   if (!_e_hwc_window_queue_user_set(queue, hwc_window))
+     {
+        ERR("fail to set user queue:%p hwc_window:%p", queue, hwc_window);
+        return NULL;
+     }
+
+   return queue;
+}
+
+EINTERN void
+e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
+{
+   EINA_SAFETY_ON_NULL_RETURN(queue);
+
+   if ((hwc_window) &&
+       (eina_list_data_find(queue->waiting_user, hwc_window) == hwc_window))
+     {
+        _e_hwc_window_queue_waiting_user_unset(queue, hwc_window);
+        EHWQINF("Unset waiting user ehw:%p -- {%s}",
+                hwc_window->ec, queue, hwc_window,
+                (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
+        return;
+     }
+
+   if (hwc_window != queue->user) return;
+
+   e_hwc_window_deactivate(queue->user);
+
+   _e_hwc_window_queue_buffers_recall(queue, queue->user);
+
+   EHWQINF("Unset user ehw:%p -- {%s}",
+           hwc_window->ec, queue, hwc_window,
+           (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
+
+   if (_e_hwc_window_queue_buffers_recall_done_check(queue))
+     _e_hwc_window_queue_unset(queue);
+   else
+     _e_hwc_window_queue_pending_unset(queue);
+
+   return;
+}
+
+EINTERN E_Hwc_Window_Queue_Buffer *
+e_hwc_window_queue_buffer_get(E_Hwc_Window_Queue *queue, tbm_surface_h tsurface)
+{
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
+   Eina_List *l = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, EINA_FALSE);
+
+   EINA_LIST_FOREACH(queue->buffers, l, queue_buffer)
+     {
+        if (queue_buffer->tsurface == tsurface)
+          return queue_buffer;
+     }
+
+   return NULL;
+}
+
+EINTERN Eina_Bool
+e_hwc_window_queue_can_dequeue(E_Hwc_Window_Queue *queue)
+{
+   if (!queue->tqueue) return EINA_FALSE;
+
+   if (tbm_surface_queue_can_dequeue(queue->tqueue, 0))
+     return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+EINTERN E_Hwc_Window_Queue_Buffer *
+e_hwc_window_queue_buffer_dequeue(E_Hwc_Window_Queue *queue)
+{
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+   tbm_surface_h tsurface = NULL;
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
+   E_Hwc_Window *user = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
+
+   if (!queue->tqueue) return NULL;
+   if (!tbm_surface_queue_can_dequeue(queue->tqueue, 0)) return NULL;
+
+   tsq_err = tbm_surface_queue_dequeue(queue->tqueue, &tsurface);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, NULL);
+
+   queue_buffer = e_hwc_window_queue_buffer_get(queue, tsurface);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, NULL);
+
+   queue_buffer->released = EINA_FALSE;
+   queue_buffer->dequeued = EINA_TRUE;
+
+   user = queue->user;
+
+   EHWQTRACE("DEQ ts:%p tq:%p",
+             (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
+
+   return queue_buffer;
+}
+
+EINTERN Eina_Bool
+e_hwc_window_queue_buffer_enqueue(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_Buffer *queue_buffer)
+{
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+   E_Hwc_Window *user = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, EINA_FALSE);
+
+   if (!queue->tqueue) return EINA_FALSE;
+
+   queue_buffer->dequeued = EINA_FALSE;
+
+   user = queue->user;
+
+   EHWQTRACE("ENQ ts:%p tq:%p",
+             (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
+
+   tsq_err = tbm_surface_queue_enqueue(queue->tqueue, queue_buffer->tsurface);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, EINA_FALSE);
+
+   return EINA_TRUE;
+}
+
+EINTERN E_Hwc_Window_Queue_Buffer *
+e_hwc_window_queue_buffer_acquire(E_Hwc_Window_Queue *queue)
+{
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+   tbm_surface_h tsurface = NULL;
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
+   E_Hwc_Window *user = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
+
+   if (!queue->tqueue) return NULL;
+   if (!tbm_surface_queue_can_acquire(queue->tqueue, 0)) return NULL;
+
+   tsq_err = tbm_surface_queue_acquire(queue->tqueue, &tsurface);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, NULL);
+
+   queue_buffer = e_hwc_window_queue_buffer_get(queue, tsurface);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, NULL);
+
+   queue_buffer->released = EINA_FALSE;
+   queue_buffer->dequeued = EINA_FALSE;
+   queue_buffer->acquired = EINA_TRUE;
+
+   user = queue->user;
+
+   EHWQTRACE("ACQ ts:%p tq:%p",
+             (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
+
+   return queue_buffer;
+}
+
+EINTERN Eina_Bool
+e_hwc_window_queue_buffer_release(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_Buffer *queue_buffer)
+{
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+   E_Hwc_Window *user = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, EINA_FALSE);
+
+   if (!queue->tqueue) return EINA_FALSE;
+
+   if (queue_buffer->released) return EINA_TRUE;
+
+   queue_buffer->released = EINA_TRUE;
+   queue_buffer->dequeued = EINA_FALSE;
+   queue_buffer->acquired = EINA_FALSE;
+
+   user = queue->user;
+
+   EHWQTRACE("REL ts:%p tq:%p",
+             (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
+
+   tsq_err = tbm_surface_queue_release(queue->tqueue, queue_buffer->tsurface);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, EINA_FALSE);
+
+   return EINA_TRUE;
+}
+

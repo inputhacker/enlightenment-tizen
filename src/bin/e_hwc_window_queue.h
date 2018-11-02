@@ -8,9 +8,9 @@ typedef struct _E_Hwc_Window_Queue_Buffer        E_Hwc_Window_Queue_Buffer;
 typedef enum _E_Hwc_Window_Queue_State
 {
    E_HWC_WINDOW_QUEUE_STATE_UNSET = 0,
-   E_HWC_WINDOW_QUEUE_STATE_PENDING_UNSET,
-   E_HWC_WINDOW_QUEUE_STATE_WAITING_SET,   /* wait dequeueable buffer */
-   E_HWC_WINDOW_QUEUE_STATE_PENDING_SET,   /* wait buffer of queue commit */
+   E_HWC_WINDOW_QUEUE_STATE_UNSET_PENDING,
+   E_HWC_WINDOW_QUEUE_STATE_SET_WAITING,   /* wait dequeueable buffer */
+   E_HWC_WINDOW_QUEUE_STATE_SET_PENDING,   /* wait buffer of queue commit */
    E_HWC_WINDOW_QUEUE_STATE_SET,
 } E_Hwc_Window_Queue_State;
 
