@@ -451,21 +451,6 @@ _e_hwc_window_queue_user_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window
 {
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
 
-   if (queue->user ||
-       queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING)
-     {
-        _e_hwc_window_queue_user_pending_set_add(queue, hwc_window);
-
-        EHWQINF("Set pending user ehw:%p -- {%s}",
-                hwc_window->ec, queue, hwc_window,
-                (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
-
-        return EINA_TRUE;
-     }
-
-   if (eina_list_data_find(queue->user_pending_set, hwc_window) == hwc_window)
-     _e_hwc_window_queue_user_pending_set_remove(queue, hwc_window);
-
    if (e_hwc_window_queue_can_dequeue(queue))
      {
         if (!_e_hwc_window_queue_waiting_set(queue, hwc_window))
@@ -490,10 +475,6 @@ _e_hwc_window_queue_user_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window
 
    queue->user = hwc_window;
    e_object_ref(E_OBJECT(queue->user));
-
-   EHWQINF("Set user ehw:%p -- {%s}",
-           hwc_window->ec, queue, hwc_window,
-           (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
 
    return EINA_TRUE;
 }
@@ -993,11 +974,30 @@ e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
    if (e_hwc_window_is_target(hwc_window))
      return queue;
 
+   if (queue->user ||
+       queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING)
+     {
+        _e_hwc_window_queue_user_pending_set_add(queue, hwc_window);
+
+        EHWQINF("Add user_pending_set ehw:%p -- {%s}",
+                hwc_window->ec, queue, hwc_window,
+                (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
+
+        return queue;
+     }
+
+   if (eina_list_data_find(queue->user_pending_set, hwc_window) == hwc_window)
+     _e_hwc_window_queue_user_pending_set_remove(queue, hwc_window);
+
    if (!_e_hwc_window_queue_user_set(queue, hwc_window))
      {
         ERR("fail to set user queue:%p hwc_window:%p", queue, hwc_window);
         return NULL;
      }
+
+   EHWQINF("Set user ehw:%p -- {%s}",
+           hwc_window->ec, queue, hwc_window,
+           (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
 
    return queue;
 }
@@ -1007,13 +1007,13 @@ e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_windo
 {
    EINA_SAFETY_ON_NULL_RETURN(_hwc_winq_mgr);
    EINA_SAFETY_ON_NULL_RETURN(queue);
+   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
 
-   if ((hwc_window) &&
-       (eina_list_data_find(queue->user_pending_set, hwc_window) == hwc_window))
+   if (eina_list_data_find(queue->user_pending_set, hwc_window) == hwc_window)
      {
         _e_hwc_window_queue_user_pending_set_remove(queue, hwc_window);
 
-        EHWQINF("Unset pending user ehw:%p -- {%s}",
+        EHWQINF("Remove user_pending_set pending ehw:%p -- {%s}",
                 hwc_window->ec, queue, hwc_window,
                 (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
 
@@ -1026,14 +1026,14 @@ e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_windo
 
    _e_hwc_window_queue_buffers_recall(queue, queue->user);
 
-   EHWQINF("Unset user ehw:%p -- {%s}",
-           hwc_window->ec, queue, hwc_window,
-           (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
-
    if (_e_hwc_window_queue_buffers_recall_done_check(queue))
      _e_hwc_window_queue_unset(queue);
    else
      _e_hwc_window_queue_waiting_unset(queue);
+
+   EHWQINF("Unset user ehw:%p -- {%s}",
+           hwc_window->ec, queue, hwc_window,
+           (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
 
    return;
 }
