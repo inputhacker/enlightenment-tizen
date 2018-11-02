@@ -8,10 +8,10 @@ typedef struct _E_Hwc_Window_Queue_Buffer        E_Hwc_Window_Queue_Buffer;
 typedef enum _E_Hwc_Window_Queue_State
 {
    E_HWC_WINDOW_QUEUE_STATE_UNSET = 0,
-   E_HWC_WINDOW_QUEUE_STATE_UNSET_PENDING,
-   E_HWC_WINDOW_QUEUE_STATE_SET_WAITING,   /* wait dequeueable buffer */
-   E_HWC_WINDOW_QUEUE_STATE_SET_PENDING,   /* wait buffer of queue commit */
+   E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING,
    E_HWC_WINDOW_QUEUE_STATE_SET,
+   E_HWC_WINDOW_QUEUE_STATE_SET_PENDING,  /* pending state due to no dequeueable buffer */
+   E_HWC_WINDOW_QUEUE_STATE_SET_WAITING,    /* waiting state until the exported buffer comes */
 } E_Hwc_Window_Queue_State;
 
 #else
@@ -25,8 +25,8 @@ struct _E_Hwc_Window_Queue
    struct wl_signal                  destroy_signal;
 
    E_Hwc_Window                     *user;
-   E_Hwc_Window                     *pending_unset_user;
-   Eina_List                        *waiting_user;
+   E_Hwc_Window                     *user_waiting_unset;
+   Eina_List                        *user_pending_set;
    E_Hwc_Window_Queue_State          state;
 };
 

@@ -348,21 +348,21 @@ _e_hwc_window_queue_dequeue_buffer_send(E_Hwc_Window_Queue *queue)
 }
 
 static Eina_Bool
-_e_hwc_window_queue_waiting_user_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
+_e_hwc_window_queue_pending_user_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
 {
    e_object_ref(E_OBJECT(hwc_window));
-   queue->waiting_user = eina_list_append(queue->waiting_user, hwc_window);
+   queue->user_pending_set = eina_list_append(queue->user_pending_set, hwc_window);
 
    return EINA_TRUE;
 }
 
 static void
-_e_hwc_window_queue_waiting_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
+_e_hwc_window_queue_pending_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
 {
    Eina_List *l, *ll;
    E_Hwc_Window *tmp_hwc_window = NULL;
 
-   EINA_LIST_FOREACH_SAFE(queue->waiting_user, l, ll, tmp_hwc_window)
+   EINA_LIST_FOREACH_SAFE(queue->user_pending_set, l, ll, tmp_hwc_window)
      {
         if(tmp_hwc_window != hwc_window) continue;
 
@@ -372,20 +372,20 @@ _e_hwc_window_queue_waiting_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *
                 hwc_window->ec, queue, hwc_window, queue->tqueue);
 
         e_object_unref(E_OBJECT(hwc_window));
-        queue->waiting_user = eina_list_remove_list(queue->waiting_user, l);
+        queue->user_pending_set = eina_list_remove_list(queue->user_pending_set, l);
      }
 }
 
 static Eina_Bool
-_e_hwc_window_queue_waiting_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
+_e_hwc_window_queue_pending_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
 {
-   queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_WAITING;
+   queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_PENDING;
 
    return EINA_TRUE;
 }
 
 static Eina_Bool
-_e_hwc_window_queue_pending_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
+_e_hwc_window_queue_waiting_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
 {
    if (!e_hwc_window_queue_can_dequeue(queue)) return EINA_FALSE;
 
@@ -401,7 +401,7 @@ _e_hwc_window_queue_pending_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_win
         return EINA_FALSE;
      }
 
-   queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_PENDING;
+   queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_WAITING;
    e_hwc_window_activate(hwc_window, queue);
 
    return EINA_TRUE;
@@ -417,14 +417,14 @@ _e_hwc_window_queue_set(E_Hwc_Window_Queue *queue)
 }
 
 static Eina_Bool
-_e_hwc_window_queue_pending_unset(E_Hwc_Window_Queue *queue)
+_e_hwc_window_queue_waiting_unset(E_Hwc_Window_Queue *queue)
 {
-   queue->state = E_HWC_WINDOW_QUEUE_STATE_UNSET_PENDING;
+   queue->state = E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING;
 
    if (queue->user)
      {
-        queue->pending_unset_user = queue->user;
-        e_object_ref(E_OBJECT(queue->pending_unset_user));
+        queue->user_waiting_unset = queue->user;
+        e_object_ref(E_OBJECT(queue->user_waiting_unset));
         e_object_unref(E_OBJECT(queue->user));
         queue->user = NULL;
      }
@@ -442,8 +442,8 @@ _e_hwc_window_queue_cb_dequeueable(tbm_surface_queue_h surface_queue, void *data
 
    if (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET)
      _e_hwc_window_queue_dequeue_buffer_send(queue);
-   else if (queue->state != E_HWC_WINDOW_QUEUE_STATE_SET_PENDING)
-     _e_hwc_window_queue_pending_set(queue, queue->user);
+   else if (queue->state != E_HWC_WINDOW_QUEUE_STATE_SET_WAITING)
+     _e_hwc_window_queue_waiting_set(queue, queue->user);
 }
 
 static Eina_Bool
@@ -452,33 +452,33 @@ _e_hwc_window_queue_user_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
 
    if (queue->user ||
-       queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_PENDING)
+       queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING)
      {
-        _e_hwc_window_queue_waiting_user_set(queue, hwc_window);
+        _e_hwc_window_queue_pending_user_set(queue, hwc_window);
 
-        EHWQINF("Set waiting user ehw:%p -- {%s}",
+        EHWQINF("Set pending user ehw:%p -- {%s}",
                 hwc_window->ec, queue, hwc_window,
                 (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
 
         return EINA_TRUE;
      }
 
-   if (eina_list_data_find(queue->waiting_user, hwc_window) == hwc_window)
-     _e_hwc_window_queue_waiting_user_unset(queue, hwc_window);
+   if (eina_list_data_find(queue->user_pending_set, hwc_window) == hwc_window)
+     _e_hwc_window_queue_pending_user_unset(queue, hwc_window);
 
    if (e_hwc_window_queue_can_dequeue(queue))
      {
-        if (!_e_hwc_window_queue_pending_set(queue, hwc_window))
+        if (!_e_hwc_window_queue_waiting_set(queue, hwc_window))
           {
-             ERR("fail to _e_hwc_window_queue_pending_set queue:%p ehw:%p", queue, hwc_window);
+             ERR("fail to _e_hwc_window_queue_waiting_set queue:%p ehw:%p", queue, hwc_window);
              return EINA_FALSE;
           }
      }
    else
      {
-        if (!_e_hwc_window_queue_waiting_set(queue, hwc_window))
+        if (!_e_hwc_window_queue_pending_set(queue, hwc_window))
           {
-             ERR("fail to _e_hwc_window_queue_waiting_set queue:%p ehw:%p", queue, hwc_window);
+             ERR("fail to _e_hwc_window_queue_pending_set queue:%p ehw:%p", queue, hwc_window);
              return EINA_FALSE;
           }
      }
@@ -503,8 +503,8 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
 {
    E_Hwc_Window *hwc_window = NULL;
 
-   if (queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_PENDING)
-     hwc_window = queue->pending_unset_user;
+   if (queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING)
+     hwc_window = queue->user_waiting_unset;
    else
      hwc_window = queue->user;
 
@@ -524,15 +524,15 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
         queue->user = NULL;
      }
 
-   if (queue->pending_unset_user)
+   if (queue->user_waiting_unset)
      {
-        e_object_unref(E_OBJECT(queue->pending_unset_user));
-        queue->pending_unset_user = NULL;
+        e_object_unref(E_OBJECT(queue->user_waiting_unset));
+        queue->user_waiting_unset = NULL;
      }
 
-   if (!eina_list_count(queue->waiting_user)) return EINA_TRUE;
+   if (!eina_list_count(queue->user_pending_set)) return EINA_TRUE;
 
-   hwc_window = eina_list_nth(queue->waiting_user, 0);
+   hwc_window = eina_list_nth(queue->user_pending_set, 0);
    _e_hwc_window_queue_user_set(queue, hwc_window);
 
    return EINA_TRUE;
@@ -610,7 +610,7 @@ _e_hwc_window_queue_exported_buffer_destroy_cb(struct wl_listener *listener, voi
              queue_buffer->tsurface, queue->tqueue,
              queue_buffer->exported_wl_buffer);
 
-   if (queue->state != E_HWC_WINDOW_QUEUE_STATE_UNSET_PENDING) return;
+   if (queue->state != E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING) return;
 
    if (_e_hwc_window_queue_buffers_recall_done_check(queue))
      _e_hwc_window_queue_unset(queue);
@@ -791,7 +791,7 @@ _e_hwc_window_queue_cb_accepted_state_change(void *data, E_Hwc_Window *hwc_windo
    state = e_hwc_window_accepted_state_get(hwc_window);
 
    if ((state == E_HWC_WINDOW_STATE_DEVICE) &&
-       (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_PENDING))
+       (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_WAITING))
      _e_hwc_window_queue_set(queue);
 }
 
@@ -1009,10 +1009,10 @@ e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_windo
    EINA_SAFETY_ON_NULL_RETURN(queue);
 
    if ((hwc_window) &&
-       (eina_list_data_find(queue->waiting_user, hwc_window) == hwc_window))
+       (eina_list_data_find(queue->user_pending_set, hwc_window) == hwc_window))
      {
-        _e_hwc_window_queue_waiting_user_unset(queue, hwc_window);
-        EHWQINF("Unset waiting user ehw:%p -- {%s}",
+        _e_hwc_window_queue_pending_user_unset(queue, hwc_window);
+        EHWQINF("Unset pending user ehw:%p -- {%s}",
                 hwc_window->ec, queue, hwc_window,
                 (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
         return;
@@ -1031,7 +1031,7 @@ e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_windo
    if (_e_hwc_window_queue_buffers_recall_done_check(queue))
      _e_hwc_window_queue_unset(queue);
    else
-     _e_hwc_window_queue_pending_unset(queue);
+     _e_hwc_window_queue_waiting_unset(queue);
 
    return;
 }
