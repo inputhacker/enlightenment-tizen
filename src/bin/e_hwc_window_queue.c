@@ -790,7 +790,7 @@ _e_hwc_window_queue_cb_accepted_state_change(void *data, E_Hwc_Window *hwc_windo
    E_Hwc_Window_Queue *queue = NULL;
 
    if (!hwc_window->queue) return;
-   if (hwc_window->is_target) return;
+   if (e_hwc_window_is_target(hwc_window)) return;
 
    queue = hwc_window->queue;
    state = e_hwc_window_accepted_state_get(hwc_window);
@@ -914,7 +914,7 @@ _e_hwc_window_tqueue_get(E_Hwc_Window *hwc_window)
    tdm_error error = TDM_ERROR_NONE;
    tbm_surface_queue_h tqueue;
 
-   if (hwc_window->is_target)
+   if (e_hwc_window_is_target(hwc_window))
      tqueue = _get_tbm_surface_queue();
    else
      {
@@ -994,7 +994,7 @@ e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(_hwc_winq_mgr, NULL);
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
 
-   if (hwc_window->is_target)
+   if (e_hwc_window_is_target(hwc_window))
      return _e_hwc_window_queue_get(hwc_window);
 
    cqueue = _user_cqueue_get(hwc_window->ec);
