@@ -50,7 +50,7 @@ EINTERN void                 e_hwc_window_queue_deinit(void);
 EINTERN E_Hwc_Window_Queue * e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window);
 EINTERN void                 e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window);
 
-EINTERN E_Hwc_Window_Queue_Buffer * e_hwc_window_queue_buffer_get(E_Hwc_Window_Queue *queue, tbm_surface_h tsurface);
+EINTERN E_Hwc_Window_Queue_Buffer * e_hwc_window_queue_buffer_find(E_Hwc_Window_Queue *queue, tbm_surface_h tsurface);
 EINTERN Eina_Bool                   e_hwc_window_queue_can_dequeue(E_Hwc_Window_Queue *queue);
 EINTERN E_Hwc_Window_Queue_Buffer * e_hwc_window_queue_buffer_dequeue(E_Hwc_Window_Queue *queue);
 EINTERN Eina_Bool                   e_hwc_window_queue_buffer_enqueue(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_Buffer *queue_buffer);

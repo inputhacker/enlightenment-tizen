@@ -1244,14 +1244,14 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
    if (hwc_window->buffer.tsurface && hwc_window->buffer.queue &&
        hwc_window->buffer.tsurface != hwc_window->display.buffer.tsurface)
      {
-        queue_buffer = e_hwc_window_queue_buffer_get(hwc_window->buffer.queue, hwc_window->buffer.tsurface);
+        queue_buffer = e_hwc_window_queue_buffer_find(hwc_window->buffer.queue, hwc_window->buffer.tsurface);
         if (queue_buffer)
           e_hwc_window_queue_buffer_release(hwc_window->buffer.queue, queue_buffer);
      }
 
    if (tsurface && hwc_window->queue)
      {
-        queue_buffer = e_hwc_window_queue_buffer_get(hwc_window->queue, tsurface);
+        queue_buffer = e_hwc_window_queue_buffer_find(hwc_window->queue, tsurface);
         if (queue_buffer)
           {
             e_hwc_window_queue_buffer_enqueue(hwc_window->queue, queue_buffer);
@@ -1363,7 +1363,7 @@ e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window)
           {
              if (hwc_window->display.buffer.queue)
                {
-                  queue_buffer = e_hwc_window_queue_buffer_get(hwc_window->display.buffer.queue,
+                  queue_buffer = e_hwc_window_queue_buffer_find(hwc_window->display.buffer.queue,
                                                                hwc_window->display.buffer.tsurface);
                   if (queue_buffer)
                     e_hwc_window_queue_buffer_release(hwc_window->display.buffer.queue, queue_buffer);
@@ -1383,7 +1383,7 @@ e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window)
           {
              if (hwc_window->display.buffer.queue)
                {
-                  queue_buffer = e_hwc_window_queue_buffer_get(hwc_window->display.buffer.queue,
+                  queue_buffer = e_hwc_window_queue_buffer_find(hwc_window->display.buffer.queue,
                                                                hwc_window->display.buffer.tsurface);
                   if (queue_buffer)
                     e_hwc_window_queue_buffer_release(hwc_window->display.buffer.queue, queue_buffer);
@@ -1467,7 +1467,7 @@ e_hwc_window_target_buffer_skip(E_Hwc_Window_Target *target_hwc_window)
      {
         if (hwc_window->buffer.queue)
           {
-             queue_buffer = e_hwc_window_queue_buffer_get(hwc_window->buffer.queue,
+             queue_buffer = e_hwc_window_queue_buffer_find(hwc_window->buffer.queue,
                                                           hwc_window->buffer.tsurface);
              if (queue_buffer)
                e_hwc_window_queue_buffer_release(hwc_window->buffer.queue, queue_buffer);
@@ -1524,7 +1524,7 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
         if (hwc_window->buffer.tsurface &&
             hwc_window->buffer.tsurface != hwc_window->display.buffer.tsurface)
           {
-             queue_buffer = e_hwc_window_queue_buffer_get(hwc_window->buffer.queue, hwc_window->buffer.tsurface);
+             queue_buffer = e_hwc_window_queue_buffer_find(hwc_window->buffer.queue, hwc_window->buffer.tsurface);
              if (queue_buffer)
                e_hwc_window_queue_buffer_release(hwc_window->buffer.queue, queue_buffer);
           }
@@ -1568,7 +1568,7 @@ e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
 
         if (hwc_window->buffer.tsurface != hwc_window->display.buffer.tsurface)
           {
-             queue_buffer = e_hwc_window_queue_buffer_get(hwc_window->buffer.queue, hwc_window->buffer.tsurface);
+             queue_buffer = e_hwc_window_queue_buffer_find(hwc_window->buffer.queue, hwc_window->buffer.tsurface);
              if (queue_buffer)
                e_hwc_window_queue_buffer_release(hwc_window->buffer.queue, queue_buffer);
           }
