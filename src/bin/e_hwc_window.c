@@ -1886,6 +1886,7 @@ EINTERN Eina_Bool
 e_hwc_window_constraints_update(E_Hwc_Window *hwc_window)
 {
    E_Hwc_Window_Queue *queue = NULL;
+   struct wayland_tbm_client_queue *cqueue = NULL;
    tdm_error terror;
    int constraints;
 
@@ -1902,6 +1903,9 @@ e_hwc_window_constraints_update(E_Hwc_Window *hwc_window)
      {
          if (!hwc_window->queue)
            {
+              cqueue = _get_wayland_tbm_client_queue(hwc_window->ec);
+              EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, EINA_FALSE);
+
               queue = e_hwc_window_queue_user_set(hwc_window);
               if (!queue)
                 {

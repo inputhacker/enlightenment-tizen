@@ -988,7 +988,6 @@ e_hwc_window_queue_deinit(void)
 EINTERN E_Hwc_Window_Queue *
 e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
 {
-   struct wayland_tbm_client_queue *cqueue = NULL;
    E_Hwc_Window_Queue *queue = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(_hwc_winq_mgr, NULL);
@@ -996,9 +995,6 @@ e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
 
    if (e_hwc_window_is_target(hwc_window))
      return _e_hwc_window_queue_get(hwc_window);
-
-   cqueue = _user_cqueue_get(hwc_window->ec);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, NULL);
 
    queue = _e_hwc_window_queue_get(hwc_window);
    EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
