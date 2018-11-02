@@ -366,7 +366,11 @@ _e_test_helper_cb_register_window(const Eldbus_Service_Interface *iface EINA_UNU
      }
 
    eldbus_message_arguments_append(reply, "b", !th_data->registrant.win);
-   if (!th_data->registrant.win) th_data->registrant.win = id;
+   if (!th_data->registrant.win)
+     {
+        th_data->registrant.win = id;
+        th_data->registrant.ec = e_pixmap_find_client_by_res_id(id);
+     }
 
    return reply;
 }
