@@ -10,8 +10,8 @@ typedef enum _E_Hwc_Window_Queue_State
    E_HWC_WINDOW_QUEUE_STATE_UNSET = 0,
    E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING,
    E_HWC_WINDOW_QUEUE_STATE_SET,
+   E_HWC_WINDOW_QUEUE_STATE_SET_WAITING,  /* waiting state until the exported buffer comes */
    E_HWC_WINDOW_QUEUE_STATE_SET_PENDING,  /* pending state due to no dequeueable buffer */
-   E_HWC_WINDOW_QUEUE_STATE_SET_WAITING,    /* waiting state until the exported buffer comes */
 } E_Hwc_Window_Queue_State;
 
 #else
@@ -51,7 +51,7 @@ EINTERN E_Hwc_Window_Queue * e_hwc_window_queue_user_set(E_Hwc_Window *hwc_windo
 EINTERN void                 e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window);
 
 EINTERN E_Hwc_Window_Queue_Buffer * e_hwc_window_queue_buffer_find(E_Hwc_Window_Queue *queue, tbm_surface_h tsurface);
-EINTERN Eina_Bool                   e_hwc_window_queue_can_dequeue(E_Hwc_Window_Queue *queue);
+EINTERN Eina_Bool                   e_hwc_window_queue_buffer_can_dequeue(E_Hwc_Window_Queue *queue);
 EINTERN E_Hwc_Window_Queue_Buffer * e_hwc_window_queue_buffer_dequeue(E_Hwc_Window_Queue *queue);
 EINTERN Eina_Bool                   e_hwc_window_queue_buffer_enqueue(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_Buffer *queue_buffer);
 EINTERN E_Hwc_Window_Queue_Buffer * e_hwc_window_queue_buffer_acquire(E_Hwc_Window_Queue *queue);

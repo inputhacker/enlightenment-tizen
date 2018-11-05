@@ -56,7 +56,8 @@
 
 static Eina_Bool ehwq_trace = EINA_TRUE;
 
-static Eina_Bool _e_hwc_window_queue_buffers_export(E_Hwc_Window_Queue *queue);
+static Eina_Bool _e_hwc_window_queue_buffers_retrieve_done(E_Hwc_Window_Queue *queue);
+static void _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue);
 
 typedef struct _E_Hwc_Window_Queue_Manager E_Hwc_Window_Queue_Manager;
 
@@ -241,14 +242,45 @@ _comp_wl_backup_buffer_get(tbm_surface_h tsurface)
    return backup_buffer;
 }
 
-static void
-_e_hwc_window_queue_buffer_destroy(E_Hwc_Window_Queue_Buffer *queue_buffer)
+static tbm_surface_queue_h
+_get_tbm_surface_queue()
 {
-   EINA_SAFETY_ON_FALSE_RETURN(queue_buffer);
+   return e_comp->e_comp_screen->tqueue;
+}
 
-   wl_list_remove(&queue_buffer->exported_destroy_listener.link);
+static tbm_surface_queue_h
+_e_hwc_window_queue_tqueue_acquire(E_Hwc_Window *hwc_window)
+{
+   tdm_error error = TDM_ERROR_NONE;
+   tbm_surface_queue_h tqueue;
 
-   E_FREE(queue_buffer);
+   if (e_hwc_window_is_target(hwc_window))
+     tqueue = _get_tbm_surface_queue();
+   else
+     {
+        tqueue = tdm_hwc_window_acquire_buffer_queue(hwc_window->thwc_window, &error);
+
+        EHWQINF("Acquire buffer queue ehw:%p tq:%p",
+                hwc_window->ec, NULL, hwc_window, tqueue);
+     }
+
+   if (!tqueue)
+     {
+        ERR("fail to tdm_hwc_window_get_buffer_queue hwc_win:%p tdm_error:%d",
+            hwc_window, error);
+        return NULL;
+     }
+
+   return tqueue;
+}
+
+static void
+_e_hwc_window_queue_tqueue_release(tbm_surface_queue_h tqueue, E_Hwc_Window *hwc_window)
+{
+   tdm_hwc_window_release_buffer_queue(hwc_window->thwc_window, tqueue);
+
+   EHWQINF("Release buffer queue ehw:%p tq:%p",
+                hwc_window->ec, NULL, hwc_window, tqueue);
 }
 
 static E_Hwc_Window_Queue_Buffer *
@@ -270,81 +302,14 @@ _e_hwc_window_queue_buffer_create(E_Hwc_Window_Queue *queue, tbm_surface_h tsurf
    return queue_buffer;
 }
 
-///////////////////////////////////////////////// queue function ////////////////////////////////
-static Eina_Bool
-_e_hwc_window_queue_buffer_usable_send(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_Buffer *queue_buffer)
+static void
+_e_hwc_window_queue_buffer_destroy(E_Hwc_Window_Queue_Buffer *queue_buffer)
 {
-   struct wayland_tbm_client_queue * cqueue = NULL;
-   E_Hwc_Window *user = NULL;
+   EINA_SAFETY_ON_FALSE_RETURN(queue_buffer);
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, EINA_FALSE);
+   wl_list_remove(&queue_buffer->exported_destroy_listener.link);
 
-   user = queue->user;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(user, EINA_FALSE);
-
-   cqueue = _user_cqueue_get(user->ec);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, EINA_FALSE);
-
-   if (queue_buffer->usable) return EINA_TRUE;
-
-   if (!queue_buffer->exported || !queue_buffer->exported_wl_buffer)
-     {
-        ERR("Not exported queue_buffer:%p tsurface:%p", queue_buffer, queue_buffer->tsurface);
-        return EINA_FALSE;
-     }
-
-   wayland_tbm_server_client_queue_send_buffer_usable(cqueue, queue_buffer->exported_wl_buffer);
-   queue_buffer->usable = EINA_TRUE;
-
-   EHWQTRACE("USA ts:%p tq:%p wl_buffer:%p ehw:%p",
-             (user ? user->ec : NULL), queue,
-             queue_buffer->tsurface, queue->tqueue,
-             queue_buffer->exported_wl_buffer,
-             queue->user);
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_hwc_window_queue_dequeueable_buffer_send(E_Hwc_Window_Queue *queue)
-{
-   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
-   Eina_Bool send = EINA_FALSE;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue->tqueue, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue->user, EINA_FALSE);
-
-   while(tbm_surface_queue_can_dequeue(queue->tqueue, 0))
-     {
-        queue_buffer = e_hwc_window_queue_buffer_dequeue(queue);
-        EINA_SAFETY_ON_FALSE_RETURN_VAL(queue_buffer, EINA_FALSE);
-
-        _e_hwc_window_queue_buffer_usable_send(queue, queue_buffer);
-
-        send = EINA_TRUE;
-     }
-
-   return send;
-}
-
-static Eina_Bool
-_e_hwc_window_queue_dequeue_buffer_send(E_Hwc_Window_Queue *queue)
-{
-   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue->tqueue, EINA_FALSE);
-
-   if (!tbm_surface_queue_can_dequeue(queue->tqueue, 0)) return EINA_FALSE;
-
-   queue_buffer = e_hwc_window_queue_buffer_dequeue(queue);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, EINA_FALSE);
-
-   _e_hwc_window_queue_buffer_usable_send(queue, queue_buffer);
-
-   return EINA_TRUE;
+   E_FREE(queue_buffer);
 }
 
 static Eina_Bool
@@ -366,201 +331,14 @@ _e_hwc_window_queue_user_pending_set_remove(E_Hwc_Window_Queue *queue, E_Hwc_Win
      {
         if(tmp_hwc_window != hwc_window) continue;
 
-        tdm_hwc_window_release_buffer_queue(hwc_window->thwc_window, queue->tqueue);
-
-        EHWQINF("Release buffer queue ehw:%p tq:%p",
-                hwc_window->ec, queue, hwc_window, queue->tqueue);
+        /* _e_hwc_window_queue_tqueue_release(tqueue, hwc_window) */
+        _e_hwc_window_queue_tqueue_release(queue->tqueue, hwc_window);
 
         queue->user_pending_set = eina_list_remove_list(queue->user_pending_set, l);
         e_object_unref(E_OBJECT(hwc_window));
      }
 }
 
-static Eina_Bool
-_e_hwc_window_queue_pending_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
-{
-   queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_PENDING;
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_hwc_window_queue_waiting_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
-{
-   if (!e_hwc_window_queue_can_dequeue(queue)) return EINA_FALSE;
-
-   if (!_e_hwc_window_queue_buffers_export(queue))
-     {
-        ERR("fail to _e_hwc_window_queue_buffers_export queue:%p ehw:%p", queue, queue->user);
-        return EINA_FALSE;
-     }
-
-   if (!_e_hwc_window_queue_dequeue_buffer_send(queue))
-     {
-        ERR("fail to _e_hwc_window_queue_dequeue_buffer_send queue:%p ehw:%p", queue, queue->user);
-        return EINA_FALSE;
-     }
-
-   queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_WAITING;
-   e_hwc_window_activate(hwc_window, queue);
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_hwc_window_queue_set(E_Hwc_Window_Queue *queue)
-{
-   _e_hwc_window_queue_dequeueable_buffer_send(queue);
-   queue->state = E_HWC_WINDOW_QUEUE_STATE_SET;
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_hwc_window_queue_waiting_unset(E_Hwc_Window_Queue *queue)
-{
-   queue->state = E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING;
-
-   if (queue->user)
-     {
-        queue->user_waiting_unset = queue->user;
-        e_object_ref(E_OBJECT(queue->user_waiting_unset));
-        e_object_unref(E_OBJECT(queue->user));
-        queue->user = NULL;
-     }
-
-   return EINA_TRUE;
-}
-
-static void
-_e_hwc_window_queue_cb_dequeueable(tbm_surface_queue_h surface_queue, void *data)
-{
-   E_Hwc_Window_Queue *queue = NULL;
-
-   queue = (E_Hwc_Window_Queue *)data;
-   EINA_SAFETY_ON_NULL_RETURN(queue);
-
-   if (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET)
-     _e_hwc_window_queue_dequeue_buffer_send(queue);
-   else if (queue->state != E_HWC_WINDOW_QUEUE_STATE_SET_WAITING)
-     _e_hwc_window_queue_waiting_set(queue, queue->user);
-}
-
-static Eina_Bool
-_e_hwc_window_queue_user_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
-{
-   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
-
-   if (e_hwc_window_queue_can_dequeue(queue))
-     {
-        if (!_e_hwc_window_queue_waiting_set(queue, hwc_window))
-          {
-             ERR("fail to _e_hwc_window_queue_waiting_set queue:%p ehw:%p", queue, hwc_window);
-             return EINA_FALSE;
-          }
-     }
-   else
-     {
-        if (!_e_hwc_window_queue_pending_set(queue, hwc_window))
-          {
-             ERR("fail to _e_hwc_window_queue_pending_set queue:%p ehw:%p", queue, hwc_window);
-             return EINA_FALSE;
-          }
-     }
-
-   tsq_err = tbm_surface_queue_add_dequeuable_cb(queue->tqueue,
-                                                 _e_hwc_window_queue_cb_dequeueable,
-                                                 (void *)queue);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, EINA_FALSE);
-
-   queue->user = hwc_window;
-   e_object_ref(E_OBJECT(queue->user));
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
-{
-   E_Hwc_Window *hwc_window = NULL;
-
-   if (queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING)
-     hwc_window = queue->user_waiting_unset;
-   else
-     hwc_window = queue->user;
-
-   if (hwc_window)
-     {
-        tdm_hwc_window_release_buffer_queue(hwc_window->thwc_window, queue->tqueue);
-
-        EHWQINF("Release buffer queue ehw:%p tq:%p",
-                hwc_window->ec, queue, hwc_window, queue->tqueue);
-     }
-
-   queue->state = E_HWC_WINDOW_QUEUE_STATE_UNSET;
-
-   if (queue->user)
-     {
-        e_object_unref(E_OBJECT(queue->user));
-        queue->user = NULL;
-     }
-
-   if (queue->user_waiting_unset)
-     {
-        e_object_unref(E_OBJECT(queue->user_waiting_unset));
-        queue->user_waiting_unset = NULL;
-     }
-
-   if (!eina_list_count(queue->user_pending_set)) return EINA_TRUE;
-
-   hwc_window = eina_list_nth(queue->user_pending_set, 0);
-   _e_hwc_window_queue_user_set(queue, hwc_window);
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_hwc_window_queue_buffers_recall_done_check(E_Hwc_Window_Queue *queue)
-{
-   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
-   Eina_List *l = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
-
-   EINA_LIST_FOREACH(queue->buffers, l, queue_buffer)
-     if (queue_buffer->exported)
-       return EINA_FALSE;
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_hwc_window_queue_buffers_recall(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
-{
-   Eina_List *l = NULL;
-   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
-   struct wayland_tbm_client_queue *cqueue = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
-
-   tbm_surface_queue_remove_dequeuable_cb(queue->tqueue,
-                                          _e_hwc_window_queue_cb_dequeueable,
-                                          (void *)queue);
-
-   if (hwc_window)
-     cqueue = _user_cqueue_get(hwc_window->ec);
-
-   EINA_LIST_FOREACH(queue->buffers, l, queue_buffer)
-     {
-        if (!cqueue)
-          queue_buffer->usable = EINA_FALSE;
-
-        if (!queue_buffer->usable && !queue_buffer->acquired)
-          e_hwc_window_queue_buffer_release(queue, queue_buffer);
-     }
-
-   return EINA_TRUE;
-}
 
 static void
 _e_hwc_window_queue_exported_buffer_destroy_cb(struct wl_listener *listener, void *data)
@@ -568,7 +346,7 @@ _e_hwc_window_queue_exported_buffer_destroy_cb(struct wl_listener *listener, voi
    E_Hwc_Window_Queue *queue = NULL;
    E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
    struct wl_resource *wl_buffer = NULL;
-   E_Hwc_Window *user = NULL;
+   E_Hwc_Window *hwc_window = NULL;
 
    queue_buffer = container_of(listener, E_Hwc_Window_Queue_Buffer, exported_destroy_listener);
 
@@ -584,16 +362,15 @@ _e_hwc_window_queue_exported_buffer_destroy_cb(struct wl_listener *listener, voi
 
    queue_buffer->usable = EINA_FALSE;
 
-   user = queue->user;
-
+   hwc_window = queue->user;
    EHWQTRACE("DES ts:%p tq:%p wl_buffer:%p",
-             (user ? user->ec : NULL), queue,
+             (hwc_window ? hwc_window->ec : NULL), queue,
              queue_buffer->tsurface, queue->tqueue,
              queue_buffer->exported_wl_buffer);
 
    if (queue->state != E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING) return;
 
-   if (_e_hwc_window_queue_buffers_recall_done_check(queue))
+   if (_e_hwc_window_queue_buffers_retrieve_done(queue))
      _e_hwc_window_queue_unset(queue);
 }
 
@@ -666,6 +443,48 @@ _e_hwc_window_queue_buffer_export(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_
 }
 
 static Eina_Bool
+_e_hwc_window_queue_buffer_send(E_Hwc_Window_Queue *queue)
+{
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
+   E_Hwc_Window *hwc_window = NULL;
+   struct wayland_tbm_client_queue * cqueue = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue->tqueue, EINA_FALSE);
+
+   if (!tbm_surface_queue_can_dequeue(queue->tqueue, 0)) return EINA_FALSE;
+
+   queue_buffer = e_hwc_window_queue_buffer_dequeue(queue);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, EINA_FALSE);
+
+   hwc_window = queue->user;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (queue_buffer->usable) return EINA_TRUE;
+
+   if (!queue_buffer->exported || !queue_buffer->exported_wl_buffer)
+     {
+        ERR("Not exported queue_buffer:%p tsurface:%p", queue_buffer, queue_buffer->tsurface);
+        return EINA_FALSE;
+     }
+
+   cqueue = _user_cqueue_get(hwc_window->ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, EINA_FALSE);
+
+   /* send the buffer_usable to the wl_tbm client */
+   wayland_tbm_server_client_queue_send_buffer_usable(cqueue, queue_buffer->exported_wl_buffer);
+   queue_buffer->usable = EINA_TRUE;
+
+   EHWQTRACE("USA ts:%p tq:%p wl_buffer:%p ehw:%p",
+             (hwc_window ? hwc_window->ec : NULL), queue,
+             queue_buffer->tsurface, queue->tqueue,
+             queue_buffer->exported_wl_buffer,
+             hwc_window);
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
 _e_hwc_window_queue_buffers_export(E_Hwc_Window_Queue *queue)
 {
    Eina_List *l = NULL;
@@ -678,6 +497,194 @@ _e_hwc_window_queue_buffers_export(E_Hwc_Window_Queue *queue)
      }
 
    return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_hwc_window_queue_buffers_hand_over(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
+{
+  if (e_hwc_window_queue_buffer_can_dequeue(queue))
+     {
+        if (!_e_hwc_window_queue_buffers_export(queue))
+          {
+             ERR("fail to queue_buffers_export STATE_SET_WAITING queue:%p ehw:%p", queue, hwc_window);
+             return EINA_FALSE;
+          }
+
+        if (!_e_hwc_window_queue_buffer_send(queue))
+          {
+             ERR("fail to queue_dequeue_buffer_send STATE_SET_WAITING queue:%p ehw:%p", queue, hwc_window);
+             return EINA_FALSE;
+          }
+
+        queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_WAITING;
+        e_hwc_window_activate(hwc_window, queue);
+
+        EHWQINF("Set Waiting user ehw:%p -- {%s}",
+                hwc_window->ec, queue, hwc_window,
+                (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
+     }
+   else
+     {
+        queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_PENDING;
+
+        EHWQINF("Set Pending user ehw:%p -- {%s}",
+                hwc_window->ec, queue, hwc_window,
+                (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
+     }
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_hwc_window_queue_buffers_retrieve(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
+{
+   Eina_List *l = NULL;
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
+   struct wayland_tbm_client_queue *cqueue = NULL;
+
+   e_hwc_window_deactivate(queue->user);
+
+   cqueue = _user_cqueue_get(hwc_window->ec);
+
+   EINA_LIST_FOREACH(queue->buffers, l, queue_buffer)
+     {
+        if (!cqueue)
+          queue_buffer->usable = EINA_FALSE;
+
+        if (!queue_buffer->usable && !queue_buffer->acquired)
+          e_hwc_window_queue_buffer_release(queue, queue_buffer);
+     }
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_hwc_window_queue_buffers_retrieve_done(E_Hwc_Window_Queue *queue)
+{
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
+   Eina_List *l = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
+
+   EINA_LIST_FOREACH(queue->buffers, l, queue_buffer)
+     {
+        if (queue_buffer->exported)
+          return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
+static void
+_e_hwc_window_queue_cb_dequeueable(tbm_surface_queue_h surface_queue, void *data)
+{
+   E_Hwc_Window_Queue *queue = NULL;
+
+   queue = (E_Hwc_Window_Queue *)data;
+   EINA_SAFETY_ON_NULL_RETURN(queue);
+
+   if (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET)
+     {
+        if (!_e_hwc_window_queue_buffer_send(queue))
+          ERR("fail to queue_dequeue_buffer_send STATE_SET_PENDING queue:%p ehw:%p", queue, queue->user);
+     }
+   else if (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_PENDING)
+     {
+        if (!_e_hwc_window_queue_buffers_hand_over(queue, queue->user))
+          ERR("fail to queue_buffers_hand_over STATE_SET_PENDING queue:%p hwc_window:%p", queue, queue->user);
+     }
+}
+
+static Eina_Bool
+_e_hwc_window_queue_prepare_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
+{
+   if (eina_list_data_find(queue->user_pending_set, hwc_window) == hwc_window)
+     _e_hwc_window_queue_user_pending_set_remove(queue, hwc_window);
+
+   /* set the hwc_window to the queue */
+   queue->user = hwc_window;
+   e_object_ref(E_OBJECT(queue->user));
+
+   /* queue hands over its buffers to the hwc_window */
+   if (!_e_hwc_window_queue_buffers_hand_over(queue, hwc_window))
+     {
+        e_object_unref(E_OBJECT(queue->user));
+        queue->user = NULL;
+
+        ERR("fail to queue_buffers_hand_over queue:%p hwc_window:%p", queue, hwc_window);
+        return EINA_FALSE;
+     }
+
+   tbm_surface_queue_add_dequeuable_cb(queue->tqueue,
+                                       _e_hwc_window_queue_cb_dequeueable,
+                                       (void *)queue);
+   return EINA_TRUE;
+}
+
+static void
+_e_hwc_window_queue_set(E_Hwc_Window_Queue *queue)
+{
+   /* sends all dequeueable buffers */
+   while(tbm_surface_queue_can_dequeue(queue->tqueue, 0))
+     {
+        if (!_e_hwc_window_queue_buffer_send(queue))
+          {
+             ERR("fail to queue_dequeue_buffer_send QUEUE_STATE_SET queue:%p ehw:%p", queue, queue->user);
+             return;
+          }
+     }
+
+   /* set the queue_state_set */
+   queue->state = E_HWC_WINDOW_QUEUE_STATE_SET;
+
+   EHWQINF("Set user ehw:%p -- {%s}",
+           queue->user->ec, queue, queue->user,
+           (queue->user->ec ? queue->user->ec->icccm.title : "UNKNOWN"));
+}
+
+static void
+_e_hwc_window_queue_prepare_unset(E_Hwc_Window_Queue *queue)
+{
+   tbm_surface_queue_remove_dequeuable_cb(queue->tqueue,
+                                          _e_hwc_window_queue_cb_dequeueable,
+                                          (void *)queue);
+
+   /* queue retrieve the buffers from the hwc_window */
+   _e_hwc_window_queue_buffers_retrieve(queue, queue->user);
+}
+
+static void
+_e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
+{
+   E_Hwc_Window *hwc_window = NULL;
+
+   if (queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING)
+     {
+        queue->user = queue->user_waiting_unset;
+        queue->user_waiting_unset = NULL;
+     }
+
+   /* release the tqueue */
+   _e_hwc_window_queue_tqueue_release(queue->tqueue, queue->user);
+
+   EHWQINF("Unset user ehw:%p -- {%s}",
+           queue->user->ec, queue, queue->user,
+           (queue->user->ec ? queue->user->ec->icccm.title : "UNKNOWN"));
+
+   /* unset the hwc_window from the queue */
+   e_object_unref(E_OBJECT(queue->user));
+   queue->user = NULL;
+
+   /* set the queue_state_unset */
+   queue->state = E_HWC_WINDOW_QUEUE_STATE_UNSET;
+
+   /* deal with the hwc_window pending to set the queue */
+   if (eina_list_count(queue->user_pending_set) != 0)
+     {
+        hwc_window = eina_list_nth(queue->user_pending_set, 0);
+        if (!_e_hwc_window_queue_prepare_set(queue, hwc_window))
+          ERR("fail to queue_prepare_set for user_pending_set queue:%p hwc_window:%p", queue, hwc_window);
+     }
 }
 
 #if 0
@@ -877,46 +884,10 @@ fail:
    return NULL;
 }
 
-static tbm_surface_queue_h
-_get_tbm_surface_queue()
-{
-   return e_comp->e_comp_screen->tqueue;
-}
-
-static tbm_surface_queue_h
-_e_hwc_window_tqueue_get(E_Hwc_Window *hwc_window)
-{
-   tdm_error error = TDM_ERROR_NONE;
-   tbm_surface_queue_h tqueue;
-
-   if (e_hwc_window_is_target(hwc_window))
-     tqueue = _get_tbm_surface_queue();
-   else
-     {
-        tqueue = tdm_hwc_window_acquire_buffer_queue(hwc_window->thwc_window, &error);
-
-        EHWQINF("Acquire buffer queue ehw:%p tq:%p",
-                hwc_window->ec, NULL, hwc_window, tqueue);
-     }
-
-   if (!tqueue)
-     {
-        ERR("fail to tdm_hwc_window_get_buffer_queue hwc_win:%p tdm_error:%d",
-            hwc_window, error);
-        return NULL;
-     }
-
-   return tqueue;
-}
-
 static E_Hwc_Window_Queue *
-_e_hwc_window_queue_get(E_Hwc_Window *hwc_window)
+_e_hwc_window_queue_get(tbm_surface_queue_h tqueue)
 {
    E_Hwc_Window_Queue *queue = NULL;
-   tbm_surface_queue_h tqueue = NULL;
-
-   tqueue = _e_hwc_window_tqueue_get(hwc_window);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, NULL);
 
    queue = eina_hash_find(_hwc_winq_mgr->hwc_winq_hash, tqueue);
    if (!queue)
@@ -964,11 +935,17 @@ EINTERN E_Hwc_Window_Queue *
 e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
 {
    E_Hwc_Window_Queue *queue = NULL;
+   tbm_surface_queue_h tqueue = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(_hwc_winq_mgr, NULL);
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
 
-   queue = _e_hwc_window_queue_get(hwc_window);
+   /* tqueue = _e_hwc_window_queue_tqueue_acquire(hwc_window) */
+   tqueue = _e_hwc_window_queue_tqueue_acquire(hwc_window);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, NULL);
+
+   /* queue = _e_hwc_window_queue_get(tqueue) */
+   queue = _e_hwc_window_queue_get(tqueue);
    EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
 
    if (e_hwc_window_is_target(hwc_window))
@@ -986,18 +963,12 @@ e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
         return queue;
      }
 
-   if (eina_list_data_find(queue->user_pending_set, hwc_window) == hwc_window)
-     _e_hwc_window_queue_user_pending_set_remove(queue, hwc_window);
-
-   if (!_e_hwc_window_queue_user_set(queue, hwc_window))
+   /* _e_hwc_window_queue_set_prepare */
+   if (!_e_hwc_window_queue_prepare_set(queue, hwc_window))
      {
-        ERR("fail to set user queue:%p hwc_window:%p", queue, hwc_window);
+        ERR("fail to queue_prepare_set queue:%p hwc_window:%p", queue, hwc_window);
         return NULL;
      }
-
-   EHWQINF("Set user ehw:%p -- {%s}",
-           hwc_window->ec, queue, hwc_window,
-           (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
 
    return queue;
 }
@@ -1013,7 +984,7 @@ e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_windo
      {
         _e_hwc_window_queue_user_pending_set_remove(queue, hwc_window);
 
-        EHWQINF("Remove user_pending_set pending ehw:%p -- {%s}",
+        EHWQINF("Remove user_pending_set ehw:%p -- {%s}",
                 hwc_window->ec, queue, hwc_window,
                 (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
 
@@ -1022,20 +993,21 @@ e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_windo
 
    if (hwc_window != queue->user) return;
 
-   e_hwc_window_deactivate(queue->user);
+   /* prepare the unset conditions */
+   _e_hwc_window_queue_prepare_unset(queue);
 
-   _e_hwc_window_queue_buffers_recall(queue, queue->user);
-
-   if (_e_hwc_window_queue_buffers_recall_done_check(queue))
+   if (_e_hwc_window_queue_buffers_retrieve_done(queue))
      _e_hwc_window_queue_unset(queue);
    else
-     _e_hwc_window_queue_waiting_unset(queue);
+     {
+        queue->state = E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING;
+        queue->user_waiting_unset = queue->user;
+        queue->user = NULL;
 
-   EHWQINF("Unset user ehw:%p -- {%s}",
-           hwc_window->ec, queue, hwc_window,
-           (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
-
-   return;
+        EHWQINF("Unset Waiting user ehw:%p -- {%s}",
+                hwc_window->ec, queue, hwc_window,
+                (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
+     }
 }
 
 EINTERN E_Hwc_Window_Queue_Buffer *
@@ -1058,7 +1030,7 @@ e_hwc_window_queue_buffer_find(E_Hwc_Window_Queue *queue, tbm_surface_h tsurface
 }
 
 EINTERN Eina_Bool
-e_hwc_window_queue_can_dequeue(E_Hwc_Window_Queue *queue)
+e_hwc_window_queue_buffer_can_dequeue(E_Hwc_Window_Queue *queue)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(_hwc_winq_mgr, EINA_FALSE);
 
@@ -1094,7 +1066,6 @@ e_hwc_window_queue_buffer_dequeue(E_Hwc_Window_Queue *queue)
    queue_buffer->dequeued = EINA_TRUE;
 
    user = queue->user;
-
    EHWQTRACE("DEQ ts:%p tq:%p",
              (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
 
@@ -1116,7 +1087,6 @@ e_hwc_window_queue_buffer_enqueue(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_
    queue_buffer->dequeued = EINA_FALSE;
 
    user = queue->user;
-
    EHWQTRACE("ENQ ts:%p tq:%p",
              (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
 
@@ -1138,6 +1108,7 @@ e_hwc_window_queue_buffer_acquire(E_Hwc_Window_Queue *queue)
    EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
 
    if (!queue->tqueue) return NULL;
+
    if (!tbm_surface_queue_can_acquire(queue->tqueue, 0)) return NULL;
 
    tsq_err = tbm_surface_queue_acquire(queue->tqueue, &tsurface);
@@ -1151,7 +1122,6 @@ e_hwc_window_queue_buffer_acquire(E_Hwc_Window_Queue *queue)
    queue_buffer->acquired = EINA_TRUE;
 
    user = queue->user;
-
    EHWQTRACE("ACQ ts:%p tq:%p",
              (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
 
@@ -1177,7 +1147,6 @@ e_hwc_window_queue_buffer_release(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_
    queue_buffer->acquired = EINA_FALSE;
 
    user = queue->user;
-
    EHWQTRACE("REL ts:%p tq:%p",
              (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
 

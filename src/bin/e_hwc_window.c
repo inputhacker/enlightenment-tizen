@@ -1419,7 +1419,7 @@ e_hwc_window_target_can_render(E_Hwc_Window_Target *target_hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->queue, EINA_FALSE);
 
-   if (e_hwc_window_queue_can_dequeue(hwc_window->queue))
+   if (e_hwc_window_queue_buffer_can_dequeue(hwc_window->queue))
      return EINA_TRUE;
 
    return EINA_FALSE;
