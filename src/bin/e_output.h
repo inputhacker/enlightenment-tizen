@@ -106,7 +106,7 @@ struct _E_Output
       Eina_Bool         need_touch_set;
       Eina_Bool         unset_skip;
    } zoom_conf;
-   Ecore_Event_Handler *touch_up_handler;
+   Ecore_Event_Filter *touch_up_handler;
 
    struct
    {

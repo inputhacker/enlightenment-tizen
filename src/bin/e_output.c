@@ -317,23 +317,34 @@ _e_output_zoom_touch_transform(E_Output *output, Eina_Bool set)
 }
 
 static Eina_Bool
-_e_output_cb_ecore_event_mouse_up(void *data, int type EINA_UNUSED, void *event EINA_UNUSED)
+_e_output_cb_ecore_event_filter(void *data, void *loop_data EINA_UNUSED, int type, void *event EINA_UNUSED)
 {
    E_Output *output = NULL;
+   E_Input_Device *dev = NULL;
+
+   if (type != ECORE_EVENT_MOUSE_BUTTON_UP)
+     return ECORE_CALLBACK_PASS_ON;
 
    if (!data)
      return ECORE_CALLBACK_PASS_ON;
 
    output = data;
 
+   dev = eina_list_data_get(e_input_devices_get());
+   if (!dev)
+     {
+        ERR("fail get e_input_device");
+        return ECORE_CALLBACK_PASS_ON;
+     }
+
    if (output->zoom_conf.need_touch_set)
      {
-        if (e_comp_wl->touch.pressed == 0)
+        if (e_input_device_touch_pressed_get(dev) == 0)
           {
              _e_output_zoom_touch_transform(output, EINA_TRUE);
              output->zoom_conf.need_touch_set = EINA_FALSE;
 
-             E_FREE_FUNC(output->touch_up_handler, ecore_event_handler_del);
+             E_FREE_FUNC(output->touch_up_handler, ecore_event_filter_del);
           }
      }
 
@@ -344,14 +355,23 @@ static Eina_Bool
 _e_output_zoom_touch_set(E_Output *output)
 {
    Eina_Bool ret = EINA_FALSE;
+   E_Input_Device *dev = NULL;
 
    if (output->zoom_conf.need_touch_set) return EINA_TRUE;
 
-   if (e_comp_wl->touch.pressed)
+   dev = eina_list_data_get(e_input_devices_get());
+   if (!dev)
+     {
+        ERR("fail get e_input_device");
+        return EINA_FALSE;
+     }
+
+   if (e_input_device_touch_pressed_get(dev))
      {
         if (output->touch_up_handler == NULL)
-          output->touch_up_handler = ecore_event_handler_add(ECORE_EVENT_MOUSE_BUTTON_UP,
-                                                             _e_output_cb_ecore_event_mouse_up, output);
+          output->touch_up_handler = ecore_event_filter_add(NULL,
+                                                            _e_output_cb_ecore_event_filter,
+                                                            NULL, output);
 
         output->zoom_conf.need_touch_set = EINA_TRUE;
         return EINA_TRUE;
@@ -373,7 +393,7 @@ _e_output_zoom_touch_unset(E_Output *output)
    output->zoom_conf.need_touch_set = EINA_FALSE;
 
    if (output->touch_up_handler)
-     E_FREE_FUNC(output->touch_up_handler, ecore_event_handler_del);
+     E_FREE_FUNC(output->touch_up_handler, ecore_event_filter_del);
 
    ret = _e_output_zoom_touch_transform(output, EINA_FALSE);
 
