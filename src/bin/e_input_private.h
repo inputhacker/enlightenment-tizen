@@ -114,6 +114,8 @@ struct _E_Input_Evdev
              int x;
              int y;
           } coords[E_INPUT_MAX_SLOTS];
+
+        unsigned int pressed;
      } touch;
 };
 

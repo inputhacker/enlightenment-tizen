@@ -1197,3 +1197,25 @@ e_input_device_mouse_accel_speed_set(E_Input_Device *dev, double speed)
 
    return ret;
 }
+
+E_API unsigned int
+e_input_device_touch_pressed_get(E_Input_Device *dev)
+{
+   E_Input_Seat *seat = NULL;
+   E_Input_Evdev *edev = NULL;
+   Eina_List *l = NULL, *l2 = NULL;
+   unsigned int pressed = 0x0;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(dev, EINA_FALSE);
+
+   EINA_LIST_FOREACH(dev->seats, l, seat)
+     {
+        EINA_LIST_FOREACH(e_input_seat_evdev_list_get(seat), l2, edev)
+          {
+             if (edev->caps & E_INPUT_SEAT_TOUCH)
+               pressed |= e_input_evdev_touch_pressed_get(edev);
+          }
+     }
+
+   return pressed;
+}

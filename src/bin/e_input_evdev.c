@@ -1002,6 +1002,11 @@ _device_handle_touch_event_send(E_Input_Evdev *edev, struct libinput_event_touch
         edev->mouse.prev = current;
         edev->mouse.last_button = edev->mouse.prev_button;
         edev->mouse.prev_button = button;
+        edev->touch.pressed |= (1 << ev->multi.device);
+     }
+   else
+     {
+        edev->touch.pressed &= ~(1 << ev->multi.device);
      }
 
    ev->buttons = ((button & 0x00F) + 1);
@@ -1578,4 +1583,12 @@ e_input_evdev_mouse_accel_speed_set(E_Input_Evdev *edev, double speed)
      }
 
    return EINA_TRUE;
+}
+
+EINTERN unsigned int
+e_input_evdev_touch_pressed_get(E_Input_Evdev *edev)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(edev, 0x0);
+
+   return edev->touch.pressed;
 }
