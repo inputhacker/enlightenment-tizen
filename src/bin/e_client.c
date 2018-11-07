@@ -787,8 +787,21 @@ static E_Client *
 _e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
 {
    E_Client *above = NULL;
+   E_Zone *_z = NULL;
+   int x = 0, y = 0, w = 0, h = 0;
 
    if (!ec) return NULL;
+
+   x = ec->x;
+   y = ec->y;
+   w = ec->w;
+   h = ec->h;
+
+   if (ec->zone)
+     {
+        _z = ec->zone;
+        E_RECTS_CLIP_TO_RECT(x, y, w, h, _z->x, _z->y, _z->w, _z->h);
+     }
 
    above = e_client_above_get(ec);
    while (above)
@@ -807,7 +820,7 @@ _e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
             (above->frame) &&
             (above->icccm.accepts_focus || above->icccm.take_focus))
           {
-             if (E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h))
+             if (E_CONTAINS(above->x, above->y, above->w, above->h, x, y, w, h))
                break;
           }
         above = e_client_above_get(above);
