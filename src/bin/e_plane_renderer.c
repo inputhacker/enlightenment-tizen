@@ -1578,8 +1578,7 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
    if (renderer->ec != ec)
      renderer->need_change_buffer_transform = EINA_TRUE;
 
-   transform = e_comp_wl_output_buffer_transform_get(ec);
-   if ((plane->output->config.rotation / 90) != transform)
+   if (plane->output->config.rotation)
      {
         if (!e_config->screen_rotation_client_ignore && renderer->need_change_buffer_transform)
           {
@@ -1587,15 +1586,18 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
              renderer->need_change_buffer_transform = EINA_FALSE;
              INF("ec:%p tansform:%d screen_roatation:%d", ec, transform, plane->output->config.rotation);
           }
-        return EINA_FALSE;
      }
-   else
-     renderer->need_change_buffer_transform = EINA_TRUE;
+
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+   if ((plane->output->config.rotation / 90) != transform)
+     return EINA_FALSE;
 
    wayland_tbm_server_client_queue_activate(cqueue, 0, 0, 0);
 
    if (renderer_trace_debug)
      ELOGF("E_PLANE_RENDERER", "Activate Renderer(%p)", ec->pixmap, ec, renderer);
+
+   renderer->need_change_buffer_transform = EINA_TRUE;
 
    renderer->ec = ec;
    renderer->state = E_PLANE_RENDERER_STATE_ACTIVATE;
@@ -1760,8 +1762,7 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
         if (renderer->ec != ec)
           renderer->need_change_buffer_transform = EINA_TRUE;
 
-        transform = e_comp_wl_output_buffer_transform_get(ec);
-        if ((plane->output->config.rotation / 90) != transform)
+        if (plane->output->config.rotation)
           {
              if (!e_config->screen_rotation_client_ignore && renderer->need_change_buffer_transform)
                {
@@ -1769,8 +1770,6 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
                   renderer->need_change_buffer_transform = EINA_FALSE;
                }
           }
-        else
-          renderer->need_change_buffer_transform = EINA_TRUE;
 
         wayland_tbm_server_client_queue_activate(cqueue, 0, renderer->tqueue_size, 1);
 
@@ -1810,6 +1809,8 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
 
    ELOGF("E_PLANE_RENDERER", "Activate Renderer(%p) Plane(%p) ec(%p, %s)",
          ec->pixmap, ec, renderer, renderer->plane, ec, e_client_util_name_get(ec));
+
+   renderer->need_change_buffer_transform = EINA_TRUE;
 
    renderer->ec = ec;
    renderer->state = E_PLANE_RENDERER_STATE_ACTIVATE;
