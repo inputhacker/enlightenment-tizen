@@ -699,8 +699,11 @@ e_hwc_planes_client_end(E_Hwc *hwc, E_Client *ec, const char *location)
              continue;
           }
 
-        if (!e_hwc_client_is_above_hwc(ec, plane->ec))
-          continue;
+        if (plane->ec != ec)
+          {
+             if (!e_hwc_client_is_above_hwc(ec, plane->ec));
+               continue;
+          }
 
         if (e_plane_is_reserved(plane))
           e_plane_reserved_set(plane, 0);
