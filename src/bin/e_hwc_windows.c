@@ -44,27 +44,10 @@ static Eina_Bool _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_C
 static Eina_Bool _e_hwc_windows_pp_window_commit(E_Hwc *hwc, E_Hwc_Window *hwc_window);
 
 static E_Hwc_Mode
-_e_hwc_windows_hwc_mode_get(E_Hwc *hwc)
+_e_hwc_windows_hwc_mode_update(E_Hwc *hwc, int num_client, int num_device, int num_video)
 {
-   Eina_List *l;
-   E_Hwc_Window *hwc_window;
    E_Hwc_Mode hwc_mode = E_HWC_MODE_NONE;
-   int num_visible = 0;
-   int num_client = 0;
-   int num_device = 0;
-   int num_video = 0;
-
-   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
-     {
-        if (e_hwc_window_is_target(hwc_window)) continue;
-
-        if (hwc_window->state == E_HWC_WINDOW_STATE_NONE) continue;
-        if (hwc_window->state == E_HWC_WINDOW_STATE_VIDEO) num_video++;
-        if (hwc_window->state == E_HWC_WINDOW_STATE_DEVICE) num_device++;
-        if (hwc_window->state == E_HWC_WINDOW_STATE_CLIENT) num_client++;
-
-        num_visible++;
-     }
+   int num_visible = hwc->num_visible_windows;
 
    if (!num_visible || (!num_device && !num_video))
      hwc_mode = E_HWC_MODE_NONE;
@@ -72,6 +55,16 @@ _e_hwc_windows_hwc_mode_get(E_Hwc *hwc)
      hwc_mode = E_HWC_MODE_FULL;
    else
      hwc_mode = E_HWC_MODE_HYBRID;
+
+   if (hwc->hwc_mode != hwc_mode)
+     {
+        if (hwc_mode == E_HWC_MODE_HYBRID || hwc_mode == E_HWC_MODE_NONE)
+          ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
+        else
+          ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
+
+        hwc->hwc_mode  = hwc_mode;
+     }
 
    return hwc_mode;
 }
@@ -1233,18 +1226,15 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
 }
 
 static Eina_Bool
-_e_hwc_windows_visible_windows_changed_check(E_Hwc *hwc, Eina_List *visible_windows)
+_e_hwc_windows_visible_windows_changed_check(E_Hwc *hwc, Eina_List *visible_windows, int visible_num)
 {
    Eina_List *prev_visible_windows = NULL;
    E_Hwc_Window *hw1, *hw2;
-   int visible_num = 0;
    int i;
 
    prev_visible_windows = hwc->visible_windows;
 
    if (!prev_visible_windows) return EINA_TRUE;
-
-   visible_num = eina_list_count(visible_windows);
 
    if (eina_list_count(prev_visible_windows) != visible_num)
      return EINA_TRUE;
@@ -1265,6 +1255,7 @@ _e_hwc_windows_visible_windows_update(E_Hwc *hwc)
    E_Hwc_Window *hwc_window;
    Eina_List *l;
    Eina_List *visible_windows;
+   int visible_num = 0;
    int zpos = 0;
 
    /* get the visibile windows */
@@ -1272,14 +1263,17 @@ _e_hwc_windows_visible_windows_update(E_Hwc *hwc)
    if (!visible_windows && !hwc->visible_windows)
      return EINA_FALSE;
 
-   if (!_e_hwc_windows_visible_windows_changed_check(hwc, visible_windows))
+   visible_num = eina_list_count(visible_windows);
+
+   if (!_e_hwc_windows_visible_windows_changed_check(hwc, visible_windows, visible_num))
      return EINA_FALSE;
 
    EINA_LIST_FREE(hwc->visible_windows, hwc_window)
      e_object_unref(E_OBJECT(hwc_window));
 
-   /* store the current visible windows */
+   /* store the current visible windows and the number of them */
    hwc->visible_windows = eina_list_clone(visible_windows);
+   hwc->num_visible_windows = visible_num;
 
    /* use the reverse iteration for assgining the zpos */
    EINA_LIST_REVERSE_FOREACH(hwc->visible_windows, l, hwc_window)
@@ -1355,6 +1349,7 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
    E_Hwc_Window *hwc_window = NULL;
    const Eina_List *l;
    uint32_t num_changes;
+   int num_client = 0, num_device = 0, num_video = 0;
 
    /* validate the visible hwc_windows' states*/
    if (!_e_hwc_windows_validate(hwc, &num_changes))
@@ -1380,19 +1375,14 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
 
         e_hwc_window_constraints_update(hwc_window);
         e_hwc_window_render_target_window_update(hwc_window);
+
+        if (hwc_window->state == E_HWC_WINDOW_STATE_CLIENT) num_client++;
+        if (hwc_window->state == E_HWC_WINDOW_STATE_DEVICE) num_device++;
+        if (hwc_window->state == E_HWC_WINDOW_STATE_VIDEO) num_video++;
      }
 
    /* update the E_HWC_MODE */
-   hwc_mode = _e_hwc_windows_hwc_mode_get(hwc);
-   if (hwc->hwc_mode != hwc_mode)
-     {
-        if (hwc_mode == E_HWC_MODE_HYBRID || hwc_mode == E_HWC_MODE_NONE)
-          ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
-        else
-          ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
-
-        hwc->hwc_mode  = hwc_mode;
-     }
+   hwc_mode = _e_hwc_windows_hwc_mode_update(hwc, num_client, num_device, num_video);
 
    /* set the state of the target_window */
    if (hwc_mode == E_HWC_MODE_NONE)
