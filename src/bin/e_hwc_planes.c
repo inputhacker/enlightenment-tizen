@@ -394,6 +394,10 @@ _e_hwc_planes_prepare(E_Hwc *hwc, E_Zone *zone)
    Eina_List *hwc_ok_clist = NULL, *vis_clist = NULL;
    E_Output *output = hwc->output;
 
+   _e_hwc_planes_prepare_init(hwc);
+
+   if (e_comp->nocomp_override > 0) return EINA_FALSE;
+
    vis_clist = e_comp_vis_ec_list_get(zone);
    if (!vis_clist) return EINA_FALSE;
 
@@ -432,8 +436,6 @@ _e_hwc_planes_prepare(E_Hwc *hwc, E_Zone *zone)
    if ((n_vis < 1) || (n_ec < 1))
      goto done;
 
-   _e_hwc_planes_prepare_init(hwc);
-
    if (n_cur >= 1)
      n_skip = _e_hwc_planes_prepare_cursor(output, n_cur, hwc_ok_clist);
 
@@ -463,7 +465,7 @@ _e_hwc_planes_usable(E_Hwc *hwc)
    EINA_SAFETY_ON_NULL_RETURN_VAL(zone, EINA_FALSE);
 
    // check whether to use hwc and prepare the core assignment policy
-   if (!_e_hwc_planes_prepare(hwc, zone)) return EINA_FALSE;
+   _e_hwc_planes_prepare(hwc, zone);
 
    // extra policy can replace core policy
    e_comp_hook_call(E_COMP_HOOK_PREPARE_PLANE, NULL);
@@ -548,8 +550,6 @@ _e_hwc_planes_begin(E_Hwc *hwc)
    E_Plane *ep = NULL;
    E_Hwc_Mode mode = E_HWC_MODE_NONE;
    Eina_Bool set = EINA_FALSE;
-
-   if (e_comp->nocomp_override > 0) return;
 
    if (_e_hwc_planes_can_hwcompose(eout))
      {
