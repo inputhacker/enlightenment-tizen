@@ -31,6 +31,7 @@ struct _E_DBus_Conn
    Eina_Bool use_thread : 1;
    Eldbus_Connection *conn;
    Eldbus_Connection_Type conn_type;
+   unsigned int retry_intervals; /* suspend re-connection for microsecond intervals */
 };
 
 typedef struct _E_DBus_Conn_Init_Done_Event E_DBus_Conn_Init_Done_Event;

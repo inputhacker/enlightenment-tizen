@@ -93,6 +93,9 @@ _e_dbus_conn_init_thread_heavy(void *data, Ecore_Thread *th, void *msg_data)
              *res = EINA_TRUE;
              break;
           }
+
+        if (ed_thread.retry_intervals)
+          usleep(ed_thread.retry_intervals);
      }
 
    ecore_thread_feedback(th, res);
@@ -205,6 +208,8 @@ e_dbus_conn_init(void)
 {
    char *env = NULL;
    E_DBus_Conn *ed = NULL;
+   unsigned int num;
+   Eina_Bool res;
 
    if (++_e_dbus_conn_init_count != 1) return _e_dbus_conn_init_count;
    if (!eldbus_init()) return --_e_dbus_conn_init_count;
@@ -234,6 +239,7 @@ e_dbus_conn_init(void)
    ed->conn_type = ELDBUS_CONNECTION_TYPE_UNKNOWN;
    ed->retry_cnt = E_DBUS_CONN_DEFAULT_RETRY_COUNT;
    ed->init_status = E_DBUS_CONN_INIT_YET_STARTED;
+   ed->retry_intervals = 0;
 
    E_EVENT_DBUS_CONN_INIT_DONE = ecore_event_type_new();
 
@@ -243,6 +249,21 @@ e_dbus_conn_init(void)
      {
         ed->use_thread = EINA_TRUE;
         E_FREE(env);
+
+        /* If user wants to connect with D-BUS through another thread,
+         * then we also need to check that wants to use time intervals
+         * during retrying connection.
+         *
+         * It is required for some systems which don't support sync call
+         * for connecting D-BUS to avoid thread problems.
+         */
+        env = e_util_env_get("E_DBUS_CONN_INIT_RETRY_INTERVALS");
+        if (env)
+          {
+             res = e_util_string_to_uint(env, &num, 10);
+             if (res) ed->retry_intervals = num;
+             E_FREE(env);
+          }
      }
 
    env = e_util_env_get("E_DBUS_CONN_INIT_RETRY_COUNT");
