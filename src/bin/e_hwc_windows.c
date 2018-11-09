@@ -831,23 +831,23 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
                   transition = EINA_TRUE;
                }
           }
-        /* DEVICE -> NONE */
+        /* NONE -> DEVICE */
         else if (hwc_window->state == E_HWC_WINDOW_STATE_DEVICE &&
                  hwc_window->accepted_state == E_HWC_WINDOW_STATE_NONE)
           {
              if (e_hwc_window_is_on_target_window(hwc_window))
                {
-                  hwc_window->transition = E_HWC_WINDOW_TRANSITION_CLIENT_TO_NONE;
+                  hwc_window->transition = E_HWC_WINDOW_TRANSITION_NONE_TO_DEVICE;
                   transition = EINA_TRUE;
                }
           }
-        /* CURSOR -> NONE */
+        /* NONE -> CURSOR */
         else if (hwc_window->state == E_HWC_WINDOW_STATE_CURSOR &&
                  hwc_window->accepted_state == E_HWC_WINDOW_STATE_NONE)
           {
              if (e_hwc_window_is_on_target_window(hwc_window))
                {
-                  hwc_window->transition = E_HWC_WINDOW_TRANSITION_CURSOR_TO_NONE;
+                  hwc_window->transition = E_HWC_WINDOW_TRANSITION_NONE_TO_CURSOR;
                   transition = EINA_TRUE;
                }
           }
