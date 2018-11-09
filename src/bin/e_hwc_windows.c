@@ -1360,7 +1360,7 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
    if (!_e_hwc_windows_validate(hwc, &num_changes))
      {
         ERR("HWC-WINS: _e_hwc_windows_validate failed.");
-        goto failed_evaluation;
+        goto re_evaluate;
      }
 
    /* update the valiated_changes if there are the composition changes after validation */
@@ -1369,7 +1369,7 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
         if (!_e_hwc_windows_validated_changes_update(hwc, num_changes))
           {
              ERR("HWC-WINS: _e_hwc_windows_validated_changes_update failed.");
-             goto failed_evaluation;
+             goto re_evaluate;
           }
      }
 
@@ -1415,21 +1415,21 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
    if (hwc_mode != E_HWC_MODE_FULL && _e_hwc_windows_transition_check(hwc))
      {
         e_hwc_window_target_buffer_skip(hwc->target_hwc_window);
-        goto failed_evaluation;
+        goto re_evaluate;
      }
 
    /* accept the result of the validation */
    if (!_e_hwc_windows_accept(hwc))
      {
         ERR("HWC-WINS: _e_hwc_windows_validated_changes_update failed.");
-        goto failed_evaluation;
+        goto re_evaluate;
      }
 
    EHWSTRACE(" Succeed the compsition_evaulation.", NULL);
 
    return EINA_TRUE;
 
-failed_evaluation:
+re_evaluate:
    EHWSTRACE(" Need the comopsition re-evaulation.", NULL);
 
    return EINA_FALSE;
