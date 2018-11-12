@@ -701,7 +701,7 @@ e_hwc_planes_client_end(E_Hwc *hwc, E_Client *ec, const char *location)
 
         if (plane->ec != ec)
           {
-             if (!e_hwc_client_is_above_hwc(ec, plane->ec));
+             if (!e_hwc_client_is_above_hwc(ec, plane->ec))
                continue;
           }
 
