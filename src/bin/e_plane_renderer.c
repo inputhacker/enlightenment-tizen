@@ -1578,6 +1578,8 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
    if (renderer->ec != ec)
      renderer->need_change_buffer_transform = EINA_TRUE;
 
+   transform = e_comp_wl_output_buffer_transform_get(ec);
+
    if (plane->output->config.rotation)
      {
         if (!e_config->screen_rotation_client_ignore && renderer->need_change_buffer_transform)
@@ -1588,7 +1590,6 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
           }
      }
 
-   transform = e_comp_wl_output_buffer_transform_get(ec);
    if ((plane->output->config.rotation / 90) != transform)
      return EINA_FALSE;
 
