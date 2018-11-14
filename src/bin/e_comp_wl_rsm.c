@@ -69,6 +69,7 @@ struct _E_Comp_Wl_Remote_Manager
    Eina_Hash *bind_surface_hash;
    Eina_List *event_hdlrs;
    Eina_List *client_hooks;
+   Eina_List *process_hooks;
 
    int dummy_fd; /* tizen_remote_surface@chagned_buffer need valid fd when it send tbm surface */
 };
@@ -109,6 +110,7 @@ struct _E_Comp_Wl_Remote_Source
    Eina_Bool deleted;
 
    int offscreen_ref;
+   int ref_as_child;
 
    Eina_Bool defer_img_save;
 };
@@ -953,6 +955,23 @@ _remote_source_send_image_update(E_Comp_Wl_Remote_Source *source)
    close(fd);
 }
 
+typedef struct
+{
+   void *shm_buffer_ptr;
+   int shm_buffer_stride;
+   int shm_buffer_h;
+   unsigned int shm_buffer_format;
+   struct wl_shm_pool *shm_pool;
+
+   tbm_surface_h tbm_surface;
+
+   uint32_t transform;
+
+   int x, y, w, h;
+   E_Client *ec;
+   E_Client *parent;
+} Capture_Data;
+
 typedef struct {
      void *shm_buffer_ptr;
      int shm_buffer_stride;
@@ -966,6 +985,8 @@ typedef struct {
 
      const char *image_path;
      E_Client *ec;
+
+     Capture_Data *child_data;
 } Thread_Data;
 
 static E_Comp_Wl_Remote_Source *
@@ -994,6 +1015,15 @@ _remote_source_destroy(E_Comp_Wl_Remote_Source *source)
                source->common.ec->pixmap, source->common.ec, "SOURCE",
                source, source->th);
         ecore_thread_cancel(source->th);
+        source->deleted = EINA_TRUE;
+        return;
+     }
+
+   if (source->ref_as_child > 0)
+     {
+        RSMDBG("Parent IMG save is running. ref_as_child:%d pending destroy",
+               source->common.ec->pixmap, source->common.ec, "SOURCE",
+               source, source->ref_as_child);
         source->deleted = EINA_TRUE;
         return;
      }
@@ -1049,6 +1079,7 @@ _remote_source_image_data_pixman_format_get_from_shm_buffer(uint32_t format)
 static tbm_surface_h
 _remote_source_image_data_transform(Thread_Data *td, int w, int h)
 {
+   // for base
    tbm_surface_h transform_surface = NULL;
    tbm_surface_info_s info;
    int tw = 0, th = 0;
@@ -1059,9 +1090,20 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
    unsigned char *src_ptr = NULL, *dst_ptr = NULL;
    int c = 0, s = 0, tx = 0, ty = 0;
 
+   // for child
+   tbm_surface_h c_transform_surface = NULL;
+   tbm_surface_info_s c_info;
+   pixman_image_t *c_src_img = NULL, *c_dst_img = NULL;
+   pixman_format_code_t c_src_format, c_dst_format;
+   pixman_transform_t c_t;
+   struct pixman_f_transform c_ft;
+   unsigned char *c_src_ptr = NULL, *c_dst_ptr = NULL;
+   int c_x, c_y, c_w, c_h;
+   int c_tx, c_ty, c_tw, c_th;
+
    EINA_SAFETY_ON_NULL_RETURN_VAL(td, NULL);
 
-   if (td->transform == WL_OUTPUT_TRANSFORM_NORMAL || td->transform > WL_OUTPUT_TRANSFORM_270) return NULL;
+   if (td->transform > WL_OUTPUT_TRANSFORM_270) return NULL;
 
    if (td->tbm_surface)
      {
@@ -1104,6 +1146,11 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
         c = 0, s = 1, ty = -w;
         tw = h, th = w;
      }
+   else
+     {
+        c = 1, s = 0;
+        tw = w, th = h;
+     }
 
    transform_surface = tbm_surface_create(tw, th, tbm_surface_get_format(td->tbm_surface));
    EINA_SAFETY_ON_NULL_GOTO(transform_surface, error_case);
@@ -1123,7 +1170,106 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
 
    pixman_image_composite(PIXMAN_OP_SRC, src_img, NULL, dst_img, 0, 0, 0, 0, 0, 0, tw, th);
 
+   // for child data
+   if (td->child_data)
+     {
+        c_x = td->child_data->x;
+        c_y = td->child_data->y;
+        c_w = td->child_data->w;
+        c_h = td->child_data->h;
+
+        c_tx = 0;
+        c_ty = 0;
+        c_tw = c_w;
+        c_th = c_h;
+
+        if (td->child_data->tbm_surface)
+          {
+             c_src_format = _remote_source_image_data_pixman_format_get_from_tbm_surface(tbm_surface_get_format(td->child_data->tbm_surface));
+             c_dst_format = c_src_format;
+
+             tbm_surface_map(td->child_data->tbm_surface, TBM_SURF_OPTION_READ, &c_info);
+             c_src_ptr = c_info.planes[0].ptr;
+
+             c_src_img = pixman_image_create_bits(c_src_format, c_w, c_h, (uint32_t*)c_src_ptr, c_info.planes[0].stride);
+             EINA_SAFETY_ON_NULL_GOTO(c_src_img, error_case);
+          }
+        else if (td->child_data->shm_buffer_ptr)
+          {
+             c_src_format = _remote_source_image_data_pixman_format_get_from_shm_buffer(td->child_data->shm_buffer_format);
+             c_dst_format = c_src_format;
+
+             c_src_ptr = td->child_data->shm_buffer_ptr;
+             c_src_img = pixman_image_create_bits(c_src_format, c_w, c_h, (uint32_t*)c_src_ptr, c_w * 4);
+             EINA_SAFETY_ON_NULL_GOTO(c_src_img, error_case);
+          }
+        else
+          {
+             ERR("invalid source buffer");
+             goto error_case;
+          }
+
+        if (td->child_data->transform == WL_OUTPUT_TRANSFORM_90)
+          {
+             c = 0, s = -1, c_tx = -c_h;
+             c_tw = c_h, c_th = c_w;
+          }
+        else if (td->child_data->transform == WL_OUTPUT_TRANSFORM_180)
+          {
+             c = -1, s = 0, c_tx = -c_w, c_ty = -c_h;
+             c_tw = c_w, c_th = c_h;
+          }
+        else if (td->child_data->transform == WL_OUTPUT_TRANSFORM_270)
+          {
+             c = 0, s = 1, c_ty = -c_w;
+             c_tw = c_h, c_th = c_w;
+          }
+        else
+          {
+             c = 1, s = 0;
+             c_tw = c_w, c_th = c_h;
+          }
+
+        c_transform_surface = tbm_surface_create(c_tw, c_th, tbm_surface_get_format(td->child_data->tbm_surface));
+        EINA_SAFETY_ON_NULL_GOTO(c_transform_surface, error_case);
+
+        tbm_surface_map(c_transform_surface, TBM_SURF_OPTION_WRITE, &c_info);
+        c_dst_ptr = c_info.planes[0].ptr;
+
+        c_dst_img = pixman_image_create_bits(c_dst_format, c_tw, c_th, (uint32_t*)c_dst_ptr, c_info.planes[0].stride);
+        EINA_SAFETY_ON_NULL_GOTO(c_dst_img, error_case);
+
+        pixman_f_transform_init_identity(&c_ft);
+        pixman_f_transform_translate(&c_ft, NULL, c_tx, c_ty);
+        pixman_f_transform_rotate(&c_ft, NULL, c, s);
+
+        pixman_transform_from_pixman_f_transform(&c_t, &c_ft);
+        pixman_image_set_transform(c_src_img, &c_t);
+
+        pixman_image_composite(PIXMAN_OP_SRC, c_src_img, NULL, c_dst_img, 0, 0, 0, 0, 0, 0, c_tw, c_th);
+
+        RSMDBG("image composite with child. child(win:%x, ec:%p)",
+               td->ec->pixmap, td->ec, "SOURCE", NULL,
+               e_client_util_win_get(td->child_data->ec), td->child_data->ec);
+
+        pixman_image_composite(PIXMAN_OP_OVER, c_dst_img, NULL, dst_img, 0, 0, 0, 0, c_x, c_y, tw, th);
+     }
+
 error_case:
+   if (td->child_data)
+     {
+        if (c_src_ptr && td->child_data->tbm_surface) tbm_surface_unmap(td->child_data->tbm_surface);
+        if (c_dst_ptr) tbm_surface_unmap(c_transform_surface);
+
+        if (!c_dst_img)
+          {
+             tbm_surface_destroy(c_transform_surface);
+             c_transform_surface = NULL;
+          }
+
+        if (c_src_img) pixman_image_unref(c_src_img);
+        if (c_dst_img) pixman_image_unref(c_dst_img);
+     }
 
    if (src_ptr && td->tbm_surface) tbm_surface_unmap(td->tbm_surface);
    if (dst_ptr) tbm_surface_unmap(transform_surface);
@@ -1231,6 +1377,195 @@ _remote_source_image_data_save(Thread_Data *td, const char *path, const char *na
 }
 
 static void
+_remote_source_child_data_release(Thread_Data *td)
+{
+   E_Comp_Wl_Remote_Source *source;
+   E_Client *ec;
+
+   if (!td) return;
+   if (!td->child_data) return;
+
+   if (td->child_data->tbm_surface)
+     tbm_surface_internal_unref(td->child_data->tbm_surface);
+
+   if (td->child_data->shm_pool)
+     wl_shm_pool_unref(td->child_data->shm_pool);
+
+   ec = td->child_data->ec;
+   if (!ec) return;
+
+   source = _remote_source_find(ec);
+   if (!source) return;
+
+   e_comp_wl_buffer_reference(&source->buffer_ref, NULL);
+   source->ref_as_child--;
+   RSMDBG("Child data release. ref_as_child:%d", NULL, ec, "SOURCE", source, source->ref_as_child);
+
+   if ((source->deleted) || (e_object_is_del(E_OBJECT(ec))))
+     {
+        _remote_source_destroy(source);
+     }
+
+   e_object_unref(E_OBJECT(ec));
+
+   E_FREE(td->child_data);
+}
+
+static Eina_Bool
+_remote_source_child_data_create(Thread_Data *td, E_Client *ec)
+{
+   Capture_Data *capture_data;
+   E_Comp_Wl_Remote_Source *source;
+   E_Comp_Wl_Buffer *buffer = NULL;
+   struct wl_shm_buffer *shm_buffer;
+   struct wl_shm_pool *shm_pool;
+   void *shm_buffer_ptr = NULL;
+   int shm_buffer_stride, shm_buffer_h;
+   tbm_surface_h tbm_surface;
+
+   if (!td) return EINA_FALSE;
+   if (!ec) return EINA_FALSE;
+
+   if (!(source = _remote_source_find(ec)))
+     {
+        source = E_NEW(E_Comp_Wl_Remote_Source, 1);
+        if (!source) return EINA_FALSE;
+
+        source->common.ec = ec;
+        eina_hash_add(_rsm->source_hash, &ec, source);
+     }
+
+   if (!(buffer = e_pixmap_resource_get(ec->pixmap))) return EINA_FALSE;
+
+   if (td->child_data)
+     {
+        // how do we handle this case?
+        _remote_source_child_data_release(td);
+     }
+
+   capture_data = E_NEW(Capture_Data, 1);
+   if (!capture_data) return EINA_FALSE;
+
+   e_object_ref(E_OBJECT(ec));
+   capture_data->ec = ec;
+
+   capture_data->x = ec->x;
+   capture_data->y = ec->y;
+   capture_data->w = ec->w;
+   capture_data->h = ec->h;
+
+   capture_data->transform = e_comp_wl_output_buffer_transform_get(ec);
+
+   e_comp_wl_buffer_reference(&source->buffer_ref, buffer);
+   switch (buffer->type)
+     {
+      case E_COMP_WL_BUFFER_TYPE_SHM:
+         shm_buffer = wl_shm_buffer_get(buffer->resource);
+         if (!shm_buffer) goto end;
+
+         shm_buffer_ptr = wl_shm_buffer_get_data(shm_buffer);
+         if (!shm_buffer_ptr) goto end;
+
+         shm_buffer_stride = wl_shm_buffer_get_stride(shm_buffer);
+         if (shm_buffer_stride <= 0) goto end;
+
+         shm_buffer_h = wl_shm_buffer_get_height(shm_buffer);
+         if (shm_buffer_h <= 0) goto end;
+
+         shm_pool = wl_shm_buffer_ref_pool(shm_buffer);
+         if (!shm_pool) goto end;
+
+         capture_data->shm_buffer_format = wl_shm_buffer_get_format(shm_buffer);
+         capture_data->shm_buffer_ptr = shm_buffer_ptr;
+         capture_data->shm_buffer_stride = shm_buffer_stride;
+         capture_data->shm_buffer_h = shm_buffer_h;
+         capture_data->shm_pool = shm_pool;
+         break;
+
+      case E_COMP_WL_BUFFER_TYPE_NATIVE:
+      case E_COMP_WL_BUFFER_TYPE_VIDEO:
+         tbm_surface = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, buffer->resource);
+         if (!tbm_surface) goto end;
+
+         tbm_surface_internal_ref(tbm_surface);
+         capture_data->tbm_surface = tbm_surface;
+         break;
+
+      case E_COMP_WL_BUFFER_TYPE_TBM:
+         tbm_surface = buffer->tbm_surface;
+         if (!tbm_surface) goto end;
+
+         tbm_surface_internal_ref(tbm_surface);
+         capture_data->tbm_surface = tbm_surface;
+         break;
+
+      default:
+         goto end;
+     }
+
+   td->child_data = capture_data;
+   source->ref_as_child++;
+   RSMDBG("Child data create. ref_as_child:%d", NULL, ec, "SOURCE", source, source->ref_as_child);
+   return EINA_TRUE;
+
+end:
+   e_comp_wl_buffer_reference(&source->buffer_ref, NULL);
+   e_object_unref(E_OBJECT(ec));
+   E_FREE(capture_data);
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_remote_source_child_is_placed_above(E_Client *child, E_Client *ec)
+{
+   E_Client *above = NULL;
+
+   for (above = e_client_above_get(ec); above; above = e_client_above_get(above))
+     {
+        if (above == child)
+          return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_remote_source_child_data_check(Thread_Data *td)
+{
+   Eina_List *list, *l;
+   E_Client *ec = NULL;
+   E_Client *child_ec = NULL;
+
+   ec = td->ec;
+   if (!ec) return EINA_FALSE;
+
+   list = eina_list_clone(ec->transients);
+
+   EINA_LIST_FOREACH(list, l, child_ec)
+     {
+        if (!child_ec->comp_data) continue;
+        if (!child_ec->comp_data->mapped) continue;
+
+        if (child_ec->iconic && child_ec->exp_iconify.by_client)
+          continue;
+
+        if (!e_policy_client_is_keyboard(child_ec))
+          continue;
+
+        if (!_remote_source_child_is_placed_above(child_ec, ec))
+          continue;
+
+        _remote_source_child_data_create(td, child_ec);
+        break;
+     }
+
+   eina_list_free(list);
+
+   return EINA_TRUE;
+}
+
+static void
 _remote_source_save(void *data, Ecore_Thread *th)
 {
    Thread_Data *td;
@@ -1333,6 +1668,11 @@ _remote_source_save_done(void *data, Ecore_Thread *th)
         ecore_file_remove(td->image_path);
      }
 end:
+   if (td->child_data)
+     {
+        _remote_source_child_data_release(td);
+     }
+
    if (ec)
      e_object_unref(E_OBJECT(ec));
    if (td->tbm_surface)
@@ -1367,6 +1707,11 @@ _remote_source_save_cancel(void *data, Ecore_Thread *th)
      {
         source->th = NULL;
         e_comp_wl_buffer_reference(&source->buffer_ref, NULL);
+
+        if (td->child_data)
+          {
+             _remote_source_child_data_release(td);
+          }
      }
 
    if (!e_config->hold_prev_win_img)
@@ -1431,19 +1776,17 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
    if (!(buffer = e_pixmap_resource_get(ec->pixmap))) return;
    if (!e_config->save_win_buffer) return;
 
+   if (source->th)
+     {
+        RSMDBG("ALREADY doing capture", NULL, source->common.ec, "SOURCE", source);
+        return;
+     }
+
    td = E_NEW(Thread_Data, 1);
    if (!td) return;
 
    e_object_ref(E_OBJECT(ec));
    td->ec = ec;
-
-   if (source->th)
-     {
-        RSMDBG("IMG prev save is cancelled. th:%p",
-               source->common.ec->pixmap, source->common.ec->pixmap, "SOURCE",
-               source, source->th);
-        ecore_thread_cancel(source->th);
-     }
 
    td->transform = e_comp_wl_output_buffer_transform_get(ec);
 
@@ -1491,6 +1834,8 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
          goto end;
      }
 
+   _remote_source_child_data_check(td);
+
    source->th = ecore_thread_run(_remote_source_save,
                                  _remote_source_save_done,
                                  _remote_source_save_cancel,
@@ -1500,7 +1845,36 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
 end:
    e_comp_wl_buffer_reference(&source->buffer_ref, NULL);
    e_object_unref(E_OBJECT(ec));
+
+   _remote_source_child_data_release(td);
+
    E_FREE(td);
+}
+
+static void
+_remote_source_save_start_cancel(E_Client *ec)
+{
+   E_Comp_Wl_Remote_Source *source;
+
+   source = _remote_source_find(ec);
+   if (!source) return;
+   EINA_SAFETY_ON_FALSE_RETURN(ec == source->common.ec);
+
+   if (source->th)
+     {
+        RSMDBG("IMG save could be cancelled. UNICONIFY th:%p(cancel:%d) defer_img_save:%d iconic:%d del:%d ec_del:%d",
+               ec->pixmap, ec, "SOURCE", source,
+               source->th, ecore_thread_check(source->th),
+               source->defer_img_save, ec->iconic,
+               source->deleted, e_object_is_del(E_OBJECT(ec)));
+        if (!ecore_thread_check(source->th) &&
+            !source->deleted &&
+            !e_object_is_del(E_OBJECT(ec)))
+          {
+             RSMDBG("IMG save CANCELLED.", ec->pixmap, ec, "SOURCE", source);
+             ecore_thread_cancel(source->th);
+          }
+     }
 }
 
 static void
@@ -2780,28 +3154,7 @@ _e_comp_wl_remote_cb_client_iconify(void *data, E_Client *ec)
 static void
 _e_comp_wl_remote_cb_client_uniconify(void *data, E_Client *ec)
 {
-   E_Comp_Wl_Remote_Source *source;
-
-   source = _remote_source_find(ec);
-   if (!source) return;
-   EINA_SAFETY_ON_FALSE_RETURN(ec == source->common.ec);
-
-   if (source->th)
-     {
-        RSMDBG("IMG save could be cancelled. UNICONIFY th:%p(cancel:%d) defer_img_save:%d iconic:%d del:%d ec_del:%d",
-               ec->pixmap, ec, "SOURCE", source,
-               source->th, ecore_thread_check(source->th),
-               source->defer_img_save, ec->iconic,
-               source->deleted, e_object_is_del(E_OBJECT(ec)));
-
-        if (!ecore_thread_check(source->th) &&
-            !source->deleted &&
-            !e_object_is_del(E_OBJECT(ec)))
-          {
-             RSMDBG("IMG save CANCELLED.", ec->pixmap, ec, "SOURCE", source);
-             ecore_thread_cancel(source->th);
-          }
-     }
+   _remote_source_save_start_cancel(ec);
 }
 
 static void
@@ -2854,6 +3207,59 @@ _e_comp_wl_remote_cb_client_del(void *data, E_Client *ec)
      }
 }
 
+static void
+_e_comp_wl_remote_cb_hook_action_change(void *d EINA_UNUSED, E_Process *epro, void *user)
+{
+   E_Process_Action act;
+   E_Client *ec = NULL;
+   E_Client *base_ec = NULL;
+   Eina_List *l;
+
+   act = *(E_Process_Action*)user;
+
+   if (act == E_PROCESS_ACT_ACTIVATE)
+     {
+        EINA_LIST_FOREACH(epro->ec_list, l, ec)
+          {
+             _remote_source_save_start_cancel(ec);
+             ec->saved_img = EINA_FALSE;
+          }
+     }
+   else if (act == E_PROCESS_ACT_DEACTIVATE)
+     {
+        EINA_LIST_FOREACH(epro->ec_list, l, ec)
+          {
+             if (base_ec)
+               continue;
+             if (ec->iconic)
+               continue;
+             if (!_image_save_type_check(ec))
+               continue;
+
+             base_ec = ec;
+          }
+     }
+
+   if (base_ec)
+     {
+        E_Comp_Wl_Remote_Source *source;
+
+        if (!(source = _remote_source_find(base_ec)))
+          {
+             if (base_ec->ignored) return;
+             if (!_image_save_type_check(base_ec)) return;
+
+             source = E_NEW(E_Comp_Wl_Remote_Source, 1);
+             EINA_SAFETY_ON_NULL_RETURN(source);
+
+             source->common.ec = base_ec;
+             eina_hash_add(_rsm->source_hash, &base_ec, source);
+          }
+
+        _remote_source_save_start(source);
+     }
+}
+
 static Eina_Bool
 _e_comp_wl_remote_cb_visibility_change(void *data, int type, void *event)
 {
@@ -2862,6 +3268,14 @@ _e_comp_wl_remote_cb_visibility_change(void *data, int type, void *event)
    E_Comp_Wl_Remote_Surface *remote_surface;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(_rsm, ECORE_CALLBACK_PASS_ON);
+
+   E_Process_Hook *process_hook;
+
+   if (!_rsm->process_hooks)
+     {
+        process_hook = e_process_hook_add(E_PROCESS_HOOK_ACTION_CHANGE, _e_comp_wl_remote_cb_hook_action_change, NULL);
+        if (process_hook) _rsm->process_hooks = eina_list_append(_rsm->process_hooks, process_hook);
+     }
 
    ec = ev->ec;
    if (!ec) return ECORE_CALLBACK_PASS_ON;
@@ -2927,33 +3341,8 @@ _e_comp_wl_remote_surface_source_update(E_Comp_Wl_Remote_Source *source, E_Comp_
 {
    E_Comp_Wl_Remote_Surface *remote_surface;
    Eina_List *l;
-   E_Client *ec = NULL;
 
    if ((!source) || (!buffer)) return;
-
-   if (source->th)
-     {
-        ec = source->common.ec;
-
-        RSMDBG("IMG save could be cancelled. COMMIT th:%p(cancel:%d) defer_img_save:%d iconic:%d del:%d ec_del:%d",
-               ec->pixmap, ec, "SOURCE", source,
-               source->th, ecore_thread_check(source->th),
-               source->defer_img_save, ec->iconic,
-               source->deleted, e_object_is_del(E_OBJECT(ec)));
-
-        if (!ecore_thread_check(source->th) &&
-            !source->deleted &&
-            !e_object_is_del(E_OBJECT(ec)) &&
-            !ec->iconic)
-          {
-             RSMDBG("IMG save CANCELLED. job will be triggered later.",
-                    source->common.ec->pixmap, source->common.ec, "SOURCE",
-                    source);
-
-             ecore_thread_cancel(source->th);
-             source->defer_img_save = EINA_TRUE; /* restart */
-          }
-     }
 
    EINA_LIST_FOREACH(source->common.surfaces, l, remote_surface)
      {
@@ -3597,6 +3986,8 @@ e_comp_wl_remote_surface_shutdown(void)
 
    if (rsm->dummy_fd != -1)
      close(rsm->dummy_fd);
+
+   E_FREE_LIST(rsm->process_hooks, e_process_hook_del);
 
    E_FREE_FUNC(rsm->provider_hash, eina_hash_free);
    E_FREE_FUNC(rsm->surface_hash, eina_hash_free);
