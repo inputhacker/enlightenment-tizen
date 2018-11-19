@@ -56,6 +56,10 @@ struct _E_Plane_Renderer {
    Eina_Bool           need_change_buffer_transform;
 
    int                 exported_wl_buffer_count;
+
+   tbm_surface_h       render_dequeued_tsurface;
+
+   Eina_Bool           send_dequeue;
 };
 
 EINTERN Eina_Bool                  e_plane_renderer_init(void);
