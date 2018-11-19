@@ -161,6 +161,8 @@ _e_hwc_windows_commit_handler(tdm_hwc *thwc, unsigned int sequence,
    E_Hwc *hwc = (E_Hwc *)user_data;
    EINA_SAFETY_ON_NULL_RETURN(hwc);
 
+   EHWSTRACE("!!!!!!!! HWC Commit Handler !!!!!!!!", NULL);
+
    if (hwc->pp_tsurface && !hwc->output->zoom_set)
      {
         tbm_surface_internal_unref(hwc->pp_tsurface);
@@ -168,8 +170,6 @@ _e_hwc_windows_commit_handler(tdm_hwc *thwc, unsigned int sequence,
      }
 
    _e_hwc_windows_commit_data_release(hwc, sequence, tv_sec, tv_usec);
-
-   EHWSTRACE("!!!!!!!! Output Commit Handler !!!!!!!!", NULL);
 
    /* 'wait_commit' is mechanism to make 'fetch and commit' no more than one time per a frame;
     * a 'page flip' happened so it's time to allow to make 'fetch and commit' for the e_output */
@@ -185,6 +185,9 @@ _e_hwc_windows_offscreen_commit(E_Hwc *hwc)
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
         if (!e_hwc_window_commit_data_acquire(hwc_window)) continue;
+
+        EHWSTRACE("!!!!!!!! HWC OffScreen Commit !!!!!!!!", NULL);
+
 
         /* send frame event enlightenment doesn't send frame event in nocomp */
         if (hwc_window->ec)
@@ -872,7 +875,13 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
                }
           }
      }
-
+#if 0
+    if (transition)
+      EHWSTRACE(" [%25s(ehw:%p)] is on TRANSITION [%s -> %s].",
+                hwc_window->ec, e_hwc_window_name_get(hwc_window), hwc_window,
+                e_hwc_window_state_string_get(hwc_window->accepted_state),
+                e_hwc_window_state_string_get(hwc_window->state));
+#endif
     return transition;
 }
 
@@ -905,7 +914,7 @@ _e_hwc_windows_validated_changes_update(E_Hwc *hwc, uint32_t num_changes)
         goto fail;
      }
 
-   EHWSTRACE("Changes NUM : %d", NULL, num_changes);
+   EHWSTRACE(" Changes NUM : %d", NULL, num_changes);
 
    for (i = 0; i < num_changes; ++i)
      {
@@ -946,14 +955,11 @@ _e_hwc_windows_accept(E_Hwc *hwc)
    tdm_error terror;
    const Eina_List *l;
 
-   /* _e_hwc_windows_accept */
-   EHWSTRACE("HWC Accept", NULL);
-
    /* accept changes */
-   terror = tdm_hwc_accept_validation(hwc->thwc);
+   terror = tdm_hwc_accept_changes(hwc->thwc);
    if (terror != TDM_ERROR_NONE)
      {
-        ERR("HWC-WINS: failed to accept changes.");
+        ERR("HWC-WINS: failed to accept validation.");
         return EINA_FALSE;
      }
 
@@ -973,6 +979,9 @@ _e_hwc_windows_accept(E_Hwc *hwc)
           e_hwc_window_activate(hwc_window, NULL);
      }
 
+   /* _e_hwc_windows_accept */
+   EHWSTRACE("======= HWC Accept Validation =======", NULL);
+
    return EINA_TRUE;
 }
 
@@ -989,7 +998,7 @@ _e_hwc_windows_validate(E_Hwc *hwc, uint32_t *num_changes)
    Eina_List *visible_windows = hwc->visible_windows;
 
 #if DBG_EVALUATE
-   EHWSTRACE(" Request HWC Validation to TDM HWC:", NULL);
+   EHWSTRACE("======= HWC Request Validation to TDM HWC =====", NULL);
    _e_hwc_windows_status_print(hwc, EINA_FALSE);
 #endif
 
@@ -1407,12 +1416,10 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
         goto re_evaluate;
      }
 
-   EHWSTRACE(" Succeed the compsition_evaulation.", NULL);
-
    return EINA_TRUE;
 
 re_evaluate:
-   EHWSTRACE(" Need the comopsition re-evaulation.", NULL);
+   EHWSTRACE("======= HWC NOT Accept Validation Yet !! =======", NULL);
 
    return EINA_FALSE;
 }

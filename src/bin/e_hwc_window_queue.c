@@ -956,9 +956,11 @@ e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
      {
         _e_hwc_window_queue_user_pending_set_add(queue, hwc_window);
 
-        EHWQINF("Add user_pending_set ehw:%p -- {%s}",
+        EHWQINF("Add user_pending_set ehw:%p {%s} user:{%s} unset_waiting:%d",
                 hwc_window->ec, queue, hwc_window,
-                (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
+                (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"),
+                (queue->user&&queue->user->ec?queue->user->ec->icccm.title : "UNKNOWN"),
+                (queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING?1:0));
 
         return queue;
      }
