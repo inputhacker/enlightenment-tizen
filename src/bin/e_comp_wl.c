@@ -4962,7 +4962,9 @@ e_comp_wl_surface_attach(E_Client *ec, E_Comp_Wl_Buffer *buffer)
    e_comp_wl_buffer_reference(&ec->comp_data->buffer_ref, buffer);
 
    /* set usable early because shell module checks this */
-   e_pixmap_usable_set(ec->pixmap, (buffer != NULL));
+   if (ec->comp_data->shell.surface || ec->comp_data->sub.data)
+     e_pixmap_usable_set(ec->pixmap, (buffer != NULL));
+
    e_pixmap_resource_set(ec->pixmap, buffer);
    e_pixmap_dirty(ec->pixmap);
    e_pixmap_refresh(ec->pixmap);
