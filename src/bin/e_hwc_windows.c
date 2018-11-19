@@ -1160,14 +1160,6 @@ _e_hwc_windows_all_client_states_available_check(E_Hwc *hwc)
                        ec, ec->icccm.title);
              return EINA_TRUE;
           }
-
-        // if there is UI subfrace, it means need to composite
-        if (e_client_normal_client_has(ec))
-          {
-            EHWSTRACE("  HWC_MODE_NONE due to UI subfrace{%25s}.",
-                      ec, ec->icccm.title);
-            return EINA_TRUE;
-          }
      }
 
    return EINA_FALSE;

@@ -1828,6 +1828,15 @@ e_hwc_window_device_state_available_check(E_Hwc_Window *hwc_window)
           }
      }
 
+
+   // if there is UI subfrace, it means need to composite
+   if (e_client_normal_client_has(ec))
+     {
+        EHWTRACE("   -- {%25s} is forced to set CL state.(UI subfrace)",
+                  hwc_window->ec, hwc_window, ec->icccm.title);
+        return EINA_FALSE;
+     }
+
    return EINA_TRUE;
 }
 
