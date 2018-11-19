@@ -229,6 +229,8 @@ E_API Eina_Bool e_comp_util_mouse_grabbed(void);
 E_API void e_comp_client_override_del(E_Client *ec);
 E_API void e_comp_client_override_add(E_Client *ec);
 
+E_API void e_comp_client_render_list_add(E_Client *ec);
+
 static inline Eina_Bool
 e_comp_util_client_is_fullscreen(const E_Client *ec)
 {
