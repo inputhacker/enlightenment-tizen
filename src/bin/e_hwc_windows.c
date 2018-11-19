@@ -773,19 +773,19 @@ _e_hwc_windows_window_state_get(tdm_hwc_window_composition composition_type)
 
    switch (composition_type)
      {
-      case TDM_COMPOSITION_NONE:
+      case TDM_HWC_WIN_COMPOSITION_NONE:
         state = E_HWC_WINDOW_STATE_NONE;
         break;
-      case TDM_COMPOSITION_CLIENT:
+      case TDM_HWC_WIN_COMPOSITION_CLIENT:
         state = E_HWC_WINDOW_STATE_CLIENT;
         break;
-      case TDM_COMPOSITION_DEVICE:
+      case TDM_HWC_WIN_COMPOSITION_DEVICE:
         state = E_HWC_WINDOW_STATE_DEVICE;
         break;
-      case TDM_COMPOSITION_CURSOR:
+      case TDM_HWC_WIN_COMPOSITION_CURSOR:
         state = E_HWC_WINDOW_STATE_CURSOR;
         break;
-      case TDM_COMPOSITION_VIDEO:
+      case TDM_HWC_WIN_COMPOSITION_VIDEO:
         state = E_HWC_WINDOW_STATE_VIDEO;
         break;
       default:
@@ -1175,12 +1175,12 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
    /* get the visible ecs */
    visible_windows = hwc->visible_windows;
 
-   /* check if e20 forces to set that all window has TDM_COMPOSITION_CLIENT types */
+   /* check if e20 forces to set that all window has TDM_HWC_WIN_COMPOSITION_CLIENT types */
    if (_e_hwc_windows_all_client_states_available_check(hwc))
      {
         EINA_LIST_FOREACH(visible_windows, l, hwc_window)
           {
-             /* The video window set the TDM_COMPOSITION_VIDEO type. */
+             /* The video window set the TDM_HWC_WIN_COMPOSITION_VIDEO type. */
              if (e_hwc_window_is_video(hwc_window))
                {
                   if (!e_hwc_window_composition_update(hwc_window))
@@ -1199,7 +1199,7 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
         /* check clients are able to use hwc */
         EINA_LIST_FOREACH(visible_windows, l, hwc_window)
           {
-             /* The video window set the TDM_COMPOSITION_VIDEO type. */
+             /* The video window set the TDM_HWC_WIN_COMPOSITION_VIDEO type. */
              if (e_hwc_window_is_video(hwc_window))
                {
                   if (!e_hwc_window_composition_update(hwc_window))

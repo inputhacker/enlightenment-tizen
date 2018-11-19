@@ -137,27 +137,27 @@ _get_wayland_tbm_client_queue(E_Client *ec)
 static tdm_hwc_window_composition
 _get_composition_type(E_Hwc_Window_State state)
 {
-   tdm_hwc_window_composition composition_type = TDM_COMPOSITION_NONE;
+   tdm_hwc_window_composition composition_type = TDM_HWC_WIN_COMPOSITION_NONE;
 
    switch (state)
      {
       case E_HWC_WINDOW_STATE_NONE:
-        composition_type = TDM_COMPOSITION_NONE;
+        composition_type = TDM_HWC_WIN_COMPOSITION_NONE;
         break;
       case E_HWC_WINDOW_STATE_CLIENT:
-        composition_type = TDM_COMPOSITION_CLIENT;
+        composition_type = TDM_HWC_WIN_COMPOSITION_CLIENT;
         break;
       case E_HWC_WINDOW_STATE_DEVICE:
-        composition_type = TDM_COMPOSITION_DEVICE;
+        composition_type = TDM_HWC_WIN_COMPOSITION_DEVICE;
         break;
       case E_HWC_WINDOW_STATE_CURSOR:
-        composition_type = TDM_COMPOSITION_CURSOR;
+        composition_type = TDM_HWC_WIN_COMPOSITION_CURSOR;
         break;
       case E_HWC_WINDOW_STATE_VIDEO:
-        composition_type = TDM_COMPOSITION_VIDEO;
+        composition_type = TDM_HWC_WIN_COMPOSITION_VIDEO;
         break;
       default:
-        composition_type = TDM_COMPOSITION_NONE;
+        composition_type = TDM_HWC_WIN_COMPOSITION_NONE;
         ERR("hwc-opt: unknown state of hwc_window.");
      }
 
