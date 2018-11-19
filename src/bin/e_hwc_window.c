@@ -1862,8 +1862,8 @@ e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window)
    E_Hwc_Window_Target *target_hwc_window;
    E_Hwc_Window *target_window;
    E_Hwc_Window *hw;
-   const Eina_List *l, *ll;
-   tbm_surface_h target_tsurface;
+   const Eina_List *l = NULL;
+   int n_thw;
 
    target_hwc_window = _e_hwc_window_target_window_get(hwc_window);
    EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
@@ -1871,11 +1871,11 @@ e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window)
    target_window = (E_Hwc_Window *)target_hwc_window;
    if (e_hwc_window_state_get(target_window) != E_HWC_WINDOW_STATE_DEVICE) return EINA_FALSE;
 
-   EINA_LIST_FOREACH(target_hwc_window->rendered_tsurface_list, l, target_tsurface)
+   ee_rendered_hw_list = _e_hwc_window_target_window_ee_rendered_hw_list_get(target_hwc_window);
+   n_thw = eina_list_count(ee_rendered_hw_list);
+   if (n_thw)
      {
-        tbm_surface_internal_get_user_data(target_tsurface, ee_rendered_hw_list_key, (void**)&ee_rendered_hw_list);
-
-        EINA_LIST_FOREACH(ee_rendered_hw_list, ll, hw)
+        EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw)
           if (hw == hwc_window) return EINA_TRUE;
      }
 
