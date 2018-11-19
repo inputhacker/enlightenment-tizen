@@ -789,7 +789,7 @@ _e_hwc_window_queue_destroy(E_Hwc_Window_Queue *queue)
    E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
 
    if (_hwc_winq_mgr)
-     eina_hash_del(_hwc_winq_mgr->hwc_winq_hash, queue->tqueue, queue);
+     eina_hash_del(_hwc_winq_mgr->hwc_winq_hash, &queue->tqueue, queue);
 
    EHWQINF("Destroy tq:%p", NULL, queue, queue->tqueue);
 
@@ -889,13 +889,13 @@ _e_hwc_window_queue_get(tbm_surface_queue_h tqueue)
 {
    E_Hwc_Window_Queue *queue = NULL;
 
-   queue = eina_hash_find(_hwc_winq_mgr->hwc_winq_hash, tqueue);
+   queue = eina_hash_find(_hwc_winq_mgr->hwc_winq_hash, &tqueue);
    if (!queue)
      {
         queue = _e_hwc_window_queue_create(tqueue);
         EINA_SAFETY_ON_FALSE_RETURN_VAL(queue, NULL);
 
-        eina_hash_add(_hwc_winq_mgr->hwc_winq_hash, tqueue, queue);
+        eina_hash_add(_hwc_winq_mgr->hwc_winq_hash, &tqueue, queue);
      }
 
    return queue;
