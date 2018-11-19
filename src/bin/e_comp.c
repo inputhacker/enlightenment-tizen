@@ -572,6 +572,17 @@ e_comp_client_post_update_add(E_Client *ec)
    e_object_ref(E_OBJECT(ec));
 }
 
+E_API void
+e_comp_client_render_list_add(E_Client *ec)
+{
+   if (ec->on_render_list) return;
+   ec->on_render_list = EINA_TRUE;
+   ERR("add render list ec:%p", ec);
+   e_comp->render_list = eina_list_append(e_comp->render_list, ec);
+   REFD(ec, 111);
+   e_object_ref(E_OBJECT(ec));
+}
+
 E_API E_Comp_Config *
 e_comp_config_get(void)
 {

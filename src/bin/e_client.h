@@ -966,6 +966,8 @@ struct E_Client
         unsigned int serial : 1;
         Eina_List    *pending_geometry; // E_Client_Pending_Geometry
      } surface_sync;
+
+   Eina_Bool on_render_list : 1; // client is on the render list
 };
 
 #define e_client_focus_policy_click(ec) \

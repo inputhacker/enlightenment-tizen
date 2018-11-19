@@ -1234,6 +1234,9 @@ _e_comp_object_pixels_noti(void *data, Evas_Object *obj EINA_UNUSED)
 
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (cw->external_content) return;
+   if (!e_comp->hwc) return;
+
+   e_comp_client_render_list_add(cw->ec);
 
    if (!ec->hwc_window) return;
 

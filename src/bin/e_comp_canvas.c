@@ -28,6 +28,12 @@ _e_comp_canvas_render_post(void *data EINA_UNUSED, Evas *e EINA_UNUSED, void *ev
           e_pixmap_image_clear(ec->pixmap, 1);
         e_object_unref(E_OBJECT(ec));
      }
+
+   EINA_LIST_FREE(e_comp->render_list, ec)
+     {
+        ec->on_render_list = EINA_FALSE;
+        e_object_unref(E_OBJECT(ec));
+     }
 }
 
 ///////////////////////////////////

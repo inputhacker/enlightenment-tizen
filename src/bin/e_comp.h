@@ -167,6 +167,8 @@ struct _E_Comp
    Eina_List      *connected_clients;
    Eina_List      *launchscrns; // list of dummy clients for launchscreen image.
 
+   Eina_List      *render_list;
+
    int norender;
 
    void           (*func_memory_dump) (void);
