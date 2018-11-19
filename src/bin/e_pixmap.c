@@ -1113,3 +1113,11 @@ e_pixmap_buffer_clear(E_Pixmap *cp, Eina_Bool only_free)
      }
 
 }
+
+EINTERN void *
+e_pixmap_ref_resource_get(E_Pixmap *cp)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cp, NULL);
+
+   return cp->buffer_ref.buffer;
+}

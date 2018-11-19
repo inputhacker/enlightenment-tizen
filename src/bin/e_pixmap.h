@@ -84,6 +84,8 @@ E_API Eina_Bool e_pixmap_init(void);
 E_API void e_pixmap_shutdown(void);
 E_API void e_pixmap_buffer_clear(E_Pixmap *cp, Eina_Bool only_free);
 
+EINTERN void *e_pixmap_ref_resource_get(E_Pixmap *cp);
+
 static inline Eina_Bool
 e_pixmap_is_x(const E_Pixmap *cp)
 {
