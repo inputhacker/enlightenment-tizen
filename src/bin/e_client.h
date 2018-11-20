@@ -962,8 +962,8 @@ struct E_Client
 
    struct
      {
-        Eina_Bool    wait_commit;
-        unsigned int serial : 1;
+        Eina_Bool    wait_commit : 1;
+        unsigned int serial;
         Eina_List    *pending_geometry; // E_Client_Pending_Geometry
      } surface_sync;
 
