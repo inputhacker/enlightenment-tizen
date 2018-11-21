@@ -577,7 +577,6 @@ e_comp_client_render_list_add(E_Client *ec)
 {
    if (ec->on_render_list) return;
    ec->on_render_list = EINA_TRUE;
-   ERR("add render list ec:%p", ec);
    e_comp->render_list = eina_list_append(e_comp->render_list, ec);
    REFD(ec, 111);
    e_object_ref(E_OBJECT(ec));
