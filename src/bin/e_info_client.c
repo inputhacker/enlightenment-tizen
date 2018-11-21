@@ -2959,53 +2959,52 @@ _e_info_client_proc_output_mode(int argc, char **argv)
 }
 
 static void
-_e_info_client_proc_hwc_trace(int argc, char **argv)
+_e_info_client_proc_trace(int argc, char **argv)
 {
    uint32_t onoff;
 
-   if (argc < 3)
-     {
-        printf("Error Check Args: enlightenment_info -hwc_trace [0/1/2]\n");
-        return;
-     }
+   if (argc < 4)
+     goto arg_err;
 
-   onoff = atoi(argv[2]);
+   onoff = atoi(argv[3]);
 
-   if (onoff == 1 || onoff == 0 || onoff == 2)
+   if (onoff == 1 || onoff == 0)
      {
-        if (!_e_info_client_eldbus_message_with_args("hwc_trace_message", NULL, "i", onoff))
+        if (eina_streq(argv[2], "hwc"))
           {
-             printf("_e_info_client_eldbus_message_with_args error");
+             if (!_e_info_client_eldbus_message_with_args("trace_message_hwc", NULL, "i", onoff))
+               {
+                  printf("_e_info_client_eldbus_message_with_args error");
+               }
              return;
           }
      }
-   else
-     printf("Error Check Args: enlightenment_info -hwc_trace [0/1/2]\n");
+
+arg_err:
+   printf("Error Check Args: enlightenment_info -trace %s\n", USAGE_TRACE);
 }
 
 static void
 _e_info_client_proc_hwc(int argc, char **argv)
 {
-   uint32_t onoff;
+   uint32_t param;
 
    if (argc < 3)
+     goto arg_err;
+
+   param = atoi(argv[2]);
+
+   if (param == 1 || param == 0 || param == 2)
      {
-        printf("Error Check Args: enlightenment_info -hwc [1: on, 0: off]\n");
+        if (!_e_info_client_eldbus_message_with_args("hwc", NULL, "i", param))
+          {
+             printf("_e_info_client_eldbus_message_with_args error");
+          }
         return;
      }
 
-   onoff = atoi(argv[2]);
-
-   if (onoff == 1 || onoff == 0)
-     {
-        if (!_e_info_client_eldbus_message_with_args("hwc", NULL, "i", onoff))
-          {
-             printf("_e_info_client_eldbus_message_with_args error");
-             return;
-          }
-     }
-   else
-     printf("Error Check Args: enlightenment_info -hwc [1: on, 0: off]\n");
+arg_err:
+     printf("Error Check Args: enlightenment_info -hwc [0: off, 1: on, 2: info]\n");
 
 }
 
@@ -4840,10 +4839,10 @@ static ProcInfo procs_to_tracelogs[] =
    },
 #endif
    {
-      "hwc_trace",
-      "[off: 0, on: 1, info:2]",
-      "Show the hwc trace log",
-      _e_info_client_proc_hwc_trace
+      "trace",
+      "[hwc] [off: 0, on: 1]",
+      "Show the trace log in detail",
+      _e_info_client_proc_trace
    },
 };
 
@@ -5001,8 +5000,8 @@ static ProcInfo procs_to_execute[] =
    },
    {
       "hwc",
-      "[on: 1, off: 0]",
-      "HW composite [on 1, off 0]",
+      "[on: 1, off: 0, 2: info]",
+      "HW composite policy on(1) and off(0), or prints info(2) via dlog",
       _e_info_client_proc_hwc
    },
    {

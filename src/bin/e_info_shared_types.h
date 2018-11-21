@@ -225,5 +225,13 @@ typedef enum
    "\tgeometry [ x][ y][ w][ h]     : change desktop screen given geometry\n"        \
    "\tzoom     [zx][zy][cx][cy]     : scale desktop screen\n"
 
+/* -------------------------------------------------------------------------- */
+/* TRACE                                                                      */
+/* -------------------------------------------------------------------------- */
+#define USAGE_TRACE                                                  \
+   "[hwc] [off: 0, on: 1]\n"                                \
+   "Example:\n"                                                      \
+   "\tenlightenment_info -trace hwc 1\n"                             \
+   "\tenlightenment_info -trace hwc 0\n"
 
 #endif /* end of _E_INFO_SHARED_TYPES_ */
