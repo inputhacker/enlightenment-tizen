@@ -4166,6 +4166,24 @@ e_info_server_cb_hwc_trace_message(const Eldbus_Service_Interface *iface EINA_UN
 }
 
 static Eldbus_Message *
+e_info_server_cb_serial_trace_message(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   uint32_t on;
+
+   if (!eldbus_message_arguments_get(msg, "i", &on))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+   if (on == 0 || on == 1)
+     e_comp_wl_trace_serial_debug(on);
+
+   return reply;
+}
+
+static Eldbus_Message *
 e_info_server_cb_hwc(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
@@ -5715,6 +5733,7 @@ static const Eldbus_Method methods[] = {
    { "dump_screen", ELDBUS_ARGS({"s", "dump_screen"}), NULL, _e_info_server_cb_screen_dump, 0 },
    { "output_mode", ELDBUS_ARGS({SIGNATURE_OUTPUT_MODE_CLIENT, "output mode"}), ELDBUS_ARGS({"a("SIGNATURE_OUTPUT_MODE_SERVER")", "array of ec"}), _e_info_server_cb_output_mode, 0 },
    { "trace_message_hwc", ELDBUS_ARGS({"i", "trace_message_hwc"}), NULL, e_info_server_cb_hwc_trace_message, 0},
+   { "trace_message_serial", ELDBUS_ARGS({"i", "trace_message_serial"}), NULL, e_info_server_cb_serial_trace_message, 0},
    { "hwc", ELDBUS_ARGS({"i", "hwc"}), NULL, e_info_server_cb_hwc, 0},
    { "show_plane_state", NULL, NULL, e_info_server_cb_show_plane_state, 0},
    { "show_pending_commit", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_PENDING_COMMIT")", "array of pending commit"}), e_info_server_cb_show_pending_commit, 0},

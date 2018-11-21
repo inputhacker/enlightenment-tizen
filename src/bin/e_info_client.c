@@ -2978,6 +2978,14 @@ _e_info_client_proc_trace(int argc, char **argv)
                }
              return;
           }
+        else if (eina_streq(argv[2], "serial"))
+          {
+             if (!_e_info_client_eldbus_message_with_args("trace_message_serial", NULL, "i", onoff))
+               {
+                  printf("_e_info_client_eldbus_message_with_args error");
+               }
+             return;
+          }
      }
 
 arg_err:
@@ -4840,7 +4848,7 @@ static ProcInfo procs_to_tracelogs[] =
 #endif
    {
       "trace",
-      "[hwc] [off: 0, on: 1]",
+      "[hwc | serial] [off: 0, on: 1]",
       "Show the trace log in detail",
       _e_info_client_proc_trace
    },

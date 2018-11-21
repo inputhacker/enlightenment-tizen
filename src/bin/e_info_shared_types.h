@@ -229,9 +229,11 @@ typedef enum
 /* TRACE                                                                      */
 /* -------------------------------------------------------------------------- */
 #define USAGE_TRACE                                                  \
-   "[hwc] [off: 0, on: 1]\n"                                \
+   "[hwc | serial] [off: 0, on: 1]\n"                                \
    "Example:\n"                                                      \
    "\tenlightenment_info -trace hwc 1\n"                             \
-   "\tenlightenment_info -trace hwc 0\n"
+   "\tenlightenment_info -trace hwc 0\n"                             \
+   "\tenlightenment_info -trace serial 1\n"                          \
+   "\tenlightenment_info -trace serial 0\n"
 
 #endif /* end of _E_INFO_SHARED_TYPES_ */

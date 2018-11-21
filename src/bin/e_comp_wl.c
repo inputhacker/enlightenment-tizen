@@ -71,6 +71,8 @@ static Eina_Inlist *_e_comp_wl_hooks[] =
 
 static Eina_List *hooks = NULL;
 
+static Eina_Bool serial_trace_debug = 0;
+
 /* local functions */
 static void
 _e_comp_wl_hooks_clean(void)
@@ -6261,6 +6263,14 @@ e_comp_wl_output_find(E_Client *ec)
 // --------------------------------------------------------
 // tizen_move_resize
 // --------------------------------------------------------
+EINTERN void
+e_comp_wl_trace_serial_debug(Eina_Bool on)
+{
+   if (on == serial_trace_debug) return;
+   serial_trace_debug = on;
+   INF("POSSIZE |\t\tserial trace_debug %s", on?"ON":"OFF");
+}
+
 static void
 _e_comp_wl_surface_state_serial_update(E_Client *ec, E_Comp_Wl_Surface_State *state)
 {
@@ -6276,7 +6286,9 @@ _e_comp_wl_surface_state_serial_update(E_Client *ec, E_Comp_Wl_Surface_State *st
 
    serial = wayland_tbm_server_buffer_get_buffer_serial(buffer->resource);
    ec->surface_sync.serial = serial;
-   DBG("POSSIZE |win:0x%08x|ec:0x%08x|Update serial(%u) wl_buffer&%u", (unsigned int)(e_client_util_win_get(ec)), (unsigned int)ec, ec->surface_sync.serial, wl_resource_get_id(buffer->resource));
+
+   if (serial_trace_debug)
+     INF("POSSIZE |win:0x%08x|ec:0x%08x|Update serial(%u) wl_buffer(%u)", (unsigned int)(e_client_util_win_get(ec)), (unsigned int)ec, serial, wl_resource_get_id(buffer->resource));
 }
 
 EINTERN Eina_Bool
