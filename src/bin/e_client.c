@@ -3225,13 +3225,13 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
                        /* previous state is obscured: -1 or 1 */
                        ec->visibility.obscured = E_VISIBILITY_UNOBSCURED;
                        ec->visibility.changed = 1;
-                       ELOGF("POL_VIS", "CLIENT VIS ON.  argb:%2d, opaque:%d", ec->pixmap, ec, ec->argb, ec->visibility.opaque);
+                       ELOGF("POL_VIS", "CLIENT VIS ON.  argb:%d, opaque:%2d, frame_v:%d", ec->pixmap, ec, ec->argb, ec->visibility.opaque, ec_frame_visible);
                     }
                   else
                     {
                        if (!is_above_rot_pending)
                          is_vis_on_skip = EINA_TRUE;
-                       ELOGF("POL_VIS", "CLIENT VIS ON-SKIP. argb:%2d, opaque:%d", ec->pixmap, ec, ec->argb, ec->visibility.opaque);
+                       ELOGF("POL_VIS", "CLIENT VIS ON-SKIP. argb:%d, opaque:%2d, frame_v:%d", ec->pixmap, ec, ec->argb, ec->visibility.opaque, ec_frame_visible);
                     }
                }
 
