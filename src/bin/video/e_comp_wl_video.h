@@ -6,10 +6,6 @@
 
 #define E_COMP_WL
 
-typedef struct _E_Video E_Video;
-typedef struct _E_Video_Layer E_Video_Layer;
-typedef struct _E_Video_Info_Layer E_Video_Info_Layer;
-
 EINTERN int e_comp_wl_video_init(void);
 EINTERN void e_comp_wl_video_shutdown(void);
 
