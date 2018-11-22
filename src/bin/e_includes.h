@@ -65,8 +65,6 @@
 #endif
 #include "e_comp_wl_rsm.h"
 #include "e_comp_wl_screenshooter.h"
-#include "e_comp_wl_video.h"
-#include "e_comp_wl_video_buffer.h"
 #include "e_comp_wl_viewport.h"
 #include "e_comp_wl_shell.h"
 #include "e_policy.h"
@@ -84,3 +82,9 @@
 #include "e_dbus_conn.h"
 #include "e_xdg_shell_v6.h"
 #include "e_devicemgr.h"
+
+#include "video/e_video_debug.h"
+#include "video/e_client_video.h"
+#include "video/e_zone_video.h"
+#include "video/e_comp_wl_video.h"
+#include "video/e_comp_wl_video_buffer.h"

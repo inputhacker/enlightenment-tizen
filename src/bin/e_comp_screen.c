@@ -1334,3 +1334,129 @@ e_comp_screen_hwc_info_debug(void)
      }
    INF("HWC: =========================================================================");
 }
+
+#define NUM_SW_FORMAT   (sizeof(sw_formats) / sizeof(sw_formats[0]))
+
+static tbm_format sw_formats[] = {
+     TBM_FORMAT_ARGB8888,
+     TBM_FORMAT_XRGB8888,
+     TBM_FORMAT_YUV420,
+     TBM_FORMAT_YVU420,
+};
+
+static tdm_layer *
+_e_comp_screen_video_tdm_layer_get(tdm_output *output)
+{
+   int i, count = 0;
+#ifdef CHECKING_PRIMARY_ZPOS
+   int primary_idx = 0, primary_zpos = 0;
+   tdm_layer *primary_layer;
+#endif
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+
+   tdm_output_get_layer_count(output, &count);
+   for (i = 0; i < count; i++)
+     {
+        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
+        tdm_layer_capability capabilities = 0;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
+
+        tdm_layer_get_capabilities(layer, &capabilities);
+        if (capabilities & TDM_LAYER_CAPABILITY_VIDEO)
+          return layer;
+     }
+
+#ifdef CHECKING_PRIMARY_ZPOS
+   tdm_output_get_primary_index(output, &primary_idx);
+   primary_layer = tdm_output_get_layer(output, primary_idx, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(primary_layer, NULL);
+   tdm_layer_get_zpos(primary_layer, &primary_zpos);
+#endif
+
+   for (i = 0; i < count; i++)
+     {
+        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
+        tdm_layer_capability capabilities = 0;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
+
+        tdm_layer_get_capabilities(layer, &capabilities);
+        if (capabilities & TDM_LAYER_CAPABILITY_OVERLAY)
+          {
+#ifdef CHECKING_PRIMARY_ZPOS
+             int zpos = 0;
+             tdm_layer_get_zpos(layer, &zpos);
+             if (zpos >= primary_zpos) continue;
+#endif
+             return layer;
+          }
+     }
+
+   return NULL;
+}
+
+static E_Output *
+_e_comp_screen_eoutput_get_by_toutput(tdm_output *output)
+{
+   Eina_List *l;
+   E_Output *eo;
+
+   EINA_LIST_FOREACH(e_comp->e_comp_screen->outputs, l, eo)
+      if (eo->toutput == output)
+        return eo;
+
+   return NULL;
+}
+
+EINTERN Eina_Bool
+e_comp_screen_available_video_formats_get(const tbm_format **formats, int *count)
+{
+   E_Output *output;
+   tdm_output *toutput;
+   tdm_layer *layer;
+   tdm_error error;
+
+   *count = 0;
+
+   if (e_comp_screen_pp_support())
+     {
+        error = tdm_display_get_pp_available_formats(e_comp->e_comp_screen->tdisplay, formats, count);
+        if (error == TDM_ERROR_NONE)
+          return EINA_TRUE;
+     }
+
+   /* get the first output */
+   toutput = tdm_display_get_output(e_comp->e_comp_screen->tdisplay, 0, NULL);
+   if (!toutput)
+     return EINA_FALSE;
+
+   output = _e_comp_screen_eoutput_get_by_toutput(toutput);
+   if (!output)
+     return EINA_FALSE;
+
+   if (e_hwc_policy_get(output->hwc) != E_HWC_POLICY_WINDOWS)
+     {
+        /* get the first suitable layer */
+        layer = _e_comp_screen_video_tdm_layer_get(toutput);
+        if (layer)
+          {
+             tdm_layer_get_available_formats(layer, formats, count);
+          }
+        else
+          {
+             *formats = sw_formats;
+             *count = NUM_SW_FORMAT;
+          }
+     }
+   else
+     {
+        error = tdm_hwc_get_video_supported_formats(output->hwc->thwc, formats, count);
+        if (error != TDM_ERROR_NONE)
+          {
+             *formats = sw_formats;
+             *count = NUM_SW_FORMAT;
+          }
+     }
+
+   return EINA_TRUE;
+}

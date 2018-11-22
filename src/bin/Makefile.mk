@@ -102,8 +102,11 @@ endif
 
 ENLIGHTENMENTHEADERS += \
 src/bin/e_comp_wl_rsm.h \
-src/bin/e_comp_wl_video.h \
-src/bin/e_comp_wl_video_buffer.h \
+src/bin/video/e_comp_wl_video.h \
+src/bin/video/e_comp_wl_video_buffer.h \
+src/bin/video/e_client_video.h \
+src/bin/video/e_zone_video.h \
+src/bin/video/e_video_debug.h \
 src/bin/e_comp_wl_viewport.h \
 src/bin/e_comp_wl_screenshooter.h \
 src/bin/e_comp_wl_shell.h \
@@ -210,8 +213,13 @@ endif
 
 enlightenment_src += \
 src/bin/e_comp_wl_rsm.c \
-src/bin/e_comp_wl_video.c \
-src/bin/e_comp_wl_video_buffer.c \
+src/bin/video/e_comp_wl_video.c \
+src/bin/video/e_comp_wl_video_buffer.c \
+src/bin/video/e_client_video.c \
+src/bin/video/e_zone_video.c \
+src/bin/video/e_video_debug.c \
+src/bin/video/iface/e_video_hwc_planes.c \
+src/bin/video/iface/e_video_fallback.c \
 src/bin/e_comp_wl_viewport.c \
 src/bin/e_comp_wl_screenshooter.c \
 src/bin/e_comp_wl_shell.c \
