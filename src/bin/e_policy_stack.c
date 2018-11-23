@@ -474,6 +474,7 @@ e_policy_stack_clients_restack_above_lockscreen(E_Client *ec_lock, Eina_Bool sho
              if (!passed_new_lock) continue;
              if (e_policy_client_is_lockscreen(ec)) continue;
              if (ec->exp_iconify.by_client) continue;
+             if (ec->bg_state) continue;
 
              if (ec->changable_layer[E_CHANGABLE_LAYER_TYPE_ABOVE_NOTIFICATION].set)
                {

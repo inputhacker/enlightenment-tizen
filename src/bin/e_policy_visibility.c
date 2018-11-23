@@ -260,6 +260,7 @@ _e_policy_client_iconify_by_visibility(E_Client *ec)
    if (!ec) return;
    if (ec->iconic) return;
    if (ec->exp_iconify.by_client) return;
+   if (ec->bg_state) return;
    if (ec->exp_iconify.skip_iconify) return;
    if (ec->exp_iconify.skip_by_remote) return;
 
@@ -329,6 +330,7 @@ _e_policy_client_ancestor_uniconify(E_Client *ec)
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (!ec->iconic) return;
    if (ec->exp_iconify.by_client) return;
+   if (ec->bg_state) return;
    if (ec->exp_iconify.skip_iconify) return;
    if (ec->exp_iconify.skip_by_remote) return;
 
@@ -345,6 +347,7 @@ _e_policy_client_ancestor_uniconify(E_Client *ec)
         if (e_object_is_del(E_OBJECT(parent))) break;
         if (!parent->iconic) break;
         if (parent->exp_iconify.by_client) break;
+        if (parent->bg_state) break;
         if (parent->exp_iconify.skip_iconify) break;
         if (parent->exp_iconify.skip_by_remote) break;
 
@@ -415,6 +418,7 @@ _e_policy_client_uniconify_by_visibility(E_Client *ec)
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (!ec->iconic) return;
    if (ec->exp_iconify.by_client) return;
+   if (ec->bg_state) return;
    if (ec->exp_iconify.skip_iconify) return;
    if (ec->exp_iconify.skip_by_remote) return;
 
@@ -1236,6 +1240,7 @@ _e_vis_client_check_obscured_by_same_layer(E_Client *ec)
         if (e_client_util_ignored_get(above)) continue;
         if (e_object_is_del(E_OBJECT(above))) continue;
         if (above->iconic && above->exp_iconify.by_client) continue;
+        if (above->bg_state) continue;
         if (above->comp_data && !above->comp_data->mapped) continue;
         if (!E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h)) continue;
 
@@ -1275,6 +1280,7 @@ _e_vis_client_check_obscured_by_above_layers(E_Client *ec)
         if (e_client_util_ignored_get(above)) continue;
         if (e_object_is_del(E_OBJECT(above))) continue;
         if (above->iconic && above->exp_iconify.by_client) continue;
+        if (above->bg_state) continue;
         if (above->comp_data && !above->comp_data->mapped) continue;
         if (!E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h)) continue;
 
@@ -1466,6 +1472,8 @@ _e_vis_ec_activity_check(E_Client *ec, Eina_Bool check_alpha)
    if (check_mapped && ec->comp_data && !ec->comp_data->mapped) return EINA_FALSE;
    /* check iconify window by client */
    if ((ec->iconic) && (ec->exp_iconify.by_client)) return EINA_FALSE;
+   /* check background state */
+   if (ec->bg_state) return EINA_FALSE;
    /* check special client */
    if (_e_vis_ec_special_check(ec)) return EINA_FALSE;
    /* check if full screen */
@@ -1582,6 +1590,9 @@ _e_vis_ec_above_visible_type(E_Client *ec, Eina_Bool check_child)
           }
 
         if (above->iconic && above->exp_iconify.by_client)
+          continue;
+
+        if (above->bg_state)
           continue;
 
         if (above->visibility.obscured == E_VISIBILITY_UNOBSCURED)
@@ -1788,6 +1799,8 @@ _e_vis_transient_group_make(E_Client *ec, Eina_List **list)
           {
              if (!child) continue;
              if (child->iconic && ec->exp_iconify.by_client)
+               continue;
+             if (child->bg_state)
                continue;
 
              if (child->transient_policy == E_TRANSIENT_ABOVE)

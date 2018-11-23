@@ -2547,12 +2547,14 @@ e_client_background_state_set(E_Client *ec, Eina_Bool state)
 
    if (state)
      {
+        ec->bg_state = EINA_TRUE;
         evas_object_hide(ec->frame);
         e_pixmap_image_clear(ec->pixmap, 1);
         EC_CHANGED(ec);
      }
    else
      {
+        ec->bg_state = EINA_FALSE;
         if (ec->iconic)
           e_policy_wl_uniconify(ec);
         else
