@@ -772,6 +772,7 @@ _e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
             (!e_client_util_ignored_get(above)) &&
             (above->visible) &&
             (!above->iconic || e_policy_visibility_client_is_uniconic(above)) &&
+            (!above->bg_state) &&
             (above->frame) &&
             (above->icccm.accepts_focus || above->icccm.take_focus))
           {
@@ -793,6 +794,7 @@ _e_client_focus_can_take(E_Client *ec)
    if (!(ec->icccm.accepts_focus || ec->icccm.take_focus)) return EINA_FALSE;
    if (ec->lock_focus_in || ec->lock_focus_out) return EINA_FALSE;
    if (!ec->visible) return EINA_FALSE;
+   if (ec->bg_state) return EINA_FALSE;
    if (ec->visibility.obscured != E_VISIBILITY_UNOBSCURED)
      {
         if (ec->iconic && e_policy_visibility_client_is_iconic(ec))
@@ -3351,6 +3353,7 @@ _e_client_focus_calculate(E_Zone *zone)
         if (ec->lock_focus_in || ec->lock_focus_out) continue;
         if (!evas_object_visible_get(ec->frame)) continue;
         if (ec->iconic) continue;
+        if (ec->bg_state) continue;
         if (ec->visibility.obscured != E_VISIBILITY_UNOBSCURED) continue;
         if (_e_client_check_fully_contain_by_above(ec, EINA_FALSE)) continue;
 
