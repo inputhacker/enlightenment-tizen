@@ -1550,6 +1550,9 @@ _remote_source_child_data_check(Thread_Data *td)
         if (child_ec->iconic && child_ec->exp_iconify.by_client)
           continue;
 
+        if (child_ec->bg_state)
+          continue;
+
         if (!e_policy_client_is_keyboard(child_ec))
           continue;
 

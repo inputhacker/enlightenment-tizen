@@ -3190,6 +3190,13 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
                             calc_skip_type |= 0x10;
                          }
                     }
+
+                  if (ec->bg_state)
+                    {
+                       EC_IS_NOT_VISIBLE continue;
+                       calc_region = EINA_FALSE;
+                       calc_skip_type |= 0x20;
+                    }
                }
           }
 
@@ -3267,6 +3274,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
               */
              if ((!skip_rot_pending_show) ||
                  (ec->visibility.force_obscured) ||
+                 (ec->bg_state) ||
                  (ec->exp_iconify.by_client))
                {
                   /* obscured case */

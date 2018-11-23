@@ -918,6 +918,7 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
                        if (above_ec->exp_iconify.by_client) continue;
                        if (above_ec->exp_iconify.skip_iconify) continue;
                        if (above_ec->exp_iconify.skip_by_remote) continue;
+                       if (above_ec->bg_state) continue;
 
                        if (above_ec->argb)
                          {
@@ -959,6 +960,7 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
                {
                   if (e_client_util_ignored_get(ec)) return;
                   if (ec->exp_iconify.by_client) return;
+                  if (ec->bg_state) return;
                   if (ec->exp_iconify.skip_iconify) return;
                   if (ec->exp_iconify.skip_by_remote) return;
                   if (!ec->iconic)

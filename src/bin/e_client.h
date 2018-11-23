@@ -933,6 +933,7 @@ struct E_Client
 
    Eina_Bool launching : 1;
    Eina_Bool extra_animating : 1;
+   Eina_Bool bg_state : 1;
 
    struct
    {
