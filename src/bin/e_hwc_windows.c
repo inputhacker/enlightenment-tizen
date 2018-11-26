@@ -69,18 +69,6 @@ _e_hwc_windows_hwc_mode_update(E_Hwc *hwc, int num_client, int num_device, int n
    return hwc_mode;
 }
 
-static int
-_e_hwc_windows_sort_cb(const void *d1, const void *d2)
-{
-   E_Hwc_Window *hwc_window_1 = (E_Hwc_Window *)d1;
-   E_Hwc_Window *hwc_window_2 = (E_Hwc_Window *)d2;
-
-   if (!hwc_window_1) return(-1);
-   if (!hwc_window_2) return(1);
-
-   return (hwc_window_2->zpos - hwc_window_1->zpos);
-}
-
 static unsigned int
 _e_hwc_windows_aligned_width_get(tbm_surface_h tsurface)
 {
@@ -720,36 +708,18 @@ _e_hwc_windows_pp_commit(E_Hwc *hwc)
 static void
 _e_hwc_windows_status_print(E_Hwc *hwc, Eina_Bool with_target)
 {
-    const Eina_List *l;
-    Eina_List *sort_wnds;
-    E_Hwc_Window *hwc_window;
+   Eina_List *visible_windows = hwc->visible_windows;
+   const Eina_List *l;
+   E_Hwc_Window *hwc_window;
 
-    sort_wnds = eina_list_clone(hwc->hwc_windows);
-    sort_wnds = eina_list_sort(sort_wnds, eina_list_count(sort_wnds), _e_hwc_windows_sort_cb);
-
-    EINA_LIST_FOREACH(sort_wnds, l, hwc_window)
-      {
-         if (hwc_window->state == E_HWC_WINDOW_STATE_NONE) continue;
-
-         if (e_hwc_window_is_target(hwc_window))
-           {
-              if (!with_target) continue;
-
-              EHWSTRACE("  ehw:%p ts:%p -- {%25s}, state:%s",
-                        NULL, hwc_window,
-                        hwc_window->buffer.tsurface, "@TARGET WINDOW@",
-                        e_hwc_window_state_string_get(hwc_window->state));
-              continue;
-           }
-
-         EHWSTRACE("  ehw:%p ts:%p -- {%25s}, state:%s, zpos:%d, deleted:%s",
-                   hwc_window->ec, hwc_window,
-                   hwc_window->buffer.tsurface, e_hwc_window_name_get(hwc_window),
-                   e_hwc_window_state_string_get(hwc_window->state),
-                   hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
-      }
-
-    eina_list_free(sort_wnds);
+   EINA_LIST_FOREACH(visible_windows, l, hwc_window)
+     {
+        EHWSTRACE("  ehw:%p ts:%p -- {%25s}, state:%s, zpos:%d, deleted:%s",
+                  hwc_window->ec, hwc_window,
+                  hwc_window->buffer.tsurface, e_hwc_window_name_get(hwc_window),
+                  e_hwc_window_state_string_get(hwc_window->state),
+                  hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
+     }
 }
 
 static E_Hwc_Window *
