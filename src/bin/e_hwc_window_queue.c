@@ -595,6 +595,24 @@ _e_hwc_window_queue_cb_dequeueable(tbm_surface_queue_h surface_queue, void *data
      }
 }
 
+static void
+_e_hwc_window_queue_destroy(E_Hwc_Window_Queue *queue)
+{
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
+
+   if (_hwc_winq_mgr)
+     eina_hash_del(_hwc_winq_mgr->hwc_winq_hash, &queue->tqueue, queue);
+
+   EHWQINF("Destroy tq:%p", NULL, queue, queue->tqueue);
+
+   EINA_LIST_FREE(queue->buffers, queue_buffer)
+     _e_hwc_window_queue_buffer_destroy(queue_buffer);
+
+   wl_signal_emit(&queue->destroy_signal, queue);
+
+   E_FREE(queue);
+}
+
 static Eina_Bool
 _e_hwc_window_queue_prepare_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
 {
@@ -684,6 +702,11 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
         hwc_window = eina_list_nth(queue->user_pending_set, 0);
         if (!_e_hwc_window_queue_prepare_set(queue, hwc_window))
           ERR("fail to queue_prepare_set for user_pending_set queue:%p hwc_window:%p", queue, hwc_window);
+     }
+   else
+     {
+         /* delete the E_Hwc_Window_Queue */
+         _e_hwc_window_queue_destroy(queue);
      }
 }
 
@@ -784,29 +807,13 @@ _e_hwc_window_queue_cb_accepted_state_change(void *data, E_Hwc_Window *hwc_windo
 }
 
 static void
-_e_hwc_window_queue_destroy(E_Hwc_Window_Queue *queue)
-{
-   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
-
-   if (_hwc_winq_mgr)
-     eina_hash_del(_hwc_winq_mgr->hwc_winq_hash, &queue->tqueue, queue);
-
-   EHWQINF("Destroy tq:%p", NULL, queue, queue->tqueue);
-
-   EINA_LIST_FREE(queue->buffers, queue_buffer)
-     _e_hwc_window_queue_buffer_destroy(queue_buffer);
-
-   wl_signal_emit(&queue->destroy_signal, queue);
-
-   E_FREE(queue);
-}
-
-static void
 _e_hwc_window_queue_cb_destroy(tbm_surface_queue_h surface_queue, void *data)
 {
-   E_Hwc_Window_Queue *queue = (E_Hwc_Window_Queue *)data;
-
-   _e_hwc_window_queue_destroy(queue);
+   //TODO: check if the backend delete the tsurface_queue.
+   //      PLEASE Deal with it... if there are pending_users on this queue.
+   //      if the backend deletes the tsurface_queue and
+   //      if there is a pending user at the same equeue(tsurface_queue),
+   //      That means that the backend has the wrong policy at the validation.
 }
 
 static E_Hwc_Window_Queue *
