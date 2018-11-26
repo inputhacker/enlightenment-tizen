@@ -262,7 +262,7 @@ _e_hwc_window_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_q
                  NULL, target_hwc_window, tsurface, "@TARGET WINDOW@");
 
         tbm_surface_internal_add_user_data(tsurface,
-                                           ee_rendered_hw_list_key,
+                                           (unsigned long)&ee_rendered_hw_list_key,
                                            _e_hwc_window_target_window_surface_data_free);
         target_hwc_window->dequeued_tsurface = tsurface;
         target_hwc_window->rendered_tsurface_list = eina_list_append(target_hwc_window->rendered_tsurface_list,
@@ -271,7 +271,7 @@ _e_hwc_window_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_q
    /* tsurface has been released at the queue */
    if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
      {
-        tbm_surface_internal_delete_user_data(tsurface, ee_rendered_hw_list_key);
+        tbm_surface_internal_delete_user_data(tsurface, (unsigned long)&ee_rendered_hw_list_key);
         target_hwc_window->rendered_tsurface_list = eina_list_remove(target_hwc_window->rendered_tsurface_list,
                                                                      tsurface);
      }
@@ -333,7 +333,7 @@ _e_hwc_window_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSED
    ee_rendered_hw_list = eina_list_clone(target_hwc_window->ee_rendered_hw_list);
 
    tbm_surface_internal_set_user_data(target_hwc_window->dequeued_tsurface,
-           ee_rendered_hw_list_key, ee_rendered_hw_list);
+           (unsigned long)&ee_rendered_hw_list_key, ee_rendered_hw_list);
 
    eina_list_free(target_hwc_window->ee_rendered_hw_list);
    target_hwc_window->ee_rendered_hw_list = NULL;
@@ -439,10 +439,10 @@ _e_hwc_window_target_new(E_Hwc *hwc)
                            EVAS_CALLBACK_RENDER_FLUSH_POST,
                            _e_hwc_window_target_window_render_flush_post_cb,
                            target_hwc_window);
-
+#if 0
    /* sorry..., current version of gcc requires an initializer to be evaluated at compile time */
    ee_rendered_hw_list_key = (uintptr_t)&ee_rendered_hw_list_key;
-
+#endif
    return target_hwc_window;
 
 fail:
@@ -871,7 +871,8 @@ _e_hwc_window_target_window_ee_rendered_hw_list_get(E_Hwc_Window_Target *target_
    hwc = target_window->hwc_window.hwc;
 
    target_tsurface = target_window->hwc_window.buffer.tsurface;
-   tbm_surface_internal_get_user_data(target_tsurface, ee_rendered_hw_list_key, (void**)&ee_rendered_hw_list);
+   tbm_surface_internal_get_user_data(target_tsurface, (unsigned long)&ee_rendered_hw_list_key,
+                            (void**)&ee_rendered_hw_list);
 
    /* refresh list of composited e_thwc_windows according to existed ones */
    EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw1)
