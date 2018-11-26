@@ -1838,6 +1838,14 @@ e_hwc_window_device_state_available_check(E_Hwc_Window *hwc_window)
         return EINA_FALSE;
      }
 
+   // if ec->frame is not for client buffer (e.g. launchscreen)
+   if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
+     {
+        EHWTRACE("   -- {%25s} is forced to set CL state.(E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)",
+                  hwc_window->ec, hwc_window, ec->icccm.title);
+        return EINA_TRUE;
+     }
+
    return EINA_TRUE;
 }
 
