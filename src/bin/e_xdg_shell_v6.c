@@ -327,16 +327,19 @@ _e_xdg_toplevel_committed(E_Xdg_Toplevel *toplevel)
    e_pixmap_size_get(ec->pixmap, &pw, &ph);
 
    if ((toplevel->next.state.maximized || toplevel->next.state.fullscreen) &&
-       (toplevel->next.size.w != ec->comp_data->shell.window.w ||
-        toplevel->next.size.h != ec->comp_data->shell.window.h))
+        (toplevel->next.size.w != ec->comp_data->shell.window.w ||
+        toplevel->next.size.h != ec->comp_data->shell.window.h ||
+        toplevel->next.size.w != pw ||
+        toplevel->next.size.h != ph))
      {
         ERR("Xdg_surface buffer does not match the configured state\nmaximized: "
-            "%d fullscreen: %d expected size (%d %d) window size (%d %d)",
+            "%d fullscreen: %d, size:expected(%d %d) shell.request(%d %d) pixmap(%d %d)",
             ec->pixmap, ec,
             toplevel->next.state.maximized,
             toplevel->next.state.fullscreen,
             toplevel->next.size.w, toplevel->next.size.h,
-            ec->comp_data->shell.window.w, ec->comp_data->shell.window.h);
+            ec->comp_data->shell.window.w, ec->comp_data->shell.window.h,
+            pw, ph);
         /* TODO Disable this part for now, but need to consider enabling it later.
          * To enable this part, we first need to ensure that do not send configure
          * with argument of size as 0, and make client ensure that set
@@ -1210,19 +1213,17 @@ _e_xdg_surface_configure(struct wl_resource *resource,
         return;
      }
 
-   if ((exsurf->configured_geometry.x == x) &&
-       (exsurf->configured_geometry.y == y) &&
-       (exsurf->configured_geometry.w == w) &&
-       (exsurf->configured_geometry.h == h))
+   if (!exsurf->configured)
      {
+        // any attempts by a client to attach or manipulate a buffer prior to the first xdg_surface.configure call must
+        // be treated as errors.
+        ERR("Could not handle %s prior to the first xdg_surface.configure",
+           exsurf->ec->pixmap, exsurf->ec,
+           _e_xdg_surface_util_role_string_get(exsurf));
         return;
      }
 
    EINA_RECTANGLE_SET(&exsurf->configured_geometry, x, y, w, h);
-
-   LOG("Configure %s geometry (%d %d %d %d)",
-       exsurf->ec->pixmap, exsurf->ec,
-       _e_xdg_surface_util_role_string_get(exsurf), x, y, w, h);
 
    e_client_util_move_resize_without_frame(exsurf->ec, x, y, w, h);
 }
