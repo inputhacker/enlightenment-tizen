@@ -1131,14 +1131,6 @@ _e_hwc_windows_all_client_states_available_check(E_Hwc *hwc)
                    return EINA_TRUE;
                }
           }
-
-        // if ec->frame is not for client buffer (e.g. launchscreen)
-        if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
-          {
-             EHWSTRACE("  HWC_MODE_NONE due to E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE{%25s}.",
-                       ec, ec->icccm.title);
-             return EINA_TRUE;
-          }
      }
 
    return EINA_FALSE;
