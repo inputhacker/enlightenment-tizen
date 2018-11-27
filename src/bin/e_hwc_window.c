@@ -242,8 +242,11 @@ _e_hwc_window_target_window_surface_data_free(void *data)
    Eina_List *ee_rendered_hw_list = (Eina_List *)data;
    E_Hwc_Window *hwc_window = NULL;
 
-   EINA_LIST_FREE(ee_rendered_hw_list, hwc_window)
-     e_object_unref(E_OBJECT(hwc_window));
+  if (eina_list_count(ee_rendered_hw_list))
+    {
+        EINA_LIST_FREE(ee_rendered_hw_list, hwc_window)
+          e_object_unref(E_OBJECT(hwc_window));
+    }
 }
 
 /* gets called as somebody modifies target_window's queue */
@@ -321,8 +324,11 @@ _e_hwc_window_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSED
      {
         WRN("flush_post_cb is called but tsurface isn't dequeued");
 
-        EINA_LIST_FREE(target_hwc_window->ee_rendered_hw_list, hwc_window)
-          e_object_unref(E_OBJECT(hwc_window));
+        if (eina_list_count(target_hwc_window->ee_rendered_hw_list))
+          {
+             EINA_LIST_FREE(target_hwc_window->ee_rendered_hw_list, hwc_window)
+               e_object_unref(E_OBJECT(hwc_window));
+          }
 
         target_hwc_window->ee_rendered_hw_list = NULL;
         return;
