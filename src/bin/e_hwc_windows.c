@@ -1257,6 +1257,10 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
    Eina_Bool update_changes = EINA_FALSE;
    const Eina_List *l;
 
+   /* update the the visible windows */
+   if (_e_hwc_windows_visible_windows_update(hwc))
+     update_changes = EINA_TRUE;
+
    /* fetch the target buffer */
    if (e_hwc_window_target_buffer_fetch(hwc->target_hwc_window)) // try aquire
      update_changes = EINA_TRUE;
@@ -1280,10 +1284,6 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
         if (e_hwc_window_info_update(hwc_window))
           update_changes = EINA_TRUE;
      }
-
-   /* update the the visible windows */
-   if (_e_hwc_windows_visible_windows_update(hwc))
-     update_changes = EINA_TRUE;
 
    /* update the states of the visible windows when there is something to update */
    if (update_changes)
