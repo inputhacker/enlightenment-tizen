@@ -1231,8 +1231,11 @@ _e_hwc_windows_visible_windows_update(E_Hwc *hwc)
    if (!_e_hwc_windows_visible_windows_changed_check(hwc, visible_windows, visible_num))
      return EINA_FALSE;
 
-   EINA_LIST_FREE(hwc->visible_windows, hwc_window)
-     e_object_unref(E_OBJECT(hwc_window));
+  if (eina_list_count(hwc->visible_windows))
+    {
+       EINA_LIST_FREE(hwc->visible_windows, hwc_window)
+          e_object_unref(E_OBJECT(hwc_window));
+    }
 
    /* store the current visible windows and the number of them */
    hwc->visible_windows = eina_list_clone(visible_windows);
