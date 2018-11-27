@@ -307,8 +307,6 @@ _e_hwc_window_queue_buffer_destroy(E_Hwc_Window_Queue_Buffer *queue_buffer)
 {
    EINA_SAFETY_ON_FALSE_RETURN(queue_buffer);
 
-   wl_list_remove(&queue_buffer->exported_destroy_listener.link);
-
    E_FREE(queue_buffer);
 }
 
@@ -356,6 +354,7 @@ _e_hwc_window_queue_exported_buffer_destroy_cb(struct wl_listener *listener, voi
    queue = queue_buffer->queue;
    queue_buffer->exported = EINA_FALSE;
    queue_buffer->exported_wl_buffer = NULL;
+   wl_list_remove(&queue_buffer->exported_destroy_listener.link);
 
    if (!queue_buffer->acquired && queue_buffer->dequeued)
      e_hwc_window_queue_buffer_release(queue, queue_buffer);
