@@ -49,6 +49,7 @@ struct _E_Config
         unsigned int  type;
      } launcher;
    Eina_List  *policy_desks;
+   int         use_softkey_service;
    int         use_softkey;
    int         softkey_size;
    int         window_placement_policy;

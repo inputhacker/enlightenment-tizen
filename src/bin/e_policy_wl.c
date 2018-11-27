@@ -6,6 +6,7 @@
 #include "services/e_service_indicator.h"
 #include "services/e_service_cbhm.h"
 #include "services/e_service_scrsaver.h"
+#include "services/e_service_softkey.h"
 #include "e_policy_wl_display.h"
 #include "e_policy_conformant_internal.h"
 #include "e_policy_visibility.h"
@@ -30,6 +31,7 @@ typedef enum _Tzsh_Srv_Role
    TZSH_SRV_ROLE_SCREENSAVER_MNG,
    TZSH_SRV_ROLE_SCREENSAVER,
    TZSH_SRV_ROLE_CBHM,
+   TZSH_SRV_ROLE_SOFTKEY,
    TZSH_SRV_ROLE_MAX
 } Tzsh_Srv_Role;
 
@@ -528,6 +530,16 @@ _e_policy_wl_tzsh_client_unset(E_Client *ec)
              if (tzsh2 == tzsh)
                _e_policy_wl_tzsh_srv_unregister_handle(tzsh_srv);
           }
+
+        tzsh_srv = polwl->srvs[TZSH_SRV_ROLE_SOFTKEY];
+        if (tzsh_srv)
+          {
+             if (tzsh_srv->tzsh == tzsh)
+               {
+                  e_service_softkey_client_unset(ec);
+                  tzsh->ec = NULL;
+               }
+          }
      }
    else
      {
@@ -588,6 +600,16 @@ _e_policy_wl_tzsh_srv_del(E_Policy_Wl_Tzsh_Srv *tzsh_srv)
 
         _indicator_srv_res = NULL;
      }
+   else if (tzsh_srv->role == TZSH_SRV_ROLE_SOFTKEY)
+     {
+        E_Client *softkey_ec = NULL;
+
+        softkey_ec = tzsh_srv->tzsh->ec;
+        if (softkey_ec)
+          {
+             e_service_softkey_client_unset(softkey_ec);
+          }
+     }
 
    memset(tzsh_srv, 0x0, sizeof(E_Policy_Wl_Tzsh_Srv));
    E_FREE(tzsh_srv);
@@ -607,6 +629,7 @@ _e_policy_wl_tzsh_srv_role_get(const char *name)
    else if (!e_util_strcmp(name, "screensaver_manager")) role = TZSH_SRV_ROLE_SCREENSAVER_MNG;
    else if (!e_util_strcmp(name, "screensaver"        )) role = TZSH_SRV_ROLE_SCREENSAVER;
    else if (!e_util_strcmp(name, "cbhm"               )) role = TZSH_SRV_ROLE_CBHM;
+   else if (!e_util_strcmp(name, "softkey"            )) role = TZSH_SRV_ROLE_SOFTKEY;
 
    return role;
 }
@@ -3546,6 +3569,87 @@ _tzsh_srv_iface_cb_quickpanel_get(struct wl_client *client, struct wl_resource *
    wl_resource_set_implementation(res, &_tzsh_srv_qp_iface, tzsh_srv, NULL);
 }
 
+
+
+static void
+_tzsh_srv_softkey_cb_destroy(struct wl_client *client EINA_UNUSED, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
+static void
+_tzsh_srv_softkey_cb_msg_send(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, uint32_t msg)
+{
+   E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+   E_Service_Softkey *softkey;
+   E_Client *softkey_ec;
+
+   tzsh_srv = wl_resource_get_user_data(resource);
+
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh);
+
+   softkey_ec = tzsh_srv->tzsh->ec;
+   EINA_SAFETY_ON_NULL_RETURN(softkey_ec);
+
+   softkey = e_service_softkey_get(softkey_ec->zone);
+   EINA_SAFETY_ON_NULL_RETURN(softkey);
+
+   switch (msg)
+     {
+      case TWS_SERVICE_SOFTKEY_MSG_SHOW:
+         e_service_softkey_show(softkey);
+         break;
+      case TWS_SERVICE_SOFTKEY_MSG_HIDE:
+         e_service_softkey_hide(softkey);
+         break;
+      default:
+         ERR("Unknown message!! msg %d", msg);
+         break;
+     }
+}
+
+static const struct tws_service_softkey_interface _tzsh_srv_softkey_iface =
+{
+   _tzsh_srv_softkey_cb_destroy,
+   _tzsh_srv_softkey_cb_msg_send,
+};
+
+static void
+_tzsh_srv_iface_cb_softkey_get(struct wl_client *client, struct wl_resource *res_tzsh_srv, uint32_t id)
+{
+   E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+   E_Service_Softkey *softkey = NULL;
+   struct wl_resource *res;
+
+   tzsh_srv = wl_resource_get_user_data(res_tzsh_srv);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv);
+
+   if (!eina_list_data_find(polwl->tzsh_srvs, tzsh_srv))
+     return;
+
+   res = wl_resource_create(client, &tws_service_softkey_interface, 1, id);
+   if (!res)
+     {
+        wl_client_post_no_memory(client);
+        return;
+     }
+
+   ELOGF("TZSH", "[SOFTKEY SERVICE] resource created. res:%p, res_tzsh_srv:%p, id:%d", NULL, NULL, res, res_tzsh_srv, id);
+
+   if (tzsh_srv->tzsh && tzsh_srv->tzsh->ec)
+     {
+        E_Client *softkey_ec = tzsh_srv->tzsh->ec;
+        softkey = e_service_softkey_get(softkey_ec->zone);
+        ELOGF("TZSH", "[SOFTKEY SERVICE] resource set. res:%p, softkey:%p, softkey_ec:%p", NULL, NULL, res, softkey, softkey_ec);
+        if (softkey)
+          e_service_softkey_wl_resource_set(softkey, res);
+     }
+
+   wl_resource_set_implementation(res, &_tzsh_srv_softkey_iface, tzsh_srv, NULL);
+}
+
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 static void
 _tzsh_srv_scrsaver_cb_release(struct wl_client *client EINA_UNUSED, struct wl_resource *resource)
@@ -3775,6 +3879,7 @@ static const struct tws_service_interface _tzsh_srv_iface =
    _tzsh_srv_iface_cb_scrsaver_mng_get,
    _tzsh_srv_iface_cb_scrsaver_get,
    _tzsh_srv_iface_cb_cbhm_get,
+   _tzsh_srv_iface_cb_softkey_get,
 };
 
 static void
@@ -3903,6 +4008,8 @@ _tzsh_iface_cb_srv_create(struct wl_client *client, struct wl_resource *res_tzsh
      e_mod_indicator_client_set(tzsh->ec);
    else if (role == TZSH_SRV_ROLE_CBHM)
      e_service_cbhm_client_set(tzsh->ec);
+   else if (role == TZSH_SRV_ROLE_SOFTKEY)
+     e_service_softkey_client_set(tzsh->ec);
 }
 
 // --------------------------------------------------------
@@ -4752,7 +4859,7 @@ _tzsh_softkey_iface_cb_support_check(struct wl_client *client EINA_UNUSED, struc
    if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
      return;
 
-   if (e_config->use_softkey)
+   if (e_config->use_softkey || e_config->use_softkey_service)
      support = 1;
    else
      support = 0;
@@ -4764,12 +4871,12 @@ _tzsh_softkey_iface_cb_support_check(struct wl_client *client EINA_UNUSED, struc
 static void
 _tzsh_softkey_iface_cb_show(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzsh_softkey)
 {
-   E_Policy_Softkey *softkey;
    E_Policy_Wl_Tzsh_Client *tzsh_client;
 
    ELOGF("TZ_SOFTKEY", "Request to Show softkey", NULL, NULL);
 
-   if (!e_config->use_softkey) return;
+   if (!e_config->use_softkey && !e_config->use_softkey_service)
+     return;
 
    tzsh_client = wl_resource_get_user_data(res_tzsh_softkey);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
@@ -4779,23 +4886,38 @@ _tzsh_softkey_iface_cb_show(struct wl_client *client EINA_UNUSED, struct wl_reso
    if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
      return;
 
-   softkey = e_policy_softkey_get(tzsh_client->tzsh->ec->zone);
-   if (softkey)
+   if (e_config->use_softkey)
      {
-        ELOGF("TZ_SOFTKEY", "SHOW softkey", NULL, NULL);
-        e_policy_softkey_show(softkey);
+        E_Policy_Softkey *softkey;
+        softkey = e_policy_softkey_get(tzsh_client->tzsh->ec->zone);
+        if (softkey)
+          {
+             ELOGF("TZ_SOFTKEY", "SHOW softkey", NULL, NULL);
+             e_policy_softkey_show(softkey);
+          }
+     }
+
+   if (e_config->use_softkey_service)
+     {
+        E_Service_Softkey *softkey;
+        softkey = e_service_softkey_get(tzsh_client->tzsh->ec->zone);
+        if (softkey)
+          {
+             ELOGF("TZ_SOFTKEY", "Request to SHOW softkey. (service:%p)", NULL, NULL, softkey);
+             e_service_softkey_visible_set(softkey, 1);
+          }
      }
 }
 
 static void
 _tzsh_softkey_iface_cb_hide(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzsh_softkey)
 {
-   E_Policy_Softkey *softkey;
    E_Policy_Wl_Tzsh_Client *tzsh_client;
 
    ELOGF("TZ_SOFTKEY", "Request to Hide softkey", NULL, NULL);
 
-   if (!e_config->use_softkey) return;
+   if (!e_config->use_softkey && !e_config->use_softkey_service)
+     return;
 
    tzsh_client = wl_resource_get_user_data(res_tzsh_softkey);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
@@ -4805,25 +4927,40 @@ _tzsh_softkey_iface_cb_hide(struct wl_client *client EINA_UNUSED, struct wl_reso
    if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
      return;
 
-   softkey = e_policy_softkey_get(tzsh_client->tzsh->ec->zone);
-   if (softkey)
+   if (e_config->use_softkey)
      {
-        ELOGF("TZ_SOFTKEY", "HIDE softkey", NULL, NULL);
-        e_policy_softkey_hide(softkey);
+        E_Policy_Softkey *softkey;
+        softkey = e_policy_softkey_get(tzsh_client->tzsh->ec->zone);
+        if (softkey)
+          {
+             ELOGF("TZ_SOFTKEY", "HIDE softkey", NULL, NULL);
+             e_policy_softkey_hide(softkey);
+          }
+     }
+
+   if (e_config->use_softkey_service)
+     {
+        E_Service_Softkey *softkey;
+        softkey = e_service_softkey_get(tzsh_client->tzsh->ec->zone);
+        if (softkey)
+          {
+             ELOGF("TZ_SOFTKEY", "Request to HIDE softkey. (service:%p)", NULL, NULL, softkey);
+             e_service_softkey_visible_set(softkey, 0);
+          }
      }
 }
 
 static void
 _tzsh_softkey_iface_cb_state_set(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzsh_softkey, int32_t type, int32_t val)
 {
-   E_Policy_Softkey *softkey;
    E_Policy_Wl_Tzsh_Client *tzsh_client;
    E_Policy_Softkey_Expand expand;
    E_Policy_Softkey_Opacity opacity;
 
    ELOGF("TZ_SOFTKEY", "Request to Set state (tz_type:%d, tz_val:%d)", NULL, NULL, type, val);
 
-   if (!e_config->use_softkey) return;
+   if (!e_config->use_softkey && !e_config->use_softkey_service)
+     return;
 
    tzsh_client = wl_resource_get_user_data(res_tzsh_softkey);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
@@ -4833,40 +4970,77 @@ _tzsh_softkey_iface_cb_state_set(struct wl_client *client EINA_UNUSED, struct wl
    if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
      return;
 
-   softkey = e_policy_softkey_get(tzsh_client->tzsh->ec->zone);
-   if (!softkey) return;
-
-   switch (type)
+   if (e_config->use_softkey)
      {
-      case TWS_SOFTKEY_STATE_EXPAND:
-         if (val == TWS_SOFTKEY_STATE_EXPAND_ON)
-           expand = E_POLICY_SOFTKEY_EXPAND_ON;
-         else
-           expand = E_POLICY_SOFTKEY_EXPAND_OFF;
+        E_Policy_Softkey *softkey;
+        softkey = e_policy_softkey_get(tzsh_client->tzsh->ec->zone);
+        if (!softkey) return;
 
-         ELOGF("TZ_SOFTKEY", "Set EXPAND state to %d", NULL, NULL, expand);
-         e_policy_softkey_expand_set(softkey, expand);
-         break;
+        switch (type)
+          {
+           case TWS_SOFTKEY_STATE_EXPAND:
+              if (val == TWS_SOFTKEY_STATE_EXPAND_ON)
+                expand = E_POLICY_SOFTKEY_EXPAND_ON;
+              else
+                expand = E_POLICY_SOFTKEY_EXPAND_OFF;
 
-      case TWS_SOFTKEY_STATE_OPACITY:
-         if (val == TWS_SOFTKEY_STATE_OPACITY_TRANSPARENT)
-           opacity = E_POLICY_SOFTKEY_OPACITY_TRANSPARENT;
-         else
-           opacity = E_POLICY_SOFTKEY_OPACITY_OPAQUE;
+              ELOGF("TZ_SOFTKEY", "Set EXPAND state to %d", NULL, NULL, expand);
+              e_policy_softkey_expand_set(softkey, expand);
+              break;
 
-         ELOGF("TZ_SOFTKEY", "Set OPACITY state to %d", NULL, NULL, opacity);
-         e_policy_softkey_opacity_set(softkey, opacity);
-         break;
+           case TWS_SOFTKEY_STATE_OPACITY:
+              if (val == TWS_SOFTKEY_STATE_OPACITY_TRANSPARENT)
+                opacity = E_POLICY_SOFTKEY_OPACITY_TRANSPARENT;
+              else
+                opacity = E_POLICY_SOFTKEY_OPACITY_OPAQUE;
 
-      default:
-         break;
+              ELOGF("TZ_SOFTKEY", "Set OPACITY state to %d", NULL, NULL, opacity);
+              e_policy_softkey_opacity_set(softkey, opacity);
+              break;
+
+           default:
+              break;
+          }
+     }
+
+   if (e_config->use_softkey_service)
+     {
+        E_Service_Softkey *softkey;
+
+        softkey = e_service_softkey_get(tzsh_client->tzsh->ec->zone);
+        if (!softkey) return;
+
+        switch (type)
+          {
+           case TWS_SOFTKEY_STATE_EXPAND:
+              if (val == TWS_SOFTKEY_STATE_EXPAND_ON)
+                expand = E_POLICY_SOFTKEY_EXPAND_ON;
+              else
+                expand = E_POLICY_SOFTKEY_EXPAND_OFF;
+
+              ELOGF("TZ_SOFTKEY", "Request to Change EXPAND state to %d. (service:%p)", NULL, NULL, expand, softkey);
+              e_service_softkey_expand_set(softkey, expand);
+              break;
+
+           case TWS_SOFTKEY_STATE_OPACITY:
+              if (val == TWS_SOFTKEY_STATE_OPACITY_TRANSPARENT)
+                opacity = E_POLICY_SOFTKEY_OPACITY_TRANSPARENT;
+              else
+                opacity = E_POLICY_SOFTKEY_OPACITY_OPAQUE;
+
+              ELOGF("TZ_SOFTKEY", "Request to Change OPACITY state to %d. (service:%p)", NULL, NULL, opacity, softkey);
+              e_service_softkey_opacity_set(softkey, opacity);
+              break;
+
+           default:
+              break;
+          }
      }
 }
 
 static void
 _tzsh_softkey_iface_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzsh_softkey, int32_t type)
 {
-   E_Policy_Softkey *softkey;
    E_Policy_Wl_Tzsh_Client *tzsh_client;
    E_Policy_Softkey_Expand expand;
    E_Policy_Softkey_Opacity opacity;
@@ -4875,7 +5049,8 @@ _tzsh_softkey_iface_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl
 
    ELOGF("TZ_SOFTKEY", "Request to Get state (tz_type:%d)", NULL, NULL, type);
 
-   if (!e_config->use_softkey) return;
+   if (!e_config->use_softkey && !e_config->use_softkey_service)
+     return;
 
    tzsh_client = wl_resource_get_user_data(res_tzsh_softkey);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
@@ -4885,46 +5060,96 @@ _tzsh_softkey_iface_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl
    if (!eina_list_data_find(polwl->tzsh_clients, tzsh_client))
      return;
 
-   softkey = e_policy_softkey_get(tzsh_client->tzsh->ec->zone);
-   if (!softkey) return;
-
-   switch (type)
+   if (e_config->use_softkey)
      {
-      case TWS_SOFTKEY_STATE_VISIBLE:
-         visible = e_policy_softkey_visible_get(softkey);
-         if (visible)
-           val = TWS_SOFTKEY_STATE_VISIBLE_SHOW;
-         else
-           val = TWS_SOFTKEY_STATE_VISIBLE_HIDE;
+        E_Policy_Softkey *softkey;
+        softkey = e_policy_softkey_get(tzsh_client->tzsh->ec->zone);
+        if (!softkey) return;
 
-         ELOGF("TZ_SOFTKEY", "Send current VISIBLE state: %d (tz_val:%d)", NULL, NULL, visible, val);
-         tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
-         break;
+        switch (type)
+          {
+           case TWS_SOFTKEY_STATE_VISIBLE:
+              visible = e_policy_softkey_visible_get(softkey);
+              if (visible)
+                val = TWS_SOFTKEY_STATE_VISIBLE_SHOW;
+              else
+                val = TWS_SOFTKEY_STATE_VISIBLE_HIDE;
 
-      case TWS_SOFTKEY_STATE_EXPAND:
-         e_policy_softkey_expand_get(softkey, &expand);
-         if (expand == E_POLICY_SOFTKEY_EXPAND_ON)
-           val = TWS_SOFTKEY_STATE_EXPAND_ON;
-         else
-           val = TWS_SOFTKEY_STATE_EXPAND_OFF;
+              ELOGF("TZ_SOFTKEY", "Send current VISIBLE state: %d (tz_val:%d)", NULL, NULL, visible, val);
+              tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
+              break;
 
-         ELOGF("TZ_SOFTKEY", "Send current EXPAND state: %d (tz_val:%d)", NULL, NULL, expand, val);
-         tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
-         break;
+           case TWS_SOFTKEY_STATE_EXPAND:
+              e_policy_softkey_expand_get(softkey, &expand);
+              if (expand == E_POLICY_SOFTKEY_EXPAND_ON)
+                val = TWS_SOFTKEY_STATE_EXPAND_ON;
+              else
+                val = TWS_SOFTKEY_STATE_EXPAND_OFF;
 
-      case TWS_SOFTKEY_STATE_OPACITY:
-         e_policy_softkey_opacity_get(softkey, &opacity);
-         if (opacity == E_POLICY_SOFTKEY_OPACITY_TRANSPARENT)
-           val = TWS_SOFTKEY_STATE_OPACITY_TRANSPARENT;
-         else
-           val = TWS_SOFTKEY_STATE_OPACITY_OPAQUE;
+              ELOGF("TZ_SOFTKEY", "Send current EXPAND state: %d (tz_val:%d)", NULL, NULL, expand, val);
+              tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
+              break;
 
-         ELOGF("TZ_SOFTKEY", "Send current OPACITY state: %d (tz_val:%d)", NULL, NULL, opacity, val);
-         tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
-         break;
+           case TWS_SOFTKEY_STATE_OPACITY:
+              e_policy_softkey_opacity_get(softkey, &opacity);
+              if (opacity == E_POLICY_SOFTKEY_OPACITY_TRANSPARENT)
+                val = TWS_SOFTKEY_STATE_OPACITY_TRANSPARENT;
+              else
+                val = TWS_SOFTKEY_STATE_OPACITY_OPAQUE;
 
-      default:
-         break;
+              ELOGF("TZ_SOFTKEY", "Send current OPACITY state: %d (tz_val:%d)", NULL, NULL, opacity, val);
+              tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
+              break;
+
+           default:
+              break;
+          }
+     }
+
+   if (e_config->use_softkey_service)
+     {
+        E_Service_Softkey *softkey;
+        softkey = e_service_softkey_get(tzsh_client->tzsh->ec->zone);
+        if (!softkey) return;
+
+        switch (type)
+          {
+           case TWS_SOFTKEY_STATE_VISIBLE:
+              visible = e_service_softkey_visible_get(softkey);
+              if (visible)
+                val = TWS_SOFTKEY_STATE_VISIBLE_SHOW;
+              else
+                val = TWS_SOFTKEY_STATE_VISIBLE_HIDE;
+
+              ELOGF("TZ_SOFTKEY", "Send service's current VISIBLE state: %d (tz_val:%d)", NULL, NULL, visible, val);
+              tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
+              break;
+
+           case TWS_SOFTKEY_STATE_EXPAND:
+              e_service_softkey_expand_get(softkey, &expand);
+              if (expand == E_POLICY_SOFTKEY_EXPAND_ON)
+                val = TWS_SOFTKEY_STATE_EXPAND_ON;
+              else
+                val = TWS_SOFTKEY_STATE_EXPAND_OFF;
+
+              ELOGF("TZ_SOFTKEY", "Send service's current EXPAND state: %d (tz_val:%d)", NULL, NULL, expand, val);
+              tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
+              break;
+
+           case TWS_SOFTKEY_STATE_OPACITY:
+              e_service_softkey_opacity_get(softkey, &opacity);
+              if (opacity == E_POLICY_SOFTKEY_OPACITY_TRANSPARENT)
+                val = TWS_SOFTKEY_STATE_OPACITY_TRANSPARENT;
+              else
+                val = TWS_SOFTKEY_STATE_OPACITY_OPAQUE;
+
+              ELOGF("TZ_SOFTKEY", "Send service's current OPACITY state: %d (tz_val:%d)", NULL, NULL, opacity, val);
+              tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
+              break;
+
+           default:
+              break;
+          }
      }
 }
 
@@ -6545,9 +6770,10 @@ e_policy_wl_init(void)
 
    global = wl_global_create(e_comp_wl->wl.disp,
                              &tizen_ws_shell_interface,
-                             1,
+                             2,
                              NULL,
                              _tzsh_cb_bind);
+
    EINA_SAFETY_ON_NULL_GOTO(global, err);
    polwl->globals = eina_list_append(polwl->globals, global);
 

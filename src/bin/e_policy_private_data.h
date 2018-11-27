@@ -34,6 +34,9 @@ e_policy_angle_get(E_Policy_Angle_Map map)
    return map * 90;
 }
 
+/* layer level - E_LAYER_CLIENT_ALERT_HIGH (950) */
+# define E_POLICY_SOFTKEY_LAYER     E_LAYER_CLIENT_ALERT_HIGH
+
 /* layer level - E_LAYER_CLIENT_ALERT (900) */
 # define E_POLICY_SCRSAVER_LAYER    E_LAYER_CLIENT_ALERT
 # define E_POLICY_VOLUME_LAYER      E_LAYER_CLIENT_ALERT

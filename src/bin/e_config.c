@@ -182,6 +182,7 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, launcher.clas, STR);
    E_CONFIG_VAL(D, T, launcher.type, UINT);
    E_CONFIG_LIST(D, T, policy_desks, _e_config_policy_desk_edd);
+   E_CONFIG_VAL(D, T, use_softkey_service, INT);
    E_CONFIG_VAL(D, T, use_softkey, INT);
    E_CONFIG_VAL(D, T, softkey_size, INT);
    E_CONFIG_VAL(D, T, focus_policy, INT);
@@ -453,6 +454,7 @@ e_config_load(void)
    E_CONFIG_LIMIT(e_config->zone_desks_x_count, 1, 64);
    E_CONFIG_LIMIT(e_config->zone_desks_y_count, 1, 64);
    E_CONFIG_LIMIT(e_config->use_e_policy, 0, 1);
+   E_CONFIG_LIMIT(e_config->use_softkey_service, 0, 1);
    E_CONFIG_LIMIT(e_config->use_softkey, 0, 1);
    E_CONFIG_LIMIT(e_config->softkey_size, 0, 42);
    E_CONFIG_LIMIT(e_config->window_placement_policy, E_WINDOW_PLACEMENT_SMART, E_WINDOW_PLACEMENT_MANUAL);
