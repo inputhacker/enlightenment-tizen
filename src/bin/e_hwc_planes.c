@@ -22,6 +22,8 @@ _e_hwc_planes_ec_check(E_Client *ec)
    int minw = 0, minh = 0;
    int transform;
 
+   if (ec->comp_override > 0) return EINA_FALSE;
+
    if ((!cdata) ||
        (!cdata->buffer_ref.buffer) ||
        (cdata->width_from_buffer != cdata->width_from_viewport) ||
