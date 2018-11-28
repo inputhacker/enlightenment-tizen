@@ -1311,6 +1311,13 @@ e_hwc_window_device_state_available_check(E_Hwc_Window *hwc_window)
         return EINA_FALSE;
      }
 
+   if (e_comp_object_is_animating(ec->frame))
+     {
+        EHWTRACE("   -- {%25s} is forced to set CL state.(animating)",
+                 hwc_window->ec, hwc_window, ec->icccm.title);
+        return EINA_FALSE;
+     }
+
    cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    if ((!cdata) || (!cdata->buffer_ref.buffer))
      {
