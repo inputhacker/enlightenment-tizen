@@ -1,15 +1,7 @@
 #include "e.h"
 
-# include <Evas_Engine_GL_Tbm.h>
-# include <Evas_Engine_Software_Tbm.h>
-# include <sys/eventfd.h>
-# include <gbm/gbm_tbm.h>
 # include <pixman.h>
 # include <wayland-tbm-server.h>
-
-#ifndef CLEAR
-#define CLEAR(x) memset(&(x), 0, sizeof (x))
-#endif
 
 #define EHWINF(f, ec, ehw, x...)                                \
    do                                                           \
@@ -49,7 +41,6 @@
 static Eina_Bool ehw_trace = EINA_TRUE;
 static Eina_List *hwc_window_client_hooks = NULL;
 static Eina_List *hwc_window_event_hdlrs = NULL;
-static uint64_t ee_rendered_hw_list_key;
 
 static int _e_hwc_window_hooks_delete = 0;
 static int _e_hwc_window_hooks_walking = 0;
@@ -237,136 +228,6 @@ _e_hwc_window_buffer_set(E_Hwc_Window_Buffer *window_buffer,
 }
 
 static void
-_e_hwc_window_target_window_surface_data_free(void *data)
-{
-   Eina_List *ee_rendered_hw_list = (Eina_List *)data;
-   E_Hwc_Window *hwc_window = NULL;
-
-  if (eina_list_count(ee_rendered_hw_list))
-    {
-        EINA_LIST_FREE(ee_rendered_hw_list, hwc_window)
-          e_object_unref(E_OBJECT(hwc_window));
-    }
-}
-
-/* gets called as somebody modifies target_window's queue */
-static void
-_e_hwc_window_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_queue,
-        tbm_surface_h tsurface, tbm_surface_queue_trace trace, void *data)
-{
-   E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
-
-   /* gets called as evas_renderer dequeues a new buffer from the queue */
-   if (trace == TBM_SURFACE_QUEUE_TRACE_DEQUEUE)
-     {
-        if (!target_hwc_window->is_rendering) return;
-
-        EHWTRACE("gets dequeue noti ts:%p -- {%s}.",
-                 NULL, target_hwc_window, tsurface, "@TARGET WINDOW@");
-
-        tbm_surface_internal_add_user_data(tsurface,
-                                           (unsigned long)&ee_rendered_hw_list_key,
-                                           _e_hwc_window_target_window_surface_data_free);
-        target_hwc_window->dequeued_tsurface = tsurface;
-        target_hwc_window->rendered_tsurface_list = eina_list_append(target_hwc_window->rendered_tsurface_list,
-                                                                     tsurface);
-     }
-   /* tsurface has been released at the queue */
-   if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
-     {
-        tbm_surface_internal_delete_user_data(tsurface, (unsigned long)&ee_rendered_hw_list_key);
-        target_hwc_window->rendered_tsurface_list = eina_list_remove(target_hwc_window->rendered_tsurface_list,
-                                                                     tsurface);
-     }
-}
-
-/* gets called as evas_renderer enqueues a new buffer into the queue */
-static void
-_e_hwc_window_target_window_surface_queue_acquirable_cb(tbm_surface_queue_h surface_queue, void *data)
-{
-    E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
-    uint64_t value = 1;
-    int ret;
-
-    ret = write(target_hwc_window->event_fd, &value, sizeof(value));
-    if (ret == -1)
-      ERR("failed to send acquirable event:%m");
-}
-
-/* gets called at the beginning of an ecore_main_loop iteration */
-static Eina_Bool
-_e_hwc_window_target_window_render_finished_cb(void *data, Ecore_Fd_Handler *fd_handler)
-{
-   int len;
-   int fd;
-   char buffer[64];
-
-   fd = ecore_main_fd_handler_fd_get(fd_handler);
-   if (fd < 0) return ECORE_CALLBACK_RENEW;
-
-   len = read(fd, buffer, sizeof(buffer));
-   if (len == -1)
-     ERR("failed to read queue acquire event fd:%m");
-
-   return ECORE_CALLBACK_RENEW;
-}
-
-static void
-_e_hwc_window_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
-   E_Hwc_Window *hwc_window = NULL;
-   Eina_List *ee_rendered_hw_list;
-
-   EHWTRACE("gets render_flush_post noti ------ {@TARGET WINDOW@}", NULL, target_hwc_window);
-
-   if (!target_hwc_window->dequeued_tsurface)
-     {
-        WRN("flush_post_cb is called but tsurface isn't dequeued");
-
-        if (eina_list_count(target_hwc_window->ee_rendered_hw_list))
-          {
-             EINA_LIST_FREE(target_hwc_window->ee_rendered_hw_list, hwc_window)
-               e_object_unref(E_OBJECT(hwc_window));
-          }
-
-        target_hwc_window->ee_rendered_hw_list = NULL;
-        return;
-     }
-
-   /* all ecs have been composited so we can attach a list of composited e_hwc_windows to the surface
-    * which contains their ecs composited */
-   ee_rendered_hw_list = eina_list_clone(target_hwc_window->ee_rendered_hw_list);
-
-   tbm_surface_internal_set_user_data(target_hwc_window->dequeued_tsurface,
-           (unsigned long)&ee_rendered_hw_list_key, ee_rendered_hw_list);
-
-   eina_list_free(target_hwc_window->ee_rendered_hw_list);
-   target_hwc_window->ee_rendered_hw_list = NULL;
-   target_hwc_window->dequeued_tsurface = NULL;
-}
-
-static void
-_e_hwc_window_target_free(E_Hwc_Window_Target *target_hwc_window)
-{
-   E_Hwc_Window *target_window = (E_Hwc_Window *)target_hwc_window;
-
-   evas_event_callback_del(target_hwc_window->evas,
-                           EVAS_CALLBACK_RENDER_FLUSH_POST,
-                           _e_hwc_window_target_window_render_flush_post_cb);
-
-   ecore_main_fd_handler_del(target_hwc_window->event_hdlr);
-   close(target_hwc_window->event_fd);
-
-   if (target_window->queue->tqueue)
-     tbm_surface_queue_destroy(target_window->queue->tqueue);
-
-   EHWINF("Free target window", NULL, target_hwc_window);
-
-   E_FREE(target_hwc_window);
-}
-
-static void
 _e_hwc_window_cb_queue_destroy(struct wl_listener *listener, void *data)
 {
    E_Hwc_Window *hwc_window = NULL;
@@ -377,99 +238,6 @@ _e_hwc_window_cb_queue_destroy(struct wl_listener *listener, void *data)
    if ((E_Hwc_Window_Queue *)data != hwc_window->queue) return;
 
    hwc_window->queue = NULL;
-}
-
-static E_Hwc_Window_Target *
-_e_hwc_window_target_new(E_Hwc *hwc)
-{
-   const char *name = NULL;
-   E_Hwc_Window_Target *target_hwc_window = NULL;
-   Evas *evas = NULL;
-   E_Hwc_Window_Queue *queue = NULL;
-
-   name = ecore_evas_engine_name_get(e_comp->ee);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(name, NULL);
-
-   evas = ecore_evas_get(e_comp->ee);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(evas, NULL);
-
-   if(!strcmp("gl_drm_tbm", name) ||
-      !strcmp("drm_tbm", name) ||
-      !strcmp("gl_tbm", name) ||
-      !strcmp("software_tbm", name) ||
-      !strcmp("gl_tbm_ES", name))
-     {
-        ecore_evas_manual_render_set(e_comp->ee, 1);
-     }
-
-   target_hwc_window = E_OBJECT_ALLOC(E_Hwc_Window_Target, E_HWC_WINDOW_TYPE, _e_hwc_window_target_free);
-   EINA_SAFETY_ON_NULL_GOTO(target_hwc_window, fail);
-
-   ((E_Hwc_Window *)target_hwc_window)->is_target = EINA_TRUE;
-   ((E_Hwc_Window *)target_hwc_window)->state = E_HWC_WINDOW_STATE_DEVICE;
-   ((E_Hwc_Window *)target_hwc_window)->accepted_state = E_HWC_WINDOW_STATE_DEVICE;
-   ((E_Hwc_Window *)target_hwc_window)->hwc = hwc;
-
-   target_hwc_window->ee = e_comp->ee;
-   target_hwc_window->evas = ecore_evas_get(target_hwc_window->ee);
-   target_hwc_window->event_fd = eventfd(0, EFD_NONBLOCK);
-   target_hwc_window->event_hdlr =
-            ecore_main_fd_handler_add(target_hwc_window->event_fd, ECORE_FD_READ,
-                                      _e_hwc_window_target_window_render_finished_cb,
-                                      (void *)target_hwc_window, NULL, NULL);
-
-   ecore_evas_manual_render(target_hwc_window->ee);
-
-   queue = e_hwc_window_queue_user_set((E_Hwc_Window *)target_hwc_window);
-   if (!queue) goto fail;
-
-   wl_signal_add(&queue->destroy_signal, &((E_Hwc_Window *)target_hwc_window)->queue_destroy_listener);
-   ((E_Hwc_Window *)target_hwc_window)->queue_destroy_listener.notify = _e_hwc_window_cb_queue_destroy;
-   ((E_Hwc_Window *)target_hwc_window)->queue = queue;
-
-   /* as evas_renderer has finished its work (to provide a composited buffer) it enqueues
-    * the result buffer into this queue and acquirable cb gets called; this cb does nothing
-    * except the writing into the event_fd object, this writing causes the new ecore_main loop
-    * iteration to be triggered ('cause we've registered ecore_main fd handler to check this writing);
-    * so it's just a way to inform E20's HWC that evas_renderer has done its work */
-   tbm_surface_queue_add_acquirable_cb(queue->tqueue,
-                                       _e_hwc_window_target_window_surface_queue_acquirable_cb,
-                                       (void *)target_hwc_window);
-
-   /* TODO: we can use this call instead of an add_acquirable_cb and an add_dequeue_cb calls. */
-   tbm_surface_queue_add_trace_cb(queue->tqueue,
-                                  _e_hwc_window_target_window_surface_queue_trace_cb,
-                                  (void *)target_hwc_window);
-
-   evas_event_callback_add(evas,
-                           EVAS_CALLBACK_RENDER_FLUSH_POST,
-                           _e_hwc_window_target_window_render_flush_post_cb,
-                           target_hwc_window);
-#if 0
-   /* sorry..., current version of gcc requires an initializer to be evaluated at compile time */
-   ee_rendered_hw_list_key = (uintptr_t)&ee_rendered_hw_list_key;
-#endif
-   return target_hwc_window;
-
-fail:
-   ecore_evas_manual_render_set(e_comp->ee, 0);
-
-   return NULL;
-}
-
-static E_Hwc_Window_Target *
-_e_hwc_window_target_window_get(E_Hwc_Window *hwc_window)
-{
-   E_Hwc_Window_Target *target_hwc_window;
-   E_Hwc *hwc;
-
-   hwc = hwc_window->hwc;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, NULL);
-
-   target_hwc_window = hwc->target_hwc_window;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, NULL);
-
-   return target_hwc_window;
 }
 
 static void
@@ -865,29 +633,6 @@ _e_hwc_window_cursor_position_get(E_Pointer *ptr, int width, int height, unsigne
      }
 }
 
-static Eina_List *
-_e_hwc_window_target_window_ee_rendered_hw_list_get(E_Hwc_Window_Target *target_window)
-{
-   Eina_List *ee_rendered_hw_list = NULL, *new_list = NULL;
-   E_Hwc_Window *hw1, *hw2;
-   const Eina_List *l, *ll;
-   E_Hwc *hwc;
-   tbm_surface_h target_tsurface;
-
-   hwc = target_window->hwc_window.hwc;
-
-   target_tsurface = target_window->hwc_window.buffer.tsurface;
-   tbm_surface_internal_get_user_data(target_tsurface, (unsigned long)&ee_rendered_hw_list_key,
-                            (void**)&ee_rendered_hw_list);
-
-   /* refresh list of composited e_thwc_windows according to existed ones */
-   EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw1)
-      EINA_LIST_FOREACH(hwc->hwc_windows, ll, hw2)
-         if (hw1 == hw2) new_list = eina_list_append(new_list, hw1);
-
-   return new_list;
-}
-
 static void
 _e_hwc_window_free(E_Hwc_Window *hwc_window)
 {
@@ -927,8 +672,6 @@ done:
 EINTERN Eina_Bool
 e_hwc_window_init(E_Hwc *hwc)
 {
-   E_Hwc_Window_Target *target_hwc_window;
-
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
 
    if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
@@ -940,15 +683,6 @@ e_hwc_window_init(E_Hwc *hwc)
                       _e_hwc_window_client_cb_del, NULL);
    E_LIST_HANDLER_APPEND(hwc_window_event_hdlrs, E_EVENT_CLIENT_ZONE_SET,
                          _e_hwc_window_client_cb_zone_set, NULL);
-
-   target_hwc_window = _e_hwc_window_target_new(hwc);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
-   target_hwc_window->hwc = hwc;
-
-   /* set the target_window to the hwc */
-   hwc->target_hwc_window = target_hwc_window;
-
-   hwc->hwc_windows = eina_list_append(hwc->hwc_windows, target_hwc_window);
 
    return EINA_TRUE;
 }
@@ -963,10 +697,6 @@ e_hwc_window_deinit(E_Hwc *hwc)
 
    E_FREE_LIST(hwc_window_client_hooks, e_client_hook_del);
    E_FREE_LIST(hwc_window_event_hdlrs, ecore_event_handler_del);
-
-   hwc->hwc_windows = eina_list_remove(hwc->hwc_windows, hwc->target_hwc_window);
-   e_object_del(E_OBJECT(hwc->target_hwc_window));
-   hwc->target_hwc_window = NULL;
 }
 
 EINTERN void
@@ -1419,178 +1149,6 @@ e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window)
 }
 
 EINTERN Eina_Bool
-e_hwc_window_target_can_render(E_Hwc_Window_Target *target_hwc_window)
-{
-   E_Hwc_Window *hwc_window = (E_Hwc_Window *)target_hwc_window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->queue, EINA_FALSE);
-
-   if (e_hwc_window_queue_buffer_can_dequeue(hwc_window->queue))
-     return EINA_TRUE;
-
-   return EINA_FALSE;
-}
-
-EINTERN Eina_Bool
-e_hwc_window_target_enabled(E_Hwc_Window_Target *target_hwc_window)
-{
-   E_Hwc_Window *hwc_window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
-
-   hwc_window = (E_Hwc_Window *)target_hwc_window;
-
-   if (hwc_window->state != E_HWC_WINDOW_STATE_DEVICE)
-      return EINA_FALSE;
-
-   return EINA_TRUE;
-}
-
-EINTERN Eina_Bool
-e_hwc_window_target_buffer_skip(E_Hwc_Window_Target *target_hwc_window)
-{
-   E_Hwc_Window *hwc_window = NULL;
-   E_Hwc_Window_Queue_Buffer *queue_buffer;
-   E_Hwc *hwc = NULL;
-   tdm_hwc *thwc = NULL;
-   tdm_region fb_damage;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
-
-   hwc_window = (E_Hwc_Window *)target_hwc_window;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->queue, EINA_FALSE);
-
-   hwc = hwc_window->hwc;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
-
-   thwc = hwc->thwc;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(thwc, EINA_FALSE);
-
-   CLEAR(fb_damage);
-
-   if (hwc_window->buffer.tsurface &&
-       hwc_window->buffer.tsurface != hwc_window->display.buffer.tsurface)
-     {
-        if (hwc_window->buffer.queue)
-          {
-             queue_buffer = e_hwc_window_queue_buffer_find(hwc_window->buffer.queue,
-                                                          hwc_window->buffer.tsurface);
-             if (queue_buffer)
-               e_hwc_window_queue_buffer_release(hwc_window->buffer.queue, queue_buffer);
-          }
-
-        _e_hwc_window_buffer_set(&hwc_window->buffer, hwc_window->display.buffer.tsurface,
-                                  hwc_window->display.buffer.queue);
-        tdm_hwc_set_client_target_buffer(thwc, hwc_window->display.buffer.tsurface, fb_damage);
-     }
-
-   return EINA_TRUE;
-}
-
-/* set the tsurface to the target_window->tsurface according to the state.
- *  1. try to set the tsurface to the target_window at E_HWC_WINDOW_STATE_DEVICE.
- *  2. try to set NULL and release(clear) tsurface_queue of the target_window at E_HWC_WINDOW_STATE_NONE.
- *  Returing EINA_FALSE means that there is no update for the target_window->tsurface.
- **/
-EINTERN Eina_Bool
-e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window)
-{
-   E_Hwc *hwc;
-   E_Hwc_Window *hwc_window, *hw;
-   tdm_hwc *thwc;
-   tbm_surface_h tsurface;
-   tdm_region fb_damage;
-   Eina_List *ee_rendered_hw_list = NULL;
-   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
-   uint32_t n_thw = 0;
-   const Eina_List *l;
-   int i;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
-
-   hwc_window = (E_Hwc_Window *)target_hwc_window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->queue , EINA_FALSE);
-
-   hwc = hwc_window->hwc;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
-
-   thwc = hwc->thwc;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(thwc, EINA_FALSE);
-
-   if (hwc_window->state == E_HWC_WINDOW_STATE_DEVICE)
-     {
-        /* acquire the surface */
-        queue_buffer = e_hwc_window_queue_buffer_acquire(hwc_window->queue);
-        if (!queue_buffer) return EINA_FALSE;
-
-        tsurface = queue_buffer->tsurface;
-        EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, EINA_FALSE);
-
-        if (hwc_window->buffer.tsurface &&
-            hwc_window->buffer.tsurface != hwc_window->display.buffer.tsurface)
-          {
-             queue_buffer = e_hwc_window_queue_buffer_find(hwc_window->buffer.queue, hwc_window->buffer.tsurface);
-             if (queue_buffer)
-               e_hwc_window_queue_buffer_release(hwc_window->buffer.queue, queue_buffer);
-          }
-
-        _e_hwc_window_buffer_set(&hwc_window->buffer, tsurface, hwc_window->queue);
-
-        /* the damage isn't supported by hwc extension yet */
-        CLEAR(fb_damage);
-
-        tdm_hwc_set_client_target_buffer(thwc, hwc_window->buffer.tsurface, fb_damage);
-
-        if (ehw_trace)
-          {
-             ee_rendered_hw_list = _e_hwc_window_target_window_ee_rendered_hw_list_get(target_hwc_window);
-             n_thw = eina_list_count(ee_rendered_hw_list);
-             if (n_thw)
-               {
-                  EHWTRACE("FET ts:%10p ------- {%25s}, state:%s",
-                           NULL, hwc_window, hwc_window->buffer.tsurface, "@TARGET WINDOW@",
-                           e_hwc_window_state_string_get(hwc_window->state));
-
-                  i = 0;
-                  EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw)
-                    {
-                       EHWTRACE("  (%d) with ------- {%25s}, state:%s, zpos:%d, deleted:%s",
-                                hwc_window->ec, hw,
-                                i++, e_hwc_window_name_get(hw),
-                                e_hwc_window_state_string_get(hw->state),
-                                hwc_window->zpos, (hwc_window->is_deleted ? "yes" : "no"));
-                    }
-                }
-              else
-                EHWTRACE("FET ts:%10p ------- {%25s}, state:%s, zpos:%d no hwc_windows to render.",
-                         NULL, hwc_window, hwc_window->buffer.tsurface, "@TARGET WINDOW@",
-                         e_hwc_window_state_string_get(hwc_window->state), hwc_window->zpos);
-          }
-     }
-   else
-     {
-        if (!hwc_window->buffer.tsurface) return EINA_FALSE;
-
-        if (hwc_window->buffer.tsurface != hwc_window->display.buffer.tsurface)
-          {
-             queue_buffer = e_hwc_window_queue_buffer_find(hwc_window->buffer.queue, hwc_window->buffer.tsurface);
-             if (queue_buffer)
-               e_hwc_window_queue_buffer_release(hwc_window->buffer.queue, queue_buffer);
-          }
-
-        _e_hwc_window_buffer_set(&hwc_window->buffer, NULL, NULL);
-
-        CLEAR(fb_damage);
-
-        tdm_hwc_set_client_target_buffer(thwc, NULL, fb_damage);
-     }
-
-   return EINA_TRUE;
-}
-
-EINTERN Eina_Bool
 e_hwc_window_activate(E_Hwc_Window *hwc_window, E_Hwc_Window_Queue *queue)
 {
    struct wayland_tbm_client_queue *cqueue = NULL;
@@ -1855,57 +1413,6 @@ e_hwc_window_device_state_available_check(E_Hwc_Window *hwc_window)
    return EINA_TRUE;
 }
 
-
-// add hwc_window to the render_list
-EINTERN void
-e_hwc_window_render_list_add(E_Hwc_Window *hwc_window)
-{
-   E_Hwc_Window_Target *target_hwc_window;
-   E_Client *ec;
-
-   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
-
-   ec = hwc_window->ec;
-   EINA_SAFETY_ON_NULL_RETURN(ec);
-
-   target_hwc_window = _e_hwc_window_target_window_get(hwc_window);
-   EINA_SAFETY_ON_NULL_RETURN(target_hwc_window);
-
-   target_hwc_window->ee_rendered_hw_list =
-           eina_list_append(target_hwc_window->ee_rendered_hw_list, hwc_window);
-
-   e_object_ref(E_OBJECT(hwc_window));
-
-   EHWTRACE(" added the render_list -- {%25s}.", ec, hwc_window, e_hwc_window_name_get(hwc_window));
-}
-
-EINTERN Eina_Bool
-e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window)
-{
-   Eina_List *ee_rendered_hw_list = NULL;
-   E_Hwc_Window_Target *target_hwc_window;
-   E_Hwc_Window *target_window;
-   E_Hwc_Window *hw;
-   const Eina_List *l = NULL;
-   int n_thw;
-
-   target_hwc_window = _e_hwc_window_target_window_get(hwc_window);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
-
-   target_window = (E_Hwc_Window *)target_hwc_window;
-   if (e_hwc_window_state_get(target_window) != E_HWC_WINDOW_STATE_DEVICE) return EINA_FALSE;
-
-   ee_rendered_hw_list = _e_hwc_window_target_window_ee_rendered_hw_list_get(target_hwc_window);
-   n_thw = eina_list_count(ee_rendered_hw_list);
-   if (n_thw)
-     {
-        EINA_LIST_FOREACH(ee_rendered_hw_list, l, hw)
-          if (hw == hwc_window) return EINA_TRUE;
-     }
-
-   return EINA_FALSE;
-}
-
 EINTERN Eina_Bool
 e_hwc_window_constraints_update(E_Hwc_Window *hwc_window)
 {
@@ -1984,7 +1491,7 @@ _e_hwc_window_client_recover(E_Hwc_Window *hwc_window)
 }
 
 static Eina_Bool
-_e_hwc_window_render_target_window_set(E_Hwc_Window *hwc_window, Eina_Bool set)
+_e_hwc_window_rendered_window_set(E_Hwc_Window *hwc_window, Eina_Bool set)
 {
    E_Client *ec = NULL;
 
@@ -2031,7 +1538,7 @@ _e_hwc_window_render_target_window_set(E_Hwc_Window *hwc_window, Eina_Bool set)
 }
 
 EINTERN Eina_Bool
-e_hwc_window_render_target_window_update(E_Hwc_Window *hwc_window)
+e_hwc_window_rendered_window_update(E_Hwc_Window *hwc_window)
 {
    E_Client *ec = NULL;
    E_Pointer *pointer = NULL;
@@ -2051,13 +1558,13 @@ e_hwc_window_render_target_window_update(E_Hwc_Window *hwc_window)
      {
        case E_HWC_WINDOW_STATE_DEVICE:
        case E_HWC_WINDOW_STATE_CURSOR:
-         _e_hwc_window_render_target_window_set(hwc_window, EINA_FALSE);
+         _e_hwc_window_rendered_window_set(hwc_window, EINA_FALSE);
          if (pointer)
            e_pointer_hwc_set(pointer, EINA_TRUE);
          break;
        case E_HWC_WINDOW_STATE_CLIENT:
        case E_HWC_WINDOW_STATE_NONE:
-         _e_hwc_window_render_target_window_set(hwc_window, EINA_TRUE);
+         _e_hwc_window_rendered_window_set(hwc_window, EINA_TRUE);
          if (pointer)
            e_pointer_hwc_set(pointer, EINA_FALSE);
          break;
@@ -2069,6 +1576,13 @@ e_hwc_window_render_target_window_update(E_Hwc_Window *hwc_window)
    return EINA_TRUE;
 }
 
+EINTERN void
+e_hwc_window_buffer_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface, E_Hwc_Window_Queue *queue)
+{
+   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
+
+   _e_hwc_window_buffer_set(&hwc_window->buffer, tsurface,queue);
+}
 
 EINTERN const char*
 e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state)

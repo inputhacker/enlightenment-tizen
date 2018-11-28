@@ -126,8 +126,8 @@ struct _E_Hwc_Window_Target
 
    /* a surface the rendering is currently performing at */
    tbm_surface_h       dequeued_tsurface;
-   Eina_List          *rendered_tsurface_list;
-   Eina_List          *ee_rendered_hw_list;
+   Eina_List          *target_buffer_list;
+   Eina_List          *rendered_windows;
    Eina_Bool           is_rendering;
 
    Eina_Bool skip_surface_set;
@@ -156,11 +156,6 @@ EINTERN Eina_Bool          e_hwc_window_is_cursor(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_commit_data_acquire(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window);
 
-EINTERN Eina_Bool          e_hwc_window_target_can_render(E_Hwc_Window_Target *target_hwc_window);
-EINTERN Eina_Bool          e_hwc_window_target_enabled(E_Hwc_Window_Target *target_hwc_window);
-EINTERN Eina_Bool          e_hwc_window_target_buffer_fetch(E_Hwc_Window_Target *target_hwc_window);
-EINTERN Eina_Bool          e_hwc_window_target_buffer_skip(E_Hwc_Window_Target *target_hwc_window);
-
 EINTERN Eina_Bool          e_hwc_window_activate(E_Hwc_Window *hwc_window, E_Hwc_Window_Queue *queue);
 EINTERN Eina_Bool          e_hwc_window_deactivate(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_on_hw_overlay(E_Hwc_Window *hwc_window);
@@ -173,11 +168,8 @@ EINTERN E_Hwc_Window_State e_hwc_window_accepted_state_get(E_Hwc_Window *hwc_win
 EINTERN Eina_Bool          e_hwc_window_device_state_available_check(E_Hwc_Window *hwc_window);
 
 EINTERN Eina_Bool          e_hwc_window_constraints_update(E_Hwc_Window *hwc_window);
-
-EINTERN void               e_hwc_window_render_list_add(E_Hwc_Window *hwc_window);
-EINTERN Eina_Bool          e_hwc_window_is_on_target_window(E_Hwc_Window *hwc_window);
-EINTERN Eina_Bool          e_hwc_window_render_target_window_update(E_Hwc_Window *hwc_window);
-
+EINTERN Eina_Bool          e_hwc_window_rendered_window_update(E_Hwc_Window *hwc_window);
+EINTERN void               e_hwc_window_buffer_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface, E_Hwc_Window_Queue *queue);
 EINTERN const char        *e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state);
 EINTERN const char        *e_hwc_window_name_get(E_Hwc_Window *hwc_window);
 

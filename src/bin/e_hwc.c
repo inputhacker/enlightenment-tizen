@@ -354,12 +354,6 @@ e_hwc_new(E_Output *output)
      }
    else
      {
-        if (!e_hwc_windows_init(hwc))
-          {
-             ERR("hwc_opt: e_hwc_windows_init failed");
-             goto fail;
-          }
-
         if (!e_hwc_window_queue_init(hwc))
           {
              ERR("hwc_opt: E_Hwc_Window_Queue init failed");
@@ -369,6 +363,12 @@ e_hwc_new(E_Output *output)
         if (!e_hwc_window_init(hwc))
           {
              ERR("hwc_opt: E_Hwc_Window init failed");
+             goto fail;
+          }
+
+        if (!e_hwc_windows_init(hwc))
+          {
+             ERR("hwc_opt: e_hwc_windows_init failed");
              goto fail;
           }
 
@@ -397,9 +397,9 @@ e_hwc_del(E_Hwc *hwc)
       e_hwc_planes_deinit();
    else
      {
+        e_hwc_windows_deinit(hwc);
         e_hwc_window_deinit(hwc);
         e_hwc_window_queue_deinit();
-        e_hwc_windows_deinit();
      }
 
    E_FREE(hwc);

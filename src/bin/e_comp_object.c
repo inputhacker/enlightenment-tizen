@@ -1240,7 +1240,7 @@ _e_comp_object_pixels_noti(void *data, Evas_Object *obj EINA_UNUSED)
 
    if (!ec->hwc_window) return;
 
-   e_hwc_window_render_list_add(ec->hwc_window);
+   e_hwc_windows_rendered_window_add(ec->hwc_window);
 }
 
 /////////////////////////////////////////////
