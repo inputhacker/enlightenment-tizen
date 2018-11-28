@@ -1304,6 +1304,13 @@ e_hwc_window_device_state_available_check(E_Hwc_Window *hwc_window)
    ec = hwc_window->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
 
+   if (ec->comp_override > 0)
+     {
+        EHWTRACE("   -- {%25s} is forced to set CL state.(comp_override)",
+                 hwc_window->ec, hwc_window, ec->icccm.title);
+        return EINA_FALSE;
+     }
+
    cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    if ((!cdata) || (!cdata->buffer_ref.buffer))
      {
