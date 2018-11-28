@@ -24,6 +24,8 @@ _e_hwc_planes_ec_check(E_Client *ec)
 
    if (ec->comp_override > 0) return EINA_FALSE;
 
+   if (e_comp_object_is_animating(ec->frame)) return EINA_FALSE;
+
    if ((!cdata) ||
        (!cdata->buffer_ref.buffer) ||
        (cdata->width_from_buffer != cdata->width_from_viewport) ||
