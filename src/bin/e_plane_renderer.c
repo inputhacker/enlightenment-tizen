@@ -376,8 +376,12 @@ _e_plane_renderer_client_backup_buffer_set(E_Plane_Renderer_Client *renderer_cli
    ec = renderer_client->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
 
+   ERR("Create backup buffer ec:(%p) wl_buffer(%p)", ec, _get_wl_buffer(ec));
+
    copied_tsurface = _e_plane_renderer_client_copied_surface_create(renderer_client, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(copied_tsurface, EINA_FALSE);
+
+   ERR("Create backup buffer done ec:(%p) tsurface(%p)", ec, copied_tsurface);
 
    backup_buffer = e_comp_wl_tbm_buffer_get(copied_tsurface);
    EINA_SAFETY_ON_NULL_GOTO(backup_buffer, fail);
