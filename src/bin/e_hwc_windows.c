@@ -1546,7 +1546,7 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
              /* The video window set the TDM_HWC_WIN_COMPOSITION_VIDEO type. */
              if (e_hwc_window_is_video(hwc_window))
                {
-                  if (!e_hwc_window_composition_update(hwc_window))
+                  if (!e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO, EINA_TRUE))
                     ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
                   continue;
                }
@@ -1565,7 +1565,7 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
              /* The video window set the TDM_HWC_WIN_COMPOSITION_VIDEO type. */
              if (e_hwc_window_is_video(hwc_window))
                {
-                  if (!e_hwc_window_composition_update(hwc_window))
+                  if (!e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO, EINA_TRUE))
                     ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
                   continue;
                }
