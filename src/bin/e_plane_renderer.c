@@ -237,6 +237,7 @@ _e_plane_renderer_client_copied_surface_create(E_Plane_Renderer_Client *renderer
    int ret = TBM_SURFACE_ERROR_NONE;
    E_Client *ec = renderer_client->ec;
    E_Plane_Renderer *renderer = renderer_client->renderer;
+   E_Plane *plane = NULL;
 
    if (refresh)
      e_pixmap_image_refresh(ec->pixmap);
@@ -250,7 +251,11 @@ _e_plane_renderer_client_copied_surface_create(E_Plane_Renderer_Client *renderer
    else
      {
         EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, NULL);
-        tsurface = renderer->displaying_tsurface;
+        plane = renderer->plane;
+
+        EINA_SAFETY_ON_NULL_RETURN_VAL(plane, NULL);
+        tsurface = plane->tsurface;
+
         EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, NULL);
      }
 
@@ -957,7 +962,9 @@ _e_plane_renderer_recover_ec(E_Plane_Renderer *renderer)
 
    if (!buffer)
      {
-        tsurface = e_plane_renderer_displaying_surface_get(renderer);
+        if (!plane) return;
+
+        tsurface = plane->tsurface;
         if (!tsurface) return;
 
         buffer = e_comp_wl_tbm_buffer_get(tsurface);
