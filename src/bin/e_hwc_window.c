@@ -243,7 +243,7 @@ _e_hwc_window_cb_queue_destroy(struct wl_listener *listener, void *data)
 static void
 _e_hwc_window_constraints_reset(E_Hwc_Window *hwc_window)
 {
-   /* reset the TDM_CONSTRAINT_BUFFER_QUEUE */
+   /* reset the TDM_HWC_WIN_CONSTRAINT_BUFFER_QUEUE */
    if (hwc_window->queue)
      {
         e_hwc_window_queue_user_unset(hwc_window->queue, hwc_window);
@@ -1430,7 +1430,7 @@ e_hwc_window_constraints_update(E_Hwc_Window *hwc_window)
 
    if (hwc_window->constraints == constraints) return EINA_TRUE;
 
-   if (constraints & TDM_CONSTRAINT_BUFFER_QUEUE)
+   if (constraints & TDM_HWC_WIN_CONSTRAINT_BUFFER_QUEUE)
      {
          if (!hwc_window->queue)
            {
