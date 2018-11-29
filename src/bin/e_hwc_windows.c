@@ -1341,7 +1341,7 @@ _e_hwc_windows_accept(E_Hwc *hwc)
    const Eina_List *l;
 
    /* accept changes */
-   terror = tdm_hwc_accept_changes(hwc->thwc);
+   terror = tdm_hwc_accept_validation(hwc->thwc);
    if (terror != TDM_ERROR_NONE)
      {
         ERR("HWC-WINS: failed to accept validation.");
