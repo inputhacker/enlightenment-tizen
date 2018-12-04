@@ -1762,13 +1762,23 @@ e_plane_render(E_Plane *plane)
 
    renderer = plane->renderer;
    if (!renderer) return EINA_TRUE;
-   if (plane->ec) return EINA_TRUE;
    if (plane->is_external) return EINA_TRUE;
 
-   if (!e_plane_renderer_render(renderer, plane->is_fb))
+   if (plane->ec)
      {
-        ERR("fail to e_plane_renderer_render");
-        return EINA_FALSE;
+        if (!e_plane_renderer_norender(renderer, plane->is_fb))
+          {
+             ERR("fail to e_plane_renderer_norender");
+             return EINA_FALSE;
+          }
+     }
+   else
+     {
+        if (!e_plane_renderer_render(renderer, plane->is_fb))
+          {
+             ERR("fail to e_plane_renderer_render");
+             return EINA_FALSE;
+          }
      }
 
    return EINA_TRUE;
