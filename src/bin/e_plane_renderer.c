@@ -375,7 +375,7 @@ _e_plane_renderer_client_backup_buffer_cb_destroy(struct wl_listener *listener, 
 static Eina_Bool
 _e_plane_renderer_client_backup_buffer_set(E_Plane_Renderer_Client *renderer_client)
 {
-   E_Comp_Wl_Buffer *backup_buffer = NULL;
+   E_Comp_Wl_Buffer *buffer, *backup_buffer = NULL;
    tbm_surface_h copied_tsurface = NULL;
    E_Client *ec = NULL;
 
@@ -393,6 +393,10 @@ _e_plane_renderer_client_backup_buffer_set(E_Plane_Renderer_Client *renderer_cli
 
    backup_buffer = e_comp_wl_tbm_buffer_get(copied_tsurface);
    EINA_SAFETY_ON_NULL_GOTO(backup_buffer, fail);
+
+   buffer = _get_comp_wl_buffer(ec);
+   if (buffer)
+     backup_buffer->transform = buffer->transform;
 
    if (renderer_client->buffer)
      wl_list_remove(&renderer_client->buffer_destroy_listener.link);

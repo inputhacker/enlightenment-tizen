@@ -183,7 +183,7 @@ e_comp_wl_output_buffer_transform_get(E_Client *ec)
        (buffer->type != E_COMP_WL_BUFFER_TYPE_NATIVE && buffer->type != E_COMP_WL_BUFFER_TYPE_TBM))
      return vp->buffer.transform;
 
-   rotation = wayland_tbm_server_buffer_get_buffer_transform(NULL, buffer->resource);
+   rotation = buffer->transform;
    if (rotation == 0)
      return vp->buffer.transform;
 
@@ -5177,7 +5177,10 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
    listener =
      wl_resource_get_destroy_listener(resource, _e_comp_wl_buffer_cb_destroy);
    if (listener)
-     return container_of(listener, E_Comp_Wl_Buffer, destroy_listener);
+     {
+        buffer = container_of(listener, E_Comp_Wl_Buffer, destroy_listener);
+        goto update;
+     }
 
    if (!(buffer = E_NEW(E_Comp_Wl_Buffer, 1))) return NULL;
 
@@ -5298,6 +5301,10 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
 
    DBG("Wl Buffer Create: b %p owner '%s'(%p)",
        buffer, buffer->debug_info.owner_name, buffer->debug_info.owner_ptr);
+
+update:
+   if (buffer->tbm_surface)
+     buffer->transform = wayland_tbm_server_buffer_get_buffer_transform(NULL, resource);
 
    return buffer;
 
