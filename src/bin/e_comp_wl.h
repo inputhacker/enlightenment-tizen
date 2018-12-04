@@ -97,6 +97,7 @@ struct _E_Comp_Wl_Buffer
       void *owner_ptr;
    } debug_info;
    int32_t w, h;
+   int transform; // the value of wl_tbm.set_buffer_transform
    uint32_t busy;
 };
 
