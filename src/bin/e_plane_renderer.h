@@ -67,6 +67,7 @@ EINTERN void                       e_plane_renderer_shutdown(void);
 EINTERN E_Plane_Renderer          *e_plane_renderer_new(E_Plane *plane);
 EINTERN void                       e_plane_renderer_del(E_Plane_Renderer *renderer);
 EINTERN Eina_Bool                  e_plane_renderer_render(E_Plane_Renderer *renderer, Eina_Bool is_fb);
+EINTERN Eina_Bool                  e_plane_renderer_norender(E_Plane_Renderer *renderer, Eina_Bool is_fb);
 EINTERN Eina_Bool                  e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec);
 EINTERN Eina_Bool                  e_plane_renderer_deactivate(E_Plane_Renderer *renderer);
 EINTERN Eina_Bool                  e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec);

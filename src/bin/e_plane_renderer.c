@@ -1667,6 +1667,17 @@ e_plane_renderer_render(E_Plane_Renderer *renderer, Eina_Bool is_fb)
 }
 
 EINTERN Eina_Bool
+e_plane_renderer_norender(E_Plane_Renderer *renderer, Eina_Bool is_fb)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
+
+   if (is_fb)
+     evas_norender(renderer->evas);
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
 e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
 {
    struct wayland_tbm_client_queue * cqueue = NULL;
