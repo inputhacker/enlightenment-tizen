@@ -1213,16 +1213,6 @@ _e_xdg_surface_configure(struct wl_resource *resource,
         return;
      }
 
-   if (!exsurf->configured)
-     {
-        // any attempts by a client to attach or manipulate a buffer prior to the first xdg_surface.configure call must
-        // be treated as errors.
-        ERR("Could not handle %s prior to the first xdg_surface.configure",
-           exsurf->ec->pixmap, exsurf->ec,
-           _e_xdg_surface_util_role_string_get(exsurf));
-        return;
-     }
-
    EINA_RECTANGLE_SET(&exsurf->configured_geometry, x, y, w, h);
 
    e_client_util_move_resize_without_frame(exsurf->ec, x, y, w, h);
