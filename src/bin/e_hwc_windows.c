@@ -1488,11 +1488,6 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 static Eina_Bool
 _e_hwc_windows_all_client_states_available_check(E_Hwc *hwc)
 {
-   Eina_List *l;
-   E_Client *ec;
-   E_Hwc_Window *hwc_window = NULL;
-   Eina_List *visible_windows = hwc->visible_windows;
-
    /* make the full_gl_composite when the zoom is enabled */
    if (hwc->output->zoom_set) return EINA_TRUE;
 
@@ -1505,6 +1500,14 @@ _e_hwc_windows_all_client_states_available_check(E_Hwc *hwc)
         EHWSTRACE("  HWC_MODE_NONE due to nocomp_override > 0.", NULL);
         return EINA_TRUE;
      }
+
+//TODO: this restriction is for the quickpanel on the special case.
+//      Therefore, this condition has to move to the hwc policy of the libtdm backend.
+#if 0
+   Eina_List *l;
+   E_Client *ec;
+   E_Hwc_Window *hwc_window = NULL;
+   Eina_List *visible_windows = hwc->visible_windows;
 
    EINA_LIST_FOREACH(visible_windows, l, hwc_window)
      {
@@ -1524,6 +1527,7 @@ _e_hwc_windows_all_client_states_available_check(E_Hwc *hwc)
                }
           }
      }
+#endif
 
    return EINA_FALSE;
 }
