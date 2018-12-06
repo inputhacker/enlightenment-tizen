@@ -1479,6 +1479,11 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO, EINA_TRUE);
           }
 
+        if (ec->is_cursor)
+          {
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CURSOR, EINA_TRUE);
+          }
+
         windows_list = eina_list_append(windows_list, hwc_window);
      }
 
@@ -1573,6 +1578,9 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
                     ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
                   continue;
                }
+
+              /* the cursor state is decided through finding the visible_windows. */
+              if (e_hwc_window_is_cursor(hwc_window)) continue;
 
              /* filter the visible clients which e20 prevent to shown by hw directly
                 by demand of e20 */

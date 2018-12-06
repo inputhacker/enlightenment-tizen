@@ -389,120 +389,34 @@ _e_hwc_window_client_surface_acquire(E_Hwc_Window *hwc_window)
    return tsurface;
 }
 
-static void
-_e_hwc_window_cursor_image_draw(E_Comp_Wl_Buffer *buffer, tbm_surface_info_s *tsurface_info, int rotation)
-{
-   int src_width, src_height, src_stride;
-   pixman_image_t *src_img = NULL, *dst_img = NULL;
-   pixman_transform_t t;
-   struct pixman_f_transform ft;
-   void *src_ptr = NULL, *dst_ptr = NULL;
-   int c = 0, s = 0, tx = 0, ty = 0;
-   int i, rotate;
-
-   src_width = wl_shm_buffer_get_width(buffer->shm_buffer);
-   src_height = wl_shm_buffer_get_height(buffer->shm_buffer);
-   src_stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
-   src_ptr = wl_shm_buffer_get_data(buffer->shm_buffer);
-
-   dst_ptr = tsurface_info->planes[0].ptr;
-   memset(dst_ptr, 0, tsurface_info->planes[0].stride * tsurface_info->height);
-
-   if (rotation)
-     {
-        src_img = pixman_image_create_bits(PIXMAN_a8r8g8b8, src_width, src_height, (uint32_t*)src_ptr, src_stride);
-        EINA_SAFETY_ON_NULL_GOTO(src_img, error);
-
-        dst_img = pixman_image_create_bits(PIXMAN_a8r8g8b8, tsurface_info->width, tsurface_info->height,
-                                          (uint32_t*)dst_ptr, tsurface_info->planes[0].stride);
-        EINA_SAFETY_ON_NULL_GOTO(dst_img, error);
-
-        if (rotation == 90)
-           rotation = 270;
-        else if (rotation == 270)
-           rotation = 90;
-
-        rotate = (rotation + 360) / 90 % 4;
-        switch (rotate)
-          {
-           case 1:
-              c = 0, s = -1, tx = -tsurface_info->width;
-              break;
-           case 2:
-              c = -1, s = 0, tx = -tsurface_info->width, ty = -tsurface_info->height;
-              break;
-           case 3:
-              c = 0, s = 1, ty = -tsurface_info->width;
-              break;
-          }
-
-        pixman_f_transform_init_identity(&ft);
-        pixman_f_transform_translate(&ft, NULL, tx, ty);
-        pixman_f_transform_rotate(&ft, NULL, c, s);
-
-        pixman_transform_from_pixman_f_transform(&t, &ft);
-        pixman_image_set_transform(src_img, &t);
-
-        pixman_image_composite(PIXMAN_OP_SRC, src_img, NULL, dst_img, 0, 0, 0, 0, 0, 0,
-                               tsurface_info->width, tsurface_info->height);
-     }
-   else
-     {
-        for (i = 0 ; i < src_height ; i++)
-          {
-             memcpy(dst_ptr, src_ptr, src_stride);
-             dst_ptr += tsurface_info->planes[0].stride;
-             src_ptr += src_stride;
-          }
-     }
-
-error:
-   if (src_img) pixman_image_unref(src_img);
-   if (dst_img) pixman_image_unref(dst_img);
-}
-
 static Eina_Bool
-_e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointer)
+_e_hwc_window_cursor_image_update(E_Hwc_Window *hwc_window)
 {
-   E_Hwc *hwc = NULL;
-   E_Output *output = NULL;
-   int w, h, tw, th;
-   int tsurface_w, tsurface_h;
-   void *src_ptr = NULL;
-   tbm_surface_h tsurface = NULL;
+   E_Client *ec = hwc_window->ec;
    E_Comp_Wl_Buffer *buffer = NULL;
-   tbm_surface_error_e ret = TBM_SURFACE_ERROR_NONE;
-   tbm_surface_info_s tsurface_info;
-   E_Client *ec;
+   E_Pointer *pointer = NULL;
+   int img_w, img_h, img_stride;
+   void *img_ptr = NULL;
+   tdm_error error;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+   pointer = e_pointer_get(ec);
+   if (!pointer) return EINA_FALSE;
 
-   ec = hwc_window->ec;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   buffer = _e_hwc_window_comp_wl_buffer_get(hwc_window);
+   if (!buffer) return EINA_FALSE;
 
-   hwc = hwc_window->hwc;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
-
-   output = hwc->output;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
-
-   buffer = ec->comp_data->buffer_ref.buffer;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(buffer, EINA_FALSE);
-
-   if ((hwc_window->display.buffer_ref.buffer == buffer) &&
-       (hwc_window->cursor.tsurface) &&
-       (hwc_window->cursor.rotation == pointer->rotation))
-     return EINA_TRUE;
-
-   /* TODO: TBM TYPE, NATIVE_WL */
+   /* cursor image is the shm image from the wl_clients */
    if (buffer->type == E_COMP_WL_BUFFER_TYPE_SHM)
      {
-        src_ptr = wl_shm_buffer_get_data(buffer->shm_buffer);
-        if (!src_ptr)
+        img_ptr = wl_shm_buffer_get_data(buffer->shm_buffer);
+        if (!img_ptr)
           {
              ERR("Failed get data shm buffer");
              return EINA_FALSE;
           }
+        img_w = wl_shm_buffer_get_width(buffer->shm_buffer);
+        img_h = wl_shm_buffer_get_height(buffer->shm_buffer);
+        img_stride = wl_shm_buffer_get_stride(buffer->shm_buffer);
      }
    else
      {
@@ -510,95 +424,28 @@ _e_hwc_window_cursor_surface_refresh(E_Hwc_Window *hwc_window, E_Pointer *pointe
         return EINA_FALSE;
      }
 
-   if (pointer->rotation == 90)
-      tw = ec->h, th = ec->w;
-   else if (pointer->rotation == 180)
-      tw = ec->w, th = ec->h;
-   else if (pointer->rotation == 270)
-      tw = ec->h, th = ec->w;
-   else
-      tw = ec->w, th = ec->h;
+   /* no changes, no need to update the cursor image */
+   if ((hwc_window->cursor.img_ptr == img_ptr) &&
+       (hwc_window->cursor.rotation == pointer->rotation))
+     return EINA_TRUE;
 
-   hwc_window->cursor.rotation = pointer->rotation;
-
-   w = (output->cursor_available.min_w > tw) ? output->cursor_available.min_w : tw;
-   h = (output->cursor_available.min_h > th) ? output->cursor_available.min_h : th;
-
-   if (e_comp->hwc_reuse_cursor_buffer)
+   error = tdm_hwc_window_set_cursor_image(hwc_window->thwc_window, img_w, img_h, img_stride, img_ptr);
+   if (error != TDM_ERROR_NONE)
      {
-        if (hwc_window->cursor.tsurface)
-          {
-             tsurface_w = tbm_surface_get_width(hwc_window->cursor.tsurface);
-             tsurface_h = tbm_surface_get_height(hwc_window->cursor.tsurface);
-
-             if (w != tsurface_w || h != tsurface_h)
-               {
-                  tbm_surface_destroy(hwc_window->cursor.tsurface);
-                  hwc_window->cursor.tsurface = NULL;
-               }
-          }
-     }
-   else
-     {
-        if (hwc_window->cursor.tsurface)
-          {
-             tbm_surface_destroy(hwc_window->cursor.tsurface);
-             hwc_window->cursor.tsurface = NULL;
-          }
-     }
-
-   if (!hwc_window->cursor.tsurface)
-     {
-        /* Which tbm flags should be used? */
-        tsurface = tbm_surface_internal_create_with_flags(w, h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, EINA_FALSE);
-     }
-   else
-     tsurface = hwc_window->cursor.tsurface;
-
-   ret = tbm_surface_map(tsurface, TBM_SURF_OPTION_WRITE, &tsurface_info);
-   if (ret != TBM_SURFACE_ERROR_NONE)
-     {
-        ERR("Failed to map tsurface");
-        tbm_surface_destroy(tsurface);
+        ERR("fail to set cursor image to thwc(%p)", hwc_window->thwc_window);
         return EINA_FALSE;
      }
 
-   _e_hwc_window_cursor_image_draw(buffer, &tsurface_info, pointer->rotation);
+   hwc_window->cursor.rotation = pointer->rotation;
+   hwc_window->cursor.img_ptr = img_ptr;
+   hwc_window->cursor.img_w = img_w;
+   hwc_window->cursor.img_h = img_h;
+   hwc_window->cursor.img_stride = img_stride;
 
-   tbm_surface_unmap(tsurface);
-
-   hwc_window->cursor.tsurface = tsurface;
-
-   /* to set the hwc_window_cursor_tsurface to the hwc_window->buffer.tsurface */
+   /* set the hwc_update */
    e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
 
    return EINA_TRUE;
-}
-
-static tbm_surface_h
-_e_hwc_window_cursor_surface_acquire(E_Hwc_Window *hwc_window)
-{
-   tbm_surface_h tsurface = NULL;
-   E_Client *ec = hwc_window->ec;
-   E_Comp_Wl_Buffer *buffer = NULL;
-   E_Pointer *pointer = NULL;
-
-   pointer = e_pointer_get(ec);
-   if (!pointer) return NULL;
-
-   buffer = _e_hwc_window_comp_wl_buffer_get(hwc_window);
-   if (!buffer) return NULL;
-
-   if (!_e_hwc_window_cursor_surface_refresh(hwc_window, pointer))
-     {
-        ERR("Failed to _e_hwc_window_cursor_surface_refresh");
-        return NULL;
-     }
-
-   tsurface = hwc_window->cursor.tsurface;
-
-   return tsurface;
 }
 
 static void
@@ -840,6 +687,7 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
    E_Hwc *hwc = NULL;
    E_Output *output = NULL;
    E_Client *ec = NULL;
+   E_Pointer *pointer = NULL;
    tbm_surface_h tsurface = NULL;
    tbm_surface_info_s surf_info = {0};
    tdm_hwc_window_info hwc_win_info = {0};
@@ -859,7 +707,53 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
 
    tsurface = hwc_window->buffer.tsurface;
 
-   if (e_hwc_window_is_video(hwc_window))
+   if (e_hwc_window_is_cursor(hwc_window))
+     {
+        pointer = e_pointer_get(ec);
+        if (!pointer) return EINA_FALSE;
+
+        hwc_win_info.src_config.format = TBM_FORMAT_ARGB8888;
+        hwc_win_info.src_config.pos.x = 0;
+        hwc_win_info.src_config.pos.y = 0;
+        hwc_win_info.src_config.pos.w = hwc_window->cursor.img_w;
+        hwc_win_info.src_config.pos.h = hwc_window->cursor.img_h;
+
+        hwc_win_info.src_config.size.h = hwc_window->cursor.img_stride >> 2;
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(hwc_win_info.src_config.size.h == 0, EINA_FALSE);
+        hwc_win_info.src_config.size.v = hwc_window->cursor.img_h;
+
+        _e_hwc_window_cursor_position_get(pointer,
+                                          hwc_win_info.src_config.pos.w,
+                                          hwc_win_info.src_config.pos.h,
+                                          &hwc_win_info.dst_pos.x,
+                                          &hwc_win_info.dst_pos.y);
+
+        /* if output is transformed, the position of a buffer on screen should be also
+        * transformed.
+        */
+        if (output->config.rotation > 0)
+          {
+              int bw, bh;
+              int dst_x, dst_y;
+              e_pixmap_size_get(ec->pixmap, &bw, &bh);
+              e_comp_wl_rect_convert(ec->zone->w, ec->zone->h,
+                                    output->config.rotation / 90, 1,
+                                    hwc_win_info.dst_pos.x, hwc_win_info.dst_pos.y,
+                                    bw, bh,
+                                    &dst_x, &dst_y,
+                                    NULL, NULL);
+
+              hwc_win_info.dst_pos.x = dst_x;
+              hwc_win_info.dst_pos.y = dst_y;
+          }
+
+        hwc_win_info.dst_pos.w = hwc_window->cursor.img_w;
+        hwc_win_info.dst_pos.h = hwc_window->cursor.img_h;
+
+        // TODO: need to calculation with cursor.rotation and output->config.rotation?
+        hwc_win_info.transform = hwc_window->cursor.rotation;
+     }
+   else if (e_hwc_window_is_video(hwc_window))
      {
         if (!e_comp_wl_video_hwc_window_info_get(hwc_window, &hwc_win_info))
           {
@@ -882,22 +776,8 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
         EINA_SAFETY_ON_TRUE_RETURN_VAL(hwc_win_info.src_config.size.h == 0, EINA_FALSE);
         hwc_win_info.src_config.size.v = surf_info.height;
 
-        if (e_hwc_window_is_cursor(hwc_window))
-          {
-              E_Pointer *pointer = e_pointer_get(ec);
-              if (!pointer) return EINA_FALSE;
-
-              _e_hwc_window_cursor_position_get(pointer,
-                                                hwc_win_info.src_config.pos.w,
-                                                hwc_win_info.src_config.pos.h,
-                                                &hwc_win_info.dst_pos.x,
-                                                &hwc_win_info.dst_pos.y);
-          }
-        else
-          {
-              hwc_win_info.dst_pos.x = ec->x;
-              hwc_win_info.dst_pos.y = ec->y;
-          }
+        hwc_win_info.dst_pos.x = ec->x;
+        hwc_win_info.dst_pos.y = ec->y;
 
         /* if output is transformed, the position of a buffer on screen should be also
         * transformed.
@@ -920,6 +800,9 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
 
         hwc_win_info.dst_pos.w = surf_info.width;
         hwc_win_info.dst_pos.h = surf_info.height;
+
+        // TODO: need to calculation with ec(window) rotation and output->config.rotation?
+        hwc_win_info.transform = TDM_TRANSFORM_NORMAL;
      }
 
    if (memcmp(&hwc_window->info, &hwc_win_info, sizeof(tdm_hwc_window_info)))
@@ -949,6 +832,24 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
    thwc_window = hwc_window->thwc_window;
    EINA_SAFETY_ON_NULL_RETURN_VAL(thwc_window, EINA_FALSE);
 
+   if (e_hwc_window_is_cursor(hwc_window))
+     {
+        if (!_e_hwc_window_cursor_image_update(hwc_window))
+          return EINA_FALSE;
+
+        if (!e_comp_object_hwc_update_exists(hwc_window->ec->frame))
+          return EINA_FALSE;
+        e_comp_object_hwc_update_set(hwc_window->ec->frame, EINA_FALSE);
+
+        EHWTRACE("FET img_ptr:%p ------- {%25s}, state:%s, zpos:%d, deleted:%s",
+                 hwc_window->ec, hwc_window,
+                 hwc_window->cursor.img_ptr, e_hwc_window_name_get(hwc_window),
+                 e_hwc_window_state_string_get(hwc_window->state),
+                 hwc_window->zpos, (hwc_window->is_deleted ? "yes" : "no"));
+
+        return EINA_TRUE;
+     }
+
    if (hwc_window->is_deleted)
      {
         tsurface = NULL;
@@ -958,23 +859,12 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
    else if (e_hwc_window_is_video(hwc_window))
      {
         tsurface = e_comp_wl_video_hwc_widow_surface_get(hwc_window);
-
         if (tsurface == hwc_window->buffer.tsurface) return EINA_FALSE;
-     }
-   else if (e_hwc_window_is_cursor(hwc_window))
-     {
-        tsurface = _e_hwc_window_cursor_surface_acquire(hwc_window);
-        if (!tsurface) return EINA_FALSE;
-
-        if (!e_comp_object_hwc_update_exists(hwc_window->ec->frame)) return EINA_FALSE;
-
-        e_comp_object_hwc_update_set(hwc_window->ec->frame, EINA_FALSE);
      }
    else
      {
         /* acquire the surface */
         tsurface = _e_hwc_window_client_surface_acquire(hwc_window);
-
         if (tsurface == hwc_window->buffer.tsurface) return EINA_FALSE;
      }
 
@@ -1031,9 +921,16 @@ e_hwc_window_commit_data_acquire(E_Hwc_Window *hwc_window)
 {
    E_Hwc_Window_Commit_Data *commit_data = NULL;
 
-    if ((hwc_window->accepted_state == E_HWC_WINDOW_STATE_DEVICE) ||
-        (hwc_window->accepted_state == E_HWC_WINDOW_STATE_VIDEO) ||
-        (hwc_window->accepted_state == E_HWC_WINDOW_STATE_CURSOR))
+    if (hwc_window->accepted_state == E_HWC_WINDOW_STATE_CURSOR)
+      {
+        commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
+
+        e_comp_wl_buffer_reference(&commit_data->buffer_ref,
+                                   _e_hwc_window_comp_wl_buffer_get(hwc_window));
+      }
+    else if (hwc_window->accepted_state == E_HWC_WINDOW_STATE_DEVICE ||
+             hwc_window->accepted_state == E_HWC_WINDOW_STATE_VIDEO)
      {
         if (!hwc_window->buffer.tsurface) return EINA_FALSE;
         if (hwc_window->buffer.tsurface == hwc_window->display.buffer.tsurface) return EINA_FALSE;
@@ -1094,6 +991,16 @@ e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window)
             e_hwc_window_state_string_get(hwc_window->state),
             hwc_window->zpos, (hwc_window->is_deleted ? "yes" : "no"));
 
+   if (e_hwc_window_is_cursor(hwc_window))
+     {
+        e_comp_wl_buffer_reference(&hwc_window->commit_data->buffer_ref, NULL);
+        free(hwc_window->commit_data);
+        hwc_window->commit_data = NULL;
+        e_object_unref(E_OBJECT(hwc_window));
+
+        return EINA_TRUE;
+     }
+
    if (!tsurface)
      {
         if (hwc_window->display.buffer.tsurface)
@@ -1141,6 +1048,7 @@ e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window)
 
    e_comp_wl_buffer_reference(&hwc_window->commit_data->buffer_ref, NULL);
    _e_hwc_window_buffer_set(&hwc_window->commit_data->buffer, NULL, NULL);
+
    free(hwc_window->commit_data);
    hwc_window->commit_data = NULL;
    e_object_unref(E_OBJECT(hwc_window));
