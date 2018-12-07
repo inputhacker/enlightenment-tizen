@@ -1265,21 +1265,6 @@ _e_video_geometry_cal(E_Video_Hwc_Planes *evhp)
    return EINA_TRUE;
 }
 
-static void
-_e_video_format_info_get(E_Video_Hwc_Planes *evhp)
-{
-   E_Comp_Wl_Buffer *comp_buffer;
-   tbm_surface_h tbm_surf;
-
-   comp_buffer = e_pixmap_resource_get(evhp->ec->pixmap);
-   EINA_SAFETY_ON_NULL_RETURN(comp_buffer);
-
-   tbm_surf = wayland_tbm_server_get_surface(e_comp->wl_comp_data->tbm.server, comp_buffer->resource);
-   EINA_SAFETY_ON_NULL_RETURN(tbm_surf);
-
-   evhp->tbmfmt = tbm_surface_get_format(tbm_surf);
-}
-
 static Eina_Bool
 _e_video_can_commit(E_Video_Hwc_Planes *evhp)
 {
@@ -1987,6 +1972,7 @@ _e_video_render(E_Video_Hwc_Planes *evhp, const char *func)
    E_Comp_Wl_Video_Buf *pp_buffer = NULL;
    E_Comp_Wl_Video_Buf *input_buffer = NULL;
    E_Client *topmost;
+   tbm_surface_h tbm_surf;
 
    EINA_SAFETY_ON_NULL_RETURN(evhp->ec);
 
@@ -2005,11 +1991,12 @@ _e_video_render(E_Video_Hwc_Planes *evhp, const char *func)
    comp_buffer = e_pixmap_resource_get(evhp->ec->pixmap);
    if (!comp_buffer) return;
 
-   _e_video_format_info_get(evhp);
-
+   tbm_surf = wayland_tbm_server_get_surface(NULL, comp_buffer->resource);
    /* not interested with other buffer type */
-   if (!wayland_tbm_server_get_surface(NULL, comp_buffer->resource))
+   if (!tbm_surf)
      return;
+
+   evhp->tbmfmt = tbm_surface_get_format(tbm_surf);
 
    topmost = e_comp_wl_topmost_parent_get(evhp->ec);
    EINA_SAFETY_ON_NULL_RETURN(topmost);
