@@ -1562,9 +1562,6 @@ _e_video_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
 
    if (e_object_is_del(E_OBJECT(evhp->ec))) return;
 
-   if (!evhp->ec->comp_data->video_client)
-     return;
-
    if (evhp->need_force_render)
      {
         VIN("video forcely rendering..");
@@ -1617,9 +1614,6 @@ _e_video_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
    E_Video_Hwc_Planes *evhp = data;
 
    if (e_object_is_del(E_OBJECT(evhp->ec))) return;
-
-   if (!evhp->ec->comp_data->video_client)
-     return;
 
    /* if stand_alone is true, not hide */
    if (evhp->ec->comp_data->sub.data && evhp->ec->comp_data->sub.data->stand_alone)
@@ -2166,10 +2160,6 @@ _e_video_cb_ec_buffer_change(void *data, int type, void *event)
      return ECORE_CALLBACK_PASS_ON;
 
    if (e_object_is_del(E_OBJECT(ec)))
-     return ECORE_CALLBACK_PASS_ON;
-
-   /* not interested with non video_surface,  */
-   if (!evhp->ec->comp_data->video_client)
      return ECORE_CALLBACK_PASS_ON;
 
    /* skip external client buffer if its top parent is not current for eom anymore */
