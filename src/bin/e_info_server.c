@@ -4322,22 +4322,41 @@ _msg_layer_fps_append(Eldbus_Message_Iter *iter)
 
         strncpy(output_name, output->id, sizeof(char)*30);
 
-        EINA_LIST_FOREACH(output->planes, plane_l, plane)
+        if (output->hwc)
           {
-             if (!plane) continue;
-             if (!e_plane_fps_get(plane, &fps)) continue;
+             if (!e_hwc_windows_fps_get(output->hwc, &fps)) continue;
 
              Eldbus_Message_Iter* struct_of_layer_fps;
 
              eldbus_message_iter_arguments_append(array_of_layer_fps, "("VALUE_TYPE_FOR_LAYER_FPS")", &struct_of_layer_fps);
 
              eldbus_message_iter_arguments_append
-               (struct_of_layer_fps, VALUE_TYPE_FOR_LAYER_FPS,
-                 output_name,
-                 plane->zpos,
-                 plane->fps);
+                (struct_of_layer_fps, VALUE_TYPE_FOR_LAYER_FPS,
+                  output_name,
+                  -999,
+                  fps);
 
-            eldbus_message_iter_container_close(array_of_layer_fps, struct_of_layer_fps);
+             eldbus_message_iter_container_close(array_of_layer_fps, struct_of_layer_fps);
+          }
+        else
+          {
+             EINA_LIST_FOREACH(output->planes, plane_l, plane)
+               {
+                  if (!plane) continue;
+                  if (!e_plane_fps_get(plane, &fps)) continue;
+
+                  Eldbus_Message_Iter* struct_of_layer_fps;
+
+                  eldbus_message_iter_arguments_append(array_of_layer_fps, "("VALUE_TYPE_FOR_LAYER_FPS")", &struct_of_layer_fps);
+
+                  eldbus_message_iter_arguments_append
+                     (struct_of_layer_fps, VALUE_TYPE_FOR_LAYER_FPS,
+                       output_name,
+                       plane->zpos,
+                       plane->fps);
+
+                  eldbus_message_iter_container_close(array_of_layer_fps, struct_of_layer_fps);
+               }
           }
         memset(output_name, 0x0, sizeof(char)*30);
      }

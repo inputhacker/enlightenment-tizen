@@ -51,6 +51,35 @@ static uint64_t rendered_windows_key;
 static Eina_Bool _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data);
 static Eina_Bool _e_hwc_windows_pp_window_commit(E_Hwc *hwc, E_Hwc_Window *hwc_window);
 
+static void
+_e_hwc_windows_update_fps(E_Hwc *hwc)
+{
+   if (e_comp->calc_fps)
+     {
+        double dt;
+        double tim = ecore_time_get();
+
+        dt = tim - hwc->frametimes[0];
+        hwc->frametimes[0] = tim;
+
+        hwc->time += dt;
+        hwc->cframes++;
+
+        if (hwc->lapse == 0.0)
+          {
+             hwc->lapse = tim;
+             hwc->flapse = hwc->cframes;
+          }
+        else if ((tim - hwc->lapse) >= 0.5)
+          {
+             hwc->fps = (hwc->cframes - hwc->flapse) / (tim - hwc->lapse);
+             hwc->lapse = tim;
+             hwc->flapse = hwc->cframes;
+             hwc->time = 0.0;
+          }
+     }
+}
+
 static E_Hwc_Mode
 _e_hwc_windows_hwc_mode_update(E_Hwc *hwc, int num_client, int num_device, int num_video)
 {
@@ -1930,6 +1959,8 @@ e_hwc_windows_commit(E_Hwc *hwc)
      }
    else
      {
+        _e_hwc_windows_update_fps(hwc);
+
         error = tdm_hwc_commit(hwc->thwc, 0, _e_hwc_windows_commit_handler, hwc);
         if (error != TDM_ERROR_NONE)
           {
@@ -2101,4 +2132,22 @@ e_hwc_windows_rendered_window_add(E_Hwc_Window *hwc_window)
 
    EHWSTRACE(" add ehw:%p ts:%p to the render_list -- {%25s}.", ec, hwc_window,
             hwc_window->buffer.tsurface, e_hwc_window_name_get(hwc_window));
+}
+
+EINTERN Eina_Bool
+e_hwc_windows_fps_get(E_Hwc *hwc, double *fps)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+
+   if (hwc->old_fps == hwc->fps)
+     return EINA_FALSE;
+
+   if (hwc->fps > 0.0)
+     {
+        *fps = hwc->fps;
+        hwc->old_fps = hwc->fps;
+        return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
 }
