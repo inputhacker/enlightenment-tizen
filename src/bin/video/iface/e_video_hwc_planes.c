@@ -1176,7 +1176,7 @@ _e_video_geometry_cal(E_Video_Hwc_Planes *evhp)
 
    _e_video_geometry_cal_map(evhp);
 
-   if (e_config->eom_enable == EINA_TRUE && evhp->external_video)
+   if (evhp->external_video)
      {
         tdm_err = tdm_output_get_mode(evhp->output, &mode);
         if (tdm_err != TDM_ERROR_NONE)
@@ -1268,19 +1268,13 @@ _e_video_geometry_cal(E_Video_Hwc_Planes *evhp)
 static Eina_Bool
 _e_video_can_commit(E_Video_Hwc_Planes *evhp)
 {
-   if (e_config->eom_enable == EINA_TRUE)
+   if (!evhp->external_video)
      {
-        if (!evhp->external_video && e_output_dpms_get(evhp->e_output))
+        if (e_output_dpms_get(evhp->e_output))
           return EINA_FALSE;
      }
-   else
-     if (e_output_dpms_get(evhp->e_output))
-       return EINA_FALSE;
 
-   if (!_e_video_is_visible(evhp))
-     return EINA_FALSE;
-
-   return EINA_TRUE;
+   return _e_video_is_visible(evhp);
 }
 
 static void
@@ -2178,14 +2172,11 @@ _e_video_cb_ec_buffer_change(void *data, int type, void *event)
    if (!evhp->ec->comp_data->video_client)
      return ECORE_CALLBACK_PASS_ON;
 
-   if (e_config->eom_enable == EINA_TRUE)
+   /* skip external client buffer if its top parent is not current for eom anymore */
+   if (evhp->external_video && e_eom_is_ec_external(ec))
      {
-        /* skip external client buffer if its top parent is not current for eom anymore */
-        if (evhp->external_video && e_eom_is_ec_external(ec))
-          {
-             VWR("skip external buffer");
-             return ECORE_CALLBACK_PASS_ON;
-          }
+        VWR("skip external buffer");
+        return ECORE_CALLBACK_PASS_ON;
      }
 
    _e_video_render(evhp, __FUNCTION__);
@@ -2214,7 +2205,7 @@ _e_video_cb_ec_client_show(void *data, int type, void *event)
    if (!evhp) return ECORE_CALLBACK_PASS_ON;
 
    VIN("client(0x%08"PRIxPTR") show: find video child(0x%08"PRIxPTR")", (Ecore_Window)e_client_util_win_get(ec), (Ecore_Window)e_client_util_win_get(video_ec));
-   if(evhp->old_comp_buffer)
+   if (evhp->old_comp_buffer)
      {
         VIN("video already rendering..");
         return ECORE_CALLBACK_PASS_ON;
@@ -2222,14 +2213,11 @@ _e_video_cb_ec_client_show(void *data, int type, void *event)
 
    if (ec == e_comp_wl_topmost_parent_get(evhp->ec))
      {
-        if (e_config->eom_enable == EINA_TRUE)
+        /* skip external client buffer if its top parent is not current for eom anymore */
+        if (evhp->external_video && e_eom_is_ec_external(ec))
           {
-             /* skip external client buffer if its top parent is not current for eom anymore */
-             if (evhp->external_video && e_eom_is_ec_external(ec))
-               {
-                  VWR("skip external buffer");
-                  return ECORE_CALLBACK_PASS_ON;
-               }
+             VWR("skip external buffer");
+             return ECORE_CALLBACK_PASS_ON;
           }
 
         VIN("video need rendering..");
