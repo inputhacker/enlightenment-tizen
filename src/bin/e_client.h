@@ -667,18 +667,6 @@ struct E_Client
    {
       struct
       {
-         unsigned char soft_menu : 1;
-         unsigned char soft_menus : 1;
-      } fetch;
-
-      unsigned char soft_menu : 1;
-      unsigned char soft_menus : 1;
-   } qtopia;
-
-   struct
-   {
-      struct
-      {
          unsigned char state : 1;
          unsigned char vkbd : 1;
       } fetch;
