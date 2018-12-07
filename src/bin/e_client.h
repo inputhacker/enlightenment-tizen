@@ -721,9 +721,9 @@ struct E_Client
       Evas_Point adjusted;
 
       struct
-        {
-           double x, y, z;
-        } saved[4];
+      {
+         double x, y, z;
+      } saved[4];
    } transform;
 
    unsigned int       visible : 1; // client is set to be visible by display server (never use this)
@@ -874,39 +874,39 @@ struct E_Client
       E_Layer   saved_layer; // original layer
    } changable_layer[E_CHANGABLE_LAYER_TYPE_MAX];
 
- struct
+   struct
    {
-       Eina_List *transform_list;
-       Eina_Bool  background;
-       Eina_Bool  changed;
+      Eina_List *transform_list;
+      Eina_Bool  background;
+      Eina_Bool  changed;
 
-       struct
-       {
-           int client_x, client_y, client_w, client_h;
-           int frame_w, frame_h;
-       } backup;
+      struct
+      {
+         int client_x, client_y, client_w, client_h;
+         int frame_w, frame_h;
+      } backup;
 
-       struct
-       {
-           Eina_Bool                    enable;
-           E_Util_Transform_Matrix      matrix;
-           E_Util_Transform_Matrix      inv_matrix;
-           E_Util_Transform_Rect_Vertex vertices;
-           E_Util_Transform             transform;
+      struct
+      {
+         Eina_Bool                    enable;
+         E_Util_Transform_Matrix      matrix;
+         E_Util_Transform_Matrix      inv_matrix;
+         E_Util_Transform_Rect_Vertex vertices;
+         E_Util_Transform             transform;
 
-           struct
-           {
-               E_Util_Transform_Rect_Vertex vertices;
-               int x, y, w, h;
-           } boundary;
+         struct
+         {
+            E_Util_Transform_Rect_Vertex vertices;
+            int x, y, w, h;
+         } boundary;
 
-       } result;
+      } result;
 
-       struct
-       {
-           Eina_Bool               enable;
-           E_Util_Transform_Matrix matrix;
-       } parent;
+      struct
+      {
+         Eina_Bool               enable;
+         E_Util_Transform_Matrix matrix;
+      } parent;
    } transform_core;
 
    struct
@@ -933,11 +933,11 @@ struct E_Client
    E_Plane_Renderer_Client *renderer_client;
 
    struct
-     {
-        Eina_Bool provider : 1;
-        Eina_Bool consumer : 1;
-        int       bind_ref;
-     } remote_surface;
+   {
+      Eina_Bool provider : 1;
+      Eina_Bool consumer : 1;
+      int       bind_ref;
+   } remote_surface;
 
    Eina_Bool is_cursor : 1; // The client is a cursor client
 
@@ -950,11 +950,11 @@ struct E_Client
    int comp_override;
 
    struct
-     {
-        Eina_Bool    wait_commit : 1;
-        unsigned int serial;
-        Eina_List    *pending_geometry; // E_Client_Pending_Geometry
-     } surface_sync;
+   {
+      Eina_Bool    wait_commit : 1;
+      unsigned int serial;
+      Eina_List   *pending_geometry; // E_Client_Pending_Geometry
+   } surface_sync;
 
    Eina_Bool on_render_list : 1; // client is on the render list
 };
