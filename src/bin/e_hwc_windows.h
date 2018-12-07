@@ -11,6 +11,7 @@ EINTERN void                 e_hwc_windows_rendered_window_add(E_Hwc_Window *hwc
 EINTERN Eina_Bool            e_hwc_windows_pp_commit_possible_check(E_Hwc *hwc);
 EINTERN Eina_Bool            e_hwc_windows_zoom_set(E_Hwc *hwc, Eina_Rectangle *rect);
 EINTERN void                 e_hwc_windows_zoom_unset(E_Hwc *hwc);
+EINTERN Eina_Bool            e_hwc_windows_fps_get(E_Hwc *hwc, double *fps);
 
 #endif
 #endif

@@ -77,6 +77,15 @@ struct _E_Hwc
    Eina_Bool             pp_output_commit;
    E_Hwc_Window_Commit_Data  *pp_output_commit_data;
    Eina_Rectangle        pp_rect;
+
+   /* for fps */
+   double               fps;
+   double               old_fps;
+   double               frametimes[122];
+   double               time;
+   double               lapse;
+   int                  cframes;
+   int                  flapse;
 };
 
 EINTERN E_Hwc        *e_hwc_new(E_Output *output);
