@@ -2244,9 +2244,9 @@ _e_plane_renderer_surface_queue_recreate_alloc_cb(tbm_surface_queue_h surface_qu
    tbm_surface_info_s info;
    tbm_surface_info_s new_info;
 
-   width = tbm_surface_queue_get_width(surface_queue);
-   height = tbm_surface_queue_get_height(surface_queue);
-   format = tbm_surface_queue_get_format(surface_queue);
+   width = renderer->recreate_info.width;
+   height = renderer->recreate_info.height;
+   format = TBM_FORMAT_ARGB8888;
 
    if (renderer->plane)
      flags = renderer->plane->buffer_flags;
@@ -2320,6 +2320,9 @@ e_plane_renderer_surface_queue_recreate(E_Plane_Renderer *renderer, int width, i
 
    tqueue = tbm_surface_queue_create(queue_size, width, height, format, buffer_flags);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(tqueue, NULL);
+
+   renderer->recreate_info.width = width;
+   renderer->recreate_info.height = height;
 
    tbm_surface_queue_set_alloc_cb(tqueue, _e_plane_renderer_surface_queue_recreate_alloc_cb,
                                   _e_plane_renderer_surface_queue_recreate_free_cb, renderer);
