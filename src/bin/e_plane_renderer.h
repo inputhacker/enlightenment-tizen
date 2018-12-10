@@ -60,6 +60,11 @@ struct _E_Plane_Renderer {
    tbm_surface_h       render_dequeued_tsurface;
 
    Eina_Bool           send_dequeue;
+
+   struct {
+      int              width;
+      int              height;
+   } recreate_info;
 };
 
 EINTERN Eina_Bool                  e_plane_renderer_init(void);
