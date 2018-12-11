@@ -892,8 +892,20 @@ _e_plane_renderer_client_ec_buffer_change_cb(void *data, int type, void *event)
    renderer_client = e_plane_renderer_client_get(ec);
    if (!renderer_client) return ECORE_CALLBACK_PASS_ON;
 
+   renderer = renderer_client->renderer;
+
    if (_e_plane_renderer_client_surface_flags_get(renderer_client) != E_PLANE_RENDERER_CLIENT_SURFACE_FLAGS_RESERVED)
-     return ECORE_CALLBACK_PASS_ON;
+     {
+        if (!renderer) return ECORE_CALLBACK_PASS_ON;
+        if (renderer_client->state != E_PLANE_RENDERER_CLIENT_STATE_ACTIVATED) return ECORE_CALLBACK_PASS_ON;
+        if (renderer->tqueue)
+          {
+             if (renderer->plane && (renderer->ec == ec))
+               e_plane_ec_set(renderer->plane, NULL);
+          }
+
+        return ECORE_CALLBACK_PASS_ON;
+     }
 
    renderer_buffer = _e_plane_renderer_client_renderer_buffer_get(renderer_client);
    if (!renderer_buffer)
@@ -909,8 +921,6 @@ _e_plane_renderer_client_ec_buffer_change_cb(void *data, int type, void *event)
 
         return ECORE_CALLBACK_PASS_ON;
      }
-
-   renderer = renderer_client->renderer;
 
    if ((renderer_client->state == E_PLANE_RENDERER_CLIENT_STATE_NONE) ||
        (renderer_client->state == E_PLANE_RENDERER_CLIENT_STATE_PENDING_DEACTIVATED))
