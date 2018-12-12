@@ -19,6 +19,7 @@ typedef struct _Test_Helper_Data
         Ecore_Window win;
         E_Client *ec;
         int vis;
+        Eina_Bool render_send;
         Eina_Bool disuse;
      } registrant;
 
@@ -48,6 +49,10 @@ static Eldbus_Message *_e_test_helper_cb_ev_key(const Eldbus_Service_Interface *
 static Eldbus_Message *_e_test_helper_cb_hwc(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_zone_rot_change(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_zone_rot_get(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_set_render_condition(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eina_Bool _e_test_helper_cb_img_render(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
+static Eina_Bool _e_test_helper_cb_effect_start(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
+static Eina_Bool _e_test_helper_cb_effect_end(void *data EINA_UNUSED, int type EINA_UNUSED, void *event);
 
 enum
 {
@@ -55,6 +60,7 @@ enum
    E_TEST_HELPER_SIGNAL_RESTACK,
    E_TEST_HELPER_SIGNAL_WINDOW_ROTATION_CHANGED,
    E_TEST_HELPER_SIGNAL_FOCUS_CHANGED,
+   E_TEST_HELPER_SIGNAL_RENDER,
 };
 
 static const Eldbus_Signal signals[] = {
@@ -80,6 +86,12 @@ static const Eldbus_Signal signals[] = {
        {
           "FocusChanged",
           ELDBUS_ARGS({"u", "window id of focus changed"}),
+          0
+       },
+     [E_TEST_HELPER_SIGNAL_RENDER] =
+       {
+          "RenderRun",
+          NULL,
           0
        },
        { }
@@ -206,6 +218,12 @@ static const Eldbus_Method methods[] ={
           ELDBUS_ARGS({"b", "accept or not"}),
           _e_test_helper_cb_zone_rot_change, 0,
        },
+       {
+          "RenderTrace",
+          ELDBUS_ARGS({"us", "window id and type of rendering to trace"}),
+          ELDBUS_ARGS({"b", "accept or not"}),
+          _e_test_helper_cb_set_render_condition, 0,
+       },
        { }
 };
 
@@ -223,10 +241,16 @@ _e_test_helper_registrant_clear(void)
 {
    EINA_SAFETY_ON_NULL_RETURN(th_data);
 
+   if (th_data->registrant.ec && th_data->registrant.ec->frame)
+     {
+        e_comp_object_render_trace_set(th_data->registrant.ec->frame, EINA_FALSE);
+     }
+
    th_data->registrant.win = 0;
    th_data->registrant.vis = -1;
    th_data->registrant.ec = NULL;
    th_data->registrant.disuse = EINA_FALSE;
+   th_data->registrant.render_send = EINA_FALSE;
 }
 
 static void
@@ -346,6 +370,17 @@ _e_test_helper_send_change_visibility(Ecore_Window win, Eina_Bool vis)
    signal = eldbus_service_signal_new(th_data->iface,
                                       E_TEST_HELPER_SIGNAL_CHANGE_VISIBILITY);
    eldbus_message_arguments_append(signal, "ub", win, vis);
+   eldbus_service_signal_send(th_data->iface, signal);
+}
+
+static void
+_e_test_helper_send_render(Ecore_Window win)
+{
+   Eldbus_Message *signal;
+
+   EINA_SAFETY_ON_NULL_RETURN(th_data);
+
+   signal = eldbus_service_signal_new(th_data->iface, E_TEST_HELPER_SIGNAL_RENDER);
    eldbus_service_signal_send(th_data->iface, signal);
 }
 
@@ -1047,6 +1082,118 @@ _e_test_helper_cb_property_get(const Eldbus_Service_Interface *iface EINA_UNUSED
    return EINA_TRUE;
 }
 
+static Eldbus_Message *
+_e_test_helper_cb_set_render_condition(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Ecore_Window win = 0x0;
+   Eina_Bool accept = EINA_FALSE;
+   char *cond;
+
+   if (!eldbus_message_arguments_get(msg, "us", &win, &cond))
+     {
+        ERR("error on eldbus_message_arguments_get()\n");
+        goto fin;
+     }
+
+   // a window should be registered for tracing, otherwise reply accept FALSE
+   if (!th_data->registrant.ec) goto fin;
+   if (!th_data->registrant.win) goto fin;
+   if (win != th_data->registrant.win) goto fin;
+
+   // tracning condition on and off depending on "cond" string.
+   if (!e_util_strcmp(cond, "effect"))
+     {
+        E_LIST_HANDLER_APPEND(th_data->hdlrs, E_EVENT_COMP_OBJECT_EFFECT_START,
+                              _e_test_helper_cb_effect_start, NULL);
+        E_LIST_HANDLER_APPEND(th_data->hdlrs, E_EVENT_COMP_OBJECT_EFFECT_END,
+                              _e_test_helper_cb_effect_end, NULL);
+        accept = EINA_TRUE;
+     }
+
+fin:
+   eldbus_message_arguments_append(reply, "b", accept);
+
+   return reply;
+}
+
+static Eina_Bool
+_e_test_helper_cb_img_render(void *data EINA_UNUSED,
+                             int type EINA_UNUSED,
+                             void *event)
+{
+   E_Client *ec;
+   E_Event_Comp_Object *ev = event;
+
+   if (!(ec = evas_object_data_get(ev->comp_object, "E_Client")))
+     return ECORE_CALLBACK_DONE;
+
+   // a window should be registered for tracing
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_DONE);
+
+   if (!th_data->registrant.ec) return ECORE_CALLBACK_DONE;
+   if (!th_data->registrant.win) return ECORE_CALLBACK_DONE;
+   if (ec != th_data->registrant.ec) return ECORE_CALLBACK_DONE;
+
+   if (th_data->registrant.render_send)
+     _e_test_helper_send_render(th_data->registrant.win);
+
+   return ECORE_CALLBACK_DONE;
+}
+
+static Eina_Bool
+_e_test_helper_cb_effect_start(void *data EINA_UNUSED,
+                               int type EINA_UNUSED,
+                               void *event)
+{
+   E_Client *ec;
+   E_Event_Comp_Object *ev = event;
+
+   if (!(ec = evas_object_data_get(ev->comp_object, "E_Client")))
+     return ECORE_CALLBACK_DONE;
+
+   // a window should be registered for tracing
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_DONE);
+   if (!th_data->registrant.ec) return ECORE_CALLBACK_DONE;
+   if (!th_data->registrant.win) return ECORE_CALLBACK_DONE;
+   if (ec != th_data->registrant.ec) return ECORE_CALLBACK_DONE;
+
+   if (ec && ec->frame)
+     {
+        th_data->registrant.render_send = EINA_TRUE;
+        e_comp_object_render_trace_set(ec->frame, EINA_TRUE);
+        e_pixmap_image_refresh(ec->pixmap);
+        e_comp_object_dirty(ec->frame);
+     }
+
+   return ECORE_CALLBACK_DONE;
+}
+
+static Eina_Bool
+_e_test_helper_cb_effect_end(void *data EINA_UNUSED,
+                             int type EINA_UNUSED,
+                             void *event)
+{
+   E_Client *ec;
+   E_Event_Comp_Object *ev = event;
+
+   ec = evas_object_data_get(ev->comp_object, "E_Client");
+
+   // a window should be registered for tracing
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_DONE);
+   if (!th_data->registrant.ec) return ECORE_CALLBACK_DONE;
+   if (!th_data->registrant.win) return ECORE_CALLBACK_DONE;
+   if (ec != th_data->registrant.ec) return ECORE_CALLBACK_DONE;
+
+   if (ec && ec->frame)
+     {
+        e_comp_object_render_trace_set(ec->frame, EINA_FALSE);
+        th_data->registrant.render_send = EINA_FALSE;
+     }
+
+   return ECORE_CALLBACK_DONE;
+}
+
 /* externally accessible functions */
 EINTERN int
 e_test_helper_init(void)
@@ -1072,6 +1219,8 @@ e_test_helper_init(void)
                          _e_test_helper_cb_client_rotation_end, NULL);
    E_LIST_HANDLER_APPEND(th_data->hdlrs, E_EVENT_CLIENT_FOCUS_IN,
                          _e_test_helper_cb_client_focus_in, NULL);
+   E_LIST_HANDLER_APPEND(th_data->hdlrs, E_EVENT_COMP_OBJECT_IMG_RENDER,
+                          _e_test_helper_cb_img_render, NULL);
 
    th_data->registrant.vis = -1;
 
