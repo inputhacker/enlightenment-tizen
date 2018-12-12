@@ -3954,7 +3954,7 @@ e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_
      }
 
    // reparent remote surface provider's subsurfaces
-   if (epc->comp_data->remote_surface.onscreen_parent)
+   if ((epc->comp_data) && (epc->comp_data->remote_surface.onscreen_parent))
      {
         offscreen_parent = epc;
         epc = epc->comp_data->remote_surface.onscreen_parent;
@@ -3975,7 +3975,7 @@ e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_
                   return EINA_FALSE;
                }
 
-             if (parent->comp_data->sub.data)
+             if ((parent->comp_data) && (parent->comp_data->sub.data))
                 parent = parent->comp_data->sub.data->parent;
              else
                 break;
