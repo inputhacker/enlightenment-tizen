@@ -85,6 +85,9 @@ struct _E_Comp_Object_Intercept_Hook
 #endif
 
 extern E_API int E_EVENT_COMP_OBJECT_ADD;
+extern E_API int E_EVENT_COMP_OBJECT_IMG_RENDER;
+extern E_API int E_EVENT_COMP_OBJECT_EFFECT_START;
+extern E_API int E_EVENT_COMP_OBJECT_EFFECT_END;
 
 E_API void e_comp_object_zoomap_set(Evas_Object *obj, Eina_Bool enabled);
 E_API Eina_Bool e_comp_object_mirror_visibility_check(Evas_Object *obj);
@@ -181,6 +184,7 @@ E_API void e_comp_object_indicator_size_set(Evas_Object *obj, int w, int h);
 
 E_API void e_comp_object_map_update(Evas_Object *obj);
 
+EINTERN Eina_Bool e_comp_object_render_trace_set(Evas_Object *obj, Eina_Bool set);
 #endif
 #endif
 

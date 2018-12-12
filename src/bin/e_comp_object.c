@@ -156,6 +156,8 @@ typedef struct _E_Comp_Object
         Eina_Bool           mask_set;
         int                 mask_x, mask_y, mask_w, mask_h;
      } dim;
+
+   Eina_Bool            render_trace : 1; // trace co->obj rendering on canvas
 } E_Comp_Object;
 
 typedef struct _E_Input_Rect_Data
@@ -209,6 +211,11 @@ EINTERN void e_client_focused_set(E_Client *ec);
 
 /* emitted every time a new noteworthy comp object is added */
 E_API int E_EVENT_COMP_OBJECT_ADD = -1;
+
+/* ecore event define */
+E_API int E_EVENT_COMP_OBJECT_IMG_RENDER = -1;
+E_API int E_EVENT_COMP_OBJECT_EFFECT_START = -1;
+E_API int E_EVENT_COMP_OBJECT_EFFECT_END = -1;
 
 static void           _e_comp_object_dim_enable_set(E_Client *ec, Evas_Object *obj, Eina_Bool enable, Eina_Bool noeffect);
 static Eina_Bool      _e_comp_object_dim_enable_get(E_Client *ec, Evas_Object *obj);
@@ -350,6 +357,41 @@ _e_comp_object_event_add(Evas_Object *obj)
    ecore_event_add(E_EVENT_COMP_OBJECT_ADD, ev, _e_comp_object_event_free, NULL);
 }
 
+static void
+_e_comp_object_simple_free(void *d EINA_UNUSED, void *event)
+{
+   E_Event_Comp_Object *ev = event;
+   E_Client *ec;
+
+   ec = evas_object_data_get(ev->comp_object, "E_Client");
+   if (ec)
+     {
+        UNREFD(ec, 1);
+        e_object_unref(E_OBJECT(ec));
+     }
+   evas_object_unref(ev->comp_object);
+   free(ev);
+}
+
+static void
+_e_comp_object_event_simple(Evas_Object *obj, int type)
+{
+   E_Event_Comp_Object *ev;
+   E_Client *ec;
+
+   ev = E_NEW(E_Event_Comp_Object, 1);
+   if (!ev) return;
+
+   evas_object_ref(obj);
+   ev->comp_object = obj;
+   ec = evas_object_data_get(ev->comp_object, "E_Client");
+   if (ec)
+     {
+        REFD(ec, 1);
+        e_object_ref(E_OBJECT(ec));
+     }
+   ecore_event_add(type, ev, (Ecore_End_Cb)_e_comp_object_simple_free, NULL);
+}
 /////////////////////////////////////
 
 static void
@@ -1228,6 +1270,11 @@ _e_comp_object_pixels_get(void *data, Evas_Object *obj EINA_UNUSED)
    /* queue another render if client is still dirty; cannot refresh here. */
    if (e_pixmap_dirty_get(ec->pixmap) && e_pixmap_size_get(ec->pixmap, &pw, &ph))
      e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+
+   if (cw->render_trace)
+     {
+        _e_comp_object_event_simple(ec->frame, E_EVENT_COMP_OBJECT_IMG_RENDER);
+     }
 }
 
 
@@ -4771,6 +4818,7 @@ _e_comp_object_effect_end_cb(void *data, Evas_Object *obj, const char *emission,
    if (evas_object_data_get(cw->smart_obj, "effect_running"))
      {
         evas_object_data_del(cw->smart_obj, "effect_running");
+        _e_comp_object_event_simple(obj, E_EVENT_COMP_OBJECT_EFFECT_END);
         e_client_visibility_calculate();
      }
 
@@ -4825,6 +4873,7 @@ e_comp_object_effect_start(Evas_Object *obj, Edje_Signal_Cb end_cb, const void *
    evas_object_data_set(cw->smart_obj, "effect_running", (void*)1);
 
    _e_comp_object_hook_call(E_COMP_OBJECT_HOOK_EFFECT_START, cw->ec);
+   _e_comp_object_event_simple(obj, E_EVENT_COMP_OBJECT_EFFECT_START);
 
    edje_object_signal_emit(cw->effect_obj, "e,action,go", "e");
    _e_comp_object_animating_begin(cw);
@@ -5758,4 +5807,14 @@ e_comp_object_map_update(Evas_Object *obj)
    evas_object_resize(cw->effect_obj, tw, th);
 
    evas_object_show(cw->map_input_obj);
+}
+
+EINTERN Eina_Bool
+e_comp_object_render_trace_set(Evas_Object *obj, Eina_Bool set)
+{
+   API_ENTRY EINA_FALSE;
+
+   cw->render_trace = set;
+
+   return EINA_TRUE;
 }

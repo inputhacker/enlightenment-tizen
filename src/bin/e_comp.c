@@ -393,6 +393,10 @@ e_comp_init(void)
    E_EVENT_COMPOSITOR_ENABLE = ecore_event_type_new();
    E_EVENT_COMPOSITOR_FPS_UPDATE = ecore_event_type_new();
 
+   E_EVENT_COMP_OBJECT_IMG_RENDER = ecore_event_type_new();
+   E_EVENT_COMP_OBJECT_EFFECT_START = ecore_event_type_new();
+   E_EVENT_COMP_OBJECT_EFFECT_END = ecore_event_type_new();
+
    ignores = eina_hash_pointer_new(NULL);
 
    e_main_ts_begin("\tE_Comp_Data Init");
