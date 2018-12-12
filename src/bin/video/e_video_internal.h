@@ -3,10 +3,6 @@
 
 #include "e.h"
 
-#include "e_video_debug.h"
-#include "e_zone_video.h"
-#include "e_comp_wl_video_buffer.h"
-
 #include <tdm.h>
 #include <values.h>
 #include <tdm_helper.h>
