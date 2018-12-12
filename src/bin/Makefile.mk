@@ -1,8 +1,10 @@
 E_CPPFLAGS = \
 -I$(top_builddir) \
 -I$(top_builddir)/src/bin \
+-I$(top_builddir)/src/bin/video \
 -I$(top_srcdir) \
 -I$(top_srcdir)/src/bin \
+-I$(top_srcdir)/src/bin/video \
 @e_cflags@ \
 @cf_cflags@ \
 @VALGRIND_CFLAGS@ \
@@ -16,10 +18,6 @@ E_CPPFLAGS = \
 -DPACKAGE_DATA_DIR=\"@PACKAGE_DATA_DIR@\" \
 -DLOCALE_DIR=\"@LOCALE_DIR@\" \
 -DPACKAGE_SYSCONF_DIR=\"@PACKAGE_SYSCONF_DIR@\"
-
-E_VIDEO_CPPFLAGS= \
--I$(top_builddir)/src/bin/video \
--I$(top_srcdir)/src/bin/video
 
 bin_PROGRAMS = \
 src/bin/enlightenment \
@@ -265,7 +263,7 @@ src/bin/e_devicemgr_input.c \
 src/bin/e_devicemgr_inputgen.c \
 src/bin/e_devicemgr_wl.c
 
-src_bin_enlightenment_CPPFLAGS = $(E_CPPFLAGS) $(E_VIDEO_CPPFLAGS) -DEFL_BETA_API_SUPPORT -DEFL_EO_API_SUPPORT -DE_LOGGING=1 @WAYLAND_CFLAGS@ $(TTRACE_CFLAGS) $(DLOG_CFLAGS) $(PIXMAN_CFLAGS) $(POLICY_CFLAGS) @TIZEN_REMOTE_SURFACE_CFLAGS@
+src_bin_enlightenment_CPPFLAGS = $(E_CPPFLAGS) -DEFL_BETA_API_SUPPORT -DEFL_EO_API_SUPPORT -DE_LOGGING=1 @WAYLAND_CFLAGS@ $(TTRACE_CFLAGS) $(DLOG_CFLAGS) $(PIXMAN_CFLAGS) $(POLICY_CFLAGS) @TIZEN_REMOTE_SURFACE_CFLAGS@
 if HAVE_LIBGOMP
 src_bin_enlightenment_CPPFLAGS += -fopenmp
 endif
