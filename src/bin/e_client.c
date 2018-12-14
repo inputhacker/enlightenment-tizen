@@ -3994,7 +3994,7 @@ e_client_new(E_Pixmap *cp, int first_map, int internal)
    e_comp->clients = eina_list_append(e_comp->clients, ec);
    eina_hash_add(clients_hash[e_pixmap_type_get(cp)], &ec->pixmap, ec);
 
-   ELOG("CLIENT ADD", ec->pixmap, ec);
+   ELOGF("COMP", "CLIENT ADD. cp:%p", ec->pixmap, ec, cp);
    if (!ec->ignored)
      _e_client_event_simple(ec, E_EVENT_CLIENT_ADD);
    e_comp_object_client_add(ec);
