@@ -91,7 +91,9 @@ struct _E_Hwc_Window
    E_Hwc_Window_Buffer            buffer;
 
    tdm_hwc_window_info            info;
+   Eina_List                     *prop_list;
    E_Hwc_Window_Commit_Data      *commit_data;
+
    /* current display information */
    struct
    {
@@ -152,6 +154,7 @@ EINTERN int                e_hwc_window_zpos_get(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_composition_update(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_info_update(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool          e_hwc_window_prop_update(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_target(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_video(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_is_cursor(E_Hwc_Window *hwc_window);
@@ -175,6 +178,7 @@ EINTERN Eina_Bool          e_hwc_window_rendered_window_update(E_Hwc_Window *hwc
 EINTERN void               e_hwc_window_buffer_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface, E_Hwc_Window_Queue *queue);
 EINTERN const char        *e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state);
 EINTERN const char        *e_hwc_window_name_get(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool          e_hwc_window_set_property(E_Hwc_Window *hwc_window, unsigned int id, const char *name, tdm_value value, Eina_Bool force);
 
 EINTERN E_Hwc_Window_Hook *e_hwc_window_hook_add(E_Hwc_Window_Hook_Point hookpoint, E_Hwc_Window_Hook_Cb func, const void *data);
 EINTERN void               e_hwc_window_hook_del(E_Hwc_Window_Hook *ch);

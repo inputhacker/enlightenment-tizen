@@ -45,6 +45,13 @@ static Eina_List *hwc_window_event_hdlrs = NULL;
 static int _e_hwc_window_hooks_delete = 0;
 static int _e_hwc_window_hooks_walking = 0;
 
+typedef struct _Hwc_Window_Prop
+{
+   unsigned int id;
+   char name[TDM_NAME_LEN];
+   tdm_value value;
+} Hwc_Window_Prop;
+
 static Eina_Inlist *_e_hwc_window_hooks[] =
 {
    [E_HWC_WINDOW_HOOK_ACCEPTED_STATE_CHANGE] = NULL,
@@ -274,11 +281,15 @@ _e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      return;
 
+   if (ec->hwc_window && e_hwc_window_is_video(ec->hwc_window))
+     {
+        EHWINF("is already created on eout:%p, zone_id:%d. VIDEO STATE.",
+          ec, ec->hwc_window, output, zone->id);
+        return;
+     }
+
    hwc_window = e_hwc_window_new(output->hwc, ec, E_HWC_WINDOW_STATE_NONE);
    EINA_SAFETY_ON_NULL_RETURN(hwc_window);
-
-   /* set the hwc window to the e client */
-   ec->hwc_window = hwc_window;
 
    return;
 }
@@ -304,11 +315,11 @@ _e_hwc_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
      return;
 
    if (!ec->hwc_window) return;
+   if (e_hwc_window_is_video(ec->hwc_window)) return;
 
    _e_hwc_window_constraints_reset(ec->hwc_window);
 
    e_hwc_window_free(ec->hwc_window);
-   ec->hwc_window = NULL;
 }
 
 static Eina_Bool
@@ -345,14 +356,10 @@ _e_hwc_window_client_cb_zone_set(void *data, int type, void *event)
         if (ec->hwc_window->hwc == output->hwc) goto end;
 
         e_hwc_window_free(ec->hwc_window);
-        ec->hwc_window = NULL;
      }
 
    hwc_window = e_hwc_window_new(output->hwc, ec, E_HWC_WINDOW_STATE_NONE);
    EINA_SAFETY_ON_NULL_GOTO(hwc_window, end);
-
-   /* set the hwc window to the e client */
-   ec->hwc_window = hwc_window;
 
    EHWINF("set on eout:%p, zone_id:%d.",
           ec, hwc_window, output, zone->id);
@@ -484,6 +491,7 @@ static void
 _e_hwc_window_free(E_Hwc_Window *hwc_window)
 {
    E_Hwc *hwc = NULL;
+   Hwc_Window_Prop *prop;
    E_Output *output = NULL;
    tdm_output *toutput = NULL;
 
@@ -497,6 +505,14 @@ _e_hwc_window_free(E_Hwc_Window *hwc_window)
 
    toutput = output->toutput;
    EINA_SAFETY_ON_NULL_GOTO(toutput, done);
+
+   if(hwc_window->prop_list)
+     {
+        EINA_LIST_FREE(hwc_window->prop_list, prop)
+          {
+             free(prop);
+          }
+     }
 
    if (hwc_window->thwc_window)
      tdm_hwc_window_destroy(hwc_window->thwc_window);
@@ -549,10 +565,15 @@ e_hwc_window_deinit(E_Hwc *hwc)
 EINTERN void
 e_hwc_window_free(E_Hwc_Window *hwc_window)
 {
+   E_Client *ec = NULL;
+
    EINA_SAFETY_ON_NULL_RETURN(hwc_window);
 
    EHWINF("Del", hwc_window->ec, hwc_window);
 
+   ec = hwc_window->ec;
+
+   ec->hwc_window = NULL;
    hwc_window->ec = NULL;
    hwc_window->is_deleted = EINA_TRUE;
 
@@ -604,10 +625,15 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
    if (state == E_HWC_WINDOW_STATE_VIDEO)
      hwc_window->is_video = EINA_TRUE;
 
+   /* set the hwc window to the e client */
+   ec->hwc_window = hwc_window;
+
    hwc->hwc_windows = eina_list_append(hwc->hwc_windows, hwc_window);
 
-   EHWINF("is created on eout:%p, zone_id:%d",
-          hwc_window->ec, hwc_window, hwc->output, ec->zone->id);
+   EHWINF("is created on eout:%p, zone_id:%d video:%d cursor:%d",
+          hwc_window->ec, hwc_window, hwc->output, ec->zone->id,
+          hwc_window->is_video, hwc_window->is_cursor);
+
    return hwc_window;
 }
 
@@ -691,6 +717,7 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
    tbm_surface_h tsurface = NULL;
    tbm_surface_info_s surf_info = {0};
    tdm_hwc_window_info hwc_win_info = {0};
+   E_Client_Video_Info vinfo;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
@@ -755,11 +782,15 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
      }
    else if (e_hwc_window_is_video(hwc_window))
      {
-        if (!e_comp_wl_video_hwc_window_info_get(hwc_window, &hwc_win_info))
+        if (!e_client_video_info_get(ec, &vinfo))
           {
-             ERR("Video window does not get the hwc_win_info.");
+             ERR("Video window does not get the video info.");
              return EINA_FALSE;
           }
+
+        memcpy(&hwc_win_info.src_config, &vinfo.src_config, sizeof(tdm_info_config));
+        memcpy(&hwc_win_info.dst_pos, &vinfo.dst_pos, sizeof(tdm_pos));
+        hwc_win_info.transform = vinfo.transform;
      }
    else if (tsurface)
      {
@@ -858,7 +889,8 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
    /* for video we set buffer in the video module */
    else if (e_hwc_window_is_video(hwc_window))
      {
-        tsurface = e_comp_wl_video_hwc_widow_surface_get(hwc_window);
+        tsurface = e_client_video_tbm_surface_get(hwc_window->ec);
+
         if (tsurface == hwc_window->buffer.tsurface) return EINA_FALSE;
      }
    else
@@ -914,6 +946,25 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
    return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_hwc_window_prop_update(E_Hwc_Window *hwc_window)
+{
+   Hwc_Window_Prop *prop;
+   Eina_Bool ret = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   EINA_LIST_FREE(hwc_window->prop_list, prop)
+     {
+        if (!e_hwc_window_set_property(hwc_window, prop->id, prop->name, prop->value, EINA_TRUE))
+          ERR("HWC-WIN: cannot update prop E_Hwc_Window(%p)", hwc_window);
+        free(prop);
+        ret = EINA_TRUE;
+     }
+
+   return ret;
 }
 
 EINTERN Eina_Bool
@@ -1546,6 +1597,64 @@ e_hwc_window_name_get(E_Hwc_Window *hwc_window)
 
    return name;
 }
+
+EINTERN Eina_Bool
+e_hwc_window_set_property(E_Hwc_Window *hwc_window, unsigned int id, const char *name, tdm_value value, Eina_Bool force)
+{
+   E_Client *ec = NULL;
+   const Eina_List *l = NULL;
+   Hwc_Window_Prop *prop = NULL;
+   tdm_error ret;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   ec = hwc_window->ec;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   if (force)
+     {
+        /* set the property on the fly */
+        ret = tdm_hwc_window_set_property(hwc_window, id, value);
+        EINA_SAFETY_ON_TRUE_RETURN_VAL(ret != TDM_ERROR_NONE, ret);
+
+        EHWTRACE("Set Property: property(%s) value(%d)) -- {%s}",
+                  hwc_window->ec, hwc_window,
+                  prop->name, (unsigned int)value.u32,
+                  e_hwc_window_name_get(hwc_window));
+     }
+   else
+     {
+        /* change the vaule of the property if prop_list already has the property */
+        EINA_LIST_FOREACH(hwc_window->prop_list, l, prop)
+          {
+             if (!strncmp(name, prop->name, TDM_NAME_LEN))
+               {
+                 EHWTRACE("Change Property: property(%s) update value(%d -> %d) -- {%s}",
+                           hwc_window->ec, hwc_window,
+                           prop->name, (unsigned int)prop->value.u32, (unsigned int)value.u32,
+                           e_hwc_window_name_get(hwc_window));
+                  prop->value.u32 = value.u32;
+                  return EINA_TRUE;
+               }
+          }
+
+        /* store the properties and commit at the hwc_commit time */
+        prop = calloc(1, sizeof(Hwc_Window_Prop));
+        EINA_SAFETY_ON_NULL_RETURN_VAL(prop, EINA_FALSE);
+        prop->value.u32 = value.u32;
+        prop->id = id;
+        memcpy(prop->name, name, sizeof(TDM_NAME_LEN));
+        hwc_window->prop_list = eina_list_append(hwc_window->prop_list, prop);
+
+        EHWTRACE("Set Property: property(%s) value(%d)) -- {%s}",
+                  hwc_window->ec, hwc_window,
+                  prop->name, (unsigned int)value.u32,
+                  e_hwc_window_name_get(hwc_window));
+     }
+
+   return EINA_TRUE;
+}
+
 
 EINTERN E_Hwc_Window_Hook *
 e_hwc_window_hook_add(E_Hwc_Window_Hook_Point hookpoint, E_Hwc_Window_Hook_Cb func, const void *data)

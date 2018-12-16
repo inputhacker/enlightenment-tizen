@@ -150,7 +150,7 @@ _e_hwc_windows_commit_data_release(E_Hwc *hwc, int sequence,
      {
          if (!hwc_window->commit_data) continue;
          if (e_hwc_window_is_video(hwc_window))
-           e_comp_wl_video_hwc_window_commit_data_release(hwc_window, sequence, tv_sec, tv_usec);
+           e_client_video_commit_data_release(hwc_window->ec, sequence, tv_sec, tv_usec);
 
          if (!e_hwc_window_commit_data_release(hwc_window)) continue;
      }
@@ -1502,7 +1502,7 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 
         if (e_hwc_window_is_video(hwc_window))
           {
-            if (!e_comp_wl_video_hwc_widow_surface_get(hwc_window))
+            if (!e_client_video_tbm_surface_get(ec))
               continue;
 
             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO, EINA_TRUE);
@@ -1719,6 +1719,10 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
         /* update the window's info */
         if (e_hwc_window_info_update(hwc_window))
           update_changes = EINA_TRUE;
+
+        /* update the window's props */
+        if (e_hwc_window_prop_update(hwc_window))
+          update_changes = EINA_TRUE;
      }
 
    /* update the states of the visible windows when there is something to update */
@@ -1803,6 +1807,8 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
         _e_hwc_windows_target_state_set(hwc->target_hwc_window, E_HWC_WINDOW_STATE_NONE);
      }
 
+   if (hwc_mode != E_HWC_MODE_FULL && num_video > 0)
+
    /* skip the target_buffer when the window is on trainsition of the composition */
    if (hwc_mode != E_HWC_MODE_FULL && _e_hwc_windows_transition_check(hwc))
      {
@@ -1841,9 +1847,12 @@ _e_hwc_windows_target_buffer_prepared(E_Hwc *hwc)
 EINTERN Eina_Bool
 e_hwc_windows_init(E_Hwc *hwc)
 {
+   tdm_error error;
+   tdm_hwc_capability hwc_caps = 0;
    E_Hwc_Window_Target *target_hwc_window;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc->thwc, EINA_FALSE);
 
    if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
      return EINA_FALSE;
@@ -1851,6 +1860,23 @@ e_hwc_windows_init(E_Hwc *hwc)
    target_hwc_window = _e_hwc_windows_target_window_new(hwc);
    EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
    target_hwc_window->hwc = hwc;
+
+   error = tdm_hwc_get_capabilities(hwc->thwc, &hwc_caps);
+   if (error != TDM_ERROR_NONE)
+     {
+        ERR("fail to tdm_hwc_get_capabilities");
+        return EINA_FALSE;
+     }
+
+   /* hwc video capabilities */
+   if (hwc_caps & TDM_HWC_CAPABILITY_VIDEO_STREAM)
+     hwc->tdm_hwc_video_stream = EINA_TRUE;
+   if (hwc_caps & TDM_HWC_CAPABILITY_VIDEO_SCALE)
+     hwc->tdm_hwc_video_scale = EINA_TRUE;
+   if (hwc_caps & TDM_HWC_CAPABILITY_VIDEO_TRANSFORM)
+     hwc->tdm_hwc_video_transform = EINA_TRUE;
+   if (hwc_caps & TDM_HWC_CAPABILITY_VIDEO_SCANOUT)
+     hwc->tdm_hwc_video_scanout = EINA_TRUE;
 
    /* set the target_window to the hwc */
    hwc->target_hwc_window = target_hwc_window;
@@ -2150,4 +2176,42 @@ e_hwc_windows_fps_get(E_Hwc *hwc, double *fps)
      }
 
    return EINA_FALSE;
+}
+
+EINTERN Eina_Bool
+e_hwc_windows_get_available_properties(E_Hwc *hwc, const tdm_prop **props, int *count)
+{
+   tdm_hwc *thwc;
+   tdm_error ret = TDM_ERROR_OPERATION_FAILED;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(props, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(count, EINA_FALSE);
+
+   thwc = hwc->thwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(thwc, EINA_FALSE);
+
+   ret = tdm_hwc_get_available_properties(thwc, props, count);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(ret != TDM_ERROR_NONE, ret);
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_hwc_windows_get_video_available_properties(E_Hwc *hwc, const tdm_prop **props, int *count)
+{
+   tdm_hwc *thwc;
+   tdm_error ret = TDM_ERROR_OPERATION_FAILED;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(props, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(count, EINA_FALSE);
+
+   thwc = hwc->thwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(thwc, EINA_FALSE);
+
+   ret = tdm_hwc_get_video_available_properties(thwc, props, count);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(ret != TDM_ERROR_NONE, ret);
+
+   return EINA_TRUE;
 }

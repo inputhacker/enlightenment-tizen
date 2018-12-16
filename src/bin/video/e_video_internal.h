@@ -9,38 +9,6 @@
 #include <tbm_surface.h>
 #include <wayland-tbm-server.h>
 
-#ifdef VER
-# undef VER
-#endif
-
-#ifdef VWR
-# undef VWR
-#endif
-
-#ifdef VIN
-# undef VIN
-#endif
-
-#ifdef VDB
-# undef VDB
-#endif
-
-#ifdef DET
-# undef DET
-#endif
-
-#ifdef VDT
-# undef VDT
-#endif
-
-#define VER(fmt, arg...)   ELOGF("VIDEO", "<ERR> window(0x%08"PRIxPTR"): "fmt, \
-                                 evhp->ec->pixmap, evhp->ec, evhp->window, ##arg)
-#define VWR(fmt, arg...)   ELOGF("VIDEO", "<WRN> window(0x%08"PRIxPTR"): "fmt, \
-                                 evhp->ec->pixmap, evhp->ec, evhp->window, ##arg)
-#define VIN(fmt, arg...)   ELOGF("VIDEO", "<INF> window(0x%08"PRIxPTR"): "fmt, \
-                                 evhp->ec->pixmap, evhp->ec, evhp->window, ##arg)
-#define VDB(fmt, arg...)   DBG("window(0x%08"PRIxPTR") ec(%p): "fmt, evhp->window, evhp->ec, ##arg)
-
 #define GEO_FMT   "%dx%d(%dx%d+%d+%d) -> (%dx%d+%d+%d) transform(%d)"
 #define GEO_ARG(g) \
    (g)->input_w, (g)->input_h, \
@@ -68,6 +36,7 @@ struct _E_Video_Comp_Iface
 };
 
 EINTERN E_Video_Comp_Iface  *e_video_hwc_planes_iface_create(E_Client *ec);
+EINTERN E_Video_Comp_Iface  *e_video_hwc_windows_iface_create(E_Client *ec);
 EINTERN E_Video_Comp_Iface  *e_video_fallback_iface_create(E_Client *ec);
 
 #endif

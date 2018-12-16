@@ -65,13 +65,14 @@ _e_client_video_comp_iface_init(E_Client_Video *ecv, E_Client *ec)
    hwc_pol = e_hwc_policy_get(eout->hwc);
    if (hwc_pol == E_HWC_POLICY_WINDOWS)
      {
-        /* TODO */
-        INF("Try to initialize the interface for HWC WINDOWS mode");
-        WRN("* Not Implemented *");
-        iface = NULL;
+        INF("Initialize the interface of the client_video for HWC WINDOWS mode");
+        iface = e_video_hwc_windows_iface_create(ec);;
      }
    else if (hwc_pol == E_HWC_POLICY_PLANES)
-     iface = e_video_hwc_planes_iface_create(ec);
+     {
+        INF("Initialize the interface of the client_video for HWC PLANES mode");
+        iface = e_video_hwc_planes_iface_create(ec);
+     }
 
 end:
    if (!iface)
