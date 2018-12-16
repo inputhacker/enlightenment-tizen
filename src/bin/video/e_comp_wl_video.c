@@ -128,66 +128,6 @@ _e_video_is_visible(E_Video *video)
    return EINA_TRUE;
 }
 
-EINTERN void
-e_comp_wl_video_hwc_window_commit_data_release(E_Hwc_Window *hwc_window, unsigned int sequence,
-                            unsigned int tv_sec, unsigned int tv_usec)
-{
-   E_Client *ec = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
-
-   ec = hwc_window->ec;
-   EINA_SAFETY_ON_NULL_RETURN(ec);
-
-   e_client_video_commit_data_release(ec, sequence, tv_sec, tv_usec);
-}
-
-EINTERN tbm_surface_h
-e_comp_wl_video_hwc_widow_surface_get(E_Hwc_Window *hwc_window)
-{
-   E_Client *ec = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
-
-   if (!e_hwc_window_is_video(hwc_window))
-     {
-       ERR("ehw:%p is NOT Video HWC window.", hwc_window);
-       return NULL;
-     }
-
-   ec = hwc_window->ec;
-   if (!ec) return NULL;
-
-   return e_client_video_tbm_surface_get(ec);
-}
-
-EINTERN Eina_Bool
-e_comp_wl_video_hwc_window_info_get(E_Hwc_Window *hwc_window, tdm_hwc_window_info *hwc_win_info)
-{
-   E_Client *ec = NULL;
-   E_Client_Video_Info vinfo;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-
-   if (!e_hwc_window_is_video(hwc_window))
-     {
-       ERR("ehw:%p is NOT Video HWC window.", hwc_window);
-       return EINA_FALSE;
-     }
-
-   ec = hwc_window->ec;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
-
-   if (!e_client_video_info_get(ec, &vinfo))
-     return EINA_FALSE;
-
-   memcpy(&hwc_win_info->src_config, &vinfo.src_config, sizeof(tdm_info_config));
-   memcpy(&hwc_win_info->dst_pos, &vinfo.dst_pos, sizeof(tdm_pos));
-   hwc_win_info->transform = vinfo.transform;
-
-   return EINA_TRUE;
-}
-
 static E_Video *
 _e_video_create(struct wl_resource *video_object, struct wl_resource *surface)
 {

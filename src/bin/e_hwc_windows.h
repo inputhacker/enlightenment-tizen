@@ -8,6 +8,9 @@ EINTERN void                 e_hwc_windows_deinit(E_Hwc *hwc);
 EINTERN Eina_Bool            e_hwc_windows_render(E_Hwc *hwc);
 EINTERN Eina_Bool            e_hwc_windows_commit(E_Hwc *hwc);
 EINTERN void                 e_hwc_windows_rendered_window_add(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool            e_hwc_windows_get_available_properties(E_Hwc *hwc, const tdm_prop **props, int *count);
+EINTERN Eina_Bool            e_hwc_windows_get_video_available_properties(E_Hwc *hwc, const tdm_prop **props, int *count);
+
 EINTERN Eina_Bool            e_hwc_windows_pp_commit_possible_check(E_Hwc *hwc);
 EINTERN Eina_Bool            e_hwc_windows_zoom_set(E_Hwc *hwc, Eina_Rectangle *rect);
 EINTERN void                 e_hwc_windows_zoom_unset(E_Hwc *hwc);

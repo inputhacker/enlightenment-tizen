@@ -62,6 +62,12 @@ struct _E_Hwc
    Eina_List           *visible_windows;
    int                  num_visible_windows;
 
+   /* capabilities */
+   Eina_Bool     tdm_hwc_video_stream;
+   Eina_Bool     tdm_hwc_video_scale;
+   Eina_Bool     tdm_hwc_video_transform;
+   Eina_Bool     tdm_hwc_video_scanout;
+
    Eina_Bool            intercept_pol;
 
    /* variables for pp at hwc_windows policy */
