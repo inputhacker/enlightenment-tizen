@@ -1340,8 +1340,17 @@ e_shell_e_client_map(E_Client *ec)
 
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   if ((ec->comp_data->mapped) || (!e_pixmap_usable_get(ec->pixmap)))
-     return;
+   if (ec->comp_data->mapped)
+     {
+        ELOGF("SHELL", "Map window  | Already mapped.", ec->pixmap, ec);
+        return;
+     }
+
+   if (!e_pixmap_usable_get(ec->pixmap))
+     {
+        ELOGF("SHELL", "Map window  | No operation. Pixmap(%p) is not usable.", ec->pixmap, ec, ec->pixmap);
+        return;
+     }
 
    cw = ec->w;
    ch = ec->h;
