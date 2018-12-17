@@ -739,6 +739,15 @@ _e_shell_client_map_common_post(E_Client *ec)
 
    if ((!ec->iconic) && (!e_client_util_ignored_get(ec)))
      {
+        if (ec->icccm.fetch.transient_for)
+          {
+             e_policy_stack_transient_for_apply(ec);
+             ec->icccm.fetch.transient_for = 0;
+
+             ec->post_lower = EINA_FALSE;
+             ec->post_raise = EINA_FALSE;
+          }
+
         if (!ec->comp_data->sub.data)
           {
              if (ec->post_lower)
