@@ -2290,3 +2290,17 @@ e_service_quickpanel_module_func_unset(void)
 
    return EINA_TRUE;
 }
+
+E_API Eina_List *
+e_service_quickpanels_get(void)
+{
+   Eina_List *l, *list = NULL;
+   E_Policy_Quickpanel *qp;
+
+   EINA_LIST_FOREACH(qp_services, l, qp)
+     {
+        list = eina_list_append(list, qp->ec);
+     }
+
+   return list;
+}

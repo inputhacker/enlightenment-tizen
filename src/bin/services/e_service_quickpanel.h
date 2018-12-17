@@ -51,6 +51,7 @@ struct _E_QP_Mgr_Funcs
 
 E_API Eina_Bool   e_service_quickpanel_module_func_set(E_QP_Mgr_Funcs *fp);
 E_API Eina_Bool   e_service_quickpanel_module_func_unset(void);
+E_API Eina_List  *e_service_quickpanels_get(void);
 
 EINTERN void      e_service_quickpanel_client_add(E_Client *ec, E_Service_Quickpanel_Type type);
 EINTERN void      e_service_quickpanel_client_del(E_Client *ec);
