@@ -26,6 +26,21 @@ struct _E_Client_Video
    Ecore_Event_Handler *eeh_zone_set;
 };
 
+static E_Hwc_Policy
+_e_client_video_zone_hwc_policy_get(E_Zone *zone)
+{
+   E_Output *eout;
+
+   eout = e_output_find(zone->output_id);
+   if (!eout)
+     {
+        ERR("Something wrong, couldn't find 'E_Output' from 'E_Zone'");
+        return E_HWC_POLICY_NONE;
+     }
+
+   return e_hwc_policy_get(eout->hwc);
+}
+
 static void
 _e_client_video_comp_iface_deinit(E_Client_Video *ecv)
 {
@@ -37,7 +52,6 @@ static Eina_Bool
 _e_client_video_comp_iface_init(E_Client_Video *ecv, E_Client *ec)
 {
    E_Video_Comp_Iface *iface = NULL;
-   E_Output *eout;
    E_Hwc_Policy hwc_pol;
 
    if ((e_config->eom_enable == EINA_TRUE) && (e_eom_is_ec_external(ec)))
@@ -55,14 +69,7 @@ _e_client_video_comp_iface_init(E_Client_Video *ecv, E_Client *ec)
         goto end;
      }
 
-   eout = e_output_find(ec->zone->output_id);
-   if (!eout)
-     {
-        ERR("Something wrong, couldn't find 'E_Output' from 'E_Zone'");
-        goto end;
-     }
-
-   hwc_pol = e_hwc_policy_get(eout->hwc);
+   hwc_pol = _e_client_video_zone_hwc_policy_get(ec->zone);
    if (hwc_pol == E_HWC_POLICY_WINDOWS)
      {
         INF("Initialize the interface of the client_video for HWC WINDOWS mode");
