@@ -145,8 +145,8 @@ _e_policy_stack_transient_for_tree_check(E_Client *child, E_Client *parent)
    return EINA_FALSE;
 }
 
-void
-e_policy_stack_hook_pre_post_fetch(E_Client *ec)
+static void
+_e_policy_stack_fetch_transient(E_Client *ec)
 {
    E_Client *new_focus = NULL;
    E_Policy_Stack *ps;
@@ -183,7 +183,13 @@ e_policy_stack_hook_pre_post_fetch(E_Client *ec)
 }
 
 void
-e_policy_stack_hook_pre_fetch(E_Client *ec)
+e_policy_stack_hook_pre_post_fetch(E_Client *ec)
+{
+   _e_policy_stack_fetch_transient(ec);
+}
+
+static void
+_e_policy_stack_fetch_icccm_transient_for(E_Client *ec)
 {
    if (ec->icccm.fetch.transient_for)
      {
@@ -219,6 +225,12 @@ e_policy_stack_hook_pre_fetch(E_Client *ec)
 
         ec->icccm.fetch.transient_for = 0;
      }
+}
+
+void
+e_policy_stack_hook_pre_fetch(E_Client *ec)
+{
+   _e_policy_stack_fetch_icccm_transient_for(ec);
 }
 
 void
@@ -276,6 +288,15 @@ e_policy_stack_transient_for_set(E_Client *ec, E_Client *parent)
      ec->saved.layer = ec->layer;
 
    EC_CHANGED(ec);
+}
+
+void
+e_policy_stack_transient_for_apply(E_Client *ec)
+{
+   if (!ec) return;
+
+   _e_policy_stack_fetch_icccm_transient_for(ec);
+   _e_policy_stack_fetch_transient(ec);
 }
 
 void

@@ -196,6 +196,8 @@ EINTERN void             e_policy_client_window_opaque_set(E_Client *ec);
 EINTERN void             e_policy_stack_init(void);
 EINTERN void             e_policy_stack_shutdown(void);
 EINTERN void             e_policy_stack_transient_for_set(E_Client *child, E_Client *parent);
+EINTERN void             e_policy_stack_transient_for_apply(E_Client *ec);
+
 EINTERN void             e_policy_stack_cb_client_remove(E_Client *ec);
 EINTERN void             e_policy_stack_hook_pre_fetch(E_Client *ec);
 EINTERN void             e_policy_stack_hook_pre_post_fetch(E_Client *ec);
