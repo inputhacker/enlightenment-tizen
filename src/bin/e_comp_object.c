@@ -88,7 +88,6 @@ typedef struct _E_Comp_Object
    Evas_Object         *zoomobj; // zoomap
    Evas_Object         *shobj;  // shadow object
    Evas_Object         *effect_obj; // effects object
-   Evas_Object         *mask_obj; // mask object: transparent parts of this comp object allow to copy the alpha to current H/W plane.
    Evas_Object         *transform_bg_obj;   // transform backgroung with keep_ratio option
    Evas_Object         *transform_tranp_obj;// transform transp rect obj
    Evas_Object         *map_input_obj; // input object to avoid the event transform by evas map
@@ -137,6 +136,12 @@ typedef struct _E_Comp_Object
    Eina_Bool            external_content : 1; // e.swallow.content(obj) is set by external evas object
    Eina_Bool            user_alpha_set : 1;
    Eina_Bool            user_alpha : 1;
+
+   struct
+     {
+        Evas_Object         *obj; // mask object: transparent parts of this comp object allow to copy the alpha to current H/W plane.
+        Evas_Render_Op       saved_render_op; // saved render operation value to restore when clear a mask.
+     } mask;
 
    struct
      {
@@ -2256,8 +2261,8 @@ _e_comp_intercept_show(void *data, Evas_Object *obj EINA_UNUSED)
           }
      }
 
-   if (cw->mask_obj)
-     evas_object_resize(cw->mask_obj, cw->w, cw->h);
+   if (cw->mask.obj)
+     evas_object_resize(cw->mask.obj, cw->w, cw->h);
 
    _e_comp_intercept_show_helper(cw);
 }
@@ -2899,7 +2904,7 @@ _e_comp_smart_show(Evas_Object *obj)
    evas_object_show(cw->effect_obj);
    if (cw->ec->internal_elm_win && (!evas_object_visible_get(cw->ec->internal_elm_win)))
      evas_object_show(cw->ec->internal_elm_win);
-   if (cw->mask_obj) evas_object_show(cw->mask_obj);
+   if (cw->mask.obj) evas_object_show(cw->mask.obj);
    if (cw->transform_bg_obj) evas_object_show(cw->transform_bg_obj);
    if (cw->transform_tranp_obj) evas_object_show(cw->transform_tranp_obj);
    if (evas_object_map_enable_get(cw->effect_obj)) evas_object_show(cw->map_input_obj);
@@ -2985,7 +2990,7 @@ _e_comp_smart_del(Evas_Object *obj)
    evas_object_del(cw->zoomobj);
    evas_object_del(cw->input_obj);
    evas_object_del(cw->obj);
-   evas_object_del(cw->mask_obj);
+   evas_object_del(cw->mask.obj);
    if (cw->dim.mask_obj) evas_object_del(cw->dim.mask_obj);
    evas_object_del(cw->transform_bg_obj);
    evas_object_del(cw->transform_tranp_obj);
@@ -3054,8 +3059,8 @@ _e_comp_smart_resize(Evas_Object *obj, int w, int h)
         if (cw->zoomobj) e_zoomap_child_resize(cw->zoomobj, pw, ph);
         if (cw->input_obj)
           evas_object_resize(cw->input_obj, w, h);
-        if (cw->mask_obj)
-          evas_object_resize(cw->mask_obj, w, h);
+        if (cw->mask.obj)
+          evas_object_resize(cw->mask.obj, w, h);
         /* resize render update tiler */
         if (!first)
           {
@@ -4464,7 +4469,7 @@ e_comp_object_dirty(Evas_Object *obj)
      evas_object_image_data_set(cw->obj, NULL);
    _e_comp_object_map_transform_rect(cw->ec, 0, 0, w, h, NULL, NULL, &tw, &th);
    evas_object_image_size_set(cw->obj, tw, th);
-   if (cw->mask_obj) evas_object_resize(cw->mask_obj, w, h);
+   if (cw->mask.obj) evas_object_resize(cw->mask.obj, w, h);
    if (cw->pending_updates)
      eina_tiler_area_size_set(cw->pending_updates, w, h);
    EINA_LIST_FOREACH(cw->obj_mirror, ll, o)
@@ -5071,27 +5076,34 @@ e_comp_object_mask_set(Evas_Object *obj, Eina_Bool set)
 
    if (mask_set)
      {
-        if (!cw->mask_obj)
+        if (!cw->mask.obj)
           {
              o = evas_object_rectangle_add(e_comp->evas);
              evas_object_color_set(o, 0, 0, 0, 0);
              evas_object_clip_set(o, cw->clip);
              evas_object_smart_member_add(o, obj);
              evas_object_move(o, 0, 0);
+             /* save render op value to restore when clear a mask.
+              *
+              * NOTE: DO NOT change the render op on ec->frame while mask object
+              * is set. it will overwrite the changed op value. */
+             cw->mask.saved_render_op = evas_object_render_op_get(obj);
              evas_object_render_op_set(obj, EVAS_RENDER_COPY);
              evas_object_render_op_set(o, EVAS_RENDER_COPY);
              if (cw->visible) evas_object_show(o);
 
-             cw->mask_obj = o;
+             cw->mask.obj = o;
              ELOGF("COMP", "         |mask_obj", cw->ec->pixmap, cw->ec);
           }
      }
    else
      {
-        if (cw->mask_obj)
+        if (cw->mask.obj)
           {
-             evas_object_smart_member_del(cw->mask_obj);
-             E_FREE_FUNC(cw->mask_obj, evas_object_del);
+             evas_object_smart_member_del(cw->mask.obj);
+             E_FREE_FUNC(cw->mask.obj, evas_object_del);
+
+             evas_object_render_op_set(obj, cw->mask.saved_render_op);
           }
      }
 }
@@ -5101,7 +5113,7 @@ e_comp_object_mask_has(Evas_Object *obj)
 {
    API_ENTRY EINA_FALSE;
 
-   return (cw->mask_obj) ? EINA_TRUE : EINA_FALSE;
+   return (cw->mask.obj) ? EINA_TRUE : EINA_FALSE;
 }
 
 E_API void
