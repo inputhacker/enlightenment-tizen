@@ -215,11 +215,6 @@ _e_video_destroy(E_Video *video)
    video_list = eina_list_remove(video_list, video);
 
    free(video);
-
-#if 0
-   if (e_comp_wl_video_buffer_list_length() > 0)
-     e_comp_wl_video_buffer_list_print(NULL);
-#endif
 }
 
 static Eina_Bool
