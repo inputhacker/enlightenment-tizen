@@ -77,25 +77,25 @@
 # define DLOG_BACKTRACE
 #endif
 
-#define ELOG(t, cp, ec)                                \
-   do                                                  \
-     {                                                 \
-        INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|",       \
-            (t),                                       \
-            (unsigned int)(e_client_util_win_get(ec)), \
-            (unsigned int)(ec));                       \
-     }                                                 \
+#define ELOG(t, cp, ec)                        \
+   do                                          \
+     {                                         \
+        INF("EWL|%20.20s|win:0x%08zx|ec:%8p|", \
+            (t),                               \
+            (e_client_util_win_get(ec)),       \
+            (ec));                             \
+     }                                         \
    while (0)
 
-#define ELOGF(t, f, cp, ec, x...)                      \
-   do                                                  \
-     {                                                 \
-        INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|"f,      \
-            (t),                                       \
-            (unsigned int)(e_client_util_win_get(ec)), \
-            (unsigned int)(ec),                        \
-            ##x);                                      \
-     }                                                 \
+#define ELOGF(t, f, cp, ec, x...)              \
+   do                                          \
+     {                                         \
+        INF("EWL|%20.20s|win:0x%08zx|ec:%8p|"f,\
+            (t),                               \
+            (e_client_util_win_get(ec)),       \
+            (ec),                              \
+            ##x);                              \
+     }                                         \
    while (0)
 
 typedef enum _E_Log_Type

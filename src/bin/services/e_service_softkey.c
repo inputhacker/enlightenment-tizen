@@ -83,7 +83,7 @@ e_service_softkey_add(E_Zone *zone, E_Client *ec)
 
    E_Service_Softkey *softkey;
 
-   ELOGF("SOFTKEY_SRV", "Softkey service window add... win:%x (ec:%p), zone:%p (id:%d)", NULL, NULL, e_client_util_win_get(ec), ec, zone, zone->id);
+   ELOGF("SOFTKEY_SRV", "Softkey service window add... win:%zx (ec:%p), zone:%p (id:%d)", NULL, NULL, e_client_util_win_get(ec), ec, zone, zone->id);
    softkey = E_NEW(E_Service_Softkey, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(softkey, NULL);
 
@@ -129,7 +129,7 @@ e_service_softkey_wl_resource_set(E_Service_Softkey *softkey, struct wl_resource
    if (!softkey)
      return EINA_FALSE;
 
-   ELOGF("SOFTKEY_SRV", "SET Softkey service wl res:%p. softkey(%p), win(%x), ec(%p)", NULL, NULL, wl_res, softkey, e_client_util_win_get(softkey->ec), softkey->ec);
+   ELOGF("SOFTKEY_SRV", "SET Softkey service wl res:%p. softkey(%p), win(%zx), ec(%p)", NULL, NULL, wl_res, softkey, e_client_util_win_get(softkey->ec), softkey->ec);
    softkey->wl_res = wl_res;
 
    return EINA_TRUE;

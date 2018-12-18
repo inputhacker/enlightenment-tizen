@@ -389,7 +389,7 @@ _compobj_info_get(Evas_Object *po, Evas_Object *o, int depth)
    cobj = E_NEW(E_Info_Comp_Obj, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(cobj, NULL);
 
-   cobj->obj = (unsigned int)o;
+   cobj->obj = (uintptr_t)o;
    cobj->depth = depth;
 
    type = evas_object_type_get(o);
@@ -448,7 +448,7 @@ _compobj_info_get(Evas_Object *po, Evas_Object *o, int depth)
              /* append window id, client pid and window title */
              eina_stringshare_del(cobj->name);
 
-             snprintf(buf, sizeof(buf), "%x %d %s",
+             snprintf(buf, sizeof(buf), "%zx %d %s",
                       e_client_util_win_get(ec),
                       ec->netwm.pid,
                       e_client_util_name_get(ec));
@@ -524,11 +524,11 @@ _compobj_info_get(Evas_Object *po, Evas_Object *o, int depth)
                {
                 case EVAS_NATIVE_SURFACE_WL:
                    cobj->img.native_type = eina_stringshare_add("WL");
-                   cobj->img.data = (unsigned int)ns->data.wl.legacy_buffer;
+                   cobj->img.data = (uintptr_t)ns->data.wl.legacy_buffer;
                    break;
                 case EVAS_NATIVE_SURFACE_TBM:
                    cobj->img.native_type = eina_stringshare_add("TBM");
-                   cobj->img.data = (unsigned int)ns->data.tbm.buffer;
+                   cobj->img.data = (uintptr_t)ns->data.tbm.buffer;
                    break;
                 default:
                    cobj->img.native_type = eina_stringshare_add("?");
@@ -552,7 +552,7 @@ _compobj_info_get(Evas_Object *po, Evas_Object *o, int depth)
                   cobj->img.key = eina_stringshare_add(key);
                }
 
-             cobj->img.data = (unsigned int)evas_object_image_data_get(o, 0);
+             cobj->img.data = (uintptr_t)evas_object_image_data_get(o, 0);
           }
 
         evas_object_image_size_get(o, &cobj->img.w, &cobj->img.h);
@@ -779,7 +779,7 @@ _msg_connected_clients_append(Eldbus_Message_Iter *iter)
                }
              if (cinfo->pid == pid)
                {
-                  __CONNECTED_CLIENTS_ARG_APPEND_TYPE("[E_Client Info]", "win:0x%08x res_id:%5d, name:%20s, geo:(%4d, %4d, %4dx%4d), layer:%5d, visible:%d, argb:%d",
+                  __CONNECTED_CLIENTS_ARG_APPEND_TYPE("[E_Client Info]", "win:0x%08zx res_id:%5d, name:%20s, geo:(%4d, %4d, %4dx%4d), layer:%5d, visible:%d, argb:%d",
                                                       win, res_id, e_client_util_name_get(ec) ?: "NO_NAME", ec->x, ec->y, ec->w, ec->h, ec->layer, ec->visible, ec->argb);
                }
           }
@@ -1103,7 +1103,7 @@ _get_win_prop_Subsurface_Below_Child_List(const Evas_Object *evas_obj)
      return strdup("None");
 
    EINA_LIST_FOREACH(list, l, child)
-     astrcat_(&str, "0x%x, ", e_client_util_win_get(child));
+     astrcat_(&str, "0x%zx, ", e_client_util_win_get(child));
 
    return str;
 
@@ -1135,7 +1135,7 @@ _get_win_prop_Subsurface_Child_List(const Evas_Object *evas_obj)
      return strdup("None");
 
    EINA_LIST_FOREACH(list, l, child)
-     astrcat_(&str, "0x%x, ", e_client_util_win_get(child));
+     astrcat_(&str, "0x%zx, ", e_client_util_win_get(child));
 
    return str;
 
@@ -1158,7 +1158,7 @@ _get_win_prop_Subsurface_Parent(const Evas_Object *evas_obj)
 
    cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
 
-   if (asprintf(&str, "0x%x", cdata->sub.data ? e_client_util_win_get(cdata->sub.data->parent) : 0) < 0)
+   if (asprintf(&str, "0x%zx", cdata->sub.data ? e_client_util_win_get(cdata->sub.data->parent) : 0) < 0)
      return NULL;
 
    return str;
@@ -1742,7 +1742,7 @@ _get_win_prop_Transients(const Evas_Object *evas_obj)
      return strdup("None");
 
    EINA_LIST_FOREACH(ec->transients, l, child)
-     astrcat_(&str, "0x%x, ", e_client_util_win_get(child));
+     astrcat_(&str, "0x%zx, ", e_client_util_win_get(child));
 
    return str;
 
@@ -1762,7 +1762,7 @@ _get_win_prop_ParentWindowID(const Evas_Object *evas_obj)
    if (!ec->parent)
      return strdup("None");
 
-   if (asprintf(&str, "0x%x", e_client_util_win_get(ec->parent)) < 0)
+   if (asprintf(&str, "0x%zx", e_client_util_win_get(ec->parent)) < 0)
      return NULL;
 
    return str;
@@ -1900,7 +1900,7 @@ _get_win_prop_Window_ID(const Evas_Object *evas_obj)
 
    ec = evas_object_data_get(evas_obj, "E_Client");
 
-   if (asprintf(&str, "0x%x", e_client_util_win_get(ec)) < 0)
+   if (asprintf(&str, "0x%zx", e_client_util_win_get(ec)) < 0)
      return NULL;
 
    return str;
@@ -2482,7 +2482,7 @@ static void _e_info_server_cb_wins_dump_topvwins(const char *dir)
         win = e_client_util_win_get(ec);
         if (ec->comp_data)
           rotation = ec->comp_data->scaler.buffer_viewport.buffer.transform * 90;
-        snprintf(fname, sizeof(fname), "%s/0x%08x_%d.png", dir, win, rotation);
+        snprintf(fname, sizeof(fname), "%s/0x%08zx_%d.png", dir, win, rotation);
 
         e_info_server_dump_client(ec, fname);
      }
@@ -2542,14 +2542,14 @@ static void _e_info_server_cb_wins_dump_ns(const char *dir)
         switch (ns->type)
           {
            case EVAS_NATIVE_SURFACE_WL:
-              snprintf(fname, sizeof(fname), "%s/0x%08x_wl_%p.png", dir, win, co);
+              snprintf(fname, sizeof(fname), "%s/0x%08zx_wl_%p.png", dir, win, co);
               if (ns->data.wl.legacy_buffer)
                 tbm_surface = wayland_tbm_server_get_surface(NULL, ns->data.wl.legacy_buffer);
               if (tbm_surface)
                 tdm_helper_dump_buffer(tbm_surface, fname);
               break;
            case EVAS_NATIVE_SURFACE_TBM:
-              snprintf(fname, sizeof(fname), "%s/0x%08x_tbm_%p.png", dir, win, co);
+              snprintf(fname, sizeof(fname), "%s/0x%08zx_tbm_%p.png", dir, win, co);
               if (ns->data.tbm.buffer)
                 tdm_helper_dump_buffer(ns->data.tbm.buffer, fname);
               break;
@@ -3451,7 +3451,7 @@ e_info_server_cb_slot_message(const Eldbus_Service_Interface *iface EINA_UNUSED,
                             EINA_LIST_FOREACH(clist, ll, ec)
                               {
                                  if (ec)
-                                   __SLOT_ARG_APPEND_TYPE("[SLOT CLIENT]", "slot_client win:%08x name:%s \n", e_client_util_win_get(ec), e_client_util_name_get(ec) ?: "NO NAME");
+                                   __SLOT_ARG_APPEND_TYPE("[SLOT CLIENT]", "slot_client win:%08zx name:%s \n", e_client_util_win_get(ec), e_client_util_name_get(ec) ?: "NO NAME");
                               }
                          }
                     }
@@ -3531,7 +3531,7 @@ e_info_server_cb_slot_message(const Eldbus_Service_Interface *iface EINA_UNUSED,
         {
           e_slot_client_add(slot, ec, 0);
           e_slot_client_update(ec);
-          __SLOT_ARG_APPEND_TYPE("[SLOT INFO]", "[SLOT ADD EC as transform] slot_id:%02d (%08x)\n", slot_id, win);
+          __SLOT_ARG_APPEND_TYPE("[SLOT INFO]", "[SLOT ADD EC as transform] slot_id:%02d (%08zx)\n", slot_id, win);
         }
      }
    else if (mode == E_INFO_CMD_MESSAGE_DEL_EC)
@@ -3549,7 +3549,7 @@ e_info_server_cb_slot_message(const Eldbus_Service_Interface *iface EINA_UNUSED,
         if (ec)
           {
              e_slot_client_remove(slot, ec);
-             __SLOT_ARG_APPEND_TYPE("[SLOT INFO]", "[SLOT DEL EC] slot_id:%02d (%08x)\n", slot_id, win);
+             __SLOT_ARG_APPEND_TYPE("[SLOT INFO]", "[SLOT DEL EC] slot_id:%02d (%08zx)\n", slot_id, win);
           }
      }
    else if (mode == E_INFO_CMD_MESSAGE_ADD_EC_RESIZE)
@@ -3568,7 +3568,7 @@ e_info_server_cb_slot_message(const Eldbus_Service_Interface *iface EINA_UNUSED,
         {
            e_slot_client_add(slot, ec, 1);
            e_slot_client_update(ec);
-           __SLOT_ARG_APPEND_TYPE("[SLOT INFO]", "[SLOT ADD EC as resize] slot_id:%02d (%08x)\n", slot_id, win);
+           __SLOT_ARG_APPEND_TYPE("[SLOT INFO]", "[SLOT ADD EC as resize] slot_id:%02d (%08zx)\n", slot_id, win);
         }
      }
    else if (mode == E_INFO_CMD_MESSAGE_FOCUS)
@@ -3692,19 +3692,19 @@ _e_info_server_cb_buffer_change(void *data, int type, void *event)
    switch (buffer->type)
      {
       case E_COMP_WL_BUFFER_TYPE_SHM:
-        snprintf(fname, sizeof(fname), "buffer_commit_shm_0x%08x_%d", event_win, rotation);
+        snprintf(fname, sizeof(fname), "buffer_commit_shm_0x%08zx_%d", event_win, rotation);
         break;
       case E_COMP_WL_BUFFER_TYPE_NATIVE:
-        snprintf(fname, sizeof(fname), "buffer_commit_native_0x%08x_%d", event_win, rotation);
+        snprintf(fname, sizeof(fname), "buffer_commit_native_0x%08zx_%d", event_win, rotation);
         break;
       case E_COMP_WL_BUFFER_TYPE_VIDEO:
-        snprintf(fname, sizeof(fname), "buffer_commit_video_0x%08x_%d", event_win, rotation);
+        snprintf(fname, sizeof(fname), "buffer_commit_video_0x%08zx_%d", event_win, rotation);
         break;
       case E_COMP_WL_BUFFER_TYPE_TBM:
-        snprintf(fname, sizeof(fname), "buffer_commit_tbm_0x%08x_%d", event_win, rotation);
+        snprintf(fname, sizeof(fname), "buffer_commit_tbm_0x%08zx_%d", event_win, rotation);
         break;
       default:
-        snprintf(fname, sizeof(fname), "buffer_commit_none_0x%08x_%d", event_win, rotation);
+        snprintf(fname, sizeof(fname), "buffer_commit_none_0x%08zx_%d", event_win, rotation);
         break;
      }
 
@@ -3906,7 +3906,7 @@ _e_info_server_cb_selected_buffer_dump(const Eldbus_Service_Interface *iface EIN
     else
       {
          if (strlen(win_id_s) >= 2 && win_id_s[0] == '0' && win_id_s[1] == 'x')
-            sscanf(win_id_s, "%x", &win_id);
+            sscanf(win_id_s, "%zx", (uintptr_t *)&win_id);
          else
             sscanf(win_id_s, "%d", &win_id);
       }
@@ -3924,7 +3924,7 @@ _e_info_server_cb_selected_buffer_dump(const Eldbus_Service_Interface *iface EIN
 
         if (win_id != win) continue;
 
-        snprintf(fname, sizeof(fname), "%s/0x%08x.png", path, win);
+        snprintf(fname, sizeof(fname), "%s/0x%08zx.png", path, win);
 
         e_info_server_dump_client(ec, fname);
         break;
@@ -4278,10 +4278,10 @@ _msg_show_pending_commit_append(Eldbus_Message_Iter *iter)
 
                   eldbus_message_iter_arguments_append
                     (struct_of_pending_commit, VALUE_TYPE_FOR_PENDING_COMMIT,
-                      (unsigned int)plane,
+                      (uintptr_t)plane,
                       plane->zpos,
-                      (unsigned int)data,
-                      (unsigned int)data->tsurface);
+                      (uintptr_t)data,
+                      (uintptr_t)data->tsurface);
 
                   eldbus_message_iter_container_close(array_of_pending_commit, struct_of_pending_commit);
                }
@@ -4762,8 +4762,8 @@ _e_info_server_ec_kill(uint32_t mode, void *value, Eldbus_Message_Iter *array_of
         count++;
         e_client_act_kill_begin(ec);
 
-        snprintf(result, sizeof(result), "[Server] killing creator(%s) of resource 0x%lx",
-                 ec_name, (unsigned long)e_client_util_win_get(ec));
+        snprintf(result, sizeof(result), "[Server] killing creator(%s) of resource 0x%zx",
+                 ec_name, e_client_util_win_get(ec));
         eldbus_message_iter_arguments_append(array_of_string, VALUE_TYPE_REPLY_KILL, result);
      }
 
@@ -4810,8 +4810,8 @@ _e_info_server_cb_kill_client(const Eldbus_Service_Interface *iface EINA_UNUSED,
         e_client_act_kill_begin(ec);
 
         snprintf(result, sizeof(result),
-                "[Server] killing creator(%s) of resource 0x%lx",
-                e_client_util_name_get(ec) ?: "NO NAME", (unsigned long)win);
+                "[Server] killing creator(%s) of resource 0x%zx",
+                e_client_util_name_get(ec) ?: "NO NAME", win);
      }
    else if (mode >= KILL_NAME_MODE && mode <= KILL_PID_FORCE_MODE)
      {
@@ -5419,7 +5419,7 @@ _e_info_server_cb_buffer_flush(const Eldbus_Service_Interface *iface EINA_UNUSED
         ec = _e_info_server_ec_find_by_win(win);
         if (ec == NULL)
           {
-             snprintf(msg_to_client, sizeof(msg_to_client), "Cannot find win 0x%08x!", win);
+             snprintf(msg_to_client, sizeof(msg_to_client), "Cannot find win 0x%08zx!", win);
              goto finish;
           }
      }
@@ -5434,7 +5434,7 @@ _e_info_server_cb_buffer_flush(const Eldbus_Service_Interface *iface EINA_UNUSED
               ec->exp_iconify.buffer_flush = msg_from_client;
               snprintf(msg_to_client, sizeof(msg_to_client),
                        "Successfully changed!\n"
-                       "win(0x%08x/%s)->buffer_flush : %s",
+                       "win(0x%08zx/%s)->buffer_flush : %s",
                        win,
                        ec->icccm.name,
                        ec->exp_iconify.buffer_flush ? "on" : "off");
@@ -5461,7 +5461,7 @@ _e_info_server_cb_buffer_flush(const Eldbus_Service_Interface *iface EINA_UNUSED
            {
               snprintf(msg_to_client + strlen(msg_to_client),
                        sizeof(msg_to_client) - strlen(msg_to_client),
-                       "\n\t\twin(0x%08x)->buffer_flush : %s",
+                       "\n\t\twin(0x%08zx)->buffer_flush : %s",
                        win,
                        ec->exp_iconify.buffer_flush ? "on" : "off");
            }
@@ -5496,7 +5496,7 @@ _e_info_server_cb_deiconify_approve(const Eldbus_Service_Interface *iface EINA_U
         ec = _e_info_server_ec_find_by_win(win);
         if (ec == NULL)
           {
-             snprintf(msg_to_client, sizeof(msg_to_client), "Cannot find win 0x%08x!", win);
+             snprintf(msg_to_client, sizeof(msg_to_client), "Cannot find win 0x%08zx!", win);
              goto finish;
           }
      }
@@ -5511,7 +5511,7 @@ _e_info_server_cb_deiconify_approve(const Eldbus_Service_Interface *iface EINA_U
               ec->exp_iconify.deiconify_update = msg_from_client;
               snprintf(msg_to_client, sizeof(msg_to_client),
                        "Successfully changed!\n"
-                       "win(0x%08x/%s)->deiconify_update : %s",
+                       "win(0x%08zx/%s)->deiconify_update : %s",
                        win,
                        ec->icccm.name,
                        ec->exp_iconify.deiconify_update ? "on" : "off");
@@ -5538,7 +5538,7 @@ _e_info_server_cb_deiconify_approve(const Eldbus_Service_Interface *iface EINA_U
            {
               snprintf(msg_to_client + strlen(msg_to_client),
                        sizeof(msg_to_client) - strlen(msg_to_client),
-                       "\n\t\twin(0x%08x)->deiconify_update : %s",
+                       "\n\t\twin(0x%08zx)->deiconify_update : %s",
                        win,
                        ec->exp_iconify.deiconify_update ? "on" : "off");
            }

@@ -12,22 +12,22 @@
 #define CLEAR(x) memset(&(x), 0, sizeof (x))
 #endif
 
-#define EHWSINF(f, ec, x...)                                \
-   do                                                       \
-     {                                                      \
-        if (!ec)                                            \
-          INF("EWL|%20.20s|              |             |"f, \
-              "HWC-WINS", ##x);                             \
-        else                                                \
-          INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|"f,         \
-              "HWC-WINS",                                   \
-              (unsigned int)(e_client_util_win_get(ec)),    \
-              (unsigned int)(ec),                           \
-              ##x);                                         \
-     }                                                      \
+#define EHWSINF(f, ec, x...)                                     \
+   do                                                            \
+     {                                                           \
+        if (!ec)                                                 \
+          INF("EWL|%20.20s|              |             |"f,      \
+              "HWC-WINS", ##x);                                  \
+        else                                                     \
+          INF("EWL|%20.20s|win:0x%08zx|ec:%8p|"f,                \
+              "HWC-WINS",                                        \
+              (e_client_util_win_get(ec)),                       \
+              (ec),                                              \
+              ##x);                                              \
+     }                                                           \
    while (0)
 
-#define EHWSTRACE(f, ec, x...)                              \
+#define EHWSTRACE(f, ec, x...)                                   \
    do                                                            \
      {                                                           \
         if (ehws_trace)                                          \
@@ -36,10 +36,10 @@
                INF("EWL|%20.20s|              |             |"f, \
                    "HWC-WINS", ##x);                             \
              else                                                \
-               INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|"f,         \
+               INF("EWL|%20.20s|win:0x%08zx|ec:%8p|"f,           \
                    "HWC-WINS",                                   \
-                   (unsigned int)(e_client_util_win_get(ec)),    \
-                   (unsigned int)(ec),                           \
+                   (e_client_util_win_get(ec)),                  \
+                   (ec),                                         \
                    ##x);                                         \
           }                                                      \
      }                                                           \

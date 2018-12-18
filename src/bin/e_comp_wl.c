@@ -580,7 +580,7 @@ _e_comp_wl_send_touch_cancel(E_Client *ec)
         if (!e_comp_wl_input_touch_check(res)) continue;
 
         if (comp_conf && comp_conf->input_log_enable)
-           INF("[Server] Touch Cancel (win:0x%08x, name:%20s)\n", e_client_util_win_get(ec), e_client_util_name_get(ec));
+           INF("[Server] Touch Cancel (win:%08zx, name:%20s)\n", e_client_util_win_get(ec), e_client_util_name_get(ec));
 
         wl_touch_send_cancel(res);
      }
@@ -1043,14 +1043,14 @@ _e_comp_wl_send_touch(E_Client *ec, int idx, int canvas_x, int canvas_y, uint32_
         if (pressed)
           {
              if (comp_conf && comp_conf->input_log_enable)
-               INF("[Server] Touch Down (id: %d, time: %d, x:%d, y:%d, win:0x%08x, name:%20s)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y, e_client_util_win_get(ec), e_client_util_name_get(ec));
+               INF("[Server] Touch Down (id: %d, time: %d, x:%d, y:%d, win:0x%08zx, name:%20s)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y, e_client_util_win_get(ec), e_client_util_name_get(ec));
 
              wl_touch_send_down(res, serial, timestamp, ec->comp_data->surface, idx, x, y); //id 0 for the 1st finger
           }
         else
           {
              if (comp_conf && comp_conf->input_log_enable)
-               INF("[Server] Touch Up (id: %d, time: %d, x:%d, y:%d, win:0x%08x, name:%20s)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y, e_client_util_win_get(ec), e_client_util_name_get(ec));
+               INF("[Server] Touch Up (id: %d, time: %d, x:%d, y:%d, win:0x%08zx, name:%20s)\n", idx, timestamp, canvas_x - ec->client.x, canvas_y - ec->client.y, e_client_util_win_get(ec), e_client_util_name_get(ec));
 
              wl_touch_send_up(res, serial, timestamp, idx);
           }
@@ -3433,10 +3433,10 @@ _e_comp_wl_compositor_cb_unbind(struct wl_resource *res_comp)
                                &gid);
 
    ELOGF("COMP",
-         "UNBIND   |res_comp:0x%08x|client:0x%08x|%d|%d|%d",
+         "UNBIND   |res_comp:%8p|client:%8p|%d|%d|%d",
          NULL, NULL,
-         (unsigned int)res_comp,
-         (unsigned int)client,
+         res_comp,
+         client,
          pid, uid, gid);
 
    E_Comp *comp;
@@ -3482,10 +3482,10 @@ _e_comp_wl_compositor_cb_bind(struct wl_client *client, void *data EINA_UNUSED, 
    wl_client_get_credentials(client, &pid, &uid, &gid);
 
    ELOGF("COMP",
-         "BIND     |res_comp:0x%08x|client:0x%08x|%d|%d|%d",
+         "BIND     |res_comp:%8p|client:%8p|%d|%d|%d",
          NULL, NULL,
-         (unsigned int)res,
-         (unsigned int)client,
+         res,
+         client,
          pid, uid, gid);
 
    _e_comp_wl_pname_print(pid);
@@ -3960,7 +3960,7 @@ e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_
           {
              if (ec == parent)
                {
-                  ERR("Subsurface parent relationship is a cycle : [child win : %x, %s], [parent win : %x, %s]",
+                  ERR("Subsurface parent relationship is a cycle : [child win : %zx, %s], [parent win : %zx, %s]",
                       e_client_util_win_get(ec), e_client_util_name_get(ec),
                       e_client_util_win_get(epc), e_client_util_name_get(epc));
 
@@ -6295,7 +6295,7 @@ _e_comp_wl_surface_state_serial_update(E_Client *ec, E_Comp_Wl_Surface_State *st
    ec->surface_sync.serial = serial;
 
    if (serial_trace_debug)
-     INF("POSSIZE |win:0x%08x|ec:0x%08x|Update serial(%u) wl_buffer(%u)", (unsigned int)(e_client_util_win_get(ec)), (unsigned int)ec, serial, wl_resource_get_id(buffer->resource));
+     INF("POSSIZE |win:0x%08zx|ec:%8p|Update serial(%u) wl_buffer(%u)", e_client_util_win_get(ec), ec, serial, wl_resource_get_id(buffer->resource));
 }
 
 EINTERN Eina_Bool

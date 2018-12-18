@@ -13,11 +13,11 @@
     vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY ? "RUNNING UNICONIFY" : "OTHERS")
 
 #define VS_DBG(ec, f, x...) \
-      DBG("VISIBILITY | "f" | '%s'(win:0x%08x, ec:%p) RscID %d", ##x, ec ? NAME(ec) : "", e_client_util_win_get(ec), ec, ec ? e_pixmap_res_id_get(ec->pixmap) : 0)
+      DBG("VISIBILITY | "f" | '%s'(win:0x%08zx, ec:%p) RscID %d", ##x, ec ? NAME(ec) : "", e_client_util_win_get(ec), ec, ec ? e_pixmap_res_id_get(ec->pixmap) : 0)
 #define VS_INF(ec, f, x...) \
-      INF("VISIBILITY | "f" | '%s'(win:0x%08x, ec:%p) RscID %d", ##x, ec ? NAME(ec) : "", e_client_util_win_get(ec), ec, ec ? e_pixmap_res_id_get(ec->pixmap) : 0)
+      INF("VISIBILITY | "f" | '%s'(win:0x%08zx, ec:%p) RscID %d", ##x, ec ? NAME(ec) : "", e_client_util_win_get(ec), ec, ec ? e_pixmap_res_id_get(ec->pixmap) : 0)
 #define VS_ERR(ec, f, x...) \
-      ERR("VISIBILITY | "f" | '%s'(win:0x%08x, ec:%p) RscID %d", ##x, ec ? NAME(ec) : "", e_client_util_win_get(ec), ec, ec ? e_pixmap_res_id_get(ec->pixmap) : 0)
+      ERR("VISIBILITY | "f" | '%s'(win:0x%08zx, ec:%p) RscID %d", ##x, ec ? NAME(ec) : "", e_client_util_win_get(ec), ec, ec ? e_pixmap_res_id_get(ec->pixmap) : 0)
 
 #undef E_COMP_OBJECT_INTERCEPT_HOOK_APPEND
 #define E_COMP_OBJECT_INTERCEPT_HOOK_APPEND(l, t, cb, d)       \

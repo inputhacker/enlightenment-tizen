@@ -10,36 +10,36 @@
 
 #include <pixman.h>
 
-#define RSMINF(f, cp, ec, obj, ptr, x...)                            \
-   do                                                                \
-     {                                                               \
-        if ((!cp) && (!ec))                                          \
+#define RSMINF(f, cp, ec, obj, ptr, x...)                             \
+   do                                                                 \
+     {                                                                \
+        if ((!cp) && (!ec))                                           \
           INF("EWL|%20.20s|              |             |%10.10s|%p|"f,\
-              "RSM", (obj), (ptr), ##x);                             \
-        else                                                         \
-          INF("EWL|%20.20s|win:0x%08x|ec:0x%08x|%10.10s|%p|"f,       \
-              "RSM",                                                 \
-              (unsigned int)(cp ? e_pixmap_window_get(cp) : 0),      \
-              (unsigned int)(ec),                                    \
-              (obj), (ptr),                                          \
-              ##x);                                                  \
-     }                                                               \
+              "RSM", (obj), (ptr), ##x);                              \
+        else                                                          \
+          INF("EWL|%20.20s|win:0x%08zx|ec:%8p|%10.10s|%p|"f,          \
+              "RSM",                                                  \
+              (e_client_util_win_get(ec)),                            \
+              (ec),                                                   \
+              (obj), (ptr),                                           \
+              ##x);                                                   \
+     }                                                                \
    while (0)
 
-#define RSMDBG(f, cp, ec, obj, ptr, x...)                            \
-   do                                                                \
-     {                                                               \
-        if ((!cp) && (!ec))                                          \
+#define RSMDBG(f, cp, ec, obj, ptr, x...)                             \
+   do                                                                 \
+     {                                                                \
+        if ((!cp) && (!ec))                                           \
           DBG("EWL|%20.20s|              |             |%10.10s|%p|"f,\
-              "RSM", (obj), (ptr), ##x);                             \
-        else                                                         \
-          DBG("EWL|%20.20s|win:0x%08x|ec:0x%08x|%10.10s|%p|"f,       \
-              "RSM",                                                 \
-              (unsigned int)(cp ? e_pixmap_window_get(cp) : 0),      \
-              (unsigned int)(ec),                                    \
-              (obj), (ptr),                                          \
-              ##x);                                                  \
-     }                                                               \
+              "RSM", (obj), (ptr), ##x);                              \
+        else                                                          \
+          DBG("EWL|%20.20s|win:0x%08zx|ec:%8p|%10.10s|%p|"f,          \
+              "RSM",                                                  \
+              (e_client_util_win_get(ec)),                            \
+              (ec),                                                   \
+              (obj), (ptr),                                           \
+              ##x);                                                   \
+     }                                                                \
    while (0)
 
 #define container_of(ptr, type, member) \
@@ -1248,7 +1248,7 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
 
         pixman_image_composite(PIXMAN_OP_SRC, c_src_img, NULL, c_dst_img, 0, 0, 0, 0, 0, 0, c_tw, c_th);
 
-        RSMDBG("image composite with child. child(win:%x, ec:%p)",
+        RSMDBG("image composite with child. child(win:%zx, ec:%p)",
                td->ec->pixmap, td->ec, "SOURCE", NULL,
                e_client_util_win_get(td->child_data->ec), td->child_data->ec);
 
@@ -3756,8 +3756,8 @@ e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
         if (!ec) continue;
 
         snprintf(info_str, sizeof(info_str),
-                 "%10s [%d] 0x%08x win(0x%08x) res(%d) pid(%d) vis(%d) name(%s)",
-                 "PROVIDER", idx++, (unsigned int)provider,
+                 "%10s [%d] %8p win(0x%08zx) res(%d) pid(%d) vis(%d) name(%s)",
+                 "PROVIDER", idx++, provider,
                  e_client_util_win_get(ec),
                  e_pixmap_res_id_get(ec->pixmap),
                  ec->netwm.pid,
@@ -3793,10 +3793,10 @@ e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
                  is_last = EINA_TRUE;
 
              snprintf(info_str, sizeof(info_str),
-                      "%10s CONSUMER [%d] 0x%08x ec(0x%08x) win(0x%08x) pid(%d) vis(%d) redirected(%d) name(%s)",
-                      is_last? "└─" : "├─", s_idx++, (unsigned int)remote_surface,
-                      (unsigned int)owner?:0,
-                      owner?e_client_util_win_get(owner):0,
+                      "%10s CONSUMER [%d] %8p ec(%8p) win(0x%08zx) pid(%d) vis(%d) redirected(%d) name(%s)",
+                      is_last? "└─" : "├─", s_idx++, remote_surface,
+                      owner ? owner : NULL,
+                      owner ? e_client_util_win_get(owner) : 0,
                       pid,
                       remote_surface->visible,
                       remote_surface->redirect,
@@ -3819,8 +3819,8 @@ e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
 
         if (!ec) continue;
         snprintf(info_str, sizeof(info_str),
-                 "%10s [%d] 0x%08x win(0x%08x) res(%d) pid(%d) offscreen(%d) name(%s)",
-                 "SOURCE", idx++, (unsigned int)source,
+                 "%10s [%d] %8p win(0x%08zx) res(%d) pid(%d) offscreen(%d) name(%s)",
+                 "SOURCE", idx++, source,
                  e_client_util_win_get(ec),
                  e_pixmap_res_id_get(ec->pixmap),
                  ec->netwm.pid,
@@ -3856,10 +3856,10 @@ e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
                is_last = EINA_TRUE;
 
              snprintf(info_str, sizeof(info_str),
-                      "%10s CONSUMER [%d] 0x%08x ec(0x%08x) win(0x%08x) pid(%d) vis(%d) redirected(%d) name(%s)",
-                      is_last? "└─" : "├─", s_idx++, (unsigned int)remote_surface,
-                      (unsigned int)owner?:0,
-                      owner?e_client_util_win_get(owner):0,
+                      "%10s CONSUMER [%d] %8p ec(%8p) win(0x%08zx) pid(%d) vis(%d) redirected(%d) name(%s)",
+                      is_last? "└─" : "├─", s_idx++, remote_surface,
+                      owner ? owner : NULL,
+                      owner ? e_client_util_win_get(owner) : 0,
                       pid,
                       remote_surface->visible,
                       remote_surface->redirect,

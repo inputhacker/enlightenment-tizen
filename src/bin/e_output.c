@@ -2875,14 +2875,14 @@ e_output_util_planes_print(void)
              EINA_LIST_REVERSE_FOREACH(output->planes, p_l, plane)
                {
                   ec = plane->ec;
-                  if (ec) fprintf(stderr, "HWC \t[%d]%s\t %s (0x%08x)",
+                  if (ec) fprintf(stderr, "HWC \t[%d]%s\t %s (%8p)",
                                   plane->zpos,
                                   plane->is_primary ? "--" : "  ",
-                                  ec->icccm.title, (unsigned int)ec->frame);
+                                  ec->icccm.title, ec->frame);
 
                   ec = plane->prepare_ec;
-                  if (ec) fprintf(stderr, "\t\t\t %s (0x%08x)",
-                                  ec->icccm.title, (unsigned int)ec->frame);
+                  if (ec) fprintf(stderr, "\t\t\t %s (%8p)",
+                                  ec->icccm.title, ec->frame);
                   fputc('\n', stderr);
                }
              fputc('\n', stderr);

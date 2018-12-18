@@ -1602,7 +1602,7 @@ _quickpanel_cb_client_focus_in(void *data, int type, void *event)
 
    if (ec->visible)
      {
-        DBG("Focus changed to '%s'(%x), Hide QP",
+        DBG("Focus changed to '%s'(%zx), Hide QP",
             ec->icccm.name ? ec->icccm.name : "", e_client_util_win_get(ec));
         e_service_quickpanel_hide(qp->ec);
      }

@@ -26,32 +26,32 @@
           INF("EWL|%20.20s|              |             |"f,      \
               "HWC-WINQ", ##x);                                  \
         else                                                     \
-          INF("EWL|%20.20s|win:0x%08x|ec:0x%08x| ehwq:0x%08x "f, \
+          INF("EWL|%20.20s|win:0x%08zx|ec:%8p| ehwq:%8p "f,      \
               "HWC-WINQ",                                        \
-              (unsigned int)(e_client_util_win_get(ec)),         \
-              (unsigned int)(ec),                                \
-              (unsigned int)(ehwq),                              \
+              (e_client_util_win_get(ec)),                       \
+              (ec),                                              \
+              (ehwq),                                            \
               ##x);                                              \
      }                                                           \
    while (0)
 
-#define EHWQTRACE(f, ec, ehwq, x...)                                  \
-   do                                                                 \
-     {                                                                \
-        if (ehwq_trace)                                               \
-          {                                                           \
-             if ((!ec) && (!ehwq))                                    \
-               INF("EWL|%20.20s|              |             |"f,      \
-                   "HWC-WINQ", ##x);                                  \
-             else                                                     \
-               INF("EWL|%20.20s|win:0x%08x|ec:0x%08x| ehwq:0x%08x "f, \
-                   "HWC-WINQ",                                        \
-                   (unsigned int)(e_client_util_win_get(ec)),         \
-                   (unsigned int)(ec),                                \
-                   (unsigned int)(ehwq),                              \
-                   ##x);                                              \
-          }                                                           \
-     }                                                                \
+#define EHWQTRACE(f, ec, ehwq, x...)                             \
+   do                                                            \
+     {                                                           \
+        if (ehwq_trace)                                          \
+          {                                                      \
+             if ((!ec) && (!ehwq))                               \
+               INF("EWL|%20.20s|              |             |"f, \
+                   "HWC-WINQ", ##x);                             \
+             else                                                \
+               INF("EWL|%20.20s|win:0x%08zx|ec:%8p| ehwq:%8p "f, \
+                   "HWC-WINQ",                                   \
+                   (e_client_util_win_get(ec)),                  \
+                   (ec),                                         \
+                   (ehwq),                                       \
+                   ##x);                                         \
+          }                                                      \
+     }                                                           \
    while (0)
 
 static Eina_Bool ehwq_trace = EINA_TRUE;

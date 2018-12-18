@@ -10,32 +10,32 @@
           INF("EWL|%20.20s|              |             |"f,     \
               "HWC-WIN", ##x);                                  \
         else                                                    \
-          INF("EWL|%20.20s|win:0x%08x|ec:0x%08x| ehw:0x%08x "f, \
+          INF("EWL|%20.20s|win:0x%08zx|ec:%8p| ehw:%8p "f,      \
               "HWC-WIN",                                        \
-              (unsigned int)(e_client_util_win_get(ec)),        \
-              (unsigned int)(ec),                               \
-              (unsigned int)(ehw),                              \
+              (e_client_util_win_get(ec)),                      \
+              (ec),                                             \
+              (ehw),                                            \
               ##x);                                             \
      }                                                          \
    while (0)
 
-#define EHWTRACE(f, ec, ehw, x...)                                  \
-   do                                                               \
-     {                                                              \
-        if (ehw_trace)                                              \
-          {                                                         \
-            if ((!ec) && (!ehw))                                    \
-              INF("EWL|%20.20s|              |             |"f,     \
-                  "HWC-WIN", ##x);                                  \
-            else                                                    \
-              INF("EWL|%20.20s|win:0x%08x|ec:0x%08x| ehw:0x%08x "f, \
-                  "HWC-WIN",                                        \
-                  (unsigned int)(e_client_util_win_get(ec)),        \
-                  (unsigned int)(ec),                               \
-                  (unsigned int)(ehw),                              \
-                  ##x);                                             \
-          }                                                         \
-     }                                                              \
+#define EHWTRACE(f, ec, ehw, x...)                              \
+   do                                                           \
+     {                                                          \
+        if (ehw_trace)                                          \
+          {                                                     \
+            if ((!ec) && (!ehw))                                \
+              INF("EWL|%20.20s|              |             |"f, \
+                  "HWC-WIN", ##x);                              \
+            else                                                \
+              INF("EWL|%20.20s|win:0x%08zx|ec:%8p| ehw:%8p "f,  \
+                  "HWC-WIN",                                    \
+                  (e_client_util_win_get(ec)),                  \
+                  (ec),                                         \
+                  (ehw),                                        \
+                  ##x);                                         \
+          }                                                     \
+     }                                                          \
    while (0)
 
 static Eina_Bool ehw_trace = EINA_TRUE;

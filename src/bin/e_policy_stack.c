@@ -67,8 +67,8 @@ _e_policy_stack_transient_for_apply(E_Client *ec)
         return;
      }
 
-   ELOGF("TZPOL", "Fetch for stack transient_for. ec_layer:%d, parent(win:%x, ec:%x, layer:%d)",
-         ec->pixmap, ec, ec->layer, e_client_util_win_get(ec->parent), (unsigned int)ec->parent, ec->parent ? ec->parent->layer:-1);
+   ELOGF("TZPOL", "Fetch for stack transient_for. ec_layer:%d, parent(win:%zx, ec:%p, layer:%d)",
+         ec->pixmap, ec, ec->layer, e_client_util_win_get(ec->parent), ec->parent, ec->parent ? ec->parent->layer:-1);
 
    if (ec->parent == NULL)
      {

@@ -1411,7 +1411,7 @@ _e_plane_ex_commit_handler(tdm_layer *layer, unsigned int sequence,
 
    EINA_SAFETY_ON_NULL_RETURN(data);
 
-   TRACE_DS_ASYNC_END((unsigned int)layer, [PLANE:COMMIT~HANDLER]);
+   TRACE_DS_ASYNC_END((intptr_t)layer, [PLANE:COMMIT~HANDLER]);
 
    plane = data->plane;
 
@@ -1446,7 +1446,7 @@ _e_plane_external_commit(E_Plane *plane, E_Plane_Commit_Data *data)
 {
    tdm_error error = TDM_ERROR_NONE;
 
-   TRACE_DS_ASYNC_BEGIN((unsigned int)plane->tlayer, [PLANE:COMMIT~HANDLER]);
+   TRACE_DS_ASYNC_BEGIN((intptr_t)plane->tlayer, [PLANE:COMMIT~HANDLER]);
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "Ex Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
@@ -2083,7 +2083,7 @@ _e_plane_commit_hanler(tdm_layer *layer, unsigned int sequence,
 
    EINA_SAFETY_ON_NULL_RETURN(data);
 
-   TRACE_DS_ASYNC_END((unsigned int)layer, [PLANE:COMMIT~HANDLER]);
+   TRACE_DS_ASYNC_END((intptr_t)layer, [PLANE:COMMIT~HANDLER]);
 
    plane = data->plane;
 
@@ -2193,7 +2193,7 @@ e_plane_commit(E_Plane *plane)
 
    _e_plane_fb_target_change_check(plane);
 
-   TRACE_DS_ASYNC_BEGIN((unsigned int)plane->tlayer, [PLANE:COMMIT~HANDLER]);
+   TRACE_DS_ASYNC_BEGIN((intptr_t)plane->tlayer, [PLANE:COMMIT~HANDLER]);
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",

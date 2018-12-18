@@ -1389,7 +1389,7 @@ _e_policy_client_stack_change_send(E_Client *ec)
    if (above) above_pid = above->netwm.pid;
    if (below) below_pid = below->netwm.pid;
 
-   ELOGF("TZPOL", "Send stack change.  above(win:%x, pid:%d), below(win:%x, pid:%d)",
+   ELOGF("TZPOL", "Send stack change.  above(win:%zx, pid:%d), below(win:%zx, pid:%d)",
          ec->pixmap, ec, e_client_util_win_get(above), above_pid, e_client_util_win_get(below), below_pid);
 
    e_policy_aux_message_send_from_int(ec, "stack_changed", "pid", 2, above_pid, below_pid);
@@ -2229,7 +2229,7 @@ e_policy_animatable_lock(E_Client *ec,
    else
      ec->animatable = EINA_TRUE;
 
-   ELOGF("TZPOL","EFFECT(animatable:%d) due to %d is applied on the state %08x --> result:%08x", ec->pixmap, ec,
+   ELOGF("TZPOL","EFFECT(animatable:%d) due to %d is applied on the state %d --> result:%d", ec->pixmap, ec,
         ec->animatable, set, lock, pc->lock_animatable);
 }
 

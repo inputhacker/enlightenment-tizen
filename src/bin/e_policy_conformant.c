@@ -186,7 +186,7 @@ _conf_state_update(Conformant_Type type, Eina_Bool visible, int x, int y, int w,
         return;
      }
 
-   DBG("\t=> '%s'(win:%x, ec:%p)", cfc->ec ? (cfc->ec->icccm.name ?:"") : "", e_client_util_win_get(cfc->ec), cfc->ec);
+   DBG("\t=> '%s'(win:%zx, ec:%p)", cfc->ec ? (cfc->ec->icccm.name ?:"") : "", e_client_util_win_get(cfc->ec), cfc->ec);
    EINA_LIST_FOREACH(cfc->res_list, l, cres)
      {
         cres->ack_done = EINA_FALSE;
@@ -537,7 +537,7 @@ _conf_cb_part_obj_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
    if (!g_conf)
      return;
 
-   DBG("PART %s win(%x), ec(%p) Show", _conf_type_to_str(type), e_client_util_win_get(g_conf->part[type].ec), g_conf->part[type].ec);
+   DBG("PART %s win(%zx), ec(%p) Show", _conf_type_to_str(type), e_client_util_win_get(g_conf->part[type].ec), g_conf->part[type].ec);
 
    owner = _conf_part_owner_find(g_conf->part[type].ec, type);
    g_conf->part[type].owner = owner;
@@ -556,7 +556,7 @@ _conf_cb_part_obj_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
    if (!g_conf)
      return;
 
-   DBG("PART %s win(%x), ec(%p) Hide", _conf_type_to_str(type), e_client_util_win_get(g_conf->part[type].ec), g_conf->part[type].ec);
+   DBG("PART %s win(%zx), ec(%p) Hide", _conf_type_to_str(type), e_client_util_win_get(g_conf->part[type].ec), g_conf->part[type].ec);
    _conf_state_update(type,
                       EINA_FALSE,
                       g_conf->part[type].state.x,
@@ -578,7 +578,7 @@ _conf_cb_part_obj_hiding(void *data, Evas_Object *obj EINA_UNUSED, void *event_i
    if (!g_conf)
      return;
 
-   DBG("PART %s win(%x), ec(%p) Hiding", _conf_type_to_str(type), e_client_util_win_get(g_conf->part[type].ec), g_conf->part[type].ec);
+   DBG("PART %s win(%zx), ec(%p) Hiding", _conf_type_to_str(type), e_client_util_win_get(g_conf->part[type].ec), g_conf->part[type].ec);
    _conf_state_update(type,
                       EINA_FALSE,
                       g_conf->part[type].state.x,
@@ -595,7 +595,7 @@ _conf_cb_part_obj_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
    if (!g_conf)
      return;
 
-   DBG("PART %s win(%x), ec(%p) Move", _conf_type_to_str(type), e_client_util_win_get(g_conf->part[type].ec), g_conf->part[type].ec);
+   DBG("PART %s win(%zx), ec(%p) Move", _conf_type_to_str(type), e_client_util_win_get(g_conf->part[type].ec), g_conf->part[type].ec);
 
    g_conf->part[type].changed = 1;
 }
@@ -608,7 +608,7 @@ _conf_cb_part_obj_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_
    if (!g_conf)
      return;
 
-   DBG("PART %s win(%x), ec(%p) Resize", _conf_type_to_str(type), e_client_util_win_get(g_conf->part[type].ec), g_conf->part[type].ec);
+   DBG("PART %s win(%zx), ec(%p) Resize", _conf_type_to_str(type), e_client_util_win_get(g_conf->part[type].ec), g_conf->part[type].ec);
 
    g_conf->part[type].changed = 1;
 }
@@ -754,7 +754,7 @@ _conf_cb_client_rot_change_cancel(void *data, int evtype EINA_UNUSED, void *even
 
    if (g_conf->part[type].state.restore)
      {
-        DBG("Rotation Cancel %s win(%x), ec(%p)", _conf_type_to_str(type), e_client_util_win_get(ev->ec), ev->ec);
+        DBG("Rotation Cancel %s win(%zx), ec(%p)", _conf_type_to_str(type), e_client_util_win_get(ev->ec), ev->ec);
         _conf_state_update(type,
                            EINA_TRUE,
                            g_conf->part[type].state.x,
@@ -811,7 +811,7 @@ _conf_cb_intercept_hook_hide(void *data EINA_UNUSED, E_Client *ec)
 
    pre_serial = wl_display_next_serial(e_comp_wl->wl.disp);
 
-   DBG("PART %s win(%x) ec(%p) Intercept Hide", _conf_type_to_str(type), e_client_util_win_get(g_conf->part[type].ec), g_conf->part[type].ec);
+   DBG("PART %s win(%zx) ec(%p) Intercept Hide", _conf_type_to_str(type), e_client_util_win_get(g_conf->part[type].ec), g_conf->part[type].ec);
    _conf_state_update(type,
                       EINA_FALSE,
                       g_conf->part[type].state.x,
@@ -1048,7 +1048,7 @@ e_policy_conformant_part_update(E_Client *ec)
 
         if (owner != g_conf->part[type].owner)
           {
-             DBG("Update state %s ec(%p). new_owner(win:%x, ec:%p)", _conf_type_to_str(type), ec, e_client_util_win_get(owner), owner);
+             DBG("Update state %s ec(%p). new_owner(win:%zx, ec:%p)", _conf_type_to_str(type), ec, e_client_util_win_get(owner), owner);
              g_conf->part[type].owner = owner;
              g_conf->part[type].changed = EINA_TRUE;
           }
@@ -1065,7 +1065,7 @@ e_policy_conformant_client_add(E_Client *ec, struct wl_resource *res)
    EINA_SAFETY_ON_NULL_RETURN(g_conf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   DBG("Client Add '%s'(win:%x, ec:%p)", ec->icccm.name ? ec->icccm.name : "", e_client_util_win_get(ec), ec);
+   DBG("Client Add '%s'(win:%zx, ec:%p)", ec->icccm.name ? ec->icccm.name : "", e_client_util_win_get(ec), ec);
 
    if (g_conf->client_hash)
      {
@@ -1096,7 +1096,7 @@ e_policy_conformant_client_del(E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(g_conf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   DBG("Client Del '%s'(win:%x, ec:%p)", ec->icccm.name ? ec->icccm.name : "", e_client_util_win_get(ec), ec);
+   DBG("Client Del '%s'(win:%zx, ec:%p)", ec->icccm.name ? ec->icccm.name : "", e_client_util_win_get(ec), ec);
 
    cfc = eina_hash_find(g_conf->client_hash, &ec);
    if (cfc)
@@ -1138,7 +1138,7 @@ e_policy_conformant_client_ack(E_Client *ec, struct wl_resource *res, uint32_t s
           {
              if (serial == cres->serial)
                {
-                  DBG("Ack conformant region win(%x) ec(%p) res(%p) serial(%u)", e_client_util_win_get(ec), ec, res, serial);
+                  DBG("Ack conformant region win(%zx) ec(%p) res(%p) serial(%u)", e_client_util_win_get(ec), ec, res, serial);
                   cres->ack_done = EINA_TRUE;
                }
              break;

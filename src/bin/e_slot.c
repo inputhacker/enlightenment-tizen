@@ -210,7 +210,7 @@ e_slot_layout_cb(void)
 EINTERN void
 e_slot_init(void)
 {
-   ELOGF("SLOT", "e_slot_init", 0, 0);
+   ELOGF("SLOT", "e_slot_init", NULL, NULL);
    E_Slot_G *g = NULL;
    g = E_NEW(E_Slot_G, 1);
 
@@ -226,7 +226,7 @@ e_slot_init(void)
 EINTERN int
 e_slot_shutdown(void)
 {
-   ELOGF("SLOT", "e_slot_shutdown", 0, 0);
+   ELOGF("SLOT", "e_slot_shutdown", NULL, NULL);
 
    E_FREE_FUNC(_e_slot_g->slot_objs, eina_list_free);
 
@@ -276,7 +276,7 @@ e_slot_new(Evas_Object *parent)
 
    evas_object_show(o);
 
-   ELOGF("SLOT", "|Create new slot - id:%d ", 0, 0, sd->id);
+   ELOGF("SLOT", "|Create new slot - id:%d ", NULL, NULL, sd->id);
    evas_object_data_set(o, "e_slot_object", (void*)1);
 
    return o;
@@ -286,7 +286,7 @@ E_API void
 e_slot_del(Evas_Object *obj)
 {
    SLOT_SMART_ENTRY
-   ELOGF("SLOT", "|Remove slot - id:%d ", 0, 0, sd->id);
+   ELOGF("SLOT", "|Remove slot - id:%d ", NULL, NULL, sd->id);
 
    eina_hash_del_by_key(_e_slot_g->hash_slot_objs, &sd->id);
    evas_object_del(obj);
@@ -299,7 +299,7 @@ e_slot_move(Evas_Object *obj, int x, int y)
 
    if (sd->x == x && sd->y == y) return;
 
-   ELOGF("SLOT", "|Move slot - id:%d  (%d, %d) -> (%d, %d)", 0, 0,
+   ELOGF("SLOT", "|Move slot - id:%d  (%d, %d) -> (%d, %d)", NULL, NULL,
          sd->id, sd->x, sd->y, x, y);
 
    evas_object_move(obj, x, y);
@@ -316,7 +316,7 @@ e_slot_resize(Evas_Object *obj, int w, int h)
 
    if (sd->w == w && sd->h == h) return;
 
-   ELOGF("SLOT", "|Resize slot - id:%d  (%dx%d) -> (%dx%d)", 0, 0,
+   ELOGF("SLOT", "|Resize slot - id:%d  (%dx%d) -> (%dx%d)", NULL, NULL,
          sd->id, sd->w, sd->h, w, h);
 
    evas_object_resize(obj, w, h);

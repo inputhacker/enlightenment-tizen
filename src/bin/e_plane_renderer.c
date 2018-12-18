@@ -459,7 +459,7 @@ _e_plane_renderer_surface_find_released_surface(E_Plane_Renderer *renderer, tbm_
 static void
 _e_plane_renderer_cb_acquirable(tbm_surface_queue_h surface_queue, void *data)
 {
-    int fd = (int)data;
+    int fd = (intptr_t)data;
     uint64_t value = 1;
     int ret;
 
@@ -2449,7 +2449,7 @@ e_plane_renderer_surface_queue_set(E_Plane_Renderer *renderer, tbm_surface_queue
 
    if (renderer->ee)
      {
-        tsq_err = tbm_surface_queue_add_acquirable_cb(tqueue, _e_plane_renderer_cb_acquirable, (void *)renderer->event_fd);
+        tsq_err = tbm_surface_queue_add_acquirable_cb(tqueue, _e_plane_renderer_cb_acquirable, (void *)(intptr_t)renderer->event_fd);
         if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
           {
              ERR("fail to add acquirable cb");

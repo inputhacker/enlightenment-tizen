@@ -838,7 +838,7 @@ _cb_input_keymap_info_get(const Eldbus_Message *msg)
         memset(keyname, 0, sizeof(keyname));
         xkb_keysym_get_name(sym, keyname, sizeof(keyname));
 
-        printf("\t%4d%-5s%-25s%-20p%-5d\n", i, "", keyname, (void *)sym, xkb_keymap_key_repeats(keymap, i));
+        printf("\t%4d%-5s%-25s%-20x%-5d\n", i, "", keyname, sym, xkb_keymap_key_repeats(keymap, i));
      }
 finish:
    if ((name) || (text ))
@@ -1059,8 +1059,8 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
              snprintf(tmp, sizeof(tmp), " - ");
           }
 
-        printf("%3d 0x%08x  %5d  %5d  %5d %5d %6d %6d   %c    %c   %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->has_input_region?'C':' ', win->alpha? 32:24, win->opaque);
-        printf("%2d    %d   %d   %s   %3d    %-8s %-8x   %s\n", win->visibility, win->iconic, win->vis, win->mapped? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
+        printf("%3d 0x%08zx  %5d  %5d  %5d %5d %6d %6d   %c    %c   %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->has_input_region?'C':' ', win->alpha? 32:24, win->opaque);
+        printf("%2d    %d   %d   %s   %3d    %-8s %-8zx   %s\n", win->visibility, win->iconic, win->vis, win->mapped? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
      }
 
    if (prev_layer_name)
@@ -1138,8 +1138,8 @@ _e_info_client_proc_topwins_info(int argc, char **argv)
              snprintf(tmp, sizeof(tmp), " - ");
           }
 
-        printf("%3d 0x%08x  %5d  %5d  %5d %5d %6d %6d   %c    %c   %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->has_input_region ? 'C':' ',win->alpha? 32:24, win->opaque);
-        printf("%2d    %d   %d   %s   %3d    %-8s %-8x   %s\n", win->visibility, win->iconic, win->vis, win->mapped? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
+        printf("%3d 0x%08zx  %5d  %5d  %5d %5d %6d %6d   %c    %c   %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->has_input_region ? 'C':' ',win->alpha? 32:24, win->opaque);
+        printf("%2d    %d   %d   %s   %3d    %-8s %-8zx   %s\n", win->visibility, win->iconic, win->vis, win->mapped? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
      }
 
    if (prev_layer_name)
@@ -1474,9 +1474,9 @@ _cb_subsurface_info_get(const Eldbus_Message *msg)
 
         count++;
 
-        printf("%3d 0x%08x ", count, win);
+        printf("%3d 0x%08zx ", count, win);
         temp[0] = '\0';
-        if (parent > 0) snprintf(temp, sizeof(temp), "0x%08x", parent);
+        if (parent > 0) snprintf(temp, sizeof(temp), "0x%08zx", parent);
         printf("%10s", temp);
         temp[0] = '\0';
         if (buf_id != 0)
@@ -1488,7 +1488,7 @@ _cb_subsurface_info_get(const Eldbus_Message *msg)
                w, h, x, y, (4 - (transform & 3)) * 90 % 360, (transform & 4) ? 1 : 0,
                (visible)?"O":"", (alpha)?"O":"", (ignore)?"O":"", (maskobj)?"O":"", (video)?"O":"", (stand)?"O":"");
         temp[0] = '\0';
-        if (bgrect > 0) snprintf(temp, sizeof(temp), "0x%08x", bgrect);
+        if (bgrect > 0) snprintf(temp, sizeof(temp), "0x%08zx", bgrect);
         printf("%10s", temp);
         printf(" %s\n", name);
      }
@@ -3113,12 +3113,12 @@ _e_info_client_proc_show_pending_commit(int argc, char **argv)
    EINA_LIST_FOREACH(e_info_client.pending_commit_list, l, pending_commit)
      {
         i++;
-        printf("%3d        %12p   %5d         %12p  %12p\n",
+        printf("%3d        %12zx   %5d         %12zx  %12zx\n",
                i,
-               (void *)pending_commit->plane,
+               (uintptr_t)pending_commit->plane,
                pending_commit->zpos,
-               (void *)pending_commit->data,
-               (void *)pending_commit->tsurface);
+               (uintptr_t)pending_commit->data,
+               (uintptr_t)pending_commit->tsurface);
      }
 
    E_FREE_LIST(e_info_client.pending_commit_list, _e_pending_commit_info_free);
@@ -4446,7 +4446,7 @@ _e_info_client_proc_buffer_flush(int argc, char **argv)
                        return;
                     }
 
-                  printf("%s %s: window(%s) id : 0x%08x\n", argv[0], argv[1], win_name, win);
+                  printf("%s %s: window(%s) id : 0x%08zx\n", argv[0], argv[1], win_name, win);
                   send_winid = (uint64_t) win;
 
                   free(win_name);
@@ -4566,7 +4566,7 @@ _e_info_client_proc_deiconify_approve(int argc, char **argv)
                        return;
                     }
 
-                  printf("%s %s: window(%s) id : 0x%08x\n", argv[0], argv[1], win_name, win);
+                  printf("%s %s: window(%s) id : 0x%08zx\n", argv[0], argv[1], win_name, win);
                   send_winid = (uint64_t) win;
 
                   free(win_name);
