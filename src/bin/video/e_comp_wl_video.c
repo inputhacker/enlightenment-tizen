@@ -212,8 +212,6 @@ _e_video_destroy(E_Video *video)
 
    e_client_video_unset(video->ec);
 
-   video_list = eina_list_remove(video_list, video);
-
    free(video);
 }
 
@@ -235,6 +233,8 @@ _e_video_cb_ec_remove(void *data, int type, void *event)
 
    _e_video_destroy(video);
 
+   video_list = eina_list_remove(video_list, video);
+
    return ECORE_CALLBACK_PASS_ON;
 }
 
@@ -245,6 +245,8 @@ _e_comp_wl_video_object_destroy(struct wl_resource *resource)
    EINA_SAFETY_ON_NULL_RETURN(video);
 
    _e_video_destroy(video);
+
+   video_list = eina_list_remove(video_list, video);
 }
 
 static void
@@ -538,6 +540,7 @@ e_comp_wl_video_shutdown(void)
 
    E_FREE_FUNC(e_comp->wl_comp_data->video.global, wl_global_destroy);
    E_FREE_LIST(video_hdlrs, ecore_event_handler_del);
+   E_FREE_LIST(video_list, _e_video_destroy);
 
    e_info_server_hook_set("vbuf", NULL, NULL);
    e_info_server_hook_set("video-to-primary", NULL, NULL);
