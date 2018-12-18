@@ -1542,7 +1542,7 @@ e_plane_renderer_del(E_Plane_Renderer *renderer)
                                 EVAS_CALLBACK_RENDER_FLUSH_POST,
                                 _e_plane_renderer_render_flush_post_cb);
 
-        if (renderer->event_fd)
+        if (renderer->event_fd >= 0)
           {
              close(renderer->event_fd);
              renderer->event_fd = -1;
