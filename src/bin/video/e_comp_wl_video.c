@@ -545,7 +545,6 @@ e_comp_wl_video_shutdown(void)
    E_FREE_LIST(video_hdlrs, ecore_event_handler_del);
 
    e_info_server_hook_set("vbuf", NULL, NULL);
-   e_info_server_hook_set("video-dst-change", NULL, NULL);
    e_info_server_hook_set("video-to-primary", NULL, NULL);
    e_info_server_hook_set("video-punch", NULL, NULL);
 
