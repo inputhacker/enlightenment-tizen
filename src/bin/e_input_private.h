@@ -63,7 +63,6 @@ struct _E_Input_Evdev
    struct libinput_device *device;
 
    const char *path;
-   int fd;
    Ecore_Device *ecore_dev;
    Eina_List *ecore_dev_list;
 

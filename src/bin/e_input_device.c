@@ -44,9 +44,6 @@ _e_input_device_cb_open_restricted(const char *path, int flags, void *data)
         return -1;
      }
 
-   if (input->dev->fd_hash)
-     eina_hash_add(input->dev->fd_hash, path, (void *)(intptr_t)fd);
-
    return fd;
 }
 
@@ -161,8 +158,8 @@ e_input_device_destroy(E_Input_Device *dev)
      {
         EINA_LIST_FREE(seat->devices, edev)
           {
-             if (edev->fd >= 0)
-               close(edev->fd);
+             libinput_device_config_send_events_set_mode(edev->device,
+                                                         LIBINPUT_CONFIG_SEND_EVENTS_DISABLED);
              _e_input_evdev_device_destroy(edev);
           }
 
