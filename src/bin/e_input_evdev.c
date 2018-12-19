@@ -1281,7 +1281,6 @@ _e_input_evdev_device_create(E_Input_Seat *seat, struct libinput_device *device)
    edev->seat = seat;
    edev->device = device;
    edev->path = eina_stringshare_printf("%s/%s", e_input_base_dir_get(), libinput_device_get_sysname(device));
-   edev->fd = -1;
 
    if (libinput_device_has_capability(device, LIBINPUT_DEVICE_CAP_KEYBOARD))
      {

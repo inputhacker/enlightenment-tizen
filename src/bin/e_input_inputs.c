@@ -332,8 +332,6 @@ _device_added(E_Input_Backend *input, struct libinput_device *device)
         return;
      }
 
-   edev->fd = (int)(intptr_t)eina_hash_find(input->dev->fd_hash, edev->path);
-
    /* append this device to the seat */
    seat->devices = eina_list_append(seat->devices, edev);
 
@@ -359,16 +357,6 @@ _device_removed(E_Input_Backend *input, struct libinput_device *device)
 
    /* remove this evdev from the seat's list of devices */
    edev->seat->devices = eina_list_remove(edev->seat->devices, edev);
-
-   if (input->dev->fd_hash)
-     eina_hash_del_by_key(input->dev->fd_hash, edev->path);
-
-   /* tell launcher to release device */
-   if (edev->fd >= 0)
-     {
-        close(edev->fd);
-        edev->fd = -1;
-     }
 
    /* destroy this evdev */
    _e_input_evdev_device_destroy(edev);
