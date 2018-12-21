@@ -28,8 +28,6 @@ struct _E_Hwc_Window_Queue
    E_Hwc_Window                     *user_waiting_unset;
    Eina_List                        *user_pending_set;
    E_Hwc_Window_Queue_State          state;
-
-   Eina_Bool                         is_target;
 };
 
 struct _E_Hwc_Window_Queue_Buffer

@@ -704,9 +704,8 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
      }
    else
      {
-         /* if queue is not for target window, delete the E_Hwc_Window_Queue here */
-         if (!queue->is_target)
-           _e_hwc_window_queue_destroy(queue);
+         /* delete the E_Hwc_Window_Queue */
+         _e_hwc_window_queue_destroy(queue);
      }
 }
 
@@ -809,11 +808,11 @@ _e_hwc_window_queue_cb_accepted_state_change(void *data, E_Hwc_Window *hwc_windo
 static void
 _e_hwc_window_queue_cb_destroy(tbm_surface_queue_h surface_queue, void *data)
 {
-   E_Hwc_Window_Queue *queue = (E_Hwc_Window_Queue *)data;
-
-   if (!queue) return;
-
-   _e_hwc_window_queue_destroy(queue);
+   //TODO: check if the backend delete the tsurface_queue.
+   //      PLEASE Deal with it... if there are pending_users on this queue.
+   //      if the backend deletes the tsurface_queue and
+   //      if there is a pending user at the same equeue(tsurface_queue),
+   //      That means that the backend has the wrong policy at the validation.
 }
 
 static E_Hwc_Window_Queue *
@@ -956,10 +955,7 @@ e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
    EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
 
    if (e_hwc_window_is_target(hwc_window))
-     {
-        queue->is_target = EINA_TRUE;
-        return queue;
-     }
+     return queue;
 
    if (queue->user ||
        queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING)
