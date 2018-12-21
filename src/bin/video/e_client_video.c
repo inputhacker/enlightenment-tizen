@@ -10,9 +10,12 @@
    INTERNAL_DATA_GET;                                 \
    EINA_SAFETY_ON_NULL_RETURN(ecv)
 
-#define API_ENTRY_RET(ret)                            \
+#define IFACE_CHECK_RET(iname, ret)                   \
    INTERNAL_DATA_GET;                                 \
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ecv, ret)
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ecv, ret);          \
+   ELOGF("VIDEO <INF>", #iname, ec->pixmap, ec);    \
+   if (!ecv->iface->iname)                            \
+      return ret
 
 typedef struct _E_Client_Video E_Client_Video;
 
@@ -208,12 +211,7 @@ e_client_video_unset(E_Client *ec)
 EINTERN Eina_Bool
 e_client_video_topmost_visibility_follow(E_Client *ec)
 {
-   API_ENTRY_RET(EINA_FALSE);
-
-   ELOGF("VIDEO", "<INF> follow topmost visibility", ec->pixmap, ec);
-
-   if (!ecv->iface->follow_topmost_visibility)
-     return EINA_FALSE;
+   IFACE_CHECK_RET(follow_topmost_visibility, EINA_FALSE);
 
    return ecv->iface->follow_topmost_visibility(ecv->iface);
 }
@@ -221,12 +219,7 @@ e_client_video_topmost_visibility_follow(E_Client *ec)
 EINTERN Eina_Bool
 e_client_video_topmost_visibility_unfollow(E_Client *ec)
 {
-   API_ENTRY_RET(EINA_FALSE);
-
-   ELOGF("VIDEO", "<INF> unfollow topmost visibility", ec->pixmap, ec);
-
-   if (!ecv->iface->unfollow_topmost_visibility)
-     return EINA_FALSE;
+   IFACE_CHECK_RET(unfollow_topmost_visibility, EINA_FALSE);
 
    return ecv->iface->unfollow_topmost_visibility(ecv->iface);
 }
@@ -234,12 +227,7 @@ e_client_video_topmost_visibility_unfollow(E_Client *ec)
 EINTERN Eina_Bool
 e_client_video_property_allow(E_Client *ec)
 {
-   API_ENTRY_RET(EINA_FALSE);
-
-   ELOGF("VIDEO", "<INF> allowed property", ec->pixmap, ec);
-
-   if (!ecv->iface->allowed_property)
-     return EINA_FALSE;
+   IFACE_CHECK_RET(allowed_property, EINA_FALSE);
 
    return ecv->iface->allowed_property(ecv->iface);
 }
@@ -247,12 +235,7 @@ e_client_video_property_allow(E_Client *ec)
 EINTERN Eina_Bool
 e_client_video_property_disallow(E_Client *ec)
 {
-   API_ENTRY_RET(EINA_FALSE);
-
-   ELOGF("VIDEO", "<INF> disallowed property", ec->pixmap, ec);
-
-   if (!ecv->iface->disallowed_property)
-     return EINA_FALSE;
+   IFACE_CHECK_RET(disallowed_property, EINA_FALSE);
 
    return ecv->iface->disallowed_property(ecv->iface);
 }
@@ -260,12 +243,7 @@ e_client_video_property_disallow(E_Client *ec)
 EINTERN Eina_Bool
 e_client_video_property_get(E_Client *ec, unsigned int id, tdm_value *value)
 {
-   API_ENTRY_RET(EINA_FALSE);
-
-   ELOGF("VIDEO", "<INF> get property", ec->pixmap, ec);
-
-   if (!ecv->iface->property_get)
-     return EINA_FALSE;
+   IFACE_CHECK_RET(property_get, EINA_FALSE);
 
    return ecv->iface->property_get(ecv->iface, id, value);
 }
@@ -273,12 +251,7 @@ e_client_video_property_get(E_Client *ec, unsigned int id, tdm_value *value)
 EINTERN Eina_Bool
 e_client_video_property_set(E_Client *ec, unsigned int id, tdm_value value)
 {
-   API_ENTRY_RET(EINA_FALSE);
-
-   ELOGF("VIDEO", "<INF> set property", ec->pixmap, ec);
-
-   if (!ecv->iface->property_set)
-     return EINA_FALSE;
+   IFACE_CHECK_RET(property_set, EINA_FALSE);
 
    return ecv->iface->property_set(ecv->iface, id, value);
 }
@@ -286,12 +259,7 @@ e_client_video_property_set(E_Client *ec, unsigned int id, tdm_value value)
 EINTERN Eina_Bool
 e_client_video_property_delay_set(E_Client *ec, unsigned int id, tdm_value value)
 {
-   API_ENTRY_RET(EINA_FALSE);
-
-   ELOGF("VIDEO", "<INF> delay set property", ec->pixmap, ec);
-
-   if (!ecv->iface->property_delay_set)
-     return EINA_FALSE;
+   IFACE_CHECK_RET(property_delay_set, EINA_FALSE);
 
    return ecv->iface->property_delay_set(ecv->iface, id, value);
 }
@@ -299,12 +267,7 @@ e_client_video_property_delay_set(E_Client *ec, unsigned int id, tdm_value value
 EINTERN Eina_Bool
 e_client_video_available_properties_get(E_Client *ec, const tdm_prop **props, int *count)
 {
-   API_ENTRY_RET(EINA_FALSE);
-
-   ELOGF("VIDEO", "<INF> get available properties", ec->pixmap, ec);
-
-   if (!ecv->iface->available_properties_get)
-     return EINA_FALSE;
+   IFACE_CHECK_RET(available_properties_get, EINA_FALSE);
 
    return ecv->iface->available_properties_get(ecv->iface, props, count);
 }
@@ -312,12 +275,7 @@ e_client_video_available_properties_get(E_Client *ec, const tdm_prop **props, in
 EINTERN Eina_Bool
 e_client_video_info_get(E_Client *ec, E_Client_Video_Info *info)
 {
-   API_ENTRY_RET(EINA_FALSE);
-
-   ELOGF("VIDEO", "<INF> get info", ec->pixmap, ec);
-
-   if (!ecv->iface->info_get)
-     return EINA_FALSE;
+   IFACE_CHECK_RET(info_get, EINA_FALSE);
 
    return ecv->iface->info_get(ecv->iface, info);
 }
@@ -325,12 +283,7 @@ e_client_video_info_get(E_Client *ec, E_Client_Video_Info *info)
 EINTERN Eina_Bool
 e_client_video_commit_data_release(E_Client *ec, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec)
 {
-   API_ENTRY_RET(EINA_FALSE);
-
-   ELOGF("VIDEO", "<INF> release commit data", ec->pixmap, ec);
-
-   if (!ecv->iface->commit_data_release)
-     return EINA_FALSE;
+   IFACE_CHECK_RET(commit_data_release, EINA_FALSE);
 
    return ecv->iface->commit_data_release(ecv->iface, sequence, tv_sec, tv_usec);
 }
@@ -338,12 +291,7 @@ e_client_video_commit_data_release(E_Client *ec, unsigned int sequence, unsigned
 EINTERN tbm_surface_h
 e_client_video_tbm_surface_get(E_Client *ec)
 {
-   API_ENTRY_RET(NULL);
-
-   ELOGF("VIDEO", "<INF> get tbm_surface_h", ec->pixmap, ec);
-
-   if (!ecv->iface->tbm_surface_get)
-     return NULL;
+   IFACE_CHECK_RET(tbm_surface_get, NULL);
 
    return ecv->iface->tbm_surface_get(ecv->iface);
 }
