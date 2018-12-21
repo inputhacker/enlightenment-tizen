@@ -1000,6 +1000,27 @@ _remote_source_find(E_Client *ec)
    return source;
 }
 
+static E_Comp_Wl_Remote_Source *
+_remote_source_get(E_Client *ec)
+{
+   E_Comp_Wl_Remote_Source *source = NULL;
+
+   source = _remote_source_find(ec);
+   if (!source)
+     {
+        if (e_object_is_del(E_OBJECT(ec)))
+          return NULL;
+
+        source = E_NEW(E_Comp_Wl_Remote_Source, 1);
+        if (!source) return NULL;
+
+        source->common.ec = ec;
+        eina_hash_add(_rsm->source_hash, &ec, source);
+     }
+
+   return source;
+}
+
 static void
 _remote_source_destroy(E_Comp_Wl_Remote_Source *source)
 {
@@ -1423,14 +1444,8 @@ _remote_source_child_data_create(Thread_Data *td, E_Client *ec)
    if (!td) return EINA_FALSE;
    if (!ec) return EINA_FALSE;
 
-   if (!(source = _remote_source_find(ec)))
-     {
-        source = E_NEW(E_Comp_Wl_Remote_Source, 1);
-        if (!source) return EINA_FALSE;
-
-        source->common.ec = ec;
-        eina_hash_add(_rsm->source_hash, &ec, source);
-     }
+   source = _remote_source_get(ec);
+   if (!source) return EINA_FALSE;
 
    if (!(buffer = e_pixmap_resource_get(ec->pixmap))) return EINA_FALSE;
 
@@ -2990,15 +3005,8 @@ _remote_manager_cb_surface_create(struct wl_client *client,
                }
 
              /* if passed */
-             source = _remote_source_find(ec);
-             if (!source)
-               {
-                  source = E_NEW(E_Comp_Wl_Remote_Source, 1);
-                  if (!source) goto fail;
-
-                  source->common.ec = ec;
-                  eina_hash_add(_rsm->source_hash, &ec, source);
-               }
+             source = _remote_source_get(ec);
+             if (!source) goto fail;
           }
         else
           {
@@ -3127,6 +3135,7 @@ _e_comp_wl_remote_cb_client_iconify(void *data, E_Client *ec)
      {
         if (ec->ignored) return;
         if (!_image_save_type_check(ec)) return;
+        if (e_object_is_del(E_OBJECT(ec))) return;
 
         source = E_NEW(E_Comp_Wl_Remote_Source, 1);
         EINA_SAFETY_ON_NULL_RETURN(source);
@@ -3235,6 +3244,7 @@ _e_comp_wl_remote_cb_hook_action_change(void *d EINA_UNUSED, E_Process *epro, vo
           {
              if (base_ec->ignored) return;
              if (!_image_save_type_check(base_ec)) return;
+             if (e_object_is_del(E_OBJECT(base_ec))) return;
 
              source = E_NEW(E_Comp_Wl_Remote_Source, 1);
              EINA_SAFETY_ON_NULL_RETURN(source);
@@ -3671,15 +3681,8 @@ e_comp_wl_remote_surface_image_save(E_Client *ec)
    if (ec->ignored) return;
    if (!_image_save_type_check(ec)) return;
 
-   src = _remote_source_find(ec);
-   if (!src)
-     {
-        src = E_NEW(E_Comp_Wl_Remote_Source, 1);
-        EINA_SAFETY_ON_NULL_GOTO(src, end);
-
-        src->common.ec = ec;
-        eina_hash_add(_rsm->source_hash, &ec, src);
-     }
+   src = _remote_source_get(ec);
+   EINA_SAFETY_ON_NULL_GOTO(src, end);
 
    _remote_source_save_start(src);
 
