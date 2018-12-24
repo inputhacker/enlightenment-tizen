@@ -598,6 +598,14 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, NULL);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
 
+   if (ec->hwc_window)
+     {
+        if (e_hwc_window_state_get(ec->hwc_window) != state)
+          e_hwc_window_state_set(ec->hwc_window, state, EINA_FALSE);
+
+        goto end;
+     }
+
    thwc = hwc->thwc;
    EINA_SAFETY_ON_NULL_RETURN_VAL(thwc, EINA_FALSE);
 
@@ -634,6 +642,7 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
           hwc_window->ec, hwc_window, hwc->output, ec->zone->id,
           hwc_window->is_video, hwc_window->is_cursor);
 
+end:
    return hwc_window;
 }
 
