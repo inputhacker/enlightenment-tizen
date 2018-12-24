@@ -27,6 +27,13 @@ struct _E_Client_Video
    E_Client *ec;
 
    Ecore_Event_Handler *eeh_zone_set;
+
+   struct
+   {
+      E_Client_Video_Info_Get_Cb info_get;
+      E_Client_Video_Commit_Data_Release_Cb commit_data_release;
+      E_Client_Video_Tbm_Surface_Get_Cb tbm_surface_get;
+   } cb;
 };
 
 static E_Hwc_Policy
@@ -275,23 +282,71 @@ e_client_video_available_properties_get(E_Client *ec, const tdm_prop **props, in
 EINTERN Eina_Bool
 e_client_video_info_get(E_Client *ec, E_Client_Video_Info *info)
 {
-   IFACE_CHECK_RET(info_get, EINA_FALSE);
+   INTERNAL_DATA_GET;
 
-   return ecv->iface->info_get(ecv->iface, info);
+   if (!ecv)
+     return EINA_FALSE;
+
+   if (ecv->cb.info_get)
+     return ecv->cb.info_get(ec, info);
+   else if (ecv->iface->info_get)
+     return ecv->iface->info_get(ecv->iface, info);
+
+   return EINA_FALSE;
 }
 
 EINTERN Eina_Bool
 e_client_video_commit_data_release(E_Client *ec, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec)
 {
-   IFACE_CHECK_RET(commit_data_release, EINA_FALSE);
+   INTERNAL_DATA_GET;
 
-   return ecv->iface->commit_data_release(ecv->iface, sequence, tv_sec, tv_usec);
+   if (!ecv)
+     return EINA_FALSE;
+
+   if (ecv->cb.commit_data_release)
+     return ecv->cb.commit_data_release(ec, sequence, tv_sec, tv_usec);
+   else if (ecv->iface->commit_data_release)
+     return ecv->iface->commit_data_release(ecv->iface, sequence, tv_sec, tv_usec);
+
+   return EINA_FALSE;
 }
 
 EINTERN tbm_surface_h
 e_client_video_tbm_surface_get(E_Client *ec)
 {
-   IFACE_CHECK_RET(tbm_surface_get, NULL);
+   INTERNAL_DATA_GET;
 
-   return ecv->iface->tbm_surface_get(ecv->iface);
+   if (!ecv)
+     return NULL;
+
+   if (ecv->cb.tbm_surface_get)
+     return ecv->cb.tbm_surface_get(ec);
+   else if (ecv->iface->tbm_surface_get)
+     return ecv->iface->tbm_surface_get(ecv->iface);
+
+   return NULL;
+}
+
+EINTERN void
+e_client_video_info_get_func_set(E_Client *ec, E_Client_Video_Info_Get_Cb func)
+{
+   API_ENTRY;
+
+   ecv->cb.info_get = func;
+}
+
+EINTERN void
+e_client_video_commit_data_release_func_set(E_Client *ec, E_Client_Video_Commit_Data_Release_Cb func)
+{
+   API_ENTRY;
+
+   ecv->cb.commit_data_release = func;
+}
+
+EINTERN void
+e_client_video_tbm_surface_get_func_set(E_Client *ec, E_Client_Video_Tbm_Surface_Get_Cb func)
+{
+   API_ENTRY;
+
+   ecv->cb.tbm_surface_get = func;
 }
