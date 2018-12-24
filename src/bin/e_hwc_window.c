@@ -603,7 +603,7 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
         if (e_hwc_window_state_get(ec->hwc_window) != state)
           e_hwc_window_state_set(ec->hwc_window, state, EINA_FALSE);
 
-        goto end;
+        return ec->hwc_window;
      }
 
    thwc = hwc->thwc;
@@ -642,7 +642,6 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
           hwc_window->ec, hwc_window, hwc->output, ec->zone->id,
           hwc_window->is_video, hwc_window->is_cursor);
 
-end:
    return hwc_window;
 }
 
