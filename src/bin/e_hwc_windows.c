@@ -1671,7 +1671,7 @@ _e_hwc_windows_visible_windows_update(E_Hwc *hwc)
     }
 
    /* store the current visible windows and the number of them */
-   hwc->visible_windows = eina_list_clone(visible_windows);
+   hwc->visible_windows = visible_windows;
    hwc->num_visible_windows = visible_num;
 
    /* use the reverse iteration for assgining the zpos */
