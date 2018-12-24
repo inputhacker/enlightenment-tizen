@@ -586,7 +586,7 @@ e_comp_canvas_layer_map(E_Layer layer)
      }
 
    /* prevents to access the e_comp->layers list out of bounds. */
-   ELOGF("WARNING", "Used not defined layer:%d", NULL, NULL, layer);
+   ELOGF("WARNING", "Used not defined layer:%d", NULL, layer);
    return E_LAYER_COUNT - 1;
 }
 

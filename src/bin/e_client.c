@@ -250,7 +250,7 @@ cleanup:
         
         if (!warp_client->lock_focus_out)
           {
-             ELOGF("FOCUS", "focus set | pointer_warp_to_center", NULL, warp_client);
+             ELOGF("FOCUS", "focus set | pointer_warp_to_center", warp_client);
              evas_object_focus_set(warp_client->frame, 1);
              e_client_focus_latest_set(warp_client);
           }
@@ -874,10 +874,10 @@ e_client_revert_focus(E_Client *ec)
         if (focus_ec != ec)
           {
              e_client_focus_defer_unset(ec);
-             ELOGF("FOCUS", "focus unset | revert_focus", NULL, ec);
+             ELOGF("FOCUS", "focus unset | revert_focus", ec);
              evas_object_focus_set(ec->frame, EINA_FALSE);
           }
-        ELOGF("FOCUS", "focus set | revert_focus", NULL, focus_ec);
+        ELOGF("FOCUS", "focus set | revert_focus", focus_ec);
         evas_object_focus_set(focus_ec->frame, EINA_TRUE);
      }
 }
@@ -1006,7 +1006,7 @@ _e_client_free(E_Client *ec)
    ec->e.state.profile.wait_desk = NULL;
    E_FREE_FUNC(ec->frame, evas_object_del);
    E_OBJECT(ec)->references--;
-   ELOG("CLIENT FREE", ec->pixmap, ec);
+   ELOG("CLIENT FREE", ec);
 
    e_uuid_store_entry_del(ec->uuid);
 
@@ -1071,19 +1071,19 @@ _e_client_del(E_Client *ec)
 
    if ((!ec->new_client) && (!stopping))
      {
-        ELOGF("COMP", "SEND E_EVENT_CLIENT_REMOVE event", ec->pixmap, ec);
+        ELOGF("COMP", "SEND E_EVENT_CLIENT_REMOVE event", ec);
         _e_client_event_simple(ec, E_EVENT_CLIENT_REMOVE);
      }
    else
      {
         if (stopping)
           {
-             ELOGF("COMP", "SEND E_EVENT_CLIENT_REMOVE event on stopping env", ec->pixmap, ec);
+             ELOGF("COMP", "SEND E_EVENT_CLIENT_REMOVE event on stopping env", ec);
              _e_client_event_simple(ec, E_EVENT_CLIENT_REMOVE);
           }
      }
 
-   ELOG("CLIENT DEL", ec->pixmap, ec);
+   ELOG("CLIENT DEL", ec);
 
    if (ec->parent)
      {
@@ -1816,7 +1816,7 @@ _e_client_reset_lost_window(E_Client *ec)
    evas_object_raise(ec->frame);
    if (!ec->lock_focus_out)
      {
-        ELOGF("FOCUS", "focus set | reset_lost_window", NULL, ec);
+        ELOGF("FOCUS", "focus set | reset_lost_window", ec);
         evas_object_focus_set(ec->frame, 1);
      }
 
@@ -2264,7 +2264,7 @@ _e_client_aux_hint_eval(E_Client *ec)
              hint->changed = EINA_FALSE;
              if (hint->deleted)
                {
-                  ELOGF("COMP", "AUX_HINT |Del [%d:%s:%s]", ec->pixmap, ec, hint->id, hint->hint, hint->val);
+                  ELOGF("COMP", "AUX_HINT |Del [%d:%s:%s]", ec, hint->id, hint->hint, hint->val);
                   if (hint->hint) eina_stringshare_del(hint->hint);
                   if (hint->val) eina_stringshare_del(hint->val);
                   cdata->aux_hint.hints = eina_list_remove_list(cdata->aux_hint.hints, l);
@@ -2631,7 +2631,7 @@ _e_client_eval(E_Client *ec)
                   ec->cur_mouse_action->func.go(E_OBJECT(ec), NULL);
                   if (e_config->border_raise_on_mouse_action)
                     evas_object_raise(ec->frame);
-                  ELOGF("FOCUS", "focus set | client eval", NULL, ec);
+                  ELOGF("FOCUS", "focus set | client eval", ec);
                   evas_object_focus_set(ec->frame, 1);
                }
              ec->changes.visible = 0;
@@ -3169,13 +3169,13 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
                        /* previous state is obscured: -1 or 1 */
                        ec->visibility.obscured = E_VISIBILITY_UNOBSCURED;
                        ec->visibility.changed = 1;
-                       ELOGF("POL_VIS", "CLIENT VIS ON.  argb:%d, opaque:%2d, frame_v:%d", ec->pixmap, ec, ec->argb, ec->visibility.opaque, ec_frame_visible);
+                       ELOGF("POL_VIS", "CLIENT VIS ON.  argb:%d, opaque:%2d, frame_v:%d", ec, ec->argb, ec->visibility.opaque, ec_frame_visible);
                     }
                   else
                     {
                        if (!is_above_rot_pending)
                          is_vis_on_skip = EINA_TRUE;
-                       ELOGF("POL_VIS", "CLIENT VIS ON-SKIP. argb:%d, opaque:%2d, frame_v:%d", ec->pixmap, ec, ec->argb, ec->visibility.opaque, ec_frame_visible);
+                       ELOGF("POL_VIS", "CLIENT VIS ON-SKIP. argb:%d, opaque:%2d, frame_v:%d", ec, ec->argb, ec->visibility.opaque, ec_frame_visible);
                     }
                }
 
@@ -3221,7 +3221,7 @@ _e_client_visibility_zone_calculate(E_Zone *zone)
                        ec->visibility.obscured = E_VISIBILITY_FULLY_OBSCURED;
                        ec->visibility.changed = 1;
                        ELOGF("POL_VIS", "CLIENT VIS OFF. argb:%d, opaque:%2d, frame_v:%d, canvas_v:%d, calc_r:%d(%d), rot_p:%d",
-                             ec->pixmap, ec, ec->argb, ec->visibility.opaque,
+                             ec, ec->argb, ec->visibility.opaque,
                              ec_frame_visible, canvas_vis, calc_region, calc_skip_type, skip_rot_pending_show);
                     }
                }
@@ -3333,7 +3333,7 @@ _e_client_focus_calculate(E_Zone *zone)
         if (!reverted_focus_ec && focused)
           {
              e_client_focus_defer_unset(focused);
-             ELOGF("FOCUS", "focus unset | focus calculate", NULL, focused);
+             ELOGF("FOCUS", "focus unset | focus calculate", focused);
              evas_object_focus_set(focused->frame, EINA_FALSE);
           }
      }
@@ -3368,7 +3368,7 @@ _e_client_focus_calculate(E_Zone *zone)
      {
         if (defered_focus_ec != focused)
           {
-             ELOGF("FOCUS", "focus set | defer_focus", NULL, defered_focus_ec);
+             ELOGF("FOCUS", "focus set | defer_focus", defered_focus_ec);
              if (focused)
                e_client_focus_defer_unset(focused);
              evas_object_focus_set(defered_focus_ec->frame, EINA_TRUE);
@@ -3382,7 +3382,7 @@ _e_client_focus_calculate(E_Zone *zone)
      {
         if (reverted_focus_ec != focused)
           {
-             ELOGF("FOCUS", "focus set | revert_focus", NULL, reverted_focus_ec);
+             ELOGF("FOCUS", "focus set | revert_focus", reverted_focus_ec);
              if (focused)
                e_client_focus_defer_unset(focused);
              evas_object_focus_set(reverted_focus_ec->frame, EINA_TRUE);
@@ -3540,7 +3540,7 @@ _e_client_transform_core_boundary_update(E_Client *ec, E_Util_Transform_Rect_Ver
    ec->transform_core.result.boundary.h = maxy - miny;
 
    ELOGF("COMP", "[Transform][boundary][%d %d %d %d]",
-         ec->pixmap, ec,
+         ec,
          ec->transform_core.result.boundary.x,
          ec->transform_core.result.boundary.y,
          ec->transform_core.result.boundary.w,
@@ -3981,7 +3981,7 @@ e_client_new(E_Pixmap *cp, int first_map, int internal)
    e_comp->clients = eina_list_append(e_comp->clients, ec);
    eina_hash_add(clients_hash[e_pixmap_type_get(cp)], &ec->pixmap, ec);
 
-   ELOGF("COMP", "CLIENT ADD. cp:%p", ec->pixmap, ec, cp);
+   ELOGF("COMP", "CLIENT ADD. cp:%p", ec, cp);
    if (!ec->ignored)
      _e_client_event_simple(ec, E_EVENT_CLIENT_ADD);
    e_comp_object_client_add(ec);
@@ -4647,7 +4647,7 @@ e_client_above_get(const E_Client *ec)
           {
              if (ec == ec2)
                {
-                  ELOGF("FATAL", "CHECK the ec inlist next", ec->pixmap, ec);
+                  ELOGF("FATAL", "CHECK the ec inlist next", ec);
                   continue;
                }
              if (!e_object_is_del(E_OBJECT(ec2)))
@@ -4666,7 +4666,7 @@ e_client_above_get(const E_Client *ec)
              if (ec == ec2)
                {
                   ELOGF("FATAL", "EC exist above layer. ec layer_map:%d, cur layer_map:%d",
-                        ec->pixmap, ec, e_comp_canvas_layer_map(ec->layer), x);
+                        ec, e_comp_canvas_layer_map(ec->layer), x);
                   continue;
                }
              if (!e_object_is_del(E_OBJECT(ec2)))
@@ -4694,7 +4694,7 @@ e_client_below_get(const E_Client *ec)
              ec2 = EINA_INLIST_CONTAINER_GET(l, E_Client);
              if (ec == ec2)
                {
-                  ELOGF("FATAL", "CHECK the ec inlist prev", ec->pixmap, ec);
+                  ELOGF("FATAL", "CHECK the ec inlist prev", ec);
                   continue;
                }
              if (!e_object_is_del(E_OBJECT(ec2)))
@@ -4717,7 +4717,7 @@ e_client_below_get(const E_Client *ec)
              if (ec == ec2)
                {
                   ELOGF("FATAL", "EC exist below layer. ec layer_map:%d, cur layer_map:%d",
-                        ec->pixmap, ec, e_comp_canvas_layer_map(ec->layer), x);
+                        ec, e_comp_canvas_layer_map(ec->layer), x);
                   continue;
                }
              if (!e_object_is_del(E_OBJECT(ec2)))
@@ -4919,7 +4919,7 @@ e_client_refocus(void)
      if (ec->desk && ec->desk->visible && (!ec->iconic))
        {
           if (e_comp->input_key_grabs || e_comp->input_mouse_grabs) break;
-          ELOGF("FOCUS", "focus set | refocus", NULL, ec);
+          ELOGF("FOCUS", "focus set | refocus", ec);
           evas_object_focus_set(ec->frame, 1);
           break;
        }
@@ -4966,7 +4966,7 @@ e_client_focus_set_with_pointer(E_Client *ec)
    if (ec == focused) return;
 
    TRACE_DS_BEGIN(CLIENT:FOCUS SET WITH POINTER);
-   ELOGF("FOCUS", "focus set | focus with pointer", NULL, ec);
+   ELOGF("FOCUS", "focus set | focus with pointer", ec);
    evas_object_focus_set(ec->frame, 1);
 
    if (e_config->focus_policy == E_FOCUS_CLICK)
@@ -4993,7 +4993,7 @@ e_client_focused_set(E_Client *ec)
 
    TRACE_DS_BEGIN(CLIENT:FOCUSED SET);
 
-   ELOG("CLIENT FOCUS_SET", (ec ? ec->pixmap : NULL), ec);
+   ELOG("CLIENT FOCUS_SET", ec);
    focused = ec;
    if ((ec) && (ec->zone))
      {
@@ -5097,7 +5097,7 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
           (e_config->focus_setting == E_FOCUS_NEW_DIALOG_IF_OWNER_FOCUSED)))) ||
        (just_do_it))
      {
-        ELOGF("COMP", "Set launching flag..", ec->pixmap, ec);
+        ELOGF("COMP", "Set launching flag..", ec);
         ec->launching = EINA_TRUE;
 
         ec->exp_iconify.not_raise = 0;
@@ -5107,7 +5107,7 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
              if (!ec->lock_user_iconify)
                e_client_uniconify(ec);
           }
-        ELOG("Un-Set ICONIFY BY CLIENT", ec->pixmap, ec);
+        ELOG("Un-Set ICONIFY BY CLIENT", ec);
         ec->exp_iconify.by_client = 0;
 
         if ((!ec->iconic) && (!ec->sticky))
@@ -5139,7 +5139,7 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
                     }
                   else
                     {
-                       ELOGF("FOCUS", "focus set | client activate", NULL, ec);
+                       ELOGF("FOCUS", "focus set | client activate", ec);
                        evas_object_focus_set(focus_ec->frame, 1);
                     }
                }
@@ -5546,7 +5546,7 @@ e_client_iconify(E_Client *ec)
    E_OBJECT_TYPE_CHECK(ec, E_CLIENT_TYPE);
 
    ELOGF("TZVIS", "ICONIFY  |not_raise:%d       |by_client:%d",
-         ec->pixmap, ec, (unsigned int)ec->exp_iconify.not_raise,
+         ec, (unsigned int)ec->exp_iconify.not_raise,
          ec->exp_iconify.by_client);
 
    if (!ec->zone) return;
@@ -5557,12 +5557,12 @@ e_client_iconify(E_Client *ec)
      {
         if (!ec->exp_iconify.by_client)
           {
-             ELOGF("TZVIS", "Not mapped.. So, don't iconify", ec->pixmap, ec);
+             ELOGF("TZVIS", "Not mapped.. So, don't iconify", ec);
              return;
           }
         else
           {
-             ELOGF("TZVIS", "Not mapped.. But, iconify by user request", ec->pixmap, ec);
+             ELOGF("TZVIS", "Not mapped.. But, iconify by user request", ec);
           }
      }
 
@@ -5603,7 +5603,7 @@ e_client_uniconify(E_Client *ec)
    E_OBJECT_TYPE_CHECK(ec, E_CLIENT_TYPE);
 
    ELOGF("TZVIS", "UNICONIFY|not_raise:%d       |by_client:%d\t| mapped:%d",
-         ec->pixmap, ec, (unsigned int)ec->exp_iconify.not_raise,
+         ec, (unsigned int)ec->exp_iconify.not_raise,
          ec->exp_iconify.by_client,
          ec->comp_data ? ec->comp_data->mapped : 0);
 
@@ -5636,7 +5636,7 @@ e_client_uniconify(E_Client *ec)
 
    if (ec->internal)
      {
-        ELOGF("TZVIS", "UNICONIFY|internal object force show", ec->pixmap, ec);
+        ELOGF("TZVIS", "UNICONIFY|internal object force show", ec);
         evas_object_show(ec->frame);
      }
 
@@ -5644,12 +5644,12 @@ e_client_uniconify(E_Client *ec)
      {
         if (ec->comp_data && ec->comp_data->mapped)
           {
-             ELOGF("TZVIS", "UNICONIFY|object show", ec->pixmap, ec);
+             ELOGF("TZVIS", "UNICONIFY|object show", ec);
              evas_object_show(ec->frame);
           }
         else
           {
-             ELOGF("TZVIS", "UNICONIFY|object no show. currently unmapped", ec->pixmap, ec);
+             ELOGF("TZVIS", "UNICONIFY|object no show. currently unmapped", ec);
           }
      }
 
@@ -6979,7 +6979,7 @@ e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set)
 {
    if (!ec) return;
 
-   ELOGF("TZVIS", "VIS_FORCE_OBSCURED :%d", ec->pixmap, ec, set);
+   ELOGF("TZVIS", "VIS_FORCE_OBSCURED :%d", ec, set);
 
    ec->visibility.force_obscured = set;
    e_client_visibility_calculate();
@@ -7007,6 +7007,6 @@ e_client_pending_geometry_flush(E_Client *ec)
              E_FREE(geo);
           }
         ec->surface_sync.wait_commit = EINA_FALSE;
-        ELOGF("POSSIZE", "pending geometry has flushed", ec->pixmap, ec);
+        ELOGF("POSSIZE", "pending geometry has flushed", ec);
      }
 }

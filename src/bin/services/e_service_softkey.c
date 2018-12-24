@@ -72,7 +72,7 @@ e_service_softkey_module_func_unset(void)
 E_API E_Service_Softkey *
 e_service_softkey_add(E_Zone *zone, E_Client *ec)
 {
-   ELOGF("SOFTKEY_SRV", "%s (zone:%p)", NULL, ec, __func__, zone);
+   ELOGF("SOFTKEY_SRV", "%s (zone:%p)", ec, __func__, zone);
 
    if (_e_softkey_funcs && _e_softkey_funcs->softkey_service_add)
      {
@@ -83,7 +83,7 @@ e_service_softkey_add(E_Zone *zone, E_Client *ec)
 
    E_Service_Softkey *softkey;
 
-   ELOGF("SOFTKEY_SRV", "Softkey service window add... win:%zx (ec:%p), zone:%p (id:%d)", NULL, NULL, e_client_util_win_get(ec), ec, zone, zone->id);
+   ELOGF("SOFTKEY_SRV", "Softkey service window add. zone:%p (id:%d)", ec, zone, zone->id);
    softkey = E_NEW(E_Service_Softkey, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(softkey, NULL);
 
@@ -98,7 +98,7 @@ e_service_softkey_add(E_Zone *zone, E_Client *ec)
 E_API void
 e_service_softkey_del(E_Service_Softkey *softkey)
 {
-   ELOGF("SOFTKEY_SRV", "%s (softkey:%p)", NULL, NULL, __func__, softkey);
+   ELOGF("SOFTKEY_SRV", "%s (softkey:%p)", NULL, __func__, softkey);
 
    if (_e_softkey_funcs && _e_softkey_funcs->softkey_service_del)
      {
@@ -119,7 +119,7 @@ e_service_softkey_del(E_Service_Softkey *softkey)
 E_API Eina_Bool
 e_service_softkey_wl_resource_set(E_Service_Softkey *softkey, struct wl_resource *wl_res)
 {
-   ELOGF("SOFTKEY_SRV", "%s (softkey:%p, res:%p)", NULL, NULL, __func__, softkey, wl_res);
+   ELOGF("SOFTKEY_SRV", "%s (softkey:%p, res:%p)", NULL, __func__, softkey, wl_res);
 
    if (_e_softkey_funcs && _e_softkey_funcs->softkey_service_wl_resource_set)
      {
@@ -129,7 +129,7 @@ e_service_softkey_wl_resource_set(E_Service_Softkey *softkey, struct wl_resource
    if (!softkey)
      return EINA_FALSE;
 
-   ELOGF("SOFTKEY_SRV", "SET Softkey service wl res:%p. softkey(%p), win(%zx), ec(%p)", NULL, NULL, wl_res, softkey, e_client_util_win_get(softkey->ec), softkey->ec);
+   ELOGF("SOFTKEY_SRV", "SET Softkey service (softkey:%p, res:%p)", softkey->ec, softkey, wl_res);
    softkey->wl_res = wl_res;
 
    return EINA_TRUE;
@@ -138,7 +138,7 @@ e_service_softkey_wl_resource_set(E_Service_Softkey *softkey, struct wl_resource
 E_API struct wl_resource *
 e_service_softkey_wl_resource_get(E_Service_Softkey *softkey)
 {
-   ELOGF("SOFTKEY_SRV", "%s (softkey:%p)", NULL, NULL, __func__, softkey);
+   ELOGF("SOFTKEY_SRV", "%s (softkey:%p)", NULL, __func__, softkey);
 
    if (_e_softkey_funcs && _e_softkey_funcs->softkey_service_wl_resource_get)
      {
@@ -189,7 +189,7 @@ end:
 EINTERN void
 e_service_softkey_client_set(E_Client *ec)
 {
-   ELOGF("SOFTKEY_SRV", "%s", NULL, ec, __func__);
+   ELOGF("SOFTKEY_SRV", "%s", ec, __func__);
 
    E_Service_Softkey *softkey;
 
@@ -207,7 +207,7 @@ e_service_softkey_client_set(E_Client *ec)
    /* check for wayland pixmap */
    if (e_pixmap_type_get(ec->pixmap) != E_PIXMAP_TYPE_WL) return;
 
-   ELOGF("SOFTKEY_SRV", "SET Softkey service", ec->pixmap, ec);
+   ELOGF("SOFTKEY_SRV", "SET Softkey service", ec);
 
    softkey = e_service_softkey_get(ec->zone);
    if (!softkey)
@@ -224,7 +224,7 @@ e_service_softkey_client_set(E_Client *ec)
    if (!softkey)
      return;
 
-   ELOGF("SOFTKEY", "Set Client | softkey %p", ec->pixmap, ec, softkey);
+   ELOGF("SOFTKEY", "Set Client | softkey %p", ec, softkey);
 
    softkey->ec = ec;
    e_client_window_role_set(ec, "softkey");
@@ -251,7 +251,7 @@ e_service_softkey_client_set(E_Client *ec)
 EINTERN void
 e_service_softkey_client_unset(E_Client *ec)
 {
-   ELOGF("SOFTKEY_SRV", "%s", NULL, ec, __func__);
+   ELOGF("SOFTKEY_SRV", "%s", ec, __func__);
 
    E_Service_Softkey *softkey;
 
@@ -310,7 +310,7 @@ e_service_softkey_visible_set(E_Service_Softkey *softkey, int visible)
    if (!softkey) return;
    if (!softkey->wl_res)
      {
-        ELOGF("SOFTKEY_SRV", "Error. No wl_resource of Softkey Service", NULL, NULL);
+        ELOGF("SOFTKEY_SRV", "Error. No wl_resource of Softkey Service", NULL);
         return;
      }
 
@@ -347,7 +347,7 @@ e_service_softkey_expand_set(E_Service_Softkey *softkey, E_Policy_Softkey_Expand
    if (!softkey) return;
    if (!softkey->wl_res)
      {
-        ELOGF("SOFTKEY_SRV", "Error. No wl_resource of Softkey Service", NULL, NULL);
+        ELOGF("SOFTKEY_SRV", "Error. No wl_resource of Softkey Service", NULL);
         return;
      }
 
@@ -391,7 +391,7 @@ e_service_softkey_opacity_set(E_Service_Softkey *softkey, E_Policy_Softkey_Opaci
    if (!softkey) return;
    if (!softkey->wl_res)
      {
-        ELOGF("SOFTKEY_SRV", "Error. No wl_resource of Softkey Service", NULL, NULL);
+        ELOGF("SOFTKEY_SRV", "Error. No wl_resource of Softkey Service", NULL);
         return;
      }
 

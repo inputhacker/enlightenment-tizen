@@ -112,7 +112,7 @@ _e_cbhm_vis_change(E_Policy_Cbhm *cbhm, Eina_Bool vis)
         cbhm->show_block = EINA_FALSE;
         if (ec->iconic)
           {
-             ELOGF("CBHM", "Un-set ICONIFY BY CBHM", ec->pixmap, ec);
+             ELOGF("CBHM", "Un-set ICONIFY BY CBHM", ec);
              if ((ec->iconic) && (!ec->exp_iconify.by_client))
                e_policy_wl_iconify_state_change_send(ec, 0);
              ec->exp_iconify.not_raise = 0;
@@ -133,7 +133,7 @@ _e_cbhm_vis_change(E_Policy_Cbhm *cbhm, Eina_Bool vis)
      {
         if (!ec->iconic)
           {
-             ELOGF("CBHM", "Set ICONIFY BY CBHM", ec->pixmap, ec);
+             ELOGF("CBHM", "Set ICONIFY BY CBHM", ec);
              e_policy_wl_iconify_state_change_send(ec, 1);
              ec->exp_iconify.by_client = 0;
              e_client_iconify(ec);
@@ -193,7 +193,7 @@ e_service_cbhm_client_set(E_Client *ec)
         return;
      }
 
-   ELOGF("CBHM", "Set Client | ec %p", NULL, NULL, ec);
+   ELOGF("CBHM", "Set Client", ec);
 
    cbhm = calloc(1, sizeof(*cbhm));
    if (!cbhm)

@@ -8,8 +8,8 @@
 #undef ERR
 #endif
 
-#define LOG(f, p, e, x...)  ELOGF("XDG6 <LOG>", f, p, e, ##x)
-#define ERR(f, p, e, x...)  ELOGF("XDG6 <ERR>", f, p, e, ##x)
+#define LOG(f, e, x...)  ELOGF("XDG6 <LOG>", f, e, ##x)
+#define ERR(f, e, x...)  ELOGF("XDG6 <ERR>", f, e, ##x)
 
 #define e_xdg_surface_role_biggest_struct E_Xdg_Toplevel
 #define E_XDG_SURFACE_V6_TYPE (int)0xE0b06000
@@ -146,7 +146,7 @@ _e_client_shsurface_assignable_check(E_Client *ec)
 {
    if (!e_shell_e_client_shell_assignable_check(ec))
      {
-        ERR("Could not assign shell", ec->pixmap, ec);
+        ERR("Could not assign shell", ec);
         wl_resource_post_error(ec->comp_data->surface,
                                WL_DISPLAY_ERROR_INVALID_OBJECT,
                                "Could not assign shell surface to wl_surface");
@@ -302,25 +302,25 @@ _e_xdg_toplevel_committed(E_Xdg_Toplevel *toplevel)
    ec = toplevel->base.ec;
    if (!ec)
      {
-        ERR("E_Xdg_Toplevel must have E_Client", NULL, NULL);
+        ERR("E_Xdg_Toplevel must have E_Client", NULL);
         return;
      }
 
    if (!ec->comp_data)
      {
-        ERR("E_Client must have E_Comp_Client_Data", ec->pixmap, ec);
+        ERR("E_Client must have E_Comp_Client_Data", ec);
         return;
      }
 
    if (!toplevel->resource)
      {
-        ERR("E_Client must have xdg_toplevel instance", ec->pixmap, ec);
+        ERR("E_Client must have xdg_toplevel instance", ec);
         return;
      }
 
    if (!e_pixmap_usable_get(ec->pixmap))
      {
-        ERR("E_Pixmap should be valid here", ec->pixmap, ec);
+        ERR("E_Pixmap should be valid here", ec);
         return;
      }
 
@@ -334,7 +334,7 @@ _e_xdg_toplevel_committed(E_Xdg_Toplevel *toplevel)
      {
         ERR("Xdg_surface buffer does not match the configured state\nmaximized: "
             "%d fullscreen: %d, size:expected(%d %d) shell.request(%d %d) pixmap(%d %d)",
-            ec->pixmap, ec,
+            ec,
             toplevel->next.state.maximized,
             toplevel->next.state.fullscreen,
             toplevel->next.size.w, toplevel->next.size.h,
@@ -366,7 +366,7 @@ _e_xdg_toplevel_configure_ack(E_Xdg_Toplevel *toplevel,
 {
    LOG("Ack configure TOPLEVEL size (%d %d) "
        "state (f %d m %d r %d a %d)",
-       toplevel->base.ec->pixmap, toplevel->base.ec,
+       toplevel->base.ec,
        configure->size.w, configure->size.h,
        configure->state.fullscreen, configure->state.maximized,
        configure->state.resizing, configure->state.activated);
@@ -412,7 +412,7 @@ _e_xdg_toplevel_configure_send(E_Xdg_Toplevel *toplevel,
 
    LOG("Send configure: Topevel size (%d %d) "
        "state (f %d m %d r %d a %d)",
-       toplevel->base.ec->pixmap, toplevel->base.ec,
+       toplevel->base.ec,
        toplevel->pending.size.w, toplevel->pending.size.h,
        toplevel->pending.state.fullscreen, toplevel->pending.state.maximized,
        toplevel->pending.state.resizing, toplevel->pending.state.activated);
@@ -452,7 +452,7 @@ _e_xdg_toplevel_configure_pending_set(E_Xdg_Toplevel *toplevel,
          */
         LOG("FORCELY STAY current size (%d %d) of E_Client, requested size "
             "is (%d %d), the state (maximize %d, fullscreen %d)",
-            ec->pixmap, ec, ec->w, ec->h, width, height,
+            ec, ec->w, ec->h, width, height,
             toplevel->pending.state.maximized,
             toplevel->pending.state.fullscreen);
         toplevel->pending.size.w = ec->w;
@@ -464,7 +464,7 @@ _e_xdg_toplevel_configure_pending_set(E_Xdg_Toplevel *toplevel,
 
    LOG("Set pending state: edges %d size (%d %d) "
        "state (f %d m %d r %d a %d)",
-       ec->pixmap, ec,
+       ec,
        toplevel->pending.edges,
        toplevel->pending.size.w, toplevel->pending.size.h,
        toplevel->pending.state.fullscreen, toplevel->pending.state.maximized,
@@ -498,7 +498,7 @@ _e_xdg_toplevel_pending_state_compare(E_Xdg_Toplevel *toplevel)
           {
              ERR("The size of buffer is different with expected "
                  "client size. So, here, let it compare with buffer size.",
-                 toplevel->base.ec->pixmap, toplevel->base.ec);
+                 toplevel->base.ec);
           }
 
         configured.state = toplevel->current.state;
@@ -567,7 +567,7 @@ _e_xdg_toplevel_cb_parent_set(struct wl_client *client,
         parent = wl_resource_get_user_data(res_parent);
         if (!parent)
           {
-             ERR("No E_Xdg_Toplevel data in wl_resource", NULL, NULL);
+             ERR("No E_Xdg_Toplevel data in wl_resource", NULL);
              wl_resource_post_error(res_parent,
                                     WL_DISPLAY_ERROR_INVALID_OBJECT,
                                     "No E_Xdg_Toplevel data in wl_resource");
@@ -578,7 +578,7 @@ _e_xdg_toplevel_cb_parent_set(struct wl_client *client,
         pc = parent->base.ec;
         if (!pc)
           {
-             ERR("Toplevel must have E_Client", NULL, NULL);
+             ERR("Toplevel must have E_Client", NULL);
              wl_resource_post_error(res_parent,
                                     WL_DISPLAY_ERROR_INVALID_OBJECT,
                                     "No E_Client data in wl_resource");
@@ -623,7 +623,7 @@ _e_xdg_toplevel_cb_app_id_set(struct wl_client *client,
    ec = toplevel->base.ec;
    if (!ec)
      {
-        ERR("Toplevel must have E_Client", NULL, NULL);
+        ERR("Toplevel must have E_Client", NULL);
         wl_resource_post_error(resource,
                                WL_DISPLAY_ERROR_INVALID_OBJECT,
                                "No E_Client data in wl_resource");
@@ -661,7 +661,7 @@ _e_xdg_toplevel_cb_move(struct wl_client *client,
 
    if (!e_shell_e_client_interactive_move(toplevel->base.ec, res_seat))
      {
-        ERR("Failed to move this Toplevel", NULL, NULL);
+        ERR("Failed to move this Toplevel", NULL);
         wl_resource_post_error(resource,
                                WL_DISPLAY_ERROR_INVALID_OBJECT,
                                "Can't move this surface");
@@ -684,7 +684,7 @@ _e_xdg_toplevel_cb_resize(struct wl_client *client,
 
    if (!e_shell_e_client_interactive_resize(toplevel->base.ec, resource, res_seat, edges))
      {
-        ERR("Failed to resize this Toplevel", NULL, NULL);
+        ERR("Failed to resize this Toplevel", NULL);
         wl_resource_post_error(resource,
                                WL_DISPLAY_ERROR_INVALID_OBJECT,
                                "Can't resize this surface");
@@ -738,7 +738,7 @@ _e_xdg_toplevel_cb_maximized_set(struct wl_client *client, struct wl_resource *r
    ec = toplevel->base.ec;
    if (!ec)
      {
-        ERR("Toplevel must have E_Client", NULL, NULL);
+        ERR("Toplevel must have E_Client", NULL);
         wl_resource_post_error(resource,
                                WL_DISPLAY_ERROR_INVALID_OBJECT,
                                "No E_Client data in wl_resource");
@@ -765,7 +765,7 @@ _e_xdg_toplevel_cb_maximized_unset(struct wl_client *client, struct wl_resource 
    ec = toplevel->base.ec;
    if (!ec)
      {
-        ERR("Toplevel must have E_Client", NULL, NULL);
+        ERR("Toplevel must have E_Client", NULL);
         wl_resource_post_error(resource,
                                WL_DISPLAY_ERROR_INVALID_OBJECT,
                                "No E_Client data in wl_resource");
@@ -791,7 +791,7 @@ _e_xdg_toplevel_cb_fullscreen_set(struct wl_client *client,
    ec = toplevel->base.ec;
    if (!ec)
      {
-        ERR("Toplevel must have E_Client", NULL, NULL);
+        ERR("Toplevel must have E_Client", NULL);
         wl_resource_post_error(resource,
                                WL_DISPLAY_ERROR_INVALID_OBJECT,
                                "No E_Client data in wl_resource");
@@ -815,7 +815,7 @@ _e_xdg_toplevel_cb_fullscreen_unset(struct wl_client *client, struct wl_resource
    ec = toplevel->base.ec;
    if (!ec)
      {
-        ERR("Toplevel must have E_Client", NULL, NULL);
+        ERR("Toplevel must have E_Client", NULL);
         wl_resource_post_error(resource,
                                WL_DISPLAY_ERROR_INVALID_OBJECT,
                                "No E_Client data in wl_resource");
@@ -839,7 +839,7 @@ _e_xdg_toplevel_cb_minimized_set(struct wl_client *client, struct wl_resource *r
    ec = toplevel->base.ec;
    if (!ec)
      {
-        ERR("Toplevel must have E_Client", NULL, NULL);
+        ERR("Toplevel must have E_Client", NULL);
         wl_resource_post_error(resource,
                                WL_DISPLAY_ERROR_INVALID_OBJECT,
                                "No E_Client data in wl_resource");
@@ -1101,7 +1101,7 @@ _e_xdg_surface_cb_configure_send(void *data)
    configure = E_NEW(E_Xdg_Surface_Configure, 1);
    if (!configure)
      {
-        ERR("Failed to allocate memory: E_Xdg_Surface_Configure", NULL, NULL);
+        ERR("Failed to allocate memory: E_Xdg_Surface_Configure", NULL);
         goto end;
      }
 
@@ -1111,7 +1111,7 @@ _e_xdg_surface_cb_configure_send(void *data)
    switch (exsurf->role)
      {
       case E_XDG_SURFACE_ROLE_NONE:
-         ERR("Cannot reach here", NULL, NULL);
+         ERR("Cannot reach here", NULL);
          break;
       case E_XDG_SURFACE_ROLE_POPUP:
          _e_xdg_popup_configure_send((E_Xdg_Popup *)exsurf);
@@ -1123,7 +1123,7 @@ _e_xdg_surface_cb_configure_send(void *data)
 
    zxdg_surface_v6_send_configure(exsurf->resource, configure->serial);
 
-   LOG("Send configure: %s serial %d", exsurf->ec->pixmap, exsurf->ec,
+   LOG("Send configure: %s serial %d", exsurf->ec,
        _e_xdg_surface_util_role_string_get(exsurf), configure->serial);
 
 end:
@@ -1145,19 +1145,19 @@ _e_xdg_surface_configure_send(struct wl_resource *resource,
    exsurf = wl_resource_get_user_data(resource);
    if (!exsurf)
      {
-        ERR("Invalid wl_resource", NULL, NULL);
+        ERR("Invalid wl_resource", NULL);
         return;
      }
 
    LOG("Scheduling task to send configure %s edges %d w %d h %d",
-       exsurf->ec->pixmap, exsurf->ec,
+       exsurf->ec,
        _e_xdg_surface_util_role_string_get(exsurf), edges, width, height);
 
    switch (exsurf->role)
      {
       case E_XDG_SURFACE_ROLE_NONE:
       default:
-         ERR("Cannot reach here", exsurf->ec->pixmap, exsurf->ec);
+         ERR("Cannot reach here", exsurf->ec);
          break;
       case E_XDG_SURFACE_ROLE_TOPLEVEL:
          _e_xdg_toplevel_configure_pending_set((E_Xdg_Toplevel *)exsurf,
@@ -1167,7 +1167,7 @@ _e_xdg_surface_configure_send(struct wl_resource *resource,
          if (pending_same)
            {
               LOG("\tSKIP Configuring state is same with current state",
-                  exsurf->ec->pixmap, exsurf->ec);
+                  exsurf->ec);
            }
          break;
       case E_XDG_SURFACE_ROLE_POPUP:
@@ -1179,7 +1179,7 @@ _e_xdg_surface_configure_send(struct wl_resource *resource,
         if (!pending_same)
           return;
 
-        LOG("\tRemove configure idler", exsurf->ec->pixmap, exsurf->ec);
+        LOG("\tRemove configure idler", exsurf->ec);
 
         E_FREE_FUNC(exsurf->configure_idle, ecore_idle_enterer_del);
      }
@@ -1192,7 +1192,7 @@ _e_xdg_surface_configure_send(struct wl_resource *resource,
            ecore_idle_enterer_add(_e_xdg_surface_cb_configure_send, exsurf);
 
         LOG("\tAdd configure idler %p",
-            exsurf->ec->pixmap, exsurf->ec, exsurf->configure_idle);
+            exsurf->ec, exsurf->configure_idle);
      }
 }
 
@@ -1209,7 +1209,7 @@ _e_xdg_surface_configure(struct wl_resource *resource,
    exsurf = wl_resource_get_user_data(resource);
    if (!exsurf)
      {
-        ERR("No E_Xdg_Surface data in wl_resource", NULL, NULL);
+        ERR("No E_Xdg_Surface data in wl_resource", NULL);
         return;
      }
 
@@ -1218,8 +1218,8 @@ _e_xdg_surface_configure(struct wl_resource *resource,
         // any attempts by a client to attach or manipulate a buffer prior to the first xdg_surface.configure call must
         // be treated as errors.
         ERR("Could not handle %s prior to the first xdg_surface.configure",
-           exsurf->ec->pixmap, exsurf->ec,
-           _e_xdg_surface_util_role_string_get(exsurf));
+            exsurf->ec,
+            _e_xdg_surface_util_role_string_get(exsurf));
         return;
      }
 
@@ -1236,7 +1236,7 @@ _e_xdg_surface_ping(struct wl_resource *resource)
    exsurf = wl_resource_get_user_data(resource);
    if (!exsurf)
      {
-        ERR("No E_Xdg_Surface data in wl_resource", NULL, NULL);
+        ERR("No E_Xdg_Surface data in wl_resource", NULL);
         return;
      }
 
@@ -1254,7 +1254,7 @@ _e_xdg_surface_map(struct wl_resource *resource)
    exsurf = wl_resource_get_user_data(resource);
    if (!exsurf)
      {
-        ERR("No E_Xdg_Surface in wl_resource", NULL, NULL);
+        ERR("No E_Xdg_Surface in wl_resource", NULL);
         return;
      }
 
@@ -1269,7 +1269,7 @@ _e_xdg_surface_unmap(struct wl_resource *resource)
    exsurf = wl_resource_get_user_data(resource);
    if (!exsurf)
      {
-        ERR("No E_Xdg_Surface in wl_resource", NULL, NULL);
+        ERR("No E_Xdg_Surface in wl_resource", NULL);
         return;
      }
 
@@ -1305,7 +1305,7 @@ _e_xdg_surface_role_assign(E_Xdg_Surface *exsurf,
      {
       case E_XDG_SURFACE_ROLE_NONE:
       default:
-         ERR("Cannot reach here", exsurf->ec->pixmap, exsurf->ec);
+         ERR("Cannot reach here", exsurf->ec);
          return EINA_FALSE;
 
       case E_XDG_SURFACE_ROLE_TOPLEVEL:
@@ -1344,7 +1344,7 @@ _e_xdg_surface_cb_toplevel_get(struct wl_client *client, struct wl_resource *res
    toplevel_resource = wl_resource_create(client, &zxdg_toplevel_v6_interface, 1, id);
    if (!toplevel_resource)
      {
-        ERR("Could not create xdg toplevel resource", NULL, NULL);
+        ERR("Could not create xdg toplevel resource", NULL);
         wl_resource_post_no_memory(resource);
         return;
      }
@@ -1356,7 +1356,7 @@ _e_xdg_surface_cb_toplevel_get(struct wl_client *client, struct wl_resource *res
 
    if (!_e_xdg_surface_role_assign(exsurf, toplevel_resource, E_XDG_SURFACE_ROLE_TOPLEVEL))
      {
-        ERR("Failed to assign TOPLEVEL role", exsurf->ec->pixmap, exsurf->ec);
+        ERR("Failed to assign TOPLEVEL role", exsurf->ec);
         wl_resource_destroy(toplevel_resource);
         return;
      }
@@ -1421,7 +1421,7 @@ _e_xdg_surface_cb_popup_get(struct wl_client *client,
    popup_resource = wl_resource_create(client, &zxdg_popup_v6_interface, 1, id);
    if (!popup_resource)
      {
-        ERR("Could not create xdg popup resource", NULL, NULL);
+        ERR("Could not create xdg popup resource", NULL);
         wl_resource_post_no_memory(resource);
         return;
      }
@@ -1434,7 +1434,7 @@ _e_xdg_surface_cb_popup_get(struct wl_client *client,
 
    if (!_e_xdg_surface_role_assign(exsurf, popup_resource, E_XDG_SURFACE_ROLE_POPUP))
      {
-        ERR("Failed to assign role to surface", exsurf->ec->pixmap, exsurf->ec);
+        ERR("Failed to assign role to surface", exsurf->ec);
         wl_resource_destroy(popup_resource);
         return;
      }
@@ -1465,7 +1465,7 @@ _e_xdg_surface_cb_win_geometry_set(struct wl_client *client,
      }
 
    LOG("Set window geometry: geometry(%d %d %d %d)",
-       exsurf->ec->pixmap, exsurf->ec, x, y, w, h);
+       exsurf->ec, x, y, w, h);
 
    exsurf->has_window_geometry = EINA_TRUE;
    EINA_RECTANGLE_SET(&exsurf->window_geometry, x, y, w, h);
@@ -1490,7 +1490,7 @@ _e_xdg_surface_cb_configure_ack(struct wl_client *client, struct wl_resource *re
         return;
      }
 
-   LOG("Ack configure", exsurf->ec->pixmap, exsurf->ec);
+   LOG("Ack configure", exsurf->ec);
 
    if ((exsurf->role != E_XDG_SURFACE_ROLE_TOPLEVEL) &&
        (exsurf->role != E_XDG_SURFACE_ROLE_POPUP))
@@ -1521,7 +1521,7 @@ _e_xdg_surface_cb_configure_ack(struct wl_client *client, struct wl_resource *re
      }
 
    LOG("Ack configure %s first %d serial %d found %d",
-       exsurf->ec->pixmap, exsurf->ec,
+       exsurf->ec,
        _e_xdg_surface_util_role_string_get(exsurf),
        !exsurf->configured,
        serial, found);
@@ -1539,7 +1539,7 @@ _e_xdg_surface_cb_configure_ack(struct wl_client *client, struct wl_resource *re
    switch (exsurf->role)
      {
       case E_XDG_SURFACE_ROLE_NONE:
-         ERR("Cannot reach here", exsurf->ec->pixmap, exsurf->ec);
+         ERR("Cannot reach here", exsurf->ec);
          break;
       case E_XDG_SURFACE_ROLE_TOPLEVEL:
          _e_xdg_toplevel_configure_ack((E_Xdg_Toplevel *)exsurf, configure);
@@ -1576,7 +1576,7 @@ _e_xdg_surface_cb_commit(void *data, int type, void *event)
      goto end;
 
    LOG("Wl_Surface Commit, Update Xdg_Surface state %s",
-       exsurf->ec->pixmap, exsurf->ec,
+       exsurf->ec,
        _e_xdg_surface_util_role_string_get(exsurf));
 
    exsurf->wait_next_commit = EINA_FALSE;
@@ -1636,13 +1636,13 @@ _e_xdg_surface_cb_resource_destroy(struct wl_resource *resource)
    exsurf = wl_resource_get_user_data(resource);
    if (!exsurf)
      {
-        ERR("No E_Xdg_Surface data in wl_resource", NULL, NULL);
+        ERR("No E_Xdg_Surface data in wl_resource", NULL);
         return;
 
      }
 
    LOG("Destroy resource of Xdg_Surface %s",
-       exsurf->ec->pixmap, exsurf->ec,
+       exsurf->ec,
        _e_xdg_surface_util_role_string_get(exsurf));
 
    /* Although zxdg_toplevel_v6 or zxdg_popup_v6 are still existed, unset
@@ -1668,18 +1668,18 @@ _e_xdg_surface_create(E_Xdg_Shell *shell,
    ec = wl_resource_get_user_data(wsurface);
    if (!ec)
      {
-        ERR("No E_Client data in wl_resource", NULL, NULL);
+        ERR("No E_Client data in wl_resource", NULL);
         wl_resource_post_error(wsurface,
                                WL_DISPLAY_ERROR_INVALID_OBJECT,
                                "No data in wl_resource");
         return NULL;
      }
 
-   LOG("Create Xdg_Surface", ec->pixmap, ec);
+   LOG("Create Xdg_Surface", ec);
 
    if (!_e_client_shsurface_assignable_check(ec))
      {
-        ERR("Cannot get xdg_surface with this wl_surface", ec->pixmap, ec);
+        ERR("Cannot get xdg_surface with this wl_surface", ec);
         return NULL;
      }
 
@@ -1699,7 +1699,7 @@ _e_xdg_surface_create(E_Xdg_Shell *shell,
                                          id);
    if (!exsurf->resource)
      {
-        ERR("Could not create wl_resource for xdg surface", ec->pixmap, ec);
+        ERR("Could not create wl_resource for xdg surface", ec);
         wl_client_post_no_memory(shell->wclient);
         e_object_del(E_OBJECT(exsurf));
         return NULL;
@@ -1759,7 +1759,7 @@ _e_xdg_shell_ping(E_Xdg_Shell *shell)
 static void
 _e_xdg_shell_cb_destroy(struct wl_client *client, struct wl_resource *resource)
 {
-   LOG("Destroy Xdg_Shell", NULL, NULL);
+   LOG("Destroy Xdg_Shell", NULL);
 
    wl_resource_destroy(resource);
 }
@@ -1771,7 +1771,7 @@ _e_xdg_shell_cb_positioner_create(struct wl_client *client, struct wl_resource *
    E_Xdg_Positioner *p;
    struct wl_resource *new_res;
 
-   LOG("Create Positioner", NULL, NULL);
+   LOG("Create Positioner", NULL);
 
    shell = wl_resource_get_user_data(resource);
    if (!shell)
@@ -1816,7 +1816,7 @@ _e_xdg_shell_cb_surface_get(struct wl_client *client, struct wl_resource *resour
    shell = wl_resource_get_user_data(resource);
    if (!shell)
      {
-        ERR("No E_Xdg_Shell data in wl_resource", NULL, NULL);
+        ERR("No E_Xdg_Shell data in wl_resource", NULL);
         wl_resource_post_error(resource,
                                WL_DISPLAY_ERROR_INVALID_OBJECT,
                                "No shell data in wl_resource");
@@ -1826,7 +1826,7 @@ _e_xdg_shell_cb_surface_get(struct wl_client *client, struct wl_resource *resour
    exsurf = _e_xdg_surface_create(shell, wsurface, id);
    if (!exsurf)
      {
-        ERR("Failed to create E_Xdg_Surface", NULL, NULL);
+        ERR("Failed to create E_Xdg_Surface", NULL);
         return;
      }
 }
@@ -1838,12 +1838,12 @@ _e_xdg_shell_cb_pong(struct wl_client *client, struct wl_resource *resource, uin
    E_Xdg_Surface *exsurf;
    Eina_List *l;
 
-   LOG("Pong", NULL, NULL);
+   LOG("Pong", NULL);
 
    shell = wl_resource_get_user_data(resource);
    if (!shell)
      {
-        ERR("No E_Xdg_Shell data in wl_resource", NULL, NULL);
+        ERR("No E_Xdg_Shell data in wl_resource", NULL);
         wl_resource_post_error(resource,
                                WL_DISPLAY_ERROR_INVALID_OBJECT,
                                "No E_Xdg_Shell data in wl_resource");
@@ -1903,12 +1903,12 @@ _e_xdg_shell_cb_unbind(struct wl_resource *resource)
 {
    E_Xdg_Shell *shell;
 
-   LOG("Unbind Xdg_Shell", NULL, NULL);
+   LOG("Unbind Xdg_Shell", NULL);
 
    shell = wl_resource_get_user_data(resource);
    if (!shell)
      {
-        ERR("No E_Xdg_Shell in wl_resource", NULL, NULL);
+        ERR("No E_Xdg_Shell in wl_resource", NULL);
         return;
      }
 
@@ -1921,7 +1921,7 @@ _e_xdg_shell_cb_bind(struct wl_client *client, void *data EINA_UNUSED, uint32_t 
    E_Xdg_Shell *shell;
    struct wl_resource *resource;
 
-   LOG("Bind Xdg_Shell", NULL, NULL);
+   LOG("Bind Xdg_Shell", NULL);
 
    /* Create resource for zxdg_shell_v6 */
    resource = wl_resource_create(client,
@@ -1935,7 +1935,7 @@ _e_xdg_shell_cb_bind(struct wl_client *client, void *data EINA_UNUSED, uint32_t 
    shell = _e_xdg_shell_create(client, resource);
    if (!shell)
      {
-        ERR("Failed to create E_Xdg_Shell", NULL, NULL);
+        ERR("Failed to create E_Xdg_Shell", NULL);
         goto err_shell;
      }
 
@@ -1952,7 +1952,7 @@ err_res:
 EINTERN Eina_Bool
 e_xdg_shell_v6_init(void)
 {
-   LOG("Initializing Xdg_Shell_V6", NULL, NULL);
+   LOG("Initializing Xdg_Shell_V6", NULL);
 
    /* try to create global xdg_shell interface */
    global_resource = wl_global_create(e_comp_wl->wl.disp,
@@ -1962,7 +1962,7 @@ e_xdg_shell_v6_init(void)
                                       _e_xdg_shell_cb_bind);
    if (!global_resource)
      {
-        ERR("Could not create zxdg_shell_v6 global: %m", NULL, NULL);
+        ERR("Could not create zxdg_shell_v6 global: %m", NULL);
         return EINA_FALSE;
      }
 

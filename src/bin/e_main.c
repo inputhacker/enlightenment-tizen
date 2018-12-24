@@ -763,7 +763,7 @@ main(int argc, char **argv)
 #endif
    ecore_main_loop_begin();
 
-   ELOGF("COMP", "STOPPING enlightenment...", NULL, NULL);
+   ELOGF("COMP", "STOPPING enlightenment...", NULL);
    stopping = EINA_TRUE;
 
    _e_main_desk_save();

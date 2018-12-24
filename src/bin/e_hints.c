@@ -278,8 +278,8 @@ e_hints_aux_hint_add_with_pixmap(E_Pixmap *cp, int32_t id, const char *name, con
              if (strcmp(hint->val, val) != 0)
                {
                   ELOGF("COMP", "AUX_HINT |Change [pixmap] [%d:%s:%s -> %s]",
-                        cp, e_pixmap_client_get(cp),
-                         id, hint->hint, hint->val, val);
+                        e_pixmap_client_get(cp),
+                        id, hint->hint, hint->val, val);
                   eina_stringshare_del(hint->val);
                   hint->val = eina_stringshare_add(val);
                   hint->changed = EINA_TRUE;
@@ -306,7 +306,7 @@ e_hints_aux_hint_add_with_pixmap(E_Pixmap *cp, int32_t id, const char *name, con
         hint->deleted = EINA_FALSE;
         cdata->aux_hint.hints = eina_list_append(cdata->aux_hint.hints, hint);
         cdata->aux_hint.changed = 1;
-        ELOGF("COMP", "AUX_HINT |Add [%d:%s:%s]", cp, e_pixmap_client_get(cp),
+        ELOGF("COMP", "AUX_HINT |Add [%d:%s:%s]", e_pixmap_client_get(cp),
               id, hint->hint, hint->val);
      }
 
@@ -334,7 +334,7 @@ e_hints_aux_hint_change_with_pixmap(E_Pixmap *cp, int32_t id, const char *val)
           {
              if ((hint->val) && (strcmp(hint->val, val) != 0))
                {
-                  ELOGF("COMP", "AUX_HINT |Change [%d:%s:%s -> %s]", cp, e_pixmap_client_get(cp),
+                  ELOGF("COMP", "AUX_HINT |Change [%d:%s:%s -> %s]", e_pixmap_client_get(cp),
                         id, hint->hint, hint->val, val);
                   eina_stringshare_del(hint->val);
                   hint->val = eina_stringshare_add(val);
@@ -372,7 +372,7 @@ e_hints_aux_hint_del_with_pixmap(E_Pixmap *cp, int32_t id)
      {
         if (hint->id == id)
           {
-             ELOGF("COMP", "AUX_HINT |Del (pending) [%d:%s:%s]", cp, e_pixmap_client_get(cp), id, hint->hint, hint->val);
+             ELOGF("COMP", "AUX_HINT |Del (pending) [%d:%s:%s]", e_pixmap_client_get(cp), id, hint->hint, hint->val);
              hint->changed = EINA_TRUE;
              hint->deleted = EINA_TRUE;
              cdata->aux_hint.changed = 1;

@@ -210,7 +210,7 @@ e_slot_layout_cb(void)
 EINTERN void
 e_slot_init(void)
 {
-   ELOGF("SLOT", "e_slot_init", NULL, NULL);
+   ELOGF("SLOT", "e_slot_init", NULL);
    E_Slot_G *g = NULL;
    g = E_NEW(E_Slot_G, 1);
 
@@ -226,7 +226,7 @@ e_slot_init(void)
 EINTERN int
 e_slot_shutdown(void)
 {
-   ELOGF("SLOT", "e_slot_shutdown", NULL, NULL);
+   ELOGF("SLOT", "e_slot_shutdown", NULL);
 
    E_FREE_FUNC(_e_slot_g->slot_objs, eina_list_free);
 
@@ -276,7 +276,7 @@ e_slot_new(Evas_Object *parent)
 
    evas_object_show(o);
 
-   ELOGF("SLOT", "|Create new slot - id:%d ", NULL, NULL, sd->id);
+   ELOGF("SLOT", "|Create new slot - id:%d ", NULL, sd->id);
    evas_object_data_set(o, "e_slot_object", (void*)1);
 
    return o;
@@ -286,7 +286,7 @@ E_API void
 e_slot_del(Evas_Object *obj)
 {
    SLOT_SMART_ENTRY
-   ELOGF("SLOT", "|Remove slot - id:%d ", NULL, NULL, sd->id);
+   ELOGF("SLOT", "|Remove slot - id:%d ", NULL, sd->id);
 
    eina_hash_del_by_key(_e_slot_g->hash_slot_objs, &sd->id);
    evas_object_del(obj);
@@ -299,7 +299,7 @@ e_slot_move(Evas_Object *obj, int x, int y)
 
    if (sd->x == x && sd->y == y) return;
 
-   ELOGF("SLOT", "|Move slot - id:%d  (%d, %d) -> (%d, %d)", NULL, NULL,
+   ELOGF("SLOT", "|Move slot - id:%d  (%d, %d) -> (%d, %d)", NULL,
          sd->id, sd->x, sd->y, x, y);
 
    evas_object_move(obj, x, y);
@@ -316,7 +316,7 @@ e_slot_resize(Evas_Object *obj, int w, int h)
 
    if (sd->w == w && sd->h == h) return;
 
-   ELOGF("SLOT", "|Resize slot - id:%d  (%dx%d) -> (%dx%d)", NULL, NULL,
+   ELOGF("SLOT", "|Resize slot - id:%d  (%dx%d) -> (%dx%d)", NULL,
          sd->id, sd->w, sd->h, w, h);
 
    evas_object_resize(obj, w, h);
@@ -347,7 +347,7 @@ e_slot_raise(Evas_Object *obj)
         if (e_object_is_del(E_OBJECT(ec))) continue;
         if (e_client_util_ignored_get(ec)) continue;
         if (ec->layout.s_id != sd->id) continue;
-        ELOGF("SLOT", "|raise ec[list add] - id:%d [cnt:%d]pid:%d", ec->pixmap, ec, sd->id, cnt++, ec->netwm.pid);
+        ELOGF("SLOT", "|raise ec[list add] - id:%d [cnt:%d]pid:%d", ec, sd->id, cnt++, ec->netwm.pid);
         if (!top_ec) top_ec = ec;
         l = eina_list_append(l, ec);
      }
@@ -358,7 +358,7 @@ e_slot_raise(Evas_Object *obj)
    cnt = 0;
    EINA_LIST_FREE(l, ec2)
      {
-        ELOGF("SLOT", "e_slot_raise |raise ec - id:%d [cnt:%d]pid:%d", ec2->pixmap, ec2, sd->id, cnt++, ec2->netwm.pid);
+        ELOGF("SLOT", "e_slot_raise |raise ec - id:%d [cnt:%d]pid:%d", ec2, sd->id, cnt++, ec2->netwm.pid);
         if (top_ec == ec2) evas_object_raise(ec2->frame);
         else evas_object_stack_below(ec2->frame, below_ec->frame);
         below_ec = ec2;
@@ -387,14 +387,14 @@ e_slot_lower(Evas_Object *obj)
         if (e_object_is_del(E_OBJECT(ec))) continue;
         if (e_client_util_ignored_get(ec)) continue;
         if (ec->layout.s_id != sd->id) continue;
-        ELOGF("SLOT", "e_slot_lower |lower ec[list add] - id:%d [cnt:%d]", ec->pixmap, ec, sd->id, cnt++);
+        ELOGF("SLOT", "e_slot_lower |lower ec[list add] - id:%d [cnt:%d]", ec, sd->id, cnt++);
         l = eina_list_append(l, ec);
      }
 
    cnt = 0;
    EINA_LIST_FREE(l, ec2)
      {
-        ELOGF("SLOT", "e_slot_lower |lower ec - id:%d [cnt:%d]", ec2->pixmap, ec2, sd->id, cnt++);
+        ELOGF("SLOT", "e_slot_lower |lower ec - id:%d [cnt:%d]", ec2, sd->id, cnt++);
         evas_object_lower(ec2->frame);
      }
 
@@ -421,7 +421,7 @@ e_slot_focus_set(Evas_Object *obj)
         if (e_object_is_del(E_OBJECT(ec))) continue;
         if (e_client_util_ignored_get(ec)) continue;
         if (ec->layout.s_id != sd->id) continue;
-        ELOGF("SLOT", "e_slot_focus_set |ec foucsed set - id:%d [cnt:%d]", ec->pixmap, ec, sd->id, cnt++);
+        ELOGF("SLOT", "e_slot_focus_set |ec foucsed set - id:%d [cnt:%d]", ec, sd->id, cnt++);
         if (ec->frame) evas_object_raise(ec->frame);
         break;
      }
@@ -474,7 +474,7 @@ e_slot_update(Evas_Object *obj)
                        e_util_transform_scale(slot_client->transform,  (double)sd->w /(double)slot_client->ec->w, (double)sd->h /(double)slot_client->ec->h, 1.0);
                        e_client_transform_core_update(slot_client->ec);
 
-                       ELOGF("SLOT", "e_slot_update |transform update - id:%d (%d,%d) (%lf x %lf) [cnt:%d] [pid:%d]", slot_client->ec->pixmap, slot_client->ec,
+                       ELOGF("SLOT", "e_slot_update |transform update - id:%d (%d,%d) (%lf x %lf) [cnt:%d] [pid:%d]", slot_client->ec,
                              sd->id, sd->x, sd->y, (double)sd->w/(double)slot_client->ec->w, (double)sd->h /(double)slot_client->ec->h, cnt++, ec->netwm.pid);
                     }
                }
@@ -484,7 +484,7 @@ e_slot_update(Evas_Object *obj)
                     {
                        evas_object_move(slot_client->ec->frame, sd->x, sd->y);
                        evas_object_resize(slot_client->ec->frame, sd->w, sd->h);
-                       ELOGF("SLOT", "e_slot_update |resize update - id:%d (%d,%d,%dx%d) [cnt:%d] [pid:%d]", slot_client->ec->pixmap, slot_client->ec,
+                       ELOGF("SLOT", "e_slot_update |resize update - id:%d (%d,%d,%dx%d) [cnt:%d] [pid:%d]", slot_client->ec,
                              sd->id, sd->x, sd->y, sd->w, sd->h, cnt++, ec->netwm.pid);
                     }
                }
@@ -550,7 +550,7 @@ e_slot_client_add(Evas_Object *obj, E_Client *ec, Eina_Bool resizable)
    slot_client = eina_hash_find(_e_slot_g->hash_slot_clients, &ec);
    if (slot_client)
      {
-        ELOGF("SLOT", "%s | Remove already allocated in other slot", slot_client->ec->pixmap, slot_client->ec, __FUNCTION__);
+        ELOGF("SLOT", "%s | Remove already allocated in other slot", slot_client->ec, __FUNCTION__);
         e_slot_client_remove(slot_client->slot, ec);
      }
 
@@ -563,7 +563,7 @@ e_slot_client_add(Evas_Object *obj, E_Client *ec, Eina_Bool resizable)
    ec->layout.s_id = sd->id;
    ec->layout.splited = EINA_TRUE;
    sd->changed = EINA_TRUE;
-   ELOGF("SLOT", "%s | Add - id:%d type:%d", ec->pixmap, ec, __FUNCTION__, sd->id, type);
+   ELOGF("SLOT", "%s | Add - id:%d type:%d", ec, __FUNCTION__, sd->id, type);
 
    return EINA_TRUE;
 }
@@ -643,7 +643,7 @@ e_slot_client_update(E_Client *ec)
                   e_util_transform_scale(slot_client->transform,  (double)sd->w/(double)slot_client->ec->w, (double)sd->h /(double)slot_client->ec->h, 1.0);
                   e_client_transform_core_update(slot_client->ec);
 
-                  ELOGF("SLOT", "e_slot_client_update |transform update - id:%d (%d,%d) (%lf x %lf) ", slot_client->ec->pixmap, slot_client->ec,
+                  ELOGF("SLOT", "e_slot_client_update |transform update - id:%d (%d,%d) (%lf x %lf) ", slot_client->ec,
                         ec->layout.s_id, sd->x, sd->y, (double)sd->w/(double)slot_client->ec->w, (double)sd->h /(double)slot_client->ec->h);
                }
           }
@@ -653,7 +653,7 @@ e_slot_client_update(E_Client *ec)
                {
                   evas_object_move(slot_client->ec->frame, sd->x, sd->y);
                   evas_object_resize(slot_client->ec->frame, sd->w, sd->h);
-                  ELOGF("SLOT", "e_slot_client_update |resize update - id:%d (%d,%d,%dx%d)", slot_client->ec->pixmap, slot_client->ec,
+                  ELOGF("SLOT", "e_slot_client_update |resize update - id:%d (%d,%d,%dx%d)", slot_client->ec,
                         ec->layout.s_id, sd->x, sd->y, sd->w, sd->h);
                }
           }
@@ -717,7 +717,7 @@ _e_slot_client_new(Evas_Object *obj, E_Client* ec, E_Slot_Client_Type type)
         e_client_transform_core_add(slot_client->ec, slot_client->transform);
      }
 
-   ELOGF("SLOT", "|Create slot client - type:%d orig: %d,%d,%dx%d", ec->pixmap, ec,
+   ELOGF("SLOT", "|Create slot client - type:%d orig: %d,%d,%dx%d", ec,
          type, ec->x, ec->y, ec->w, ec->h);
 
    return slot_client;
@@ -747,7 +747,7 @@ _e_slot_client_type_restore(E_Slot_Client* slot_client)
               e_util_transform_del(slot_client->transform);
               slot_client->transform = NULL;
 
-              ELOGF("SLOT", "Restore client |unset transform ", slot_client->ec->pixmap, slot_client->ec);
+              ELOGF("SLOT", "Restore client |unset transform ", slot_client->ec);
 
               ret = EINA_TRUE;
            }
@@ -761,14 +761,14 @@ _e_slot_client_type_restore(E_Slot_Client* slot_client)
               evas_object_move(slot_client->ec->frame, slot_client->orig.x, slot_client->orig.y);
               evas_object_resize(slot_client->ec->frame, slot_client->orig.w, slot_client->orig.h);
 
-              ELOGF("SLOT", "Restore client |restore its origin size: %d,%d,%dx%d", slot_client->ec->pixmap, slot_client->ec,
+              ELOGF("SLOT", "Restore client |restore its origin size: %d,%d,%dx%d", slot_client->ec,
                     slot_client->orig.x, slot_client->orig.y, slot_client->orig.w, slot_client->orig.h);
               ret = EINA_TRUE;
            }
          break;
      }
 
-   if (!ret) ELOGF("SLOT", "Restore client |failed", slot_client->ec->pixmap, slot_client->ec);
+   if (!ret) ELOGF("SLOT", "Restore client |failed", slot_client->ec);
    return ret;
 }
 

@@ -115,7 +115,7 @@ _e_pixmap_clear(E_Pixmap *cp, Eina_Bool cache)
 
    if (cp->type != E_PIXMAP_TYPE_WL) return;
    e_pixmap_image_clear(cp, cache);
-   ELOGF("PIXMAP", "PIXMAP CLEAR. cp:%p", cp, cp->client, cp);
+   ELOGF("PIXMAP", "PIXMAP CLEAR. cp:%p", cp->client, cp);
 }
 
 static void
@@ -135,7 +135,7 @@ _e_pixmap_free(E_Pixmap *cp)
         cp->data_pool = NULL;
      }
    _e_pixmap_clear(cp, 1);
-   ELOGF("PIXMAP", "PIXMAP FREE. cp:%p", cp, cp->client, cp);
+   ELOGF("PIXMAP", "PIXMAP FREE. cp:%p", cp->client, cp);
 
    if (cp->shm_flusher)
      {
@@ -280,7 +280,7 @@ e_pixmap_free(E_Pixmap *cp)
 {
    if (!cp) return 0;
    if (--cp->refcount) return cp->refcount;
-   ELOGF("PIXMAP", "PIXMAP DEL. cp:%p", NULL, NULL, cp);
+   ELOGF("PIXMAP", "PIXMAP DEL. cp:%p", NULL, cp);
    if (cp->usable)
      e_pixmap_usable_set(cp, 0);
 
@@ -350,7 +350,7 @@ e_pixmap_new(E_Pixmap_Type type, ...)
    if (!cp)
      {
         va_end(l);
-        ELOGF("PIXMAP", "NEW failed id:%p", NULL, NULL, (void *)id);
+        ELOGF("PIXMAP", "NEW failed id:%p", NULL, (void *)id);
         return NULL;
      }
 
@@ -363,7 +363,7 @@ e_pixmap_new(E_Pixmap_Type type, ...)
 
    cp->res_id = ++res_id;
    eina_hash_add(res_ids, &res_id, cp);
-   ELOGF("PIXMAP", "PIXMAP NEW. cp:%p, id:%d", NULL, NULL, cp, cp->res_id);
+   ELOGF("PIXMAP", "PIXMAP NEW. cp:%p, id:%d", NULL, cp, cp->res_id);
 
 end:
    va_end(l);
@@ -561,7 +561,7 @@ e_pixmap_client_set(E_Pixmap *cp, E_Client *ec)
 {
    EINA_SAFETY_ON_NULL_RETURN(cp);
    if (cp->client && ec) CRI("ACK!");
-   ELOGF("PIXMAP", "PIXMAP CLIENT SET. cp:%p ec:%p", NULL, ec, cp, ec);
+   ELOGF("PIXMAP", "PIXMAP CLIENT SET. cp:%p", ec, cp);
    cp->client = ec;
 }
 

@@ -12,11 +12,11 @@
 static int _video_detail_log_dom = -1;
 
 #define VER(fmt, arg...) ELOGF("VIDEO", "<ERR> window(0x%08"PRIxPTR"): "fmt, \
-                               video->ec->pixmap, video->ec, video->window, ##arg)
+                               video->ec, video->window, ##arg)
 #define VWR(fmt, arg...) ELOGF("VIDEO", "<WRN> window(0x%08"PRIxPTR"): "fmt, \
-                               video->ec->pixmap, video->ec, video->window, ##arg)
+                               video->ec, video->window, ##arg)
 #define VIN(fmt, arg...) ELOGF("VIDEO", "<INF> window(0x%08"PRIxPTR"): "fmt, \
-                               video->ec->pixmap, video->ec, video->window, ##arg)
+                               video->ec, video->window, ##arg)
 #define VDB(fmt, arg...) DBG("window(0x%08"PRIxPTR") ec(%p): "fmt, video->window, video->ec, ##arg)
 
 #define DET(...)          EINA_LOG_DOM_DBG(_video_detail_log_dom, __VA_ARGS__)

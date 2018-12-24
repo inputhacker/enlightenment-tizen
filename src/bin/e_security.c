@@ -47,7 +47,7 @@ e_security_privilege_check(pid_t pid, uid_t uid, const char *privilege)
 finish:
    ELOGF("E_SECURITY",
          "Privilege Check For '%s' %s pid:%u uid:%u client_smack:%s(len:%d) client_session:%s ret:%d",
-         NULL, NULL,
+         NULL,
          privilege,
          res ? "SUCCESS" : "FAIL",
          pid,

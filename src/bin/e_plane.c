@@ -103,7 +103,7 @@ _e_plane_surface_can_set(E_Plane *plane, tbm_surface_h tsurface)
           {
              if (plane_trace_debug)
                ELOGF("E_PLANE", "Used    Plane(%p) zpos(%d) tsurface(%p)",
-                      NULL, NULL, tmp_plane, tmp_plane->zpos, tsurface);
+                      NULL, tmp_plane, tmp_plane->zpos, tsurface);
 
              return EINA_FALSE;
           }
@@ -161,7 +161,7 @@ _e_plane_surface_unset(E_Plane *plane)
    if (plane->skip_surface_set) return EINA_TRUE;
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "Unset   Plane(%p) zpos(%d)", NULL, NULL, plane, plane->zpos);
+     ELOGF("E_PLANE", "Unset   Plane(%p) zpos(%d)", NULL, plane, plane->zpos);
 
    CLEAR(plane->info);
 
@@ -214,7 +214,7 @@ _e_plane_tlayer_info_set(E_Plane *plane, unsigned int size_w, unsigned int size_
    if (plane_trace_debug)
      {
         ELOGF("E_PLANE", "Set  Plane(%p)     (%dx%d,[%d,%d,%d,%d]=>[%d,%d,%d,%d])",
-              NULL, NULL, plane,
+              NULL, plane,
               plane->info.src_config.size.h, plane->info.src_config.size.v,
               plane->info.src_config.pos.x, plane->info.src_config.pos.y,
               plane->info.src_config.pos.w, plane->info.src_config.pos.h,
@@ -400,7 +400,7 @@ _e_plane_surface_set(E_Plane *plane, tbm_surface_h tsurface)
      tbm_surface_internal_set_damage(tsurface, 0, 0, surf_info.width, surf_info.height);
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "Set  Plane(%p)     tsurface(%p)", NULL, NULL, plane, tsurface);
+     ELOGF("E_PLANE", "Set  Plane(%p)     tsurface(%p)", NULL, plane, tsurface);
 
    error = tdm_layer_set_buffer(tlayer, tsurface);
    if (error != TDM_ERROR_NONE)
@@ -453,7 +453,7 @@ _e_plane_surface_from_client_acquire_reserved(E_Plane *plane)
 
         if (plane_trace_debug)
           ELOGF("E_PLANE", "Display Plane(%p) zpos(%d)   Client ec(%p, %s)",
-                ec->pixmap, ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
+                ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
         /* acquire the surface from the client_queue */
         tsurface = e_plane_renderer_client_surface_recieve(renderer_client);
@@ -489,7 +489,7 @@ _e_plane_surface_from_client_acquire(E_Plane *plane)
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "Display Plane(%p) zpos(%d)   Client ec(%p, %s)",
-           ec->pixmap, ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
+           ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
    e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
@@ -536,7 +536,7 @@ _e_plane_cursor_surface_acquire(E_Plane *plane)
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "Display Cursor Plane(%p) zpos(%d)   ec(%p)",
-           NULL, ec, plane, plane->zpos, ec);
+           ec, plane, plane->zpos, ec);
 
    e_comp_object_hwc_update_set(ec->frame, EINA_FALSE);
 
@@ -588,7 +588,7 @@ _e_plane_surface_from_ecore_evas_acquire(E_Plane *plane)
      {
         if (plane_trace_debug)
           ELOGF("E_PLANE", "Display Plane(%p) zpos(%d)   Canvas",
-                NULL, NULL, plane, plane->zpos);
+                NULL, plane, plane->zpos);
      }
 
    return tsurface;
@@ -734,7 +734,7 @@ _e_plane_fb_target_all_set_unset_counter_reset(E_Plane *fb_target)
              plane->unset_counter = 1;
 
              if (plane_trace_debug)
-               ELOGF("E_PLANE", " Plane(%p) Unset Counter Reset", NULL, NULL, plane);
+               ELOGF("E_PLANE", " Plane(%p) Unset Counter Reset", NULL, plane);
           }
 
         /* reset the set_counter */
@@ -743,7 +743,7 @@ _e_plane_fb_target_all_set_unset_counter_reset(E_Plane *fb_target)
              plane->set_counter = 1;
 
              if (plane_trace_debug)
-               ELOGF("E_PLANE", " Plane(%p) Set Counter Reset", NULL, NULL, plane);
+               ELOGF("E_PLANE", " Plane(%p) Set Counter Reset", NULL, plane);
           }
      }
 }
@@ -784,7 +784,7 @@ _e_plane_unset_reset(E_Plane *plane)
    if (plane->unset_commit)      { plane->unset_commit = EINA_FALSE;    print_log = EINA_TRUE; }
 
    if (print_log && plane_trace_debug)
-     ELOGF("E_PLANE", " Plane(%p) Unset flags Reset", NULL, NULL, plane);
+     ELOGF("E_PLANE", " Plane(%p) Unset flags Reset", NULL, plane);
 }
 
 static void
@@ -858,7 +858,7 @@ _e_plane_set_counter_set(E_Plane *plane, E_Client *ec)
      }
 
     if (plane_trace_debug)
-      ELOGF("E_PLANE", "Plane(%p) set_counter(%d)", NULL, NULL, plane, plane->set_counter);
+      ELOGF("E_PLANE", "Plane(%p) set_counter(%d)", NULL, plane, plane->set_counter);
 }
 
 static Eina_Bool
@@ -923,7 +923,7 @@ _e_plane_pp_info_set(E_Plane *plane, tbm_surface_h dst_tsurface)
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "PP Info  Plane(%p) src_rect(%d,%d),(%d,%d), dst_rect(%d,%d),(%d,%d)",
-           NULL, NULL, plane,
+           NULL, plane,
            pp_info.src_config.pos.x, pp_info.src_config.pos.y, pp_info.src_config.pos.w, pp_info.src_config.pos.h,
            pp_info.dst_config.pos.x, pp_info.dst_config.pos.y, pp_info.dst_config.pos.w, pp_info.dst_config.pos.h);
 
@@ -947,7 +947,7 @@ _e_plane_ext_pp_commit_data_release(E_Plane_Commit_Data *data)
 
    if (plane_trace_debug)
      ELOGF("E_PLANE EXT", "Done    Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)::Canvas",
-           NULL, NULL, plane, plane->zpos, tsurface, renderer ? renderer->tqueue : NULL,
+           NULL, plane, plane->zpos, tsurface, renderer ? renderer->tqueue : NULL,
            data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
    e_comp_wl_buffer_reference(&data->buffer_ref, NULL);
@@ -1065,7 +1065,7 @@ _e_plane_pp_layer_commit_handler(tdm_layer *layer, unsigned int sequence,
      }
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "PP Layer Commit Handler Plane(%p)", NULL, NULL, plane);
+     ELOGF("E_PLANE", "PP Layer Commit Handler Plane(%p)", NULL, plane);
 
    output = plane->output;
    if (e_output_dpms_get(output) == E_OUTPUT_DPMS_OFF)
@@ -1090,7 +1090,7 @@ _e_plane_pp_layer_commit_handler(tdm_layer *layer, unsigned int sequence,
              plane->pending_pp_commit_data_list = eina_list_remove(plane->pending_pp_commit_data_list, data);
 
              if (plane_trace_debug)
-               ELOGF("E_PLANE", "PP Layer Commit Handler start pending commit data(%p) tsurface(%p)", NULL, NULL, data, data->tsurface);
+               ELOGF("E_PLANE", "PP Layer Commit Handler start pending commit data(%p) tsurface(%p)", NULL, data, data->tsurface);
 
              if (!_e_plane_pp_layer_data_commit(plane, data))
                {
@@ -1112,7 +1112,7 @@ _e_plane_pp_layer_commit_handler(tdm_layer *layer, unsigned int sequence,
              plane->pending_pp_data_list = eina_list_remove(plane->pending_pp_data_list, data);
 
              if (plane_trace_debug)
-               ELOGF("E_PLANE", "PP Layer Commit Handler start pending pp data(%p) tsurface(%p)", NULL, NULL, data, data->tsurface);
+               ELOGF("E_PLANE", "PP Layer Commit Handler start pending pp data(%p) tsurface(%p)", NULL, data, data->tsurface);
 
              if (!_e_plane_pp_commit(plane, data))
                {
@@ -1132,7 +1132,7 @@ _e_plane_pp_layer_commit(E_Plane *plane, tbm_surface_h tsurface)
    E_Plane_Commit_Data *data = NULL;
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "PP Layer Commit  Plane(%p)     pp_tsurface(%p)", NULL, NULL, plane, tsurface);
+     ELOGF("E_PLANE", "PP Layer Commit  Plane(%p)     pp_tsurface(%p)", NULL, plane, tsurface);
 
    tbm_err = tbm_surface_queue_enqueue(plane->pp_tqueue, tsurface);
    if (tbm_err != TBM_ERROR_NONE)
@@ -1292,7 +1292,7 @@ _e_plane_pp_commit_handler(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h
    EINA_SAFETY_ON_NULL_RETURN(data);
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "PP Commit Handler Plane(%p), data(%p)", NULL, NULL, plane, data);
+     ELOGF("E_PLANE", "PP Commit Handler Plane(%p), data(%p)", NULL, plane, data);
 
    plane->pp_data_list = eina_list_remove(plane->pp_data_list, data);
 
@@ -1346,7 +1346,7 @@ _e_plane_pp_commit(E_Plane *plane, E_Plane_Commit_Data *data)
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "PP Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
-           NULL, NULL, plane, plane->zpos, data->tsurface, plane->pp_tqueue,
+           NULL, plane, plane->zpos, data->tsurface, plane->pp_tqueue,
            data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
    output = plane->output;
@@ -1450,7 +1450,7 @@ _e_plane_external_commit(E_Plane *plane, E_Plane_Commit_Data *data)
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "Ex Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
-           NULL, NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
+           NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
            data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
    tbm_surface_info_s surf_info;
@@ -1802,7 +1802,7 @@ _e_plane_fb_sync_vblank_handler(tdm_output *output, unsigned int sequence,
    EINA_SAFETY_ON_NULL_RETURN(plane);
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "Done fb_target_sync plane(%p) zpos(%d)", NULL, NULL, plane, plane->zpos);
+     ELOGF("E_PLANE", "Done fb_target_sync plane(%p) zpos(%d)", NULL, plane, plane->zpos);
 
    plane->fb_sync_wait = EINA_FALSE;
    plane->fb_sync_done = EINA_TRUE;
@@ -1872,7 +1872,7 @@ _e_plane_fb_target_sync_set(E_Plane *plane)
      }
 
    if (plane_trace_debug)
-     ELOGF("E_PLANE", "Set fb_target_sync plane(%p) zpos(%d)", NULL, NULL, plane, plane->zpos);
+     ELOGF("E_PLANE", "Set fb_target_sync plane(%p) zpos(%d)", NULL, plane, plane->zpos);
 
    plane->fb_sync_wait = EINA_TRUE;
 
@@ -1893,7 +1893,7 @@ e_plane_fetch(E_Plane *plane)
    if (e_comp_canvas_norender_get() > 0)
      {
         if (plane_trace_debug)
-          ELOGF("E_PLANE_RENDERER", "Canvas norender is set. No Display.", NULL, NULL);
+          ELOGF("E_PLANE_RENDERER", "Canvas norender is set. No Display.", NULL);
 
         return EINA_FALSE;
      }
@@ -2068,7 +2068,7 @@ _e_plane_fb_target_change(E_Plane *fb_target, E_Plane *plane)
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "Change fb_target Plane(%p) zpos(%d) -> plane(%p) zpos(%d)",
-           NULL, NULL, fb_target, fb_target->zpos, plane, plane->zpos);
+           NULL, fb_target, fb_target->zpos, plane, plane->zpos);
 
    return EINA_TRUE;
 }
@@ -2160,7 +2160,7 @@ e_plane_offscreen_commit(E_Plane *plane)
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p) Offscreen",
-           NULL, NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
+           NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
            data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
    e_plane_commit_data_release(data);
@@ -2197,7 +2197,7 @@ e_plane_commit(E_Plane *plane)
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
-           NULL, NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
+           NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
            data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
    error = tdm_layer_commit(plane->tlayer, _e_plane_commit_hanler, data);
@@ -2329,7 +2329,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
    if (!tsurface)
      {
         if (plane_trace_debug)
-          ELOGF("E_PLANE", "Done    Plane(%p) zpos(%d)   data(%p)::Unset", NULL, NULL, plane, plane->zpos, data);
+          ELOGF("E_PLANE", "Done    Plane(%p) zpos(%d)   data(%p)::Unset", NULL, plane, plane->zpos, data);
 
         e_comp_wl_buffer_reference(&plane->display_info.buffer_ref, NULL);
 
@@ -2340,7 +2340,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
              plane->is_video = EINA_TRUE;
 
              if (plane_trace_debug)
-               ELOGF("E_PLANE", "Call HOOK_VIDEO_SET Plane(%p) zpos(%d)", NULL, NULL, plane, plane->zpos);
+               ELOGF("E_PLANE", "Call HOOK_VIDEO_SET Plane(%p) zpos(%d)", NULL, plane, plane->zpos);
 
              _e_plane_hook_call(E_PLANE_HOOK_VIDEO_SET, plane);
           }
@@ -2351,7 +2351,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
         /* debug */
         if (plane_trace_debug)
           ELOGF("E_PLANE", "Done    Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)::Canvas",
-                NULL, NULL, plane, plane->zpos, tsurface, renderer ? renderer->tqueue : NULL,
+                NULL, plane, plane->zpos, tsurface, renderer ? renderer->tqueue : NULL,
                 data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
         e_comp_wl_buffer_reference(&plane->display_info.buffer_ref, NULL);
@@ -2362,7 +2362,7 @@ e_plane_commit_data_release(E_Plane_Commit_Data *data)
         /* debug */
         if (plane_trace_debug)
           ELOGF("E_PLANE", "Done    Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)::Client",
-                ec->pixmap, ec, plane, plane->zpos, tsurface, (renderer ? renderer->tqueue : NULL),
+                ec, plane, plane->zpos, tsurface, (renderer ? renderer->tqueue : NULL),
                 data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
         e_comp_wl_buffer_reference(&plane->display_info.buffer_ref, data->buffer_ref.buffer);
@@ -2498,7 +2498,7 @@ e_plane_unset_try_set(E_Plane *plane, Eina_Bool set)
         plane->unset_try = EINA_TRUE;
 
         if (plane_trace_debug)
-          ELOGF("E_PLANE", "Plane(%p) Set unset_try. unset_counter(%d)", NULL, NULL, plane, plane->unset_counter);
+          ELOGF("E_PLANE", "Plane(%p) Set unset_try. unset_counter(%d)", NULL, plane, plane->unset_counter);
      }
    else
      {
@@ -2506,7 +2506,7 @@ e_plane_unset_try_set(E_Plane *plane, Eina_Bool set)
         plane->unset_try = EINA_FALSE;
 
         if (plane_trace_debug)
-          ELOGF("E_PLANE", "Plane(%p) UnSet unset_try. unset_counter(%d)", NULL, NULL, plane, plane->unset_counter);
+          ELOGF("E_PLANE", "Plane(%p) UnSet unset_try. unset_counter(%d)", NULL, plane, plane->unset_counter);
      }
 }
 
@@ -2532,7 +2532,7 @@ e_plane_unset_commit_check(E_Plane *plane, Eina_Bool fb_commit)
         if (fb_target) e_plane_renderer_ecore_evas_force_render(fb_target->renderer);
 
         if (plane_trace_debug)
-          ELOGF("E_PLANE", "Plane(%p) Check unset_commit. unset_counter(%d)", NULL, NULL, plane, plane->unset_counter);
+          ELOGF("E_PLANE", "Plane(%p) Check unset_commit. unset_counter(%d)", NULL, plane, plane->unset_counter);
      }
 
    if (plane->unset_counter > 0) return EINA_FALSE;
@@ -2559,7 +2559,7 @@ e_plane_set_commit_check(E_Plane *plane, Eina_Bool fb_commit)
         if (fb_target) e_plane_renderer_ecore_evas_force_render(fb_target->renderer);
 
         if (plane_trace_debug)
-          ELOGF("E_PLANE", "Plane(%p) Check set counter. set_counter(%d)", NULL, NULL, plane, plane->set_counter);
+          ELOGF("E_PLANE", "Plane(%p) Check set counter. set_counter(%d)", NULL, plane, plane->set_counter);
      }
 
    if (plane->set_counter > 0) return EINA_FALSE;
@@ -2631,7 +2631,7 @@ _e_plane_ec_used_check(E_Plane *plane, E_Client *ec)
           {
              if (plane_trace_debug)
                ELOGF("E_PLANE", "Used    Plane(%p) zpos(%d) ec(%p)",
-                      NULL, NULL, tmp_plane, tmp_plane->zpos, ec);
+                      NULL, tmp_plane, tmp_plane->zpos, ec);
 
              return tmp_plane;
           }
@@ -2649,7 +2649,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "Request Plane(%p) zpos(%d)   Set ec(%p, %s)",
-           (ec ? ec->pixmap : NULL), ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
+           ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
    if (plane->is_external) goto end;
 
@@ -2793,7 +2793,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
                     _e_plane_unset_candidate_set(plane, EINA_FALSE);
 
                   if (plane_trace_debug)
-                    ELOGF("E_PLANE", "Plane(%p) Set the unset_candidate", (plane->ec ? ec->pixmap : NULL), ec, plane);
+                    ELOGF("E_PLANE", "Plane(%p) Set the unset_candidate", ec, plane);
                }
 
              if (plane->renderer)
@@ -2824,7 +2824,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
              plane->need_ev = EINA_TRUE;
 
              ELOGF("E_PLANE", "Plane(%p) zpos(%d)   Set NULL",
-                   (ec ? ec->pixmap : NULL), ec, plane, plane->zpos);
+                   ec, plane, plane->zpos);
 
              return EINA_FALSE;
           }
@@ -2832,7 +2832,7 @@ e_plane_ec_set(E_Plane *plane, E_Client *ec)
 end:
    if (plane->ec != ec)
      ELOGF("E_PLANE", "Plane(%p) zpos(%d)   Set ec(%p, %s)",
-           (ec ? ec->pixmap : NULL), ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
+           ec, plane, plane->zpos, ec, e_client_util_name_get(ec));
 
    plane->ec = ec;
    plane->need_ev = EINA_TRUE;
@@ -2977,7 +2977,7 @@ e_plane_show_state(E_Plane *plane)
    EINA_SAFETY_ON_NULL_RETURN(plane);
 
    ELOGF("E_PLANE", "Plane(%p) zpos(%d) ec(%p) display tsurface(%p)",
-         NULL, NULL, plane, plane->zpos, plane->ec, plane->display_info.tsurface);
+         NULL, plane, plane->zpos, plane->ec, plane->display_info.tsurface);
 
    if (plane->renderer)
      e_plane_renderer_show_state(plane->renderer);
@@ -3076,7 +3076,7 @@ e_plane_video_set(E_Plane *plane, Eina_Bool set, Eina_Bool *wait)
 
         if (plane_trace_debug)
           ELOGF("E_PLANE", "Video   Plane(%p) zpos(%d) Set wait(%d) counter(%d) change_plane(%p) zpos(%d)",
-                NULL, NULL, plane, plane->zpos, wait ? *wait : 0, fb_target->fb_change_counter,
+                NULL, plane, plane->zpos, wait ? *wait : 0, fb_target->fb_change_counter,
                 change_plane, change_plane->zpos);
      }
    else
@@ -3115,7 +3115,7 @@ e_plane_video_set(E_Plane *plane, Eina_Bool set, Eina_Bool *wait)
 
         if (plane_trace_debug)
           ELOGF("E_PLANE", "Video   Plane(%p) zpos(%d) Unset default_fb(%p) zpos(%d)",
-                NULL, NULL, plane, plane->zpos, default_fb, default_fb->zpos);
+                NULL, plane, plane->zpos, default_fb, default_fb->zpos);
      }
 
    return EINA_TRUE;
@@ -3136,7 +3136,7 @@ e_plane_pp_commit(E_Plane *plane)
      {
         if (plane_trace_debug)
           ELOGF("E_PLANE", "PP Commit  Can Dequeue failed Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
-                NULL, NULL, plane, plane->zpos, data->tsurface, plane->pp_tqueue,
+                NULL, plane, plane->zpos, data->tsurface, plane->pp_tqueue,
                 data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
         plane->pending_pp_data_list = eina_list_append(plane->pending_pp_data_list, data);
         return EINA_TRUE;
@@ -3146,7 +3146,7 @@ e_plane_pp_commit(E_Plane *plane)
      {
         if (plane_trace_debug)
           ELOGF("E_PLANE", "PP Commit  Pending pp data remained Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
-                NULL, NULL, plane, plane->zpos, data->tsurface, plane->pp_tqueue,
+                NULL, plane, plane->zpos, data->tsurface, plane->pp_tqueue,
                 data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
         plane->pending_pp_data_list = eina_list_append(plane->pending_pp_data_list, data);
         return EINA_TRUE;
@@ -3412,7 +3412,7 @@ e_plane_external_commit(E_Plane *plane)
           {
              if (plane_trace_debug)
                ELOGF("E_PLANE", "Ex Commit  Can Dequeue failed Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
-                     NULL, NULL, plane, plane->zpos, data->tsurface, plane->pp_tqueue,
+                     NULL, plane, plane->zpos, data->tsurface, plane->pp_tqueue,
                      data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
              plane->pending_pp_data_list = eina_list_append(plane->pending_pp_data_list, data);
              return EINA_TRUE;
@@ -3422,7 +3422,7 @@ e_plane_external_commit(E_Plane *plane)
           {
              if (plane_trace_debug)
                ELOGF("E_PLANE", "Ex Commit  Pending pp data remained Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
-                     NULL, NULL, plane, plane->zpos, data->tsurface, plane->pp_tqueue,
+                     NULL, plane, plane->zpos, data->tsurface, plane->pp_tqueue,
                      data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
              plane->pending_pp_data_list = eina_list_append(plane->pending_pp_data_list, data);
              return EINA_TRUE;

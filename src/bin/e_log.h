@@ -77,26 +77,55 @@
 # define DLOG_BACKTRACE
 #endif
 
-#define ELOG(t, cp, ec)                        \
-   do                                          \
-     {                                         \
-        INF("EWL|%20.20s|win:0x%08zx|ec:%8p|", \
-            (t),                               \
-            (e_client_util_win_get(ec)),       \
-            (ec));                             \
-     }                                         \
+# if (E_LOGGING >= 2) /* new version */
+#  define ELOG(t, ec)                                       \
+   do                                                       \
+     {                                                      \
+        if (ec)                                             \
+          INF("EWL|%20.20s|w:0x%08zx|ec:%8p|",              \
+              (t), (e_client_util_win_get(ec)), (ec));      \
+        else                                                \
+          INF("EWL|%20.20s|            |             |",    \
+              (t));                                         \
+     }                                                      \
    while (0)
 
-#define ELOGF(t, f, cp, ec, x...)              \
-   do                                          \
-     {                                         \
-        INF("EWL|%20.20s|win:0x%08zx|ec:%8p|"f,\
-            (t),                               \
-            (e_client_util_win_get(ec)),       \
-            (ec),                              \
-            ##x);                              \
-     }                                         \
+#  define ELOGF(t, f, ec, x...)                             \
+   do                                                       \
+     {                                                      \
+        if (ec)                                             \
+          INF("EWL|%20.20s|w:0x%08zx|ec:%8p|"f,             \
+              (t), (e_client_util_win_get(ec)), (ec), ##x); \
+        else                                                \
+          INF("EWL|%20.20s|            |             |"f,   \
+              (t), ##x);                                    \
+     }                                                      \
    while (0)
+# else /* old version */
+#  define ELOG(t, cp, ec)                                   \
+   do                                                       \
+     {                                                      \
+        if (ec)                                             \
+          INF("EWL|%20.20s|w:0x%08zx|ec:%8p|",              \
+              (t), (e_client_util_win_get(ec)), (ec));      \
+        else                                                \
+          INF("EWL|%20.20s|            |             |",    \
+              (t));                                         \
+     }                                                      \
+   while (0)
+
+#  define ELOGF(t, f, cp, ec, x...)                         \
+   do                                                       \
+     {                                                      \
+        if (ec)                                             \
+          INF("EWL|%20.20s|w:0x%08zx|ec:%8p|"f,             \
+              (t), (e_client_util_win_get(ec)), (ec), ##x); \
+        else                                                \
+          INF("EWL|%20.20s|            |             |"f,   \
+              (t), ##x);                                    \
+     }                                                      \
+   while (0)
+# endif /* end of if (E_LOGGING >= 2) */
 
 typedef enum _E_Log_Type
 {

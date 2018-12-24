@@ -244,7 +244,7 @@ _e_policy_wl_display_screen_mode_send(E_Display_Screen_Mode mode)
      }
 
    _e_display_screen_mode = mode;
-   ELOGF("TZPOL", "SCR_MODE | Send screen mode:%d to system", NULL, NULL, mode);
+   ELOGF("TZPOL", "SCR_MODE | Send screen mode:%d to system", NULL, mode);
 
    eldbus_connection_send(_e_display_dbus_info.edbus_conn, msg, NULL, NULL, -1);
 }
@@ -316,7 +316,7 @@ e_policy_display_screen_mode_apply(void)
      {
         if (_e_display_screen_mode == E_DISPLAY_SCREEN_MODE_DEFAULT)
           {
-             ELOGF("TZPOL", "SCR_MODE | Request to change screen mode:%d", ec->pixmap, ec, E_DISPLAY_SCREEN_MODE_ALWAYS_ON);
+             ELOGF("TZPOL", "SCR_MODE | Request to change screen mode:%d", ec, E_DISPLAY_SCREEN_MODE_ALWAYS_ON);
              _e_policy_wl_display_screen_mode_send(E_DISPLAY_SCREEN_MODE_ALWAYS_ON);
           }
      }
@@ -324,7 +324,7 @@ e_policy_display_screen_mode_apply(void)
      {
         if (_e_display_screen_mode == E_DISPLAY_SCREEN_MODE_ALWAYS_ON)
           {
-             ELOGF("TZPOL", "SCR_MODE | Request to change screen mode:%d", NULL, NULL, E_DISPLAY_SCREEN_MODE_DEFAULT);
+             ELOGF("TZPOL", "SCR_MODE | Request to change screen mode:%d", NULL, E_DISPLAY_SCREEN_MODE_DEFAULT);
              _e_policy_wl_display_screen_mode_send(E_DISPLAY_SCREEN_MODE_DEFAULT);
           }
      }

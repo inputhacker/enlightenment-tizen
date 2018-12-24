@@ -24,19 +24,19 @@ e_shell_e_client_shell_assignable_check(E_Client *ec)
    if (e_object_is_del(E_OBJECT(ec)))
      {
         ELOGF("SHELL", "ERR: Could not assign shell: being deleted by compositor",
-              ec->pixmap, ec);
+              ec);
         return EINA_FALSE;
      }
    else if (!ec->comp_data)
      {
         ELOGF("SHELL", "ERR: Could not assign shell: No E_Comp_Client_Data",
-              ec->pixmap, ec);
+              ec);
         return EINA_FALSE;
      }
    else if (ec->comp_data->shell.surface)
      {
         ELOGF("SHELL", "ERR: Could not assign shell: Already assigned",
-              ec->pixmap, ec);
+              ec);
         return EINA_FALSE;
      }
 
@@ -57,7 +57,7 @@ e_shell_e_client_shsurface_assign(E_Client *ec,
    if (!cdata)
      {
         ELOGF("SHELL", "ERR: E_Client must have E_Comp_Client_Data",
-              ec->pixmap, ec);
+              ec);
         return;
      }
 
@@ -87,7 +87,7 @@ e_shell_e_client_shsurface_api_set(E_Client *ec, E_Shell_Surface_Api *api)
    if (!cdata)
      {
         ELOGF("SHELL", "ERR: E_Client must have E_Comp_Client_Data",
-              ec->pixmap, ec);
+              ec);
         return;
      }
 
@@ -103,7 +103,7 @@ e_shell_e_client_toplevel_set(E_Client *ec)
 {
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   ELOGF("SHELL", "Set toplevel", ec->pixmap, ec);
+   ELOGF("SHELL", "Set toplevel", ec);
 
    /* set toplevel client properties */
    if (!ec->internal)
@@ -121,7 +121,7 @@ e_shell_e_client_popup_set(E_Client *ec)
 {
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   ELOGF("SHELL", "Set popup", ec->pixmap, ec);
+   ELOGF("SHELL", "Set popup", ec);
 
    EC_CHANGED(ec);
    ec->new_client = ec->override = 1;
@@ -145,7 +145,7 @@ e_shell_e_client_pong(E_Client *ec)
 
    if (e_object_is_del(E_OBJECT(ec))) return;
 
-   ELOGF("SHELL", "Pong", ec->pixmap, ec);
+   ELOGF("SHELL", "Pong", ec);
 
    ec->ping_ok = EINA_TRUE;
    ec->hung = EINA_FALSE;
@@ -373,7 +373,7 @@ e_shell_e_client_destroy(E_Client *ec)
 
    if (e_policy_visibility_client_grab_cancel(ec))
      {
-        ELOGF("POL_VIS", "CLIENT VIS ON(temp).", ec->pixmap, ec);
+        ELOGF("POL_VIS", "CLIENT VIS ON(temp).", ec);
         ec->visibility.obscured = E_VISIBILITY_UNOBSCURED;
         ec->visibility.changed = 1;
      }
@@ -386,7 +386,7 @@ e_shell_e_client_destroy(E_Client *ec)
              if ((ec->comp_data->shell.surface) &&
                  (ec->comp_data->shell.unmap))
                {
-                  ELOGF("SHELL", "Call shell.unmap by destory surface", ec->pixmap, ec);
+                  ELOGF("SHELL", "Call shell.unmap by destory surface", ec);
                   ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
                }
           }
@@ -403,7 +403,7 @@ e_shell_e_client_destroy(E_Client *ec)
    if (ec->comp_data)
      ec->comp_data->shell.surface = NULL;
 
-   ELOGF("SHELL", "Destroy shell surface", ec->pixmap, ec);
+   ELOGF("SHELL", "Destroy shell surface", ec);
 
    e_policy_client_unmap(ec);
 }
@@ -718,7 +718,7 @@ _e_shell_client_map_common_pre(E_Client *ec)
 
    if (ec->use_splash)
      {
-        ELOGF("LAUNCH", "SHOW real win after splash effect", ec->pixmap, ec);
+        ELOGF("LAUNCH", "SHOW real win after splash effect", ec);
         e_comp_object_signal_emit(ec->frame, "e,action,launch_real,done", "e");
      }
    ec->use_splash = EINA_FALSE;
@@ -766,7 +766,7 @@ _e_shell_client_map_common_post(E_Client *ec)
    if (!(ec->iconic && ec->exp_iconify.by_client))
      e_vis_client_check_send_pre_visibility_event(ec, EINA_FALSE);
 
-   ELOGF("COMP", "Un-Set launching flag", ec->pixmap, ec);
+   ELOGF("COMP", "Un-Set launching flag", ec);
    ec->launching = EINA_FALSE;
 
    EC_CHANGED(ec);
@@ -794,13 +794,13 @@ _e_shell_surface_map(struct wl_resource *resource)
      {
         ELOGF("SHELL",
               "Map window  |win:0x%08x|ec_size:%d,%d|pid:%d|title:%s, name:%s",
-              ec->pixmap, ec,
+              ec,
               (unsigned int)e_client_util_win_get(ec),
               ec->w, ec->h, ec->netwm.pid, ec->icccm.title, ec->netwm.name);
 
         ELOGF("SHELL",
               "spash:%d, first_mapped:%d, iconic:%d(client:%d), raise:%d, lower:%d, ignore:%d, override:%d, input_only:%d",
-              ec->pixmap, ec,
+              ec,
               ec->use_splash, ec->first_mapped, ec->iconic, ec->exp_iconify.by_client,
               ec->post_raise, ec->post_lower, ec->ignored, ec->override, ec->input_only);
 
@@ -838,7 +838,7 @@ _e_shell_surface_unmap(struct wl_resource *resource)
 
         ELOGF("SHELL",
               "Unmap window  |win:0x%08x|ec_size:%d,%d",
-              ec->pixmap, ec,
+              ec,
               (unsigned int)e_client_util_win_get(ec),
               ec->w, ec->h);
      }
@@ -886,7 +886,7 @@ _e_shell_cb_shell_surface_get(struct wl_client *client, struct wl_resource *reso
                                   ec,
                                   _e_shell_surface_cb_destroy);
 
-   ELOGF("SHELL", "Create shell surface", ec->pixmap, ec);
+   ELOGF("SHELL", "Create shell surface", ec);
 
    e_shell_e_client_shsurface_assign(ec, shsurf_resource, &api);
    e_comp_wl_shell_surface_ready(ec);
@@ -1314,13 +1314,13 @@ _e_xdg_shell_surface_map_cb_timer(void *data)
      {
         ELOGF("SHELL",
               "Map window by map_timer |win:0x%08x|ec_size:%d,%d|pid:%d|title:%s, name:%s",
-              ec->pixmap, ec,
+              ec,
               (unsigned int)e_client_util_win_get(ec),
               ec->w, ec->h, ec->netwm.pid, ec->icccm.title, ec->netwm.name);
 
         ELOGF("SHELL",
               "spash:%d, first_mapped:%d, iconic:%d(client:%d), raise:%d, lower:%d, ignore:%d, override:%d, input_only:%d",
-              ec->pixmap, ec,
+              ec,
               ec->use_splash, ec->first_mapped, ec->iconic, ec->exp_iconify.by_client,
               ec->post_raise, ec->post_lower, ec->ignored, ec->override, ec->input_only);
 
@@ -1351,13 +1351,13 @@ e_shell_e_client_map(E_Client *ec)
 
    if (ec->comp_data->mapped)
      {
-        ELOGF("SHELL", "Map window  | Already mapped.", ec->pixmap, ec);
+        ELOGF("SHELL", "Map window  | Already mapped.", ec);
         return;
      }
 
    if (!e_pixmap_usable_get(ec->pixmap))
      {
-        ELOGF("SHELL", "Map window  | No operation. Pixmap(%p) is not usable.", ec->pixmap, ec, ec->pixmap);
+        ELOGF("SHELL", "Map window  | No operation. Pixmap(%p) is not usable.", ec, ec->pixmap);
         return;
      }
 
@@ -1380,7 +1380,7 @@ e_shell_e_client_map(E_Client *ec)
              // skip. because the pixmap's size doesnot same to ec's size
              ELOGF("SHELL",
                    "Deny Map |win:0x%08x|ec_size:%d,%d|get_size:%d,%d|pix_size:%d,%d",
-                   ec->pixmap, ec,
+                   ec,
                    (unsigned int)e_client_util_win_get(ec),
                    ec->w, ec->h, cw, ch, pw, ph);
 
@@ -1395,13 +1395,13 @@ e_shell_e_client_map(E_Client *ec)
 
    ELOGF("SHELL",
          "Map window  |win:0x%08x|ec_size:%d,%d|pid:%d|title:%s, name:%s",
-         ec->pixmap, ec,
+         ec,
          (unsigned int)e_client_util_win_get(ec),
          ec->w, ec->h, ec->netwm.pid, ec->icccm.title, ec->netwm.name);
 
    ELOGF("SHELL",
          "spash:%d, first_mapped:%d, iconic:%d(client:%d), raise:%d, lower:%d, ignore:%d, override:%d, input_only:%d",
-         ec->pixmap, ec,
+         ec,
          ec->use_splash, ec->first_mapped, ec->iconic, ec->exp_iconify.by_client,
          ec->post_raise, ec->post_lower, ec->ignored, ec->override, ec->input_only);
 
@@ -1451,7 +1451,7 @@ e_shell_e_client_unmap(E_Client *ec)
 
         ELOGF("SHELL",
               "Unmap window  |win:0x%08x|ec_size:%d,%d",
-              ec->pixmap, ec,
+              ec,
               (unsigned int)e_client_util_win_get(ec),
               ec->w, ec->h);
      }
@@ -1519,7 +1519,7 @@ _e_xdg_shell_cb_surface_get(struct wl_client *client, struct wl_resource *resour
         wl_resource_post_no_memory(surface_resource);
         return;
      }
-   ELOGF("SHELL", "Create xdg shell surface", ec->pixmap, ec);
+   ELOGF("SHELL", "Create xdg shell surface", ec);
 
    wl_resource_set_implementation(shsurf_resource,
                                   &_e_xdg_surface_interface,
@@ -1591,7 +1591,7 @@ _e_xdg_shell_cb_popup_get(struct wl_client *client, struct wl_resource *resource
         wl_resource_post_no_memory(surface_resource);
         return;
      }
-   ELOGF("SHELL", "Create xdg shell popup surface", ec->pixmap, ec);
+   ELOGF("SHELL", "Create xdg shell popup surface", ec);
 
    wl_resource_set_implementation(shsurf_resource,
                                   &_e_xdg_popup_interface,

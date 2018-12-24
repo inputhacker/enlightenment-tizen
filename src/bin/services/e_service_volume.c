@@ -215,7 +215,7 @@ _volume_hook_client_del(void *d EINA_UNUSED, E_Client *ec)
    if (EINA_UNLIKELY(!ec)) return;
    if (EINA_LIKELY(_volume_ec != ec)) return;
 
-   ELOGF("VOLUME","Del Client", ec->pixmap, ec);
+   ELOGF("VOLUME","Del Client", ec);
 
    _volume_client_unset();
 }
@@ -273,7 +273,7 @@ e_service_volume_client_set(E_Client *ec)
 
    if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
 
-   ELOGF("VOLUME","Set Client", ec->pixmap, ec);
+   ELOGF("VOLUME","Set Client", ec);
 
    _volume_ec = ec;
    _volume_cur_angle_map = e_policy_angle_map(ec->e.state.rot.ang.curr);
@@ -447,7 +447,7 @@ e_service_volume_region_set(int type, int angle, Eina_Tiler *tiler)
      }
 
    ELOGF("VOLUME","Content Region Set: angle %d, tiler %p",
-         NULL, NULL, angle, tiler);
+         NULL, angle, tiler);
 
    _volume_content_region_set(angle_map, tiler);
 

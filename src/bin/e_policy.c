@@ -669,7 +669,7 @@ _e_policy_cb_hook_client_eval_pre_new_client(void *d EINA_UNUSED, E_Client *ec)
         if (ec->frame)
           {
              ly = evas_object_layer_get(ec->frame);
-             ELOGF("NOTI", "         |ec->layer:%d object->layer:%d", ec->pixmap, ec, ec->layer, ly);
+             ELOGF("NOTI", "         |ec->layer:%d object->layer:%d", ec, ec->layer, ly);
              if (ly != ec->layer)
                evas_object_layer_set(ec->frame, ec->layer);
           }
@@ -868,7 +868,7 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
              e_policy_client_uniconify_by_visibility(ec);
              if (ec->visibility.last_sent_type != E_VISIBILITY_PRE_UNOBSCURED)
                {
-                  ELOGF("POL_VIS", "SEND pre-unobscured visibility event", ec->pixmap, ec);
+                  ELOGF("POL_VIS", "SEND pre-unobscured visibility event", ec);
                   e_vis_client_send_pre_visibility_event(ec);
                }
              e_policy_client_visibility_send(ec);
@@ -900,7 +900,7 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
                     {
                        if (ec->visibility.last_sent_type == E_VISIBILITY_PRE_UNOBSCURED)
                          {
-                            ELOGF("POL_VIS", "SEND unobscured/fully-obscured visibility event because iconify visibility", ec->pixmap, ec);
+                            ELOGF("POL_VIS", "SEND unobscured/fully-obscured visibility event because iconify visibility", ec);
                             e_policy_wl_visibility_send(ec, E_VISIBILITY_UNOBSCURED);
                             e_policy_wl_visibility_send(ec, E_VISIBILITY_FULLY_OBSCURED);
                          }
@@ -948,7 +948,7 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
                          {
                             if (!e_policy_visibility_client_is_uniconify_render_running(ec))
                               {
-                                 ELOGF("POL_VIS", "SEND unobscured/fully-obscured visibility event because iconify visibility", ec->pixmap, ec);
+                                 ELOGF("POL_VIS", "SEND unobscured/fully-obscured visibility event because iconify visibility", ec);
                                  e_policy_wl_visibility_send(ec, E_VISIBILITY_UNOBSCURED);
                                  e_policy_wl_visibility_send(ec, E_VISIBILITY_FULLY_OBSCURED);
                               }
@@ -979,7 +979,7 @@ _e_policy_cb_hook_client_uniconify(void *d EINA_UNUSED, E_Client *ec)
    if (!e_policy_wl_iconify_state_supported_get(ec))
      {
         ELOGF("TZPOL", "Force Update the client not supporting iconify state",
-              ec->pixmap, ec);
+              ec);
 
         /* force render for an iconifed e_client having shm buffer not used yet*/
         if ((e_pixmap_image_data_get(ec->pixmap)) &&
@@ -1390,7 +1390,7 @@ _e_policy_client_stack_change_send(E_Client *ec)
    if (below) below_pid = below->netwm.pid;
 
    ELOGF("TZPOL", "Send stack change.  above(win:%zx, pid:%d), below(win:%zx, pid:%d)",
-         ec->pixmap, ec, e_client_util_win_get(above), above_pid, e_client_util_win_get(below), below_pid);
+         ec, e_client_util_win_get(above), above_pid, e_client_util_win_get(below), below_pid);
 
    e_policy_aux_message_send_from_int(ec, "stack_changed", "pid", 2, above_pid, below_pid);
 }
@@ -1573,7 +1573,7 @@ e_policy_client_unmap(E_Client *ec)
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
-   ELOG("Reset ec information by unmap", ec->pixmap, ec);
+   ELOG("Reset ec information by unmap", ec);
 
    if (ec->iconic)
      send_event = EINA_TRUE;
@@ -2229,7 +2229,7 @@ e_policy_animatable_lock(E_Client *ec,
    else
      ec->animatable = EINA_TRUE;
 
-   ELOGF("TZPOL","EFFECT(animatable:%d) due to %d is applied on the state %d --> result:%d", ec->pixmap, ec,
+   ELOGF("TZPOL","EFFECT(animatable:%d) due to %d is applied on the state %d --> result:%d", ec,
         ec->animatable, set, lock, pc->lock_animatable);
 }
 

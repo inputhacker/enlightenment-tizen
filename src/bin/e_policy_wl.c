@@ -458,7 +458,7 @@ _e_policy_wl_tzsh_get_from_client(E_Client *ec)
                {
                   ELOGF("TZSH",
                         "CRI ERR!!|tzsh_cp:%8p|tzsh_ec:%8p|tzsh:%8p",
-                        ec->pixmap, ec,
+                        ec,
                         tzsh->cp,
                         tzsh->ec,
                         tzsh);
@@ -682,7 +682,7 @@ _e_policy_wl_tzsh_srv_tvsrv_bind_update(void)
      {
         ELOGF("TZSH",
               "TR_SET   |parent_ec:0x%08zx|child_ec:0x%08zx",
-              NULL, NULL,
+              NULL,
               e_client_util_win_get(tzsh_client_ec),
               e_client_util_win_get(tzsh_srv_ec));
 
@@ -695,7 +695,7 @@ _e_policy_wl_tzsh_srv_tvsrv_bind_update(void)
           {
              ELOGF("TZSH",
                    "TR_UNSET |                    |child_ec:0x%08zx",
-                   NULL, NULL,
+                   NULL,
                    e_client_util_win_get(tzsh_srv_ec));
 
              e_policy_stack_transient_for_set(tzsh_srv_ec, NULL);
@@ -886,7 +886,6 @@ _e_policy_wl_surf_client_set(E_Client *ec)
                {
                   ELOGF("POLSURF",
                         "CRI ERR!!|s:%8p|tzpol:%8p|ps:%8p|new_ec:%8p|new_cp:%8p",
-                        psurf->cp,
                         psurf->ec,
                         psurf->surf,
                         psurf->tzpol,
@@ -963,7 +962,7 @@ _e_policy_wl_e_pixmap_get_from_id(struct wl_client *client, uint32_t id)
      {
         ELOGF("POLWL",
               "CRI ERR!!|cp2:%8p|ec2:%8p|res_surf:%8p",
-              ec->pixmap, ec,
+              ec,
               cp,
               e_pixmap_client_get(cp),
               res_surf);
@@ -1140,7 +1139,7 @@ e_policy_wl_visibility_send(E_Client *ec, int vis)
 
                ELOGF("POL_VIS",
                      "SEND     |win:0x%08zx|res_tzvis:%8p|ver:%d|sent_vis:%d|pid:%d|title:%s, name:%s",
-                     ec->pixmap, ec,
+                     ec,
                      win,
                      res_tzvis,
                      ver,
@@ -1226,7 +1225,7 @@ e_policy_wl_iconify_state_change_send(E_Client *ec, int iconic)
           tizen_policy_send_iconify_state_changed(tzpol->res_tzpol, psurf->surf, iconic, 1);
           ELOGF("ICONIFY",
                 "SEND     |win:0x%08zx|iconic:%d |sur:%p",
-                ec->pixmap, ec,
+                ec,
                 win,
                 iconic, psurf->surf);
           break;
@@ -1356,7 +1355,7 @@ e_policy_wl_position_send(E_Client *ec)
                tizen_position_send_changed(res_tzpos, ec->client.x, ec->client.y);
                ELOGF("TZPOS",
                      "SEND     |win:0x%08zx|res_tzpos:%8p|ec->x:%d, ec->y:%d, ec->client.x:%d, ec->client.y:%d",
-                     ec->pixmap, ec,
+                     ec,
                      win,
                      res_tzpos,
                      ec->x, ec->y,
@@ -1376,7 +1375,7 @@ e_policy_wl_activate(E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
-   ELOGF("TZPOL", "REAL ACTIVATE", ec->pixmap, ec);
+   ELOGF("TZPOL", "REAL ACTIVATE", ec);
 
    if ((!starting) && (!ec->focused) && (!ec->visibility.force_obscured))
      {
@@ -1409,7 +1408,7 @@ _tzpol_iface_cb_activate(struct wl_client *client EINA_UNUSED, struct wl_resourc
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
    e_policy_hook_call(E_POLICY_HOOK_CLIENT_ACTIVE_REQ, ec);
 
-   ELOGF("TZPOL", "ACTIVATE", ec->pixmap, ec);
+   ELOGF("TZPOL", "ACTIVATE", ec);
    ec->post_lower = EINA_FALSE;
    if (ec->comp_data && !ec->comp_data->mapped)
      ec->post_raise = EINA_TRUE;
@@ -1452,7 +1451,7 @@ e_policy_wl_stack_changed_send(E_Client *ec)
    if (below) below_pid = below->netwm.pid;
 
    ELOGF("TZPOL", "Send stack_changed by activate_below. above(win:%zx, pid:%d), below(win:%zx, pid:%d)",
-         ec->pixmap, ec, e_client_util_win_get(above), above_pid, e_client_util_win_get(below), below_pid);
+         ec, e_client_util_win_get(above), above_pid, e_client_util_win_get(below), below_pid);
 
 
    e_policy_aux_message_send_from_int(ec, "stack_changed", "activate_below", 2, above_pid, below_pid);
@@ -1479,14 +1478,13 @@ _tzpol_iface_cb_activate_below_by_res_id(struct wl_client *client EINA_UNUSED, s
 
    ELOGF("TZPOL",
          "ACTIVATE_BELOW|win:0x%08zx(res_id:%d)|below_win:0x%08zx(res_id:%d)",
-         NULL, NULL, e_client_util_win_get(ec), res_id, e_client_util_win_get(below_ec), below_res_id);
+         NULL, e_client_util_win_get(ec), res_id, e_client_util_win_get(below_ec), below_res_id);
 
    intercepted = e_policy_interceptor_call(E_POLICY_INTERCEPT_ACTIVATE_BELOW,
                                            ec, below_ec);
    if (intercepted)
      {
-        ELOGF("TZPOL", "ACTIVATE_BELOW|Handled by Intercept function",
-              ec->pixmap, ec);
+        ELOGF("TZPOL", "ACTIVATE_BELOW|Handled by Intercept function", ec);
         return;
      }
 
@@ -1516,7 +1514,7 @@ _tzpol_iface_cb_activate_below_by_res_id(struct wl_client *client EINA_UNUSED, s
 
    if ((ec->comp_data) && (!ec->comp_data->mapped))
      {
-        ELOGF("TZPOL", "POST_RAISE_LOWER SET... raise:%d, lower:%d", ec->pixmap, ec, EINA_FALSE, EINA_FALSE);
+        ELOGF("TZPOL", "POST_RAISE_LOWER SET... raise:%d, lower:%d", ec, EINA_FALSE, EINA_FALSE);
         e_client_post_raise_lower_set(ec, EINA_FALSE, EINA_FALSE);
      }
 
@@ -1547,14 +1545,13 @@ _tzpol_iface_cb_activate_above_by_res_id(struct wl_client *client EINA_UNUSED, s
 
    ELOGF("TZPOL",
          "ACTIVATE_ABOVE|win:0x%08zx(res_id:%d)|above_win:0x%08zx(res_id:%d)",
-         NULL, NULL, e_client_util_win_get(ec), res_id, e_client_util_win_get(above_ec), above_res_id);
+         NULL, e_client_util_win_get(ec), res_id, e_client_util_win_get(above_ec), above_res_id);
 
    intercepted = e_policy_interceptor_call(E_POLICY_INTERCEPT_ACTIVATE_ABOVE,
                                            ec, above_ec);
    if (intercepted)
      {
-        ELOGF("TZPOL", "ACTIVATE_ABOVE|Handled by Intercept function",
-              ec->pixmap, ec);
+        ELOGF("TZPOL", "ACTIVATE_ABOVE|Handled by Intercept function", ec);
         return;
      }
 
@@ -1585,7 +1582,7 @@ _tzpol_iface_cb_activate_above_by_res_id(struct wl_client *client EINA_UNUSED, s
 
    if ((ec->comp_data) && (!ec->comp_data->mapped))
      {
-        ELOGF("TZPOL", "POST_RAISE_LOWER SET... raise:%d, lower:%d", ec->pixmap, ec, EINA_FALSE, EINA_FALSE);
+        ELOGF("TZPOL", "POST_RAISE_LOWER SET... raise:%d, lower:%d", ec, EINA_FALSE, EINA_FALSE);
         e_client_post_raise_lower_set(ec, EINA_FALSE, EINA_FALSE);
      }
 }
@@ -1600,13 +1597,13 @@ _tzpol_iface_cb_raise(struct wl_client *client EINA_UNUSED, struct wl_resource *
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
    e_policy_hook_call(E_POLICY_HOOK_CLIENT_RAISE_REQ, ec);
 
-   ELOGF("TZPOL", "RAISE", ec->pixmap, ec);
+   ELOGF("TZPOL", "RAISE", ec);
 
    evas_object_raise(ec->frame);
 
    if ((ec->comp_data) && (!ec->comp_data->mapped))
      {
-        ELOGF("TZPOL", "POST_RAISE_LOWER SET... raise:%d, lower:%d", ec->pixmap, ec, EINA_TRUE, EINA_FALSE);
+        ELOGF("TZPOL", "POST_RAISE_LOWER SET... raise:%d, lower:%d", ec, EINA_TRUE, EINA_FALSE);
         e_client_post_raise_lower_set(ec, EINA_TRUE, EINA_FALSE);
      }
 }
@@ -1621,7 +1618,7 @@ _tzpol_iface_cb_lower(struct wl_client *client EINA_UNUSED, struct wl_resource *
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
    e_policy_hook_call(E_POLICY_HOOK_CLIENT_LOWER_REQ, ec);
 
-   ELOGF("TZPOL", "LOWER", ec->pixmap, ec);
+   ELOGF("TZPOL", "LOWER", ec);
 
    if (e_policy_visibility_client_lower(ec))
      return;
@@ -1630,7 +1627,7 @@ _tzpol_iface_cb_lower(struct wl_client *client EINA_UNUSED, struct wl_resource *
 
    if ((ec->comp_data) && (!ec->comp_data->mapped))
      {
-        ELOGF("TZPOL", "POST_RAISE_LOWER SET... raise:%d, lower:%d", ec->pixmap, ec, EINA_FALSE, EINA_TRUE);
+        ELOGF("TZPOL", "POST_RAISE_LOWER SET... raise:%d, lower:%d", ec, EINA_FALSE, EINA_TRUE);
         e_client_post_raise_lower_set(ec, EINA_FALSE, EINA_TRUE);
      }
 
@@ -1647,12 +1644,12 @@ _tzpol_iface_cb_lower_by_res_id(struct wl_client *client EINA_UNUSED, struct wl_
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
-   ELOGF("TZPOL", "LOWER by res id:%d", ec->pixmap, ec, res_id);
+   ELOGF("TZPOL", "LOWER by res id:%d", ec, res_id);
    evas_object_lower(ec->frame);
 
    if ((ec->comp_data) && (!ec->comp_data->mapped))
      {
-        ELOGF("TZPOL", "POST_RAISE_LOWER SET... raise:%d, lower:%d", ec->pixmap, ec, EINA_FALSE, EINA_TRUE);
+        ELOGF("TZPOL", "POST_RAISE_LOWER SET... raise:%d, lower:%d", ec, EINA_FALSE, EINA_TRUE);
         e_client_post_raise_lower_set(ec, EINA_FALSE, EINA_TRUE);
      }
 }
@@ -1670,7 +1667,7 @@ _tzpol_iface_cb_focus_skip_set(struct wl_client *client EINA_UNUSED, struct wl_r
 
    if (ec->icccm.accepts_focus)
      {
-        ELOGF("TZPOL", "FOCUS|SKIP SET", ec->pixmap, ec);
+        ELOGF("TZPOL", "FOCUS|SKIP SET", ec);
         ec->icccm.accepts_focus = ec->icccm.take_focus = 0;
         ec->changes.accepts_focus = 1;
         EC_CHANGED(ec);
@@ -1687,7 +1684,7 @@ _tzpol_iface_cb_focus_skip_unset(struct wl_client *client EINA_UNUSED, struct wl
 
    if (!ec->icccm.accepts_focus)
      {
-        ELOGF("TZPOL", "FOCUS|SKIP UNSET", ec->pixmap, ec);
+        ELOGF("TZPOL", "FOCUS|SKIP UNSET", ec);
         ec->icccm.accepts_focus = ec->icccm.take_focus = 1;
         ec->changes.accepts_focus = 1;
         EC_CHANGED(ec);
@@ -1708,7 +1705,7 @@ _tzpol_iface_cb_role_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
-   ELOGF("TZPOL", "ROLE SET (role:%s)", ec->pixmap, ec, role);
+   ELOGF("TZPOL", "ROLE SET (role:%s)", ec, role);
    e_client_window_role_set(ec, role);
 
    /* TODO: support multiple roles */
@@ -1729,7 +1726,7 @@ _tzpol_iface_cb_role_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
      }
    else if (!e_util_strcmp("wl_pointer-cursor", role))
      {
-        ELOGF("TZPOL", "Set CURSOR role", ec->pixmap, ec);
+        ELOGF("TZPOL", "Set CURSOR role", ec);
         evas_object_layer_set(ec->frame, E_LAYER_CLIENT_CURSOR);
         ec->layer = E_LAYER_CLIENT_CURSOR;
         ec->is_cursor = EINA_TRUE;
@@ -1778,7 +1775,7 @@ _tzpol_iface_cb_type_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
 
    ELOGF("TZPOL",
          "TYPE_SET |win:0x%08zx|s:%8p|res_tzpol:%8p|tizen_win_type:%d, e_win_type:%d",
-         ec->pixmap, ec,
+         ec,
          e_client_util_win_get(ec),
          surf,
          res_tzpol,
@@ -1880,7 +1877,7 @@ _tzpol_iface_cb_notilv_set(struct wl_client *client, struct wl_resource *res_tzp
      {
         ELOGF("TZPOL",
               "Privilege Check Failed! DENY set_notification_level",
-              ec->pixmap, ec);
+              ec);
 
         tizen_policy_send_notification_done
            (res_tzpol,
@@ -1890,7 +1887,7 @@ _tzpol_iface_cb_notilv_set(struct wl_client *client, struct wl_resource *res_tzp
         return;
      }
 
-   ELOGF("TZPOL", "NOTI_LEVEL|level:%d", ec->pixmap, ec, lv);
+   ELOGF("TZPOL", "NOTI_LEVEL|level:%d", ec, lv);
    _tzpol_notilv_set(ec, lv);
 
    psurf->notilv = lv;
@@ -1972,7 +1969,7 @@ _tzpol_iface_cb_transient_for_set(struct wl_client *client EINA_UNUSED, struct w
 
    ELOGF("TZPOL",
          "TF_SET   |res_tzpol:%8p|parent:%d|child:%d",
-         NULL, NULL, res_tzpol, parent_id, child_id);
+         NULL, res_tzpol, parent_id, child_id);
 
    ec = e_pixmap_find_client_by_res_id(child_id);
    EINA_SAFETY_ON_NULL_RETURN(ec);
@@ -1987,13 +1984,13 @@ _tzpol_iface_cb_transient_for_set(struct wl_client *client EINA_UNUSED, struct w
 
    ELOGF("TZPOL",
          "         |win:0x%08zx|parent|s:%8p",
-         pc->pixmap, pc,
+         pc,
          e_client_util_win_get(pc),
          parent_surf);
 
    ELOGF("TZPOL",
          "         |win:0x%08zx|child |s:%8p",
-         ec->pixmap, ec,
+         ec,
          e_client_util_win_get(ec),
          (ec->comp_data ? ec->comp_data->surface : NULL));
 
@@ -2009,7 +2006,7 @@ _tzpol_iface_cb_transient_for_unset(struct wl_client *client EINA_UNUSED, struct
 
    ELOGF("TZPOL",
          "TF_UNSET |res_tzpol:%8p|child:%d",
-         NULL, NULL, res_tzpol, child_id);
+         NULL, res_tzpol, child_id);
 
    ec = e_pixmap_find_client_by_res_id(child_id);
    EINA_SAFETY_ON_NULL_RETURN(ec);
@@ -2042,7 +2039,7 @@ _tzpol_iface_cb_win_scrmode_set(struct wl_client *client, struct wl_resource *re
      {
         ELOGF("TZPOL",
               "Privilege Check Failed! DENY set_screen_mode",
-              ec->pixmap, ec);
+              ec);
 
         tizen_policy_send_window_screen_mode_done
            (res_tzpol,
@@ -2052,7 +2049,7 @@ _tzpol_iface_cb_win_scrmode_set(struct wl_client *client, struct wl_resource *re
         return;
      }
 
-   ELOGF("TZPOL", "SCR_MODE |mode:%d", ec->pixmap, ec, mode);
+   ELOGF("TZPOL", "SCR_MODE |mode:%d", ec, mode);
 
    e_policy_display_screen_mode_set(ec, mode);
    e_policy_wl_win_scrmode_apply();
@@ -2090,7 +2087,7 @@ _tzpol_iface_cb_subsurf_place_below_parent(struct wl_client *client EINA_UNUSED,
    /* check if a subsurface has already placed below a parent */
    if (eina_list_data_find(epc->comp_data->sub.below_list, ec)) return;
 
-   ELOGF("TZPOL", "SUBSURF|BELOW_PARENT", ec->pixmap, ec);
+   ELOGF("TZPOL", "SUBSURF|BELOW_PARENT", ec);
    epc->comp_data->sub.list = eina_list_remove(epc->comp_data->sub.list, ec);
    epc->comp_data->sub.list_pending = eina_list_remove(epc->comp_data->sub.list_pending, ec);
    epc->comp_data->sub.below_list = eina_list_append(epc->comp_data->sub.below_list, ec);
@@ -2110,7 +2107,7 @@ _tzpol_iface_cb_subsurf_stand_alone_set(struct wl_client *client EINA_UNUSED, st
    sdata = ec->comp_data->sub.data;
    EINA_SAFETY_ON_NULL_RETURN(sdata);
 
-   ELOGF("TZPOL", "SUBSURF|STAND_ALONE", ec->pixmap, ec);
+   ELOGF("TZPOL", "SUBSURF|STAND_ALONE", ec);
    sdata->stand_alone = EINA_TRUE;
 }
 
@@ -2121,7 +2118,7 @@ _tzpol_iface_cb_subsurface_get(struct wl_client *client, struct wl_resource *res
 
    ELOGF("TZPOL",
          "SUBSURF   |wl_surface@%d|parent_id:%d",
-         NULL, NULL, wl_resource_get_id(surface), parent_id);
+         NULL, wl_resource_get_id(surface), parent_id);
 
    ec = wl_resource_get_user_data(surface);
    if (!ec)
@@ -2166,7 +2163,7 @@ _tzpol_iface_cb_opaque_state_set(struct wl_client *client, struct wl_resource *r
    ec = wl_resource_get_user_data(surface);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   ELOGF("TZPOL", "OPAQUE   |opaque_state:%d", ec->pixmap, ec, state);
+   ELOGF("TZPOL", "OPAQUE   |opaque_state:%d", ec, state);
    if(ec->visibility.opaque == state)
      return;
    ec->visibility.opaque = state;
@@ -2184,7 +2181,7 @@ e_policy_wl_iconify(E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
-   ELOG("Set ICONIFY BY CLIENT", ec->pixmap, ec);
+   ELOG("Set ICONIFY BY CLIENT", ec);
 
    if (e_policy_visibility_client_iconify(ec))
      {
@@ -2217,7 +2214,7 @@ e_policy_wl_uniconify(E_Client *ec)
      e_policy_wl_iconify_state_change_send(ec, 0);
 
    e_client_uniconify(ec);
-   ELOG("Un-Set ICONIFY BY CLIENT", ec->pixmap, ec);
+   ELOG("Un-Set ICONIFY BY CLIENT", ec);
    ec->exp_iconify.by_client = 0;
 
    EC_CHANGED(ec);
@@ -2231,7 +2228,7 @@ _tzpol_iface_cb_iconify(struct wl_client *client EINA_UNUSED, struct wl_resource
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   ELOGF("TZPOL", "ICONIFY", ec->pixmap, ec);
+   ELOGF("TZPOL", "ICONIFY", ec);
    e_policy_wl_iconify(ec);
 }
 
@@ -2243,7 +2240,7 @@ _tzpol_iface_cb_uniconify(struct wl_client *client EINA_UNUSED, struct wl_resour
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   ELOGF("TZPOL", "UNICONIFY", ec->pixmap, ec);
+   ELOGF("TZPOL", "UNICONIFY", ec);
    e_policy_wl_uniconify(ec);
 }
 
@@ -2268,7 +2265,7 @@ _e_policy_wl_allowed_aux_hint_send(E_Client *ec, int id)
              id);
           ELOGF("TZPOL",
                 "SEND     |res_tzpol:%8p|allowed hint->id:%d",
-                ec->pixmap, ec,
+                ec,
                 tzpol->res_tzpol,
                 id);
        }
@@ -2434,12 +2431,12 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
           {
              if ((hint->deleted) || (!strcmp(hint->val, "0")))
                {
-                  ELOGF("ROTATION", "nopending render:0", ec->pixmap, ec);
+                  ELOGF("ROTATION", "nopending render:0", ec);
                   ec->e.state.rot.nopending_render = 0;
                }
              else if (!strcmp(hint->val, "1"))
                {
-                  ELOGF("ROTATION", "nopending render:1", ec->pixmap, ec);
+                  ELOGF("ROTATION", "nopending render:1", ec);
                   ec->e.state.rot.nopending_render = 1;
                }
           }
@@ -2476,7 +2473,7 @@ _tzpol_iface_cb_aux_hint_add(struct wl_client *client EINA_UNUSED, struct wl_res
 
    res = e_hints_aux_hint_add(ec, id, name, value);
 
-   ELOGF("TZPOL", "HINT_ADD |res_tzpol:%8p|id:%d, name:%s, val:%s, res:%d", ec->pixmap, ec, res_tzpol, id, name, value, res);
+   ELOGF("TZPOL", "HINT_ADD |res_tzpol:%8p|id:%d, name:%s, val:%s, res:%d", ec, res_tzpol, id, name, value, res);
 
    if (res)
      {
@@ -2497,7 +2494,7 @@ _tzpol_iface_cb_aux_hint_change(struct wl_client *client EINA_UNUSED, struct wl_
 
    res = e_hints_aux_hint_change(ec, id, value);
 
-   ELOGF("TZPOL", "HINT_CHD |res_tzpol:%8p|id:%d, val:%s, result:%d", ec->pixmap, ec, res_tzpol, id, value, res);
+   ELOGF("TZPOL", "HINT_CHD |res_tzpol:%8p|id:%d, val:%s, result:%d", ec, res_tzpol, id, value, res);
 
    if (res)
      {
@@ -2517,7 +2514,7 @@ _tzpol_iface_cb_aux_hint_del(struct wl_client *client EINA_UNUSED, struct wl_res
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
    res = e_hints_aux_hint_del(ec, id);
-   ELOGF("TZPOL", "HINT_DEL |res_tzpol:%8p|id:%d, result:%d", ec->pixmap, ec, res_tzpol, id, res);
+   ELOGF("TZPOL", "HINT_DEL |res_tzpol:%8p|id:%d, result:%d", ec, res_tzpol, id, res);
 
    if (res)
      {
@@ -2556,7 +2553,7 @@ _tzpol_iface_cb_supported_aux_hints_get(struct wl_client *client EINA_UNUSED, st
    tizen_policy_send_supported_aux_hints(res_tzpol, surf, &hints, eina_list_count(hints_list));
    ELOGF("TZPOL",
          "SEND     |res_tzpol:%8p|supported_hints size:%d",
-         ec->pixmap, ec,
+         ec,
          res_tzpol,
          eina_list_count(hints_list));
    wl_array_release(&hints);
@@ -2569,7 +2566,7 @@ e_client_background_state_set(E_Client *ec, Eina_Bool state)
 
    ELOGF("TZPOL",
          "BACKGROUND STATE %s for PID(%u)",
-         ec->pixmap, ec,
+         ec,
          state?"SET":"UNSET", ec->netwm.pid);
 
    if (state)
@@ -2603,7 +2600,7 @@ _e_policy_wl_background_state_set(E_Policy_Wl_Surface *psurf, Eina_Bool state)
           {
              ELOGF("TZPOL",
                    "PENDING BACKGROUND STATE SET for PID(%u) psurf:%p tzpol:%p",
-                   NULL, NULL, psurf->pid, psurf, psurf->tzpol);
+                   NULL, psurf->pid, psurf, psurf->tzpol);
 
              if (!eina_list_data_find(psurf->tzpol->pending_bg, psurf))
                psurf->tzpol->pending_bg =
@@ -2618,7 +2615,7 @@ _e_policy_wl_background_state_set(E_Policy_Wl_Surface *psurf, Eina_Bool state)
           {
              ELOGF("TZPOL",
                    "UNSET PENDING BACKGROUND STATE for PID(%u) psurf:%p tzpol:%p",
-                   NULL, NULL, psurf->pid, psurf, psurf->tzpol);
+                   NULL, psurf->pid, psurf, psurf->tzpol);
 
              if (eina_list_data_find(psurf->tzpol->pending_bg, psurf))
                psurf->tzpol->pending_bg =
@@ -2640,8 +2637,8 @@ _e_policy_wl_tzlaunch_effect_type_sync(E_Client *ec)
         if (effect_info->pid == ec->netwm.pid)
           {
              ELOGF("TZPOL",
-                    "Launchscreen effect type sync | pid (%d) effect_type (%d)",
-                    ec->pixmap, ec, ec->netwm.pid, effect_info->effect_type);
+                   "Launchscreen effect type sync | pid (%d) effect_type (%d)",
+                   ec, ec->netwm.pid, effect_info->effect_type);
              ec->effect_type = effect_info->effect_type;
              _e_policy_wl_tzlaunch_effect_type_unset(ec->netwm.pid);
              break;
@@ -2671,8 +2668,8 @@ _e_policy_wl_tzlaunch_effect_type_unset(uint32_t pid)
         if (effect_info->pid == pid)
           {
              ELOGF("TZPOL",
-                    "Launchscreen effect type unset | pid (%d)",
-                    NULL, NULL, pid);
+                   "Launchscreen effect type unset | pid (%d)",
+                   NULL, pid);
              polwl->tzlaunch_effect_info = eina_list_remove(polwl->tzlaunch_effect_info, effect_info);
              memset(effect_info, 0x0, sizeof(E_Policy_Wl_Tzlaunch_Effect_Info));
              E_FREE(effect_info);
@@ -2715,7 +2712,7 @@ _tzpol_iface_cb_background_state_set(struct wl_client *client EINA_UNUSED, struc
 
              ELOGF("TZPOL",
                    "Register PID(%u) for BACKGROUND STATE psurf:%p tzpol:%p",
-                   ec->pixmap, ec, pid, psurf, psurf ? psurf->tzpol : NULL);
+                   ec, pid, psurf, psurf ? psurf->tzpol : NULL);
 
              psurf->is_background = EINA_TRUE;
              _e_policy_wl_background_state_set(psurf, EINA_TRUE);
@@ -2736,7 +2733,7 @@ _tzpol_iface_cb_background_state_set(struct wl_client *client EINA_UNUSED, struc
 
         ELOGF("TZPOL",
               "Register PID(%u) for BACKGROUND STATE psurf:%p tzpol:%p",
-              NULL, NULL, pid, psurf, psurf->tzpol);
+              NULL, pid, psurf, psurf->tzpol);
      }
    if (psurf)
      {
@@ -2794,7 +2791,7 @@ _tzpol_iface_cb_floating_mode_set(struct wl_client *client EINA_UNUSED, struct w
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   ELOGF("TZPOL", "FLOATING Set", ec->pixmap, ec);
+   ELOGF("TZPOL", "FLOATING Set", ec);
 
    _e_policy_wl_floating_mode_apply(ec, EINA_TRUE);
 }
@@ -2807,7 +2804,7 @@ _tzpol_iface_cb_floating_mode_unset(struct wl_client *client EINA_UNUSED, struct
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   ELOGF("TZPOL", "FLOATING Unset", ec->pixmap, ec);
+   ELOGF("TZPOL", "FLOATING Unset", ec);
 
    e_client_pending_geometry_flush(ec);
 
@@ -2822,7 +2819,7 @@ _tzpol_iface_cb_stack_mode_set(struct wl_client *client EINA_UNUSED, struct wl_r
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   ELOGF("TZPOL", "STACK Mode Set. mode:%d", ec->pixmap, ec, mode);
+   ELOGF("TZPOL", "STACK Mode Set. mode:%d", ec, mode);
 
    if (ec->frame)
      {
@@ -3087,20 +3084,20 @@ e_policy_wl_win_brightness_apply(E_Client *ec)
    // use system brightness
    if (dpy_surf->brightness < 0)
      {
-        ELOGF("TZ_DPY_POL", "Restore system brightness. Win(0x%08zx)'s brightness:%d", ec->pixmap, ec, e_client_util_win_get(ec), dpy_surf->brightness);
+        ELOGF("TZ_DPY_POL", "Restore system brightness. Win(0x%08zx)'s brightness:%d", ec, e_client_util_win_get(ec), dpy_surf->brightness);
         ret = _e_policy_restore_system_brightness();
         return ret;
      }
 
    if (ec_visibility == E_VISIBILITY_UNOBSCURED)
      {
-        ELOGF("TZ_DPY_POL", "Change system brightness(%d). Win(0x%08zx) is un-obscured", ec->pixmap, ec, dpy_surf->brightness, e_client_util_win_get(ec));
+        ELOGF("TZ_DPY_POL", "Change system brightness(%d). Win(0x%08zx) is un-obscured", ec, dpy_surf->brightness, e_client_util_win_get(ec));
         ret = _e_policy_change_system_brightness(dpy_surf->brightness);
         if (!ret) return EINA_FALSE;
      }
    else
      {
-        ELOGF("TZ_DPY_POL", "Restore system brightness. Win(0x%08zx) is obscured", ec->pixmap, ec, e_client_util_win_get(ec));
+        ELOGF("TZ_DPY_POL", "Restore system brightness. Win(0x%08zx) is obscured", ec, e_client_util_win_get(ec));
         ret = _e_policy_restore_system_brightness();
         if (!ret) return EINA_FALSE;
      }
@@ -3130,7 +3127,7 @@ _tz_dpy_pol_iface_cb_brightness_set(struct wl_client *client, struct wl_resource
      {
         ELOGF("TZ_DPY_POL",
               "Privilege Check Failed! DENY set_brightness",
-              ec->pixmap, ec);
+              ec);
 
         tizen_display_policy_send_window_brightness_done
            (res_tz_dpy_pol,
@@ -3139,7 +3136,7 @@ _tz_dpy_pol_iface_cb_brightness_set(struct wl_client *client, struct wl_resource
             TIZEN_DISPLAY_POLICY_ERROR_STATE_PERMISSION_DENIED);
         return;
      }
-   ELOGF("TZ_DPY_POL", "Set Win(0x%08zx)'s brightness:%d", ec->pixmap, ec, e_client_util_win_get(ec), brightness);
+   ELOGF("TZ_DPY_POL", "Set Win(0x%08zx)'s brightness:%d", ec, e_client_util_win_get(ec), brightness);
    dpy_surf->set = EINA_TRUE;
    dpy_surf->brightness = brightness;
 
@@ -3208,7 +3205,7 @@ _tzpol_iface_cb_parent_set(struct wl_client *client, struct wl_resource *res_tzp
 
    ELOGF("TZPOL",
          "PARENT_SET   |res_tzpol:%8p|parent:%8p|child:%8p",
-         NULL, NULL, res_tzpol, parent, child);
+         NULL, res_tzpol, parent, child);
 
    ec = wl_resource_get_user_data(child);
    EINA_SAFETY_ON_NULL_RETURN(ec);
@@ -3227,13 +3224,13 @@ _tzpol_iface_cb_parent_set(struct wl_client *client, struct wl_resource *res_tzp
 
         ELOGF("TZPOL",
               "         |win:0x%08zx|parent|s:%8p",
-              pc->pixmap, pc,
+              pc,
               e_client_util_win_get(pc),
               parent_surf);
 
         ELOGF("TZPOL",
               "         |win:0x%08zx|child |s:%8p",
-              ec->pixmap, ec,
+              ec,
               e_client_util_win_get(ec),
               (ec->comp_data ? ec->comp_data->surface : NULL));
      }
@@ -3266,7 +3263,7 @@ _tzpol_iface_cb_has_video(struct wl_client *client, struct wl_resource *res_tzpo
    if (e_object_is_del(E_OBJECT(ec))) return;
    if (ec->comp_data->has_video_client == has) return;
 
-   ELOGF("TZPOL", "video client has(%d)", ec->pixmap, ec, has);
+   ELOGF("TZPOL", "video client has(%d)", ec, has);
 
    ec->comp_data->has_video_client = has;
 }
@@ -3651,13 +3648,13 @@ _tzsh_srv_iface_cb_softkey_get(struct wl_client *client, struct wl_resource *res
         return;
      }
 
-   ELOGF("TZSH", "[SOFTKEY SERVICE] resource created. res:%p, res_tzsh_srv:%p, id:%d", NULL, NULL, res, res_tzsh_srv, id);
+   ELOGF("TZSH", "[SOFTKEY SERVICE] resource created. res:%p, res_tzsh_srv:%p, id:%d", NULL, res, res_tzsh_srv, id);
 
    if (tzsh_srv->tzsh && tzsh_srv->tzsh->ec)
      {
         E_Client *softkey_ec = tzsh_srv->tzsh->ec;
         softkey = e_service_softkey_get(softkey_ec->zone);
-        ELOGF("TZSH", "[SOFTKEY SERVICE] resource set. res:%p, softkey:%p, softkey_ec:%p", NULL, NULL, res, softkey, softkey_ec);
+        ELOGF("TZSH", "[SOFTKEY SERVICE] resource set. res:%p, softkey:%p, softkey_ec:%p", NULL, res, softkey, softkey_ec);
         if (softkey)
           e_service_softkey_wl_resource_set(softkey, res);
      }
@@ -4053,7 +4050,7 @@ e_tzsh_extension_add(const char *name, E_Policy_Wl_Tzsh_Ext_Hook_Cb cb)
    polwl->tzsh_extensions = eina_list_append(polwl->tzsh_extensions, tzsh_ext);
    ELOGF("TZSH",
          "EXTENSION_ADD | name:%s | cb:%p",
-         NULL, NULL,
+         NULL,
          name, cb);
 
    return EINA_TRUE;
@@ -4077,7 +4074,7 @@ e_tzsh_extension_del(const char *name)
 
    ELOGF("TZSH",
          "EXTENSION_DEL | name:%s",
-         NULL, NULL,
+         NULL,
          name);
 }
 
@@ -4278,13 +4275,13 @@ e_tzsh_indicator_srv_property_change_send(E_Client *ec, int angle)
    if (!ec) return;
    if (!_indicator_srv_res)
      {
-        ELOGF("TZ_IND", "NO indicator service", NULL, NULL);
+        ELOGF("TZ_IND", "NO indicator service", NULL);
         return;
      }
 
    opacity = ec->indicator.opacity_mode;
 
-   ELOGF("TZ_IND", "SEND indicator info. angle:%d, opacity:%d", ec->pixmap, ec, angle, opacity);
+   ELOGF("TZ_IND", "SEND indicator info. angle:%d, opacity:%d", ec, angle, opacity);
    tws_service_indicator_send_property_change(_indicator_srv_res, angle, opacity);
 }
 
@@ -4317,13 +4314,13 @@ e_tzsh_indicator_srv_ower_win_update(E_Zone *zone)
 
    if (ec != ec_cur_owner)
      {
-        ELOGF("TZ_IND", "Changed OWNER. win:%zx, state:%d, opacity:%d, vtype:%d", NULL, NULL, e_client_util_win_get(ec),
+        ELOGF("TZ_IND", "Changed OWNER. win:%zx, state:%d, opacity:%d, vtype:%d", NULL, e_client_util_win_get(ec),
               ec ? ec->indicator.state:-1, ec ? ec->indicator.opacity_mode:-1, ec ? ec->indicator.visible_type:-1);
         e_mod_indicator_owner_set(ec);
 
         if (ec && !ec->e.state.rot.pending_show)
           {
-             ELOGF("TZ_IND", "Property Update. name:%s curr:%d, next:%d", NULL, NULL, ec->icccm.name?:"NULL",
+             ELOGF("TZ_IND", "Property Update. name:%s curr:%d, next:%d", NULL, ec->icccm.name?:"NULL",
                    ec->e.state.rot.ang.curr, ec->e.state.rot.ang.next);
              e_tzsh_indicator_srv_property_update(ec);
           }
@@ -4374,7 +4371,7 @@ e_tzsh_qp_state_visible_update(E_Client *ec, Eina_Bool vis)
                {
                   ELOGF("TZSH",
                         "CRI ERR!!|tzsh_cp:%8p|tzsh_ec:%8p|tzsh:%8p",
-                        ec->pixmap, ec,
+                        ec,
                         tzsh_client->tzsh->cp,
                         tzsh_client->tzsh->ec,
                         tzsh_client->tzsh);
@@ -4410,7 +4407,7 @@ e_tzsh_qp_state_scrollable_update(E_Client *ec, Eina_Bool scrollable)
                {
                   ELOGF("TZSH",
                         "CRI ERR!!|tzsh_cp:%8p|tzsh_ec:%8p|tzsh:%8p",
-                        ec->pixmap, ec,
+                        ec,
                         tzsh_client->tzsh->cp,
                         tzsh_client->tzsh->ec,
                         tzsh_client->tzsh);
@@ -4446,7 +4443,7 @@ e_tzsh_qp_state_orientation_update(E_Client *ec, int ridx)
                {
                   ELOGF("TZSH",
                         "CRI ERR!!|tzsh_cp:%8p|tzsh_ec:%8p|tzsh:%8p",
-                        ec->pixmap, ec,
+                        ec,
                         tzsh_client->tzsh->cp,
                         tzsh_client->tzsh->ec,
                         tzsh_client->tzsh);
@@ -4918,7 +4915,7 @@ _tzsh_softkey_iface_cb_support_check(struct wl_client *client EINA_UNUSED, struc
    E_Policy_Wl_Tzsh_Client *tzsh_client;
    int support;
 
-   ELOGF("TZ_SOFTKEY", "Request to Check supporting softkey", NULL, NULL);
+   ELOGF("TZ_SOFTKEY", "Request to Check supporting softkey", NULL);
 
    tzsh_client = wl_resource_get_user_data(res_tzsh_softkey);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
@@ -4933,7 +4930,7 @@ _tzsh_softkey_iface_cb_support_check(struct wl_client *client EINA_UNUSED, struc
    else
      support = 0;
 
-   ELOGF("TZ_SOFTKEY", "Send SUPPORT_CHECK_DONE. support:%d", NULL, NULL, support);
+   ELOGF("TZ_SOFTKEY", "Send SUPPORT_CHECK_DONE. support:%d", NULL, support);
    tws_softkey_send_support_check_done(res_tzsh_softkey, support);
 }
 
@@ -4942,7 +4939,7 @@ _tzsh_softkey_iface_cb_show(struct wl_client *client EINA_UNUSED, struct wl_reso
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
 
-   ELOGF("TZ_SOFTKEY", "Request to Show softkey", NULL, NULL);
+   ELOGF("TZ_SOFTKEY", "Request to Show softkey", NULL);
 
    if (!e_config->use_softkey && !e_config->use_softkey_service)
      return;
@@ -4961,7 +4958,7 @@ _tzsh_softkey_iface_cb_show(struct wl_client *client EINA_UNUSED, struct wl_reso
         softkey = e_policy_softkey_get(tzsh_client->tzsh->ec->zone);
         if (softkey)
           {
-             ELOGF("TZ_SOFTKEY", "SHOW softkey", NULL, NULL);
+             ELOGF("TZ_SOFTKEY", "SHOW softkey", NULL);
              e_policy_softkey_show(softkey);
           }
      }
@@ -4972,7 +4969,7 @@ _tzsh_softkey_iface_cb_show(struct wl_client *client EINA_UNUSED, struct wl_reso
         softkey = e_service_softkey_get(tzsh_client->tzsh->ec->zone);
         if (softkey)
           {
-             ELOGF("TZ_SOFTKEY", "Request to SHOW softkey. (service:%p)", NULL, NULL, softkey);
+             ELOGF("TZ_SOFTKEY", "Request to SHOW softkey. (service:%p)", NULL, softkey);
              e_service_softkey_visible_set(softkey, 1);
           }
      }
@@ -4983,7 +4980,7 @@ _tzsh_softkey_iface_cb_hide(struct wl_client *client EINA_UNUSED, struct wl_reso
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
 
-   ELOGF("TZ_SOFTKEY", "Request to Hide softkey", NULL, NULL);
+   ELOGF("TZ_SOFTKEY", "Request to Hide softkey", NULL);
 
    if (!e_config->use_softkey && !e_config->use_softkey_service)
      return;
@@ -5002,7 +4999,7 @@ _tzsh_softkey_iface_cb_hide(struct wl_client *client EINA_UNUSED, struct wl_reso
         softkey = e_policy_softkey_get(tzsh_client->tzsh->ec->zone);
         if (softkey)
           {
-             ELOGF("TZ_SOFTKEY", "HIDE softkey", NULL, NULL);
+             ELOGF("TZ_SOFTKEY", "HIDE softkey", NULL);
              e_policy_softkey_hide(softkey);
           }
      }
@@ -5013,7 +5010,7 @@ _tzsh_softkey_iface_cb_hide(struct wl_client *client EINA_UNUSED, struct wl_reso
         softkey = e_service_softkey_get(tzsh_client->tzsh->ec->zone);
         if (softkey)
           {
-             ELOGF("TZ_SOFTKEY", "Request to HIDE softkey. (service:%p)", NULL, NULL, softkey);
+             ELOGF("TZ_SOFTKEY", "Request to HIDE softkey. (service:%p)", NULL, softkey);
              e_service_softkey_visible_set(softkey, 0);
           }
      }
@@ -5026,7 +5023,7 @@ _tzsh_softkey_iface_cb_state_set(struct wl_client *client EINA_UNUSED, struct wl
    E_Policy_Softkey_Expand expand;
    E_Policy_Softkey_Opacity opacity;
 
-   ELOGF("TZ_SOFTKEY", "Request to Set state (tz_type:%d, tz_val:%d)", NULL, NULL, type, val);
+   ELOGF("TZ_SOFTKEY", "Request to Set state (tz_type:%d, tz_val:%d)", NULL, type, val);
 
    if (!e_config->use_softkey && !e_config->use_softkey_service)
      return;
@@ -5053,7 +5050,7 @@ _tzsh_softkey_iface_cb_state_set(struct wl_client *client EINA_UNUSED, struct wl
               else
                 expand = E_POLICY_SOFTKEY_EXPAND_OFF;
 
-              ELOGF("TZ_SOFTKEY", "Set EXPAND state to %d", NULL, NULL, expand);
+              ELOGF("TZ_SOFTKEY", "Set EXPAND state to %d", NULL, expand);
               e_policy_softkey_expand_set(softkey, expand);
               break;
 
@@ -5063,7 +5060,7 @@ _tzsh_softkey_iface_cb_state_set(struct wl_client *client EINA_UNUSED, struct wl
               else
                 opacity = E_POLICY_SOFTKEY_OPACITY_OPAQUE;
 
-              ELOGF("TZ_SOFTKEY", "Set OPACITY state to %d", NULL, NULL, opacity);
+              ELOGF("TZ_SOFTKEY", "Set OPACITY state to %d", NULL, opacity);
               e_policy_softkey_opacity_set(softkey, opacity);
               break;
 
@@ -5087,7 +5084,7 @@ _tzsh_softkey_iface_cb_state_set(struct wl_client *client EINA_UNUSED, struct wl
               else
                 expand = E_POLICY_SOFTKEY_EXPAND_OFF;
 
-              ELOGF("TZ_SOFTKEY", "Request to Change EXPAND state to %d. (service:%p)", NULL, NULL, expand, softkey);
+              ELOGF("TZ_SOFTKEY", "Request to Change EXPAND state to %d. (service:%p)", NULL, expand, softkey);
               e_service_softkey_expand_set(softkey, expand);
               break;
 
@@ -5097,7 +5094,7 @@ _tzsh_softkey_iface_cb_state_set(struct wl_client *client EINA_UNUSED, struct wl
               else
                 opacity = E_POLICY_SOFTKEY_OPACITY_OPAQUE;
 
-              ELOGF("TZ_SOFTKEY", "Request to Change OPACITY state to %d. (service:%p)", NULL, NULL, opacity, softkey);
+              ELOGF("TZ_SOFTKEY", "Request to Change OPACITY state to %d. (service:%p)", NULL, opacity, softkey);
               e_service_softkey_opacity_set(softkey, opacity);
               break;
 
@@ -5116,7 +5113,7 @@ _tzsh_softkey_iface_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl
    int visible;
    int val;
 
-   ELOGF("TZ_SOFTKEY", "Request to Get state (tz_type:%d)", NULL, NULL, type);
+   ELOGF("TZ_SOFTKEY", "Request to Get state (tz_type:%d)", NULL, type);
 
    if (!e_config->use_softkey && !e_config->use_softkey_service)
      return;
@@ -5144,7 +5141,7 @@ _tzsh_softkey_iface_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl
               else
                 val = TWS_SOFTKEY_STATE_VISIBLE_HIDE;
 
-              ELOGF("TZ_SOFTKEY", "Send current VISIBLE state: %d (tz_val:%d)", NULL, NULL, visible, val);
+              ELOGF("TZ_SOFTKEY", "Send current VISIBLE state: %d (tz_val:%d)", NULL, visible, val);
               tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
               break;
 
@@ -5155,7 +5152,7 @@ _tzsh_softkey_iface_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl
               else
                 val = TWS_SOFTKEY_STATE_EXPAND_OFF;
 
-              ELOGF("TZ_SOFTKEY", "Send current EXPAND state: %d (tz_val:%d)", NULL, NULL, expand, val);
+              ELOGF("TZ_SOFTKEY", "Send current EXPAND state: %d (tz_val:%d)", NULL, expand, val);
               tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
               break;
 
@@ -5166,7 +5163,7 @@ _tzsh_softkey_iface_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl
               else
                 val = TWS_SOFTKEY_STATE_OPACITY_OPAQUE;
 
-              ELOGF("TZ_SOFTKEY", "Send current OPACITY state: %d (tz_val:%d)", NULL, NULL, opacity, val);
+              ELOGF("TZ_SOFTKEY", "Send current OPACITY state: %d (tz_val:%d)", NULL, opacity, val);
               tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
               break;
 
@@ -5190,7 +5187,7 @@ _tzsh_softkey_iface_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl
               else
                 val = TWS_SOFTKEY_STATE_VISIBLE_HIDE;
 
-              ELOGF("TZ_SOFTKEY", "Send service's current VISIBLE state: %d (tz_val:%d)", NULL, NULL, visible, val);
+              ELOGF("TZ_SOFTKEY", "Send service's current VISIBLE state: %d (tz_val:%d)", NULL, visible, val);
               tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
               break;
 
@@ -5201,7 +5198,7 @@ _tzsh_softkey_iface_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl
               else
                 val = TWS_SOFTKEY_STATE_EXPAND_OFF;
 
-              ELOGF("TZ_SOFTKEY", "Send service's current EXPAND state: %d (tz_val:%d)", NULL, NULL, expand, val);
+              ELOGF("TZ_SOFTKEY", "Send service's current EXPAND state: %d (tz_val:%d)", NULL, expand, val);
               tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
               break;
 
@@ -5212,7 +5209,7 @@ _tzsh_softkey_iface_cb_state_get(struct wl_client *client EINA_UNUSED, struct wl
               else
                 val = TWS_SOFTKEY_STATE_OPACITY_OPAQUE;
 
-              ELOGF("TZ_SOFTKEY", "Send service's current OPACITY state: %d (tz_val:%d)", NULL, NULL, opacity, val);
+              ELOGF("TZ_SOFTKEY", "Send service's current OPACITY state: %d (tz_val:%d)", NULL, opacity, val);
               tws_softkey_send_state_get_done(res_tzsh_softkey, type, val, 0);
               break;
 
@@ -5428,7 +5425,7 @@ _launchscreen_splash_cb_indicator_resized(Ecore_Evas *ee)
 
    ecore_evas_geometry_get(ee, NULL, NULL, &(size.w), &(size.h));
    ELOGF("TZPOL", "Launchscreen indicator_obj resized(%d x %d)",
-         NULL, NULL,
+         NULL,
          size.w, size.h);
    evas_object_size_hint_min_set(indicator_obj, size.w, size.h);
    evas_object_size_hint_max_set(indicator_obj, size.w, size.h);
@@ -5473,7 +5470,7 @@ _launch_splash_off(E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash)
 
    ELOGF("TZPOL",
          "Launchscreen hide | pid %d, replaced:%d, tzlaunch_pixmap:%p, ec_pixmap:%p",
-         ec->pixmap, ec, tzlaunch_splash->pid, tzlaunch_splash->replaced, tzlaunch_splash->ep, ec->pixmap);
+         ec, tzlaunch_splash->pid, tzlaunch_splash->replaced, tzlaunch_splash->ep, ec->pixmap);
 
    if (tzlaunch_splash->indicator_obj)
      {
@@ -5580,7 +5577,7 @@ _tzlaunch_splash_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl
    // invaid parameter handle
    ELOGF("TZPOL",
          "Launchscreen launch | path %s(%d), indicator(%d), angle(%d), effect_type(%s), theme_type(%s)",
-         ec->pixmap, ec, pfname, ftype, indicator, angle, effect_type, theme_type);
+         ec, pfname, ftype, indicator, angle, effect_type, theme_type);
 
    tzlaunch_splash->path = pfname;
    tzlaunch_splash->type = ftype;
@@ -5605,7 +5602,7 @@ _tzlaunch_splash_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl
 
         ELOGF("TZPOL",
               "Launchscreen object setup was successfully intercepted content(%p)",
-              ec->pixmap, ec, tzlaunch_splash->obj);
+              ec, tzlaunch_splash->obj);
      }
    else
      {
@@ -5657,7 +5654,7 @@ _tzlaunch_splash_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl
           {
              ELOGF("TZPOL",
                    "Launchscreen launch | Faild to create ecore_evas_plug for indicator",
-                   ec->pixmap, ec);
+                   ec);
           }
         else
           {
@@ -5676,7 +5673,7 @@ _tzlaunch_splash_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl
                        evas_object_ref(indicator_obj);
                        ELOGF("TZPOL",
                              "Launchscreen launch | Succeeded to add indicator object plug_name(%s) indicator_obj(%p)",
-                             ec->pixmap, ec, e_config->indicator_plug_name, indicator_obj);
+                             ec, e_config->indicator_plug_name, indicator_obj);
                     }
                   else
                     {
@@ -5689,7 +5686,7 @@ _tzlaunch_splash_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl
                {
                   ELOGF("TZPOL",
                         "Launchscreen launch | Failed to add indicator object plug_name(%s)",
-                        ec->pixmap, ec, e_config->indicator_plug_name?:"NO PLUG NAME");
+                        ec, e_config->indicator_plug_name?:"NO PLUG NAME");
                }
           }
 
@@ -5785,7 +5782,7 @@ _tzlaunch_splash_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_
 
              ELOGF("TZPOL",
                    "Launchscreen client changed | old(%p) new(%p) using obj(%p)",
-                   new_ec->pixmap, new_ec,
+                   new_ec,
                    old_ec, new_ec, tzlaunch_splash->obj);
 
              if (tzlaunch_splash->indicator_obj)
@@ -5816,7 +5813,6 @@ _tzlaunch_splash_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_
      }
 
    ELOGF("TZPOL", "Launchscreen img(%d) set owner pid: %d",
-         (tzlaunch_splash->ec? tzlaunch_splash->ec->pixmap : NULL),
          tzlaunch_splash->ec,
          wl_resource_get_id(res_tzlaunch_splash), pid);
 
@@ -5955,7 +5951,7 @@ _tzlaunch_effect_iface_cb_type_set(struct wl_client *client, struct wl_resource 
              effect_set = 1;
              ELOGF("TZPOL",
                     "Launchscreen effect type set | exist ec | effect (%d) pid (%d)",
-                    _ec->pixmap, _ec, tzlaunch_effect_type, pid);
+                    _ec, tzlaunch_effect_type, pid);
           }
      }
    eina_list_free(clients);
@@ -5973,7 +5969,8 @@ _tzlaunch_effect_iface_cb_type_set(struct wl_client *client, struct wl_resource 
         polwl->tzlaunch_effect_info = eina_list_append(polwl->tzlaunch_effect_info, tzlaunch_effect_info);
 
         ELOGF("TZPOL",
-               "Launchscreen effect type set | no match ec | effect (%d) pid (%d)", NULL, NULL, tzlaunch_effect_type, pid);
+              "Launchscreen effect type set | no match ec | effect (%d) pid (%d)",
+              NULL, tzlaunch_effect_type, pid);
      }
 }
 
@@ -6095,7 +6092,7 @@ _e_policy_wl_cb_hook_intercept_show_helper(void *data, E_Client *ec)
                {
                   ELOGF("TZPOL",
                         "BACKGROUND State is On, Deny Show",
-                        ec->pixmap, ec);
+                        ec);
                   return EINA_FALSE;
                }
           }
@@ -6229,7 +6226,7 @@ _tz_indicator_cb_state_set(struct wl_client *client EINA_UNUSED, struct wl_resou
    else
      ind_state = E_INDICATOR_STATE_UNKNOWN;
 
-   ELOGF("TZ_IND", "TZ_STATE:%d, E_STATE:%d", ec->pixmap, ec, state, ind_state);
+   ELOGF("TZ_IND", "TZ_STATE:%d, E_STATE:%d", ec, state, ind_state);
    _e_policy_wl_tz_indicator_set_client(res_tz_indicator, ec);
    ec->indicator.state = ind_state;
 
@@ -6269,7 +6266,7 @@ _tz_indicator_cb_opacity_mode_set(struct wl_client *client EINA_UNUSED, struct w
         break;
      }
 
-   ELOGF("TZ_IND", "TZ_OP_MODE:%d, E_OP_MODE:%d", ec->pixmap, ec, mode, op_mode);
+   ELOGF("TZ_IND", "TZ_OP_MODE:%d, E_OP_MODE:%d", ec, mode, op_mode);
    _e_policy_wl_tz_indicator_set_client(res_tz_indicator, ec);
 
    if (ec->indicator.opacity_mode == op_mode) return;
@@ -6295,7 +6292,7 @@ _tz_indicator_cb_visible_type_set(struct wl_client *client EINA_UNUSED, struct w
    else
      vis_type = E_INDICATOR_VISIBLE_TYPE_HIDDEN;
 
-   ELOGF("TZ_IND", "TZ_VIS_TYPE:%d, E_VIS_TYPE:%d", ec->pixmap, ec, vtype, vis_type);
+   ELOGF("TZ_IND", "TZ_VIS_TYPE:%d, E_VIS_TYPE:%d", ec, vtype, vis_type);
    _e_policy_wl_tz_indicator_set_client(res_tz_indicator, ec);
    ec->indicator.visible_type = vis_type;
 
@@ -6366,7 +6363,7 @@ e_policy_wl_indicator_flick_send(E_Client *ec)
    else
      surf = NULL;
 
-   ELOGF("TZ_IND", "SEND FLICK EVENT", ec->pixmap, ec);
+   ELOGF("TZ_IND", "SEND FLICK EVENT", ec);
    tizen_indicator_send_flick(tz_indicator->res_tz_indicator, surf, 0);
 }
 
@@ -6500,7 +6497,7 @@ _tz_clipboard_cb_data_only_set(struct wl_client *client, struct wl_resource *res
         ELOGF("TZPOL",
               "Unable to set data only mode for wl_client(%p) : "
               "ec_list exists",
-              NULL, NULL, client);
+              NULL, client);
         goto send_deny;
      }
 
@@ -6509,7 +6506,7 @@ _tz_clipboard_cb_data_only_set(struct wl_client *client, struct wl_resource *res
         ELOGF("TZPOL",
               "Unable to set data only mode for wl_client(%p) : "
               "no wl_data_device resource",
-              NULL, NULL, client);
+              NULL, client);
         goto send_deny;
      }
 
@@ -6533,7 +6530,7 @@ _tz_clipboard_cb_data_only_set(struct wl_client *client, struct wl_resource *res
         ELOGF("TZPOL",
               "Unable to set data only mode for wl_client(%p) : "
               "have ec(%p)",
-              NULL, NULL, client, ec);
+              NULL, client, ec);
         goto send_deny;
      }
 
@@ -6545,13 +6542,13 @@ _tz_clipboard_cb_data_only_set(struct wl_client *client, struct wl_resource *res
      {
         ELOGF("TZPOL",
               "Privilege Check Failed! DENY data_only_set",
-              NULL, NULL);
+              NULL);
         goto send_deny;
      }
 
    ELOGF("TZPOL",
          "Set data only mode :%d for wl_client(%p)",
-         NULL, NULL, set, client);
+         NULL, set, client);
    e_comp_wl_data_device_only_set(data_res, !(set == 0));
    tizen_clipboard_send_allowed_data_only(res_tz_clipboard, (uint32_t)1);
    return;
@@ -6735,7 +6732,7 @@ e_policy_wl_aux_message_send(E_Client *ec,
                                          key, val, &opt_array);
           ELOGF("TZPOL",
                 "SEND     |res_tzpol:%8p|aux message key:%s val:%s opt_count:%d",
-                ec->pixmap, ec,
+                ec,
                 tzpol->res_tzpol,
                 key, val, eina_list_count(options));
         }

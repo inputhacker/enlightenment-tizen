@@ -297,7 +297,7 @@ _e_hwc_planes_unset(E_Plane *ep)
    e_plane_ec_prepare_set(ep, NULL);
    e_plane_ec_set(ep, NULL);
 
-   ELOGF("HWC-PLNS", "unset plane %d to NULL", NULL, NULL, ep->zpos);
+   ELOGF("HWC-PLNS", "unset plane %d to NULL", NULL, ep->zpos);
 }
 
 static Eina_Bool
@@ -308,10 +308,10 @@ _e_hwc_planes_change_ec(E_Plane *ep, E_Client *new_ec)
 
    if (new_ec)
      ELOGF("HWC-PLNS", "new_ec(%s) is set on %d",
-           new_ec->pixmap, new_ec,
+           new_ec,
            e_client_util_name_get(new_ec) ? new_ec->icccm.name : "no name", ep->zpos);
    else
-     ELOGF("HWC-PLNS", "NULL is set on %d", NULL, NULL, ep->zpos);
+     ELOGF("HWC-PLNS", "NULL is set on %d", NULL, ep->zpos);
 
    return EINA_TRUE;
 }
@@ -341,7 +341,7 @@ _e_hwc_planes_changed(E_Hwc *hwc)
             ep->prepare_ec == NULL)
           {
              e_plane_reserved_set(ep, 0);
-             ELOGF("HWC-PLNS", "unset reserved mem on %d", NULL, NULL, ep->zpos);
+             ELOGF("HWC-PLNS", "unset reserved mem on %d", NULL, ep->zpos);
           }
 
         if (ep->ec != ep->prepare_ec)
@@ -362,7 +362,7 @@ _e_hwc_planes_changed(E_Hwc *hwc)
    if (hwc->hwc_mode != mode)
      {
         ELOGF("HWC-PLNS", "mode changed (from %d to %d) due to surface changes",
-              NULL, NULL,
+              NULL,
               hwc->hwc_mode, mode);
 
         if (mode == E_HWC_MODE_FULL)
@@ -382,9 +382,9 @@ _e_hwc_planes_changed(E_Hwc *hwc)
    if (ret)
      {
         if (hwc->hwc_mode == E_HWC_MODE_NONE)
-          ELOGF("HWC-PLNS", " End...  due to surface changes", NULL, NULL);
+          ELOGF("HWC-PLNS", " End...  due to surface changes", NULL);
         else
-          ELOGF("HWC-PLNS", " hwc surface changed", NULL, NULL);
+          ELOGF("HWC-PLNS", " hwc surface changed", NULL);
      }
 }
 
@@ -570,7 +570,7 @@ _e_hwc_planes_begin(E_Hwc *hwc)
 
              if (e_plane_is_fb_target(ep))
                {
-                  ELOGF("HWC-PLNS", "is set on fb_target( %d)", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
+                  ELOGF("HWC-PLNS", "is set on fb_target( %d)", ep->prepare_ec, ep->zpos);
                   mode = E_HWC_MODE_FULL;
 
                   // fb target is occupied by a client surface, means compositor disabled
@@ -578,13 +578,13 @@ _e_hwc_planes_begin(E_Hwc *hwc)
                }
              else
                {
-                  ELOGF("HWC-PLNS", "is set on %d", ep->prepare_ec->pixmap, ep->prepare_ec, ep->zpos);
+                  ELOGF("HWC-PLNS", "is set on %d", ep->prepare_ec, ep->zpos);
                   mode = E_HWC_MODE_HYBRID;
                }
           }
 
         if (mode != E_HWC_MODE_NONE)
-          ELOGF("HWC-PLNS", " Begin ...", NULL, NULL);
+          ELOGF("HWC-PLNS", " Begin ...", NULL);
      }
 
    hwc->hwc_mode = mode;
@@ -617,7 +617,7 @@ e_hwc_planes_multi_plane_set(E_Hwc *hwc, Eina_Bool set)
    e_hwc_planes_end(hwc, __FUNCTION__);
    hwc->hwc_use_multi_plane = set;
 
-   ELOGF("HWC-PLNS", "e_hwc_planes_multi_plane_set : %d", NULL, NULL, set);
+   ELOGF("HWC-PLNS", "e_hwc_planes_multi_plane_set : %d", NULL, set);
 }
 
 EINTERN Eina_Bool
@@ -665,7 +665,7 @@ end:
 
    hwc->hwc_mode = new_mode;
 
-   ELOGF("HWC-PLNS", " End...  at %s.", NULL, NULL, location);
+   ELOGF("HWC-PLNS", " End...  at %s.", NULL, location);
 }
 
 EINTERN void
@@ -720,7 +720,7 @@ e_hwc_planes_client_end(E_Hwc *hwc, E_Client *ec, const char *location)
    if ((old_hwc == E_HWC_MODE_FULL) && (new_hwc != E_HWC_MODE_FULL))
      ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
 
-   ELOGF("HWC-PLNS", " End client:%p(%s)...  at %s.", NULL, NULL, ec, e_client_util_name_get(ec), location);
+   ELOGF("HWC-PLNS", " End client:(%s)...  at %s.", ec, e_client_util_name_get(ec), location);
 
    hwc->hwc_mode = new_hwc;
 }

@@ -130,7 +130,7 @@ _e_process_client_info_del(E_Client *ec)
    if (_e_process_manager->active_win == ec)
      {
         _e_process_manager->active_win = NULL;
-        ELOGF("PROCESS", "ACTION DEACTIVATE. PID:%d", NULL, NULL, pid);
+        ELOGF("PROCESS", "ACTION DEACTIVATE. PID:%d", NULL, pid);
         _e_process_action_change(pinfo, E_PROCESS_ACT_DEACTIVATE);
      }
 
@@ -332,7 +332,7 @@ _e_process_cb_client_focus_in(void *data EINA_UNUSED, int type EINA_UNUSED, void
 
    if (change_active)
      {
-        ELOGF("PROCESS", "ACTION ACTIVATE. PID:%d", NULL, NULL, pid);
+        ELOGF("PROCESS", "ACTION ACTIVATE. PID:%d", NULL, pid);
         _e_process_action_change(pinfo, E_PROCESS_ACT_ACTIVATE);
 
         if (ec_deactive)
@@ -340,7 +340,7 @@ _e_process_cb_client_focus_in(void *data EINA_UNUSED, int type EINA_UNUSED, void
              pinfo_deactive = _e_process_find(_e_process_manager, ec_deactive->netwm.pid);
              if (pinfo_deactive)
                {
-                  ELOGF("PROCESS", "ACTION DEACTIVATE. PID:%d", NULL, NULL, pinfo_deactive->pid);
+                  ELOGF("PROCESS", "ACTION DEACTIVATE. PID:%d", NULL, pinfo_deactive->pid);
                   _e_process_action_change(pinfo_deactive, E_PROCESS_ACT_DEACTIVATE);
                }
           }
@@ -402,7 +402,7 @@ _e_process_windows_act_no_visible_update(pid_t pid)
 
    _e_process_state_change(pinfo, E_PROCESS_STATE_BACKGROUND, EINA_FALSE);
 
-   ELOGF("PROCESS", "ACTION WINDOWS_HIDDEN. PID:%d", NULL, NULL, pinfo->pid);
+   ELOGF("PROCESS", "ACTION WINDOWS_HIDDEN. PID:%d", NULL, pinfo->pid);
    _e_process_action_change(pinfo, E_PROCESS_ACT_NO_VISIBLE_WINDOWS);
 }
 
@@ -451,7 +451,7 @@ _e_process_freeze(pid_t pid)
 
    if (pinfo->state != E_PROCESS_STATE_BACKGROUND)
      {
-        ELOGF("PROCESS", "STATE  BACKGROUND. PID:%d", NULL, NULL, pid);
+        ELOGF("PROCESS", "STATE  BACKGROUND. PID:%d", NULL, pid);
         _e_process_state_change(pinfo, E_PROCESS_STATE_BACKGROUND, EINA_TRUE);
      }
 
@@ -470,7 +470,7 @@ _e_process_thaw(pid_t pid)
 
    if (pinfo->state != E_PROCESS_STATE_FOREGROUND)
      {
-        ELOGF("PROCESS", "STATE  FOREGROUND. PID:%d", NULL, NULL, pid);
+        ELOGF("PROCESS", "STATE  FOREGROUND. PID:%d", NULL, pid);
         _e_process_state_change(pinfo, E_PROCESS_STATE_FOREGROUND, EINA_TRUE);
      }
 
@@ -500,14 +500,14 @@ _e_process_state_change(E_Process *epro, E_Process_State state, Eina_Bool send_e
 
         if (state == E_PROCESS_STATE_FOREGROUND)
           {
-             ELOGF("PROCESS", "ACTION FOREGROUND. PID:%d", NULL, NULL, epro->pid);
+             ELOGF("PROCESS", "ACTION FOREGROUND. PID:%d", NULL, epro->pid);
              _e_process_action_change(epro, E_PROCESS_ACT_FOREGROUND);
           }
         else if (state == E_PROCESS_STATE_BACKGROUND)
           {
-             ELOGF("PROCESS", "ACTION WINDOWS_HIDDEN. PID:%d", NULL, NULL, epro->pid);
+             ELOGF("PROCESS", "ACTION WINDOWS_HIDDEN. PID:%d", NULL, epro->pid);
              _e_process_action_change(epro, E_PROCESS_ACT_NO_VISIBLE_WINDOWS);
-             ELOGF("PROCESS", "ACTION BACKGROUND. PID:%d", NULL, NULL, epro->pid);
+             ELOGF("PROCESS", "ACTION BACKGROUND. PID:%d", NULL, epro->pid);
              _e_process_action_change(epro, E_PROCESS_ACT_BACKGROUND);
           }
      }
@@ -675,6 +675,6 @@ e_process_state_get(pid_t pid)
    pinfo = _e_process_find(_e_process_manager, pid);
    if (!pinfo) return E_PROCESS_STATE_UNKNOWN;
 
-   ELOGF("PROCESS", "GET STATE. PID:%d, state:%d", NULL, NULL, pid, pinfo->state);
+   ELOGF("PROCESS", "GET STATE. PID:%d, state:%d", NULL, pid, pinfo->state);
    return pinfo->state;
 }

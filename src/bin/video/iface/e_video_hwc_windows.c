@@ -5,11 +5,11 @@
 #include "../e_video_internal.h"
 
 #define VER(fmt, arg...)   ELOGF("VIDEO", "<ERR> window(0x%08"PRIxPTR"): "fmt, \
-                                 evhw->ec->pixmap, evhw->ec, evhw->window, ##arg)
+                                 evhw->ec, evhw->window, ##arg)
 #define VWR(fmt, arg...)   ELOGF("VIDEO", "<WRN> window(0x%08"PRIxPTR"): "fmt, \
-                                 evhw->ec->pixmap, evhw->ec, evhw->window, ##arg)
+                                 evhw->ec, evhw->window, ##arg)
 #define VIN(fmt, arg...)   ELOGF("VIDEO", "<INF> window(0x%08"PRIxPTR"): "fmt, \
-                                 evhw->ec->pixmap, evhw->ec, evhw->window, ##arg)
+                                 evhw->ec, evhw->window, ##arg)
 #define VDB(fmt, arg...)   DBG("window(0x%08"PRIxPTR") ec(%p): "fmt, evhw->window, evhw->ec, ##arg)
 
 //#define DUMP_BUFFER

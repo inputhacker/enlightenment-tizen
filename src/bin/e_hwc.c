@@ -429,7 +429,7 @@ e_hwc_deactive_set(E_Hwc *hwc, Eina_Bool set)
    e_hwc_planes_end(hwc, __FUNCTION__);
    hwc->hwc_deactive = set;
 
-   ELOGF("HWC", "e_hwc_deactive_set : %d", NULL, NULL, set);
+   ELOGF("HWC", "e_hwc_deactive_set : %d", NULL, set);
 }
 
 EINTERN Eina_Bool

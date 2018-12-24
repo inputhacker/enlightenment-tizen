@@ -2188,7 +2188,7 @@ e_output_rotate(E_Output *output, int rotate)
                          output->info.size.w, output->info.size.h,
                          output->config.mode.refresh, 0, transform);
 
-   ELOGF("TRANSFORM", "output(%s) transform(%d)", NULL, NULL, output->info.name, transform);
+   ELOGF("TRANSFORM", "output(%s) transform(%d)", NULL, output->info.name, transform);
 
    return EINA_TRUE;
 }
@@ -3132,8 +3132,8 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
    if (!output->zoom_set) output->zoom_set = EINA_TRUE;
 
    ELOGF("ZOOM", "zoom set output:%s, zoom(x:%f, y:%f, cx:%d, cy:%d) rect(x:%d, y:%d, w:%d, h:%d)",
-       NULL, NULL, output->id, zoomx, zoomy, cx, cy,
-       output->zoom_conf.rect.x, output->zoom_conf.rect.y, output->zoom_conf.rect.w, output->zoom_conf.rect.h);
+         NULL, output->id, zoomx, zoomy, cx, cy,
+         output->zoom_conf.rect.x, output->zoom_conf.rect.y, output->zoom_conf.rect.w, output->zoom_conf.rect.h);
 
    return EINA_TRUE;
 }
@@ -3215,7 +3215,7 @@ e_output_zoom_unset(E_Output *output)
    /* update the ecore_evas */
    _e_output_render_update(output);
 
-   ELOGF("ZOOM", "e_output_zoom_unset: output:%s", NULL, NULL, output->id);
+   ELOGF("ZOOM", "e_output_zoom_unset: output:%s", NULL, output->id);
 }
 
 E_API E_Output_Hook *

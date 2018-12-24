@@ -675,7 +675,7 @@ _quickpanel_send_gesture_to_indicator(void)
    if (focused)
      {
         ELOGF("TZ_IND", "INDICATOR state:%d, opacity:%d, vtype:%d",
-              focused->pixmap, focused, focused->indicator.state, focused->indicator.opacity_mode, focused->indicator.visible_type);
+              focused, focused->indicator.state, focused->indicator.opacity_mode, focused->indicator.visible_type);
 
         if (focused->indicator.state == 2) // state: on
           {
@@ -910,7 +910,7 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
 
    if (!pos_ec)
      {
-        ELOGF("QUICKPANEL", "NO visible client under pos(%d,%d)", NULL, NULL, x, y);
+        ELOGF("QUICKPANEL", "NO visible client under pos(%d,%d)", NULL, x, y);
         return;
      }
 
@@ -950,13 +950,13 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
 
         if (!E_INSIDE(x, y, ix, iy, iw, ih))
           {
-             ELOGF("QUICKPANEL", "NOT in indicator area", NULL, NULL);
+             ELOGF("QUICKPANEL", "NOT in indicator area", NULL);
              return;
           }
 
         if (_quickpanel_send_gesture_to_indicator())
           {
-             ELOGF("QUICKPANEL", "SEND to change indicator state", NULL, NULL);
+             ELOGF("QUICKPANEL", "SEND to change indicator state", NULL);
              return;
           }
      }
@@ -1029,7 +1029,7 @@ _region_obj_cb_gesture_end(void *data EINA_UNUSED, Evas_Object *handler, int x, 
 static void
 _quickpanel_free(E_Policy_Quickpanel *qp)
 {
-   ELOGF("QUICKPANEL", "Remove Client | qp %p", qp->ec->pixmap, qp->ec, qp);
+   ELOGF("QUICKPANEL", "Remove Client | qp %p", qp->ec, qp);
 
    evas_object_event_callback_del(qp->ec->frame, EVAS_CALLBACK_SHOW, _quickpanel_client_evas_cb_show);
    evas_object_event_callback_del(qp->ec->frame, EVAS_CALLBACK_HIDE, _quickpanel_client_evas_cb_hide);
@@ -1204,7 +1204,7 @@ _quickpanel_handler_obj_region_convert_set(E_Policy_Quickpanel *qp, E_Policy_Ang
      }
 
    e_service_region_rectangle_set(qp->handler_obj, ridx, nx, ny, nw, nh);
-   ELOGF("QUICKPANEL", "handler obj:%p, angle:%d, geo(%d,%d,%d,%d)", NULL, NULL, qp->handler_obj, ridx, nx, ny, nw, nh);
+   ELOGF("QUICKPANEL", "handler obj:%p, angle:%d, geo(%d,%d,%d,%d)", NULL, qp->handler_obj, ridx, nx, ny, nw, nh);
 }
 
 static void
@@ -1216,7 +1216,7 @@ _quickpanel_handler_rect_add(E_Policy_Quickpanel *qp, E_Policy_Angle_Map ridx, i
    ec = qp->ec;
 
    ELOGF("QUICKPANEL", "Handler Geo Set | x %d, y %d, w %d, h %d",
-         NULL, NULL, x, y, w, h);
+         NULL, x, y, w, h);
 
    if (qp->handler_obj)
      goto end;
@@ -1289,7 +1289,7 @@ void _quickpanel_indi_obj_region_convert_set(E_Policy_Quickpanel *qp, int angle,
      }
 
    e_service_region_rectangle_set(qp->indi_obj, angle, nx, ny, nw, nh);
-   ELOGF("QUICKPANEL", "indicator obj:%p, angle:%d, geo(%d,%d,%d,%d)", NULL, NULL, qp->indi_obj, angle, nx, ny, nw, nh);
+   ELOGF("QUICKPANEL", "indicator obj:%p, angle:%d, geo(%d,%d,%d,%d)", NULL, qp->indi_obj, angle, nx, ny, nw, nh);
 }
 
 static void
@@ -1837,7 +1837,7 @@ e_service_quickpanel_client_add(E_Client *ec, E_Service_Quickpanel_Type type)
    qp = E_NEW(E_Policy_Quickpanel, 1);
    EINA_SAFETY_ON_NULL_RETURN(qp);
 
-   ELOGF("QUICKPANEL", "Set Client | qp %p", ec->pixmap, ec, qp);
+   ELOGF("QUICKPANEL", "Set Client | qp %p", ec, qp);
 
    qp->ec = ec;
    qp->show_block = EINA_TRUE;
@@ -1986,7 +1986,7 @@ e_service_quickpanel_scroll_lock_set(E_Client *ec, Eina_Bool lock)
    if (qp->scroll_lock == lock)
      return;
 
-   ELOGF("QUICKPANEL", "Scroll lock is set to %d", NULL, NULL, lock);
+   ELOGF("QUICKPANEL", "Scroll lock is set to %d", NULL, lock);
    qp->scroll_lock = lock;
 }
 

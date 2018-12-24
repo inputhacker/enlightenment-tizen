@@ -64,7 +64,7 @@ _tz_surface_rotation_find_with_resource(struct wl_resource *resource)
 static void
 _tz_surface_rotation_free(E_Comp_Screen_Tzsr *tzsr)
 {
-   ELOGF("TRANSFORM", "|tzsr(%p) freed", NULL, tzsr->ec, tzsr);
+   ELOGF("TRANSFORM", "|tzsr(%p) freed", tzsr->ec, tzsr);
    tzsr_list = eina_list_remove(tzsr_list, tzsr);
    free(tzsr);
 }
@@ -99,7 +99,7 @@ _tz_screen_rotation_get_ignore_output_transform(struct wl_client *client, struct
    tzsr->resource = resource;
    tzsr->ec = ec;
 
-   ELOGF("TRANSFORM", "|tzsr(%p) client_ignore(%d)", NULL, ec, tzsr, e_config->screen_rotation_client_ignore);
+   ELOGF("TRANSFORM", "|tzsr(%p) client_ignore(%d)", ec, tzsr, e_config->screen_rotation_client_ignore);
 
    tzsr_list = eina_list_append(tzsr_list, tzsr);
 
@@ -187,7 +187,7 @@ _e_comp_screen_dbus_init()
    if (e_comp_screen->rotation)
      {
         eldbus_service_signal_emit(e_comp_screen_iface, E_COMP_SCREEN_SIGNAL_ROTATION_CHANGED, e_comp_screen->rotation);
-        ELOGF("TRANSFORM", "screen-rotation sends signal: %d", NULL, NULL, e_comp_screen->rotation);
+        ELOGF("TRANSFORM", "screen-rotation sends signal: %d", NULL, e_comp_screen->rotation);
      }
 
    return;
@@ -1174,7 +1174,7 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
    if (e_comp_screen_iface)
      {
         eldbus_service_signal_emit(e_comp_screen_iface, E_COMP_SCREEN_SIGNAL_ROTATION_CHANGED, e_comp_screen->rotation);
-        ELOGF("TRANSFORM", "screen-rotation sends signal: %d", NULL, NULL, e_comp_screen->rotation);
+        ELOGF("TRANSFORM", "screen-rotation sends signal: %d", NULL, e_comp_screen->rotation);
      }
 
    INF("EE Rotated and Resized: %d, %dx%d", e_comp_screen->rotation, w, h);
@@ -1195,18 +1195,18 @@ e_comp_screen_rotation_ignore_output_transform_send(E_Client *ec, Eina_Bool igno
         /* exception */
         if (e_config->screen_rotation_client_ignore)
           {
-             ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform: client_ignore", NULL, ec, tzsr);
+             ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform: client_ignore", ec, tzsr);
              return;
           }
 
         if (e_policy_client_is_quickpanel(ec))
            {
-              ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform: quickpanel", NULL, ec, tzsr);
+              ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform: quickpanel", ec, tzsr);
               return;
            }
      }
 
-   ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform(%d)", NULL, ec, tzsr, ignore);
+   ELOGF("TRANSFORM", "|tzsr(%p) ignore_output_transform(%d)", ec, tzsr, ignore);
 
    tizen_screen_rotation_send_ignore_output_transform(tzsr->resource, ec->comp_data->surface, ignore);
 }

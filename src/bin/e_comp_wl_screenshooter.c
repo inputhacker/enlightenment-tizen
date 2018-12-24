@@ -81,7 +81,7 @@ _e_screenmirror_privilege_check(struct wl_client *client)
      {
         ELOGF("EOM",
               "Privilege Check Failed! DENY screenshot pid:%d",
-              NULL, NULL, pid);
+              NULL, pid);
         return EINA_FALSE;
      }
 

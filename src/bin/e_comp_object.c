@@ -1081,11 +1081,11 @@ _e_comp_object_animating_end(E_Comp_Object *cw)
                     {
                        if (!cw->ec->extra_animating)
                          {
-                            ELOGF("COMP", "Un-Set launching flag..", cw->ec->pixmap, cw->ec);
+                            ELOGF("COMP", "Un-Set launching flag..", cw->ec);
                             cw->ec->launching = EINA_FALSE;
                             if (cw->ec->first_mapped)
                               {
-                                 ELOGF("LAUNCH", "SHOW real win", cw->ec->pixmap, cw->ec);
+                                 ELOGF("LAUNCH", "SHOW real win", cw->ec);
                                  e_comp_object_signal_emit(cw->ec->frame, "e,action,launch_real,done", "e");
                               }
 
@@ -2054,7 +2054,7 @@ _e_comp_intercept_hide(void *data, Evas_Object *obj)
 
    if (cw->ec->launching == EINA_TRUE)
      {
-        ELOGF("COMP", "Hide. Cancel launching flag", cw->ec->pixmap, cw->ec);
+        ELOGF("COMP", "Hide. Cancel launching flag", cw->ec);
         cw->ec->launching = EINA_FALSE;
      }
 
@@ -2910,7 +2910,7 @@ _e_comp_smart_hide(Evas_Object *obj)
    /* ensure focus-out */
    if (cw->ec->focused)
      {
-        ELOGF("FOCUS", "focus unset | smart_hide", NULL, cw->ec);
+        ELOGF("FOCUS", "focus unset | smart_hide", cw->ec);
         evas_object_focus_set(cw->ec->frame, 0);
         e_client_focus_defer_unset(cw->ec);
      }
@@ -2965,7 +2965,7 @@ _e_comp_smart_show(Evas_Object *obj)
      {
         if (cw->ec->exp_iconify.by_client)
           {
-             ELOGF("COMP", "Set launching flag..", cw->ec->pixmap, cw->ec);
+             ELOGF("COMP", "Set launching flag..", cw->ec);
              cw->ec->launching = EINA_TRUE;
           }
 
@@ -2974,7 +2974,7 @@ _e_comp_smart_show(Evas_Object *obj)
    else if (!cw->showing) /* if set, client was ec->hidden during show animation */
      {
         cw->showing = 1;
-        ELOGF("COMP", "Set launching flag..", cw->ec->pixmap, cw->ec);
+        ELOGF("COMP", "Set launching flag..", cw->ec);
         cw->ec->launching = EINA_TRUE;
 
         e_comp_object_signal_emit(cw->smart_obj, "e,state,visible", "e");
@@ -5142,7 +5142,7 @@ e_comp_object_mask_set(Evas_Object *obj, Eina_Bool set)
              if (cw->visible) evas_object_show(o);
 
              cw->mask.obj = o;
-             ELOGF("COMP", "         |mask_obj", cw->ec->pixmap, cw->ec);
+             ELOGF("COMP", "         |mask_obj", cw->ec);
           }
      }
    else
@@ -5751,7 +5751,7 @@ e_comp_object_map_update(Evas_Object *obj)
      {
         if (evas_object_map_enable_get(cw->effect_obj))
           {
-             ELOGF("TRANSFORM", "map: disable", cw->ec->pixmap, cw->ec);
+             ELOGF("TRANSFORM", "map: disable", cw->ec);
              evas_object_map_enable_set(cw->effect_obj, EINA_FALSE);
              evas_object_hide(cw->map_input_obj);
           }
@@ -5792,7 +5792,7 @@ e_comp_object_map_update(Evas_Object *obj)
    p += l, remain -= l;
 
    ELOGF("TRANSFORM", "map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d=>%s)",
-         cw->ec->pixmap, cw->ec,
+         cw->ec,
          ec->x, ec->y, bw, bh, x1, y1, x2, y1, x2, y2, x1, y2, buffer);
 
    evas_object_map_set(cw->effect_obj, map);

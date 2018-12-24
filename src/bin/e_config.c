@@ -695,12 +695,12 @@ _e_config_domain_user_load(const char *domain, E_Config_DD *edd)
         _e_config_eet_close_handle(ef, buf);
         if (data)
           {
-             ELOGF("CFG", "Loaded %s", NULL, NULL, buf);
+             ELOGF("CFG", "Loaded %s", NULL, buf);
              return data;
           }
      }
 
-   ELOGF("CFG", "Could not load %s", NULL, NULL, buf);
+   ELOGF("CFG", "Could not load %s", NULL, buf);
 
    return data;
 }
@@ -734,7 +734,7 @@ e_config_domain_load(const char *domain, E_Config_DD *edd)
           }
         if (data) return data;
 
-        ELOGF("CFG", "Enlightenment has an error again while loading domain %s", NULL, NULL, domain);
+        ELOGF("CFG", "Enlightenment has an error again while loading domain %s", NULL, domain);
      }
 
    return e_config_domain_system_load(domain, edd);
@@ -756,14 +756,14 @@ e_config_domain_system_load(const char *domain, E_Config_DD *edd)
         _e_config_eet_close_handle(ef, buf);
         if (data)
           {
-             ELOGF("CFG", "Loaded %s", NULL, NULL, buf);
+             ELOGF("CFG", "Loaded %s", NULL, buf);
              return data;
           }
 
-        ELOGF("CFG", "Could not read data %s", NULL, NULL, buf);
+        ELOGF("CFG", "Could not read data %s", NULL, buf);
      }
 
-   ELOGF("CFG", "Could not load %s", NULL, NULL, buf);
+   ELOGF("CFG", "Could not load %s", NULL, buf);
 
    return data;
 }
@@ -1143,7 +1143,7 @@ _e_config_eet_close_handle(Eet_File *ef, char *file)
           }
         return 0;
 #else
-        ELOGF("CFG", "EET ERROR %s", NULL, NULL, erstr);
+        ELOGF("CFG", "EET ERROR %s", NULL, erstr);
         return 0;
 #endif
      }

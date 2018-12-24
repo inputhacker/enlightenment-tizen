@@ -63,12 +63,12 @@ _e_policy_stack_transient_for_apply(E_Client *ec)
      {
         ELOGF("TZPOL",
               "Fetch for statck transient_for was successfully intercepted",
-              ec->pixmap, ec);
+              ec);
         return;
      }
 
    ELOGF("TZPOL", "Fetch for stack transient_for. ec_layer:%d, parent(win:%zx, ec:%p, layer:%d)",
-         ec->pixmap, ec, ec->layer, e_client_util_win_get(ec->parent), ec->parent, ec->parent ? ec->parent->layer:-1);
+         ec, ec->layer, e_client_util_win_get(ec->parent), ec->parent, ec->parent ? ec->parent->layer:-1);
 
    if (ec->parent == NULL)
      {
@@ -76,7 +76,7 @@ _e_policy_stack_transient_for_apply(E_Client *ec)
         if (ec->layer == ec->saved.layer)
           return;
 
-        ELOGF("TZPOL", "Fetch(restore) for stack transient_for. Restore layer(%d->%d)", ec->pixmap, ec, ec->layer, ec->saved.layer);
+        ELOGF("TZPOL", "Fetch(restore) for stack transient_for. Restore layer(%d->%d)", ec, ec->layer, ec->saved.layer);
         evas_object_layer_set(ec->frame, ec->saved.layer);
 
         return;
@@ -170,7 +170,7 @@ _e_policy_stack_fetch_transient(E_Client *ec)
                             new_focus = e_client_transient_child_top_get(ec->parent, EINA_TRUE);
                             if (new_focus)
                               {
-                                 ELOGF("FOCUS", "focus set | tranient_for fetch", NULL, new_focus);
+                                 ELOGF("FOCUS", "focus set | tranient_for fetch", new_focus);
                                  evas_object_focus_set(new_focus->frame, 1);
                               }
                          }
@@ -463,7 +463,7 @@ e_policy_stack_clients_restack_above_lockscreen(E_Client *ec_lock, Eina_Bool sho
                   EINA_LIST_FOREACH(restore_list, l, ec)
                     {
                        org_layer = ec->changable_layer[E_CHANGABLE_LAYER_TYPE_ABOVE_NOTIFICATION].saved_layer;
-                       ELOGF("CHANGE to Original layer", "AboveLock|layer: %d -> %d", ec->pixmap, ec, ec->layer, org_layer);
+                       ELOGF("CHANGE to Original layer", "AboveLock|layer: %d -> %d", ec, ec->layer, org_layer);
                        evas_object_layer_set(ec->frame, org_layer);
                        ec->layer = org_layer;
 
@@ -527,7 +527,7 @@ e_policy_stack_clients_restack_above_lockscreen(E_Client *ec_lock, Eina_Bool sho
                        ec->changable_layer[E_CHANGABLE_LAYER_TYPE_ABOVE_NOTIFICATION].saved_layer = ec->layer;
                     }
 
-                  ELOGF("CHANGE to Lockscreen layer", "AboveLock|layer: %d -> %d", ec->pixmap, ec, ec->layer, lock_layer);
+                  ELOGF("CHANGE to Lockscreen layer", "AboveLock|layer: %d -> %d", ec, ec->layer, lock_layer);
                   if (ec->layer == lock_layer)
                     evas_object_raise(ec->frame);
                   else
@@ -565,7 +565,7 @@ e_policy_stack_check_above_lockscreen(E_Client *ec, E_Layer layer, E_Layer *new_
 
              if (set_layer)
                {
-                  ELOGF("CHANGE to Lockscreen layer", "AboveLock|layer: %d -> %d", ec->pixmap, ec, ec->layer, lock_layer);
+                  ELOGF("CHANGE to Lockscreen layer", "AboveLock|layer: %d -> %d", ec, ec->layer, lock_layer);
                   if (ec->layer == lock_layer)
                     evas_object_raise(ec->frame);
                   else
@@ -582,7 +582,7 @@ e_policy_stack_check_above_lockscreen(E_Client *ec, E_Layer layer, E_Layer *new_
                {
                   if (ec->layer != layer)
                     {
-                       ELOGF("CHANGE to Lockscreen layer", "AboveLock|layer: %d -> %d", ec->pixmap, ec, ec->layer, lock_layer);
+                       ELOGF("CHANGE to Lockscreen layer", "AboveLock|layer: %d -> %d", ec, ec->layer, lock_layer);
                        evas_object_layer_set(ec->frame, lock_layer);
                        ec->layer = lock_layer;
                     }

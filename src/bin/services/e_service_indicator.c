@@ -24,7 +24,7 @@ _indicator_cb_rot_begin(void *data EINA_UNUSED, int type EINA_UNUSED, void *even
      {
         if (ec->e.state.rot.ang.next != -1)
           {
-             ELOGF("TZ_IND", "Rotation begins.(ec:%s) Set indicator's angle to next angle:%d", ec->pixmap, ec, ec->icccm.name?:"NULL", ec->e.state.rot.ang.next);
+             ELOGF("TZ_IND", "Rotation begins.(ec:%s) Set indicator's angle to next angle:%d", ec, ec->icccm.name?:"NULL", ec->e.state.rot.ang.next);
              _ind_angle = ec->e.state.rot.ang.next;
              e_tzsh_indicator_srv_property_change_send(ec, ec->e.state.rot.ang.next);
           }
@@ -47,7 +47,7 @@ _indicator_cb_rot_done(void *data EINA_UNUSED, int type EINA_UNUSED, void *event
      {
         if (_ind_angle != ec->e.state.rot.ang.curr)
           {
-             ELOGF("TZ_IND", "Rotation is done.(ec:%s) Set indicator's angle to curr angle:%d", ec->pixmap, ec, ec->icccm.name?:"NULL", ec->e.state.rot.ang.curr);
+             ELOGF("TZ_IND", "Rotation is done.(ec:%s) Set indicator's angle to curr angle:%d", ec, ec->icccm.name?:"NULL", ec->e.state.rot.ang.curr);
              _ind_angle = ec->e.state.rot.ang.curr;
              e_tzsh_indicator_srv_property_change_send(ec, ec->e.state.rot.ang.curr);
           }
@@ -98,7 +98,7 @@ e_mod_indicator_client_set(E_Client *ec)
 
    if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
 
-   ELOGF("TZ_IND", "Set indicator service", ec->pixmap, ec);
+   ELOGF("TZ_IND", "Set indicator service", ec);
 
    e_client_window_role_set(ec, "indicator");
 

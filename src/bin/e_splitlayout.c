@@ -419,7 +419,7 @@ e_splitlayout_add(E_Desk *desk)
    INF("%s bg - x(%d) y(%d) w(%d) h(%d)", __FUNCTION__ , eo_x, eo_y, eo_w, eo_h);
 #endif
 
-   ELOGF("SPLIT", "Added Split layout", NULL, NULL);
+   ELOGF("SPLIT", "Added Split layout", NULL);
 
    return sd->obj;
 }

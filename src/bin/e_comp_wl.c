@@ -431,7 +431,7 @@ e_comp_wl_map_apply(E_Client *ec)
    e_util_transform_texcoord_set(cdata->viewport_transform, 3, x1, y2);
 
    ELOGF("TRANSFORM", "viewport map: point(%d,%d %dx%d) uv(%d,%d %d,%d %d,%d %d,%d)",
-         ec->pixmap, ec, ec->x, ec->y, ec->comp_data->width_from_viewport,
+         ec, ec->x, ec->y, ec->comp_data->width_from_viewport,
          ec->comp_data->height_from_viewport, x1, y1, x2, y1, x2, y2, x1, y2);
 
    e_client_transform_core_update(ec);
@@ -2501,7 +2501,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
              EC_CHANGED(ec);
              ec->new_client = 1;
              e_comp->new_clients++;
-             ELOGF("COMP", "Unignore", ec->pixmap, ec);
+             ELOGF("COMP", "Unignore", ec);
              e_client_unignore(ec);
           }
      }
@@ -2514,7 +2514,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
         state->buffer_viewport.changed = EINA_TRUE;
 
         ELOGF("TRANSFORM", "buffer_transform changed: old(%d) new(%d)",
-              ec->pixmap, ec,
+              ec,
               vp->buffer.transform, state->buffer_viewport.buffer.transform);
 
         if (transform_change == vp->wait_for_transform_change)
@@ -2586,7 +2586,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
              if ((ec->comp_data->shell.surface) &&
                  (ec->comp_data->shell.unmap))
                {
-                  ELOGF("COMP", "Try to unmap. Call shell.unmap.", ec->pixmap, ec);
+                  ELOGF("COMP", "Try to unmap. Call shell.unmap.", ec);
                   ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
                }
              else if ((ec->internal) ||
@@ -2594,7 +2594,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
                       (ec == e_comp_wl->drag_client))
                {
                   ELOGF("COMP", "Try to unmap. Hide window. internal:%d, sub:%p, drag:%d",
-                        ec->pixmap, ec, ec->internal, ec->comp_data->sub.data, (ec == e_comp_wl->drag_client));
+                        ec, ec->internal, ec->comp_data->sub.data, (ec == e_comp_wl->drag_client));
                   ec->visible = EINA_FALSE;
                   evas_object_hide(ec->frame);
                   ec->comp_data->mapped = 0;
@@ -2616,7 +2616,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
                  (ec->comp_data->shell.map) &&
                  (!ec->ignored))
                {
-                  ELOGF("COMP", "Try to map. Call shell.map.", ec->pixmap, ec);
+                  ELOGF("COMP", "Try to map. Call shell.map.", ec);
                   ec->comp_data->shell.map(ec->comp_data->shell.surface);
                }
              else if ((ec->internal) ||
@@ -2624,7 +2624,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
                       (ec == e_comp_wl->drag_client))
                {
                   ELOGF("COMP", "Try to map. Show window. internal:%d, drag:%d",
-                        ec->pixmap, ec, ec->internal, (ec == e_comp_wl->drag_client));
+                        ec, ec->internal, (ec == e_comp_wl->drag_client));
                   ec->visible = EINA_TRUE;
                   ec->ignored = 0;
                   evas_object_show(ec->frame);
@@ -2871,7 +2871,7 @@ _e_comp_wl_surface_cb_attach(struct wl_client *client EINA_UNUSED, struct wl_res
         if (ec->comp_data->shell.surface &&
             !ec->internal && !ec->comp_data->sub.data && !ec->remote_surface.provider)
           {
-             ELOGF("COMP", "Current unmapped. ATTACH buffer:%p", ec->pixmap, ec, buffer);
+             ELOGF("COMP", "Current unmapped. ATTACH buffer:%p", ec, buffer);
           }
      }
 
@@ -3005,7 +3005,7 @@ _e_comp_wl_surface_cb_input_region_set(struct wl_client *client EINA_UNUSED, str
 
         if (eina_tiler_empty(tmp))
           {
-             ELOGF("COMP", "         |unset input rect", NULL, NULL);
+             ELOGF("COMP", "         |unset input rect", NULL);
              e_comp_object_input_objs_del(ec->frame);
              e_comp_object_input_area_set(ec->frame, -1, -1, 1, 1);
           }
@@ -3033,7 +3033,7 @@ _e_comp_wl_surface_cb_commit(struct wl_client *client EINA_UNUSED, struct wl_res
         if (ec->comp_data->shell.surface && ec->comp_data->pending.new_attach &&
             !ec->internal && !ec->comp_data->sub.data && !ec->remote_surface.provider)
           {
-             ELOGF("COMP", "Current unmapped. COMMIT. pixmap_usable:%d", ec->pixmap, ec, e_pixmap_usable_get(ec->pixmap));
+             ELOGF("COMP", "Current unmapped. COMMIT. pixmap_usable:%d", ec, e_pixmap_usable_get(ec->pixmap));
           }
      }
 
@@ -3413,7 +3413,7 @@ _e_comp_wl_pname_print(pid_t pid)
 
    fclose(h);
 
-   ELOGF("COMP", "         |%s", NULL, NULL, pname);
+   ELOGF("COMP", "         |%s", NULL, pname);
 }
 
 
@@ -3434,7 +3434,7 @@ _e_comp_wl_compositor_cb_unbind(struct wl_resource *res_comp)
 
    ELOGF("COMP",
          "UNBIND   |res_comp:%8p|client:%8p|%d|%d|%d",
-         NULL, NULL,
+         NULL,
          res_comp,
          client,
          pid, uid, gid);
@@ -3483,7 +3483,7 @@ _e_comp_wl_compositor_cb_bind(struct wl_client *client, void *data EINA_UNUSED, 
 
    ELOGF("COMP",
          "BIND     |res_comp:%8p|client:%8p|%d|%d|%d",
-         NULL, NULL,
+         NULL,
          res,
          client,
          pid, uid, gid);
@@ -3602,7 +3602,7 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
         ec->comp_data->sub.below_obj = evas_object_rectangle_add(e_comp->evas);
         EINA_SAFETY_ON_NULL_RETURN(ec->comp_data->sub.below_obj);
 
-        ELOGF("COMP", "         |bg_rectangle(%p) created", NULL, ec, ec->comp_data->sub.below_obj);
+        ELOGF("COMP", "         |bg_rectangle(%p) created", ec, ec->comp_data->sub.below_obj);
 
         layer = evas_object_layer_get(ec->frame);
         evas_object_layer_set(ec->comp_data->sub.below_obj, layer);
@@ -4013,9 +4013,9 @@ e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_
    ec->no_shape_cut = EINA_TRUE;
    ec->border_size = 0;
 
-   ELOGF("COMP", "         |subsurface_parent:%p", NULL, ec, epc);
+   ELOGF("COMP", "         |subsurface_parent:%p", ec, epc);
    if (offscreen_parent)
-     ELOGF("COMP", "         |offscreen_parent:%p", NULL, ec, offscreen_parent);
+     ELOGF("COMP", "         |offscreen_parent:%p", ec, offscreen_parent);
 
    if (epc)
      {
@@ -4488,7 +4488,7 @@ _e_comp_wl_client_usable_get(pid_t pid, E_Pixmap *ep)
              if (!ec->comp_data) return NULL;
              _e_comp_wl_client_evas_init(ec);
 
-             ELOGF("COMP", "Reusable ec. new_pixmap:%p", ec->pixmap, ec, ec->pixmap);
+             ELOGF("COMP", "Reusable ec. new_pixmap:%p", ec, ec->pixmap);
              _e_comp_wl_hook_call(E_COMP_WL_HOOK_CLIENT_REUSE, ec);
           }
      }
@@ -5007,14 +5007,14 @@ e_comp_wl_surface_commit(E_Client *ec)
           {
              if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.unmap))
                {
-                  ELOGF("COMP", "Try to unmap2. Call shell.unmap.", ec->pixmap, ec);
+                  ELOGF("COMP", "Try to unmap2. Call shell.unmap.", ec);
                   ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
                }
              else if (e_client_has_xwindow(ec) || ec->internal || ec->comp_data->sub.data ||
                       (ec == e_comp_wl->drag_client))
                {
                   ELOGF("COMP", "Try to unmap2. Hide window. internal:%d, sub:%p, drag:%d",
-                        ec->pixmap, ec, ec->internal, ec->comp_data->sub.data, (ec == e_comp_wl->drag_client));
+                        ec, ec->internal, ec->comp_data->sub.data, (ec == e_comp_wl->drag_client));
                   ec->visible = EINA_FALSE;
                   evas_object_hide(ec->frame);
                   ec->comp_data->mapped = 0;
@@ -5031,14 +5031,14 @@ e_comp_wl_surface_commit(E_Client *ec)
              if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.map) &&
                  (!ec->ignored))
                {
-                  ELOGF("COMP", "Try to map2. Call shell.map.", ec->pixmap, ec);
+                  ELOGF("COMP", "Try to map2. Call shell.map.", ec);
                   ec->comp_data->shell.map(ec->comp_data->shell.surface);
                }
              else if (e_client_has_xwindow(ec) || ec->internal || _e_comp_wl_subsurface_can_show(ec) ||
                       (ec == e_comp_wl->drag_client))
                {
                   ELOGF("COMP", "Try to map2. Show window. internal:%d, drag:%d",
-                        ec->pixmap, ec, ec->internal, (ec == e_comp_wl->drag_client));
+                        ec, ec->internal, (ec == e_comp_wl->drag_client));
                   ec->visible = EINA_TRUE;
                   ec->ignored = 0;
                   evas_object_show(ec->frame);
@@ -6336,7 +6336,7 @@ e_comp_wl_commit_sync_client_geometry_add(E_Client *ec,
    return EINA_TRUE;
 
 err:
-   ELOGF("POSSIZE", "Could not add geometry(new:%d full:%d max:%d)", ec->pixmap, ec, ec->new_client, ec->fullscreen, ec->maximized);
+   ELOGF("POSSIZE", "Could not add geometry(new:%d full:%d max:%d)", ec, ec->new_client, ec->fullscreen, ec->maximized);
 
 ret:
    return EINA_FALSE;
@@ -6425,7 +6425,7 @@ e_comp_wl_commit_sync_configure(E_Client *ec)
           }
 
         if (change)
-          ELOGF("POSSIZE", "Configure pending geometry mode:%d(%d,%d - %dx%d)", ec->pixmap, ec, change, ec->x, ec->y, ec->w, ec->h);
+          ELOGF("POSSIZE", "Configure pending geometry mode:%d(%d,%d - %dx%d)", ec, change, ec->x, ec->y, ec->w, ec->h);
      }
 
    // cw interceptor(move,resize) won't work if wait_commit is TRUE
@@ -6446,7 +6446,7 @@ e_comp_wl_commit_sync_configure(E_Client *ec)
    return EINA_TRUE;
 
 err:
-   ELOGF("POSSIZE", "Could not configure geometry (%d,%d - %dx%d) bw:%d bh:%d", ec->pixmap, ec, ec->x, ec->y, ec->w, ec->h, bw, bh);
+   ELOGF("POSSIZE", "Could not configure geometry (%d,%d - %dx%d) bw:%d bh:%d", ec, ec->x, ec->y, ec->w, ec->h, bw, bh);
 
 ret:
    return EINA_FALSE;
@@ -6478,7 +6478,7 @@ _tz_move_resize_iface_cb_set_geometry(struct wl_client *client EINA_UNUSED,
    return;
 
 err:
-   ELOGF("POSSIZE", "Could not add set_geometry request(serial:%d, %d,%d - %dx%d)", ec->pixmap, ec, serial, x, y, w, h);
+   ELOGF("POSSIZE", "Could not add set_geometry request(serial:%d, %d,%d - %dx%d)", ec, serial, x, y, w, h);
 }
 
 static const struct tizen_move_resize_interface _tz_move_resize_iface =

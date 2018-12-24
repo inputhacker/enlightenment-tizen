@@ -183,7 +183,7 @@ _e_policy_check_transient_child_visible(E_Client *ancestor_ec, E_Client *ec)
              if (child_ec->visibility.obscured == E_VISIBILITY_UNOBSCURED)
                {
                   ELOGF("Find visible child", "ancestor(win:0x%08zx, ec:%p), child(win:0x%08zx, ec:%p)",
-                        ec->pixmap, ec,
+                        ec,
                         e_client_util_win_get(ancestor_ec), ancestor_ec,
                         e_client_util_win_get(child_ec), child_ec);
                   return EINA_TRUE;
@@ -196,7 +196,7 @@ _e_policy_check_transient_child_visible(E_Client *ancestor_ec, E_Client *ec)
                        if (E_CONTAINS(child_x, child_y, child_w, child_h, anc_x, anc_y, anc_w, anc_h))
                          {
                             ELOGF("Find visible child", "ancestor(win:0x%08zx, ec:%p), child(win:0x%08zx, ec:%p)",
-                                  ec->pixmap, ec,
+                                  ec,
                                   e_client_util_win_get(ancestor_ec), ancestor_ec,
                                   e_client_util_win_get(child_ec), child_ec);
                             return EINA_TRUE;
@@ -210,7 +210,7 @@ _e_policy_check_transient_child_visible(E_Client *ancestor_ec, E_Client *ec)
                  (child_ec->visibility.obscured == E_VISIBILITY_UNOBSCURED))
                {
                   ELOGF("Find visible child", "ancestor(win:0x%08zx, ec:%p), child(win:0x%08zx, ec:%p)",
-                        ec->pixmap, ec,
+                        ec,
                         e_client_util_win_get(ancestor_ec), ancestor_ec,
                         e_client_util_win_get(child_ec), child_ec);
                   return EINA_TRUE;
@@ -298,13 +298,13 @@ _e_policy_client_iconify_by_visibility(E_Client *ec)
 
    if (skip_iconify)
      {
-        ELOGF("SKIP.. ICONIFY_BY_WM", "win:0x%08zx cause_type:%d", ec->pixmap, ec, e_client_util_win_get(ec), skip_iconify);
+        ELOGF("SKIP.. ICONIFY_BY_WM", "win:0x%08zx cause_type:%d", ec, e_client_util_win_get(ec), skip_iconify);
         if (pol_vis)
           _e_vis_update_forground_list();
         return;
      }
 
-   ELOGF("ICONIFY_BY_WM", "win:0x%08zx", ec->pixmap, ec, e_client_util_win_get(ec));
+   ELOGF("ICONIFY_BY_WM", "win:0x%08zx", ec, e_client_util_win_get(ec));
    e_policy_wl_iconify_state_change_send(ec, 1);
    e_client_iconify(ec);
 
@@ -352,7 +352,7 @@ _e_policy_client_ancestor_uniconify(E_Client *ec)
         if (count > 10)
           {
              // something strange state.
-             ELOGF("CHECK transient_for tree", "win:0x%08zx, parent:0x%08zx", NULL, NULL, e_client_util_win_get(ec), e_client_util_win_get(parent));
+             ELOGF("CHECK transient_for tree", "win:0x%08zx, parent:0x%08zx", NULL, e_client_util_win_get(ec), e_client_util_win_get(parent));
              break;
           }
 
@@ -366,7 +366,7 @@ _e_policy_client_ancestor_uniconify(E_Client *ec)
         if (eina_list_data_find(list, parent))
           {
              // very bad. there are loop for parenting
-             ELOGF("Very BAD. Circling transient_for window", "win:0x%08zx, parent:0x%08zx", NULL, NULL, e_client_util_win_get(ec), e_client_util_win_get(parent));
+             ELOGF("Very BAD. Circling transient_for window", "win:0x%08zx, parent:0x%08zx", NULL, e_client_util_win_get(ec), e_client_util_win_get(parent));
              break;
           }
 
@@ -383,7 +383,7 @@ _e_policy_client_ancestor_uniconify(E_Client *ec)
    parent = NULL;
    EINA_LIST_FOREACH(list, l, parent)
      {
-        ELOGF("UNICONIFY_BY_WM", "parent_win:0x%08zx", parent->pixmap, parent, e_client_util_win_get(parent));
+        ELOGF("UNICONIFY_BY_WM", "parent_win:0x%08zx", parent, e_client_util_win_get(parent));
         ret = e_policy_visibility_client_uniconify(parent, 0);
         if (!ret)
           {
@@ -439,7 +439,7 @@ _e_policy_client_uniconify_by_visibility(E_Client *ec)
 
    _e_policy_client_ancestor_uniconify(ec);
 
-   ELOGF("UNICONIFY_BY_WM", "win:0x%08zx", ec->pixmap, ec, e_client_util_win_get(ec));
+   ELOGF("UNICONIFY_BY_WM", "win:0x%08zx", ec, e_client_util_win_get(ec));
    ret = e_policy_visibility_client_uniconify(ec, 0);
    if (!ret)
      {
@@ -1160,7 +1160,7 @@ e_vis_client_send_pre_visibility_event(E_Client *ec)
    intercepted = e_policy_interceptor_call(E_POLICY_INTERCEPT_SEND_PRE_VISIBILITY, ec);
    if (intercepted)
      {
-        ELOGF("POL_VIS", "Handled by Intercept function", ec->pixmap, ec);
+        ELOGF("POL_VIS", "Handled by Intercept function", ec);
         return;
      }
 
@@ -1176,7 +1176,7 @@ e_vis_client_check_send_pre_visibility_event(E_Client *ec, Eina_Bool raise)
 
    if (_e_vis_client_check_send_pre_visibility(vc, raise))
      {
-        ELOGF("POL_VIS", "SEND pre-unobscured visibility event", ec->pixmap, ec);
+        ELOGF("POL_VIS", "SEND pre-unobscured visibility event", ec);
         e_vis_client_send_pre_visibility_event(ec);
      }
 }
@@ -1221,7 +1221,7 @@ _e_vis_client_check_obscured_by_children(E_Client *ec)
         if (!child->argb)
           {
              ELOGF("POL_VIS", "Fully Obscured by child (win:%zx, child:%p)",
-                   ec->pixmap, ec, e_client_util_win_get(child), child);
+                   ec, e_client_util_win_get(child), child);
              obscured = EINA_TRUE;
              break;
           }
@@ -1230,7 +1230,7 @@ _e_vis_client_check_obscured_by_children(E_Client *ec)
              if (child->visibility.opaque > 0)
                {
                   ELOGF("POL_VIS", "Fully Obscured by alpha opaque child (win:%zx, child:%p)",
-                        ec->pixmap, ec, e_client_util_win_get(child), child);
+                        ec, e_client_util_win_get(child), child);
                   obscured = EINA_TRUE;
                   break;
                }
@@ -1259,7 +1259,7 @@ _e_vis_client_check_obscured_by_same_layer(E_Client *ec)
         if (!above->argb)
           {
              ELOGF("POL_VIS", "Fully Obscured by above (win:%zx, ec:%p, layer:%d)",
-                   ec->pixmap, ec, e_client_util_win_get(above), above, above->layer);
+                   ec, e_client_util_win_get(above), above, above->layer);
              obscured = EINA_TRUE;
              break;
           }
@@ -1270,7 +1270,7 @@ _e_vis_client_check_obscured_by_same_layer(E_Client *ec)
              else
                {
                   ELOGF("POL_VIS", "Fully Obscured by alpha opaque above (win:%zx, ec:%p, layer:%d)",
-                        ec->pixmap, ec, e_client_util_win_get(above), above, above->layer);
+                        ec, e_client_util_win_get(above), above, above->layer);
                   obscured = EINA_TRUE;
                   break;
                }
@@ -1299,7 +1299,7 @@ _e_vis_client_check_obscured_by_above_layers(E_Client *ec)
         if (!above->argb)
           {
              ELOGF("POL_VIS", "Fully Obscured by above (win:%zx, ec:%p, layer:%d)",
-                   ec->pixmap, ec, e_client_util_win_get(above), above, above->layer);
+                   ec, e_client_util_win_get(above), above, above->layer);
              obscured = EINA_TRUE;
              break;
           }
@@ -1310,7 +1310,7 @@ _e_vis_client_check_obscured_by_above_layers(E_Client *ec)
              else
                {
                   ELOGF("POL_VIS", "Fully Obscured by alpha opaque above (win:%zx, ec:%p, layer:%d)",
-                        ec->pixmap, ec, e_client_util_win_get(above), above, above->layer);
+                        ec, e_client_util_win_get(above), above, above->layer);
                   obscured = EINA_TRUE;
                   break;
                }
@@ -1337,7 +1337,7 @@ _e_vis_client_check_send_pre_visibility(E_Vis_Client *vc, Eina_Bool raise)
    // check all windows on above layers, if obscured by above then return FALSE
    if (_e_vis_client_check_obscured_by_above_layers(ec))
      {
-        ELOGF("POL_VIS", "DO NOT Need to SEND pre-visibility.. obscured by above (above layer)", ec->pixmap, ec);
+        ELOGF("POL_VIS", "DO NOT Need to SEND pre-visibility.. obscured by above (above layer)", ec);
         return EINA_FALSE;
      }
 
@@ -1346,7 +1346,7 @@ _e_vis_client_check_send_pre_visibility(E_Vis_Client *vc, Eina_Bool raise)
         // check above windows in same layer
         if (_e_vis_client_check_obscured_by_same_layer(ec))
           {
-             ELOGF("POL_VIS", "DO NOT Need to SEND pre-visibility.. obscured by above (same layer)", ec->pixmap, ec);
+             ELOGF("POL_VIS", "DO NOT Need to SEND pre-visibility.. obscured by above (same layer)", ec);
              send_vis_event = EINA_FALSE;
           }
      }
@@ -1357,7 +1357,7 @@ _e_vis_client_check_send_pre_visibility(E_Vis_Client *vc, Eina_Bool raise)
              // check children windows
              if (_e_vis_client_check_obscured_by_children(ec))
                {
-                  ELOGF("POL_VIS", "DO NOT Need to SEND pre-visibility.. obscured by child", ec->pixmap, ec);
+                  ELOGF("POL_VIS", "DO NOT Need to SEND pre-visibility.. obscured by child", ec);
                   send_vis_event = EINA_FALSE;
                }
           }
@@ -1382,7 +1382,7 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
 
    if (ec->comp_data && !ec->comp_data->mapped)
      {
-        ELOGF("POL_VIS", "Not mapped. no need to uniconify render.", ec->pixmap, ec);
+        ELOGF("POL_VIS", "Not mapped. no need to uniconify render.", ec);
         return EINA_FALSE;
      }
 
@@ -1403,7 +1403,7 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
 
    if (send_vis_event)
      {
-        ELOGF("POL_VIS", "SEND pre-unobscured visibility event", ec->pixmap, ec);
+        ELOGF("POL_VIS", "SEND pre-unobscured visibility event", ec);
         e_vis_client_send_pre_visibility_event(ec);
      }
 
@@ -1701,7 +1701,7 @@ _e_vis_ec_below_uniconify(E_Client *ec, E_Pol_Vis_Type above_vis_type)
                        continue;
                     }
 
-                  ELOGF("POL_VIS", "SEND pre-unobscured visibility event", below_ec->pixmap, below_ec);
+                  ELOGF("POL_VIS", "SEND pre-unobscured visibility event", below_ec);
                   e_vis_client_send_pre_visibility_event(below_ec);
                }
 
@@ -1875,11 +1875,11 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
                     {
                        if (e_policy_visibility_client_is_uniconic(topmost))
                          {
-                            ELOGF("COMP", "Already child(win:0x%08zx ec:%p) uniconify_render done..", ec->pixmap, ec, e_client_util_win_get(topmost), topmost);
+                            ELOGF("COMP", "Already child(win:0x%08zx ec:%p) uniconify_render done..", ec, e_client_util_win_get(topmost), topmost);
                             return EINA_TRUE;
                          }
 
-                       ELOGF("COMP", "Set launching flag..", topmost->pixmap, topmost);
+                       ELOGF("COMP", "Set launching flag..", topmost);
                        topmost->launching = EINA_TRUE;
 
                        vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD;
@@ -2134,7 +2134,7 @@ e_policy_visibility_client_uniconify(E_Client *ec, Eina_Bool raise)
 
    if (!ec->visible)
      {
-        ELOGF("POL", "UNICONIFY. but NOT MAPPED. So skip...", ec->pixmap, ec);
+        ELOGF("POL", "UNICONIFY. but NOT MAPPED. So skip...", ec);
         return EINA_FALSE;
      }
 

@@ -363,7 +363,7 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
         //TODO: save original values
         if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.unmap))
           {
-             ELOGF("COMP", "Call shell.unmap by rsm", ec->pixmap, ec);
+             ELOGF("COMP", "Call shell.unmap by rsm", ec);
              ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
           }
         else
@@ -896,7 +896,7 @@ _remote_surface_ignore_output_transform_send(E_Comp_Wl_Remote_Common *common)
 ignore:
    if (common->ignore_output_transform != EINA_TRUE)
      {
-        ELOGF("TRANSFORM", "ignore output transform: %s", common->ec->pixmap, common->ec, msg);
+        ELOGF("TRANSFORM", "ignore output transform: %s", common->ec, msg);
         e_comp_screen_rotation_ignore_output_transform_send(common->ec, EINA_TRUE);
         common->ignore_output_transform = EINA_TRUE;
      }
@@ -905,7 +905,7 @@ ignore:
 no_ignore:
    if (common->ignore_output_transform != EINA_FALSE)
      {
-        ELOGF("TRANSFORM", "not ignore output transform: %s", common->ec->pixmap, common->ec, msg);
+        ELOGF("TRANSFORM", "not ignore output transform: %s", common->ec, msg);
         e_comp_screen_rotation_ignore_output_transform_send(common->ec, EINA_FALSE);
         common->ignore_output_transform = EINA_FALSE;
      }
@@ -3001,7 +3001,7 @@ _remote_manager_cb_surface_create(struct wl_client *client,
           {
              ELOGF("TRS",
                    "Privilege Check Failed! DENY creating tizen_remote_surface pid:%d",
-                   NULL, NULL, pid);
+                   NULL, pid);
              goto fail;
           }
 
@@ -3438,7 +3438,7 @@ _e_comp_wl_remote_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *st
         int transform_change = (4 + state->buffer_viewport.buffer.transform - vp->buffer.transform) & 0x3;
 
         ELOGF("TRANSFORM", "buffer_transform changed: old(%d) new(%d)",
-              ec->pixmap, ec,
+              ec,
               vp->buffer.transform, state->buffer_viewport.buffer.transform);
 
         if (transform_change == vp->wait_for_transform_change)

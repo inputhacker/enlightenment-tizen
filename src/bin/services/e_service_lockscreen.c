@@ -7,7 +7,7 @@ e_service_lockscreen_client_set(E_Client *ec)
    if (!ec) return EINA_TRUE;
    if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
 
-   ELOGF("LOCKSCREEN","Set Client", ec->pixmap, ec);
+   ELOGF("LOCKSCREEN","Set Client", ec);
 
    e_client_window_role_set(ec, "lockscreen");
 
