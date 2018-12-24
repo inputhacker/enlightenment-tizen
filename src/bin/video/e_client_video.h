@@ -15,6 +15,10 @@ struct _E_Client_Video_Info
    tdm_transform transform;
 };
 
+typedef Eina_Bool       (*E_Client_Video_Info_Get_Cb)(E_Client *ec, E_Client_Video_Info *info);
+typedef Eina_Bool       (*E_Client_Video_Commit_Data_Release_Cb)(E_Client *ec, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec);
+typedef tbm_surface_h   (*E_Client_Video_Tbm_Surface_Get_Cb)(E_Client *ec);
+
 EINTERN Eina_Bool    e_client_video_set(E_Client *ec);
 EINTERN void         e_client_video_unset(E_Client *ec);
 
@@ -32,5 +36,9 @@ EINTERN Eina_Bool    e_client_video_info_get(E_Client *ec, E_Client_Video_Info *
 EINTERN Eina_Bool    e_client_video_commit_data_release(E_Client *ec, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec);
 
 EINTERN tbm_surface_h  e_client_video_tbm_surface_get(E_Client *ec);
+
+EINTERN void         e_client_video_info_get_func_set(E_Client *ec, E_Client_Video_Info_Get_Cb func);
+EINTERN void         e_client_video_commit_data_release_func_set(E_Client *ec, E_Client_Video_Commit_Data_Release_Cb func);
+EINTERN void         e_client_video_tbm_surface_get_func_set(E_Client *ec, E_Client_Video_Tbm_Surface_Get_Cb func);
 
 #endif
