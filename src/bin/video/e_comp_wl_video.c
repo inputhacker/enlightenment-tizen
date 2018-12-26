@@ -281,15 +281,7 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
      }
 
    v.u32 = value;
-   if ((!_e_video_is_visible(video)) &&
-       /* if mute off, need to do it after buffer commit */
-       ((!strncmp(name, "mute", TDM_NAME_LEN)) && (value == 0)))
-     {
-        e_client_video_property_delay_set(video->ec, id, v);
-        return;
-     }
-   else
-     e_client_video_property_set(video->ec, id, v);
+   e_client_video_property_set(video->ec, id, v);
 }
 
 static void
