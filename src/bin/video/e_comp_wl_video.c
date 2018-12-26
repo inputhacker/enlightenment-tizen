@@ -20,7 +20,6 @@ static int _video_detail_log_dom = -1;
 #define VDB(fmt, arg...) DBG("window(0x%08"PRIxPTR") ec(%p): "fmt, video->window, video->ec, ##arg)
 
 #define DET(...)          EINA_LOG_DOM_DBG(_video_detail_log_dom, __VA_ARGS__)
-#define VDT(fmt, arg...)   DET("window(0x%08"PRIxPTR"): "fmt, video->window, ##arg)
 
 typedef struct _E_Video E_Video;
 
@@ -268,11 +267,10 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
    video = wl_resource_get_user_data(resource);
    EINA_SAFETY_ON_NULL_RETURN(video);
 
-   if(video->ec)
-     VDT("Client(%s):PID(%d) RscID(%d) Attribute:%s, Value:%d",
-         e_client_util_name_get(video->ec) ?: "No Name",
-         video->ec->netwm.pid, wl_resource_get_id(video->surface),
-         name, value);
+   VIN("Client(%s):PID(%d) RscID(%d) Attribute:%s, Value:%d",
+       e_client_util_name_get(video->ec) ?: "No Name",
+       video->ec->netwm.pid, wl_resource_get_id(video->surface),
+       name, value);
 
    // check available property & count
    id = _e_video_get_prop_id(video, name);
