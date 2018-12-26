@@ -2007,14 +2007,23 @@ e_plane_renderer_reserved_deactivate(E_Plane_Renderer *renderer)
    if (!usable)
      e_pixmap_usable_set(ec->pixmap, EINA_FALSE);
 
-   if (plane->ec_redirected)
+   if (renderer->state == E_PLANE_RENDERER_STATE_CANDIDATE)
      {
-        /* force update */
-        e_pixmap_image_refresh(ec->pixmap);
-        e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
-        e_comp_object_dirty(ec->frame);
-        e_comp_object_render(ec->frame);
+        if (!ec->redirected)
+          goto done;
      }
+   else
+     {
+        if (!plane->ec_redirected)
+          goto done;
+     }
+
+   /* force update */
+   e_pixmap_image_refresh(ec->pixmap);
+   e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+   e_comp_object_dirty(ec->frame);
+   e_comp_object_render(ec->frame);
+
 done:
    ELOGF("E_PLANE_RENDERER", "Deactivate Renderer(%p) Plane(%p) ec(%p, %s)",
          ec, renderer, renderer->plane, ec, e_client_util_name_get(ec));
