@@ -53,29 +53,6 @@ find_video_with_surface(struct wl_resource *surface)
    return NULL;
 }
 
-static E_Client *
-find_offscreen_parent_get(E_Client *ec)
-{
-   E_Client *parent = NULL;
-
-   if (!ec->comp_data || !ec->comp_data->sub.data)
-     return NULL;
-
-   parent = ec->comp_data->sub.data->parent;
-   while (parent)
-     {
-        if (!parent->comp_data || !parent->comp_data->sub.data)
-          return NULL;
-
-        if (parent->comp_data->sub.data->remote_surface.offscreen_parent)
-          return parent->comp_data->sub.data->remote_surface.offscreen_parent;
-
-        parent = parent->comp_data->sub.data->parent;
-     }
-
-   return NULL;
-}
-
 static int
 _e_video_get_prop_id(E_Video *video, const char *name)
 {
