@@ -95,38 +95,6 @@ _e_video_get_prop_id(E_Video *video, const char *name)
    return -1;
 }
 
-static Eina_Bool
-_e_video_is_visible(E_Video *video)
-{
-   E_Client *offscreen_parent;
-
-   if (e_object_is_del(E_OBJECT(video->ec))) return EINA_FALSE;
-
-   if (!e_pixmap_resource_get(video->ec->pixmap))
-     {
-        VDB("no comp buffer");
-        return EINA_FALSE;
-     }
-
-   if (video->ec->comp_data->sub.data && video->ec->comp_data->sub.data->stand_alone)
-     return EINA_TRUE;
-
-   offscreen_parent = find_offscreen_parent_get(video->ec);
-   if (offscreen_parent && offscreen_parent->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)
-     {
-        VDB("video surface invisible: offscreen fully obscured");
-        return EINA_FALSE;
-     }
-
-   if (!evas_object_visible_get(video->ec->frame))
-     {
-        VDB("evas obj invisible");
-        return EINA_FALSE;
-     }
-
-   return EINA_TRUE;
-}
-
 static E_Video *
 _e_video_create(struct wl_resource *video_object, struct wl_resource *surface)
 {
