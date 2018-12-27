@@ -1789,7 +1789,7 @@ _e_video_hwc_windows_prop_name_get_by_id(E_Video_Hwc_Windows *evhw, unsigned int
    const tdm_prop *props;
    int i, count = 0;
 
-   tdm_hwc_get_video_available_properties(evhw->hwc_window, &props, &count);
+   e_hwc_windows_get_video_available_properties(evhw->hwc, &props, &count);
    for (i = 0; i < count; i++)
      {
         if (props[i].id == id)
@@ -1798,6 +1798,8 @@ _e_video_hwc_windows_prop_name_get_by_id(E_Video_Hwc_Windows *evhw, unsigned int
              return props[i].name;
           }
      }
+
+   VER("No available property: id %d", id);
 
    return NULL;
 }
@@ -1872,6 +1874,7 @@ _e_video_hwc_windows_iface_disallowed_property(E_Video_Comp_Iface *iface)
 static Eina_Bool
 _e_video_hwc_windows_iface_property_get(E_Video_Comp_Iface *iface, unsigned int id, tdm_value *value)
 {
+#if 0
    tdm_error ret;
 
    IFACE_ENTRY;
@@ -1879,8 +1882,8 @@ _e_video_hwc_windows_iface_property_get(E_Video_Comp_Iface *iface, unsigned int 
    ret = tdm_hwc_window_get_property(evhw->hwc_window, id, value);
    if (ret != TDM_ERROR_NONE)
      return EINA_FALSE;
-
-   return EINA_TRUE;
+#endif
+   return EINA_FALSE;
 }
 
 static Eina_Bool
@@ -1893,6 +1896,11 @@ _e_video_hwc_windows_iface_property_set(E_Video_Comp_Iface *iface, unsigned int 
    VIN("set_attribute");
 
    name = _e_video_hwc_windows_prop_name_get_by_id(evhw, id);
+   if (!name)
+   {
+      VER("_e_video_hwc_windows_prop_name_get_by_id failed");
+      return EINA_FALSE;
+   }
 
    if (evhw->allowed_attribute)
      {
