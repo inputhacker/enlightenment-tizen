@@ -1303,11 +1303,6 @@ _e_comp_wl_viewport_crop_by_parent(E_Viewport *viewport, Eina_Rectangle *parent,
    viewport->cropped_source.w = viewport->cropped_source.w * rw;
    viewport->cropped_source.h = viewport->cropped_source.h * rh;
 
-   vp->buffer.src_x = wl_fixed_from_int(viewport->cropped_source.x);
-   vp->buffer.src_y = wl_fixed_from_int(viewport->cropped_source.y);
-   vp->buffer.src_width = wl_fixed_from_int(viewport->cropped_source.w);
-   vp->buffer.src_height = wl_fixed_from_int(viewport->cropped_source.h);
-
    PDB("  => (%d,%d %dx%d)", EINA_RECTANGLE_ARGS(&viewport->cropped_source));
 }
 
