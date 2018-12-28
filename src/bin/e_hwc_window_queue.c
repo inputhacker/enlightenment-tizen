@@ -813,7 +813,9 @@ _e_hwc_window_queue_cb_destroy(tbm_surface_queue_h surface_queue, void *data)
 
    if (!queue) return;
 
-   _e_hwc_window_queue_destroy(queue);
+   // TODO: deal the E_Hwc_Window_Queue
+   //     when the tbm_surface_queue is destroyed and when there is no call of _e_hwc_window_queue_destroy before
+   //_e_hwc_window_queue_destroy(queue);
 }
 
 static E_Hwc_Window_Queue *
