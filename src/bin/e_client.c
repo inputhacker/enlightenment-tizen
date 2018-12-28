@@ -3633,6 +3633,9 @@ e_client_visibility_calculate(void)
 E_API void
 e_client_visibility_skip_set(E_Client *ec, Eina_Bool skip)
 {
+   if (!ec) return;
+
+   ELOGF("POL_VIS", "visibility skip set to %d", ec, skip);
    ec->visibility.skip = skip;
 }
 
