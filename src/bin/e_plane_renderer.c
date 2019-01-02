@@ -103,6 +103,7 @@ _e_plane_renderer_render_buffers_free(void *data)
    EINA_LIST_FOREACH_SAFE(render_buffers, l, ll, buffer_ref)
      {
         e_comp_wl_buffer_reference(buffer_ref, NULL);
+        render_buffers = eina_list_remove_list(render_buffers, l);
         E_FREE(buffer_ref);
      }
 }
