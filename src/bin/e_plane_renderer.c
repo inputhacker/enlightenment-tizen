@@ -48,6 +48,8 @@ struct _E_Plane_Renderer_Buffer
    Eina_Bool usable;
 
    Eina_Bool alloced;
+
+   Eina_Bool acquired;
 };
 
 /* E_Plane is a child object of E_Output. There is one Output per screen
@@ -490,9 +492,13 @@ static void
 _e_plane_renderer_exported_surface_release(E_Plane_Renderer *renderer, tbm_surface_h tsurface)
 {
    tbm_surface_h tmp_tsurface = NULL;
+   E_Plane_Renderer_Buffer *renderer_buffer = NULL;
    Eina_List *l_s, *ll_s;
 
    EINA_SAFETY_ON_NULL_RETURN(tsurface);
+
+   renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
+   EINA_SAFETY_ON_FALSE_RETURN(renderer_buffer);
 
    EINA_LIST_FOREACH_SAFE(renderer->exported_surfaces, l_s, ll_s, tmp_tsurface)
      {
@@ -500,7 +506,8 @@ _e_plane_renderer_exported_surface_release(E_Plane_Renderer *renderer, tbm_surfa
 
         if (tmp_tsurface == tsurface)
           {
-             e_plane_renderer_surface_queue_release(renderer, tsurface);
+             if (!renderer_buffer->acquired && renderer_buffer->usable)
+               e_plane_renderer_surface_queue_release(renderer, tsurface);
 
              renderer->exported_surfaces = eina_list_remove_list(renderer->exported_surfaces, l_s);
           }
@@ -519,14 +526,14 @@ _e_plane_renderer_release_exported_renderer_buffer(E_Plane_Renderer *renderer, E
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_buffer, EINA_FALSE);
 
+   E_FREE_FUNC(renderer_buffer->release_timer, ecore_timer_del);
+
+   _e_plane_renderer_exported_surface_release(renderer, renderer_buffer->tsurface);
+
    renderer_buffer->exported = EINA_FALSE;
    renderer_buffer->exported_wl_buffer = NULL;
    renderer_buffer->usable = EINA_FALSE;
    renderer_buffer->dequeued = EINA_FALSE;
-
-   E_FREE_FUNC(renderer_buffer->release_timer, ecore_timer_del);
-
-   _e_plane_renderer_exported_surface_release(renderer, renderer_buffer->tsurface);
 
   if (!eina_list_count(renderer->exported_surfaces))
     {
@@ -626,12 +633,17 @@ _e_plane_renderer_exported_surfaces_release(E_Plane_Renderer *renderer, Eina_Boo
         renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
         if (!renderer_buffer) continue;
 
-        if (renderer->displaying_tsurface == tsurface)
+        if (renderer_buffer->acquired || !renderer_buffer->usable)
           {
              renderer_buffer->exported = EINA_FALSE;
              renderer_buffer->exported_wl_buffer = NULL;
              renderer_buffer->usable = EINA_FALSE;
              renderer->exported_surfaces = eina_list_remove_list(renderer->exported_surfaces, l_s);
+
+             if (renderer_trace_debug)
+               ELOGF("E_PLANE_RENDERER", "Import  Renderer(%p)        tsurface(%p) tqueue(%p)",
+                     NULL, NULL, renderer, tsurface, renderer->tqueue);
+
              continue;
           }
 
@@ -2550,6 +2562,7 @@ e_plane_renderer_surface_queue_acquire(E_Plane_Renderer *renderer)
    tbm_surface_queue_h tqueue = NULL;
    tbm_surface_h tsurface = NULL;
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+   E_Plane_Renderer_Buffer *renderer_buffer = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, NULL);
 
@@ -2581,6 +2594,10 @@ e_plane_renderer_surface_queue_acquire(E_Plane_Renderer *renderer)
    if (!_e_plane_renderer_buffer_add(renderer, tsurface))
      ERR("failed to _e_plane_renderer_buffer_add");
 
+   renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
+   if (renderer_buffer)
+     renderer_buffer->acquired = EINA_TRUE;
+
    if (renderer->ee)
      tbm_surface_internal_set_user_data(tsurface, RENDER_BUFFERS_KEY, NULL);
 
@@ -2605,10 +2622,12 @@ e_plane_renderer_surface_queue_release(E_Plane_Renderer *renderer, tbm_surface_h
    tqueue = renderer->tqueue;
    EINA_SAFETY_ON_NULL_RETURN(tqueue);
 
-   if (_e_plane_renderer_surface_find_released_surface(renderer, tsurface)) return;
-
    renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
    EINA_SAFETY_ON_NULL_RETURN(renderer_buffer);
+
+   renderer_buffer->acquired = EINA_FALSE;
+
+   if (_e_plane_renderer_surface_find_released_surface(renderer, tsurface)) return;
 
    if (renderer_buffer->release_timer) return;
 
@@ -2668,6 +2687,7 @@ EINTERN Eina_Bool
 e_plane_renderer_surface_queue_cancel_acquire(E_Plane_Renderer *renderer, tbm_surface_h tsurface)
 {
    tbm_surface_queue_h tqueue = NULL;
+   E_Plane_Renderer_Buffer *renderer_buffer = NULL;
    tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(renderer, EINA_FALSE);
@@ -2675,6 +2695,11 @@ e_plane_renderer_surface_queue_cancel_acquire(E_Plane_Renderer *renderer, tbm_su
 
    tqueue = renderer->tqueue;
    EINA_SAFETY_ON_NULL_RETURN_VAL(tqueue, EINA_FALSE);
+
+   renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(renderer_buffer, EINA_FALSE);
+
+   renderer_buffer->acquired = EINA_FALSE;
 
    /* debug */
    if (renderer_trace_debug)
