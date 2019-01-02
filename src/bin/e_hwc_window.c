@@ -1627,7 +1627,7 @@ e_hwc_window_set_property(E_Hwc_Window *hwc_window, unsigned int id, const char 
 
         EHWTRACE("Set Property: property(%s) value(%d)) -- {%s}",
                   hwc_window->ec, hwc_window,
-                  prop->name, (unsigned int)value.u32,
+                  name, (unsigned int)value.u32,
                   e_hwc_window_name_get(hwc_window));
      }
    else
