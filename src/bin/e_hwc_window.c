@@ -1622,7 +1622,7 @@ e_hwc_window_set_property(E_Hwc_Window *hwc_window, unsigned int id, const char 
    if (force)
      {
         /* set the property on the fly */
-        ret = tdm_hwc_window_set_property(hwc_window, id, value);
+        ret = tdm_hwc_window_set_property(hwc_window->thwc_window, id, value);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(ret != TDM_ERROR_NONE, ret);
 
         EHWTRACE("Set Property: property(%s) value(%d)) -- {%s}",
