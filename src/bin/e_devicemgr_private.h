@@ -39,8 +39,11 @@
 
 #define INPUT_GENERATOR_DEVICE "Input Generator"
 #define DETENT_DEVICE_NAME "tizen_detent"
+#define INPUTGEN_MAX_TOUCH 10
+#define INPUTGEN_MAX_BTN 16
 
 typedef struct _E_Devicemgr_Input_Device_User_Data E_Devicemgr_Input_Device_User_Data;
+typedef struct _E_Devicemgr_Coords E_Devicemgr_Coords;
 typedef struct _E_Devicemgr_Inputgen_Client_Data E_Devicemgr_Inputgen_Client_Data;
 typedef struct _E_Devicemgr_Inputgen_Client_Global_Data E_Devicemgr_Inputgen_Client_Global_Data;
 typedef struct _E_Devicemgr_Inputgen_Device_Data E_Devicemgr_Inputgen_Device_Data;
@@ -51,6 +54,11 @@ struct _E_Devicemgr_Input_Device_User_Data
    E_Devicemgr_Input_Device *dev;
    struct wl_resource *dev_mgr_res;
    struct wl_resource *seat_res;
+};
+
+struct _E_Devicemgr_Coords
+{
+   int x, y;
 };
 
 struct _E_Devicemgr_Inputgen_Client_Data
@@ -70,6 +78,22 @@ struct _E_Devicemgr_Inputgen_Device_Data
    int uinp_fd;
    char *identifier;
    char name[UINPUT_MAX_NAME_SIZE];
+   Ecore_Device_Class clas;
+   struct
+     {
+        unsigned int pressed;
+        E_Devicemgr_Coords coords[INPUTGEN_MAX_TOUCH];
+     } touch;
+   struct
+     {
+        unsigned int pressed;
+        E_Devicemgr_Coords coords;
+     } mouse;
+   struct
+     {
+        Eina_List *pressed;
+     } key;
+
    Eina_List *clients;
 };
 
