@@ -1231,7 +1231,6 @@ _e_comp_wl_viewport_calculate_destination(E_Viewport *viewport, Eina_Rectangle *
 static void
 _e_comp_wl_viewport_crop_by_parent(E_Viewport *viewport, Eina_Rectangle *parent, Eina_Rectangle *dst)
 {
-   E_Comp_Wl_Buffer_Viewport *vp = &viewport->ec->comp_data->scaler.buffer_viewport;
    Eina_Rectangle crop;
    double rx, ry, rw, rh;
    int bw, bh;
