@@ -1135,7 +1135,7 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
         src_ptr = info.planes[0].ptr;
 
         src_img = pixman_image_create_bits(src_format, w, h, (uint32_t*)src_ptr, info.planes[0].stride);
-        EINA_SAFETY_ON_NULL_GOTO(src_img, error_case);
+        EINA_SAFETY_ON_NULL_GOTO(src_img, clean_up);
      }
    else if (td->shm_buffer_ptr)
      {
@@ -1144,7 +1144,7 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
 
         src_ptr = td->shm_buffer_ptr;
         src_img = pixman_image_create_bits(src_format, w, h, (uint32_t*)src_ptr, w * 4);
-        EINA_SAFETY_ON_NULL_GOTO(src_img, error_case);
+        EINA_SAFETY_ON_NULL_GOTO(src_img, clean_up);
      }
    else
      {
@@ -1174,13 +1174,13 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
      }
 
    transform_surface = tbm_surface_create(tw, th, tbm_surface_get_format(td->tbm_surface));
-   EINA_SAFETY_ON_NULL_GOTO(transform_surface, error_case);
+   EINA_SAFETY_ON_NULL_GOTO(transform_surface, clean_up);
 
    tbm_surface_map(transform_surface, TBM_SURF_OPTION_WRITE, &info);
    dst_ptr = info.planes[0].ptr;
 
    dst_img = pixman_image_create_bits(dst_format, tw, th, (uint32_t*)dst_ptr, info.planes[0].stride);
-   EINA_SAFETY_ON_NULL_GOTO(dst_img, error_case);
+   EINA_SAFETY_ON_NULL_GOTO(dst_img, clean_up);
 
    pixman_f_transform_init_identity(&ft);
    pixman_f_transform_translate(&ft, NULL, tx, ty);
@@ -1213,7 +1213,7 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
              c_src_ptr = c_info.planes[0].ptr;
 
              c_src_img = pixman_image_create_bits(c_src_format, c_w, c_h, (uint32_t*)c_src_ptr, c_info.planes[0].stride);
-             EINA_SAFETY_ON_NULL_GOTO(c_src_img, error_case);
+             EINA_SAFETY_ON_NULL_GOTO(c_src_img, clean_up);
           }
         else if (td->child_data->shm_buffer_ptr)
           {
@@ -1222,12 +1222,12 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
 
              c_src_ptr = td->child_data->shm_buffer_ptr;
              c_src_img = pixman_image_create_bits(c_src_format, c_w, c_h, (uint32_t*)c_src_ptr, c_w * 4);
-             EINA_SAFETY_ON_NULL_GOTO(c_src_img, error_case);
+             EINA_SAFETY_ON_NULL_GOTO(c_src_img, clean_up);
           }
         else
           {
              ERR("invalid source buffer");
-             goto error_case;
+             goto clean_up;
           }
 
         if (td->child_data->transform == WL_OUTPUT_TRANSFORM_90)
@@ -1252,13 +1252,13 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
           }
 
         c_transform_surface = tbm_surface_create(c_tw, c_th, tbm_surface_get_format(td->child_data->tbm_surface));
-        EINA_SAFETY_ON_NULL_GOTO(c_transform_surface, error_case);
+        EINA_SAFETY_ON_NULL_GOTO(c_transform_surface, clean_up);
 
         tbm_surface_map(c_transform_surface, TBM_SURF_OPTION_WRITE, &c_info);
         c_dst_ptr = c_info.planes[0].ptr;
 
         c_dst_img = pixman_image_create_bits(c_dst_format, c_tw, c_th, (uint32_t*)c_dst_ptr, c_info.planes[0].stride);
-        EINA_SAFETY_ON_NULL_GOTO(c_dst_img, error_case);
+        EINA_SAFETY_ON_NULL_GOTO(c_dst_img, clean_up);
 
         pixman_f_transform_init_identity(&c_ft);
         pixman_f_transform_translate(&c_ft, NULL, c_tx, c_ty);
@@ -1276,13 +1276,13 @@ _remote_source_image_data_transform(Thread_Data *td, int w, int h)
         pixman_image_composite(PIXMAN_OP_OVER, c_dst_img, NULL, dst_img, 0, 0, 0, 0, c_x, c_y, tw, th);
      }
 
-error_case:
+clean_up:
    if (td->child_data)
      {
         if (c_src_ptr && td->child_data->tbm_surface) tbm_surface_unmap(td->child_data->tbm_surface);
         if (c_dst_ptr) tbm_surface_unmap(c_transform_surface);
 
-        if (!c_dst_img)
+        if (c_transform_surface)
           {
              tbm_surface_destroy(c_transform_surface);
              c_transform_surface = NULL;
