@@ -719,6 +719,7 @@ _e_output_cb_output_change(tdm_output *toutput,
                                   void *user_data)
 {
    E_Output *e_output = NULL;
+   E_Output *primary = NULL;
    E_OUTPUT_DPMS edpms;
    tdm_output_dpms tdpms;
    tdm_output_conn_status status;
@@ -736,8 +737,6 @@ _e_output_cb_output_change(tdm_output *toutput,
         if (status == TDM_OUTPUT_CONN_STATUS_DISCONNECTED ||
             status == TDM_OUTPUT_CONN_STATUS_CONNECTED)
           {
-             E_Output *primary = NULL;
-
              primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
              EINA_SAFETY_ON_NULL_RETURN(primary);
 
@@ -749,10 +748,13 @@ _e_output_cb_output_change(tdm_output *toutput,
         break;
        case TDM_OUTPUT_CHANGE_DPMS:
         tdpms = (tdm_output_dpms)value.u32;
+        primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+        EINA_SAFETY_ON_NULL_RETURN(primary);
+
         if (tdpms == TDM_OUTPUT_DPMS_OFF)
           {
              edpms = E_OUTPUT_DPMS_OFF;
-             if (!override)
+             if (!override && (e_output == primary))
                {
                   e_comp_override_add();
                   override = EINA_TRUE;
@@ -761,7 +763,7 @@ _e_output_cb_output_change(tdm_output *toutput,
         else if (tdpms == TDM_OUTPUT_DPMS_ON)
           {
              edpms = E_OUTPUT_DPMS_ON;
-             if (override)
+             if (override && (e_output == primary))
                {
                   e_comp_override_del();
                   override = EINA_FALSE;
