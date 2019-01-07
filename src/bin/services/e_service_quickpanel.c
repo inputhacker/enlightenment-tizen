@@ -18,6 +18,13 @@ do                                           \
         qp->show_block = EINA_FALSE;         \
         qp->ec->visible = EINA_TRUE;         \
         evas_object_show(qp->ec->frame);     \
+                                             \
+        if (qp->bg_rect)                     \
+          {                                  \
+             ELOGF("QUICKPANEL", "SHOW BG_RECT...", qp->ec);      \
+             evas_object_stack_below(qp->bg_rect, qp->ec->frame); \
+             evas_object_show(qp->bg_rect);  \
+          }                                  \
      }                                       \
 } while (0)
 
@@ -29,6 +36,12 @@ do                                           \
         qp->show_block = EINA_TRUE;          \
         qp->ec->visible = EINA_FALSE;        \
         evas_object_hide(qp->ec->frame);     \
+                                             \
+        if (qp->bg_rect)                     \
+          {                                  \
+             ELOGF("QUICKPANEL", "HIDE BG_RECT...", qp->ec);  \
+             evas_object_hide(qp->bg_rect);  \
+          }                                  \
      }                                       \
 } while (0)
 
@@ -75,6 +88,7 @@ struct _E_Policy_Quickpanel
    Evas_Object *mover;
    Evas_Object *indi_obj;
    Evas_Object *handler_obj;
+   Evas_Object *bg_rect;
 
    Eina_List *intercept_hooks;
    Eina_List *hooks;
@@ -110,6 +124,11 @@ struct _E_Policy_Quickpanel
    Eina_Bool show_block;
    Eina_Bool need_scroll_update;
    Eina_Bool scroll_lock;
+
+   struct
+   {
+      int x, y, w, h;
+   } geom;
 };
 
 struct _Mover_Data
@@ -614,27 +633,39 @@ _e_qp_srv_effect_finish_job_start(E_Policy_Quickpanel *qp, Eina_Bool visible)
 
    ec = qp->ec;
 
+   int tw, th;
+   if (qp->effect.type == E_SERVICE_QUICKPANEL_EFFECT_TYPE_MOVE)
+     {
+        tw = qp->geom.w;
+        th = qp->geom.h;
+     }
+   else
+     {
+        tw = ec->zone->w;
+        th = ec->zone->h;
+     }
+
    switch (qp->rotation)
      {
       case E_POLICY_ANGLE_MAP_90:
          from = qp->effect.x;
-         to = (visible) ? (ec->zone->w - from) : (-from);
-         duration = ((double)abs(to) / ((double)ec->zone->w / 2)) * ref;
+         to = (visible) ? (tw - from) : (-from);
+         duration = ((double)abs(to) / ((double)tw / 2)) * ref;
          break;
       case E_POLICY_ANGLE_MAP_180:
          from = qp->effect.y;
-         to = (visible) ? (-from) : (ec->zone->h - from);
-         duration = ((double)abs(to) / ((double)ec->zone->h / 2)) * ref;
+         to = (visible) ? (-from) : (th - from);
+         duration = ((double)abs(to) / ((double)th / 2)) * ref;
          break;
       case E_POLICY_ANGLE_MAP_270:
          from = qp->effect.x;
-         to = (visible) ? (-from) : (ec->zone->w - from);
-         duration = ((double)abs(to) / ((double)ec->zone->w / 2)) * ref;
+         to = (visible) ? (-from) : (tw - from);
+         duration = ((double)abs(to) / ((double)tw / 2)) * ref;
          break;
       default:
          from = qp->effect.y;
-         to = (visible) ? (ec->zone->h - from) : (-from);
-         duration = ((double)abs(to) / ((double)ec->zone->h / 2)) * ref;
+         to = (visible) ? (th - from) : (-from);
+         duration = ((double)abs(to) / ((double)th / 2)) * ref;
          break;
      }
 
@@ -701,23 +732,36 @@ _e_qp_srv_visibility_eval_by_mouse_info(E_Policy_Quickpanel *qp)
 {
    E_Client *ec;
    Eina_Bool is_half;
+   int tw, th;
    const float sensitivity = 1.5; /* hard coded. (arbitary) */
 
    ec = qp->ec;
+
+   if (qp->effect.type == E_SERVICE_QUICKPANEL_EFFECT_TYPE_MOVE)
+     {
+        tw = qp->geom.w;
+        th = qp->geom.h;
+     }
+   else
+     {
+        tw = ec->zone->w;
+        th = ec->zone->h;
+     }
+
    switch (qp->rotation)
      {
       case E_POLICY_ANGLE_MAP_90:
-         is_half = (qp->mouse_info.x > (ec->zone->w / 2));
+         is_half = (qp->mouse_info.x > (tw / 2));
          break;
       case E_POLICY_ANGLE_MAP_180:
-         is_half = (qp->mouse_info.y < (ec->zone->h / 2));
+         is_half = (qp->mouse_info.y < (th / 2));
          break;
       case E_POLICY_ANGLE_MAP_270:
-         is_half = (qp->mouse_info.x < (ec->zone->w / 2));
+         is_half = (qp->mouse_info.x < (tw / 2));
          break;
       case E_POLICY_ANGLE_MAP_0:
       default:
-         is_half = (qp->mouse_info.y > (ec->zone->h / 2));
+         is_half = (qp->mouse_info.y > (th / 2));
          break;
      }
 
@@ -778,10 +822,54 @@ _e_qp_srv_effect_start(E_Policy_Quickpanel *qp)
 }
 
 static void
-_e_qp_srv_effect_update(E_Policy_Quickpanel *qp, int x, int y)
+_e_qp_srv_qp_move(E_Policy_Quickpanel *qp, int x, int y)
 {
    E_Client *ec;
-   int new_x = 0, new_y = 0;
+   int new_x, new_y;
+   int dim;
+   double weight;
+
+   if (!qp) return;
+   if (!qp->ec) return;
+
+   ec = qp->ec;
+
+   new_x = 0;
+   new_y = 0;
+
+   switch (qp->rotation)
+     {
+      case E_POLICY_ANGLE_MAP_90:
+         new_x = x - qp->geom.w;
+         break;
+      case E_POLICY_ANGLE_MAP_180:
+         new_y = y;
+         break;
+      case E_POLICY_ANGLE_MAP_270:
+         new_x = x;
+         break;
+      default:
+         new_y = y - qp->geom.h;
+         if (new_y > 0) new_y = 0;
+         break;
+     }
+
+   if (qp->bg_rect)
+     {
+        weight = y / (double)qp->geom.h;
+        if (weight > 1) weight = 1;
+        else if (weight < 0) weight = 0;
+
+        dim = (int)(178 * weight);
+        evas_object_color_set(qp->bg_rect, 0, 0, 0, dim);
+     }
+
+   e_client_util_move_without_frame(ec, new_x, new_y);
+}
+
+static void
+_e_qp_srv_effect_update(E_Policy_Quickpanel *qp, int x, int y)
+{
    Eina_Bool res;
 
    res = _e_qp_srv_is_effect_running(qp);
@@ -797,22 +885,7 @@ _e_qp_srv_effect_update(E_Policy_Quickpanel *qp, int x, int y)
          _e_qp_srv_mover_object_relocate(qp, x, y);
          break;
       case E_SERVICE_QUICKPANEL_EFFECT_TYPE_MOVE:
-         ec = qp->ec;
-         switch (qp->rotation)
-           {
-            case E_POLICY_ANGLE_MAP_90:
-               new_x = x - ec->w;
-               break;
-            case E_POLICY_ANGLE_MAP_180:
-               new_y = y;
-               break;
-            case E_POLICY_ANGLE_MAP_270:
-               new_x = x;
-               break;
-            default:
-               new_y = y - ec->h;
-           }
-         e_client_util_move_without_frame(ec, new_x, new_y);
+         _e_qp_srv_qp_move(qp, x, y);
          break;
       case E_SERVICE_QUICKPANEL_EFFECT_TYPE_APP_CUSTOM:
          ERR("Undefine behavior for APP_CUSTOM type");
@@ -1034,6 +1107,9 @@ _quickpanel_free(E_Policy_Quickpanel *qp)
    evas_object_event_callback_del(qp->ec->frame, EVAS_CALLBACK_SHOW, _quickpanel_client_evas_cb_show);
    evas_object_event_callback_del(qp->ec->frame, EVAS_CALLBACK_HIDE, _quickpanel_client_evas_cb_hide);
    evas_object_event_callback_del(qp->ec->frame, EVAS_CALLBACK_MOVE, _quickpanel_client_evas_cb_move);
+
+   if (qp->bg_rect)
+     evas_object_del(qp->bg_rect);
 
    E_FREE_LIST(qp_clients, free);
    E_FREE_FUNC(qp->mover, evas_object_del);
@@ -1325,6 +1401,24 @@ _quickpanel_handler_region_set(E_Policy_Quickpanel *qp, E_Policy_Angle_Map ridx,
         _quickpanel_handler_rect_add(qp, ridx, r->x, r->y, r->w, r->h, tx, ty, tw, th);
         _quickpanel_indi_obj_region_convert_set(qp, ridx, r->x, r->y, r->w, r->h, tx, ty, tw, th);
         break;
+     }
+   eina_iterator_free(it);
+}
+
+static void
+_quickpanel_contents_region_set(E_Policy_Quickpanel *qp, E_Policy_Angle_Map ridx, Eina_Tiler *tiler)
+{
+   // Do Something
+   Eina_Iterator *it;
+   Eina_Rectangle *r;
+
+   it = eina_tiler_iterator_new(tiler);
+   EINA_ITERATOR_FOREACH(it, r)
+     {
+        qp->geom.x = r->x;
+        qp->geom.y = r->y;
+        qp->geom.w = r->w;
+        qp->geom.h = r->h;
      }
    eina_iterator_free(it);
 }
@@ -1875,6 +1969,28 @@ e_service_quickpanel_client_add(E_Client *ec, E_Service_Quickpanel_Type type)
    // disable effect
    e_policy_animatable_lock(ec, E_POLICY_ANIMATABLE_NEVER, EINA_TRUE);
 
+   qp->geom.x = ec->x;
+   qp->geom.y = ec->y;
+   qp->geom.w = ec->w;
+   qp->geom.h = ec->h;
+
+   // bg rect
+   if (e_config->qp_use_bg_rect)
+     {
+        Evas_Object *o;
+        o = evas_object_rectangle_add(e_comp->evas);
+
+        qp->bg_rect = o;
+        evas_object_layer_set(o, E_POLICY_QUICKPANEL_LAYER);
+        evas_object_name_set(o, "qp::bg_rect");
+        evas_object_move(o, 0, 0);
+        evas_object_resize(o, ec->zone->w, ec->zone->h);
+        evas_object_color_set(o, 0, 0, 0, 0);
+        evas_object_lower(o);
+     }
+   else
+     qp->bg_rect = NULL;
+
    /* add quickpanel to force update list of zone */
    e_zone_orientation_force_update_add(ec->zone, ec);
 
@@ -2000,14 +2116,14 @@ e_service_quickpanel_region_set(E_Client *ec, int type, int angle, Eina_Tiler *t
 
    EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(ec)), EINA_FALSE);
 
-   // FIXME: region type
-   if (type != 0) return EINA_FALSE;
-
    qp = _quickpanel_service_get(ec);
    EINA_SAFETY_ON_NULL_RETURN_VAL(qp, EINA_FALSE);
 
    ridx = e_policy_angle_map(angle);
-   _quickpanel_handler_region_set(qp, ridx, tiler);
+   if (type == E_QUICKPANEL_REGION_TYPE_HANDLER)
+     _quickpanel_handler_region_set(qp, ridx, tiler);
+   else if (type == E_QUICKPANEL_REGION_TYPE_CONTENTS)
+     _quickpanel_contents_region_set(qp, ridx, tiler);
 
    return EINA_TRUE;
 }

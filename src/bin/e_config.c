@@ -292,6 +292,7 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, use_pp_zoom, UCHAR);
    E_CONFIG_VAL(D, T, priority_control, UCHAR);
    E_CONFIG_VAL(D, T, comp_canvas_norender.use, UCHAR);
+   E_CONFIG_VAL(D, T, qp_use_bg_rect, UCHAR);
    E_CONFIG_VAL(D, T, qp_handler.use_alpha, UCHAR);
    E_CONFIG_VAL(D, T, qp_handler.alpha, INT);
 }
@@ -523,6 +524,7 @@ e_config_load(void)
    E_CONFIG_LIMIT(e_config->use_pp_zoom, 0, 1);
    E_CONFIG_LIMIT(e_config->priority_control, 0, 1);
    E_CONFIG_LIMIT(e_config->comp_canvas_norender.use, 0, 1);
+   E_CONFIG_LIMIT(e_config->qp_use_bg_rect, 0, 1);
    E_CONFIG_LIMIT(e_config->qp_handler.use_alpha, 0, 1);
    E_CONFIG_LIMIT(e_config->qp_handler.alpha, 0, 255);
 }

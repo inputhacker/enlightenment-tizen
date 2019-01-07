@@ -209,6 +209,7 @@ struct _E_Config
    {
       unsigned char use; // boolean value for enabling evas_norender in idle (default : disable : 0)
    } comp_canvas_norender;
+   Eina_Bool qp_use_bg_rect;
    struct
    {
       unsigned char use_alpha; // boolean value for applying transparency to qp handler (default : disable : 0)

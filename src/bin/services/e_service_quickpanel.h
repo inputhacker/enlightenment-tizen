@@ -27,6 +27,12 @@ typedef enum
    E_QUICKPANEL_TYPE_CONTEXT_MENU = 2,
 } E_Quickpanel_Type;
 
+typedef enum
+{
+   E_QUICKPANEL_REGION_TYPE_HANDLER = 0,
+   E_QUICKPANEL_REGION_TYPE_CONTENTS = 1,
+} E_Quickpanel_Region_Type;
+
 struct _E_QP_Mgr_Funcs
 {
    void      (*quickpanel_client_add)(E_Client *ec, E_Service_Quickpanel_Type type);
