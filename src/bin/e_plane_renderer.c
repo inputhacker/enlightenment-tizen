@@ -1090,6 +1090,7 @@ _e_plane_renderer_cb_queue_acquirable_event(void *data, Ecore_Fd_Handler *fd_han
    if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
      {
         ERR("failed to tbm_surface_queue_get_acquirable_surfaces");
+        E_FREE(tsurfaces);
         return ECORE_CALLBACK_RENEW;
      }
 
