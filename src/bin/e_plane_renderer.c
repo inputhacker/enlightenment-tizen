@@ -604,6 +604,12 @@ _e_plane_renderer_exported_surfaces_timer_set(E_Plane_Renderer *renderer)
         renderer_buffer = _e_plane_renderer_buffer_get(renderer, tsurface);
         if (!renderer_buffer) continue;
 
+        if (!renderer_buffer->usable)
+          {
+             E_FREE_FUNC(renderer_buffer->release_timer, ecore_timer_del);
+             continue;
+          }
+
         if (!renderer_buffer->release_timer)
           renderer_buffer->release_timer = ecore_timer_add(0.5,
                                                           _e_plane_renderer_buffer_release_timeout,
