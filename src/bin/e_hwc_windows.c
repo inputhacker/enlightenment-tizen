@@ -46,10 +46,28 @@
    while (0)
 
 static Eina_Bool ehws_trace = EINA_TRUE;
-static uint64_t rendered_windows_key;
+static uint64_t ehws_rendered_windows_key;
+#define EHWS_RENDERED_WINDOWS_KEY  (unsigned long)(&ehws_rendered_windows_key)
+
+static uint64_t ehws_rendered_buffers_key;
+#define EHWS_RENDERED_BUFFERS_KEY  (unsigned long)(&ehws_rendered_buffers_key)
 
 static Eina_Bool _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data);
 static Eina_Bool _e_hwc_windows_pp_window_commit(E_Hwc *hwc, E_Hwc_Window *hwc_window);
+
+static E_Comp_Wl_Buffer *
+_e_hwc_windows_comp_wl_buffer_get(E_Hwc_Window *hwc_window)
+{
+   E_Client *ec = hwc_window->ec;
+   E_Comp_Wl_Client_Data *cdata = NULL;
+
+   if (!ec) return NULL;
+
+   cdata = ec->comp_data;
+   if (!cdata) return NULL;
+
+   return cdata->buffer_ref.buffer;
+}
 
 static void
 _e_hwc_windows_update_fps(E_Hwc *hwc)
@@ -235,7 +253,7 @@ _e_hwc_windows_target_window_rendered_windows_get(E_Hwc *hwc)
    EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, NULL);
 
    target_tsurface = target_hwc_window->hwc_window.buffer.tsurface;
-   tbm_surface_internal_get_user_data(target_tsurface, (unsigned long)&rendered_windows_key,
+   tbm_surface_internal_get_user_data(target_tsurface, EHWS_RENDERED_WINDOWS_KEY,
                             (void**)&rendered_windows);
 
    /* refresh list of composited e_thwc_windows according to existed ones */
@@ -410,6 +428,24 @@ _e_hwc_windows_target_window_rendered_window_has(E_Hwc *hwc, E_Hwc_Window *hwc_w
 }
 
 static void
+_e_hwc_windows_rendered_buffers_free(void *data)
+{
+   Eina_List *rendered_buffers = (Eina_List *)data;
+   E_Comp_Wl_Buffer_Ref *buffer_ref;
+
+   if (!rendered_buffers) return;
+
+   if (eina_list_count(rendered_buffers))
+     {
+        EINA_LIST_FREE(rendered_buffers, buffer_ref)
+          {
+             e_comp_wl_buffer_reference(buffer_ref, NULL);
+             E_FREE(buffer_ref);
+          }
+     }
+}
+
+static void
 _e_hwc_windows_rendered_windows_free(void *data)
 {
    Eina_List *rendered_windows = (Eina_List *)data;
@@ -437,19 +473,28 @@ _e_hwc_windows_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_
         EHWSTRACE("{%s} dequeue ts:%p", NULL, "@TARGET WINDOW@", tsurface);
 
         tbm_surface_internal_add_user_data(tsurface,
-                                           (unsigned long)&rendered_windows_key,
+                                           EHWS_RENDERED_BUFFERS_KEY,
+                                           _e_hwc_windows_rendered_buffers_free);
+
+        tbm_surface_internal_add_user_data(tsurface,
+                                           EHWS_RENDERED_WINDOWS_KEY,
                                            _e_hwc_windows_rendered_windows_free);
         target_hwc_window->dequeued_tsurface = tsurface;
         target_hwc_window->target_buffer_list = eina_list_append(target_hwc_window->target_buffer_list,
                                                                      tsurface);
      }
 
+   if (trace == TBM_SURFACE_QUEUE_TRACE_ACQUIRE)
+     tbm_surface_internal_set_user_data(tsurface, EHWS_RENDERED_BUFFERS_KEY, NULL);
+
    /* tsurface has been released at the queue */
    if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
      {
         EHWSTRACE("{%s} release ts:%p", NULL, "@TARGET WINDOW@", tsurface);
 
-        tbm_surface_internal_delete_user_data(tsurface, (unsigned long)&rendered_windows_key);
+        tbm_surface_internal_delete_user_data(tsurface, EHWS_RENDERED_BUFFERS_KEY);
+
+        tbm_surface_internal_delete_user_data(tsurface, EHWS_RENDERED_WINDOWS_KEY);
         target_hwc_window->target_buffer_list = eina_list_remove(target_hwc_window->target_buffer_list,
                                                                      tsurface);
      }
@@ -475,6 +520,10 @@ _e_hwc_windows_target_window_render_finished_cb(void *data, Ecore_Fd_Handler *fd
    int len;
    int fd;
    char buffer[64];
+   E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
+   E_Hwc_Window *hwc_window = NULL;
+   Eina_List *acquirable_buffers = NULL;
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
 
    fd = ecore_main_fd_handler_fd_get(fd_handler);
    if (fd < 0) return ECORE_CALLBACK_RENEW;
@@ -482,6 +531,22 @@ _e_hwc_windows_target_window_render_finished_cb(void *data, Ecore_Fd_Handler *fd
    len = read(fd, buffer, sizeof(buffer));
    if (len == -1)
      ERR("failed to read queue acquire event fd:%m");
+
+   hwc_window = (E_Hwc_Window *)target_hwc_window;
+   if (!hwc_window) return ECORE_CALLBACK_RENEW;
+   if (!hwc_window->queue) return ECORE_CALLBACK_RENEW;
+
+   acquirable_buffers = e_hwc_window_queue_acquirable_buffers_get(hwc_window->queue);
+   if (!acquirable_buffers) return ECORE_CALLBACK_RENEW;
+
+   EINA_LIST_FREE(acquirable_buffers, queue_buffer)
+     {
+        if (!queue_buffer->tsurface) continue;
+
+        tbm_surface_internal_set_user_data(queue_buffer->tsurface,
+                                           EHWS_RENDERED_BUFFERS_KEY,
+                                           NULL);
+     }
 
    return ECORE_CALLBACK_RENEW;
 }
@@ -491,7 +556,11 @@ _e_hwc_windows_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSE
 {
    E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
    E_Hwc_Window *hwc_window = NULL;
-   Eina_List *rendered_windows;
+   E_Comp_Wl_Buffer_Ref *buffer_ref = NULL;
+   E_Comp_Wl_Buffer *buffer = NULL;
+   Eina_List *rendered_buffers = NULL;
+   Eina_List *rendered_windows = NULL;
+   Eina_List *l;
 
    EHWSTRACE("{%s} gets render_flush_post noti.", NULL, "@TARGET WINDOW@");
 
@@ -513,8 +582,39 @@ _e_hwc_windows_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSE
     * which contains their ecs composited */
    rendered_windows = eina_list_clone(target_hwc_window->rendered_windows);
 
+   EINA_LIST_FOREACH(rendered_windows, l, hwc_window)
+     {
+        E_Client *ec = NULL;
+
+        ec = hwc_window->ec;
+        if (!ec) continue;
+
+        buffer = e_pixmap_ref_resource_get(ec->pixmap);
+        if (!buffer)
+          buffer = _e_hwc_windows_comp_wl_buffer_get(hwc_window);
+
+        if (!buffer) continue;
+
+        /* if reference buffer created by server, server deadlock is occurred.
+           beacause tbm_surface_internal_unref is called in user_data delete callback.
+           tbm_surface doesn't allow it.
+         */
+        if (!buffer->resource) continue;
+
+        buffer_ref = E_NEW(E_Comp_Wl_Buffer_Ref, 1);
+        if (!buffer_ref) continue;
+
+        e_comp_wl_buffer_reference(buffer_ref, buffer);
+        rendered_buffers = eina_list_append(rendered_buffers, buffer_ref);
+     }
+
    tbm_surface_internal_set_user_data(target_hwc_window->dequeued_tsurface,
-           (unsigned long)&rendered_windows_key, rendered_windows);
+                                      EHWS_RENDERED_BUFFERS_KEY,
+                                      rendered_buffers);
+
+   tbm_surface_internal_set_user_data(target_hwc_window->dequeued_tsurface,
+                                      EHWS_RENDERED_WINDOWS_KEY,
+                                      rendered_windows);
 
    eina_list_free(target_hwc_window->rendered_windows);
    target_hwc_window->rendered_windows = NULL;
