@@ -61,4 +61,25 @@ e_policy_angle_get(E_Policy_Angle_Map map)
 /* layer level - E_LAYER_CLIENT_NORMAL (200) */
 /* layer level - E_LAYER_CLIENT_BELOW (150) */
 
+/* quickpanel related data types */
+typedef enum
+{
+   E_SERVICE_QUICKPANEL_TYPE_UNKNOWN        = 0x0, /* TZSH_QUICKPANEL_SERVICE_TYPE_UNKNOWN        */
+   E_SERVICE_QUICKPANEL_TYPE_SYSTEM_DEFAULT = 0x1, /* TZSH_QUICKPANEL_SERVICE_TYPE_SYSTEM_DEFAULT */
+   E_SERVICE_QUICKPANEL_TYPE_CONTEXT_MENU   = 0x2  /* TZSH_QUICKPANEL_SERVICE_TYPE_CONTEXT_MENU   */
+} E_Service_Quickpanel_Type;
+
+typedef enum
+{
+   E_QUICKPANEL_TYPE_UNKNOWN = 0,
+   E_QUICKPANEL_TYPE_SYSTEM_DEFAULT = 1,
+   E_QUICKPANEL_TYPE_CONTEXT_MENU = 2,
+} E_Quickpanel_Type;
+
+typedef enum
+{
+   E_QUICKPANEL_REGION_TYPE_HANDLER = 0,
+   E_QUICKPANEL_REGION_TYPE_CONTENTS = 1,
+} E_Quickpanel_Region_Type;
+
 #endif

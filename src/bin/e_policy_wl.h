@@ -3,6 +3,7 @@
 
 #include "config.h"
 #include <e.h>
+#include "e_policy_private_data.h"
 
 Eina_Bool e_policy_wl_init(void);
 void      e_policy_wl_shutdown(void);
@@ -44,9 +45,9 @@ E_API void      e_tzsh_extension_del(const char* name);
 
 
 /* tzsh quickpanel */
-E_API void e_tzsh_qp_state_visible_update(E_Client *ec, Eina_Bool vis);
-E_API void e_tzsh_qp_state_orientation_update(E_Client *ec, int ridx);
-E_API void e_tzsh_qp_state_scrollable_update(E_Client *ec, Eina_Bool scrollable);
+E_API void e_tzsh_qp_state_visible_update(E_Client *ec, Eina_Bool vis, E_Quickpanel_Type type);
+E_API void e_tzsh_qp_state_orientation_update(E_Client *ec, int ridx, E_Quickpanel_Type type);
+E_API void e_tzsh_qp_state_scrollable_update(E_Client *ec, Eina_Bool scrollable, E_Quickpanel_Type type);
 
 /* tzsh indicator */
 EINTERN void e_tzsh_indicator_srv_property_change_send(E_Client *ec, int angle);

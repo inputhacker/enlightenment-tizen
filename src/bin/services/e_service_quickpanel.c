@@ -564,7 +564,8 @@ _e_qp_srv_effect_finish_job_end(E_Policy_Quickpanel *qp)
      {
         if (qp->type == (E_Service_Quickpanel_Type)qp_client->type)
           e_tzsh_qp_state_visible_update(qp_client->ec,
-                                         qp->effect.final_visible_state);
+                                         qp->effect.final_visible_state,
+                                         qp_client->type);
      }
 
    focused = e_client_focused_get();
@@ -1545,7 +1546,8 @@ _quickpanel_cb_rotation_done(void *data, int type, void *event)
      {
         if (qp->type == (E_Service_Quickpanel_Type)qp_client->type)
           e_tzsh_qp_state_orientation_update(qp_client->ec,
-                                             qp->rotation);
+                                             qp->rotation,
+                                             qp_client->type);
      }
 
 end:

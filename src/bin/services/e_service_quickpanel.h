@@ -13,26 +13,6 @@ typedef enum
    E_SERVICE_QUICKPANEL_EFFECT_TYPE_APP_CUSTOM = TZSH_QUICKPANEL_SERVICE_EFFECT_TYPE_APP_CUSTOM,
 } E_Service_Quickpanel_Effect_Type;
 
-typedef enum
-{
-   E_SERVICE_QUICKPANEL_TYPE_UNKNOWN        = 0x0, /* TZSH_QUICKPANEL_SERVICE_TYPE_UNKNOWN        */
-   E_SERVICE_QUICKPANEL_TYPE_SYSTEM_DEFAULT = 0x1, /* TZSH_QUICKPANEL_SERVICE_TYPE_SYSTEM_DEFAULT */
-   E_SERVICE_QUICKPANEL_TYPE_CONTEXT_MENU   = 0x2  /* TZSH_QUICKPANEL_SERVICE_TYPE_CONTEXT_MENU   */
-} E_Service_Quickpanel_Type;
-
-typedef enum
-{
-   E_QUICKPANEL_TYPE_UNKNOWN = 0,
-   E_QUICKPANEL_TYPE_SYSTEM_DEFAULT = 1,
-   E_QUICKPANEL_TYPE_CONTEXT_MENU = 2,
-} E_Quickpanel_Type;
-
-typedef enum
-{
-   E_QUICKPANEL_REGION_TYPE_HANDLER = 0,
-   E_QUICKPANEL_REGION_TYPE_CONTENTS = 1,
-} E_Quickpanel_Region_Type;
-
 struct _E_QP_Mgr_Funcs
 {
    void      (*quickpanel_client_add)(E_Client *ec, E_Service_Quickpanel_Type type);

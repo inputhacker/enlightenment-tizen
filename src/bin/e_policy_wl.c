@@ -4351,7 +4351,7 @@ _e_tzsh_qp_state_change_send(struct wl_resource *res_tzsh_client, int type, int 
 }
 
 E_API void
-e_tzsh_qp_state_visible_update(E_Client *ec, Eina_Bool vis)
+e_tzsh_qp_state_visible_update(E_Client *ec, Eina_Bool vis, E_Quickpanel_Type type)
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
    Eina_List *l;
@@ -4362,6 +4362,8 @@ e_tzsh_qp_state_visible_update(E_Client *ec, Eina_Bool vis)
 
    EINA_LIST_FOREACH(polwl->tzsh_clients, l, tzsh_client)
      {
+        /* check for type of qp */
+        if (tzsh_client->qp_type != type) continue;
         if (!tzsh_client->tzsh) continue;
         if (!tzsh_client->tzsh->ec) continue;
 
@@ -4387,7 +4389,7 @@ e_tzsh_qp_state_visible_update(E_Client *ec, Eina_Bool vis)
 }
 
 E_API void
-e_tzsh_qp_state_scrollable_update(E_Client *ec, Eina_Bool scrollable)
+e_tzsh_qp_state_scrollable_update(E_Client *ec, Eina_Bool scrollable, E_Quickpanel_Type type)
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
    Eina_List *l;
@@ -4398,6 +4400,8 @@ e_tzsh_qp_state_scrollable_update(E_Client *ec, Eina_Bool scrollable)
 
    EINA_LIST_FOREACH(polwl->tzsh_clients, l, tzsh_client)
      {
+        /* check for type of qp */
+        if (tzsh_client->qp_type != type) continue;
         if (!tzsh_client->tzsh) continue;
         if (!tzsh_client->tzsh->ec) continue;
 
@@ -4423,7 +4427,7 @@ e_tzsh_qp_state_scrollable_update(E_Client *ec, Eina_Bool scrollable)
 }
 
 E_API void
-e_tzsh_qp_state_orientation_update(E_Client *ec, int ridx)
+e_tzsh_qp_state_orientation_update(E_Client *ec, int ridx, E_Quickpanel_Type type)
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
    Eina_List *l;
@@ -4434,6 +4438,8 @@ e_tzsh_qp_state_orientation_update(E_Client *ec, int ridx)
 
    EINA_LIST_FOREACH(polwl->tzsh_clients, l, tzsh_client)
      {
+        /* check for type of qp */
+        if (tzsh_client->qp_type != type) continue;
         if (!tzsh_client->tzsh) continue;
         if (!tzsh_client->tzsh->ec) continue;
 
