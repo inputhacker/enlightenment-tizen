@@ -1170,3 +1170,50 @@ e_hwc_window_queue_buffer_release(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_
    return EINA_TRUE;
 }
 
+EINTERN Eina_List *
+e_hwc_window_queue_acquirable_buffers_get(E_Hwc_Window_Queue *queue)
+{
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
+   Eina_List *acquirable_buffers = NULL;
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+   tbm_surface_h *tsurfaces = NULL;
+   int queue_size = 0;
+   int num = 0, i = 0;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(_hwc_winq_mgr, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue->tqueue, NULL);
+
+   queue_size = tbm_surface_queue_get_size(queue->tqueue);
+   if (!queue_size) return NULL;
+
+   tsurfaces = E_NEW(tbm_surface_h, queue_size);
+   if (!tsurfaces)
+     {
+        ERR("failed to alloc tsurfaces");
+        return NULL;
+     }
+
+   tsq_err = tbm_surface_queue_get_acquirable_surfaces(queue->tqueue, tsurfaces, &num);
+   if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+     {
+        ERR("failed to tbm_surface_queue_get_acquirable_surfaces");
+        E_FREE(tsurfaces);
+        return NULL;
+     }
+
+   for (i = 0; i < num; i++)
+     {
+        tbm_surface_h tsurface = tsurfaces[i];
+        if (!tsurface) continue;
+
+        queue_buffer = e_hwc_window_queue_buffer_find(queue, tsurface);
+        if (!queue_buffer) continue;
+
+        acquirable_buffers = eina_list_append(acquirable_buffers, queue_buffer);
+     }
+
+   E_FREE(tsurfaces);
+
+   return acquirable_buffers;
+}
