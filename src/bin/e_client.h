@@ -1298,4 +1298,25 @@ e_client_util_name_get(const E_Client *ec)
      return ec->icccm.title;
    return NULL;
 }
+
+static inline Eina_Bool
+e_client_util_is_popup(const E_Client *ec)
+{
+   if (!ec) return EINA_FALSE;
+   switch (ec->netwm.type)
+     {
+        case E_WINDOW_TYPE_MENU:
+        case E_WINDOW_TYPE_SPLASH:
+        case E_WINDOW_TYPE_DROPDOWN_MENU:
+        case E_WINDOW_TYPE_POPUP_MENU:
+        case E_WINDOW_TYPE_TOOLTIP:
+        case E_WINDOW_TYPE_NOTIFICATION:
+        case E_WINDOW_TYPE_COMBO:
+        case E_WINDOW_TYPE_DND:
+          return EINA_TRUE;
+        default: break;
+     }
+  return EINA_FALSE;
+}
+
 #endif
