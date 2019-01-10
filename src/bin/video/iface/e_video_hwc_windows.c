@@ -1874,16 +1874,15 @@ _e_video_hwc_windows_iface_disallowed_property(E_Video_Comp_Iface *iface)
 static Eina_Bool
 _e_video_hwc_windows_iface_property_get(E_Video_Comp_Iface *iface, unsigned int id, tdm_value *value)
 {
-#if 0
    tdm_error ret;
 
    IFACE_ENTRY;
 
-   ret = tdm_hwc_window_get_property(evhw->hwc_window, id, value);
+   ret = tdm_hwc_window_get_property(evhw->hwc_window->thwc_window, id, value);
    if (ret != TDM_ERROR_NONE)
      return EINA_FALSE;
-#endif
-   return EINA_FALSE;
+
+   return EINA_TRUE;
 }
 
 static Eina_Bool
