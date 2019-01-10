@@ -2013,7 +2013,11 @@ e_hwc_windows_render(E_Hwc *hwc)
    target_window = (E_Hwc_Window *)target_hwc_window;
    EINA_SAFETY_ON_NULL_RETURN_VAL(target_window->queue, EINA_FALSE);
 
-   if (e_hwc_window_state_get(target_window) == E_HWC_WINDOW_STATE_NONE) return EINA_TRUE;
+   if (e_hwc_window_state_get(target_window) == E_HWC_WINDOW_STATE_NONE)
+     {
+        evas_norender(target_hwc_window->evas);
+        return EINA_TRUE;
+     }
 
    if (e_comp_canvas_norender_get() > 0)
      {
