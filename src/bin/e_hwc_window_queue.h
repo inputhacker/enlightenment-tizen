@@ -18,8 +18,12 @@ typedef enum _E_Hwc_Window_Queue_State
 #ifndef E_HWC_WINDOW_QUEUE_H
 #define E_HWC_WINDOW_QUEUE_H
 
+#define E_HWC_WINDOW_QUEUE_TYPE (int)0xE0b11004
+
 struct _E_Hwc_Window_Queue
 {
+   E_Object                          e_obj_inherit;
+
    tbm_surface_queue_h               tqueue;
    Eina_List                        *buffers;
    struct wl_signal                  destroy_signal;
