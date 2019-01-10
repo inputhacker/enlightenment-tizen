@@ -2650,8 +2650,9 @@ _e_client_eval(E_Client *ec)
         ec->changes.icon = 0;
      }
 
+   if (ec->new_client)
+     e_comp->new_clients--;
    ec->new_client = 0;
-   e_comp->new_clients--;
    ec->changed = ec->changes.pos || ec->changes.size ||
                  ec->changes.stack || ec->changes.prop || ec->changes.border ||
                  ec->changes.reset_gravity || ec->changes.shading || ec->changes.shaded ||

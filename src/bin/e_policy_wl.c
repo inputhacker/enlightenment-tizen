@@ -5716,6 +5716,8 @@ _tzlaunch_splash_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl
 
    ec->ignored = EINA_FALSE;
    ec->visible = EINA_TRUE;
+   if (ec->new_client)
+     e_comp->new_clients--;
    ec->new_client = EINA_FALSE;
    ec->icccm.accepts_focus = EINA_TRUE;
 
@@ -5772,6 +5774,8 @@ _tzlaunch_splash_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_
 
              e_client_unignore(new_ec);
              new_ec->visible = EINA_TRUE;
+             if (new_ec->new_client)
+               e_comp->new_clients--;
              new_ec->new_client = EINA_FALSE;
              new_ec->argb = old_ec->argb;
              new_ec->effect_type = old_ec->effect_type;
