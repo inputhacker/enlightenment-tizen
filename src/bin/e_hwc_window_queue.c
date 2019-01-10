@@ -307,6 +307,9 @@ _e_hwc_window_queue_buffer_destroy(E_Hwc_Window_Queue_Buffer *queue_buffer)
 {
    EINA_SAFETY_ON_FALSE_RETURN(queue_buffer);
 
+   if (queue_buffer->exported_wl_buffer)
+     wl_list_remove(&queue_buffer->exported_destroy_listener.link);
+
    E_FREE(queue_buffer);
 }
 
@@ -329,14 +332,10 @@ _e_hwc_window_queue_user_pending_set_remove(E_Hwc_Window_Queue *queue, E_Hwc_Win
      {
         if(tmp_hwc_window != hwc_window) continue;
 
-        /* _e_hwc_window_queue_tqueue_release(tqueue, hwc_window) */
-        _e_hwc_window_queue_tqueue_release(queue->tqueue, hwc_window);
-
         queue->user_pending_set = eina_list_remove_list(queue->user_pending_set, l);
         e_object_unref(E_OBJECT(hwc_window));
      }
 }
-
 
 static void
 _e_hwc_window_queue_exported_buffer_destroy_cb(struct wl_listener *listener, void *data)
@@ -595,11 +594,19 @@ _e_hwc_window_queue_cb_dequeueable(tbm_surface_queue_h surface_queue, void *data
 }
 
 static void
+_e_hwc_window_queue_free(E_Hwc_Window_Queue *queue)
+{
+   EHWQINF("Free", NULL, queue);
+
+   E_FREE(queue);
+}
+
+static void
 _e_hwc_window_queue_destroy(E_Hwc_Window_Queue *queue)
 {
    E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
 
-   if (_hwc_winq_mgr)
+   if (_hwc_winq_mgr && queue->tqueue)
      eina_hash_del(_hwc_winq_mgr->hwc_winq_hash, &queue->tqueue, queue);
 
    EHWQINF("Destroy tq:%p", NULL, queue, queue->tqueue);
@@ -609,7 +616,9 @@ _e_hwc_window_queue_destroy(E_Hwc_Window_Queue *queue)
 
    wl_signal_emit(&queue->destroy_signal, queue);
 
-   E_FREE(queue);
+   queue->tqueue = NULL;
+
+   e_object_del(E_OBJECT(queue));
 }
 
 static Eina_Bool
@@ -635,6 +644,9 @@ _e_hwc_window_queue_prepare_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_win
    tbm_surface_queue_add_dequeuable_cb(queue->tqueue,
                                        _e_hwc_window_queue_cb_dequeueable,
                                        (void *)queue);
+
+   e_object_ref(E_OBJECT(queue));
+
    return EINA_TRUE;
 }
 
@@ -696,18 +708,14 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
    queue->state = E_HWC_WINDOW_QUEUE_STATE_UNSET;
 
    /* deal with the hwc_window pending to set the queue */
-   if (eina_list_count(queue->user_pending_set) != 0)
+   if (eina_list_count(queue->user_pending_set))
      {
         hwc_window = eina_list_nth(queue->user_pending_set, 0);
         if (!_e_hwc_window_queue_prepare_set(queue, hwc_window))
           ERR("fail to queue_prepare_set for user_pending_set queue:%p hwc_window:%p", queue, hwc_window);
      }
-   else
-     {
-         /* if queue is not for target window, delete the E_Hwc_Window_Queue here */
-         if (!queue->is_target)
-           _e_hwc_window_queue_destroy(queue);
-     }
+
+   e_object_unref(E_OBJECT(queue));
 }
 
 #if 0
@@ -813,9 +821,7 @@ _e_hwc_window_queue_cb_destroy(tbm_surface_queue_h surface_queue, void *data)
 
    if (!queue) return;
 
-   // TODO: deal the E_Hwc_Window_Queue
-   //     when the tbm_surface_queue is destroyed and when there is no call of _e_hwc_window_queue_destroy before
-   //_e_hwc_window_queue_destroy(queue);
+   _e_hwc_window_queue_destroy(queue);
 }
 
 static E_Hwc_Window_Queue *
@@ -829,7 +835,7 @@ _e_hwc_window_queue_create(tbm_surface_queue_h tqueue)
    tbm_surface_h *surfaces = NULL;
    int size = 0, get_size = 0, i = 0;
 
-   queue = E_NEW(E_Hwc_Window_Queue, 1);
+   queue = E_OBJECT_ALLOC(E_Hwc_Window_Queue, E_HWC_WINDOW_QUEUE_TYPE, _e_hwc_window_queue_free);
    EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
 
    while (tbm_surface_queue_can_dequeue(tqueue, 0))
@@ -997,6 +1003,9 @@ e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_windo
    if (eina_list_data_find(queue->user_pending_set, hwc_window) == hwc_window)
      {
         _e_hwc_window_queue_user_pending_set_remove(queue, hwc_window);
+
+        /* _e_hwc_window_queue_tqueue_release(tqueue, hwc_window) */
+        _e_hwc_window_queue_tqueue_release(queue->tqueue, hwc_window);
 
         EHWQINF("Remove user_pending_set ehw:%p -- {%s}",
                 hwc_window->ec, queue, hwc_window,
