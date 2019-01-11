@@ -485,10 +485,80 @@ _e_comp_screen_del(E_Comp_Screen *e_comp_screen)
 }
 
 static void
+_e_comp_screen_output_destroy_cb(tdm_output *toutput, void *user_data)
+{
+   E_Comp_Screen *e_comp_screen = user_data;
+   E_Output *output = NULL;
+   Eina_List *l, *ll;
+
+   EINA_SAFETY_ON_NULL_RETURN(e_comp_screen);
+
+   tdm_output_remove_destroy_handler(toutput, _e_comp_screen_output_destroy_cb, e_comp_screen);
+
+   EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l, ll, output)
+     {
+        if (output->toutput == toutput)
+          {
+             e_comp_screen->num_outputs--;
+             e_comp_screen->outputs = eina_list_remove_list(e_comp_screen->outputs, l);
+             e_eom_destroy(output);
+             e_output_del(output);
+          }
+     }
+
+}
+
+static void
+_e_comp_screen_output_create_cb(tdm_display *dpy, tdm_output *toutput, void *user_data)
+{
+   E_Comp_Screen *e_comp_screen = user_data;
+   E_Output *output = NULL;
+   tdm_error ret = TDM_ERROR_NONE;
+
+   EINA_SAFETY_ON_NULL_RETURN(e_comp_screen);
+
+   TRACE_DS_BEGIN(OUTPUT:NEW);
+   output = e_output_new(e_comp_screen, e_comp_screen->num_outputs);
+   EINA_SAFETY_ON_NULL_GOTO(output, fail);
+   if (output->toutput != toutput) goto fail;
+   TRACE_DS_END();
+
+   TRACE_DS_BEGIN(OUTPUT:UPDATE);
+   if (!e_output_update(output))
+     {
+        ERR("fail to e_output_update.");
+        e_output_del(output);
+        goto fail;
+     }
+   TRACE_DS_END();
+
+   /* todo : add tdm_output_add_mode_change_request_handler()*/
+
+   ret = tdm_output_add_destroy_handler(toutput, _e_comp_screen_output_destroy_cb, e_comp_screen);
+   if (ret != TDM_ERROR_NONE)
+     {
+        ERR("fail to add output destroy handler.");
+        e_output_del(output);
+        return;
+     }
+
+   e_eom_create(output);
+   e_comp_screen->outputs = eina_list_append(e_comp_screen->outputs, output);
+   e_comp_screen->num_outputs++;
+
+   return;
+
+fail:
+   TRACE_DS_END();
+}
+
+static void
 _e_comp_screen_deinit_outputs(E_Comp_Screen *e_comp_screen)
 {
    E_Output *output;
    Eina_List *l, *ll;
+
+   tdm_display_remove_output_create_handler(e_comp_screen->tdisplay, _e_comp_screen_output_create_cb, e_comp_screen);
 
    // free up e_outputs
    EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l, ll, output)
@@ -625,6 +695,8 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
         if (!_e_comp_screen_fake_output_set(e_comp_screen))
           goto fail;
      }
+
+   if (tdm_display_add_output_create_handler(tdisplay, _e_comp_screen_output_create_cb, e_comp_screen)) goto fail;
 
    return EINA_TRUE;
 fail:
