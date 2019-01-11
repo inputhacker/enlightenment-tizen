@@ -5755,3 +5755,31 @@ e_comp_object_map_update(Evas_Object *obj)
 
    evas_object_show(cw->map_input_obj);
 }
+
+
+E_API Eina_Bool
+e_comp_object_native_usable_get(Evas_Object *obj)
+{
+   API_ENTRY EINA_FALSE;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cw->ec, EINA_FALSE);
+
+   if (cw->ec->input_only) return EINA_FALSE;
+   if (cw->external_content) return EINA_FALSE;
+   if (e_comp_object_content_type_get(cw->ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE) return EINA_FALSE;
+
+   /* just return true value, if it is normal case */
+   if (e_pixmap_usable_get(cw->ec->pixmap)) return EINA_TRUE;
+
+   /* abnormal case */
+   Evas_Native_Surface *ns;
+   ns = evas_object_image_native_surface_get(cw->obj);
+
+   /* client pixmap is not usable but cw->obj is drawable due to it holds valid native surface*/
+   if (ns)
+     {
+        ELOGF("COMP", "Client pixmap is Not usable but still holds valid native surface", cw->ec->pixmap, cw->ec);
+        return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
