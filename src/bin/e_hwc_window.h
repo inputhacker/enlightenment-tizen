@@ -81,6 +81,7 @@ struct _E_Hwc_Window
    Eina_Bool                      is_video;
    Eina_Bool                      is_cursor;
    Eina_Bool                      is_deleted;
+   Eina_Bool                      set_name;
 
    E_Hwc_Window_Activation_State  activation_state; /* hwc_window has occupied the hw layer or not */
 
@@ -178,6 +179,7 @@ EINTERN Eina_Bool          e_hwc_window_rendered_window_update(E_Hwc_Window *hwc
 EINTERN void               e_hwc_window_buffer_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface, E_Hwc_Window_Queue *queue);
 EINTERN const char        *e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state);
 EINTERN const char        *e_hwc_window_name_get(E_Hwc_Window *hwc_window);
+EINTERN void               e_hwc_window_name_set(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool          e_hwc_window_set_property(E_Hwc_Window *hwc_window, unsigned int id, const char *name, tdm_value value, Eina_Bool force);
 
 EINTERN E_Hwc_Window_Hook *e_hwc_window_hook_add(E_Hwc_Window_Hook_Point hookpoint, E_Hwc_Window_Hook_Cb func, const void *data);
