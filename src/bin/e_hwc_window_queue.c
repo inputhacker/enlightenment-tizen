@@ -536,22 +536,8 @@ _e_hwc_window_queue_buffers_hand_over(E_Hwc_Window_Queue *queue, E_Hwc_Window *h
 static Eina_Bool
 _e_hwc_window_queue_buffers_retrieve(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
 {
-   Eina_List *l = NULL;
-   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
-   struct wayland_tbm_client_queue *cqueue = NULL;
-
-   e_hwc_window_deactivate(queue->user);
-
-   cqueue = _user_cqueue_get(hwc_window->ec);
-
-   EINA_LIST_FOREACH(queue->buffers, l, queue_buffer)
-     {
-        if (!cqueue)
-          queue_buffer->usable = EINA_FALSE;
-
-        if (!queue_buffer->usable && !queue_buffer->acquired)
-          e_hwc_window_queue_buffer_release(queue, queue_buffer);
-     }
+   if (queue->user)
+     e_hwc_window_deactivate(queue->user);
 
    return EINA_TRUE;
 }
