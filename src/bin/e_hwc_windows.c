@@ -1559,6 +1559,8 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 
         hwc_window = ec->hwc_window;
 
+        e_hwc_window_name_set(hwc_window);
+
         if (e_object_is_del(E_OBJECT(ec)))
           {
              e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);

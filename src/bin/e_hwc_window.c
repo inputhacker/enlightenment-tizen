@@ -1606,6 +1606,33 @@ e_hwc_window_name_get(E_Hwc_Window *hwc_window)
    return name;
 }
 
+EINTERN void
+e_hwc_window_name_set(E_Hwc_Window *hwc_window)
+{
+   const char *name = NULL;
+   tdm_error ret;
+   Eina_Bool no_name = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
+
+   if (hwc_window->set_name) return;
+
+   name = e_client_util_name_get(hwc_window->ec);
+   if (!name)
+     {
+        name = "UNKNOWN";
+        no_name = EINA_TRUE;
+     }
+
+   ret = tdm_hwc_window_set_name(hwc_window->thwc_window, name);
+   EINA_SAFETY_ON_TRUE_RETURN(ret != TDM_ERROR_NONE);
+
+   /* the name may be set later */
+   if (no_name) return;
+
+   hwc_window->set_name = EINA_TRUE;
+}
+
 EINTERN Eina_Bool
 e_hwc_window_set_property(E_Hwc_Window *hwc_window, unsigned int id, const char *name, tdm_value value, Eina_Bool force)
 {
