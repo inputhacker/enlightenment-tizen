@@ -1073,10 +1073,7 @@ _e_plane_pp_layer_commit_handler(tdm_layer *layer, unsigned int sequence,
         _e_plane_pp_pending_data_remove(plane);
 
         if (plane->is_external)
-          {
-             tdm_layer_unset_buffer(plane->tlayer);
-             tdm_layer_commit(plane->tlayer, NULL, NULL);
-          }
+          tdm_layer_unset_buffer(plane->tlayer);
 
         return;
      }
@@ -1200,7 +1197,10 @@ _e_plane_pp_layer_data_commit(E_Plane *plane, E_Plane_Commit_Data *data)
    if (plane->is_external)
      {
         if (!e_output_connected(output))
-          tdm_layer_unset_buffer(tlayer);
+          {
+             tdm_layer_unset_buffer(tlayer);
+             goto fail;
+          }
      }
 
    aligned_width = _e_plane_aligned_width_get(data->tsurface);
@@ -1423,10 +1423,7 @@ _e_plane_ex_commit_handler(tdm_layer *layer, unsigned int sequence,
    output = plane->output;
 
    if (!e_output_connected(output))
-     {
-        tdm_layer_unset_buffer(plane->tlayer);
-        tdm_layer_commit(plane->tlayer, NULL, NULL);
-     }
+     tdm_layer_unset_buffer(plane->tlayer);
 }
 
 static void
