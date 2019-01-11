@@ -957,6 +957,13 @@ struct E_Client
    } surface_sync;
 
    Eina_Bool on_render_list : 1; // client is on the render list
+
+   // flag to check event pairing
+   struct
+   {
+      Eina_Bool add  : 1; // ADD / REMOVE
+      Eina_Bool show : 1; // SHOW / HIDE
+   } reg_ev;
 };
 
 #define e_client_focus_policy_click(ec) \

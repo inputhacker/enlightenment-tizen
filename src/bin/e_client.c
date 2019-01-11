@@ -376,6 +376,46 @@ _e_client_event_simple(E_Client *ec, int type)
 }
 
 static void
+_e_client_event_add(E_Client *ec)
+{
+   if (ec->reg_ev.add)
+     return;
+
+   ec->reg_ev.add = EINA_TRUE;
+   _e_client_event_simple(ec, E_EVENT_CLIENT_ADD);
+}
+
+static void
+_e_client_event_remove(E_Client *ec)
+{
+   if (!ec->reg_ev.add)
+     return;
+
+   ec->reg_ev.add = EINA_FALSE;
+   _e_client_event_simple(ec, E_EVENT_CLIENT_REMOVE);
+}
+
+static void
+_e_client_event_show(E_Client *ec)
+{
+   if (ec->reg_ev.show)
+     return;
+
+   ec->reg_ev.show = EINA_TRUE;
+   _e_client_event_simple(ec, E_EVENT_CLIENT_SHOW);
+}
+
+static void
+_e_client_event_hide(E_Client *ec)
+{
+   if (!ec->reg_ev.show)
+     return;
+
+   ec->reg_ev.show = EINA_FALSE;
+   _e_client_event_simple(ec, E_EVENT_CLIENT_HIDE);
+}
+
+static void
 _e_client_event_property(E_Client *ec, int prop)
 {
    E_Event_Client_Property *ev;
@@ -1072,14 +1112,14 @@ _e_client_del(E_Client *ec)
    if ((!ec->new_client) && (!stopping))
      {
         ELOGF("COMP", "SEND E_EVENT_CLIENT_REMOVE event", ec);
-        _e_client_event_simple(ec, E_EVENT_CLIENT_REMOVE);
+        _e_client_event_remove(ec);
      }
    else
      {
         if (stopping)
           {
              ELOGF("COMP", "SEND E_EVENT_CLIENT_REMOVE event on stopping env", ec);
-             _e_client_event_simple(ec, E_EVENT_CLIENT_REMOVE);
+             _e_client_event_remove(ec);
           }
      }
 
@@ -1891,8 +1931,8 @@ _e_client_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
 
    ec->post_show = 0;
 
-   if (ec->new_client || ec->iconic) return;
-   _e_client_event_simple(ec, E_EVENT_CLIENT_HIDE);
+   if (ec->new_client) return;
+   _e_client_event_hide(ec);
 
    EC_CHANGED(ec);
 }
@@ -2016,7 +2056,7 @@ _e_client_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UN
 
    if (e_object_is_del(data)) return;
 
-   _e_client_event_simple(data, E_EVENT_CLIENT_SHOW);
+   _e_client_event_show(ec);
    EC_CHANGED(ec);
 }
 
@@ -2635,14 +2675,14 @@ _e_client_eval(E_Client *ec)
                   evas_object_focus_set(ec->frame, 1);
                }
              ec->changes.visible = 0;
-             _e_client_event_simple(ec, E_EVENT_CLIENT_SHOW);
+             _e_client_event_show(ec);
           }
      }
    else if ((ec->changes.visible) && (ec->new_client))
      {
         ec->changes.visible = 0;
         if (!ec->iconic)
-          _e_client_event_simple(ec, E_EVENT_CLIENT_HIDE);
+          _e_client_event_hide(ec);
      }
 
    if (ec->changes.icon)
@@ -3853,7 +3893,7 @@ e_client_unignore(E_Client *ec)
    if (!ec->ignored) return;
 
    ec->ignored = 0;
-   _e_client_event_simple(ec, E_EVENT_CLIENT_ADD);
+   _e_client_event_add(ec);
 }
 
 E_API E_Client *
@@ -3987,7 +4027,7 @@ e_client_new(E_Pixmap *cp, int first_map, int internal)
 
    ELOGF("COMP", "CLIENT ADD. cp:%p", ec, cp);
    if (!ec->ignored)
-     _e_client_event_simple(ec, E_EVENT_CLIENT_ADD);
+     _e_client_event_add(ec);
    e_comp_object_client_add(ec);
    if (ec->frame)
      {
