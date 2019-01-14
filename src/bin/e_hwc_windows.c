@@ -1908,8 +1908,6 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
         _e_hwc_windows_target_state_set(hwc->target_hwc_window, E_HWC_WINDOW_STATE_NONE);
      }
 
-   if (hwc_mode != E_HWC_MODE_FULL && num_video > 0)
-
    /* skip the target_buffer when the window is on trainsition of the composition */
    if (hwc_mode != E_HWC_MODE_FULL && _e_hwc_windows_transition_check(hwc))
      {
