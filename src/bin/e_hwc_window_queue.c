@@ -452,11 +452,14 @@ _e_hwc_window_queue_buffer_send(E_Hwc_Window_Queue *queue)
 
    if (!tbm_surface_queue_can_dequeue(queue->tqueue, 0)) return EINA_FALSE;
 
-   queue_buffer = e_hwc_window_queue_buffer_dequeue(queue);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, EINA_FALSE);
-
    hwc_window = queue->user;
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   cqueue = _user_cqueue_get(hwc_window->ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, EINA_FALSE);
+
+   queue_buffer = e_hwc_window_queue_buffer_dequeue(queue);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, EINA_FALSE);
 
    if (queue_buffer->usable) return EINA_TRUE;
 
@@ -465,9 +468,6 @@ _e_hwc_window_queue_buffer_send(E_Hwc_Window_Queue *queue)
         ERR("Not exported queue_buffer:%p tsurface:%p", queue_buffer, queue_buffer->tsurface);
         return EINA_FALSE;
      }
-
-   cqueue = _user_cqueue_get(hwc_window->ec);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, EINA_FALSE);
 
    /* send the buffer_usable to the wl_tbm client */
    wayland_tbm_server_client_queue_send_buffer_usable(cqueue, queue_buffer->exported_wl_buffer);
