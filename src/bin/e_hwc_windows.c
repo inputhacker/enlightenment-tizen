@@ -167,7 +167,7 @@ _e_hwc_windows_commit_data_release(E_Hwc *hwc, int sequence,
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
          if (!hwc_window->commit_data) continue;
-         if (e_hwc_window_is_video(hwc_window))
+         if (e_hwc_window_is_video(hwc_window) && hwc_window->ec)
            e_client_video_commit_data_release(hwc_window->ec, sequence, tv_sec, tv_usec);
 
          if (!e_hwc_window_commit_data_release(hwc_window)) continue;
@@ -1479,7 +1479,6 @@ _e_hwc_windows_accept(E_Hwc *hwc)
 
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
-        if (hwc_window->is_deleted) continue;
         if (e_hwc_window_is_target(hwc_window)) continue;
 
         /* update the accepted_state */
