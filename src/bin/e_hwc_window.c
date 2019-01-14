@@ -1208,9 +1208,9 @@ e_hwc_window_accepted_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State sta
 
    hwc_window->accepted_state = state;
 
-   EHWTRACE("Set Accepted state:%s -- {%s}",
-            hwc_window->ec, hwc_window, e_hwc_window_state_string_get(state),
-            e_hwc_window_name_get(hwc_window));
+   EHWINF("Set Accepted state:%s -- {%s}",
+           hwc_window->ec, hwc_window, e_hwc_window_state_string_get(state),
+           e_hwc_window_name_get(hwc_window));
 
    _e_hwc_window_hook_call(E_HWC_WINDOW_HOOK_ACCEPTED_STATE_CHANGE, hwc_window);
 
