@@ -4157,7 +4157,10 @@ e_info_server_cb_hwc_trace_message(const Eldbus_Service_Interface *iface EINA_UN
      }
 
    if (onoff == 0 || onoff == 1)
-     e_plane_hwc_trace_debug(onoff);
+     {
+        e_plane_hwc_trace_debug(onoff);
+        e_hwc_windows_trace_debug(onoff);
+     }
 
    if (onoff == 2)
      e_comp_screen_hwc_info_debug();

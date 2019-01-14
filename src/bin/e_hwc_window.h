@@ -184,5 +184,8 @@ EINTERN Eina_Bool          e_hwc_window_set_property(E_Hwc_Window *hwc_window, u
 
 EINTERN E_Hwc_Window_Hook *e_hwc_window_hook_add(E_Hwc_Window_Hook_Point hookpoint, E_Hwc_Window_Hook_Cb func, const void *data);
 EINTERN void               e_hwc_window_hook_del(E_Hwc_Window_Hook *ch);
+
+EINTERN void               e_hwc_window_trace_debug(Eina_Bool onoff);
+
 #endif // E_HWC_WINDOW_H
 #endif

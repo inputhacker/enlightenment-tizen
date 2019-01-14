@@ -1212,3 +1212,11 @@ e_hwc_window_queue_acquirable_buffers_get(E_Hwc_Window_Queue *queue)
 
    return acquirable_buffers;
 }
+
+EINTERN void
+e_hwc_window_queue_trace_debug(Eina_Bool onoff)
+{
+   if (onoff == ehwq_trace) return;
+   ehwq_trace = onoff;
+   INF("EHWQ: hwc trace_debug is %s", onoff?"ON":"OFF");
+}

@@ -2318,3 +2318,13 @@ e_hwc_windows_get_video_available_properties(E_Hwc *hwc, const tdm_prop **props,
 
    return EINA_TRUE;
 }
+
+EINTERN void
+e_hwc_windows_trace_debug(Eina_Bool onoff)
+{
+   if (onoff == ehws_trace) return;
+   ehws_trace = onoff;
+   e_hwc_window_trace_debug(onoff);
+   e_hwc_window_queue_trace_debug(onoff);
+   INF("EHWS: hwc trace_debug is %s", onoff?"ON":"OFF");
+}

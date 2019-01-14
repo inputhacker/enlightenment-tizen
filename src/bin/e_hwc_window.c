@@ -1720,3 +1720,11 @@ e_hwc_window_hook_del(E_Hwc_Window_Hook *ch)
    else
      _e_hwc_window_hooks_delete++;
 }
+
+EINTERN void
+e_hwc_window_trace_debug(Eina_Bool onoff)
+{
+   if (onoff == ehw_trace) return;
+   ehw_trace = onoff;
+   INF("EHW: hwc trace_debug is %s", onoff?"ON":"OFF");
+}
