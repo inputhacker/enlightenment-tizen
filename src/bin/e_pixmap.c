@@ -1063,13 +1063,7 @@ e_pixmap_buffer_clear(E_Pixmap *cp, Eina_Bool only_free)
          else
            {
               if (e_comp_is_on_overlay(cp->client))
-                {
-                   e_comp_hwc_client_end(cp->client, __FUNCTION__);
-
-                   //TODO: this is temporary code..
-                   if (cp->client->hwc_window)
-                      e_hwc_window_deactivate(cp->client->hwc_window);
-                }
+                e_comp_hwc_client_end(cp->client, __FUNCTION__);
 
               tizen_surface_shm_flusher_send_flush(cp->shm_flusher);
            }
