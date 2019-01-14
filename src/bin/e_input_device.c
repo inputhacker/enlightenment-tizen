@@ -1171,7 +1171,7 @@ e_input_devices_get(void)
    return einput_devices;
 }
 
-EAPI Eina_Bool
+E_API Eina_Bool
 e_input_device_mouse_accel_speed_set(E_Input_Device *dev, double speed)
 {
    E_Input_Seat *seat = NULL;

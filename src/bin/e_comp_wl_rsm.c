@@ -3609,7 +3609,7 @@ _e_comp_wl_remote_surface_subsurface_commit(E_Comp_Wl_Remote_Provider *parent_pr
 }
 #endif /* HAVE_REMOTE_SURFACE */
 
-EAPI E_Client*
+E_API E_Client*
 e_comp_wl_remote_surface_bound_provider_ec_get(E_Client *ec)
 {
 #ifdef HAVE_REMOTE_SURFACE
@@ -3689,7 +3689,7 @@ e_comp_wl_remote_surface_commit(E_Client *ec)
 #endif /* HAVE_REMOTE_SURFACE */
 }
 
-EAPI void
+E_API void
 e_comp_wl_remote_surface_image_save(E_Client *ec)
 {
 #ifdef HAVE_REMOTE_SURFACE
@@ -3711,7 +3711,7 @@ end:
 #endif /* HAVE_REMOTE_SURFACE */
 }
 
-EAPI void
+E_API void
 e_comp_wl_remote_surface_image_save_skip_set(E_Client *ec, Eina_Bool set)
 {
    if (!e_config->save_win_buffer) return;
@@ -3720,7 +3720,7 @@ e_comp_wl_remote_surface_image_save_skip_set(E_Client *ec, Eina_Bool set)
    ec->skip_save_img = set;
 }
 
-EAPI Eina_Bool
+E_API Eina_Bool
 e_comp_wl_remote_surface_image_save_skip_get(E_Client *ec)
 {
    if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;

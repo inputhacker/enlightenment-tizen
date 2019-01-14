@@ -1561,7 +1561,7 @@ e_input_evdev_touch_calibration_set(E_Input_Evdev *edev, float matrix[6])
    return EINA_TRUE;
 }
 
-EAPI Eina_Bool
+EINTERN Eina_Bool
 e_input_evdev_mouse_accel_speed_set(E_Input_Evdev *edev, double speed)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(edev, EINA_FALSE);
