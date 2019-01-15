@@ -1728,3 +1728,24 @@ e_hwc_window_trace_debug(Eina_Bool onoff)
    ehw_trace = onoff;
    INF("EHW: hwc trace_debug is %s", onoff?"ON":"OFF");
 }
+
+EINTERN void
+e_hwc_window_commit_data_buffer_dump(E_Hwc_Window *hwc_window)
+{
+   char fname[64];
+
+   EINA_SAFETY_ON_FALSE_RETURN(hwc_window);
+
+   if (!hwc_window->commit_data) return;
+   if (!hwc_window->commit_data->buffer.tsurface) return;
+
+   if (hwc_window->is_target)
+     snprintf(fname, sizeof(fname), "hwc_commit_composite_%p",
+              hwc_window);
+   else
+     snprintf(fname, sizeof(fname), "hwc_commit_0x%08x_%p",
+              e_client_util_win_get(hwc_window->ec), hwc_window);
+
+   tbm_surface_internal_dump_buffer(hwc_window->commit_data->buffer.tsurface,
+                                    fname);
+}

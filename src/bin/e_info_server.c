@@ -3853,6 +3853,7 @@ _e_info_server_cb_buffer_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
              else
                 tbm_surface_internal_dump_start(e_info_dump_path, e_comp->w, e_comp->h, count);
              tdm_helper_dump_start(e_info_dump_path, &e_info_dump_count);
+             e_hwc_windows_dump_start();
              E_LIST_HANDLER_APPEND(e_info_dump_hdlrs, E_EVENT_CLIENT_BUFFER_CHANGE,
                                _e_info_server_cb_buffer_change, NULL);
           }
@@ -3867,6 +3868,7 @@ _e_info_server_cb_buffer_dump(const Eldbus_Service_Interface *iface EINA_UNUSED,
           }
         e_info_server_hook_call(E_INFO_SERVER_HOOK_BUFFER_DUMP_BEGIN);
         tdm_helper_dump_stop();
+        e_hwc_windows_dump_stop();
         tbm_surface_internal_dump_end();
 
         eldbus_message_arguments_append(reply, "is", ret, (e_info_dump_path ?: "nopath"));
