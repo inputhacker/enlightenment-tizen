@@ -46,6 +46,7 @@
    while (0)
 
 static Eina_Bool ehws_trace = EINA_TRUE;
+static Eina_Bool ehws_dump_enable = EINA_FALSE;
 static uint64_t ehws_rendered_windows_key;
 #define EHWS_RENDERED_WINDOWS_KEY  (unsigned long)(&ehws_rendered_windows_key)
 
@@ -185,6 +186,9 @@ _e_hwc_windows_commit_data_aquire(E_Hwc *hwc)
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
         if (!e_hwc_window_commit_data_acquire(hwc_window)) continue;
+
+        if (ehws_dump_enable)
+          e_hwc_window_commit_data_buffer_dump(hwc_window);
 
         /* send frame event enlightenment doesn't send frame event in nocomp */
         if (hwc_window->ec)
@@ -2327,4 +2331,20 @@ e_hwc_windows_trace_debug(Eina_Bool onoff)
    e_hwc_window_trace_debug(onoff);
    e_hwc_window_queue_trace_debug(onoff);
    INF("EHWS: hwc trace_debug is %s", onoff?"ON":"OFF");
+}
+
+EINTERN void
+e_hwc_windows_dump_start(void)
+{
+   if (ehws_dump_enable) return;
+
+   ehws_dump_enable = EINA_TRUE;
+}
+
+EINTERN void
+e_hwc_windows_dump_stop(void)
+{
+   if (!ehws_dump_enable) return;
+
+   ehws_dump_enable = EINA_FALSE;
 }

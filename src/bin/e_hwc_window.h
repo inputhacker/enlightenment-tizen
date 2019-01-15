@@ -186,6 +186,7 @@ EINTERN E_Hwc_Window_Hook *e_hwc_window_hook_add(E_Hwc_Window_Hook_Point hookpoi
 EINTERN void               e_hwc_window_hook_del(E_Hwc_Window_Hook *ch);
 
 EINTERN void               e_hwc_window_trace_debug(Eina_Bool onoff);
+EINTERN void               e_hwc_window_commit_data_buffer_dump(E_Hwc_Window *hwc_window);
 
 #endif // E_HWC_WINDOW_H
 #endif

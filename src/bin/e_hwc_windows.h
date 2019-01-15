@@ -17,6 +17,8 @@ EINTERN void                 e_hwc_windows_zoom_unset(E_Hwc *hwc);
 EINTERN Eina_Bool            e_hwc_windows_fps_get(E_Hwc *hwc, double *fps);
 
 EINTERN void                 e_hwc_windows_trace_debug(Eina_Bool onoff);
+EINTERN void                 e_hwc_windows_dump_start(void);
+EINTERN void                 e_hwc_windows_dump_stop(void);
 
 #endif
 #endif
