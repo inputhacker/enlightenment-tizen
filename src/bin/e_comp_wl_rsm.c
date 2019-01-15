@@ -3886,6 +3886,62 @@ e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
 #endif
 }
 
+/**
+ * Get a list of e_clients of tizen remote surface providers which is used in given ec
+ * NB: caller must free returned Eina_List object after using it.
+ */
+E_API Eina_List *
+e_comp_wl_remote_surface_providers_get(E_Client *ec)
+{
+   E_Comp_Wl_Remote_Provider *prov;
+   E_Comp_Wl_Remote_Source *src;
+   E_Comp_Wl_Remote_Surface *rs;
+   Eina_Iterator *it;
+   Eina_List *l;
+   Eina_List *provs = NULL; /* result list */
+   E_Client *owner_ec;
+
+   /* remote surface providers */
+   it = eina_hash_iterator_data_new(_rsm->provider_hash);
+   EINA_ITERATOR_FOREACH(it, prov)
+     {
+        EINA_LIST_FOREACH(prov->common.surfaces, l, rs)
+          {
+             owner_ec = rs->owner;
+             if (!owner_ec) owner_ec = rs->bind_ec;
+
+             if (!owner_ec) continue;
+             if (owner_ec != ec) continue;
+
+             /* append provider's ec to result list */
+             provs = eina_list_append(provs, prov->common.ec);
+             break;
+          }
+     }
+   eina_iterator_free(it);
+
+   /* remote sources i.e., normal window */
+   it = eina_hash_iterator_data_new(_rsm->source_hash);
+   EINA_ITERATOR_FOREACH(it, src)
+     {
+        EINA_LIST_FOREACH(src->common.surfaces, l, rs)
+          {
+             owner_ec = rs->owner;
+             if (!owner_ec) owner_ec = rs->bind_ec;
+
+             if (!owner_ec) continue;
+             if (owner_ec != ec) continue;
+
+             /* append source's ec to result list */
+             provs = eina_list_append(provs, src->common.ec);
+             break;
+          }
+     }
+   eina_iterator_free(it);
+
+   return provs;
+}
+
 #undef E_CLIENT_HOOK_APPEND
 #define E_CLIENT_HOOK_APPEND(l, t, cb, d) \
   do                                      \
