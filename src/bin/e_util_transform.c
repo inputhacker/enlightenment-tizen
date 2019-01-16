@@ -5,7 +5,9 @@
 static void _e_util_transform_value_merge(E_Util_Transform_Value *inout, E_Util_Transform_Value *input);
 static void _e_util_transform_value_convert_to_matrix(E_Util_Transform_Matrix *out,
                                                       E_Util_Transform_Value *value,
-                                                      E_Util_Transform_Rect *source_rect);
+                                                      E_Util_Transform_Axis *rotation_axis,
+                                                      E_Util_Transform_Rect *source_rect,
+                                                      int use_axis);
 
 E_API E_Util_Transform*
 e_util_transform_new(void)
@@ -174,6 +176,18 @@ e_util_transform_viewport_set(E_Util_Transform *transform, int x, int y, int w, 
 }
 
 E_API void
+e_util_transform_rotation_axis_set(E_Util_Transform *transform, double ax, double ay, double az)
+{
+   if (!transform) return;
+
+   transform->rotation_axis.axis[0] = ax;
+   transform->rotation_axis.axis[1] = ay;
+   transform->rotation_axis.axis[2] = az;
+   transform->use_axis= EINA_TRUE;
+   transform->changed = EINA_TRUE;
+}
+
+E_API void
 e_util_transform_merge(E_Util_Transform *in_out, E_Util_Transform *input)
 {
    if (!in_out) return;
@@ -192,6 +206,9 @@ e_util_transform_merge(E_Util_Transform *in_out, E_Util_Transform *input)
 
    _e_util_transform_value_merge(&in_out->transform, &input->transform);
 
+   if(input->use_axis)
+     memcpy(&in_out->rotation_axis, &input->rotation_axis, sizeof(input->rotation_axis));
+
    // texcoord and viewport just one setting.
    if (input->use_texcoord)
      memcpy(&in_out->texcoord, &input->texcoord, sizeof(input->texcoord));
@@ -201,6 +218,7 @@ e_util_transform_merge(E_Util_Transform *in_out, E_Util_Transform *input)
    in_out->use_texcoord |= input->use_texcoord;
    in_out->use_viewport |= input->use_viewport;
    in_out->use_bg_transform |= input->use_bg_transform;
+   in_out->use_axis |= input->use_axis;
 
    in_out->changed = EINA_TRUE;
 }
@@ -213,7 +231,7 @@ e_util_transform_convert_to_matrix(E_Util_Transform *transform, E_Util_Transform
    if (!transform) return result;
    if (!source_rect) return result;
 
-   _e_util_transform_value_convert_to_matrix(&result, &transform->transform, source_rect);
+   _e_util_transform_value_convert_to_matrix(&result, &transform->transform, &transform->rotation_axis, source_rect, transform->use_axis);
 
    return result;
 }
@@ -226,7 +244,7 @@ e_util_transform_bg_convert_to_matrix(E_Util_Transform *transform, E_Util_Transf
    if (!transform) return result;
    if (!source_rect) return result;
 
-   _e_util_transform_value_convert_to_matrix(&result, &transform->bg_transform, source_rect);
+   _e_util_transform_value_convert_to_matrix(&result, &transform->bg_transform, &transform->rotation_axis, source_rect, transform->use_axis);
 
    return result;
 }
@@ -374,6 +392,24 @@ e_util_transform_viewport_get(E_Util_Transform *transform, int *x, int *y, int *
    if (h) *h = transform->viewport.h;
 }
 
+E_API void
+e_util_transform_rotation_axis_get(E_Util_Transform *transform, double *x, double *y, double *z)
+{
+   if (!transform) return;
+   if (x) *x = transform->rotation_axis.axis[0];
+   if (y) *y = transform->rotation_axis.axis[1];
+   if (z) *z = transform->rotation_axis.axis[2];
+}
+
+E_API void
+e_util_transform_rotation_axis_round_get(E_Util_Transform *transform, int *x, int *y, int *z)
+{
+   if (!transform) return;
+   if (x) *x = E_UTIL_TRANSFORM_ROUND(transform->rotation_axis.axis[0]);
+   if (y) *y = E_UTIL_TRANSFORM_ROUND(transform->rotation_axis.axis[1]);
+   if (z) *z = E_UTIL_TRANSFORM_ROUND(transform->rotation_axis.axis[2]);
+}
+
 E_API Eina_Bool
 e_util_transform_texcoord_flag_get(E_Util_Transform *transform)
 {
@@ -393,6 +429,13 @@ e_util_transform_bg_transform_flag_get(E_Util_Transform *transform)
 {
    if (!transform) return EINA_FALSE;
    return transform->use_bg_transform;
+}
+
+E_API Eina_Bool
+e_util_transform_rotation_axis_flag_get(E_Util_Transform *transform)
+{
+   if (!transform) return EINA_FALSE;
+   return transform->use_axis;
 }
 
 E_API void
@@ -1058,7 +1101,7 @@ _e_util_transform_value_merge(E_Util_Transform_Value *inout, E_Util_Transform_Va
 }
 
 static void
-_e_util_transform_value_convert_to_matrix(E_Util_Transform_Matrix *out, E_Util_Transform_Value *value, E_Util_Transform_Rect *source_rect)
+_e_util_transform_value_convert_to_matrix(E_Util_Transform_Matrix *out, E_Util_Transform_Value *value,E_Util_Transform_Axis *rotation_axis, E_Util_Transform_Rect *source_rect, int use_axis)
 {
    if (!out) return;
    if (!value) return;
@@ -1072,6 +1115,13 @@ _e_util_transform_value_convert_to_matrix(E_Util_Transform_Matrix *out, E_Util_T
    e_util_transform_matrix_translate(out, -source_rect->x - source_rect->w / 2.0, -source_rect->y - source_rect->h / 2.0, 0.0);
    e_util_transform_matrix_scale(out, value->scale[0], value->scale[1], value->scale[2]);
 
+   double new_x = (rotation_axis->axis[0] - (source_rect->x + source_rect->w / 2.0)) * value->scale[0];
+   double new_y = (rotation_axis->axis[1] - (source_rect->y + source_rect->h / 2.0)) * value->scale[1];
+
+   if(use_axis)
+     {
+        e_util_transform_matrix_translate(out, -new_x, -new_y, 0.0);
+     }
    if (!E_UTIL_TRANSFORM_IS_ZERO(value->rotation[0]))
      e_util_transform_matrix_rotation_x(out, value->rotation[0]);
    if (!E_UTIL_TRANSFORM_IS_ZERO(value->rotation[1]))
@@ -1079,6 +1129,10 @@ _e_util_transform_value_convert_to_matrix(E_Util_Transform_Matrix *out, E_Util_T
    if (!E_UTIL_TRANSFORM_IS_ZERO(value->rotation[2]))
      e_util_transform_matrix_rotation_z(out, value->rotation[2]);
 
+   if(use_axis)
+     {
+        e_util_transform_matrix_translate(out, new_x, new_y, 0.0);
+     }
    e_util_transform_matrix_translate(out, (source_rect->x * value->scale[0]) + value->move[0] + (dest_w / 2.0),
                                      (source_rect->y * value->scale[1]) + value->move[1] + (dest_h / 2.0), 0.0);
 }
