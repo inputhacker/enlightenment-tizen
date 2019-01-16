@@ -4,6 +4,7 @@ typedef struct _E_Util_Transform_Value              E_Util_Transform_Value;
 typedef struct _E_Util_Transform_Texcoord           E_Util_Transform_Texcoord;
 typedef struct _E_Util_Transform                    E_Util_Transform;
 typedef struct _E_Util_Transform_Rect               E_Util_Transform_Rect;
+typedef struct _E_Util_Transform_Axis               E_Util_Transform_Axis;
 typedef struct _E_Util_Transform_Vertex             E_Util_Transform_Vertex;
 typedef struct _E_Util_Transform_Rect_Vertex        E_Util_Transform_Rect_Vertex;
 typedef struct _E_Util_Transform_Matrix             E_Util_Transform_Matrix;
@@ -33,17 +34,24 @@ struct _E_Util_Transform_Value
    double rotation[3];
 };
 
+struct _E_Util_Transform_Axis
+{
+   double axis[3];
+};
+
 struct _E_Util_Transform
 {
    E_Util_Transform_Value    transform;
    E_Util_Transform_Value    bg_transform;
    E_Util_Transform_Texcoord texcoord;
    E_Util_Transform_Rect     viewport;
+   E_Util_Transform_Axis     rotation_axis;
    int                       ref_count;
    Eina_Bool                 changed;
    Eina_Bool                 use_texcoord;
    Eina_Bool                 use_viewport;
    Eina_Bool                 use_bg_transform;
+   Eina_Bool                 use_axis;
 };
 
 struct _E_Util_Transform_Vertex
@@ -76,6 +84,7 @@ E_API void                         e_util_transform_bg_scale(E_Util_Transform *t
 E_API void                         e_util_transform_bg_rotation(E_Util_Transform *transform, double rx, double ry, double rz);
 E_API void                         e_util_transform_texcoord_set(E_Util_Transform *transform, int index, double tu, double tv);
 E_API void                         e_util_transform_viewport_set(E_Util_Transform *transform, int x, int y, int w, int h);
+E_API void                         e_util_transform_rotation_axis_set(E_Util_Transform *transform, double ax, double ay, double az);
 
 E_API void                         e_util_transform_merge(E_Util_Transform *in_out, E_Util_Transform *input);
 E_API E_Util_Transform_Matrix      e_util_transform_convert_to_matrix(E_Util_Transform *transform, E_Util_Transform_Rect *source_rect);
@@ -99,9 +108,12 @@ E_API void                         e_util_transform_bg_rotation_round_get(E_Util
 
 E_API void                         e_util_transform_texcoord_get(E_Util_Transform *transform, int index, double *tu, double *tv);
 E_API void                         e_util_transform_viewport_get(E_Util_Transform *transform, int *x, int *y, int *w, int *h);
+E_API void                         e_util_transform_rotation_axis_get(E_Util_Transform *transform, double *x, double *y, double *z);
+E_API void                         e_util_transform_rotation_axis_round_get(E_Util_Transform *transform, int *x, int *y, int *z);
 E_API Eina_Bool                    e_util_transform_texcoord_flag_get(E_Util_Transform *transform);
 E_API Eina_Bool                    e_util_transform_viewport_flag_get(E_Util_Transform *transform);
 E_API Eina_Bool                    e_util_transform_bg_transform_flag_get(E_Util_Transform *transform);
+E_API Eina_Bool                    e_util_transform_rotation_axis_flag_get(E_Util_Transform *transform);
 
 E_API void                         e_util_transform_rect_init(E_Util_Transform_Rect *rect, int x, int y, int w, int h);
 E_API void                         e_util_transform_rect_client_rect_get(E_Util_Transform_Rect *rect, E_Client *ec);
