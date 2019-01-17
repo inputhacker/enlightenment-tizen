@@ -66,7 +66,11 @@ static int render_buffers_key;
 static E_Comp_Wl_Buffer *
 _get_comp_wl_buffer(E_Client *ec)
 {
-   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+   E_Comp_Wl_Client_Data *cdata = NULL;
+
+   if (!ec) return NULL;
+
+   cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    if (!cdata) return NULL;
 
    E_Comp_Wl_Buffer_Ref *buffer_ref = &cdata->buffer_ref;
@@ -77,7 +81,11 @@ _get_comp_wl_buffer(E_Client *ec)
 static struct wl_resource *
 _get_wl_buffer(E_Client *ec)
 {
-   E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+   E_Comp_Wl_Client_Data *cdata = NULL;
+
+   if (!ec) return NULL;
+
+   cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    if (!cdata) return NULL;
 
    E_Comp_Wl_Buffer_Ref *buffer_ref = &cdata->buffer_ref;
@@ -979,8 +987,8 @@ _e_plane_renderer_recover_ec(E_Plane_Renderer *renderer)
    E_Comp_Wl_Buffer *buffer = NULL;
    tbm_surface_h tsurface =NULL;
 
+   if (!plane) return;
    if (!plane->ec_redirected) return;
-
    if (!ec) return;
 
    cdata = ec->comp_data;
@@ -991,8 +999,6 @@ _e_plane_renderer_recover_ec(E_Plane_Renderer *renderer)
 
    if (!buffer)
      {
-        if (!plane) return;
-
         tsurface = plane->tsurface;
         if (!tsurface) return;
 
