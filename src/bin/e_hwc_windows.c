@@ -1697,7 +1697,7 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
              e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
 
              EHWSTRACE("   ehw:%p -- {%25s} is NOT hwc_acceptable.",
-                     hwc_window->ec, hwc_window, hwc_window->ec->icccm.title);
+                     hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
           }
      }
    else

@@ -592,6 +592,8 @@ _e_hwc_window_queue_destroy(E_Hwc_Window_Queue *queue)
 {
    E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
 
+   if (!queue) return;
+
    if (_hwc_winq_mgr && queue->tqueue)
      eina_hash_del(_hwc_winq_mgr->hwc_winq_hash, &queue->tqueue, queue);
 
