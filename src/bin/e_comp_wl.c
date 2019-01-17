@@ -2346,6 +2346,8 @@ _e_comp_wl_subsurface_can_show(E_Client *ec)
 
    invisible_parent = _e_comp_wl_subsurface_invisible_parent_get(ec);
    topmost = e_comp_wl_topmost_parent_get(ec);
+   if (!topmost)
+     return EINA_FALSE;
 
    /* if topmost is composited by compositor && if there is a invisible parent */
    if (topmost->redirected && invisible_parent)

@@ -23,6 +23,8 @@ e_zone_video_available_size_get(E_Zone *zone, int *minw, int *minh, int *maxw, i
    int rminw = -1, rminh = -1, rmaxw = -1, rmaxh = -1, ralign = -1;
 
    output = e_output_find(zone->output_id);
+   if (!output)
+     return EINA_FALSE;
 
    tdm_output_get_available_size(output->toutput, &ominw, &ominh, &omaxw, &omaxh, &oalign);
    if (!e_comp_screen_pp_support())
