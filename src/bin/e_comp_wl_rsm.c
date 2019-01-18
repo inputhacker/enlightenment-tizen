@@ -3378,9 +3378,10 @@ _e_comp_wl_remote_surface_dummy_fd_get(void)
 {
    int fd = 0, blen = 0, len = 0;
    char *path;
-   char tmp[PATH_MAX];
+   char buf[PATH_MAX];
+   Eina_Tmpstr *tmpstr = NULL;
 
-   blen = sizeof(tmp) - 1;
+   blen = sizeof(buf) - 1;
 
    path = e_util_env_get("XDG_RUNTIME_DIR");
    if (!path) return -1;
@@ -3388,8 +3389,8 @@ _e_comp_wl_remote_surface_dummy_fd_get(void)
    len = strlen(path);
    if (len < blen)
      {
-        strncpy(tmp, path, len + 1);
-        strncat(tmp, "/enlightenment_rsm_dummy_fdXXXXXX", 34);
+        strncpy(buf, path, len + 1);
+        strncat(buf, "/enlightenment_rsm_dummy_fdXXXXXX", 34);
         E_FREE(path);
      }
    else
@@ -3398,10 +3399,11 @@ _e_comp_wl_remote_surface_dummy_fd_get(void)
         return -1;
      }
 
-   if ((fd = mkstemp(tmp)) < 0)
+   if ((fd = eina_file_mkstemp(buf, &tmpstr)) < 0)
      return -1;
 
-   unlink(tmp);
+   ecore_file_unlink(tmpstr);
+   eina_tmpstr_del(tmpstr);
 
    return fd;
 }
