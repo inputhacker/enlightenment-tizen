@@ -200,6 +200,7 @@ EINTERN void                 e_plane_dpms_off(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_external_fetch(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_external_commit(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_external_set(E_Plane *plane, Eina_Rectangle *rect, E_Output_Ext_State state);
+EINTERN Eina_Bool            e_plane_external_reset(E_Plane *plane, Eina_Rectangle *rect);
 EINTERN void                 e_plane_external_unset(E_Plane *plane);
 EINTERN void                 e_plane_renderer_unset(E_Plane *plane);
 EINTERN void                 e_plane_renderer_clean(E_Plane *plane);
