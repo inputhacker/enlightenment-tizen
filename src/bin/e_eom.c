@@ -2745,3 +2745,75 @@ e_eom_destroy(E_Output *output)
 
    return EINA_TRUE;
 }
+
+EINTERN Eina_Bool
+e_eom_mode_change(E_Output *output, E_Output_Mode *emode)
+{
+   E_EomOutputPtr eom_output = NULL;
+   E_EomVirtualOutputPtr voutput = NULL;
+   E_Output *output_primary = NULL;
+
+   if (!g_eom) return EINA_TRUE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(output_primary == output, EINA_FALSE);
+
+   eom_output = _e_eom_output_find(output);
+   if (eom_output == NULL)
+     {
+        eom_output = _e_eom_output_find_added_output(output);
+        if (!eom_output)
+          {
+             EOMER("cannot find output");
+             return EINA_FALSE;
+          }
+     }
+
+   if (eom_output->connection_status == EINA_FALSE)
+     return EINA_FALSE;
+
+   if (eom_output->voutput == NULL)
+     {
+        eom_output->width = output->config.mode.w;
+        eom_output->height = output->config.mode.h;
+
+        EOMDB("mode change output: %s (%dx%d)", eom_output->name, eom_output->width, eom_output->height);
+
+        return EINA_TRUE;
+     }
+   voutput = eom_output->voutput;
+
+   if (eom_output->delay_timer)
+     ecore_timer_del(eom_output->delay_timer);
+   eom_output->delay_timer = NULL;
+
+   if (g_eom->rotate_output == eom_output)
+     {
+        if (g_eom->rotate_timer)
+          ecore_timer_del(g_eom->rotate_timer);
+        g_eom->rotate_timer = NULL;
+        g_eom->rotate_output = NULL;
+     }
+
+   /* update eom_output connect */
+   eom_output->width = output->config.mode.w;
+   eom_output->height = output->config.mode.h;
+   eom_output->phys_width = output->info.size.w;
+   eom_output->phys_height = output->info.size.h;
+   eom_output->name = eina_stringshare_add(output->id);
+   eom_output->connection_status = EINA_TRUE;
+
+   EOMDB("mode change output: %s (%dx%d)", eom_output->name, eom_output->width, eom_output->height);
+   if (voutput->state == PRESENTATION)
+     {
+        voutput->state = WAIT_PRESENTATION;
+        _e_eom_send_configure_event();
+
+        eom_output->delay_timer = ecore_timer_add(EOM_DELAY_CONNECT_CHECK_TIMEOUT, _e_eom_presentation_check, eom_output);
+     }
+
+   return EINA_TRUE;
+}

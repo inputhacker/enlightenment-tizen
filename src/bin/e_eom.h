@@ -14,6 +14,6 @@ EINTERN Eina_Bool e_eom_connect(E_Output *output);
 EINTERN Eina_Bool e_eom_disconnect(E_Output *output);
 EINTERN Eina_Bool e_eom_create(E_Output *output);
 EINTERN Eina_Bool e_eom_destroy(E_Output *output);
-
+EINTERN Eina_Bool e_eom_mode_change(E_Output *output, E_Output_Mode *emode);
 #endif
 #endif
