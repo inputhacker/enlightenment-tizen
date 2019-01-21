@@ -1553,6 +1553,7 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
    E_Client  *ec;
    Evas_Object *o;
    int scr_w, scr_h;
+   int ui_skip = EINA_FALSE;
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
@@ -1612,6 +1613,10 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 
             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO, EINA_TRUE);
           }
+        else
+          {
+             if (ui_skip) continue;
+          }
 
         if (ec->is_cursor)
           {
@@ -1619,6 +1624,9 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
           }
 
         windows_list = eina_list_append(windows_list, hwc_window);
+
+        if (!ec->argb)
+          ui_skip = EINA_TRUE;
      }
 
    return windows_list;
