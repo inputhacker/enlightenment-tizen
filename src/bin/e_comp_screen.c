@@ -485,6 +485,62 @@ _e_comp_screen_del(E_Comp_Screen *e_comp_screen)
 }
 
 static void
+_e_comp_screen_output_mode_change_cb(tdm_output *toutput, unsigned int index, void *user_data)
+{
+   E_Comp_Screen *e_comp_screen = user_data;
+   E_Output *output = NULL;
+   Eina_Bool find = EINA_FALSE;
+   int count, num;
+   E_Output_Mode *set_emode = NULL, *current_emode = NULL;
+   E_Output_Mode *emode = NULL;
+   Eina_List *modelist = NULL, *l, *ll;
+
+   EINA_SAFETY_ON_NULL_RETURN(e_comp_screen);
+
+   EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l, ll, output)
+     {
+        if (output->toutput == toutput)
+          {
+             find = EINA_TRUE;
+             break;
+          }
+     }
+   EINA_SAFETY_ON_FALSE_RETURN(find == EINA_TRUE);
+
+   current_emode = e_output_current_mode_get(output);
+   EINA_SAFETY_ON_NULL_RETURN(current_emode);
+
+   modelist = e_output_mode_list_get(output);
+   if (modelist)
+     {
+        num = eina_list_count(modelist);
+        EINA_SAFETY_ON_FALSE_RETURN(index < num);
+
+        count = 0;
+        EINA_LIST_FOREACH(modelist, l, emode)
+          {
+             if (count == index)
+               {
+                  set_emode = emode;
+                  break;
+               }
+             count++;
+          }
+
+        if (set_emode)
+          {
+             EINA_SAFETY_ON_TRUE_RETURN(current_emode == set_emode);
+
+             DBG("request mode change(%d) (%dx%d, %lf) -> (%dx%d, %lf)\n",
+                  index, current_emode->w, current_emode->h, current_emode->refresh,
+                  set_emode->w, set_emode->h, set_emode->refresh);
+
+             e_output_external_mode_change(output, set_emode);
+          }
+     }
+}
+
+static void
 _e_comp_screen_output_destroy_cb(tdm_output *toutput, void *user_data)
 {
    E_Comp_Screen *e_comp_screen = user_data;
@@ -533,6 +589,13 @@ _e_comp_screen_output_create_cb(tdm_display *dpy, tdm_output *toutput, void *use
    TRACE_DS_END();
 
    /* todo : add tdm_output_add_mode_change_request_handler()*/
+   ret = tdm_output_add_mode_change_request_handler(toutput, _e_comp_screen_output_mode_change_cb, e_comp_screen);
+   if (ret != TDM_ERROR_NONE)
+     {
+        ERR("fail to add output mode change handler.");
+        e_output_del(output);
+        return;
+     }
 
    ret = tdm_output_add_destroy_handler(toutput, _e_comp_screen_output_destroy_cb, e_comp_screen);
    if (ret != TDM_ERROR_NONE)
