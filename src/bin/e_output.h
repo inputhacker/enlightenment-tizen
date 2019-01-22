@@ -194,6 +194,7 @@ EINTERN const char      * e_output_output_id_get(E_Output *output);
 EINTERN Eina_Bool         e_output_external_set(E_Output *output, E_Output_Ext_State state);
 EINTERN void              e_output_external_unset(E_Output *output);
 EINTERN Eina_Bool         e_output_external_update(E_Output *output);
+EINTERN Eina_Bool         e_output_external_mode_change(E_Output *output, E_Output_Mode *mode);
 E_API E_Output          * e_output_find(const char *id);
 E_API E_Output          * e_output_find_by_index(int index);
 E_API const Eina_List   * e_output_planes_get(E_Output *output);

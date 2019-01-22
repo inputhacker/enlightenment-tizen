@@ -3664,3 +3664,66 @@ e_output_external_update(E_Output *output)
 
    return EINA_TRUE;
 }
+
+EINTERN Eina_Bool
+e_output_external_mode_change(E_Output *output, E_Output_Mode *mode)
+{
+   E_Output_Mode *emode = NULL, *current_emode = NULL;
+   Eina_List *l;
+   Eina_Bool found = EINA_FALSE;
+   E_Output *output_primary = NULL;
+   E_Plane *ep = NULL;
+   int w, h, p_w, p_h;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(mode, EINA_FALSE);
+
+   if (e_output_connected(output) != EINA_TRUE)
+     return EINA_FALSE;
+
+   current_emode = e_output_current_mode_get( output);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(current_emode, EINA_FALSE);
+
+   if (current_emode == mode)
+     return EINA_TRUE;
+
+   EINA_LIST_FOREACH(output->info.modes, l, emode)
+     {
+        if (mode == emode)
+          {
+             found = EINA_TRUE;
+             break;
+          }
+     }
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(found == EINA_TRUE, EINA_FALSE);
+
+   ep = e_output_fb_target_get(output);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
+
+   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(output_primary == output, EINA_FALSE);
+
+   e_comp_canvas_norender_push();
+
+   if (e_output_mode_apply(output, mode) == EINA_FALSE)
+     {
+        ERR("fail to e_output_mode_apply.");
+        e_comp_canvas_norender_pop();
+        return EINA_FALSE;
+     }
+
+   e_output_size_get(output, &w, &h);
+   e_output_size_get(output_primary, &p_w, &p_h);
+   _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
+
+   e_eom_mode_change(output, mode);
+   e_plane_external_reset(ep, &output->zoom_conf.rect);
+
+   _e_output_render_update(output_primary);
+   e_comp_canvas_norender_pop();
+
+   DBG("e_output_external_reset done: output:%s (%dx%d)", output->id, mode->w, mode->h);
+
+   return EINA_TRUE;
+}
