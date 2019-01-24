@@ -176,7 +176,7 @@ _e_hwc_windows_commit_data_release(E_Hwc *hwc, int sequence,
 }
 
 static Eina_Bool
-_e_hwc_windows_commit_data_aquire(E_Hwc *hwc)
+_e_hwc_windows_commit_data_acquire(E_Hwc *hwc)
 {
    const Eina_List *l;
    E_Hwc_Window *hwc_window;
@@ -1811,7 +1811,7 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
      update_changes = EINA_TRUE;
 
    /* fetch the target buffer */
-   if (_e_hwc_windows_target_buffer_fetch(hwc)) // try aquire
+   if (_e_hwc_windows_target_buffer_fetch(hwc)) // try acquire
      update_changes = EINA_TRUE;
 
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
@@ -2083,7 +2083,7 @@ e_hwc_windows_commit(E_Hwc *hwc)
         return EINA_TRUE;
      }
 
-   if (!_e_hwc_windows_commit_data_aquire(hwc))
+   if (!_e_hwc_windows_commit_data_acquire(hwc))
      return EINA_TRUE;
 
    EHWSTRACE("!!!!!!!! HWC Commit !!!!!!!!", NULL);
