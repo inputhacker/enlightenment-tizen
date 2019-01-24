@@ -1743,7 +1743,7 @@ e_hwc_window_commit_data_buffer_dump(E_Hwc_Window *hwc_window)
      snprintf(fname, sizeof(fname), "hwc_commit_composite_%p",
               hwc_window);
    else
-     snprintf(fname, sizeof(fname), "hwc_commit_0x%08x_%p",
+     snprintf(fname, sizeof(fname), "hwc_commit_0x%08zx_%p",
               e_client_util_win_get(hwc_window->ec), hwc_window);
 
    tbm_surface_internal_dump_buffer(hwc_window->commit_data->buffer.tsurface,
