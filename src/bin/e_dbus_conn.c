@@ -22,10 +22,7 @@ e_dbus_conn_connection_ref(Eldbus_Connection_Type type)
    /* Currently, ELDBUS_CONNECTION_TYPE_SYSTEM is being supported */
 
    if (e_dbus_conn->conn && e_dbus_conn->conn_type == type)
-     {
-        e_dbus_conn->conn_refcount++;
-        return eldbus_connection_ref(e_dbus_conn->conn);
-     }
+     return eldbus_connection_ref(e_dbus_conn->conn);
 
    return NULL;
 }
@@ -34,16 +31,7 @@ E_API void
 e_dbus_conn_connection_unref(Eldbus_Connection *conn)
 {
    if (conn)
-     {
-        if (e_dbus_conn->conn_refcount <= 0)
-          {
-             ERR("Invalid unreference of e_dbus_conn ! (conn_refcount=%d)", e_dbus_conn->conn_refcount);
-             return;
-          }
-
-        eldbus_connection_unref(conn);
-        --e_dbus_conn->conn_refcount;
-     }
+     eldbus_connection_unref(conn);
 }
 
 static void
@@ -80,56 +68,50 @@ _e_dbus_conn_init_done_send(E_DBus_Conn *ed)
 static void
 _e_dbus_conn_init_thread_heavy(void *data, Ecore_Thread *th, void *msg_data)
 {
-   E_DBus_Conn *ed_thread = (E_DBus_Conn *)data;
-   int retry_cnt;
+   Eina_Bool *res = NULL;
+   E_DBus_Conn ed_thread = *(E_DBus_Conn *)data;
+   int retry_cnt = ed_thread.retry_cnt;
 
-   if (!ed_thread)
+   res = calloc(1, sizeof(Eina_Bool));
+
+   if (!res)
      {
-        ERR("[E_DBus_Conn] Invalid E_DBus_Conn ptr is given ! Thread is going to canceled !");
-        ecore_thread_cancel(th);
+        ERR("Failed to allocate memory for E_DBus_Conn thread !\n");
         return;
      }
 
-   retry_cnt = ed_thread->retry_cnt;
-
-   ed_thread->conn = NULL;
+   *res = EINA_FALSE;
+   ed_thread.conn = NULL;
 
    while (retry_cnt--)
      {
-        ed_thread->conn = eldbus_connection_get(ed_thread->conn_type);
+        ed_thread.conn = eldbus_connection_get(ed_thread.conn_type);
 
-        if (ed_thread->conn)
+        if (ed_thread.conn)
           {
+             eldbus_connection_unref(ed_thread.conn);
+             *res = EINA_TRUE;
              break;
           }
 
-        if (ed_thread->retry_intervals)
-          usleep(ed_thread->retry_intervals);
+        if (ed_thread.retry_intervals)
+          usleep(ed_thread.retry_intervals);
      }
 
-   ecore_thread_feedback(th, ed_thread);
-
+   ecore_thread_feedback(th, res);
    return;
 }
 
 static void
 _e_dbus_conn_init_thread_notify(void *data, Ecore_Thread *th, void *msg_data)
 {
-   E_DBus_Conn *ed_thread = (E_DBus_Conn *)msg_data;
+   Eina_Bool *res = (Eina_Bool *)msg_data;
 
-   if (!ed_thread)
+   if (res && *res)
      {
-        ERR("[%s] Invalid E_DBus_Conn ptr !", __FUNCTION__);
-        return;
-     }
-
-   if (ed_thread->conn)
-     {
-        eldbus_connection_unref(ed_thread->conn);
-
         e_dbus_conn->conn = eldbus_connection_get(e_dbus_conn->conn_type);
         if (e_dbus_conn->conn) e_dbus_conn->init_status = E_DBUS_CONN_INIT_SUCCESS;
-        INF("E_DBus_Conn connection has been got successfully !");
+        free(res);
      }
 }
 
@@ -137,8 +119,6 @@ static void
 _e_dbus_conn_init_thread_end(void *data, Ecore_Thread *th, void *msg_data)
 {
    _e_dbus_conn_init_done_send(e_dbus_conn);
-
-   INF("E_DBus_Conn thread has been ended successfully !");
 }
 
 static void
@@ -260,7 +240,6 @@ e_dbus_conn_init(void)
    ed->retry_cnt = E_DBUS_CONN_DEFAULT_RETRY_COUNT;
    ed->init_status = E_DBUS_CONN_INIT_YET_STARTED;
    ed->retry_intervals = 0;
-   ed->conn_refcount = 0;
 
    E_EVENT_DBUS_CONN_INIT_DONE = ecore_event_type_new();
 
@@ -297,8 +276,7 @@ e_dbus_conn_init(void)
 
    e_dbus_conn = ed;
 
-   INF("Succeed to init E_DBus_Conn ! (use_thread=%d, retry_intervals=%d, retry_cnt=%d)",
-                                                  ed->use_thread, ed->retry_intervals, ed->retry_cnt);
+   INF("Succeed to init E_DBus_Conn !");
 
    return _e_dbus_conn_init_count;
 }

@@ -32,7 +32,6 @@ struct _E_DBus_Conn
    Eldbus_Connection *conn;
    Eldbus_Connection_Type conn_type;
    unsigned int retry_intervals; /* suspend re-connection for microsecond intervals */
-   unsigned int conn_refcount;
 };
 
 typedef struct _E_DBus_Conn_Init_Done_Event E_DBus_Conn_Init_Done_Event;
