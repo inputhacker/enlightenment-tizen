@@ -3,6 +3,10 @@
 # include <pixman.h>
 # include <wayland-tbm-server.h>
 
+#ifndef CLEAR
+#define CLEAR(x) memset(&(x), 0, sizeof (x))
+#endif
+
 #define EHWINF(f, ec, ehw, x...)                                \
    do                                                           \
      {                                                          \
@@ -992,7 +996,9 @@ e_hwc_window_commit_data_acquire(E_Hwc_Window *hwc_window)
              hwc_window->accepted_state == E_HWC_WINDOW_STATE_VIDEO)
      {
         if (!hwc_window->buffer.tsurface) return EINA_FALSE;
-        if (hwc_window->buffer.tsurface == hwc_window->display.buffer.tsurface) return EINA_FALSE;
+        if ((hwc_window->buffer.tsurface == hwc_window->display.buffer.tsurface) &&
+            (!memcmp(&hwc_window->info, &hwc_window->display.info, sizeof(tdm_hwc_window_info))))
+          return EINA_FALSE;
 
         commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
         EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
@@ -1078,6 +1084,8 @@ e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window)
 
         e_comp_wl_buffer_reference(&hwc_window->display.buffer_ref, NULL);
         _e_hwc_window_buffer_set(&hwc_window->display.buffer, NULL, NULL);
+
+        CLEAR(hwc_window->display.info);
      }
    else
      {
@@ -1101,6 +1109,8 @@ e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window)
                                      hwc_window->commit_data->buffer_ref.buffer);
         /* update hwc_window display info */
         _e_hwc_window_buffer_set(&hwc_window->display.buffer, tsurface, queue);
+
+        memcpy(&hwc_window->display.info, &hwc_window->commit_data->info, sizeof(tdm_hwc_window_info));
 
         e_object_ref(E_OBJECT(hwc_window));
      }

@@ -100,6 +100,7 @@ struct _E_Hwc_Window
    {
       E_Comp_Wl_Buffer_Ref        buffer_ref;
       E_Hwc_Window_Buffer         buffer;
+      tdm_hwc_window_info         info;
    } display;
 
    struct
@@ -142,6 +143,7 @@ struct _E_Hwc_Window_Target
 struct _E_Hwc_Window_Commit_Data {
    E_Comp_Wl_Buffer_Ref   buffer_ref;
    E_Hwc_Window_Buffer    buffer;
+   tdm_hwc_window_info    info;
 };
 
 EINTERN Eina_Bool          e_hwc_window_init(E_Hwc *hwc);
