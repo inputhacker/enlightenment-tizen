@@ -1338,7 +1338,7 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
           {
              if (!_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
                {
-                  hwc_window->transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT;
+                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT);
                   transition = EINA_TRUE;
                }
           }
@@ -1348,7 +1348,7 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
           {
              if (!_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
                {
-                  hwc_window->transition = E_HWC_WINDOW_TRANSITION_CURSOR_TO_CLIENT;
+                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_CURSOR_TO_CLIENT);
                   transition = EINA_TRUE;
                }
           }
@@ -1358,7 +1358,7 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
           {
              if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
                {
-                  hwc_window->transition = E_HWC_WINDOW_TRANSITION_NONE_TO_DEVICE;
+                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_NONE_TO_DEVICE);
                   transition = EINA_TRUE;
                }
           }
@@ -1368,7 +1368,7 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
           {
              if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
                {
-                  hwc_window->transition = E_HWC_WINDOW_TRANSITION_NONE_TO_CURSOR;
+                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_NONE_TO_CURSOR);
                   transition = EINA_TRUE;
                }
           }
@@ -1378,7 +1378,7 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
           {
              if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
                {
-                  hwc_window->transition = E_HWC_WINDOW_TRANSITION_CLIENT_TO_DEVICE;
+                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_CLIENT_TO_DEVICE);
                   transition = EINA_TRUE;
                }
           }
@@ -1388,7 +1388,7 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
           {
              if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
                {
-                  hwc_window->transition = E_HWC_WINDOW_TRANSITION_CLIENT_TO_CURSOR;
+                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_CLIENT_TO_CURSOR);
                   transition = EINA_TRUE;
                }
           }
