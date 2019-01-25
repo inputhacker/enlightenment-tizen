@@ -470,6 +470,9 @@ _e_devicemgr_input_cb_key_up(void *data, int type, void *event)
 Eina_Bool
 e_devicemgr_input_init(void)
 {
+   e_devicemgr->virtual_mouse_device_fd = -1;
+   e_devicemgr->virtual_key_device_fd = -1;
+
    E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_MOUSE_BUTTON_DOWN, _e_devicemgr_input_cb_mouse_button_down, NULL);
    E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_MOUSE_BUTTON_UP, _e_devicemgr_input_cb_mouse_button_up, NULL);
    E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_MOUSE_MOVE, _e_devicemgr_input_cb_mouse_move, NULL);
@@ -479,6 +482,26 @@ e_devicemgr_input_init(void)
    E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_ADD, _e_devicemgr_input_cb_device_add, NULL);
    E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_DEL, _e_devicemgr_input_cb_device_del, NULL);
    E_LIST_HANDLER_PREPEND(e_devicemgr->handlers, ECORE_EVENT_DEVICE_SUBCLASS_UPDATE, _e_devicemgr_input_cb_device_update, NULL);
+
+   if (e_devicemgr->dconfig->conf->input.virtual_key_device_enable)
+     {
+        e_devicemgr->virtual_key_device_fd = e_devicemgr_create_virtual_device(ECORE_DEVICE_CLASS_KEYBOARD, "Virtual Key Device");
+
+        if (e_devicemgr->virtual_key_device_fd >= 0)
+          DMINF("input.virtual_key_device_enable: device fd : %d\n", e_devicemgr->virtual_key_device_fd);
+        else
+          DMWRN("input.virtual_key_device_enable: but failed to create device !\n");
+     }
+
+   if (e_devicemgr->dconfig->conf->input.virtual_mouse_device_enable)
+     {
+        e_devicemgr->virtual_mouse_device_fd = e_devicemgr_create_virtual_device(ECORE_DEVICE_CLASS_MOUSE, "Virtual Mouse Device");
+
+        if (e_devicemgr->virtual_mouse_device_fd >= 0)
+          DMINF("input.virtual_mouse_device_enable: device fd : %d\n", e_devicemgr->virtual_mouse_device_fd);
+        else
+          DMWRN("input.virtual_mouse_device_enable: but failed to create device !\n");
+     }
 
    return EINA_TRUE;
 }
@@ -490,4 +513,15 @@ e_devicemgr_input_shutdown(void)
 
    EINA_LIST_FREE(e_devicemgr->handlers, h)
      ecore_event_handler_del(h);
+
+   if (e_devicemgr->virtual_key_device_fd)
+     {
+        e_devicemgr_destroy_virtual_device(e_devicemgr->virtual_key_device_fd);
+        e_devicemgr->virtual_key_device_fd = -1;
+     }
+   if (e_devicemgr->virtual_mouse_device_fd)
+     {
+        e_devicemgr_destroy_virtual_device(e_devicemgr->virtual_mouse_device_fd);
+        e_devicemgr->virtual_mouse_device_fd = -1;
+     }
 }
