@@ -1405,6 +1405,26 @@ e_hwc_window_device_state_available_check(E_Hwc_Window *hwc_window)
 }
 
 EINTERN Eina_Bool
+e_hwc_window_transition_set(E_Hwc_Window *hwc_window, E_Hwc_Window_Transition transition)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (hwc_window->transition == transition) return EINA_TRUE;
+
+   hwc_window->transition = transition;
+
+   return EINA_TRUE;
+}
+
+EINTERN E_Hwc_Window_Transition
+e_hwc_window_transition_get(E_Hwc_Window *hwc_window)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, E_HWC_WINDOW_STATE_NONE);
+
+   return hwc_window->transition;
+}
+
+EINTERN Eina_Bool
 e_hwc_window_constraints_update(E_Hwc_Window *hwc_window)
 {
    E_Hwc_Window_Queue *queue = NULL;
