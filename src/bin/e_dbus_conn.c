@@ -89,7 +89,9 @@ _e_dbus_conn_init_thread_heavy(void *data, Ecore_Thread *th, void *msg_data)
 
         if (ed_thread.conn)
           {
+             ecore_thread_main_loop_begin();
              eldbus_connection_unref(ed_thread.conn);
+             ecore_thread_main_loop_end();
              *res = EINA_TRUE;
              break;
           }
