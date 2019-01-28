@@ -1488,6 +1488,7 @@ _e_hwc_windows_accept(E_Hwc *hwc)
         /* update the accepted_state */
         state = e_hwc_window_state_get(hwc_window);
         e_hwc_window_accepted_state_set(hwc_window, state);
+        e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_NONE_TO_NONE);
 
         /* notify the hwc_window that it will be displayed on hw layer */
         if (!hwc_window->queue &&
