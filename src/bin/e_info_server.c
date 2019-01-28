@@ -624,7 +624,7 @@ _e_info_server_cb_compobjs(const Eldbus_Service_Interface *iface EINA_UNUSED, co
         /* 3. push : child objects */
         if (evas_object_smart_data_get(info->o))
           {
-             EINA_LIST_REVERSE_FOREACH(evas_object_smart_members_get(info->o), ll, c)
+             EINA_LIST_FOREACH(evas_object_smart_members_get(info->o), ll, c)
                {
                   info2 = _obj_info_get(info->o, c, info->depth + 1);
                   stack = eina_list_append(stack, info2);
