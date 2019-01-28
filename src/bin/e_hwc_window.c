@@ -251,8 +251,35 @@ _e_hwc_window_cb_queue_destroy(struct wl_listener *listener, void *data)
    hwc_window->queue = NULL;
 }
 
+static Eina_Bool
+_e_hwc_window_buffer_queue_set(E_Hwc_Window *hwc_window)
+{
+   E_Hwc_Window_Queue *queue = NULL;
+   struct wayland_tbm_client_queue *cqueue = NULL;
+
+   cqueue = _get_wayland_tbm_client_queue(hwc_window->ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, EINA_FALSE);
+
+   queue = e_hwc_window_queue_user_set(hwc_window);
+   if (!queue)
+     {
+         ERR("fail to e_hwc_window_queue_user_set ehw:%p", hwc_window);
+         hwc_window->queue = NULL;
+         return EINA_FALSE;
+     }
+
+   wl_signal_add(&queue->destroy_signal, &hwc_window->queue_destroy_listener);
+   hwc_window->queue_destroy_listener.notify = _e_hwc_window_cb_queue_destroy;
+   hwc_window->queue = queue;
+
+   EHWTRACE("Set constranints BUFFER_QUEUE -- {%s}",
+             hwc_window->ec, hwc_window, e_client_util_name_get(hwc_window->ec));
+
+   return EINA_TRUE;
+}
+
 static void
-_e_hwc_window_constraints_reset(E_Hwc_Window *hwc_window)
+_e_hwc_window_buffer_queue_unset(E_Hwc_Window *hwc_window)
 {
    /* reset the TDM_HWC_WIN_CONSTRAINT_BUFFER_QUEUE */
    if (hwc_window->queue)
@@ -261,6 +288,20 @@ _e_hwc_window_constraints_reset(E_Hwc_Window *hwc_window)
         wl_list_remove(&hwc_window->queue_destroy_listener.link);
         hwc_window->queue = NULL;
      }
+
+    EHWTRACE("Unset constranints BUFFER_QUEUE -- {%s}",
+              hwc_window->ec, hwc_window, e_client_util_name_get(hwc_window->ec));
+}
+
+static void
+_e_hwc_window_constraints_reset(E_Hwc_Window *hwc_window)
+{
+   _e_hwc_window_buffer_queue_unset(hwc_window);
+
+   hwc_window->constraints = TDM_HWC_WIN_CONSTRAINT_NONE;
+
+   EHWTRACE("Reset constranints -- {%s}",
+            hwc_window->ec, hwc_window, e_client_util_name_get(hwc_window->ec));
 }
 
 static void
@@ -1413,6 +1454,10 @@ e_hwc_window_transition_set(E_Hwc_Window *hwc_window, E_Hwc_Window_Transition tr
 
    hwc_window->transition = transition;
 
+   if ((transition == E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT) ||
+       (transition == E_HWC_WINDOW_TRANSITION_DEVICE_TO_NONE))
+     _e_hwc_window_constraints_reset(hwc_window);
+
    return EINA_TRUE;
 }
 
@@ -1427,8 +1472,6 @@ e_hwc_window_transition_get(E_Hwc_Window *hwc_window)
 EINTERN Eina_Bool
 e_hwc_window_constraints_update(E_Hwc_Window *hwc_window)
 {
-   E_Hwc_Window_Queue *queue = NULL;
-   struct wayland_tbm_client_queue *cqueue = NULL;
    tdm_error terror;
    int constraints;
 
@@ -1441,32 +1484,26 @@ e_hwc_window_constraints_update(E_Hwc_Window *hwc_window)
 
    if (hwc_window->constraints == constraints) return EINA_TRUE;
 
-   if (constraints & TDM_HWC_WIN_CONSTRAINT_BUFFER_QUEUE)
+   if (constraints)
      {
-         if (!hwc_window->queue)
-           {
-              cqueue = _get_wayland_tbm_client_queue(hwc_window->ec);
-              EINA_SAFETY_ON_NULL_RETURN_VAL(cqueue, EINA_FALSE);
+        if (constraints & TDM_HWC_WIN_CONSTRAINT_BUFFER_QUEUE)
+          {
+             if (!_e_hwc_window_buffer_queue_set(hwc_window))
+               {
+                  ERR("fail to _e_hwc_window_buffer_queue_set");
+                  return EINA_FALSE;
+               }
+          }
+        else
+          _e_hwc_window_buffer_queue_unset(hwc_window);
 
-              queue = e_hwc_window_queue_user_set(hwc_window);
-              if (!queue)
-                {
-                   ERR("fail to e_hwc_window_queue_user_set ehw:%p", hwc_window);
-                   hwc_window->queue = NULL;
-                   return EINA_FALSE;
-                }
+        EHWTRACE("Set constranints:%x -- {%s}",
+                  hwc_window->ec, hwc_window, constraints, e_client_util_name_get(hwc_window->ec));
 
-              wl_signal_add(&queue->destroy_signal, &hwc_window->queue_destroy_listener);
-              hwc_window->queue_destroy_listener.notify = _e_hwc_window_cb_queue_destroy;
-              hwc_window->queue = queue;
-           }
+        hwc_window->constraints = constraints;
      }
    else
-     {
-         _e_hwc_window_constraints_reset(hwc_window);
-     }
-
-   hwc_window->constraints = constraints;
+     _e_hwc_window_constraints_reset(hwc_window);
 
    return EINA_TRUE;
 }
