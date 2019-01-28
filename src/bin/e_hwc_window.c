@@ -533,6 +533,36 @@ _e_hwc_window_cursor_position_get(E_Pointer *ptr, int width, int height, unsigne
 }
 
 static void
+_e_hwc_window_update_fps(E_Hwc_Window *hwc_window)
+{
+   if (e_comp->calc_fps)
+     {
+        double dt;
+        double tim = ecore_time_get();
+
+        dt = tim - hwc_window->fps.frametimes[0];
+        hwc_window->fps.frametimes[0] = tim;
+
+        hwc_window->fps.time += dt;
+        hwc_window->fps.cframes++;
+
+        if (hwc_window->fps.lapse == 0.0)
+          {
+             hwc_window->fps.lapse = tim;
+             hwc_window->fps.flapse = hwc_window->fps.cframes;
+          }
+        else if ((tim - hwc_window->fps.lapse) >= 0.5)
+          {
+             hwc_window->fps.fps = (hwc_window->fps.cframes - hwc_window->fps.flapse) /
+                                   (tim - hwc_window->fps.lapse);
+             hwc_window->fps.lapse = tim;
+             hwc_window->fps.flapse = hwc_window->fps.cframes;
+             hwc_window->fps.time = 0.0;
+          }
+     }
+}
+
+static void
 _e_hwc_window_free(E_Hwc_Window *hwc_window)
 {
    E_Hwc *hwc = NULL;
@@ -1048,6 +1078,8 @@ e_hwc_window_commit_data_acquire(E_Hwc_Window *hwc_window)
                                  hwc_window->buffer.queue);
 
         tbm_surface_internal_ref(commit_data->buffer.tsurface);
+
+        _e_hwc_window_update_fps(hwc_window);
 
         if (!e_hwc_window_is_target(hwc_window) &&
             !e_hwc_window_is_video(hwc_window))
@@ -1853,4 +1885,22 @@ e_hwc_window_commit_data_buffer_dump(E_Hwc_Window *hwc_window)
 
    tbm_surface_internal_dump_buffer(hwc_window->commit_data->buffer.tsurface,
                                     fname);
+}
+
+EINTERN Eina_Bool
+e_hwc_window_fps_get(E_Hwc_Window *hwc_window, double *fps)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (hwc_window->fps.old_fps == hwc_window->fps.fps)
+     return EINA_FALSE;
+
+   if (hwc_window->fps.fps > 0.0)
+     {
+        *fps = hwc_window->fps.fps;
+        hwc_window->fps.old_fps = hwc_window->fps.fps;
+        return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
 }

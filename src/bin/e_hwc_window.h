@@ -112,6 +112,18 @@ struct _E_Hwc_Window
       int                         img_stride;
    } cursor;
 
+   struct
+   {
+      /* for fps */
+      double               fps;
+      double               old_fps;
+      double               frametimes[122];
+      double               time;
+      double               lapse;
+      int                  cframes;
+      int                  flapse;
+   } fps;
+
    int                            constraints;
 
    E_Hwc_Window_Queue            *queue;
@@ -192,6 +204,7 @@ EINTERN void                    e_hwc_window_hook_del(E_Hwc_Window_Hook *ch);
 
 EINTERN void                    e_hwc_window_trace_debug(Eina_Bool onoff);
 EINTERN void                    e_hwc_window_commit_data_buffer_dump(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool               e_hwc_window_fps_get(E_Hwc_Window *hwc_window, double *fps);
 
 #endif // E_HWC_WINDOW_H
 #endif
