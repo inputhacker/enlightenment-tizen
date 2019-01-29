@@ -209,7 +209,8 @@ typedef enum
 #define USAGE_DUMPIMAGE                                                  \
    "[Option..] [DIR]\n"                                                  \
    "\ttopvwins     : Dump buffer commit on top visible clients\n"        \
-   "\tns           : Dump native surfaces set on clients\n"
+   "\tns           : Dump native surfaces set on clients\n"              \
+   "\thwc_wins     : Dump buffer displayed by hwc_windows\n"
 
 /* -------------------------------------------------------------------------- */
 /* FORCE_VISIBLE                                                              */

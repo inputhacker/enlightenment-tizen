@@ -2559,6 +2559,68 @@ static void _e_info_server_cb_wins_dump_ns(const char *dir)
      }
 }
 
+static void _e_info_server_cb_wins_dump_hwc_wins(const char *dir)
+{
+   E_Comp_Screen *e_comp_screen = NULL;
+   E_Output *output = NULL;
+   E_Hwc_Window *hwc_window = NULL;
+   E_Hwc *hwc = NULL;
+   Eina_List *o = NULL, *oo = NULL;
+   Eina_List *l = NULL, *ll = NULL;
+
+   e_comp_screen = e_comp->e_comp_screen;
+   if (!e_comp_screen) return;
+
+   EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, o, oo, output)
+     {
+        if (!output) continue;
+        if (!output->config.enabled) continue;
+        if (!output->tdm_hwc) continue;
+
+         hwc = output->hwc;
+
+         EINA_LIST_FOREACH_SAFE(hwc->hwc_windows, l, ll, hwc_window)
+           {
+              char fname[PATH_MAX];
+              tbm_format fmt;
+
+              if (!hwc_window) continue;
+              if (!hwc_window->display.buffer.tsurface) continue;
+
+              fmt = tbm_surface_get_format(hwc_window->display.buffer.tsurface);
+              switch (fmt)
+                {
+                 case TBM_FORMAT_ARGB8888:
+                 case TBM_FORMAT_XRGB8888:
+                  if (hwc_window->is_target)
+                    snprintf(fname, sizeof(fname), "compositor_hwin_%p_tbm_%p", hwc_window, hwc_window->display.buffer.tsurface);
+                  else
+                    snprintf(fname, sizeof(fname), "0x%08zx_hwin_%p_tbm_%p", e_client_util_win_get(hwc_window->ec),
+                             hwc_window, hwc_window->display.buffer.tsurface);
+
+                  tbm_surface_internal_capture_buffer(hwc_window->display.buffer.tsurface, dir, fname, "png");
+                  break;
+                 case TBM_FORMAT_YUV420:
+                 case TBM_FORMAT_YVU420:
+                 case TBM_FORMAT_NV12:
+                 case TBM_FORMAT_NV21:
+                 case TBM_FORMAT_YUYV:
+                 case TBM_FORMAT_UYVY:
+                  if (hwc_window->is_target)
+                    snprintf(fname, sizeof(fname), "compositor_hwin_%p_tbm_%p", hwc_window, hwc_window->display.buffer.tsurface);
+                  else
+                    snprintf(fname, sizeof(fname), "0x%08zx_hwin_%p_tbm_%p", e_client_util_win_get(hwc_window->ec),
+                             hwc_window, hwc_window->display.buffer.tsurface);
+
+                  tbm_surface_internal_capture_buffer(hwc_window->display.buffer.tsurface, dir, fname, "yuv");
+                  break;
+                 default:
+                  break;
+                }
+           }
+     }
+}
+
 static Eldbus_Message *
 _e_info_server_cb_wins_dump(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
@@ -2576,6 +2638,8 @@ _e_info_server_cb_wins_dump(const Eldbus_Service_Interface *iface EINA_UNUSED, c
      _e_info_server_cb_wins_dump_topvwins(dir);
    else if (!e_util_strcmp(type, "ns"))
      _e_info_server_cb_wins_dump_ns(dir);
+   else if (!e_util_strcmp(type, "hwc_wins"))
+     _e_info_server_cb_wins_dump_hwc_wins(dir);
 
    return reply;
 }

@@ -1356,7 +1356,7 @@ _e_info_client_proc_wins_shot(int argc, char **argv)
    char *directory = NULL;
    char *type = NULL;
 
-   if (eina_streq(argv[2], "topvwins") || eina_streq(argv[2], "ns"))
+   if (eina_streq(argv[2], "topvwins") || eina_streq(argv[2], "ns") || eina_streq(argv[2], "hwc_wins"))
      {
         if (argc == 3)
           directory = _directory_make(argv[2], NULL);
