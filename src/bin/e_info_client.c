@@ -976,7 +976,35 @@ finish:
 }
 
 static void
-_e_info_client_proc_topvwins_info(int argc, char **argv)
+_cb_vec_info_get(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eldbus_Message_Iter *array;
+   char *engine;
+   Eina_Bool res;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   EINA_SAFETY_ON_TRUE_GOTO(res, finish);
+
+   res = eldbus_message_arguments_get(msg, "iiiiisiia("VALUE_TYPE_FOR_TOPVWINS")",
+                                      &e_info_client.use_gl, &e_info_client.use_hwc, &e_info_client.use_multi_layer,
+                                      &e_info_client.hwc, &e_info_client.hwc_windows, &engine,
+                                      &e_info_client.use_buffer_flush, &e_info_client.deiconify_approve,
+                                      &array);
+   EINA_SAFETY_ON_FALSE_GOTO(res, finish);
+   e_info_client.engine = eina_stringshare_add(engine);
+
+   _e_win_info_make_array(array);
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_ec_list_info(void)
 {
    E_Win_Info *win;
    Eina_List *l;
@@ -986,41 +1014,17 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
 
    const char *prev_layer_name = NULL;
 
-   if (!_e_info_client_eldbus_message("get_window_info", _cb_vwindow_info_get))
+   if (!_e_info_client_eldbus_message("get_ec_info", _cb_vec_info_get))
      return;
 
-   printf("GL :  %s\n", e_info_client.use_gl ? "on":"off");
-   printf("ENG:  %s\n", e_info_client.engine);
-   if (e_info_client.use_hwc)
-     {
-        if (e_info_client.hwc)
-          {
-             printf("HWC:  ");
-             if (e_info_client.hwc_windows)
-               printf("hwc windows policy\n");
-             else
-               printf("hwc planes policy and multiple plane is %s\n", e_info_client.use_multi_layer ? "on":"off");
-          }
-        else
-          printf("HWC:  off");
-     }
-   else
-     printf("HWC:  configuration is off");
-
-   printf("Buffer flush: %s\n", e_info_client.use_buffer_flush ? "on":"off");
-   if (e_info_client.use_buffer_flush)
-     printf("Deiconify Approve: %s\n", "auto on");
-   else
-     printf("Deiconify Approve: %s\n", e_info_client.deiconify_approve ? "on":"off");
-
-   printf("\n%d Top level windows\n", eina_list_count(e_info_client.win_list));
+   printf("\n\n%d Top level windows in EC list\n", eina_list_count(e_info_client.win_list));
    printf("--------------------------------------[ topvwins ]----------------------------------------------------------------------------------\n");
    printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc InReg Dep Opaq Vsbt Icon Vis Map  Frame  PL@ZPos  Parent     Title\n");
    printf("------------------------------------------------------------------------------------------------------------------------------------\n");
 
    if (!e_info_client.win_list)
      {
-        printf("no window\n");
+        printf("no ECs\n");
         return;
      }
 
@@ -1076,6 +1080,113 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
         eina_stringshare_del(e_info_client.engine);
         e_info_client.engine = NULL;
      }
+}
+
+static void
+_e_info_client_proc_topvwins_info(int argc, char **argv)
+{
+   E_Win_Info *win;
+   Eina_List *l;
+   int i = 0;
+   int prev_layer = -1;
+   int hwc_off = 0;
+
+   const char *prev_layer_name = NULL;
+
+   if (!_e_info_client_eldbus_message("get_window_info", _cb_vwindow_info_get))
+     goto ec_info;
+
+   printf("GL :  %s\n", e_info_client.use_gl ? "on":"off");
+   printf("ENG:  %s\n", e_info_client.engine);
+   if (e_info_client.use_hwc)
+     {
+        if (e_info_client.hwc)
+          {
+             printf("HWC:  ");
+             if (e_info_client.hwc_windows)
+               printf("hwc windows policy\n");
+             else
+               printf("hwc planes policy and multiple plane is %s\n", e_info_client.use_multi_layer ? "on":"off");
+          }
+        else
+          printf("HWC:  off");
+     }
+   else
+     printf("HWC:  configuration is off");
+
+   printf("Buffer flush: %s\n", e_info_client.use_buffer_flush ? "on":"off");
+   if (e_info_client.use_buffer_flush)
+     printf("Deiconify Approve: %s\n", "auto on");
+   else
+     printf("Deiconify Approve: %s\n", e_info_client.deiconify_approve ? "on":"off");
+
+   printf("\n%d Top level windows in evas object list\n", eina_list_count(e_info_client.win_list));
+   printf("--------------------------------------[ topvwins ]----------------------------------------------------------------------------------\n");
+   printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc InReg Dep Opaq Vsbt Icon Vis Map  Frame  PL@ZPos  Parent     Title\n");
+   printf("------------------------------------------------------------------------------------------------------------------------------------\n");
+
+   if (!e_info_client.win_list)
+     {
+        printf("no window\n");
+        goto ec_info;
+     }
+
+   EINA_LIST_FOREACH(e_info_client.win_list, l, win)
+     {
+        if (!win) goto ec_info;
+        char tmp[20];
+        i++;
+        if (win->layer != prev_layer)
+          {
+             if (prev_layer != -1)
+                printf("------------------------------------------------------------------------------------------------------------------------------------[%s]\n",
+                       prev_layer_name ? prev_layer_name : " ");
+             prev_layer = win->layer;
+             prev_layer_name = win->layer_name;
+          }
+
+        if (win->hwc >= 0)
+          {
+             if ((!win->iconic) && (win->frame_visible))
+               {
+                  if (win->pl_zpos == -999)
+                    snprintf(tmp, sizeof(tmp), " - ");
+                  else
+                    {
+                       if (win->hwc) snprintf(tmp, sizeof(tmp), "hwc@%i", win->pl_zpos);
+                       else snprintf(tmp, sizeof(tmp), "comp@%i", win->pl_zpos);
+                    }
+               }
+             else
+               snprintf(tmp, sizeof(tmp), " - ");
+          }
+        else // hwc is not initialized or hwc_deactive 1
+          {
+             hwc_off = 1;
+             snprintf(tmp, sizeof(tmp), " - ");
+          }
+
+        printf("%3d 0x%08zx  %5d  %5d  %5d %5d %6d %6d   %c    %c   %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->has_input_region?'C':' ', win->alpha? 32:24, win->opaque);
+        printf("%2d    %d   %d   %s   %3d    %-8s %-8zx   %s\n", win->visibility, win->iconic, win->vis, win->mapped? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
+     }
+
+   if (prev_layer_name)
+      printf("------------------------------------------------------------------------------------------------------------------------------------[%s]\n",
+             prev_layer_name ? prev_layer_name : " ");
+
+   if(hwc_off)
+     printf("\nHWC is disabled\n\n");
+
+   E_FREE_LIST(e_info_client.win_list, _e_win_info_free);
+   if (e_info_client.engine)
+     {
+        eina_stringshare_del(e_info_client.engine);
+        e_info_client.engine = NULL;
+     }
+
+ec_info:
+   _e_info_client_proc_ec_list_info();
+
 }
 
 static void

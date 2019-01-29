@@ -224,6 +224,88 @@ _e_info_server_ec_hwc_info_get(E_Client *ec, int *hwc, int *pl_zpos)
 }
 
 static void
+_msg_ecs_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
+{
+   Eldbus_Message_Iter *array_of_ec;
+   E_Client *ec;
+
+   eldbus_message_iter_arguments_append(iter, "a("VALUE_TYPE_FOR_TOPVWINS")", &array_of_ec);
+
+   // append clients.
+   E_CLIENT_REVERSE_FOREACH(ec)
+     {
+        Eldbus_Message_Iter* struct_of_ec;
+        Ecore_Window win;
+        Ecore_Window pwin;
+        uint32_t res_id = 0;
+        pid_t pid = -1;
+        char layer_name[32];
+        int hwc = -1, pl_zpos = -999;
+        int iconified = 0;
+        Eina_Bool has_input_region = EINA_FALSE;
+        Eina_List *list_input_region = NULL;
+        Eina_Bool mapped = EINA_FALSE;
+
+        if (!ec) continue;
+        if (is_visible && e_client_util_ignored_get(ec)) continue;
+
+        win = e_client_util_win_get(ec);
+        e_comp_layer_name_get(ec->layer, layer_name, sizeof(layer_name));
+
+        pwin = e_client_util_win_get(ec->parent);
+
+        if (ec->pixmap)
+          res_id = e_pixmap_res_id_get(ec->pixmap);
+
+        pid = ec->netwm.pid;
+        if (pid <= 0)
+          {
+             if (ec->comp_data)
+               {
+                  E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+                  if (cdata->surface)
+                    wl_client_get_credentials(wl_resource_get_client(cdata->surface), &pid, NULL, NULL);
+               }
+          }
+
+        if (ec->iconic)
+          {
+             if (ec->exp_iconify.by_client)
+               iconified = 2;
+             else
+               iconified = 1;
+          }
+        else
+          iconified = 0;
+
+        if (ec->comp_data)
+          mapped = ec->comp_data->mapped;
+
+        _e_info_server_ec_hwc_info_get(ec, &hwc, &pl_zpos);
+
+        e_comp_object_input_rect_get(ec->frame, &list_input_region);
+        if (list_input_region && (eina_list_count(list_input_region) > 0))
+          has_input_region = EINA_TRUE;
+
+        eldbus_message_iter_arguments_append(array_of_ec, "("VALUE_TYPE_FOR_TOPVWINS")", &struct_of_ec);
+
+        eldbus_message_iter_arguments_append
+           (struct_of_ec, VALUE_TYPE_FOR_TOPVWINS,
+            win,
+            res_id,
+            pid,
+            e_client_util_name_get(ec) ?: "NO NAME",
+            ec->x, ec->y, ec->w, ec->h, ec->layer,
+            ec->visible, mapped, ec->argb, ec->visibility.opaque, ec->visibility.obscured, iconified,
+            evas_object_visible_get(ec->frame), ec->focused, hwc, pl_zpos, pwin, layer_name, has_input_region);
+
+        eldbus_message_iter_container_close(array_of_ec, struct_of_ec);
+     }
+
+   eldbus_message_iter_container_close(iter, array_of_ec);
+}
+
+static void
 _msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
 {
    Eldbus_Message_Iter *array_of_ec;
@@ -339,6 +421,27 @@ _e_info_server_cb_window_info_get(const Eldbus_Service_Interface *iface EINA_UNU
    eldbus_message_iter_basic_append(iter, 'i', e_config->deiconify_approve);
 
    _msg_clients_append(iter, EINA_TRUE);
+
+   return reply;
+}
+
+/* Method Handlers */
+static Eldbus_Message *
+_e_info_server_cb_ec_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Eldbus_Message_Iter *iter = eldbus_message_iter_get(reply);
+
+   eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->engine);
+   eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->hwc);
+   eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->hwc_use_multi_plane);
+   eldbus_message_iter_basic_append(iter, 'i', e_comp->hwc);
+   eldbus_message_iter_basic_append(iter, 'i', _e_info_server_is_hwc_windows());
+   eldbus_message_iter_basic_append(iter, 's', ecore_evas_engine_name_get(e_comp->ee));
+   eldbus_message_iter_basic_append(iter, 'i', e_config->use_buffer_flush);
+   eldbus_message_iter_basic_append(iter, 'i', e_config->deiconify_approve);
+
+   _msg_ecs_append(iter, EINA_TRUE);
 
    return reply;
 }
@@ -5737,6 +5840,7 @@ _e_info_server_cb_input_region(const Eldbus_Service_Interface *iface EINA_UNUSED
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"iiiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
+   { "get_ec_info", NULL, ELDBUS_ARGS({"iiiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_ec_info_get, 0 },
    { "get_all_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_all_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
    { "subsurface", NULL, ELDBUS_ARGS({"a("SIGNATURE_SUBSURFACE")", "array of ec"}), _e_info_server_cb_subsurface, 0 },
