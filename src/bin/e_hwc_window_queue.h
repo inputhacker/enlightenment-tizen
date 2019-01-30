@@ -66,6 +66,7 @@ EINTERN Eina_Bool                   e_hwc_window_queue_buffer_release(E_Hwc_Wind
 EINTERN Eina_List *                 e_hwc_window_queue_acquirable_buffers_get(E_Hwc_Window_Queue *queue);
 
 EINTERN void                        e_hwc_window_queue_trace_debug(Eina_Bool onoff);
+EINTERN void                        e_hwc_window_queue_debug_info_get(Eldbus_Message_Iter *iter);
 
 #endif // E_HWC_WINDOW_QUEUE_H
 #endif

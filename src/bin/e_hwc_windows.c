@@ -2357,3 +2357,120 @@ e_hwc_windows_dump_stop(void)
 
    ehws_dump_enable = EINA_FALSE;
 }
+
+static void
+_e_hwc_windows_window_debug_info_get(Eldbus_Message_Iter *iter, E_Hwc_Wins_Debug_Cmd cmd)
+{
+   Eldbus_Message_Iter *line_array;
+   E_Hwc_Window *hwc_window = NULL;
+   E_Comp_Screen *e_comp_screen = NULL;
+   E_Output *output = NULL;
+   E_Hwc *hwc = NULL;
+   Eina_List *l, *l2;
+   int idx = 0;
+   char info_str[1024];
+   char fmt_str[5];
+   char flip = ' ';
+
+   e_comp_screen = e_comp->e_comp_screen;
+
+   eldbus_message_iter_arguments_append(iter, "as", &line_array);
+   if (!e_comp_screen)
+     {
+        eldbus_message_iter_basic_append(line_array,
+                                         's',
+                                         "e_comp_screen not initialized..");
+        eldbus_message_iter_container_close(iter, line_array);
+        return;
+     }
+
+   eldbus_message_iter_basic_append(line_array, 's',
+   "==========================================================================================="
+   "=============================================================");
+   eldbus_message_iter_basic_append(line_array, 's',
+   " No   Win_ID    Hwc_win    zpos  ST   AC_ST  ACTI TRANSI  tsurface  src_size        src_pos"
+   "       FMT       dst_pos        TRANSF DP_tsurface   Queue");
+   eldbus_message_iter_basic_append(line_array, 's',
+   "==========================================================================================="
+   "=============================================================");
+
+   EINA_LIST_FOREACH(e_comp_screen->outputs, l, output)
+     {
+        if (!output) continue;
+        if (!output->config.enabled) continue;
+        if (!output->tdm_hwc) continue;
+
+        hwc = output->hwc;
+        if (!output->hwc) continue;
+
+        EINA_LIST_FOREACH(hwc->hwc_windows, l2, hwc_window)
+          {
+             if (!hwc_window) continue;
+
+             if ((cmd == E_HWC_WINS_DEBUG_CMD_VIS) && (hwc_window->accepted_state == E_HWC_WINDOW_STATE_NONE))
+               continue;
+             else if ((cmd == E_HWC_WINS_DEBUG_CMD_DV) && (hwc_window->accepted_state != E_HWC_WINDOW_STATE_DEVICE))
+               continue;
+             else if ((cmd == E_HWC_WINS_DEBUG_CMD_CL) && (hwc_window->accepted_state != E_HWC_WINDOW_STATE_CLIENT))
+               continue;
+             else if ((cmd == E_HWC_WINS_DEBUG_CMD_CS) && (hwc_window->accepted_state != E_HWC_WINDOW_STATE_CURSOR))
+               continue;
+             else if ((cmd == E_HWC_WINS_DEBUG_CMD_VD) && (hwc_window->accepted_state != E_HWC_WINDOW_STATE_VIDEO))
+               continue;
+             else if ((cmd == E_HWC_WINS_DEBUG_CMD_NO) && (hwc_window->accepted_state != E_HWC_WINDOW_STATE_NONE))
+               continue;
+
+             if (hwc_window->info.src_config.format)
+               snprintf(fmt_str, sizeof(fmt_str), "%c%c%c%c", FOURCC_STR(hwc_window->info.src_config.format));
+             else
+               snprintf(fmt_str, sizeof(fmt_str), "    ");
+
+             if (hwc_window->info.transform > TDM_TRANSFORM_270)
+               flip = 'F';
+
+             snprintf(info_str, sizeof(info_str),
+                      "%3d 0x%08zx 0x%08zx %4d   %s    %s     %s   %s 0x%08zx %04dx%04d %04dx%04d+%04d+%04d"
+                      " %4s %04dx%04d+%04d+%04d  %c%3d  0x%08zx  0x%08zx",
+                      ++idx,
+                      e_client_util_win_get(hwc_window->ec),
+                      (uintptr_t)hwc_window,
+                      hwc_window->zpos,
+                      e_hwc_window_state_string_get(hwc_window->state),
+                      e_hwc_window_state_string_get(hwc_window->accepted_state),
+                      hwc_window->accepted_state ? "A" : "D",
+                      e_hwc_window_transition_string_get(hwc_window->transition),
+                      (uintptr_t)hwc_window->buffer.tsurface,
+                      hwc_window->info.src_config.size.h,
+                      hwc_window->info.src_config.size.v,
+                      hwc_window->info.src_config.pos.w,
+                      hwc_window->info.src_config.pos.h,
+                      hwc_window->info.src_config.pos.x,
+                      hwc_window->info.src_config.pos.y,
+                      fmt_str,
+                      hwc_window->info.dst_pos.w,
+                      hwc_window->info.dst_pos.h,
+                      hwc_window->info.dst_pos.x,
+                      hwc_window->info.dst_pos.y,
+                      flip,
+                      (hwc_window->info.transform < 4) ? hwc_window->info.transform * 90 : (hwc_window->info.transform - 4) * 90,
+                      (uintptr_t)hwc_window->display.buffer.tsurface,
+                      (uintptr_t)hwc_window->queue);
+             eldbus_message_iter_basic_append(line_array, 's', info_str);
+          }
+     }
+
+   eldbus_message_iter_basic_append(line_array, 's',
+   "==========================================================================================="
+   "=============================================================");
+
+   eldbus_message_iter_container_close(iter, line_array);
+}
+
+EINTERN void
+e_hwc_windows_debug_info_get(Eldbus_Message_Iter *iter, E_Hwc_Wins_Debug_Cmd cmd)
+{
+   if (cmd == E_HWC_WINS_DEBUG_CMD_QUEUE)
+     e_hwc_window_queue_debug_info_get(iter);
+   else if (cmd >= E_HWC_WINS_DEBUG_CMD_VIS && cmd <= E_HWC_WINS_DEBUG_CMD_NO)
+     _e_hwc_windows_window_debug_info_get(iter, cmd);
+}
