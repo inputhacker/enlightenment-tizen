@@ -1653,6 +1653,44 @@ e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state)
 }
 
 EINTERN const char*
+e_hwc_window_transition_string_get(E_Hwc_Window_Transition transition)
+{
+   switch (transition)
+    {
+     case E_HWC_WINDOW_TRANSITION_NONE_TO_NONE:
+       return "NOtoNO";
+     case E_HWC_WINDOW_TRANSITION_NONE_TO_CLIENT:
+       return "NOtoCL";
+     case E_HWC_WINDOW_TRANSITION_NONE_TO_DEVICE:
+       return "NOtoDV";
+     case E_HWC_WINDOW_TRANSITION_NONE_TO_CURSOR:
+       return "NOtoCS";
+     case E_HWC_WINDOW_TRANSITION_CLIENT_TO_NONE:
+       return "CLtoNO";
+     case E_HWC_WINDOW_TRANSITION_CLIENT_TO_CLIENT:
+       return "CLtoCL";
+     case E_HWC_WINDOW_TRANSITION_CLIENT_TO_DEVICE:
+       return "CLtoDV";
+     case E_HWC_WINDOW_TRANSITION_CLIENT_TO_CURSOR:
+       return "CLtoCS";
+     case E_HWC_WINDOW_TRANSITION_DEVICE_TO_NONE:
+       return "DVtoNO";
+     case E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT:
+       return "DVtoCL";
+     case E_HWC_WINDOW_TRANSITION_DEVICE_TO_DEVICE:
+       return "DVtoDV";
+     case E_HWC_WINDOW_TRANSITION_CURSOR_TO_NONE:
+       return "CStoNO";
+     case E_HWC_WINDOW_TRANSITION_CURSOR_TO_CLIENT:
+       return "CStoCL";
+     case E_HWC_WINDOW_TRANSITION_CURSOR_TO_CURSOR:
+       return "CStoCS";
+     default:
+       return "UNKNOWN";
+    }
+}
+
+EINTERN const char*
 e_hwc_window_name_get(E_Hwc_Window *hwc_window)
 {
    const char *name;

@@ -237,4 +237,28 @@ typedef enum
    "\tenlightenment_info -trace serial 1\n"                          \
    "\tenlightenment_info -trace serial 0\n"
 
+/* -------------------------------------------------------------------------- */
+/* HWC WINS                                                                   */
+/* -------------------------------------------------------------------------- */
+#define USAGE_HWC_WINS                                                         \
+   "-hwc_wins (no option | all | cl | dv | cs | dv | no)\n"                    \
+   "Commands:\n"                                                               \
+   "\tno option : print visible hwc window info\n"                             \
+   "\tall       : print all hwc window info\n"                                 \
+   "\tcl        : print CLIENT accepted state hwc window info\n"               \
+   "\tdv        : print DEVICE accepted state hwc window info\n"               \
+   "\tcs        : print CURSOR accepted state hwc window info\n"               \
+   "\tvd        : print VIDEO accepted state hwc window info\n"                \
+   "\tno        : print NONE accepted state hwc window info\n"                 \
+   "\tqueue     : print hwc window queue info\n"                               \
+   "Example:\n"                                                                \
+   "\twinfo -hwc_wins\n"                                                       \
+   "\twinfo -hwc_wins all\n"                                                   \
+   "\twinfo -hwc_wins cl\n"                                                    \
+   "\twinfo -hwc_wins dv\n"                                                    \
+   "\twinfo -hwc_wins cs\n"                                                    \
+   "\twinfo -hwc_wins vd\n"                                                    \
+   "\twinfo -hwc_wins no\n  "                                                  \
+   "\twinfo -hwc_wins queue\n  "
+
 #endif /* end of _E_INFO_SHARED_TYPES_ */

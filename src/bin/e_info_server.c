@@ -5797,6 +5797,23 @@ _e_info_server_cb_input_region(const Eldbus_Service_Interface *iface EINA_UNUSED
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_hwc_wins_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   E_Hwc_Wins_Debug_Cmd cmd;
+
+   if (!eldbus_message_arguments_get(msg, "i", &cmd))
+     {
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                                        "hwc_wins: an attempt to get arguments from method call message failed");
+     }
+
+   e_hwc_windows_debug_info_get(eldbus_message_iter_get(reply), cmd);
+
+   return reply;
+}
+
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"iiiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
@@ -5861,6 +5878,7 @@ static const Eldbus_Method methods[] = {
    { "key_repeat", ELDBUS_ARGS({"sii", "option"}), NULL, _e_info_server_cb_key_repeat, 0},
    { "dump_memchecker", NULL, NULL, _e_info_server_cb_memchecker, 0},
    { "input_region", ELDBUS_ARGS({"siiii", "options"}), ELDBUS_ARGS({"a(iiii)", "path"}), _e_info_server_cb_input_region, 0},
+   { "hwc_wins", ELDBUS_ARGS({"i", "option"}), ELDBUS_ARGS({"as", "hwc wins info"}), _e_info_server_cb_hwc_wins_info_get, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 

@@ -1222,3 +1222,92 @@ e_hwc_window_queue_trace_debug(Eina_Bool onoff)
    ehwq_trace = onoff;
    INF("EHWQ: hwc trace_debug is %s", onoff?"ON":"OFF");
 }
+
+static const char*
+_e_hwc_window_queue_state_string_get(E_Hwc_Window_Queue_State state)
+{
+   switch (state)
+    {
+     case E_HWC_WINDOW_QUEUE_STATE_UNSET:
+       return "UNSET"; // None
+     case E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING:
+       return "UNSET_WAITING"; // Client
+     case E_HWC_WINDOW_QUEUE_STATE_SET:
+       return "SET"; // Device
+     case E_HWC_WINDOW_QUEUE_STATE_SET_WAITING:
+       return "SET_WAITING"; // Video
+     case E_HWC_WINDOW_QUEUE_STATE_SET_PENDING:
+       return "SET_PENDING"; // Cursor
+     default:
+       return "UNKNOWN";
+    }
+}
+
+EINTERN void
+e_hwc_window_queue_debug_info_get(Eldbus_Message_Iter *iter)
+{
+   Eldbus_Message_Iter *line_array;
+   Eina_Iterator *hash_iter;
+   E_Hwc_Window *hwc_window = NULL;
+   E_Hwc_Window_Queue *queue = NULL;
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
+   Eina_List *l;
+   int idx = 0;
+   int buf_idx = 0;
+   int pending_set_idx = 0;
+   char info_str[1024];
+
+   eldbus_message_iter_arguments_append(iter, "as", &line_array);
+   if (!_hwc_winq_mgr)
+     {
+        eldbus_message_iter_basic_append(line_array,
+                                         's',
+                                         "E_Hwc_Window_Queue not initialized..");
+        eldbus_message_iter_container_close(iter, line_array);
+        return;
+     }
+
+   /* PROVIDER */
+   hash_iter = eina_hash_iterator_data_new(_hwc_winq_mgr->hwc_winq_hash);
+   EINA_ITERATOR_FOREACH(hash_iter, queue)
+     {
+        if (!queue) continue;
+
+        snprintf(info_str, sizeof(info_str),
+                "[%2d] Queue(%8p) tqueue(%8p) target(%d) state(%s) user(%8p):win(0x%08zx)"
+                " unset_waiting_user(%8p):win(0x%08zx)",
+                ++idx, queue, queue->tqueue, queue->is_target,
+                _e_hwc_window_queue_state_string_get(queue->state),
+                queue->user,
+                queue->user ? e_client_util_win_get(queue->user->ec) : 0,
+                queue->user_waiting_unset,
+                queue->user_waiting_unset ? e_client_util_win_get(queue->user_waiting_unset->ec) : 0);
+        eldbus_message_iter_basic_append(line_array, 's', info_str);
+
+        pending_set_idx = 0;
+        EINA_LIST_FOREACH(queue->user_pending_set, l, hwc_window)
+          {
+             snprintf(info_str, sizeof(info_str),
+                      " └─ [%2d] pending_set user(%8p):win(0x%08zx)",
+                      ++pending_set_idx, hwc_window, e_client_util_win_get(hwc_window->ec));
+             eldbus_message_iter_basic_append(line_array, 's', info_str);
+          }
+
+        buf_idx = 0;
+        EINA_LIST_FOREACH(queue->buffers, l, queue_buffer)
+          {
+             snprintf(info_str, sizeof(info_str),
+                      " └─ [%2d] Queue_Buffer(%8p) tsurface(%8p) exported_wl_buffer(%u)"
+                      " exported(%d) usable(%d) released(%d) acquired(%d) dequeued(%d)",
+                      ++buf_idx, queue_buffer, queue_buffer->tsurface,
+                      queue_buffer->exported_wl_buffer ? wl_resource_get_id(queue_buffer->exported_wl_buffer) : 0,
+                      queue_buffer->exported, queue_buffer->usable, queue_buffer->released,
+                      queue_buffer->acquired, queue_buffer->dequeued);
+             eldbus_message_iter_basic_append(line_array, 's', info_str);
+          }
+        eldbus_message_iter_basic_append(line_array, 's', "");
+     }
+   eina_iterator_free(hash_iter);
+
+   eldbus_message_iter_container_close(iter, line_array);
+}

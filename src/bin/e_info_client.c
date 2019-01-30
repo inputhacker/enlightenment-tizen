@@ -4801,6 +4801,76 @@ _e_info_client_proc_input_region(int argc, char **argv)
    return;
 }
 
+static void
+_cb_hwc_wins_info_get(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   Eldbus_Message_Iter *lines;
+   char *result = NULL;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   if (res) goto finish;
+
+   res = eldbus_message_arguments_get(msg, "as", &lines);
+   if (!res) goto finish;
+
+   while (eldbus_message_iter_get_and_next(lines, 's', &result))
+     printf("%s\n", result);
+
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_hwc_wins(int argc, char **argv)
+{
+   Eina_Bool res;
+   E_Hwc_Wins_Debug_Cmd cmd;
+
+   if (argc < 2)
+     cmd = E_HWC_WINS_DEBUG_CMD_VIS;
+   else
+     {
+        if (!argv[2])
+          cmd = E_HWC_WINS_DEBUG_CMD_VIS;
+        else if (eina_streq(argv[2], "all"))
+          cmd = E_HWC_WINS_DEBUG_CMD_ALL;
+        else if (eina_streq(argv[2], "dv"))
+          cmd = E_HWC_WINS_DEBUG_CMD_DV;
+        else if (eina_streq(argv[2], "cl"))
+          cmd = E_HWC_WINS_DEBUG_CMD_CL;
+        else if (eina_streq(argv[2], "cs"))
+          cmd = E_HWC_WINS_DEBUG_CMD_CS;
+        else if (eina_streq(argv[2], "vd"))
+          cmd = E_HWC_WINS_DEBUG_CMD_VD;
+        else if (eina_streq(argv[2], "none"))
+          cmd = E_HWC_WINS_DEBUG_CMD_NO;
+        else if (eina_streq(argv[2], "queue"))
+          cmd = E_HWC_WINS_DEBUG_CMD_QUEUE;
+        else if (eina_streq(argv[2], "help") || eina_streq(argv[2], "usage"))
+          goto usage;
+        else
+          goto usage;
+     }
+
+   res = _e_info_client_eldbus_message_with_args("hwc_wins", _cb_hwc_wins_info_get, "i", cmd);
+
+   EINA_SAFETY_ON_FALSE_RETURN(res);
+
+   return;
+
+usage:
+   printf("Usage: wininfo_info %s", USAGE_HWC_WINS);
+
+   return;
+}
+
 typedef struct _ProcInfo
 {
    const char *option;
@@ -4941,6 +5011,12 @@ static ProcInfo procs_to_printinfo[] =
       NULL,
       "Print input regions",
       _e_info_client_proc_input_region
+   },
+   {
+      "hwc_wins",
+      NULL,
+      "Print hwc windows information",
+      _e_info_client_proc_hwc_wins
    },
 };
 
