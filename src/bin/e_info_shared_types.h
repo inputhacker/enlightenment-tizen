@@ -261,4 +261,15 @@ typedef enum
    "\twinfo -hwc_wins no\n  "                                                  \
    "\twinfo -hwc_wins queue\n  "
 
+/* -------------------------------------------------------------------------- */
+/* FPS                                                                        */
+/* -------------------------------------------------------------------------- */
+typedef enum
+{
+   E_INFO_FPS_TYPE_OUTPUT,
+   E_INFO_FPS_TYPE_LAYER,
+   E_INFO_FPS_TYPE_HWC_WIN,
+   E_INFO_FPS_TYPE_HWC_COMP,
+} E_Info_Fps_Type;
+
 #endif /* end of _E_INFO_SHARED_TYPES_ */

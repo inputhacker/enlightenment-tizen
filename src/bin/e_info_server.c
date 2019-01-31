@@ -79,7 +79,7 @@ static Eina_List *module_hook = NULL;
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
-#define VALUE_TYPE_FOR_LAYER_FPS "sid"
+#define VALUE_TYPE_FOR_FPS "usiud"
 #define VALUE_TYPE_REQUEST_FOR_KILL "uts"
 #define VALUE_TYPE_REPLY_KILL "s"
 #define VALUE_TYPE_REQUEST_FOR_WININFO "t"
@@ -4370,17 +4370,18 @@ e_info_server_cb_show_pending_commit(const Eldbus_Service_Interface *iface EINA_
 }
 
 static void
-_msg_layer_fps_append(Eldbus_Message_Iter *iter)
+_msg_fps_append(Eldbus_Message_Iter *iter)
 {
-   Eina_List *output_l, *plane_l;
-   Eldbus_Message_Iter *array_of_layer_fps;
+   Eina_List *output_l, *plane_l, *hwc_l;
+   Eldbus_Message_Iter *array_of_fps;
    E_Comp_Screen *e_comp_screen = NULL;
+   E_Hwc_Window *hwc_window = NULL;
    E_Output *output = NULL;
    E_Plane *plane = NULL;
    double fps = 0.0;
    char output_name[30];
 
-   eldbus_message_iter_arguments_append(iter, "a("VALUE_TYPE_FOR_LAYER_FPS")", &array_of_layer_fps);
+   eldbus_message_iter_arguments_append(iter, "a("VALUE_TYPE_FOR_FPS")", &array_of_fps);
 
    e_comp_screen = e_comp->e_comp_screen;
 
@@ -4394,19 +4395,46 @@ _msg_layer_fps_append(Eldbus_Message_Iter *iter)
           {
              if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_WINDOWS)
                {
-                  if (!e_hwc_windows_fps_get(output->hwc, &fps)) continue;
+                  if (e_hwc_windows_fps_get(output->hwc, &fps))
+                    {
+                       Eldbus_Message_Iter* struct_of_fps;
 
-                  Eldbus_Message_Iter* struct_of_layer_fps;
+                       eldbus_message_iter_arguments_append(array_of_fps, "("VALUE_TYPE_FOR_FPS")", &struct_of_fps);
 
-                  eldbus_message_iter_arguments_append(array_of_layer_fps, "("VALUE_TYPE_FOR_LAYER_FPS")", &struct_of_layer_fps);
+                       eldbus_message_iter_arguments_append
+                           (struct_of_fps, VALUE_TYPE_FOR_FPS,
+                             E_INFO_FPS_TYPE_OUTPUT,
+                             output_name,
+                             -999,
+                             0,
+                             fps);
 
-                  eldbus_message_iter_arguments_append
-                      (struct_of_layer_fps, VALUE_TYPE_FOR_LAYER_FPS,
-                        output_name,
-                        -999,
-                        fps);
+                       eldbus_message_iter_container_close(array_of_fps, struct_of_fps);
+                    }
 
-                  eldbus_message_iter_container_close(array_of_layer_fps, struct_of_layer_fps);
+                  EINA_LIST_FOREACH(output->hwc->hwc_windows, hwc_l, hwc_window)
+                    {
+                       E_Hwc_Window_State state;
+                       Eldbus_Message_Iter* struct_of_fps;
+
+                       if(!hwc_window) continue;
+
+                       state = e_hwc_window_accepted_state_get(hwc_window);
+                       if ((state == E_HWC_WINDOW_STATE_CLIENT) || (state == E_HWC_WINDOW_STATE_NONE)) continue;
+                       if (!e_hwc_window_fps_get(hwc_window, &fps)) continue;
+
+                       eldbus_message_iter_arguments_append(array_of_fps, "("VALUE_TYPE_FOR_FPS")", &struct_of_fps);
+
+                       eldbus_message_iter_arguments_append
+                           (struct_of_fps, VALUE_TYPE_FOR_FPS,
+                             hwc_window->is_target ? E_INFO_FPS_TYPE_HWC_COMP : E_INFO_FPS_TYPE_HWC_WIN,
+                             output_name,
+                             hwc_window->zpos,
+                             hwc_window->is_target ? 0 : e_client_util_win_get(hwc_window->ec),
+                             fps);
+
+                       eldbus_message_iter_container_close(array_of_fps, struct_of_fps);
+                    }
                }
              else
                {
@@ -4415,17 +4443,19 @@ _msg_layer_fps_append(Eldbus_Message_Iter *iter)
                         if (!plane) continue;
                         if (!e_plane_fps_get(plane, &fps)) continue;
 
-                        Eldbus_Message_Iter* struct_of_layer_fps;
+                        Eldbus_Message_Iter* struct_of_fps;
 
-                        eldbus_message_iter_arguments_append(array_of_layer_fps, "("VALUE_TYPE_FOR_LAYER_FPS")", &struct_of_layer_fps);
+                        eldbus_message_iter_arguments_append(array_of_fps, "("VALUE_TYPE_FOR_FPS")", &struct_of_fps);
 
                         eldbus_message_iter_arguments_append
-                          (struct_of_layer_fps, VALUE_TYPE_FOR_LAYER_FPS,
+                          (struct_of_fps, VALUE_TYPE_FOR_FPS,
+                            E_INFO_FPS_TYPE_LAYER,
                             output_name,
                             plane->zpos,
+                            0,
                             plane->fps);
 
-                        eldbus_message_iter_container_close(array_of_layer_fps, struct_of_layer_fps);
+                        eldbus_message_iter_container_close(array_of_fps, struct_of_fps);
                     }
                }
           }
@@ -4435,11 +4465,11 @@ _msg_layer_fps_append(Eldbus_Message_Iter *iter)
         memset(output_name, 0x0, sizeof(char)*30);
      }
 
-   eldbus_message_iter_container_close(iter, array_of_layer_fps);
+   eldbus_message_iter_container_close(iter, array_of_fps);
 }
 
 static Eldbus_Message *
-_e_info_server_cb_layer_fps_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+_e_info_server_cb_fps_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
 
@@ -4448,7 +4478,7 @@ _e_info_server_cb_layer_fps_info_get(const Eldbus_Service_Interface *iface EINA_
         e_comp->calc_fps = 1;
      }
 
-   _msg_layer_fps_append(eldbus_message_iter_get(reply));
+   _msg_fps_append(eldbus_message_iter_get(reply));
 
    return reply;
 }
@@ -5847,7 +5877,7 @@ static const Eldbus_Method methods[] = {
    { "hwc", ELDBUS_ARGS({"i", "hwc"}), NULL, e_info_server_cb_hwc, 0},
    { "show_plane_state", NULL, NULL, e_info_server_cb_show_plane_state, 0},
    { "show_pending_commit", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_PENDING_COMMIT")", "array of pending commit"}), e_info_server_cb_show_pending_commit, 0},
-   { "get_layer_fps_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_LAYER_FPS")", "array of pending commit"}), _e_info_server_cb_layer_fps_info_get, 0},
+   { "get_fps_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_FPS")", "array of fps"}), _e_info_server_cb_fps_info_get, 0},
    { "get_keymap", NULL, ELDBUS_ARGS({"hi", "keymap fd"}), _e_info_server_cb_keymap_info_get, 0},
    { "effect_control", ELDBUS_ARGS({"i", "effect_control"}), NULL, e_info_server_cb_effect_control, 0},
    { "get_keygrab_status", ELDBUS_ARGS({"s", "get_keygrab_status"}), NULL, _e_info_server_cb_keygrab_status_get, 0},

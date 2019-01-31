@@ -30,7 +30,7 @@ typedef struct _E_Info_Client
    Eina_List         *pending_commit_list;
 
    /* layer fps */
-   Eina_List         *layer_fps_list;
+   Eina_List         *fps_list;
 
    /* dump_buffers */
    const char *dump_fullpath;
@@ -78,19 +78,21 @@ typedef struct _E_Pending_Commit_Info
    unsigned int tsurface;
 } E_Pending_Commit_Info;
 
-typedef struct _E_Layer_Fps_Info
+typedef struct _E_Fps_Info
 {
+   E_Info_Fps_Type type;
    const char *output;
    int zpos;
+   unsigned int window;
    double fps;
-} E_Layer_Fps_Info;
+} E_Fps_Info;
 
 #define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbbiiibbiiusb"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
 #define VALUE_TYPE_FOR_PENDING_COMMIT "uiuu"
-#define VALUE_TYPE_FOR_LAYER_FPS "sid"
+#define VALUE_TYPE_FOR_FPS "usiud"
 #define VALUE_TYPE_REQUEST_FOR_KILL "uts"
 #define VALUE_TYPE_REPLY_KILL "s"
 #define VALUE_TYPE_REQUEST_FOR_WININFO "t"
@@ -3124,29 +3126,31 @@ _e_info_client_proc_show_pending_commit(int argc, char **argv)
    E_FREE_LIST(e_info_client.pending_commit_list, _e_pending_commit_info_free);
 }
 
-static E_Layer_Fps_Info *
-_e_player_fps_info_new(const char *output, int zpos, double fps)
+static E_Fps_Info *
+_e_fps_info_new(E_Info_Fps_Type type, const char *output, int zpos, unsigned int window, double fps)
 {
-   E_Layer_Fps_Info *layer_fps = NULL;
+   E_Fps_Info *fps_info = NULL;
 
-   layer_fps = E_NEW(E_Layer_Fps_Info, 1);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(layer_fps, NULL);
+   fps_info = E_NEW(E_Fps_Info, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(fps_info, NULL);
 
-   layer_fps->output = output;
-   layer_fps->zpos = zpos;
-   layer_fps->fps = fps;
+   fps_info->type = type;
+   fps_info->output = output;
+   fps_info->zpos = zpos;
+   fps_info->window = window;
+   fps_info->fps = fps;
 
-   return layer_fps;
+   return fps_info;
 }
 
 static void
-_e_layer_fps_info_free(E_Layer_Fps_Info *layer_fps)
+_e_fps_info_free(E_Fps_Info *fps)
 {
-   E_FREE(layer_fps);
+   E_FREE(fps);
 }
 
 static void
-_cb_layer_fps_info_get(const Eldbus_Message *msg)
+_cb_fps_info_get(const Eldbus_Message *msg)
 {
    const char *name = NULL, *text = NULL;
    Eldbus_Message_Iter *array, *eldbus_msg;
@@ -3155,30 +3159,33 @@ _cb_layer_fps_info_get(const Eldbus_Message *msg)
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
 
-   res = eldbus_message_arguments_get(msg, "a("VALUE_TYPE_FOR_LAYER_FPS")", &array);
+   res = eldbus_message_arguments_get(msg, "a("VALUE_TYPE_FOR_FPS")", &array);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
 
    while (eldbus_message_iter_get_and_next(array, 'r', &eldbus_msg))
      {
-        E_Layer_Fps_Info *layer_fps = NULL;
+        E_Fps_Info *fps_info = NULL;
         const char *output;
-        int zpos;
+        int zpos, type;
         double fps;
+        unsigned int window;
         res = eldbus_message_iter_arguments_get(eldbus_msg,
-                                                VALUE_TYPE_FOR_LAYER_FPS,
+                                                VALUE_TYPE_FOR_FPS,
+                                                &type,
                                                 &output,
                                                 &zpos,
+                                                &window,
                                                 &fps);
         if (!res)
           {
-             printf("Failed to get player_fps info\n");
+             printf("Failed to get fps info\n");
              continue;
           }
 
-        layer_fps = _e_player_fps_info_new(output, zpos, fps);
-        if (!layer_fps) continue;
+        fps_info = _e_fps_info_new(type, output, zpos, window, fps);
+        if (!fps_info) continue;
 
-        e_info_client.layer_fps_list = eina_list_append(e_info_client.layer_fps_list, layer_fps);
+        e_info_client.fps_list = eina_list_append(e_info_client.fps_list, fps_info);
      }
 
 finish:
@@ -3189,29 +3196,52 @@ finish:
 }
 
 static void
-_e_info_client_proc_fps_layer_info(int argc, char **argv)
+_e_info_client_proc_fps_info(int argc, char **argv)
 {
    do
      {
         Eina_List *l;
-        E_Layer_Fps_Info *layer_fps;
+        E_Fps_Info *fps;
 
-        if (!_e_info_client_eldbus_message("get_layer_fps_info", _cb_layer_fps_info_get))
+        if (!_e_info_client_eldbus_message("get_fps_info", _cb_fps_info_get))
           return;
 
-        if (!e_info_client.layer_fps_list)
-          goto fps_layer_done;
+        if (!e_info_client.fps_list)
+          goto fps_done;
 
-        EINA_LIST_FOREACH(e_info_client.layer_fps_list, l, layer_fps)
+        EINA_LIST_FOREACH(e_info_client.fps_list, l, fps)
           {
-             printf("%3s-ZPos@%d...%3.1f\n",
-                    layer_fps->output,
-                    layer_fps->zpos,
-                    layer_fps->fps);
+             if (fps->type == E_INFO_FPS_TYPE_OUTPUT)
+               {
+                  printf("%3s-OUTPUT...%3.1f\n",
+                         fps->output,
+                         fps->fps);
+               }
+             else if (fps->type == E_INFO_FPS_TYPE_LAYER)
+               {
+                  printf("%3s-Layer-ZPos@%d...%3.1f\n",
+                         fps->output,
+                         fps->zpos,
+                         fps->fps);
+               }
+             else if (fps->type == E_INFO_FPS_TYPE_HWC_WIN)
+               {
+                  printf("%3s-HWC-Win_ID(0x%x)-ZPos@%d...%3.1f\n",
+                         fps->output,
+                         fps->window,
+                         fps->zpos,
+                         fps->fps);
+               }
+             else if (fps->type == E_INFO_FPS_TYPE_HWC_COMP)
+               {
+                  printf("%3s-HWC-COMP...%3.1f\n",
+                         fps->output,
+                         fps->fps);
+               }
           }
 
-        E_FREE_LIST(e_info_client.layer_fps_list, _e_layer_fps_info_free);
-fps_layer_done:
+        E_FREE_LIST(e_info_client.fps_list, _e_fps_info_free);
+fps_done:
         usleep(500000);
      }
    while (1);
@@ -4982,8 +5012,8 @@ static ProcInfo procs_to_printinfo[] =
    },
    {
       "fps", NULL,
-      "Print FPS in every sec per layer",
-      _e_info_client_proc_fps_layer_info
+      "Print FPS in every sec per",
+      _e_info_client_proc_fps_info
    },
    {
       "keymap", NULL,
