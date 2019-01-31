@@ -11,6 +11,7 @@ typedef struct _Test_Helper_Data
 {
    Eldbus_Connection *conn;
    Eldbus_Service_Interface *iface;
+   Ecore_Event_Handler *dbus_init_done_h;
 
    Eina_List *hdlrs;
 
@@ -263,6 +264,25 @@ _e_test_helper_message_append_client(Eldbus_Message_Iter *iter, E_Client *ec)
 
        /* rotation */
        ec->e.state.rot.ang.curr);
+}
+
+static Eina_Bool
+_e_test_helper_cb_dbus_init_done(void *data EINA_UNUSED, int type, void *event)
+{
+   E_DBus_Conn_Init_Done_Event *e = event;
+
+   if ((e->status == E_DBUS_CONN_INIT_SUCCESS) && (e->conn_type == ELDBUS_CONNECTION_TYPE_SYSTEM))
+     {
+        th_data->conn = e_dbus_conn_connection_ref(ELDBUS_CONNECTION_TYPE_SYSTEM);
+
+        if (th_data->conn)
+          th_data->iface = eldbus_service_interface_register(th_data->conn, PATH, &iface_desc);
+     }
+
+   ecore_event_handler_del(th_data->dbus_init_done_h);
+   th_data->dbus_init_done_h = NULL;
+
+   return ECORE_CALLBACK_PASS_ON;
 }
 
 static void
@@ -1051,16 +1071,18 @@ _e_test_helper_cb_property_get(const Eldbus_Service_Interface *iface EINA_UNUSED
 EINTERN int
 e_test_helper_init(void)
 {
-   eldbus_init();
+   Eina_Bool res = EINA_FALSE;
+
+   EINA_SAFETY_ON_TRUE_GOTO((e_dbus_conn_init() <= 0), err);
 
    th_data = E_NEW(Test_Helper_Data, 1);
    EINA_SAFETY_ON_NULL_GOTO(th_data, err);
 
-   th_data->conn = eldbus_connection_get(ELDBUS_CONNECTION_TYPE_SYSTEM);
-   EINA_SAFETY_ON_NULL_GOTO(th_data->conn, err);
+   th_data->dbus_init_done_h = ecore_event_handler_add(E_EVENT_DBUS_CONN_INIT_DONE, _e_test_helper_cb_dbus_init_done, NULL);
+   EINA_SAFETY_ON_NULL_GOTO(th_data->dbus_init_done_h, err);
 
-   th_data->iface = eldbus_service_interface_register(th_data->conn, PATH, &iface_desc);
-   EINA_SAFETY_ON_NULL_GOTO(th_data->iface, err);
+   res = e_dbus_conn_dbus_init(ELDBUS_CONNECTION_TYPE_SYSTEM);
+   EINA_SAFETY_ON_FALSE_GOTO(res, err);
 
    E_LIST_HANDLER_APPEND(th_data->hdlrs, E_EVENT_CLIENT_VISIBILITY_CHANGE,
                          _e_test_helper_cb_visibility_change, NULL);
@@ -1089,9 +1111,20 @@ e_test_helper_shutdown(void)
      {
         E_FREE_LIST(th_data->hdlrs, ecore_event_handler_del);
 
-        eldbus_service_interface_unregister(th_data->iface);
-        eldbus_connection_unref(th_data->conn);
-        eldbus_shutdown();
+        if (th_data->dbus_init_done_h)
+          {
+             ecore_event_handler_del(th_data->dbus_init_done_h);
+             th_data->dbus_init_done_h = NULL;
+          }
+
+        if (th_data->conn)
+          {
+             if (th_data->iface)
+               eldbus_service_interface_unregister(th_data->iface);
+
+             e_dbus_conn_connection_unref(th_data->conn);
+             th_data->conn = NULL;
+          }
 
         E_FREE(th_data);
      }
