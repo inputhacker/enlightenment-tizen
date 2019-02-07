@@ -246,7 +246,6 @@ _msg_ecs_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
         Eina_List *list_input_region = NULL;
         Eina_Bool mapped = EINA_FALSE;
 
-        if (!ec) continue;
         if (is_visible && e_client_util_ignored_get(ec)) continue;
 
         win = e_client_util_win_get(ec);
