@@ -6,8 +6,6 @@
 
 #define DBG_EVALUATE 1
 
-#define ZPOS_NONE -999
-
 #ifndef CLEAR
 #define CLEAR(x) memset(&(x), 0, sizeof (x))
 #endif

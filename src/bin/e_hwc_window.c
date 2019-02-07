@@ -689,6 +689,7 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
 
    hwc_window->hwc = hwc;
    hwc_window->ec = ec;
+   hwc_window->zpos = E_HWC_WINDOW_ZPOS_NONE;
    hwc_window->state = state;
    hwc_window->render_target = EINA_TRUE;
 
@@ -1290,6 +1291,9 @@ e_hwc_window_accepted_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State sta
    if (hwc_window->accepted_state == state) return EINA_TRUE;
 
    hwc_window->accepted_state = state;
+
+   if (hwc_window->accepted_state == E_HWC_WINDOW_STATE_NONE)
+     hwc_window->zpos = E_HWC_WINDOW_ZPOS_NONE;
 
    EHWINF("Set Accepted state:%s -- {%s}",
            hwc_window->ec, hwc_window, e_hwc_window_state_string_get(state),
