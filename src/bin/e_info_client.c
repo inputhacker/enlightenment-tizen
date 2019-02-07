@@ -4990,7 +4990,7 @@ _e_info_client_proc_hwc_wins(int argc, char **argv)
           cmd = E_HWC_WINS_DEBUG_CMD_CS;
         else if (eina_streq(argv[2], "vd"))
           cmd = E_HWC_WINS_DEBUG_CMD_VD;
-        else if (eina_streq(argv[2], "none"))
+        else if (eina_streq(argv[2], "no"))
           cmd = E_HWC_WINS_DEBUG_CMD_NO;
         else if (eina_streq(argv[2], "queue"))
           cmd = E_HWC_WINS_DEBUG_CMD_QUEUE;
