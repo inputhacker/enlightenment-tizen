@@ -2358,6 +2358,18 @@ e_hwc_windows_dump_stop(void)
    ehws_dump_enable = EINA_FALSE;
 }
 
+static int
+_e_hwc_windows_window_debug_cb_sort(const void *d1, const void *d2)
+{
+   E_Hwc_Window *hwc_window1 = (E_Hwc_Window *)d1;
+   E_Hwc_Window *hwc_window2 = (E_Hwc_Window *)d2;
+
+   if (!hwc_window1) return(1);
+   if (!hwc_window2) return(-1);
+
+   return (hwc_window2->zpos - hwc_window1->zpos);
+}
+
 static void
 _e_hwc_windows_window_debug_info_get(Eldbus_Message_Iter *iter, E_Hwc_Wins_Debug_Cmd cmd)
 {
@@ -2402,6 +2414,8 @@ _e_hwc_windows_window_debug_info_get(Eldbus_Message_Iter *iter, E_Hwc_Wins_Debug
 
         hwc = output->hwc;
         if (!output->hwc) continue;
+
+        hwc->hwc_windows = eina_list_sort(hwc->hwc_windows, eina_list_count(hwc->hwc_windows), _e_hwc_windows_window_debug_cb_sort);
 
         EINA_LIST_FOREACH(hwc->hwc_windows, l2, hwc_window)
           {
