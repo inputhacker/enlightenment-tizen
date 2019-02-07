@@ -3569,6 +3569,8 @@ e_info_server_cb_slot_message(const Eldbus_Service_Interface *iface EINA_UNUSED,
      {
         E_Zone *zone = e_zone_current_get();
         E_Desk *desk = e_desk_current_get(zone);
+        EINA_SAFETY_ON_NULL_GOTO(desk, finish);
+
         slot = e_slot_new(desk->layout);
         evas_object_move(slot, x, y);
         evas_object_resize(slot, w, h);
@@ -3688,6 +3690,8 @@ e_info_server_cb_slot_message(const Eldbus_Service_Interface *iface EINA_UNUSED,
      {
         E_Zone *zone = e_zone_current_get();
         E_Desk *desk = e_desk_current_get(zone);
+        EINA_SAFETY_ON_NULL_GOTO(desk, finish);
+
         if (start_split) evas_object_raise(desk->layout);
         else evas_object_lower(desk->layout);
         //evas_object_show(desk->layout);
@@ -3698,6 +3702,7 @@ e_info_server_cb_slot_message(const Eldbus_Service_Interface *iface EINA_UNUSED,
         __SLOT_ARG_APPEND_TYPE("[SLOT INFO]", "Wrong command........\n");
      }
 
+finish:
    eldbus_message_iter_container_close(iter, array_of_ec);
    return reply;
 }
@@ -5684,6 +5689,8 @@ _e_info_server_cb_key_repeat(const Eldbus_Service_Interface *iface EINA_UNUSED, 
    if (path && strlen(path) > 0)
      {
         log_fp = fopen(path, "a");
+        EINA_SAFETY_ON_NULL_RETURN_VAL(log_fp, reply);
+
         fprintf(log_fp, "\tkeyboard repeat info\n");
         fprintf(log_fp, "\t\trate: %d (ms), delay: %d (ms)\n", e_comp_wl->kbd.repeat_rate, e_comp_wl->kbd.repeat_delay);
         fclose(log_fp);
