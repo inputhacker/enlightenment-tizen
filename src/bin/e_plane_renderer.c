@@ -2517,6 +2517,8 @@ e_plane_renderer_surface_queue_set(E_Plane_Renderer *renderer, tbm_surface_queue
           }
      }
 
+   if (tsurfaces) E_FREE(tsurfaces);
+
    return EINA_TRUE;
 
 fail:
@@ -2530,6 +2532,8 @@ fail_add_destroy_cb:
    renderer->tqueue_width = 0;
    renderer->tqueue_height = 0;
    renderer->tqueue_size = 0;
+
+   if (tsurfaces) E_FREE(tsurfaces);
 
    return EINA_FALSE;
 }
