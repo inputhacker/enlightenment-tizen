@@ -3383,7 +3383,6 @@ _e_client_focus_calculate(E_Zone *zone)
      {
         if (!eina_list_data_find(defer_focus_stack, ec)) continue;
 
-        if (!ec) continue;
         if (e_object_is_del(E_OBJECT(ec))) continue;
         if (e_client_util_ignored_get(ec)) continue;
         if (ec->zone != zone) continue;
