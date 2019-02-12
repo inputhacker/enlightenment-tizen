@@ -2023,7 +2023,7 @@ e_service_quickpanel_client_add(E_Client *ec, E_Service_Quickpanel_Type type)
    return;
 
 indi_err:
-   if (qp) free(qp);
+   free(qp);
 }
 
 EINTERN void
