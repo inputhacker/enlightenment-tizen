@@ -4497,7 +4497,7 @@ _msg_fps_append(Eldbus_Message_Iter *iter)
      {
         if (!output) continue;
 
-        strncpy(output_name, output->id, sizeof(char)*30);
+        strncpy(output_name, output->id, sizeof(char)*29);
 
         if (output->hwc)
           {
