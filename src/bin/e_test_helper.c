@@ -6,6 +6,16 @@
 #define IFACE "org.enlightenment.wm.Test"
 
 #define E_TH_SIGN_WIN_INFO  "usiiiiibbbiibbbbbi"
+#define E_TC_TIMEOUT 10.0
+
+typedef struct _Test_Helper_Reg_Win
+{
+   Ecore_Window win;
+   E_Client *ec;
+   int vis;
+   Eina_Bool render_send;
+} Test_Helper_Reg_Win;
+
 
 typedef struct _Test_Helper_Data
 {
@@ -14,22 +24,18 @@ typedef struct _Test_Helper_Data
    Ecore_Event_Handler *dbus_init_done_h;
 
    Eina_List *hdlrs;
+   Eina_List *reg_wins;
 
-   struct
-     {
-        Ecore_Window win;
-        E_Client *ec;
-        int vis;
-        Eina_Bool render_send;
-        Eina_Bool disuse;
-     } registrant;
-
+   Eina_Bool tc_running;
+   Ecore_Timer *tc_timer;
 } Test_Helper_Data;
 
 static Test_Helper_Data *th_data = NULL;
 
 static Eina_Bool _e_test_helper_cb_property_get(const Eldbus_Service_Interface *iface, const char *name, Eldbus_Message_Iter *iter, const Eldbus_Message *msg, Eldbus_Message **err);
 
+static Eldbus_Message *_e_test_helper_cb_testcase_start(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
+static Eldbus_Message *_e_test_helper_cb_testcase_end(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_register_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_deregister_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
 static Eldbus_Message *_e_test_helper_cb_reset_register_window(const Eldbus_Service_Interface *iface, const Eldbus_Message *msg);
@@ -92,13 +98,25 @@ static const Eldbus_Signal signals[] = {
      [E_TEST_HELPER_SIGNAL_RENDER] =
        {
           "RenderRun",
-          NULL,
+          ELDBUS_ARGS({"u", "window id for tracing rendering"}),
           0
        },
        { }
 };
 
 static const Eldbus_Method methods[] ={
+       {
+          "StartTestCase",
+          NULL,
+          ELDBUS_ARGS({"b", "accept or not"}),
+          _e_test_helper_cb_testcase_start, 0
+       },
+       {
+          "EndTestCase",
+          NULL,
+          ELDBUS_ARGS({"b", "accept or not"}),
+          _e_test_helper_cb_testcase_end, 0
+       },
        {
           "RegisterWindow",
           ELDBUS_ARGS({"u", "window id to be registered"}),
@@ -229,7 +247,7 @@ static const Eldbus_Method methods[] ={
 };
 
 static const Eldbus_Property properties[] = {
-       { "Registrant", "u", NULL, NULL, 0 },
+       { "Registrant", "au", NULL, NULL, 0 },
        { }
 };
 
@@ -240,18 +258,40 @@ static const Eldbus_Service_Interface_Desc iface_desc = {
 static void
 _e_test_helper_registrant_clear(void)
 {
-   EINA_SAFETY_ON_NULL_RETURN(th_data);
+   Test_Helper_Reg_Win *reg_win = NULL;
 
-   if (th_data->registrant.ec && th_data->registrant.ec->frame)
+   EINA_SAFETY_ON_NULL_RETURN(th_data);
+   EINA_SAFETY_ON_NULL_RETURN(th_data->reg_wins);
+
+   EINA_LIST_FREE(th_data->reg_wins, reg_win)
      {
-        e_comp_object_render_trace_set(th_data->registrant.ec->frame, EINA_FALSE);
+        if (reg_win->ec && reg_win->ec->frame)
+          e_comp_object_render_trace_set(reg_win->ec->frame, EINA_FALSE);
+     }
+}
+
+static Eina_Bool
+_e_test_helper_registrant_remove(Ecore_Window target_win)
+{
+   Test_Helper_Reg_Win *reg_win = NULL;
+   Eina_List *l = NULL, *ll = NULL;
+   Eina_Bool res = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data->reg_wins, EINA_FALSE);
+
+   EINA_LIST_FOREACH_SAFE(th_data->reg_wins, l, ll, reg_win)
+     {
+        if (reg_win->win == target_win)
+          {
+             if (reg_win->ec && reg_win->ec->frame)
+               e_comp_object_render_trace_set(reg_win->ec->frame, EINA_FALSE);
+             th_data->reg_wins = eina_list_remove(th_data->reg_wins, reg_win);
+             res = EINA_TRUE;
+          }
      }
 
-   th_data->registrant.win = 0;
-   th_data->registrant.vis = -1;
-   th_data->registrant.ec = NULL;
-   th_data->registrant.disuse = EINA_FALSE;
-   th_data->registrant.render_send = EINA_FALSE;
+   return res;
 }
 
 static void
@@ -333,7 +373,7 @@ _e_test_helper_message_append_clients(Eldbus_Message_Iter *iter)
 
    if (!(comp = e_comp)) return;
 
-   eldbus_message_iter_arguments_append(iter, "ua("E_TH_SIGN_WIN_INFO")", th_data->registrant.win, &array_of_ec);
+   eldbus_message_iter_arguments_append(iter, "a("E_TH_SIGN_WIN_INFO")", &array_of_ec);
 
    // append clients.
    for (o = evas_object_top_get(comp->evas); o; o = evas_object_below_get(o))
@@ -379,6 +419,23 @@ _e_test_helper_restack(Ecore_Window win, Ecore_Window target, int above)
      }
 }
 
+static Eina_Bool
+_e_test_helper_cb_tc_timeout(void *data)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_DONE);
+
+   th_data->tc_running = EINA_FALSE;
+   _e_test_helper_registrant_clear();
+
+   if (th_data->tc_timer)
+     {
+        ecore_timer_del(th_data->tc_timer);
+        th_data->tc_timer = NULL;
+     }
+
+   return ECORE_CALLBACK_DONE;
+}
+
 /* Signal senders */
 static void
 _e_test_helper_send_change_visibility(Ecore_Window win, Eina_Bool vis)
@@ -401,32 +458,106 @@ _e_test_helper_send_render(Ecore_Window win)
    EINA_SAFETY_ON_NULL_RETURN(th_data);
 
    signal = eldbus_service_signal_new(th_data->iface, E_TEST_HELPER_SIGNAL_RENDER);
+   eldbus_message_arguments_append(signal, "u", win);
    eldbus_service_signal_send(th_data->iface, signal);
 }
 
+static Test_Helper_Reg_Win *
+_e_test_helper_find_win_on_reg_list(Ecore_Window win)
+{
+   Eina_List *l = NULL;
+   Test_Helper_Reg_Win *reg_win = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data->reg_wins, NULL);
+
+   EINA_LIST_FOREACH(th_data->reg_wins, l, reg_win)
+     {
+        if (reg_win->win == win)
+          return reg_win;
+     }
+
+   return NULL;
+}
+
 /* Method Handlers */
+static Eldbus_Message *
+_e_test_helper_cb_testcase_start(const Eldbus_Service_Interface *iface EINA_UNUSED,
+                                 const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply;
+   Eina_Bool res = EINA_FALSE;
+
+   reply = eldbus_message_method_return_new(msg);
+
+   if (th_data)
+     {
+        if (th_data->tc_timer)
+          ecore_timer_del(th_data->tc_timer);
+
+        th_data->tc_timer = ecore_timer_add(E_TC_TIMEOUT, _e_test_helper_cb_tc_timeout, NULL);
+        res = th_data->tc_running = EINA_TRUE;
+     }
+
+   eldbus_message_arguments_append(reply, "b", res);
+
+   return reply;
+}
+
+static Eldbus_Message *
+_e_test_helper_cb_testcase_end(const Eldbus_Service_Interface *iface EINA_UNUSED,
+                               const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply;
+   Eina_Bool res = EINA_FALSE;
+
+   reply = eldbus_message_method_return_new(msg);
+
+   if (th_data)
+     {
+        if (th_data->tc_timer)
+          {
+             ecore_timer_del(th_data->tc_timer);
+             th_data->tc_timer = NULL;
+          }
+        th_data->tc_running = EINA_FALSE;
+        res = EINA_TRUE;
+     }
+
+   eldbus_message_arguments_append(reply, "b", res);
+
+   return reply;
+}
+
 static Eldbus_Message *
 _e_test_helper_cb_register_window(const Eldbus_Service_Interface *iface EINA_UNUSED,
                                   const Eldbus_Message *msg)
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    Ecore_Window id;
+   Test_Helper_Reg_Win *new_win = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, reply);
 
    if (!eldbus_message_arguments_get(msg, "u", &id))
      {
         ERR("Error on eldbus_message_arguments_get()\n");
-        return reply;
+        goto err;
      }
 
-   eldbus_message_arguments_append(reply, "b", !th_data->registrant.win);
-   if (!th_data->registrant.win)
-     {
-        th_data->registrant.win = id;
-        th_data->registrant.ec = e_pixmap_find_client_by_res_id(id);
-     }
+   new_win = E_NEW(Test_Helper_Reg_Win, 1);
+   EINA_SAFETY_ON_NULL_GOTO(new_win, err);
 
+   new_win->win = id;
+   new_win->ec = e_pixmap_find_client_by_res_id(id);
+
+   th_data->reg_wins = eina_list_append(th_data->reg_wins, new_win);
+   eldbus_message_arguments_append(reply, "b", EINA_TRUE);
+
+   return reply;
+
+err:
+   eldbus_message_arguments_append(reply, "b", EINA_FALSE);
    return reply;
 }
 
@@ -666,6 +797,7 @@ _e_test_helper_cb_deregister_window(const Eldbus_Service_Interface *iface EINA_U
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    Ecore_Window id;
+   Eina_Bool res = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, reply);
 
@@ -674,13 +806,9 @@ _e_test_helper_cb_deregister_window(const Eldbus_Service_Interface *iface EINA_U
         ERR("Error on eldbus_message_arguments_get()\n");
         return reply;
      }
-   eldbus_message_arguments_append(reply, "b", ((!th_data->registrant.win) ||
-                                                (th_data->registrant.win == id)));
 
-   if (th_data->registrant.win == id)
-     {
-        _e_test_helper_registrant_clear();
-     }
+   res = _e_test_helper_registrant_remove(id);
+   eldbus_message_arguments_append(reply, "b", res);
 
    return reply;
 }
@@ -693,12 +821,9 @@ _e_test_helper_cb_reset_register_window(const Eldbus_Service_Interface *iface EI
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, reply);
 
-   eldbus_message_arguments_append(reply, "b", !th_data->registrant.win);
+   _e_test_helper_registrant_clear();
 
-   if (th_data->registrant.win)
-     {
-        _e_test_helper_registrant_clear();
-     }
+   eldbus_message_arguments_append(reply, "b", EINA_TRUE);
 
    return reply;
 }
@@ -968,25 +1093,21 @@ _e_test_helper_cb_visibility_change(void *data EINA_UNUSED,
    E_Client *ec;
    Ecore_Window win = 0;
    E_Event_Client *ev = event;
+   Test_Helper_Reg_Win *reg_win = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_PASS_ON);
-   if (!th_data->registrant.win) return ECORE_CALLBACK_PASS_ON;
+   if (!th_data->tc_running) return ECORE_CALLBACK_PASS_ON;
 
    ec = ev->ec;
    win = e_pixmap_res_id_get(ec->pixmap);
+   reg_win = _e_test_helper_find_win_on_reg_list(win);
 
-   if (win != th_data->registrant.win) return ECORE_CALLBACK_PASS_ON;
+   if (reg_win == NULL) return ECORE_CALLBACK_PASS_ON;
 
-   if (!th_data->registrant.ec)
-     th_data->registrant.ec = ec;
+   if (reg_win->vis != !ec->visibility.obscured)
+     _e_test_helper_send_change_visibility(win, !ec->visibility.obscured);
 
-   if (th_data->registrant.vis != !ec->visibility.obscured)
-     _e_test_helper_send_change_visibility(th_data->registrant.win, !ec->visibility.obscured);
-
-   th_data->registrant.vis = !ec->visibility.obscured;
-
-   if ((th_data->registrant.disuse) && (!th_data->registrant.vis))
-     _e_test_helper_registrant_clear();
+   reg_win->vis = !ec->visibility.obscured;
 
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -996,15 +1117,17 @@ _e_test_helper_cb_client_remove(void *data EINA_UNUSED, int type EINA_UNUSED, vo
 {
    E_Client *ec;
    E_Event_Client *ev = event;
+   Ecore_Window win = 0;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_PASS_ON);
 
    ec = ev->ec;
+   if (ec && ec->pixmap)
+     win = e_pixmap_res_id_get(ec->pixmap);
 
-   if (!th_data->registrant.ec) return ECORE_CALLBACK_PASS_ON;
-   if (ec != th_data->registrant.ec) return ECORE_CALLBACK_PASS_ON;
+   if (win <= 0) return ECORE_CALLBACK_PASS_ON;
 
-   _e_test_helper_registrant_clear();
+   _e_test_helper_registrant_remove(win);
 
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -1018,12 +1141,12 @@ _e_test_helper_cb_client_restack(void *data EINA_UNUSED, int type EINA_UNUSED, v
    Ecore_Window win;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_PASS_ON);
-
-   if(!th_data->registrant.ec) return ECORE_CALLBACK_PASS_ON;
+   if (!th_data->tc_running) return ECORE_CALLBACK_PASS_ON;
 
    ec = ev->ec;
 
    win = e_pixmap_res_id_get(ec->pixmap);
+   if (!_e_test_helper_find_win_on_reg_list(win)) return ECORE_CALLBACK_PASS_ON;
 
    if (win)
      {
@@ -1045,12 +1168,13 @@ _e_test_helper_cb_client_rotation_end(void *data EINA_UNUSED, int type EINA_UNUS
    int rot;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_PASS_ON);
-
-   if(!th_data->registrant.ec) return ECORE_CALLBACK_PASS_ON;
+   if (!th_data->tc_running) return ECORE_CALLBACK_PASS_ON;
 
    ec = ev->ec;
 
    win = e_pixmap_res_id_get(ec->pixmap);
+   if (!_e_test_helper_find_win_on_reg_list(win)) return ECORE_CALLBACK_PASS_ON;
+
    rot = ec->e.state.rot.ang.curr;
 
    if (win)
@@ -1072,12 +1196,12 @@ _e_test_helper_cb_client_focus_in(void *data EINA_UNUSED, int type EINA_UNUSED, 
    Ecore_Window win = 0;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_PASS_ON);
-
-   if(!th_data->registrant.ec) return ECORE_CALLBACK_PASS_ON;
+   if (!th_data->tc_running) return ECORE_CALLBACK_PASS_ON;
 
    ec = ev->ec;
 
    win = e_pixmap_res_id_get(ec->pixmap);
+   if (!_e_test_helper_find_win_on_reg_list(win)) return ECORE_CALLBACK_PASS_ON;
 
    if (win)
      {
@@ -1094,9 +1218,19 @@ _e_test_helper_cb_property_get(const Eldbus_Service_Interface *iface EINA_UNUSED
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, EINA_FALSE);
 
+   Eldbus_Message_Iter *arr_of_win = NULL;
+   Test_Helper_Reg_Win *reg_win = NULL;
+   Eina_List *l = NULL;
+
    if (!e_util_strcmp(name, "Registrant"))
      {
-        eldbus_message_iter_basic_append(iter, 'u', th_data->registrant.win);
+        arr_of_win = eldbus_message_iter_container_new(iter, 'a', "u");
+
+        EINA_LIST_FOREACH(th_data->reg_wins, l, reg_win)
+          {
+             eldbus_message_iter_basic_append(arr_of_win, 'u', reg_win->win);
+          }
+        eldbus_message_iter_container_close(iter, arr_of_win);
      }
 
    return EINA_TRUE;
@@ -1117,9 +1251,10 @@ _e_test_helper_cb_set_render_condition(const Eldbus_Service_Interface *iface, co
      }
 
    // a window should be registered for tracing, otherwise reply accept FALSE
-   if (!th_data->registrant.ec) goto fin;
-   if (!th_data->registrant.win) goto fin;
-   if (win != th_data->registrant.win) goto fin;
+   if (!th_data) goto fin;
+   if (!th_data->tc_running) goto fin;
+   if (!th_data->reg_wins) goto fin;
+   if (!_e_test_helper_find_win_on_reg_list(win)) goto fin;
 
    // tracning condition on and off depending on "cond" string.
    if (!e_util_strcmp(cond, "effect"))
@@ -1144,19 +1279,22 @@ _e_test_helper_cb_img_render(void *data EINA_UNUSED,
 {
    E_Client *ec;
    E_Event_Comp_Object *ev = event;
+   Ecore_Window win = 0;
+   Test_Helper_Reg_Win *reg_win = NULL;
 
    if (!(ec = evas_object_data_get(ev->comp_object, "E_Client")))
      return ECORE_CALLBACK_DONE;
 
    // a window should be registered for tracing
-   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_DONE);
+   if (!th_data) return ECORE_CALLBACK_DONE;
+   if (!th_data->tc_running) return ECORE_CALLBACK_DONE;
+   if (!th_data->reg_wins) return ECORE_CALLBACK_DONE;
 
-   if (!th_data->registrant.ec) return ECORE_CALLBACK_DONE;
-   if (!th_data->registrant.win) return ECORE_CALLBACK_DONE;
-   if (ec != th_data->registrant.ec) return ECORE_CALLBACK_DONE;
+   win = e_pixmap_res_id_get(ec->pixmap);
+   reg_win = _e_test_helper_find_win_on_reg_list(win);
 
-   if (th_data->registrant.render_send)
-     _e_test_helper_send_render(th_data->registrant.win);
+   if (reg_win && reg_win->render_send)
+     _e_test_helper_send_render(win);
 
    return ECORE_CALLBACK_DONE;
 }
@@ -1168,19 +1306,23 @@ _e_test_helper_cb_effect_start(void *data EINA_UNUSED,
 {
    E_Client *ec;
    E_Event_Comp_Object *ev = event;
+   Ecore_Window win = 0;
+   Test_Helper_Reg_Win *reg_win = NULL;
 
    if (!(ec = evas_object_data_get(ev->comp_object, "E_Client")))
      return ECORE_CALLBACK_DONE;
 
    // a window should be registered for tracing
-   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_DONE);
-   if (!th_data->registrant.ec) return ECORE_CALLBACK_DONE;
-   if (!th_data->registrant.win) return ECORE_CALLBACK_DONE;
-   if (ec != th_data->registrant.ec) return ECORE_CALLBACK_DONE;
+   if (!th_data) return ECORE_CALLBACK_DONE;
+   if (!th_data->tc_running) return ECORE_CALLBACK_DONE;
+   if (!th_data->reg_wins) return ECORE_CALLBACK_DONE;
 
-   if (ec && ec->frame)
+   win = e_pixmap_res_id_get(ec->pixmap);
+   reg_win = _e_test_helper_find_win_on_reg_list(win);
+
+   if (reg_win && ec && ec->frame)
      {
-        th_data->registrant.render_send = EINA_TRUE;
+        reg_win->render_send = EINA_TRUE;
         e_comp_object_render_trace_set(ec->frame, EINA_TRUE);
         e_pixmap_image_refresh(ec->pixmap);
         e_comp_object_dirty(ec->frame);
@@ -1196,19 +1338,24 @@ _e_test_helper_cb_effect_end(void *data EINA_UNUSED,
 {
    E_Client *ec;
    E_Event_Comp_Object *ev = event;
+   Ecore_Window win = 0;
+   Test_Helper_Reg_Win *reg_win = NULL;
 
    ec = evas_object_data_get(ev->comp_object, "E_Client");
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, ECORE_CALLBACK_DONE);
 
    // a window should be registered for tracing
-   EINA_SAFETY_ON_NULL_RETURN_VAL(th_data, ECORE_CALLBACK_DONE);
-   if (!th_data->registrant.ec) return ECORE_CALLBACK_DONE;
-   if (!th_data->registrant.win) return ECORE_CALLBACK_DONE;
-   if (ec != th_data->registrant.ec) return ECORE_CALLBACK_DONE;
+   if (!th_data) return ECORE_CALLBACK_DONE;
+   if (!th_data->tc_running) return ECORE_CALLBACK_DONE;
+   if (!th_data->reg_wins) return ECORE_CALLBACK_DONE;
 
-   if (ec && ec->frame)
+   win = e_pixmap_res_id_get(ec->pixmap);
+   reg_win = _e_test_helper_find_win_on_reg_list(win);
+
+   if (reg_win && ec && ec->frame)
      {
         e_comp_object_render_trace_set(ec->frame, EINA_FALSE);
-        th_data->registrant.render_send = EINA_FALSE;
+        reg_win->render_send = EINA_FALSE;
      }
 
    return ECORE_CALLBACK_DONE;
@@ -1244,8 +1391,6 @@ e_test_helper_init(void)
    E_LIST_HANDLER_APPEND(th_data->hdlrs, E_EVENT_COMP_OBJECT_IMG_RENDER,
                           _e_test_helper_cb_img_render, NULL);
 
-   th_data->registrant.vis = -1;
-
    return 1;
 
 err:
@@ -1259,6 +1404,14 @@ e_test_helper_shutdown(void)
    if (th_data)
      {
         E_FREE_LIST(th_data->hdlrs, ecore_event_handler_del);
+
+        _e_test_helper_registrant_clear();
+
+        if (th_data->tc_timer)
+          {
+             ecore_timer_del(th_data->tc_timer);
+             th_data->tc_timer = NULL;
+          }
 
         if (th_data->dbus_init_done_h)
           {
