@@ -473,3 +473,125 @@ e_hwc_client_is_above_hwc(E_Client *ec, E_Client *hwc_ec)
 
    return EINA_FALSE;
 }
+
+E_API Eina_Bool
+e_client_hwc_available_properties_get(E_Client *ec, const hwc_prop **props, int *count)
+{
+   E_Hwc *hwc;
+   E_Output *output;
+   E_Zone *zone;
+   E_Hwc_Window *hwc_window;
+   E_Hwc_Window_State state;
+   const tdm_prop *tprops;
+   int i;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(count, EINA_FALSE);
+   zone = ec->zone;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(zone, EINA_FALSE);
+   output = e_output_find(zone->output_id);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+   hwc = output->hwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+   hwc_window = ec->hwc_window;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   state = e_hwc_window_state_get(hwc_window);
+   if (state == E_HWC_WINDOW_STATE_VIDEO)
+     {
+        if (!e_hwc_windows_get_video_available_properties(hwc, &tprops, count))
+          {
+             ERR("e_hwc_windows_get_video_available_properties failed");
+             return EINA_FALSE;
+          }
+     }
+   else
+     {
+        if (!e_hwc_windows_get_available_properties(hwc, &tprops, count))
+          {
+             ERR("e_hwc_windows_get_available_properties failed");
+             return EINA_FALSE;
+          }
+     }
+
+   *props = (hwc_prop *)tprops;
+
+   if (state == E_HWC_WINDOW_STATE_VIDEO)
+     ELOGF("HWC", ">>>>>>>> Available VIDEO props : count = %d", NULL, NULL, *count);
+   else
+     ELOGF("HWC", ">>>>>>>> Available UI props : count = %d", NULL, NULL, *count);
+   for (i = 0; i < *count; i++)
+     ELOGF("HWC", "   [%d] %s, %u", NULL, NULL, i, tprops[i].name, tprops[i].id);
+
+   return EINA_TRUE;
+}
+
+E_API Eina_Bool
+e_client_hwc_property_get(E_Client *ec, unsigned int id, hwc_value *value)
+{
+   E_Hwc_Window *hwc_window;
+   tdm_value tvalue;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(value, EINA_FALSE);
+   hwc_window = ec->hwc_window;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (!e_hwc_window_get_property(hwc_window, id, &tvalue))
+     {
+        ERR("e_hwc_window_get_property failed");
+        return EINA_FALSE;
+     }
+
+   memcpy(&value->ptr, &tvalue.ptr, sizeof(tdm_value));
+
+   return EINA_TRUE;
+}
+
+const char *
+_e_client_hwc_prop_name_get_by_id(E_Client *ec, unsigned int id)
+{
+   const hwc_prop *props;
+   int i, count = 0;
+
+   if (!e_client_hwc_available_properties_get(ec, &props, &count))
+     {
+        ERR("e_client_hwc_available_properties_get failed.");
+        return EINA_FALSE;
+     }
+
+   for (i = 0; i < count; i++)
+     {
+        if (props[i].id == id)
+          return props[i].name;
+     }
+
+   ERR("No available property: id %d", id);
+
+   return NULL;
+}
+
+E_API Eina_Bool
+e_client_hwc_property_set(E_Client *ec, unsigned int id, hwc_value value)
+{
+   E_Hwc_Window *hwc_window;
+   const char *name;
+   tdm_value tvalue;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   hwc_window = ec->hwc_window;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   name = _e_client_hwc_prop_name_get_by_id(ec, id);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(name, EINA_FALSE);
+
+   memcpy(&tvalue.ptr, &value.ptr, sizeof(hwc_value));
+
+   if (!e_hwc_window_set_property(hwc_window, id, name, tvalue, EINA_TRUE))
+     {
+        ERR("e_hwc_window_set_property failed");
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
