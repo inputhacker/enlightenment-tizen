@@ -1831,6 +1831,19 @@ e_hwc_window_set_property(E_Hwc_Window *hwc_window, unsigned int id, const char 
    return EINA_TRUE;
 }
 
+EINTERN Eina_Bool
+e_hwc_window_get_property(E_Hwc_Window *hwc_window, unsigned int id, tdm_value *value)
+{
+   tdm_error ret;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(value, EINA_FALSE);
+
+   ret = tdm_hwc_window_get_property(hwc_window->thwc_window, id, value);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(ret != TDM_ERROR_NONE, EINA_FALSE);
+
+   return EINA_TRUE;
+}
 
 EINTERN E_Hwc_Window_Hook *
 e_hwc_window_hook_add(E_Hwc_Window_Hook_Point hookpoint, E_Hwc_Window_Hook_Cb func, const void *data)
