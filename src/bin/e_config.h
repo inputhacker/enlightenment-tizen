@@ -216,6 +216,19 @@ struct _E_Config
       int           alpha; // alpha component (0:transparent, 255:opaque), only used when use_alpha is 1
    } qp_handler;
    Eina_Bool qp_add_on_desk_smart;
+
+   // e_gesture_service supports multi finger gestures.
+   // The enlightenment doesn't know when other finger's touch down is come.
+   // So waiting other fingers after first finger touch down using some methods.
+   //
+   // But each devices has different touch sensitivity, so make these values configurable.
+   // wait_time: waiting times set fingers are come
+   // wait_dist: if current touched fingers are moving sufficiently, stop waiting other fingers
+   struct
+   {
+      double wait_time; // default value is 0.1(sec)
+      int wait_dist;
+   } gesture_service;
 };
 
 struct _E_Config_Desklock_Background

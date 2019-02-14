@@ -295,6 +295,8 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, qp_use_bg_rect, UCHAR);
    E_CONFIG_VAL(D, T, qp_handler.use_alpha, UCHAR);
    E_CONFIG_VAL(D, T, qp_handler.alpha, INT);
+   E_CONFIG_VAL(D, T, gesture_service.wait_time, DOUBLE);
+   E_CONFIG_VAL(D, T, gesture_service.wait_dist, INT);
 }
 
 static Eina_Bool

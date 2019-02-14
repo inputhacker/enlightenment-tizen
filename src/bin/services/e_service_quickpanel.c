@@ -957,7 +957,7 @@ _e_qp_srv_effect_disable_ref(E_Policy_Quickpanel *qp)
 }
 
 static void
-_region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, unsigned int timestamp)
+_region_obj_cb_gesture_start(void *data, Evas_Object *handler, int nfingers, int x, int y, unsigned int timestamp)
 {
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
@@ -1071,7 +1071,7 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
 }
 
 static void
-_region_obj_cb_gesture_move(void *data, Evas_Object *handler, int x, int y, unsigned int timestamp)
+_region_obj_cb_gesture_move(void *data, Evas_Object *handler, int nfingers, int x, int y, unsigned int timestamp)
 {
    E_Policy_Quickpanel *qp;
    Eina_Bool res;
@@ -1086,7 +1086,7 @@ _region_obj_cb_gesture_move(void *data, Evas_Object *handler, int x, int y, unsi
 }
 
 static void
-_region_obj_cb_gesture_end(void *data EINA_UNUSED, Evas_Object *handler, int x, int y, unsigned int timestamp)
+_region_obj_cb_gesture_end(void *data EINA_UNUSED, Evas_Object *handler, int nfingers, int x, int y, unsigned int timestamp)
 {
    E_Policy_Quickpanel *qp;
    Eina_Bool res, v;
@@ -1305,6 +1305,7 @@ _quickpanel_handler_rect_add(E_Policy_Quickpanel *qp, E_Policy_Angle_Map ridx, i
 
    e_service_region_gesture_set(obj,
                                 POL_GESTURE_TYPE_NONE,
+                                1,
                                 _region_obj_cb_gesture_start,
                                 _region_obj_cb_gesture_move,
                                 _region_obj_cb_gesture_end, qp);
@@ -1757,6 +1758,7 @@ _quickpanel_indicator_object_new(E_Policy_Quickpanel *qp)
 
    e_service_region_gesture_set(indi_obj,
                                 POL_GESTURE_TYPE_LINE,
+                                1,
                                 _region_obj_cb_gesture_start,
                                 _region_obj_cb_gesture_move,
                                 _region_obj_cb_gesture_end, qp);
