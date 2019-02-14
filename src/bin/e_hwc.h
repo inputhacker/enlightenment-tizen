@@ -2,6 +2,8 @@
 
 typedef struct _E_Hwc     E_Hwc;
 
+#define HWC_NAME_LEN 64
+
 typedef enum _E_Hwc_Mode
 {
    E_HWC_MODE_NONE = 0,
@@ -22,6 +24,32 @@ typedef enum _E_Hwc_Intercept_Hook_Point
    E_HWC_INTERCEPT_HOOK_END_ALL_PLANE,
    E_HWC_INTERCEPT_HOOK_LAST,
 } E_Hwc_Intercept_Hook_Point;
+
+/*The hwc value type enumeration */
+typedef enum {
+	HWC_VALUE_TYPE_UNKNOWN,
+	HWC_VALUE_TYPE_PTR,
+	HWC_VALUE_TYPE_INT32,
+	HWC_VALUE_TYPE_UINT32,
+	HWC_VALUE_TYPE_INT64,
+	HWC_VALUE_TYPE_UINT64,
+} hwc_value_type;
+
+/*brief The hwc value union */
+typedef union {
+	void	 *ptr;
+	int32_t  s32;
+	uint32_t u32;
+	int64_t  s64;
+	uint64_t u64;
+} hwc_value;
+
+/* The property of the hwc client */
+typedef struct _hwc_prop {
+	unsigned int id;
+	char name[HWC_NAME_LEN];
+	hwc_value_type type;
+} hwc_prop;
 
 typedef Eina_Bool (*E_Hwc_Intercept_Hook_Cb)(void *data, E_Hwc *hwc);
 typedef struct _E_Hwc_Intercept_Hook E_Hwc_Intercept_Hook;
@@ -104,8 +132,12 @@ EINTERN Eina_Bool     e_hwc_client_is_above_hwc(E_Client *ec, E_Client *hwc_ec);
 
 EINTERN Eina_Bool     e_hwc_intercept_hook_call(E_Hwc_Intercept_Hook_Point hookpoint, E_Hwc *hwc);
 
-E_API E_Hwc_Intercept_Hook *e_hwc_intercept_hook_add(E_Hwc_Intercept_Hook_Point hookpoint, E_Hwc_Intercept_Hook_Cb func, const void *data);
-E_API void e_hwc_intercept_hook_del(E_Hwc_Intercept_Hook *ch);
+E_API E_Hwc_Intercept_Hook   *e_hwc_intercept_hook_add(E_Hwc_Intercept_Hook_Point hookpoint, E_Hwc_Intercept_Hook_Cb func, const void *data);
+E_API void                    e_hwc_intercept_hook_del(E_Hwc_Intercept_Hook *ch);
+
+E_API Eina_Bool       e_client_hwc_available_properties_get(E_Client *ec, const hwc_prop **props, int *count);
+E_API Eina_Bool       e_client_hwc_property_get(E_Client *ec, unsigned int id, hwc_value *value);
+E_API Eina_Bool       e_client_hwc_property_set(E_Client *ec, unsigned int id, hwc_value value);
 
 #endif
 #endif
