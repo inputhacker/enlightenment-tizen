@@ -2,6 +2,7 @@
 
 # include <pixman.h>
 # include <wayland-tbm-server.h>
+#include "services/e_service_quickpanel.h"
 
 #ifndef CLEAR
 #define CLEAR(x) memset(&(x), 0, sizeof (x))
@@ -655,6 +656,7 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
    hwc_window->zpos = E_HWC_WINDOW_ZPOS_NONE;
    hwc_window->state = state;
    hwc_window->render_target = EINA_TRUE;
+   hwc_window->device_state_available = EINA_TRUE;
 
    hwc_window->thwc_window = tdm_hwc_create_window(thwc, &error);
    if (error != TDM_ERROR_NONE)
@@ -1307,15 +1309,25 @@ e_hwc_window_state_get(E_Hwc_Window *hwc_window)
    return hwc_window->state;
 }
 
+EINTERN Eina_Bool
+e_hwc_window_device_state_available_get(E_Hwc_Window *hwc_window)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   return hwc_window->device_state_available;
+}
+
 // if ec has invalid buffer or scaled( transformed ) or forced composite(never_hwc)
 EINTERN Eina_Bool
-e_hwc_window_device_state_available_check(E_Hwc_Window *hwc_window)
+e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
 {
    E_Client *ec;
    E_Comp_Wl_Client_Data *cdata;
    E_Output *eout;
    int minw = 0, minh = 0;
    int transform;
+   Eina_Bool available = EINA_TRUE;
+   const char *restriction = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
@@ -1324,46 +1336,46 @@ e_hwc_window_device_state_available_check(E_Hwc_Window *hwc_window)
 
    if (ec->comp_override > 0)
      {
-        EHWTRACE("   -- {%25s} is forced to set CL state.(comp_override)",
-                 hwc_window->ec, hwc_window, ec->icccm.title);
-        return EINA_FALSE;
+        restriction = "comp_override";
+        available = EINA_FALSE;
+        goto finish;
      }
 
    if (e_comp_object_is_animating(ec->frame))
      {
-        EHWTRACE("   -- {%25s} is forced to set CL state.(animating)",
-                 hwc_window->ec, hwc_window, ec->icccm.title);
-        return EINA_FALSE;
+        restriction = "animating";
+        available = EINA_FALSE;
+        goto finish;
      }
 
    cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    if ((!cdata) || (!cdata->buffer_ref.buffer))
      {
-        EHWTRACE("   -- {%25s} is forced to set CL state.(null cdata or buffer)",
-                  hwc_window->ec, hwc_window, ec->icccm.title);
-        return EINA_FALSE;
+        restriction = "null cdata or buffer";
+        available = EINA_FALSE;
+        goto finish;
      }
 
    if ((cdata->width_from_buffer != cdata->width_from_viewport) ||
        (cdata->height_from_buffer != cdata->height_from_viewport))
      {
-        EHWTRACE("   -- {%25s} is forced to set CL state.(size_from_viewport)",
-                  hwc_window->ec, hwc_window, ec->icccm.title);
-        return EINA_FALSE;
+        restriction = "size_from_viewport";
+        available = EINA_FALSE;
+        goto finish;
      }
 
    if (cdata->never_hwc)
      {
-        EHWTRACE("   -- {%25s} is forced to set CL state.(never_hwc)",
-                  hwc_window->ec, hwc_window, ec->icccm.title);
-        return EINA_FALSE;
+        restriction = "never_hwc";
+        available = EINA_FALSE;
+        goto finish;
      }
 
    if (e_client_transform_core_enable_get(ec))
      {
-        EHWTRACE("   -- {%25s} is forced to set CL state.(transfrom_core)",
-                  hwc_window->ec, hwc_window, ec->icccm.title);
-        return EINA_FALSE;
+        restriction = "transfrom_core";
+        available = EINA_FALSE;
+        goto finish;
      }
 
    switch (cdata->buffer_ref.buffer->type)
@@ -1375,28 +1387,33 @@ e_hwc_window_device_state_available_check(E_Hwc_Window *hwc_window)
          if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
            break;
       default:
-         EHWTRACE("   -- {%25s} is forced to set CL state.(buffer_type)",
-                   hwc_window->ec, hwc_window, ec->icccm.title);
-         return EINA_FALSE;
+        restriction = "buffer_type";
+        available = EINA_FALSE;
+        goto finish;
      }
 
    eout = e_output_find(ec->zone->output_id);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eout, EINA_FALSE);
+   if (!eout)
+     {
+        restriction = "output find";
+        available = EINA_FALSE;
+        goto finish;
+     }
 
    tdm_output_get_available_size(eout->toutput, &minw, &minh, NULL, NULL, NULL);
 
    if ((minw > 0) && (minw > cdata->buffer_ref.buffer->w))
      {
-        EHWTRACE("   -- {%25s} is forced to set CL state.(minw:%d > buffer->w:%d)",
-                  hwc_window->ec, hwc_window, ec->icccm.title, minw, cdata->buffer_ref.buffer->w);
-        return EINA_FALSE;
+        restriction = "buffer min width";
+        available = EINA_FALSE;
+        goto finish;
      }
 
    if ((minh > 0) && (minh > cdata->buffer_ref.buffer->h))
      {
-        EHWTRACE("   -- {%25s} is forced to set CL state.(minh:%d > buffer->h:%d)",
-                  hwc_window->ec, hwc_window, ec->icccm.title, minh, cdata->buffer_ref.buffer->h);
-        return EINA_FALSE;
+        restriction = "buffer min height";
+        available = EINA_FALSE;
+        goto finish;
      }
 
    /* If a client doesn't watch the ignore_output_transform events, we can't show
@@ -1412,35 +1429,55 @@ e_hwc_window_device_state_available_check(E_Hwc_Window *hwc_window)
           {
              if (e_comp_wl->touch.pressed)
                {
-                  EHWTRACE("   -- {%25s} is forced to set CL state.(touch pressed)",
-                            hwc_window->ec, hwc_window, ec->icccm.title);
-                  return EINA_FALSE;
+                  restriction = "touch pressed";
+                  available = EINA_FALSE;
+                  goto finish;
                }
           }
         else
           {
-             EHWTRACE("   -- {%25s} is forced to set CL state.(no igrore_transfrom)",
-                       hwc_window->ec, hwc_window, ec->icccm.title);
-             return EINA_FALSE;
+             restriction = "no igrore_transfrom";
+             available = EINA_FALSE;
+             goto finish;
           }
      }
-
 
    // if there is UI subfrace, it means need to composite
    if (e_client_normal_client_has(ec))
      {
-        EHWTRACE("   -- {%25s} is forced to set CL state.(UI subfrace)",
-                  hwc_window->ec, hwc_window, ec->icccm.title);
-        return EINA_FALSE;
+        restriction = "UI subsurface";
+        available = EINA_FALSE;
+        goto finish;
      }
 
    // if ec->frame is not for client buffer (e.g. launchscreen)
    if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
      {
-        EHWTRACE("   -- {%25s} is forced to set CL state.(E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)",
-                  hwc_window->ec, hwc_window, ec->icccm.title);
-        return EINA_TRUE;
+        restriction = "E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE";
+        available = EINA_FALSE;
+        goto finish;
      }
+
+   // if there is a ec which is lower than quickpanel and quickpanel is opened.
+   if (E_POLICY_QUICKPANEL_LAYER >= evas_object_layer_get(ec->frame))
+     {
+        // check whether quickpanel is open than break
+        if (e_config->use_desk_smart_obj && e_qps_visible_get())
+          {
+             restriction = "quickpanel is opened";
+             available = EINA_FALSE;
+             goto finish;
+          }
+     }
+
+finish:
+   if (!available && evas_object_visible_get(ec->frame))
+     EHWTRACE("   -- {%25s} is forced to set CL state.(%s)",
+              hwc_window->ec, hwc_window, ec->icccm.title, restriction);
+
+   if (hwc_window->device_state_available == available) return EINA_FALSE;
+
+   hwc_window->device_state_available = available;
 
    return EINA_TRUE;
 }

@@ -1632,50 +1632,9 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 }
 
 static Eina_Bool
-_e_hwc_windows_all_client_states_available_check(E_Hwc *hwc)
+_e_hwc_windows_device_states_available_check(E_Hwc *hwc)
 {
-   /* make the full_gl_composite when the zoom is enabled */
-   if (hwc->output->zoom_set) return EINA_TRUE;
-
-   /* full composite is forced to be set */
-   if (e_hwc_deactive_get(hwc)) return EINA_TRUE;
-
-   /* hwc_window manager required full GLES composition */
-   if (e_comp->nocomp_override > 0)
-     {
-        EHWSTRACE("  HWC_MODE_NONE due to nocomp_override > 0.", NULL);
-        return EINA_TRUE;
-     }
-
-//TODO: this restriction is for the quickpanel on the special case.
-//      Therefore, this condition has to move to the hwc policy of the libtdm backend.
-#if 0
-   Eina_List *l;
-   E_Client *ec;
-   E_Hwc_Window *hwc_window = NULL;
-   Eina_List *visible_windows = hwc->visible_windows;
-
-   EINA_LIST_FOREACH(visible_windows, l, hwc_window)
-     {
-        ec = hwc_window->ec;
-
-        if (e_hwc_window_is_video(hwc_window)) continue;
-
-        // if there is a ec which is lower than quickpanel and quickpanel is opened.
-        if (E_POLICY_QUICKPANEL_LAYER >= evas_object_layer_get(ec->frame))
-          {
-             // check whether quickpanel is open than break
-             if (e_config->use_desk_smart_obj && e_qps_visible_get())
-               {
-                   EHWSTRACE("    HWC_MODE_NONE due to quickpanel is opened.{%25s}.",
-                             ec, ec->icccm.title);
-                   return EINA_TRUE;
-               }
-          }
-     }
-#endif
-
-   return EINA_FALSE;
+   return hwc->device_state_available;
 }
 
 static void
@@ -1689,25 +1648,7 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
    visible_windows = hwc->visible_windows;
 
    /* check if e20 forces to set that all window has TDM_HWC_WIN_COMPOSITION_CLIENT types */
-   if (_e_hwc_windows_all_client_states_available_check(hwc))
-     {
-        EINA_LIST_FOREACH(visible_windows, l, hwc_window)
-          {
-             /* The video window set the TDM_HWC_WIN_COMPOSITION_VIDEO type. */
-             if (e_hwc_window_is_video(hwc_window))
-               {
-                  if (!e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO, EINA_TRUE))
-                    ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
-                  continue;
-               }
-
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
-
-             EHWSTRACE("   ehw:%p -- {%25s} is NOT hwc_acceptable.",
-                     hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
-          }
-     }
-   else
+   if (_e_hwc_windows_device_states_available_check(hwc))
      {
         /* check clients are able to use hwc */
         EINA_LIST_FOREACH(visible_windows, l, hwc_window)
@@ -1725,10 +1666,28 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
 
              /* filter the visible clients which e20 prevent to shown by hw directly
                 by demand of e20 */
-             if (e_hwc_window_device_state_available_check(hwc_window))
+             if (e_hwc_window_device_state_available_get(hwc_window))
                e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE, EINA_TRUE);
              else
                e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
+          }
+     }
+   else
+     {
+        EINA_LIST_FOREACH(visible_windows, l, hwc_window)
+          {
+             /* The video window set the TDM_HWC_WIN_COMPOSITION_VIDEO type. */
+             if (e_hwc_window_is_video(hwc_window))
+               {
+                  if (!e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO, EINA_TRUE))
+                    ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
+                  continue;
+               }
+
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
+
+             EHWSTRACE("   ehw:%p -- {%25s} is NOT hwc_acceptable.",
+                     hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
           }
      }
 }
@@ -1797,6 +1756,40 @@ _e_hwc_windows_visible_windows_update(E_Hwc *hwc)
    return EINA_TRUE;
 }
 
+static Eina_Bool
+_e_hwc_windows_device_state_available_update(E_Hwc *hwc)
+{
+   Eina_Bool available = EINA_TRUE;
+
+   /* make the full_gl_composite when the zoom is enabled */
+   if (hwc->output->zoom_set)
+     {
+        available = EINA_FALSE;
+        goto finish;
+     }
+
+   /* full composite is forced to be set */
+   if (e_hwc_deactive_get(hwc))
+     {
+        available = EINA_FALSE;
+        goto finish;
+     }
+
+   /* hwc_window manager required full GLES composition */
+   if (e_comp->nocomp_override > 0)
+     {
+        available = EINA_FALSE;
+        goto finish;
+     }
+
+finish:
+   if (hwc->device_state_available == available) return EINA_FALSE;
+
+   hwc->device_state_available = available;
+
+   return EINA_TRUE;
+}
+
 /* check if there is a need to update the output */
 static Eina_Bool
 _e_hwc_windows_changes_update(E_Hwc *hwc)
@@ -1807,6 +1800,10 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
 
    /* update the the visible windows */
    if (_e_hwc_windows_visible_windows_update(hwc))
+     update_changes = EINA_TRUE;
+
+  /* update the the visible windows */
+   if (_e_hwc_windows_device_state_available_update(hwc))
      update_changes = EINA_TRUE;
 
    /* fetch the target buffer */
@@ -1834,6 +1831,9 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
 
         /* update the window's props */
         if (e_hwc_window_prop_update(hwc_window))
+          update_changes = EINA_TRUE;
+
+        if (e_hwc_window_device_state_available_update(hwc_window))
           update_changes = EINA_TRUE;
      }
 

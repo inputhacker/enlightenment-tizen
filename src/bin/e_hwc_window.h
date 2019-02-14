@@ -83,6 +83,7 @@ struct _E_Hwc_Window
    Eina_Bool                      is_cursor;
    Eina_Bool                      is_deleted;
    Eina_Bool                      set_name;
+   Eina_Bool                      device_state_available;
 
    E_Hwc_Window_Activation_State  activation_state; /* hwc_window has occupied the hw layer or not */
 
@@ -187,7 +188,8 @@ EINTERN Eina_Bool               e_hwc_window_state_set(E_Hwc_Window *hwc_window,
 EINTERN E_Hwc_Window_State      e_hwc_window_state_get(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool               e_hwc_window_accepted_state_set(E_Hwc_Window *hwc_window, E_Hwc_Window_State state);
 EINTERN E_Hwc_Window_State      e_hwc_window_accepted_state_get(E_Hwc_Window *hwc_window);
-EINTERN Eina_Bool               e_hwc_window_device_state_available_check(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool               e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool               e_hwc_window_device_state_available_get(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool               e_hwc_window_transition_set(E_Hwc_Window *hwc_window, E_Hwc_Window_Transition transition);
 EINTERN E_Hwc_Window_Transition e_hwc_window_transition_get(E_Hwc_Window *hwc_window);
 EINTERN const char*             e_hwc_window_transition_string_get(E_Hwc_Window_Transition transition);
