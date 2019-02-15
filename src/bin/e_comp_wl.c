@@ -3592,7 +3592,15 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
          return;
      }
 
-   if (ec->argb) return;
+   if (ec->argb)
+     {
+         if (ec->comp_data->sub.below_obj)
+           {
+               evas_object_del(ec->comp_data->sub.below_obj);
+               ec->comp_data->sub.below_obj = NULL;
+           }
+         return;
+     }
 
    if (ec->comp_data->sub.below_list ||
        ec->comp_data->sub.below_list_pending ||
