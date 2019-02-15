@@ -1287,6 +1287,9 @@ e_comp_screen_hwc_info_debug(void)
    int output_idx = 0;
    tdm_layer_capability layer_capabilities;
    char layer_cap[4096] = {0, };
+   int i;
+   const tdm_prop *tprops;
+   int count;
 
    INF("HWC: HWC Information ==========================================================");
    EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l_o, ll_o, output)
@@ -1329,7 +1332,24 @@ e_comp_screen_hwc_info_debug(void)
           {
              /* TODO: construct debug info for outputs managed by the hwc-wins */
              INF("HWC: HWC Output(%d) managed by hwc-wins.", ++output_idx);
-             continue;
+
+             if (!e_hwc_windows_get_available_properties(output->hwc, &tprops, &count))
+               {
+                  ERR("e_hwc_windows_get_video_available_properties failed");
+                  return;
+               }
+             INF(">>>>>>>> Available UI props : count = %d", count);
+             for (i = 0; i < count; i++)
+               INF("   [%d] %s, %u", i, tprops[i].name, tprops[i].id);
+
+             if (!e_hwc_windows_get_video_available_properties(output->hwc, &tprops, &count))
+               {
+                  ERR("e_hwc_windows_get_video_available_properties failed");
+                  return;
+               }
+             INF(">>>>>>>> Available VIDEO props : count = %d", count);
+             for (i = 0; i < count; i++)
+               INF("   [%d] %s, %u", i, tprops[i].name, tprops[i].id);
           }
      }
    INF("HWC: =========================================================================");
