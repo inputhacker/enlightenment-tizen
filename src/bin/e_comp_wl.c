@@ -3581,13 +3581,11 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
    short layer;
 
    if (!ec || e_object_is_del(E_OBJECT(ec)) || !ec->comp_data) return;
-   if (ec->comp_data->sub.below_obj) return;
    if (ec->comp_data->sub.data)
      {
          E_Client *topmost = e_comp_wl_topmost_parent_get(ec);
          if (!topmost || e_object_is_del(E_OBJECT(topmost)) || !topmost->comp_data) return;
          if (topmost->comp_data->sub.data) return;
-         if (topmost->comp_data->sub.below_obj) return;
          _e_comp_wl_subsurface_check_below_bg_rectangle(topmost);
          return;
      }
@@ -3596,15 +3594,17 @@ _e_comp_wl_subsurface_check_below_bg_rectangle(E_Client *ec)
      {
          if (ec->comp_data->sub.below_obj)
            {
+               ELOGF("COMP", "         |bg_rectangle(%p) delete", NULL, ec, ec->comp_data->sub.below_obj);
                evas_object_del(ec->comp_data->sub.below_obj);
                ec->comp_data->sub.below_obj = NULL;
            }
          return;
      }
 
-   if (ec->comp_data->sub.below_list ||
-       ec->comp_data->sub.below_list_pending ||
-       e_comp_wl_video_subsurface_has(ec))
+   if ((!ec->comp_data->sub.below_obj) &&
+       (ec->comp_data->sub.below_list ||
+        ec->comp_data->sub.below_list_pending ||
+        e_comp_wl_video_subsurface_has(ec)))
      {
         /* create a bg rectangle if topmost window is 24 depth window */
         ec->comp_data->sub.below_obj = evas_object_rectangle_add(e_comp->evas);
