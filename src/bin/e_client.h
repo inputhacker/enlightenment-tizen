@@ -964,6 +964,9 @@ struct E_Client
       Eina_Bool add  : 1; // ADD / REMOVE
       Eina_Bool show : 1; // SHOW / HIDE
    } reg_ev;
+
+   Evas_Object *magnifier_proxy;   // The proxy object used by magnifier
+   Eina_Bool    is_magnifier : 1;  // The client is a magnifier client
 };
 
 #define e_client_focus_policy_click(ec) \

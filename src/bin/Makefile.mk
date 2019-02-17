@@ -127,6 +127,7 @@ src/bin/e_policy_visibility.h \
 src/bin/e_policy_private_data.h \
 src/bin/e_policy_wl.h \
 src/bin/e_policy_wl_display.h \
+src/bin/e_magnifier.h \
 src/bin/e_process.h \
 src/bin/e_privilege.h \
 src/bin/e_security.h \
@@ -243,6 +244,7 @@ src/bin/e_policy_stack.c  \
 src/bin/e_policy_visibility.c \
 src/bin/e_policy_wl.c \
 src/bin/e_policy_wl_display.c \
+src/bin/e_magnifier.c \
 src/bin/e_process.c \
 src/bin/e_privilege.c \
 src/bin/e_security.c \

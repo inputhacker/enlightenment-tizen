@@ -706,6 +706,15 @@ _e_policy_cb_hook_client_eval_pre_new_client(void *d EINA_UNUSED, E_Client *ec)
      {
         ec->exp_iconify.skip_iconify = EINA_TRUE;
      }
+
+   if (e_policy_client_is_magnifier(ec))
+     {
+        if (ec->frame)
+          {
+             if (ec->layer != E_LAYER_CLIENT_ALERT_HIGH)
+               evas_object_layer_set(ec->frame, E_LAYER_CLIENT_ALERT_HIGH);
+          }
+     }
 }
 
 static void
@@ -1821,6 +1830,15 @@ e_policy_client_is_floating(E_Client *ec)
    E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
 
    return ec->floating;
+}
+
+Eina_Bool
+e_policy_client_is_magnifier(E_Client *ec)
+{
+   E_OBJECT_CHECK_RETURN(ec, EINA_FALSE);
+   E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
+
+   return ec->is_magnifier;
 }
 
 Eina_Bool

@@ -585,6 +585,7 @@ main(int argc, char **argv)
    e_zone_init();
    e_desk_init();
    e_slot_init();
+   e_magnifier_init();
 
    TRACE_DS_BEGIN(MAIN:WAIT /dev/dri/card0);
    if (e_config->sleep_for_dri)
@@ -1104,6 +1105,7 @@ _e_main_screens_shutdown(void)
    e_comp_shutdown();
    e_client_shutdown();
 
+   e_magnifier_shutdown();
    e_slot_shutdown();
    e_desk_shutdown();
    e_zone_shutdown();

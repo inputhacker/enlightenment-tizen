@@ -183,6 +183,7 @@ E_API Eina_Bool        e_policy_client_is_volume(E_Client *ec);
 E_API Eina_Bool        e_policy_client_is_volume_tv(E_Client *ec);
 E_API Eina_Bool        e_policy_client_is_noti(E_Client *ec);
 E_API Eina_Bool        e_policy_client_is_floating(E_Client *ec);
+E_API Eina_Bool        e_policy_client_is_magnifier(E_Client *ec);
 E_API Eina_Bool        e_policy_client_is_cursor(E_Client *ec);
 E_API Eina_Bool        e_policy_client_is_subsurface(E_Client *ec);
 E_API Eina_Bool        e_policy_client_is_cbhm(E_Client *ec);

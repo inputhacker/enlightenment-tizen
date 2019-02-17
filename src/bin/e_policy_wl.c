@@ -33,6 +33,7 @@ typedef enum _Tzsh_Srv_Role
    TZSH_SRV_ROLE_SCREENSAVER,
    TZSH_SRV_ROLE_CBHM,
    TZSH_SRV_ROLE_SOFTKEY,
+   TZSH_SRV_ROLE_MAGNIFIER,
    TZSH_SRV_ROLE_MAX
 } Tzsh_Srv_Role;
 
@@ -612,6 +613,16 @@ _e_policy_wl_tzsh_srv_del(E_Policy_Wl_Tzsh_Srv *tzsh_srv)
              e_service_softkey_client_unset(softkey_ec);
           }
      }
+   else if (tzsh_srv->role == TZSH_SRV_ROLE_MAGNIFIER)
+     {
+        E_Client *magnifier_ec = NULL;
+
+        magnifier_ec = tzsh_srv->tzsh->ec;
+        if (magnifier_ec)
+          {
+             e_magnifier_del();
+          }
+     }
 
    memset(tzsh_srv, 0x0, sizeof(E_Policy_Wl_Tzsh_Srv));
    E_FREE(tzsh_srv);
@@ -633,6 +644,7 @@ _e_policy_wl_tzsh_srv_role_get(const char *name)
    else if (!e_util_strcmp(name, "screensaver"              )) role = TZSH_SRV_ROLE_SCREENSAVER;
    else if (!e_util_strcmp(name, "cbhm"                     )) role = TZSH_SRV_ROLE_CBHM;
    else if (!e_util_strcmp(name, "softkey"                  )) role = TZSH_SRV_ROLE_SOFTKEY;
+   else if (!e_util_strcmp(name, "magnifier"                )) role = TZSH_SRV_ROLE_MAGNIFIER;
 
    return role;
 }
@@ -3662,6 +3674,99 @@ _tzsh_srv_iface_cb_softkey_get(struct wl_client *client, struct wl_resource *res
    wl_resource_set_implementation(res, &_tzsh_srv_softkey_iface, tzsh_srv, NULL);
 }
 
+static void
+_tzsh_srv_magnifier_cb_destroy(struct wl_client *client EINA_UNUSED, struct wl_resource *resource)
+{
+   wl_resource_destroy(resource);
+}
+
+static void
+_tzsh_srv_magnifier_cb_zoom_geometry_set(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, uint32_t angle, int32_t x, int32_t y, uint32_t w, uint32_t h)
+{
+   E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+   E_Client *ec;
+
+   tzsh_srv = wl_resource_get_user_data(resource);
+
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh->ec);
+
+   ELOGF("TZSH", "[MAGNIFIER] Set Geometry. angle:%d, geo:%d,%d,%dx%d", tzsh_srv->tzsh->ec, angle, x, y, w, h);
+
+   ec = tzsh_srv->tzsh->ec;
+   // angle: 0, 90, 180, 270
+   e_magnifier_zoom_obj_geometry_set(ec, angle, x, y, w, h);
+}
+
+static void
+_tzsh_srv_magnifier_cb_ratio_set(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, int32_t ratio)
+{
+   E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+   E_Client *ec;
+
+   tzsh_srv = wl_resource_get_user_data(resource);
+
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh->ec);
+
+   ELOGF("TZSH", "[MAGNIFIER] Set Ratio. ratio:%d", tzsh_srv->tzsh->ec, ratio);
+
+   ec = tzsh_srv->tzsh->ec;
+   // ratio : 100 ~ 200 (each 10)
+   e_magnifier_zoom_obj_ratio_set(ec, ratio);
+}
+
+static void
+_tzsh_srv_magnifier_cb_enable_set(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, int32_t enable)
+{
+   E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+
+   tzsh_srv = wl_resource_get_user_data(resource);
+
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh->ec);
+
+   ELOGF("TZSH", "[MAGNIFIER] Set Enable. enable:%d", tzsh_srv->tzsh->ec, enable);
+
+   if (enable)
+     e_magnifier_show();
+   else
+     e_magnifier_hide();
+}
+
+static const struct tws_service_magnifier_interface _tzsh_srv_magnifier_iface =
+{
+   _tzsh_srv_magnifier_cb_destroy,
+   _tzsh_srv_magnifier_cb_zoom_geometry_set,
+   _tzsh_srv_magnifier_cb_ratio_set,
+   _tzsh_srv_magnifier_cb_enable_set,
+};
+
+static void
+_tzsh_srv_iface_cb_magnifier_get(struct wl_client *client, struct wl_resource *res_tzsh_srv, uint32_t id)
+{
+   E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+   struct wl_resource *res;
+
+   tzsh_srv = wl_resource_get_user_data(res_tzsh_srv);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv);
+
+   if (!eina_list_data_find(polwl->tzsh_srvs, tzsh_srv))
+     return;
+
+   res = wl_resource_create(client, &tws_service_magnifier_interface, 1, id);
+   if (!res)
+     {
+        wl_client_post_no_memory(client);
+        return;
+     }
+
+   ELOGF("TZSH", "[MAGNIFIER] resource created. res:%p, res_tzsh_srv:%p, id:%d", NULL, res, res_tzsh_srv, id);
+   wl_resource_set_implementation(res, &_tzsh_srv_magnifier_iface, tzsh_srv, NULL);
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 static void
@@ -3893,6 +3998,7 @@ static const struct tws_service_interface _tzsh_srv_iface =
    _tzsh_srv_iface_cb_scrsaver_get,
    _tzsh_srv_iface_cb_cbhm_get,
    _tzsh_srv_iface_cb_softkey_get,
+   _tzsh_srv_iface_cb_magnifier_get,
 };
 
 static void
@@ -4025,6 +4131,11 @@ _tzsh_iface_cb_srv_create(struct wl_client *client, struct wl_resource *res_tzsh
      e_service_cbhm_client_set(tzsh->ec);
    else if (role == TZSH_SRV_ROLE_SOFTKEY)
      e_service_softkey_client_set(tzsh->ec);
+   else if (role == TZSH_SRV_ROLE_MAGNIFIER)
+     {
+        e_magnifier_new();
+        e_magnifier_owner_set(tzsh->ec);
+     }
 }
 
 // --------------------------------------------------------
