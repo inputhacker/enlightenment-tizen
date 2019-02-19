@@ -413,7 +413,7 @@ e_hwc_mode_get(E_Hwc *hwc)
    return hwc->hwc_mode;
 }
 
-EINTERN E_Hwc_Policy
+E_API E_Hwc_Policy
 e_hwc_policy_get(E_Hwc *hwc)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, E_HWC_MODE_NONE);
