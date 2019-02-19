@@ -676,7 +676,7 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
    if (ec->hwc_window)
      {
         if (e_hwc_window_state_get(ec->hwc_window) != state)
-          e_hwc_window_state_set(ec->hwc_window, state, EINA_FALSE);
+          e_hwc_window_state_set(ec->hwc_window, state, EINA_TRUE);
 
         return ec->hwc_window;
      }
