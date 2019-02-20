@@ -371,6 +371,8 @@ e_shell_e_client_destroy(E_Client *ec)
 {
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
+   ELOGF("SHELL", "Destroy shell surface", ec);
+
    if (e_policy_visibility_client_grab_cancel(ec))
      {
         ELOGF("POL_VIS", "CLIENT VIS ON(temp).", ec);
@@ -378,8 +380,23 @@ e_shell_e_client_destroy(E_Client *ec)
         ec->visibility.changed = 1;
      }
 
-   if ((e_object_unref(E_OBJECT(ec))) &&
-       (!e_object_is_del(E_OBJECT(ec))))
+   /* remove this 'ec' from parent's transients list */
+   if (ec->parent)
+     {
+        ec->parent->transients =
+           eina_list_remove(ec->parent->transients, ec);
+        if (ec->parent->modal == ec) ec->parent->modal = NULL;
+        ec->parent = NULL;
+     }
+
+   /* The instance of E_Client is supposed to be freed if e_object_unref returns '0'.
+    * Then there is nothing to do here */
+   if (e_object_unref(E_OBJECT(ec)) == 0)
+     return;
+
+   /* wl_resource_destroy(ec->comp_data->shell.surface); */
+
+   if (!e_object_is_del(E_OBJECT(ec)))
      {
         if (ec->comp_data->mapped)
           {
@@ -390,22 +407,9 @@ e_shell_e_client_destroy(E_Client *ec)
                   ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
                }
           }
-        if (ec->parent)
-          {
-             ec->parent->transients =
-                eina_list_remove(ec->parent->transients, ec);
-             if (ec->parent->modal == ec) ec->parent->modal = NULL;
-             ec->parent = NULL;
-          }
-        /* wl_resource_destroy(ec->comp_data->shell.surface); */
+        ec->comp_data->shell.surface = NULL;
+        e_policy_client_unmap(ec);
      }
-
-   if (ec->comp_data)
-     ec->comp_data->shell.surface = NULL;
-
-   ELOGF("SHELL", "Destroy shell surface", ec);
-
-   e_policy_client_unmap(ec);
 }
 
 static void
