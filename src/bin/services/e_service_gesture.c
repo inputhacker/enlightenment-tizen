@@ -2,6 +2,7 @@
 #include "services/e_service_gesture.h"
 
 #define MAX_FINGERS 10
+#define E_SERVICE_GESTURE_KEY "e_service_gesture_enabled"
 
 typedef enum
 {
@@ -503,6 +504,12 @@ e_service_gesture_add(Evas_Object *obj, E_Policy_Gesture_Type type, int nfingers
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(obj, NULL);
 
+   if (evas_object_data_get(obj, E_SERVICE_GESTURE_KEY))
+     {
+        WRN("obj(%p) is already added gesture.\n", obj);
+        return NULL;
+     }
+
    gesture = E_NEW(E_Policy_Gesture, 1);
    if (EINA_UNLIKELY(gesture == NULL))
      return NULL;
@@ -544,6 +551,8 @@ e_service_gesture_add(Evas_Object *obj, E_Policy_Gesture_Type type, int nfingers
    evas_object_event_callback_add(obj, EVAS_CALLBACK_MULTI_UP,
                                   _gesture_obj_cb_multi_up, gesture);
 
+   evas_object_data_set(obj, E_SERVICE_GESTURE_KEY, (void *)1);
+
    return gesture;
 }
 
@@ -564,6 +573,8 @@ e_service_gesture_del(E_Policy_Gesture *gesture)
                                   _gesture_obj_cb_multi_move);
    evas_object_event_callback_del(gesture->obj, EVAS_CALLBACK_MULTI_UP,
                                   _gesture_obj_cb_multi_up);
+
+   evas_object_data_del(gesture->obj, E_SERVICE_GESTURE_KEY);
 
    free(gesture);
 }
