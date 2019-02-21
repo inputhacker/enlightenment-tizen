@@ -1605,13 +1605,6 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
              continue;
           }
 
-        E_Comp_Wl_Buffer *buffer = _e_hwc_windows_comp_wl_buffer_get(hwc_window);
-        if (!buffer || !buffer->tbm_surface)
-          {
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
-             continue;
-          }
-
         if (e_hwc_window_is_video(hwc_window))
           {
             if (!e_client_video_tbm_surface_get(ec))
