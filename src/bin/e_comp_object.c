@@ -3815,7 +3815,7 @@ e_comp_object_input_area_set(Evas_Object *obj, int x, int y, int w, int h)
      }
 }
 
-EINTERN void
+E_API void
 e_comp_object_input_rect_get(Evas_Object *obj, Eina_List **list)
 {
    API_ENTRY;
