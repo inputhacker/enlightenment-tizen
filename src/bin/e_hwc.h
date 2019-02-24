@@ -136,6 +136,10 @@ E_API E_Hwc_Policy    e_hwc_policy_get(E_Hwc *hwc);
 E_API E_Hwc_Intercept_Hook   *e_hwc_intercept_hook_add(E_Hwc_Intercept_Hook_Point hookpoint, E_Hwc_Intercept_Hook_Cb func, const void *data);
 E_API void                    e_hwc_intercept_hook_del(E_Hwc_Intercept_Hook *ch);
 
+E_API Eina_Bool       e_hwc_available_properties_get(E_Hwc *hwc, const hwc_prop **props, int *count);
+E_API Eina_Bool       e_hwc_property_get(E_Hwc *hwc, unsigned int id, hwc_value *value);
+E_API Eina_Bool       e_hwc_property_set(E_Hwc *hwc, unsigned int id, hwc_value value);
+
 E_API Eina_Bool       e_client_hwc_available_properties_get(E_Client *ec, const hwc_prop **props, int *count);
 E_API Eina_Bool       e_client_hwc_property_get(E_Client *ec, unsigned int id, hwc_value *value);
 E_API Eina_Bool       e_client_hwc_property_set(E_Client *ec, unsigned int id, hwc_value value);
