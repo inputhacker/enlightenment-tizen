@@ -474,6 +474,90 @@ e_hwc_client_is_above_hwc(E_Client *ec, E_Client *hwc_ec)
    return EINA_FALSE;
 }
 
+static const char *
+_e_hwc_prop_name_get_by_id(E_Hwc *hwc, unsigned int id)
+{
+   const hwc_prop *props;
+   int i, count = 0;
+
+   if (!e_hwc_available_properties_get(hwc, &props, &count))
+     {
+        ERR("e_hwc_available_properties_get failed.");
+        return NULL;
+     }
+
+   for (i = 0; i < count; i++)
+     {
+        if (props[i].id == id)
+          return props[i].name;
+     }
+
+   ERR("No available property: id %d", id);
+
+   return NULL;
+}
+
+E_API Eina_Bool
+e_hwc_available_properties_get(E_Hwc *hwc, const hwc_prop **props, int *count)
+{
+   const tdm_prop *tprops;
+   int i;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(count, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+
+   if (!e_hwc_windows_get_available_properties(hwc, &tprops, count))
+     {
+        ERR("e_hwc_windows_get_available_properties failed");
+        return EINA_FALSE;
+     }
+
+   *props = (hwc_prop *)tprops;
+
+   ELOGF("HWC", ">>>>>>>> Available HWC props : count = %d", NULL, *count);
+   for (i = 0; i < *count; i++)
+     ELOGF("HWC", "   [%d] %s, %u", NULL, i, tprops[i].name, tprops[i].id);
+
+   return EINA_TRUE;
+}
+
+E_API Eina_Bool
+e_hwc_property_get(E_Hwc *hwc, unsigned int id, hwc_value *value)
+{
+   tdm_value tvalue;
+   tdm_error ret;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(value, EINA_FALSE);
+
+   ret = tdm_hwc_get_property(hwc->thwc, id, &tvalue);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(ret != TDM_ERROR_NONE, EINA_FALSE);
+
+   memcpy(&value->ptr, &tvalue.ptr, sizeof(tdm_value));
+
+   return EINA_TRUE;
+}
+
+E_API Eina_Bool
+e_hwc_property_set(E_Hwc *hwc, unsigned int id, hwc_value value)
+{
+   const char *name;
+   tdm_value tvalue;
+   tdm_error ret;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+
+   name = _e_hwc_prop_name_get_by_id(hwc, id);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(name, EINA_FALSE);
+
+   memcpy(&tvalue.ptr, &value.ptr, sizeof(hwc_value));
+
+   ret = tdm_hwc_set_property(hwc->thwc, id, tvalue);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(ret != TDM_ERROR_NONE, EINA_FALSE);
+
+   return EINA_TRUE;
+}
+
 E_API Eina_Bool
 e_client_hwc_available_properties_get(E_Client *ec, const hwc_prop **props, int *count)
 {
