@@ -307,7 +307,7 @@ _e_devicemgr_inputgen_remove_device(E_Devicemgr_Inputgen_Device_Data *device)
    Eina_List *l, *l_next;
    Eina_Stringshare *str_data;
 
-   if (!device || device->uinp_fd < 0)
+   if (!device)
      {
         DMWRN("There are no devices created for input generation.\n");
         return;
@@ -365,8 +365,11 @@ _e_devicemgr_inputgen_remove_device(E_Devicemgr_Inputgen_Device_Data *device)
           break;
      }
 
-   e_devicemgr_destroy_virtual_device(device->uinp_fd);
-   device->uinp_fd = -1;
+   if (device->uinp_fd >= 0)
+     {
+        e_devicemgr_destroy_virtual_device(device->uinp_fd);
+        device->uinp_fd = -1;
+     }
    eina_stringshare_del(device->identifier);
    device->identifier = NULL;
 }
@@ -563,6 +566,29 @@ _e_devicemgr_inputgen_resource_del(struct wl_resource *resource)
      }
 }
 
+static Eina_Bool
+_e_devicemgr_inputgen_hw_device_check(E_Devicemgr_Inputgen_Device_Data *device)
+{
+   Eina_List *l;
+   E_Devicemgr_Input_Device *dev;
+   Ecore_Device_Class clas = ECORE_DEVICE_CLASS_NONE;
+
+   if (!e_devicemgr_detent_is_detent(device->name))
+     clas = device->clas;
+
+   EINA_LIST_FOREACH(e_devicemgr->device_list, l, dev)
+     {
+        if ((dev->clas == clas) &&
+            (e_devicemgr_strcmp(dev->name, device->name)))
+          {
+             device->identifier = (char *)eina_stringshare_add(dev->identifier);
+             return EINA_TRUE;
+          }
+     }
+
+   return EINA_FALSE;
+}
+
 int
 _e_devicemgr_inputgen_create_device(Ecore_Device_Class clas, struct wl_client *client, const char *device_name)
 {
@@ -600,6 +626,7 @@ _e_devicemgr_inputgen_create_device(Ecore_Device_Class clas, struct wl_client *c
         device = E_NEW(E_Devicemgr_Inputgen_Device_Data, 1);
         EINA_SAFETY_ON_NULL_RETURN_VAL(device, TIZEN_INPUT_DEVICE_MANAGER_ERROR_NO_SYSTEM_RESOURCES);
         strncpy(device->name, device_name, UINPUT_MAX_NAME_SIZE - 1);
+        device->clas = clas;
      }
 
    cdata = E_NEW(E_Devicemgr_Inputgen_Client_Data, 1);
@@ -617,15 +644,16 @@ _e_devicemgr_inputgen_create_device(Ecore_Device_Class clas, struct wl_client *c
    if (exist_device_flag)
      return TIZEN_INPUT_DEVICE_MANAGER_ERROR_NONE;
 
-   uinp_fd = e_devicemgr_create_virtual_device(clas, device_name);
+   if (!_e_devicemgr_inputgen_hw_device_check(device))
+     {
+        uinp_fd = e_devicemgr_create_virtual_device(clas, device_name);
 
-   if (uinp_fd < 0)
-     goto fail_create_device;
+        if (uinp_fd < 0)
+          goto fail_create_device;
+     }
 
    device->uinp_fd = uinp_fd;
    *dev_list = eina_list_append(*dev_list, device);
-
-   device->clas = clas;
 
    for (i = 0; i < INPUTGEN_MAX_TOUCH; i++)
      {
