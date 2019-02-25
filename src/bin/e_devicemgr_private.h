@@ -44,6 +44,7 @@
 
 typedef struct _E_Devicemgr_Input_Device_User_Data E_Devicemgr_Input_Device_User_Data;
 typedef struct _E_Devicemgr_Coords E_Devicemgr_Coords;
+typedef struct _E_Devicemgr_Inputgen_Touch_Axis E_Devicemgr_Inputgen_Touch_Axis;
 typedef struct _E_Devicemgr_Inputgen_Client_Data E_Devicemgr_Inputgen_Client_Data;
 typedef struct _E_Devicemgr_Inputgen_Client_Global_Data E_Devicemgr_Inputgen_Client_Global_Data;
 typedef struct _E_Devicemgr_Inputgen_Device_Data E_Devicemgr_Inputgen_Device_Data;
@@ -73,6 +74,15 @@ struct _E_Devicemgr_Inputgen_Client_Global_Data
    unsigned int clas;
 };
 
+struct _E_Devicemgr_Inputgen_Touch_Axis
+{
+   double radius_x;
+   double radius_y;
+   double pressure;
+   double angle;
+   double palm;
+};
+
 struct _E_Devicemgr_Inputgen_Device_Data
 {
    int uinp_fd;
@@ -83,6 +93,8 @@ struct _E_Devicemgr_Inputgen_Device_Data
      {
         unsigned int pressed;
         E_Devicemgr_Coords coords[INPUTGEN_MAX_TOUCH];
+        E_Devicemgr_Inputgen_Touch_Axis axis[INPUTGEN_MAX_TOUCH];
+        E_Devicemgr_Inputgen_Touch_Axis axis_tmp;
      } touch;
    struct
      {
@@ -153,6 +165,8 @@ int e_devicemgr_inputgen_generate_key(struct wl_client *client, struct wl_resour
 int e_devicemgr_inputgen_generate_pointer(struct wl_client *client, struct wl_resource *resource, uint32_t type, uint32_t x, uint32_t y, uint32_t button);
 int e_devicemgr_inputgen_generate_touch(struct wl_client *client, struct wl_resource *resource, uint32_t type, uint32_t x, uint32_t y, uint32_t finger);
 void e_devicemgr_inputgen_get_device_info(E_Devicemgr_Input_Device *dev);
+int e_devicemgr_inputgen_generate_wheel(struct wl_client *client, struct wl_resource *resource, uint32_t type, int32_t value);
+int e_devicemgr_inputgen_touch_axis_store(struct wl_client *client, struct wl_resource *resource, uint32_t type, double value);
 
 int e_devicemgr_create_virtual_device(Ecore_Device_Class clas, const char *name);
 void e_devicemgr_destroy_virtual_device(int uinp_fd);

@@ -182,8 +182,6 @@ _e_devicemgr_inputgen_mouse_move_event(int x, int y, char *identifier)
 {
    Ecore_Event_Mouse_Move *e;
 
-   DMERR("Try\n");
-
    e = calloc(1, sizeof(Ecore_Event_Mouse_Move));
    if (!e) return TIZEN_INPUT_DEVICE_MANAGER_ERROR_NO_SYSTEM_RESOURCES;
 
@@ -218,8 +216,131 @@ _e_devicemgr_inputgen_mouse_move_event(int x, int y, char *identifier)
    return TIZEN_INPUT_DEVICE_MANAGER_ERROR_NONE;
 }
 
+static void
+_e_devicemgr_inputgen_mouse_wheel_event_free(void *data EINA_UNUSED, void *ev)
+{
+   Ecore_Event_Mouse_Wheel *e = ev;
+
+   if (e->dev) ecore_device_unref(e->dev);
+
+   free(e);
+}
+
 static int
-_e_devicemgr_inputgen_touch_event(uint32_t type, uint32_t x, uint32_t y, uint32_t finger, char *identifier)
+_e_devicemgr_inputgen_mouse_wheel_event(unsigned int type, int value, E_Devicemgr_Inputgen_Device_Data *device)
+{
+   Ecore_Event_Mouse_Wheel *e;
+   Ecore_Device_Class clas = ECORE_DEVICE_CLASS_NONE;
+
+   e = calloc(1, sizeof(Ecore_Event_Mouse_Wheel));
+   if (!e) return TIZEN_INPUT_DEVICE_MANAGER_ERROR_NO_SYSTEM_RESOURCES;
+
+   e->window = e_comp->ee_win;
+   e->event_window = e_comp->ee_win;
+   e->root_window = e_comp->ee_win;
+   e->timestamp = (int)(ecore_time_get() * 1000);
+   e->same_screen = 1;
+
+   /* FIXME: set current coords */
+   e->x = 0;
+   e->y = 0;
+   e->root.x = e->x;
+   e->root.y = e->y;
+
+   if (type == TIZEN_INPUT_DEVICE_MANAGER_AXIS_TYPE_WHEEL)
+     e->direction = 0;
+   else
+     e->direction = 1;
+   e->z = value;
+
+   if (device)
+     {
+        if (!e_devicemgr_detent_is_detent(device->name))
+          clas = device->clas;
+        e->dev = ecore_device_ref(e_input_evdev_get_ecore_device(device->identifier, clas));
+     }
+
+   DMDBG("Generate mouse wheel event: direction: %s, value: %d\n", e->direction?"HWHEEL":"WHEEL", e->z);
+
+   ecore_event_add(ECORE_EVENT_MOUSE_WHEEL, e, _e_devicemgr_inputgen_mouse_wheel_event_free, NULL);
+
+   return TIZEN_INPUT_DEVICE_MANAGER_ERROR_NONE;
+}
+
+static void
+_e_devicemgr_inputgen_touch_axis_store(E_Devicemgr_Inputgen_Device_Data *device, unsigned int type, double value)
+{
+   EINA_SAFETY_ON_NULL_RETURN(device);
+
+   switch (type)
+     {
+        case TIZEN_INPUT_DEVICE_MANAGER_AXIS_TYPE_RADIUS_X:
+           device->touch.axis_tmp.radius_x = value;
+           break;
+        case TIZEN_INPUT_DEVICE_MANAGER_AXIS_TYPE_RADIUS_Y:
+           device->touch.axis_tmp.radius_y = value;
+           break;
+        case TIZEN_INPUT_DEVICE_MANAGER_AXIS_TYPE_PRESSURE:
+           device->touch.axis_tmp.pressure = value;
+           break;
+        case TIZEN_INPUT_DEVICE_MANAGER_AXIS_TYPE_ANGLE:
+           device->touch.axis_tmp.angle = value;
+           break;
+        case TIZEN_INPUT_DEVICE_MANAGER_AXIS_TYPE_PALM:
+           device->touch.axis_tmp.palm = value;
+           break;
+        default:
+           DMWRN("Invalid type (%d).\n", type);
+           break;
+     }
+}
+
+static void
+_e_devicemgr_inputgen_touch_axis_update(E_Devicemgr_Inputgen_Device_Data *device, int idx)
+{
+   EINA_SAFETY_ON_NULL_RETURN(device);
+
+   if (device->touch.axis_tmp.radius_x != -1.0)
+     device->touch.axis[idx].radius_x = device->touch.axis_tmp.radius_x;
+
+   if (device->touch.axis_tmp.radius_y != -1.0)
+     device->touch.axis[idx].radius_y = device->touch.axis_tmp.radius_y;
+
+   if (device->touch.axis_tmp.pressure != -1.0)
+     device->touch.axis[idx].pressure = device->touch.axis_tmp.pressure;
+
+   if (device->touch.axis_tmp.angle != -1.0)
+     device->touch.axis[idx].angle = device->touch.axis_tmp.angle;
+
+   if (device->touch.axis_tmp.palm != -1.0)
+     device->touch.axis[idx].palm = device->touch.axis_tmp.palm;
+}
+
+static void
+_e_devicemgr_inputgen_touch_axis_cleanup(E_Devicemgr_Inputgen_Device_Data *device, int idx)
+{
+   EINA_SAFETY_ON_NULL_RETURN(device);
+
+   if (idx < 0)
+     {
+        device->touch.axis_tmp.radius_x = -1.0;
+        device->touch.axis_tmp.radius_y = -1.0;
+        device->touch.axis_tmp.pressure = -1.0;
+        device->touch.axis_tmp.angle = -1.0;
+        device->touch.axis_tmp.palm = -1.0;
+     }
+   else
+     {
+        device->touch.axis[idx].radius_x = 1.0;
+        device->touch.axis[idx].radius_y = 1.0;
+        device->touch.axis[idx].pressure = 1.0;
+        device->touch.axis[idx].angle = 0.0;
+        device->touch.axis[idx].palm = 0.0;
+     }
+}
+
+static int
+_e_devicemgr_inputgen_touch_event(uint32_t type, uint32_t x, uint32_t y, uint32_t finger, E_Devicemgr_Inputgen_Device_Data *device)
 {
    Ecore_Event_Mouse_Button *e;
 
@@ -237,18 +358,35 @@ _e_devicemgr_inputgen_touch_event(uint32_t type, uint32_t x, uint32_t y, uint32_
    e->root.x = e->x;
    e->root.y = e->y;
 
+   if (type == TIZEN_INPUT_DEVICE_MANAGER_POINTER_EVENT_TYPE_BEGIN)
+     _e_devicemgr_inputgen_touch_axis_update(device, finger);
+   else
+     _e_devicemgr_inputgen_touch_axis_cleanup(device, finger);
+   _e_devicemgr_inputgen_touch_axis_cleanup(device, -1);
+
    e->multi.device = finger;
-   e->multi.radius = 1;
-   e->multi.radius_x = 1;
-   e->multi.radius_y = 1;
-   e->multi.pressure = 1.0;
-   e->multi.angle = 0.0;
+   if (device)
+     {
+        e->multi.radius = device->touch.axis[finger].radius_x;
+        e->multi.radius_x = device->touch.axis[finger].radius_x;
+        e->multi.radius_y = device->touch.axis[finger].radius_y;
+        e->multi.pressure = device->touch.axis[finger].pressure;
+        e->multi.angle = device->touch.axis[finger].angle;
+     }
+   else
+     {
+        e->multi.radius = 1.0;
+        e->multi.radius_x = 1.0;
+        e->multi.radius_y = 1.0;
+        e->multi.pressure = 1.0;
+        e->multi.angle = 0.0;
+     }
 
    e->multi.x = e->x;
    e->multi.y = e->y;
    e->multi.root.x = e->x;
    e->multi.root.y = e->y;
-   e->dev = ecore_device_ref(e_input_evdev_get_ecore_device(identifier, ECORE_DEVICE_CLASS_TOUCH));
+   e->dev = ecore_device_ref(e_input_evdev_get_ecore_device(device?device->identifier:NULL, ECORE_DEVICE_CLASS_TOUCH));
    e->buttons = 1;
 
    DMDBG("Generate touch event: device: %d (%d, %d)\n", e->multi.device, e->x, e->y);
@@ -262,7 +400,7 @@ _e_devicemgr_inputgen_touch_event(uint32_t type, uint32_t x, uint32_t y, uint32_
 }
 
 static int
-_e_devicemgr_inputgen_touch_update_event(uint32_t x, uint32_t y, uint32_t finger, char *identifier)
+_e_devicemgr_inputgen_touch_update_event(uint32_t x, uint32_t y, uint32_t finger, E_Devicemgr_Inputgen_Device_Data *device)
 {
    Ecore_Event_Mouse_Move *e;
 
@@ -280,18 +418,32 @@ _e_devicemgr_inputgen_touch_update_event(uint32_t x, uint32_t y, uint32_t finger
    e->root.x = e->x;
    e->root.y = e->y;
 
+   _e_devicemgr_inputgen_touch_axis_update(device, finger);
+   _e_devicemgr_inputgen_touch_axis_cleanup(device, -1);
+
    e->multi.device = finger;
-   e->multi.radius = 1;
-   e->multi.radius_x = 1;
-   e->multi.radius_y = 1;
-   e->multi.pressure = 1.0;
-   e->multi.angle = 0.0;
+   if (device)
+     {
+        e->multi.radius = device->touch.axis[finger].radius_x;
+        e->multi.radius_x = device->touch.axis[finger].radius_x;
+        e->multi.radius_y = device->touch.axis[finger].radius_y;
+        e->multi.pressure = device->touch.axis[finger].pressure;
+        e->multi.angle = device->touch.axis[finger].angle;
+     }
+   else
+     {
+        e->multi.radius = 1.0;
+        e->multi.radius_x = 1.0;
+        e->multi.radius_y = 1.0;
+        e->multi.pressure = 1.0;
+        e->multi.angle = 0.0;
+     }
 
    e->multi.x = e->x;
    e->multi.y = e->y;
    e->multi.root.x = e->x;
    e->multi.root.y = e->y;
-   e->dev = ecore_device_ref(e_input_evdev_get_ecore_device(identifier, ECORE_DEVICE_CLASS_TOUCH));
+   e->dev = ecore_device_ref(e_input_evdev_get_ecore_device(device?device->identifier:NULL, ECORE_DEVICE_CLASS_TOUCH));
 
    DMDBG("Generate touch move event: device: %d (%d, %d)\n", e->multi.device, e->x, e->y);
 
@@ -324,7 +476,7 @@ _e_devicemgr_inputgen_remove_device(E_Devicemgr_Inputgen_Device_Data *device)
                             TIZEN_INPUT_DEVICE_MANAGER_POINTER_EVENT_TYPE_END,
                             device->touch.coords[i].x,
                             device->touch.coords[i].y,
-                            i, device->identifier);
+                            i, device);
                     if (ret != TIZEN_INPUT_DEVICE_MANAGER_ERROR_NONE)
                       DMWRN("Failed to generate touch up event: %d\n", ret);
                     device->touch.pressed &= ~(1 << i);
@@ -842,12 +994,42 @@ e_devicemgr_inputgen_generate_pointer(struct wl_client *client, struct wl_resour
 }
 
 int
+e_devicemgr_inputgen_generate_wheel(struct wl_client *client, struct wl_resource *resource, uint32_t type, int32_t value)
+{
+   int ret = TIZEN_INPUT_DEVICE_MANAGER_ERROR_NONE;
+   Eina_List *l;
+   E_Devicemgr_Inputgen_Device_Data *ddata = NULL, *device = NULL;
+   char *name;
+
+   name = _e_devicemgr_inputgen_name_get(resource);
+
+   if (!_e_devicemgr_inputgen_device_check(name, ECORE_DEVICE_CLASS_MOUSE))
+     {
+        DMWRN("generate is not init\n");
+        return TIZEN_INPUT_DEVICE_MANAGER_ERROR_INVALID_PARAMETER;
+     }
+
+   EINA_LIST_FOREACH(e_devicemgr->inputgen.ptr_list, l, ddata)
+     {
+        if (!strncmp(ddata->name, name, UINPUT_MAX_NAME_SIZE))
+          {
+             device = ddata;
+             break;
+          }
+     }
+   ret = _e_devicemgr_inputgen_mouse_wheel_event(type, value, device);
+
+   return ret;
+}
+
+
+int
 e_devicemgr_inputgen_generate_touch(struct wl_client *client, struct wl_resource *resource, uint32_t type, uint32_t x, uint32_t y, uint32_t finger)
 {
    int ret = TIZEN_INPUT_DEVICE_MANAGER_ERROR_NONE;
    Eina_List *l;
-   E_Devicemgr_Inputgen_Device_Data *ddata = NULL;
-   char *name, *identifier = NULL;
+   E_Devicemgr_Inputgen_Device_Data *ddata = NULL, *device = NULL;
+   char *name;
 
    name = _e_devicemgr_inputgen_name_get(resource);
 
@@ -867,7 +1049,7 @@ e_devicemgr_inputgen_generate_touch(struct wl_client *client, struct wl_resource
      {
         if (!strncmp(ddata->name, name, UINPUT_MAX_NAME_SIZE))
           {
-             identifier = ddata->identifier;
+             device = ddata;
              break;
           }
      }
@@ -875,8 +1057,8 @@ e_devicemgr_inputgen_generate_touch(struct wl_client *client, struct wl_resource
    switch(type)
      {
         case TIZEN_INPUT_DEVICE_MANAGER_POINTER_EVENT_TYPE_BEGIN:
-           ret = _e_devicemgr_inputgen_touch_update_event(x, y, finger, identifier);
-           ret = _e_devicemgr_inputgen_touch_event(type, x, y, finger, identifier);
+           ret = _e_devicemgr_inputgen_touch_update_event(x, y, finger, device);
+           ret = _e_devicemgr_inputgen_touch_event(type, x, y, finger, device);
            if (ddata)
              {
                 ddata->touch.pressed |= 1 << finger;
@@ -885,7 +1067,7 @@ e_devicemgr_inputgen_generate_touch(struct wl_client *client, struct wl_resource
              }
            break;
         case TIZEN_INPUT_DEVICE_MANAGER_POINTER_EVENT_TYPE_END:
-           ret = _e_devicemgr_inputgen_touch_event(type, x, y, finger, identifier);
+           ret = _e_devicemgr_inputgen_touch_event(type, x, y, finger, device);
            if (ddata)
              {
                 ddata->touch.pressed &= ~(1 << finger);
@@ -894,7 +1076,7 @@ e_devicemgr_inputgen_generate_touch(struct wl_client *client, struct wl_resource
              }
            break;
         case TIZEN_INPUT_DEVICE_MANAGER_POINTER_EVENT_TYPE_UPDATE:
-           ret = _e_devicemgr_inputgen_touch_update_event(x, y, finger, identifier);
+           ret = _e_devicemgr_inputgen_touch_update_event(x, y, finger, device);
            if (ddata)
              {
                 ddata->touch.coords[finger].x = x;
@@ -906,6 +1088,33 @@ e_devicemgr_inputgen_generate_touch(struct wl_client *client, struct wl_resource
    return ret;
 }
 
+int
+e_devicemgr_inputgen_touch_axis_store(struct wl_client *client, struct wl_resource *resource, uint32_t type, double value)
+{
+   Eina_List *l;
+   E_Devicemgr_Inputgen_Device_Data *ddata = NULL, *device = NULL;
+   char *name;
+
+   name = _e_devicemgr_inputgen_name_get(resource);
+
+   if (!_e_devicemgr_inputgen_device_check(name, ECORE_DEVICE_CLASS_TOUCH))
+     {
+        DMWRN("generate is not init\n");
+        return TIZEN_INPUT_DEVICE_MANAGER_ERROR_INVALID_PARAMETER;
+     }
+
+   EINA_LIST_FOREACH(e_devicemgr->inputgen.touch_list, l, ddata)
+     {
+        if (!strncmp(ddata->name, name, UINPUT_MAX_NAME_SIZE))
+          {
+             device = ddata;
+             break;
+          }
+     }
+   _e_devicemgr_inputgen_touch_axis_store(device, type, value);
+
+   return TIZEN_INPUT_DEVICE_MANAGER_ERROR_NONE;
+}
 
 void
 e_devicemgr_inputgen_get_device_info(E_Devicemgr_Input_Device *dev)
@@ -979,6 +1188,7 @@ e_devicemgr_create_virtual_device(Ecore_Device_Class clas, const char *name)
        DM_IOCTL_SET_BIT(uinp_fd, UI_SET_RELBIT, REL_X);
        DM_IOCTL_SET_BIT(uinp_fd, UI_SET_RELBIT, REL_Y);
        DM_IOCTL_SET_BIT(uinp_fd, UI_SET_RELBIT, REL_WHEEL);
+       DM_IOCTL_SET_BIT(uinp_fd, UI_SET_RELBIT, REL_HWHEEL);
      }
    else if (ECORE_DEVICE_CLASS_TOUCH == clas)
      {

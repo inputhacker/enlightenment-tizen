@@ -418,6 +418,29 @@ _e_devicemgr_wl_cb_destroy(struct wl_client *client, struct wl_resource *resourc
    wl_resource_destroy(resource);
 }
 
+static void
+_e_devicemgr_wl_cb_generate_axis(struct wl_client *client, struct wl_resource *resource, uint32_t type, wl_fixed_t value)
+{
+   int ret = TIZEN_INPUT_DEVICE_MANAGER_ERROR_NONE;
+
+#ifdef HAVE_CYNARA
+   if (EINA_FALSE == _e_devicemgr_util_do_privilege_check(client, wl_client_get_fd(client),
+                                                          "http://tizen.org/privilege/inputgenerator"))
+     {
+        DMERR("_generate_pointer request:priv check failed");
+        tizen_input_device_manager_send_error(resource, TIZEN_INPUT_DEVICE_MANAGER_ERROR_NO_PERMISSION);
+        return;
+     }
+#endif
+
+   if (type == TIZEN_INPUT_DEVICE_MANAGER_AXIS_TYPE_WHEEL ||
+       type == TIZEN_INPUT_DEVICE_MANAGER_AXIS_TYPE_HWHEEL)
+     ret = e_devicemgr_inputgen_generate_wheel(client, resource, type, (int)wl_fixed_to_double(value));
+   else
+     ret = e_devicemgr_inputgen_touch_axis_store(client, resource, type, wl_fixed_to_double(value));
+   tizen_input_device_manager_send_error(resource, ret);
+}
+
 static const struct tizen_input_device_manager_interface _e_devicemgr_wl_implementation = {
    _e_devicemgr_wl_cb_block_events,
    _e_devicemgr_wl_cb_unblock_events,
@@ -429,6 +452,7 @@ static const struct tizen_input_device_manager_interface _e_devicemgr_wl_impleme
    _e_devicemgr_wl_cb_pointer_warp,
    _e_devicemgr_wl_cb_init_generator_with_name,
    _e_devicemgr_wl_cb_destroy,
+   _e_devicemgr_wl_cb_generate_axis
 };
 
 static void
@@ -510,7 +534,7 @@ e_devicemgr_wl_init(void)
 
    /* try to add tizen_input_device_manager to wayland globals */
    e_devicemgr->wl_data->global = wl_global_create(e_comp_wl->wl.disp,
-                                                   &tizen_input_device_manager_interface, 2,
+                                                   &tizen_input_device_manager_interface, 3,
                                                    NULL, _e_devicemgr_wl_cb_bind);
    if (!e_devicemgr->wl_data->global)
      {
