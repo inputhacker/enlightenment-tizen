@@ -1745,7 +1745,10 @@ e_policy_client_is_quickpanel(E_Client *ec)
    E_OBJECT_CHECK_RETURN(ec, EINA_FALSE);
    E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
 
-   if (!e_util_strcmp(ec->icccm.window_role, "quickpanel"))
+   if (!e_util_strcmp(ec->icccm.window_role, "quickpanel_system_default"))
+     return EINA_TRUE;
+
+   if (!e_util_strcmp(ec->icccm.window_role, "quickpanel_context_menu"))
      return EINA_TRUE;
 
    return EINA_FALSE;
