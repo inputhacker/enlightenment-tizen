@@ -157,6 +157,8 @@ struct _E_Vis_Client
    } job;
    Eina_Bool prepare_emitted;
    E_Layer layer;
+
+   Eina_Bool skip_below_uniconify;
 };
 
 struct _E_Vis_Job_Group

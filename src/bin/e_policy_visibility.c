@@ -91,6 +91,18 @@ _e_vis_client_is_uniconify_render_running(E_Vis_Client *vc)
    return (vc->state == E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY);
 }
 
+static inline void
+_e_vis_client_below_uniconify_skip_set(E_Vis_Client *vc, Eina_Bool skip)
+{
+   vc->skip_below_uniconify = skip;
+}
+
+static inline Eina_Bool
+_e_vis_client_is_below_uniconify_skip(E_Vis_Client *vc)
+{
+   return (vc->skip_below_uniconify == EINA_TRUE);
+}
+
 static void
 _e_pol_vis_hooks_clean(void)
 {
@@ -1816,6 +1828,12 @@ _e_vis_intercept_hide(void *data EINA_UNUSED, E_Client *ec)
         return EINA_FALSE;
      }
 
+   if (_e_vis_client_is_below_uniconify_skip(vc))
+     {
+        VS_DBG(ec, "Skip to uniconify below client");
+        return EINA_TRUE;
+     }
+
    if (_e_vis_ec_above_is_non_alpha_visible(ec, EINA_FALSE))
      {
         VS_DBG(ec, "Obscured by above window.");
@@ -2127,6 +2145,14 @@ e_policy_visibility_client_is_uniconify_render_running(E_Client *ec)
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
    return _e_vis_client_is_uniconify_render_running(vc);
+}
+
+E_API void
+e_policy_visibility_client_below_uniconify_skip_set(E_Client *ec, Eina_Bool skip)
+{
+   E_VIS_CLIENT_GET_OR_RETURN(vc, ec);
+
+   _e_vis_client_below_uniconify_skip_set(vc, skip);
 }
 
 E_API E_Pol_Vis_Hook *
