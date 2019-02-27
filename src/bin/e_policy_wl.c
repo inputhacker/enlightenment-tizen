@@ -5373,6 +5373,8 @@ _tzsh_iface_cb_softkey_get(struct wl_client *client, struct wl_resource *res_tzs
    struct wl_resource *res_tzsh_softkey;
    E_Client *ec;
    E_Pixmap *cp;
+   pid_t pid;
+   uid_t uid;
 
    tzsh = wl_resource_get_user_data(res_tzsh);
    if (!tzsh)
@@ -5383,6 +5385,16 @@ _tzsh_iface_cb_softkey_get(struct wl_client *client, struct wl_resource *res_tzs
             "Invalid res_tzsh's user data");
         return;
      }
+
+   wl_client_get_credentials(client, &pid, &uid, NULL);
+   if (!e_security_privilege_check(pid, uid, E_PRIVILEGE_SOFTKEY))
+     {
+        ERR("Could not get privilege of resource: %m");
+        tizen_ws_shell_send_error(tzsh->res_tzsh, TIZEN_WS_SHELL_ERROR_PERMISSION_DENIED);
+        return;
+     }
+   else
+     tizen_ws_shell_send_error(tzsh->res_tzsh, TIZEN_WS_SHELL_ERROR_NONE);
 
    cp = _e_policy_wl_e_pixmap_get_from_id(client, surf_id);
    if (!cp)

@@ -10,6 +10,7 @@ extern EINTERN const char *E_PRIVILEGE_DATA_ONLY_SET;
 extern EINTERN const char *E_PRIVILEGE_KEYGRAB_SET;
 extern EINTERN const char *E_PRIVILEGE_INTERNAL_DEFAULT_PLATFORM;
 extern EINTERN const char *E_PRIVILEGE_SCREENSHOT;
+extern EINTERN const char *E_PRIVILEGE_SOFTKEY;
 
 #endif
 #endif
