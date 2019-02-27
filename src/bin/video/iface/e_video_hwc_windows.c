@@ -1733,38 +1733,54 @@ _e_video_cb_ec_visibility_change(void *data, int type, void *event)
    return ECORE_CALLBACK_PASS_ON;
 }
 
+static void
+_e_video_ec_visibility_event_free(void *d EINA_UNUSED, E_Event_Client *ev)
+{
+   e_object_unref(E_OBJECT(ev->ec));
+   free(ev);
+}
+
+static void
+_e_video_ec_visibility_event_send(E_Client *ec)
+{
+   E_Event_Client *ev;
+   int obscured;
+
+   obscured = ec->visibility.obscured;
+   ELOGF("VIDEO <INF>", "Signal visibility change event of video, type %d",
+         ec, obscured);
+
+   ev = E_NEW(E_Event_Client, 1);
+   if (!ev) return;
+   ev->ec = ec;
+   e_object_ref(E_OBJECT(ec));
+   ecore_event_add(E_EVENT_CLIENT_VISIBILITY_CHANGE, ev,
+                   (Ecore_End_Cb)_e_video_ec_visibility_event_free, NULL);
+}
+
 static Eina_Bool
 _e_video_cb_topmost_ec_visibility_change(void *data, int type, void *event)
 {
-   E_Event_Client *ev = event;
-   E_Client *ec = ev->ec;
    E_Video_Hwc_Windows *evhw;
-   Eina_List *l = NULL;
+   E_Event_Client *ev;
+   E_Client *topmost;
 
-   EINA_LIST_FOREACH(video_list, l, evhw)
-     {
-        E_Client *topmost = e_comp_wl_topmost_parent_get(evhw->ec);
-        if (!topmost) continue;
-        if (topmost == evhw->ec) continue;
-        if (topmost != ec) continue;
-        if (evhw->follow_topmost_visibility)
-          {
-             switch (ec->visibility.obscured)
-               {
-                case E_VISIBILITY_FULLY_OBSCURED:
-                   VIN("follow_topmost_visibility: fully_obscured");
-                   _e_video_cb_evas_hide(evhw, NULL, NULL, NULL);
-                   break;
-                case E_VISIBILITY_UNOBSCURED:
-                   VIN("follow_topmost_visibility: UNOBSCURED");
-                   _e_video_cb_evas_show(evhw, NULL, NULL, NULL);
-                   break;
-                default:
-                   return ECORE_CALLBACK_PASS_ON;
-               }
-          }
-     }
+   ev = event;
+   evhw = data;
+   if (!evhw->follow_topmost_visibility)
+       goto end;
 
+   topmost = e_comp_wl_topmost_parent_get(evhw->ec);
+   if (!topmost) goto end;
+   if (topmost != ev->ec) goto end;
+   if (topmost == evhw->ec) goto end;
+   if (evhw->ec->visibility.obscured == topmost->visibility.obscured) goto end;
+
+   /* Update visibility of video client by changing visibility of topmost client */
+   evhw->ec->visibility.obscured = topmost->visibility.obscured;
+   _e_video_ec_visibility_event_send(evhw->ec);
+
+end:
    return ECORE_CALLBACK_PASS_ON;
 }
 

@@ -29,10 +29,9 @@ struct _E_Video
    struct wl_resource *surface;
    E_Client *ec;
    Ecore_Window window;
+   Ecore_Event_Handler *vis_eh;
 
-   Eina_Bool  follow_topmost_visibility;
    Eina_Bool  allowed_attribute;
-
 };
 
 static Eina_List *video_list = NULL;
@@ -154,6 +153,8 @@ _e_video_destroy(E_Video *video)
 
    wl_resource_set_destructor(video->video_object, NULL);
 
+   E_FREE_FUNC(video->vis_eh, ecore_event_handler_del);
+
    e_client_video_unset(video->ec);
 
    free(video);
@@ -229,6 +230,33 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
    e_client_video_property_set(video->ec, id, v);
 }
 
+static Eina_Bool
+_e_comp_wl_video_cb_visibility_change(void *data, int type, void *event)
+{
+   E_Video *video;
+   E_Client *ec;
+   E_Event_Client *ev;
+
+   ev = event;
+   video = data;
+   if (video->ec != ev->ec)
+     return ECORE_CALLBACK_PASS_ON;
+
+   ec = ev->ec;
+   switch (ec->visibility.obscured)
+     {
+      case E_VISIBILITY_FULLY_OBSCURED:
+         evas_object_hide(ec->frame);
+         break;
+      default:
+      case E_VISIBILITY_UNOBSCURED:
+         evas_object_show(ec->frame);
+         break;
+     }
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
 static void
 _e_comp_wl_video_object_cb_follow_topmost_visibility(struct wl_client *client,
                                                      struct wl_resource *resource)
@@ -238,13 +266,20 @@ _e_comp_wl_video_object_cb_follow_topmost_visibility(struct wl_client *client,
    video = wl_resource_get_user_data(resource);
    EINA_SAFETY_ON_NULL_RETURN(video);
 
-   if(!video->ec || video->follow_topmost_visibility)
+   if(!video->ec)
      return;
 
    VIN("set follow_topmost_visibility");
 
-   video->follow_topmost_visibility= EINA_TRUE;
    e_client_video_topmost_visibility_follow(video->ec);
+
+   if (!video->vis_eh)
+     {
+        video->vis_eh =
+           ecore_event_handler_add(E_EVENT_CLIENT_VISIBILITY_CHANGE,
+                                   (Ecore_Event_Handler_Cb)_e_comp_wl_video_cb_visibility_change,
+                                   video);
+     }
 }
 
 static void
@@ -256,13 +291,13 @@ _e_comp_wl_video_object_cb_unfollow_topmost_visibility(struct wl_client *client,
    video = wl_resource_get_user_data(resource);
    EINA_SAFETY_ON_NULL_RETURN(video);
 
-   if(!video->ec || !video->follow_topmost_visibility)
+   if(!video->ec)
      return;
 
    VIN("set unfollow_topmost_visibility");
 
-   video->follow_topmost_visibility= EINA_FALSE;
    e_client_video_topmost_visibility_unfollow(video->ec);
+   E_FREE_FUNC(video->vis_eh, ecore_event_handler_del);
 }
 
 static void
