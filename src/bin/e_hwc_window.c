@@ -305,41 +305,6 @@ _e_hwc_window_constraints_reset(E_Hwc_Window *hwc_window)
 }
 
 static void
-_e_hwc_window_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
-{
-   E_Output *output;
-   E_Hwc_Window *hwc_window;
-   E_Zone *zone;
-
-   EINA_SAFETY_ON_NULL_RETURN(ec);
-
-   zone = ec->zone;
-   if (!zone) return;
-
-   EINA_SAFETY_ON_NULL_RETURN(zone->output_id);
-
-   output = e_output_find(zone->output_id);
-   EINA_SAFETY_ON_NULL_RETURN(output);
-
-   /* If an e_client belongs to the e_output managed by hwc_plane policy,
-    * there's no need to deal with hwc_windows. */
-   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
-     return;
-
-   if (ec->hwc_window && e_hwc_window_is_video(ec->hwc_window))
-     {
-        EHWINF("is already created on eout:%p, zone_id:%d. VIDEO STATE.",
-          ec, ec->hwc_window, output, zone->id);
-        return;
-     }
-
-   hwc_window = e_hwc_window_new(output->hwc, ec, E_HWC_WINDOW_STATE_NONE);
-   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
-
-   return;
-}
-
-static void
 _e_hwc_window_client_cb_del(void *data EINA_UNUSED, E_Client *ec)
 {
    E_Output *output;
@@ -615,8 +580,6 @@ e_hwc_window_init(E_Hwc *hwc)
    if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
      return EINA_FALSE;
 
-   E_LIST_HOOK_APPEND(hwc_window_client_hooks, E_CLIENT_HOOK_NEW_CLIENT,
-                      _e_hwc_window_client_cb_new, NULL);
    E_LIST_HOOK_APPEND(hwc_window_client_hooks, E_CLIENT_HOOK_DEL,
                       _e_hwc_window_client_cb_del, NULL);
    E_LIST_HANDLER_APPEND(hwc_window_event_hdlrs, E_EVENT_CLIENT_ZONE_SET,
