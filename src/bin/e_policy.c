@@ -40,6 +40,7 @@ static Eina_Inlist *_e_policy_hooks[] =
    [E_POLICY_HOOK_CLIENT_ACTIVE_REQ] = NULL,
    [E_POLICY_HOOK_CLIENT_RAISE_REQ] = NULL,
    [E_POLICY_HOOK_CLIENT_LOWER_REQ] = NULL,
+   [E_POLICY_HOOK_CLIENT_NOTILAYER_SET] = NULL,
 };
 
 static E_Policy_Client *_e_policy_client_add(E_Client *ec);

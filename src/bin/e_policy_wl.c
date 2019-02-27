@@ -1864,6 +1864,8 @@ _tzpol_notilv_set(E_Client *ec, int lv)
         evas_object_layer_set(ec->frame, ly);
      }
 
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_NOTILAYER_SET, ec);
+
    ec->layer = ly;
 }
 
