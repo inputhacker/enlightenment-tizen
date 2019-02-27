@@ -1705,9 +1705,10 @@ _e_video_cb_ec_visibility_change(void *data, int type, void *event)
         switch (ec->visibility.obscured)
           {
            case E_VISIBILITY_FULLY_OBSCURED:
+              evas_object_hide(evhw->ec->frame);
               break;
            case E_VISIBILITY_UNOBSCURED:
-              _e_video_cb_evas_show(evhw, NULL, NULL, NULL);
+              evas_object_show(evhw->ec->frame);
               break;
            default:
               VER("Not implemented");
