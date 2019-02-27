@@ -675,7 +675,8 @@ _e_bq_mgr_provider_buffer_detach(struct wl_client *client, struct wl_resource *r
    EINA_SAFETY_ON_NULL_RETURN(provider);
    bq = provider->bq;
    consumer = bq->consumer;
-   bq_buf= wl_resource_get_user_data(buffer);
+   bq_buf = wl_resource_get_user_data(buffer);
+   if (!bq_buf) return;
 
    if (consumer)
      bq_consumer_send_buffer_detached(e_object_data_get(E_OBJECT(consumer)),
