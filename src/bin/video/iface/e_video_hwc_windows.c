@@ -1234,20 +1234,6 @@ _e_video_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
      _e_video_buffer_show(evhw, evhw->current_fb, evhw->current_fb->content_t);
 }
 
-static void
-_e_video_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   E_Video_Hwc_Windows *evhw = data;
-
-   if (e_object_is_del(E_OBJECT(evhw->ec))) return;
-
-   if (!evhw->ec->comp_data->video_client)
-     return;
-
-   VIN("evas hide (ec:%p)", evhw->ec);
-
-}
-
 static E_Video_Hwc_Windows *
 _e_video_create(E_Client *ec)
 {
@@ -1719,7 +1705,6 @@ _e_video_cb_ec_visibility_change(void *data, int type, void *event)
         switch (ec->visibility.obscured)
           {
            case E_VISIBILITY_FULLY_OBSCURED:
-              _e_video_cb_evas_hide(evhw, NULL, NULL, NULL);
               break;
            case E_VISIBILITY_UNOBSCURED:
               _e_video_cb_evas_show(evhw, NULL, NULL, NULL);
@@ -1793,8 +1778,6 @@ _e_video_hwc_windows_ec_event_deinit(E_Video_Hwc_Windows *evhw)
 
    evas_object_event_callback_del_full(ec->frame, EVAS_CALLBACK_SHOW,
                                        _e_video_cb_evas_show, evhw);
-   evas_object_event_callback_del_full(ec->frame, EVAS_CALLBACK_HIDE,
-                                       _e_video_cb_evas_hide, evhw);
 
    E_FREE_LIST(evhw->ec_event_handler, ecore_event_handler_del);
 }
@@ -1829,8 +1812,6 @@ _e_video_hwc_windows_ec_event_init(E_Video_Hwc_Windows *evhw)
 
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_SHOW,
                                   _e_video_cb_evas_show, evhw);
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_HIDE,
-                                  _e_video_cb_evas_hide, evhw);
 
    E_LIST_HANDLER_APPEND(evhw->ec_event_handler, E_EVENT_CLIENT_BUFFER_CHANGE,
                          _e_video_cb_ec_buffer_change, evhw);
