@@ -641,7 +641,7 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
         if (e_hwc_window_state_get(ec->hwc_window) != state)
           e_hwc_window_state_set(ec->hwc_window, state, EINA_TRUE);
 
-        return ec->hwc_window;
+        goto end;
      }
 
    thwc = hwc->thwc;
@@ -668,10 +668,6 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
    if (e_policy_client_is_cursor(ec))
      hwc_window->is_cursor = EINA_TRUE;
 
-   /* video window */
-   if (state == E_HWC_WINDOW_STATE_VIDEO)
-     hwc_window->is_video = EINA_TRUE;
-
    /* set the hwc window to the e client */
    ec->hwc_window = hwc_window;
 
@@ -681,7 +677,12 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
           hwc_window->ec, hwc_window, hwc->output, ec->zone->id,
           hwc_window->is_video, hwc_window->is_cursor);
 
-   return hwc_window;
+end:
+   /* video window */
+   if (state == E_HWC_WINDOW_STATE_VIDEO)
+     ec->hwc_window->is_video = EINA_TRUE;
+
+   return ec->hwc_window;
 }
 
 EINTERN Eina_Bool
