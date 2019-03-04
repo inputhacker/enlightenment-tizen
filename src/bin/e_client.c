@@ -2621,6 +2621,12 @@ _e_client_eval(E_Client *ec)
         prop |= E_CLIENT_PROPERTY_GRAVITY;
      }
 
+   if (ec->changes.title)
+     {
+        ec->changes.title = 0;
+        prop |= E_CLIENT_PROPERTY_TITLE;
+     }
+
    if ((ec->changes.visible) && (ec->visible) && (ec->new_client) && (!ec->iconic))
      {
         int x, y;

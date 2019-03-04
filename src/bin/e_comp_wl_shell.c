@@ -213,15 +213,21 @@ e_shell_e_client_name_title_set(E_Client *ec, const char *name, const char *titl
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
 
    if (name)
-     eina_stringshare_replace(&ec->icccm.name, name);
+     {
+        if (eina_stringshare_replace(&ec->icccm.name, name))
+          ec->changes.title = EINA_TRUE;
+     }
 
    if (title)
      {
-        eina_stringshare_replace(&ec->icccm.title, title);
+        if (eina_stringshare_replace(&ec->icccm.title, title))
+          ec->changes.title = EINA_TRUE;
+
         if (ec->frame)
           e_comp_object_frame_title_set(ec->frame, title);
      }
 
+   if (ec->changes.title) EC_CHANGED(ec);
    return EINA_TRUE;
 }
 

@@ -700,6 +700,7 @@ struct E_Client
 #endif
       Eina_Bool accepts_focus : 1;
       Eina_Bool tz_position : 1; /* true when new position is set using tizen_position interface */
+      unsigned char title : 1;
    } changes;
 
    struct
