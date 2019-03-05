@@ -3010,7 +3010,7 @@ _e_client_visibility_touched_check(E_Client *ec)
    ty = wl_fixed_to_int(e_comp->wl_comp_data->ptr.y);
 
    e_comp_object_input_rect_get(ec->frame, &list);
-   if (!list || (eina_list_count(list) > 0))
+   if (list)
      {
         EINA_LIST_FOREACH(list, l, data)
           {
@@ -3020,15 +3020,17 @@ _e_client_visibility_touched_check(E_Client *ec)
                   return EINA_TRUE;
                }
           }
-        return EINA_FALSE;
+        list = eina_list_free(list);
      }
-
-   e_client_geometry_get(ec, &x, &y, &w, &h);
-
-   if ((tx >= x) && (tx <= x + w) &&
-       (ty >= y) && (ty <= y + h))
+   else
      {
-        return EINA_TRUE;
+        e_client_geometry_get(ec, &x, &y, &w, &h);
+
+        if ((tx >= x) && (tx <= x + w) &&
+            (ty >= y) && (ty <= y + h))
+          {
+             return EINA_TRUE;
+          }
      }
 
    return EINA_FALSE;

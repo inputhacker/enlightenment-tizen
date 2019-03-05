@@ -283,8 +283,11 @@ _msg_ecs_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
         _e_info_server_ec_hwc_info_get(ec, &hwc, &pl_zpos);
 
         e_comp_object_input_rect_get(ec->frame, &list_input_region);
-        if (list_input_region && (eina_list_count(list_input_region) > 0))
-          has_input_region = EINA_TRUE;
+        if (list_input_region)
+          {
+             has_input_region = EINA_TRUE;
+             list_input_region = eina_list_free(list_input_region);
+          }
 
         eldbus_message_iter_arguments_append(array_of_ec, "("VALUE_TYPE_FOR_TOPVWINS")", &struct_of_ec);
 
@@ -367,8 +370,11 @@ _msg_clients_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
         _e_info_server_ec_hwc_info_get(ec, &hwc, &pl_zpos);
 
         e_comp_object_input_rect_get(o, &list_input_region);
-        if (list_input_region && (eina_list_count(list_input_region) > 0))
-          has_input_region = EINA_TRUE;
+        if (list_input_region)
+          {
+             has_input_region = EINA_TRUE;
+             list_input_region = eina_list_free(list_input_region);
+          }
 
         eldbus_message_iter_arguments_append(array_of_ec, "("VALUE_TYPE_FOR_TOPVWINS")", &struct_of_ec);
 
@@ -1049,7 +1055,7 @@ _get_win_prop_Input_region(const Evas_Object *evas_obj)
    char *str = NULL;
 
    e_comp_object_input_rect_get((Evas_Object *)evas_obj, &list);
-   if (!list || (eina_list_count(list) <= 0))
+   if (!list)
      {
         astrcat_(&str, "No Input Region\n");
         return str;
@@ -1059,12 +1065,12 @@ _get_win_prop_Input_region(const Evas_Object *evas_obj)
      {
         astrcat_(&str, "[(%d, %d) %dx%d]\n", data->x, data->y, data->w, data->h);
      }
-   EINA_LIST_FREE(list, data);
-   list = NULL;
+   list = eina_list_free(list);
 
    return str;
 fail:
    if (str) free(str);
+   if (list) list = eina_list_free(list);
    return NULL;
 }
 
@@ -5866,7 +5872,6 @@ _input_region_msg_clients_append(Eldbus_Message_Iter *iter, Evas_Object *obj, in
 
    e_comp_object_input_rect_get(obj, &list);
    if (!list) return;
-   if (eina_list_count(list) <= 0) return;
 
    eldbus_message_iter_arguments_append(iter, "a(iiii)", &array_of_ec);
 
@@ -5883,8 +5888,7 @@ _input_region_msg_clients_append(Eldbus_Message_Iter *iter, Evas_Object *obj, in
      }
    eldbus_message_iter_container_close(iter, array_of_ec);
 
-   EINA_LIST_FREE(list, data);
-   list = NULL;
+   list = eina_list_free(list);
 }
 
 static Eldbus_Message *
