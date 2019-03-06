@@ -968,6 +968,8 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int nfingers, int
    const int sensitivity = 50;
    Eina_Bool res;
 
+   ELOGF("QUICKPANEL", "Start gesture for quickpanel", NULL);
+
    qp = data;
    if (EINA_UNLIKELY(!qp))
      return;
@@ -1037,7 +1039,10 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int nfingers, int
 
    // check quickpanel service window's scroll lock state
    if (qp->scroll_lock)
-     return;
+     {
+        ELOGF("QUICKPANEL", "Scroll locked by quickpanel service", NULL);
+        return;
+     }
 
    /* Do not show and scroll the quickpanel window if the qp_client winodw
     * which is placed at the below of the quickpanel window doesn't want
@@ -1045,7 +1050,10 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int nfingers, int
     */
    qp_client = _e_qp_client_ec_get(qp->below, (E_Quickpanel_Type)qp->type);
    if ((qp_client) && (!qp_client->hint.scrollable))
-     return;
+     {
+        ELOGF("QUICKPANEL", "Scroll locked by current client", qp->below);
+        return;
+     }
 
    res = _e_qp_srv_is_effect_running(qp);
    if (res)
@@ -2299,6 +2307,7 @@ e_qp_client_show(E_Client *ec, E_Quickpanel_Type type)
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
+   ELOGF("QUICKPANEL", "Request to Show Quickpanel (type:%d)", ec, type);
    BACKEND_FUNC_CALL(qp_client_show, ec, type);
 
    qp_client = _e_qp_client_ec_get(ec, type);
@@ -2319,6 +2328,7 @@ e_qp_client_hide(E_Client *ec, E_Quickpanel_Type type)
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
+   ELOGF("QUICKPANEL", "Request to Hide Quickpanel (type:%d)", ec, type);
    BACKEND_FUNC_CALL(qp_client_hide, ec, type);
 
    qp_client = _e_qp_client_ec_get(ec, type);
@@ -2339,6 +2349,7 @@ e_qp_client_scrollable_set(E_Client *ec, E_Quickpanel_Type type, Eina_Bool set)
    E_Policy_Quickpanel *qp;
    E_QP_Client *qp_client;
 
+   ELOGF("QUICKPANEL", "Request to Set scroll lock of Quickpanel (type:%d) to %d", ec, type, set);
    BACKEND_FUNC_CALL_RET(qp_client_scrollable_set, ec, type, set);
 
    qp_client = _e_qp_client_ec_get(ec, type);
