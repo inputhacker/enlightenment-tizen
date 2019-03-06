@@ -1390,10 +1390,30 @@ e_hwc_window_device_state_available_check(E_Hwc_Window *hwc_window)
 
    if (cdata->never_hwc)
      {
+         if (ec->icccm.name)
+         {
+             if (0 == strncmp(ec->icccm.name, "/usr/apps/org.tizen.ambientapp/bin/AmbientApp.dll", MAX(strlen(ec->icccm.name),strlen("/usr/apps/org.tizen.ambientapp/bin/AmbientApp.dll"))))
+             {
+             EHWTRACE("   -- {%25s} Exception forced to set CL state ignored .(never_hwc)",
+                     hwc_window->ec, hwc_window, ec->icccm.title);
+             }
+         }
+         else
+         {
+
+             EHWTRACE("   -- {%25s} is forced to set CL state.(never_hwc)",
+                     hwc_window->ec, hwc_window, ec->icccm.title);
+             return EINA_FALSE;
+         }
+     }
+   #if 0
+   if (cdata->never_hwc)
+     {
         EHWTRACE("   -- {%25s} is forced to set CL state.(never_hwc)",
                   hwc_window->ec, hwc_window, ec->icccm.title);
         return EINA_FALSE;
      }
+     #endif
 
    if (e_client_transform_core_enable_get(ec))
      {
