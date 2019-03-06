@@ -151,6 +151,8 @@ struct _E_Comp_Wl_Remote_Surface
       uint32_t serial;
    } req_curr_buff;
 
+   Eina_Bool need_prebind;
+
    int version;
 };
 
@@ -796,6 +798,7 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
         e_comp_object_render_update_del(remote_surface->bind_ec->frame);
 
         eina_hash_del(_rsm->bind_surface_hash, &remote_surface->bind_ec, remote_surface);
+        remote_surface->need_prebind = EINA_FALSE;
         _remote_surface_bind_client_unset(remote_surface);
 
         /* try to send latest buffer of the provider to the consumer when unbinding
@@ -857,6 +860,16 @@ bind_ec_set:
                remote_surface->provider->common.ec->comp_data->scaler.buffer_viewport;
 
              e_comp_wl_surface_commit(remote_surface->bind_ec);
+
+             if (evas_object_visible_get(ec->frame))
+               {
+                  ELOGF("RSM", "Send PreBind", ec);
+                  e_policy_aux_message_send(ec, "tz_remote_surface_mng", "prebind", NULL);
+               }
+             else
+               remote_surface->need_prebind = EINA_TRUE;
+
+             e_comp_render_queue();
           }
      }
 }
@@ -3274,6 +3287,33 @@ _e_comp_wl_remote_cb_hook_action_change(void *d EINA_UNUSED, E_Process *epro, vo
 }
 
 static Eina_Bool
+_e_comp_wl_remote_cb_client_show(void *data, int type, void *event)
+{
+   E_Event_Client *ev = event;
+   E_Client *ec;
+   E_Comp_Wl_Remote_Surface *remote_surface;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(_rsm, ECORE_CALLBACK_PASS_ON);
+
+   ec = ev->ec;
+   if (!ec) return ECORE_CALLBACK_PASS_ON;
+
+   if (e_object_is_del(E_OBJECT(ec))) return ECORE_CALLBACK_PASS_ON;
+
+   if ((remote_surface = eina_hash_find(_rsm->bind_surface_hash, &ec)))
+     {
+        if (remote_surface->need_prebind)
+          {
+             ELOGF("RMS", "Send PreBind", ec);
+             e_policy_aux_message_send(ec, "tz_remote_surface_mng", "prebind", NULL);
+             remote_surface->need_prebind = EINA_FALSE;
+          }
+     }
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
+static Eina_Bool
 _e_comp_wl_remote_cb_visibility_change(void *data, int type, void *event)
 {
    E_Event_Client *ev = event;
@@ -3986,6 +4026,9 @@ e_comp_wl_remote_surface_init(void)
    E_LIST_HANDLER_APPEND(rs_manager->event_hdlrs,
                          E_EVENT_CLIENT_VISIBILITY_CHANGE,
                          _e_comp_wl_remote_cb_visibility_change, rs_manager);
+   E_LIST_HANDLER_APPEND(rs_manager->event_hdlrs,
+                         E_EVENT_CLIENT_SHOW,
+                         _e_comp_wl_remote_cb_client_show, rs_manager);
 
    rs_manager->provider_hash = eina_hash_pointer_new(NULL);
    rs_manager->surface_hash = eina_hash_pointer_new(NULL);
