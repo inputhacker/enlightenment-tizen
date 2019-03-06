@@ -833,6 +833,8 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
    const int sensitivity = 50;
    Eina_Bool res;
 
+   ELOGF("QUICKPANEL", "Start gesture for quickpanel", NULL, NULL);
+
    qp = data;
    if (EINA_UNLIKELY(!qp))
      return;
@@ -902,7 +904,10 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
 
    // check quickpanel service window's scroll lock state
    if (qp->scroll_lock)
-     return;
+     {
+        ELOGF("QUICKPANEL", "Scroll locked by quickpanel service", NULL, NULL);
+        return;
+     }
 
    /* Do not show and scroll the quickpanel window if the qp_client winodw
     * which is placed at the below of the quickpanel window doesn't want
@@ -910,7 +915,10 @@ _region_obj_cb_gesture_start(void *data, Evas_Object *handler, int x, int y, uns
     */
    qp_client = _e_qp_client_ec_get(qp->below);
    if ((qp_client) && (!qp_client->hint.scrollable))
-     return;
+     {
+        ELOGF("QUICKPANEL", "Scroll locked by current client", NULL, qp->below);
+        return;
+     }
 
    res = _e_qp_srv_is_effect_running(qp);
    if (res)
@@ -2095,6 +2103,8 @@ e_qp_client_del(E_Client *ec)
 EINTERN void
 e_qp_client_show(E_Client *ec)
 {
+   ELOGF("QUICKPANEL", "Request to Show Quickpanel", NULL, ec);
+
    if (qp_mgr_funcs && qp_mgr_funcs->qp_client_show)
      {
         qp_mgr_funcs->qp_client_show(ec);
@@ -2119,6 +2129,8 @@ e_qp_client_show(E_Client *ec)
 EINTERN void
 e_qp_client_hide(E_Client *ec)
 {
+   ELOGF("QUICKPANEL", "Request to Hide Quickpanel", NULL, ec);
+
    if (qp_mgr_funcs && qp_mgr_funcs->qp_client_hide)
      {
         qp_mgr_funcs->qp_client_hide(ec);
@@ -2143,6 +2155,8 @@ e_qp_client_hide(E_Client *ec)
 EINTERN Eina_Bool
 e_qp_client_scrollable_set(E_Client *ec, Eina_Bool set)
 {
+   ELOGF("QUICKPANEL", "Request to Set scroll lock of Quickpanel to %d", NULL, ec, set);
+
    if (qp_mgr_funcs && qp_mgr_funcs->qp_client_scrollable_set)
       return qp_mgr_funcs->qp_client_scrollable_set(ec, set);
 
