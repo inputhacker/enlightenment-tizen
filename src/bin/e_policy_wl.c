@@ -5408,7 +5408,7 @@ _tzsh_iface_cb_softkey_get(struct wl_client *client, struct wl_resource *res_tzs
                                          id);
    if (!res_tzsh_softkey)
      {
-        ERR("Could not create tws_quickpanel resource: %m");
+        ERR("Could not create tws_softkey resource: %m");
         wl_client_post_no_memory(client);
         return;
      }
