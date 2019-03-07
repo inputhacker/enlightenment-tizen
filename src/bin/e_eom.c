@@ -2457,7 +2457,7 @@ e_eom_shutdown(void)
    return 1;
 }
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_eom_is_ec_external(E_Client *ec)
 {
    E_EomOutputPtr eom_output;

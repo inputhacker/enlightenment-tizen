@@ -87,7 +87,7 @@ EINTERN void e_comp_wl_video_buffer_convert(E_Comp_Wl_Video_Buf *srcbuf, E_Comp_
 
 EINTERN uint e_comp_wl_video_buffer_get_mills(void);
 EINTERN int  e_comp_wl_video_buffer_list_length(void);
-EINTERN void e_comp_wl_video_buffer_list_print(const char *log_path);
+E_API   void e_comp_wl_video_buffer_list_print(const char *log_path);
 
 EINTERN void e_comp_wl_video_buffer_size_get(E_Client *ec, int *bw, int *bh);
 EINTERN void e_comp_wl_video_buffer_transform_scale_size_get(E_Client *ec, int *bw, int *bh);

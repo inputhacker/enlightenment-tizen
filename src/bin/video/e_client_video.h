@@ -19,17 +19,17 @@ typedef Eina_Bool       (*E_Client_Video_Info_Get_Cb)(E_Client *ec, E_Client_Vid
 typedef Eina_Bool       (*E_Client_Video_Commit_Data_Release_Cb)(E_Client *ec, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec);
 typedef tbm_surface_h   (*E_Client_Video_Tbm_Surface_Get_Cb)(E_Client *ec);
 
-EINTERN Eina_Bool    e_client_video_set(E_Client *ec);
-EINTERN void         e_client_video_unset(E_Client *ec);
+E_API   Eina_Bool    e_client_video_set(E_Client *ec);
+E_API   void         e_client_video_unset(E_Client *ec);
 
-EINTERN Eina_Bool    e_client_video_topmost_visibility_follow(E_Client *ec);
-EINTERN Eina_Bool    e_client_video_topmost_visibility_unfollow(E_Client *ec);
+E_API   Eina_Bool    e_client_video_topmost_visibility_follow(E_Client *ec);
+E_API   Eina_Bool    e_client_video_topmost_visibility_unfollow(E_Client *ec);
 EINTERN Eina_Bool    e_client_video_property_allow(E_Client *ec);
 EINTERN Eina_Bool    e_client_video_property_disallow(E_Client *ec);
 
-EINTERN Eina_Bool    e_client_video_available_properties_get(E_Client *ec, const tdm_prop **props, int *count);
-EINTERN Eina_Bool    e_client_video_property_get(E_Client *ec, unsigned int id, tdm_value *value);
-EINTERN Eina_Bool    e_client_video_property_set(E_Client *ec, unsigned int id, tdm_value value);
+E_API   Eina_Bool    e_client_video_available_properties_get(E_Client *ec, const tdm_prop **props, int *count);
+E_API   Eina_Bool    e_client_video_property_get(E_Client *ec, unsigned int id, tdm_value *value);
+E_API   Eina_Bool    e_client_video_property_set(E_Client *ec, unsigned int id, tdm_value value);
 EINTERN Eina_Bool    e_client_video_property_delay_set(E_Client *ec, unsigned int id, tdm_value value);
 
 EINTERN Eina_Bool    e_client_video_info_get(E_Client *ec, E_Client_Video_Info *info);

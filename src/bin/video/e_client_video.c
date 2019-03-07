@@ -155,7 +155,7 @@ _e_client_video_deinit(E_Client_Video *ecv)
    E_FREE_FUNC(ecv->eeh_zone_set, ecore_event_handler_del);
 }
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_client_video_set(E_Client *ec)
 {
    E_Client_Video *ecv;
@@ -200,7 +200,7 @@ e_client_video_set(E_Client *ec)
    return EINA_TRUE;
 }
 
-EINTERN void
+E_API void
 e_client_video_unset(E_Client *ec)
 {
    API_ENTRY;
@@ -215,7 +215,7 @@ e_client_video_unset(E_Client *ec)
    free(ecv);
 }
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_client_video_topmost_visibility_follow(E_Client *ec)
 {
    IFACE_CHECK_RET(follow_topmost_visibility, EINA_FALSE);
@@ -223,7 +223,7 @@ e_client_video_topmost_visibility_follow(E_Client *ec)
    return ecv->iface->follow_topmost_visibility(ecv->iface);
 }
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_client_video_topmost_visibility_unfollow(E_Client *ec)
 {
    IFACE_CHECK_RET(unfollow_topmost_visibility, EINA_FALSE);
@@ -247,7 +247,7 @@ e_client_video_property_disallow(E_Client *ec)
    return ecv->iface->disallowed_property(ecv->iface);
 }
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_client_video_property_get(E_Client *ec, unsigned int id, tdm_value *value)
 {
    IFACE_CHECK_RET(property_get, EINA_FALSE);
@@ -255,7 +255,7 @@ e_client_video_property_get(E_Client *ec, unsigned int id, tdm_value *value)
    return ecv->iface->property_get(ecv->iface, id, value);
 }
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_client_video_property_set(E_Client *ec, unsigned int id, tdm_value value)
 {
    IFACE_CHECK_RET(property_set, EINA_FALSE);
@@ -271,7 +271,7 @@ e_client_video_property_delay_set(E_Client *ec, unsigned int id, tdm_value value
    return ecv->iface->property_delay_set(ecv->iface, id, value);
 }
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_client_video_available_properties_get(E_Client *ec, const tdm_prop **props, int *count)
 {
    IFACE_CHECK_RET(available_properties_get, EINA_FALSE);

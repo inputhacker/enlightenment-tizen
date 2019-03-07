@@ -538,7 +538,7 @@ E_API void e_comp_wl_shell_surface_ready(E_Client *ec);
 
 EINTERN Eina_Bool e_comp_wl_video_subsurface_has(E_Client *ec);
 EINTERN Eina_Bool e_comp_wl_normal_subsurface_has(E_Client *ec);
-EINTERN E_Client* e_comp_wl_topmost_parent_get(E_Client *ec);
+E_API   E_Client* e_comp_wl_topmost_parent_get(E_Client *ec);
 
 E_API enum wl_output_transform e_comp_wl_output_buffer_transform_get(E_Client *ec);
 E_API void e_comp_wl_map_size_cal_from_buffer(E_Client *ec);

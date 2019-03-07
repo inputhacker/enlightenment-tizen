@@ -3,13 +3,13 @@
 static Eina_Bool video_to_primary = EINA_FALSE;
 static Eina_Bool video_punch = EINA_FALSE;
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_video_debug_display_primary_plane_value_get(void)
 {
    return video_to_primary;
 }
 
-EINTERN void
+E_API void
 e_video_debug_display_primary_plane_set(Eina_Bool set)
 {
    video_to_primary = set;
