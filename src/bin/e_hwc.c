@@ -517,11 +517,11 @@ e_client_hwc_available_properties_get(E_Client *ec, const hwc_prop **props, int 
    *props = (hwc_prop *)tprops;
 
    if (state == E_HWC_WINDOW_STATE_VIDEO)
-     ELOGF("HWC", ">>>>>>>> Available VIDEO props : count = %d", NULL, NULL, *count);
+     ELOGF("HWC", ">>>>>>>> Available VIDEO props : count = %d", NULL, *count);
    else
-     ELOGF("HWC", ">>>>>>>> Available UI props : count = %d", NULL, NULL, *count);
+     ELOGF("HWC", ">>>>>>>> Available UI props : count = %d", NULL, *count);
    for (i = 0; i < *count; i++)
-     ELOGF("HWC", "   [%d] %s, %u", NULL, NULL, i, tprops[i].name, tprops[i].id);
+     ELOGF("HWC", "   [%d] %s, %u", NULL, i, tprops[i].name, tprops[i].id);
 
    return EINA_TRUE;
 }
