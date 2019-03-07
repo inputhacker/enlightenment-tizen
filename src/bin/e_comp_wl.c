@@ -263,7 +263,7 @@ e_comp_wl_map_size_cal_from_viewport(E_Client *ec)
    ec->comp_data->height_from_viewport = height;
 }
 
-EINTERN E_Client*
+E_API E_Client*
 e_comp_wl_topmost_parent_get(E_Client *ec)
 {
    E_Client *parent = NULL;

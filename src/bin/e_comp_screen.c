@@ -1428,7 +1428,7 @@ _e_comp_screen_eoutput_get_by_toutput(tdm_output *output)
    return NULL;
 }
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_comp_screen_available_video_formats_get(const tbm_format **formats, int *count)
 {
    E_Output *output;

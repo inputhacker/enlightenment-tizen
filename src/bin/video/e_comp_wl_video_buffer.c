@@ -855,7 +855,7 @@ e_comp_wl_video_buffer_list_length(void)
    return eina_list_count(vbuf_lists);
 }
 
-EINTERN void
+E_API void
 e_comp_wl_video_buffer_list_print(const char *log_path)
 {
    E_Comp_Wl_Video_Buf *vbuf;
