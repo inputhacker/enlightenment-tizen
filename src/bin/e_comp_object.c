@@ -156,6 +156,8 @@ typedef struct _E_Comp_Object
         Eina_Bool           mask_set;
         int                 mask_x, mask_y, mask_w, mask_h;
      } dim;
+
+   tbm_surface_h        tbm_surface;
 } E_Comp_Object;
 
 typedef struct _E_Input_Rect_Data
@@ -2959,6 +2961,12 @@ _e_comp_smart_del(Evas_Object *obj)
         cw->buffer_destroy_listener.notify = NULL;
      }
 
+   if (cw->tbm_surface)
+     {
+        tbm_surface_internal_unref(cw->tbm_surface);
+        cw->tbm_surface = NULL;
+     }
+
    e_comp_object_render_update_del(cw->smart_obj);
    E_FREE_FUNC(cw->updates, eina_tiler_free);
    E_FREE_FUNC(cw->pending_updates, eina_tiler_free);
@@ -4358,10 +4366,24 @@ _e_comp_object_native_surface_set(E_Comp_Object *cw, Evas_Native_Surface *ns, Ei
         cw->buffer_destroy_listener.notify = NULL;
      }
 
-   if ((ns) && (ns->type == EVAS_NATIVE_SURFACE_WL) && (ns->data.wl.legacy_buffer))
+   if (cw->tbm_surface)
      {
-        cw->buffer_destroy_listener.notify = _e_comp_object_cb_buffer_destroy;
-        wl_resource_add_destroy_listener((struct wl_resource *)ns->data.wl.legacy_buffer, &cw->buffer_destroy_listener);
+        tbm_surface_internal_unref(cw->tbm_surface);
+        cw->tbm_surface = NULL;
+     }
+
+   if (ns)
+     {
+        if ((ns->type == EVAS_NATIVE_SURFACE_WL) && (ns->data.wl.legacy_buffer))
+          {
+             cw->buffer_destroy_listener.notify = _e_comp_object_cb_buffer_destroy;
+             wl_resource_add_destroy_listener((struct wl_resource *)ns->data.wl.legacy_buffer, &cw->buffer_destroy_listener);
+          }
+        else if ((ns->type == EVAS_NATIVE_SURFACE_TBM) && (ns->data.tbm.buffer))
+          {
+             tbm_surface_internal_ref(ns->data.tbm.buffer);
+             cw->tbm_surface = ns->data.tbm.buffer;
+          }
      }
 
    evas_object_image_native_surface_set(cw->obj, ns);
