@@ -138,7 +138,8 @@ src/bin/e_input.h \
 src/bin/e_dbus_conn.h \
 src/bin/e_xdg_shell_v6.h \
 src/bin/e_devicemgr.h \
-src/bin/e_devicemgr_private.h
+src/bin/e_devicemgr_private.h \
+src/bin/e_msg.h
 
 enlightenment_src = \
 src/bin/e_actions.c \
@@ -266,7 +267,8 @@ src/bin/e_devicemgr_conf.c \
 src/bin/e_devicemgr_block.c \
 src/bin/e_devicemgr_input.c \
 src/bin/e_devicemgr_inputgen.c \
-src/bin/e_devicemgr_wl.c
+src/bin/e_devicemgr_wl.c \
+src/bin/e_msg.c
 
 src_bin_enlightenment_CPPFLAGS = $(E_CPPFLAGS) -DEFL_BETA_API_SUPPORT -DEFL_EO_API_SUPPORT -DE_LOGGING=2 @WAYLAND_CFLAGS@ $(TTRACE_CFLAGS) $(DLOG_CFLAGS) $(PIXMAN_CFLAGS) $(POLICY_CFLAGS) @TIZEN_REMOTE_SURFACE_CFLAGS@
 if HAVE_LIBGOMP

@@ -600,6 +600,15 @@ main(int argc, char **argv)
      }
    TRACE_DS_END();
 
+   TSB("E_Msg Init");
+   if (!e_msg_init())
+     {
+        e_error_message_show(_("Enlightenment cannot set up its msg system."));
+        goto failed;
+     }
+   TSE("E_Msg Init Done");
+   _e_main_shutdown_push(e_msg_shutdown);
+
    e_module_event_init();
 
    TSB("E_Pointer Init");
