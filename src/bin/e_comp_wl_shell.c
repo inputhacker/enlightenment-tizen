@@ -400,8 +400,6 @@ e_shell_e_client_destroy(E_Client *ec)
    if (e_object_unref(E_OBJECT(ec)) == 0)
      return;
 
-   /* wl_resource_destroy(ec->comp_data->shell.surface); */
-
    if (!e_object_is_del(E_OBJECT(ec)))
      {
         if (ec->comp_data->mapped)
