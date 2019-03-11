@@ -413,9 +413,11 @@ e_shell_e_client_destroy(E_Client *ec)
                   ec->comp_data->shell.unmap(ec->comp_data->shell.surface);
                }
           }
-        ec->comp_data->shell.surface = NULL;
         e_policy_client_unmap(ec);
      }
+
+   if (ec->comp_data)
+     ec->comp_data->shell.surface = NULL;
 }
 
 static void
