@@ -1544,6 +1544,46 @@ error:
    return EINA_FALSE;
 }
 
+static E_Client *
+_e_hwc_windows_client_get_from_object(Evas_Object *o)
+{
+   E_Client *ec = NULL;
+   Evas_Object *ob = NULL, *cob = NULL;
+   Eina_List *members = NULL;
+   Eina_List *l = NULL;
+   Eina_List *stack = NULL;
+
+   if (!o) return NULL;
+
+   stack = eina_list_append(stack, o);
+
+   while (1)
+     {
+        ob = eina_list_last_data_get(stack);
+        if (!ob) break;
+
+        ec = evas_object_data_get(ob, "E_Client");
+        if (ec) break;
+
+        if (evas_object_smart_data_get(ob))
+          {
+             members = evas_object_smart_members_get(ob);
+
+             EINA_LIST_FOREACH(members, l, cob)
+               stack = eina_list_append(stack, cob);
+
+             if (members)
+               members = eina_list_free(members);
+          }
+
+        stack = eina_list_remove(stack, ob);
+     }
+
+   eina_list_free(stack);
+
+   return ec;
+}
+
 static Eina_List *
 _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 {
@@ -1556,7 +1596,10 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
-        ec = evas_object_data_get(o, "E_Client");
+        if (!evas_object_visible_get(o)) continue;
+
+        ec = _e_hwc_windows_client_get_from_object(o);
+
         if (!ec) continue;
         if (!ec->hwc_window) continue;
 
