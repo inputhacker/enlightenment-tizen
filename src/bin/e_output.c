@@ -602,7 +602,7 @@ _e_output_visible_client_check(E_Output *output)
               cdata = (E_Comp_Wl_Client_Data *)ec->comp_data;
               if (cdata && cdata->sub.data) continue; /* skip subsurface */
               if (cdata && !cdata->mapped) continue;
-              if (!ec->iconic) continue;
+              if (ec->iconic) continue;
               e_client_geometry_get(ec, &x, &y, &w, &h);
               if (E_INTERSECTS(x, y, w, h, r.x, r.y, r.w, r.h))
                 {
