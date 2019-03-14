@@ -1686,6 +1686,7 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
    Eina_List *visible_windows = NULL;
    Eina_List *l;
    E_Hwc_Window *hwc_window = NULL;
+   E_Client *ec = NULL;
 
    /* get the visible ecs */
    visible_windows = hwc->visible_windows;
@@ -1712,7 +1713,18 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
              if (e_hwc_window_device_state_available_get(hwc_window))
                e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE, EINA_TRUE);
              else
-               e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
+               {
+                  ec = hwc_window->ec;
+                  if (!ec) continue;
+                  if (ec->redirected)
+                    e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
+                  else
+                    {
+                       e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE, EINA_TRUE);
+                       EHWSTRACE("   ehw:%p -- {%25s} is Force hwc_acceptable(Redirected FALSE).",
+                               hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
+                    }
+               }
           }
      }
    else
@@ -1727,10 +1739,20 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
                   continue;
                }
 
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
-
-             EHWSTRACE("   ehw:%p -- {%25s} is NOT hwc_acceptable.",
-                     hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
+             ec = hwc_window->ec;
+             if (!ec) continue;
+             if (ec->redirected)
+               {
+                  e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
+                  EHWSTRACE("   ehw:%p -- {%25s} is NOT hwc_acceptable.",
+                          hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
+               }
+             else
+               {
+                  e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE, EINA_TRUE);
+                  EHWSTRACE("   ehw:%p -- {%25s} is Force hwc_acceptable(Redirected FALSE).",
+                          hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
+               }
           }
      }
 }
