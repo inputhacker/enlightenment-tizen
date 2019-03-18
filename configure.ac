@@ -622,7 +622,6 @@ AC_SUBST([SUID_LDFLAGS])
 
 AC_OUTPUT([
 Makefile
-enlightenment.spec
 enlightenment.pc
 ])
 
