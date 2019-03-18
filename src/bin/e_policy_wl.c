@@ -620,6 +620,7 @@ _e_policy_wl_tzsh_srv_del(E_Policy_Wl_Tzsh_Srv *tzsh_srv)
         magnifier_ec = tzsh_srv->tzsh->ec;
         if (magnifier_ec)
           {
+             e_magnifier_owner_unset(magnifier_ec);
              e_magnifier_del();
           }
      }
@@ -3724,6 +3725,7 @@ static void
 _tzsh_srv_magnifier_cb_enable_set(struct wl_client *client EINA_UNUSED, struct wl_resource *resource, int32_t enable)
 {
    E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+   E_Client *ec;
 
    tzsh_srv = wl_resource_get_user_data(resource);
 
@@ -3733,10 +3735,12 @@ _tzsh_srv_magnifier_cb_enable_set(struct wl_client *client EINA_UNUSED, struct w
 
    ELOGF("TZSH", "[MAGNIFIER] Set Enable. enable:%d", tzsh_srv->tzsh->ec, enable);
 
+   ec = tzsh_srv->tzsh->ec;
+
    if (enable)
-     e_magnifier_show();
+     e_magnifier_show(ec);
    else
-     e_magnifier_hide();
+     e_magnifier_hide(ec);
 }
 
 static const struct tws_service_magnifier_interface _tzsh_srv_magnifier_iface =

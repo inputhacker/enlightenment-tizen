@@ -266,6 +266,16 @@ typedef struct _E_Rect         E_Rect;
     } \
   while (0)
 
+# define E_COMP_COMP_HOOK_APPEND(list, type, callback, data) \
+  do \
+    { \
+       E_Comp_Object_Hook *_coh; \
+       _coh = e_comp_object_hook_add(type, callback, data); \
+       assert(_coh); \
+       list = eina_list_append(list, _coh); \
+    } \
+  while (0)
+
 # define E_CLAMP(x, min, max) (x < min ? min : (x > max ? max : x))
 # define E_RECTS_CLIP_TO_RECT(_x, _y, _w, _h, _cx, _cy, _cw, _ch) \
   {                                                               \

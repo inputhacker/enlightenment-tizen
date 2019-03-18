@@ -26,8 +26,8 @@ EINTERN int       e_magnifier_shutdown(void);
 E_API Eina_Bool   e_magnifier_new(void);
 E_API void        e_magnifier_del(void);
 
-E_API void        e_magnifier_show(void);
-E_API void        e_magnifier_hide(void);
+E_API Eina_Bool   e_magnifier_show(E_Client *ec);
+E_API void        e_magnifier_hide(E_Client *ec);
 
 E_API Eina_Bool   e_magnifier_zoom_obj_ratio_set(E_Client *ec, E_Magnifier_Zoom_Ratio ratio);
 E_API Eina_Bool   e_magnifier_zoom_obj_geometry_set(E_Client *ec, int angle, int x, int y, int w, int h);
@@ -36,7 +36,8 @@ EINTERN Eina_Bool e_magnifier_smart_member_add(E_Desk *desk, Evas_Object *obj);
 EINTERN Eina_Bool e_magnifier_smart_member_del(Evas_Object *obj);
 
 E_API Eina_Bool   e_magnifier_owner_set(E_Client *ec);
-
+E_API void        e_magnifier_owner_unset(E_Client *ec);
+E_API E_Client   *e_magnifier_owner_get(void);
 #endif
 #endif
 
