@@ -4795,6 +4795,35 @@ _e_info_client_memchecker(int argc, char **argv)
 }
 
 static void
+_e_info_client_magnifier(int argc, char **argv)
+{
+   uint32_t op;
+
+   if (argc < 3)
+     {
+        printf("Error Check Args: enlightenment_info -magnifier [1: on, 0: off]\n");
+        return;
+     }
+
+   if (!strncmp(argv[2], "off", sizeof("off"))) op = 0;
+   else if (!strncmp(argv[2], "on", sizeof("on"))) op = 1;
+   else if (!strncmp(argv[2], "new", sizeof("new"))) op = 2;
+   else if (!strncmp(argv[2], "del", sizeof("del"))) op = 3;
+   else if (!strncmp(argv[2], "set_stand_alone", sizeof("set_stand_alone"))) op = 4;
+   else if (!strncmp(argv[2], "unset_stand_alone", sizeof("unset_stand_alone"))) op = 5;
+   else if (!strncmp(argv[2], "show", sizeof("show"))) op = 6;
+   else if (!strncmp(argv[2], "hide", sizeof("hide"))) op = 7;
+   else
+     {
+        printf("Error Check Args: enlightenment_info -magnifier [on/off]\n");
+        return;
+     }
+
+   if (!_e_info_client_eldbus_message_with_args("magnifier", NULL, "i", op))
+     printf("_e_info_client_eldbus_message_with_args error");
+}
+
+static void
 _cb_input_region_get(const Eldbus_Message *msg)
 {
    const char *name = NULL, *text = NULL;
@@ -5312,6 +5341,12 @@ static ProcInfo procs_to_execute[] =
       "file dumped under /tmp dir.",
       "Dump stack information by allocations",
       _e_info_client_memchecker
+   },
+   {
+      "magnifier",
+      NULL,
+      "On/Off magnifier window",
+      _e_info_client_magnifier
    },
 };
 

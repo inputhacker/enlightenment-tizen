@@ -718,8 +718,6 @@ e_magnifier_del(void)
 E_API Eina_Bool
 e_magnifier_show(E_Client *ec)
 {
-   Evas_Object *target_obj;
-
    ELOGF("MAGNIFIER", "SHOW Magnifier", NULL);
 
    if (!_e_magnifier_mgr) return EINA_FALSE;
@@ -735,22 +733,12 @@ e_magnifier_show(E_Client *ec)
 
    _e_magnifier_apply_zoom(_e_magnifier_mgr);
 
-   if (sd->stand_alone_mode)
-     {
-        target_obj = _e_magnifier_mgr;
-
-        evas_object_event_callback_add(target_obj, EVAS_CALLBACK_MOUSE_DOWN, _e_magnifier_cb_mouse_down_proxy, NULL);
-        evas_object_event_callback_add(target_obj, EVAS_CALLBACK_MOUSE_UP, _e_magnifier_cb_mouse_up_proxy, NULL);
-     }
-
    return EINA_TRUE;
 }
 
 E_API void
 e_magnifier_hide(E_Client *ec)
 {
-   Evas_Object *target_obj;
-
    ELOGF("MAGNIFIER", "HIDE Magnifier", NULL);
 
    if (!_e_magnifier_mgr) return;
@@ -763,15 +751,6 @@ e_magnifier_hide(E_Client *ec)
      }
 
    evas_object_hide(_e_magnifier_mgr);
-
-   if (sd->stand_alone_mode)
-     {
-        target_obj = _e_magnifier_mgr;
-
-        evas_object_event_callback_del(target_obj, EVAS_CALLBACK_MOUSE_DOWN, _e_magnifier_cb_mouse_down_proxy);
-        evas_object_event_callback_del(target_obj, EVAS_CALLBACK_MOUSE_UP, _e_magnifier_cb_mouse_up_proxy);
-     }
-
 }
 
 E_API Eina_Bool
@@ -887,6 +866,30 @@ _e_magnifier_owner_unset(E_Client *ec)
    evas_object_event_callback_del(ec->frame, EVAS_CALLBACK_RESIZE, _e_magnifier_cb_owner_move_resize);
 }
 
+static Eina_Bool
+_e_magnifier_stand_alone_mode_set(Evas_Object *magnifier_mgr, Eina_Bool set)
+{
+   if (!magnifier_mgr) return EINA_FALSE;
+   E_MAGNIFIER_SMART_DATA_GET_OR_RETURN(magnifier_mgr, sd) EINA_FALSE;
+
+   if (sd->stand_alone_mode == set)
+     return EINA_TRUE;
+
+   sd->stand_alone_mode = set;
+   if (sd->stand_alone_mode)
+     {
+        evas_object_event_callback_add(magnifier_mgr, EVAS_CALLBACK_MOUSE_DOWN, _e_magnifier_cb_mouse_down_proxy, NULL);
+        evas_object_event_callback_add(magnifier_mgr, EVAS_CALLBACK_MOUSE_UP, _e_magnifier_cb_mouse_up_proxy, NULL);
+     }
+   else
+     {
+        evas_object_event_callback_del(magnifier_mgr, EVAS_CALLBACK_MOUSE_DOWN, _e_magnifier_cb_mouse_down_proxy);
+        evas_object_event_callback_del(magnifier_mgr, EVAS_CALLBACK_MOUSE_UP, _e_magnifier_cb_mouse_up_proxy);
+     }
+
+   return EINA_TRUE;
+}
+
 E_API Eina_Bool
 e_magnifier_owner_set(E_Client *ec)
 {
@@ -907,6 +910,11 @@ e_magnifier_owner_set(E_Client *ec)
 
    sd->owner = ec;
    _e_magnifier_owner_set(ec);
+
+   if (ec && sd->stand_alone_mode)
+     {
+        _e_magnifier_stand_alone_mode_set(_e_magnifier_mgr, EINA_FALSE);
+     }
 
    return EINA_TRUE;
 }
@@ -954,4 +962,34 @@ e_magnifier_owner_get(void)
          NULL, e_client_util_win_get(ec), ec);
 
    return ec;
+}
+
+EINTERN Eina_Bool
+e_magnifier_stand_alone_mode_set(Eina_Bool stand_alone)
+{
+   Eina_Bool ret = EINA_FALSE;
+
+   ELOGF("MAGNIFIER", "Stand Alone mode set:%d", NULL, stand_alone);
+   if (!_e_magnifier_mgr)
+     {
+        if (stand_alone)
+          {
+             e_magnifier_new();
+             ret = _e_magnifier_stand_alone_mode_set(_e_magnifier_mgr, stand_alone);
+          }
+     }
+   else
+     {
+        E_MAGNIFIER_SMART_DATA_GET_OR_RETURN(_e_magnifier_mgr, sd) EINA_FALSE;
+
+        if (sd->owner)
+          {
+             ELOGF("MAGNIFIER", "Failed to Stand_Alone mode. Magnifier window exists...", sd->owner);
+             return EINA_FALSE;
+          }
+
+        ret = _e_magnifier_stand_alone_mode_set(_e_magnifier_mgr, stand_alone);
+     }
+
+   return ret;
 }

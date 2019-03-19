@@ -38,6 +38,8 @@ EINTERN Eina_Bool e_magnifier_smart_member_del(Evas_Object *obj);
 E_API Eina_Bool   e_magnifier_owner_set(E_Client *ec);
 E_API void        e_magnifier_owner_unset(E_Client *ec);
 E_API E_Client   *e_magnifier_owner_get(void);
+
+EINTERN Eina_Bool e_magnifier_stand_alone_mode_set(Eina_Bool stand_alone);
 #endif
 #endif
 

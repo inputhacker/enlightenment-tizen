@@ -4632,6 +4632,63 @@ e_info_server_cb_effect_control(const Eldbus_Service_Interface *iface EINA_UNUSE
 }
 
 static Eldbus_Message *
+e_info_server_cb_magnifier(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   uint32_t opcode;
+
+   if (!eldbus_message_arguments_get(msg, "i", &opcode))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+   switch (opcode)
+     {
+      case 0: // magnifier off test
+         e_magnifier_stand_alone_mode_set(EINA_FALSE);
+         e_magnifier_hide(NULL);
+         e_magnifier_del();
+         break;
+
+      case 1: // magnifier on test
+         e_magnifier_new();
+         e_magnifier_stand_alone_mode_set(EINA_TRUE);
+         e_magnifier_show(NULL);
+         break;
+
+      case 2: // magnifier new
+         e_magnifier_new();
+         break;
+
+      case 3: // magnifier del
+         e_magnifier_del();
+         break;
+
+      case 4: // set stand_alone
+         e_magnifier_stand_alone_mode_set(EINA_TRUE);
+         break;
+
+      case 5: // unset stand_alone
+         e_magnifier_stand_alone_mode_set(EINA_FALSE);
+         break;
+
+      case 6: // magnifier show
+         e_magnifier_show(NULL);
+         break;
+
+      case 7: // magnifier hide
+         e_magnifier_hide(NULL);
+         break;
+
+      default:
+         break;
+     }
+
+   return reply;
+}
+
+static Eldbus_Message *
 e_info_server_cb_aux_message(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
@@ -6022,6 +6079,7 @@ static const Eldbus_Method methods[] = {
    { "deiconify_approve", ELDBUS_ARGS({"it", "option"}), ELDBUS_ARGS({"s", "deiconify_approve status"}), _e_info_server_cb_deiconify_approve, 0},
    { "key_repeat", ELDBUS_ARGS({"sii", "option"}), NULL, _e_info_server_cb_key_repeat, 0},
    { "dump_memchecker", NULL, NULL, _e_info_server_cb_memchecker, 0},
+   { "magnifier", ELDBUS_ARGS({"i", "magnifier"}), NULL, e_info_server_cb_magnifier, 0},
    { "input_region", ELDBUS_ARGS({"siiii", "options"}), ELDBUS_ARGS({"a(iiii)", "path"}), _e_info_server_cb_input_region, 0},
    { "hwc_wins", ELDBUS_ARGS({"i", "option"}), ELDBUS_ARGS({"as", "hwc wins info"}), _e_info_server_cb_hwc_wins_info_get, 0 },
    { NULL, NULL, NULL, NULL, 0 }
