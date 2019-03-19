@@ -524,7 +524,8 @@ e_keyrouter_wl_util_do_privilege_check(struct wl_client *client, uint32_t mode, 
    if (mode == TIZEN_KEYROUTER_MODE_TOPMOST)
      return EINA_TRUE;
 
-   if (krt->HardKeys[keycode].no_privcheck == EINA_TRUE)
+   if (krt->HardKeys[keycode].no_privcheck == EINA_TRUE &&
+       mode == TIZEN_KEYROUTER_MODE_OVERRIDABLE_EXCLUSIVE)
      return EINA_TRUE;
 
    if (!client) return EINA_FALSE;
