@@ -3026,6 +3026,7 @@ _e_comp_wl_surface_cb_commit(struct wl_client *client EINA_UNUSED, struct wl_res
 {
    E_Client *ec, *subc;
    Eina_List *l;
+   E_Comp_Config *comp_conf = NULL;
 
    if (!(ec = wl_resource_get_user_data(resource))) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
@@ -3036,6 +3037,14 @@ _e_comp_wl_surface_cb_commit(struct wl_client *client EINA_UNUSED, struct wl_res
             !ec->internal && !ec->comp_data->sub.data && !ec->remote_surface.provider)
           {
              ELOGF("COMP", "Current unmapped. COMMIT. pixmap_usable:%d", ec, e_pixmap_usable_get(ec->pixmap));
+
+             // no canvas update before client's commit request, begin rendering after 1st commit
+             comp_conf = e_comp_config_get();
+             if (comp_conf && comp_conf->canvas_render_delay_after_boot && e_comp->canvas_render_delayed)
+               {
+                  ELOGF("COMP", "Begin canvas update for the first time after boot", ec);
+                  e_comp->canvas_render_delayed = EINA_FALSE;
+               }
           }
      }
 

@@ -72,6 +72,7 @@ struct _E_Comp_Config
    unsigned char dim_rect_effect;
    Eina_Bool input_log_enable;
    unsigned char avoid_afill; // used for avoiding to fill the alpha channel. 0: use gl_tbm ee engine, 1: use gl_tbm_ES ee engine
+   unsigned char canvas_render_delay_after_boot; // no canvas update before client's commit request, begin rendering after 1st commit
 };
 
 struct _E_Comp_Match

@@ -464,6 +464,8 @@ e_comp_init(void)
    // use wl_surface instead of tbm_surface for the e_comp_wl_buffer
    if (conf->use_native_type_buffer) e_comp->use_native_type_buffer = EINA_TRUE;
 
+   if (conf->canvas_render_delay_after_boot) e_comp->canvas_render_delayed = EINA_TRUE;
+
    e_comp->comp_type = E_PIXMAP_TYPE_WL;
 
    e_comp_canvas_fake_layers_init();

@@ -232,6 +232,8 @@ _e_comp_screen_commit_idle_cb(void *data EINA_UNUSED)
    if (e_config->comp_canvas_norender.use)
      evas_norender(e_comp->evas);
 
+   if (e_comp->canvas_render_delayed) goto end;
+
    e_comp_screen = e_comp->e_comp_screen;
 
    EINA_LIST_FOREACH_SAFE(e_comp_screen->outputs, l, ll, output)

@@ -89,6 +89,7 @@ e_comp_cfdata_edd_init(E_Config_DD **conf_edd, E_Config_DD **match_edd)
    E_CONFIG_VAL(D, T, dim_rect_enable, UCHAR);
    E_CONFIG_VAL(D, T, input_log_enable, UCHAR);
    E_CONFIG_VAL(D, T, avoid_afill, UCHAR);
+   E_CONFIG_VAL(D, T, canvas_render_delay_after_boot, UCHAR);
 }
 
 E_API E_Comp_Config *
@@ -251,6 +252,8 @@ e_comp_cfdata_config_new(void)
    cfg->input_log_enable = 0;
 
    cfg->avoid_afill = 0; // 0: use gl_tbm ee engine, 1: use gl_tbm_ES ee engine
+
+   cfg->canvas_render_delay_after_boot = 0;
 
    return cfg;
 
