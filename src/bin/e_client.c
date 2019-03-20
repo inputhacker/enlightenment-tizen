@@ -2320,6 +2320,7 @@ _e_client_eval(E_Client *ec)
 {
    int send_event = 1;
    unsigned int prop = 0;
+   int tx, ty, tw, th;
 
    if (e_object_is_del(E_OBJECT(ec)))
      {
@@ -2344,8 +2345,9 @@ _e_client_eval(E_Client *ec)
         /* enforce wm size hints for initial sizing */
         if (e_config->screen_limits == E_CLIENT_OFFSCREEN_LIMIT_ALLOW_NONE)
           {
-             ec->w = MIN(ec->w, ec->zone->w);
-             ec->h = MIN(ec->h, ec->zone->h);
+             tw = MIN(ec->w, ec->zone->w);
+             th = MIN(ec->h, ec->zone->h);
+             e_client_size_set(ec, tw, th);
           }
         e_client_resize_limit(ec, &ec->w, &ec->h);
 
@@ -2378,7 +2380,7 @@ _e_client_eval(E_Client *ec)
                             e_comp_object_util_center_pos_get(ec->parent->frame, &x, &y);
                             if (E_CONTAINS(x, y, ec->w, ec->h, zx, zy, zw, zh))
                               {
-                                 ec->x = x, ec->y = y;
+                                 e_client_pos_set(ec, x, y);
                               }
                             else
                               {
@@ -2418,13 +2420,15 @@ _e_client_eval(E_Client *ec)
                     {
                        // if transient for a window and not placed, center on
                        // transient parent if found
-                       ec->x = trans_ec->x + ((trans_ec->w - ec->w) / 2);
-                       ec->y = trans_ec->y + ((trans_ec->h - ec->h) / 2);
+                       tx = trans_ec->x + ((trans_ec->w - ec->w) / 2);
+                       ty = trans_ec->y + ((trans_ec->h - ec->h) / 2);
+                       e_client_pos_set(ec, tx, ty);
                     }
                   else
                     {
-                       ec->x = zx + ((zw - ec->w) / 2);
-                       ec->y = zy + ((zh - ec->h) / 2);
+                       tx = zx + ((zw - ec->w) / 2);
+                       ty = zy + ((zh - ec->h) / 2);
+                       e_client_pos_set(ec, tx, ty);
                     }
                   ec->changes.pos = 1;
                   ec->placed = 1;
@@ -2480,8 +2484,7 @@ _e_client_eval(E_Client *ec)
                   e_place_zone_cursor(ec->zone, ec->x, ec->y, ec->w, ec->h,
                                       t, &new_x, &new_y);
                }
-             ec->x = new_x;
-             ec->y = new_y;
+             e_client_pos_set(ec, new_x, new_y);
              ec->changes.pos = 1;
              ec->placed = 1;
              ec->pre_cb.x = ec->x; ec->pre_cb.y = ec->y;
@@ -2492,8 +2495,9 @@ _e_client_eval(E_Client *ec)
              if (!ec->changes.tz_position)
                {
                   /* If an ec is placed out of bound, fix it! */
-                  ec->x = zx + ((zw - ec->w) / 2);
-                  ec->y = zy + ((zh - ec->h) / 2);
+                  tx = zx + ((zw - ec->w) / 2);
+                  ty = zy + ((zh - ec->h) / 2);
+                  e_client_pos_set(ec, tx, ty);
                   ec->changes.pos = 1;
                }
           }
@@ -2503,8 +2507,9 @@ _e_client_eval(E_Client *ec)
           e_hints_window_init(ec);
         if (ec->e.state.centered)
           {
-             ec->x = zx + (zw - ec->w) / 2;
-             ec->y = zy + (zh - ec->h) / 2;
+             tx = zx + (zw - ec->w) / 2;
+             ty = zy + (zh - ec->h) / 2;
+             e_client_pos_set(ec, tx, ty);
              ec->changes.pos = 1;
           }
 
@@ -2649,9 +2654,10 @@ _e_client_eval(E_Client *ec)
                   if (ec->cur_mouse_action)
                     {
                        int t;
-                       ec->x = x - (ec->w >> 1);
+                       tx = x - (ec->w >> 1);
                        e_comp_object_frame_geometry_get(ec->frame, NULL, NULL, &t, NULL);
-                       ec->y = y - (t >> 1);
+                       ty = y - (t >> 1);
+                       e_client_pos_set(ec, tx, ty);
                        EC_CHANGED(ec);
                        ec->changes.pos = 1;
                     }
@@ -3920,8 +3926,7 @@ e_client_new(E_Pixmap *cp, int first_map, int internal)
    uuid_generate(ec->uuid);
 
    ec->focus_policy_override = E_FOCUS_LAST;
-   ec->w = 1;
-   ec->h = 1;
+   e_client_size_set(ec, 1, 1);
    ec->internal = internal;
 
    ec->pixmap = cp;
@@ -4628,6 +4633,54 @@ e_client_zone_set(E_Client *ec, E_Zone *zone)
    e_client_res_change_geometry_save(ec);
    e_client_res_change_geometry_restore(ec);
    ec->pre_res_change.valid = 0;
+}
+
+E_API void
+e_client_pos_set(E_Client *ec, int x, int y)
+{
+   if (!ec) return;
+   ec->x = x;
+   ec->y = y;
+}
+
+E_API void
+e_client_pos_get(E_Client *ec, int *x, int *y)
+{
+   int ex = 0;
+   int ey = 0;
+
+   if (ec)
+     {
+        ex = ec->x;
+        ey = ec->y;
+     }
+
+   if (x) *x = ex;
+   if (y) *y = ey;
+}
+
+E_API void
+e_client_size_set(E_Client *ec, int w, int h)
+{
+   if (!ec) return;
+   ec->w = w;
+   ec->h = h;
+}
+
+E_API void
+e_client_size_get(E_Client *ec, int *w, int *h)
+{
+   int ew = 0;
+   int eh = 0;
+
+   if (ec)
+     {
+        ew = ec->w;
+        eh = ec->h;
+     }
+
+   if (w) *w = ew;
+   if (h) *h = eh;
 }
 
 E_API void

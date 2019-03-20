@@ -1888,7 +1888,8 @@ _set_win_prop_Geometry(Evas_Object *evas_obj, const char *prop_value)
 
    /* TODO: I have no enough knowledges to say that it's a proper way
     *       to change e_client geometry */
-   ec->x = x; ec->y = y; ec->w = w; ec->h = h;
+   e_client_pos_set(ec, x, y);
+   e_client_size_set(ec, w, h);
 
    return NULL;
 }

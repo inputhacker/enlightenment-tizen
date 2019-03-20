@@ -6427,8 +6427,7 @@ e_comp_wl_commit_sync_configure(E_Client *ec)
           {
              if ((config.w != ec->w) || (config.h != ec->h))
                {
-                  ec->w = config.w;
-                  ec->h = config.h;
+                  e_client_size_set(ec, config.w, config.h);
                   ec->changes.size = EINA_TRUE;
                   EC_CHANGED(ec);
                }
@@ -6436,8 +6435,9 @@ e_comp_wl_commit_sync_configure(E_Client *ec)
 
         if (change & E_GEOMETRY_POS)
           {
-             ec->x = ec->client.x = ec->desk->geom.x + config.x;
-             ec->y = ec->client.y = ec->desk->geom.y + config.y;
+             ec->client.x = ec->desk->geom.x + config.x;
+             ec->client.y = ec->desk->geom.y + config.y;
+             e_client_pos_set(ec, ec->client.x, ec->client.y);
              ec->placed = 1;
              ec->changes.pos = 1;
              EC_CHANGED(ec);

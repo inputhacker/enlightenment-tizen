@@ -3498,8 +3498,9 @@ _e_comp_wl_remote_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *st
      {
         x = ec->client.x, y = ec->client.y;
 
-        ec->w = ec->client.w = state->bw;
-        ec->h = ec->client.h = state->bh;
+        ec->client.w = state->bw;
+        ec->client.h = state->bh;
+        e_client_size_set(ec, state->bw, state->bh);
 
         if ((ec->comp_data->shell.surface) && (ec->comp_data->shell.configure))
           ec->comp_data->shell.configure(ec->comp_data->shell.surface,

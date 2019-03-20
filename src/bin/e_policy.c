@@ -219,11 +219,12 @@ _e_policy_client_maximize_pre(E_Policy_Client *pc)
         zh = ec->zone->h;
      }
 
-   ec->x = ec->client.x = zx;
-   ec->y = ec->client.y = zy;
-   ec->w = ec->client.w = zw;
-   ec->h = ec->client.h = zh;
-
+   ec->client.x = zx;
+   ec->client.y = zy;
+   ec->client.w = zw;
+   ec->client.h = zh;
+   e_client_pos_set(ec, zx, zy);
+   e_client_size_set(ec, zw, zh);
    EC_CHANGED(ec);
 }
 

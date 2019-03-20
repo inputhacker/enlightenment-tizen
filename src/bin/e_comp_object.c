@@ -1342,7 +1342,7 @@ _e_comp_intercept_move(void *data, Evas_Object *obj, int x, int y)
         if ((cw->ec->x != x) || (cw->ec->y != y))
           {
              /* handle case where client tries to move to position and back very quickly */
-             cw->ec->x = x, cw->ec->y = y;
+             e_client_pos_set(cw->ec, x, y);
              cw->ec->client.x = x + cw->client_inset.l;
              cw->ec->client.y = y + cw->client_inset.t;
           }
@@ -1387,7 +1387,7 @@ _e_comp_intercept_move(void *data, Evas_Object *obj, int x, int y)
         return;
      }
 
-   cw->ec->x = x, cw->ec->y = y;
+   e_client_pos_set(cw->ec, x, y);
    if (cw->ec->new_client)
      {
         /* don't actually do anything until first client idler loop */
@@ -1419,7 +1419,7 @@ _e_comp_intercept_resize(void *data, Evas_Object *obj, int w, int h)
 
    if (!e_util_strcmp("input_panel_surface", cw->ec->icccm.window_role))
      {
-        cw->ec->w = w, cw->ec->h = h;
+        e_client_size_set(cw->ec, w, h);
         evas_object_resize(obj, w, h);
         return;
      }
@@ -1438,7 +1438,7 @@ _e_comp_intercept_resize(void *data, Evas_Object *obj, int w, int h)
             (cw->ec->client.h != h - cw->client_inset.t - cw->client_inset.b))
           {
              /* handle case where client tries to resize itself and back very quickly */
-             cw->ec->w = w, cw->ec->h = h;
+             e_client_size_set(cw->ec, w, h);
              cw->ec->client.w = w - cw->client_inset.l - cw->client_inset.r;
              cw->ec->client.h = h - cw->client_inset.t - cw->client_inset.b;
              evas_object_smart_callback_call(obj, "client_resize", NULL);
@@ -1488,7 +1488,7 @@ _e_comp_intercept_resize(void *data, Evas_Object *obj, int w, int h)
         /* do nothing until client idler loops */
         if (!cw->ec->maximized && (cw->ec->w != w || cw->ec->h != h))
           {
-             cw->ec->w = w, cw->ec->h = h;
+             e_client_size_set(cw->ec, w, h);
              cw->ec->changes.size = 1;
              EC_CHANGED(cw->ec);
           }
@@ -1507,7 +1507,7 @@ _e_comp_intercept_resize(void *data, Evas_Object *obj, int w, int h)
         return;
      }
 
-   cw->ec->w = w, cw->ec->h = h;
+   e_client_size_set(cw->ec, w, h);
    if ((!cw->ec->shading) && (!cw->ec->shaded))
      {
         /* client geom never changes when shading since the client is never altered */
@@ -3858,6 +3858,7 @@ E_API void
 e_comp_object_frame_geometry_set(Evas_Object *obj, int l, int r, int t, int b)
 {
    Eina_Bool calc;
+   int tx, ty, tw, th;
 
    API_ENTRY;
    if (cw->frame_object)
@@ -3869,8 +3870,9 @@ e_comp_object_frame_geometry_set(Evas_Object *obj, int l, int r, int t, int b)
    eina_stringshare_replace(&cw->frame_theme, "borderless");
    if (cw->client_inset.calc)
      {
-        cw->ec->w += (l + r) - (cw->client_inset.l + cw->client_inset.r);
-        cw->ec->h += (t + b) - (cw->client_inset.t + cw->client_inset.b);
+        tw = cw->ec->w + ((l + r) - (cw->client_inset.l + cw->client_inset.r));
+        th = cw->ec->h + ((t + b) - (cw->client_inset.t + cw->client_inset.b));
+        e_client_size_set(cw->ec, tw, th);
      }
    else if (cw->ec->maximized || cw->ec->fullscreen)
      {
@@ -3889,8 +3891,9 @@ e_comp_object_frame_geometry_set(Evas_Object *obj, int l, int r, int t, int b)
      {
         if ((calc || (!e_client_has_xwindow(cw->ec))) && cw->client_inset.calc)
           {
-             cw->ec->x -= l - cw->client_inset.l;
-             cw->ec->y -= t - cw->client_inset.t;
+             tx = cw->ec->x - (l - cw->client_inset.l);
+             ty = cw->ec->y - (t - cw->client_inset.t);
+             e_client_pos_set(cw->ec, tx, ty);
           }
         cw->ec->changes.pos = cw->ec->changes.size = 1;
         EC_CHANGED(cw->ec);
