@@ -178,7 +178,6 @@ static E_Comp_Wl_Remote_Buffer *_e_comp_wl_remote_buffer_get(E_Comp_Wl_Remote_Su
                                                              struct wl_resource *remote_buffer_resource);
 static void _remote_surface_region_clear(E_Comp_Wl_Remote_Surface *remote_surface);
 static void _remote_surface_ignore_output_transform_send(E_Comp_Wl_Remote_Common *common);
-static void _remote_source_save_start(E_Comp_Wl_Remote_Source *source);
 
 static Evas_Device *
 _device_get_by_identifier(const char *identifier)
@@ -3132,22 +3131,7 @@ _image_save_type_check(E_Client *ec)
 static void
 _e_comp_wl_remote_cb_client_iconify(void *data, E_Client *ec)
 {
-   E_Comp_Wl_Remote_Source *source;
-
-   if (!(source = _remote_source_find(ec)))
-     {
-        if (ec->ignored) return;
-        if (!_image_save_type_check(ec)) return;
-        if (e_object_is_del(E_OBJECT(ec))) return;
-
-        source = E_NEW(E_Comp_Wl_Remote_Source, 1);
-        EINA_SAFETY_ON_NULL_RETURN(source);
-
-        source->common.ec = ec;
-        eina_hash_add(_rsm->source_hash, &ec, source);
-     }
-
-   _remote_source_save_start(source);
+   e_comp_wl_remote_surface_image_save(ec);
 }
 
 static void
@@ -3241,22 +3225,7 @@ _e_comp_wl_remote_cb_hook_action_change(void *d EINA_UNUSED, E_Process *epro, vo
 
    if (base_ec)
      {
-        E_Comp_Wl_Remote_Source *source;
-
-        if (!(source = _remote_source_find(base_ec)))
-          {
-             if (base_ec->ignored) return;
-             if (!_image_save_type_check(base_ec)) return;
-             if (e_object_is_del(E_OBJECT(base_ec))) return;
-
-             source = E_NEW(E_Comp_Wl_Remote_Source, 1);
-             EINA_SAFETY_ON_NULL_RETURN(source);
-
-             source->common.ec = base_ec;
-             eina_hash_add(_rsm->source_hash, &base_ec, source);
-          }
-
-        _remote_source_save_start(source);
+        e_comp_wl_remote_surface_image_save(base_ec);
      }
 }
 
@@ -3683,7 +3652,7 @@ e_comp_wl_remote_surface_image_save(E_Client *ec)
    E_Comp_Wl_Remote_Source *src;
 
    if (!e_config->save_win_buffer) return;
-   if (!e_config->hold_prev_win_img) return;
+   if (e_object_is_del(E_OBJECT(ec))) return;
    if (ec->saved_img) return;
    if (ec->ignored) return;
    if (!_image_save_type_check(ec)) return;
