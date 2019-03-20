@@ -111,8 +111,6 @@ struct _E_Comp_Wl_Remote_Source
 
    int offscreen_ref;
    int ref_as_child;
-
-   Eina_Bool defer_img_save;
 };
 
 /* widget viewer or task-manager client */
@@ -1769,24 +1767,13 @@ end:
 
    eina_stringshare_del(td->image_path);
    E_FREE(td);
-
-   if ((!del) && (source))
-     {
-        if (source->defer_img_save)
-          {
-             RSMDBG("IMG save retry", NULL, source->common.ec, "SOURCE", source);
-             _remote_source_save_start(source);
-             source->defer_img_save = EINA_FALSE;
-          }
-     }
 }
 
 /* Stop capture job when the window is uniconified while capturing
  * on another thread.
  *
  * If a commit event occurs for iconified window, then does cancellation
- * for capture thread and set the defer_img_save to true to restart the
- * capture thread again for new window buffer.
+ * for capture thread.
  *
  * It can be using ecore_thread_check API to check whether the capture
  * job is done.
@@ -1893,10 +1880,10 @@ _remote_source_save_start_cancel(E_Client *ec)
 
    if (source->th)
      {
-        RSMDBG("IMG save could be cancelled. UNICONIFY th:%p(cancel:%d) defer_img_save:%d iconic:%d del:%d ec_del:%d",
+        RSMDBG("IMG save could be cancelled. UNICONIFY th:%p(cancel:%d) iconic:%d del:%d ec_del:%d",
                ec->pixmap, ec, "SOURCE", source,
                source->th, ecore_thread_check(source->th),
-               source->defer_img_save, ec->iconic,
+               ec->iconic,
                source->deleted, e_object_is_del(E_OBJECT(ec)));
         if (!ecore_thread_check(source->th) &&
             !source->deleted &&
