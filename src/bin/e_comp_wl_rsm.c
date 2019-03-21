@@ -997,6 +997,8 @@ typedef struct {
      E_Client *ec;
 
      Capture_Data *child_data;
+     Eina_Stringshare *image_dir;
+     Eina_Stringshare *image_name;
 } Thread_Data;
 
 static E_Comp_Wl_Remote_Source *
@@ -1318,28 +1320,18 @@ clean_up:
    return transform_surface;
 }
 
-static const char *
-_remote_source_image_data_save(Thread_Data *td, const char *path, const char *name)
+static Eina_Bool
+_remote_source_image_data_save(Thread_Data *td)
 {
    void *shm_buffer_ptr = NULL;
    tbm_surface_h tbm_surface = NULL, transform_surface = NULL;
    int w, h, stride;
    void *ptr;
-   char dest[2048], fname[2048];
-   const char *dupname;
-   int id = 0, ret = 0;
+   int ret = 0;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(td, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(path, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(name, NULL);
-
-   snprintf(fname, sizeof(fname), "%s-%d", name, id);
-   snprintf(dest, sizeof(dest), "%s/%s.png", path, fname);
-   while (ecore_file_exists(dest))
-     {
-        snprintf(fname, sizeof(fname), "%s-%d", name, ++id);
-        snprintf(dest, sizeof(dest), "%s/%s.png", path, fname);
-     }
+   EINA_SAFETY_ON_NULL_RETURN_VAL(td, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(td->image_dir, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(td->image_name, EINA_FALSE);
 
    shm_buffer_ptr = td->shm_buffer_ptr;
    tbm_surface = td->tbm_surface;
@@ -1360,11 +1352,10 @@ _remote_source_image_data_save(Thread_Data *td, const char *path, const char *na
          else
            {
               ptr = shm_buffer_ptr;
-              EINA_SAFETY_ON_NULL_RETURN_VAL(ptr, NULL);
+              EINA_SAFETY_ON_NULL_RETURN_VAL(ptr, EINA_FALSE);
            }
 
-         dupname = strdup(fname);
-         ret = tbm_surface_internal_capture_shm_buffer(ptr, w, h, stride, path, dupname, "png");
+         ret = tbm_surface_internal_capture_shm_buffer(ptr, w, h, stride, td->image_dir, td->image_name, "png");
 
          if (transform_surface)
            {
@@ -1372,16 +1363,15 @@ _remote_source_image_data_save(Thread_Data *td, const char *path, const char *na
               tbm_surface_destroy(transform_surface);
            }
 
-         free((void*)dupname);
          if (!ret)
-           return NULL;
+           return EINA_FALSE;
      }
    else if (tbm_surface)
      {
          w = tbm_surface_get_width(tbm_surface);
-         EINA_SAFETY_ON_FALSE_RETURN_VAL(w > 0, NULL);
+         EINA_SAFETY_ON_FALSE_RETURN_VAL(w > 0, EINA_FALSE);
          h = tbm_surface_get_height(tbm_surface);
-         EINA_SAFETY_ON_FALSE_RETURN_VAL(h > 0, NULL);
+         EINA_SAFETY_ON_FALSE_RETURN_VAL(h > 0, EINA_FALSE);
 
          transform_surface = _remote_source_image_data_transform(td, w, h);
          if (transform_surface)
@@ -1389,22 +1379,21 @@ _remote_source_image_data_save(Thread_Data *td, const char *path, const char *na
 
          RSMDBG("image save. transform_surface=%p transform=%d", td->ec->pixmap, td->ec, "SOURCE", NULL, transform_surface, td->transform);
 
-         dupname = strdup(fname);
-         ret = tbm_surface_internal_capture_buffer(tbm_surface, path, dupname, "png");
+         ret = tbm_surface_internal_capture_buffer(tbm_surface, td->image_dir, td->image_name, "png");
 
          if (transform_surface)
            tbm_surface_destroy(transform_surface);
 
-         free((void*)dupname);
          if (!ret)
-           return NULL;
+           return EINA_FALSE;
      }
    else
      {
-         return NULL;
+         return EINA_FALSE;
      }
 
-   return strdup(dest);
+   td->image_path = eina_stringshare_printf("%s/%s.png",td->image_dir, td->image_name);
+   return EINA_TRUE;
 }
 
 static void
@@ -1594,20 +1583,15 @@ _remote_source_child_data_check(Thread_Data *td)
 }
 
 static void
-_remote_source_save(void *data, Ecore_Thread *th)
+_remote_source_default_path_get(E_Client *ec, Eina_Stringshare** dir, Eina_Stringshare** fname)
 {
-   Thread_Data *td;
-   E_Client *ec;
    char name[1024];
    char dest_dir[1024];
-   const char *dest_path, *dupname, *dupdir;
+   char dest[2048];
    char *run_dir;
+   int id = 0;
 
-   if (!(td = data)) return;
-
-   ec = td->ec;
    if (!ec) return;
-   if (ecore_thread_check(th)) return;
 
    run_dir = e_util_env_get("XDG_RUNTIME_DIR");
    if (!run_dir) return;
@@ -1617,28 +1601,46 @@ _remote_source_save(void *data, Ecore_Thread *th)
 
    if (!ecore_file_exists(dest_dir))
      ecore_file_mkdir(dest_dir);
-   dupdir = strdup(dest_dir);
 
    snprintf(name, sizeof(name),
-            "win_%d_%u",
+            "win_%d_%u-%d",
             ec->netwm.pid,
-            e_pixmap_res_id_get(ec->pixmap));
+            e_pixmap_res_id_get(ec->pixmap), id);
 
-   dupname = strdup(name);
-
-   dest_path = _remote_source_image_data_save(td, dupdir, dupname);
-   if (dest_path)
+   snprintf(dest, sizeof(dest), "%s/%s.png", dest_dir, name);
+   while (ecore_file_exists(dest))
      {
-        RSMDBG("IMG save success. th:%p file:%s", NULL, ec, "SOURCE", NULL, th, dest_path);
-        td->image_path = eina_stringshare_add(dest_path);
-        free((void*)dest_path);
+        snprintf(name, sizeof(name),
+                 "win_%d_%u-%d",
+                 ec->netwm.pid,
+                 e_pixmap_res_id_get(ec->pixmap), ++id);
+        snprintf(dest, sizeof(dest), "%s/%s.png", dest_dir, name);
+     }
+
+   *dir = eina_stringshare_add(dest_dir);
+   *fname = eina_stringshare_add(name);
+}
+
+static void
+_remote_source_save(void *data, Ecore_Thread *th)
+{
+   Thread_Data *td;
+   E_Client *ec;
+
+   if (!(td = data)) return;
+
+   ec = td->ec;
+   if (!ec) return;
+   if (ecore_thread_check(th)) return;
+
+   if (_remote_source_image_data_save(td))
+     {
+        RSMDBG("IMG save success. th:%p file:%s", NULL, ec, "SOURCE", NULL, th, td->image_path);
      }
    else
      {
-        RSMDBG("IMG save failure. th:%p file:%s", NULL, ec, "SOURCE", NULL, th, dest_path);
+        RSMDBG("IMG save failure. th:%p file:%s", NULL, ec, "SOURCE", NULL, th, td->image_path);
      }
-   free((void*)dupname);
-   free((void*)dupdir);
 }
 
 static void
@@ -1709,6 +1711,8 @@ end:
      wl_shm_pool_unref(td->shm_pool);
 
    eina_stringshare_del(td->image_path);
+   eina_stringshare_del(td->image_dir);
+   eina_stringshare_del(td->image_name);
    E_FREE(td);
 }
 
@@ -1718,7 +1722,6 @@ _remote_source_save_cancel(void *data, Ecore_Thread *th)
    Thread_Data *td = data;
    E_Client *ec;
    E_Comp_Wl_Remote_Source *source = NULL;
-   Eina_Bool del = EINA_FALSE;
 
    if (!td) return;
 
@@ -1754,7 +1757,6 @@ _remote_source_save_cancel(void *data, Ecore_Thread *th)
    if (source->deleted)
      {
         _remote_source_destroy(source);
-        del = EINA_TRUE;
      }
 end:
    if (ec)
@@ -1765,6 +1767,8 @@ end:
      wl_shm_pool_unref(td->shm_pool);
 
    eina_stringshare_del(td->image_path);
+   eina_stringshare_del(td->image_dir);
+   eina_stringshare_del(td->image_name);
    E_FREE(td);
 }
 
@@ -1778,7 +1782,7 @@ end:
  * job is done.
  */
 static void
-_remote_source_save_start(E_Comp_Wl_Remote_Source *source)
+_remote_source_save_start(E_Comp_Wl_Remote_Source *source, Eina_Stringshare *dir, Eina_Stringshare *name)
 {
    E_Client *ec;
    E_Comp_Wl_Buffer *buffer = NULL;
@@ -1806,6 +1810,8 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source)
    td->ec = ec;
 
    td->transform = e_comp_wl_output_buffer_transform_get(ec);
+   td->image_dir = eina_stringshare_ref(dir);
+   td->image_name = eina_stringshare_ref(name);
 
    e_comp_wl_buffer_reference(&source->buffer_ref, buffer);
    switch (buffer->type)
@@ -3693,6 +3699,7 @@ e_comp_wl_remote_surface_image_save(E_Client *ec)
 {
 #ifdef HAVE_REMOTE_SURFACE
    E_Comp_Wl_Remote_Source *src;
+   Eina_Stringshare *dir, *name;
 
    if (!e_config->save_win_buffer) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
@@ -3703,8 +3710,11 @@ e_comp_wl_remote_surface_image_save(E_Client *ec)
    src = _remote_source_get(ec);
    EINA_SAFETY_ON_NULL_GOTO(src, end);
 
-   _remote_source_save_start(src);
+   _remote_source_default_path_get(ec, &dir, &name);
+   _remote_source_save_start(src, dir, name);
 
+   eina_stringshare_del(dir);
+   eina_stringshare_del(name);
 end:
    return;
 #endif /* HAVE_REMOTE_SURFACE */
