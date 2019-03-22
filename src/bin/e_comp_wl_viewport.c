@@ -1660,7 +1660,7 @@ _e_comp_wl_viewport_cb_topmost_rotate(void *data, int type, void *event)
    return ECORE_CALLBACK_PASS_ON;
 }
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_comp_wl_viewport_create(struct wl_resource *resource,
                           uint32_t id,
                           struct wl_resource *surface)
