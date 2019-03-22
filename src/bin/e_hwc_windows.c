@@ -267,7 +267,7 @@ _e_hwc_windows_target_window_rendered_windows_get(E_Hwc *hwc)
 }
 
 static Eina_Bool
-_e_hwc_windows_target_window_buffer_skip(E_Hwc *hwc)
+_e_hwc_windows_target_window_buffer_skip(E_Hwc *hwc, Eina_Bool tdm_set)
 {
    E_Hwc_Window_Target *target_hwc_window;
    E_Hwc_Window *hwc_window = NULL;
@@ -297,7 +297,8 @@ _e_hwc_windows_target_window_buffer_skip(E_Hwc *hwc)
           }
 
         e_hwc_window_buffer_set(hwc_window, hwc_window->display.buffer.tsurface, hwc_window->display.buffer.queue);
-        tdm_hwc_set_client_target_buffer(thwc, hwc_window->display.buffer.tsurface, fb_damage);
+        if (tdm_set)
+          tdm_hwc_set_client_target_buffer(thwc, hwc_window->display.buffer.tsurface, fb_damage);
      }
 
    return EINA_TRUE;
@@ -309,7 +310,7 @@ _e_hwc_windows_target_window_buffer_skip(E_Hwc *hwc)
  *  Returing EINA_FALSE means that there is no update for the target_window->tsurface.
  **/
 static Eina_Bool
-_e_hwc_windows_target_buffer_fetch(E_Hwc *hwc)
+_e_hwc_windows_target_buffer_fetch(E_Hwc *hwc, Eina_Bool tdm_set)
 {
    E_Hwc_Window_Target *target_hwc_window;
    E_Hwc_Window *hwc_window, *hw;
@@ -354,7 +355,9 @@ _e_hwc_windows_target_buffer_fetch(E_Hwc *hwc)
         /* the damage isn't supported by hwc extension yet */
         CLEAR(fb_damage);
 
-        tdm_hwc_set_client_target_buffer(thwc, hwc_window->buffer.tsurface, fb_damage);
+        /* If pp_set is true, tdm_hwc_set_client_target_buffer is done with the result buffer of the pp */
+        if (tdm_set)
+          tdm_hwc_set_client_target_buffer(thwc, hwc_window->buffer.tsurface, fb_damage);
 
         if (ehws_trace)
           {
@@ -841,7 +844,7 @@ _e_hwc_windows_pp_output_commit_handler(tdm_output *toutput, unsigned int sequen
         E_FREE(data);
      }
 
-   EHWSTRACE("PP Output Commit Handler hwc(%p)", NULL, hwc);
+   EHWSTRACE("PP Output Commit Handler hwc(%p), pp_tsurface(%p)", NULL, hwc, hwc->pp_tsurface);
 
    output = hwc->output;
    if (e_output_dpms_get(output))
@@ -882,9 +885,9 @@ _e_hwc_windows_pp_output_commit_handler(tdm_output *toutput, unsigned int sequen
              hwc->pending_pp_hwc_window_list = eina_list_remove(hwc->pending_pp_hwc_window_list, hwc_window);
 
              if (data)
-               EHWSTRACE("PP Layer Commit Handler start pending pp data(%p) tsurface(%p)", NULL, data, data->buffer.tsurface);
+               EHWSTRACE("PP Output Commit Handler start pending pp data(%p) tsurface(%p)", NULL, data, data->buffer.tsurface);
              else
-               EHWSTRACE("PP Layer Commit Handler start pending pp data(%p) tsurface(%p)", NULL, NULL, NULL);
+               EHWSTRACE("PP Output Commit Handler start pending pp data(%p) tsurface(%p)", NULL, NULL, NULL);
 
              if (!_e_hwc_windows_pp_window_commit(hwc, hwc_window))
                {
@@ -917,7 +920,7 @@ _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data)
      }
 
    /* no need to pass composited_wnds list because smooth transition isn't
-    * used is this case */
+    * used in this case */
    terror = tdm_hwc_set_client_target_buffer(hwc->thwc, data->buffer.tsurface, fb_damage);
    if (terror != TDM_ERROR_NONE)
      {
@@ -925,8 +928,14 @@ _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data)
         goto fail;
      }
 
-   terror = tdm_hwc_commit(hwc->thwc, 0, _e_hwc_windows_pp_output_commit_handler, hwc);
+   terror = tdm_hwc_accept_validation(hwc->thwc);
+   if (terror != TDM_ERROR_NONE)
+     {
+        ERR("fail to tdm_hwc_accept_validation");
+        goto fail;
+     }
 
+   terror = tdm_hwc_commit(hwc->thwc, 0, _e_hwc_windows_pp_output_commit_handler, hwc);
    if (terror != TDM_ERROR_NONE)
      {
         ERR("fail to tdm_output_commit hwc:%p", hwc);
@@ -1464,19 +1473,22 @@ fail:
 }
 
 static Eina_Bool
-_e_hwc_windows_accept(E_Hwc *hwc)
+_e_hwc_windows_accept(E_Hwc *hwc, Eina_Bool tdm_set)
 {
    E_Hwc_Window *hwc_window;
    E_Hwc_Window_State state;
-   tdm_error terror;
+   tdm_error terror = TDM_ERROR_NONE;
    const Eina_List *l;
 
    /* accept changes */
-   terror = tdm_hwc_accept_validation(hwc->thwc);
-   if (terror != TDM_ERROR_NONE)
+   if (tdm_set)
      {
-        ERR("HWC-WINS: failed to accept validation.");
-        return EINA_FALSE;
+        terror = tdm_hwc_accept_validation(hwc->thwc);
+        if (terror != TDM_ERROR_NONE)
+          {
+             ERR("HWC-WINS: failed to accept validation.");
+             return EINA_FALSE;
+          }
      }
 
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
@@ -1741,6 +1753,15 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
 
              ec = hwc_window->ec;
              if (!ec) continue;
+
+             if (hwc->pp_set)
+               {
+                  e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
+                  EHWSTRACE("   ehw:%p -- {%25s} is Force hwc_unacceptable.",
+                          hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
+                   continue;
+               }
+
              if (ec->redirected)
                {
                   e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
@@ -1827,7 +1848,7 @@ _e_hwc_windows_device_state_available_update(E_Hwc *hwc)
    Eina_Bool available = EINA_TRUE;
 
    /* make the full_gl_composite when the zoom is enabled */
-   if (hwc->output->zoom_set)
+   if (hwc->pp_set)
      {
         available = EINA_FALSE;
         goto finish;
@@ -1871,9 +1892,23 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
    if (_e_hwc_windows_device_state_available_update(hwc))
      update_changes = EINA_TRUE;
 
-   /* fetch the target buffer */
-   if (_e_hwc_windows_target_buffer_fetch(hwc)) // try acquire
-     update_changes = EINA_TRUE;
+   /* if pp set enabled, buffer set to tdm after pp done */
+   if (hwc->pp_set)
+     {
+        /* fetch the target buffer (try acquire) */
+        if (_e_hwc_windows_target_buffer_fetch(hwc, EINA_FALSE))
+          update_changes = EINA_TRUE;
+
+        /* if pp set, need update once */
+        if (hwc->pp_set_info)
+          update_changes = EINA_TRUE;
+     }
+   else
+     {
+        /* fetch the target buffer (try acquire) */
+        if (_e_hwc_windows_target_buffer_fetch(hwc, EINA_TRUE))
+          update_changes = EINA_TRUE;
+     }
 
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
@@ -1933,6 +1968,7 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
    const Eina_List *l;
    uint32_t num_changes;
    int num_client = 0, num_device = 0, num_video = 0;
+   Eina_Bool ret = EINA_FALSE;
 
    /* validate the visible hwc_windows' states*/
    if (!_e_hwc_windows_validate(hwc, &num_changes))
@@ -1987,12 +2023,20 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
    /* skip the target_buffer when the window is on trainsition of the composition */
    if (hwc_mode != E_HWC_MODE_FULL && _e_hwc_windows_transition_check(hwc))
      {
-        _e_hwc_windows_target_window_buffer_skip(hwc);
+        /* if pp set enabled, buffer set to tdm after pp done */
+        if (hwc->pp_set)
+          _e_hwc_windows_target_window_buffer_skip(hwc, EINA_FALSE);
+        else
+          _e_hwc_windows_target_window_buffer_skip(hwc, EINA_TRUE);
         goto re_evaluate;
      }
 
    /* accept the result of the validation */
-   if (!_e_hwc_windows_accept(hwc))
+   if (hwc->pp_set)
+     ret = _e_hwc_windows_accept(hwc, EINA_FALSE);
+   else
+     ret = _e_hwc_windows_accept(hwc, EINA_TRUE);
+   if (!ret)
      {
         ERR("HWC-WINS: _e_hwc_windows_validated_changes_update failed.");
         goto re_evaluate;
