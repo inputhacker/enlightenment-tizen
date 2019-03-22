@@ -999,6 +999,9 @@ typedef struct {
      Capture_Data *child_data;
      Eina_Stringshare *image_dir;
      Eina_Stringshare *image_name;
+
+     E_Image_Save_End_Cb func_end;
+     void *data;
 } Thread_Data;
 
 static E_Comp_Wl_Remote_Source *
@@ -1364,7 +1367,10 @@ _remote_source_image_data_save(Thread_Data *td)
            }
 
          if (!ret)
-           return EINA_FALSE;
+           {
+              RSMDBG("IMG save fail: %s/%s.png", td->ec->pixmap, td->ec, "SOURCE", NULL, td->image_dir, td->image_name);
+              return EINA_FALSE;
+           }
      }
    else if (tbm_surface)
      {
@@ -1377,7 +1383,7 @@ _remote_source_image_data_save(Thread_Data *td)
          if (transform_surface)
            tbm_surface = transform_surface;
 
-         RSMDBG("image save. transform_surface=%p transform=%d", td->ec->pixmap, td->ec, "SOURCE", NULL, transform_surface, td->transform);
+         RSMDBG("IMG save. transform_surface=%p transform=%d", td->ec->pixmap, td->ec, "SOURCE", NULL, transform_surface, td->transform);
 
          ret = tbm_surface_internal_capture_buffer(tbm_surface, td->image_dir, td->image_name, "png");
 
@@ -1385,10 +1391,14 @@ _remote_source_image_data_save(Thread_Data *td)
            tbm_surface_destroy(transform_surface);
 
          if (!ret)
-           return EINA_FALSE;
+           {
+              RSMDBG("IMG save fail: %s/%s.png", td->ec->pixmap, td->ec, "SOURCE", NULL, td->image_dir, td->image_name);
+              return EINA_FALSE;
+           }
      }
    else
      {
+         RSMDBG("IMG save fail: %s/%s.png", td->ec->pixmap, td->ec, "SOURCE", NULL, td->image_dir, td->image_name);
          return EINA_FALSE;
      }
 
@@ -1622,6 +1632,27 @@ _remote_source_default_path_get(E_Client *ec, Eina_Stringshare** dir, Eina_Strin
 }
 
 static void
+_remote_source_save_thread_data_free(Thread_Data *td)
+{
+   if (td->child_data)
+      {
+         _remote_source_child_data_release(td);
+      }
+
+    if (td->ec)
+      e_object_unref(E_OBJECT(td->ec));
+    if (td->tbm_surface)
+      tbm_surface_internal_unref(td->tbm_surface);
+    if (td->shm_pool)
+      wl_shm_pool_unref(td->shm_pool);
+
+    eina_stringshare_del(td->image_path);
+    eina_stringshare_del(td->image_dir);
+    eina_stringshare_del(td->image_name);
+    E_FREE(td);
+}
+
+static void
 _remote_source_save(void *data, Ecore_Thread *th)
 {
    Thread_Data *td;
@@ -1635,11 +1666,11 @@ _remote_source_save(void *data, Ecore_Thread *th)
 
    if (_remote_source_image_data_save(td))
      {
-        RSMDBG("IMG save success. th:%p file:%s", NULL, ec, "SOURCE", NULL, th, td->image_path);
+        RSMDBG("IMG save success. th:%p to %s", ec->pixmap, ec, "SOURCE", NULL, th, td->image_path);
      }
    else
      {
-        RSMDBG("IMG save failure. th:%p file:%s", NULL, ec, "SOURCE", NULL, th, td->image_path);
+        RSMDBG("IMG save failure. th:%p to %s/%s.png", ec->pixmap, ec, "SOURCE", NULL, th, td->image_dir, td->image_name);
      }
 }
 
@@ -1649,6 +1680,7 @@ _remote_source_save_done(void *data, Ecore_Thread *th)
    Thread_Data *td = data;
    E_Client *ec;
    E_Comp_Wl_Remote_Source *source = NULL;
+   E_Image_Save_State st = E_IMAGE_SAVE_STATE_DONE;
 
    if (!td) return;
 
@@ -1664,56 +1696,37 @@ _remote_source_save_done(void *data, Ecore_Thread *th)
      {
         source->th = NULL;
         e_comp_wl_buffer_reference(&source->buffer_ref, NULL);
-
-        if ((source->deleted) || (e_object_is_del(E_OBJECT(ec))))
-          {
-             _remote_source_destroy(source);
-             goto end;
-          }
-
-        if (!td->image_path) goto end;
-
-        RSMDBG("Source save DONE path(%s)", source->common.ec->pixmap, source->common.ec,
-               "SOURCE", source, td->image_path);
-
-        /* remove previous file */
-        if ((source->image_path) && (e_util_strcmp(source->image_path, td->image_path)))
-          {
-             if (!e_config->hold_prev_win_img)
-               {
-                  RSMDBG("IMG del %s", ec->pixmap, ec, "SOURCE", source, source->image_path);
-                  ecore_file_remove(source->image_path);
-               }
-             eina_stringshare_del(source->image_path);
-          }
-        source->image_path = eina_stringshare_add(td->image_path);
-        _remote_source_send_image_update(source);
-
-        ec->saved_img = EINA_TRUE;
      }
    else
      {
         RSMDBG("IMG not matched. del. src:%s td:%s", ec->pixmap, ec, "SOURCE",
                source, source->image_path, td->image_path);
         ecore_file_remove(td->image_path);
+        eina_stringshare_del(td->image_path);
+        td->image_path = NULL;
      }
-end:
-   if (td->child_data)
+
+   if (td->image_path)
      {
-        _remote_source_child_data_release(td);
+        RSMDBG("Source save Thread::DONE path(%s)", source->common.ec->pixmap, source->common.ec,
+               "SOURCE", source, td->image_path);
+     }
+   else
+     {
+        st = E_IMAGE_SAVE_STATE_INVALID;
      }
 
-   if (ec)
-     e_object_unref(E_OBJECT(ec));
-   if (td->tbm_surface)
-     tbm_surface_internal_unref(td->tbm_surface);
-   if (td->shm_pool)
-     wl_shm_pool_unref(td->shm_pool);
+   /*TODO: How can I do, if source was deleted or ec was del*/
+   if (td->func_end)
+     td->func_end(td->data, ec, td->image_path, st);
 
-   eina_stringshare_del(td->image_path);
-   eina_stringshare_del(td->image_dir);
-   eina_stringshare_del(td->image_name);
-   E_FREE(td);
+   if ((source->deleted) || (e_object_is_del(E_OBJECT(ec))))
+     {
+        _remote_source_destroy(source);
+     }
+
+end:
+   _remote_source_save_thread_data_free(td);
 }
 
 static void
@@ -1722,6 +1735,7 @@ _remote_source_save_cancel(void *data, Ecore_Thread *th)
    Thread_Data *td = data;
    E_Client *ec;
    E_Comp_Wl_Remote_Source *source = NULL;
+   E_Image_Save_State st = E_IMAGE_SAVE_STATE_CANCEL;
 
    if (!td) return;
 
@@ -1745,31 +1759,24 @@ _remote_source_save_cancel(void *data, Ecore_Thread *th)
           }
      }
 
-   if (!e_config->hold_prev_win_img)
+   if (td->image_path)
      {
-        if (td->image_path)
-          {
-             RSMDBG("IMG del %s", NULL, source->common.ec, "SOURCE", source, td->image_path);
-             ecore_file_remove(td->image_path);
-          }
+        RSMDBG("Source save Thread::CANCEL path(%s)", source->common.ec->pixmap, source->common.ec,
+               "SOURCE", source, td->image_path);
+        st = E_IMAGE_SAVE_STATE_DONE;
      }
 
-   if (source->deleted)
+   /*TODO: How can I do, if source was deleted or ec was del*/
+   if (td->func_end)
+     td->func_end(td->data, ec, td->image_path, st);
+
+   if ((source->deleted) || (e_object_is_del(E_OBJECT(ec))))
      {
         _remote_source_destroy(source);
      }
-end:
-   if (ec)
-     e_object_unref(E_OBJECT(ec));
-   if (td->tbm_surface)
-     tbm_surface_internal_unref(td->tbm_surface);
-   if (td->shm_pool)
-     wl_shm_pool_unref(td->shm_pool);
 
-   eina_stringshare_del(td->image_path);
-   eina_stringshare_del(td->image_dir);
-   eina_stringshare_del(td->image_name);
-   E_FREE(td);
+end:
+   _remote_source_save_thread_data_free(td);
 }
 
 /* Stop capture job when the window is uniconified while capturing
@@ -1781,8 +1788,11 @@ end:
  * It can be using ecore_thread_check API to check whether the capture
  * job is done.
  */
-static void
-_remote_source_save_start(E_Comp_Wl_Remote_Source *source, Eina_Stringshare *dir, Eina_Stringshare *name)
+static E_Image_Save_State
+_remote_source_save_start(E_Comp_Wl_Remote_Source *source,
+                                       Eina_Stringshare *dir, Eina_Stringshare *name,
+                                       E_Image_Save_End_Cb func_end, void *data,
+                                       Eina_Bool skip_child)
 {
    E_Client *ec;
    E_Comp_Wl_Buffer *buffer = NULL;
@@ -1793,18 +1803,17 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source, Eina_Stringshare *dir
    int shm_buffer_stride, shm_buffer_h;
    tbm_surface_h tbm_surface;
 
-   if (!(ec = source->common.ec)) return;
-   if (!(buffer = e_pixmap_resource_get(ec->pixmap))) return;
-   if (!e_config->save_win_buffer) return;
+   if (!(ec = source->common.ec)) return E_IMAGE_SAVE_STATE_INVALID;
+   if (!(buffer = e_pixmap_resource_get(ec->pixmap))) return E_IMAGE_SAVE_STATE_INVALID;
 
    if (source->th)
      {
         RSMDBG("ALREADY doing capture", NULL, source->common.ec, "SOURCE", source);
-        return;
+        return E_IMAGE_SAVE_STATE_BUSY;
      }
 
    td = E_NEW(Thread_Data, 1);
-   if (!td) return;
+   if (!td) return E_IMAGE_SAVE_STATE_INVALID;
 
    e_object_ref(E_OBJECT(ec));
    td->ec = ec;
@@ -1812,6 +1821,8 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source, Eina_Stringshare *dir
    td->transform = e_comp_wl_output_buffer_transform_get(ec);
    td->image_dir = eina_stringshare_ref(dir);
    td->image_name = eina_stringshare_ref(name);
+   td->func_end = func_end;
+   td->data = data;
 
    e_comp_wl_buffer_reference(&source->buffer_ref, buffer);
    switch (buffer->type)
@@ -1857,14 +1868,16 @@ _remote_source_save_start(E_Comp_Wl_Remote_Source *source, Eina_Stringshare *dir
          goto end;
      }
 
-   _remote_source_child_data_check(td);
+   if (!skip_child)
+      _remote_source_child_data_check(td);
 
    source->th = ecore_thread_run(_remote_source_save,
                                  _remote_source_save_done,
                                  _remote_source_save_cancel,
                                  td);
-   RSMDBG("IMG save START. th:%p", ec->pixmap, ec, "SOURCE", source, source->th);
-   return;
+   RSMDBG("IMG save START. th:%p to %s/%s.png", ec->pixmap, ec, "SOURCE", source, source->th, td->image_dir, td->image_name);
+   return E_IMAGE_SAVE_STATE_START;
+
 end:
    e_comp_wl_buffer_reference(&source->buffer_ref, NULL);
    e_object_unref(E_OBJECT(ec));
@@ -1872,6 +1885,7 @@ end:
    _remote_source_child_data_release(td);
 
    E_FREE(td);
+   return E_IMAGE_SAVE_STATE_INVALID;
 }
 
 static void
@@ -3612,6 +3626,37 @@ _e_comp_wl_remote_surface_subsurface_commit(E_Comp_Wl_Remote_Provider *parent_pr
 
    return EINA_TRUE;
 }
+
+static void
+_e_comp_wl_remote_source_save_done_cb(void *data, E_Client* ec, const Eina_Stringshare *dest, E_Image_Save_State state)
+{
+   E_Comp_Wl_Remote_Source *source = NULL;
+
+   if (state != E_IMAGE_SAVE_STATE_DONE)
+     {
+        RSMDBG("SAVE_DONE_CB state:%d, %s", ec->pixmap, ec, "SOURCE", data, state, dest);
+        return;
+     }
+
+   source = _remote_source_find(ec);
+   if (!source) return;
+
+   /* remove previous file */
+   if ((source->image_path) && (e_util_strcmp(source->image_path, dest)))
+     {
+        if (!e_config->hold_prev_win_img)
+          {
+             RSMDBG("IMG del %s", ec->pixmap, ec, "SOURCE", source, source->image_path);
+             ecore_file_remove(source->image_path);
+          }
+     }
+
+   eina_stringshare_del(source->image_path);
+   source->image_path = eina_stringshare_ref(dest);
+   _remote_source_send_image_update(source);
+
+   ec->saved_img = EINA_TRUE;
+}
 #endif /* HAVE_REMOTE_SURFACE */
 
 E_API E_Client*
@@ -3711,7 +3756,7 @@ e_comp_wl_remote_surface_image_save(E_Client *ec)
    EINA_SAFETY_ON_NULL_GOTO(src, end);
 
    _remote_source_default_path_get(ec, &dir, &name);
-   _remote_source_save_start(src, dir, name);
+   _remote_source_save_start(src, dir, name, _e_comp_wl_remote_source_save_done_cb, NULL, EINA_FALSE);
 
    eina_stringshare_del(dir);
    eina_stringshare_del(name);
@@ -3734,6 +3779,37 @@ e_comp_wl_remote_surface_image_save_skip_get(E_Client *ec)
 {
    if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
    return ec->skip_save_img;
+}
+
+E_API E_Image_Save_State
+e_client_image_save(E_Client *ec,
+                              const char* dir, const char* name,
+                              E_Image_Save_End_Cb func_end, void *data,
+                              Eina_Bool skip_child)
+{
+#ifdef HAVE_REMOTE_SURFACE
+   E_Comp_Wl_Remote_Source *src;
+   Eina_Stringshare *_dir, *_name;
+   E_Image_Save_State ret;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(dir, E_IMAGE_SAVE_STATE_INVALID);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(name,E_IMAGE_SAVE_STATE_INVALID);
+
+   if (e_object_is_del(E_OBJECT(ec))) return E_IMAGE_SAVE_STATE_INVALID;
+
+   src = _remote_source_get(ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(src, E_IMAGE_SAVE_STATE_INVALID);
+
+   _dir = eina_stringshare_add(dir);
+   _name = eina_stringshare_add(name);
+
+   ret = _remote_source_save_start(src, _dir, _name, func_end, data, skip_child);
+
+   eina_stringshare_del(dir);
+   eina_stringshare_del(name);
+
+   return ret;
+#endif /* HAVE_REMOTE_SURFACE */
 }
 
 EINTERN void
