@@ -1854,6 +1854,13 @@ _e_hwc_windows_device_state_available_update(E_Hwc *hwc)
         goto finish;
      }
 
+   /* make the full_gl_composite when the zoom is disabled */
+   if (hwc->pp_unset)
+     {
+        available = EINA_FALSE;
+        goto finish;
+     }
+
    /* full composite is forced to be set */
    if (e_hwc_deactive_get(hwc))
      {
@@ -1907,6 +1914,9 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
      {
         /* fetch the target buffer (try acquire) */
         if (_e_hwc_windows_target_buffer_fetch(hwc, EINA_TRUE))
+          update_changes = EINA_TRUE;
+
+        if (hwc->pp_unset)
           update_changes = EINA_TRUE;
      }
 
@@ -2194,6 +2204,9 @@ e_hwc_windows_commit(E_Hwc *hwc)
    if (!_e_hwc_windows_commit_data_acquire(hwc))
      return EINA_TRUE;
 
+   if (hwc->pp_unset)
+     hwc->pp_unset = EINA_FALSE;
+
    EHWSTRACE("!!!!!!!! HWC Commit !!!!!!!!", NULL);
 
    if (output->zoom_set)
@@ -2294,6 +2307,7 @@ e_hwc_windows_zoom_set(E_Hwc *hwc, Eina_Rectangle *rect)
    hwc->pp_set = EINA_TRUE;
    hwc->target_hwc_window->skip_surface_set = EINA_TRUE;
    hwc->pp_set_info = EINA_TRUE;
+   hwc->pp_unset = EINA_FALSE;
 
    /* to wake up main loop */
    uint64_t value = 1;
@@ -2320,6 +2334,7 @@ e_hwc_windows_zoom_unset(E_Hwc *hwc)
    hwc->pp_set_info = EINA_FALSE;
    hwc->target_hwc_window->skip_surface_set = EINA_FALSE;
    hwc->pp_set = EINA_FALSE;
+   hwc->pp_unset = EINA_TRUE;
 
    hwc->pp_rect.x = 0;
    hwc->pp_rect.y = 0;

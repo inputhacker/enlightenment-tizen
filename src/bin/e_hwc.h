@@ -108,6 +108,7 @@ struct _E_Hwc
    tbm_surface_h         pp_tsurface;
    Eina_Bool             pp_set_info;
    Eina_Bool             pp_set;
+   Eina_Bool             pp_unset;
    Eina_Bool             pp_commit;
    Eina_Bool             pp_output_commit;
    E_Hwc_Window_Commit_Data  *pp_output_commit_data;
