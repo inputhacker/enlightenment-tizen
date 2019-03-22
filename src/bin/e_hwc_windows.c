@@ -1925,7 +1925,7 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
         if (e_hwc_window_is_target(hwc_window)) continue;
 
         /* fetch the window buffer */
-        if (e_hwc_window_buffer_fetch(hwc_window))
+        if (e_hwc_window_buffer_fetch(hwc_window, EINA_TRUE))
           update_changes = EINA_TRUE;
         else
           {

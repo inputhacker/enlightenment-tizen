@@ -573,6 +573,30 @@ done:
    E_FREE(hwc_window);
 }
 
+static E_Hwc_Window_Commit_Data *
+_e_hwc_window_commit_data_acquire_device(E_Hwc_Window *hwc_window)
+{
+   E_Hwc_Window_Commit_Data *commit_data = NULL;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, NULL);
+
+   commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, NULL);
+
+   _e_hwc_window_buffer_set(&commit_data->buffer, hwc_window->buffer.tsurface,
+                            hwc_window->buffer.queue);
+
+   tbm_surface_internal_ref(commit_data->buffer.tsurface);
+
+   _e_hwc_window_update_fps(hwc_window);
+
+   if (!e_hwc_window_is_target(hwc_window) &&
+       !e_hwc_window_is_video(hwc_window))
+     e_comp_wl_buffer_reference(&commit_data->buffer_ref,
+                                _e_hwc_window_comp_wl_buffer_get(hwc_window));
+
+   return commit_data;
+}
+
 EINTERN Eina_Bool
 e_hwc_window_init(E_Hwc *hwc)
 {
@@ -896,7 +920,7 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
 }
 
 EINTERN Eina_Bool
-e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
+e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window, Eina_Bool tdm_set)
 {
    tbm_surface_h tsurface = NULL;
    tdm_hwc_window *thwc_window = NULL;
@@ -987,7 +1011,8 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window)
    else
      _e_hwc_window_buffer_set(&hwc_window->buffer, NULL, NULL);
 
-   error = tdm_hwc_window_set_buffer(thwc_window, hwc_window->buffer.tsurface);
+   if (tdm_set)
+     error = tdm_hwc_window_set_buffer(thwc_window, hwc_window->buffer.tsurface);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
 
    return EINA_TRUE;
@@ -1033,20 +1058,8 @@ e_hwc_window_commit_data_acquire(E_Hwc_Window *hwc_window)
             (!memcmp(&hwc_window->info, &hwc_window->display.info, sizeof(tdm_hwc_window_info))))
           return EINA_FALSE;
 
-        commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
+        commit_data = _e_hwc_window_commit_data_acquire_device(hwc_window);
         EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
-
-        _e_hwc_window_buffer_set(&commit_data->buffer, hwc_window->buffer.tsurface,
-                                 hwc_window->buffer.queue);
-
-        tbm_surface_internal_ref(commit_data->buffer.tsurface);
-
-        _e_hwc_window_update_fps(hwc_window);
-
-        if (!e_hwc_window_is_target(hwc_window) &&
-            !e_hwc_window_is_video(hwc_window))
-          e_comp_wl_buffer_reference(&commit_data->buffer_ref,
-                                     _e_hwc_window_comp_wl_buffer_get(hwc_window));
      }
    else
      {
@@ -1567,7 +1580,7 @@ _e_hwc_window_client_recover(E_Hwc_Window *hwc_window)
    /* force update */
    e_comp_wl_surface_attach(ec, recover_buffer);
 
-   e_hwc_window_buffer_fetch(hwc_window);
+   e_hwc_window_buffer_fetch(hwc_window, EINA_TRUE);
 }
 
 static Eina_Bool
@@ -1938,6 +1951,65 @@ e_hwc_window_pp_rendered_window_update(E_Hwc_Window *hwc_window)
    _e_hwc_window_rendered_window_set(hwc_window, EINA_FALSE);
    if (pointer)
      e_pointer_hwc_set(pointer, EINA_TRUE);
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_hwc_window_pp_commit_data_acquire(E_Hwc_Window *hwc_window, Eina_Bool pp_hwc_mode)
+{
+   E_Hwc_Window_Commit_Data *commit_data = NULL;
+
+   /* if pp_hwc_mode, there is only 1 client state window */
+   if (pp_hwc_mode)
+     {
+        if (!hwc_window->buffer.tsurface) return EINA_FALSE;
+        if ((hwc_window->buffer.tsurface == hwc_window->display.buffer.tsurface) &&
+            (!memcmp(&hwc_window->info, &hwc_window->display.info, sizeof(tdm_hwc_window_info))))
+          return EINA_FALSE;
+        if (hwc_window->state != E_HWC_WINDOW_STATE_CLIENT)
+          {
+             if (hwc_window->state != E_HWC_WINDOW_STATE_VIDEO)
+               return EINA_FALSE;
+          }
+
+        commit_data = _e_hwc_window_commit_data_acquire_device(hwc_window);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
+     }
+   else
+     {
+        if (hwc_window->accepted_state == E_HWC_WINDOW_STATE_DEVICE ||/* composited buffer */
+             hwc_window->accepted_state == E_HWC_WINDOW_STATE_VIDEO)
+          {
+             if (!hwc_window->buffer.tsurface) return EINA_FALSE;
+             if ((hwc_window->buffer.tsurface == hwc_window->display.buffer.tsurface) &&
+                 (!memcmp(&hwc_window->info, &hwc_window->display.info, sizeof(tdm_hwc_window_info))))
+               return EINA_FALSE;
+
+             commit_data = _e_hwc_window_commit_data_acquire_device(hwc_window);
+             EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
+          }
+        else
+          {
+             if (!hwc_window->display.buffer.tsurface) return EINA_FALSE;
+
+             commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
+             EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
+
+             _e_hwc_window_buffer_set(&commit_data->buffer, NULL, NULL);
+          }
+     }
+
+   EHWTRACE("COM ts:%10p ------- {%25s}, state:%s, zpos:%d, deleted:%s",
+            hwc_window->ec, hwc_window,
+            commit_data->buffer.tsurface,
+            e_hwc_window_name_get(hwc_window),
+            e_hwc_window_state_string_get(hwc_window->state),
+            hwc_window->zpos, (hwc_window->is_deleted ? "yes" : "no"));
+
+   e_object_ref(E_OBJECT(hwc_window));
+
+   hwc_window->commit_data = commit_data;
 
    return EINA_TRUE;
 }

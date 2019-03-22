@@ -170,7 +170,7 @@ EINTERN Eina_Bool               e_hwc_window_zpos_set(E_Hwc_Window *hwc_window, 
 EINTERN int                     e_hwc_window_zpos_get(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool               e_hwc_window_composition_update(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool               e_hwc_window_info_update(E_Hwc_Window *hwc_window);
-EINTERN Eina_Bool               e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool               e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window, Eina_Bool tdm_set);
 EINTERN Eina_Bool               e_hwc_window_prop_update(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool               e_hwc_window_is_target(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool               e_hwc_window_is_video(E_Hwc_Window *hwc_window);
@@ -211,6 +211,7 @@ EINTERN void                    e_hwc_window_commit_data_buffer_dump(E_Hwc_Windo
 EINTERN Eina_Bool               e_hwc_window_fps_get(E_Hwc_Window *hwc_window, double *fps);
 
 EINTERN Eina_Bool               e_hwc_window_pp_rendered_window_update(E_Hwc_Window *hwc_window);
+EINTERN Eina_Bool               e_hwc_window_pp_commit_data_acquire(E_Hwc_Window *hwc_window, Eina_Bool pp_hwc_mode);
 
 #endif // E_HWC_WINDOW_H
 #endif
