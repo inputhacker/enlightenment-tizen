@@ -210,5 +210,7 @@ EINTERN void                    e_hwc_window_trace_debug(Eina_Bool onoff);
 EINTERN void                    e_hwc_window_commit_data_buffer_dump(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool               e_hwc_window_fps_get(E_Hwc_Window *hwc_window, double *fps);
 
+EINTERN Eina_Bool               e_hwc_window_pp_rendered_window_update(E_Hwc_Window *hwc_window);
+
 #endif // E_HWC_WINDOW_H
 #endif

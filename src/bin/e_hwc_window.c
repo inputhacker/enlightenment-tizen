@@ -1917,3 +1917,27 @@ e_hwc_window_fps_get(E_Hwc_Window *hwc_window, double *fps)
 
    return EINA_FALSE;
 }
+
+EINTERN Eina_Bool
+e_hwc_window_pp_rendered_window_update(E_Hwc_Window *hwc_window)
+{
+   E_Client *ec = NULL;
+   E_Pointer *pointer = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   ec = hwc_window->ec;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   if (hwc_window->is_cursor)
+     pointer = e_pointer_get(hwc_window->ec);
+
+   if (e_hwc_window_is_video(hwc_window))
+     return EINA_TRUE;
+
+   _e_hwc_window_rendered_window_set(hwc_window, EINA_FALSE);
+   if (pointer)
+     e_pointer_hwc_set(pointer, EINA_TRUE);
+
+   return EINA_TRUE;
+}
