@@ -3551,6 +3551,28 @@ arg_err:
   "\tenlightenment_info -kill -help\n" \
 
 static void
+_e_info_client_proc_screen_rotation_pre(int argc, char **argv)
+{
+   int rotation_pre;
+
+   if (argc < 3)
+     {
+        printf("Error Check Args: enlightenment_info -screen_rotation [0|90|180|270]\n");
+        return;
+     }
+
+   rotation_pre = atoi(argv[2]);
+   if (rotation_pre < 0 || rotation_pre > 360 || rotation_pre % 90)
+     {
+        printf("Error Check Args: enlightenment_info -screen_rotation_pre [0|90|180|270]\n");
+        return;
+     }
+
+   if (!_e_info_client_eldbus_message_with_args("screen_rotation_pre", NULL, "i", rotation_pre))
+     printf("_e_info_client_eldbus_message_with_args error");
+}
+
+static void
 _e_info_client_proc_screen_rotation(int argc, char **argv)
 {
    int rotation;
@@ -5293,6 +5315,12 @@ static ProcInfo procs_to_execute[] =
       USAGE_FORCE_RENDER,
       "Force render according to parameters",
       _e_info_client_proc_force_render
+   },
+   {
+      "screen_rotation_pre",
+      "[0|90|180|270]",
+      "To rotate screen (pre)",
+      _e_info_client_proc_screen_rotation_pre
    },
    {
       "screen_rotation",

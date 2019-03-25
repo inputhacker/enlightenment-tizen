@@ -888,6 +888,8 @@ _e_comp_screen_engine_init(void)
    TRACE_DS_END();
 
    e_comp->e_comp_screen = e_comp_screen;
+   e_comp_screen->rotation_pre = e_config->screen_rotation_pre;
+   e_comp_screen->rotation_setting = e_config->screen_rotation_setting;
    e_comp_screen->rotation = screen_rotation;
 
    TRACE_DS_BEGIN(E_COMP_SCREEN:OUTPUTS INIT);
@@ -1249,21 +1251,11 @@ e_comp_screen_shutdown()
    e_comp->e_comp_screen = NULL;
 }
 
-E_API Eina_Bool
-e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
+static E_Output *
+_e_comp_screen_output_find_primary(E_Comp_Screen *e_comp_screen)
 {
    E_Output *output = NULL, *o;
    const Eina_List *l;
-   int w, h;
-   int screen_rotation;
-   E_Input_Device *dev;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation % 90, EINA_FALSE);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation < 0, EINA_FALSE);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation > 270, EINA_FALSE);
-
-   if (e_config->screen_rotation_setting == rotation) return EINA_TRUE;
 
    EINA_LIST_FOREACH(e_comp_screen->outputs, l, o)
      {
@@ -1281,17 +1273,31 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
    if (!output)
      {
         ERR("couldn't find the primary output");
-        return EINA_FALSE;
+        return NULL;
      }
 
-   screen_rotation = (e_config->screen_rotation_pre + rotation) % 360;
+   return output;
+}
+
+static Eina_Bool
+_e_comp_screen_rotation_set(E_Comp_Screen *e_comp_screen, int screen_rotation,
+  void (*setter)(E_Comp_Screen *e_comp_screen, int data), int data)
+{
+   E_Output *output = NULL;
+   E_Input_Device *dev;
+   const Eina_List *l;
+   int w, h;
+
+   output = _e_comp_screen_output_find_primary(e_comp_screen);
+   if (!output)
+     return EINA_FALSE;
 
    if (!e_output_rotate(output, screen_rotation))
      return EINA_FALSE;
 
-   /* TODO: need to save e_config->screen_rotation_setting to e_config data file */
-   e_config->screen_rotation_setting = rotation;
    e_comp_screen->rotation = screen_rotation;
+   if (setter)
+      setter(e_comp_screen, data);
 
    ecore_evas_rotation_with_resize_set(e_comp->ee, e_comp_screen->rotation);
    ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &w, &h);
@@ -1317,6 +1323,56 @@ e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
    INF("EE Rotated and Resized: %d, %dx%d", e_comp_screen->rotation, w, h);
 
    return EINA_TRUE;
+}
+
+static void
+_e_comp_screen_rotation_pre_setter(E_Comp_Screen *e_comp_screen, int rotation_pre)
+{
+   e_comp_screen->rotation_pre = rotation_pre;
+   INF("EE RotationPre: %d", rotation_pre);
+}
+
+E_API Eina_Bool
+e_comp_screen_rotation_pre_set(E_Comp_Screen *e_comp_screen, int rotation_pre)
+{
+   int screen_rotation;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation_pre % 90, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation_pre < 0, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation_pre > 270, EINA_FALSE);
+
+   if (e_comp_screen->rotation_pre == rotation_pre) return EINA_TRUE;
+
+   screen_rotation = (rotation_pre + e_comp_screen->rotation_setting) % 360;
+
+   return _e_comp_screen_rotation_set(e_comp_screen, screen_rotation,
+     _e_comp_screen_rotation_pre_setter, rotation_pre);
+}
+
+static void
+_e_comp_screen_rotation_setting_setter(E_Comp_Screen *e_comp_screen, int rotation)
+{
+   e_comp_screen->rotation_setting = rotation;
+   INF("EE RotationSetting: %d", rotation);
+}
+
+E_API Eina_Bool
+e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation)
+{
+   int screen_rotation;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation % 90, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation < 0, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(rotation > 270, EINA_FALSE);
+
+   if (e_comp_screen->rotation_setting == rotation) return EINA_TRUE;
+
+   screen_rotation = (e_comp_screen->rotation_pre + rotation) % 360;
+
+   return _e_comp_screen_rotation_set(e_comp_screen, screen_rotation,
+     _e_comp_screen_rotation_setting_setter, rotation);
 }
 
 E_API void

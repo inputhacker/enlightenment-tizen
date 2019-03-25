@@ -25,6 +25,8 @@ struct _E_Comp_Screen
    const Eina_List *devices;
 
    /* for screen_rotation */
+   int rotation_pre;
+   int rotation_setting;
    int rotation;
 
    /* pp support */
@@ -53,6 +55,7 @@ EINTERN void              e_comp_screen_hwc_info_debug(void);
 
 EINTERN void              e_comp_screen_e_screens_setup(E_Comp_Screen *e_comp_screen, int rw, int rh);
 EINTERN const Eina_List * e_comp_screen_e_screens_get(E_Comp_Screen *e_comp_screen);
+E_API   Eina_Bool         e_comp_screen_rotation_pre_set(E_Comp_Screen *e_comp_screen, int rotation_pre);
 E_API   Eina_Bool         e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation);
 
 E_API   void              e_comp_screen_rotation_ignore_output_transform_send(E_Client *ec, Eina_Bool ignore);

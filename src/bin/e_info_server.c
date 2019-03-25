@@ -4803,6 +4803,29 @@ _e_info_server_cb_force_render(const Eldbus_Service_Interface *iface EINA_UNUSED
 }
 
 static Eldbus_Message *
+_e_info_server_cb_screen_rotation_pre(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   int rotation_pre;
+
+   if (!eldbus_message_arguments_get(msg, "i", &rotation_pre))
+     {
+        ERR("Error getting arguments.");
+        return reply;
+     }
+
+   if (!e_comp || !e_comp->e_comp_screen)
+     {
+        ERR("Error no screen.");
+        return reply;
+     }
+
+   e_comp_screen_rotation_pre_set(e_comp->e_comp_screen, rotation_pre);
+
+   return reply;
+}
+
+static Eldbus_Message *
 _e_info_server_cb_screen_rotation(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
@@ -6060,6 +6083,7 @@ static const Eldbus_Method methods[] = {
    { "desktop_geometry_set", ELDBUS_ARGS({"iiii", "Geometry"}), NULL, _e_info_server_cb_desktop_geometry_set, 0},
    { "desk_zoom", ELDBUS_ARGS({"ddii", "Zoom"}), NULL, _e_info_server_cb_desk_zoom, 0},
    { "frender", ELDBUS_ARGS({"i", "frender"}), ELDBUS_ARGS({"s", "force_render_result"}), _e_info_server_cb_force_render, 0},
+   { "screen_rotation_pre", ELDBUS_ARGS({"i", "value"}), NULL, _e_info_server_cb_screen_rotation_pre, 0},
    { "screen_rotation", ELDBUS_ARGS({"i", "value"}), NULL, _e_info_server_cb_screen_rotation, 0},
    { "remote_surface", ELDBUS_ARGS({"ii", "remote surface query"}), ELDBUS_ARGS({"as", "remote surfac information"}), _e_info_server_cb_remote_surface, 0},
    { "get_win_under_touch", NULL, ELDBUS_ARGS({"i", "result"}), _e_info_server_cb_get_win_under_touch, 0 },
