@@ -637,13 +637,7 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, NULL);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
 
-   if (ec->hwc_window)
-     {
-        if (e_hwc_window_state_get(ec->hwc_window) != state)
-          e_hwc_window_state_set(ec->hwc_window, state, EINA_TRUE);
-
-        goto end;
-     }
+   if (ec->hwc_window) goto end;
 
    thwc = hwc->thwc;
    EINA_SAFETY_ON_NULL_RETURN_VAL(thwc, EINA_FALSE);
@@ -654,7 +648,6 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
    hwc_window->hwc = hwc;
    hwc_window->ec = ec;
    hwc_window->zpos = E_HWC_WINDOW_ZPOS_NONE;
-   hwc_window->state = state;
    hwc_window->render_target = EINA_TRUE;
    hwc_window->device_state_available = EINA_TRUE;
 
@@ -683,6 +676,8 @@ end:
    /* video window */
    if (state == E_HWC_WINDOW_STATE_VIDEO)
      ec->hwc_window->is_video = EINA_TRUE;
+
+   e_hwc_window_state_set(ec->hwc_window, state, EINA_TRUE);
 
    return ec->hwc_window;
 }
