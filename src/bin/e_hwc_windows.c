@@ -1667,7 +1667,7 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 
         windows_list = eina_list_append(windows_list, hwc_window);
 
-        if (!ec->argb)
+        if (!ec->argb && E_CONTAINS(ec->client.x, ec->client.y, ec->client.w, ec->client.h, 0, 0, scr_w, scr_h))
           ui_skip = EINA_TRUE;
      }
 
