@@ -424,7 +424,7 @@ E_API E_Client *
 e_desk_last_focused_focus(E_Desk *desk)
 {
    Eina_List *l = NULL;
-   E_Client *ec, *ecs = NULL;
+   E_Client *ec, *ecs = NULL, *focus_ec = NULL;
 
    EINA_LIST_FOREACH(e_client_focus_stack_get(), l, ec)
      {
@@ -465,11 +465,14 @@ e_desk_last_focused_focus(E_Desk *desk)
           evas_object_raise(ecs->frame);
         return ecs;
      }
-   if (e_client_focused_get())
+
+   focus_ec = e_client_focused_get();
+   if (focus_ec)
      {
-        ELOGF("FOCUS", "focus unset | last_focused_focus", e_client_focused_get());
-        evas_object_focus_set(e_client_focused_get()->frame, 0);
+        ELOGF("FOCUS", "focus unset | last_focused_focus", focus_ec);
+        evas_object_focus_set(focus_ec->frame, 0);
      }
+
    return NULL;
 }
 
