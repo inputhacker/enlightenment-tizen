@@ -834,12 +834,6 @@ _e_hwc_windows_pp_output_commit_handler(tdm_output *toutput, unsigned int sequen
 
    hwc->pp_output_commit = EINA_FALSE;
 
-   EINA_LIST_FOREACH(hwc->hwc_windows, l, window)
-     {
-        if (window->commit_data && !window->commit_data->buffer.tsurface)
-          e_hwc_window_commit_data_release(window);
-     }
-
    /* layer already resetted */
    if (hwc->pp_output_commit_data)
      {
@@ -1152,7 +1146,7 @@ _e_hwc_windows_pp_window_commit(E_Hwc *hwc, E_Hwc_Window *hwc_window)
    tbm_error_e tbm_err = TBM_ERROR_NONE;
    tdm_error terror = TDM_ERROR_NONE;
    E_Hwc_Window_Commit_Data *commit_data = hwc_window->commit_data;
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(commit_data, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
 
    tbm_surface_h tsurface = commit_data->buffer.tsurface;
 
