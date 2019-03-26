@@ -113,6 +113,7 @@ struct _E_Hwc
    Eina_Bool             pp_output_commit;
    E_Hwc_Window_Commit_Data  *pp_output_commit_data;
    Eina_Rectangle        pp_rect;
+   E_Hwc_Window         *pp_hwc_window;
 
    /* for fps */
    double               fps;

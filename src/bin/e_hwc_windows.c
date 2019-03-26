@@ -103,6 +103,14 @@ _e_hwc_windows_hwc_mode_update(E_Hwc *hwc, int num_client, int num_device, int n
    E_Hwc_Mode hwc_mode = E_HWC_MODE_NONE;
    int num_visible = hwc->num_visible_windows;
 
+   if (hwc->pp_set && hwc->pp_hwc_window)
+     {
+        hwc_mode = E_HWC_MODE_FULL;
+        ecore_event_add(E_EVENT_COMPOSITOR_DISABLE, NULL, NULL, NULL);
+        hwc->hwc_mode = hwc_mode;
+        return hwc_mode;
+     }
+
    if (!num_visible || (!num_device && !num_video))
      hwc_mode = E_HWC_MODE_NONE;
    else if (!num_client && (num_device || num_video))
@@ -179,11 +187,21 @@ _e_hwc_windows_commit_data_acquire(E_Hwc *hwc)
    const Eina_List *l;
    E_Hwc_Window *hwc_window;
    Eina_Bool ret = EINA_FALSE;
+   Eina_Bool temp = EINA_FALSE;
 
    /* return TRUE when the number of the commit data is more than one */
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
-        if (!e_hwc_window_commit_data_acquire(hwc_window)) continue;
+        if (hwc->pp_set)
+          {
+             if (hwc->pp_hwc_window)
+               temp = e_hwc_window_pp_commit_data_acquire(hwc_window, EINA_TRUE);
+             else
+               temp = e_hwc_window_pp_commit_data_acquire(hwc_window, EINA_FALSE);
+          }
+        else
+          temp = e_hwc_window_commit_data_acquire(hwc_window);
+        if (!temp) continue;
 
         if (ehws_dump_enable)
           e_hwc_window_commit_data_buffer_dump(hwc_window);
@@ -208,7 +226,7 @@ _e_hwc_windows_commit_handler(tdm_hwc *thwc, unsigned int sequence,
 
    EHWSTRACE("!!!!!!!! HWC Commit Handler !!!!!!!!", NULL);
 
-   if (hwc->pp_tsurface && !hwc->output->zoom_set)
+   if (hwc->pp_tsurface && !hwc->pp_set)
      {
         tbm_surface_internal_unref(hwc->pp_tsurface);
         hwc->pp_tsurface = NULL;
@@ -226,10 +244,20 @@ _e_hwc_windows_offscreen_commit(E_Hwc *hwc)
 {
    E_Hwc_Window *hwc_window = NULL;
    Eina_List *l;
+   Eina_Bool ret = EINA_FALSE;
 
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
-        if (!e_hwc_window_commit_data_acquire(hwc_window)) continue;
+        if (hwc->pp_set)
+          {
+             if (hwc->pp_hwc_window)
+               ret = e_hwc_window_pp_commit_data_acquire(hwc_window, EINA_TRUE);
+             else
+               ret = e_hwc_window_pp_commit_data_acquire(hwc_window, EINA_FALSE);
+          }
+        else
+          ret = e_hwc_window_commit_data_acquire(hwc_window);
+        if (!ret) continue;
 
         EHWSTRACE("!!!!!!!! HWC OffScreen Commit !!!!!!!!", NULL);
 
@@ -333,7 +361,8 @@ _e_hwc_windows_target_buffer_fetch(E_Hwc *hwc, Eina_Bool tdm_set)
    thwc = hwc->thwc;
    EINA_SAFETY_ON_NULL_RETURN_VAL(thwc, EINA_FALSE);
 
-   if (hwc_window->state == E_HWC_WINDOW_STATE_DEVICE)
+   if ((hwc_window->state == E_HWC_WINDOW_STATE_DEVICE) ||
+       (hwc->pp_set && hwc->pp_hwc_window))
      {
         /* acquire the surface */
         queue_buffer = e_hwc_window_queue_buffer_acquire(hwc_window->queue);
@@ -962,7 +991,7 @@ _e_hwc_windows_pp_output_commit(E_Hwc *hwc, tbm_surface_h tsurface)
    tbm_error_e tbm_err;
    E_Hwc_Window_Commit_Data *data = NULL;
 
-   EHWSTRACE("PP Layer Commit  hwc(%p)     pp_tsurface(%p)", NULL, hwc, tsurface);
+   EHWSTRACE("PP Output Commit  hwc(%p)     pp_tsurface(%p)", NULL, hwc, tsurface);
 
    tbm_err = tbm_surface_queue_enqueue(hwc->pp_tqueue, tsurface);
    if (tbm_err != TBM_ERROR_NONE)
@@ -1193,19 +1222,30 @@ _e_hwc_windows_pp_get_hwc_window_for_zoom(E_Hwc *hwc)
 
    e_output_size_get(hwc->output, &w, &h);
 
-   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
-   {
-      if (!e_hwc_window_is_on_hw_overlay(hwc_window)) continue;
+   if (hwc->pp_hwc_window)
+     {
+        if (tbm_surface_get_width(hwc->pp_hwc_window->buffer.tsurface) != w ||
+            tbm_surface_get_height(hwc->pp_hwc_window->buffer.tsurface) != h)
+           return NULL;
 
-      hwc_window_for_zoom = hwc_window;
-      num++;
-   }
+        hwc_window_for_zoom = hwc->pp_hwc_window;
+     }
+   else
+     {
+        EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
+          {
+             if (!e_hwc_window_is_on_hw_overlay(hwc_window)) continue;
 
-   if (num != 1) return NULL;
-   if (!hwc_window_for_zoom->buffer.tsurface) return NULL;
-   if (tbm_surface_get_width(hwc_window_for_zoom->buffer.tsurface) != w ||
-       tbm_surface_get_height(hwc_window_for_zoom->buffer.tsurface) != h)
-     return NULL;
+             hwc_window_for_zoom = hwc_window;
+             num++;
+          }
+
+        if (num != 1) return NULL;
+        if (!hwc_window_for_zoom->buffer.tsurface) return NULL;
+        if (tbm_surface_get_width(hwc_window_for_zoom->buffer.tsurface) != w ||
+            tbm_surface_get_height(hwc_window_for_zoom->buffer.tsurface) != h)
+          return NULL;
+     }
 
    return hwc_window_for_zoom;
 }
@@ -1846,11 +1886,32 @@ static Eina_Bool
 _e_hwc_windows_device_state_available_update(E_Hwc *hwc)
 {
    Eina_Bool available = EINA_TRUE;
+   E_Hwc_Window *hwc_window = NULL;
+   Eina_List *visible_windows = NULL;
 
    /* make the full_gl_composite when the zoom is enabled */
    if (hwc->pp_set)
      {
         available = EINA_FALSE;
+
+        if (hwc->num_visible_windows > 1 || hwc->pp_set_info)
+          {
+             hwc->pp_hwc_window = NULL;
+          }
+        else
+          {
+             /* if there is only 1 visible window, set to pp_hwc_window*/
+             visible_windows = hwc->visible_windows;
+
+             if (eina_list_count(visible_windows) == 1)
+               hwc_window = eina_list_nth(visible_windows, 0);
+
+             if (hwc_window == NULL)
+               hwc->pp_hwc_window = NULL;
+             else
+               hwc->pp_hwc_window = hwc_window;
+          }
+
         goto finish;
      }
 
@@ -1858,6 +1919,8 @@ _e_hwc_windows_device_state_available_update(E_Hwc *hwc)
    if (hwc->pp_unset)
      {
         available = EINA_FALSE;
+        hwc->pp_hwc_window = NULL;
+
         goto finish;
      }
 
@@ -1890,6 +1953,7 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
    E_Hwc_Window *hwc_window = NULL;
    Eina_Bool update_changes = EINA_FALSE;
    const Eina_List *l;
+   Eina_Bool ret = EINA_FALSE;
 
    /* update the the visible windows */
    if (_e_hwc_windows_visible_windows_update(hwc))
@@ -1925,7 +1989,11 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
         if (e_hwc_window_is_target(hwc_window)) continue;
 
         /* fetch the window buffer */
-        if (e_hwc_window_buffer_fetch(hwc_window, EINA_TRUE))
+        if (hwc->pp_set)
+          ret = e_hwc_window_buffer_fetch(hwc_window, EINA_FALSE);
+        else
+          ret = e_hwc_window_buffer_fetch(hwc_window, EINA_TRUE);
+        if (ret)
           update_changes = EINA_TRUE;
         else
           {
@@ -2003,7 +2071,10 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
         if (e_hwc_window_is_target(hwc_window)) continue;
 
         e_hwc_window_constraints_update(hwc_window);
-        e_hwc_window_rendered_window_update(hwc_window);
+        if (hwc->pp_hwc_window)
+          e_hwc_window_pp_rendered_window_update(hwc_window);
+        else
+          e_hwc_window_rendered_window_update(hwc_window);
 
         if (hwc_window->state == E_HWC_WINDOW_STATE_CLIENT) num_client++;
         if (hwc_window->state == E_HWC_WINDOW_STATE_DEVICE) num_device++;
@@ -2308,6 +2379,7 @@ e_hwc_windows_zoom_set(E_Hwc *hwc, Eina_Rectangle *rect)
    hwc->target_hwc_window->skip_surface_set = EINA_TRUE;
    hwc->pp_set_info = EINA_TRUE;
    hwc->pp_unset = EINA_FALSE;
+   hwc->pp_hwc_window = NULL;
 
    /* to wake up main loop */
    uint64_t value = 1;
@@ -2334,6 +2406,7 @@ e_hwc_windows_zoom_unset(E_Hwc *hwc)
    hwc->pp_set_info = EINA_FALSE;
    hwc->target_hwc_window->skip_surface_set = EINA_FALSE;
    hwc->pp_set = EINA_FALSE;
+   hwc->pp_hwc_window = NULL;
    hwc->pp_unset = EINA_TRUE;
 
    hwc->pp_rect.x = 0;
