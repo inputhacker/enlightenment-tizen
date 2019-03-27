@@ -1140,7 +1140,8 @@ e_hwc_window_commit_data_release(E_Hwc_Window *hwc_window)
         /* release and unreference the previous surface */
         if (hwc_window->display.buffer.tsurface)
           {
-             if (hwc_window->display.buffer.queue)
+             if ((hwc_window->display.buffer.queue) &&
+                 (hwc_window->display.buffer.tsurface != tsurface))
                {
                   queue_buffer = e_hwc_window_queue_buffer_find(hwc_window->display.buffer.queue,
                                                                hwc_window->display.buffer.tsurface);
