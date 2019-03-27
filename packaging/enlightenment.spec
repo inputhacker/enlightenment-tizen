@@ -82,6 +82,7 @@ export LDFLAGS+=" -pie "
       TIZEN_REL_VERSION="%{release}-%{TIZEN_REL_VERSION}" \
       --enable-function-trace \
       --enable-wayland \
+      --enable-iot \
       --enable-quick-init
 
 make %{?_smp_mflags}

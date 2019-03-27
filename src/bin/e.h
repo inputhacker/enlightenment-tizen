@@ -123,10 +123,12 @@ void *alloca (size_t);
 # include <Eo.h>
 # include <Eina.h>
 # include <Eet.h>
-# include <Evas.h>
-# include <Evas_Engine_Buffer.h>
 # include <Ecore.h>
-# include <Ecore_Evas.h>
+# ifndef HAVE_IOT
+#  include <Evas.h>
+#  include <Evas_Engine_Buffer.h>
+#  include <Ecore_Evas.h>
+# endif
 # include <Ecore_Input.h>
 # include <Ecore_File.h>
 # include <Edje.h>
@@ -294,10 +296,12 @@ typedef struct _E_Rect         E_Rect;
        }                                                          \
   }
 
+#ifndef HAVE_IOT
 #define E_WEIGHT evas_object_size_hint_weight_set
 #define E_ALIGN evas_object_size_hint_align_set
 #define E_EXPAND(X) E_WEIGHT((X), EVAS_HINT_EXPAND, EVAS_HINT_EXPAND)
 #define E_FILL(X) E_ALIGN((X), EVAS_HINT_FILL, EVAS_HINT_FILL)
+#endif
 
 # define E_REMOTE_OPTIONS 1
 # define E_REMOTE_OUT     2
@@ -316,10 +320,17 @@ typedef struct _E_Rect         E_Rect;
  #define YOLO EINA_DEPRECATED
 #endif
 
+#ifndef HAVE_IOT
 # define E_TYPEDEFS       1
 # include "e_includes.h"
 # undef E_TYPEDEFS
 # include "e_includes.h"
+#else
+# define E_TYPEDEFS       1
+# include "e_includes_iot.h"
+# undef E_TYPEDEFS
+# include "e_includes_iot.h"
+#endif
 
 E_API double          e_main_ts(const char *str);
 E_API double          e_main_ts_begin(const char *str);

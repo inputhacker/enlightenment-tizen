@@ -21,6 +21,7 @@ E_CPPFLAGS = \
 
 bin_PROGRAMS = \
 src/bin/enlightenment \
+src/bin/enlightenment_iot \
 src/bin/enlightenment_info
 
 #internal_bindir = $(libdir)/enlightenment/utils
@@ -310,6 +311,75 @@ src_bin_enlightenment_info_LDADD = @E_INFO_LIBS@
 src_bin_enlightenment_info_CPPFLAGS = $(E_CPPFLAGS) @E_INFO_CFLAGS@
 src_bin_enlightenment_info_LDFLAGS = -pie
 src_bin_enlightenment_info_CPPFLAGS += -fPIE
+
+ENLIGHTENMENTIOTHEADERS = \
+src/bin/e_iot.h \
+src/bin/e_client.h \
+src/bin/e_comp_cfdata.h \
+src/bin/e_config_data.h \
+src/bin/e_config.h \
+src/bin/e_error.h \
+src/bin/e.h \
+src/bin/e_includes_iot.h \
+src/bin/e_info_server_common.h \
+src/bin/e_env.h \
+src/bin/e_log.h \
+src/bin/e_privilege.h \
+src/bin/e_main.h \
+src/bin/e_module.h \
+src/bin/e_object.h \
+src/bin/e_path.h \
+src/bin/e_prefix.h \
+src/bin/e_signals.h \
+src/bin/e_user.h \
+src/bin/e_info_protocol.h
+
+enlightenmentiotsrc = \
+src/bin/e_client.c \
+src/bin/e_comp_cfdata.c \
+src/bin/e_config.c \
+src/bin/e_config_data.c \
+src/bin/e_env.c \
+src/bin/e_error.c \
+src/bin/e_info_server_common.c \
+src/bin/e_log.c \
+src/bin/e_module.c \
+src/bin/e_object.c \
+src/bin/e_path.c \
+src/bin/e_prefix.c \
+src/bin/e_signals.c \
+src/bin/e_user.c \
+src/bin/e_info_protocol.c \
+$(ENLIGHTENMENTIOTHEADERS)
+
+enlightenmentiotsrc += \
+src/bin/e_process.c \
+src/bin/e_privilege.c \
+src/bin/e_security.c \
+src/bin/e_keyrouter_events.c \
+src/bin/e_keyrouter_list.c \
+src/bin/e_keyrouter_conf.c \
+src/bin/e_keyrouter_wl.c \
+src/bin/e_keyrouter.c \
+src/bin/e_input_private.h \
+src/bin/e_input.c \
+src/bin/e_input_inputs.c \
+src/bin/e_input_device.c \
+src/bin/e_input_evdev.c \
+src/bin/e_devicemgr.c \
+src/bin/e_devicemgr_conf.c \
+src/bin/e_devicemgr_block.c \
+src/bin/e_devicemgr_input.c \
+src/bin/e_devicemgr_inputgen.c \
+src/bin/e_devicemgr_wl.c
+
+src_bin_enlightenment_iot_SOURCES = \
+src/bin/e_main_iot.c \
+$(enlightenmentiotsrc)
+src_bin_enlightenment_iot_LDADD = #@E_IOT_LIBS@
+src_bin_enlightenment_iot_CPPFLAGS = $(E_CPPFLAGS) #@E_IOT_CFLAGS@
+src_bin_enlightenment_iot_LDFLAGS = -pie
+src_bin_enlightenment_iot_CPPFLAGS += -fPIE
 
 # HACK! why install-data-hook? install-exec-hook is run after bin_PROGRAMS
 # and before internal_bin_PROGRAMS are installed. install-data-hook is
