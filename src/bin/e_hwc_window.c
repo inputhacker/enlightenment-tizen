@@ -582,6 +582,8 @@ _e_hwc_window_commit_data_acquire_device(E_Hwc_Window *hwc_window)
    commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, NULL);
 
+   memcpy(&commit_data->info, &hwc_window->info, sizeof(tdm_hwc_window_info));
+
    _e_hwc_window_buffer_set(&commit_data->buffer, hwc_window->buffer.tsurface,
                             hwc_window->buffer.queue);
 
