@@ -43,7 +43,7 @@
      }                                                           \
    while (0)
 
-static Eina_Bool ehws_trace = EINA_TRUE;
+static Eina_Bool ehws_trace = EINA_FALSE;
 static Eina_Bool ehws_dump_enable = EINA_FALSE;
 static uint64_t ehws_rendered_windows_key;
 #define EHWS_RENDERED_WINDOWS_KEY  (unsigned long)(&ehws_rendered_windows_key)

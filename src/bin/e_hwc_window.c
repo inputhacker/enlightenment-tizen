@@ -43,7 +43,7 @@
      }                                                          \
    while (0)
 
-static Eina_Bool ehw_trace = EINA_TRUE;
+static Eina_Bool ehw_trace = EINA_FALSE;
 static Eina_List *hwc_window_client_hooks = NULL;
 static Eina_List *hwc_window_event_hdlrs = NULL;
 

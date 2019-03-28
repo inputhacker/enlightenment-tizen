@@ -54,7 +54,7 @@
      }                                                           \
    while (0)
 
-static Eina_Bool ehwq_trace = EINA_TRUE;
+static Eina_Bool ehwq_trace = EINA_FALSE;
 
 static Eina_Bool _e_hwc_window_queue_buffers_retrieve_done(E_Hwc_Window_Queue *queue);
 static void _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue);
