@@ -917,8 +917,11 @@ e_client_revert_focus(E_Client *ec)
              ELOGF("FOCUS", "focus unset | revert_focus", ec);
              evas_object_focus_set(ec->frame, EINA_FALSE);
           }
-        ELOGF("FOCUS", "focus set | revert_focus", focus_ec);
-        evas_object_focus_set(focus_ec->frame, EINA_TRUE);
+        if (!focus_ec->iconic || focus_ec->exp_iconify.buffer_flush)
+          {
+             ELOGF("FOCUS", "focus set | revert_focus", focus_ec);
+             evas_object_focus_set(focus_ec->frame, EINA_TRUE);
+          }
      }
 }
 
