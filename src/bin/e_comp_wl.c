@@ -1260,14 +1260,21 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
      }
    else
      {
+        if (e_config->use_cursor_timer)
+          {
+             if (e_pointer_is_hidden(e_comp->pointer))
+               _e_comp_wl_cursor_reload(ec);
+          }
+
         e_comp_wl_evas_handle_mouse_button(ec, ev->timestamp, ev->button,
                                            WL_POINTER_BUTTON_STATE_PRESSED);
-
         pointer_x = ev->output.x;
         pointer_y = ev->output.y;
         if (e_client_transform_core_enable_get(ec))
           e_client_transform_core_input_inv_rect_transform(ec, pointer_x, pointer_y, &pointer_x, &pointer_y);
+
         e_pointer_mouse_move(e_comp->pointer, pointer_x, pointer_y);
+        _e_comp_wl_cursor_move_timer_control(ec);
      }
 
    need_send_released = EINA_TRUE;
