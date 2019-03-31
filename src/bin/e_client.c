@@ -789,13 +789,11 @@ _e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
    E_Client *above = NULL;
    E_Zone *_z = NULL;
    int x = 0, y = 0, w = 0, h = 0;
+   int ax = 0, ay = 0, aw = 0, ah = 0;
 
    if (!ec) return NULL;
 
-   x = ec->x;
-   y = ec->y;
-   w = ec->w;
-   h = ec->h;
+   e_client_geometry_get(ec, &x, &y, &w, &h);
 
    if (ec->zone)
      {
@@ -820,7 +818,8 @@ _e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
             (above->frame) &&
             (above->icccm.accepts_focus || above->icccm.take_focus))
           {
-             if (E_CONTAINS(above->x, above->y, above->w, above->h, x, y, w, h))
+             e_client_geometry_get(above, &ax, &ay, &aw, &ah);
+             if (E_CONTAINS(ax, ay, aw, ah, x, y, w, h))
                break;
           }
         above = e_client_above_get(above);
@@ -2293,6 +2292,8 @@ _e_client_eval(E_Client *ec)
 {
    int send_event = 1;
    unsigned int prop = 0;
+   int ex, ey, ew, eh;
+   int px, py, pw, ph;
 
    if (e_object_is_del(E_OBJECT(ec)))
      {
@@ -2343,21 +2344,25 @@ _e_client_eval(E_Client *ec)
 
                   if (evas_object_visible_get(ec->parent->frame))
                     {
-                       if ((!E_CONTAINS(ec->x, ec->y, ec->w, ec->h, zx, zy, zw, zh)) ||
-                          (!E_CONTAINS(ec->x, ec->y, ec->w, ec->h, ec->parent->x, ec->parent->y, ec->parent->w, ec->parent->h)))
+                       e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
+                       e_client_geometry_get(ec->parent, &px, &py, &pw, &ph);
+
+                       if ((!E_CONTAINS(ex, ey, ew, eh, zx, zy, zw, zh)) ||
+                           (!E_CONTAINS(ex, ey, ew, eh, px, py, pw, ph)))
                          {
                             int x, y;
 
                             e_comp_object_util_center_pos_get(ec->parent->frame, &x, &y);
-                            if (E_CONTAINS(x, y, ec->w, ec->h, zx, zy, zw, zh))
+                            if (E_CONTAINS(x, y, ew, eh, zx, zy, zw, zh))
                               {
                                  ec->x = x, ec->y = y;
                               }
                             else
                               {
-                                 x = ec->parent->x;
-                                 y = ec->parent->y;
-                                 if (!E_CONTAINS(x, y, ec->w, ec->h, zx, zy, zw, zh))
+                                 x = px;
+                                 y = py;
+
+                                 if (!E_CONTAINS(x, y, ew, eh, zx, zy, zw, zh))
                                    {
                                       e_comp_object_util_center_on(ec->frame,
                                                                    ec->parent->frame);

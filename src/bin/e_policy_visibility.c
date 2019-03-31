@@ -229,14 +229,20 @@ _e_policy_check_above_alpha_opaque(E_Client *ec)
    E_Client *above_ec;
    Evas_Object *o;
    Eina_Bool alpha_opaque = EINA_FALSE;
+   int ex, ey, ew, eh;
+   int ax, ay, aw, ah;
+
+   e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
 
    for (o = evas_object_above_get(ec->frame); o; o = evas_object_above_get(o))
      {
         above_ec = evas_object_data_get(o, "E_Client");
         if (!above_ec) continue;
         if (e_client_util_ignored_get(above_ec)) continue;
-        if (!E_CONTAINS(above_ec->x, above_ec->y, above_ec->w, above_ec->h, ec->x, ec->y, ec->w, ec->h)) continue;
         if (above_ec->comp_data && !above_ec->comp_data->mapped) continue;
+
+        e_client_geometry_get(above_ec, &ax, &ay, &aw, &ah);
+        if (!E_CONTAINS(ax, ay, aw, ah, ex, ey, ew, eh)) continue;
 
         if (above_ec->argb)
           {
@@ -1245,6 +1251,10 @@ _e_vis_client_check_obscured_by_same_layer(E_Client *ec)
 {
    Eina_Bool obscured = EINA_FALSE;
    E_Client *above = NULL;
+   int ex, ey, ew, eh;
+   int ax, ay, aw, ah;
+
+   e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
 
    for (above = e_client_above_get(ec); above; above = e_client_above_get(above))
      {
@@ -1254,7 +1264,9 @@ _e_vis_client_check_obscured_by_same_layer(E_Client *ec)
         if (above->iconic && above->exp_iconify.by_client) continue;
         if (above->bg_state) continue;
         if (above->comp_data && !above->comp_data->mapped) continue;
-        if (!E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h)) continue;
+
+        e_client_geometry_get(above, &ax, &ay, &aw, &ah);
+        if (!E_CONTAINS(ax, ay, aw, ah, ex, ey, ew, eh)) continue;
 
         if (!above->argb)
           {
@@ -1285,6 +1297,10 @@ _e_vis_client_check_obscured_by_above_layers(E_Client *ec)
 {
    Eina_Bool obscured = EINA_FALSE;
    E_Client *above = NULL;
+   int ex, ey, ew, eh;
+   int ax, ay, aw, ah;
+
+   e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
 
    for (above = e_client_above_get(ec); above; above = e_client_above_get(above))
      {
@@ -1294,7 +1310,9 @@ _e_vis_client_check_obscured_by_above_layers(E_Client *ec)
         if (above->iconic && above->exp_iconify.by_client) continue;
         if (above->bg_state) continue;
         if (above->comp_data && !above->comp_data->mapped) continue;
-        if (!E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h)) continue;
+
+        e_client_geometry_get(above, &ax, &ay, &aw, &ah);
+        if (!E_CONTAINS(ax, ay, aw, ah, ex, ey, ew, eh)) continue;
 
         if (!above->argb)
           {
@@ -1502,6 +1520,8 @@ _e_vis_ec_activity_check(E_Client *ec, Eina_Bool check_alpha)
 static void
 _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
 {
+   int ex, ey, ew, eh;
+
    VS_INF(ec, "Job Run: type %d", type);
 
    E_Vis_Client *vc = NULL;
@@ -1520,7 +1540,8 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
          e_client_activate(ec, 1);
          if (e_policy_client_is_lockscreen(ec))
            {
-              if (E_CONTAINS(ec->x, ec->y, ec->w, ec->h, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
+              e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
+              if (E_CONTAINS(ex, ey, ew, eh, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
                 e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
            }
          else
@@ -1589,11 +1610,24 @@ _e_vis_ec_above_visible_type(E_Client *ec, Eina_Bool check_child)
 {
    E_Client *above;
    E_Pol_Vis_Type above_vis_type = E_POL_VIS_TYPE_ALPHA;
+   int ex, ey, ew, eh;
+   int ax, ay, aw, ah;
+   int cx, cy, cw, ch;
+
+   cx = ec->desk->geom.x;
+   cy = ec->desk->geom.y;
+   cw = ec->desk->geom.w;
+   ch = ec->desk->geom.h;
+
+   e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
+
+   // check whether ec is out of its container or not
+   if (!E_INTERSECTS(ex, ey, ew, eh, cx, cy, cw, ch))
+     return E_POL_VIS_TYPE_NON_ALPHA;
 
    for (above = e_client_above_get(ec); above; above = e_client_above_get(above))
      {
         if (e_client_util_ignored_get(above)) continue;
-        if (!E_CONTAINS(above->x, above->y, above->w, above->h, ec->x, ec->y, ec->w, ec->h)) continue;
         if (check_child && (above->parent == ec)) continue;
         if (above->first_mapped)
           {
@@ -1606,6 +1640,9 @@ _e_vis_ec_above_visible_type(E_Client *ec, Eina_Bool check_child)
 
         if (above->bg_state)
           continue;
+
+        e_client_geometry_get(above, &ax, &ay, &aw, &ah);
+        if (!E_CONTAINS(ax, ay, aw, ah, ex, ey, ew, eh)) continue;
 
         if (above->visibility.obscured == E_VISIBILITY_UNOBSCURED)
           {
@@ -1843,6 +1880,9 @@ _e_vis_transient_top_get(E_Client *ec)
 static Eina_Bool
 _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
 {
+   int ex, ey, ew, eh;
+   int tx, ty, tw, th;
+
    VS_DBG(ec, "INTERCEPT SHOW: new_client %d size %d %d",
           ec->new_client, ec->w, ec->h);
 
@@ -1862,7 +1902,9 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
           return EINA_TRUE;
 
         /* allow show if topmost child is alpha window or not fully cover region of ec */
-        if ((topmost->argb) || !(E_CONTAINS(topmost->x, topmost->y, topmost->w, topmost->h, ec->x, ec->y, ec->w, ec->h)))
+        e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
+        e_client_geometry_get(topmost, &tx, &ty, &tw, &th);
+        if ((topmost->argb) || !(E_CONTAINS(tx, ty, tw, th, ex, ey, ew, eh)))
           return EINA_TRUE;
 
         /* do not show until child is shown */
