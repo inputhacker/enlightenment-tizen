@@ -820,6 +820,7 @@ static void
 _e_policy_cb_hook_client_eval_post_new_client(void *d EINA_UNUSED, E_Client *ec)
 {
    int zx, zy, zh, zw;
+   int ex, ey, ew, eh;
 
    if (e_object_is_del(E_OBJECT(ec))) return;
    if ((ec->new_client) && (!e_pixmap_usable_get(ec->pixmap))) return;
@@ -830,8 +831,9 @@ _e_policy_cb_hook_client_eval_post_new_client(void *d EINA_UNUSED, E_Client *ec)
         zy = ec->zone->y;
         zw = ec->zone->w;
         zh = ec->zone->h;
+        e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
 
-        if (E_CONTAINS(ec->x, ec->y, ec->w, ec->h, zx, zy, zw, zh))
+        if (E_CONTAINS(ex, ey, ew, eh, zx, zy, zw, zh))
           e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
      }
 }
@@ -872,6 +874,9 @@ _e_policy_cb_hook_client_fullscreen_pre(void* data EINA_UNUSED, E_Client *ec)
 static void
 _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
 {
+   int ex, ey, ew, eh;
+   int ax, ay, aw, ah;
+
    if (ec->visibility.changed)
      {
         if (ec->visibility.obscured == E_VISIBILITY_UNOBSCURED)
@@ -907,7 +912,9 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
 
              if (ec->zone->display_state == E_ZONE_DISPLAY_STATE_ON)
                {
-                  if (!E_CONTAINS(ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h, ec->x, ec->y, ec->w, ec->h))
+                  e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
+
+                  if (!E_CONTAINS(ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h, ex, ey, ew, eh))
                     {
                        if (ec->visibility.last_sent_type == E_VISIBILITY_PRE_UNOBSCURED)
                          {
@@ -943,7 +950,8 @@ _e_policy_cb_hook_client_visibility(void *d EINA_UNUSED, E_Client *ec)
 
                        find_above = EINA_TRUE;
 
-                       if (E_CONTAINS(above_ec->x, above_ec->y, above_ec->w, above_ec->h, ec->x, ec->y, ec->w, ec->h))
+                       e_client_geometry_get(above_ec, &ax, &ay, &aw, &ah);
+                       if (E_CONTAINS(ax, ay, aw, ah, ex, ey, ew, eh))
                          break;
                     }
 
@@ -1247,6 +1255,7 @@ _e_policy_cb_client_move(void *data EINA_UNUSED, int type EINA_UNUSED, void *eve
    E_Event_Client *ev;
    E_Client *ec;
    int zx, zy, zw, zh;
+   int ex, ey, ew, eh;
 
    ev = event;
    if (!ev) goto end;
@@ -1264,7 +1273,9 @@ _e_policy_cb_client_move(void *data EINA_UNUSED, int type EINA_UNUSED, void *eve
         zw = ec->zone->w;
         zh = ec->zone->h;
 
-        if (E_CONTAINS(ec->x, ec->y, ec->w, ec->h, zx, zy, zw, zh))
+        e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
+
+        if (E_CONTAINS(ex, ey, ew, eh, zx, zy, zw, zh))
           e_policy_stack_clients_restack_above_lockscreen(ev->ec, EINA_TRUE);
         else
           e_policy_stack_clients_restack_above_lockscreen(ev->ec, EINA_FALSE);

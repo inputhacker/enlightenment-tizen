@@ -1405,8 +1405,11 @@ e_policy_wl_activate(E_Client *ec)
 
    if (e_policy_client_is_lockscreen(ec))
      {
-       if (E_CONTAINS(ec->x, ec->y, ec->w, ec->h, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
-         e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
+        int ex, ey, ew, eh;
+        e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
+
+        if (E_CONTAINS(ex, ey, ew, eh, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
+          e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
      }
    else
      e_policy_stack_check_above_lockscreen(ec, ec->layer, NULL, EINA_TRUE);
@@ -1913,8 +1916,11 @@ _tzpol_iface_cb_notilv_set(struct wl_client *client, struct wl_resource *res_tzp
 
    if (e_policy_client_is_lockscreen(ec))
      {
-       if (E_CONTAINS(ec->x, ec->y, ec->w, ec->h, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
-         e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
+        int ex, ey, ew, eh;
+        e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
+
+        if (E_CONTAINS(ex, ey, ew, eh, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
+          e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
      }
    else
      e_policy_stack_check_above_lockscreen(ec, ec->layer, NULL, EINA_TRUE);
@@ -1952,7 +1958,10 @@ e_policy_wl_notification_level_fetch(E_Client *ec)
    if (changed_stack &&
        e_policy_client_is_lockscreen(ec))
      {
-        if (E_CONTAINS(ec->x, ec->y, ec->w, ec->h, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
+        int ex, ey, ew, eh;
+        e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
+
+        if (E_CONTAINS(ex, ey, ew, eh, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
           e_policy_stack_clients_restack_above_lockscreen(ec, EINA_TRUE);
      }
 }
@@ -4351,6 +4360,7 @@ _e_tzsh_indicator_find_topvisible_client(E_Zone *zone)
    E_Client *ec;
    Evas_Object *o;
    E_Comp_Wl_Client_Data *cdata;
+   int ex, ey, ew, eh;
 
    o = evas_object_top_get(e_comp->evas);
    for (; o; o = evas_object_below_get(o))
@@ -4375,7 +4385,8 @@ _e_tzsh_indicator_find_topvisible_client(E_Zone *zone)
         cdata = (E_Comp_Wl_Client_Data *)ec->comp_data;
         if (cdata && cdata->sub.data) continue;
 
-        if (!E_CONTAINS(ec->x, ec->y, ec->w, ec->h, zone->x, zone->y, zone->w, zone->h))
+        e_client_geometry_get(ec, &ex, &ey, &ew, &eh);
+        if (!E_CONTAINS(ex, ey, ew, eh, zone->x, zone->y, zone->w, zone->h))
           continue;
 
         return ec;
