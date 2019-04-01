@@ -1394,7 +1394,9 @@ _e_output_watch_vblank(E_Output *output)
    if (output->stream_capture.wait_vblank)
      return EINA_TRUE;
 
-   per_vblank = output->config.mode.refresh / (DUMP_FPS * 1000);
+   per_vblank = output->config.mode.refresh / DUMP_FPS;
+   if (per_vblank == 0)
+     per_vblank = 1;
 
    ret = tdm_output_wait_vblank(output->toutput, per_vblank, 0,
                                 _e_output_vblank_handler, output);
