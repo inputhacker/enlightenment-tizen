@@ -1108,8 +1108,6 @@ _e_comp_wl_send_mouse_move(E_Client *ec, int x, int y, unsigned int timestamp)
 static void
 _e_comp_wl_cursor_move_timer_control(E_Client *ec)
 {
-   if (!e_config->use_cursor_timer) return;
-
    if (e_comp_wl->ptr.hide_tmr)
      {
         if (cursor_timer_ec == ec)
@@ -1188,7 +1186,8 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
                e_client_transform_core_input_inv_rect_transform(ec, pointer_x, pointer_y, &pointer_x, &pointer_y);
 
              e_pointer_mouse_move(e_comp->pointer, pointer_x, pointer_y);
-             _e_comp_wl_cursor_move_timer_control(ec);
+             if (e_config->use_cursor_timer)
+               _e_comp_wl_cursor_move_timer_control(ec);
           }
      }
 }
@@ -1274,7 +1273,8 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
           e_client_transform_core_input_inv_rect_transform(ec, pointer_x, pointer_y, &pointer_x, &pointer_y);
 
         e_pointer_mouse_move(e_comp->pointer, pointer_x, pointer_y);
-        _e_comp_wl_cursor_move_timer_control(ec);
+        if (e_config->use_cursor_timer)
+          _e_comp_wl_cursor_move_timer_control(ec);
      }
 
    need_send_released = EINA_TRUE;
