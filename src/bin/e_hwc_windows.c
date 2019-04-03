@@ -825,8 +825,6 @@ _e_hwc_windows_pp_output_commit_handler(tdm_output *toutput, unsigned int sequen
    E_Hwc *hwc;
    E_Hwc_Window_Commit_Data *data = NULL;
    E_Output *output = NULL;
-   const Eina_List *l;
-   E_Hwc_Window *window;
 
    EINA_SAFETY_ON_NULL_RETURN(user_data);
 
