@@ -1661,14 +1661,11 @@ _e_output_layer_sort_cb(const void *d1, const void *d2)
 }
 
 static Eina_Bool
-_e_output_video_buffer_capture(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, Eina_Bool auto_rotate)
+_e_output_vbuf_capture(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, int rotate, Eina_Bool rotate_check)
 {
    tdm_error error = TDM_ERROR_NONE;
-   int width = 0, height = 0, rotate = 0;
+   int width = 0, height = 0;
    int i, count;
-   int angle = 0;
-   int output_angle = 0;
-   Eina_Bool rotate_check = EINA_FALSE;
    E_Output_Layer *e_layer = NULL;
    Eina_List *layers = NULL;
    Eina_List *l;
@@ -1677,31 +1674,6 @@ _e_output_video_buffer_capture(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, Eina
    e_output_size_get(output, &width, &height);
    if (width == 0 || height == 0)
      return ret;
-
-   angle = _e_output_top_ec_angle_get();
-   output_angle = output->config.rotation;
-
-   if (auto_rotate &&
-      ((angle + output_angle) % 360 == 90 || (angle + output_angle) % 360 == 270))
-     rotate_check = EINA_TRUE;
-
-   if (rotate_check)
-     {
-        int tmp = (angle + output_angle) % 360;
-
-        if (tmp == 90)
-          rotate = 90;
-        else if (tmp == 180)
-          rotate = 180;
-        else if (tmp == 270)
-          rotate = 270;
-     }
-   else if (auto_rotate && output_angle == 90)
-     rotate = 90;
-   else if (auto_rotate && output_angle == 180)
-     rotate = 180;
-   else if (auto_rotate && output_angle == 270)
-     rotate = 270;
 
    error = tdm_output_get_layer_count(output->toutput, &count);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, ret);
@@ -1804,13 +1776,42 @@ _e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotat
 {
    E_Comp_Wl_Video_Buf *vbuf = NULL;
    Eina_Bool ret = EINA_FALSE;
+   int angle = 0;
+   int output_angle = 0;
+   int rotate = 0;
+   Eina_Bool rotate_check = EINA_FALSE;
 
    vbuf = e_comp_wl_video_buffer_create_tbm(tsurface);
    EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, EINA_FALSE);
 
    e_comp_wl_video_buffer_clear(vbuf);
 
-   ret = _e_output_video_buffer_capture(output, vbuf, auto_rotate);
+   angle = _e_output_top_ec_angle_get();
+   output_angle = output->config.rotation;
+
+   if (auto_rotate &&
+      ((angle + output_angle) % 360 == 90 || (angle + output_angle) % 360 == 270))
+     rotate_check = EINA_TRUE;
+
+   if (rotate_check)
+     {
+        int tmp = (angle + output_angle) % 360;
+
+        if (tmp == 90)
+          rotate = 90;
+        else if (tmp == 180)
+          rotate = 180;
+        else if (tmp == 270)
+          rotate = 270;
+     }
+   else if (auto_rotate && output_angle == 90)
+     rotate = 90;
+   else if (auto_rotate && output_angle == 180)
+     rotate = 180;
+   else if (auto_rotate && output_angle == 270)
+     rotate = 270;
+
+   ret = _e_output_vbuf_capture(output, vbuf, rotate, rotate_check);
 
    e_comp_wl_video_buffer_unref(vbuf);
 
