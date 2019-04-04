@@ -421,7 +421,28 @@ _e_hwc_window_cursor_image_update(E_Hwc_Window *hwc_window)
    if (!pointer) return EINA_FALSE;
 
    buffer = _e_hwc_window_comp_wl_buffer_get(hwc_window);
-   if (!buffer) return EINA_FALSE;
+   if (!buffer)
+     {
+        if (hwc_window->cursor.img_ptr)
+          {
+             error = tdm_hwc_window_set_cursor_image(hwc_window->thwc_window, 0, 0, 0, NULL);
+             if (error != TDM_ERROR_NONE)
+               {
+                  ERR("fail to set cursor image to thwc(%p)", hwc_window->thwc_window);
+                  return EINA_FALSE;
+               }
+
+             hwc_window->cursor.rotation = 0;
+             hwc_window->cursor.img_ptr = NULL;
+             hwc_window->cursor.img_w = 0;
+             hwc_window->cursor.img_h = 0;
+             hwc_window->cursor.img_stride = 0;
+
+             return EINA_TRUE;
+          }
+
+        return EINA_FALSE;
+     }
 
    /* cursor image is the shm image from the wl_clients */
    if (buffer->type == E_COMP_WL_BUFFER_TYPE_SHM)
@@ -445,7 +466,7 @@ _e_hwc_window_cursor_image_update(E_Hwc_Window *hwc_window)
    /* no changes, no need to update the cursor image */
    if ((hwc_window->cursor.img_ptr == img_ptr) &&
        (hwc_window->cursor.rotation == pointer->rotation))
-     return EINA_TRUE;
+     return EINA_FALSE;
 
    error = tdm_hwc_window_set_cursor_image(hwc_window->thwc_window, img_w, img_h, img_stride, img_ptr);
    if (error != TDM_ERROR_NONE)
@@ -459,9 +480,6 @@ _e_hwc_window_cursor_image_update(E_Hwc_Window *hwc_window)
    hwc_window->cursor.img_w = img_w;
    hwc_window->cursor.img_h = img_h;
    hwc_window->cursor.img_stride = img_stride;
-
-   /* set the hwc_update */
-   e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
 
    return EINA_TRUE;
 }
@@ -938,10 +956,6 @@ e_hwc_window_buffer_fetch(E_Hwc_Window *hwc_window, Eina_Bool tdm_set)
      {
         if (!_e_hwc_window_cursor_image_update(hwc_window))
           return EINA_FALSE;
-
-        if (!e_comp_object_hwc_update_exists(hwc_window->ec->frame))
-          return EINA_FALSE;
-        e_comp_object_hwc_update_set(hwc_window->ec->frame, EINA_FALSE);
 
         EHWTRACE("FET img_ptr:%p ------- {%25s}, state:%s, zpos:%d, deleted:%s",
                  hwc_window->ec, hwc_window,
