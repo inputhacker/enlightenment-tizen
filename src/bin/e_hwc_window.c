@@ -1346,15 +1346,22 @@ e_hwc_window_device_state_available_get(E_Hwc_Window *hwc_window)
 EINTERN Eina_Bool
 e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
 {
-   E_Client *ec;
-   E_Comp_Wl_Client_Data *cdata;
-   E_Output *eout;
+   E_Client *ec = NULL;
+   E_Comp_Wl_Client_Data *cdata = NULL;
+   E_Output *eout = NULL;
    int minw = 0, minh = 0;
    int transform;
    Eina_Bool available = EINA_TRUE;
    const char *restriction = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (hwc_window->is_deleted)
+     {
+        restriction = "deleted";
+        available = EINA_FALSE;
+        goto finish;
+     }
 
    ec = hwc_window->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
@@ -1496,9 +1503,12 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
      }
 
 finish:
-   if (!available && evas_object_visible_get(ec->frame))
-     EHWTRACE("   -- {%25s} is forced to set CL state.(%s)",
-              hwc_window->ec, hwc_window, ec->icccm.title, restriction);
+   if (!available && ec)
+     {
+        if (evas_object_visible_get(ec->frame))
+          EHWTRACE("   -- {%25s} is forced to set CL state.(%s)",
+                   hwc_window->ec, hwc_window, ec->icccm.title, restriction);
+     }
 
    if (hwc_window->device_state_available == available) return EINA_FALSE;
 
@@ -1655,6 +1665,8 @@ e_hwc_window_rendered_window_update(E_Hwc_Window *hwc_window)
    E_Hwc_Window_State state;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (hwc_window->is_deleted) return EINA_TRUE;
 
    ec = hwc_window->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
@@ -1955,6 +1967,8 @@ e_hwc_window_pp_rendered_window_update(E_Hwc_Window *hwc_window)
    E_Pointer *pointer = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (hwc_window->is_deleted) return EINA_TRUE;
 
    ec = hwc_window->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
