@@ -1648,6 +1648,121 @@ _e_output_capture_dst_crop_get(E_Comp_Wl_Video_Buf *tmp, E_Comp_Wl_Video_Buf *ds
      }
 }
 
+static Eina_Bool
+_e_output_capture_src_crop_get_hwc_window(E_Output *output, E_Hwc_Window *hwc_window, Eina_Rectangle *fit, Eina_Rectangle *showing_rect)
+{
+   tdm_error error = TDM_ERROR_NONE;
+   const tdm_output_mode *mode = NULL;
+   float ratio_x, ratio_y;
+   Eina_Rectangle out_rect;
+   Eina_Rectangle dst_rect;
+
+   fit->x = 0;
+   fit->y = 0;
+   fit->w = 0;
+   fit->h = 0;
+
+   error = tdm_output_get_mode(output->toutput, &mode);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, EINA_FALSE);
+
+   out_rect.x = 0;
+   out_rect.y = 0;
+   out_rect.w = mode->hdisplay;
+   out_rect.h = mode->vdisplay;
+
+   dst_rect.x = hwc_window->info.dst_pos.x;
+   dst_rect.y = hwc_window->info.dst_pos.y;
+   dst_rect.w = hwc_window->info.dst_pos.w;
+   dst_rect.h = hwc_window->info.dst_pos.h;
+
+   _e_output_capture_showing_rect_get(&out_rect, &dst_rect, showing_rect);
+
+   fit->x = hwc_window->info.src_config.pos.x;
+   fit->y = hwc_window->info.src_config.pos.y;
+
+   if (hwc_window->info.transform % 2 == 0)
+     {
+        ratio_x = (float)hwc_window->info.src_config.pos.w / dst_rect.w;
+        ratio_y = (float)hwc_window->info.src_config.pos.h / dst_rect.h;
+
+        fit->w = showing_rect->w * ratio_x;
+        fit->h = showing_rect->h * ratio_y;
+     }
+   else
+     {
+        ratio_x = (float)hwc_window->info.src_config.pos.w / dst_rect.h;
+        ratio_y = (float)hwc_window->info.src_config.pos.h / dst_rect.w;
+
+        fit->w = showing_rect->h * ratio_x;
+        fit->h = showing_rect->w * ratio_y;
+     }
+
+   return EINA_TRUE;
+}
+
+static void
+_e_output_capture_dst_crop_get_hwc_window(E_Hwc_Window *hwc_window, E_Comp_Wl_Video_Buf *tmp, E_Comp_Wl_Video_Buf *dst,
+                               int w, int h, Eina_Rectangle *pos, Eina_Rectangle *showing_pos,
+                               Eina_Rectangle *dst_crop, int rotate)
+{
+   dst_crop->x = 0;
+   dst_crop->y = 0;
+   dst_crop->w = 0;
+   dst_crop->h = 0;
+
+   if (hwc_window->info.src_config.pos.w == w && hwc_window->info.src_config.pos.h == h &&
+       pos->x == 0 && pos->y == 0 && pos->w == tmp->width && pos->h == tmp->height)
+     {
+        dst_crop->x = pos->x;
+        dst_crop->y = pos->y;
+        dst_crop->w = pos->w;
+        dst_crop->h = pos->h;
+     }
+   else if ((w == pos->w) && (h == pos->h) && (showing_pos->w == pos->w) && (showing_pos->h == pos->h))
+     {
+        dst_crop->x = hwc_window->info.dst_pos.x + pos->x;
+        dst_crop->y = hwc_window->info.dst_pos.y + pos->y;
+        dst_crop->w = hwc_window->info.dst_pos.w;
+        dst_crop->h = hwc_window->info.dst_pos.h;
+     }
+   else if (rotate == 0)
+     {
+        dst_crop->x = showing_pos->x * pos->w / w + pos->x;
+        dst_crop->y = showing_pos->y * pos->h / h + pos->y;
+        dst_crop->w = showing_pos->w * pos->w / w;
+        dst_crop->h = showing_pos->h * pos->h / h;
+     }
+   else if (rotate == 90)
+     {
+        dst_crop->x = (h - showing_pos->y - showing_pos->h) * pos->w / h + pos->x;
+        dst_crop->y = showing_pos->x * pos->h / w + pos->y;
+        dst_crop->w = showing_pos->h * pos->w / h;
+        dst_crop->h = showing_pos->w * pos->h / w;
+     }
+   else if (rotate == 180)
+     {
+        dst_crop->x = (w - showing_pos->x - showing_pos->w) * pos->w / w + pos->x;
+        dst_crop->y = (h - showing_pos->y - showing_pos->h) * pos->h / h + pos->y;
+        dst_crop->w = showing_pos->w * pos->w / w;
+        dst_crop->h = showing_pos->h * pos->h / h;
+     }
+   else if (rotate == 270)
+     {
+        dst_crop->x = showing_pos->y * pos->w / h + pos->x;
+        dst_crop->y = (w - showing_pos->x - showing_pos->w) * pos->h / w + pos->y;
+        dst_crop->w = showing_pos->h * pos->w / h;
+        dst_crop->h = showing_pos->w * pos->h / w;
+     }
+   else
+     {
+        dst_crop->x = pos->x;
+        dst_crop->y = pos->y;
+        dst_crop->w = pos->w;
+        dst_crop->h = pos->h;
+        ERR("get_cropinfo: unknown case error");
+     }
+}
+
 static int
 _e_output_layer_sort_cb(const void *d1, const void *d2)
 {
@@ -1660,6 +1775,69 @@ _e_output_layer_sort_cb(const void *d1, const void *d2)
    return (e_layer_1->zpos - e_layer_2->zpos);
 }
 
+static Eina_Bool
+_e_output_vbuf_capture_hwc_window(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, int rotate, Eina_Bool rotate_check)
+{
+   int width = 0, height = 0;
+   E_Hwc *hwc = NULL;
+   E_Hwc_Window *hwc_window = NULL;
+   Eina_List *l;
+   Eina_Bool ret = EINA_FALSE;
+
+   e_output_size_get(output, &width, &height);
+   if (width == 0 || height == 0)
+     return ret;
+
+   hwc = output->hwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+
+   EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
+     {
+        E_Comp_Wl_Video_Buf *tmp = NULL;
+        tbm_surface_h surface = NULL;
+        Eina_Rectangle showing_pos = {0, };
+        Eina_Rectangle dst_pos = {0, };
+        Eina_Rectangle src_crop = {0, };
+        Eina_Rectangle dst_crop = {0, };
+
+        if (!hwc_window) continue;
+        if (e_hwc_window_is_video(hwc_window)) continue;
+
+        surface = e_hwc_window_displaying_surface_get(hwc_window);
+        if (!surface) continue;
+
+        tmp = e_comp_wl_video_buffer_create_tbm(surface);
+        if (tmp == NULL) continue;
+
+        ret = _e_output_capture_src_crop_get_hwc_window(output, hwc_window, &src_crop, &showing_pos);
+        if (ret == EINA_FALSE)
+          {
+             e_comp_wl_video_buffer_unref(tmp);
+             continue;
+          }
+
+        ret = _e_output_capture_position_get(output, vbuf->width, vbuf->height, &dst_pos, rotate_check);
+        if (ret == EINA_FALSE)
+          {
+             e_comp_wl_video_buffer_unref(tmp);
+             continue;
+          }
+
+        _e_output_capture_dst_crop_get_hwc_window(hwc_window, tmp, vbuf, width, height,
+                                       &dst_pos, &showing_pos, &dst_crop, rotate);
+
+        e_comp_wl_video_buffer_convert(tmp, vbuf,
+                                       src_crop.x, src_crop.y, src_crop.w, src_crop.h,
+                                       dst_crop.x, dst_crop.y, dst_crop.w, dst_crop.h,
+                                       EINA_TRUE, rotate, 0, 0);
+
+        e_comp_wl_video_buffer_unref(tmp);
+     }
+
+   ret = EINA_TRUE;
+
+   return ret;
+}
 static Eina_Bool
 _e_output_vbuf_capture(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, int rotate, Eina_Bool rotate_check)
 {
@@ -1811,7 +1989,10 @@ _e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotat
    else if (auto_rotate && output_angle == 270)
      rotate = 270;
 
-   ret = _e_output_vbuf_capture(output, vbuf, rotate, rotate_check);
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_WINDOWS)
+     ret = _e_output_vbuf_capture_hwc_window(output, vbuf, rotate, rotate_check);
+   else
+     ret = _e_output_vbuf_capture(output, vbuf, rotate, rotate_check);
 
    e_comp_wl_video_buffer_unref(vbuf);
 
@@ -3316,7 +3497,6 @@ e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotate
         EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
 
         DBG("capture done(%p)", tsurface);
-
         func(output, tsurface, data);
      }
 
