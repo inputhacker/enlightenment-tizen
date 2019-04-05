@@ -1172,9 +1172,6 @@ _e_hwc_windows_pp_window_commit(E_Hwc *hwc, E_Hwc_Window *hwc_window)
         goto pp_fail;
      }
 
-   terror = tdm_pp_set_done_handler(hwc->tpp, _e_hwc_windows_pp_commit_handler, hwc);
-   EINA_SAFETY_ON_FALSE_GOTO(terror == TDM_ERROR_NONE, pp_fail);
-
    tbm_surface_internal_ref(pp_tsurface);
    tbm_surface_internal_ref(commit_data->buffer.tsurface);
    terror = tdm_pp_attach(hwc->tpp, commit_data->buffer.tsurface, pp_tsurface);
@@ -2349,6 +2346,9 @@ e_hwc_windows_zoom_set(E_Hwc *hwc, Eina_Rectangle *rect)
              ERR("fail tdm pp create");
              goto fail;
           }
+
+        ret = tdm_pp_set_done_handler(hwc->tpp, _e_hwc_windows_pp_commit_handler, hwc);
+        EINA_SAFETY_ON_FALSE_GOTO(ret == TDM_ERROR_NONE, fail);
      }
 
    if (!hwc->pp_tqueue)
