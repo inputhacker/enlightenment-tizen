@@ -355,6 +355,10 @@ _e_hwc_window_queue_exported_buffer_destroy_cb(struct wl_listener *listener, voi
    queue_buffer->exported_wl_buffer = NULL;
    wl_list_remove(&queue_buffer->exported_destroy_listener.link);
 
+   if ((queue->state == E_HWC_WINDOW_QUEUE_STATE_SET) ||
+       (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_WAITING))
+     queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_INVALID;
+
    if (!queue_buffer->acquired && queue_buffer->dequeued)
      e_hwc_window_queue_buffer_release(queue, queue_buffer);
 
@@ -390,6 +394,10 @@ _e_hwc_window_queue_exported_buffer_detach_cb(struct wayland_tbm_client_queue *c
    if (!queue_buffer) return;
 
    user = queue->user;
+
+   if ((queue->state == E_HWC_WINDOW_QUEUE_STATE_SET) ||
+       (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_WAITING))
+     queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_INVALID;
 
    EHWQTRACE("DET ts:%p tq:%p wl_buffer:%p",
              (user ? user->ec : NULL), queue,

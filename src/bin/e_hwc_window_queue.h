@@ -12,6 +12,7 @@ typedef enum _E_Hwc_Window_Queue_State
    E_HWC_WINDOW_QUEUE_STATE_SET,
    E_HWC_WINDOW_QUEUE_STATE_SET_WAITING,  /* waiting state until the exported buffer comes */
    E_HWC_WINDOW_QUEUE_STATE_SET_PENDING,  /* pending state due to no dequeueable buffer */
+   E_HWC_WINDOW_QUEUE_STATE_SET_INVALID,
 } E_Hwc_Window_Queue_State;
 
 #else
