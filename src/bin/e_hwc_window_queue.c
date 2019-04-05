@@ -674,11 +674,19 @@ static void
 _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
 {
    E_Hwc_Window *hwc_window = NULL;
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
+   Eina_List *l = NULL;
 
    if (queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING)
      {
         queue->user = queue->user_waiting_unset;
         queue->user_waiting_unset = NULL;
+     }
+
+   EINA_LIST_FOREACH(queue->buffers, l, queue_buffer)
+     {
+        if (!queue_buffer->acquired && queue_buffer->dequeued)
+          e_hwc_window_queue_buffer_release(queue, queue_buffer);
      }
 
    /* release the tqueue */
