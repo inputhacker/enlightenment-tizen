@@ -865,7 +865,8 @@ _e_hwc_windows_pp_output_commit_handler(tdm_output *toutput, unsigned int sequen
         E_FREE(data);
      }
 
-   EHWSTRACE("PP Output Commit Handler hwc(%p), pp_tsurface(%p)", NULL, hwc, hwc->pp_tsurface);
+   EHWSTRACE("!!!!!!!! HWC PP Output Commit Handler !!!!!!!!", NULL);
+   EHWSTRACE("   hwc(%p), pp_tsurface(%p)", NULL, hwc, hwc->pp_tsurface);
 
    output = hwc->output;
    if (e_output_dpms_get(output))
@@ -905,10 +906,7 @@ _e_hwc_windows_pp_output_commit_handler(tdm_output *toutput, unsigned int sequen
 
              hwc->pending_pp_hwc_window_list = eina_list_remove(hwc->pending_pp_hwc_window_list, hwc_window);
 
-             if (data)
-               EHWSTRACE("PP Output Commit Handler start pending pp data(%p) tsurface(%p)", NULL, data, data->buffer.tsurface);
-             else
-               EHWSTRACE("PP Output Commit Handler start pending pp data(%p) tsurface(%p)", NULL, NULL, NULL);
+             EHWSTRACE("PP Output Commit Handler start pending pp data(%p) tsurface(%p)", NULL, hwc_window, hwc_window->buffer.tsurface);
 
              if (!_e_hwc_windows_pp_window_commit(hwc, hwc_window))
                {
@@ -939,6 +937,9 @@ _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data)
         _e_hwc_windows_pp_pending_data_remove(hwc);
         goto fail;
      }
+
+   EHWSTRACE("!!!!!!!! HWC PP Output Commit !!!!!!!!", NULL);
+   EHWSTRACE("   hwc(%p)     tsurface(%p)", NULL, hwc, data->buffer.tsurface);
 
    /* no need to pass composited_wnds list because smooth transition isn't
     * used in this case */
@@ -982,8 +983,6 @@ _e_hwc_windows_pp_output_commit(E_Hwc *hwc, tbm_surface_h tsurface)
    tbm_surface_h pp_tsurface = NULL;
    tbm_error_e tbm_err;
    E_Hwc_Window_Commit_Data *data = NULL;
-
-   EHWSTRACE("PP Output Commit  hwc(%p)     pp_tsurface(%p)", NULL, hwc, tsurface);
 
    tbm_err = tbm_surface_queue_enqueue(hwc->pp_tqueue, tsurface);
    if (tbm_err != TBM_ERROR_NONE)
@@ -1049,7 +1048,8 @@ _e_hwc_windows_pp_commit_handler(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_sur
         hwc->pp_commit = EINA_FALSE;
      }
 
-   EHWSTRACE("PP Commit Handler hwc(%p) tsurface src(%p) dst(%p)",
+   EHWSTRACE("!!!!!!!! HWC PP Commit Handler !!!!!!!!", NULL);
+   EHWSTRACE("   hwc(%p) tsurface src(%p) dst(%p)",
              NULL, hwc, tsurface_src, tsurface_dst);
 
    /* if pp_set is false, skip the commit */
@@ -1148,7 +1148,8 @@ _e_hwc_windows_pp_window_commit(E_Hwc *hwc, E_Hwc_Window *hwc_window)
 
    tbm_surface_h tsurface = commit_data->buffer.tsurface;
 
-   EHWSTRACE("PP Commit  Hwc(%p)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
+   EHWSTRACE("!!!!!!!! HWC PP Commit !!!!!!!!", NULL);
+   EHWSTRACE("   Hwc(%p)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
              NULL, hwc, commit_data->buffer.tsurface, hwc->pp_tqueue,
              commit_data->buffer_ref.buffer ? commit_data->buffer_ref.buffer->resource : NULL, commit_data);
 
@@ -1252,8 +1253,11 @@ _e_hwc_windows_pp_commit(E_Hwc *hwc)
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    commit_data = hwc_window->commit_data;
-   if (!commit_data) return EINA_TRUE;
-   if (!commit_data->buffer.tsurface) return EINA_TRUE;
+   if (!commit_data || !commit_data->buffer.tsurface)
+     {
+        ERR("no commit_data");
+        return EINA_TRUE;
+     }
 
    if (!tbm_surface_queue_can_dequeue(hwc->pp_tqueue, 0))
      {
@@ -2267,12 +2271,10 @@ e_hwc_windows_commit(E_Hwc *hwc)
    if (hwc->pp_unset)
      hwc->pp_unset = EINA_FALSE;
 
-   EHWSTRACE("!!!!!!!! HWC Commit !!!!!!!!", NULL);
-
-   if (output->zoom_set)
+   if (hwc->pp_set)
      {
         e_output_zoom_rotating_check(output);
-        EHWSTRACE("###### PP Commit", NULL);
+        _e_hwc_windows_update_fps(hwc);
         if (!_e_hwc_windows_pp_commit(hwc))
           {
             ERR("_e_hwc_windows_pp_commit failed.");
@@ -2281,6 +2283,7 @@ e_hwc_windows_commit(E_Hwc *hwc)
      }
    else
      {
+        EHWSTRACE("!!!!!!!! HWC Commit !!!!!!!!", NULL);
         _e_hwc_windows_update_fps(hwc);
 
         error = tdm_hwc_commit(hwc->thwc, 0, _e_hwc_windows_commit_handler, hwc);
