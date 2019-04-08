@@ -1993,14 +1993,7 @@ e_hwc_window_pp_commit_data_acquire(E_Hwc_Window *hwc_window, Eina_Bool pp_hwc_m
              EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
           }
         else
-          {
-             if (!hwc_window->display.buffer.tsurface) return EINA_FALSE;
-
-             commit_data = E_NEW(E_Hwc_Window_Commit_Data, 1);
-             EINA_SAFETY_ON_NULL_RETURN_VAL(commit_data, EINA_FALSE);
-
-             _e_hwc_window_buffer_set(&commit_data->buffer, NULL, NULL);
-          }
+          return EINA_FALSE;
      }
 
    EHWTRACE("COM ts:%10p ------- {%25s}, state:%s, zpos:%d, deleted:%s",
