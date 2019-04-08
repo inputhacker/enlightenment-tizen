@@ -2137,6 +2137,28 @@ _e_hwc_windows_target_buffer_prepared(E_Hwc *hwc)
    return EINA_TRUE;
 }
 
+static Eina_Bool
+_e_hwc_windos_pp_pending_window_check(E_Hwc *hwc)
+{
+   E_Hwc_Window *hwc_window = NULL;
+   E_Hwc_Window *hwc_window_pp = NULL;
+   const Eina_List *l;
+
+   if (eina_list_count(hwc->pending_pp_hwc_window_list) != 0)
+     {
+        hwc_window_pp = _e_hwc_windows_pp_get_hwc_window_for_zoom(hwc);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window_pp, EINA_FALSE);
+
+        EINA_LIST_FOREACH(hwc->pending_pp_hwc_window_list, l, hwc_window)
+          {
+             if (hwc_window == hwc_window_pp)
+               return EINA_TRUE;
+          }
+     }
+
+   return EINA_FALSE;
+}
+
 EINTERN Eina_Bool
 e_hwc_windows_init(E_Hwc *hwc)
 {
@@ -2263,6 +2285,12 @@ e_hwc_windows_commit(E_Hwc *hwc)
      {
         _e_hwc_windows_offscreen_commit(hwc);
         return EINA_TRUE;
+     }
+
+   if (hwc->pp_set)
+     {
+        if (_e_hwc_windos_pp_pending_window_check(hwc))
+          return EINA_TRUE;
      }
 
    if (!_e_hwc_windows_commit_data_acquire(hwc))
