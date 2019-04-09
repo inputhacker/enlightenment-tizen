@@ -2,7 +2,7 @@
 # include "config.h"
 #endif
 
-#include "../e_video_internal.h"
+#include "e_video_internal.h"
 
 #define VER(fmt, arg...)   ELOGF("VIDEO", "<ERR> window(0x%08"PRIxPTR"): "fmt, \
                                  evhw->ec, evhw->window, ##arg)
