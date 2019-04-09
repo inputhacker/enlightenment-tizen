@@ -2000,12 +2000,8 @@ _e_eom_window_set_internal(struct wl_resource *resource, int output_id, E_Client
    Eina_Bool ret = EINA_FALSE;
    E_Plane *ep = NULL;
 
-   if (resource == NULL || output_id <= 0 || ec == NULL)
+   if (!resource || output_id <= 0 || !ec || !ec->comp_data || e_object_is_del(E_OBJECT(ec)))
      return;
-
-   cdata = ec->comp_data;
-   EINA_SAFETY_ON_NULL_RETURN(cdata);
-   EINA_SAFETY_ON_NULL_RETURN(cdata->shell.configure_send);
 
    eom_client = _e_eom_client_get_by_resource(resource);
    EINA_SAFETY_ON_NULL_RETURN(eom_client);
@@ -2038,6 +2034,10 @@ _e_eom_window_set_internal(struct wl_resource *resource, int output_id, E_Client
     * external output resolution in respond */
    if (eom_output != NULL)
      {
+        cdata = ec->comp_data;
+        EINA_SAFETY_ON_NULL_RETURN(cdata);
+        EINA_SAFETY_ON_NULL_RETURN(cdata->shell.configure_send);
+
         cdata->shell.configure_send(ec->comp_data->shell.surface, 0, eom_output->width, eom_output->height);
 
         ep = e_output_default_fb_target_get(eom_output->eout);
