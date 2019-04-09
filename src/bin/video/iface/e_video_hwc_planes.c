@@ -39,11 +39,6 @@ struct _E_Video_Layer
    E_Video_Hwc_Planes *evhp;
 
    tdm_layer *tdm_layer;
-
-   /* for hwc_window */
-   E_Client_Video_Info info;
-   tbm_surface_h cur_tsurface; // tsurface to be set this layer.
-   E_Client *e_client;
 };
 
 struct _E_Video_Hwc_Planes
@@ -295,7 +290,6 @@ _e_video_available_video_layer_get(E_Video_Hwc_Planes *evhp)
    EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
 
    layer->evhp = evhp;
-   layer->e_client = evhp->ec;
 
 
    /* layer->tdm_layer = e_output_video_available_tdm_layer_get(evhp->e_output); */
@@ -2708,44 +2702,6 @@ _e_video_hwc_planes_iface_available_properties_get(E_Video_Comp_Iface *iface, co
    return EINA_TRUE;
 }
 
-static Eina_Bool
-_e_video_hwc_planes_iface_info_get(E_Video_Comp_Iface *iface, E_Client_Video_Info *info)
-{
-   tdm_error ret;
-
-   IFACE_ENTRY;
-
-   ret = _e_video_layer_get_info(evhp->layer, info);
-   if (ret != TDM_ERROR_NONE)
-     return EINA_FALSE;
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_video_hwc_planes_iface_commit_data_release(E_Video_Comp_Iface *iface, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec)
-{
-   IFACE_ENTRY;
-
-   if (!evhp->layer)
-     return EINA_FALSE;
-
-   _e_video_commit_handler(NULL, sequence, tv_sec, tv_usec, evhp);
-
-   return EINA_TRUE;
-}
-
-static tbm_surface_h
-_e_video_hwc_planes_iface_tbm_surface_get(E_Video_Comp_Iface *iface)
-{
-   IFACE_ENTRY;
-
-   if (!evhp->layer)
-     return NULL;
-
-   return evhp->layer->cur_tsurface;
-}
-
 EINTERN E_Video_Comp_Iface *
 e_video_hwc_planes_iface_create(E_Client *ec)
 {
@@ -2771,9 +2727,9 @@ e_video_hwc_planes_iface_create(E_Client *ec)
    evhp->base.property_set = _e_video_hwc_planes_iface_property_set;
    evhp->base.property_delay_set = _e_video_hwc_planes_iface_property_delay_set;
    evhp->base.available_properties_get = _e_video_hwc_planes_iface_available_properties_get;
-   evhp->base.info_get = _e_video_hwc_planes_iface_info_get;
-   evhp->base.commit_data_release = _e_video_hwc_planes_iface_commit_data_release;
-   evhp->base.tbm_surface_get = _e_video_hwc_planes_iface_tbm_surface_get;
+   evhp->base.info_get = NULL;
+   evhp->base.commit_data_release = NULL;
+   evhp->base.tbm_surface_get = NULL;
 
    return &evhp->base;
 }
