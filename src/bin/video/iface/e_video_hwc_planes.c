@@ -16,7 +16,6 @@
 #define CHECKING_PRIMARY_ZPOS
 
 #define BUFFER_MAX_COUNT   5
-#define MIN_WIDTH   32
 
 #undef NEVER_GET_HERE
 #define NEVER_GET_HERE()     CRI("** need to improve more **")
