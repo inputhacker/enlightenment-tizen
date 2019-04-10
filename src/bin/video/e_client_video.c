@@ -66,10 +66,8 @@ _e_client_video_comp_iface_init(E_Client_Video *ecv, E_Client *ec)
 
    if ((e_config->eom_enable == EINA_TRUE) && (e_eom_is_ec_external(ec)))
      {
-        /* FIXME workaround
-         * eom will be handled by hwc_planes implementation for now */
-        INF("Try to intialize the eom interface");
-        iface = e_video_hwc_planes_iface_create(ec);
+        INF("Try to intialize external interface");
+        iface = e_video_external_iface_create(ec);
         goto end;
      }
 

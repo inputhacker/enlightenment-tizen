@@ -50,7 +50,6 @@ struct _E_Video_Hwc_Planes
    E_Output *e_output;
    E_Video_Layer *layer;
    E_Plane *e_plane;
-   Eina_Bool external_video;
 
    Eina_List *ec_event_handler;
 
@@ -1166,10 +1165,10 @@ _e_video_geometry_cal_to_input_rect(E_Video_Hwc_Planes * evhp, Eina_Rectangle *s
 static Eina_Bool
 _e_video_geometry_cal(E_Video_Hwc_Planes *evhp)
 {
+   E_Zone *zone;
+   E_Client *topmost;
    Eina_Rectangle screen = {0,};
    Eina_Rectangle output_r = {0,}, input_r = {0,};
-   const tdm_output_mode *mode = NULL;
-   tdm_error tdm_err = TDM_ERROR_NONE;
 
    /* get geometry information with buffer scale, transform and viewport. */
    if (!_e_video_geometry_cal_viewport(evhp))
@@ -1177,32 +1176,14 @@ _e_video_geometry_cal(E_Video_Hwc_Planes *evhp)
 
    _e_video_geometry_cal_map(evhp);
 
-   if (evhp->external_video)
-     {
-        tdm_err = tdm_output_get_mode(evhp->output, &mode);
-        if (tdm_err != TDM_ERROR_NONE)
-          return EINA_FALSE;
+   topmost = e_comp_wl_topmost_parent_get(evhp->ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(topmost, EINA_FALSE);
 
-        if (mode == NULL)
-          return EINA_FALSE;
+   zone = e_comp_zone_xy_get(topmost->x, topmost->y);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(zone, EINA_FALSE);
 
-        screen.w = mode->hdisplay;
-        screen.h = mode->vdisplay;
-     }
-   else
-     {
-        E_Zone *zone;
-        E_Client *topmost;
-
-        topmost = e_comp_wl_topmost_parent_get(evhp->ec);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(topmost, EINA_FALSE);
-
-        zone = e_comp_zone_xy_get(topmost->x, topmost->y);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(zone, EINA_FALSE);
-
-        screen.w = zone->w;
-        screen.h = zone->h;
-     }
+   screen.w = zone->w;
+   screen.h = zone->h;
 
    e_comp_wl_video_buffer_size_get(evhp->ec, &input_r.w, &input_r.h);
    // when topmost is not mapped, input size can be abnormal.
@@ -1269,11 +1250,8 @@ _e_video_geometry_cal(E_Video_Hwc_Planes *evhp)
 static Eina_Bool
 _e_video_can_commit(E_Video_Hwc_Planes *evhp)
 {
-   if (!evhp->external_video)
-     {
-        if (e_output_dpms_get(evhp->e_output))
-          return EINA_FALSE;
-     }
+   if (e_output_dpms_get(evhp->e_output))
+     return EINA_FALSE;
 
    return _e_video_is_visible(evhp);
 }
@@ -1702,29 +1680,6 @@ _e_video_set(E_Video_Hwc_Planes *evhp, E_Client *ec)
 
    evhp->ec = ec;
    evhp->window = e_client_util_win_get(ec);
-
-   if (e_config->eom_enable == EINA_TRUE)
-     {
-        evhp->external_video = e_eom_is_ec_external(ec);
-        if (evhp->external_video)
-          {
-             tdm_error ret;
-             unsigned int index = 0;
-
-             evhp->output = e_eom_tdm_output_by_ec_get(ec);
-             EINA_SAFETY_ON_NULL_RETURN_VAL(evhp->output, EINA_FALSE);
-
-             ret = tdm_output_get_pipe(evhp->output, &index);
-             EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
-
-             evhp->e_output = e_output_find_by_index(index);
-             EINA_SAFETY_ON_NULL_RETURN_VAL(evhp->e_output, EINA_FALSE);
-
-             ec->comp_data->video_client = 1;
-
-             return EINA_TRUE;
-          }
-     }
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(evhp->ec->zone, EINA_FALSE);
 
@@ -2164,13 +2119,6 @@ _e_video_cb_ec_buffer_change(void *data, int type, void *event)
    if (e_object_is_del(E_OBJECT(ec)))
      return ECORE_CALLBACK_PASS_ON;
 
-   /* skip external client buffer if its top parent is not current for eom anymore */
-   if (evhp->external_video && e_eom_is_ec_external(ec))
-     {
-        VWR("skip external buffer");
-        return ECORE_CALLBACK_PASS_ON;
-     }
-
    _e_video_render(evhp, __FUNCTION__);
 
    return ECORE_CALLBACK_PASS_ON;
@@ -2205,13 +2153,6 @@ _e_video_cb_ec_client_show(void *data, int type, void *event)
 
    if (ec == e_comp_wl_topmost_parent_get(evhp->ec))
      {
-        /* skip external client buffer if its top parent is not current for eom anymore */
-        if (evhp->external_video && e_eom_is_ec_external(ec))
-          {
-             VWR("skip external buffer");
-             return ECORE_CALLBACK_PASS_ON;
-          }
-
         VIN("video need rendering..");
         e_comp_wl_viewport_apply(ec);
         _e_video_render(evhp, __FUNCTION__);

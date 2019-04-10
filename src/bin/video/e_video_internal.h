@@ -38,5 +38,6 @@ struct _E_Video_Comp_Iface
 EINTERN E_Video_Comp_Iface  *e_video_hwc_planes_iface_create(E_Client *ec);
 EINTERN E_Video_Comp_Iface  *e_video_hwc_windows_iface_create(E_Client *ec);
 EINTERN E_Video_Comp_Iface  *e_video_fallback_iface_create(E_Client *ec);
+EINTERN E_Video_Comp_Iface  *e_video_external_iface_create(E_Client *ec);
 
 #endif
