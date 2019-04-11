@@ -367,7 +367,7 @@ AC_MSG_RESULT([${have_shm_open}])
 AC_SUBST(SHM_OPEN_LIBS)
                            
 if test "x${e_cv_want_wayland_only}" != "xno" || test "x${e_cv_want_wayland_clients}" != "xno";then
-  PKG_CHECK_MODULES([WAYLAND], [wayland-server >= 1.8.0 xkbcommon uuid xdg-shell-unstable-v5-server xdg-shell-unstable-v6-server scaler-server screenshooter-server tizen-extension-server tizen-launch-server tizen-surface-server eom-server],
+  PKG_CHECK_MODULES([WAYLAND], [wayland-server >= 1.8.0 xkbcommon uuid xdg-shell-unstable-v5-server xdg-shell-unstable-v6-server tizen-remote-surface-server scaler-server screenshooter-server tizen-extension-server tizen-launch-server tizen-surface-server eom-server],
     [
       have_wayland=yes
       AC_DEFINE_UNQUOTED([HAVE_WAYLAND],[1],[enable wayland support])
@@ -383,7 +383,6 @@ if test "x${have_wayland}" = "xyes"; then
   fi
 
   have_wayland_tbm=no
-  have_remote_surface=no
   AC_ARG_ENABLE([wayland-tbm],
     AS_HELP_STRING([--enable-wayland-tbm],[enable wayland-tbm @<:@default=enabled@:>@]),
     [e_cv_want_wayland_tbm=$enableval],
@@ -397,15 +396,6 @@ if test "x${have_wayland}" = "xyes"; then
         have_wayland_tbm=yes
         AC_DEFINE_UNQUOTED([HAVE_WAYLAND_TBM],[1],[enable wayland-tbm support])
       ])
-
-    if test "x${have_wayland_tbm}" = "xyes"; then
-    PKG_CHECK_MODULES([TIZEN_REMOTE_SURFACE], [tizen-remote-surface-server],
-      [
-        have_remote_surface=yes
-        AC_DEFINE_UNQUOTED([HAVE_REMOTE_SURFACE], [1], [enable tizen-retmoe-surface support])
-      ])
-    fi
-
   else
     have_wayland_tbm=no
   fi
@@ -485,7 +475,6 @@ AM_CONDITIONAL([HAVE_DLOG], [test "x${have_dlog}" = "xyes"])
 
 AM_CONDITIONAL([HAVE_WAYLAND], [test "x${have_wayland}" = "xyes"])
 AM_CONDITIONAL([HAVE_WAYLAND_TBM], [test "x${have_wayland_tbm}" = "xyes"])
-AM_CONDITIONAL([HAVE_REMOTE_SURFACE], [test "x${have_remote_surface}" = "xyes"])
 AM_CONDITIONAL([HAVE_HWC], [test "x${have_hwc}" = "xyes"])
 
 #pixman

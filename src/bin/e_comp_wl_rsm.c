@@ -1,8 +1,6 @@
 #include "e.h"
 #include "e_policy_wl.h"
-#ifdef HAVE_REMOTE_SURFACE
- #include <tizen-remote-surface-server-protocol.h>
-#endif /* HAVE_REMOTE_SURFACE */
+#include <tizen-remote-surface-server-protocol.h>
 #include <tbm_surface.h>
 #include <tbm_surface_internal.h>
 #include <wayland-tbm-server.h>
@@ -50,7 +48,6 @@
 
 E_API int E_EVENT_REMOTE_SURFACE_PROVIDER_VISIBILITY_CHANGE = -1;
 
-#ifdef HAVE_REMOTE_SURFACE
 typedef struct _E_Comp_Wl_Remote_Manager E_Comp_Wl_Remote_Manager;
 typedef struct _E_Comp_Wl_Remote_Common E_Comp_Wl_Remote_Common;
 typedef struct _E_Comp_Wl_Remote_Provider E_Comp_Wl_Remote_Provider;
@@ -2994,12 +2991,10 @@ _e_comp_wl_remote_source_save_done_cb(void *data, E_Client* ec, const Eina_Strin
 
    ec->saved_img = EINA_TRUE;
 }
-#endif /* HAVE_REMOTE_SURFACE */
 
 E_API E_Client*
 e_comp_wl_remote_surface_bound_provider_ec_get(E_Client *ec)
 {
-#ifdef HAVE_REMOTE_SURFACE
    E_Comp_Wl_Remote_Surface *remote_surface;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
@@ -3010,13 +3005,11 @@ e_comp_wl_remote_surface_bound_provider_ec_get(E_Client *ec)
    if (!remote_surface || !remote_surface->provider) return NULL;
 
    return remote_surface->provider->common.ec;
-#endif /* HAVE_REMOTE_SURFACE */
 }
 
 EINTERN Eina_Bool
 e_comp_wl_remote_surface_commit(E_Client *ec)
 {
-#ifdef HAVE_REMOTE_SURFACE
    E_Comp_Wl_Remote_Provider *provider;
    E_Comp_Wl_Remote_Source *source = NULL;
    E_Comp_Wl_Subsurf_Data *sdata, *ssdata;
@@ -3071,15 +3064,11 @@ e_comp_wl_remote_surface_commit(E_Client *ec)
    _e_comp_wl_remote_surface_state_commit(ec, &ec->comp_data->pending);
 
    return EINA_TRUE;
-#else
-   return EINA_FALSE;
-#endif /* HAVE_REMOTE_SURFACE */
 }
 
 E_API void
 e_comp_wl_remote_surface_image_save(E_Client *ec)
 {
-#ifdef HAVE_REMOTE_SURFACE
    E_Comp_Wl_Remote_Source *src;
    Eina_Stringshare *dir, *name;
 
@@ -3097,7 +3086,6 @@ e_comp_wl_remote_surface_image_save(E_Client *ec)
 
    eina_stringshare_del(dir);
    eina_stringshare_del(name);
-#endif /* HAVE_REMOTE_SURFACE */
 }
 
 E_API void
@@ -3119,7 +3107,6 @@ e_comp_wl_remote_surface_image_save_skip_get(E_Client *ec)
 EINTERN void
 e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
 {
-#ifdef HAVE_REMOTE_SURFACE
    Eldbus_Message_Iter *line_array;
    Eina_Iterator *hash_iter;
    E_Comp_Wl_Remote_Provider *provider;
@@ -3264,15 +3251,6 @@ e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
    eina_iterator_free(hash_iter);
 
    eldbus_message_iter_container_close(iter, line_array);
-#else
-   Eldbus_Message_Iter *line_array;
-
-   eldbus_message_iter_arguments_append(iter, "as", &line_array);
-   eldbus_message_iter_basic_append(line_array,
-                                    's',
-                                    "Enlightenment doesn't support remote surface");
-   eldbus_message_iter_container_close(iter, line_array);
-#endif
 }
 
 /**
@@ -3345,7 +3323,6 @@ e_comp_wl_remote_surface_providers_get(E_Client *ec)
 EINTERN void
 e_comp_wl_remote_surface_init(void)
 {
-#ifdef HAVE_REMOTE_SURFACE
    E_Comp_Wl_Remote_Manager *rs_manager = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(e_comp_wl);
@@ -3396,13 +3373,11 @@ e_comp_wl_remote_surface_init(void)
    _rsm = rs_manager;
 
    E_EVENT_REMOTE_SURFACE_PROVIDER_VISIBILITY_CHANGE = ecore_event_type_new();
-#endif /* HAVE_REMOTE_SURFACE */
 }
 
 EINTERN void
 e_comp_wl_remote_surface_shutdown(void)
 {
-#ifdef HAVE_REMOTE_SURFACE
    E_Comp_Wl_Remote_Manager *rsm;
    E_Comp_Wl_Remote_Provider *provider;
    E_Comp_Wl_Remote_Source *source;
@@ -3458,5 +3433,4 @@ e_comp_wl_remote_surface_shutdown(void)
    E_FREE_LIST(rsm->event_hdlrs, ecore_event_handler_del);
    wl_global_destroy(rsm->global);
    E_FREE(rsm);
-#endif /* HAVE_REMOTE_SURFACE */
 }
