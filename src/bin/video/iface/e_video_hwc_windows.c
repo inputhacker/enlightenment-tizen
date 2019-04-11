@@ -4,22 +4,11 @@
 
 #include "e_video_internal.h"
 
-#define VER(fmt, arg...)   ELOGF("VIDEO", "<ERR> window(0x%08"PRIxPTR"): "fmt, \
-                                 evhw->ec, evhw->window, ##arg)
-#define VWR(fmt, arg...)   ELOGF("VIDEO", "<WRN> window(0x%08"PRIxPTR"): "fmt, \
-                                 evhw->ec, evhw->window, ##arg)
-#define VIN(fmt, arg...)   ELOGF("VIDEO", "<INF> window(0x%08"PRIxPTR"): "fmt, \
-                                 evhw->ec, evhw->window, ##arg)
-#define VDB(fmt, arg...)   DBG("window(0x%08"PRIxPTR") ec(%p): "fmt, evhw->window, evhw->ec, ##arg)
-
 //#define DUMP_BUFFER
 #define CHECKING_PRIMARY_ZPOS
 
 #define BUFFER_MAX_COUNT   5
 #define MIN_WIDTH   32
-
-#undef NEVER_GET_HERE
-#define NEVER_GET_HERE()     CRI("** need to improve more **")
 
 #ifndef CLEAR
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
@@ -224,7 +213,7 @@ _e_video_is_visible(E_Video_Hwc_Windows *evhw)
 
    if (!e_pixmap_resource_get(evhw->ec->pixmap))
      {
-        VDB("no comp buffer");
+        VDB("no comp buffer", evhw->ec);
         return EINA_FALSE;
      }
 
@@ -234,13 +223,13 @@ _e_video_is_visible(E_Video_Hwc_Windows *evhw)
    offscreen_parent = find_offscreen_parent_get(evhw->ec);
    if (offscreen_parent && offscreen_parent->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)
      {
-        VDB("video surface invisible: offscreen fully obscured");
+        VDB("video surface invisible: offscreen fully obscured", evhw->ec);
         return EINA_FALSE;
      }
 
    if (!evas_object_visible_get(evhw->ec->frame))
      {
-        VDB("evas obj invisible");
+        VDB("evas obj invisible", evhw->ec);
         return EINA_FALSE;
      }
 
@@ -261,19 +250,21 @@ _e_video_parent_is_viewable(E_Video_Hwc_Windows *evhw)
 
    if (topmost_parent == evhw->ec)
      {
-        VDB("There is no video parent surface");
+        VDB("There is no video parent surface", evhw->ec);
         return EINA_FALSE;
      }
 
    if (!topmost_parent->visible)
      {
-        VDB("parent(0x%08"PRIxPTR") not viewable", (Ecore_Window)e_client_util_win_get(topmost_parent));
+        VDB("parent(0x%08"PRIxPTR") not viewable",
+            evhw->ec, (Ecore_Window)e_client_util_win_get(topmost_parent));
         return EINA_FALSE;
      }
 
    if (!e_pixmap_resource_get(topmost_parent->pixmap))
      {
-        VDB("parent(0x%08"PRIxPTR") no comp buffer", (Ecore_Window)e_client_util_win_get(topmost_parent));
+        VDB("parent(0x%08"PRIxPTR") no comp buffer",
+            evhw->ec, (Ecore_Window)e_client_util_win_get(topmost_parent));
         return EINA_FALSE;
      }
 
@@ -295,7 +286,7 @@ _e_video_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
 
    if (evhw->current_fb == vbuf)
      {
-        VIN("current fb destroyed");
+        VIN("current fb destroyed", evhw->ec);
         e_comp_wl_video_buffer_set_use(evhw->current_fb, EINA_FALSE);
         evhw->current_fb = NULL;
         need_hide = EINA_TRUE;
@@ -303,7 +294,7 @@ _e_video_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
 
    if (eina_list_data_find(evhw->committed_list, vbuf))
      {
-        VIN("committed fb destroyed");
+        VIN("committed fb destroyed", evhw->ec);
         evhw->committed_list = eina_list_remove(evhw->committed_list, vbuf);
         e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
         need_hide = EINA_TRUE;
@@ -311,7 +302,7 @@ _e_video_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
 
    if (eina_list_data_find(evhw->waiting_list, vbuf))
      {
-        VIN("waiting fb destroyed");
+        VIN("waiting fb destroyed", evhw->ec);
         evhw->waiting_list = eina_list_remove(evhw->waiting_list, vbuf);
      }
 
@@ -350,7 +341,7 @@ _e_video_input_buffer_copy(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Buffer *comp_buf
 
    temp->comp_buffer = comp_buf;
 
-   VDB("copy vbuf(%d,%dx%d) => vbuf(%d,%dx%d)",
+   VDB("copy vbuf(%d,%dx%d) => vbuf(%d,%dx%d)", evhw->ec,
        MSTAMP(vbuf), vbuf->width_from_pitch, vbuf->height,
        MSTAMP(temp), temp->width_from_pitch, temp->height);
 
@@ -497,7 +488,7 @@ _e_video_pp_buffer_get(E_Video_Hwc_Windows *evhw, int width, int height)
           {
              Eina_List *ll;
 
-             VIN("pp buffer changed: %dx%d => %dx%d",
+             VIN("pp buffer changed: %dx%d => %dx%d", evhw->ec,
                  vbuf->width_from_pitch, vbuf->height,
                  aligned_width, height);
 
@@ -527,7 +518,7 @@ _e_video_pp_buffer_get(E_Video_Hwc_Windows *evhw, int width, int height)
 
           }
 
-        VIN("pp buffer created: %dx%d, %c%c%c%c",
+        VIN("pp buffer created: %dx%d, %c%c%c%c", evhw->ec,
             vbuf->width_from_pitch, height, FOURCC_STR(evhw->pp_tbmfmt));
 
         evhw->next_buffer = evhw->pp_buffer_list;
@@ -546,7 +537,7 @@ _e_video_pp_buffer_get(E_Video_Hwc_Windows *evhw, int width, int height)
 
         if (l == evhw->next_buffer)
           {
-             VWR("all video framebuffers in use (max:%d)", BUFFER_MAX_COUNT);
+             VWR("all video framebuffers in use (max:%d)", evhw->ec, BUFFER_MAX_COUNT);
              return NULL;
           }
      }
@@ -627,7 +618,7 @@ _e_video_geometry_cal_physical(E_Video_Hwc_Windows *evhw)
                             &evhw->geo.tdm_output_r.w, &evhw->geo.tdm_output_r.h);
 
    VDB("geomtry: screen(%d,%d %dx%d | %d) => %d => physical(%d,%d %dx%d | %d)",
-       EINA_RECTANGLE_ARGS(&evhw->geo.output_r), evhw->geo.transform, transform,
+       evhw->ec, EINA_RECTANGLE_ARGS(&evhw->geo.output_r), evhw->geo.transform, transform,
        EINA_RECTANGLE_ARGS(&evhw->geo.tdm_output_r), evhw->geo.tdm_transform);
 
    return;
@@ -670,7 +661,7 @@ _e_video_geometry_cal_viewport(E_Video_Hwc_Windows *evhw)
 
    bw = tbm_surface_get_width(tbm_surf);
    bh = tbm_surface_get_height(tbm_surf);
-   VDB("TBM buffer size %d %d", bw, bh);
+   VDB("TBM buffer size %d %d", evhw->ec, bw, bh);
 
    switch (vp->buffer.transform)
      {
@@ -704,7 +695,7 @@ _e_video_geometry_cal_viewport(E_Video_Hwc_Windows *evhw)
      }
 
    VDB("transform(%d) scale(%d) buffer(%dx%d) src(%d,%d %d,%d) viewport(%dx%d)",
-       vp->buffer.transform, vp->buffer.scale,
+       evhw->ec, vp->buffer.transform, vp->buffer.scale,
        width_from_buffer, height_from_buffer,
        x1, y1, x2 - x1, y2 - y1,
        ec->comp_data->width_from_viewport, ec->comp_data->height_from_viewport);
@@ -755,7 +746,7 @@ _e_video_geometry_cal_viewport(E_Video_Hwc_Windows *evhw)
    _e_video_geometry_cal_physical(evhw);
 
    VDB("geometry(%dx%d  %d,%d %dx%d  %d,%d %dx%d  %d)",
-       evhw->geo.input_w, evhw->geo.input_h,
+       evhw->ec, evhw->geo.input_w, evhw->geo.input_h,
        EINA_RECTANGLE_ARGS(&evhw->geo.input_r),
        EINA_RECTANGLE_ARGS(&evhw->geo.output_r),
        evhw->geo.transform);
@@ -797,7 +788,7 @@ _e_video_geometry_cal_map(E_Video_Hwc_Windows *evhw)
    if (!memcmp(&evhw->geo.output_r, &output_r, sizeof(Eina_Rectangle)))
      return EINA_FALSE;
 
-   VDB("frame(%p) m(%p) output(%d,%d %dx%d) => (%d,%d %dx%d)", ec->frame, m,
+   VDB("frame(%p) m(%p) output(%d,%d %dx%d) => (%d,%d %dx%d)", evhw->ec, ec->frame, m,
        EINA_RECTANGLE_ARGS(&evhw->geo.output_r), EINA_RECTANGLE_ARGS(&output_r));
 
    evhw->geo.output_r = output_r;
@@ -908,7 +899,7 @@ _e_video_geometry_cal(E_Video_Hwc_Windows *evhw)
    // in this case, it will be render by topmost showing.
    if (!eina_rectangle_intersection(&evhw->geo.input_r, &input_r) || (evhw->geo.input_r.w <= 10 || evhw->geo.input_r.h <= 10))
      {
-        VER("input area is empty");
+        VER("input area is empty", evhw->ec);
         return EINA_FALSE;
      }
 
@@ -923,7 +914,7 @@ _e_video_geometry_cal(E_Video_Hwc_Windows *evhw)
    if (!eina_rectangle_intersection(&output_r, &screen))
      {
         VER("output_r(%d,%d %dx%d) screen(%d,%d %dx%d) => intersect(%d,%d %dx%d)",
-            EINA_RECTANGLE_ARGS(&evhw->geo.output_r),
+            evhw->ec, EINA_RECTANGLE_ARGS(&evhw->geo.output_r),
             EINA_RECTANGLE_ARGS(&screen), EINA_RECTANGLE_ARGS(&output_r));
         return EINA_TRUE;
      }
@@ -933,16 +924,16 @@ _e_video_geometry_cal(E_Video_Hwc_Windows *evhw)
 
    if (output_r.w <= 0 || output_r.h <= 0)
      {
-        VER("output area is empty");
+        VER("output area is empty", evhw->ec);
         return EINA_FALSE;
      }
 
-   VDB("output(%d,%d %dx%d) input(%d,%d %dx%d)",
+   VDB("output(%d,%d %dx%d) input(%d,%d %dx%d)", evhw->ec,
        EINA_RECTANGLE_ARGS(&output_r), EINA_RECTANGLE_ARGS(&input_r));
 
    _e_video_geometry_cal_to_input_rect(evhw, &output_r, &input_r);
 
-   VDB("output(%d,%d %dx%d) input(%d,%d %dx%d)",
+   VDB("output(%d,%d %dx%d) input(%d,%d %dx%d)", evhw->ec,
        EINA_RECTANGLE_ARGS(&output_r), EINA_RECTANGLE_ARGS(&input_r));
 
    output_r.x += evhw->geo.output_r.x;
@@ -1035,7 +1026,7 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
 
    evhw->current_fb = vbuf;
 
-   VDB("current_fb(%d)", MSTAMP(evhw->current_fb));
+   VDB("current_fb(%d)", evhw->ec, MSTAMP(evhw->current_fb));
 
    _e_video_vblank_handler(NULL, sequence, tv_sec, tv_usec, evhw);
 }
@@ -1137,7 +1128,7 @@ _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
              if (bw > 100 && bh > 100 &&
                  evhw->geo.output_r.w < 100 && evhw->geo.output_r.h < 100)
                {
-                  VIN("don't punch. (%dx%d, %dx%d)",
+                  VIN("don't punch. (%dx%d, %dx%d)", evhw->ec,
                       bw, bh, evhw->geo.output_r.w, evhw->geo.output_r.h);
                   do_punch = EINA_FALSE;
                }
@@ -1146,14 +1137,14 @@ _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
         if (do_punch)
           {
              e_comp_object_mask_set(evhw->ec->frame, EINA_TRUE);
-             VIN("punched");
+             VIN("punched", evhw->ec);
           }
      }
 
    if (e_video_debug_punch_value_get())
      {
         e_comp_object_mask_set(evhw->ec->frame, EINA_TRUE);
-        VIN("punched");
+        VIN("punched", evhw->ec);
      }
 #endif
 
@@ -1183,7 +1174,7 @@ _e_video_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf, unsig
    if (evhw->waiting_vblank)
      {
         evhw->waiting_list = eina_list_append(evhw->waiting_list, vbuf);
-        VDB("There are waiting fbs more than 1");
+        VDB("There are waiting fbs more than 1", evhw->ec);
         return;
      }
 
@@ -1220,7 +1211,7 @@ _e_video_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
 
    if (evhw->need_force_render)
      {
-        VIN("video forcely rendering..");
+        VIN("video forcely rendering..", evhw->ec);
         _e_video_render(evhw, __FUNCTION__);
      }
 
@@ -1231,7 +1222,7 @@ _e_video_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
         return;
      }
 
-   VIN("evas show (ec:%p)", evhw->ec);
+   VIN("evas show", evhw->ec);
    if (evhw->current_fb)
      _e_video_buffer_show(evhw, evhw->current_fb, evhw->current_fb->content_t);
 }
@@ -1266,13 +1257,13 @@ _e_video_create(E_Client *ec)
    evhw->hwc = hwc;
 
    /* This ec is a video client now. */
-   VIN("video client");
+   VIN("video client", evhw->ec);
    ec->comp_data->video_client = 1;
 
    //TODO: shoud this function be called here?
    e_zone_video_available_size_get(ec->zone, NULL, NULL, NULL, NULL, &evhw->video_align);
 
-   VIN("create. ec(%p) wl_surface@%d", ec, wl_resource_get_id(evhw->ec->comp_data->surface));
+   VIN("create. wl_surface@%d", ec, wl_resource_get_id(evhw->ec->comp_data->surface));
 
    video_list = eina_list_append(video_list, evhw);
 
@@ -1312,7 +1303,7 @@ _e_video_destroy(E_Video_Hwc_Windows *evhw)
    if (!evhw)
      return;
 
-   VIN("destroy");
+   VIN("destroy", evhw->ec);
 
    if (evhw->cb_registered)
      {
@@ -1432,7 +1423,7 @@ _e_video_pp_cb_done(tdm_pp *pp, tbm_surface_h sb, tbm_surface_h db, void *user_d
      }
    else
      {
-        VER("There is no pp_buffer");
+        VER("There is no pp_buffer", evhw->ec);
         // there is no way to set in_use flag.
         // This will cause issue when server get available pp_buffer.
      }
@@ -1474,7 +1465,7 @@ _e_video_render(E_Video_Hwc_Windows *evhw, const char *func)
 
    if(e_comp_wl_viewport_is_changed(topmost))
      {
-        VIN("need update viewport: apply topmost");
+        VIN("need update viewport: apply topmost", evhw->ec);
         e_comp_wl_viewport_apply(topmost);
      }
 
@@ -1482,15 +1473,17 @@ _e_video_render(E_Video_Hwc_Windows *evhw, const char *func)
      {
         if(!evhw->need_force_render && !_e_video_parent_is_viewable(evhw))
           {
-             VIN("need force render");
+             VIN("need force render", evhw->ec);
              evhw->need_force_render = EINA_TRUE;
           }
         return;
      }
 
    DBG("====================================== (%s)", func);
-   VDB("old: "GEO_FMT" buf(%p)", GEO_ARG(&evhw->old_geo), evhw->old_comp_buffer);
-   VDB("new: "GEO_FMT" buf(%p) %c%c%c%c", GEO_ARG(&evhw->geo), comp_buffer, FOURCC_STR(evhw->tbmfmt));
+   VDB("old: "GEO_FMT" buf(%p)",
+       evhw->ec, GEO_ARG(&evhw->old_geo), evhw->old_comp_buffer);
+   VDB("new: "GEO_FMT" buf(%p) %c%c%c%c",
+       evhw->ec, GEO_ARG(&evhw->geo), comp_buffer, FOURCC_STR(evhw->tbmfmt));
 
    if (!memcmp(&evhw->old_geo, &evhw->geo, sizeof evhw->geo) &&
        evhw->old_comp_buffer == comp_buffer)
@@ -1571,13 +1564,13 @@ _e_video_render(E_Video_Hwc_Windows *evhw, const char *func)
 
         if (tdm_pp_set_info(evhw->pp, &info))
           {
-             VER("tdm_pp_set_info() failed");
+             VER("tdm_pp_set_info() failed", evhw->ec);
              goto render_fail;
           }
 
         if (tdm_pp_set_done_handler(evhw->pp, _e_video_pp_cb_done, evhw))
           {
-             VER("tdm_pp_set_done_handler() failed");
+             VER("tdm_pp_set_done_handler() failed", evhw->ec);
              goto render_fail;
           }
 
@@ -1590,7 +1583,7 @@ _e_video_render(E_Video_Hwc_Windows *evhw, const char *func)
 
    if (tdm_pp_attach(evhw->pp, input_buffer->tbm_surface, pp_buffer->tbm_surface))
      {
-        VER("tdm_pp_attach() failed");
+        VER("tdm_pp_attach() failed", evhw->ec);
         goto render_fail;
      }
 
@@ -1600,7 +1593,7 @@ _e_video_render(E_Video_Hwc_Windows *evhw, const char *func)
 
    if (tdm_pp_commit(evhw->pp))
      {
-        VER("tdm_pp_commit() failed");
+        VER("tdm_pp_commit() failed", evhw->ec);
         e_comp_wl_video_buffer_set_use(pp_buffer, EINA_FALSE);
         goto render_fail;
      }
@@ -1674,16 +1667,17 @@ _e_video_cb_ec_client_show(void *data, int type, void *event)
    evhw = data;
    if (!evhw) return ECORE_CALLBACK_PASS_ON;
 
-   VIN("client(0x%08"PRIxPTR") show: find video child(0x%08"PRIxPTR")", (Ecore_Window)e_client_util_win_get(ec), (Ecore_Window)e_client_util_win_get(video_ec));
+   VIN("show: find video child(0x%08"PRIxPTR")",
+       evhw->ec, (Ecore_Window)e_client_util_win_get(video_ec));
    if(evhw->old_comp_buffer)
      {
-        VIN("video already rendering..");
+        VIN("video already rendering..", evhw->ec);
         return ECORE_CALLBACK_PASS_ON;
      }
 
    if (ec == e_comp_wl_topmost_parent_get(evhw->ec))
      {
-        VIN("video need rendering..");
+        VIN("video need rendering..", evhw->ec);
         e_comp_wl_viewport_apply(ec);
         _e_video_render(evhw, __FUNCTION__);
      }
@@ -1713,7 +1707,7 @@ _e_video_cb_ec_visibility_change(void *data, int type, void *event)
               evas_object_show(evhw->ec->frame);
               break;
            default:
-              VER("Not implemented");
+              VER("Not implemented", evhw->ec);
               return ECORE_CALLBACK_PASS_ON;
           }
      }
@@ -1805,12 +1799,12 @@ _e_video_hwc_windows_prop_name_get_by_id(E_Video_Hwc_Windows *evhw, unsigned int
      {
         if (props[i].id == id)
           {
-             VDB("check property(%s)", props[i].name);
+             VDB("check property(%s)", evhw->ec, props[i].name);
              return props[i].name;
           }
      }
 
-   VER("No available property: id %d", id);
+   VER("No available property: id %d", evhw->ec, id);
 
    return NULL;
 }
@@ -1929,34 +1923,34 @@ _e_video_hwc_windows_iface_property_set(E_Video_Comp_Iface *iface, unsigned int 
 
    IFACE_ENTRY;
 
-   VIN("set_attribute");
+   VIN("set_attribute", evhw->ec);
 
    name = _e_video_hwc_windows_prop_name_get_by_id(evhw, id);
    if (!name)
    {
-      VER("_e_video_hwc_windows_prop_name_get_by_id failed");
+      VER("_e_video_hwc_windows_prop_name_get_by_id failed", evhw->ec);
       return EINA_FALSE;
    }
 
    if (evhw->allowed_attribute)
      {
-        VIN("set_attribute now : property(%s), value(%d)", name, value.u32);
+        VIN("set_attribute now : property(%s), value(%d)", evhw->ec, name, value.u32);
 
         /* set the property on the fly */
         if (!e_hwc_window_set_property(evhw->hwc_window, id, name, value, EINA_TRUE))
           {
-             VER("set property failed");
+             VER("set property failed", evhw->ec);
              return EINA_FALSE;
           }
      }
    else
      {
-        VIN("set_attribute at commit : property(%s), value(%d)", name, value.u32);
+        VIN("set_attribute at commit : property(%s), value(%d)", evhw->ec, name, value.u32);
 
         /* set the property before hwc commit */
         if (!e_hwc_window_set_property(evhw->hwc_window, id, name, value, EINA_FALSE))
           {
-             VER("set property failed");
+             VER("set property failed", evhw->ec);
              return EINA_FALSE;
           }
      }

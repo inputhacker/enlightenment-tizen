@@ -9,6 +9,31 @@
 #include <tbm_surface.h>
 #include <wayland-tbm-server.h>
 
+#ifdef VER
+#undef VER
+#endif
+
+#ifdef VWR
+#undef VWR
+#endif
+
+#ifdef VIN
+#undef VIN
+#endif
+
+#ifdef VDB
+#undef VDB
+#endif
+
+#define VER(fmt, ec, arg...)   ELOGF("VIDEO <ERR>", fmt, ec, ##arg)
+#define VWR(fmt, ec, arg...)   ELOGF("VIDEO <WRN>", fmt, ec, ##arg)
+#define VIN(fmt, ec, arg...)   ELOGF("VIDEO <INF>", fmt, ec, ##arg)
+#define VDB(fmt, ec, arg...)   DBG("window(0x%08"PRIxPTR") ec(%p): "fmt, \
+                                 e_client_util_win_get(ec), ec, ##arg)
+
+#undef NEVER_GET_HERE
+#define NEVER_GET_HERE()     CRI("** need to improve more **")
+
 #define GEO_FMT   "%dx%d(%dx%d+%d+%d) -> (%dx%d+%d+%d) transform(%d)"
 #define GEO_ARG(g) \
    (g)->input_w, (g)->input_h, \
