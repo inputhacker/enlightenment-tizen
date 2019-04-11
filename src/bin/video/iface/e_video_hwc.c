@@ -19,6 +19,36 @@ struct _E_Video_Hwc
    E_Video_Comp_Iface *backend;
 };
 
+EINTERN E_Comp_Wl_Video_Buf *
+e_video_hwc_vbuf_find(Eina_List *list, tbm_surface_h buffer)
+{
+   E_Comp_Wl_Video_Buf *vbuf;
+   Eina_List *l = NULL;
+
+   EINA_LIST_FOREACH(list, l, vbuf)
+     {
+        if (vbuf->tbm_surface == buffer)
+          return vbuf;
+     }
+
+   return NULL;
+}
+
+EINTERN E_Comp_Wl_Video_Buf *
+e_video_hwc_vbuf_find_with_comp_buffer(Eina_List *list, E_Comp_Wl_Buffer *comp_buffer)
+{
+   E_Comp_Wl_Video_Buf *vbuf;
+   Eina_List *l = NULL;
+
+   EINA_LIST_FOREACH(list, l, vbuf)
+     {
+        if (vbuf->comp_buffer == comp_buffer)
+          return vbuf;
+     }
+
+   return NULL;
+}
+
 EINTERN E_Client *
 e_video_hwc_client_offscreen_parent_get(E_Client *ec)
 {

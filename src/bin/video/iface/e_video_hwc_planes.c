@@ -103,36 +103,6 @@ static Eina_Bool _e_video_tdm_get_layer_usable(tdm_layer *layer);
 static void _e_video_vblank_handler(tdm_output *output, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec, void *user_data);
 
 
-static E_Comp_Wl_Video_Buf *
-_e_video_vbuf_find(Eina_List *list, tbm_surface_h buffer)
-{
-   E_Comp_Wl_Video_Buf *vbuf;
-   Eina_List *l = NULL;
-
-   EINA_LIST_FOREACH(list, l, vbuf)
-     {
-        if (vbuf->tbm_surface == buffer)
-          return vbuf;
-     }
-
-   return NULL;
-}
-
-static E_Comp_Wl_Video_Buf *
-_e_video_vbuf_find_with_comp_buffer(Eina_List *list, E_Comp_Wl_Buffer *comp_buffer)
-{
-   E_Comp_Wl_Video_Buf *vbuf;
-   Eina_List *l = NULL;
-
-   EINA_LIST_FOREACH(list, l, vbuf)
-     {
-        if (vbuf->comp_buffer == comp_buffer)
-          return vbuf;
-     }
-
-   return NULL;
-}
-
 static E_Output *
 _get_e_output(tdm_output *output)
 {
@@ -519,7 +489,7 @@ _e_video_input_buffer_get(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Buffer *comp_buffe
    E_Comp_Wl_Video_Buf *vbuf;
    Eina_Bool need_pp_scanout = EINA_FALSE;
 
-   vbuf = _e_video_vbuf_find_with_comp_buffer(evhp->input_buffer_list, comp_buffer);
+   vbuf = e_video_hwc_vbuf_find_with_comp_buffer(evhp->input_buffer_list, comp_buffer);
    if (vbuf)
      {
         vbuf->content_r = evhp->geo.input_r;
@@ -1332,11 +1302,11 @@ _e_video_pp_cb_done(tdm_pp *pp, tbm_surface_h sb, tbm_surface_h db, void *user_d
    E_Video_Hwc_Planes *evhp = (E_Video_Hwc_Planes*)user_data;
    E_Comp_Wl_Video_Buf *input_buffer, *pp_buffer;
 
-   input_buffer = _e_video_vbuf_find(evhp->input_buffer_list, sb);
+   input_buffer = e_video_hwc_vbuf_find(evhp->input_buffer_list, sb);
    if (input_buffer)
      e_comp_wl_video_buffer_unref(input_buffer);
 
-   pp_buffer = _e_video_vbuf_find(evhp->pp_buffer_list, db);
+   pp_buffer = e_video_hwc_vbuf_find(evhp->pp_buffer_list, db);
    if (pp_buffer)
      {
         e_comp_wl_video_buffer_set_use(pp_buffer, EINA_FALSE);

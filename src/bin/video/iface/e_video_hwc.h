@@ -36,4 +36,6 @@ EINTERN Eina_Bool    e_video_hwc_client_visible_get(E_Client *ec);
 EINTERN Eina_Bool    e_video_hwc_geometry_get(E_Client *ec, E_Video_Hwc_Geometry *out);
 EINTERN Eina_Bool    e_video_hwc_geometry_map_apply(E_Client *ec, E_Video_Hwc_Geometry *out);
 
+EINTERN E_Comp_Wl_Video_Buf *e_video_hwc_vbuf_find(Eina_List *list, tbm_surface_h buffer);
+EINTERN E_Comp_Wl_Video_Buf *e_video_hwc_vbuf_find_with_comp_buffer(Eina_List *list, E_Comp_Wl_Buffer *comp_buffer);
 #endif
