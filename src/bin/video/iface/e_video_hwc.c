@@ -19,6 +19,28 @@ struct _E_Video_Hwc
    E_Video_Comp_Iface *backend;
 };
 
+EINTERN E_Client *
+e_video_hwc_child_client_get(E_Client *ec)
+{
+   E_Client *subc = NULL;
+   Eina_List *l;
+   if (!ec) return NULL;
+   if (e_object_is_del(E_OBJECT(ec))) return NULL;
+   if (!ec->comp_data) return NULL;
+
+   if (ec->comp_data->video_client) return ec;
+
+   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
+     {
+        E_Client *temp= NULL;
+        if (!subc->comp_data || e_object_is_del(E_OBJECT(subc))) continue;
+        temp = e_video_hwc_child_client_get(subc);
+        if(temp) return temp;
+     }
+
+   return NULL;
+}
+
 static tbm_surface_h
 _e_video_hwc_client_tbm_surface_get(E_Client *ec)
 {

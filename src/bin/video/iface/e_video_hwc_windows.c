@@ -75,28 +75,6 @@ static Eina_Bool _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl
 static void      _e_video_vblank_handler(tdm_output *output, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec, void *user_data);
 
 static E_Client *
-find_video_child_get(E_Client *ec)
-{
-   E_Client *subc = NULL;
-   Eina_List *l;
-   if (!ec) return NULL;
-   if (e_object_is_del(E_OBJECT(ec))) return NULL;
-   if (!ec->comp_data) return NULL;
-
-   if (ec->comp_data->video_client) return ec;
-
-   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
-     {
-        E_Client *temp= NULL;
-        if (!subc->comp_data || e_object_is_del(E_OBJECT(subc))) continue;
-        temp = find_video_child_get(subc);
-        if(temp) return temp;
-     }
-
-   return NULL;
-}
-
-static E_Client *
 find_offscreen_parent_get(E_Client *ec)
 {
    E_Client *parent = NULL;
@@ -1182,7 +1160,7 @@ _e_video_cb_ec_client_show(void *data, int type, void *event)
    ec = ev->ec;
    if (!ec->comp_data) return ECORE_CALLBACK_PASS_ON;
 
-   video_ec = find_video_child_get(ec);
+   video_ec = e_video_hwc_child_client_get(ec);
    if (!video_ec) return ECORE_CALLBACK_PASS_ON;
 
    evhw = data;
