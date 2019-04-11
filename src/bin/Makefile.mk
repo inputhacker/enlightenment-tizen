@@ -112,6 +112,7 @@ src/bin/video/e_video_debug.h \
 src/bin/e_comp_wl_viewport.h \
 src/bin/e_comp_wl_screenshooter.h \
 src/bin/e_comp_wl_shell.h \
+src/bin/e_comp_wl_capture.h \
 src/bin/services/e_service_gesture.h \
 src/bin/services/e_service_lockscreen.h \
 src/bin/services/e_service_quickpanel.h \
@@ -229,6 +230,7 @@ src/bin/video/iface/e_video_fallback.c \
 src/bin/e_comp_wl_viewport.c \
 src/bin/e_comp_wl_screenshooter.c \
 src/bin/e_comp_wl_shell.c \
+src/bin/e_comp_wl_capture.c \
 src/bin/services/e_service_gesture.c \
 src/bin/services/e_service_lockscreen.c \
 src/bin/services/e_service_quickpanel.c \

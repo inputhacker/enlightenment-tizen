@@ -7098,6 +7098,12 @@ e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set)
    e_client_visibility_calculate();
 }
 
+E_API E_Capture_Save_State
+e_client_image_save(E_Client *ec, const char *dir, const char *name, E_Capture_Client_Save_End_Cb func_end, void *data, Eina_Bool skip_child)
+{
+   return e_comp_wl_capture_client_image_save(ec, dir, name, func_end, data, skip_child);
+}
+
 /* tizen_move_resize */
 EINTERN Eina_Bool
 e_client_pending_geometry_has(E_Client *ec)

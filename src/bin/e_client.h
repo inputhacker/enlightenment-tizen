@@ -1153,6 +1153,8 @@ E_API void e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set);
 
 E_API void e_client_stay_within_canvas_margin(E_Client *ec);
 
+E_API E_Capture_Save_State e_client_image_save(E_Client *ec, const char *dir, const char *name, E_Capture_Client_Save_End_Cb func_end, void *data, Eina_Bool skip_child);
+
 EINTERN void e_client_revert_focus(E_Client *ec);
 EINTERN Eina_Bool e_client_check_above_focused(E_Client *ec);
 

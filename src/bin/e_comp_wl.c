@@ -4878,6 +4878,7 @@ e_comp_wl_init(void)
    e_comp_wl_screenshooter_init();
    e_comp_wl_video_init();
    e_comp_wl_viewport_init();
+   e_comp_wl_capture_init();
    _e_comp_wl_move_resize_init();
 
    /* add event handlers to catch E events */
@@ -4933,6 +4934,7 @@ e_comp_wl_shutdown(void)
    E_FREE_LIST(hooks, e_client_hook_del);
    _e_comp_wl_gl_shutdown();
 
+   e_comp_wl_capture_shutdown();
    e_comp_wl_viewport_shutdown();
    e_comp_wl_video_shutdown();
    e_comp_wl_screenshooter_shutdown();
