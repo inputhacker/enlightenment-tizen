@@ -360,41 +360,6 @@ _e_video_set_layer(E_Video_Hwc_Planes *evhp, Eina_Bool set)
    return EINA_TRUE;
 }
 
-static Eina_Bool
-_e_video_parent_is_viewable(E_Video_Hwc_Planes *evhp)
-{
-   E_Client *topmost_parent;
-
-   if (e_object_is_del(E_OBJECT(evhp->ec))) return EINA_FALSE;
-
-   topmost_parent = e_comp_wl_topmost_parent_get(evhp->ec);
-
-   if (!topmost_parent)
-     return EINA_FALSE;
-
-   if (topmost_parent == evhp->ec)
-     {
-        VDB("There is no video parent surface", evhp->ec);
-        return EINA_FALSE;
-     }
-
-   if (!topmost_parent->visible)
-     {
-        VDB("parent(0x%08"PRIxPTR") not viewable", evhp->ec,
-            (Ecore_Window)e_client_util_win_get(topmost_parent));
-        return EINA_FALSE;
-     }
-
-   if (!e_pixmap_resource_get(topmost_parent->pixmap))
-     {
-        VDB("parent(0x%08"PRIxPTR") no comp buffer", evhp->ec,
-            (Ecore_Window)e_client_util_win_get(topmost_parent));
-        return EINA_FALSE;
-     }
-
-   return EINA_TRUE;
-}
-
 static void
 _e_video_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
 {
@@ -1366,7 +1331,7 @@ _e_video_render(E_Video_Hwc_Planes *evhp, const char *func)
 
    if (!e_video_hwc_geometry_get(evhp->ec, &evhp->geo))
      {
-        if(!evhp->need_force_render && !_e_video_parent_is_viewable(evhp))
+        if(!evhp->need_force_render && !e_video_hwc_client_parent_viewable_get(evhp->ec))
           {
              VIN("need force render", evhp->ec);
              evhp->need_force_render = EINA_TRUE;

@@ -19,6 +19,41 @@ struct _E_Video_Hwc
    E_Video_Comp_Iface *backend;
 };
 
+EINTERN Eina_Bool
+e_video_hwc_client_parent_viewable_get(E_Client *ec)
+{
+   E_Client *topmost_parent;
+
+   if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
+
+   topmost_parent = e_comp_wl_topmost_parent_get(ec);
+
+   if (!topmost_parent)
+     return EINA_FALSE;
+
+   if (topmost_parent == ec)
+     {
+        VDB("There is no video parent surface", ec);
+        return EINA_FALSE;
+     }
+
+   if (!topmost_parent->visible)
+     {
+        VDB("parent(0x%08"PRIxPTR") not viewable", ec,
+            (Ecore_Window)e_client_util_win_get(topmost_parent));
+        return EINA_FALSE;
+     }
+
+   if (!e_pixmap_resource_get(topmost_parent->pixmap))
+     {
+        VDB("parent(0x%08"PRIxPTR") no comp buffer", ec,
+            (Ecore_Window)e_client_util_win_get(topmost_parent));
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
 EINTERN E_Comp_Wl_Video_Buf *
 e_video_hwc_vbuf_find(Eina_List *list, tbm_surface_h buffer)
 {

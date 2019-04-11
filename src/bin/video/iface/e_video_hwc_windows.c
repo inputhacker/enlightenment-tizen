@@ -74,41 +74,6 @@ static void      _e_video_render(E_Video_Hwc_Windows *evhw, const char *func);
 static Eina_Bool _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf);
 static void      _e_video_vblank_handler(tdm_output *output, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec, void *user_data);
 
-static Eina_Bool
-_e_video_parent_is_viewable(E_Video_Hwc_Windows *evhw)
-{
-   E_Client *topmost_parent;
-
-   if (e_object_is_del(E_OBJECT(evhw->ec))) return EINA_FALSE;
-
-   topmost_parent = e_comp_wl_topmost_parent_get(evhw->ec);
-
-   if (!topmost_parent)
-     return EINA_FALSE;
-
-   if (topmost_parent == evhw->ec)
-     {
-        VDB("There is no video parent surface", evhw->ec);
-        return EINA_FALSE;
-     }
-
-   if (!topmost_parent->visible)
-     {
-        VDB("parent(0x%08"PRIxPTR") not viewable",
-            evhw->ec, (Ecore_Window)e_client_util_win_get(topmost_parent));
-        return EINA_FALSE;
-     }
-
-   if (!e_pixmap_resource_get(topmost_parent->pixmap))
-     {
-        VDB("parent(0x%08"PRIxPTR") no comp buffer",
-            evhw->ec, (Ecore_Window)e_client_util_win_get(topmost_parent));
-        return EINA_FALSE;
-     }
-
-   return EINA_TRUE;
-}
-
 static void
 _e_video_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
 {
@@ -885,7 +850,7 @@ _e_video_render(E_Video_Hwc_Windows *evhw, const char *func)
 
    if (!e_video_hwc_geometry_get(evhw->ec, &evhw->geo))
      {
-        if(!evhw->need_force_render && !_e_video_parent_is_viewable(evhw))
+        if(!evhw->need_force_render && !e_video_hwc_client_parent_viewable_get(evhw->ec))
           {
              VIN("need force render", evhw->ec);
              evhw->need_force_render = EINA_TRUE;
