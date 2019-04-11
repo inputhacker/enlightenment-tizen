@@ -6,9 +6,6 @@
 #include "e_video_hwc.h"
 
 //#define DUMP_BUFFER
-#define CHECKING_PRIMARY_ZPOS
-
-#define MIN_WIDTH   32
 
 #define IFACE_ENTRY                                      \
    E_Video_Hwc_Windows *evhw;                              \
