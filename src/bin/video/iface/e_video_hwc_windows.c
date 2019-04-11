@@ -3,16 +3,12 @@
 #endif
 
 #include "e_video_internal.h"
+#include "e_video_hwc.h"
 
 //#define DUMP_BUFFER
 #define CHECKING_PRIMARY_ZPOS
 
-#define BUFFER_MAX_COUNT   5
 #define MIN_WIDTH   32
-
-#ifndef CLEAR
-#define CLEAR(x) memset(&(x), 0, sizeof(x))
-#endif
 
 #define IFACE_ENTRY                                      \
    E_Video_Hwc_Windows *evhw;                              \
