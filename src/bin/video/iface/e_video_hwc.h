@@ -31,6 +31,8 @@ EINTERN E_Video_Comp_Iface  *e_video_hwc_planes_iface_create(E_Client *ec);
 EINTERN E_Video_Comp_Iface  *e_video_hwc_windows_iface_create(E_Client *ec);
 
 EINTERN E_Client    *e_video_hwc_child_client_get(E_Client *ec);
+EINTERN E_Client    *e_video_hwc_client_offscreen_parent_get(E_Client *ec);
+EINTERN Eina_Bool    e_video_hwc_client_visible_get(E_Client *ec);
 EINTERN Eina_Bool    e_video_hwc_geometry_get(E_Client *ec, E_Video_Hwc_Geometry *out);
 EINTERN Eina_Bool    e_video_hwc_geometry_map_apply(E_Client *ec, E_Video_Hwc_Geometry *out);
 

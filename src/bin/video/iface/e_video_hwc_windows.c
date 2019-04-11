@@ -74,29 +74,6 @@ static void      _e_video_render(E_Video_Hwc_Windows *evhw, const char *func);
 static Eina_Bool _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf);
 static void      _e_video_vblank_handler(tdm_output *output, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec, void *user_data);
 
-static E_Client *
-find_offscreen_parent_get(E_Client *ec)
-{
-   E_Client *parent = NULL;
-
-   if (!ec->comp_data || !ec->comp_data->sub.data)
-     return NULL;
-
-   parent = ec->comp_data->sub.data->parent;
-   while (parent)
-     {
-        if (!parent->comp_data || !parent->comp_data->sub.data)
-          return NULL;
-
-        if (parent->comp_data->sub.data->remote_surface.offscreen_parent)
-          return parent->comp_data->sub.data->remote_surface.offscreen_parent;
-
-        parent = parent->comp_data->sub.data->parent;
-     }
-
-   return NULL;
-}
-
 static E_Comp_Wl_Video_Buf *
 _e_video_vbuf_find(Eina_List *list, tbm_surface_h buffer)
 {
@@ -125,38 +102,6 @@ _e_video_vbuf_find_with_comp_buffer(Eina_List *list, E_Comp_Wl_Buffer *comp_buff
      }
 
    return NULL;
-}
-
-static Eina_Bool
-_e_video_is_visible(E_Video_Hwc_Windows *evhw)
-{
-   E_Client *offscreen_parent;
-
-   if (e_object_is_del(E_OBJECT(evhw->ec))) return EINA_FALSE;
-
-   if (!e_pixmap_resource_get(evhw->ec->pixmap))
-     {
-        VDB("no comp buffer", evhw->ec);
-        return EINA_FALSE;
-     }
-
-   if (evhw->ec->comp_data->sub.data && evhw->ec->comp_data->sub.data->stand_alone)
-     return EINA_TRUE;
-
-   offscreen_parent = find_offscreen_parent_get(evhw->ec);
-   if (offscreen_parent && offscreen_parent->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)
-     {
-        VDB("video surface invisible: offscreen fully obscured", evhw->ec);
-        return EINA_FALSE;
-     }
-
-   if (!evas_object_visible_get(evhw->ec->frame))
-     {
-        VDB("evas obj invisible", evhw->ec);
-        return EINA_FALSE;
-     }
-
-   return EINA_TRUE;
 }
 
 static Eina_Bool
@@ -489,7 +434,7 @@ _e_video_can_commit(E_Video_Hwc_Windows *evhw)
    if (e_output_dpms_get(evhw->e_output))
      return EINA_FALSE;
 
-   if (!_e_video_is_visible(evhw))
+   if (!e_video_hwc_client_visible_get(evhw->ec))
      return EINA_FALSE;
 
    return EINA_TRUE;
@@ -916,7 +861,7 @@ _e_video_pp_cb_done(tdm_pp *pp, tbm_surface_h sb, tbm_surface_h db, void *user_d
    if (pp_buffer)
      {
         e_comp_wl_video_buffer_set_use(pp_buffer, EINA_FALSE);
-        if (!_e_video_is_visible(evhw)) return;
+        if (!e_video_hwc_client_visible_get(evhw->ec)) return;
 
         _e_video_buffer_show(evhw, pp_buffer, 0);
      }
@@ -944,7 +889,7 @@ _e_video_render(E_Video_Hwc_Windows *evhw, const char *func)
    if (!evhw->ec->pixmap)
      return;
 
-   if (!_e_video_is_visible(evhw))
+   if (!e_video_hwc_client_visible_get(evhw->ec))
      {
         _e_video_hide(evhw);
         return;
@@ -1192,7 +1137,7 @@ _e_video_cb_ec_visibility_change(void *data, int type, void *event)
    E_Video_Hwc_Windows *evhw;
 
    evhw = data;
-   offscreen_parent = find_offscreen_parent_get(evhw->ec);
+   offscreen_parent = e_video_hwc_client_offscreen_parent_get(evhw->ec);
    if (!offscreen_parent)
      goto end;
 

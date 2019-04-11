@@ -20,6 +20,61 @@ struct _E_Video_Hwc
 };
 
 EINTERN E_Client *
+e_video_hwc_client_offscreen_parent_get(E_Client *ec)
+{
+   E_Client *parent = NULL;
+
+   if (!ec->comp_data || !ec->comp_data->sub.data)
+     return NULL;
+
+   parent = ec->comp_data->sub.data->parent;
+   while (parent)
+     {
+        if (!parent->comp_data || !parent->comp_data->sub.data)
+          return NULL;
+
+        if (parent->comp_data->sub.data->remote_surface.offscreen_parent)
+          return parent->comp_data->sub.data->remote_surface.offscreen_parent;
+
+        parent = parent->comp_data->sub.data->parent;
+     }
+
+   return NULL;
+}
+
+EINTERN Eina_Bool
+e_video_hwc_client_visible_get(E_Client *ec)
+{
+   E_Client *offscreen_parent;
+
+   if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
+
+   if (!e_pixmap_resource_get(ec->pixmap))
+     {
+        VDB("no comp buffer", ec);
+        return EINA_FALSE;
+     }
+
+   if (ec->comp_data->sub.data && ec->comp_data->sub.data->stand_alone)
+     return EINA_TRUE;
+
+   offscreen_parent = e_video_hwc_client_offscreen_parent_get(ec);
+   if (offscreen_parent && offscreen_parent->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)
+     {
+        VDB("video surface invisible: offscreen fully obscured", ec);
+        return EINA_FALSE;
+     }
+
+   if (!evas_object_visible_get(ec->frame))
+     {
+        VDB("evas obj invisible", ec);
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
+EINTERN E_Client *
 e_video_hwc_child_client_get(E_Client *ec)
 {
    E_Client *subc = NULL;
