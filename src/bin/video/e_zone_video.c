@@ -89,3 +89,18 @@ end:
 
    return EINA_TRUE;
 }
+
+EINTERN E_Hwc_Policy
+e_zone_video_hwc_policy_get(E_Zone *zone)
+{
+   E_Output *eout;
+
+   eout = e_output_find(zone->output_id);
+   if (!eout)
+     {
+        ERR("Something wrong, couldn't find 'E_Output' from 'E_Zone'");
+        return E_HWC_POLICY_NONE;
+     }
+
+   return e_hwc_policy_get(eout->hwc);
+}

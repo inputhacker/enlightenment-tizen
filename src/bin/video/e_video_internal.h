@@ -60,8 +60,8 @@ struct _E_Video_Comp_Iface
    tbm_surface_h   (*tbm_surface_get)(E_Video_Comp_Iface *iface);
 };
 
-EINTERN E_Video_Comp_Iface  *e_video_hwc_planes_iface_create(E_Client *ec);
-EINTERN E_Video_Comp_Iface  *e_video_hwc_windows_iface_create(E_Client *ec);
+EINTERN E_Hwc_Policy         e_zone_video_hwc_policy_get(E_Zone *zone);
+EINTERN E_Video_Comp_Iface  *e_video_hwc_iface_create(E_Client *ec);
 EINTERN E_Video_Comp_Iface  *e_video_fallback_iface_create(E_Client *ec);
 EINTERN E_Video_Comp_Iface  *e_video_external_iface_create(E_Client *ec);
 

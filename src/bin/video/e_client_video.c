@@ -36,21 +36,6 @@ struct _E_Client_Video
    } cb;
 };
 
-static E_Hwc_Policy
-_e_client_video_zone_hwc_policy_get(E_Zone *zone)
-{
-   E_Output *eout;
-
-   eout = e_output_find(zone->output_id);
-   if (!eout)
-     {
-        ERR("Something wrong, couldn't find 'E_Output' from 'E_Zone'");
-        return E_HWC_POLICY_NONE;
-     }
-
-   return e_hwc_policy_get(eout->hwc);
-}
-
 static void
 _e_client_video_comp_iface_deinit(E_Client_Video *ecv)
 {
@@ -77,16 +62,11 @@ _e_client_video_comp_iface_init(E_Client_Video *ecv, E_Client *ec)
         goto end;
      }
 
-   hwc_pol = _e_client_video_zone_hwc_policy_get(ec->zone);
-   if (hwc_pol == E_HWC_POLICY_WINDOWS)
+   hwc_pol = e_zone_video_hwc_policy_get(ec->zone);
+   if (hwc_pol != E_HWC_POLICY_NONE)
      {
-        INF("Initialize the interface of the client_video for HWC WINDOWS mode");
-        iface = e_video_hwc_windows_iface_create(ec);;
-     }
-   else if (hwc_pol == E_HWC_POLICY_PLANES)
-     {
-        INF("Initialize the interface of the client_video for HWC PLANES mode");
-        iface = e_video_hwc_planes_iface_create(ec);
+        INF("Initialize the interface of the client_video for HWC mode");
+        iface = e_video_hwc_iface_create(ec);
      }
 
 end:

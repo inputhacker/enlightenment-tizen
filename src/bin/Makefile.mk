@@ -223,6 +223,7 @@ src/bin/video/e_comp_wl_video_buffer.c \
 src/bin/video/e_client_video.c \
 src/bin/video/e_zone_video.c \
 src/bin/video/e_video_debug.c \
+src/bin/video/iface/e_video_hwc.c \
 src/bin/video/iface/e_video_hwc_planes.c \
 src/bin/video/iface/e_video_hwc_windows.c \
 src/bin/video/iface/e_video_external.c \
