@@ -42,16 +42,7 @@ struct _E_Video_Hwc_Planes
    Eina_List *input_buffer_list;
 
    /* in screen coordinates */
-   struct
-     {
-        int input_w, input_h;    /* input buffer's size */
-        Eina_Rectangle input_r;  /* input buffer's content rect */
-        Eina_Rectangle output_r; /* video plane rect */
-        uint transform;          /* rotate, flip */
-
-        Eina_Rectangle tdm_output_r; /* video plane rect in physical output coordinates */
-        uint tdm_transform;          /* rotate, flip in physical output coordinates */
-     } geo, old_geo;
+   E_Video_Hwc_Geometry geo, old_geo;
 
    E_Comp_Wl_Buffer *old_comp_buffer;
 
@@ -111,42 +102,6 @@ static Eina_Bool _e_video_tdm_get_layer_usable(tdm_layer *layer);
 
 static void _e_video_vblank_handler(tdm_output *output, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec, void *user_data);
 
-static void
-buffer_transform(int width, int height, uint32_t transform, int32_t scale,
-                 int sx, int sy, int *dx, int *dy)
-{
-   switch (transform)
-     {
-      case WL_OUTPUT_TRANSFORM_NORMAL:
-      default:
-         *dx = sx, *dy = sy;
-         break;
-      case WL_OUTPUT_TRANSFORM_FLIPPED:
-         *dx = width - sx, *dy = sy;
-         break;
-      case WL_OUTPUT_TRANSFORM_90:
-         *dx = height - sy, *dy = sx;
-         break;
-      case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-         *dx = height - sy, *dy = width - sx;
-         break;
-      case WL_OUTPUT_TRANSFORM_180:
-         *dx = width - sx, *dy = height - sy;
-         break;
-      case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-         *dx = sx, *dy = height - sy;
-         break;
-      case WL_OUTPUT_TRANSFORM_270:
-         *dx = sy, *dy = width - sx;
-         break;
-      case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-         *dx = sy, *dy = sx;
-         break;
-     }
-
-   *dx *= scale;
-   *dy *= scale;
-}
 
 static E_Client *
 find_video_child_get(E_Client *ec)
@@ -821,417 +776,6 @@ _e_video_pp_buffer_get(E_Video_Hwc_Planes *evhp, int width, int height)
    return NULL;
 }
 
-/* convert from logical screen to physical output */
-static void
-_e_video_geometry_cal_physical(E_Video_Hwc_Planes *evhp)
-{
-   E_Zone *zone;
-   E_Comp_Wl_Output *output;
-   E_Client *topmost;
-   int tran, flip;
-   int transform;
-
-   topmost = e_comp_wl_topmost_parent_get(evhp->ec);
-   EINA_SAFETY_ON_NULL_GOTO(topmost, normal);
-
-   output = e_comp_wl_output_find(topmost);
-   EINA_SAFETY_ON_NULL_GOTO(output, normal);
-
-   zone = e_comp_zone_xy_get(topmost->x, topmost->y);
-   EINA_SAFETY_ON_NULL_GOTO(zone, normal);
-
-   tran = evhp->geo.transform & 0x3;
-   flip = evhp->geo.transform & 0x4;
-   transform = flip + (tran + output->transform) % 4;
-   switch(transform)
-     {
-      case WL_OUTPUT_TRANSFORM_90:
-         evhp->geo.tdm_transform = TDM_TRANSFORM_270;
-         break;
-      case WL_OUTPUT_TRANSFORM_180:
-         evhp->geo.tdm_transform = TDM_TRANSFORM_180;
-         break;
-      case WL_OUTPUT_TRANSFORM_270:
-         evhp->geo.tdm_transform = TDM_TRANSFORM_90;
-         break;
-      case WL_OUTPUT_TRANSFORM_FLIPPED:
-         evhp->geo.tdm_transform = TDM_TRANSFORM_FLIPPED;
-         break;
-      case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-         evhp->geo.tdm_transform = TDM_TRANSFORM_FLIPPED_270;
-         break;
-      case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-         evhp->geo.tdm_transform = TDM_TRANSFORM_FLIPPED_180;
-         break;
-      case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-         evhp->geo.tdm_transform = TDM_TRANSFORM_FLIPPED_90;
-         break;
-      case WL_OUTPUT_TRANSFORM_NORMAL:
-      default:
-         evhp->geo.tdm_transform = TDM_TRANSFORM_NORMAL;
-         break;
-     }
-
-   if (output->transform % 2)
-     {
-        if (evhp->geo.tdm_transform == TDM_TRANSFORM_FLIPPED)
-          evhp->geo.tdm_transform = TDM_TRANSFORM_FLIPPED_180;
-        else if (evhp->geo.tdm_transform == TDM_TRANSFORM_FLIPPED_90)
-          evhp->geo.tdm_transform = TDM_TRANSFORM_FLIPPED_270;
-        else if (evhp->geo.tdm_transform == TDM_TRANSFORM_FLIPPED_180)
-          evhp->geo.tdm_transform = TDM_TRANSFORM_FLIPPED;
-        else if (evhp->geo.tdm_transform == TDM_TRANSFORM_FLIPPED_270)
-          evhp->geo.tdm_transform = TDM_TRANSFORM_FLIPPED_90;
-     }
-
-   if (output->transform == 0)
-     evhp->geo.tdm_output_r = evhp->geo.output_r;
-   else
-     e_comp_wl_rect_convert(zone->w, zone->h, output->transform, 1,
-                            evhp->geo.output_r.x, evhp->geo.output_r.y,
-                            evhp->geo.output_r.w, evhp->geo.output_r.h,
-                            &evhp->geo.tdm_output_r.x, &evhp->geo.tdm_output_r.y,
-                            &evhp->geo.tdm_output_r.w, &evhp->geo.tdm_output_r.h);
-
-   VDB("geomtry: screen(%d,%d %dx%d | %d) => %d => physical(%d,%d %dx%d | %d)", evhp->ec,
-       EINA_RECTANGLE_ARGS(&evhp->geo.output_r), evhp->geo.transform, transform,
-       EINA_RECTANGLE_ARGS(&evhp->geo.tdm_output_r), evhp->geo.tdm_transform);
-
-   return;
-normal:
-   evhp->geo.tdm_output_r = evhp->geo.output_r;
-   evhp->geo.tdm_transform = evhp->geo.transform;
-}
-
-static Eina_Bool
-_e_video_geometry_cal_viewport(E_Video_Hwc_Planes *evhp)
-{
-   E_Client *ec = evhp->ec;
-   E_Comp_Wl_Buffer_Viewport *vp = &ec->comp_data->scaler.buffer_viewport;
-   E_Comp_Wl_Subsurf_Data *sdata;
-   int x1, y1, x2, y2;
-   int tx1, ty1, tx2, ty2;
-   E_Comp_Wl_Buffer *comp_buffer;
-   tbm_surface_h tbm_surf;
-   uint32_t size = 0, offset = 0, pitch = 0;
-   int bw, bh;
-   int width_from_buffer, height_from_buffer;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
-
-   comp_buffer = e_pixmap_resource_get(evhp->ec->pixmap);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(comp_buffer, EINA_FALSE);
-
-   tbm_surf = wayland_tbm_server_get_surface(e_comp->wl_comp_data->tbm.server, comp_buffer->resource);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(tbm_surf, EINA_FALSE);
-
-   tbm_surface_internal_get_plane_data(tbm_surf, 0, &size, &offset, &pitch);
-
-   /* input geometry */
-   if (IS_RGB(evhp->tbmfmt))
-     evhp->geo.input_w = pitch / 4;
-   else
-     evhp->geo.input_w = pitch;
-
-   evhp->geo.input_h = tbm_surface_get_height(tbm_surf);
-
-   bw = tbm_surface_get_width(tbm_surf);
-   bh = tbm_surface_get_height(tbm_surf);
-   VDB("TBM buffer size %d %d", evhp->ec, bw, bh);
-
-   switch (vp->buffer.transform)
-     {
-      case WL_OUTPUT_TRANSFORM_90:
-      case WL_OUTPUT_TRANSFORM_270:
-      case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-      case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-         width_from_buffer = bh / vp->buffer.scale;
-         height_from_buffer = bw / vp->buffer.scale;
-         break;
-      default:
-         width_from_buffer = bw / vp->buffer.scale;
-         height_from_buffer = bh / vp->buffer.scale;
-         break;
-     }
-
-
-   if (vp->buffer.src_width == wl_fixed_from_int(-1))
-     {
-        x1 = 0.0;
-        y1 = 0.0;
-        x2 = width_from_buffer;
-        y2 = height_from_buffer;
-     }
-   else
-     {
-        x1 = wl_fixed_to_int(vp->buffer.src_x);
-        y1 = wl_fixed_to_int(vp->buffer.src_y);
-        x2 = wl_fixed_to_int(vp->buffer.src_x + vp->buffer.src_width);
-        y2 = wl_fixed_to_int(vp->buffer.src_y + vp->buffer.src_height);
-     }
-
-   VDB("transform(%d) scale(%d) buffer(%dx%d) src(%d,%d %d,%d) viewport(%dx%d)",
-       evhp->ec, vp->buffer.transform, vp->buffer.scale,
-       width_from_buffer, height_from_buffer,
-       x1, y1, x2 - x1, y2 - y1,
-       ec->comp_data->width_from_viewport, ec->comp_data->height_from_viewport);
-
-   buffer_transform(width_from_buffer, height_from_buffer,
-                    vp->buffer.transform, vp->buffer.scale, x1, y1, &tx1, &ty1);
-   buffer_transform(width_from_buffer, height_from_buffer,
-                    vp->buffer.transform, vp->buffer.scale, x2, y2, &tx2, &ty2);
-
-   evhp->geo.input_r.x = (tx1 <= tx2) ? tx1 : tx2;
-   evhp->geo.input_r.y = (ty1 <= ty2) ? ty1 : ty2;
-   evhp->geo.input_r.w = (tx1 <= tx2) ? tx2 - tx1 : tx1 - tx2;
-   evhp->geo.input_r.h = (ty1 <= ty2) ? ty2 - ty1 : ty1 - ty2;
-
-   /* output geometry */
-   if ((sdata = ec->comp_data->sub.data))
-     {
-        if (sdata->parent)
-          {
-             evhp->geo.output_r.x = sdata->parent->x + sdata->position.x;
-             evhp->geo.output_r.y = sdata->parent->y + sdata->position.y;
-          }
-        else
-          {
-             evhp->geo.output_r.x = sdata->position.x;
-             evhp->geo.output_r.y = sdata->position.y;
-          }
-     }
-   else
-     {
-        evhp->geo.output_r.x = ec->x;
-        evhp->geo.output_r.y = ec->y;
-     }
-
-   evhp->geo.output_r.w = ec->comp_data->width_from_viewport;
-   evhp->geo.output_r.w = (evhp->geo.output_r.w + 1) & ~1;
-   evhp->geo.output_r.h = ec->comp_data->height_from_viewport;
-
-   e_comp_object_frame_xy_unadjust(ec->frame,
-                                   evhp->geo.output_r.x, evhp->geo.output_r.y,
-                                   &evhp->geo.output_r.x, &evhp->geo.output_r.y);
-   e_comp_object_frame_wh_unadjust(ec->frame,
-                                   evhp->geo.output_r.w, evhp->geo.output_r.h,
-                                   &evhp->geo.output_r.w, &evhp->geo.output_r.h);
-
-   evhp->geo.transform = vp->buffer.transform;
-
-   _e_video_geometry_cal_physical(evhp);
-
-   VDB("geometry(%dx%d  %d,%d %dx%d  %d,%d %dx%d  %d)",
-       evhp->ec, evhp->geo.input_w, evhp->geo.input_h,
-       EINA_RECTANGLE_ARGS(&evhp->geo.input_r),
-       EINA_RECTANGLE_ARGS(&evhp->geo.output_r),
-       evhp->geo.transform);
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_video_geometry_cal_map(E_Video_Hwc_Planes *evhp)
-{
-   E_Client *ec;
-   const Evas_Map *m;
-   Evas_Coord x1, x2, y1, y2;
-   Eina_Rectangle output_r;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(evhp, EINA_FALSE);
-
-   ec = evhp->ec;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->frame, EINA_FALSE);
-
-   m = evas_object_map_get(ec->frame);
-   if (!m) return EINA_TRUE;
-
-   /* If frame has map, it means that ec's geometry is decided by map's geometry.
-    * ec->x,y,w,h and ec->client.x,y,w,h is not useful.
-    */
-
-   evas_map_point_coord_get(m, 0, &x1, &y1, NULL);
-   evas_map_point_coord_get(m, 2, &x2, &y2, NULL);
-
-   output_r.x = x1;
-   output_r.y = y1;
-   output_r.w = x2 - x1;
-   output_r.w = (output_r.w + 1) & ~1;
-   output_r.h = y2 - y1;
-   output_r.h = (output_r.h + 1) & ~1;
-
-   if (!memcmp(&evhp->geo.output_r, &output_r, sizeof(Eina_Rectangle)))
-     return EINA_FALSE;
-
-   VDB("frame(%p) m(%p) output(%d,%d %dx%d) => (%d,%d %dx%d)", evhp->ec, ec->frame, m,
-       EINA_RECTANGLE_ARGS(&evhp->geo.output_r), EINA_RECTANGLE_ARGS(&output_r));
-
-   evhp->geo.output_r = output_r;
-
-   _e_video_geometry_cal_physical(evhp);
-
-   return EINA_TRUE;
-}
-
-static void
-_e_video_geometry_cal_to_input(int output_w, int output_h, int input_w, int input_h,
-                               uint32_t trasnform, int ox, int oy, int *ix, int *iy)
-{
-   float ratio_w, ratio_h;
-
-   switch(trasnform)
-     {
-      case WL_OUTPUT_TRANSFORM_NORMAL:
-      default:
-         *ix = ox, *iy = oy;
-         break;
-      case WL_OUTPUT_TRANSFORM_270:
-         *ix = oy, *iy = output_w - ox;
-         break;
-      case WL_OUTPUT_TRANSFORM_180:
-         *ix = output_w - ox, *iy = output_h - oy;
-         break;
-      case WL_OUTPUT_TRANSFORM_90:
-         *ix = output_h - oy, *iy = ox;
-         break;
-      case WL_OUTPUT_TRANSFORM_FLIPPED:
-         *ix = output_w - ox, *iy = oy;
-         break;
-      case WL_OUTPUT_TRANSFORM_FLIPPED_270:
-         *ix = oy, *iy = ox;
-         break;
-      case WL_OUTPUT_TRANSFORM_FLIPPED_180:
-         *ix = ox, *iy = output_h - oy;
-         break;
-      case WL_OUTPUT_TRANSFORM_FLIPPED_90:
-         *ix = output_h - oy, *iy = output_w - ox;
-         break;
-     }
-   if (trasnform & 0x1)
-     {
-        ratio_w = (float)input_w / output_h;
-        ratio_h = (float)input_h / output_w;
-     }
-   else
-     {
-        ratio_w = (float)input_w / output_w;
-        ratio_h = (float)input_h / output_h;
-     }
-   *ix *= ratio_w;
-   *iy *= ratio_h;
-}
-
-static void
-_e_video_geometry_cal_to_input_rect(E_Video_Hwc_Planes * evhp, Eina_Rectangle *srect, Eina_Rectangle *drect)
-{
-   int xf1, yf1, xf2, yf2;
-
-   /* first transform box coordinates if the scaler is set */
-
-   xf1 = srect->x;
-   yf1 = srect->y;
-   xf2 = srect->x + srect->w;
-   yf2 = srect->y + srect->h;
-
-   _e_video_geometry_cal_to_input(evhp->geo.output_r.w, evhp->geo.output_r.h,
-                                  evhp->geo.input_r.w, evhp->geo.input_r.h,
-                                  evhp->geo.transform, xf1, yf1, &xf1, &yf1);
-   _e_video_geometry_cal_to_input(evhp->geo.output_r.w, evhp->geo.output_r.h,
-                                  evhp->geo.input_r.w, evhp->geo.input_r.h,
-                                  evhp->geo.transform, xf2, yf2, &xf2, &yf2);
-
-   drect->x = MIN(xf1, xf2);
-   drect->y = MIN(yf1, yf2);
-   drect->w = MAX(xf1, xf2) - drect->x;
-   drect->h = MAX(yf1, yf2) - drect->y;
-}
-
-static Eina_Bool
-_e_video_geometry_cal(E_Video_Hwc_Planes *evhp)
-{
-   E_Zone *zone;
-   E_Client *topmost;
-   Eina_Rectangle screen = {0,};
-   Eina_Rectangle output_r = {0,}, input_r = {0,};
-
-   /* get geometry information with buffer scale, transform and viewport. */
-   if (!_e_video_geometry_cal_viewport(evhp))
-     return EINA_FALSE;
-
-   _e_video_geometry_cal_map(evhp);
-
-   topmost = e_comp_wl_topmost_parent_get(evhp->ec);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(topmost, EINA_FALSE);
-
-   zone = e_comp_zone_xy_get(topmost->x, topmost->y);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(zone, EINA_FALSE);
-
-   screen.w = zone->w;
-   screen.h = zone->h;
-
-   e_comp_wl_video_buffer_size_get(evhp->ec, &input_r.w, &input_r.h);
-   // when topmost is not mapped, input size can be abnormal.
-   // in this case, it will be render by topmost showing.
-   if (!eina_rectangle_intersection(&evhp->geo.input_r, &input_r) || (evhp->geo.input_r.w <= 10 || evhp->geo.input_r.h <= 10))
-     {
-        VER("input area is empty", evhp->ec);
-        return EINA_FALSE;
-     }
-
-   if (evhp->geo.output_r.x >= 0 && evhp->geo.output_r.y >= 0 &&
-       (evhp->geo.output_r.x + evhp->geo.output_r.w) <= screen.w &&
-       (evhp->geo.output_r.y + evhp->geo.output_r.h) <= screen.h)
-     return EINA_TRUE;
-
-   /* TODO: need to improve */
-
-   output_r = evhp->geo.output_r;
-   if (!eina_rectangle_intersection(&output_r, &screen))
-     {
-        VER("output_r(%d,%d %dx%d) screen(%d,%d %dx%d) => intersect(%d,%d %dx%d)",
-            evhp->ec, EINA_RECTANGLE_ARGS(&evhp->geo.output_r),
-            EINA_RECTANGLE_ARGS(&screen), EINA_RECTANGLE_ARGS(&output_r));
-        return EINA_TRUE;
-     }
-
-   output_r.x -= evhp->geo.output_r.x;
-   output_r.y -= evhp->geo.output_r.y;
-
-   if (output_r.w <= 0 || output_r.h <= 0)
-     {
-        VER("output area is empty", evhp->ec);
-        return EINA_FALSE;
-     }
-
-   VDB("output(%d,%d %dx%d) input(%d,%d %dx%d)", evhp->ec,
-       EINA_RECTANGLE_ARGS(&output_r), EINA_RECTANGLE_ARGS(&input_r));
-
-   _e_video_geometry_cal_to_input_rect(evhp, &output_r, &input_r);
-
-   VDB("output(%d,%d %dx%d) input(%d,%d %dx%d)", evhp->ec,
-       EINA_RECTANGLE_ARGS(&output_r), EINA_RECTANGLE_ARGS(&input_r));
-
-   output_r.x += evhp->geo.output_r.x;
-   output_r.y += evhp->geo.output_r.y;
-
-   input_r.x += evhp->geo.input_r.x;
-   input_r.y += evhp->geo.input_r.y;
-
-   output_r.x = output_r.x & ~1;
-   output_r.w = (output_r.w + 1) & ~1;
-
-   input_r.x = input_r.x & ~1;
-   input_r.w = (input_r.w + 1) & ~1;
-
-   evhp->geo.output_r = output_r;
-   evhp->geo.input_r = input_r;
-
-   _e_video_geometry_cal_physical(evhp);
-
-   return EINA_TRUE;
-}
-
 static Eina_Bool
 _e_video_can_commit(E_Video_Hwc_Planes *evhp)
 {
@@ -1394,10 +938,10 @@ _e_video_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
    info.src_config.pos.w = vbuf->content_r.w;
    info.src_config.pos.h = vbuf->content_r.h;
    info.src_config.format = vbuf->tbmfmt;
-   info.dst_pos.x = evhp->geo.tdm_output_r.x;
-   info.dst_pos.y = evhp->geo.tdm_output_r.y;
-   info.dst_pos.w = evhp->geo.tdm_output_r.w;
-   info.dst_pos.h = evhp->geo.tdm_output_r.h;
+   info.dst_pos.x = evhp->geo.tdm.output_r.x;
+   info.dst_pos.y = evhp->geo.tdm.output_r.y;
+   info.dst_pos.w = evhp->geo.tdm.output_r.w;
+   info.dst_pos.h = evhp->geo.tdm.output_r.h;
    info.transform = vbuf->content_t;
 
    if (memcmp(&old_info, &info, sizeof(tdm_info_layer)))
@@ -1500,7 +1044,7 @@ _e_video_cb_evas_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void 
 {
    E_Video_Hwc_Planes *evhp = data;
 
-   if (_e_video_geometry_cal_map(evhp))
+   if (e_video_hwc_geometry_map_apply(evhp->ec, &evhp->geo))
      _e_video_render(evhp, __FUNCTION__);
 }
 
@@ -1509,7 +1053,7 @@ _e_video_cb_evas_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
 {
    E_Video_Hwc_Planes *evhp = data;
 
-   if (_e_video_geometry_cal_map(evhp))
+   if (e_video_hwc_geometry_map_apply(evhp->ec, &evhp->geo))
      _e_video_render(evhp, __FUNCTION__);
 }
 
@@ -1927,7 +1471,7 @@ _e_video_render(E_Video_Hwc_Planes *evhp, const char *func)
         e_comp_wl_viewport_apply(topmost);
      }
 
-   if (!_e_video_geometry_cal(evhp))
+   if (!e_video_hwc_geometry_get(evhp->ec, &evhp->geo))
      {
         if(!evhp->need_force_render && !_e_video_parent_is_viewable(evhp))
           {
@@ -1955,7 +1499,7 @@ _e_video_render(E_Video_Hwc_Planes *evhp, const char *func)
         input_buffer = _e_video_input_buffer_get(evhp, comp_buffer, EINA_TRUE);
         EINA_SAFETY_ON_NULL_GOTO(input_buffer, render_fail);
 
-        _e_video_buffer_show(evhp, input_buffer, evhp->geo.tdm_transform);
+        _e_video_buffer_show(evhp, input_buffer, evhp->geo.tdm.transform);
 
         evhp->old_geo = evhp->geo;
         evhp->old_comp_buffer = comp_buffer;
@@ -1983,20 +1527,20 @@ _e_video_render(E_Video_Hwc_Planes *evhp, const char *func)
           }
      }
 
-   if ((evhp->pp_minw > 0 && (evhp->geo.input_r.w < evhp->pp_minw || evhp->geo.tdm_output_r.w < evhp->pp_minw)) ||
-       (evhp->pp_minh > 0 && (evhp->geo.input_r.h < evhp->pp_minh || evhp->geo.tdm_output_r.h < evhp->pp_minh)) ||
-       (evhp->pp_maxw > 0 && (evhp->geo.input_r.w > evhp->pp_maxw || evhp->geo.tdm_output_r.w > evhp->pp_maxw)) ||
-       (evhp->pp_maxh > 0 && (evhp->geo.input_r.h > evhp->pp_maxh || evhp->geo.tdm_output_r.h > evhp->pp_maxh)))
+   if ((evhp->pp_minw > 0 && (evhp->geo.input_r.w < evhp->pp_minw || evhp->geo.tdm.output_r.w < evhp->pp_minw)) ||
+       (evhp->pp_minh > 0 && (evhp->geo.input_r.h < evhp->pp_minh || evhp->geo.tdm.output_r.h < evhp->pp_minh)) ||
+       (evhp->pp_maxw > 0 && (evhp->geo.input_r.w > evhp->pp_maxw || evhp->geo.tdm.output_r.w > evhp->pp_maxw)) ||
+       (evhp->pp_maxh > 0 && (evhp->geo.input_r.h > evhp->pp_maxh || evhp->geo.tdm.output_r.h > evhp->pp_maxh)))
      {
         INF("size(%dx%d, %dx%d) is out of PP range",
-            evhp->geo.input_r.w, evhp->geo.input_r.h, evhp->geo.tdm_output_r.w, evhp->geo.tdm_output_r.h);
+            evhp->geo.input_r.w, evhp->geo.input_r.h, evhp->geo.tdm.output_r.w, evhp->geo.tdm.output_r.h);
         goto done;
      }
 
    input_buffer = _e_video_input_buffer_get(evhp, comp_buffer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_GOTO(input_buffer, render_fail);
 
-   pp_buffer = _e_video_pp_buffer_get(evhp, evhp->geo.tdm_output_r.w, evhp->geo.tdm_output_r.h);
+   pp_buffer = _e_video_pp_buffer_get(evhp, evhp->geo.tdm.output_r.w, evhp->geo.tdm.output_r.h);
    EINA_SAFETY_ON_NULL_GOTO(pp_buffer, render_fail);
 
    if (memcmp(&evhp->old_geo, &evhp->geo, sizeof evhp->geo))
@@ -2013,10 +1557,10 @@ _e_video_render(E_Video_Hwc_Planes *evhp, const char *func)
         info.src_config.format = evhp->tbmfmt;
         info.dst_config.size.h = pp_buffer->width_from_pitch;
         info.dst_config.size.v = pp_buffer->height_from_size;
-        info.dst_config.pos.w = evhp->geo.tdm_output_r.w;
-        info.dst_config.pos.h = evhp->geo.tdm_output_r.h;
+        info.dst_config.pos.w = evhp->geo.tdm.output_r.w;
+        info.dst_config.pos.h = evhp->geo.tdm.output_r.h;
         info.dst_config.format = evhp->pp_tbmfmt;
-        info.transform = evhp->geo.tdm_transform;
+        info.transform = evhp->geo.tdm.transform;
 
         if (tdm_pp_set_info(evhp->pp, &info))
           {
