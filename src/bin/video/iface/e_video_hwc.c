@@ -19,6 +19,17 @@ struct _E_Video_Hwc
    E_Video_Comp_Iface *backend;
 };
 
+EINTERN tbm_format
+e_video_hwc_comp_buffer_tbm_format_get(E_Comp_Wl_Buffer *comp_buffer)
+{
+   tbm_surface_h tbm_surf;
+
+   tbm_surf = wayland_tbm_server_get_surface(e_comp->wl_comp_data->tbm.server, comp_buffer->resource);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tbm_surf, 0);
+
+   return tbm_surface_get_format(tbm_surf);
+}
+
 EINTERN Eina_Bool
 e_video_hwc_client_parent_viewable_get(E_Client *ec)
 {

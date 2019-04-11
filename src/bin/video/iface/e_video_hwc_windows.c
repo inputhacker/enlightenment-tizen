@@ -348,21 +348,6 @@ _e_video_pp_buffer_get(E_Video_Hwc_Windows *evhw, int width, int height)
    return NULL;
 }
 
-static void
-_e_video_format_info_get(E_Video_Hwc_Windows *evhw)
-{
-   E_Comp_Wl_Buffer *comp_buffer;
-   tbm_surface_h tbm_surf;
-
-   comp_buffer = e_pixmap_resource_get(evhw->ec->pixmap);
-   EINA_SAFETY_ON_NULL_RETURN(comp_buffer);
-
-   tbm_surf = wayland_tbm_server_get_surface(e_comp->wl_comp_data->tbm.server, comp_buffer->resource);
-   EINA_SAFETY_ON_NULL_RETURN(tbm_surf);
-
-   evhw->tbmfmt = tbm_surface_get_format(tbm_surf);
-}
-
 static Eina_Bool
 _e_video_can_commit(E_Video_Hwc_Windows *evhw)
 {
@@ -833,7 +818,7 @@ _e_video_render(E_Video_Hwc_Windows *evhw, const char *func)
    comp_buffer = e_pixmap_resource_get(evhw->ec->pixmap);
    if (!comp_buffer) return;
 
-   _e_video_format_info_get(evhw);
+   evhw->tbmfmt = e_video_hwc_comp_buffer_tbm_format_get(comp_buffer);
 
    /* not interested with other buffer type */
    if (!wayland_tbm_server_get_surface(NULL, comp_buffer->resource))
