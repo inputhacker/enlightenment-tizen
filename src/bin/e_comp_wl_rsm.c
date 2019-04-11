@@ -116,9 +116,10 @@ struct _E_Comp_Wl_Remote_Surface
 
    E_Comp_Wl_Remote_Provider *provider;
    E_Comp_Wl_Remote_Source *source;
+
+   E_Client *ec;
    E_Client *bind_ec;
 
-   E_Client *owner;
    Eina_List *regions;
 
    Eina_Bool redirect;
@@ -255,7 +256,7 @@ _remote_provider_onscreen_parent_set(E_Comp_Wl_Remote_Provider *provider, E_Comp
    Eina_List *l;
 
    if (!provider) return;
-   if ((parent) && !(parent->owner)) return;
+   if ((parent) && !(parent->ec)) return;
    if (provider->onscreen_parent == parent) return;
 
    _remote_provider_rect_clear(provider);
@@ -266,7 +267,7 @@ _remote_provider_onscreen_parent_set(E_Comp_Wl_Remote_Provider *provider, E_Comp
    RSMDBG("set onscreen_parent %p(ec:%p)",
           provider->common.ec->pixmap, provider->common.ec,
           "PROVIDER", provider,
-          parent, parent? parent->owner:NULL);
+          parent, parent? parent->ec:NULL);
 
    if (parent)
      {
@@ -275,7 +276,7 @@ _remote_provider_onscreen_parent_set(E_Comp_Wl_Remote_Provider *provider, E_Comp
              _remote_provider_rect_add(provider, &region->geometry);
           }
 
-        provider->common.ec->comp_data->remote_surface.onscreen_parent = parent->owner;
+        provider->common.ec->comp_data->remote_surface.onscreen_parent = parent->ec;
      }
 }
 
@@ -320,10 +321,11 @@ _remote_provider_onscreen_parent_calculate(E_Comp_Wl_Remote_Provider *provider)
 
         EINA_LIST_FOREACH(provider->common.surfaces, l, surface)
           {
-             if (_ec != surface->owner) continue;
+             if (_ec != surface->ec) continue;
              if (!surface->visible) continue;
 
              parent = surface;
+             break;
           }
 
         if (parent) break;
@@ -519,7 +521,6 @@ _remote_surface_changed_buff_protocol_send(E_Comp_Wl_Remote_Surface *rs,
                                            Eina_Bool ref_set,
                                            E_Comp_Wl_Buffer *buff)
 {
-   E_Comp_Wl_Remote_Common *common = NULL;
    E_Client *src_ec = NULL;
    struct wl_resource *tbm = NULL;
    Eina_Bool send = EINA_FALSE;
@@ -532,23 +533,21 @@ _remote_surface_changed_buff_protocol_send(E_Comp_Wl_Remote_Surface *rs,
 
    if (rs->provider)
      {
-        common = &rs->provider->common;
         src_ec = rs->provider->common.ec;
      }
    else if (rs->source)
      {
-        common = &rs->source->common;
         src_ec = rs->source->common.ec;
      }
 
-   if (!common || !src_ec)
+   if (!src_ec)
      {
-        ERR("CHANGED_BUFF: no common(%p) or src_ec(%p)", common, src_ec);
+        RSMINF("CHANGED_BUFF: no src_ec", NULL, NULL, "SURFACE", rs);
         return EINA_FALSE;
      }
 
-   DBG("CHANGED_BUFF: src_ec(%p) bind_ec(%p) buffer_transform(%d)",
-       src_ec, rs->bind_ec, e_comp_wl_output_buffer_transform_get(src_ec));
+   RSMDBG("CHANGED_BUFF: src_ec(%p) bind_ec(%p) buffer_transform(%d)",
+          NULL, NULL, "SURFACE", rs, src_ec, rs->bind_ec, e_comp_wl_output_buffer_transform_get(src_ec));
 
    /* if unbinded, buffer_transform should be 0 for consumer to composite buffers.
     * Otherwise, we skip sending a change_buffer event because buffer is not ready.
@@ -773,15 +772,6 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
         remote_surface->bind_ec->comp_data->pending.sy = 0;
         remote_surface->bind_ec->comp_data->pending.new_attach = EINA_TRUE;
 
-#if 0   /* FIXME: no proper position to add below codes */
-        /* when unbinded, ignore_output_transform event is sended. And map should be disable. */
-        remote_surface->bind_ec->comp_data->pending.buffer_viewport.buffer.transform = WL_OUTPUT_TRANSFORM_NORMAL;
-        remote_surface->bind_ec->comp_data->pending.buffer_viewport.changed = 0;
-        remote_surface->bind_ec->comp_data->scaler.buffer_viewport.buffer.transform = WL_OUTPUT_TRANSFORM_NORMAL;
-        remote_surface->bind_ec->comp_data->scaler.buffer_viewport.changed = 0;
-        e_comp_wl_map_apply(remote_surface->bind_ec);
-#endif
-
         e_comp_wl_surface_attach(remote_surface->bind_ec, NULL);
         e_comp_object_render_update_del(remote_surface->bind_ec->frame);
 
@@ -911,6 +901,28 @@ no_ignore:
         common->ignore_output_transform = EINA_FALSE;
      }
    return;
+}
+
+static void
+_remote_surface_region_clear(E_Comp_Wl_Remote_Surface *remote_surface)
+{
+   Eina_List *l;
+   E_Comp_Wl_Remote_Region *region;
+   if (!remote_surface) return;
+
+   EINA_LIST_FOREACH(remote_surface->regions, l, region)
+     {
+        _remote_region_mirror_clear(region);
+     }
+}
+
+static void
+_remote_surface_client_set(E_Client *ec, Eina_Bool set)
+{
+   if (!ec) return;
+   if ((e_object_is_del(E_OBJECT(ec)))) return;
+
+   ec->remote_surface.consumer = set;
 }
 
 static void
@@ -1110,28 +1122,6 @@ _remote_source_offscreen_set(E_Comp_Wl_Remote_Source *source, Eina_Bool set)
              EC_CHANGED(source->common.ec);
           }
      }
-}
-
-static void
-_remote_surface_region_clear(E_Comp_Wl_Remote_Surface *remote_surface)
-{
-   Eina_List *l;
-   E_Comp_Wl_Remote_Region *region;
-   if (!remote_surface) return;
-
-   EINA_LIST_FOREACH(remote_surface->regions, l, region)
-     {
-        _remote_region_mirror_clear(region);
-     }
-}
-
-static void
-_remote_surface_client_set(E_Client *ec, Eina_Bool set)
-{
-   if (!ec) return;
-   if ((e_object_is_del(E_OBJECT(ec)))) return;
-
-   ec->remote_surface.consumer = set;
 }
 
 static void
@@ -1342,19 +1332,19 @@ _remote_surface_cb_resource_destroy(struct wl_resource *resource)
 
    if (remote_surface->bind_ec)
      _remote_surface_bind_client(remote_surface, NULL);
-   if (remote_surface->owner)
+   if (remote_surface->ec)
      {
         Eina_List *surfaces;
 
-        surfaces = eina_hash_find(_rsm->consumer_hash, &remote_surface->owner);
+        surfaces = eina_hash_find(_rsm->consumer_hash, &remote_surface->ec);
         if (surfaces)
           {
-             eina_hash_del_by_key(_rsm->consumer_hash, &remote_surface->owner);
+             eina_hash_del_by_key(_rsm->consumer_hash, &remote_surface->ec);
              surfaces = eina_list_remove(surfaces, remote_surface);
              if (!surfaces)
-               _remote_surface_client_set(remote_surface->owner, EINA_FALSE);
+               _remote_surface_client_set(remote_surface->ec, EINA_FALSE);
              else
-               eina_hash_add(_rsm->consumer_hash, &remote_surface->owner, surfaces);
+               eina_hash_add(_rsm->consumer_hash, &remote_surface->ec, surfaces);
           }
      }
 
@@ -1474,7 +1464,6 @@ _remote_surface_cb_unredirect(struct wl_client *client, struct wl_resource *reso
    EINA_SAFETY_ON_FALSE_RETURN(remote_surface->valid);
 
    remote_surface->redirect = EINA_FALSE;
-//   _remote_surface_visible_set(remote_surface, EINA_FALSE);
 
    RSMINF("Unredirect surface provider:%p(ec:%p)",
           NULL, NULL,
@@ -1842,34 +1831,34 @@ _remote_surface_cb_owner_set(struct wl_client *client, struct wl_resource *resou
    if (surface_resource)
      owner = wl_resource_get_user_data(surface_resource);
 
-   if (remote_surface->owner == owner) return;
-   if (remote_surface->owner)
+   if (remote_surface->ec == owner) return;
+   if (remote_surface->ec)
      {
-        surfaces = eina_hash_find(_rsm->consumer_hash, &remote_surface->owner);
+        surfaces = eina_hash_find(_rsm->consumer_hash, &remote_surface->ec);
         if (surfaces)
           {
-             eina_hash_del_by_key(_rsm->consumer_hash, &remote_surface->owner);
+             eina_hash_del_by_key(_rsm->consumer_hash, &remote_surface->ec);
              surfaces = eina_list_remove(surfaces, remote_surface);
              if (!surfaces)
-               _remote_surface_client_set(remote_surface->owner, EINA_FALSE);
+               _remote_surface_client_set(remote_surface->ec, EINA_FALSE);
              else
-               eina_hash_add(_rsm->consumer_hash, &remote_surface->owner, surfaces);
+               eina_hash_add(_rsm->consumer_hash, &remote_surface->ec, surfaces);
           }
      }
 
-   remote_surface->owner = owner;
+   remote_surface->ec = owner;
 
-   if ((owner) && (remote_surface->provider))
+   if ((remote_surface->ec) && (remote_surface->provider))
      {
-        surfaces = eina_hash_find(_rsm->consumer_hash, &owner);
+        surfaces = eina_hash_find(_rsm->consumer_hash, &remote_surface->ec);
         if (!surfaces)
           {
              surfaces = eina_list_append(surfaces, remote_surface);
-             eina_hash_add(_rsm->consumer_hash, &owner, surfaces);
+             eina_hash_add(_rsm->consumer_hash, &remote_surface->ec, surfaces);
           }
         else
           surfaces = eina_list_append(surfaces, remote_surface);
-        _remote_surface_client_set(remote_surface->owner, EINA_TRUE);
+        _remote_surface_client_set(remote_surface->ec, EINA_TRUE);
      }
 
    if (remote_surface->provider)
@@ -2250,7 +2239,6 @@ fail:
    tizen_remote_surface_send_missing(resource);
 }
 
-
 static void
 _remote_manager_cb_surface_bind(struct wl_client *client, struct wl_resource *resource, struct wl_resource *surface_resource, struct wl_resource *remote_surface_resource)
 {
@@ -2291,7 +2279,7 @@ _remote_manager_cb_surface_create_with_wl_surface(struct wl_client *client,
    E_Comp_Wl_Remote_Surface *remote_surface;
    E_Comp_Wl_Remote_Provider *provider = NULL;
    E_Comp_Wl_Remote_Source *source = NULL;
-   E_Client *ec, *owner;
+   E_Client *ec, *provider_ec;
    Eina_List *surfaces;
    int version;
    pid_t pid = 0;
@@ -2319,15 +2307,15 @@ _remote_manager_cb_surface_create_with_wl_surface(struct wl_client *client,
         return;
      }
 
-   owner = (E_Client *)wl_resource_get_user_data(surface_resource);
-   if (!owner)
+   ec = (E_Client *)wl_resource_get_user_data(surface_resource);
+   if (!ec)
      {
-        ERR("Could not find owner E_Client by resource:%p", surface_resource);
+        ERR("Could not find consumer E_Client by resource:%p", surface_resource);
         wl_resource_destroy(resource);
         return;
      }
 
-   remote_surface->owner = owner;
+   remote_surface->ec = ec;
    remote_surface->resource = resource;
    remote_surface->version = wl_resource_get_version(resource);
    remote_surface->redirect = EINA_FALSE;
@@ -2338,8 +2326,8 @@ _remote_manager_cb_surface_create_with_wl_surface(struct wl_client *client,
                                   remote_surface,
                                   _remote_surface_cb_resource_destroy);
 
-   ec = e_pixmap_find_client_by_res_id(res_id);
-   if (!ec)
+   provider_ec = e_pixmap_find_client_by_res_id(res_id);
+   if (!provider_ec)
      {
         ERR("Could not find client by res_id(%u)", res_id);
         goto fail;
@@ -2351,7 +2339,7 @@ _remote_manager_cb_surface_create_with_wl_surface(struct wl_client *client,
         goto fail;
      }
 
-   provider = _remote_provider_find(ec);
+   provider = _remote_provider_find(provider_ec);
    if (!provider)
      {
         /* check the privilege for the client which wants to be the remote surface of normal UI client */
@@ -2367,14 +2355,14 @@ _remote_manager_cb_surface_create_with_wl_surface(struct wl_client *client,
 
         if (version >= TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
           {
-             if (ec->comp_data->sub.data)
+             if (provider_ec->comp_data->sub.data)
                {
                   ERR("Subsurface could not be source client");
                   goto fail;
                }
 
              /* if passed */
-             source = _remote_source_get(ec);
+             source = _remote_source_get(provider_ec);
              if (!source) goto fail;
           }
         else
@@ -2393,15 +2381,15 @@ _remote_manager_cb_surface_create_with_wl_surface(struct wl_client *client,
    wl_resource_add_destroy_listener((struct wl_resource *)wl_tbm, &remote_surface->tbm_destroy_listener);
 
    /* Add to consumer hash and set consumer flag of ec */
-   surfaces = eina_hash_find(_rsm->consumer_hash, &remote_surface->owner);
+   surfaces = eina_hash_find(_rsm->consumer_hash, &remote_surface->ec);
    if (!surfaces)
      {
         surfaces = eina_list_append(surfaces, remote_surface);
-        eina_hash_add(_rsm->consumer_hash, &remote_surface->owner, surfaces);
+        eina_hash_add(_rsm->consumer_hash, &remote_surface->ec, surfaces);
      }
    else
      surfaces = eina_list_append(surfaces, remote_surface);
-   _remote_surface_client_set(remote_surface->owner, EINA_TRUE);
+   _remote_surface_client_set(remote_surface->ec, EINA_TRUE);
 
    /* Add to provider or source's surface list */
    if (provider)
@@ -2409,9 +2397,9 @@ _remote_manager_cb_surface_create_with_wl_surface(struct wl_client *client,
    else if (source)
      source->common.surfaces = eina_list_append(source->common.surfaces, remote_surface);
 
-   RSMINF("Created resource(%p) ec(%p) provider(%p) source(%p) version(%d)",
-          NULL, NULL,
-          "SURFACE", remote_surface, resource, ec, provider, source, remote_surface->version);
+   RSMINF("Created resource(%p) provider_ec(%p) provider(%p) source(%p) version(%d)",
+          ec->pixmap, ec,
+          "SURFACE", remote_surface, resource, provider_ec, provider, source, remote_surface->version);
 
    remote_surface->valid = EINA_TRUE;
 
@@ -2536,7 +2524,7 @@ _e_comp_wl_remote_cb_client_del(void *data, E_Client *ec)
      {
         EINA_LIST_FREE(surfaces, remote_surface)
           {
-             remote_surface->owner = NULL;
+             remote_surface->ec = NULL;
              if (remote_surface->provider)
                _remote_provider_onscreen_parent_calculate(remote_surface->provider);
           }
@@ -2661,7 +2649,6 @@ _e_comp_wl_remote_buffer_cb_destroy(struct wl_listener *listener, void *data)
 
    remote_buffer = container_of(listener, E_Comp_Wl_Remote_Buffer, destroy_listener);
    if (!remote_buffer) return;
-
 
    if (remote_buffer->destroy_listener.notify)
      {
@@ -2924,10 +2911,10 @@ _e_comp_wl_remote_surface_subsurface_commit(E_Comp_Wl_Remote_Provider *parent_pr
 
         x = sdata->position.x + rect->x;
         y = sdata->position.y + rect->y;
-        if (onscreen_parent->owner)
+        if (onscreen_parent->ec)
           {
-             x += onscreen_parent->owner->x;
-             y += onscreen_parent->owner->y;
+             x += onscreen_parent->ec->x;
+             y += onscreen_parent->ec->y;
           }
 
         if ((fx == x) && (fy == y) && (first_skip))
@@ -3153,16 +3140,16 @@ e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
         EINA_LIST_FOREACH(provider->common.surfaces, l, remote_surface)
           {
              struct wl_client *wc = NULL;
-             E_Client *owner = NULL;
+             E_Client *consumer = NULL;
              pid_t pid = -1;
              int s_idx = 0;
              Eina_Bool is_last = 0;
 
              if (!remote_surface->resource) continue;
 
-             owner = remote_surface->owner;
-             if (!owner)
-               owner = remote_surface->bind_ec;
+             consumer = remote_surface->ec;
+             if (!consumer)
+               consumer = remote_surface->bind_ec;
 
              wc = wl_resource_get_client(remote_surface->resource);
              if (wc)
@@ -3174,12 +3161,12 @@ e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
              snprintf(info_str, sizeof(info_str),
                       "%10s CONSUMER [%d] %8p ec(%8p) win(0x%08zx) pid(%d) vis(%d) redirected(%d) name(%s)",
                       is_last? "└─" : "├─", s_idx++, remote_surface,
-                      owner ? owner : NULL,
-                      owner ? e_client_util_win_get(owner) : 0,
+                      consumer ? consumer : NULL,
+                      consumer ? e_client_util_win_get(consumer) : 0,
                       pid,
                       remote_surface->visible,
                       remote_surface->redirect,
-                      owner? e_client_util_name_get(owner)?:owner->icccm.class?:"NO NAME":"NO OWNER"
+                      consumer? e_client_util_name_get(consumer)?:consumer->icccm.class?:"NO NAME":"NO CONSUMER"
                       );
              eldbus_message_iter_basic_append(line_array, 's', info_str);
           }
@@ -3216,16 +3203,16 @@ e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
         EINA_LIST_FOREACH(source->common.surfaces, l, remote_surface)
           {
              struct wl_client *wc = NULL;
-             E_Client *owner = NULL;
+             E_Client *consumer = NULL;
              pid_t pid = -1;
              int s_idx = 0;
              Eina_Bool is_last = 0;
 
              if (!remote_surface->resource) continue;
 
-             owner = remote_surface->owner;
-             if (!owner)
-               owner = remote_surface->bind_ec;
+             consumer = remote_surface->ec;
+             if (!consumer)
+               consumer = remote_surface->bind_ec;
 
              wc = wl_resource_get_client(remote_surface->resource);
              if (wc)
@@ -3237,12 +3224,12 @@ e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter)
              snprintf(info_str, sizeof(info_str),
                       "%10s CONSUMER [%d] %8p ec(%8p) win(0x%08zx) pid(%d) vis(%d) redirected(%d) name(%s)",
                       is_last? "└─" : "├─", s_idx++, remote_surface,
-                      owner ? owner : NULL,
-                      owner ? e_client_util_win_get(owner) : 0,
+                      consumer ? consumer : NULL,
+                      consumer ? e_client_util_win_get(consumer) : 0,
                       pid,
                       remote_surface->visible,
                       remote_surface->redirect,
-                      owner? e_client_util_name_get(owner)?:owner->icccm.class?:"NO NAME":"NO OWNER"
+                      consumer? e_client_util_name_get(consumer)?:consumer->icccm.class?:"NO NAME":"NO CONSUMER"
                      );
              eldbus_message_iter_basic_append(line_array, 's', info_str);
           }
@@ -3266,7 +3253,7 @@ e_comp_wl_remote_surface_providers_get(E_Client *ec)
    Eina_Iterator *it;
    Eina_List *l;
    Eina_List *provs = NULL; /* result list */
-   E_Client *owner_ec;
+   E_Client *consumer_ec;
 
    /* remote surface providers */
    it = eina_hash_iterator_data_new(_rsm->provider_hash);
@@ -3274,11 +3261,11 @@ e_comp_wl_remote_surface_providers_get(E_Client *ec)
      {
         EINA_LIST_FOREACH(prov->common.surfaces, l, rs)
           {
-             owner_ec = rs->owner;
-             if (!owner_ec) owner_ec = rs->bind_ec;
+             consumer_ec = rs->ec;
+             if (!consumer_ec) consumer_ec = rs->bind_ec;
 
-             if (!owner_ec) continue;
-             if (owner_ec != ec) continue;
+             if (!consumer_ec) continue;
+             if (consumer_ec != ec) continue;
 
              /* append provider's ec to result list */
              provs = eina_list_append(provs, prov->common.ec);
@@ -3293,11 +3280,11 @@ e_comp_wl_remote_surface_providers_get(E_Client *ec)
      {
         EINA_LIST_FOREACH(src->common.surfaces, l, rs)
           {
-             owner_ec = rs->owner;
-             if (!owner_ec) owner_ec = rs->bind_ec;
+             consumer_ec = rs->ec;
+             if (!consumer_ec) consumer_ec = rs->bind_ec;
 
-             if (!owner_ec) continue;
-             if (owner_ec != ec) continue;
+             if (!consumer_ec) continue;
+             if (consumer_ec != ec) continue;
 
              /* append source's ec to result list */
              provs = eina_list_append(provs, src->common.ec);
