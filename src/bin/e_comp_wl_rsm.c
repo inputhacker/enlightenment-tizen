@@ -3128,12 +3128,160 @@ _remote_manager_cb_destroy(struct wl_client *client, struct wl_resource *resourc
    wl_resource_destroy(resource);
 }
 
+static void
+_remote_manager_cb_surface_create_with_wl_surface(struct wl_client *client,
+                                                  struct wl_resource *res_remote_manager,
+                                                  uint32_t id,
+                                                  uint32_t res_id,
+                                                  struct wl_resource *wl_tbm,
+                                                  struct wl_resource *surface_resource)
+{
+   struct wl_resource *resource;
+   E_Comp_Wl_Remote_Surface *remote_surface;
+   E_Comp_Wl_Remote_Provider *provider = NULL;
+   E_Comp_Wl_Remote_Source *source = NULL;
+   E_Client *ec, *owner;
+   Eina_List *surfaces;
+   int version;
+   pid_t pid = 0;
+   uid_t uid = 0;
+   Eina_Bool res;
+
+   EINA_SAFETY_ON_NULL_RETURN(_rsm);
+
+   version = wl_resource_get_version(res_remote_manager);
+   resource = wl_resource_create(client,
+                                 &tizen_remote_surface_interface,
+                                 version, id);
+   if (!resource)
+     {
+        ERR("Could not create tizen remote surface resource: %m");
+        wl_client_post_no_memory(client);
+        return;
+     }
+
+   remote_surface = E_NEW(E_Comp_Wl_Remote_Surface, 1);
+   if (!remote_surface)
+     {
+        wl_client_post_no_memory(client);
+        wl_resource_destroy(resource);
+        return;
+     }
+
+   owner = (E_Client *)wl_resource_get_user_data(surface_resource);
+   if (!owner)
+     {
+        ERR("Could not find owner E_Client by resource:%p", surface_resource);
+        wl_resource_destroy(resource);
+        return;
+     }
+
+   remote_surface->owner = owner;
+   remote_surface->resource = resource;
+   remote_surface->version = wl_resource_get_version(resource);
+   remote_surface->redirect = EINA_FALSE;
+   remote_surface->valid = EINA_FALSE;
+
+   wl_resource_set_implementation(resource,
+                                  &_remote_surface_interface,
+                                  remote_surface,
+                                  _remote_surface_cb_resource_destroy);
+
+   ec = e_pixmap_find_client_by_res_id(res_id);
+   if (!ec)
+     {
+        ERR("Could not find client by res_id(%u)", res_id);
+        goto fail;
+     }
+
+   if (!wl_tbm)
+     {
+        ERR("wayland_tbm resource is NULL");
+        goto fail;
+     }
+
+   provider = _remote_provider_find(ec);
+   if (!provider)
+     {
+        /* check the privilege for the client which wants to be the remote surface of normal UI client */
+        wl_client_get_credentials(client, &pid, &uid, NULL);
+        res = e_security_privilege_check(pid, uid, E_PRIVILEGE_INTERNAL_DEFAULT_PLATFORM);
+        if (!res)
+          {
+             ELOGF("TRS",
+                   "Privilege Check Failed! DENY creating tizen_remote_surface pid:%d",
+                   NULL, pid);
+             goto fail;
+          }
+
+        if (version >= TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
+          {
+             if (ec->comp_data->sub.data)
+               {
+                  ERR("Subsurface could not be source client");
+                  goto fail;
+               }
+
+             /* if passed */
+             source = _remote_source_get(ec);
+             if (!source) goto fail;
+          }
+        else
+          {
+             ERR("Could not support tizen_remote_surface to client :%d", pid);
+             goto fail;
+          }
+     }
+
+   remote_surface->provider = provider;
+   remote_surface->source = source;
+   remote_surface->wl_tbm = wl_tbm;
+
+   /* Add destroy listener for wl_tbm resource */
+   remote_surface->tbm_destroy_listener.notify = _remote_surface_cb_tbm_destroy;
+   wl_resource_add_destroy_listener((struct wl_resource *)wl_tbm, &remote_surface->tbm_destroy_listener);
+
+   /* Add to consumer hash and set consumer flag of ec */
+   surfaces = eina_hash_find(_rsm->consumer_hash, &remote_surface->owner);
+   if (!surfaces)
+     {
+        surfaces = eina_list_append(surfaces, remote_surface);
+        eina_hash_add(_rsm->consumer_hash, &remote_surface->owner, surfaces);
+     }
+   else
+     surfaces = eina_list_append(surfaces, remote_surface);
+   _remote_surface_client_set(remote_surface->owner, EINA_TRUE);
+
+   /* Add to provider or source's surface list */
+   if (provider)
+     provider->common.surfaces = eina_list_append(provider->common.surfaces, remote_surface);
+   else if (source)
+     source->common.surfaces = eina_list_append(source->common.surfaces, remote_surface);
+
+   RSMINF("Created resource(%p) ec(%p) provider(%p) source(%p) version(%d)",
+          NULL, NULL,
+          "SURFACE", remote_surface, resource, ec, provider, source, remote_surface->version);
+
+   remote_surface->valid = EINA_TRUE;
+
+   if (provider)
+     _remote_surface_ignore_output_transform_send(&provider->common);
+   else if (source)
+     _remote_surface_ignore_output_transform_send(&source->common);
+
+   return;
+
+fail:
+   tizen_remote_surface_send_missing(resource);
+}
+
 static const struct tizen_remote_surface_manager_interface _remote_manager_interface =
 {
    _remote_manager_cb_provider_create,
    _remote_manager_cb_surface_create,
    _remote_manager_cb_surface_bind,
    _remote_manager_cb_destroy,
+   _remote_manager_cb_surface_create_with_wl_surface,
 };
 
 static void
@@ -3148,9 +3296,9 @@ _remote_manager_cb_bind(struct wl_client *client, void *data EINA_UNUSED, uint32
    struct wl_resource *res_remote_manager;
 
    res_remote_manager = wl_resource_create(client,
-                                        &tizen_remote_surface_manager_interface,
-                                        ver,
-                                        id);
+                                           &tizen_remote_surface_manager_interface,
+                                           ver,
+                                           id);
    EINA_SAFETY_ON_NULL_GOTO(res_remote_manager, err);
 
    wl_resource_set_implementation(res_remote_manager,
@@ -4088,7 +4236,7 @@ e_comp_wl_remote_surface_init(void)
 
    rs_manager->global = wl_global_create(e_comp_wl->wl.disp,
                                          &tizen_remote_surface_manager_interface,
-                                         5,
+                                         6,
                                          NULL,
                                          _remote_manager_cb_bind);
 
