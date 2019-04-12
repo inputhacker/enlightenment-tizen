@@ -11,6 +11,35 @@
 
 #define IS_RGB(f) ((f) == TBM_FORMAT_XRGB8888 || (f) == TBM_FORMAT_ARGB8888)
 
+EINTERN E_Comp_Wl_Video_Buf *
+e_video_hwc_input_buffer_copy(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buf, E_Comp_Wl_Video_Buf *vbuf, Eina_Bool scanout)
+{
+   E_Comp_Wl_Video_Buf *temp = NULL;
+   int aligned_width = ROUNDUP(vbuf->width_from_pitch, evh->pp_align);
+
+   temp = e_comp_wl_video_buffer_alloc(aligned_width, vbuf->height, vbuf->tbmfmt, scanout);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(temp, NULL);
+
+   temp->comp_buffer = comp_buf;
+
+   VDB("copy vbuf(%d,%dx%d) => vbuf(%d,%dx%d)", evh->ec,
+       MSTAMP(vbuf), vbuf->width_from_pitch, vbuf->height,
+       MSTAMP(temp), temp->width_from_pitch, temp->height);
+
+   e_comp_wl_video_buffer_copy(vbuf, temp);
+   e_comp_wl_video_buffer_unref(vbuf);
+
+   evh->geo.input_w = vbuf->width_from_pitch;
+#ifdef DUMP_BUFFER
+   char file[256];
+   static int i;
+   snprintf(file, sizeof file, "/tmp/dump/%s_%d.png", "cpy", i++);
+   tdm_helper_dump_buffer(temp->tbm_surface, file);
+#endif
+
+   return temp;
+}
+
 EINTERN Eina_Bool
 e_video_hwc_video_buffer_scanout_check(E_Comp_Wl_Video_Buf *vbuf)
 {

@@ -74,35 +74,6 @@ _e_video_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
 }
 
 static E_Comp_Wl_Video_Buf *
-_e_video_input_buffer_copy(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Buffer *comp_buf, E_Comp_Wl_Video_Buf *vbuf, Eina_Bool scanout)
-{
-   E_Comp_Wl_Video_Buf *temp = NULL;
-   int aligned_width = ROUNDUP(vbuf->width_from_pitch, evhw->base.pp_align);
-
-   temp = e_comp_wl_video_buffer_alloc(aligned_width, vbuf->height, vbuf->tbmfmt, scanout);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(temp, NULL);
-
-   temp->comp_buffer = comp_buf;
-
-   VDB("copy vbuf(%d,%dx%d) => vbuf(%d,%dx%d)", evhw->base.ec,
-       MSTAMP(vbuf), vbuf->width_from_pitch, vbuf->height,
-       MSTAMP(temp), temp->width_from_pitch, temp->height);
-
-   e_comp_wl_video_buffer_copy(vbuf, temp);
-   e_comp_wl_video_buffer_unref(vbuf);
-
-   evhw->base.geo.input_w = vbuf->width_from_pitch;
-#ifdef DUMP_BUFFER
-   char file[256];
-   static int i;
-   snprintf(file, sizeof file, "/tmp/dump/%s_%d.png", "cpy", i++);
-   tdm_helper_dump_buffer(temp->tbm_surface, file);
-#endif
-
-   return temp;
-}
-
-static E_Comp_Wl_Video_Buf *
 _e_video_input_buffer_get(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Buffer *comp_buffer, Eina_Bool scanout)
 {
    E_Comp_Wl_Video_Buf *vbuf;
@@ -133,9 +104,9 @@ _e_video_input_buffer_get(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Buffer *comp_buff
              E_Comp_Wl_Video_Buf *temp;
 
              if (need_pp_scanout)
-               temp = _e_video_input_buffer_copy(evhw, comp_buffer, vbuf, EINA_TRUE);
+               temp = e_video_hwc_input_buffer_copy((E_Video_Hwc *)evhw, comp_buffer, vbuf, EINA_TRUE);
              else
-               temp = _e_video_input_buffer_copy(evhw, comp_buffer, vbuf, scanout);
+               temp = e_video_hwc_input_buffer_copy((E_Video_Hwc *)evhw, comp_buffer, vbuf, scanout);
              if (!temp)
                {
                   e_comp_wl_video_buffer_unref(vbuf);
