@@ -61,12 +61,22 @@ static Eina_Bool need_send_motion = EINA_TRUE;
 static int _e_comp_wl_hooks_delete = 0;
 static int _e_comp_wl_hooks_walking = 0;
 
+static int _e_comp_wl_intercept_hooks_delete = 0;
+static int _e_comp_wl_intercept_hooks_walking = 0;
+
 static Eina_Inlist *_e_comp_wl_hooks[] =
 {
    [E_COMP_WL_HOOK_SHELL_SURFACE_READY] = NULL,
    [E_COMP_WL_HOOK_SUBSURFACE_CREATE] = NULL,
    [E_COMP_WL_HOOK_BUFFER_CHANGE] = NULL,
    [E_COMP_WL_HOOK_CLIENT_REUSE] = NULL,
+};
+
+static Eina_Inlist *_e_comp_wl_intercept_hooks[] =
+{
+   [E_COMP_WL_INTERCEPT_HOOK_CURSOR_TIMER_MOUSE_IN] = NULL,
+   [E_COMP_WL_INTERCEPT_HOOK_CURSOR_TIMER_MOUSE_OUT] = NULL,
+   [E_COMP_WL_INTERCEPT_HOOK_CURSOR_TIMER_MOUSE_MOVE] = NULL,
 };
 
 static Eina_List *hooks = NULL;
@@ -108,6 +118,46 @@ _e_comp_wl_hook_call(E_Comp_Wl_Hook_Point hookpoint, E_Client *ec)
      _e_comp_wl_hooks_clean();
    e_object_unref(E_OBJECT(ec));
 }
+
+static void
+_e_comp_wl_intercept_hooks_clean(void)
+{
+   Eina_Inlist *l;
+   E_Comp_Wl_Intercept_Hook *ch;
+   unsigned int x;
+   for (x = 0; x < E_COMP_WL_INTERCEPT_HOOK_LAST; x++)
+     EINA_INLIST_FOREACH_SAFE(_e_comp_wl_intercept_hooks[x], l, ch)
+       {
+          if (!ch->delete_me) continue;
+          _e_comp_wl_intercept_hooks[x] = eina_inlist_remove(_e_comp_wl_intercept_hooks[x], EINA_INLIST_GET(ch));
+         free(ch);
+       }
+}
+
+static Eina_Bool
+_e_comp_wl_intercept_hook_call(E_Comp_Wl_Intercept_Hook_Point hookpoint, E_Client *ec)
+{
+   E_Comp_Wl_Intercept_Hook *ch;
+   Eina_Bool res = EINA_TRUE, ret = EINA_TRUE;
+
+   e_object_ref(E_OBJECT(ec));
+   _e_comp_wl_intercept_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_comp_wl_intercept_hooks[hookpoint], ch)
+     {
+        if (ch->delete_me) continue;
+        res = ch->func(ch->data, ec);
+        if (!res) ret = EINA_FALSE;
+        if (e_object_is_del(E_OBJECT(ec)))
+          break;
+     }
+   _e_comp_wl_intercept_hooks_walking--;
+   if ((_e_comp_wl_intercept_hooks_walking == 0) && (_e_comp_wl_intercept_hooks_delete > 0))
+     _e_comp_wl_intercept_hooks_clean();
+   e_object_unref(E_OBJECT(ec));
+
+   return ret;
+}
+
 
 static void
 _e_comp_wl_configure_send(E_Client *ec, Eina_Bool edges, Eina_Bool send_size)
@@ -889,8 +939,54 @@ _e_comp_wl_device_handle_axes(const char *dev_name, Evas_Device_Class dev_class,
      }
 }
 
+static Eina_Bool
+_e_comp_wl_cursor_timer_control(Evas_Callback_Type type, E_Client *ec)
+{
+   Eina_Bool ret = EINA_TRUE;
+   switch (type)
+     {
+        case EVAS_CALLBACK_MOUSE_IN:
+          ret = _e_comp_wl_intercept_hook_call(E_COMP_WL_INTERCEPT_HOOK_CURSOR_TIMER_MOUSE_IN, ec);
+          if (!ret) break;
+
+          if (e_comp_wl->ptr.hide_tmr)
+            {
+               ecore_timer_del(e_comp_wl->ptr.hide_tmr);
+               cursor_timer_ec = ec;
+               e_comp_wl->ptr.hide_tmr = ecore_timer_add(e_config->cursor_timer_interval, _e_comp_wl_cursor_timer, ec);
+            }
+          else
+            {
+               if (e_pointer_is_hidden(e_comp->pointer))
+                 ret = EINA_FALSE;
+            }
+          break;
+
+        case EVAS_CALLBACK_MOUSE_OUT:
+          ret = _e_comp_wl_intercept_hook_call(E_COMP_WL_INTERCEPT_HOOK_CURSOR_TIMER_MOUSE_OUT, ec);
+          if (!ret) break;
+
+          if (!e_comp_wl->ptr.hide_tmr && e_pointer_is_hidden(e_comp->pointer))
+            ret = EINA_FALSE;
+          break;
+
+        case EVAS_CALLBACK_MOUSE_MOVE:
+          ret = _e_comp_wl_intercept_hook_call(E_COMP_WL_INTERCEPT_HOOK_CURSOR_TIMER_MOUSE_MOVE, ec);
+          if (!ret) break;
+
+          if (e_pointer_is_hidden(e_comp->pointer))
+            _e_comp_wl_cursor_reload(ec);
+          break;
+
+        default:
+          break;
+     }
+
+   return ret;
+}
+
 static void
-_e_comp_wl_evas_cb_mouse_in(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event EINA_UNUSED)
+_e_comp_wl_evas_cb_mouse_in(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event)
 {
    E_Client *ec;
    Evas_Event_Mouse_In *ev;
@@ -914,17 +1010,8 @@ _e_comp_wl_evas_cb_mouse_in(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj
 
    if (e_config->use_cursor_timer)
      {
-        if (e_comp_wl->ptr.hide_tmr)
-          {
-             ecore_timer_del(e_comp_wl->ptr.hide_tmr);
-             cursor_timer_ec = ec;
-             e_comp_wl->ptr.hide_tmr = ecore_timer_add(e_config->cursor_timer_interval, _e_comp_wl_cursor_timer, ec);
-          }
-        else
-          {
-             if (e_pointer_is_hidden(e_comp->pointer))
-               return;
-          }
+        if (!_e_comp_wl_cursor_timer_control(EVAS_CALLBACK_MOUSE_IN, ec))
+          return;
      }
 
    if (!eina_list_count(e_comp_wl->ptr.resources)) return;
@@ -987,9 +1074,9 @@ _e_comp_wl_evas_cb_mouse_out(void *data, Evas *evas EINA_UNUSED, Evas_Object *ob
         return;
      }
 
-   if (e_config->use_cursor_timer && !e_comp_wl->ptr.hide_tmr)
+   if (e_config->use_cursor_timer)
      {
-        if (e_pointer_is_hidden(e_comp->pointer))
+        if (!_e_comp_wl_cursor_timer_control(EVAS_CALLBACK_MOUSE_OUT, ec))
           return;
      }
 
@@ -1173,8 +1260,8 @@ _e_comp_wl_evas_cb_mouse_move(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
           {
              if (e_config->use_cursor_timer)
                {
-                 if (e_pointer_is_hidden(e_comp->pointer))
-                   _e_comp_wl_cursor_reload(ec);
+                 if (!_e_comp_wl_cursor_timer_control(EVAS_CALLBACK_MOUSE_MOVE, ec))
+                   return;
                }
 
              _e_comp_wl_device_send_event_device(ec, dev, ev->timestamp);
@@ -5691,6 +5778,34 @@ e_comp_wl_hook_del(E_Comp_Wl_Hook *ch)
      }
    else
      _e_comp_wl_hooks_delete++;
+}
+
+E_API E_Comp_Wl_Intercept_Hook *
+e_comp_wl_intercept_hook_add(E_Comp_Wl_Intercept_Hook_Point hookpoint, E_Comp_Wl_Intercept_Hook_Cb func, const void *data)
+{
+   E_Comp_Wl_Intercept_Hook *ch;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_COMP_WL_INTERCEPT_HOOK_LAST, NULL);
+   ch = E_NEW(E_Comp_Wl_Intercept_Hook, 1);
+   if (!ch) return NULL;
+   ch->hookpoint = hookpoint;
+   ch->func = func;
+   ch->data = (void*)data;
+   _e_comp_wl_intercept_hooks[hookpoint] = eina_inlist_append(_e_comp_wl_intercept_hooks[hookpoint], EINA_INLIST_GET(ch));
+   return ch;
+}
+
+E_API void
+e_comp_wl_intercept_hook_del(E_Comp_Wl_Intercept_Hook *ch)
+{
+   ch->delete_me = 1;
+   if (_e_comp_wl_intercept_hooks_walking == 0)
+     {
+        _e_comp_wl_intercept_hooks[ch->hookpoint] = eina_inlist_remove(_e_comp_wl_intercept_hooks[ch->hookpoint], EINA_INLIST_GET(ch));
+        free(ch);
+     }
+   else
+     _e_comp_wl_intercept_hooks_delete++;
 }
 
 E_API void

@@ -45,6 +45,7 @@ typedef struct _E_Comp_Wl_Client_Data E_Comp_Wl_Client_Data;
 typedef struct _E_Comp_Wl_Data E_Comp_Wl_Data;
 typedef struct _E_Comp_Wl_Output E_Comp_Wl_Output;
 typedef struct _E_Comp_Wl_Hook E_Comp_Wl_Hook;
+typedef struct _E_Comp_Wl_Intercept_Hook E_Comp_Wl_Intercept_Hook;
 
 
 typedef enum _E_Comp_Wl_Buffer_Type
@@ -72,7 +73,16 @@ typedef enum _E_Comp_Wl_Sh_Surf_Role
    E_COMP_WL_SH_SURF_ROLE_POPUP = 2,
 } E_Comp_Wl_Sh_Surf_Role;
 
+typedef enum _E_Comp_Wl_Intercept_Hook_Point
+{
+   E_COMP_WL_INTERCEPT_HOOK_CURSOR_TIMER_MOUSE_IN,
+   E_COMP_WL_INTERCEPT_HOOK_CURSOR_TIMER_MOUSE_OUT,
+   E_COMP_WL_INTERCEPT_HOOK_CURSOR_TIMER_MOUSE_MOVE,
+   E_COMP_WL_INTERCEPT_HOOK_LAST,
+} E_Comp_Wl_Intercept_Hook_Point;
+
 typedef void (*E_Comp_Wl_Hook_Cb) (void *data, E_Client *ec);
+typedef Eina_Bool (*E_Comp_Wl_Intercept_Hook_Cb) (void *data, E_Client *ec);
 
 struct _E_Comp_Wl_Aux_Hint
 {
@@ -508,6 +518,15 @@ struct _E_Comp_Wl_Hook
    unsigned char delete_me : 1;
 };
 
+struct _E_Comp_Wl_Intercept_Hook
+{
+   EINA_INLIST;
+   E_Comp_Wl_Intercept_Hook_Point hookpoint;
+   E_Comp_Wl_Intercept_Hook_Cb func;
+   void *data;
+   unsigned char delete_me : 1;
+};
+
 E_API Eina_Bool e_comp_wl_init(void);
 EINTERN void e_comp_wl_shutdown(void);
 
@@ -532,6 +551,9 @@ E_API void        e_comp_wl_touch_cancel(void);
 
 E_API E_Comp_Wl_Hook *e_comp_wl_hook_add(E_Comp_Wl_Hook_Point hookpoint, E_Comp_Wl_Hook_Cb func, const void *data);
 E_API void e_comp_wl_hook_del(E_Comp_Wl_Hook *ch);
+
+E_API E_Comp_Wl_Intercept_Hook *e_comp_wl_intercept_hook_add(E_Comp_Wl_Intercept_Hook_Point hookpoint, E_Comp_Wl_Intercept_Hook_Cb func, const void *data);
+E_API void e_comp_wl_intercept_hook_del(E_Comp_Wl_Intercept_Hook *ch);
 
 E_API void e_comp_wl_shell_surface_ready(E_Client *ec);
 
