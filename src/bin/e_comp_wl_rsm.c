@@ -8,36 +8,36 @@
 
 #include <pixman.h>
 
-#define RSMINF(f, cp, ec, obj, ptr, x...)                             \
-   do                                                                 \
-     {                                                                \
-        if ((!cp) && (!ec))                                           \
-          INF("EWL|%20.20s|              |             |%10.10s|%p|"f,\
-              "RSM", (obj), (ptr), ##x);                              \
-        else                                                          \
-          INF("EWL|%20.20s|win:0x%08zx|ec:%8p|%10.10s|%p|"f,          \
-              "RSM",                                                  \
-              (e_client_util_win_get(ec)),                            \
-              (ec),                                                   \
-              (obj), (ptr),                                           \
-              ##x);                                                   \
-     }                                                                \
+#define RSMINF(f, ec, str, obj, x...)                                  \
+   do                                                                  \
+     {                                                                 \
+        if (!ec)                                                       \
+          INF("EWL|%20.20s|              |             |%10.10s|%8p|"f,\
+              "RSM", (str), (obj), ##x);                               \
+        else                                                           \
+          INF("EWL|%20.20s|win:0x%08zx|ec:%8p|%10.10s|%8p|"f,          \
+              "RSM",                                                   \
+              (e_client_util_win_get(ec)),                             \
+              (ec),                                                    \
+              (str), (obj),                                            \
+              ##x);                                                    \
+     }                                                                 \
    while (0)
 
-#define RSMDBG(f, cp, ec, obj, ptr, x...)                             \
-   do                                                                 \
-     {                                                                \
-        if ((!cp) && (!ec))                                           \
-          DBG("EWL|%20.20s|              |             |%10.10s|%p|"f,\
-              "RSM", (obj), (ptr), ##x);                              \
-        else                                                          \
-          DBG("EWL|%20.20s|win:0x%08zx|ec:%8p|%10.10s|%p|"f,          \
-              "RSM",                                                  \
-              (e_client_util_win_get(ec)),                            \
-              (ec),                                                   \
-              (obj), (ptr),                                           \
-              ##x);                                                   \
-     }                                                                \
+#define RSMDBG(f, ec, str, obj, x...)                                  \
+   do                                                                  \
+     {                                                                 \
+        if (!ec)                                                       \
+          DBG("EWL|%20.20s|              |             |%10.10s|%8p|"f,\
+              "RSM", (str), (obj), ##x);                               \
+        else                                                           \
+          DBG("EWL|%20.20s|win:0x%08zx|ec:%8p|%10.10s|%8p|"f,          \
+              "RSM",                                                   \
+              (e_client_util_win_get(ec)),                             \
+              (ec),                                                    \
+              (str), (obj),                                            \
+              ##x);                                                    \
+     }                                                                 \
    while (0)
 
 #define container_of(ptr, type, member) \
@@ -265,8 +265,7 @@ _remote_provider_onscreen_parent_set(E_Comp_Wl_Remote_Provider *provider, E_Comp
    provider->common.ec->comp_data->remote_surface.onscreen_parent = NULL;
 
    RSMDBG("set onscreen_parent %p(ec:%p)",
-          provider->common.ec->pixmap, provider->common.ec,
-          "PROVIDER", provider,
+          provider->common.ec, "PROVIDER", provider,
           parent, parent? parent->ec:NULL);
 
    if (parent)
@@ -385,9 +384,7 @@ _remote_provider_offscreen_set(E_Comp_Wl_Remote_Provider* provider, Eina_Bool se
 
    _remote_surface_ignore_output_transform_send(&provider->common);
 
-   RSMINF("%s offscreen",
-          ec->pixmap, ec,
-          "PROVIDER", provider, set? "Set":"Unset");
+   RSMINF("%s offscreen", ec, "PROVIDER", provider, set? "Set":"Unset");
 }
 
 static void
@@ -420,8 +417,7 @@ _remote_provider_visible_set(E_Comp_Wl_Remote_Provider *provider, Eina_Bool set)
    if (set)
      {
         provider->vis_ref ++;
-        RSMDBG("Count up vis_ref:%d",
-               provider->common.ec->pixmap, provider->common.ec,
+        RSMDBG("Count up vis_ref:%d", provider->common.ec,
                "PROVIDER", provider, provider->vis_ref);
 
         if (provider->vis_ref == 1)
@@ -439,8 +435,7 @@ _remote_provider_visible_set(E_Comp_Wl_Remote_Provider *provider, Eina_Bool set)
    else
      {
         provider->vis_ref --;
-        RSMDBG("Count down vis_ref:%d",
-               provider->common.ec->pixmap, provider->common.ec,
+        RSMDBG("Count down vis_ref:%d", provider->common.ec,
                "PROVIDER", provider, provider->vis_ref);
 
         if (provider->vis_ref == 0)
@@ -542,19 +537,19 @@ _remote_surface_changed_buff_protocol_send(E_Comp_Wl_Remote_Surface *rs,
 
    if (!src_ec)
      {
-        RSMINF("CHANGED_BUFF: no src_ec", NULL, NULL, "SURFACE", rs);
+        RSMINF("CHANGED_BUFF: no src_ec", NULL, "SURFACE", rs);
         return EINA_FALSE;
      }
 
    RSMDBG("CHANGED_BUFF: src_ec(%p) bind_ec(%p) buffer_transform(%d)",
-          NULL, NULL, "SURFACE", rs, src_ec, rs->bind_ec, e_comp_wl_output_buffer_transform_get(src_ec));
+          rs->ec, "SURFACE", rs, src_ec, rs->bind_ec, e_comp_wl_output_buffer_transform_get(src_ec));
 
    /* if unbinded, buffer_transform should be 0 for consumer to composite buffers.
     * Otherwise, we skip sending a change_buffer event because buffer is not ready.
     */
    if (!rs->bind_ec && e_comp_wl_output_buffer_transform_get(src_ec))
      {
-        RSMINF("CHANGED_BUFF skiped: buffer not ready", NULL, NULL, "SURFACE", rs);
+        RSMINF("CHANGED_BUFF skiped: buffer not ready", rs->ec, "SURFACE", rs);
         return EINA_TRUE;
      }
 
@@ -603,7 +598,7 @@ _remote_surface_changed_buff_protocol_send(E_Comp_Wl_Remote_Surface *rs,
                }
 
              RSMDBG("CHANGED_BUFF send:%d type:%u tbm:%p fd:%d(%d) add_opts:%d EV_FILTER(%d):%u",
-                    NULL, NULL, "SURFACE", rs,
+                    rs->ec, "SURFACE", rs,
                     send, buff_type, tbm, img_file_fd, img_file_size, add_opts,
                     rs->changed_buff_ev_filter.use,
                     rs->changed_buff_ev_filter.filter);
@@ -719,8 +714,7 @@ _remote_surface_visible_set(E_Comp_Wl_Remote_Surface *remote_surface, Eina_Bool 
    remote_surface->visible = set;
 
    RSMDBG("Switch visible:%d",
-          NULL, NULL,
-          "SURFACE", remote_surface, remote_surface->visible);
+          remote_surface->ec, "SURFACE", remote_surface, remote_surface->visible);
 
    provider = remote_surface->provider;
    if (!provider) return;
@@ -734,8 +728,7 @@ _remote_surface_bind_client_set(E_Comp_Wl_Remote_Surface *remote_surface, E_Clie
    if (!remote_surface) return;
 
    RSMINF("Set bind_ec:%p, bind_ref:%d",
-          NULL, NULL,
-          "SURFACE", remote_surface, ec, ec->remote_surface.bind_ref + 1);
+          remote_surface->ec, "SURFACE", remote_surface, ec, ec->remote_surface.bind_ref + 1);
 
    remote_surface->bind_ec = ec;
    remote_surface->bind_ec->remote_surface.bind_ref++;
@@ -747,7 +740,7 @@ _remote_surface_bind_client_unset(E_Comp_Wl_Remote_Surface *remote_surface)
    if (!remote_surface) return;
 
    RSMINF("Unset bind_ec:%p, bind_ref:%d",
-          NULL, NULL,
+          remote_surface->ec,
           "SURFACE", remote_surface, remote_surface->bind_ec,
           remote_surface->bind_ec->remote_surface.bind_ref - 1);
 
@@ -765,8 +758,7 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
    if (remote_surface->bind_ec)
      {
         RSMINF("Clear previous bind_ec:%p",
-               NULL, NULL,
-               "SURFACE", remote_surface, remote_surface->bind_ec);
+               remote_surface->ec, "SURFACE", remote_surface, remote_surface->bind_ec);
 
         remote_surface->bind_ec->comp_data->pending.sx = 0;
         remote_surface->bind_ec->comp_data->pending.sy = 0;
@@ -787,8 +779,7 @@ _remote_surface_bind_client(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *
              E_Comp_Wl_Buffer *buffer;
 
              RSMINF("Try to send latest buffer of provider:%p(ec:%p)",
-                    NULL, NULL,
-                    "SURFACE", remote_surface,
+                    remote_surface->ec, "SURFACE", remote_surface,
                     remote_surface->provider,
                     remote_surface->provider->common.ec);
 
@@ -950,7 +941,7 @@ _remote_source_send_image_update(E_Comp_Wl_Remote_Source *source)
      }
 
    RSMDBG("send image fd(%d) path(%s) size(%jd)",
-          NULL, source->common.ec, "SOURCE", source, fd, source->image_path, (intmax_t)image_size);
+          source->common.ec, "SOURCE", source, fd, source->image_path, (intmax_t)image_size);
 
    EINA_LIST_FOREACH(source->common.surfaces, l, remote_surface)
      {
@@ -1007,7 +998,7 @@ _remote_source_destroy(E_Comp_Wl_Remote_Source *source)
    E_Comp_Wl_Remote_Surface *remote_surface;
    if (!source) return;
 
-   RSMDBG("remote source destroy", NULL, source->common.ec,"SOURCE", source);
+   RSMDBG("remote source destroy", source->common.ec,"SOURCE", source);
 
    if (_rsm)
      eina_hash_del_by_data(_rsm->source_hash, source);
@@ -1026,7 +1017,7 @@ _remote_source_destroy(E_Comp_Wl_Remote_Source *source)
      {
         if (!e_config->hold_prev_win_img)
           {
-             RSMDBG("IMG del %s", NULL, source->common.ec, "SOURCE", source, source->image_path);
+             RSMDBG("IMG del %s", source->common.ec, "SOURCE", source, source->image_path);
              ecore_file_remove(source->image_path);
           }
         eina_stringshare_del(source->image_path);
@@ -1082,8 +1073,7 @@ _remote_source_offscreen_set(E_Comp_Wl_Remote_Source *source, Eina_Bool set)
      {
         source->offscreen_ref++;
         RSMDBG("Set offscreen offscreen_ref:%d",
-               source->common.ec->pixmap, source->common.ec,
-               "SOURCE", source, source->offscreen_ref);
+               source->common.ec, "SOURCE", source, source->offscreen_ref);
 
         if (source->offscreen_ref == 1)
           {
@@ -1094,7 +1084,7 @@ _remote_source_offscreen_set(E_Comp_Wl_Remote_Source *source, Eina_Bool set)
              if (!source->common.ec->exp_iconify.by_client)
                e_policy_wl_iconify_state_change_send(source->common.ec, 0);
 
-             RSMINF("Un-Set ICONIFY BY Remote_Surface", source->common.ec->pixmap, source->common.ec,
+             RSMINF("Un-Set ICONIFY BY Remote_Surface", source->common.ec,
                     "SOURCE", source);
              e_client_uniconify(source->common.ec);
 
@@ -1111,8 +1101,7 @@ _remote_source_offscreen_set(E_Comp_Wl_Remote_Source *source, Eina_Bool set)
 
         source->offscreen_ref--;
         RSMDBG("Unset offscreen offscreen_ref:%d",
-               source->common.ec->pixmap, source->common.ec,
-               "SOURCE", source, source->offscreen_ref);
+               source->common.ec, "SOURCE", source, source->offscreen_ref);
 
         if (source->offscreen_ref == 0)
           {
@@ -1181,8 +1170,7 @@ _remote_region_cb_geometry_set(struct wl_client *client EINA_UNUSED, struct wl_r
    region->geometry.h = h;
 
    RSMDBG("Region %p geometry set (%d, %d) %dx%d",
-          NULL, NULL,
-          "SURFACE", region->remote_surface, region, x, y, w, h);
+          NULL, "SURFACE", region->remote_surface, region, x, y, w, h);
 }
 
 static const struct tizen_remote_surface_region_interface _remote_region_interface =
@@ -1251,8 +1239,7 @@ _remote_provider_cb_input_event_filter_set(struct wl_client *client EINA_UNUSED,
 
    provider->input_event_filter = event_filter;
    RSMDBG("set input event filter 0x%08x",
-          provider->common.ec->pixmap, provider->common.ec,
-          "PROVIDER", provider, event_filter);
+          provider->common.ec, "PROVIDER", provider, event_filter);
 
    if (!event_filter) return;
 
@@ -1384,16 +1371,13 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
         if (remote_surface->redirect)
           {
              RSMINF("Already Redirect surface provider:%p(ec:%p)",
-                    NULL, NULL,
-                    "SURFACE", remote_surface,
+                    remote_surface->ec, "SURFACE", remote_surface,
                     remote_surface->provider, remote_surface->provider->common.ec);
-
              return;
           }
 
         RSMINF("Redirect surface provider:%p(ec:%p)",
-               NULL, NULL,
-               "SURFACE", remote_surface,
+               remote_surface->ec, "SURFACE", remote_surface,
                remote_surface->provider, remote_surface->provider->common.ec);
 
         remote_surface->redirect = EINA_TRUE;
@@ -1421,16 +1405,14 @@ _remote_surface_cb_redirect(struct wl_client *client, struct wl_resource *resour
         if (remote_surface->redirect)
           {
              RSMINF("Already Redirect surface source:%p(ec:%p)",
-                    NULL, NULL,
-                    "SURFACE", remote_surface,
+                    remote_surface->ec, "SURFACE", remote_surface,
                     remote_surface->source, remote_surface->source->common.ec);
 
              return;
           }
 
         RSMINF("Redirect surface source:%p(ec:%p)",
-               NULL, NULL,
-               "SURFACE", remote_surface,
+               remote_surface->ec, "SURFACE", remote_surface,
                remote_surface->source, remote_surface->source->common.ec);
 
         if (remote_surface->version < TIZEN_REMOTE_SURFACE_CHANGED_BUFFER_SINCE_VERSION)
@@ -1466,8 +1448,7 @@ _remote_surface_cb_unredirect(struct wl_client *client, struct wl_resource *reso
    remote_surface->redirect = EINA_FALSE;
 
    RSMINF("Unredirect surface provider:%p(ec:%p)",
-          NULL, NULL,
-          "SURFACE", remote_surface,
+          remote_surface->ec, "SURFACE", remote_surface,
           remote_surface->provider, remote_surface->provider? remote_surface->provider->common.ec: NULL);
 }
 
@@ -1993,7 +1974,7 @@ _remote_surface_cb_changed_buffer_event_filter_set(struct wl_client *client,
 
    rs->changed_buff_ev_filter.filter = filter;
 
-   RSMINF("use:%d filter:%u", NULL, NULL, "SURFACE", rs,
+   RSMINF("use:%d filter:%u", rs->ec, "SURFACE", rs,
           rs->changed_buff_ev_filter.use,
           rs->changed_buff_ev_filter.filter);
 }
@@ -2011,7 +1992,7 @@ _remote_surface_cb_curr_buff_get(struct wl_client *client,
    EINA_SAFETY_ON_NULL_RETURN(rs);
    EINA_SAFETY_ON_FALSE_RETURN(rs->valid);
 
-   RSMINF("buff_type:%u req_serial:%u", NULL, NULL, "SURFACE", rs,
+   RSMINF("buff_type:%u req_serial:%u",rs->ec, "SURFACE", rs,
           buff_type, req_serial);
 
    /* compare buffer type with filter value of changed_buffer event */
@@ -2023,7 +2004,7 @@ _remote_surface_cb_curr_buff_get(struct wl_client *client,
    rs->req_curr_buff.type = buff_type;
    rs->req_curr_buff.serial = req_serial;
 
-   RSMINF("buff_type:%u req_serial:%u", NULL, NULL, "SURFACE", rs,
+   RSMINF("buff_type:%u req_serial:%u", rs->ec, "SURFACE", rs,
           buff_type, req_serial);
 
    /* send current buffer to the requesting client */
@@ -2102,8 +2083,7 @@ _remote_manager_cb_provider_create(struct wl_client *client, struct wl_resource 
    eina_hash_add(_rsm->provider_hash, &ec, provider);
 
    RSMINF("Created resource(%p)",
-          ec->pixmap, ec,
-          "PROVIDER", provider, resource);
+          ec, "PROVIDER", provider, resource);
 
    _remote_provider_client_set(ec, EINA_TRUE);
    _remote_provider_offscreen_set(provider, EINA_TRUE);
@@ -2223,8 +2203,8 @@ _remote_manager_cb_surface_create(struct wl_client *client,
      source->common.surfaces = eina_list_append(source->common.surfaces, remote_surface);
 
    RSMINF("Created resource(%p) ec(%p) provider(%p) source(%p) version(%d)",
-          NULL, NULL,
-          "SURFACE", remote_surface, resource, ec, provider, source, remote_surface->version);
+          remote_surface->ec, "SURFACE", remote_surface,
+          resource, ec, provider, source, remote_surface->version);
 
    remote_surface->valid = EINA_TRUE;
 
@@ -2398,8 +2378,8 @@ _remote_manager_cb_surface_create_with_wl_surface(struct wl_client *client,
      source->common.surfaces = eina_list_append(source->common.surfaces, remote_surface);
 
    RSMINF("Created resource(%p) provider_ec(%p) provider(%p) source(%p) version(%d)",
-          ec->pixmap, ec,
-          "SURFACE", remote_surface, resource, provider_ec, provider, source, remote_surface->version);
+          remote_surface->ec, "SURFACE", remote_surface,
+          resource, provider_ec, provider, source, remote_surface->version);
 
    remote_surface->valid = EINA_TRUE;
 
@@ -2955,7 +2935,7 @@ _e_comp_wl_remote_source_save_done_cb(void *data, E_Client* ec, const Eina_Strin
 
    if (state != E_CAPTURE_SAVE_STATE_DONE)
      {
-        RSMDBG("SAVE_DONE_CB state:%d, %s", ec->pixmap, ec, "SOURCE", data, state, dest);
+        RSMDBG("SAVE_DONE_CB state:%d, %s", ec, "SOURCE", data, state, dest);
         return;
      }
 
@@ -2967,7 +2947,7 @@ _e_comp_wl_remote_source_save_done_cb(void *data, E_Client* ec, const Eina_Strin
      {
         if (!e_config->hold_prev_win_img)
           {
-             RSMDBG("IMG del %s", ec->pixmap, ec, "SOURCE", source, source->image_path);
+             RSMDBG("IMG del %s", ec, "SOURCE", source, source->image_path);
              ecore_file_remove(source->image_path);
           }
      }
@@ -3355,7 +3335,7 @@ e_comp_wl_remote_surface_init(void)
         return;
      }
 
-   RSMINF("dummy_fd created %d", NULL, NULL, "MANAGER", rs_manager, rs_manager->dummy_fd);
+   RSMINF("dummy_fd created %d", NULL, "MANAGER", rs_manager, rs_manager->dummy_fd);
 
    _rsm = rs_manager;
 
