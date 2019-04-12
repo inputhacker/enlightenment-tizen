@@ -101,7 +101,6 @@ typedef struct _Tdm_Prop_Value
    tdm_value value;
 } Tdm_Prop_Value;
 
-static Eina_List *video_list = NULL;
 static Eina_List *video_layers = NULL;
 
 static Eina_Bool _e_video_set(E_Video_Hwc_Planes *evhp, E_Client *ec);
@@ -1256,11 +1255,7 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
    Eina_List *l;
    E_Comp_Wl_Video_Buf *vbuf;
 
-   EINA_LIST_FOREACH(video_list, l, evhp)
-     {
-        if (evhp == user_data) break;
-     }
-
+   evhp = user_data;
    if (!evhp) return;
    if (!evhp->committed_list) return;
 
@@ -1328,13 +1323,8 @@ _e_video_vblank_handler(tdm_output *output, unsigned int sequence,
                         void *user_data)
 {
    E_Video_Hwc_Planes *evhp;
-   Eina_List *l;
 
-   EINA_LIST_FOREACH(video_list, l, evhp)
-     {
-        if (evhp == user_data) break;
-     }
-
+   evhp = user_data;
    if (!evhp) return;
 
    evhp->waiting_vblank = EINA_FALSE;
@@ -1628,8 +1618,6 @@ _e_video_create(E_Client *ec)
 
    VIN("create. wl_surface@%d", ec, wl_resource_get_id(evhp->ec->comp_data->surface));
 
-   video_list = eina_list_append(video_list, evhp);
-
    return evhp;
 }
 
@@ -1809,8 +1797,6 @@ _e_video_destroy(E_Video_Hwc_Planes *evhp)
         VIN("unset layer: destroy", evhp->ec);
         _e_video_set_layer(evhp, EINA_FALSE);
      }
-
-   video_list = eina_list_remove(video_list, evhp);
 
    free(evhp);
 
@@ -2159,65 +2145,75 @@ _e_video_cb_ec_client_show(void *data, int type, void *event)
 static Eina_Bool
 _e_video_cb_ec_visibility_change(void *data, int type, void *event)
 {
-   E_Event_Remote_Surface_Provider *ev = event;
-   E_Client *ec = ev->ec;
+   E_Event_Remote_Surface_Provider *ev;
+   E_Client *ec, *offscreen_parent;
    E_Video_Hwc_Planes *evhp;
-   Eina_List *l;
 
-   EINA_LIST_FOREACH(video_list, l, evhp)
+   evhp = data;
+   offscreen_parent = find_offscreen_parent_get(evhp->ec);
+   if (!offscreen_parent)
+     goto end;
+
+   ev = event;
+   ec = ev->ec;
+   if (offscreen_parent != ec)
+     goto end;
+
+   switch (ec->visibility.obscured)
      {
-        E_Client *offscreen_parent = find_offscreen_parent_get(evhp->ec);
-        if (!offscreen_parent) continue;
-        if (offscreen_parent != ec) continue;
-        switch (ec->visibility.obscured)
-          {
-           case E_VISIBILITY_FULLY_OBSCURED:
-              _e_video_cb_evas_hide(evhp, NULL, NULL, NULL);
-              break;
-           case E_VISIBILITY_UNOBSCURED:
-              _e_video_cb_evas_show(evhp, NULL, NULL, NULL);
-              break;
-           default:
-              VER("Not implemented", evhp->ec);
-              return ECORE_CALLBACK_PASS_ON;
-          }
+      case E_VISIBILITY_FULLY_OBSCURED:
+         _e_video_cb_evas_hide(evhp, NULL, NULL, NULL);
+         break;
+      case E_VISIBILITY_UNOBSCURED:
+         _e_video_cb_evas_show(evhp, NULL, NULL, NULL);
+         break;
+      default:
+         VER("Not implemented", evhp->ec);
+         return ECORE_CALLBACK_PASS_ON;
      }
 
+end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
 static Eina_Bool
 _e_video_cb_topmost_ec_visibility_change(void *data, int type, void *event)
 {
-   E_Event_Client *ev = event;
-   E_Client *ec = ev->ec;
+   E_Event_Client *ev;
+   E_Client *ec, *topmost;
    E_Video_Hwc_Planes *evhp;
-   Eina_List *l = NULL;
 
-   EINA_LIST_FOREACH(video_list, l, evhp)
+   evhp = data;
+   topmost = e_comp_wl_topmost_parent_get(evhp->ec);
+   if (!topmost)
+     goto end;
+
+   if (topmost == evhp->ec)
+     goto end;
+
+   ev = event;
+   ec = ev->ec;
+   if (topmost != ec)
+     goto end;
+
+   if (evhp->follow_topmost_visibility)
      {
-        E_Client *topmost = e_comp_wl_topmost_parent_get(evhp->ec);
-        if (!topmost) continue;
-        if (topmost == evhp->ec) continue;
-        if (topmost != ec) continue;
-        if (evhp->follow_topmost_visibility)
+        switch (ec->visibility.obscured)
           {
-             switch (ec->visibility.obscured)
-               {
-                case E_VISIBILITY_FULLY_OBSCURED:
-                   VIN("follow_topmost_visibility: fully_obscured", evhp->ec);
-                   _e_video_cb_evas_hide(evhp, NULL, NULL, NULL);
-                   break;
-                case E_VISIBILITY_UNOBSCURED:
-                   VIN("follow_topmost_visibility: UNOBSCURED", evhp->ec);
-                   _e_video_cb_evas_show(evhp, NULL, NULL, NULL);
-                   break;
-                default:
-                   return ECORE_CALLBACK_PASS_ON;
-               }
+           case E_VISIBILITY_FULLY_OBSCURED:
+              VIN("follow_topmost_visibility: fully_obscured", evhp->ec);
+              _e_video_cb_evas_hide(evhp, NULL, NULL, NULL);
+              break;
+           case E_VISIBILITY_UNOBSCURED:
+              VIN("follow_topmost_visibility: UNOBSCURED", evhp->ec);
+              _e_video_cb_evas_show(evhp, NULL, NULL, NULL);
+              break;
+           default:
+              return ECORE_CALLBACK_PASS_ON;
           }
      }
 
+end:
    return ECORE_CALLBACK_PASS_ON;
 }
 

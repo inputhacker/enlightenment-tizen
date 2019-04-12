@@ -85,8 +85,6 @@ struct _E_Video_Hwc_Windows
    E_Comp_Wl_Hook *hook_subsurf_create;
 };
 
-static Eina_List *video_list = NULL;
-
 static void      _e_video_destroy(E_Video_Hwc_Windows *evhw);
 static void      _e_video_render(E_Video_Hwc_Windows *evhw, const char *func);
 static Eina_Bool _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf);
@@ -992,11 +990,7 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
    Eina_List *l;
    E_Comp_Wl_Video_Buf *vbuf;
 
-   EINA_LIST_FOREACH(video_list, l, evhw)
-     {
-        if (evhw == user_data) break;
-     }
-
+   evhw = user_data;
    if (!evhw) return;
    if (!evhw->committed_list) return;
 
@@ -1066,13 +1060,8 @@ _e_video_vblank_handler(tdm_output *output, unsigned int sequence,
                         void *user_data)
 {
    E_Video_Hwc_Windows *evhw;
-   Eina_List *l;
 
-   EINA_LIST_FOREACH(video_list, l, evhw)
-     {
-        if (evhw == user_data) break;
-     }
-
+   evhw = user_data;
    if (!evhw) return;
 
    evhw->waiting_vblank = EINA_FALSE;
@@ -1265,8 +1254,6 @@ _e_video_create(E_Client *ec)
 
    VIN("create. wl_surface@%d", ec, wl_resource_get_id(evhw->ec->comp_data->surface));
 
-   video_list = eina_list_append(video_list, evhw);
-
    return evhw;
 }
 
@@ -1336,8 +1323,6 @@ _e_video_destroy(E_Video_Hwc_Windows *evhw)
    /* destroy converter second */
    if (evhw->pp)
      tdm_pp_destroy(evhw->pp);
-
-   video_list = eina_list_remove(video_list, evhw);
 
    e_hwc_window_free(evhw->hwc_window);
 
@@ -1688,30 +1673,34 @@ _e_video_cb_ec_client_show(void *data, int type, void *event)
 static Eina_Bool
 _e_video_cb_ec_visibility_change(void *data, int type, void *event)
 {
-   E_Event_Remote_Surface_Provider *ev = event;
-   E_Client *ec = ev->ec;
+   E_Event_Remote_Surface_Provider *ev;
+   E_Client *ec, *offscreen_parent;
    E_Video_Hwc_Windows *evhw;
-   Eina_List *l;
 
-   EINA_LIST_FOREACH(video_list, l, evhw)
-     {
-        E_Client *offscreen_parent = find_offscreen_parent_get(evhw->ec);
-        if (!offscreen_parent) continue;
-        if (offscreen_parent != ec) continue;
-        switch (ec->visibility.obscured)
-          {
-           case E_VISIBILITY_FULLY_OBSCURED:
-              evas_object_hide(evhw->ec->frame);
-              break;
-           case E_VISIBILITY_UNOBSCURED:
-              evas_object_show(evhw->ec->frame);
-              break;
-           default:
-              VER("Not implemented", evhw->ec);
-              return ECORE_CALLBACK_PASS_ON;
-          }
-     }
+   evhw = data;
+   offscreen_parent = find_offscreen_parent_get(evhw->ec);
+   if (!offscreen_parent)
+     goto end;
 
+   ev = event;
+   ec = ev->ec;
+   if (offscreen_parent != ec)
+     goto end;
+
+   switch (ec->visibility.obscured)
+   {
+       case E_VISIBILITY_FULLY_OBSCURED:
+           evas_object_hide(evhw->ec->frame);
+           break;
+       case E_VISIBILITY_UNOBSCURED:
+           evas_object_show(evhw->ec->frame);
+           break;
+       default:
+           VER("Not implemented", evhw->ec);
+           return ECORE_CALLBACK_PASS_ON;
+   }
+
+end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
