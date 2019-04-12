@@ -12,6 +12,7 @@
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 #endif
 
+typedef struct _E_Video_Hwc E_Video_Hwc;
 typedef struct _E_Video_Hwc_Geometry E_Video_Hwc_Geometry;
 
 struct _E_Video_Hwc_Geometry
@@ -27,8 +28,59 @@ struct _E_Video_Hwc_Geometry
    } tdm;
 };
 
-EINTERN E_Video_Comp_Iface  *e_video_hwc_planes_iface_create(E_Client *ec);
-EINTERN E_Video_Comp_Iface  *e_video_hwc_windows_iface_create(E_Client *ec);
+struct _E_Video_Hwc
+{
+   E_Video_Comp_Iface iface;
+
+   E_Hwc_Policy hwc_policy;
+   /* FIXME: Workaround */
+   E_Video_Comp_Iface backend;
+
+   E_Client *ec;
+   Ecore_Window window;
+   tdm_output *output;
+   E_Output *e_output;
+
+   Eina_List *ec_event_handler;
+
+   /* input info */
+   tbm_format tbmfmt;
+   Eina_List *input_buffer_list;
+
+   /* in screen coordinates */
+   E_Video_Hwc_Geometry geo, old_geo;
+
+   E_Comp_Wl_Buffer *old_comp_buffer;
+
+   /* converter info */
+   tbm_format pp_tbmfmt;
+   tdm_pp *pp;
+   Eina_Rectangle pp_r;    /* converter dst content rect */
+   Eina_List *pp_buffer_list;
+   Eina_List *next_buffer;
+   Eina_Bool pp_scanout;
+
+   int pp_align;
+   int pp_minw, pp_minh, pp_maxw, pp_maxh;
+   int video_align;
+
+   /* When a video buffer be attached, it will be appended to the end of waiting_list .
+    * And when it's committed, it will be moved to committed_list.
+    * Finally when the commit handler is called, it will become current_fb.
+    */
+   Eina_List    *waiting_list;   /* buffers which are not committed yet */
+   Eina_List    *committed_list; /* buffers which are committed, but not shown on screen yet */
+   E_Comp_Wl_Video_Buf *current_fb;     /* buffer which is showing on screen currently */
+   Eina_Bool     waiting_vblank;
+
+   Eina_Bool  cb_registered;
+   Eina_Bool  need_force_render;
+   Eina_Bool  follow_topmost_visibility;
+   Eina_Bool  allowed_attribute;
+};
+
+EINTERN E_Video_Hwc *e_video_hwc_planes_create(E_Client *ec);
+EINTERN E_Video_Hwc *e_video_hwc_windows_create(E_Client *ec);
 
 EINTERN E_Client    *e_video_hwc_child_client_get(E_Client *ec);
 EINTERN E_Client    *e_video_hwc_client_offscreen_parent_get(E_Client *ec);
