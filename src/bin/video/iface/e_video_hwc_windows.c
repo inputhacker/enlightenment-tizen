@@ -130,39 +130,6 @@ _e_video_input_buffer_get(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Buffer *comp_buff
 }
 
 static void
-_e_video_input_buffer_valid(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Buffer *comp_buffer)
-{
-   E_Comp_Wl_Video_Buf *vbuf;
-   Eina_List *l;
-
-   EINA_LIST_FOREACH(evhw->base.input_buffer_list, l, vbuf)
-     {
-        tbm_surface_h tbm_surf;
-        tbm_bo bo;
-        uint32_t size = 0, offset = 0, pitch = 0;
-
-        if (!vbuf->comp_buffer) continue;
-        if (vbuf->resource == comp_buffer->resource)
-          {
-             WRN("got wl_buffer@%d twice", wl_resource_get_id(comp_buffer->resource));
-             return;
-          }
-
-        tbm_surf = wayland_tbm_server_get_surface(e_comp->wl_comp_data->tbm.server, comp_buffer->resource);
-        bo = tbm_surface_internal_get_bo(tbm_surf, 0);
-        tbm_surface_internal_get_plane_data(tbm_surf, 0, &size, &offset, &pitch);
-
-        if (vbuf->names[0] == tbm_bo_export(bo) && vbuf->offsets[0] == offset)
-          {
-             WRN("can tearing: wl_buffer@%d, wl_buffer@%d are same. gem_name(%d)",
-                 wl_resource_get_id(vbuf->resource),
-                 wl_resource_get_id(comp_buffer->resource), vbuf->names[0]);
-             return;
-          }
-     }
-}
-
-static void
 _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
                         unsigned int tv_sec, unsigned int tv_usec,
                         void *user_data)
@@ -626,7 +593,7 @@ _e_video_render(E_Video_Hwc_Windows *evhw, const char *func)
 
    evhw->base.need_force_render = EINA_FALSE;
 
-   _e_video_input_buffer_valid(evhw, comp_buffer);
+   e_video_hwc_input_buffer_valid((E_Video_Hwc *)evhw, comp_buffer);
 
    if (!_e_video_check_if_pp_needed(evhw))
      {

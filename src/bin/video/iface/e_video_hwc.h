@@ -85,6 +85,7 @@ EINTERN Eina_Bool    e_video_hwc_planes_init(E_Video_Hwc *evh);
 EINTERN Eina_Bool    e_video_hwc_windows_init(E_Video_Hwc *evh);
 
 EINTERN Eina_Bool    e_video_hwc_can_commit(E_Video_Hwc *evh);
+EINTERN void         e_video_hwc_input_buffer_valid(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer);
 
 EINTERN E_Client    *e_video_hwc_child_client_get(E_Client *ec);
 EINTERN E_Client    *e_video_hwc_client_offscreen_parent_get(E_Client *ec);
