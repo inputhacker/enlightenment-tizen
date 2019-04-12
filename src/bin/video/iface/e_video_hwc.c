@@ -12,6 +12,26 @@
 #define IS_RGB(f) ((f) == TBM_FORMAT_XRGB8888 || (f) == TBM_FORMAT_ARGB8888)
 
 EINTERN Eina_Bool
+e_video_hwc_video_buffer_scanout_check(E_Comp_Wl_Video_Buf *vbuf)
+{
+   tbm_surface_h tbm_surface = NULL;
+   tbm_bo bo = NULL;
+   int flag;
+
+   tbm_surface = vbuf->tbm_surface;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tbm_surface, EINA_FALSE);
+
+   bo = tbm_surface_internal_get_bo(tbm_surface, 0);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(bo, EINA_FALSE);
+
+   flag = tbm_bo_get_flags(bo);
+   if (flag == TBM_BO_SCANOUT)
+     return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+EINTERN Eina_Bool
 e_video_hwc_can_commit(E_Video_Hwc *evh)
 {
    if (e_output_dpms_get(evh->e_output))

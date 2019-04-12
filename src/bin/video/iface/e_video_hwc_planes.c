@@ -358,26 +358,6 @@ _e_video_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
      _e_video_frame_buffer_show(evhp, NULL);
 }
 
-static Eina_Bool
-_e_video_input_buffer_scanout_check(E_Comp_Wl_Video_Buf *vbuf)
-{
-   tbm_surface_h tbm_surface = NULL;
-   tbm_bo bo = NULL;
-   int flag;
-
-   tbm_surface = vbuf->tbm_surface;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(tbm_surface, EINA_FALSE);
-
-   bo = tbm_surface_internal_get_bo(tbm_surface, 0);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(bo, EINA_FALSE);
-
-   flag = tbm_bo_get_flags(bo);
-   if (flag == TBM_BO_SCANOUT)
-      return EINA_TRUE;
-
-   return EINA_FALSE;
-}
-
 static E_Comp_Wl_Video_Buf *
 _e_video_input_buffer_copy(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Buffer *comp_buf, E_Comp_Wl_Video_Buf *vbuf, Eina_Bool scanout)
 {
@@ -426,7 +406,7 @@ _e_video_input_buffer_get(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Buffer *comp_buffe
    if (evhp->base.pp_scanout)
      {
         Eina_Bool input_buffer_scanout = EINA_FALSE;
-        input_buffer_scanout = _e_video_input_buffer_scanout_check(vbuf);
+        input_buffer_scanout = e_video_hwc_video_buffer_scanout_check(vbuf);
         if (!input_buffer_scanout) need_pp_scanout = EINA_TRUE;
      }
 
