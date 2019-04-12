@@ -555,45 +555,22 @@ _e_video_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
      _e_video_buffer_show(evhw, evhw->base.current_fb, evhw->base.current_fb->content_t);
 }
 
-static E_Video_Hwc_Windows *
-_e_video_create(E_Client *ec)
+static Eina_Bool
+_e_video_hwc_windows_init(E_Video_Hwc_Windows *evhw)
 {
-   E_Video_Hwc_Windows *evhw;
-   E_Output *e_output;
    E_Hwc *hwc;
    E_Hwc_Window *hwc_window;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec->zone, EINA_FALSE);
-
-   e_output = e_output_find(ec->zone->output_id);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(e_output, EINA_FALSE);
-   hwc = e_output->hwc;
+   hwc = evhw->base.e_output->hwc;
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
-   hwc_window = e_hwc_window_new(hwc, ec, E_HWC_WINDOW_STATE_VIDEO);
+   hwc_window = e_hwc_window_new(hwc, evhw->base.ec, E_HWC_WINDOW_STATE_VIDEO);
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
-   evhw = calloc(1, sizeof *evhw);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(evhw, NULL);
-
-   evhw->base.ec = ec;
-   evhw->base.pp_align = -1;
-   evhw->base.video_align = -1;
-   evhw->base.e_output = e_output;
    evhw->tdm_mute_id = -1;
-   evhw->base.window = e_client_util_win_get(ec);
    evhw->hwc_window = hwc_window;
    evhw->hwc = hwc;
 
-   /* This ec is a video client now. */
-   VIN("video client", evhw->base.ec);
-   ec->comp_data->video_client = 1;
-
-   //TODO: shoud this function be called here?
-   e_zone_video_available_size_get(ec->zone, NULL, NULL, NULL, NULL, &evhw->base.video_align);
-
-   VIN("create. wl_surface@%d", ec, wl_resource_get_id(evhw->base.ec->comp_data->surface));
-
-   return evhw;
+   return EINA_TRUE;
 }
 
 static void
@@ -1328,19 +1305,30 @@ _e_video_hwc_windows_iface_tbm_surface_get(E_Video_Comp_Iface *iface)
 }
 
 EINTERN E_Video_Hwc *
-e_video_hwc_windows_create(E_Client *ec)
+e_video_hwc_windows_create(void)
+{
+   E_Video_Hwc_Windows *evhw;
+
+   evhw = calloc(1, sizeof *evhw);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(evhw, NULL);
+
+   return (E_Video_Hwc *)evhw;
+}
+
+EINTERN Eina_Bool
+e_video_hwc_windows_init(E_Video_Hwc *evh)
 {
    E_Video_Hwc_Windows *evhw;
 
    INF("Initializing HWC Windows mode");
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+   evhw = (E_Video_Hwc_Windows *)evh;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(evhw, EINA_FALSE);
 
-   evhw = _e_video_create(ec);
-   if (!evhw)
+   if (!_e_video_hwc_windows_init(evhw))
      {
-        ERR("Failed to create 'E_Video_Hwc_Windows'");
-        return NULL;
+        ERR("Failed to init 'E_Video_Hwc_Windows'");
+        return EINA_FALSE;
      }
 
    _e_video_hwc_windows_ec_event_init(evhw);
@@ -1358,5 +1346,5 @@ e_video_hwc_windows_create(E_Client *ec)
    evhw->base.backend.commit_data_release = _e_video_hwc_windows_iface_commit_data_release;
    evhw->base.backend.tbm_surface_get = _e_video_hwc_windows_iface_tbm_surface_get;
 
-   return (E_Video_Hwc *)evhw;
+   return EINA_TRUE;
 }
