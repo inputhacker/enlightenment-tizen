@@ -1245,15 +1245,17 @@ _e_hwc_window_queue_state_string_get(E_Hwc_Window_Queue_State state)
    switch (state)
     {
      case E_HWC_WINDOW_QUEUE_STATE_UNSET:
-       return "UNSET"; // None
+       return "UNSET";
      case E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING:
-       return "UNSET_WAITING"; // Client
+       return "UNSET_WAITING";
      case E_HWC_WINDOW_QUEUE_STATE_SET:
-       return "SET"; // Device
+       return "SET";
      case E_HWC_WINDOW_QUEUE_STATE_SET_WAITING:
-       return "SET_WAITING"; // Video
+       return "SET_WAITING";
      case E_HWC_WINDOW_QUEUE_STATE_SET_PENDING:
-       return "SET_PENDING"; // Cursor
+       return "SET_PENDING";
+     case E_HWC_WINDOW_QUEUE_STATE_SET_INVALID:
+       return "SET_INVALID";
      default:
        return "UNKNOWN";
     }
