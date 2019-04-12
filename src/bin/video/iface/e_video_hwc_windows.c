@@ -211,103 +211,6 @@ _e_video_input_buffer_valid(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Buffer *comp_bu
      }
 }
 
-static void
-_e_video_pp_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
-{
-   E_Video_Hwc_Windows *evhw = data;
-
-   e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
-
-   if (evhw->base.current_fb == vbuf)
-     evhw->base.current_fb = NULL;
-
-   evhw->base.committed_list = eina_list_remove(evhw->base.committed_list, vbuf);
-
-   evhw->base.waiting_list = eina_list_remove(evhw->base.waiting_list, vbuf);
-
-   evhw->base.pp_buffer_list = eina_list_remove(evhw->base.pp_buffer_list, vbuf);
-}
-
-static E_Comp_Wl_Video_Buf *
-_e_video_pp_buffer_get(E_Video_Hwc_Windows *evhw, int width, int height)
-{
-   E_Comp_Wl_Video_Buf *vbuf;
-   Eina_List *l;
-   int i = 0;
-   int aligned_width;
-
-   if (evhw->base.video_align != -1)
-     aligned_width = ROUNDUP(width, evhw->base.video_align);
-   else
-     aligned_width = width;
-
-   if (evhw->base.pp_buffer_list)
-     {
-        vbuf = eina_list_data_get(evhw->base.pp_buffer_list);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
-
-        /* if we need bigger pp_buffers, destroy all pp_buffers and create */
-        if (aligned_width > vbuf->width_from_pitch || height != vbuf->height)
-          {
-             Eina_List *ll;
-
-             VIN("pp buffer changed: %dx%d => %dx%d", evhw->base.ec,
-                 vbuf->width_from_pitch, vbuf->height,
-                 aligned_width, height);
-
-             EINA_LIST_FOREACH_SAFE(evhw->base.pp_buffer_list, l, ll, vbuf)
-               {
-                  /* free forcely */
-                  e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
-                  e_comp_wl_video_buffer_unref(vbuf);
-               }
-             if (evhw->base.pp_buffer_list)
-               NEVER_GET_HERE();
-
-             if (evhw->base.waiting_list)
-               NEVER_GET_HERE();
-          }
-     }
-
-   if (!evhw->base.pp_buffer_list)
-     {
-        for (i = 0; i < BUFFER_MAX_COUNT; i++)
-          {
-             vbuf = e_comp_wl_video_buffer_alloc(aligned_width, height, evhw->base.pp_tbmfmt, EINA_TRUE);
-             EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
-
-             e_comp_wl_video_buffer_free_func_add(vbuf, _e_video_pp_buffer_cb_free, evhw);
-             evhw->base.pp_buffer_list = eina_list_append(evhw->base.pp_buffer_list, vbuf);
-
-          }
-
-        VIN("pp buffer created: %dx%d, %c%c%c%c", evhw->base.ec,
-            vbuf->width_from_pitch, height, FOURCC_STR(evhw->base.pp_tbmfmt));
-
-        evhw->base.next_buffer = evhw->base.pp_buffer_list;
-     }
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(evhw->base.pp_buffer_list, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(evhw->base.next_buffer, NULL);
-
-   l = evhw->base.next_buffer;
-   while ((vbuf = evhw->base.next_buffer->data))
-     {
-        evhw->base.next_buffer = (evhw->base.next_buffer->next) ? evhw->base.next_buffer->next : evhw->base.pp_buffer_list;
-
-        if (!vbuf->in_use)
-          return vbuf;
-
-        if (l == evhw->base.next_buffer)
-          {
-             VWR("all video framebuffers in use (max:%d)", evhw->base.ec, BUFFER_MAX_COUNT);
-             return NULL;
-          }
-     }
-
-   return NULL;
-}
-
 static Eina_Bool
 _e_video_can_commit(E_Video_Hwc_Windows *evhw)
 {
@@ -625,15 +528,7 @@ _e_video_destroy(E_Video_Hwc_Windows *evhw)
         e_comp_wl_video_buffer_unref(vbuf);
      }
 
-   EINA_LIST_FOREACH_SAFE(evhw->base.pp_buffer_list, l, ll, vbuf)
-     {
-        e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
-        e_comp_wl_video_buffer_unref(vbuf);
-     }
-
    if (evhw->base.input_buffer_list)
-     NEVER_GET_HERE();
-   if (evhw->base.pp_buffer_list)
      NEVER_GET_HERE();
 
    /* destroy converter second */
@@ -841,7 +736,7 @@ _e_video_render(E_Video_Hwc_Windows *evhw, const char *func)
    input_buffer = _e_video_input_buffer_get(evhw, comp_buffer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_GOTO(input_buffer, render_fail);
 
-   pp_buffer = _e_video_pp_buffer_get(evhw, evhw->base.geo.tdm.output_r.w, evhw->base.geo.tdm.output_r.h);
+   pp_buffer = e_video_hwc_pp_buffer_get((E_Video_Hwc *)evhw, evhw->base.geo.tdm.output_r.w, evhw->base.geo.tdm.output_r.h);
    EINA_SAFETY_ON_NULL_GOTO(pp_buffer, render_fail);
 
    if (memcmp(&evhw->base.old_geo, &evhw->base.geo, sizeof evhw->base.geo))

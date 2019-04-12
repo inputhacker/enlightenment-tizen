@@ -11,6 +11,105 @@
 
 #define IS_RGB(f) ((f) == TBM_FORMAT_XRGB8888 || (f) == TBM_FORMAT_ARGB8888)
 
+static void
+_e_video_hwc_pp_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
+{
+   E_Video_Hwc *evh = data;
+
+   e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
+
+   if (evh->current_fb == vbuf)
+     evh->current_fb = NULL;
+
+   evh->committed_list = eina_list_remove(evh->committed_list, vbuf);
+
+   evh->waiting_list = eina_list_remove(evh->waiting_list, vbuf);
+
+   evh->pp_buffer_list = eina_list_remove(evh->pp_buffer_list, vbuf);
+}
+
+EINTERN E_Comp_Wl_Video_Buf *
+e_video_hwc_pp_buffer_get(E_Video_Hwc *evh, int width, int height)
+{
+   E_Comp_Wl_Video_Buf *vbuf;
+   Eina_List *l;
+   int i = 0;
+   int aligned_width;
+
+   if (evh->video_align != -1)
+     aligned_width = ROUNDUP(width, evh->video_align);
+   else
+     aligned_width = width;
+
+   if (evh->pp_buffer_list)
+     {
+        vbuf = eina_list_data_get(evh->pp_buffer_list);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
+
+        /* if we need bigger pp_buffers, destroy all pp_buffers and create */
+        if (aligned_width > vbuf->width_from_pitch || height != vbuf->height)
+          {
+             Eina_List *ll;
+
+             VIN("pp buffer changed: %dx%d => %dx%d", evh->ec,
+                 vbuf->width_from_pitch, vbuf->height,
+                 aligned_width, height);
+
+             EINA_LIST_FOREACH_SAFE(evh->pp_buffer_list, l, ll, vbuf)
+               {
+                  /* free forcely */
+                  e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
+                  e_comp_wl_video_buffer_unref(vbuf);
+               }
+             if (evh->pp_buffer_list)
+               NEVER_GET_HERE();
+
+             if (evh->waiting_list)
+               NEVER_GET_HERE();
+          }
+     }
+
+   if (!evh->pp_buffer_list)
+     {
+        for (i = 0; i < BUFFER_MAX_COUNT; i++)
+          {
+             vbuf = e_comp_wl_video_buffer_alloc(aligned_width, height, evh->pp_tbmfmt, EINA_TRUE);
+             EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
+
+             e_comp_wl_video_buffer_free_func_add(vbuf, _e_video_hwc_pp_buffer_cb_free, evh);
+             evh->pp_buffer_list = eina_list_append(evh->pp_buffer_list, vbuf);
+
+          }
+
+        VIN("pp buffer created: %dx%d, %c%c%c%c", evh->ec,
+            vbuf->width_from_pitch, height, FOURCC_STR(evh->pp_tbmfmt));
+
+        evh->next_buffer = evh->pp_buffer_list;
+     }
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(evh->pp_buffer_list, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(evh->next_buffer, NULL);
+
+   l = evh->next_buffer;
+   while ((vbuf = evh->next_buffer->data))
+     {
+        evh->next_buffer = (evh->next_buffer->next) ? evh->next_buffer->next : evh->pp_buffer_list;
+
+        if (!vbuf->in_use)
+          return vbuf;
+
+        if (l == evh->next_buffer)
+          {
+             VWR("all video framebuffers in use (max:%d)", evh->ec, BUFFER_MAX_COUNT);
+             return NULL;
+          }
+     }
+
+   return NULL;
+}
+
+
+
 EINTERN tbm_format
 e_video_hwc_comp_buffer_tbm_format_get(E_Comp_Wl_Buffer *comp_buffer)
 {
@@ -656,7 +755,19 @@ e_video_hwc_geometry_get(E_Client *ec, E_Video_Hwc_Geometry *out)
 static void
 _e_video_hwc_iface_destroy(E_Video_Comp_Iface *iface)
 {
+   E_Comp_Wl_Video_Buf *vbuf;
+   Eina_List *l = NULL, *ll = NULL;
+
    IFACE_ENTRY;
+
+   EINA_LIST_FOREACH_SAFE(evh->pp_buffer_list, l, ll, vbuf)
+     {
+        e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
+        e_comp_wl_video_buffer_unref(vbuf);
+     }
+
+   if (evh->pp_buffer_list)
+     NEVER_GET_HERE();
 
    evh->backend.destroy(&evh->backend);
 }
