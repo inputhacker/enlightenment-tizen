@@ -973,42 +973,6 @@ _e_video_hwc_windows_iface_destroy(E_Video_Comp_Iface *iface)
 }
 
 static Eina_Bool
-_e_video_hwc_windows_iface_follow_topmost_visibility(E_Video_Comp_Iface *iface)
-{
-   IFACE_ENTRY;
-
-   evhw->base.follow_topmost_visibility = EINA_TRUE;
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_video_hwc_windows_iface_unfollow_topmost_visibility(E_Video_Comp_Iface *iface)
-{
-   IFACE_ENTRY;
-
-   evhw->base.follow_topmost_visibility = EINA_FALSE;
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_video_hwc_windows_iface_allowed_property(E_Video_Comp_Iface *iface)
-{
-   IFACE_ENTRY;
-
-   evhw->base.allowed_attribute = EINA_TRUE;
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_video_hwc_windows_iface_disallowed_property(E_Video_Comp_Iface *iface)
-{
-   IFACE_ENTRY;
-
-   evhw->base.allowed_attribute = EINA_FALSE;
-   return EINA_TRUE;
-}
-
-static Eina_Bool
 _e_video_hwc_windows_iface_property_get(E_Video_Comp_Iface *iface, unsigned int id, tdm_value *value)
 {
    tdm_error ret;
@@ -1135,10 +1099,6 @@ e_video_hwc_windows_init(E_Video_Hwc *evh)
    _e_video_hwc_windows_ec_event_init(evhw);
 
    evhw->base.backend.destroy = _e_video_hwc_windows_iface_destroy;
-   evhw->base.backend.follow_topmost_visibility = _e_video_hwc_windows_iface_follow_topmost_visibility;
-   evhw->base.backend.unfollow_topmost_visibility = _e_video_hwc_windows_iface_unfollow_topmost_visibility;
-   evhw->base.backend.allowed_property = _e_video_hwc_windows_iface_allowed_property;
-   evhw->base.backend.disallowed_property = _e_video_hwc_windows_iface_disallowed_property;
    evhw->base.backend.property_get = _e_video_hwc_windows_iface_property_get;
    evhw->base.backend.property_set = _e_video_hwc_windows_iface_property_set;
    evhw->base.backend.property_delay_set = NULL;

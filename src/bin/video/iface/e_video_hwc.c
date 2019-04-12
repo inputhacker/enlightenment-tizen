@@ -868,9 +868,8 @@ _e_video_hwc_iface_follow_topmost_visibility(E_Video_Comp_Iface *iface)
 {
    IFACE_ENTRY;
 
-   if (evh->backend.follow_topmost_visibility)
-     return evh->backend.follow_topmost_visibility(&evh->backend);
-   return EINA_FALSE;
+   evh->follow_topmost_visibility = EINA_TRUE;
+   return EINA_TRUE;
 }
 
 static Eina_Bool
@@ -878,9 +877,8 @@ _e_video_hwc_iface_unfollow_topmost_visibility(E_Video_Comp_Iface *iface)
 {
    IFACE_ENTRY;
 
-   if (evh->backend.unfollow_topmost_visibility)
-     return evh->backend.unfollow_topmost_visibility(&evh->backend);
-   return EINA_FALSE;
+   evh->follow_topmost_visibility = EINA_FALSE;
+   return EINA_TRUE;
 }
 
 static Eina_Bool
@@ -888,9 +886,8 @@ _e_video_hwc_iface_allowed_property(E_Video_Comp_Iface *iface)
 {
    IFACE_ENTRY;
 
-   if (evh->backend.allowed_property)
-     return evh->backend.allowed_property(&evh->backend);
-   return EINA_FALSE;
+   evh->allowed_attribute = EINA_TRUE;
+   return EINA_TRUE;
 }
 
 static Eina_Bool
@@ -898,9 +895,8 @@ _e_video_hwc_iface_disallowed_property(E_Video_Comp_Iface *iface)
 {
    IFACE_ENTRY;
 
-   if (evh->backend.disallowed_property)
-     return evh->backend.disallowed_property(&evh->backend);
-   return EINA_FALSE;
+   evh->allowed_attribute = EINA_FALSE;
+   return EINA_TRUE;
 }
 
 static Eina_Bool
