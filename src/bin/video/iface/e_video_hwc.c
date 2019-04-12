@@ -11,6 +11,15 @@
 
 #define IS_RGB(f) ((f) == TBM_FORMAT_XRGB8888 || (f) == TBM_FORMAT_ARGB8888)
 
+EINTERN Eina_Bool
+e_video_hwc_can_commit(E_Video_Hwc *evh)
+{
+   if (e_output_dpms_get(evh->e_output))
+     return EINA_FALSE;
+
+   return e_video_hwc_client_visible_get(evh->ec);
+}
+
 static void
 _e_video_hwc_pp_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
 {

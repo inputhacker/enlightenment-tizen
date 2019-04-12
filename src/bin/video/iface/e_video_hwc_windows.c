@@ -211,18 +211,6 @@ _e_video_input_buffer_valid(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Buffer *comp_bu
      }
 }
 
-static Eina_Bool
-_e_video_can_commit(E_Video_Hwc_Windows *evhw)
-{
-   if (e_output_dpms_get(evhw->base.e_output))
-     return EINA_FALSE;
-
-   if (!e_video_hwc_client_visible_get(evhw->base.ec))
-     return EINA_FALSE;
-
-   return EINA_TRUE;
-}
-
 static void
 _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
                         unsigned int tv_sec, unsigned int tv_usec,
@@ -236,7 +224,7 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
    if (!evhw) return;
    if (!evhw->base.committed_list) return;
 
-   if (_e_video_can_commit(evhw))
+   if (e_video_hwc_can_commit((E_Video_Hwc *)evhw))
      {
         tbm_surface_h displaying_buffer = evhw->cur_tsurface;
 
@@ -272,7 +260,7 @@ _e_video_commit_buffer(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
 {
    evhw->base.committed_list = eina_list_append(evhw->base.committed_list, vbuf);
 
-   if (!_e_video_can_commit(evhw))
+   if (!e_video_hwc_can_commit((E_Video_Hwc *)evhw))
      goto no_commit;
 
    if (!_e_video_frame_buffer_show(evhw, vbuf))
