@@ -231,7 +231,8 @@ _e_video_set_layer(E_Video_Hwc_Planes *evhp)
    tdm_error ret;
    int zpos;
 
-   if (evhp->layer) return EINA_TRUE;
+   if (evhp->layer)
+     return EINA_TRUE;
 
    evhp->layer = _e_video_available_video_layer_get(evhp);
    if (!evhp->layer)
@@ -247,19 +248,15 @@ _e_video_set_layer(E_Video_Hwc_Planes *evhp)
    if (!evhp->e_plane)
      {
         VWR("fail get e_plane", evhp->base.ec);
-        _e_video_layer_destroy(evhp->layer);
-        evhp->layer = NULL;
-        return EINA_FALSE;
+        goto err_get_eplane;
      }
 
    if (!e_plane_video_set(evhp->e_plane, EINA_TRUE, &need_wait))
      {
         VWR("fail set video to e_plane", evhp->base.ec);
-        _e_video_layer_destroy(evhp->layer);
-        evhp->layer = NULL;
-        evhp->e_plane = NULL;
-        return EINA_FALSE;
+        goto err_set_eplane_video;
      }
+
    if (need_wait)
      {
         evhp->video_plane_ready_handler =
@@ -270,6 +267,14 @@ _e_video_set_layer(E_Video_Hwc_Planes *evhp)
    VIN("assign layer: %p", evhp->base.ec, evhp->layer);
 
    return EINA_TRUE;
+
+err_set_eplane_video:
+   evhp->e_plane = NULL;
+err_get_eplane:
+   _e_video_layer_destroy(evhp->layer);
+   evhp->layer = NULL;
+
+   return EINA_FALSE;
 }
 
 static void
