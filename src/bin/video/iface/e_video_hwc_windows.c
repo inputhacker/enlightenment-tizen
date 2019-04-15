@@ -24,9 +24,6 @@ struct _E_Video_Hwc_Windows
    E_Client *e_client;
 
    E_Comp_Wl_Hook *hook_subsurf_create;
-
-   /* attributes */
-   int tdm_mute_id;
 };
 
 static void      _e_video_destroy(E_Video_Hwc_Windows *evhw);
@@ -279,7 +276,6 @@ _e_video_hwc_windows_init(E_Video_Hwc_Windows *evhw)
    hwc_window = e_hwc_window_new(hwc, evhw->base.ec, E_HWC_WINDOW_STATE_VIDEO);
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
-   evhw->tdm_mute_id = -1;
    evhw->hwc_window = hwc_window;
    evhw->hwc = hwc;
 
