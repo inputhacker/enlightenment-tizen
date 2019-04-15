@@ -8,3 +8,4 @@ EINTERN const char *E_PRIVILEGE_KEYGRAB_SET               = "http://tizen.org/pr
 EINTERN const char *E_PRIVILEGE_INTERNAL_DEFAULT_PLATFORM = "http://tizen.org/privilege/internal/default/platform";
 EINTERN const char *E_PRIVILEGE_SCREENSHOT                = "http://tizen.org/privilege/screenshot";
 EINTERN const char *E_PRIVILEGE_SOFTKEY                   = "http://tizen.org/privilege/windowsystem.admin";
+EINTERN const char *E_PRIVILEGE_MAGNIFIER_SERVICE         = "http://tizen.org/privilege/internal/default/platform";

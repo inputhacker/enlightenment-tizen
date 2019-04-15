@@ -4040,6 +4040,9 @@ _tzsh_iface_cb_srv_create(struct wl_client *client, struct wl_resource *res_tzsh
    E_Client *ec;
    E_Pixmap *cp;
    int role;
+   pid_t pid;
+   uid_t uid;
+   Eina_Bool res;
 
    role = _e_policy_wl_tzsh_srv_role_get(name);
    if (role == TZSH_SRV_ROLE_UNKNOWN)
@@ -4050,6 +4053,28 @@ _tzsh_iface_cb_srv_create(struct wl_client *client, struct wl_resource *res_tzsh
            "Invalid res_tzsh");
         return;
      }
+
+   /* check whether client has a privilege */
+   if (role == TZSH_SRV_ROLE_MAGNIFIER)
+     {
+        wl_client_get_credentials(client, &pid, &uid, NULL);
+        res = e_security_privilege_check(pid,
+                                         uid,
+                                         E_PRIVILEGE_MAGNIFIER_SERVICE);
+        if (!res)
+          {
+             ERR("Could not get privilege of resource: %m");
+             tizen_ws_shell_send_error(res_tzsh,
+                                       TIZEN_WS_SHELL_ERROR_PERMISSION_DENIED);
+             return;
+          }
+     }
+
+   /* to avoid sending a wayland error after tzsh ERROR_NONE for every cases
+    * such as invalid object or no memory error, tzsh ERROR_NONE should be sent
+    * first to clients without privilege problem.
+    */
+   tizen_ws_shell_send_error(res_tzsh, TIZEN_WS_SHELL_ERROR_NONE);
 
    tzsh = wl_resource_get_user_data(res_tzsh);
    if (!tzsh)
