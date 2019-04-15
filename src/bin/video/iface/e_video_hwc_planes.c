@@ -225,79 +225,77 @@ _e_video_layer_destroy(E_Video_Layer *layer)
 }
 
 static Eina_Bool
-_e_video_set_layer(E_Video_Hwc_Planes *evhp, Eina_Bool set)
+_e_video_set_layer(E_Video_Hwc_Planes *evhp)
 {
    Eina_Bool need_wait;
+   tdm_error ret;
+   int zpos;
 
-   if (!set)
+   if (evhp->layer) return EINA_TRUE;
+
+   evhp->layer = _e_video_available_video_layer_get(evhp);
+   if (!evhp->layer)
      {
-        unsigned int usable = 1;
-        if (!evhp->layer) return EINA_TRUE;
+        VWR("no available layer for evhp", evhp->base.ec);
+        return EINA_FALSE;
+     }
 
-        _e_video_layer_is_usable(evhp->layer, &usable);
-        if (!usable && !evhp->video_plane_ready_handler)
-          {
-             VIN("stop video", evhp->base.ec);
-             _e_video_layer_unset_buffer(evhp->layer);
-             _e_video_layer_commit(evhp->layer, NULL, NULL);
-          }
+   ret = tdm_layer_get_zpos(evhp->layer->tdm_layer, &zpos);
+   if (ret == TDM_ERROR_NONE)
+     evhp->e_plane = e_output_plane_get_by_zpos(evhp->base.e_output, zpos);
 
-        VIN("release layer: %p", evhp->base.ec, evhp->layer);
+   if (!evhp->e_plane)
+     {
+        VWR("fail get e_plane", evhp->base.ec);
         _e_video_layer_destroy(evhp->layer);
         evhp->layer = NULL;
-        evhp->base.old_comp_buffer = NULL;
-
-        e_plane_video_set(evhp->e_plane, EINA_FALSE, NULL);
-        evhp->e_plane = NULL;
-
-        E_FREE_FUNC(evhp->video_plane_ready_handler, e_plane_hook_del);
+        return EINA_FALSE;
      }
-   else
+
+   if (!e_plane_video_set(evhp->e_plane, EINA_TRUE, &need_wait))
      {
-        int zpos;
-        tdm_error ret;
-
-        if (evhp->layer) return EINA_TRUE;
-
-        evhp->layer = _e_video_available_video_layer_get(evhp);
-        if (!evhp->layer)
-          {
-             VWR("no available layer for evhp", evhp->base.ec);
-             return EINA_FALSE;
-          }
-
-
-        ret = tdm_layer_get_zpos(evhp->layer->tdm_layer, &zpos);
-        if (ret == TDM_ERROR_NONE)
-          evhp->e_plane = e_output_plane_get_by_zpos(evhp->base.e_output, zpos);
-
-        if (!evhp->e_plane)
-          {
-             VWR("fail get e_plane", evhp->base.ec);
-             _e_video_layer_destroy(evhp->layer);
-             evhp->layer = NULL;
-             return EINA_FALSE;
-          }
-
-        if (!e_plane_video_set(evhp->e_plane, EINA_TRUE, &need_wait))
-          {
-             VWR("fail set video to e_plane", evhp->base.ec);
-             _e_video_layer_destroy(evhp->layer);
-             evhp->layer = NULL;
-             evhp->e_plane = NULL;
-             return EINA_FALSE;
-          }
-        if (need_wait)
-          {
-             evhp->video_plane_ready_handler =
-                e_plane_hook_add(E_PLANE_HOOK_VIDEO_SET,
-                                 _e_video_video_set_hook, evhp);
-          }
-
-        VIN("assign layer: %p", evhp->base.ec, evhp->layer);
+        VWR("fail set video to e_plane", evhp->base.ec);
+        _e_video_layer_destroy(evhp->layer);
+        evhp->layer = NULL;
+        evhp->e_plane = NULL;
+        return EINA_FALSE;
      }
+   if (need_wait)
+     {
+        evhp->video_plane_ready_handler =
+           e_plane_hook_add(E_PLANE_HOOK_VIDEO_SET,
+                            _e_video_video_set_hook, evhp);
+     }
+
+   VIN("assign layer: %p", evhp->base.ec, evhp->layer);
 
    return EINA_TRUE;
+}
+
+static void
+_e_video_unset_layer(E_Video_Hwc_Planes *evhp)
+{
+   unsigned int usable = 1;
+
+   if (!evhp->layer) return;
+
+   _e_video_layer_is_usable(evhp->layer, &usable);
+   if (!usable && !evhp->video_plane_ready_handler)
+     {
+        VIN("stop video", evhp->base.ec);
+        _e_video_layer_unset_buffer(evhp->layer);
+        _e_video_layer_commit(evhp->layer, NULL, NULL);
+     }
+
+   VIN("release layer: %p", evhp->base.ec, evhp->layer);
+   _e_video_layer_destroy(evhp->layer);
+   evhp->layer = NULL;
+   evhp->base.old_comp_buffer = NULL;
+
+   e_plane_video_set(evhp->e_plane, EINA_FALSE, NULL);
+   evhp->e_plane = NULL;
+
+   E_FREE_FUNC(evhp->video_plane_ready_handler, e_plane_hook_del);
 }
 
 static void
@@ -417,7 +415,7 @@ _e_video_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
         if (evhp->layer)
           {
              VIN("unset layer: hide", evhp->base.ec);
-             _e_video_set_layer(evhp, EINA_FALSE);
+             _e_video_unset_layer(evhp);
           }
         return EINA_TRUE;
      }
@@ -425,7 +423,7 @@ _e_video_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
    if (!evhp->layer)
      {
         VIN("set layer: show", evhp->base.ec);
-        if (!_e_video_set_layer(evhp, EINA_TRUE))
+        if (!_e_video_set_layer(evhp))
           {
              VER("set layer failed", evhp->base.ec);
              return EINA_FALSE;
@@ -605,7 +603,7 @@ _e_video_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
    if (!evhp->layer)
      {
         VIN("set layer: show", evhp->base.ec);
-        if (!_e_video_set_layer(evhp, EINA_TRUE))
+        if (!_e_video_set_layer(evhp))
           {
              VER("set layer failed", evhp->base.ec);
              return;
@@ -710,7 +708,7 @@ _e_video_set(E_Video_Hwc_Planes *evhp)
         /* If tdm offers video layers, we will assign a tdm layer when showing */
         ;;;
      }
-   else if (_e_video_set_layer(evhp, EINA_TRUE))
+   else if (_e_video_set_layer(evhp))
      {
         /* If tdm doesn't offer video layers, we assign a tdm layer now. If failed,
          * video will be displayed via the UI rendering path.
@@ -762,7 +760,7 @@ _e_video_destroy(E_Video_Hwc_Planes *evhp)
    if (evhp->layer)
      {
         VIN("unset layer: destroy", evhp->base.ec);
-        _e_video_set_layer(evhp, EINA_FALSE);
+        _e_video_unset_layer(evhp);
      }
 
    free(evhp);
@@ -1294,7 +1292,7 @@ _e_video_hwc_planes_iface_property_set(E_Video_Comp_Iface *iface, unsigned int i
          * yet. It's for backward compatibility. */
         if (evhp->base.allowed_attribute)
           {
-             if (!_e_video_set_layer(evhp, EINA_TRUE))
+             if (!_e_video_set_layer(evhp))
                {
                   VER("set layer failed", evhp->base.ec);
                   return EINA_FALSE;
