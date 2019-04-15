@@ -2483,8 +2483,8 @@ static void _e_info_server_cb_wins_dump_topvwins(const char *dir)
         if (ec->comp_data)
           rotation = ec->comp_data->scaler.buffer_viewport.buffer.transform * 90;
 
-        snprintf(fname, sizeof(fname), "0x%08zx_%d", win, rotation);
-        e_client_image_save(ec, dir, fname, NULL, NULL, EINA_TRUE);
+        snprintf(fname, sizeof(fname), "%s/0x%08x_%d.png", dir, win, rotation);
+        e_info_server_dump_client(ec, fname);
      }
 }
 
@@ -3924,8 +3924,8 @@ _e_info_server_cb_selected_buffer_dump(const Eldbus_Service_Interface *iface EIN
 
         if (win_id != win) continue;
 
-        snprintf(fname, sizeof(fname), "0x%08zx", win);
-        e_client_image_save(ec, path, fname, NULL, NULL, EINA_TRUE);
+        snprintf(fname, sizeof(fname), "%s/0x%08x.png", path, win);
+        e_info_server_dump_client(ec, fname);
         break;
      }
 
