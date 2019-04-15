@@ -34,40 +34,12 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
                         void *user_data)
 {
    E_Video_Hwc_Windows *evhw;
-   Eina_List *l;
-   E_Comp_Wl_Video_Buf *vbuf;
 
    evhw = user_data;
    if (!evhw) return;
-   if (!evhw->base.committed_list) return;
 
-   if (e_video_hwc_can_commit((E_Video_Hwc *)evhw))
-     {
-        tbm_surface_h displaying_buffer = evhw->cur_tsurface;
-
-        EINA_LIST_FOREACH(evhw->base.committed_list, l, vbuf)
-          {
-             if (vbuf->tbm_surface == displaying_buffer) break;
-          }
-        if (!vbuf) return;
-     }
-   else
-     vbuf = eina_list_nth(evhw->base.committed_list, 0);
-
-   evhw->base.committed_list = eina_list_remove(evhw->base.committed_list, vbuf);
-
-   /* client can attachs the same wl_buffer twice. */
-   if (evhw->base.current_fb && VBUF_IS_VALID(evhw->base.current_fb) && vbuf != evhw->base.current_fb)
-     {
-        e_comp_wl_video_buffer_set_use(evhw->base.current_fb, EINA_FALSE);
-
-        if (evhw->base.current_fb->comp_buffer)
-          e_comp_wl_buffer_reference(&evhw->base.current_fb->buffer_ref, NULL);
-     }
-
-   evhw->base.current_fb = vbuf;
-
-   VDB("current_fb(%d)", evhw->base.ec, MSTAMP(evhw->base.current_fb));
+   if (!e_video_hwc_commit_done((E_Video_Hwc *)evhw))
+     return;
 
    _e_video_vblank_handler(NULL, sequence, tv_sec, tv_usec, evhw);
 }
@@ -672,4 +644,13 @@ e_video_hwc_windows_init(E_Video_Hwc *evh)
    evhw->base.backend.tbm_surface_get = _e_video_hwc_windows_iface_tbm_surface_get;
 
    return EINA_TRUE;
+}
+
+EINTERN tbm_surface_h
+e_video_hwc_windows_displaying_buffer_get(E_Video_Hwc *evh)
+{
+   E_Video_Hwc_Windows *evhw;
+
+   evhw = (E_Video_Hwc_Windows *)evh;
+   return evhw->cur_tsurface;
 }

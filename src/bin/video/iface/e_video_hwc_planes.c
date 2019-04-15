@@ -201,6 +201,15 @@ _e_video_layer_get_displaying_buffer(E_Video_Layer *layer, int *tdm_error)
    return tdm_layer_get_displaying_buffer(layer->tdm_layer, tdm_error);
 }
 
+EINTERN tbm_surface_h
+e_video_hwc_planes_displaying_buffer_get(E_Video_Hwc *evh)
+{
+   E_Video_Hwc_Planes *evhp;
+
+   evhp = (E_Video_Hwc_Planes *)evh;
+   return _e_video_layer_get_displaying_buffer(evhp->layer, NULL);
+}
+
 static tdm_error
 _e_video_layer_set_property(E_Video_Layer * layer, Tdm_Prop_Value *prop)
 {
@@ -308,40 +317,11 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
                         void *user_data)
 {
    E_Video_Hwc_Planes *evhp;
-   Eina_List *l;
-   E_Comp_Wl_Video_Buf *vbuf;
 
    evhp = user_data;
    if (!evhp) return;
-   if (!evhp->base.committed_list) return;
 
-   if (e_video_hwc_can_commit((E_Video_Hwc *)evhp))
-     {
-        tbm_surface_h displaying_buffer = _e_video_layer_get_displaying_buffer(evhp->layer, NULL);
-
-        EINA_LIST_FOREACH(evhp->base.committed_list, l, vbuf)
-          {
-             if (vbuf->tbm_surface == displaying_buffer) break;
-          }
-        if (!vbuf) return;
-     }
-   else
-     vbuf = eina_list_nth(evhp->base.committed_list, 0);
-
-   evhp->base.committed_list = eina_list_remove(evhp->base.committed_list, vbuf);
-
-   /* client can attachs the same wl_buffer twice. */
-   if (evhp->base.current_fb && VBUF_IS_VALID(evhp->base.current_fb) && vbuf != evhp->base.current_fb)
-     {
-        e_comp_wl_video_buffer_set_use(evhp->base.current_fb, EINA_FALSE);
-
-        if (evhp->base.current_fb->comp_buffer)
-          e_comp_wl_buffer_reference(&evhp->base.current_fb->buffer_ref, NULL);
-     }
-
-   evhp->base.current_fb = vbuf;
-
-   VDB("current_fb(%d)", evhp->base.ec, MSTAMP(evhp->base.current_fb));
+   e_video_hwc_commit_done((E_Video_Hwc *)evhp);
 }
 
 static void
