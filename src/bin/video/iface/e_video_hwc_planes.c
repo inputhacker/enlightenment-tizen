@@ -743,19 +743,15 @@ _e_video_destroy(E_Video_Hwc_Planes *evhp)
 
    VIN("destroy", evhp->base.ec);
 
-   if(evhp->tdm_prop_list)
+   if (evhp->tdm_prop_list)
      {
         EINA_LIST_FREE(evhp->tdm_prop_list, tdm_prop)
-          {
-             free(tdm_prop);
-          }
+           free(tdm_prop);
      }
-   if(evhp->late_tdm_prop_list)
+   if (evhp->late_tdm_prop_list)
      {
         EINA_LIST_FREE(evhp->late_tdm_prop_list, tdm_prop)
-          {
-             free(tdm_prop);
-          }
+           free(tdm_prop);
      }
 
    if (evhp->tdm_prop_list)
