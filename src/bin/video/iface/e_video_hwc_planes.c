@@ -1389,12 +1389,13 @@ _e_video_video_set_hook(void *data, E_Plane *plane)
    E_Video_Hwc_Planes *evhp = (E_Video_Hwc_Planes *)data;
 
    if (evhp->e_plane != plane) return;
+
+   E_FREE_FUNC(evhp->video_plane_ready_handler, e_plane_hook_del);
+
    if (evhp->waiting_vblank) return;
 
    if (evhp->waiting_list)
      _e_video_commit_from_waiting_list(evhp);
-
-   E_FREE_FUNC(evhp->video_plane_ready_handler, e_plane_hook_del);
 }
 
 static Eina_Bool
