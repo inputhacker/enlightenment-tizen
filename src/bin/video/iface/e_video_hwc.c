@@ -1219,6 +1219,44 @@ e_video_hwc_child_client_get(E_Client *ec)
 }
 
 static Eina_Bool
+_e_video_hwc_cb_client_show(void *data, int type, void *event)
+{
+   E_Event_Client *ev = event;
+   E_Client *ec;
+   E_Client *video_ec = NULL;
+   E_Video_Hwc *evh = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ev, ECORE_CALLBACK_PASS_ON);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ev->ec, ECORE_CALLBACK_PASS_ON);
+
+   ec = ev->ec;
+   if (!ec->comp_data) return ECORE_CALLBACK_PASS_ON;
+
+   video_ec = e_video_hwc_child_client_get(ec);
+   if (!video_ec) return ECORE_CALLBACK_PASS_ON;
+
+   evh = data;
+   if (!evh) return ECORE_CALLBACK_PASS_ON;
+
+   VIN("show: find video child(0x%08"PRIxPTR")", evh->ec,
+       (Ecore_Window)e_client_util_win_get(video_ec));
+   if (evh->old_comp_buffer)
+     {
+        VIN("video already rendering..", evh->ec);
+        return ECORE_CALLBACK_PASS_ON;
+     }
+
+   if (ec == e_comp_wl_topmost_parent_get(evh->ec))
+     {
+        VIN("video need rendering..", evh->ec);
+        e_comp_wl_viewport_apply(ec);
+        _e_video_hwc_render(evh, __FUNCTION__);
+     }
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
+static Eina_Bool
 _e_video_hwc_cb_client_buffer_change(void *data, int type, void *event)
 {
    E_Client *ec;
@@ -1430,6 +1468,8 @@ _e_video_hwc_create(E_Client *ec)
 static void
 _e_video_hwc_client_event_init(E_Video_Hwc *evh)
 {
+   E_LIST_HANDLER_APPEND(evh->ec_event_handler, E_EVENT_CLIENT_SHOW,
+                         _e_video_hwc_cb_client_show, evh);
    E_LIST_HANDLER_APPEND(evh->ec_event_handler, E_EVENT_CLIENT_BUFFER_CHANGE,
                          _e_video_hwc_cb_client_buffer_change, evh);
 }

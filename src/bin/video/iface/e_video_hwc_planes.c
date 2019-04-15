@@ -837,44 +837,6 @@ need_pp:
 }
 
 static Eina_Bool
-_e_video_cb_ec_client_show(void *data, int type, void *event)
-{
-   E_Event_Client *ev = event;
-   E_Client *ec;
-   E_Client *video_ec = NULL;
-   E_Video_Hwc_Planes *evhp = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ev, ECORE_CALLBACK_PASS_ON);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ev->ec, ECORE_CALLBACK_PASS_ON);
-
-   ec = ev->ec;
-   if (!ec->comp_data) return ECORE_CALLBACK_PASS_ON;
-
-   video_ec = e_video_hwc_child_client_get(ec);
-   if (!video_ec) return ECORE_CALLBACK_PASS_ON;
-
-   evhp = data;
-   if (!evhp) return ECORE_CALLBACK_PASS_ON;
-
-   VIN("show: find video child(0x%08"PRIxPTR")", evhp->base.ec,
-       (Ecore_Window)e_client_util_win_get(video_ec));
-   if (evhp->base.old_comp_buffer)
-     {
-        VIN("video already rendering..", evhp->base.ec);
-        return ECORE_CALLBACK_PASS_ON;
-     }
-
-   if (ec == e_comp_wl_topmost_parent_get(evhp->base.ec))
-     {
-        VIN("video need rendering..", evhp->base.ec);
-        e_comp_wl_viewport_apply(ec);
-        e_video_hwc_render((E_Video_Hwc *)evhp, __FUNCTION__);
-     }
-
-   return ECORE_CALLBACK_PASS_ON;
-}
-
-static Eina_Bool
 _e_video_cb_ec_visibility_change(void *data, int type, void *event)
 {
    E_Event_Remote_Surface_Provider *ev;
@@ -1220,8 +1182,6 @@ _e_video_hwc_planes_ec_event_init(E_Video_Hwc_Planes *evhp)
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_HIDE,
                                   _e_video_cb_evas_hide, evhp);
 
-   E_LIST_HANDLER_APPEND(evhp->base.ec_event_handler, E_EVENT_CLIENT_SHOW,
-                         _e_video_cb_ec_client_show, evhp);
    E_LIST_HANDLER_APPEND(evhp->base.ec_event_handler, E_EVENT_REMOTE_SURFACE_PROVIDER_VISIBILITY_CHANGE,
                          _e_video_cb_ec_visibility_change, evhp);
    E_LIST_HANDLER_APPEND(evhp->base.ec_event_handler, E_EVENT_CLIENT_VISIBILITY_CHANGE,
