@@ -26,8 +26,6 @@ struct _E_Video_Hwc_Windows
    E_Comp_Wl_Hook *hook_subsurf_create;
 };
 
-static void      _e_video_destroy(E_Video_Hwc_Windows *evhw);
-static Eina_Bool _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf);
 static void      _e_video_vblank_handler(tdm_output *output, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec, void *user_data);
 
 static void
@@ -72,51 +70,6 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
    VDB("current_fb(%d)", evhw->base.ec, MSTAMP(evhw->base.current_fb));
 
    _e_video_vblank_handler(NULL, sequence, tv_sec, tv_usec, evhw);
-}
-
-static void
-_e_video_commit_buffer(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
-{
-   evhw->base.committed_list = eina_list_append(evhw->base.committed_list, vbuf);
-
-   if (!e_video_hwc_can_commit((E_Video_Hwc *)evhw))
-     goto no_commit;
-
-   if (!_e_video_frame_buffer_show(evhw, vbuf))
-     goto no_commit;
-
-   return;
-
-no_commit:
-   _e_video_commit_handler(NULL, 0, 0, 0, evhw);
-   _e_video_vblank_handler(NULL, 0, 0, 0, evhw);
-}
-
-static void
-_e_video_commit_from_waiting_list(E_Video_Hwc_Windows *evhw)
-{
-   E_Comp_Wl_Video_Buf *vbuf;
-
-   vbuf = eina_list_nth(evhw->base.waiting_list, 0);
-   evhw->base.waiting_list = eina_list_remove(evhw->base.waiting_list, vbuf);
-
-   _e_video_commit_buffer(evhw, vbuf);
-}
-
-static void
-_e_video_vblank_handler(tdm_output *output, unsigned int sequence,
-                        unsigned int tv_sec, unsigned int tv_usec,
-                        void *user_data)
-{
-   E_Video_Hwc_Windows *evhw;
-
-   evhw = user_data;
-   if (!evhw) return;
-
-   evhw->base.waiting_vblank = EINA_FALSE;
-
-   if (evhw->base.waiting_list)
-     _e_video_commit_from_waiting_list(evhw);
 }
 
 static Eina_Bool
@@ -197,6 +150,51 @@ _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
 
 
    return EINA_TRUE;
+}
+
+static void
+_e_video_commit_buffer(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
+{
+   evhw->base.committed_list = eina_list_append(evhw->base.committed_list, vbuf);
+
+   if (!e_video_hwc_can_commit((E_Video_Hwc *)evhw))
+     goto no_commit;
+
+   if (!_e_video_frame_buffer_show(evhw, vbuf))
+     goto no_commit;
+
+   return;
+
+no_commit:
+   _e_video_commit_handler(NULL, 0, 0, 0, evhw);
+   _e_video_vblank_handler(NULL, 0, 0, 0, evhw);
+}
+
+static void
+_e_video_commit_from_waiting_list(E_Video_Hwc_Windows *evhw)
+{
+   E_Comp_Wl_Video_Buf *vbuf;
+
+   vbuf = eina_list_nth(evhw->base.waiting_list, 0);
+   evhw->base.waiting_list = eina_list_remove(evhw->base.waiting_list, vbuf);
+
+   _e_video_commit_buffer(evhw, vbuf);
+}
+
+static void
+_e_video_vblank_handler(tdm_output *output, unsigned int sequence,
+                        unsigned int tv_sec, unsigned int tv_usec,
+                        void *user_data)
+{
+   E_Video_Hwc_Windows *evhw;
+
+   evhw = user_data;
+   if (!evhw) return;
+
+   evhw->base.waiting_vblank = EINA_FALSE;
+
+   if (evhw->base.waiting_list)
+     _e_video_commit_from_waiting_list(evhw);
 }
 
 EINTERN Eina_Bool
