@@ -1466,8 +1466,68 @@ _e_video_hwc_create(E_Client *ec)
 }
 
 static void
+_e_video_hwc_show(E_Video_Hwc *evh)
+{
+   E_Client *ec;
+
+   ec = evh->ec;
+   if (e_object_is_del(E_OBJECT(ec)))
+     return;
+
+   if (evh->need_force_render)
+     {
+        VIN("video forcely rendering..", evh->ec);
+        _e_video_hwc_render(evh, __FUNCTION__);
+     }
+
+   /* if stand_alone is true, not show */
+   if ((ec->comp_data->sub.data && ec->comp_data->sub.data->stand_alone) ||
+       (ec->comp_data->sub.data && evh->follow_topmost_visibility))
+     {
+#if 0 //mute off is managed by client. mute off in server made many issues.
+        if (!evhp->layer) return;
+
+        if (evhp->tdm_mute_id != -1)
+          {
+             Tdm_Prop_Value prop = {.id = evhp->tdm_mute_id, .value.u32 = 0};
+             VIN("video surface show. mute off (ec:%p)", evhp->ec);
+             _e_video_layer_set_property(evhp->layer, &prop);
+          }
+#endif
+        return;
+     }
+
+   /* FIXME It seems unnecessary. */
+   if (evh->hwc_policy == E_HWC_POLICY_PLANES)
+     {
+        if (!e_video_hwc_planes_properties_commit(evh))
+          return;
+     }
+
+   VIN("evas show", evh->ec);
+   if (evh->current_fb)
+     {
+        if (evh->hwc_policy == E_HWC_POLICY_PLANES)
+          e_video_hwc_planes_buffer_show(evh, evh->current_fb, evh->current_fb->content_t);
+        else
+          e_video_hwc_windows_buffer_show(evh, evh->current_fb, evh->current_fb->content_t);
+     }
+}
+
+static void
+_e_video_hwc_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   E_Video_Hwc *evh;
+
+   evh = data;
+   _e_video_hwc_show(evh);
+}
+
+static void
 _e_video_hwc_client_event_init(E_Video_Hwc *evh)
 {
+   evas_object_event_callback_add(evh->ec->frame, EVAS_CALLBACK_SHOW,
+                                  _e_video_hwc_cb_evas_show, evh);
    E_LIST_HANDLER_APPEND(evh->ec_event_handler, E_EVENT_CLIENT_SHOW,
                          _e_video_hwc_cb_client_show, evh);
    E_LIST_HANDLER_APPEND(evh->ec_event_handler, E_EVENT_CLIENT_BUFFER_CHANGE,
@@ -1571,4 +1631,10 @@ EINTERN Eina_Bool
 e_video_hwc_commit_done(E_Video_Hwc *evh)
 {
    return _e_video_hwc_current_fb_update(evh);
+}
+
+EINTERN void
+e_video_hwc_show(E_Video_Hwc *evh)
+{
+   _e_video_hwc_show(evh);
 }

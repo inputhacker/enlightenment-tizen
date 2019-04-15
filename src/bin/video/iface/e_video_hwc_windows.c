@@ -207,34 +207,6 @@ e_video_hwc_windows_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, uns
    _e_video_buffer_show(evhw, vbuf, transform);
 }
 
-static void
-_e_video_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   E_Video_Hwc_Windows *evhw = data;
-
-   if (e_object_is_del(E_OBJECT(evhw->base.ec))) return;
-
-   if (!evhw->base.ec->comp_data->video_client)
-     return;
-
-   if (evhw->base.need_force_render)
-     {
-        VIN("video forcely rendering..", evhw->base.ec);
-        e_video_hwc_render((E_Video_Hwc *)evhw, __FUNCTION__);
-     }
-
-   /* if stand_alone is true, not show */
-   if ((evhw->base.ec->comp_data->sub.data && evhw->base.ec->comp_data->sub.data->stand_alone) ||
-       (evhw->base.ec->comp_data->sub.data && evhw->base.follow_topmost_visibility))
-     {
-        return;
-     }
-
-   VIN("evas show", evhw->base.ec);
-   if (evhw->base.current_fb)
-     _e_video_buffer_show(evhw, evhw->base.current_fb, evhw->base.current_fb->content_t);
-}
-
 static Eina_Bool
 _e_video_hwc_windows_init(E_Video_Hwc_Windows *evhw)
 {
@@ -423,13 +395,6 @@ end:
 static void
 _e_video_hwc_windows_ec_event_deinit(E_Video_Hwc_Windows *evhw)
 {
-   E_Client *ec;
-
-   ec = evhw->base.ec;
-
-   evas_object_event_callback_del_full(ec->frame, EVAS_CALLBACK_SHOW,
-                                       _e_video_cb_evas_show, evhw);
-
    E_FREE_FUNC(evhw->hook_subsurf_create, e_comp_wl_hook_del);
    E_FREE_LIST(evhw->base.ec_event_handler, ecore_event_handler_del);
 }
@@ -482,13 +447,6 @@ _e_video_hwc_windows_cb_hook_subsurface_create(void *data, E_Client *ec)
 static void
 _e_video_hwc_windows_ec_event_init(E_Video_Hwc_Windows *evhw)
 {
-   E_Client *ec;
-
-   ec = evhw->base.ec;
-
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_SHOW,
-                                  _e_video_cb_evas_show, evhw);
-
    evhw->hook_subsurf_create =
       e_comp_wl_hook_add(E_COMP_WL_HOOK_SUBSURFACE_CREATE,
                          _e_video_hwc_windows_cb_hook_subsurface_create, evhw);

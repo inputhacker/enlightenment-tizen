@@ -555,60 +555,6 @@ e_video_hwc_planes_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsi
 }
 
 static void
-_e_video_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   E_Video_Hwc_Planes *evhp = data;
-
-   if (e_object_is_del(E_OBJECT(evhp->base.ec))) return;
-
-   if (evhp->base.need_force_render)
-     {
-        VIN("video forcely rendering..", evhp->base.ec);
-        e_video_hwc_render((E_Video_Hwc *)evhp, __FUNCTION__);
-     }
-
-   /* if stand_alone is true, not show */
-   if ((evhp->base.ec->comp_data->sub.data && evhp->base.ec->comp_data->sub.data->stand_alone) ||
-       (evhp->base.ec->comp_data->sub.data && evhp->base.follow_topmost_visibility))
-     {
-#if 0 //mute off is managed by client. mute off in server made many issues.
-        if (!evhp->layer) return;
-
-        if (evhp->tdm_mute_id != -1)
-          {
-             Tdm_Prop_Value prop = {.id = evhp->tdm_mute_id, .value.u32 = 0};
-             VIN("video surface show. mute off (ec:%p)", evhp->ec);
-             _e_video_layer_set_property(evhp->layer, &prop);
-          }
-#endif
-        return;
-     }
-
-   if (!evhp->layer)
-     {
-        VIN("set layer: show", evhp->base.ec);
-        if (!_e_video_set_layer(evhp))
-          {
-             VER("set layer failed", evhp->base.ec);
-             return;
-          }
-        // need call tdm property in list
-        Tdm_Prop_Value *prop;
-        EINA_LIST_FREE(evhp->tdm_prop_list, prop)
-          {
-             VIN("call property(%s), value(%d)", evhp->base.ec,
-                 prop->name, (unsigned int)prop->value.u32);
-             _e_video_layer_set_property(evhp->layer, prop);
-             free(prop);
-          }
-     }
-
-   VIN("evas show", evhp->base.ec);
-   if (evhp->base.current_fb)
-     _e_video_buffer_show(evhp, evhp->base.current_fb, evhp->base.current_fb->content_t);
-}
-
-static void
 _e_video_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    E_Video_Hwc_Planes *evhp = data;
@@ -838,7 +784,7 @@ _e_video_cb_ec_visibility_change(void *data, int type, void *event)
          _e_video_cb_evas_hide(evhp, NULL, NULL, NULL);
          break;
       case E_VISIBILITY_UNOBSCURED:
-         _e_video_cb_evas_show(evhp, NULL, NULL, NULL);
+         e_video_hwc_show((E_Video_Hwc *)evhp);
          break;
       default:
          VER("Not implemented", evhp->base.ec);
@@ -879,7 +825,7 @@ _e_video_cb_topmost_ec_visibility_change(void *data, int type, void *event)
               break;
            case E_VISIBILITY_UNOBSCURED:
               VIN("follow_topmost_visibility: UNOBSCURED", ec);
-              _e_video_cb_evas_show(evhp, NULL, NULL, NULL);
+              e_video_hwc_show((E_Video_Hwc *)evhp);
               break;
            default:
               return ECORE_CALLBACK_PASS_ON;
@@ -1037,8 +983,6 @@ _e_video_hwc_planes_ec_event_deinit(E_Video_Hwc_Planes *evhp)
 
    ec = evhp->base.ec;
 
-   evas_object_event_callback_del_full(ec->frame, EVAS_CALLBACK_SHOW,
-                                       _e_video_cb_evas_show, evhp);
    evas_object_event_callback_del_full(ec->frame, EVAS_CALLBACK_HIDE,
                                        _e_video_cb_evas_hide, evhp);
 
@@ -1156,8 +1100,6 @@ _e_video_hwc_planes_ec_event_init(E_Video_Hwc_Planes *evhp)
 
    ec = evhp->base.ec;
 
-   evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_SHOW,
-                                  _e_video_cb_evas_show, evhp);
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_HIDE,
                                   _e_video_cb_evas_hide, evhp);
 
@@ -1301,6 +1243,34 @@ e_video_hwc_planes_init(E_Video_Hwc *evh)
    evhp->base.backend.info_get = NULL;
    evhp->base.backend.commit_data_release = NULL;
    evhp->base.backend.tbm_surface_get = NULL;
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_video_hwc_planes_properties_commit(E_Video_Hwc *evh)
+{
+   E_Video_Hwc_Planes *evhp;
+
+   evhp = (E_Video_Hwc_Planes *)evh;
+   if (!evhp->layer)
+     {
+        VIN("set layer: show", evhp->base.ec);
+        if (!_e_video_set_layer(evhp))
+          {
+             VER("set layer failed", evhp->base.ec);
+             return EINA_FALSE;
+          }
+        // need call tdm property in list
+        Tdm_Prop_Value *prop;
+        EINA_LIST_FREE(evhp->tdm_prop_list, prop)
+          {
+             VIN("call property(%s), value(%d)", evhp->base.ec,
+                 prop->name, (unsigned int)prop->value.u32);
+             _e_video_layer_set_property(evhp->layer, prop);
+             free(prop);
+          }
+     }
 
    return EINA_TRUE;
 }
