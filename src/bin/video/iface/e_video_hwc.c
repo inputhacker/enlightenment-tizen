@@ -1218,6 +1218,30 @@ e_video_hwc_child_client_get(E_Client *ec)
    return NULL;
 }
 
+static Eina_Bool
+_e_video_hwc_cb_client_buffer_change(void *data, int type, void *event)
+{
+   E_Client *ec;
+   E_Event_Client *ev = event;
+   E_Video_Hwc *evh;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ev, ECORE_CALLBACK_PASS_ON);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ev->ec, ECORE_CALLBACK_PASS_ON);
+
+   evh = data;
+   ec = ev->ec;
+
+   if (evh->ec != ec)
+     return ECORE_CALLBACK_PASS_ON;
+
+   if (e_object_is_del(E_OBJECT(ec)))
+     return ECORE_CALLBACK_PASS_ON;
+
+   _e_video_hwc_render(evh, __FUNCTION__);
+
+   return ECORE_CALLBACK_PASS_ON;
+}
+
 static void
 _e_video_hwc_iface_destroy(E_Video_Comp_Iface *iface)
 {
@@ -1403,6 +1427,13 @@ _e_video_hwc_create(E_Client *ec)
    return evh;
 }
 
+static void
+_e_video_hwc_client_event_init(E_Video_Hwc *evh)
+{
+   E_LIST_HANDLER_APPEND(evh->ec_event_handler, E_EVENT_CLIENT_BUFFER_CHANGE,
+                         _e_video_hwc_cb_client_buffer_change, evh);
+}
+
 EINTERN E_Video_Comp_Iface *
 e_video_hwc_iface_create(E_Client *ec)
 {
@@ -1414,6 +1445,8 @@ e_video_hwc_iface_create(E_Client *ec)
    evh = _e_video_hwc_create(ec);
    if (!evh)
        return NULL;
+
+   _e_video_hwc_client_event_init(evh);
 
    if (evh->hwc_policy == E_HWC_POLICY_PLANES)
      res = e_video_hwc_planes_init(evh);
