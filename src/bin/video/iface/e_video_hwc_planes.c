@@ -21,13 +21,15 @@ struct _E_Video_Hwc_Planes
    E_Plane *e_plane;
    E_Plane_Hook *video_plane_ready_handler;
 
-   tdm_layer *layer;
+   struct
+     {
+        tdm_layer *layer;
+        /* attributes */
+        Eina_List *prop_list;
+        Eina_List *late_prop_list;
 
-   /* attributes */
-   Eina_List *tdm_prop_list;
-   Eina_List *late_tdm_prop_list;
-
-   int tdm_mute_id;
+        int mute_id;
+     } tdm;
 };
 
 typedef struct _Tdm_Prop_Value
@@ -174,7 +176,7 @@ e_video_hwc_planes_displaying_buffer_get(E_Video_Hwc *evh)
    E_Video_Hwc_Planes *evhp;
 
    evhp = (E_Video_Hwc_Planes *)evh;
-   return _e_video_layer_get_displaying_buffer(evhp->layer, NULL);
+   return _e_video_layer_get_displaying_buffer(evhp->tdm.layer, NULL);
 }
 
 static tdm_error
@@ -195,18 +197,18 @@ _e_video_set_layer(E_Video_Hwc_Planes *evhp)
    tdm_error ret;
    int zpos;
 
-   if (evhp->layer)
+   if (evhp->tdm.layer)
      return EINA_TRUE;
 
-   evhp->layer = _e_video_tdm_available_video_layer_get(evhp->base.output);
-   if (!evhp->layer)
+   evhp->tdm.layer = _e_video_tdm_available_video_layer_get(evhp->base.output);
+   if (!evhp->tdm.layer)
      {
         VWR("no available layer for evhp", evhp->base.ec);
         return EINA_FALSE;
      }
-   _e_video_tdm_set_layer_usable(evhp->layer, EINA_FALSE);
+   _e_video_tdm_set_layer_usable(evhp->tdm.layer, EINA_FALSE);
 
-   ret = tdm_layer_get_zpos(evhp->layer, &zpos);
+   ret = tdm_layer_get_zpos(evhp->tdm.layer, &zpos);
    if (ret == TDM_ERROR_NONE)
      evhp->e_plane = e_output_plane_get_by_zpos(evhp->base.e_output, zpos);
 
@@ -229,15 +231,15 @@ _e_video_set_layer(E_Video_Hwc_Planes *evhp)
                             _e_video_video_set_hook, evhp);
      }
 
-   VIN("assign layer: %p", evhp->base.ec, evhp->layer);
+   VIN("assign layer: %p", evhp->base.ec, evhp->tdm.layer);
 
    return EINA_TRUE;
 
 err_set_eplane_video:
    evhp->e_plane = NULL;
 err_get_eplane:
-   _e_video_tdm_set_layer_usable(evhp->layer, EINA_TRUE);
-   evhp->layer = NULL;
+   _e_video_tdm_set_layer_usable(evhp->tdm.layer, EINA_TRUE);
+   evhp->tdm.layer = NULL;
 
    return EINA_FALSE;
 }
@@ -247,19 +249,19 @@ _e_video_unset_layer(E_Video_Hwc_Planes *evhp)
 {
    unsigned int usable = 1;
 
-   if (!evhp->layer) return;
+   if (!evhp->tdm.layer) return;
 
-   _e_video_layer_is_usable(evhp->layer, &usable);
+   _e_video_layer_is_usable(evhp->tdm.layer, &usable);
    if (!usable && !evhp->video_plane_ready_handler)
      {
         VIN("stop video", evhp->base.ec);
-        _e_video_layer_unset_buffer(evhp->layer);
-        _e_video_layer_commit(evhp->layer, NULL, NULL);
+        _e_video_layer_unset_buffer(evhp->tdm.layer);
+        _e_video_layer_commit(evhp->tdm.layer, NULL, NULL);
      }
 
-   VIN("release layer: %p", evhp->base.ec, evhp->layer);
-   _e_video_tdm_set_layer_usable(evhp->layer, EINA_TRUE);
-   evhp->layer = NULL;
+   VIN("release layer: %p", evhp->base.ec, evhp->tdm.layer);
+   _e_video_tdm_set_layer_usable(evhp->tdm.layer, EINA_TRUE);
+   evhp->tdm.layer = NULL;
    evhp->base.old_comp_buffer = NULL;
 
    e_plane_video_set(evhp->e_plane, EINA_FALSE, NULL);
@@ -353,7 +355,7 @@ _e_video_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
 
    if (!vbuf)
      {
-        if (evhp->layer)
+        if (evhp->tdm.layer)
           {
              VIN("unset layer: hide", evhp->base.ec);
              _e_video_unset_layer(evhp);
@@ -361,7 +363,7 @@ _e_video_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
         return EINA_TRUE;
      }
 
-   if (!evhp->layer)
+   if (!evhp->tdm.layer)
      {
         VIN("set layer: show", evhp->base.ec);
         if (!_e_video_set_layer(evhp))
@@ -371,17 +373,17 @@ _e_video_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
           }
         // need call tdm property in list
         Tdm_Prop_Value *prop;
-        EINA_LIST_FREE(evhp->tdm_prop_list, prop)
+        EINA_LIST_FREE(evhp->tdm.prop_list, prop)
           {
              VIN("call property(%s), value(%d)", evhp->base.ec, prop->name,
                  (unsigned int)prop->value.u32);
-             _e_video_layer_set_property(evhp->layer, prop);
+             _e_video_layer_set_property(evhp->tdm.layer, prop);
              free(prop);
           }
      }
 
    CLEAR(old_info);
-   ret = _e_video_layer_get_info(evhp->layer, &old_info);
+   ret = _e_video_layer_get_info(evhp->tdm.layer, &old_info);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
 
    CLEAR(info);
@@ -400,14 +402,14 @@ _e_video_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
 
    if (memcmp(&old_info, &info, sizeof(tdm_info_layer)))
      {
-        ret = _e_video_layer_set_info(evhp->layer, &info);
+        ret = _e_video_layer_set_info(evhp->tdm.layer, &info);
         EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
      }
 
-   ret = _e_video_layer_set_buffer(evhp->layer, vbuf->tbm_surface);
+   ret = _e_video_layer_set_buffer(evhp->tdm.layer, vbuf->tbm_surface);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
 
-   ret = _e_video_layer_commit(evhp->layer, _e_video_commit_handler, evhp);
+   ret = _e_video_layer_commit(evhp->tdm.layer, _e_video_commit_handler, evhp);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
 
    ret = tdm_output_wait_vblank(evhp->base.output, 1, 0, _e_video_vblank_handler, evhp);
@@ -415,11 +417,11 @@ _e_video_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
 
    evhp->base.waiting_vblank = EINA_TRUE;
 
-   EINA_LIST_FREE(evhp->late_tdm_prop_list, prop)
+   EINA_LIST_FREE(evhp->tdm.late_prop_list, prop)
      {
         VIN("call property(%s), value(%d)", evhp->base.ec,
             prop->name, (unsigned int)prop->value.u32);
-        _e_video_layer_set_property(evhp->layer, prop);
+        _e_video_layer_set_property(evhp->tdm.layer, prop);
         free(prop);
      }
 
@@ -521,13 +523,13 @@ _e_video_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
    /* if stand_alone is true, not hide */
    if (evhp->base.ec->comp_data->sub.data && evhp->base.ec->comp_data->sub.data->stand_alone)
      {
-        if (!evhp->layer) return;
+        if (!evhp->tdm.layer) return;
 
-        if (evhp->tdm_mute_id != -1)
+        if (evhp->tdm.mute_id != -1)
           {
-             Tdm_Prop_Value prop = {.id = evhp->tdm_mute_id, .value.u32 = 1};
+             Tdm_Prop_Value prop = {.id = evhp->tdm.mute_id, .value.u32 = 1};
              VIN("video surface hide. mute on", evhp->base.ec);
-             _e_video_layer_set_property(evhp->layer, &prop);
+             _e_video_layer_set_property(evhp->tdm.layer, &prop);
           }
         return;
      }
@@ -539,7 +541,7 @@ _e_video_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
 static Eina_Bool
 _e_video_hwc_planes_init(E_Video_Hwc_Planes *evhp)
 {
-   evhp->tdm_mute_id = -1;
+   evhp->tdm.mute_id = -1;
 
    if (!_e_video_set(evhp))
      {
@@ -562,7 +564,7 @@ _e_video_layer_get_available_properties(E_Video_Hwc_Planes *evhp,
    EINA_SAFETY_ON_NULL_RETURN_VAL(props, TDM_ERROR_BAD_REQUEST);
    EINA_SAFETY_ON_NULL_RETURN_VAL(count, TDM_ERROR_BAD_REQUEST);
 
-   tlayer = evhp->layer;
+   tlayer = evhp->tdm.layer;
    /* if layer wasn't set then get an any available tdm_layer */
    if (tlayer == NULL)
      {
@@ -611,9 +613,9 @@ _e_video_set(E_Video_Hwc_Planes *evhp)
      {
         tdm_value value;
 
-        _e_video_layer_get_property(evhp->layer, props[i].id, &value);
+        _e_video_layer_get_property(evhp->tdm.layer, props[i].id, &value);
         if (!strncmp(props[i].name, "mute", TDM_NAME_LEN))
-          evhp->tdm_mute_id = props[i].id;
+          evhp->tdm.mute_id = props[i].id;
      }
 
    return EINA_TRUE;
@@ -629,23 +631,23 @@ _e_video_destroy(E_Video_Hwc_Planes *evhp)
 
    VIN("destroy", evhp->base.ec);
 
-   if (evhp->tdm_prop_list)
+   if (evhp->tdm.prop_list)
      {
-        EINA_LIST_FREE(evhp->tdm_prop_list, tdm_prop)
+        EINA_LIST_FREE(evhp->tdm.prop_list, tdm_prop)
            free(tdm_prop);
      }
-   if (evhp->late_tdm_prop_list)
+   if (evhp->tdm.late_prop_list)
      {
-        EINA_LIST_FREE(evhp->late_tdm_prop_list, tdm_prop)
+        EINA_LIST_FREE(evhp->tdm.late_prop_list, tdm_prop)
            free(tdm_prop);
      }
 
-   if (evhp->tdm_prop_list)
+   if (evhp->tdm.prop_list)
      NEVER_GET_HERE();
-   if (evhp->late_tdm_prop_list)
+   if (evhp->tdm.late_prop_list)
      NEVER_GET_HERE();
 
-   if (evhp->layer)
+   if (evhp->tdm.layer)
      {
         VIN("unset layer: destroy", evhp->base.ec);
         _e_video_unset_layer(evhp);
@@ -977,7 +979,7 @@ _e_video_hwc_planes_property_post_set(E_Video_Hwc_Planes *evhp,
    Tdm_Prop_Value *prop = NULL;
    const Eina_List *l = NULL;
 
-   EINA_LIST_FOREACH(evhp->late_tdm_prop_list, l, prop)
+   EINA_LIST_FOREACH(evhp->tdm.late_prop_list, l, prop)
      {
         if (!strncmp(name, prop->name, TDM_NAME_LEN))
           {
@@ -994,7 +996,7 @@ _e_video_hwc_planes_property_post_set(E_Video_Hwc_Planes *evhp,
    prop->id = id;
    memcpy(prop->name, name, sizeof(TDM_NAME_LEN));
    VIN("Add property(%s) value(%d)", evhp->base.ec, prop->name, value.u32);
-   evhp->late_tdm_prop_list = eina_list_append(evhp->late_tdm_prop_list, prop);
+   evhp->tdm.late_prop_list = eina_list_append(evhp->tdm.late_prop_list, prop);
 
    return EINA_TRUE;
 }
@@ -1008,7 +1010,7 @@ _e_video_hwc_planes_property_pre_set(E_Video_Hwc_Planes *evhp,
    Tdm_Prop_Value *prop = NULL;
    const Eina_List *l = NULL;
 
-   EINA_LIST_FOREACH(evhp->tdm_prop_list, l, prop)
+   EINA_LIST_FOREACH(evhp->tdm.prop_list, l, prop)
      {
         if (!strncmp(name, prop->name, TDM_NAME_LEN))
           {
@@ -1018,7 +1020,7 @@ _e_video_hwc_planes_property_pre_set(E_Video_Hwc_Planes *evhp,
              return EINA_TRUE;
           }
      }
-   EINA_LIST_FOREACH(evhp->late_tdm_prop_list, l, prop)
+   EINA_LIST_FOREACH(evhp->tdm.late_prop_list, l, prop)
      {
         if (!strncmp(name, prop->name, TDM_NAME_LEN))
           {
@@ -1035,7 +1037,7 @@ _e_video_hwc_planes_property_pre_set(E_Video_Hwc_Planes *evhp,
    prop->id = id;
    memcpy(prop->name, name, sizeof(TDM_NAME_LEN));
    VIN("Add property(%s) value(%d)", evhp->base.ec, prop->name, value.u32);
-   evhp->tdm_prop_list = eina_list_append(evhp->tdm_prop_list, prop);
+   evhp->tdm.prop_list = eina_list_append(evhp->tdm.prop_list, prop);
 
    return EINA_TRUE;
 }
@@ -1045,7 +1047,7 @@ _e_video_hwc_planes_property_save(E_Video_Hwc_Planes *evhp, unsigned int id, con
 {
    /* FIXME workaround
     * if mute off, need to do it after buffer commit */
-   if ((id == evhp->tdm_mute_id) && value.u32 == 0)
+   if ((id == evhp->tdm.mute_id) && value.u32 == 0)
      return _e_video_hwc_planes_property_post_set(evhp, id, name, value);
    else
      return _e_video_hwc_planes_property_pre_set(evhp, id, name, value);
@@ -1083,7 +1085,7 @@ _e_video_hwc_planes_iface_property_get(E_Video_Comp_Iface *iface, unsigned int i
 
    IFACE_ENTRY;
 
-   ret = _e_video_layer_get_property(evhp->layer, id, value);
+   ret = _e_video_layer_get_property(evhp->tdm.layer, id, value);
    if (ret != TDM_ERROR_NONE)
      return EINA_FALSE;
 
@@ -1102,7 +1104,7 @@ _e_video_hwc_planes_iface_property_set(E_Video_Comp_Iface *iface, unsigned int i
 
    name = _e_video_hwc_planes_prop_name_get_by_id(evhp, id);
 
-   if (!evhp->layer)
+   if (!evhp->tdm.layer)
      {
         /* FIXME
          * Set property with assigning layer right away if allowed_attribute
@@ -1133,7 +1135,7 @@ _e_video_hwc_planes_iface_property_set(E_Video_Comp_Iface *iface, unsigned int i
 
    prop.id = id;
    prop.value = value;
-   _e_video_layer_set_property(evhp->layer, &prop);
+   _e_video_layer_set_property(evhp->tdm.layer, &prop);
 
    return EINA_TRUE;
 }
@@ -1211,7 +1213,7 @@ e_video_hwc_planes_properties_commit(E_Video_Hwc *evh)
    E_Video_Hwc_Planes *evhp;
 
    evhp = (E_Video_Hwc_Planes *)evh;
-   if (!evhp->layer)
+   if (!evhp->tdm.layer)
      {
         VIN("set layer: show", evhp->base.ec);
         if (!_e_video_set_layer(evhp))
@@ -1221,11 +1223,11 @@ e_video_hwc_planes_properties_commit(E_Video_Hwc *evh)
           }
         // need call tdm property in list
         Tdm_Prop_Value *prop;
-        EINA_LIST_FREE(evhp->tdm_prop_list, prop)
+        EINA_LIST_FREE(evhp->tdm.prop_list, prop)
           {
              VIN("call property(%s), value(%d)", evhp->base.ec,
                  prop->name, (unsigned int)prop->value.u32);
-             _e_video_layer_set_property(evhp->layer, prop);
+             _e_video_layer_set_property(evhp->tdm.layer, prop);
              free(prop);
           }
      }
