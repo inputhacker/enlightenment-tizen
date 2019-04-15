@@ -50,7 +50,6 @@ static Eina_List *video_layers = NULL;
 
 static Eina_Bool _e_video_set(E_Video_Hwc_Planes *evhp);
 static void _e_video_destroy(E_Video_Hwc_Planes *evhp);
-static void _e_video_render(E_Video_Hwc_Planes *evhp, const char *func);
 static Eina_Bool _e_video_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf);
 static void _e_video_video_set_hook(void *data, E_Plane *plane);
 
@@ -320,101 +319,6 @@ _e_video_set_layer(E_Video_Hwc_Planes *evhp, Eina_Bool set)
 }
 
 static void
-_e_video_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
-{
-   E_Video_Hwc_Planes *evhp = data;
-   Eina_Bool need_hide = EINA_FALSE;
-
-   DBG("Buffer(%p) to be free, refcnt(%d)", vbuf, vbuf->ref_cnt);
-
-   evhp->base.input_buffer_list = eina_list_remove(evhp->base.input_buffer_list, vbuf);
-
-   if (vbuf->comp_buffer)
-     e_comp_wl_buffer_reference(&vbuf->buffer_ref, NULL);
-
-   if (evhp->base.current_fb == vbuf)
-     {
-        VIN("current fb destroyed", evhp->base.ec);
-        e_comp_wl_video_buffer_set_use(evhp->base.current_fb, EINA_FALSE);
-        evhp->base.current_fb = NULL;
-        need_hide = EINA_TRUE;
-     }
-
-   if (eina_list_data_find(evhp->base.committed_list, vbuf))
-     {
-        VIN("committed fb destroyed", evhp->base.ec);
-        evhp->base.committed_list = eina_list_remove(evhp->base.committed_list, vbuf);
-        e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
-        need_hide = EINA_TRUE;
-     }
-
-   if (eina_list_data_find(evhp->base.waiting_list, vbuf))
-     {
-        VIN("waiting fb destroyed", evhp->base.ec);
-        evhp->base.waiting_list = eina_list_remove(evhp->base.waiting_list, vbuf);
-     }
-
-   if (need_hide && evhp->layer)
-     _e_video_frame_buffer_show(evhp, NULL);
-}
-
-static E_Comp_Wl_Video_Buf *
-_e_video_input_buffer_get(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Buffer *comp_buffer, Eina_Bool scanout)
-{
-   E_Comp_Wl_Video_Buf *vbuf;
-   Eina_Bool need_pp_scanout = EINA_FALSE;
-
-   vbuf = e_video_hwc_vbuf_find_with_comp_buffer(evhp->base.input_buffer_list, comp_buffer);
-   if (vbuf)
-     {
-        vbuf->content_r = evhp->base.geo.input_r;
-        return vbuf;
-     }
-
-   vbuf = e_comp_wl_video_buffer_create_comp(comp_buffer);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
-
-   if (evhp->base.pp_scanout)
-     {
-        Eina_Bool input_buffer_scanout = EINA_FALSE;
-        input_buffer_scanout = e_video_hwc_video_buffer_scanout_check(vbuf);
-        if (!input_buffer_scanout) need_pp_scanout = EINA_TRUE;
-     }
-
-   if (evhp->base.pp)
-     {
-        if ((evhp->base.pp_align != -1 && (vbuf->width_from_pitch % evhp->base.pp_align)) ||
-            need_pp_scanout)
-          {
-             E_Comp_Wl_Video_Buf *temp;
-
-             if (need_pp_scanout)
-               temp = e_video_hwc_input_buffer_copy((E_Video_Hwc *)evhp, comp_buffer, vbuf, EINA_TRUE);
-             else
-               temp = e_video_hwc_input_buffer_copy((E_Video_Hwc *)evhp, comp_buffer, vbuf, scanout);
-             if (!temp)
-               {
-                  e_comp_wl_video_buffer_unref(vbuf);
-                  return NULL;
-               }
-             vbuf = temp;
-          }
-     }
-
-   vbuf->content_r = evhp->base.geo.input_r;
-
-   evhp->base.input_buffer_list = eina_list_append(evhp->base.input_buffer_list, vbuf);
-   e_comp_wl_video_buffer_free_func_add(vbuf, _e_video_input_buffer_cb_free, evhp);
-
-   DBG("Client(%s):PID(%d) RscID(%d), Buffer(%p) created, refcnt:%d"
-       " scanout=%d", e_client_util_name_get(evhp->base.ec) ?: "No Name" ,
-       evhp->base.ec->netwm.pid, wl_resource_get_id(evhp->base.ec->comp_data->surface), vbuf,
-       vbuf->ref_cnt, scanout);
-
-   return vbuf;
-}
-
-static void
 _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
                         unsigned int tv_sec, unsigned int tv_usec,
                         void *user_data)
@@ -648,6 +552,15 @@ _e_video_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
    return EINA_TRUE;
 }
 
+EINTERN Eina_Bool
+e_video_hwc_planes_frame_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
+{
+   E_Video_Hwc_Planes *evhp;
+
+   evhp = (E_Video_Hwc_Planes *)evh;
+   return _e_video_frame_buffer_show(evhp, vbuf);
+}
+
 static void
 _e_video_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
 {
@@ -668,22 +581,13 @@ _e_video_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf, unsign
    _e_video_commit_buffer(evhp, vbuf);
 }
 
-static void
-_e_video_cb_evas_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *event_info EINA_UNUSED)
+EINTERN void
+e_video_hwc_planes_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
 {
-   E_Video_Hwc_Planes *evhp = data;
+   E_Video_Hwc_Planes *evhp;
 
-   if (e_video_hwc_geometry_map_apply(evhp->base.ec, &evhp->base.geo))
-     _e_video_render(evhp, __FUNCTION__);
-}
-
-static void
-_e_video_cb_evas_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   E_Video_Hwc_Planes *evhp = data;
-
-   if (e_video_hwc_geometry_map_apply(evhp->base.ec, &evhp->base.geo))
-     _e_video_render(evhp, __FUNCTION__);
+   evhp = (E_Video_Hwc_Planes *)evh;
+   _e_video_buffer_show(evhp, vbuf, transform);
 }
 
 static void
@@ -696,7 +600,7 @@ _e_video_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNU
    if (evhp->base.need_force_render)
      {
         VIN("video forcely rendering..", evhp->base.ec);
-        _e_video_render(evhp, __FUNCTION__);
+        e_video_hwc_render((E_Video_Hwc *)evhp, __FUNCTION__);
      }
 
    /* if stand_alone is true, not show */
@@ -848,56 +752,12 @@ _e_video_set(E_Video_Hwc_Planes *evhp)
 }
 
 static void
-_e_video_hide(E_Video_Hwc_Planes *evhp)
-{
-   E_Comp_Wl_Video_Buf *vbuf;
-
-   if (evhp->base.current_fb || evhp->base.committed_list)
-     _e_video_frame_buffer_show(evhp, NULL);
-
-   if (evhp->base.current_fb)
-     {
-        e_comp_wl_video_buffer_set_use(evhp->base.current_fb, EINA_FALSE);
-        evhp->base.current_fb = NULL;
-     }
-
-   if (evhp->base.old_comp_buffer)
-     evhp->base.old_comp_buffer = NULL;
-
-   EINA_LIST_FREE(evhp->base.committed_list, vbuf)
-      e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
-
-   EINA_LIST_FREE(evhp->base.waiting_list, vbuf)
-      e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
-}
-
-static void
 _e_video_destroy(E_Video_Hwc_Planes *evhp)
 {
-   E_Comp_Wl_Video_Buf *vbuf;
-   Eina_List *l = NULL, *ll = NULL;
-
    if (!evhp)
      return;
 
    VIN("destroy", evhp->base.ec);
-
-   if (evhp->base.cb_registered)
-     {
-        evas_object_event_callback_del_full(evhp->base.ec->frame, EVAS_CALLBACK_RESIZE,
-                                            _e_video_cb_evas_resize, evhp);
-        evas_object_event_callback_del_full(evhp->base.ec->frame, EVAS_CALLBACK_MOVE,
-                                            _e_video_cb_evas_move, evhp);
-     }
-
-   _e_video_hide(evhp);
-
-   /* others */
-   EINA_LIST_FOREACH_SAFE(evhp->base.input_buffer_list, l, ll, vbuf)
-     {
-        e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
-        e_comp_wl_video_buffer_unref(vbuf);
-     }
 
    if(evhp->tdm_prop_list)
      {
@@ -916,16 +776,10 @@ _e_video_destroy(E_Video_Hwc_Planes *evhp)
           }
      }
 
-   if (evhp->base.input_buffer_list)
-     NEVER_GET_HERE();
    if (evhp->tdm_prop_list)
      NEVER_GET_HERE();
    if (evhp->late_tdm_prop_list)
      NEVER_GET_HERE();
-
-   /* destroy converter second */
-   if (evhp->base.pp)
-     tdm_pp_destroy(evhp->base.pp);
 
    if (evhp->layer)
      {
@@ -941,14 +795,16 @@ _e_video_destroy(E_Video_Hwc_Planes *evhp)
 #endif
 }
 
-static Eina_Bool
-_e_video_check_if_pp_needed(E_Video_Hwc_Planes *evhp)
+EINTERN Eina_Bool
+e_video_hwc_planes_check_if_pp_needed(E_Video_Hwc *evh)
 {
+   E_Video_Hwc_Planes *evhp;
    int i, count = 0;
    const tbm_format *formats;
    Eina_Bool found = EINA_FALSE;
    tdm_layer_capability capabilities = 0;
 
+   evhp = (E_Video_Hwc_Planes *)evh;
 
    tdm_layer *layer = _e_video_tdm_video_layer_get(evhp->base.output);
 
@@ -999,216 +855,6 @@ need_pp:
    return EINA_TRUE;
 }
 
-static void
-_e_video_pp_cb_done(tdm_pp *pp, tbm_surface_h sb, tbm_surface_h db, void *user_data)
-{
-   E_Video_Hwc_Planes *evhp = (E_Video_Hwc_Planes*)user_data;
-   E_Comp_Wl_Video_Buf *input_buffer, *pp_buffer;
-
-   input_buffer = e_video_hwc_vbuf_find(evhp->base.input_buffer_list, sb);
-   if (input_buffer)
-     e_comp_wl_video_buffer_unref(input_buffer);
-
-   pp_buffer = e_video_hwc_vbuf_find(evhp->base.pp_buffer_list, db);
-   if (pp_buffer)
-     {
-        e_comp_wl_video_buffer_set_use(pp_buffer, EINA_FALSE);
-        if (!e_video_hwc_client_visible_get(evhp->base.ec)) return;
-
-        _e_video_buffer_show(evhp, pp_buffer, 0);
-     }
-   else
-     {
-        VER("There is no pp_buffer", evhp->base.ec);
-        // there is no way to set in_use flag.
-        // This will cause issue when server get available pp_buffer.
-     }
-}
-
-static void
-_e_video_render(E_Video_Hwc_Planes *evhp, const char *func)
-{
-   E_Comp_Wl_Buffer *comp_buffer;
-   E_Comp_Wl_Video_Buf *pp_buffer = NULL;
-   E_Comp_Wl_Video_Buf *input_buffer = NULL;
-   E_Client *topmost;
-
-   EINA_SAFETY_ON_NULL_RETURN(evhp->base.ec);
-
-   /* buffer can be NULL when camera/video's mode changed. Do nothing and
-    * keep previous frame in this case.
-    */
-   if (!evhp->base.ec->pixmap)
-     return;
-
-   if (!e_video_hwc_client_visible_get(evhp->base.ec))
-     {
-        _e_video_hide(evhp);
-        return;
-     }
-
-   comp_buffer = e_pixmap_resource_get(evhp->base.ec->pixmap);
-   if (!comp_buffer) return;
-
-   evhp->base.tbmfmt = e_video_hwc_comp_buffer_tbm_format_get(comp_buffer);
-
-   topmost = e_comp_wl_topmost_parent_get(evhp->base.ec);
-   EINA_SAFETY_ON_NULL_RETURN(topmost);
-
-   if(e_comp_wl_viewport_is_changed(topmost))
-     {
-        VIN("need update viewport: apply topmost", evhp->base.ec);
-        e_comp_wl_viewport_apply(topmost);
-     }
-
-   if (!e_video_hwc_geometry_get(evhp->base.ec, &evhp->base.geo))
-     {
-        if(!evhp->base.need_force_render && !e_video_hwc_client_parent_viewable_get(evhp->base.ec))
-          {
-             VIN("need force render", evhp->base.ec);
-             evhp->base.need_force_render = EINA_TRUE;
-          }
-        return;
-     }
-
-   DBG("====================================== (%s)", func);
-   VDB("old: "GEO_FMT" buf(%p)", evhp->base.ec, GEO_ARG(&evhp->base.old_geo), evhp->base.old_comp_buffer);
-   VDB("new: "GEO_FMT" buf(%p) %c%c%c%c", evhp->base.ec, GEO_ARG(&evhp->base.geo), comp_buffer, FOURCC_STR(evhp->base.tbmfmt));
-
-   if (!memcmp(&evhp->base.old_geo, &evhp->base.geo, sizeof evhp->base.geo) &&
-       evhp->base.old_comp_buffer == comp_buffer)
-     return;
-
-   evhp->base.need_force_render = EINA_FALSE;
-
-   e_video_hwc_input_buffer_valid((E_Video_Hwc *)evhp, comp_buffer);
-
-   if (!_e_video_check_if_pp_needed(evhp))
-     {
-        /* 1. non converting case */
-        input_buffer = _e_video_input_buffer_get(evhp, comp_buffer, EINA_TRUE);
-        EINA_SAFETY_ON_NULL_GOTO(input_buffer, render_fail);
-
-        _e_video_buffer_show(evhp, input_buffer, evhp->base.geo.tdm.transform);
-
-        evhp->base.old_geo = evhp->base.geo;
-        evhp->base.old_comp_buffer = comp_buffer;
-
-        goto done;
-     }
-
-   /* 2. converting case */
-   if (!evhp->base.pp)
-     {
-        tdm_pp_capability pp_cap;
-        tdm_error error = TDM_ERROR_NONE;
-
-        evhp->base.pp = tdm_display_create_pp(e_comp->e_comp_screen->tdisplay, NULL);
-        EINA_SAFETY_ON_NULL_GOTO(evhp->base.pp, render_fail);
-
-        tdm_display_get_pp_available_size(e_comp->e_comp_screen->tdisplay, &evhp->base.pp_minw, &evhp->base.pp_minh,
-                                          &evhp->base.pp_maxw, &evhp->base.pp_maxh, &evhp->base.pp_align);
-
-        error = tdm_display_get_pp_capabilities(e_comp->e_comp_screen->tdisplay, &pp_cap);
-        if (error == TDM_ERROR_NONE)
-          {
-             if (pp_cap & TDM_PP_CAPABILITY_SCANOUT)
-               evhp->base.pp_scanout = EINA_TRUE;
-          }
-     }
-
-   if ((evhp->base.pp_minw > 0 && (evhp->base.geo.input_r.w < evhp->base.pp_minw || evhp->base.geo.tdm.output_r.w < evhp->base.pp_minw)) ||
-       (evhp->base.pp_minh > 0 && (evhp->base.geo.input_r.h < evhp->base.pp_minh || evhp->base.geo.tdm.output_r.h < evhp->base.pp_minh)) ||
-       (evhp->base.pp_maxw > 0 && (evhp->base.geo.input_r.w > evhp->base.pp_maxw || evhp->base.geo.tdm.output_r.w > evhp->base.pp_maxw)) ||
-       (evhp->base.pp_maxh > 0 && (evhp->base.geo.input_r.h > evhp->base.pp_maxh || evhp->base.geo.tdm.output_r.h > evhp->base.pp_maxh)))
-     {
-        INF("size(%dx%d, %dx%d) is out of PP range",
-            evhp->base.geo.input_r.w, evhp->base.geo.input_r.h, evhp->base.geo.tdm.output_r.w, evhp->base.geo.tdm.output_r.h);
-        goto done;
-     }
-
-   input_buffer = _e_video_input_buffer_get(evhp, comp_buffer, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_GOTO(input_buffer, render_fail);
-
-   pp_buffer = e_video_hwc_pp_buffer_get((E_Video_Hwc *)evhp, evhp->base.geo.tdm.output_r.w, evhp->base.geo.tdm.output_r.h);
-   EINA_SAFETY_ON_NULL_GOTO(pp_buffer, render_fail);
-
-   if (memcmp(&evhp->base.old_geo, &evhp->base.geo, sizeof evhp->base.geo))
-     {
-        tdm_info_pp info;
-
-        CLEAR(info);
-        info.src_config.size.h = input_buffer->width_from_pitch;
-        info.src_config.size.v = input_buffer->height_from_size;
-        info.src_config.pos.x = evhp->base.geo.input_r.x;
-        info.src_config.pos.y = evhp->base.geo.input_r.y;
-        info.src_config.pos.w = evhp->base.geo.input_r.w;
-        info.src_config.pos.h = evhp->base.geo.input_r.h;
-        info.src_config.format = evhp->base.tbmfmt;
-        info.dst_config.size.h = pp_buffer->width_from_pitch;
-        info.dst_config.size.v = pp_buffer->height_from_size;
-        info.dst_config.pos.w = evhp->base.geo.tdm.output_r.w;
-        info.dst_config.pos.h = evhp->base.geo.tdm.output_r.h;
-        info.dst_config.format = evhp->base.pp_tbmfmt;
-        info.transform = evhp->base.geo.tdm.transform;
-
-        if (tdm_pp_set_info(evhp->base.pp, &info))
-          {
-             VER("tdm_pp_set_info() failed", evhp->base.ec);
-             goto render_fail;
-          }
-
-        if (tdm_pp_set_done_handler(evhp->base.pp, _e_video_pp_cb_done, evhp))
-          {
-             VER("tdm_pp_set_done_handler() failed", evhp->base.ec);
-             goto render_fail;
-          }
-
-        CLEAR(evhp->base.pp_r);
-        evhp->base.pp_r.w = info.dst_config.pos.w;
-        evhp->base.pp_r.h = info.dst_config.pos.h;
-     }
-
-   pp_buffer->content_r = evhp->base.pp_r;
-
-   if (tdm_pp_attach(evhp->base.pp, input_buffer->tbm_surface, pp_buffer->tbm_surface))
-     {
-        VER("tdm_pp_attach() failed", evhp->base.ec);
-        goto render_fail;
-     }
-
-   e_comp_wl_video_buffer_set_use(pp_buffer, EINA_TRUE);
-
-   e_comp_wl_buffer_reference(&input_buffer->buffer_ref, comp_buffer);
-
-   if (tdm_pp_commit(evhp->base.pp))
-     {
-        VER("tdm_pp_commit() failed", evhp->base.ec);
-        e_comp_wl_video_buffer_set_use(pp_buffer, EINA_FALSE);
-        goto render_fail;
-     }
-
-   evhp->base.old_geo = evhp->base.geo;
-   evhp->base.old_comp_buffer = comp_buffer;
-
-   goto done;
-
-render_fail:
-   if (input_buffer)
-     e_comp_wl_video_buffer_unref(input_buffer);
-
-done:
-   if (!evhp->base.cb_registered)
-     {
-        evas_object_event_callback_add(evhp->base.ec->frame, EVAS_CALLBACK_RESIZE,
-                                       _e_video_cb_evas_resize, evhp);
-        evas_object_event_callback_add(evhp->base.ec->frame, EVAS_CALLBACK_MOVE,
-                                       _e_video_cb_evas_move, evhp);
-        evhp->base.cb_registered = EINA_TRUE;
-     }
-   DBG("======================================.");
-}
-
 static Eina_Bool
 _e_video_cb_ec_buffer_change(void *data, int type, void *event)
 {
@@ -1228,7 +874,7 @@ _e_video_cb_ec_buffer_change(void *data, int type, void *event)
    if (e_object_is_del(E_OBJECT(ec)))
      return ECORE_CALLBACK_PASS_ON;
 
-   _e_video_render(evhp, __FUNCTION__);
+   e_video_hwc_render((E_Video_Hwc *)evhp, __FUNCTION__);
 
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -1265,7 +911,7 @@ _e_video_cb_ec_client_show(void *data, int type, void *event)
      {
         VIN("video need rendering..", evhp->base.ec);
         e_comp_wl_viewport_apply(ec);
-        _e_video_render(evhp, __FUNCTION__);
+        e_video_hwc_render((E_Video_Hwc *)evhp, __FUNCTION__);
      }
 
    return ECORE_CALLBACK_PASS_ON;

@@ -80,27 +80,21 @@ struct _E_Video_Hwc
 };
 
 EINTERN E_Video_Hwc *e_video_hwc_planes_create(void);
-EINTERN E_Video_Hwc *e_video_hwc_windows_create(void);
 EINTERN Eina_Bool    e_video_hwc_planes_init(E_Video_Hwc *evh);
-EINTERN Eina_Bool    e_video_hwc_windows_init(E_Video_Hwc *evh);
+EINTERN void         e_video_hwc_planes_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform);
+EINTERN Eina_Bool    e_video_hwc_planes_frame_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf);
+EINTERN Eina_Bool    e_video_hwc_planes_check_if_pp_needed(E_Video_Hwc *evh);
 
+EINTERN E_Video_Hwc *e_video_hwc_windows_create(void);
+EINTERN Eina_Bool    e_video_hwc_windows_init(E_Video_Hwc *evh);
+EINTERN void         e_video_hwc_windows_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform);
+EINTERN Eina_Bool    e_video_hwc_windows_frame_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf);
+EINTERN Eina_Bool    e_video_hwc_windows_check_if_pp_needed(E_Video_Hwc *evh);
+
+EINTERN void         e_video_hwc_render(E_Video_Hwc *evh, const char *func);
 EINTERN Eina_Bool    e_video_hwc_can_commit(E_Video_Hwc *evh);
-EINTERN void         e_video_hwc_input_buffer_valid(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer);
 
 EINTERN E_Client    *e_video_hwc_child_client_get(E_Client *ec);
 EINTERN E_Client    *e_video_hwc_client_offscreen_parent_get(E_Client *ec);
-EINTERN Eina_Bool    e_video_hwc_client_visible_get(E_Client *ec);
-EINTERN Eina_Bool    e_video_hwc_client_parent_viewable_get(E_Client *ec);
-EINTERN Eina_Bool    e_video_hwc_geometry_get(E_Client *ec, E_Video_Hwc_Geometry *out);
-EINTERN Eina_Bool    e_video_hwc_geometry_map_apply(E_Client *ec, E_Video_Hwc_Geometry *out);
-
-EINTERN E_Comp_Wl_Video_Buf *e_video_hwc_vbuf_find(Eina_List *list, tbm_surface_h buffer);
-EINTERN E_Comp_Wl_Video_Buf *e_video_hwc_vbuf_find_with_comp_buffer(Eina_List *list, E_Comp_Wl_Buffer *comp_buffer);
-EINTERN E_Comp_Wl_Video_Buf *e_video_hwc_pp_buffer_get(E_Video_Hwc *evh, int width, int height);
-EINTERN E_Comp_Wl_Video_Buf *e_video_hwc_input_buffer_copy(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buf, E_Comp_Wl_Video_Buf *vbuf, Eina_Bool scanout);
-
-EINTERN tbm_format  e_video_hwc_comp_buffer_tbm_format_get(E_Comp_Wl_Buffer *comp_buffer);
-
-EINTERN Eina_Bool    e_video_hwc_video_buffer_scanout_check(E_Comp_Wl_Video_Buf *vbuf);
 
 #endif
