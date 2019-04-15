@@ -60,31 +60,13 @@ static Eina_Bool _e_video_tdm_get_layer_usable(tdm_layer *layer);
 
 static void _e_video_vblank_handler(tdm_output *output, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec, void *user_data);
 
-
-static E_Output *
-_get_e_output(tdm_output *output)
-{
-   Eina_List *l;
-   E_Output *eo;
-
-   EINA_LIST_FOREACH(e_comp->e_comp_screen->outputs, l, eo)
-      if (eo->toutput == output)
-         return eo;
-
-   return NULL;
-}
-
 static Eina_Bool
 _e_video_tdm_output_has_video_layer(tdm_output *toutput)
 {
-   E_Output *output = NULL;
    tdm_layer *layer;
    tdm_layer_capability lyr_capabilities = 0;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(toutput, EINA_FALSE);
-
-   output = _get_e_output(toutput);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
    /* get the first suitable layer */
    layer = _e_video_tdm_video_layer_get(toutput);
