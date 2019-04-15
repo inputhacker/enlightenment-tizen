@@ -170,15 +170,6 @@ _tdm_layer_displaying_buffer_get(tdm_layer *layer, int *tdm_error)
    return tdm_layer_get_displaying_buffer(layer, tdm_error);
 }
 
-EINTERN tbm_surface_h
-e_video_hwc_planes_displaying_buffer_get(E_Video_Hwc *evh)
-{
-   E_Video_Hwc_Planes *evhp;
-
-   evhp = (E_Video_Hwc_Planes *)evh;
-   return _tdm_layer_displaying_buffer_get(evhp->tdm.layer, NULL);
-}
-
 static tdm_error
 _tdm_layer_property_set(tdm_layer *layer, Tdm_Prop_Value *prop)
 {
@@ -188,6 +179,15 @@ _tdm_layer_property_set(tdm_layer *layer, Tdm_Prop_Value *prop)
 
    ret = tdm_layer_set_property(layer, prop->id, prop->value);
    return ret;
+}
+
+static tdm_error
+_tdm_layer_property_get(tdm_layer *layer, unsigned id, tdm_value *value)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(value, TDM_ERROR_BAD_REQUEST);
+
+   return tdm_layer_get_property(layer, id, value);
 }
 
 static Eina_Bool
@@ -475,15 +475,6 @@ _e_video_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
    return EINA_TRUE;
 }
 
-EINTERN Eina_Bool
-e_video_hwc_planes_frame_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
-{
-   E_Video_Hwc_Planes *evhp;
-
-   evhp = (E_Video_Hwc_Planes *)evh;
-   return _e_video_frame_buffer_show(evhp, vbuf);
-}
-
 static void
 _e_video_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
 {
@@ -502,15 +493,6 @@ _e_video_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf, unsign
      }
 
    _e_video_commit_buffer(evhp, vbuf);
-}
-
-EINTERN void
-e_video_hwc_planes_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
-{
-   E_Video_Hwc_Planes *evhp;
-
-   evhp = (E_Video_Hwc_Planes *)evh;
-   _e_video_buffer_show(evhp, vbuf, transform);
 }
 
 static void
@@ -575,15 +557,6 @@ _e_video_layer_get_available_properties(E_Video_Hwc_Planes *evhp,
    ret = tdm_layer_get_available_properties(tlayer, props, count);
 
    return ret;
-}
-
-static tdm_error
-_tdm_layer_property_get(tdm_layer *layer, unsigned id, tdm_value *value)
-{
-   EINA_SAFETY_ON_NULL_RETURN_VAL(layer, TDM_ERROR_BAD_REQUEST);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(value, TDM_ERROR_BAD_REQUEST);
-
-   return tdm_layer_get_property(layer, id, value);
 }
 
 static Eina_Bool
@@ -659,66 +632,6 @@ _e_video_destroy(E_Video_Hwc_Planes *evhp)
    if (e_comp_wl_video_buffer_list_length() > 0)
      e_comp_wl_video_buffer_list_print(NULL);
 #endif
-}
-
-EINTERN Eina_Bool
-e_video_hwc_planes_check_if_pp_needed(E_Video_Hwc *evh)
-{
-   E_Video_Hwc_Planes *evhp;
-   int i, count = 0;
-   const tbm_format *formats;
-   Eina_Bool found = EINA_FALSE;
-   tdm_layer_capability capabilities = 0;
-
-   evhp = (E_Video_Hwc_Planes *)evh;
-
-   tdm_layer *layer = _e_video_tdm_video_layer_get(evhp->base.output);
-
-   tdm_layer_get_capabilities(layer, &capabilities);
-
-   /* don't need pp if a layer has TDM_LAYER_CAPABILITY_VIDEO capability*/
-   if (capabilities & TDM_LAYER_CAPABILITY_VIDEO)
-     return EINA_FALSE;
-
-   /* check formats */
-   tdm_layer_get_available_formats(layer, &formats, &count);
-   for (i = 0; i < count; i++)
-     if (formats[i] == evhp->base.tbmfmt)
-       {
-          found = EINA_TRUE;
-          break;
-       }
-
-   if (!found)
-     {
-        if (formats && count > 0)
-          evhp->base.pp_tbmfmt = formats[0];
-        else
-          {
-             WRN("No layer format information!!!");
-             evhp->base.pp_tbmfmt = TBM_FORMAT_ARGB8888;
-          }
-        return EINA_TRUE;
-     }
-
-   if (capabilities & TDM_LAYER_CAPABILITY_SCANOUT)
-     goto need_pp;
-
-   /* check size */
-   if (evhp->base.geo.input_r.w != evhp->base.geo.output_r.w || evhp->base.geo.input_r.h != evhp->base.geo.output_r.h)
-     if (!(capabilities & TDM_LAYER_CAPABILITY_SCALE))
-       goto need_pp;
-
-   /* check rotate */
-   if (evhp->base.geo.transform || e_comp->e_comp_screen->rotation > 0)
-     if (!(capabilities & TDM_LAYER_CAPABILITY_TRANSFORM))
-       goto need_pp;
-
-   return EINA_FALSE;
-
-need_pp:
-   evhp->base.pp_tbmfmt = evhp->base.tbmfmt;
-   return EINA_TRUE;
 }
 
 static Eina_Bool
@@ -1232,5 +1145,92 @@ e_video_hwc_planes_properties_commit(E_Video_Hwc *evh)
           }
      }
 
+   return EINA_TRUE;
+}
+
+EINTERN tbm_surface_h
+e_video_hwc_planes_displaying_buffer_get(E_Video_Hwc *evh)
+{
+   E_Video_Hwc_Planes *evhp;
+
+   evhp = (E_Video_Hwc_Planes *)evh;
+   return _tdm_layer_displaying_buffer_get(evhp->tdm.layer, NULL);
+}
+
+EINTERN Eina_Bool
+e_video_hwc_planes_frame_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
+{
+   E_Video_Hwc_Planes *evhp;
+
+   evhp = (E_Video_Hwc_Planes *)evh;
+   return _e_video_frame_buffer_show(evhp, vbuf);
+}
+
+EINTERN void
+e_video_hwc_planes_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
+{
+   E_Video_Hwc_Planes *evhp;
+
+   evhp = (E_Video_Hwc_Planes *)evh;
+   _e_video_buffer_show(evhp, vbuf, transform);
+}
+
+EINTERN Eina_Bool
+e_video_hwc_planes_check_if_pp_needed(E_Video_Hwc *evh)
+{
+   E_Video_Hwc_Planes *evhp;
+   int i, count = 0;
+   const tbm_format *formats;
+   Eina_Bool found = EINA_FALSE;
+   tdm_layer_capability capabilities = 0;
+
+   evhp = (E_Video_Hwc_Planes *)evh;
+
+   tdm_layer *layer = _e_video_tdm_video_layer_get(evhp->base.output);
+
+   tdm_layer_get_capabilities(layer, &capabilities);
+
+   /* don't need pp if a layer has TDM_LAYER_CAPABILITY_VIDEO capability*/
+   if (capabilities & TDM_LAYER_CAPABILITY_VIDEO)
+     return EINA_FALSE;
+
+   /* check formats */
+   tdm_layer_get_available_formats(layer, &formats, &count);
+   for (i = 0; i < count; i++)
+     if (formats[i] == evhp->base.tbmfmt)
+       {
+          found = EINA_TRUE;
+          break;
+       }
+
+   if (!found)
+     {
+        if (formats && count > 0)
+          evhp->base.pp_tbmfmt = formats[0];
+        else
+          {
+             WRN("No layer format information!!!");
+             evhp->base.pp_tbmfmt = TBM_FORMAT_ARGB8888;
+          }
+        return EINA_TRUE;
+     }
+
+   if (capabilities & TDM_LAYER_CAPABILITY_SCANOUT)
+     goto need_pp;
+
+   /* check size */
+   if (evhp->base.geo.input_r.w != evhp->base.geo.output_r.w || evhp->base.geo.input_r.h != evhp->base.geo.output_r.h)
+     if (!(capabilities & TDM_LAYER_CAPABILITY_SCALE))
+       goto need_pp;
+
+   /* check rotate */
+   if (evhp->base.geo.transform || e_comp->e_comp_screen->rotation > 0)
+     if (!(capabilities & TDM_LAYER_CAPABILITY_TRANSFORM))
+       goto need_pp;
+
+   return EINA_FALSE;
+
+need_pp:
+   evhp->base.pp_tbmfmt = evhp->base.tbmfmt;
    return EINA_TRUE;
 }
