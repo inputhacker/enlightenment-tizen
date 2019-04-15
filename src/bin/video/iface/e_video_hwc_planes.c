@@ -27,16 +27,15 @@ struct _E_Video_Layer
 struct _E_Video_Hwc_Planes
 {
    E_Video_Hwc base;
-
    E_Video_Layer *layer;
    E_Plane *e_plane;
+   E_Plane_Hook *video_plane_ready_handler;
 
    /* attributes */
    Eina_List *tdm_prop_list;
    Eina_List *late_tdm_prop_list;
-   int tdm_mute_id;
 
-   E_Plane_Hook *video_plane_ready_handler;
+   int tdm_mute_id;
 };
 
 typedef struct _Tdm_Prop_Value
