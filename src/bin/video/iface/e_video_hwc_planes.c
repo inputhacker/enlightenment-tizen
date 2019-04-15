@@ -736,6 +736,8 @@ _e_video_set(E_Video_Hwc_Planes *evhp)
 static void
 _e_video_destroy(E_Video_Hwc_Planes *evhp)
 {
+   Tdm_Prop_Value *tdm_prop;
+
    if (!evhp)
      return;
 
@@ -743,7 +745,6 @@ _e_video_destroy(E_Video_Hwc_Planes *evhp)
 
    if(evhp->tdm_prop_list)
      {
-        Tdm_Prop_Value *tdm_prop;
         EINA_LIST_FREE(evhp->tdm_prop_list, tdm_prop)
           {
              free(tdm_prop);
@@ -751,7 +752,6 @@ _e_video_destroy(E_Video_Hwc_Planes *evhp)
      }
    if(evhp->late_tdm_prop_list)
      {
-        Tdm_Prop_Value *tdm_prop;
         EINA_LIST_FREE(evhp->late_tdm_prop_list, tdm_prop)
           {
              free(tdm_prop);
