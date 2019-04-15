@@ -1196,8 +1196,8 @@ e_video_hwc_client_offscreen_parent_get(E_Client *ec)
    return NULL;
 }
 
-EINTERN E_Client *
-e_video_hwc_child_client_get(E_Client *ec)
+static E_Client *
+_e_video_hwc_child_client_get(E_Client *ec)
 {
    E_Client *subc = NULL;
    Eina_List *l;
@@ -1211,7 +1211,7 @@ e_video_hwc_child_client_get(E_Client *ec)
      {
         E_Client *temp= NULL;
         if (!subc->comp_data || e_object_is_del(E_OBJECT(subc))) continue;
-        temp = e_video_hwc_child_client_get(subc);
+        temp = _e_video_hwc_child_client_get(subc);
         if(temp) return temp;
      }
 
@@ -1232,7 +1232,7 @@ _e_video_hwc_cb_client_show(void *data, int type, void *event)
    ec = ev->ec;
    if (!ec->comp_data) return ECORE_CALLBACK_PASS_ON;
 
-   video_ec = e_video_hwc_child_client_get(ec);
+   video_ec = _e_video_hwc_child_client_get(ec);
    if (!video_ec) return ECORE_CALLBACK_PASS_ON;
 
    evh = data;

@@ -94,7 +94,6 @@ EINTERN Eina_Bool    e_video_hwc_windows_check_if_pp_needed(E_Video_Hwc *evh);
 EINTERN void         e_video_hwc_render(E_Video_Hwc *evh, const char *func);
 EINTERN Eina_Bool    e_video_hwc_can_commit(E_Video_Hwc *evh);
 
-EINTERN E_Client    *e_video_hwc_child_client_get(E_Client *ec);
 EINTERN E_Client    *e_video_hwc_client_offscreen_parent_get(E_Client *ec);
 
 #endif
