@@ -13,5 +13,7 @@ E_API void           e_msg_send(const char *name, const char *info, int val, E_O
 E_API E_Msg_Handler *e_msg_handler_add(void (*func) (void *data, const char *name, const char *info, int val, E_Object *obj, void *msgdata), void *data);
 E_API void           e_msg_handler_del(E_Msg_Handler *emsgh);
 
+/* This is for the inter-module ecore event */
+E_API int            e_msg_event_type_get(const char *msg);
 #endif
 #endif

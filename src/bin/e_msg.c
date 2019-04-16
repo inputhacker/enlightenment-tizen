@@ -1,12 +1,19 @@
 #include "e.h"
 
 typedef struct _E_Msg_Event E_Msg_Event;
+typedef struct _E_Event_Type E_Event_Type;
 
 struct _E_Msg_Handler
 {
    void          (*func)(void *data, const char *name, const char *info, int val, E_Object *obj, void *msgdata);
    void         *data;
    unsigned char delete_me : 1;
+};
+
+struct _E_Event_Type
+{
+   int         type_id; // ecore event type
+   const char *message;
 };
 
 struct _E_Msg_Event
@@ -31,23 +38,39 @@ static int processing_handlers = 0;
 static int E_EVENT_MSG = 0;
 static Ecore_Event_Handler *hand = NULL;
 
+static Eina_Hash *msg_hash = NULL;
+
 /* externally accessible functions */
 EINTERN int
 e_msg_init(void)
 {
    E_EVENT_MSG = ecore_event_type_new();
    hand = ecore_event_handler_add(E_EVENT_MSG, _e_msg_event_cb, NULL);
+   msg_hash = eina_hash_string_superfast_new(NULL);
    return 1;
 }
 
 EINTERN int
 e_msg_shutdown(void)
 {
+   E_Event_Type *ev_type;
+   Eina_Iterator *it;
+
    while (handlers)
      e_msg_handler_del(eina_list_data_get(handlers));
    E_EVENT_MSG = 0;
    if (hand) ecore_event_handler_del(hand);
    hand = NULL;
+
+   it = eina_hash_iterator_data_new(msg_hash);
+   EINA_ITERATOR_FOREACH(it, ev_type)
+     {
+        eina_stringshare_del(ev_type->message);
+        E_FREE(ev_type);
+     }
+   eina_iterator_free(it);
+   E_FREE_FUNC(msg_hash, eina_hash_free);
+
    return 1;
 }
 
@@ -148,4 +171,38 @@ _e_msg_event_free(void *data EINA_UNUSED, void *ev)
    if (e->obj) e_object_unref(e->obj);
 
    E_FREE(ev);
+}
+
+static E_Event_Type *
+_e_msg_event_type_new(const char *type)
+{
+   E_Event_Type *ev_type;
+   ev_type = calloc(1, sizeof(E_Event_Type));
+   if (!ev_type) return NULL;
+
+   ev_type->message = eina_stringshare_add(type);
+   ev_type->type_id = ecore_event_type_new();
+   return ev_type;
+}
+
+E_API int
+e_msg_event_type_get(const char *msg)
+{
+   E_Event_Type *ev_type = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(msg_hash, -1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(msg, -1);
+
+   if ((ev_type = eina_hash_find(msg_hash, msg)))
+     {
+        return ev_type->type_id;
+     }
+   else
+     {
+        ev_type = _e_msg_event_type_new(msg);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(ev_type, -1);
+
+        eina_hash_add(msg_hash, msg, ev_type);
+        return ev_type->type_id;
+     }
 }
