@@ -92,6 +92,8 @@ struct _E_Video_Hwc_Windows
    Eina_Bool  need_force_render;
    Eina_Bool  follow_topmost_visibility;
    Eina_Bool  allowed_attribute;
+
+   E_Comp_Wl_Hook *hook_subsurf_create;
 };
 
 static Eina_List *video_list = NULL;
@@ -1744,6 +1746,16 @@ _e_video_ec_visibility_event_send(E_Client *ec)
                    (Ecore_End_Cb)_e_video_ec_visibility_event_free, NULL);
 }
 
+static void
+_e_video_hwc_windows_ec_visibility_set(E_Client *ec, E_Visibility vis)
+{
+   if (ec->visibility.obscured == vis)
+     return;
+
+   ec->visibility.obscured = vis;
+   _e_video_ec_visibility_event_send(ec);
+}
+
 static Eina_Bool
 _e_video_cb_topmost_ec_visibility_change(void *data, int type, void *event)
 {
@@ -1760,11 +1772,9 @@ _e_video_cb_topmost_ec_visibility_change(void *data, int type, void *event)
    if (!topmost) goto end;
    if (topmost != ev->ec) goto end;
    if (topmost == evhw->ec) goto end;
-   if (evhw->ec->visibility.obscured == topmost->visibility.obscured) goto end;
 
    /* Update visibility of video client by changing visibility of topmost client */
-   evhw->ec->visibility.obscured = topmost->visibility.obscured;
-   _e_video_ec_visibility_event_send(evhw->ec);
+   _e_video_hwc_windows_ec_visibility_set(evhw->ec, topmost->visibility.obscured);
 
 end:
    return ECORE_CALLBACK_PASS_ON;
@@ -1780,6 +1790,7 @@ _e_video_hwc_windows_ec_event_deinit(E_Video_Hwc_Windows *evhw)
    evas_object_event_callback_del_full(ec->frame, EVAS_CALLBACK_SHOW,
                                        _e_video_cb_evas_show, evhw);
 
+   E_FREE_FUNC(evhw->hook_subsurf_create, e_comp_wl_hook_del);
    E_FREE_LIST(evhw->ec_event_handler, ecore_event_handler_del);
 }
 
@@ -1805,6 +1816,30 @@ _e_video_hwc_windows_prop_name_get_by_id(E_Video_Hwc_Windows *evhw, unsigned int
 }
 
 static void
+_e_video_hwc_windows_cb_hook_subsurface_create(void *data, E_Client *ec)
+{
+   E_Video_Hwc_Windows *evhw;
+   E_Client *topmost1, *topmost2;
+
+   evhw = data;
+   if (!evhw->follow_topmost_visibility)
+     return;
+
+   /* This is to raise an 'VISIBILITY_CHANGE' event to video client when its
+    * topmost ancestor is changed. The reason why it uses hook handler of
+    * creation of subsurface is that there is no event for like parent change,
+    * and being created subsurface that has common topmost parent means
+    * it implies topmost parent has been possibly changed. */
+   topmost1 = e_comp_wl_topmost_parent_get(ec);
+   topmost2 = e_comp_wl_topmost_parent_get(evhw->ec);
+   if (topmost1 && topmost2)
+     {
+        if (topmost1 == topmost2)
+          _e_video_hwc_windows_ec_visibility_set(evhw->ec, topmost1->visibility.obscured);
+     }
+}
+
+static void
 _e_video_hwc_windows_ec_event_init(E_Video_Hwc_Windows *evhw)
 {
    E_Client *ec;
@@ -1813,6 +1848,10 @@ _e_video_hwc_windows_ec_event_init(E_Video_Hwc_Windows *evhw)
 
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_SHOW,
                                   _e_video_cb_evas_show, evhw);
+
+   evhw->hook_subsurf_create =
+      e_comp_wl_hook_add(E_COMP_WL_HOOK_SUBSURFACE_CREATE,
+                         _e_video_hwc_windows_cb_hook_subsurface_create, evhw);
 
    E_LIST_HANDLER_APPEND(evhw->ec_event_handler, E_EVENT_CLIENT_BUFFER_CHANGE,
                          _e_video_cb_ec_buffer_change, evhw);
