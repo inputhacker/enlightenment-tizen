@@ -905,6 +905,7 @@ _e_plane_renderer_client_ec_buffer_change_cb(void *data, int type, void *event)
 {
    E_Client *ec = NULL;
    E_Event_Client *ev = event;
+   E_Plane *plane = NULL;
    E_Plane_Renderer *renderer = NULL;
    E_Plane_Renderer_Client *renderer_client = NULL;
    E_Plane_Renderer_Buffer *renderer_buffer = NULL;
@@ -925,6 +926,11 @@ _e_plane_renderer_client_ec_buffer_change_cb(void *data, int type, void *event)
      {
         if (!renderer) return ECORE_CALLBACK_PASS_ON;
         if (renderer_client->state != E_PLANE_RENDERER_CLIENT_STATE_ACTIVATED) return ECORE_CALLBACK_PASS_ON;
+
+        plane = renderer->plane;
+        if (!plane) return ECORE_CALLBACK_PASS_ON;
+        if (!plane->reserved_memory) return ECORE_CALLBACK_PASS_ON;
+
         if (renderer->tqueue)
           {
              if (renderer->plane && (renderer->ec == ec))
