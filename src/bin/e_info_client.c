@@ -1464,6 +1464,23 @@ _directory_make(char *type, char *path)
 }
 
 static void
+_e_info_client_cb_dump_wins(const Eldbus_Message *msg)
+{
+   const char *log = NULL;
+   Eina_Bool res;
+
+   res = eldbus_message_arguments_get(msg, "s", &log);
+   if (!res)
+     {
+        printf("Failed to get log of dump\n");
+        return;
+     }
+
+   if (log)
+     printf("%s\n", log);
+}
+
+static void
 _e_info_client_proc_wins_shot(int argc, char **argv)
 {
    char *directory = NULL;
@@ -1482,7 +1499,7 @@ _e_info_client_proc_wins_shot(int argc, char **argv)
    if (!directory) goto arg_err;
 
    type = argv[2];
-   if (!_e_info_client_eldbus_message_with_args("dump_wins", NULL, SIGNATURE_DUMP_WINS, type, directory))
+   if (!_e_info_client_eldbus_message_with_args("dump_wins", _e_info_client_cb_dump_wins, SIGNATURE_DUMP_WINS, type, directory))
      {
         free(directory);
         return;
@@ -2727,6 +2744,23 @@ err:
 }
 
 static void
+_e_info_client_cb_selected_buffer(const Eldbus_Message *msg)
+{
+   const char *log = NULL;
+   Eina_Bool res;
+
+   res = eldbus_message_arguments_get(msg, "s", &log);
+   if (!res)
+     {
+        printf("Failed to get log of dump\n");
+        return;
+     }
+
+   if (log)
+     printf("%s\n", log);
+}
+
+static void
 _e_info_client_proc_selected_buffer_shot(int argc, char **argv)
 {
    const char *win_id=NULL;
@@ -2737,12 +2771,11 @@ _e_info_client_proc_selected_buffer_shot(int argc, char **argv)
      {
         win_id = argv[2];
 
-        if (!_e_info_client_eldbus_message_with_args("dump_selected_buffers", NULL, "ss", win_id, path))
+        if (!_e_info_client_eldbus_message_with_args("dump_selected_buffers", _e_info_client_cb_selected_buffer, "ss", win_id, path))
           {
              printf("_e_info_client_proc_selected_buffer_shot fail (%s)\n", win_id);
              return;
           }
-        printf("_e_info_client_proc_selected_buffer_shot %s is saved.\n", win_id);
      }
    else
      goto err;

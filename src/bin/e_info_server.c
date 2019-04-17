@@ -2015,8 +2015,6 @@ _get_win_prop_Window_ID(const Evas_Object *evas_obj)
    return str;
 }
 
-#undef astrcat_
-
 typedef const char* (*get_prop_t)(const Evas_Object *evas_obj);
 typedef const char* (*set_prop_t)(Evas_Object *evas_obj, const char *prop_value);
 
@@ -2574,27 +2572,109 @@ _e_info_server_cb_window_prop_get(const Eldbus_Service_Interface *iface EINA_UNU
    return _msg_window_prop_append(msg, mode, value, property_name, property_value);
 }
 
-static void _e_info_server_cb_wins_dump_topvwins(const char *dir)
+typedef struct {
+     Eldbus_Message *reply;
+     int num;
+     char *result_str;
+} Dump_Win_Data;
+
+static void
+_image_save_done_cb(void *data, E_Client* ec EINA_UNUSED, const Eina_Stringshare *dest, E_Capture_Save_State state)
+{
+   Dump_Win_Data *dump = (Dump_Win_Data *)data;
+
+   dump->num --;
+
+   if (state != E_CAPTURE_SAVE_STATE_DONE)
+     astrcat_(&dump->result_str, "%s FAILED\n", dest ?: "Can't save the file(Already Exists?)");
+   else
+     astrcat_(&dump->result_str, "%s SAVED\n", dest);
+
+   if (dump->num <= 0)
+     {
+        eldbus_message_arguments_append(dump->reply, "s", dump->result_str);
+        eldbus_connection_send(e_info_server.edbus_conn, dump->reply, NULL, NULL, -1);
+        free(dump->result_str);
+        E_FREE(dump);
+     }
+
+   return;
+fail:
+   free(dump->result_str);
+
+   if (dump->num <= 0)
+     {
+        eldbus_message_arguments_append(dump->reply, "s", "Failed to make log message...");
+        eldbus_connection_send(e_info_server.edbus_conn, dump->reply, NULL, NULL, -1);
+        E_FREE(dump);
+     }
+}
+
+#undef astrcat_
+
+static void _e_info_server_cb_wins_dump_topvwins(const char *dir, Eldbus_Message *reply)
 {
    Evas_Object *o;
+   E_Client *ec;
+   Ecore_Window win;
+   int rotation = 0;
+   char fname[PATH_MAX];
+   Eina_Stringshare *s_fname, *s_dir;
+   Eina_List *topvwins = NULL;
+   Dump_Win_Data *dump = NULL;
+   E_Capture_Save_State state;
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
-        E_Client *ec = evas_object_data_get(o, "E_Client");
-        char fname[PATH_MAX];
-        Ecore_Window win;
-        int rotation = 0;
+        ec = evas_object_data_get(o, "E_Client");
 
         if (!ec) continue;
         if (e_client_util_ignored_get(ec)) continue;
 
-        win = e_client_util_win_get(ec);
-        if (ec->comp_data)
-          rotation = ec->comp_data->scaler.buffer_viewport.buffer.transform * 90;
-
-        snprintf(fname, sizeof(fname), "0x%08zx_%d", win, rotation);
-        e_client_image_save(ec, dir, fname, NULL, NULL, EINA_TRUE);
+        topvwins = eina_list_append(topvwins, ec);
      }
+
+   if (topvwins)
+     {
+        dump = E_NEW(Dump_Win_Data, 1);
+        EINA_SAFETY_ON_NULL_GOTO(dump, fail);
+
+        dump->reply = reply;
+        dump->num = eina_list_count(topvwins);
+
+        s_dir = eina_stringshare_add(dir);
+
+        EINA_LIST_FREE(topvwins, ec)
+          {
+             win = e_client_util_win_get(ec);
+             if (ec->comp_data)
+               rotation = ec->comp_data->scaler.buffer_viewport.buffer.transform * 90;
+             snprintf(fname, sizeof(fname), "0x%08zx_%d", win, rotation);
+
+             s_fname = eina_stringshare_add(fname);
+
+             state = e_client_image_save(ec, s_dir, s_fname,
+                                         _image_save_done_cb, dump, EINA_TRUE);
+
+             if (state != E_CAPTURE_SAVE_STATE_START)
+               dump->num --;
+
+             eina_stringshare_del(s_fname);
+          }
+        eina_stringshare_del(s_dir);
+
+        if (dump->num <= 0)
+          E_FREE(dump);
+     }
+
+   //no available windows to dump
+fail:
+   if (!dump)
+     {
+        eldbus_message_arguments_append(reply, "s", "ERR: There are no topvwins.");
+        eldbus_connection_send(e_info_server.edbus_conn, reply, NULL, NULL, -1);
+     }
+
 }
 
 static void _e_info_server_cb_wins_dump_ns(const char *dir)
@@ -2736,6 +2816,7 @@ _e_info_server_cb_wins_dump(const Eldbus_Service_Interface *iface EINA_UNUSED, c
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    const char *type;
    const char *dir;
+   char log[2048];
 
    if (!eldbus_message_arguments_get(msg, SIGNATURE_DUMP_WINS, &type, &dir))
      {
@@ -2744,12 +2825,17 @@ _e_info_server_cb_wins_dump(const Eldbus_Service_Interface *iface EINA_UNUSED, c
      }
 
    if (!e_util_strcmp(type, "topvwins"))
-     _e_info_server_cb_wins_dump_topvwins(dir);
+     {
+        _e_info_server_cb_wins_dump_topvwins(dir, reply);
+        return NULL;
+     }
    else if (!e_util_strcmp(type, "ns"))
      _e_info_server_cb_wins_dump_ns(dir);
    else if (!e_util_strcmp(type, "hwc_wins"))
      _e_info_server_cb_wins_dump_hwc_wins(dir);
 
+   snprintf(log, sizeof(log), "path:%s type:%s Dump Completed\n", dir, type);
+   eldbus_message_arguments_append(reply, "s", log);
    return reply;
 }
 
@@ -4076,6 +4162,9 @@ _e_info_server_cb_selected_buffer_dump(const Eldbus_Service_Interface *iface EIN
    int32_t win_id = 0;
    Evas_Object *o;
 
+   Dump_Win_Data *dump = NULL;
+   E_Capture_Save_State state;
+
    if (!eldbus_message_arguments_get(msg, "ss", &win_id_s, &path))
      {
         ERR("Error getting arguments.");
@@ -4094,8 +4183,10 @@ _e_info_server_cb_selected_buffer_dump(const Eldbus_Service_Interface *iface EIN
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
      {
         E_Client *ec = evas_object_data_get(o, "E_Client");
-        char fname[PATH_MAX];
         Ecore_Window win;
+
+        char fname[PATH_MAX];
+        Eina_Stringshare *s_fname, *s_path;
 
         if (!ec) continue;
         if (e_client_util_ignored_get(ec)) continue;
@@ -4104,11 +4195,34 @@ _e_info_server_cb_selected_buffer_dump(const Eldbus_Service_Interface *iface EIN
 
         if (win_id != win) continue;
 
+        dump = E_NEW(Dump_Win_Data, 1);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(dump, reply);
+
+        dump->num = 1;
+        dump->reply = reply;
+
         snprintf(fname, sizeof(fname), "0x%08zx", win);
-        e_client_image_save(ec, path, fname, NULL, NULL, EINA_TRUE);
+
+        s_fname = eina_stringshare_add(fname);
+        s_path = eina_stringshare_add(path);
+
+        state = e_client_image_save(ec, s_path, s_fname, _image_save_done_cb, dump, EINA_TRUE);
+
+        eina_stringshare_del(s_path);
+        eina_stringshare_del(s_fname);
+
+        //creation of window dump job succeeded, reply will be sent after dump ends.
+        if (state == E_CAPTURE_SAVE_STATE_START)
+          return NULL;
+
         break;
      }
 
+   if (dump)
+     E_FREE(dump);
+
+   //send reply with error msg because dump job failed.
+   eldbus_message_arguments_append(reply, "s", "ERR: Can't start dump job");
    return reply;
 }
 
@@ -6045,7 +6159,7 @@ static const Eldbus_Method methods[] = {
    { "get_all_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_all_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
    { "subsurface", NULL, ELDBUS_ARGS({"a("SIGNATURE_SUBSURFACE")", "array of ec"}), _e_info_server_cb_subsurface, 0 },
-   { "dump_wins", ELDBUS_ARGS({SIGNATURE_DUMP_WINS, "directory"}), NULL, _e_info_server_cb_wins_dump, 0 },
+   { "dump_wins", ELDBUS_ARGS({SIGNATURE_DUMP_WINS, "directory"}), ELDBUS_ARGS({"s", "result of dump"}), _e_info_server_cb_wins_dump, 0 },
    { "set_force_visible", ELDBUS_ARGS({SIGNATURE_FORCE_VISIBLE_CLIENT, "obj"}), ELDBUS_ARGS({SIGNATURE_FORCE_VISIBLE_SERVER, "msg"}), _e_info_server_cb_force_visible, 0 },
    { "eina_log_levels", ELDBUS_ARGS({"s", "eina log levels"}), NULL, _e_info_server_cb_eina_log_levels, 0 },
    { "eina_log_path", ELDBUS_ARGS({"s", "eina log path"}), NULL, _e_info_server_cb_eina_log_path, 0 },
@@ -6064,7 +6178,7 @@ static const Eldbus_Method methods[] = {
    { "punch", ELDBUS_ARGS({"iiiiiiiii", "punch_geometry"}), NULL, _e_info_server_cb_punch, 0},
    { "transform_message", ELDBUS_ARGS({"siiiiiiii", "transform_message"}), NULL, e_info_server_cb_transform_message, 0},
    { "dump_buffers", ELDBUS_ARGS({"iisdi", "dump_buffers"}), ELDBUS_ARGS({"is", "dump_buffers reply"}), _e_info_server_cb_buffer_dump, 0 },
-   { "dump_selected_buffers", ELDBUS_ARGS({"ss", "dump_selected_buffers"}), NULL, _e_info_server_cb_selected_buffer_dump, 0 },
+   { "dump_selected_buffers", ELDBUS_ARGS({"ss", "dump_selected_buffers"}), ELDBUS_ARGS({"s", "result of dump"}), _e_info_server_cb_selected_buffer_dump, 0 },
    { "dump_screen", ELDBUS_ARGS({"s", "dump_screen"}), NULL, _e_info_server_cb_screen_dump, 0 },
    { "output_mode", ELDBUS_ARGS({SIGNATURE_OUTPUT_MODE_CLIENT, "output mode"}), ELDBUS_ARGS({"a("SIGNATURE_OUTPUT_MODE_SERVER")", "array of ec"}), _e_info_server_cb_output_mode, 0 },
    { "trace_message_hwc", ELDBUS_ARGS({"i", "trace_message_hwc"}), NULL, e_info_server_cb_hwc_trace_message, 0},
