@@ -24,9 +24,11 @@ struct _E_Video_Hwc_Windows
    E_Client *e_client;
 
    E_Comp_Wl_Hook *hook_subsurf_create;
+
+   Eina_Bool wait_commit_data_release;
 };
 
-static void      _e_video_vblank_handler(tdm_output *output, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec, void *user_data);
+static void _e_video_commit_from_waiting_list(E_Video_Hwc_Windows *evhw);
 
 static void
 _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
@@ -41,7 +43,8 @@ _e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
    if (!e_video_hwc_commit_done((E_Video_Hwc *)evhw))
      return;
 
-   _e_video_vblank_handler(NULL, sequence, tv_sec, tv_usec, evhw);
+   if (evhw->base.waiting_list)
+     _e_video_commit_from_waiting_list(evhw);
 }
 
 static Eina_Bool
@@ -67,7 +70,7 @@ _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
 
    evhw->cur_tsurface = vbuf->tbm_surface;
 
-   evhw->base.waiting_vblank = EINA_TRUE;
+   evhw->wait_commit_data_release = EINA_TRUE;
 
    // TODO:: this logic move to the hwc windows after hwc commit
 #if 1
@@ -139,7 +142,6 @@ _e_video_commit_buffer(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
 
 no_commit:
    _e_video_commit_handler(NULL, 0, 0, 0, evhw);
-   _e_video_vblank_handler(NULL, 0, 0, 0, evhw);
 }
 
 static void
@@ -151,22 +153,6 @@ _e_video_commit_from_waiting_list(E_Video_Hwc_Windows *evhw)
    evhw->base.waiting_list = eina_list_remove(evhw->base.waiting_list, vbuf);
 
    _e_video_commit_buffer(evhw, vbuf);
-}
-
-static void
-_e_video_vblank_handler(tdm_output *output, unsigned int sequence,
-                        unsigned int tv_sec, unsigned int tv_usec,
-                        void *user_data)
-{
-   E_Video_Hwc_Windows *evhw;
-
-   evhw = user_data;
-   if (!evhw) return;
-
-   evhw->base.waiting_vblank = EINA_FALSE;
-
-   if (evhw->base.waiting_list)
-     _e_video_commit_from_waiting_list(evhw);
 }
 
 EINTERN Eina_Bool
@@ -188,7 +174,7 @@ _e_video_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf, unsig
    if (vbuf->comp_buffer)
      e_comp_wl_buffer_reference(&vbuf->buffer_ref, vbuf->comp_buffer);
 
-   if (evhw->base.waiting_vblank)
+   if (evhw->wait_commit_data_release)
      {
         evhw->base.waiting_list = eina_list_append(evhw->base.waiting_list, vbuf);
         VDB("There are waiting fbs more than 1", evhw->base.ec);
@@ -549,6 +535,8 @@ static Eina_Bool
 _e_video_hwc_windows_iface_commit_data_release(E_Video_Comp_Iface *iface, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec)
 {
    IFACE_ENTRY;
+
+   evhw->wait_commit_data_release = EINA_FALSE;
 
    _e_video_commit_handler(NULL, sequence, tv_sec, tv_usec, evhw);
 
