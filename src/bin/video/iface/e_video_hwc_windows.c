@@ -31,15 +31,8 @@ struct _E_Video_Hwc_Windows
 static void _e_video_commit_from_waiting_list(E_Video_Hwc_Windows *evhw);
 
 static void
-_e_video_commit_handler(tdm_layer *layer, unsigned int sequence,
-                        unsigned int tv_sec, unsigned int tv_usec,
-                        void *user_data)
+_e_video_hwc_windows_commit_done(E_Video_Hwc_Windows *evhw)
 {
-   E_Video_Hwc_Windows *evhw;
-
-   evhw = user_data;
-   if (!evhw) return;
-
    if (!e_video_hwc_commit_done((E_Video_Hwc *)evhw))
      return;
 
@@ -141,7 +134,7 @@ _e_video_commit_buffer(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
    return;
 
 no_commit:
-   _e_video_commit_handler(NULL, 0, 0, 0, evhw);
+   _e_video_hwc_windows_commit_done(evhw);
 }
 
 static void
@@ -538,7 +531,7 @@ _e_video_hwc_windows_iface_commit_data_release(E_Video_Comp_Iface *iface, unsign
 
    evhw->wait_commit_data_release = EINA_FALSE;
 
-   _e_video_commit_handler(NULL, sequence, tv_sec, tv_usec, evhw);
+   _e_video_hwc_windows_commit_done(evhw);
 
    return EINA_TRUE;
 }
