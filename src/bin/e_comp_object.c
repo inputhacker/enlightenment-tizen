@@ -572,9 +572,6 @@ _e_comp_object_alpha_set(E_Comp_Object *cw)
    if ((cw->external_content) &&
        (cw->content_type != E_COMP_OBJECT_CONTENT_TYPE_EXT_IMAGE))
      {
-        WRN("Can set up alpha value to ONLY evas \"image\" object. "
-            "But current external content is %d object for %p.",
-            cw->content_type, cw->ec);
         return;
      }
 
