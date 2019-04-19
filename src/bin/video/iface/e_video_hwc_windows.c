@@ -15,16 +15,16 @@ struct _E_Video_Hwc_Windows
 {
    E_Video_Hwc base;
 
-   E_Client_Video_Info info;
-
    E_Hwc *hwc;
    E_Hwc_Window *hwc_window;
-
-   tbm_surface_h cur_tsurface;
-
    E_Comp_Wl_Hook *hook_subsurf_create;
 
-   Eina_Bool wait_commit_data_release;
+   struct
+     {
+        E_Client_Video_Info info;
+        tbm_surface_h buffer;
+        Eina_Bool wait_release;
+     } commit_data;
 };
 
 static void _e_video_commit_from_waiting_list(E_Video_Hwc_Windows *evhw);
@@ -39,6 +39,54 @@ _e_video_hwc_windows_commit_done(E_Video_Hwc_Windows *evhw)
      _e_video_commit_from_waiting_list(evhw);
 }
 
+static void
+_e_video_hwc_windows_commit_data_set(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
+{
+   CLEAR(evhw->commit_data.info);
+
+   /* Set src_config */
+   evhw->commit_data.info.src_config.size.h = vbuf->width_from_pitch;
+   evhw->commit_data.info.src_config.size.v = vbuf->height_from_size;
+   evhw->commit_data.info.src_config.pos.x = vbuf->content_r.x;
+   evhw->commit_data.info.src_config.pos.y = vbuf->content_r.y;
+   evhw->commit_data.info.src_config.pos.w = vbuf->content_r.w;
+   evhw->commit_data.info.src_config.pos.h = vbuf->content_r.h;
+   evhw->commit_data.info.src_config.format = vbuf->tbmfmt;
+
+   /* Set dst_pos */
+   evhw->commit_data.info.dst_pos.x = evhw->base.geo.tdm.output_r.x;
+   evhw->commit_data.info.dst_pos.y = evhw->base.geo.tdm.output_r.y;
+   evhw->commit_data.info.dst_pos.w = evhw->base.geo.tdm.output_r.w;
+   evhw->commit_data.info.dst_pos.h = evhw->base.geo.tdm.output_r.h;
+
+   /* Set transform */
+   evhw->commit_data.info.transform = vbuf->content_t;
+
+   /* Set buffer */
+   evhw->commit_data.buffer = vbuf->tbm_surface;
+
+   /* Set flag to wait until commit data is released. Otherwise, it maybe loses
+    * frame buffer. */
+   evhw->commit_data.wait_release = EINA_TRUE;
+
+   DBG("Client(%s):PID(%d) RscID(%d), Buffer(%p, refcnt:%d) is shown."
+       "Geometry details are : buffer size(%dx%d) src(%d,%d, %dx%d)"
+       " dst(%d,%d, %dx%d), transform(%d)",
+       e_client_util_name_get(evhw->base.ec) ?: "No Name" ,
+       evhw->base.ec->netwm.pid,
+       wl_resource_get_id(evhw->base.ec->comp_data->surface),
+       vbuf, vbuf->ref_cnt,
+       evhw->commit_data.info.src_config.size.h,
+       evhw->commit_data.info.src_config.size.v,
+       evhw->commit_data.info.src_config.pos.x,
+       evhw->commit_data.info.src_config.pos.y,
+       evhw->commit_data.info.src_config.pos.w,
+       evhw->commit_data.info.src_config.pos.h,
+       evhw->commit_data.info.dst_pos.x, evhw->commit_data.info.dst_pos.y,
+       evhw->commit_data.info.dst_pos.w, evhw->commit_data.info.dst_pos.h,
+       evhw->commit_data.info.transform);
+}
+
 static Eina_Bool
 _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
 {
@@ -46,23 +94,7 @@ _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
 
    if (!vbuf) return EINA_TRUE;
 
-   CLEAR(evhw->info);
-   evhw->info.src_config.size.h = vbuf->width_from_pitch;
-   evhw->info.src_config.size.v = vbuf->height_from_size;
-   evhw->info.src_config.pos.x = vbuf->content_r.x;
-   evhw->info.src_config.pos.y = vbuf->content_r.y;
-   evhw->info.src_config.pos.w = vbuf->content_r.w;
-   evhw->info.src_config.pos.h = vbuf->content_r.h;
-   evhw->info.src_config.format = vbuf->tbmfmt;
-   evhw->info.dst_pos.x = evhw->base.geo.tdm.output_r.x;
-   evhw->info.dst_pos.y = evhw->base.geo.tdm.output_r.y;
-   evhw->info.dst_pos.w = evhw->base.geo.tdm.output_r.w;
-   evhw->info.dst_pos.h = evhw->base.geo.tdm.output_r.h;
-   evhw->info.transform = vbuf->content_t;
-
-   evhw->cur_tsurface = vbuf->tbm_surface;
-
-   evhw->wait_commit_data_release = EINA_TRUE;
+   _e_video_hwc_windows_commit_data_set(evhw, vbuf);
 
    // TODO:: this logic move to the hwc windows after hwc commit
 #if 1
@@ -106,16 +138,6 @@ _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
      }
 #endif
 
-   DBG("Client(%s):PID(%d) RscID(%d), Buffer(%p, refcnt:%d) is shown."
-       "Geometry details are : buffer size(%dx%d) src(%d,%d, %dx%d)"
-       " dst(%d,%d, %dx%d), transform(%d)",
-       e_client_util_name_get(evhw->base.ec) ?: "No Name" , evhw->base.ec->netwm.pid,
-       wl_resource_get_id(evhw->base.ec->comp_data->surface), vbuf, vbuf->ref_cnt,
-       evhw->info.src_config.size.h, evhw->info.src_config.size.v, evhw->info.src_config.pos.x,
-       evhw->info.src_config.pos.y, evhw->info.src_config.pos.w, evhw->info.src_config.pos.h,
-       evhw->info.dst_pos.x, evhw->info.dst_pos.y, evhw->info.dst_pos.w, evhw->info.dst_pos.h, evhw->info.transform);
-
-
    return EINA_TRUE;
 }
 
@@ -157,7 +179,7 @@ _e_video_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf, unsig
    if (vbuf->comp_buffer)
      e_comp_wl_buffer_reference(&vbuf->buffer_ref, vbuf->comp_buffer);
 
-   if (evhw->wait_commit_data_release)
+   if (evhw->commit_data.wait_release)
      {
         evhw->base.waiting_list = eina_list_append(evhw->base.waiting_list, vbuf);
         VDB("There are waiting fbs more than 1", evhw->base.ec);
@@ -441,9 +463,9 @@ _e_video_hwc_windows_iface_info_get(E_Video_Comp_Iface *iface, E_Client_Video_In
 {
    IFACE_ENTRY;
 
-   memcpy(&info->src_config, &evhw->info.src_config, sizeof(tdm_info_config));
-   memcpy(&info->dst_pos, &evhw->info.dst_pos, sizeof(tdm_pos));
-   info->transform = evhw->info.transform;
+   memcpy(&info->src_config, &evhw->commit_data.info.src_config, sizeof(tdm_info_config));
+   memcpy(&info->dst_pos, &evhw->commit_data.info.dst_pos, sizeof(tdm_pos));
+   info->transform = evhw->commit_data.info.transform;
 
    return EINA_TRUE;
 }
@@ -453,7 +475,7 @@ _e_video_hwc_windows_iface_commit_data_release(E_Video_Comp_Iface *iface, unsign
 {
    IFACE_ENTRY;
 
-   evhw->wait_commit_data_release = EINA_FALSE;
+   evhw->commit_data.wait_release = EINA_FALSE;
 
    _e_video_hwc_windows_commit_done(evhw);
 
@@ -465,7 +487,7 @@ _e_video_hwc_windows_iface_tbm_surface_get(E_Video_Comp_Iface *iface)
 {
    IFACE_ENTRY;
 
-   return evhw->cur_tsurface;
+   return evhw->commit_data.buffer;
 }
 
 EINTERN E_Video_Hwc *
@@ -515,7 +537,7 @@ e_video_hwc_windows_displaying_buffer_get(E_Video_Hwc *evh)
    E_Video_Hwc_Windows *evhw;
 
    evhw = (E_Video_Hwc_Windows *)evh;
-   return evhw->cur_tsurface;
+   return evhw->commit_data.buffer;
 }
 
 EINTERN Eina_Bool
