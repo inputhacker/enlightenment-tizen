@@ -20,7 +20,7 @@ struct _E_Video_Hwc_Windows
    E_Hwc_Window *hwc_window;
    E_Hwc *hwc;
    E_Client_Video_Info info;
-   tbm_surface_h cur_tsurface; // tsurface to be set this layer.
+   tbm_surface_h cur_tsurface;
    E_Client *e_client;
 
    E_Comp_Wl_Hook *hook_subsurf_create;
