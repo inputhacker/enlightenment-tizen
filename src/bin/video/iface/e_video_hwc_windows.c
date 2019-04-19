@@ -5,8 +5,6 @@
 #include "e_video_internal.h"
 #include "e_video_hwc.h"
 
-//#define DUMP_BUFFER
-
 #define IFACE_ENTRY                                      \
    E_Video_Hwc_Windows *evhw;                              \
    evhw = container_of(iface, E_Video_Hwc_Windows, base.backend)

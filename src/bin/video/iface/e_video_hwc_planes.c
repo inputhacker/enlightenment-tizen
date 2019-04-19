@@ -5,7 +5,6 @@
 #include "e_video_internal.h"
 #include "e_video_hwc.h"
 
-//#define DUMP_BUFFER
 #define CHECKING_PRIMARY_ZPOS
 
 #define IFACE_ENTRY                                      \
