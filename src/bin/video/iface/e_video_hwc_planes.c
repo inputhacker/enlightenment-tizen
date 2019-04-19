@@ -29,6 +29,8 @@ struct _E_Video_Hwc_Planes
 
         int mute_id;
      } tdm;
+
+   Eina_Bool waiting_vblank;
 };
 
 typedef struct _Tdm_Prop_Value
@@ -335,7 +337,7 @@ _e_video_hwc_planes_cb_vblank_handler(tdm_output *output, unsigned int sequence,
    evhp = user_data;
    if (!evhp) return;
 
-   evhp->base.waiting_vblank = EINA_FALSE;
+   evhp->waiting_vblank = EINA_FALSE;
 
    if (evhp->video_plane_ready_handler) return;
 
@@ -352,7 +354,7 @@ _e_video_hwc_planes_cb_eplane_video_set_hook(void *data, E_Plane *plane)
 
    E_FREE_FUNC(evhp->video_plane_ready_handler, e_plane_hook_del);
 
-   if (evhp->base.waiting_vblank) return;
+   if (evhp->waiting_vblank) return;
 
    if (evhp->base.waiting_list)
      _e_video_hwc_planes_commit_from_waiting_list(evhp);
@@ -421,7 +423,7 @@ _e_video_hwc_planes_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_
    ret = tdm_output_wait_vblank(evhp->base.output, 1, 0, _e_video_hwc_planes_cb_vblank_handler, evhp);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
 
-   evhp->base.waiting_vblank = EINA_TRUE;
+   evhp->waiting_vblank = EINA_TRUE;
 
    _tdm_layer_property_list_set(evhp->tdm.layer, evhp->tdm.late_prop_list);
 
@@ -485,7 +487,7 @@ _e_video_hwc_planes_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *v
    if (vbuf->comp_buffer)
      e_comp_wl_buffer_reference(&vbuf->buffer_ref, vbuf->comp_buffer);
 
-   if (evhp->base.waiting_vblank || evhp->video_plane_ready_handler)
+   if (evhp->waiting_vblank || evhp->video_plane_ready_handler)
      {
         evhp->base.waiting_list = eina_list_append(evhp->base.waiting_list, vbuf);
         VDB("There are waiting fbs more than 1", evhp->base.ec);

@@ -71,7 +71,6 @@ struct _E_Video_Hwc
    Eina_List    *waiting_list;   /* buffers which are not committed yet */
    Eina_List    *committed_list; /* buffers which are committed, but not shown on screen yet */
    E_Comp_Wl_Video_Buf *current_fb;     /* buffer which is showing on screen currently */
-   Eina_Bool     waiting_vblank;
 
    Eina_Bool  cb_registered;
    Eina_Bool  need_force_render;
