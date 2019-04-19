@@ -36,7 +36,7 @@ e_video_external_iface_create(E_Client *ec)
 {
    E_Video_External *evs;
 
-   INF("Intializing SW Compositing mode");
+   INF("Intializing External Compositing mode");
 
    evs = E_NEW(E_Video_External, 1);
    if (!evs)
