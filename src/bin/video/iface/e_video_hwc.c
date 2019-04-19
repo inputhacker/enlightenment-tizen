@@ -12,6 +12,147 @@
 #define IS_RGB(f) ((f) == TBM_FORMAT_XRGB8888 || (f) == TBM_FORMAT_ARGB8888)
 
 static void _e_video_hwc_render(E_Video_Hwc *evh, const char *func);
+static void _e_video_hwc_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf);
+
+static Eina_Bool
+_e_video_hwc_current_fb_update(E_Video_Hwc *evh)
+{
+   Eina_List *l;
+   E_Comp_Wl_Video_Buf *vbuf;
+   tbm_surface_h displaying_buffer;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(evh, EINA_FALSE);
+
+   if (!evh->committed_list)
+     return EINA_FALSE;
+
+   if (e_video_hwc_can_commit(evh))
+     {
+        if (evh->hwc_policy == E_HWC_POLICY_PLANES)
+          displaying_buffer = e_video_hwc_planes_displaying_buffer_get(evh);
+        else
+          displaying_buffer = e_video_hwc_windows_displaying_buffer_get(evh);
+
+        EINA_LIST_FOREACH(evh->committed_list, l, vbuf)
+          {
+             if (vbuf->tbm_surface == displaying_buffer) break;
+          }
+        if (!vbuf)
+          return EINA_FALSE;
+     }
+   else
+     vbuf = eina_list_nth(evh->committed_list, 0);
+
+   evh->committed_list = eina_list_remove(evh->committed_list, vbuf);
+
+   /* client can attachs the same wl_buffer twice. */
+   if (evh->current_fb && VBUF_IS_VALID(evh->current_fb) && vbuf != evh->current_fb)
+     {
+        e_comp_wl_video_buffer_set_use(evh->current_fb, EINA_FALSE);
+
+        if (evh->current_fb->comp_buffer)
+          e_comp_wl_buffer_reference(&evh->current_fb->buffer_ref, NULL);
+     }
+
+   evh->current_fb = vbuf;
+
+   VDB("current_fb(%d)", evh->ec, MSTAMP(evh->current_fb));
+
+   return EINA_TRUE;
+}
+
+static void
+_e_video_hwc_buffer_enqueue(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
+{
+   evh->bqueue = eina_list_append(evh->bqueue, vbuf);
+   VDB("There are waiting fbs more than 1", evh->ec);
+}
+
+static E_Comp_Wl_Video_Buf *
+_e_video_hwc_buffer_dequeue(E_Video_Hwc *evh)
+{
+   E_Comp_Wl_Video_Buf *vbuf;
+
+   if (!evh->bqueue)
+     return NULL;
+
+   vbuf = eina_list_nth(evh->bqueue, 0);
+   evh->bqueue = eina_list_remove(evh->bqueue, vbuf);
+
+   return vbuf;
+}
+
+static void
+_e_video_hwc_wait_buffer_commit(E_Video_Hwc *evh)
+{
+   E_Comp_Wl_Video_Buf *vbuf;
+   Eina_Bool res;
+
+   vbuf = _e_video_hwc_buffer_dequeue(evh);
+   if (!vbuf)
+     return;
+
+   if (evh->hwc_policy == E_HWC_POLICY_PLANES)
+     res = e_video_hwc_planes_commit_available_check(evh);
+   else
+     res = e_video_hwc_windows_commit_available_check(evh);
+
+   if (!res)
+     return;
+
+   _e_video_hwc_buffer_commit(evh, vbuf);
+}
+
+static void
+_e_video_hwc_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
+{
+   Eina_Bool res;
+
+   evh->committed_list = eina_list_append(evh->committed_list, vbuf);
+
+   if (!e_video_hwc_can_commit(evh))
+     goto no_commit;
+
+   if (evh->hwc_policy == E_HWC_POLICY_PLANES)
+     res = e_video_hwc_planes_frame_buffer_show(evh, vbuf);
+   else
+     res = e_video_hwc_windows_frame_buffer_show(evh, vbuf);
+
+   if (!res)
+     goto no_commit;
+
+   return;
+
+no_commit:
+   _e_video_hwc_current_fb_update(evh);
+   _e_video_hwc_wait_buffer_commit(evh);
+}
+
+static void
+_e_video_hwc_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
+{
+   Eina_Bool res;
+
+   vbuf->content_t = transform;
+
+   e_comp_wl_video_buffer_set_use(vbuf, EINA_TRUE);
+
+   if (vbuf->comp_buffer)
+     e_comp_wl_buffer_reference(&vbuf->buffer_ref, vbuf->comp_buffer);
+
+   if (evh->hwc_policy == E_HWC_POLICY_PLANES)
+     res = e_video_hwc_planes_commit_available_check(evh);
+   else
+     res = e_video_hwc_windows_commit_available_check(evh);
+
+   if (!res)
+     {
+        _e_video_hwc_buffer_enqueue(evh, vbuf);
+        return;
+     }
+
+   _e_video_hwc_buffer_commit(evh, vbuf);
+}
 
 static void
 _e_video_hwc_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
@@ -42,10 +183,10 @@ _e_video_hwc_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
         need_hide = EINA_TRUE;
      }
 
-   if (eina_list_data_find(evh->waiting_list, vbuf))
+   if (eina_list_data_find(evh->bqueue, vbuf))
      {
         VIN("waiting fb destroyed", evh->ec);
-        evh->waiting_list = eina_list_remove(evh->waiting_list, vbuf);
+        evh->bqueue = eina_list_remove(evh->bqueue, vbuf);
      }
 
    if (need_hide)
@@ -202,7 +343,7 @@ _e_video_hwc_hide(E_Video_Hwc *evh)
    EINA_LIST_FREE(evh->committed_list, vbuf)
       e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
 
-   EINA_LIST_FREE(evh->waiting_list, vbuf)
+   EINA_LIST_FREE(evh->bqueue, vbuf)
       e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
 }
 
@@ -409,10 +550,7 @@ _e_video_hwc_pp_cb_done(tdm_pp *pp, tbm_surface_h sb, tbm_surface_h db, void *us
         e_comp_wl_video_buffer_set_use(pp_buffer, EINA_FALSE);
         if (!_e_video_hwc_client_visible_get(evh->ec)) return;
 
-        if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-          e_video_hwc_planes_buffer_show(evh, pp_buffer, 0);
-        else
-          e_video_hwc_windows_buffer_show(evh, pp_buffer, 0);
+        _e_video_hwc_buffer_show(evh, pp_buffer, 0);
      }
    else
      {
@@ -880,7 +1018,7 @@ _e_video_hwc_pp_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
 
    evh->committed_list = eina_list_remove(evh->committed_list, vbuf);
 
-   evh->waiting_list = eina_list_remove(evh->waiting_list, vbuf);
+   evh->bqueue = eina_list_remove(evh->bqueue, vbuf);
 
    evh->pp_buffer_list = eina_list_remove(evh->pp_buffer_list, vbuf);
 }
@@ -921,7 +1059,7 @@ _e_video_hwc_pp_buffer_get(E_Video_Hwc *evh, int width, int height)
              if (evh->pp_buffer_list)
                NEVER_GET_HERE();
 
-             if (evh->waiting_list)
+             if (evh->bqueue)
                NEVER_GET_HERE();
           }
      }
@@ -1035,10 +1173,7 @@ _e_video_hwc_render(E_Video_Hwc *evh, const char *func)
         input_buffer = _e_video_hwc_input_buffer_get(evh, comp_buffer, EINA_TRUE);
         EINA_SAFETY_ON_NULL_GOTO(input_buffer, render_fail);
 
-        if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-          e_video_hwc_planes_buffer_show(evh, input_buffer, evh->geo.tdm.transform);
-        else
-          e_video_hwc_windows_buffer_show(evh, input_buffer, evh->geo.tdm.transform);
+        _e_video_hwc_buffer_show(evh, input_buffer, evh->geo.tdm.transform);
 
         evh->old_geo = evh->geo;
         evh->old_comp_buffer = comp_buffer;
@@ -1506,12 +1641,7 @@ _e_video_hwc_show(E_Video_Hwc *evh)
 
    VIN("evas show", evh->ec);
    if (evh->current_fb)
-     {
-        if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-          e_video_hwc_planes_buffer_show(evh, evh->current_fb, evh->current_fb->content_t);
-        else
-          e_video_hwc_windows_buffer_show(evh, evh->current_fb, evh->current_fb->content_t);
-     }
+     _e_video_hwc_buffer_show(evh, evh->current_fb, evh->current_fb->content_t);
 }
 
 static void
@@ -1580,53 +1710,6 @@ e_video_hwc_iface_create(E_Client *ec)
    return &evh->iface;
 }
 
-static Eina_Bool
-_e_video_hwc_current_fb_update(E_Video_Hwc *evh)
-{
-   Eina_List *l;
-   E_Comp_Wl_Video_Buf *vbuf;
-   tbm_surface_h displaying_buffer;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(evh, EINA_FALSE);
-
-   if (!evh->committed_list)
-     return EINA_FALSE;
-
-   if (e_video_hwc_can_commit(evh))
-     {
-        if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-          displaying_buffer = e_video_hwc_planes_displaying_buffer_get(evh);
-        else
-          displaying_buffer = e_video_hwc_windows_displaying_buffer_get(evh);
-
-        EINA_LIST_FOREACH(evh->committed_list, l, vbuf)
-          {
-             if (vbuf->tbm_surface == displaying_buffer) break;
-          }
-        if (!vbuf)
-          return EINA_FALSE;
-     }
-   else
-     vbuf = eina_list_nth(evh->committed_list, 0);
-
-   evh->committed_list = eina_list_remove(evh->committed_list, vbuf);
-
-   /* client can attachs the same wl_buffer twice. */
-   if (evh->current_fb && VBUF_IS_VALID(evh->current_fb) && vbuf != evh->current_fb)
-     {
-        e_comp_wl_video_buffer_set_use(evh->current_fb, EINA_FALSE);
-
-        if (evh->current_fb->comp_buffer)
-          e_comp_wl_buffer_reference(&evh->current_fb->buffer_ref, NULL);
-     }
-
-   evh->current_fb = vbuf;
-
-   VDB("current_fb(%d)", evh->ec, MSTAMP(evh->current_fb));
-
-   return EINA_TRUE;
-}
-
 EINTERN Eina_Bool
 e_video_hwc_commit_done(E_Video_Hwc *evh)
 {
@@ -1637,4 +1720,10 @@ EINTERN void
 e_video_hwc_show(E_Video_Hwc *evh)
 {
    _e_video_hwc_show(evh);
+}
+
+EINTERN void
+e_video_hwc_wait_buffer_commit(E_Video_Hwc *evh)
+{
+   _e_video_hwc_wait_buffer_commit(evh);
 }

@@ -27,16 +27,17 @@ struct _E_Video_Hwc_Windows
      } commit_data;
 };
 
-static void _e_video_commit_from_waiting_list(E_Video_Hwc_Windows *evhw);
-
 static void
 _e_video_hwc_windows_commit_done(E_Video_Hwc_Windows *evhw)
 {
-   if (!e_video_hwc_commit_done((E_Video_Hwc *)evhw))
+   E_Video_Hwc *evh;
+
+   evh = (E_Video_Hwc *)evhw;
+
+   if (!e_video_hwc_commit_done(evh))
      return;
 
-   if (evhw->base.waiting_list)
-     _e_video_commit_from_waiting_list(evhw);
+   e_video_hwc_wait_buffer_commit(evh);
 }
 
 static void
@@ -139,54 +140,6 @@ _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
 #endif
 
    return EINA_TRUE;
-}
-
-static void
-_e_video_commit_buffer(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
-{
-   evhw->base.committed_list = eina_list_append(evhw->base.committed_list, vbuf);
-
-   if (!e_video_hwc_can_commit((E_Video_Hwc *)evhw))
-     goto no_commit;
-
-   if (!_e_video_frame_buffer_show(evhw, vbuf))
-     goto no_commit;
-
-   return;
-
-no_commit:
-   _e_video_hwc_windows_commit_done(evhw);
-}
-
-static void
-_e_video_commit_from_waiting_list(E_Video_Hwc_Windows *evhw)
-{
-   E_Comp_Wl_Video_Buf *vbuf;
-
-   vbuf = eina_list_nth(evhw->base.waiting_list, 0);
-   evhw->base.waiting_list = eina_list_remove(evhw->base.waiting_list, vbuf);
-
-   _e_video_commit_buffer(evhw, vbuf);
-}
-
-static void
-_e_video_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
-{
-   vbuf->content_t = transform;
-
-   e_comp_wl_video_buffer_set_use(vbuf, EINA_TRUE);
-
-   if (vbuf->comp_buffer)
-     e_comp_wl_buffer_reference(&vbuf->buffer_ref, vbuf->comp_buffer);
-
-   if (evhw->commit_data.wait_release)
-     {
-        evhw->base.waiting_list = eina_list_append(evhw->base.waiting_list, vbuf);
-        VDB("There are waiting fbs more than 1", evhw->base.ec);
-        return;
-     }
-
-   _e_video_commit_buffer(evhw, vbuf);
 }
 
 static Eina_Bool
@@ -538,15 +491,6 @@ e_video_hwc_windows_frame_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbu
    return _e_video_frame_buffer_show(evhw, vbuf);
 }
 
-EINTERN void
-e_video_hwc_windows_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
-{
-   E_Video_Hwc_Windows *evhw;
-
-   evhw = (E_Video_Hwc_Windows *)evh;
-   _e_video_buffer_show(evhw, vbuf, transform);
-}
-
 EINTERN Eina_Bool
 e_video_hwc_windows_check_if_pp_needed(E_Video_Hwc *evh)
 {
@@ -602,4 +546,13 @@ need_pp:
    evhw->base.pp_tbmfmt = evhw->base.tbmfmt;
 
    return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_video_hwc_windows_commit_available_check(E_Video_Hwc *evh)
+{
+   E_Video_Hwc_Windows *evhw;
+
+   evhw = (E_Video_Hwc_Windows *)evh;
+   return !evhw->commit_data.wait_release;
 }

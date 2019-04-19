@@ -299,35 +299,6 @@ _e_video_hwc_planes_cb_commit_handler(tdm_layer *layer, unsigned int sequence,
 }
 
 static void
-_e_video_hwc_planes_commit_buffer(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
-{
-   evhp->base.committed_list = eina_list_append(evhp->base.committed_list, vbuf);
-
-   if (!e_video_hwc_can_commit((E_Video_Hwc *)evhp))
-     goto no_commit;
-
-   if (!_e_video_hwc_planes_frame_buffer_show(evhp, vbuf))
-     goto no_commit;
-
-   return;
-
-no_commit:
-   _e_video_hwc_planes_cb_commit_handler(NULL, 0, 0, 0, evhp);
-   _e_video_hwc_planes_cb_vblank_handler(NULL, 0, 0, 0, evhp);
-}
-
-static void
-_e_video_hwc_planes_commit_from_waiting_list(E_Video_Hwc_Planes *evhp)
-{
-   E_Comp_Wl_Video_Buf *vbuf;
-
-   vbuf = eina_list_nth(evhp->base.waiting_list, 0);
-   evhp->base.waiting_list = eina_list_remove(evhp->base.waiting_list, vbuf);
-
-   _e_video_hwc_planes_commit_buffer(evhp, vbuf);
-}
-
-static void
 _e_video_hwc_planes_cb_vblank_handler(tdm_output *output, unsigned int sequence,
                         unsigned int tv_sec, unsigned int tv_usec,
                         void *user_data)
@@ -341,8 +312,7 @@ _e_video_hwc_planes_cb_vblank_handler(tdm_output *output, unsigned int sequence,
 
    if (evhp->video_plane_ready_handler) return;
 
-   if (evhp->base.waiting_list)
-     _e_video_hwc_planes_commit_from_waiting_list(evhp);
+   e_video_hwc_wait_buffer_commit((E_Video_Hwc *)evhp);
 }
 
 static void
@@ -356,8 +326,7 @@ _e_video_hwc_planes_cb_eplane_video_set_hook(void *data, E_Plane *plane)
 
    if (evhp->waiting_vblank) return;
 
-   if (evhp->base.waiting_list)
-     _e_video_hwc_planes_commit_from_waiting_list(evhp);
+   e_video_hwc_wait_buffer_commit((E_Video_Hwc *)evhp);
 }
 
 static Eina_Bool
@@ -475,26 +444,6 @@ _e_video_hwc_planes_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_
 
 
    return EINA_TRUE;
-}
-
-static void
-_e_video_hwc_planes_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
-{
-   vbuf->content_t = transform;
-
-   e_comp_wl_video_buffer_set_use(vbuf, EINA_TRUE);
-
-   if (vbuf->comp_buffer)
-     e_comp_wl_buffer_reference(&vbuf->buffer_ref, vbuf->comp_buffer);
-
-   if (evhp->waiting_vblank || evhp->video_plane_ready_handler)
-     {
-        evhp->base.waiting_list = eina_list_append(evhp->base.waiting_list, vbuf);
-        VDB("There are waiting fbs more than 1", evhp->base.ec);
-        return;
-     }
-
-   _e_video_hwc_planes_commit_buffer(evhp, vbuf);
 }
 
 static void
@@ -1163,15 +1112,6 @@ e_video_hwc_planes_frame_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf
    return _e_video_hwc_planes_frame_buffer_show(evhp, vbuf);
 }
 
-EINTERN void
-e_video_hwc_planes_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
-{
-   E_Video_Hwc_Planes *evhp;
-
-   evhp = (E_Video_Hwc_Planes *)evh;
-   _e_video_hwc_planes_buffer_show(evhp, vbuf, transform);
-}
-
 EINTERN Eina_Bool
 e_video_hwc_planes_check_if_pp_needed(E_Video_Hwc *evh)
 {
@@ -1230,4 +1170,13 @@ e_video_hwc_planes_check_if_pp_needed(E_Video_Hwc *evh)
 need_pp:
    evhp->base.pp_tbmfmt = evhp->base.tbmfmt;
    return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_video_hwc_planes_commit_available_check(E_Video_Hwc *evh)
+{
+   E_Video_Hwc_Planes *evhp;
+
+   evhp = (E_Video_Hwc_Planes *)evh;
+   return !(evhp->waiting_vblank || evhp->video_plane_ready_handler);
 }
