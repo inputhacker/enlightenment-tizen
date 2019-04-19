@@ -209,19 +209,8 @@ _e_video_hwc_windows_init(E_Video_Hwc_Windows *evhw)
 static void
 _e_video_destroy(E_Video_Hwc_Windows *evhw)
 {
-   if (!evhw)
-     return;
-
-   VIN("destroy", evhw->base.ec);
-
    e_hwc_window_free(evhw->hwc_window);
-
    free(evhw);
-
-#if 0
-   if (e_comp_wl_video_buffer_list_length() > 0)
-     e_comp_wl_video_buffer_list_print(NULL);
-#endif
 }
 
 static Eina_Bool
