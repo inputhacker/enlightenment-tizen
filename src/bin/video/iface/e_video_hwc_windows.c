@@ -147,15 +147,6 @@ _e_video_commit_from_waiting_list(E_Video_Hwc_Windows *evhw)
    _e_video_commit_buffer(evhw, vbuf);
 }
 
-EINTERN Eina_Bool
-e_video_hwc_windows_frame_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
-{
-   E_Video_Hwc_Windows *evhw;
-
-   evhw = (E_Video_Hwc_Windows *)evh;
-   return _e_video_frame_buffer_show(evhw, vbuf);
-}
-
 static void
 _e_video_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
 {
@@ -174,15 +165,6 @@ _e_video_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf, unsig
      }
 
    _e_video_commit_buffer(evhw, vbuf);
-}
-
-EINTERN void
-e_video_hwc_windows_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
-{
-   E_Video_Hwc_Windows *evhw;
-
-   evhw = (E_Video_Hwc_Windows *)evh;
-   _e_video_buffer_show(evhw, vbuf, transform);
 }
 
 static Eina_Bool
@@ -218,63 +200,6 @@ _e_video_destroy(E_Video_Hwc_Windows *evhw)
    if (e_comp_wl_video_buffer_list_length() > 0)
      e_comp_wl_video_buffer_list_print(NULL);
 #endif
-}
-
-EINTERN Eina_Bool
-e_video_hwc_windows_check_if_pp_needed(E_Video_Hwc *evh)
-{
-   E_Video_Hwc_Windows *evhw;
-   int i, count = 0;
-   const tbm_format *formats;
-   Eina_Bool found = EINA_FALSE;
-   E_Hwc *hwc;
-
-   evhw = (E_Video_Hwc_Windows *)evh;
-   hwc = evhw->hwc;
-   if (hwc->tdm_hwc_video_stream)
-     return EINA_FALSE;
-
-   if (!e_comp_screen_available_video_formats_get(&formats, &count))
-     return EINA_FALSE;
-
-   for (i = 0; i < count; i++)
-     if (formats[i] == evhw->base.tbmfmt)
-       {
-          found = EINA_TRUE;
-          break;
-       }
-
-   if (!found)
-     {
-        if (formats && count > 0)
-          evhw->base.pp_tbmfmt = formats[0];
-        else
-          {
-             WRN("No layer format information!!!");
-             evhw->base.pp_tbmfmt = TBM_FORMAT_ARGB8888;
-          }
-        return EINA_TRUE;
-     }
-
-   if (hwc->tdm_hwc_video_scanout)
-     goto need_pp;
-
-   /* check size */
-   if (evhw->base.geo.input_r.w != evhw->base.geo.output_r.w || evhw->base.geo.input_r.h != evhw->base.geo.output_r.h)
-     if (!hwc->tdm_hwc_video_scale)
-       goto need_pp;
-
-   /* check rotate */
-   if (evhw->base.geo.transform || e_comp->e_comp_screen->rotation > 0)
-     if (!hwc->tdm_hwc_video_transform)
-       goto need_pp;
-
-   return EINA_FALSE;
-
-need_pp:
-   evhw->base.pp_tbmfmt = evhw->base.tbmfmt;
-
-   return EINA_TRUE;
 }
 
 static Eina_Bool
@@ -591,4 +516,79 @@ e_video_hwc_windows_displaying_buffer_get(E_Video_Hwc *evh)
 
    evhw = (E_Video_Hwc_Windows *)evh;
    return evhw->cur_tsurface;
+}
+
+EINTERN Eina_Bool
+e_video_hwc_windows_frame_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
+{
+   E_Video_Hwc_Windows *evhw;
+
+   evhw = (E_Video_Hwc_Windows *)evh;
+   return _e_video_frame_buffer_show(evhw, vbuf);
+}
+
+EINTERN void
+e_video_hwc_windows_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
+{
+   E_Video_Hwc_Windows *evhw;
+
+   evhw = (E_Video_Hwc_Windows *)evh;
+   _e_video_buffer_show(evhw, vbuf, transform);
+}
+
+EINTERN Eina_Bool
+e_video_hwc_windows_check_if_pp_needed(E_Video_Hwc *evh)
+{
+   E_Video_Hwc_Windows *evhw;
+   int i, count = 0;
+   const tbm_format *formats;
+   Eina_Bool found = EINA_FALSE;
+   E_Hwc *hwc;
+
+   evhw = (E_Video_Hwc_Windows *)evh;
+   hwc = evhw->hwc;
+   if (hwc->tdm_hwc_video_stream)
+     return EINA_FALSE;
+
+   if (!e_comp_screen_available_video_formats_get(&formats, &count))
+     return EINA_FALSE;
+
+   for (i = 0; i < count; i++)
+     if (formats[i] == evhw->base.tbmfmt)
+       {
+          found = EINA_TRUE;
+          break;
+       }
+
+   if (!found)
+     {
+        if (formats && count > 0)
+          evhw->base.pp_tbmfmt = formats[0];
+        else
+          {
+             WRN("No layer format information!!!");
+             evhw->base.pp_tbmfmt = TBM_FORMAT_ARGB8888;
+          }
+        return EINA_TRUE;
+     }
+
+   if (hwc->tdm_hwc_video_scanout)
+     goto need_pp;
+
+   /* check size */
+   if (evhw->base.geo.input_r.w != evhw->base.geo.output_r.w || evhw->base.geo.input_r.h != evhw->base.geo.output_r.h)
+     if (!hwc->tdm_hwc_video_scale)
+       goto need_pp;
+
+   /* check rotate */
+   if (evhw->base.geo.transform || e_comp->e_comp_screen->rotation > 0)
+     if (!hwc->tdm_hwc_video_transform)
+       goto need_pp;
+
+   return EINA_FALSE;
+
+need_pp:
+   evhw->base.pp_tbmfmt = evhw->base.tbmfmt;
+
+   return EINA_TRUE;
 }
