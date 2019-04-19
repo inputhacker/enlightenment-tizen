@@ -42,17 +42,56 @@ typedef struct _Tdm_Prop_Value
 
 static Eina_List *video_layers = NULL;
 
-static Eina_Bool _e_video_hwc_planes_set(E_Video_Hwc_Planes *evhp);
-static void _e_video_hwc_planes_destroy(E_Video_Hwc_Planes *evhp);
-static Eina_Bool _e_video_hwc_planes_buffer_commit(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf);
-static void _e_video_hwc_planes_cb_eplane_video_set_hook(void *data, E_Plane *plane);
+static tdm_layer *
+_tdm_output_video_layer_get(tdm_output *output)
+{
+   int i, count = 0;
+#ifdef CHECKING_PRIMARY_ZPOS
+   int primary_idx = 0, primary_zpos = 0;
+   tdm_layer *primary_layer;
+#endif
 
-static tdm_layer* _e_video_hwc_planes_video_tdm_layer_get(tdm_output *output);
-static tdm_layer* _e_video_hwc_planes_available_video_tdm_layer_get(tdm_output *output);
-static void _e_video_hwc_planes_tdm_layer_usable_set(tdm_layer *layer, Eina_Bool usable);
-static Eina_Bool _e_video_hwc_planes_tdm_layer_usable_get(tdm_layer *layer);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
 
-static void _e_video_hwc_planes_cb_vblank_handler(tdm_output *output, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec, void *user_data);
+   tdm_output_get_layer_count(output, &count);
+   for (i = 0; i < count; i++)
+     {
+        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
+        tdm_layer_capability capabilities = 0;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
+
+        tdm_layer_get_capabilities(layer, &capabilities);
+        if (capabilities & TDM_LAYER_CAPABILITY_VIDEO)
+          return layer;
+     }
+
+#ifdef CHECKING_PRIMARY_ZPOS
+   tdm_output_get_primary_index(output, &primary_idx);
+   primary_layer = tdm_output_get_layer(output, primary_idx, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(primary_layer, NULL);
+   tdm_layer_get_zpos(primary_layer, &primary_zpos);
+#endif
+
+   for (i = 0; i < count; i++)
+     {
+        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
+        tdm_layer_capability capabilities = 0;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
+
+        tdm_layer_get_capabilities(layer, &capabilities);
+        if (capabilities & TDM_LAYER_CAPABILITY_OVERLAY)
+          {
+#ifdef CHECKING_PRIMARY_ZPOS
+             int zpos = 0;
+             tdm_layer_get_zpos(layer, &zpos);
+             if (zpos >= primary_zpos) continue;
+#endif
+             return layer;
+          }
+     }
+
+   return NULL;
+}
 
 static Eina_Bool
 _tdm_output_video_layer_exists(tdm_output *toutput)
@@ -63,7 +102,7 @@ _tdm_output_video_layer_exists(tdm_output *toutput)
    EINA_SAFETY_ON_NULL_RETURN_VAL(toutput, EINA_FALSE);
 
    /* get the first suitable layer */
-   layer = _e_video_hwc_planes_video_tdm_layer_get(toutput);
+   layer = _tdm_output_video_layer_get(toutput);
    if (!layer)
      return EINA_FALSE;
 
@@ -205,6 +244,109 @@ _tdm_layer_property_list_set(tdm_layer *layer, Eina_List *list)
      }
 }
 
+static void
+_e_video_hwc_planes_cb_eplane_video_set_hook(void *data, E_Plane *plane)
+{
+   E_Video_Hwc_Planes *evhp = (E_Video_Hwc_Planes *)data;
+
+   if (evhp->e_plane != plane) return;
+
+   E_FREE_FUNC(evhp->video_plane_ready_handler, e_plane_hook_del);
+
+   if (evhp->waiting_vblank) return;
+
+   e_video_hwc_wait_buffer_commit((E_Video_Hwc *)evhp);
+}
+
+static void
+_e_video_hwc_planes_tdm_layer_usable_set(tdm_layer *layer, Eina_Bool usable)
+{
+   if (usable)
+     video_layers = eina_list_remove(video_layers, layer);
+   else
+     {
+        tdm_layer *used_layer;
+        Eina_List *l = NULL;
+        EINA_LIST_FOREACH(video_layers, l, used_layer)
+           if (used_layer == layer) return;
+        video_layers = eina_list_append(video_layers, layer);
+     }
+}
+
+static Eina_Bool
+_e_video_hwc_planes_tdm_layer_usable_get(tdm_layer *layer)
+{
+   tdm_layer *used_layer;
+   Eina_List *l = NULL;
+   EINA_LIST_FOREACH(video_layers, l, used_layer)
+      if (used_layer == layer)
+        return EINA_FALSE;
+   return EINA_TRUE;
+}
+
+static tdm_layer *
+_e_video_hwc_planes_available_video_tdm_layer_get(tdm_output *output)
+{
+   Eina_Bool has_video_layer = EINA_FALSE;
+   int i, count = 0;
+#ifdef CHECKING_PRIMARY_ZPOS
+   int primary_idx = 0, primary_zpos = 0;
+   tdm_layer *primary_layer;
+#endif
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+
+   /* check video layers first */
+   tdm_output_get_layer_count(output, &count);
+   for (i = 0; i < count; i++)
+     {
+        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
+        tdm_layer_capability capabilities = 0;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
+
+        tdm_layer_get_capabilities(layer, &capabilities);
+        if (capabilities & TDM_LAYER_CAPABILITY_VIDEO)
+          {
+             has_video_layer = EINA_TRUE;
+             if (!_e_video_hwc_planes_tdm_layer_usable_get(layer)) continue;
+             return layer;
+          }
+     }
+
+   /* if a output has video layers, it means that there is no available video layer for video */
+   if (has_video_layer)
+     return NULL;
+
+   /* check graphic layers second */
+#ifdef CHECKING_PRIMARY_ZPOS
+   tdm_output_get_primary_index(output, &primary_idx);
+   primary_layer = tdm_output_get_layer(output, primary_idx, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(primary_layer, NULL);
+   tdm_layer_get_zpos(primary_layer, &primary_zpos);
+#endif
+
+   for (i = 0; i < count; i++)
+     {
+        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
+        tdm_layer_capability capabilities = 0;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
+
+        tdm_layer_get_capabilities(layer, &capabilities);
+        if (capabilities & TDM_LAYER_CAPABILITY_OVERLAY)
+          {
+#ifdef CHECKING_PRIMARY_ZPOS
+             int zpos = 0;
+             tdm_layer_get_zpos(layer, &zpos);
+             if (zpos >= primary_zpos) continue;
+#endif
+             if (!_e_video_hwc_planes_tdm_layer_usable_get(layer)) continue;
+             return layer;
+          }
+     }
+
+   return NULL;
+}
+
 static Eina_Bool
 _e_video_hwc_planes_tdm_layer_set(E_Video_Hwc_Planes *evhp)
 {
@@ -315,20 +457,6 @@ _e_video_hwc_planes_cb_vblank_handler(tdm_output *output, unsigned int sequence,
    e_video_hwc_wait_buffer_commit((E_Video_Hwc *)evhp);
 }
 
-static void
-_e_video_hwc_planes_cb_eplane_video_set_hook(void *data, E_Plane *plane)
-{
-   E_Video_Hwc_Planes *evhp = (E_Video_Hwc_Planes *)data;
-
-   if (evhp->e_plane != plane) return;
-
-   E_FREE_FUNC(evhp->video_plane_ready_handler, e_plane_hook_del);
-
-   if (evhp->waiting_vblank) return;
-
-   e_video_hwc_wait_buffer_commit((E_Video_Hwc *)evhp);
-}
-
 static Eina_Bool
 _e_video_hwc_planes_buffer_commit(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
 {
@@ -435,20 +563,6 @@ _e_video_hwc_planes_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *o
    _e_video_hwc_planes_buffer_commit(evhp, NULL);
 }
 
-static Eina_Bool
-_e_video_hwc_planes_init(E_Video_Hwc_Planes *evhp)
-{
-   evhp->tdm.mute_id = -1;
-
-   if (!_e_video_hwc_planes_set(evhp))
-     {
-        VER("Failed to init hwc_planes", evhp->base.ec);
-        return EINA_FALSE;
-     }
-
-   return EINA_TRUE;
-}
-
 static tdm_error
 _e_video_hwc_planes_available_properties_get(E_Video_Hwc_Planes *evhp,
                                         const tdm_prop **props,
@@ -504,6 +618,20 @@ _e_video_hwc_planes_set(E_Video_Hwc_Planes *evhp)
         _tdm_layer_property_get(evhp->tdm.layer, props[i].id, &value);
         if (!strncmp(props[i].name, "mute", TDM_NAME_LEN))
           evhp->tdm.mute_id = props[i].id;
+     }
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_video_hwc_planes_init(E_Video_Hwc_Planes *evhp)
+{
+   evhp->tdm.mute_id = -1;
+
+   if (!_e_video_hwc_planes_set(evhp))
+     {
+        VER("Failed to init hwc_planes", evhp->base.ec);
+        return EINA_FALSE;
      }
 
    return EINA_TRUE;
@@ -624,146 +752,6 @@ end:
    return ECORE_CALLBACK_PASS_ON;
 }
 
-static tdm_layer *
-_e_video_hwc_planes_video_tdm_layer_get(tdm_output *output)
-{
-   int i, count = 0;
-#ifdef CHECKING_PRIMARY_ZPOS
-   int primary_idx = 0, primary_zpos = 0;
-   tdm_layer *primary_layer;
-#endif
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
-
-   tdm_output_get_layer_count(output, &count);
-   for (i = 0; i < count; i++)
-     {
-        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
-        tdm_layer_capability capabilities = 0;
-        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
-
-        tdm_layer_get_capabilities(layer, &capabilities);
-        if (capabilities & TDM_LAYER_CAPABILITY_VIDEO)
-          return layer;
-     }
-
-#ifdef CHECKING_PRIMARY_ZPOS
-   tdm_output_get_primary_index(output, &primary_idx);
-   primary_layer = tdm_output_get_layer(output, primary_idx, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(primary_layer, NULL);
-   tdm_layer_get_zpos(primary_layer, &primary_zpos);
-#endif
-
-   for (i = 0; i < count; i++)
-     {
-        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
-        tdm_layer_capability capabilities = 0;
-        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
-
-        tdm_layer_get_capabilities(layer, &capabilities);
-        if (capabilities & TDM_LAYER_CAPABILITY_OVERLAY)
-          {
-#ifdef CHECKING_PRIMARY_ZPOS
-             int zpos = 0;
-             tdm_layer_get_zpos(layer, &zpos);
-             if (zpos >= primary_zpos) continue;
-#endif
-             return layer;
-          }
-     }
-
-   return NULL;
-}
-
-static tdm_layer *
-_e_video_hwc_planes_available_video_tdm_layer_get(tdm_output *output)
-{
-   Eina_Bool has_video_layer = EINA_FALSE;
-   int i, count = 0;
-#ifdef CHECKING_PRIMARY_ZPOS
-   int primary_idx = 0, primary_zpos = 0;
-   tdm_layer *primary_layer;
-#endif
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
-
-   /* check video layers first */
-   tdm_output_get_layer_count(output, &count);
-   for (i = 0; i < count; i++)
-     {
-        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
-        tdm_layer_capability capabilities = 0;
-        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
-
-        tdm_layer_get_capabilities(layer, &capabilities);
-        if (capabilities & TDM_LAYER_CAPABILITY_VIDEO)
-          {
-             has_video_layer = EINA_TRUE;
-             if (!_e_video_hwc_planes_tdm_layer_usable_get(layer)) continue;
-             return layer;
-          }
-     }
-
-   /* if a output has video layers, it means that there is no available video layer for video */
-   if (has_video_layer)
-     return NULL;
-
-   /* check graphic layers second */
-#ifdef CHECKING_PRIMARY_ZPOS
-   tdm_output_get_primary_index(output, &primary_idx);
-   primary_layer = tdm_output_get_layer(output, primary_idx, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(primary_layer, NULL);
-   tdm_layer_get_zpos(primary_layer, &primary_zpos);
-#endif
-
-   for (i = 0; i < count; i++)
-     {
-        tdm_layer *layer = tdm_output_get_layer(output, i, NULL);
-        tdm_layer_capability capabilities = 0;
-        EINA_SAFETY_ON_NULL_RETURN_VAL(layer, NULL);
-
-        tdm_layer_get_capabilities(layer, &capabilities);
-        if (capabilities & TDM_LAYER_CAPABILITY_OVERLAY)
-          {
-#ifdef CHECKING_PRIMARY_ZPOS
-             int zpos = 0;
-             tdm_layer_get_zpos(layer, &zpos);
-             if (zpos >= primary_zpos) continue;
-#endif
-             if (!_e_video_hwc_planes_tdm_layer_usable_get(layer)) continue;
-             return layer;
-          }
-     }
-
-   return NULL;
-}
-
-static void
-_e_video_hwc_planes_tdm_layer_usable_set(tdm_layer *layer, Eina_Bool usable)
-{
-   if (usable)
-     video_layers = eina_list_remove(video_layers, layer);
-   else
-     {
-        tdm_layer *used_layer;
-        Eina_List *l = NULL;
-        EINA_LIST_FOREACH(video_layers, l, used_layer)
-           if (used_layer == layer) return;
-        video_layers = eina_list_append(video_layers, layer);
-     }
-}
-
-static Eina_Bool
-_e_video_hwc_planes_tdm_layer_usable_get(tdm_layer *layer)
-{
-   tdm_layer *used_layer;
-   Eina_List *l = NULL;
-   EINA_LIST_FOREACH(video_layers, l, used_layer)
-      if (used_layer == layer)
-        return EINA_FALSE;
-   return EINA_TRUE;
-}
-
 static void
 _e_video_hwc_planes_ec_event_deinit(E_Video_Hwc_Planes *evhp)
 {
@@ -784,7 +772,7 @@ _e_video_hwc_planes_prop_name_get_by_id(E_Video_Hwc_Planes *evhp, unsigned int i
    const tdm_prop *props;
    int i, count = 0;
 
-   layer = _e_video_hwc_planes_video_tdm_layer_get(evhp->base.output);
+   layer = _tdm_output_video_layer_get(evhp->base.output);
    tdm_layer_get_available_properties(layer, &props, &count);
    for (i = 0; i < count; i++)
      {
@@ -1087,7 +1075,7 @@ e_video_hwc_planes_check_if_pp_needed(E_Video_Hwc *evh)
 
    evhp = (E_Video_Hwc_Planes *)evh;
 
-   tdm_layer *layer = _e_video_hwc_planes_video_tdm_layer_get(evhp->base.output);
+   tdm_layer *layer = _tdm_output_video_layer_get(evhp->base.output);
 
    tdm_layer_get_capabilities(layer, &capabilities);
 
