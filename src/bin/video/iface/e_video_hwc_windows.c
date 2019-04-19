@@ -474,7 +474,7 @@ e_video_hwc_windows_displaying_buffer_get(E_Video_Hwc *evh)
 }
 
 EINTERN Eina_Bool
-e_video_hwc_windows_frame_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
+e_video_hwc_windows_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
 {
    E_Video_Hwc_Windows *evhw;
 

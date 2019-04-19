@@ -80,7 +80,7 @@ struct _E_Video_Hwc
 
 EINTERN E_Video_Hwc *e_video_hwc_planes_create(void);
 EINTERN Eina_Bool    e_video_hwc_planes_init(E_Video_Hwc *evh);
-EINTERN Eina_Bool    e_video_hwc_planes_frame_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf);
+EINTERN Eina_Bool    e_video_hwc_planes_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf);
 EINTERN Eina_Bool    e_video_hwc_planes_check_if_pp_needed(E_Video_Hwc *evh);
 EINTERN Eina_Bool    e_video_hwc_planes_properties_commit(E_Video_Hwc *evh);
 EINTERN Eina_Bool    e_video_hwc_planes_commit_available_check(E_Video_Hwc *evh);
@@ -88,7 +88,7 @@ EINTERN tbm_surface_h   e_video_hwc_planes_displaying_buffer_get(E_Video_Hwc *ev
 
 EINTERN E_Video_Hwc *e_video_hwc_windows_create(void);
 EINTERN Eina_Bool    e_video_hwc_windows_init(E_Video_Hwc *evh);
-EINTERN Eina_Bool    e_video_hwc_windows_frame_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf);
+EINTERN Eina_Bool    e_video_hwc_windows_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf);
 EINTERN Eina_Bool    e_video_hwc_windows_check_if_pp_needed(E_Video_Hwc *evh);
 EINTERN Eina_Bool    e_video_hwc_windows_commit_available_check(E_Video_Hwc *evh);
 EINTERN tbm_surface_h   e_video_hwc_windows_displaying_buffer_get(E_Video_Hwc *evh);

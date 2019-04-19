@@ -155,9 +155,9 @@ _e_video_hwc_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
      goto no_commit;
 
    if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-     res = e_video_hwc_planes_frame_buffer_show(evh, vbuf);
+     res = e_video_hwc_planes_buffer_commit(evh, vbuf);
    else
-     res = e_video_hwc_windows_frame_buffer_show(evh, vbuf);
+     res = e_video_hwc_windows_buffer_commit(evh, vbuf);
 
    if (!res)
      goto no_commit;
@@ -233,9 +233,9 @@ _e_video_hwc_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
    if (need_hide)
      {
         if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-          e_video_hwc_planes_frame_buffer_show(evh, NULL);
+          e_video_hwc_planes_buffer_commit(evh, NULL);
         else
-          e_video_hwc_windows_frame_buffer_show(evh, NULL);
+          e_video_hwc_windows_buffer_commit(evh, NULL);
      }
 }
 
@@ -367,9 +367,9 @@ _e_video_hwc_hide(E_Video_Hwc *evh)
    if (evh->current_fb || evh->committed_list)
      {
         if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-          e_video_hwc_planes_frame_buffer_show(evh, NULL);
+          e_video_hwc_planes_buffer_commit(evh, NULL);
         else
-          e_video_hwc_windows_frame_buffer_show(evh, NULL);
+          e_video_hwc_windows_buffer_commit(evh, NULL);
      }
 
    if (evh->current_fb)

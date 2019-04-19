@@ -44,7 +44,7 @@ static Eina_List *video_layers = NULL;
 
 static Eina_Bool _e_video_hwc_planes_set(E_Video_Hwc_Planes *evhp);
 static void _e_video_hwc_planes_destroy(E_Video_Hwc_Planes *evhp);
-static Eina_Bool _e_video_hwc_planes_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf);
+static Eina_Bool _e_video_hwc_planes_buffer_commit(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf);
 static void _e_video_hwc_planes_cb_eplane_video_set_hook(void *data, E_Plane *plane);
 
 static tdm_layer* _e_video_hwc_planes_video_tdm_layer_get(tdm_output *output);
@@ -330,7 +330,7 @@ _e_video_hwc_planes_cb_eplane_video_set_hook(void *data, E_Plane *plane)
 }
 
 static Eina_Bool
-_e_video_hwc_planes_frame_buffer_show(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
+_e_video_hwc_planes_buffer_commit(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf *vbuf)
 {
    E_Client_Video_Info info, old_info;
    tdm_error ret;
@@ -468,7 +468,7 @@ _e_video_hwc_planes_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *o
      }
 
    VIN("evas hide", evhp->base.ec);
-   _e_video_hwc_planes_frame_buffer_show(evhp, NULL);
+   _e_video_hwc_planes_buffer_commit(evhp, NULL);
 }
 
 static Eina_Bool
@@ -1104,12 +1104,12 @@ e_video_hwc_planes_displaying_buffer_get(E_Video_Hwc *evh)
 }
 
 EINTERN Eina_Bool
-e_video_hwc_planes_frame_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
+e_video_hwc_planes_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
 {
    E_Video_Hwc_Planes *evhp;
 
    evhp = (E_Video_Hwc_Planes *)evh;
-   return _e_video_hwc_planes_frame_buffer_show(evhp, vbuf);
+   return _e_video_hwc_planes_buffer_commit(evhp, vbuf);
 }
 
 EINTERN Eina_Bool
