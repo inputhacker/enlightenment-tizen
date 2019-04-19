@@ -95,6 +95,7 @@ EINTERN tbm_surface_h   e_video_hwc_windows_displaying_buffer_get(E_Video_Hwc *e
 
 EINTERN void         e_video_hwc_show(E_Video_Hwc *evh);
 EINTERN void         e_video_hwc_wait_buffer_commit(E_Video_Hwc *evh);
+EINTERN void         e_video_hwc_client_mask_update(E_Video_Hwc *evh);
 EINTERN Eina_Bool    e_video_hwc_current_fb_update(E_Video_Hwc *evh);
 
 EINTERN E_Client    *e_video_hwc_client_offscreen_parent_get(E_Client *ec);

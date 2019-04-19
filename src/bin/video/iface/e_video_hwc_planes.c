@@ -334,7 +334,6 @@ _e_video_hwc_planes_buffer_commit(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf 
 {
    E_Client_Video_Info info, old_info;
    tdm_error ret;
-   E_Client *topmost;
 
    if (!vbuf)
      {
@@ -396,42 +395,7 @@ _e_video_hwc_planes_buffer_commit(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf 
 
    _tdm_layer_property_list_set(evhp->tdm.layer, evhp->tdm.late_prop_list);
 
-   topmost = e_comp_wl_topmost_parent_get(evhp->base.ec);
-   if (topmost && topmost->argb && !e_comp_object_mask_has(evhp->base.ec->frame))
-     {
-        Eina_Bool do_punch = EINA_TRUE;
-
-        /* FIXME: the mask obj can be drawn at the wrong position in the beginnig
-         * time. It happens caused by window manager policy.
-         */
-        if ((topmost->fullscreen || topmost->maximized) &&
-            (evhp->base.geo.output_r.x == 0 || evhp->base.geo.output_r.y == 0))
-          {
-             int bw, bh;
-
-             e_pixmap_size_get(topmost->pixmap, &bw, &bh);
-
-             if (bw > 100 && bh > 100 &&
-                 evhp->base.geo.output_r.w < 100 && evhp->base.geo.output_r.h < 100)
-               {
-                  VIN("don't punch. (%dx%d, %dx%d)", evhp->base.ec,
-                      bw, bh, evhp->base.geo.output_r.w, evhp->base.geo.output_r.h);
-                  do_punch = EINA_FALSE;
-               }
-          }
-
-        if (do_punch)
-          {
-             e_comp_object_mask_set(evhp->base.ec->frame, EINA_TRUE);
-             VIN("punched", evhp->base.ec);
-          }
-     }
-
-   if (e_video_debug_punch_value_get())
-     {
-        e_comp_object_mask_set(evhp->base.ec->frame, EINA_TRUE);
-        VIN("punched", evhp->base.ec);
-     }
+   e_video_hwc_client_mask_update((E_Video_Hwc *)evhp);
 
    DBG("Client(%s):PID(%d) RscID(%d), Buffer(%p, refcnt:%d) is shown."
        "Geometry details are : buffer size(%dx%d) src(%d,%d, %dx%d)"

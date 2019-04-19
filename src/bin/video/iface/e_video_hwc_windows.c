@@ -86,44 +86,7 @@ _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
 
    // TODO:: this logic move to the hwc windows after hwc commit
 #if 1
-   E_Client *topmost;
-
-   topmost = e_comp_wl_topmost_parent_get(evhw->base.ec);
-   if (topmost && topmost->argb && !e_comp_object_mask_has(evhw->base.ec->frame))
-     {
-        Eina_Bool do_punch = EINA_TRUE;
-
-        /* FIXME: the mask obj can be drawn at the wrong position in the beginnig
-         * time. It happens caused by window manager policy.
-         */
-        if ((topmost->fullscreen || topmost->maximized) &&
-            (evhw->base.geo.output_r.x == 0 || evhw->base.geo.output_r.y == 0))
-          {
-             int bw, bh;
-
-             e_pixmap_size_get(topmost->pixmap, &bw, &bh);
-
-             if (bw > 100 && bh > 100 &&
-                 evhw->base.geo.output_r.w < 100 && evhw->base.geo.output_r.h < 100)
-               {
-                  VIN("don't punch. (%dx%d, %dx%d)", evhw->base.ec,
-                      bw, bh, evhw->base.geo.output_r.w, evhw->base.geo.output_r.h);
-                  do_punch = EINA_FALSE;
-               }
-          }
-
-        if (do_punch)
-          {
-             e_comp_object_mask_set(evhw->base.ec->frame, EINA_TRUE);
-             VIN("punched", evhw->base.ec);
-          }
-     }
-
-   if (e_video_debug_punch_value_get())
-     {
-        e_comp_object_mask_set(evhw->base.ec->frame, EINA_TRUE);
-        VIN("punched", evhw->base.ec);
-     }
+   e_video_hwc_client_mask_update((E_Video_Hwc *)evhw);
 #endif
 
    return EINA_TRUE;
