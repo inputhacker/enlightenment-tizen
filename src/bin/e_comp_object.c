@@ -4792,7 +4792,7 @@ e_comp_object_effect_set(Evas_Object *obj, const char *effect)
         if (!e_comp_object_effect_stop(obj, evas_object_data_get(cw->effect_obj, "_e_comp.end_cb")))
           return EINA_FALSE;
      }
-   INF("[EFFECT Set] ec[%p] GROUP[%s]\n",cw->ec, buf);
+   ELOGF("COMP", "EFFECT Set GROUP[%s]", cw->ec, buf);
    edje_object_part_swallow(cw->effect_obj, "e.swallow.content", cw->shobj);
    if (cw->effect_clip)
      {
@@ -5415,13 +5415,13 @@ e_comp_object_content_unset(Evas_Object *obj)
 
    if (!cw->obj && !cw->ec->visible)
      {
-        INF("%p is not visible yet. no need to unset", cw->ec);
+        ELOGF("COMP", "is not visible yet. no need to unset", cw->ec);
         return EINA_TRUE;
      }
 
    if (cw->content_type == E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
      {
-        INF("%p has been set to internal image object already.", cw->ec);
+        ELOGF("COMP", "has been set to internal image object already", cw->ec);
         return EINA_TRUE;
      }
 
@@ -5486,7 +5486,7 @@ e_comp_object_content_get(Evas_Object *obj)
 
    if (cw->content_type == E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
      {
-        INF("%p has been set to internal image object. couldn't return internal image object", cw->ec);
+        ELOGF("COMP", "has been set to internal image object. couldn't return internal image object", cw->ec);
         return NULL;
      }
 
@@ -5542,7 +5542,7 @@ e_comp_object_dim_mask_set(Evas_Object *obj, Eina_Bool set)
              E_FREE_FUNC(cw->dim.mask_obj, evas_object_del);
           }
 
-        INF("[DIM]Mask applied on Dim rect client[%p] mask_rect[%d %d %d %d]", cw->ec, cw->dim.mask_x, cw->dim.mask_y, cw->dim.mask_w, cw->dim.mask_h);
+        ELOGF("COMP", "DIM  |Mask applied on Dim rect mask_rect[%d %d %d %d]", cw->ec, cw->dim.mask_x, cw->dim.mask_y, cw->dim.mask_w, cw->dim.mask_h);
         o = evas_object_rectangle_add(e_comp->evas);
         evas_object_color_set(o, 0, 0, 0, 0);
         evas_object_smart_member_add(o, obj);
@@ -5560,7 +5560,7 @@ e_comp_object_dim_mask_set(Evas_Object *obj, Eina_Bool set)
      {
         if (cw->dim.mask_obj)
           {
-             INF("[DIM] Mask on Dim rect Removed");
+             ELOGF("COMP", "DIM  |Mask on Dim rect Removed", cw->ec);
              evas_object_smart_member_del(cw->dim.mask_obj);
              E_FREE_FUNC(cw->dim.mask_obj, evas_object_del);
           }
@@ -5576,7 +5576,7 @@ e_comp_object_dim_client_set(E_Client *ec)
    if (dim_client == ec) return;
 
    Eina_Bool prev_dim = EINA_FALSE;
-   INF("[DIM] Client Set %p -> %p", dim_client, ec);
+   ELOGF("COMP", "DIM  |Client Set %p -> %p", ec, dim_client, ec);
 
    if (dim_client && _e_comp_object_dim_enable_get(dim_client, dim_client->frame))
       prev_dim = EINA_TRUE;
@@ -5616,14 +5616,13 @@ _e_comp_object_dim_enable_set(E_Client *ec, Evas_Object *obj, Eina_Bool enable, 
    if (!cw->effect_obj) return;
    if (enable == cw->dim.enable) return;
 
+   ELOGF("COMP", "DIM  |set on Client [%d]", ec, enable);
    if (noeffect || !conf->dim_rect_effect)
      {
-        INF("[DIM] Applied on Client[%p] ON[%d]\n",ec,enable );
         strncpy(emit, (enable ? "e,state,dim,on,noeffect" : "e,state,dim,off,noeffect"), sizeof(emit) - 1);
      }
    else
      {
-        INF("[DIM] Applied on Client[%p] ON[%d]\n",ec,enable );
         strncpy(emit, (enable ? "e,state,dim,on" : "e,state,dim,off"), sizeof(emit) - 1);
      }
 
@@ -5670,7 +5669,7 @@ _e_comp_object_dim_update(E_Comp_Object *cw)
    if (cw->dim.enable)
      {
         edje_object_signal_emit(cw->effect_obj, (cw->dim.enable ? "e,state,dim,on,noeffect" : "e,state,dim,off,noeffect"), "e");
-        INF("[DIM] Applied on Client[%p] enable[%d]\n",cw->ec, cw->dim.enable);
+        ELOGF("COMP", "DIM  |Applied on Client dim.enable[%d]", cw->ec, cw->dim.enable);
 
         if (cw->dim.mask_set)
           {
