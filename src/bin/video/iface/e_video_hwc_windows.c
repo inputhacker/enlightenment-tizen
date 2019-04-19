@@ -28,19 +28,6 @@ struct _E_Video_Hwc_Windows
 };
 
 static void
-_e_video_hwc_windows_commit_done(E_Video_Hwc_Windows *evhw)
-{
-   E_Video_Hwc *evh;
-
-   evh = (E_Video_Hwc *)evhw;
-
-   if (!e_video_hwc_commit_done(evh))
-     return;
-
-   e_video_hwc_wait_buffer_commit(evh);
-}
-
-static void
 _e_video_hwc_windows_commit_data_set(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
 {
    CLEAR(evhw->commit_data.info);
@@ -415,11 +402,15 @@ _e_video_hwc_windows_iface_info_get(E_Video_Comp_Iface *iface, E_Client_Video_In
 static Eina_Bool
 _e_video_hwc_windows_iface_commit_data_release(E_Video_Comp_Iface *iface, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec)
 {
+   E_Video_Hwc *evh;
+
    IFACE_ENTRY;
 
    evhw->commit_data.wait_release = EINA_FALSE;
 
-   _e_video_hwc_windows_commit_done(evhw);
+   evh = (E_Video_Hwc *)evhw;
+   if (e_video_hwc_current_fb_update(evh))
+     e_video_hwc_wait_buffer_commit(evh);
 
    return EINA_TRUE;
 }

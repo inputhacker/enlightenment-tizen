@@ -1705,7 +1705,7 @@ e_video_hwc_iface_create(E_Client *ec)
 }
 
 EINTERN Eina_Bool
-e_video_hwc_commit_done(E_Video_Hwc *evh)
+e_video_hwc_current_fb_update(E_Video_Hwc *evh)
 {
    return _e_video_hwc_current_fb_update(evh);
 }

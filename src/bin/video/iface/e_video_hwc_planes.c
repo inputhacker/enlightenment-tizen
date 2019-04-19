@@ -295,7 +295,7 @@ _e_video_hwc_planes_cb_commit_handler(tdm_layer *layer, unsigned int sequence,
    evhp = user_data;
    if (!evhp) return;
 
-   e_video_hwc_commit_done((E_Video_Hwc *)evhp);
+   e_video_hwc_current_fb_update((E_Video_Hwc *)evhp);
 }
 
 static void
