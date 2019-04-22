@@ -7,10 +7,6 @@
 
 #define CHECKING_PRIMARY_ZPOS
 
-#define IFACE_ENTRY                                      \
-   E_Video_Hwc_Planes *evhp;                              \
-   evhp = container_of(iface, E_Video_Hwc_Planes, base.backend)
-
 typedef struct _E_Video_Hwc_Planes E_Video_Hwc_Planes;
 typedef struct _E_Video_Info_Layer E_Video_Info_Layer;
 
@@ -366,6 +362,7 @@ _e_video_hwc_planes_tdm_layer_set(E_Video_Hwc_Planes *evhp)
         VWR("no available layer for evhp", NULL);
         return EINA_FALSE;
      }
+
    _e_video_hwc_planes_tdm_layer_usable_set(layer, EINA_FALSE);
 
    ret = tdm_layer_get_zpos(layer, &zpos);
@@ -870,21 +867,22 @@ _e_video_hwc_planes_ec_event_init(E_Video_Hwc_Planes *evhp)
 }
 
 static void
-_e_video_hwc_planes_iface_destroy(E_Video_Comp_Iface *iface)
+_e_video_hwc_planes_iface_destroy(E_Video_Hwc *evh)
 {
-   IFACE_ENTRY;
+   E_Video_Hwc_Planes *evhp;
 
+   evhp = (E_Video_Hwc_Planes *)evh;
    _e_video_hwc_planes_ec_event_deinit(evhp);
    _e_video_hwc_planes_destroy(evhp);
 }
 
 static Eina_Bool
-_e_video_hwc_planes_iface_property_get(E_Video_Comp_Iface *iface, unsigned int id, tdm_value *value)
+_e_video_hwc_planes_iface_property_get(E_Video_Hwc *evh, unsigned int id, tdm_value *value)
 {
+   E_Video_Hwc_Planes *evhp;
    tdm_error ret;
 
-   IFACE_ENTRY;
-
+   evhp = (E_Video_Hwc_Planes *)evh;
    ret = _tdm_layer_property_get(evhp->tdm.layer, id, value);
    if (ret != TDM_ERROR_NONE)
      return EINA_FALSE;
@@ -893,13 +891,13 @@ _e_video_hwc_planes_iface_property_get(E_Video_Comp_Iface *iface, unsigned int i
 }
 
 static Eina_Bool
-_e_video_hwc_planes_iface_property_set(E_Video_Comp_Iface *iface, unsigned int id, tdm_value value)
+_e_video_hwc_planes_iface_property_set(E_Video_Hwc *evh, unsigned int id, tdm_value value)
 {
+   E_Video_Hwc_Planes *evhp;
    Tdm_Prop_Value prop;
    const char *name;
 
-   IFACE_ENTRY;
-
+   evhp = (E_Video_Hwc_Planes *)evh;
    VIN("set layer: set_attribute", evhp->base.ec);
 
    name = _e_video_hwc_planes_prop_name_get_by_id(evhp, id);
@@ -941,26 +939,12 @@ _e_video_hwc_planes_iface_property_set(E_Video_Comp_Iface *iface, unsigned int i
 }
 
 static Eina_Bool
-_e_video_hwc_planes_iface_property_delay_set(E_Video_Comp_Iface *iface, unsigned int id, tdm_value value)
+_e_video_hwc_planes_iface_available_properties_get(E_Video_Hwc *evh, const tdm_prop **props, int *count)
 {
-   const char *name;
-
-   IFACE_ENTRY;
-
-   name = _e_video_hwc_planes_prop_name_get_by_id(evhp, id);
-
-   _e_video_hwc_planes_property_post_set(evhp, id, name, value);
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_video_hwc_planes_iface_available_properties_get(E_Video_Comp_Iface *iface, const tdm_prop **props, int *count)
-{
+   E_Video_Hwc_Planes *evhp;
    tdm_error ret;
 
-   IFACE_ENTRY;
-
+   evhp = (E_Video_Hwc_Planes *)evh;
    ret = _e_video_hwc_planes_available_properties_get(evhp, props, count);
    if (ret != TDM_ERROR_NONE)
      return EINA_FALSE;
@@ -968,77 +952,8 @@ _e_video_hwc_planes_iface_available_properties_get(E_Video_Comp_Iface *iface, co
    return EINA_TRUE;
 }
 
-EINTERN E_Video_Hwc *
-e_video_hwc_planes_create(E_Output *output, E_Client *ec)
-{
-   E_Video_Hwc_Planes *evhp;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
-
-   VIN("Create HWC Planes backend", ec);
-
-   evhp = E_NEW(E_Video_Hwc_Planes, 1);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(evhp, NULL);
-
-   evhp->base.e_output = output;
-   evhp->tdm.output = output->toutput;
-
-   if (!_e_video_hwc_planes_init(evhp, output))
-     {
-        ERR("Failed to init 'E_Video_Hwc_Planes'");
-        free(evhp);
-        return NULL;
-     }
-
-   _e_video_hwc_planes_ec_event_init(evhp);
-
-   evhp->base.backend.destroy = _e_video_hwc_planes_iface_destroy;
-   evhp->base.backend.property_get = _e_video_hwc_planes_iface_property_get;
-   evhp->base.backend.property_set = _e_video_hwc_planes_iface_property_set;
-   evhp->base.backend.property_delay_set = _e_video_hwc_planes_iface_property_delay_set;
-   evhp->base.backend.available_properties_get = _e_video_hwc_planes_iface_available_properties_get;
-   evhp->base.backend.info_get = NULL;
-   evhp->base.backend.commit_data_release = NULL;
-   evhp->base.backend.tbm_surface_get = NULL;
-
-   return (E_Video_Hwc *)evhp;
-}
-
-EINTERN Eina_Bool
-e_video_hwc_planes_properties_commit(E_Video_Hwc *evh)
-{
-   E_Video_Hwc_Planes *evhp;
-
-   evhp = (E_Video_Hwc_Planes *)evh;
-
-   /* FIXME: Is it really necessary? */
-   if (evhp->tdm.layer)
-     return EINA_TRUE;
-
-   VIN("set layer: show", evhp->base.ec);
-   if (!_e_video_hwc_planes_tdm_layer_set(evhp))
-     {
-        VER("set layer failed", evhp->base.ec);
-        return EINA_FALSE;
-     }
-
-   _tdm_layer_property_list_set(evhp->tdm.layer, evhp->tdm.prop_list);
-
-   return EINA_TRUE;
-}
-
-EINTERN tbm_surface_h
-e_video_hwc_planes_displaying_buffer_get(E_Video_Hwc *evh)
-{
-   E_Video_Hwc_Planes *evhp;
-
-   evhp = (E_Video_Hwc_Planes *)evh;
-   return _tdm_layer_displaying_buffer_get(evhp->tdm.layer, NULL);
-}
-
-EINTERN Eina_Bool
-e_video_hwc_planes_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
+static Eina_Bool
+_e_video_hwc_planes_iface_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
 {
    E_Video_Hwc_Planes *evhp;
 
@@ -1046,8 +961,8 @@ e_video_hwc_planes_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
    return _e_video_hwc_planes_buffer_commit(evhp, vbuf);
 }
 
-EINTERN Eina_Bool
-e_video_hwc_planes_check_if_pp_needed(E_Video_Hwc *evh)
+static Eina_Bool
+_e_video_hwc_planes_iface_check_if_pp_needed(E_Video_Hwc *evh)
 {
    E_Video_Hwc_Planes *evhp;
    int i, count = 0;
@@ -1106,11 +1021,99 @@ need_pp:
    return EINA_TRUE;
 }
 
-EINTERN Eina_Bool
-e_video_hwc_planes_commit_available_check(E_Video_Hwc *evh)
+static Eina_Bool
+_e_video_hwc_planes_iface_commit_available_check(E_Video_Hwc *evh)
 {
    E_Video_Hwc_Planes *evhp;
 
    evhp = (E_Video_Hwc_Planes *)evh;
    return !(evhp->waiting_vblank || evhp->video_plane_ready_handler);
+}
+
+static tbm_surface_h
+_e_video_hwc_planes_iface_displaying_buffer_get(E_Video_Hwc *evh)
+{
+   E_Video_Hwc_Planes *evhp;
+
+   evhp = (E_Video_Hwc_Planes *)evh;
+   return _tdm_layer_displaying_buffer_get(evhp->tdm.layer, NULL);
+}
+
+static void
+_e_video_hwc_planes_iface_set(E_Video_Hwc_Iface *iface)
+{
+   iface->destroy = _e_video_hwc_planes_iface_destroy;
+   iface->property_get = _e_video_hwc_planes_iface_property_get;
+   iface->property_set = _e_video_hwc_planes_iface_property_set;
+   iface->available_properties_get = _e_video_hwc_planes_iface_available_properties_get;
+   iface->buffer_commit = _e_video_hwc_planes_iface_buffer_commit;
+   iface->check_if_pp_needed = _e_video_hwc_planes_iface_check_if_pp_needed;
+   iface->commit_available_check = _e_video_hwc_planes_iface_commit_available_check;
+   iface->displaying_buffer_get = _e_video_hwc_planes_iface_displaying_buffer_get;
+}
+
+EINTERN E_Video_Hwc *
+e_video_hwc_planes_create(E_Output *output, E_Client *ec)
+{
+   E_Video_Hwc_Planes *evhp;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+
+   VIN("Create HWC Planes backend", ec);
+
+   evhp = E_NEW(E_Video_Hwc_Planes, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(evhp, NULL);
+
+   evhp->base.e_output = output;
+   evhp->tdm.output = output->toutput;
+
+   if (!_e_video_hwc_planes_init(evhp, output))
+     {
+        ERR("Failed to init 'E_Video_Hwc_Planes'");
+        free(evhp);
+        return NULL;
+     }
+
+   _e_video_hwc_planes_ec_event_init(evhp);
+   _e_video_hwc_planes_iface_set(&evhp->base.backend);
+
+   return (E_Video_Hwc *)evhp;
+}
+
+EINTERN Eina_Bool
+e_video_hwc_planes_properties_commit(E_Video_Hwc *evh)
+{
+   E_Video_Hwc_Planes *evhp;
+
+   evhp = (E_Video_Hwc_Planes *)evh;
+
+   /* FIXME: Is it really necessary? */
+   if (evhp->tdm.layer)
+     return EINA_TRUE;
+
+   VIN("set layer: show", evhp->base.ec);
+   if (!_e_video_hwc_planes_tdm_layer_set(evhp))
+     {
+        VER("set layer failed", evhp->base.ec);
+        return EINA_FALSE;
+     }
+
+   _tdm_layer_property_list_set(evhp->tdm.layer, evhp->tdm.prop_list);
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_video_hwc_planes_property_delay_set(E_Video_Hwc *evh, unsigned int id, tdm_value value)
+{
+   E_Video_Hwc_Planes *evhp;
+   const char *name;
+
+   evhp = (E_Video_Hwc_Planes *)evh;
+   name = _e_video_hwc_planes_prop_name_get_by_id(evhp, id);
+
+   _e_video_hwc_planes_property_post_set(evhp, id, name, value);
+
+   return EINA_TRUE;
 }

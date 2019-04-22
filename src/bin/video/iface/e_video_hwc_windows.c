@@ -5,10 +5,6 @@
 #include "e_video_internal.h"
 #include "e_video_hwc.h"
 
-#define IFACE_ENTRY                                      \
-   E_Video_Hwc_Windows *evhw;                              \
-   evhw = container_of(iface, E_Video_Hwc_Windows, base.backend)
-
 typedef struct _E_Video_Hwc_Windows E_Video_Hwc_Windows;
 
 struct _E_Video_Hwc_Windows
@@ -73,23 +69,6 @@ _e_video_hwc_windows_commit_data_set(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_
        evhw->commit_data.info.dst_pos.x, evhw->commit_data.info.dst_pos.y,
        evhw->commit_data.info.dst_pos.w, evhw->commit_data.info.dst_pos.h,
        evhw->commit_data.info.transform);
-}
-
-static Eina_Bool
-_e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
-{
-   /* show means that set the information of the buffer and the info of the hwc window */
-
-   if (!vbuf) return EINA_TRUE;
-
-   _e_video_hwc_windows_commit_data_set(evhw, vbuf);
-
-   // TODO:: this logic move to the hwc windows after hwc commit
-#if 1
-   e_video_hwc_client_mask_update((E_Video_Hwc *)evhw);
-#endif
-
-   return EINA_TRUE;
 }
 
 static void
@@ -258,21 +237,22 @@ _e_video_hwc_windows_ec_event_init(E_Video_Hwc_Windows *evhw)
 }
 
 static void
-_e_video_hwc_windows_iface_destroy(E_Video_Comp_Iface *iface)
+_e_video_hwc_windows_iface_destroy(E_Video_Hwc *evh)
 {
-   IFACE_ENTRY;
+   E_Video_Hwc_Windows *evhw;
 
+   evhw = (E_Video_Hwc_Windows *)evh;
    _e_video_hwc_windows_ec_event_deinit(evhw);
    _e_video_destroy(evhw);
 }
 
 static Eina_Bool
-_e_video_hwc_windows_iface_property_get(E_Video_Comp_Iface *iface, unsigned int id, tdm_value *value)
+_e_video_hwc_windows_iface_property_get(E_Video_Hwc *evh, unsigned int id, tdm_value *value)
 {
+   E_Video_Hwc_Windows *evhw;
    tdm_error ret;
 
-   IFACE_ENTRY;
-
+   evhw = (E_Video_Hwc_Windows *)evh;
    ret = tdm_hwc_window_get_property(evhw->hwc_window->thwc_window, id, value);
    if (ret != TDM_ERROR_NONE)
      return EINA_FALSE;
@@ -281,12 +261,12 @@ _e_video_hwc_windows_iface_property_get(E_Video_Comp_Iface *iface, unsigned int 
 }
 
 static Eina_Bool
-_e_video_hwc_windows_iface_property_set(E_Video_Comp_Iface *iface, unsigned int id, tdm_value value)
+_e_video_hwc_windows_iface_property_set(E_Video_Hwc *evh, unsigned int id, tdm_value value)
 {
+   E_Video_Hwc_Windows *evhw;
    const char *name;
 
-   IFACE_ENTRY;
-
+   evhw = (E_Video_Hwc_Windows *)evh;
    VIN("set_attribute", evhw->base.ec);
 
    name = _e_video_hwc_windows_prop_name_get_by_id(evhw, id);
@@ -323,10 +303,11 @@ _e_video_hwc_windows_iface_property_set(E_Video_Comp_Iface *iface, unsigned int 
 }
 
 static Eina_Bool
-_e_video_hwc_windows_iface_available_properties_get(E_Video_Comp_Iface *iface, const tdm_prop **props, int *count)
+_e_video_hwc_windows_iface_available_properties_get(E_Video_Hwc *evh, const tdm_prop **props, int *count)
 {
-   IFACE_ENTRY;
+   E_Video_Hwc_Windows *evhw;
 
+   evhw = (E_Video_Hwc_Windows *)evh;
    if (!e_hwc_windows_get_video_available_properties(evhw->hwc, props, count))
      return EINA_FALSE;
 
@@ -334,102 +315,28 @@ _e_video_hwc_windows_iface_available_properties_get(E_Video_Comp_Iface *iface, c
 }
 
 static Eina_Bool
-_e_video_hwc_windows_iface_info_get(E_Video_Comp_Iface *iface, E_Client_Video_Info *info)
+_e_video_hwc_windows_iface_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
 {
-   IFACE_ENTRY;
+   E_Video_Hwc_Windows *evhw;
 
-   memcpy(&info->src_config, &evhw->commit_data.info.src_config, sizeof(tdm_info_config));
-   memcpy(&info->dst_pos, &evhw->commit_data.info.dst_pos, sizeof(tdm_pos));
-   info->transform = evhw->commit_data.info.transform;
+   evhw = (E_Video_Hwc_Windows *)evh;
+
+   /* show means that set the information of the buffer and the info of the hwc window */
+
+   if (!vbuf) return EINA_TRUE;
+
+   _e_video_hwc_windows_commit_data_set(evhw, vbuf);
+
+   // TODO:: this logic move to the hwc windows after hwc commit
+#if 1
+   e_video_hwc_client_mask_update((E_Video_Hwc *)evhw);
+#endif
 
    return EINA_TRUE;
 }
 
 static Eina_Bool
-_e_video_hwc_windows_iface_commit_data_release(E_Video_Comp_Iface *iface, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec)
-{
-   E_Video_Hwc *evh;
-
-   IFACE_ENTRY;
-
-   evhw->commit_data.wait_release = EINA_FALSE;
-
-   evh = (E_Video_Hwc *)evhw;
-   if (e_video_hwc_current_fb_update(evh))
-     e_video_hwc_wait_buffer_commit(evh);
-
-   return EINA_TRUE;
-}
-
-static tbm_surface_h
-_e_video_hwc_windows_iface_tbm_surface_get(E_Video_Comp_Iface *iface)
-{
-   IFACE_ENTRY;
-
-   return evhw->commit_data.buffer;
-}
-
-EINTERN E_Video_Hwc *
-e_video_hwc_windows_create(E_Output *output, E_Client *ec)
-{
-   E_Video_Hwc_Windows *evhw;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
-
-   VIN("Create HWC Windows backend", ec);
-
-   evhw = E_NEW(E_Video_Hwc_Windows, 1);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(evhw, NULL);
-
-   evhw->hwc = output->hwc;
-   if (!evhw->hwc)
-     {
-        free(evhw);
-        return NULL;
-     }
-
-   evhw->hwc_window = e_hwc_window_new(evhw->hwc, ec, E_HWC_WINDOW_STATE_VIDEO);
-   if (!evhw->hwc_window)
-     {
-        free(evhw);
-        return NULL;
-     }
-
-   _e_video_hwc_windows_ec_event_init(evhw);
-
-   evhw->base.backend.destroy = _e_video_hwc_windows_iface_destroy;
-   evhw->base.backend.property_get = _e_video_hwc_windows_iface_property_get;
-   evhw->base.backend.property_set = _e_video_hwc_windows_iface_property_set;
-   evhw->base.backend.property_delay_set = NULL;
-   evhw->base.backend.available_properties_get = _e_video_hwc_windows_iface_available_properties_get;
-   evhw->base.backend.info_get = _e_video_hwc_windows_iface_info_get;
-   evhw->base.backend.commit_data_release = _e_video_hwc_windows_iface_commit_data_release;
-   evhw->base.backend.tbm_surface_get = _e_video_hwc_windows_iface_tbm_surface_get;
-
-   return (E_Video_Hwc *)evhw;
-}
-
-EINTERN tbm_surface_h
-e_video_hwc_windows_displaying_buffer_get(E_Video_Hwc *evh)
-{
-   E_Video_Hwc_Windows *evhw;
-
-   evhw = (E_Video_Hwc_Windows *)evh;
-   return evhw->commit_data.buffer;
-}
-
-EINTERN Eina_Bool
-e_video_hwc_windows_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
-{
-   E_Video_Hwc_Windows *evhw;
-
-   evhw = (E_Video_Hwc_Windows *)evh;
-   return _e_video_frame_buffer_show(evhw, vbuf);
-}
-
-EINTERN Eina_Bool
-e_video_hwc_windows_check_if_pp_needed(E_Video_Hwc *evh)
+_e_video_hwc_windows_iface_check_if_pp_needed(E_Video_Hwc *evh)
 {
    E_Video_Hwc_Windows *evhw;
    int i, count = 0;
@@ -485,11 +392,102 @@ need_pp:
    return EINA_TRUE;
 }
 
-EINTERN Eina_Bool
-e_video_hwc_windows_commit_available_check(E_Video_Hwc *evh)
+static  Eina_Bool
+_e_video_hwc_windows_iface_commit_available_check(E_Video_Hwc *evh)
 {
    E_Video_Hwc_Windows *evhw;
 
    evhw = (E_Video_Hwc_Windows *)evh;
    return !evhw->commit_data.wait_release;
+}
+
+static tbm_surface_h
+_e_video_hwc_windows_iface_displaying_buffer_get(E_Video_Hwc *evh)
+{
+   E_Video_Hwc_Windows *evhw;
+
+   evhw = (E_Video_Hwc_Windows *)evh;
+   return evhw->commit_data.buffer;
+}
+
+static void
+_e_video_hwc_windows_iface_set(E_Video_Hwc_Iface *iface)
+{
+   iface->destroy = _e_video_hwc_windows_iface_destroy;
+   iface->property_get = _e_video_hwc_windows_iface_property_get;
+   iface->property_set = _e_video_hwc_windows_iface_property_set;
+   iface->available_properties_get = _e_video_hwc_windows_iface_available_properties_get;
+   iface->buffer_commit = _e_video_hwc_windows_iface_buffer_commit;
+   iface->check_if_pp_needed = _e_video_hwc_windows_iface_check_if_pp_needed;
+   iface->commit_available_check = _e_video_hwc_windows_iface_commit_available_check;
+   iface->displaying_buffer_get = _e_video_hwc_windows_iface_displaying_buffer_get;
+}
+
+EINTERN E_Video_Hwc *
+e_video_hwc_windows_create(E_Output *output, E_Client *ec)
+{
+   E_Video_Hwc_Windows *evhw;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+
+   VIN("Create HWC Windows backend", ec);
+
+   evhw = E_NEW(E_Video_Hwc_Windows, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(evhw, NULL);
+
+   evhw->hwc = output->hwc;
+   if (!evhw->hwc)
+     {
+        free(evhw);
+        return NULL;
+     }
+
+   evhw->hwc_window = e_hwc_window_new(evhw->hwc, ec, E_HWC_WINDOW_STATE_VIDEO);
+   if (!evhw->hwc_window)
+     {
+        free(evhw);
+        return NULL;
+     }
+
+   _e_video_hwc_windows_ec_event_init(evhw);
+   _e_video_hwc_windows_iface_set(&evhw->base.backend);
+
+   return (E_Video_Hwc *)evhw;
+}
+
+EINTERN Eina_Bool
+e_video_hwc_windows_info_get(E_Video_Hwc *evh, E_Client_Video_Info *info)
+{
+   E_Video_Hwc_Windows *evhw;
+
+   evhw = (E_Video_Hwc_Windows *)evh;
+   memcpy(&info->src_config, &evhw->commit_data.info.src_config, sizeof(tdm_info_config));
+   memcpy(&info->dst_pos, &evhw->commit_data.info.dst_pos, sizeof(tdm_pos));
+   info->transform = evhw->commit_data.info.transform;
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_video_hwc_windows_commit_data_release(E_Video_Hwc *evh, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec)
+{
+   E_Video_Hwc_Windows *evhw;
+
+   evhw = (E_Video_Hwc_Windows *)evh;
+   evhw->commit_data.wait_release = EINA_FALSE;
+
+   if (e_video_hwc_current_fb_update(evh))
+     e_video_hwc_wait_buffer_commit(evh);
+
+   return EINA_TRUE;
+}
+
+EINTERN tbm_surface_h
+e_video_hwc_windows_tbm_surface_get(E_Video_Hwc *evh)
+{
+   E_Video_Hwc_Windows *evhw;
+
+   evhw = (E_Video_Hwc_Windows *)evh;
+   return evhw->commit_data.buffer;
 }

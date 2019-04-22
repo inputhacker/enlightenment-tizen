@@ -69,10 +69,7 @@ _e_video_hwc_current_fb_update(E_Video_Hwc *evh)
 
    if (_e_video_hwc_can_commit(evh))
      {
-        if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-          displaying_buffer = e_video_hwc_planes_displaying_buffer_get(evh);
-        else
-          displaying_buffer = e_video_hwc_windows_displaying_buffer_get(evh);
+        displaying_buffer = evh->backend.displaying_buffer_get(evh);
 
         EINA_LIST_FOREACH(evh->committed_list, l, vbuf)
           {
@@ -127,18 +124,12 @@ static void
 _e_video_hwc_wait_buffer_commit(E_Video_Hwc *evh)
 {
    E_Comp_Wl_Video_Buf *vbuf;
-   Eina_Bool res;
 
    vbuf = _e_video_hwc_buffer_dequeue(evh);
    if (!vbuf)
      return;
 
-   if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-     res = e_video_hwc_planes_commit_available_check(evh);
-   else
-     res = e_video_hwc_windows_commit_available_check(evh);
-
-   if (!res)
+   if (!evh->backend.commit_available_check(evh))
      return;
 
    _e_video_hwc_buffer_commit(evh, vbuf);
@@ -147,19 +138,12 @@ _e_video_hwc_wait_buffer_commit(E_Video_Hwc *evh)
 static void
 _e_video_hwc_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
 {
-   Eina_Bool res;
-
    evh->committed_list = eina_list_append(evh->committed_list, vbuf);
 
    if (!_e_video_hwc_can_commit(evh))
      goto no_commit;
 
-   if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-     res = e_video_hwc_planes_buffer_commit(evh, vbuf);
-   else
-     res = e_video_hwc_windows_buffer_commit(evh, vbuf);
-
-   if (!res)
+   if (!evh->backend.buffer_commit(evh, vbuf))
      goto no_commit;
 
    return;
@@ -172,8 +156,6 @@ no_commit:
 static void
 _e_video_hwc_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform)
 {
-   Eina_Bool res;
-
    vbuf->content_t = transform;
 
    e_comp_wl_video_buffer_set_use(vbuf, EINA_TRUE);
@@ -181,12 +163,7 @@ _e_video_hwc_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned i
    if (vbuf->comp_buffer)
      e_comp_wl_buffer_reference(&vbuf->buffer_ref, vbuf->comp_buffer);
 
-   if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-     res = e_video_hwc_planes_commit_available_check(evh);
-   else
-     res = e_video_hwc_windows_commit_available_check(evh);
-
-   if (!res)
+   if (!evh->backend.commit_available_check(evh))
      {
         _e_video_hwc_buffer_enqueue(evh, vbuf);
         return;
@@ -231,12 +208,7 @@ _e_video_hwc_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
      }
 
    if (need_hide)
-     {
-        if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-          e_video_hwc_planes_buffer_commit(evh, NULL);
-        else
-          e_video_hwc_windows_buffer_commit(evh, NULL);
-     }
+     evh->backend.buffer_commit(evh, NULL);
 }
 
 static E_Comp_Wl_Video_Buf *
@@ -365,12 +337,7 @@ _e_video_hwc_hide(E_Video_Hwc *evh)
    E_Comp_Wl_Video_Buf *vbuf;
 
    if (evh->current_fb || evh->committed_list)
-     {
-        if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-          e_video_hwc_planes_buffer_commit(evh, NULL);
-        else
-          e_video_hwc_windows_buffer_commit(evh, NULL);
-     }
+     evh->backend.buffer_commit(evh, NULL);
 
    if (evh->current_fb)
      {
@@ -1119,7 +1086,6 @@ _e_video_hwc_render(E_Video_Hwc *evh, const char *func)
    E_Comp_Wl_Video_Buf *pp_buffer = NULL;
    E_Comp_Wl_Video_Buf *input_buffer = NULL;
    E_Client *topmost;
-   Eina_Bool res;
 
    EINA_SAFETY_ON_NULL_RETURN(evh->ec);
 
@@ -1171,12 +1137,7 @@ _e_video_hwc_render(E_Video_Hwc *evh, const char *func)
 
    _e_video_hwc_input_buffer_valid((E_Video_Hwc *)evh, comp_buffer);
 
-   if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-     res = e_video_hwc_planes_check_if_pp_needed(evh);
-   else
-     res = e_video_hwc_windows_check_if_pp_needed(evh);
-
-   if (!res)
+   if (!evh->backend.check_if_pp_needed(evh))
      {
         /* 1. non converting case */
         input_buffer = _e_video_hwc_input_buffer_get(evh, comp_buffer, EINA_TRUE);
@@ -1448,7 +1409,7 @@ _e_video_hwc_iface_destroy(E_Video_Comp_Iface *iface)
    if (evh->pp)
      tdm_pp_destroy(evh->pp);
 
-   evh->backend.destroy(&evh->backend);
+   evh->backend.destroy(evh);
 }
 
 static Eina_Bool
@@ -1492,9 +1453,7 @@ _e_video_hwc_iface_property_get(E_Video_Comp_Iface *iface, unsigned int id, tdm_
 {
    IFACE_ENTRY;
 
-   if (evh->backend.property_get)
-     return evh->backend.property_get(&evh->backend, id, value);
-   return EINA_FALSE;
+   return evh->backend.property_get(evh, id, value);
 }
 
 static Eina_Bool
@@ -1502,9 +1461,7 @@ _e_video_hwc_iface_property_set(E_Video_Comp_Iface *iface, unsigned int id, tdm_
 {
    IFACE_ENTRY;
 
-   if (evh->backend.property_set)
-     return evh->backend.property_set(&evh->backend, id, value);
-   return EINA_FALSE;
+   return evh->backend.property_set(evh, id, value);
 }
 
 static Eina_Bool
@@ -1512,9 +1469,9 @@ _e_video_hwc_iface_property_delay_set(E_Video_Comp_Iface *iface, unsigned int id
 {
    IFACE_ENTRY;
 
-   if (evh->backend.property_delay_set)
-     return evh->backend.property_delay_set(&evh->backend, id, value);
-   return EINA_FALSE;
+   if (evh->hwc_policy != E_HWC_POLICY_PLANES)
+     return EINA_FALSE;
+   return e_video_hwc_planes_property_delay_set(evh, id, value);
 }
 
 static Eina_Bool
@@ -1522,9 +1479,7 @@ _e_video_hwc_iface_available_properties_get(E_Video_Comp_Iface *iface, const tdm
 {
    IFACE_ENTRY;
 
-   if (evh->backend.available_properties_get)
-     return evh->backend.available_properties_get(&evh->backend, props, count);
-   return EINA_FALSE;
+   return evh->backend.available_properties_get(evh, props, count);
 }
 
 static Eina_Bool
@@ -1532,9 +1487,9 @@ _e_video_hwc_iface_info_get(E_Video_Comp_Iface *iface, E_Client_Video_Info *info
 {
    IFACE_ENTRY;
 
-   if (evh->backend.info_get)
-     return evh->backend.info_get(&evh->backend, info);
-   return EINA_FALSE;
+   if (evh->hwc_policy != E_HWC_POLICY_WINDOWS)
+     return EINA_FALSE;
+   return e_video_hwc_windows_info_get(evh, info);
 }
 
 static Eina_Bool
@@ -1542,9 +1497,9 @@ _e_video_hwc_iface_commit_data_release(E_Video_Comp_Iface *iface, unsigned int s
 {
    IFACE_ENTRY;
 
-   if (evh->backend.commit_data_release)
-     return evh->backend.commit_data_release(&evh->backend, sequence, tv_sec, tv_usec);
-   return EINA_FALSE;
+   if (evh->hwc_policy != E_HWC_POLICY_WINDOWS)
+     return EINA_FALSE;
+   return e_video_hwc_windows_commit_data_release(evh, sequence, tv_sec, tv_usec);
 }
 
 static tbm_surface_h
@@ -1552,9 +1507,9 @@ _e_video_hwc_iface_tbm_surface_get(E_Video_Comp_Iface *iface)
 {
    IFACE_ENTRY;
 
-   if (evh->backend.tbm_surface_get)
-     return evh->backend.tbm_surface_get(&evh->backend);
-   return NULL;
+   if (evh->hwc_policy != E_HWC_POLICY_WINDOWS)
+     return NULL;
+   return e_video_hwc_windows_tbm_surface_get(evh);
 }
 
 static E_Video_Hwc *
