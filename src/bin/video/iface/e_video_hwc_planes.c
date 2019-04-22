@@ -22,6 +22,7 @@ struct _E_Video_Hwc_Planes
 
    struct
      {
+        tdm_output *output;
         tdm_layer *layer;
         /* attributes */
         Eina_List *prop_list;
@@ -350,35 +351,37 @@ _e_video_hwc_planes_available_video_tdm_layer_get(tdm_output *output)
 static Eina_Bool
 _e_video_hwc_planes_tdm_layer_set(E_Video_Hwc_Planes *evhp)
 {
+   E_Plane *plane = NULL;
    Eina_Bool need_wait;
+   tdm_layer *layer;
    tdm_error ret;
    int zpos;
 
    if (evhp->tdm.layer)
      return EINA_TRUE;
 
-   evhp->tdm.layer = _e_video_hwc_planes_available_video_tdm_layer_get(evhp->base.output);
-   if (!evhp->tdm.layer)
+   layer = _e_video_hwc_planes_available_video_tdm_layer_get(evhp->tdm.output);
+   if (!layer)
      {
-        VWR("no available layer for evhp", evhp->base.ec);
+        VWR("no available layer for evhp", NULL);
         return EINA_FALSE;
      }
-   _e_video_hwc_planes_tdm_layer_usable_set(evhp->tdm.layer, EINA_FALSE);
+   _e_video_hwc_planes_tdm_layer_usable_set(layer, EINA_FALSE);
 
-   ret = tdm_layer_get_zpos(evhp->tdm.layer, &zpos);
+   ret = tdm_layer_get_zpos(layer, &zpos);
    if (ret == TDM_ERROR_NONE)
-     evhp->e_plane = e_output_plane_get_by_zpos(evhp->base.e_output, zpos);
+     plane = e_output_plane_get_by_zpos(evhp->base.e_output, zpos);
 
-   if (!evhp->e_plane)
+   if (!plane)
      {
-        VWR("fail get e_plane", evhp->base.ec);
-        goto err_get_eplane;
+        VWR("fail get e_plane", NULL);
+        goto err_plane;
      }
 
-   if (!e_plane_video_set(evhp->e_plane, EINA_TRUE, &need_wait))
+   if (!e_plane_video_set(plane, EINA_TRUE, &need_wait))
      {
-        VWR("fail set video to e_plane", evhp->base.ec);
-        goto err_set_eplane_video;
+        VWR("fail set video to e_plane", NULL);
+        goto err_plane;
      }
 
    if (need_wait)
@@ -388,15 +391,15 @@ _e_video_hwc_planes_tdm_layer_set(E_Video_Hwc_Planes *evhp)
                             _e_video_hwc_planes_cb_eplane_video_set_hook, evhp);
      }
 
-   VIN("assign layer: %p", evhp->base.ec, evhp->tdm.layer);
+   evhp->tdm.layer = layer;
+   evhp->e_plane = plane;
+
+   VIN("assign layer: %p", NULL, evhp->tdm.layer);
 
    return EINA_TRUE;
 
-err_set_eplane_video:
-   evhp->e_plane = NULL;
-err_get_eplane:
+err_plane:
    _e_video_hwc_planes_tdm_layer_usable_set(evhp->tdm.layer, EINA_TRUE);
-   evhp->tdm.layer = NULL;
 
    return EINA_FALSE;
 }
@@ -516,7 +519,7 @@ _e_video_hwc_planes_buffer_commit(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf 
    ret = _tdm_layer_commit(evhp->tdm.layer, _e_video_hwc_planes_cb_commit_handler, evhp);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
 
-   ret = tdm_output_wait_vblank(evhp->base.output, 1, 0, _e_video_hwc_planes_cb_vblank_handler, evhp);
+   ret = tdm_output_wait_vblank(evhp->tdm.output, 1, 0, _e_video_hwc_planes_cb_vblank_handler, evhp);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
 
    evhp->waiting_vblank = EINA_TRUE;
@@ -581,7 +584,7 @@ _e_video_hwc_planes_available_properties_get(E_Video_Hwc_Planes *evhp,
      {
 
         /* tlayer = e_output_video_available_tdm_layer_get(evhp->e_output); */
-        tlayer = _e_video_hwc_planes_available_video_tdm_layer_get(evhp->base.output);
+        tlayer = _e_video_hwc_planes_available_video_tdm_layer_get(evhp->tdm.output);
      }
    ret = tdm_layer_get_available_properties(tlayer, props, count);
 
@@ -589,26 +592,21 @@ _e_video_hwc_planes_available_properties_get(E_Video_Hwc_Planes *evhp,
 }
 
 static Eina_Bool
-_e_video_hwc_planes_set(E_Video_Hwc_Planes *evhp)
+_e_video_hwc_planes_init(E_Video_Hwc_Planes *evhp, E_Output *output)
 {
    const tdm_prop *props;
    int i, count = 0;
 
-   /* if (e_output_video_capability_get(evhp->e_output)) */
-   if (_tdm_output_video_layer_exists(evhp->base.output))
+   /* If tdm offers video layers, we will assign a tdm layer when showing */
+   if (!_tdm_output_video_layer_exists(output->toutput))
      {
-        /* If tdm offers video layers, we will assign a tdm layer when showing */
-        ;;;
+        /* If tdm doesn't offer video layers, we assign a tdm layer now. If
+         * failed, video will be displayed via the UI rendering path. */
+        if (!_e_video_hwc_planes_tdm_layer_set(evhp))
+          return EINA_FALSE;
      }
-   else if (_e_video_hwc_planes_tdm_layer_set(evhp))
-     {
-        /* If tdm doesn't offer video layers, we assign a tdm layer now. If failed,
-         * video will be displayed via the UI rendering path.
-         */
-        ;;;
-     }
-   else
-     return EINA_FALSE;
+
+   evhp->tdm.mute_id = -1;
 
    _e_video_hwc_planes_available_properties_get(evhp, &props, &count);
    for (i = 0; i < count; i++)
@@ -618,20 +616,6 @@ _e_video_hwc_planes_set(E_Video_Hwc_Planes *evhp)
         _tdm_layer_property_get(evhp->tdm.layer, props[i].id, &value);
         if (!strncmp(props[i].name, "mute", TDM_NAME_LEN))
           evhp->tdm.mute_id = props[i].id;
-     }
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_video_hwc_planes_init(E_Video_Hwc_Planes *evhp)
-{
-   evhp->tdm.mute_id = -1;
-
-   if (!_e_video_hwc_planes_set(evhp))
-     {
-        VER("Failed to init hwc_planes", evhp->base.ec);
-        return EINA_FALSE;
      }
 
    return EINA_TRUE;
@@ -772,7 +756,7 @@ _e_video_hwc_planes_prop_name_get_by_id(E_Video_Hwc_Planes *evhp, unsigned int i
    const tdm_prop *props;
    int i, count = 0;
 
-   layer = _tdm_output_video_layer_get(evhp->base.output);
+   layer = _tdm_output_video_layer_get(evhp->tdm.output);
    tdm_layer_get_available_properties(layer, &props, &count);
    for (i = 0; i < count; i++)
      {
@@ -985,28 +969,26 @@ _e_video_hwc_planes_iface_available_properties_get(E_Video_Comp_Iface *iface, co
 }
 
 EINTERN E_Video_Hwc *
-e_video_hwc_planes_create(void)
+e_video_hwc_planes_create(E_Output *output, E_Client *ec)
 {
    E_Video_Hwc_Planes *evhp;
 
-   evhp = calloc(1, sizeof *evhp);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+
+   VIN("Create HWC Planes backend", ec);
+
+   evhp = E_NEW(E_Video_Hwc_Planes, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(evhp, NULL);
 
-   return (E_Video_Hwc *)evhp;
-}
+   evhp->base.e_output = output;
+   evhp->tdm.output = output->toutput;
 
-EINTERN Eina_Bool
-e_video_hwc_planes_init(E_Video_Hwc *evh)
-{
-   E_Video_Hwc_Planes *evhp;
-
-   INF("Initializing HWC Planes mode");
-
-   evhp = (E_Video_Hwc_Planes *)evh;
-   if (!_e_video_hwc_planes_init(evhp))
+   if (!_e_video_hwc_planes_init(evhp, output))
      {
         ERR("Failed to init 'E_Video_Hwc_Planes'");
-        return EINA_FALSE;
+        free(evhp);
+        return NULL;
      }
 
    _e_video_hwc_planes_ec_event_init(evhp);
@@ -1020,7 +1002,7 @@ e_video_hwc_planes_init(E_Video_Hwc *evh)
    evhp->base.backend.commit_data_release = NULL;
    evhp->base.backend.tbm_surface_get = NULL;
 
-   return EINA_TRUE;
+   return (E_Video_Hwc *)evhp;
 }
 
 EINTERN Eina_Bool
@@ -1075,7 +1057,7 @@ e_video_hwc_planes_check_if_pp_needed(E_Video_Hwc *evh)
 
    evhp = (E_Video_Hwc_Planes *)evh;
 
-   tdm_layer *layer = _tdm_output_video_layer_get(evhp->base.output);
+   tdm_layer *layer = _tdm_output_video_layer_get(evhp->tdm.output);
 
    tdm_layer_get_capabilities(layer, &capabilities);
 

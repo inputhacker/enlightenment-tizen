@@ -92,23 +92,6 @@ _e_video_frame_buffer_show(E_Video_Hwc_Windows *evhw, E_Comp_Wl_Video_Buf *vbuf)
    return EINA_TRUE;
 }
 
-static Eina_Bool
-_e_video_hwc_windows_init(E_Video_Hwc_Windows *evhw)
-{
-   E_Hwc *hwc;
-   E_Hwc_Window *hwc_window;
-
-   hwc = evhw->base.e_output->hwc;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
-   hwc_window = e_hwc_window_new(hwc, evhw->base.ec, E_HWC_WINDOW_STATE_VIDEO);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-
-   evhw->hwc_window = hwc_window;
-   evhw->hwc = hwc;
-
-   return EINA_TRUE;
-}
-
 static void
 _e_video_destroy(E_Video_Hwc_Windows *evhw)
 {
@@ -387,30 +370,30 @@ _e_video_hwc_windows_iface_tbm_surface_get(E_Video_Comp_Iface *iface)
 }
 
 EINTERN E_Video_Hwc *
-e_video_hwc_windows_create(void)
+e_video_hwc_windows_create(E_Output *output, E_Client *ec)
 {
    E_Video_Hwc_Windows *evhw;
 
-   evhw = calloc(1, sizeof *evhw);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+
+   VIN("Create HWC Windows backend", ec);
+
+   evhw = E_NEW(E_Video_Hwc_Windows, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(evhw, NULL);
 
-   return (E_Video_Hwc *)evhw;
-}
-
-EINTERN Eina_Bool
-e_video_hwc_windows_init(E_Video_Hwc *evh)
-{
-   E_Video_Hwc_Windows *evhw;
-
-   INF("Initializing HWC Windows mode");
-
-   evhw = (E_Video_Hwc_Windows *)evh;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(evhw, EINA_FALSE);
-
-   if (!_e_video_hwc_windows_init(evhw))
+   evhw->hwc = output->hwc;
+   if (!evhw->hwc)
      {
-        ERR("Failed to init 'E_Video_Hwc_Windows'");
-        return EINA_FALSE;
+        free(evhw);
+        return NULL;
+     }
+
+   evhw->hwc_window = e_hwc_window_new(evhw->hwc, ec, E_HWC_WINDOW_STATE_VIDEO);
+   if (!evhw->hwc_window)
+     {
+        free(evhw);
+        return NULL;
      }
 
    _e_video_hwc_windows_ec_event_init(evhw);
@@ -424,7 +407,7 @@ e_video_hwc_windows_init(E_Video_Hwc *evh)
    evhw->base.backend.commit_data_release = _e_video_hwc_windows_iface_commit_data_release;
    evhw->base.backend.tbm_surface_get = _e_video_hwc_windows_iface_tbm_surface_get;
 
-   return EINA_TRUE;
+   return (E_Video_Hwc *)evhw;
 }
 
 EINTERN tbm_surface_h

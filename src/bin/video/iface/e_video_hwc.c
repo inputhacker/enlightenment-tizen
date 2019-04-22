@@ -1562,12 +1562,14 @@ _e_video_hwc_create(E_Client *ec)
 {
    E_Video_Hwc *evh;
    E_Hwc_Policy hwc_policy;
+   E_Output *output;
 
+   output = e_output_find(ec->zone->output_id);
    hwc_policy = e_zone_video_hwc_policy_get(ec->zone);
    if (hwc_policy == E_HWC_POLICY_PLANES)
-     evh = e_video_hwc_planes_create();
+     evh = e_video_hwc_planes_create(output, ec);
    else if (hwc_policy == E_HWC_POLICY_WINDOWS)
-     evh = e_video_hwc_windows_create();
+     evh = e_video_hwc_windows_create(output, ec);
    else
      {
         VER("Unknown HWC mode %d", ec, hwc_policy);
@@ -1581,11 +1583,10 @@ _e_video_hwc_create(E_Client *ec)
      }
 
    evh->hwc_policy = hwc_policy;
+   evh->e_output = output;
    evh->ec = ec;
-   evh->pp_align = -1;
    evh->window = e_client_util_win_get(ec);
-   evh->e_output = e_output_find(ec->zone->output_id);
-   evh->output = evh->e_output->toutput;
+   evh->pp_align = -1;
 
    //TODO: shoud this function be called here?
    e_zone_video_available_size_get(ec->zone, NULL, NULL,
@@ -1662,7 +1663,6 @@ EINTERN E_Video_Comp_Iface *
 e_video_hwc_iface_create(E_Client *ec)
 {
    E_Video_Hwc *evh;
-   Eina_Bool res = EINA_FALSE;
 
    VIN("Create HWC interface", ec);
 
@@ -1671,18 +1671,6 @@ e_video_hwc_iface_create(E_Client *ec)
        return NULL;
 
    _e_video_hwc_client_event_init(evh);
-
-   if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-     res = e_video_hwc_planes_init(evh);
-   else
-     res = e_video_hwc_windows_init(evh);
-
-   if (!res)
-     {
-        VER("Failed to init HWC backend", ec);
-        free(evh);
-        return NULL;
-     }
 
    evh->iface.destroy = _e_video_hwc_iface_destroy;
    evh->iface.follow_topmost_visibility = _e_video_hwc_iface_follow_topmost_visibility;
