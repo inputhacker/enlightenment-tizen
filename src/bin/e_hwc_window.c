@@ -1633,7 +1633,7 @@ _e_hwc_window_rendered_window_set(E_Hwc_Window *hwc_window, Eina_Bool set)
              e_comp_object_dirty(ec->frame);
              e_comp_object_render(ec->frame);
 
-             e_client_redirected_set(ec, EINA_TRUE);
+             e_comp_object_redirected_set(ec->frame, EINA_TRUE);
              hwc_window->need_redirect = EINA_FALSE;
 
              EHWTRACE("Redirect -- {%s}",
@@ -1644,7 +1644,7 @@ _e_hwc_window_rendered_window_set(E_Hwc_Window *hwc_window, Eina_Bool set)
      {
         if (hwc_window->ec->redirected)
           {
-             e_client_redirected_set(hwc_window->ec, EINA_FALSE);
+             e_comp_object_redirected_set(ec->frame, EINA_FALSE);
              hwc_window->need_redirect = EINA_TRUE;
 
              EHWTRACE("Unredirect -- {%s}",
