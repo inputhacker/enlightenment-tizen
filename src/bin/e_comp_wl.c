@@ -6583,3 +6583,53 @@ _e_comp_wl_move_resize_init(void)
 
    return;
 }
+
+EINTERN Eina_Bool
+e_comp_wl_pid_output_configured_resolution_send(pid_t pid, int w, int h)
+{
+   E_Comp_Wl_Output *output;
+   pid_t output_pid = 0;
+   Eina_List *l = NULL, *l2 = NULL;
+   struct wl_resource *resource = NULL;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(pid <= 0, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(w < 0, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(h < 0, EINA_FALSE);
+
+   EINA_LIST_FOREACH(e_comp_wl->outputs, l, output)
+     {
+        /* if we have bound resources, send updates */
+        EINA_LIST_FOREACH(output->resources, l2, resource)
+          {
+             wl_client_get_credentials(wl_resource_get_client(resource), &output_pid, NULL, NULL);
+             if (output_pid != pid) continue;
+             if (output->configured_resolution_w == w && output->configured_resolution_h == h) continue;
+
+             wl_output_send_geometry(resource,
+                                     output->x, output->y,
+                                     output->phys_width,
+                                     output->phys_height,
+                                     output->subpixel,
+                                     output->make ?: "", output->model ?: "",
+                                     output->transform);
+
+             if (wl_resource_get_version(resource) >= WL_OUTPUT_SCALE_SINCE_VERSION)
+               wl_output_send_scale(resource, output->scale);
+
+             // change the configured_output_resolution of the output
+             // configured_output_resolution is the output resolution.
+             if (output->configured_resolution_w != w) output->configured_resolution_w = w;
+             if (output->configured_resolution_h != h) output->configured_resolution_h = h;
+
+             /* 3 == preferred + current */
+             wl_output_send_mode(resource, 3, w, h, output->refresh);
+
+             ELOGF("COMP_WL", "\tConfigured Output Resolution Again: %d, %d (pid:%d).", NULL, NULL, w, h, pid);
+
+             if (wl_resource_get_version(resource) >= WL_OUTPUT_DONE_SINCE_VERSION)
+               wl_output_send_done(resource);
+          }
+     }
+
+   return EINA_TRUE;
+}
