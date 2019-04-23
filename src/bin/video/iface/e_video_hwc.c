@@ -1568,19 +1568,7 @@ _e_video_hwc_show(E_Video_Hwc *evh)
    /* if stand_alone is true, not show */
    if ((ec->comp_data->sub.data && ec->comp_data->sub.data->stand_alone) ||
        (ec->comp_data->sub.data && evh->follow_topmost_visibility))
-     {
-#if 0 //mute off is managed by client. mute off in server made many issues.
-        if (!evhp->layer) return;
-
-        if (evhp->tdm_mute_id != -1)
-          {
-             Tdm_Prop_Value prop = {.id = evhp->tdm_mute_id, .value.u32 = 0};
-             VIN("video surface show. mute off (ec:%p)", evhp->ec);
-             _e_video_layer_set_property(evhp->layer, &prop);
-          }
-#endif
-        return;
-     }
+     return;
 
    /* FIXME It seems unnecessary. */
    if (evh->hwc_policy == E_HWC_POLICY_PLANES)

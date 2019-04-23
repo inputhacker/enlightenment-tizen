@@ -583,10 +583,7 @@ _e_video_hwc_planes_available_properties_get(E_Video_Hwc_Planes *evhp,
    tlayer = evhp->tdm.layer;
    /* if layer wasn't set then get an any available tdm_layer */
    if (tlayer == NULL)
-     {
-        /* tlayer = e_output_video_available_tdm_layer_get(evhp->e_output); */
-        tlayer = _e_video_hwc_planes_available_video_tdm_layer_get(evhp->tdm.output);
-     }
+     tlayer = _e_video_hwc_planes_available_video_tdm_layer_get(evhp->tdm.output);
    ret = tdm_layer_get_available_properties(tlayer, props, count);
 
    return ret;
@@ -654,11 +651,6 @@ _e_video_hwc_planes_destroy(E_Video_Hwc_Planes *evhp)
      }
 
    free(evhp);
-
-#if 0
-   if (e_comp_wl_video_buffer_list_length() > 0)
-     e_comp_wl_video_buffer_list_print(NULL);
-#endif
 }
 
 static Eina_Bool
