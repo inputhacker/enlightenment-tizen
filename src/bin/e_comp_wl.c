@@ -6766,3 +6766,44 @@ e_comp_wl_pid_output_configured_resolution_send(pid_t pid, int w, int h)
 
    return EINA_TRUE;
 }
+
+EINTERN Eina_Bool
+e_comp_wl_pid_output_configured_resolution_get(pid_t pid, int *w, int *h)
+{
+   E_Comp_Wl_Output *output;
+   pid_t output_pid = 0;
+   Eina_List *l = NULL, *l2 = NULL;
+   struct wl_resource *resource = NULL;
+   Eina_Bool found = EINA_FALSE;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(pid <= 0, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(w, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(h, EINA_FALSE);
+
+   EINA_LIST_FOREACH(e_comp_wl->outputs, l, output)
+     {
+        /* if we have bound resources, send updates */
+        EINA_LIST_FOREACH(output->resources, l2, resource)
+          {
+             wl_client_get_credentials(wl_resource_get_client(resource), &output_pid, NULL, NULL);
+             if (output_pid == pid)
+               {
+                  *w = output->configured_resolution_w;
+                  *h = output->configured_resolution_h;
+                  found = EINA_TRUE;
+                  break;
+               }
+          }
+
+        if (found) break;
+     }
+
+   if (!found)
+     {
+        *w = output->w;
+        *h = output->h;
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
