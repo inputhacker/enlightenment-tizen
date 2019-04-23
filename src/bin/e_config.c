@@ -337,6 +337,13 @@ e_config_init(void)
    e_config_save_queue();
 
    _idle_enter = ecore_idle_enterer_add(_e_config_idle_cb, NULL);
+
+// For CONGIURED OUTPUT TEST
+#if 1
+e_config->configured_output_resolution.use = 1;
+e_config->configured_output_resolution.w = 1920;
+e_config->configured_output_resolution.h = 1080;
+#endif
    return 1;
 }
 
