@@ -266,7 +266,7 @@ src/bin/e_devicemgr_input.c \
 src/bin/e_devicemgr_inputgen.c \
 src/bin/e_devicemgr_wl.c
 
-src_bin_enlightenment_CPPFLAGS = $(E_CPPFLAGS) -DEFL_BETA_API_SUPPORT -DEFL_EO_API_SUPPORT -DE_LOGGING=1 @WAYLAND_CFLAGS@ $(TTRACE_CFLAGS) $(DLOG_CFLAGS) $(PIXMAN_CFLAGS) $(POLICY_CFLAGS) @TIZEN_REMOTE_SURFACE_CFLAGS@
+src_bin_enlightenment_CPPFLAGS = $(E_CPPFLAGS) -DEFL_BETA_API_SUPPORT -DEFL_EO_API_SUPPORT -DE_LOGGING=2 @WAYLAND_CFLAGS@ $(TTRACE_CFLAGS) $(DLOG_CFLAGS) $(PIXMAN_CFLAGS) $(POLICY_CFLAGS) $(AUL_CFLAGS) $(PKGMGR_INFO_CFLAGS) @TIZEN_REMOTE_SURFACE_CFLAGS@
 if HAVE_LIBGOMP
 src_bin_enlightenment_CPPFLAGS += -fopenmp
 endif
@@ -289,7 +289,7 @@ src_bin_enlightenment_LDFLAGS = -export-dynamic
 if HAVE_LIBGOMP
 src_bin_enlightenment_LDFLAGS += -fopenmp
 endif
-src_bin_enlightenment_LDADD = @e_libs@ @dlopen_libs@ @cf_libs@ @VALGRIND_LIBS@ @WAYLAND_LIBS@ -lm @SHM_OPEN_LIBS@ $(TTRACE_LIBS) $(DLOG_LIBS) $(PIXMAN_LIBS) $(POLICY_LIBS) @TIZEN_REMOTE_SURFACE_LIBS@
+src_bin_enlightenment_LDADD = @e_libs@ @dlopen_libs@ @cf_libs@ @VALGRIND_LIBS@ @WAYLAND_LIBS@ -lm @SHM_OPEN_LIBS@ $(TTRACE_LIBS) $(DLOG_LIBS) $(PIXMAN_LIBS) $(POLICY_LIBS) $(AUL_LIBS) $(PKGMGR_INFO_LIBS) @TIZEN_REMOTE_SURFACE_LIBS@
 if HAVE_WAYLAND_TBM
 src_bin_enlightenment_LDADD += @WAYLAND_TBM_LIBS@
 endif

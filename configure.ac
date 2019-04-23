@@ -569,6 +569,11 @@ fi
 
 AM_CONDITIONAL([HAVE_WAYLAND_ONLY], [test "x${have_wayland_only}" = "xyes"])
 
+#aul
+PKG_CHECK_MODULES([AUL], [aul])
+#pkgmgr-info
+PKG_CHECK_MODULES([PKGMGR_INFO], [pkgmgr-info])
+
 PKG_CHECK_MODULES(E, [$e_requires])
 requirements_e="\
 evas >= ${efl_version} \
