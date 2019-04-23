@@ -1155,6 +1155,11 @@ _e_client_del(E_Client *ec)
      e_pixmap_client_set(ec->pixmap, NULL);
    ec->pixmap = NULL;
 
+   // base_output_resolution
+   e_client_transform_core_remove(ec, ec->base_output_resolution.transform);
+   e_util_transform_del(ec->base_output_resolution.transform);
+   ec->base_output_resolution.transform = NULL;
+
    if (ec->transform_core.transform_list)
      {
         E_Util_Transform *transform;
@@ -2170,10 +2175,21 @@ _e_client_maximize(E_Client *ec, E_Maximize max)
       case E_MAXIMIZE_EXPAND:
         if (ec->desk->visible)
           {
-             zx = ec->desk->geom.x;
-             zy = ec->desk->geom.y;
-             zw = ec->desk->geom.w;
-             zh = ec->desk->geom.h;
+             // base_output_resolution
+             if (ec->base_output_resolution.use)
+               {
+                  zx = ec->desk->geom.x;
+                  zy = ec->desk->geom.y;
+                  zw = ec->base_output_resolution.w;
+                  zh = ec->base_output_resolution.h;
+               }
+             else
+               {
+                  zx = ec->desk->geom.x;
+                  zy = ec->desk->geom.y;
+                  zw = ec->desk->geom.w;
+                  zh = ec->desk->geom.h;
+               }
           }
         else
           {
@@ -2285,6 +2301,18 @@ _e_client_maximize(E_Client *ec, E_Maximize max)
      }
    if (ec->maximize_override)
      ec->maximize_override = override;
+
+   // base_output_resolution
+   if (ec->base_output_resolution.use)
+     {
+        ELOGF("POL_APPINFO", "Apply TRANSFORM...1", ec);
+        e_util_transform_move(ec->base_output_resolution.transform, (double)ec->x, (double)ec->y, 0);
+        e_util_transform_scale(ec->base_output_resolution.transform,
+                               (double)ec->desk->geom.w /(double)ec->w,
+                               (double)ec->desk->geom.h /(double)ec->h,
+                               1.0);
+        e_client_transform_core_update(ec);
+     }
 }
 
 ////////////////////////////////////////////////
@@ -7102,6 +7130,65 @@ E_API E_Capture_Save_State
 e_client_image_save(E_Client *ec, const char *dir, const char *name, E_Capture_Client_Save_End_Cb func_end, void *data, Eina_Bool skip_child)
 {
    return e_comp_wl_capture_client_image_save(ec, dir, name, func_end, data, skip_child);
+}
+
+static void
+_e_client_base_output_resolution_set(E_Client *ec, int width, int height)
+{
+   ec->base_output_resolution.use = 1;
+   ec->base_output_resolution.w = width;
+   ec->base_output_resolution.h = height;
+   ec->base_output_resolution.transform = e_util_transform_new();
+   e_client_transform_core_add(ec, ec->base_output_resolution.transform);
+}
+
+EINTERN Eina_Bool
+e_client_base_output_resolution_update(E_Client *ec)
+{
+   E_Policy_Appinfo *epai = NULL;
+   int configured_width, configured_height;
+   int width, height;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+  if (!e_config->configured_output_resolution.use) return EINA_TRUE;
+  if (ec->base_output_resolution.use) return EINA_TRUE;
+
+  configured_width = e_config->configured_output_resolution.w;
+  configured_height = e_config->configured_output_resolution.h;
+
+  if (!ec->netwm.pid)
+    {
+       _e_client_base_output_resolution_set(ec, configured_width, configured_height);
+       ELOGF("POL_APPINFO", "NO PID... USE configured_output_resolution(%d,%d) pid:%d", ec,
+             configured_width, configured_height, ec->netwm.pid);
+       return EINA_TRUE;
+    }
+
+   epai = e_policy_appinfo_find_with_pid(ec->netwm.pid);
+   if (!epai)
+     {
+        _e_client_base_output_resolution_set(ec, configured_width, configured_height);
+        ELOGF("POL_APPINFO", "NO APPINFO... USE configured_output_resolution(%d,%d) pid:%d", ec,
+              configured_width, configured_height, ec->netwm.pid);
+        return EINA_TRUE;
+     }
+
+   if (!e_policy_appinfo_base_output_resolution_get(epai, &width, &height))
+     {
+        /* set the base_output_resolution of the e_client as a default */
+        _e_client_base_output_resolution_set(ec, configured_width, configured_height);
+        ELOGF("POL_APPINFO", "NO BASE SCREEN RESOLUTION... USE configured_output_resolution(%d,%d) pid:%d", ec,
+              configured_width, configured_height, ec->netwm.pid);
+        return EINA_TRUE;
+      }
+
+   /* set the base_output_resolution of the e_client */
+   _e_client_base_output_resolution_set(ec, width, height);
+
+   ELOGF("POL_APPINFO", "USE base_output_resolution(%d,%d) pid:%d", ec, width, height, ec->netwm.pid);
+
+   return EINA_TRUE;
 }
 
 /* tizen_move_resize */
