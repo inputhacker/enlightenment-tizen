@@ -214,6 +214,14 @@ struct _E_Config
       int           alpha; // alpha component (0:transparent, 255:opaque), only used when use_alpha is 1
    } qp_handler;
    Eina_Bool qp_add_on_desk_smart;
+
+   // Configured screen resolution
+   struct
+   {
+      unsigned char use; // use the configured screen resolution.
+      int w;             // width of the configured screen resolution.
+      int h;             // height of the configured screen resolution.
+   } configured_output_resolution;
 };
 
 struct _E_Config_Desklock_Background

@@ -293,6 +293,9 @@ _e_config_edd_init(Eina_Bool old)
    E_CONFIG_VAL(D, T, comp_canvas_norender.use, UCHAR);
    E_CONFIG_VAL(D, T, qp_handler.use_alpha, UCHAR);
    E_CONFIG_VAL(D, T, qp_handler.alpha, INT);
+   E_CONFIG_VAL(D, T, configured_output_resolution.use, UCHAR);
+   E_CONFIG_VAL(D, T, configured_output_resolution.w, INT);
+   E_CONFIG_VAL(D, T, configured_output_resolution.h, INT);
 }
 
 static Eina_Bool
@@ -523,6 +526,7 @@ e_config_load(void)
    E_CONFIG_LIMIT(e_config->comp_canvas_norender.use, 0, 1);
    E_CONFIG_LIMIT(e_config->qp_handler.use_alpha, 0, 1);
    E_CONFIG_LIMIT(e_config->qp_handler.alpha, 0, 255);
+   E_CONFIG_LIMIT(e_config->configured_output_resolution.use, 0, 1);
 }
 
 E_API int
