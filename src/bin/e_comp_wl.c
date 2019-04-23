@@ -4624,6 +4624,9 @@ _e_comp_wl_cb_output_bind(struct wl_client *client, void *data, uint32_t version
 {
    E_Comp_Wl_Output *output;
    struct wl_resource *resource;
+   E_Policy_Appinfo *epai = NULL;
+   pid_t pid = 0;
+   int res_w, res_h;
 
    if (!(output = data)) return;
 
@@ -4635,8 +4638,8 @@ _e_comp_wl_cb_output_bind(struct wl_client *client, void *data, uint32_t version
         return;
      }
 
-   DBG("Bound Output: %s", output->id);
-   DBG("\tGeom: %d %d %d %d", output->x, output->y, output->w, output->h);
+   ELOGF("COMP_WL", "Bound Output: %s", NULL, output->id);
+   ELOGF("COMP_WL", "\tOutput Geom: %d %d %d %d", NULL, output->x, output->y, output->w, output->h);
 
    output->resources = eina_list_append(output->resources, resource);
 
@@ -4652,8 +4655,48 @@ _e_comp_wl_cb_output_bind(struct wl_client *client, void *data, uint32_t version
    if (version >= WL_OUTPUT_SCALE_SINCE_VERSION)
      wl_output_send_scale(resource, output->scale);
 
-   /* 3 == preferred + current */
-   wl_output_send_mode(resource, 3, output->w, output->h, output->refresh);
+   // set the configured_output_resolution as a resolution of the wl_output if the use is set.
+   if (e_config->configured_output_resolution.use)
+     {
+        wl_client_get_credentials(client, &pid, NULL, NULL);
+        if (pid <= 0)
+          {
+             res_w = e_config->configured_output_resolution.w;
+             res_h = e_config->configured_output_resolution.h;
+             goto send_mode;
+          }
+
+        epai = e_policy_appinfo_find_with_pid(pid);
+        if (!epai)
+          {
+             res_w = e_config->configured_output_resolution.w;
+             res_h = e_config->configured_output_resolution.h;
+             goto send_mode;
+          }
+
+        if (!e_policy_appinfo_base_output_resolution_get(epai, &res_w, &res_h))
+          {
+             res_w = e_config->configured_output_resolution.w;
+             res_h = e_config->configured_output_resolution.h;
+             goto send_mode;
+          }
+
+        ELOGF("COMP_WL", "Get base_screen_resolution. (pid:%d).", NULL, pid);
+     }
+   else
+     {
+        res_w = output->w;
+        res_h = output->h;
+     }
+
+send_mode:
+   // change the configured_output_resolution of the output
+   // configured_output_resolution is the output resolution.
+   if (output->configured_resolution_w != res_w) output->configured_resolution_w = res_w;
+   if (output->configured_resolution_h != res_h) output->configured_resolution_h = res_h;
+
+   ELOGF("COMP_WL", "\tConfigured Output Resolution: %d, %d (pid:%d).", NULL, res_w, res_h, pid);
+   wl_output_send_mode(resource, 3, res_w, res_h, output->refresh);
 
    if (version >= WL_OUTPUT_DONE_SINCE_VERSION)
      wl_output_send_done(resource);
