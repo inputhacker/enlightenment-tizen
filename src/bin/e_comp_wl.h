@@ -584,5 +584,6 @@ EINTERN void e_comp_wl_trace_serial_debug(Eina_Bool on);
 EINTERN Eina_Bool e_comp_wl_commit_sync_configure(E_Client *ec);
 
 EINTERN Eina_Bool         e_comp_wl_pid_output_configured_resolution_send(pid_t pid, int w, int h);
+EINTERN Eina_Bool         e_comp_wl_pid_output_configured_resolution_get(pid_t pid, int *w, int *h);
 # endif
 #endif
