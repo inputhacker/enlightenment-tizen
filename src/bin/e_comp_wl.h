@@ -498,6 +498,10 @@ struct _E_Comp_Wl_Output
    struct wl_output *wl_output;
    struct wl_buffer *buffer;
    void *data;
+
+   /* configured_screen_resolution */
+   int configured_resolution_w;
+   int configured_resolution_h;
 };
 
 struct _E_Comp_Wl_Hook
