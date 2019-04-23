@@ -1722,6 +1722,9 @@ _e_xdg_surface_create(E_Xdg_Shell *shell,
 
    _e_xdg_shell_surface_add(shell, exsurf);
 
+   // base_output_resolution.
+   e_client_base_output_resolution_update(ec);
+
    return exsurf;
 }
 /* End of Xdg_surface */
