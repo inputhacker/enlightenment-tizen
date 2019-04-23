@@ -969,6 +969,14 @@ struct E_Client
      } surface_sync;
 
    Eina_Bool on_render_list : 1; // client is on the render list
+
+   struct
+   {
+      Eina_Bool    use : 1; // use the base output resolution
+      int          w;
+      int          h;
+      E_Util_Transform *transform;
+   } base_output_resolution;
 };
 
 #define e_client_focus_policy_click(ec) \
@@ -1150,6 +1158,8 @@ E_API Eina_Bool e_client_cursor_hide(E_Client *ec);
 E_API void e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set);
 
 E_API void e_client_stay_within_canvas_margin(E_Client *ec);
+
+EINTERN Eina_Bool e_client_base_output_resolution_update(E_Client *ec);
 
 EINTERN void e_client_revert_focus(E_Client *ec);
 EINTERN Eina_Bool e_client_check_above_focused(E_Client *ec);
