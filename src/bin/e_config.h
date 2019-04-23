@@ -229,6 +229,14 @@ struct _E_Config
       double wait_time; // default value is 0.1(sec)
       int wait_dist;
    } gesture_service;
+
+   // Configured output resolution
+   struct
+   {
+      unsigned char use; // use the configured output resolution.
+      int w;             // width of the configured output resolution.
+      int h;             // height of the configured output resolution.
+   } configured_output_resolution;
 };
 
 struct _E_Config_Desklock_Background
