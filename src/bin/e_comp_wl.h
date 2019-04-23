@@ -604,5 +604,7 @@ E_API extern int E_EVENT_WAYLAND_GLOBAL_ADD;
 EINTERN Eina_Bool e_comp_wl_commit_sync_client_geometry_add(E_Client *ec, E_Client_Demand_Geometry mode, uint32_t serial, int32_t x, int32_t y, int32_t w, int32_t h);
 EINTERN void e_comp_wl_trace_serial_debug(Eina_Bool on);
 EINTERN Eina_Bool e_comp_wl_commit_sync_configure(E_Client *ec);
+
+EINTERN Eina_Bool         e_comp_wl_pid_output_configured_resolution_send(pid_t pid, int w, int h);
 # endif
 #endif
