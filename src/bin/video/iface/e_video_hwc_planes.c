@@ -23,8 +23,6 @@ struct _E_Video_Hwc_Planes
         /* attributes */
         Eina_List *prop_list;
         Eina_List *late_prop_list;
-
-        int mute_id;
      } tdm;
 
    Eina_Bool waiting_vblank;
@@ -545,24 +543,12 @@ static void
 _e_video_hwc_planes_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    E_Video_Hwc_Planes *evhp = data;
-   Tdm_Prop_Value prop;
 
    if (e_object_is_del(E_OBJECT(evhp->base.ec))) return;
 
    /* if stand_alone is true, not hide */
    if (evhp->base.ec->comp_data->sub.data && evhp->base.ec->comp_data->sub.data->stand_alone)
-     {
-        if (!evhp->tdm.layer) return;
-
-        if (evhp->tdm.mute_id != -1)
-          {
-             prop.id = evhp->tdm.mute_id;
-             prop.value.u32 = 1;
-             VIN("video surface hide. mute on", evhp->base.ec);
-             _tdm_layer_property_set(evhp->tdm.layer, &prop);
-          }
-        return;
-     }
+     return;
 
    VIN("evas hide", evhp->base.ec);
    _e_video_hwc_planes_buffer_commit(evhp, NULL);
@@ -592,10 +578,6 @@ _e_video_hwc_planes_available_properties_get(E_Video_Hwc_Planes *evhp,
 static Eina_Bool
 _e_video_hwc_planes_init(E_Video_Hwc_Planes *evhp, E_Output *output)
 {
-   const tdm_prop *props;
-   tdm_value value;
-   int i, count = 0;
-
    /* If tdm offers video layers, we will assign a tdm layer when showing */
    if (!_tdm_output_video_layer_exists(output->toutput))
      {
@@ -603,16 +585,6 @@ _e_video_hwc_planes_init(E_Video_Hwc_Planes *evhp, E_Output *output)
          * failed, video will be displayed via the UI rendering path. */
         if (!_e_video_hwc_planes_tdm_layer_set(evhp))
           return EINA_FALSE;
-     }
-
-   evhp->tdm.mute_id = -1;
-
-   _e_video_hwc_planes_available_properties_get(evhp, &props, &count);
-   for (i = 0; i < count; i++)
-     {
-        _tdm_layer_property_get(evhp->tdm.layer, props[i].id, &value);
-        if (!strncmp(props[i].name, "mute", TDM_NAME_LEN))
-          evhp->tdm.mute_id = props[i].id;
      }
 
    return EINA_TRUE;
@@ -837,12 +809,7 @@ _e_video_hwc_planes_property_pre_set(E_Video_Hwc_Planes *evhp,
 static Eina_Bool
 _e_video_hwc_planes_property_save(E_Video_Hwc_Planes *evhp, unsigned int id, const char *name, tdm_value value)
 {
-   /* FIXME workaround
-    * if mute off, need to do it after buffer commit */
-   if ((id == evhp->tdm.mute_id) && value.u32 == 0)
-     return _e_video_hwc_planes_property_post_set(evhp, id, name, value);
-   else
-     return _e_video_hwc_planes_property_pre_set(evhp, id, name, value);
+   return _e_video_hwc_planes_property_pre_set(evhp, id, name, value);
 }
 
 static void
