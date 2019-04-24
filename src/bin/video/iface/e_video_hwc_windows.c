@@ -343,13 +343,15 @@ _e_video_hwc_windows_iface_check_if_pp_needed(E_Video_Hwc *evh)
    const tbm_format *formats;
    Eina_Bool found = EINA_FALSE;
    E_Hwc *hwc;
+   tdm_error error = TDM_ERROR_NONE;
 
    evhw = (E_Video_Hwc_Windows *)evh;
    hwc = evhw->hwc;
    if (hwc->tdm_hwc_video_stream)
      return EINA_FALSE;
 
-   if (!e_comp_screen_available_video_formats_get(&formats, &count))
+   error = tdm_hwc_get_video_supported_formats(hwc->thwc, &formats, &count);
+   if (error != TDM_ERROR_NONE)
      return EINA_FALSE;
 
    for (i = 0; i < count; i++)
