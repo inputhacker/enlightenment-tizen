@@ -6552,14 +6552,17 @@ e_policy_wl_defer_job(void)
 
    polwl->globals = eina_list_append(polwl->globals, global);
 
-   global = wl_global_create(e_comp_wl->wl.disp,
-                             &tizen_launch_appinfo_interface,
-                             1,
-                             NULL,
-                             _tzlaunch_appinfo_cb_bind);
-   EINA_SAFETY_ON_NULL_GOTO(global, err);
+   if (e_config->configured_output_resolution.use)
+     {
+        global = wl_global_create(e_comp_wl->wl.disp,
+                                  &tizen_launch_appinfo_interface,
+                                  1,
+                                  NULL,
+                                  _tzlaunch_appinfo_cb_bind);
+        EINA_SAFETY_ON_NULL_GOTO(global, err);
 
-   polwl->globals = eina_list_append(polwl->globals, global);
+        polwl->globals = eina_list_append(polwl->globals, global);
+     }
 
    return EINA_TRUE;
 
