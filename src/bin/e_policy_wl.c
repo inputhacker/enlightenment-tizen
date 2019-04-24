@@ -17,11 +17,6 @@
 #include <tizen-launch-server-protocol.h>
 #include <tzsh_server.h>
 
-#if 1 // APPINFO launch_app_info
-#include <aul.h>
-#include <pkgmgr-info.h>
-#endif
-
 #define APP_DEFINE_GROUP_NAME "effect"
 
 typedef enum _Tzsh_Srv_Role
@@ -227,6 +222,14 @@ static Eina_List *hooks_co = NULL;
 static struct wl_resource *_scrsaver_mng_res = NULL; // TODO
 static struct wl_resource *_indicator_srv_res = NULL;
 
+static int _e_policy_wl_hooks_delete = 0;
+static int _e_policy_wl_hooks_walking = 0;
+
+static Eina_Inlist *_e_policy_wl_hooks[] =
+{
+   [E_POLICY_WL_HOOK_BASE_SCREEN_RESOLUTION_GET] = NULL,
+};
+
 E_API int E_EVENT_POLICY_INDICATOR_STATE_CHANGE = -1;
 E_API int E_EVENT_POLICY_INDICATOR_OPACITY_MODE_CHANGE = -1;
 E_API int E_EVENT_POLICY_INDICATOR_VISIBLE_STATE_CHANGE = -1;
@@ -282,6 +285,77 @@ static void                _e_policy_wl_tzlaunch_effect_type_unset(uint32_t pid)
 static void                _launch_effect_hide(uint32_t pid);
 static void                _launch_effect_client_del(E_Client *ec);
 static void                _launch_splash_off(E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash);
+
+// --------------------------------------------------------
+// E_Policy_Wl_Hook
+// --------------------------------------------------------
+
+static void
+_e_policy_wl_hooks_clean()
+{
+   E_Policy_Wl_Hook *epwh = NULL;
+   Eina_Inlist *l = NULL;
+   unsigned int x;
+
+   for (x = 0; x < E_POLICY_WL_HOOK_LAST; x++)
+     {
+        EINA_INLIST_FOREACH_SAFE(_e_policy_wl_hooks[x], l, epwh)
+          {
+             if (!epwh->delete_me) continue;
+             _e_policy_wl_hooks[x] = eina_inlist_remove(_e_policy_wl_hooks[x], EINA_INLIST_GET(epwh));
+             free(epwh);
+          }
+     }
+}
+
+static void
+_e_policy_wl_hook_call(E_Policy_Wl_Hook_Point hookpoint, pid_t pid)
+{
+   E_Policy_Wl_Hook *epwh = NULL;
+
+   _e_policy_wl_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_policy_wl_hooks[hookpoint], epwh)
+     {
+        if (epwh->delete_me) continue;
+        epwh->func(epwh->data, pid);
+     }
+   _e_policy_wl_hooks_walking--;
+
+   if ((_e_policy_wl_hooks_walking == 0) && (_e_policy_wl_hooks_delete > 0))
+     _e_policy_wl_hooks_clean();
+}
+
+E_API E_Policy_Wl_Hook *
+e_policy_wl_hook_add(E_Policy_Wl_Hook_Point hookpoint, E_Policy_Wl_Hook_Cb func, const void *data)
+{
+   E_Policy_Wl_Hook *epwh = NULL;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint < 0, NULL);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_POLICY_WL_HOOK_LAST, NULL);
+
+   epwh = E_NEW(E_Policy_Wl_Hook, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(epwh, NULL);
+
+   epwh->hookpoint = hookpoint;
+   epwh->func = func;
+   epwh->data = (void *)data;
+   _e_policy_wl_hooks[hookpoint] = eina_inlist_append(_e_policy_wl_hooks[hookpoint], EINA_INLIST_GET(epwh));
+
+   return epwh;
+}
+
+E_API void
+e_policy_wl_hook_del(E_Policy_Wl_Hook *epwh)
+{
+   epwh->delete_me = 1;
+   if (_e_policy_wl_hooks_walking == 0)
+     {
+        _e_policy_wl_hooks[epwh->hookpoint] = eina_inlist_remove(_e_policy_wl_hooks[epwh->hookpoint], EINA_INLIST_GET(epwh));
+        free(epwh);
+     }
+   else
+     _e_policy_wl_hooks_delete++;
+}
 
 // --------------------------------------------------------
 // E_Policy_Wl_Tzpol
@@ -5588,74 +5662,6 @@ _tzlaunch_appinfo_iface_cb_deregister_pid(struct wl_client *client, struct wl_re
    e_policy_appinfo_del(epai);
 }
 
-static void
-_e_module_base_resolution_get(const char *appid, int *width, int *height)
-{
-   int ret = 0;
-   char *resolution = NULL;
-   pkgmgrinfo_appinfo_h appinfo = NULL;
-
-   *width = 0;
-   *height = 0;
-
-   // 1. get appinfo
-   ret = pkgmgrinfo_appinfo_get_appinfo(appid, &appinfo);
-   if (ret != PMINFO_R_OK || appinfo == NULL)
-     {
-        ELOGF("APPINFO", "tzlaunch_appinfo:: failed to get appinfo.", NULL, NULL);
-        goto err;
-     }
-
-   // 2. get metadata
-   ret = pkgmgrinfo_appinfo_get_metadata_value(appinfo,
-                          "http://tizen.org/metadata/app_ui_type/base_screen_resolution", &resolution);
-
-   if (ret != PMINFO_R_OK)
-     {
-        ELOGF("APPINFO", "tzlaunch_appinfo:: can't get base_screen_resolution from metadata.", NULL, NULL);
-        goto err;
-        // doing without metadata. using e_config preconfigued_resolution.
-     }
-
-   if (!e_util_strcmp(resolution, "2k"))
-     {
-        *width = 1920;
-        *height = 1080;
-     }
-   else if (!e_util_strcmp(resolution, "4k"))
-     {
-        *width = 3840;
-        *height = 2160;
-     }
-   else if (!e_util_strcmp(resolution, "max"))
-     {
-        *width = 1920;
-        *height = 1080;
-     }
-   else
-     {
-#if 1 // TODO: FIX ME
-        *width = 1920;
-        *height = 1080;
-#else
-        *width = ec->desk->geom.w;
-        *height = ec->desk->geom.h;
-#endif
-     }
-
-   ELOGF("APPINFO", "tzlaunch_appinfo:: get base_screen_resolution from metadata: %s.", NULL, NULL, resolution);
-
-   pkgmgrinfo_appinfo_destroy_appinfo(appinfo);
-
-   return;
-err:
-   *width = 1920;
-   *height = 1080;
-
-   if (appinfo)
-     pkgmgrinfo_appinfo_destroy_appinfo(appinfo);
-}
-
 // launch doing!
 static void
 _tzlaunch_appinfo_iface_cb_set_appid(struct wl_client *client, struct wl_resource *res_tzlaunch_appinfo,
@@ -5696,11 +5702,11 @@ _tzlaunch_appinfo_iface_cb_set_appid(struct wl_client *client, struct wl_resourc
 
    // TODO: call the HOOK to get the base screen resolution from e20 module.
    //       1. send HOOK with pid
+   _e_policy_wl_hook_call(E_POLICY_WL_HOOK_BASE_SCREEN_RESOLUTION_GET, pid);
    //       2. module must set the base_output_resolution.
-   _e_module_base_resolution_get(appid, &width, &height);
-   if (!e_policy_appinfo_base_output_resolution_set(epai, width, height))
+   if (!e_policy_appinfo_base_output_resolution_get(epai, &width, &height))
      {
-        ELOGF("APPINFO", "tzlaunch_appinfo:: fail to set base_output_resolution.!!!! : |pid:%u|appid:%s|", NULL, NULL, pid, appid);
+        ELOGF("APPINFO", "tzlaunch_appinfo:: fail to set base_output_resolution in module!!!! : |pid:%u|appid:%s|", NULL, NULL, pid, appid);
         return;
      }
    //       3. server has to get the base_screern_resolution via e_policy_appinfo_base_output_resolution_get.

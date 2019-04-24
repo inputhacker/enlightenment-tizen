@@ -91,7 +91,7 @@ e_policy_appinfo_base_output_resolution_get(E_Policy_Appinfo *epai, int *width, 
    return EINA_TRUE;
 }
 
-EINTERN E_Policy_Appinfo *
+E_API E_Policy_Appinfo *
 e_policy_appinfo_find_with_pid(pid_t pid)
 {
    E_Policy_Appinfo *epai = NULL;
@@ -108,7 +108,7 @@ e_policy_appinfo_find_with_pid(pid_t pid)
    return NULL;
 }
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_policy_appinfo_base_output_resolution_set(E_Policy_Appinfo *epai, int width, int height)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(epai, EINA_FALSE);
