@@ -1732,6 +1732,7 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
    Eina_List *l;
    E_Hwc_Window *hwc_window = NULL;
    E_Client *ec = NULL;
+   Eina_Bool set_client = EINA_FALSE;
 
    /* get the visible ecs */
    visible_windows = hwc->visible_windows;
@@ -1747,6 +1748,8 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
                {
                   if (!e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO, EINA_TRUE))
                     ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
+
+                  set_client = EINA_TRUE;
                   continue;
                }
 
@@ -1755,7 +1758,7 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
 
              /* filter the visible clients which e20 prevent to shown by hw directly
                 by demand of e20 */
-             if (e_hwc_window_device_state_available_get(hwc_window))
+             if (!set_client && e_hwc_window_device_state_available_get(hwc_window))
                e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE, EINA_TRUE);
              else
                {
