@@ -126,8 +126,7 @@ _e_video_ec_visibility_event_send(E_Client *ec)
    int obscured;
 
    obscured = ec->visibility.obscured;
-   ELOGF("VIDEO <INF>", "Signal visibility change event of video, type %d",
-         ec, obscured);
+   VIN("Signal visibility change event of video, type %d", ec, obscured);
 
    ev = E_NEW(E_Event_Client, 1);
    if (!ev) return;

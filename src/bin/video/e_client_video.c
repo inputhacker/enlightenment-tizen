@@ -13,7 +13,7 @@
 #define IFACE_CHECK_RET(iname, ret)                   \
    INTERNAL_DATA_GET;                                 \
    EINA_SAFETY_ON_NULL_RETURN_VAL(ecv, ret);          \
-   ELOGF("VIDEO <INF>", #iname, ec);                  \
+   VIN(#iname, ec);                                   \
    if (!ecv->iface->iname)                            \
       return ret
 
@@ -169,7 +169,7 @@ e_client_video_set(E_Client *ec)
    E_Client_Video *ecv;
    Eina_Bool res;
 
-   ELOGF("VIDEO", "<INF> video set", ec);
+   VIN("Set video client", ec);
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec->frame, EINA_FALSE);
@@ -220,7 +220,7 @@ e_client_video_unset(E_Client *ec)
         return;
      }
 
-   ELOGF("VIDEO", "<INF> unset video", ec);
+   VIN("Unset video client", ec);
 
    _e_client_video_del(ecv);
 }
