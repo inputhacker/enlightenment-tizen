@@ -26,7 +26,7 @@ struct _E_Client_Video
 
    E_Client *ec;
 
-   Ecore_Event_Handler *eeh_zone_set;
+   Eina_List *event_handlers;
 
    struct
    {
@@ -85,6 +85,25 @@ end:
    return EINA_TRUE;
 }
 
+static void
+_e_client_video_deinit(E_Client_Video *ecv)
+{
+   _e_client_video_comp_iface_deinit(ecv);
+
+   E_FREE_LIST(ecv->event_handlers, ecore_event_handler_del);
+}
+
+static void
+_e_client_video_del(E_Client_Video *ecv)
+{
+   _e_client_video_deinit(ecv);
+
+   evas_object_data_del(ecv->ec->frame, EO_DATA_KEY);
+   e_object_unref(E_OBJECT(ecv->ec));
+
+   free(ecv);
+}
+
 static Eina_Bool
 _e_client_video_cb_ec_zone_set(void *data, int type EINA_UNUSED, void *event)
 {
@@ -106,6 +125,23 @@ end:
 }
 
 static Eina_Bool
+_e_client_video_cb_ec_remove(void *data, int type EINA_UNUSED, void *event)
+{
+   E_Client_Video *ecv;
+   E_Event_Client *ev;
+
+   ev = event;
+   ecv = data;
+   if (ev->ec != ecv->ec)
+     goto end;
+
+   _e_client_video_del(ecv);
+
+end:
+   return ECORE_CALLBACK_PASS_ON;
+}
+
+static Eina_Bool
 _e_client_video_init(E_Client_Video *ecv, E_Client *ec)
 {
    Eina_Bool res;
@@ -118,19 +154,13 @@ _e_client_video_init(E_Client_Video *ecv, E_Client *ec)
      }
 
    ecv->ec = ec;
-   ecv->eeh_zone_set = ecore_event_handler_add(E_EVENT_CLIENT_ZONE_SET,
-                                               _e_client_video_cb_ec_zone_set,
-                                               ecv);
+
+   E_LIST_HANDLER_APPEND(ecv->event_handlers, E_EVENT_CLIENT_ZONE_SET,
+                         _e_client_video_cb_ec_zone_set, ecv);
+   E_LIST_HANDLER_APPEND(ecv->event_handlers, E_EVENT_CLIENT_REMOVE,
+                         _e_client_video_cb_ec_remove, ecv);
 
    return EINA_TRUE;
-}
-
-static void
-_e_client_video_deinit(E_Client_Video *ecv)
-{
-   _e_client_video_comp_iface_deinit(ecv);
-
-   E_FREE_FUNC(ecv->eeh_zone_set, ecore_event_handler_del);
 }
 
 E_API Eina_Bool
@@ -181,16 +211,18 @@ e_client_video_set(E_Client *ec)
 E_API void
 e_client_video_unset(E_Client *ec)
 {
-   API_ENTRY;
+   INTERNAL_DATA_GET;
+
+   if (!ecv)
+     {
+        VWR("It's not video client or already deleted(%d)",
+            ec, e_object_is_del(E_OBJECT(ec)));
+        return;
+     }
 
    ELOGF("VIDEO", "<INF> unset video", ec);
 
-   _e_client_video_deinit(ecv);
-
-   evas_object_data_del(ec->frame, EO_DATA_KEY);
-   e_object_unref(E_OBJECT(ec));
-
-   free(ecv);
+   _e_client_video_del(ecv);
 }
 
 E_API Eina_Bool
