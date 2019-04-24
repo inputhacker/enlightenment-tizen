@@ -365,9 +365,9 @@ shm_unlink("/");
 LIBS=${LIBS_save}
 AC_MSG_RESULT([${have_shm_open}])
 AC_SUBST(SHM_OPEN_LIBS)
-                           
+
 if test "x${e_cv_want_wayland_only}" != "xno" || test "x${e_cv_want_wayland_clients}" != "xno";then
-  PKG_CHECK_MODULES([WAYLAND], [wayland-server >= 1.8.0 xkbcommon uuid xdg-shell-unstable-v5-server xdg-shell-unstable-v6-server tizen-remote-surface-server scaler-server screenshooter-server tizen-extension-server tizen-launch-server tizen-surface-server eom-server],
+  PKG_CHECK_MODULES([WAYLAND], [wayland-server >= 1.8.0 xkbcommon uuid xdg-shell-unstable-v5-server xdg-shell-unstable-v6-server tizen-remote-surface-server scaler-server screenshooter-server tizen-extension-server tizen-launch-server tizen-surface-server tizen-dpms-server eom-server],
     [
       have_wayland=yes
       AC_DEFINE_UNQUOTED([HAVE_WAYLAND],[1],[enable wayland support])
