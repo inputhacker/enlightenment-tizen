@@ -10,6 +10,7 @@
 #include "e_policy_wl_display.h"
 #include "e_policy_conformant_internal.h"
 #include "e_policy_visibility.h"
+#include "e_policy_appinfo.h"
 
 #include <device/display.h>
 #include <wayland-server.h>
@@ -158,6 +159,11 @@ typedef struct _E_Policy_Wl_Tzlaunch_Effect_Info
    int                        effect_type;       /* effect_type */
 } E_Policy_Wl_Tzlaunch_Effect_Info;
 
+typedef struct _E_Policy_Wl_Tzlaunch_Appinfo
+{
+   struct wl_resource        *res_tzlaunch_appinfo; /* tizen_launch_appinfo */
+} E_Policy_Wl_Tzlaunch_Appinfo;
+
 typedef enum _Launch_Img_File_type
 {
    LAUNCH_IMG_FILE_TYPE_ERROR = -1,
@@ -197,7 +203,8 @@ typedef struct _E_Policy_Wl
    /* tizen_launch_effect_interface */
    Eina_List       *tzlaunch_effect;        /* list of E_Policy_Wl_Tzlaunch_Effect */
    Eina_List       *tzlaunch_effect_info;  /* list of E_Policy_Wl_Tzlaunch_Effect_Info */
-
+   /* tizen_launch_appinfo_interface */
+   Eina_List       *tzlaunch_appinfo;       /* list of E_Policy_Wl_Tzlaunch_Appinfo */
    /* tizen_ws_shell_interface ver_2 */
    Eina_List       *tzsh_extensions;           /* list of E_Policy_Wl_Tzsh_Extension */
 } E_Policy_Wl;
@@ -6330,6 +6337,244 @@ err:
    wl_client_post_no_memory(client);
 }
 
+// --------------------------------------------------------
+// tizen_launch_appinfo_interface
+// --------------------------------------------------------
+static void
+_tzlaunch_appinfo_iface_cb_register_pid(struct wl_client *client, struct wl_resource *res_tzlaunch_appinfo,
+                                            uint32_t pid)
+{
+   E_Policy_Wl_Tzlaunch_Appinfo *appinfo = NULL;
+   E_Policy_Appinfo *epai = NULL;
+
+   appinfo = wl_resource_get_user_data(res_tzlaunch_appinfo);
+   if (!appinfo)
+     {
+        wl_resource_post_error(res_tzlaunch_appinfo,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "Invalid tzlaunch_appinfo's user data");
+        return;
+     }
+
+   if (pid <= 0)
+     {
+        ELOGF("TZ_APPINFO", "registered pid is invalid. pid:%u", NULL, pid);
+        return;
+     }
+
+   epai = e_policy_appinfo_new();
+   EINA_SAFETY_ON_NULL_RETURN(epai);
+
+   if (!e_policy_appinfo_pid_set(epai, pid))
+     {
+        ELOGF("TZ_APPINFO", "failed to set pid is invalid. pid:%u", NULL, pid);
+        e_policy_appinfo_del(epai);
+        return;
+     }
+}
+
+static void
+_tzlaunch_appinfo_iface_cb_deregister_pid(struct wl_client *client, struct wl_resource *res_tzlaunch_appinfo,
+                                            uint32_t pid)
+{
+   E_Policy_Wl_Tzlaunch_Appinfo *appinfo = NULL;
+   E_Policy_Appinfo *epai = NULL;
+
+   appinfo = wl_resource_get_user_data(res_tzlaunch_appinfo);
+   if (!appinfo)
+     {
+        wl_resource_post_error(res_tzlaunch_appinfo,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "Invalid tzlaunch_appinfo's user data");
+        return;
+     }
+
+   epai = e_policy_appinfo_find_with_pid(pid);
+   EINA_SAFETY_ON_NULL_RETURN(epai);
+
+   e_policy_appinfo_del(epai);
+}
+
+static void
+_tzlaunch_appinfo_iface_cb_set_appid(struct wl_client *client, struct wl_resource *res_tzlaunch_appinfo,
+                                      uint32_t pid, const char *appid)
+{
+   E_Policy_Wl_Tzlaunch_Appinfo *tzlaunch_appinfo = NULL;
+   E_Policy_Appinfo *epai = NULL;
+   int width = 0;
+   int height = 0;
+
+   tzlaunch_appinfo = wl_resource_get_user_data(res_tzlaunch_appinfo);
+   if (!tzlaunch_appinfo)
+     {
+        wl_resource_post_error(res_tzlaunch_appinfo,
+                               WL_DISPLAY_ERROR_INVALID_OBJECT,
+                               "Invalid tzlaunch_appinfo's user data");
+        return;
+     }
+
+   if (pid <= 0)
+     {
+        ELOGF("TZ_APPINFO", "set pid is invalid. pid:%u", NULL, pid);
+        return;
+     }
+
+   epai = e_policy_appinfo_find_with_pid(pid);
+   EINA_SAFETY_ON_NULL_RETURN(epai);
+
+   if (!e_policy_appinfo_appid_set(epai, appid))
+     {
+        ELOGF("TZ_APPINFO", "failed to set appid, appid:%s", NULL, appid);
+        return;
+     }
+
+   // 1. send HOOK with pid
+   _e_policy_wl_hook_call(E_POLICY_WL_HOOK_BASE_OUTPUT_RESOLUTION_GET, pid);
+   // 2. module must set the base_output_resolution.
+   if (!e_policy_appinfo_base_output_resolution_get(epai, &width, &height))
+     {
+        ELOGF("TZ_APPINFO", "failed to set base_output_resolution in module, pid:%u, appid:%s", NULL, pid, appid);
+        return;
+     }
+   // 3. server has to get the base_screern_resolution via e_policy_appinfo_base_output_resolution_get.
+   //    3-1. if success, use the base_rescreen_resolution
+   //    3-2. if fail, get the base_output_resolution from the E_Comp_Wl_Output.
+
+   // 4. send output.
+   if (!e_comp_wl_pid_output_configured_resolution_send(pid, width, height))
+     {
+        ELOGF("TZ_APPINFO", "failed to send output_configured_resolution, pid:%u, appid:%s", NULL, pid, appid);
+        return;
+     }
+
+   return;
+}
+
+static void
+_tzlaunch_appinfo_iface_cb_destroy(struct wl_client *client, struct wl_resource *res_tzlaunch_appinfo)
+{
+   wl_resource_destroy(res_tzlaunch_appinfo);
+}
+
+static void
+_tzlaunch_appinfo_iface_cb_get_base_output_resolution(struct wl_client *client, struct wl_resource *res_tzlaunch_appinfo,
+                                    uint32_t pid)
+{
+   E_Policy_Appinfo *epai = NULL;
+   int width = 0, height = 0;
+
+   if (pid <= 0)
+     {
+        ELOGF("TZ_APPINFO", "requested pid is invalid. pid:%u", NULL, pid);
+        goto err;
+     }
+
+   epai = e_policy_appinfo_find_with_pid(pid);
+   if (!epai)
+     {
+        ELOGF("TZ_APPINFO", "cannot find pid. pid:%u", NULL, pid);
+        goto err;
+     }
+
+   if (!e_policy_appinfo_base_output_resolution_get(epai, &width, &height))
+     {
+        ELOGF("TZ_APPINFO", "cannot read size. pid:%u", NULL, pid);
+        goto err;
+     }
+
+   tizen_launch_appinfo_send_base_output_resolution_done(res_tzlaunch_appinfo, pid, width, height);
+   ELOGF("TZ_APPINFO", "send Output base_output_resolution size(%d, %d) : pid(%u)", NULL, width, height, pid);
+
+   return;
+
+err:
+   if (!e_comp_wl_pid_output_configured_resolution_get(pid, &width, &height))
+     ELOGF("TZ_APPINFO", "ERROR failed to get Output base_output_resolution send size(%d, %d) : pid(%u)", NULL, width, height, pid);
+   else
+     ELOGF("TZ_APPINFO", "send Output base_output_resolution size(%d, %d) : pid(%u)", NULL, width, height, pid);
+   tizen_launch_appinfo_send_base_output_resolution_done(res_tzlaunch_appinfo, pid, width, height);
+
+   return;
+}
+
+static const struct tizen_launch_appinfo_interface _tzlaunch_appinfo_iface =
+{
+   _tzlaunch_appinfo_iface_cb_destroy,
+   _tzlaunch_appinfo_iface_cb_register_pid,
+   _tzlaunch_appinfo_iface_cb_deregister_pid,
+   _tzlaunch_appinfo_iface_cb_set_appid,
+   _tzlaunch_appinfo_iface_cb_get_base_output_resolution,
+};
+
+static void
+_tzlaunch_appinfo_del(E_Policy_Wl_Tzlaunch_Appinfo *tzlaunch_appinfo)
+{
+   EINA_SAFETY_ON_NULL_RETURN(tzlaunch_appinfo);
+
+   polwl->tzlaunch_appinfo = eina_list_remove(polwl->tzlaunch_appinfo, tzlaunch_appinfo);
+
+   memset(tzlaunch_appinfo, 0x0, sizeof(E_Policy_Wl_Tzlaunch_Appinfo));
+   E_FREE(tzlaunch_appinfo);
+}
+
+static E_Policy_Wl_Tzlaunch_Appinfo *
+_tzlaunch_appinfo_add(struct wl_resource *res_tzlaunch_appinfo)
+{
+   E_Policy_Wl_Tzlaunch_Appinfo *tzlaunch_appinfo;
+
+   tzlaunch_appinfo = E_NEW(E_Policy_Wl_Tzlaunch_Appinfo, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tzlaunch_appinfo, NULL);
+
+   tzlaunch_appinfo->res_tzlaunch_appinfo = res_tzlaunch_appinfo;
+
+   polwl->tzlaunch_appinfo = eina_list_append(polwl->tzlaunch_appinfo, tzlaunch_appinfo);
+
+   return tzlaunch_appinfo;
+}
+
+static void
+_tzlaunch_appinfo_cb_unbind(struct wl_resource *res_tzlaunch_appinfo)
+{
+   E_Policy_Wl_Tzlaunch_Appinfo *tzlaunch_appinfo= NULL;
+   Eina_List *l, *ll;
+
+   EINA_LIST_FOREACH_SAFE(polwl->tzlaunch_appinfo, l, ll, tzlaunch_appinfo)
+     {
+        if (tzlaunch_appinfo->res_tzlaunch_appinfo != res_tzlaunch_appinfo) continue;
+        _tzlaunch_appinfo_del(tzlaunch_appinfo);
+        break;
+     }
+}
+
+static void
+_tzlaunch_appinfo_cb_bind(struct wl_client *client, void *data EINA_UNUSED, uint32_t ver, uint32_t id)
+{
+   E_Policy_Wl_Tzlaunch_Appinfo *tzlaunch_appinfo = NULL;
+   struct wl_resource *res_tzlaunch_appinfo;
+
+   EINA_SAFETY_ON_NULL_GOTO(polwl, err);
+
+   res_tzlaunch_appinfo = wl_resource_create(client,
+                                     &tizen_launch_appinfo_interface,
+                                     ver,
+                                     id);
+   EINA_SAFETY_ON_NULL_GOTO(res_tzlaunch_appinfo, err);
+
+   tzlaunch_appinfo = _tzlaunch_appinfo_add(res_tzlaunch_appinfo);
+   EINA_SAFETY_ON_NULL_GOTO(tzlaunch_appinfo, err);
+
+   wl_resource_set_implementation(res_tzlaunch_appinfo,
+                                  &_tzlaunch_appinfo_iface,
+                                  tzlaunch_appinfo,
+                                  _tzlaunch_appinfo_cb_unbind);
+
+   return;
+
+err:
+   ERR("Could not create tizen_launch_appinfo_interface res: %m");
+   wl_client_post_no_memory(client);
+}
+
 static Eina_Bool
 _e_policy_wl_cb_hook_intercept_show_helper(void *data, E_Client *ec)
 {
@@ -7032,6 +7277,18 @@ e_policy_wl_defer_job(void)
    EINA_SAFETY_ON_NULL_GOTO(global, err);
 
    polwl->globals = eina_list_append(polwl->globals, global);
+
+   if (e_config->configured_output_resolution.use)
+     {
+        global = wl_global_create(e_comp_wl->wl.disp,
+                                  &tizen_launch_appinfo_interface,
+                                  1,
+                                  NULL,
+                                  _tzlaunch_appinfo_cb_bind);
+        EINA_SAFETY_ON_NULL_GOTO(global, err);
+
+        polwl->globals = eina_list_append(polwl->globals, global);
+     }
 
    return EINA_TRUE;
 
