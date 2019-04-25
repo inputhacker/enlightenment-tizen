@@ -211,6 +211,14 @@ static Eina_List *hooks_co = NULL;
 static struct wl_resource *_scrsaver_mng_res = NULL; // TODO
 static struct wl_resource *_indicator_srv_res = NULL;
 
+static int _e_policy_wl_hooks_delete = 0;
+static int _e_policy_wl_hooks_walking = 0;
+
+static Eina_Inlist *_e_policy_wl_hooks[] =
+{
+   [E_POLICY_WL_HOOK_BASE_OUTPUT_RESOLUTION_GET] = NULL,
+};
+
 E_API int E_EVENT_POLICY_INDICATOR_STATE_CHANGE = -1;
 E_API int E_EVENT_POLICY_INDICATOR_OPACITY_MODE_CHANGE = -1;
 E_API int E_EVENT_POLICY_INDICATOR_VISIBLE_STATE_CHANGE = -1;
@@ -266,6 +274,77 @@ static void                _e_policy_wl_tzlaunch_effect_type_unset(uint32_t pid)
 static void                _launch_effect_hide(uint32_t pid);
 static void                _launch_effect_client_del(E_Client *ec);
 static void                _launch_splash_off(E_Policy_Wl_Tzlaunch_Splash *tzlaunch_splash);
+
+// --------------------------------------------------------
+// E_Policy_Wl_Hook
+// --------------------------------------------------------
+
+static void
+_e_policy_wl_hooks_clean()
+{
+   E_Policy_Wl_Hook *epwh = NULL;
+   Eina_Inlist *l = NULL;
+   unsigned int x;
+
+   for (x = 0; x < E_POLICY_WL_HOOK_LAST; x++)
+     {
+        EINA_INLIST_FOREACH_SAFE(_e_policy_wl_hooks[x], l, epwh)
+          {
+             if (!epwh->delete_me) continue;
+             _e_policy_wl_hooks[x] = eina_inlist_remove(_e_policy_wl_hooks[x], EINA_INLIST_GET(epwh));
+             free(epwh);
+          }
+     }
+}
+
+static void
+_e_policy_wl_hook_call(E_Policy_Wl_Hook_Point hookpoint, pid_t pid)
+{
+   E_Policy_Wl_Hook *epwh = NULL;
+
+   _e_policy_wl_hooks_walking++;
+   EINA_INLIST_FOREACH(_e_policy_wl_hooks[hookpoint], epwh)
+     {
+        if (epwh->delete_me) continue;
+        epwh->func(epwh->data, pid);
+     }
+   _e_policy_wl_hooks_walking--;
+
+   if ((_e_policy_wl_hooks_walking == 0) && (_e_policy_wl_hooks_delete > 0))
+     _e_policy_wl_hooks_clean();
+}
+
+E_API E_Policy_Wl_Hook *
+e_policy_wl_hook_add(E_Policy_Wl_Hook_Point hookpoint, E_Policy_Wl_Hook_Cb func, const void *data)
+{
+   E_Policy_Wl_Hook *epwh = NULL;
+
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint < 0, NULL);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hookpoint >= E_POLICY_WL_HOOK_LAST, NULL);
+
+   epwh = E_NEW(E_Policy_Wl_Hook, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(epwh, NULL);
+
+   epwh->hookpoint = hookpoint;
+   epwh->func = func;
+   epwh->data = (void *)data;
+   _e_policy_wl_hooks[hookpoint] = eina_inlist_append(_e_policy_wl_hooks[hookpoint], EINA_INLIST_GET(epwh));
+
+   return epwh;
+}
+
+E_API void
+e_policy_wl_hook_del(E_Policy_Wl_Hook *epwh)
+{
+   epwh->delete_me = 1;
+   if (_e_policy_wl_hooks_walking == 0)
+     {
+        _e_policy_wl_hooks[epwh->hookpoint] = eina_inlist_remove(_e_policy_wl_hooks[epwh->hookpoint], EINA_INLIST_GET(epwh));
+        free(epwh);
+     }
+   else
+     _e_policy_wl_hooks_delete++;
+}
 
 // --------------------------------------------------------
 // E_Policy_Wl_Tzpol

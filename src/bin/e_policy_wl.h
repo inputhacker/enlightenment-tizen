@@ -11,6 +11,28 @@ void      e_policy_wl_client_add(E_Client *ec);
 void      e_policy_wl_client_del(E_Client *ec);
 void      e_policy_wl_pixmap_del(E_Pixmap *cp);
 
+typedef struct _E_Policy_Wl_Hook E_Policy_Wl_Hook;
+typedef void (*E_Policy_Wl_Hook_Cb)(void *data, pid_t pid);
+
+typedef enum _E_Policy_Wl_Hook_Point
+{
+   E_POLICY_WL_HOOK_BASE_OUTPUT_RESOLUTION_GET,
+   E_POLICY_WL_HOOK_LAST,
+} E_Policy_Wl_Hook_Point;
+
+struct _E_Policy_Wl_Hook
+{
+   EINA_INLIST;
+   E_Policy_Wl_Hook_Point hookpoint;
+   E_Policy_Wl_Hook_Cb    func;
+   void                  *data;
+   unsigned char          delete_me : 1;
+};
+
+/* hook */
+E_API E_Policy_Wl_Hook* e_policy_wl_hook_add(E_Policy_Wl_Hook_Point hookpoint, E_Policy_Wl_Hook_Cb func, const void *data);
+E_API void              e_policy_wl_hook_del(E_Policy_Wl_Hook *epwh);
+
 /* visibility */
 void      e_policy_wl_visibility_send(E_Client *ec, int vis);
 
