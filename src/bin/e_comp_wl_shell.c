@@ -898,6 +898,9 @@ _e_shell_cb_shell_surface_get(struct wl_client *client, struct wl_resource *reso
 
    ELOGF("SHELL", "Create shell surface", ec);
 
+   // base_output_resolution.
+   e_client_base_output_resolution_update(ec);
+
    e_shell_e_client_shsurface_assign(ec, shsurf_resource, &api);
    e_comp_wl_shell_surface_ready(ec);
 }
@@ -1535,6 +1538,9 @@ _e_xdg_shell_cb_surface_get(struct wl_client *client, struct wl_resource *resour
                                   &_e_xdg_surface_interface,
                                   ec,
                                   _e_shell_surface_cb_destroy);
+
+   // base_output_resolution.
+   e_client_base_output_resolution_update(ec);
 
    e_shell_e_client_shsurface_assign(ec, shsurf_resource, &api);
    e_shell_e_client_toplevel_set(ec);
