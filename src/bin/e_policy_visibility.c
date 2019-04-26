@@ -647,8 +647,17 @@ _e_vis_job_exec(Eina_Clist *elem)
 
    _e_vis_clist_unlink(elem);
    job = EINA_CLIST_ENTRY(elem, E_Vis_Job, entry);
+
+   /* After calling the function below, ec may have been deleted.
+    * This is because the delayed ec deletion is perfromed in the following function.
+    * Therefore, be careful when leaving out detailed log message about deleted ec
+    * to avoid segmentation fault error.
+    */
    _e_vis_client_job_exec(job->vc, job->type);
-   VS_INF(job->vc->ec, "FREE JOB:%p, type:%d", job, job->type);
+   if (e_object_is_del(E_OBJECT(job->vc->ec)))
+     INF("VISIBILITY | FREE JOB:%p, type:%d | (ec:%p)", job, job->type, job->vc->ec);
+   else
+     VS_INF(job->vc->ec, "FREE JOB:%p, type:%d", job, job->type);
    E_FREE_FUNC(job->timer, ecore_timer_del);
    free(job);
 }
