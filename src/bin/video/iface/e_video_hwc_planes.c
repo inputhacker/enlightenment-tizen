@@ -813,12 +813,8 @@ _e_video_hwc_planes_property_save(E_Video_Hwc_Planes *evhp, unsigned int id, con
 }
 
 static void
-_e_video_hwc_planes_ec_event_init(E_Video_Hwc_Planes *evhp)
+_e_video_hwc_planes_ec_event_init(E_Video_Hwc_Planes *evhp, E_Client *ec)
 {
-   E_Client *ec;
-
-   ec = evhp->base.ec;
-
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_HIDE,
                                   _e_video_hwc_planes_cb_evas_hide, evhp);
 
@@ -1037,7 +1033,7 @@ e_video_hwc_planes_create(E_Output *output, E_Client *ec)
         return NULL;
      }
 
-   _e_video_hwc_planes_ec_event_init(evhp);
+   _e_video_hwc_planes_ec_event_init(evhp, ec);
    _e_video_hwc_planes_iface_set(&evhp->base.backend);
 
    return (E_Video_Hwc *)evhp;
