@@ -509,7 +509,9 @@ struct _E_Comp_Wl_Output
    struct wl_buffer *buffer;
    void *data;
 
-   /* configured_resolution */
+   /* configured_screen_resolution */
+   int configured_physical_w;
+   int configured_physical_h;
    int configured_resolution_w;
    int configured_resolution_h;
 };
