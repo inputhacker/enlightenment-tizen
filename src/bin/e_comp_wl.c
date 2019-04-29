@@ -4507,6 +4507,57 @@ _e_comp_wl_client_usable_get(pid_t pid, E_Pixmap *ep)
 }
 
 static void
+_e_comp_wl_output_info_send(E_Comp_Wl_Output *output, struct wl_resource *resource, pid_t pid, int res_w, int res_h)
+{
+   int phys_w, phys_h;
+
+   if (e_config->configured_output_resolution.use)
+     {
+        // change the configured output resolution and the configured physical size(mm) of the output
+        if (output->configured_resolution_w != res_w)
+          {
+             phys_w = (float)output->phys_width * (float)(res_w / output->w);
+             output->configured_physical_w = phys_w;
+             output->configured_resolution_w = res_w;
+          }
+
+        if (output->configured_resolution_h != res_h)
+          {
+             phys_h = (float)output->phys_height * (float)(res_h / output->h);
+             output->configured_physical_h = phys_h;
+             output->configured_resolution_h = res_h;
+          }
+
+        phys_w = output->configured_physical_w;
+        phys_h = output->configured_physical_h;
+
+        ELOGF("COMP_WL", "\tSend Configured Output (pid:%d)", NULL, NULL, pid);
+     }
+   else
+     {
+        phys_w = output->phys_width;
+        phys_h = output->phys_height;
+     }
+
+   ELOGF("COMP_WL", "\t    Output Resolution: res(%d, %d) phy_size(%d, %d) (pid:%d).", NULL, NULL,
+          res_w, res_h, phys_w, phys_h, pid);
+
+   if (wl_resource_get_version(resource) >= WL_OUTPUT_SCALE_SINCE_VERSION)
+     wl_output_send_scale(resource, output->scale);
+
+   wl_output_send_geometry(resource, output->x, output->y,
+                           phys_w, phys_h,
+                           output->subpixel, output->make ?: "",
+                           output->model ?: "", output->transform);
+
+   /* 3 == preferred + current */
+   wl_output_send_mode(resource, 3, res_w, res_h, output->refresh);
+
+   if (wl_resource_get_version(resource) >= WL_OUTPUT_DONE_SINCE_VERSION)
+     wl_output_send_done(resource);
+}
+
+static void
 _e_comp_wl_cb_output_unbind(struct wl_resource *resource)
 {
    E_Comp_Wl_Output *output;
@@ -4544,14 +4595,6 @@ _e_comp_wl_cb_output_bind(struct wl_client *client, void *data, uint32_t version
                                   _e_comp_wl_cb_output_unbind);
    wl_resource_set_user_data(resource, output);
 
-   wl_output_send_geometry(resource, output->x, output->y,
-                           output->phys_width, output->phys_height,
-                           output->subpixel, output->make ?: "",
-                           output->model ?: "", output->transform);
-
-   if (version >= WL_OUTPUT_SCALE_SINCE_VERSION)
-     wl_output_send_scale(resource, output->scale);
-
    // set the configured_output_resolution as a resolution of the wl_output if the use is set.
    if (e_config->configured_output_resolution.use)
      {
@@ -4560,7 +4603,7 @@ _e_comp_wl_cb_output_bind(struct wl_client *client, void *data, uint32_t version
           {
              res_w = e_config->configured_output_resolution.w;
              res_h = e_config->configured_output_resolution.h;
-             goto send_mode;
+             goto send_info;
           }
 
         epai = e_policy_appinfo_find_with_pid(pid);
@@ -4568,14 +4611,14 @@ _e_comp_wl_cb_output_bind(struct wl_client *client, void *data, uint32_t version
           {
              res_w = e_config->configured_output_resolution.w;
              res_h = e_config->configured_output_resolution.h;
-             goto send_mode;
+             goto send_info;
           }
 
         if (!e_policy_appinfo_base_output_resolution_get(epai, &res_w, &res_h))
           {
              res_w = e_config->configured_output_resolution.w;
              res_h = e_config->configured_output_resolution.h;
-             goto send_mode;
+             goto send_info;
           }
 
         ELOGF("COMP_WL", "Get base_screen_resolution. (pid:%d).", NULL, NULL, pid);
@@ -4586,17 +4629,8 @@ _e_comp_wl_cb_output_bind(struct wl_client *client, void *data, uint32_t version
         res_h = output->h;
      }
 
-send_mode:
-   // change the configured_output_resolution of the output
-   // configured_output_resolution is the output resolution.
-   if (output->configured_resolution_w != res_w) output->configured_resolution_w = res_w;
-   if (output->configured_resolution_h != res_h) output->configured_resolution_h = res_h;
-
-   ELOGF("COMP_WL", "\tConfigured Output Resolution: %d, %d (pid:%d).", NULL, NULL, res_w, res_h, pid);
-   wl_output_send_mode(resource, 3, res_w, res_h, output->refresh);
-
-   if (version >= WL_OUTPUT_DONE_SINCE_VERSION)
-     wl_output_send_done(resource);
+send_info:
+   _e_comp_wl_output_info_send(output, resource, pid, res_w, res_h);
 }
 
 static void
@@ -6605,29 +6639,10 @@ e_comp_wl_pid_output_configured_resolution_send(pid_t pid, int w, int h)
              if (output_pid != pid) continue;
              if (output->configured_resolution_w == w && output->configured_resolution_h == h) continue;
 
-             wl_output_send_geometry(resource,
-                                     output->x, output->y,
-                                     output->phys_width,
-                                     output->phys_height,
-                                     output->subpixel,
-                                     output->make ?: "", output->model ?: "",
-                                     output->transform);
+             ELOGF("COMP_WL", "\tSend Configured Output AGAIN ~!!!!! (pid:%d)", NULL, NULL, pid);
 
-             if (wl_resource_get_version(resource) >= WL_OUTPUT_SCALE_SINCE_VERSION)
-               wl_output_send_scale(resource, output->scale);
-
-             // change the configured_output_resolution of the output
-             // configured_output_resolution is the output resolution.
-             if (output->configured_resolution_w != w) output->configured_resolution_w = w;
-             if (output->configured_resolution_h != h) output->configured_resolution_h = h;
-
-             /* 3 == preferred + current */
-             wl_output_send_mode(resource, 3, w, h, output->refresh);
-
-             ELOGF("COMP_WL", "\tConfigured Output Resolution Again: %d, %d (pid:%d).", NULL, NULL, w, h, pid);
-
-             if (wl_resource_get_version(resource) >= WL_OUTPUT_DONE_SINCE_VERSION)
-               wl_output_send_done(resource);
+             // send output information to the client
+             _e_comp_wl_output_info_send(output, resource, pid, w, h);
           }
      }
 

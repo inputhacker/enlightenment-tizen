@@ -500,6 +500,8 @@ struct _E_Comp_Wl_Output
    void *data;
 
    /* configured_screen_resolution */
+   int configured_physical_w;
+   int configured_physical_h;
    int configured_resolution_w;
    int configured_resolution_h;
 };
