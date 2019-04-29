@@ -38,8 +38,4 @@ EINTERN Eina_Bool    e_client_video_commit_data_release(E_Client *ec, unsigned i
 
 EINTERN tbm_surface_h  e_client_video_tbm_surface_get(E_Client *ec);
 
-EINTERN void         e_client_video_info_get_func_set(E_Client *ec, E_Client_Video_Info_Get_Cb func);
-EINTERN void         e_client_video_commit_data_release_func_set(E_Client *ec, E_Client_Video_Commit_Data_Release_Cb func);
-EINTERN void         e_client_video_tbm_surface_get_func_set(E_Client *ec, E_Client_Video_Tbm_Surface_Get_Cb func);
-
 #endif
