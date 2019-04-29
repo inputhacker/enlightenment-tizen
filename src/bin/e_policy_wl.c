@@ -5608,7 +5608,7 @@ _tzlaunch_appinfo_iface_cb_register_pid(struct wl_client *client, struct wl_reso
 
    if (pid <= 0)
      {
-        ELOGF("TZ_APPINFO", "registered pid is invalid. pid:%u", NULL, pid);
+        ELOGF("TZ_APPINFO", "registered pid is invalid. pid:%u", NULL, NULL, pid);
         return;
      }
 
@@ -5617,7 +5617,7 @@ _tzlaunch_appinfo_iface_cb_register_pid(struct wl_client *client, struct wl_reso
 
    if (!e_policy_appinfo_pid_set(epai, pid))
      {
-        ELOGF("TZ_APPINFO", "failed to set pid is invalid. pid:%u", NULL, pid);
+        ELOGF("TZ_APPINFO", "failed to set pid is invalid. pid:%u", NULL, NULL, pid);
         e_policy_appinfo_del(epai);
         return;
      }
@@ -5665,7 +5665,7 @@ _tzlaunch_appinfo_iface_cb_set_appid(struct wl_client *client, struct wl_resourc
 
    if (pid <= 0)
      {
-        ELOGF("TZ_APPINFO", "set pid is invalid. pid:%u", NULL, pid);
+        ELOGF("TZ_APPINFO", "set pid is invalid. pid:%u", NULL, NULL, pid);
         return;
      }
 
@@ -5674,7 +5674,7 @@ _tzlaunch_appinfo_iface_cb_set_appid(struct wl_client *client, struct wl_resourc
 
    if (!e_policy_appinfo_appid_set(epai, appid))
      {
-        ELOGF("TZ_APPINFO", "failed to set appid, appid:%s", NULL, appid);
+        ELOGF("TZ_APPINFO", "failed to set appid, appid:%s", NULL, NULL, appid);
         return;
      }
 
@@ -5683,7 +5683,7 @@ _tzlaunch_appinfo_iface_cb_set_appid(struct wl_client *client, struct wl_resourc
    // 2. module must set the base_output_resolution.
    if (!e_policy_appinfo_base_output_resolution_get(epai, &width, &height))
      {
-        ELOGF("TZ_APPINFO", "failed to set base_output_resolution in module, pid:%u, appid:%s", NULL, pid, appid);
+        ELOGF("TZ_APPINFO", "failed to set base_output_resolution in module, pid:%u, appid:%s", NULL, NULL, pid, appid);
         return;
      }
    // 3. server has to get the base_screern_resolution via e_policy_appinfo_base_output_resolution_get.
@@ -5693,7 +5693,7 @@ _tzlaunch_appinfo_iface_cb_set_appid(struct wl_client *client, struct wl_resourc
    // 4. send output.
    if (!e_comp_wl_pid_output_configured_resolution_send(pid, width, height))
      {
-        ELOGF("TZ_APPINFO", "failed to send output_configured_resolution, pid:%u, appid:%s", NULL, pid, appid);
+        ELOGF("TZ_APPINFO", "failed to send output_configured_resolution, pid:%u, appid:%s", NULL, NULL, pid, appid);
         return;
      }
 
@@ -5715,33 +5715,33 @@ _tzlaunch_appinfo_iface_cb_get_base_output_resolution(struct wl_client *client, 
 
    if (pid <= 0)
      {
-        ELOGF("TZ_APPINFO", "requested pid is invalid. pid:%u", NULL, pid);
+        ELOGF("TZ_APPINFO", "requested pid is invalid. pid:%u", NULL, NULL, pid);
         goto err;
      }
 
    epai = e_policy_appinfo_find_with_pid(pid);
    if (!epai)
      {
-        ELOGF("TZ_APPINFO", "cannot find pid. pid:%u", NULL, pid);
+        ELOGF("TZ_APPINFO", "cannot find pid. pid:%u", NULL, NULL, pid);
         goto err;
      }
 
    if (!e_policy_appinfo_base_output_resolution_get(epai, &width, &height))
      {
-        ELOGF("TZ_APPINFO", "cannot read size. pid:%u", NULL, pid);
+        ELOGF("TZ_APPINFO", "cannot read size. pid:%u", NULL, NULL, pid);
         goto err;
      }
 
    tizen_launch_appinfo_send_base_output_resolution_done(res_tzlaunch_appinfo, pid, width, height);
-   ELOGF("TZ_APPINFO", "send Output base_output_resolution size(%d, %d) : pid(%u)", NULL, width, height, pid);
+   ELOGF("TZ_APPINFO", "send Output base_output_resolution size(%d, %d) : pid(%u)", NULL, NULL, width, height, pid);
 
    return;
 
 err:
    if (!e_comp_wl_pid_output_configured_resolution_get(pid, &width, &height))
-     ELOGF("TZ_APPINFO", "ERROR failed to get Output base_output_resolution send size(%d, %d) : pid(%u)", NULL, width, height, pid);
+     ELOGF("TZ_APPINFO", "ERROR failed to get Output base_output_resolution send size(%d, %d) : pid(%u)", NULL, NULL, width, height, pid);
    else
-     ELOGF("TZ_APPINFO", "send Output base_output_resolution size(%d, %d) : pid(%u)", NULL, width, height, pid);
+     ELOGF("TZ_APPINFO", "send Output base_output_resolution size(%d, %d) : pid(%u)", NULL, NULL, width, height, pid);
    tizen_launch_appinfo_send_base_output_resolution_done(res_tzlaunch_appinfo, pid, width, height);
 
    return;
