@@ -41,6 +41,7 @@
    (g)->output_r.w, (g)->output_r.h, (g)->output_r.x, (g)->output_r.y, \
    (g)->transform
 
+typedef struct _E_Client_Video E_Client_Video;
 typedef struct _E_Video_Comp_Iface E_Video_Comp_Iface;
 
 struct _E_Video_Comp_Iface
@@ -61,8 +62,11 @@ struct _E_Video_Comp_Iface
 };
 
 EINTERN E_Hwc_Policy         e_zone_video_hwc_policy_get(E_Zone *zone);
-EINTERN E_Video_Comp_Iface  *e_video_hwc_iface_create(E_Client *ec);
-EINTERN E_Video_Comp_Iface  *e_video_fallback_iface_create(E_Client *ec);
-EINTERN E_Video_Comp_Iface  *e_video_external_iface_create(E_Client *ec);
+EINTERN E_Video_Comp_Iface  *e_video_hwc_iface_create(E_Client_Video *ecv);
+EINTERN E_Video_Comp_Iface  *e_video_fallback_iface_create(E_Client_Video *ecv);
+EINTERN E_Video_Comp_Iface  *e_video_external_iface_create(E_Client_Video *ecv);
+EINTERN E_Client            *e_client_video_ec_get(E_Client_Video *ecv);
+EINTERN void                 e_client_video_hw_composition_set(E_Client_Video *ecv);
+EINTERN void                 e_client_video_hw_composition_unset(E_Client_Video *ecv);
 
 #endif

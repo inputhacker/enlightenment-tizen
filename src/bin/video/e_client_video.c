@@ -17,8 +17,6 @@
    if (!ecv->iface->iname)                            \
       return ret
 
-typedef struct _E_Client_Video E_Client_Video;
-
 struct _E_Client_Video
 {
    /* Composite interface ( hwc planes / hwc windows / fallback ) */
@@ -34,6 +32,8 @@ struct _E_Client_Video
       E_Client_Video_Commit_Data_Release_Cb commit_data_release;
       E_Client_Video_Tbm_Surface_Get_Cb tbm_surface_get;
    } cb;
+
+   Eina_Bool hw_composition;
 };
 
 static void
@@ -52,7 +52,7 @@ _e_client_video_comp_iface_init(E_Client_Video *ecv, E_Client *ec)
    if ((e_config->eom_enable == EINA_TRUE) && (e_eom_is_ec_external(ec)))
      {
         INF("Try to intialize external interface");
-        iface = e_video_external_iface_create(ec);
+        iface = e_video_external_iface_create(ecv);
         goto end;
      }
 
@@ -66,13 +66,13 @@ _e_client_video_comp_iface_init(E_Client_Video *ecv, E_Client *ec)
    if (hwc_pol != E_HWC_POLICY_NONE)
      {
         INF("Initialize the interface of the client_video for HWC mode");
-        iface = e_video_hwc_iface_create(ec);
+        iface = e_video_hwc_iface_create(ecv);
      }
 
 end:
    if (!iface)
      {
-        iface = e_video_fallback_iface_create(ec);
+        iface = e_video_fallback_iface_create(ecv);
         if (!iface)
           {
              ERR("Failed to create 'E_Video_Comp_Iface'");
@@ -146,14 +146,14 @@ _e_client_video_init(E_Client_Video *ecv, E_Client *ec)
 {
    Eina_Bool res;
 
+   ecv->ec = ec;
+
    res = _e_client_video_comp_iface_init(ecv, ec);
    if (!res)
      {
         ERR("Failed to initialize the composition interface for video");
         return EINA_FALSE;
      }
-
-   ecv->ec = ec;
 
    E_LIST_HANDLER_APPEND(ecv->event_handlers, E_EVENT_CLIENT_ZONE_SET,
                          _e_client_video_cb_ec_zone_set, ecv);
@@ -359,4 +359,37 @@ e_client_video_tbm_surface_get_func_set(E_Client *ec, E_Client_Video_Tbm_Surface
    API_ENTRY;
 
    ecv->cb.tbm_surface_get = func;
+}
+
+EINTERN Eina_Bool
+e_client_video_hw_composition_check(E_Client *ec)
+{
+   INTERNAL_DATA_GET;
+
+   if (!ecv)
+     return EINA_FALSE;
+
+   return ecv->hw_composition;
+}
+
+/* Video Internal Functions */
+EINTERN E_Client *
+e_client_video_ec_get(E_Client_Video *ecv)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ecv, NULL);
+   return ecv->ec;
+}
+
+EINTERN void
+e_client_video_hw_composition_set(E_Client_Video *ecv)
+{
+   EINA_SAFETY_ON_NULL_RETURN(ecv);
+   ecv->hw_composition = EINA_TRUE;
+}
+
+EINTERN void
+e_client_video_hw_composition_unset(E_Client_Video *ecv)
+{
+   EINA_SAFETY_ON_NULL_RETURN(ecv);
+   ecv->hw_composition = EINA_FALSE;
 }

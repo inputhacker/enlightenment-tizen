@@ -5,33 +5,39 @@ typedef struct _E_Video_Fallback E_Video_Fallback;
 struct _E_Video_Fallback
 {
    E_Video_Comp_Iface base;
-   E_Client *ec;
+   E_Client_Video *ecv;
 };
 
 static void
 _e_video_fallback_iface_destroy(E_Video_Comp_Iface *iface)
 {
    E_Video_Fallback *evs;
+   E_Client *ec;
 
    evs = container_of(iface, E_Video_Fallback, base);
 
    /* Unset animatable lock */
-   e_policy_animatable_lock(evs->ec, E_POLICY_ANIMATABLE_NEVER, 0);
+   ec = e_client_video_ec_get(evs->ecv);
+   e_policy_animatable_lock(ec, E_POLICY_ANIMATABLE_NEVER, 0);
 
    free(evs);
 }
 
 static void
-_e_video_fallback_init(E_Client *ec)
+_e_video_fallback_init(E_Client_Video *ecv)
 {
+   E_Client *ec;
+
    /* software compositing */
-   ec->comp_data->video_client = 0;
+   e_client_video_hw_composition_unset(ecv);
+
    /* Set animatable lock */
+   ec = e_client_video_ec_get(ecv);
    e_policy_animatable_lock(ec, E_POLICY_ANIMATABLE_NEVER, 1);
 }
 
 EINTERN E_Video_Comp_Iface *
-e_video_fallback_iface_create(E_Client *ec)
+e_video_fallback_iface_create(E_Client_Video *ecv)
 {
    E_Video_Fallback *evs;
 
@@ -44,9 +50,9 @@ e_video_fallback_iface_create(E_Client *ec)
         return NULL;
      }
 
-   _e_video_fallback_init(ec);
+   _e_video_fallback_init(ecv);
 
-   evs->ec = ec;
+   evs->ecv = ecv;
    evs->base.destroy = _e_video_fallback_iface_destroy;
 
    return &evs->base;

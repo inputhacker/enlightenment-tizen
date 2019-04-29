@@ -48,6 +48,7 @@ struct _E_Video_Hwc
 
    E_Hwc_Policy hwc_policy;
 
+   E_Client_Video *ecv;
    E_Client *ec;
    Ecore_Window window;
    E_Output *e_output;

@@ -343,7 +343,7 @@ e_comp_wl_video_subsurface_has(E_Client *ec)
    if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
    if (!ec->comp_data) return EINA_FALSE;
 
-   if (ec->comp_data->video_client)
+   if (e_client_video_hw_composition_check(ec))
      return EINA_TRUE;
 
    if (ec->comp_data->has_video_client)
@@ -372,7 +372,7 @@ e_comp_wl_normal_subsurface_has(E_Client *ec)
 
    /* if a leaf client is not video cliet */
    if (ec->comp_data->sub.data && !ec->comp_data->sub.below_list &&
-       !ec->comp_data->sub.below_list_pending && !ec->comp_data->video_client)
+       !ec->comp_data->sub.below_list_pending && !e_client_video_hw_composition_check(ec))
      return EINA_TRUE;
 
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)
@@ -4354,7 +4354,6 @@ _e_comp_wl_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    ec->comp_data->layer = p_cdata->layer;
    ec->comp_data->fetch.win_type = p_cdata->fetch.win_type;
    ec->comp_data->fetch.layer = p_cdata->fetch.layer;
-   ec->comp_data->video_client = p_cdata->video_client;
 
    e_pixmap_cdata_set(ec->pixmap, ec->comp_data);
 
@@ -5383,7 +5382,7 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
           }
         else
           {
-             if ((ec) && (ec->comp_data->video_client))
+             if ((ec) && (e_client_video_hw_composition_check(ec)))
                {
                   buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
                   buffer->w = buffer->h = 1;
@@ -5435,7 +5434,7 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
                if (!tbm_surf)
                  goto err;
 
-               if ((ec) && (ec->comp_data->video_client))
+               if ((ec) && (e_client_video_hw_composition_check(ec)))
                  {
                     buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
                     buffer->w = buffer->h = 1;

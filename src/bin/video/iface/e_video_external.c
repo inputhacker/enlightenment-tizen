@@ -5,7 +5,7 @@ typedef struct _E_Video_External E_Video_External;
 struct _E_Video_External
 {
    E_Video_Comp_Iface base;
-   E_Client *ec;
+   E_Client_Video *ecv;
 };
 
 static void
@@ -14,25 +14,19 @@ _e_video_external_iface_destroy(E_Video_Comp_Iface *iface)
    E_Video_External *evs;
 
    evs = container_of(iface, E_Video_External, base);
-
-   if (!e_object_is_del(E_OBJECT(evs->ec)))
-     {
-        /* 'ec->comp_data' is supposed to be freed when ec is deleted. */
-        evs->ec->comp_data->video_client = 0;
-     }
+   e_client_video_hw_composition_unset(evs->ecv);
 
    free(evs);
 }
 
 static void
-_e_video_external_init(E_Client *ec)
+_e_video_external_init(E_Client_Video *ecv)
 {
-   /* Set video_client flag so that 'e_comp_wl' can ignore it. */
-   ec->comp_data->video_client = 1;
+   e_client_video_hw_composition_set(ecv);
 }
 
 EINTERN E_Video_Comp_Iface *
-e_video_external_iface_create(E_Client *ec)
+e_video_external_iface_create(E_Client_Video *ecv)
 {
    E_Video_External *evs;
 
@@ -45,9 +39,9 @@ e_video_external_iface_create(E_Client *ec)
         return NULL;
      }
 
-   _e_video_external_init(ec);
+   _e_video_external_init(ecv);
 
-   evs->ec = ec;
+   evs->ecv = ecv;
    evs->base.destroy = _e_video_external_iface_destroy;
 
    return &evs->base;

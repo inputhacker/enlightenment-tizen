@@ -1295,7 +1295,7 @@ _e_video_hwc_child_client_get(E_Client *ec)
    if (e_object_is_del(E_OBJECT(ec))) return NULL;
    if (!ec->comp_data) return NULL;
 
-   if (ec->comp_data->video_client) return ec;
+   if (e_client_video_hw_composition_check(ec)) return ec;
 
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
      {
@@ -1603,9 +1603,12 @@ _e_video_hwc_client_event_init(E_Video_Hwc *evh)
 }
 
 EINTERN E_Video_Comp_Iface *
-e_video_hwc_iface_create(E_Client *ec)
+e_video_hwc_iface_create(E_Client_Video *ecv)
 {
    E_Video_Hwc *evh;
+   E_Client *ec;
+
+   ec = e_client_video_ec_get(ecv);
 
    VIN("Create HWC interface", ec);
 
@@ -1614,6 +1617,8 @@ e_video_hwc_iface_create(E_Client *ec)
        return NULL;
 
    _e_video_hwc_client_event_init(evh);
+
+   evh->ecv = ecv;
 
    evh->iface.destroy = _e_video_hwc_iface_destroy;
    evh->iface.follow_topmost_visibility = _e_video_hwc_iface_follow_topmost_visibility;
@@ -1630,7 +1635,7 @@ e_video_hwc_iface_create(E_Client *ec)
 
    /* This ec is a video client now. */
    VIN("video client", ec);
-   ec->comp_data->video_client = 1;
+   e_client_video_hw_composition_set(ecv);
 
    return &evh->iface;
 }
