@@ -26,13 +26,6 @@ struct _E_Client_Video
 
    Eina_List *event_handlers;
 
-   struct
-   {
-      E_Client_Video_Info_Get_Cb info_get;
-      E_Client_Video_Commit_Data_Release_Cb commit_data_release;
-      E_Client_Video_Tbm_Surface_Get_Cb tbm_surface_get;
-   } cb;
-
    Eina_Bool hw_composition;
 };
 
@@ -292,73 +285,25 @@ e_client_video_available_properties_get(E_Client *ec, const tdm_prop **props, in
 EINTERN Eina_Bool
 e_client_video_info_get(E_Client *ec, E_Client_Video_Info *info)
 {
-   INTERNAL_DATA_GET;
+   IFACE_CHECK_RET(info_get, EINA_FALSE);
 
-   if (!ecv)
-     return EINA_FALSE;
-
-   if (ecv->cb.info_get)
-     return ecv->cb.info_get(ec, info);
-   else if (ecv->iface->info_get)
-     return ecv->iface->info_get(ecv->iface, info);
-
-   return EINA_FALSE;
+   return ecv->iface->info_get(ecv->iface, info);
 }
 
 EINTERN Eina_Bool
 e_client_video_commit_data_release(E_Client *ec, unsigned int sequence, unsigned int tv_sec, unsigned int tv_usec)
 {
-   INTERNAL_DATA_GET;
+   IFACE_CHECK_RET(commit_data_release, EINA_FALSE);
 
-   if (!ecv)
-     return EINA_FALSE;
-
-   if (ecv->cb.commit_data_release)
-     return ecv->cb.commit_data_release(ec, sequence, tv_sec, tv_usec);
-   else if (ecv->iface->commit_data_release)
-     return ecv->iface->commit_data_release(ecv->iface, sequence, tv_sec, tv_usec);
-
-   return EINA_FALSE;
+   return ecv->iface->commit_data_release(ecv->iface, sequence, tv_sec, tv_usec);
 }
 
 EINTERN tbm_surface_h
 e_client_video_tbm_surface_get(E_Client *ec)
 {
-   INTERNAL_DATA_GET;
+   IFACE_CHECK_RET(tbm_surface_get, EINA_FALSE);
 
-   if (!ecv)
-     return NULL;
-
-   if (ecv->cb.tbm_surface_get)
-     return ecv->cb.tbm_surface_get(ec);
-   else if (ecv->iface->tbm_surface_get)
-     return ecv->iface->tbm_surface_get(ecv->iface);
-
-   return NULL;
-}
-
-EINTERN void
-e_client_video_info_get_func_set(E_Client *ec, E_Client_Video_Info_Get_Cb func)
-{
-   API_ENTRY;
-
-   ecv->cb.info_get = func;
-}
-
-EINTERN void
-e_client_video_commit_data_release_func_set(E_Client *ec, E_Client_Video_Commit_Data_Release_Cb func)
-{
-   API_ENTRY;
-
-   ecv->cb.commit_data_release = func;
-}
-
-EINTERN void
-e_client_video_tbm_surface_get_func_set(E_Client *ec, E_Client_Video_Tbm_Surface_Get_Cb func)
-{
-   API_ENTRY;
-
-   ecv->cb.tbm_surface_get = func;
+   return ecv->iface->tbm_surface_get(ecv->iface);
 }
 
 EINTERN Eina_Bool
