@@ -3526,7 +3526,6 @@ _e_info_server_cb_punch(const Eldbus_Service_Interface *iface EINA_UNUSED, const
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    int onoff = 0, x = 0, y = 0, w = 0, h = 0;
    int a = 0, r = 0, g = 0, b = 0;
-   static Evas_Object *punch_obj = NULL;
 
    if (!eldbus_message_arguments_get(msg, "iiiiiiiii", &onoff, &x, &y, &w, &h, &a, &r, &g, &b))
      {
@@ -3534,29 +3533,10 @@ _e_info_server_cb_punch(const Eldbus_Service_Interface *iface EINA_UNUSED, const
         return reply;
      }
 
-  if (!onoff)
-    {
-       if (punch_obj)
-         evas_object_del(punch_obj);
-       punch_obj = NULL;
-       return reply;
-    }
-
-  if (!punch_obj)
-    {
-       punch_obj = evas_object_rectangle_add(e_comp->evas);
-       evas_object_render_op_set(punch_obj, EVAS_RENDER_COPY);
-    }
-
-   evas_object_color_set(punch_obj, r, g, b, a);
-
-   if (w == 0 || h == 0)
-     evas_output_size_get(e_comp->evas, &w, &h);
-
-   evas_object_move(punch_obj, x, y);
-   evas_object_resize(punch_obj, w, h);
-   evas_object_layer_set(punch_obj, EVAS_LAYER_MAX);
-   evas_object_show(punch_obj);
+   if (onoff)
+     e_video_debug_screen_punch_set(x, y, w, h, a, r, g, b);
+   else
+     e_video_debug_screen_punch_unset();
 
    return reply;
 }

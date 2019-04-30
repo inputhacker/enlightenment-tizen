@@ -7,5 +7,7 @@ E_API   Eina_Bool   e_video_debug_display_primary_plane_value_get(void);
 E_API   void        e_video_debug_display_primary_plane_set(Eina_Bool set);
 EINTERN Eina_Bool   e_video_debug_punch_value_get(void);
 EINTERN void        e_video_debug_punch_set(Eina_Bool set);
+EINTERN void        e_video_debug_screen_punch_set(int x, int y, int w, int h, int a, int r, int g, int b);
+EINTERN void        e_video_debug_screen_punch_unset(void);
 
 #endif
