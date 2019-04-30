@@ -44,21 +44,21 @@ _e_client_video_comp_iface_init(E_Client_Video *ecv, E_Client *ec)
 
    if ((e_config->eom_enable == EINA_TRUE) && (e_eom_is_ec_external(ec)))
      {
-        INF("Try to intialize external interface");
+        VIN("Try to intialize external interface", ec);
         iface = e_video_external_iface_create(ecv);
         goto end;
      }
 
    if (e_video_debug_display_primary_plane_value_get())
      {
-        INF("Select SW Compositing mode according to configuration");
+        VIN("Select SW Compositing mode according to configuration", ec);
         goto end;
      }
 
    hwc_pol = e_zone_video_hwc_policy_get(ec->zone);
    if (hwc_pol != E_HWC_POLICY_NONE)
      {
-        INF("Initialize the interface of the client_video for HWC mode");
+        VIN("Initialize the interface of the client_video for HWC mode", ec);
         iface = e_video_hwc_iface_create(ecv);
      }
 
@@ -68,7 +68,7 @@ end:
         iface = e_video_fallback_iface_create(ecv);
         if (!iface)
           {
-             ERR("Failed to create 'E_Video_Comp_Iface'");
+             VER("Failed to create 'E_Video_Comp_Iface'", ec);
              return EINA_FALSE;
           }
      }
@@ -144,7 +144,7 @@ _e_client_video_init(E_Client_Video *ecv, E_Client *ec)
    res = _e_client_video_comp_iface_init(ecv, ec);
    if (!res)
      {
-        ERR("Failed to initialize the composition interface for video");
+        VER("Failed to initialize the composition interface for video", ec);
         return EINA_FALSE;
      }
 
@@ -169,28 +169,28 @@ e_client_video_set(E_Client *ec)
 
    if (e_object_is_del(E_OBJECT(ec)))
      {
-        ERR("Can't handle deleted client (%p)", ec);
+        VER("Can't handle deleted client", ec);
         return EINA_FALSE;
      }
 
    ecv = evas_object_data_get(ec->frame, EO_DATA_KEY);
    if (ecv)
      {
-        ERR("Given client (%p) was already set as Video client", ec);
+        VER("Given client was already set as Video client", ec);
         return EINA_FALSE;
      }
 
    ecv = E_NEW(E_Client_Video, 1);
    if (!ecv)
      {
-        ERR("Failed to allocate memory");
+        VER("Failed to allocate memory", ec);
         return EINA_FALSE;
      }
 
    res = _e_client_video_init(ecv, ec);
    if (!res)
      {
-        ERR("Failed to initialize video setting");
+        VER("Failed to initialize video setting", ec);
         free(ecv);
         return EINA_FALSE;
      }
