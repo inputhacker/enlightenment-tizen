@@ -47,10 +47,6 @@ typedef struct _E_Video_Comp_Iface E_Video_Comp_Iface;
 struct _E_Video_Comp_Iface
 {
    void            (*destroy)(E_Video_Comp_Iface *iface);
-   Eina_Bool       (*follow_topmost_visibility)(E_Video_Comp_Iface *iface);
-   Eina_Bool       (*unfollow_topmost_visibility)(E_Video_Comp_Iface *iface);
-   Eina_Bool       (*allowed_property)(E_Video_Comp_Iface *iface);
-   Eina_Bool       (*disallowed_property)(E_Video_Comp_Iface *iface);
    Eina_Bool       (*property_get)(E_Video_Comp_Iface *iface, unsigned int id, tdm_value *value);
    Eina_Bool       (*property_set)(E_Video_Comp_Iface *iface, unsigned int id, tdm_value value);
    Eina_Bool       (*property_delay_set)(E_Video_Comp_Iface *iface, unsigned int id, tdm_value value);
@@ -68,5 +64,7 @@ EINTERN E_Video_Comp_Iface  *e_video_external_iface_create(E_Client_Video *ecv);
 EINTERN E_Client            *e_client_video_ec_get(E_Client_Video *ecv);
 EINTERN void                 e_client_video_hw_composition_set(E_Client_Video *ecv);
 EINTERN void                 e_client_video_hw_composition_unset(E_Client_Video *ecv);
+EINTERN Eina_Bool            e_client_video_topmost_visibility_follow_get(E_Client_Video *ecv);
+EINTERN Eina_Bool            e_client_video_property_allow_get(E_Client_Video *ecv);
 
 #endif

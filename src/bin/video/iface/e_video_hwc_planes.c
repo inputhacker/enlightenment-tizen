@@ -679,7 +679,7 @@ _e_video_hwc_planes_cb_topmost_client_visibility_change(void *data, int type, vo
    if (topmost != ec)
      goto end;
 
-   if (evhp->base.follow_topmost_visibility)
+   if (e_client_video_topmost_visibility_follow_get(evhp->base.ecv))
      {
         switch (ec->visibility.obscured)
           {
@@ -866,7 +866,7 @@ _e_video_hwc_planes_iface_property_set(E_Video_Hwc *evh, unsigned int id, tdm_va
          * Set property with assigning layer right away if allowed_attribute
          * flag is set. The reason why we have to do like this isn't figured
          * yet. It's for backward compatibility. */
-        if (evhp->base.allowed_attribute)
+        if (e_client_video_property_allow_get(evhp->base.ecv))
           {
              if (!_e_video_hwc_planes_tdm_layer_set(evhp))
                {

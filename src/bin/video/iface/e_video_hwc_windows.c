@@ -155,7 +155,7 @@ _e_video_cb_topmost_ec_visibility_change(void *data, int type, void *event)
 
    ev = event;
    evhw = data;
-   if (!evhw->base.follow_topmost_visibility)
+   if (!e_client_video_topmost_visibility_follow_get(evhw->base.ecv))
        goto end;
 
    topmost = e_comp_wl_topmost_parent_get(evhw->base.ec);
@@ -205,7 +205,7 @@ _e_video_hwc_windows_cb_hook_subsurface_create(void *data, E_Client *ec)
    E_Client *topmost1, *topmost2;
 
    evhw = data;
-   if (!evhw->base.follow_topmost_visibility)
+   if (!e_client_video_topmost_visibility_follow_get(evhw->base.ecv))
      return;
 
    /* This is to raise an 'VISIBILITY_CHANGE' event to video client when its
@@ -275,7 +275,7 @@ _e_video_hwc_windows_iface_property_set(E_Video_Hwc *evh, unsigned int id, tdm_v
       return EINA_FALSE;
    }
 
-   if (evhw->base.allowed_attribute)
+   if (e_client_video_property_allow_get(evhw->base.ecv))
      {
         VIN("set_attribute now : property(%s), value(%d)", evhw->base.ec, name, value.u32);
 

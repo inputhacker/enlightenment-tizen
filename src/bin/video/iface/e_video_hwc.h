@@ -86,8 +86,6 @@ struct _E_Video_Hwc
 
    Eina_Bool  cb_registered;
    Eina_Bool  need_force_render;
-   Eina_Bool  follow_topmost_visibility;
-   Eina_Bool  allowed_attribute;
 };
 
 /* Functions for HWC */
