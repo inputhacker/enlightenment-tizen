@@ -27,6 +27,8 @@ struct _E_Client_Video
    Eina_List *event_handlers;
 
    Eina_Bool redirect;
+   Eina_Bool follow_topmost_visibility;
+   Eina_Bool allowed_property;
 };
 
 static void
@@ -221,33 +223,45 @@ e_client_video_unset(E_Client *ec)
 E_API Eina_Bool
 e_client_video_topmost_visibility_follow(E_Client *ec)
 {
-   IFACE_CHECK_RET(follow_topmost_visibility, EINA_FALSE);
+   INTERNAL_DATA_GET;
 
-   return ecv->iface->follow_topmost_visibility(ecv->iface);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ecv, EINA_FALSE);
+
+   ecv->follow_topmost_visibility = EINA_TRUE;
+   return EINA_TRUE;
 }
 
 E_API Eina_Bool
 e_client_video_topmost_visibility_unfollow(E_Client *ec)
 {
-   IFACE_CHECK_RET(unfollow_topmost_visibility, EINA_FALSE);
+   INTERNAL_DATA_GET;
 
-   return ecv->iface->unfollow_topmost_visibility(ecv->iface);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ecv, EINA_FALSE);
+
+   ecv->follow_topmost_visibility = EINA_FALSE;
+   return EINA_TRUE;
 }
 
 EINTERN Eina_Bool
 e_client_video_property_allow(E_Client *ec)
 {
-   IFACE_CHECK_RET(allowed_property, EINA_FALSE);
+   INTERNAL_DATA_GET;
 
-   return ecv->iface->allowed_property(ecv->iface);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ecv, EINA_FALSE);
+
+   ecv->allowed_property = EINA_TRUE;
+   return EINA_TRUE;
 }
 
 EINTERN Eina_Bool
 e_client_video_property_disallow(E_Client *ec)
 {
-   IFACE_CHECK_RET(disallowed_property, EINA_FALSE);
+   INTERNAL_DATA_GET;
 
-   return ecv->iface->disallowed_property(ecv->iface);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ecv, EINA_FALSE);
+
+   ecv->allowed_property = EINA_FALSE;
+   return EINA_TRUE;
 }
 
 E_API Eina_Bool
@@ -337,4 +351,18 @@ e_client_video_comp_redirect_unset(E_Client_Video *ecv)
 {
    EINA_SAFETY_ON_NULL_RETURN(ecv);
    ecv->redirect = EINA_FALSE;
+}
+
+EINTERN Eina_Bool
+e_client_video_topmost_visibility_follow_get(E_Client_Video *ecv)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ecv, EINA_FALSE);
+   return ecv->follow_topmost_visibility;
+}
+
+EINTERN Eina_Bool
+e_client_video_property_allow_get(E_Client_Video *ecv)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ecv, EINA_FALSE);
+   return ecv->allowed_property;
 }

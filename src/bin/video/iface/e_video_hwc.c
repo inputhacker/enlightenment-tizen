@@ -1413,42 +1413,6 @@ _e_video_hwc_iface_destroy(E_Video_Comp_Iface *iface)
 }
 
 static Eina_Bool
-_e_video_hwc_iface_follow_topmost_visibility(E_Video_Comp_Iface *iface)
-{
-   IFACE_ENTRY;
-
-   evh->follow_topmost_visibility = EINA_TRUE;
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_video_hwc_iface_unfollow_topmost_visibility(E_Video_Comp_Iface *iface)
-{
-   IFACE_ENTRY;
-
-   evh->follow_topmost_visibility = EINA_FALSE;
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_video_hwc_iface_allowed_property(E_Video_Comp_Iface *iface)
-{
-   IFACE_ENTRY;
-
-   evh->allowed_attribute = EINA_TRUE;
-   return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_video_hwc_iface_disallowed_property(E_Video_Comp_Iface *iface)
-{
-   IFACE_ENTRY;
-
-   evh->allowed_attribute = EINA_FALSE;
-   return EINA_TRUE;
-}
-
-static Eina_Bool
 _e_video_hwc_iface_property_get(E_Video_Comp_Iface *iface, unsigned int id, tdm_value *value)
 {
    IFACE_ENTRY;
@@ -1567,7 +1531,7 @@ _e_video_hwc_show(E_Video_Hwc *evh)
 
    /* if stand_alone is true, not show */
    if ((ec->comp_data->sub.data && ec->comp_data->sub.data->stand_alone) ||
-       (ec->comp_data->sub.data && evh->follow_topmost_visibility))
+       (ec->comp_data->sub.data && e_client_video_topmost_visibility_follow_get(evh->ecv)))
      return;
 
    /* FIXME It seems unnecessary. */
@@ -1621,10 +1585,6 @@ e_video_hwc_iface_create(E_Client_Video *ecv)
    evh->ecv = ecv;
 
    evh->iface.destroy = _e_video_hwc_iface_destroy;
-   evh->iface.follow_topmost_visibility = _e_video_hwc_iface_follow_topmost_visibility;
-   evh->iface.unfollow_topmost_visibility = _e_video_hwc_iface_unfollow_topmost_visibility;
-   evh->iface.allowed_property = _e_video_hwc_iface_allowed_property;
-   evh->iface.disallowed_property = _e_video_hwc_iface_disallowed_property;
    evh->iface.property_get = _e_video_hwc_iface_property_get;
    evh->iface.property_set = _e_video_hwc_iface_property_set;
    evh->iface.property_delay_set = _e_video_hwc_iface_property_delay_set;
