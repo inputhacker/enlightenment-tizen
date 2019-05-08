@@ -4,10 +4,7 @@
 #include "e.h"
 
 #include <tdm.h>
-#include <values.h>
-#include <tdm_helper.h>
 #include <tbm_surface.h>
-#include <wayland-tbm-server.h>
 
 #ifdef VER
 #undef VER
