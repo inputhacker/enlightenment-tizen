@@ -4,6 +4,11 @@
 
 #include "e_video_internal.h"
 #include "e_video_hwc.h"
+#include <wayland-tbm-server.h>
+
+#ifdef DUMP_BUFFER
+#include <tdm_helper.h>
+#endif
 
 #define IFACE_ENTRY                                      \
    E_Video_Hwc *evh;                                    \

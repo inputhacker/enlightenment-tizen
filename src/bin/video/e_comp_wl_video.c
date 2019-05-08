@@ -4,10 +4,6 @@
 
 #include "e.h"
 #include "e_video_internal.h"
-#include <tdm.h>
-#include <values.h>
-#include <tdm_helper.h>
-#include <wayland-tbm-server.h>
 #include <tizen-extension-server-protocol.h>
 
 typedef struct _E_Video E_Video;
