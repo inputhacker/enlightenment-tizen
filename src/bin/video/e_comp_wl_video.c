@@ -107,10 +107,6 @@ _e_video_set(E_Video *video, E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(video->ec->zone);
 
    e_client_video_set(ec);
-   /* FIXME workaround */
-   if ((e_config->eom_enable == EINA_TRUE) &&
-       (e_eom_is_ec_external(ec)))
-     return;
 
    res = e_zone_video_available_size_get(ec->zone, &minw, &minh, &maxw, &maxh, &align);
    if (res)
