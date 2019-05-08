@@ -3,23 +3,12 @@
 #endif
 
 #include "e.h"
+#include "e_video_internal.h"
 #include <tdm.h>
 #include <values.h>
 #include <tdm_helper.h>
 #include <wayland-tbm-server.h>
 #include <tizen-extension-server-protocol.h>
-
-static int _video_detail_log_dom = -1;
-
-#define VER(fmt, arg...) ELOGF("VIDEO", "<ERR> window(0x%08"PRIxPTR"): "fmt, \
-                               video->ec, video->window, ##arg)
-#define VWR(fmt, arg...) ELOGF("VIDEO", "<WRN> window(0x%08"PRIxPTR"): "fmt, \
-                               video->ec, video->window, ##arg)
-#define VIN(fmt, arg...) ELOGF("VIDEO", "<INF> window(0x%08"PRIxPTR"): "fmt, \
-                               video->ec, video->window, ##arg)
-#define VDB(fmt, arg...) DBG("window(0x%08"PRIxPTR") ec(%p): "fmt, video->window, video->ec, ##arg)
-
-#define DET(...)          EINA_LOG_DOM_DBG(_video_detail_log_dom, __VA_ARGS__)
 
 typedef struct _E_Video E_Video;
 
@@ -61,7 +50,7 @@ _e_video_get_prop_id(E_Video *video, const char *name)
      {
         if (!strncmp(name, props[i].name, TDM_NAME_LEN))
           {
-             VDB("check property(%s)", name);
+             VDB("check property(%s)", video->ec, name);
              return props[i].id;
           }
      }
@@ -85,7 +74,7 @@ _e_video_create(struct wl_resource *video_object, struct wl_resource *surface)
    video->video_object = video_object;
    video->surface = surface;
 
-   VIN("create. ec(%p) wl_surface@%d", ec, wl_resource_get_id(video->surface));
+   VIN("create. wl_surface@%d", ec, wl_resource_get_id(video->surface));
 
    video_list = eina_list_append(video_list, video);
 
@@ -123,7 +112,7 @@ _e_video_set(E_Video *video, E_Client *ec)
             video->output_align, video->pp_align, video->video_align); */
      }
    else
-     VER("Failed to get video available size");
+     VER("Failed to get video available size", ec);
 
    e_client_video_available_properties_get(ec, &props, &count);
    for (i = 0; i < count; i++)
@@ -133,7 +122,7 @@ _e_video_set(E_Video *video, E_Client *ec)
         res = e_client_video_property_get(ec, props[i].id, &value);
         if (!res)
           {
-             VER("Failed to get property name %s value %d", props[i].name, value.u32);
+             VER("Failed to get property name %s value %d", ec, props[i].name, value.u32);
              continue;
           }
 
@@ -147,7 +136,7 @@ _e_video_destroy(E_Video *video)
    if (!video)
      return;
 
-   VIN("destroy");
+   VIN("destroy", video->ec);
 
    wl_resource_set_destructor(video->video_object, NULL);
 
@@ -212,7 +201,7 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
    EINA_SAFETY_ON_NULL_RETURN(video);
 
    VIN("Client(%s):PID(%d) RscID(%d) Attribute:%s, Value:%d",
-       e_client_util_name_get(video->ec) ?: "No Name",
+       video->ec, e_client_util_name_get(video->ec) ?: "No Name",
        video->ec->netwm.pid, wl_resource_get_id(video->surface),
        name, value);
 
@@ -220,7 +209,7 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
    id = _e_video_get_prop_id(video, name);
    if(id < 0)
      {
-        VIN("no available property");
+        VIN("no available property", video->ec);
         return;
      }
 
@@ -267,7 +256,7 @@ _e_comp_wl_video_object_cb_follow_topmost_visibility(struct wl_client *client,
    if(!video->ec)
      return;
 
-   VIN("set follow_topmost_visibility");
+   VIN("set follow_topmost_visibility", video->ec);
 
    e_client_video_topmost_visibility_follow(video->ec);
 
@@ -292,7 +281,7 @@ _e_comp_wl_video_object_cb_unfollow_topmost_visibility(struct wl_client *client,
    if(!video->ec)
      return;
 
-   VIN("set unfollow_topmost_visibility");
+   VIN("set unfollow_topmost_visibility", video->ec);
 
    e_client_video_topmost_visibility_unfollow(video->ec);
    E_FREE_FUNC(video->vis_eh, ecore_event_handler_del);
@@ -310,7 +299,7 @@ _e_comp_wl_video_object_cb_allowed_attribute(struct wl_client *client,
    if(!video->ec)
      return;
 
-   VIN("set allowed_attribute");
+   VIN("set allowed_attribute", video->ec);
    e_client_video_property_allow(video->ec);
 }
 
@@ -326,7 +315,7 @@ _e_comp_wl_video_object_cb_disallowed_attribute(struct wl_client *client,
    if(!video->ec)
      return;
 
-   VIN("set disallowed_attribute");
+   VIN("set disallowed_attribute", video->ec);
    e_client_video_property_disallow(video->ec);
 }
 
@@ -473,13 +462,6 @@ e_comp_wl_video_init(void)
    e_info_server_hook_set("video-to-primary", _e_comp_wl_video_to_primary, NULL);
    e_info_server_hook_set("video-punch", _e_comp_wl_video_punch, NULL);
 
-   _video_detail_log_dom = eina_log_domain_register("e-comp-wl-video", EINA_COLOR_BLUE);
-   if (_video_detail_log_dom < 0)
-     {
-        ERR("Failed eina_log_domain_register()..!\n");
-        return 0;
-     }
-
    /* try to add tizen_video to wayland globals */
    e_comp->wl_comp_data->video.global =
       wl_global_create(e_comp_wl->wl.disp, &tizen_video_interface, 1, NULL, _e_comp_wl_video_cb_bind);
@@ -509,7 +491,4 @@ e_comp_wl_video_shutdown(void)
    e_info_server_hook_set("vbuf", NULL, NULL);
    e_info_server_hook_set("video-to-primary", NULL, NULL);
    e_info_server_hook_set("video-punch", NULL, NULL);
-
-   eina_log_domain_unregister(_video_detail_log_dom);
-   _video_detail_log_dom = -1;
 }
