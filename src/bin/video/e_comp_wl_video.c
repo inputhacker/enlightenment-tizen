@@ -15,9 +15,7 @@ typedef struct _E_Video E_Video;
 struct _E_Video
 {
    struct wl_resource *video_object;
-   struct wl_resource *surface;
    E_Client *ec;
-   Ecore_Window window;
    struct
      {
         Ecore_Event_Handler *ec_visibility;
@@ -85,9 +83,8 @@ _e_video_create(struct wl_resource *video_object, struct wl_resource *surface)
    EINA_SAFETY_ON_NULL_RETURN_VAL(video, NULL);
 
    video->video_object = video_object;
-   video->surface = surface;
 
-   VIN("create. wl_surface@%d", ec, wl_resource_get_id(video->surface));
+   VIN("create.", ec);
 
    video_list = eina_list_append(video_list, video);
 
@@ -110,7 +107,6 @@ _e_video_set(E_Video *video, E_Client *ec)
    const tdm_prop *props;
 
    video->ec = ec;
-   video->window = e_client_util_win_get(ec);
 
    EINA_SAFETY_ON_NULL_RETURN(video->ec->zone);
 
@@ -195,10 +191,9 @@ _e_comp_wl_video_object_cb_set_attribute(struct wl_client *client,
    video = wl_resource_get_user_data(resource);
    EINA_SAFETY_ON_NULL_RETURN(video);
 
-   VIN("Client(%s):PID(%d) RscID(%d) Attribute:%s, Value:%d",
+   VIN("Client(%s):PID(%d) Attribute:%s, Value:%d",
        video->ec, e_client_util_name_get(video->ec) ?: "No Name",
-       video->ec->netwm.pid, wl_resource_get_id(video->surface),
-       name, value);
+       video->ec->netwm.pid, name, value);
 
    // check available property & count
    id = _e_video_get_prop_id(video, name);
