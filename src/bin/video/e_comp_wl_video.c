@@ -18,26 +18,17 @@ struct _E_Video
    struct wl_resource *surface;
    E_Client *ec;
    Ecore_Window window;
-   Ecore_Event_Handler *vis_eh;
+   struct
+     {
+        Ecore_Event_Handler *ec_visibility;
+        Ecore_Event_Handler *ec_remove;
+     } event_handler;
 };
 
 static Eina_List *video_list = NULL;
 
 static void _e_video_set(E_Video *video, E_Client *ec);
 static void _e_video_destroy(E_Video *video);
-
-static E_Video *
-find_video_with_surface(struct wl_resource *surface)
-{
-   E_Video *video;
-   Eina_List *l;
-   EINA_LIST_FOREACH(video_list, l, video)
-     {
-        if (video->surface == surface)
-          return video;
-     }
-   return NULL;
-}
 
 static int
 _e_video_get_prop_id(E_Video *video, const char *name)
@@ -56,6 +47,28 @@ _e_video_get_prop_id(E_Video *video, const char *name)
      }
 
    return -1;
+}
+
+static Eina_Bool
+_e_comp_wl_video_cb_ec_remove(void *data, int type, void *event)
+{
+   E_Event_Client *ev = event;
+   E_Client *ec;
+   E_Video *video;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ev, ECORE_CALLBACK_PASS_ON);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ev->ec, ECORE_CALLBACK_PASS_ON);
+
+   ec = ev->ec;
+   video = data;
+   if (video->ec != ec) return ECORE_CALLBACK_PASS_ON;
+   if (!ec->comp_data) return ECORE_CALLBACK_PASS_ON;
+
+   video_list = eina_list_remove(video_list, video);
+
+   _e_video_destroy(video);
+
+   return ECORE_CALLBACK_PASS_ON;
 }
 
 static E_Video *
@@ -79,6 +92,10 @@ _e_video_create(struct wl_resource *video_object, struct wl_resource *surface)
    video_list = eina_list_append(video_list, video);
 
    _e_video_set(video, ec);
+
+   video->event_handler.ec_remove =
+      ecore_event_handler_add(E_EVENT_CLIENT_REMOVE,
+                              _e_comp_wl_video_cb_ec_remove, video);
 
    return video;
 }
@@ -140,34 +157,12 @@ _e_video_destroy(E_Video *video)
 
    wl_resource_set_destructor(video->video_object, NULL);
 
-   E_FREE_FUNC(video->vis_eh, ecore_event_handler_del);
+   E_FREE_FUNC(video->event_handler.ec_visibility, ecore_event_handler_del);
+   E_FREE_FUNC(video->event_handler.ec_remove, ecore_event_handler_del);
 
    e_client_video_unset(video->ec);
 
    free(video);
-}
-
-static Eina_Bool
-_e_video_cb_ec_remove(void *data, int type, void *event)
-{
-   E_Event_Client *ev = event;
-   E_Client *ec;
-   E_Video *video;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ev, ECORE_CALLBACK_PASS_ON);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ev->ec, ECORE_CALLBACK_PASS_ON);
-
-   ec = ev->ec;
-   if (!ec->comp_data) return ECORE_CALLBACK_PASS_ON;
-
-   video = find_video_with_surface(ec->comp_data->surface);
-   if (!video) return ECORE_CALLBACK_PASS_ON;
-
-   video_list = eina_list_remove(video_list, video);
-
-   _e_video_destroy(video);
-
-   return ECORE_CALLBACK_PASS_ON;
 }
 
 static void
@@ -260,9 +255,9 @@ _e_comp_wl_video_object_cb_follow_topmost_visibility(struct wl_client *client,
 
    e_client_video_topmost_visibility_follow(video->ec);
 
-   if (!video->vis_eh)
+   if (!video->event_handler.ec_visibility)
      {
-        video->vis_eh =
+        video->event_handler.ec_visibility =
            ecore_event_handler_add(E_EVENT_CLIENT_VISIBILITY_CHANGE,
                                    (Ecore_Event_Handler_Cb)_e_comp_wl_video_cb_visibility_change,
                                    video);
@@ -284,7 +279,7 @@ _e_comp_wl_video_object_cb_unfollow_topmost_visibility(struct wl_client *client,
    VIN("set unfollow_topmost_visibility", video->ec);
 
    e_client_video_topmost_visibility_unfollow(video->ec);
-   E_FREE_FUNC(video->vis_eh, ecore_event_handler_del);
+   E_FREE_FUNC(video->event_handler.ec_visibility, ecore_event_handler_del);
 }
 
 static void
@@ -419,8 +414,6 @@ _e_comp_wl_video_cb_bind(struct wl_client *client, void *data, uint32_t version,
      tizen_video_send_format(res, formats[i]);
 }
 
-static Eina_List *video_hdlrs;
-
 static void
 _e_comp_wl_vbuf_print(void *data, const char *log_path)
 {
@@ -472,9 +465,6 @@ e_comp_wl_video_init(void)
         return 0;
      }
 
-   E_LIST_HANDLER_APPEND(video_hdlrs, E_EVENT_CLIENT_REMOVE,
-                         _e_video_cb_ec_remove, NULL);
-
    return 1;
 }
 
@@ -485,7 +475,6 @@ e_comp_wl_video_shutdown(void)
    e_comp->wl_comp_data->available_hw_accel.scaler = EINA_FALSE;
 
    E_FREE_FUNC(e_comp->wl_comp_data->video.global, wl_global_destroy);
-   E_FREE_LIST(video_hdlrs, ecore_event_handler_del);
    E_FREE_LIST(video_list, _e_video_destroy);
 
    e_info_server_hook_set("vbuf", NULL, NULL);
