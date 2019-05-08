@@ -7142,7 +7142,7 @@ _e_client_base_output_resolution_set(E_Client *ec, int width, int height)
    e_client_transform_core_add(ec, ec->base_output_resolution.transform);
 }
 
-EINTERN Eina_Bool
+E_API Eina_Bool
 e_client_base_output_resolution_update(E_Client *ec)
 {
    E_Policy_Appinfo *epai = NULL;
