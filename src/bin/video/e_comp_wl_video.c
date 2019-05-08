@@ -30,8 +30,6 @@ struct _E_Video
    E_Client *ec;
    Ecore_Window window;
    Ecore_Event_Handler *vis_eh;
-
-   Eina_Bool  allowed_attribute;
 };
 
 static Eina_List *video_list = NULL;
@@ -309,12 +307,10 @@ _e_comp_wl_video_object_cb_allowed_attribute(struct wl_client *client,
    video = wl_resource_get_user_data(resource);
    EINA_SAFETY_ON_NULL_RETURN(video);
 
-   if(!video->ec || video->allowed_attribute)
+   if(!video->ec)
      return;
 
    VIN("set allowed_attribute");
-
-   video->allowed_attribute = EINA_TRUE;
    e_client_video_property_allow(video->ec);
 }
 
@@ -327,12 +323,10 @@ _e_comp_wl_video_object_cb_disallowed_attribute(struct wl_client *client,
    video = wl_resource_get_user_data(resource);
    EINA_SAFETY_ON_NULL_RETURN(video);
 
-   if(!video->ec || !video->allowed_attribute)
+   if(!video->ec)
      return;
 
    VIN("set disallowed_attribute");
-
-   video->allowed_attribute = EINA_FALSE;
    e_client_video_property_disallow(video->ec);
 }
 
