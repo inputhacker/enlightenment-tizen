@@ -7128,17 +7128,7 @@ _e_policy_wl_cb_hook_shell_surface_ready(void *d, E_Client *ec)
 
    e_policy_client_maximize(ec);
 
-   // base_output_resolution
-   if (ec->base_output_resolution.use)
-     {
-        ELOGF("POL_APPINFO", "Apply TRANSFORM... desk:(%dx%d), ec:(%dx%d)",
-              ec, ec->desk->geom.w, ec->desk->geom.h, ec->w, ec->h);
-        e_util_transform_scale(ec->base_output_resolution.transform,
-                               (double)ec->desk->geom.w /(double)ec->w,
-                               (double)ec->desk->geom.h /(double)ec->h,
-                               1.0);
-        e_client_transform_core_update(ec);
-     }
+   e_client_base_output_resolution_transform_adjust(ec);
 
    if ((ec->comp_data->shell.configure_send) &&
        (ec->comp_data->shell.surface))
