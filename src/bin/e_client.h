@@ -1175,6 +1175,7 @@ E_API E_Capture_Save_State e_client_image_save(E_Client *ec, const char *dir, co
 
 E_API void      e_client_base_output_resolution_transform_adjust(E_Client *ec);
 E_API Eina_Bool e_client_base_output_resolution_update(E_Client *ec);
+E_API void      e_client_base_output_resolution_useful_geometry_get(E_Client *ec, int *x, int *y, int *w, int *h);
 
 E_API void e_client_focus_skip_set(E_Client *ec, Eina_Bool skip, Eina_Bool by_client);
 EINTERN void e_client_revert_focus(E_Client *ec);

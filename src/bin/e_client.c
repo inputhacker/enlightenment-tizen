@@ -7259,6 +7259,27 @@ e_client_base_output_resolution_update(E_Client *ec)
    return EINA_TRUE;
 }
 
+E_API void
+e_client_base_output_resolution_useful_geometry_get(E_Client *ec, int *x, int *y, int *w, int *h)
+{
+   int zx, zy, zw, zh;
+
+   E_OBJECT_CHECK(ec);
+
+   e_zone_useful_geometry_get(ec->zone, &zx, &zy, &zw, &zh);
+
+   if (x) *x = zx;
+   if (y) *y = zy;
+   if (w) *w = zw;
+   if (h) *h = zh;
+
+   if (ec->base_output_resolution.use)
+     {
+        if (w) *w = ec->base_output_resolution.w;
+        if (h) *h = ec->base_output_resolution.h;
+     }
+}
+
 /* tizen_move_resize */
 EINTERN Eina_Bool
 e_client_pending_geometry_has(E_Client *ec)
