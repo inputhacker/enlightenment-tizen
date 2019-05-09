@@ -2301,18 +2301,6 @@ _e_client_maximize(E_Client *ec, E_Maximize max)
      }
    if (ec->maximize_override)
      ec->maximize_override = override;
-
-   // base_output_resolution
-   if (ec->base_output_resolution.use)
-     {
-        ELOGF("POL_APPINFO", "Apply TRANSFORM... desk:(%dx%d), ec:(%dx%d)",
-              ec, ec->desk->geom.w, ec->desk->geom.h, ec->w, ec->h);
-        e_util_transform_scale(ec->base_output_resolution.transform,
-                               (double)ec->desk->geom.w /(double)ec->w,
-                               (double)ec->desk->geom.h /(double)ec->h,
-                               1.0);
-        e_client_transform_core_update(ec);
-     }
 }
 
 ////////////////////////////////////////////////
