@@ -2305,8 +2305,8 @@ _e_client_maximize(E_Client *ec, E_Maximize max)
    // base_output_resolution
    if (ec->base_output_resolution.use)
      {
-        ELOGF("POL_APPINFO", "Apply TRANSFORM...1", ec);
-        e_util_transform_move(ec->base_output_resolution.transform, (double)ec->x, (double)ec->y, 0);
+        ELOGF("POL_APPINFO", "Apply TRANSFORM... desk:(%dx%d), ec:(%dx%d)",
+              ec, ec->desk->geom.w, ec->desk->geom.h, ec->w, ec->h);
         e_util_transform_scale(ec->base_output_resolution.transform,
                                (double)ec->desk->geom.w /(double)ec->w,
                                (double)ec->desk->geom.h /(double)ec->h,
