@@ -1768,13 +1768,7 @@ _tzpol_iface_cb_focus_skip_set(struct wl_client *client EINA_UNUSED, struct wl_r
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   if (ec->icccm.accepts_focus)
-     {
-        ELOGF("TZPOL", "FOCUS|SKIP SET", ec);
-        ec->icccm.accepts_focus = ec->icccm.take_focus = 0;
-        ec->changes.accepts_focus = 1;
-        EC_CHANGED(ec);
-     }
+   e_client_focus_skip_set(ec, EINA_TRUE, EINA_TRUE);
 }
 
 static void
@@ -1785,13 +1779,7 @@ _tzpol_iface_cb_focus_skip_unset(struct wl_client *client EINA_UNUSED, struct wl
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
-   if (!ec->icccm.accepts_focus)
-     {
-        ELOGF("TZPOL", "FOCUS|SKIP UNSET", ec);
-        ec->icccm.accepts_focus = ec->icccm.take_focus = 1;
-        ec->changes.accepts_focus = 1;
-        EC_CHANGED(ec);
-     }
+   e_client_focus_skip_set(ec, EINA_FALSE, EINA_TRUE);
 }
 
 // --------------------------------------------------------

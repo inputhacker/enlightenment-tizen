@@ -29,6 +29,8 @@ E_API int E_EVENT_CLIENT_ROTATION_CHANGE_END = -1;
 #endif
 E_API int E_EVENT_CLIENT_VISIBILITY_CHANGE = -1;
 E_API int E_EVENT_CLIENT_BUFFER_CHANGE = -1;
+E_API int E_EVENT_CLIENT_FOCUS_SKIP_SET = -1;
+E_API int E_EVENT_CLIENT_FOCUS_SKIP_UNSET = -1;
 
 static Eina_Hash *clients_hash[E_PIXMAP_TYPE_MAX] = {NULL}; // pixmap->client
 
@@ -900,6 +902,67 @@ _e_client_revert_focus_get(E_Client *ec)
      focus_ec = _e_client_find_next_focus(ec);
 
    return focus_ec;
+}
+
+static void
+_e_client_event_focus_skip_set(E_Client *ec, Eina_Bool by_client)
+{
+   E_Event_Client_Focus_Skip_Set *ev;
+
+   ev = E_NEW(E_Event_Client_Focus_Skip_Set, 1);
+   if (!ev) return;
+
+   ev->ec = ec;
+   ev->by_client = by_client;
+   e_object_ref(E_OBJECT(ec));
+
+   ecore_event_add(E_EVENT_CLIENT_FOCUS_SKIP_SET, ev, (Ecore_End_Cb)_e_client_event_simple_free, NULL);
+}
+
+static void
+_e_client_event_focus_skip_unset(E_Client *ec, Eina_Bool by_client)
+{
+   E_Event_Client_Focus_Skip_Unset *ev;
+
+   ev = E_NEW(E_Event_Client_Focus_Skip_Unset, 1);
+   if (!ev) return;
+
+   ev->ec = ec;
+   ev->by_client = by_client;
+   e_object_ref(E_OBJECT(ec));
+
+   ecore_event_add(E_EVENT_CLIENT_FOCUS_SKIP_UNSET, ev, (Ecore_End_Cb)_e_client_event_simple_free, NULL);
+}
+
+E_API void
+e_client_focus_skip_set(E_Client *ec, Eina_Bool skip, Eina_Bool by_client)
+{
+   if (!ec) return;
+
+   if (skip)
+     {
+        if (ec->icccm.accepts_focus)
+          {
+             ELOGF("TZPOL", "FOCUS|SKIP SET (by_client:%d)", ec, by_client);
+             ec->icccm.accepts_focus = ec->icccm.take_focus = 0;
+             ec->changes.accepts_focus = 1;
+             EC_CHANGED(ec);
+
+             _e_client_event_focus_skip_set(ec, by_client);
+          }
+     }
+   else
+     {
+        if (!ec->icccm.accepts_focus)
+          {
+             ELOGF("TZPOL", "FOCUS|SKIP UNSET (by_client:%d)", ec, by_client);
+             ec->icccm.accepts_focus = ec->icccm.take_focus = 1;
+             ec->changes.accepts_focus = 1;
+             EC_CHANGED(ec);
+
+             _e_client_event_focus_skip_unset(ec, by_client);
+          }
+     }
 }
 
 EINTERN void
@@ -3904,6 +3967,8 @@ e_client_init(void)
 #endif
    E_EVENT_CLIENT_VISIBILITY_CHANGE = ecore_event_type_new();
    E_EVENT_CLIENT_BUFFER_CHANGE = ecore_event_type_new();
+   E_EVENT_CLIENT_FOCUS_SKIP_SET = ecore_event_type_new();;
+   E_EVENT_CLIENT_FOCUS_SKIP_UNSET = ecore_event_type_new();;
 
    return (!!clients_hash[1]);
 }
