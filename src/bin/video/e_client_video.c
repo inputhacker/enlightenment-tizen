@@ -13,7 +13,7 @@
 #define IFACE_CHECK_RET(iname, ret)                   \
    INTERNAL_DATA_GET;                                 \
    EINA_SAFETY_ON_NULL_RETURN_VAL(ecv, ret);          \
-   VIN(#iname, ec);                                   \
+   VDB(#iname, ec);                                   \
    if (!ecv->iface->iname)                            \
       return ret
 
