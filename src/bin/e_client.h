@@ -202,6 +202,8 @@ typedef struct E_Client E_Client;
 
 typedef struct E_Event_Client E_Event_Client;
 typedef struct _E_Event_Client_Property E_Event_Client_Property;
+typedef struct _E_Event_Client_Focus_Skip E_Event_Client_Focus_Skip_Set;
+typedef struct _E_Event_Client_Focus_Skip E_Event_Client_Focus_Skip_Unset;
 typedef struct _E_Client_Pending_Resize E_Client_Pending_Resize;
 typedef struct _E_Client_Pending_Geometry E_Client_Pending_Geometry;
 typedef struct E_Event_Client_Zone_Set E_Event_Client_Zone_Set;
@@ -288,6 +290,12 @@ struct _E_Event_Client_Property
 {
    E_Client *ec;
    unsigned int property;
+};
+
+struct _E_Event_Client_Focus_Skip
+{
+   E_Client  *ec;
+   Eina_Bool  by_client;
 };
 
 struct _E_Client_Hook
@@ -1017,6 +1025,8 @@ E_API extern int E_EVENT_CLIENT_ROTATION_CHANGE_END;
 #endif
 E_API extern int E_EVENT_CLIENT_VISIBILITY_CHANGE;
 E_API extern int E_EVENT_CLIENT_BUFFER_CHANGE;
+E_API extern int E_EVENT_CLIENT_FOCUS_SKIP_SET;
+E_API extern int E_EVENT_CLIENT_FOCUS_SKIP_UNSET;
 
 EINTERN void e_client_idler_before(void);
 EINTERN Eina_Bool e_client_init(void);
@@ -1151,6 +1161,7 @@ E_API void e_client_visibility_force_obscured_set(E_Client *ec, Eina_Bool set);
 
 E_API void e_client_stay_within_canvas_margin(E_Client *ec);
 
+E_API void e_client_focus_skip_set(E_Client *ec, Eina_Bool skip, Eina_Bool by_client);
 EINTERN void e_client_revert_focus(E_Client *ec);
 EINTERN Eina_Bool e_client_check_above_focused(E_Client *ec);
 
