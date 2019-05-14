@@ -2576,13 +2576,6 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
 
    e_comp_wl_subsurface_check_below_bg_rectangle(ec);
 
-   if (((buffer) &&
-        (buffer->type == E_COMP_WL_BUFFER_TYPE_VIDEO)) &&
-       (e_comp->wl_comp_data->available_hw_accel.underlay))
-     {
-        e_pixmap_image_clear(ec->pixmap, 1);
-     }
-
    state->buffer_viewport.changed = 0;
 
    if (buffer &&

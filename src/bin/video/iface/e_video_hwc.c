@@ -143,6 +143,10 @@ _e_video_hwc_wait_buffer_commit(E_Video_Hwc *evh)
 static void
 _e_video_hwc_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
 {
+   /* Send a message 'wl_surface.frame', right before commit a buffer to
+    * tdm driver. */
+   e_pixmap_image_clear(evh->ec->pixmap, EINA_TRUE);
+
    evh->committed_list = eina_list_append(evh->committed_list, vbuf);
 
    if (!_e_video_hwc_can_commit(evh))
