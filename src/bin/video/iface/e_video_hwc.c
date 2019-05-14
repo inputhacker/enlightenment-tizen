@@ -1418,6 +1418,9 @@ _e_video_hwc_iface_destroy(E_Video_Comp_Iface *iface)
    if (evh->pp)
      tdm_pp_destroy(evh->pp);
 
+   if (e_comp_object_mask_has(evh->ec->frame))
+     e_comp_object_mask_set(evh->ec->frame, EINA_FALSE);
+
    evh->backend.destroy(evh);
 }
 
