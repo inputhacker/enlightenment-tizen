@@ -4619,14 +4619,14 @@ _e_comp_wl_output_info_send(E_Comp_Wl_Output *output, struct wl_resource *resour
         // change the configured output resolution and the configured physical size(mm) of the output
         if (output->configured_resolution_w != res_w)
           {
-             phys_w = (int)((float)output->phys_width * (float)(res_w / output->w));
+             phys_w = (int)((float)output->phys_width * (float)res_w / (float)output->w);
              output->configured_physical_w = phys_w;
              output->configured_resolution_w = res_w;
           }
 
         if (output->configured_resolution_h != res_h)
           {
-             phys_h = (int)((float)output->phys_height * (float)(res_h / output->h));
+             phys_h = (int)((float)output->phys_height * (float)res_h / (float)output->h);
              output->configured_physical_h = phys_h;
              output->configured_resolution_h = res_h;
           }
