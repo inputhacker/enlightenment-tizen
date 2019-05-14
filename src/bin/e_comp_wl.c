@@ -2843,7 +2843,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
                   /* not creating damage for ec that shows a underlay video */
                   if (state->buffer_viewport.changed ||
                       !e_comp->wl_comp_data->available_hw_accel.underlay ||
-                      !buffer || buffer->type != E_COMP_WL_BUFFER_TYPE_VIDEO)
+                      !buffer || !e_client_video_comp_redirect_get(ec))
                     e_comp_object_damage(ec->frame, dmg->x, dmg->y, dmg->w, dmg->h);
 
                   eina_rectangle_free(dmg);
@@ -5379,8 +5379,14 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
           {
              if ((ec) && (e_client_video_comp_redirect_get(ec)))
                {
+                  tbm_surf = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, resource);
+                  if (!tbm_surf)
+                    goto err;
+
                   buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
-                  buffer->w = buffer->h = 1;
+                  buffer->w = tbm_surface_get_width(tbm_surf);
+                  buffer->h = tbm_surface_get_height(tbm_surf);
+                  buffer->tbm_surface = tbm_surf;
                }
              else if (e_comp->gl)
                {
@@ -5432,7 +5438,8 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
                if ((ec) && (e_client_video_comp_redirect_get(ec)))
                  {
                     buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
-                    buffer->w = buffer->h = 1;
+                    buffer->w = tbm_surface_get_width(tbm_surf);
+                    buffer->h = tbm_surface_get_height(tbm_surf);
                  }
                else
                  {
