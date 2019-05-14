@@ -402,7 +402,8 @@ _e_comp_wl_subsurface_commit_from_cache(E_Client *ec)
 
    e_comp_wl_surface_state_commit(ec, &sdata->cached);
 
-   if (!e_comp_object_damage_exists(ec->frame))
+   if ((!e_comp_object_damage_exists(ec->frame)) &&
+       (!e_client_video_hw_composition_check(ec)))
      e_pixmap_image_clear(ec->pixmap, 1);
 
    e_comp_wl_buffer_reference(&sdata->cached_buffer_ref, NULL);
