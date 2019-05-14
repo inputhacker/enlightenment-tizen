@@ -1662,16 +1662,17 @@ EINTERN void
 e_video_hwc_client_mask_update(E_Video_Hwc *evh)
 {
    E_Client *topmost;
+   Eina_Bool punch = EINA_FALSE;
    int bw, bh;
 
    if (e_video_debug_punch_value_get())
      {
-        e_comp_object_mask_set(evh->ec->frame, EINA_TRUE);
-        VIN("punched", evh->ec);
+        punch = EINA_TRUE;
+        goto end;
      }
 
    topmost = e_comp_wl_topmost_parent_get(evh->ec);
-   if (topmost && topmost->argb && !e_comp_object_mask_has(evh->ec->frame))
+   if (topmost && topmost->argb)
      {
         /* FIXME: the mask obj can be drawn at the wrong position in the beginnig
          * time. It happens caused by window manager policy.
@@ -1689,7 +1690,25 @@ e_video_hwc_client_mask_update(E_Video_Hwc *evh)
                   return;
                }
           }
-        e_comp_object_mask_set(evh->ec->frame, EINA_TRUE);
-        VIN("punched", evh->ec);
+
+        punch = EINA_TRUE;
+     }
+
+end:
+   if (punch)
+     {
+        if (!e_comp_object_mask_has(evh->ec->frame))
+          {
+             e_comp_object_mask_set(evh->ec->frame, EINA_TRUE);
+             VIN("punched", evh->ec);
+          }
+     }
+   else
+     {
+        if (e_comp_object_mask_has(evh->ec->frame))
+          {
+             e_comp_object_mask_set(evh->ec->frame, EINA_FALSE);
+             VIN("Un-punched", evh->ec);
+          }
      }
 }
