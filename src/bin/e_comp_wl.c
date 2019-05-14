@@ -4293,11 +4293,21 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
           }
         else
           {
-             if ((ec) &&
-                 ((ec->comp_data->video_client) || (e_client_video_hw_composition_check(ec))))
+             if ((ec) && (ec->comp_data->video_client))
                {
                   buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
                   buffer->w = buffer->h = 1;
+               }
+             else if ((ec) && (e_client_video_hw_composition_check(ec)))
+               {
+                  tbm_surf = wayland_tbm_server_get_surface(e_comp_wl->tbm.server, resource);
+                  if (!tbm_surf)
+                    goto err;
+
+                  buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
+                  buffer->w = tbm_surface_get_width(tbm_surf);
+                  buffer->h = tbm_surface_get_height(tbm_surf);
+                  buffer->tbm_surface = tbm_surf;
                }
              else if (e_comp->gl)
                {
@@ -4346,11 +4356,16 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
                if (!tbm_surf)
                  goto err;
 
-               if ((ec) &&
-                   ((ec->comp_data->video_client) || (e_client_video_hw_composition_check(ec))))
+               if ((ec) && (ec->comp_data->video_client))
                  {
                     buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
                     buffer->w = buffer->h = 1;
+                 }
+               else if ((ec) && (e_client_video_hw_composition_check(ec)))
+                 {
+                    buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
+                    buffer->w = tbm_surface_get_width(tbm_surf);
+                    buffer->h = tbm_surface_get_height(tbm_surf);
                  }
                else
                  {
