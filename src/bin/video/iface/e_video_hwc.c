@@ -1639,35 +1639,36 @@ e_video_hwc_client_mask_update(E_Video_Hwc *evh)
    int bw, bh;
 
    if (e_video_debug_punch_value_get())
+     punch = EINA_TRUE;
+   else if ((topmost = e_comp_wl_topmost_parent_get(evh->ec)))
      {
-        punch = EINA_TRUE;
-        goto end;
-     }
-
-   topmost = e_comp_wl_topmost_parent_get(evh->ec);
-   if (topmost && topmost->argb)
-     {
-        /* FIXME: the mask obj can be drawn at the wrong position in the beginnig
-         * time. It happens caused by window manager policy.
-         */
-        if ((topmost->fullscreen || topmost->maximized) &&
-            (evh->geo.output_r.x == 0 || evh->geo.output_r.y == 0))
+        /* if it's laid above main surface */
+        if (eina_list_data_find(topmost->comp_data->sub.list, evh->ec))
+          punch = EINA_TRUE;
+        /* if it's laid under main surface and main surface is transparent */
+        else if (topmost->argb)
           {
-             e_pixmap_size_get(topmost->pixmap, &bw, &bh);
-
-             if (bw > 100 && bh > 100 &&
-                 evh->geo.output_r.w < 100 && evh->geo.output_r.h < 100)
+             /* FIXME: the mask obj can be drawn at the wrong position in the beginnig
+              * time. It happens caused by window manager policy.
+              */
+             if ((topmost->fullscreen || topmost->maximized) &&
+                 (evh->geo.output_r.x == 0 || evh->geo.output_r.y == 0))
                {
-                  VIN("don't punch. (%dx%d, %dx%d)", evh->ec,
-                      bw, bh, evh->geo.output_r.w, evh->geo.output_r.h);
-                  return;
-               }
-          }
+                  e_pixmap_size_get(topmost->pixmap, &bw, &bh);
 
-        punch = EINA_TRUE;
+                  if (bw > 100 && bh > 100 &&
+                      evh->geo.output_r.w < 100 && evh->geo.output_r.h < 100)
+                    {
+                       VIN("don't punch. (%dx%d, %dx%d)", evh->ec,
+                           bw, bh, evh->geo.output_r.w, evh->geo.output_r.h);
+                       return;
+                    }
+               }
+
+             punch = EINA_TRUE;
+          }
      }
 
-end:
    if (punch)
      {
         if (!e_comp_object_mask_has(evh->ec->frame))
