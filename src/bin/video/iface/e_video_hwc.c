@@ -1133,6 +1133,7 @@ _e_video_hwc_render(E_Video_Hwc *evh, const char *func)
 
    if (!_e_video_hwc_client_visible_get(evh->ec))
      {
+        evh->need_force_render = EINA_TRUE;
         _e_video_hwc_hide(evh);
         return;
      }
