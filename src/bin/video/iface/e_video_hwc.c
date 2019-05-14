@@ -60,6 +60,31 @@ _e_video_hwc_can_commit(E_Video_Hwc *evh)
    return _e_video_hwc_client_visible_get(evh->ec);
 }
 
+static void
+_e_video_hwc_fps_show(void)
+{
+   static double rtime = 0.0;
+   static int frames = 0;
+   static double ptim = 0.0;
+   double fps = 0.0;
+   double dt;
+   double tim;
+
+   tim = ecore_time_get();
+   dt = tim - ptim;
+   ptim = tim;
+
+   rtime += dt;
+   frames++;
+   if (rtime >= 1.0)
+     {
+        fps = (double)frames / rtime;
+        frames = 0;
+        rtime = 0.0;
+        VIN("FPS: %1.1f", NULL, fps);
+     }
+}
+
 static Eina_Bool
 _e_video_hwc_current_fb_update(E_Video_Hwc *evh)
 {
@@ -96,6 +121,8 @@ _e_video_hwc_current_fb_update(E_Video_Hwc *evh)
         if (evh->current_fb->comp_buffer)
           e_comp_wl_buffer_reference(&evh->current_fb->buffer_ref, NULL);
      }
+
+   _e_video_hwc_fps_show();
 
    evh->current_fb = vbuf;
 
