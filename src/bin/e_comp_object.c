@@ -5167,6 +5167,7 @@ e_comp_object_mask_set(Evas_Object *obj, Eina_Bool set)
              evas_object_clip_set(o, cw->clip);
              evas_object_smart_member_add(o, obj);
              evas_object_move(o, 0, 0);
+             evas_object_resize(o, cw->w, cw->h);
              /* save render op value to restore when clear a mask.
               *
               * NOTE: DO NOT change the render op on ec->frame while mask object
