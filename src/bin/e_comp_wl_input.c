@@ -413,6 +413,7 @@ _e_comp_wl_input_keymap_fd_get(off_t size)
    char *path;
    char tmp[PATH_MAX] = {0, };
    long flags;
+   mode_t old_umask;
 
    blen = sizeof(tmp) - 20;
 
@@ -432,10 +433,11 @@ _e_comp_wl_input_keymap_fd_get(off_t size)
         return -1;
      }
 
-   if ((fd = mkstemp(tmp)) < 0)
-     {
-        return -1;
-     }
+   old_umask = umask(S_IRWXG|S_IRWXO);
+   fd = mkstemp(tmp);
+   umask(old_umask);
+
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(fd >= 0, -1);
 
    flags = fcntl(fd, F_GETFD);
    if (flags < 0)
