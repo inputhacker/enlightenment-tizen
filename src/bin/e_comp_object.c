@@ -3756,7 +3756,7 @@ E_API void
 e_comp_object_input_area_set(Evas_Object *obj, int x, int y, int w, int h)
 {
    API_ENTRY;
-   E_Input_Rect_Data *input_rect_data;
+   E_Input_Rect_Data *input_rect_data = NULL;
    E_Input_Rect_Smart_Data *input_rect_sd;
    int client_w, client_h;
 
@@ -3772,9 +3772,6 @@ e_comp_object_input_area_set(Evas_Object *obj, int x, int y, int w, int h)
 
    E_RECTS_CLIP_TO_RECT(x, y, w, h, 0, 0, client_w, client_h);
 
-   input_rect_data = E_NEW(E_Input_Rect_Data, 1);
-   EINA_RECTANGLE_SET(&input_rect_data->rect, x, y, w, h);
-
    if (!cw->input_obj)
      {
         _e_comp_input_obj_smart_init();
@@ -3788,9 +3785,14 @@ e_comp_object_input_area_set(Evas_Object *obj, int x, int y, int w, int h)
 
    input_rect_sd = evas_object_smart_data_get(cw->input_obj);
    if (input_rect_sd)
-     input_rect_sd->input_rect_data_list = eina_list_append(input_rect_sd->input_rect_data_list, input_rect_data);
-   else
-     E_FREE(input_rect_data);
+     {
+        input_rect_data = E_NEW(E_Input_Rect_Data, 1);
+        if (input_rect_data)
+          {
+             EINA_RECTANGLE_SET(&input_rect_data->rect, x, y, w, h);
+             input_rect_sd->input_rect_data_list = eina_list_append(input_rect_sd->input_rect_data_list, input_rect_data);
+          }
+     }
 
    if ((input_rect_data) &&
        (x || y || (w != cw->ec->client.w) || (h != cw->ec->client.h)))
