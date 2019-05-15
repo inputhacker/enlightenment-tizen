@@ -2256,7 +2256,7 @@ _remote_manager_cb_surface_create_with_wl_surface(struct wl_client *client,
                                                   struct wl_resource *surface_resource)
 {
    struct wl_resource *resource;
-   E_Comp_Wl_Remote_Surface *remote_surface;
+   E_Comp_Wl_Remote_Surface *remote_surface = NULL;
    E_Comp_Wl_Remote_Provider *provider = NULL;
    E_Comp_Wl_Remote_Source *source = NULL;
    E_Client *ec, *provider_ec;
@@ -2292,6 +2292,7 @@ _remote_manager_cb_surface_create_with_wl_surface(struct wl_client *client,
      {
         ERR("Could not find consumer E_Client by resource:%p", surface_resource);
         wl_resource_destroy(resource);
+        E_FREE(remote_surface);
         return;
      }
 
