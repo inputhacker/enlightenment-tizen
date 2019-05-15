@@ -1881,8 +1881,11 @@ _set_win_prop_Geometry(Evas_Object *evas_obj, const char *prop_value)
 {
    E_Client *ec = evas_object_data_get(evas_obj, "E_Client");
    int x = -1, y = -1, w = -1, h = -1;
+   int ret;
 
-   sscanf(prop_value, "%d, %d %dx%d", &x, &y, &w, &h);
+   ret = sscanf(prop_value, "%d, %d %dx%d", &x, &y, &w, &h);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == 4, (strdup("Invalid format")));
+
    if (x < 0 || y < 0 || w <= 0 || h <= 0)
      return strdup("invalid property value");
 
@@ -4161,6 +4164,7 @@ _e_info_server_cb_selected_buffer_dump(const Eldbus_Service_Interface *iface EIN
    const char *path = NULL;
    int32_t win_id = 0;
    Evas_Object *o;
+   int ret;
 
    Dump_Win_Data *dump = NULL;
    E_Capture_Save_State state;
@@ -4175,9 +4179,10 @@ _e_info_server_cb_selected_buffer_dump(const Eldbus_Service_Interface *iface EIN
     else
       {
          if (strlen(win_id_s) >= 2 && win_id_s[0] == '0' && win_id_s[1] == 'x')
-            sscanf(win_id_s, "%zx", (uintptr_t *)&win_id);
+           ret = sscanf(win_id_s, "%zx", (uintptr_t *)&win_id);
          else
-            sscanf(win_id_s, "%d", &win_id);
+           ret = sscanf(win_id_s, "%d", &win_id);
+         EINA_SAFETY_ON_FALSE_GOTO(ret == 1, end);
       }
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
@@ -4221,6 +4226,7 @@ _e_info_server_cb_selected_buffer_dump(const Eldbus_Service_Interface *iface EIN
    if (dump)
      E_FREE(dump);
 
+end:
    //send reply with error msg because dump job failed.
    eldbus_message_arguments_append(reply, "s", "ERR: Can't start dump job");
    return reply;
