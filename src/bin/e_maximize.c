@@ -10,6 +10,7 @@ struct _E_Maximize_Rect
 #define OBSTACLE(_x1, _y1, _x2, _y2)                              \
   {                                                               \
      r = E_NEW(E_Maximize_Rect, 1);                               \
+     if (!r) continue;                                            \
      r->x1 = (_x1); r->yy1 = (_y1); r->x2 = (_x2); r->y2 = (_y2); \
      rects = eina_list_append(rects, r);                          \
   }
