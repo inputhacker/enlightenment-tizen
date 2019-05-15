@@ -176,9 +176,9 @@ _e_video_cb_ec_remove(void *data, int type, void *event)
    video = find_video_with_surface(ec->comp_data->surface);
    if (!video) return ECORE_CALLBACK_PASS_ON;
 
-   _e_video_destroy(video);
-
    video_list = eina_list_remove(video_list, video);
+
+   _e_video_destroy(video);
 
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -189,9 +189,9 @@ _e_comp_wl_video_object_destroy(struct wl_resource *resource)
    E_Video *video = wl_resource_get_user_data(resource);
    EINA_SAFETY_ON_NULL_RETURN(video);
 
-   _e_video_destroy(video);
-
    video_list = eina_list_remove(video_list, video);
+
+   _e_video_destroy(video);
 }
 
 static void
