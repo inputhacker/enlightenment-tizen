@@ -315,9 +315,9 @@ _e_video_hwc_input_buffer_get(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer, E
              E_Comp_Wl_Video_Buf *temp;
 
              if (need_pp_scanout)
-               temp = _e_video_hwc_input_buffer_copy((E_Video_Hwc *)evh, comp_buffer, vbuf, EINA_TRUE);
+               temp = _e_video_hwc_input_buffer_copy(evh, comp_buffer, vbuf, EINA_TRUE);
              else
-               temp = _e_video_hwc_input_buffer_copy((E_Video_Hwc *)evh, comp_buffer, vbuf, scanout);
+               temp = _e_video_hwc_input_buffer_copy(evh, comp_buffer, vbuf, scanout);
              if (!temp)
                {
                   e_comp_wl_video_buffer_unref(vbuf);
@@ -1145,7 +1145,7 @@ _e_video_hwc_render(E_Video_Hwc *evh, const char *func)
 
    evh->need_force_render = EINA_FALSE;
 
-   _e_video_hwc_input_buffer_valid((E_Video_Hwc *)evh, comp_buffer);
+   _e_video_hwc_input_buffer_valid(evh, comp_buffer);
 
    if (!evh->backend.check_if_pp_needed(evh))
      {
@@ -1194,7 +1194,7 @@ _e_video_hwc_render(E_Video_Hwc *evh, const char *func)
    input_buffer = _e_video_hwc_input_buffer_get(evh, comp_buffer, EINA_FALSE);
    EINA_SAFETY_ON_NULL_GOTO(input_buffer, render_fail);
 
-   pp_buffer = _e_video_hwc_pp_buffer_get((E_Video_Hwc *)evh, evh->geo.tdm.output_r.w, evh->geo.tdm.output_r.h);
+   pp_buffer = _e_video_hwc_pp_buffer_get(evh, evh->geo.tdm.output_r.w, evh->geo.tdm.output_r.h);
    EINA_SAFETY_ON_NULL_GOTO(pp_buffer, render_fail);
 
    if (memcmp(&evh->old_geo, &evh->geo, sizeof evh->geo))
