@@ -1379,8 +1379,6 @@ _e_video_hwc_cb_client_show(void *data, int type, void *event)
    evh = data;
    if (!evh) return ECORE_CALLBACK_PASS_ON;
 
-   VIN("show: find video child(0x%08"PRIxPTR")", evh->ec,
-       (Ecore_Window)e_client_util_win_get(video_ec));
    if (evh->old_comp_buffer)
      {
         VIN("video already rendering..", evh->ec);
@@ -1598,7 +1596,6 @@ _e_video_hwc_show(E_Video_Hwc *evh)
           return;
      }
 
-   VIN("evas show", evh->ec);
    if (evh->current_fb)
      _e_video_hwc_buffer_show(evh, evh->current_fb, evh->current_fb->content_t);
 }
@@ -1651,7 +1648,6 @@ e_video_hwc_iface_create(E_Client_Video *ecv)
    evh->iface.tbm_surface_get = _e_video_hwc_iface_tbm_surface_get;
 
    /* This ec is a video client now. */
-   VIN("video client", ec);
    e_client_video_hw_composition_set(ecv);
 
    return &evh->iface;
