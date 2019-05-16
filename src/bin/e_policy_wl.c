@@ -5822,7 +5822,7 @@ _tzlaunch_splash_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl
    // TO DO
    // invaid parameter handle
    ELOGF("TZPOL",
-         "Launchscreen launch | path %s(%d), indicator(%d), angle(%d), effect_type(%s), theme_type(%s)",
+         "Launchscreen | path %s(%d), indicator(%d), angle(%d), effect_type(%s), theme_type(%s)",
          ec, pfname, ftype, indicator, angle, effect_type, theme_type);
 
    tzlaunch_splash->path = pfname;
@@ -5954,27 +5954,6 @@ _tzlaunch_splash_iface_cb_launch(struct wl_client *client EINA_UNUSED, struct wl
    tzlaunch_splash->valid = EINA_TRUE;
    tzlaunch_splash->content_type = e_comp_object_content_type_get(ec->frame);
 
-   ec->ignored = EINA_FALSE;
-   ec->visible = EINA_TRUE;
-   if (ec->new_client)
-     e_comp->new_clients--;
-   ec->new_client = EINA_FALSE;
-   ec->icccm.accepts_focus = EINA_TRUE;
-
-   evas_object_show(ec->frame);
-   evas_object_raise(ec->frame);
-   EC_CHANGED(ec);
-
-   e_client_visibility_calculate();
-
-   if (tzlaunch_splash->timeout)
-     {
-        ecore_timer_del(tzlaunch_splash->timeout);
-        tzlaunch_splash->timeout = NULL;
-     }
-   if (!e_config->launchscreen_without_timer)
-     tzlaunch_splash->timeout = ecore_timer_add(e_config->launchscreen_timeout, _launchscreen_splash_timeout, tzlaunch_splash);
-
    return;
 error:
    ERR("Could not complete %s", __FUNCTION__);
@@ -5991,6 +5970,7 @@ _tzlaunch_splash_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_
 
    tzlaunch_splash = wl_resource_get_user_data(res_tzlaunch_splash);
    EINA_SAFETY_ON_NULL_RETURN(tzlaunch_splash);
+   EINA_SAFETY_ON_FALSE_RETURN(tzlaunch_splash->valid);
 
    /* use ec was already created */
    clients = _e_policy_wl_e_clients_find_by_pid(pid);
@@ -6004,14 +5984,13 @@ _tzlaunch_splash_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_
      }
    eina_list_free(clients);
 
+   old_ec = tzlaunch_splash->ec;
    if (new_ec)
      {
         if (e_comp_object_content_set(new_ec->frame,
                                       tzlaunch_splash->obj,
                                       tzlaunch_splash->content_type))
           {
-             old_ec = tzlaunch_splash->ec;
-
              e_client_unignore(new_ec);
              new_ec->visible = EINA_TRUE;
              if (new_ec->new_client)
@@ -6020,12 +5999,12 @@ _tzlaunch_splash_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_
              new_ec->argb = old_ec->argb;
              new_ec->effect_type = old_ec->effect_type;
              new_ec->use_splash = EINA_TRUE;
+             new_ec->icccm.title = eina_stringshare_add("launchscreen");
 
              e_comp->launchscrns = eina_list_append(e_comp->launchscrns, new_ec);
 
              evas_object_show(new_ec->frame);
-             evas_object_stack_above(new_ec->frame, old_ec->frame);
-             EC_CHANGED(new_ec);
+             evas_object_raise(new_ec->frame);
 
              tzlaunch_splash->ec = new_ec;
              tzlaunch_splash->replaced = EINA_TRUE;
@@ -6044,23 +6023,38 @@ _tzlaunch_splash_iface_cb_owner(struct wl_client *client EINA_UNUSED, struct wl_
                }
 
              /* delete ec was created for launchscreen */
-             if (old_ec->visible)
-               {
-                  old_ec->visible = EINA_FALSE;
-                  evas_object_hide(old_ec->frame);
-                  old_ec->ignored = EINA_TRUE;
-               }
              e_comp->launchscrns = eina_list_remove(e_comp->launchscrns, old_ec);
 
              e_pixmap_win_id_del(tzlaunch_splash->ep);
              e_object_del(E_OBJECT(old_ec));
              tzlaunch_splash->ep = NULL;
-
-             e_client_visibility_calculate();
           }
         else
           ERR("Can't set external content for new_ec(%p)", new_ec);
      }
+   else
+     {
+       old_ec->ignored = EINA_FALSE;
+       old_ec->visible = EINA_TRUE;
+       if (old_ec->new_client)
+         e_comp->new_clients--;
+       old_ec->new_client = EINA_FALSE;
+       old_ec->icccm.accepts_focus = EINA_TRUE;
+
+        evas_object_show(old_ec->frame);
+        evas_object_raise(old_ec->frame);
+     }
+
+   EC_CHANGED(tzlaunch_splash->ec);
+   e_client_visibility_calculate();
+
+   if (tzlaunch_splash->timeout)
+     {
+        ecore_timer_del(tzlaunch_splash->timeout);
+        tzlaunch_splash->timeout = NULL;
+     }
+   if (!e_config->launchscreen_without_timer)
+     tzlaunch_splash->timeout = ecore_timer_add(e_config->launchscreen_timeout, _launchscreen_splash_timeout, tzlaunch_splash);
 
    ELOGF("TZPOL", "Launchscreen img(%d) set owner pid: %d",
          tzlaunch_splash->ec,
