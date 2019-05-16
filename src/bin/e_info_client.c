@@ -17,6 +17,7 @@ typedef struct _E_Info_Client
    /* topvwins */
    int                use_gl, use_hwc, use_multi_layer, hwc, hwc_windows;
    int                use_buffer_flush, deiconify_approve;
+   int                config_engine;
    const char        *engine;
    Eina_List         *win_list;
 
@@ -500,9 +501,10 @@ _cb_vwindow_info_get(const Eldbus_Message *msg)
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
 
-   res = eldbus_message_arguments_get(msg, "iiiiisiia("VALUE_TYPE_FOR_TOPVWINS")",
+   res = eldbus_message_arguments_get(msg, "iiiiisiiia("VALUE_TYPE_FOR_TOPVWINS")",
                                       &e_info_client.use_gl, &e_info_client.use_hwc, &e_info_client.use_multi_layer,
-                                      &e_info_client.hwc, &e_info_client.hwc_windows, &engine,
+                                      &e_info_client.hwc, &e_info_client.hwc_windows,
+                                      &engine, &e_info_client.config_engine,
                                       &e_info_client.use_buffer_flush, &e_info_client.deiconify_approve,
                                       &array);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
@@ -988,13 +990,8 @@ _cb_vec_info_get(const Eldbus_Message *msg)
    res = eldbus_message_error_get(msg, &name, &text);
    EINA_SAFETY_ON_TRUE_GOTO(res, finish);
 
-   res = eldbus_message_arguments_get(msg, "iiiiisiia("VALUE_TYPE_FOR_TOPVWINS")",
-                                      &e_info_client.use_gl, &e_info_client.use_hwc, &e_info_client.use_multi_layer,
-                                      &e_info_client.hwc, &e_info_client.hwc_windows, &engine,
-                                      &e_info_client.use_buffer_flush, &e_info_client.deiconify_approve,
-                                      &array);
+   res = eldbus_message_arguments_get(msg, "a("VALUE_TYPE_FOR_TOPVWINS")", &array);
    EINA_SAFETY_ON_FALSE_GOTO(res, finish);
-   e_info_client.engine = eina_stringshare_add(engine);
 
    _e_win_info_make_array(array);
 
@@ -1099,7 +1096,7 @@ _e_info_client_proc_topvwins_info(int argc, char **argv)
      goto ec_info;
 
    printf("GL :  %s\n", e_info_client.use_gl ? "on":"off");
-   printf("ENG:  %s\n", e_info_client.engine);
+   printf("ENG:  %s (config: %d)\n", e_info_client.engine, e_info_client.config_engine);
    if (e_info_client.use_hwc)
      {
         if (e_info_client.hwc)

@@ -416,12 +416,13 @@ _e_info_server_cb_window_info_get(const Eldbus_Service_Interface *iface EINA_UNU
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    Eldbus_Message_Iter *iter = eldbus_message_iter_get(reply);
 
-   eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->engine);
+   eldbus_message_iter_basic_append(iter, 'i', e_comp_gl_get());
    eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->hwc);
    eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->hwc_use_multi_plane);
    eldbus_message_iter_basic_append(iter, 'i', e_comp->hwc);
    eldbus_message_iter_basic_append(iter, 'i', _e_info_server_is_hwc_windows());
    eldbus_message_iter_basic_append(iter, 's', ecore_evas_engine_name_get(e_comp->ee));
+   eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->engine);
    eldbus_message_iter_basic_append(iter, 'i', e_config->use_buffer_flush);
    eldbus_message_iter_basic_append(iter, 'i', e_config->deiconify_approve);
 
@@ -436,15 +437,6 @@ _e_info_server_cb_ec_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED,
 {
    Eldbus_Message *reply = eldbus_message_method_return_new(msg);
    Eldbus_Message_Iter *iter = eldbus_message_iter_get(reply);
-
-   eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->engine);
-   eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->hwc);
-   eldbus_message_iter_basic_append(iter, 'i', e_comp_config_get()->hwc_use_multi_plane);
-   eldbus_message_iter_basic_append(iter, 'i', e_comp->hwc);
-   eldbus_message_iter_basic_append(iter, 'i', _e_info_server_is_hwc_windows());
-   eldbus_message_iter_basic_append(iter, 's', ecore_evas_engine_name_get(e_comp->ee));
-   eldbus_message_iter_basic_append(iter, 'i', e_config->use_buffer_flush);
-   eldbus_message_iter_basic_append(iter, 'i', e_config->deiconify_approve);
 
    _msg_ecs_append(iter, EINA_TRUE);
 
@@ -6140,8 +6132,8 @@ _e_info_server_cb_hwc_wins_info_get(const Eldbus_Service_Interface *iface EINA_U
 
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
-   { "get_window_info", NULL, ELDBUS_ARGS({"iiiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
-   { "get_ec_info", NULL, ELDBUS_ARGS({"iiiiisa("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_ec_info_get, 0 },
+   { "get_window_info", NULL, ELDBUS_ARGS({"iiiiisiiia("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
+   { "get_ec_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}),_e_info_server_cb_ec_info_get, 0 },
    { "get_all_window_info", NULL, ELDBUS_ARGS({"a("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_all_window_info_get, 0 },
    { "compobjs", NULL, ELDBUS_ARGS({"a("SIGNATURE_COMPOBJS_CLIENT")", "array of comp objs"}), _e_info_server_cb_compobjs, 0 },
    { "subsurface", NULL, ELDBUS_ARGS({"a("SIGNATURE_SUBSURFACE")", "array of ec"}), _e_info_server_cb_subsurface, 0 },
