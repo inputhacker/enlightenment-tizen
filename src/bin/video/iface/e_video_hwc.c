@@ -514,12 +514,53 @@ _e_video_hwc_geometry_map_apply(E_Client *ec, E_Video_Hwc_Geometry *out)
 }
 
 static void
+_e_video_hwc_render_job(void *data)
+{
+   E_Video_Hwc *evh;
+   E_Client *topmost;
+   Eina_Bool render = EINA_FALSE;
+
+   evh = data;
+   if (evh->render.map)
+     {
+        evh->render.map = EINA_FALSE;
+        render = _e_video_hwc_geometry_map_apply(evh->ec, &evh->geo);
+     }
+
+   if (evh->render.topmost_viewport)
+     {
+        evh->render.topmost_viewport = EINA_FALSE;
+        topmost = e_comp_wl_topmost_parent_get(evh->ec);
+        if (topmost)
+          e_comp_wl_viewport_apply(topmost);
+        render = EINA_TRUE;
+     }
+
+   if ((render) || (evh->render.buffer_change))
+     {
+        evh->render.buffer_change = EINA_FALSE;
+        _e_video_hwc_render(evh, __FUNCTION__);
+     }
+
+   evh->render.handler = EINA_FALSE;
+}
+
+static void
+_e_video_hwc_render_queue(E_Video_Hwc *evh)
+{
+   if (evh->render.handler)
+     ecore_job_del(evh->render.handler);
+
+   evh->render.handler = ecore_job_add(_e_video_hwc_render_job, evh);
+}
+
+static void
 _e_video_hwc_cb_evas_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *event_info EINA_UNUSED)
 {
    E_Video_Hwc *evh = data;
 
-   if (_e_video_hwc_geometry_map_apply(evh->ec, &evh->geo))
-     _e_video_hwc_render(evh, __FUNCTION__);
+   evh->render.map = EINA_TRUE;
+   _e_video_hwc_render_queue(evh);
 }
 
 static void
@@ -527,8 +568,8 @@ _e_video_hwc_cb_evas_move(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA
 {
    E_Video_Hwc *evh = data;
 
-   if (_e_video_hwc_geometry_map_apply(evh->ec, &evh->geo))
-     _e_video_hwc_render(evh, __FUNCTION__);
+   evh->render.map = EINA_TRUE;
+   _e_video_hwc_render_queue(evh);
 }
 
 static E_Comp_Wl_Video_Buf *
@@ -1376,8 +1417,8 @@ _e_video_hwc_cb_client_show(void *data, int type, void *event)
    if (ec == e_comp_wl_topmost_parent_get(evh->ec))
      {
         VIN("video need rendering..", evh->ec);
-        e_comp_wl_viewport_apply(ec);
-        _e_video_hwc_render(evh, __FUNCTION__);
+        evh->render.topmost_viewport = EINA_TRUE;
+        _e_video_hwc_render_queue(evh);
      }
 
    return ECORE_CALLBACK_PASS_ON;
@@ -1402,7 +1443,8 @@ _e_video_hwc_cb_client_buffer_change(void *data, int type, void *event)
    if (e_object_is_del(E_OBJECT(ec)))
      return ECORE_CALLBACK_PASS_ON;
 
-   _e_video_hwc_render(evh, __FUNCTION__);
+   evh->render.buffer_change = EINA_TRUE;
+   _e_video_hwc_render_queue(evh);
 
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -1448,6 +1490,8 @@ _e_video_hwc_iface_destroy(E_Video_Comp_Iface *iface)
 
    if (e_comp_object_mask_has(evh->ec->frame))
      e_comp_object_mask_set(evh->ec->frame, EINA_FALSE);
+
+   E_FREE_FUNC(evh->render.handler, ecore_job_del);
 
    evh->backend.destroy(evh);
 }

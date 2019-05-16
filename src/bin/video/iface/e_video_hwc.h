@@ -84,6 +84,14 @@ struct _E_Video_Hwc
    Eina_List    *committed_list; /* buffers which are committed, but not shown on screen yet */
    E_Comp_Wl_Video_Buf *current_fb;     /* buffer which is showing on screen currently */
 
+   struct
+     {
+        Ecore_Job *handler;
+        Eina_Bool map;
+        Eina_Bool buffer_change;
+        Eina_Bool topmost_viewport;
+     } render;
+
    Eina_Bool  cb_registered;
    Eina_Bool  need_force_render;
 };
