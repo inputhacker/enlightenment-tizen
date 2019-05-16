@@ -358,7 +358,10 @@ _e_hwc_window_client_cb_zone_set(void *data, int type, void *event)
    /* If an e_client belongs to the e_output managed by hwc_plane policy,
     * there's no need to deal with hwc_windows. */
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
-      return ECORE_CALLBACK_PASS_ON;
+     return ECORE_CALLBACK_PASS_ON;
+
+   if (e_object_is_del(E_OBJECT(ec)))
+     return ECORE_CALLBACK_PASS_ON;
 
    if (ec->hwc_window)
      {
@@ -680,6 +683,7 @@ e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, NULL);
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, NULL);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(ec)), NULL);
 
    if (ec->hwc_window) goto end;
 
