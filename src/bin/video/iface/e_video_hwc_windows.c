@@ -13,7 +13,6 @@ struct _E_Video_Hwc_Windows
 
    E_Hwc *hwc;
    E_Hwc_Window *hwc_window;
-   E_Comp_Wl_Hook *hook_subsurf_create;
 
    struct
      {
@@ -78,105 +77,6 @@ _e_video_destroy(E_Video_Hwc_Windows *evhw)
    free(evhw);
 }
 
-static Eina_Bool
-_e_video_cb_ec_visibility_change(void *data, int type, void *event)
-{
-   E_Event_Remote_Surface_Provider *ev;
-   E_Client *ec, *offscreen_parent;
-   E_Video_Hwc_Windows *evhw;
-
-   evhw = data;
-   offscreen_parent = e_video_hwc_client_offscreen_parent_get(evhw->base.ec);
-   if (!offscreen_parent)
-     goto end;
-
-   ev = event;
-   ec = ev->ec;
-   if (offscreen_parent != ec)
-     goto end;
-
-   switch (ec->visibility.obscured)
-   {
-       case E_VISIBILITY_FULLY_OBSCURED:
-           evas_object_hide(evhw->base.ec->frame);
-           break;
-       case E_VISIBILITY_UNOBSCURED:
-           evas_object_show(evhw->base.ec->frame);
-           break;
-       default:
-           VER("Not implemented", evhw->base.ec);
-           return ECORE_CALLBACK_PASS_ON;
-   }
-
-end:
-   return ECORE_CALLBACK_PASS_ON;
-}
-
-static void
-_e_video_ec_visibility_event_free(void *d EINA_UNUSED, E_Event_Client *ev)
-{
-   e_object_unref(E_OBJECT(ev->ec));
-   free(ev);
-}
-
-static void
-_e_video_ec_visibility_event_send(E_Client *ec)
-{
-   E_Event_Client *ev;
-   int obscured;
-
-   obscured = ec->visibility.obscured;
-   VIN("Signal visibility change event of video, type %d", ec, obscured);
-
-   ev = E_NEW(E_Event_Client, 1);
-   if (!ev) return;
-   ev->ec = ec;
-   e_object_ref(E_OBJECT(ec));
-   ecore_event_add(E_EVENT_CLIENT_VISIBILITY_CHANGE, ev,
-                   (Ecore_End_Cb)_e_video_ec_visibility_event_free, NULL);
-}
-
-static void
-_e_video_hwc_windows_ec_visibility_set(E_Client *ec, E_Visibility vis)
-{
-   if (ec->visibility.obscured == vis)
-     return;
-
-   ec->visibility.obscured = vis;
-   _e_video_ec_visibility_event_send(ec);
-}
-
-static Eina_Bool
-_e_video_cb_topmost_ec_visibility_change(void *data, int type, void *event)
-{
-   E_Video_Hwc_Windows *evhw;
-   E_Event_Client *ev;
-   E_Client *topmost;
-
-   ev = event;
-   evhw = data;
-   if (!e_client_video_topmost_visibility_follow_get(evhw->base.ecv))
-       goto end;
-
-   topmost = e_comp_wl_topmost_parent_get(evhw->base.ec);
-   if (!topmost) goto end;
-   if (topmost != ev->ec) goto end;
-   if (topmost == evhw->base.ec) goto end;
-
-   /* Update visibility of video client by changing visibility of topmost client */
-   _e_video_hwc_windows_ec_visibility_set(evhw->base.ec, topmost->visibility.obscured);
-
-end:
-   return ECORE_CALLBACK_PASS_ON;
-}
-
-static void
-_e_video_hwc_windows_ec_event_deinit(E_Video_Hwc_Windows *evhw)
-{
-   E_FREE_FUNC(evhw->hook_subsurf_create, e_comp_wl_hook_del);
-   E_FREE_LIST(evhw->base.ec_event_handler, ecore_event_handler_del);
-}
-
 const char *
 _e_video_hwc_windows_prop_name_get_by_id(E_Video_Hwc_Windows *evhw, unsigned int id)
 {
@@ -199,49 +99,11 @@ _e_video_hwc_windows_prop_name_get_by_id(E_Video_Hwc_Windows *evhw, unsigned int
 }
 
 static void
-_e_video_hwc_windows_cb_hook_subsurface_create(void *data, E_Client *ec)
-{
-   E_Video_Hwc_Windows *evhw;
-   E_Client *topmost1, *topmost2;
-
-   evhw = data;
-   if (!e_client_video_topmost_visibility_follow_get(evhw->base.ecv))
-     return;
-
-   /* This is to raise an 'VISIBILITY_CHANGE' event to video client when its
-    * topmost ancestor is changed. The reason why it uses hook handler of
-    * creation of subsurface is that there is no event for like parent change,
-    * and being created subsurface that has common topmost parent means
-    * it implies topmost parent has been possibly changed. */
-   topmost1 = e_comp_wl_topmost_parent_get(ec);
-   topmost2 = e_comp_wl_topmost_parent_get(evhw->base.ec);
-   if (topmost1 && topmost2)
-     {
-        if (topmost1 == topmost2)
-          _e_video_hwc_windows_ec_visibility_set(evhw->base.ec, topmost1->visibility.obscured);
-     }
-}
-
-static void
-_e_video_hwc_windows_ec_event_init(E_Video_Hwc_Windows *evhw)
-{
-   evhw->hook_subsurf_create =
-      e_comp_wl_hook_add(E_COMP_WL_HOOK_SUBSURFACE_CREATE,
-                         _e_video_hwc_windows_cb_hook_subsurface_create, evhw);
-
-   E_LIST_HANDLER_APPEND(evhw->base.ec_event_handler, E_EVENT_REMOTE_SURFACE_PROVIDER_VISIBILITY_CHANGE,
-                         _e_video_cb_ec_visibility_change, evhw);
-   E_LIST_HANDLER_APPEND(evhw->base.ec_event_handler, E_EVENT_CLIENT_VISIBILITY_CHANGE,
-                         _e_video_cb_topmost_ec_visibility_change, evhw);
-}
-
-static void
 _e_video_hwc_windows_iface_destroy(E_Video_Hwc *evh)
 {
    E_Video_Hwc_Windows *evhw;
 
    evhw = (E_Video_Hwc_Windows *)evh;
-   _e_video_hwc_windows_ec_event_deinit(evhw);
    _e_video_destroy(evhw);
 }
 
@@ -451,7 +313,6 @@ e_video_hwc_windows_create(E_Output *output, E_Client *ec)
         return NULL;
      }
 
-   _e_video_hwc_windows_ec_event_init(evhw);
    _e_video_hwc_windows_iface_set(&evhw->base.backend);
 
    return (E_Video_Hwc *)evhw;

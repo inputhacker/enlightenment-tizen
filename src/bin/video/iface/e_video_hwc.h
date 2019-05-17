@@ -97,7 +97,6 @@ struct _E_Video_Hwc
 };
 
 /* Functions for HWC */
-EINTERN void         e_video_hwc_show(E_Video_Hwc *evh);
 EINTERN void         e_video_hwc_wait_buffer_commit(E_Video_Hwc *evh);
 EINTERN void         e_video_hwc_client_mask_update(E_Video_Hwc *evh);
 EINTERN Eina_Bool    e_video_hwc_current_fb_update(E_Video_Hwc *evh);

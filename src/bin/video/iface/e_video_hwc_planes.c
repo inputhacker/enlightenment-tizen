@@ -625,81 +625,6 @@ _e_video_hwc_planes_destroy(E_Video_Hwc_Planes *evhp)
    free(evhp);
 }
 
-static Eina_Bool
-_e_video_hwc_planes_cb_client_visibility_change(void *data, int type, void *event)
-{
-   E_Event_Remote_Surface_Provider *ev;
-   E_Client *ec, *offscreen_parent;
-   E_Video_Hwc_Planes *evhp;
-
-   evhp = data;
-   offscreen_parent = e_video_hwc_client_offscreen_parent_get(evhp->base.ec);
-   if (!offscreen_parent)
-     goto end;
-
-   ev = event;
-   ec = ev->ec;
-   if (offscreen_parent != ec)
-     goto end;
-
-   switch (ec->visibility.obscured)
-     {
-      case E_VISIBILITY_FULLY_OBSCURED:
-         _e_video_hwc_planes_cb_evas_hide(evhp, NULL, NULL, NULL);
-         break;
-      case E_VISIBILITY_UNOBSCURED:
-         e_video_hwc_show((E_Video_Hwc *)evhp);
-         break;
-      default:
-         VER("Not implemented", evhp->base.ec);
-         return ECORE_CALLBACK_PASS_ON;
-     }
-
-end:
-   return ECORE_CALLBACK_PASS_ON;
-}
-
-static Eina_Bool
-_e_video_hwc_planes_cb_topmost_client_visibility_change(void *data, int type, void *event)
-{
-   E_Event_Client *ev;
-   E_Client *ec, *topmost;
-   E_Video_Hwc_Planes *evhp;
-
-   evhp = data;
-   topmost = e_comp_wl_topmost_parent_get(evhp->base.ec);
-   if (!topmost)
-     goto end;
-
-   if (topmost == evhp->base.ec)
-     goto end;
-
-   ev = event;
-   ec = ev->ec;
-   if (topmost != ec)
-     goto end;
-
-   if (e_client_video_topmost_visibility_follow_get(evhp->base.ecv))
-     {
-        switch (ec->visibility.obscured)
-          {
-           case E_VISIBILITY_FULLY_OBSCURED:
-              VIN("follow_topmost_visibility: fully_obscured", ec);
-              _e_video_hwc_planes_cb_evas_hide(evhp, NULL, NULL, NULL);
-              break;
-           case E_VISIBILITY_UNOBSCURED:
-              VIN("follow_topmost_visibility: UNOBSCURED", ec);
-              e_video_hwc_show((E_Video_Hwc *)evhp);
-              break;
-           default:
-              return ECORE_CALLBACK_PASS_ON;
-          }
-     }
-
-end:
-   return ECORE_CALLBACK_PASS_ON;
-}
-
 static void
 _e_video_hwc_planes_ec_event_deinit(E_Video_Hwc_Planes *evhp)
 {
@@ -709,8 +634,6 @@ _e_video_hwc_planes_ec_event_deinit(E_Video_Hwc_Planes *evhp)
 
    evas_object_event_callback_del_full(ec->frame, EVAS_CALLBACK_HIDE,
                                        _e_video_hwc_planes_cb_evas_hide, evhp);
-
-   E_FREE_LIST(evhp->base.ec_event_handler, ecore_event_handler_del);
 }
 
 const char *
@@ -817,11 +740,6 @@ _e_video_hwc_planes_ec_event_init(E_Video_Hwc_Planes *evhp, E_Client *ec)
 {
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_HIDE,
                                   _e_video_hwc_planes_cb_evas_hide, evhp);
-
-   E_LIST_HANDLER_APPEND(evhp->base.ec_event_handler, E_EVENT_REMOTE_SURFACE_PROVIDER_VISIBILITY_CHANGE,
-                         _e_video_hwc_planes_cb_client_visibility_change, evhp);
-   E_LIST_HANDLER_APPEND(evhp->base.ec_event_handler, E_EVENT_CLIENT_VISIBILITY_CHANGE,
-                         _e_video_hwc_planes_cb_topmost_client_visibility_change, evhp);
 }
 
 static void
