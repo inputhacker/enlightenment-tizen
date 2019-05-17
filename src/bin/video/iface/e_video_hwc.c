@@ -1448,6 +1448,59 @@ _e_video_hwc_cb_client_buffer_change(void *data, int type, void *event)
 }
 
 static void
+_e_video_hwc_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
+{
+   E_Video_Hwc *evh;
+   E_Client *ec;
+
+   evh = data;
+   ec = evh->ec;
+   if (e_object_is_del(E_OBJECT(ec)))
+     return;
+
+   if (evh->need_force_render)
+     {
+        VIN("video forcely rendering..", evh->ec);
+        _e_video_hwc_render(evh, __FUNCTION__);
+     }
+
+   /* if stand_alone is true, not show */
+   if (ec->comp_data->sub.data && ec->comp_data->sub.data->stand_alone)
+     return;
+
+   /* FIXME It seems unnecessary. */
+   if (evh->hwc_policy == E_HWC_POLICY_PLANES)
+     {
+        if (!e_video_hwc_planes_properties_commit(evh))
+          return;
+     }
+
+   if (evh->current_fb)
+     _e_video_hwc_buffer_show(evh, evh->current_fb, evh->current_fb->content_t);
+
+}
+
+static void
+_e_video_hwc_client_event_init(E_Video_Hwc *evh)
+{
+   evas_object_event_callback_add(evh->ec->frame, EVAS_CALLBACK_SHOW,
+                                  _e_video_hwc_cb_evas_show, evh);
+   E_LIST_HANDLER_APPEND(evh->ec_event_handler, E_EVENT_CLIENT_SHOW,
+                         _e_video_hwc_cb_client_show, evh);
+   E_LIST_HANDLER_APPEND(evh->ec_event_handler, E_EVENT_CLIENT_BUFFER_CHANGE,
+                         _e_video_hwc_cb_client_buffer_change, evh);
+}
+
+static void
+_e_video_hwc_client_event_deinit(E_Video_Hwc *evh)
+{
+   evas_object_event_callback_del_full(evh->ec->frame, EVAS_CALLBACK_SHOW,
+                                       _e_video_hwc_cb_evas_show, evh);
+
+   E_FREE_LIST(evh->ec_event_handler, ecore_event_handler_del);
+}
+
+static void
 _e_video_hwc_iface_destroy(E_Video_Comp_Iface *iface)
 {
    E_Comp_Wl_Video_Buf *vbuf;
@@ -1488,6 +1541,8 @@ _e_video_hwc_iface_destroy(E_Video_Comp_Iface *iface)
 
    if (e_comp_object_mask_has(evh->ec->frame))
      e_comp_object_mask_set(evh->ec->frame, EINA_FALSE);
+
+   _e_video_hwc_client_event_deinit(evh);
 
    E_FREE_FUNC(evh->render.handler, ecore_job_del);
 
@@ -1596,57 +1651,6 @@ _e_video_hwc_create(E_Client *ec)
    return evh;
 }
 
-static void
-_e_video_hwc_show(E_Video_Hwc *evh)
-{
-   E_Client *ec;
-
-   ec = evh->ec;
-   if (e_object_is_del(E_OBJECT(ec)))
-     return;
-
-   if (evh->need_force_render)
-     {
-        VIN("video forcely rendering..", evh->ec);
-        _e_video_hwc_render(evh, __FUNCTION__);
-     }
-
-   /* if stand_alone is true, not show */
-   if ((ec->comp_data->sub.data && ec->comp_data->sub.data->stand_alone) ||
-       (ec->comp_data->sub.data && e_client_video_topmost_visibility_follow_get(evh->ecv)))
-     return;
-
-   /* FIXME It seems unnecessary. */
-   if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-     {
-        if (!e_video_hwc_planes_properties_commit(evh))
-          return;
-     }
-
-   if (evh->current_fb)
-     _e_video_hwc_buffer_show(evh, evh->current_fb, evh->current_fb->content_t);
-}
-
-static void
-_e_video_hwc_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event_info EINA_UNUSED)
-{
-   E_Video_Hwc *evh;
-
-   evh = data;
-   _e_video_hwc_show(evh);
-}
-
-static void
-_e_video_hwc_client_event_init(E_Video_Hwc *evh)
-{
-   evas_object_event_callback_add(evh->ec->frame, EVAS_CALLBACK_SHOW,
-                                  _e_video_hwc_cb_evas_show, evh);
-   E_LIST_HANDLER_APPEND(evh->ec_event_handler, E_EVENT_CLIENT_SHOW,
-                         _e_video_hwc_cb_client_show, evh);
-   E_LIST_HANDLER_APPEND(evh->ec_event_handler, E_EVENT_CLIENT_BUFFER_CHANGE,
-                         _e_video_hwc_cb_client_buffer_change, evh);
-}
-
 EINTERN E_Video_Comp_Iface *
 e_video_hwc_iface_create(E_Client_Video *ecv)
 {
@@ -1659,7 +1663,7 @@ e_video_hwc_iface_create(E_Client_Video *ecv)
 
    evh = _e_video_hwc_create(ec);
    if (!evh)
-       return NULL;
+     return NULL;
 
    _e_video_hwc_client_event_init(evh);
 
@@ -1684,12 +1688,6 @@ EINTERN Eina_Bool
 e_video_hwc_current_fb_update(E_Video_Hwc *evh)
 {
    return _e_video_hwc_current_fb_update(evh);
-}
-
-EINTERN void
-e_video_hwc_show(E_Video_Hwc *evh)
-{
-   _e_video_hwc_show(evh);
 }
 
 EINTERN void

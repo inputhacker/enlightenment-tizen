@@ -61,7 +61,6 @@ EINTERN E_Video_Comp_Iface  *e_video_external_iface_create(E_Client_Video *ecv);
 EINTERN E_Client            *e_client_video_ec_get(E_Client_Video *ecv);
 EINTERN void                 e_client_video_comp_redirect_set(E_Client_Video *ecv);
 EINTERN void                 e_client_video_comp_redirect_unset(E_Client_Video *ecv);
-EINTERN Eina_Bool            e_client_video_topmost_visibility_follow_get(E_Client_Video *ecv);
 EINTERN Eina_Bool            e_client_video_property_allow_get(E_Client_Video *ecv);
 
 #endif
