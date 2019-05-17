@@ -2018,7 +2018,7 @@ _e_vis_event_init(void)
 }
 
 E_API E_Client*
-e_policy_visibility_fg_activity_get(void)
+e_policy_visibility_main_activity_get(void)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(pol_vis, NULL);
    return pol_vis->activity;
