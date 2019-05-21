@@ -19,6 +19,29 @@
 static void _e_video_hwc_render(E_Video_Hwc *evh, const char *func);
 static void _e_video_hwc_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf);
 
+static E_Client *
+_e_video_hwc_client_offscreen_parent_get(E_Client *ec)
+{
+   E_Client *parent = NULL;
+
+   if (!ec->comp_data || !ec->comp_data->sub.data)
+     return NULL;
+
+   parent = ec->comp_data->sub.data->parent;
+   while (parent)
+     {
+        if (!parent->comp_data || !parent->comp_data->sub.data)
+          return NULL;
+
+        if (parent->comp_data->sub.data->remote_surface.offscreen_parent)
+          return parent->comp_data->sub.data->remote_surface.offscreen_parent;
+
+        parent = parent->comp_data->sub.data->parent;
+     }
+
+   return NULL;
+}
+
 static Eina_Bool
 _e_video_hwc_client_visible_get(E_Client *ec)
 {
@@ -35,7 +58,7 @@ _e_video_hwc_client_visible_get(E_Client *ec)
    if (ec->comp_data->sub.data && ec->comp_data->sub.data->stand_alone)
      return EINA_TRUE;
 
-   offscreen_parent = e_video_hwc_client_offscreen_parent_get(ec);
+   offscreen_parent = _e_video_hwc_client_offscreen_parent_get(ec);
    if (offscreen_parent && offscreen_parent->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED)
      {
         VDB("video surface invisible: offscreen fully obscured", ec);
@@ -1312,29 +1335,6 @@ done:
         evh->cb_registered = EINA_TRUE;
      }
    DBG("======================================.");
-}
-
-EINTERN E_Client *
-e_video_hwc_client_offscreen_parent_get(E_Client *ec)
-{
-   E_Client *parent = NULL;
-
-   if (!ec->comp_data || !ec->comp_data->sub.data)
-     return NULL;
-
-   parent = ec->comp_data->sub.data->parent;
-   while (parent)
-     {
-        if (!parent->comp_data || !parent->comp_data->sub.data)
-          return NULL;
-
-        if (parent->comp_data->sub.data->remote_surface.offscreen_parent)
-          return parent->comp_data->sub.data->remote_surface.offscreen_parent;
-
-        parent = parent->comp_data->sub.data->parent;
-     }
-
-   return NULL;
 }
 
 static E_Client *
