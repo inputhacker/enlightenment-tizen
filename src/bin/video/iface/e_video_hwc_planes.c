@@ -464,16 +464,6 @@ _e_video_hwc_planes_buffer_commit(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf 
    E_Client_Video_Info info, old_info;
    tdm_error ret;
 
-   if (!vbuf)
-     {
-        if (evhp->tdm.layer)
-          {
-             VIN("unset layer: hide", evhp->base.ec);
-             _e_video_hwc_planes_tdm_layer_unset(evhp);
-          }
-        return EINA_TRUE;
-     }
-
    if (!evhp->tdm.layer)
      {
         VIN("set layer: show", evhp->base.ec);
@@ -551,7 +541,11 @@ _e_video_hwc_planes_cb_evas_hide(void *data, Evas *e EINA_UNUSED, Evas_Object *o
      return;
 
    VIN("evas hide", evhp->base.ec);
-   _e_video_hwc_planes_buffer_commit(evhp, NULL);
+   if (evhp->tdm.layer)
+     {
+        VIN("unset layer: hide", evhp->base.ec);
+        _e_video_hwc_planes_tdm_layer_unset(evhp);
+     }
 }
 
 static tdm_error
@@ -832,9 +826,21 @@ static Eina_Bool
 _e_video_hwc_planes_iface_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
 {
    E_Video_Hwc_Planes *evhp;
+   Eina_Bool ret = EINA_TRUE;
 
    evhp = (E_Video_Hwc_Planes *)evh;
-   return _e_video_hwc_planes_buffer_commit(evhp, vbuf);
+   if (!vbuf)
+     {
+        if (evhp->tdm.layer)
+          {
+             VIN("unset layer: hide", evhp->base.ec);
+             _e_video_hwc_planes_tdm_layer_unset(evhp);
+          }
+     }
+   else
+     ret = _e_video_hwc_planes_buffer_commit(evhp, vbuf);
+
+   return ret;
 }
 
 static Eina_Bool
