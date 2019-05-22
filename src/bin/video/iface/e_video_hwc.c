@@ -1364,34 +1364,11 @@ done:
    DBG("======================================.");
 }
 
-static E_Client *
-_e_video_hwc_child_client_get(E_Client *ec)
-{
-   E_Client *subc = NULL;
-   Eina_List *l;
-   if (!ec) return NULL;
-   if (e_object_is_del(E_OBJECT(ec))) return NULL;
-   if (!ec->comp_data) return NULL;
-
-   if (e_client_video_comp_redirect_get(ec)) return ec;
-
-   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
-     {
-        E_Client *temp= NULL;
-        if (!subc->comp_data || e_object_is_del(E_OBJECT(subc))) continue;
-        temp = _e_video_hwc_child_client_get(subc);
-        if(temp) return temp;
-     }
-
-   return NULL;
-}
-
 static Eina_Bool
 _e_video_hwc_cb_client_show(void *data, int type, void *event)
 {
    E_Event_Client *ev = event;
    E_Client *ec;
-   E_Client *video_ec = NULL;
    E_Video_Hwc *evh = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(ev, ECORE_CALLBACK_PASS_ON);
@@ -1399,9 +1376,6 @@ _e_video_hwc_cb_client_show(void *data, int type, void *event)
 
    ec = ev->ec;
    if (!ec->comp_data) return ECORE_CALLBACK_PASS_ON;
-
-   video_ec = _e_video_hwc_child_client_get(ec);
-   if (!video_ec) return ECORE_CALLBACK_PASS_ON;
 
    evh = data;
    if (!evh) return ECORE_CALLBACK_PASS_ON;
