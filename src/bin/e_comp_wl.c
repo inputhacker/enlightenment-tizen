@@ -6471,7 +6471,7 @@ e_comp_wl_commit_sync_configure(E_Client *ec)
    Eina_List *l;
    E_Client_Pending_Geometry *geo;
    E_Client_Demand_Geometry change = 0;
-   int bw, bh, cntfit, bfit;
+   int bw, bh;
    struct
      {
         int x, y, w, h;
@@ -6480,41 +6480,18 @@ e_comp_wl_commit_sync_configure(E_Client *ec)
    if (!ec || !ec->frame) goto ret;
    if (e_object_is_del(E_OBJECT(ec))) goto ret;
 
-   bw = bh = cntfit = bfit = 0;
+   bw = bh = 0;
    config.x = ec->x; config.y = ec->y; config.w = ec->w; config.h = ec->h;
-   //if (!e_pixmap_size_get(ec->pixmap, &bw, &bh)) goto err;
-   e_pixmap_size_get(ec->pixmap, &bw, &bh);
+   if (!e_pixmap_size_get(ec->pixmap, &bw, &bh)) goto err;
 
    if (eina_list_count(ec->surface_sync.pending_geometry))
      {
-        /* if buffer size is not match with resize request, than
-           break the loop and wait next wl buffer.
-           as a result, move or resize request would be blocked
-           during the period of client attachements if it is not a proper size buffer.
-           TODO : the code will remove out if client serial commit works ::start*/
         EINA_LIST_FOREACH(ec->surface_sync.pending_geometry, l, geo)
           {
-             ++cntfit;
-             if (geo->mode & E_GEOMETRY_SIZE)
-               {
-                  // last index of the same size buffer
-                  if ((geo->w == bw) || (geo->h == bh))
-                    bfit = cntfit;
-               }
-          }
-        if (!bfit) goto err;
-        cntfit = 0;
-        /*TODO : the code will remove out if client serial commit works ::end*/
-
-
-        EINA_LIST_FOREACH(ec->surface_sync.pending_geometry, l, geo)
-          {
-             ++cntfit;
              if (geo->serial <= ec->surface_sync.serial)
                {
                   if (geo->mode & E_GEOMETRY_SIZE)
                     {
-                       if (cntfit > bfit) break; //the code will remove out if client serial commit works
                        config.w = geo->w; config.h = geo->h;
                     }
                   if (geo->mode & E_GEOMETRY_POS)
