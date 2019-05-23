@@ -12,8 +12,8 @@ e_focus_event_mouse_in(E_Client *ec)
    if ((e_config->focus_policy == E_FOCUS_MOUSE) ||
        (e_config->focus_policy == E_FOCUS_SLOPPY))
      {
-        ELOGF("FOCUS", "focus set | moues in", ec);
-        evas_object_focus_set(ec->frame, 1);
+        ELOGF("FOCUS", "focus set   | mouse in", ec);
+        e_client_frame_focus_set(ec, EINA_TRUE);
      }
    if (e_config->use_auto_raise)
      {
@@ -31,8 +31,8 @@ e_focus_event_mouse_out(E_Client *ec)
           {
              if (ec->focused)
                {
-                  ELOGF("FOCUS", "focus unset | moues out", ec);
-                  evas_object_focus_set(ec->frame, 0);
+                  ELOGF("FOCUS", "focus unset | mouse out", ec);
+                  e_client_frame_focus_set(ec, EINA_FALSE);
                }
           }
      }
@@ -44,8 +44,8 @@ e_focus_event_mouse_down(E_Client *ec)
    if (e_client_focus_policy_click(ec) ||
        e_config->always_click_to_focus)
      {
-        ELOGF("FOCUS", "focus set | moues down", ec);
-        evas_object_focus_set(ec->frame, 1);
+        ELOGF("FOCUS", "focus set   | mouse down", ec);
+        e_client_frame_focus_set(ec, EINA_TRUE);
 
         if (ec->floating)
           evas_object_raise(ec->frame);

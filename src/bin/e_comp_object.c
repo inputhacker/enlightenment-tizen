@@ -2332,6 +2332,8 @@ _e_comp_intercept_focus(void *data, Evas_Object *obj, Eina_Bool focus)
           {
              if (e_client_focused_get() == ec)
                 e_client_focused_set(NULL);
+
+             ELOGF("FOCUS", "FOCUS UNSET | evas_object(%p) (frame:%p)", ec, obj, ec->frame);
              evas_object_focus_set(obj, focus);
           }
         return;
@@ -2345,6 +2347,7 @@ _e_comp_intercept_focus(void *data, Evas_Object *obj, Eina_Bool focus)
      {
         if (ec->focused)
           {
+             ELOGF("FOCUS", "FOCUS SET   | evas_object(%p) (frame:%p)", ec, obj, ec->frame);
              evas_object_focus_set(obj, focus);
              return;
           }
@@ -2377,14 +2380,16 @@ _e_comp_intercept_focus(void *data, Evas_Object *obj, Eina_Bool focus)
         if ((ec->modal) && (ec->modal != ec) &&
             (ec->modal->visible) && (!e_object_is_del(E_OBJECT(ec->modal))))
           {
-             evas_object_focus_set(ec->modal->frame, focus);
+             ELOGF("FOCUS", "focus set   | intercept focus to modal", ec->modal);
+             e_client_frame_focus_set(ec->modal, focus);
              return;
           }
         else if ((ec->leader) && (ec->leader->modal) &&
                  (ec->leader->modal != ec) && ec->leader->modal->visible &&
                  (!e_object_is_del(E_OBJECT(ec->leader->modal))))
           {
-             evas_object_focus_set(ec->leader->modal->frame, focus);
+             ELOGF("FOCUS", "focus set   | intercept focus to leader->modal", ec->leader->modal);
+             e_client_frame_focus_set(ec->leader->modal, focus);
              return;
           }
         if (!cw->visible)
@@ -2402,6 +2407,12 @@ _e_comp_intercept_focus(void *data, Evas_Object *obj, Eina_Bool focus)
         if (e_client_focused_get() == ec)
           e_client_focused_set(NULL);
      }
+
+   if (focus)
+     ELOGF("FOCUS", "FOCUS SET   | evas_object(%p) (frame:%p)", ec, obj, ec->frame);
+   else
+     ELOGF("FOCUS", "FOCUS UNSET | evas_object(%p) (frame:%p)", ec, obj, ec->frame);
+
    evas_object_focus_set(obj, focus);
 }
 
@@ -2910,7 +2921,7 @@ _e_comp_smart_hide(Evas_Object *obj)
    if (cw->ec->focused)
      {
         ELOGF("FOCUS", "focus unset | smart_hide", cw->ec);
-        evas_object_focus_set(cw->ec->frame, 0);
+        e_client_frame_focus_set(cw->ec, EINA_FALSE);
         e_client_focus_defer_unset(cw->ec);
      }
    e_comp_render_queue(); //force nocomp recheck

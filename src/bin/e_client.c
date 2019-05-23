@@ -252,8 +252,8 @@ cleanup:
         
         if (!warp_client->lock_focus_out)
           {
-             ELOGF("FOCUS", "focus set | pointer_warp_to_center", warp_client);
-             evas_object_focus_set(warp_client->frame, 1);
+             ELOGF("FOCUS", "focus set   | pointer_warp_to_center", warp_client);
+             e_client_frame_focus_set(warp_client, EINA_TRUE);
              e_client_focus_latest_set(warp_client);
           }
         warp_client = NULL;
@@ -977,12 +977,12 @@ e_client_revert_focus(E_Client *ec)
           {
              e_client_focus_defer_unset(ec);
              ELOGF("FOCUS", "focus unset | revert_focus", ec);
-             evas_object_focus_set(ec->frame, EINA_FALSE);
+             e_client_frame_focus_set(ec, EINA_FALSE);
           }
         if (!focus_ec->iconic || focus_ec->exp_iconify.buffer_flush)
           {
-             ELOGF("FOCUS", "focus set | revert_focus", focus_ec);
-             evas_object_focus_set(focus_ec->frame, EINA_TRUE);
+             ELOGF("FOCUS", "focus set   | revert_focus", focus_ec);
+             e_client_frame_focus_set(focus_ec, EINA_TRUE);
           }
      }
 }
@@ -1926,8 +1926,8 @@ _e_client_reset_lost_window(E_Client *ec)
    evas_object_raise(ec->frame);
    if (!ec->lock_focus_out)
      {
-        ELOGF("FOCUS", "focus set | reset_lost_window", ec);
-        evas_object_focus_set(ec->frame, 1);
+        ELOGF("FOCUS", "focus set   | reset_lost_window", ec);
+        e_client_frame_focus_set(ec, EINA_TRUE);
      }
 
    e_client_pointer_warp_to_center(ec);
@@ -2770,8 +2770,8 @@ _e_client_eval(E_Client *ec)
                   ec->cur_mouse_action->func.go(E_OBJECT(ec), NULL);
                   if (e_config->border_raise_on_mouse_action)
                     evas_object_raise(ec->frame);
-                  ELOGF("FOCUS", "focus set | client eval", ec);
-                  evas_object_focus_set(ec->frame, 1);
+                  ELOGF("FOCUS", "focus set   | client eval", ec);
+                  e_client_frame_focus_set(ec, EINA_TRUE);
                }
              ec->changes.visible = 0;
              _e_client_event_show(ec);
@@ -3476,7 +3476,7 @@ _e_client_focus_calculate(E_Zone *zone)
           {
              e_client_focus_defer_unset(focused);
              ELOGF("FOCUS", "focus unset | focus calculate", focused);
-             evas_object_focus_set(focused->frame, EINA_FALSE);
+             e_client_frame_focus_set(focused, EINA_FALSE);
           }
      }
 
@@ -3509,10 +3509,10 @@ _e_client_focus_calculate(E_Zone *zone)
      {
         if (defered_focus_ec != focused)
           {
-             ELOGF("FOCUS", "focus set | defer_focus", defered_focus_ec);
+             ELOGF("FOCUS", "focus set   | focus calculate (defer_focus)", defered_focus_ec);
              if (focused)
                e_client_focus_defer_unset(focused);
-             evas_object_focus_set(defered_focus_ec->frame, EINA_TRUE);
+             e_client_frame_focus_set(defered_focus_ec, EINA_TRUE);
           }
 
         e_client_focus_defer_unset(defered_focus_ec);
@@ -3523,10 +3523,10 @@ _e_client_focus_calculate(E_Zone *zone)
      {
         if (reverted_focus_ec != focused)
           {
-             ELOGF("FOCUS", "focus set | revert_focus", reverted_focus_ec);
+             ELOGF("FOCUS", "focus set   | focus calculate (revert_focus)", reverted_focus_ec);
              if (focused)
                e_client_focus_defer_unset(focused);
-             evas_object_focus_set(reverted_focus_ec->frame, EINA_TRUE);
+             e_client_frame_focus_set(reverted_focus_ec, EINA_TRUE);
           }
 
         e_client_focus_defer_unset(reverted_focus_ec);
@@ -5112,8 +5112,8 @@ e_client_refocus(void)
      if (ec->desk && ec->desk->visible && (!ec->iconic))
        {
           if (e_comp->input_key_grabs || e_comp->input_mouse_grabs) break;
-          ELOGF("FOCUS", "focus set | refocus", ec);
-          evas_object_focus_set(ec->frame, 1);
+          ELOGF("FOCUS", "focus set   | refocus", ec);
+          e_client_frame_focus_set(ec, EINA_TRUE);
           break;
        }
 }
@@ -5159,8 +5159,8 @@ e_client_focus_set_with_pointer(E_Client *ec)
    if (ec == focused) return;
 
    TRACE_DS_BEGIN(CLIENT:FOCUS SET WITH POINTER);
-   ELOGF("FOCUS", "focus set | focus with pointer", ec);
-   evas_object_focus_set(ec->frame, 1);
+   ELOGF("FOCUS", "focus set   | focus with pointer", ec);
+   e_client_frame_focus_set(ec, EINA_TRUE);
 
    if (e_config->focus_policy == E_FOCUS_CLICK)
      {
@@ -5333,8 +5333,8 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
                     }
                   else
                     {
-                       ELOGF("FOCUS", "focus set | client activate", ec);
-                       evas_object_focus_set(focus_ec->frame, 1);
+                       ELOGF("FOCUS", "focus set   | client activate", focus_ec);
+                       e_client_frame_focus_set(focus_ec, EINA_TRUE);
                     }
                }
              else
@@ -5852,7 +5852,7 @@ e_client_uniconify(E_Client *ec)
 
 #if 0 // focus should be set to the top window not uniconify window
    if (ec->pixmap && e_pixmap_usable_get(ec->pixmap))
-      evas_object_focus_set(ec->frame, 1);
+      e_client_frame_focus_set(ec, EINA_TRUE);
 #endif
 
    _e_client_event_simple(ec, E_EVENT_CLIENT_UNICONIFY);
@@ -7304,4 +7304,10 @@ e_client_pending_geometry_flush(E_Client *ec)
         ec->surface_sync.wait_commit = EINA_FALSE;
         ELOGF("POSSIZE", "pending geometry has flushed", ec);
      }
+}
+
+E_API void e_client_frame_focus_set(E_Client *ec, Eina_Bool focus)
+{
+   if (!ec) return;
+   evas_object_focus_set(ec->frame, focus);
 }

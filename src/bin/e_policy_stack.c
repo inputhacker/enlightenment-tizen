@@ -170,8 +170,8 @@ _e_policy_stack_fetch_transient(E_Client *ec)
                             new_focus = e_client_transient_child_top_get(ec->parent, EINA_TRUE);
                             if (new_focus)
                               {
-                                 ELOGF("FOCUS", "focus set | tranient_for fetch", new_focus);
-                                 evas_object_focus_set(new_focus->frame, 1);
+                                 ELOGF("FOCUS", "focus set   | tranient_for fetch", new_focus);
+                                 e_client_frame_focus_set(new_focus, EINA_TRUE);
                               }
                          }
                     }
