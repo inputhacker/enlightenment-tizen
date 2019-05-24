@@ -2180,7 +2180,7 @@ _e_comp_intercept_show_helper(E_Comp_Object *cw)
           {
              if (cw->ec->exp_iconify.not_raise &&
                  e_client_check_above_focused(cw->ec))
-               e_client_focus_latest_set(cw->ec);
+               e_client_focus_second_set(cw->ec);
              else
                e_client_focus_defer_set(cw->ec);
           }
