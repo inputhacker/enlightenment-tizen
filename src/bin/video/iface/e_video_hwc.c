@@ -94,17 +94,44 @@ _e_video_hwc_vbuf_find(Eina_List *list, tbm_surface_h buffer)
 /* End of Video Buffer implementation */
 
 /* PP implementation */
+static void
+_e_video_hwc_pp_cb_done(tdm_pp *pp, tbm_surface_h sb, tbm_surface_h db, void *user_data)
+{
+   E_Video_Hwc *evh = (E_Video_Hwc *)user_data;
+   E_Comp_Wl_Video_Buf *input_buffer, *pp_buffer;
+
+   input_buffer = _e_video_hwc_vbuf_find(evh->input_buffer_list, sb);
+   if (input_buffer)
+     e_comp_wl_video_buffer_unref(input_buffer);
+
+   pp_buffer = _e_video_hwc_vbuf_find(evh->pp_buffer_list, db);
+   if (pp_buffer)
+     {
+        e_comp_wl_video_buffer_set_use(pp_buffer, EINA_FALSE);
+        if (!_e_video_hwc_client_visible_get(evh->ec)) return;
+
+        _e_video_hwc_buffer_show(evh, pp_buffer, 0);
+     }
+   else
+     {
+        VER("There is no pp_buffer", evh->ec);
+        // there is no way to set in_use flag.
+        // This will cause issue when server get available pp_buffer.
+     }
+}
+
 static Eina_Bool
 _e_video_hwc_pp_init(E_Video_Hwc *evh)
 {
+   tdm_pp *pp;
    tdm_pp_capability cap;
    tdm_error err;
 
    if (evh->pp)
      return EINA_TRUE;
 
-   evh->pp = tdm_display_create_pp(e_comp->e_comp_screen->tdisplay, NULL);
-   if (!evh->pp)
+   pp = tdm_display_create_pp(e_comp->e_comp_screen->tdisplay, NULL);
+   if (!pp)
      return EINA_FALSE;
 
    tdm_display_get_pp_available_size(e_comp->e_comp_screen->tdisplay,
@@ -118,6 +145,16 @@ _e_video_hwc_pp_init(E_Video_Hwc *evh)
         if (cap & TDM_PP_CAPABILITY_SCANOUT)
           evh->pp_scanout = EINA_TRUE;
      }
+
+   err = tdm_pp_set_done_handler(pp, _e_video_hwc_pp_cb_done, evh);
+   if (err != TDM_ERROR_NONE);
+     {
+        VER("tdm_pp_set_done_handler() failed", evh->ec);
+        tdm_pp_destroy(pp);
+        return EINA_FALSE;
+     }
+
+   evh->pp = pp;
 
    return EINA_TRUE;
 }
@@ -259,32 +296,6 @@ _e_video_hwc_pp_buffer_get(E_Video_Hwc *evh, int width, int height)
    return NULL;
 }
 
-static void
-_e_video_hwc_pp_cb_done(tdm_pp *pp, tbm_surface_h sb, tbm_surface_h db, void *user_data)
-{
-   E_Video_Hwc *evh = (E_Video_Hwc *)user_data;
-   E_Comp_Wl_Video_Buf *input_buffer, *pp_buffer;
-
-   input_buffer = _e_video_hwc_vbuf_find(evh->input_buffer_list, sb);
-   if (input_buffer)
-     e_comp_wl_video_buffer_unref(input_buffer);
-
-   pp_buffer = _e_video_hwc_vbuf_find(evh->pp_buffer_list, db);
-   if (pp_buffer)
-     {
-        e_comp_wl_video_buffer_set_use(pp_buffer, EINA_FALSE);
-        if (!_e_video_hwc_client_visible_get(evh->ec)) return;
-
-        _e_video_hwc_buffer_show(evh, pp_buffer, 0);
-     }
-   else
-     {
-        VER("There is no pp_buffer", evh->ec);
-        // there is no way to set in_use flag.
-        // This will cause issue when server get available pp_buffer.
-     }
-}
-
 static Eina_Bool
 _e_video_hwc_pp_info_set(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *input_buffer, E_Comp_Wl_Video_Buf *pp_buffer)
 {
@@ -311,12 +322,6 @@ _e_video_hwc_pp_info_set(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *input_buffer, E_
    if (tdm_pp_set_info(evh->pp, &info))
      {
         VER("tdm_pp_set_info() failed", evh->ec);
-        return EINA_FALSE;
-     }
-
-   if (tdm_pp_set_done_handler(evh->pp, _e_video_hwc_pp_cb_done, evh))
-     {
-        VER("tdm_pp_set_done_handler() failed", evh->ec);
         return EINA_FALSE;
      }
 
