@@ -1353,14 +1353,6 @@ render_fail:
      e_comp_wl_video_buffer_unref(input_buffer);
 
 done:
-   if (!evh->cb_registered)
-     {
-        evas_object_event_callback_add(evh->ec->frame, EVAS_CALLBACK_RESIZE,
-                                       _e_video_hwc_cb_evas_resize, evh);
-        evas_object_event_callback_add(evh->ec->frame, EVAS_CALLBACK_MOVE,
-                                       _e_video_hwc_cb_evas_move, evh);
-        evh->cb_registered = EINA_TRUE;
-     }
    DBG("======================================.");
 }
 
@@ -1459,6 +1451,11 @@ _e_video_hwc_client_event_init(E_Video_Hwc *evh)
 {
    evas_object_event_callback_add(evh->ec->frame, EVAS_CALLBACK_SHOW,
                                   _e_video_hwc_cb_evas_show, evh);
+   evas_object_event_callback_add(evh->ec->frame, EVAS_CALLBACK_RESIZE,
+                                  _e_video_hwc_cb_evas_resize, evh);
+   evas_object_event_callback_add(evh->ec->frame, EVAS_CALLBACK_MOVE,
+                                  _e_video_hwc_cb_evas_move, evh);
+
    E_LIST_HANDLER_APPEND(evh->ec_event_handler, E_EVENT_CLIENT_SHOW,
                          _e_video_hwc_cb_client_show, evh);
    E_LIST_HANDLER_APPEND(evh->ec_event_handler, E_EVENT_CLIENT_BUFFER_CHANGE,
@@ -1470,6 +1467,10 @@ _e_video_hwc_client_event_deinit(E_Video_Hwc *evh)
 {
    evas_object_event_callback_del_full(evh->ec->frame, EVAS_CALLBACK_SHOW,
                                        _e_video_hwc_cb_evas_show, evh);
+   evas_object_event_callback_del_full(evh->ec->frame, EVAS_CALLBACK_RESIZE,
+                                       _e_video_hwc_cb_evas_resize, evh);
+   evas_object_event_callback_del_full(evh->ec->frame, EVAS_CALLBACK_MOVE,
+                                       _e_video_hwc_cb_evas_move, evh);
 
    E_FREE_LIST(evh->ec_event_handler, ecore_event_handler_del);
 }
@@ -1483,14 +1484,6 @@ _e_video_hwc_iface_destroy(E_Video_Comp_Iface *iface)
    IFACE_ENTRY;
 
    _e_video_hwc_hide(evh);
-
-   if (evh->cb_registered)
-     {
-        evas_object_event_callback_del_full(evh->ec->frame, EVAS_CALLBACK_RESIZE,
-                                            _e_video_hwc_cb_evas_resize, evh);
-        evas_object_event_callback_del_full(evh->ec->frame, EVAS_CALLBACK_MOVE,
-                                            _e_video_hwc_cb_evas_move, evh);
-     }
 
    EINA_LIST_FOREACH_SAFE(evh->input_buffer_list, l, ll, vbuf)
      {

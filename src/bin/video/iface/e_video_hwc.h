@@ -91,7 +91,6 @@ struct _E_Video_Hwc
         Eina_Bool topmost_viewport;
      } render;
 
-   Eina_Bool  cb_registered;
    Eina_Bool  need_force_render;
 };
 
