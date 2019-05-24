@@ -1614,7 +1614,6 @@ _e_video_hwc_create(E_Client *ec)
    evh->hwc_policy = hwc_policy;
    evh->e_output = output;
    evh->ec = ec;
-   evh->window = e_client_util_win_get(ec);
    evh->pp_align = -1;
 
    //TODO: shoud this function be called here?

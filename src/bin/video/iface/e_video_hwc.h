@@ -50,7 +50,6 @@ struct _E_Video_Hwc
 
    E_Client_Video *ecv;
    E_Client *ec;
-   Ecore_Window window;
    E_Output *e_output;
 
    Eina_List *ec_event_handler;
