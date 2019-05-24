@@ -340,15 +340,10 @@ _e_video_hwc_pp_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *input_buffer, E_Co
         return EINA_FALSE;
      }
 
-   e_comp_wl_video_buffer_set_use(pp_buffer, EINA_TRUE);
-
-   e_comp_wl_buffer_reference(&input_buffer->buffer_ref, input_buffer->comp_buffer);
-
    err = tdm_pp_commit(evh->pp);
    if (err != TDM_ERROR_NONE)
      {
         VER("tdm_pp_commit() failed", evh->ec);
-        e_comp_wl_video_buffer_set_use(pp_buffer, EINA_FALSE);
         return EINA_FALSE;
      }
 
@@ -382,6 +377,9 @@ _e_video_hwc_pp_render(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer)
    res = _e_video_hwc_pp_commit(evh, input_buffer, pp_buffer);
    if (!res)
      goto render_fail;
+
+   e_comp_wl_video_buffer_set_use(pp_buffer, EINA_TRUE);
+   e_comp_wl_buffer_reference(&input_buffer->buffer_ref, input_buffer->comp_buffer);
 
    return EINA_TRUE;
 
