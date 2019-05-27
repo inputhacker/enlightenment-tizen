@@ -1708,12 +1708,20 @@ _e_vis_ec_below_uniconify(E_Client *ec, E_Pol_Vis_Type above_vis_type)
    Eina_Bool ret = EINA_FALSE;
    E_Vis_Client *below;
    Eina_Bool send_vis;
+   int x, y, w, h;
 
    if (!ec) return EINA_FALSE;
 
    if (ec->zone)
      {
         if (ec->zone->display_state == E_ZONE_DISPLAY_STATE_OFF)
+          return EINA_FALSE;
+
+        /* if the ec is not fullfilling the screen, no needs to wait below clients' uniconify */
+        if (ec->zone != e_zone_current_get())
+          return EINA_FALSE;
+        e_client_geometry_get(ec, &x, &y, &w, &h);
+        if (!E_CONTAINS(x, y, w, h, ec->zone->x, ec->zone->y, ec->zone->w, ec->zone->h))
           return EINA_FALSE;
      }
 
