@@ -629,6 +629,8 @@ _e_video_hwc_current_fb_update(E_Video_Hwc *evh)
 static void
 _e_video_hwc_buffer_enqueue(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
 {
+   /* Remove enqueued video buffer first. */
+   evh->bqueue = eina_list_remove(evh->bqueue, vbuf);
    evh->bqueue = eina_list_append(evh->bqueue, vbuf);
    VDB("There are waiting fbs more than 1", evh->ec);
 }
