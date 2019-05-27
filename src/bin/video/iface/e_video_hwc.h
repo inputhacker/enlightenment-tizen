@@ -66,7 +66,6 @@ struct _E_Video_Hwc
    /* converter info */
    tbm_format pp_tbmfmt;
    tdm_pp *pp;
-   Eina_Rectangle pp_r;    /* converter dst content rect */
    Eina_List *pp_buffer_list;
    Eina_List *next_buffer;
    Eina_Bool pp_scanout;

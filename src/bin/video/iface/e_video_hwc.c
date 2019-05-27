@@ -284,7 +284,11 @@ _e_video_hwc_pp_buffer_get(E_Video_Hwc *evh, int width, int height)
         evh->next_buffer = (evh->next_buffer->next) ? evh->next_buffer->next : evh->pp_buffer_list;
 
         if (!vbuf->in_use)
-          return vbuf;
+          {
+             vbuf->content_r.w = width;
+             vbuf->content_r.h = height;
+             return vbuf;
+          }
 
         if (l == evh->next_buffer)
           {
@@ -325,13 +329,7 @@ _e_video_hwc_pp_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *input_buffer, E_Co
              VER("tdm_pp_set_info() failed", evh->ec);
              return EINA_FALSE;
           }
-
-        CLEAR(evh->pp_r);
-        evh->pp_r.w = info.dst_config.pos.w;
-        evh->pp_r.h = info.dst_config.pos.h;
      }
-
-   pp_buffer->content_r = evh->pp_r;
 
    err = tdm_pp_attach(evh->pp, input_buffer->tbm_surface, pp_buffer->tbm_surface);
    if (err != TDM_ERROR_NONE)
