@@ -2000,7 +2000,7 @@ _e_eom_window_set_internal(struct wl_resource *resource, int output_id, E_Client
    Eina_Bool ret = EINA_FALSE;
    E_Plane *ep = NULL;
 
-   if (!resource || output_id <= 0 || !ec || !ec->comp_data || e_object_is_del(E_OBJECT(ec)))
+   if (!resource || output_id <= 0 || !ec || e_object_is_del(E_OBJECT(ec)))
      return;
 
    eom_client = _e_eom_client_get_by_resource(resource);
