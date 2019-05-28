@@ -459,7 +459,7 @@ _e_video_hwc_pp_buffer_get(E_Video_Hwc *evh, int width, int height)
 }
 
 static Eina_Bool
-_e_video_hwc_pp_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *input_buffer, E_Comp_Wl_Video_Buf *pp_buffer)
+_e_video_hwc_pp_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *input_buffer, E_Comp_Wl_Video_Buf *pp_buffer, unsigned int transform)
 {
    tdm_info_pp info;
    tdm_error err;
@@ -469,17 +469,17 @@ _e_video_hwc_pp_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *input_buffer, E_Co
         CLEAR(info);
         info.src_config.size.h = input_buffer->width_from_pitch;
         info.src_config.size.v = input_buffer->height_from_size;
-        info.src_config.pos.x = evh->geo.input_r.x;
-        info.src_config.pos.y = evh->geo.input_r.y;
-        info.src_config.pos.w = evh->geo.input_r.w;
-        info.src_config.pos.h = evh->geo.input_r.h;
-        info.src_config.format = evh->tbmfmt;
+        info.src_config.pos.x = input_buffer->content_r.x;
+        info.src_config.pos.y = input_buffer->content_r.y;
+        info.src_config.pos.w = input_buffer->content_r.w;
+        info.src_config.pos.h = input_buffer->content_r.h;
+        info.src_config.format = input_buffer->tbmfmt;
         info.dst_config.size.h = pp_buffer->width_from_pitch;
         info.dst_config.size.v = pp_buffer->height_from_size;
-        info.dst_config.pos.w = evh->geo.tdm.output_r.w;
-        info.dst_config.pos.h = evh->geo.tdm.output_r.h;
-        info.dst_config.format = evh->pp_tbmfmt;
-        info.transform = evh->geo.tdm.transform;
+        info.dst_config.pos.w = pp_buffer->content_r.w;
+        info.dst_config.pos.h = pp_buffer->content_r.h;
+        info.dst_config.format = pp_buffer->tbmfmt;
+        info.transform = transform;
 
         err = tdm_pp_set_info(evh->pp, &info);
         if (err != TDM_ERROR_NONE)
@@ -531,7 +531,7 @@ _e_video_hwc_pp_render(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer)
    if (!pp_buffer)
      goto render_fail;
 
-   res = _e_video_hwc_pp_commit(evh, input_buffer, pp_buffer);
+   res = _e_video_hwc_pp_commit(evh, input_buffer, pp_buffer, evh->geo.tdm.transform);
    if (!res)
      goto render_fail;
 
