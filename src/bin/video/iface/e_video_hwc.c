@@ -14,8 +14,6 @@
    E_Video_Hwc *evh;                                    \
    evh = container_of(iface, E_Video_Hwc, iface)
 
-#define IS_RGB(f) ((f) == TBM_FORMAT_XRGB8888 || (f) == TBM_FORMAT_ARGB8888)
-
 static void _e_video_hwc_render(E_Video_Hwc *evh, const char *func);
 static void _e_video_hwc_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform);
 static void _e_video_hwc_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf);
@@ -122,7 +120,6 @@ _e_video_hwc_buffer_copy(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, int aligne
 
    e_comp_wl_video_buffer_copy(vbuf, temp);
 
-   evh->geo.input_w = vbuf->width_from_pitch;
 #ifdef DUMP_BUFFER
    char file[256];
    static int i;
@@ -948,23 +945,6 @@ _e_video_hwc_client_tbm_surface_get(E_Client *ec)
 }
 
 static void
-_e_video_hwc_buffer_size_get(tbm_surface_h tbm_surf, int *w, int *h)
-{
-   tbm_format tbmfmt;
-   uint32_t size = 0, offset = 0, pitch = 0;
-
-   tbmfmt = tbm_surface_get_format(tbm_surf);
-   tbm_surface_internal_get_plane_data(tbm_surf, 0, &size, &offset, &pitch);
-
-   if (IS_RGB(tbmfmt))
-     *w = pitch / 4;
-   else
-     *w = pitch;
-
-   *h = tbm_surface_get_height(tbm_surf);
-}
-
-static void
 buffer_transform(int width, int height, uint32_t transform, int32_t scale,
                  int sx, int sy, int *dx, int *dy)
 {
@@ -1118,8 +1098,6 @@ _e_video_hwc_geometry_viewport_apply(E_Client *ec, E_Video_Hwc_Geometry *out)
         return EINA_FALSE;
      }
 
-   _e_video_hwc_buffer_size_get(tbm_surf, &out->input_w, &out->input_h);
-
    vp = &ec->comp_data->scaler.buffer_viewport;
    _e_video_hwc_geometry_input_rect_get_with_viewport(tbm_surf, vp, &out->input_r);
 
@@ -1128,10 +1106,8 @@ _e_video_hwc_geometry_viewport_apply(E_Client *ec, E_Video_Hwc_Geometry *out)
 
    _e_video_hwc_geometry_tdm_config_update(ec, out);
 
-   VDB("geometry(%dx%d  %d,%d %dx%d  %d,%d %dx%d  %d)",
-       ec, out->input_w, out->input_h,
-       EINA_RECTANGLE_ARGS(&out->input_r),
-       EINA_RECTANGLE_ARGS(&out->output_r),
+   VDB("geometry(%d,%d %dx%d  %d,%d %dx%d  %d)", ec,
+       EINA_RECTANGLE_ARGS(&out->input_r),EINA_RECTANGLE_ARGS(&out->output_r),
        out->transform);
 
    return EINA_TRUE;

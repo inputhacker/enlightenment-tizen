@@ -30,7 +30,6 @@ struct _E_Video_Hwc_Iface
 
 struct _E_Video_Hwc_Geometry
 {
-   int input_w, input_h;      /* input buffer's size */
    Eina_Rectangle input_r;    /* input buffer's content rect */
    Eina_Rectangle output_r;   /* video plane rect */
    uint transform;            /* rotate, flip */

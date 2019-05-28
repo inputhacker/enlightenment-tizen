@@ -31,9 +31,8 @@
 #undef NEVER_GET_HERE
 #define NEVER_GET_HERE()     CRI("** need to improve more **")
 
-#define GEO_FMT   "%dx%d(%dx%d+%d+%d) -> (%dx%d+%d+%d) transform(%d)"
+#define GEO_FMT   "(%dx%d+%d+%d) -> (%dx%d+%d+%d) transform(%d)"
 #define GEO_ARG(g) \
-   (g)->input_w, (g)->input_h, \
    (g)->input_r.w, (g)->input_r.h, (g)->input_r.x, (g)->input_r.y, \
    (g)->output_r.w, (g)->output_r.h, (g)->output_r.x, (g)->output_r.y, \
    (g)->transform
