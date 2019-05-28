@@ -774,7 +774,7 @@ _e_hwc_window_queue_cb_buffer_change(void *data, E_Client *ec)
    if (comp_buffer->resource)
      {
         flags = _comp_wl_buffer_flags_get(comp_buffer);
-        if (!(flags & E_HWC_WINDOW_QUEUE_BUFFER_FLAGS))
+        if (flags !=  E_HWC_WINDOW_QUEUE_BUFFER_FLAGS)
           return;
      }
    else
