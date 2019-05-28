@@ -5,6 +5,9 @@ typedef struct _E_Pol_Vis_Hook E_Pol_Vis_Hook;
 typedef enum _E_Pol_Vis_Hook_Type
 {
    E_POL_VIS_HOOK_TYPE_FG_SET,
+   E_POL_VIS_HOOK_TYPE_UNICONIFY_RENDER_RUNNING,
+   E_POL_VIS_HOOK_TYPE_LOWER,
+   E_POL_VIS_HOOK_TYPE_HIDE,
    E_POL_VIS_HOOK_TYPE_LAST,
 } E_Pol_Vis_Hook_Type;
 

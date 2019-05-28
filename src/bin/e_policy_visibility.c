@@ -69,6 +69,9 @@ static Eina_Clist        pol_job_group_head = EINA_CLIST_INIT(pol_job_group_head
 static Eina_Inlist *_e_pol_vis_hooks[] =
 {
    [E_POL_VIS_HOOK_TYPE_FG_SET] = NULL,
+   [E_POL_VIS_HOOK_TYPE_UNICONIFY_RENDER_RUNNING] = NULL,
+   [E_POL_VIS_HOOK_TYPE_LOWER] = NULL,
+   [E_POL_VIS_HOOK_TYPE_HIDE] = NULL,
 };
 
 static int _e_pol_vis_hooks_delete = 0;
@@ -1451,6 +1454,7 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
    _e_vis_client_buffer_attach_handler_add(vc);
 
    e_policy_wl_iconify_state_change_send(ec, 0);
+   _e_pol_vis_hook_call(E_POL_VIS_HOOK_TYPE_UNICONIFY_RENDER_RUNNING, ec);
 
 end:
    _e_vis_client_job_add(vc, type);
@@ -1968,6 +1972,7 @@ static Eina_Bool
 _e_vis_intercept_hide(void *data EINA_UNUSED, E_Client *ec)
 {
    E_Pol_Vis_Type above_vis_type;
+   Eina_Bool pending = EINA_TRUE;
 
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_TRUE);
 
@@ -1982,23 +1987,32 @@ _e_vis_intercept_hide(void *data EINA_UNUSED, E_Client *ec)
    if (_e_vis_client_is_below_uniconify_skip(vc))
      {
         VS_DBG(ec, "Skip to uniconify below client");
-        return EINA_TRUE;
+        pending = EINA_FALSE;
      }
 
    above_vis_type = _e_vis_ec_above_visible_type(ec, EINA_FALSE);
-   if (above_vis_type == E_POL_VIS_TYPE_NON_ALPHA)
+   if ((pending) && (above_vis_type == E_POL_VIS_TYPE_NON_ALPHA))
      {
         VS_DBG(ec, "Obscured by above window.");
-        return EINA_TRUE;
+        pending = EINA_FALSE;
      }
 
-   if (!_e_vis_ec_below_uniconify(ec, above_vis_type))
+   if ((pending) && (!_e_vis_ec_below_uniconify(ec, above_vis_type)))
      {
         VS_DBG(ec, "Failed to uniconify below client");
-        return EINA_TRUE;
+        pending = EINA_FALSE;
      }
 
-   /* add lower job, it will be executed after below activity client finishs updating */
+   _e_pol_vis_hook_call(E_POL_VIS_HOOK_TYPE_HIDE, ec);
+
+   //TODO: filtering grab
+   if (!pending)
+     {
+        if ((vc->grab) || (!_e_vis_client_is_grabbed(vc)))
+          return EINA_TRUE;
+     }
+
+   /* add hide job, it will be executed after below activity client finishs updating */
    _e_vis_client_job_add(vc, E_VIS_JOB_TYPE_HIDE);
 
    return EINA_FALSE;
@@ -2120,6 +2134,7 @@ E_API Eina_Bool
 e_policy_visibility_client_lower(E_Client *ec)
 {
    E_Pol_Vis_Type above_vis_type;
+   Eina_Bool ret = EINA_TRUE;
 
    E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, EINA_FALSE);
 
@@ -2132,13 +2147,22 @@ e_policy_visibility_client_lower(E_Client *ec)
    if (above_vis_type == E_POL_VIS_TYPE_NON_ALPHA)
      {
         VS_DBG(ec, "Obscured by above window.");
-        return EINA_FALSE;
+        ret = EINA_FALSE;
      }
 
-   if (!_e_vis_ec_below_uniconify(ec, above_vis_type))
+   if ((ret) && (!_e_vis_ec_below_uniconify(ec, above_vis_type)))
      {
         VS_DBG(ec, "Failed to uniconify below client");
-        return EINA_FALSE;
+        ret = EINA_FALSE;
+     }
+
+   _e_pol_vis_hook_call(E_POL_VIS_HOOK_TYPE_LOWER, ec);
+
+   //TODO: filtering grab
+   if (!ret)
+     {
+        if ((vc->grab) || (!_e_vis_client_is_grabbed(vc)))
+          return EINA_FALSE;
      }
 
    /* add lower job, it will be executed after below activity client finishs updating */
