@@ -144,7 +144,7 @@ _e_video_hwc_video_buffer_scanout_check(E_Comp_Wl_Video_Buf *vbuf)
    EINA_SAFETY_ON_NULL_RETURN_VAL(bo, EINA_FALSE);
 
    flag = tbm_bo_get_flags(bo);
-   if (flag == TBM_BO_SCANOUT)
+   if (flag & TBM_BO_SCANOUT)
      return EINA_TRUE;
 
    return EINA_FALSE;
