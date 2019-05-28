@@ -81,6 +81,7 @@ struct _E_Output
 
    E_Comp_Screen        *e_comp_screen;
    E_OUTPUT_DPMS        dpms;
+   Eina_Bool            dpms_async;
 
    struct {
        int min_w, min_h;

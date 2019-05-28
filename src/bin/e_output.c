@@ -2293,6 +2293,9 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
      if (!_e_output_planes_init(output))
        goto fail;
 
+   if (output_caps & TDM_OUTPUT_CAPABILITY_ASYNC_DPMS)
+     output->dpms_async = EINA_TRUE;
+
    return output;
 
 fail:
@@ -2833,7 +2836,6 @@ e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val)
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
-
    output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    if (output_primary == output)
      {
@@ -2869,7 +2871,10 @@ e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val)
    else if (val == E_OUTPUT_DPMS_SUSPEND) tval = TDM_OUTPUT_DPMS_SUSPEND;
    else tval = TDM_OUTPUT_DPMS_OFF;
 
-   error = tdm_output_set_dpms(output->toutput, tval);
+   if (output->dpms_async)
+     error = tdm_output_set_dpms_async(output->toutput, tval);
+   else
+     error = tdm_output_set_dpms(output->toutput, tval);
    if (error != TDM_ERROR_NONE)
      {
         ERR("fail to set the dpms(value:%d).", tval);
