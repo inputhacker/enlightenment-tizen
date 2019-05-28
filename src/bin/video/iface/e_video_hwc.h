@@ -72,7 +72,7 @@ struct _E_Video_Hwc
 
    int pp_align;
    int pp_minw, pp_minh, pp_maxw, pp_maxh;
-   int video_align;
+   int output_align;
 
    /* When a video buffer be attached, it will be appended to the end of waiting_list .
     * And when it's committed, it will be moved to committed_list.

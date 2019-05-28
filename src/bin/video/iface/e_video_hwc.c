@@ -19,7 +19,6 @@
 static void _e_video_hwc_render(E_Video_Hwc *evh, const char *func);
 static void _e_video_hwc_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned int transform);
 static void _e_video_hwc_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf);
-static E_Comp_Wl_Video_Buf *_e_video_hwc_input_buffer_get(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer, Eina_Bool scanout);
 
 static E_Client *
 _e_video_hwc_client_offscreen_parent_get(E_Client *ec)
@@ -90,6 +89,168 @@ _e_video_hwc_vbuf_find(Eina_List *list, tbm_surface_h buffer)
      }
 
    return NULL;
+}
+
+static E_Comp_Wl_Video_Buf *
+_e_video_hwc_vbuf_find_with_comp_buffer(Eina_List *list, E_Comp_Wl_Buffer *comp_buffer)
+{
+   E_Comp_Wl_Video_Buf *vbuf;
+   Eina_List *l = NULL;
+
+   EINA_LIST_FOREACH(list, l, vbuf)
+     {
+        if (vbuf->comp_buffer == comp_buffer)
+          return vbuf;
+     }
+
+   return NULL;
+}
+
+static E_Comp_Wl_Video_Buf *
+_e_video_hwc_buffer_copy(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, int aligned_width, Eina_Bool scanout)
+{
+   E_Comp_Wl_Video_Buf *temp = NULL;
+
+   temp = e_comp_wl_video_buffer_alloc(aligned_width, vbuf->height, vbuf->tbmfmt, scanout);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(temp, NULL);
+
+   temp->comp_buffer = vbuf->comp_buffer;
+
+   VDB("copy vbuf(%d,%dx%d) => vbuf(%d,%dx%d)", evh->ec,
+       MSTAMP(vbuf), vbuf->width_from_pitch, vbuf->height,
+       MSTAMP(temp), temp->width_from_pitch, temp->height);
+
+   e_comp_wl_video_buffer_copy(vbuf, temp);
+
+   evh->geo.input_w = vbuf->width_from_pitch;
+#ifdef DUMP_BUFFER
+   char file[256];
+   static int i;
+   snprintf(file, sizeof file, "/tmp/dump/%s_%d.png", "cpy", i++);
+   tdm_helper_dump_buffer(temp->tbm_surface, file);
+#endif
+
+   return temp;
+}
+
+static Eina_Bool
+_e_video_hwc_video_buffer_scanout_check(E_Comp_Wl_Video_Buf *vbuf)
+{
+   tbm_surface_h tbm_surface = NULL;
+   tbm_bo bo = NULL;
+   int flag;
+
+   tbm_surface = vbuf->tbm_surface;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tbm_surface, EINA_FALSE);
+
+   bo = tbm_surface_internal_get_bo(tbm_surface, 0);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(bo, EINA_FALSE);
+
+   flag = tbm_bo_get_flags(bo);
+   if (flag == TBM_BO_SCANOUT)
+     return EINA_TRUE;
+
+   return EINA_FALSE;
+}
+
+static void
+_e_video_hwc_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
+{
+   E_Video_Hwc *evh = data;
+   Eina_Bool need_hide = EINA_FALSE;
+
+   DBG("Buffer(%p) to be free, refcnt(%d)", vbuf, vbuf->ref_cnt);
+
+   evh->input_buffer_list = eina_list_remove(evh->input_buffer_list, vbuf);
+
+   if (vbuf->comp_buffer)
+     e_comp_wl_buffer_reference(&vbuf->buffer_ref, NULL);
+
+   if (evh->current_fb == vbuf)
+     {
+        VIN("current fb destroyed", evh->ec);
+        e_comp_wl_video_buffer_set_use(evh->current_fb, EINA_FALSE);
+        evh->current_fb = NULL;
+        need_hide = EINA_TRUE;
+     }
+
+   if (eina_list_data_find(evh->committed_list, vbuf))
+     {
+        VIN("committed fb destroyed", evh->ec);
+        evh->committed_list = eina_list_remove(evh->committed_list, vbuf);
+        e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
+        need_hide = EINA_TRUE;
+     }
+
+   if (eina_list_data_find(evh->bqueue, vbuf))
+     {
+        VIN("waiting fb destroyed", evh->ec);
+        evh->bqueue = eina_list_remove(evh->bqueue, vbuf);
+     }
+
+   if (need_hide)
+     evh->backend.buffer_commit(evh, NULL);
+}
+
+static E_Comp_Wl_Video_Buf *
+_e_video_hwc_input_buffer_create(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer, int preferred_align, Eina_Bool scanout)
+{
+   E_Comp_Wl_Video_Buf *vbuf, *temp;
+   int aligned_width;
+   Eina_Bool input_buffer_scanout;
+
+   vbuf = e_comp_wl_video_buffer_create_comp(comp_buffer);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
+
+   input_buffer_scanout = _e_video_hwc_video_buffer_scanout_check(vbuf);
+   if (((preferred_align != -1) && (vbuf->width_from_pitch % preferred_align != 0)) ||
+       ((scanout) && (!input_buffer_scanout)))
+     {
+        if ((preferred_align != -1) && (vbuf->width_from_pitch % preferred_align != 0))
+          aligned_width = ROUNDUP(vbuf->width_from_pitch, preferred_align);
+        else
+          aligned_width = vbuf->width;
+
+        temp = _e_video_hwc_buffer_copy(evh, vbuf, aligned_width,
+                                        (input_buffer_scanout || scanout));
+        e_comp_wl_video_buffer_unref(vbuf);
+
+        if (!temp)
+          return NULL;
+
+        vbuf = temp;
+     }
+
+   DBG("Client(%s):PID(%d) RscID(%d), Buffer(%p) created, refcnt:%d"
+       " scanout=%d", e_client_util_name_get(evh->ec) ?: "No Name" ,
+       evh->ec->netwm.pid, wl_resource_get_id(evh->ec->comp_data->surface), vbuf,
+       vbuf->ref_cnt, scanout);
+
+   return vbuf;
+}
+
+static E_Comp_Wl_Video_Buf *
+_e_video_hwc_input_buffer_get(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer, int preferred_align, Eina_Bool scanout)
+{
+   E_Comp_Wl_Video_Buf *vbuf;
+
+   vbuf = _e_video_hwc_vbuf_find_with_comp_buffer(evh->input_buffer_list, comp_buffer);
+   if (vbuf)
+     goto end;
+
+   vbuf = _e_video_hwc_input_buffer_create(evh, comp_buffer, preferred_align, scanout);
+   if (!vbuf)
+     {
+        VER("failed '_e_video_hwc_input_buffer_create()'", evh->ec);
+        return NULL;
+     }
+
+   evh->input_buffer_list = eina_list_append(evh->input_buffer_list, vbuf);
+   e_comp_wl_video_buffer_free_func_add(vbuf, _e_video_hwc_input_buffer_cb_free, evh);
+
+end:
+   vbuf->content_r = evh->geo.input_r;
+   return vbuf;
 }
 /* End of Video Buffer implementation */
 
@@ -224,8 +385,8 @@ _e_video_hwc_pp_buffer_get(E_Video_Hwc *evh, int width, int height)
    int i = 0;
    int aligned_width;
 
-   if (evh->video_align != -1)
-     aligned_width = ROUNDUP(width, evh->video_align);
+   if (evh->output_align != -1)
+     aligned_width = ROUNDUP(width, evh->output_align);
    else
      aligned_width = width;
 
@@ -362,7 +523,8 @@ _e_video_hwc_pp_render(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer)
    if (!res)
      return res;
 
-   input_buffer = _e_video_hwc_input_buffer_get(evh, comp_buffer, EINA_FALSE);
+   input_buffer = _e_video_hwc_input_buffer_get(evh, comp_buffer,
+                                                evh->pp_align, evh->pp_scanout);
    if (!input_buffer)
      return EINA_FALSE;
 
@@ -515,165 +677,6 @@ _e_video_hwc_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned i
      }
 
    _e_video_hwc_buffer_commit(evh, vbuf);
-}
-
-static void
-_e_video_hwc_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
-{
-   E_Video_Hwc *evh = data;
-   Eina_Bool need_hide = EINA_FALSE;
-
-   DBG("Buffer(%p) to be free, refcnt(%d)", vbuf, vbuf->ref_cnt);
-
-   evh->input_buffer_list = eina_list_remove(evh->input_buffer_list, vbuf);
-
-   if (vbuf->comp_buffer)
-     e_comp_wl_buffer_reference(&vbuf->buffer_ref, NULL);
-
-   if (evh->current_fb == vbuf)
-     {
-        VIN("current fb destroyed", evh->ec);
-        e_comp_wl_video_buffer_set_use(evh->current_fb, EINA_FALSE);
-        evh->current_fb = NULL;
-        need_hide = EINA_TRUE;
-     }
-
-   if (eina_list_data_find(evh->committed_list, vbuf))
-     {
-        VIN("committed fb destroyed", evh->ec);
-        evh->committed_list = eina_list_remove(evh->committed_list, vbuf);
-        e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
-        need_hide = EINA_TRUE;
-     }
-
-   if (eina_list_data_find(evh->bqueue, vbuf))
-     {
-        VIN("waiting fb destroyed", evh->ec);
-        evh->bqueue = eina_list_remove(evh->bqueue, vbuf);
-     }
-
-   if (need_hide)
-     evh->backend.buffer_commit(evh, NULL);
-}
-
-static E_Comp_Wl_Video_Buf *
-_e_video_hwc_input_buffer_copy(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buf, E_Comp_Wl_Video_Buf *vbuf, Eina_Bool scanout)
-{
-   E_Comp_Wl_Video_Buf *temp = NULL;
-   int aligned_width = ROUNDUP(vbuf->width_from_pitch, evh->pp_align);
-
-   temp = e_comp_wl_video_buffer_alloc(aligned_width, vbuf->height, vbuf->tbmfmt, scanout);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(temp, NULL);
-
-   temp->comp_buffer = comp_buf;
-
-   VDB("copy vbuf(%d,%dx%d) => vbuf(%d,%dx%d)", evh->ec,
-       MSTAMP(vbuf), vbuf->width_from_pitch, vbuf->height,
-       MSTAMP(temp), temp->width_from_pitch, temp->height);
-
-   e_comp_wl_video_buffer_copy(vbuf, temp);
-   e_comp_wl_video_buffer_unref(vbuf);
-
-   evh->geo.input_w = vbuf->width_from_pitch;
-#ifdef DUMP_BUFFER
-   char file[256];
-   static int i;
-   snprintf(file, sizeof file, "/tmp/dump/%s_%d.png", "cpy", i++);
-   tdm_helper_dump_buffer(temp->tbm_surface, file);
-#endif
-
-   return temp;
-}
-
-static E_Comp_Wl_Video_Buf *
-_e_video_hwc_vbuf_find_with_comp_buffer(Eina_List *list, E_Comp_Wl_Buffer *comp_buffer)
-{
-   E_Comp_Wl_Video_Buf *vbuf;
-   Eina_List *l = NULL;
-
-   EINA_LIST_FOREACH(list, l, vbuf)
-     {
-        if (vbuf->comp_buffer == comp_buffer)
-          return vbuf;
-     }
-
-   return NULL;
-}
-
-static Eina_Bool
-_e_video_hwc_video_buffer_scanout_check(E_Comp_Wl_Video_Buf *vbuf)
-{
-   tbm_surface_h tbm_surface = NULL;
-   tbm_bo bo = NULL;
-   int flag;
-
-   tbm_surface = vbuf->tbm_surface;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(tbm_surface, EINA_FALSE);
-
-   bo = tbm_surface_internal_get_bo(tbm_surface, 0);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(bo, EINA_FALSE);
-
-   flag = tbm_bo_get_flags(bo);
-   if (flag == TBM_BO_SCANOUT)
-     return EINA_TRUE;
-
-   return EINA_FALSE;
-}
-
-static E_Comp_Wl_Video_Buf *
-_e_video_hwc_input_buffer_get(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer, Eina_Bool scanout)
-{
-   E_Comp_Wl_Video_Buf *vbuf;
-   Eina_Bool need_pp_scanout = EINA_FALSE;
-
-   vbuf = _e_video_hwc_vbuf_find_with_comp_buffer(evh->input_buffer_list, comp_buffer);
-   if (vbuf)
-     {
-        vbuf->content_r = evh->geo.input_r;
-        return vbuf;
-     }
-
-   vbuf = e_comp_wl_video_buffer_create_comp(comp_buffer);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
-
-   if (evh->pp_scanout)
-     {
-        Eina_Bool input_buffer_scanout = EINA_FALSE;
-        input_buffer_scanout = _e_video_hwc_video_buffer_scanout_check(vbuf);
-        if (!input_buffer_scanout) need_pp_scanout = EINA_TRUE;
-     }
-
-   if (evh->pp)
-     {
-        if ((evh->pp_align != -1 && (vbuf->width_from_pitch % evh->pp_align)) ||
-            need_pp_scanout)
-          {
-             E_Comp_Wl_Video_Buf *temp;
-
-             if (need_pp_scanout)
-               temp = _e_video_hwc_input_buffer_copy(evh, comp_buffer, vbuf, EINA_TRUE);
-             else
-               temp = _e_video_hwc_input_buffer_copy(evh, comp_buffer, vbuf, scanout);
-             if (!temp)
-               {
-                  e_comp_wl_video_buffer_unref(vbuf);
-                  return NULL;
-               }
-             vbuf = temp;
-          }
-     }
-
-   vbuf->content_r = evh->geo.input_r;
-
-   evh->input_buffer_list = eina_list_append(evh->input_buffer_list, vbuf);
-   e_comp_wl_video_buffer_free_func_add(vbuf, _e_video_hwc_input_buffer_cb_free, evh);
-
-   DBG("Client(%s):PID(%d) RscID(%d), Buffer(%p) created, refcnt:%d"
-       " scanout=%d", e_client_util_name_get(evh->ec) ?: "No Name" ,
-       evh->ec->netwm.pid, wl_resource_get_id(evh->ec->comp_data->surface), vbuf,
-       vbuf->ref_cnt, scanout);
-
-   return vbuf;
 }
 
 static void
@@ -1388,7 +1391,8 @@ _e_video_hwc_render(E_Video_Hwc *evh, const char *func)
    if (!evh->backend.check_if_pp_needed(evh))
      {
         /* 1. non converting case */
-        input_buffer = _e_video_hwc_input_buffer_get(evh, comp_buffer, EINA_TRUE);
+        input_buffer = _e_video_hwc_input_buffer_get(evh, comp_buffer,
+                                                     evh->output_align, EINA_TRUE);
         if (!input_buffer)
           return;
 
@@ -1664,6 +1668,12 @@ _e_video_hwc_create(E_Client *ec)
    E_Output *output;
 
    output = e_output_find(ec->zone->output_id);
+   if (!output)
+     {
+        VER("Failed to find 'E_Output': id %d", ec, ec->zone->output_id);
+        return NULL;
+     }
+
    hwc_policy = e_zone_video_hwc_policy_get(ec->zone);
    if (hwc_policy == E_HWC_POLICY_PLANES)
      evh = e_video_hwc_planes_create(output, ec);
@@ -1687,8 +1697,8 @@ _e_video_hwc_create(E_Client *ec)
    evh->pp_align = -1;
 
    //TODO: shoud this function be called here?
-   e_zone_video_available_size_get(ec->zone, NULL, NULL,
-                                   NULL, NULL, &evh->video_align);
+   tdm_output_get_available_size(output->toutput, NULL, NULL, NULL, NULL,
+                                 &evh->output_align);
 
    return evh;
 }
