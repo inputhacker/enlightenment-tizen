@@ -2892,6 +2892,14 @@ e_output_dpms_get(E_Output *output)
    return output->dpms;
 }
 
+EINTERN Eina_Bool
+e_output_dpms_async_check(E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   return output->dpms_async;
+}
+
 EINTERN void
 e_output_size_get(E_Output *output, int *w, int *h)
 {
