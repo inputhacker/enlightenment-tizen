@@ -105,7 +105,7 @@ _e_video_hwc_vbuf_find_with_comp_buffer(Eina_List *list, E_Comp_Wl_Buffer *comp_
 }
 
 static E_Comp_Wl_Video_Buf *
-_e_video_hwc_buffer_copy(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, int aligned_width, Eina_Bool scanout)
+_e_video_hwc_buffer_copy(E_Comp_Wl_Video_Buf *vbuf, int aligned_width, Eina_Bool scanout)
 {
    E_Comp_Wl_Video_Buf *temp = NULL;
 
@@ -114,7 +114,7 @@ _e_video_hwc_buffer_copy(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, int aligne
 
    temp->comp_buffer = vbuf->comp_buffer;
 
-   VDB("copy vbuf(%d,%dx%d) => vbuf(%d,%dx%d)", evh->ec,
+   VDB("copy vbuf(%d,%dx%d) => vbuf(%d,%dx%d)", NULL,
        MSTAMP(vbuf), vbuf->width_from_pitch, vbuf->height,
        MSTAMP(temp), temp->width_from_pitch, temp->height);
 
@@ -190,7 +190,7 @@ _e_video_hwc_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
 }
 
 static E_Comp_Wl_Video_Buf *
-_e_video_hwc_input_buffer_create(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer, int preferred_align, Eina_Bool scanout)
+_e_video_hwc_input_buffer_create(E_Comp_Wl_Buffer *comp_buffer, int preferred_align, Eina_Bool scanout)
 {
    E_Comp_Wl_Video_Buf *vbuf, *temp;
    int aligned_width;
@@ -208,7 +208,7 @@ _e_video_hwc_input_buffer_create(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer
         else
           aligned_width = vbuf->width;
 
-        temp = _e_video_hwc_buffer_copy(evh, vbuf, aligned_width,
+        temp = _e_video_hwc_buffer_copy(vbuf, aligned_width,
                                         (input_buffer_scanout || scanout));
         e_comp_wl_video_buffer_unref(vbuf);
 
@@ -218,10 +218,7 @@ _e_video_hwc_input_buffer_create(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer
         vbuf = temp;
      }
 
-   DBG("Client(%s):PID(%d) RscID(%d), Buffer(%p) created, refcnt:%d"
-       " scanout=%d", e_client_util_name_get(evh->ec) ?: "No Name" ,
-       evh->ec->netwm.pid, wl_resource_get_id(evh->ec->comp_data->surface), vbuf,
-       vbuf->ref_cnt, scanout);
+   DBG("Buffer(%p) created, refcnt:%d scanout:%d", vbuf, vbuf->ref_cnt, scanout);
 
    return vbuf;
 }
@@ -235,7 +232,7 @@ _e_video_hwc_input_buffer_get(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer, i
    if (vbuf)
      goto end;
 
-   vbuf = _e_video_hwc_input_buffer_create(evh, comp_buffer, preferred_align, scanout);
+   vbuf = _e_video_hwc_input_buffer_create(comp_buffer, preferred_align, scanout);
    if (!vbuf)
      {
         VER("failed '_e_video_hwc_input_buffer_create()'", evh->ec);
@@ -245,6 +242,9 @@ _e_video_hwc_input_buffer_get(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer, i
    evh->input_buffer_list = eina_list_append(evh->input_buffer_list, vbuf);
    e_comp_wl_video_buffer_free_func_add(vbuf, _e_video_hwc_input_buffer_cb_free, evh);
 
+   DBG("Client(%s):PID(%d) RscID(%d), Buffer(%p) created",
+       e_client_util_name_get(evh->ec) ?: "No Name" , evh->ec->netwm.pid,
+       wl_resource_get_id(evh->ec->comp_data->surface), vbuf);
 end:
    vbuf->content_r = evh->geo.input_r;
    return vbuf;
