@@ -31,6 +31,7 @@ Ecore_Event_Handler *dbus_init_done_handler = NULL;
 static Eldbus_Service_Interface *iface;
 
 static Eina_List *dpms_list;
+static struct wl_global *dpms_global;
 
 typedef struct _E_Dpms
 {
@@ -306,8 +307,10 @@ e_dpms_init(void)
      }
 
    /* try to add dpms_manager to wayland globals */
-   if (!wl_global_create(e_comp_wl->wl.disp, &tizen_dpms_manager_interface, 1,
-                         NULL, _e_dpms_cb_bind))
+   dpms_global = wl_global_create(e_comp_wl->wl.disp,
+                                  &tizen_dpms_manager_interface, 1, NULL,
+                                  _e_dpms_cb_bind);
+   if (!dpms_global)
      ERR("Could not add tizen_dpms_manager to wayland globals");
 
    return 1;
@@ -318,6 +321,12 @@ e_dpms_shutdown(void)
 {
    E_Dpms *dpms = NULL;
    Eina_List *l;
+
+   if (dpms_global)
+     {
+        wl_global_destroy(dpms_global);
+        dpms_global = NULL;
+     }
 
    if (dbus_init_done_handler)
      {
