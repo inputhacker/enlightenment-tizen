@@ -49,6 +49,7 @@ typedef enum {
    E_POLICY_ANIMATABLE_NEVER       = (1 << 0), // never animatable such as quickpanel, video
    E_POLICY_ANIMATABLE_HINT        = (1 << 1), // no animation by aux hint "wm.policy.win.effect.disable"
    E_POLICY_ANIMATABLE_LAYER       = (1 << 2), // no animation if window layer is among notification levels
+   E_POLICY_ANIMATABLE_CUSTOMIZED  = (1 << 3), // no animation by app customized animation
 } E_Policy_Animatable_Lock;
 
 typedef Eina_Bool (*E_Policy_Intercept_Cb)(void *data, E_Client *ec, va_list list);
