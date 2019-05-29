@@ -269,6 +269,16 @@ _e_tizen_dpms_manager_cb_set_dpms(struct wl_client *client, struct wl_resource *
         return;
      }
 
+   if (!e_output_connected(dpms->e_output))
+     {
+        dpms->mode = mode;
+        INF("tizen_dpms_manager set dpms fake(res:%p, output:%p, dpms:%d)", resource, dpms->e_output, mode);
+
+        if (dpms->dpms_change_hook)
+          tizen_dpms_manager_send_state(resource, dpms->mode, E_DPMS_MANAGER_ERROR_NONE);
+
+        return;
+     }
 
    ret = e_output_dpms_set(dpms->e_output, mode);
    if (ret)
@@ -295,7 +305,8 @@ _e_tizen_dpms_manager_cb_get_dpms(struct wl_client *client, struct wl_resource *
         return;
      }
 
-   dpms->mode = e_output_dpms_get(dpms->e_output);
+   if (e_output_connected(dpms->e_output))
+     dpms->mode = e_output_dpms_get(dpms->e_output);
 
    INF("tizen_dpms_manager get dpms(res:%p, output:%p, dpms:%d)", resource, dpms->e_output, dpms->mode);
    tizen_dpms_manager_send_state(resource, dpms->mode, E_DPMS_MANAGER_ERROR_NONE);
