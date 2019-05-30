@@ -278,81 +278,91 @@ _e_video_hwc_pp_cb_done(tdm_pp *pp, tbm_surface_h sb, tbm_surface_h db, void *us
      }
 }
 
-static Eina_Bool
-_e_video_hwc_pp_init(E_Video_Hwc *evh)
+static void
+_e_video_hwc_pp_destroy(E_Video_Hwc_PP *pp)
 {
-   tdm_pp *pp;
-   tdm_pp_capability cap;
+   tdm_pp_destroy(pp->tdm_handle);
+   free(pp);
+}
+
+static E_Video_Hwc_PP *
+_e_video_hwc_pp_create(tdm_display *display, void *user_data)
+{
+   E_Video_Hwc_PP *pp;
+   tdm_pp_capability caps;
    tdm_error err;
 
-   if (evh->pp)
-     return EINA_TRUE;
-
-   pp = tdm_display_create_pp(e_comp->e_comp_screen->tdisplay, NULL);
+   pp = E_NEW(E_Video_Hwc_PP, 1);
    if (!pp)
-     return EINA_FALSE;
+     return NULL;
 
-   tdm_display_get_pp_available_size(e_comp->e_comp_screen->tdisplay,
-                                     &evh->pp_minw, &evh->pp_minh,
-                                     &evh->pp_maxw, &evh->pp_maxh,
-                                     &evh->pp_align);
+   pp->tdm_handle = tdm_display_create_pp(display, NULL);
+   if (!pp->tdm_handle)
+     {
+        VER("Failed 'tdm_display_create_pp()'", NULL);
+        free(pp);
+        return NULL;
+     }
 
-   err = tdm_display_get_pp_capabilities(e_comp->e_comp_screen->tdisplay, &cap);
+   tdm_display_get_pp_available_size(display,
+                                     &pp->minw, &pp->minh,
+                                     &pp->maxw, &pp->maxh,
+                                     &pp->align);
+
+   err = tdm_display_get_pp_capabilities(display, &caps);
    if (err == TDM_ERROR_NONE)
      {
-        if (cap & TDM_PP_CAPABILITY_SCANOUT)
-          evh->pp_scanout = EINA_TRUE;
+        if (caps & TDM_PP_CAPABILITY_SCANOUT)
+          pp->scanout = EINA_TRUE;
      }
 
-   err = tdm_pp_set_done_handler(pp, _e_video_hwc_pp_cb_done, evh);
+   err = tdm_pp_set_done_handler(pp->tdm_handle, _e_video_hwc_pp_cb_done, user_data);
    if (err != TDM_ERROR_NONE)
      {
-        VER("tdm_pp_set_done_handler() failed", evh->ec);
-        tdm_pp_destroy(pp);
-        return EINA_FALSE;
+        VER("tdm_pp_set_done_handler() failed", NULL);
+        tdm_pp_destroy(pp->tdm_handle);
+        free(pp);
+        return NULL;
      }
 
-   evh->pp = pp;
-
-   return EINA_TRUE;
+   return pp;
 }
 
 static Eina_Bool
-_e_video_hwc_pp_size_limit_check(E_Video_Hwc *evh)
+_e_video_hwc_pp_size_limit_check(E_Video_Hwc_PP *pp, const Eina_Rectangle *input_rect, const Eina_Rectangle *output_rect)
 {
-   if (evh->pp_minw > 0)
+   if (pp->minw > 0)
      {
-        if ((evh->geo.input_r.w < evh->pp_minw) ||
-            (evh->geo.tdm.output_r.w < evh->pp_minw))
+        if ((input_rect->w < pp->minw) ||
+            (output_rect->w < pp->minw))
           goto err;
      }
 
-   if (evh->pp_minh > 0)
+   if (pp->minh > 0)
      {
-        if ((evh->geo.input_r.h < evh->pp_minh) ||
-            (evh->geo.tdm.output_r.h < evh->pp_minh))
+        if ((input_rect->h < pp->minh) ||
+            (output_rect->h < pp->minh))
           goto err;
      }
 
-   if (evh->pp_maxw > 0)
+   if (pp->maxw > 0)
      {
-        if ((evh->geo.input_r.w > evh->pp_maxw) ||
-            (evh->geo.tdm.output_r.w > evh->pp_maxw))
+        if ((input_rect->w > pp->maxw) ||
+            (output_rect->w > pp->maxw))
           goto err;
      }
 
-   if (evh->pp_maxh > 0)
+   if (pp->maxh > 0)
      {
-        if ((evh->geo.input_r.h > evh->pp_maxh) ||
-            (evh->geo.tdm.output_r.h > evh->pp_maxh))
+        if ((input_rect->h > pp->maxh) ||
+            (output_rect->h > pp->maxh))
           goto err;
      }
 
    return EINA_TRUE;
 err:
    INF("size(%dx%d, %dx%d) is out of PP range",
-       evh->geo.input_r.w, evh->geo.input_r.h,
-       evh->geo.tdm.output_r.w, evh->geo.tdm.output_r.h);
+       input_rect->w, input_rect->h, output_rect->w, output_rect->h);
 
    return EINA_FALSE;
 }
@@ -459,47 +469,48 @@ _e_video_hwc_pp_buffer_get(E_Video_Hwc *evh, int width, int height)
 }
 
 static Eina_Bool
-_e_video_hwc_pp_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *input_buffer, E_Comp_Wl_Video_Buf *pp_buffer, unsigned int transform)
+_e_video_hwc_pp_commit(E_Video_Hwc_PP *pp, E_Comp_Wl_Video_Buf *input_buffer, E_Comp_Wl_Video_Buf *pp_buffer, unsigned int transform)
 {
    tdm_info_pp info;
    tdm_error err;
 
-   if (memcmp(&evh->old_geo, &evh->geo, sizeof evh->geo) != 0)
-     {
-        CLEAR(info);
-        info.src_config.size.h = input_buffer->width_from_pitch;
-        info.src_config.size.v = input_buffer->height_from_size;
-        info.src_config.pos.x = input_buffer->content_r.x;
-        info.src_config.pos.y = input_buffer->content_r.y;
-        info.src_config.pos.w = input_buffer->content_r.w;
-        info.src_config.pos.h = input_buffer->content_r.h;
-        info.src_config.format = input_buffer->tbmfmt;
-        info.dst_config.size.h = pp_buffer->width_from_pitch;
-        info.dst_config.size.v = pp_buffer->height_from_size;
-        info.dst_config.pos.w = pp_buffer->content_r.w;
-        info.dst_config.pos.h = pp_buffer->content_r.h;
-        info.dst_config.format = pp_buffer->tbmfmt;
-        info.transform = transform;
+   CLEAR(info);
+   info.src_config.size.h = input_buffer->width_from_pitch;
+   info.src_config.size.v = input_buffer->height_from_size;
+   info.src_config.pos.x = input_buffer->content_r.x;
+   info.src_config.pos.y = input_buffer->content_r.y;
+   info.src_config.pos.w = input_buffer->content_r.w;
+   info.src_config.pos.h = input_buffer->content_r.h;
+   info.src_config.format = input_buffer->tbmfmt;
+   info.dst_config.size.h = pp_buffer->width_from_pitch;
+   info.dst_config.size.v = pp_buffer->height_from_size;
+   info.dst_config.pos.w = pp_buffer->content_r.w;
+   info.dst_config.pos.h = pp_buffer->content_r.h;
+   info.dst_config.format = pp_buffer->tbmfmt;
+   info.transform = transform;
 
-        err = tdm_pp_set_info(evh->pp, &info);
+   if (memcmp(&pp->info, &info, sizeof info) != 0)
+     {
+        memcpy(&pp->info, &info, sizeof info);
+        err = tdm_pp_set_info(pp->tdm_handle, &info);
         if (err != TDM_ERROR_NONE)
           {
-             VER("tdm_pp_set_info() failed", evh->ec);
+             VER("tdm_pp_set_info() failed", NULL);
              return EINA_FALSE;
           }
      }
 
-   err = tdm_pp_attach(evh->pp, input_buffer->tbm_surface, pp_buffer->tbm_surface);
+   err = tdm_pp_attach(pp->tdm_handle, input_buffer->tbm_surface, pp_buffer->tbm_surface);
    if (err != TDM_ERROR_NONE)
      {
-        VER("tdm_pp_attach() failed", evh->ec);
+        VER("tdm_pp_attach() failed", NULL);
         return EINA_FALSE;
      }
 
-   err = tdm_pp_commit(evh->pp);
+   err = tdm_pp_commit(pp->tdm_handle);
    if (err != TDM_ERROR_NONE)
      {
-        VER("tdm_pp_commit() failed", evh->ec);
+        VER("tdm_pp_commit() failed", NULL);
         return EINA_FALSE;
      }
 
@@ -512,16 +523,20 @@ _e_video_hwc_pp_render(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer)
    E_Comp_Wl_Video_Buf *input_buffer, *pp_buffer;
    Eina_Bool res;
 
-   res = _e_video_hwc_pp_init(evh);
-   if (!res)
-     return res;
+   if (!evh->pp)
+     {
+        evh->pp = _e_video_hwc_pp_create(e_comp->e_comp_screen->tdisplay, evh);
+        if (!evh->pp)
+          return EINA_FALSE;
+     }
 
-   res = _e_video_hwc_pp_size_limit_check(evh);
+   res = _e_video_hwc_pp_size_limit_check(evh->pp,
+                                          &evh->geo.input_r, &evh->geo.tdm.output_r);
    if (!res)
      return res;
 
    input_buffer = _e_video_hwc_input_buffer_get(evh, comp_buffer,
-                                                evh->pp_align, evh->pp_scanout);
+                                                evh->pp->align, evh->pp->scanout);
    if (!input_buffer)
      return EINA_FALSE;
 
@@ -531,7 +546,7 @@ _e_video_hwc_pp_render(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer)
    if (!pp_buffer)
      goto render_fail;
 
-   res = _e_video_hwc_pp_commit(evh, input_buffer, pp_buffer, evh->geo.tdm.transform);
+   res = _e_video_hwc_pp_commit(evh->pp, input_buffer, pp_buffer, evh->geo.tdm.transform);
    if (!res)
      goto render_fail;
 
@@ -1559,8 +1574,7 @@ _e_video_hwc_iface_destroy(E_Video_Comp_Iface *iface)
      NEVER_GET_HERE();
 
    /* destroy converter second */
-   if (evh->pp)
-     tdm_pp_destroy(evh->pp);
+   E_FREE_FUNC(evh->pp, _e_video_hwc_pp_destroy);
 
    if (e_comp_object_mask_has(evh->ec->frame))
      e_comp_object_mask_set(evh->ec->frame, EINA_FALSE);
@@ -1670,7 +1684,6 @@ _e_video_hwc_create(E_Client *ec)
    evh->hwc_policy = hwc_policy;
    evh->e_output = output;
    evh->ec = ec;
-   evh->pp_align = -1;
 
    //TODO: shoud this function be called here?
    tdm_output_get_available_size(output->toutput, NULL, NULL, NULL, NULL,

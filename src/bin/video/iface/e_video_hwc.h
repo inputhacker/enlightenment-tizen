@@ -15,6 +15,7 @@
 typedef struct _E_Video_Hwc E_Video_Hwc;
 typedef struct _E_Video_Hwc_Iface E_Video_Hwc_Iface;
 typedef struct _E_Video_Hwc_Geometry E_Video_Hwc_Geometry;
+typedef struct _E_Video_Hwc_PP E_Video_Hwc_PP;
 
 struct _E_Video_Hwc_Iface
 {
@@ -26,6 +27,17 @@ struct _E_Video_Hwc_Iface
    Eina_Bool      (*check_if_pp_needed)(E_Video_Hwc *evh);
    Eina_Bool      (*commit_available_check)(E_Video_Hwc *evh);
    tbm_surface_h  (*displaying_buffer_get)(E_Video_Hwc *evh);
+};
+
+struct _E_Video_Hwc_PP
+{
+   tdm_pp *tdm_handle;
+   tdm_info_pp info;
+
+   int minw, minh, maxw, maxh;
+   int align;
+
+   Eina_Bool scanout;
 };
 
 struct _E_Video_Hwc_Geometry
@@ -63,14 +75,12 @@ struct _E_Video_Hwc
    E_Comp_Wl_Buffer *old_comp_buffer;
 
    /* converter info */
+   E_Video_Hwc_PP *pp;
+
    tbm_format pp_tbmfmt;
-   tdm_pp *pp;
    Eina_List *pp_buffer_list;
    Eina_List *next_buffer;
-   Eina_Bool pp_scanout;
 
-   int pp_align;
-   int pp_minw, pp_minh, pp_maxw, pp_maxh;
    int output_align;
 
    /* When a video buffer be attached, it will be appended to the end of waiting_list .
