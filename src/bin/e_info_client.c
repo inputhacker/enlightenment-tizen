@@ -984,7 +984,6 @@ _cb_vec_info_get(const Eldbus_Message *msg)
 {
    const char *name = NULL, *text = NULL;
    Eldbus_Message_Iter *array;
-   char *engine;
    Eina_Bool res;
 
    res = eldbus_message_error_get(msg, &name, &text);
