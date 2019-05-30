@@ -88,7 +88,7 @@ struct _E_Video_Hwc
     * Finally when the commit handler is called, it will become current_fb.
     */
    Eina_List    *bqueue;   /* A queue for buffer which will have to be committed next time. */
-   Eina_List    *committed_list; /* buffers which are committed, but not shown on screen yet */
+   E_Comp_Wl_Video_Buf *committed_vbuf;  /* A committed video buffer to backend */
    E_Comp_Wl_Video_Buf *current_fb;     /* buffer which is showing on screen currently */
 
    struct

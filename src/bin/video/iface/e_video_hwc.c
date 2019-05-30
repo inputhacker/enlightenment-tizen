@@ -171,11 +171,11 @@ _e_video_hwc_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
         need_hide = EINA_TRUE;
      }
 
-   if (eina_list_data_find(evh->committed_list, vbuf))
+   if (evh->committed_vbuf == vbuf)
      {
         VIN("committed fb destroyed", evh->ec);
-        evh->committed_list = eina_list_remove(evh->committed_list, vbuf);
-        e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
+        e_comp_wl_video_buffer_set_use(evh->committed_vbuf, EINA_FALSE);
+        evh->committed_vbuf = NULL;
         need_hide = EINA_TRUE;
      }
 
@@ -377,7 +377,8 @@ _e_video_hwc_pp_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
    if (evh->current_fb == vbuf)
      evh->current_fb = NULL;
 
-   evh->committed_list = eina_list_remove(evh->committed_list, vbuf);
+   if (evh->committed_vbuf == vbuf)
+     evh->committed_vbuf = NULL;
 
    evh->bqueue = eina_list_remove(evh->bqueue, vbuf);
 
@@ -573,33 +574,25 @@ _e_video_hwc_can_commit(E_Video_Hwc *evh)
 static Eina_Bool
 _e_video_hwc_current_fb_update(E_Video_Hwc *evh)
 {
-   Eina_List *l;
-   E_Comp_Wl_Video_Buf *vbuf;
    tbm_surface_h displaying_buffer;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(evh, EINA_FALSE);
 
-   if (!evh->committed_list)
+   if (!evh->committed_vbuf)
      return EINA_FALSE;
 
    if (_e_video_hwc_can_commit(evh))
      {
         displaying_buffer = evh->backend.displaying_buffer_get(evh);
 
-        EINA_LIST_FOREACH(evh->committed_list, l, vbuf)
-          {
-             if (vbuf->tbm_surface == displaying_buffer) break;
-          }
-        if (!vbuf)
+        if (evh->committed_vbuf->tbm_surface != displaying_buffer)
           return EINA_FALSE;
      }
-   else
-     vbuf = eina_list_nth(evh->committed_list, 0);
-
-   evh->committed_list = eina_list_remove(evh->committed_list, vbuf);
 
    /* client can attachs the same wl_buffer twice. */
-   if (evh->current_fb && VBUF_IS_VALID(evh->current_fb) && vbuf != evh->current_fb)
+   if ((evh->current_fb) &&
+       (VBUF_IS_VALID(evh->current_fb)) &&
+       (evh->committed_vbuf != evh->current_fb))
      {
         e_comp_wl_video_buffer_set_use(evh->current_fb, EINA_FALSE);
 
@@ -607,7 +600,8 @@ _e_video_hwc_current_fb_update(E_Video_Hwc *evh)
           e_comp_wl_buffer_reference(&evh->current_fb->buffer_ref, NULL);
      }
 
-   evh->current_fb = vbuf;
+   evh->current_fb = evh->committed_vbuf;
+   evh->committed_vbuf = NULL;
 
    VDB("current_fb(%d)", evh->ec, MSTAMP(evh->current_fb));
 
@@ -657,7 +651,7 @@ _e_video_hwc_buffer_commit(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf)
     * tdm driver. */
    e_pixmap_image_clear(evh->ec->pixmap, EINA_TRUE);
 
-   evh->committed_list = eina_list_append(evh->committed_list, vbuf);
+   evh->committed_vbuf = vbuf;
 
    if (!_e_video_hwc_can_commit(evh))
      goto no_commit;
@@ -696,7 +690,7 @@ _e_video_hwc_hide(E_Video_Hwc *evh)
 {
    E_Comp_Wl_Video_Buf *vbuf;
 
-   if (evh->current_fb || evh->committed_list)
+   if (evh->current_fb || evh->committed_vbuf)
      evh->backend.buffer_commit(evh, NULL);
 
    if (evh->current_fb)
@@ -708,8 +702,11 @@ _e_video_hwc_hide(E_Video_Hwc *evh)
    if (evh->old_comp_buffer)
      evh->old_comp_buffer = NULL;
 
-   EINA_LIST_FREE(evh->committed_list, vbuf)
-      e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
+   if (evh->committed_vbuf)
+     {
+        e_comp_wl_video_buffer_set_use(evh->committed_vbuf, EINA_FALSE);
+        evh->committed_vbuf = NULL;
+     }
 
    EINA_LIST_FREE(evh->bqueue, vbuf)
       e_comp_wl_video_buffer_set_use(vbuf, EINA_FALSE);
