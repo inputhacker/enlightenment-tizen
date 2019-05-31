@@ -673,6 +673,7 @@ _e_video_hwc_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned i
 
    e_comp_wl_video_buffer_set_use(vbuf, EINA_TRUE);
 
+   /* 'comp_buffer' of vbuf can be null in case of pp buffer */
    if (vbuf->comp_buffer)
      e_comp_wl_buffer_reference(&vbuf->buffer_ref, vbuf->comp_buffer);
 
