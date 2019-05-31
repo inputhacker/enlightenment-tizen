@@ -634,12 +634,14 @@ _e_video_hwc_wait_buffer_commit(E_Video_Hwc *evh)
 {
    E_Comp_Wl_Video_Buf *vbuf;
 
+   /* committed_vbuf has to be null */
+   EINA_SAFETY_ON_FALSE_RETURN(evh->committed_vbuf == NULL);
+
    vbuf = _e_video_hwc_buffer_dequeue(evh);
    if (!vbuf)
      return;
 
-   if (!evh->committed_vbuf)
-     _e_video_hwc_buffer_commit(evh, vbuf);
+   _e_video_hwc_buffer_commit(evh, vbuf);
 }
 
 static void
