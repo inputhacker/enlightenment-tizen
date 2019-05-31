@@ -1500,16 +1500,8 @@ _e_video_hwc_cb_evas_show(void *data, Evas *e EINA_UNUSED, Evas_Object *obj EINA
    if (ec->comp_data->sub.data && ec->comp_data->sub.data->stand_alone)
      return;
 
-   /* FIXME It seems unnecessary. */
-   if (evh->hwc_policy == E_HWC_POLICY_PLANES)
-     {
-        if (!e_video_hwc_planes_properties_commit(evh))
-          return;
-     }
-
    if (evh->current_fb)
      _e_video_hwc_buffer_show(evh, evh->current_fb, evh->current_fb->content_t);
-
 }
 
 static void
