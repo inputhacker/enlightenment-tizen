@@ -458,6 +458,7 @@ struct _E_Comp_Wl_Client_Data
    Eina_Bool maximize_pre : 1;
    Eina_Bool focus_update : 1;
    Eina_Bool opaque_state : 1;
+   Eina_Bool video_client : 1; // Deprecated
    Eina_Bool has_video_client : 1;
    Eina_Bool never_hwc : 1;          //  force window not to do hwc
    unsigned char accepts_focus : 1;
