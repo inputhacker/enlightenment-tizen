@@ -638,10 +638,8 @@ _e_video_hwc_wait_buffer_commit(E_Video_Hwc *evh)
    if (!vbuf)
      return;
 
-   if (!evh->backend.commit_available_check(evh))
-     return;
-
-   _e_video_hwc_buffer_commit(evh, vbuf);
+   if (!evh->committed_vbuf)
+     _e_video_hwc_buffer_commit(evh, vbuf);
 }
 
 static void
@@ -676,13 +674,10 @@ _e_video_hwc_buffer_show(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf, unsigned i
    if (vbuf->comp_buffer)
      e_comp_wl_buffer_reference(&vbuf->buffer_ref, vbuf->comp_buffer);
 
-   if (!evh->backend.commit_available_check(evh))
-     {
-        _e_video_hwc_buffer_enqueue(evh, vbuf);
-        return;
-     }
-
-   _e_video_hwc_buffer_commit(evh, vbuf);
+   if (evh->committed_vbuf)
+     _e_video_hwc_buffer_enqueue(evh, vbuf);
+   else
+     _e_video_hwc_buffer_commit(evh, vbuf);
 }
 
 static void

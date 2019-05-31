@@ -903,15 +903,6 @@ need_pp:
    return EINA_TRUE;
 }
 
-static Eina_Bool
-_e_video_hwc_planes_iface_commit_available_check(E_Video_Hwc *evh)
-{
-   E_Video_Hwc_Planes *evhp;
-
-   evhp = (E_Video_Hwc_Planes *)evh;
-   return !(evhp->waiting_vblank || evhp->video_plane_ready_handler);
-}
-
 static tbm_surface_h
 _e_video_hwc_planes_iface_displaying_buffer_get(E_Video_Hwc *evh)
 {
@@ -930,7 +921,6 @@ _e_video_hwc_planes_iface_set(E_Video_Hwc_Iface *iface)
    iface->available_properties_get = _e_video_hwc_planes_iface_available_properties_get;
    iface->buffer_commit = _e_video_hwc_planes_iface_buffer_commit;
    iface->check_if_pp_needed = _e_video_hwc_planes_iface_check_if_pp_needed;
-   iface->commit_available_check = _e_video_hwc_planes_iface_commit_available_check;
    iface->displaying_buffer_get = _e_video_hwc_planes_iface_displaying_buffer_get;
 }
 

@@ -25,7 +25,6 @@ struct _E_Video_Hwc_Iface
    Eina_Bool      (*available_properties_get)(E_Video_Hwc *evh, const tdm_prop **props, int *count);
    Eina_Bool      (*buffer_commit)(E_Video_Hwc *evh, E_Comp_Wl_Video_Buf *vbuf);
    Eina_Bool      (*check_if_pp_needed)(E_Video_Hwc *evh);
-   Eina_Bool      (*commit_available_check)(E_Video_Hwc *evh);
    tbm_surface_h  (*displaying_buffer_get)(E_Video_Hwc *evh);
 };
 
