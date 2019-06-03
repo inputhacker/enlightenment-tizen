@@ -100,20 +100,6 @@ typedef enum
    E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD,
 } E_Vis_Iconify_State;
 
-typedef enum
-{
-   E_VIS_JOB_TYPE_SHOW,
-   E_VIS_JOB_TYPE_HIDE,
-   E_VIS_JOB_TYPE_RAISE,
-   E_VIS_JOB_TYPE_LOWER,
-   E_VIS_JOB_TYPE_ACTIVATE,
-   E_VIS_JOB_TYPE_UNICONIFY,
-   E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY,
-   E_VIS_JOB_TYPE_LAYER_LOWER,
-   E_VIS_JOB_TYPE_DEFER_MOVE,
-   E_VIS_JOB_TYPE_ICONIFY,
-} E_Vis_Job_Type;
-
 /* external data structure */
 struct _E_Vis_Grab
 {
@@ -121,6 +107,7 @@ struct _E_Vis_Grab
    Ecore_Timer       *timer;
    Eina_Stringshare  *name;
    Eina_Bool          deleted;
+   E_Vis_Job_Type     type;
 };
 
 /* internal data structure */

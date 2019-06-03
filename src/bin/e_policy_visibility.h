@@ -11,6 +11,32 @@ typedef enum _E_Pol_Vis_Hook_Type
    E_POL_VIS_HOOK_TYPE_LAST,
 } E_Pol_Vis_Hook_Type;
 
+typedef enum _E_Vis_Job_Type
+{
+   E_VIS_JOB_TYPE_NONE                     = 0,
+   E_VIS_JOB_TYPE_SHOW                     = (1 << 0),
+   E_VIS_JOB_TYPE_HIDE                     = (1 << 1),
+   E_VIS_JOB_TYPE_RAISE                    = (1 << 2),
+   E_VIS_JOB_TYPE_LOWER                    = (1 << 3),
+   E_VIS_JOB_TYPE_ACTIVATE                 = (1 << 4),
+   E_VIS_JOB_TYPE_UNICONIFY                = (1 << 5),
+   E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY  = (1 << 6),
+   E_VIS_JOB_TYPE_LAYER_LOWER              = (1 << 7),
+   E_VIS_JOB_TYPE_DEFER_MOVE               = (1 << 8),
+   E_VIS_JOB_TYPE_ICONIFY                  = (1 << 9),
+} E_Vis_Job_Type;
+
+#define E_VIS_JOB_TYPE_ALL (E_VIS_JOB_TYPE_SHOW                    | \
+                            E_VIS_JOB_TYPE_HIDE                    | \
+                            E_VIS_JOB_TYPE_RAISE                   | \
+                            E_VIS_JOB_TYPE_LOWER                   | \
+                            E_VIS_JOB_TYPE_ACTIVATE                | \
+                            E_VIS_JOB_TYPE_UNICONIFY               | \
+                            E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY | \
+                            E_VIS_JOB_TYPE_LAYER_LOWER             | \
+                            E_VIS_JOB_TYPE_DEFER_MOVE              | \
+                            E_VIS_JOB_TYPE_ICONIFY)
+
 typedef Eina_Bool (*E_Pol_Vis_Hook_Cb)(void *data, E_Client *ec);
 
 #else
@@ -31,6 +57,7 @@ E_API Eina_Bool                   e_policy_visibility_client_uniconify(E_Client 
 E_API Eina_Bool                   e_policy_visibility_client_activate(E_Client *ec);
 E_API Eina_Bool                   e_policy_visibility_client_layer_lower(E_Client *ec, E_Layer layer);
 E_API E_Vis_Grab                 *e_policy_visibility_client_grab_get(E_Client *ec, const char *name);
+E_API E_Vis_Grab                 *e_policy_visibility_client_filtered_grab_get(E_Client *ec, E_Vis_Job_Type type, const char *name);
 E_API void                        e_policy_visibility_client_grab_release(E_Vis_Grab *grab);
 E_API Eina_Bool                   e_policy_visibility_client_grab_cancel(E_Client *ec);
 E_API Eina_Bool                   e_policy_visibility_client_hide_job_cancel(E_Client *ec);

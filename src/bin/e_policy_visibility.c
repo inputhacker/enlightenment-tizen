@@ -49,6 +49,7 @@ static inline Eina_Bool  _e_vis_client_is_grabbed(E_Vis_Client *vc);
 static void              _e_vis_client_grab_remove(E_Vis_Client *vc, E_Vis_Grab *grab);
 static Eina_Bool         _e_vis_client_grab_cancel(E_Vis_Client *vc);
 static void              _e_vis_client_job_exec(E_Vis_Client *vc, E_Vis_Job_Type type);
+static Eina_Bool         _e_vis_grab_job_filter(E_Vis_Grab *grab, E_Vis_Job_Type type);
 static Eina_Bool         _e_vis_ec_activity_check(E_Client *ec, Eina_Bool check_alpha);
 static void              _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type);
 static void              _e_vis_ec_setup(E_Client *ec);
@@ -563,6 +564,21 @@ _e_vis_update_foreground_job_queue(void)
 }
 
 static Eina_Bool
+_e_vis_job_is_grabbed(E_Vis_Client *vc, E_Vis_Job_Type type)
+{
+   E_Vis_Grab *grab;
+   Eina_List *l;
+
+   EINA_LIST_FOREACH(vc->job.grab_list, l, grab)
+     {
+        if (_e_vis_grab_job_filter(grab, type))
+          return EINA_TRUE;
+     }
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
 _e_vis_job_push(E_Vis_Job *job)
 {
    if (!pol_job_group)
@@ -804,10 +820,11 @@ _e_vis_job_del_by_client(E_Vis_Client *vc)
 }
 
 static E_Vis_Grab *
-_e_vis_grab_new(E_Vis_Client *vc, const char *name, Ecore_Task_Cb timeout_func)
+_e_vis_grab_new(E_Vis_Client *vc, E_Vis_Job_Type type, const char *name, Ecore_Task_Cb timeout_func)
 {
    E_VIS_ALLOC_RET_VAL(grab, E_Vis_Grab, 1, NULL);
    grab->vc = vc;
+   grab->type = type;
    grab->name = eina_stringshare_add(name);
    grab->timer = ecore_timer_add(E_VIS_TIMEOUT, timeout_func, grab);
 
@@ -829,6 +846,12 @@ _e_vis_grab_release(E_Vis_Grab *grab)
      _e_vis_client_grab_remove(grab->vc, grab);
 
    _e_vis_grab_del(grab);
+}
+
+static Eina_Bool
+_e_vis_grab_job_filter(E_Vis_Grab *grab, E_Vis_Job_Type job_type)
+{
+   return grab->type & job_type;
 }
 
 static Eina_Bool
@@ -959,13 +982,13 @@ _e_vis_client_grab_cb_timeout(void *data)
 }
 
 static E_Vis_Grab *
-_e_vis_client_grab_get(E_Vis_Client *vc, const char *name)
+_e_vis_client_grab_get(E_Vis_Client *vc, E_Vis_Job_Type type, const char *name)
 {
    E_Vis_Grab *grab;
 
    VS_INF(vc->ec, "Get job grab: '%s'", name);
 
-   grab = _e_vis_grab_new(vc, name, _e_vis_client_grab_cb_timeout);
+   grab = _e_vis_grab_new(vc, type, name, _e_vis_client_grab_cb_timeout);
    if (!grab)
      return NULL;
 
@@ -1450,7 +1473,7 @@ _e_vis_client_add_uniconify_render_pending(E_Vis_Client *vc, E_Vis_Job_Type type
    _e_vis_client_prepare_foreground_signal_emit(vc);
    vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY;
    VS_DBG(vc->ec, "\tUPDATE ICONIC STATE: %s", STATE_STR(vc));
-   vc->grab = _e_vis_client_grab_get(vc, __func__);
+   vc->grab = _e_vis_client_grab_get(vc, type, __func__);
    _e_vis_client_buffer_attach_handler_add(vc);
 
    e_policy_wl_iconify_state_change_send(ec, 0);
@@ -1468,7 +1491,7 @@ _e_vis_client_defer_move(E_Vis_Client *vc, E_Vis_Job_Type type)
    if (!vc) return EINA_FALSE;
 
    VS_DBG(vc->ec, "\tDEFER MOVE: %s", STATE_STR(vc));
-   vc->grab = _e_vis_client_grab_get(vc, __func__);
+   vc->grab = _e_vis_client_grab_get(vc, type, __func__);
    _e_vis_client_buffer_attach_handler_add(vc);
 
    _e_vis_client_job_add(vc, type);
@@ -1947,7 +1970,7 @@ _e_vis_intercept_show(void *data EINA_UNUSED, E_Client *ec)
 
                        vc->state = E_VIS_ICONIFY_STATE_RUNNING_UNICONIFY_WAITING_FOR_CHILD;
                        VS_DBG(vc->ec, "\tUPDATE ICONIC STATE: %s", STATE_STR(vc));
-                       vc->grab = _e_vis_client_grab_get(vc, __func__);
+                       vc->grab = _e_vis_client_grab_get(vc, E_VIS_JOB_TYPE_SHOW, __func__);
                        e_comp_object_signal_callback_add(topmost->frame,
                                                          "e,action,launch,done",
                                                          "e",
@@ -2005,10 +2028,9 @@ _e_vis_intercept_hide(void *data EINA_UNUSED, E_Client *ec)
 
    _e_pol_vis_hook_call(E_POL_VIS_HOOK_TYPE_HIDE, ec);
 
-   //TODO: filtering grab
    if (!pending)
      {
-        if ((vc->grab) || (!_e_vis_client_is_grabbed(vc)))
+        if (!_e_vis_job_is_grabbed(vc, E_VIS_JOB_TYPE_HIDE))
           return EINA_TRUE;
      }
 
@@ -2069,7 +2091,19 @@ e_policy_visibility_client_grab_get(E_Client *ec, const char *name)
         VS_ERR(ec, "Trying to get the grab without name used hint");
         return NULL;
      }
-   return _e_vis_client_grab_get(vc, name);
+   return _e_vis_client_grab_get(vc, E_VIS_JOB_TYPE_ALL, name);
+}
+
+E_API E_Vis_Grab *
+e_policy_visibility_client_filtered_grab_get(E_Client *ec, E_Vis_Job_Type type, const char *name)
+{
+   E_VIS_CLIENT_GET_OR_RETURN_VAL(vc, ec, NULL);
+   if (!name)
+     {
+        VS_ERR(ec, "Trying to get the grab without name used hint");
+        return NULL;
+     }
+   return _e_vis_client_grab_get(vc, type, name);
 }
 
 E_API void
@@ -2158,10 +2192,9 @@ e_policy_visibility_client_lower(E_Client *ec)
 
    _e_pol_vis_hook_call(E_POL_VIS_HOOK_TYPE_LOWER, ec);
 
-   //TODO: filtering grab
    if (!ret)
      {
-        if ((vc->grab) || (!_e_vis_client_is_grabbed(vc)))
+        if (!_e_vis_job_is_grabbed(vc, E_VIS_JOB_TYPE_LOWER))
           return EINA_FALSE;
      }
 
