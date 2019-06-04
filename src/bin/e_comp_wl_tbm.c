@@ -135,3 +135,17 @@ e_comp_wl_tbm_remote_buffer_get(struct wl_resource *wl_tbm, struct wl_resource *
 
    return remote_buffer;
 }
+
+EINTERN struct wl_resource *
+e_comp_wl_tbm_remote_buffer_get_with_tbm(struct wl_resource *wl_tbm, tbm_surface_h tbm_surface)
+{
+   struct wl_resource *remote_buffer;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(wl_tbm, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(tbm_surface,  NULL);
+
+   remote_buffer = wayland_tbm_server_export_buffer(e_comp->wl_comp_data->tbm.server,
+                                                    wl_tbm, tbm_surface);
+
+   return remote_buffer;
+}
