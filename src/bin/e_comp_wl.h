@@ -542,10 +542,8 @@ E_API void e_comp_wl_deferred_job(void);
 EINTERN void e_comp_wl_surface_destroy(struct wl_resource *resource);
 EINTERN void e_comp_wl_surface_attach(E_Client *ec, E_Comp_Wl_Buffer *buffer);
 E_API Eina_Bool e_comp_wl_surface_commit(E_Client *ec);
-EINTERN Eina_Bool e_comp_wl_subsurface_commit(E_Client *ec);
 E_API void e_comp_wl_buffer_reference(E_Comp_Wl_Buffer_Ref *ref, E_Comp_Wl_Buffer *buffer);
 E_API E_Comp_Wl_Buffer *e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec);
-E_API Eina_Bool e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_resource *surface_resource);
 
 E_API struct wl_signal e_comp_wl_surface_create_signal_get(void);
 E_API Eina_Bool e_comp_wl_output_init(const char *id, const char *make, const char *model, int x, int y, int w, int h, int pw, int ph, unsigned int refresh, unsigned int subpixel, unsigned int transform);
@@ -564,8 +562,6 @@ E_API void e_comp_wl_intercept_hook_del(E_Comp_Wl_Intercept_Hook *ch);
 
 E_API void e_comp_wl_shell_surface_ready(E_Client *ec);
 
-EINTERN Eina_Bool e_comp_wl_video_subsurface_has(E_Client *ec);
-EINTERN Eina_Bool e_comp_wl_normal_subsurface_has(E_Client *ec);
 E_API   E_Client* e_comp_wl_topmost_parent_get(E_Client *ec);
 
 E_API enum wl_output_transform e_comp_wl_output_buffer_transform_get(E_Client *ec);
@@ -599,8 +595,6 @@ E_API E_Comp_Wl_Output* e_comp_wl_output_find(E_Client *ec);
 
 EINTERN void	  e_comp_wl_feed_focus_in(E_Client *ec);
 
-E_API void e_comp_wl_subsurface_stack_update(E_Client *ec);
-
 E_API extern int E_EVENT_WAYLAND_GLOBAL_ADD;
 
 EINTERN Eina_Bool e_comp_wl_commit_sync_client_geometry_add(E_Client *ec, E_Client_Demand_Geometry mode, uint32_t serial, int32_t x, int32_t y, int32_t w, int32_t h);
@@ -609,5 +603,12 @@ EINTERN Eina_Bool e_comp_wl_commit_sync_configure(E_Client *ec);
 
 EINTERN Eina_Bool         e_comp_wl_pid_output_configured_resolution_send(pid_t pid, int w, int h);
 EINTERN Eina_Bool         e_comp_wl_pid_output_configured_resolution_get(pid_t pid, int *w, int *h);
+
+EINTERN void    e_comp_wl_surface_state_init(E_Comp_Wl_Surface_State *state, int w, int h);
+EINTERN void    e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state);
+EINTERN void    e_comp_wl_hook_call(E_Comp_Wl_Hook_Point hookpoint, E_Client *ec);
+EINTERN void    e_comp_wl_surface_state_finish(E_Comp_Wl_Surface_State *state);
+EINTERN void    e_comp_wl_surface_state_buffer_set(E_Comp_Wl_Surface_State *state, E_Comp_Wl_Buffer *buffer);
+
 # endif
 #endif

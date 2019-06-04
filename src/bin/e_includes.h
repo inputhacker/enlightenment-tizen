@@ -57,6 +57,7 @@
 #include "e_hwc_window.h"
 #include "e_hwc_window_queue.h"
 #include "e_comp_wl.h"
+#include "e_comp_wl_subsurface.h"
 #include "e_comp_wl_data.h"
 #include "e_comp_wl_input.h"
 #include "e_uuid_store.h"
