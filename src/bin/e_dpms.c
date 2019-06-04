@@ -218,7 +218,7 @@ _e_tizen_dpms_manager_create(struct wl_resource *output)
      {
         dpms_hook = e_output_hook_add(E_OUTPUT_HOOK_DPMS_CHANGE,
                                       _e_tizen_dpms_cb_output_dpms_change, dpms);
-        EINA_SAFETY_ON_NULL_GOTO(dpms->dpms_change_hook, fail_create);
+        EINA_SAFETY_ON_NULL_GOTO(dpms_hook, fail_create);
 
         dpms->dpms_change_hook = dpms_hook;
      }
