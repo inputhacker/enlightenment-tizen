@@ -447,7 +447,6 @@ struct _E_Comp_Wl_Client_Data
    Eina_Bool keep_buffer : 1;
    Eina_Bool mapped : 1;
    Eina_Bool has_extern_parent : 1;
-   Eina_Bool need_commit_extern_parent : 1;
    Eina_Bool change_icon : 1;
    Eina_Bool need_reparent : 1;
    Eina_Bool reparented : 1;

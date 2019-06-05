@@ -327,23 +327,6 @@ e_comp_wl_topmost_parent_get(E_Client *ec)
    return ec;
 }
 
-static void
-_e_comp_wl_extern_parent_commit(E_Client *ec)
-{
-   E_Client *subc;
-   Eina_List *l;
-
-   if (!ec->comp_data || e_object_is_del(E_OBJECT(ec))) return;
-
-   EINA_LIST_FOREACH(ec->comp_data->sub.list, l, subc)
-     _e_comp_wl_extern_parent_commit(subc);
-
-   EINA_LIST_FOREACH(ec->comp_data->sub.below_list, l, subc)
-     _e_comp_wl_extern_parent_commit(subc);
-
-   e_comp_wl_subsurface_parent_commit(ec, EINA_TRUE);
-}
-
 E_API void
 e_comp_wl_map_apply(E_Client *ec)
 {
@@ -2814,12 +2797,6 @@ _e_comp_wl_surface_cb_commit(struct wl_client *client EINA_UNUSED, struct wl_res
                   e_comp->canvas_render_delayed = EINA_FALSE;
                }
           }
-     }
-
-   if (ec->comp_data->need_commit_extern_parent)
-     {
-        ec->comp_data->need_commit_extern_parent = 0;
-        _e_comp_wl_extern_parent_commit(ec);
      }
 
    if (e_comp_wl_remote_surface_commit(ec)) return;
