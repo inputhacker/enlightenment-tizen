@@ -677,7 +677,7 @@ _e_capture_client_save_thread_data_free(Thread_Data *td)
 }
 
 static void
-_e_capture_client_save_run(void *data, Ecore_Thread *th)
+_e_capture_thread_client_save_run(void *data, Ecore_Thread *th)
 {
    Thread_Data *td;
    E_Client *ec;
@@ -699,7 +699,7 @@ _e_capture_client_save_run(void *data, Ecore_Thread *th)
 }
 
 static void
-_e_capture_client_save_done(void *data, Ecore_Thread *th)
+_e_capture_thread_client_save_done(void *data, Ecore_Thread *th)
 {
    Thread_Data *td = data;
    E_Client *ec;
@@ -751,7 +751,7 @@ end:
 }
 
 static void
-_e_capture_client_save_cancel(void *data, Ecore_Thread *th)
+_e_capture_thread_client_save_cancel(void *data, Ecore_Thread *th)
 {
    Thread_Data *td = data;
    E_Client *ec;
@@ -807,7 +807,7 @@ end:
  * job is done.
  */
 static E_Capture_Save_State
-_e_capture_client_save_start(E_Capture_Client *ecc,
+_e_capture_client_save(E_Capture_Client *ecc,
                              Eina_Stringshare *dir,
                              Eina_Stringshare *name,
                              E_Capture_Client_Save_End_Cb func_end,
@@ -891,9 +891,9 @@ _e_capture_client_save_start(E_Capture_Client *ecc,
    if (!skip_child)
       _e_capture_client_child_data_check(td);
 
-   ecc->th = ecore_thread_run(_e_capture_client_save_run,
-                              _e_capture_client_save_done,
-                              _e_capture_client_save_cancel,
+   ecc->th = ecore_thread_run(_e_capture_thread_client_save_run,
+                              _e_capture_thread_client_save_done,
+                              _e_capture_thread_client_save_cancel,
                               td);
    CAPDBG("IMG save START. th:%p to %s/%s.png",
           ec, "ECC", ecc, ecc->th, td->image_dir, td->image_name);
@@ -912,7 +912,7 @@ end:
 }
 
 static void
-_e_capture_client_save_start_cancel(E_Capture_Client *ecc)
+_e_capture_client_save_cancel(E_Capture_Client *ecc)
 {
    if (!ecc) return;
 
@@ -959,7 +959,7 @@ e_comp_wl_capture_client_image_save(E_Client *ec,
    _dir = eina_stringshare_add(dir);
    _name = eina_stringshare_add(name);
 
-   ret = _e_capture_client_save_start(ecc, _dir, _name, func_end, data, skip_child);
+   ret = _e_capture_client_save(ecc, _dir, _name, func_end, data, skip_child);
 
    eina_stringshare_del(dir);
    eina_stringshare_del(name);
@@ -973,7 +973,7 @@ e_comp_wl_capture_client_image_save_cancel(E_Client *ec)
    E_Capture_Client *ecc;
 
    ecc = _e_capture_client_find(ec);
-   _e_capture_client_save_start_cancel(ecc);
+   _e_capture_client_save_cancel(ecc);
 }
 
 EINTERN void
