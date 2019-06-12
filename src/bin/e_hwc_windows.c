@@ -2261,17 +2261,17 @@ e_hwc_windows_commit(E_Hwc *hwc)
 
    if (hwc->wait_commit) return EINA_TRUE;
 
-   if (e_comp_canvas_norender_get() > 0)
-     {
-        EHWSTRACE(" Block Display... NoRender get.", NULL);
-        return EINA_TRUE;
-     }
-
    if (!_e_hwc_windows_changes_update(hwc))
      return EINA_TRUE;
 
    if (!_e_hwc_windows_evaluate(hwc))
      return EINA_TRUE;
+
+   if (e_comp_canvas_norender_get() > 0)
+     {
+        EHWSTRACE(" Block Display... NoRender get.", NULL);
+        return EINA_TRUE;
+     }
 
    if (hwc->hwc_mode != E_HWC_MODE_FULL) {
      if (!_e_hwc_windows_target_buffer_prepared(hwc))
