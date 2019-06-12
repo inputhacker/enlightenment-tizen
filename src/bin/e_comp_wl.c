@@ -3576,20 +3576,23 @@ static void
 _e_comp_wl_output_info_send(E_Comp_Wl_Output *output, struct wl_resource *resource, pid_t pid, int res_w, int res_h)
 {
    int phys_w, phys_h;
+   int ratio_w, ratio_h;
 
    if (e_config->configured_output_resolution.use)
      {
         // change the configured output resolution and the configured physical size(mm) of the output
         if (output->configured_resolution_w != res_w)
           {
-             phys_w = (int)((float)output->phys_width * (float)res_w / (float)output->w);
+             ratio_w = res_w / output->w;
+             phys_w = (int)((float)output->phys_width * (float)ratio_w);
              output->configured_physical_w = phys_w;
              output->configured_resolution_w = res_w;
           }
 
         if (output->configured_resolution_h != res_h)
           {
-             phys_h = (int)((float)output->phys_height * (float)res_h / (float)output->h);
+             ratio_h = res_h / output->h;
+             phys_h = (int)((float)output->phys_height * (float)ratio_h);
              output->configured_physical_h = phys_h;
              output->configured_resolution_h = res_h;
           }
