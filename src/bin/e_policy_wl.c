@@ -7,6 +7,7 @@
 #include "services/e_service_cbhm.h"
 #include "services/e_service_scrsaver.h"
 #include "services/e_service_softkey.h"
+#include "services/e_service_launcher.h"
 #include "e_policy_wl_display.h"
 #include "e_policy_conformant_internal.h"
 #include "e_policy_visibility.h"
@@ -35,6 +36,7 @@ typedef enum _Tzsh_Srv_Role
    TZSH_SRV_ROLE_CBHM,
    TZSH_SRV_ROLE_SOFTKEY,
    TZSH_SRV_ROLE_MAGNIFIER,
+   TZSH_SRV_ROLE_LAUNCHER,
    TZSH_SRV_ROLE_MAX
 } Tzsh_Srv_Role;
 
@@ -710,6 +712,16 @@ _e_policy_wl_tzsh_srv_del(E_Policy_Wl_Tzsh_Srv *tzsh_srv)
              e_magnifier_del();
           }
      }
+   else if (tzsh_srv->role == TZSH_SRV_ROLE_LAUNCHER)
+     {
+        E_Client *launcher_ec = NULL;
+
+        launcher_ec = tzsh_srv->tzsh->ec;
+        if (launcher_ec)
+          {
+             e_service_launcher_client_unset(launcher_ec);
+          }
+     }
 
    memset(tzsh_srv, 0x0, sizeof(E_Policy_Wl_Tzsh_Srv));
    E_FREE(tzsh_srv);
@@ -732,6 +744,7 @@ _e_policy_wl_tzsh_srv_role_get(const char *name)
    else if (!e_util_strcmp(name, "cbhm"                     )) role = TZSH_SRV_ROLE_CBHM;
    else if (!e_util_strcmp(name, "softkey"                  )) role = TZSH_SRV_ROLE_SOFTKEY;
    else if (!e_util_strcmp(name, "magnifier"                )) role = TZSH_SRV_ROLE_MAGNIFIER;
+   else if (!e_util_strcmp(name, "launcher"                 )) role = TZSH_SRV_ROLE_LAUNCHER;
 
    return role;
 }
@@ -4086,6 +4099,30 @@ _tzsh_srv_iface_cb_cbhm_get(struct wl_client *client, struct wl_resource *res_tz
    wl_resource_set_implementation(res, &_tzsh_srv_cbhm_iface, tzsh_srv, NULL);
 }
 
+
+static void
+_tzsh_srv_iface_cb_launcher_get(struct wl_client *client, struct wl_resource *res_tzsh_srv, uint32_t id)
+{
+   E_Policy_Wl_Tzsh_Srv *tzsh_srv;
+   struct wl_resource *res;
+
+   tzsh_srv = wl_resource_get_user_data(res_tzsh_srv);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_srv->tzsh);
+
+   if (!eina_list_data_find(polwl->tzsh_srvs, tzsh_srv))
+     return;
+
+   res = wl_resource_create(client, &tws_service_launcher_interface, 1, id);
+   if (!res)
+     {
+        wl_client_post_no_memory(client);
+        return;
+     }
+
+   e_service_launcher_resource_set(tzsh_srv->tzsh->ec, res);
+}
+
 static const struct tws_service_interface _tzsh_srv_iface =
 {
    _tzsh_srv_iface_cb_destroy,
@@ -4097,6 +4134,7 @@ static const struct tws_service_interface _tzsh_srv_iface =
    _tzsh_srv_iface_cb_cbhm_get,
    _tzsh_srv_iface_cb_softkey_get,
    _tzsh_srv_iface_cb_magnifier_get,
+   _tzsh_srv_iface_cb_launcher_get,
 };
 
 static void
@@ -4143,6 +4181,19 @@ _tzsh_iface_cb_srv_create(struct wl_client *client, struct wl_resource *res_tzsh
         res = e_security_privilege_check(pid,
                                          uid,
                                          E_PRIVILEGE_MAGNIFIER_SERVICE);
+        if (!res)
+          {
+             ERR("Could not get privilege of resource: %m");
+             tizen_ws_shell_send_error(res_tzsh,
+                                       TIZEN_WS_SHELL_ERROR_PERMISSION_DENIED);
+             return;
+          }
+     }
+   else if (role == TZSH_SRV_ROLE_LAUNCHER)
+     {
+        wl_client_get_credentials(client, &pid, &uid, NULL);
+        res = e_security_privilege_check(pid, uid,
+                                         E_PRIVILEGE_LAUNCHER_SERVICE);
         if (!res)
           {
              ERR("Could not get privilege of resource: %m");
@@ -4220,9 +4271,9 @@ _tzsh_iface_cb_srv_create(struct wl_client *client, struct wl_resource *res_tzsh
    _e_policy_wl_tzsh_data_set(tzsh, TZSH_TYPE_SRV, cp, ec);
 
    tzsh_srv = _e_policy_wl_tzsh_srv_add(tzsh,
-                                   role,
-                                   res_tzsh_srv,
-                                   name);
+                                        role,
+                                        res_tzsh_srv,
+                                        name);
    if (!tzsh_srv)
      {
         ERR("Could not create WS_Shell_Service");
@@ -4259,6 +4310,8 @@ _tzsh_iface_cb_srv_create(struct wl_client *client, struct wl_resource *res_tzsh
         e_magnifier_new();
         e_magnifier_owner_set(tzsh->ec);
      }
+   else if (role == TZSH_SRV_ROLE_LAUNCHER)
+     e_service_launcher_client_set(tzsh->ec);
 }
 
 // --------------------------------------------------------

@@ -122,6 +122,7 @@ src/bin/services/e_service_indicator.h \
 src/bin/services/e_service_cbhm.h \
 src/bin/services/e_service_scrsaver.h \
 src/bin/services/e_service_softkey.h \
+src/bin/services/e_service_launcher.h \
 src/bin/e_policy.h \
 src/bin/e_policy_conformant.h \
 src/bin/e_policy_visibility.h \
@@ -244,6 +245,7 @@ src/bin/services/e_service_indicator.c \
 src/bin/services/e_service_cbhm.c \
 src/bin/services/e_service_scrsaver.c \
 src/bin/services/e_service_softkey.c \
+src/bin/services/e_service_launcher.c \
 src/bin/e_policy.c \
 src/bin/e_policy_conformant.c \
 src/bin/e_policy_softkey.c \
