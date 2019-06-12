@@ -1376,6 +1376,9 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
         if (hwc_window->state == E_HWC_WINDOW_STATE_CLIENT &&
             hwc_window->accepted_state == E_HWC_WINDOW_STATE_DEVICE)
           {
+             if ((hwc_window->ec) && (!e_pixmap_resource_get(hwc_window->ec->pixmap)))
+               continue;
+
              if (!_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
                {
                   e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT);
@@ -1386,6 +1389,9 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
         else if (hwc_window->state == E_HWC_WINDOW_STATE_CLIENT &&
                  hwc_window->accepted_state == E_HWC_WINDOW_STATE_CURSOR)
           {
+             if ((hwc_window->ec) && (!e_pixmap_resource_get(hwc_window->ec->pixmap)))
+               continue;
+
              if (!_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
                {
                   e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_CURSOR_TO_CLIENT);
