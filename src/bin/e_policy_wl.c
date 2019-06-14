@@ -1509,9 +1509,11 @@ _tzpol_iface_cb_activate(struct wl_client *client EINA_UNUSED, struct wl_resourc
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
-   e_policy_hook_call(E_POLICY_HOOK_CLIENT_ACTIVE_REQ, ec);
 
    ELOGF("TZPOL", "ACTIVATE", ec);
+
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_ACTIVE_REQ, ec);
+
    ec->post_lower = EINA_FALSE;
    if (ec->comp_data && !ec->comp_data->mapped)
      ec->post_raise = EINA_TRUE;
@@ -1698,9 +1700,10 @@ _tzpol_iface_cb_raise(struct wl_client *client EINA_UNUSED, struct wl_resource *
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
-   e_policy_hook_call(E_POLICY_HOOK_CLIENT_RAISE_REQ, ec);
 
    ELOGF("TZPOL", "RAISE", ec);
+
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_RAISE_REQ, ec);
 
    evas_object_raise(ec->frame);
 
@@ -1719,9 +1722,10 @@ _tzpol_iface_cb_lower(struct wl_client *client EINA_UNUSED, struct wl_resource *
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
-   e_policy_hook_call(E_POLICY_HOOK_CLIENT_LOWER_REQ, ec);
 
    ELOGF("TZPOL", "LOWER", ec);
+
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_LOWER_REQ, ec);
 
    if (e_policy_visibility_client_lower(ec))
      return;
@@ -2328,6 +2332,8 @@ _tzpol_iface_cb_iconify(struct wl_client *client EINA_UNUSED, struct wl_resource
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
    ELOGF("TZPOL", "ICONIFY", ec);
+
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_ICONIFY_REQ, ec);
    e_policy_wl_iconify(ec);
 }
 
@@ -2340,6 +2346,8 @@ _tzpol_iface_cb_uniconify(struct wl_client *client EINA_UNUSED, struct wl_resour
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
    ELOGF("TZPOL", "UNICONIFY", ec);
+
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_UNICONIFY_REQ, ec);
    e_policy_wl_uniconify(ec);
 }
 
