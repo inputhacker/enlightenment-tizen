@@ -2576,6 +2576,14 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
 
    e_comp_wl_subsurface_check_below_bg_rectangle(ec);
 
+   if ((ec->comp_data->video_client) &&
+       ((buffer) &&
+        (buffer->type == E_COMP_WL_BUFFER_TYPE_VIDEO)) &&
+       (e_comp->wl_comp_data->available_hw_accel.underlay))
+     {
+        e_pixmap_image_clear(ec->pixmap, 1);
+     }
+
    state->buffer_viewport.changed = 0;
 
    if (buffer &&
@@ -3347,6 +3355,7 @@ _e_comp_wl_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
    ec->comp_data->layer = p_cdata->layer;
    ec->comp_data->fetch.win_type = p_cdata->fetch.win_type;
    ec->comp_data->fetch.layer = p_cdata->fetch.layer;
+   ec->comp_data->video_client = p_cdata->video_client;
 
    e_pixmap_cdata_set(ec->pixmap, ec->comp_data);
 
@@ -4137,9 +4146,12 @@ e_comp_wl_surface_commit(E_Client *ec)
    Eina_Bool ignored;
 
    _e_comp_wl_surface_state_commit(ec, &ec->comp_data->pending);
-   if ((!e_comp_object_damage_exists(ec->frame)) &&
-       (!e_client_video_hw_composition_check(ec)))
-     e_pixmap_image_clear(ec->pixmap, 1);
+   if (!e_comp_object_damage_exists(ec->frame))
+     {
+        if ((ec->comp_data->video_client) ||
+            (!e_client_video_hw_composition_check(ec)))
+          e_pixmap_image_clear(ec->pixmap, 1);
+     }
 
    ignored = ec->ignored;
 
@@ -4290,7 +4302,8 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
           }
         else
           {
-             if ((ec) && (e_client_video_hw_composition_check(ec)))
+             if ((ec) &&
+                 ((ec->comp_data->video_client) || (e_client_video_hw_composition_check(ec))))
                {
                   buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
                   buffer->w = buffer->h = 1;
@@ -4342,7 +4355,8 @@ e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
                if (!tbm_surf)
                  goto err;
 
-               if ((ec) && (e_client_video_hw_composition_check(ec)))
+               if ((ec) &&
+                   ((ec->comp_data->video_client) || (e_client_video_hw_composition_check(ec))))
                  {
                     buffer->type = E_COMP_WL_BUFFER_TYPE_VIDEO;
                     buffer->w = buffer->h = 1;

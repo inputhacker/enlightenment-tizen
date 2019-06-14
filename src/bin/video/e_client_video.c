@@ -344,10 +344,6 @@ e_client_video_hw_composition_set(E_Client_Video *ecv)
 {
    EINA_SAFETY_ON_NULL_RETURN(ecv);
    ecv->hw_composition = EINA_TRUE;
-
-   /* Deprecated */
-   if (ecv->ec->comp_data)
-     ecv->ec->comp_data->video_client = EINA_TRUE;
 }
 
 EINTERN void
@@ -355,10 +351,6 @@ e_client_video_hw_composition_unset(E_Client_Video *ecv)
 {
    EINA_SAFETY_ON_NULL_RETURN(ecv);
    ecv->hw_composition = EINA_FALSE;
-
-   /* Deprecated */
-   if (ecv->ec->comp_data)
-     ecv->ec->comp_data->video_client = EINA_FALSE;
 }
 
 EINTERN Eina_Bool

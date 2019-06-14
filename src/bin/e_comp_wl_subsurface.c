@@ -83,7 +83,8 @@ _e_comp_wl_subsurface_video_has(E_Client *ec)
    if (e_object_is_del(E_OBJECT(ec))) return EINA_FALSE;
    if (!ec->comp_data) return EINA_FALSE;
 
-   if (ec->comp_data->video_client)
+   if ((ec->comp_data->video_client) ||
+       (e_client_video_hw_composition_check(ec)))
      return EINA_TRUE;
 
    if (ec->comp_data->has_video_client)
@@ -402,9 +403,12 @@ _e_comp_wl_subsurface_commit_from_cache(E_Client *ec)
 
    e_comp_wl_surface_state_commit(ec, &sdata->cached);
 
-   if ((!e_comp_object_damage_exists(ec->frame)) &&
-       (!e_client_video_hw_composition_check(ec)))
-     e_pixmap_image_clear(ec->pixmap, 1);
+   if (!e_comp_object_damage_exists(ec->frame))
+     {
+        if ((ec->comp_data->video_client) ||
+            (!e_client_video_hw_composition_check(ec)))
+          e_pixmap_image_clear(ec->pixmap, 1);
+     }
 
    e_comp_wl_buffer_reference(&sdata->cached_buffer_ref, NULL);
 
@@ -1124,7 +1128,8 @@ e_comp_wl_normal_subsurface_has(E_Client *ec)
 
    /* if a leaf client is not video cliet */
    if (ec->comp_data->sub.data && !ec->comp_data->sub.below_list &&
-       !ec->comp_data->sub.below_list_pending && !ec->comp_data->video_client)
+       !ec->comp_data->sub.below_list_pending &&
+       ((!ec->comp_data->video_client) && (!e_client_video_hw_composition_check(ec))))
      return EINA_TRUE;
 
    EINA_LIST_FOREACH(ec->comp_data->sub.below_list_pending, l, subc)

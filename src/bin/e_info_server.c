@@ -1302,7 +1302,7 @@ _get_win_prop_Video_Client(const Evas_Object *evas_obj)
 
    ec = evas_object_data_get(evas_obj, "E_Client");
 
-   if (asprintf(&str, "%d", ec->comp_data ? e_client_video_hw_composition_check((E_Client *)ec) : 0) < 0)
+   if (asprintf(&str, "%d", ec->comp_data ? (ec->comp_data->video_client || e_client_video_hw_composition_check((E_Client *)ec)) : 0) < 0)
      return NULL;
 
    return str;
@@ -2936,7 +2936,7 @@ _e_info_server_cb_subsurface(const Eldbus_Service_Interface *iface EINA_UNUSED, 
              if (ec->comp_data->sub.below_obj)
                bgrect = (Ecore_Window)ec->comp_data->sub.below_obj;
              maskobj = e_comp_object_mask_has(ec->frame);
-             video = (e_client_video_hw_composition_check(ec)) ? 1 : 0;
+             video = (ec->comp_data->video_client || e_client_video_hw_composition_check(ec)) ? 1 : 0;
              if (ec->comp_data->sub.data)
                stand = ec->comp_data->sub.data->stand_alone;
              name = e_client_util_name_get(ec);
