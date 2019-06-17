@@ -32,10 +32,11 @@ static Eldbus_Service_Interface *iface;
 
 static Eina_List *dpms_list;
 static struct wl_global *dpms_global;
+Ecore_Timer *delay_timer;
+static struct wl_resource *gresource;
 
 typedef struct _E_Dpms
 {
-   struct wl_resource *resource;
    struct wl_resource *output;
 
    E_Comp_Wl_Output *wl_output;
@@ -172,6 +173,34 @@ _e_dpms_cb_dbus_init_done(void *data, int type, void *event)
    return ECORE_CALLBACK_PASS_ON;
 }
 
+static Eina_Bool
+_e_dpms_delay(void *data)
+{
+   E_Dpms *dpms = NULL;
+   E_Dpms_Mode e_output_dpms;
+
+   if (!data) return ECORE_CALLBACK_CANCEL;
+   dpms = (E_Dpms *)data;
+
+   delay_timer = NULL;
+
+   if (!gresource) return ECORE_CALLBACK_CANCEL;
+
+   e_output_dpms = e_output_dpms_get(dpms->e_output);
+   if (e_output_dpms != dpms->mode)
+     {
+        WRN("tizen_dpms_manager dpms change timer cb. different dpms!(output:%d, dpms:%d)",
+            e_output_dpms, dpms->mode);
+        dpms->mode = e_output_dpms;
+     }
+
+   tizen_dpms_manager_send_state(gresource, dpms->mode, E_DPMS_MANAGER_ERROR_NONE);
+   INF("tizen_dpms_manager send set event by timer(res:%p, output:%p, dpms:%d)", gresource, dpms->e_output, dpms->mode);
+   gresource = NULL;
+
+   return ECORE_CALLBACK_CANCEL;
+}
+
 static void
 _e_tizen_dpms_cb_output_dpms_change(void *data, E_Output *output)
 {
@@ -183,19 +212,17 @@ _e_tizen_dpms_cb_output_dpms_change(void *data, E_Output *output)
    EINA_SAFETY_ON_FALSE_RETURN(dpms->e_output == output);
 
    e_output_dpms = e_output_dpms_get(output);
-   if (dpms->mode != e_output_dpms)
-     {
-        WRN("tizen_dpms_manager dpms change cb. different dpms!(output:%d, dpms:%d)",
-            e_output_dpms, dpms->mode);
-     }
 
-   if (dpms->resource)
+   if (gresource)
      {
+        if (delay_timer)
+          ecore_timer_del(delay_timer);
+        delay_timer = NULL;
         INF("tizen_dpms_manager set dpms async cb(res:%p, output:%p, dpms:%d)",
-            dpms->resource, dpms->e_output, e_output_dpms);
-        tizen_dpms_manager_send_state(dpms->resource, dpms->mode, E_DPMS_MANAGER_ERROR_NONE);
+            gresource, dpms->e_output, e_output_dpms);
+        tizen_dpms_manager_send_state(gresource, e_output_dpms, E_DPMS_MANAGER_ERROR_NONE);
+        gresource = NULL;
      }
-   dpms->resource = NULL;
 }
 
 static E_Dpms *
@@ -214,14 +241,11 @@ _e_tizen_dpms_manager_create(struct wl_resource *output)
    dpms->e_output = e_output_find(dpms->wl_output->id);
    EINA_SAFETY_ON_NULL_GOTO(dpms->e_output, fail_create);
 
-   if (e_output_dpms_async_check(dpms->e_output))
-     {
-        dpms_hook = e_output_hook_add(E_OUTPUT_HOOK_DPMS_CHANGE,
-                                      _e_tizen_dpms_cb_output_dpms_change, dpms);
-        EINA_SAFETY_ON_NULL_GOTO(dpms_hook, fail_create);
+   dpms_hook = e_output_hook_add(E_OUTPUT_HOOK_DPMS_CHANGE,
+                                 _e_tizen_dpms_cb_output_dpms_change, dpms);
+   EINA_SAFETY_ON_NULL_GOTO(dpms_hook, fail_create);
 
-        dpms->dpms_change_hook = dpms_hook;
-     }
+   dpms->dpms_change_hook = dpms_hook;
 
    dpms_list = eina_list_append(dpms_list, dpms);
 
@@ -280,14 +304,16 @@ _e_tizen_dpms_manager_cb_set_dpms(struct wl_client *client, struct wl_resource *
         return;
      }
 
+   gresource = resource;
+   dpms->mode = mode;
+
+   if (delay_timer)
+     ecore_timer_del(delay_timer);
+   delay_timer = ecore_timer_add(1.0, _e_dpms_delay, dpms);
+
    ret = e_output_dpms_set(dpms->e_output, mode);
    if (ret)
-     {
-        INF("tizen_dpms_manager set dpms(res:%p, output:%p, dpms:%d)", resource, dpms->e_output, mode);
-        dpms->mode = mode;
-        if (dpms->dpms_change_hook)
-          dpms->resource = resource;
-     }
+     INF("tizen_dpms_manager set dpms(res:%p, output:%p, dpms:%d, %d)", resource, dpms->e_output, mode, dpms->mode);
    else
      ERR("tizen_dpms_manager set dpms fail(res:%p, output:%p, dpms=%d)", resource, dpms->e_output, mode);
 }
@@ -315,6 +341,11 @@ _e_tizen_dpms_manager_cb_get_dpms(struct wl_client *client, struct wl_resource *
 static void
 _e_tizen_dpms_manager_cb_destroy(struct wl_client *client, struct wl_resource *resource)
 {
+   INF("tizen_dpms_manager cb_destroy (res:%p)", resource);
+
+   if (gresource == resource)
+     gresource = NULL;
+
    wl_resource_destroy(resource);
 }
 
@@ -399,6 +430,13 @@ e_dpms_shutdown(void)
      }
 
    e_dbus_conn_shutdown();
+
+   if (delay_timer)
+     {
+        ecore_timer_del(delay_timer);
+        delay_timer = NULL;
+     }
+   gresource = NULL;
 
    EINA_LIST_FOREACH(dpms_list, l, dpms)
      {
