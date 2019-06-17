@@ -726,6 +726,8 @@ _e_shell_client_map_common_pre(E_Client *ec)
 {
    if (!ec) return;
 
+   e_comp_object_signal_emit(ec->frame, "e,state,map", "e");
+
    if (ec->use_splash)
      {
         ELOGF("LAUNCH", "SHOW real win after splash effect", ec);
@@ -836,22 +838,7 @@ _e_shell_surface_unmap(struct wl_resource *resource)
         return;
      }
 
-   if (ec->comp_data->mapped)
-     {
-        /* need to save its last buffer to image file */
-        e_comp_wl_remote_surface_image_save(ec);
-
-        ec->visible = EINA_FALSE;
-        evas_object_hide(ec->frame);
-        ec->comp_data->mapped = EINA_FALSE;
-        ec->visibility.last_sent_type = E_VISIBILITY_UNKNOWN;
-
-        ELOGF("SHELL",
-              "Unmap window  |win:0x%08x|ec_size:%d,%d",
-              ec,
-              (unsigned int)e_client_util_win_get(ec),
-              ec->w, ec->h);
-     }
+   e_shell_e_client_unmap(ec);
 }
 
 static void
@@ -1454,6 +1441,8 @@ e_shell_e_client_unmap(E_Client *ec)
 
    if (ec->comp_data->mapped)
      {
+        e_comp_object_signal_emit(ec->frame, "e,state,unmap", "e");
+
         /* need to save its last buffer to image file */
         e_comp_wl_remote_surface_image_save(ec);
 
