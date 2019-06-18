@@ -7191,8 +7191,12 @@ _e_client_base_output_resolution_set(E_Client *ec, int width, int height)
    ec->base_output_resolution.use = 1;
    ec->base_output_resolution.w = width;
    ec->base_output_resolution.h = height;
-   ec->base_output_resolution.transform = e_util_transform_new();
-   e_client_transform_core_add(ec, ec->base_output_resolution.transform);
+
+   if ((ec->desk->geom.w != width) || (ec->desk->geom.h != height))
+     {
+        ec->base_output_resolution.transform = e_util_transform_new();
+        e_client_transform_core_add(ec, ec->base_output_resolution.transform);
+     }
 }
 
 E_API void
@@ -7200,6 +7204,7 @@ e_client_base_output_resolution_transform_adjust(E_Client *ec)
 {
    EINA_SAFETY_ON_NULL_RETURN(ec);
    if (!ec->base_output_resolution.use) return;
+   if (!ec->base_output_resolution.transform) return;
 
    ELOGF("POL_APPINFO", "Apply TRANSFORM... desk:(%dx%d), ec:(%dx%d)",
          ec, ec->desk->geom.w, ec->desk->geom.h, ec->w, ec->h);
