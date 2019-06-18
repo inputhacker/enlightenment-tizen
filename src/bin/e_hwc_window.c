@@ -1357,6 +1357,7 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
    int transform;
    Eina_Bool available = EINA_TRUE;
    const char *restriction = NULL;
+   int count;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
@@ -1409,9 +1410,14 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
 
    if (e_client_transform_core_enable_get(ec))
      {
-        restriction = "transfrom_core";
-        available = EINA_FALSE;
-        goto finish;
+        /* allow device if ec has only transform of base_output_resolution */
+        count = e_client_transform_core_transform_count_get(ec);
+        if ((!ec->base_output_resolution.transform) || (count > 1))
+          {
+             restriction = "transfrom";
+             available = EINA_FALSE;
+             goto finish;
+          }
      }
 
    switch (cdata->buffer_ref.buffer->type)
