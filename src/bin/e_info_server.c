@@ -245,6 +245,7 @@ _msg_ecs_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
         Eina_Bool has_input_region = EINA_FALSE;
         Eina_List *list_input_region = NULL;
         Eina_Bool mapped = EINA_FALSE;
+        int x = 0, y = 0, w = 0, h = 0;
 
         if (is_visible && e_client_util_ignored_get(ec)) continue;
 
@@ -288,6 +289,7 @@ _msg_ecs_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
              has_input_region = EINA_TRUE;
              list_input_region = eina_list_free(list_input_region);
           }
+        e_client_geometry_get(ec, &x, &y, &w, &h);
 
         eldbus_message_iter_arguments_append(array_of_ec, "("VALUE_TYPE_FOR_TOPVWINS")", &struct_of_ec);
 
@@ -297,7 +299,7 @@ _msg_ecs_append(Eldbus_Message_Iter *iter, Eina_Bool is_visible)
             res_id,
             pid,
             e_client_util_name_get(ec) ?: "NO NAME",
-            ec->x, ec->y, ec->w, ec->h, ec->layer,
+            x, y, w, h, ec->layer,
             ec->visible, mapped, ec->argb, ec->visibility.opaque, ec->visibility.obscured, iconified,
             evas_object_visible_get(ec->frame), ec->focused, hwc, pl_zpos, pwin, layer_name, has_input_region);
 
