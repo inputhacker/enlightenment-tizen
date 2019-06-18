@@ -1643,6 +1643,7 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
    E_Client  *ec;
    Evas_Object *o;
    int scr_w, scr_h;
+   int x, y, w, h;
    int ui_skip = EINA_FALSE;
 
    for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
@@ -1673,8 +1674,9 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
           }
 
         // check geometry if located out of screen such as quick panel
+        e_client_geometry_get(ec, &x, &y, &w, &h);
         ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &scr_w, &scr_h);
-        if (!E_INTERSECTS(0, 0, scr_w, scr_h, ec->client.x, ec->client.y, ec->client.w, ec->client.h))
+        if (!E_INTERSECTS(0, 0, scr_w, scr_h, x, y, w, h))
           {
              e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
              continue;
@@ -1712,7 +1714,7 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
 
         windows_list = eina_list_append(windows_list, hwc_window);
 
-        if (!ec->argb && E_CONTAINS(ec->client.x, ec->client.y, ec->client.w, ec->client.h, 0, 0, scr_w, scr_h))
+        if (!ec->argb && E_CONTAINS(x, y, w, h, 0, 0, scr_w, scr_h))
           ui_skip = EINA_TRUE;
      }
 
