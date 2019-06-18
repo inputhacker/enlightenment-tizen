@@ -7204,8 +7204,8 @@ e_client_base_output_resolution_transform_adjust(E_Client *ec)
    ELOGF("POL_APPINFO", "Apply TRANSFORM... desk:(%dx%d), ec:(%dx%d)",
          ec, ec->desk->geom.w, ec->desk->geom.h, ec->w, ec->h);
    e_util_transform_scale(ec->base_output_resolution.transform,
-                          (double)ec->desk->geom.w /(double)ec->w,
-                          (double)ec->desk->geom.h /(double)ec->h,
+                          (double)ec->desk->geom.w /(double)ec->base_output_resolution.w,
+                          (double)ec->desk->geom.h /(double)ec->base_output_resolution.h,
                           1.0);
    e_client_transform_core_update(ec);
 }
