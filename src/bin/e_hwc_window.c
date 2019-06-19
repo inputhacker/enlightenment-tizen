@@ -887,6 +887,7 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
      }
    else if (tsurface)
      {
+        int x, y, w, h;
         /* set hwc_window when the layer infomation is different from the previous one */
         tbm_surface_get_info(tsurface, &surf_info);
 
@@ -900,8 +901,12 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
         EINA_SAFETY_ON_TRUE_RETURN_VAL(hwc_win_info.src_config.size.h == 0, EINA_FALSE);
         hwc_win_info.src_config.size.v = surf_info.height;
 
-        hwc_win_info.dst_pos.x = ec->x;
-        hwc_win_info.dst_pos.y = ec->y;
+        e_client_geometry_get(ec, &x, &y, &w, &h);
+
+        hwc_win_info.dst_pos.x = x;
+        hwc_win_info.dst_pos.y = y;
+        hwc_win_info.dst_pos.w = w;
+        hwc_win_info.dst_pos.h = h;
 
         /* if output is transformed, the position of a buffer on screen should be also
         * transformed.
@@ -921,9 +926,6 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
               hwc_win_info.dst_pos.x = dst_x;
               hwc_win_info.dst_pos.y = dst_y;
           }
-
-        hwc_win_info.dst_pos.w = surf_info.width;
-        hwc_win_info.dst_pos.h = surf_info.height;
 
         // TODO: need to calculation with ec(window) rotation and output->config.rotation?
         hwc_win_info.transform = TDM_TRANSFORM_NORMAL;
