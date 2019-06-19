@@ -3621,8 +3621,8 @@ _e_comp_wl_output_info_send(E_Comp_Wl_Output *output, struct wl_resource *resour
                            output->subpixel, output->make ?: "",
                            output->model ?: "", output->transform);
 
-   /* 3 == preferred + current */
-   wl_output_send_mode(resource, 3, res_w, res_h, output->refresh);
+   wl_output_send_mode(resource,  WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED,
+                       res_w, res_h, output->refresh);
 
    if (wl_resource_get_version(resource) >= WL_OUTPUT_DONE_SINCE_VERSION)
      wl_output_send_done(resource);
@@ -4519,8 +4519,8 @@ e_comp_wl_output_init(const char *id, const char *make, const char *model,
         if (wl_resource_get_version(resource) >= WL_OUTPUT_SCALE_SINCE_VERSION)
           wl_output_send_scale(resource, output->scale);
 
-        /* 3 == preferred + current */
-        wl_output_send_mode(resource, 3, output->w, output->h, output->refresh);
+        wl_output_send_mode(resource, WL_OUTPUT_MODE_CURRENT | WL_OUTPUT_MODE_PREFERRED,
+                            output->w, output->h, output->refresh);
 
         if (wl_resource_get_version(resource) >= WL_OUTPUT_DONE_SINCE_VERSION)
           wl_output_send_done(resource);
