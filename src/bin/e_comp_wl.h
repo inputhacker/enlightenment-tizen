@@ -460,6 +460,7 @@ struct _E_Comp_Wl_Client_Data
    Eina_Bool video_client : 1; // Deprecated
    Eina_Bool has_video_client : 1;
    Eina_Bool never_hwc : 1;          //  force window not to do hwc
+   Eina_Bool first_commit : 1;       // TRUE : once client committed
    unsigned char accepts_focus : 1;
    unsigned char conformant : 1;
    E_Window_Type win_type;

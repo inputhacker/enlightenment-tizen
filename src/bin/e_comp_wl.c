@@ -2783,6 +2783,9 @@ _e_comp_wl_surface_cb_commit(struct wl_client *client EINA_UNUSED, struct wl_res
    if (!(ec = wl_resource_get_user_data(resource))) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
+   if (!ec->comp_data->first_commit)
+     ec->comp_data->first_commit = EINA_TRUE;
+
    if (!ec->comp_data->mapped)
      {
         if (ec->comp_data->shell.surface && ec->comp_data->pending.new_attach &&

@@ -3891,7 +3891,17 @@ e_client_idler_before(void)
    // pass 3 - hide windows needing hide and eval (main eval)
    E_CLIENT_FOREACH(ec)
      {
-        if (ec->ignored || e_object_is_del(E_OBJECT(ec))) continue;
+        if (e_object_is_del(E_OBJECT(ec)) continue;
+        if (ec->ignored)
+          {
+             // ignored client but needing eval (aux hint) such as remote surfaces
+             if (ec->changed)
+               {
+                  if (ec->comp_data && ec->comp_data->first_commit)
+                    _e_client_aux_hint_eval(ec);
+               }
+             continue;
+          }
 
         if ((ec->changes.visible) && (!ec->visible))
           {
