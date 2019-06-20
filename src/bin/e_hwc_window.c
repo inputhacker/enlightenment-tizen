@@ -8,6 +8,9 @@
 #define CLEAR(x) memset(&(x), 0, sizeof (x))
 #endif
 
+#define EHW_C(b,m)              (b ? ((b) >> (m)) & 0xFF : ' ')
+#define EHW_FOURCC_STR(id)      EHW_C(id,0), EHW_C(id,8), EHW_C(id,16), EHW_C(id,24)
+
 #define EHWINF(f, ec, ehw, x...)                                \
    do                                                           \
      {                                                          \
@@ -888,7 +891,7 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
    else if (tsurface)
      {
         int x, y, w, h;
-        /* set hwc_window when the layer infomation is different from the previous one */
+
         tbm_surface_get_info(tsurface, &surf_info);
 
         hwc_win_info.src_config.format = surf_info.format;
@@ -938,6 +941,16 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
         memcpy(&hwc_window->info, &hwc_win_info, sizeof(tdm_hwc_window_info));
         error = tdm_hwc_window_set_info(hwc_window->thwc_window, &hwc_window->info);
         EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+
+        EHWTRACE("INF src(%dx%d+%d+%d size:%dx%d fmt:%c%c%c%c) dst(%dx%d+%d+%d) trans(%d)",
+                  hwc_window->ec, hwc_window,
+                  hwc_window->info.src_config.pos.w, hwc_window->info.src_config.pos.h,
+                  hwc_window->info.src_config.pos.x, hwc_window->info.src_config.pos.y,
+                  hwc_window->info.src_config.size.h, hwc_window->info.src_config.size.v,
+                  EHW_FOURCC_STR(hwc_window->info.src_config.format),
+                  hwc_window->info.dst_pos.w, hwc_window->info.dst_pos.h,
+                  hwc_window->info.dst_pos.x, hwc_window->info.dst_pos.y,
+                  hwc_window->info.transform);
 
         return EINA_TRUE;
      }
