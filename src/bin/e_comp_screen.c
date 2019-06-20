@@ -251,6 +251,24 @@ end:
    return ECORE_CALLBACK_RENEW;
 }
 
+static void
+_e_comp_screen_input_rotation_set(int rotation)
+{
+   if (rotation > 0)
+     {
+        const Eina_List *l;
+        E_Input_Device *dev;
+
+        EINA_LIST_FOREACH(e_input_devices_get(), l, dev)
+          {
+             e_input_device_touch_rotation_set(dev, rotation);
+             e_input_device_rotation_set(dev, rotation);
+
+             INF("EE Input Device Rotate: %d", rotation);
+          }
+     }
+}
+
 static Eina_Bool
 _e_comp_screen_cb_input_device_add(void *data, int type, void *event)
 {
@@ -276,6 +294,7 @@ _e_comp_screen_cb_input_device_add(void *data, int type, void *event)
    else if (e->clas == ECORE_DEVICE_CLASS_TOUCH)
      {
         e_comp_wl_input_touch_enabled_set(EINA_TRUE);
+        _e_comp_screen_input_rotation_set(e_comp->e_comp_screen->rotation);
         comp->wl_comp_data->touch.num_devices++;
      }
 
@@ -1187,19 +1206,7 @@ e_comp_screen_init()
    E_LIST_HANDLER_APPEND(event_handlers, ECORE_EVENT_DEVICE_ADD, _e_comp_screen_cb_input_device_add, comp);
    E_LIST_HANDLER_APPEND(event_handlers, ECORE_EVENT_DEVICE_DEL, _e_comp_screen_cb_input_device_del, comp);
 
-   if (e_comp->e_comp_screen->rotation > 0)
-     {
-         const Eina_List *l;
-         E_Input_Device *dev;
-
-         EINA_LIST_FOREACH(e_input_devices_get(), l, dev)
-           {
-               e_input_device_touch_rotation_set(dev, e_comp->e_comp_screen->rotation);
-               e_input_device_rotation_set(dev, e_comp->e_comp_screen->rotation);
-
-               INF("EE Input Device Rotate: %d", e_comp->e_comp_screen->rotation);
-           }
-     }
+   _e_comp_screen_input_rotation_set(e_comp->e_comp_screen->rotation);
 
    TRACE_DS_END();
 
