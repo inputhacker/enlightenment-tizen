@@ -202,6 +202,7 @@ EINTERN const char             *e_hwc_window_name_get(E_Hwc_Window *hwc_window);
 EINTERN void                    e_hwc_window_name_set(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool               e_hwc_window_set_property(E_Hwc_Window *hwc_window, unsigned int id, const char *name, tdm_value value, Eina_Bool force);
 EINTERN Eina_Bool               e_hwc_window_get_property(E_Hwc_Window *hwc_window, unsigned int id, tdm_value *value);
+EINTERN void                    e_hwc_window_client_type_override(E_Hwc_Window *hwc_window);
 
 EINTERN E_Hwc_Window_Hook      *e_hwc_window_hook_add(E_Hwc_Window_Hook_Point hookpoint, E_Hwc_Window_Hook_Cb func, const void *data);
 EINTERN void                    e_hwc_window_hook_del(E_Hwc_Window_Hook *ch);

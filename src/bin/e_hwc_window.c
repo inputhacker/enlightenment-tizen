@@ -1731,6 +1731,20 @@ e_hwc_window_buffer_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface, E_Hwc_
    _e_hwc_window_buffer_set(&hwc_window->buffer, tsurface,queue);
 }
 
+EINTERN void
+e_hwc_window_client_type_override(E_Hwc_Window *hwc_window)
+{
+   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
+
+   if (hwc_window->state == E_HWC_WINDOW_STATE_CLIENT) return;
+
+   e_hwc_window_device_state_available_update(hwc_window);
+   e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
+   e_hwc_window_rendered_window_update(hwc_window);
+
+   EHWTRACE("set client override", hwc_window->ec, hwc_window);
+}
+
 EINTERN const char*
 e_hwc_window_state_string_get(E_Hwc_Window_State hwc_window_state)
 {

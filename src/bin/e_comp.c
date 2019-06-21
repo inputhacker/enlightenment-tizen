@@ -1383,8 +1383,10 @@ e_comp_hwc_end(const char *location)
 EINTERN void
 e_comp_hwc_client_end(E_Client *ec, const char *location)
 {
-   E_Zone *zone;
-   E_Output *output;
+   E_Zone *zone = NULL;
+   E_Output *output = NULL;
+   E_Hwc *hwc = NULL;
+   E_Hwc_Window *hwc_window = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
@@ -1394,5 +1396,18 @@ e_comp_hwc_client_end(E_Client *ec, const char *location)
    output = e_output_find(zone->output_id);
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   e_hwc_planes_client_end(output->hwc, ec, location);
+   hwc = output->hwc;
+   EINA_SAFETY_ON_NULL_RETURN(hwc);
+
+   if (hwc->hwc_policy == E_HWC_POLICY_PLANES)
+     {
+        e_hwc_planes_client_end(output->hwc, ec, location);
+     }
+   else if (hwc->hwc_policy == E_HWC_POLICY_WINDOWS)
+     {
+        hwc_window = ec->hwc_window;
+        EINA_SAFETY_ON_NULL_RETURN(hwc_window);
+
+        e_hwc_window_client_type_override(hwc_window);
+     }
 }

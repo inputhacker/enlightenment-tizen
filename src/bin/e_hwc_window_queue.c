@@ -763,7 +763,8 @@ _e_hwc_window_queue_cb_buffer_change(void *data, E_Client *ec)
 
    hwc_window = ec->hwc_window;
    if (!hwc_window) return;
-   if (hwc_window->queue) return;
+   if ((hwc_window->queue) && (e_hwc_window_device_state_available_get(hwc_window)))
+     return;
 
    comp_buffer = _comp_wl_buffer_get(ec);
    if (!comp_buffer) return;
