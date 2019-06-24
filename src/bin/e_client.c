@@ -7192,15 +7192,12 @@ e_client_image_save(E_Client *ec, const char *dir, const char *name, E_Capture_C
 static void
 _e_client_base_output_resolution_set(E_Client *ec, int width, int height)
 {
+   if (!ec) return;
    ec->base_output_resolution.use = 1;
    ec->base_output_resolution.w = width;
    ec->base_output_resolution.h = height;
-
-   if ((ec->desk->geom.w != width) || (ec->desk->geom.h != height))
-     {
-        ec->base_output_resolution.transform = e_util_transform_new();
-        e_client_transform_core_add(ec, ec->base_output_resolution.transform);
-     }
+   ec->base_output_resolution.transform = e_util_transform_new();
+   e_client_transform_core_add(ec, ec->base_output_resolution.transform);
 }
 
 E_API void
@@ -7259,6 +7256,18 @@ e_client_base_output_resolution_update(E_Client *ec)
               configured_width, configured_height, ec->netwm.pid);
         return EINA_TRUE;
       }
+
+   if ((width == 0) && (height == 0))
+     {
+        ELOGF("POL_APPINFO", "SKIP SET BASE SCREEN RESOLUTION... base_output_resolution size:(%d,%d) pid:%d", ec, width, height, ec->netwm.pid);
+        return EINA_TRUE;
+     }
+
+   if ((ec->desk->geom.w == width) && (ec->desk->geom.h == height))
+     {
+        ELOGF("POL_APPINFO", "SKIP SET BASE SCREEN RESOLUTION... base_output_resolution is same with desk size:(%d,%d), pid:%d", ec, width, height, ec->netwm.pid);
+        return EINA_TRUE;
+     }
 
    /* set the base_output_resolution of the e_client */
    _e_client_base_output_resolution_set(ec, width, height);
