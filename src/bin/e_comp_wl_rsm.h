@@ -8,6 +8,7 @@ EINTERN void       e_comp_wl_remote_surface_init(void);
 EINTERN void       e_comp_wl_remote_surface_shutdown(void);
 EINTERN Eina_Bool  e_comp_wl_remote_surface_commit(E_Client *ec);
 E_API   void       e_comp_wl_remote_surface_image_save(E_Client *ec);
+E_API   void       e_comp_wl_remote_surface_image_save_cancel(E_Client *ec);
 E_API   void       e_comp_wl_remote_surface_image_save_skip_set(E_Client *ec, Eina_Bool set);
 E_API   Eina_Bool  e_comp_wl_remote_surface_image_save_skip_get(E_Client *ec);
 EINTERN void       e_comp_wl_remote_surface_debug_info_get(Eldbus_Message_Iter *iter);

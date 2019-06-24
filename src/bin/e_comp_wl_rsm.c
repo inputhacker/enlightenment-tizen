@@ -2456,18 +2456,6 @@ _image_save_type_check(E_Client *ec)
 }
 
 static void
-_e_comp_wl_remote_cb_client_iconify(void *data, E_Client *ec)
-{
-   e_comp_wl_remote_surface_image_save(ec);
-}
-
-static void
-_e_comp_wl_remote_cb_client_uniconify(void *data, E_Client *ec)
-{
-   e_comp_wl_capture_client_image_save_cancel(ec);
-}
-
-static void
 _e_comp_wl_remote_cb_client_del(void *data, E_Client *ec)
 {
    E_Comp_Wl_Remote_Provider *provider;
@@ -3057,6 +3045,13 @@ e_comp_wl_remote_surface_image_save(E_Client *ec)
 }
 
 E_API void
+e_comp_wl_remote_surface_image_save_cancel(E_Client *ec)
+{
+   if (!ec) return;
+   e_comp_wl_capture_client_image_save_cancel(ec);
+}
+
+E_API void
 e_comp_wl_remote_surface_image_save_skip_set(E_Client *ec, Eina_Bool set)
 {
    if (e_object_is_del(E_OBJECT(ec))) return;
@@ -3308,11 +3303,6 @@ e_comp_wl_remote_surface_init(void)
 
    /* client hook */
    E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_DEL, _e_comp_wl_remote_cb_client_del, NULL);
-   if (e_config->save_win_buffer)
-     {
-        E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_ICONIFY,   _e_comp_wl_remote_cb_client_iconify,   NULL);
-        E_CLIENT_HOOK_APPEND(rs_manager->client_hooks, E_CLIENT_HOOK_UNICONIFY, _e_comp_wl_remote_cb_client_uniconify, NULL);
-     }
 
    /* client event */
    E_LIST_HANDLER_APPEND(rs_manager->event_hdlrs,

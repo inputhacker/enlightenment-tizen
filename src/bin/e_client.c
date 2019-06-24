@@ -5762,6 +5762,8 @@ e_client_iconify(E_Client *ec)
 
    TRACE_DS_BEGIN(CLIENT:ICONIFY);
 
+   e_comp_wl_remote_surface_image_save(ec);
+
    ec->iconic = 1;
    ec->want_focus = ec->take_focus = 0;
    ec->changes.visible = 0;
@@ -5805,6 +5807,8 @@ e_client_uniconify(E_Client *ec)
    if (ec->shading || (!ec->iconic)) return;
 
    TRACE_DS_BEGIN(CLIENT:UNICONIFY);
+
+   e_comp_wl_remote_surface_image_save_cancel(ec);
 
    desk = e_desk_current_get(ec->desk->zone);
    e_client_desk_set(ec, desk);
