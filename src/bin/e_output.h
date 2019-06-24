@@ -25,6 +25,8 @@ typedef void (*E_Output_Capture_Cb) (E_Output *output, tbm_surface_h surface, vo
 
 #include "e_comp_screen.h"
 
+#define OUTPUT_NAME_LEN 64
+
 enum _E_Output_Dpms
 {
    E_OUTPUT_DPMS_ON,
@@ -163,6 +165,32 @@ struct _E_Output_Intercept_Hook
    unsigned char delete_me : 1;
 };
 
+/*brief The output prop value union */
+typedef union {
+   void    *ptr;
+   int32_t   s32;
+   uint32_t  u32;
+   int64_t   s64;
+   uint64_t  u64;
+} output_prop_value;
+
+/*The output value type enumeration */
+typedef enum {
+   OUTPUT_PROP_VALUE_TYPE_UNKNOWN,
+   OUTPUT_PROP_VALUE_TYPE_PTR,
+   OUTPUT_PROP_VALUE_TYPE_INT32,
+   OUTPUT_PROP_VALUE_TYPE_UINT32,
+   OUTPUT_PROP_VALUE_TYPE_INT64,
+   OUTPUT_PROP_VALUE_TYPE_UINT64,
+} output_prop_value_type;
+
+/* The property of the output */
+typedef struct _output_prop {
+   unsigned int id;
+   char name[OUTPUT_NAME_LEN];
+   output_prop_value_type type;
+} output_prop;
+
 EINTERN Eina_Bool         e_output_init(void);
 EINTERN void              e_output_shutdown(void);
 EINTERN E_Output        * e_output_new(E_Comp_Screen *e_comp_screen, int index);
@@ -210,6 +238,10 @@ E_API void                e_output_hook_del(E_Output_Hook *ch);
 E_API E_Output_Intercept_Hook * e_output_intercept_hook_add(E_Output_Intercept_Hook_Point hookpoint, E_Output_Intercept_Hook_Cb func, const void *data);
 E_API void                e_output_intercept_hook_del(E_Output_Intercept_Hook *ch);
 EINTERN void              e_output_zoom_rotating_check(E_Output *output);
+
+E_API Eina_Bool           e_output_available_properties_get(E_Output *output, const output_prop **props, int *count);
+E_API Eina_Bool           e_output_property_get(E_Output *output, unsigned int id, output_prop_value *value);
+E_API Eina_Bool           e_output_property_set(E_Output *output, unsigned int id, output_prop_value value);
 
 #endif
 #endif

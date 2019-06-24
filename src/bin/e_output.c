@@ -3935,3 +3935,85 @@ e_output_external_mode_change(E_Output *output, E_Output_Mode *mode)
 
    return EINA_TRUE;
 }
+
+static const char *
+_e_output_prop_name_get_by_id(E_Output *output, unsigned int id)
+{
+   const output_prop *props;
+   int i, count = 0;
+
+   if (!e_output_available_properties_get(output, &props, &count))
+     {
+        ERR("e_output_available_properties_get failed.");
+        return NULL;
+     }
+
+   for (i = 0; i < count; i++)
+     {
+        if (props[i].id == id)
+          return props[i].name;
+     }
+
+   ERR("No available property: id %d", id);
+
+   return NULL;
+}
+
+E_API Eina_Bool
+e_output_available_properties_get(E_Output *output, const output_prop **props, int *count)
+{
+   const tdm_prop *tprops;
+   tdm_error ret;
+   int i;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(count, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   ret = tdm_output_get_available_properties(output->toutput, &tprops, count);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(ret != TDM_ERROR_NONE, ret);
+
+   *props = (output_prop *)tprops;
+
+   ELOGF("OUTPUT", ">>>>>>>> Available OUTPUT props : count = %d", NULL, *count);
+   for (i = 0; i < *count; i++)
+     ELOGF("OUTPUT", "   [%d] %s, %u", NULL, i, tprops[i].name, tprops[i].id);
+
+   return EINA_TRUE;
+}
+
+E_API Eina_Bool
+e_output_property_get(E_Output *output, unsigned int id, output_prop_value *value)
+{
+   tdm_value tvalue;
+   tdm_error ret;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(value, EINA_FALSE);
+
+   ret = tdm_output_get_property(output->toutput, id, &tvalue);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(ret != TDM_ERROR_NONE, EINA_FALSE);
+
+   memcpy(&value->ptr, &tvalue.ptr, sizeof(tdm_value));
+
+   return EINA_TRUE;
+}
+
+E_API Eina_Bool
+e_output_property_set(E_Output *output, unsigned int id, output_prop_value value)
+{
+   const char *name;
+   tdm_value tvalue;
+   tdm_error ret;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   name = _e_output_prop_name_get_by_id(output, id);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(name, EINA_FALSE);
+
+   memcpy(&tvalue.ptr, &value.ptr, sizeof(output_prop_value));
+
+   ret = tdm_output_set_property(output->toutput, id, tvalue);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(ret != TDM_ERROR_NONE, EINA_FALSE);
+
+   return EINA_TRUE;
+}
