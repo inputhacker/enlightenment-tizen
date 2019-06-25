@@ -59,6 +59,7 @@ typedef struct _E_Win_Info
    Ecore_Window parent_id;
    const char  *layer_name; // layer name
    Eina_Bool has_input_region;
+   Eina_Bool    transformed;
 } E_Win_Info;
 
 typedef struct output_mode_info
@@ -88,7 +89,7 @@ typedef struct _E_Fps_Info
    double fps;
 } E_Fps_Info;
 
-#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbbiiibbiiusb"
+#define VALUE_TYPE_FOR_TOPVWINS "uuisiiiiibbbiiibbiiusbb"
 #define VALUE_TYPE_REQUEST_RESLIST "ui"
 #define VALUE_TYPE_REPLY_RESLIST "ssi"
 #define VALUE_TYPE_FOR_INPUTDEV "ssi"
@@ -369,7 +370,7 @@ _e_get_windows(int mode, char *value)
 }
 
 static E_Win_Info *
-_e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int opaque, const char *name, int x, int y, int w, int h, int layer, int visible, int mapped, int visibility, int iconic, int frame_visible, int focused, int hwc, int pl_zpos, Ecore_Window parent_id, const char *layer_name, Eina_Bool has_input_region)
+_e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int opaque, const char *name, int x, int y, int w, int h, int layer, int visible, int mapped, int visibility, int iconic, int frame_visible, int focused, int hwc, int pl_zpos, Ecore_Window parent_id, const char *layer_name, Eina_Bool has_input_region, Eina_Bool transformed)
 {
    E_Win_Info *win = NULL;
 
@@ -398,6 +399,7 @@ _e_win_info_new(Ecore_Window id, uint32_t res_id, int pid, Eina_Bool alpha, int 
    win->parent_id = parent_id;
    win->layer_name = eina_stringshare_add(layer_name);
    win->has_input_region = has_input_region;
+   win->transformed = transformed;
 
    return win;
 }
@@ -427,7 +429,7 @@ _e_win_info_make_array(Eldbus_Message_Iter *array)
         const char *win_name;
         const char *layer_name;
         int x, y, w, h, layer, visibility, opaque, hwc, pl_zpos;
-        Eina_Bool visible, mapped, alpha, iconic, focused, frame_visible;
+        Eina_Bool visible, mapped, alpha, iconic, focused, frame_visible, transformed;
         Ecore_Window id, parent_id;
         uint32_t res_id;
         int pid;
@@ -456,14 +458,15 @@ _e_win_info_make_array(Eldbus_Message_Iter *array)
                                                 &pl_zpos,
                                                 &parent_id,
                                                 &layer_name,
-                                                &has_input_region);
+                                                &has_input_region,
+                                                &transformed);
         if (!res)
           {
              printf("Failed to get win info\n");
              continue;
           }
 
-        win = _e_win_info_new(id, res_id, pid, alpha, opaque, win_name, x, y, w, h, layer, visible, mapped, visibility, iconic, frame_visible, focused, hwc, pl_zpos, parent_id, layer_name, has_input_region);
+        win = _e_win_info_new(id, res_id, pid, alpha, opaque, win_name, x, y, w, h, layer, visible, mapped, visibility, iconic, frame_visible, focused, hwc, pl_zpos, parent_id, layer_name, has_input_region, transformed);
         e_info_client.win_list = eina_list_append(e_info_client.win_list, win);
      }
 }
@@ -1016,9 +1019,9 @@ _e_info_client_proc_ec_list_info(void)
      return;
 
    printf("\n\n%d Top level windows in EC list\n", eina_list_count(e_info_client.win_list));
-   printf("--------------------------------------[ topvwins ]----------------------------------------------------------------------------------\n");
-   printf(" No   Win_ID    RcsID    PID     w     h       x      y  Foc InReg Dep Opaq Vsbt Icon Vis Map  Frame  PL@ZPos  Parent     Title\n");
-   printf("------------------------------------------------------------------------------------------------------------------------------------\n");
+   printf("--------------------------------------------[ topvwins ]------------------------------------------------------------------------------\n");
+   printf(" No   Win_ID    RcsID    PID  T    w     h       x      y  Foc InReg Dep Opaq Vsbt Icon Vis Map  Frame  PL@ZPos  Parent     Title\n");
+   printf("--------------------------------------------------------------------------------------------------------------------------------------\n");
 
    if (!e_info_client.win_list)
      {
@@ -1034,7 +1037,7 @@ _e_info_client_proc_ec_list_info(void)
         if (win->layer != prev_layer)
           {
              if (prev_layer != -1)
-                printf("------------------------------------------------------------------------------------------------------------------------------------[%s]\n",
+                printf("--------------------------------------------------------------------------------------------------------------------------------------[%s]\n",
                        prev_layer_name ? prev_layer_name : " ");
              prev_layer = win->layer;
              prev_layer_name = win->layer_name;
@@ -1061,12 +1064,12 @@ _e_info_client_proc_ec_list_info(void)
              snprintf(tmp, sizeof(tmp), " - ");
           }
 
-        printf("%3d 0x%08zx  %5d  %5d  %5d %5d %6d %6d   %c    %c   %3d  %2d   ", i, win->id, win->res_id, win->pid, win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->has_input_region?'C':' ', win->alpha? 32:24, win->opaque);
+        printf("%3d 0x%08zx  %5d  %5d  %c %5d %5d %6d %6d   %c    %c   %3d  %2d   ", i, win->id, win->res_id, win->pid, win->transformed ? 'O':' ', win->w, win->h, win->x, win->y, win->focused ? 'O':' ', win->has_input_region?'C':' ', win->alpha? 32:24, win->opaque);
         printf("%2d    %d   %d   %s   %3d    %-8s %-8zx   %s\n", win->visibility, win->iconic, win->vis, win->mapped? "V":"N", win->frame_visible, tmp, win->parent_id, win->name?:"No Name");
      }
 
    if (prev_layer_name)
-      printf("------------------------------------------------------------------------------------------------------------------------------------[%s]\n",
+      printf("--------------------------------------------------------------------------------------------------------------------------------------[%s]\n",
              prev_layer_name ? prev_layer_name : " ");
 
    if(hwc_off)
