@@ -315,7 +315,13 @@ _e_tizen_dpms_manager_cb_set_dpms(struct wl_client *client, struct wl_resource *
    if (ret)
      INF("tizen_dpms_manager set dpms(res:%p, output:%p, dpms:%d, %d)", resource, dpms->e_output, mode, dpms->mode);
    else
-     ERR("tizen_dpms_manager set dpms fail(res:%p, output:%p, dpms=%d)", resource, dpms->e_output, mode);
+     {
+        ERR("tizen_dpms_manager set dpms fail(res:%p, output:%p, dpms=%d)", resource, dpms->e_output, mode);
+        ecore_timer_del(delay_timer);
+        delay_timer = NULL;
+        gresource = NULL;
+        tizen_dpms_manager_send_state(resource, dpms->mode, E_DPMS_MANAGER_ERROR_INVALID_PERMISSION);
+     }
 }
 
 static void
