@@ -3621,6 +3621,7 @@ _e_client_transform_core_check_change(E_Client *ec)
    if (ec->comp_data)
      {
         E_Comp_Wl_Client_Data *cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+        E_Util_Transform_Matrix parent_matrix;;
 
         if (cdata->sub.data)
           {
@@ -3634,7 +3635,17 @@ _e_client_transform_core_check_change(E_Client *ec)
                                                            &parent->transform_core.result.matrix))
                     {
                        check = EINA_TRUE;
-                       ec->transform_core.parent.matrix = parent->transform_core.result.matrix;
+                       parent_matrix = parent->transform_core.result.matrix;
+                       if (parent->base_output_resolution.use)
+                         {
+                            e_util_transform_matrix_scale(&parent_matrix,
+                                                          (double)parent->base_output_resolution.w / (double)parent->desk->geom.w,
+                                                          (double)parent->base_output_resolution.h / (double)parent->desk->geom.h,
+                                                          1.0);
+                            ELOGF("POL_APPINFO", "Subsurface TRANSFORM... Remove the scale matrix of the parent ec(%p).", ec, parent);
+                         }
+
+                         ec->transform_core.parent.matrix = parent_matrix;
                     }
                }
              else if (ec->transform_core.parent.enable)
