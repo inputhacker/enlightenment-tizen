@@ -283,6 +283,8 @@ _e_hwc_windows_target_window_rendered_windows_get(E_Hwc *hwc)
    EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, NULL);
 
    target_tsurface = target_hwc_window->hwc_window.buffer.tsurface;
+   if (!target_tsurface) return NULL;
+
    tbm_surface_internal_get_user_data(target_tsurface, EHWS_RENDERED_WINDOWS_KEY,
                             (void**)&rendered_windows);
 
