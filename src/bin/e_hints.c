@@ -281,10 +281,10 @@ e_hints_aux_hint_add_with_pixmap(E_Pixmap *cp, int32_t id, const char *name, con
                         e_pixmap_client_get(cp),
                         id, hint->hint, hint->val, val);
                   eina_stringshare_del(hint->val);
+
                   hint->val = eina_stringshare_add(val);
                   hint->changed = EINA_TRUE;
-                  if (hint->deleted)
-                    hint->deleted = EINA_FALSE;
+                  hint->deleted = EINA_FALSE;
                   cdata->aux_hint.changed = 1;
                }
              found = EINA_TRUE;
@@ -310,10 +310,7 @@ e_hints_aux_hint_add_with_pixmap(E_Pixmap *cp, int32_t id, const char *name, con
               id, hint->hint, hint->val);
      }
 
-   if (!found)
-     return EINA_TRUE;
-
-   return EINA_FALSE;
+   return EINA_TRUE;
 }
 
 E_API Eina_Bool
