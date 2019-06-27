@@ -177,7 +177,7 @@ EINTERN Eina_Bool            e_plane_setup(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_fetch(E_Plane *plane);
 EINTERN void                 e_plane_unfetch(E_Plane *plane);
 EINTERN E_Plane_Commit_Data *e_plane_commit_data_aquire(E_Plane *plane);
-EINTERN void                 e_plane_commit_data_release(E_Plane_Commit_Data *data);
+EINTERN void                 e_plane_commit_data_release(E_Plane *plane, E_Plane_Commit_Data *data);
 EINTERN void                 e_plane_hwc_trace_debug(Eina_Bool onoff);
 EINTERN Eina_Bool            e_plane_render(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_commit(E_Plane *plane);

@@ -1007,7 +1007,7 @@ _e_plane_pp_pending_data_remove(E_Plane *plane)
              else
                {
                   if (data->ec) e_pixmap_image_clear(data->ec->pixmap, 1);
-                  e_plane_commit_data_release(data);
+                  e_plane_commit_data_release(plane, data);
                }
           }
      }
@@ -1056,7 +1056,7 @@ _e_plane_pp_pending_data_treat(E_Plane *plane)
              if (!_e_plane_pp_commit(plane, data))
                {
                   ERR("fail _e_plane_pp_commit");
-                  e_plane_commit_data_release(data);
+                  e_plane_commit_data_release(plane, data);
                   return;
                }
           }
@@ -1325,7 +1325,7 @@ _e_plane_pp_commit_handler(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_surface_h
    else
      {
         if (data->ec) e_pixmap_image_clear(data->ec->pixmap, 1);
-        e_plane_commit_data_release(data);
+        e_plane_commit_data_release(plane, data);
      }
 
    /* if pp_set is false, skip the commit */
@@ -1449,7 +1449,7 @@ _e_plane_ex_commit_handler(tdm_layer *layer, unsigned int sequence,
    if (!plane->commit_per_vblank)
      plane->wait_commit = EINA_FALSE;
 
-   e_plane_commit_data_release(data);
+   e_plane_commit_data_release(plane, data);
 
    output = plane->output;
 
@@ -2118,7 +2118,7 @@ _e_plane_commit_hanler(tdm_layer *layer, unsigned int sequence,
    if (!plane->commit_per_vblank)
      plane->wait_commit = EINA_FALSE;
 
-   e_plane_commit_data_release(data);
+   e_plane_commit_data_release(plane, data);
 }
 
 static void
@@ -2191,7 +2191,7 @@ e_plane_offscreen_commit(E_Plane *plane)
            NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
            data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
-   e_plane_commit_data_release(data);
+   e_plane_commit_data_release(plane, data);
 
    /* send frame event enlightenment doesn't send frame event in nocomp */
    if (plane->ec)
@@ -2232,7 +2232,7 @@ e_plane_commit(E_Plane *plane)
    if (error != TDM_ERROR_NONE)
      {
         ERR("fail to tdm_layer_commit plane:%p, zpos:%d", plane, plane->zpos);
-        e_plane_commit_data_release(data);
+        e_plane_commit_data_release(plane, data);
         return EINA_FALSE;
      }
 
@@ -2331,17 +2331,19 @@ e_plane_commit_data_aquire(E_Plane *plane)
 }
 
 EINTERN void
-e_plane_commit_data_release(E_Plane_Commit_Data *data)
+e_plane_commit_data_release(E_Plane *plane, E_Plane_Commit_Data *data)
 {
-   E_Plane *plane = NULL;
    E_Plane_Renderer *renderer = NULL;
    tbm_surface_h tsurface = NULL;
    tbm_surface_h displaying_tsurface = NULL;
    E_Client *ec = NULL;
 
+   EINA_SAFETY_ON_NULL_RETURN(plane);
    EINA_SAFETY_ON_NULL_RETURN(data);
 
-   plane = data->plane;
+   if (!eina_list_data_find(plane->commit_data_list, data))
+     return;
+
    renderer = data->renderer;
    tsurface = data->tsurface;
    ec = data->ec;
@@ -3183,7 +3185,7 @@ e_plane_pp_commit(E_Plane *plane)
    if (!_e_plane_pp_commit(plane, data))
      {
         ERR("fail _e_plane_pp_commit");
-        e_plane_commit_data_release(data);
+        e_plane_commit_data_release(plane, data);
         return EINA_FALSE;
      }
 
@@ -3339,7 +3341,7 @@ e_plane_dpms_off(E_Plane *plane)
    _e_plane_pp_pending_data_remove(plane);
    EINA_LIST_FOREACH_SAFE(plane->pp_data_list, l, ll, data)
      {
-        e_plane_commit_data_release(data);
+        e_plane_commit_data_release(plane, data);
      }
    eina_list_free(plane->pp_data_list);
    plane->pp_data_list = NULL;
@@ -3362,7 +3364,7 @@ e_plane_dpms_off(E_Plane *plane)
 
    EINA_LIST_FOREACH_SAFE(plane->commit_data_list, l, ll, data)
      {
-        e_plane_commit_data_release(data);
+        e_plane_commit_data_release(plane, data);
      }
 }
 
@@ -3431,7 +3433,7 @@ e_plane_external_commit(E_Plane *plane)
                return EINA_TRUE;
           }
 
-        e_plane_commit_data_release(data);
+        e_plane_commit_data_release(plane, data);
         return EINA_FALSE;
      }
    else /* plane->ext_state == E_OUTPUT_EXT_MIRROR */
