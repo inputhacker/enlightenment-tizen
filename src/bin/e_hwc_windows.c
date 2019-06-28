@@ -2321,6 +2321,8 @@ e_hwc_windows_commit(E_Hwc *hwc)
         EHWSTRACE("!!!!!!!! HWC Commit !!!!!!!!", NULL);
         _e_hwc_windows_update_fps(hwc);
 
+        hwc->wait_commit = EINA_TRUE;
+
         error = tdm_hwc_commit(hwc->thwc, 0, _e_hwc_windows_commit_handler, hwc);
         if (error != TDM_ERROR_NONE)
           {
@@ -2328,13 +2330,13 @@ e_hwc_windows_commit(E_Hwc *hwc)
              _e_hwc_windows_commit_handler(hwc->thwc, 0, 0, 0, hwc);
              goto fail;
           }
-
-        hwc->wait_commit = EINA_TRUE;
      }
 
    return EINA_TRUE;
 
 fail:
+   hwc->wait_commit = EINA_FALSE;
+
    return EINA_FALSE;
 }
 

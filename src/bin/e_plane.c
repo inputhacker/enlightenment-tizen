@@ -2228,11 +2228,14 @@ e_plane_commit(E_Plane *plane)
            NULL, plane, plane->zpos, data->tsurface, plane->renderer ? plane->renderer->tqueue : NULL,
            data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
 
+   plane->wait_commit = EINA_TRUE;
+
    error = tdm_layer_commit(plane->tlayer, _e_plane_commit_hanler, data);
    if (error != TDM_ERROR_NONE)
      {
         ERR("fail to tdm_layer_commit plane:%p, zpos:%d", plane, plane->zpos);
         e_plane_commit_data_release(plane, data);
+        plane->wait_commit = EINA_FALSE;
         return EINA_FALSE;
      }
 
@@ -2242,6 +2245,7 @@ e_plane_commit(E_Plane *plane)
         if (error != TDM_ERROR_NONE)
           {
             ERR("fail to tdm_output_wait_vblank plane:%p, zpos:%d", plane, plane->zpos);
+            plane->wait_commit = EINA_FALSE;
             return EINA_FALSE;
           }
      }
@@ -2249,8 +2253,6 @@ e_plane_commit(E_Plane *plane)
    /* send frame event enlightenment dosen't send frame evnet in nocomp */
    if (plane->ec)
      e_pixmap_image_clear(plane->ec->pixmap, 1);
-
-   plane->wait_commit = EINA_TRUE;
 
    _e_plane_update_fps(plane);
 
