@@ -736,7 +736,6 @@ _e_policy_cb_hook_client_eval_pre_post_fetch(void *d EINA_UNUSED, E_Client *ec)
 
    e_policy_stack_hook_pre_post_fetch(ec);
    e_policy_wl_notification_level_fetch(ec);
-   e_policy_wl_eval_pre_post_fetch(ec);
 }
 
 static void

@@ -55,7 +55,6 @@ void      e_policy_wl_win_scrmode_apply(void);
 /* aux_hint */
 void      e_policy_wl_aux_hint_init(void);
 void      e_policy_wl_aux_message_send(E_Client *ec, const char *key, const char *val, Eina_List *options);
-void      e_policy_wl_eval_pre_post_fetch(E_Client *ec);
 
 /* window brightness */
 Eina_Bool e_policy_wl_win_brightness_apply(E_Client *ec);

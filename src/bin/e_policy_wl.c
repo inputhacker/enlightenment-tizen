@@ -2365,31 +2365,15 @@ _tzpol_iface_cb_uniconify(struct wl_client *client EINA_UNUSED, struct wl_resour
 }
 
 static void
-_e_policy_wl_allowed_aux_hint_send(E_Client *ec, int id)
+_e_policy_wl_allowed_aux_hint_send(struct wl_resource *res_tzpol, struct wl_resource *surf, int32_t id)
 {
-   E_Policy_Wl_Tzpol *tzpol;
-   E_Policy_Wl_Surface *psurf;
-   Eina_List *l;
-   Eina_Iterator *it;
+   E_Client *ec;
 
-   it = eina_hash_iterator_data_new(polwl->tzpols);
-   EINA_ITERATOR_FOREACH(it, tzpol)
-     EINA_LIST_FOREACH(tzpol->psurfs, l, psurf)
-       {
-          if (e_pixmap_client_get(psurf->cp) != ec) continue;
-          if (!psurf->surf) continue;
+   ec = wl_resource_get_user_data(surf);
+   EINA_SAFETY_ON_NULL_RETURN(ec);
 
-          tizen_policy_send_allowed_aux_hint
-            (tzpol->res_tzpol,
-             psurf->surf,
-             id);
-          ELOGF("TZPOL",
-                "SEND     |res_tzpol:%8p|allowed hint->id:%d",
-                ec,
-                tzpol->res_tzpol,
-                id);
-       }
-   eina_iterator_free(it);
+   ELOGF("TZPOL", "SEND     |res_tzpol:%8p|id:%d, hint allowed ", ec, res_tzpol, id);
+   tizen_policy_send_allowed_aux_hint(res_tzpol, surf, id);
 }
 
 static void
@@ -2397,7 +2381,6 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
 {
    E_Comp_Wl_Aux_Hint *hint;
    Eina_List *l;
-   Eina_Bool send;
 
    if (!ec->comp_data) return;
    if (!ec->comp_data->aux_hint.changed) return;
@@ -2405,8 +2388,8 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
    EINA_LIST_FOREACH(ec->comp_data->aux_hint.hints, l, hint)
      {
         if (!hint->changed) continue;
+        EC_CHANGED(ec);
 
-        send = EINA_FALSE;
         if (!strcmp(hint->hint, hint_names[E_POLICY_HINT_USER_GEOMETRY]))
           {
              if (hint->deleted)
@@ -2417,12 +2400,10 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
 
              if (!strcmp(hint->val, "1"))
                {
-                  send = EINA_TRUE;
                   e_policy_allow_user_geometry_set(ec, EINA_TRUE);
                }
              else if (strcmp(hint->val, "1"))
                {
-                  send = EINA_TRUE;
                   e_policy_allow_user_geometry_set(ec, EINA_FALSE);
                }
           }
@@ -2567,18 +2548,7 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
              else
                ec->exp_iconify.buffer_flush = EINA_FALSE;
           }
-
-        if (send)
-          _e_policy_wl_allowed_aux_hint_send(ec, hint->id);
      }
-}
-
-void
-e_policy_wl_eval_pre_post_fetch(E_Client *ec)
-{
-   if (!ec) return;
-
-   _e_policy_wl_aux_hint_apply(ec);
 }
 
 static void
@@ -2586,7 +2556,6 @@ _tzpol_iface_cb_aux_hint_add(struct wl_client *client EINA_UNUSED, struct wl_res
 {
    E_Client *ec;
    Eina_Bool res = EINA_FALSE;
-
 
    ec = wl_resource_get_user_data(surf);
    EINA_SAFETY_ON_NULL_RETURN(ec);
@@ -2598,8 +2567,7 @@ _tzpol_iface_cb_aux_hint_add(struct wl_client *client EINA_UNUSED, struct wl_res
    if (res)
      {
         _e_policy_wl_aux_hint_apply(ec);
-        tizen_policy_send_allowed_aux_hint(res_tzpol, surf, id);
-        EC_CHANGED(ec);
+        _e_policy_wl_allowed_aux_hint_send(res_tzpol, surf, id);
      }
 }
 
@@ -2619,8 +2587,7 @@ _tzpol_iface_cb_aux_hint_change(struct wl_client *client EINA_UNUSED, struct wl_
    if (res)
      {
         _e_policy_wl_aux_hint_apply(ec);
-        tizen_policy_send_allowed_aux_hint(res_tzpol, surf, id);
-        EC_CHANGED(ec);
+        _e_policy_wl_allowed_aux_hint_send(res_tzpol, surf, id);
      }
 }
 
@@ -2639,7 +2606,7 @@ _tzpol_iface_cb_aux_hint_del(struct wl_client *client EINA_UNUSED, struct wl_res
    if (res)
      {
         _e_policy_wl_aux_hint_apply(ec);
-        EC_CHANGED(ec);
+        _e_policy_wl_allowed_aux_hint_send(res_tzpol, surf, id);
      }
 }
 
@@ -7166,8 +7133,6 @@ _e_policy_wl_cb_hook_shell_surface_ready(void *d, E_Client *ec)
 {
    if (EINA_UNLIKELY(!ec))
      return;
-
-   _e_policy_wl_aux_hint_apply(ec);
 
    e_policy_client_maximize(ec);
 
