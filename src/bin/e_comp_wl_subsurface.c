@@ -944,6 +944,10 @@ e_comp_wl_subsurface_create(E_Client *ec, E_Client *epc, uint32_t id, struct wl_
    e_comp->new_clients++;
    e_client_unignore(ec);
 
+   /* Delete 'below_obj' if it was created before 'E_Client' becomes subsurface.
+    * It's not for subsurface. */
+   E_FREE_FUNC(ec->comp_data->sub.below_obj, evas_object_del);
+
    e_comp_wl_hook_call(E_COMP_WL_HOOK_SUBSURFACE_CREATE, ec);
    return EINA_TRUE;
 
