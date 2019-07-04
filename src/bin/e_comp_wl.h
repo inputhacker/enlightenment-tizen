@@ -1,4 +1,5 @@
 #ifdef E_TYPEDEFS
+typedef struct _E_Comp_Wl_Hook E_Comp_Wl_Hook;
 #else
 # ifndef E_COMP_WL_H
 #  define E_COMP_WL_H
@@ -44,7 +45,6 @@ typedef struct _E_Comp_Wl_Surface_State E_Comp_Wl_Surface_State;
 typedef struct _E_Comp_Wl_Client_Data E_Comp_Wl_Client_Data;
 typedef struct _E_Comp_Wl_Data E_Comp_Wl_Data;
 typedef struct _E_Comp_Wl_Output E_Comp_Wl_Output;
-typedef struct _E_Comp_Wl_Hook E_Comp_Wl_Hook;
 typedef struct _E_Comp_Wl_Intercept_Hook E_Comp_Wl_Intercept_Hook;
 
 

@@ -984,6 +984,7 @@ struct E_Client
       int          w;
       int          h;
       E_Util_Transform *transform;
+      E_Comp_Wl_Hook *hook_subsurf_create;
    } base_output_resolution;
 };
 

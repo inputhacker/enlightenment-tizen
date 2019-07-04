@@ -1223,6 +1223,7 @@ _e_client_del(E_Client *ec)
    e_client_transform_core_remove(ec, ec->base_output_resolution.transform);
    e_util_transform_del(ec->base_output_resolution.transform);
    ec->base_output_resolution.transform = NULL;
+   E_FREE_FUNC(ec->base_output_resolution.hook_subsurf_create, e_comp_wl_hook_del);
 
    if (ec->transform_core.transform_list)
      {
@@ -3543,18 +3544,6 @@ _e_client_transform_core_check_change(E_Client *ec)
    int h = 0;
    Eina_Bool check = EINA_FALSE;
    if (!ec) return EINA_FALSE;
-
-   // wait viewport setting
-   if (!ec->transform_core.transform_list)
-     {
-        if (ec->comp_data && ec->comp_data->scaler.viewport)
-          {
-             if (!ec->comp_data->sub.below_list && !ec->comp_data->sub.below_list_pending)
-               {
-                  return EINA_FALSE;
-               }
-          }
-     }
 
    if (ec->frame)
      evas_object_geometry_get(ec->frame, 0, 0, &w, &h);
@@ -7321,6 +7310,35 @@ e_client_image_save(E_Client *ec, const char *dir, const char *name, E_Capture_C
 }
 
 static void
+_e_client_base_output_resolution_hook_subsurf_create(void *data, E_Client *ec)
+{
+   E_Client *parent;
+
+   if (!ec->base_output_resolution.hook_subsurf_create)
+     return;
+
+   ec->base_output_resolution.use = 0;
+   ec->base_output_resolution.w = 0;
+   ec->base_output_resolution.h = 0;
+   e_client_transform_core_remove(ec, ec->base_output_resolution.transform);
+   E_FREE_FUNC(ec->base_output_resolution.transform, e_util_transform_del);
+   E_FREE_FUNC(ec->base_output_resolution.hook_subsurf_create, e_comp_wl_hook_del);
+
+   ELOGF("POL_APPINFO", "Cancel TRANSFORM for subsurface", ec);
+
+   /* Update transform for toplevel surface.
+    * The transform of subsurface will be updated by its parent accordingly. */
+   parent = e_comp_wl_topmost_parent_get(ec);
+   if (parent)
+     {
+        parent->transform_core.changed = EINA_TRUE;
+        e_client_transform_core_update(parent);
+     }
+
+   /* TODO: Do we need to apply it again if subsurface is destroyed? */
+}
+
+static void
 _e_client_base_output_resolution_set(E_Client *ec, int width, int height)
 {
    if (!ec) return;
@@ -7329,6 +7347,14 @@ _e_client_base_output_resolution_set(E_Client *ec, int width, int height)
    ec->base_output_resolution.h = height;
    ec->base_output_resolution.transform = e_util_transform_new();
    e_client_transform_core_add(ec, ec->base_output_resolution.transform);
+
+   if (!ec->base_output_resolution.hook_subsurf_create)
+     {
+        ec->base_output_resolution.hook_subsurf_create =
+           e_comp_wl_hook_add(E_COMP_WL_HOOK_SUBSURFACE_CREATE,
+                              _e_client_base_output_resolution_hook_subsurf_create,
+                              NULL);
+     }
 }
 
 E_API void
@@ -7358,6 +7384,13 @@ e_client_base_output_resolution_update(E_Client *ec)
 
   if (!e_config->configured_output_resolution.use) return EINA_TRUE;
   if (ec->base_output_resolution.use) return EINA_TRUE;
+
+  /* Check whether it's subsurface or not
+   * The resolution of subsurface will follow the resolution of its toplevel surface.
+   * Transform for subsurface will be applied when toplevel surface does by
+   * implementation of e_client_transform_core.
+   */
+  if (ec->comp_data->sub.data) return EINA_FALSE;
 
   configured_width = e_config->configured_output_resolution.w;
   configured_height = e_config->configured_output_resolution.h;
