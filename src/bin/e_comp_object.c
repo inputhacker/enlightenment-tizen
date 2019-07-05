@@ -1983,7 +1983,8 @@ _e_comp_intercept_lower(void *data, Evas_Object *obj)
    _e_comp_object_transform_obj_stack_update(obj);
 
 end:
-   e_client_focus_stack_lower(cw->ec);
+   if (!cw->ec->post_lower)
+     e_client_focus_stack_lower(cw->ec);
    TRACE_DS_END();
 }
 

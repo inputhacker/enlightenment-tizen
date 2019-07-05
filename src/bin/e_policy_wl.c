@@ -1743,13 +1743,13 @@ _tzpol_iface_cb_lower(struct wl_client *client EINA_UNUSED, struct wl_resource *
    if (e_policy_visibility_client_lower(ec))
      return;
 
-   evas_object_lower(ec->frame);
-
    if ((ec->comp_data) && (!ec->comp_data->mapped))
      {
         ELOGF("TZPOL", "POST_RAISE_LOWER SET... raise:%d, lower:%d", ec, EINA_FALSE, EINA_TRUE);
         e_client_post_raise_lower_set(ec, EINA_FALSE, EINA_TRUE);
      }
+
+   evas_object_lower(ec->frame);
 
    if (ec->focused)
      e_client_revert_focus(ec);
