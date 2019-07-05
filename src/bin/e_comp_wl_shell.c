@@ -763,9 +763,15 @@ _e_shell_client_map_common_post(E_Client *ec)
         if (!ec->comp_data->sub.data)
           {
              if (ec->post_lower)
-               evas_object_lower(ec->frame);
+               {
+                  ELOGF("SHELL", "lower called by post lower flag", ec);
+                  evas_object_lower(ec->frame);
+               }
              else if (ec->post_raise)
-               evas_object_raise(ec->frame);
+               {
+                  ELOGF("SHELL", "raise called by post raise flag", ec);
+                  evas_object_raise(ec->frame);
+               }
 
              ec->post_lower = EINA_FALSE;
              ec->post_raise = EINA_FALSE;
