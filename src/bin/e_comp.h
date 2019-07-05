@@ -54,6 +54,9 @@ extern E_API int E_EVENT_COMPOSITOR_DISABLE;
 extern E_API int E_EVENT_COMPOSITOR_ENABLE;
 extern E_API int E_EVENT_COMPOSITOR_FPS_UPDATE;
 
+extern E_API E_Comp *e_comp;
+extern E_API E_Comp_Wl_Data *e_comp_wl;
+
 typedef void (*E_Comp_Cb)(void);
 
 typedef struct _E_Comp_Hook E_Comp_Hook;
@@ -63,6 +66,13 @@ typedef enum _E_Comp_Hook_Point
    E_COMP_HOOK_PREPARE_PLANE,
    E_COMP_HOOK_LAST
 } E_Comp_Hook_Point;
+
+typedef enum
+{
+   E_COMP_ENGINE_NONE = 0,
+   E_COMP_ENGINE_SW = 1,
+   E_COMP_ENGINE_GL = 2
+} E_Comp_Engine;
 
 typedef void (*E_Comp_Hook_Cb)(void *data, E_Comp *c);
 
@@ -183,53 +193,64 @@ struct _E_Comp_Connected_Client_Info
    int gid;
 };
 
-typedef enum
-{
-   E_COMP_ENGINE_NONE = 0,
-   E_COMP_ENGINE_SW = 1,
-   E_COMP_ENGINE_GL = 2
-} E_Comp_Engine;
+EINTERN Eina_Bool     e_comp_init(void);
+EINTERN int           e_comp_shutdown(void);
 
-extern E_API E_Comp *e_comp;
-extern E_API E_Comp_Wl_Data *e_comp_wl;
+EINTERN E_Comp       *e_comp_new(void);
+EINTERN int           e_comp_internal_save(void);
+EINTERN void          e_comp_deferred_job(void);
+EINTERN void          e_comp_client_post_update_add(E_Client *ec);
+EINTERN void          e_comp_shadows_reset(void);
+EINTERN Ecore_Window  e_comp_top_window_at_xy_get(Evas_Coord x, Evas_Coord y);
+EINTERN void          e_comp_util_wins_print(void);
+EINTERN void          e_comp_ignore_win_add(E_Pixmap_Type type, Ecore_Window win);
+EINTERN void          e_comp_ignore_win_del(E_Pixmap_Type type, Ecore_Window win);
+EINTERN Eina_Bool     e_comp_ignore_win_find(Ecore_Window win);
+EINTERN E_Comp       *e_comp_find_by_window(Ecore_Window win);
+EINTERN void          e_comp_override_timed_pop(void);
+EINTERN unsigned int  e_comp_e_object_layer_get(const E_Object *obj);
+EINTERN void          e_comp_gl_set(Eina_Bool set);
+EINTERN Eina_Bool     e_comp_gl_get(void);
 
-EINTERN Eina_Bool e_comp_init(void);
-EINTERN E_Comp   *e_comp_new(void);
-EINTERN int e_comp_internal_save(void);
-EINTERN int e_comp_shutdown(void);
-EINTERN void e_comp_deferred_job(void);
-E_API void e_comp_render_queue(void);
-EINTERN void e_comp_client_post_update_add(E_Client *ec);
-E_API E_Comp_Config *e_comp_config_get(void);
-EINTERN void e_comp_shadows_reset(void);
-EINTERN Ecore_Window e_comp_top_window_at_xy_get(Evas_Coord x, Evas_Coord y);
-EINTERN void e_comp_util_wins_print(void);
-EINTERN void e_comp_ignore_win_add(E_Pixmap_Type type, Ecore_Window win);
-EINTERN void e_comp_ignore_win_del(E_Pixmap_Type type, Ecore_Window win);
-EINTERN Eina_Bool e_comp_ignore_win_find(Ecore_Window win);
-E_API void e_comp_override_del(void);
-E_API void e_comp_override_add(void);
-EINTERN E_Comp *e_comp_find_by_window(Ecore_Window win);
-EINTERN void e_comp_override_timed_pop(void);
-EINTERN unsigned int e_comp_e_object_layer_get(const E_Object *obj);
-E_API void e_comp_layer_name_get(unsigned int layer, char *buff, int buff_size);
-E_API Eina_Bool e_comp_grab_input(Eina_Bool mouse, Eina_Bool kbd);
-E_API void e_comp_ungrab_input(Eina_Bool mouse, Eina_Bool kbd);
-EINTERN void e_comp_gl_set(Eina_Bool set);
-EINTERN Eina_Bool e_comp_gl_get(void);
+EINTERN void          e_comp_button_bindings_grab_all(void);
+EINTERN void          e_comp_button_bindings_ungrab_all(void);
+EINTERN void          e_comp_client_redirect_toggle(E_Client *ec);
+EINTERN Eina_Bool     e_comp_util_object_is_above_nocomp(Evas_Object *obj);
 
-EINTERN void e_comp_button_bindings_grab_all(void);
-EINTERN void e_comp_button_bindings_ungrab_all(void);
-EINTERN void e_comp_client_redirect_toggle(E_Client *ec);
-EINTERN Eina_Bool e_comp_util_object_is_above_nocomp(Evas_Object *obj);
+EINTERN Eina_Bool     e_comp_util_kbd_grabbed(void);
+EINTERN Eina_Bool     e_comp_util_mouse_grabbed(void);
 
-EINTERN Eina_Bool e_comp_util_kbd_grabbed(void);
-EINTERN Eina_Bool e_comp_util_mouse_grabbed(void);
+EINTERN void          e_comp_client_render_list_add(E_Client *ec);
 
-E_API void e_comp_client_override_del(E_Client *ec);
-E_API void e_comp_client_override_add(E_Client *ec);
+EINTERN void          e_comp_post_update_add(E_Client *ec);
+EINTERN void          e_comp_post_update_purge(E_Client *ec);
 
-EINTERN void e_comp_client_render_list_add(E_Client *ec);
+EINTERN Eina_Bool     e_comp_is_on_overlay(E_Client *ec);
+EINTERN E_Zone       *e_comp_zone_find(const char *output_id);
+
+EINTERN Eina_Bool     e_comp_socket_init(const char *name);
+
+EINTERN void          e_comp_hwc_deactive_set(Eina_Bool set);
+EINTERN Eina_Bool     e_comp_hwc_deactive_get(void);
+EINTERN void          e_comp_hwc_multi_plane_set(Eina_Bool set);
+EINTERN Eina_Bool     e_comp_hwc_multi_plane_get(void);
+EINTERN void          e_comp_hwc_client_end(E_Client *ec, const char *location);
+EINTERN void          e_comp_hwc_end(const char *location);
+
+EINTERN void          e_comp_hook_call(E_Comp_Hook_Point hookpoint, void *data EINA_UNUSED);
+
+E_API E_Comp_Hook    *e_comp_hook_add(E_Comp_Hook_Point hookpoint, E_Comp_Hook_Cb func, const void *data);
+E_API void            e_comp_hook_del(E_Comp_Hook *ph);
+E_API E_Comp_Config  *e_comp_config_get(void);
+E_API void            e_comp_render_queue(void);
+E_API void            e_comp_override_add(void);
+E_API void            e_comp_override_del(void);
+E_API void            e_comp_layer_name_get(unsigned int layer, char *buff, int buff_size);
+E_API Eina_Bool       e_comp_grab_input(Eina_Bool mouse, Eina_Bool kbd);
+E_API void            e_comp_ungrab_input(Eina_Bool mouse, Eina_Bool kbd);
+E_API void            e_comp_client_override_add(E_Client *ec);
+E_API void            e_comp_client_override_del(E_Client *ec);
+E_API Eina_List      *e_comp_vis_ec_list_get(E_Zone *zone); // visible ec list sorted by z order
 
 static inline Eina_Bool
 e_comp_util_client_is_fullscreen(const E_Client *ec)
@@ -242,26 +263,6 @@ e_comp_util_client_is_fullscreen(const E_Client *ec)
        (!ec->argb) && (!ec->shaped)
        );
 }
-
-EINTERN void e_comp_post_update_add(E_Client *ec);
-EINTERN void e_comp_post_update_purge(E_Client *ec);
-
-E_API E_Comp_Hook *e_comp_hook_add(E_Comp_Hook_Point hookpoint, E_Comp_Hook_Cb func, const void *data);
-E_API void e_comp_hook_del(E_Comp_Hook *ph);
-EINTERN void e_comp_hook_call(E_Comp_Hook_Point hookpoint, void *data EINA_UNUSED);
-
-EINTERN Eina_Bool e_comp_is_on_overlay(E_Client *ec);
-EINTERN E_Zone *e_comp_zone_find(const char *output_id);
-E_API Eina_List *e_comp_vis_ec_list_get(E_Zone *zone); // visible ec list sorted by z order
-
-EINTERN Eina_Bool e_comp_socket_init(const char *name);
-
-EINTERN void      e_comp_hwc_deactive_set(Eina_Bool set);
-EINTERN Eina_Bool e_comp_hwc_deactive_get(void);
-EINTERN void      e_comp_hwc_multi_plane_set(Eina_Bool set);
-EINTERN Eina_Bool e_comp_hwc_multi_plane_get(void);
-EINTERN void      e_comp_hwc_client_end(E_Client *ec, const char *location);
-EINTERN void      e_comp_hwc_end(const char *location);
 
 #endif
 #endif
