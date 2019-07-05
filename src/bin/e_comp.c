@@ -1411,3 +1411,15 @@ e_comp_hwc_client_end(E_Client *ec, const char *location)
         e_hwc_window_client_type_override(hwc_window);
      }
 }
+
+EINTERN Eina_Bool
+e_comp_util_client_is_fullscreen(const E_Client *ec)
+{
+   if ((!ec->visible) || (ec->input_only))
+     return EINA_FALSE;
+   return ((ec->client.x == 0) && (ec->client.y == 0) &&
+       ((ec->client.w) >= e_comp->w) &&
+       ((ec->client.h) >= e_comp->h) &&
+       (!ec->argb) && (!ec->shaped)
+       );
+}

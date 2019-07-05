@@ -237,6 +237,8 @@ EINTERN Eina_Bool     e_comp_hwc_multi_plane_get(void);
 EINTERN void          e_comp_hwc_client_end(E_Client *ec, const char *location);
 EINTERN void          e_comp_hwc_end(const char *location);
 
+EINTERN Eina_Bool     e_comp_util_client_is_fullscreen(const E_Client *ec);
+
 EINTERN void          e_comp_hook_call(E_Comp_Hook_Point hookpoint, void *data EINA_UNUSED);
 
 E_API E_Comp_Hook    *e_comp_hook_add(E_Comp_Hook_Point hookpoint, E_Comp_Hook_Cb func, const void *data);
@@ -251,18 +253,6 @@ E_API void            e_comp_ungrab_input(Eina_Bool mouse, Eina_Bool kbd);
 E_API void            e_comp_client_override_add(E_Client *ec);
 E_API void            e_comp_client_override_del(E_Client *ec);
 E_API Eina_List      *e_comp_vis_ec_list_get(E_Zone *zone); // visible ec list sorted by z order
-
-static inline Eina_Bool
-e_comp_util_client_is_fullscreen(const E_Client *ec)
-{
-   if ((!ec->visible) || (ec->input_only))
-     return EINA_FALSE;
-   return ((ec->client.x == 0) && (ec->client.y == 0) &&
-       ((ec->client.w) >= e_comp->w) &&
-       ((ec->client.h) >= e_comp->h) &&
-       (!ec->argb) && (!ec->shaped)
-       );
-}
 
 #endif
 #endif
