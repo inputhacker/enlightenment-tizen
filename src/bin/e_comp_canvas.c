@@ -118,7 +118,7 @@ _e_comp_cb_compositor_enabled()
    return ECORE_CALLBACK_PASS_ON;
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_comp_canvas_init(int w, int h)
 {
    Evas_Object *o;
@@ -213,7 +213,7 @@ e_comp_canvas_clear(void)
 
 //////////////////////////////////////////////
 
-E_API void
+EINTERN void
 e_comp_all_freeze(void)
 {
    if (_ev_freeze) return;
@@ -221,7 +221,7 @@ e_comp_all_freeze(void)
    _ev_freeze = EINA_TRUE;
 }
 
-E_API void
+EINTERN void
 e_comp_all_thaw(void)
 {
    if (!_ev_freeze) return;
@@ -240,7 +240,7 @@ e_comp_zone_xy_get(Evas_Coord x, Evas_Coord y)
    return NULL;
 }
 
-E_API E_Zone *
+EINTERN E_Zone *
 e_comp_zone_number_get(int num)
 {
    Eina_List *l = NULL;
@@ -253,7 +253,7 @@ e_comp_zone_number_get(int num)
    return NULL;
 }
 
-E_API E_Zone *
+EINTERN E_Zone *
 e_comp_zone_id_get(int id)
 {
    Eina_List *l = NULL;
@@ -266,7 +266,7 @@ e_comp_zone_id_get(int id)
    return NULL;
 }
 
-E_API E_Desk *
+EINTERN E_Desk *
 e_comp_desk_window_profile_get(const char *profile)
 {
    Eina_List *l = NULL;
@@ -295,7 +295,7 @@ e_comp_desk_window_profile_get(const char *profile)
    return NULL;
 }
 
-E_API void
+EINTERN void
 e_comp_canvas_zone_update(E_Zone *zone)
 {
    Evas_Object *o;
@@ -346,7 +346,7 @@ e_comp_canvas_zone_update(E_Zone *zone)
    evas_object_show(o);
 }
 
-E_API void
+EINTERN void
 e_comp_canvas_update(void)
 {
    Eina_List *l, *screens, *zones = NULL, *ll;
@@ -479,7 +479,7 @@ e_comp_canvas_update(void)
      }
 }
 
-E_API void
+EINTERN void
 e_comp_canvas_fake_layers_init(void)
 {
    unsigned int layer;
@@ -495,7 +495,7 @@ e_comp_canvas_fake_layers_init(void)
      }
 }
 
-E_API void
+EINTERN void
 e_comp_canvas_fps_toggle(void)
 {
    E_Comp_Config *conf = e_comp_config_get();
@@ -505,7 +505,7 @@ e_comp_canvas_fps_toggle(void)
    e_comp_render_queue();
 }
 
-E_API E_Layer
+EINTERN E_Layer
 e_comp_canvas_layer_map_to(unsigned int layer)
 {
    switch (layer)
@@ -619,7 +619,7 @@ e_comp_canvas_client_layer_map(E_Layer layer)
    return 9999;
 }
 
-E_API E_Layer
+EINTERN E_Layer
 e_comp_canvas_client_layer_map_nearest(int layer)
 {
 #define LAYER_MAP(X) \
@@ -678,19 +678,19 @@ e_comp_post_update_purge(E_Client *ec)
      }
 }
 
-E_API void
+EINTERN void
 e_comp_canvas_keys_grab(void)
 {
    ;
 }
 
-E_API void
+EINTERN void
 e_comp_canvas_keys_ungrab(void)
 {
    ;
 }
 
-E_API void
+EINTERN void
 e_comp_canvas_feed_mouse_up(unsigned int activate_time)
 {
    int button_mask, i;
@@ -728,7 +728,7 @@ e_comp_canvas_norender_pop(void)
      ecore_evas_manual_render_set(e_comp->ee, EINA_FALSE);
 }
 
-E_API int
+EINTERN int
 e_comp_canvas_norender_get(void)
 {
    return e_comp->norender;
