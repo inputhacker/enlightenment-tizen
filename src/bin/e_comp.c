@@ -479,7 +479,7 @@ e_comp_init(void)
    return EINA_TRUE;
 }
 
-E_API E_Comp *
+EINTERN E_Comp *
 e_comp_new(void)
 {
    if (e_comp)
@@ -493,7 +493,7 @@ e_comp_new(void)
    return e_comp;
 }
 
-E_API int
+EINTERN int
 e_comp_internal_save(void)
 {
    return e_config_domain_save("e_comp", conf_edd, conf);
@@ -533,7 +533,7 @@ e_comp_shutdown(void)
    return 1;
 }
 
-E_API void
+EINTERN void
 e_comp_deferred_job(void)
 {
    /* Bg update */
@@ -568,7 +568,7 @@ e_comp_render_queue(void)
      }
 }
 
-E_API void
+EINTERN void
 e_comp_client_post_update_add(E_Client *ec)
 {
    if (ec->on_post_updates) return;
@@ -578,7 +578,7 @@ e_comp_client_post_update_add(E_Client *ec)
    e_object_ref(E_OBJECT(ec));
 }
 
-E_API void
+EINTERN void
 e_comp_client_render_list_add(E_Client *ec)
 {
    if (ec->on_render_list) return;
@@ -594,7 +594,7 @@ e_comp_config_get(void)
    return conf;
 }
 
-E_API void
+EINTERN void
 e_comp_shadows_reset(void)
 {
    E_Client *ec;
@@ -605,7 +605,7 @@ e_comp_shadows_reset(void)
      e_comp_object_frame_theme_set(ec->frame, E_COMP_OBJECT_FRAME_RESHADOW);
 }
 
-E_API Ecore_Window
+EINTERN Ecore_Window
 e_comp_top_window_at_xy_get(Evas_Coord x, Evas_Coord y)
 {
    E_Client *ec;
@@ -619,7 +619,7 @@ e_comp_top_window_at_xy_get(Evas_Coord x, Evas_Coord y)
    return e_comp->ee_win;
 }
 
-E_API void
+EINTERN void
 e_comp_util_wins_print(void)
 {
    Evas_Object *o;
@@ -644,7 +644,7 @@ e_comp_util_wins_print(void)
    fputc('\n', stderr);
 }
 
-E_API void
+EINTERN void
 e_comp_ignore_win_add(E_Pixmap_Type type, Ecore_Window win)
 {
    E_Client *ec;
@@ -656,7 +656,7 @@ e_comp_ignore_win_add(E_Pixmap_Type type, Ecore_Window win)
    if (ec->visible) evas_object_hide(ec->frame);
 }
 
-E_API void
+EINTERN void
 e_comp_ignore_win_del(E_Pixmap_Type type, Ecore_Window win)
 {
    E_Client *ec;
@@ -668,7 +668,7 @@ e_comp_ignore_win_del(E_Pixmap_Type type, Ecore_Window win)
    if (ec->visible) evas_object_show(ec->frame);
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_comp_ignore_win_find(Ecore_Window win)
 {
    return !!eina_hash_find(ignores, &win);
@@ -719,14 +719,14 @@ e_comp_client_override_add(E_Client *ec)
      e_comp_hwc_client_end(ec, __FUNCTION__);
 }
 
-E_API E_Comp *
+EINTERN E_Comp *
 e_comp_find_by_window(Ecore_Window win)
 {
    if ((e_comp->win == win) || (e_comp->ee_win == win) || (e_comp->root == win)) return e_comp;
    return NULL;
 }
 
-E_API void
+EINTERN void
 e_comp_override_timed_pop(void)
 {
    if (e_comp->nocomp_override <= 0) return;
@@ -736,7 +736,7 @@ e_comp_override_timed_pop(void)
      e_comp->nocomp_override_timer = ecore_timer_add(1.0, _e_comp_override_expire, NULL);
 }
 
-E_API unsigned int
+EINTERN unsigned int
 e_comp_e_object_layer_get(const E_Object *obj)
 {
    E_Client *ec = NULL;
@@ -854,45 +854,45 @@ e_comp_ungrab_input(Eina_Bool mouse, Eina_Bool kbd)
      e_client_refocus();
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_comp_util_kbd_grabbed(void)
 {
    return e_client_action_get() || e_grabinput_key_win_get();
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_comp_util_mouse_grabbed(void)
 {
    return e_client_action_get() || e_grabinput_mouse_win_get();
 }
 
-E_API void
+EINTERN void
 e_comp_gl_set(Eina_Bool set)
 {
    gl_avail = !!set;
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_comp_gl_get(void)
 {
    return gl_avail;
 }
 
-E_API void
+EINTERN void
 e_comp_button_bindings_ungrab_all(void)
 {
    if (e_comp->bindings_ungrab_cb)
      e_comp->bindings_ungrab_cb();
 }
 
-E_API void
+EINTERN void
 e_comp_button_bindings_grab_all(void)
 {
    if (e_comp->bindings_grab_cb)
      e_comp->bindings_grab_cb();
 }
 
-E_API void
+EINTERN void
 e_comp_client_redirect_toggle(E_Client *ec)
 {
    EINA_SAFETY_ON_NULL_RETURN(ec);
@@ -903,7 +903,7 @@ e_comp_client_redirect_toggle(E_Client *ec)
    ec->no_shape_cut = !ec->redirected;
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_comp_util_object_is_above_nocomp(Evas_Object *obj)
 {
    Evas_Object *o;
@@ -1161,7 +1161,7 @@ e_getgrnam_r(const char *name)
    return ret;
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_comp_socket_init(const char *name)
 {
    char *dir = NULL;
@@ -1366,7 +1366,7 @@ e_comp_hwc_multi_plane_get(void)
 }
 
 /* end the hwc policy at the primary output */
-E_API void
+EINTERN void
 e_comp_hwc_end(const char *location)
 {
    E_Output *output = NULL;

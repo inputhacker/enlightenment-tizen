@@ -646,7 +646,7 @@ e_comp_canvas_client_layer_map_nearest(int layer)
    return E_LAYER_CLIENT_CURSOR;
 }
 
-E_API void
+EINTERN void
 e_comp_post_update_add(E_Client *ec)
 {
    E_Client *ec2;
@@ -660,7 +660,7 @@ e_comp_post_update_add(E_Client *ec)
    e_object_ref(E_OBJECT(ec));
 }
 
-E_API void
+EINTERN void
 e_comp_post_update_purge(E_Client *ec)
 {
    Eina_List *l, *ll;
