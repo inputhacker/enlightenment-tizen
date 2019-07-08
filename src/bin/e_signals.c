@@ -14,19 +14,16 @@ static volatile Eina_Bool _e_x_composite_shutdown_try = 0;
 static void
 _e_crash(void)
 {
-   if (e_comp->comp_type == E_PIXMAP_TYPE_WL)
+   const Eina_List *list, *l, *ll;
+   E_Input_Device *dev;
+
+   list = e_input_devices_get();
+   EINA_LIST_FOREACH_SAFE(list, l, ll, dev)
      {
-        const Eina_List *list, *l, *ll;
-        E_Input_Device *dev;
-
-        list = e_input_devices_get();
-        EINA_LIST_FOREACH_SAFE(list, l, ll, dev)
-          {
-             e_input_device_close(dev);
-          }
-
-        return;
+        e_input_device_close(dev);
      }
+
+   return;
 }
 
 /* a tricky little devil, requires e and it's libs to be built

@@ -1527,16 +1527,8 @@ _e_comp_intercept_resize(void *data, Evas_Object *obj, int w, int h)
        (cw->content_type != E_COMP_OBJECT_CONTENT_TYPE_EXT_EDJE) &&
        (e_pixmap_dirty_get(cw->ec->pixmap) ||
        (!e_pixmap_size_get(cw->ec->pixmap, &pw, &ph))))
-     {
-        if (e_comp->comp_type != E_PIXMAP_TYPE_X) return;
-        /* client can't be resized if its pixmap isn't usable, try again */
-        e_pixmap_dirty(cw->ec->pixmap);
-        e_comp_object_render_update_add(obj);
-        e_comp_render_queue();
-        cw->ec->changes.size = 1;
-        EC_CHANGED(cw->ec);
-        return;
-     }
+     return;
+
    if (cw->content_type == E_COMP_OBJECT_CONTENT_TYPE_EXT_IMAGE ||
        cw->content_type == E_COMP_OBJECT_CONTENT_TYPE_EXT_EDJE)
      pw = w, ph = h;
@@ -4478,8 +4470,7 @@ e_comp_object_native_surface_set(Evas_Object *obj, Eina_Bool set)
    if (set)
      {
         /* native requires gl enabled, texture from pixmap enabled, and a non-shaped client */
-        set = (((e_comp->comp_type != E_PIXMAP_TYPE_X) || e_comp_config_get()->texture_from_pixmap) &&
-          (!cw->ec->shaped));
+        set = (!cw->ec->shaped);
         if (set)
           set = (!!cw->ns) || e_pixmap_native_surface_init(cw->ec->pixmap, &ns);
      }
@@ -4653,8 +4644,7 @@ e_comp_object_render(Evas_Object *obj)
 
    E_FREE_FUNC(cw->pending_updates, eina_tiler_free);
 
-   if (e_comp->comp_type == E_PIXMAP_TYPE_WL)
-     e_comp_client_post_update_add(cw->ec);
+   e_comp_client_post_update_add(cw->ec);
 
    return EINA_TRUE;
 }

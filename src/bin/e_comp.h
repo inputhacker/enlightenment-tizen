@@ -106,8 +106,6 @@ struct _E_Comp
 
    E_Comp_Wl_Data *wl_comp_data;
 
-   E_Pixmap_Type comp_type; //for determining X/Wayland/
-
    Eina_Stringshare *name;
    struct {
       Evas_Object *obj;

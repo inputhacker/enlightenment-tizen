@@ -519,9 +519,6 @@ _e_drag_end(int x, int y)
 
    evas_object_hide(_drag_current->comp_object);
 
-   if (e_comp->comp_type == E_PIXMAP_TYPE_X)
-     e_grabinput_release(_drag_win, _drag_win);
-
    dropped = 0;
    if (!_drag_current->data)
      {
@@ -597,8 +594,8 @@ _e_drag_end(int x, int y)
    _drag_current->cb.finished = NULL;
 
    e_object_del(E_OBJECT(_drag_current));
-   if (e_comp->comp_type == E_PIXMAP_TYPE_WL)
-     e_comp_ungrab_input(1, 1);
+
+   e_comp_ungrab_input(1, 1);
 }
 
 static void
@@ -639,8 +636,7 @@ _e_drag_free(E_Drag *drag)
    for (i = 0; i < drag->num_types; i++)
      eina_stringshare_del(drag->types[i]);
    free(drag);
-   if (e_comp->comp_type == E_PIXMAP_TYPE_WL)
-     e_comp_ungrab_input(1, 1);
+   e_comp_ungrab_input(1, 1);
    _drag_win = 0;
 }
 

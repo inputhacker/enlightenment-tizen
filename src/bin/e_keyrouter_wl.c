@@ -66,7 +66,7 @@ e_keyrouter_wl_key_send(Ecore_Event_Key *ev, Eina_Bool pressed, struct wl_client
    uint32_t keycode;
    enum wl_keyboard_key_state state;
 
-   if ((e_comp->comp_type != E_PIXMAP_TYPE_WL) || (ev->window != e_comp->ee_win))
+   if (ev->window != e_comp->ee_win)
      {
         return EINA_FALSE;
      }

@@ -4596,7 +4596,7 @@ e_comp_wl_key_down(Ecore_Event_Key *ev)
    uint32_t keycode;
    E_Comp_Wl_Key_Data *end, *k;
 
-   if ((e_comp->comp_type != E_PIXMAP_TYPE_WL) || (ev->window != e_comp->ee_win))
+   if (ev->window != e_comp->ee_win)
      {
         return EINA_FALSE;
      }
@@ -4660,8 +4660,7 @@ e_comp_wl_key_up(Ecore_Event_Key *ev)
    uint32_t keycode, delivered_key;
    E_Comp_Wl_Key_Data *end, *k;
 
-   if ((e_comp->comp_type != E_PIXMAP_TYPE_WL) ||
-       (ev->window != e_comp->ee_win))
+   if (ev->window != e_comp->ee_win)
      {
         return EINA_FALSE;
      }

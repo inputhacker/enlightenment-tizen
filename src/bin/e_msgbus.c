@@ -111,8 +111,7 @@ static Eldbus_Message *
 _e_msgbus_core_restart_cb(const Eldbus_Service_Interface *iface EINA_UNUSED,
                           const Eldbus_Message *msg)
 {
-   if (e_comp->comp_type == E_PIXMAP_TYPE_WL)
-     ERR("DBus restart API disabled for security reasons");
+   ERR("DBus restart API disabled for security reasons");
    return eldbus_message_method_return_new(msg);
 }
 
@@ -120,7 +119,6 @@ static Eldbus_Message *
 _e_msgbus_core_shutdown_cb(const Eldbus_Service_Interface *iface EINA_UNUSED,
                            const Eldbus_Message *msg)
 {
-   if (e_comp->comp_type == E_PIXMAP_TYPE_WL)
-     ERR("DBus shutdown API disabled for security reasons");
+   ERR("DBus shutdown API disabled for security reasons");
    return eldbus_message_method_return_new(msg);
 }

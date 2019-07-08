@@ -186,8 +186,7 @@ _e_bq_mgr_new(char *sock_name)
         return NULL;
      }
 
-   if ((comp->comp_type == E_PIXMAP_TYPE_X) ||
-       (sock_name != NULL))
+   if (sock_name != NULL)
      {
         bq_mgr->wdpy = wl_display_create();
         if (!bq_mgr->wdpy)
@@ -214,8 +213,7 @@ _e_bq_mgr_new(char *sock_name)
            wl_event_loop_add_signal(bq_mgr->loop, SIGQUIT,
                                     _e_bq_mgr_on_term_signal, bq_mgr);
 
-        if (!sock_name)
-          sock_name = default_sock_name;
+        sock_name = default_sock_name;
 
         res = wl_display_add_socket(bq_mgr->wdpy, sock_name);
         if (res < 0)

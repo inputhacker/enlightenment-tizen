@@ -50,8 +50,7 @@ e_scale_update(void)
                profile_factor = e_config->scale.profile_factor;
           }
 
-        if (e_comp->comp_type == E_PIXMAP_TYPE_WL)
-          e_scale = floor((double)BASE_DPI * profile_factor / (double)e_config->scale.base_dpi * 10 + 0.5) / 10;
+        e_scale = floor((double)BASE_DPI * profile_factor / (double)e_config->scale.base_dpi * 10 + 0.5) / 10;
 
         if (e_scale > e_config->scale.max) e_scale = e_config->scale.max;
         else if (e_scale < e_config->scale.min)
