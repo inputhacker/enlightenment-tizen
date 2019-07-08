@@ -5087,6 +5087,29 @@ e_client_focus_latest_set(E_Client *ec)
    focus_stack = eina_list_prepend(focus_stack, ec);
 }
 
+EINTERN void
+e_client_focus_stack_append_current_focused(E_Client *ec)
+{
+   Eina_List *l = NULL;
+   E_Client *temp_ec = NULL;
+
+   if (!ec) CRI("ACK");
+   if (focus_track_frozen > 0) return;
+
+   focus_stack = eina_list_remove(focus_stack, ec);
+
+   EINA_LIST_FOREACH(focus_stack, l, temp_ec)
+     {
+        if (temp_ec != focused) continue;
+
+        focus_stack = eina_list_append_relative_list(focus_stack, ec, l);
+        return;
+     }
+
+   focus_stack = eina_list_prepend(focus_stack, ec);
+   return;
+}
+
 E_API void
 e_client_focus_defer_set(E_Client *ec)
 {

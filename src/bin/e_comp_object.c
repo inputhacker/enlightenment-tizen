@@ -2224,7 +2224,7 @@ _e_comp_intercept_show_helper(E_Comp_Object *cw)
                {
                   if (ec->exp_iconify.not_raise &&
                       e_client_check_above_focused(ec))
-                    e_client_focus_latest_set(ec);
+                    e_client_focus_stack_append_current_focused(ec);
                   else
                     e_client_focus_defer_set(ec);
                }

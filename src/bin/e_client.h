@@ -1071,6 +1071,7 @@ E_API E_Client_Intercept_Hook *e_client_intercept_hook_add(E_Client_Intercept_Ho
 E_API void e_client_intercept_hook_del(E_Client_Intercept_Hook *ch);
 EINTERN void e_client_focus_stack_lower(E_Client *ec);
 E_API void e_client_focus_latest_set(E_Client *ec);
+EINTERN void e_client_focus_stack_append_current_focused(E_Client *ec);
 E_API void e_client_focus_defer_set(E_Client *ec);
 E_API void e_client_focus_defer_unset(E_Client *ec);
 E_API Eina_Bool e_client_focus_track_enabled(void);
