@@ -1070,7 +1070,7 @@ _e_info_client_proc_ec_list_info(void)
 
    if (prev_layer_name)
       printf("--------------------------------------------------------------------------------------------------------------------------------------[%s]\n",
-             prev_layer_name ? prev_layer_name : " ");
+             prev_layer_name);
 
    if(hwc_off)
      printf("\nHWC is disabled\n\n");
