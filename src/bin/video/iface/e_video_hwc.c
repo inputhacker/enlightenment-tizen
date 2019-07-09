@@ -1647,7 +1647,7 @@ _e_video_hwc_create(E_Client *ec)
    output = e_output_find(ec->zone->output_id);
    if (!output)
      {
-        VER("Failed to find 'E_Output': id %d", ec, ec->zone->output_id);
+        VER("Failed to find 'E_Output': id %s", ec, ec->zone->output_id);
         return NULL;
      }
 
