@@ -37,6 +37,7 @@ _e_devicemgr_util_do_privilege_check(struct wl_client *client, int socket_fd, co
 
    /* If initialization of cynara has been failed, let's not to do further permission checks. */
    if (e_devicemgr->wl_data->p_cynara == NULL && e_devicemgr->wl_data->cynara_initialized) return EINA_TRUE;
+   if (socket_fd < 0) return EINA_FALSE;
 
    ret = cynara_creds_socket_get_client(socket_fd, CLIENT_METHOD_SMACK, &clientSmack);
    E_DEVMGR_CYNARA_ERROR_CHECK_GOTO("cynara_creds_socket_get_client", ret, finish);
