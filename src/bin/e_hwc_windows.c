@@ -425,6 +425,8 @@ _e_hwc_windows_target_buffer_fetch(E_Hwc *hwc, Eina_Bool tdm_set)
      }
    else
      {
+        e_hwc_window_queue_clear(hwc_window->queue);
+
         if (!hwc_window->buffer.tsurface) return EINA_FALSE;
 
         if (hwc_window->buffer.tsurface != hwc_window->display.buffer.tsurface)

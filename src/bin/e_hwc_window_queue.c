@@ -1202,6 +1202,19 @@ e_hwc_window_queue_buffer_release(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_
    return EINA_TRUE;
 }
 
+EINTERN Eina_Bool
+e_hwc_window_queue_clear(E_Hwc_Window_Queue *queue)
+{
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
+
+   while ((queue_buffer = e_hwc_window_queue_buffer_acquire(queue)))
+     e_hwc_window_queue_buffer_release(queue, queue_buffer);
+
+   return EINA_TRUE;
+}
+
 EINTERN Eina_List *
 e_hwc_window_queue_acquirable_buffers_get(E_Hwc_Window_Queue *queue)
 {
