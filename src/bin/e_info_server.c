@@ -6124,7 +6124,7 @@ _e_info_server_cb_input_region(const Eldbus_Service_Interface *iface EINA_UNUSED
 static Eldbus_Message *
 _e_info_server_cb_hwc_wins_info_get(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
-   Eldbus_Message *reply = eldbus_message_method_return_new(msg);
+   Eldbus_Message *reply;
    E_Hwc_Wins_Debug_Cmd cmd;
 
    if (!eldbus_message_arguments_get(msg, "i", &cmd))
@@ -6133,6 +6133,7 @@ _e_info_server_cb_hwc_wins_info_get(const Eldbus_Service_Interface *iface EINA_U
                                         "hwc_wins: an attempt to get arguments from method call message failed");
      }
 
+   reply = eldbus_message_method_return_new(msg);
    e_hwc_windows_debug_info_get(eldbus_message_iter_get(reply), cmd);
 
    return reply;
