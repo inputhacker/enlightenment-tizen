@@ -245,6 +245,7 @@ _e_client_video_cb_remote_surface_provider_visibility_change(void *data, int typ
          break;
       case E_VISIBILITY_UNOBSCURED:
          evas_object_show(ecv->ec->frame);
+         break;
       default:
          VER("Not implemented", ecv->ec);
          break;
