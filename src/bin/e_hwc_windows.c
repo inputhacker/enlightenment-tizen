@@ -1626,7 +1626,7 @@ _e_hwc_windows_client_get_from_object(Evas_Object *o)
                stack = eina_list_append(stack, cob);
 
              if (members)
-               members = eina_list_free(members);
+               eina_list_free(members);
           }
 
         stack = eina_list_remove(stack, ob);
