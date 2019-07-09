@@ -730,7 +730,10 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
      {
         hwc_window = eina_list_nth(queue->user_pending_set, 0);
         if (!_e_hwc_window_queue_prepare_set(queue, hwc_window))
-          EHWQERR("fail to queue_prepare_set for user_pending_set hwc_window:%p", NULL, queue->hwc, queue, hwc_window);
+          {
+             EHWQERR("fail to queue_prepare_set for user_pending_set hwc_window:%p", NULL, queue->hwc, queue, hwc_window);
+             _e_hwc_window_queue_tqueue_release(queue->tqueue, hwc_window);
+          }
      }
 
    e_object_unref(E_OBJECT(queue));
@@ -1010,6 +1013,7 @@ e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
    if (!_e_hwc_window_queue_prepare_set(queue, hwc_window))
      {
         EHWQERR("fail to queue_prepare_set hwc_window:%p", NULL, queue->hwc, queue, hwc_window);
+        _e_hwc_window_queue_tqueue_release(queue->tqueue, hwc_window);
         return NULL;
      }
 
