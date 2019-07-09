@@ -255,10 +255,10 @@ _e_magnifier_apply_zoom(Evas_Object *zoom_obj)
    int mx, my, mw, mh;
    Evas_Map *map;
 
+   E_MAGNIFIER_SMART_DATA_GET_OR_RETURN(_e_magnifier_mgr, sd);
+
    //Evas Map
    map = evas_map_new(4);
-
-   E_MAGNIFIER_SMART_DATA_GET_OR_RETURN(_e_magnifier_mgr, sd);
 
    x = sd->geom.system.x;
    y = sd->geom.system.y;
