@@ -741,35 +741,6 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
    e_object_unref(E_OBJECT(queue));
 }
 
-#if 0
-static Eina_Bool
-_e_hwc_window_release_hash_fn(const Eina_Hash *hash, const void *key, void *data, void *fdata)
-{
-   E_Hwc_Window_Queue *queue = NULL;
-   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
-   tbm_surface_h tsurface = NULL;
-
-   queue = (E_Hwc_Window_Queue *)data;
-   if (!queue) return  EINA_TRUE;
-
-   tsurface = (tbm_surface_h)fdata;
-
-   queue_buffer = e_hwc_window_queue_buffer_find(queue, tsurface);
-   if (queue_buffer && !queue_buffer->acquired)
-     e_hwc_window_queue_buffer_release(queue, queue_buffer);
-
-   return EINA_TRUE;
-}
-
-static void
-_e_hwc_window_unkown_queue_release(tbm_surface_h tsurface)
-{
-   eina_hash_foreach(_hwc_winq_mgr->hwc_winq_hash,
-                     _e_hwc_window_release_hash_fn,
-                     tsurface);
-}
-#endif
-
 static void
 _e_hwc_window_queue_cb_buffer_change(void *data, E_Client *ec)
 {
@@ -817,8 +788,6 @@ _e_hwc_window_queue_cb_buffer_change(void *data, E_Client *ec)
    e_pixmap_resource_set(ec->pixmap, backup_buffer);
    e_pixmap_dirty(ec->pixmap);
    e_pixmap_refresh(ec->pixmap);
-
-  //  _e_hwc_window_unkown_queue_release(tsurface);
 }
 
 void
