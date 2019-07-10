@@ -364,7 +364,7 @@ _e_hwc_window_queue_exported_buffer_destroy_cb(struct wl_listener *listener, voi
    wl_list_remove(&queue_buffer->exported_destroy_listener.link);
 
    if ((queue->state == E_HWC_WINDOW_QUEUE_STATE_SET) ||
-       (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_WAITING))
+       (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_BUFFER))
      queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_INVALID;
 
    if (!queue_buffer->acquired && queue_buffer->dequeued)
@@ -404,7 +404,7 @@ _e_hwc_window_queue_exported_buffer_detach_cb(struct wayland_tbm_client_queue *c
    user = queue->user;
 
    if ((queue->state == E_HWC_WINDOW_QUEUE_STATE_SET) ||
-       (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_WAITING))
+       (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_BUFFER))
      queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_INVALID;
 
    EHWQTRACE("DET ts:%p tq:%p wl_buffer:%p",
@@ -533,18 +533,18 @@ _e_hwc_window_queue_buffers_hand_over(E_Hwc_Window_Queue *queue, E_Hwc_Window *h
              return EINA_FALSE;
           }
 
-        queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_WAITING;
+        queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_BUFFER;
         e_hwc_window_activate(hwc_window, queue);
 
-        EHWQINF("Set Waiting user ehw:%p -- {%s}",
+        EHWQINF("Set Waiting buffer user ehw:%p -- {%s}",
                 hwc_window->ec, queue->hwc, queue, hwc_window,
                 (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
      }
    else
      {
-        queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_PENDING;
+        queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_DEQUEUEABLE;
 
-        EHWQINF("Set Pending user ehw:%p -- {%s}",
+        EHWQINF("Set Waiting dequeueable user ehw:%p -- {%s}",
                 hwc_window->ec, queue->hwc, queue, hwc_window,
                 (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
      }
@@ -589,12 +589,14 @@ _e_hwc_window_queue_cb_dequeueable(tbm_surface_queue_h surface_queue, void *data
    if (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET)
      {
         if (!_e_hwc_window_queue_buffer_send(queue))
-          EHWQERR("fail to queue_dequeue_buffer_send STATE_SET_PENDING ehw:%p", NULL, queue->hwc, queue, queue->user);
+          EHWQERR("fail to queue_dequeue_buffer_send STATE_SET queue:%p ehw:%p",
+                  NULL, queue->hwc, queue, queue->user);
      }
-   else if (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_PENDING)
+   else if (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_DEQUEUEABLE)
      {
         if (!_e_hwc_window_queue_buffers_hand_over(queue, queue->user))
-          EHWQERR("fail to queue_buffers_hand_over STATE_SET_PENDING hwc_window:%p", NULL, queue->hwc, queue, queue->user);
+          EHWQERR("fail to queue_buffers_hand_over SET_WAITING_DEQUEUEABLE queue:%p hwc_window:%p",
+                  NULL, queue->hwc, queue, queue->user);
      }
 }
 
@@ -832,7 +834,7 @@ _e_hwc_window_queue_cb_accepted_state_change(void *data, E_Hwc_Window *hwc_windo
    state = e_hwc_window_accepted_state_get(hwc_window);
 
    if ((state == E_HWC_WINDOW_STATE_DEVICE) &&
-       (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_WAITING))
+       (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_BUFFER))
      _e_hwc_window_queue_set(queue);
 }
 
@@ -1286,10 +1288,10 @@ _e_hwc_window_queue_state_string_get(E_Hwc_Window_Queue_State state)
        return "UNSET_WAITING";
      case E_HWC_WINDOW_QUEUE_STATE_SET:
        return "SET";
-     case E_HWC_WINDOW_QUEUE_STATE_SET_WAITING:
-       return "SET_WAITING";
-     case E_HWC_WINDOW_QUEUE_STATE_SET_PENDING:
-       return "SET_PENDING";
+     case E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_BUFFER:
+       return "SET_WAITING_BUFFER";
+     case E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_DEQUEUEABLE:
+       return "SET_WAITING_DEQUEUEABLE";
      case E_HWC_WINDOW_QUEUE_STATE_SET_INVALID:
        return "SET_INVALID";
      default:
