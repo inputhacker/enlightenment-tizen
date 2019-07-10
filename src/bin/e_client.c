@@ -4937,7 +4937,7 @@ e_client_focus_latest_set(E_Client *ec)
 }
 
 EINTERN void
-e_client_focus_second_set(E_Client *ec)
+e_client_focus_stack_append_current_focused(E_Client *ec)
 {
    Eina_List *l = NULL;
    E_Client *temp_ec = NULL;
