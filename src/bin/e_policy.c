@@ -1560,6 +1560,8 @@ e_policy_client_unmap(E_Client *ec)
 
    if (send_event)
      e_policy_wl_iconify_state_change_send(ec, 0);
+
+   e_comp_object_effect_set(ec->frame, NULL);
 }
 
 Eina_Bool
