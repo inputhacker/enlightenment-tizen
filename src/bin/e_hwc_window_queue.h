@@ -10,6 +10,7 @@ typedef enum _E_Hwc_Window_Queue_State
    E_HWC_WINDOW_QUEUE_STATE_UNSET = 0,
    E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING,
    E_HWC_WINDOW_QUEUE_STATE_SET,
+   E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_WAIT_USABLE,  /* waiting state until the wait_usable request comes */
    E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_BUFFER,       /* waiting state until the exported buffer comes */
    E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_DEQUEUEABLE,  /* waiting state until the dequeueable buffer gets */
    E_HWC_WINDOW_QUEUE_STATE_SET_INVALID,

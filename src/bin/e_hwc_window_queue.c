@@ -534,7 +534,6 @@ _e_hwc_window_queue_buffers_hand_over(E_Hwc_Window_Queue *queue, E_Hwc_Window *h
           }
 
         queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_BUFFER;
-        e_hwc_window_activate(hwc_window, queue);
 
         EHWQINF("Set Waiting buffer user ehw:%p -- {%s}",
                 hwc_window->ec, queue->hwc, queue, hwc_window,
@@ -550,6 +549,23 @@ _e_hwc_window_queue_buffers_hand_over(E_Hwc_Window_Queue *queue, E_Hwc_Window *h
      }
 
    return EINA_TRUE;
+}
+
+static void
+_e_hwc_window_queue_wait_usable_cb(struct wayland_tbm_client_queue *cqueue, void *data)
+{
+   E_Hwc_Window_Queue *queue = (E_Hwc_Window_Queue *)data;
+
+   if (!queue->user) return;
+
+   if (queue->state != E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_WAIT_USABLE) return;
+
+   EHWQINF("Get wait usable event ehw:%p -- {%s}",
+           queue->user->ec, queue->hwc, queue, queue->user,
+           (queue->user->ec ? queue->user->ec->icccm.title : "UNKNOWN"));
+
+   if (!_e_hwc_window_queue_buffers_hand_over(queue, queue->user))
+      EHWQERR("fail to _e_hwc_window_queue_buffers_hand_over", NULL, queue->hwc, queue);
 }
 
 static Eina_Bool
@@ -589,14 +605,14 @@ _e_hwc_window_queue_cb_dequeueable(tbm_surface_queue_h surface_queue, void *data
    if (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET)
      {
         if (!_e_hwc_window_queue_buffer_send(queue))
-          EHWQERR("fail to queue_dequeue_buffer_send STATE_SET queue:%p ehw:%p",
-                  NULL, queue->hwc, queue, queue->user);
+          EHWQERR("fail to queue_dequeue_buffer_send STATE_SET",
+                  (queue->user ? queue->user->ec : NULL), queue->hwc, queue);
      }
    else if (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_DEQUEUEABLE)
      {
         if (!_e_hwc_window_queue_buffers_hand_over(queue, queue->user))
-          EHWQERR("fail to queue_buffers_hand_over SET_WAITING_DEQUEUEABLE queue:%p hwc_window:%p",
-                  NULL, queue->hwc, queue, queue->user);
+          EHWQERR("fail to queue_buffers_hand_over SET_WAITING_DEQUEUEABLE",
+                  (queue->user ? queue->user->ec : NULL), queue->hwc, queue);
      }
 }
 
@@ -635,26 +651,38 @@ _e_hwc_window_queue_destroy(E_Hwc_Window_Queue *queue)
 static Eina_Bool
 _e_hwc_window_queue_prepare_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
 {
+   struct wayland_tbm_client_queue *cqueue = NULL;
+
    if (eina_list_data_find(queue->user_pending_set, hwc_window) == hwc_window)
      _e_hwc_window_queue_user_pending_set_remove(queue, hwc_window);
+
+   cqueue = _user_cqueue_get(hwc_window->ec);
+   if (!cqueue)
+     {
+        EHWQERR("fail to get wayland_tbm_client_queue", hwc_window->ec, queue->hwc, queue);
+        return EINA_FALSE;
+     }
+
+   if (!wayland_tbm_server_client_queue_set_wait_usable_cb(cqueue,
+                                                           _e_hwc_window_queue_wait_usable_cb,
+                                                           queue))
+     {
+        EHWQERR("fail to wayland_tbm_server_client_queue_set_wait_usable_cb",
+                hwc_window->ec, queue->hwc, queue);
+        return EINA_FALSE;
+     }
 
    /* set the hwc_window to the queue */
    queue->user = hwc_window;
    e_object_ref(E_OBJECT(queue->user));
 
-   /* queue hands over its buffers to the hwc_window */
-   if (!_e_hwc_window_queue_buffers_hand_over(queue, hwc_window))
-     {
-        e_object_unref(E_OBJECT(queue->user));
-        queue->user = NULL;
-
-        EHWQERR("fail to queue_buffers_hand_over hwc_window:%p", NULL, queue->hwc, queue, hwc_window);
-        return EINA_FALSE;
-     }
-
    tbm_surface_queue_add_dequeuable_cb(queue->tqueue,
                                        _e_hwc_window_queue_cb_dequeueable,
                                        (void *)queue);
+
+   e_hwc_window_activate(hwc_window, queue);
+
+   queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_WAIT_USABLE;
 
    e_object_ref(E_OBJECT(queue));
 
@@ -686,6 +714,16 @@ _e_hwc_window_queue_set(E_Hwc_Window_Queue *queue)
 static void
 _e_hwc_window_queue_prepare_unset(E_Hwc_Window_Queue *queue)
 {
+   struct wayland_tbm_client_queue *cqueue = NULL;
+   E_Hwc_Window *hwc_window = queue->user;
+
+   if (hwc_window)
+     {
+        cqueue = _user_cqueue_get(hwc_window->ec);
+        if (cqueue)
+          wayland_tbm_server_client_queue_set_wait_usable_cb(cqueue, NULL, NULL);
+     }
+
    tbm_surface_queue_remove_dequeuable_cb(queue->tqueue,
                                           _e_hwc_window_queue_cb_dequeueable,
                                           (void *)queue);
@@ -1257,6 +1295,8 @@ _e_hwc_window_queue_state_string_get(E_Hwc_Window_Queue_State state)
        return "UNSET_WAITING";
      case E_HWC_WINDOW_QUEUE_STATE_SET:
        return "SET";
+     case E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_WAIT_USABLE:
+       return "SET_WAITING_WAIT_USABLE";
      case E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_BUFFER:
        return "SET_WAITING_BUFFER";
      case E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_DEQUEUEABLE:
