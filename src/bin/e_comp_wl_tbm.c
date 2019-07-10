@@ -70,7 +70,7 @@ e_comp_wl_tbm_shutdown(void)
    e_comp->wl_comp_data->tbm.server = NULL;
 }
 
-E_API void
+EINTERN void
 e_comp_wl_tbm_buffer_destroy(E_Comp_Wl_Buffer *buffer)
 {
    if (!buffer) return;
@@ -108,7 +108,7 @@ e_comp_wl_tbm_buffer_get(tbm_surface_h tsurface)
    return buffer;
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_comp_wl_tbm_buffer_sync_timeline_used(E_Comp_Wl_Buffer *buffer)
 {
    if (!buffer) return EINA_FALSE;
