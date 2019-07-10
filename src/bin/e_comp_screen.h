@@ -47,15 +47,15 @@ struct _E_Screen
    char *id; // this is the same id we get from _E_Output so look it up there
 };
 
-extern E_API int E_EVENT_SCREEN_CHANGE;
+extern EINTERN int E_EVENT_SCREEN_CHANGE;
 
-E_API   Eina_Bool         e_comp_screen_init(void);
-E_API   void              e_comp_screen_shutdown(void);
+EINTERN Eina_Bool         e_comp_screen_init(void);
+EINTERN void              e_comp_screen_shutdown(void);
 EINTERN void              e_comp_screen_hwc_info_debug(void);
 
 EINTERN void              e_comp_screen_e_screens_setup(E_Comp_Screen *e_comp_screen, int rw, int rh);
 EINTERN const Eina_List * e_comp_screen_e_screens_get(E_Comp_Screen *e_comp_screen);
-E_API   Eina_Bool         e_comp_screen_rotation_pre_set(E_Comp_Screen *e_comp_screen, int rotation_pre);
+EINTERN Eina_Bool         e_comp_screen_rotation_pre_set(E_Comp_Screen *e_comp_screen, int rotation_pre);
 E_API   Eina_Bool         e_comp_screen_rotation_setting_set(E_Comp_Screen *e_comp_screen, int rotation);
 
 E_API   void              e_comp_screen_rotation_ignore_output_transform_send(E_Client *ec, Eina_Bool ignore);

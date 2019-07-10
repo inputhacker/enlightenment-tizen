@@ -15,7 +15,7 @@ static Eina_List *event_handlers = NULL;
 static Eina_Bool dont_set_e_input_keymap = EINA_FALSE;
 static Eina_Bool dont_use_xkb_cache = EINA_FALSE;
 
-E_API int              E_EVENT_SCREEN_CHANGE = 0;
+EINTERN int E_EVENT_SCREEN_CHANGE = 0;
 
 enum
 {
@@ -1094,7 +1094,7 @@ e_comp_screen_e_screens_get(E_Comp_Screen *e_comp_screen)
    return e_comp_screen->e_screens;
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_comp_screen_init()
 {
    E_Comp *comp;
@@ -1224,7 +1224,7 @@ failed_comp_screen:
    return EINA_FALSE;
 }
 
-E_API void
+EINTERN void
 e_comp_screen_shutdown()
 {
    if (!e_comp) return;
@@ -1339,7 +1339,7 @@ _e_comp_screen_rotation_pre_setter(E_Comp_Screen *e_comp_screen, int rotation_pr
    INF("EE RotationPre: %d", rotation_pre);
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_comp_screen_rotation_pre_set(E_Comp_Screen *e_comp_screen, int rotation_pre)
 {
    int screen_rotation;
