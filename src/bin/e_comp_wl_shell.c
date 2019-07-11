@@ -788,6 +788,8 @@ _e_shell_client_map_common_post(E_Client *ec)
    ec->launching = EINA_FALSE;
 
    EC_CHANGED(ec);
+
+   e_comp_object_signal_emit(ec->frame, "e,action,map,done", "e");
 }
 
 static void

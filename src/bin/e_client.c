@@ -105,6 +105,7 @@ static Eina_Inlist *_e_client_hooks[] =
    [E_CLIENT_HOOK_WINDOW_ROLE_CHANGE] = NULL,
    [E_CLIENT_HOOK_CAL_VISIBILITY_DISPLAY_OFF] = NULL,
    [E_CLIENT_HOOK_TRANSFORM_CHANGE] = NULL,
+   [E_CLIENT_HOOK_ACTIVATE_DONE] = NULL,
 };
 
 static Eina_Inlist *_e_client_intercept_hooks[] =
@@ -5388,6 +5389,8 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
                }
           }
      }
+
+   _e_client_hook_call(E_CLIENT_HOOK_ACTIVATE_DONE, ec);
 
    TRACE_DS_END();
 }

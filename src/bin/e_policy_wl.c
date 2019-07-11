@@ -1725,6 +1725,8 @@ _tzpol_iface_cb_raise(struct wl_client *client EINA_UNUSED, struct wl_resource *
         ELOGF("TZPOL", "POST_RAISE_LOWER SET... raise:%d, lower:%d", ec, EINA_TRUE, EINA_FALSE);
         e_client_post_raise_lower_set(ec, EINA_TRUE, EINA_FALSE);
      }
+
+   e_policy_hook_call(E_POLICY_HOOK_CLIENT_RAISE_REQ_DONE, ec);
 }
 
 static void
