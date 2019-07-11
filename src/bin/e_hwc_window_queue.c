@@ -652,9 +652,24 @@ static Eina_Bool
 _e_hwc_window_queue_prepare_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window)
 {
    struct wayland_tbm_client_queue *cqueue = NULL;
+   E_Client *ec = NULL;
 
    if (eina_list_data_find(queue->user_pending_set, hwc_window) == hwc_window)
      _e_hwc_window_queue_user_pending_set_remove(queue, hwc_window);
+
+   ec = hwc_window->ec;
+   if (!ec)
+     {
+        EHWQERR("client is deleted", NULL, queue->hwc, queue);
+        return EINA_FALSE;
+     }
+
+   if ((queue->width != ec->w) || (queue->height != ec->h))
+     {
+        EHWQERR("size mismatch queue(%dx%d) client(%dx%d)",
+                ec, queue->hwc, queue, queue->width, queue->height, ec->w, ec->h);
+        return EINA_FALSE;
+     }
 
    cqueue = _user_cqueue_get(hwc_window->ec);
    if (!cqueue)
@@ -907,6 +922,9 @@ _e_hwc_window_queue_create(tbm_surface_queue_h tqueue)
                                               queue);
    EINA_SAFETY_ON_FALSE_GOTO(tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, fail);
 
+   queue->width = tbm_surface_queue_get_height(tqueue);
+   queue->height = tbm_surface_queue_get_width(tqueue);
+   queue->format = tbm_surface_queue_get_format(tqueue);
    queue->tqueue = tqueue;
 
    wl_signal_init(&queue->destroy_signal);

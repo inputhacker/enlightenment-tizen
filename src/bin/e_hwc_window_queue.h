@@ -37,6 +37,11 @@ struct _E_Hwc_Window_Queue
    E_Hwc_Window_Queue_State          state;
 
    Eina_Bool                         is_target;
+
+
+   int                               width;
+   int                               height;
+   tbm_format                        format;
 };
 
 struct _E_Hwc_Window_Queue_Buffer
