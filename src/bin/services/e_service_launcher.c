@@ -110,36 +110,79 @@ _e_srv_launcher_stop_send(E_Service_Launcher *lc)
    tws_service_launcher_send_stop(lc->res, lc->serial);
 }
 
-static void
+static Eina_Bool
 _e_srv_launcher_prepare_send(E_Service_Launcher *lc,
                              E_Client *target_ec,
                              int x, int y)
 {
-   uint32_t res_id;
+   uint32_t res_id = 0;
 
-   EINA_SAFETY_ON_NULL_RETURN(lc);
-   EINA_SAFETY_ON_NULL_RETURN(target_ec);
+   E_Comp_Object_Content_Type content_type = 0;
+   enum tws_service_launcher_target_type target_type = 0;
+   const char *target_path = NULL;
+   Evas_Object *content = NULL;
 
-   res_id = e_pixmap_res_id_get(target_ec->pixmap);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(lc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(target_ec, EINA_FALSE);
 
-   ELOGF("LAUNCHER_SRV", "Send PREPARE event(%d) direction:%s target(ec:%p res:%d pos(%d,%d))",
-         lc->ec, lc->serial, lc->direction?"BACKWARD":"FORWARD", target_ec, res_id, x, y);
+   if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD)
+     {
+        content_type = e_comp_object_content_type_get(target_ec->frame);
+        switch (content_type)
+          {
+           case E_COMP_OBJECT_CONTENT_TYPE_EXT_IMAGE:
+              content = e_comp_object_content_get(target_ec->frame);
+              EINA_SAFETY_ON_NULL_RETURN_VAL(content, EINA_FALSE);
+
+              target_type = TWS_SERVICE_LAUNCHER_TARGET_TYPE_IMAGE;
+              evas_object_image_file_get(content, &target_path, NULL);
+              EINA_SAFETY_ON_NULL_RETURN_VAL(target_path, EINA_FALSE);
+
+              break;
+           case E_COMP_OBJECT_CONTENT_TYPE_EXT_EDJE:
+              content = e_comp_object_content_get(target_ec->frame);
+              EINA_SAFETY_ON_NULL_RETURN_VAL(content, EINA_FALSE);
+
+              target_type = TWS_SERVICE_LAUNCHER_TARGET_TYPE_EDJE;
+              edje_object_file_get(content, &target_path, NULL);
+              EINA_SAFETY_ON_NULL_RETURN_VAL(target_path, EINA_FALSE);
+
+              break;
+           default:
+              target_type = TWS_SERVICE_LAUNCHER_TARGET_TYPE_REMOTE_SURFACE;
+              res_id = e_pixmap_res_id_get(target_ec->pixmap);
+          }
+     }
+   else
+     {
+        target_type = TWS_SERVICE_LAUNCHER_TARGET_TYPE_REMOTE_SURFACE;
+        res_id = e_pixmap_res_id_get(target_ec->pixmap);
+     }
+
+
+   ELOGF("LAUNCHER_SRV", "Send PREPARE event(%d) direction:%s target(ec:%p type:%d res:%d path:%s pos(%d,%d))",
+         lc->ec, lc->serial, lc->direction?"BACKWARD":"FORWARD", target_ec, target_type, res_id, target_path?:"N/A", x, y);
 
    tws_service_launcher_send_prepare(lc->res,
-                                     res_id, lc->direction,
+                                     target_type,
+                                     res_id, target_path,
+                                     lc->direction,
                                      x, y, lc->serial);
+
+   return EINA_TRUE;
 }
 
-static void
+static Eina_Bool
 _e_srv_launcher_prepare_forward_send(E_Service_Launcher *lc,
                                      E_Client *target_ec)
 {
+   Eina_Bool sent = EINA_FALSE;
    int x, y;
 
-   EINA_SAFETY_ON_NULL_RETURN(lc);
-   EINA_SAFETY_ON_NULL_RETURN(target_ec);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(lc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(target_ec, EINA_FALSE);
 
-   if(e_object_is_del(E_OBJECT(target_ec))) return;
+   if(e_object_is_del(E_OBJECT(target_ec))) return EINA_FALSE;
 
    e_policy_animatable_lock(target_ec, E_POLICY_ANIMATABLE_CUSTOMIZED, 1);
    e_comp_client_override_add(target_ec);
@@ -158,7 +201,26 @@ _e_srv_launcher_prepare_forward_send(E_Service_Launcher *lc,
 
    e_client_pos_get(target_ec, &x, &y);
 
-   _e_srv_launcher_prepare_send(lc, target_ec, x, y);
+   sent = _e_srv_launcher_prepare_send(lc, target_ec, x, y);
+
+   if (!sent)
+     {
+        ELOGF("LAUNCHER_SRV", "Failed to send event(PREPARE:FORWARD)", lc->ec);
+
+        lc->launched_ec = NULL;
+        lc->target.ec = NULL;
+        lc->direction = 0;
+        lc->serial = 0;
+
+        if (lc->target.vis_grab)
+          e_policy_visibility_client_grab_release(lc->target.vis_grab);
+        lc->target.vis_grab = NULL;
+
+        e_comp_client_override_del(target_ec);
+        e_policy_animatable_lock(target_ec, E_POLICY_ANIMATABLE_CUSTOMIZED, 0);
+     }
+
+   return sent;
 }
 
 static Eina_Bool
@@ -168,6 +230,7 @@ _e_srv_launcher_prepare_backward_send(E_Service_Launcher *lc,
                                       E_Vis_Job_Type job_type)
 {
    int x, y;
+   Eina_Bool sent = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(lc, EINA_FALSE);
    EINA_SAFETY_ON_NULL_RETURN_VAL(activity, EINA_FALSE);
@@ -202,9 +265,30 @@ _e_srv_launcher_prepare_backward_send(E_Service_Launcher *lc,
    lc->direction = TWS_SERVICE_LAUNCHER_DIRECTION_BACKWARD;
    e_client_pos_get(target_ec, &x, &y);
 
-   _e_srv_launcher_prepare_send(lc, target_ec, x, y);
+   sent = _e_srv_launcher_prepare_send(lc, target_ec, x, y);
 
-   return EINA_TRUE;
+   if (!sent)
+     {
+        ELOGF("LAUNCHER_SRV", "Failed to send event(PREPARE:BACKWARD)", lc->ec);
+
+        lc->launched_ec = NULL;
+        lc->target.ec = NULL;
+        lc->serial = 0;
+        lc->direction = 0;
+
+        if (lc->vis_grab)
+          e_policy_visibility_client_grab_release(lc->vis_grab);
+        if (lc->target.vis_grab)
+          e_policy_visibility_client_grab_release(lc->target.vis_grab);
+
+        e_comp_client_override_del(target_ec);
+        e_policy_animatable_lock(target_ec, E_POLICY_ANIMATABLE_CUSTOMIZED, 0);
+
+        e_object_delay_del_unref(E_OBJECT(target_ec));
+        lc->target.delay_del = EINA_FALSE;
+     }
+
+   return sent;
 }
 
 static void
@@ -338,6 +422,7 @@ static Eina_Bool
 _e_srv_launcher_cb_hook_intercept_show_helper(void *data, E_Client *ec)
 {
    E_Service_Launcher *lc;
+   Eina_Bool sent = EINA_FALSE;
 
    lc = (E_Service_Launcher*)data;
 
@@ -365,7 +450,9 @@ _e_srv_launcher_cb_hook_intercept_show_helper(void *data, E_Client *ec)
          if (lc->target.pid != ec->netwm.pid) goto show_allow;
          if (e_object_is_del(E_OBJECT(ec))) goto show_allow;
 
-         _e_srv_launcher_prepare_forward_send(lc, ec);
+         sent = _e_srv_launcher_prepare_forward_send(lc, ec);
+         EINA_SAFETY_ON_FALSE_GOTO(sent, send_stop);
+
          _e_srv_launcher_state_set(lc, LAUNCHER_STATE_PREPARING);
          goto show_deny;
       default:
@@ -376,6 +463,11 @@ show_allow:
    return EINA_TRUE;
 show_deny:
    return EINA_FALSE;
+send_stop:
+   lc->target.pid = -1;
+   _e_srv_launcher_stop_send(lc);
+   _e_srv_launcher_state_set(lc, LAUNCHER_STATE_IDLE);
+   return EINA_TRUE;
 }
 
 static Eina_Bool
@@ -627,6 +719,7 @@ _e_srv_launcher_cb_launch(struct wl_client *client EINA_UNUSED,
    E_Service_Launcher *lc;
    E_Client *target_ec;
    Eina_List *ecs, *l;
+   Eina_Bool sent = EINA_FALSE;
 
    lc = wl_resource_get_user_data(res_tws_lc);
    EINA_SAFETY_ON_NULL_RETURN(lc);
@@ -662,7 +755,9 @@ _e_srv_launcher_cb_launch(struct wl_client *client EINA_UNUSED,
 
         ELOGF("LAUNCHER_SRV", "Found target_ec:%p", lc->ec, target_ec);
 
-        _e_srv_launcher_prepare_forward_send(lc, target_ec);
+        sent = _e_srv_launcher_prepare_forward_send(lc, target_ec);
+        EINA_SAFETY_ON_FALSE_GOTO(sent, send_stop);
+
         _e_srv_launcher_state_set(lc, LAUNCHER_STATE_PREPARING);
         break;
      }
