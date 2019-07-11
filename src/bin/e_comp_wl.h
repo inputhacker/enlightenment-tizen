@@ -534,24 +534,24 @@ struct _E_Comp_Wl_Intercept_Hook
    unsigned char delete_me : 1;
 };
 
-E_API Eina_Bool e_comp_wl_init(void);
+EINTERN Eina_Bool e_comp_wl_init(void);
 EINTERN void e_comp_wl_shutdown(void);
 
-E_API void e_comp_wl_deferred_job(void);
+EINTERN void e_comp_wl_deferred_job(void);
 
 EINTERN void e_comp_wl_surface_destroy(struct wl_resource *resource);
 EINTERN void e_comp_wl_surface_attach(E_Client *ec, E_Comp_Wl_Buffer *buffer);
 E_API Eina_Bool e_comp_wl_surface_commit(E_Client *ec);
 E_API void e_comp_wl_buffer_reference(E_Comp_Wl_Buffer_Ref *ref, E_Comp_Wl_Buffer *buffer);
-E_API E_Comp_Wl_Buffer *e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec);
+EINTERN E_Comp_Wl_Buffer *e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec);
 
-E_API struct wl_signal e_comp_wl_surface_create_signal_get(void);
+EINTERN struct wl_signal e_comp_wl_surface_create_signal_get(void);
 E_API Eina_Bool e_comp_wl_output_init(const char *id, const char *make, const char *model, int x, int y, int w, int h, int pw, int ph, unsigned int refresh, unsigned int subpixel, unsigned int transform);
 E_API void e_comp_wl_output_remove(const char *id);
 
 EINTERN Eina_Bool e_comp_wl_key_down(Ecore_Event_Key *ev);
 EINTERN Eina_Bool e_comp_wl_key_up(Ecore_Event_Key *ev);
-E_API Eina_Bool e_comp_wl_evas_handle_mouse_button(E_Client *ec, uint32_t timestamp, uint32_t button_id, uint32_t state);
+EINTERN Eina_Bool e_comp_wl_evas_handle_mouse_button(E_Client *ec, uint32_t timestamp, uint32_t button_id, uint32_t state);
 E_API void        e_comp_wl_touch_cancel(void);
 
 E_API E_Comp_Wl_Hook *e_comp_wl_hook_add(E_Comp_Wl_Hook_Point hookpoint, E_Comp_Wl_Hook_Cb func, const void *data);
@@ -560,7 +560,7 @@ E_API void e_comp_wl_hook_del(E_Comp_Wl_Hook *ch);
 E_API E_Comp_Wl_Intercept_Hook *e_comp_wl_intercept_hook_add(E_Comp_Wl_Intercept_Hook_Point hookpoint, E_Comp_Wl_Intercept_Hook_Cb func, const void *data);
 E_API void e_comp_wl_intercept_hook_del(E_Comp_Wl_Intercept_Hook *ch);
 
-E_API void e_comp_wl_shell_surface_ready(E_Client *ec);
+EINTERN void e_comp_wl_shell_surface_ready(E_Client *ec);
 
 E_API   E_Client* e_comp_wl_topmost_parent_get(E_Client *ec);
 
@@ -570,7 +570,7 @@ E_API void e_comp_wl_map_size_cal_from_viewport(E_Client *ec);
 E_API void e_comp_wl_map_apply(E_Client *ec);
 
 E_API void e_comp_wl_input_cursor_timer_enable_set(Eina_Bool enabled);
-E_API void e_comp_wl_send_event_device(struct wl_client *wc, uint32_t timestamp, Ecore_Device *dev, uint32_t serial);
+EINTERN void e_comp_wl_send_event_device(struct wl_client *wc, uint32_t timestamp, Ecore_Device *dev, uint32_t serial);
 
 EINTERN Eina_Bool e_comp_wl_key_send(E_Client *ec, int keycode, Eina_Bool pressed, Ecore_Device *dev, uint32_t time);
 EINTERN Eina_Bool e_comp_wl_touch_send(E_Client *ec, int idx, int x, int y, Eina_Bool pressed, Ecore_Device *dev, double radius_x, double radius_y, double pressure, double angle, uint32_t time);
@@ -583,19 +583,19 @@ EINTERN Eina_Bool e_comp_wl_mouse_in_send(E_Client *ec, int x, int y, Ecore_Devi
 EINTERN Eina_Bool e_comp_wl_mouse_out_send(E_Client *ec, Ecore_Device *dev, uint32_t time);
 EINTERN void e_comp_wl_mouse_in_renew(E_Client *ec, int buttons, int x, int y, void *data, Evas_Modifier *modifiers, Evas_Lock *locks, unsigned int timestamp, Evas_Event_Flags event_flags, Evas_Device *dev, Evas_Object *event_src);
 EINTERN void e_comp_wl_mouse_out_renew(E_Client *ec, int buttons, int x, int y, void *data, Evas_Modifier *modifiers, Evas_Lock *locks, unsigned int timestamp, Evas_Event_Flags event_flags, Evas_Device *dev, Evas_Object *event_src);
-E_API Eina_Bool e_comp_wl_key_process(Ecore_Event_Key *ev, int type);
+EINTERN Eina_Bool e_comp_wl_key_process(Ecore_Event_Key *ev, int type);
 
 EINTERN Eina_Bool e_comp_wl_cursor_hide(E_Client *ec);
 
-E_API void e_comp_wl_pos_convert(int width, int height, int transform, int scale, int sx, int sy, int *bx, int *by);
-E_API void e_comp_wl_pos_convert_inverse(int width, int height, int transform, int scale, int bx, int by, int *sx, int *sy);
-E_API void e_comp_wl_rect_convert(int width, int height, int transform, int scale, int sx, int sy, int sw, int sh, int *bx, int *by, int *bw, int *bh);
-E_API void e_comp_wl_rect_convert_inverse(int width, int height, int transform, int scale, int bx, int by, int bw, int bh, int *sx, int *sy, int *sw, int *sh);
-E_API E_Comp_Wl_Output* e_comp_wl_output_find(E_Client *ec);
+EINTERN void e_comp_wl_pos_convert(int width, int height, int transform, int scale, int sx, int sy, int *bx, int *by);
+EINTERN void e_comp_wl_pos_convert_inverse(int width, int height, int transform, int scale, int bx, int by, int *sx, int *sy);
+EINTERN void e_comp_wl_rect_convert(int width, int height, int transform, int scale, int sx, int sy, int sw, int sh, int *bx, int *by, int *bw, int *bh);
+EINTERN void e_comp_wl_rect_convert_inverse(int width, int height, int transform, int scale, int bx, int by, int bw, int bh, int *sx, int *sy, int *sw, int *sh);
+EINTERN E_Comp_Wl_Output* e_comp_wl_output_find(E_Client *ec);
 
 EINTERN void	  e_comp_wl_feed_focus_in(E_Client *ec);
 
-E_API extern int E_EVENT_WAYLAND_GLOBAL_ADD;
+EINTERN extern int E_EVENT_WAYLAND_GLOBAL_ADD;
 
 EINTERN Eina_Bool e_comp_wl_commit_sync_client_geometry_add(E_Client *ec, E_Client_Demand_Geometry mode, uint32_t serial, int32_t x, int32_t y, int32_t w, int32_t h);
 EINTERN void e_comp_wl_trace_serial_debug(Eina_Bool on);

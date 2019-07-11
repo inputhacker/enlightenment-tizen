@@ -9,7 +9,7 @@
 
 #define COMPOSITOR_VERSION 4
 
-E_API int E_EVENT_WAYLAND_GLOBAL_ADD = -1;
+EINTERN int E_EVENT_WAYLAND_GLOBAL_ADD = -1;
 #include "session-recovery-server-protocol.h"
 
 #ifndef EGL_HEIGHT
@@ -3974,7 +3974,7 @@ _e_comp_wl_gl_shutdown(void)
  *
  * @returns true on success, false if initialization failed.
  */
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_comp_wl_init(void)
 {
    TRACE_DS_BEGIN(COMP_WL:INIT);
@@ -4027,7 +4027,7 @@ e_comp_wl_init(void)
    return EINA_TRUE;
 }
 
-E_API void
+EINTERN void
 e_comp_wl_deferred_job(void)
 {
    ecore_idle_enterer_add(_e_comp_wl_gl_idle, NULL);
@@ -4038,7 +4038,7 @@ e_comp_wl_deferred_job(void)
  *
  * @returns the corresponding Wayland signal
  */
-E_API struct wl_signal
+EINTERN struct wl_signal
 e_comp_wl_surface_create_signal_get(void)
 {
    return e_comp_wl->signals.surface.create;
@@ -4259,7 +4259,7 @@ e_comp_wl_buffer_reference(E_Comp_Wl_Buffer_Ref *ref, E_Comp_Wl_Buffer *buffer)
  * @param resource that owns the desired buffer
  * @returns a new E_Comp_Wl_Buffer object
  */
-E_API E_Comp_Wl_Buffer *
+EINTERN E_Comp_Wl_Buffer *
 e_comp_wl_buffer_get(struct wl_resource *resource, E_Client *ec)
 {
    E_Comp_Wl_Buffer *buffer = NULL;
@@ -4703,7 +4703,7 @@ e_comp_wl_key_up(Ecore_Event_Key *ev)
    return !!ec;
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_comp_wl_key_process(Ecore_Event_Key *ev, int type)
 {
    Eina_Bool res = EINA_FALSE;
@@ -4720,7 +4720,7 @@ e_comp_wl_key_process(Ecore_Event_Key *ev, int type)
    return res;
 }
 
-E_API Eina_Bool
+EINTERN Eina_Bool
 e_comp_wl_evas_handle_mouse_button(E_Client *ec, uint32_t timestamp, uint32_t button_id, uint32_t state)
 {
    Eina_List *l;
@@ -4831,7 +4831,7 @@ e_comp_wl_intercept_hook_del(E_Comp_Wl_Intercept_Hook *ch)
      _e_comp_wl_intercept_hooks_delete++;
 }
 
-E_API void
+EINTERN void
 e_comp_wl_shell_surface_ready(E_Client *ec)
 {
    if (!ec) return;
@@ -4860,7 +4860,7 @@ e_comp_wl_input_cursor_timer_enable_set(Eina_Bool enabled)
      }
 }
 
-E_API void
+EINTERN void
 e_comp_wl_send_event_device(struct wl_client *wc, uint32_t timestamp, Ecore_Device *dev, uint32_t serial)
 {
    EINA_SAFETY_ON_NULL_RETURN(wc);
@@ -5280,7 +5280,7 @@ _e_comp_wl_buffer_coord_get(int width, int height, int transform, int scale)
  * screen to output
  *   - screen width, screen height, output transform, output scale
  */
-E_API void
+EINTERN void
 e_comp_wl_pos_convert(int width, int height, int transform, int scale, int sx, int sy, int *bx, int *by)
 {
    E_Util_Transform_Matrix m;
@@ -5296,7 +5296,7 @@ e_comp_wl_pos_convert(int width, int height, int transform, int scale, int sx, i
 /* buffer to screen
  *   - buffer width, buffer height, buffer transform, buffer scale
  */
-E_API void
+EINTERN void
 e_comp_wl_pos_convert_inverse(int width, int height, int transform, int scale, int bx, int by, int *sx, int *sy)
 {
    E_Util_Transform_Matrix m;
@@ -5327,7 +5327,7 @@ e_comp_wl_pos_convert_inverse(int width, int height, int transform, int scale, i
  * screen to output
  *   - screen width, screen height, output transform, output scale
  */
-E_API void
+EINTERN void
 e_comp_wl_rect_convert(int width, int height, int transform, int scale,
                        int sx, int sy, int sw, int sh, int *bx, int *by, int *bw, int *bh)
 {
@@ -5350,7 +5350,7 @@ e_comp_wl_rect_convert(int width, int height, int transform, int scale,
 /* buffer to screen
  *   - buffer width, buffer height, buffer transform, buffer scale
  */
-E_API void
+EINTERN void
 e_comp_wl_rect_convert_inverse(int width, int height, int transform, int scale,
                                int bx, int by, int bw, int bh, int *sx, int *sy, int *sw, int *sh)
 {
@@ -5383,7 +5383,7 @@ e_comp_wl_rect_convert_inverse(int width, int height, int transform, int scale,
    if (sh) *sh = br.h;
 }
 
-E_API E_Comp_Wl_Output*
+EINTERN E_Comp_Wl_Output*
 e_comp_wl_output_find(E_Client *ec)
 {
    Eina_List *l;
