@@ -714,6 +714,7 @@ static void
 _e_srv_launcher_cb_launch(struct wl_client *client EINA_UNUSED,
                           struct wl_resource *res_tws_lc,
                           const char *app_id,
+                          const char *instance_id,
                           int32_t pid)
 {
    E_Service_Launcher *lc;
@@ -726,8 +727,8 @@ _e_srv_launcher_cb_launch(struct wl_client *client EINA_UNUSED,
    EINA_SAFETY_ON_NULL_RETURN(lc->ec);
 
    ELOGF("LAUNCHER_SRV",
-         "Recieved request(launcher_launch) appid:%s pid:%d",
-         lc->ec, app_id?:"NONE", pid);
+         "Recieved request(launcher_launch) appid:%s instance id:%s pid:%d",
+         lc->ec, app_id?:"NONE", instance_id?:"NONE", pid);
 
    EINA_SAFETY_ON_TRUE_GOTO(lc->ec->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED, send_stop);
    EINA_SAFETY_ON_TRUE_GOTO(pid < 0, send_stop);
