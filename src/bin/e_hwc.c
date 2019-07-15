@@ -474,6 +474,16 @@ e_hwc_client_is_above_hwc(E_Client *ec, E_Client *hwc_ec)
    return EINA_FALSE;
 }
 
+EINTERN char *
+e_hwc_output_id_get(E_Hwc *hwc)
+{
+   if (!hwc) return "NULL";
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc->output, NULL);
+
+   return hwc->output->id;
+}
+
 static const char *
 _e_hwc_prop_name_get_by_id(E_Hwc *hwc, unsigned int id)
 {
