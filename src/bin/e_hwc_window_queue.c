@@ -19,39 +19,47 @@
     } \
   while (0)
 
-#define EHWQINF(f, ec, ehwq, x...)                               \
+#define EHWQERR(f, ec, hwc, ehwq, x...)                          \
+   do                                                            \
+     {                                                           \
+        ERR("EWL|%20.20s|              |             |%8s|"f,  \
+            "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);      \
+     }                                                           \
+   while (0)
+
+#define EHWQINF(f, ec, hwc, ehwq, x...)                          \
    do                                                            \
      {                                                           \
         if ((!ec) && (!ehwq))                                    \
-          INF("EWL|%20.20s|              |             |"f,      \
-              "HWC-WINQ", ##x);                                  \
+          INF("EWL|%20.20s|              |             |%8s|"f,  \
+              "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);      \
         else                                                     \
-          INF("EWL|%20.20s|win:0x%08zx|ec:%8p| ehwq:%8p "f,      \
+          INF("EWL|%20.20s|win:0x%08zx|ec:%8p| ehwq:%8p|%8s| "f, \
               "HWC-WINQ",                                        \
               (e_client_util_win_get(ec)),                       \
               (ec),                                              \
-              (ehwq),                                            \
+              (ehwq), (e_hwc_output_id_get(hwc)),                \
               ##x);                                              \
      }                                                           \
    while (0)
 
-#define EHWQTRACE(f, ec, ehwq, x...)                             \
-   do                                                            \
-     {                                                           \
-        if (ehwq_trace)                                          \
-          {                                                      \
-             if ((!ec) && (!ehwq))                               \
-               INF("EWL|%20.20s|              |             |"f, \
-                   "HWC-WINQ", ##x);                             \
-             else                                                \
-               INF("EWL|%20.20s|win:0x%08zx|ec:%8p| ehwq:%8p "f, \
-                   "HWC-WINQ",                                   \
-                   (e_client_util_win_get(ec)),                  \
-                   (ec),                                         \
-                   (ehwq),                                       \
-                   ##x);                                         \
-          }                                                      \
-     }                                                           \
+#define EHWQTRACE(f, ec, hwc, ehwq, x...)                             \
+   do                                                                 \
+     {                                                                \
+        if (ehwq_trace)                                               \
+          {                                                           \
+             if ((!ec) && (!ehwq))                                    \
+               INF("EWL|%20.20s|              |             |%8s|"f,  \
+                   "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);      \
+             else                                                     \
+               INF("EWL|%20.20s|win:0x%08zx|ec:%8p| ehwq:%8p|%8s| "f, \
+                   "HWC-WINQ",                                        \
+                   (e_client_util_win_get(ec)),                       \
+                   (ec),                                              \
+                   (ehwq), (e_hwc_output_id_get(hwc)),                \
+                   ##x);                                              \
+          }                                                           \
+     }                                                                \
    while (0)
 
 static Eina_Bool ehwq_trace = EINA_FALSE;
@@ -142,14 +150,14 @@ _backup_tsurface_create(tbm_surface_h tsurface)
    ret = tbm_surface_map(tsurface, TBM_SURF_OPTION_READ, &src_info);
    if (ret != TBM_SURFACE_ERROR_NONE)
      {
-        ERR("fail to map the tsurface.");
+        EHWQERR("fail to map the tsurface.", NULL, NULL, NULL);
         return NULL;
      }
 
    new_tsurface = tbm_surface_create(src_info.width, src_info.height, src_info.format);
    if (!new_tsurface)
      {
-        ERR("fail to allocate the new_tsurface.");
+        EHWQERR("fail to allocate the new_tsurface.", NULL, NULL, NULL);
         tbm_surface_unmap(tsurface);
         return NULL;
      }
@@ -157,7 +165,7 @@ _backup_tsurface_create(tbm_surface_h tsurface)
    ret = tbm_surface_map(new_tsurface, TBM_SURF_OPTION_WRITE, &dst_info);
    if (ret != TBM_SURFACE_ERROR_NONE)
      {
-        ERR("fail to map the new_tsurface.");
+        EHWQERR("fail to map the new_tsurface.", NULL, NULL, NULL);
         tbm_surface_destroy(new_tsurface);
         tbm_surface_unmap(tsurface);
         return NULL;
@@ -232,7 +240,7 @@ _comp_wl_backup_buffer_get(tbm_surface_h tsurface)
    backup_buffer = e_comp_wl_tbm_buffer_get(backup_tsurface);
    if (!backup_buffer)
      {
-        ERR("Fail to e_comp_wl_tbm_buffer_get");
+        EHWQERR("Fail to e_comp_wl_tbm_buffer_get", NULL, NULL, NULL);
         tbm_surface_internal_unref(backup_tsurface);
         return NULL;
      }
@@ -261,13 +269,13 @@ _e_hwc_window_queue_tqueue_acquire(E_Hwc_Window *hwc_window)
         tqueue = tdm_hwc_window_acquire_buffer_queue(hwc_window->thwc_window, &error);
 
         EHWQINF("Acquire buffer queue ehw:%p tq:%p",
-                hwc_window->ec, NULL, hwc_window, tqueue);
+                hwc_window->ec, hwc_window->hwc, NULL, hwc_window, tqueue);
      }
 
    if (!tqueue)
      {
-        ERR("fail to tdm_hwc_window_get_buffer_queue hwc_win:%p tdm_error:%d",
-            hwc_window, error);
+        EHWQERR("fail to tdm_hwc_window_get_buffer_queue hwc_win:%p tdm_error:%d",
+            hwc_window->ec, hwc_window->queue->hwc, hwc_window->queue, hwc_window, error);
         return NULL;
      }
 
@@ -280,7 +288,7 @@ _e_hwc_window_queue_tqueue_release(tbm_surface_queue_h tqueue, E_Hwc_Window *hwc
    tdm_hwc_window_release_buffer_queue(hwc_window->thwc_window, tqueue);
 
    EHWQINF("Release buffer queue ehw:%p tq:%p",
-                hwc_window->ec, NULL, hwc_window, tqueue);
+                hwc_window->ec, hwc_window->hwc, NULL, hwc_window, tqueue);
 }
 
 static E_Hwc_Window_Queue_Buffer *
@@ -366,7 +374,7 @@ _e_hwc_window_queue_exported_buffer_destroy_cb(struct wl_listener *listener, voi
 
    hwc_window = queue->user;
    EHWQTRACE("DES ts:%p tq:%p wl_buffer:%p",
-             (hwc_window ? hwc_window->ec : NULL), queue,
+             (hwc_window ? hwc_window->ec : NULL), queue->hwc, queue,
              queue_buffer->tsurface, queue->tqueue,
              queue_buffer->exported_wl_buffer);
 
@@ -400,7 +408,7 @@ _e_hwc_window_queue_exported_buffer_detach_cb(struct wayland_tbm_client_queue *c
      queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_INVALID;
 
    EHWQTRACE("DET ts:%p tq:%p wl_buffer:%p",
-             (user ? user->ec : NULL), queue,
+             (user ? user->ec : NULL), queue->hwc, queue,
              queue_buffer->tsurface, queue->tqueue,
              queue_buffer->exported_wl_buffer);
 
@@ -437,7 +445,7 @@ _e_hwc_window_queue_buffer_export(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_
    EINA_SAFETY_ON_FALSE_RETURN_VAL(wl_buffer, EINA_FALSE);
 
    EHWQTRACE("EXP ts:%p tq:%p wl_buffer:%p",
-             (user ? user->ec : NULL), queue,
+             (user ? user->ec : NULL), queue->hwc, queue,
              queue_buffer->tsurface, queue->tqueue, wl_buffer);
 
    queue_buffer->exported = EINA_TRUE;
@@ -473,7 +481,9 @@ _e_hwc_window_queue_buffer_send(E_Hwc_Window_Queue *queue)
 
    if (!queue_buffer->exported || !queue_buffer->exported_wl_buffer)
      {
-        ERR("Not exported queue_buffer:%p tsurface:%p", queue_buffer, queue_buffer->tsurface);
+        EHWQERR("Not exported queue_buffer:%p tsurface:%p",
+                (hwc_window ? hwc_window->ec : NULL), queue->hwc, queue,
+                queue_buffer, queue_buffer->tsurface);
         return EINA_FALSE;
      }
 
@@ -482,7 +492,8 @@ _e_hwc_window_queue_buffer_send(E_Hwc_Window_Queue *queue)
    queue_buffer->usable = EINA_TRUE;
 
    EHWQTRACE("USA ts:%p tq:%p wl_buffer:%p ehw:%p",
-             (hwc_window ? hwc_window->ec : NULL), queue,
+             (hwc_window ? hwc_window->ec : NULL), queue->hwc,
+             queue,
              queue_buffer->tsurface, queue->tqueue,
              queue_buffer->exported_wl_buffer,
              hwc_window);
@@ -512,13 +523,13 @@ _e_hwc_window_queue_buffers_hand_over(E_Hwc_Window_Queue *queue, E_Hwc_Window *h
      {
         if (!_e_hwc_window_queue_buffers_export(queue))
           {
-             ERR("fail to queue_buffers_export STATE_SET_WAITING queue:%p ehw:%p", queue, hwc_window);
+             EHWQERR("fail to queue_buffers_export STATE_SET_WAITING ehw:%p", NULL, queue->hwc, queue, hwc_window);
              return EINA_FALSE;
           }
 
         if (!_e_hwc_window_queue_buffer_send(queue))
           {
-             ERR("fail to queue_dequeue_buffer_send STATE_SET_WAITING queue:%p ehw:%p", queue, hwc_window);
+             EHWQERR("fail to queue_dequeue_buffer_send STATE_SET_WAITING ehw:%p", NULL, queue->hwc, queue, hwc_window);
              return EINA_FALSE;
           }
 
@@ -526,7 +537,7 @@ _e_hwc_window_queue_buffers_hand_over(E_Hwc_Window_Queue *queue, E_Hwc_Window *h
         e_hwc_window_activate(hwc_window, queue);
 
         EHWQINF("Set Waiting user ehw:%p -- {%s}",
-                hwc_window->ec, queue, hwc_window,
+                hwc_window->ec, queue->hwc, queue, hwc_window,
                 (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
      }
    else
@@ -534,7 +545,7 @@ _e_hwc_window_queue_buffers_hand_over(E_Hwc_Window_Queue *queue, E_Hwc_Window *h
         queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_PENDING;
 
         EHWQINF("Set Pending user ehw:%p -- {%s}",
-                hwc_window->ec, queue, hwc_window,
+                hwc_window->ec, queue->hwc, queue, hwc_window,
                 (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
      }
 
@@ -578,19 +589,21 @@ _e_hwc_window_queue_cb_dequeueable(tbm_surface_queue_h surface_queue, void *data
    if (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET)
      {
         if (!_e_hwc_window_queue_buffer_send(queue))
-          ERR("fail to queue_dequeue_buffer_send STATE_SET_PENDING queue:%p ehw:%p", queue, queue->user);
+          EHWQERR("fail to queue_dequeue_buffer_send STATE_SET_PENDING ehw:%p", NULL, queue->hwc, queue, queue->user);
      }
    else if (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_PENDING)
      {
         if (!_e_hwc_window_queue_buffers_hand_over(queue, queue->user))
-          ERR("fail to queue_buffers_hand_over STATE_SET_PENDING queue:%p hwc_window:%p", queue, queue->user);
+          EHWQERR("fail to queue_buffers_hand_over STATE_SET_PENDING hwc_window:%p", NULL, queue->hwc, queue, queue->user);
      }
 }
 
 static void
 _e_hwc_window_queue_free(E_Hwc_Window_Queue *queue)
 {
-   EHWQINF("Free", NULL, queue);
+   EINA_SAFETY_ON_NULL_RETURN(queue);
+
+   EHWQINF("Free", NULL, queue->hwc, queue);
 
    E_FREE(queue);
 }
@@ -605,7 +618,7 @@ _e_hwc_window_queue_destroy(E_Hwc_Window_Queue *queue)
    if (_hwc_winq_mgr && queue->tqueue)
      eina_hash_del(_hwc_winq_mgr->hwc_winq_hash, &queue->tqueue, queue);
 
-   EHWQINF("Destroy tq:%p", NULL, queue, queue->tqueue);
+   EHWQINF("Destroy tq:%p", NULL, queue->hwc, queue, queue->tqueue);
 
    EINA_LIST_FREE(queue->buffers, queue_buffer)
      _e_hwc_window_queue_buffer_destroy(queue_buffer);
@@ -633,7 +646,7 @@ _e_hwc_window_queue_prepare_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_win
         e_object_unref(E_OBJECT(queue->user));
         queue->user = NULL;
 
-        ERR("fail to queue_buffers_hand_over queue:%p hwc_window:%p", queue, hwc_window);
+        EHWQERR("fail to queue_buffers_hand_over hwc_window:%p", NULL, queue->hwc, queue, hwc_window);
         return EINA_FALSE;
      }
 
@@ -654,7 +667,8 @@ _e_hwc_window_queue_set(E_Hwc_Window_Queue *queue)
      {
         if (!_e_hwc_window_queue_buffer_send(queue))
           {
-             ERR("fail to queue_dequeue_buffer_send QUEUE_STATE_SET queue:%p ehw:%p", queue, queue->user);
+             EHWQERR("fail to queue_dequeue_buffer_send QUEUE_STATE_SET ehw:%p",
+                     NULL, queue->hwc, queue, queue->user);
              return;
           }
      }
@@ -663,7 +677,7 @@ _e_hwc_window_queue_set(E_Hwc_Window_Queue *queue)
    queue->state = E_HWC_WINDOW_QUEUE_STATE_SET;
 
    EHWQINF("Set user ehw:%p -- {%s}",
-           queue->user->ec, queue, queue->user,
+           queue->user->ec, queue->hwc, queue, queue->user,
            (queue->user->ec ? queue->user->ec->icccm.title : "UNKNOWN"));
 }
 
@@ -701,7 +715,7 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
    _e_hwc_window_queue_tqueue_release(queue->tqueue, queue->user);
 
    EHWQINF("Unset user ehw:%p -- {%s}",
-           queue->user->ec, queue, queue->user,
+           queue->user->ec, queue->hwc, queue, queue->user,
            (queue->user->ec ? queue->user->ec->icccm.title : "UNKNOWN"));
 
    /* unset the hwc_window from the queue */
@@ -716,7 +730,7 @@ _e_hwc_window_queue_unset(E_Hwc_Window_Queue *queue)
      {
         hwc_window = eina_list_nth(queue->user_pending_set, 0);
         if (!_e_hwc_window_queue_prepare_set(queue, hwc_window))
-          ERR("fail to queue_prepare_set for user_pending_set queue:%p hwc_window:%p", queue, hwc_window);
+          EHWQERR("fail to queue_prepare_set for user_pending_set hwc_window:%p", NULL, queue->hwc, queue, hwc_window);
      }
 
    e_object_unref(E_OBJECT(queue));
@@ -791,7 +805,7 @@ _e_hwc_window_queue_cb_buffer_change(void *data, E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(backup_buffer);
 
    EHWQTRACE("Backup buffer set ehw:%p origin:%p tsurface:%p",
-             hwc_window->ec, NULL, hwc_window,
+             hwc_window->ec, hwc_window->hwc, NULL, hwc_window,
              comp_buffer->tbm_surface, backup_buffer->tbm_surface);
 
    e_comp_wl_buffer_reference(&ec->comp_data->buffer_ref, backup_buffer);
@@ -869,7 +883,7 @@ _e_hwc_window_queue_create(tbm_surface_queue_h tqueue)
         queue_buffer = _e_hwc_window_queue_buffer_create(queue, surfaces[i]);
         if (!queue_buffer)
           {
-             ERR("fail to e_hwc_window_queue_buffer_create");
+             EHWQERR("fail to e_hwc_window_queue_buffer_create", NULL, queue->hwc, queue);
              goto fail;
           }
 
@@ -887,7 +901,7 @@ _e_hwc_window_queue_create(tbm_surface_queue_h tqueue)
 
    if (surfaces) E_FREE(surfaces);
 
-   EHWQINF("Create tq:%p", NULL, queue, tqueue);
+   EHWQINF("Create tq:%p", NULL, queue->hwc, queue, tqueue);
 
    return queue;
 
@@ -968,6 +982,10 @@ e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
    queue = _e_hwc_window_queue_get(tqueue);
    EINA_SAFETY_ON_NULL_RETURN_VAL(queue, NULL);
 
+   /* set the hwc to the queue */
+   if (queue->hwc != hwc_window->hwc)
+     queue->hwc = hwc_window->hwc;
+
    if (e_hwc_window_is_target(hwc_window))
      {
         queue->is_target = EINA_TRUE;
@@ -980,7 +998,7 @@ e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
         _e_hwc_window_queue_user_pending_set_add(queue, hwc_window);
 
         EHWQINF("Add user_pending_set ehw:%p {%s} user:{%s} unset_waiting:%d",
-                hwc_window->ec, queue, hwc_window,
+                hwc_window->ec, queue->hwc, queue, hwc_window,
                 (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"),
                 (queue->user&&queue->user->ec?queue->user->ec->icccm.title : "UNKNOWN"),
                 (queue->state == E_HWC_WINDOW_QUEUE_STATE_UNSET_WAITING?1:0));
@@ -991,7 +1009,7 @@ e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window)
    /* _e_hwc_window_queue_set_prepare */
    if (!_e_hwc_window_queue_prepare_set(queue, hwc_window))
      {
-        ERR("fail to queue_prepare_set queue:%p hwc_window:%p", queue, hwc_window);
+        EHWQERR("fail to queue_prepare_set hwc_window:%p", NULL, queue->hwc, queue, hwc_window);
         return NULL;
      }
 
@@ -1013,7 +1031,7 @@ e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_windo
         _e_hwc_window_queue_tqueue_release(queue->tqueue, hwc_window);
 
         EHWQINF("Remove user_pending_set ehw:%p -- {%s}",
-                hwc_window->ec, queue, hwc_window,
+                hwc_window->ec, queue->hwc, queue, hwc_window,
                 (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
 
         return;
@@ -1033,7 +1051,7 @@ e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_windo
         queue->user = NULL;
 
         EHWQINF("Unset Waiting user ehw:%p -- {%s}",
-                hwc_window->ec, queue, hwc_window,
+                hwc_window->ec, queue->hwc, queue, hwc_window,
                 (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
      }
 }
@@ -1095,7 +1113,7 @@ e_hwc_window_queue_buffer_dequeue(E_Hwc_Window_Queue *queue)
 
    user = queue->user;
    EHWQTRACE("DEQ ts:%p tq:%p",
-             (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
+             (user ? user->ec : NULL), queue->hwc, queue, queue_buffer->tsurface, queue->tqueue);
 
    return queue_buffer;
 }
@@ -1116,7 +1134,7 @@ e_hwc_window_queue_buffer_enqueue(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_
 
    user = queue->user;
    EHWQTRACE("ENQ ts:%p tq:%p",
-             (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
+             (user ? user->ec : NULL), queue->hwc, queue, queue_buffer->tsurface, queue->tqueue);
 
    tsq_err = tbm_surface_queue_enqueue(queue->tqueue, queue_buffer->tsurface);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, EINA_FALSE);
@@ -1151,7 +1169,7 @@ e_hwc_window_queue_buffer_acquire(E_Hwc_Window_Queue *queue)
 
    user = queue->user;
    EHWQTRACE("ACQ ts:%p tq:%p",
-             (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
+             (user ? user->ec : NULL), queue->hwc, queue, queue_buffer->tsurface, queue->tqueue);
 
    return queue_buffer;
 }
@@ -1176,7 +1194,7 @@ e_hwc_window_queue_buffer_release(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_
 
    user = queue->user;
    EHWQTRACE("REL ts:%p tq:%p",
-             (user ? user->ec : NULL), queue, queue_buffer->tsurface, queue->tqueue);
+             (user ? user->ec : NULL), queue->hwc, queue, queue_buffer->tsurface, queue->tqueue);
 
    tsq_err = tbm_surface_queue_release(queue->tqueue, queue_buffer->tsurface);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, EINA_FALSE);
@@ -1204,14 +1222,14 @@ e_hwc_window_queue_acquirable_buffers_get(E_Hwc_Window_Queue *queue)
    tsurfaces = E_NEW(tbm_surface_h, queue_size);
    if (!tsurfaces)
      {
-        ERR("failed to alloc tsurfaces");
+        EHWQERR("failed to alloc tsurfaces", NULL, queue->hwc, queue);
         return NULL;
      }
 
    tsq_err = tbm_surface_queue_get_acquirable_surfaces(queue->tqueue, tsurfaces, &num);
    if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
      {
-        ERR("failed to tbm_surface_queue_get_acquirable_surfaces");
+        EHWQERR("failed to tbm_surface_queue_get_acquirable_surfaces", NULL, queue->hwc, queue);
         E_FREE(tsurfaces);
         return NULL;
      }

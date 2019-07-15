@@ -25,6 +25,7 @@ struct _E_Hwc_Window_Queue
 {
    E_Object                          e_obj_inherit;
 
+   E_Hwc                            *hwc;
    tbm_surface_queue_h               tqueue;
    Eina_List                        *buffers;
    struct wl_signal                  destroy_signal;
