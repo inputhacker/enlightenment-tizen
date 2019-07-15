@@ -1,6 +1,22 @@
 #include "e.h"
 #include "services/e_service_quickpanel.h"
 
+#define EHERR(f, hwc, x...)                                           \
+   do                                                                 \
+     {                                                                \
+        ERR("EWL|%20.20s|              |             |%8s|"f,         \
+            "HWC", (e_hwc_output_id_get(hwc)), ##x);                  \
+     }                                                                \
+   while (0)
+
+#define EHINF(f, hwc, x...)                                           \
+   do                                                                 \
+     {                                                                \
+        INF("EWL|%20.20s|              |             |%8s|"f,         \
+            "HWC", (e_hwc_output_id_get(hwc)), ##x);                  \
+     }                                                                \
+   while (0)
+
 static int _e_hwc_intercept_hooks_delete = 0;
 static int _e_hwc_intercept_hooks_walking = 0;
 
@@ -100,7 +116,7 @@ _e_hwc_tbm_surface_queue_alloc(void *data, int w, int h)
         tqueue = tdm_hwc_get_client_target_buffer_queue(hwc->thwc, &error);
         if (error != TDM_ERROR_NONE)
          {
-            ERR("fail to tdm_hwc_get_client_target_buffer_queue");
+            EHERR("fail to tdm_hwc_get_client_target_buffer_queue", hwc);
             return (void *)NULL;
          }
      }
@@ -109,17 +125,17 @@ _e_hwc_tbm_surface_queue_alloc(void *data, int w, int h)
         tqueue = tbm_surface_queue_create(3, w, h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
         if (!tqueue)
           {
-             ERR("fail to tbm_surface_queue_create");
+             EHERR("fail to tbm_surface_queue_create", hwc);
              return (void *)NULL;
           }
      }
 
    queue_w = tbm_surface_queue_get_width(tqueue);
    if (scr_w != queue_w)
-     WRN("!!!!!!WARNING::: the queue width(%d) is diffrent from output width(%d)!!!!!!", queue_w, scr_w);
+     EHINF("!!!!!!WARNING::: the queue width(%d) is diffrent from output width(%d)!!!!!!", hwc, queue_w, scr_w);
    queue_h = tbm_surface_queue_get_height(tqueue);
    if (scr_h != queue_h)
-     WRN("!!!!!!WARNING::: the queue height(%d) is diffrent from output height(%d)!!!!!!", queue_h, scr_h);
+     EHINF("!!!!!!WARNING::: the queue height(%d) is diffrent from output height(%d)!!!!!!", hwc, queue_h, scr_h);
 
    hwc->target_buffer_queue = tqueue;
 
@@ -171,7 +187,7 @@ _e_hwc_ee_init(E_Hwc* hwc)
    int screen_rotation;
    char buf[1024];
 
-   INF("E_HWC: ecore evase engine init.");
+   EHINF("ecore evase engine init.", hwc);
 
    // TODO: fix me. change the screen_rotation into output_rotation.
    screen_rotation = output->e_comp_screen->rotation;
@@ -202,7 +218,7 @@ _e_hwc_ee_init(E_Hwc* hwc)
           }
      }
 
-   INF("GL available:%d config engine:%d screen size:%dx%d",
+   EHINF("GL available:%d config engine:%d screen size:%dx%d", hwc,
        e_comp_gl_get(), e_comp_config_get()->engine, scr_w, scr_h);
 
    if ((e_comp_gl_get()) &&
@@ -212,12 +228,12 @@ _e_hwc_ee_init(E_Hwc* hwc)
         if (e_comp->avoid_afill)
           {
              ee = ecore_evas_tbm_allocfunc_new("gl_tbm_ES", scr_w, scr_h, _e_hwc_tbm_surface_queue_alloc, _e_hwc_tbm_surface_queue_free, (void *)hwc);
-             INF("ecore_evas engine:gl_tbm_ES avoid_afill:%d", e_comp->avoid_afill);
+             EHINF("ecore_evas engine:gl_tbm_ES avoid_afill:%d", hwc, e_comp->avoid_afill);
           }
         else
           {
              ee = ecore_evas_tbm_allocfunc_new("gl_tbm", scr_w, scr_h, _e_hwc_tbm_surface_queue_alloc, _e_hwc_tbm_surface_queue_free, (void *)hwc);
-             INF("ecore_evas engine:gl_tbm avoid_afill:%d", e_comp->avoid_afill);
+             EHINF("ecore_evas engine:gl_tbm avoid_afill:%d", hwc, e_comp->avoid_afill);
           }
         snprintf(buf, sizeof(buf), "\tEE_GL_DRM New Done %p %dx%d", ee, scr_w, scr_h);
         e_main_ts_end(buf);
@@ -262,7 +278,7 @@ _e_hwc_ee_init(E_Hwc* hwc)
      {
         e_main_ts_begin("\tEE_DRM New");
         ee = ecore_evas_tbm_allocfunc_new("software_tbm", scr_w, scr_h, _e_hwc_tbm_surface_queue_alloc, _e_hwc_tbm_surface_queue_free, (void *)hwc);
-        INF("ecore_evas engine:software_tbm fallback to software engine.");
+        EHINF("ecore_evas engine:software_tbm fallback to software engine.", hwc);
         snprintf(buf, sizeof(buf), "\tEE_DRM New Done %p %dx%d", ee, scr_w, scr_h);
         e_main_ts_end(buf);
      }
@@ -322,14 +338,14 @@ e_hwc_new(E_Output *output)
         hwc->thwc = tdm_output_get_hwc(output->toutput, &error);
         if (!hwc->thwc)
           {
-             ERR("hwc_opt: tdm_output_get_hwc failed");
+             EHERR("tdm_output_get_hwc failed", hwc);
              goto fail;
           }
      }
 
    if (!_e_hwc_ee_init(hwc))
      {
-        ERR("hwc_opt: _e_hwc_ee_init failed");
+        EHERR("_e_hwc_ee_init failed", hwc);
         goto fail;
      }
 
@@ -346,36 +362,36 @@ e_hwc_new(E_Output *output)
      {
         if (!e_hwc_planes_init())
           {
-             ERR("hwc_opt: e_hwc_windows_init failed");
+             EHERR("e_hwc_windows_init failed", hwc);
              goto fail;
           }
 
-        INF("Output uses the HWC PLANES Policy.");
+        EHINF("Use the HWC PLANES Policy.", hwc);
      }
    else
      {
         if (!e_hwc_window_queue_init(hwc))
           {
-             ERR("hwc_opt: E_Hwc_Window_Queue init failed");
+             EHERR("E_Hwc_Window_Queue init failed", hwc);
              goto fail;
           }
 
         if (!e_hwc_window_init(hwc))
           {
-             ERR("hwc_opt: E_Hwc_Window init failed");
+             EHERR("E_Hwc_Window init failed", hwc);
              goto fail;
           }
 
         if (!e_hwc_windows_init(hwc))
           {
-             ERR("hwc_opt: e_hwc_windows_init failed");
+             EHERR("e_hwc_windows_init failed", hwc);
              goto fail;
           }
 
         /* turn on sw compositor at the start */
         ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
 
-        INF("Output uses the HWC WINDOWS Policy.");
+        EHINF("Use the HWC WINDOWS Policy.", hwc);
      }
 
    return hwc;
@@ -492,7 +508,7 @@ _e_hwc_prop_name_get_by_id(E_Hwc *hwc, unsigned int id)
 
    if (!e_hwc_available_properties_get(hwc, &props, &count))
      {
-        ERR("e_hwc_available_properties_get failed.");
+        EHERR("e_hwc_available_properties_get failed.", hwc);
         return NULL;
      }
 
@@ -502,7 +518,7 @@ _e_hwc_prop_name_get_by_id(E_Hwc *hwc, unsigned int id)
           return props[i].name;
      }
 
-   ERR("No available property: id %d", id);
+   EHERR("No available property: id %d", hwc, id);
 
    return NULL;
 }
@@ -518,15 +534,15 @@ e_hwc_available_properties_get(E_Hwc *hwc, const hwc_prop **props, int *count)
 
    if (!e_hwc_windows_get_available_properties(hwc, &tprops, count))
      {
-        ERR("e_hwc_windows_get_available_properties failed");
+        EHERR("e_hwc_windows_get_available_properties failed", hwc);
         return EINA_FALSE;
      }
 
    *props = (hwc_prop *)tprops;
 
-   ELOGF("HWC", ">>>>>>>> Available HWC props : count = %d", NULL, *count);
+   EHINF(">>>>>>>> Available HWC props : count = %d", hwc, *count);
    for (i = 0; i < *count; i++)
-     ELOGF("HWC", "   [%d] %s, %u", NULL, i, tprops[i].name, tprops[i].id);
+     EHINF("   [%d] %s, %u", hwc, i, tprops[i].name, tprops[i].id);
 
    return EINA_TRUE;
 }
@@ -595,7 +611,7 @@ e_client_hwc_available_properties_get(E_Client *ec, const hwc_prop **props, int 
      {
         if (!e_hwc_windows_get_video_available_properties(hwc, &tprops, count))
           {
-             ERR("e_hwc_windows_get_video_available_properties failed");
+             EHERR("e_hwc_windows_get_video_available_properties failed", hwc);
              return EINA_FALSE;
           }
      }
@@ -603,7 +619,7 @@ e_client_hwc_available_properties_get(E_Client *ec, const hwc_prop **props, int 
      {
         if (!e_hwc_windows_get_available_properties(hwc, &tprops, count))
           {
-             ERR("e_hwc_windows_get_available_properties failed");
+             EHERR("e_hwc_windows_get_available_properties failed", hwc);
              return EINA_FALSE;
           }
      }
@@ -611,11 +627,11 @@ e_client_hwc_available_properties_get(E_Client *ec, const hwc_prop **props, int 
    *props = (hwc_prop *)tprops;
 
    if (state == E_HWC_WINDOW_STATE_VIDEO)
-     ELOGF("HWC", ">>>>>>>> Available VIDEO props : count = %d", NULL, *count);
+     EHINF(">>>>>>>> Available VIDEO props : count = %d", hwc, *count);
    else
-     ELOGF("HWC", ">>>>>>>> Available UI props : count = %d", NULL, *count);
+     EHINF(">>>>>>>> Available UI props : count = %d", hwc, *count);
    for (i = 0; i < *count; i++)
-     ELOGF("HWC", "   [%d] %s, %u", NULL, i, tprops[i].name, tprops[i].id);
+     EHINF("   [%d] %s, %u", hwc, i, tprops[i].name, tprops[i].id);
 
    return EINA_TRUE;
 }
@@ -630,10 +646,11 @@ e_client_hwc_property_get(E_Client *ec, unsigned int id, hwc_value *value)
    EINA_SAFETY_ON_NULL_RETURN_VAL(value, EINA_FALSE);
    hwc_window = ec->hwc_window;
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->hwc, EINA_FALSE);
 
    if (!e_hwc_window_get_property(hwc_window, id, &tvalue))
      {
-        ERR("e_hwc_window_get_property failed");
+        EHERR("e_hwc_window_get_property failed", hwc_window->hwc);
         return EINA_FALSE;
      }
 
@@ -650,7 +667,7 @@ _e_client_hwc_prop_name_get_by_id(E_Client *ec, unsigned int id)
 
    if (!e_client_hwc_available_properties_get(ec, &props, &count))
      {
-        ERR("e_client_hwc_available_properties_get failed.");
+        EHERR("e_client_hwc_available_properties_get failed.", ec->hwc_window->hwc);
         return EINA_FALSE;
      }
 
@@ -660,7 +677,7 @@ _e_client_hwc_prop_name_get_by_id(E_Client *ec, unsigned int id)
           return props[i].name;
      }
 
-   ERR("No available property: id %d", id);
+   EHERR("No available property: id %d", ec->hwc_window->hwc, id);
 
    return NULL;
 }
@@ -683,7 +700,7 @@ e_client_hwc_property_set(E_Client *ec, unsigned int id, hwc_value value)
 
    if (!e_hwc_window_set_property(hwc_window, id, name, tvalue, EINA_TRUE))
      {
-        ERR("e_hwc_window_set_property failed");
+        EHERR("e_hwc_window_set_property failed", hwc_window->hwc);
         return EINA_FALSE;
      }
 
