@@ -1,5 +1,29 @@
 #include "e.h"
 
+#define EOERR(f, output, x...)                                   \
+   do                                                            \
+     {                                                           \
+        if (!output)                                             \
+          ERR("EWL|%20.20s|              |             |%8s|"f,  \
+              "OUTPUT", "Unknown", ##x);                         \
+        else                                                     \
+          ERR("EWL|%20.20s|              |             |%8s|"f,  \
+              "OUTPUT", (output->id), ##x);                      \
+     }                                                           \
+   while (0)
+
+#define EOINF(f, output, x...)                                   \
+   do                                                            \
+     {                                                           \
+        if (!output)                                             \
+          INF("EWL|%20.20s|              |             |%8s|"f,  \
+              "OUTPUT", "Unknown", ##x);                         \
+        else                                                     \
+          INF("EWL|%20.20s|              |             |%8s|"f,  \
+              "OUTPUT", (output->id), ##x);                      \
+     }                                                           \
+   while (0)
+
 #define DUMP_FPS 30
 
 typedef struct _E_Output_Capture E_Output_Capture;
@@ -296,7 +320,7 @@ _e_output_zoom_touch_transform(E_Output *output, Eina_Bool set)
 
    if (!primary_output)
      {
-        ERR("fail get primary_output");
+        EOERR("fail get primary_output", output);
         return EINA_FALSE;
      }
 
@@ -311,7 +335,7 @@ _e_output_zoom_touch_transform(E_Output *output, Eina_Bool set)
      }
 
    if (ret != EINA_TRUE)
-     ERR("fail e_input_device_touch_transformation_set");
+     EOERR("fail e_input_device_touch_transformation_set", output);
 
    return ret;
 }
@@ -333,7 +357,7 @@ _e_output_cb_ecore_event_filter(void *data, void *loop_data EINA_UNUSED, int typ
    dev = eina_list_data_get(e_input_devices_get());
    if (!dev)
      {
-        ERR("fail get e_input_device");
+        EOERR("fail get e_input_device", output);
         return ECORE_CALLBACK_PASS_ON;
      }
 
@@ -362,7 +386,7 @@ _e_output_zoom_touch_set(E_Output *output)
    dev = eina_list_data_get(e_input_devices_get());
    if (!dev)
      {
-        ERR("fail get e_input_device");
+        EOERR("fail get e_input_device", output);
         return EINA_FALSE;
      }
 
@@ -524,8 +548,9 @@ _e_output_zoom_rotate(E_Output *output)
    _e_output_zoom_coordinate_cal(output);
    _e_output_zoom_touch_rect_get(output);
 
-   DBG("zoom_rect rotate(x:%d,y:%d) (w:%d,h:%d)",
-       output->zoom_conf.rect.x, output->zoom_conf.rect.y, output->zoom_conf.rect.w, output->zoom_conf.rect.h);
+   EOINF("zoom_rect rotate(x:%d,y:%d) (w:%d,h:%d)",
+         output, output->zoom_conf.rect.x, output->zoom_conf.rect.y,
+         output->zoom_conf.rect.w, output->zoom_conf.rect.h);
 
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
@@ -538,7 +563,7 @@ _e_output_zoom_rotate(E_Output *output)
           }
 
         if (!_e_output_zoom_touch_set(output))
-          ERR("fail _e_output_zoom_touch_set");
+          EOERR("fail _e_output_zoom_touch_set", output);
 
         /* update the ecore_evas */
         _e_output_render_update(output);
@@ -548,7 +573,7 @@ _e_output_zoom_rotate(E_Output *output)
         e_hwc_windows_zoom_set(output->hwc, &output->zoom_conf.rect);
 
         if (!_e_output_zoom_touch_set(output))
-          ERR("fail _e_output_zoom_touch_set");
+          EOERR("fail _e_output_zoom_touch_set", output);
 
         /* update the ecore_evas */
         if (e_hwc_windows_pp_commit_possible_check(output->hwc))
@@ -645,43 +670,43 @@ _e_output_client_resize(int w, int h)
 }
 
 static void
-_e_output_primary_update(E_Output *e_output)
+_e_output_primary_update(E_Output *output)
 {
    Eina_Bool ret;
 
-   e_output_update(e_output);
+   e_output_update(output);
 
-   if (e_output_connected(e_output))
+   if (e_output_connected(output))
      {
         E_Output_Mode *mode = NULL;
         int w, h;
 
         e_comp_canvas_norender_push();
 
-        mode = e_output_best_mode_find(e_output);
+        mode = e_output_best_mode_find(output);
         if (!mode)
           {
-             ERR("fail to get best mode.");
+             EOERR("fail to get best mode.", output);
              return;
           }
 
-        ret = e_output_mode_apply(e_output, mode);
+        ret = e_output_mode_apply(output, mode);
         if (ret == EINA_FALSE)
           {
-             ERR("fail to e_output_mode_apply.");
+             EOERR("fail to e_output_mode_apply.", output);
              return;
           }
-        ret = e_output_dpms_set(e_output, E_OUTPUT_DPMS_ON);
+        ret = e_output_dpms_set(output, E_OUTPUT_DPMS_ON);
         if (ret == EINA_FALSE)
           {
-             ERR("fail to e_output_dpms.");
+             EOERR("fail to e_output_dpms.", output);
              return;
           }
 
-        e_output_size_get(e_output, &w, &h);
+        e_output_size_get(output, &w, &h);
         if (w == e_comp->w && h == e_comp->h)
           {
-             e_output->fake_config = EINA_FALSE;
+             output->fake_config = EINA_FALSE;
              e_comp_canvas_norender_pop();
              return;
           }
@@ -692,7 +717,7 @@ _e_output_primary_update(E_Output *e_output)
 
         ecore_event_add(E_EVENT_SCREEN_CHANGE, NULL, NULL, NULL);
 
-        e_output->fake_config = EINA_FALSE;
+        output->fake_config = EINA_FALSE;
 
         _e_output_client_resize(e_comp->w, e_comp->h);
 
@@ -700,12 +725,12 @@ _e_output_primary_update(E_Output *e_output)
      }
    else
      {
-        e_output->fake_config = EINA_TRUE;
+        output->fake_config = EINA_TRUE;
 
-        ret = e_output_dpms_set(e_output, E_OUTPUT_DPMS_OFF);
+        ret = e_output_dpms_set(output, E_OUTPUT_DPMS_OFF);
         if (ret == EINA_FALSE)
           {
-             ERR("fail to e_output_dpms.");
+             EOERR("fail to e_output_dpms.", output);
              return;
           }
      }
@@ -717,7 +742,7 @@ _e_output_cb_output_change(tdm_output *toutput,
                                   tdm_value value,
                                   void *user_data)
 {
-   E_Output *e_output = NULL;
+   E_Output *output = NULL;
    E_Output *primary = NULL;
    E_OUTPUT_DPMS edpms;
    tdm_output_dpms tdpms;
@@ -727,7 +752,7 @@ _e_output_cb_output_change(tdm_output *toutput,
    EINA_SAFETY_ON_NULL_RETURN(toutput);
    EINA_SAFETY_ON_NULL_RETURN(user_data);
 
-   e_output = (E_Output *)user_data;
+   output = (E_Output *)user_data;
 
    switch (type)
      {
@@ -739,10 +764,10 @@ _e_output_cb_output_change(tdm_output *toutput,
              primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
              EINA_SAFETY_ON_NULL_RETURN(primary);
 
-             if (primary == e_output)
-               _e_output_primary_update(e_output);
+             if (primary == output)
+               _e_output_primary_update(output);
              else
-               e_output_external_update(e_output);
+               e_output_external_update(output);
           }
         break;
        case TDM_OUTPUT_CHANGE_DPMS:
@@ -753,7 +778,7 @@ _e_output_cb_output_change(tdm_output *toutput,
         if (tdpms == TDM_OUTPUT_DPMS_OFF)
           {
              edpms = E_OUTPUT_DPMS_OFF;
-             if (!override && (e_output == primary))
+             if (!override && (output == primary))
                {
                   e_comp_override_add();
                   override = EINA_TRUE;
@@ -762,20 +787,20 @@ _e_output_cb_output_change(tdm_output *toutput,
         else if (tdpms == TDM_OUTPUT_DPMS_ON)
           {
              edpms = E_OUTPUT_DPMS_ON;
-             if (override && (e_output == primary))
+             if (override && (output == primary))
                {
                   e_comp_override_del();
                   override = EINA_FALSE;
                }
-             _e_output_dpms_on_render(e_output);
+             _e_output_dpms_on_render(output);
           }
         else if (tdpms == TDM_OUTPUT_DPMS_STANDBY) edpms = E_OUTPUT_DPMS_STANDBY;
         else if (tdpms == TDM_OUTPUT_DPMS_SUSPEND) edpms = E_OUTPUT_DPMS_SUSPEND;
-        else edpms = e_output->dpms;
+        else edpms = output->dpms;
 
-        e_output->dpms = edpms;
+        output->dpms = edpms;
 
-        _e_output_hook_call(E_OUTPUT_HOOK_DPMS_CHANGE, e_output);
+        _e_output_hook_call(E_OUTPUT_HOOK_DPMS_CHANGE, output);
 
         break;
        default:
@@ -909,7 +934,7 @@ _e_output_tdm_capture_create(E_Output *output, tdm_capture_capability cap)
    tcapture = tdm_output_create_capture(output->toutput, &error);
    if (error != TDM_ERROR_NONE)
      {
-        ERR("create tdm_capture failed");
+        EOERR("create tdm_capture failed", output);
         return NULL;
      }
 
@@ -972,7 +997,7 @@ _e_output_capture_position_get(E_Output *output, int dst_w, int dst_h, Eina_Rect
 }
 
 static unsigned int
-_e_output_aligned_width_get(tbm_surface_h tsurface)
+_e_output_aligned_width_get(E_Output *output, tbm_surface_h tsurface)
 {
    unsigned int aligned_width = 0;
    tbm_surface_info_s surf_info;
@@ -998,7 +1023,7 @@ _e_output_aligned_width_get(tbm_surface_h tsurface)
         aligned_width = surf_info.planes[0].stride >> 2;
         break;
       default:
-        ERR("not supported format: %x", surf_info.format);
+        EOERR("not supported format: %x", output, surf_info.format);
      }
 
    return aligned_width;
@@ -1030,7 +1055,7 @@ _e_output_tdm_stream_capture_stop(void *data)
 
    if (output->stream_capture.tcapture)
      {
-        DBG("e_output stream capture stop.");
+        DBG("output stream capture stop.");
         tdm_capture_destroy(output->stream_capture.tcapture);
         output->stream_capture.tcapture = NULL;
      }
@@ -1086,7 +1111,7 @@ _e_output_tdm_capture_info_set(E_Output *output, tdm_capture *tcapture, tbm_surf
    tbm_error = tbm_surface_get_info(tsurface, &surf_info);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(tbm_error == TBM_ERROR_NONE, EINA_FALSE);
 
-   width = _e_output_aligned_width_get(tsurface);
+   width = _e_output_aligned_width_get(output, tsurface);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(width == 0, EINA_FALSE);
 
    memset(&capture_info, 0, sizeof(tdm_info_capture));
@@ -1140,7 +1165,7 @@ _e_output_tdm_capture_info_set(E_Output *output, tdm_capture *tcapture, tbm_surf
    error = tdm_capture_set_info(tcapture, &capture_info);
    if (error != TDM_ERROR_NONE)
      {
-        ERR("tdm_capture set_info failed");
+        EOERR("tdm_capture set_info failed", output);
         return EINA_FALSE;
      }
 
@@ -1228,7 +1253,7 @@ _e_output_stream_capture_cb_timeout(void *data)
              output->stream_capture.tcapture = NULL;
           }
 
-        DBG("e_output stream capture stop.");
+        DBG("output stream capture stop.");
 
         output->stream_capture.timer = NULL;
 
@@ -1306,7 +1331,7 @@ _e_output_tdm_stream_capture(E_Output *output, tdm_capture *tcapture,
                        error = tdm_capture_attach(tcapture, tsurface);
                        if (error != TDM_ERROR_NONE)
                          {
-                            ERR("tdm_capture_attach fail");
+                            EOERR("tdm_capture_attach fail", output);
                             output->stream_capture.data = eina_list_remove_list(output->stream_capture.data, l);
                             tmp_cdata->func(tmp_cdata->output, tmp_cdata->surface, tmp_cdata->data);
                             E_FREE(tmp_cdata);
@@ -1318,7 +1343,7 @@ _e_output_tdm_stream_capture(E_Output *output, tdm_capture *tcapture,
              error = tdm_capture_commit(tcapture);
              if (error != TDM_ERROR_NONE)
                {
-                  ERR("tdm_capture_commit fail");
+                  EOERR("tdm_capture_commit fail", output);
                   return EINA_FALSE;
                }
           }
@@ -1434,7 +1459,7 @@ _e_output_vblank_handler(tdm_output *toutput, unsigned int sequence,
              ecore_timer_del(output->stream_capture.timer);
              output->stream_capture.timer = NULL;
           }
-        DBG("e_output stream capture stop.");
+        DBG("output stream capture stop.");
 
         return;
      }
@@ -1452,7 +1477,7 @@ _e_output_vblank_handler(tdm_output *toutput, unsigned int sequence,
 
    ret = _e_output_capture(output, cdata->surface, EINA_FALSE);
    if (ret == EINA_FALSE)
-     ERR("capture fail");
+     EOERR("capture fail", output);
 
    tbm_surface_internal_unref(cdata->surface);
 
@@ -1580,7 +1605,7 @@ _e_output_capture_src_crop_get(E_Output *output, tdm_layer *layer, Eina_Rectangl
 }
 
 static void
-_e_output_capture_dst_crop_get(E_Comp_Wl_Video_Buf *tmp, E_Comp_Wl_Video_Buf *dst, tdm_layer *layer,
+_e_output_capture_dst_crop_get(E_Output *output, E_Comp_Wl_Video_Buf *tmp, E_Comp_Wl_Video_Buf *dst, tdm_layer *layer,
                                int w, int h, Eina_Rectangle *pos, Eina_Rectangle *showing_pos,
                                Eina_Rectangle *dst_crop, int rotate)
 {
@@ -1644,7 +1669,7 @@ _e_output_capture_dst_crop_get(E_Comp_Wl_Video_Buf *tmp, E_Comp_Wl_Video_Buf *ds
         dst_crop->y = pos->y;
         dst_crop->w = pos->w;
         dst_crop->h = pos->h;
-        ERR("get_cropinfo: unknown case error");
+        EOERR("get_cropinfo: unknown case error", output);
      }
 }
 
@@ -1701,7 +1726,7 @@ _e_output_capture_src_crop_get_hwc_window(E_Output *output, E_Hwc_Window *hwc_wi
 }
 
 static void
-_e_output_capture_dst_crop_get_hwc_window(E_Hwc_Window *hwc_window, E_Comp_Wl_Video_Buf *tmp, E_Comp_Wl_Video_Buf *dst,
+_e_output_capture_dst_crop_get_hwc_window(E_Output *output, E_Hwc_Window *hwc_window, E_Comp_Wl_Video_Buf *tmp, E_Comp_Wl_Video_Buf *dst,
                                int w, int h, Eina_Rectangle *pos, Eina_Rectangle *showing_pos,
                                Eina_Rectangle *dst_crop, int rotate)
 {
@@ -1759,7 +1784,7 @@ _e_output_capture_dst_crop_get_hwc_window(E_Hwc_Window *hwc_window, E_Comp_Wl_Vi
         dst_crop->y = pos->y;
         dst_crop->w = pos->w;
         dst_crop->h = pos->h;
-        ERR("get_cropinfo: unknown case error");
+        EOERR("get_cropinfo: unknown case error", output);
      }
 }
 
@@ -1823,7 +1848,7 @@ _e_output_vbuf_capture_hwc_window(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, i
              continue;
           }
 
-        _e_output_capture_dst_crop_get_hwc_window(hwc_window, tmp, vbuf, width, height,
+        _e_output_capture_dst_crop_get_hwc_window(output, hwc_window, tmp, vbuf, width, height,
                                        &dst_pos, &showing_pos, &dst_crop, rotate);
 
         e_comp_wl_video_buffer_convert(tmp, vbuf,
@@ -1920,7 +1945,7 @@ _e_output_vbuf_capture(E_Output *output, E_Comp_Wl_Video_Buf *vbuf, int rotate, 
              continue;
           }
 
-        _e_output_capture_dst_crop_get(tmp, vbuf, layer, width, height,
+        _e_output_capture_dst_crop_get(output, tmp, vbuf, layer, width, height,
                                        &dst_pos, &showing_pos, &dst_crop, rotate);
 
         e_comp_wl_video_buffer_convert(tmp, vbuf,
@@ -2010,7 +2035,11 @@ _e_output_tdm_stream_capture_support(E_Output *output)
    EINA_SAFETY_ON_NULL_RETURN(e_comp_screen);
 
    error = tdm_display_get_capture_capabilities(e_comp_screen->tdisplay, &capabilities);
-   EINA_SAFETY_ON_FALSE_RETURN(error == TDM_ERROR_NONE);
+   if (error != TDM_ERROR_NONE)
+     {
+        EOINF("TDM Display has no capture capability.", output);
+        return;
+     }
 
    if (capabilities & TDM_CAPTURE_CAPABILITY_STREAM)
      output->stream_capture.possible_tdm_capture = EINA_TRUE;
@@ -2040,7 +2069,9 @@ _e_output_external_commit(E_Output *output)
 {
    E_Plane *plane = NULL;
 
-   if (output->external_set)
+   if (output->external_set) return EINA_TRUE;
+
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
         /* external commit only primary */
         plane = e_output_fb_target_get(output);
@@ -2054,9 +2085,16 @@ _e_output_external_commit(E_Output *output)
 
         if (!e_plane_external_commit(plane))
           {
-             ERR("fail to e_plane_ex_commit");
+             EOERR("fail to e_plane_ex_commit", output);
              return EINA_FALSE;
           }
+     }
+   else
+     {
+        /* TODO: HWC Windows */;
+        /* external commit */
+        if (e_output_dpms_get(output))
+          return EINA_TRUE;
      }
 
    return EINA_TRUE;
@@ -2083,7 +2121,7 @@ _e_output_planes_commit(E_Output *output)
           {
              e_output_zoom_rotating_check(output);
              if (!e_plane_pp_commit(fb_target))
-               ERR("fail to e_plane_pp_commit");
+               EOERR("fail to e_plane_pp_commit", output);
              return EINA_TRUE;
           }
      }
@@ -2137,7 +2175,7 @@ _e_output_planes_commit(E_Output *output)
         if ((output->dpms == E_OUTPUT_DPMS_OFF) || output->fake_config)
           {
              if (!e_plane_offscreen_commit(plane))
-               ERR("fail to e_plane_offscreen_commit");
+               EOERR("fail to e_plane_offscreen_commit", output);
           }
         else
           {
@@ -2145,12 +2183,12 @@ _e_output_planes_commit(E_Output *output)
                {
                   e_output_zoom_rotating_check(output);
                   if (!e_plane_pp_commit(plane))
-                    ERR("fail to e_plane_pp_commit");
+                    EOERR("fail to e_plane_pp_commit", output);
                }
              else
                {
                   if (!e_plane_commit(plane))
-                    ERR("fail to e_plane_commit");
+                    EOERR("fail to e_plane_commit", output);
                }
           }
      }
@@ -2170,15 +2208,15 @@ _e_output_planes_init(E_Output *output)
    tdm_output_get_layer_count(toutput, &num_layers);
    if (num_layers < 1)
      {
-        ERR("fail to get tdm_output_get_layer_count\n");
+        EOERR("fail to get tdm_output_get_layer_count\n", output);
         goto fail;
      }
    output->plane_count = num_layers;
-   INF("E_OUTPUT: num_planes %i", output->plane_count);
+   EOINF("num_planes %i", output, output->plane_count);
 
    if (!e_plane_init())
      {
-        ERR("fail to e_plane_init.");
+        EOERR("fail to e_plane_init.", output);
         goto fail;
      }
 
@@ -2187,7 +2225,7 @@ _e_output_planes_init(E_Output *output)
         plane = e_plane_new(output, i);
         if (!plane)
           {
-             ERR("fail to create the e_plane.");
+             EOERR("fail to create the e_plane.", output);
              goto fail;
           }
         output->planes = eina_list_append(output->planes, plane);
@@ -2198,13 +2236,13 @@ _e_output_planes_init(E_Output *output)
    default_fb = e_output_default_fb_target_get(output);
    if (!default_fb)
      {
-        ERR("fail to get default_fb_target plane");
+        EOERR("fail to get default_fb_target plane", output);
         goto fail;
      }
 
    if (!e_plane_fb_target_set(default_fb, EINA_TRUE))
      {
-        ERR("fail to set fb_target plane");
+        EOERR("fail to set fb_target plane", output);
         goto fail;
      }
 
@@ -2271,7 +2309,7 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
    snprintf(id, size, "%s-%d", name, index);
 
    output->id = id;
-   INF("E_OUTPUT: (%d) output_id = %s", index, output->id);
+   EOINF("(%d) output_id = %s", output, index, output->id);
 
    output->e_comp_screen = e_comp_screen;
 
@@ -2280,7 +2318,7 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
    error = tdm_output_get_capabilities(toutput, &output_caps);
    if (error != TDM_ERROR_NONE)
      {
-        ERR("fail to tdm_output_get_capabilities");
+        EOERR("fail to tdm_output_get_capabilities", output);
         goto fail;
      }
 
@@ -2345,7 +2383,7 @@ e_output_rotate(E_Output *output, int rotate)
 
    if ((rot_dif % 180) && (output->config.geom.w != output->config.geom.h))
      {
-        ERR("output size(%dx%d) should be square.",
+        EOERR("output size(%dx%d) should be square.", output,
             output->config.geom.w, output->config.geom.h);
         return EINA_FALSE;
      }
@@ -2396,7 +2434,7 @@ e_output_update(E_Output *output)
    error = tdm_output_get_conn_status(output->toutput, &status);
    if (error != TDM_ERROR_NONE)
      {
-        ERR("failt to get conn status.");
+        EOERR("failt to get conn status.", output);
         return EINA_FALSE;
      }
 
@@ -2419,7 +2457,7 @@ e_output_update(E_Output *output)
              error = tdm_output_get_model_info(output->toutput, &maker, &screen, NULL);
              if (error != TDM_ERROR_NONE)
                {
-                  ERR("fail to get model info.");
+                  EOERR("fail to get model info.", output);
                   return EINA_FALSE;
                }
 
@@ -2442,12 +2480,12 @@ e_output_update(E_Output *output)
                   if (!name) return EINA_FALSE;
                   snprintf(name, size, "%s", output->id);
                }
-             INF("E_OUTPUT: screen = %s, name = %s", screen, name);
+             EOINF("screen = %s, name = %s", output, screen, name);
 
              error = tdm_output_get_physical_size(output->toutput, &phy_w, &phy_h);
              if (error != TDM_ERROR_NONE)
                {
-                  ERR("fail to get physical_size.");
+                  EOERR("fail to get physical_size.", output);
                   free(name);
                   return EINA_FALSE;
                }
@@ -2455,7 +2493,7 @@ e_output_update(E_Output *output)
              error = tdm_output_get_available_modes(output->toutput, &tmodes, &num_tmodes);
              if (error != TDM_ERROR_NONE || num_tmodes == 0)
                {
-                  ERR("fail to get tmodes");
+                  EOERR("fail to get tmodes", output);
                   free(name);
                   return EINA_FALSE;
                }
@@ -2491,7 +2529,7 @@ e_output_update(E_Output *output)
 
              output->info.connected = EINA_TRUE;
 
-             INF("E_OUTPUT: id(%s) connected..", output->id);
+             EOINF("id(%s) connected..", output, output->id);
           }
 
 #if 0
@@ -2503,7 +2541,7 @@ e_output_update(E_Output *output)
               error = tdm_output_get_mode(output->toutput, &mode);
               if (error != TDM_ERROR_NONE || mode == NULL)
                 {
-                   ERR("fail to get mode.");
+                   EOERR("fail to get mode.", output);
                    return EINA_FALSE;
                 }
 
@@ -2518,7 +2556,7 @@ e_output_update(E_Output *output)
 
               output->config.enabled = 1;
 
-              INF("E_OUTPUT: '%s' %i %i %ix%i", output->info.name,
+              EOINF("'%s' %i %i %ix%i", output, output->info.name,
                      output->config.geom.x, output->config.geom.y,
                      output->config.geom.w, output->config.geom.h);
           }
@@ -2560,11 +2598,11 @@ e_output_update(E_Output *output)
         output->config.priority = 0;
         output->config.enabled = 0;
 
-        INF("E_OUTPUT: disconnected.. id: %s", output->id);
+        EOINF("Disconnected", output);
      }
 
    /* the index of the tdm_output is higher, the tdm_output is important.
-   the priority of the e_output is higher, the e_output is more important. */
+   the priority of the output is higher, the output is more important. */
    output->config.priority = 100 - output->index;
 
    return EINA_TRUE;
@@ -2581,7 +2619,7 @@ e_output_mode_apply(E_Output *output, E_Output_Mode *mode)
 
    if (!output->info.connected)
      {
-        ERR("output is not connected.");
+        EOERR("output is not connected.", output);
         return EINA_FALSE;
      }
 
@@ -2595,7 +2633,7 @@ e_output_mode_apply(E_Output *output, E_Output_Mode *mode)
    error = tdm_output_set_mode(output->toutput, mode->tmode);
    if (error != TDM_ERROR_NONE)
      {
-        ERR("fail to set tmode.");
+        EOERR("fail to set tmode.", output);
         return EINA_FALSE;
      }
 
@@ -2614,12 +2652,12 @@ e_output_mode_apply(E_Output *output, E_Output_Mode *mode)
 
    output->config.enabled = 1;
 
-   INF("E_OUTPUT: '%s' %i %i %ix%i %i %i", output->info.name,
+   EOINF("'%s' %i %i %ix%i %i %i", output, output->info.name,
        output->config.geom.x, output->config.geom.y,
        output->config.geom.w, output->config.geom.h,
        output->config.rotation, output->config.priority);
 
-   INF("E_OUTPUT: rotation = %d", output->config.rotation);
+   EOINF("rotation = %d", output, output->config.rotation);
 
    return EINA_TRUE;
 }
@@ -2658,7 +2696,7 @@ e_output_mode_change(E_Output *output, E_Output_Mode *mode)
 
    if (e_output_mode_apply(output, mode) == EINA_FALSE)
      {
-        ERR("fail to e_output_mode_apply.");
+        EOERR("fail to e_output_mode_apply.", output);
         return EINA_FALSE;
      }
 
@@ -2757,7 +2795,7 @@ e_output_best_mode_find(E_Output *output)
 
   if (!output->info.connected)
      {
-        ERR("output is not connected.");
+        EOERR("output is not connected.", output);
         return NULL;
      }
 
@@ -2877,7 +2915,7 @@ e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val)
      error = tdm_output_set_dpms(output->toutput, tval);
    if (error != TDM_ERROR_NONE)
      {
-        ERR("fail to set the dpms(value:%d).", tval);
+        EOERR("fail to set the dpms(value:%d).", output, tval);
         return EINA_FALSE;
      }
 
@@ -2944,7 +2982,7 @@ e_output_render(E_Output *output)
           {
              if (!e_plane_render(plane))
                {
-                   ERR("fail to e_plane_render.");
+                   EOERR("fail to e_plane_render.", output);
                    return EINA_FALSE;
                }
           }
@@ -2953,7 +2991,7 @@ e_output_render(E_Output *output)
      {
         if (!e_hwc_windows_render(output->hwc))
           {
-             ERR("fail to e_hwc_windows_render.");
+             EOERR("fail to e_hwc_windows_render.", output);
              return EINA_FALSE;
           }
      }
@@ -2985,7 +3023,7 @@ e_output_commit(E_Output *output)
           {
              if (!_e_output_planes_commit(output))
                {
-                   ERR("fail to _e_output_commit.");
+                   EOERR("fail to _e_output_commit.", output);
                    return EINA_FALSE;
                }
           }
@@ -2993,16 +3031,27 @@ e_output_commit(E_Output *output)
           {
              if (!_e_output_external_commit(output))
                {
-                  ERR("fail _e_output_external_commit");
+                  EOERR("fail _e_output_external_commit", output);
                   return EINA_FALSE;
                }
           }
      }
    else
      {
-        if (!e_hwc_windows_commit(output->hwc))
+        if (output == output_primary)
           {
-             return EINA_FALSE;
+             if (!e_hwc_windows_commit(output->hwc))
+               {
+                  return EINA_FALSE;
+               }
+          }
+        else
+          {
+             if (!_e_output_external_commit(output))
+               {
+                  EOERR("fail _e_output_external_commit", output);
+                  return EINA_FALSE;
+               }
           }
      }
 
@@ -3241,7 +3290,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
 
    if (!e_comp_screen_pp_support())
      {
-        WRN("Comp Screen does not support the Zoom.");
+        EOINF("Comp Screen does not support the Zoom.", output);
         return EINA_FALSE;
      }
 
@@ -3255,7 +3304,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
 
    if (output != output_primary)
      {
-        ERR("Only Primary Output can support the Zoom.");
+        EOERR("Only Primary Output can support the Zoom.", output);
         return EINA_FALSE;
      }
 
@@ -3300,7 +3349,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
 
         if (!e_plane_zoom_set(ep, &output->zoom_conf.rect))
           {
-             ERR("e_plane_zoom_set failed.");
+             EOERR("e_plane_zoom_set failed.", output);
              output->zoom_conf.unset_skip = EINA_FALSE;
              e_hwc_planes_multi_plane_set(output->hwc, EINA_TRUE);
 
@@ -3315,7 +3364,7 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
      {
         if (!e_hwc_windows_zoom_set(output->hwc, &output->zoom_conf.rect))
           {
-             ERR("e_hwc_windows_zoom_set failed.");
+             EOERR("e_hwc_windows_zoom_set failed.", output);
              return EINA_FALSE;
           }
 
@@ -3325,12 +3374,12 @@ e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
      }
 
    if (!_e_output_zoom_touch_set(output))
-     ERR("fail _e_output_zoom_touch_set");
+     EOERR("fail _e_output_zoom_touch_set", output);
 
    if (!output->zoom_set) output->zoom_set = EINA_TRUE;
 
-   ELOGF("ZOOM", "zoom set output:%s, zoom(x:%f, y:%f, cx:%d, cy:%d) rect(x:%d, y:%d, w:%d, h:%d)",
-         NULL, output->id, zoomx, zoomy, cx, cy,
+   EOINF("Zoom set output:%s, zoom(x:%f, y:%f, cx:%d, cy:%d) rect(x:%d, y:%d, w:%d, h:%d)",
+         output, output->id, zoomx, zoomy, cx, cy,
          output->zoom_conf.rect.x, output->zoom_conf.rect.y, output->zoom_conf.rect.w, output->zoom_conf.rect.h);
 
    return EINA_TRUE;
@@ -3343,7 +3392,7 @@ e_output_zoom_get(E_Output *output, double *zoomx, double *zoomy, int *cx, int *
 
    if (!e_comp_screen_pp_support())
      {
-        WRN("Comp Screen does not support the Zoom.");
+        EOINF("Comp Screen does not support the Zoom.", output);
         return EINA_FALSE;
      }
 
@@ -3354,7 +3403,7 @@ e_output_zoom_get(E_Output *output, double *zoomx, double *zoomy, int *cx, int *
 
    if (output != output_primary)
      {
-        ERR("Only Primary Output can support the Zoom.");
+        EOERR("Only Primary Output can support the Zoom.", output);
         return EINA_FALSE;
      }
 
@@ -3379,7 +3428,7 @@ e_output_zoom_unset(E_Output *output)
    output->zoom_conf.unset_skip = EINA_FALSE;
 
    if (!_e_output_zoom_touch_unset(output))
-     ERR("fail _e_output_zoom_touch_unset");
+     EOERR("fail _e_output_zoom_touch_unset", output);
 
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
@@ -3614,11 +3663,11 @@ e_output_stream_capture_start(E_Output *output)
    count = eina_list_count(output->stream_capture.data);
    if (count == 0)
      {
-        ERR("no queued buffer");
+        EOERR("no queued buffer", output);
         return EINA_FALSE;
      }
 
-   DBG("e_output stream capture start.");
+   DBG("output stream capture start.");
 
    output->stream_capture.start = EINA_TRUE;
 
@@ -3693,7 +3742,7 @@ e_output_stream_capture_stop(E_Output *output)
                }
           }
 
-        DBG("e_output stream capture stop.");
+        DBG("output stream capture stop.");
      }
 }
 
@@ -3714,29 +3763,43 @@ e_output_external_set(E_Output *output, E_Output_Ext_State state)
      return EINA_TRUE;
    output->ext_state = state;
 
-   ep = e_output_fb_target_get(output);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
-
    e_output_size_get(output, &w, &h);
    e_output_size_get(output_primary, &p_w, &p_h);
 
-   _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
-
-   e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_FALSE);
-
-   ep->output_primary = output_primary;
-   if (!e_plane_external_set(ep, &output->zoom_conf.rect, state))
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
-        ERR("e_plane_mirror_set failed.");
-        e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_TRUE);
+        ep = e_output_fb_target_get(output);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
 
-        return EINA_FALSE;
+        _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
+
+        e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_FALSE);
+
+        ep->output_primary = output_primary;
+        if (!e_plane_external_set(ep, &output->zoom_conf.rect, state))
+          {
+             EOERR("e_plane_mirror_set failed.", output);
+             e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_TRUE);
+
+             return EINA_FALSE;
+          }
+     }
+   else
+     {
+        /* TODO: HWC Windows */;
+        _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
+
+        if (!e_hwc_windows_external_set(output->hwc, &output->zoom_conf.rect, state))
+          {
+             EOERR("e_hwc_windows_external_set failed.", output);
+             return EINA_FALSE;
+          }
      }
 
    output->ext_state = state;
    output->external_set = EINA_TRUE;
 
-   DBG("e_output_external_set done: output:%s, state:%d", output->id, state);
+   EOINF("e_output_external_set done: state:%d", output, state);
 
    /* update the ecore_evas */
    _e_output_render_update(output_primary);
@@ -3762,21 +3825,29 @@ e_output_external_unset(E_Output *output)
    output->external_set = EINA_FALSE;
    output->ext_state = E_OUTPUT_EXT_NONE;
 
-   ep = e_output_fb_target_get(output);
-   EINA_SAFETY_ON_NULL_RETURN(ep);
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
+     {
+        ep = e_output_fb_target_get(output);
+        EINA_SAFETY_ON_NULL_RETURN(ep);
 
-   e_plane_external_unset(ep);
+        e_plane_external_unset(ep);
+
+        e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_TRUE);
+     }
+   else
+     {
+        /* TODO: HWC Windows */;
+     }
+
    output->zoom_conf.rect.x = 0;
    output->zoom_conf.rect.y = 0;
    output->zoom_conf.rect.w = 0;
    output->zoom_conf.rect.h = 0;
 
-   e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_TRUE);
-
    /* update the ecore_evas */
    _e_output_render_update(output_primary);
 
-   DBG("e_output_external_unset done: output:%s", output->id);
+   EOINF("e_output_external_unset done.", output);
 }
 
 EINTERN Eina_Bool
@@ -3806,7 +3877,7 @@ e_output_external_update(E_Output *output)
    ret = e_output_update(output);
    if (ret == EINA_FALSE)
      {
-        ERR("fail e_output_update.");
+        EOERR("fail e_output_update.", output);
         return EINA_FALSE;
      }
 
@@ -3815,34 +3886,34 @@ e_output_external_update(E_Output *output)
         mode = e_output_best_mode_find(output);
         if (!mode)
           {
-             ERR("fail to get best mode.");
+             EOERR("fail to get best mode.", output);
              return EINA_FALSE;
           }
 
         ret = e_output_mode_apply(output, mode);
         if (ret == EINA_FALSE)
           {
-             ERR("fail to e_output_mode_apply.");
+             EOERR("fail to e_output_mode_apply.", output);
              return EINA_FALSE;
           }
         ret = e_output_dpms_set(output, E_OUTPUT_DPMS_ON);
         if (ret == EINA_FALSE)
           {
-             ERR("fail to e_output_dpms.");
+             EOERR("fail to e_output_dpms.", output);
              return EINA_FALSE;
           }
 
         ret = e_output_setup(output);
         if (ret == EINA_FALSE)
           {
-             ERR("fail to e_output_setup.");
+             EOERR("fail to e_output_setup.", output);
              return EINA_FALSE;
           }
 
         ret = e_eom_connect(output);
         if (ret == EINA_FALSE)
           {
-             ERR("fail to e_eom_connect.");
+             EOERR("fail to e_eom_connect.", output);
              e_hwc_del(output->hwc);
              output->hwc = NULL;
              return EINA_FALSE;
@@ -3853,7 +3924,7 @@ e_output_external_update(E_Output *output)
         ret = e_eom_disconnect(output);
         if (ret == EINA_FALSE)
           {
-             ERR("fail to e_eom_disconnect.");
+             EOERR("fail to e_eom_disconnect.", output);
              return EINA_FALSE;
           }
 
@@ -3865,7 +3936,7 @@ e_output_external_update(E_Output *output)
 
         if (!e_output_dpms_set(output, E_OUTPUT_DPMS_OFF))
           {
-             ERR("fail to e_output_dpms.");
+             EOERR("fail to e_output_dpms.", output);
              return EINA_FALSE;
           }
      }
@@ -3905,33 +3976,42 @@ e_output_external_mode_change(E_Output *output, E_Output_Mode *mode)
      }
    EINA_SAFETY_ON_FALSE_RETURN_VAL(found == EINA_TRUE, EINA_FALSE);
 
-   ep = e_output_fb_target_get(output);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
-
    output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(output_primary == output, EINA_FALSE);
+
+   e_output_size_get(output, &w, &h);
+   e_output_size_get(output_primary, &p_w, &p_h);
+
+   ep = e_output_fb_target_get(output);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
 
    e_comp_canvas_norender_push();
 
    if (e_output_mode_apply(output, mode) == EINA_FALSE)
      {
-        ERR("fail to e_output_mode_apply.");
+        EOERR("fail to e_output_mode_apply.", output);
         e_comp_canvas_norender_pop();
         return EINA_FALSE;
      }
 
-   e_output_size_get(output, &w, &h);
-   e_output_size_get(output_primary, &p_w, &p_h);
    _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
 
    e_eom_mode_change(output, mode);
-   e_plane_external_reset(ep, &output->zoom_conf.rect);
+
+   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
+     {
+        e_plane_external_reset(ep, &output->zoom_conf.rect);
+     }
+   else
+     {
+        /* TODO: HWC Windows */;
+     }
 
    _e_output_render_update(output_primary);
    e_comp_canvas_norender_pop();
 
-   DBG("e_output_external_reset done: output:%s (%dx%d)", output->id, mode->w, mode->h);
+   EOINF("e_output_external_reset done.(%dx%d)", output, mode->w, mode->h);
 
    return EINA_TRUE;
 }
@@ -3944,7 +4024,7 @@ _e_output_prop_name_get_by_id(E_Output *output, unsigned int id)
 
    if (!e_output_available_properties_get(output, &props, &count))
      {
-        ERR("e_output_available_properties_get failed.");
+        EOERR("e_output_available_properties_get failed.", output);
         return NULL;
      }
 
@@ -3954,7 +4034,7 @@ _e_output_prop_name_get_by_id(E_Output *output, unsigned int id)
           return props[i].name;
      }
 
-   ERR("No available property: id %d", id);
+   EOERR("No available property: id %d", output, id);
 
    return NULL;
 }
@@ -3974,9 +4054,9 @@ e_output_available_properties_get(E_Output *output, const output_prop **props, i
 
    *props = (output_prop *)tprops;
 
-   ELOGF("OUTPUT", ">>>>>>>> Available OUTPUT props : count = %d", NULL, *count);
+   EOINF(">>>>>>>> Available OUTPUT props : count = %d", output, *count);
    for (i = 0; i < *count; i++)
-     ELOGF("OUTPUT", "   [%d] %s, %u", NULL, i, tprops[i].name, tprops[i].id);
+     EOINF("   [%d] %s, %u", output, i, tprops[i].name, tprops[i].id);
 
    return EINA_TRUE;
 }
