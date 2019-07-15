@@ -10,37 +10,45 @@
 #define CLEAR(x) memset(&(x), 0, sizeof (x))
 #endif
 
-#define EHWSINF(f, ec, x...)                                     \
-   do                                                            \
-     {                                                           \
-        if (!ec)                                                 \
-          INF("EWL|%20.20s|              |             |"f,      \
-              "HWC-WINS", ##x);                                  \
-        else                                                     \
-          INF("EWL|%20.20s|win:0x%08zx|ec:%8p|"f,                \
-              "HWC-WINS",                                        \
-              (e_client_util_win_get(ec)),                       \
-              (ec),                                              \
-              ##x);                                              \
-     }                                                           \
+#define EHWSERR(f, hwc, x...)                                     \
+   do                                                                 \
+     {                                                                \
+        ERR("EWL|%20.20s|              |             |%8s|"f,       \
+            "HWC-WINS", (e_hwc_output_id_get(hwc)), ##x);           \
+     }                                                                \
    while (0)
 
-#define EHWSTRACE(f, ec, x...)                                   \
-   do                                                            \
-     {                                                           \
-        if (ehws_trace)                                          \
-          {                                                      \
-             if (!ec)                                            \
-               INF("EWL|%20.20s|              |             |"f, \
-                   "HWC-WINS", ##x);                             \
-             else                                                \
-               INF("EWL|%20.20s|win:0x%08zx|ec:%8p|"f,           \
-                   "HWC-WINS",                                   \
-                   (e_client_util_win_get(ec)),                  \
-                   (ec),                                         \
-                   ##x);                                         \
-          }                                                      \
-     }                                                           \
+#define EHWSINF(f, ec, hwc, x...)                                     \
+   do                                                                 \
+     {                                                                \
+        if (!ec)                                                      \
+          INF("EWL|%20.20s|              |             |%8s|"f,       \
+              "HWC-WINS", (e_hwc_output_id_get(hwc)), ##x);           \
+        else                                                          \
+          INF("EWL|%20.20s|win:0x%08zx|ec:%8p|%8s|"f,                 \
+              "HWC-WINS",                                             \
+              (e_client_util_win_get(ec)),                            \
+              (ec), (e_hwc_output_id_get(hwc)),                       \
+              ##x);                                                   \
+     }                                                                \
+   while (0)
+
+#define EHWSTRACE(f, ec, hwc, x...)                                   \
+   do                                                                 \
+     {                                                                \
+        if (ehws_trace)                                               \
+          {                                                           \
+             if (!ec)                                                 \
+               INF("EWL|%20.20s|              |             |%8s|"f,  \
+                   "HWC-WINS", (e_hwc_output_id_get(hwc)), ##x);      \
+             else                                                     \
+               INF("EWL|%20.20s|win:0x%08zx|ec:%8p|%8s|"f,            \
+                   "HWC-WINS",                                        \
+                   (e_client_util_win_get(ec)),                       \
+                   (ec), (e_hwc_output_id_get(hwc)),                  \
+                   ##x);                                              \
+          }                                                           \
+     }                                                                \
    while (0)
 
 static Eina_Bool ehws_trace = EINA_FALSE;
@@ -158,7 +166,7 @@ _e_hwc_windows_aligned_width_get(tbm_surface_h tsurface)
         aligned_width = surf_info.planes[0].stride >> 2;
         break;
       default:
-        ERR("not supported format: %x", surf_info.format);
+        EHWSERR("not supported format: %x", NULL, surf_info.format);
      }
 
    return aligned_width;
@@ -224,7 +232,7 @@ _e_hwc_windows_commit_handler(tdm_hwc *thwc, unsigned int sequence,
    E_Hwc *hwc = (E_Hwc *)user_data;
    EINA_SAFETY_ON_NULL_RETURN(hwc);
 
-   EHWSTRACE("!!!!!!!! HWC Commit Handler !!!!!!!!", NULL);
+   EHWSTRACE("!!!!!!!! HWC Commit Handler !!!!!!!!", NULL, hwc);
 
    if (hwc->pp_tsurface && !hwc->pp_set)
      {
@@ -259,7 +267,7 @@ _e_hwc_windows_offscreen_commit(E_Hwc *hwc)
           ret = e_hwc_window_commit_data_acquire(hwc_window);
         if (!ret) continue;
 
-        EHWSTRACE("!!!!!!!! HWC OffScreen Commit !!!!!!!!", NULL);
+        EHWSTRACE("!!!!!!!! HWC OffScreen Commit !!!!!!!!", NULL, hwc);
 
 
         /* send frame event enlightenment doesn't send frame event in nocomp */
@@ -397,21 +405,21 @@ _e_hwc_windows_target_buffer_fetch(E_Hwc *hwc, Eina_Bool tdm_set)
              if (n_thw)
                {
                   EHWSTRACE("FET {%s} ts:%p state:%s has hwc_windows to render below.",
-                           NULL, "@TARGET WINDOW@", hwc_window->buffer.tsurface,
+                           NULL, hwc, "@TARGET WINDOW@", hwc_window->buffer.tsurface,
                            e_hwc_window_state_string_get(hwc_window->state));
 
                   i = 0;
                   EINA_LIST_FOREACH(rendered_windows, l, hw)
                     {
                        EHWSTRACE("  (%d) ehw:%p ts:%p -- {%25s}, state:%s, zpos:%d, deleted:%s",
-                                hwc_window->ec, i++, hw, hw->buffer.tsurface, e_hwc_window_name_get(hw),
+                                hwc_window->ec, hwc, i++, hw, hw->buffer.tsurface, e_hwc_window_name_get(hw),
                                 e_hwc_window_state_string_get(hw->state), hwc_window->zpos,
                                 (hwc_window->is_deleted ? "yes" : "no"));
                     }
                 }
               else
                 EHWSTRACE("FET {%s} ts:%p state:%s has no hwc_windows to render.",
-                         NULL, "@TARGET WINDOW@", hwc_window->buffer.tsurface,
+                         NULL, hwc, "@TARGET WINDOW@", hwc_window->buffer.tsurface,
                          e_hwc_window_state_string_get(hwc_window->state));
           }
      }
@@ -506,7 +514,7 @@ _e_hwc_windows_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_
      {
         if (!target_hwc_window->is_rendering) return;
 
-        EHWSTRACE("{%s} dequeue ts:%p", NULL, "@TARGET WINDOW@", tsurface);
+        EHWSTRACE("{%s} dequeue ts:%p", NULL, NULL, "@TARGET WINDOW@", tsurface);
 
         tbm_surface_internal_add_user_data(tsurface,
                                            EHWS_RENDERED_BUFFERS_KEY,
@@ -526,7 +534,7 @@ _e_hwc_windows_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_
    /* tsurface has been released at the queue */
    if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
      {
-        EHWSTRACE("{%s} release ts:%p", NULL, "@TARGET WINDOW@", tsurface);
+        EHWSTRACE("{%s} release ts:%p", NULL, NULL, "@TARGET WINDOW@", tsurface);
 
         tbm_surface_internal_delete_user_data(tsurface, EHWS_RENDERED_BUFFERS_KEY);
 
@@ -546,7 +554,7 @@ _e_hwc_windows_target_window_surface_queue_acquirable_cb(tbm_surface_queue_h sur
 
     ret = write(target_hwc_window->event_fd, &value, sizeof(value));
     if (ret == -1)
-      ERR("failed to send acquirable event:%m");
+      EHWSERR("failed to send acquirable event:%m", NULL);
 }
 
 /* gets called at the beginning of an ecore_main_loop iteration */
@@ -566,7 +574,7 @@ _e_hwc_windows_target_window_render_finished_cb(void *data, Ecore_Fd_Handler *fd
 
    len = read(fd, buffer, sizeof(buffer));
    if (len == -1)
-     ERR("failed to read queue acquire event fd:%m");
+     EHWSERR("failed to read queue acquire event fd:%m", NULL);
 
    hwc_window = (E_Hwc_Window *)target_hwc_window;
    if (!hwc_window) return ECORE_CALLBACK_RENEW;
@@ -598,11 +606,11 @@ _e_hwc_windows_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSE
    Eina_List *rendered_windows = NULL;
    Eina_List *l;
 
-   EHWSTRACE("{%s} gets render_flush_post noti.", NULL, "@TARGET WINDOW@");
+   EHWSTRACE("{%s} gets render_flush_post noti.", NULL, target_hwc_window->hwc, "@TARGET WINDOW@");
 
    if (!target_hwc_window->dequeued_tsurface)
      {
-        WRN("flush_post_cb is called but tsurface isn't dequeued");
+        EHWSINF("flush_post_cb is called but tsurface isn't dequeued", NULL, target_hwc_window->hwc);
 
         if (eina_list_count(target_hwc_window->rendered_windows))
           {
@@ -672,7 +680,7 @@ _e_hwc_windows_target_window_free(E_Hwc_Window_Target *target_hwc_window)
    if (target_window->queue->tqueue)
      tbm_surface_queue_destroy(target_window->queue->tqueue);
 
-   EHWSINF("Free target window", NULL);
+   EHWSINF("Free target window", NULL, NULL);
 
    E_FREE(target_hwc_window);
 }
@@ -856,19 +864,19 @@ _e_hwc_windows_pp_output_commit_handler(tdm_output *toutput, unsigned int sequen
 
         if (hwc->pp_tqueue && hwc->pp_tsurface)
           {
-             /* release and unref the current pp surface on the plane */
+             /* release and unref the current pp surface on the hwc */
              tbm_surface_queue_release(hwc->pp_tqueue, hwc->pp_tsurface);
              tbm_surface_internal_unref(hwc->pp_tsurface);
           }
 
-        /* set the new pp surface to the plane */
+        /* set the new pp surface to the hwc */
         hwc->pp_tsurface = data->buffer.tsurface;
 
         E_FREE(data);
      }
 
-   EHWSTRACE("!!!!!!!! HWC PP Output Commit Handler !!!!!!!!", NULL);
-   EHWSTRACE("   hwc(%p), pp_tsurface(%p)", NULL, hwc, hwc->pp_tsurface);
+   EHWSTRACE("!!!!!!!! HWC PP Output Commit Handler !!!!!!!!", NULL, hwc);
+   EHWSTRACE("   pp_tsurface(%p)", NULL, hwc, hwc->pp_tsurface);
 
    output = hwc->output;
    if (e_output_dpms_get(output))
@@ -885,11 +893,11 @@ _e_hwc_windows_pp_output_commit_handler(tdm_output *toutput, unsigned int sequen
           {
              hwc->pending_pp_commit_data_list = eina_list_remove(hwc->pending_pp_commit_data_list, data);
 
-             EHWSTRACE("PP Output Commit Handler start pending commit data(%p) tsurface(%p)", NULL, data, data->buffer.tsurface);
+             EHWSTRACE("PP Output Commit Handler start pending commit data(%p) tsurface(%p)", NULL, hwc, data, data->buffer.tsurface);
 
              if (!_e_hwc_windows_pp_output_data_commit(hwc, data))
                {
-                  ERR("fail to _e_hwc_windows_pp_output_data_commit");
+                  EHWSERR("fail to _e_hwc_windows_pp_output_data_commit", hwc);
                   return;
                }
           }
@@ -908,11 +916,11 @@ _e_hwc_windows_pp_output_commit_handler(tdm_output *toutput, unsigned int sequen
 
              hwc->pending_pp_hwc_window_list = eina_list_remove(hwc->pending_pp_hwc_window_list, hwc_window);
 
-             EHWSTRACE("PP Output Commit Handler start pending pp data(%p) tsurface(%p)", NULL, hwc_window, hwc_window->buffer.tsurface);
+             EHWSTRACE("PP Output Commit Handler start pending pp data(%p) tsurface(%p)", NULL, hwc, hwc_window, hwc_window->buffer.tsurface);
 
              if (!_e_hwc_windows_pp_window_commit(hwc, hwc_window))
                {
-                  ERR("fail _e_hwc_windows_pp_data_commit");
+                  EHWSERR("fail _e_hwc_windows_pp_data_commit", hwc);
                   e_hwc_window_commit_data_release(hwc_window);
                   return;
                }
@@ -940,29 +948,29 @@ _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data)
         goto fail;
      }
 
-   EHWSTRACE("!!!!!!!! HWC PP Output Commit !!!!!!!!", NULL);
-   EHWSTRACE("   hwc(%p)     tsurface(%p)", NULL, hwc, data->buffer.tsurface);
+   EHWSTRACE("!!!!!!!! HWC PP Output Commit !!!!!!!!", NULL, hwc);
+   EHWSTRACE("   tsurface(%p)", NULL, hwc, data->buffer.tsurface);
 
    /* no need to pass composited_wnds list because smooth transition isn't
     * used in this case */
    terror = tdm_hwc_set_client_target_buffer(hwc->thwc, data->buffer.tsurface, fb_damage);
    if (terror != TDM_ERROR_NONE)
      {
-        ERR("fail to tdm_hwc_set_client_target_buffer");
+        EHWSERR("fail to tdm_hwc_set_client_target_buffer", hwc);
         goto fail;
      }
 
    terror = tdm_hwc_accept_validation(hwc->thwc);
    if (terror != TDM_ERROR_NONE)
      {
-        ERR("fail to tdm_hwc_accept_validation");
+        EHWSERR("fail to tdm_hwc_accept_validation", hwc);
         goto fail;
      }
 
    terror = tdm_hwc_commit(hwc->thwc, 0, _e_hwc_windows_pp_output_commit_handler, hwc);
    if (terror != TDM_ERROR_NONE)
      {
-        ERR("fail to tdm_output_commit hwc:%p", hwc);
+        EHWSERR("fail to tdm_output_commit", hwc);
         goto fail;
      }
 
@@ -989,14 +997,14 @@ _e_hwc_windows_pp_output_commit(E_Hwc *hwc, tbm_surface_h tsurface)
    tbm_err = tbm_surface_queue_enqueue(hwc->pp_tqueue, tsurface);
    if (tbm_err != TBM_ERROR_NONE)
      {
-        ERR("fail tbm_surface_queue_enqueue");
+        EHWSERR("fail tbm_surface_queue_enqueue", hwc);
         goto fail;
      }
 
    tbm_err = tbm_surface_queue_acquire(hwc->pp_tqueue, &pp_tsurface);
    if (tbm_err != TBM_ERROR_NONE)
      {
-        ERR("fail tbm_surface_queue_acquire");
+        EHWSERR("fail tbm_surface_queue_acquire", hwc);
         goto fail;
      }
 
@@ -1013,7 +1021,7 @@ _e_hwc_windows_pp_output_commit(E_Hwc *hwc, tbm_surface_h tsurface)
 
    if (!_e_hwc_windows_pp_output_data_commit(hwc, data))
      {
-        ERR("fail to _e_hwc_windows_pp_output_data_commit");
+        EHWSERR("fail to _e_hwc_windows_pp_output_data_commit", hwc);
         return EINA_FALSE;
      }
 
@@ -1050,9 +1058,8 @@ _e_hwc_windows_pp_commit_handler(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_sur
         hwc->pp_commit = EINA_FALSE;
      }
 
-   EHWSTRACE("!!!!!!!! HWC PP Commit Handler !!!!!!!!", NULL);
-   EHWSTRACE("   hwc(%p) tsurface src(%p) dst(%p)",
-             NULL, hwc, tsurface_src, tsurface_dst);
+   EHWSTRACE("!!!!!!!! HWC PP Commit Handler !!!!!!!!", NULL, hwc);
+   EHWSTRACE("   tsurface src(%p) dst(%p)", NULL, hwc, tsurface_src, tsurface_dst);
 
    /* if pp_set is false, skip the commit */
    if (!hwc->pp_set)
@@ -1075,7 +1082,7 @@ _e_hwc_windows_pp_commit_handler(tdm_pp *pp, tbm_surface_h tsurface_src, tbm_sur
      }
 
    if (!_e_hwc_windows_pp_output_commit(hwc, tsurface_dst))
-     ERR("fail to _e_hwc_windows_pp_output_commit");
+     EHWSERR("fail to _e_hwc_windows_pp_output_commit", hwc);
 
 done:
    tbm_surface_internal_unref(tsurface_src);
@@ -1130,7 +1137,7 @@ _e_hwc_pp_windows_info_set(E_Hwc *hwc, E_Hwc_Window *hwc_window,
    ret = tdm_pp_set_info(hwc->tpp, &pp_info);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == TDM_ERROR_NONE, EINA_FALSE);
 
-   EHWSTRACE("PP Info  Hwc(%p) src_rect(%d,%d),(%d,%d), dst_rect(%d,%d),(%d,%d)",
+   EHWSTRACE("PP Info  src_rect(%d,%d),(%d,%d), dst_rect(%d,%d),(%d,%d)",
              NULL, hwc,
              pp_info.src_config.pos.x, pp_info.src_config.pos.y, pp_info.src_config.pos.w, pp_info.src_config.pos.h,
              pp_info.dst_config.pos.x, pp_info.dst_config.pos.y, pp_info.dst_config.pos.w, pp_info.dst_config.pos.h);
@@ -1150,8 +1157,8 @@ _e_hwc_windows_pp_window_commit(E_Hwc *hwc, E_Hwc_Window *hwc_window)
 
    tbm_surface_h tsurface = commit_data->buffer.tsurface;
 
-   EHWSTRACE("!!!!!!!! HWC PP Commit !!!!!!!!", NULL);
-   EHWSTRACE("   Hwc(%p)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
+   EHWSTRACE("!!!!!!!! HWC PP Commit !!!!!!!!", NULL, hwc);
+   EHWSTRACE("   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
              NULL, hwc, commit_data->buffer.tsurface, hwc->pp_tqueue,
              commit_data->buffer_ref.buffer ? commit_data->buffer_ref.buffer->resource : NULL, commit_data);
 
@@ -1165,13 +1172,13 @@ _e_hwc_windows_pp_window_commit(E_Hwc *hwc, E_Hwc_Window *hwc_window)
    tbm_err = tbm_surface_queue_dequeue(hwc->pp_tqueue, &pp_tsurface);
    if (tbm_err != TBM_ERROR_NONE)
      {
-        ERR("fail tbm_surface_queue_dequeue");
+        EHWSERR("fail tbm_surface_queue_dequeue", hwc);
         return EINA_FALSE;
      }
 
    if (!_e_hwc_pp_windows_info_set(hwc, hwc_window, pp_tsurface))
      {
-        ERR("fail _e_hwc_windows_info_set");
+        EHWSERR("fail _e_hwc_windows_info_set", hwc);
         goto pp_fail;
      }
 
@@ -1198,7 +1205,7 @@ attach_fail:
 pp_fail:
    tbm_surface_queue_release(hwc->pp_tqueue, pp_tsurface);
 
-   ERR("failed _e_hwc_windows_pp_data_commit");
+   EHWSERR("failed _e_hwc_windows_pp_data_commit", hwc);
 
    return EINA_FALSE;
 }
@@ -1257,13 +1264,13 @@ _e_hwc_windows_pp_commit(E_Hwc *hwc)
    commit_data = hwc_window->commit_data;
    if (!commit_data || !commit_data->buffer.tsurface)
      {
-        ERR("no commit_data");
+        EHWSERR("no commit_data", hwc);
         return EINA_TRUE;
      }
 
    if (!tbm_surface_queue_can_dequeue(hwc->pp_tqueue, 0))
      {
-        EHWSTRACE("PP Commit  Can Dequeue failed Hwc(%p)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
+        EHWSTRACE("PP Commit  Can Dequeue failed tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
                   NULL, hwc, commit_data->buffer.tsurface, hwc->pp_tqueue,
                   commit_data->buffer_ref.buffer ? commit_data->buffer_ref.buffer->resource : NULL, commit_data);
         hwc->pending_pp_hwc_window_list = eina_list_append(hwc->pending_pp_hwc_window_list, hwc_window);
@@ -1275,7 +1282,7 @@ _e_hwc_windows_pp_commit(E_Hwc *hwc)
 
    if (eina_list_count(hwc->pending_pp_hwc_window_list) != 0)
      {
-        EHWSTRACE("PP Commit  Pending pp data remained Hwc(%p)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
+        EHWSTRACE("PP Commit  Pending pp data remained tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
                   NULL, hwc, commit_data->buffer.tsurface, hwc->pp_tqueue,
                   commit_data->buffer_ref.buffer ? commit_data->buffer_ref.buffer->resource : NULL, commit_data);
         hwc->pending_pp_hwc_window_list = eina_list_append(hwc->pending_pp_hwc_window_list, hwc_window);
@@ -1287,7 +1294,7 @@ _e_hwc_windows_pp_commit(E_Hwc *hwc)
 
    if (!_e_hwc_windows_pp_window_commit(hwc, hwc_window))
      {
-        ERR("fail _e_hwc_windows_pp_data_commit");
+        EHWSERR("fail _e_hwc_windows_pp_data_commit", hwc);
         e_hwc_window_commit_data_release(hwc_window);
         return EINA_FALSE;
      }
@@ -1305,7 +1312,7 @@ _e_hwc_windows_status_print(E_Hwc *hwc, Eina_Bool with_target)
    EINA_LIST_FOREACH(visible_windows, l, hwc_window)
      {
         EHWSTRACE("  ehw:%p ts:%p -- {%25s}, state:%s, zpos:%d, deleted:%s",
-                  hwc_window->ec, hwc_window,
+                  hwc_window->ec, hwc, hwc_window,
                   hwc_window->buffer.tsurface, e_hwc_window_name_get(hwc_window),
                   e_hwc_window_state_string_get(hwc_window->state),
                   hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
@@ -1353,7 +1360,7 @@ _e_hwc_windows_window_state_get(tdm_hwc_window_composition composition_type)
         break;
       default:
         state = E_HWC_WINDOW_STATE_NONE;
-        ERR("HWC-WINS: unknown state of hwc_window.");
+        EHWSERR("unknown state of hwc_window.", NULL);
      }
 
    return state;
@@ -1444,7 +1451,7 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
 #if 0
     if (transition)
       EHWSTRACE(" [%25s(ehw:%p)] is on TRANSITION [%s -> %s].",
-                hwc_window->ec, e_hwc_window_name_get(hwc_window), hwc_window,
+                hwc_window->ec, hwc, e_hwc_window_name_get(hwc_window), hwc_window,
                 e_hwc_window_state_string_get(hwc_window->accepted_state),
                 e_hwc_window_state_string_get(hwc_window->state));
 #endif
@@ -1476,18 +1483,18 @@ _e_hwc_windows_validated_changes_update(E_Hwc *hwc, uint32_t num_changes)
                                                   composition_types);
    if (terror != TDM_ERROR_NONE)
      {
-        ERR("HWC-WINS: failed to get changed composition types");
+        EHWSERR("failed to get changed composition types", hwc);
         goto fail;
      }
 
-   EHWSTRACE(" Changes NUM : %d", NULL, num_changes);
+   EHWSTRACE(" Changes NUM : %d", NULL, hwc, num_changes);
 
    for (i = 0; i < num_changes; ++i)
      {
         hwc_window = _e_hwc_windows_window_find_by_twin(hwc, changed_hwc_window[i]);
         if (!hwc_window)
           {
-             ERR("HWC-WINS: cannot find the E_Hwc_Window by hwc hwc_window");
+             EHWSERR("cannot find the E_Hwc_Window by hwc hwc_window", hwc);
              goto fail;
           }
 
@@ -1497,7 +1504,7 @@ _e_hwc_windows_validated_changes_update(E_Hwc *hwc, uint32_t num_changes)
      }
 
 #if DBG_EVALUATE
-   EHWSTRACE(" Modified after HWC Validation:", NULL);
+   EHWSTRACE(" Modified after HWC Validation:", NULL, hwc);
    _e_hwc_windows_status_print(hwc, EINA_FALSE);
 #endif
 
@@ -1527,7 +1534,7 @@ _e_hwc_windows_accept(E_Hwc *hwc, Eina_Bool tdm_set)
         terror = tdm_hwc_accept_validation(hwc->thwc);
         if (terror != TDM_ERROR_NONE)
           {
-             ERR("HWC-WINS: failed to accept validation.");
+             EHWSERR("failed to accept validation.", hwc);
              return EINA_FALSE;
           }
      }
@@ -1549,7 +1556,7 @@ _e_hwc_windows_accept(E_Hwc *hwc, Eina_Bool tdm_set)
      }
 
    /* _e_hwc_windows_accept */
-   EHWSTRACE("======= HWC Accept Validation =======", NULL);
+   EHWSTRACE("======= HWC Accept Validation =======", NULL, hwc);
 
    return EINA_TRUE;
 }
@@ -1567,7 +1574,7 @@ _e_hwc_windows_validate(E_Hwc *hwc, uint32_t *num_changes)
    Eina_List *visible_windows = hwc->visible_windows;
 
 #if DBG_EVALUATE
-   EHWSTRACE("======= HWC Request Validation to TDM HWC =====", NULL);
+   EHWSTRACE("======= HWC Request Validation to TDM HWC =====", NULL, hwc);
    _e_hwc_windows_status_print(hwc, EINA_FALSE);
 #endif
 
@@ -1591,7 +1598,7 @@ _e_hwc_windows_validate(E_Hwc *hwc, uint32_t *num_changes)
    return EINA_TRUE;
 
 error:
-   ERR("HWC-WINS: failed to validate the output(%p)", toutput);
+   EHWSERR("failed to validate the output(%p)", hwc, toutput);
    E_FREE(thwc_windows);
 
    return EINA_FALSE;
@@ -1751,7 +1758,7 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
              if (e_hwc_window_is_video(hwc_window))
                {
                   if (!e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO, EINA_TRUE))
-                    ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
+                    EHWSERR("cannot update E_Hwc_Window(%p)", hwc, hwc_window);
 
                   set_client = EINA_TRUE;
                   continue;
@@ -1774,7 +1781,7 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
                     {
                        e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE, EINA_TRUE);
                        EHWSTRACE("   ehw:%p -- {%25s} is Force hwc_acceptable(Redirected FALSE).",
-                               hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
+                               hwc_window->ec, hwc, hwc_window, e_hwc_window_name_get(hwc_window));
                     }
                }
           }
@@ -1787,7 +1794,7 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
              if (e_hwc_window_is_video(hwc_window))
                {
                   if (!e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO, EINA_TRUE))
-                    ERR("HWC-WINS: cannot update E_Hwc_Window(%p)", hwc_window);
+                    EHWSERR("cannot update E_Hwc_Window(%p)", hwc, hwc_window);
                   continue;
                }
 
@@ -1798,7 +1805,7 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
                {
                   e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
                   EHWSTRACE("   ehw:%p -- {%25s} is Force hwc_unacceptable.",
-                          hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
+                          hwc_window->ec, hwc, hwc_window, e_hwc_window_name_get(hwc_window));
                    continue;
                }
 
@@ -1806,13 +1813,13 @@ _e_hwc_windows_visible_windows_states_update(E_Hwc *hwc)
                {
                   e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
                   EHWSTRACE("   ehw:%p -- {%25s} is NOT hwc_acceptable.",
-                          hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
+                          hwc_window->ec, hwc, hwc_window, e_hwc_window_name_get(hwc_window));
                }
              else
                {
                   e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_DEVICE, EINA_TRUE);
                   EHWSTRACE("   ehw:%p -- {%25s} is Force hwc_acceptable(Redirected FALSE).",
-                          hwc_window->ec, hwc_window, e_hwc_window_name_get(hwc_window));
+                          hwc_window->ec, hwc, hwc_window, e_hwc_window_name_get(hwc_window));
                }
           }
      }
@@ -2018,7 +2025,7 @@ _e_hwc_windows_changes_update(E_Hwc *hwc)
    /* update the states of the visible windows when there is something to update */
    if (update_changes)
      {
-        EHWSTRACE("======= HWC Update the Windows' Changes =====", NULL);
+        EHWSTRACE("======= HWC Update the Windows' Changes =====", NULL, hwc);
         _e_hwc_windows_visible_windows_states_update(hwc);
      }
 
@@ -2051,7 +2058,7 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
    /* validate the visible hwc_windows' states*/
    if (!_e_hwc_windows_validate(hwc, &num_changes))
      {
-        ERR("HWC-WINS: _e_hwc_windows_validate failed.");
+        EHWSERR("_e_hwc_windows_validate failed.", hwc);
         goto re_evaluate;
      }
 
@@ -2060,7 +2067,7 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
      {
         if (!_e_hwc_windows_validated_changes_update(hwc, num_changes))
           {
-             ERR("HWC-WINS: _e_hwc_windows_validated_changes_update failed.");
+             EHWSERR("_e_hwc_windows_validated_changes_update failed.", hwc);
              goto re_evaluate;
           }
      }
@@ -2087,17 +2094,17 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
    /* set the state of the target_window */
    if (hwc_mode == E_HWC_MODE_NONE)
      {
-        EHWSTRACE(" HWC_MODE is NONE composition.", NULL);
+        EHWSTRACE(" HWC_MODE is NONE composition.", NULL, hwc);
         _e_hwc_windows_target_state_set(hwc->target_hwc_window, E_HWC_WINDOW_STATE_DEVICE);
      }
    else if (hwc_mode == E_HWC_MODE_HYBRID)
      {
-        EHWSTRACE(" HWC_MODE is HYBRID composition.", NULL);
+        EHWSTRACE(" HWC_MODE is HYBRID composition.", NULL, hwc);
         _e_hwc_windows_target_state_set(hwc->target_hwc_window, E_HWC_WINDOW_STATE_DEVICE);
      }
    else
      {
-        EHWSTRACE(" HWC_MODE is FULL HW composition.", NULL);
+        EHWSTRACE(" HWC_MODE is FULL HW composition.", NULL, hwc);
         _e_hwc_windows_target_state_set(hwc->target_hwc_window, E_HWC_WINDOW_STATE_NONE);
      }
 
@@ -2119,14 +2126,14 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
      ret = _e_hwc_windows_accept(hwc, EINA_TRUE);
    if (!ret)
      {
-        ERR("HWC-WINS: _e_hwc_windows_validated_changes_update failed.");
+        EHWSERR("_e_hwc_windows_validated_changes_update failed.", hwc);
         goto re_evaluate;
      }
 
    return EINA_TRUE;
 
 re_evaluate:
-   EHWSTRACE("======= HWC NOT Accept Validation Yet !! =======", NULL);
+   EHWSTRACE("======= HWC NOT Accept Validation Yet !! =======", NULL, hwc);
 
    return EINA_FALSE;
 }
@@ -2186,7 +2193,7 @@ e_hwc_windows_init(E_Hwc *hwc)
    error = tdm_hwc_get_capabilities(hwc->thwc, &hwc_caps);
    if (error != TDM_ERROR_NONE)
      {
-        ERR("fail to tdm_hwc_get_capabilities");
+        EHWSERR("fail to tdm_hwc_get_capabilities", hwc);
         return EINA_FALSE;
      }
 
@@ -2243,7 +2250,7 @@ e_hwc_windows_render(E_Hwc *hwc)
 
    if (e_comp_canvas_norender_get() > 0)
      {
-        EHWSTRACE(" NoRender get. Do not ecore_evas_manual_render.", NULL);
+        EHWSTRACE("NoRender get. Do not ecore_evas_manual_render.", NULL, hwc);
         return EINA_TRUE;
      }
 
@@ -2279,7 +2286,7 @@ e_hwc_windows_commit(E_Hwc *hwc)
 
    if (e_comp_canvas_norender_get() > 0)
      {
-        EHWSTRACE(" Block Display... NoRender get.", NULL);
+        EHWSTRACE(" Block Display... NoRender get.", NULL, hwc);
         return EINA_TRUE;
      }
 
@@ -2312,13 +2319,13 @@ e_hwc_windows_commit(E_Hwc *hwc)
         _e_hwc_windows_update_fps(hwc);
         if (!_e_hwc_windows_pp_commit(hwc))
           {
-            ERR("_e_hwc_windows_pp_commit failed.");
+            EHWSERR("_e_hwc_windows_pp_commit failed.", hwc);
             goto fail;
           }
      }
    else
      {
-        EHWSTRACE("!!!!!!!! HWC Commit !!!!!!!!", NULL);
+        EHWSTRACE("!!!!!!!! HWC Commit !!!!!!!!", NULL, hwc);
         _e_hwc_windows_update_fps(hwc);
 
         hwc->wait_commit = EINA_TRUE;
@@ -2326,7 +2333,7 @@ e_hwc_windows_commit(E_Hwc *hwc)
         error = tdm_hwc_commit(hwc->thwc, 0, _e_hwc_windows_commit_handler, hwc);
         if (error != TDM_ERROR_NONE)
           {
-             ERR("tdm_hwc_commit failed.");
+             EHWSERR("tdm_hwc_commit failed.", hwc);
              _e_hwc_windows_commit_handler(hwc->thwc, 0, 0, 0, hwc);
              goto fail;
           }
@@ -2383,7 +2390,7 @@ e_hwc_windows_zoom_set(E_Hwc *hwc, Eina_Rectangle *rect)
         hwc->tpp = tdm_display_create_pp(e_comp_screen->tdisplay, &ret);
         if (ret != TDM_ERROR_NONE)
           {
-             ERR("fail tdm pp create");
+             EHWSERR("fail tdm pp create", hwc);
              goto fail;
           }
 
@@ -2397,7 +2404,7 @@ e_hwc_windows_zoom_set(E_Hwc *hwc, Eina_Rectangle *rect)
         hwc->pp_tqueue = tbm_surface_queue_create(3, w, h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
         if (!hwc->pp_tqueue)
           {
-             ERR("fail tbm_surface_queue_create");
+             EHWSERR("fail tbm_surface_queue_create", hwc);
              goto fail;
           }
      }
@@ -2416,7 +2423,7 @@ e_hwc_windows_zoom_set(E_Hwc *hwc, Eina_Rectangle *rect)
    /* to wake up main loop */
    uint64_t value = 1;
    if (write(hwc->target_hwc_window->event_fd, &value, sizeof(value)) < 0)
-     ERR("failed to wake up main loop:%m");
+     EHWSERR("failed to wake up main loop:%m", hwc);
 
    return EINA_TRUE;
 
@@ -2472,7 +2479,7 @@ e_hwc_windows_zoom_unset(E_Hwc *hwc)
    /* to wake up main loop */
    uint64_t value = 1;
    if (write(hwc->target_hwc_window->event_fd, &value, sizeof(value)) < 0)
-     ERR("failed to wake up main loop:%m");
+     EHWSERR("failed to wake up main loop:%m", hwc);
 }
 
 // add hwc_window to the render_list
@@ -2499,7 +2506,7 @@ e_hwc_windows_rendered_window_add(E_Hwc_Window *hwc_window)
 
    e_object_ref(E_OBJECT(hwc_window));
 
-   EHWSTRACE(" add ehw:%p ts:%p to the render_list -- {%25s}.", ec, hwc_window,
+   EHWSTRACE(" add ehw:%p ts:%p to the render_list -- {%25s}.", ec, hwc, hwc_window,
             hwc_window->buffer.tsurface, e_hwc_window_name_get(hwc_window));
 }
 
