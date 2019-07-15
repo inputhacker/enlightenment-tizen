@@ -152,7 +152,7 @@ _e_comp_screen_dbus_get_cb(const Eldbus_Service_Interface *iface, const Eldbus_M
    if (e_comp && e_comp->e_comp_screen)
      rotation = e_comp->e_comp_screen->rotation;
 
-   DBG("got screen-rotation 'get' request: %d", rotation);
+   ELOGF("COMP_SCREEN","got screen-rotation 'get' request: %d", NULL, rotation);
 
    eldbus_message_arguments_append(reply, "i", rotation);
 
@@ -264,7 +264,7 @@ _e_comp_screen_input_rotation_set(int rotation)
              e_input_device_touch_rotation_set(dev, rotation);
              e_input_device_rotation_set(dev, rotation);
 
-             INF("EE Input Device Rotate: %d", rotation);
+             ELOGF("COMP_SCREEN","EE Input Device Rotate: %d", NULL, rotation);
           }
      }
 }
@@ -552,9 +552,9 @@ _e_comp_screen_output_mode_change_cb(tdm_output *toutput, unsigned int index, vo
           {
              EINA_SAFETY_ON_TRUE_RETURN(current_emode == set_emode);
 
-             DBG("request mode change(%d) (%dx%d, %lf) -> (%dx%d, %lf)\n",
-                  index, current_emode->w, current_emode->h, current_emode->refresh,
-                  set_emode->w, set_emode->h, set_emode->refresh);
+             ELOGF("COMP_SCREEN","request mode change(%d) (%dx%d, %lf) -> (%dx%d, %lf)\n",
+                   NULL, index, current_emode->w, current_emode->h, current_emode->refresh,
+                   set_emode->w, set_emode->h, set_emode->refresh);
 
              e_output_external_mode_change(output, set_emode);
           }
@@ -701,7 +701,7 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
      }
    e_comp_screen->num_outputs = num_outputs;
 
-   INF("E_COMP_SCREEN: num_outputs = %i", e_comp_screen->num_outputs);
+   ELOGF("COMP_SCREEN","num_outputs = %i", NULL, e_comp_screen->num_outputs);
 
    for (i = 0; i < num_outputs; i++)
      {
@@ -892,8 +892,8 @@ _e_comp_screen_engine_init(void)
    /* check the screen rotation */
    screen_rotation = (e_config->screen_rotation_pre + e_config->screen_rotation_setting) % 360;
 
-   INF("E_COMP_SCREEN: screen_rotation_pre %d and screen_rotation_setting %d",
-       e_config->screen_rotation_pre, e_config->screen_rotation_setting);
+   ELOGF("COMP_SCREEN","screen_rotation_pre %d and screen_rotation_setting %d",
+         NULL, e_config->screen_rotation_pre, e_config->screen_rotation_setting);
 
    /* e_comp_screen new */
    TRACE_DS_BEGIN(E_COMP_SCREEN:NEW);
@@ -1051,8 +1051,8 @@ e_comp_screen_e_screens_setup(E_Comp_Screen *e_comp_screen, int rw, int rh)
         if (output->id) screen->id = strdup(output->id);
 
         e_screens = eina_list_append(e_screens, screen);
-        INF("E INIT: SCREEN: [%i][%i], %ix%i+%i+%i",
-            i, i, screen->w, screen->h, screen->x, screen->y);
+        ELOGF("COMP_SCREEN","E INIT: SCREEN: [%i][%i], %ix%i+%i+%i",
+              NULL, i, i, screen->w, screen->h, screen->x, screen->y);
         i++;
      }
    eina_list_free(outputs);
@@ -1318,16 +1318,16 @@ _e_comp_screen_rotation_set(E_Comp_Screen *e_comp_screen, int screen_rotation,
          e_input_device_touch_rotation_set(dev, e_comp_screen->rotation);
          e_input_device_rotation_set(dev, e_comp_screen->rotation);
 
-         INF("EE Input Device Rotate: %d", e_comp_screen->rotation);
+         ELOGF("COMP_SCREEN","EE Input Device Rotate: %d", NULL, e_comp_screen->rotation);
      }
 
    if (e_comp_screen_iface)
      {
         eldbus_service_signal_emit(e_comp_screen_iface, E_COMP_SCREEN_SIGNAL_ROTATION_CHANGED, e_comp_screen->rotation);
-        ELOGF("TRANSFORM", "screen-rotation sends signal: %d", NULL, e_comp_screen->rotation);
+        ELOGF("COMP_SCREEN", "screen-rotation sends signal: %d", NULL, e_comp_screen->rotation);
      }
 
-   INF("EE Rotated and Resized: %d, %dx%d", e_comp_screen->rotation, w, h);
+   ELOGF("COMP_SCREEN","EE Rotated and Resized: %d, %dx%d", NULL, e_comp_screen->rotation, w, h);
 
    return EINA_TRUE;
 }
@@ -1336,7 +1336,7 @@ static void
 _e_comp_screen_rotation_pre_setter(E_Comp_Screen *e_comp_screen, int rotation_pre)
 {
    e_comp_screen->rotation_pre = rotation_pre;
-   INF("EE RotationPre: %d", rotation_pre);
+   ELOGF("COMP_SCREEN","EE RotationPre: %d", NULL, rotation_pre);
 }
 
 EINTERN Eina_Bool
@@ -1361,7 +1361,7 @@ static void
 _e_comp_screen_rotation_setting_setter(E_Comp_Screen *e_comp_screen, int rotation)
 {
    e_comp_screen->rotation_setting = rotation;
-   INF("EE RotationSetting: %d", rotation);
+   ELOGF("COMP_SCREEN","EE RotationSetting: %d", NULL, rotation);
 }
 
 E_API Eina_Bool
