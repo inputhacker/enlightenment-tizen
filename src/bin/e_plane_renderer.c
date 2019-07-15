@@ -1764,7 +1764,7 @@ e_plane_renderer_activate(E_Plane_Renderer *renderer, E_Client *ec)
    if ((plane->output->config.rotation / 90) != transform)
      return EINA_FALSE;
 
-   wayland_tbm_server_client_queue_activate(cqueue, 0, 0, 0);
+   wayland_tbm_server_client_queue_activate(cqueue, 0, 0, 0, 0, 0);
 
    if (renderer_trace_debug)
      ELOGF("E_PLANE_RENDERER", "Activate Renderer(%p)", ec, renderer);
@@ -1948,7 +1948,8 @@ e_plane_renderer_reserved_activate(E_Plane_Renderer *renderer, E_Client *ec)
                }
           }
 
-        wayland_tbm_server_client_queue_activate(cqueue, 0, renderer->tqueue_size, 1);
+        wayland_tbm_server_client_queue_activate(cqueue, 0, renderer->tqueue_size, renderer->tqueue_width,
+                                                 renderer->tqueue_height, 1);
 
         if (e_comp->hwc_sync_mode_change && !e_comp->hwc_use_detach)
           wayland_tbm_server_client_queue_set_dequeue_cb(cqueue, _e_plane_renderer_exported_surface_dequeue_cb, plane);
