@@ -3787,13 +3787,7 @@ e_output_external_set(E_Output *output, E_Output_Ext_State state)
    else
      {
         /* TODO: HWC Windows */;
-        _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
-
-        if (!e_hwc_windows_external_set(output->hwc, &output->zoom_conf.rect, state))
-          {
-             EOERR("e_hwc_windows_external_set failed.", output);
-             return EINA_FALSE;
-          }
+        return EINA_FALSE;
      }
 
    output->ext_state = state;
