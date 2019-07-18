@@ -966,7 +966,7 @@ _e_hwc_window_queue_get(tbm_surface_queue_h tqueue)
 }
 
 EINTERN Eina_Bool
-e_hwc_window_queue_init(E_Hwc *hwc)
+e_hwc_window_queue_init(void)
 {
    _hwc_winq_mgr = E_NEW(E_Hwc_Window_Queue_Manager, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(_hwc_winq_mgr, EINA_FALSE);

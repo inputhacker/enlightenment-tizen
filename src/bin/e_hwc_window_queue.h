@@ -59,7 +59,7 @@ struct _E_Hwc_Window_Queue_Buffer
    Eina_Bool                      dequeued;
 };
 
-EINTERN Eina_Bool            e_hwc_window_queue_init(E_Hwc *hwc);
+EINTERN Eina_Bool            e_hwc_window_queue_init(void);
 EINTERN void                 e_hwc_window_queue_deinit(void);
 EINTERN E_Hwc_Window_Queue * e_hwc_window_queue_user_set(E_Hwc_Window *hwc_window);
 EINTERN void                 e_hwc_window_queue_user_unset(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_window);

@@ -374,7 +374,7 @@ e_hwc_new(E_Output *output)
      }
    else
      {
-        if (!e_hwc_window_queue_init(hwc))
+        if (!e_hwc_window_queue_init())
           {
              EHERR("E_Hwc_Window_Queue init failed", hwc);
              goto fail;
