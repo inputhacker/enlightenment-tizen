@@ -20,6 +20,8 @@ EINTERN Eina_Bool            e_hwc_windows_init(E_Hwc *hwc);
 EINTERN void                 e_hwc_windows_deinit(E_Hwc *hwc);
 EINTERN Eina_Bool            e_hwc_windows_render(E_Hwc *hwc);
 EINTERN Eina_Bool            e_hwc_windows_commit(E_Hwc *hwc);
+EINTERN E_Hwc_Window_Target *e_hwc_windows_target_window_new(E_Hwc *hwc);
+EINTERN void                 e_hwc_windows_target_window_del(E_Hwc_Window_Target *target_hwc_window);
 EINTERN void                 e_hwc_windows_rendered_window_add(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool            e_hwc_windows_get_available_properties(E_Hwc *hwc, const tdm_prop **props, int *count);
 EINTERN Eina_Bool            e_hwc_windows_get_video_available_properties(E_Hwc *hwc, const tdm_prop **props, int *count);

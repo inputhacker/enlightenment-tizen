@@ -2347,6 +2347,40 @@ fail:
    return EINA_FALSE;
 }
 
+EINTERN E_Hwc_Window_Target *
+e_hwc_windows_target_window_new(E_Hwc *hwc)
+{
+   E_Hwc_Window_Target *target_hwc_window;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, NULL);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc->thwc, NULL);
+
+   if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
+     return NULL;
+
+   target_hwc_window = _e_hwc_windows_target_window_new(hwc);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, NULL);
+   target_hwc_window->hwc = hwc;
+
+   hwc->hwc_windows = eina_list_append(hwc->hwc_windows, target_hwc_window);
+
+   return target_hwc_window;
+}
+
+EINTERN void
+e_hwc_windows_target_window_del(E_Hwc_Window_Target *target_hwc_window)
+{
+   E_Hwc *hwc;
+
+   EINA_SAFETY_ON_NULL_RETURN(target_hwc_window);
+
+   hwc = target_hwc_window->hwc;
+   EINA_SAFETY_ON_NULL_RETURN(hwc);
+
+   hwc->hwc_windows = eina_list_remove(hwc->hwc_windows, hwc->target_hwc_window);
+   e_object_del(E_OBJECT(hwc->target_hwc_window));
+}
+
 EINTERN Eina_Bool
 e_hwc_windows_pp_commit_possible_check(E_Hwc *hwc)
 {
