@@ -397,7 +397,7 @@ e_hwc_new(E_Output *output)
    return hwc;
 
 fail:
-   E_FREE(hwc);
+   e_hwc_del(hwc);
 
    return NULL;
 }
