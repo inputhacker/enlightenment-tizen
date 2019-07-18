@@ -201,7 +201,7 @@ EINTERN Eina_Bool         e_output_mode_apply(E_Output *output, E_Output_Mode *m
 EINTERN Eina_Bool         e_output_mode_change(E_Output *output, E_Output_Mode *mode);
 EINTERN Eina_Bool         e_output_commit(E_Output *output);
 EINTERN Eina_Bool         e_output_render(E_Output *output);
-EINTERN Eina_Bool         e_output_setup(E_Output *output);
+EINTERN Eina_Bool         e_output_hwc_setup(E_Output *output);
 EINTERN E_Output_Mode   * e_output_best_mode_find(E_Output *output);
 EINTERN Eina_List       * e_output_mode_list_get(E_Output *output);
 EINTERN E_Output_Mode   * e_output_current_mode_get(E_Output *output);

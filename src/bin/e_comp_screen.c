@@ -663,9 +663,9 @@ _e_comp_screen_fake_output_set(E_Comp_Screen *e_comp_screen)
 
    output = e_output_find_by_index(0);
 
-   if (!e_output_setup(output))
+   if (!e_output_hwc_setup(output))
      {
-        ERR("fail to e_output_setup.");
+        ERR("fail to e_output_hwc_setup.");
         return EINA_FALSE;
      }
 
@@ -751,9 +751,9 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
         TRACE_DS_END();
 
         TRACE_DS_BEGIN(OUTPUT:SETUP);
-        if (!e_output_setup(output))
+        if (!e_output_hwc_setup(output))
           {
-             ERR("fail to e_output_setup.");
+             ERR("fail to e_output_hwc_setup.");
              goto fail;
           }
         TRACE_DS_END();

@@ -2722,7 +2722,7 @@ e_output_mode_change(E_Output *output, E_Output_Mode *mode)
 }
 
 EINTERN Eina_Bool
-e_output_setup(E_Output *output)
+e_output_hwc_setup(E_Output *output)
 {
    E_Hwc *hwc = NULL;
    Eina_List *l, *ll;
@@ -3897,10 +3897,10 @@ e_output_external_update(E_Output *output)
              return EINA_FALSE;
           }
 
-        ret = e_output_setup(output);
+        ret = e_output_hwc_setup(output);
         if (ret == EINA_FALSE)
           {
-             EOERR("fail to e_output_setup.", output);
+             EOERR("fail to e_output_hwc_setup.", output);
              return EINA_FALSE;
           }
 
