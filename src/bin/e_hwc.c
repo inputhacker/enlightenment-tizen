@@ -139,6 +139,8 @@ _e_hwc_tbm_surface_queue_alloc(void *data, int w, int h)
 
    hwc->target_buffer_queue = tqueue;
 
+   EHINF("The tqueue(%p, %dx%d) is created.", hwc, tqueue, queue_w, queue_h);
+
    // TODO: change the e_comp_screen->tqueue into hwc->target_buffer_queue
    e_comp_screen->tqueue = tqueue;
 
@@ -291,6 +293,8 @@ _e_hwc_ee_init(E_Hwc* hwc)
      }
 
    hwc->ee = ee;
+
+   EHINF("ee(%p) with the tqueue(%p) is created.", hwc, ee, hwc->target_buffer_queue);
 
    primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    if (primary_output == output)

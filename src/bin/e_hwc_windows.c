@@ -516,7 +516,7 @@ _e_hwc_windows_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_
      {
         if (!target_hwc_window->is_rendering) return;
 
-        EHWSTRACE("{%s} dequeue ts:%p", NULL, NULL, "@TARGET WINDOW@", tsurface);
+        EHWSTRACE("{%s} dequeue ts:%p", NULL, target_hwc_window->hwc, "@TARGET WINDOW@", tsurface);
 
         tbm_surface_internal_add_user_data(tsurface,
                                            EHWS_RENDERED_BUFFERS_KEY,
