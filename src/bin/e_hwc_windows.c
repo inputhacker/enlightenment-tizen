@@ -679,7 +679,7 @@ _e_hwc_windows_target_window_free(E_Hwc_Window_Target *target_hwc_window)
    ecore_main_fd_handler_del(target_hwc_window->event_hdlr);
    close(target_hwc_window->event_fd);
 
-   if (target_window->queue->tqueue)
+   if (target_window->queue && target_window->queue->tqueue)
      tbm_surface_queue_destroy(target_window->queue->tqueue);
 
    EHWSINF("Free target window", NULL, NULL);
