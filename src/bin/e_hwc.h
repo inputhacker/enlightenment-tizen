@@ -125,28 +125,27 @@ struct _E_Hwc
    int                  flapse;
 };
 
-EINTERN E_Hwc        *e_hwc_new(E_Output *output);
-EINTERN void          e_hwc_del(E_Hwc *hwc);
-EINTERN E_Hwc_Mode    e_hwc_mode_get(E_Hwc *hwc);
-EINTERN void          e_hwc_deactive_set(E_Hwc *hwc, Eina_Bool set);
-EINTERN Eina_Bool     e_hwc_deactive_get(E_Hwc *hwc);
-EINTERN Eina_Bool     e_hwc_client_is_above_hwc(E_Client *ec, E_Client *hwc_ec);
-EINTERN char         *e_hwc_output_id_get(E_Hwc *hwc);
-
-EINTERN Eina_Bool     e_hwc_intercept_hook_call(E_Hwc_Intercept_Hook_Point hookpoint, E_Hwc *hwc);
-
-E_API E_Hwc_Policy    e_hwc_policy_get(E_Hwc *hwc);
+EINTERN E_Hwc                *e_hwc_new(E_Output *output);
+EINTERN void                  e_hwc_del(E_Hwc *hwc);
+EINTERN E_Hwc_Mode            e_hwc_mode_get(E_Hwc *hwc);
+EINTERN void                  e_hwc_deactive_set(E_Hwc *hwc, Eina_Bool set);
+EINTERN Eina_Bool             e_hwc_deactive_get(E_Hwc *hwc);
+EINTERN Eina_Bool             e_hwc_client_is_above_hwc(E_Client *ec, E_Client *hwc_ec);
+EINTERN char                 *e_hwc_output_id_get(E_Hwc *hwc);
+EINTERN Eina_Bool             e_hwc_intercept_hook_call(E_Hwc_Intercept_Hook_Point hookpoint, E_Hwc *hwc);
 
 E_API E_Hwc_Intercept_Hook   *e_hwc_intercept_hook_add(E_Hwc_Intercept_Hook_Point hookpoint, E_Hwc_Intercept_Hook_Cb func, const void *data);
 E_API void                    e_hwc_intercept_hook_del(E_Hwc_Intercept_Hook *ch);
 
-E_API Eina_Bool       e_hwc_available_properties_get(E_Hwc *hwc, const hwc_prop **props, int *count);
-E_API Eina_Bool       e_hwc_property_get(E_Hwc *hwc, unsigned int id, hwc_value *value);
-E_API Eina_Bool       e_hwc_property_set(E_Hwc *hwc, unsigned int id, hwc_value value);
+E_API E_Hwc_Policy            e_hwc_policy_get(E_Hwc *hwc);
 
-E_API Eina_Bool       e_client_hwc_available_properties_get(E_Client *ec, const hwc_prop **props, int *count);
-E_API Eina_Bool       e_client_hwc_property_get(E_Client *ec, unsigned int id, hwc_value *value);
-E_API Eina_Bool       e_client_hwc_property_set(E_Client *ec, unsigned int id, hwc_value value);
+E_API Eina_Bool               e_hwc_available_properties_get(E_Hwc *hwc, const hwc_prop **props, int *count);
+E_API Eina_Bool               e_hwc_property_get(E_Hwc *hwc, unsigned int id, hwc_value *value);
+E_API Eina_Bool               e_hwc_property_set(E_Hwc *hwc, unsigned int id, hwc_value value);
+
+E_API Eina_Bool               e_client_hwc_available_properties_get(E_Client *ec, const hwc_prop **props, int *count);
+E_API Eina_Bool               e_client_hwc_property_get(E_Client *ec, unsigned int id, hwc_value *value);
+E_API Eina_Bool               e_client_hwc_property_set(E_Client *ec, unsigned int id, hwc_value value);
 
 #endif
 #endif
