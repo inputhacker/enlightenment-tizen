@@ -2729,3 +2729,58 @@ e_hwc_windows_debug_info_get(Eldbus_Message_Iter *iter, E_Hwc_Wins_Debug_Cmd cmd
    else if (cmd >= E_HWC_WINS_DEBUG_CMD_VIS && cmd <= E_HWC_WINS_DEBUG_CMD_NO)
      _e_hwc_windows_window_debug_info_get(iter, cmd);
 }
+
+EINTERN Eina_Bool
+e_hwc_windows_mirror_set(E_Hwc *hwc, E_Hwc *src_hwc, Eina_Rectangle *rect)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+
+   EHWSTRACE("e_hwc_windows_mirror_set. rect(%d,%d)(%d,%d)",
+             NULL, hwc, rect->x, rect->y, rect->w, rect->h);
+
+   hwc->mirror_rect.x = rect->x;
+   hwc->mirror_rect.y = rect->y;
+   hwc->mirror_rect.w = rect->w;
+   hwc->mirror_rect.h = rect->h;
+
+   /* add mirror_src to the hwc*/
+   hwc->mirror_src_hwc = src_hwc;
+
+   /* add mirror_dst list to the src_hwc */
+   src_hwc->mirror_dst_hwc = eina_list_append(src_hwc->mirror_dst_hwc, hwc);
+
+   hwc->ext_state = E_OUTPUT_EXT_MIRROR;
+
+   /* make the src_hwc be full gl-compositing */
+   e_hwc_deactive_set(src_hwc, EINA_TRUE);
+
+   return EINA_TRUE;
+}
+
+EINTERN void
+e_hwc_windows_mirror_unset(E_Hwc *hwc)
+{
+   E_Hwc *src_hwc;
+
+   EINA_SAFETY_ON_NULL_RETURN(hwc);
+
+   src_hwc = hwc->mirror_src_hwc;
+   EINA_SAFETY_ON_NULL_RETURN(src_hwc);
+
+   e_hwc_deactive_set(src_hwc, EINA_FALSE);
+
+   hwc->ext_state = E_OUTPUT_EXT_NONE;
+
+   /* remove mirror_dst list at the src_hwc */
+   src_hwc->mirror_dst_hwc = eina_list_remove(src_hwc->mirror_dst_hwc, hwc);
+
+   /* remove mirror_src at the hwc */
+   hwc->mirror_src_hwc = NULL;
+
+   hwc->mirror_rect.x = 0;
+   hwc->mirror_rect.y = 0;
+   hwc->mirror_rect.w = 0;
+   hwc->mirror_rect.h = 0;
+
+   EHWSTRACE("e_hwc_windows_mirror_unset", NULL, hwc);
+}

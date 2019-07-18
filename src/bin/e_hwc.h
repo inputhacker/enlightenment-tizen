@@ -115,6 +115,12 @@ struct _E_Hwc
    Eina_Rectangle        pp_rect;
    E_Hwc_Window         *pp_hwc_window;
 
+   /* external output */
+   Eina_Rectangle       mirror_rect;
+   E_Hwc               *mirror_src_hwc;
+   Eina_List           *mirror_dst_hwc;
+   E_Output_Ext_State   ext_state;
+
    /* for fps */
    double               fps;
    double               old_fps;

@@ -36,5 +36,8 @@ EINTERN void                 e_hwc_windows_dump_start(void);
 EINTERN void                 e_hwc_windows_dump_stop(void);
 EINTERN void                 e_hwc_windows_debug_info_get(Eldbus_Message_Iter *iter, E_Hwc_Wins_Debug_Cmd cmd);
 
+EINTERN Eina_Bool            e_hwc_windows_mirror_set(E_Hwc *hwc, E_Hwc *src_hwc, Eina_Rectangle *rect);
+EINTERN void                 e_hwc_windows_mirror_unset(E_Hwc *hwc);
+
 #endif
 #endif
