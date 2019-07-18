@@ -438,10 +438,12 @@ e_hwc_deactive_set(E_Hwc *hwc, Eina_Bool set)
 {
    EINA_SAFETY_ON_NULL_RETURN(hwc);
 
-   e_hwc_planes_end(hwc, __FUNCTION__);
+   if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
+     e_hwc_planes_end(hwc, __FUNCTION__);
+
    hwc->hwc_deactive = set;
 
-   ELOGF("HWC", "e_hwc_deactive_set : %d", NULL, set);
+   EHINF("e_hwc_deactive_set : %d", hwc, set);
 }
 
 EINTERN Eina_Bool
