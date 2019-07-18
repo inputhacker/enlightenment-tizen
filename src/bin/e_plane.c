@@ -1577,7 +1577,6 @@ e_plane_hook_del(E_Plane_Hook *ch)
 EINTERN Eina_Bool
 e_plane_init(void)
 {
-#ifdef HAVE_HWC
    if (client_hook_new) return EINA_TRUE;
    if (client_hook_del) return EINA_TRUE;
 
@@ -1590,7 +1589,6 @@ e_plane_init(void)
         ERR("fail to e_plane_renderer_init.");
         return EINA_FALSE;
      }
-#endif
 
    E_EVENT_PLANE_WIN_CHANGE = ecore_event_type_new();
 
@@ -1600,7 +1598,6 @@ e_plane_init(void)
 EINTERN void
 e_plane_shutdown(void)
 {
-#ifdef HAVE_HWC
    /* e_plane_renderer_shutdown */
    e_plane_renderer_shutdown();
 
@@ -1615,7 +1612,6 @@ e_plane_shutdown(void)
         e_client_hook_del(client_hook_del);
         client_hook_del = NULL;
      }
-#endif
 }
 
 EINTERN E_Plane *

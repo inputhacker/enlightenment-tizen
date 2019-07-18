@@ -1025,10 +1025,9 @@ _e_plane_renderer_recover_ec(E_Plane_Renderer *renderer)
 EINTERN Eina_Bool
 e_plane_renderer_init(void)
 {
-#ifdef HAVE_HWC
    E_LIST_HANDLER_APPEND(plane_hdlrs, E_EVENT_CLIENT_BUFFER_CHANGE,
                          _e_plane_renderer_client_ec_buffer_change_cb, NULL);
-#endif
+
    return EINA_TRUE;
 }
 
