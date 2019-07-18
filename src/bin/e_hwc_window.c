@@ -640,13 +640,8 @@ _e_hwc_window_commit_data_acquire_device(E_Hwc_Window *hwc_window)
 }
 
 EINTERN Eina_Bool
-e_hwc_window_init(E_Hwc *hwc)
+e_hwc_window_init(void)
 {
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
-
-   if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
-     return EINA_FALSE;
-
    E_LIST_HOOK_APPEND(hwc_window_client_hooks, E_CLIENT_HOOK_DEL,
                       _e_hwc_window_client_cb_del, NULL);
    E_LIST_HANDLER_APPEND(hwc_window_event_hdlrs, E_EVENT_CLIENT_ZONE_SET,
@@ -656,13 +651,8 @@ e_hwc_window_init(E_Hwc *hwc)
 }
 
 EINTERN void
-e_hwc_window_deinit(E_Hwc *hwc)
+e_hwc_window_deinit(void)
 {
-   EINA_SAFETY_ON_NULL_RETURN(hwc);
-
-   if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
-     return;
-
    E_FREE_LIST(hwc_window_client_hooks, e_client_hook_del);
    E_FREE_LIST(hwc_window_event_hdlrs, ecore_event_handler_del);
 }

@@ -160,8 +160,8 @@ struct _E_Hwc_Window_Commit_Data {
    tdm_hwc_window_info    info;
 };
 
-EINTERN Eina_Bool               e_hwc_window_init(E_Hwc *hwc);
-EINTERN void                    e_hwc_window_deinit(E_Hwc *hwc); // TODO:
+EINTERN Eina_Bool               e_hwc_window_init(void);
+EINTERN void                    e_hwc_window_deinit(void);
 
 EINTERN E_Hwc_Window           *e_hwc_window_new(E_Hwc *hwc, E_Client *ec, E_Hwc_Window_State state);
 EINTERN void                    e_hwc_window_free(E_Hwc_Window *hwc_window);

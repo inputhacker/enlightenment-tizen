@@ -380,7 +380,7 @@ e_hwc_new(E_Output *output)
              goto fail;
           }
 
-        if (!e_hwc_window_init(hwc))
+        if (!e_hwc_window_init())
           {
              EHERR("E_Hwc_Window init failed", hwc);
              goto fail;
@@ -418,7 +418,7 @@ e_hwc_del(E_Hwc *hwc)
    else
      {
         e_hwc_windows_deinit(hwc);
-        e_hwc_window_deinit(hwc);
+        e_hwc_window_deinit();
         e_hwc_window_queue_deinit();
      }
 
