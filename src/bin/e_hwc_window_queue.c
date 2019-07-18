@@ -916,8 +916,8 @@ _e_hwc_window_queue_create(tbm_surface_queue_h tqueue)
                                               queue);
    EINA_SAFETY_ON_FALSE_GOTO(tsq_err == TBM_SURFACE_QUEUE_ERROR_NONE, fail);
 
-   queue->width = tbm_surface_queue_get_height(tqueue);
-   queue->height = tbm_surface_queue_get_width(tqueue);
+   queue->width = tbm_surface_queue_get_width(tqueue);
+   queue->height = tbm_surface_queue_get_height(tqueue);
    queue->format = tbm_surface_queue_get_format(tqueue);
    queue->tqueue = tqueue;
 
