@@ -132,6 +132,8 @@ EINTERN void                  e_hwc_deactive_set(E_Hwc *hwc, Eina_Bool set);
 EINTERN Eina_Bool             e_hwc_deactive_get(E_Hwc *hwc);
 EINTERN Eina_Bool             e_hwc_client_is_above_hwc(E_Client *ec, E_Client *hwc_ec);
 EINTERN char                 *e_hwc_output_id_get(E_Hwc *hwc);
+EINTERN tbm_surface_queue_h   e_hwc_tbm_surface_queue_get(E_Hwc *hwc);
+
 EINTERN Eina_Bool             e_hwc_intercept_hook_call(E_Hwc_Intercept_Hook_Point hookpoint, E_Hwc *hwc);
 
 E_API E_Hwc_Intercept_Hook   *e_hwc_intercept_hook_add(E_Hwc_Intercept_Hook_Point hookpoint, E_Hwc_Intercept_Hook_Cb func, const void *data);

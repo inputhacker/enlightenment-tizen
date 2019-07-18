@@ -496,6 +496,20 @@ e_hwc_output_id_get(E_Hwc *hwc)
    return hwc->output->id;
 }
 
+EINTERN tbm_surface_queue_h
+e_hwc_tbm_surface_queue_get(E_Hwc *hwc)
+{
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, NULL);
+
+   if (e_hwc_policy_get(hwc) != E_HWC_POLICY_WINDOWS)
+   {
+      EHERR("fail to get target_buffer_queue. It is not E_HWC_POLICY_WINDOWS>", hwc);
+      return NULL;
+   }
+
+   return hwc->target_buffer_queue;
+}
+
 static const char *
 _e_hwc_prop_name_get_by_id(E_Hwc *hwc, unsigned int id)
 {
