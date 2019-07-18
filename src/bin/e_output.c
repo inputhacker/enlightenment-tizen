@@ -2727,24 +2727,24 @@ e_output_hwc_setup(E_Output *output)
    E_Hwc *hwc = NULL;
    Eina_List *l, *ll;
    E_Plane *plane = NULL;
+   E_Output *primary_output = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
    /* available only the primary output now. */
-
-   if (e_comp->hwc)
+   if (output->hwc)
      {
-        hwc = e_hwc_new(output);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
-        output->hwc = hwc;
+        EOINF("Already has the HWC.", output);
+        return EINA_TRUE;
      }
+
+   hwc = e_hwc_new(output);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+   output->hwc = hwc;
 
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
-        E_Output *primary_output = NULL;
-
         primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
-
         if (primary_output == output)
           {
              /* ecore evas engine setup */
