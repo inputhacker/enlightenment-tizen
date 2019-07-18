@@ -856,22 +856,6 @@ cleanup:
    TRACE_INPUT_END();
 }
 
-static int
-_e_comp_screen_e_screen_sort_cb(const void *data1, const void *data2)
-{
-   const E_Output *s1 = data1, *s2 = data2;
-   int dif;
-
-   dif = -(s1->config.priority - s2->config.priority);
-   if (dif == 0)
-     {
-        dif = s1->config.geom.x - s2->config.geom.x;
-        if (dif == 0)
-          dif = s1->config.geom.y - s2->config.geom.y;
-     }
-   return dif;
-}
-
 static void
 _e_comp_screen_e_screen_free(E_Screen *scr)
 {
@@ -969,134 +953,66 @@ _e_comp_screen_cb_dbus_init_done(void *data, int type, void *event)
 EINTERN void
 e_comp_screen_e_screens_setup(E_Comp_Screen *e_comp_screen, int rw, int rh)
 {
-   int i;
+   // setup only the primary output.
    E_Screen *screen;
-   Eina_List *outputs = NULL, *outputs_rem;
+   E_Output *output;
    Eina_List *e_screens = NULL;
-   Eina_List *l, *ll;
-   E_Output *output, *s2, *s_chosen;
-   Eina_Bool removed;
+   int i = 0;
 
-   if (!e_comp_screen->outputs) goto out;
-   // put screens in tmp list
-   EINA_LIST_FOREACH(e_comp_screen->outputs, l, output)
+   output = e_comp_screen_primary_output_get(e_comp_screen);
+   /* No pirmary output meands that there is no output at the system */
+   if (!output) goto out;
+
+   screen = E_NEW(E_Screen, 1);
+   if (!screen) return;
+
+   screen->escreen = screen->screen = i;
+   screen->x = output->config.geom.x;
+   screen->y = output->config.geom.y;
+
+   if (output->config.rotation % 180)
      {
-        if ((output->config.enabled) &&
-            (output->config.geom.w > 0) &&
-            (output->config.geom.h > 0))
-          {
-             outputs = eina_list_append(outputs, output);
-          }
+        screen->w = output->config.geom.h;
+        screen->h = output->config.geom.w;
      }
-   // remove overlapping screens - if a set of screens overlap, keep the
-   // smallest/lowest res
-   do
+   else
      {
-        removed = EINA_FALSE;
-
-        EINA_LIST_FOREACH(outputs, l, output)
-          {
-             outputs_rem = NULL;
-
-             EINA_LIST_FOREACH(l->next, ll, s2)
-               {
-                  if (E_INTERSECTS(output->config.geom.x, output->config.geom.y,
-                                   output->config.geom.w, output->config.geom.h,
-                                   s2->config.geom.x, s2->config.geom.y,
-                                   s2->config.geom.w, s2->config.geom.h))
-                    {
-                       if (!outputs_rem)
-                         outputs_rem = eina_list_append(outputs_rem, output);
-                       outputs_rem = eina_list_append(outputs_rem, s2);
-                    }
-               }
-             // we have intersecting screens - choose the lowest res one
-             if (outputs_rem)
-               {
-                  removed = EINA_TRUE;
-                  // find the smallest screen (chosen one)
-                  s_chosen = NULL;
-                  EINA_LIST_FOREACH(outputs_rem, ll, s2)
-                    {
-                       if (!s_chosen) s_chosen = s2;
-                       else
-                         {
-                            if ((s_chosen->config.geom.w *
-                                 s_chosen->config.geom.h) >
-                                (s2->config.geom.w *
-                                 s2->config.geom.h))
-                              s_chosen = s2;
-                         }
-                    }
-                  // remove all from screens but the chosen one
-                  EINA_LIST_FREE(outputs_rem, s2)
-                    {
-                       if (s2 != s_chosen)
-                         outputs = eina_list_remove_list(outputs, l);
-                    }
-                  // break our list walk and try again
-                  break;
-               }
-          }
+        screen->w = output->config.geom.w;
+        screen->h = output->config.geom.h;
      }
-   while (removed);
-   // sort screens by priority etc.
-   outputs = eina_list_sort(outputs, 0, _e_comp_screen_e_screen_sort_cb);
-   i = 0;
-   EINA_LIST_FOREACH(outputs, l, output)
-     {
-        screen = E_NEW(E_Screen, 1);
-        if (!screen) continue;
-        screen->escreen = screen->screen = i;
-        screen->x = output->config.geom.x;
-        screen->y = output->config.geom.y;
 
-        if (output->config.rotation % 180)
-          {
-             screen->w = output->config.geom.h;
-             screen->h = output->config.geom.w;
-          }
-        else
-          {
-             screen->w = output->config.geom.w;
-             screen->h = output->config.geom.h;
-          }
+   if (output->id) screen->id = strdup(output->id);
 
-        if (output->id) screen->id = strdup(output->id);
+   e_screens = eina_list_append(e_screens, screen);
+   ELOGF("COMP_SCREEN","E INIT: SCREEN: [%i][%i], %ix%i+%i+%i",
+         NULL, i, i, screen->w, screen->h, screen->x, screen->y);
+   i++;
 
-        e_screens = eina_list_append(e_screens, screen);
-        ELOGF("COMP_SCREEN","E INIT: SCREEN: [%i][%i], %ix%i+%i+%i",
-              NULL, i, i, screen->w, screen->h, screen->x, screen->y);
-        i++;
-     }
-   eina_list_free(outputs);
-   // if we have NO screens at all (above - i will be 0) AND we have no
-   // existing screens set up in xinerama - then just say root window size
-   // is the entire screen. this should handle the case where you unplug ALL
-   // screens from an existing setup (unplug external monitors and/or close
-   // laptop lid), in which case as long as at least one screen is configured
-   // in xinerama, it will be left-as is until next time we re-eval screen
-   // setup and have at least one screen
-   printf("e_comp_screen_e_screens_setup............... %i %p\n", i, e_comp_screen->e_screens);
-   if ((i == 0) && (!e_comp_screen->e_screens))
-     {
+   ELOGF("COMP_SCREEN","e_comp_screen_e_screens_setup............... %i %p\n", NULL, i, e_comp_screen->e_screens);
+
+   _e_comp_screen_e_screens_set(e_comp_screen, e_screens);
+
+   return;
 out:
-        screen = E_NEW(E_Screen, 1);
-        if (!screen) return;
-        screen->escreen = screen->screen = 0;
-        screen->x = 0;
-        screen->y = 0;
-        if ((rw > 0) && (rh > 0))
-          screen->w = rw, screen->h = rh;
+   screen = E_NEW(E_Screen, 1);
+   if (!screen) return;
+   screen->escreen = screen->screen = 0;
+   screen->x = 0;
+   screen->y = 0;
+   if ((rw > 0) && (rh > 0))
+     screen->w = rw, screen->h = rh;
+   else
+     {
+        if (e_comp_screen->rotation % 180)
+          ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &screen->h, &screen->w);
         else
-          {
-             if (e_comp_screen->rotation % 180)
-               ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &screen->h, &screen->w);
-             else
-               ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &screen->w, &screen->h);
-          }
-        e_screens = eina_list_append(e_screens, screen);
+          ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &screen->w, &screen->h);
      }
+   e_screens = eina_list_append(e_screens, screen);
+
+   ELOGF("COMP_SCREEN","E INIT: SCREEN: No Physical Screen : [%i][%i], %ix%i+%i+%i",
+         NULL, i, i, screen->w, screen->h, screen->x, screen->y);
+
    _e_comp_screen_e_screens_set(e_comp_screen, e_screens);
 }
 
