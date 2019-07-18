@@ -322,36 +322,14 @@ EINTERN E_Hwc *
 e_hwc_new(E_Output *output)
 {
    E_Hwc *hwc = NULL;
+   tdm_hwc_capability hwc_caps = 0;
    tdm_error error;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, NULL);
 
    hwc = E_NEW(E_Hwc, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, NULL);
-
    hwc->output = output;
-
-   if (!output->tdm_hwc)
-     {
-        hwc->hwc_policy = E_HWC_POLICY_PLANES;
-     }
-   else
-     {
-        hwc->hwc_policy = E_HWC_POLICY_WINDOWS;
-
-        hwc->thwc = tdm_output_get_hwc(output->toutput, &error);
-        if (!hwc->thwc)
-          {
-             EHERR("tdm_output_get_hwc failed", hwc);
-             goto fail;
-          }
-     }
-
-   if (!_e_hwc_ee_init(hwc))
-     {
-        EHERR("_e_hwc_ee_init failed", hwc);
-        goto fail;
-     }
 
    /*
     * E20 has two hwc policy options.
@@ -362,40 +340,57 @@ e_hwc_new(E_Output *output)
     *   - The tdm-backend decides the hwc policy with the E_Hwc_Windows associated with the tdm_hwc_window.
     *   - E20 asks to verify the composition types of the E_Hwc_Window of the ec.
     */
-   if (hwc->hwc_policy == E_HWC_POLICY_PLANES)
+   if (!output->tdm_hwc)
      {
-        if (!e_hwc_planes_init())
-          {
-             EHERR("e_hwc_windows_init failed", hwc);
-             goto fail;
-          }
-
+        hwc->hwc_policy = E_HWC_POLICY_PLANES;
         EHINF("Use the HWC PLANES Policy.", hwc);
      }
    else
      {
-        if (!e_hwc_window_queue_init())
-          {
-             EHERR("E_Hwc_Window_Queue init failed", hwc);
-             goto fail;
-          }
-
-        if (!e_hwc_window_init())
-          {
-             EHERR("E_Hwc_Window init failed", hwc);
-             goto fail;
-          }
-
-        if (!e_hwc_windows_init(hwc))
-          {
-             EHERR("e_hwc_windows_init failed", hwc);
-             goto fail;
-          }
-
-        /* turn on sw compositor at the start */
-        ecore_event_add(E_EVENT_COMPOSITOR_ENABLE, NULL, NULL, NULL);
-
+        hwc->hwc_policy = E_HWC_POLICY_WINDOWS;
         EHINF("Use the HWC WINDOWS Policy.", hwc);
+
+        hwc->thwc = tdm_output_get_hwc(output->toutput, &error);
+        if (!hwc->thwc)
+          {
+             EHERR("tdm_output_get_hwc failed", hwc);
+             goto fail;
+          }
+
+        error = tdm_hwc_get_capabilities(hwc->thwc, &hwc_caps);
+        if (error != TDM_ERROR_NONE)
+          {
+             EHERR("fail to tdm_hwc_get_capabilities", hwc);
+             return EINA_FALSE;
+          }
+
+        /* hwc video capabilities */
+        if (hwc_caps & TDM_HWC_CAPABILITY_VIDEO_STREAM)
+          hwc->tdm_hwc_video_stream = EINA_TRUE;
+        if (hwc_caps & TDM_HWC_CAPABILITY_VIDEO_SCALE)
+          hwc->tdm_hwc_video_scale = EINA_TRUE;
+        if (hwc_caps & TDM_HWC_CAPABILITY_VIDEO_TRANSFORM)
+          hwc->tdm_hwc_video_transform = EINA_TRUE;
+        if (hwc_caps & TDM_HWC_CAPABILITY_VIDEO_SCANOUT)
+          hwc->tdm_hwc_video_scanout = EINA_TRUE;
+     }
+
+   /* initialize the ecore_evas in each hwc */
+   if (!_e_hwc_ee_init(hwc))
+     {
+        EHERR("_e_hwc_ee_init failed", hwc);
+        goto fail;
+     }
+
+   if (e_hwc_policy_get(hwc) == E_HWC_POLICY_WINDOWS)
+     {
+        /* create the target_window to the hwc */
+        hwc->target_hwc_window = e_hwc_windows_target_window_new(hwc);
+        if (!hwc->target_hwc_window)
+          {
+             EHERR("e_hwc_windows_target_window_new failed", hwc);
+             goto fail;
+          }
      }
 
    return hwc;
@@ -411,16 +406,13 @@ e_hwc_del(E_Hwc *hwc)
 {
    if (!hwc) return;
 
-   _e_hwc_ee_deinit(hwc);
-
-   if (hwc->hwc_policy == E_HWC_POLICY_PLANES)
-      e_hwc_planes_deinit();
-   else
+   if (e_hwc_policy_get(hwc) == E_HWC_POLICY_WINDOWS)
      {
-        e_hwc_windows_deinit(hwc);
-        e_hwc_window_deinit();
-        e_hwc_window_queue_deinit();
+        e_hwc_windows_target_window_del(hwc->target_hwc_window);
+        hwc->target_hwc_window = NULL;
      }
+
+   _e_hwc_ee_deinit(hwc);
 
    E_FREE(hwc);
 }

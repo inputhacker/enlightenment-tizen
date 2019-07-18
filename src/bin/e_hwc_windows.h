@@ -16,8 +16,8 @@ typedef enum
    E_HWC_WINS_DEBUG_CMD_QUEUE,
 } E_Hwc_Wins_Debug_Cmd;
 
-EINTERN Eina_Bool            e_hwc_windows_init(E_Hwc *hwc);
-EINTERN void                 e_hwc_windows_deinit(E_Hwc *hwc);
+EINTERN Eina_Bool            e_hwc_windows_init(void);
+EINTERN void                 e_hwc_windows_deinit(void);
 EINTERN Eina_Bool            e_hwc_windows_render(E_Hwc *hwc);
 EINTERN Eina_Bool            e_hwc_windows_commit(E_Hwc *hwc);
 EINTERN E_Hwc_Window_Target *e_hwc_windows_target_window_new(E_Hwc *hwc);

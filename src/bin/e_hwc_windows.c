@@ -2174,58 +2174,29 @@ _e_hwc_windos_pp_pending_window_check(E_Hwc *hwc)
 }
 
 EINTERN Eina_Bool
-e_hwc_windows_init(E_Hwc *hwc)
+e_hwc_windows_init(void)
 {
-   tdm_error error;
-   tdm_hwc_capability hwc_caps = 0;
-   E_Hwc_Window_Target *target_hwc_window;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc->thwc, EINA_FALSE);
-
-   if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
-     return EINA_FALSE;
-
-   target_hwc_window = _e_hwc_windows_target_window_new(hwc);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
-   target_hwc_window->hwc = hwc;
-
-   error = tdm_hwc_get_capabilities(hwc->thwc, &hwc_caps);
-   if (error != TDM_ERROR_NONE)
+   if (!e_hwc_window_init())
      {
-        EHWSERR("fail to tdm_hwc_get_capabilities", hwc);
+        ERR("E_Hwc_Window init failed");
         return EINA_FALSE;
      }
 
-   /* hwc video capabilities */
-   if (hwc_caps & TDM_HWC_CAPABILITY_VIDEO_STREAM)
-     hwc->tdm_hwc_video_stream = EINA_TRUE;
-   if (hwc_caps & TDM_HWC_CAPABILITY_VIDEO_SCALE)
-     hwc->tdm_hwc_video_scale = EINA_TRUE;
-   if (hwc_caps & TDM_HWC_CAPABILITY_VIDEO_TRANSFORM)
-     hwc->tdm_hwc_video_transform = EINA_TRUE;
-   if (hwc_caps & TDM_HWC_CAPABILITY_VIDEO_SCANOUT)
-     hwc->tdm_hwc_video_scanout = EINA_TRUE;
-
-   /* set the target_window to the hwc */
-   hwc->target_hwc_window = target_hwc_window;
-
-   hwc->hwc_windows = eina_list_append(hwc->hwc_windows, target_hwc_window);
+   if (!e_hwc_window_queue_init())
+     {
+        ERR("E_Hwc_Window_Queue init failed");
+        e_hwc_window_deinit();
+        return EINA_FALSE;
+     }
 
    return EINA_TRUE;
 }
 
 EINTERN void
-e_hwc_windows_deinit(E_Hwc *hwc)
+e_hwc_windows_deinit(void)
 {
-   EINA_SAFETY_ON_NULL_RETURN(hwc);
-
-   if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
-     return;
-
-   hwc->hwc_windows = eina_list_remove(hwc->hwc_windows, hwc->target_hwc_window);
-   e_object_del(E_OBJECT(hwc->target_hwc_window));
-   hwc->target_hwc_window = NULL;
+   e_hwc_window_queue_deinit();
+   e_hwc_window_deinit();
 }
 
 EINTERN Eina_Bool

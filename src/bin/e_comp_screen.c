@@ -651,6 +651,8 @@ _e_comp_screen_deinit_outputs(E_Comp_Screen *e_comp_screen)
         e_output_del(output);
      }
 
+   e_hwc_windows_deinit();
+   e_hwc_planes_deinit();
    e_output_shutdown();
 }
 
@@ -702,6 +704,18 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
    e_comp_screen->num_outputs = num_outputs;
 
    ELOGF("COMP_SCREEN","num_outputs = %i", NULL, e_comp_screen->num_outputs);
+
+   if (!e_hwc_planes_init())
+     {
+        ERR("e_hwc_planes_init failed");
+        goto fail;
+     }
+
+   if (!e_hwc_windows_init())
+     {
+        ERR("e_hwc_windows_init failed");
+        goto fail;
+     }
 
    for (i = 0; i < num_outputs; i++)
      {
