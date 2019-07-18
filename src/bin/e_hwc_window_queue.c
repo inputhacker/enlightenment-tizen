@@ -251,19 +251,13 @@ _comp_wl_backup_buffer_get(tbm_surface_h tsurface)
 }
 
 static tbm_surface_queue_h
-_get_tbm_surface_queue()
-{
-   return e_comp->e_comp_screen->tqueue;
-}
-
-static tbm_surface_queue_h
 _e_hwc_window_queue_tqueue_acquire(E_Hwc_Window *hwc_window)
 {
    tdm_error error = TDM_ERROR_NONE;
    tbm_surface_queue_h tqueue;
 
    if (e_hwc_window_is_target(hwc_window))
-     tqueue = _get_tbm_surface_queue();
+     tqueue = e_hwc_tbm_surface_queue_get(hwc_window->hwc);
    else
      {
         tqueue = tdm_hwc_window_acquire_buffer_queue(hwc_window->thwc_window, &error);

@@ -708,10 +708,10 @@ _e_hwc_windows_target_window_new(E_Hwc *hwc)
    Evas *evas = NULL;
    E_Hwc_Window_Queue *queue = NULL;
 
-   name = ecore_evas_engine_name_get(e_comp->ee);
+   name = ecore_evas_engine_name_get(hwc->ee);
    EINA_SAFETY_ON_NULL_RETURN_VAL(name, NULL);
 
-   evas = ecore_evas_get(e_comp->ee);
+   evas = ecore_evas_get(hwc->ee);
    EINA_SAFETY_ON_NULL_RETURN_VAL(evas, NULL);
 
    if(!strcmp("gl_drm_tbm", name) ||
@@ -720,7 +720,7 @@ _e_hwc_windows_target_window_new(E_Hwc *hwc)
       !strcmp("software_tbm", name) ||
       !strcmp("gl_tbm_ES", name))
      {
-        ecore_evas_manual_render_set(e_comp->ee, 1);
+        ecore_evas_manual_render_set(hwc->ee, 1);
      }
 
    target_hwc_window = E_OBJECT_ALLOC(E_Hwc_Window_Target, E_HWC_WINDOW_TYPE, _e_hwc_windows_target_window_free);
@@ -731,7 +731,7 @@ _e_hwc_windows_target_window_new(E_Hwc *hwc)
    ((E_Hwc_Window *)target_hwc_window)->accepted_state = E_HWC_WINDOW_STATE_DEVICE;
    ((E_Hwc_Window *)target_hwc_window)->hwc = hwc;
 
-   target_hwc_window->ee = e_comp->ee;
+   target_hwc_window->ee = hwc->ee;
    target_hwc_window->evas = ecore_evas_get(target_hwc_window->ee);
    target_hwc_window->event_fd = eventfd(0, EFD_NONBLOCK);
    target_hwc_window->event_hdlr =
@@ -770,7 +770,9 @@ _e_hwc_windows_target_window_new(E_Hwc *hwc)
    return target_hwc_window;
 
 fail:
-   ecore_evas_manual_render_set(e_comp->ee, 0);
+   ecore_evas_manual_render_set(hwc->ee, 0);
+   if (target_hwc_window)
+      e_object_del(E_OBJECT(hwc->target_hwc_window));
 
    return NULL;
 }
