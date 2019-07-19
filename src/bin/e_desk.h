@@ -118,6 +118,8 @@ E_API void         e_desk_smart_member_del(Evas_Object *obj);
 E_API void         e_desk_client_add(E_Desk *desk, E_Client *ec);
 E_API void         e_desk_client_del(E_Desk *desk, E_Client *ec);
 
+EINTERN void       e_desk_client_zoom_apply(E_Desk *desk, E_Client *ec);
+
 extern E_API int E_EVENT_DESK_SHOW;
 extern E_API int E_EVENT_DESK_BEFORE_SHOW;
 extern E_API int E_EVENT_DESK_AFTER_SHOW;

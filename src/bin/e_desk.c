@@ -1077,6 +1077,28 @@ e_desk_smart_member_del(Evas_Object *obj)
    evas_object_smart_member_del(obj);
 }
 
+EINTERN void
+e_desk_client_zoom_apply(E_Desk *desk, E_Client *ec)
+{
+   if (!e_config->use_desk_smart_obj)
+     return;
+
+   E_OBJECT_CHECK(desk);
+   E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
+
+   E_OBJECT_CHECK(ec);
+   E_OBJECT_TYPE_CHECK(ec, E_CLIENT_TYPE);
+
+   E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
+
+   if (sd->zoom.enabled)
+     {
+        _e_desk_client_zoom(ec,
+                            sd->zoom.ratio_x, sd->zoom.ratio_y,
+                            sd->zoom.cord_x, sd->zoom.cord_y);
+     }
+}
+
 static void
 _e_desk_free(E_Desk *desk)
 {

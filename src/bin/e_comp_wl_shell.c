@@ -738,6 +738,9 @@ _e_shell_client_map_common_pre(E_Client *ec)
    /* unset previous content */
    e_comp_object_content_unset(ec->frame);
 
+   /* apply zoom */
+   e_desk_client_zoom_apply(ec->desk, ec);
+
    /* map this surface if needed */
    ec->visible = EINA_TRUE;
    evas_object_show(ec->frame);
