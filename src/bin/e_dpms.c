@@ -349,6 +349,12 @@ _e_tizen_dpms_manager_cb_destroy(struct wl_client *client, struct wl_resource *r
 {
    INF("tizen_dpms_manager cb_destroy (res:%p)", resource);
 
+   if (delay_timer)
+     {
+        ecore_timer_del(delay_timer);
+        delay_timer = NULL;
+     }
+
    if (gresource == resource)
      gresource = NULL;
 
@@ -363,6 +369,21 @@ static const struct tizen_dpms_manager_interface _e_tizen_dpms_interface =
 };
 
 static void
+_e_dpms_wl_cb_destroy(struct wl_resource *resource)
+{
+   INF("e_dpms_wl cb_destroy (res:%p)", resource);
+
+   if (delay_timer)
+     {
+        ecore_timer_del(delay_timer);
+        delay_timer = NULL;
+     }
+
+   if (gresource == resource)
+     gresource = NULL;
+}
+
+static void
 _e_dpms_cb_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
    struct wl_resource *res;
@@ -374,7 +395,7 @@ _e_dpms_cb_bind(struct wl_client *client, void *data, uint32_t version, uint32_t
         return;
      }
 
-   wl_resource_set_implementation(res, &_e_tizen_dpms_interface, NULL, NULL);
+   wl_resource_set_implementation(res, &_e_tizen_dpms_interface, NULL, _e_dpms_wl_cb_destroy);
 }
 
 EINTERN int
