@@ -2268,7 +2268,7 @@ e_hwc_windows_commit(E_Hwc *hwc)
        return EINA_TRUE;
    }
 
-   if (output->dpms == E_OUTPUT_DPMS_OFF)
+   if ((output->dpms == E_OUTPUT_DPMS_OFF) || (output->fake_config))
      {
         _e_hwc_windows_offscreen_commit(hwc);
         return EINA_TRUE;
