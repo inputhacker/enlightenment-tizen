@@ -59,6 +59,7 @@ static uint64_t ehws_rendered_windows_key;
 static uint64_t ehws_rendered_buffers_key;
 #define EHWS_RENDERED_BUFFERS_KEY  (unsigned long)(&ehws_rendered_buffers_key)
 
+static Eina_Bool _e_hwc_windows_target_window_queue_set(E_Hwc_Window_Target *target_hwc_window);
 static Eina_Bool _e_hwc_windows_pp_output_data_commit(E_Hwc *hwc, E_Hwc_Window_Commit_Data *data);
 static Eina_Bool _e_hwc_windows_pp_window_commit(E_Hwc *hwc, E_Hwc_Window *hwc_window);
 
@@ -366,10 +367,19 @@ _e_hwc_windows_target_buffer_fetch(E_Hwc *hwc, Eina_Bool tdm_set)
 
    hwc_window = (E_Hwc_Window *)target_hwc_window;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->queue , EINA_FALSE);
-
    thwc = hwc->thwc;
    EINA_SAFETY_ON_NULL_RETURN_VAL(thwc, EINA_FALSE);
+
+   if (!hwc_window->queue)
+     {
+        if (!_e_hwc_windows_target_window_queue_set(target_hwc_window))
+          {
+             EHWSERR("fail to _e_hwc_windows_target_window_queue_set", hwc);
+             return EINA_FALSE;
+          }
+     }
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window->queue , EINA_FALSE);
 
    if ((hwc_window->state == E_HWC_WINDOW_STATE_DEVICE) ||
        (hwc->pp_set && hwc->pp_hwc_window))
@@ -598,6 +608,50 @@ _e_hwc_windows_target_window_render_finished_cb(void *data, Ecore_Fd_Handler *fd
 }
 
 static void
+_e_hwc_windows_target_cb_queue_destroy(struct wl_listener *listener, void *data)
+{
+   E_Hwc_Window *hwc_window = NULL;
+
+   hwc_window = container_of(listener, E_Hwc_Window, queue_destroy_listener);
+   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
+
+   if ((E_Hwc_Window_Queue *)data != hwc_window->queue) return;
+
+   hwc_window->queue = NULL;
+}
+
+static Eina_Bool
+_e_hwc_windows_target_window_queue_set(E_Hwc_Window_Target *target_hwc_window)
+{
+   E_Hwc_Window_Queue *queue = NULL;
+
+   queue = e_hwc_window_queue_user_set((E_Hwc_Window *)target_hwc_window);
+   if (!queue) return EINA_FALSE;
+
+   if (((E_Hwc_Window *)target_hwc_window)->queue == queue) return EINA_TRUE;
+
+   wl_signal_add(&queue->destroy_signal, &((E_Hwc_Window *)target_hwc_window)->queue_destroy_listener);
+   ((E_Hwc_Window *)target_hwc_window)->queue_destroy_listener.notify = _e_hwc_windows_target_cb_queue_destroy;
+   ((E_Hwc_Window *)target_hwc_window)->queue = queue;
+
+   /* as evas_renderer has finished its work (to provide a composited buffer) it enqueues
+    * the result buffer into this queue and acquirable cb gets called; this cb does nothing
+    * except the writing into the event_fd object, this writing causes the new ecore_main loop
+    * iteration to be triggered ('cause we've registered ecore_main fd handler to check this writing);
+    * so it's just a way to inform E20's HWC that evas_renderer has done its work */
+   tbm_surface_queue_add_acquirable_cb(queue->tqueue,
+                                       _e_hwc_windows_target_window_surface_queue_acquirable_cb,
+                                       (void *)target_hwc_window);
+
+   /* TODO: we can use this call instead of an add_acquirable_cb and an add_dequeue_cb calls. */
+   tbm_surface_queue_add_trace_cb(queue->tqueue,
+                                  _e_hwc_windows_target_window_surface_queue_trace_cb,
+                                  (void *)target_hwc_window);
+
+   return EINA_TRUE;
+}
+
+static void
 _e_hwc_windows_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSED, void *event_info EINA_UNUSED)
 {
    E_Hwc_Window_Target *target_hwc_window = (E_Hwc_Window_Target *)data;
@@ -687,26 +741,12 @@ _e_hwc_windows_target_window_free(E_Hwc_Window_Target *target_hwc_window)
    E_FREE(target_hwc_window);
 }
 
-static void
-_e_hwc_windows_target_cb_queue_destroy(struct wl_listener *listener, void *data)
-{
-   E_Hwc_Window *hwc_window = NULL;
-
-   hwc_window = container_of(listener, E_Hwc_Window, queue_destroy_listener);
-   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
-
-   if ((E_Hwc_Window_Queue *)data != hwc_window->queue) return;
-
-   hwc_window->queue = NULL;
-}
-
 static E_Hwc_Window_Target *
 _e_hwc_windows_target_window_new(E_Hwc *hwc)
 {
    const char *name = NULL;
    E_Hwc_Window_Target *target_hwc_window = NULL;
    Evas *evas = NULL;
-   E_Hwc_Window_Queue *queue = NULL;
 
    name = ecore_evas_engine_name_get(hwc->ee);
    EINA_SAFETY_ON_NULL_RETURN_VAL(name, NULL);
@@ -741,26 +781,11 @@ _e_hwc_windows_target_window_new(E_Hwc *hwc)
 
    ecore_evas_manual_render(target_hwc_window->ee);
 
-   queue = e_hwc_window_queue_user_set((E_Hwc_Window *)target_hwc_window);
-   if (!queue) goto fail;
-
-   wl_signal_add(&queue->destroy_signal, &((E_Hwc_Window *)target_hwc_window)->queue_destroy_listener);
-   ((E_Hwc_Window *)target_hwc_window)->queue_destroy_listener.notify = _e_hwc_windows_target_cb_queue_destroy;
-   ((E_Hwc_Window *)target_hwc_window)->queue = queue;
-
-   /* as evas_renderer has finished its work (to provide a composited buffer) it enqueues
-    * the result buffer into this queue and acquirable cb gets called; this cb does nothing
-    * except the writing into the event_fd object, this writing causes the new ecore_main loop
-    * iteration to be triggered ('cause we've registered ecore_main fd handler to check this writing);
-    * so it's just a way to inform E20's HWC that evas_renderer has done its work */
-   tbm_surface_queue_add_acquirable_cb(queue->tqueue,
-                                       _e_hwc_windows_target_window_surface_queue_acquirable_cb,
-                                       (void *)target_hwc_window);
-
-   /* TODO: we can use this call instead of an add_acquirable_cb and an add_dequeue_cb calls. */
-   tbm_surface_queue_add_trace_cb(queue->tqueue,
-                                  _e_hwc_windows_target_window_surface_queue_trace_cb,
-                                  (void *)target_hwc_window);
+   if (!_e_hwc_windows_target_window_queue_set(target_hwc_window))
+     {
+        EHWSERR("fail to _e_hwc_windows_target_window_queue_set", hwc);
+        goto fail;
+     }
 
    evas_event_callback_add(evas,
                            EVAS_CALLBACK_RENDER_FLUSH_POST,
@@ -772,7 +797,7 @@ _e_hwc_windows_target_window_new(E_Hwc *hwc)
 fail:
    ecore_evas_manual_render_set(hwc->ee, 0);
    if (target_hwc_window)
-      e_object_del(E_OBJECT(hwc->target_hwc_window));
+     e_object_del(E_OBJECT(target_hwc_window));
 
    return NULL;
 }
