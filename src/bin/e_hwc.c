@@ -111,7 +111,7 @@ _e_hwc_tbm_surface_queue_alloc(void *data, int w, int h)
 
    e_output_size_get(output, &scr_w, &scr_h);
 
-   if (output->tdm_hwc)
+   if ((output->tdm_hwc) && (!output->fake_config))
      {
         tqueue = tdm_hwc_get_client_target_buffer_queue(hwc->thwc, &error);
         if (error != TDM_ERROR_NONE)
