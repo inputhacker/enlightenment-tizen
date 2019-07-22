@@ -696,6 +696,9 @@ _e_output_primary_update(E_Output *output)
              EOERR("fail to e_output_mode_apply.", output);
              return;
           }
+
+        output->fake_config = EINA_FALSE;
+
         ret = e_output_dpms_set(output, E_OUTPUT_DPMS_ON);
         if (ret == EINA_FALSE)
           {
@@ -706,7 +709,6 @@ _e_output_primary_update(E_Output *output)
         e_output_size_get(output, &w, &h);
         if (w == e_comp->w && h == e_comp->h)
           {
-             output->fake_config = EINA_FALSE;
              e_comp_canvas_norender_pop();
              return;
           }
@@ -716,8 +718,6 @@ _e_output_primary_update(E_Output *output)
         e_comp->h = mode->h;
 
         ecore_event_add(E_EVENT_SCREEN_CHANGE, NULL, NULL, NULL);
-
-        output->fake_config = EINA_FALSE;
 
         _e_output_client_resize(e_comp->w, e_comp->h);
 
