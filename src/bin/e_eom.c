@@ -6,7 +6,6 @@
 #include <xdg-shell-unstable-v5-server-protocol.h>
 #include <eom-server-protocol.h>
 #include <eom.h>
-#include <tbm_bufmgr.h>
 #include <tbm_surface.h>
 #include <wayland-tbm-server.h>
 #ifdef FRAMES
@@ -89,7 +88,6 @@ struct _E_Eom
    struct wl_global *global;
 
    tdm_display *dpy;
-   tbm_bufmgr bufmgr;
    int fd;
 
    unsigned int output_count;
@@ -1401,9 +1399,6 @@ _e_eom_init_internal()
    g_eom->dpy = e_comp->e_comp_screen->tdisplay;
    EINA_SAFETY_ON_NULL_GOTO(g_eom->dpy, err);
 
-   g_eom->bufmgr = e_comp->e_comp_screen->bufmgr;
-   EINA_SAFETY_ON_NULL_GOTO(g_eom->bufmgr, err);
-
    _e_eom_main_output_info_get();
 
    if (_e_eom_output_init(g_eom->dpy) != EINA_TRUE)
@@ -1434,9 +1429,6 @@ _e_eom_init_internal()
    return EINA_TRUE;
 
 err:
-   if (g_eom->bufmgr)
-     g_eom->bufmgr = NULL;
-
    if (g_eom->dpy)
      g_eom->dpy = NULL;
 
@@ -1483,9 +1475,6 @@ _e_eom_deinit()
 
    if (g_eom->dpy)
      g_eom->dpy = NULL;
-
-   if (g_eom->bufmgr)
-     g_eom->bufmgr = NULL;
 
    if (g_eom->global)
      wl_global_destroy(g_eom->global);
