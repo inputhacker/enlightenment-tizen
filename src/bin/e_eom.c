@@ -1183,12 +1183,28 @@ _e_eom_output_find_added_output(E_Output *output)
    return eom_output;
 }
 
+static void
+_e_eom_output_deinit(void)
+{
+   E_EomOutputPtr output;
+   Eina_List *l;
+
+   if (!g_eom) return;
+   if (!g_eom->outputs) return;
+
+   EINA_LIST_FOREACH(g_eom->outputs, l, output)
+     free(output);
+
+   eina_list_free(g_eom->outputs);
+
+   g_eom->outputs = NULL;
+}
+
 static Eina_Bool
 _e_eom_output_init(tdm_display *dpy)
 {
    E_EomOutputPtr eom_output = NULL;
    int i, count;
-   Eina_List *l;
 
    count = e_comp->e_comp_screen->num_outputs;
 
@@ -1234,15 +1250,7 @@ _e_eom_output_init(tdm_display *dpy)
    return EINA_TRUE;
 
 err:
-   if (g_eom->outputs)
-     {
-        EINA_LIST_FOREACH(g_eom->outputs, l, eom_output)
-          free(eom_output);
-
-        eina_list_free(g_eom->outputs);
-
-        g_eom->outputs = NULL;
-     }
+   _e_eom_output_deinit();
 
    return EINA_FALSE;
 }
@@ -1403,6 +1411,8 @@ _e_eom_init_internal()
    return EINA_TRUE;
 
 err:
+   _e_eom_output_deinit();
+
    if (g_eom->dpy)
      g_eom->dpy = NULL;
 
@@ -1414,7 +1424,6 @@ _e_eom_deinit()
 {
    Ecore_Event_Handler *h = NULL;
    Eina_List *l;
-   E_EomOutputPtr output;
    E_EomVirtualOutputPtr voutput = NULL;
 
    if (g_eom == NULL) return;
@@ -1437,15 +1446,7 @@ _e_eom_deinit()
         g_eom->virtual_outputs = NULL;
      }
 
-   if (g_eom->outputs)
-     {
-        EINA_LIST_FOREACH(g_eom->outputs, l, output)
-          free(output);
-
-        eina_list_free(g_eom->outputs);
-
-        g_eom->outputs = NULL;
-     }
+   _e_eom_output_deinit();
 
    if (g_eom->dpy)
      g_eom->dpy = NULL;
