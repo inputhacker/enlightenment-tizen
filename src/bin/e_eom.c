@@ -1378,34 +1378,6 @@ _e_eom_virtual_output_init()
    return EINA_TRUE;
 }
 
-static void
-_e_eom_deinit()
-{
-   Ecore_Event_Handler *h = NULL;
-
-   if (g_eom == NULL) return;
-
-   if (g_eom->handlers)
-     {
-        EINA_LIST_FREE(g_eom->handlers, h)
-          ecore_event_handler_del(h);
-
-        g_eom->handlers = NULL;
-     }
-
-   _e_eom_viratul_output_deinit();
-   _e_eom_output_deinit();
-
-   if (g_eom->dpy)
-     g_eom->dpy = NULL;
-
-   if (g_eom->global)
-     wl_global_destroy(g_eom->global);
-   g_eom->global = NULL;
-
-   E_FREE(g_eom);
-}
-
 static E_EomClientPtr
 _e_eom_client_get_by_resource(struct wl_resource *resource)
 {
@@ -2325,6 +2297,34 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
         EOINF("===============<  EXT START", eom_output->eout);
 
    return ECORE_CALLBACK_PASS_ON;
+}
+
+static void
+_e_eom_deinit()
+{
+   Ecore_Event_Handler *h = NULL;
+
+   if (g_eom == NULL) return;
+
+   if (g_eom->handlers)
+     {
+        EINA_LIST_FREE(g_eom->handlers, h)
+          ecore_event_handler_del(h);
+
+        g_eom->handlers = NULL;
+     }
+
+   _e_eom_viratul_output_deinit();
+   _e_eom_output_deinit();
+
+   if (g_eom->dpy)
+     g_eom->dpy = NULL;
+
+   if (g_eom->global)
+     wl_global_destroy(g_eom->global);
+   g_eom->global = NULL;
+
+   E_FREE(g_eom);
 }
 
 static Eina_Bool
