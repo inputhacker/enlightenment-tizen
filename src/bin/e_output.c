@@ -2989,6 +2989,10 @@ e_output_render(E_Output *output)
      }
    else
      {
+        /* render the only primary output */
+        if (output != e_comp_screen_primary_output_get(output->e_comp_screen))
+          return EINA_TRUE;
+
         if (!e_hwc_windows_render(output->hwc))
           {
              EOERR("fail to e_hwc_windows_render.", output);
@@ -3038,20 +3042,12 @@ e_output_commit(E_Output *output)
      }
    else
      {
-        if (output == output_primary)
+        /* commit the only primary output */
+        if (output != output_primary) return EINA_TRUE;
+
+        if (!e_hwc_windows_commit(output->hwc))
           {
-             if (!e_hwc_windows_commit(output->hwc))
-               {
-                  return EINA_FALSE;
-               }
-          }
-        else
-          {
-             if (!_e_output_external_commit(output))
-               {
-                  EOERR("fail _e_output_external_commit", output);
-                  return EINA_FALSE;
-               }
+            return EINA_FALSE;
           }
      }
 
