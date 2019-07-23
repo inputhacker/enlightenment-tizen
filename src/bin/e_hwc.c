@@ -293,6 +293,7 @@ _e_hwc_ee_init(E_Hwc* hwc)
      }
 
    hwc->ee = ee;
+   hwc->evas = ecore_evas_get(hwc->ee);
 
    EHINF("ee(%p) with the tqueue(%p) is created.", hwc, ee, hwc->target_buffer_queue);
 

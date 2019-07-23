@@ -76,6 +76,7 @@ struct _E_Hwc
    Eina_Bool            hwc_deactive : 1; // deactive hwc policy
 
    Ecore_Evas          *ee;
+   Evas                *evas;
 
    /* variables for hwc_planes polic  */
    Eina_Bool            hwc_use_multi_plane;
