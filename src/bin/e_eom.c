@@ -1348,6 +1348,23 @@ _e_eom_virtual_output_unset(E_EomOutput *eom_output)
    voutput->connection = eom_output->connection;
 }
 
+static void
+_e_eom_viratul_output_deinit()
+{
+   E_EomVirtualOutputPtr voutput = NULL;
+   Eina_List *l;
+
+   if (!g_eom) return;
+   if (!g_eom->virtual_outputs) return;
+
+   EINA_LIST_FOREACH(g_eom->virtual_outputs, l, voutput)
+     free(voutput);
+
+   eina_list_free(g_eom->virtual_outputs);
+
+   g_eom->virtual_outputs = NULL;
+}
+
 /* currently use only one virtual output */
 static Eina_Bool
 _e_eom_virtual_output_init()
@@ -1391,16 +1408,7 @@ _e_eom_init_internal()
 
    if (!_e_eom_virtual_output_init())
      {
-        E_EomOutputPtr eom_output = NULL;
-        Eina_List *l;
-
-        EINA_LIST_FOREACH(g_eom->outputs, l, eom_output)
-          free(eom_output);
-
-        eina_list_free(g_eom->outputs);
-
-        g_eom->outputs = NULL;
-
+        EOERR("_e_eom_virtual_output_init fail", NULL);
         goto err;
      }
 
@@ -1411,6 +1419,7 @@ _e_eom_init_internal()
    return EINA_TRUE;
 
 err:
+   _e_eom_viratul_output_deinit();
    _e_eom_output_deinit();
 
    if (g_eom->dpy)
@@ -1423,8 +1432,6 @@ static void
 _e_eom_deinit()
 {
    Ecore_Event_Handler *h = NULL;
-   Eina_List *l;
-   E_EomVirtualOutputPtr voutput = NULL;
 
    if (g_eom == NULL) return;
 
@@ -1436,16 +1443,7 @@ _e_eom_deinit()
         g_eom->handlers = NULL;
      }
 
-   if (g_eom->virtual_outputs)
-     {
-        EINA_LIST_FOREACH(g_eom->virtual_outputs, l, voutput)
-          free(voutput);
-
-        eina_list_free(g_eom->virtual_outputs);
-
-        g_eom->virtual_outputs = NULL;
-     }
-
+   _e_eom_viratul_output_deinit();
    _e_eom_output_deinit();
 
    if (g_eom->dpy)
