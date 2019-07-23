@@ -1207,7 +1207,7 @@ _e_eom_output_deinit(void)
 }
 
 static Eina_Bool
-_e_eom_output_init(tdm_display *dpy)
+_e_eom_output_init(void)
 {
    E_Comp_Screen *e_comp_screen = NULL;
    E_Output *output = NULL;
@@ -1376,41 +1376,6 @@ _e_eom_virtual_output_init()
    g_eom->virtual_output_count = 1;
 
    return EINA_TRUE;
-}
-
-static Eina_Bool
-_e_eom_init_internal()
-{
-   g_eom->dpy = e_comp->e_comp_screen->tdisplay;
-   EINA_SAFETY_ON_NULL_GOTO(g_eom->dpy, err);
-
-   g_eom->output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(g_eom->output_primary, EINA_FALSE);
-
-   if (_e_eom_output_init(g_eom->dpy) != EINA_TRUE)
-     {
-        EOERR("_e_eom_output_init fail", NULL);
-        goto err;
-     }
-
-   if (!_e_eom_virtual_output_init())
-     {
-        EOERR("_e_eom_virtual_output_init fail", NULL);
-        goto err;
-     }
-
-   g_eom->timer = ecore_timer_add(EOM_CONNECT_CHECK_TIMEOUT, _e_eom_boot_connection_check, NULL);
-
-   return EINA_TRUE;
-
-err:
-   _e_eom_viratul_output_deinit();
-   _e_eom_output_deinit();
-
-   if (g_eom->dpy)
-     g_eom->dpy = NULL;
-
-   return EINA_FALSE;
 }
 
 static void
@@ -2365,8 +2330,6 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
 static Eina_Bool
 _e_eom_init()
 {
-   Eina_Bool ret = EINA_FALSE;
-
    EINA_SAFETY_ON_NULL_GOTO(e_comp_wl, err);
 
    if (e_comp->e_comp_screen->num_outputs < 1)
@@ -2378,8 +2341,25 @@ _e_eom_init()
    g_eom->global = wl_global_create(e_comp_wl->wl.disp, &wl_eom_interface, 1, g_eom, _e_eom_cb_wl_bind);
    EINA_SAFETY_ON_NULL_GOTO(g_eom->global, err);
 
-   ret = _e_eom_init_internal();
-   EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, err);
+   g_eom->dpy = e_comp->e_comp_screen->tdisplay;
+   EINA_SAFETY_ON_NULL_GOTO(g_eom->dpy, err);
+
+   g_eom->output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_GOTO(g_eom->output_primary, err);
+
+   if (!_e_eom_output_init())
+     {
+        EOERR("_e_eom_output_init fail", NULL);
+        goto err;
+     }
+
+   if (!_e_eom_virtual_output_init())
+     {
+        EOERR("_e_eom_virtual_output_init fail", NULL);
+        goto err;
+     }
+
+   g_eom->timer = ecore_timer_add(EOM_CONNECT_CHECK_TIMEOUT, _e_eom_boot_connection_check, NULL);
 
    E_LIST_HANDLER_APPEND(g_eom->handlers, E_EVENT_CLIENT_BUFFER_CHANGE, _e_eom_cb_client_buffer_change, NULL);
 
