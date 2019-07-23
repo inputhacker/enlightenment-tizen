@@ -1193,6 +1193,12 @@ _e_eom_output_deinit(void)
    if (!g_eom) return;
    if (!g_eom->outputs) return;
 
+   EINA_LIST_FOREACH(g_eom->added_outputs, l, output)
+     e_eom_destroy(output->eout);
+
+   eina_list_free(g_eom->outputs);
+   g_eom->added_outputs = NULL;
+
    EINA_LIST_FOREACH(g_eom->outputs, l, output)
      e_eom_destroy(output->eout);
 
@@ -1392,8 +1398,6 @@ _e_eom_init_internal()
         EOERR("_e_eom_virtual_output_init fail", NULL);
         goto err;
      }
-
-   g_eom->added_outputs = NULL;
 
    g_eom->timer = ecore_timer_add(EOM_CONNECT_CHECK_TIMEOUT, _e_eom_boot_connection_check, NULL);
 
