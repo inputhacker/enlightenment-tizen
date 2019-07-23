@@ -1154,13 +1154,10 @@ _e_eom_output_find(E_Output *output)
    E_EomOutputPtr eom_output = NULL, eom_output_tmp = NULL;
    Eina_List *l;
 
-   if (g_eom->outputs)
+   EINA_LIST_FOREACH(g_eom->outputs, l, eom_output_tmp)
      {
-        EINA_LIST_FOREACH(g_eom->outputs, l, eom_output_tmp)
-          {
-             if (eom_output_tmp->output == output->toutput)
-               eom_output = eom_output_tmp;
-          }
+       if (eom_output_tmp->output == output->toutput)
+         eom_output = eom_output_tmp;
      }
 
    return eom_output;
@@ -1172,13 +1169,10 @@ _e_eom_output_find_added_output(E_Output *output)
    E_EomOutputPtr eom_output = NULL, eom_output_tmp = NULL;
    Eina_List *l;
 
-   if (g_eom->added_outputs)
+   EINA_LIST_FOREACH(g_eom->added_outputs, l, eom_output_tmp)
      {
-        EINA_LIST_FOREACH(g_eom->added_outputs, l, eom_output_tmp)
-          {
-             if (eom_output_tmp->output == output->toutput)
-               eom_output = eom_output_tmp;
-          }
+        if (eom_output_tmp->output == output->toutput)
+          eom_output = eom_output_tmp;
      }
 
    return eom_output;
@@ -1257,21 +1251,20 @@ _e_eom_boot_connection_check(void *data)
 
    g_eom->check_first_boot = 1;
 
-   if (g_eom->outputs)
+   EINA_LIST_FOREACH(g_eom->outputs, l, eom_output)
      {
-        EINA_LIST_FOREACH(g_eom->outputs, l, eom_output)
-          {
-             if (eom_output->id == 0)
-               continue;
+        if (eom_output->id == 0)
+          continue;
 
-             eout = eom_output->eout;
+        eout = eom_output->eout;
 
-             if (!e_output_connected(eout)) continue;
+        if (!e_output_connected(eout)) continue;
 
-             e_output_external_update(eout);
-          }
+        e_output_external_update(eout);
      }
+
    g_eom->timer = NULL;
+
    return ECORE_CALLBACK_CANCEL;
 }
 
@@ -1968,38 +1961,35 @@ _e_eom_cb_wl_request_get_output_info(struct wl_client *client, struct wl_resourc
 {
    EOINF("get output info:%d", NULL, output_id);
 
-   if (g_eom->virtual_outputs)
+   Eina_List *l;
+   E_EomOutputPtr output = NULL;
+   E_EomVirtualOutputPtr voutput = NULL;
+
+   EINA_LIST_FOREACH(g_eom->virtual_outputs, l, voutput)
      {
-        Eina_List *l;
-        E_EomOutputPtr output = NULL;
-        E_EomVirtualOutputPtr voutput = NULL;
-
-        EINA_LIST_FOREACH(g_eom->virtual_outputs, l, voutput)
+        if (voutput->id == output_id)
           {
-             if (voutput->id == output_id)
+             if (voutput->eom_output)
                {
-                  if (voutput->eom_output)
-                    {
-                       output = voutput->eom_output;
+                  output = voutput->eom_output;
 
-                       EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", NULL,
-                              voutput->id, output->type, output->mode, output->width, output->height,
-                              output->phys_width, output->phys_height, output->connection_status);
+                  EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", NULL,
+                        voutput->id, output->type, output->mode, output->width, output->height,
+                        output->phys_width, output->phys_height, output->connection_status);
 
-                        wl_eom_send_output_info(resource, voutput->id, output->type, output->mode, output->width, output->height,
-                                                output->phys_width, output->phys_height, output->connection,
-                                                1, 0, 0, 0);
-                    }
-                  else
-                    {
-                        EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", NULL,
-                              voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
-                              voutput->phys_width, voutput->phys_height, voutput->connection_status);
+                  wl_eom_send_output_info(resource, voutput->id, output->type, output->mode, output->width, output->height,
+                                          output->phys_width, output->phys_height, output->connection,
+                                          1, 0, 0, 0);
+               }
+             else
+               {
+                  EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", NULL,
+                        voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
+                        voutput->phys_width, voutput->phys_height, voutput->connection_status);
 
-                        wl_eom_send_output_info(resource, voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
-                                                voutput->phys_width, voutput->phys_height, voutput->connection,
-                                                1, 0, 0, 0);
-                    }
+                  wl_eom_send_output_info(resource, voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
+                                          voutput->phys_width, voutput->phys_height, voutput->connection,
+                                          1, 0, 0, 0);
                }
           }
      }
@@ -2037,32 +2027,27 @@ _e_eom_cb_wl_bind(struct wl_client *client, void *data, uint32_t version, uint32
 
    wl_eom_send_output_count(resource, g_eom->virtual_output_count);
 
-   if (g_eom->virtual_outputs)
+   EINA_LIST_FOREACH(g_eom->virtual_outputs, l, voutput)
      {
-        EINA_LIST_FOREACH(g_eom->virtual_outputs, l, voutput)
+        if (voutput->eom_output)
           {
-             if (voutput->eom_output)
-               {
-                  eom_output = voutput->eom_output;
+             eom_output = voutput->eom_output;
 
-                  EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", eom_output->eout,
-                         voutput->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
-                         eom_output->phys_width, eom_output->phys_height, eom_output->connection_status);
-
-                   wl_eom_send_output_info(resource, voutput->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
-                                           eom_output->phys_width, eom_output->phys_height, eom_output->connection,
-                                           1, 0, 0, 0);
-               }
-             else
-               {
-                   EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", NULL,
-                         voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
-                         voutput->phys_width, voutput->phys_height, voutput->connection_status);
-
-                   wl_eom_send_output_info(resource, voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
-                                           voutput->phys_width, voutput->phys_height, voutput->connection,
-                                           1, 0, 0, 0);
-               }
+             EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", eom_output->eout,
+                   voutput->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
+                   eom_output->phys_width, eom_output->phys_height, eom_output->connection_status);
+             wl_eom_send_output_info(resource, voutput->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
+                                     eom_output->phys_width, eom_output->phys_height, eom_output->connection,
+                                     1, 0, 0, 0);
+          }
+        else
+          {
+             EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", NULL,
+                   voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
+                   voutput->phys_width, voutput->phys_height, voutput->connection_status);
+             wl_eom_send_output_info(resource, voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
+                                     voutput->phys_width, voutput->phys_height, voutput->connection,
+                                     1, 0, 0, 0);
           }
      }
 
