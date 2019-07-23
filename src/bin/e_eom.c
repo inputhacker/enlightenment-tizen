@@ -108,12 +108,6 @@ struct _E_Eom
    int height;
    char check_first_boot;
    Ecore_Timer *timer;
-
-   /* Rotation data */
-   int angle; /* 0, 90, 180, 270 */
-   E_EomOutputRotate rotate_state;
-   E_EomOutput *rotate_output;
-   Ecore_Timer *rotate_timer;
 };
 
 struct _E_Eom_Output
@@ -2437,9 +2431,6 @@ _e_eom_init()
    g_eom->global = wl_global_create(e_comp_wl->wl.disp, &wl_eom_interface, 1, g_eom, _e_eom_cb_wl_bind);
    EINA_SAFETY_ON_NULL_GOTO(g_eom->global, err);
 
-   g_eom->angle = 0;
-   g_eom->rotate_state = ROTATE_NONE;
-
    ret = _e_eom_init_internal();
    EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, err);
 
@@ -2631,14 +2622,6 @@ e_eom_disconnect(E_Output *output)
      ecore_timer_del(eom_output->delay_timer);
    eom_output->delay_timer = NULL;
 
-   if (g_eom->rotate_output == eom_output)
-     {
-        if (g_eom->rotate_timer)
-          ecore_timer_del(g_eom->rotate_timer);
-        g_eom->rotate_timer = NULL;
-        g_eom->rotate_output = NULL;
-     }
-
    /* update eom_output disconnect */
    eom_output->width = 0;
    eom_output->height = 0;
@@ -2808,14 +2791,6 @@ e_eom_mode_change(E_Output *output, E_Output_Mode *emode)
    if (eom_output->delay_timer)
      ecore_timer_del(eom_output->delay_timer);
    eom_output->delay_timer = NULL;
-
-   if (g_eom->rotate_output == eom_output)
-     {
-        if (g_eom->rotate_timer)
-          ecore_timer_del(g_eom->rotate_timer);
-        g_eom->rotate_timer = NULL;
-        g_eom->rotate_output = NULL;
-     }
 
    /* update eom_output connect */
    eom_output->width = output->config.mode.w;
