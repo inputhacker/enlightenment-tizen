@@ -1659,7 +1659,7 @@ _e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
    int x, y, w, h;
    int ui_skip = EINA_FALSE;
 
-   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+   for (o = evas_object_top_get(hwc->evas); o; o = evas_object_below_get(o))
      {
         if (!evas_object_visible_get(o)) continue;
 
