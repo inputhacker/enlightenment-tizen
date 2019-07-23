@@ -100,7 +100,7 @@ struct _E_Eom
    Eina_List *added_outputs;
 
    /* Internal output data */
-   Eina_Bool main_output_state;
+   E_Output *output_primary;
    char check_first_boot;
    Ecore_Timer *timer;
 };
@@ -909,7 +909,7 @@ _e_eom_cb_pp_presentation(E_EomOutputPtr eom_output, E_EomPpDataPtr ppdata, E_Eo
         return;
      }
 
-   if (g_eom->main_output_state == EINA_FALSE)
+   if (!e_output_connected(g_eom->output_primary))
      {
         tbm_surface_queue_release(eom_pp->queue, tsurface);
         return;
@@ -1005,7 +1005,7 @@ _e_eom_presentation_pp_run(E_EomOutputPtr eom_output, tbm_surface_h src_surface,
    E_EomOutputPpPtr eom_pp = NULL;
    E_EomPpDataPtr ppdata = NULL;
 
-   if (g_eom->main_output_state == EINA_FALSE)
+   if (!e_output_connected(g_eom->output_primary))
      return;
 
    eom_pp = eom_output->pp_overlay;
@@ -1181,24 +1181,6 @@ _e_eom_output_find_added_output(E_Output *output)
      }
 
    return eom_output;
-}
-
-static void
-_e_eom_main_output_info_get()
-{
-   E_Output *output_primary = NULL;
-
-   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
-   EINA_SAFETY_ON_NULL_RETURN(output_primary);
-
-   if (e_output_connected(output_primary))
-     {
-        g_eom->main_output_state = EINA_TRUE;
-     }
-   else
-     {
-        g_eom->main_output_state = EINA_FALSE;
-     }
 }
 
 static Eina_Bool
@@ -1390,7 +1372,8 @@ _e_eom_init_internal()
    g_eom->dpy = e_comp->e_comp_screen->tdisplay;
    EINA_SAFETY_ON_NULL_GOTO(g_eom->dpy, err);
 
-   _e_eom_main_output_info_get();
+   g_eom->output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(g_eom->output_primary, EINA_FALSE);
 
    if (_e_eom_output_init(g_eom->dpy) != EINA_TRUE)
      {
