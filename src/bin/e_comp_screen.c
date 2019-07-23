@@ -626,7 +626,7 @@ _e_comp_screen_output_create_cb(tdm_display *dpy, tdm_output *toutput, void *use
         return;
      }
 
-   e_eom_create(output);
+   e_eom_create(output, EINA_TRUE);
    e_comp_screen->outputs = eina_list_append(e_comp_screen->outputs, output);
    e_comp_screen->num_outputs++;
 

@@ -143,6 +143,7 @@ struct _E_Eom_Output
 
    E_Output *eout;
    E_EomVirtualOutput *voutput;
+   Eina_Bool added;
 };
 
 struct _E_Eom_Virtual_Output
@@ -1193,58 +1194,38 @@ _e_eom_output_deinit(void)
    if (!g_eom->outputs) return;
 
    EINA_LIST_FOREACH(g_eom->outputs, l, output)
-     free(output);
+     e_eom_destroy(output->eout);
 
    eina_list_free(g_eom->outputs);
-
    g_eom->outputs = NULL;
 }
 
 static Eina_Bool
 _e_eom_output_init(tdm_display *dpy)
 {
-   E_EomOutputPtr eom_output = NULL;
-   int i, count;
+   E_Comp_Screen *e_comp_screen = NULL;
+   E_Output *output = NULL;
+   Eina_List *l;
 
-   count = e_comp->e_comp_screen->num_outputs;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp, EINA_FALSE);
 
-   g_eom->output_count = count - 1;
+   e_comp_screen = e_comp->e_comp_screen;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+
+   g_eom->output_count = e_comp_screen->num_outputs - 1;
    EOINF("external output count : %d", NULL, g_eom->output_count);
 
-   /* skip main output id:0 */
-   /* start from 1 */
-   for (i = 1; i < count; i++)
+   /* create the eom_output except for the primary output */
+   EINA_LIST_FOREACH(e_comp_screen->outputs, l, output)
      {
-        eom_output = E_NEW(E_EomOutput, 1);
-        EINA_SAFETY_ON_NULL_GOTO(eom_output, err);
+        if (!output) continue;
+        if (output == g_eom->output_primary) continue;
 
-        eom_output->id = i;
-        eom_output->mode = EOM_OUTPUT_MODE_NONE;
-        eom_output->connection = WL_EOM_STATUS_NONE;
-        eom_output->eout = e_output_find_by_index(i);
-        EINA_SAFETY_ON_NULL_GOTO(eom_output->eout, err);
-
-        eom_output->output = eom_output->eout->toutput;
-        eom_output->type = (eom_output_type_e)eom_output->eout->toutput_type;
-
-        if (!e_output_connected(eom_output->eout))
+        if (!e_eom_create(output, EINA_FALSE))
           {
-             EOINF("create(%d)output, type:%d, status:%d", eom_output->eout,
-                   eom_output->id, eom_output->type, eom_output->connection_status);
-             g_eom->outputs = eina_list_append(g_eom->outputs, eom_output);
-             eom_output->connection_status = EINA_FALSE;
-             continue;
+             EOERR("e_eom_create fails.", output);
+             goto err;
           }
-
-        //eom_output->connection_status = EINA_TRUE;
-        eom_output->phys_width = eom_output->eout->info.size.w;
-        eom_output->phys_height = eom_output->eout->info.size.h;
-
-        EOINF("create(%d)output, type:%d, status:%d, w:%d, h:%d, mm_w:%d, mm_h:%d", eom_output->eout,
-              eom_output->id, eom_output->type, eom_output->connection_status,
-              eom_output->width, eom_output->height, eom_output->phys_width, eom_output->phys_height);
-
-        g_eom->outputs = eina_list_append(g_eom->outputs, eom_output);
      }
 
    return EINA_TRUE;
@@ -2643,7 +2624,7 @@ e_eom_disconnect(E_Output *output)
 }
 
 EINTERN Eina_Bool
-e_eom_create(E_Output *output)
+e_eom_create(E_Output *output, Eina_Bool added)
 {
    E_EomOutputPtr eom_output = NULL;
 
@@ -2658,19 +2639,23 @@ e_eom_create(E_Output *output)
    eom_output->eout = output;
    EINA_SAFETY_ON_NULL_GOTO(eom_output->eout, err);
 
-   eom_output->output = eom_output->eout->toutput;
-   eom_output->type = (eom_output_type_e)eom_output->eout->toutput_type;
+   eom_output->output = output->toutput;
+   eom_output->type = (eom_output_type_e)output->toutput_type;
 
    eom_output->connection_status = EINA_FALSE;
    eom_output->width = 0;
    eom_output->height = 0;
    eom_output->phys_width = 0;
    eom_output->phys_height = 0;
+   eom_output->added = added;
 
-   EOINF("create (%d)output, type:%d, name:%s", eom_output->eout,
-         eom_output->id, eom_output->type, eom_output->name);
+   if (eom_output->added)
+     g_eom->added_outputs = eina_list_append(g_eom->added_outputs, eom_output);
+   else
+     g_eom->outputs = eina_list_append(g_eom->outputs, eom_output);
 
-   g_eom->added_outputs = eina_list_append(g_eom->added_outputs, eom_output);
+   EOINF("create (%d)output, type:%d, name:%s added:%d", eom_output->eout,
+         eom_output->id, eom_output->type, eom_output->name, eom_output->added);
 
    return EINA_TRUE;
 
@@ -2684,28 +2669,21 @@ EINTERN Eina_Bool
 e_eom_destroy(E_Output *output)
 {
    E_EomOutputPtr eom_output = NULL;
-   E_EomOutputPtr eom_output_delete = NULL;
-   Eina_List *l;
 
    if (!g_eom) return EINA_TRUE;
 
-   EINA_LIST_FOREACH(g_eom->added_outputs, l, eom_output)
-     {
-        if (eom_output && eom_output->eout == output)
-          {
-             eom_output_delete = eom_output;
-             break;
-          }
-     }
+   eom_output = _e_eom_output_find_added_output(output);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(eom_output, EINA_FALSE);
 
-   if (!eom_output_delete) return EINA_FALSE;
+   EOINF("destroy (%d)output, type:%d, name:%s added:%d", eom_output->eout,
+         eom_output->id, eom_output->type, eom_output->name, eom_output->added);
 
-   EOINF("destroy (%d)output, type:%d, name:%s", eom_output->eout,
-         eom_output->id, eom_output->type, eom_output->name);
+   if (eom_output->added)
+     g_eom->added_outputs = eina_list_remove(g_eom->added_outputs, eom_output);
+   else
+     g_eom->outputs = eina_list_remove(g_eom->outputs, eom_output);
 
-   g_eom->added_outputs = eina_list_remove(g_eom->added_outputs, eom_output_delete);
-
-   E_FREE(eom_output_delete);
+   E_FREE(eom_output);
 
    return EINA_TRUE;
 }
