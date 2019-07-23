@@ -285,6 +285,19 @@ _e_hwc_window_queue_tqueue_release(tbm_surface_queue_h tqueue, E_Hwc_Window *hwc
                 hwc_window->ec, hwc_window->hwc, NULL, hwc_window, tqueue);
 }
 
+static void
+_e_hwc_window_queue_notify_reset(E_Hwc_Window_Queue *queue)
+{
+   tbm_surface_queue_error_e tsq_err = TBM_SURFACE_QUEUE_ERROR_NONE;
+
+   EINA_SAFETY_ON_NULL_RETURN(queue);
+   EINA_SAFETY_ON_NULL_RETURN(queue->tqueue);
+
+   tsq_err = tbm_surface_queue_notify_reset(queue->tqueue);
+   if (tsq_err != TBM_SURFACE_QUEUE_ERROR_NONE)
+     EHWQERR("fail to tbm_surface_queue_notify_reset", NULL, queue->hwc, queue);
+}
+
 static E_Hwc_Window_Queue_Buffer *
 _e_hwc_window_queue_buffer_create(E_Hwc_Window_Queue *queue, tbm_surface_h tsurface)
 {
@@ -527,6 +540,8 @@ _e_hwc_window_queue_buffers_hand_over(E_Hwc_Window_Queue *queue, E_Hwc_Window *h
              return EINA_FALSE;
           }
 
+        _e_hwc_window_queue_notify_reset(queue);
+
         queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_BUFFER;
 
         EHWQINF("Set Waiting buffer user ehw:%p -- {%s}",
@@ -567,6 +582,8 @@ _e_hwc_window_queue_buffers_retrieve(E_Hwc_Window_Queue *queue, E_Hwc_Window *hw
 {
    if (queue->user)
      e_hwc_window_deactivate(queue->user);
+
+   _e_hwc_window_queue_notify_reset(queue);
 
    return EINA_TRUE;
 }
