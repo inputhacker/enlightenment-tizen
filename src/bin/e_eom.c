@@ -88,7 +88,6 @@ struct _E_Eom
    struct wl_global *global;
 
    tdm_display *dpy;
-   int fd;
 
    unsigned int output_count;
    Eina_List *outputs;
@@ -102,8 +101,6 @@ struct _E_Eom
 
    /* Internal output data */
    Eina_Bool main_output_state;
-   int width;
-   int height;
    char check_first_boot;
    Ecore_Timer *timer;
 };
@@ -1190,22 +1187,16 @@ static void
 _e_eom_main_output_info_get()
 {
    E_Output *output_primary = NULL;
-   int w, h;
 
    output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN(output_primary);
 
    if (e_output_connected(output_primary))
      {
-        e_output_size_get(output_primary, &w, &h);
-        g_eom->width = w;
-        g_eom->height = h;
         g_eom->main_output_state = EINA_TRUE;
      }
    else
      {
-        g_eom->width = 0;
-        g_eom->height = 0;
         g_eom->main_output_state = EINA_FALSE;
      }
 }
