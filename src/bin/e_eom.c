@@ -339,6 +339,43 @@ _e_eom_output_state_set_attribute(E_EomOutputPtr eom_output, eom_output_attribut
    return EINA_FALSE;
 }
 
+static void
+_e_eom_output_info_broadcast(E_EomOutputPtr eom_output, eom_output_attribute_state_e attribute_state)
+{
+   E_EomClientPtr eom_client = NULL;
+   Eina_List *l = NULL;
+
+   /* If there were previously connected clients to the output - notify them */
+   EINA_LIST_FOREACH(g_eom->clients, l, eom_client)
+     {
+        if (!eom_client) continue;
+        if (!eom_client->resource) continue;
+
+        if (attribute_state == EOM_OUTPUT_ATTRIBUTE_STATE_ACTIVE)
+          EOINF("Send output connected notification to client: %p", eom_output->eout, eom_client);
+        if (attribute_state == EOM_OUTPUT_ATTRIBUTE_STATE_INACTIVE)
+          EOINF("Send output disconnected notification to client: %p", eom_output->eout, eom_client);
+
+        if (eom_client->current)
+          wl_eom_send_output_info(eom_client->resource, eom_output->id,
+                                  eom_output->type, eom_output->mode,
+                                  eom_output->width, eom_output->height,
+                                  eom_output->phys_width, eom_output->phys_height,
+                                  eom_output->connection,
+                                  0,
+                                  _e_eom_output_state_get_attribute(eom_output),
+                                  attribute_state,
+                                  EOM_ERROR_NONE);
+        else
+          wl_eom_send_output_info(eom_client->resource, eom_output->id,
+                                  eom_output->type, eom_output->mode,
+                                  eom_output->width, eom_output->height,
+                                  eom_output->phys_width, eom_output->phys_height,
+                                  eom_output->connection,
+                                  1, 0, 0, 0);
+     }
+}
+
 static Eina_Bool
 _e_eom_output_video_layer_find(E_EomOutputPtr eom_output, tbm_format format)
 {
@@ -1776,7 +1813,6 @@ static void
 _e_eom_cb_wl_request_get_output_info(struct wl_client *client, struct wl_resource *resource, uint32_t output_id)
 {
    E_EomOutputPtr eom_output = NULL;
-   Eina_List *l;
 
    EOINF("get output info:%d", NULL, output_id);
 
@@ -2169,8 +2205,6 @@ EINTERN Eina_Bool
 e_eom_connect(E_Output *output)
 {
    E_EomOutputPtr eom_output = NULL;
-   E_EomClientPtr iterator = NULL;
-   Eina_List *l;
 
    if (!g_eom) return EINA_TRUE;
 
@@ -2225,31 +2259,7 @@ e_eom_connect(E_Output *output)
    eom_output->connection = WL_EOM_STATUS_CONNECTION;
 
    /* If there were previously connected clients to the output - notify them */
-   EINA_LIST_FOREACH(g_eom->clients, l, iterator)
-     {
-        if (iterator && iterator->resource)
-          {
-             EOINF("Send output connected notification to client: %p", eom_output->eout, iterator);
-
-             if (iterator->current)
-               wl_eom_send_output_info(iterator->resource, eom_output->id,
-                                       eom_output->type, eom_output->mode,
-                                       eom_output->width, eom_output->height,
-                                       eom_output->phys_width, eom_output->phys_height,
-                                       eom_output->connection,
-                                       0,
-                                       _e_eom_output_state_get_attribute(eom_output),
-                                       EOM_OUTPUT_ATTRIBUTE_STATE_ACTIVE,
-                                       EOM_ERROR_NONE);
-             else
-               wl_eom_send_output_info(iterator->resource, eom_output->id,
-                                       eom_output->type, eom_output->mode,
-                                       eom_output->width, eom_output->height,
-                                       eom_output->phys_width, eom_output->phys_height,
-                                       eom_output->connection,
-                                       1, 0, 0, 0);
-          }
-     }
+   _e_eom_output_info_broadcast(eom_output, EOM_OUTPUT_ATTRIBUTE_STATE_ACTIVE);
 
    return EINA_TRUE;
 }
@@ -2258,8 +2268,6 @@ EINTERN Eina_Bool
 e_eom_disconnect(E_Output *output)
 {
    E_EomOutputPtr eom_output = NULL;
-   E_EomClientPtr iterator = NULL;
-   Eina_List *l;
 
    if (!g_eom) return EINA_TRUE;
 
@@ -2302,31 +2310,7 @@ e_eom_disconnect(E_Output *output)
      eom_output->state = NONE;
 
    /* If there were previously connected clients to the output - notify them */
-   EINA_LIST_FOREACH(g_eom->clients, l, iterator)
-     {
-        if (iterator && iterator->resource)
-          {
-             EOINF("Send output disconnected notification to client: %p", eom_output->eout, iterator);
-
-             if (iterator->current)
-               wl_eom_send_output_info(iterator->resource, eom_output->id,
-                                       eom_output->type, eom_output->mode,
-                                       eom_output->width, eom_output->height,
-                                       eom_output->phys_width, eom_output->phys_height,
-                                       eom_output->connection,
-                                       0,
-                                       _e_eom_output_state_get_attribute(eom_output),
-                                       EOM_OUTPUT_ATTRIBUTE_STATE_INACTIVE,
-                                       EOM_ERROR_NONE);
-             else
-               wl_eom_send_output_info(iterator->resource, eom_output->id,
-                                       eom_output->type, eom_output->mode,
-                                       eom_output->width, eom_output->height,
-                                       eom_output->phys_width, eom_output->phys_height,
-                                       eom_output->connection,
-                                       1, 0, 0, 0);
-          }
-     }
+   _e_eom_output_info_broadcast(eom_output, EOM_OUTPUT_ATTRIBUTE_STATE_INACTIVE);
 
    EOINF("Destory output: %s", eom_output->eout, eom_output->name);
    eina_stringshare_del(eom_output->name);
