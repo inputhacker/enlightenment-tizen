@@ -2342,7 +2342,7 @@ _e_info_client_proc_transform_set(int argc, char **argv)
 
    if (argc < 5)
      {
-        printf("Error Check Args: enlightenment_info -transform [windowID] [transform id] [enable] [x] [y] [scale_x(percent)] [scale_y(percent)] [degree] [keep_ratio]\n");
+        printf("Error Check Args: enlightenment_info -transform [windowID] [transform id] [enable] [x] [y] [scale_x(percent)] [scale_y(percent)] [degree] [background]\n");
         return;
      }
 
@@ -2353,7 +2353,7 @@ _e_info_client_proc_transform_set(int argc, char **argv)
    id_enable_xy_sxsy_angle[4] = 100;    // scale x percent
    id_enable_xy_sxsy_angle[5] = 100;    // scale y percent
    id_enable_xy_sxsy_angle[6] = 0;      // rotation degree
-   id_enable_xy_sxsy_angle[7] = 0;      // keep ratio
+   id_enable_xy_sxsy_angle[7] = 0;      // background
 
    for (i = 0 ; i < 8 &&  i+3 < argc; ++i)
       id_enable_xy_sxsy_angle[i] = atoi(argv[i+3]);
