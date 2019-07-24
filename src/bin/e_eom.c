@@ -376,6 +376,28 @@ _e_eom_output_info_broadcast(E_EomOutputPtr eom_output, eom_output_attribute_sta
      }
 }
 
+static void
+_e_eom_output_status_broadcast(E_EomOutputPtr eom_output, E_EomClientPtr except_client, eom_output_attribute_state_e attribute_state)
+{
+   E_EomClientPtr eom_client = NULL;
+   Eina_List *l = NULL;
+
+   EINA_LIST_FOREACH(g_eom->clients, l, eom_client)
+     {
+        if (!eom_client) continue;
+        if (eom_client->output_id != eom_output->id) continue;
+        if (eom_client == except_client) continue;
+
+        wl_eom_send_output_attribute(eom_client->resource, eom_output->id,
+                                     _e_eom_output_state_get_attribute(eom_output),
+                                     attribute_state,
+                                     EOM_ERROR_NONE);
+
+        wl_eom_send_output_mode(eom_client->resource, eom_output->id,
+                                _e_eom_output_state_get_mode(eom_output));
+     }
+}
+
 static Eina_Bool
 _e_eom_output_video_layer_find(E_EomOutputPtr eom_output, tbm_format format)
 {
@@ -1332,11 +1354,10 @@ _e_eom_output_by_ec_child_get(E_Client *ec)
 static void
 _e_eom_cb_wl_eom_client_destroy(struct wl_resource *resource)
 {
-   E_EomClientPtr client = NULL, iterator = NULL;
+   E_EomClientPtr client = NULL;
    E_EomOutputPtr eom_output = NULL;
    E_Output *output = NULL;
    E_Plane *ep = NULL;
-   Eina_List *l = NULL;
 
    EOINF("=======================>  CLIENT DESTROY", NULL);
 
@@ -1399,19 +1420,7 @@ _e_eom_cb_wl_eom_client_destroy(struct wl_resource *resource)
 end:
    /* Notify eom clients which are binded to a concrete output that the
     * state and mode of the output has been changed */
-   EINA_LIST_FOREACH(g_eom->clients, l, iterator)
-     {
-        if (iterator && iterator != client && iterator->output_id == eom_output->id)
-          {
-             wl_eom_send_output_attribute(iterator->resource, eom_output->id,
-                                          _e_eom_output_state_get_attribute(eom_output),
-                                          EOM_OUTPUT_ATTRIBUTE_STATE_NONE,
-                                          EOM_OUTPUT_MODE_NONE);
-
-             wl_eom_send_output_mode(iterator->resource, eom_output->id,
-                                     _e_eom_output_state_get_mode(eom_output));
-          }
-     }
+   _e_eom_output_status_broadcast(eom_output, client, EOM_OUTPUT_ATTRIBUTE_STATE_NONE);
 
 end2:
    free(client);
@@ -1420,10 +1429,8 @@ end2:
 static Eina_Bool
 _e_eom_mirror_start(E_EomOutput *eom_output, E_EomClient *eom_client)
 {
-   E_EomClientPtr iterator = NULL;
    E_Output *output = NULL;
    E_Plane *ep = NULL;
-   Eina_List *l;
 
    eom_client->current = EINA_FALSE;
    output = eom_output->eout;
@@ -1467,19 +1474,8 @@ _e_eom_mirror_start(E_EomOutput *eom_output, E_EomClient *eom_client)
   if (eom_trace_debug)
     EOINF("client set NONE attribute, send new info to previous current client", eom_output->eout);
 
-  EINA_LIST_FOREACH(g_eom->clients, l, iterator)
-    {
-       if (iterator && iterator->output_id == eom_output->id)
-         {
-            wl_eom_send_output_attribute(iterator->resource, eom_output->id,
-                                         _e_eom_output_state_get_attribute(eom_output),
-                                         EOM_OUTPUT_ATTRIBUTE_STATE_NONE,
-                                         EOM_ERROR_NONE);
-
-            wl_eom_send_output_mode(iterator->resource, eom_output->id,
-                                    _e_eom_output_state_get_mode(eom_output));
-         }
-    }
+  /* broadcast the status */
+  _e_eom_output_status_broadcast(eom_output, NULL, EOM_OUTPUT_ATTRIBUTE_STATE_NONE);
 
   return EINA_TRUE;
 }
