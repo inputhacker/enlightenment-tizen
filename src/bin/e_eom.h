@@ -11,6 +11,5 @@ EINTERN int e_eom_shutdown(void);
 E_API   Eina_Bool e_eom_is_ec_external(E_Client *ec);
 EINTERN Eina_Bool e_eom_create(E_Output *output, Eina_Bool added);
 EINTERN Eina_Bool e_eom_destroy(E_Output *output);
-EINTERN Eina_Bool e_eom_mode_change(E_Output *output, E_Output_Mode *emode);
 #endif
 #endif

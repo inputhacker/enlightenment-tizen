@@ -53,6 +53,7 @@ static Eina_Inlist *_e_output_hooks[] =
 {
    [E_OUTPUT_HOOK_DPMS_CHANGE] = NULL,
    [E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE] = NULL,
+   [E_OUTPUT_HOOK_MODE_CHANGE] = NULL,
 };
 
 static int _e_output_intercept_hooks_delete = 0;
@@ -3976,7 +3977,8 @@ e_output_external_mode_change(E_Output *output, E_Output_Mode *mode)
 
    _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
 
-   e_eom_mode_change(output, mode);
+   /* call mode change hook */
+   _e_output_hook_call(E_OUTPUT_HOOK_MODE_CHANGE, output);
 
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {

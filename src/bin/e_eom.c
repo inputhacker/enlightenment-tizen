@@ -96,6 +96,7 @@ struct _E_Eom
    Eina_List *comp_object_intercept_hooks;
    Eina_List *added_outputs;
    E_Output_Hook *output_connect_status_hook;
+   E_Output_Hook *output_mode_changes_hook;
 
    /* Internal output data */
    E_Output *output_primary;
@@ -2211,6 +2212,58 @@ _e_eom_disconnect(E_Output *output)
    return EINA_TRUE;
 }
 
+static Eina_Bool
+_e_eom_mode_change(E_Output *output, E_Output_Mode *emode)
+{
+   E_EomOutputPtr eom_output = NULL;
+   E_Output *output_primary = NULL;
+
+   if (!g_eom) return EINA_TRUE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(output_primary == output, EINA_FALSE);
+
+   eom_output = _e_eom_output_find(output);
+   if (eom_output == NULL)
+     {
+        eom_output = _e_eom_output_find_added_output(output);
+        if (!eom_output)
+          {
+             EOERR("cannot find output", NULL);
+             return EINA_FALSE;
+          }
+     }
+
+   if (eom_output->connection_status == EINA_FALSE)
+     return EINA_FALSE;
+
+   if (eom_output->delay_timer)
+     ecore_timer_del(eom_output->delay_timer);
+   eom_output->delay_timer = NULL;
+
+   /* update eom_output connect */
+   eom_output->width = output->config.mode.w;
+   eom_output->height = output->config.mode.h;
+   eom_output->phys_width = output->info.size.w;
+   eom_output->phys_height = output->info.size.h;
+   eom_output->name = eina_stringshare_add(output->id);
+   eom_output->connection_status = EINA_TRUE;
+
+   EOINF("mode change output: (%dx%d)", eom_output->eout, eom_output->width, eom_output->height);
+   if (eom_output->state == PRESENTATION)
+     {
+        eom_output->state = WAIT_PRESENTATION;
+        _e_eom_send_configure_event();
+
+        eom_output->delay_timer = ecore_timer_add(EOM_DELAY_CONNECT_CHECK_TIMEOUT, _e_eom_presentation_check, eom_output);
+     }
+
+   return EINA_TRUE;
+}
+
 static void
 _e_eom_output_cb_output_connect_status_change(void *data, E_Output *output)
 {
@@ -2230,11 +2283,43 @@ _e_eom_output_cb_output_connect_status_change(void *data, E_Output *output)
 }
 
 static void
+_e_eom_output_cb_output_mode_change(void *data, E_Output *output)
+{
+   E_Output_Mode *emode;
+
+   EINA_SAFETY_ON_NULL_RETURN(g_eom->output_primary);
+
+   /* doesn't care about the pirmary output */
+   if (g_eom->output_primary == output) return;
+
+   if (!e_output_connected(output))
+     {
+        EOERR("output is disconnected.", output);
+        return;
+     }
+
+   emode = e_output_current_mode_get(output);
+   EINA_SAFETY_ON_FALSE_RETURN(emode);
+
+   if (!_e_eom_mode_change(output, emode))
+     {
+        EOERR("_e_eom_mode_change fails.", output);
+        return;
+     }
+}
+
+static void
 _e_eom_deinit()
 {
    Ecore_Event_Handler *h = NULL;
 
    if (g_eom == NULL) return;
+
+   if (g_eom->output_mode_changes_hook)
+     {
+        e_output_hook_del(g_eom->output_mode_changes_hook);
+        g_eom->output_mode_changes_hook = NULL;
+     }
 
    if (g_eom->output_connect_status_hook)
      {
@@ -2293,6 +2378,7 @@ _e_eom_init()
    E_LIST_HANDLER_APPEND(g_eom->handlers, E_EVENT_CLIENT_BUFFER_CHANGE, _e_eom_cb_client_buffer_change, NULL);
 
    g_eom->output_connect_status_hook = e_output_hook_add(E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE, _e_eom_output_cb_output_connect_status_change, g_eom);
+   g_eom->output_mode_changes_hook = e_output_hook_add(E_OUTPUT_HOOK_MODE_CHANGE, _e_eom_output_cb_output_mode_change, g_eom);
 
    return EINA_TRUE;
 
@@ -2400,58 +2486,6 @@ e_eom_destroy(E_Output *output)
      g_eom->eom_outputs = eina_list_remove(g_eom->eom_outputs, eom_output);
 
    E_FREE(eom_output);
-
-   return EINA_TRUE;
-}
-
-EINTERN Eina_Bool
-e_eom_mode_change(E_Output *output, E_Output_Mode *emode)
-{
-   E_EomOutputPtr eom_output = NULL;
-   E_Output *output_primary = NULL;
-
-   if (!g_eom) return EINA_TRUE;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
-
-   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(output_primary == output, EINA_FALSE);
-
-   eom_output = _e_eom_output_find(output);
-   if (eom_output == NULL)
-     {
-        eom_output = _e_eom_output_find_added_output(output);
-        if (!eom_output)
-          {
-             EOERR("cannot find output", NULL);
-             return EINA_FALSE;
-          }
-     }
-
-   if (eom_output->connection_status == EINA_FALSE)
-     return EINA_FALSE;
-
-   if (eom_output->delay_timer)
-     ecore_timer_del(eom_output->delay_timer);
-   eom_output->delay_timer = NULL;
-
-   /* update eom_output connect */
-   eom_output->width = output->config.mode.w;
-   eom_output->height = output->config.mode.h;
-   eom_output->phys_width = output->info.size.w;
-   eom_output->phys_height = output->info.size.h;
-   eom_output->name = eina_stringshare_add(output->id);
-   eom_output->connection_status = EINA_TRUE;
-
-   EOINF("mode change output: (%dx%d)", eom_output->eout, eom_output->width, eom_output->height);
-   if (eom_output->state == PRESENTATION)
-     {
-        eom_output->state = WAIT_PRESENTATION;
-        _e_eom_send_configure_event();
-
-        eom_output->delay_timer = ecore_timer_add(EOM_DELAY_CONNECT_CHECK_TIMEOUT, _e_eom_presentation_check, eom_output);
-     }
 
    return EINA_TRUE;
 }
