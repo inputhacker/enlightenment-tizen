@@ -1780,19 +1780,16 @@ _e_eom_cb_wl_request_get_output_info(struct wl_client *client, struct wl_resourc
 
    EOINF("get output info:%d", NULL, output_id);
 
-   EINA_LIST_FOREACH(g_eom->eom_outputs, l, eom_output)
-     {
-        if (!eom_output) continue;
-        if (eom_output->id != output_id) continue;
+   eom_output = _e_eom_output_get_by_id(output_id);
+   EINA_SAFETY_ON_FALSE_RETURN(eom_output);
 
-        wl_eom_send_output_info(resource, eom_output->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
-                                eom_output->phys_width, eom_output->phys_height, eom_output->connection,
-                                1, 0, 0, 0);
+   wl_eom_send_output_info(resource, eom_output->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
+                           eom_output->phys_width, eom_output->phys_height, eom_output->connection,
+                           1, 0, 0, 0);
 
-        EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", NULL,
-              eom_output->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
-              eom_output->phys_width, eom_output->phys_height, eom_output->connection_status);
-     }
+   EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", NULL,
+         eom_output->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
+         eom_output->phys_width, eom_output->phys_height, eom_output->connection_status);
 }
 
 static const struct wl_eom_interface _e_eom_wl_implementation =
@@ -2166,20 +2163,6 @@ e_eom_is_ec_external(E_Client *ec)
      return EINA_FALSE;
 
    return EINA_TRUE;
-}
-
-EINTERN tdm_output*
-e_eom_tdm_output_by_ec_get(E_Client *ec)
-{
-   E_EomOutputPtr eom_output;
-
-   if (!g_eom) return NULL;
-
-   eom_output = _e_eom_output_by_ec_child_get(ec);
-   if (!eom_output)
-     return NULL;
-
-   return eom_output->output;
 }
 
 EINTERN Eina_Bool
