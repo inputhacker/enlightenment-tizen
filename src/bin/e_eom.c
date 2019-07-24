@@ -57,7 +57,6 @@
 typedef struct _E_Eom E_Eom, *E_EomPtr;
 typedef struct _E_Eom_Out_Mode E_EomOutMode, *E_EomOutModePtr;
 typedef struct _E_Eom_Output E_EomOutput, *E_EomOutputPtr;
-typedef struct _E_Eom_Virtual_Output E_EomVirtualOutput, *E_EomVirtualOutputPtr;
 typedef struct _E_Eom_Client E_EomClient, *E_EomClientPtr;
 typedef struct _E_Eom_Comp_Object_Intercept_Hook_Data E_EomCompObjectInterceptHookData;
 typedef struct _E_Eom_Output_Buffer E_EomOutputBuffer, *E_EomOutputBufferPtr;
@@ -89,14 +88,12 @@ struct _E_Eom
 
    tdm_display *dpy;
 
-   unsigned int output_count;
-   Eina_List *outputs;
+   unsigned int eom_output_count;
+   Eina_List *eom_outputs;
    Eina_List *clients;
    Eina_List *handlers;
    Eina_List *hooks;
    Eina_List *comp_object_intercept_hooks;
-   unsigned int virtual_output_count;
-   Eina_List *virtual_outputs;
    Eina_List *added_outputs;
 
    /* Internal output data */
@@ -125,6 +122,7 @@ struct _E_Eom_Output
    E_EomOutputState state;
    Eina_Bool connection_status;
    enum wl_eom_status connection;
+   eom_output_attribute_e attribute;
 
    /* pp overlay (presentation mode subsurface data) */
    E_EomOutputPpPtr pp_overlay;
@@ -142,26 +140,7 @@ struct _E_Eom_Output
    Ecore_Timer *delay_timer;
 
    E_Output *eout;
-   E_EomVirtualOutput *voutput;
    Eina_Bool added;
-};
-
-struct _E_Eom_Virtual_Output
-{
-   unsigned int id;
-   eom_output_type_e type;
-   eom_output_mode_e mode;
-   unsigned int width;
-   unsigned int height;
-   unsigned int phys_width;
-   unsigned int phys_height;
-
-   E_EomOutputState state;
-   Eina_Bool connection_status;
-   eom_output_attribute_e attribute;
-   enum wl_eom_status connection;
-
-   E_EomOutput *eom_output;
 };
 
 struct _E_Eom_Client
@@ -311,68 +290,49 @@ _e_eom_buffer_destroy(E_EomOutputPtr eom_output, E_EomBuffer *eom_buffer)
 }
 
 static inline eom_output_mode_e
-_e_eom_output_state_get_mode(E_EomOutputPtr output)
+_e_eom_output_state_get_mode(E_EomOutputPtr eom_output)
 {
-   if (output == NULL)
-     return EOM_OUTPUT_MODE_NONE;
-   return output->mode;
+   if (eom_output == NULL) return EOM_OUTPUT_MODE_NONE;
+
+   return eom_output->mode;
 }
 
 static inline void
-_e_eom_output_state_set_mode(E_EomOutputPtr output, eom_output_mode_e mode)
+_e_eom_output_state_set_mode(E_EomOutputPtr eom_output, eom_output_mode_e mode)
 {
-   if (output == NULL)
-     return;
-   output->mode = mode;
-}
+   if (eom_output == NULL) return;
 
-static inline eom_output_mode_e
-_e_eom_virtual_output_state_get_mode(E_EomVirtualOutputPtr output)
-{
-   if (output == NULL)
-     return EOM_OUTPUT_MODE_NONE;
-   return output->mode;
-}
-
-static inline void
-_e_eom_virtual_output_state_set_mode(E_EomVirtualOutputPtr output, eom_output_mode_e mode)
-{
-   if (output == NULL)
-     return;
-   output->mode = mode;
+   eom_output->mode = mode;
 }
 
 static inline eom_output_attribute_e
-_e_eom_output_state_get_attribute(E_EomVirtualOutputPtr output)
+_e_eom_output_state_get_attribute(E_EomOutputPtr eom_output)
 {
-   if (output == NULL)
-     return EOM_OUTPUT_ATTRIBUTE_NONE;
-   return output->attribute;
+   if (eom_output == NULL) return EOM_OUTPUT_ATTRIBUTE_NONE;
+
+   return eom_output->attribute;
 }
 
 static inline void
-_e_eom_output_state_set_force_attribute(E_EomVirtualOutputPtr output, eom_output_attribute_e attribute)
+_e_eom_output_state_set_force_attribute(E_EomOutputPtr eom_output, eom_output_attribute_e attribute)
 {
-   if (output == NULL)
-     return;
-   output->attribute = attribute;
+   if (eom_output == NULL) return;
+
+   eom_output->attribute = attribute;
 }
 
 static inline Eina_Bool
-_e_eom_output_state_set_attribute(E_EomVirtualOutputPtr output, eom_output_attribute_e attribute)
+_e_eom_output_state_set_attribute(E_EomOutputPtr eom_output, eom_output_attribute_e attribute)
 {
-   if (output == NULL)
-     return EINA_FALSE;
-
-   if (attribute == EOM_OUTPUT_ATTRIBUTE_NONE || output->attribute == EOM_OUTPUT_ATTRIBUTE_NONE)
+   if (attribute == EOM_OUTPUT_ATTRIBUTE_NONE || eom_output->attribute == EOM_OUTPUT_ATTRIBUTE_NONE)
      {
-        output->attribute = attribute;
+        eom_output->attribute = attribute;
         return EINA_TRUE;
      }
 
-   if (eom_output_attributes[output->attribute - 1][attribute - 1] == 1)
+   if (eom_output_attributes[eom_output->attribute - 1][attribute - 1] == 1)
      {
-        output->attribute = attribute;
+        eom_output->attribute = attribute;
         return EINA_TRUE;
      }
 
@@ -877,7 +837,6 @@ _e_eom_layer_overlay_set(E_EomOutputPtr eom_output, tbm_surface_h tsurface)
 static void
 _e_eom_cb_pp_presentation(E_EomOutputPtr eom_output, E_EomPpDataPtr ppdata, E_EomOutputPpPtr eom_pp)
 {
-   E_EomVirtualOutputPtr voutput;
    E_EomBufferPtr eom_buff;
    tbm_surface_h tsurface;
 
@@ -886,8 +845,7 @@ _e_eom_cb_pp_presentation(E_EomOutputPtr eom_output, E_EomPpDataPtr ppdata, E_Eo
 
    E_FREE(ppdata);
 
-   voutput = eom_output->voutput;
-   if (!voutput)
+   if (!eom_output)
      {
         tbm_surface_queue_release(eom_pp->queue, tsurface);
         return;
@@ -899,7 +857,7 @@ _e_eom_cb_pp_presentation(E_EomOutputPtr eom_output, E_EomPpDataPtr ppdata, E_Eo
         return;
      }
 
-   if (voutput->state == MIRROR)
+   if (eom_output->state == MIRROR)
      {
         tbm_surface_queue_release(eom_pp->queue, tsurface);
         return;
@@ -1137,7 +1095,7 @@ _e_eom_output_find(E_Output *output)
    E_EomOutputPtr eom_output = NULL, eom_output_tmp = NULL;
    Eina_List *l;
 
-   EINA_LIST_FOREACH(g_eom->outputs, l, eom_output_tmp)
+   EINA_LIST_FOREACH(g_eom->eom_outputs, l, eom_output_tmp)
      {
        if (eom_output_tmp->output == output->toutput)
          eom_output = eom_output_tmp;
@@ -1164,23 +1122,23 @@ _e_eom_output_find_added_output(E_Output *output)
 static void
 _e_eom_output_deinit(void)
 {
-   E_EomOutputPtr output;
+   E_EomOutputPtr eom_output;
    Eina_List *l;
 
    if (!g_eom) return;
-   if (!g_eom->outputs) return;
+   if (!g_eom->eom_outputs) return;
 
-   EINA_LIST_FOREACH(g_eom->added_outputs, l, output)
-     e_eom_destroy(output->eout);
+   EINA_LIST_FOREACH(g_eom->added_outputs, l, eom_output)
+     e_eom_destroy(eom_output->eout);
 
-   eina_list_free(g_eom->outputs);
+   eina_list_free(g_eom->eom_outputs);
    g_eom->added_outputs = NULL;
 
-   EINA_LIST_FOREACH(g_eom->outputs, l, output)
-     e_eom_destroy(output->eout);
+   EINA_LIST_FOREACH(g_eom->eom_outputs, l, eom_output)
+     e_eom_destroy(eom_output->eout);
 
-   eina_list_free(g_eom->outputs);
-   g_eom->outputs = NULL;
+   eina_list_free(g_eom->eom_outputs);
+   g_eom->eom_outputs = NULL;
 }
 
 static Eina_Bool
@@ -1195,8 +1153,8 @@ _e_eom_output_init(void)
    e_comp_screen = e_comp->e_comp_screen;
    EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
 
-   g_eom->output_count = e_comp_screen->num_outputs - 1;
-   EOINF("external output count : %d", NULL, g_eom->output_count);
+   g_eom->eom_output_count = e_comp_screen->num_outputs - 1;
+   EOINF("external output count : %d", NULL, g_eom->eom_output_count);
 
    /* create the eom_output except for the primary output */
    EINA_LIST_FOREACH(e_comp_screen->outputs, l, output)
@@ -1234,7 +1192,7 @@ _e_eom_boot_connection_check(void *data)
 
    g_eom->check_first_boot = 1;
 
-   EINA_LIST_FOREACH(g_eom->outputs, l, eom_output)
+   EINA_LIST_FOREACH(g_eom->eom_outputs, l, eom_output)
      {
         if (eom_output->id == 0)
           continue;
@@ -1255,7 +1213,6 @@ static Eina_Bool
 _e_eom_presentation_check(void *data)
 {
    E_EomOutputPtr eom_output = NULL;
-   E_EomVirtualOutputPtr voutput = NULL;
 
    if (!data) return ECORE_CALLBACK_CANCEL;
 
@@ -1263,95 +1220,10 @@ _e_eom_presentation_check(void *data)
 
    eom_output->delay_timer = NULL;
 
-   voutput = eom_output->voutput;
-   if (!voutput) return ECORE_CALLBACK_CANCEL;
-
-   if (voutput->state == WAIT_PRESENTATION)
+   if (eom_output->state == WAIT_PRESENTATION)
      e_output_external_set(eom_output->eout, E_OUTPUT_EXT_MIRROR);
 
    return ECORE_CALLBACK_CANCEL;
-}
-
-static Eina_Bool
-_e_eom_virtual_output_set(E_EomOutput *eom_output)
-{
-   E_EomVirtualOutputPtr voutput = NULL;
-   Eina_List *l;
-
-   if (eom_output->voutput)
-     return EINA_TRUE;
-
-   EINA_LIST_FOREACH(g_eom->virtual_outputs, l, voutput)
-     {
-        if (voutput->eom_output == NULL)
-          {
-             voutput->eom_output = eom_output;
-             voutput->connection = eom_output->connection;
-
-             eom_output->voutput = voutput;
-             return EINA_TRUE;
-          }
-     }
-
-   return EINA_FALSE;
-}
-
-static void
-_e_eom_virtual_output_unset(E_EomOutput *eom_output)
-{
-   E_EomVirtualOutputPtr voutput = NULL;
-
-   if (!eom_output->voutput)
-     return;
-
-   voutput = eom_output->voutput;
-   eom_output->voutput = NULL;
-
-   voutput->eom_output = NULL;
-   voutput->connection = eom_output->connection;
-}
-
-static void
-_e_eom_viratul_output_deinit()
-{
-   E_EomVirtualOutputPtr voutput = NULL;
-   Eina_List *l;
-
-   if (!g_eom) return;
-   if (!g_eom->virtual_outputs) return;
-
-   EINA_LIST_FOREACH(g_eom->virtual_outputs, l, voutput)
-     free(voutput);
-
-   eina_list_free(g_eom->virtual_outputs);
-
-   g_eom->virtual_outputs = NULL;
-}
-
-/* currently use only one virtual output */
-static Eina_Bool
-_e_eom_virtual_output_init()
-{
-   E_EomVirtualOutputPtr voutput = NULL;
-
-   voutput = E_NEW(E_EomVirtualOutput, 1);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(voutput, EINA_FALSE);
-
-   voutput->id = 1;
-   voutput->mode = EOM_OUTPUT_MODE_NONE;
-   voutput->connection = WL_EOM_STATUS_NONE;
-   voutput->eom_output = NULL;
-   voutput->type = EOM_OUTPUT_TYPE_UNKNOWN;
-   voutput->state = NONE;
-   voutput->connection_status = EINA_FALSE;
-
-   EOINF("create(%d) virtual output, type:%d, status:%d", NULL,
-         voutput->id, voutput->type, voutput->connection_status);
-   g_eom->virtual_outputs = eina_list_append(g_eom->virtual_outputs, voutput);
-
-   g_eom->virtual_output_count = 1;
-
-   return EINA_TRUE;
 }
 
 static E_EomClientPtr
@@ -1369,16 +1241,16 @@ _e_eom_client_get_by_resource(struct wl_resource *resource)
    return NULL;
 }
 
-static E_EomVirtualOutputPtr
-_e_eom_virtual_output_get_by_id(int id)
+static E_EomOutputPtr
+_e_eom_output_get_by_id(int id)
 {
+   E_EomOutputPtr eom_output;
    Eina_List *l;
-   E_EomVirtualOutputPtr output;
 
-   EINA_LIST_FOREACH(g_eom->virtual_outputs, l, output)
+   EINA_LIST_FOREACH(g_eom->eom_outputs, l, eom_output)
      {
-        if (output && output->id == id)
-          return output;
+        if (eom_output && eom_output->id == id)
+          return eom_output;
      }
 
    return NULL;
@@ -1392,7 +1264,7 @@ _e_eom_output_by_ec_child_get(E_Client *ec)
    E_Client *parent = NULL;
    Eina_List *l;
 
-   EINA_LIST_FOREACH(g_eom->outputs, l, eom_output)
+   EINA_LIST_FOREACH(g_eom->eom_outputs, l, eom_output)
      {
         eom_client = _e_eom_client_get_current_by_id(eom_output->id);
         if (!eom_client)
@@ -1424,7 +1296,6 @@ static void
 _e_eom_cb_wl_eom_client_destroy(struct wl_resource *resource)
 {
    E_EomClientPtr client = NULL, iterator = NULL;
-   E_EomVirtualOutputPtr voutput = NULL;
    E_EomOutputPtr eom_output = NULL;
    E_Output *output = NULL;
    E_Plane *ep = NULL;
@@ -1442,24 +1313,19 @@ _e_eom_cb_wl_eom_client_destroy(struct wl_resource *resource)
    if (client->current == EINA_FALSE)
      goto end2;
 
-   voutput = _e_eom_virtual_output_get_by_id(client->output_id);
-   EINA_SAFETY_ON_NULL_GOTO(voutput, end2);
-
-   _e_eom_output_state_set_attribute(voutput, EOM_OUTPUT_ATTRIBUTE_NONE);
-
-   if (voutput->state == NONE)
-     goto end;
-
-   if (voutput->state == WAIT_PRESENTATION)
-     {
-        voutput->state = NONE;
-        goto end;
-     }
-
-   eom_output = voutput->eom_output;
+   eom_output = _e_eom_output_get_by_id(client->output_id);
    EINA_SAFETY_ON_NULL_GOTO(eom_output, end2);
 
-   output = eom_output->eout;
+   _e_eom_output_state_set_attribute(eom_output, EOM_OUTPUT_ATTRIBUTE_NONE);
+
+   if (eom_output->state == NONE)
+     goto end;
+
+   if (eom_output->state == WAIT_PRESENTATION)
+     {
+        eom_output->state = NONE;
+        goto end;
+     }
 
    if (eom_output->overlay_layer)
      {
@@ -1480,11 +1346,11 @@ _e_eom_cb_wl_eom_client_destroy(struct wl_resource *resource)
    else
      eom_output->pp_overlay_deinit = EINA_TRUE;
 
-   if (e_output_connected(output))
+   if (e_output_connected(eom_output->eout))
      {
         EOINF("Start Mirroring", eom_output->eout);
         e_output_external_set(output, E_OUTPUT_EXT_MIRROR);
-        voutput->state = MIRROR;
+        eom_output->state = MIRROR;
 
         ep = e_output_default_fb_target_get(eom_output->eout);
         if (ep->prepare_ec)
@@ -1498,15 +1364,15 @@ end:
     * state and mode of the output has been changed */
    EINA_LIST_FOREACH(g_eom->clients, l, iterator)
      {
-        if (iterator && iterator != client && iterator->output_id == voutput->id)
+        if (iterator && iterator != client && iterator->output_id == eom_output->id)
           {
-             wl_eom_send_output_attribute(iterator->resource, voutput->id,
-                                          _e_eom_output_state_get_attribute(voutput),
+             wl_eom_send_output_attribute(iterator->resource, eom_output->id,
+                                          _e_eom_output_state_get_attribute(eom_output),
                                           EOM_OUTPUT_ATTRIBUTE_STATE_NONE,
                                           EOM_OUTPUT_MODE_NONE);
 
-             wl_eom_send_output_mode(iterator->resource, voutput->id,
-                                     _e_eom_virtual_output_state_get_mode(voutput));
+             wl_eom_send_output_mode(iterator->resource, eom_output->id,
+                                     _e_eom_output_state_get_mode(eom_output));
           }
      }
 
@@ -1515,28 +1381,23 @@ end2:
 }
 
 static Eina_Bool
-_e_eom_mirror_start(E_EomVirtualOutput *voutput, E_EomClient *eom_client)
+_e_eom_mirror_start(E_EomOutput *eom_output, E_EomClient *eom_client)
 {
-   E_EomOutputPtr eom_output = NULL;
    E_EomClientPtr iterator = NULL;
    E_Output *output = NULL;
    E_Plane *ep = NULL;
    Eina_List *l;
 
-   eom_output = voutput->eom_output;
-
    eom_client->current = EINA_FALSE;
+   output = eom_output->eout;
 
    _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_NONE);
-   _e_eom_virtual_output_state_set_mode(voutput, EOM_OUTPUT_MODE_NONE);
-
-   output = eom_output->eout;
 
    if (e_output_connected(output))
     {
        EOINF("Start Mirroring", eom_output->eout);
        e_output_external_set(output, E_OUTPUT_EXT_MIRROR);
-       voutput->state = MIRROR;
+       eom_output->state = MIRROR;
 
        ep = e_output_default_fb_target_get(output);
 
@@ -1568,17 +1429,18 @@ _e_eom_mirror_start(E_EomVirtualOutput *voutput, E_EomClient *eom_client)
   /* If mirror mode has been run notify all clients about that */
   if (eom_trace_debug)
     EOINF("client set NONE attribute, send new info to previous current client", eom_output->eout);
+
   EINA_LIST_FOREACH(g_eom->clients, l, iterator)
     {
-       if (iterator && iterator->output_id == voutput->id)
+       if (iterator && iterator->output_id == eom_output->id)
          {
-            wl_eom_send_output_attribute(iterator->resource, voutput->id,
-                                         _e_eom_output_state_get_attribute(voutput),
+            wl_eom_send_output_attribute(iterator->resource, eom_output->id,
+                                         _e_eom_output_state_get_attribute(eom_output),
                                          EOM_OUTPUT_ATTRIBUTE_STATE_NONE,
                                          EOM_ERROR_NONE);
 
-            wl_eom_send_output_mode(iterator->resource, voutput->id,
-                                    _e_eom_virtual_output_state_get_mode(voutput));
+            wl_eom_send_output_mode(iterator->resource, eom_output->id,
+                                    _e_eom_output_state_get_mode(eom_output));
          }
     }
 
@@ -1586,45 +1448,40 @@ _e_eom_mirror_start(E_EomVirtualOutput *voutput, E_EomClient *eom_client)
 }
 
 static void
-_e_eom_cb_wl_request_set_attribute_result_send(E_EomVirtualOutput *voutput, E_EomClient *eom_client)
+_e_eom_cb_wl_request_set_attribute_result_send(E_EomOutput *eom_output, E_EomClient *eom_client)
 {
    E_EomClientPtr current_eom_client = NULL;
+   E_Output *output = NULL;
+   E_Plane *ep = NULL;
 
    /* Send changes to the caller-client */
-   wl_eom_send_output_attribute(eom_client->resource, voutput->id,
-                                _e_eom_output_state_get_attribute(voutput),
+   wl_eom_send_output_attribute(eom_client->resource, eom_output->id,
+                                _e_eom_output_state_get_attribute(eom_output),
                                 EOM_OUTPUT_ATTRIBUTE_STATE_NONE,
                                 EOM_ERROR_NONE);
 
-   current_eom_client = _e_eom_client_get_current_by_id(voutput->id);
+   current_eom_client = _e_eom_client_get_current_by_id(eom_output->id);
    EOINF("Substitute current client: new:%p, old:%p", NULL, eom_client, current_eom_client);
 
    /* Send changes to previous current client */
    if (eom_client->current == EINA_FALSE && current_eom_client)
      {
-        E_EomOutputPtr eom_output = NULL;
-        E_Output *output = NULL;
-        E_Plane *ep = NULL;
-
         EOINF("Send changes to previous current client", eom_output->eout);
 
-        wl_eom_send_output_attribute(current_eom_client->resource, voutput->id,
-                                     _e_eom_output_state_get_attribute(voutput),
+        wl_eom_send_output_attribute(current_eom_client->resource, eom_output->id,
+                                     _e_eom_output_state_get_attribute(eom_output),
                                      EOM_OUTPUT_ATTRIBUTE_STATE_LOST,
                                      EOM_ERROR_NONE);
 
         current_eom_client->current = EINA_FALSE;
 
-        if (voutput->eom_output == NULL) goto end;
-
-        eom_output = voutput->eom_output;
         output = eom_output->eout;
 
         if (e_output_connected(output))
           {
              EOINF("Start Mirroring", eom_output->eout);
              e_output_external_set(output, E_OUTPUT_EXT_MIRROR);
-             voutput->state = MIRROR;
+             eom_output->state = MIRROR;
 
              ep = e_output_default_fb_target_get(eom_output->eout);
 
@@ -1654,25 +1511,20 @@ _e_eom_cb_wl_request_set_attribute_result_send(E_EomVirtualOutput *voutput, E_Eo
                eom_output->pp_overlay_deinit = EINA_TRUE;
           }
      }
-end:
+
    /* Set the client as current client of the eom_output */
    eom_client->current = EINA_TRUE;
 
-   if (voutput->connection_status == EINA_FALSE)
-     voutput->state = WAIT_PRESENTATION;
+   if (eom_output->connection_status == EINA_FALSE)
+     eom_output->state = WAIT_PRESENTATION;
    else
      {
-        E_EomOutputPtr eom_output = NULL;
-
-        if (voutput->eom_output)
+        if (eom_output->delay_timer)
           {
-             eom_output = voutput->eom_output;
-             if (eom_output->delay_timer)
-               ecore_timer_del(eom_output->delay_timer);
-             eom_output->delay_timer = ecore_timer_add(EOM_DELAY_CHECK_TIMEOUT, _e_eom_presentation_check, eom_output);
+            ecore_timer_del(eom_output->delay_timer);
+            eom_output->delay_timer = ecore_timer_add(EOM_DELAY_CHECK_TIMEOUT, _e_eom_presentation_check, eom_output);
           }
      }
-
 }
 
 static void
@@ -1681,7 +1533,6 @@ _e_eom_cb_wl_request_set_attribute(struct wl_client *client, struct wl_resource 
    eom_error_e eom_error = EOM_ERROR_NONE;
    E_EomClientPtr eom_client = NULL;//, current_eom_client = NULL, iterator = NULL;
    E_EomOutputPtr eom_output = NULL;
-   E_EomVirtualOutputPtr voutput = NULL;
    Eina_Bool ret = EINA_FALSE;
 
    eom_client = _e_eom_client_get_by_resource(resource);
@@ -1690,26 +1541,26 @@ _e_eom_cb_wl_request_set_attribute(struct wl_client *client, struct wl_resource 
    /* Bind the client with a concrete output */
    eom_client->output_id = output_id;
 
-   voutput = _e_eom_virtual_output_get_by_id(output_id);
-   EINA_SAFETY_ON_NULL_GOTO(voutput, no_output);
+   eom_output = _e_eom_output_get_by_id(output_id);
+   EINA_SAFETY_ON_NULL_GOTO(eom_output, no_eom_output);
 
    EOINF("Set attribute:%d, client:%p", eom_output->eout, attribute, eom_client);
 
-   if (eom_client->current == EINA_TRUE && voutput->id == eom_client->output_id)
+   if (eom_client->current == EINA_TRUE && eom_output->id == eom_client->output_id)
      {
         /* Current client can set any flag it wants */
-        _e_eom_output_state_set_force_attribute(voutput, attribute);
+        _e_eom_output_state_set_force_attribute(eom_output, attribute);
      }
-   else if (voutput->id == eom_client->output_id)
+   else if (eom_output->id == eom_client->output_id)
      {
         /* A client is trying to set new attribute */
-        ret = _e_eom_output_state_set_attribute(voutput, attribute);
+        ret = _e_eom_output_state_set_attribute(eom_output, attribute);
         if (ret == EINA_FALSE)
           {
              EOINF("client failed to set attribute", eom_output->eout);
              eom_error = EOM_ERROR_INVALID_PARAMETER;
-             wl_eom_send_output_attribute(eom_client->resource, voutput->id,
-                                          _e_eom_output_state_get_attribute(voutput),
+             wl_eom_send_output_attribute(eom_client->resource, eom_output->id,
+                                          _e_eom_output_state_get_attribute(eom_output),
                                           EOM_OUTPUT_ATTRIBUTE_STATE_LOST,
                                           eom_error);
              return;
@@ -1718,31 +1569,27 @@ _e_eom_cb_wl_request_set_attribute(struct wl_client *client, struct wl_resource 
    else
      return;
 
-   eom_output = voutput->eom_output;
-   if (eom_output)
+   if (attribute == EOM_OUTPUT_ATTRIBUTE_NONE && eom_output->state != MIRROR)
      {
-        if (attribute == EOM_OUTPUT_ATTRIBUTE_NONE && voutput->state != MIRROR)
+        if (!_e_eom_mirror_start(eom_output, eom_client))
           {
-             if (!_e_eom_mirror_start(voutput, eom_client))
-               {
-                  EOINF("mirror start FAILED", eom_output->eout);
-                  return;
-               }
-
-             wl_eom_send_output_attribute(eom_client->resource, voutput->id,
-                                          _e_eom_output_state_get_attribute(voutput),
-                                          EOM_OUTPUT_ATTRIBUTE_STATE_LOST,
-                                          eom_error);
+             EOINF("mirror start FAILED", eom_output->eout);
              return;
           }
-     }
 
-   _e_eom_cb_wl_request_set_attribute_result_send(voutput, eom_client);
+        wl_eom_send_output_attribute(eom_client->resource, eom_output->id,
+                                     _e_eom_output_state_get_attribute(eom_output),
+                                     EOM_OUTPUT_ATTRIBUTE_STATE_LOST,
+                                     eom_error);
+        return;
+      }
+
+   _e_eom_cb_wl_request_set_attribute_result_send(eom_output, eom_client);
 
    return;
 
    /* Get here if EOM does not have output referred by output_id */
-no_output:
+no_eom_output:
    wl_eom_send_output_attribute(eom_client->resource, output_id,
                                 EOM_OUTPUT_ATTRIBUTE_NONE,
                                 EOM_OUTPUT_ATTRIBUTE_STATE_NONE,
@@ -1815,7 +1662,6 @@ static void
 _e_eom_send_configure_event()
 {
    E_EomOutput *eom_output = NULL;
-   E_EomVirtualOutputPtr voutput = NULL;
    E_EomClientPtr eom_client = NULL;
    E_Client *ec = NULL;
    Eina_List *l;
@@ -1835,14 +1681,7 @@ _e_eom_send_configure_event()
              EINA_SAFETY_ON_NULL_RETURN(cdata);
              EINA_SAFETY_ON_NULL_RETURN(cdata->shell.configure_send);
 
-             voutput = _e_eom_virtual_output_get_by_id(eom_client->output_id);
-             if (voutput == NULL)
-               {
-                  EOERR("no voutput error\n", eom_output->eout);
-                  return;
-               }
-
-             eom_output = voutput->eom_output;
+             eom_output = _e_eom_output_get_by_id(eom_client->output_id);
              if (eom_output == NULL)
                {
                   EOERR("no eom_output error\n", NULL);
@@ -1867,7 +1706,6 @@ static void
 _e_eom_window_set_internal(struct wl_resource *resource, int output_id, E_Client *ec)
 {
    E_EomOutputPtr eom_output = NULL;
-   E_EomVirtualOutputPtr voutput = NULL;
    E_EomClientPtr eom_client = NULL;
    E_Comp_Client_Data *cdata = NULL;
    Eina_Bool ret = EINA_FALSE;
@@ -1879,11 +1717,11 @@ _e_eom_window_set_internal(struct wl_resource *resource, int output_id, E_Client
    eom_client = _e_eom_client_get_by_resource(resource);
    EINA_SAFETY_ON_NULL_RETURN(eom_client);
 
-   voutput = _e_eom_virtual_output_get_by_id(output_id);
-   if (voutput == NULL)
+   eom_output = _e_eom_output_get_by_id(output_id);
+   if (eom_output == NULL)
      {
         wl_eom_send_output_set_window(resource, output_id, WL_EOM_ERROR_NO_OUTPUT);
-        EOERR("no voutput error\n", eom_output->eout);
+        EOERR("no eom_output error\n", NULL);
         return;
      }
 
@@ -1901,21 +1739,16 @@ _e_eom_window_set_internal(struct wl_resource *resource, int output_id, E_Client
    /* ec is used in buffer_change callback for distinguishing external ec and its buffers */
    eom_client->ec = ec;
 
-   eom_output = voutput->eom_output;
-
    /* Send reconfigure event to a client which will resize its window to
     * external output resolution in respond */
-   if (eom_output != NULL)
-     {
-        cdata = ec->comp_data;
-        EINA_SAFETY_ON_NULL_RETURN(cdata);
-        EINA_SAFETY_ON_NULL_RETURN(cdata->shell.configure_send);
+   cdata = ec->comp_data;
+   EINA_SAFETY_ON_NULL_RETURN(cdata);
+   EINA_SAFETY_ON_NULL_RETURN(cdata->shell.configure_send);
 
-        cdata->shell.configure_send(ec->comp_data->shell.surface, 0, eom_output->width, eom_output->height);
+   cdata->shell.configure_send(ec->comp_data->shell.surface, 0, eom_output->width, eom_output->height);
 
-        ep = e_output_default_fb_target_get(eom_output->eout);
-        e_plane_ec_prepare_set(ep, ec);
-     }
+   ep = e_output_default_fb_target_get(eom_output->eout);
+   e_plane_ec_prepare_set(ep, ec);
 
    wl_eom_send_output_set_window(resource, output_id, WL_EOM_ERROR_NONE);
 }
@@ -1942,39 +1775,23 @@ _e_eom_cb_wl_request_set_shell_window(struct wl_client *client, struct wl_resour
 static void
 _e_eom_cb_wl_request_get_output_info(struct wl_client *client, struct wl_resource *resource, uint32_t output_id)
 {
+   E_EomOutputPtr eom_output = NULL;
+   Eina_List *l;
+
    EOINF("get output info:%d", NULL, output_id);
 
-   Eina_List *l;
-   E_EomOutputPtr output = NULL;
-   E_EomVirtualOutputPtr voutput = NULL;
-
-   EINA_LIST_FOREACH(g_eom->virtual_outputs, l, voutput)
+   EINA_LIST_FOREACH(g_eom->eom_outputs, l, eom_output)
      {
-        if (voutput->id == output_id)
-          {
-             if (voutput->eom_output)
-               {
-                  output = voutput->eom_output;
+        if (!eom_output) continue;
+        if (eom_output->id != output_id) continue;
 
-                  EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", NULL,
-                        voutput->id, output->type, output->mode, output->width, output->height,
-                        output->phys_width, output->phys_height, output->connection_status);
+        wl_eom_send_output_info(resource, eom_output->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
+                                eom_output->phys_width, eom_output->phys_height, eom_output->connection,
+                                1, 0, 0, 0);
 
-                  wl_eom_send_output_info(resource, voutput->id, output->type, output->mode, output->width, output->height,
-                                          output->phys_width, output->phys_height, output->connection,
-                                          1, 0, 0, 0);
-               }
-             else
-               {
-                  EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", NULL,
-                        voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
-                        voutput->phys_width, voutput->phys_height, voutput->connection_status);
-
-                  wl_eom_send_output_info(resource, voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
-                                          voutput->phys_width, voutput->phys_height, voutput->connection,
-                                          1, 0, 0, 0);
-               }
-          }
+        EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", NULL,
+              eom_output->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
+              eom_output->phys_width, eom_output->phys_height, eom_output->connection_status);
      }
 }
 
@@ -1989,11 +1806,10 @@ static void
 _e_eom_cb_wl_bind(struct wl_client *client, void *data, uint32_t version, uint32_t id)
 {
    struct wl_resource *resource = NULL;
-   E_EomClientPtr new_client = NULL;
    E_EomPtr eom = NULL;
-   E_EomVirtualOutputPtr voutput = NULL;
-   Eina_List *l;
+   E_EomClientPtr new_client = NULL;
    E_EomOutputPtr eom_output = NULL;
+   Eina_List *l;
 
    EINA_SAFETY_ON_NULL_RETURN(data);
    eom = data;
@@ -2008,30 +1824,19 @@ _e_eom_cb_wl_bind(struct wl_client *client, void *data, uint32_t version, uint32
 
    wl_resource_set_implementation(resource, &_e_eom_wl_implementation, eom, _e_eom_cb_wl_eom_client_destroy);
 
-   wl_eom_send_output_count(resource, g_eom->virtual_output_count);
+   wl_eom_send_output_count(resource, g_eom->eom_output_count);
 
-   EINA_LIST_FOREACH(g_eom->virtual_outputs, l, voutput)
+   EINA_LIST_FOREACH(g_eom->eom_outputs, l, eom_output)
      {
-        if (voutput->eom_output)
-          {
-             eom_output = voutput->eom_output;
+        if (!eom_output) continue;
 
-             EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", eom_output->eout,
-                   voutput->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
-                   eom_output->phys_width, eom_output->phys_height, eom_output->connection_status);
-             wl_eom_send_output_info(resource, voutput->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
-                                     eom_output->phys_width, eom_output->phys_height, eom_output->connection,
-                                     1, 0, 0, 0);
-          }
-        else
-          {
-             EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", NULL,
-                   voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
-                   voutput->phys_width, voutput->phys_height, voutput->connection_status);
-             wl_eom_send_output_info(resource, voutput->id, voutput->type, voutput->mode, voutput->width, voutput->height,
-                                     voutput->phys_width, voutput->phys_height, voutput->connection,
-                                     1, 0, 0, 0);
-          }
+        wl_eom_send_output_info(resource, eom_output->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
+                                eom_output->phys_width, eom_output->phys_height, eom_output->connection,
+                                1, 0, 0, 0);
+
+        EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", eom_output->eout,
+              eom_output->id, eom_output->type, eom_output->mode, eom_output->width, eom_output->height,
+              eom_output->phys_width, eom_output->phys_height, eom_output->connection_status);
      }
 
    new_client = E_NEW(E_EomClient, 1);
@@ -2104,7 +1909,6 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
    E_Comp_Wl_Buffer *wl_buffer = NULL;
    E_EomClientPtr eom_client = NULL, eom_client_itr = NULL;
    E_EomOutputPtr eom_output = NULL;
-   E_EomVirtualOutputPtr voutput = NULL;
    E_Event_Client *ev = event;
    E_Client *ec = NULL;
    tbm_surface_h tbm_buffer = NULL;
@@ -2145,10 +1949,7 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
    if ((width <= 1) || (height <= 1))
      return ECORE_CALLBACK_PASS_ON;
 
-   voutput = _e_eom_virtual_output_get_by_id(eom_client->output_id);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(voutput, ECORE_CALLBACK_PASS_ON);
-
-   eom_output = voutput->eom_output;
+   eom_output = _e_eom_output_get_by_id(eom_client->output_id);
    EINA_SAFETY_ON_NULL_RETURN_VAL(eom_output, ECORE_CALLBACK_PASS_ON);
 
    if (eom_trace_debug)
@@ -2196,19 +1997,18 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
                }
           }
 
-        if (voutput->state != PRESENTATION)
+        if (eom_output->state != PRESENTATION)
           {
              _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_PRESENTATION);
-             _e_eom_virtual_output_state_set_mode(voutput, EOM_OUTPUT_MODE_PRESENTATION);
 
              EINA_LIST_FOREACH(g_eom->clients, l, eom_client_itr)
                {
-                  if (eom_client_itr->output_id == voutput->id)
-                    wl_eom_send_output_mode(eom_client_itr->resource, voutput->id,
-                                            _e_eom_virtual_output_state_get_mode(voutput));
+                  if (eom_client_itr->output_id == eom_output->id)
+                    wl_eom_send_output_mode(eom_client_itr->resource, eom_output->id,
+                                            _e_eom_output_state_get_mode(eom_output));
                }
 
-             voutput->state = PRESENTATION;
+             eom_output->state = PRESENTATION;
           }
 
         if (need_pp)
@@ -2244,18 +2044,17 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
         if (ep->prepare_ec)
           e_plane_ec_set(ep, ec);
 
-        if (voutput->state != PRESENTATION)
+        if (eom_output->state != PRESENTATION)
           {
              _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_PRESENTATION);
-             _e_eom_virtual_output_state_set_mode(voutput, EOM_OUTPUT_MODE_PRESENTATION);
 
              EINA_LIST_FOREACH(g_eom->clients, l, eom_client_itr)
                {
-                  if (eom_client_itr->output_id == voutput->id)
-                    wl_eom_send_output_mode(eom_client_itr->resource, voutput->id,
-                                            _e_eom_virtual_output_state_get_mode(voutput));
+                  if (eom_client_itr->output_id == eom_output->id)
+                    wl_eom_send_output_mode(eom_client_itr->resource, eom_output->id,
+                                            _e_eom_output_state_get_mode(eom_output));
                }
-             voutput->state = PRESENTATION;
+             eom_output->state = PRESENTATION;
           }
 
         e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
@@ -2282,7 +2081,6 @@ _e_eom_deinit()
         g_eom->handlers = NULL;
      }
 
-   _e_eom_viratul_output_deinit();
    _e_eom_output_deinit();
 
    if (g_eom->dpy)
@@ -2318,12 +2116,6 @@ _e_eom_init()
    if (!_e_eom_output_init())
      {
         EOERR("_e_eom_output_init fail", NULL);
-        goto err;
-     }
-
-   if (!_e_eom_virtual_output_init())
-     {
-        EOERR("_e_eom_virtual_output_init fail", NULL);
         goto err;
      }
 
@@ -2394,7 +2186,6 @@ EINTERN Eina_Bool
 e_eom_connect(E_Output *output)
 {
    E_EomOutputPtr eom_output = NULL;
-   E_EomVirtualOutputPtr voutput = NULL;
    E_EomClientPtr iterator = NULL;
    Eina_List *l;
 
@@ -2408,7 +2199,7 @@ e_eom_connect(E_Output *output)
         eom_output = _e_eom_output_find_added_output(output);
         if (!eom_output)
           {
-             EOERR("cannot find output", NULL);
+             EOERR("cannot find eom_output", NULL);
              return EINA_FALSE;
           }
      }
@@ -2424,17 +2215,10 @@ e_eom_connect(E_Output *output)
    eom_output->name = eina_stringshare_add(output->id);
    eom_output->connection_status = EINA_TRUE;
 
-   EOINF("Setup new output: (%dx%d)", eom_output->eout, eom_output->width, eom_output->height);
+   EOINF("Setup new eom_output: (%dx%d)", eom_output->eout, eom_output->width, eom_output->height);
 
-   if (!_e_eom_virtual_output_set(eom_output))
-     {
-        EOINF("No virtual output.", eom_output->eout);
-        return EINA_TRUE;
-     }
-   voutput = eom_output->voutput;
-
-   /* TODO: check output mode(presentation set) and HDMI type */
-   if (voutput->state == WAIT_PRESENTATION)
+   /* TODO: check eom_output mode(presentation set) and HDMI type */
+   if (eom_output->state == WAIT_PRESENTATION)
      {
         EOINF("Start wait Presentation", eom_output->eout);
 
@@ -2449,8 +2233,8 @@ e_eom_connect(E_Output *output)
         EOINF("Start Mirroring", eom_output->eout);
 
         _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_MIRROR);
-        _e_eom_virtual_output_state_set_mode(voutput, EOM_OUTPUT_MODE_MIRROR);
-        voutput->state = MIRROR;
+        _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_MIRROR);
+        eom_output->state = MIRROR;
 
         e_output_external_set(output, E_OUTPUT_EXT_MIRROR);
      }
@@ -2465,17 +2249,17 @@ e_eom_connect(E_Output *output)
              EOINF("Send output connected notification to client: %p", eom_output->eout, iterator);
 
              if (iterator->current)
-               wl_eom_send_output_info(iterator->resource, voutput->id,
+               wl_eom_send_output_info(iterator->resource, eom_output->id,
                                        eom_output->type, eom_output->mode,
                                        eom_output->width, eom_output->height,
                                        eom_output->phys_width, eom_output->phys_height,
                                        eom_output->connection,
                                        0,
-                                       _e_eom_output_state_get_attribute(voutput),
+                                       _e_eom_output_state_get_attribute(eom_output),
                                        EOM_OUTPUT_ATTRIBUTE_STATE_ACTIVE,
                                        EOM_ERROR_NONE);
              else
-               wl_eom_send_output_info(iterator->resource, voutput->id,
+               wl_eom_send_output_info(iterator->resource, eom_output->id,
                                        eom_output->type, eom_output->mode,
                                        eom_output->width, eom_output->height,
                                        eom_output->phys_width, eom_output->phys_height,
@@ -2491,7 +2275,6 @@ EINTERN Eina_Bool
 e_eom_disconnect(E_Output *output)
 {
    E_EomOutputPtr eom_output = NULL;
-   E_EomVirtualOutputPtr voutput = NULL;
    E_EomClientPtr iterator = NULL;
    Eina_List *l;
 
@@ -2524,10 +2307,6 @@ e_eom_disconnect(E_Output *output)
    eom_output->phys_height = 0;
    eom_output->connection = WL_EOM_STATUS_DISCONNECTION;
 
-   if (eom_output->voutput == NULL)
-     return EINA_TRUE;
-   voutput = eom_output->voutput;
-
    e_output_external_unset(output);
 
    eom_output->connection_status = EINA_FALSE;
@@ -2535,9 +2314,9 @@ e_eom_disconnect(E_Output *output)
    _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_NONE);
 
    if (_e_eom_client_get_current_by_id(eom_output->id))
-     voutput->state = WAIT_PRESENTATION;
+     eom_output->state = WAIT_PRESENTATION;
    else
-     voutput->state = NONE;
+     eom_output->state = NONE;
 
    /* If there were previously connected clients to the output - notify them */
    EINA_LIST_FOREACH(g_eom->clients, l, iterator)
@@ -2547,17 +2326,17 @@ e_eom_disconnect(E_Output *output)
              EOINF("Send output disconnected notification to client: %p", eom_output->eout, iterator);
 
              if (iterator->current)
-               wl_eom_send_output_info(iterator->resource, voutput->id,
+               wl_eom_send_output_info(iterator->resource, eom_output->id,
                                        eom_output->type, eom_output->mode,
                                        eom_output->width, eom_output->height,
                                        eom_output->phys_width, eom_output->phys_height,
                                        eom_output->connection,
                                        0,
-                                       _e_eom_output_state_get_attribute(voutput),
+                                       _e_eom_output_state_get_attribute(eom_output),
                                        EOM_OUTPUT_ATTRIBUTE_STATE_INACTIVE,
                                        EOM_ERROR_NONE);
              else
-               wl_eom_send_output_info(iterator->resource, voutput->id,
+               wl_eom_send_output_info(iterator->resource, eom_output->id,
                                        eom_output->type, eom_output->mode,
                                        eom_output->width, eom_output->height,
                                        eom_output->phys_width, eom_output->phys_height,
@@ -2569,8 +2348,6 @@ e_eom_disconnect(E_Output *output)
    EOINF("Destory output: %s", eom_output->eout, eom_output->name);
    eina_stringshare_del(eom_output->name);
    eom_output->name = NULL;
-
-   _e_eom_virtual_output_unset(eom_output);
 
    return EINA_TRUE;
 }
@@ -2604,7 +2381,7 @@ e_eom_create(E_Output *output, Eina_Bool added)
    if (eom_output->added)
      g_eom->added_outputs = eina_list_append(g_eom->added_outputs, eom_output);
    else
-     g_eom->outputs = eina_list_append(g_eom->outputs, eom_output);
+     g_eom->eom_outputs = eina_list_append(g_eom->eom_outputs, eom_output);
 
    EOINF("create (%d)output, type:%d, name:%s added:%d", eom_output->eout,
          eom_output->id, eom_output->type, eom_output->name, eom_output->added);
@@ -2633,7 +2410,7 @@ e_eom_destroy(E_Output *output)
    if (eom_output->added)
      g_eom->added_outputs = eina_list_remove(g_eom->added_outputs, eom_output);
    else
-     g_eom->outputs = eina_list_remove(g_eom->outputs, eom_output);
+     g_eom->eom_outputs = eina_list_remove(g_eom->eom_outputs, eom_output);
 
    E_FREE(eom_output);
 
@@ -2644,7 +2421,6 @@ EINTERN Eina_Bool
 e_eom_mode_change(E_Output *output, E_Output_Mode *emode)
 {
    E_EomOutputPtr eom_output = NULL;
-   E_EomVirtualOutputPtr voutput = NULL;
    E_Output *output_primary = NULL;
 
    if (!g_eom) return EINA_TRUE;
@@ -2669,17 +2445,6 @@ e_eom_mode_change(E_Output *output, E_Output_Mode *emode)
    if (eom_output->connection_status == EINA_FALSE)
      return EINA_FALSE;
 
-   if (eom_output->voutput == NULL)
-     {
-        eom_output->width = output->config.mode.w;
-        eom_output->height = output->config.mode.h;
-
-        EOINF("mode change output: (%dx%d)", eom_output->eout, eom_output->width, eom_output->height);
-
-        return EINA_TRUE;
-     }
-   voutput = eom_output->voutput;
-
    if (eom_output->delay_timer)
      ecore_timer_del(eom_output->delay_timer);
    eom_output->delay_timer = NULL;
@@ -2693,9 +2458,9 @@ e_eom_mode_change(E_Output *output, E_Output_Mode *emode)
    eom_output->connection_status = EINA_TRUE;
 
    EOINF("mode change output: (%dx%d)", eom_output->eout, eom_output->width, eom_output->height);
-   if (voutput->state == PRESENTATION)
+   if (eom_output->state == PRESENTATION)
      {
-        voutput->state = WAIT_PRESENTATION;
+        eom_output->state = WAIT_PRESENTATION;
         _e_eom_send_configure_event();
 
         eom_output->delay_timer = ecore_timer_add(EOM_DELAY_CONNECT_CHECK_TIMEOUT, _e_eom_presentation_check, eom_output);
