@@ -159,7 +159,6 @@ struct _E_Eom_Virtual_Output
    E_EomOutputState state;
    Eina_Bool connection_status;
    eom_output_attribute_e attribute;
-   eom_output_attribute_state_e attribute_state;
    enum wl_eom_status connection;
 
    E_EomOutput *eom_output;
@@ -341,22 +340,6 @@ _e_eom_virtual_output_state_set_mode(E_EomVirtualOutputPtr output, eom_output_mo
    if (output == NULL)
      return;
    output->mode = mode;
-}
-
-static inline eom_output_attribute_e
-_e_eom_output_state_get_attribute_state(E_EomVirtualOutputPtr output)
-{
-   if (output == NULL)
-     return EOM_OUTPUT_ATTRIBUTE_STATE_NONE;
-   return output->attribute_state;
-}
-
-static inline void
-_e_eom_output_attribute_state_set(E_EomVirtualOutputPtr output, eom_output_attribute_e attribute_state)
-{
-   if (output == NULL)
-     return;
-   output->attribute_state = attribute_state;
 }
 
 static inline eom_output_attribute_e
@@ -1519,7 +1502,7 @@ end:
           {
              wl_eom_send_output_attribute(iterator->resource, voutput->id,
                                           _e_eom_output_state_get_attribute(voutput),
-                                          _e_eom_output_state_get_attribute_state(voutput),
+                                          EOM_OUTPUT_ATTRIBUTE_STATE_NONE,
                                           EOM_OUTPUT_MODE_NONE);
 
              wl_eom_send_output_mode(iterator->resource, voutput->id,
@@ -1591,7 +1574,7 @@ _e_eom_mirror_start(E_EomVirtualOutput *voutput, E_EomClient *eom_client)
          {
             wl_eom_send_output_attribute(iterator->resource, voutput->id,
                                          _e_eom_output_state_get_attribute(voutput),
-                                         _e_eom_output_state_get_attribute_state(voutput),
+                                         EOM_OUTPUT_ATTRIBUTE_STATE_NONE,
                                          EOM_ERROR_NONE);
 
             wl_eom_send_output_mode(iterator->resource, voutput->id,
@@ -1610,7 +1593,7 @@ _e_eom_cb_wl_request_set_attribute_result_send(E_EomVirtualOutput *voutput, E_Eo
    /* Send changes to the caller-client */
    wl_eom_send_output_attribute(eom_client->resource, voutput->id,
                                 _e_eom_output_state_get_attribute(voutput),
-                                _e_eom_output_state_get_attribute_state(voutput),
+                                EOM_OUTPUT_ATTRIBUTE_STATE_NONE,
                                 EOM_ERROR_NONE);
 
    current_eom_client = _e_eom_client_get_current_by_id(voutput->id);
