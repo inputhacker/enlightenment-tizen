@@ -710,7 +710,7 @@ e_pixmap_image_clear(E_Pixmap *cp, Eina_Bool cache)
         cd = (E_Comp_Wl_Client_Data *)cp->client->comp_data;
         EINA_LIST_FOREACH_SAFE(cd->frames, l, ll, cb)
           {
-             wl_callback_send_done(cb, ecore_time_unix_get() * 1000);
+             wl_callback_send_done(cb, (unsigned int)(ecore_time_unix_get() * 1000));
              wl_resource_destroy(cb);
           }
      }
@@ -1111,7 +1111,7 @@ e_pixmap_buffer_clear(E_Pixmap *cp, Eina_Bool only_free)
         cdata = (E_Comp_Wl_Client_Data *)cp->client->comp_data;
         EINA_LIST_FOREACH_SAFE(cdata->frames, l, ll, cb)
           {
-             wl_callback_send_done(cb, ecore_time_unix_get() * 1000);
+             wl_callback_send_done(cb, (unsigned int)(ecore_time_unix_get() * 1000));
              wl_resource_destroy(cb);
           }
      }

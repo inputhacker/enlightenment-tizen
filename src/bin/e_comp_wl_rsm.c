@@ -2828,7 +2828,7 @@ _e_comp_wl_remote_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *st
    /* send previous frame done */
    EINA_LIST_FOREACH_SAFE(ec->comp_data->frames, l, ll, cb)
      {
-         wl_callback_send_done(cb, ecore_time_unix_get() * 1000);
+         wl_callback_send_done(cb, (unsigned int)(ecore_time_unix_get() * 1000));
          wl_resource_destroy(cb);
      }
 
