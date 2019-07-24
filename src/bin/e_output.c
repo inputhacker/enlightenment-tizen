@@ -52,6 +52,7 @@ static int _e_output_hooks_walking = 0;
 static Eina_Inlist *_e_output_hooks[] =
 {
    [E_OUTPUT_HOOK_DPMS_CHANGE] = NULL,
+   [E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE] = NULL,
 };
 
 static int _e_output_intercept_hooks_delete = 0;
@@ -3900,23 +3901,11 @@ e_output_external_update(E_Output *output)
              return EINA_FALSE;
           }
 
-        ret = e_eom_connect(output);
-        if (ret == EINA_FALSE)
-          {
-             EOERR("fail to e_eom_connect.", output);
-             e_hwc_del(output->hwc);
-             output->hwc = NULL;
-             return EINA_FALSE;
-          }
+        _e_output_hook_call(E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE, output);
      }
    else
      {
-        ret = e_eom_disconnect(output);
-        if (ret == EINA_FALSE)
-          {
-             EOERR("fail to e_eom_disconnect.", output);
-             return EINA_FALSE;
-          }
+        _e_output_hook_call(E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE, output);
 
         if (output->hwc)
           {

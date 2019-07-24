@@ -135,6 +135,7 @@ struct _E_Output
 enum _E_Output_Hook_Point
 {
    E_OUTPUT_HOOK_DPMS_CHANGE,
+   E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE,
    E_OUTPUT_HOOK_LAST
 };
 

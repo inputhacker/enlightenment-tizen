@@ -95,6 +95,7 @@ struct _E_Eom
    Eina_List *hooks;
    Eina_List *comp_object_intercept_hooks;
    Eina_List *added_outputs;
+   E_Output_Hook *output_connect_status_hook;
 
    /* Internal output data */
    E_Output *output_primary;
@@ -2095,12 +2096,151 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
    return ECORE_CALLBACK_PASS_ON;
 }
 
+static Eina_Bool
+_e_eom_connect(E_Output *output)
+{
+   E_EomOutputPtr eom_output = NULL;
+
+   if (!g_eom) return EINA_TRUE;
+
+   g_eom->check_first_boot = 1;
+
+   eom_output = _e_eom_output_find(output);
+   if (eom_output == NULL)
+     {
+        eom_output = _e_eom_output_find_added_output(output);
+        if (!eom_output)
+          {
+             EOERR("cannot find eom_output", NULL);
+             return EINA_FALSE;
+          }
+     }
+
+   if (eom_output->connection_status == EINA_TRUE)
+     return EINA_TRUE;
+
+   /* update eom_output connect */
+   eom_output->width = output->config.mode.w;
+   eom_output->height = output->config.mode.h;
+   eom_output->phys_width = output->info.size.w;
+   eom_output->phys_height = output->info.size.h;
+   eom_output->name = eina_stringshare_add(output->id);
+   eom_output->connection_status = EINA_TRUE;
+
+   EOINF("Setup new eom_output: (%dx%d)", eom_output->eout, eom_output->width, eom_output->height);
+
+   /* TODO: check eom_output mode(presentation set) and HDMI type */
+   if (eom_output->state == WAIT_PRESENTATION)
+     {
+        EOINF("Start wait Presentation", eom_output->eout);
+
+        _e_eom_send_configure_event();
+
+        if (eom_output->delay_timer)
+          ecore_timer_del(eom_output->delay_timer);
+        eom_output->delay_timer = ecore_timer_add(EOM_DELAY_CONNECT_CHECK_TIMEOUT, _e_eom_presentation_check, eom_output);
+     }
+   else
+     {
+        EOINF("Start Mirroring", eom_output->eout);
+        _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_MIRROR);
+        eom_output->state = MIRROR;
+        e_output_external_set(output, E_OUTPUT_EXT_MIRROR);
+     }
+
+   eom_output->connection = WL_EOM_STATUS_CONNECTION;
+
+   /* If there were previously connected clients to the output - notify them */
+   _e_eom_output_info_broadcast(eom_output, EOM_OUTPUT_ATTRIBUTE_STATE_ACTIVE);
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_eom_disconnect(E_Output *output)
+{
+   E_EomOutputPtr eom_output = NULL;
+
+   if (!g_eom) return EINA_TRUE;
+
+   g_eom->check_first_boot = 1;
+
+   eom_output = _e_eom_output_find(output);
+   if (eom_output == NULL)
+     {
+        eom_output = _e_eom_output_find_added_output(output);
+        if (!eom_output)
+          {
+             EOERR("cannot find output", NULL);
+             return EINA_FALSE;
+          }
+     }
+
+   if (eom_output->connection_status == EINA_FALSE)
+     return EINA_TRUE;
+
+   if (eom_output->delay_timer)
+     ecore_timer_del(eom_output->delay_timer);
+   eom_output->delay_timer = NULL;
+
+   /* update eom_output disconnect */
+   eom_output->width = 0;
+   eom_output->height = 0;
+   eom_output->phys_width = 0;
+   eom_output->phys_height = 0;
+   eom_output->connection = WL_EOM_STATUS_DISCONNECTION;
+
+   e_output_external_unset(output);
+
+   eom_output->connection_status = EINA_FALSE;
+
+   _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_NONE);
+
+   if (_e_eom_client_get_current_by_id(eom_output->id))
+     eom_output->state = WAIT_PRESENTATION;
+   else
+     eom_output->state = NONE;
+
+   /* If there were previously connected clients to the output - notify them */
+   _e_eom_output_info_broadcast(eom_output, EOM_OUTPUT_ATTRIBUTE_STATE_INACTIVE);
+
+   EOINF("Destory output: %s", eom_output->eout, eom_output->name);
+   eina_stringshare_del(eom_output->name);
+   eom_output->name = NULL;
+
+   return EINA_TRUE;
+}
+
+static void
+_e_eom_output_cb_output_connect_status_change(void *data, E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN(g_eom->output_primary);
+
+   /* doesn't care about the pirmary output */
+   if (g_eom->output_primary == output) return;
+
+   if (e_output_connected(output))
+     {
+        _e_eom_connect(output);
+     }
+   else
+     {
+        _e_eom_disconnect(output);
+     }
+}
+
 static void
 _e_eom_deinit()
 {
    Ecore_Event_Handler *h = NULL;
 
    if (g_eom == NULL) return;
+
+   if (g_eom->output_connect_status_hook)
+     {
+        e_output_hook_del(g_eom->output_connect_status_hook);
+        g_eom->output_connect_status_hook = NULL;
+     }
 
    if (g_eom->handlers)
      {
@@ -2152,6 +2292,8 @@ _e_eom_init()
 
    E_LIST_HANDLER_APPEND(g_eom->handlers, E_EVENT_CLIENT_BUFFER_CHANGE, _e_eom_cb_client_buffer_change, NULL);
 
+   g_eom->output_connect_status_hook = e_output_hook_add(E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE, _e_eom_output_cb_output_connect_status_change, g_eom);
+
    return EINA_TRUE;
 
 err:
@@ -2193,124 +2335,6 @@ e_eom_is_ec_external(E_Client *ec)
    eom_output = _e_eom_output_by_ec_child_get(ec);
    if (!eom_output)
      return EINA_FALSE;
-
-   return EINA_TRUE;
-}
-
-EINTERN Eina_Bool
-e_eom_connect(E_Output *output)
-{
-   E_EomOutputPtr eom_output = NULL;
-
-   if (!g_eom) return EINA_TRUE;
-
-   g_eom->check_first_boot = 1;
-
-   eom_output = _e_eom_output_find(output);
-   if (eom_output == NULL)
-     {
-        eom_output = _e_eom_output_find_added_output(output);
-        if (!eom_output)
-          {
-             EOERR("cannot find eom_output", NULL);
-             return EINA_FALSE;
-          }
-     }
-
-   if (eom_output->connection_status == EINA_TRUE)
-     return EINA_TRUE;
-
-   /* update eom_output connect */
-   eom_output->width = output->config.mode.w;
-   eom_output->height = output->config.mode.h;
-   eom_output->phys_width = output->info.size.w;
-   eom_output->phys_height = output->info.size.h;
-   eom_output->name = eina_stringshare_add(output->id);
-   eom_output->connection_status = EINA_TRUE;
-
-   EOINF("Setup new eom_output: (%dx%d)", eom_output->eout, eom_output->width, eom_output->height);
-
-   /* TODO: check eom_output mode(presentation set) and HDMI type */
-   if (eom_output->state == WAIT_PRESENTATION)
-     {
-        EOINF("Start wait Presentation", eom_output->eout);
-
-        _e_eom_send_configure_event();
-
-        if (eom_output->delay_timer)
-          ecore_timer_del(eom_output->delay_timer);
-        eom_output->delay_timer = ecore_timer_add(EOM_DELAY_CONNECT_CHECK_TIMEOUT, _e_eom_presentation_check, eom_output);
-     }
-   else
-     {
-        EOINF("Start Mirroring", eom_output->eout);
-
-        _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_MIRROR);
-        _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_MIRROR);
-        eom_output->state = MIRROR;
-
-        e_output_external_set(output, E_OUTPUT_EXT_MIRROR);
-     }
-
-   eom_output->connection = WL_EOM_STATUS_CONNECTION;
-
-   /* If there were previously connected clients to the output - notify them */
-   _e_eom_output_info_broadcast(eom_output, EOM_OUTPUT_ATTRIBUTE_STATE_ACTIVE);
-
-   return EINA_TRUE;
-}
-
-EINTERN Eina_Bool
-e_eom_disconnect(E_Output *output)
-{
-   E_EomOutputPtr eom_output = NULL;
-
-   if (!g_eom) return EINA_TRUE;
-
-   g_eom->check_first_boot = 1;
-
-   eom_output = _e_eom_output_find(output);
-   if (eom_output == NULL)
-     {
-        eom_output = _e_eom_output_find_added_output(output);
-        if (!eom_output)
-          {
-             EOERR("cannot find output", NULL);
-             return EINA_FALSE;
-          }
-     }
-
-   if (eom_output->connection_status == EINA_FALSE)
-     return EINA_TRUE;
-
-   if (eom_output->delay_timer)
-     ecore_timer_del(eom_output->delay_timer);
-   eom_output->delay_timer = NULL;
-
-   /* update eom_output disconnect */
-   eom_output->width = 0;
-   eom_output->height = 0;
-   eom_output->phys_width = 0;
-   eom_output->phys_height = 0;
-   eom_output->connection = WL_EOM_STATUS_DISCONNECTION;
-
-   e_output_external_unset(output);
-
-   eom_output->connection_status = EINA_FALSE;
-
-   _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_NONE);
-
-   if (_e_eom_client_get_current_by_id(eom_output->id))
-     eom_output->state = WAIT_PRESENTATION;
-   else
-     eom_output->state = NONE;
-
-   /* If there were previously connected clients to the output - notify them */
-   _e_eom_output_info_broadcast(eom_output, EOM_OUTPUT_ATTRIBUTE_STATE_INACTIVE);
-
-   EOINF("Destory output: %s", eom_output->eout, eom_output->name);
-   eina_stringshare_del(eom_output->name);
-   eom_output->name = NULL;
 
    return EINA_TRUE;
 }
