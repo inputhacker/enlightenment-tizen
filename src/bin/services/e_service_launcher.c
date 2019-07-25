@@ -352,7 +352,7 @@ _launcher_prepare_forward_send(E_Service_Launcher *lc,
    _launcher_target_ec_set(lc, target_ec);
 
    lc->direction = TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD;
-   lc->serial = wl_display_next_serial(e_comp_wl->wl.disp);\
+   lc->serial = wl_display_next_serial(e_comp_wl->wl.disp);
    e_client_pos_get(target_ec, &x, &y);
 
    sent = _launcher_prepare_send(lc, target_ec, x, y);
@@ -1034,6 +1034,7 @@ _launcher_handler_cb_hook_vis_lower(void *data EINA_UNUSED, E_Client *ec)
         if (!sent) return EINA_FALSE;
 
         _launcher_state_set(lc, LAUNCHER_STATE_PREPARING);
+        _launcher_handler_launcher_runner_set(lc);
      }
 
    return EINA_TRUE;
@@ -1079,6 +1080,7 @@ _launcher_handler_cb_hook_vis_hide(void *data EINA_UNUSED, E_Client *ec)
         if (!sent) return EINA_FALSE;
 
         _launcher_state_set(lc, LAUNCHER_STATE_PREPARING);
+        _launcher_handler_launcher_runner_set(lc);
      }
 
    return EINA_TRUE;
