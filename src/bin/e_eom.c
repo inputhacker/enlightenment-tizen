@@ -97,6 +97,8 @@ struct _E_Eom
    Eina_List *added_outputs;
    E_Output_Hook *output_connect_status_hook;
    E_Output_Hook *output_mode_changes_hook;
+   E_Output_Hook *output_add_hook;
+   E_Output_Hook *output_remove_hook;
 
    /* Internal output data */
    E_Output *output_primary;
@@ -1180,6 +1182,71 @@ _e_eom_output_find_added_output(E_Output *output)
    return eom_output;
 }
 
+static Eina_Bool
+_e_eom_create(E_Output *output, Eina_Bool added)
+{
+   E_EomOutputPtr eom_output = NULL;
+
+   if (!g_eom) return EINA_TRUE;
+
+   eom_output = E_NEW(E_EomOutput, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(eom_output, EINA_FALSE);
+
+   eom_output->id = output->index;
+   eom_output->mode = EOM_OUTPUT_MODE_NONE;
+   eom_output->connection = WL_EOM_STATUS_NONE;
+   eom_output->eout = output;
+   EINA_SAFETY_ON_NULL_GOTO(eom_output->eout, err);
+
+   eom_output->output = output->toutput;
+   eom_output->type = (eom_output_type_e)output->toutput_type;
+
+   eom_output->connection_status = EINA_FALSE;
+   eom_output->width = 0;
+   eom_output->height = 0;
+   eom_output->phys_width = 0;
+   eom_output->phys_height = 0;
+   eom_output->added = added;
+
+   if (eom_output->added)
+     g_eom->added_outputs = eina_list_append(g_eom->added_outputs, eom_output);
+   else
+     g_eom->eom_outputs = eina_list_append(g_eom->eom_outputs, eom_output);
+
+   EOINF("create (%d)output, type:%d, name:%s added:%d", eom_output->eout,
+         eom_output->id, eom_output->type, eom_output->name, eom_output->added);
+
+   return EINA_TRUE;
+
+err:
+   E_FREE(eom_output);
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_eom_destroy(E_Output *output)
+{
+   E_EomOutputPtr eom_output = NULL;
+
+   if (!g_eom) return EINA_TRUE;
+
+   eom_output = _e_eom_output_find_added_output(output);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(eom_output, EINA_FALSE);
+
+   EOINF("destroy (%d)output, type:%d, name:%s added:%d", eom_output->eout,
+         eom_output->id, eom_output->type, eom_output->name, eom_output->added);
+
+   if (eom_output->added)
+     g_eom->added_outputs = eina_list_remove(g_eom->added_outputs, eom_output);
+   else
+     g_eom->eom_outputs = eina_list_remove(g_eom->eom_outputs, eom_output);
+
+   E_FREE(eom_output);
+
+   return EINA_TRUE;
+}
+
 static void
 _e_eom_output_deinit(void)
 {
@@ -1190,13 +1257,13 @@ _e_eom_output_deinit(void)
    if (!g_eom->eom_outputs) return;
 
    EINA_LIST_FOREACH(g_eom->added_outputs, l, eom_output)
-     e_eom_destroy(eom_output->eout);
+     _e_eom_destroy(eom_output->eout);
 
    eina_list_free(g_eom->eom_outputs);
    g_eom->added_outputs = NULL;
 
    EINA_LIST_FOREACH(g_eom->eom_outputs, l, eom_output)
-     e_eom_destroy(eom_output->eout);
+     _e_eom_destroy(eom_output->eout);
 
    eina_list_free(g_eom->eom_outputs);
    g_eom->eom_outputs = NULL;
@@ -1223,9 +1290,9 @@ _e_eom_output_init(void)
         if (!output) continue;
         if (output == g_eom->output_primary) continue;
 
-        if (!e_eom_create(output, EINA_FALSE))
+        if (!_e_eom_create(output, EINA_FALSE))
           {
-             EOERR("e_eom_create fails.", output);
+             EOERR("_e_eom_create fails.", output);
              goto err;
           }
      }
@@ -2309,11 +2376,53 @@ _e_eom_output_cb_output_mode_change(void *data, E_Output *output)
 }
 
 static void
+_e_eom_output_cb_output_add(void *data, E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN(g_eom->output_primary);
+
+   /* doesn't care about the pirmary output */
+   if (g_eom->output_primary == output) return;
+
+   if (!_e_eom_create(output, EINA_TRUE))
+     {
+        EOERR("_e_eom_create fails.", output);
+        return;
+     }
+}
+
+static void
+_e_eom_output_cb_output_remove(void *data, E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN(g_eom->output_primary);
+
+   /* doesn't care about the pirmary output */
+   if (g_eom->output_primary == output) return;
+
+   if (!_e_eom_destroy(output))
+     {
+        EOERR("_e_eom_destroy fails.", output);
+        return;
+     }
+}
+
+static void
 _e_eom_deinit()
 {
    Ecore_Event_Handler *h = NULL;
 
    if (g_eom == NULL) return;
+
+   if (g_eom->output_remove_hook)
+     {
+        e_output_hook_del(g_eom->output_remove_hook);
+        g_eom->output_remove_hook = NULL;
+     }
+
+   if (g_eom->output_add_hook)
+     {
+        e_output_hook_del(g_eom->output_add_hook);
+        g_eom->output_add_hook = NULL;
+     }
 
    if (g_eom->output_mode_changes_hook)
      {
@@ -2379,6 +2488,8 @@ _e_eom_init()
 
    g_eom->output_connect_status_hook = e_output_hook_add(E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE, _e_eom_output_cb_output_connect_status_change, g_eom);
    g_eom->output_mode_changes_hook = e_output_hook_add(E_OUTPUT_HOOK_MODE_CHANGE, _e_eom_output_cb_output_mode_change, g_eom);
+   g_eom->output_add_hook = e_output_hook_add(E_OUTPUT_HOOK_ADD, _e_eom_output_cb_output_add, g_eom);
+   g_eom->output_remove_hook = e_output_hook_add(E_OUTPUT_HOOK_REMOVE, _e_eom_output_cb_output_remove, g_eom);
 
    return EINA_TRUE;
 
@@ -2421,71 +2532,6 @@ e_eom_is_ec_external(E_Client *ec)
    eom_output = _e_eom_output_by_ec_child_get(ec);
    if (!eom_output)
      return EINA_FALSE;
-
-   return EINA_TRUE;
-}
-
-EINTERN Eina_Bool
-e_eom_create(E_Output *output, Eina_Bool added)
-{
-   E_EomOutputPtr eom_output = NULL;
-
-   if (!g_eom) return EINA_TRUE;
-
-   eom_output = E_NEW(E_EomOutput, 1);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eom_output, EINA_FALSE);
-
-   eom_output->id = output->index;
-   eom_output->mode = EOM_OUTPUT_MODE_NONE;
-   eom_output->connection = WL_EOM_STATUS_NONE;
-   eom_output->eout = output;
-   EINA_SAFETY_ON_NULL_GOTO(eom_output->eout, err);
-
-   eom_output->output = output->toutput;
-   eom_output->type = (eom_output_type_e)output->toutput_type;
-
-   eom_output->connection_status = EINA_FALSE;
-   eom_output->width = 0;
-   eom_output->height = 0;
-   eom_output->phys_width = 0;
-   eom_output->phys_height = 0;
-   eom_output->added = added;
-
-   if (eom_output->added)
-     g_eom->added_outputs = eina_list_append(g_eom->added_outputs, eom_output);
-   else
-     g_eom->eom_outputs = eina_list_append(g_eom->eom_outputs, eom_output);
-
-   EOINF("create (%d)output, type:%d, name:%s added:%d", eom_output->eout,
-         eom_output->id, eom_output->type, eom_output->name, eom_output->added);
-
-   return EINA_TRUE;
-
-err:
-   E_FREE(eom_output);
-
-   return EINA_FALSE;
-}
-
-EINTERN Eina_Bool
-e_eom_destroy(E_Output *output)
-{
-   E_EomOutputPtr eom_output = NULL;
-
-   if (!g_eom) return EINA_TRUE;
-
-   eom_output = _e_eom_output_find_added_output(output);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(eom_output, EINA_FALSE);
-
-   EOINF("destroy (%d)output, type:%d, name:%s added:%d", eom_output->eout,
-         eom_output->id, eom_output->type, eom_output->name, eom_output->added);
-
-   if (eom_output->added)
-     g_eom->added_outputs = eina_list_remove(g_eom->added_outputs, eom_output);
-   else
-     g_eom->eom_outputs = eina_list_remove(g_eom->eom_outputs, eom_output);
-
-   E_FREE(eom_output);
 
    return EINA_TRUE;
 }

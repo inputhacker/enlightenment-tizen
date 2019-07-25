@@ -54,6 +54,8 @@ static Eina_Inlist *_e_output_hooks[] =
    [E_OUTPUT_HOOK_DPMS_CHANGE] = NULL,
    [E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE] = NULL,
    [E_OUTPUT_HOOK_MODE_CHANGE] = NULL,
+   [E_OUTPUT_HOOK_ADD] = NULL,
+   [E_OUTPUT_HOOK_REMOVE] = NULL,
 };
 
 static int _e_output_intercept_hooks_delete = 0;
@@ -2336,6 +2338,9 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
    if (output_caps & TDM_OUTPUT_CAPABILITY_ASYNC_DPMS)
      output->dpms_async = EINA_TRUE;
 
+   /* call output add hook */
+   _e_output_hook_call(E_OUTPUT_HOOK_ADD, output);
+
    return output;
 
 fail:
@@ -2351,6 +2356,9 @@ e_output_del(E_Output *output)
    E_Output_Mode *m;
 
    if (!output) return;
+
+   /* call output remove hook */
+   _e_output_hook_call(E_OUTPUT_HOOK_REMOVE, output);
 
    if (output->hwc) e_hwc_del(output->hwc);
 

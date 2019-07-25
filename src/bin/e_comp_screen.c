@@ -578,7 +578,6 @@ _e_comp_screen_output_destroy_cb(tdm_output *toutput, void *user_data)
           {
              e_comp_screen->num_outputs--;
              e_comp_screen->outputs = eina_list_remove_list(e_comp_screen->outputs, l);
-             e_eom_destroy(output);
              e_output_del(output);
           }
      }
@@ -626,7 +625,6 @@ _e_comp_screen_output_create_cb(tdm_display *dpy, tdm_output *toutput, void *use
         return;
      }
 
-   e_eom_create(output, EINA_TRUE);
    e_comp_screen->outputs = eina_list_append(e_comp_screen->outputs, output);
    e_comp_screen->num_outputs++;
 
