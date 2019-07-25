@@ -1688,6 +1688,8 @@ _e_vis_ec_above_visible_type(E_Client *ec, Eina_Bool check_child)
                {
                   if (above->visibility.opaque > 0)
                     above_vis_type = E_POL_VIS_TYPE_ALPHA_OPAQUE;
+
+                  continue;
                }
           }
         else
