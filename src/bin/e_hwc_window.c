@@ -15,10 +15,10 @@
    do                                                               \
      {                                                              \
         if ((!ec) && (!ehw))                                        \
-          ERR("EWL|%20.20s|              |             |%8s|"f,     \
+          ERR("EWL|%20.20s|            |             |%8s|"f,       \
               "HWC-WIN", (e_hwc_output_id_get(hwc)), ##x);          \
         else                                                        \
-          ERR("EWL|%20.20s|win:0x%08zx|ec:%8p| ehw:%8p|%8s| "f,     \
+          ERR("EWL|%20.20s|w:0x%08zx|ec:%8p| ehw:%8p|%8s|"f,        \
               "HWC-WIN",                                            \
               (e_client_util_win_get(ec)),                          \
               (ec),                                                 \
@@ -31,10 +31,10 @@
    do                                                               \
      {                                                              \
         if ((!ec) && (!ehw))                                        \
-          INF("EWL|%20.20s|              |             |%8s|"f,     \
+          INF("EWL|%20.20s|            |             |%8s|"f,       \
               "HWC-WIN", (e_hwc_output_id_get(hwc)), ##x);          \
         else                                                        \
-          INF("EWL|%20.20s|win:0x%08zx|ec:%8p| ehw:%8p|%8s| "f,     \
+          INF("EWL|%20.20s|w:0x%08zx|ec:%8p| ehw:%8p|%8s|"f,        \
               "HWC-WIN",                                            \
               (e_client_util_win_get(ec)),                          \
               (ec),                                                 \
@@ -49,10 +49,10 @@
         if (ehw_trace)                                              \
           {                                                         \
             if ((!ec) && (!ehw))                                    \
-              INF("EWL|%20.20s|              |             |%8s|"f, \
+              INF("EWL|%20.20s|            |             |%8s|"f,   \
                   "HWC-WIN", (e_hwc_output_id_get(hwc)), ##x);      \
             else                                                    \
-              INF("EWL|%20.20s|win:0x%08zx|ec:%8p| ehw:%8p|%8s| "f, \
+              INF("EWL|%20.20s|w:0x%08zx|ec:%8p| ehw:%8p|%8s|"f,    \
                   "HWC-WIN",                                        \
                   (e_client_util_win_get(ec)),                      \
                   (ec),                                             \

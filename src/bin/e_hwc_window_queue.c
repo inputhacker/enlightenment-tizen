@@ -22,8 +22,8 @@
 #define EHWQERR(f, ec, hwc, ehwq, x...)                          \
    do                                                            \
      {                                                           \
-        ERR("EWL|%20.20s|              |             |%8s|"f,  \
-            "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);      \
+        ERR("EWL|%20.20s|            |             |%8s|"f,      \
+            "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);        \
      }                                                           \
    while (0)
 
@@ -31,10 +31,10 @@
    do                                                            \
      {                                                           \
         if ((!ec) && (!ehwq))                                    \
-          INF("EWL|%20.20s|              |             |%8s|"f,  \
+          INF("EWL|%20.20s|            |             |%8s|"f,    \
               "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);      \
         else                                                     \
-          INF("EWL|%20.20s|win:0x%08zx|ec:%8p| ehwq:%8p|%8s| "f, \
+          INF("EWL|%20.20s|w:0x%08zx|ec:%8p| ehwq:%8p|%8s|"f,    \
               "HWC-WINQ",                                        \
               (e_client_util_win_get(ec)),                       \
               (ec),                                              \
@@ -49,10 +49,10 @@
         if (ehwq_trace)                                               \
           {                                                           \
              if ((!ec) && (!ehwq))                                    \
-               INF("EWL|%20.20s|              |             |%8s|"f,  \
+               INF("EWL|%20.20s|            |             |%8s|"f,    \
                    "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);      \
              else                                                     \
-               INF("EWL|%20.20s|win:0x%08zx|ec:%8p| ehwq:%8p|%8s| "f, \
+               INF("EWL|%20.20s|w:0x%08zx|ec:%8p| ehwq:%8p|%8s|"f,    \
                    "HWC-WINQ",                                        \
                    (e_client_util_win_get(ec)),                       \
                    (ec),                                              \

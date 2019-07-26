@@ -5,36 +5,36 @@
 #include <wayland-tbm-server.h>
 #include <pixman.h>
 
-#define CAPINF(f, ec, str, obj, x...)                                  \
-   do                                                                  \
-     {                                                                 \
-        if ((!ec))                                                     \
-          INF("EWL|%20.20s|              |             |%10.10s|%8p|"f,\
-              "CAPTURE", (str), (obj), ##x);                           \
-        else                                                           \
-          INF("EWL|%20.20s|win:0x%08zx|ec:%8p|%10.10s|%p|"f,           \
-              "CAPTURE",                                               \
-              (e_client_util_win_get(ec)),                             \
-              (ec),                                                    \
-              (str), (obj),                                            \
-              ##x);                                                    \
-     }                                                                 \
+#define CAPINF(f, ec, str, obj, x...)                                \
+   do                                                                \
+     {                                                               \
+        if ((!ec))                                                   \
+          INF("EWL|%20.20s|            |             |%10.10s|%8p|"f,\
+              "CAPTURE", (str), (obj), ##x);                         \
+        else                                                         \
+          INF("EWL|%20.20s|w:0x%08zx|ec:%8p|%10.10s|%p|"f,           \
+              "CAPTURE",                                             \
+              (e_client_util_win_get(ec)),                           \
+              (ec),                                                  \
+              (str), (obj),                                          \
+              ##x);                                                  \
+     }                                                               \
    while (0)
 
-#define CAPDBG(f, ec, str, obj, x...)                                  \
-   do                                                                  \
-     {                                                                 \
-        if (!ec)                                                       \
-          DBG("EWL|%20.20s|              |             |%10.10s|%8p|"f,\
-              "CAPTURE", (str), (obj), ##x);                           \
-        else                                                           \
-          DBG("EWL|%20.20s|win:0x%08zx|ec:%8p|%10.10s|%p|"f,           \
-              "CAPTURE",                                               \
-              (e_client_util_win_get(ec)),                             \
-              (ec),                                                    \
-              (str), (obj),                                            \
-              ##x);                                                    \
-     }                                                                 \
+#define CAPDBG(f, ec, str, obj, x...)                                \
+   do                                                                \
+     {                                                               \
+        if (!ec)                                                     \
+          DBG("EWL|%20.20s|            |             |%10.10s|%8p|"f,\
+              "CAPTURE", (str), (obj), ##x);                         \
+        else                                                         \
+          DBG("EWL|%20.20s|w:0x%08zx|ec:%8p|%10.10s|%p|"f,           \
+              "CAPTURE",                                             \
+              (e_client_util_win_get(ec)),                           \
+              (ec),                                                  \
+              (str), (obj),                                          \
+              ##x);                                                  \
+     }                                                               \
    while (0)
 
 typedef struct _E_Capture_Client E_Capture_Client;

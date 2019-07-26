@@ -8,36 +8,36 @@
 
 #include <pixman.h>
 
-#define RSMINF(f, ec, str, obj, x...)                                  \
-   do                                                                  \
-     {                                                                 \
-        if (!ec)                                                       \
-          INF("EWL|%20.20s|              |             |%10.10s|%8p|"f,\
-              "RSM", (str), (obj), ##x);                               \
-        else                                                           \
-          INF("EWL|%20.20s|win:0x%08zx|ec:%8p|%10.10s|%8p|"f,          \
-              "RSM",                                                   \
-              (e_client_util_win_get(ec)),                             \
-              (ec),                                                    \
-              (str), (obj),                                            \
-              ##x);                                                    \
-     }                                                                 \
+#define RSMINF(f, ec, str, obj, x...)                                \
+   do                                                                \
+     {                                                               \
+        if (!ec)                                                     \
+          INF("EWL|%20.20s|            |             |%10.10s|%8p|"f,\
+              "RSM", (str), (obj), ##x);                             \
+        else                                                         \
+          INF("EWL|%20.20s|w:0x%08zx|ec:%8p|%10.10s|%8p|"f,          \
+              "RSM",                                                 \
+              (e_client_util_win_get(ec)),                           \
+              (ec),                                                  \
+              (str), (obj),                                          \
+              ##x);                                                  \
+     }                                                               \
    while (0)
 
-#define RSMDBG(f, ec, str, obj, x...)                                  \
-   do                                                                  \
-     {                                                                 \
-        if (!ec)                                                       \
-          DBG("EWL|%20.20s|              |             |%10.10s|%8p|"f,\
-              "RSM", (str), (obj), ##x);                               \
-        else                                                           \
-          DBG("EWL|%20.20s|win:0x%08zx|ec:%8p|%10.10s|%8p|"f,          \
-              "RSM",                                                   \
-              (e_client_util_win_get(ec)),                             \
-              (ec),                                                    \
-              (str), (obj),                                            \
-              ##x);                                                    \
-     }                                                                 \
+#define RSMDBG(f, ec, str, obj, x...)                                \
+   do                                                                \
+     {                                                               \
+        if (!ec)                                                     \
+          DBG("EWL|%20.20s|            |             |%10.10s|%8p|"f,\
+              "RSM", (str), (obj), ##x);                             \
+        else                                                         \
+          DBG("EWL|%20.20s|w:0x%08zx|ec:%8p|%10.10s|%8p|"f,          \
+              "RSM",                                                 \
+              (e_client_util_win_get(ec)),                           \
+              (ec),                                                  \
+              (str), (obj),                                          \
+              ##x);                                                  \
+     }                                                               \
    while (0)
 
 #define container_of(ptr, type, member) \

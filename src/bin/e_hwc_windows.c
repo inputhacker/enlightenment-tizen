@@ -10,11 +10,11 @@
 #define CLEAR(x) memset(&(x), 0, sizeof (x))
 #endif
 
-#define EHWSERR(f, hwc, x...)                                     \
+#define EHWSERR(f, hwc, x...)                                         \
    do                                                                 \
      {                                                                \
-        ERR("EWL|%20.20s|              |             |%8s|"f,       \
-            "HWC-WINS", (e_hwc_output_id_get(hwc)), ##x);           \
+        ERR("EWL|%20.20s|            |             |%8s|"f,           \
+            "HWC-WINS", (e_hwc_output_id_get(hwc)), ##x);             \
      }                                                                \
    while (0)
 
@@ -22,10 +22,10 @@
    do                                                                 \
      {                                                                \
         if (!ec)                                                      \
-          INF("EWL|%20.20s|              |             |%8s|"f,       \
+          INF("EWL|%20.20s|            |             |%8s|"f,         \
               "HWC-WINS", (e_hwc_output_id_get(hwc)), ##x);           \
         else                                                          \
-          INF("EWL|%20.20s|win:0x%08zx|ec:%8p|%8s|"f,                 \
+          INF("EWL|%20.20s|w:0x%08zx|ec:%8p|%8s|"f,                   \
               "HWC-WINS",                                             \
               (e_client_util_win_get(ec)),                            \
               (ec), (e_hwc_output_id_get(hwc)),                       \
@@ -39,10 +39,10 @@
         if (ehws_trace)                                               \
           {                                                           \
              if (!ec)                                                 \
-               INF("EWL|%20.20s|              |             |%8s|"f,  \
+               INF("EWL|%20.20s|            |             |%8s|"f,    \
                    "HWC-WINS", (e_hwc_output_id_get(hwc)), ##x);      \
              else                                                     \
-               INF("EWL|%20.20s|win:0x%08zx|ec:%8p|%8s|"f,            \
+               INF("EWL|%20.20s|w:0x%08zx|ec:%8p|%8s|"f,              \
                    "HWC-WINS",                                        \
                    (e_client_util_win_get(ec)),                       \
                    (ec), (e_hwc_output_id_get(hwc)),                  \
