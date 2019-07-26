@@ -4,7 +4,7 @@
 #define EHERR(f, hwc, x...)                                           \
    do                                                                 \
      {                                                                \
-        ERR("EWL|%20.20s|              |             |%8s|"f,         \
+        ERR("EWL|%20.20s|              |             |%9s|"f,         \
             "HWC", (e_hwc_output_id_get(hwc)), ##x);                  \
      }                                                                \
    while (0)
@@ -12,7 +12,7 @@
 #define EHINF(f, hwc, x...)                                           \
    do                                                                 \
      {                                                                \
-        INF("EWL|%20.20s|              |             |%8s|"f,         \
+        INF("EWL|%20.20s|              |             |%9s|"f,         \
             "HWC", (e_hwc_output_id_get(hwc)), ##x);                  \
      }                                                                \
    while (0)

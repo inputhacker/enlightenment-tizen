@@ -10,45 +10,45 @@
 #define CLEAR(x) memset(&(x), 0, sizeof (x))
 #endif
 
-#define EHWSERR(f, hwc, x...)                                         \
-   do                                                                 \
-     {                                                                \
-        ERR("EWL|%20.20s|            |             |%8s|"f,           \
-            "HWC-WINS", (e_hwc_output_id_get(hwc)), ##x);             \
-     }                                                                \
+#define EHWSERR(f, hwc, x...)                                     \
+   do                                                             \
+     {                                                            \
+        ERR("EWL|%20.20s|            |             |%9s|"f,       \
+            "HWC-WINS", (e_hwc_output_id_get(hwc)), ##x);         \
+     }                                                            \
    while (0)
 
-#define EHWSINF(f, ec, hwc, x...)                                     \
-   do                                                                 \
-     {                                                                \
-        if (!ec)                                                      \
-          INF("EWL|%20.20s|            |             |%8s|"f,         \
-              "HWC-WINS", (e_hwc_output_id_get(hwc)), ##x);           \
-        else                                                          \
-          INF("EWL|%20.20s|w:0x%08zx|ec:%8p|%8s|"f,                   \
-              "HWC-WINS",                                             \
-              (e_client_util_win_get(ec)),                            \
-              (ec), (e_hwc_output_id_get(hwc)),                       \
-              ##x);                                                   \
-     }                                                                \
+#define EHWSINF(f, ec, hwc, x...)                                 \
+   do                                                             \
+     {                                                            \
+        if (!ec)                                                  \
+          INF("EWL|%20.20s|            |             |%9s|"f,     \
+              "HWC-WINS", (e_hwc_output_id_get(hwc)), ##x);       \
+        else                                                      \
+          INF("EWL|%20.20s|w:0x%08zx|ec:%8p|%9s|"f,               \
+              "HWC-WINS",                                         \
+              (e_client_util_win_get(ec)),                        \
+              (ec), (e_hwc_output_id_get(hwc)),                   \
+              ##x);                                               \
+     }                                                            \
    while (0)
 
-#define EHWSTRACE(f, ec, hwc, x...)                                   \
-   do                                                                 \
-     {                                                                \
-        if (ehws_trace)                                               \
-          {                                                           \
-             if (!ec)                                                 \
-               INF("EWL|%20.20s|            |             |%8s|"f,    \
-                   "HWC-WINS", (e_hwc_output_id_get(hwc)), ##x);      \
-             else                                                     \
-               INF("EWL|%20.20s|w:0x%08zx|ec:%8p|%8s|"f,              \
-                   "HWC-WINS",                                        \
-                   (e_client_util_win_get(ec)),                       \
-                   (ec), (e_hwc_output_id_get(hwc)),                  \
-                   ##x);                                              \
-          }                                                           \
-     }                                                                \
+#define EHWSTRACE(f, ec, hwc, x...)                               \
+   do                                                             \
+     {                                                            \
+        if (ehws_trace)                                           \
+          {                                                       \
+             if (!ec)                                             \
+               INF("EWL|%20.20s|            |             |%9s|"f,\
+                   "HWC-WINS", (e_hwc_output_id_get(hwc)), ##x);  \
+             else                                                 \
+               INF("EWL|%20.20s|w:0x%08zx|ec:%8p|%9s|"f,          \
+                   "HWC-WINS",                                    \
+                   (e_client_util_win_get(ec)),                   \
+                   (ec), (e_hwc_output_id_get(hwc)),              \
+                   ##x);                                          \
+          }                                                       \
+     }                                                            \
    while (0)
 
 static Eina_Bool ehws_trace = EINA_FALSE;
@@ -546,7 +546,7 @@ _e_hwc_windows_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_
    /* tsurface has been released at the queue */
    if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
      {
-        EHWSTRACE("{%s} release ts:%p", NULL, NULL, "@TARGET WINDOW@", tsurface);
+        EHWSTRACE("{%s} release ts:%p", NULL, target_hwc_window->hwc, "@TARGET WINDOW@", tsurface);
 
         tbm_surface_internal_delete_user_data(tsurface, EHWS_RENDERED_BUFFERS_KEY);
 

@@ -19,47 +19,64 @@
     } \
   while (0)
 
-#define EHWQERR(f, ec, hwc, ehwq, x...)                          \
-   do                                                            \
-     {                                                           \
-        ERR("EWL|%20.20s|            |             |%8s|"f,      \
-            "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);        \
-     }                                                           \
+#define EHWQERR(f, ec, hwc, ehwq, x...)                                    \
+   do                                                                      \
+     {                                                                     \
+        if ((!ec) && (!ehwq))                                              \
+          INF("EWL|%20.20s|            |             |%9s|"f,              \
+              "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);                \
+        else if(!ec)                                                       \
+          INF("EWL|%20.20s|            |             |%9s|ehwq:%8p|"f,     \
+              "HWC-WINQ", (e_hwc_output_id_get(hwc)), ehwq, ##x);          \
+        else                                                               \
+          INF("EWL|%20.20s|w:0x%08zx|ec:%8p|%9s|ehwq:%8p|"f,               \
+              "HWC-WINQ",                                                  \
+              (e_client_util_win_get(ec)),                                 \
+              (ec),                                                        \
+              (e_hwc_output_id_get(hwc)), (ehwq),                          \
+              ##x);                                                        \
+     }                                                                     \
    while (0)
 
-#define EHWQINF(f, ec, hwc, ehwq, x...)                          \
-   do                                                            \
-     {                                                           \
-        if ((!ec) && (!ehwq))                                    \
-          INF("EWL|%20.20s|            |             |%8s|"f,    \
-              "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);      \
-        else                                                     \
-          INF("EWL|%20.20s|w:0x%08zx|ec:%8p| ehwq:%8p|%8s|"f,    \
-              "HWC-WINQ",                                        \
-              (e_client_util_win_get(ec)),                       \
-              (ec),                                              \
-              (ehwq), (e_hwc_output_id_get(hwc)),                \
-              ##x);                                              \
-     }                                                           \
+#define EHWQINF(f, ec, hwc, ehwq, x...)                                    \
+   do                                                                      \
+     {                                                                     \
+        if ((!ec) && (!ehwq))                                              \
+          INF("EWL|%20.20s|            |             |%9s|"f,              \
+              "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);                \
+        else if(!ec)                                                       \
+          INF("EWL|%20.20s|            |             |%9s|ehwq:%8p|"f,     \
+              "HWC-WINQ", (e_hwc_output_id_get(hwc)), ehwq, ##x);          \
+        else                                                               \
+          INF("EWL|%20.20s|w:0x%08zx|ec:%8p|%9s|ehwq:%8p|"f,               \
+              "HWC-WINQ",                                                  \
+              (e_client_util_win_get(ec)),                                 \
+              (ec),                                                        \
+              (e_hwc_output_id_get(hwc)), (ehwq),                          \
+              ##x);                                                        \
+     }                                                                     \
    while (0)
 
-#define EHWQTRACE(f, ec, hwc, ehwq, x...)                             \
-   do                                                                 \
-     {                                                                \
-        if (ehwq_trace)                                               \
-          {                                                           \
-             if ((!ec) && (!ehwq))                                    \
-               INF("EWL|%20.20s|            |             |%8s|"f,    \
-                   "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);      \
-             else                                                     \
-               INF("EWL|%20.20s|w:0x%08zx|ec:%8p| ehwq:%8p|%8s|"f,    \
-                   "HWC-WINQ",                                        \
-                   (e_client_util_win_get(ec)),                       \
-                   (ec),                                              \
-                   (ehwq), (e_hwc_output_id_get(hwc)),                \
-                   ##x);                                              \
-          }                                                           \
-     }                                                                \
+#define EHWQTRACE(f, ec, hwc, ehwq, x...)                                  \
+   do                                                                      \
+     {                                                                     \
+        if (ehwq_trace)                                                    \
+          {                                                                \
+             if ((!ec) && (!ehwq))                                         \
+               INF("EWL|%20.20s|            |             |%9s|"f,         \
+                   "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);           \
+             else if(!ec)                                                  \
+               INF("EWL|%20.20s|            |             |%9s|ehwq:%8p|"f,\
+                   "HWC-WINQ", (e_hwc_output_id_get(hwc)), ehwq, ##x);     \
+             else                                                          \
+               INF("EWL|%20.20s|w:0x%08zx|ec:%8p|%9s|ehwq:%8p|"f,          \
+                   "HWC-WINQ",                                             \
+                   (e_client_util_win_get(ec)),                            \
+                   (ec),                                                   \
+                   (e_hwc_output_id_get(hwc)), (ehwq),                     \
+                   ##x);                                                   \
+          }                                                                \
+     }                                                                     \
    while (0)
 
 static Eina_Bool ehwq_trace = EINA_FALSE;
