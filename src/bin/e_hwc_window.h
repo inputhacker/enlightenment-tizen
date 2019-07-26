@@ -133,6 +133,7 @@ struct _E_Hwc_Window
 
    Eina_Bool                      render_target;
    Eina_Bool                      need_redirect;
+   Eina_Bool                      on_rendered_target;
 };
 
 struct _E_Hwc_Window_Target

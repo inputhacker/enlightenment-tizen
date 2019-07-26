@@ -483,6 +483,132 @@ _e_hwc_windows_target_window_rendered_window_has(E_Hwc *hwc, E_Hwc_Window *hwc_w
    return EINA_FALSE;
 }
 
+static E_Client *
+_e_hwc_windows_client_get_from_object(Evas_Object *o)
+{
+   E_Client *ec = NULL;
+   Evas_Object *ob = NULL, *cob = NULL;
+   Eina_List *members = NULL;
+   Eina_List *l = NULL;
+   Eina_List *stack = NULL;
+
+   if (!o) return NULL;
+
+   stack = eina_list_append(stack, o);
+
+   while (1)
+     {
+        ob = eina_list_last_data_get(stack);
+        if (!ob) break;
+
+        ec = evas_object_data_get(ob, "E_Client");
+        if (ec) break;
+
+        if (evas_object_smart_data_get(ob))
+          {
+             members = evas_object_smart_members_get(ob);
+
+             EINA_LIST_FOREACH(members, l, cob)
+               stack = eina_list_append(stack, cob);
+
+             if (members)
+               eina_list_free(members);
+          }
+
+        stack = eina_list_remove(stack, ob);
+     }
+
+   eina_list_free(stack);
+
+   return ec;
+}
+
+static Eina_List *
+_e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
+{
+   Eina_List *windows_list = NULL;
+   E_Hwc_Window *hwc_window;
+   E_Client  *ec;
+   Evas_Object *o;
+   int scr_w, scr_h;
+   int x, y, w, h;
+   int ui_skip = EINA_FALSE;
+
+   for (o = evas_object_top_get(e_comp->evas); o; o = evas_object_below_get(o))
+     {
+        if (!evas_object_visible_get(o)) continue;
+
+        ec = _e_hwc_windows_client_get_from_object(o);
+
+        if (!ec) continue;
+        if (!ec->hwc_window) continue;
+
+        hwc_window = ec->hwc_window;
+
+        e_hwc_window_name_set(hwc_window);
+
+        // check clients to skip composite
+        if (e_client_util_ignored_get(ec))
+          {
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
+             continue;
+          }
+
+        // check clients to skip composite
+        if (!evas_object_visible_get(ec->frame))
+          {
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
+             continue;
+          }
+
+        // check geometry if located out of screen such as quick panel
+        e_client_geometry_get(ec, &x, &y, &w, &h);
+        ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &scr_w, &scr_h);
+        if (!E_INTERSECTS(0, 0, scr_w, scr_h, x, y, w, h))
+          {
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
+             continue;
+          }
+
+        if (evas_object_data_get(ec->frame, "comp_skip"))
+          {
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
+             continue;
+          }
+
+        /* skip all small clients except the video clients */
+        if ((ec->w == 1 || ec->h == 1) && !e_hwc_window_is_video(hwc_window))
+          {
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
+             continue;
+          }
+
+        if (e_hwc_window_is_video(hwc_window))
+          {
+            if (!e_client_video_tbm_surface_get(ec))
+              continue;
+
+            e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO, EINA_TRUE);
+          }
+        else
+          {
+             if (ui_skip) continue;
+          }
+
+        if (ec->is_cursor)
+          {
+             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CURSOR, EINA_TRUE);
+          }
+
+        windows_list = eina_list_append(windows_list, hwc_window);
+
+        if (!ec->argb && E_CONTAINS(x, y, w, h, 0, 0, scr_w, scr_h))
+          ui_skip = EINA_TRUE;
+     }
+
+   return windows_list;
+}
+
 static void
 _e_hwc_windows_rendered_buffers_free(void *data)
 {
@@ -660,6 +786,7 @@ _e_hwc_windows_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSE
    E_Comp_Wl_Buffer *buffer = NULL;
    Eina_List *rendered_buffers = NULL;
    Eina_List *rendered_windows = NULL;
+   Eina_List *visible_windows = NULL;
    Eina_List *l;
 
    EHWSTRACE("{%s} gets render_flush_post noti.", NULL, target_hwc_window->hwc, "@TARGET WINDOW@");
@@ -671,11 +798,23 @@ _e_hwc_windows_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSE
         if (eina_list_count(target_hwc_window->rendered_windows))
           {
              EINA_LIST_FREE(target_hwc_window->rendered_windows, hwc_window)
-               e_object_unref(E_OBJECT(hwc_window));
+               {
+                  hwc_window->on_rendered_target = EINA_FALSE;
+                  e_object_unref(E_OBJECT(hwc_window));
+               }
           }
 
         target_hwc_window->rendered_windows = NULL;
         return;
+     }
+
+   visible_windows = _e_hwc_windows_visible_windows_list_get(target_hwc_window->hwc);
+   EINA_LIST_FREE(visible_windows, hwc_window)
+     {
+        if ((!hwc_window->is_video) &&
+            (hwc_window->render_target) &&
+            (!hwc_window->on_rendered_target))
+          e_hwc_windows_rendered_window_add(hwc_window);
      }
 
    /* all ecs have been composited so we can attach a list of composited e_hwc_windows to the surface
@@ -685,6 +824,8 @@ _e_hwc_windows_target_window_render_flush_post_cb(void *data, Evas *e EINA_UNUSE
    EINA_LIST_FOREACH(rendered_windows, l, hwc_window)
      {
         E_Client *ec = NULL;
+
+        hwc_window->on_rendered_target = EINA_FALSE;
 
         ec = hwc_window->ec;
         if (!ec) continue;
@@ -1659,132 +1800,6 @@ error:
    return EINA_FALSE;
 }
 
-static E_Client *
-_e_hwc_windows_client_get_from_object(Evas_Object *o)
-{
-   E_Client *ec = NULL;
-   Evas_Object *ob = NULL, *cob = NULL;
-   Eina_List *members = NULL;
-   Eina_List *l = NULL;
-   Eina_List *stack = NULL;
-
-   if (!o) return NULL;
-
-   stack = eina_list_append(stack, o);
-
-   while (1)
-     {
-        ob = eina_list_last_data_get(stack);
-        if (!ob) break;
-
-        ec = evas_object_data_get(ob, "E_Client");
-        if (ec) break;
-
-        if (evas_object_smart_data_get(ob))
-          {
-             members = evas_object_smart_members_get(ob);
-
-             EINA_LIST_FOREACH(members, l, cob)
-               stack = eina_list_append(stack, cob);
-
-             if (members)
-               eina_list_free(members);
-          }
-
-        stack = eina_list_remove(stack, ob);
-     }
-
-   eina_list_free(stack);
-
-   return ec;
-}
-
-static Eina_List *
-_e_hwc_windows_visible_windows_list_get(E_Hwc *hwc)
-{
-   Eina_List *windows_list = NULL;
-   E_Hwc_Window *hwc_window;
-   E_Client  *ec;
-   Evas_Object *o;
-   int scr_w, scr_h;
-   int x, y, w, h;
-   int ui_skip = EINA_FALSE;
-
-   for (o = evas_object_top_get(hwc->evas); o; o = evas_object_below_get(o))
-     {
-        if (!evas_object_visible_get(o)) continue;
-
-        ec = _e_hwc_windows_client_get_from_object(o);
-
-        if (!ec) continue;
-        if (!ec->hwc_window) continue;
-
-        hwc_window = ec->hwc_window;
-
-        e_hwc_window_name_set(hwc_window);
-
-        // check clients to skip composite
-        if (e_client_util_ignored_get(ec))
-          {
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
-             continue;
-          }
-
-        // check clients to skip composite
-        if (!evas_object_visible_get(ec->frame))
-          {
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
-             continue;
-          }
-
-        // check geometry if located out of screen such as quick panel
-        e_client_geometry_get(ec, &x, &y, &w, &h);
-        ecore_evas_geometry_get(e_comp->ee, NULL, NULL, &scr_w, &scr_h);
-        if (!E_INTERSECTS(0, 0, scr_w, scr_h, x, y, w, h))
-          {
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
-             continue;
-          }
-
-        if (evas_object_data_get(ec->frame, "comp_skip"))
-          {
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
-             continue;
-          }
-
-        /* skip all small clients except the video clients */
-        if ((ec->w == 1 || ec->h == 1) && !e_hwc_window_is_video(hwc_window))
-          {
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_NONE, EINA_TRUE);
-             continue;
-          }
-
-        if (e_hwc_window_is_video(hwc_window))
-          {
-            if (!e_client_video_tbm_surface_get(ec))
-              continue;
-
-            e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_VIDEO, EINA_TRUE);
-          }
-        else
-          {
-             if (ui_skip) continue;
-          }
-
-        if (ec->is_cursor)
-          {
-             e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CURSOR, EINA_TRUE);
-          }
-
-        windows_list = eina_list_append(windows_list, hwc_window);
-
-        if (!ec->argb && E_CONTAINS(x, y, w, h, 0, 0, scr_w, scr_h))
-          ui_skip = EINA_TRUE;
-     }
-
-   return windows_list;
-}
-
 static Eina_Bool
 _e_hwc_windows_device_states_available_check(E_Hwc *hwc)
 {
@@ -2550,6 +2565,8 @@ e_hwc_windows_rendered_window_add(E_Hwc_Window *hwc_window)
 
    EINA_SAFETY_ON_NULL_RETURN(hwc_window);
 
+   if (hwc_window->on_rendered_target) return;
+
    ec = hwc_window->ec;
    EINA_SAFETY_ON_NULL_RETURN(ec);
 
@@ -2561,6 +2578,8 @@ e_hwc_windows_rendered_window_add(E_Hwc_Window *hwc_window)
 
    target_hwc_window->rendered_windows =
            eina_list_append(target_hwc_window->rendered_windows, hwc_window);
+
+   hwc_window->on_rendered_target = EINA_TRUE;
 
    e_object_ref(E_OBJECT(hwc_window));
 
