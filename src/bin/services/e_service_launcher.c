@@ -1,4 +1,5 @@
 #include "e.h"
+#include "e_policy_wl.h"
 #include <tzsh_server.h>
 #include "services/e_service_launcher.h"
 
@@ -14,6 +15,7 @@ typedef enum
    LAUNCHER_STATE_LAUNCHING_WAIT_BUFFER,
    LAUNCHER_STATE_DONE,
    LAUNCHER_STATE_CANCELED,
+   LAUNCHER_STATE_WAIT_RESPONSE_FROM_CALLEE,
 } Launcher_State;
 
 struct _E_Service_Launcher
@@ -41,6 +43,8 @@ struct _E_Service_Launcher
    E_Object_Delfn                      *launched_delfn;  //del callback of launched_ec
 
    Ecore_Event_Handler                 *buff_attach;    //event handler for BUFFER_CHANGE
+
+   Eina_Bool                            with_swl;
 };
 
 struct _E_Service_Launcher_Handler
@@ -110,6 +114,8 @@ _launcher_state_to_str(Launcher_State state)
          return "LAUNCH_DONE";
       case LAUNCHER_STATE_CANCELED:
          return "LAUNCH_CANCELED";
+      case LAUNCHER_STATE_WAIT_RESPONSE_FROM_CALLEE:
+         return "WAIT_FOR_RESPONSE_FROM_CALLEE";
      }
    return "UNKNOWN";
 }
@@ -228,8 +234,9 @@ _launcher_stop_send(E_Service_Launcher *lc)
 
 static Eina_Bool
 _launcher_prepare_send(E_Service_Launcher *lc,
-                             E_Client *target_ec,
-                             int x, int y)
+                       E_Client *target_ec,
+                       int x, int y,
+                       const char *shared_widget_info)
 {
    uint32_t res_id = 0;
 
@@ -310,20 +317,115 @@ _launcher_prepare_send(E_Service_Launcher *lc,
      }
 
 
-   ELOGF("LAUNCHER_SRV", "Send PREPARE event(%d) direction:%s target(ec:%p type:%d res:%d path:%s pos(%d,%d))",
-         lc->ec, lc->serial, lc->direction?"BACKWARD":"FORWARD", target_ec, target_type, res_id, target_path?:"N/A", x, y);
+   ELOGF("LAUNCHER_SRV", "Send PREPARE event(%d) direction:%s target(ec:%p type:%d res:%d path:%s pos(%d,%d) widget:%s)",
+         lc->ec, lc->serial, lc->direction?"BACKWARD":"FORWARD", target_ec, target_type, res_id, target_path?:"N/A", x, y, shared_widget_info);
 
    tws_service_launcher_send_prepare(lc->res,
                                      target_type,
                                      &info_array,
                                      lc->direction,
-                                     x, y, lc->serial);
+                                     x, y,
+                                     shared_widget_info ? shared_widget_info : "None",
+                                     lc->serial);
 
    wl_array_release(&info_array);
    return EINA_TRUE;
 fail:
    wl_array_release(&info_array);
    return EINA_FALSE;
+}
+
+static Eina_Bool
+_launcher_prepare_shared_widget_forward_send(E_Service_Launcher *lc,
+                                             E_Client *target_ec)
+{
+   Eina_Bool sent = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(lc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(target_ec, EINA_FALSE);
+   if(e_object_is_del(E_OBJECT(target_ec))) return EINA_FALSE;
+
+   e_policy_animatable_lock(target_ec, E_POLICY_ANIMATABLE_CUSTOMIZED, 1);
+   e_comp_client_override_add(target_ec);
+
+   // grab uniconify job of target_ec
+   if (target_ec->iconic)
+     {
+        lc->target.vis_grab =
+          e_policy_visibility_client_filtered_grab_get
+            (target_ec,
+             (E_VIS_JOB_TYPE_UNICONIFY | E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY),
+             __func__);
+     }
+
+   _launcher_launched_ec_set(lc, NULL);
+   _launcher_target_ec_set(lc, target_ec);
+
+   sent = e_tzsh_shared_widget_launch_prepare_send(target_ec,
+                                                   TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_HIDE);
+   if (!sent)
+     {
+        ELOGF("LAUNCHER_SRV", "Failed to send event(PREPARE:FORWARD)", lc->ec);
+        _launcher_post_forward(lc, EINA_FALSE);
+     }
+
+   return sent;
+}
+
+static Eina_Bool
+_launcher_prepare_shared_widget_backward_send(E_Service_Launcher *lc,
+                                              E_Client *activity,
+                                              E_Client *target_ec,
+                                              E_Vis_Job_Type job_type)
+{
+   int x, y;
+   Eina_Bool sent = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(lc, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(activity, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(target_ec, EINA_FALSE);
+
+   if (e_object_is_del(E_OBJECT(target_ec)))
+     {
+        // do nothing if ec is deleted and there's no delay_del_ref as well.
+        if (!e_object_delay_del_ref_get(E_OBJECT(target_ec)))
+          return EINA_FALSE;
+     }
+
+   e_object_delay_del_ref(E_OBJECT(target_ec));
+   lc->target.delay_del = EINA_TRUE;
+
+   e_policy_animatable_lock(target_ec, E_POLICY_ANIMATABLE_CUSTOMIZED, 1);
+   e_comp_client_override_add(target_ec);
+
+   if (activity == target_ec)
+     {
+        lc->vis_grab = e_policy_visibility_client_filtered_grab_get(lc->ec, job_type, __func__);
+        lc->target.vis_grab = e_policy_visibility_client_filtered_grab_get(target_ec, E_VIS_JOB_TYPE_ALL, __func__);
+     }
+   else
+     {
+        lc->target.vis_grab = e_policy_visibility_client_filtered_grab_get(target_ec, job_type, __func__);
+     }
+
+   _launcher_launched_ec_set(lc, NULL);
+   _launcher_target_ec_set(lc, target_ec);
+
+   lc->serial = wl_display_next_serial(e_comp_wl->wl.disp);
+   lc->direction = TWS_SERVICE_LAUNCHER_DIRECTION_BACKWARD;
+   e_client_pos_get(target_ec, &x, &y);
+
+   sent = e_tzsh_shared_widget_launch_prepare_send(target_ec,
+                                                   TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_HIDE);
+
+   // fail to send protocol event
+   if (!sent)
+     {
+        ELOGF("LAUNCHER_SRV", "Failed to send event(PREPARE:BACKWARD)", lc->ec);
+        _launcher_post_backward(lc, EINA_FALSE);
+     }
+
+   return sent;
 }
 
 static Eina_Bool
@@ -355,7 +457,7 @@ _launcher_prepare_forward_send(E_Service_Launcher *lc,
    lc->serial = wl_display_next_serial(e_comp_wl->wl.disp);
    e_client_pos_get(target_ec, &x, &y);
 
-   sent = _launcher_prepare_send(lc, target_ec, x, y);
+   sent = _launcher_prepare_send(lc, target_ec, x, y, NULL);
 
    //fail to send protocol event
    if (!sent)
@@ -410,7 +512,7 @@ _launcher_prepare_backward_send(E_Service_Launcher *lc,
    lc->direction = TWS_SERVICE_LAUNCHER_DIRECTION_BACKWARD;
    e_client_pos_get(target_ec, &x, &y);
 
-   sent = _launcher_prepare_send(lc, target_ec, x, y);
+   sent = _launcher_prepare_send(lc, target_ec, x, y, NULL);
 
    //fail to send protocol event
    if (!sent)
@@ -687,6 +789,86 @@ send_stop:
 }
 
 static void
+_launcher_cb_launch_with_shared_widget(struct wl_client *client EINA_UNUSED,
+                                       struct wl_resource *res_tws_lc,
+                                       const char *app_id,
+                                       const char *instance_id,
+                                       int32_t pid)
+{
+   E_Service_Launcher *lc;
+   E_Service_Launcher *runner, *pre_runner;
+   E_Client *target_ec;
+   Eina_List *ecs, *l;
+   Eina_Bool sent = EINA_FALSE;
+
+   lc = wl_resource_get_user_data(res_tws_lc);
+   EINA_SAFETY_ON_NULL_RETURN(lc);
+   EINA_SAFETY_ON_NULL_RETURN(lc->ec);
+
+   ELOGF("LAUNCHER_SRV",
+         "Recieved request(launcher_launch_with_shared_widget) appid:%s instance id:%s pid:%d",
+         lc->ec, app_id?:"NONE", instance_id?:"NONE", pid);
+
+   EINA_SAFETY_ON_TRUE_GOTO(lc->ec->visibility.obscured == E_VISIBILITY_FULLY_OBSCURED, send_stop);
+   EINA_SAFETY_ON_TRUE_GOTO(pid < 0, send_stop);
+
+   // check current state of lc
+   runner = _launcher_handler_launcher_runner_get();
+   if (runner == lc)
+     {
+        ELOGF("LAUNCHER_SRV",
+              "Launcher(%s) requests LAUNCH again without cancel, ignore this.",
+              lc->ec, _launcher_state_to_str(lc->state));
+
+        tws_service_launcher_send_error(lc->res,
+                                        TWS_SERVICE_LAUNCHER_ERROR_WRONG_REQUEST,
+                                        lc->serial);
+        return;
+     }
+
+   pre_runner = _launcher_handler_launcher_pre_runner_get();
+   if (pre_runner == lc)
+     {
+        _launcher_handler_launcher_pre_runner_set(NULL);
+        _launcher_launched_ec_set(lc, NULL);
+     }
+
+   lc->with_swl = EINA_TRUE; /* set swl flag */
+   lc->target.pid = pid;
+
+   ecs = _launcher_clients_find_by_pid(pid);
+   EINA_LIST_FOREACH(ecs, l, target_ec)
+     {
+        if (e_object_is_del(E_OBJECT(target_ec))) continue;
+        if (e_client_util_ignored_get(target_ec)) continue;
+
+        ELOGF("LAUNCHER_SRV", "Found target_ec:%p", lc->ec, target_ec);
+
+        // send prepare_shared_widget event to callee
+        sent = _launcher_prepare_shared_widget_forward_send(lc, target_ec);
+        EINA_SAFETY_ON_FALSE_GOTO(sent, send_stop);
+
+        _launcher_state_set(lc, LAUNCHER_STATE_WAIT_RESPONSE_FROM_CALLEE);
+        break;
+     }
+   eina_list_free(ecs);
+
+   if (!lc->target.ec)
+     {
+        ELOGF("LAUNCHER_SRV", "Can't find target_ec, Start Monitoring", lc->ec);
+        _launcher_state_set(lc, LAUNCHER_STATE_MONITORING);
+     }
+
+   _launcher_handler_launcher_runner_set(lc);
+
+   return;
+
+send_stop:
+   ELOGF("LAUNCHER_SRV", "can't process request(launcher_launch)", lc->ec);
+   _launcher_stop_send(lc);
+}
+
+static void
 _launcher_cb_launching(struct wl_client *client EINA_UNUSED,
                              struct wl_resource *res_tws_lc,
                              uint32_t serial)
@@ -743,10 +925,25 @@ _launcher_cb_launch_done(struct wl_client *client EINA_UNUSED,
         return;
      }
 
+   if ((lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD) &&
+       (lc->with_swl))
+     {
+        e_tzsh_shared_widget_launch_prepare_send(lc->target.ec,
+                                                 TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_SHOW);
+        return;
+     }
+
    if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD)
-     _launcher_post_forward(lc, EINA_TRUE);
+     {
+        _launcher_post_forward(lc, EINA_TRUE);
+     }
    else if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_BACKWARD)
-     _launcher_post_backward(lc, EINA_TRUE);
+     {
+        if (lc->with_swl)
+          e_tzsh_shared_widget_launch_prepare_send(lc->target.ec,
+                                                   TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_SHOW);
+        _launcher_post_backward(lc, EINA_TRUE);
+     }
 
    _launcher_handler_launcher_runner_unset(lc);
    _launcher_handler_launcher_pre_runner_set(lc);
@@ -791,10 +988,38 @@ static const struct tws_service_launcher_interface _launcher_iface =
 {
    _launcher_cb_destroy,
    _launcher_cb_launch,
+   _launcher_cb_launch_with_shared_widget,
    _launcher_cb_launching,
    _launcher_cb_launch_done,
    _launcher_cb_launch_cancel,
 };
+
+static E_Client *
+_launcher_handler_rsm_provider_client_find(E_Client *rsm_consumer_ec)
+{
+   E_Client *prov_ec = NULL;
+   Eina_List *tzrs_provs, *l;
+
+   if (!rsm_consumer_ec->remote_surface.consumer) return NULL;
+
+   tzrs_provs = e_comp_wl_remote_surface_providers_get(rsm_consumer_ec);
+   if (!tzrs_provs) return NULL;
+
+   EINA_LIST_FOREACH(tzrs_provs, l, prov_ec)
+     {
+        /* check remote surface provider */
+        if (!prov_ec->remote_surface.provider) continue;
+        if (prov_ec->visible) continue;
+        if (evas_object_visible_get(prov_ec->frame)) continue;
+        if (prov_ec->comp_data->mapped) continue;
+
+        ELOGF("LAUNCHER_SRV", "Found prov_ec:%p", rsm_consumer_ec, prov_ec);
+        break;
+     }
+   eina_list_free(tzrs_provs);
+
+   return prov_ec;
+}
 
 static E_Service_Launcher *
 _launcher_handler_launcher_find(E_Client *ec)
@@ -945,9 +1170,20 @@ _launcher_handler_cb_hook_vis_uniconify_render_running(void *data EINA_UNUSED, E
 {
    E_Service_Launcher *lc = NULL;
    E_Service_Launcher *runner, *pre_runner = NULL;
-   E_Client *activity = NULL;
+   E_Client *activity = NULL, *prov_ec = NULL;
 
    lc = _launcher_handler_launcher_find(ec);
+   if (!lc)
+     {
+        prov_ec = _launcher_handler_rsm_provider_client_find(ec);
+        if (prov_ec)
+          {
+             /* find launcher handler again with provider ec */
+             lc = _launcher_handler_launcher_find(prov_ec);
+             /* set rsm provider ec pointer value to given ec (rsm consumer) */
+             ec = prov_ec;
+          }
+     }
    EINA_SAFETY_ON_NULL_RETURN_VAL(lc, EINA_TRUE);
 
    activity = e_policy_visibility_main_activity_get();
@@ -981,9 +1217,17 @@ _launcher_handler_cb_hook_vis_uniconify_render_running(void *data EINA_UNUSED, E
                   _launcher_handler_launcher_pre_runner_set(NULL);
                }
 
-             sent = _launcher_prepare_backward_send(lc, activity, activity,
-                                                          (E_VIS_JOB_TYPE_UNICONIFY |
-                                                           E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY));
+             if (lc->with_swl)
+               sent = _launcher_prepare_shared_widget_backward_send
+                 (lc, activity, activity,
+                  (E_VIS_JOB_TYPE_UNICONIFY |
+                   E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY));
+             else
+               sent = _launcher_prepare_backward_send
+                 (lc, activity, activity,
+                  (E_VIS_JOB_TYPE_UNICONIFY |
+                   E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY));
+
              if (!sent) return EINA_FALSE;
 
              _launcher_state_set(lc, LAUNCHER_STATE_PREPARING);
@@ -999,12 +1243,21 @@ _launcher_handler_cb_hook_vis_lower(void *data EINA_UNUSED, E_Client *ec)
 {
    E_Service_Launcher *lc = NULL;
    E_Service_Launcher *runner, *pre_runner;
-   E_Client *activity = NULL;
+   E_Client *activity = NULL, *prov_ec = NULL;
 
    activity = e_policy_visibility_main_activity_get();
    EINA_SAFETY_ON_NULL_RETURN_VAL(activity, EINA_FALSE);
 
    lc = _launcher_handler_launcher_find(activity);
+   if (!lc)
+     {
+        prov_ec = _launcher_handler_rsm_provider_client_find(activity);
+        if (prov_ec)
+          {
+             /* find launcher handler again with provider activity */
+             lc = _launcher_handler_launcher_find(prov_ec);
+          }
+     }
    EINA_SAFETY_ON_NULL_RETURN_VAL(lc, EINA_FALSE);
 
    if (ec->visibility.obscured != E_VISIBILITY_UNOBSCURED) return EINA_FALSE;
@@ -1030,7 +1283,11 @@ _launcher_handler_cb_hook_vis_lower(void *data EINA_UNUSED, E_Client *ec)
              _launcher_handler_launcher_pre_runner_set(NULL);
           }
 
-        sent = _launcher_prepare_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_LOWER);
+        if (lc->with_swl)
+          sent = _launcher_prepare_shared_widget_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_LOWER);
+        else
+          sent = _launcher_prepare_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_LOWER);
+
         if (!sent) return EINA_FALSE;
 
         _launcher_state_set(lc, LAUNCHER_STATE_PREPARING);
@@ -1045,12 +1302,21 @@ _launcher_handler_cb_hook_vis_hide(void *data EINA_UNUSED, E_Client *ec)
 {
    E_Service_Launcher *lc = NULL;
    E_Service_Launcher *runner, *pre_runner;
-   E_Client *activity = NULL;
+   E_Client *activity = NULL, *prov_ec = NULL;
 
    activity = e_policy_visibility_main_activity_get();
    EINA_SAFETY_ON_NULL_RETURN_VAL(activity, EINA_FALSE);
 
    lc = _launcher_handler_launcher_find(activity);
+   if (!lc)
+     {
+        prov_ec = _launcher_handler_rsm_provider_client_find(activity);
+        if (prov_ec)
+          {
+             /* find launcher handler again with provider ec */
+             lc = _launcher_handler_launcher_find(prov_ec);
+          }
+     }
    EINA_SAFETY_ON_NULL_RETURN_VAL(lc, EINA_FALSE);
 
    if (ec->visibility.obscured != E_VISIBILITY_UNOBSCURED) return EINA_FALSE;
@@ -1076,7 +1342,10 @@ _launcher_handler_cb_hook_vis_hide(void *data EINA_UNUSED, E_Client *ec)
              _launcher_handler_launcher_pre_runner_set(NULL);
           }
 
-        sent = _launcher_prepare_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_HIDE);
+        if (lc->with_swl)
+          sent = _launcher_prepare_shared_widget_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_HIDE);
+        else
+          sent = _launcher_prepare_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_HIDE);
         if (!sent) return EINA_FALSE;
 
         _launcher_state_set(lc, LAUNCHER_STATE_PREPARING);
@@ -1124,6 +1393,7 @@ _launcher_handler_cb_hook_intercept_show_helper(void *data, E_Client *ec)
            goto show_deny;
          break;
       case LAUNCHER_STATE_PREPARING:              //waiting launcher client's preparation
+      case LAUNCHER_STATE_WAIT_RESPONSE_FROM_CALLEE:
          if (ec  == runner->target.ec) goto show_deny;
          break;
       case LAUNCHER_STATE_LAUNCHING:              //doing animation
@@ -1134,10 +1404,20 @@ _launcher_handler_cb_hook_intercept_show_helper(void *data, E_Client *ec)
          if (ec->netwm.pid != runner->target.pid) goto show_allow;
          if (e_object_is_del(E_OBJECT(ec))) goto show_allow;
 
-         sent = _launcher_prepare_forward_send(runner, ec);
-         EINA_SAFETY_ON_FALSE_GOTO(sent, send_stop);
+         if (runner->with_swl)
+           {
+              sent = _launcher_prepare_shared_widget_forward_send(runner, ec);
+              EINA_SAFETY_ON_FALSE_GOTO(sent, send_stop);
 
-         _launcher_state_set(runner, LAUNCHER_STATE_PREPARING);
+              _launcher_state_set(runner, LAUNCHER_STATE_WAIT_RESPONSE_FROM_CALLEE);
+           }
+         else
+           {
+              sent = _launcher_prepare_forward_send(runner, ec);
+              EINA_SAFETY_ON_FALSE_GOTO(sent, send_stop);
+
+              _launcher_state_set(runner, LAUNCHER_STATE_PREPARING);
+           }
          goto show_deny;
       default:
          goto show_allow;
@@ -1387,4 +1667,59 @@ e_service_launcher_client_unset(E_Client *ec)
         _launcher_handler_destroy(_laundler);
         _laundler = NULL;
      }
+}
+
+EINTERN void
+e_service_launcher_prepare_send_with_shared_widget_info(E_Client *target_ec,
+                                                        const char *shared_widget_info,
+                                                        uint32_t state)
+{
+   E_Service_Launcher *lc = NULL;
+   Eina_Bool sent;
+   int x, y;
+   Eina_Iterator *hash_iter;
+   Eina_Bool found = EINA_FALSE;
+
+   /* look for launcher service object which has given target_ec */
+   hash_iter = eina_hash_iterator_data_new(_laundler->launcher_hash);
+   EINA_ITERATOR_FOREACH(hash_iter, lc)
+     {
+        if (lc->target.ec != target_ec) continue;
+        found = EINA_TRUE;
+        break;
+     }
+   eina_iterator_free(hash_iter);
+
+   EINA_SAFETY_ON_FALSE_RETURN(found);
+   EINA_SAFETY_ON_NULL_RETURN(lc);
+
+   if (state == TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_HIDE)
+     {
+        e_client_pos_get(target_ec, &x, &y);
+
+        sent = _launcher_prepare_send(lc, target_ec, x, y, shared_widget_info);
+        EINA_SAFETY_ON_FALSE_GOTO(sent, error);
+
+        _launcher_state_set(lc, LAUNCHER_STATE_PREPARING);
+     }
+   else if (state == TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_SHOW)
+     {
+        if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD)
+          _launcher_post_forward(lc, EINA_TRUE);
+        else if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_BACKWARD)
+          _launcher_post_backward(lc, EINA_TRUE);
+
+        _launcher_handler_launcher_runner_unset(lc);
+        _launcher_handler_launcher_pre_runner_set(lc);
+        _launcher_state_set(lc, LAUNCHER_STATE_DONE);
+
+        tws_service_launcher_send_cleanup(lc->res,
+                                          lc->serial);
+     }
+
+   return;
+
+error:
+   ELOGF("LAUNCHER_SRV", "Failed to send event(PREPARE:FORWARD)", lc->ec);
+   _launcher_post_forward(lc, EINA_FALSE);
 }

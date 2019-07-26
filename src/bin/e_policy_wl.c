@@ -5586,6 +5586,165 @@ _tzsh_iface_cb_softkey_get(struct wl_client *client, struct wl_resource *res_tzs
                                   _tzsh_cb_softkey_destroy);
 }
 
+// --------------------------------------------------------
+// tizen_ws_shell_interface::shared_widget_launch
+// --------------------------------------------------------
+EINTERN Eina_Bool
+e_tzsh_shared_widget_launch_prepare_send(E_Client *callee_ec,
+                                         uint32_t state)
+{
+   E_Policy_Wl_Tzsh_Client *tzsh_client;
+   Eina_List *l;
+   Eina_Bool res = EINA_FALSE;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(callee_ec, EINA_FALSE);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(e_object_is_del(E_OBJECT(callee_ec)), EINA_FALSE);
+
+   EINA_LIST_FOREACH(polwl->tzsh_clients, l, tzsh_client)
+     {
+        if (!tzsh_client->tzsh) continue;
+        if (!tzsh_client->tzsh->ec) continue;
+        if (tzsh_client->tzsh->ec != callee_ec) continue;
+
+        tws_shared_widget_launch_send_prepare_shared_widget(tzsh_client->res_tzsh_client,
+                                                            state);
+
+        res = EINA_TRUE;
+        break;
+     }
+
+   return res;
+}
+
+static void
+_tzsh_swl_iface_cb_release(struct wl_client *client,
+                           struct wl_resource *res_tzsh_swl)
+{
+   wl_resource_destroy(res_tzsh_swl);
+}
+
+static void
+_tzsh_swl_iface_cb_prepare_shared_widget_done(struct wl_client *client,
+                                              struct wl_resource *res_tzsh_swl,
+                                              const char *shared_widget_info,
+                                              uint32_t state)
+{
+   E_Policy_Wl_Tzsh_Client *tzsh_client;
+
+   ELOGF("TZSH_SWL", "Done", NULL);
+
+   tzsh_client = wl_resource_get_user_data(res_tzsh_swl);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client->tzsh->ec);
+   EINA_SAFETY_ON_NULL_RETURN(eina_list_data_find(polwl->tzsh_clients, tzsh_client));
+
+   // send prepare event to caller
+   e_service_launcher_prepare_send_with_shared_widget_info(tzsh_client->tzsh->ec,
+                                                           shared_widget_info,
+                                                           state);
+}
+
+static const struct tws_shared_widget_launch_interface _tzsh_swl_iface =
+{
+   _tzsh_swl_iface_cb_release,
+   _tzsh_swl_iface_cb_prepare_shared_widget_done,
+};
+
+static void
+_tzsh_cb_swl_destroy(struct wl_resource *res_tzsh_swl)
+{
+   E_Policy_Wl_Tzsh_Client *tzsh_client;
+
+   tzsh_client = wl_resource_get_user_data(res_tzsh_swl);
+   EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
+
+   _e_policy_wl_tzsh_client_del(tzsh_client);
+}
+
+static void
+_tzsh_iface_cb_shared_widget_launch_get(struct wl_client *client,
+                                        struct wl_resource *res_tzsh,
+                                        uint32_t id,
+                                        uint32_t surf_id)
+{
+   E_Policy_Wl_Tzsh *tzsh;
+   E_Policy_Wl_Tzsh_Client *tzsh_client;
+   struct wl_resource *res_tzsh_swl;
+   E_Client *ec;
+   E_Pixmap *cp;
+   pid_t pid;
+   uid_t uid;
+
+   tzsh = wl_resource_get_user_data(res_tzsh);
+   if (!tzsh)
+     {
+        wl_resource_post_error
+           (res_tzsh,
+            WL_DISPLAY_ERROR_INVALID_OBJECT,
+            "Invalid res_tzsh's user data");
+        return;
+     }
+
+   wl_client_get_credentials(client, &pid, &uid, NULL);
+   if (!e_security_privilege_check(pid, uid, E_PRIVILEGE_SOFTKEY))
+     {
+        ERR("Could not get privilege of resource: %m");
+        tizen_ws_shell_send_error(tzsh->res_tzsh, TIZEN_WS_SHELL_ERROR_PERMISSION_DENIED);
+        return;
+     }
+   else
+     tizen_ws_shell_send_error(tzsh->res_tzsh, TIZEN_WS_SHELL_ERROR_NONE);
+
+   cp = _e_policy_wl_e_pixmap_get_from_id(client, surf_id);
+   if (!cp)
+     {
+        wl_resource_post_error
+           (res_tzsh,
+            WL_DISPLAY_ERROR_INVALID_OBJECT,
+            "Invalid surface id");
+        return;
+     }
+
+   ec = e_pixmap_client_get(cp);
+   if (ec)
+     {
+        if (!_e_policy_wl_e_client_is_valid(ec))
+          {
+             wl_resource_post_error
+                (res_tzsh,
+                 WL_DISPLAY_ERROR_INVALID_OBJECT,
+                 "Invalid surface id");
+             return;
+          }
+     }
+
+   res_tzsh_swl = wl_resource_create(client,
+                                     &tws_shared_widget_launch_interface,
+                                     wl_resource_get_version(res_tzsh),
+                                     id);
+   if (!res_tzsh_swl)
+     {
+        ERR("Could not create tws_shared_widget_launch resource: %m");
+        wl_client_post_no_memory(client);
+        return;
+     }
+
+   _e_policy_wl_tzsh_data_set(tzsh, TZSH_TYPE_CLIENT, cp, ec);
+
+   tzsh_client = _e_policy_wl_tzsh_client_add(tzsh, res_tzsh_swl);
+   if (!tzsh_client)
+     {
+        ERR("Could not create tzsh_client");
+        wl_client_post_no_memory(client);
+        return;
+     }
+
+   wl_resource_set_implementation(res_tzsh_swl,
+                                  &_tzsh_swl_iface,
+                                  tzsh_client,
+                                  _tzsh_cb_swl_destroy);
+}
 
 // --------------------------------------------------------
 // tizen_ws_shell_interface
@@ -5605,6 +5764,7 @@ static const struct tizen_ws_shell_interface _tzsh_iface =
    _tzsh_iface_cb_tvsrv_get,
    _tzsh_iface_cb_extension_get,
    _tzsh_iface_cb_softkey_get,
+   _tzsh_iface_cb_shared_widget_launch_get,
 };
 
 static void
