@@ -1759,6 +1759,7 @@ e_hwc_window_client_type_override(E_Hwc_Window *hwc_window)
 
    e_hwc_window_device_state_available_update(hwc_window);
    e_hwc_window_state_set(hwc_window, E_HWC_WINDOW_STATE_CLIENT, EINA_TRUE);
+   _e_hwc_window_constraints_reset(hwc_window);
    e_hwc_window_rendered_window_update(hwc_window);
 
    EHWTRACE("set client override", hwc_window->ec, hwc_window->hwc, hwc_window);
