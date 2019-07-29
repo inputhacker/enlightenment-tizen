@@ -269,7 +269,7 @@ _e_hwc_window_queue_tqueue_acquire(E_Hwc_Window *hwc_window)
    if (!tqueue)
      {
         EHWQERR("fail to tdm_hwc_window_get_buffer_queue hwc_win:%p tdm_error:%d",
-            hwc_window->ec, hwc_window->queue->hwc, hwc_window->queue, hwc_window, error);
+            hwc_window->ec, hwc_window->hwc, hwc_window->queue, hwc_window, error);
         return NULL;
      }
 
