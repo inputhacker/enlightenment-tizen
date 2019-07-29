@@ -190,41 +190,7 @@ _e_video_hwc_input_buffer_cb_free(E_Comp_Wl_Video_Buf *vbuf, void *data)
 }
 
 static E_Comp_Wl_Video_Buf *
-_e_video_hwc_input_buffer_create(E_Comp_Wl_Buffer *comp_buffer, int preferred_align, Eina_Bool scanout)
-{
-   E_Comp_Wl_Video_Buf *vbuf, *temp;
-   int aligned_width;
-   Eina_Bool input_buffer_scanout;
-
-   vbuf = e_comp_wl_video_buffer_create_comp(comp_buffer);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(vbuf, NULL);
-
-   input_buffer_scanout = _e_video_hwc_video_buffer_scanout_check(vbuf);
-   if (((preferred_align != -1) && (vbuf->width_from_pitch % preferred_align != 0)) ||
-       ((scanout) && (!input_buffer_scanout)))
-     {
-        if ((preferred_align != -1) && (vbuf->width_from_pitch % preferred_align != 0))
-          aligned_width = ROUNDUP(vbuf->width_from_pitch, preferred_align);
-        else
-          aligned_width = vbuf->width;
-
-        temp = _e_video_hwc_buffer_copy(vbuf, aligned_width,
-                                        (input_buffer_scanout || scanout));
-        e_comp_wl_video_buffer_unref(vbuf);
-
-        if (!temp)
-          return NULL;
-
-        vbuf = temp;
-     }
-
-   DBG("Buffer(%p) created, refcnt:%d scanout:%d", vbuf, vbuf->ref_cnt, scanout);
-
-   return vbuf;
-}
-
-static E_Comp_Wl_Video_Buf *
-_e_video_hwc_input_buffer_get(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer, int preferred_align, Eina_Bool scanout)
+_e_video_hwc_input_buffer_get(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer)
 {
    E_Comp_Wl_Video_Buf *vbuf;
 
@@ -232,12 +198,14 @@ _e_video_hwc_input_buffer_get(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer, i
    if (vbuf)
      goto end;
 
-   vbuf = _e_video_hwc_input_buffer_create(comp_buffer, preferred_align, scanout);
+   vbuf = e_comp_wl_video_buffer_create_comp(comp_buffer);
    if (!vbuf)
      {
-        VER("failed '_e_video_hwc_input_buffer_create()'", evh->ec);
+        VER("failed 'e_comp_wl_video_buffer_create_comp()'", evh->ec);
         return NULL;
      }
+
+   DBG("Buffer(%p) created, refcnt:%d", vbuf, vbuf->ref_cnt);
 
    evh->input_buffer_list = eina_list_append(evh->input_buffer_list, vbuf);
    e_comp_wl_video_buffer_free_func_add(vbuf, _e_video_hwc_input_buffer_cb_free, evh);
@@ -365,6 +333,57 @@ err:
        input_rect->w, input_rect->h, output_rect->w, output_rect->h);
 
    return EINA_FALSE;
+}
+
+static E_Comp_Wl_Video_Buf *
+_e_video_hwc_pp_input_buffer_get(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer)
+{
+   E_Comp_Wl_Video_Buf *vbuf, *temp;
+   Eina_Bool input_buffer_scanout;
+   int aligned_width;
+
+   vbuf = _e_video_hwc_vbuf_find_with_comp_buffer(evh->input_buffer_list, comp_buffer);
+   if (vbuf)
+     goto end;
+
+   vbuf = e_comp_wl_video_buffer_create_comp(comp_buffer);
+   if (!vbuf)
+     {
+        VER("failed to create video buffer", evh->ec);
+        return NULL;
+     }
+
+   input_buffer_scanout = _e_video_hwc_video_buffer_scanout_check(vbuf);
+   if (((evh->pp->align != -1) && (vbuf->width_from_pitch % evh->pp->align != 0)) ||
+       ((evh->pp->scanout) && (!input_buffer_scanout)))
+     {
+        if ((evh->pp->align != -1) && (vbuf->width_from_pitch % evh->pp->align != 0))
+          aligned_width = ROUNDUP(vbuf->width_from_pitch, evh->pp->align);
+        else
+          aligned_width = vbuf->width;
+
+        temp = _e_video_hwc_buffer_copy(vbuf, aligned_width,
+                                        (input_buffer_scanout || evh->pp->scanout));
+        e_comp_wl_video_buffer_unref(vbuf);
+
+        if (!temp)
+          return NULL;
+
+        vbuf = temp;
+     }
+
+   DBG("Buffer(%p) created, refcnt:%d scanout:%d",
+       vbuf, vbuf->ref_cnt, (evh->pp->scanout || input_buffer_scanout));
+
+   evh->input_buffer_list = eina_list_append(evh->input_buffer_list, vbuf);
+   e_comp_wl_video_buffer_free_func_add(vbuf, _e_video_hwc_input_buffer_cb_free, evh);
+
+   DBG("Client(%s):PID(%d) RscID(%d), Buffer(%p) created",
+       e_client_util_name_get(evh->ec) ?: "No Name" , evh->ec->netwm.pid,
+       wl_resource_get_id(evh->ec->comp_data->surface), vbuf);
+end:
+   vbuf->content_r = evh->geo.input_r;
+   return vbuf;
 }
 
 static void
@@ -536,8 +555,7 @@ _e_video_hwc_pp_render(E_Video_Hwc *evh, E_Comp_Wl_Buffer *comp_buffer)
    if (!res)
      return res;
 
-   input_buffer = _e_video_hwc_input_buffer_get(evh, comp_buffer,
-                                                evh->pp->align, evh->pp->scanout);
+   input_buffer = _e_video_hwc_pp_input_buffer_get(evh, comp_buffer);
    if (!input_buffer)
      return EINA_FALSE;
 
@@ -1377,8 +1395,7 @@ _e_video_hwc_render(E_Video_Hwc *evh, const char *func)
    if (!evh->backend.check_if_pp_needed(evh))
      {
         /* 1. non converting case */
-        input_buffer = _e_video_hwc_input_buffer_get(evh, comp_buffer,
-                                                     evh->output_align, EINA_TRUE);
+        input_buffer = _e_video_hwc_input_buffer_get(evh, comp_buffer);
         if (!input_buffer)
           return;
 
