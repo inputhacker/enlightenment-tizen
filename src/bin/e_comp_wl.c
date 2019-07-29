@@ -48,7 +48,6 @@ typedef struct _E_Comp_Wl_Key_Data
 
 static Eina_List *handlers = NULL;
 static E_Client *cursor_timer_ec = NULL;
-static Eina_Bool need_send_leave = EINA_TRUE;
 static Eina_Bool need_send_released = EINA_FALSE;
 static Eina_Bool need_send_motion = EINA_TRUE;
 
@@ -1217,28 +1216,6 @@ _e_comp_wl_evas_handle_mouse_button_to_touch(E_Client *ec, uint32_t timestamp, i
 }
 
 static void
-_e_comp_wl_send_mouse_out(E_Client *ec)
-{
-   struct wl_resource *res;
-   struct wl_client *wc;
-   uint32_t serial;
-   Eina_List *l;
-
-   if (!ec) return;
-   if (e_object_is_del(E_OBJECT(ec))) return;
-   if (!ec->comp_data || !ec->comp_data->surface) return;
-
-   wc = wl_resource_get_client(ec->comp_data->surface);
-   serial = wl_display_next_serial(e_comp_wl->wl.disp);
-   EINA_LIST_FOREACH(e_comp_wl->ptr.resources, l, res)
-     {
-        if (!e_comp_wl_input_pointer_check(res)) continue;
-        if (wl_resource_get_client(res) != wc) continue;
-        wl_pointer_send_leave(res, serial, ec->comp_data->surface);
-     }
-}
-
-static void
 _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *obj EINA_UNUSED, void *event)
 {
    E_Client *ec = data;
@@ -1293,16 +1270,8 @@ _e_comp_wl_evas_cb_mouse_down(void *data, Evas *evas EINA_UNUSED, Evas_Object *o
    focused = e_client_focused_get();
    if ((focused) && (ec != focused))
      {
-        if (need_send_leave)
-          {
-             need_send_leave = EINA_FALSE;
-             _e_comp_wl_device_send_event_device(focused, dev, ev->timestamp);
-             _e_comp_wl_send_mouse_out(focused);
-          }
         e_focus_event_mouse_down(ec);
      }
-   else
-     need_send_leave = EINA_TRUE;
 }
 
 static void
