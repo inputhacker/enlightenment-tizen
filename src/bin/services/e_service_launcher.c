@@ -1122,6 +1122,7 @@ _launcher_handler_cb_hook_intercept_show_helper(void *data, E_Client *ec)
       case LAUNCHER_STATE_LAUNCHING_WAIT_BUFFER:  //waiting buffer change
          if (ec == runner->ec)
            goto show_deny;
+         break;
       case LAUNCHER_STATE_PREPARING:              //waiting launcher client's preparation
          if (ec  == runner->target.ec) goto show_deny;
          break;
