@@ -3700,6 +3700,43 @@ _e_client_transform_core_boundary_update(E_Client *ec, E_Util_Transform_Rect_Ver
          ec->transform_core.result.boundary.h);
 }
 
+static Evas_Map *
+_e_client_transform_core_map_new(Evas_Object *obj,
+                                 E_Util_Transform_Rect_Vertex *vertices,
+                                 E_Util_Transform *transform)
+{
+   Evas_Map *map;
+   int i;
+   int x, y;
+   double u, v;
+
+   map = evas_map_new(4);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(map, NULL);
+
+   evas_map_util_points_populate_from_object_full(map, obj, 0);
+   evas_map_util_points_color_set(map, 255, 255, 255, 255);
+
+   for (i = 0 ; i < 4 ; ++i)
+     {
+        x = 0;
+        y = 0;
+
+        e_util_transform_vertices_pos_round_get(vertices, i, &x, &y, 0, 0);
+        evas_map_point_coord_set(map, i, x, y, 1.0);
+
+        if (transform && e_util_transform_texcoord_flag_get(transform))
+          {
+             u = 0.0;
+             v = 0.0;
+
+             e_util_transform_texcoord_get(transform, i, &u, &v);
+             evas_map_point_image_uv_set(map, i, u, v);
+          }
+     }
+
+   return map;
+}
+
 static void
 _e_client_transform_core_vertices_apply(E_Client *ec EINA_UNUSED,
                                         Evas_Object *obj,
@@ -3707,35 +3744,13 @@ _e_client_transform_core_vertices_apply(E_Client *ec EINA_UNUSED,
                                         E_Util_Transform *transform)
 {
    Evas_Map *map = NULL;
-   int i;
 
    if (!obj) return;
 
    if (vertices)
      {
-        map = evas_map_new(4);
+        map = _e_client_transform_core_map_new(obj, vertices, transform);
         EINA_SAFETY_ON_NULL_RETURN(map);
-
-        evas_map_util_points_populate_from_object_full(map, obj, 0);
-        evas_map_util_points_color_set(map, 255, 255, 255, 255);
-
-        for (i = 0 ; i < 4 ; ++i)
-          {
-             int x = 0;
-             int y = 0;
-
-             e_util_transform_vertices_pos_round_get(vertices, i, &x, &y, 0, 0);
-             evas_map_point_coord_set(map, i, x, y, 1.0);
-
-             if (transform && e_util_transform_texcoord_flag_get(transform))
-               {
-                  double u = 0.0;
-                  double v = 0.0;
-
-                  e_util_transform_texcoord_get(transform, i, &u, &v);
-                  evas_map_point_image_uv_set(map, i, u, v);
-               }
-          }
 
         evas_object_map_set(obj, map);
         evas_object_map_enable_set(obj, EINA_TRUE);
