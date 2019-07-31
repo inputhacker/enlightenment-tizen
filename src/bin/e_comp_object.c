@@ -460,6 +460,31 @@ _e_comp_object_transform_obj_stack_update(Evas_Object *obj)
      }
 }
 
+static Evas_Map *
+_e_comp_object_transform_obj_map_new(Evas_Object *obj, E_Util_Transform_Rect_Vertex *vertices)
+{
+   Evas_Map *map;
+   int i;
+   int x, y;
+
+   map = evas_map_new(4);
+   if (!map) return NULL;
+
+   evas_map_util_points_populate_from_object_full(map, obj, 0);
+   evas_map_util_points_color_set(map, 255, 255, 255, 255);
+
+   for (i = 0 ; i < 4 ; ++i)
+     {
+        x = 0;
+        y = 0;
+
+        e_util_transform_vertices_pos_round_get(vertices, i, &x, &y, 0, 0);
+        evas_map_point_coord_set(map, i, x, y, 1.0);
+     }
+
+   return map;
+}
+
 static void
 _e_comp_object_transform_obj_map_set(Evas_Object *obj, E_Util_Transform_Rect_Vertex *vertices)
 {
@@ -467,23 +492,9 @@ _e_comp_object_transform_obj_map_set(Evas_Object *obj, E_Util_Transform_Rect_Ver
 
    if (vertices)
      {
-        Evas_Map *map = evas_map_new(4);
-
+        Evas_Map *map = _e_comp_object_transform_obj_map_new(obj, vertices);
         if (map)
           {
-             int i;
-             evas_map_util_points_populate_from_object_full(map, obj, 0);
-             evas_map_util_points_color_set(map, 255, 255, 255, 255);
-
-             for (i = 0 ; i < 4 ; ++i)
-               {
-                  int x = 0;
-                  int y = 0;
-
-                  e_util_transform_vertices_pos_round_get(vertices, i, &x, &y, 0, 0);
-                  evas_map_point_coord_set(map, i, x, y, 1.0);
-               }
-
              evas_object_map_set(obj, map);
              evas_object_map_enable_set(obj, EINA_TRUE);
 
