@@ -2069,7 +2069,7 @@ _e_output_external_commit(E_Output *output)
 {
    E_Plane *plane = NULL;
 
-   if (output->external_set) return EINA_TRUE;
+   if (!output->external_set) return EINA_TRUE;
 
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
