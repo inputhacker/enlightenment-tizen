@@ -3738,6 +3738,34 @@ _e_client_transform_core_map_new(Evas_Object *obj,
 }
 
 static void
+_e_client_transform_core_vertices_apply_with_zoom(E_Client *ec EINA_UNUSED,
+                                        Evas_Object *obj,
+                                        E_Util_Transform_Rect_Vertex *vertices,
+                                        E_Util_Transform *transform,
+                                        double zoomx, double zoomy,
+                                        Evas_Coord cx, Evas_Coord cy)
+{
+   Evas_Map *map = NULL;
+
+   if (!obj) return;
+
+   if (vertices)
+     {
+        map = _e_client_transform_core_map_new(obj, vertices, transform);
+        EINA_SAFETY_ON_NULL_RETURN(map);
+
+        evas_map_util_zoom(map, zoomx, zoomy, cx, cy);
+
+        evas_object_map_set(obj, map);
+        evas_object_map_enable_set(obj, EINA_TRUE);
+
+        evas_map_free(map);
+     }
+   else
+     evas_object_map_enable_set(obj, EINA_FALSE);
+}
+
+static void
 _e_client_transform_core_vertices_apply(E_Client *ec EINA_UNUSED,
                                         Evas_Object *obj,
                                         E_Util_Transform_Rect_Vertex *vertices,
@@ -3781,6 +3809,20 @@ _e_client_transform_core_sub_update(E_Client *ec, E_Util_Transform_Rect_Vertex *
 
    EINA_LIST_FOREACH(cdata->sub.below_list, l, subc)
       e_client_transform_core_update(subc);
+}
+
+static void
+_e_client_transform_core_sub_update_with_zoom(E_Client *ec, E_Util_Transform_Rect_Vertex *vertices, double zoomx, double zoomy, Evas_Coord cx, Evas_Coord cy)
+{
+   E_Comp_Wl_Client_Data *cdata;
+
+   if (!ec) return;
+   if (!ec->comp_data) return;
+
+   cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
+
+   if (cdata->sub.below_obj)
+     _e_client_transform_core_vertices_apply_with_zoom(ec, cdata->sub.below_obj, vertices, NULL, zoomx, zoomy, cx, cy);
 }
 
 static void
@@ -7085,6 +7127,44 @@ e_client_transform_core_input_inv_rect_transform(E_Client *ec, int x, int y, int
                                                &ec->transform_core.result.vertices,
                                                ec->zone->w, ec->zone->h,
                                                x, y, out_x, out_y);
+}
+
+static void
+_e_client_transform_core_update_with_zoom(E_Client *ec, double zoomx, double zoomy, int cx, int cy)
+{
+   if (!ec) return;
+
+   e_comp_object_transform_transp_vertices_set_with_zoom(ec->frame, &ec->transform_core.result.vertices,
+                                                         zoomx, zoomy, cx, cy);
+   e_comp_object_transform_bg_vertices_set_with_zoom(ec->frame, &ec->transform_core.result.boundary.vertices,
+                                                     zoomx, zoomy, cx, cy);
+   _e_client_transform_core_vertices_apply_with_zoom(ec, ec->frame, &ec->transform_core.result.vertices, &ec->transform_core.result.transform,
+                                                     zoomx, zoomy, cx, cy);
+   _e_client_transform_core_sub_update_with_zoom(ec, &ec->transform_core.result.vertices,
+                                                 zoomx, zoomy, cx, cy);
+}
+
+EINTERN void
+e_client_transform_core_update_with_desk_zoom(E_Client *ec)
+{
+   E_Desk *desk;
+   double zoomx, zoomy;
+   Evas_Coord cx, cy;
+   Eina_Bool ret;
+   Eina_Bool enable;
+
+   if (!ec) return;
+   if (ec->new_client) return;
+
+   desk = ec->desk;
+   if (!desk) return;
+
+   ret = e_desk_zoom_get(desk, &zoomx, &zoomy, &cx, &cy);
+   if (!ret) return;
+
+   enable = e_client_transform_core_enable_get(ec);
+   if (enable)
+     _e_client_transform_core_update_with_zoom(ec, zoomx, zoomy, cx, cy);
 }
 
 E_API E_Pixmap *

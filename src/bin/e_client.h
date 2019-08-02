@@ -1150,6 +1150,7 @@ E_API E_Util_Transform *e_client_transform_core_transform_get(E_Client *ec, int 
 E_API void              e_client_transform_core_input_transform(E_Client *ec, int x, int y, int *out_x, int *out_y);
 E_API void              e_client_transform_core_input_inv_transform(E_Client *ec, int x, int y, int *out_x, int *out_y);
 E_API void              e_client_transform_core_input_inv_rect_transform(E_Client *ec, int x, int y, int *out_x, int *out_y);
+EINTERN void            e_client_transform_core_update_with_desk_zoom(E_Client *ec);
 
 E_API E_Pixmap *e_client_pixmap_change(E_Client *ec, E_Pixmap *newcp);
 E_API void e_client_window_role_set(E_Client *ec, const char *role);

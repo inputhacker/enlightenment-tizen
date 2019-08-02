@@ -157,8 +157,10 @@ E_API Eina_Bool e_comp_object_mask_has(Evas_Object *obj);
 E_API void e_comp_object_size_update(Evas_Object *obj, int w, int h);
 E_API void e_comp_object_transform_bg_set(Evas_Object *obj, Eina_Bool set);
 E_API void e_comp_object_transform_bg_vertices_set(Evas_Object *obj, E_Util_Transform_Rect_Vertex *vertices);
+EINTERN void e_comp_object_transform_bg_vertices_set_with_zoom(Evas_Object *obj, E_Util_Transform_Rect_Vertex *vertices, double zoomx, double zoomy, Evas_Coord cx, Evas_Coord cy);
 E_API void e_comp_object_transform_transp_set(Evas_Object *obj, Eina_Bool set);
 E_API void e_comp_object_transform_transp_vertices_set(Evas_Object *obj, E_Util_Transform_Rect_Vertex *vertices);
+EINTERN void e_comp_object_transform_transp_vertices_set_with_zoom(Evas_Object *obj, E_Util_Transform_Rect_Vertex *vertices, double zoomx, double zoomy, Evas_Coord cx, Evas_Coord cy);
 
 E_API void e_comp_object_layer_update(Evas_Object *obj, Evas_Object *above, Evas_Object *below);
 

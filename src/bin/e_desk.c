@@ -1048,7 +1048,7 @@ e_desk_zoom_unset(E_Desk *desk)
               * Why isn't it enough to just call evas_object_map_enable_set(false)? */
              _e_desk_client_zoom(ec, sd->zoom.ratio_x, sd->zoom.ratio_y,
                                  sd->zoom.cord_x, sd->zoom.cord_y);
-             evas_object_map_enable_set(ec->frame, EINA_FALSE);
+             //evas_object_map_enable_set(ec->frame, EINA_FALSE);
           }
 
         /* FIXME TEMP enable hwc */
@@ -1470,5 +1470,19 @@ _e_desk_object_zoom(Evas_Object *obj, double zoomx, double zoomy, Evas_Coord cx,
 static void
 _e_desk_client_zoom(E_Client *ec, double zoomx, double zoomy, Evas_Coord cx, Evas_Coord cy)
 {
-   _e_desk_object_zoom(ec->frame, zoomx, zoomy, cx, cy);
+   Eina_Bool transformed;
+   transformed = e_client_transform_core_enable_get(ec);
+
+   if (transformed)
+     e_client_transform_core_update_with_desk_zoom(ec);
+   else
+     _e_desk_object_zoom(ec->frame, zoomx, zoomy, cx, cy);
+
+   if (evas_object_visible_get(ec->frame))
+     {
+        // force update
+        e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
+        e_comp_object_dirty(ec->frame);
+        e_comp_object_render(ec->frame);
+     }
 }

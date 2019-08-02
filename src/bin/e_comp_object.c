@@ -507,6 +507,29 @@ _e_comp_object_transform_obj_map_set(Evas_Object *obj, E_Util_Transform_Rect_Ver
      }
 }
 
+static void
+_e_comp_object_transform_obj_map_set_with_zoom(Evas_Object *obj, E_Util_Transform_Rect_Vertex *vertices, double zoomx, double zoomy, Evas_Coord cx, Evas_Coord cy)
+{
+   if (!obj) return;
+
+   if (vertices)
+     {
+        Evas_Map *map = _e_comp_object_transform_obj_map_new(obj, vertices);
+        if (map)
+          {
+             evas_map_util_zoom(map, zoomx, zoomy, cx, cy);
+
+             evas_object_map_set(obj, map);
+             evas_object_map_enable_set(obj, EINA_TRUE);
+
+             evas_map_free(map);
+          }
+     }
+   else
+     {
+        evas_object_map_enable_set(obj, EINA_FALSE);
+     }
+}
 /////////////////////////////////////
 
 static inline Eina_Bool
@@ -5268,6 +5291,17 @@ e_comp_object_transform_bg_vertices_set(Evas_Object *obj, E_Util_Transform_Rect_
    _e_comp_object_transform_obj_map_set(cw->transform_bg_obj, vertices);
 }
 
+EINTERN void
+e_comp_object_transform_bg_vertices_set_with_zoom(Evas_Object *obj, E_Util_Transform_Rect_Vertex *vertices, double zoomx, double zoomy, Evas_Coord cx, Evas_Coord cy)
+{
+   API_ENTRY;
+   EINA_SAFETY_ON_NULL_RETURN(cw->ec);
+   if (cw->ec->input_only) return;
+   if (!cw->transform_bg_obj) return;
+
+   _e_comp_object_transform_obj_map_set_with_zoom(cw->transform_bg_obj, vertices, zoomx, zoomy, cx, cy);
+}
+
 E_API void
 e_comp_object_transform_transp_set(Evas_Object *obj, Eina_Bool set)
 {
@@ -5312,6 +5346,17 @@ e_comp_object_transform_transp_vertices_set(Evas_Object *obj, E_Util_Transform_R
    if (!cw->transform_tranp_obj) return;
 
    _e_comp_object_transform_obj_map_set(cw->transform_tranp_obj, vertices);
+}
+
+EINTERN void
+e_comp_object_transform_transp_vertices_set_with_zoom(Evas_Object *obj, E_Util_Transform_Rect_Vertex *vertices, double zoomx, double zoomy, Evas_Coord cx, Evas_Coord cy)
+{
+   API_ENTRY;
+   EINA_SAFETY_ON_NULL_RETURN(cw->ec);
+   if (cw->ec->input_only) return;
+   if (!cw->transform_tranp_obj) return;
+
+   _e_comp_object_transform_obj_map_set_with_zoom(cw->transform_tranp_obj, vertices, zoomx, zoomy, cx, cy);
 }
 
 E_API void
