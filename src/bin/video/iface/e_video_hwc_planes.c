@@ -226,11 +226,11 @@ _tdm_layer_property_get(tdm_layer *layer, unsigned id, tdm_value *value)
 }
 
 static void
-_tdm_layer_property_list_set(tdm_layer *layer, Eina_List *list)
+_tdm_layer_property_list_set(tdm_layer *layer, Eina_List **list)
 {
    Tdm_Prop_Value *prop;
 
-   EINA_LIST_FREE(list, prop)
+   EINA_LIST_FREE((*list), prop)
      {
         VIN("call property(%s), value(%d)", NULL, prop->name,
             (unsigned int)prop->value.u32);
@@ -474,7 +474,7 @@ _e_video_hwc_planes_buffer_commit(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf 
           }
 
         // need call tdm property in list
-        _tdm_layer_property_list_set(evhp->tdm.layer, evhp->tdm.prop_list);
+        _tdm_layer_property_list_set(evhp->tdm.layer, &evhp->tdm.prop_list);
      }
 
    CLEAR(old_info);
@@ -512,7 +512,7 @@ _e_video_hwc_planes_buffer_commit(E_Video_Hwc_Planes *evhp, E_Comp_Wl_Video_Buf 
 
    evhp->waiting_vblank = EINA_TRUE;
 
-   _tdm_layer_property_list_set(evhp->tdm.layer, evhp->tdm.late_prop_list);
+   _tdm_layer_property_list_set(evhp->tdm.layer, &evhp->tdm.late_prop_list);
 
    e_video_hwc_client_mask_update((E_Video_Hwc *)evhp);
 
@@ -971,7 +971,7 @@ e_video_hwc_planes_properties_commit(E_Video_Hwc *evh)
         return EINA_FALSE;
      }
 
-   _tdm_layer_property_list_set(evhp->tdm.layer, evhp->tdm.prop_list);
+   _tdm_layer_property_list_set(evhp->tdm.layer, &evhp->tdm.prop_list);
 
    return EINA_TRUE;
 }
