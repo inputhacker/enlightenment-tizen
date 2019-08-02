@@ -172,7 +172,6 @@ _e_pixmap_new(E_Pixmap_Type type)
    cp->cdata->pending.buffer_viewport.buffer.src_width = wl_fixed_from_int(-1);
    cp->cdata->pending.buffer_viewport.surface.width = -1;
    cp->cdata->pending.buffer_viewport.changed = 0;
-   cp->cdata->accepts_focus = 1;
    cp->own_cdata = EINA_TRUE;
    return cp;
 }
@@ -961,7 +960,6 @@ e_pixmap_cdata_set(E_Pixmap *cp, E_Comp_Client_Data *cdata)
                   cd->wl_surface = cp->cdata->wl_surface;
                   cd->scaler.viewport = cp->cdata->scaler.viewport;
                   cd->pending.buffer_viewport = cp->cdata->pending.buffer_viewport;
-                  cd->opaque_state = cp->cdata->opaque_state;
                }
 
              E_FREE(cp->cdata);

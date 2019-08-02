@@ -3301,24 +3301,12 @@ _e_comp_wl_client_cb_new(void *data EINA_UNUSED, E_Client *ec)
 
    ec->comp_data->need_reparent = !ec->internal;
 
-   ec->comp_data->scaler.buffer_viewport.buffer.transform = WL_OUTPUT_TRANSFORM_NORMAL;
-   ec->comp_data->scaler.buffer_viewport.buffer.scale = 1;
-   ec->comp_data->scaler.buffer_viewport.buffer.src_width = wl_fixed_from_int(-1);
-   ec->comp_data->scaler.buffer_viewport.surface.width = -1;
-
    E_Comp_Client_Data *p_cdata = e_pixmap_cdata_get(ec->pixmap);
-   EINA_SAFETY_ON_NULL_RETURN(p_cdata);
-   ec->comp_data->accepts_focus = p_cdata->accepts_focus;
-   ec->comp_data->conformant = p_cdata->conformant;
-   ec->comp_data->aux_hint = p_cdata->aux_hint;
-   ec->comp_data->win_type = p_cdata->win_type;
-   ec->comp_data->layer = p_cdata->layer;
-   ec->comp_data->fetch.win_type = p_cdata->fetch.win_type;
-   ec->comp_data->fetch.layer = p_cdata->fetch.layer;
-   ec->comp_data->video_client = p_cdata->video_client;
+   EINA_SAFETY_ON_NULL_GOTO(p_cdata, end);
 
    e_pixmap_cdata_set(ec->pixmap, ec->comp_data);
 
+end:
    TRACE_DS_END();
 }
 
