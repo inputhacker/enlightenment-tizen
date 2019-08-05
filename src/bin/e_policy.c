@@ -2181,6 +2181,31 @@ e_policy_hook_call(E_Policy_Hook_Point hookpoint, E_Client *ec)
 }
 
 E_API void
+e_policy_user_geometry_set(E_Client *ec,
+                           E_Policy_Allow_User_Geometry type,
+                           Eina_Bool set)
+{
+   E_Policy_Client *pc;
+
+   if (EINA_UNLIKELY(!ec))
+     return;
+
+   pc = eina_hash_find(hash_policy_clients, &ec);
+   if (EINA_UNLIKELY(!pc))
+     return;
+
+   if (set)
+     pc->user_geom_state |= type;
+   else
+     pc->user_geom_state &= ~(type);
+
+   if (pc->user_geom_state)
+     e_policy_allow_user_geometry_set(ec, EINA_TRUE);
+   else
+     e_policy_allow_user_geometry_set(ec, EINA_FALSE);
+}
+
+E_API void
 e_policy_allow_user_geometry_set(E_Client *ec, Eina_Bool set)
 {
    E_Policy_Client *pc;
@@ -2192,10 +2217,7 @@ e_policy_allow_user_geometry_set(E_Client *ec, Eina_Bool set)
    if (EINA_UNLIKELY(!pc))
      return;
 
-   if (set) pc->user_geom_ref++;
-   else     pc->user_geom_ref--;
-
-   if (pc->user_geom_ref == 1 && !pc->allow_user_geom)
+   if (set &&  !pc->allow_user_geom)
      {
         pc->allow_user_geom = EINA_TRUE;
 
@@ -2211,7 +2233,7 @@ e_policy_allow_user_geometry_set(E_Client *ec, Eina_Bool set)
         _e_policy_client_maximize_policy_cancel(pc);
         EC_CHANGED(ec);
      }
-   else if (pc->user_geom_ref == 0 && pc->allow_user_geom)
+   else if (!set && pc->allow_user_geom)
      {
         pc->allow_user_geom = EINA_FALSE;
 

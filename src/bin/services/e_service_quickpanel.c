@@ -2076,14 +2076,14 @@ e_service_quickpanel_effect_type_set(E_Client *ec, E_Service_Quickpanel_Effect_T
      {
       case E_SERVICE_QUICKPANEL_EFFECT_TYPE_SWIPE:
          ec->lock_client_location = 1;
-         e_policy_allow_user_geometry_set(ec, EINA_FALSE);
+         e_policy_user_geometry_set(ec, E_POLICY_USERGEOM_SERVICE, EINA_FALSE);
          if ((ec->maximized == E_MAXIMIZE_NONE) &&
              (qp->saved_maximize != E_MAXIMIZE_NONE))
            e_client_maximize(ec, qp->saved_maximize);
          break;
       case E_SERVICE_QUICKPANEL_EFFECT_TYPE_MOVE:
          ec->lock_client_location = 0;
-         e_policy_allow_user_geometry_set(ec, EINA_TRUE);
+         e_policy_user_geometry_set(ec, E_POLICY_USERGEOM_SERVICE, EINA_TRUE);
          if (ec->maximized != E_MAXIMIZE_NONE)
            {
               qp->saved_maximize = ec->maximized;

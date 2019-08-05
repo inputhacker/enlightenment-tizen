@@ -53,6 +53,13 @@ typedef enum {
    E_POLICY_ANIMATABLE_CUSTOMIZED  = (1 << 3), // no animation by app customized animation
 } E_Policy_Animatable_Lock;
 
+typedef enum {
+   E_POLICY_USERGEOM_WTYPE          = (1 << 0),  // set by client if netwm.type == E_WINDOW_TYPE_UTILITY
+   E_POLICY_USERGEOM_HINT           = (1 << 1),  // set by client aux hint request if "wm.policy.win.user.geometry" is "1"
+   E_POLICY_USERGEOM_RSM            = (1 << 2),  // set if window works as remote surface provider
+   E_POLICY_USERGEOM_SERVICE        = (1 << 3),  // set if window works as special service provider (e.g quickpanel client)
+} E_Policy_Allow_User_Geometry;
+
 typedef Eina_Bool (*E_Policy_Intercept_Cb)(void *data, E_Client *ec, va_list list);
 typedef void (*E_Policy_Hook_Cb)(void *data, E_Client *ec);
 
@@ -106,7 +113,7 @@ struct _E_Policy_Client
    Eina_Bool flt_policy_state;
    Eina_Bool allow_user_geom;
    Eina_Bool split_policy_state;
-   int       user_geom_ref;
+   int       user_geom_state;
    unsigned int lock_animatable;
 };
 
@@ -255,6 +262,7 @@ E_API E_Policy_Hook        *e_policy_hook_add(E_Policy_Hook_Point hookpoint, E_P
 E_API void                  e_policy_hook_del(E_Policy_Hook *hook);
 E_API Eina_Bool             e_policy_hook_call(E_Policy_Hook_Point hookpoint, E_Client *ec);
 
+E_API void e_policy_user_geometry_set(E_Client *ec, E_Policy_Allow_User_Geometry type, Eina_Bool set);
 E_API void e_policy_allow_user_geometry_set(E_Client *ec, Eina_Bool set);
 E_API Eina_Bool e_policy_allow_user_geometry_get(E_Client *ec);
 E_API void e_policy_deferred_job(void);

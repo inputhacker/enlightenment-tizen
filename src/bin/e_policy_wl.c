@@ -2396,17 +2396,17 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
           {
              if (hint->deleted)
                {
-                  e_policy_allow_user_geometry_set(ec, EINA_FALSE);
+                  e_policy_user_geometry_set(ec, E_POLICY_USERGEOM_HINT, EINA_FALSE);
                   continue;
                }
 
              if (!strcmp(hint->val, "1"))
                {
-                  e_policy_allow_user_geometry_set(ec, EINA_TRUE);
+                  e_policy_user_geometry_set(ec, E_POLICY_USERGEOM_HINT, EINA_TRUE);
                }
              else if (strcmp(hint->val, "1"))
                {
-                  e_policy_allow_user_geometry_set(ec, EINA_FALSE);
+                  e_policy_user_geometry_set(ec, E_POLICY_USERGEOM_HINT, EINA_FALSE);
                }
           }
         else if (!strcmp(hint->hint, hint_names[E_POLICY_HINT_FIXED_RESIZE]))

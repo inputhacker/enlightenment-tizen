@@ -848,7 +848,7 @@ bind_ec_set:
           }
 
         /* TODO: enable user geometry? */
-        e_policy_allow_user_geometry_set(ec, EINA_TRUE);
+        e_policy_user_geometry_set(ec, E_POLICY_USERGEOM_RSM, EINA_TRUE);
         _remote_surface_bind_client_set(remote_surface, ec);
         eina_hash_add(_rsm->bind_surface_hash, &remote_surface->bind_ec, remote_surface);
 
