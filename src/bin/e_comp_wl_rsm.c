@@ -68,6 +68,9 @@ struct _E_Comp_Wl_Remote_Manager
    Eina_List *client_hooks;
    Eina_List *process_hooks;
 
+   E_Comp_Object_Hook *effect_end;
+   int                 wait_effect_end;
+
    int dummy_fd; /* tizen_remote_surface@chagned_buffer need valid fd when it send tbm surface */
 };
 
@@ -763,6 +766,77 @@ _remote_surface_visible_set(E_Comp_Wl_Remote_Surface *remote_surface, Eina_Bool 
    _remote_provider_visible_set(provider, set);
 }
 
+static Eina_Bool
+_remote_surface_cb_effect_end(void *data, E_Client *ec)
+{
+   E_Comp_Wl_Remote_Surface *remote_surface;
+   E_Client *bind_ec;
+
+   if (!_rsm) return EINA_TRUE;
+   if (!ec) return EINA_TRUE;
+
+   remote_surface = eina_hash_find(_rsm->consumer_hash, &ec);
+   if (!remote_surface) return EINA_TRUE;
+   if (!remote_surface->bind_ec) return EINA_TRUE;
+   if (!remote_surface->need_prebind) return EINA_TRUE;
+
+   bind_ec = remote_surface->bind_ec;
+
+   RSMINF("Send \"prebind\" bind_ec:%p", remote_surface->ec,
+          "SURFACE", remote_surface, bind_ec);
+
+   e_policy_aux_message_send(bind_ec, "tz_remote_surface_mng", "prebind", NULL);
+   remote_surface->need_prebind = EINA_FALSE;
+
+   _rsm->wait_effect_end --;
+   if (!_rsm->wait_effect_end)
+     {
+        e_comp_object_hook_del(_rsm->effect_end);
+        _rsm->effect_end = NULL;
+     }
+
+   return EINA_TRUE;
+}
+
+static void
+_remote_surface_prebind_send(E_Comp_Wl_Remote_Surface *remote_surface)
+{
+   E_Client *bind_ec, *consumer_ec;
+
+   if (!remote_surface) return;
+   if (!remote_surface->bind_ec) return;
+   if (!remote_surface->need_prebind) return;
+
+   bind_ec = remote_surface->bind_ec;
+   consumer_ec = remote_surface->ec;
+
+   //object visibility of bind_ec
+   if (!evas_object_visible_get(bind_ec->frame)) return;
+
+   //check wether effect of consumer_ec is running
+   if ((consumer_ec) && (evas_object_data_get(consumer_ec->frame, "effect_running")))
+     {
+        RSMINF("Sending \"prebind\" is pending until EFFECT_END bind_ec(%p)",
+               remote_surface->ec,
+               "SURFACE", remote_surface, remote_surface->bind_ec);
+
+        _rsm->wait_effect_end ++;
+        if (_rsm->effect_end) return;
+        _rsm->effect_end = e_comp_object_hook_add(E_COMP_OBJECT_HOOK_EFFECT_END,
+                                                  _remote_surface_cb_effect_end,
+                                                  NULL);
+     }
+   else
+     {
+        RSMINF("Send \"prebind\" bind_ec:%p",
+               remote_surface->ec,
+               "SURFACE", remote_surface, remote_surface->bind_ec);
+
+        e_policy_aux_message_send(remote_surface->bind_ec, "tz_remote_surface_mng", "prebind", NULL);
+        remote_surface->need_prebind = EINA_FALSE;
+     }
+}
+
 static void
 _remote_surface_bind_client_set(E_Comp_Wl_Remote_Surface *remote_surface, E_Client *ec)
 {
@@ -871,13 +945,8 @@ bind_ec_set:
 
              e_comp_wl_surface_commit(remote_surface->bind_ec);
 
-             if (evas_object_visible_get(ec->frame))
-               {
-                  ELOGF("RSM", "Send PreBind", ec);
-                  e_policy_aux_message_send(ec, "tz_remote_surface_mng", "prebind", NULL);
-               }
-             else
-               remote_surface->need_prebind = EINA_TRUE;
+             remote_surface->need_prebind = EINA_TRUE;
+             _remote_surface_prebind_send(remote_surface);
 
              e_comp_render_queue();
           }
@@ -2609,12 +2678,7 @@ _e_comp_wl_remote_cb_client_show(void *data, int type, void *event)
 
    if ((remote_surface = eina_hash_find(_rsm->bind_surface_hash, &ec)))
      {
-        if (remote_surface->need_prebind)
-          {
-             ELOGF("RMS", "Send PreBind", ec);
-             e_policy_aux_message_send(ec, "tz_remote_surface_mng", "prebind", NULL);
-             remote_surface->need_prebind = EINA_FALSE;
-          }
+        _remote_surface_prebind_send(remote_surface);
      }
 
    return ECORE_CALLBACK_PASS_ON;
@@ -3428,6 +3492,7 @@ e_comp_wl_remote_surface_shutdown(void)
 
    E_FREE_LIST(rsm->process_hooks, e_process_hook_del);
 
+   E_FREE_FUNC(rsm->effect_end, e_comp_object_hook_del);
    E_FREE_FUNC(rsm->provider_hash, eina_hash_free);
    E_FREE_FUNC(rsm->consumer_hash, eina_hash_free);
    E_FREE_FUNC(rsm->source_hash, eina_hash_free);
