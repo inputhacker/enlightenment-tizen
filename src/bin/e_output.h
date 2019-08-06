@@ -5,7 +5,7 @@
 typedef struct _E_Output            E_Output;
 typedef struct _E_Output_Mode       E_Output_Mode;
 typedef enum   _E_Output_Dpms       E_OUTPUT_DPMS;
-typedef enum   _E_Output_Ext_State  E_Output_Ext_State;
+typedef enum   _E_Output_Display_Mode  E_Output_Display_Mode;
 
 typedef struct _E_Output_Hook       E_Output_Hook;
 typedef enum   _E_Output_Hook_Point E_Output_Hook_Point;
@@ -35,11 +35,12 @@ enum _E_Output_Dpms
    E_OUTPUT_DPMS_OFF,
 };
 
-enum _E_Output_Ext_State
+enum _E_Output_Display_Mode
 {
-   E_OUTPUT_EXT_NONE,
-   E_OUTPUT_EXT_MIRROR,
-   E_OUTPUT_EXT_PRESENTATION,
+   E_OUTPUT_DISPLAY_MODE_NONE,
+   E_OUTPUT_DISPLAY_MODE_MIRROR,
+   E_OUTPUT_DISPLAY_MODE_PRESENTATION,
+   E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION,    /* It is used for delayed runnig of Presentation mode */
 };
 
 struct _E_Output_Mode
@@ -126,8 +127,8 @@ struct _E_Output
    Eina_Bool     tdm_hwc;
 
    /* external */
-   Eina_Bool            external_set;
-   E_Output_Ext_State   ext_state;
+   Eina_Bool                external_set;
+   E_Output_Display_Mode    display_mode;
 
    Eina_Bool fake_config;
 };
@@ -225,11 +226,12 @@ EINTERN Eina_Bool         e_output_stream_capture_dequeue(E_Output *output, tbm_
 EINTERN Eina_Bool         e_output_stream_capture_start(E_Output *output);
 EINTERN void              e_output_stream_capture_stop(E_Output *output);
 EINTERN const char      * e_output_output_id_get(E_Output *output);
-EINTERN Eina_Bool         e_output_external_set(E_Output *output, E_Output_Ext_State state);
+EINTERN Eina_Bool         e_output_external_set(E_Output *output, E_Output_Display_Mode display_mode);
 EINTERN void              e_output_external_unset(E_Output *output);
 EINTERN Eina_Bool         e_output_external_update(E_Output *output);
 EINTERN Eina_Bool         e_output_external_mode_change(E_Output *output, E_Output_Mode *mode);
 
+EINTERN E_Output_Display_Mode  e_output_display_mode_get(E_Output *output);
 
 EINTERN void              e_output_norender_push(E_Output *output);
 EINTERN void              e_output_norender_pop(E_Output *output);

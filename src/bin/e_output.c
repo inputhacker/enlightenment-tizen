@@ -3753,7 +3753,7 @@ e_output_stream_capture_stop(E_Output *output)
 }
 
 EINTERN Eina_Bool
-e_output_external_set(E_Output *output, E_Output_Ext_State state)
+e_output_external_set(E_Output *output, E_Output_Display_Mode display_mode)
 {
    E_Output *output_primary = NULL;
    E_Plane *ep = NULL;
@@ -3765,9 +3765,9 @@ e_output_external_set(E_Output *output, E_Output_Ext_State state)
    EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
    EINA_SAFETY_ON_TRUE_RETURN_VAL(output_primary == output, EINA_FALSE);
 
-   if (output->ext_state == state)
+   if (output->display_mode == display_mode)
      return EINA_TRUE;
-   output->ext_state = state;
+   output->display_mode = display_mode;
 
    e_output_size_get(output, &w, &h);
    e_output_size_get(output_primary, &p_w, &p_h);
@@ -3782,7 +3782,7 @@ e_output_external_set(E_Output *output, E_Output_Ext_State state)
         e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_FALSE);
 
         ep->output_primary = output_primary;
-        if (!e_plane_external_set(ep, &output->zoom_conf.rect, state))
+        if (!e_plane_external_set(ep, &output->zoom_conf.rect, display_mode))
           {
              EOERR("e_plane_mirror_set failed.", output);
              e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_TRUE);
@@ -3796,10 +3796,10 @@ e_output_external_set(E_Output *output, E_Output_Ext_State state)
         return EINA_FALSE;
      }
 
-   output->ext_state = state;
+   output->display_mode = display_mode;
    output->external_set = EINA_TRUE;
 
-   EOINF("e_output_external_set done: state:%d", output, state);
+   EOINF("e_output_external_set done: display_mode:%d", output, display_mode);
 
    /* update the ecore_evas */
    _e_output_render_update(output_primary);
@@ -3819,11 +3819,11 @@ e_output_external_unset(E_Output *output)
    EINA_SAFETY_ON_NULL_RETURN(output_primary);
    EINA_SAFETY_ON_TRUE_RETURN(output_primary == output);
 
-   if (output->ext_state == E_OUTPUT_EXT_NONE)
+   if (output->display_mode == E_OUTPUT_DISPLAY_MODE_NONE)
      return;
 
    output->external_set = EINA_FALSE;
-   output->ext_state = E_OUTPUT_EXT_NONE;
+   output->display_mode = E_OUTPUT_DISPLAY_MODE_NONE;
 
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
@@ -4003,6 +4003,14 @@ e_output_external_mode_change(E_Output *output, E_Output_Mode *mode)
    EOINF("e_output_external_reset done.(%dx%d)", output, mode->w, mode->h);
 
    return EINA_TRUE;
+}
+
+EINTERN E_Output_Display_Mode
+e_output_display_mode_get(E_Output *output)
+{
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(output, E_OUTPUT_DISPLAY_MODE_NONE);
+
+   return output->display_mode;
 }
 
 EINTERN void

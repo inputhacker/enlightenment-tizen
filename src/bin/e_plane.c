@@ -600,7 +600,7 @@ _e_plane_external_surface_acquire(E_Plane *plane)
    tdm_error ret = TDM_ERROR_NONE;
    E_Plane *plane_primary_output_fb = NULL;
 
-   if (plane->ext_state == E_OUTPUT_EXT_MIRROR)
+   if (plane->display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
      {
         if (e_hwc_policy_get(plane->output_primary->hwc) == E_HWC_POLICY_PLANES)
           {
@@ -622,7 +622,7 @@ _e_plane_external_surface_acquire(E_Plane *plane)
              EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, NULL);
           }
      }
-   else if (plane->ext_state == E_OUTPUT_EXT_PRESENTATION)
+   else if (plane->display_mode == E_OUTPUT_DISPLAY_MODE_PRESENTATION)
      {
         if (plane->ec)
           {
@@ -3422,7 +3422,7 @@ e_plane_external_commit(E_Plane *plane)
    tbm_surface_get_info(data->tsurface, &surf_info);
    e_output_size_get(plane->output, &w, &h);
 
-   if (plane->ext_state == E_OUTPUT_EXT_PRESENTATION)
+   if (plane->display_mode == E_OUTPUT_DISPLAY_MODE_PRESENTATION)
      {
         if (w == surf_info.width && h == surf_info.height)
           {
@@ -3433,7 +3433,7 @@ e_plane_external_commit(E_Plane *plane)
         e_plane_commit_data_release(plane, data);
         return EINA_FALSE;
      }
-   else /* plane->ext_state == E_OUTPUT_EXT_MIRROR */
+   else /* plane->display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR */
      {
         if (!tbm_surface_queue_can_dequeue(plane->pp_tqueue, 0))
           {
@@ -3467,29 +3467,29 @@ e_plane_external_commit(E_Plane *plane)
 }
 
 EINTERN Eina_Bool
-e_plane_external_set(E_Plane *plane, Eina_Rectangle *rect, E_Output_Ext_State state)
+e_plane_external_set(E_Plane *plane, Eina_Rectangle *rect, E_Output_Display_Mode display_mode)
 {
    Eina_Bool ret = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
-   DBG("e_plane_external_set. state(%d) rect(%d,%d)(%d,%d)",
-       state, rect->x, rect->y, rect->w, rect->h);
+   DBG("e_plane_external_set. display_mode(%d) rect(%d,%d)(%d,%d)",
+       display_mode, rect->x, rect->y, rect->w, rect->h);
 
    plane->mirror_rect.x = rect->x;
    plane->mirror_rect.y = rect->y;
    plane->mirror_rect.w = rect->w;
    plane->mirror_rect.h = rect->h;
 
-   if (plane->ext_state == E_OUTPUT_EXT_NONE)
+   if (plane->display_mode == E_OUTPUT_DISPLAY_MODE_NONE)
      {
         ret = e_plane_zoom_set(plane, &plane->mirror_rect);
         EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == EINA_TRUE, EINA_FALSE);
      }
-   else if (plane->ext_state == E_OUTPUT_EXT_MIRROR)
+   else if (plane->display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
      _e_plane_pp_pending_data_remove(plane);
 
-   plane->ext_state = state;
+   plane->display_mode = display_mode;
 
    if (!plane->renderer)
      plane->renderer = e_plane_renderer_new(plane);
@@ -3511,7 +3511,7 @@ e_plane_external_unset(E_Plane *plane)
    plane->mirror_rect.w = 0;
    plane->mirror_rect.h = 0;
 
-   if (plane->ext_state == E_OUTPUT_EXT_MIRROR)
+   if (plane->display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
      {
         if (!plane->pp_layer_commit)
           {
@@ -3519,7 +3519,7 @@ e_plane_external_unset(E_Plane *plane)
              tdm_layer_commit(plane->tlayer, NULL, NULL);
           }
      }
-   else if (plane->ext_state == E_OUTPUT_EXT_PRESENTATION)
+   else if (plane->display_mode == E_OUTPUT_DISPLAY_MODE_PRESENTATION)
      {
         if (!plane->wait_commit)
           {
@@ -3527,7 +3527,7 @@ e_plane_external_unset(E_Plane *plane)
              tdm_layer_commit(plane->tlayer, NULL, NULL);
           }
      }
-   plane->ext_state = E_OUTPUT_EXT_NONE;
+   plane->display_mode = E_OUTPUT_DISPLAY_MODE_NONE;
 
    DBG("e_plane_external_unset");
 }
@@ -3541,7 +3541,7 @@ e_plane_external_reset(E_Plane *plane, Eina_Rectangle *rect)
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
 
    DBG("e_plane_external_reset. state(%d) rect(%d,%d)(%d,%d)",
-       plane->ext_state, rect->x, rect->y, rect->w, rect->h);
+       plane->display_mode, rect->x, rect->y, rect->w, rect->h);
 
    if (!plane->tpp)
      {
@@ -3575,7 +3575,7 @@ e_plane_external_reset(E_Plane *plane, Eina_Rectangle *rect)
    plane->mirror_rect.w = rect->w;
    plane->mirror_rect.h = rect->h;
 
-   if (plane->ext_state == E_OUTPUT_EXT_MIRROR)
+   if (plane->display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
      {
         ret = e_plane_zoom_set(plane, &plane->mirror_rect);
         EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == EINA_TRUE, EINA_FALSE);

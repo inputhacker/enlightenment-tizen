@@ -110,7 +110,7 @@ struct _E_Plane
    /* for external */
    Eina_Bool             is_external;
    Eina_Rectangle        mirror_rect;
-   E_Output_Ext_State    ext_state;
+   E_Output_Display_Mode    display_mode;
    E_Output             *output_primary;
 
    /* current display information */
@@ -199,7 +199,7 @@ EINTERN Eina_Bool            e_plane_fps_get(E_Plane *plane, double *fps);
 EINTERN void                 e_plane_dpms_off(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_external_fetch(E_Plane *plane);
 EINTERN Eina_Bool            e_plane_external_commit(E_Plane *plane);
-EINTERN Eina_Bool            e_plane_external_set(E_Plane *plane, Eina_Rectangle *rect, E_Output_Ext_State state);
+EINTERN Eina_Bool            e_plane_external_set(E_Plane *plane, Eina_Rectangle *rect, E_Output_Display_Mode display_mode);
 EINTERN Eina_Bool            e_plane_external_reset(E_Plane *plane, Eina_Rectangle *rect);
 EINTERN void                 e_plane_external_unset(E_Plane *plane);
 EINTERN void                 e_plane_renderer_unset(E_Plane *plane);

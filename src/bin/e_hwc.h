@@ -120,7 +120,7 @@ struct _E_Hwc
    Eina_Rectangle       mirror_rect;
    E_Hwc               *mirror_src_hwc;
    Eina_List           *mirror_dst_hwc;
-   E_Output_Ext_State   ext_state;
+   E_Output_Display_Mode    display_mode;
 
    int                  norender;
 

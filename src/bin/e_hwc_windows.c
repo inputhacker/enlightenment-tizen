@@ -2813,7 +2813,7 @@ e_hwc_windows_mirror_set(E_Hwc *hwc, E_Hwc *src_hwc, Eina_Rectangle *rect)
    /* add mirror_dst list to the src_hwc */
    src_hwc->mirror_dst_hwc = eina_list_append(src_hwc->mirror_dst_hwc, hwc);
 
-   hwc->ext_state = E_OUTPUT_EXT_MIRROR;
+   hwc->display_mode = E_OUTPUT_DISPLAY_MODE_MIRROR;
 
    /* make the src_hwc be full gl-compositing */
    e_hwc_deactive_set(src_hwc, EINA_TRUE);
@@ -2833,7 +2833,7 @@ e_hwc_windows_mirror_unset(E_Hwc *hwc)
 
    e_hwc_deactive_set(src_hwc, EINA_FALSE);
 
-   hwc->ext_state = E_OUTPUT_EXT_NONE;
+   hwc->display_mode = E_OUTPUT_DISPLAY_MODE_NONE;
 
    /* remove mirror_dst list at the src_hwc */
    src_hwc->mirror_dst_hwc = eina_list_remove(src_hwc->mirror_dst_hwc, hwc);

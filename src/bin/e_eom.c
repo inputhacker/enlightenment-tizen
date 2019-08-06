@@ -1349,7 +1349,7 @@ _e_eom_presentation_check(void *data)
    eom_output->delay_timer = NULL;
 
    if (eom_output->state == WAIT_PRESENTATION)
-     e_output_external_set(eom_output->eout, E_OUTPUT_EXT_MIRROR);
+     e_output_external_set(eom_output->eout, E_OUTPUT_DISPLAY_MODE_MIRROR);
 
    return ECORE_CALLBACK_CANCEL;
 }
@@ -1476,7 +1476,7 @@ _e_eom_cb_wl_eom_client_destroy(struct wl_resource *resource)
    if (e_output_connected(eom_output->eout))
      {
         EOINF("Start Mirroring", eom_output->eout);
-        e_output_external_set(output, E_OUTPUT_EXT_MIRROR);
+        e_output_external_set(output, E_OUTPUT_DISPLAY_MODE_MIRROR);
         eom_output->state = MIRROR;
 
         ep = e_output_default_fb_target_get(eom_output->eout);
@@ -1509,7 +1509,7 @@ _e_eom_mirror_start(E_EomOutput *eom_output, E_EomClient *eom_client)
    if (e_output_connected(output))
     {
        EOINF("Start Mirroring", eom_output->eout);
-       e_output_external_set(output, E_OUTPUT_EXT_MIRROR);
+       e_output_external_set(output, E_OUTPUT_DISPLAY_MODE_MIRROR);
        eom_output->state = MIRROR;
 
        ep = e_output_default_fb_target_get(output);
@@ -1582,7 +1582,7 @@ _e_eom_cb_wl_request_set_attribute_result_send(E_EomOutput *eom_output, E_EomCli
         if (e_output_connected(output))
           {
              EOINF("Start Mirroring", eom_output->eout);
-             e_output_external_set(output, E_OUTPUT_EXT_MIRROR);
+             e_output_external_set(output, E_OUTPUT_DISPLAY_MODE_MIRROR);
              eom_output->state = MIRROR;
 
              ep = e_output_default_fb_target_get(eom_output->eout);
@@ -2057,7 +2057,7 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
      ecore_timer_del(eom_output->delay_timer);
    eom_output->delay_timer = NULL;
 
-   e_output_external_set(eom_output->eout, E_OUTPUT_EXT_PRESENTATION);
+   e_output_external_set(eom_output->eout, E_OUTPUT_DISPLAY_MODE_PRESENTATION);
 
    /* TODO: It works but maybe there is better solution exists ?
     * Also I do not know how it affects on performance */
@@ -2213,7 +2213,7 @@ _e_eom_connect(E_Output *output)
         EOINF("Start Mirroring", eom_output->eout);
         _e_eom_output_state_set_mode(eom_output, EOM_OUTPUT_MODE_MIRROR);
         eom_output->state = MIRROR;
-        e_output_external_set(output, E_OUTPUT_EXT_MIRROR);
+        e_output_external_set(output, E_OUTPUT_DISPLAY_MODE_MIRROR);
      }
 
    eom_output->connection = WL_EOM_STATUS_CONNECTION;
