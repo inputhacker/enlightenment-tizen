@@ -93,6 +93,7 @@ struct _E_Hwc_Window
    E_Hwc_Window_State             state;
    E_Hwc_Window_State             accepted_state;
    E_Hwc_Window_Transition        transition;
+   int                            transition_failures;
 
    E_Hwc_Window_Buffer            buffer;
 
@@ -154,6 +155,7 @@ struct _E_Hwc_Window_Target
    Eina_List          *target_buffer_list;
    Eina_List          *rendered_windows;
    Eina_Bool           is_rendering;
+   int                 max_transition_failures;
 
    Eina_Bool skip_surface_set;
 };

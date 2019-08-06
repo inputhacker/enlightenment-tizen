@@ -7,6 +7,7 @@
 # include <pixman.h>
 
 #define DBG_EVALUATE 1
+#define DEFAULT_MAX_TRANSITION_FAILURES 3;
 
 #ifndef CLEAR
 #define CLEAR(x) memset(&(x), 0, sizeof (x))
@@ -766,6 +767,7 @@ static Eina_Bool
 _e_hwc_windows_target_window_queue_set(E_Hwc_Window_Target *target_hwc_window)
 {
    E_Hwc_Window_Queue *queue = NULL;
+   int queue_size = 0;
 
    queue = e_hwc_window_queue_user_set((E_Hwc_Window *)target_hwc_window);
    if (!queue) return EINA_FALSE;
@@ -775,6 +777,17 @@ _e_hwc_windows_target_window_queue_set(E_Hwc_Window_Target *target_hwc_window)
    wl_signal_add(&queue->destroy_signal, &((E_Hwc_Window *)target_hwc_window)->queue_destroy_listener);
    ((E_Hwc_Window *)target_hwc_window)->queue_destroy_listener.notify = _e_hwc_windows_target_cb_queue_destroy;
    ((E_Hwc_Window *)target_hwc_window)->queue = queue;
+
+   queue_size = e_hwc_window_queue_size_get(queue);
+   if (queue_size)
+     {
+        target_hwc_window->max_transition_failures =
+           e_hwc_window_queue_size_get(((E_Hwc_Window *)target_hwc_window)->queue);
+     }
+   else
+     {
+        target_hwc_window->max_transition_failures = DEFAULT_MAX_TRANSITION_FAILURES;
+     }
 
    /* as evas_renderer has finished its work (to provide a composited buffer) it enqueues
     * the result buffer into this queue and acquirable cb gets called; this cb does nothing
@@ -1652,16 +1665,28 @@ static Eina_Bool
 _e_hwc_windows_transition_check(E_Hwc *hwc)
 {
    E_Hwc_Window *hwc_window = NULL;
-
+   E_Hwc_Window_Target *target_hwc_window = NULL;
    Eina_Bool transition = EINA_FALSE;
    const Eina_List *l;
 
+   target_hwc_window = hwc->target_hwc_window;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
+
    EINA_LIST_FOREACH(hwc->hwc_windows, l, hwc_window)
      {
+        E_Hwc_Window_Transition window_transition = E_HWC_WINDOW_TRANSITION_NONE_TO_NONE;
+
         if (e_hwc_window_is_target(hwc_window)) continue;
         if (e_hwc_window_is_video(hwc_window)) continue;
 
         if (hwc_window->state == hwc_window->accepted_state) continue;
+
+        if (hwc_window->transition_failures > target_hwc_window->max_transition_failures)
+          continue;
+
+        if ((((E_Hwc_Window *)target_hwc_window)->display.buffer.tsurface) ==
+            (((E_Hwc_Window *)target_hwc_window)->buffer.tsurface))
+          return EINA_TRUE;
 
         /* DEVICE -> CLIENT */
         if (hwc_window->state == E_HWC_WINDOW_STATE_CLIENT &&
@@ -1671,20 +1696,14 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
                continue;
 
              if (!_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
-               {
-                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT);
-                  transition = EINA_TRUE;
-               }
+               window_transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT;
           }
         /* DEVICE -> NONE */
         else if (hwc_window->state == E_HWC_WINDOW_STATE_NONE &&
                  hwc_window->accepted_state == E_HWC_WINDOW_STATE_DEVICE)
           {
              if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
-               {
-                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT);
-                  transition = EINA_TRUE;
-               }
+               window_transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_NONE;
           }
         /* CURSOR -> CLIENT */
         else if (hwc_window->state == E_HWC_WINDOW_STATE_CLIENT &&
@@ -1694,69 +1713,53 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
                continue;
 
              if (!_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
-               {
-                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_CURSOR_TO_CLIENT);
-                  transition = EINA_TRUE;
-               }
+               window_transition = E_HWC_WINDOW_TRANSITION_CURSOR_TO_CLIENT;
           }
         /* CURSOR -> NONE */
         else if (hwc_window->state == E_HWC_WINDOW_STATE_NONE &&
                  hwc_window->accepted_state == E_HWC_WINDOW_STATE_CURSOR)
           {
              if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
-               {
-                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_CURSOR_TO_CLIENT);
-                  transition = EINA_TRUE;
-               }
+               window_transition = E_HWC_WINDOW_TRANSITION_CURSOR_TO_NONE;
           }
         /* NONE -> DEVICE */
         else if (hwc_window->state == E_HWC_WINDOW_STATE_DEVICE &&
                  hwc_window->accepted_state == E_HWC_WINDOW_STATE_NONE)
           {
              if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
-               {
-                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_NONE_TO_DEVICE);
-                  transition = EINA_TRUE;
-               }
+               window_transition = E_HWC_WINDOW_TRANSITION_NONE_TO_DEVICE;
           }
         /* NONE -> CURSOR */
         else if (hwc_window->state == E_HWC_WINDOW_STATE_CURSOR &&
                  hwc_window->accepted_state == E_HWC_WINDOW_STATE_NONE)
           {
              if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
-               {
-                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_NONE_TO_CURSOR);
-                  transition = EINA_TRUE;
-               }
+               window_transition = E_HWC_WINDOW_TRANSITION_NONE_TO_CURSOR;
           }
         /* CLIENT -> DEVICE */
         else if (hwc_window->state == E_HWC_WINDOW_STATE_DEVICE &&
                  hwc_window->accepted_state == E_HWC_WINDOW_STATE_CLIENT)
           {
              if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
-               {
-                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_CLIENT_TO_DEVICE);
-                  transition = EINA_TRUE;
-               }
+               window_transition = E_HWC_WINDOW_TRANSITION_CLIENT_TO_DEVICE;
           }
         /* CLIENT -> CURSOR */
         else if (hwc_window->state == E_HWC_WINDOW_STATE_CURSOR &&
                  hwc_window->accepted_state == E_HWC_WINDOW_STATE_CLIENT)
           {
              if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
-               {
-                  e_hwc_window_transition_set(hwc_window, E_HWC_WINDOW_TRANSITION_CLIENT_TO_CURSOR);
-                  transition = EINA_TRUE;
-               }
+               window_transition = E_HWC_WINDOW_TRANSITION_CLIENT_TO_CURSOR;
+          }
+
+        if (window_transition)
+          {
+             hwc_window->transition_failures++;
+
+             e_hwc_window_transition_set(hwc_window, window_transition);
+             transition = EINA_TRUE;
           }
      }
-#if 0
-    if (transition)
-      EHWSTRACE(" [%25s(ehw:%p)] is on TRANSITION [%s -> %s].",
-                hwc_window->ec, hwc, e_hwc_window_name_get(hwc_window), hwc_window,
-                e_hwc_window_state_string_get(hwc_window->accepted_state),
-                e_hwc_window_state_string_get(hwc_window->state));
-#endif
+
     return transition;
 }
 
@@ -2290,6 +2293,13 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
           _e_hwc_windows_target_window_buffer_skip(hwc, EINA_FALSE);
         else
           _e_hwc_windows_target_window_buffer_skip(hwc, EINA_TRUE);
+
+        if (!hwc->transition)
+          {
+             _e_hwc_windows_target_window_force_render(hwc->target_hwc_window);
+             hwc->transition = EINA_TRUE;
+          }
+
         goto re_evaluate;
      }
 
@@ -2309,6 +2319,8 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
         if (((E_Hwc_Window *)hwc->target_hwc_window)->buffer.tsurface)
           _e_hwc_windows_target_buffer_fetch(hwc, !hwc->pp_set);
      }
+
+   hwc->transition = EINA_FALSE;
 
    return EINA_TRUE;
 

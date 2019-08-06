@@ -1489,6 +1489,18 @@ e_hwc_window_queue_acquirable_buffers_get(E_Hwc_Window_Queue *queue)
    return acquirable_buffers;
 }
 
+EINTERN int
+e_hwc_window_queue_size_get(E_Hwc_Window_Queue *queue)
+{
+   int queue_size;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, 0);
+
+   queue_size = tbm_surface_queue_get_size(queue->tqueue);
+
+   return queue_size;
+}
+
 EINTERN void
 e_hwc_window_queue_trace_debug(Eina_Bool onoff)
 {

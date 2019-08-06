@@ -93,6 +93,7 @@ struct _E_Hwc
    Eina_List           *visible_windows;
    int                  num_visible_windows;
    Eina_Bool            device_state_available;
+   Eina_Bool            transition;
 
    /* capabilities */
    Eina_Bool     tdm_hwc_video_stream;

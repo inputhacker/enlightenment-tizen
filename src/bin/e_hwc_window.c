@@ -1568,9 +1568,18 @@ e_hwc_window_transition_set(E_Hwc_Window *hwc_window, E_Hwc_Window_Transition tr
 
    hwc_window->transition = transition;
 
+   if (transition == E_HWC_WINDOW_TRANSITION_NONE_TO_NONE)
+     hwc_window->transition_failures = 0;
+
    if ((transition == E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT) ||
        (transition == E_HWC_WINDOW_TRANSITION_DEVICE_TO_NONE))
      _e_hwc_window_constraints_reset(hwc_window);
+
+   if (transition)
+     EHWTRACE(" [%25s] is on TRANSITION [%s -> %s].",
+              hwc_window->ec, hwc_window->hwc, hwc_window, e_hwc_window_name_get(hwc_window),
+              e_hwc_window_state_string_get(hwc_window->accepted_state),
+              e_hwc_window_state_string_get(hwc_window->state));
 
    return EINA_TRUE;
 }
