@@ -25,6 +25,8 @@
    while (0)
 
 #define DUMP_FPS 30
+#define OUTPUT_DELAY_CONNECT_CHECK_TIMEOUT 3.0
+#define OUTPUT_DELAY_CHECK_TIMEOUT 1.0
 
 typedef struct _E_Output_Capture E_Output_Capture;
 typedef struct _E_Output_Layer E_Output_Layer;
@@ -73,6 +75,68 @@ static Eina_Bool _e_output_capture(E_Output *output, tbm_surface_h tsurface, Ein
 static void _e_output_vblank_handler(tdm_output *output, unsigned int sequence,
                                      unsigned int tv_sec, unsigned int tv_usec, void *data);
 
+static unsigned int
+_e_output_aligned_width_get(E_Output *output, tbm_surface_h tsurface)
+{
+   unsigned int aligned_width = 0;
+   tbm_surface_info_s surf_info;
+
+   tbm_surface_get_info(tsurface, &surf_info);
+
+   switch (surf_info.format)
+     {
+      case TBM_FORMAT_YUV420:
+      case TBM_FORMAT_YVU420:
+      case TBM_FORMAT_YUV422:
+      case TBM_FORMAT_YVU422:
+      case TBM_FORMAT_NV12:
+      case TBM_FORMAT_NV21:
+        aligned_width = surf_info.planes[0].stride;
+        break;
+      case TBM_FORMAT_YUYV:
+      case TBM_FORMAT_UYVY:
+        aligned_width = surf_info.planes[0].stride >> 1;
+        break;
+      case TBM_FORMAT_ARGB8888:
+      case TBM_FORMAT_XRGB8888:
+        aligned_width = surf_info.planes[0].stride >> 2;
+        break;
+      default:
+        EOERR("not supported format: %x", output, surf_info.format);
+     }
+
+   return aligned_width;
+}
+
+static Eina_Bool
+_e_output_presentation_check(void *data)
+{
+   E_Output *output;
+   E_Output *primary_output;
+
+   if (!data) return ECORE_CALLBACK_CANCEL;
+
+   output = (E_Output *)data;
+
+   if (e_output_display_mode_get(output) == E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION)
+     {
+        primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+        e_output_mirror_set(output, primary_output);
+     }
+
+   output->delay_timer = NULL;
+
+   return ECORE_CALLBACK_CANCEL;
+}
+
+static inline void
+_e_output_display_mode_set(E_Output *output, E_Output_Display_Mode display_mode)
+{
+   if (output == NULL) return;
+   if (output->display_mode == display_mode) return;
+
+   output->display_mode = display_mode;
+}
 
 static void
 _e_output_hooks_clean(void)
@@ -704,6 +768,71 @@ _e_output_client_resize(int w, int h)
      }
 }
 
+static Eina_Bool
+_e_output_external_connect_display_set(E_Output *output)
+{
+   E_Output *primary_output = NULL;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   if (e_output_display_mode_get(output) == E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION)
+     {
+        EOINF("Start Wait Presentation", output);
+
+        /* the fallback timer for not setting the presentation. */
+        if (output->delay_timer) ecore_timer_del(output->delay_timer);
+        output->delay_timer = ecore_timer_add(OUTPUT_DELAY_CONNECT_CHECK_TIMEOUT, _e_output_presentation_check, output);
+     }
+   else
+     {
+        EOINF("Start Mirroring", output);
+
+        primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
+        if (!e_output_mirror_set(output, primary_output))
+          {
+             EOERR("e_output_mirror_set fails.", output);
+             return EINA_FALSE;
+          }
+     }
+
+   EOINF("_e_output_external_connect_display_set done: display_mode:%d", output, e_output_display_mode_get(output));
+
+   return EINA_TRUE;
+}
+
+static void
+_e_output_external_disconnect_display_set(E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   switch (e_output_display_mode_get(output))
+     {
+      case E_OUTPUT_DISPLAY_MODE_NONE:
+        break;
+      case E_OUTPUT_DISPLAY_MODE_MIRROR:
+        /* unset mirror */
+        e_output_mirror_unset(output);
+        break;
+      case E_OUTPUT_DISPLAY_MODE_PRESENTATION:
+        /* only change the display_mode */
+        _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION);
+        break;
+      case E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION:
+        /* delete presentation_delay_timer */
+        if (output->delay_timer)
+          {
+             ecore_timer_del(output->delay_timer);
+             output->delay_timer = NULL;
+          }
+        break;
+      default:
+        EOERR("unknown display_mode:%d", output, output->display_mode);
+        break;
+     }
+
+   EOINF("_e_output_external_disconnect_display_set done.", output);
+}
+
 static void
 _e_output_primary_update(E_Output *output)
 {
@@ -771,6 +900,101 @@ _e_output_primary_update(E_Output *output)
      }
 }
 
+static Eina_Bool
+_e_output_external_update(E_Output *output)
+{
+   E_Comp_Screen *e_comp_screen = NULL;
+   E_Output_Mode *mode = NULL;
+   E_Output *output_pri = NULL;
+   Eina_Bool ret;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
+   e_comp_screen = e_comp->e_comp_screen;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+
+   output_pri = e_comp_screen_primary_output_get(e_comp_screen);
+   if (!output_pri)
+     {
+        e_error_message_show(_("Fail to get the primary output!\n"));
+        return EINA_FALSE;
+     }
+
+   if (output_pri == output)
+     return EINA_FALSE;
+
+
+   ret = e_output_update(output);
+   if (ret == EINA_FALSE)
+     {
+        EOERR("fail e_output_update.", output);
+        return EINA_FALSE;
+     }
+
+   if (e_output_connected(output))
+     {
+        mode = e_output_best_mode_find(output);
+        if (!mode)
+          {
+             EOERR("fail to get best mode.", output);
+             return EINA_FALSE;
+          }
+
+        ret = e_output_mode_apply(output, mode);
+        if (ret == EINA_FALSE)
+          {
+             EOERR("fail to e_output_mode_apply.", output);
+             return EINA_FALSE;
+          }
+        ret = e_output_dpms_set(output, E_OUTPUT_DPMS_ON);
+        if (ret == EINA_FALSE)
+          {
+             EOERR("fail to e_output_dpms.", output);
+             return EINA_FALSE;
+          }
+
+        ret = e_output_hwc_setup(output);
+        if (ret == EINA_FALSE)
+          {
+             EOERR("fail to e_output_hwc_setup.", output);
+             return EINA_FALSE;
+          }
+
+        _e_output_hook_call(E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE, output);
+
+        ret = _e_output_external_connect_display_set(output);
+        if (ret == EINA_FALSE)
+          {
+             EOERR("fail to _e_output_external_connect_display_set.", output);
+             return EINA_FALSE;
+          }
+
+        EOINF("Connect the external output", output);
+     }
+   else
+     {
+        EOINF("Disconnect the external output", output);
+
+        _e_output_hook_call(E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE, output);
+
+        _e_output_external_disconnect_display_set(output);
+
+        if (output->hwc)
+          {
+             e_hwc_del(output->hwc);
+             output->hwc = NULL;
+          }
+
+        if (!e_output_dpms_set(output, E_OUTPUT_DPMS_OFF))
+          {
+             EOERR("fail to e_output_dpms.", output);
+             return EINA_FALSE;
+          }
+     }
+
+   return EINA_TRUE;
+}
+
 static void
 _e_output_cb_output_change(tdm_output *toutput,
                                   tdm_output_change_type type,
@@ -802,7 +1026,7 @@ _e_output_cb_output_change(tdm_output *toutput,
              if (primary == output)
                _e_output_primary_update(output);
              else
-               e_output_external_update(output);
+               _e_output_external_update(output);
           }
         break;
        case TDM_OUTPUT_CHANGE_DPMS:
@@ -1029,39 +1253,6 @@ _e_output_capture_position_get(E_Output *output, int dst_w, int dst_h, Eina_Rect
      _e_output_center_rect_get(output_w, output_h, dst_w, dst_h, fit);
 
    return EINA_TRUE;
-}
-
-static unsigned int
-_e_output_aligned_width_get(E_Output *output, tbm_surface_h tsurface)
-{
-   unsigned int aligned_width = 0;
-   tbm_surface_info_s surf_info;
-
-   tbm_surface_get_info(tsurface, &surf_info);
-
-   switch (surf_info.format)
-     {
-      case TBM_FORMAT_YUV420:
-      case TBM_FORMAT_YVU420:
-      case TBM_FORMAT_YUV422:
-      case TBM_FORMAT_YVU422:
-      case TBM_FORMAT_NV12:
-      case TBM_FORMAT_NV21:
-        aligned_width = surf_info.planes[0].stride;
-        break;
-      case TBM_FORMAT_YUYV:
-      case TBM_FORMAT_UYVY:
-        aligned_width = surf_info.planes[0].stride >> 1;
-        break;
-      case TBM_FORMAT_ARGB8888:
-      case TBM_FORMAT_XRGB8888:
-        aligned_width = surf_info.planes[0].stride >> 2;
-        break;
-      default:
-        EOERR("not supported format: %x", output, surf_info.format);
-     }
-
-   return aligned_width;
 }
 
 static E_Output_Capture *
@@ -2100,42 +2291,6 @@ _e_output_external_rect_get(E_Output *output, int src_w, int src_h, int dst_w, i
 }
 
 static Eina_Bool
-_e_output_external_commit(E_Output *output)
-{
-   E_Plane *plane = NULL;
-
-   if (!output->external_set) return EINA_TRUE;
-
-   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
-     {
-        /* external commit only primary */
-        plane = e_output_fb_target_get(output);
-
-        /* external commit */
-        if (e_output_dpms_get(output))
-          return EINA_TRUE;
-
-        if (!e_plane_external_fetch(plane))
-          return EINA_TRUE;
-
-        if (!e_plane_external_commit(plane))
-          {
-             EOERR("fail to e_plane_ex_commit", output);
-             return EINA_FALSE;
-          }
-     }
-   else
-     {
-        /* TODO: HWC Windows */;
-        /* external commit */
-        if (e_output_dpms_get(output))
-          return EINA_TRUE;
-     }
-
-   return EINA_TRUE;
-}
-
-static Eina_Bool
 _e_output_planes_commit(E_Output *output)
 {
    E_Plane *plane = NULL, *fb_target = NULL;
@@ -2368,6 +2523,9 @@ e_output_new(E_Comp_Screen *e_comp_screen, int index)
 
    if (output_caps & TDM_OUTPUT_CAPABILITY_ASYNC_DPMS)
      output->dpms_async = EINA_TRUE;
+
+   if (output_caps & TDM_OUTPUT_CAPABILITY_MIRROR)
+     output->tdm_mirror = EINA_TRUE;
 
    /* call output add hook */
    _e_output_hook_call(E_OUTPUT_HOOK_ADD, output);
@@ -3056,10 +3214,13 @@ e_output_render(E_Output *output)
   return EINA_TRUE;
 }
 
+static int boot_launch = 0;
+
 EINTERN Eina_Bool
 e_output_commit(E_Output *output)
 {
    E_Output *output_primary = NULL;
+   E_Output_Display_Mode display_mode;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
@@ -3086,21 +3247,53 @@ e_output_commit(E_Output *output)
           }
         else
           {
-             if (!_e_output_external_commit(output))
+             display_mode = e_output_display_mode_get(output);
+
+             /* output donot care about the external_commit
+                when tdm has the mirror capability */
+             if (display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR &&
+                 output->tdm_mirror)
+               return EINA_TRUE;
+
+             if (!e_hwc_planes_external_commit(output->hwc))
                {
-                  EOERR("fail _e_output_external_commit", output);
+                  EOERR("fail e_hwc_planes_external_commit", output);
                   return EINA_FALSE;
                }
           }
      }
    else
      {
-        /* commit the only primary output */
-        if (output != output_primary) return EINA_TRUE;
-
-        if (!e_hwc_windows_commit(output->hwc))
+        if (output == output_primary)
           {
-            return EINA_FALSE;
+             if (!e_hwc_windows_commit(output->hwc))
+               {
+                  EOERR("fail e_hwc_windows_commit", output);
+                  return EINA_FALSE;
+               }
+          }
+        else
+          {
+             /* trigger the output_external_update at the launching time */
+             if (!boot_launch)
+               {
+                  boot_launch = 1;
+                  _e_output_external_update(output);
+               }
+
+             display_mode = e_output_display_mode_get(output);
+
+             /* output donot care about the external_commit
+                when tdm has the mirror capability */
+             if (display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR &&
+                 output->tdm_mirror)
+               return EINA_TRUE;
+
+             if (!e_hwc_windows_external_commit(output->hwc, display_mode))
+               {
+                  EOERR("fail e_hwc_windows_external_commit", output);
+                  return EINA_FALSE;
+               }
           }
      }
 
@@ -3798,186 +3991,6 @@ e_output_stream_capture_stop(E_Output *output)
 }
 
 EINTERN Eina_Bool
-e_output_external_set(E_Output *output, E_Output_Display_Mode display_mode)
-{
-   E_Output *output_primary = NULL;
-   E_Plane *ep = NULL;
-   int w, h, p_w, p_h;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
-
-   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output_primary, EINA_FALSE);
-   EINA_SAFETY_ON_TRUE_RETURN_VAL(output_primary == output, EINA_FALSE);
-
-   if (output->display_mode == display_mode)
-     return EINA_TRUE;
-   output->display_mode = display_mode;
-
-   e_output_size_get(output, &w, &h);
-   e_output_size_get(output_primary, &p_w, &p_h);
-
-   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
-     {
-        ep = e_output_fb_target_get(output);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
-
-        _e_output_external_rect_get(output_primary, p_w, p_h, w, h, &output->zoom_conf.rect);
-
-        e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_FALSE);
-
-        ep->output_primary = output_primary;
-        if (!e_plane_external_set(ep, &output->zoom_conf.rect, display_mode))
-          {
-             EOERR("e_plane_mirror_set failed.", output);
-             e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_TRUE);
-
-             return EINA_FALSE;
-          }
-     }
-   else
-     {
-        /* TODO: HWC Windows */;
-        return EINA_FALSE;
-     }
-
-   output->display_mode = display_mode;
-   output->external_set = EINA_TRUE;
-
-   EOINF("e_output_external_set done: display_mode:%d", output, display_mode);
-
-   /* update the ecore_evas */
-   _e_output_force_render_set(output_primary);
-
-   return EINA_TRUE;
-}
-
-EINTERN void
-e_output_external_unset(E_Output *output)
-{
-   E_Output *output_primary = NULL;
-   E_Plane *ep = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN(output);
-
-   output_primary = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
-   EINA_SAFETY_ON_NULL_RETURN(output_primary);
-   EINA_SAFETY_ON_TRUE_RETURN(output_primary == output);
-
-   if (output->display_mode == E_OUTPUT_DISPLAY_MODE_NONE)
-     return;
-
-   output->external_set = EINA_FALSE;
-   output->display_mode = E_OUTPUT_DISPLAY_MODE_NONE;
-
-   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
-     {
-        ep = e_output_fb_target_get(output);
-        EINA_SAFETY_ON_NULL_RETURN(ep);
-
-        e_plane_external_unset(ep);
-
-        e_hwc_planes_multi_plane_set(output_primary->hwc, EINA_TRUE);
-     }
-   else
-     {
-        /* TODO: HWC Windows */;
-     }
-
-   output->zoom_conf.rect.x = 0;
-   output->zoom_conf.rect.y = 0;
-   output->zoom_conf.rect.w = 0;
-   output->zoom_conf.rect.h = 0;
-
-   /* update the ecore_evas */
-   _e_output_force_render_set(output_primary);
-
-   EOINF("e_output_external_unset done.", output);
-}
-
-EINTERN Eina_Bool
-e_output_external_update(E_Output *output)
-{
-   E_Comp_Screen *e_comp_screen = NULL;
-   E_Output_Mode *mode = NULL;
-   E_Output *output_pri = NULL;
-   Eina_Bool ret;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
-
-   e_comp_screen = e_comp->e_comp_screen;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
-
-   output_pri = e_comp_screen_primary_output_get(e_comp_screen);
-   if (!output_pri)
-     {
-        e_error_message_show(_("Fail to get the primary output!\n"));
-        return EINA_FALSE;
-     }
-
-   if (output_pri == output)
-     return EINA_FALSE;
-
-
-   ret = e_output_update(output);
-   if (ret == EINA_FALSE)
-     {
-        EOERR("fail e_output_update.", output);
-        return EINA_FALSE;
-     }
-
-   if (e_output_connected(output))
-     {
-        mode = e_output_best_mode_find(output);
-        if (!mode)
-          {
-             EOERR("fail to get best mode.", output);
-             return EINA_FALSE;
-          }
-
-        ret = e_output_mode_apply(output, mode);
-        if (ret == EINA_FALSE)
-          {
-             EOERR("fail to e_output_mode_apply.", output);
-             return EINA_FALSE;
-          }
-        ret = e_output_dpms_set(output, E_OUTPUT_DPMS_ON);
-        if (ret == EINA_FALSE)
-          {
-             EOERR("fail to e_output_dpms.", output);
-             return EINA_FALSE;
-          }
-
-        ret = e_output_hwc_setup(output);
-        if (ret == EINA_FALSE)
-          {
-             EOERR("fail to e_output_hwc_setup.", output);
-             return EINA_FALSE;
-          }
-
-        _e_output_hook_call(E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE, output);
-     }
-   else
-     {
-        _e_output_hook_call(E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE, output);
-
-        if (output->hwc)
-          {
-             e_hwc_del(output->hwc);
-             output->hwc = NULL;
-          }
-
-        if (!e_output_dpms_set(output, E_OUTPUT_DPMS_OFF))
-          {
-             EOERR("fail to e_output_dpms.", output);
-             return EINA_FALSE;
-          }
-     }
-
-   return EINA_TRUE;
-}
-
-EINTERN Eina_Bool
 e_output_external_mode_change(E_Output *output, E_Output_Mode *mode)
 {
    E_Output_Mode *emode = NULL, *current_emode = NULL;
@@ -4016,9 +4029,6 @@ e_output_external_mode_change(E_Output *output, E_Output_Mode *mode)
    e_output_size_get(output, &w, &h);
    e_output_size_get(output_primary, &p_w, &p_h);
 
-   ep = e_output_fb_target_get(output);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
-
    e_comp_canvas_norender_push();
 
    if (e_output_mode_apply(output, mode) == EINA_FALSE)
@@ -4033,8 +4043,19 @@ e_output_external_mode_change(E_Output *output, E_Output_Mode *mode)
    /* call mode change hook */
    _e_output_hook_call(E_OUTPUT_HOOK_MODE_CHANGE, output);
 
+   EOINF("mode change output: (%dx%d)", output, w, h);
+   if (e_output_display_mode_get(output) == E_OUTPUT_DISPLAY_MODE_PRESENTATION)
+     {
+        _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION);
+        if (output->delay_timer) ecore_timer_del(output->delay_timer);
+        output->delay_timer = ecore_timer_add(OUTPUT_DELAY_CONNECT_CHECK_TIMEOUT, _e_output_presentation_check, output);
+     }
+
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
+        ep = e_output_fb_target_get(output);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(ep, EINA_FALSE);
+
         e_plane_external_reset(ep, &output->zoom_conf.rect);
      }
    else
@@ -4048,6 +4069,208 @@ e_output_external_mode_change(E_Output *output, E_Output_Mode *mode)
    EOINF("e_output_external_reset done.(%dx%d)", output, mode->w, mode->h);
 
    return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_output_mirror_set(E_Output *output, E_Output *src_output)
+{
+   tdm_error ret;
+   int w, h, p_w, p_h;
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(src_output, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output->hwc, EINA_FALSE);
+
+   if (output->display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
+     {
+        EOINF("Already Set MIRROR_MODE", output);
+        return EINA_TRUE;
+     }
+
+   if (output->tdm_mirror)
+     {
+        EOINF("TDM supports the output mirroring.", output);
+
+        ret = tdm_output_set_mirror(output->toutput, src_output->toutput, TDM_TRANSFORM_NORMAL);
+        if (ret != TDM_ERROR_NONE)
+          {
+             EOINF("tdm_output_set_mirror fails.", output);
+             return EINA_FALSE;
+          }
+     }
+   else
+     {
+        e_output_size_get(output, &w, &h);
+        e_output_size_get(src_output, &p_w, &p_h);
+
+        _e_output_external_rect_get(src_output, p_w, p_h, w, h, &output->zoom_conf.rect);
+
+        if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
+          {
+             if (!e_hwc_planes_mirror_set(output->hwc, src_output->hwc, &output->zoom_conf.rect))
+               {
+                  EOERR("e_hwc_planes_mirror_set failed.", output);
+                  return EINA_FALSE;
+               }
+          }
+        else
+          {
+             /* set the target_buffer of the src_hwc to the target_buffer of the dst_hwc with zoom rect */
+             if (!e_hwc_windows_mirror_set(output->hwc, src_output->hwc, &output->zoom_conf.rect))
+               {
+                  EOERR("e_hwc_windows_mirror_set failed.", output);
+                  return EINA_FALSE;
+               }
+          }
+     }
+
+   output->mirror_src_output = src_output;
+
+   _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_MIRROR);
+   output->external_set = EINA_TRUE;
+
+   /* update the ecore_evas of the src_output */
+   _e_output_force_render_set(src_output);
+
+   EOINF("e_output_mirror_set done: E_OUTPUT_DISPLAY_MODE_MIRROR", output);
+
+   return EINA_TRUE;
+}
+
+EINTERN void
+e_output_mirror_unset(E_Output *output)
+{
+   E_Output *src_output;
+   tdm_error ret;
+
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   EOINF("e_output_mirror_unset: E_OUTPUT_DISPLAY_MODE_NONE", output);
+
+   src_output = output->mirror_src_output;
+
+   /* update the ecore_evas of the src_output */
+   _e_output_render_update(src_output);
+
+   output->external_set = EINA_FALSE;
+   _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_NONE);
+
+   output->mirror_src_output = NULL;
+
+   if (output->tdm_mirror)
+     {
+        ret = tdm_output_unset_mirror(output->toutput);
+        if (ret != TDM_ERROR_NONE)
+          EOERR("tdm_output_unset_mirror fails.", output);
+     }
+   else
+     {
+        if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
+          e_hwc_planes_mirror_unset(output->hwc);
+        else
+          e_hwc_windows_mirror_unset(output->hwc);
+     }
+}
+
+EINTERN Eina_Bool
+e_output_presentation_wait_set(E_Output *output, E_Client *ec)
+{
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(output, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(ec, EINA_FALSE);
+
+   _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION);
+
+   /* the ec does not commit the buffer to the exernal output
+    * Therefore, it needs the timer to prevent the eternal waiting.
+    */
+   if (output->delay_timer)
+     {
+        ecore_timer_del(output->delay_timer);
+        output->delay_timer = ecore_timer_add(OUTPUT_DELAY_CHECK_TIMEOUT, _e_output_presentation_check, output);
+     }
+
+   EOINF("e_output_presentation_wait_set done: E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION", output);
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_output_presentation_update(E_Output *output, E_Client *ec)
+{
+   E_Hwc *hwc;
+   E_Output_Display_Mode display_mode;
+
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(output, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(ec, EINA_FALSE);
+
+   hwc = output->hwc;
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(hwc, EINA_FALSE);
+
+   display_mode = e_output_display_mode_get(output);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(display_mode == E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION, EINA_FALSE);
+
+   /* delete the delay timer on E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION */
+   if (output->delay_timer) ecore_timer_del(output->delay_timer);
+   output->delay_timer = NULL;
+
+   if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
+     {
+        if (!e_hwc_planes_presentation_update(hwc, ec))
+          {
+             EOERR("e_hwc_planes_presentation_update fails.", output);
+             return EINA_FALSE;
+          }
+     }
+   else
+     {
+        if (!e_hwc_windows_presentation_update(hwc, ec))
+          {
+             EOERR("e_hwc_windows_presentation_update fails.", output);
+             return EINA_FALSE;
+          }
+     }
+
+   output->presentation_ec = ec;
+   _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_PRESENTATION);
+
+   output->external_set = EINA_TRUE;
+
+   EOINF("e_output_presentation_update done: E_OUTPUT_DISPLAY_MODE_PRESENTATION", output);
+
+   return EINA_TRUE;
+}
+
+EINTERN void
+e_output_presentation_unset(E_Output *output)
+{
+   E_Hwc *hwc;
+
+   EINA_SAFETY_ON_FALSE_RETURN(output);
+
+   hwc = output->hwc;
+   EINA_SAFETY_ON_FALSE_RETURN(hwc);
+
+   /* delete the delay timer on E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION */
+   if (output->delay_timer) ecore_timer_del(output->delay_timer);
+   output->delay_timer = NULL;
+
+   output->external_set = EINA_FALSE;
+
+   _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_NONE);
+   output->presentation_ec = NULL;
+
+   if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
+     e_hwc_planes_presentation_update(hwc, NULL);
+   else
+     e_hwc_windows_presentation_update(hwc, NULL);
+}
+
+EINTERN E_Client *
+e_output_presentation_ec_get(E_Output *output)
+{
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(output, NULL);
+
+   return output->presentation_ec;
 }
 
 EINTERN E_Output_Display_Mode
