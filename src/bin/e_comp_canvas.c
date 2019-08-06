@@ -706,30 +706,39 @@ e_comp_canvas_feed_mouse_up(unsigned int activate_time)
 E_API void
 e_comp_canvas_norender_push(void)
 {
-   e_comp->norender++;
+   E_Comp_Screen *e_comp_screen;
+   E_Output *primary_output;
 
-   // e_plane_render is not working when e_comp->hwc is not initialized
-   if ((!e_comp->hwc) &&
-       (e_comp->norender == 1))
-     ecore_evas_manual_render_set(e_comp->ee, EINA_TRUE);
+   e_comp_screen = e_comp->e_comp_screen;
+   primary_output = e_comp_screen_primary_output_get(e_comp_screen);
+
+   e_output_norender_push(primary_output);
+   e_comp->norender++;
 }
 
 E_API void
 e_comp_canvas_norender_pop(void)
 {
-   if (e_comp->norender <= 0)
-     return;
+   E_Comp_Screen *e_comp_screen;
+   E_Output *primary_output;
 
+   if (e_comp->norender <= 0) return;
+
+   e_comp_screen = e_comp->e_comp_screen;
+   primary_output = e_comp_screen_primary_output_get(e_comp_screen);
+
+   e_output_norender_pop(primary_output);
    e_comp->norender--;
-
-   // e_plane_render is not working when e_comp->hwc is not initialized
-   if ((!e_comp->hwc) &&
-       (e_comp->norender == 0))
-     ecore_evas_manual_render_set(e_comp->ee, EINA_FALSE);
 }
 
 EINTERN int
 e_comp_canvas_norender_get(void)
 {
-   return e_comp->norender;
+   E_Comp_Screen *e_comp_screen;
+   E_Output *primary_output;
+
+   e_comp_screen = e_comp->e_comp_screen;
+   primary_output = e_comp_screen_primary_output_get(e_comp_screen);
+
+   return e_output_norender_get(primary_output);
 }

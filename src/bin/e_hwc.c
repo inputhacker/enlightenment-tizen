@@ -513,6 +513,32 @@ e_hwc_tbm_surface_queue_get(E_Hwc *hwc)
    return hwc->target_buffer_queue;
 }
 
+EINTERN void
+e_hwc_norender_push(E_Hwc *hwc)
+{
+   EINA_SAFETY_ON_FALSE_RETURN(hwc);
+
+   hwc->norender++;
+}
+
+EINTERN void
+e_hwc_norender_pop(E_Hwc *hwc)
+{
+   EINA_SAFETY_ON_FALSE_RETURN(hwc);
+
+   if (hwc->norender <= 0) return;
+
+   hwc->norender--;
+}
+
+EINTERN int
+e_hwc_norender_get(E_Hwc *hwc)
+{
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(hwc, 0);
+
+   return hwc->norender;
+}
+
 static const char *
 _e_hwc_prop_name_get_by_id(E_Hwc *hwc, unsigned int id)
 {

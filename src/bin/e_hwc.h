@@ -122,6 +122,8 @@ struct _E_Hwc
    Eina_List           *mirror_dst_hwc;
    E_Output_Ext_State   ext_state;
 
+   int                  norender;
+
    /* for fps */
    double               fps;
    double               old_fps;
@@ -140,6 +142,10 @@ EINTERN Eina_Bool             e_hwc_deactive_get(E_Hwc *hwc);
 EINTERN Eina_Bool             e_hwc_client_is_above_hwc(E_Client *ec, E_Client *hwc_ec);
 EINTERN char                 *e_hwc_output_id_get(E_Hwc *hwc);
 EINTERN tbm_surface_queue_h   e_hwc_tbm_surface_queue_get(E_Hwc *hwc);
+
+EINTERN void                  e_hwc_norender_push(E_Hwc *hwc);
+EINTERN void                  e_hwc_norender_pop(E_Hwc *hwc);
+EINTERN int                   e_hwc_norender_get(E_Hwc *hwc);
 
 EINTERN Eina_Bool             e_hwc_intercept_hook_call(E_Hwc_Intercept_Hook_Point hookpoint, E_Hwc *hwc);
 

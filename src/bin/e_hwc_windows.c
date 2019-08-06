@@ -2281,7 +2281,7 @@ e_hwc_windows_render(E_Hwc *hwc)
         return EINA_TRUE;
      }
 
-   if (e_comp_canvas_norender_get() > 0)
+   if (e_hwc_norender_get(hwc) > 0)
      {
         EHWSTRACE("NoRender get. Do not ecore_evas_manual_render.", NULL, hwc);
         return EINA_TRUE;
@@ -2317,7 +2317,7 @@ e_hwc_windows_commit(E_Hwc *hwc)
    if (!_e_hwc_windows_evaluate(hwc))
      return EINA_TRUE;
 
-   if (e_comp_canvas_norender_get() > 0)
+   if (e_hwc_norender_get(hwc) > 0)
      {
         EHWSTRACE(" Block Display... NoRender get.", NULL, hwc);
         return EINA_TRUE;

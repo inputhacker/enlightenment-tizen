@@ -229,6 +229,12 @@ EINTERN Eina_Bool         e_output_external_set(E_Output *output, E_Output_Ext_S
 EINTERN void              e_output_external_unset(E_Output *output);
 EINTERN Eina_Bool         e_output_external_update(E_Output *output);
 EINTERN Eina_Bool         e_output_external_mode_change(E_Output *output, E_Output_Mode *mode);
+
+
+EINTERN void              e_output_norender_push(E_Output *output);
+EINTERN void              e_output_norender_pop(E_Output *output);
+EINTERN int               e_output_norender_get(E_Output *output);
+
 E_API E_Output          * e_output_find(const char *id);
 E_API E_Output          * e_output_find_by_index(int index);
 E_API const Eina_List   * e_output_planes_get(E_Output *output);

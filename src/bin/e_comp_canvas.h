@@ -28,8 +28,8 @@ EINTERN void e_comp_canvas_keys_grab(void);
 EINTERN void e_comp_canvas_keys_ungrab(void);
 EINTERN void e_comp_canvas_feed_mouse_up(unsigned int activate_time);
 
-E_API void  e_comp_canvas_norender_push(void);
-E_API void  e_comp_canvas_norender_pop(void);
+E_API void    e_comp_canvas_norender_push(void);
+E_API void    e_comp_canvas_norender_pop(void);
 EINTERN int   e_comp_canvas_norender_get(void);
 
 /* the following functions are used for adjusting root window coordinates

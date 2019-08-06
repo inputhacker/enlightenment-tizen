@@ -4005,6 +4005,30 @@ e_output_external_mode_change(E_Output *output, E_Output_Mode *mode)
    return EINA_TRUE;
 }
 
+EINTERN void
+e_output_norender_push(E_Output *output)
+{
+   EINA_SAFETY_ON_FALSE_RETURN(output);
+
+   e_hwc_norender_push(output->hwc);
+}
+
+EINTERN void
+e_output_norender_pop(E_Output *output)
+{
+   EINA_SAFETY_ON_FALSE_RETURN(output);
+
+   e_hwc_norender_pop(output->hwc);
+}
+
+EINTERN int
+e_output_norender_get(E_Output *output)
+{
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(output, 0);
+
+   return e_hwc_norender_get(output->hwc);
+}
+
 static const char *
 _e_output_prop_name_get_by_id(E_Output *output, unsigned int id)
 {
