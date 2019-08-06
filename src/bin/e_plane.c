@@ -24,6 +24,7 @@ static const char *_e_plane_ec_last_err = NULL;
 static Eina_Bool plane_trace_debug = 0;
 static Eina_Bool _e_plane_pp_layer_data_commit(E_Plane *plane, E_Plane_Commit_Data *data);
 static Eina_Bool _e_plane_pp_commit(E_Plane *plane, E_Plane_Commit_Data *data);
+static Eina_Bool _e_plane_sw_commit(E_Plane *plane, E_Plane_Commit_Data *data);
 
 E_API int E_EVENT_PLANE_WIN_CHANGE = -1;
 
@@ -1052,11 +1053,23 @@ _e_plane_pp_pending_data_treat(E_Plane *plane)
              if (plane_trace_debug)
                ELOGF("E_PLANE", "PP Layer Commit Handler start pending pp data(%p) tsurface(%p)", NULL, data, data->tsurface);
 
-             if (!_e_plane_pp_commit(plane, data))
+             if (plane->tpp)
                {
-                  ERR("fail _e_plane_pp_commit");
-                  e_plane_commit_data_release(plane, data);
-                  return;
+                  if (!_e_plane_pp_commit(plane, data))
+                    {
+                       ERR("fail _e_plane_pp_commit");
+                       _e_plane_ext_pp_commit_data_release(data);
+                       return;
+                    }
+               }
+             else
+               {
+                  if (!_e_plane_sw_commit(plane, data))
+                    {
+                       ERR("fail _e_plane_sw_commit");
+                       _e_plane_ext_pp_commit_data_release(data);
+                       return;
+                    }
                }
           }
      }
@@ -1426,6 +1439,95 @@ pp_fail:
    tbm_surface_queue_release(plane->pp_tqueue, pp_tsurface);
 
    ERR("failed _e_plane_pp_commit");
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_plane_sw_commit(E_Plane *plane, E_Plane_Commit_Data *data)
+{
+   E_Output *output = NULL;
+   E_Comp_Wl_Video_Buf *src_vbuf = NULL;
+   E_Comp_Wl_Video_Buf *dst_vbuf = NULL;
+   tbm_surface_h dst_tsurface = NULL;
+   tbm_error_e tbm_err = TBM_ERROR_NONE;
+   tbm_surface_h src_tsurface = data->tsurface;
+   Eina_Rectangle src_crop = {0, };
+   Eina_Rectangle dst_crop = {0, };
+   int rotate = 0;
+
+   if (plane_trace_debug)
+     ELOGF("E_PLANE", "PP Convert Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
+           NULL, plane, plane->zpos, data->tsurface, plane->pp_tqueue,
+           data->buffer_ref.buffer ? data->buffer_ref.buffer->resource : NULL, data);
+
+   output = plane->output;
+   if (e_output_dpms_get(output) == E_OUTPUT_DPMS_OFF)
+     {
+        _e_plane_pp_pending_data_remove(plane);
+        return EINA_FALSE;
+     }
+
+   tbm_err = tbm_surface_queue_dequeue(plane->pp_tqueue, &dst_tsurface);
+   if (tbm_err != TBM_ERROR_NONE)
+     {
+        ERR("fail tbm_surface_queue_dequeue");
+        return EINA_FALSE;
+     }
+
+   src_vbuf = e_comp_wl_video_buffer_create_tbm(src_tsurface);
+   if (src_vbuf == NULL)
+     {
+        ERR("fail src e_comp_wl_video_buffer_create_tbm");
+        goto create_fail;
+     }
+
+   dst_vbuf = e_comp_wl_video_buffer_create_tbm(dst_tsurface);
+   if (dst_vbuf == NULL)
+     {
+        e_comp_wl_video_buffer_unref(src_vbuf);
+        ERR("fail dst e_comp_wl_video_buffer_create_tbm");
+        goto create_fail;
+     }
+
+   tbm_surface_internal_ref(src_tsurface);
+   tbm_surface_internal_ref(dst_tsurface);
+
+   src_crop.w = tbm_surface_get_width(src_tsurface);
+   src_crop.h = tbm_surface_get_height(src_tsurface);
+
+   dst_crop.x = plane->pp_rect.x;
+   dst_crop.y = plane->pp_rect.y;
+   dst_crop.w = plane->pp_rect.w;
+   dst_crop.h = plane->pp_rect.h;
+
+   e_comp_wl_video_buffer_convert(src_vbuf, dst_vbuf,
+                                       src_crop.x, src_crop.y, src_crop.w, src_crop.h,
+                                       dst_crop.x, dst_crop.y, dst_crop.w, dst_crop.h,
+                                       EINA_TRUE, rotate, 0, 0);
+
+   e_comp_wl_video_buffer_unref(src_vbuf);
+   e_comp_wl_video_buffer_unref(dst_vbuf);
+
+   if (!_e_plane_pp_layer_commit(plane, dst_tsurface))
+     {
+        ERR("fail to _e_plane_pp_layer_commit");
+        goto commit_fail;
+     }
+   tbm_surface_internal_unref(src_tsurface);
+   tbm_surface_internal_unref(dst_tsurface);
+
+   _e_plane_ext_pp_commit_data_release(data);
+
+   return EINA_TRUE;
+
+commit_fail:
+   tbm_surface_internal_unref(src_tsurface);
+   tbm_surface_internal_unref(dst_tsurface);
+create_fail:
+   tbm_surface_queue_release(plane->pp_tqueue, dst_tsurface);
+
+   ERR("fail _e_plane_sw_commit");
 
    return EINA_FALSE;
 }
@@ -3231,10 +3333,7 @@ e_plane_zoom_set(E_Plane *plane, Eina_Rectangle *rect)
      {
         plane->tpp = tdm_display_create_pp(e_comp_screen->tdisplay, &ret);
         if (ret != TDM_ERROR_NONE)
-          {
-             ERR("fail tdm pp create");
-             goto fail;
-          }
+          ERR("fail tdm pp create. use pixman.");
      }
 
    if (!plane->pp_tqueue)
@@ -3455,11 +3554,23 @@ e_plane_external_commit(E_Plane *plane)
              return EINA_TRUE;
           }
 
-        if (!_e_plane_pp_commit(plane, data))
+        if (plane->tpp)
           {
-             ERR("fail _e_plane_pp_commit");
-             _e_plane_ext_pp_commit_data_release(data);
-             return EINA_FALSE;
+             if (!_e_plane_pp_commit(plane, data))
+               {
+                  ERR("fail _e_plane_pp_commit");
+                  _e_plane_ext_pp_commit_data_release(data);
+                  return EINA_FALSE;
+               }
+          }
+        else
+          {
+             if (!_e_plane_sw_commit(plane, data))
+               {
+                  ERR("fail _e_plane_sw_commit");
+                  _e_plane_ext_pp_commit_data_release(data);
+                  return EINA_FALSE;
+               }
           }
 
         return EINA_TRUE;
