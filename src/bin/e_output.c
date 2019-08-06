@@ -2957,6 +2957,15 @@ e_output_size_get(E_Output *output, int *w, int *h)
    *h = output->config.mode.h;
 }
 
+EINTERN void
+e_output_phys_size_get(E_Output *output, int *phys_w, int *phys_h)
+{
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   *phys_w = output->info.size.w;
+   *phys_h = output->info.size.h;
+}
+
 EINTERN Eina_Bool
 e_output_fake_config_set(E_Output *output, int w, int h)
 {

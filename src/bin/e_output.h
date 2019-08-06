@@ -215,6 +215,7 @@ E_API Eina_Bool           e_output_dpms_set(E_Output *output, E_OUTPUT_DPMS val)
 E_API E_OUTPUT_DPMS       e_output_dpms_get(E_Output *output);
 EINTERN Eina_Bool         e_output_dpms_async_check(E_Output *output);
 EINTERN void              e_output_size_get(E_Output *output, int *w, int *h);
+EINTERN void              e_output_phys_size_get(E_Output *output, int *phys_w, int *phys_h);
 EINTERN E_Plane         * e_output_default_fb_target_get(E_Output *output);
 EINTERN Eina_Bool         e_output_fake_config_set(E_Output *output, int w, int h);
 EINTERN Eina_Bool         e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy);
