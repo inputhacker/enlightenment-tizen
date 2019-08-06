@@ -710,8 +710,29 @@ _e_info_server_cb_compobjs(const Eldbus_Service_Interface *iface EINA_UNUSED, co
                                         "a("SIGNATURE_COMPOBJS_CLIENT")",
                                         &cobjs);
 
+   E_Comp_Screen *e_comp_screen = e_comp->e_comp_screen;
+   Eina_List *l;
+   E_Output *output;
+   Evas *evas = e_comp->evas;
+   E_Hwc *hwc;
+
+   EINA_LIST_FOREACH(e_comp_screen->outputs, l, output)
+     {
+        if (!output) continue;
+        if (!output->config.enabled) continue;
+
+        hwc = output->hwc;
+        if (!output->hwc) continue;
+
+        if (!strncmp(e_output_output_id_get(output), "HDMIA-1", 3))
+          {
+            evas = hwc->evas;
+            break;
+          }
+     }
+
    /* 1. push: top-level evas objects */
-   for (o = evas_object_bottom_get(e_comp->evas); o; o = evas_object_above_get(o))
+   for (o = evas_object_bottom_get(evas); o; o = evas_object_above_get(o))
      {
         info = _obj_info_get(NULL, o, 0);
         if (!info) continue;

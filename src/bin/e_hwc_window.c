@@ -1747,7 +1747,7 @@ e_hwc_window_buffer_set(E_Hwc_Window *hwc_window, tbm_surface_h tsurface, E_Hwc_
 {
    EINA_SAFETY_ON_NULL_RETURN(hwc_window);
 
-   _e_hwc_window_buffer_set(&hwc_window->buffer, tsurface,queue);
+   _e_hwc_window_buffer_set(&hwc_window->buffer, tsurface, queue);
 }
 
 EINTERN void

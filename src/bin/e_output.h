@@ -2,9 +2,11 @@
 
 #include <tbm_surface.h>
 
-typedef struct _E_Output            E_Output;
-typedef struct _E_Output_Mode       E_Output_Mode;
-typedef enum   _E_Output_Dpms       E_OUTPUT_DPMS;
+typedef struct _E_Output               E_Output;
+typedef struct _E_Output_Mode          E_Output_Mode;
+typedef struct _E_Eom_Output_Buffer    E_EomOutputBuffer, *E_EomOutputBufferPtr;
+typedef struct _E_Eom_Output_Pp        E_EomOutputPp,     *E_EomOutputPpPtr;
+typedef enum   _E_Output_Dpms          E_OUTPUT_DPMS;
 typedef enum   _E_Output_Display_Mode  E_Output_Display_Mode;
 
 typedef struct _E_Output_Hook       E_Output_Hook;
@@ -128,7 +130,16 @@ struct _E_Output
 
    /* external */
    Eina_Bool                external_set;
+   Eina_Bool                tdm_mirror;
+   E_Output                *mirror_src_output;
    E_Output_Display_Mode    display_mode;
+   tdm_layer               *overlay_layer;
+   Eina_Bool                need_overlay_pp;
+   E_Client                *presentation_ec;
+   /* If attribute has been set while external output is disconnected
+    * then show black screen and wait until EOM client start sending
+    * buffers. After expiring of the delay start mirroring */
+   Ecore_Timer *delay_timer;
 
    Eina_Bool fake_config;
 };
@@ -227,10 +238,17 @@ EINTERN Eina_Bool         e_output_stream_capture_dequeue(E_Output *output, tbm_
 EINTERN Eina_Bool         e_output_stream_capture_start(E_Output *output);
 EINTERN void              e_output_stream_capture_stop(E_Output *output);
 EINTERN const char      * e_output_output_id_get(E_Output *output);
-EINTERN Eina_Bool         e_output_external_set(E_Output *output, E_Output_Display_Mode display_mode);
-EINTERN void              e_output_external_unset(E_Output *output);
+
+EINTERN Eina_Bool         e_output_external_connect_display_set(E_Output *output);
+EINTERN void              e_output_external_disconnect_display_set(E_Output *output);
 EINTERN Eina_Bool         e_output_external_update(E_Output *output);
 EINTERN Eina_Bool         e_output_external_mode_change(E_Output *output, E_Output_Mode *mode);
+EINTERN Eina_Bool         e_output_mirror_set(E_Output *output, E_Output *src_output);
+EINTERN void              e_output_mirror_unset(E_Output *output);
+EINTERN Eina_Bool         e_output_presentation_wait_set(E_Output *output, E_Client *ec);
+EINTERN Eina_Bool         e_output_presentation_update(E_Output *output, E_Client *ec);
+EINTERN void              e_output_presentation_unset(E_Output *output);
+EINTERN E_Client        * e_output_presentation_ec_get(E_Output *output);
 
 EINTERN E_Output_Display_Mode  e_output_display_mode_get(E_Output *output);
 

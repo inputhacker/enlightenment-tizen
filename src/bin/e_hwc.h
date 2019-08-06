@@ -119,8 +119,10 @@ struct _E_Hwc
    /* external output */
    Eina_Rectangle       mirror_rect;
    E_Hwc               *mirror_src_hwc;
+   tbm_surface_h        mirror_src_tsurface;
    Eina_List           *mirror_dst_hwc;
-   E_Output_Display_Mode    display_mode;
+   tbm_surface_h        presentation_tsurface;
+   E_Hwc_Window        *presentation_hwc_window;
 
    int                  norender;
 
