@@ -462,6 +462,37 @@ _e_output_render_update(E_Output *output)
    e_output_render(output);
 }
 
+static void
+_e_output_force_render_set(E_Output *output)
+{
+   int w, h;
+
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   if (output->force_render)
+     return;
+
+   e_output_size_get(output, &w, &h);
+   e_comp_override_add();
+   evas_damage_rectangle_add(output->hwc->evas, 0, 0, w, h);
+
+   output->force_render = EINA_TRUE;
+   EOINF("force render set", output);
+}
+
+static void
+_e_output_force_render_unset(E_Output *output)
+{
+   EINA_SAFETY_ON_NULL_RETURN(output);
+
+   if (!output->force_render)
+     return;
+
+   e_comp_override_del();
+   output->force_render = EINA_FALSE;
+   EOINF("force render unset", output);
+}
+
 static E_Client *
 _e_output_top_visible_ec_get()
 {
@@ -3070,6 +3101,8 @@ e_output_commit(E_Output *output)
           }
      }
 
+   _e_output_force_render_unset(output);
+
    return EINA_TRUE;
 }
 
@@ -3811,7 +3844,7 @@ e_output_external_set(E_Output *output, E_Output_Display_Mode display_mode)
    EOINF("e_output_external_set done: display_mode:%d", output, display_mode);
 
    /* update the ecore_evas */
-   _e_output_render_update(output_primary);
+   _e_output_force_render_set(output_primary);
 
    return EINA_TRUE;
 }
@@ -3854,7 +3887,7 @@ e_output_external_unset(E_Output *output)
    output->zoom_conf.rect.h = 0;
 
    /* update the ecore_evas */
-   _e_output_render_update(output_primary);
+   _e_output_force_render_set(output_primary);
 
    EOINF("e_output_external_unset done.", output);
 }
