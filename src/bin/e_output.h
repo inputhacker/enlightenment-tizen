@@ -129,6 +129,7 @@ struct _E_Output
    /* external */
    Eina_Bool                external_set;
    E_Output_Display_Mode    display_mode;
+   Eina_Bool                force_render;
 
    Eina_Bool fake_config;
 };
