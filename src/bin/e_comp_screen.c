@@ -46,21 +46,6 @@ _tz_surface_rotation_find(E_Client *ec)
    return NULL;
 }
 
-static E_Comp_Screen_Tzsr*
-_tz_surface_rotation_find_with_resource(struct wl_resource *resource)
-{
-   E_Comp_Screen_Tzsr *tzsr;
-   Eina_List *l;
-
-   EINA_LIST_FOREACH(tzsr_list, l, tzsr)
-     {
-        if (tzsr->resource == resource)
-          return tzsr;
-     }
-
-   return NULL;
-}
-
 static void
 _tz_surface_rotation_free(E_Comp_Screen_Tzsr *tzsr)
 {
@@ -123,9 +108,14 @@ static const struct tizen_screen_rotation_interface _tz_screen_rotation_interfac
 
 static void _tz_screen_rotation_cb_destroy(struct wl_resource *resource)
 {
-   E_Comp_Screen_Tzsr *tzsr = _tz_surface_rotation_find_with_resource(resource);
-   if (!tzsr) return;
-   _tz_surface_rotation_free(tzsr);
+   E_Comp_Screen_Tzsr *tzsr;
+   Eina_List *l, *ll;
+
+   EINA_LIST_FOREACH_SAFE(tzsr_list, l, ll, tzsr)
+     {
+        if (tzsr->resource == resource)
+          _tz_surface_rotation_free(tzsr);
+     }
 }
 
 static void
