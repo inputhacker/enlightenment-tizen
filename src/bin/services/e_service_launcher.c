@@ -122,7 +122,7 @@ _launcher_state_to_str(Launcher_State state)
 
 static void
 _launcher_state_set(E_Service_Launcher *lc,
-                          Launcher_State state)
+                    Launcher_State state)
 {
    EINA_SAFETY_ON_NULL_RETURN(lc);
 
@@ -430,7 +430,7 @@ _launcher_prepare_shared_widget_backward_send(E_Service_Launcher *lc,
 
 static Eina_Bool
 _launcher_prepare_forward_send(E_Service_Launcher *lc,
-                                     E_Client *target_ec)
+                               E_Client *target_ec)
 {
    Eina_Bool sent = EINA_FALSE;
    int x, y;
@@ -471,9 +471,9 @@ _launcher_prepare_forward_send(E_Service_Launcher *lc,
 
 static Eina_Bool
 _launcher_prepare_backward_send(E_Service_Launcher *lc,
-                                      E_Client *activity,
-                                      E_Client *target_ec,
-                                      E_Vis_Job_Type job_type)
+                                E_Client *activity,
+                                E_Client *target_ec,
+                                E_Vis_Job_Type job_type)
 {
    int x, y;
    Eina_Bool sent = EINA_FALSE;
@@ -706,7 +706,7 @@ _launcher_cb_resource_destroy(struct wl_resource *res_tws_lc)
 
 static void
 _launcher_cb_destroy(struct wl_client *client EINA_UNUSED,
-                           struct wl_resource *res_tws_lc)
+                     struct wl_resource *res_tws_lc)
 {
    ELOGF("LAUNCHER_SRV", "Received request(launcher_destroy)", NULL);
    wl_resource_destroy(res_tws_lc);
@@ -714,10 +714,10 @@ _launcher_cb_destroy(struct wl_client *client EINA_UNUSED,
 
 static void
 _launcher_cb_launch(struct wl_client *client EINA_UNUSED,
-                          struct wl_resource *res_tws_lc,
-                          const char *app_id,
-                          const char *instance_id,
-                          int32_t pid)
+                    struct wl_resource *res_tws_lc,
+                    const char *app_id,
+                    const char *instance_id,
+                    int32_t pid)
 {
    E_Service_Launcher *lc;
    E_Service_Launcher *runner, *pre_runner;
@@ -870,8 +870,8 @@ send_stop:
 
 static void
 _launcher_cb_launching(struct wl_client *client EINA_UNUSED,
-                             struct wl_resource *res_tws_lc,
-                             uint32_t serial)
+                       struct wl_resource *res_tws_lc,
+                       uint32_t serial)
 {
    E_Service_Launcher *lc;
    E_Service_Launcher *runner;
@@ -898,14 +898,14 @@ _launcher_cb_launching(struct wl_client *client EINA_UNUSED,
      {
         _launcher_state_set(lc, LAUNCHER_STATE_LAUNCHING_WAIT_BUFFER);
         lc->buff_attach = ecore_event_handler_add(E_EVENT_CLIENT_BUFFER_CHANGE,
-                                                 _launcher_cb_event_buff_attach, lc);
+                                                  _launcher_cb_event_buff_attach, lc);
      }
 }
 
 static void
 _launcher_cb_launch_done(struct wl_client *client EINA_UNUSED,
-                               struct wl_resource *res_tws_lc,
-                               uint32_t serial)
+                         struct wl_resource *res_tws_lc,
+                         uint32_t serial)
 {
    E_Service_Launcher *lc;
    E_Service_Launcher *runner;
@@ -952,8 +952,8 @@ _launcher_cb_launch_done(struct wl_client *client EINA_UNUSED,
 
 static void
 _launcher_cb_launch_cancel(struct wl_client *client EINA_UNUSED,
-                                 struct wl_resource *res_tws_lc,
-                                 uint32_t serial)
+                           struct wl_resource *res_tws_lc,
+                           uint32_t serial)
 {
    E_Service_Launcher *lc;
    E_Service_Launcher *runner;
