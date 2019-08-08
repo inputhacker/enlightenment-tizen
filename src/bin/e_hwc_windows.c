@@ -943,6 +943,101 @@ fail:
    return NULL;
 }
 
+static Eina_Bool
+_e_hwc_windows_tbm_surface_queue_init(E_Hwc *hwc)
+{
+   E_Output *output = hwc->output;
+   tbm_surface_queue_h tqueue = NULL;
+   tdm_error error;
+   int scr_w, scr_h, queue_w, queue_h;
+
+   e_output_size_get(output, &scr_w, &scr_h);
+
+   if ((output->tdm_hwc) && (!output->fake_config))
+     {
+        tqueue = tdm_hwc_get_client_target_buffer_queue(hwc->thwc, &error);
+        if (error != TDM_ERROR_NONE)
+         {
+            EHWSERR("fail to tdm_hwc_get_client_target_buffer_queue", hwc);
+            return EINA_FALSE;
+         }
+     }
+   else
+     {
+        tqueue = tbm_surface_queue_create(3, scr_w, scr_h, TBM_FORMAT_ARGB8888, TBM_BO_SCANOUT);
+        if (!tqueue)
+          {
+             EHWSERR("fail to tbm_surface_queue_create", hwc);
+             return EINA_FALSE;
+          }
+     }
+
+   queue_w = tbm_surface_queue_get_width(tqueue);
+   if (scr_w != queue_w)
+     EHWSINF("!!WARNING::: the queue width(%d) is diffrent from output width(%d)!", NULL, hwc,
+             queue_w, scr_w);
+   queue_h = tbm_surface_queue_get_height(tqueue);
+   if (scr_h != queue_h)
+     EHWSINF("!!WARNING::: the queue height(%d) is diffrent from output height(%d)!", NULL, hwc,
+             queue_h, scr_h);
+
+   hwc->target_buffer_queue = tqueue;
+
+   EHWSINF("The tqueue(%p, %dx%d) is created.", NULL, hwc, tqueue, queue_w, queue_h);
+
+   return EINA_TRUE;
+}
+
+static void
+_e_hwc_windows_tbm_surface_queue_deinit(E_Hwc *hwc)
+{
+   if (hwc->target_buffer_queue)
+     {
+        tbm_surface_queue_destroy(hwc->target_buffer_queue);
+        hwc->target_buffer_queue = NULL;
+     }
+}
+
+static E_Hwc_Window_Target *
+_e_hwc_windows_target_window_new_with_no_ee(E_Hwc *hwc)
+{
+   E_Hwc_Window_Target *target_hwc_window = NULL;
+
+   target_hwc_window = E_OBJECT_ALLOC(E_Hwc_Window_Target, E_HWC_WINDOW_TYPE, _e_hwc_windows_target_window_free);
+   EINA_SAFETY_ON_NULL_GOTO(target_hwc_window, fail);
+
+   ((E_Hwc_Window *)target_hwc_window)->is_target = EINA_TRUE;
+   ((E_Hwc_Window *)target_hwc_window)->state = E_HWC_WINDOW_STATE_DEVICE;
+   ((E_Hwc_Window *)target_hwc_window)->accepted_state = E_HWC_WINDOW_STATE_DEVICE;
+   ((E_Hwc_Window *)target_hwc_window)->hwc = hwc;
+
+   target_hwc_window->ee = NULL;
+   target_hwc_window->evas = NULL;
+   target_hwc_window->event_fd = eventfd(0, EFD_NONBLOCK);;
+   target_hwc_window->event_hdlr = ecore_main_fd_handler_add(target_hwc_window->event_fd, ECORE_FD_READ,
+                                      _e_hwc_windows_target_window_render_finished_cb,
+                                      (void *)target_hwc_window, NULL, NULL);;
+
+   /* create the tqueue of the target_window */
+   _e_hwc_windows_tbm_surface_queue_init(hwc);
+
+   if (!_e_hwc_windows_target_window_queue_set(target_hwc_window))
+     {
+        EHWSERR("fail to _e_hwc_windows_target_window_queue_set", hwc);
+        goto fail;
+     }
+
+   return target_hwc_window;
+
+fail:
+   _e_hwc_windows_tbm_surface_queue_deinit(hwc);
+
+   if (target_hwc_window)
+     e_object_del(E_OBJECT(target_hwc_window));
+
+   return NULL;
+}
+
 static E_Hwc_Window *
 _e_hwc_windows_pp_window_get(E_Hwc *hwc, tbm_surface_h tsurface)
 {
@@ -2391,8 +2486,15 @@ e_hwc_windows_target_window_new(E_Hwc *hwc)
    if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
      return NULL;
 
-   target_hwc_window = _e_hwc_windows_target_window_new(hwc);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, NULL);
+   if (hwc->primary_output)
+     {
+        target_hwc_window = _e_hwc_windows_target_window_new(hwc);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, NULL);
+     }
+   else
+     {
+        target_hwc_window = _e_hwc_windows_target_window_new_with_no_ee(hwc);
+     }
    target_hwc_window->hwc = hwc;
 
    hwc->hwc_windows = eina_list_append(hwc->hwc_windows, target_hwc_window);
@@ -2409,6 +2511,9 @@ e_hwc_windows_target_window_del(E_Hwc_Window_Target *target_hwc_window)
 
    hwc = target_hwc_window->hwc;
    EINA_SAFETY_ON_NULL_RETURN(hwc);
+
+   if (!hwc->primary_output)
+      _e_hwc_windows_tbm_surface_queue_deinit(hwc);
 
    hwc->hwc_windows = eina_list_remove(hwc->hwc_windows, hwc->target_hwc_window);
    e_object_del(E_OBJECT(hwc->target_hwc_window));
