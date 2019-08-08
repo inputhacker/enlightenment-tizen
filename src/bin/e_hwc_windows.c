@@ -235,8 +235,6 @@ _e_hwc_windows_commit_handler(tdm_hwc *thwc, unsigned int sequence,
    E_Hwc *hwc = (E_Hwc *)user_data;
    EINA_SAFETY_ON_NULL_RETURN(hwc);
 
-   EHWSINF("[soolim]!!!!!!!! HWC Commit Handler !!!!!!!!", NULL, hwc);
-
    if (hwc->pp_tsurface && !hwc->pp_set)
      {
         tbm_surface_internal_unref(hwc->pp_tsurface);
@@ -3169,7 +3167,6 @@ e_hwc_windows_external_commit(E_Hwc *hwc, E_Output_Display_Mode display_mode)
    else
      {
         EHWSTRACE("!!!!!!!! HWC Commit !!!!!!!!", NULL, hwc);
-        EHWSINF("[soolim]!!!!!!!! HWC Commit !!!!!!!!", NULL, hwc);
         _e_hwc_windows_update_fps(hwc);
 
         hwc->wait_commit = EINA_TRUE;
