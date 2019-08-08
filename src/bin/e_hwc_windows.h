@@ -39,7 +39,7 @@ EINTERN void                 e_hwc_windows_debug_info_get(Eldbus_Message_Iter *i
 EINTERN Eina_Bool            e_hwc_windows_mirror_set(E_Hwc *hwc, E_Hwc *src_hwc, Eina_Rectangle *rect);
 EINTERN void                 e_hwc_windows_mirror_unset(E_Hwc *hwc);
 EINTERN Eina_Bool            e_hwc_windows_presentation_update(E_Hwc *hwc, E_Client *ec);
-EINTERN Eina_Bool            e_hwc_windows_external_commit(E_Hwc *hwc);
+EINTERN Eina_Bool            e_hwc_windows_external_commit(E_Hwc *hwc, E_Output_Display_Mode display_mode);
 
 #endif
 #endif

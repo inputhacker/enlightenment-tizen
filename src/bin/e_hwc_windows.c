@@ -3080,10 +3080,9 @@ _e_hwc_windows_presentation_evaluation_check(E_Hwc *hwc)
 }
 
 EINTERN Eina_Bool
-e_hwc_windows_external_commit(E_Hwc *hwc)
+e_hwc_windows_external_commit(E_Hwc *hwc, E_Output_Display_Mode display_mode)
 {
    E_Output *output = NULL;
-   E_Output_Display_Mode display_mode;
    tdm_error error = TDM_ERROR_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
@@ -3093,7 +3092,6 @@ e_hwc_windows_external_commit(E_Hwc *hwc)
 
    if (hwc->wait_commit) return EINA_TRUE;
 
-   display_mode = e_output_display_mode_get(output);
    /* set the target_buffer if the output need to update */
 #if 1
   if (display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)

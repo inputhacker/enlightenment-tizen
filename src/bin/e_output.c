@@ -3068,6 +3068,7 @@ EINTERN Eina_Bool
 e_output_commit(E_Output *output)
 {
    E_Output *output_primary = NULL;
+   E_Output_Display_Mode display_mode;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
 
@@ -3094,6 +3095,14 @@ e_output_commit(E_Output *output)
           }
         else
           {
+             display_mode = e_output_display_mode_get(output);
+
+             /* output donot care about the external_commit
+                when tdm has the mirror capability */
+             if (display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR &&
+                 output->tdm_mirror)
+               return EINA_TRUE;
+
              if (!e_hwc_planes_external_commit(output->hwc))
                {
                   EOERR("fail e_hwc_planes_external_commit", output);
@@ -3120,7 +3129,15 @@ e_output_commit(E_Output *output)
                   e_output_external_update(output);
                }
 
-             if (!e_hwc_windows_external_commit(output->hwc))
+             display_mode = e_output_display_mode_get(output);
+
+             /* output donot care about the external_commit
+                when tdm has the mirror capability */
+             if (display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR &&
+                 output->tdm_mirror)
+               return EINA_TRUE;
+
+             if (!e_hwc_windows_external_commit(output->hwc, display_mode))
                {
                   EOERR("fail e_hwc_windows_external_commit", output);
                   return EINA_FALSE;
@@ -4076,7 +4093,6 @@ e_output_mirror_set(E_Output *output, E_Output *src_output)
         return EINA_TRUE;
      }
 
-   output->tdm_mirror = EINA_FALSE;
    if (output->tdm_mirror)
      {
         EOINF("TDM supports the output mirroring.", output);
@@ -4116,9 +4132,6 @@ e_output_mirror_set(E_Output *output, E_Output *src_output)
 
    output->mirror_src_output = src_output;
 
-   /* make the src_hwc be full gl-compositing */
-   e_hwc_deactive_set(src_output->hwc, EINA_TRUE);
-
    _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_MIRROR);
    output->external_set = EINA_TRUE;
 
@@ -4147,8 +4160,6 @@ e_output_mirror_unset(E_Output *output)
 
    output->external_set = EINA_FALSE;
    _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_NONE);
-
-   e_hwc_deactive_set(src_output->hwc, EINA_FALSE);
 
    output->mirror_src_output = NULL;
 
