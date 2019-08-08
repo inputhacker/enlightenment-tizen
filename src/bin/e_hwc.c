@@ -189,6 +189,13 @@ _e_hwc_ee_init(E_Hwc* hwc)
    int screen_rotation;
    char buf[1024];
 
+   /* initialize the ecore_evas only hwc of the primary output */
+   if (!hwc->primary_output)
+     {
+         EHINF("No Primary Output, No Ecore_Evas.", hwc);
+         return EINA_TRUE;
+     }
+
    EHINF("ecore evase engine init.", hwc);
 
    // TODO: fix me. change the screen_rotation into output_rotation.
@@ -320,7 +327,7 @@ _e_hwc_ee_init(E_Hwc* hwc)
 }
 
 EINTERN E_Hwc *
-e_hwc_new(E_Output *output)
+e_hwc_new(E_Output *output, Eina_Bool primary_output)
 {
    E_Hwc *hwc = NULL;
    tdm_hwc_capability hwc_caps = 0;
@@ -376,7 +383,9 @@ e_hwc_new(E_Output *output)
           hwc->tdm_hwc_video_scanout = EINA_TRUE;
      }
 
-   /* initialize the ecore_evas in each hwc */
+   /* set the pirmary_output */
+   hwc->primary_output = primary_output;
+
    if (!_e_hwc_ee_init(hwc))
      {
         EHERR("_e_hwc_ee_init failed", hwc);

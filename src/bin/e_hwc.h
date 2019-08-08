@@ -78,6 +78,8 @@ struct _E_Hwc
    Ecore_Evas          *ee;
    Evas                *evas;
 
+   Eina_Bool            primary_output;
+
    /* variables for hwc_planes polic  */
    Eina_Bool            hwc_use_multi_plane;
 
@@ -136,7 +138,7 @@ struct _E_Hwc
    int                  flapse;
 };
 
-EINTERN E_Hwc                *e_hwc_new(E_Output *output);
+EINTERN E_Hwc                *e_hwc_new(E_Output *output, Eina_Bool primary_output);
 EINTERN void                  e_hwc_del(E_Hwc *hwc);
 EINTERN E_Hwc_Mode            e_hwc_mode_get(E_Hwc *hwc);
 EINTERN void                  e_hwc_deactive_set(E_Hwc *hwc, Eina_Bool set);
