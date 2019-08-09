@@ -421,10 +421,10 @@ _e_hwc_window_queue_exported_buffer_destroy_cb(struct wl_listener *listener, voi
    queue_buffer->usable = EINA_FALSE;
 
    hwc_window = queue->user;
-   EHWQTRACE("DES ts:%p tq:%p wl_buffer:%p",
-             (hwc_window ? hwc_window->ec : NULL), queue->hwc, queue,
-             queue_buffer->tsurface, queue->tqueue,
-             queue_buffer->exported_wl_buffer);
+   EHWQINF("DES ts:%p tq:%p wl_buffer:%p",
+           (hwc_window ? hwc_window->ec : NULL), queue->hwc, queue,
+           queue_buffer->tsurface, queue->tqueue,
+           queue_buffer->exported_wl_buffer);
 
    if (queue_buffer->reseted)
      {
@@ -461,10 +461,10 @@ _e_hwc_window_queue_exported_buffer_detach_cb(struct wayland_tbm_client_queue *c
        (queue->state == E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_BUFFER))
      queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_INVALID;
 
-   EHWQTRACE("DET ts:%p tq:%p wl_buffer:%p",
-             (user ? user->ec : NULL), queue->hwc, queue,
-             queue_buffer->tsurface, queue->tqueue,
-             queue_buffer->exported_wl_buffer);
+   EHWQINF("DET ts:%p tq:%p wl_buffer:%p",
+           (user ? user->ec : NULL), queue->hwc, queue,
+           queue_buffer->tsurface, queue->tqueue,
+           queue_buffer->exported_wl_buffer);
 
    if (!queue_buffer->acquired && queue_buffer->dequeued)
      e_hwc_window_queue_buffer_release(queue, queue_buffer);
@@ -498,9 +498,9 @@ _e_hwc_window_queue_buffer_export(E_Hwc_Window_Queue *queue, E_Hwc_Window_Queue_
                                                               (void *)queue);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(wl_buffer, EINA_FALSE);
 
-   EHWQTRACE("EXP ts:%p tq:%p wl_buffer:%p",
-             (user ? user->ec : NULL), queue->hwc, queue,
-             queue_buffer->tsurface, queue->tqueue, wl_buffer);
+   EHWQINF("EXP ts:%p tq:%p wl_buffer:%p",
+           (user ? user->ec : NULL), queue->hwc, queue,
+           queue_buffer->tsurface, queue->tqueue, wl_buffer);
 
    queue_buffer->exported = EINA_TRUE;
    queue_buffer->exported_wl_buffer = wl_buffer;
@@ -545,12 +545,12 @@ _e_hwc_window_queue_buffer_send(E_Hwc_Window_Queue *queue)
    wayland_tbm_server_client_queue_send_buffer_usable(cqueue, queue_buffer->exported_wl_buffer);
    queue_buffer->usable = EINA_TRUE;
 
-   EHWQTRACE("USA ts:%p tq:%p wl_buffer:%p ehw:%p",
-             (hwc_window ? hwc_window->ec : NULL), queue->hwc,
-             queue,
-             queue_buffer->tsurface, queue->tqueue,
-             queue_buffer->exported_wl_buffer,
-             hwc_window);
+   EHWQINF("USA ts:%p tq:%p wl_buffer:%p ehw:%p",
+           (hwc_window ? hwc_window->ec : NULL), queue->hwc,
+           queue,
+           queue_buffer->tsurface, queue->tqueue,
+           queue_buffer->exported_wl_buffer,
+           hwc_window);
 
    return EINA_TRUE;
 }
@@ -835,6 +835,10 @@ _e_hwc_window_queue_prepare_set(E_Hwc_Window_Queue *queue, E_Hwc_Window *hwc_win
    e_hwc_window_activate(hwc_window, queue);
 
    queue->state = E_HWC_WINDOW_QUEUE_STATE_SET_WAITING_WAIT_USABLE;
+
+   EHWQINF("Set Waiting wait usable user ehw:%p -- {%s}",
+           hwc_window->ec, queue->hwc, queue, hwc_window,
+           (hwc_window->ec ? hwc_window->ec->icccm.title : "UNKNOWN"));
 
    e_object_ref(E_OBJECT(queue));
 
