@@ -7493,24 +7493,3 @@ E_API void e_client_frame_focus_set(E_Client *ec, Eina_Bool focus)
    if (!ec) return;
    evas_object_focus_set(ec->frame, focus);
 }
-
-E_API void
-e_client_layer_set(E_Client *ec,
-                   E_Layer layer)
-{
-   E_OBJECT_CHECK(ec);
-   E_OBJECT_TYPE_CHECK(ec, E_CLIENT_TYPE);
-
-   if (ec->frame)
-     {
-        evas_object_layer_set(ec->frame, layer);
-        if (ec->layer != layer)
-          {
-             // if e_comp_object fail to change ec->layer due to ec->layer_pending or block
-             // leave log and apply ec->layer according to set
-             // as a result it restores back to its layer.
-             ELOGF("LAYER", "layer changed %d | layer pending(%d) or block(%d) ", ec, layer, ec->layer_pending, ec->layer_block);
-             ec->layer = layer;
-          }
-     }
-}
