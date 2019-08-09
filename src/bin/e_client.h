@@ -1129,6 +1129,8 @@ E_API void e_client_stay_within_canvas_margin(E_Client *ec);
 
 EINTERN void e_client_revert_focus(E_Client *ec);
 
+E_API Eina_Bool e_client_layer_set(E_Client *ec, E_Layer layer);
+
 /**
  * Move window to coordinates that do not account client decorations yet.
  *
