@@ -278,6 +278,7 @@ _e_hwc_window_cb_queue_destroy(struct wl_listener *listener, void *data)
    if ((E_Hwc_Window_Queue *)data != hwc_window->queue) return;
 
    hwc_window->queue = NULL;
+   hwc_window->constraints &= ~TDM_HWC_WIN_CONSTRAINT_BUFFER_QUEUE;
 }
 
 static Eina_Bool
