@@ -27,21 +27,9 @@
 #define DUMP_FPS 30
 #define EOM_DELAY_CONNECT_CHECK_TIMEOUT 3.0
 #define EOM_DELAY_CHECK_TIMEOUT 1.0
-/*
-#define EOM_DUMP_PRESENTATION_BUFFERS
-*/
-
-#ifndef CLEAR
-#define CLEAR(x) memset(&(x), 0, sizeof (x))
-#endif
 
 typedef struct _E_Output_Capture E_Output_Capture;
 typedef struct _E_Output_Layer E_Output_Layer;
-
-typedef struct _E_Eom_Buffer         E_EomBuffer,       *E_EomBufferPtr;
-typedef struct _E_Eom_Pp_Data        E_EomPpData,       *E_EomPpDataPtr;
-
-typedef void   (*E_EomEndShowingEventPtr)  (E_Output *output, tbm_surface_h srfc, void * user_data);
 
 struct _E_Output_Capture
 {
@@ -58,37 +46,6 @@ struct _E_Output_Layer
 {
    tdm_layer *layer;
    int zpos;
-};
-
-struct _E_Eom_Output_Buffer
-{
-   E_Output *output;
-   tbm_surface_h tbm_surface;
-   E_EomEndShowingEventPtr cb_func;
-   void *cb_user_data;
-};
-
-struct _E_Eom_Buffer
-{
-   E_Comp_Wl_Buffer *wl_buffer;
-   E_Comp_Wl_Buffer_Ref comp_wl_buffer_ref;
-
-   /* double reference to avoid sigterm crash */
-   E_Comp_Wl_Buffer_Ref comp_wl_buffer_ref_2;
-};
-
-struct _E_Eom_Output_Pp
-{
-   tdm_pp *pp;
-   tbm_surface_queue_h queue;
-   tdm_info_pp pp_info;
-};
-
-struct _E_Eom_Pp_Data
-{
-   E_Output *output;
-   E_EomBufferPtr eom_buffer;
-   tbm_surface_h tsurface;
 };
 
 static int _e_output_hooks_delete = 0;
@@ -982,13 +939,14 @@ _e_output_update_fps()
 EINTERN Eina_Bool
 e_output_init(void)
 {
+   /* nothing */
    return EINA_TRUE;
 }
 
 EINTERN void
 e_output_shutdown(void)
 {
-
+   ;
 }
 
 static char *
@@ -3376,10 +3334,10 @@ e_output_plane_get_by_zpos(E_Output *output, int zpos)
 EINTERN Eina_Bool
 e_output_zoom_set(E_Output *output, double zoomx, double zoomy, int cx, int cy)
 {
-   E_Output *output_primary = NULL;
    E_Plane *ep = NULL;
    int w, h;
    int angle = 0;
+   E_Output *output_primary = NULL;
 
    if (!e_comp_screen_pp_support())
      {

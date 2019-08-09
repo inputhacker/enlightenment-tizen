@@ -2,11 +2,9 @@
 
 #include <tbm_surface.h>
 
-typedef struct _E_Output               E_Output;
-typedef struct _E_Output_Mode          E_Output_Mode;
-typedef struct _E_Eom_Output_Buffer    E_EomOutputBuffer, *E_EomOutputBufferPtr;
-typedef struct _E_Eom_Output_Pp        E_EomOutputPp,     *E_EomOutputPpPtr;
-typedef enum   _E_Output_Dpms          E_OUTPUT_DPMS;
+typedef struct _E_Output            E_Output;
+typedef struct _E_Output_Mode       E_Output_Mode;
+typedef enum   _E_Output_Dpms       E_OUTPUT_DPMS;
 typedef enum   _E_Output_Display_Mode  E_Output_Display_Mode;
 
 typedef struct _E_Output_Hook       E_Output_Hook;

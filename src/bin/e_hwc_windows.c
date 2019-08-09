@@ -235,6 +235,8 @@ _e_hwc_windows_commit_handler(tdm_hwc *thwc, unsigned int sequence,
    E_Hwc *hwc = (E_Hwc *)user_data;
    EINA_SAFETY_ON_NULL_RETURN(hwc);
 
+   EHWSTRACE("!!!!!!!! HWC Commit Handler !!!!!!!!", NULL, hwc);
+
    if (hwc->pp_tsurface && !hwc->pp_set)
      {
         tbm_surface_internal_unref(hwc->pp_tsurface);
@@ -2015,15 +2017,6 @@ _e_hwc_windows_visible_windows_update(E_Hwc *hwc)
    Eina_List *visible_windows;
    int visible_num = 0;
    int zpos = 0;
-
-#if 0
-  /* only check visible windows on the primary output */
-  if (hwc->output != e_comp_screen_primary_output_get(e_comp->e_comp_screen))
-    {
-       EHWSINF("Skip to update the visible windows. Not Primary Output.", NULL, hwc);
-       return EINA_TRUE;
-    }
-#endif
 
    /* get the visibile windows */
    visible_windows = _e_hwc_windows_visible_windows_list_get(hwc);
