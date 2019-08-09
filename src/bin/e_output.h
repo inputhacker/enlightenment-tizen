@@ -237,9 +237,6 @@ EINTERN Eina_Bool         e_output_stream_capture_start(E_Output *output);
 EINTERN void              e_output_stream_capture_stop(E_Output *output);
 EINTERN const char      * e_output_output_id_get(E_Output *output);
 
-EINTERN Eina_Bool         e_output_external_connect_display_set(E_Output *output);
-EINTERN void              e_output_external_disconnect_display_set(E_Output *output);
-EINTERN Eina_Bool         e_output_external_update(E_Output *output);
 EINTERN Eina_Bool         e_output_external_mode_change(E_Output *output, E_Output_Mode *mode);
 EINTERN Eina_Bool         e_output_mirror_set(E_Output *output, E_Output *src_output);
 EINTERN void              e_output_mirror_unset(E_Output *output);
