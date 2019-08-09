@@ -2649,7 +2649,7 @@ _tzpol_iface_cb_supported_aux_hints_get(struct wl_client *client EINA_UNUSED, st
 }
 
 static void
-e_client_background_state_set(E_Client *ec, Eina_Bool state)
+_e_policy_wl_background_state_apply(E_Client *ec, Eina_Bool state)
 {
    if (!ec) return;
 
@@ -2684,7 +2684,7 @@ _e_policy_wl_background_state_set(E_Policy_Wl_Surface *psurf, Eina_Bool state)
    if (state)
      {
         if (psurf->ec)
-          e_client_background_state_set(psurf->ec, EINA_TRUE);
+          _e_policy_wl_background_state_apply(psurf->ec, EINA_TRUE);
         else
           {
              ELOGF("TZPOL",
@@ -2699,7 +2699,7 @@ _e_policy_wl_background_state_set(E_Policy_Wl_Surface *psurf, Eina_Bool state)
    else
      {
         if (psurf->ec)
-          e_client_background_state_set(psurf->ec, EINA_FALSE);
+          _e_policy_wl_background_state_apply(psurf->ec, EINA_FALSE);
         else
           {
              ELOGF("TZPOL",
