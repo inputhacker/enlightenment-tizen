@@ -1190,6 +1190,8 @@ EINTERN Eina_Bool e_client_pending_geometry_has(E_Client *ec);
 
 E_API void e_client_frame_focus_set(E_Client *ec, Eina_Bool focus);
 
+E_API void e_client_layer_set(E_Client *ec, E_Layer layer);
+
 /**
  * Move window to coordinates that do not account client decorations yet.
  *
