@@ -272,4 +272,12 @@ typedef enum
    E_INFO_FPS_TYPE_HWC_COMP,
 } E_Info_Fps_Type;
 
+/* -------------------------------------------------------------------------- */
+/* SCREEN INFO                                                                   */
+/* -------------------------------------------------------------------------- */
+#define USAGE_SCREEN_INFO                                                      \
+   "-screen_info\n"                                                            \
+   "Example:\n"                                                                \
+   "\twinfo -screen_info\n"
+
 #endif /* end of _E_INFO_SHARED_TYPES_ */

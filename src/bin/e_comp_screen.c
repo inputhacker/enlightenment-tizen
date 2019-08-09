@@ -1598,3 +1598,54 @@ e_comp_screen_available_video_formats_get(const tbm_format **formats, int *count
 
    return EINA_TRUE;
 }
+
+EINTERN void
+e_comp_screen_debug_info_get(Eldbus_Message_Iter *iter)
+{
+   Eldbus_Message_Iter *line_array;
+   E_Comp_Screen *e_comp_screen = NULL;
+   E_Output *output = NULL;
+   E_Hwc *hwc = NULL;
+   Eina_List *l;
+   char info_str[1024];
+   int idx = 0;
+
+   e_comp_screen = e_comp->e_comp_screen;
+
+   eldbus_message_iter_arguments_append(iter, "as", &line_array);
+   if (!e_comp_screen)
+     {
+        eldbus_message_iter_basic_append(line_array,
+                                         's',
+                                         "e_comp_screen not initialized..");
+        eldbus_message_iter_container_close(iter, line_array);
+        return;
+     }
+
+   eldbus_message_iter_basic_append(line_array, 's',
+   "==========================================================================================="
+   "=============================================================");
+   eldbus_message_iter_basic_append(line_array, 's',
+   " idx   maker   model   name   type   status   dpms   subpixel   align_w   min   max   phy(mm)");
+   eldbus_message_iter_basic_append(line_array, 's',
+   "==========================================================================================="
+   "=============================================================");
+
+   EINA_LIST_FOREACH(e_comp_screen->outputs, l, output)
+     {
+        if (!output) continue;
+        hwc = output->hwc;
+        if (!output->hwc) continue;
+        if (e_hwc_policy_get(hwc) == E_HWC_POLICY_NONE) continue;
+
+        // TODO: need to implement more to show the specific information
+        snprintf(info_str, sizeof(info_str), "%d, %s", ++idx, "NOT IMPLEMENTED YET~!!! TODO::::");
+        eldbus_message_iter_basic_append(line_array, 's', info_str);
+     }
+
+   eldbus_message_iter_basic_append(line_array, 's',
+   "==========================================================================================="
+   "=============================================================");
+
+   eldbus_message_iter_container_close(iter, line_array);
+}

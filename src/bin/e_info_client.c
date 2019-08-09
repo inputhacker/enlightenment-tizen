@@ -5095,6 +5095,45 @@ usage:
    return;
 }
 
+static void
+_cb_screen_info_get(const Eldbus_Message *msg)
+{
+   const char *name = NULL, *text = NULL;
+   Eina_Bool res;
+   Eldbus_Message_Iter *lines;
+   char *result = NULL;
+
+   res = eldbus_message_error_get(msg, &name, &text);
+   if (res) goto finish;
+
+   res = eldbus_message_arguments_get(msg, "as", &lines);
+   if (!res) goto finish;
+
+   while (eldbus_message_iter_get_and_next(lines, 's', &result))
+     printf("%s\n", result);
+
+   return;
+
+finish:
+   if ((name) || (text))
+     {
+        printf("errname:%s errmsg:%s\n", name, text);
+     }
+}
+
+static void
+_e_info_client_proc_screen_info(int argc, char **argv)
+{
+   Eina_Bool res;
+   int dummy_value = 1;
+
+   res = _e_info_client_eldbus_message_with_args("screen_info", _cb_screen_info_get, "i", dummy_value);
+
+   EINA_SAFETY_ON_FALSE_RETURN(res);
+
+   return;
+}
+
 typedef struct _ProcInfo
 {
    const char *option;
@@ -5241,6 +5280,12 @@ static ProcInfo procs_to_printinfo[] =
       NULL,
       "Print hwc windows information",
       _e_info_client_proc_hwc_wins
+   },
+   {
+      "screen_info",
+      NULL,
+      "Print screen and output information",
+      _e_info_client_proc_screen_info
    },
 };
 

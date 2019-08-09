@@ -66,6 +66,7 @@ EINTERN Eina_Bool         e_comp_screen_pp_support(void);
 EINTERN Eina_List       * e_comp_screen_pp_available_formats_get(void);
 E_API   Eina_Bool         e_comp_screen_available_video_formats_get(const tbm_format **formats, int *count);
 
+EINTERN void              e_comp_screen_debug_info_get(Eldbus_Message_Iter *iter);
 
 #endif /*E_COMP_SCREEN_H*/
 
