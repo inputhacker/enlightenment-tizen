@@ -57,6 +57,7 @@ struct _E_Hwc_Window_Queue_Buffer
    Eina_Bool                      released;
    Eina_Bool                      acquired;
    Eina_Bool                      dequeued;
+   Eina_Bool                      reseted;
 };
 
 EINTERN Eina_Bool            e_hwc_window_queue_init(void);

@@ -14,6 +14,9 @@ typedef void (*E_Hwc_Window_Hook_Cb) (void *data, E_Hwc_Window *hwc_window);
 #define E_HWC_WINDOW_TYPE (int)0xE0b11003
 #define E_HWC_WINDOW_ZPOS_NONE -999
 
+#define EHW_C(b,m)              (b ? ((b) >> (m)) & 0xFF : ' ')
+#define EHW_FOURCC_STR(id)      EHW_C(id,0), EHW_C(id,8), EHW_C(id,16), EHW_C(id,24)
+
 typedef enum _E_Hwc_Window_State
 {
    E_HWC_WINDOW_STATE_NONE,

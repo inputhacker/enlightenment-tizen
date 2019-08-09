@@ -8,9 +8,6 @@
 #define CLEAR(x) memset(&(x), 0, sizeof (x))
 #endif
 
-#define EHW_C(b,m)              (b ? ((b) >> (m)) & 0xFF : ' ')
-#define EHW_FOURCC_STR(id)      EHW_C(id,0), EHW_C(id,8), EHW_C(id,16), EHW_C(id,24)
-
 #define EHWERR(f, ec, hwc, ehw, x...)                                      \
    do                                                                      \
      {                                                                     \
