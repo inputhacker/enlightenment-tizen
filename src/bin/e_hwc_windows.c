@@ -2290,6 +2290,12 @@ _e_hwc_windows_evaluate(E_Hwc *hwc)
         goto re_evaluate;
      }
 
+   if (hwc_mode == E_HWC_MODE_FULL)
+     {
+        if (((E_Hwc_Window *)hwc->target_hwc_window)->buffer.tsurface)
+          _e_hwc_windows_target_buffer_fetch(hwc, !hwc->pp_set);
+     }
+
    return EINA_TRUE;
 
 re_evaluate:
