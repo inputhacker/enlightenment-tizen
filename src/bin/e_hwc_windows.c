@@ -307,6 +307,18 @@ _e_hwc_windows_target_window_rendered_windows_get(E_Hwc *hwc)
    return new_list;
 }
 
+static void
+_e_hwc_windows_target_window_force_render(E_Hwc_Window_Target *target_hwc_window)
+{
+   int w, h;
+
+   if (!target_hwc_window->ee) return;
+   if (!target_hwc_window->evas) return;
+
+   ecore_evas_geometry_get(target_hwc_window->ee, 0, 0, &w, &h);
+   evas_damage_rectangle_add(target_hwc_window->evas, 0, 0, w,  h);
+}
+
 static Eina_Bool
 _e_hwc_windows_target_window_buffer_skip(E_Hwc *hwc, Eina_Bool tdm_set)
 {
@@ -340,6 +352,8 @@ _e_hwc_windows_target_window_buffer_skip(E_Hwc *hwc, Eina_Bool tdm_set)
         e_hwc_window_buffer_set(hwc_window, hwc_window->display.buffer.tsurface, hwc_window->display.buffer.queue);
         if (tdm_set)
           tdm_hwc_set_client_target_buffer(thwc, hwc_window->display.buffer.tsurface, fb_damage);
+
+        _e_hwc_windows_target_window_force_render(target_hwc_window);
      }
 
    return EINA_TRUE;
