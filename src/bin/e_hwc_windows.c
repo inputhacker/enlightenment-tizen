@@ -1607,6 +1607,12 @@ _e_hwc_windows_pp_commit(E_Hwc *hwc)
    return EINA_TRUE;
 }
 
+static Eina_Bool
+_e_hwc_windows_device_states_available_check(E_Hwc *hwc)
+{
+   return hwc->device_state_available;
+}
+
 static void
 _e_hwc_windows_status_print(E_Hwc *hwc, Eina_Bool with_target)
 {
@@ -1614,13 +1620,17 @@ _e_hwc_windows_status_print(E_Hwc *hwc, Eina_Bool with_target)
    const Eina_List *l;
    E_Hwc_Window *hwc_window;
 
+   EHWSTRACE(" Device state available : %d", NULL, hwc,
+             _e_hwc_windows_device_states_available_check(hwc));
+
    EINA_LIST_FOREACH(visible_windows, l, hwc_window)
      {
-        EHWSTRACE("  ehw:%p ts:%p -- {%25s}, state:%s, zpos:%d, deleted:%s",
+        EHWSTRACE("  ehw:%p ts:%p -- {%25s}, state:%s, zpos:%d, deleted:%s restrict:%s",
                   hwc_window->ec, hwc, hwc_window,
                   hwc_window->buffer.tsurface, e_hwc_window_name_get(hwc_window),
                   e_hwc_window_state_string_get(hwc_window->state),
-                  hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no");
+                  hwc_window->zpos, hwc_window->is_deleted ? "yes" : "no",
+                  e_hwc_window_restriction_string_get(hwc_window));
      }
 }
 
@@ -1917,12 +1927,6 @@ error:
    E_FREE(thwc_windows);
 
    return EINA_FALSE;
-}
-
-static Eina_Bool
-_e_hwc_windows_device_states_available_check(E_Hwc *hwc)
-{
-   return hwc->device_state_available;
 }
 
 static void
@@ -3504,13 +3508,13 @@ _e_hwc_windows_window_debug_info_get(Eldbus_Message_Iter *iter, E_Hwc_Wins_Debug
 
    eldbus_message_iter_basic_append(line_array, 's',
    "==========================================================================================="
-   "=============================================================");
+   "==========================================================================");
    eldbus_message_iter_basic_append(line_array, 's',
    " No   Win_ID    Hwc_win    zpos  ST   AC_ST  ACTI TRANSI  tsurface  src_size        src_pos"
-   "       FMT       dst_pos        TRANSF DP_tsurface   Queue");
+   "       FMT       dst_pos        TRANSF DP_tsurface   Queue    restriction");
    eldbus_message_iter_basic_append(line_array, 's',
    "==========================================================================================="
-   "=============================================================");
+   "==========================================================================");
 
    EINA_LIST_FOREACH(e_comp_screen->outputs, l, output)
      {
@@ -3550,7 +3554,7 @@ _e_hwc_windows_window_debug_info_get(Eldbus_Message_Iter *iter, E_Hwc_Wins_Debug
 
              snprintf(info_str, sizeof(info_str),
                       "%3d 0x%08zx 0x%08zx %4d   %s    %s     %s   %s 0x%08zx %04dx%04d %04dx%04d+%04d+%04d"
-                      " %4s %04dx%04d+%04d+%04d  %c%3d  0x%08zx  0x%08zx",
+                      " %4s %04dx%04d+%04d+%04d  %c%3d  0x%08zx  0x%08zx %s",
                       ++idx,
                       e_client_util_win_get(hwc_window->ec),
                       (uintptr_t)hwc_window,
@@ -3574,14 +3578,15 @@ _e_hwc_windows_window_debug_info_get(Eldbus_Message_Iter *iter, E_Hwc_Wins_Debug
                       flip,
                       (hwc_window->info.transform < 4) ? hwc_window->info.transform * 90 : (hwc_window->info.transform - 4) * 90,
                       (uintptr_t)hwc_window->display.buffer.tsurface,
-                      (uintptr_t)hwc_window->queue);
+                      (uintptr_t)hwc_window->queue,
+                      e_hwc_window_restriction_string_get(hwc_window));
              eldbus_message_iter_basic_append(line_array, 's', info_str);
           }
      }
 
    eldbus_message_iter_basic_append(line_array, 's',
    "==========================================================================================="
-   "=============================================================");
+   "==========================================================================");
 
    eldbus_message_iter_container_close(iter, line_array);
 }

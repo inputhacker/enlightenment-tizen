@@ -138,6 +138,8 @@ struct _E_Hwc_Window
    Eina_Bool                      render_target;
    Eina_Bool                      need_redirect;
    Eina_Bool                      on_rendered_target;
+
+   unsigned int                   restriction;
 };
 
 struct _E_Hwc_Window_Target
@@ -199,6 +201,7 @@ EINTERN Eina_Bool               e_hwc_window_device_state_available_get(E_Hwc_Wi
 EINTERN Eina_Bool               e_hwc_window_transition_set(E_Hwc_Window *hwc_window, E_Hwc_Window_Transition transition);
 EINTERN E_Hwc_Window_Transition e_hwc_window_transition_get(E_Hwc_Window *hwc_window);
 EINTERN const char*             e_hwc_window_transition_string_get(E_Hwc_Window_Transition transition);
+EINTERN const char*             e_hwc_window_restriction_string_get(E_Hwc_Window *hwc_window);
 
 EINTERN Eina_Bool               e_hwc_window_constraints_update(E_Hwc_Window *hwc_window);
 EINTERN Eina_Bool               e_hwc_window_rendered_window_update(E_Hwc_Window *hwc_window);

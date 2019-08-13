@@ -68,6 +68,27 @@
      }                                                                     \
    while (0)
 
+typedef enum _E_Hwc_Window_Restriction
+{
+   E_HWC_WINDOW_RESTRICTION_NONE,
+   E_HWC_WINDOW_RESTRICTION_DELETED,
+   E_HWC_WINDOW_RESTRICTION_OVERRIDE,
+   E_HWC_WINDOW_RESTRICTION_ANIMATING,
+   E_HWC_WINDOW_RESTRICTION_BUFFER,
+   E_HWC_WINDOW_RESTRICTION_VIEWPORT,
+   E_HWC_WINDOW_RESTRICTION_NEVER_HWC,
+   E_HWC_WINDOW_RESTRICTION_TRANSFORM,
+   E_HWC_WINDOW_RESTRICTION_BUFFER_TYPE,
+   E_HWC_WINDOW_RESTRICTION_OUTPUT,
+   E_HWC_WINDOW_RESTRICTION_MIN_WIDTH,
+   E_HWC_WINDOW_RESTRICTION_MIN_HEIGHT,
+   E_HWC_WINDOW_RESTRICTION_TOUCH_PRESS,
+   E_HWC_WINDOW_RESTRICTION_OUTPUT_TRANSFORM,
+   E_HWC_WINDOW_RESTRICTION_UI_SUBSURFACE,
+   E_HWC_WINDOW_RESTRICTION_CONTENT_IMAGE,
+   E_HWC_WINDOW_RESTRICTION_QUICKPANEL_OPEN,
+} E_Hwc_Window_Restriction;
+
 static Eina_Bool ehw_trace = EINA_FALSE;
 static Eina_List *hwc_window_client_hooks = NULL;
 static Eina_List *hwc_window_event_hdlrs = NULL;
@@ -1389,14 +1410,14 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
    int minw = 0, minh = 0;
    int transform;
    Eina_Bool available = EINA_TRUE;
-   const char *restriction = NULL;
+   E_Hwc_Window_Restriction restriction = E_HWC_WINDOW_RESTRICTION_NONE;
    int count;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    if (hwc_window->is_deleted)
      {
-        restriction = "deleted";
+        restriction = E_HWC_WINDOW_RESTRICTION_DELETED;
         available = EINA_FALSE;
         goto finish;
      }
@@ -1406,14 +1427,14 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
 
    if (ec->comp_override > 0)
      {
-        restriction = "comp_override";
+        restriction = E_HWC_WINDOW_RESTRICTION_OVERRIDE;
         available = EINA_FALSE;
         goto finish;
      }
 
    if (e_comp_object_is_animating(ec->frame))
      {
-        restriction = "animating";
+        restriction = E_HWC_WINDOW_RESTRICTION_ANIMATING;
         available = EINA_FALSE;
         goto finish;
      }
@@ -1421,7 +1442,7 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
    cdata = (E_Comp_Wl_Client_Data*)ec->comp_data;
    if ((!cdata) || (!cdata->buffer_ref.buffer))
      {
-        restriction = "null cdata or buffer";
+        restriction = E_HWC_WINDOW_RESTRICTION_BUFFER;
         available = EINA_FALSE;
         goto finish;
      }
@@ -1429,14 +1450,14 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
    if ((cdata->width_from_buffer != cdata->width_from_viewport) ||
        (cdata->height_from_buffer != cdata->height_from_viewport))
      {
-        restriction = "size_from_viewport";
+        restriction = E_HWC_WINDOW_RESTRICTION_VIEWPORT;
         available = EINA_FALSE;
         goto finish;
      }
 
    if (cdata->never_hwc)
      {
-        restriction = "never_hwc";
+        restriction = E_HWC_WINDOW_RESTRICTION_NEVER_HWC;
         available = EINA_FALSE;
         goto finish;
      }
@@ -1447,7 +1468,7 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
         count = e_client_transform_core_transform_count_get(ec);
         if ((!ec->base_output_resolution.transform) || (count > 1))
           {
-             restriction = "transfrom";
+             restriction = E_HWC_WINDOW_RESTRICTION_TRANSFORM;
              available = EINA_FALSE;
              goto finish;
           }
@@ -1462,7 +1483,7 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
          if (!e_util_strcmp("wl_pointer-cursor", ec->icccm.window_role))
            break;
       default:
-        restriction = "buffer_type";
+        restriction = E_HWC_WINDOW_RESTRICTION_BUFFER_TYPE;
         available = EINA_FALSE;
         goto finish;
      }
@@ -1470,7 +1491,7 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
    eout = e_output_find(ec->zone->output_id);
    if (!eout)
      {
-        restriction = "output find";
+        restriction = E_HWC_WINDOW_RESTRICTION_OUTPUT;
         available = EINA_FALSE;
         goto finish;
      }
@@ -1479,14 +1500,14 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
 
    if ((minw > 0) && (minw > cdata->buffer_ref.buffer->w))
      {
-        restriction = "buffer min width";
+        restriction = E_HWC_WINDOW_RESTRICTION_MIN_WIDTH;
         available = EINA_FALSE;
         goto finish;
      }
 
    if ((minh > 0) && (minh > cdata->buffer_ref.buffer->h))
      {
-        restriction = "buffer min height";
+        restriction = E_HWC_WINDOW_RESTRICTION_MIN_HEIGHT;
         available = EINA_FALSE;
         goto finish;
      }
@@ -1504,14 +1525,14 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
           {
              if (e_comp_wl->touch.pressed)
                {
-                  restriction = "touch pressed";
+                  restriction = E_HWC_WINDOW_RESTRICTION_TOUCH_PRESS;
                   available = EINA_FALSE;
                   goto finish;
                }
           }
         else
           {
-             restriction = "no igrore_transfrom";
+             restriction = E_HWC_WINDOW_RESTRICTION_OUTPUT_TRANSFORM;
              available = EINA_FALSE;
              goto finish;
           }
@@ -1520,7 +1541,7 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
    // if there is UI subfrace, it means need to composite
    if (e_client_normal_client_has(ec))
      {
-        restriction = "UI subsurface";
+        restriction = E_HWC_WINDOW_RESTRICTION_UI_SUBSURFACE;
         available = EINA_FALSE;
         goto finish;
      }
@@ -1528,7 +1549,7 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
    // if ec->frame is not for client buffer (e.g. launchscreen)
    if (e_comp_object_content_type_get(ec->frame) != E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE)
      {
-        restriction = "E_COMP_OBJECT_CONTENT_TYPE_INT_IMAGE";
+        restriction = E_HWC_WINDOW_RESTRICTION_CONTENT_IMAGE;
         available = EINA_FALSE;
         goto finish;
      }
@@ -1539,19 +1560,14 @@ e_hwc_window_device_state_available_update(E_Hwc_Window *hwc_window)
         // check whether quickpanel is open than break
         if (e_config->use_desk_smart_obj && e_qps_visible_get())
           {
-             restriction = "quickpanel is opened";
+             restriction = E_HWC_WINDOW_RESTRICTION_QUICKPANEL_OPEN;
              available = EINA_FALSE;
              goto finish;
           }
      }
 
 finish:
-   if (!available && ec)
-     {
-        if (evas_object_visible_get(ec->frame))
-          EHWTRACE("   -- {%25s} is forced to set CL state.(%s)",
-                   hwc_window->ec, hwc_window->hwc, hwc_window, ec->icccm.title, restriction);
-     }
+   hwc_window->restriction = restriction;
 
    if (hwc_window->device_state_available == available) return EINA_FALSE;
 
@@ -1826,6 +1842,52 @@ e_hwc_window_transition_string_get(E_Hwc_Window_Transition transition)
        return "CStoCL";
      case E_HWC_WINDOW_TRANSITION_CURSOR_TO_CURSOR:
        return "CStoCS";
+     default:
+       return "UNKNOWN";
+    }
+}
+
+EINTERN const char*
+e_hwc_window_restriction_string_get(E_Hwc_Window *hwc_window)
+{
+   if (!hwc_window) return "UNKNOWN";
+
+   switch (hwc_window->restriction)
+    {
+     case E_HWC_WINDOW_RESTRICTION_NONE:
+       return "none";
+     case E_HWC_WINDOW_RESTRICTION_DELETED:
+       return "deleted";
+     case E_HWC_WINDOW_RESTRICTION_OVERRIDE:
+       return "override";
+     case E_HWC_WINDOW_RESTRICTION_ANIMATING:
+       return "animating";
+     case E_HWC_WINDOW_RESTRICTION_BUFFER:
+       return "buffer";
+     case E_HWC_WINDOW_RESTRICTION_VIEWPORT:
+       return "viewport";
+     case E_HWC_WINDOW_RESTRICTION_NEVER_HWC:
+       return "never hwc";
+     case E_HWC_WINDOW_RESTRICTION_TRANSFORM:
+       return "transform";
+     case E_HWC_WINDOW_RESTRICTION_BUFFER_TYPE:
+       return "buffer type";
+     case E_HWC_WINDOW_RESTRICTION_OUTPUT:
+       return "output";
+     case E_HWC_WINDOW_RESTRICTION_MIN_WIDTH:
+       return "min width";
+     case E_HWC_WINDOW_RESTRICTION_MIN_HEIGHT:
+       return "min height";
+     case E_HWC_WINDOW_RESTRICTION_TOUCH_PRESS:
+       return "touch press";
+     case E_HWC_WINDOW_RESTRICTION_OUTPUT_TRANSFORM:
+       return "transform";
+     case E_HWC_WINDOW_RESTRICTION_UI_SUBSURFACE:
+       return "ui subsurface";
+     case E_HWC_WINDOW_RESTRICTION_CONTENT_IMAGE:
+       return "content image";
+     case E_HWC_WINDOW_RESTRICTION_QUICKPANEL_OPEN:
+       return "quickpanel open";
      default:
        return "UNKNOWN";
     }
