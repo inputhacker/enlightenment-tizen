@@ -5591,7 +5591,8 @@ _tzsh_iface_cb_softkey_get(struct wl_client *client, struct wl_resource *res_tzs
 // --------------------------------------------------------
 EINTERN Eina_Bool
 e_tzsh_shared_widget_launch_prepare_send(E_Client *callee_ec,
-                                         uint32_t state)
+                                         uint32_t state,
+                                         uint32_t serial)
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
    Eina_List *l;
@@ -5607,7 +5608,8 @@ e_tzsh_shared_widget_launch_prepare_send(E_Client *callee_ec,
         if (tzsh_client->tzsh->ec != callee_ec) continue;
 
         tws_shared_widget_launch_send_prepare_shared_widget(tzsh_client->res_tzsh_client,
-                                                            state);
+                                                            state,
+                                                            serial);
 
         res = EINA_TRUE;
         break;
@@ -5627,7 +5629,8 @@ static void
 _tzsh_swl_iface_cb_prepare_shared_widget_done(struct wl_client *client,
                                               struct wl_resource *res_tzsh_swl,
                                               const char *shared_widget_info,
-                                              uint32_t state)
+                                              uint32_t state,
+                                              uint32_t serial)
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
 
@@ -5642,7 +5645,8 @@ _tzsh_swl_iface_cb_prepare_shared_widget_done(struct wl_client *client,
    // send prepare event to caller
    e_service_launcher_prepare_send_with_shared_widget_info(tzsh_client->tzsh->ec,
                                                            shared_widget_info,
-                                                           state);
+                                                           state,
+                                                           serial);
 }
 
 static const struct tws_shared_widget_launch_interface _tzsh_swl_iface =

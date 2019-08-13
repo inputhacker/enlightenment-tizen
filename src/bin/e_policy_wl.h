@@ -76,7 +76,7 @@ EINTERN void e_tzsh_indicator_srv_property_update(E_Client *ec);
 EINTERN void e_tzsh_indicator_srv_ower_win_update(E_Zone *zone);
 
 /* tzsh shared widget launch */
-EINTERN Eina_Bool e_tzsh_shared_widget_launch_prepare_send(E_Client *callee_ec, uint32_t state);
+EINTERN Eina_Bool e_tzsh_shared_widget_launch_prepare_send(E_Client *callee_ec, uint32_t state, uint32_t serial);
 
 /* indicator */
 void         e_policy_wl_indicator_flick_send(E_Client *ec);

@@ -361,8 +361,12 @@ _launcher_prepare_shared_widget_forward_send(E_Service_Launcher *lc,
    _launcher_launched_ec_set(lc, NULL);
    _launcher_target_ec_set(lc, target_ec);
 
+   lc->direction = TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD;
+   lc->serial = wl_display_next_serial(e_comp_wl->wl.disp);
+
    sent = e_tzsh_shared_widget_launch_prepare_send(target_ec,
-                                                   TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_HIDE);
+                                                   TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_HIDE,
+                                                   lc->serial);
    if (!sent)
      {
         ELOGF("LAUNCHER_SRV", "Failed to send event(PREPARE:FORWARD)", lc->ec);
@@ -378,7 +382,6 @@ _launcher_prepare_shared_widget_backward_send(E_Service_Launcher *lc,
                                               E_Client *target_ec,
                                               E_Vis_Job_Type job_type)
 {
-   int x, y;
    Eina_Bool sent = EINA_FALSE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(lc, EINA_FALSE);
@@ -411,12 +414,12 @@ _launcher_prepare_shared_widget_backward_send(E_Service_Launcher *lc,
    _launcher_launched_ec_set(lc, NULL);
    _launcher_target_ec_set(lc, target_ec);
 
-   lc->serial = wl_display_next_serial(e_comp_wl->wl.disp);
    lc->direction = TWS_SERVICE_LAUNCHER_DIRECTION_BACKWARD;
-   e_client_pos_get(target_ec, &x, &y);
+   lc->serial = wl_display_next_serial(e_comp_wl->wl.disp);
 
    sent = e_tzsh_shared_widget_launch_prepare_send(target_ec,
-                                                   TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_HIDE);
+                                                   TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_HIDE,
+                                                   lc->serial);
 
    // fail to send protocol event
    if (!sent)
@@ -929,7 +932,8 @@ _launcher_cb_launch_done(struct wl_client *client EINA_UNUSED,
        (lc->with_swl))
      {
         e_tzsh_shared_widget_launch_prepare_send(lc->target.ec,
-                                                 TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_SHOW);
+                                                 TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_SHOW,
+                                                 lc->serial);
         return;
      }
 
@@ -941,7 +945,8 @@ _launcher_cb_launch_done(struct wl_client *client EINA_UNUSED,
      {
         if (lc->with_swl)
           e_tzsh_shared_widget_launch_prepare_send(lc->target.ec,
-                                                   TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_SHOW);
+                                                   TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_SHOW,
+                                                   lc->serial);
         _launcher_post_backward(lc, EINA_TRUE);
      }
 
@@ -1672,7 +1677,8 @@ e_service_launcher_client_unset(E_Client *ec)
 EINTERN void
 e_service_launcher_prepare_send_with_shared_widget_info(E_Client *target_ec,
                                                         const char *shared_widget_info,
-                                                        uint32_t state)
+                                                        uint32_t state,
+                                                        uint32_t serial)
 {
    E_Service_Launcher *lc = NULL;
    Eina_Bool sent;
@@ -1680,11 +1686,14 @@ e_service_launcher_prepare_send_with_shared_widget_info(E_Client *target_ec,
    Eina_Iterator *hash_iter;
    Eina_Bool found = EINA_FALSE;
 
+   EINA_SAFETY_ON_NULL_RETURN(_laundler);
+
    /* look for launcher service object which has given target_ec */
    hash_iter = eina_hash_iterator_data_new(_laundler->launcher_hash);
    EINA_ITERATOR_FOREACH(hash_iter, lc)
      {
         if (lc->target.ec != target_ec) continue;
+        if (lc->serial != serial) continue;
         found = EINA_TRUE;
         break;
      }
