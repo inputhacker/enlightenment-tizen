@@ -23,13 +23,13 @@
    do                                                                      \
      {                                                                     \
         if ((!ec) && (!ehwq))                                              \
-          INF("EWL|%20.20s|            |             |%9s|"f,              \
+          ERR("EWL|%20.20s|            |             |%9s|"f,              \
               "HWC-WINQ", (e_hwc_output_id_get(hwc)), ##x);                \
         else if(!ec)                                                       \
-          INF("EWL|%20.20s|            |             |%9s|ehwq:%8p|"f,     \
+          ERR("EWL|%20.20s|            |             |%9s|ehwq:%8p|"f,     \
               "HWC-WINQ", (e_hwc_output_id_get(hwc)), ehwq, ##x);          \
         else                                                               \
-          INF("EWL|%20.20s|w:0x%08zx|ec:%8p|%9s|ehwq:%8p|"f,               \
+          ERR("EWL|%20.20s|w:0x%08zx|ec:%8p|%9s|ehwq:%8p|"f,               \
               "HWC-WINQ",                                                  \
               (e_client_util_win_get(ec)),                                 \
               (ec),                                                        \
