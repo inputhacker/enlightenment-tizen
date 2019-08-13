@@ -19,27 +19,28 @@ static int eom_trace_debug = 0;
 #define EOM_NUM_ATTR 3
 #define EOM_CONNECT_CHECK_TIMEOUT 4.0
 
-#define EOERR(f, output, x...)                               \
+#define EOMERR(f, output, x...)                               \
    do                                                            \
      {                                                           \
         if (!output)                                         \
-          ERR("EWL|%20.20s|              |             |%8s|"f,  \
+          ERR("EWL|%20.20s|            |             |%7s|"f,  \
               "EOM", "Unknown", ##x);                            \
         else                                                     \
-          ERR("EWL|%20.20s|              |             |%8s|"f,  \
+          ERR("EWL|%20.20s|            |             |%7s|"f,  \
               "EOM", (e_output_output_id_get(output)), ##x);                   \
      }                                                           \
    while (0)
 
-#define EOINF(f, output, x...)                               \
+#define EOMINF(f, ec, output, x...)                               \
    do                                                            \
      {                                                           \
-        if (!output)                                         \
-          INF("EWL|%20.20s|              |             |%8s|"f,  \
-              "EOM", "Unknown", ##x);                            \
+        if (!ec)                                         \
+          INF("EWL|%20.20s|            |             |%7s|"f,  \
+              "EOM", (e_output_output_id_get(output)), ##x);                            \
         else                                                     \
-          INF("EWL|%20.20s|              |             |%8s|"f,  \
-              "EOM", (e_output_output_id_get(output)), ##x);                   \
+          INF("EWL|%20.20s|w:0x%08zx|ec:%8p|%7s|"f,  \
+              "EOM", (e_client_util_win_get(ec)),                        \
+              (ec), (e_output_output_id_get(output)), ##x);                   \
      }                                                           \
    while (0)
 
@@ -125,6 +126,7 @@ _e_eom_cb_comp_object_redirected(void *data, E_Client *ec)
    E_EomCompObjectInterceptHookData *hook_data;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(data, EINA_TRUE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_TRUE);
 
    hook_data = (E_EomCompObjectInterceptHookData* )data;
 
@@ -137,7 +139,7 @@ _e_eom_cb_comp_object_redirected(void *data, E_Client *ec)
    /* Hide the window from Enlightenment main screen */
    e_client_redirected_set(ec, EINA_FALSE);
 
-   EOINF("Redirect ec:%p, ec->frame:%p", hook_data->eom_output->output, ec, ec->frame);
+   EOMINF("Redirect ec->frame:%p", ec, hook_data->eom_output->output, ec->frame);
 
    e_comp_object_intercept_hook_del(hook_data->hook);
    g_eom->comp_object_intercept_hooks = eina_list_remove(g_eom->comp_object_intercept_hooks, hook_data);
@@ -217,9 +219,9 @@ _e_eom_output_info_broadcast(E_EomOutputPtr eom_output, eom_output_attribute_sta
         if (!eom_client->resource) continue;
 
         if (attribute_state == EOM_OUTPUT_ATTRIBUTE_STATE_ACTIVE)
-          EOINF("Send output connected notification to client: %p", eom_output->output, eom_client);
+          EOMINF("Send output connected notification", eom_client->ec, eom_output->output);
         if (attribute_state == EOM_OUTPUT_ATTRIBUTE_STATE_INACTIVE)
-          EOINF("Send output disconnected notification to client: %p", eom_output->output, eom_client);
+          EOMINF("Send output disconnected notification", eom_client->ec, eom_output->output);
 
         if (eom_client->ec == e_output_presentation_ec_get(eom_output->output))
           wl_eom_send_output_info(eom_client->resource,
@@ -300,7 +302,7 @@ _e_eom_output_create(E_Output *output, Eina_Bool added)
 
    g_eom->eom_outputs = eina_list_append(g_eom->eom_outputs, eom_output);
 
-   EOINF("create (%d)output, type:%d, added:%d", eom_output->output,
+   EOMINF("create (%d)output, type:%d, added:%d", NULL, eom_output->output,
          eom_output->id, eom_output->type, eom_output->added);
 
    return EINA_TRUE;
@@ -316,7 +318,7 @@ _e_eom_output_destroy(E_Output *output)
    eom_output = _e_eom_output_find(output);
    EINA_SAFETY_ON_NULL_RETURN_VAL(eom_output, EINA_FALSE);
 
-   EOINF("destroy (%d)output, type:%d, added:%d", eom_output->output,
+   EOMINF("destroy (%d)output, type:%d, added:%d", NULL, eom_output->output,
          eom_output->id, eom_output->type, eom_output->added);
 
    g_eom->eom_outputs = eina_list_remove(g_eom->eom_outputs, eom_output);
@@ -404,7 +406,9 @@ _e_eom_output_send_configure_event(E_EomOutput *eom_output, E_Client *ec)
    e_output_size_get(eom_output->output, &w, &h);
    cdata->shell.configure_send(ec->comp_data->shell.surface, 0, w, h);
 
-   EOINF("Send Configure Event for Presentation (%d X %d)", eom_output->output, w, h);
+   EOMINF("Send Configure Event for Presentation (%d X %d)", ec, eom_output->output, w, h);
+
+   return;
 err:
    if (hook_data)
      free(hook_data);
@@ -514,24 +518,24 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
    EINA_SAFETY_ON_NULL_RETURN_VAL(eom_output, ECORE_CALLBACK_PASS_ON);
 
    if (eom_trace_debug)
-     EOINF("===============>  EXT START", eom_output->output);
+     EOMINF("===============>  EXT START", ec, eom_output->output);
 
    /* TODO: It works but maybe there is better solution exists ?
     * Also I do not know how it affects on performance */
    if (ec->map_timer)
      {
         if (eom_trace_debug)
-          EOINF("delete map_timer", eom_output->output);
+          EOMINF("delete map_timer", ec, eom_output->output);
         E_FREE_FUNC(ec->map_timer, ecore_timer_del);
      }
 
    if (eom_trace_debug)
-     EOINF("buffer_changed callback ec:%p", eom_output->output, ec);
+     EOMINF("buffer_changed callback", ec, eom_output->output);
 
    /* set the ec to the output for presentation. */
    if (!e_output_presentation_update(eom_output->output, eom_client->ec))
      {
-        EOERR("e_output_presentation_update fails.", eom_output->output);
+        EOMERR("e_output_presentation_update fails.", eom_output->output);
         return ECORE_CALLBACK_PASS_ON;
      }
 
@@ -545,7 +549,7 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
      }
 
    if (eom_trace_debug)
-     EOINF("===============<  EXT START", eom_output->output);
+     EOMINF("===============<  EXT START", ec, eom_output->output);
 
    return ECORE_CALLBACK_PASS_ON;
 }
@@ -563,7 +567,7 @@ _e_eom_cb_wl_request_set_attribute(struct wl_client *client, struct wl_resource 
    eom_output = _e_eom_output_get_by_id(output_id);
    EINA_SAFETY_ON_NULL_GOTO(eom_output, no_eom_output);
 
-   EOINF("Set attribute:%d, client:%p", eom_output->output, attribute, eom_client);
+   EOMINF("Set attribute:%d", eom_client->ec, eom_output->output, attribute);
 
    /* Bind the client with a concrete output */
    eom_client->output_id = output_id;
@@ -588,7 +592,7 @@ _e_eom_cb_wl_request_set_attribute(struct wl_client *client, struct wl_resource 
              /* A client is trying to set new attribute */
              if (!_e_eom_output_attribute_set(eom_output, attribute))
                {
-                  EOINF("client failed to set attribute", eom_output->output);
+                  EOMINF("client failed to set attribute", eom_client->ec, eom_output->output);
                   wl_eom_send_output_attribute(eom_client->resource, eom_output->id,
                                                _e_eom_output_attribute_get(eom_output),
                                                EOM_OUTPUT_ATTRIBUTE_STATE_LOST,
@@ -596,7 +600,7 @@ _e_eom_cb_wl_request_set_attribute(struct wl_client *client, struct wl_resource 
                   return;
                }
 
-             EOINF("Send changes to previous current client", eom_output->output);
+             EOMINF("Send changes to previous current client(%p)", eom_client->ec, eom_output->output, eom_output->eom_client->ec);
              /* eom_output->eom_client is lost the attribute */
              wl_eom_send_output_attribute(eom_output->eom_client->resource, eom_output->id,
                                           _e_eom_output_attribute_get(eom_output),
@@ -622,7 +626,7 @@ _e_eom_cb_wl_request_set_attribute(struct wl_client *client, struct wl_resource 
         primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
         if (!e_output_mirror_set(eom_output->output, primary_output))
           {
-             EOERR("e_output_mirror_set fails", eom_output->output);
+             EOMERR("e_output_mirror_set fails", eom_output->output);
              goto no_eom_output;
           }
 
@@ -638,7 +642,7 @@ _e_eom_cb_wl_request_set_attribute(struct wl_client *client, struct wl_resource 
 
         if (e_output_presentation_wait_set(eom_output->output, eom_client->ec))
           {
-             EOERR("e_output_presentation_wait_set fails\n", NULL);
+             EOMERR("e_output_presentation_wait_set fails\n", NULL);
              return;
           }
 
@@ -678,8 +682,6 @@ _e_eom_cb_wl_request_set_shell_window(struct wl_client *client, struct wl_resour
         return;
      }
 
-   EOINF("set shell output id:%d resource:%p surface:%p", NULL, output_id, resource, surface);
-
    eom_client = _e_eom_client_get_by_resource(resource);
    EINA_SAFETY_ON_NULL_RETURN(eom_client);
 
@@ -690,9 +692,11 @@ _e_eom_cb_wl_request_set_shell_window(struct wl_client *client, struct wl_resour
    if (eom_output == NULL)
      {
         wl_eom_send_output_set_window(resource, output_id, WL_EOM_ERROR_NO_OUTPUT);
-        EOERR("no eom_output error\n", NULL);
+        EOMERR("no eom_output error\n", NULL);
         return;
      }
+
+   EOMINF("set shell output id:%d resource:%p surface:%p", ec, eom_output->output, output_id, resource, surface);
 
    if (ec == e_output_presentation_ec_get(eom_output->output))
      {
@@ -709,12 +713,14 @@ static void
 _e_eom_cb_wl_request_get_output_info(struct wl_client *client, struct wl_resource *resource, uint32_t output_id)
 {
    E_EomOutputPtr eom_output = NULL;
+   E_EomClientPtr eom_client = NULL;
    int w, h, pw, ph;
-
-   EOINF("get output info:%d", NULL, output_id);
 
    eom_output = _e_eom_output_get_by_id(output_id);
    EINA_SAFETY_ON_FALSE_RETURN(eom_output);
+
+   eom_client = _e_eom_client_get_by_resource(resource);
+   EINA_SAFETY_ON_NULL_RETURN(eom_client);
 
    /* get the output size */
    e_output_size_get(eom_output->output, &w, &h);
@@ -728,7 +734,8 @@ _e_eom_cb_wl_request_get_output_info(struct wl_client *client, struct wl_resourc
                            eom_output->connection,
                            1, 0, 0, 0);
 
-   EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", NULL,
+   EOMINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d",
+         eom_client->ec, eom_output->output,
          eom_output->id, eom_output->type, e_output_display_mode_get(eom_output->output),
          w, h, pw, ph, e_output_connected(eom_output->output));
 }
@@ -748,8 +755,6 @@ _e_eom_cb_wl_eom_client_destroy(struct wl_resource *resource)
    E_Output *primary_output = NULL;
    E_Client *output_ec = NULL;
 
-   EOINF("=======================>  CLIENT DESTROY", NULL);
-
    EINA_SAFETY_ON_NULL_RETURN(resource);
 
    eom_client = _e_eom_client_get_by_resource(resource);
@@ -757,6 +762,8 @@ _e_eom_cb_wl_eom_client_destroy(struct wl_resource *resource)
 
    eom_output = _e_eom_output_get_by_id(eom_client->output_id);
    EINA_SAFETY_ON_NULL_GOTO(eom_output, end);
+
+   EOMINF("=======================>  CLIENT DESTROY", eom_client->ec, eom_output->output);
 
    if (eom_client == eom_output->eom_client)
      eom_output->eom_client = NULL;
@@ -769,7 +776,7 @@ _e_eom_cb_wl_eom_client_destroy(struct wl_resource *resource)
 
         primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
         if (!e_output_mirror_set(eom_output->output, primary_output))
-          EOERR("e_output_mirror_set fails", eom_output->output);
+          EOMERR("e_output_mirror_set fails", eom_output->output);
      }
 
 end:
@@ -799,7 +806,7 @@ _e_eom_cb_wl_bind(struct wl_client *client, void *data, uint32_t version, uint32
    resource = wl_resource_create(client, &wl_eom_interface, MIN(version, 1), id);
    if (resource == NULL)
      {
-        EOERR("resource is null. (version :%d, id:%d)", NULL, version, id);
+        EOMERR("resource is null. (version :%d, id:%d)", NULL, version, id);
         wl_client_post_no_memory(client);
         return;
      }
@@ -824,7 +831,8 @@ _e_eom_cb_wl_bind(struct wl_client *client, void *data, uint32_t version, uint32
                                 eom_output->connection,
                                 1, 0, 0, 0);
 
-        EOINF("send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d", eom_output->output,
+        EOMINF("BIND send - id : %d, type : %d, mode : %d, w : %d, h : %d, w_mm : %d, h_mm : %d, conn : %d",
+              NULL, eom_output->output,
               eom_output->id, eom_output->type, e_output_display_mode_get(eom_output->output),
               w, h, pw, ph, e_output_connected(eom_output->output));
      }
@@ -839,7 +847,7 @@ _e_eom_cb_wl_bind(struct wl_client *client, void *data, uint32_t version, uint32
 
    g_eom->clients = eina_list_append(g_eom->clients, eom_client);
 
-   EOINF("=======================>  BIND CLIENT", NULL);
+   EOMINF("=======================>  BIND CLIENT", NULL, NULL);
 }
 
 static Eina_Bool
@@ -854,13 +862,13 @@ _e_eom_connect(E_Output *output)
    eom_output = _e_eom_output_find(output);
    if (!eom_output)
      {
-        EOERR("cannot find eom_output", NULL);
+        EOMERR("cannot find eom_output", NULL);
         return EINA_FALSE;
      }
 
    if (e_output_display_mode_get(eom_output->output) == E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION)
      {
-        EOINF("Send Configure Event for Presentation", eom_output->output);
+        EOMINF("Send Configure Event for Presentation", NULL, eom_output->output);
 
         ec = e_output_presentation_ec_get(eom_output->output);
         EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
@@ -875,7 +883,7 @@ _e_eom_connect(E_Output *output)
 
    /* get the output size */
    e_output_size_get(eom_output->output, &w, &h);
-   EOINF("Setup new eom_output: (%dx%d)", eom_output->output, w, h);
+   EOMINF("Setup new eom_output: (%dx%d)", NULL, eom_output->output, w, h);
 
    return EINA_TRUE;
 }
@@ -890,7 +898,7 @@ _e_eom_disconnect(E_Output *output)
    eom_output = _e_eom_output_find(output);
    if (!eom_output)
      {
-        EOERR("cannot find output", NULL);
+        EOMERR("cannot find output", NULL);
         return EINA_FALSE;
      }
 
@@ -900,7 +908,7 @@ _e_eom_disconnect(E_Output *output)
    /* If there were previously connected clients to the output - notify them */
    _e_eom_output_info_broadcast(eom_output, EOM_OUTPUT_ATTRIBUTE_STATE_INACTIVE);
 
-   EOINF("Destory output.", eom_output->output);
+   EOMINF("Destory output.", NULL, eom_output->output);
 
    return EINA_TRUE;
 }
@@ -938,7 +946,7 @@ _e_eom_output_cb_output_add(void *data, E_Output *output)
 {
    if (!_e_eom_output_create(output, EINA_TRUE))
      {
-        EOERR("_e_eom_output_create fails.", output);
+        EOMERR("_e_eom_output_create fails.", output);
         return;
      }
 }
@@ -948,7 +956,7 @@ _e_eom_output_cb_output_del(void *data, E_Output *output)
 {
    if (!_e_eom_output_destroy(output))
      {
-        EOERR("_e_eom_output_destroy fails.", output);
+        EOMERR("_e_eom_output_destroy fails.", output);
         return;
      }
 }
@@ -986,7 +994,7 @@ _e_eom_output_init(void)
    EINA_SAFETY_ON_NULL_RETURN_VAL(primary_output, EINA_FALSE);
 
    g_eom->eom_output_count = e_comp_screen->num_outputs - 1;
-   EOINF("external output count : %d", NULL, g_eom->eom_output_count);
+   EOMINF("external output count : %d", NULL, NULL, g_eom->eom_output_count);
 
    /* create the eom_output except for the primary output */
    EINA_LIST_FOREACH(e_comp_screen->outputs, l, output)
@@ -996,7 +1004,7 @@ _e_eom_output_init(void)
 
         if (!_e_eom_output_create(output, EINA_FALSE))
           {
-             EOERR("_e_eom_output_create fails.", output);
+             EOMERR("_e_eom_output_create fails.", output);
              goto err;
           }
      }
@@ -1025,7 +1033,7 @@ e_eom_init(void)
 
    if (!_e_eom_output_init())
      {
-        EOERR("_e_eom_output_init fail", NULL);
+        EOMERR("_e_eom_output_init fail", NULL);
         goto err;
      }
 
