@@ -296,6 +296,7 @@ _e_eom_output_create(E_Output *output, Eina_Bool added)
    eom_output->output = output;
    eom_output->type = (eom_output_type_e)output->toutput_type;
    eom_output->added = added;
+   eom_output->eom_client = NULL;
 
    g_eom->eom_outputs = eina_list_append(g_eom->eom_outputs, eom_output);
 
@@ -754,10 +755,11 @@ _e_eom_cb_wl_eom_client_destroy(struct wl_resource *resource)
    eom_client = _e_eom_client_get_by_resource(resource);
    EINA_SAFETY_ON_NULL_RETURN(eom_client);
 
-   g_eom->clients = eina_list_remove(g_eom->clients, eom_client);
-
    eom_output = _e_eom_output_get_by_id(eom_client->output_id);
    EINA_SAFETY_ON_NULL_GOTO(eom_output, end);
+
+   if (eom_client == eom_output->eom_client)
+     eom_output->eom_client = NULL;
 
    output_ec = e_output_presentation_ec_get(eom_output->output);
    if (eom_client->ec == output_ec)
@@ -775,6 +777,8 @@ end:
     * state and mode of the output has been changed */
    if (eom_output)
      _e_eom_output_status_broadcast(eom_output, eom_client, EOM_OUTPUT_ATTRIBUTE_STATE_NONE);
+
+   g_eom->clients = eina_list_remove(g_eom->clients, eom_client);
 
    free(eom_client);
 }
