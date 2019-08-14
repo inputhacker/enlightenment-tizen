@@ -814,8 +814,7 @@ _e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
             (above->visible) &&
             (!above->iconic || e_policy_visibility_client_is_uniconic(above)) &&
             (!above->bg_state) &&
-            (above->frame) &&
-            (above->icccm.accepts_focus || above->icccm.take_focus))
+            (above->frame))
           {
              e_client_geometry_get(above, &ax, &ay, &aw, &ah);
              if (E_CONTAINS(ax, ay, aw, ah, x, y, w, h))
