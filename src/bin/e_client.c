@@ -3119,7 +3119,8 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
    E_Client *ec;
    E_Client *focus_ec = NULL;
    E_Client *cur_focused_ec = NULL;
-   E_Client *top_vis_full_ec = NULL;
+   E_Client *top_vis_full_focusable_ec = NULL;
+   E_Client *top_vis_full_non_focusable_ec = NULL;
    Eina_Bool top_vis_full_ec_vis_changed = EINA_FALSE;
    Eina_Bool find_top_vis_ec = EINA_FALSE;
 
@@ -3384,14 +3385,25 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
                   if (!find_top_vis_ec)
                     {
                        find_top_vis_ec = EINA_TRUE;
-                       if ((!ec->iconic) &&
-                           (ec->icccm.accepts_focus || ec->icccm.take_focus))
+                       if (!ec->iconic)
                          {
-                            e_client_geometry_get(ec, &x, &y, &w, &h);
-                            if (E_CONTAINS(x, y, w, h, zone->x, zone->y, zone->w, zone->h))
+                            if ((ec->icccm.accepts_focus || ec->icccm.take_focus))
                               {
-                                 top_vis_full_ec = ec;
-                                 top_vis_full_ec_vis_changed = ec->visibility.changed;
+                                 e_client_geometry_get(ec, &x, &y, &w, &h);
+                                 if (E_CONTAINS(x, y, w, h, zone->x, zone->y, zone->w, zone->h))
+                                   {
+                                      top_vis_full_focusable_ec = ec;
+                                      top_vis_full_ec_vis_changed = ec->visibility.changed;
+                                   }
+                              }
+                            else
+                              {
+                                 if (!ec->argb && !top_vis_full_non_focusable_ec)
+                                   {
+                                      e_client_geometry_get(ec, &x, &y, &w, &h);
+                                      if (E_CONTAINS(x, y, w, h, zone->x, zone->y, zone->w, zone->h))
+                                        top_vis_full_non_focusable_ec = ec;
+                                   }
                               }
                          }
                     }
@@ -3449,23 +3461,26 @@ _e_client_visibility_zone_calculate(E_Zone *zone, Eina_Bool check_focus)
         if (!focus_ec)
           {
              cur_focused_ec = e_client_focused_get();
-             if (top_vis_full_ec)
+             if (top_vis_full_focusable_ec)
                {
-                  if (top_vis_full_ec != cur_focused_ec)
+                  if (top_vis_full_focusable_ec != cur_focused_ec)
                     {
                        if (!cur_focused_ec)
-                         evas_object_focus_set(top_vis_full_ec->frame, 1);
+                         evas_object_focus_set(top_vis_full_focusable_ec->frame, 1);
                        else
                          {
                             if (top_vis_full_ec_vis_changed || check_focus)
-                              evas_object_focus_set(top_vis_full_ec->frame, 1);
+                              evas_object_focus_set(top_vis_full_focusable_ec->frame, 1);
                          }
                     }
                }
              else
                {
                   if (!cur_focused_ec)
-                    _e_client_latest_stacked_focus_set();
+                    {
+                       if (!top_vis_full_non_focusable_ec)
+                         _e_client_latest_stacked_focus_set();
+                    }
                }
           }
      }
