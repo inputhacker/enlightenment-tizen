@@ -7098,12 +7098,14 @@ e_client_transform_core_input_inv_transform(E_Client *ec, int x, int y, int *out
 E_API void
 e_client_transform_core_input_inv_rect_transform(E_Client *ec, int x, int y, int *out_x, int *out_y)
 {
+   int gw = 0, gh = 0;
    if (!ec) return;
    if (!e_client_transform_core_enable_get(ec)) return;
+   e_client_geometry_get(ec, NULL, NULL, &gw, &gh);
 
    e_util_transform_matrix_inv_rect_coords_get(&ec->transform_core.result.transform,
                                                &ec->transform_core.result.vertices,
-                                               ec->zone->w, ec->zone->h,
+                                               gw, gh,
                                                x, y, out_x, out_y);
 }
 
