@@ -1977,4 +1977,19 @@ e_xdg_shell_v6_shutdown(void)
 {
    E_FREE_FUNC(global_resource, wl_global_destroy);
 }
+
+EINTERN E_Client *
+e_xdg_shell_v6_xdg_surface_ec_get(struct wl_resource *resource)
+{
+   E_Xdg_Surface *exsurf = NULL;
+
+   exsurf = wl_resource_get_user_data(resource);
+   if (!exsurf)
+     {
+        ERR("No E_Xdg_Shell in wl_resource", NULL);
+        return NULL;
+     }
+
+   return exsurf->ec;
+}
 /* End of Xdg_shell */
