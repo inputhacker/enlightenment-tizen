@@ -40,7 +40,6 @@ enum _E_Output_Display_Mode
    E_OUTPUT_DISPLAY_MODE_NONE,
    E_OUTPUT_DISPLAY_MODE_MIRROR,
    E_OUTPUT_DISPLAY_MODE_PRESENTATION,
-   E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION,    /* It is used for delayed runnig of Presentation mode */
 };
 
 struct _E_Output_Mode
@@ -134,10 +133,6 @@ struct _E_Output
    tdm_layer               *overlay_layer;
    Eina_Bool                need_overlay_pp;
    E_Client                *presentation_ec;
-   /* If attribute has been set while external output is disconnected
-    * then show black screen and wait until EOM client start sending
-    * buffers. After expiring of the delay start mirroring */
-   Ecore_Timer *delay_timer;
 
    Eina_Bool                force_render;
 
@@ -242,9 +237,9 @@ EINTERN const char      * e_output_output_id_get(E_Output *output);
 EINTERN Eina_Bool         e_output_external_mode_change(E_Output *output, E_Output_Mode *mode);
 EINTERN Eina_Bool         e_output_mirror_set(E_Output *output, E_Output *src_output);
 EINTERN void              e_output_mirror_unset(E_Output *output);
-EINTERN Eina_Bool         e_output_presentation_wait_set(E_Output *output, E_Client *ec);
 EINTERN Eina_Bool         e_output_presentation_update(E_Output *output, E_Client *ec);
 EINTERN void              e_output_presentation_unset(E_Output *output);
+EINTERN Eina_Bool         e_output_presentation_ec_set(E_Output *output, E_Client *ec);
 EINTERN E_Client        * e_output_presentation_ec_get(E_Output *output);
 
 EINTERN E_Output_Display_Mode  e_output_display_mode_get(E_Output *output);

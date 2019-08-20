@@ -3000,7 +3000,6 @@ e_hwc_windows_presentation_update(E_Hwc *hwc, E_Client *ec)
 {
    E_Comp_Wl_Buffer *wl_buffer = NULL;
    tbm_surface_h tsurface = NULL;
-   E_Hwc_Window *hwc_window = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
 
@@ -3008,9 +3007,12 @@ e_hwc_windows_presentation_update(E_Hwc *hwc, E_Client *ec)
      {
         if (!hwc->presentation_hwc_window)
           {
+             /* There is the hwc_window of this ec which is already generated at the primary hwc */
+             if (ec->hwc_window) e_hwc_window_free(ec->hwc_window);
+
              /* create the hwc_window on the external hwc. */
              hwc->presentation_hwc_window = e_hwc_window_new(hwc, ec, E_HWC_WINDOW_STATE_DEVICE);
-             EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+             EINA_SAFETY_ON_NULL_RETURN_VAL(hwc->presentation_hwc_window, EINA_FALSE);
              // TODO: deal with the video
           }
 
@@ -3021,16 +3023,12 @@ e_hwc_windows_presentation_update(E_Hwc *hwc, E_Client *ec)
 
         tsurface = wayland_tbm_server_get_surface(e_comp->wl_comp_data->tbm.server, wl_buffer->resource);
         EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, EINA_FALSE);
-
-        hwc->presentation_tsurface = tsurface;
      }
    else
      {
-        hwc->presentation_tsurface = NULL;
-
         if (hwc->presentation_hwc_window)
           {
-             e_hwc_window_free(hwc_window);
+             e_hwc_window_free(hwc->presentation_hwc_window);
              hwc->presentation_hwc_window = NULL;
           }
      }
@@ -3229,31 +3227,31 @@ e_hwc_windows_external_commit(E_Hwc *hwc, E_Output_Display_Mode display_mode)
 
    /* set the target_buffer if the output need to update */
 #if 1
-  if (display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
-    {
-       if (!_e_hwc_windows_mirror_changes_update(hwc))
-         return EINA_TRUE;
+   if (display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
+     {
+        if (!_e_hwc_windows_mirror_changes_update(hwc))
+          return EINA_TRUE;
 
-       if (!_e_hwc_windows_evaluate(hwc))
-         return EINA_TRUE;
-    }
-  else if (display_mode == E_OUTPUT_DISPLAY_MODE_PRESENTATION)
-    {
-       if (!_e_hwc_windows_presentation_changes_update(hwc))
-         return EINA_TRUE;
+        if (!_e_hwc_windows_evaluate(hwc))
+          return EINA_TRUE;
+     }
+   else if (display_mode == E_OUTPUT_DISPLAY_MODE_PRESENTATION)
+     {
+        if (!_e_hwc_windows_presentation_changes_update(hwc))
+          return EINA_TRUE;
 
-       if (!_e_hwc_windows_evaluate(hwc))
-         return EINA_TRUE;
+        if (!_e_hwc_windows_evaluate(hwc))
+          return EINA_TRUE;
 
-       /* if the presentation window is client type. copy it on the target window. */
-       if (!_e_hwc_windows_presentation_evaluation_check(hwc))
-         return EINA_TRUE;
-    }
-  else
-    {
-       EHWSERR("Unknown display_mode : %d", hwc, display_mode);
-       goto fail;
-    }
+        /* if the presentation window is client type. copy it on the target window. */
+        if (!_e_hwc_windows_presentation_evaluation_check(hwc))
+          return EINA_TRUE;
+     }
+   else
+     {
+        EHWSERR("Unknown display_mode : %d", hwc, display_mode);
+        goto fail;
+     }
 #else
    if (!_e_hwc_windows_changes_update(hwc))
      return EINA_TRUE;

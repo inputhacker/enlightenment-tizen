@@ -26,7 +26,6 @@
 
 #define DUMP_FPS 30
 #define OUTPUT_DELAY_CONNECT_CHECK_TIMEOUT 3.0
-#define OUTPUT_DELAY_CHECK_TIMEOUT 1.0
 
 typedef struct _E_Output_Capture E_Output_Capture;
 typedef struct _E_Output_Layer E_Output_Layer;
@@ -106,27 +105,6 @@ _e_output_aligned_width_get(E_Output *output, tbm_surface_h tsurface)
      }
 
    return aligned_width;
-}
-
-static Eina_Bool
-_e_output_presentation_check(void *data)
-{
-   E_Output *output;
-   E_Output *primary_output;
-
-   if (!data) return ECORE_CALLBACK_CANCEL;
-
-   output = (E_Output *)data;
-
-   if (e_output_display_mode_get(output) == E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION)
-     {
-        primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
-        e_output_mirror_set(output, primary_output);
-     }
-
-   output->delay_timer = NULL;
-
-   return ECORE_CALLBACK_CANCEL;
 }
 
 static inline void
@@ -768,71 +746,6 @@ _e_output_client_resize(int w, int h)
      }
 }
 
-static Eina_Bool
-_e_output_external_connect_display_set(E_Output *output)
-{
-   E_Output *primary_output = NULL;
-
-   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
-
-   if (e_output_display_mode_get(output) == E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION)
-     {
-        EOINF("Start Wait Presentation", output);
-
-        /* the fallback timer for not setting the presentation. */
-        if (output->delay_timer) ecore_timer_del(output->delay_timer);
-        output->delay_timer = ecore_timer_add(OUTPUT_DELAY_CONNECT_CHECK_TIMEOUT, _e_output_presentation_check, output);
-     }
-   else
-     {
-        EOINF("Start Mirroring", output);
-
-        primary_output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
-        if (!e_output_mirror_set(output, primary_output))
-          {
-             EOERR("e_output_mirror_set fails.", output);
-             return EINA_FALSE;
-          }
-     }
-
-   EOINF("_e_output_external_connect_display_set done: display_mode:%d", output, e_output_display_mode_get(output));
-
-   return EINA_TRUE;
-}
-
-static void
-_e_output_external_disconnect_display_set(E_Output *output)
-{
-   EINA_SAFETY_ON_NULL_RETURN(output);
-
-   switch (e_output_display_mode_get(output))
-     {
-      case E_OUTPUT_DISPLAY_MODE_NONE:
-        break;
-      case E_OUTPUT_DISPLAY_MODE_MIRROR:
-        /* unset mirror */
-        e_output_mirror_unset(output);
-        break;
-      case E_OUTPUT_DISPLAY_MODE_PRESENTATION:
-        /* only change the display_mode */
-        _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION);
-        break;
-      case E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION:
-        /* delete presentation_delay_timer */
-        if (output->delay_timer)
-          {
-             ecore_timer_del(output->delay_timer);
-             output->delay_timer = NULL;
-          }
-        break;
-      default:
-        EOERR("unknown display_mode:%d", output, output->display_mode);
-        break;
-     }
-
-   EOINF("_e_output_external_disconnect_display_set done.", output);
-}
-
 static void
 _e_output_primary_update(E_Output *output)
 {
@@ -962,13 +875,6 @@ _e_output_external_update(E_Output *output)
 
         _e_output_hook_call(E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE, output);
 
-        ret = _e_output_external_connect_display_set(output);
-        if (ret == EINA_FALSE)
-          {
-             EOERR("fail to _e_output_external_connect_display_set.", output);
-             return EINA_FALSE;
-          }
-
         EOINF("Connect the external output", output);
      }
    else
@@ -976,8 +882,6 @@ _e_output_external_update(E_Output *output)
         EOINF("Disconnect the external output", output);
 
         _e_output_hook_call(E_OUTPUT_HOOK_CONNECT_STATUS_CHANGE, output);
-
-        _e_output_external_disconnect_display_set(output);
 
         if (output->hwc)
           {
@@ -4044,12 +3948,6 @@ e_output_external_mode_change(E_Output *output, E_Output_Mode *mode)
    _e_output_hook_call(E_OUTPUT_HOOK_MODE_CHANGE, output);
 
    EOINF("mode change output: (%dx%d)", output, w, h);
-   if (e_output_display_mode_get(output) == E_OUTPUT_DISPLAY_MODE_PRESENTATION)
-     {
-        _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION);
-        if (output->delay_timer) ecore_timer_del(output->delay_timer);
-        output->delay_timer = ecore_timer_add(OUTPUT_DELAY_CONNECT_CHECK_TIMEOUT, _e_output_presentation_check, output);
-     }
 
    if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_PLANES)
      {
@@ -4173,45 +4071,15 @@ e_output_mirror_unset(E_Output *output)
 }
 
 EINTERN Eina_Bool
-e_output_presentation_wait_set(E_Output *output, E_Client *ec)
-{
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(output, EINA_FALSE);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(ec, EINA_FALSE);
-
-   _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION);
-
-   /* the ec does not commit the buffer to the exernal output
-    * Therefore, it needs the timer to prevent the eternal waiting.
-    */
-   if (output->delay_timer)
-     {
-        ecore_timer_del(output->delay_timer);
-        output->delay_timer = ecore_timer_add(OUTPUT_DELAY_CHECK_TIMEOUT, _e_output_presentation_check, output);
-     }
-
-   EOINF("e_output_presentation_wait_set done: E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION", output);
-
-   return EINA_TRUE;
-}
-
-EINTERN Eina_Bool
 e_output_presentation_update(E_Output *output, E_Client *ec)
 {
    E_Hwc *hwc;
-   E_Output_Display_Mode display_mode;
 
    EINA_SAFETY_ON_FALSE_RETURN_VAL(output, EINA_FALSE);
    EINA_SAFETY_ON_FALSE_RETURN_VAL(ec, EINA_FALSE);
 
    hwc = output->hwc;
    EINA_SAFETY_ON_FALSE_RETURN_VAL(hwc, EINA_FALSE);
-
-   display_mode = e_output_display_mode_get(output);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(display_mode == E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION, EINA_FALSE);
-
-   /* delete the delay timer on E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION */
-   if (output->delay_timer) ecore_timer_del(output->delay_timer);
-   output->delay_timer = NULL;
 
    if (e_hwc_policy_get(hwc) == E_HWC_POLICY_PLANES)
      {
@@ -4230,7 +4098,6 @@ e_output_presentation_update(E_Output *output, E_Client *ec)
           }
      }
 
-   output->presentation_ec = ec;
    _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_PRESENTATION);
 
    output->external_set = EINA_TRUE;
@@ -4250,10 +4117,6 @@ e_output_presentation_unset(E_Output *output)
    hwc = output->hwc;
    EINA_SAFETY_ON_FALSE_RETURN(hwc);
 
-   /* delete the delay timer on E_OUTPUT_DISPLAY_MODE_WAIT_PRESENTATION */
-   if (output->delay_timer) ecore_timer_del(output->delay_timer);
-   output->delay_timer = NULL;
-
    output->external_set = EINA_FALSE;
 
    _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_NONE);
@@ -4263,6 +4126,17 @@ e_output_presentation_unset(E_Output *output)
      e_hwc_planes_presentation_update(hwc, NULL);
    else
      e_hwc_windows_presentation_update(hwc, NULL);
+}
+
+EINTERN Eina_Bool
+e_output_presentation_ec_set(E_Output *output, E_Client *ec)
+{
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(output, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(output, EINA_FALSE);
+
+   output->presentation_ec = ec;
+
+   return EINA_TRUE;
 }
 
 EINTERN E_Client *
