@@ -674,6 +674,7 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
    EHWINF("Del", hwc_window->ec, hwc_window->hwc, hwc_window);
 
    ec = hwc_window->ec;
+   EINA_SAFETY_ON_NULL_RETURN(ec);
 
    ec->hwc_window = NULL;
    hwc_window->ec = NULL;
