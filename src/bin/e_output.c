@@ -3168,36 +3168,26 @@ e_output_commit(E_Output *output)
      }
    else
      {
-        if (output == output_primary)
+        /* trigger the output_external_update at the launching time */
+        if (output != output_primary)
           {
-             if (!e_hwc_windows_commit(output->hwc))
-               {
-                  EOERR("fail e_hwc_windows_commit", output);
-                  return EINA_FALSE;
-               }
-          }
-        else
-          {
-             /* trigger the output_external_update at the launching time */
              if (!boot_launch)
                {
                   boot_launch = 1;
                   _e_output_external_update(output);
                }
+          }
 
-             display_mode = e_output_display_mode_get(output);
+        display_mode = e_output_display_mode_get(output);
 
-             /* output donot care about the external_commit
-                when tdm has the mirror capability */
-             if (display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR &&
-                 output->tdm_mirror)
-               return EINA_TRUE;
+        /* The output do not commit when tdm has the mirror capability */
+        if (display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR && output->tdm_mirror)
+          return EINA_TRUE;
 
-             if (!e_hwc_windows_external_commit(output->hwc, display_mode))
-               {
-                  EOERR("fail e_hwc_windows_external_commit", output);
-                  return EINA_FALSE;
-               }
+        if (!e_hwc_windows_commit(output->hwc, display_mode))
+          {
+             EOERR("fail e_hwc_windows_commit", output);
+             return EINA_FALSE;
           }
      }
 

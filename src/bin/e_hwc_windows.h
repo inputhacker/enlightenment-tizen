@@ -19,7 +19,7 @@ typedef enum
 EINTERN Eina_Bool            e_hwc_windows_init(void);
 EINTERN void                 e_hwc_windows_deinit(void);
 EINTERN Eina_Bool            e_hwc_windows_render(E_Hwc *hwc);
-EINTERN Eina_Bool            e_hwc_windows_commit(E_Hwc *hwc);
+EINTERN Eina_Bool            e_hwc_windows_commit(E_Hwc *hwc, E_Output_Display_Mode display_mode);
 EINTERN E_Hwc_Window_Target *e_hwc_windows_target_window_new(E_Hwc *hwc);
 EINTERN void                 e_hwc_windows_target_window_del(E_Hwc_Window_Target *target_hwc_window);
 EINTERN void                 e_hwc_windows_rendered_window_add(E_Hwc_Window *hwc_window);
@@ -39,7 +39,6 @@ EINTERN void                 e_hwc_windows_debug_info_get(Eldbus_Message_Iter *i
 EINTERN Eina_Bool            e_hwc_windows_mirror_set(E_Hwc *hwc, E_Hwc *src_hwc, Eina_Rectangle *rect);
 EINTERN void                 e_hwc_windows_mirror_unset(E_Hwc *hwc);
 EINTERN Eina_Bool            e_hwc_windows_presentation_update(E_Hwc *hwc, E_Client *ec);
-EINTERN Eina_Bool            e_hwc_windows_external_commit(E_Hwc *hwc, E_Output_Display_Mode display_mode);
 
 #endif
 #endif
