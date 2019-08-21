@@ -814,6 +814,8 @@ _e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
             (above->visible) &&
             (!above->iconic || e_policy_visibility_client_is_uniconic(above)) &&
             (!above->bg_state) &&
+            (!above->argb) &&
+            (!above->visibility.force_obscured) &&
             (above->frame))
           {
              e_client_geometry_get(above, &ax, &ay, &aw, &ah);
