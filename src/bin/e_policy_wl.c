@@ -1751,12 +1751,7 @@ _tzpol_iface_cb_type_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
          win_type = E_WINDOW_TYPE_NORMAL;
          if (ec->layer != E_LAYER_CLIENT_NORMAL)
            {
-              ec->layer = E_LAYER_CLIENT_NORMAL;
-              if (ec->frame)
-                {
-                   if (ec->layer != evas_object_layer_get(ec->frame))
-                     evas_object_layer_set(ec->frame, ec->layer);
-                }
+              e_client_layer_set(ec, E_LAYER_CLIENT_NORMAL);
            }
          break;
 
