@@ -849,7 +849,7 @@ _e_magnifier_owner_set(E_Client *ec)
 
    ec->is_magnifier = EINA_TRUE;
    ec->exp_iconify.deiconify_update = EINA_FALSE;
-   evas_object_layer_set(ec->frame, E_LAYER_CLIENT_ALERT_HIGH);
+   e_client_layer_set(ec, E_LAYER_CLIENT_ALERT_HIGH);
 
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_MOVE, _e_magnifier_cb_owner_move_resize, NULL);
    evas_object_event_callback_add(ec->frame, EVAS_CALLBACK_RESIZE, _e_magnifier_cb_owner_move_resize, NULL);

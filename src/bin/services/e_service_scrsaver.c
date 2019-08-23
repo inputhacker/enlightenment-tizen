@@ -10,11 +10,10 @@ e_service_scrsaver_client_set(E_Client *ec)
    ELOGF("SCRSAVER","Set Client", ec);
 
    // set screensaver layer
-   if (E_POLICY_SCRSAVER_LAYER != evas_object_layer_get(ec->frame))
+   if (E_POLICY_SCRSAVER_LAYER != ec->layer)
      {
-        evas_object_layer_set(ec->frame, E_POLICY_SCRSAVER_LAYER);
+        e_client_layer_set(ec, E_POLICY_SCRSAVER_LAYER);
      }
-   ec->layer = E_POLICY_SCRSAVER_LAYER;
 
    return EINA_TRUE;
 }

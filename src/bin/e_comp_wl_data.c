@@ -429,8 +429,7 @@ _e_comp_wl_data_device_cb_drag_start(struct wl_client *client, struct wl_resourc
 
              ec->lock_focus_out = ec->override = 1;
              ec->icccm.title = eina_stringshare_add("noshadow");
-             ec->layer = E_LAYER_CLIENT_DRAG;
-             evas_object_layer_set(ec->frame, E_LAYER_CLIENT_DRAG);
+             e_client_layer_set(ec, E_LAYER_CLIENT_DRAG);
              e_client_focus_stack_set(eina_list_remove(e_client_focus_stack_get(), ec));
              EC_CHANGED(ec);
              e_comp_wl->drag_client = ec;

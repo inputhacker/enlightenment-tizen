@@ -667,7 +667,7 @@ _e_policy_cb_hook_client_eval_pre_new_client(void *d EINA_UNUSED, E_Client *ec)
 
         EINA_SAFETY_ON_NULL_RETURN(ec->frame);
         if (ec->layer < E_LAYER_CLIENT_ABOVE)
-          evas_object_layer_set(ec->frame, E_LAYER_CLIENT_ABOVE);
+          e_client_layer_set(ec, E_LAYER_CLIENT_ABOVE);
      }
    if (e_policy_client_is_noti(ec))
      {
@@ -676,7 +676,7 @@ _e_policy_cb_hook_client_eval_pre_new_client(void *d EINA_UNUSED, E_Client *ec)
              ly = evas_object_layer_get(ec->frame);
              ELOGF("NOTI", "         |ec->layer:%d object->layer:%d", ec, ec->layer, ly);
              if (ly != ec->layer)
-               evas_object_layer_set(ec->frame, ec->layer);
+               e_client_layer_set(ec, ec->layer);
           }
      }
 
@@ -685,7 +685,7 @@ _e_policy_cb_hook_client_eval_pre_new_client(void *d EINA_UNUSED, E_Client *ec)
         if (ec->frame && !ec->parent)
           {
              if (ec->layer != E_POLICY_DIALOG_LAYER)
-               evas_object_layer_set(ec->frame, E_POLICY_DIALOG_LAYER);
+               e_client_layer_set(ec, E_POLICY_DIALOG_LAYER);
           }
      }
 
@@ -694,7 +694,7 @@ _e_policy_cb_hook_client_eval_pre_new_client(void *d EINA_UNUSED, E_Client *ec)
         if (ec->frame)
           {
              if (ec->layer != E_LAYER_CLIENT_ABOVE)
-               evas_object_layer_set(ec->frame, E_LAYER_CLIENT_ABOVE);
+               e_client_layer_set(ec, E_LAYER_CLIENT_ABOVE);
           }
      }
 
@@ -703,9 +703,8 @@ _e_policy_cb_hook_client_eval_pre_new_client(void *d EINA_UNUSED, E_Client *ec)
         if (ec->frame)
           {
              if (ec->layer != E_POLICY_TOAST_POPUP_LAYER)
-               evas_object_layer_set(ec->frame, E_POLICY_TOAST_POPUP_LAYER);
+               e_client_layer_set(ec, E_POLICY_TOAST_POPUP_LAYER);
           }
-        ec->layer = E_POLICY_TOAST_POPUP_LAYER;
      }
    if (e_policy_client_is_cbhm(ec))
      {
@@ -714,11 +713,8 @@ _e_policy_cb_hook_client_eval_pre_new_client(void *d EINA_UNUSED, E_Client *ec)
 
    if (e_policy_client_is_magnifier(ec))
      {
-        if (ec->frame)
-          {
-             if (ec->layer != E_LAYER_CLIENT_ALERT_HIGH)
-               evas_object_layer_set(ec->frame, E_LAYER_CLIENT_ALERT_HIGH);
-          }
+        if (ec->layer != E_LAYER_CLIENT_ALERT_HIGH)
+          e_client_layer_set(ec, E_LAYER_CLIENT_ALERT_HIGH);
      }
 }
 

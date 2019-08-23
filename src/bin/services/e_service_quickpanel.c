@@ -1972,8 +1972,7 @@ e_service_quickpanel_client_add(E_Client *ec, E_Service_Quickpanel_Type type)
 
    // set quickpanel layer
    if (E_POLICY_QUICKPANEL_LAYER != evas_object_layer_get(ec->frame))
-     evas_object_layer_set(ec->frame, E_POLICY_QUICKPANEL_LAYER);
-   ec->layer = E_POLICY_QUICKPANEL_LAYER;
+     e_client_layer_set(ec, E_POLICY_QUICKPANEL_LAYER);
 
    // set skip iconify
    ec->exp_iconify.skip_iconify = 1;

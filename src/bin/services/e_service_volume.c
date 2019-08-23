@@ -289,11 +289,10 @@ e_service_volume_client_set(E_Client *ec)
       e_client_hook_add(E_CLIENT_HOOK_DEL, _volume_hook_client_del, NULL);
 
    // set volume layer
-   if (E_POLICY_VOLUME_LAYER != evas_object_layer_get(ec->frame))
+   if (E_POLICY_VOLUME_LAYER != ec->layer)
      {
-        evas_object_layer_set(ec->frame, E_POLICY_VOLUME_LAYER);
+        e_client_layer_set(ec, E_POLICY_VOLUME_LAYER);
      }
-   ec->layer = E_POLICY_VOLUME_LAYER;
 
    // set skip iconify
    ec->exp_iconify.skip_iconify = 1;

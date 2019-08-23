@@ -1029,7 +1029,7 @@ _e_test_helper_cb_set_noti_level(const Eldbus_Service_Interface *iface EINA_UNUS
         ec = e_pixmap_find_client_by_res_id(win);
         if (!ec) return reply;
 
-        evas_object_layer_set(ec->frame, layer);
+        e_client_layer_set(ec, layer);
      }
 
    return reply;
