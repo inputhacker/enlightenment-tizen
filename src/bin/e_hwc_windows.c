@@ -2366,7 +2366,60 @@ _e_hwc_windos_pp_pending_window_check(E_Hwc *hwc)
 }
 
 static void
-_e_hwc_windows_pixman_copy(E_Hwc *hwc, tbm_surface_h src_tsurface, tbm_surface_h dst_tsurface)
+_e_hwc_windows_center_rect_get(int src_w, int src_h, int dst_w, int dst_h, Eina_Rectangle *fit)
+{
+   float rw, rh;
+
+   if (src_w <= 0 || src_h <= 0 || dst_w <= 0 || dst_h <= 0 || !fit)
+     return;
+
+   rw = (float)src_w / dst_w;
+   rh = (float)src_h / dst_h;
+
+   if (rw > rh)
+     {
+        fit->w = dst_w;
+        fit->h = src_h / rw;
+        fit->x = 0;
+        fit->y = (dst_h - fit->h) / 2;
+     }
+   else if (rw < rh)
+     {
+        fit->w = src_w / rh;
+        fit->h = dst_h;
+        fit->x = (dst_w - fit->w) / 2;
+        fit->y = 0;
+     }
+   else
+     {
+        fit->w = dst_w;
+        fit->h = dst_h;
+        fit->x = 0;
+        fit->y = 0;
+     }
+
+   if (fit->x % 2)
+     fit->x = fit->x - 1;
+}
+
+static Eina_Bool
+_e_hwc_windows_capture_position_get(E_Output *output, int dst_w, int dst_h, Eina_Rectangle *fit)
+{
+   int output_w = 0, output_h = 0;
+
+   e_output_size_get(output, &output_w, &output_h);
+
+   if (output_w == 0 || output_h == 0)
+     return EINA_FALSE;
+
+   _e_hwc_windows_center_rect_get(output_w, output_h, dst_w, dst_h, fit);
+
+   return EINA_TRUE;
+}
+
+static void
+_e_hwc_windows_pixman_copy(E_Hwc *hwc, tbm_surface_h src_tsurface, tbm_surface_h dst_tsurface,
+                           int sx, int sy, int sw, int sh, int dx, int dy, int dw, int dh)
 {
    pixman_image_t *src_img = NULL, *dst_img = NULL;
    pixman_format_code_t src_format, dst_format;
@@ -2404,25 +2457,17 @@ _e_hwc_windows_pixman_copy(E_Hwc *hwc, tbm_surface_h src_tsurface, tbm_surface_h
                                       dst_tinfo.planes[0].stride);
    EINA_SAFETY_ON_NULL_GOTO(dst_img, free_img);
 
-   if (dst_tinfo.width > 0)
-     scale_x = (double)src_tinfo.width / dst_tinfo.width;
-   else
-     scale_x = (double)src_tinfo.width;
-
-   if (dst_tinfo.height > 0)
-     scale_y = (double)src_tinfo.height / dst_tinfo.height;
-   else
-     scale_y = (double)src_tinfo.height;
+   scale_x = (double)sw / dw;
+   scale_y = (double)sh / dh;
 
    pixman_f_transform_init_identity(&ft);
 
    pixman_f_transform_scale(&ft, NULL, scale_x, scale_y);
-   pixman_f_transform_translate(&ft, NULL, 0, 0);
+   pixman_f_transform_translate(&ft, NULL, sx, sy);
    pixman_transform_from_pixman_f_transform(&t, &ft);
    pixman_image_set_transform(src_img, &t);
 
-   pixman_image_composite(PIXMAN_OP_SRC, src_img, NULL, dst_img, 0, 0, 0, 0,
-                          0, 0, dst_tinfo.width, dst_tinfo.height);
+   pixman_image_composite(PIXMAN_OP_SRC, src_img, NULL, dst_img, 0, 0, 0, 0, dx, dy, dw, dh);
 
 free_img:
    if (src_img) pixman_image_unref(src_img);
@@ -2433,6 +2478,38 @@ src_unmap:
    tbm_surface_unmap(src_tsurface);
 end:
    return;
+}
+
+static void
+_e_hwc_windows_sw_copy(E_Hwc *hwc, tbm_surface_h src_tsurface, tbm_surface_h dst_tsurface, E_Output_Display_Mode display_mode)
+{
+   int width = 0, height = 0;
+   Eina_Bool ret = EINA_FALSE;
+   Eina_Rectangle src_crop = {0, };
+   Eina_Rectangle dst_pos = {0, };
+
+   e_output_size_get(hwc->output, &width, &height);
+   if (width == 0 || height == 0)
+     return;
+
+   src_crop.w = tbm_surface_get_width(src_tsurface);
+   src_crop.h = tbm_surface_get_height(src_tsurface);
+
+   if (display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
+     {
+        ret = _e_hwc_windows_capture_position_get(hwc->mirror_src_hwc->output,
+                                                  tbm_surface_get_width(dst_tsurface), tbm_surface_get_height(dst_tsurface), &dst_pos);
+        if (ret == EINA_FALSE) return;
+     }
+   else
+     {
+        dst_pos.w = tbm_surface_get_width(dst_tsurface);
+        dst_pos.h = tbm_surface_get_height(dst_tsurface);
+     }
+
+   _e_hwc_windows_pixman_copy(hwc, src_tsurface, dst_tsurface,
+                              src_crop.x, src_crop.y, src_crop.w, src_crop.h,
+                              dst_pos.x, dst_pos.y, dst_pos.w, dst_pos.h);
 }
 
 static Eina_Bool
@@ -2473,7 +2550,7 @@ _e_hwc_windows_mirror_changes_update(E_Hwc *hwc)
 
         /* copy */
         target_tsurface = queue_buffer->tsurface;
-        _e_hwc_windows_pixman_copy(hwc, src_target_tsurface, target_tsurface);
+        _e_hwc_windows_sw_copy(hwc, src_target_tsurface, target_tsurface, E_OUTPUT_DISPLAY_MODE_MIRROR);
 
         /* enqueue buffer */
         e_hwc_window_queue_buffer_enqueue(queue, queue_buffer);
@@ -2530,7 +2607,7 @@ _e_hwc_windows_presentation_evaluation_check(E_Hwc *hwc)
    /* copy */
    src_tsurface = hwc->presentation_hwc_window->buffer.tsurface;
    target_tsurface = queue_buffer->tsurface;
-   _e_hwc_windows_pixman_copy(hwc, src_tsurface, target_tsurface);
+   _e_hwc_windows_sw_copy(hwc, src_tsurface, target_tsurface, E_OUTPUT_DISPLAY_MODE_PRESENTATION);
 
    /* enqueue buffer */
    e_hwc_window_queue_buffer_enqueue(queue, queue_buffer);
