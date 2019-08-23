@@ -7555,3 +7555,39 @@ E_API void e_client_frame_focus_set(E_Client *ec, Eina_Bool focus)
    if (!ec) return;
    evas_object_focus_set(ec->frame, focus);
 }
+
+E_API Eina_Bool
+e_client_layer_set(E_Client *ec,
+                   E_Layer layer)
+{
+   E_OBJECT_CHECK_RETURN(ec, EINA_FALSE);
+   E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
+   if (!ec->frame) return EINA_FALSE;
+
+   if (e_comp_canvas_client_layer_map(layer) == 9999)
+     return EINA_FALSE; //invalid layer is not allowed
+
+   evas_object_layer_set(ec->frame, layer);
+   if (ec->layer != layer)
+     {
+        /* check exceptional case */
+        if ((ec->fullscreen) &&
+            (ec->saved.layer == layer))
+          {
+             ELOGF("LAYER", "(%d) backup at saved.layer for fullscreen", ec, layer);
+             return EINA_TRUE;
+          }
+        // if e_comp_object fail to change ec->layer due to ec->layer_pending or block
+        // leave log and apply ec->layer according to set
+        // as a result it restores back to given layer when pending or block is free
+        ELOGF("LAYER", "change layer from %d to %d if in case layer pending(%d) or block(%d)",
+              ec, ec->layer, layer, ec->layer_pending, ec->layer_block);
+        if (ec->layer_pending || ec->layer_block)
+          {
+             ec->layer = layer;
+             return EINA_TRUE;
+          }
+     }
+
+   return EINA_TRUE;
+}
