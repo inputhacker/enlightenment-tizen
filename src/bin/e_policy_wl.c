@@ -89,6 +89,7 @@ typedef struct _E_Policy_Wl_Tzsh_Client
    struct wl_resource *res_tzsh_client;
    Eina_Bool           qp_client;
    E_Quickpanel_Type   qp_type;
+   Eina_Bool           swl_client;
 } E_Policy_Wl_Tzsh_Client;
 
 typedef struct _E_Policy_Wl_Tzsh_Region
@@ -931,6 +932,8 @@ _e_policy_wl_tzsh_client_del(E_Policy_Wl_Tzsh_Client *tzsh_client)
         if (tzsh_client->qp_client)
           e_qp_client_del(tzsh_client->tzsh->ec,
                           tzsh_client->qp_type);
+        if (tzsh_client->swl_client)
+          e_service_launcher_release_shared_widget_launch(tzsh_client->tzsh->ec);
      }
 
    memset(tzsh_client, 0x0, sizeof(E_Policy_Wl_Tzsh_Client));
@@ -5568,6 +5571,8 @@ static void
 _tzsh_swl_iface_cb_release(struct wl_client *client,
                            struct wl_resource *res_tzsh_swl)
 {
+   ELOGF("TZSH_SWL", "Release", NULL);
+
    wl_resource_destroy(res_tzsh_swl);
 }
 
@@ -5605,6 +5610,8 @@ static void
 _tzsh_cb_swl_destroy(struct wl_resource *res_tzsh_swl)
 {
    E_Policy_Wl_Tzsh_Client *tzsh_client;
+
+   ELOGF("TZSH_SWL", "Destroy", NULL);
 
    tzsh_client = wl_resource_get_user_data(res_tzsh_swl);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
@@ -5689,6 +5696,8 @@ _tzsh_iface_cb_shared_widget_launch_get(struct wl_client *client,
         wl_client_post_no_memory(client);
         return;
      }
+
+   tzsh_client->swl_client = EINA_TRUE;
 
    wl_resource_set_implementation(res_tzsh_swl,
                                   &_tzsh_swl_iface,

@@ -390,6 +390,7 @@ _launcher_prepare_shared_widget_backward_send(E_Service_Launcher *lc,
 
    if (e_object_is_del(E_OBJECT(target_ec)))
      {
+        if (lc->with_swl) return EINA_FALSE;
         // do nothing if ec is deleted and there's no delay_del_ref as well.
         if (!e_object_delay_del_ref_get(E_OBJECT(target_ec)))
           return EINA_FALSE;
@@ -555,6 +556,7 @@ _launcher_data_reset(E_Service_Launcher *lc)
    _launcher_handler_launcher_pre_runner_unset(lc);
 
    lc->direction = 0;
+   lc->with_swl = 0;
 }
 
 
@@ -1176,6 +1178,7 @@ _launcher_handler_cb_hook_vis_uniconify_render_running(void *data EINA_UNUSED, E
    E_Service_Launcher *lc = NULL;
    E_Service_Launcher *runner, *pre_runner = NULL;
    E_Client *activity = NULL, *prov_ec = NULL;
+   Launcher_State new_state;
 
    lc = _launcher_handler_launcher_find(ec);
    if (!lc)
@@ -1223,19 +1226,28 @@ _launcher_handler_cb_hook_vis_uniconify_render_running(void *data EINA_UNUSED, E
                }
 
              if (lc->with_swl)
-               sent = _launcher_prepare_shared_widget_backward_send
-                 (lc, activity, activity,
-                  (E_VIS_JOB_TYPE_UNICONIFY |
-                   E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY));
+               {
+                  sent = _launcher_prepare_shared_widget_backward_send
+                     (lc, activity, activity,
+                      (E_VIS_JOB_TYPE_UNICONIFY |
+                       E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY));
+
+                  new_state = LAUNCHER_STATE_WAIT_RESPONSE_FROM_CALLEE;
+               }
              else
-               sent = _launcher_prepare_backward_send
-                 (lc, activity, activity,
-                  (E_VIS_JOB_TYPE_UNICONIFY |
-                   E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY));
+               {
+                  sent = _launcher_prepare_backward_send
+                     (lc, activity, activity,
+                      (E_VIS_JOB_TYPE_UNICONIFY |
+                       E_VIS_JOB_TYPE_UNICONIFY_BY_VISIBILITY));
+
+                  new_state = LAUNCHER_STATE_PREPARING;
+               }
+
 
              if (!sent) return EINA_FALSE;
 
-             _launcher_state_set(lc, LAUNCHER_STATE_PREPARING);
+             _launcher_state_set(lc, new_state);
              _launcher_handler_launcher_runner_set(lc);
           }
      }
@@ -1249,6 +1261,7 @@ _launcher_handler_cb_hook_vis_lower(void *data EINA_UNUSED, E_Client *ec)
    E_Service_Launcher *lc = NULL;
    E_Service_Launcher *runner, *pre_runner;
    E_Client *activity = NULL, *prov_ec = NULL;
+   Launcher_State new_state;
 
    activity = e_policy_visibility_main_activity_get();
    EINA_SAFETY_ON_NULL_RETURN_VAL(activity, EINA_FALSE);
@@ -1289,13 +1302,19 @@ _launcher_handler_cb_hook_vis_lower(void *data EINA_UNUSED, E_Client *ec)
           }
 
         if (lc->with_swl)
-          sent = _launcher_prepare_shared_widget_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_LOWER);
+          {
+             sent = _launcher_prepare_shared_widget_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_LOWER);
+             new_state = LAUNCHER_STATE_WAIT_RESPONSE_FROM_CALLEE;
+          }
         else
-          sent = _launcher_prepare_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_LOWER);
+          {
+             sent = _launcher_prepare_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_LOWER);
+             new_state = LAUNCHER_STATE_PREPARING;
+          }
 
         if (!sent) return EINA_FALSE;
 
-        _launcher_state_set(lc, LAUNCHER_STATE_PREPARING);
+        _launcher_state_set(lc, new_state);
         _launcher_handler_launcher_runner_set(lc);
      }
 
@@ -1308,6 +1327,7 @@ _launcher_handler_cb_hook_vis_hide(void *data EINA_UNUSED, E_Client *ec)
    E_Service_Launcher *lc = NULL;
    E_Service_Launcher *runner, *pre_runner;
    E_Client *activity = NULL, *prov_ec = NULL;
+   Launcher_State new_state;
 
    activity = e_policy_visibility_main_activity_get();
    EINA_SAFETY_ON_NULL_RETURN_VAL(activity, EINA_FALSE);
@@ -1348,12 +1368,18 @@ _launcher_handler_cb_hook_vis_hide(void *data EINA_UNUSED, E_Client *ec)
           }
 
         if (lc->with_swl)
-          sent = _launcher_prepare_shared_widget_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_HIDE);
+          {
+             sent = _launcher_prepare_shared_widget_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_HIDE);
+             new_state = LAUNCHER_STATE_WAIT_RESPONSE_FROM_CALLEE;
+          }
         else
-          sent = _launcher_prepare_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_HIDE);
+          {
+             sent = _launcher_prepare_backward_send(lc, activity, ec, E_VIS_JOB_TYPE_HIDE);
+             new_state = LAUNCHER_STATE_PREPARING;
+          }
         if (!sent) return EINA_FALSE;
 
-        _launcher_state_set(lc, LAUNCHER_STATE_PREPARING);
+        _launcher_state_set(lc, new_state);
         _launcher_handler_launcher_runner_set(lc);
      }
 
@@ -1731,4 +1757,27 @@ e_service_launcher_prepare_send_with_shared_widget_info(E_Client *target_ec,
 error:
    ELOGF("LAUNCHER_SRV", "Failed to send event(PREPARE:FORWARD)", lc->ec);
    _launcher_post_forward(lc, EINA_FALSE);
+}
+
+EINTERN void
+e_service_launcher_release_shared_widget_launch(E_Client *ec)
+{
+   E_Service_Launcher *runner;
+
+   EINA_SAFETY_ON_NULL_RETURN(ec);
+
+   runner = _launcher_handler_launcher_runner_get();
+   EINA_SAFETY_ON_NULL_RETURN(runner);
+
+   ELOGF("LAUNCHER_SRV", "Released tzsh_swl", ec);
+
+   if ((runner) && (runner->target.ec == ec))
+     {
+        if (runner->with_swl)
+          {
+             //caller is gone before replying prepare_done
+             if (runner->state == LAUNCHER_STATE_WAIT_RESPONSE_FROM_CALLEE)
+               _launcher_data_reset(runner);
+          }
+     }
 }
