@@ -562,6 +562,10 @@ _e_eom_cb_client_buffer_change(void *data, int type, void *event)
           }
      }
 
+   /* unset the mirror mode */
+   if (display_mode_prev == E_OUTPUT_DISPLAY_MODE_MIRROR)
+     e_output_mirror_unset(eom_output->output);
+
    if (eom_trace_debug)
      EOMINF("===============<  EXT START", ec, eom_output->output);
 

@@ -4037,11 +4037,13 @@ e_output_mirror_unset(E_Output *output)
 
    src_output = output->mirror_src_output;
 
-   /* update the ecore_evas of the src_output */
-   _e_output_render_update(src_output);
-
-   output->external_set = EINA_FALSE;
-   _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_NONE);
+   if (e_output_display_mode_get(output) == E_OUTPUT_DISPLAY_MODE_MIRROR)
+     {
+        /* update the ecore_evas of the src_output */
+        _e_output_render_update(src_output);
+        output->external_set = EINA_FALSE;
+        _e_output_display_mode_set(output, E_OUTPUT_DISPLAY_MODE_NONE);
+     }
 
    output->mirror_src_output = NULL;
 
