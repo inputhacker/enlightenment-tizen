@@ -57,7 +57,8 @@ typedef struct _E_Policy_Wl_Tzpol
 {
    struct wl_resource *res_tzpol; /* tizen_policy_interface */
    Eina_List          *psurfs;    /* list of E_Policy_Wl_Surface */
-   Eina_List          *pending_bg;
+   pid_t               pid;
+   Eina_Bool           bg_state;
 } E_Policy_Wl_Tzpol;
 
 typedef struct _E_Policy_Wl_Tz_Dpy_Pol
@@ -363,10 +364,38 @@ e_policy_wl_hook_del(E_Policy_Wl_Hook *epwh)
 // --------------------------------------------------------
 // E_Policy_Wl_Tzpol
 // --------------------------------------------------------
-static E_Policy_Wl_Tzpol *
-_e_policy_wl_tzpol_add(struct wl_resource *res_tzpol)
+static Eina_Bool
+_e_policy_wl_tzpol_background_state_check(pid_t pid)
 {
    E_Policy_Wl_Tzpol *tzpol;
+   Eina_Iterator *it;
+   Eina_Bool bg_state = EINA_FALSE;
+
+   if (pid <= 0)
+     return EINA_FALSE;
+
+   it = eina_hash_iterator_data_new(polwl->tzpols);
+   EINA_ITERATOR_FOREACH(it, tzpol)
+     {
+        if (tzpol->pid == pid)
+          {
+             if (tzpol->bg_state)
+               {
+                  bg_state = EINA_TRUE;
+                  break;
+               }
+          }
+     }
+   eina_iterator_free(it);
+
+   return bg_state;
+}
+
+static E_Policy_Wl_Tzpol *
+_e_policy_wl_tzpol_add(struct wl_client *client, struct wl_resource *res_tzpol)
+{
+   E_Policy_Wl_Tzpol *tzpol;
+   pid_t pid = 0;
 
    tzpol = E_NEW(E_Policy_Wl_Tzpol, 1);
    EINA_SAFETY_ON_NULL_RETURN_VAL(tzpol, NULL);
@@ -374,6 +403,11 @@ _e_policy_wl_tzpol_add(struct wl_resource *res_tzpol)
    eina_hash_add(polwl->tzpols, &res_tzpol, tzpol);
 
    tzpol->res_tzpol = res_tzpol;
+
+   wl_client_get_credentials(client, &pid, NULL, NULL);
+   tzpol->pid = pid;
+
+   tzpol->bg_state = _e_policy_wl_tzpol_background_state_check(pid);
 
    return tzpol;
 }
@@ -390,8 +424,6 @@ _e_policy_wl_tzpol_del(void *data)
      {
         _e_policy_wl_surf_del(psurf);
      }
-
-   tzpol->pending_bg = eina_list_free(tzpol->pending_bg);
 
    memset(tzpol, 0x0, sizeof(E_Policy_Wl_Tzpol));
    E_FREE(tzpol);
@@ -416,23 +448,6 @@ _e_policy_wl_tzpol_surf_find(E_Policy_Wl_Tzpol *tzpol, E_Client *ec)
      }
 
    return NULL;
-}
-
-static Eina_List *
-_e_policy_wl_tzpol_surf_find_by_pid(E_Policy_Wl_Tzpol *tzpol, pid_t pid)
-{
-   Eina_List *surfs = NULL, *l;
-   E_Policy_Wl_Surface *psurf;
-
-   EINA_LIST_FOREACH(tzpol->psurfs, l, psurf)
-     {
-        if (psurf->pid == pid)
-          {
-             surfs = eina_list_append(surfs, psurf);
-          }
-     }
-
-   return surfs;
 }
 
 static Eina_Bool
@@ -968,6 +983,9 @@ _e_policy_wl_surf_add(E_Client *ec, struct wl_resource *res_tzpol)
 
    tzpol->psurfs = eina_list_append(tzpol->psurfs, psurf);
 
+   if (tzpol->bg_state)
+     _e_policy_wl_background_state_set(psurf, EINA_TRUE);
+
    return psurf;
 }
 
@@ -1012,39 +1030,6 @@ _e_policy_wl_surf_client_set(E_Client *ec)
    eina_iterator_free(it);
 
    return;
-}
-
-static void
-_e_policy_wl_pending_bg_client_set(E_Client *ec)
-{
-   E_Policy_Wl_Tzpol *tzpol;
-   E_Policy_Wl_Surface *psurf;
-   Eina_Iterator *it;
-
-   if (ec->netwm.pid == 0) return;
-
-   it = eina_hash_iterator_data_new(polwl->tzpols);
-   EINA_ITERATOR_FOREACH(it, tzpol)
-     {
-        Eina_List *psurfs;
-
-        if (!tzpol->pending_bg) continue;
-
-        if ((psurfs = _e_policy_wl_tzpol_surf_find_by_pid(tzpol, ec->netwm.pid)))
-          {
-             EINA_LIST_FREE(psurfs, psurf)
-               {
-                  psurf->ec = ec;
-
-                  if (eina_list_data_find(tzpol->pending_bg, psurf))
-                    {
-                       _e_policy_wl_background_state_set(psurf, EINA_TRUE);
-                       tzpol->pending_bg = eina_list_remove(tzpol->pending_bg, psurf);
-                    }
-               }
-          }
-     }
-   eina_iterator_free(it);
 }
 
 static E_Pixmap *
@@ -2668,9 +2653,7 @@ _e_policy_wl_background_state_apply(E_Client *ec, Eina_Bool state)
    else
      {
         ec->bg_state = EINA_FALSE;
-        if (ec->iconic)
-          e_policy_wl_uniconify(ec);
-        else
+        if (!ec->iconic)
           {
              evas_object_show(ec->frame);
              e_comp_object_damage(ec->frame, 0, 0, ec->w, ec->h);
@@ -2681,35 +2664,18 @@ _e_policy_wl_background_state_apply(E_Client *ec, Eina_Bool state)
 static void
 _e_policy_wl_background_state_set(E_Policy_Wl_Surface *psurf, Eina_Bool state)
 {
+   psurf->is_background = state;
+   ELOGF("TZPOL", "Set psurf(%p)'s background_state to %d", NULL, psurf, state);
+
    if (state)
      {
         if (psurf->ec)
           _e_policy_wl_background_state_apply(psurf->ec, EINA_TRUE);
-        else
-          {
-             ELOGF("TZPOL",
-                   "PENDING BACKGROUND STATE SET for PID(%u) psurf:%p tzpol:%p",
-                   NULL, psurf->pid, psurf, psurf->tzpol);
-
-             if (!eina_list_data_find(psurf->tzpol->pending_bg, psurf))
-               psurf->tzpol->pending_bg =
-                  eina_list_append(psurf->tzpol->pending_bg, psurf);
-          }
      }
    else
      {
         if (psurf->ec)
           _e_policy_wl_background_state_apply(psurf->ec, EINA_FALSE);
-        else
-          {
-             ELOGF("TZPOL",
-                   "UNSET PENDING BACKGROUND STATE for PID(%u) psurf:%p tzpol:%p",
-                   NULL, psurf->pid, psurf, psurf->tzpol);
-
-             if (eina_list_data_find(psurf->tzpol->pending_bg, psurf))
-               psurf->tzpol->pending_bg =
-                  eina_list_remove(psurf->tzpol->pending_bg, psurf);
-          }
      }
 }
 
@@ -2768,89 +2734,69 @@ _e_policy_wl_tzlaunch_effect_type_unset(uint32_t pid)
 }
 
 static void
+_e_policy_wl_tzpol_background_state_set(E_Policy_Wl_Tzpol *tzpol, Eina_Bool bg_state, pid_t pid)
+{
+   Eina_List *l;
+   E_Policy_Wl_Surface *psurf;
+
+   if (!tzpol) return;
+
+   tzpol->bg_state = bg_state;
+   ELOGF("TZPOL", "Set tzpol(%p)'s background_state to %d", NULL, tzpol, bg_state);
+
+   EINA_LIST_FOREACH(tzpol->psurfs, l, psurf)
+     {
+        if (psurf->pid == pid)
+          {
+             if (psurf->is_background == bg_state)
+               continue;
+
+             _e_policy_wl_background_state_set(psurf, bg_state);
+          }
+     }
+}
+
+static void
+_e_policy_wl_tzpols_background_state_set(Eina_Bool bg_state, pid_t pid)
+{
+   E_Policy_Wl_Tzpol *tzpol;
+   Eina_Iterator *it;
+
+   it = eina_hash_iterator_data_new(polwl->tzpols);
+   EINA_ITERATOR_FOREACH(it, tzpol)
+     {
+        if (tzpol->pid == pid)
+          {
+             _e_policy_wl_tzpol_background_state_set(tzpol, bg_state, pid);
+          }
+     }
+   eina_iterator_free(it);
+}
+
+static void
 _tzpol_iface_cb_background_state_set(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol, uint32_t pid)
 {
    E_Policy_Wl_Tzpol *tzpol;
-   E_Policy_Wl_Surface *psurf;
-   Eina_List *psurfs = NULL, *clients = NULL;
-   E_Client *ec;
 
    tzpol = _e_policy_wl_tzpol_get(res_tzpol);
    EINA_SAFETY_ON_NULL_RETURN(tzpol);
 
-   if ((psurfs = _e_policy_wl_tzpol_surf_find_by_pid(tzpol, pid)))
-     {
-        EINA_LIST_FREE(psurfs, psurf)
-          {
-             if (psurf->is_background) continue;
+   ELOGF("TZPOL", "Register PID(%u) for BACKGROUND STATE res_tzpol:%p tzpol:%p", NULL, pid, res_tzpol, tzpol);
 
-             psurf->is_background = EINA_TRUE;
-             _e_policy_wl_background_state_set(psurf, EINA_TRUE);
-          }
-
-        return;
-     }
-
-   clients = _e_policy_wl_e_clients_find_by_pid(pid);
-
-   if (clients)
-     {
-        EINA_LIST_FREE(clients, ec)
-          {
-             psurf = _e_policy_wl_surf_add(ec, res_tzpol);
-
-             ELOGF("TZPOL",
-                   "Register PID(%u) for BACKGROUND STATE psurf:%p tzpol:%p",
-                   ec, pid, psurf, psurf ? psurf->tzpol : NULL);
-
-             psurf->is_background = EINA_TRUE;
-             _e_policy_wl_background_state_set(psurf, EINA_TRUE);
-          }
-
-        return;
-     }
-   else
-     {
-        psurf = E_NEW(E_Policy_Wl_Surface, 1);
-        EINA_SAFETY_ON_NULL_RETURN(psurf);
-
-        psurf->tzpol = tzpol;
-        psurf->pid = pid;
-        psurf->ec = NULL;
-
-        tzpol->psurfs = eina_list_append(tzpol->psurfs, psurf);
-
-        ELOGF("TZPOL",
-              "Register PID(%u) for BACKGROUND STATE psurf:%p tzpol:%p",
-              NULL, pid, psurf, psurf->tzpol);
-     }
-   if (psurf)
-     {
-        psurf->is_background = EINA_TRUE;
-        _e_policy_wl_background_state_set(psurf, EINA_TRUE);
-     }
+   _e_policy_wl_tzpols_background_state_set(EINA_TRUE, pid);
 }
 
 static void
 _tzpol_iface_cb_background_state_unset(struct wl_client *client EINA_UNUSED, struct wl_resource *res_tzpol, uint32_t pid)
 {
-   E_Policy_Wl_Surface *psurf = NULL;
    E_Policy_Wl_Tzpol *tzpol;
-   Eina_List *psurfs = NULL;
 
    tzpol = _e_policy_wl_tzpol_get(res_tzpol);
    EINA_SAFETY_ON_NULL_RETURN(tzpol);
 
-   if ((psurfs = _e_policy_wl_tzpol_surf_find_by_pid(tzpol, pid)))
-     {
-        EINA_LIST_FREE(psurfs, psurf)
-          {
-             if (!psurf->is_background) continue;
-             psurf->is_background = EINA_FALSE;
-             _e_policy_wl_background_state_set(psurf, EINA_FALSE);
-          }
-        return;
-     }
+   ELOGF("TZPOL", "Unregister PID(%u) for BACKGROUND STATE res_tzpol:%p tzpol:%p", NULL, pid, res_tzpol, tzpol);
+
+   _e_policy_wl_tzpols_background_state_set(EINA_FALSE, pid);
 }
 
 static void
@@ -3428,7 +3374,7 @@ _tzpol_cb_bind(struct wl_client *client, void *data EINA_UNUSED, uint32_t ver, u
                                   id);
    EINA_SAFETY_ON_NULL_GOTO(res_tzpol, err);
 
-   tzpol = _e_policy_wl_tzpol_add(res_tzpol);
+   tzpol = _e_policy_wl_tzpol_add(client, res_tzpol);
    EINA_SAFETY_ON_NULL_GOTO(tzpol, err);
 
    wl_resource_set_implementation(res_tzpol,
@@ -7329,7 +7275,6 @@ e_policy_wl_client_add(E_Client *ec)
 
    _e_policy_wl_surf_client_set(ec);
    _e_policy_wl_tzsh_client_set(ec);
-   _e_policy_wl_pending_bg_client_set(ec);
    _e_policy_wl_tzlaunch_effect_type_sync(ec);
 }
 
