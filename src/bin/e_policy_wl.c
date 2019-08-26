@@ -936,6 +936,9 @@ _e_policy_wl_tzsh_client_del(E_Policy_Wl_Tzsh_Client *tzsh_client)
           e_service_launcher_release_shared_widget_launch(tzsh_client->tzsh->ec);
      }
 
+   if (tzsh_client->res_tzsh_client)
+     wl_resource_set_user_data(tzsh_client->res_tzsh_client, NULL);
+
    memset(tzsh_client, 0x0, sizeof(E_Policy_Wl_Tzsh_Client));
    E_FREE(tzsh_client);
 }
@@ -4857,6 +4860,7 @@ _tzsh_cb_qp_destroy(struct wl_resource *res_tzsh_qp)
    tzsh_client = wl_resource_get_user_data(res_tzsh_qp);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
 
+   tzsh_client->res_tzsh_client = NULL;
    _e_policy_wl_tzsh_client_del(tzsh_client);
 }
 
@@ -4999,8 +5003,9 @@ _tzsh_cb_tvsrv_destroy(struct wl_resource *res_tzsh_tvsrv)
      return;
 
    polwl->tvsrv_bind_list = eina_list_remove(polwl->tvsrv_bind_list, tzsh_client);
-
    _e_policy_wl_tzsh_srv_tvsrv_bind_update();
+
+   tzsh_client->res_tzsh_client = NULL;
    _e_policy_wl_tzsh_client_del(tzsh_client);
 }
 
@@ -5450,6 +5455,7 @@ _tzsh_cb_softkey_destroy(struct wl_resource *res_tzsh_softkey)
    tzsh_client = wl_resource_get_user_data(res_tzsh_softkey);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
 
+   tzsh_client->res_tzsh_client = NULL;
    _e_policy_wl_tzsh_client_del(tzsh_client);
 }
 
@@ -5616,6 +5622,7 @@ _tzsh_cb_swl_destroy(struct wl_resource *res_tzsh_swl)
    tzsh_client = wl_resource_get_user_data(res_tzsh_swl);
    EINA_SAFETY_ON_NULL_RETURN(tzsh_client);
 
+   tzsh_client->res_tzsh_client = NULL;
    _e_policy_wl_tzsh_client_del(tzsh_client);
 }
 
