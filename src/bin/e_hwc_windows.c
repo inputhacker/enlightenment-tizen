@@ -2481,6 +2481,68 @@ end:
 }
 
 static void
+_e_hwc_windows_buffer_clear(E_Hwc *hwc, tbm_surface_h tsurface)
+{
+   tbm_surface_info_s tinfo = {0};
+   int ret = TBM_SURFACE_ERROR_NONE;
+   tbm_format format = 0;
+
+   ret = tbm_surface_map(tsurface, TBM_SURF_OPTION_READ | TBM_SURF_OPTION_WRITE, &tinfo);
+   if (ret != TBM_SURFACE_ERROR_NONE)
+     {
+        EHWSERR("tbm_surface_map fail on tsurface.", hwc);
+        return;
+     }
+
+   format = tbm_surface_get_format(tsurface);
+   switch (format)
+     {
+      case TBM_FORMAT_ARGB8888:
+      case TBM_FORMAT_XRGB8888:
+        {
+           int *ibuf = (int*)tinfo.planes[0].ptr;
+           int i, size = tinfo.planes[0].stride * tinfo.height / 4;
+
+           for (i = 0 ; i < size ; i++)
+             ibuf[i] = 0xff000000;
+        }
+        break;
+      case TBM_FORMAT_YVU420:
+      case TBM_FORMAT_YUV420:
+        memset((char*)tinfo.planes[0].ptr + tinfo.planes[0].offset, 0x10, tinfo.planes[0].stride * tinfo.height);
+        memset((char*)tinfo.planes[1].ptr + tinfo.planes[1].offset, 0x80, tinfo.planes[1].stride * (tinfo.height >> 1));
+        memset((char*)tinfo.planes[2].ptr + tinfo.planes[2].offset, 0x80, tinfo.planes[2].stride * (tinfo.height >> 1));
+        break;
+      case TBM_FORMAT_NV12:
+      case TBM_FORMAT_NV21:
+        memset((char*)tinfo.planes[0].ptr + tinfo.planes[0].offset, 0x10, tinfo.planes[0].stride * tinfo.height);
+        memset((char*)tinfo.planes[1].ptr + tinfo.planes[1].offset, 0x80, tinfo.planes[1].stride * (tinfo.height >> 1));
+        break;
+      case TBM_FORMAT_YUYV:
+        {
+           int *ibuf = (int*)tinfo.planes[0].ptr;
+           int i, size = tinfo.planes[0].stride * tinfo.height / 4;
+
+           for (i = 0 ; i < size ; i++)
+             ibuf[i] = 0x10801080;
+        }
+        break;
+      case TBM_FORMAT_UYVY:
+        {
+           int *ibuf = (int*)tinfo.planes[0].ptr;
+           int i, size = tinfo.planes[0].stride * tinfo.height / 4;
+
+           for (i = 0 ; i < size ; i++)
+             ibuf[i] = 0x80108010; /* YUYV -> 0xVYUY */
+        }
+        break;
+      default:
+        EHWSERR("can't clear %p buffer", hwc, tsurface);
+        break;
+     }
+}
+
+static void
 _e_hwc_windows_sw_copy(E_Hwc *hwc, tbm_surface_h src_tsurface, tbm_surface_h dst_tsurface, E_Output_Display_Mode display_mode)
 {
    int width = 0, height = 0;
@@ -2506,6 +2568,8 @@ _e_hwc_windows_sw_copy(E_Hwc *hwc, tbm_surface_h src_tsurface, tbm_surface_h dst
         dst_pos.w = tbm_surface_get_width(dst_tsurface);
         dst_pos.h = tbm_surface_get_height(dst_tsurface);
      }
+
+   _e_hwc_windows_buffer_clear(hwc, dst_tsurface);
 
    _e_hwc_windows_pixman_copy(hwc, src_tsurface, dst_tsurface,
                               src_crop.x, src_crop.y, src_crop.w, src_crop.h,
