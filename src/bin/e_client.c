@@ -1113,7 +1113,7 @@ _e_client_free(E_Client *ec)
    ec->e.state.profile.wait_desk = NULL;
    E_FREE_FUNC(ec->frame, evas_object_del);
    E_OBJECT(ec)->references--;
-   ELOG("CLIENT FREE", ec);
+   ELOGF("COMP", "CLIENT FREE", ec);
 
    e_uuid_store_entry_del(ec->uuid);
 
@@ -1190,7 +1190,7 @@ _e_client_del(E_Client *ec)
           }
      }
 
-   ELOG("CLIENT DEL", ec);
+   ELOGF("COMP", "CLIENT DEL", ec);
 
    if (ec->parent)
      {
@@ -5267,7 +5267,7 @@ e_client_focused_set(E_Client *ec)
 
    TRACE_DS_BEGIN(CLIENT:FOCUSED SET);
 
-   ELOG("CLIENT FOCUS_SET", ec);
+   ELOGF("FOCUS", "CLIENT FOCUS_SET", ec);
    focused = ec;
    if ((ec) && (ec->zone))
      {
@@ -5382,7 +5382,7 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
              if (!ec->lock_user_iconify)
                e_client_uniconify(ec);
           }
-        ELOG("Un-Set ICONIFY BY CLIENT", ec);
+        ELOGF("COMP", "Un-Set ICONIFY BY CLIENT", ec);
         ec->exp_iconify.by_client = 0;
 
         if ((!ec->iconic) && (!ec->sticky))

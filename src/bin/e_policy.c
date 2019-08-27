@@ -1596,7 +1596,7 @@ e_policy_client_unmap(E_Client *ec)
    if (!ec) return;
    if (e_object_is_del(E_OBJECT(ec))) return;
 
-   ELOG("Reset ec information by unmap", ec);
+   ELOGF("TZPOL", "Reset ec information by unmap", ec);
 
    if (ec->iconic)
      send_event = EINA_TRUE;

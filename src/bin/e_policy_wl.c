@@ -2290,7 +2290,7 @@ e_policy_wl_iconify(E_Client *ec)
    EINA_SAFETY_ON_NULL_RETURN(ec);
    EINA_SAFETY_ON_NULL_RETURN(ec->frame);
 
-   ELOG("Set ICONIFY BY CLIENT", ec);
+   ELOGF("TZPOL", "Set ICONIFY BY CLIENT", ec);
 
    if (e_policy_visibility_client_iconify(ec))
      {
@@ -2323,7 +2323,7 @@ e_policy_wl_uniconify(E_Client *ec)
      e_policy_wl_iconify_state_change_send(ec, 0);
 
    e_client_uniconify(ec);
-   ELOG("Un-Set ICONIFY BY CLIENT", ec);
+   ELOGF("TZPOL", "Un-Set ICONIFY BY CLIENT", ec);
    ec->exp_iconify.by_client = 0;
 
    EC_CHANGED(ec);
