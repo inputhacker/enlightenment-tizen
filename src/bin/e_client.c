@@ -819,8 +819,7 @@ _e_client_check_fully_contain_by_above(E_Client *ec, Eina_Bool check_layer)
             (!e_client_util_ignored_get(above)) &&
             (above->visible) &&
             (!above->iconic || e_policy_visibility_client_is_uniconic(above)) &&
-            (!above->argb) &&
-            (!above->visibility.force_obscured) &&
+            (!(above->argb && !(above->icccm.accepts_focus || above->icccm.take_focus))) &&
             (above->frame))
           {
              if (E_CONTAINS(above->x, above->y, above->w, above->h, x, y, w, h))
