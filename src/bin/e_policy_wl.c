@@ -1840,12 +1840,10 @@ _tzpol_notilv_set(E_Client *ec, int lv)
       default: ly = E_LAYER_CLIENT_NOTIFICATION_LOW;    break;
      }
 
-   if (ly != evas_object_layer_get(ec->frame))
-     {
-        evas_object_layer_set(ec->frame, ly);
-     }
-
-   ec->layer = ly;
+    if (ec->layer != ly)
+      {
+         e_client_layer_set(ec, ly);
+      }
 }
 
 static void
