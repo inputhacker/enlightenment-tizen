@@ -821,6 +821,7 @@ e_util_transform_matrix_inv_rect_coords_get(E_Util_Transform *transform, E_Util_
    double d_inv_map_x = 0.0, d_inv_map_y = 0.0;
 
    if (!out_x || !out_y) return;
+   if ((w <= 0) || (h <= 0)) return;
 
    /* get rectangle's points from vertices. becase transform matrix is different with Evas_Map
     * Evas_Map calculate using transformed rectangle's points, so to remove different these,
