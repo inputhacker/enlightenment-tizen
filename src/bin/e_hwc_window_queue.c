@@ -761,7 +761,8 @@ _e_hwc_window_queue_buffers_get(E_Hwc_Window_Queue *queue)
           {
              EHWQERR("fail to e_hwc_window_queue_buffer_create tsurface:%p",
                      NULL, queue->hwc, queue, surfaces[i]);
-             return EINA_FALSE;
+
+             goto fail;
           }
      }
 
