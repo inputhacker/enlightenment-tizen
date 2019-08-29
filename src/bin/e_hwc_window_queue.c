@@ -1126,13 +1126,10 @@ reset_cb_fail:
                                        _e_hwc_window_queue_cb_destroy,
                                        queue);
 fail:
-   if (queue)
-     {
-        EINA_LIST_FREE(queue->buffers, queue_buffer)
-          _e_hwc_window_queue_buffer_destroy(queue_buffer);
+   EINA_LIST_FREE(queue->buffers, queue_buffer)
+     _e_hwc_window_queue_buffer_destroy(queue_buffer);
 
-        E_FREE(queue);
-     }
+   E_FREE(queue);
 
    return NULL;
 }
