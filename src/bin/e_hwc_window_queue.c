@@ -1016,12 +1016,16 @@ _e_hwc_window_queue_cb_buffer_change(void *data, E_Client *ec)
           return;
      }
 
+   EHWQINF("Backup buffer get ehw:%p origin:%p",
+           hwc_window->ec, hwc_window->hwc, NULL, hwc_window,
+           comp_buffer->tbm_surface);
+
    backup_buffer = _comp_wl_backup_buffer_get(tsurface);
    EINA_SAFETY_ON_NULL_RETURN(backup_buffer);
 
-   EHWQTRACE("Backup buffer set ehw:%p origin:%p tsurface:%p",
-             hwc_window->ec, hwc_window->hwc, NULL, hwc_window,
-             comp_buffer->tbm_surface, backup_buffer->tbm_surface);
+   EHWQINF("Backup buffer set ehw:%p origin:%p tsurface:%p",
+           hwc_window->ec, hwc_window->hwc, NULL, hwc_window,
+           comp_buffer->tbm_surface, backup_buffer->tbm_surface);
 
    e_comp_wl_buffer_reference(&ec->comp_data->buffer_ref, backup_buffer);
    e_pixmap_resource_set(ec->pixmap, backup_buffer);
