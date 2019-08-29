@@ -396,16 +396,16 @@ _e_comp_screen_new(E_Comp *comp)
    if (!e_comp_screen) return NULL;
 
    /* tdm display init */
-   TRACE_DS_BEGIN(E_COMP_SCREEN:TDM Display Init);
+   e_main_ts_begin("\tTDM Display Init");
    e_comp_screen->tdisplay = tdm_display_init(&error);
    if (!e_comp_screen->tdisplay)
      {
+        e_main_ts_end("\tTDM Display Init Failed");
         ERR("fail to get tdm_display\n");
         free(e_comp_screen);
-        TRACE_DS_END();
         return NULL;
      }
-   TRACE_DS_END();
+   e_main_ts_end("\tTDM Display Init Done");
 
    e_comp_screen->fd = -1;
    tdm_display_get_fd(e_comp_screen->tdisplay, &fd);
@@ -420,16 +420,16 @@ _e_comp_screen_new(E_Comp *comp)
    e_comp_screen->hdlr =
      ecore_main_fd_handler_add(e_comp_screen->fd, ECORE_FD_READ,
                                _e_comp_screen_cb_event, e_comp_screen, NULL, NULL);
-
-   TRACE_DS_BEGIN(E_COMP_SCREEN:TBM Bufmgr Init);
    /* tdm display init */
+   e_main_ts_begin("\tTBM Bufmgr Server Init");
    e_comp_screen->bufmgr = tbm_bufmgr_server_init();
    if (!e_comp_screen->bufmgr)
      {
+        e_main_ts_end("\tTBM Bufmgr Server Init Failed");
         ERR("tbm_bufmgr_init failed\n");
         goto fail;
      }
-   TRACE_DS_END();
+   e_main_ts_end("\tTBM Bufmgr Server Init Done");
 
    error = tdm_display_get_capabilities(e_comp_screen->tdisplay, &capabilities);
    if (error != TDM_ERROR_NONE)
@@ -452,10 +452,10 @@ _e_comp_screen_new(E_Comp *comp)
           }
      }
 
-   TRACE_DS_BEGIN(E_COMP_SCREEN:tdm-socket Init);
+   e_main_ts_begin("\ttdm-socket Init");
    if (e_comp_socket_init("tdm-socket"))
      PRCTL("[Winsys] change permission and create sym link for %s", "tdm-socket");
-   TRACE_DS_END();
+   e_main_ts_end("\ttdm-socket Init Done");
 
    return e_comp_screen;
 
@@ -707,18 +707,22 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
 
    for (i = 0; i < num_outputs; i++)
      {
-        TRACE_DS_BEGIN(OUTPUT:NEW);
+        e_main_ts_begin("\tE_Output New");
         output = e_output_new(e_comp_screen, i);
-        if (!output) goto fail;
-        TRACE_DS_END();
+        if (!output)
+          {
+             e_main_ts_end("\tE_Output New Failed");
+             goto fail;
+          }
 
-        TRACE_DS_BEGIN(OUTPUT:UPDATE);
+        e_main_ts_begin("\tE_Output Update");
         if (!e_output_update(output))
           {
+            e_main_ts_end("\tE_Output Update Failed");
             ERR("fail to e_output_update.");
             goto fail;
           }
-        TRACE_DS_END();
+        e_main_ts_end("\tE_Output Update Done");
 
         e_comp_screen->outputs = eina_list_append(e_comp_screen->outputs, output);
 
@@ -727,38 +731,42 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
         connection_check = EINA_TRUE;
 
         /* setting with the best mode and enable the output */
-        TRACE_DS_BEGIN(OUTPUT:FIND BEST MODE);
+        e_main_ts_begin("\tE_Output Find Best Mode");
         mode = e_output_best_mode_find(output);
         if (!mode)
           {
+             e_main_ts_end("\tE_Output Find Best Mode Failed");
              ERR("fail to get best mode.");
              goto fail;
           }
-        TRACE_DS_END();
+        e_main_ts_end("\tE_Output Find Best Mode Done");
 
-        TRACE_DS_BEGIN(OUTPUT:APPLY MODE);
+        e_main_ts_begin("\tE_Output Mode Apply");
         if (!e_output_mode_apply(output, mode))
           {
+             e_main_ts_end("\tE_Output Mode Apply Failed");
              ERR("fail to e_output_mode_apply.");
              goto fail;
           }
-        TRACE_DS_END();
+        e_main_ts_end("\tE_Output Mode Apply Done");
 
-        TRACE_DS_BEGIN(OUTPUT:SET DPMS);
+        e_main_ts_begin("\tE_Output Set DPMS ON");
         if (!e_output_dpms_set(output, E_OUTPUT_DPMS_ON))
           {
+             e_main_ts_end("\tE_Output Set DPMS ON Failed");
              ERR("fail to e_output_dpms.");
              goto fail;
           }
-        TRACE_DS_END();
+        e_main_ts_end("\tE_Output Set DPMS ON Done");
 
-        TRACE_DS_BEGIN(OUTPUT:SETUP);
+        e_main_ts_begin("\tE_Output Hwc Setup");
         if (!e_output_hwc_setup(output))
           {
+             e_main_ts_end("\tE_Output Hwc Setup Failed");
              ERR("fail to e_output_hwc_setup.");
              goto fail;
           }
-        TRACE_DS_END();
+        e_main_ts_end("\tE_Output Hwc Setup Done");
 
         /* update e_scale with first available output size */
         if ((e_config->scale.for_tdm) && (!scale_updated))
@@ -787,7 +795,6 @@ _e_comp_screen_init_outputs(E_Comp_Screen *e_comp_screen)
    return EINA_TRUE;
 fail:
    _e_comp_screen_deinit_outputs(e_comp_screen);
-   TRACE_DS_END();
 
    return EINA_FALSE;
 }
@@ -882,30 +889,30 @@ _e_comp_screen_engine_init(void)
          NULL, e_config->screen_rotation_pre, e_config->screen_rotation_setting);
 
    /* e_comp_screen new */
-   TRACE_DS_BEGIN(E_COMP_SCREEN:NEW);
+   e_main_ts_begin("\tE_Comp_Screen New");
    e_comp_screen = _e_comp_screen_new(e_comp);
    if (!e_comp_screen)
      {
-        TRACE_DS_END();
+        e_main_ts_end("\tE_Comp_Screen New Failed");
         e_error_message_show(_("Enlightenment cannot create e_comp_screen!\n"));
         return EINA_FALSE;
      }
-   TRACE_DS_END();
+   e_main_ts_end("\tE_Comp_Screen New Done");
 
    e_comp->e_comp_screen = e_comp_screen;
    e_comp_screen->rotation_pre = e_config->screen_rotation_pre;
    e_comp_screen->rotation_setting = e_config->screen_rotation_setting;
    e_comp_screen->rotation = screen_rotation;
 
-   TRACE_DS_BEGIN(E_COMP_SCREEN:OUTPUTS INIT);
+   e_main_ts_begin("\tE_Comp_Screen Outputs Init");
    if (!_e_comp_screen_init_outputs(e_comp_screen))
      {
-        TRACE_DS_END();
+        e_main_ts_end("\tE_Comp_Screen Outputs Init Failed");
         e_error_message_show(_("Enlightenment cannot initialize outputs!\n"));
         _e_comp_screen_engine_deinit();
         return EINA_FALSE;
      }
-   TRACE_DS_END();
+   e_main_ts_end("\tE_Comp_Screen Outputs Init Done");
 
    if (!E_EVENT_SCREEN_CHANGE) E_EVENT_SCREEN_CHANGE = ecore_event_type_new();
 
@@ -1020,12 +1027,8 @@ e_comp_screen_init()
    struct xkb_context *ctx = NULL;
    struct xkb_keymap *map = NULL;
 
-   TRACE_DS_BEGIN(E_COMP_SCREEN:INIT);
    if (!(comp = e_comp))
-     {
-        TRACE_DS_END();
-        EINA_SAFETY_ON_NULL_RETURN_VAL(comp, EINA_FALSE);
-     }
+     EINA_SAFETY_ON_NULL_RETURN_VAL(comp, EINA_FALSE);
 
    /* keymap */
    dont_set_e_input_keymap = getenv("NO_E_INPUT_KEYMAP_CACHE") ? EINA_TRUE : EINA_FALSE;
@@ -1038,22 +1041,29 @@ e_comp_screen_init()
         e_main_ts_end("\tDRM Keymap Init Done");
      }
 
+   e_main_ts_begin("\tE_Comp_Screen_Engine Init");
    if (!_e_comp_screen_engine_init())
      {
+        e_main_ts_end("\tE_Comp_Screen_Engine Init Failed");
         ERR("Could not initialize the ecore_evas engine.");
         goto failed_comp_screen;
      }
+   e_main_ts_end("\tE_Comp_Screen_Engine Init Done");
 
+   e_main_ts_begin("\tE_Input Init");
    if (!e_input_init(e_comp->ee))
      {
+        e_main_ts_end("\tE_Input Init Failed");
         ERR("Could not initialize the e_input.");
         goto failed_comp_screen;
      }
+   e_main_ts_end("\tE_Input Init Done");
 
-   e_main_ts("\tE_Comp_Wl Init");
+   e_main_ts_begin("\tE_Comp_Wl Init");
    if (!e_comp_wl_init())
      {
-        goto failed_comp_screen_with_ts;
+        e_main_ts_begin("\tE_Comp_Wl Init Failed");
+        goto failed_comp_screen;
      }
    e_main_ts_end("\tE_Comp_Wl Init Done");
 
@@ -1064,8 +1074,9 @@ e_comp_screen_init()
    e_main_ts_begin("\tE_Comp_Canvas Init");
    if (!e_comp_canvas_init(w, h))
      {
+        e_main_ts_end("\tE_Comp_Canvas Init Failed");
         e_error_message_show(_("Enlightenment cannot initialize outputs!\n"));
-        goto failed_comp_screen_with_ts;
+        goto failed_comp_screen;
      }
    e_main_ts_end("\tE_Comp_Canvas Init Done");
 
@@ -1110,14 +1121,14 @@ e_comp_screen_init()
         goto failed_comp_screen;
      }
 
-   TRACE_DS_BEGIN(E_COMP_SCREEN:DBUS INIT);
+   e_main_ts_begin("\tDBUS Init");
    dbus_init_done_handler = NULL;
    if (e_dbus_conn_init() > 0)
      {
         dbus_init_done_handler = ecore_event_handler_add(E_EVENT_DBUS_CONN_INIT_DONE, _e_comp_screen_cb_dbus_init_done, NULL);
         e_dbus_conn_dbus_init(edbus_conn_type);
      }
-   TRACE_DS_END();
+   e_main_ts_end("\tDBUS Init Done");
 
    tzsr_client_hook_del = e_client_hook_add(E_CLIENT_HOOK_DEL, _tz_screen_rotation_cb_client_del, NULL);
 
@@ -1126,18 +1137,12 @@ e_comp_screen_init()
 
    _e_comp_screen_input_rotation_set(e_comp->e_comp_screen->rotation);
 
-   TRACE_DS_END();
-
    return EINA_TRUE;
 
-failed_comp_screen_with_ts:
-   e_main_ts_end("\tE_Comp_Screen init failed");
 failed_comp_screen:
 
    e_input_shutdown();
    _e_comp_screen_engine_deinit();
-
-   TRACE_DS_END();
 
    return EINA_FALSE;
 }
