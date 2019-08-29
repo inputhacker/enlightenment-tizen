@@ -63,6 +63,7 @@ static Eina_Inlist *_e_comp_wl_hooks[] =
    [E_COMP_WL_HOOK_SUBSURFACE_CREATE] = NULL,
    [E_COMP_WL_HOOK_BUFFER_CHANGE] = NULL,
    [E_COMP_WL_HOOK_CLIENT_REUSE] = NULL,
+   [E_COMP_WL_HOOK_BUFFER_SIZE_CHANGE] = NULL,
 };
 
 static Eina_Inlist *_e_comp_wl_intercept_hooks[] =
@@ -2115,9 +2116,20 @@ _e_comp_wl_cb_client_rot_change_end(void *d EINA_UNUSED, int t EINA_UNUSED, E_Ev
 static void
 _e_comp_wl_surface_state_size_update(E_Client *ec, E_Comp_Wl_Surface_State *state)
 {
+   int prev_w, prev_h;
    Eina_Rectangle *window;
 
+   prev_w = state->bw;
+   prev_h = state->bh;
+
    if (!e_pixmap_size_get(ec->pixmap, &state->bw, &state->bh)) return;
+
+   if ((prev_w != state->bw) ||
+       (prev_h != state->bh))
+     {
+        ec->changes.buf_size = EINA_TRUE;
+     }
+
    if (e_comp_object_frame_exists(ec->frame)) return;
    window = &ec->comp_data->shell.window;
    if ((!ec->borderless) && /* FIXME temporarily added this check code
@@ -2296,6 +2308,13 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
                   ec->changes.size = 1;
                   EC_CHANGED(ec);
                }
+          }
+
+        if (ec->changes.buf_size)
+          {
+             ELOGF("COMP", "Buffer size is changed. size(%d,%d)", ec, state->bw, state->bh);
+             _e_comp_wl_hook_call(E_COMP_WL_HOOK_BUFFER_SIZE_CHANGE, ec);
+             ec->changes.buf_size = EINA_FALSE;
           }
      }
 
