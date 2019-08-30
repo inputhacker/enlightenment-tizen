@@ -6896,8 +6896,8 @@ e_client_layer_set(E_Client *ec,
                    E_Layer layer)
 {
    E_OBJECT_CHECK_RETURN(ec, EINA_FALSE);
-   E_OBJECT_CHECK_RETURN(ec->frame, EINA_FALSE);
    E_OBJECT_TYPE_CHECK_RETURN(ec, E_CLIENT_TYPE, EINA_FALSE);
+   if (!ec->frame) return EINA_FALSE;
 
    if (e_comp_canvas_client_layer_map(layer) == 9999)
      return EINA_FALSE; //invalid layer is not allowed
