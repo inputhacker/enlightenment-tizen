@@ -293,29 +293,16 @@ _e_hwc_windows_offscreen_commit(E_Hwc *hwc)
 }
 
 static Eina_List *
-_e_hwc_windows_target_window_rendered_windows_get(E_Hwc *hwc)
+_e_hwc_windows_target_window_rendered_windows_get(tbm_surface_h target_tsurface)
 {
-   E_Hwc_Window_Target *target_hwc_window;
-   Eina_List *rendered_windows = NULL, *new_list = NULL;
-   E_Hwc_Window *hw1, *hw2;
-   const Eina_List *l, *ll;
-   tbm_surface_h target_tsurface;
+   Eina_List *rendered_windows = NULL;
 
-   target_hwc_window = hwc->target_hwc_window;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, NULL);
-
-   target_tsurface = target_hwc_window->hwc_window.buffer.tsurface;
    if (!target_tsurface) return NULL;
 
    tbm_surface_internal_get_user_data(target_tsurface, EHWS_RENDERED_WINDOWS_KEY,
                             (void**)&rendered_windows);
 
-   /* refresh list of composited e_thwc_windows according to existed ones */
-   EINA_LIST_FOREACH(rendered_windows, l, hw1)
-      EINA_LIST_FOREACH(hwc->hwc_windows, ll, hw2)
-         if (hw1 == hw2) new_list = eina_list_append(new_list, hw1);
-
-   return new_list;
+   return rendered_windows;
 }
 
 static void
@@ -437,7 +424,7 @@ _e_hwc_windows_target_buffer_fetch(E_Hwc *hwc, Eina_Bool tdm_set)
 
         if (ehws_trace)
           {
-             rendered_windows = _e_hwc_windows_target_window_rendered_windows_get(hwc);
+             rendered_windows = _e_hwc_windows_target_window_rendered_windows_get(hwc_window->buffer.tsurface);
              n_thw = eina_list_count(rendered_windows);
              if (n_thw)
                {
@@ -484,13 +471,14 @@ _e_hwc_windows_target_buffer_fetch(E_Hwc *hwc, Eina_Bool tdm_set)
 }
 
 static Eina_Bool
-_e_hwc_windows_target_window_rendered_window_has(E_Hwc *hwc, E_Hwc_Window *hwc_window)
+_e_hwc_windows_target_window_rendered_window_has(E_Hwc *hwc, E_Hwc_Window *hwc_window, Eina_Bool all_target)
 {
-   Eina_List *rendered_windows = NULL;
+   Eina_List *rendered_windows = NULL, *new_list = NULL;
    E_Hwc_Window_Target *target_hwc_window;
    E_Hwc_Window *target_window;
    E_Hwc_Window *hw;
-   const Eina_List *l = NULL;
+   tbm_surface_h target_tsurface;
+   const Eina_List *l, *ll;
    int n_thw;
 
    target_hwc_window = hwc->target_hwc_window;
@@ -499,12 +487,51 @@ _e_hwc_windows_target_window_rendered_window_has(E_Hwc *hwc, E_Hwc_Window *hwc_w
    target_window = (E_Hwc_Window *)target_hwc_window;
    if (e_hwc_window_state_get(target_window) != E_HWC_WINDOW_STATE_DEVICE) return EINA_FALSE;
 
-   rendered_windows = _e_hwc_windows_target_window_rendered_windows_get(hwc);
-   n_thw = eina_list_count(rendered_windows);
-   if (n_thw)
+   target_tsurface = target_hwc_window->hwc_window.buffer.tsurface;
+   if (!target_tsurface) return EINA_FALSE;
+
+   if (all_target)
      {
-        EINA_LIST_FOREACH(rendered_windows, l, hw)
-          if (hw == hwc_window) return EINA_TRUE;
+        rendered_windows = _e_hwc_windows_target_window_rendered_windows_get(target_tsurface);
+
+        new_list = eina_list_clone(rendered_windows);
+
+        EINA_LIST_FOREACH(target_hwc_window->rendering_tsurfaces, l, target_tsurface)
+          {
+             rendered_windows = _e_hwc_windows_target_window_rendered_windows_get(target_tsurface);
+
+             EINA_LIST_FOREACH(rendered_windows, ll, hw)
+               {
+                  if (!eina_list_data_find(new_list, hw))
+                    new_list = eina_list_append(new_list, hw);
+               }
+          }
+
+        n_thw = eina_list_count(new_list);
+        if (n_thw)
+          {
+             EINA_LIST_FOREACH(new_list, l, hw)
+               {
+                  if (hw == hwc_window)
+                    {
+                       eina_list_free(new_list);
+                       return EINA_TRUE;
+                    }
+               }
+          }
+
+        eina_list_free(new_list);
+     }
+   else
+     {
+        rendered_windows = _e_hwc_windows_target_window_rendered_windows_get(target_tsurface);
+
+        n_thw = eina_list_count(rendered_windows);
+        if (n_thw)
+          {
+             EINA_LIST_FOREACH(rendered_windows, l, hw)
+               if (hw == hwc_window) return EINA_TRUE;
+          }
      }
 
    return EINA_FALSE;
@@ -689,12 +716,21 @@ _e_hwc_windows_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_
                                            EHWS_RENDERED_WINDOWS_KEY,
                                            _e_hwc_windows_rendered_windows_free);
         target_hwc_window->dequeued_tsurface = tsurface;
-        target_hwc_window->target_buffer_list = eina_list_append(target_hwc_window->target_buffer_list,
-                                                                     tsurface);
+
+        if (!eina_list_data_find(target_hwc_window->rendering_tsurfaces, tsurface))
+          {
+             target_hwc_window->rendering_tsurfaces =
+               eina_list_append(target_hwc_window->rendering_tsurfaces, tsurface);
+          }
      }
 
    if (trace == TBM_SURFACE_QUEUE_TRACE_ACQUIRE)
-     tbm_surface_internal_set_user_data(tsurface, EHWS_RENDERED_BUFFERS_KEY, NULL);
+     {
+        tbm_surface_internal_set_user_data(tsurface, EHWS_RENDERED_BUFFERS_KEY, NULL);
+
+        target_hwc_window->rendering_tsurfaces =
+          eina_list_remove(target_hwc_window->rendering_tsurfaces, tsurface);
+     }
 
    /* tsurface has been released at the queue */
    if (trace == TBM_SURFACE_QUEUE_TRACE_RELEASE)
@@ -704,8 +740,9 @@ _e_hwc_windows_target_window_surface_queue_trace_cb(tbm_surface_queue_h surface_
         tbm_surface_internal_delete_user_data(tsurface, EHWS_RENDERED_BUFFERS_KEY);
 
         tbm_surface_internal_delete_user_data(tsurface, EHWS_RENDERED_WINDOWS_KEY);
-        target_hwc_window->target_buffer_list = eina_list_remove(target_hwc_window->target_buffer_list,
-                                                                     tsurface);
+
+        target_hwc_window->rendering_tsurfaces =
+          eina_list_remove(target_hwc_window->rendering_tsurfaces, tsurface);
      }
 }
 
@@ -1709,66 +1746,66 @@ _e_hwc_windows_transition_check(E_Hwc *hwc)
           return EINA_TRUE;
 
         /* DEVICE -> CLIENT */
-        if (hwc_window->state == E_HWC_WINDOW_STATE_CLIENT &&
-            hwc_window->accepted_state == E_HWC_WINDOW_STATE_DEVICE)
+        if ((hwc_window->accepted_state == E_HWC_WINDOW_STATE_DEVICE) &&
+            (hwc_window->state == E_HWC_WINDOW_STATE_CLIENT))
           {
              if ((hwc_window->ec) && (!e_pixmap_resource_get(hwc_window->ec->pixmap)))
                continue;
 
-             if (!_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
+             if (!_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window, EINA_FALSE))
                window_transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_CLIENT;
           }
         /* DEVICE -> NONE */
-        else if (hwc_window->state == E_HWC_WINDOW_STATE_NONE &&
-                 hwc_window->accepted_state == E_HWC_WINDOW_STATE_DEVICE)
+        else if ((hwc_window->accepted_state == E_HWC_WINDOW_STATE_DEVICE) &&
+                 (hwc_window->state == E_HWC_WINDOW_STATE_NONE))
           {
-             if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
+             if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window, EINA_TRUE))
                window_transition = E_HWC_WINDOW_TRANSITION_DEVICE_TO_NONE;
           }
         /* CURSOR -> CLIENT */
-        else if (hwc_window->state == E_HWC_WINDOW_STATE_CLIENT &&
-                 hwc_window->accepted_state == E_HWC_WINDOW_STATE_CURSOR)
+        else if ((hwc_window->accepted_state == E_HWC_WINDOW_STATE_CURSOR) &&
+                 (hwc_window->state == E_HWC_WINDOW_STATE_CLIENT))
           {
              if ((hwc_window->ec) && (!e_pixmap_resource_get(hwc_window->ec->pixmap)))
                continue;
 
-             if (!_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
+             if (!_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window, EINA_FALSE))
                window_transition = E_HWC_WINDOW_TRANSITION_CURSOR_TO_CLIENT;
           }
         /* CURSOR -> NONE */
-        else if (hwc_window->state == E_HWC_WINDOW_STATE_NONE &&
-                 hwc_window->accepted_state == E_HWC_WINDOW_STATE_CURSOR)
+        else if ((hwc_window->accepted_state == E_HWC_WINDOW_STATE_CURSOR) &&
+                 (hwc_window->state == E_HWC_WINDOW_STATE_NONE))
           {
-             if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
+             if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window, EINA_TRUE))
                window_transition = E_HWC_WINDOW_TRANSITION_CURSOR_TO_NONE;
           }
-        /* NONE -> DEVICE */
-        else if (hwc_window->state == E_HWC_WINDOW_STATE_DEVICE &&
-                 hwc_window->accepted_state == E_HWC_WINDOW_STATE_NONE)
-          {
-             if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
-               window_transition = E_HWC_WINDOW_TRANSITION_NONE_TO_DEVICE;
-          }
-        /* NONE -> CURSOR */
-        else if (hwc_window->state == E_HWC_WINDOW_STATE_CURSOR &&
-                 hwc_window->accepted_state == E_HWC_WINDOW_STATE_NONE)
-          {
-             if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
-               window_transition = E_HWC_WINDOW_TRANSITION_NONE_TO_CURSOR;
-          }
         /* CLIENT -> DEVICE */
-        else if (hwc_window->state == E_HWC_WINDOW_STATE_DEVICE &&
-                 hwc_window->accepted_state == E_HWC_WINDOW_STATE_CLIENT)
+        else if ((hwc_window->accepted_state == E_HWC_WINDOW_STATE_CLIENT) &&
+                 (hwc_window->state == E_HWC_WINDOW_STATE_DEVICE))
           {
-             if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
+             if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window, EINA_TRUE))
                window_transition = E_HWC_WINDOW_TRANSITION_CLIENT_TO_DEVICE;
           }
         /* CLIENT -> CURSOR */
-        else if (hwc_window->state == E_HWC_WINDOW_STATE_CURSOR &&
-                 hwc_window->accepted_state == E_HWC_WINDOW_STATE_CLIENT)
+        else if ((hwc_window->accepted_state == E_HWC_WINDOW_STATE_CLIENT) &&
+                 (hwc_window->state == E_HWC_WINDOW_STATE_CURSOR))
           {
-             if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window))
+             if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window, EINA_TRUE))
                window_transition = E_HWC_WINDOW_TRANSITION_CLIENT_TO_CURSOR;
+          }
+        /* NONE -> DEVICE */
+        else if ((hwc_window->accepted_state == E_HWC_WINDOW_STATE_NONE) &&
+                 (hwc_window->state == E_HWC_WINDOW_STATE_DEVICE))
+          {
+             if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window, EINA_TRUE))
+               window_transition = E_HWC_WINDOW_TRANSITION_NONE_TO_DEVICE;
+          }
+        /* NONE -> CURSOR */
+        else if ((hwc_window->accepted_state == E_HWC_WINDOW_STATE_NONE) &&
+                 (hwc_window->state == E_HWC_WINDOW_STATE_CURSOR))
+          {
+             if (_e_hwc_windows_target_window_rendered_window_has(hwc, hwc_window, EINA_TRUE))
+               window_transition = E_HWC_WINDOW_TRANSITION_NONE_TO_CURSOR;
           }
 
         if (window_transition)
