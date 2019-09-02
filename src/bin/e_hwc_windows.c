@@ -2440,6 +2440,9 @@ _e_hwc_windows_pixman_copy(E_Hwc *hwc, tbm_surface_h src_tsurface, tbm_surface_h
    tbm_surface_info_s dst_tinfo = {0};
    int ret = TBM_SURFACE_ERROR_NONE;
 
+   EINA_SAFETY_ON_FALSE_RETURN(dw > 0);
+   EINA_SAFETY_ON_FALSE_RETURN(dh > 0);
+
    ret = tbm_surface_map(src_tsurface, TBM_SURF_OPTION_READ | TBM_SURF_OPTION_WRITE, &src_tinfo);
    if (ret != TBM_SURFACE_ERROR_NONE)
      {
