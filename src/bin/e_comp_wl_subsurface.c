@@ -760,6 +760,10 @@ _e_comp_wl_subsurface_synchronized_get(E_Comp_Wl_Subsurf_Data *sdata)
      {
         if (sdata->synchronized) return EINA_TRUE;
         if (!sdata->parent) return EINA_FALSE;
+
+        if (!sdata->parent->comp_data) return EINA_FALSE;
+        if (e_object_is_del(E_OBJECT(sdata->parent))) return EINA_FALSE;
+
         sdata = sdata->parent->comp_data->sub.data;
      }
 
