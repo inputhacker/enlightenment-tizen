@@ -54,6 +54,16 @@
      }                                                            \
    while (0)
 
+typedef struct _E_Hwc_Windows_Pp_Data E_Hwc_Windows_Pp_Data;
+
+struct _E_Hwc_Windows_Pp_Data
+{
+   E_Hwc *hwc;
+   E_Hwc_Window_Queue_Buffer *queue_buffer;
+   e_hwc_pp_done_handler func;
+   E_Output_Display_Mode mode;
+};
+
 static Eina_Bool ehws_trace = EINA_FALSE;
 static Eina_Bool ehws_dump_enable = EINA_FALSE;
 static uint64_t ehws_rendered_windows_key;
@@ -2599,29 +2609,22 @@ _e_hwc_windows_mirror_changes_update(E_Hwc *hwc)
 
    if (hwc->mirror_src_tsurface == src_target_tsurface) return EINA_FALSE;
 
-   if (hwc->pp_set)
-     { // TODO: mirror with pp
-       ;
-     }
-   else
-     {  // mirror with sw copy fallback
-        queue = ((E_Hwc_Window *)target_hwc_window)->queue;
-        EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
+   queue = ((E_Hwc_Window *)target_hwc_window)->queue;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
 
-        /* dequeue buffer */
-        queue_buffer = e_hwc_window_queue_buffer_dequeue(queue);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, EINA_FALSE);
+   /* dequeue buffer */
+   queue_buffer = e_hwc_window_queue_buffer_dequeue(queue);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, EINA_FALSE);
 
-        /* copy */
-        target_tsurface = queue_buffer->tsurface;
-        _e_hwc_windows_sw_copy(hwc, src_target_tsurface, target_tsurface, E_OUTPUT_DISPLAY_MODE_MIRROR);
+   /* copy */
+   target_tsurface = queue_buffer->tsurface;
+   _e_hwc_windows_sw_copy(hwc, src_target_tsurface, target_tsurface, E_OUTPUT_DISPLAY_MODE_MIRROR);
 
-        /* enqueue buffer */
-        e_hwc_window_queue_buffer_enqueue(queue, queue_buffer);
+   /* enqueue buffer */
+   e_hwc_window_queue_buffer_enqueue(queue, queue_buffer);
 
-        /* fetch the buffer */
-        _e_hwc_windows_target_buffer_fetch(hwc, EINA_TRUE);
-     }
+   /* fetch the buffer */
+   _e_hwc_windows_target_buffer_fetch(hwc, EINA_TRUE);
 
    hwc->mirror_src_tsurface = src_target_tsurface;
 
@@ -2708,6 +2711,286 @@ _e_hwc_windows_external_evaluate(E_Hwc *hwc, E_Output_Display_Mode display_mode)
    else
      {
         EHWSERR("Unknown display_mode : %d", hwc, display_mode);
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_hwc_windows_ext_pp_output_commit(E_Hwc *hwc, tbm_surface_h tsurface, E_Output_Display_Mode mode)
+{
+   tdm_error error = TDM_ERROR_NONE;
+   tdm_region fb_damage;
+
+   /* the damage isn't supported by hwc extension yet */
+   memset(&fb_damage, 0, sizeof(fb_damage));
+
+   tbm_surface_internal_ref(tsurface);
+   hwc->pp_tsurface = tsurface;
+
+   EHWSTRACE("!!!!!!!! HWC Ext PP Output Commit !!!!!!!!", NULL, hwc);
+
+   if (!_e_hwc_windows_target_buffer_fetch(hwc, EINA_TRUE))
+     return EINA_FALSE;
+
+   if (!_e_hwc_windows_evaluate(hwc))
+     return EINA_FALSE;
+
+   if (mode == E_OUTPUT_DISPLAY_MODE_PRESENTATION)
+     {
+        e_hwc_window_commit_data_acquire(hwc->presentation_hwc_window);
+        if (hwc->presentation_hwc_window->ec)
+          e_pixmap_image_clear(hwc->presentation_hwc_window->ec->pixmap, 1);
+     }
+
+   tdm_hwc_set_client_target_buffer(hwc->thwc, tsurface, fb_damage);
+   tdm_hwc_accept_validation(hwc->thwc);
+
+   error = tdm_hwc_commit(hwc->thwc, 0, _e_hwc_windows_commit_handler, hwc);
+   if (error != TDM_ERROR_NONE)
+     {
+        EHWSERR("tdm_hwc_commit failed.", hwc);
+        _e_hwc_windows_commit_handler(hwc->thwc, 0, 0, 0, hwc);
+        return EINA_FALSE;
+     }
+
+   return EINA_TRUE;
+}
+
+static void
+_e_hwc_window_pp_handler(E_Hwc *hwc, tbm_surface_h src, tbm_surface_h dst, void *user_data)
+{
+   E_Hwc_Window_Target *target_hwc_window;
+   E_Hwc_Window_Queue *queue;
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
+   E_Hwc_Windows_Pp_Data *pp_data = NULL;
+   E_Output_Display_Mode mode;
+
+   pp_data = (E_Hwc_Windows_Pp_Data *)user_data;
+   EINA_SAFETY_ON_NULL_RETURN(pp_data);
+
+   target_hwc_window = hwc->target_hwc_window;
+   EINA_SAFETY_ON_NULL_RETURN(target_hwc_window);
+
+   queue = ((E_Hwc_Window *)target_hwc_window)->queue;
+   queue_buffer = pp_data->queue_buffer;
+   e_hwc_window_queue_buffer_enqueue(queue, queue_buffer);
+
+   mode = e_output_display_mode_get(hwc->output);
+   if (mode != pp_data->mode)
+     {
+        e_hwc_window_queue_buffer_release(queue, queue_buffer);
+        goto done;
+     }
+   hwc->pp_commit = EINA_FALSE;
+
+   EHWSTRACE("!!!!!!!! HWC Ext PP Commit Handler !!!!!!!!", NULL, hwc);
+   EHWSTRACE("   tsurface src(%p) dst(%p)", NULL, hwc, src, dst);
+
+   /* if pp_set is false, skip the commit */
+   if (!hwc->pp_set)
+     {
+        if (hwc->tpp)
+          {
+             e_hwc_window_queue_buffer_release(queue, queue_buffer);
+             tdm_pp_destroy(hwc->tpp);
+             hwc->tpp = NULL;
+          }
+        goto done;
+     }
+
+   if (!_e_hwc_windows_ext_pp_output_commit(hwc, dst, pp_data->mode))
+     EHWSERR("fail to _e_hwc_windows_ext_pp_output_commit", hwc);
+
+done:
+   tbm_surface_internal_unref(src);
+   tbm_surface_internal_unref(dst);
+
+   E_FREE(pp_data);
+}
+
+static void
+_e_hwc_windows_external_pp_commit_handler(tdm_pp *pp, tbm_surface_h src, tbm_surface_h dst, void *user_data)
+{
+   E_Hwc *hwc = NULL;
+   E_Hwc_Windows_Pp_Data *pp_data = NULL;
+
+   pp_data = (E_Hwc_Windows_Pp_Data *)user_data;
+   EINA_SAFETY_ON_NULL_RETURN(pp_data);
+
+   hwc = pp_data->hwc;
+   EINA_SAFETY_ON_NULL_RETURN(hwc);
+
+   pp_data->func(hwc, src, dst, user_data);
+}
+
+static Eina_Bool
+_e_hwc_windows_pp_set(E_Hwc *hwc, tbm_surface_h src, tbm_surface_h dst,
+                       Eina_Rectangle *src_rect, Eina_Rectangle *dst_rect, e_hwc_pp_done_handler func,
+                       E_Hwc_Window_Queue_Buffer *queue_buffer, E_Output_Display_Mode display_mode)
+{
+   tdm_info_pp pp_info;
+   tdm_error error = TDM_ERROR_NONE;
+   tbm_surface_info_s src_info, dst_info;
+   E_Hwc_Windows_Pp_Data *pp_data = NULL;
+
+   pp_data = E_NEW(E_Hwc_Windows_Pp_Data, 1);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(pp_data, EINA_FALSE);
+
+   tbm_surface_internal_ref(src);
+   tbm_surface_internal_ref(dst);
+
+   /* when the pp_set_info is true, change the pp set_info */
+   if (hwc->pp_set_info)
+     {
+        hwc->pp_set_info = EINA_FALSE;
+
+        tbm_surface_get_info(src, &src_info);
+        tbm_surface_get_info(dst, &dst_info);
+
+        pp_info.src_config.size.h = _e_hwc_windows_aligned_width_get(src);
+        pp_info.src_config.size.v = src_info.height;
+        pp_info.src_config.format = src_info.format;
+        pp_info.src_config.pos.x = src_rect->x;
+        pp_info.src_config.pos.y = src_rect->y;
+        pp_info.src_config.pos.w = src_rect->w;
+        pp_info.src_config.pos.h = src_rect->h;
+
+        pp_info.dst_config.size.h = _e_hwc_windows_aligned_width_get(dst);
+        pp_info.dst_config.size.v = dst_info.height;
+        pp_info.dst_config.format = dst_info.format;
+        pp_info.dst_config.pos.x = dst_rect->x;
+        pp_info.dst_config.pos.y = dst_rect->y;
+        pp_info.dst_config.pos.w = dst_rect->w;
+        pp_info.dst_config.pos.h = dst_rect->h;
+
+        pp_info.transform = TDM_TRANSFORM_NORMAL;
+        pp_info.sync = 0;
+        pp_info.flags = 0;
+
+        error = tdm_pp_set_info(hwc->tpp, &pp_info);
+        EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, pp_fail);
+
+        EHWSTRACE("PP Info  src_rect(%d,%d),(%d,%d), dst_rect(%d,%d),(%d,%d)",
+                  NULL, hwc,
+                  pp_info.src_config.pos.x, pp_info.src_config.pos.y, pp_info.src_config.pos.w, pp_info.src_config.pos.h,
+                  pp_info.dst_config.pos.x, pp_info.dst_config.pos.y, pp_info.dst_config.pos.w, pp_info.dst_config.pos.h);
+     }
+
+   pp_data->hwc = hwc;
+   pp_data->queue_buffer = queue_buffer;
+   pp_data->func = func;
+   pp_data->mode = display_mode;
+   error = tdm_pp_set_done_handler(hwc->tpp, _e_hwc_windows_external_pp_commit_handler, pp_data);
+
+   error = tdm_pp_attach(hwc->tpp, src, dst);
+   EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, pp_fail);
+
+   error = tdm_pp_commit(hwc->tpp);
+   EINA_SAFETY_ON_FALSE_GOTO(error == TDM_ERROR_NONE, pp_fail);
+
+   hwc->wait_commit = EINA_TRUE;
+   hwc->pp_commit = EINA_TRUE;
+
+   return EINA_TRUE;
+
+pp_fail:
+   tbm_surface_internal_unref(src);
+   tbm_surface_internal_unref(dst);
+
+   E_FREE(pp_data);
+
+   return EINA_FALSE;
+}
+
+static Eina_Bool
+_e_hwc_windows_external_pp_commit(E_Hwc *hwc, E_Output_Display_Mode display_mode)
+{
+   E_Hwc_Window_Target *target_hwc_window, *src_target_hwc_window;
+   E_Hwc_Window_Queue *queue;
+   E_Hwc_Window_Queue_Buffer *queue_buffer = NULL;
+   tbm_surface_h src;
+   tbm_surface_h dst;
+   Eina_Rectangle src_rect = {0, };
+   Eina_Rectangle dst_rect = {0, };
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+
+   target_hwc_window = hwc->target_hwc_window;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(target_hwc_window, EINA_FALSE);
+
+   queue = ((E_Hwc_Window *)target_hwc_window)->queue;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue, EINA_FALSE);
+
+   if (!e_hwc_window_queue_buffer_can_dequeue(queue))
+     {
+        EHWSERR("cannot dequeue skipped", hwc);
+        return EINA_FALSE;
+     }
+
+   if (display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
+     {
+        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc->mirror_src_hwc, EINA_FALSE);
+
+        src_target_hwc_window = hwc->mirror_src_hwc->target_hwc_window;
+        EINA_SAFETY_ON_NULL_RETURN_VAL(src_target_hwc_window, EINA_FALSE);
+
+        src = src_target_hwc_window->hwc_window.buffer.tsurface;
+        if (hwc->mirror_src_tsurface == src) return EINA_FALSE;
+
+        hwc->mirror_src_tsurface = src;
+     }
+   else if (display_mode == E_OUTPUT_DISPLAY_MODE_PRESENTATION)
+     {
+        EINA_SAFETY_ON_NULL_RETURN_VAL(hwc->presentation_hwc_window, EINA_FALSE);
+
+        if (!_e_hwc_windows_presentation_changes_update(hwc))
+          return EINA_TRUE;
+
+        src = hwc->presentation_hwc_window->buffer.tsurface;
+     }
+   else
+     {
+        EHWSERR("Unknown display_mode : %d", hwc, display_mode);
+        return EINA_FALSE;
+     }
+
+   src_rect.w = tbm_surface_get_width(src);
+   src_rect.h = tbm_surface_get_height(src);
+
+   /* dequeue buffer */
+   queue_buffer = e_hwc_window_queue_buffer_dequeue(queue);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(queue_buffer, EINA_FALSE);
+   dst = queue_buffer->tsurface;
+
+   if (display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
+     {
+        _e_hwc_windows_capture_position_get(hwc->mirror_src_hwc->output,
+                                            tbm_surface_get_width(dst), tbm_surface_get_height(dst), &dst_rect);
+     }
+   else
+     {
+        dst_rect.w = tbm_surface_get_width(dst);
+        dst_rect.h = tbm_surface_get_height(dst);
+     }
+
+   _e_hwc_windows_buffer_clear(hwc, dst);
+
+   if ((hwc->pp_src_rect_prev.x != src_rect.x) || (hwc->pp_src_rect_prev.y != src_rect.y) ||
+       (hwc->pp_src_rect_prev.w != src_rect.w) || (hwc->pp_src_rect_prev.h != src_rect.h))
+     {
+        hwc->pp_src_rect_prev.x = src_rect.x;
+        hwc->pp_src_rect_prev.y = src_rect.y;
+        hwc->pp_src_rect_prev.w = src_rect.w;
+        hwc->pp_src_rect_prev.h = src_rect.h;
+
+        hwc->pp_set_info = EINA_TRUE;
+     }
+
+   if (!_e_hwc_windows_pp_set(hwc, src, dst, &src_rect, &dst_rect, _e_hwc_window_pp_handler, queue_buffer, display_mode))
+     {
+        e_hwc_window_queue_buffer_release(queue, queue_buffer);
         return EINA_FALSE;
      }
 
@@ -2801,8 +3084,16 @@ e_hwc_windows_commit(E_Hwc *hwc, E_Output_Display_Mode display_mode)
      }
    else
      {
-        if (!_e_hwc_windows_external_evaluate(hwc, display_mode))
-           return EINA_TRUE;
+        if (hwc->pp_set)
+          {
+             _e_hwc_windows_external_pp_commit(hwc, display_mode);
+             return EINA_TRUE;
+          }
+        else
+          {
+             if (!_e_hwc_windows_external_evaluate(hwc, display_mode))
+               return EINA_TRUE;
+          }
      }
 
    if (e_hwc_norender_get(hwc) > 0)
@@ -3043,6 +3334,11 @@ e_hwc_windows_zoom_unset(E_Hwc *hwc)
 
         if (hwc->pp_output_commit_data)
           hwc->wait_commit = EINA_TRUE;
+
+        hwc->pp_src_rect_prev.x = 0;
+        hwc->pp_src_rect_prev.y = 0;
+        hwc->pp_src_rect_prev.w = 0;
+        hwc->pp_src_rect_prev.h = 0;
      }
 
    /* to wake up main loop */
@@ -3340,7 +3636,8 @@ e_hwc_windows_mirror_unset(E_Hwc *hwc)
    e_hwc_deactive_set(src_hwc, EINA_FALSE);
 
    /* unset the zoom. */
-   e_hwc_windows_zoom_unset(hwc);
+   if (e_output_display_mode_get(hwc->output) == E_OUTPUT_DISPLAY_MODE_NONE)
+     e_hwc_windows_zoom_unset(hwc);
 
    /* remove mirror_dst list at the src_hwc */
    src_hwc->mirror_dst_hwc = eina_list_remove(src_hwc->mirror_dst_hwc, hwc);
@@ -3358,6 +3655,9 @@ e_hwc_windows_presentation_update(E_Hwc *hwc, E_Client *ec)
 {
    E_Comp_Wl_Buffer *wl_buffer = NULL;
    tbm_surface_h tsurface = NULL;
+   Eina_Rectangle rect = {0, };
+   int width = 0;
+   int height = 0;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
 
@@ -3372,6 +3672,18 @@ e_hwc_windows_presentation_update(E_Hwc *hwc, E_Client *ec)
              hwc->presentation_hwc_window = e_hwc_window_new(hwc, ec, E_HWC_WINDOW_STATE_DEVICE);
              EINA_SAFETY_ON_NULL_RETURN_VAL(hwc->presentation_hwc_window, EINA_FALSE);
              // TODO: deal with the video
+
+             e_output_size_get(hwc->output, &width, &height);
+             rect.x = 0;
+             rect.y = 0;
+             rect.w = width;
+             rect.h = height;
+             if (!e_hwc_windows_zoom_set(hwc, &rect))
+               {
+                  EHWSERR("e_hwc_windows_zoom_set failed.", hwc);
+                  return EINA_FALSE;
+               }
+             hwc->pp_set_info = EINA_TRUE;
           }
 
         /* update the target_buffer */
@@ -3386,6 +3698,7 @@ e_hwc_windows_presentation_update(E_Hwc *hwc, E_Client *ec)
      {
         if (hwc->presentation_hwc_window)
           {
+             e_hwc_windows_zoom_unset(hwc);
              e_hwc_window_free(hwc->presentation_hwc_window);
              hwc->presentation_hwc_window = NULL;
           }

@@ -16,6 +16,8 @@ typedef enum
    E_HWC_WINS_DEBUG_CMD_QUEUE,
 } E_Hwc_Wins_Debug_Cmd;
 
+typedef void (*e_hwc_pp_done_handler)(E_Hwc *hwc, tbm_surface_h src, tbm_surface_h dst, void *user_data);
+
 EINTERN Eina_Bool            e_hwc_windows_init(void);
 EINTERN void                 e_hwc_windows_deinit(void);
 EINTERN Eina_Bool            e_hwc_windows_render(E_Hwc *hwc);
