@@ -1576,6 +1576,10 @@ _e_comp_intercept_layer_set(void *data, Evas_Object *obj, int layer)
           {
              E_Client *ec;
 
+             /* if ec->layer and layer are the same but the client is not belong to the given(l)
+                 that means, layer is changed during layer_pending. in this case, need to update layer inlist*/
+             if (cw->layer != l) goto layer_set;
+
              if (cw->visible)
                {
                   e_comp_render_queue();
@@ -1609,6 +1613,8 @@ _e_comp_intercept_layer_set(void *data, Evas_Object *obj, int layer)
           }
         return;
      }
+
+layer_set:
    if (cw->layer == l) return;
    if (e_comp_canvas_client_layer_map(layer) == 9999)
      return; //invalid layer for clients not doing comp effects
