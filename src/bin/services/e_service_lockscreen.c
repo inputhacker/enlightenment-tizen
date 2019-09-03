@@ -12,10 +12,9 @@ e_service_lockscreen_client_set(E_Client *ec)
    e_client_window_role_set(ec, "lockscreen");
 
    // set lockscreen layer
-   if (E_LAYER_CLIENT_NOTIFICATION_LOW > evas_object_layer_get(ec->frame))
+   if (E_LAYER_CLIENT_NOTIFICATION_LOW > ec->layer)
      {
-        evas_object_layer_set(ec->frame, E_LAYER_CLIENT_NOTIFICATION_LOW);
-        ec->layer = E_LAYER_CLIENT_NOTIFICATION_LOW;
+        e_client_layer_set(ec, E_LAYER_CLIENT_NOTIFICATION_LOW);
      }
 
    return EINA_TRUE;

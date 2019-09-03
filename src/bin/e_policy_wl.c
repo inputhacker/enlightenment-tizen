@@ -1675,12 +1675,12 @@ _tzpol_iface_cb_role_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
    /* TODO: support multiple roles */
    if (!e_util_strcmp("tv-volume-popup", role))
      {
-        evas_object_layer_set(ec->frame, E_LAYER_CLIENT_NOTIFICATION_LOW);
+        e_client_layer_set(ec, E_LAYER_CLIENT_NOTIFICATION_LOW);
         ec->lock_client_location = 1;
      }
    else if (!e_util_strcmp("e_demo", role))
      {
-        evas_object_layer_set(ec->frame, E_LAYER_CLIENT_NOTIFICATION_HIGH);
+        e_client_layer_set(ec, E_LAYER_CLIENT_NOTIFICATION_HIGH);
         ec->lock_client_location = 1;
      }
    else if (!e_util_strcmp("cbhm", role))
@@ -1691,8 +1691,7 @@ _tzpol_iface_cb_role_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
    else if (!e_util_strcmp("wl_pointer-cursor", role))
      {
         ELOGF("TZPOL", "Set CURSOR role", ec->pixmap, ec);
-        evas_object_layer_set(ec->frame, E_LAYER_CLIENT_CURSOR);
-        ec->layer = E_LAYER_CLIENT_CURSOR;
+        e_client_layer_set(ec, E_LAYER_CLIENT_CURSOR);
         ec->is_cursor = EINA_TRUE;
      }
 }
@@ -1713,12 +1712,7 @@ _tzpol_iface_cb_type_set(struct wl_client *client EINA_UNUSED, struct wl_resourc
          win_type = E_WINDOW_TYPE_NORMAL;
          if (ec->layer != E_LAYER_CLIENT_NORMAL)
            {
-              ec->layer = E_LAYER_CLIENT_NORMAL;
-              if (ec->frame)
-                {
-                   if (ec->layer != evas_object_layer_get(ec->frame))
-                     evas_object_layer_set(ec->frame, ec->layer);
-                }
+              e_client_layer_set(ec, E_LAYER_CLIENT_NORMAL);
            }
          break;
 
@@ -1806,17 +1800,15 @@ _tzpol_notilv_set(E_Client *ec, int lv)
       default: ly = E_LAYER_CLIENT_NOTIFICATION_LOW;    break;
      }
 
-   if (ly != evas_object_layer_get(ec->frame))
+   if (ec->layer != ly)
      {
         if (ly == E_LAYER_CLIENT_NORMAL)
           e_policy_animatable_lock(ec, E_POLICY_ANIMATABLE_LAYER, 0);
         else
           e_policy_animatable_lock(ec, E_POLICY_ANIMATABLE_LAYER, 1);
 
-        evas_object_layer_set(ec->frame, ly);
+        e_client_layer_set(ec, ly);
      }
-
-   ec->layer = ly;
 }
 
 static void
@@ -2335,8 +2327,7 @@ _e_policy_wl_aux_hint_apply(E_Client *ec)
                             pend = e_policy_visibility_client_layer_lower(ec, original_layer);
                             if (!pend)
                               {
-                                 evas_object_layer_set(ec->frame, original_layer);
-                                 ec->layer = original_layer;
+                                 e_client_layer_set(ec, original_layer);
                               }
                          }
                     }
@@ -2739,9 +2730,9 @@ _e_policy_wl_floating_mode_apply(E_Client *ec, Eina_Bool floating)
    if (ec->frame)
      {
         if (floating)
-          evas_object_layer_set(ec->frame, E_LAYER_CLIENT_ABOVE);
+          e_client_layer_set(ec, E_LAYER_CLIENT_ABOVE);
         else
-          evas_object_layer_set(ec->frame, E_LAYER_CLIENT_NORMAL);
+          e_client_layer_set(ec, E_LAYER_CLIENT_NORMAL);
      }
 
    EC_CHANGED(ec);
@@ -2789,15 +2780,15 @@ _tzpol_iface_cb_stack_mode_set(struct wl_client *client EINA_UNUSED, struct wl_r
      {
         if (mode == TIZEN_POLICY_STACK_MODE_ABOVE)
           {
-             evas_object_layer_set(ec->frame, E_LAYER_CLIENT_ABOVE);
+             e_client_layer_set(ec, E_LAYER_CLIENT_ABOVE);
           }
         else if (mode == TIZEN_POLICY_STACK_MODE_BELOW)
           {
-             evas_object_layer_set(ec->frame, E_LAYER_CLIENT_BELOW);
+             e_client_layer_set(ec, E_LAYER_CLIENT_BELOW);
           }
         else
           {
-             evas_object_layer_set(ec->frame, E_LAYER_CLIENT_NORMAL);
+             e_client_layer_set(ec, E_LAYER_CLIENT_NORMAL);
           }
         EC_CHANGED(ec);
      }

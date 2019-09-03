@@ -5574,7 +5574,7 @@ e_client_fullscreen(E_Client *ec, E_Fullscreen policy)
    e_hints_window_size_set(ec);
 
    ec->saved.layer = ec->layer;
-   evas_object_layer_set(ec->frame, E_LAYER_CLIENT_FULLSCREEN);
+   e_client_layer_set(ec, E_LAYER_CLIENT_FULLSCREEN);
 
    ec->fullscreen = 1;
    if ((eina_list_count(e_comp->zones) > 1) || 
@@ -5626,7 +5626,7 @@ e_client_unfullscreen(E_Client *ec)
      e_client_maximize(ec, (e_config->maximize_policy & E_MAXIMIZE_TYPE) |
                        ec->saved.maximized);
 
-   evas_object_layer_set(ec->frame, ec->saved.layer);
+   e_client_layer_set(ec, ec->saved.layer);
 
    e_hints_window_fullscreen_set(ec, 0);
    _e_client_event_simple(ec, E_EVENT_CLIENT_UNFULLSCREEN);
@@ -5900,7 +5900,7 @@ e_client_pinned_set(E_Client *ec, Eina_Bool set)
    else
      layer = E_LAYER_CLIENT_NORMAL;
 
-   evas_object_layer_set(ec->frame, layer);
+   e_client_layer_set(ec, layer);
 
    ec->border.changed = 1;
    EC_CHANGED(ec);

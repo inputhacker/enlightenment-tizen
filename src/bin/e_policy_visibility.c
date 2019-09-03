@@ -1556,7 +1556,7 @@ _e_vis_ec_job_exec(E_Client *ec, E_Vis_Job_Type type)
          break;
       case E_VIS_JOB_TYPE_LAYER_LOWER:
          e_comp_canvas_norender_pop();
-         if (vc) evas_object_layer_set(ec->frame, vc->layer);
+         if (vc) e_client_layer_set(ec, vc->layer);
          break;
       case E_VIS_JOB_TYPE_ICONIFY:
          e_comp_canvas_norender_pop();

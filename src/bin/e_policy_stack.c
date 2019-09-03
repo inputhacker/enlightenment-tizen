@@ -566,8 +566,7 @@ e_policy_stack_check_above_lockscreen(E_Client *ec, E_Layer layer, E_Layer *new_
                   if (ec->layer == lock_layer)
                     evas_object_raise(ec->frame);
                   else
-                    evas_object_layer_set(ec->frame, lock_layer);
-                  ec->layer = lock_layer;
+                    e_client_layer_set(ec, lock_layer);
                }
 
              if (new_layer)
@@ -580,8 +579,7 @@ e_policy_stack_check_above_lockscreen(E_Client *ec, E_Layer layer, E_Layer *new_
                   if (ec->layer != layer)
                     {
                        ELOGF("CHANGE to Lockscreen layer", "AboveLock|layer: %d -> %d", ec->pixmap, ec, ec->layer, lock_layer);
-                       evas_object_layer_set(ec->frame, lock_layer);
-                       ec->layer = lock_layer;
+                       e_client_layer_set(ec, lock_layer);
                     }
                }
 
