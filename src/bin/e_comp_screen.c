@@ -67,6 +67,10 @@ _tz_screen_rotation_get_ignore_output_transform(struct wl_client *client, struct
 {
    E_Comp_Screen_Tzsr *tzsr;
    E_Client *ec;
+   E_Hwc_Policy hwc_policy;
+   E_Output *output;
+   E_Zone *zone;
+   Eina_Bool ignore = EINA_TRUE;
 
    ec = wl_resource_get_user_data(surface);
    EINA_SAFETY_ON_NULL_RETURN(ec);
@@ -84,14 +88,24 @@ _tz_screen_rotation_get_ignore_output_transform(struct wl_client *client, struct
    tzsr->resource = resource;
    tzsr->ec = ec;
 
-   ELOGF("TRANSFORM", "|tzsr(%p) client_ignore(%d)", ec, tzsr, e_config->screen_rotation_client_ignore);
-
    tzsr_list = eina_list_append(tzsr_list, tzsr);
 
-   /* make all clients ignore the output tramsform
-    * we will decide later when hwc prepared.
-    */
-   e_comp_screen_rotation_ignore_output_transform_send(ec, EINA_TRUE);
+   zone = ec->zone;
+   if (zone)
+     {
+        output = e_output_find(zone->output_id);
+        if (output)
+          {
+             hwc_policy = e_hwc_policy_get(output->hwc);
+             if (hwc_policy == E_HWC_POLICY_WINDOWS)
+               ignore = EINA_FALSE;
+          }
+     }
+
+   ELOGF("TRANSFORM", "|tzsr(%p) client_ignore(%d) ignore(%d)",
+         ec, tzsr, e_config->screen_rotation_client_ignore, ignore);
+
+   e_comp_screen_rotation_ignore_output_transform_send(ec, ignore);
 }
 
 static void
