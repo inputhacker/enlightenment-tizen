@@ -2407,6 +2407,7 @@ _e_client_eval(E_Client *ec)
    int tx, ty, tw, th;
    int ex, ey, ew, eh;
    int px, py, pw, ph;
+   int nw, nh;
 
    if (e_object_is_del(E_OBJECT(ec)))
      {
@@ -2435,7 +2436,11 @@ _e_client_eval(E_Client *ec)
              th = MIN(ec->h, ec->zone->h);
              e_client_size_set(ec, tw, th);
           }
-        e_client_resize_limit(ec, &ec->w, &ec->h);
+
+        nw = ec->w;
+        nh = ec->h;
+        e_client_resize_limit(ec, &nw, &nh);
+        e_client_size_set(ec, nw, nh);
 
         if (ec->re_manage)
           {

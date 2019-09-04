@@ -2222,6 +2222,7 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
    Eina_Bool placed = EINA_TRUE;
    int x = 0, y = 0;
    int w, h;
+   int nw, nh;
    E_Comp_Wl_Buffer *buffer;
    struct wl_resource *cb;
    Eina_List *l, *ll;
@@ -2301,7 +2302,8 @@ _e_comp_wl_surface_state_commit(E_Client *ec, E_Comp_Wl_Surface_State *state)
 
              e_comp_object_frame_wh_adjust(ec->frame,
                                            ec->client.w, ec->client.h,
-                                           &ec->w, &ec->h);
+                                           &nw, &nh);
+             e_client_size_set(ec, nw, nh);
 
              if ((w != ec->w) || (h != ec->h))
                {
