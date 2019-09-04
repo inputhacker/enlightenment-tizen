@@ -110,6 +110,7 @@ typedef struct _E_Comp_Object
    Eina_Bool            delete_pending : 1;  // delete pending
    Eina_Bool            defer_hide : 1;  // flag to get hide to work on deferred hide
    Eina_Bool            showing : 1;  // object is currently in "show" animation
+   Eina_Bool            hiding : 1;   // object is currently in "hide" animation
    Eina_Bool            visible : 1;  // is visible
 
    Eina_Bool            shaped : 1;  // is shaped
@@ -1127,7 +1128,7 @@ _e_comp_object_animating_end(E_Comp_Object *cw)
                     }
                }
              e_comp->animating--;
-             cw->showing = 0;
+             cw->showing = cw->hiding = 0;
              UNREFD(cw->ec, 2);
              if (e_comp->animating == 0)
                e_client_visibility_calculate();
@@ -2098,7 +2099,7 @@ _e_comp_intercept_hide(void *data, Evas_Object *obj)
         return;
      }
    /* already hidden or currently animating */
-   if ((!cw->visible) || (cw->animating && (!cw->showing) && (!cw->ec->iconic))) return;
+   if ((!cw->visible) || (cw->animating && cw->hiding && (!cw->ec->iconic))) return;
 
    /* don't try hiding during shutdown */
    cw->defer_hide |= stopping;
@@ -2107,7 +2108,7 @@ _e_comp_intercept_hide(void *data, Evas_Object *obj)
         if ((!cw->ec->iconic) && (!cw->ec->override))
           /* unset delete requested so the client doesn't break */
           cw->ec->delete_requested = 0;
-        if ((!cw->animating) || cw->showing || cw->ec->iconic)
+        if ((!cw->animating) || (!cw->hiding) || cw->ec->iconic)
           {
              if (cw->ec->iconic)
                e_comp_object_signal_emit(obj, "e,action,iconify", "e");
@@ -2915,6 +2916,7 @@ _e_comp_smart_hide(Evas_Object *obj)
 
    INTERNAL_ENTRY;
    cw->visible = 0;
+   cw->hiding = 0;
    evas_object_hide(cw->clip);
    if (cw->input_obj) evas_object_hide(cw->input_obj);
    evas_object_hide(cw->effect_obj);
@@ -5019,6 +5021,19 @@ e_comp_object_effect_object_get(Evas_Object *obj)
 
    return cw->effect_obj;
 }
+
+E_API Eina_Bool
+e_comp_object_effect_hiding_set(Evas_Object *obj, Eina_Bool set)
+{
+   API_ENTRY EINA_FALSE;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(cw->ec, EINA_FALSE);
+   if (!cw->effect_set) return EINA_FALSE;
+
+   cw->hiding = set;
+
+   return EINA_TRUE;
+}
+
 ////////////////////////////////////
 
 static void

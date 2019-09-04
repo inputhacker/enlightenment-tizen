@@ -179,6 +179,7 @@ E_API Eina_Bool e_comp_object_hwc_update_exists(Evas_Object *obj);
 E_API void e_comp_object_hwc_update_set(Evas_Object *obj, Eina_Bool set);
 
 E_API Eina_Bool e_comp_object_effect_object_part_swallow(Evas_Object *obj, const char *part_name, Evas_Object *swallow_obj);
+E_API Eina_Bool e_comp_object_effect_hiding_set(Evas_Object *obj, Eina_Bool set);
 
 E_API void e_comp_object_indicator_swallow(Evas_Object *obj, Evas_Object *indicator);
 E_API void e_comp_object_indicator_unswallow(Evas_Object *obj, Evas_Object *indicator);
