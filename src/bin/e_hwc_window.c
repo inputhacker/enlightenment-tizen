@@ -838,21 +838,15 @@ e_hwc_window_is_cursor(E_Hwc_Window *hwc_window)
    return hwc_window->is_cursor;
 }
 
-EINTERN Eina_Bool
-e_hwc_window_info_update(E_Hwc_Window *hwc_window)
+static Eina_Bool
+_e_hwc_window_cursor_info_get(E_Hwc_Window *hwc_window, tdm_hwc_window_info *hwc_win_info)
 {
    E_Hwc *hwc = NULL;
    E_Output *output = NULL;
    E_Client *ec = NULL;
    E_Pointer *pointer = NULL;
-   tbm_surface_h tsurface = NULL;
-   tbm_surface_info_s surf_info = {0};
-   tdm_hwc_window_info hwc_win_info = {0};
-   E_Client_Video_Info vinfo;
 
-   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
-
-   if (hwc_window->is_deleted) return EINA_FALSE;
+   if (!e_hwc_window_is_cursor(hwc_window)) return EINA_FALSE;
 
    hwc = hwc_window->hwc;
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
@@ -863,110 +857,218 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
    ec = hwc_window->ec;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
 
+   pointer = e_pointer_get(ec);
+   if (!pointer) return EINA_TRUE;
+
+   hwc_win_info->src_config.format = TBM_FORMAT_ARGB8888;
+   hwc_win_info->src_config.pos.x = 0;
+   hwc_win_info->src_config.pos.y = 0;
+   hwc_win_info->src_config.pos.w = hwc_window->cursor.img_w;
+   hwc_win_info->src_config.pos.h = hwc_window->cursor.img_h;
+
+   hwc_win_info->src_config.size.h = hwc_window->cursor.img_stride >> 2;
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hwc_win_info->src_config.size.h == 0, EINA_FALSE);
+   hwc_win_info->src_config.size.v = hwc_window->cursor.img_h;
+
+   _e_hwc_window_cursor_position_get(pointer,
+                                     hwc_win_info->src_config.pos.w,
+                                     hwc_win_info->src_config.pos.h,
+                                     &hwc_win_info->dst_pos.x,
+                                     &hwc_win_info->dst_pos.y);
+
+   if (output->config.rotation > 0)
+     {
+        int bw, bh;
+        int dst_x, dst_y;
+
+        e_pixmap_size_get(ec->pixmap, &bw, &bh);
+        e_comp_wl_rect_convert(ec->zone->w, ec->zone->h,
+                               output->config.rotation / 90, 1,
+                               hwc_win_info->dst_pos.x, hwc_win_info->dst_pos.y,
+                               bw, bh,
+                               &dst_x, &dst_y,
+                               NULL, NULL);
+
+        hwc_win_info->dst_pos.x = dst_x;
+        hwc_win_info->dst_pos.y = dst_y;
+     }
+
+   hwc_win_info->dst_pos.w = hwc_window->cursor.img_w;
+   hwc_win_info->dst_pos.h = hwc_window->cursor.img_h;
+
+   // TODO: need to calculation with cursor.rotation and output->config.rotation?
+   hwc_win_info->transform = hwc_window->cursor.rotation;
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_hwc_window_info_get(E_Hwc_Window *hwc_window, tdm_hwc_window_info *hwc_win_info)
+{
+   E_Hwc *hwc = NULL;
+   E_Output *output = NULL;
+   E_Client *ec = NULL;
+   tbm_surface_h tsurface = NULL;
+   tbm_surface_info_s surf_info = {0};
+   int x, y, w, h;
+
+   ec = hwc_window->ec;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   hwc = hwc_window->hwc;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
+
+   output = hwc->output;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(output, EINA_FALSE);
+
    tsurface = hwc_window->buffer.tsurface;
+   if (!tsurface) return EINA_TRUE;
+
+   tbm_surface_get_info(tsurface, &surf_info);
+
+   hwc_win_info->src_config.format = surf_info.format;
+   hwc_win_info->src_config.pos.x = 0;
+   hwc_win_info->src_config.pos.y = 0;
+   hwc_win_info->src_config.pos.w = surf_info.width;
+   hwc_win_info->src_config.pos.h = surf_info.height;
+
+   hwc_win_info->src_config.size.h = _get_aligned_width(tsurface);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hwc_win_info->src_config.size.h == 0, EINA_FALSE);
+   hwc_win_info->src_config.size.v = surf_info.height;
+
+   e_client_geometry_get(ec, &x, &y, &w, &h);
+
+   hwc_win_info->dst_pos.x = x;
+   hwc_win_info->dst_pos.y = y;
+
+   if (output->config.rotation > 0)
+     {
+        int bw, bh;
+        int dst_x, dst_y;
+
+        e_pixmap_size_get(ec->pixmap, &bw, &bh);
+        e_comp_wl_rect_convert(ec->zone->w, ec->zone->h,
+                               output->config.rotation / 90, 1,
+                               hwc_win_info->dst_pos.x, hwc_win_info->dst_pos.y,
+                               bw, bh,
+                               &dst_x, &dst_y,
+                               NULL, NULL);
+
+        hwc_win_info->dst_pos.x = dst_x;
+        hwc_win_info->dst_pos.y = dst_y;
+     }
+
+   hwc_win_info->dst_pos.w = w;
+   hwc_win_info->dst_pos.h = h;
+
+   // TODO: need to calculation with ec(window) rotation and output->config.rotation?
+   hwc_win_info->transform = TDM_TRANSFORM_NORMAL;
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_hwc_window_target_info_get(E_Hwc_Window *hwc_window, tdm_hwc_window_info *hwc_win_info)
+{
+   tbm_surface_h tsurface = NULL;
+   tbm_surface_info_s surf_info = {0};
+
+   if (!e_hwc_window_is_target(hwc_window)) return EINA_FALSE;
+
+   tsurface = hwc_window->buffer.tsurface;
+   if (!tsurface) return EINA_TRUE;
+
+   tbm_surface_get_info(tsurface, &surf_info);
+
+   hwc_win_info->src_config.format = surf_info.format;
+   hwc_win_info->src_config.pos.x = 0;
+   hwc_win_info->src_config.pos.y = 0;
+   hwc_win_info->src_config.pos.w = surf_info.width;
+   hwc_win_info->src_config.pos.h = surf_info.height;
+
+   hwc_win_info->src_config.size.h = _get_aligned_width(tsurface);
+   EINA_SAFETY_ON_TRUE_RETURN_VAL(hwc_win_info->src_config.size.h == 0, EINA_FALSE);
+   hwc_win_info->src_config.size.v = surf_info.height;
+
+   hwc_win_info->dst_pos.x = 0;
+   hwc_win_info->dst_pos.y = 0;
+   hwc_win_info->dst_pos.w = surf_info.width;
+   hwc_win_info->dst_pos.h = surf_info.height;
+
+   // TODO: need to calculation with ec(window) rotation and output->config.rotation?
+   hwc_win_info->transform = TDM_TRANSFORM_NORMAL;
+
+   return EINA_TRUE;
+}
+
+static Eina_Bool
+_e_hwc_window_video_info_get(E_Hwc_Window *hwc_window, tdm_hwc_window_info *hwc_win_info)
+{
+   E_Client *ec = NULL;
+   E_Client_Video_Info vinfo;
+
+   if (!e_hwc_window_is_video(hwc_window)) return EINA_FALSE;
+
+   ec = hwc_window->ec;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
+
+   if (!e_client_video_info_get(ec, &vinfo))
+     {
+        EHWERR("Video window does not get the video info.", hwc_window->ec, hwc_window->hwc, hwc_window);
+        return EINA_FALSE;
+     }
+
+   memcpy(&hwc_win_info->src_config, &vinfo.src_config, sizeof(tdm_info_config));
+   memcpy(&hwc_win_info->dst_pos, &vinfo.dst_pos, sizeof(tdm_pos));
+   hwc_win_info->transform = vinfo.transform;
+
+   return EINA_TRUE;
+}
+
+EINTERN Eina_Bool
+e_hwc_window_info_update(E_Hwc_Window *hwc_window)
+{
+   tdm_hwc_window_info hwc_win_info = {0};
+
+   EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
+
+   if (hwc_window->is_deleted) return EINA_FALSE;
 
    if (e_hwc_window_is_cursor(hwc_window))
      {
-        pointer = e_pointer_get(ec);
-        if (!pointer) return EINA_FALSE;
-
-        hwc_win_info.src_config.format = TBM_FORMAT_ARGB8888;
-        hwc_win_info.src_config.pos.x = 0;
-        hwc_win_info.src_config.pos.y = 0;
-        hwc_win_info.src_config.pos.w = hwc_window->cursor.img_w;
-        hwc_win_info.src_config.pos.h = hwc_window->cursor.img_h;
-
-        hwc_win_info.src_config.size.h = hwc_window->cursor.img_stride >> 2;
-        EINA_SAFETY_ON_TRUE_RETURN_VAL(hwc_win_info.src_config.size.h == 0, EINA_FALSE);
-        hwc_win_info.src_config.size.v = hwc_window->cursor.img_h;
-
-        _e_hwc_window_cursor_position_get(pointer,
-                                          hwc_win_info.src_config.pos.w,
-                                          hwc_win_info.src_config.pos.h,
-                                          &hwc_win_info.dst_pos.x,
-                                          &hwc_win_info.dst_pos.y);
-
-        /* if output is transformed, the position of a buffer on screen should be also
-        * transformed.
-        */
-        if (output->config.rotation > 0)
+        if (!_e_hwc_window_cursor_info_get(hwc_window, &hwc_win_info))
           {
-              int bw, bh;
-              int dst_x, dst_y;
-              e_pixmap_size_get(ec->pixmap, &bw, &bh);
-              e_comp_wl_rect_convert(ec->zone->w, ec->zone->h,
-                                    output->config.rotation / 90, 1,
-                                    hwc_win_info.dst_pos.x, hwc_win_info.dst_pos.y,
-                                    bw, bh,
-                                    &dst_x, &dst_y,
-                                    NULL, NULL);
-
-              hwc_win_info.dst_pos.x = dst_x;
-              hwc_win_info.dst_pos.y = dst_y;
+             EHWERR("fail to _e_hwc_window_cursor_info_get",
+                    hwc_window->ec, hwc_window->hwc, hwc_window);
+             return EINA_FALSE;
           }
-
-        hwc_win_info.dst_pos.w = hwc_window->cursor.img_w;
-        hwc_win_info.dst_pos.h = hwc_window->cursor.img_h;
-
-        // TODO: need to calculation with cursor.rotation and output->config.rotation?
-        hwc_win_info.transform = hwc_window->cursor.rotation;
      }
    else if (e_hwc_window_is_video(hwc_window))
      {
-        if (!e_client_video_info_get(ec, &vinfo))
+        if (!_e_hwc_window_video_info_get(hwc_window, &hwc_win_info))
           {
-             EHWERR("Video window does not get the video info.", hwc_window->ec, hwc_window->hwc, hwc_window);
+             EHWERR("fail to _e_hwc_window_video_info_get",
+                    hwc_window->ec, hwc_window->hwc, hwc_window);
              return EINA_FALSE;
           }
-
-        memcpy(&hwc_win_info.src_config, &vinfo.src_config, sizeof(tdm_info_config));
-        memcpy(&hwc_win_info.dst_pos, &vinfo.dst_pos, sizeof(tdm_pos));
-        hwc_win_info.transform = vinfo.transform;
      }
-   else if (tsurface)
+   else if (hwc_window->is_target)
      {
-        int x, y, w, h;
-
-        tbm_surface_get_info(tsurface, &surf_info);
-
-        hwc_win_info.src_config.format = surf_info.format;
-        hwc_win_info.src_config.pos.x = 0;
-        hwc_win_info.src_config.pos.y = 0;
-        hwc_win_info.src_config.pos.w = surf_info.width;
-        hwc_win_info.src_config.pos.h = surf_info.height;
-
-        hwc_win_info.src_config.size.h = _get_aligned_width(tsurface);
-        EINA_SAFETY_ON_TRUE_RETURN_VAL(hwc_win_info.src_config.size.h == 0, EINA_FALSE);
-        hwc_win_info.src_config.size.v = surf_info.height;
-
-        e_client_geometry_get(ec, &x, &y, &w, &h);
-
-        hwc_win_info.dst_pos.x = x;
-        hwc_win_info.dst_pos.y = y;
-        hwc_win_info.dst_pos.w = w;
-        hwc_win_info.dst_pos.h = h;
-
-        /* if output is transformed, the position of a buffer on screen should be also
-        * transformed.
-        */
-        if (output->config.rotation > 0)
+        if (!_e_hwc_window_target_info_get(hwc_window, &hwc_win_info))
           {
-              int bw, bh;
-              int dst_x, dst_y;
-              e_pixmap_size_get(ec->pixmap, &bw, &bh);
-              e_comp_wl_rect_convert(ec->zone->w, ec->zone->h,
-                                    output->config.rotation / 90, 1,
-                                    hwc_win_info.dst_pos.x, hwc_win_info.dst_pos.y,
-                                    bw, bh,
-                                    &dst_x, &dst_y,
-                                    NULL, NULL);
-
-              hwc_win_info.dst_pos.x = dst_x;
-              hwc_win_info.dst_pos.y = dst_y;
+             EHWERR("fail to _e_hwc_window_target_info_get",
+                    hwc_window->ec, hwc_window->hwc, hwc_window);
+             return EINA_FALSE;
           }
-
-        // TODO: need to calculation with ec(window) rotation and output->config.rotation?
-        hwc_win_info.transform = TDM_TRANSFORM_NORMAL;
+     }
+   else
+     {
+        if (!_e_hwc_window_info_get(hwc_window, &hwc_win_info))
+          {
+             EHWERR("fail to _e_hwc_window_info_get",
+                    hwc_window->ec, hwc_window->hwc, hwc_window);
+             return EINA_FALSE;
+          }
      }
 
    if (memcmp(&hwc_window->info, &hwc_win_info, sizeof(tdm_hwc_window_info)))
@@ -974,8 +1076,12 @@ e_hwc_window_info_update(E_Hwc_Window *hwc_window)
         tdm_error error;
 
         memcpy(&hwc_window->info, &hwc_win_info, sizeof(tdm_hwc_window_info));
-        error = tdm_hwc_window_set_info(hwc_window->thwc_window, &hwc_window->info);
-        EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+
+        if (!e_hwc_window_is_target(hwc_window))
+          {
+             error = tdm_hwc_window_set_info(hwc_window->thwc_window, &hwc_window->info);
+             EINA_SAFETY_ON_TRUE_RETURN_VAL(error != TDM_ERROR_NONE, EINA_FALSE);
+          }
 
         EHWTRACE("INF src(%dx%d+%d+%d size:%dx%d fmt:%c%c%c%c) dst(%dx%d+%d+%d) trans(%d)",
                   hwc_window->ec, hwc_window->hwc, hwc_window,

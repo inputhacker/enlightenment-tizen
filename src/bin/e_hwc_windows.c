@@ -414,6 +414,7 @@ _e_hwc_windows_target_buffer_fetch(E_Hwc *hwc, Eina_Bool tdm_set)
           }
 
         e_hwc_window_buffer_set(hwc_window, tsurface, hwc_window->queue);
+        e_hwc_window_info_update(hwc_window);
 
         /* the damage isn't supported by hwc extension yet */
         CLEAR(fb_damage);
@@ -461,6 +462,7 @@ _e_hwc_windows_target_buffer_fetch(E_Hwc *hwc, Eina_Bool tdm_set)
           }
 
         e_hwc_window_buffer_set(hwc_window, NULL, NULL);
+        e_hwc_window_info_update(hwc_window);
 
         CLEAR(fb_damage);
 
