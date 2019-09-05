@@ -600,6 +600,7 @@ _e_plane_external_surface_acquire(E_Plane *plane)
    tbm_surface_h tsurface = NULL;
    tdm_error ret = TDM_ERROR_NONE;
    E_Plane *plane_primary_output_fb = NULL;
+   int w, h;
 
    if (plane->display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
      {
@@ -635,6 +636,15 @@ _e_plane_external_surface_acquire(E_Plane *plane)
 
              if ((tbm_surface_get_width(tsurface) <= 1) || (tbm_surface_get_height(tsurface) <= 1))
                return NULL;
+
+             e_output_size_get(plane->output, &w, &h);
+             if (w == 0 || h == 0)
+               return NULL;
+
+             if (tbm_surface_get_width(tsurface) != w || tbm_surface_get_height(tsurface) != h)
+               return NULL;
+
+             return plane->tsurface;
           }
         else
           return NULL;
@@ -1386,6 +1396,7 @@ _e_plane_pp_commit(E_Plane *plane, E_Plane_Commit_Data *data)
    tbm_error_e tbm_err = TBM_ERROR_NONE;
    tdm_error tdm_err = TDM_ERROR_NONE;
    tbm_surface_h tsurface = data->tsurface;
+   tdm_pos pos = {0, };
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "PP Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
@@ -1405,6 +1416,10 @@ _e_plane_pp_commit(E_Plane *plane, E_Plane_Commit_Data *data)
         ERR("fail tbm_surface_queue_dequeue");
         return EINA_FALSE;
      }
+
+   pos.w = tbm_surface_get_width(pp_tsurface);
+   pos.h = tbm_surface_get_height(pp_tsurface);
+   tdm_helper_clear_buffer_color(pp_tsurface, &pos, 0xff000000);
 
    if (!_e_plane_pp_info_set(plane, pp_tsurface))
      {
@@ -1455,6 +1470,7 @@ _e_plane_sw_commit(E_Plane *plane, E_Plane_Commit_Data *data)
    Eina_Rectangle src_crop = {0, };
    Eina_Rectangle dst_crop = {0, };
    int rotate = 0;
+   tdm_pos pos = {0, };
 
    if (plane_trace_debug)
      ELOGF("E_PLANE", "PP Convert Commit  Plane(%p) zpos(%d)   tsurface(%p) tqueue(%p) wl_buffer(%p) data(%p)",
@@ -1474,6 +1490,10 @@ _e_plane_sw_commit(E_Plane *plane, E_Plane_Commit_Data *data)
         ERR("fail tbm_surface_queue_dequeue");
         return EINA_FALSE;
      }
+
+   pos.w = tbm_surface_get_width(dst_tsurface);
+   pos.h = tbm_surface_get_height(dst_tsurface);
+   tdm_helper_clear_buffer_color(dst_tsurface, &pos, 0xff000000);
 
    src_vbuf = e_comp_wl_video_buffer_create_tbm(src_tsurface);
    if (src_vbuf == NULL)
@@ -2026,11 +2046,7 @@ e_plane_fetch(E_Plane *plane)
    if (plane->wait_commit)
      return EINA_FALSE;
 
-   if (plane->is_external)
-     {
-        tsurface = _e_plane_external_surface_acquire(plane);
-     }
-   else if (plane->is_fb && !plane->ec)
+   if (plane->is_fb && !plane->ec)
      {
         if (_e_plane_fb_target_pending_commit_sync_check(plane))
           return EINA_FALSE;
@@ -3513,7 +3529,6 @@ e_plane_external_commit(E_Plane *plane)
    int w, h;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(plane, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(plane->pp_tqueue, EINA_FALSE);
 
    data = e_plane_commit_data_aquire(plane);
    if (!data) return EINA_TRUE;
@@ -3534,6 +3549,8 @@ e_plane_external_commit(E_Plane *plane)
      }
    else /* plane->display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR */
      {
+        EINA_SAFETY_ON_NULL_RETURN_VAL(plane->pp_tqueue, EINA_FALSE);
+
         if (!tbm_surface_queue_can_dequeue(plane->pp_tqueue, 0))
           {
              if (plane_trace_debug)
@@ -3592,13 +3609,24 @@ e_plane_external_set(E_Plane *plane, Eina_Rectangle *rect, E_Output_Display_Mode
    plane->mirror_rect.w = rect->w;
    plane->mirror_rect.h = rect->h;
 
-   if (plane->display_mode == E_OUTPUT_DISPLAY_MODE_NONE)
+   if (display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
      {
+        if (plane->display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
+          {
+             DBG("already mirror mode");
+             return EINA_TRUE;
+          }
         ret = e_plane_zoom_set(plane, &plane->mirror_rect);
         EINA_SAFETY_ON_FALSE_RETURN_VAL(ret == EINA_TRUE, EINA_FALSE);
      }
-   else if (plane->display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
-     _e_plane_pp_pending_data_remove(plane);
+   else if (display_mode == E_OUTPUT_DISPLAY_MODE_PRESENTATION)
+     {
+        if (plane->display_mode == E_OUTPUT_DISPLAY_MODE_MIRROR)
+          {
+             _e_plane_pp_pending_data_remove(plane);
+             e_plane_zoom_unset(plane);
+          }
+     }
 
    plane->display_mode = display_mode;
 

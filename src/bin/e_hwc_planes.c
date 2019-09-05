@@ -1,5 +1,6 @@
 #include "e.h"
 #include "services/e_service_quickpanel.h"
+#include <wayland-tbm-server.h>
 
 EINTERN Eina_Bool
 e_hwc_planes_init(void)
@@ -820,7 +821,8 @@ e_hwc_planes_mirror_unset(E_Hwc *hwc)
    ep = e_output_fb_target_get(output);
    EINA_SAFETY_ON_NULL_RETURN(ep);
 
-   e_plane_external_unset(ep);
+   if (e_output_display_mode_get(hwc->output) == E_OUTPUT_DISPLAY_MODE_NONE)
+     e_plane_external_unset(ep);
 
    /* remove mirror_dst list at the src_hwc */
    src_hwc->mirror_dst_hwc = eina_list_remove(src_hwc->mirror_dst_hwc, hwc);
@@ -838,69 +840,48 @@ EINTERN Eina_Bool
 e_hwc_planes_presentation_update(E_Hwc *hwc, E_Client *ec)
 {
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc, EINA_FALSE);
-   EINA_SAFETY_ON_NULL_RETURN_VAL(ec, EINA_FALSE);
 
-#if 0
-   if (overlay)
+   E_Plane *ep = NULL;
+   E_Comp_Wl_Buffer *wl_buffer = NULL;
+   tbm_surface_h tsurface = NULL;
+   Eina_Rectangle rect = {0, };
+   int width = 0;
+   int height = 0;
+
+   ep = e_output_default_fb_target_get(hwc->output);
+
+   if (ec)
      {
-        Eina_Bool video_layer = EINA_FALSE;
-        tbm_format format;
-        Eina_Bool need_pp = EINA_FALSE;
+        e_plane_ec_set(ep, ec);
 
-        E_EomBufferPtr eom_buff = _e_eom_buffer_create(eom_output, wl_buffer);
-        EINA_SAFETY_ON_NULL_RETURN_VAL(eom_buff, ECORE_CALLBACK_PASS_ON);
+        /* update the target_buffer */
+        wl_buffer = e_pixmap_resource_get(ec->pixmap);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(wl_buffer, EINA_FALSE);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(wl_buffer->resource, EINA_FALSE);
 
-        format = tbm_surface_get_format(tbm_buffer);
-        video_layer = _e_eom_output_video_layer_find(eom_output, format);
-        if (!video_layer)
-          {
-             /* need pp */
-             need_pp = EINA_TRUE;
-             eom_output->need_overlay_pp = EINA_TRUE;
-             if (!_e_eom_pp_init(eom_output))
-               {
-                  EOERR("pp_init for overlay fail", eom_output->eout);
-                  _e_eom_buffer_destroy(eom_output, eom_buff);
-                  return ECORE_CALLBACK_PASS_ON;
-               }
-          }
+        tsurface = wayland_tbm_server_get_surface(e_comp->wl_comp_data->tbm.server, wl_buffer->resource);
+        EINA_SAFETY_ON_NULL_RETURN_VAL(tsurface, EINA_FALSE);
 
-        if (need_pp)
-          {
-             if (eom_trace_debug)
-               EOINF("run _e_eom_presentation_pp_run", eom_output->eout);
-             _e_eom_presentation_pp_run(eom_output, tbm_buffer, eom_buff);
-          }
-        else
-          {
-             if (eom_trace_debug)
-               EOINF("run direct show", eom_output->eout);
-             _e_eom_layer_overlay_set(eom_output, tbm_buffer);
+        ep->tsurface = tsurface;
 
-             if (!_e_eom_output_show(eom_output, tbm_buffer, _e_eom_tbm_buffer_release_ext_mod, eom_buff))
-               {
-                  if (eom_trace_debug)
-                    {
-                       EOINF("===============>  EXT ENDERR  tbm_buff:%p", eom_output->eout, tbm_buffer);
-                       EOINF("_e_eom_add_buff_to_show fail tbm_buff:%p", eom_output->eout, tbm_buffer);
-                    }
-                  _e_eom_buffer_destroy(eom_output, eom_buff);
-                  return ECORE_CALLBACK_PASS_ON;
-               }
-          }
-     }
-   else
-     {
-        E_Plane *ep = NULL;
-
-        ep = e_output_default_fb_target_get(eom_output->eout);
-
-        if (ep->prepare_ec)
-          e_plane_ec_set(ep, ec);
+        e_output_size_get(hwc->output, &width, &height);
+        rect.x = 0;
+        rect.y = 0;
+        rect.w = width;
+        rect.h = height;
+        if (!e_plane_external_set(ep, &rect, E_OUTPUT_DISPLAY_MODE_PRESENTATION))
+           {
+              ERR("e_plane_presentation_set failed.");
+              return EINA_FALSE;
+           }
 
         e_comp_object_hwc_update_set(ec->frame, EINA_TRUE);
      }
-#endif
+   else
+     {
+        e_plane_ec_set(ep, NULL);
+        e_plane_external_unset(ep);
+     }
 
    return EINA_TRUE;
 }
