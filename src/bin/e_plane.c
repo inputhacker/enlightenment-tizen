@@ -180,7 +180,8 @@ _e_plane_surface_unset(E_Plane *plane)
 static void
 _e_plane_ev_free(void *d EINA_UNUSED, E_Event_Plane_Win_Change *ev)
 {
-   if (ev->ec) e_object_unref(E_OBJECT(ev->ec));
+   if (ev->ec)
+     e_object_unref(E_OBJECT(ev->ec));
    E_FREE(ev);
 }
 
@@ -197,8 +198,11 @@ _e_plane_ev(E_Plane *ep, int type)
    ev->ep = ep;
    ev->ec = ep->ec;
 
-   if ((ep->ec) && (!e_object_is_del(E_OBJECT(ep->ec))))
-     e_object_ref(E_OBJECT(ep->ec));
+   if ((ep->ec) && (e_object_is_del(ep->ec)))
+     ev->ec = NULL;
+
+   if (ev->ec)
+     e_object_ref(E_OBJECT(ev->ec));
 
    ecore_event_add(type, ev, (Ecore_End_Cb)_e_plane_ev_free, NULL);
 
