@@ -2414,16 +2414,22 @@ _e_comp_intercept_focus(void *data, Evas_Object *obj, Eina_Bool focus)
         if ((ec->modal) && (ec->modal != ec) &&
             (ec->modal->visible) && (!e_object_is_del(E_OBJECT(ec->modal))))
           {
-             ELOGF("FOCUS", "focus set   | intercept focus to modal", ec->modal);
-             e_client_frame_focus_set(ec->modal, focus);
+             if (e_config->focus_policy_ext != E_FOCUS_EXT_TOP_STACK)
+               {
+                  ELOGF("FOCUS", "focus set   | intercept focus to modal", ec->modal);
+                  e_client_frame_focus_set(ec->modal, focus);
+               }
              return;
           }
         else if ((ec->leader) && (ec->leader->modal) &&
                  (ec->leader->modal != ec) && ec->leader->modal->visible &&
                  (!e_object_is_del(E_OBJECT(ec->leader->modal))))
           {
-             ELOGF("FOCUS", "focus set   | intercept focus to leader->modal", ec->leader->modal);
-             e_client_frame_focus_set(ec->leader->modal, focus);
+             if (e_config->focus_policy_ext != E_FOCUS_EXT_TOP_STACK)
+               {
+                  ELOGF("FOCUS", "focus set   | intercept focus to leader->modal", ec->leader->modal);
+                  e_client_frame_focus_set(ec->leader->modal, focus);
+               }
              return;
           }
         if (!cw->visible)

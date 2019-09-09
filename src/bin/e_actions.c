@@ -1190,8 +1190,11 @@ window_jump_to(const char *params)
         evas_object_raise(ec->frame);
         if (ec->zone != current_zone)
           e_util_pointer_center(ec);
-        ELOGF("FOCUS", "focus set   | window_jump_to", ec);
-        e_client_frame_focus_set(ec, EINA_TRUE);
+        if (e_config->focus_policy_ext != E_FOCUS_EXT_TOP_STACK)
+          {
+             ELOGF("FOCUS", "focus set   | window_jump_to", ec);
+             e_client_frame_focus_set(ec, EINA_TRUE);
+          }
         return 1;
      }
    return 0;
@@ -1325,7 +1328,10 @@ ACT_FN_GO(window_zone_move_by, )
 //   e_client_desk_set(ec, e_desk_current_get(zone));
    if (max) e_client_maximize(ec, max);
    if (fullscreen) e_client_fullscreen(ec, fs);
-   ELOGF("FOCUS", "focus set   | window_zone_move_by_action", ec);
+   if (e_config->focus_policy_ext != E_FOCUS_EXT_TOP_STACK)
+     {
+        ELOGF("FOCUS", "focus set   | window_zone_move_by_action", ec);
+     }
    e_client_frame_focus_set(ec, EINA_TRUE);
 }
 

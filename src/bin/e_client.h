@@ -51,8 +51,8 @@ typedef enum _E_Focus_Policy
 
 typedef enum _E_Focus_Policy_Ext
 {
-   E_FOCUS_EXT_NONE,
    E_FOCUS_EXT_TOP_STACK,
+   E_FOCUS_EXT_HISTORY,
 } E_Focus_Policy_Ext;
 
 typedef enum

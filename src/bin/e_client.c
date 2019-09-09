@@ -253,9 +253,12 @@ cleanup:
         
         if (!warp_client->lock_focus_out)
           {
-             ELOGF("FOCUS", "focus set   | pointer_warp_to_center", warp_client);
-             e_client_frame_focus_set(warp_client, EINA_TRUE);
-             e_client_focus_latest_set(warp_client);
+             if (e_config->focus_policy_ext != E_FOCUS_EXT_TOP_STACK)
+               {
+                  ELOGF("FOCUS", "focus set   | pointer_warp_to_center", warp_client);
+                  e_client_frame_focus_set(warp_client, EINA_TRUE);
+                  e_client_focus_latest_set(warp_client);
+               }
           }
         warp_client = NULL;
      }
@@ -851,6 +854,19 @@ _e_client_focus_can_take(E_Client *ec)
 }
 
 static E_Client *
+_e_client_focus_topmost_focusable_get()
+{
+   E_Client *ec = NULL;
+
+   E_CLIENT_REVERSE_FOREACH(ec)
+     {
+        if (_e_client_focus_can_take(ec))
+          return ec;
+     }
+   return NULL;
+}
+
+static E_Client *
 _e_client_find_next_focus(E_Client *ec)
 {
    Eina_List *l = NULL;
@@ -971,6 +987,16 @@ EINTERN void
 e_client_revert_focus(E_Client *ec)
 {
    E_Client *focus_ec = NULL;
+
+   // check topmost focus policy
+   if (e_config->focus_policy_ext == E_FOCUS_EXT_TOP_STACK)
+     {
+        focus_ec = _e_client_focus_topmost_focusable_get();
+        ELOGF("FOCUS", "focus set   | topmost_focus", focus_ec);
+        e_client_frame_focus_set(focus_ec, EINA_TRUE);
+        return;
+     }
+
    focus_ec = _e_client_revert_focus_get(ec);
 
    if (focus_ec)
@@ -1929,8 +1955,11 @@ _e_client_reset_lost_window(E_Client *ec)
    evas_object_raise(ec->frame);
    if (!ec->lock_focus_out)
      {
-        ELOGF("FOCUS", "focus set   | reset_lost_window", ec);
-        e_client_frame_focus_set(ec, EINA_TRUE);
+        if (e_config->focus_policy_ext != E_FOCUS_EXT_TOP_STACK)
+          {
+             ELOGF("FOCUS", "focus set   | reset_lost_window", ec);
+             e_client_frame_focus_set(ec, EINA_TRUE);
+          }
      }
 
    e_client_pointer_warp_to_center(ec);
@@ -2778,8 +2807,11 @@ _e_client_eval(E_Client *ec)
                   ec->cur_mouse_action->func.go(E_OBJECT(ec), NULL);
                   if (e_config->border_raise_on_mouse_action)
                     evas_object_raise(ec->frame);
-                  ELOGF("FOCUS", "focus set   | client eval", ec);
-                  e_client_frame_focus_set(ec, EINA_TRUE);
+                  if (e_config->focus_policy_ext != E_FOCUS_EXT_TOP_STACK)
+                    {
+                       ELOGF("FOCUS", "focus set   | client eval", ec);
+                       e_client_frame_focus_set(ec, EINA_TRUE);
+                    }
                }
              ec->changes.visible = 0;
              _e_client_event_show(ec);
@@ -3424,6 +3456,7 @@ _e_client_merge_focus_stack_with_defer_focus(void)
    Eina_Bool inserted = EINA_FALSE;
 
    if (focus_track_frozen > 0) return;
+   if (e_config->focus_policy_ext == E_FOCUS_EXT_TOP_STACK) return;
 
    if (!focus_stack)
      {
@@ -3474,6 +3507,17 @@ _e_client_focus_calculate(E_Zone *zone)
 
    EINA_SAFETY_ON_NULL_RETURN(zone);
    if (zone->display_state == E_ZONE_DISPLAY_STATE_OFF) return;
+
+   if (e_config->focus_policy_ext == E_FOCUS_EXT_TOP_STACK)
+     {
+        ec = _e_client_focus_topmost_focusable_get();
+        if (ec)
+          {
+             ELOGF("FOCUS", "focus set | topmost focus calculate", ec);
+             e_client_frame_focus_set(ec, EINA_TRUE);
+          }
+        return;
+     }
 
    if ((!focused) ||
        (focused != eina_list_data_get(focus_stack)) ||
@@ -5103,6 +5147,7 @@ e_client_focus_stack_lower(E_Client *ec)
 
    EINA_SAFETY_ON_NULL_RETURN(ec);
    if (focus_track_frozen > 0) return;
+   if (e_config->focus_policy_ext == E_FOCUS_EXT_TOP_STACK) return;
 
    focus_stack = eina_list_remove(focus_stack, ec);
 
@@ -5124,6 +5169,7 @@ e_client_focus_latest_set(E_Client *ec)
 {
    EINA_SAFETY_ON_NULL_RETURN(ec);
    if (focus_track_frozen > 0) return;
+   if (e_config->focus_policy_ext == E_FOCUS_EXT_TOP_STACK) return;
 
    focus_stack = eina_list_remove(focus_stack, ec);
    focus_stack = eina_list_prepend(focus_stack, ec);
@@ -5137,6 +5183,7 @@ e_client_focus_stack_append_current_focused(E_Client *ec)
 
    if (!ec) CRI("ACK");
    if (focus_track_frozen > 0) return;
+   if (e_config->focus_policy_ext == E_FOCUS_EXT_TOP_STACK) return;
 
    focus_stack = eina_list_remove(focus_stack, ec);
 
@@ -5156,6 +5203,7 @@ E_API void
 e_client_focus_defer_set(E_Client *ec)
 {
    EINA_SAFETY_ON_NULL_RETURN(ec);
+   if (e_config->focus_policy_ext == E_FOCUS_EXT_TOP_STACK) return;
 
    defer_focus_stack = eina_list_remove(defer_focus_stack, ec);
    defer_focus_stack = eina_list_prepend(defer_focus_stack, ec);
@@ -5165,6 +5213,7 @@ E_API void
 e_client_focus_defer_unset(E_Client *ec)
 {
    EINA_SAFETY_ON_NULL_RETURN(ec);
+   if (e_config->focus_policy_ext == E_FOCUS_EXT_TOP_STACK) return;
 
    defer_focus_stack = eina_list_remove(defer_focus_stack, ec);
 }
@@ -5193,6 +5242,8 @@ e_client_refocus(void)
 {
    E_Client *ec;
    const Eina_List *l;
+
+   if (e_config->focus_policy_ext == E_FOCUS_EXT_TOP_STACK) return;
 
    EINA_LIST_FOREACH(e_client_focus_stack_get(), l, ec)
      if (ec->desk && ec->desk->visible && (!ec->iconic))
@@ -5239,6 +5290,8 @@ e_client_focus_set_with_pointer(E_Client *ec)
     * expect us to emulate a look of focus but not actually set x input
     * focus as we do - so simply abort any focuse set on such windows */
    /* be strict about accepting focus hint */
+   if (e_config->focus_policy_ext == E_FOCUS_EXT_TOP_STACK) return;
+
    if ((!ec->icccm.accepts_focus) &&
        (!ec->icccm.take_focus)) return;
    if (ec->lock_focus_out) return;
@@ -5420,7 +5473,8 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
                   else
                     {
                        ELOGF("FOCUS", "focus set   | client activate", focus_ec);
-                       e_client_frame_focus_set(focus_ec, EINA_TRUE);
+                       if (e_config->focus_policy_ext != E_FOCUS_EXT_TOP_STACK)
+                         e_client_frame_focus_set(focus_ec, EINA_TRUE);
                     }
                }
              else

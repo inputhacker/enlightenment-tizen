@@ -483,8 +483,11 @@ e_desk_last_focused_focus(E_Desk *desk)
    focus_ec = e_client_focused_get();
    if (focus_ec)
      {
-        ELOGF("FOCUS", "focus unset | last_focused_focus", focus_ec);
-        e_client_frame_focus_set(focus_ec, EINA_FALSE);
+        if (e_config->focus_policy_ext != E_FOCUS_EXT_TOP_STACK)
+          {
+             ELOGF("FOCUS", "focus unset | last_focused_focus", focus_ec);
+             e_client_frame_focus_set(focus_ec, EINA_FALSE);
+          }
      }
 
    return NULL;
@@ -748,8 +751,11 @@ e_desk_flip_end(E_Desk *desk)
               if (e_client_util_ignored_get(ec)) continue;
               if (!e_client_util_desk_visible(ec, desk)) continue;
               if (ec->iconic) continue;
-              ELOGF("FOCUS", "focus set   | desk flip end", ec);
-              e_client_frame_focus_set(ec, EINA_TRUE);
+              if (e_config->focus_policy_ext != E_FOCUS_EXT_TOP_STACK)
+                {
+                   ELOGF("FOCUS", "focus set   | desk flip end", ec);
+                   e_client_frame_focus_set(ec, EINA_TRUE);
+                }
               if (e_config->raise_on_revert_focus)
                 evas_object_raise(ec->frame);
               return;
