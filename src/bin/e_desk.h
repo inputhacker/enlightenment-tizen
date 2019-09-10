@@ -1,11 +1,13 @@
 #ifdef E_TYPEDEFS
 
 typedef struct _E_Desk E_Desk;
-typedef struct _E_Event_Desk_Show E_Event_Desk_Show;
-typedef struct _E_Event_Desk_Before_Show E_Event_Desk_Before_Show;
-typedef struct _E_Event_Desk_After_Show E_Event_Desk_After_Show;
-typedef struct _E_Event_Desk_Name_Change E_Event_Desk_Name_Change;
-typedef struct _E_Event_Desk_Window_Profile_Change E_Event_Desk_Window_Profile_Change;
+
+typedef struct _E_Event_Desk E_Event_Desk;
+typedef struct _E_Event_Desk E_Event_Desk_Show;
+typedef struct _E_Event_Desk E_Event_Desk_Before_Show;
+typedef struct _E_Event_Desk E_Event_Desk_After_Show;
+typedef struct _E_Event_Desk E_Event_Desk_Name_Change;
+typedef struct _E_Event_Desk E_Event_Desk_Window_Profile_Change;
 typedef struct _E_Event_Desk_Geometry_Change E_Event_Desk_Geometry_Change;
 
 typedef void (*E_Desk_Flip_Cb)(void *data, E_Desk *desk, int dx, int dy, Eina_Bool show);
@@ -46,27 +48,7 @@ struct _E_Desk
    Eina_List           *handlers;
 };
 
-struct _E_Event_Desk_Show
-{
-   E_Desk   *desk;
-};
-
-struct _E_Event_Desk_Before_Show
-{
-   E_Desk   *desk;
-};
-
-struct _E_Event_Desk_After_Show
-{
-   E_Desk   *desk;
-};
-
-struct _E_Event_Desk_Name_Change
-{
-   E_Desk   *desk;
-};
-
-struct _E_Event_Desk_Window_Profile_Change
+struct _E_Event_Desk
 {
    E_Desk   *desk;
 };

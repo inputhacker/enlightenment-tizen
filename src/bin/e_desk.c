@@ -32,11 +32,8 @@ static void      _e_desk_free(E_Desk *desk);
 static void      _e_desk_event_desk_show_free(void *data, void *ev);
 static void      _e_desk_event_desk_before_show_free(void *data, void *ev);
 static void      _e_desk_event_desk_after_show_free(void *data, void *ev);
-static void      _e_desk_event_desk_deskshow_free(void *data, void *ev);
-static void      _e_desk_event_desk_name_change_free(void *data, void *ev);
 static void      _e_desk_show_begin(E_Desk *desk, int dx, int dy);
 static void      _e_desk_hide_begin(E_Desk *desk, int dx, int dy);
-static void      _e_desk_event_desk_window_profile_change_free(void *data, void *ev);
 static void      _e_desk_event_desk_geometry_change_free(void *data, void *ev);
 static Eina_Bool _e_desk_cb_zone_move_resize(void *data, int type EINA_UNUSED, void *event);
 
@@ -63,6 +60,29 @@ E_API int E_EVENT_DESK_DESKSHOW = 0;
 E_API int E_EVENT_DESK_NAME_CHANGE = 0;
 E_API int E_EVENT_DESK_WINDOW_PROFILE_CHANGE = 0;
 E_API int E_EVENT_DESK_GEOMETRY_CHANGE = 0;
+
+static void
+_e_desk_event_simple_free(void *d EINA_UNUSED, E_Event_Desk *event)
+{
+   E_Event_Desk *ev;
+
+   ev = event;
+   e_object_unref(E_OBJECT(ev->desk));
+   free(ev);
+}
+
+static void
+_e_desk_event_simple_add(E_Desk *desk, int type)
+{
+   E_Event_Desk *ev;
+
+   ev = E_NEW(E_Event_Desk, 1);
+   if (!ev) return;
+   ev->desk = desk;
+   e_object_ref(E_OBJECT(desk));
+
+   ecore_event_add(type, ev, (Ecore_End_Cb)_e_desk_event_simple_free, NULL);
+}
 
 EINTERN int
 e_desk_init(void)
@@ -170,19 +190,12 @@ e_desk_client_top_visible_get(const E_Desk *desk)
 E_API void
 e_desk_name_set(E_Desk *desk, const char *name)
 {
-   E_Event_Desk_Name_Change *ev;
-
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
 
    eina_stringshare_replace(&desk->name, name);
 
-   ev = E_NEW(E_Event_Desk_Name_Change, 1);
-   if (!ev) return;
-   ev->desk = desk;
-   e_object_ref(E_OBJECT(desk));
-   ecore_event_add(E_EVENT_DESK_NAME_CHANGE, ev,
-                   _e_desk_event_desk_name_change_free, NULL);
+   _e_desk_event_simple_add(desk, E_EVENT_DESK_NAME_CHANGE);
 }
 
 E_API void
@@ -371,7 +384,6 @@ e_desk_deskshow(E_Zone *zone)
 {
    E_Client *ec;
    E_Desk *desk;
-   E_Event_Desk_Show *ev;
 
    E_OBJECT_CHECK(zone);
    E_OBJECT_TYPE_CHECK(zone, E_ZONE_TYPE);
@@ -412,12 +424,8 @@ e_desk_deskshow(E_Zone *zone)
           }
      }
    desk->deskshow_toggle = !desk->deskshow_toggle;
-   ev = E_NEW(E_Event_Desk_Show, 1);
-   if (!ev) return;
-   ev->desk = desk;
-   e_object_ref(E_OBJECT(desk));
-   ecore_event_add(E_EVENT_DESK_DESKSHOW, ev,
-                   _e_desk_event_desk_deskshow_free, NULL);
+
+   _e_desk_event_simple_add(desk, E_EVENT_DESK_DESKSHOW);
 }
 
 E_API E_Client *
@@ -604,19 +612,12 @@ E_API void
 e_desk_window_profile_set(E_Desk *desk,
                           const char *profile)
 {
-   E_Event_Desk_Window_Profile_Change *ev;
-
    E_OBJECT_CHECK(desk);
    E_OBJECT_TYPE_CHECK(desk, E_DESK_TYPE);
 
    eina_stringshare_replace(&desk->window_profile, profile);
 
-   ev = E_NEW(E_Event_Desk_Window_Profile_Change, 1);
-   if (!ev) return;
-   ev->desk = desk;
-   e_object_ref(E_OBJECT(desk));
-   ecore_event_add(E_EVENT_DESK_WINDOW_PROFILE_CHANGE, ev,
-                   _e_desk_event_desk_window_profile_change_free, NULL);
+   _e_desk_event_simple_add(desk, E_EVENT_DESK_WINDOW_PROFILE_CHANGE);
 }
 
 E_API void
@@ -713,15 +714,9 @@ e_desk_flip_cb_set(E_Desk_Flip_Cb cb, const void *data)
 E_API void
 e_desk_flip_end(E_Desk *desk)
 {
-   E_Event_Desk_After_Show *ev;
    E_Client *ec;
 
-   ev = E_NEW(E_Event_Desk_After_Show, 1);
-   if (!ev) return;
-   ev->desk = desk;
-   e_object_ref(E_OBJECT(ev->desk));
-   ecore_event_add(E_EVENT_DESK_AFTER_SHOW, ev,
-                   _e_desk_event_desk_after_show_free, NULL);
+   _e_desk_event_simple_add(desk, E_EVENT_DESK_AFTER_SHOW);
 
    if ((e_config->focus_policy == E_FOCUS_MOUSE) ||
        (e_config->focus_policy == E_FOCUS_SLOPPY))
@@ -1137,32 +1132,6 @@ _e_desk_event_desk_after_show_free(void *data EINA_UNUSED, void *event)
    ev = event;
    e_object_unref(E_OBJECT(ev->desk));
    free(ev);
-}
-
-static void
-_e_desk_event_desk_deskshow_free(void *data EINA_UNUSED, void *event)
-{
-   E_Event_Desk_Show *ev;
-
-   ev = event;
-   e_object_unref(E_OBJECT(ev->desk));
-   free(ev);
-}
-
-static void
-_e_desk_event_desk_name_change_free(void *data EINA_UNUSED, void *event)
-{
-   E_Event_Desk_Name_Change *ev = event;
-   e_object_unref(E_OBJECT(ev->desk));
-   free(ev);
-}
-
-static void
-_e_desk_event_desk_window_profile_change_free(void *data EINA_UNUSED, void *event)
-{
-   E_Event_Desk_Window_Profile_Change *ev = event;
-   e_object_unref(E_OBJECT(ev->desk));
-   E_FREE(ev);
 }
 
 static void
