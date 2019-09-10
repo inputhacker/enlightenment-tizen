@@ -198,7 +198,7 @@ _e_plane_ev(E_Plane *ep, int type)
    ev->ep = ep;
    ev->ec = ep->ec;
 
-   if ((ep->ec) && (e_object_is_del(ep->ec)))
+   if ((ep->ec) && (e_object_is_del(E_OBJECT(ep->ec))))
      ev->ec = NULL;
 
    if (ev->ec)
