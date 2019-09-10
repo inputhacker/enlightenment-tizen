@@ -8,6 +8,8 @@ typedef struct _E_Event_Desk E_Event_Desk_Before_Show;
 typedef struct _E_Event_Desk E_Event_Desk_After_Show;
 typedef struct _E_Event_Desk E_Event_Desk_Name_Change;
 typedef struct _E_Event_Desk E_Event_Desk_Window_Profile_Change;
+typedef struct _E_Event_Desk E_Event_Desk_Zoom_Set;
+typedef struct _E_Event_Desk E_Event_Desk_Zoom_Unset;
 typedef struct _E_Event_Desk_Geometry_Change E_Event_Desk_Geometry_Change;
 
 typedef void (*E_Desk_Flip_Cb)(void *data, E_Desk *desk, int dx, int dy, Eina_Bool show);
@@ -109,6 +111,8 @@ extern E_API int E_EVENT_DESK_DESKSHOW;
 extern E_API int E_EVENT_DESK_NAME_CHANGE;
 extern E_API int E_EVENT_DESK_WINDOW_PROFILE_CHANGE;
 extern E_API int E_EVENT_DESK_GEOMETRY_CHANGE;
+extern E_API int E_EVENT_DESK_ZOOM_SET;
+extern E_API int E_EVENT_DESK_ZOOM_UNSET;
 
 #endif
 #endif

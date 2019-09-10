@@ -60,6 +60,9 @@ E_API int E_EVENT_DESK_DESKSHOW = 0;
 E_API int E_EVENT_DESK_NAME_CHANGE = 0;
 E_API int E_EVENT_DESK_WINDOW_PROFILE_CHANGE = 0;
 E_API int E_EVENT_DESK_GEOMETRY_CHANGE = 0;
+E_API int E_EVENT_DESK_ZOOM_SET = 0;
+E_API int E_EVENT_DESK_ZOOM_UNSET = 0;
+
 
 static void
 _e_desk_event_simple_free(void *d EINA_UNUSED, E_Event_Desk *event)
@@ -94,6 +97,9 @@ e_desk_init(void)
    E_EVENT_DESK_NAME_CHANGE = ecore_event_type_new();
    E_EVENT_DESK_WINDOW_PROFILE_CHANGE = ecore_event_type_new();
    E_EVENT_DESK_GEOMETRY_CHANGE = ecore_event_type_new();
+   E_EVENT_DESK_ZOOM_SET = ecore_event_type_new();
+   E_EVENT_DESK_ZOOM_UNSET  = ecore_event_type_new();
+
    return 1;
 }
 
@@ -906,14 +912,14 @@ e_desk_zoom_set(E_Desk *desk, double zoomx, double zoomy, int cx, int cy)
              if (!eout)
                {
                   ERR("e_desk_zoom_set: fail get eout");
-                  return;
+                  goto end;
                }
              if (!e_output_zoom_set(eout, zoomx, zoomy, cx, cy))
                ERR("e_desk_zoom_set: fail zoom set");
              else
                DBG("e_desk_zoom_set: zoomx:%f, zoomy:%f, x:%d, y:%d", zoomx, zoomy, cx, cy);
 
-             return;
+             goto end;
           }
      }
 
@@ -946,6 +952,9 @@ e_desk_zoom_set(E_Desk *desk, double zoomx, double zoomy, int cx, int cy)
              _e_desk_util_comp_hwc_disable_set(EINA_TRUE);
           }
      }
+
+end:
+   _e_desk_event_simple_add(desk, E_EVENT_DESK_ZOOM_SET);
 }
 
 E_API Eina_Bool
@@ -1011,13 +1020,13 @@ e_desk_zoom_unset(E_Desk *desk)
              if (!eout)
                {
                   ERR("e_desk_zoom_unset: fail get eout");
-                  return;
+                  goto end;
                }
 
              e_output_zoom_unset(eout);
              DBG("e_desk_zoom_unset");
 
-             return;
+             goto end;
           }
      }
 
@@ -1026,7 +1035,7 @@ e_desk_zoom_unset(E_Desk *desk)
         E_DESK_SMART_DATA_GET_OR_RETURN(desk->smart_obj, sd);
 
         if (!sd->zoom.enabled)
-          return;
+          goto end;
 
         sd->zoom.ratio_x = 1.0;
         sd->zoom.ratio_y = 1.0;
@@ -1049,6 +1058,9 @@ e_desk_zoom_unset(E_Desk *desk)
         /* FIXME TEMP enable hwc */
         _e_desk_util_comp_hwc_disable_set(EINA_FALSE);
      }
+
+end:
+   _e_desk_event_simple_add(desk, E_EVENT_DESK_ZOOM_UNSET);
 }
 
 E_API void
