@@ -44,7 +44,8 @@ struct _E_Service_Launcher
 
    Ecore_Event_Handler                 *buff_attach;    //event handler for BUFFER_CHANGE
 
-   Eina_Bool                            with_swl;
+   Eina_Bool                            with_swl;       //it's for shared widget launch
+   Eina_Bool                            swl_done;       //flag indicating done of callee
 };
 
 struct _E_Service_Launcher_Handler
@@ -559,9 +560,8 @@ _launcher_data_reset(E_Service_Launcher *lc)
    lc->with_swl = 0;
 }
 
-
 static Eina_Bool
-_launcher_cb_event_buff_attach(void *data, int type EINA_UNUSED, void *event)
+_launcher_cb_done_buff_attach(void *data, int type EINA_UNUSED, void *event)
 {
    E_Service_Launcher *lc;
    E_Client *ec;
@@ -569,6 +569,43 @@ _launcher_cb_event_buff_attach(void *data, int type EINA_UNUSED, void *event)
 
    lc = (E_Service_Launcher*)data;
    EINA_SAFETY_ON_NULL_RETURN_VAL(lc, ECORE_CALLBACK_PASS_ON);
+   if (!lc->with_swl) goto clean;
+   if (lc->direction != TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD) goto clean;
+
+   ev = (E_Event_Client *)event;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ev, ECORE_CALLBACK_PASS_ON);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(ev->ec, ECORE_CALLBACK_PASS_ON);
+
+   ec = ev->ec;
+   if (ec != lc->target.ec) return ECORE_CALLBACK_PASS_ON;
+   if (!lc->swl_done) goto clean;
+
+   ELOGF("LAUNCHER_SRV", "Event cb(BUFFER_CHANGE) for LAUNCH_DONE", ec);
+
+   lc->swl_done = EINA_FALSE;
+
+   _launcher_post_forward(lc, EINA_TRUE);
+
+   _launcher_handler_launcher_runner_unset(lc);
+   _launcher_handler_launcher_pre_runner_set(lc);
+   _launcher_state_set(lc, LAUNCHER_STATE_DONE);
+
+clean:
+   E_FREE_FUNC(lc->buff_attach, ecore_event_handler_del);
+
+   return ECORE_CALLBACK_DONE;
+}
+
+static Eina_Bool
+_launcher_cb_launching_buff_attach(void *data, int type EINA_UNUSED, void *event)
+{
+   E_Service_Launcher *lc;
+   E_Client *ec;
+   E_Event_Client *ev;
+
+   lc = (E_Service_Launcher*)data;
+   EINA_SAFETY_ON_NULL_RETURN_VAL(lc, ECORE_CALLBACK_PASS_ON);
+   if (lc->direction != TWS_SERVICE_LAUNCHER_DIRECTION_BACKWARD) goto clean;
 
    ev = (E_Event_Client *)event;
    EINA_SAFETY_ON_NULL_RETURN_VAL(ev, ECORE_CALLBACK_PASS_ON);
@@ -577,7 +614,7 @@ _launcher_cb_event_buff_attach(void *data, int type EINA_UNUSED, void *event)
    ec = ev->ec;
    if (ec != lc->ec) return ECORE_CALLBACK_PASS_ON;
 
-   ELOGF("LAUNCHER_SRV", "Event cb(BUFFER_CHANGE)", ec);
+   ELOGF("LAUNCHER_SRV", "Event cb(BUFFER_CHANGE) for LAUNCHING", ec);
 
    if (lc->state == LAUNCHER_STATE_LAUNCHING_WAIT_BUFFER)
      _launcher_state_set(lc, LAUNCHER_STATE_LAUNCHING);
@@ -594,10 +631,28 @@ _launcher_cb_event_buff_attach(void *data, int type EINA_UNUSED, void *event)
         lc->target.vis_grab = NULL;
      }
 
+clean:
    E_FREE_FUNC(lc->buff_attach, ecore_event_handler_del);
 
    return ECORE_CALLBACK_PASS_ON;
 }
+
+static void
+_launcher_buffer_change_wait(E_Service_Launcher *lc)
+{
+   if (!lc) return;
+   if (lc->buff_attach) return;
+
+   if (lc->state == LAUNCHER_STATE_LAUNCHING_WAIT_BUFFER)
+     lc->buff_attach = ecore_event_handler_add(E_EVENT_CLIENT_BUFFER_CHANGE,
+                                               _launcher_cb_launching_buff_attach,
+                                               lc);
+   else if ((lc->with_swl) && (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD))
+     lc->buff_attach = ecore_event_handler_add(E_EVENT_CLIENT_BUFFER_CHANGE,
+                                               _launcher_cb_done_buff_attach,
+                                               lc);
+}
+
 
 static void
 _launcher_cb_launched_ec_del(void *data, void *obj)
@@ -902,8 +957,7 @@ _launcher_cb_launching(struct wl_client *client EINA_UNUSED,
    if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_BACKWARD)
      {
         _launcher_state_set(lc, LAUNCHER_STATE_LAUNCHING_WAIT_BUFFER);
-        lc->buff_attach = ecore_event_handler_add(E_EVENT_CLIENT_BUFFER_CHANGE,
-                                                  _launcher_cb_event_buff_attach, lc);
+        _launcher_buffer_change_wait(lc);
      }
 }
 
@@ -930,26 +984,40 @@ _launcher_cb_launch_done(struct wl_client *client EINA_UNUSED,
         return;
      }
 
-   if ((lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD) &&
-       (lc->with_swl))
+   //shared widget launch case
+   if (lc->with_swl)
      {
-        e_tzsh_shared_widget_launch_prepare_send(lc->target.ec,
-                                                 TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_SHOW,
-                                                 lc->serial);
-        return;
-     }
+        if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD)
+          {
+             Eina_Bool sent;
 
-   if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD)
-     {
-        _launcher_post_forward(lc, EINA_TRUE);
+             sent = e_tzsh_shared_widget_launch_prepare_send(lc->target.ec,
+                                                             TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_SHOW,
+                                                             lc->serial);
+
+             //TODO : handle failure case
+             if (sent)
+               {
+                  _launcher_buffer_change_wait(lc);
+                  lc->swl_done = 0;
+               }
+
+             return;
+          }
+        else if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_BACKWARD)
+          {
+             e_tzsh_shared_widget_launch_prepare_send(lc->target.ec,
+                                                      TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_SHOW,
+                                                      lc->serial);
+             _launcher_post_backward(lc, EINA_TRUE);
+          }
      }
-   else if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_BACKWARD)
+   else //normal launcher
      {
-        if (lc->with_swl)
-          e_tzsh_shared_widget_launch_prepare_send(lc->target.ec,
-                                                   TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_SHOW,
-                                                   lc->serial);
-        _launcher_post_backward(lc, EINA_TRUE);
+        if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD)
+          _launcher_post_forward(lc, EINA_TRUE);
+        else if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_BACKWARD)
+          _launcher_post_backward(lc, EINA_TRUE);
      }
 
    _launcher_handler_launcher_runner_unset(lc);
@@ -1728,6 +1796,9 @@ e_service_launcher_prepare_send_with_shared_widget_info(E_Client *target_ec,
    EINA_SAFETY_ON_FALSE_RETURN(found);
    EINA_SAFETY_ON_NULL_RETURN(lc);
 
+   ELOGF("LAUNCHER_SRV", "SWL | callee(%p) cb(PREPARE_DONE(%d))",
+         lc->ec, target_ec, state);
+
    if (state == TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_HIDE)
      {
         e_client_pos_get(target_ec, &x, &y);
@@ -1739,15 +1810,21 @@ e_service_launcher_prepare_send_with_shared_widget_info(E_Client *target_ec,
      }
    else if (state == TWS_SHARED_WIDGET_LAUNCH_PREPARE_STATE_WIDGET_SHOW)
      {
-        if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD)
-          _launcher_post_forward(lc, EINA_TRUE);
-        else if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_BACKWARD)
-          _launcher_post_backward(lc, EINA_TRUE);
+        if (!lc->buff_attach)
+          {
+             if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_FORWARD)
+               _launcher_post_forward(lc, EINA_TRUE);
+             else if (lc->direction == TWS_SERVICE_LAUNCHER_DIRECTION_BACKWARD)
+               _launcher_post_backward(lc, EINA_TRUE);
 
-        _launcher_handler_launcher_runner_unset(lc);
-        _launcher_handler_launcher_pre_runner_set(lc);
-        _launcher_state_set(lc, LAUNCHER_STATE_DONE);
+             _launcher_handler_launcher_runner_unset(lc);
+             _launcher_handler_launcher_pre_runner_set(lc);
+             _launcher_state_set(lc, LAUNCHER_STATE_DONE);
+          }
 
+        lc->swl_done = EINA_TRUE;
+
+        ELOGF("LAUNCHER_SRV", "SWL | send CLEANUP", lc->ec);
         tws_service_launcher_send_cleanup(lc->res,
                                           lc->serial);
      }
