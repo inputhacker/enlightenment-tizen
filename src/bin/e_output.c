@@ -3682,34 +3682,22 @@ e_output_capture(E_Output *output, tbm_surface_h tsurface, Eina_Bool auto_rotate
        return EINA_TRUE;
      }
 
-   //TODO : temp code. if tdm support hwc mode tdm capture, have to change to use tdm capture.
-   if (e_hwc_policy_get(output->hwc) == E_HWC_POLICY_WINDOWS)
+   tcapture = _e_output_tdm_capture_create(output, TDM_CAPTURE_CAPABILITY_ONESHOT);
+   if (tcapture)
+     {
+        ret = _e_output_tdm_capture_info_set(output, tcapture, tsurface, TDM_CAPTURE_TYPE_ONESHOT, auto_rotate);
+        EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
+
+        ret = _e_output_tdm_capture(output, tcapture, tsurface, func, data);
+        EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
+     }
+   else
      {
         ret = _e_output_capture(output, tsurface, auto_rotate);
         EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
 
         DBG("capture done(%p)", tsurface);
         func(output, tsurface, data);
-     }
-   else
-     {
-        tcapture = _e_output_tdm_capture_create(output, TDM_CAPTURE_CAPABILITY_ONESHOT);
-        if (tcapture)
-          {
-             ret = _e_output_tdm_capture_info_set(output, tcapture, tsurface, TDM_CAPTURE_TYPE_ONESHOT, auto_rotate);
-             EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
-
-             ret = _e_output_tdm_capture(output, tcapture, tsurface, func, data);
-             EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
-          }
-        else
-          {
-             ret = _e_output_capture(output, tsurface, auto_rotate);
-             EINA_SAFETY_ON_FALSE_GOTO(ret == EINA_TRUE, fail);
-
-             DBG("capture done(%p)", tsurface);
-             func(output, tsurface, data);
-          }
      }
 
    return EINA_TRUE;
