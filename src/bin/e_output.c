@@ -1086,10 +1086,10 @@ _e_output_tdm_capture_create(E_Output *output, tdm_capture_capability cap)
    E_Comp_Screen *e_comp_screen = NULL;
 
    e_comp_screen = e_comp->e_comp_screen;
-   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, EINA_FALSE);
+   EINA_SAFETY_ON_NULL_RETURN_VAL(e_comp_screen, NULL);
 
    error = tdm_display_get_capture_capabilities(e_comp_screen->tdisplay, &capabilities);
-   EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, EINA_FALSE);
+   EINA_SAFETY_ON_FALSE_RETURN_VAL(error == TDM_ERROR_NONE, NULL);
 
    if (!(capabilities & cap))
      return NULL;
