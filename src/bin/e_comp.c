@@ -1368,6 +1368,7 @@ EINTERN void
 e_comp_hwc_end(const char *location)
 {
    E_Output *output = NULL;
+   E_Hwc *hwc = NULL;
 
    EINA_SAFETY_ON_NULL_RETURN(e_comp);
    EINA_SAFETY_ON_NULL_RETURN(e_comp->e_comp_screen);
@@ -1375,7 +1376,11 @@ e_comp_hwc_end(const char *location)
    output = e_comp_screen_primary_output_get(e_comp->e_comp_screen);
    EINA_SAFETY_ON_NULL_RETURN(output);
 
-   e_hwc_planes_end(output->hwc, location);
+   hwc = output->hwc;
+   EINA_SAFETY_ON_NULL_RETURN(hwc);
+
+   if (hwc->hwc_policy == E_HWC_POLICY_PLANES)
+     e_hwc_planes_end(output->hwc, location);
 }
 
 EINTERN void
