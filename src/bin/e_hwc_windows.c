@@ -3085,7 +3085,9 @@ e_hwc_windows_render(E_Hwc *hwc)
 
    if (e_hwc_window_state_get(target_window) == E_HWC_WINDOW_STATE_NONE)
      {
-        evas_norender(target_hwc_window->evas);
+        if (!hwc->wait_commit)
+          evas_norender(target_hwc_window->evas);
+
         return EINA_TRUE;
      }
 
