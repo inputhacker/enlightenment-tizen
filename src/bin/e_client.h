@@ -1072,6 +1072,7 @@ E_API E_Client_Hook *e_client_hook_add(E_Client_Hook_Point hookpoint, E_Client_H
 E_API void e_client_hook_del(E_Client_Hook *ch);
 E_API E_Client_Intercept_Hook *e_client_intercept_hook_add(E_Client_Intercept_Hook_Point hookpoint, E_Client_Intercept_Hook_Cb func, const void *data);
 E_API void e_client_intercept_hook_del(E_Client_Intercept_Hook *ch);
+EINTERN Eina_Bool e_client_focus_can_take(E_Client *ec);
 EINTERN void e_client_focus_stack_lower(E_Client *ec);
 E_API void e_client_focus_latest_set(E_Client *ec);
 EINTERN void e_client_focus_stack_append_current_focused(E_Client *ec);

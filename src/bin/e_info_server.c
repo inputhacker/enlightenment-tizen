@@ -6157,6 +6157,40 @@ _e_info_server_cb_screen_info_get(const Eldbus_Service_Interface *iface EINA_UNU
    return reply;
 }
 
+static Eldbus_Message *
+_e_info_server_cb_focus_history(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply;
+   Eldbus_Message_Iter *iter, *array;
+   Eina_List *focus_stack = NULL, *l = NULL;
+   E_Client *focused = NULL, *ec = NULL;
+
+   reply = eldbus_message_method_return_new(msg);
+   iter = eldbus_message_iter_get(reply);
+   eldbus_message_iter_arguments_append(iter, "a(ubbbs)", &array);
+
+   focus_stack = e_client_focus_stack_get();
+   focused = e_client_focused_get();
+
+   EINA_LIST_FOREACH(focus_stack, l, ec)
+     {
+        Eldbus_Message_Iter *str;
+        eldbus_message_iter_arguments_append(array, "(ubbbs)", &str);
+
+        eldbus_message_iter_arguments_append(str, "ubbbs",
+                                             e_client_util_win_get(ec),
+                                             (focused == ec),
+                                             e_client_focus_can_take(ec),
+                                             (ec->icccm.accepts_focus && ec->icccm.take_focus),
+                                             ec->icccm.name ?: "NO_NAME");
+        eldbus_message_iter_container_close(array, str);
+     }
+   eldbus_message_iter_container_close(iter, array);
+
+
+   return reply;
+}
+
 //{ "method_name", arguments_from_client, return_values_to_client, _method_cb, ELDBUS_METHOD_FLAG },
 static const Eldbus_Method methods[] = {
    { "get_window_info", NULL, ELDBUS_ARGS({"iiiiisiiia("VALUE_TYPE_FOR_TOPVWINS")", "array of ec"}), _e_info_server_cb_window_info_get, 0 },
@@ -6226,6 +6260,7 @@ static const Eldbus_Method methods[] = {
    { "input_region", ELDBUS_ARGS({"siiii", "options"}), ELDBUS_ARGS({"a(iiii)", "path"}), _e_info_server_cb_input_region, 0},
    { "hwc_wins", ELDBUS_ARGS({"i", "option"}), ELDBUS_ARGS({"as", "hwc wins info"}), _e_info_server_cb_hwc_wins_info_get, 0 },
    { "screen_info", ELDBUS_ARGS({"i", "option"}), ELDBUS_ARGS({"as", "screen info"}), _e_info_server_cb_screen_info_get, 0 },
+   { "focus_history", NULL, ELDBUS_ARGS({"a(ubbbs)", "history array"}), _e_info_server_cb_focus_history, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
 

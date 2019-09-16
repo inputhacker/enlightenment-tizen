@@ -853,6 +853,12 @@ _e_client_focus_can_take(E_Client *ec)
    return EINA_TRUE;
 }
 
+EINTERN Eina_Bool
+e_client_focus_can_take(E_Client *ec)
+{
+   return _e_client_focus_can_take(ec);
+}
+
 static E_Client *
 _e_client_focus_topmost_focusable_get()
 {

@@ -5134,6 +5134,69 @@ _e_info_client_proc_screen_info(int argc, char **argv)
    return;
 }
 
+static void
+_e_info_client_cb_focus_history(const Eldbus_Message *msg)
+{
+   const char *errname = NULL, *errtext = NULL;
+   Eldbus_Message_Iter *array = NULL, *iter = NULL;
+   Eina_Bool res = EINA_FALSE;
+   unsigned int i = 0;
+
+   EINA_SAFETY_ON_TRUE_GOTO(eldbus_message_error_get(msg, &errname, &errtext), err);
+   EINA_SAFETY_ON_FALSE_GOTO(eldbus_message_arguments_get(msg, "a(ubbbs)", &array), err);
+
+   if (array)
+     {
+        printf("---------------------------------[ focus history ]----------------------------------\n");
+        printf("   No     Win_ID     focused     focusable     focus_skip     title\n");
+        printf("------------------------------------------------------------------------------------\n");
+        while (eldbus_message_iter_get_and_next(array, 'r', &iter))
+          {
+             Eina_Bool focused, focusable, skiped;
+             Ecore_Window id;
+             const char *title;
+
+             res = eldbus_message_iter_arguments_get(iter, "ubbbs", &id, &focused, &focusable, &skiped, &title);
+             if (!res)
+               {
+                  printf("Failed to get focus stack\n");
+                  continue;
+               }
+
+             printf("   %2u     0x%08zx     %c           %c              %c         %-20s\n",
+                    i++, id, focused? 'O':' ', focusable? 'O':'X', skiped? 'O':' ', title);
+             printf("------------------------------------------------------------------------------------\n");
+          }
+     }
+   else
+     goto err;
+
+   return;
+
+err:
+   if(errname || errtext)
+     printf("errname : %s, errmsg : %s\n", errname, errtext);
+   else
+     printf("Error occurred in _e_info_client_cb_focus_history\n");
+
+   return;
+}
+
+static void
+_e_info_client_proc_focus_history(int argc, char **argv)
+{
+   EINA_SAFETY_ON_FALSE_GOTO(argc == 2, usage);
+
+   _e_info_client_eldbus_message("focus_history", _e_info_client_cb_focus_history);
+
+   return;
+
+usage :
+   printf("Usage : %s -focus_history\n\n", argv[0]);
+
+   return;
+}
+
 typedef struct _ProcInfo
 {
    const char *option;
@@ -5452,6 +5515,12 @@ static ProcInfo procs_to_execute[] =
       NULL,
       "On/Off magnifier window",
       _e_info_client_magnifier
+   },
+   {
+      "focus_history",
+      NULL,
+      "get focus history",
+      _e_info_client_proc_focus_history
    },
 };
 
