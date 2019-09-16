@@ -1418,14 +1418,20 @@ EINTERN Eina_Bool
 e_hwc_window_is_on_hw_overlay(E_Hwc_Window *hwc_window)
 {
    E_Hwc_Window_State accepted_state = E_HWC_WINDOW_STATE_NONE;
+   E_Hwc_Window_State state = E_HWC_WINDOW_STATE_NONE;
 
    EINA_SAFETY_ON_NULL_RETURN_VAL(hwc_window, EINA_FALSE);
 
    accepted_state = hwc_window->accepted_state;
+   state = hwc_window->state;
 
-   if (accepted_state == E_HWC_WINDOW_STATE_DEVICE) return EINA_TRUE;
-   if (accepted_state == E_HWC_WINDOW_STATE_CURSOR) return EINA_TRUE;
-   if (accepted_state == E_HWC_WINDOW_STATE_VIDEO) return EINA_TRUE;
+   if ((accepted_state == E_HWC_WINDOW_STATE_DEVICE) ||
+       (accepted_state == E_HWC_WINDOW_STATE_CURSOR) ||
+       (accepted_state == E_HWC_WINDOW_STATE_VIDEO))
+     {
+        if (accepted_state == state)
+          return EINA_TRUE;
+     }
 
    return EINA_FALSE;
 }
