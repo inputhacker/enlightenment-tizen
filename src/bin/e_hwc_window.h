@@ -112,11 +112,13 @@ struct _E_Hwc_Window
    struct
    {
       int                         rotation;
+      E_Comp_Wl_Buffer           *buffer;
       void                       *img_ptr;
       int                         img_w;
       int                         img_h;
       int                         img_stride;
    } cursor;
+   struct wl_listener             cursor_buffer_destroy_listener;
 
    struct
    {

@@ -457,6 +457,22 @@ _e_hwc_window_client_surface_acquire(E_Hwc_Window *hwc_window)
    return tsurface;
 }
 
+static void
+_e_hwc_window_cb_cursor_buffer_destroy(struct wl_listener *listener, void *data)
+{
+   E_Hwc_Window *hwc_window = NULL;
+
+   hwc_window = container_of(listener, E_Hwc_Window, cursor_buffer_destroy_listener);
+   EINA_SAFETY_ON_NULL_RETURN(hwc_window);
+
+   if ((E_Comp_Wl_Buffer *)data != hwc_window->cursor.buffer) return;
+
+   if (hwc_window->cursor.buffer)
+     wl_list_remove(&hwc_window->cursor_buffer_destroy_listener.link);
+
+   hwc_window->cursor.buffer = NULL;
+}
+
 static Eina_Bool
 _e_hwc_window_cursor_image_update(E_Hwc_Window *hwc_window)
 {
@@ -468,10 +484,8 @@ _e_hwc_window_cursor_image_update(E_Hwc_Window *hwc_window)
    tdm_error error;
 
    pointer = e_pointer_get(ec);
-   if (!pointer) return EINA_FALSE;
-
    buffer = _e_hwc_window_comp_wl_buffer_get(hwc_window);
-   if (!buffer)
+   if (!buffer || !pointer)
      {
         if (hwc_window->cursor.img_ptr)
           {
@@ -482,6 +496,10 @@ _e_hwc_window_cursor_image_update(E_Hwc_Window *hwc_window)
                   return EINA_FALSE;
                }
 
+             if (hwc_window->cursor.buffer)
+               wl_list_remove(&hwc_window->cursor_buffer_destroy_listener.link);
+
+             hwc_window->cursor.buffer = NULL;
              hwc_window->cursor.rotation = 0;
              hwc_window->cursor.img_ptr = NULL;
              hwc_window->cursor.img_w = 0;
@@ -514,7 +532,7 @@ _e_hwc_window_cursor_image_update(E_Hwc_Window *hwc_window)
      }
 
    /* no changes, no need to update the cursor image */
-   if ((hwc_window->cursor.img_ptr == img_ptr) &&
+   if ((hwc_window->cursor.buffer == buffer) &&
        (hwc_window->cursor.rotation == pointer->rotation))
      return EINA_FALSE;
 
@@ -525,6 +543,12 @@ _e_hwc_window_cursor_image_update(E_Hwc_Window *hwc_window)
         return EINA_FALSE;
      }
 
+   if (hwc_window->cursor.buffer)
+     wl_list_remove(&hwc_window->cursor_buffer_destroy_listener.link);
+
+   hwc_window->cursor.buffer = buffer;
+   wl_signal_add(&buffer->destroy_signal, &hwc_window->cursor_buffer_destroy_listener);
+   hwc_window->cursor_buffer_destroy_listener.notify = _e_hwc_window_cb_cursor_buffer_destroy;
    hwc_window->cursor.rotation = pointer->rotation;
    hwc_window->cursor.img_ptr = img_ptr;
    hwc_window->cursor.img_w = img_w;
@@ -629,6 +653,9 @@ _e_hwc_window_free(E_Hwc_Window *hwc_window)
    EHWINF("Free", NULL, hwc_window->hwc, hwc_window);
 
 done:
+   if (hwc_window->cursor.buffer)
+     wl_list_remove(&hwc_window->cursor_buffer_destroy_listener.link);
+
    if (hwc_window->queue)
      wl_list_remove(&hwc_window->queue_destroy_listener.link);
 
