@@ -5224,6 +5224,14 @@ e_client_focus_defer_unset(E_Client *ec)
    defer_focus_stack = eina_list_remove(defer_focus_stack, ec);
 }
 
+EINTERN void
+e_client_focus_defer_clear(void)
+{
+   if (!defer_focus_stack) return;
+
+   defer_focus_stack = eina_list_free(defer_focus_stack);
+}
+
 E_API Eina_Bool
 e_client_focus_track_enabled(void)
 {
@@ -5514,6 +5522,14 @@ YOLO E_API void
 e_client_focus_stack_set(Eina_List *l)
 {
    focus_stack = l;
+}
+
+EINTERN void
+e_client_focus_stack_clear(void)
+{
+   if (!focus_stack) return;
+
+   focus_stack = eina_list_free(focus_stack);
 }
 
 E_API Eina_List *

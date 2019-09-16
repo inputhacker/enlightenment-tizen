@@ -5135,6 +5135,55 @@ _e_info_client_proc_screen_info(int argc, char **argv)
 }
 
 static void
+_e_info_client_cb_focus_policy_ext(const Eldbus_Message *msg)
+{
+   const char *errname = NULL, *errtext = NULL;
+   const int result = 0;
+
+   EINA_SAFETY_ON_TRUE_GOTO(eldbus_message_error_get(msg, &errname, &errtext), err);
+
+   EINA_SAFETY_ON_FALSE_GOTO(eldbus_message_arguments_get(msg, "i", &result), err);
+
+   if (result >= 0)
+     printf("Successfully changed, now focus_policy_ext=%d\n", result);
+   else
+     printf("value change failed\n");
+
+   return;
+
+err:
+   if(errname || errtext)
+     printf("errname : %s, errmsg : %s\n", errname, errtext);
+   else
+     printf("Error occurred in _e_info_client_cb_focus_policy_ext\n");
+
+   return;
+}
+
+static void
+_e_info_client_proc_focus_policy_ext(int argc, char **argv)
+{
+   int input = -1;
+
+   EINA_SAFETY_ON_FALSE_GOTO(argc == 3, usage);
+
+   input = atoi(argv[2]);
+   if ((input != 0) && (input != 1) && (input != -1)) goto usage;
+
+   _e_info_client_eldbus_message_with_args("focus_policy_ext_set", _e_info_client_cb_focus_policy_ext, "i", atoi(argv[2]));
+
+   return;
+
+usage :
+   printf("Usage : %s -focus_policy_ext [policy_enum]\n\n", argv[0]);
+   printf("        %s -focus_policy_ext 0 : set focus_policy_ext to E_FOCUS_EXT_TOP_STACK\n", argv[0]);
+   printf("        %s -focus_policy_ext 1 : set focus_policy_ext to E_FOCUS_EXT_HISTORY\n", argv[0]);
+   printf("        %s -focus_policy_ext : show now focus_policy_ext\n", argv[0]);
+
+   return;
+}
+
+static void
 _e_info_client_cb_focus_history(const Eldbus_Message *msg)
 {
    const char *errname = NULL, *errtext = NULL;
@@ -5515,6 +5564,12 @@ static ProcInfo procs_to_execute[] =
       NULL,
       "On/Off magnifier window",
       _e_info_client_magnifier
+   },
+   {
+      "focus_policy_ext",
+      "[0], [1]",
+      "set focus_policy_ext, 0 is E_FOCUS_EXT_TOP_STACK, 1 is E_FOCUS_EXT_HISTORY",
+      _e_info_client_proc_focus_policy_ext
    },
    {
       "focus_history",

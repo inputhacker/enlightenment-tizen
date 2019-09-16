@@ -6158,6 +6158,51 @@ _e_info_server_cb_screen_info_get(const Eldbus_Service_Interface *iface EINA_UNU
 }
 
 static Eldbus_Message *
+_e_info_server_cb_focus_policy_ext_set(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
+{
+   Eldbus_Message *reply;
+   E_Client *ec = NULL;
+   int option = 0, res = -1;
+
+   if (!eldbus_message_arguments_get(msg, "i", &option))
+     {
+        return eldbus_message_error_new(msg, GET_CALL_MSG_ARG_ERR,
+                                        "focus_policy_ext_set: an attempt to get argument from method call message failed");
+     }
+
+   e_client_focus_defer_clear();
+   e_client_focus_stack_clear();
+
+   switch (option)
+     {
+      case -1:
+         // get now focus policy ext
+         break;
+      case 0:
+         // use topmost focus
+         e_config->focus_policy_ext = E_FOCUS_EXT_TOP_STACK;
+         break;
+      case 1:
+      default:
+         // use focus history
+         e_config->focus_policy_ext = E_FOCUS_EXT_HISTORY;
+
+         E_CLIENT_FOREACH(ec)
+           {
+              e_client_focus_latest_set(ec);
+           }
+         break;
+     }
+
+   res = e_config->focus_policy_ext;
+
+   reply = eldbus_message_method_return_new(msg);
+   eldbus_message_arguments_append(reply, "i", res);
+
+   return reply;
+}
+
+static Eldbus_Message *
 _e_info_server_cb_focus_history(const Eldbus_Service_Interface *iface EINA_UNUSED, const Eldbus_Message *msg)
 {
    Eldbus_Message *reply;
@@ -6260,6 +6305,7 @@ static const Eldbus_Method methods[] = {
    { "input_region", ELDBUS_ARGS({"siiii", "options"}), ELDBUS_ARGS({"a(iiii)", "path"}), _e_info_server_cb_input_region, 0},
    { "hwc_wins", ELDBUS_ARGS({"i", "option"}), ELDBUS_ARGS({"as", "hwc wins info"}), _e_info_server_cb_hwc_wins_info_get, 0 },
    { "screen_info", ELDBUS_ARGS({"i", "option"}), ELDBUS_ARGS({"as", "screen info"}), _e_info_server_cb_screen_info_get, 0 },
+   { "focus_policy_ext_set", ELDBUS_ARGS({"i", "option"}), ELDBUS_ARGS({"i", "result"}), _e_info_server_cb_focus_policy_ext_set, 0 },
    { "focus_history", NULL, ELDBUS_ARGS({"a(ubbbs)", "history array"}), _e_info_server_cb_focus_history, 0 },
    { NULL, NULL, NULL, NULL, 0 }
 };
