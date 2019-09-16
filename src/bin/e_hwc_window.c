@@ -256,6 +256,9 @@ _e_hwc_window_buffer_cb_queue_destroy(struct wl_listener *listener, void *data)
 
    if ((E_Hwc_Window_Queue *)data != window_buffer->queue) return;
 
+   if (window_buffer->queue)
+     wl_list_remove(&window_buffer->queue_destroy_listener.link);
+
    window_buffer->queue = NULL;
 }
 
@@ -295,6 +298,9 @@ _e_hwc_window_cb_queue_destroy(struct wl_listener *listener, void *data)
 
    if ((E_Hwc_Window_Queue *)data != hwc_window->queue) return;
 
+   if (hwc_window->queue)
+     wl_list_remove(&hwc_window->queue_destroy_listener.link);
+
    hwc_window->queue = NULL;
    hwc_window->constraints &= ~TDM_HWC_WIN_CONSTRAINT_BUFFER_QUEUE;
 }
@@ -315,6 +321,9 @@ _e_hwc_window_buffer_queue_set(E_Hwc_Window *hwc_window)
          hwc_window->queue = NULL;
          return EINA_FALSE;
      }
+
+   if (hwc_window->queue)
+     wl_list_remove(&hwc_window->queue_destroy_listener.link);
 
    wl_signal_add(&queue->destroy_signal, &hwc_window->queue_destroy_listener);
    hwc_window->queue_destroy_listener.notify = _e_hwc_window_cb_queue_destroy;
@@ -731,6 +740,8 @@ e_hwc_window_free(E_Hwc_Window *hwc_window)
    if (hwc_window->queue)
      {
         e_hwc_window_queue_user_unset(hwc_window->queue, hwc_window);
+
+        wl_list_remove(&hwc_window->queue_destroy_listener.link);
         hwc_window->queue = NULL;
      }
 
