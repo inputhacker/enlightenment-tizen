@@ -5472,9 +5472,11 @@ e_client_activate(E_Client *ec, Eina_Bool just_do_it)
                     }
                   else
                     {
-                       ELOGF("FOCUS", "focus set   | client activate", focus_ec);
                        if (e_config->focus_policy_ext != E_FOCUS_EXT_TOP_STACK)
-                         e_client_frame_focus_set(focus_ec, EINA_TRUE);
+                         {
+                            ELOGF("FOCUS", "focus set   | client activate", focus_ec);
+                            e_client_frame_focus_set(focus_ec, EINA_TRUE);
+                         }
                     }
                }
              else
