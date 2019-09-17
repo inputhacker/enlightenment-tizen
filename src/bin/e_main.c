@@ -328,6 +328,10 @@ main(int argc, char **argv)
 #  endif
 # endif
 #endif
+
+   /* for debugging by redirecting stdout of e to a log file to tail */
+   setvbuf(stdout, NULL, _IONBF, 0);
+
 #ifdef TS_DO
    t0 = t1 = t2 = ecore_time_unix_get();
    printf("ESTART(main) %1.5f\n", t0);
@@ -406,9 +410,6 @@ main(int argc, char **argv)
                 "       executed strangely. This is unusual.\n");
      }
    TSE("Determine Prefix Done");
-
-   /* for debugging by redirecting stdout of e to a log file to tail */
-   setvbuf(stdout, NULL, _IONBF, 0);
 
    TSB("Parse Arguments");
    _e_main_parse_arguments(argc, argv);
