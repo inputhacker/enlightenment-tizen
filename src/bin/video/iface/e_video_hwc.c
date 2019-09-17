@@ -897,6 +897,18 @@ static void
 _e_video_hwc_cb_evas_resize(void *data, Evas *e EINA_UNUSED, Evas_Object *obj, void *event_info EINA_UNUSED)
 {
    E_Video_Hwc *evh = data;
+   int w = 0, h = 0;
+
+   /* Since video content will be displayed on the overlay plane,
+    * it's reasonable to keep the size of composite object to 1x1.
+    * Otherwise, it will cause memory usage to be increased unnecessarily. */
+   evas_object_geometry_get(evh->ec->frame, NULL, NULL, &w, &h);
+   if (w > 1 || h > 1)
+     {
+        VIN("Resizing comp object for video displaying overlay plane to 1 x 1",
+            evh->ec);
+        evas_object_resize(evh->ec->frame, 1, 1);
+     }
 
    evh->render.map = EINA_TRUE;
    _e_video_hwc_render_queue(evh);
@@ -1691,6 +1703,11 @@ _e_video_hwc_create(E_Client *ec)
         VER("Failed to create 'E_Video_Hwc'", ec);
         return NULL;
      }
+
+   /* Since video content will be displayed on the overlay plane,
+    * it's reasonable to keep the size of composite object to 1x1.
+    * Otherwise, it will cause memory usage to be increased unnecessarily. */
+   evas_object_resize(ec->frame, 1, 1);
 
    evh->hwc_policy = hwc_policy;
    evh->e_output = output;
