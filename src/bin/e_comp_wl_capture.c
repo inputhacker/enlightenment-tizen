@@ -521,7 +521,7 @@ _e_capture_client_child_data_create(Thread_Data *td, E_Client *ec)
    ecc = _e_capture_client_get(ec);
    if (!ecc) return EINA_FALSE;
 
-   if (!(buffer = e_pixmap_resource_get(ec->pixmap))) return EINA_FALSE;
+   if (!(buffer = e_pixmap_resource_get(ec->pixmap))) goto destroy_ecc;
 
    if (td->child_data)
      {
@@ -530,7 +530,7 @@ _e_capture_client_child_data_create(Thread_Data *td, E_Client *ec)
      }
 
    capture_data = E_NEW(Capture_Data, 1);
-   if (!capture_data) return EINA_FALSE;
+   if (!capture_data) goto destroy_ecc;
 
    e_object_ref(E_OBJECT(ec));
    capture_data->ec = ec;
@@ -599,6 +599,10 @@ end:
    e_object_unref(E_OBJECT(ec));
    E_FREE(capture_data);
 
+destroy_ecc:
+   if (!ecc->th)
+     _e_capture_client_destroy(ecc);
+
    return EINA_FALSE;
 }
 
@@ -630,6 +634,7 @@ _e_capture_client_child_data_check(Thread_Data *td)
 
    EINA_LIST_FOREACH(list, l, child_ec)
      {
+        if (e_object_is_del(E_OBJECT(child_ec))) continue;
         if (!child_ec->comp_data) continue;
         if (!child_ec->comp_data->mapped) continue;
 
@@ -902,11 +907,8 @@ _e_capture_client_save(E_Capture_Client *ecc,
 end:
    e_comp_wl_buffer_reference(&ecc->buffer_ref, NULL);
    e_object_unref(E_OBJECT(ec));
-
    _e_capture_client_child_data_release(td);
    E_FREE(td);
-
-   _e_capture_client_destroy(ecc);
 
    return E_CAPTURE_SAVE_STATE_INVALID;
 }
@@ -960,6 +962,8 @@ e_comp_wl_capture_client_image_save(E_Client *ec,
    _name = eina_stringshare_add(name);
 
    ret = _e_capture_client_save(ecc, _dir, _name, func_end, data, skip_child);
+   if (ret == E_CAPTURE_SAVE_STATE_INVALID)
+     _e_capture_client_destroy(ecc);
 
    eina_stringshare_del(dir);
    eina_stringshare_del(name);
