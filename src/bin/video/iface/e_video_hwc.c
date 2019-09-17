@@ -1388,7 +1388,12 @@ _e_video_hwc_render(E_Video_Hwc *evh, const char *func)
 
    if (!memcmp(&evh->old_geo, &evh->geo, sizeof evh->geo) &&
        evh->old_comp_buffer == comp_buffer)
-     return;
+     {
+        /* Try sending 'wl_surface.frame' in case client
+         * submitted same 'wl_buffer' */
+        e_pixmap_image_clear(evh->ec->pixmap, EINA_TRUE);
+        return;
+     }
 
    evh->need_force_render = EINA_FALSE;
 
